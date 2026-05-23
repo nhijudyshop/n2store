@@ -380,6 +380,10 @@ function record(name, ok, detail) {
     // Check 16: Auto-mode ON → normal click trên snap button → mở popover (không snap)
     // Tìm 1 .tpos-snap-btn đang render trên page (sau khi comment list render xong).
     const c16 = await page.evaluate(async () => {
+        // Cleanup popover từ test trước (C15 manual snap có thể đã trigger 1 popover open).
+        document.querySelectorAll('.tpos-snap-popover').forEach((p) => p.remove());
+        if (window.TposState) window.TposState.popoverOpen = null;
+        await new Promise((r) => setTimeout(r, 300));
         const btn = document.querySelector('.tpos-snap-btn[data-customer-id]');
         if (!btn) return { ok: false, reason: 'no snap button rendered' };
         const auto = localStorage.getItem('tpos_snap_auto');
@@ -412,6 +416,43 @@ function record(name, ok, detail) {
         };
     });
     record('C16: Auto-mode ON → click camera = mở popover (no shift)', c16.ok, JSON.stringify(c16));
+
+    // Check 17: Perf — load page mới, đo thời gian từ navigate → 4 chips mounted.
+    // Mục tiêu < 8s (TPOS init + chips render).
+    const perfStart = Date.now();
+    const perfPage = await ctx.newPage();
+    await perfPage.goto(`${BASE}/tpos-pancake/index.html?t=${Date.now()}`, {
+        waitUntil: 'domcontentloaded',
+    });
+    // Trigger CRM team change ngay khi state ready (poll)
+    let chipsReadyMs = null;
+    for (let i = 0; i < 60; i++) {
+        const ready = await perfPage.evaluate(() => {
+            if (!window.TposState?.allPages?.length) return null;
+            // Trigger 'all' lần đầu thấy allPages
+            if (!window.__crmTriggered) {
+                window.__crmTriggered = true;
+                window.eventBus?.emit('tpos:crmTeamChanged', 'all');
+            }
+            const c1 = !!document.getElementById('tpos-snap-page-chip');
+            const c2 = !!document.getElementById('tpos-snap-real-chip');
+            const c3 = !!document.getElementById('tpos-snap-auto-chip');
+            const c4 = !!document.getElementById('tpos-snap-backfill-chip');
+            return c1 && c2 && c3 && c4 ? Date.now() : null;
+        });
+        if (ready) {
+            chipsReadyMs = ready - perfStart;
+            break;
+        }
+        await perfPage.waitForTimeout(250);
+    }
+    await perfPage.close();
+    const perfThresholdMs = 12000;
+    record(
+        `C17: Perf — page load → 4 chips ready < ${perfThresholdMs}ms`,
+        chipsReadyMs !== null && chipsReadyMs < perfThresholdMs,
+        chipsReadyMs !== null ? `actual=${chipsReadyMs}ms` : 'never ready'
+    );
 
     // Cleanup
     await page.evaluate(

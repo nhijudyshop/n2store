@@ -1288,7 +1288,10 @@ Throttle 30s/KH. Click để tắt.`;
         btn.className = 'tpos-snap-btn';
         btn.dataset.customerId = customerFbUserId;
         btn.title = `📸 Snap livestream cho KH ${customerName}\nAuto mode ON: click → xem list snapshots (đã tự động chụp)\nAuto mode OFF: click → chụp ngay\nShift+click / right-click: luôn xem list`;
-        btn.innerHTML = `<i data-lucide="camera" style="width:11px;height:11px;vertical-align:-1px;"></i>`;
+        // Inline SVG (lucide:camera) — KHÔNG dùng <i data-lucide> + lucide.createIcons()
+        // vì createIcons() scan toàn bộ DOM mỗi call → 100 rows = 100 scan = lag.
+        btn.innerHTML =
+            '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>';
         btn.style.cssText =
             'display:inline-flex;align-items:center;gap:3px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:600;cursor:pointer;margin-left:4px;line-height:1;position:relative;';
         btn.onclick = (e) => {
@@ -1331,43 +1334,106 @@ Throttle 30s/KH. Click để tắt.`;
             else row.appendChild(btn);
         }
 
-        if (global.lucide) global.lucide.createIcons();
-        _renderBadgeFor(customerFbUserId);
+        // KHÔNG gọi _renderBadgeFor tại inject time — sẽ batch update sau khi
+        // refreshCounts trả về. Tránh O(n²) querySelectorAll khi inject hàng loạt.
+        // Nếu count đã cached (vd qua SSE) thì render ngay cho riêng button này.
+        const cached = STATE.counts[customerFbUserId];
+        if (cached && cached > 0) {
+            const badge = document.createElement('span');
+            badge.className = 'tpos-snap-count';
+            badge.style.cssText =
+                'background:#ef4444;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:8px;margin-left:3px;min-width:14px;text-align:center;display:inline-block;';
+            badge.textContent = cached;
+            btn.appendChild(badge);
+        }
     }
 
     // -----------------------------------------------------
     // Observer — auto-inject khi comment list update
     // -----------------------------------------------------
+    // Scope observer chặt: tìm container comment list (TPOS render trong đó).
+    // Fallback document.body nếu container chưa có. Re-attach khi container xuất
+    // hiện. Tránh observe whole document → giảm 10-100x mutation callbacks.
+    function _findCommentContainer() {
+        return (
+            document.getElementById('tposCommentList') ||
+            document.querySelector('.tpos-comment-list') ||
+            document.querySelector('[class*="tpos-comment"]') ||
+            null
+        );
+    }
+
     function setupObserver() {
-        const target = document.body;
-        const obs = new MutationObserver((muts) => {
-            // 2-tier strategy:
-            //   1. Inject snap button IMMEDIATELY cho row mới (đồng bộ, no debounce).
-            //      Tránh "nhấp nháy" khi TPOS re-render comment list lúc init.
-            //   2. Debounce refresh counts (network call) 250ms — gom nhiều render.
-            let newRows = [];
+        let attached = null;
+        let pendingRows = new Set();
+        let scheduledFrame = null;
+        let scheduledRefresh = null;
+
+        function flushInject() {
+            scheduledFrame = null;
+            if (!pendingRows.size) return;
+            const rows = Array.from(pendingRows);
+            pendingRows = new Set();
+            for (const r of rows) injectSnapButton(r);
+        }
+
+        function scheduleInject(rows) {
+            for (const r of rows) pendingRows.add(r);
+            if (scheduledFrame) return;
+            scheduledFrame = requestAnimationFrame(flushInject);
+        }
+
+        function scheduleRefresh() {
+            clearTimeout(scheduledRefresh);
+            scheduledRefresh = setTimeout(() => {
+                if (!document.hidden) refreshCounts();
+            }, 400);
+        }
+
+        const callback = (muts) => {
+            let newRows = null;
             for (const m of muts) {
+                if (m.type !== 'childList') continue;
                 for (const n of m.addedNodes) {
                     if (n.nodeType !== 1) continue;
                     if (n.matches?.('.tpos-conversation-item')) {
-                        newRows.push(n);
-                    } else if (n.querySelector) {
-                        const inner = n.querySelectorAll('.tpos-conversation-item');
-                        if (inner.length) newRows.push(...inner);
+                        (newRows ||= []).push(n);
+                    } else {
+                        const inner = n.querySelectorAll?.('.tpos-conversation-item');
+                        if (inner && inner.length) {
+                            (newRows ||= []).push(...inner);
+                        }
                     }
                 }
             }
-            if (newRows.length) {
-                // Inject NGAY cho từng row mới — no debounce → no flicker
-                newRows.forEach(injectSnapButton);
-                // Debounce refresh counts (network)
-                clearTimeout(setupObserver._t);
-                setupObserver._t = setTimeout(() => {
-                    refreshCounts();
-                }, 250);
+            if (newRows) {
+                scheduleInject(newRows);
+                scheduleRefresh();
             }
-        });
-        obs.observe(target, { childList: true, subtree: true });
+        };
+
+        function attach() {
+            const target = _findCommentContainer() || document.body;
+            if (target === attached) return;
+            // re-observe ở scope mới
+            if (setupObserver._obs) setupObserver._obs.disconnect();
+            const obs = new MutationObserver(callback);
+            obs.observe(target, { childList: true, subtree: true });
+            setupObserver._obs = obs;
+            attached = target;
+        }
+
+        attach();
+        // Nếu chưa scope được container TPOS, retry tới khi container xuất hiện.
+        if (attached === document.body) {
+            const retry = setInterval(() => {
+                if (_findCommentContainer()) {
+                    attach();
+                    clearInterval(retry);
+                }
+            }, 1000);
+            setTimeout(() => clearInterval(retry), 15000);
+        }
     }
 
     // -----------------------------------------------------
@@ -1425,13 +1491,19 @@ Throttle 30s/KH. Click để tắt.`;
             }
         }, 500);
         // Initial inject ngay cho rows hiện có (nếu TPOS đã render trước script).
-        // Observer sẽ handle rows mới sau đó. Refresh counts sau 1.5s để cho TPOS
-        // populate comments rồi mới fetch.
+        // Observer sẽ handle rows mới sau đó.
         injectSnapButtonsAll();
-        setTimeout(() => {
+        // Refresh counts — defer cho idle để không block initial render.
+        // Fallback setTimeout 1.5s nếu browser không hỗ trợ requestIdleCallback.
+        const deferRefresh = () => {
             injectSnapButtonsAll();
             refreshCounts();
-        }, 1500);
+        };
+        if (global.requestIdleCallback) {
+            global.requestIdleCallback(deferRefresh, { timeout: 2500 });
+        } else {
+            setTimeout(deferRefresh, 1500);
+        }
     }
 
     if (document.readyState === 'loading') {
