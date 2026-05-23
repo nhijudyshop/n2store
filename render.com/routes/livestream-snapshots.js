@@ -720,6 +720,66 @@ router.post('/extract-frame', express.json({ limit: '500kb' }), async (req, res)
     }
 });
 
+// POST /extract-test — test extract 1 snap SYNCHRONOUSLY + return chi tiết error.
+router.post('/extract-test', express.json({ limit: '50kb' }), async (req, res) => {
+    try {
+        if (!_ensureExtractDeps()) {
+            return res.json({ ok: false, step: 'deps', error: 'deps not loaded' });
+        }
+        const pool = req.app.locals.chatDb;
+        const id = Number(req.body?.snapshotId);
+        if (!id) return res.status(400).json({ ok: false, error: 'snapshotId required' });
+        const r = await pool.query(
+            `SELECT id, live_video_id, page_id, offset_seconds
+             FROM livestream_snapshots WHERE id = $1`,
+            [id]
+        );
+        if (!r.rows.length) return res.json({ ok: false, error: 'snap not found' });
+        const row = r.rows[0];
+        const out = {
+            ok: false,
+            snapshotId: id,
+            liveVideoId: row.live_video_id,
+            pageId: row.page_id,
+            offsetSec: row.offset_seconds,
+            steps: [],
+        };
+        // Step 1: yt-dlp get URL
+        out.steps.push('yt-dlp resolve...');
+        const videoIdShort = String(row.live_video_id).replace(/^\d+_/, '');
+        const fbUrl = `https://www.facebook.com/${row.page_id}/videos/${videoIdShort}/`;
+        out.fbUrl = fbUrl;
+        let m3u8 = null;
+        try {
+            const result = await _ytdlp(fbUrl, {
+                getUrl: true,
+                format: 'best[ext=mp4]/best',
+                noWarnings: true,
+                noCheckCertificate: true,
+            });
+            m3u8 = typeof result === 'string' ? result.trim().split('\n')[0] : null;
+            out.m3u8 = m3u8 ? m3u8.slice(0, 200) : null;
+        } catch (e) {
+            out.ytdlpError = String(e?.message || e).slice(0, 1000);
+            out.ytdlpStderr = String(e?.stderr || '').slice(0, 1000);
+            return res.json(out);
+        }
+        if (!m3u8) return res.json({ ...out, error: 'yt-dlp returned no URL' });
+        out.steps.push('ffmpeg seek + extract...');
+        try {
+            const buf = await _extractFrameJpeg(m3u8, row.offset_seconds);
+            out.ok = true;
+            out.imageSize = buf.length;
+        } catch (e) {
+            out.ffmpegError = String(e?.message || e).slice(0, 1000);
+            return res.json(out);
+        }
+        res.json(out);
+    } catch (e) {
+        res.status(500).json({ ok: false, error: String(e?.message || e).slice(0, 1000) });
+    }
+});
+
 // GET /extract-diag — chẩn đoán deps + thử extract sample.
 router.get('/extract-diag', async (req, res) => {
     const out = { ffmpegStatic: null, ytdlp: null, error: null };
