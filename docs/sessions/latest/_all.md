@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d7ca511` — feat(snap): 1-click embedded FB live capture (no tab switch, no popup)
-**Last updated**: 2026-05-23 19:50:50 +07
-**Latest session**: [`RESUME:20260523-195050-d7ca511`](../20260523-195050-d7ca511.md)
-**Summary**: feat(snap): 1-click embedded FB live capture (no tab switch, no popup)
+**Latest commit**: `0922c96` — fix(snap): revert click-trap → 1 nút BẬT to rõ ràng trên iframe
+**Last updated**: 2026-05-23 20:01:23 +07
+**Latest session**: [`RESUME:20260523-200123-0922c96`](../20260523-200123-0922c96.md)
+**Summary**: fix(snap): revert click-trap → 1 nút BẬT to rõ ràng trên iframe
 
 ## Folders affected in this commit
 
@@ -61,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 19:50
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 20:01
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
