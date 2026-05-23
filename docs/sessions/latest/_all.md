@@ -3,14 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `69012ef` — feat(snap): detect & display offset 'giây thứ N của video livestream'
-**Last updated**: 2026-05-23 10:31:37 +07
-**Latest session**: [`RESUME:20260523-103137-69012ef`](../20260523-103137-69012ef.md)
-**Summary**: feat(snap): detect & display offset 'giây thứ N của video livestream'
+**Latest commit**: `d39d7c7` — feat(snap): offset chính xác via TPOS /facebook/livevideo channelCreatedTime
+**Last updated**: 2026-05-23 10:37:41 +07
+**Latest session**: [`RESUME:20260523-103741-d39d7c7`](../20260523-103741-d39d7c7.md)
+**Summary**: feat(snap): offset chính xác via TPOS /facebook/livevideo channelCreatedTime
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
@@ -62,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 10:31
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 10:37
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
