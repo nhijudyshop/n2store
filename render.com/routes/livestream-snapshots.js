@@ -74,6 +74,8 @@ async function ensureSchema(pool) {
         ALTER TABLE livestream_snapshots ADD COLUMN IF NOT EXISTS image_data BYTEA;
         ALTER TABLE livestream_snapshots ADD COLUMN IF NOT EXISTS image_mime VARCHAR(50);
         ALTER TABLE livestream_snapshots ADD COLUMN IF NOT EXISTS image_size INTEGER;
+        -- Phase 2: background extract status (pending|done|fail|drm_blocked|null=not_attempted).
+        ALTER TABLE livestream_snapshots ADD COLUMN IF NOT EXISTS extract_status VARCHAR(20);
     `);
     _schemaReady = true;
     console.log('[livestream-snapshots] schema ready');
@@ -651,5 +653,192 @@ router.delete('/snapshot/:id', async (req, res) => {
     }
 });
 
+// =====================================================
+// PHASE 2 — Background frame extraction qua yt-dlp + ffmpeg.
+// Cho phép backfill comment cũ (sau live kết thúc) hoặc comment lúc user
+// offline. Lấy frame chính xác giây offset từ video HLS của FB.
+// =====================================================
+let _ytdlp = null;
+let _ffmpegPath = null;
+function _ensureExtractDeps() {
+    if (_ytdlp && _ffmpegPath) return true;
+    try {
+        if (!_ytdlp) _ytdlp = require('youtube-dl-exec');
+        if (!_ffmpegPath) _ffmpegPath = require('ffmpeg-static');
+        return !!(_ytdlp && _ffmpegPath);
+    } catch (e) {
+        console.warn('[lss-extract] deps not installed:', e.message);
+        return false;
+    }
+}
+
+// In-memory queue + cache m3u8 URL per video (5 phút TTL — FB URL có expire token).
+const _extractQueue = []; // { snapshotId, offsetSec, liveVideoId, pageId, batchId }
+const _m3u8Cache = new Map(); // liveVideoId → { url, fetchedAt }
+const _M3U8_CACHE_TTL = 5 * 60 * 1000;
+const _batchStatus = new Map(); // batchId → { total, done, failed, drmBlocked }
+let _workerRunning = false;
+
+async function _resolveM3u8Url(liveVideoId, pageId) {
+    if (!_ytdlp) return null;
+    const cached = _m3u8Cache.get(liveVideoId);
+    if (cached && Date.now() - cached.fetchedAt < _M3U8_CACHE_TTL) return cached.url;
+    const videoIdShort = String(liveVideoId).replace(/^\d+_/, '');
+    const fbUrl = `https://www.facebook.com/${pageId}/videos/${videoIdShort}/`;
+    try {
+        const result = await _ytdlp(fbUrl, {
+            getUrl: true,
+            format: 'best[ext=mp4]/best',
+            noWarnings: true,
+            noCheckCertificate: true,
+        });
+        const url = typeof result === 'string' ? result.trim().split('\n')[0] : null;
+        if (!url) return null;
+        _m3u8Cache.set(liveVideoId, { url, fetchedAt: Date.now() });
+        return url;
+    } catch (e) {
+        const msg = e?.message || '';
+        if (/Forbidden|DRM|encrypted|login/i.test(msg)) {
+            console.warn('[lss-extract] DRM/auth block:', fbUrl, msg.slice(0, 200));
+            return { drm: true, error: msg.slice(0, 200) };
+        }
+        console.warn('[lss-extract] yt-dlp fail:', msg.slice(0, 200));
+        return null;
+    }
+}
+
+async function _extractFrameJpeg(m3u8Url, offsetSec) {
+    return new Promise((resolve, reject) => {
+        const ffmpeg = require('fluent-ffmpeg');
+        ffmpeg.setFfmpegPath(_ffmpegPath);
+        const chunks = [];
+        const cmd = ffmpeg(m3u8Url)
+            .inputOptions(['-ss', String(offsetSec)]) // input-seek nhanh hơn output-seek
+            .outputOptions(['-frames:v', '1', '-q:v', '5', '-f', 'image2'])
+            .format('image2')
+            .on('error', (err) => reject(new Error('ffmpeg: ' + err.message)))
+            .on('end', () => {
+                const buf = Buffer.concat(chunks);
+                if (buf.length < 512) reject(new Error('frame size quá nhỏ — placeholder?'));
+                else resolve(buf);
+            });
+        const stream = cmd.pipe();
+        stream.on('data', (c) => chunks.push(c));
+    });
+}
+
+async function _processExtractJob(pool, job) {
+    const status = _batchStatus.get(job.batchId);
+    try {
+        if (!_ensureExtractDeps()) throw new Error('ffmpeg/yt-dlp not available');
+        const m3u8 = await _resolveM3u8Url(job.liveVideoId, job.pageId);
+        if (!m3u8) throw new Error('no m3u8 URL');
+        if (m3u8.drm) {
+            await pool.query(
+                `UPDATE livestream_snapshots SET extract_status = 'drm_blocked' WHERE id = $1`,
+                [job.snapshotId]
+            );
+            if (status) status.drmBlocked++;
+            return;
+        }
+        const buf = await _extractFrameJpeg(m3u8, job.offsetSec);
+        await pool.query(
+            `UPDATE livestream_snapshots
+               SET image_data = $1, image_mime = 'image/jpeg', image_size = $2,
+                   thumbnail_url = $3, extract_status = 'done'
+               WHERE id = $4`,
+            [
+                buf,
+                buf.length,
+                `${process.env.SELF_URL || 'https://n2store-fallback.onrender.com'}/api/livestream/snapshot/${job.snapshotId}/image`,
+                job.snapshotId,
+            ]
+        );
+        if (status) status.done++;
+        _notify('extract-done', { snapshotId: job.snapshotId, batchId: job.batchId });
+    } catch (e) {
+        console.warn('[lss-extract] fail snap', job.snapshotId, ':', e.message);
+        await pool.query(`UPDATE livestream_snapshots SET extract_status = 'fail' WHERE id = $1`, [
+            job.snapshotId,
+        ]);
+        if (status) status.failed++;
+    }
+}
+
+async function _runWorker(pool) {
+    if (_workerRunning) return;
+    _workerRunning = true;
+    try {
+        while (_extractQueue.length) {
+            const job = _extractQueue.shift();
+            await _processExtractJob(pool, job);
+        }
+    } finally {
+        _workerRunning = false;
+    }
+}
+
+// POST /extract-frame — batch enqueue snap extraction jobs.
+// Body: { snapshotIds: [Number] } — sẽ lookup snap trong DB để biết liveVideoId + offset.
+router.post('/extract-frame', express.json({ limit: '500kb' }), async (req, res) => {
+    try {
+        if (!_ensureExtractDeps()) {
+            return res.status(503).json({ success: false, error: 'ffmpeg/yt-dlp not installed' });
+        }
+        const pool = req.app.locals.chatDb;
+        const ids = Array.isArray(req.body?.snapshotIds)
+            ? req.body.snapshotIds.map(Number).filter(Number.isFinite).slice(0, 200)
+            : [];
+        if (!ids.length)
+            return res.status(400).json({ success: false, error: 'snapshotIds required' });
+        // Lookup info từ DB.
+        const r = await pool.query(
+            `SELECT id, live_video_id, page_id, offset_seconds, extract_status, image_data
+             FROM livestream_snapshots WHERE id = ANY($1::bigint[])`,
+            [ids]
+        );
+        const batchId = 'ex_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        const status = { total: 0, done: 0, failed: 0, drmBlocked: 0 };
+        for (const row of r.rows) {
+            // Skip nếu đã extract done với bytea sẵn.
+            if (row.image_data && row.extract_status === 'done') continue;
+            if (!row.live_video_id || !Number.isFinite(row.offset_seconds)) continue;
+            _extractQueue.push({
+                batchId,
+                snapshotId: Number(row.id),
+                offsetSec: Number(row.offset_seconds),
+                liveVideoId: row.live_video_id,
+                pageId: row.page_id,
+            });
+            await pool.query(
+                `UPDATE livestream_snapshots SET extract_status = 'pending' WHERE id = $1`,
+                [row.id]
+            );
+            status.total++;
+        }
+        _batchStatus.set(batchId, status);
+        // Fire worker (async, don't block response).
+        setImmediate(() => _runWorker(pool).catch(() => {}));
+        res.json({ success: true, batchId, queued: status.total });
+    } catch (e) {
+        console.error('[lss-extract] enqueue error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// GET /extract-status?batchId=X
+router.get('/extract-status', (req, res) => {
+    const batchId = String(req.query.batchId || '');
+    if (!batchId) return res.status(400).json({ success: false, error: 'batchId required' });
+    const status = _batchStatus.get(batchId);
+    if (!status) return res.status(404).json({ success: false, error: 'batch not found' });
+    res.json({ success: true, batchId, status, queued: _extractQueue.length });
+});
+
+// Ensure schema bổ sung extract_status column (idempotent).
+(async function _initExtractSchema() {
+    // Sẽ chạy 1 lần khi route file load. ensureSchema base table đã có,
+    // ALTER column thêm extract_status.
+})();
 module.exports = router;
 module.exports.initializeNotifiers = initializeNotifiers;
