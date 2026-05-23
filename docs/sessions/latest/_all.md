@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1e1ba74` — fix(snap thumbnail): FB Graph picture 400 → dùng TPOS video.thumbnail.url
-**Last updated**: 2026-05-23 12:23:02 +07
-**Latest session**: [`RESUME:20260523-122302-1e1ba74`](../20260523-122302-1e1ba74.md)
-**Summary**: fix(snap thumbnail): FB Graph picture 400 → dùng TPOS video.thumbnail.url
+**Latest commit**: `278311c` — fix(snap vanity): \_isVanitySlug check — Facebook_UserName là display name không phải vanity
+**Last updated**: 2026-05-23 12:34:52 +07
+**Latest session**: [`RESUME:20260523-123452-278311c`](../20260523-123452-278311c.md)
+**Summary**: fix(snap vanity): \_isVanitySlug check — Facebook_UserName là display name không phải vanity
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
@@ -52,7 +52,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-23 12:23
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-23 12:10
+- [`scripts/`](./scripts.md) — updated 2026-05-23 12:34
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-21 11:33
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
@@ -62,7 +62,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 12:23
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 12:34
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
