@@ -30,7 +30,7 @@ const API = 'https://n2store-fallback.onrender.com';
         waitUntil: 'domcontentloaded',
     });
     console.log('[acc-test] waiting 12s for TPOS state populate...');
-    await page.waitForTimeout(12000);
+    await page.waitForTimeout(15000);
 
     // Inspect TPOS state
     const tposState = await page.evaluate(() => ({
