@@ -3,14 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f9995fb` — fix(snap): credentials 'include' → 'omit' để bypass CORS preflight block
-**Last updated**: 2026-05-23 10:11:12 +07
-**Latest session**: [`RESUME:20260523-101112-f9995fb`](../20260523-101112-f9995fb.md)
-**Summary**: fix(snap): credentials 'include' → 'omit' để bypass CORS preflight block
+**Latest commit**: `328ed27` — feat(snap): tutorial modal 3 bước trước khi mở getDisplayMedia picker
+**Last updated**: 2026-05-23 10:16:40 +07
+**Latest session**: [`RESUME:20260523-101640-328ed27`](../20260523-101640-328ed27.md)
+**Summary**: feat(snap): tutorial modal 3 bước trước khi mở getDisplayMedia picker
 
 ## Folders affected in this commit
 
-- [`scripts/`](./scripts.md) — 2 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
@@ -62,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 10:11
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 10:16
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
