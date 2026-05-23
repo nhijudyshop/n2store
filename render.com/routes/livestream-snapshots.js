@@ -79,7 +79,6 @@ async function ensureSchema(pool) {
     `);
     _schemaReady = true;
     console.log('[livestream-snapshots] schema ready');
-    // Auto-cleanup: snapshots > 30 ngày → hard delete. Chạy 1 lần ngay + every 6h.
     _autoCleanupOldSnapshots(pool).catch(() => {});
     if (!ensureSchema._cleanupTimer) {
         ensureSchema._cleanupTimer = setInterval(
@@ -87,6 +86,10 @@ async function ensureSchema(pool) {
             6 * 60 * 60 * 1000
         );
     }
+    // Wire retry cron cho live_active snaps (extract sau khi live end).
+    try {
+        if (typeof _startLiveActiveRetry === 'function') _startLiveActiveRetry(pool);
+    } catch {}
 }
 
 // Resolve absolute self-URL respecting X-Forwarded-Proto (Render proxy).
@@ -637,6 +640,22 @@ async function _processExtractJob(pool, job) {
             if (status) status.drmBlocked++;
             return;
         }
+        // Detect DASH live stream — không seek backward được.
+        // FB live serve dash-abr-ibr trong khi đang live. Sau khi end → VOD HLS.
+        const isLiveDash = /live-dash|dash-abr|hvideo.*\/live/i.test(m3u8);
+        if (isLiveDash) {
+            await pool.query(
+                `UPDATE livestream_snapshots SET extract_status = 'live_active' WHERE id = $1`,
+                [job.snapshotId]
+            );
+            if (status) status.failed++;
+            console.log(
+                '[lss-extract] snap',
+                job.snapshotId,
+                ': live đang chạy — đợi end mới extract được'
+            );
+            return;
+        }
         const buf = await _extractFrameJpeg(m3u8, job.offsetSec);
         await pool.query(
             `UPDATE livestream_snapshots
@@ -653,12 +672,61 @@ async function _processExtractJob(pool, job) {
         if (status) status.done++;
         _notify('extract-done', { snapshotId: job.snapshotId, batchId: job.batchId });
     } catch (e) {
-        console.warn('[lss-extract] fail snap', job.snapshotId, ':', e.message);
-        await pool.query(`UPDATE livestream_snapshots SET extract_status = 'fail' WHERE id = $1`, [
+        const msg = String(e?.message || e);
+        // SIGSEGV / unsupported live = thường do đang live → mark live_active.
+        const isLiveSegfault = /SIGSEGV|killed with signal|live|seek/i.test(msg);
+        const newStatus = isLiveSegfault ? 'live_active' : 'fail';
+        console.warn('[lss-extract] snap', job.snapshotId, '→', newStatus, ':', msg.slice(0, 200));
+        await pool.query(`UPDATE livestream_snapshots SET extract_status = $1 WHERE id = $2`, [
+            newStatus,
             job.snapshotId,
         ]);
         if (status) status.failed++;
     }
+}
+
+// Cron-style retry: mỗi 1 tiếng scan snaps 'live_active' xem live đã end chưa
+// → re-enqueue extract. Live thường end sau vài tiếng → VOD HLS seekable.
+let _retryTimer = null;
+function _startLiveActiveRetry(pool) {
+    if (_retryTimer) return;
+    const ONE_HOUR = 60 * 60 * 1000;
+    const run = async () => {
+        try {
+            const r = await pool.query(
+                `SELECT id, live_video_id, page_id, offset_seconds
+                 FROM livestream_snapshots
+                 WHERE extract_status = 'live_active'
+                   AND created_at > NOW() - INTERVAL '7 days'
+                 ORDER BY created_at DESC LIMIT 50`
+            );
+            if (!r.rows.length) return;
+            console.log('[lss-extract] retry', r.rows.length, 'live_active snaps');
+            const batchId = 'retry_' + Date.now();
+            _batchStatus.set(batchId, { total: r.rows.length, done: 0, failed: 0, drmBlocked: 0 });
+            // Clear m3u8 cache để re-resolve (live có thể đã end → VOD URL khác).
+            _m3u8Cache.clear();
+            for (const row of r.rows) {
+                _extractQueue.push({
+                    batchId,
+                    snapshotId: Number(row.id),
+                    offsetSec: Number(row.offset_seconds),
+                    liveVideoId: row.live_video_id,
+                    pageId: row.page_id,
+                });
+                await pool.query(
+                    `UPDATE livestream_snapshots SET extract_status = 'pending' WHERE id = $1`,
+                    [row.id]
+                );
+            }
+            setImmediate(() => _runWorker(pool).catch(() => {}));
+        } catch (e) {
+            console.warn('[lss-extract] retry scan error:', e.message);
+        }
+    };
+    _retryTimer = setInterval(run, ONE_HOUR);
+    // Run once at startup 5 phút sau init.
+    setTimeout(run, 5 * 60 * 1000);
 }
 
 async function _runWorker(pool) {

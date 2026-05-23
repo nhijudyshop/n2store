@@ -1754,6 +1754,8 @@ Throttle 30s/KH. Click để tắt.`;
                         thumb = `<img src="${_esc(s.thumbnailUrl)}" alt="" style="width:54px;height:54px;object-fit:cover;border-radius:6px;background:#f1f5f9;" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';" /><span style="display:none;width:54px;height:54px;border-radius:6px;background:#f1f5f9;align-items:center;justify-content:center;font-size:18px;">📷</span>`;
                     } else if (s.extractStatus === 'drm_blocked') {
                         thumb = `<span title="Video bị DRM bảo vệ — không extract được tự động. Share FB tab khi đang live để dùng buffered frame." style="display:inline-flex;width:54px;height:54px;border-radius:6px;background:#fef2f2;color:#991b1b;align-items:center;justify-content:center;font-size:18px;border:1px dashed #fca5a5;">🔒</span>`;
+                    } else if (s.extractStatus === 'live_active') {
+                        thumb = `<span title="Live đang chạy — chưa seek backward được. Backend sẽ retry mỗi giờ; sau khi live end (VOD) tự fill ảnh. Muốn ngay → share tab FB qua chip 🎬." style="display:inline-flex;width:54px;height:54px;border-radius:6px;background:#fef9c3;color:#854d0e;align-items:center;justify-content:center;font-size:18px;border:1px dashed #fde047;">🔴</span>`;
                     } else if (s.extractStatus === 'pending') {
                         thumb = `<span title="Backend đang extract frame (5-15s)..." style="display:inline-flex;width:54px;height:54px;border-radius:6px;background:#eff6ff;color:#1e40af;align-items:center;justify-content:center;font-size:18px;border:1px dashed #93c5fd;">⏳</span>`;
                     } else if (s.extractStatus === 'fail') {
