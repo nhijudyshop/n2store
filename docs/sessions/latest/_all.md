@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c58df73` — feat(native-orders): ghi chú từng SP (note inline) — sửa được kể cả khi đã PBH
-**Last updated**: 2026-05-23 08:34:04 +07
-**Latest session**: [`RESUME:20260523-083404-c58df73`](../20260523-083404-c58df73.md)
-**Summary**: feat(native-orders): ghi chú từng SP (note inline) — sửa được kể cả khi đã PBH
+**Latest commit**: `3276a05` — fix(products/usage + cart): match products[] shape giữa cart (code/qty) và modal (productCode/quantity)
+**Last updated**: 2026-05-23 08:49:09 +07
+**Latest session**: [`RESUME:20260523-084909-3276a05`](../20260523-084909-3276a05.md)
+**Summary**: fix(products/usage + cart): match products[] shape giữa cart (code/qty) và modal (productCode/quantity)
 
 ## Folders affected in this commit
 
-- [`native-orders/`](./native-orders.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -49,7 +49,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-23 08:26
+- [`render.com/`](./render.com.md) — updated 2026-05-23 08:49
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-22 19:29
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
