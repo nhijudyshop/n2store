@@ -30,8 +30,17 @@
     flex-shrink: 0;
 }
 
-.tpos-title-section .tpos-icon { width: 20px; height: 20px; color: var(--primary); }
-.tpos-title-section .tpos-title { font-weight: 800; font-size: 14px; color: var(--gray-900); font-family: 'Manrope', sans-serif; }
+.tpos-title-section .tpos-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--primary);
+}
+.tpos-title-section .tpos-title {
+    font-weight: 800;
+    font-size: 14px;
+    color: var(--gray-900);
+    font-family: 'Manrope', sans-serif;
+}
 
 .tpos-selectors {
     display: flex;
@@ -100,11 +109,17 @@
 }
 
 @keyframes pulse-dot {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.4;
+    }
 }
 
-.tpos-btn-refresh, .tpos-btn-expand {
+.tpos-btn-refresh,
+.tpos-btn-expand {
     width: 32px;
     height: 32px;
     border: none;
@@ -118,12 +133,17 @@
     transition: all 0.15s;
 }
 
-.tpos-btn-refresh:hover, .tpos-btn-expand:hover {
+.tpos-btn-refresh:hover,
+.tpos-btn-expand:hover {
     background: var(--gray-100);
     color: var(--gray-600);
 }
 
-.tpos-btn-refresh i, .tpos-btn-expand i { width: 18px; height: 18px; }
+.tpos-btn-refresh i,
+.tpos-btn-expand i {
+    width: 18px;
+    height: 18px;
+}
 
 /* ---- Campaign Multi-Select Dropdown ---- */
 
@@ -142,9 +162,16 @@
     gap: 6px;
 }
 
-.tpos-conversation-list::-webkit-scrollbar { width: 4px; }
-.tpos-conversation-list::-webkit-scrollbar-track { background: transparent; }
-.tpos-conversation-list::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 10px; }
+.tpos-conversation-list::-webkit-scrollbar {
+    width: 4px;
+}
+.tpos-conversation-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+.tpos-conversation-list::-webkit-scrollbar-thumb {
+    background: var(--gray-200);
+    border-radius: 10px;
+}
 
 /* ---- Comment Item (Card) ---- */
 
@@ -181,8 +208,14 @@
 }
 
 @keyframes highlight-flash {
-    0% { background: #dcfce7; border-color: #86efac; }
-    100% { background: white; border-color: #eef0f4; }
+    0% {
+        background: #dcfce7;
+        border-color: #86efac;
+    }
+    100% {
+        background: white;
+        border-color: #eef0f4;
+    }
 }
 
 /* ---- Row 1: Header ---- */
@@ -250,7 +283,11 @@
     border: 2px solid white;
 }
 
-.channel-badge i { width: 7px; height: 7px; color: white; }
+.channel-badge i {
+    width: 7px;
+    height: 7px;
+    color: white;
+}
 
 /* Header info block */
 .tpos-conv-header-info {
@@ -452,13 +489,21 @@
 }
 
 @keyframes slideDown {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* ---- States ---- */
 
-.tpos-loading, .tpos-empty, .tpos-error {
+.tpos-loading,
+.tpos-empty,
+.tpos-error {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -469,7 +514,9 @@
     gap: 12px;
 }
 
-.tpos-loading i, .tpos-empty i, .tpos-error i {
+.tpos-loading i,
+.tpos-empty i,
+.tpos-error i {
     width: 40px;
     height: 40px;
 }
@@ -502,7 +549,10 @@
     font-size: 12px;
 }
 
-.tpos-loading-more i { width: 16px; height: 16px; }
+.tpos-loading-more i {
+    width: 16px;
+    height: 16px;
+}
 
 /* ---- Reply Input Row ---- */
 
@@ -534,7 +584,43 @@
 /* ---- Spin animation ---- */
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
-.spin { animation: spin 0.8s linear infinite; }
+.spin {
+    animation: spin 0.8s linear infinite;
+}
+
+/* ========================================================
+   Livestream Snapshot button (tpos-livestream-snap.js)
+   ======================================================== */
+.tpos-snap-btn {
+    position: relative;
+}
+.tpos-snap-btn.snap-flash {
+    animation: snap-flash 0.4s ease-out;
+}
+@keyframes snap-flash {
+    0% {
+        background: transparent;
+        transform: scale(1);
+    }
+    30% {
+        background: #fef3c7;
+        transform: scale(1.25);
+        box-shadow: 0 0 0 8px rgba(252, 211, 77, 0.4);
+    }
+    100% {
+        background: transparent;
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(252, 211, 77, 0);
+    }
+}
+.tpos-snap-popover .snap-pop-row:last-child {
+    border-bottom: none !important;
+}
+.tpos-snap-popover .snap-pop-row:hover {
+    background: #f8fafc;
+}

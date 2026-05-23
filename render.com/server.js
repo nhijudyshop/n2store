@@ -488,6 +488,8 @@ const web2Supplier360Routes = require('./routes/v2/supplier-360');
 app.use('/api/v2/supplier-360', web2Supplier360Routes); // WEB2.0 NCC 360 (F07)
 const web2CartRoutes = require('./routes/v2/cart');
 app.use('/api/v2/cart', web2CartRoutes); // WEB2.0 Pancake comment cart (drag-drop SP)
+const livestreamSnapshotsRoutes = require('./routes/livestream-snapshots');
+app.use('/api/livestream', livestreamSnapshotsRoutes); // WEB2.0 livestream snapshot per customer
 app.use('/api/attendance', attendanceRoutes);
 // ADMS: ZKTeco machine pushes attendance data directly (no PC needed)
 app.use(
@@ -572,6 +574,9 @@ if (web2DashboardRoutes.initializeNotifiers) {
 }
 if (web2CartRoutes.initializeNotifiers) {
     web2CartRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+}
+if (livestreamSnapshotsRoutes.initializeNotifiers) {
+    livestreamSnapshotsRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
 }
 
 // Initialize SSE notifiers in order-notes routes
