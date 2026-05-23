@@ -20,7 +20,7 @@
     const API = global.SHOP_CONFIG?.RENDER_API_URL || 'https://n2store-fallback.onrender.com';
     const LS_KEY_SNAP_PAGE = 'tpos_snap_live_page'; // 'store' | 'house'
     const LS_KEY_SNAP_MODE = 'tpos_snap_mode'; // 'live' (default) | 'lazy'
-    const LS_KEY_AUTO_MODE = 'tpos_snap_auto'; // 'on' | 'off' (default off)
+    const LS_KEY_AUTO_MODE = 'tpos_snap_auto'; // 'on' | 'off' (default 'on')
     const AUTO_THROTTLE_MS = 30 * 1000; // 30s per customer — tránh spam khi 1 KH spam comment
     // Mode definitions:
     //   'live' = 🎬 Chụp Live — getDisplayMedia capture frame từ tab FB live đã share
@@ -124,7 +124,10 @@
         renderAutoModeChip();
     }
     function _isAutoMode() {
-        return localStorage.getItem(LS_KEY_AUTO_MODE) === 'on';
+        // Default ON: nếu chưa từng set, coi như 'on' để user vào livestream
+        // là tự nhận diện + chụp ngay. User có thể tắt qua chip.
+        const v = localStorage.getItem(LS_KEY_AUTO_MODE);
+        return v === null ? true : v === 'on';
     }
     function _setAutoMode(on) {
         localStorage.setItem(LS_KEY_AUTO_MODE, on ? 'on' : 'off');
@@ -331,27 +334,10 @@
             'display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid #d1d5db;border-radius:14px;font-size:12px;font-weight:600;cursor:pointer;user-select:none;';
         chip.addEventListener('click', () => {
             const next = !_isAutoMode();
-            // Pre-check khi bật: cần Mode='live' + có captureStream để chụp thật
-            if (next) {
-                if (_getSnapMode() !== MODE_LIVE) {
-                    _toast('Auto-mode cần Mode = 🎬 Chụp Live (đổi mode trước)', 'err');
-                    return;
-                }
-                if (!STATE.captureStream) {
-                    _toast(
-                        'Auto-mode cần stream FB live đang share — click 📸 1 lần để chọn tab trước',
-                        'err'
-                    );
-                    return;
-                }
-            }
+            // KHÔNG cần pre-check stream — auto fallback offline path khi không
+            // có stream (compute offset từ commentTime + broadcastStart).
             _setAutoMode(next);
-            _toast(
-                next
-                    ? '🤖 Auto-snap ON — KH mới comment sẽ tự chụp (throttle 30s/KH)'
-                    : '🤖 Auto-snap OFF',
-                'ok'
-            );
+            _toast(next ? '🤖 Auto ON — KH mới comment tự snap' : '🤖 Auto OFF', 'ok');
         });
         host.appendChild(chip);
         renderAutoModeChip();
@@ -362,25 +348,23 @@
         if (!chip) return;
         const on = _isAutoMode();
         const streamOk = !!STATE.captureStream;
-        if (on && streamOk) {
-            chip.innerHTML = `<span style="display:inline-block;width:8px;height:8px;background:#16a34a;border-radius:50%;animation:snap-pulse 1.4s ease-in-out infinite;"></span> Auto: <strong>ON</strong> · ${STATE.autoStats.total} snaps`;
+        if (on) {
+            const pathLabel = streamOk ? '🎬 stream' : '⏱ offset';
+            chip.innerHTML = `<span style="display:inline-block;width:8px;height:8px;background:#16a34a;border-radius:50%;animation:snap-pulse 1.4s ease-in-out infinite;"></span> Auto: <strong>ON</strong> (${pathLabel}) · ${STATE.autoStats.total}`;
             chip.style.background = '#dcfce7';
             chip.style.borderColor = '#86efac';
             chip.style.color = '#166534';
-            chip.title = `Auto-snap ON. Throttle 30s/KH. Session: ${STATE.autoStats.total} OK, ${STATE.autoStats.throttled} throttled, ${STATE.autoStats.errors} errors. Click để tắt.`;
-        } else if (on && !streamOk) {
-            chip.innerHTML = `⚠️ Auto: <strong>ON (no stream)</strong>`;
-            chip.style.background = '#fef3c7';
-            chip.style.borderColor = '#fcd34d';
-            chip.style.color = '#92400e';
-            chip.title = 'Auto-mode đã bật nhưng stream FB chưa share. Click 📸 1 lần để chọn tab.';
+            chip.title = `Auto-snap ON.
+Path: ${streamOk ? 'real-frame từ FB tab share (chính xác moment)' : 'offset computed từ commentTime + broadcastStart (chính xác giây)'}
+Session: ${STATE.autoStats.total} OK, ${STATE.autoStats.throttled} throttled, ${STATE.autoStats.errors} errors.
+Throttle 30s/KH. Click để tắt.`;
         } else {
             chip.innerHTML = `🤖 Auto: <strong>OFF</strong> · click bật`;
             chip.style.background = '#f3f4f6';
             chip.style.borderColor = '#d1d5db';
             chip.style.color = '#374151';
             chip.title =
-                'Auto-mode OFF. Khi bật, mỗi comment KH mới sẽ tự snap (cần Mode Chụp Live + stream đã share).';
+                'Auto OFF. Click bật: mỗi comment mới tự snap với offset chính xác (không cần FB tab share).';
         }
     }
 
@@ -565,15 +549,15 @@
     // -----------------------------------------------------
     // Auto-snap handler — gắn vào eventBus.on('tpos:newComment')
     // -----------------------------------------------------
+    // Auto-snap handler — 2 paths theo capability:
+    //   1. captureStream sẵn → snap() real-frame (chính xác moment user thấy)
+    //   2. Không có stream → offline path (POST /offline-batch với 1 comment)
+    //      Compute offset = (commentTime - broadcastStart)/1000 từ FB Graph
+    //      KHÔNG cần FB tab share → auto chạy tự động không setup gì.
     async function _handleNewCommentAuto(payload) {
         if (!_isAutoMode()) return;
-        if (_getSnapMode() !== MODE_LIVE) return;
-        if (!STATE.captureStream) {
-            // Stream lost → silent skip (chip sẽ chuyển trạng thái warning sau)
-            return;
-        }
         const comment = payload?.comment;
-        if (!comment || payload.isStaff) return; // skip staff/page replies
+        if (!comment || payload.isStaff) return;
         const customerFbUserId = comment.from?.id;
         const customerName = comment.from?.name || '?';
         const commentId = comment.id;
@@ -588,13 +572,81 @@
         }
         STATE.autoLastSnap.set(customerFbUserId, now);
         try {
-            await snap(customerFbUserId, customerName, commentId, null);
+            if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
+                // Path 1: real-frame capture từ FB tab đã share
+                await snap(customerFbUserId, customerName, commentId, null);
+            } else {
+                // Path 2: offline computed offset — không cần FB tab.
+                // commentTime ưu tiên từ comment.created_time (chính xác từ FB),
+                // fallback Date.now() nếu SSE event chậm.
+                const commentTime = new Date(
+                    comment.created_time || comment.createdTime || Date.now()
+                ).getTime();
+                await _offlineSnapOne({
+                    commentId,
+                    customerFbUserId,
+                    customerName,
+                    commentTime,
+                    message: comment.message,
+                });
+            }
             STATE.autoStats.total++;
         } catch (e) {
             STATE.autoStats.errors++;
             console.warn('[snap-auto] fail:', e.message);
         }
         renderAutoModeChip();
+    }
+
+    // Internal: single comment offline snap qua /offline-batch.
+    // Resolve page + campaign + broadcastStart (cached). Auto-skip nếu fail
+    // (eg. no campaign active, no broadcast time).
+    async function _offlineSnapOne({
+        commentId,
+        customerFbUserId,
+        customerName,
+        commentTime,
+        message,
+    }) {
+        const pageObj = _resolvePageObj();
+        if (!pageObj) throw new Error('no page selected');
+        const camp = _resolveActiveCampaign(pageObj);
+        if (!camp || !camp.Facebook_LiveId) throw new Error('no live campaign active');
+        const videoInfo = await _fetchLiveVideoInfo(pageObj.Facebook_PageId, camp.Facebook_LiveId);
+        if (!videoInfo?.broadcastStartMs) throw new Error('no broadcast_start_time');
+        const payload = {
+            pageId: pageObj.Facebook_PageId,
+            pageName: pageObj.Name,
+            pageUsername: _resolvePageVanity(pageObj),
+            liveCampaignId: camp.Id ? String(camp.Id) : null,
+            liveVideoId: camp.Facebook_LiveId,
+            broadcastStartMs: videoInfo.broadcastStartMs,
+            comments: [
+                {
+                    commentId,
+                    customerFbUserId,
+                    customerName,
+                    createdTime: commentTime,
+                    message: message ? String(message).slice(0, 200) : '',
+                },
+            ],
+            skipExisting: true,
+            user: _user(),
+        };
+        const r = await fetch(API + '/api/livestream/offline-batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'omit',
+            body: JSON.stringify(payload),
+        });
+        const d = await r.json();
+        if (!d.success) throw new Error(d.error || 'batch failed');
+        // Refresh count + badge (optimistic-ish)
+        if (d.summary?.created > 0) {
+            STATE.counts[customerFbUserId] = (STATE.counts[customerFbUserId] || 0) + 1;
+            _renderBadgeFor(customerFbUserId);
+        }
+        return d;
     }
 
     // Init capture stream (no-op nếu đã có). Trả về stream hoặc throw.
