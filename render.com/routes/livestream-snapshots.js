@@ -87,6 +87,15 @@ async function ensureSchema(pool) {
     }
 }
 
+// Resolve absolute self-URL respecting X-Forwarded-Proto (Render proxy).
+// req.protocol returns "http" sau load balancer dù origin là HTTPS → mixed-content.
+function _resolveSelfBase(req) {
+    const host = req.get('host') || '';
+    const fwdProto = (req.get('x-forwarded-proto') || '').split(',')[0].trim();
+    const proto = fwdProto || (host.endsWith('.onrender.com') ? 'https' : req.protocol);
+    return `${proto}://${host}`;
+}
+
 // Auto-delete snapshots > 30 ngày (kèm image_data BYTEA bytes).
 // Idempotent — chạy bao nhiêu lần cũng OK. CASCADE qua FK không có (table độc lập).
 async function _autoCleanupOldSnapshots(pool) {
@@ -302,9 +311,7 @@ router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
         // đều resolve đúng origin Render.
         if (imageBuffer) {
             const selfBase =
-                req.app.locals.web2BaseUrl ||
-                process.env.SELF_URL ||
-                `${req.protocol}://${req.get('host')}`;
+                req.app.locals.web2BaseUrl || process.env.SELF_URL || _resolveSelfBase(req);
             const selfImageUrl = `${selfBase}/api/livestream/snapshot/${r.rows[0].id}/image`;
             await pool.query(`UPDATE livestream_snapshots SET thumbnail_url = $1 WHERE id = $2`, [
                 selfImageUrl,
@@ -373,9 +380,7 @@ router.post('/snapshot/:id/refresh-thumbnail', express.json({ limit: '1mb' }), a
             });
         }
         const selfBase =
-            req.app.locals.web2BaseUrl ||
-            process.env.SELF_URL ||
-            `${req.protocol}://${req.get('host')}`;
+            req.app.locals.web2BaseUrl || process.env.SELF_URL || _resolveSelfBase(req);
         const selfImageUrl = `${selfBase}/api/livestream/snapshot/${req.params.id}/image`;
         const r1 = await pool.query(
             `UPDATE livestream_snapshots
