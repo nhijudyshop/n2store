@@ -373,44 +373,18 @@
         // click 📸 trong mode='live' (lazy initialization, OS picker chỉ hiện
         // khi cần thật sự).
         chip.addEventListener('click', async () => {
-            // Click 🎬 = 1-click toggle linked stream:
-            //   • Đang share → stop (mode về LAZY).
-            //   • Chưa share → tự mở FB live tab + 3s sau prompt share → stream
-            //     + buffer running → mọi auto-snap dùng frame thật.
+            // Click 🎬 = 1-click toggle. Dùng EMBEDDED iframe FB live (no tab
+            // switch). Nếu đã share → stop + remove iframe.
             if (STATE.captureStream) {
                 stopRealSnap();
+                const iframe = document.getElementById('tpos-snap-fb-embed');
+                if (iframe) iframe.remove();
                 _setSnapMode(MODE_LAZY);
-                _toast('⏱️ Đã ngắt share — auto-snap dùng URL generic', 'ok');
+                _toast('⏱️ Đã ngắt — auto-snap dùng metadata only', 'ok');
                 return;
             }
             _setSnapMode(MODE_LIVE);
-            // Tìm live đang active để mở đúng URL.
-            const camp = _findActiveLiveCampaign();
-            if (camp) {
-                const fbUrl = _buildFbLiveUrl(camp);
-                if (fbUrl) {
-                    try {
-                        window.open(fbUrl, '_blank');
-                        _toast(
-                            '📺 FB live đã mở — chọn tab vừa mở khi browser hỏi share (sau 3s)',
-                            'ok'
-                        );
-                        // Cho FB load + seek 3s trước khi prompt picker để user
-                        // không bị overlay 2 dialog.
-                        await new Promise((r) => setTimeout(r, 3000));
-                    } catch (e) {
-                        console.warn('[snap-real] window.open fail:', e.message);
-                    }
-                }
-            } else {
-                _toast('🎬 Không tìm thấy live đang chạy — chọn tab FB live trong picker', 'ok');
-            }
-            try {
-                await ensureCaptureStream();
-                _toast('✅ Stream linked — auto-snap dùng frame thật từ buffer', 'ok');
-            } catch (e) {
-                console.log('[snap-real] share denied:', e?.message);
-            }
+            await _enableEmbeddedLiveCapture();
         });
         host.appendChild(chip);
         renderRealSnapChip();
@@ -851,6 +825,141 @@ Throttle 30s/KH. Click để tắt.`;
     async function ensureCaptureStream() {
         if (STATE.captureStream) return STATE.captureStream;
         return _requestCaptureStream();
+    }
+
+    // -----------------------------------------------------
+    // EMBEDDED LIVE CAPTURE (1-click, không nhảy tab)
+    // Flow: iframe FB embed ẩn → getDisplayMedia preferCurrentTab → Region
+    // Capture API cropTo iframe → stream chỉ chứa video FB → buffer chạy.
+    // User chỉ bấm 1 lần "BẤM 1 LẦN", không bao giờ rời tpos-pancake tab.
+    // -----------------------------------------------------
+    function _ensureEmbeddedIframe(camp) {
+        let iframe = document.getElementById('tpos-snap-fb-embed');
+        if (iframe) return iframe;
+        const fbVideoUrl = _buildFbLiveUrl(camp);
+        if (!fbVideoUrl) return null;
+        const embedUrl = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(fbVideoUrl)}&show_text=false&width=560&autoplay=1&mute=1`;
+        iframe = document.createElement('iframe');
+        iframe.id = 'tpos-snap-fb-embed';
+        iframe.src = embedUrl;
+        iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
+        iframe.scrolling = 'no';
+        iframe.frameBorder = '0';
+        // Visible nhưng nhỏ ở góc dưới phải. Sau khi connect có thể fade.
+        iframe.style.cssText =
+            'position:fixed;bottom:8px;right:8px;width:280px;height:158px;border:2px solid #dc2626;border-radius:8px;z-index:99000;background:#000;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+        document.body.appendChild(iframe);
+        return iframe;
+    }
+
+    async function _enableEmbeddedLiveCapture() {
+        if (STATE.captureStream) {
+            _toast('Đã kết nối rồi', 'ok');
+            return true;
+        }
+        const camp = _findActiveLiveCampaign();
+        if (!camp?.Facebook_LiveId) {
+            _toast('Không có live nào đang chạy', 'err');
+            return false;
+        }
+        const iframe = _ensureEmbeddedIframe(camp);
+        if (!iframe) {
+            _toast('Không tạo được iframe embed', 'err');
+            return false;
+        }
+        // Đợi 4s cho iframe load + FB player start playing.
+        _toast('⏳ Đang load FB live trong iframe (4s)...', 'ok');
+        await new Promise((r) => setTimeout(r, 4000));
+        try {
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: {
+                    displaySurface: 'browser',
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                },
+                audio: false,
+                preferCurrentTab: true,
+                selfBrowserSurface: 'include',
+                surfaceSwitching: 'exclude',
+            });
+            // Region Capture: crop chỉ vào iframe FB (Chromium 104+).
+            if (window.CropTarget?.fromElement) {
+                try {
+                    const cropTarget = await CropTarget.fromElement(iframe);
+                    const track = stream.getVideoTracks()[0];
+                    if (track.cropTo) {
+                        await track.cropTo(cropTarget);
+                        console.log('[snap] Region Capture cropped to FB iframe ✓');
+                    }
+                } catch (e) {
+                    console.warn('[snap] cropTo fail (full tab capture):', e.message);
+                }
+            }
+            STATE.captureStream = stream;
+            if (!STATE.captureVideo) {
+                STATE.captureVideo = document.createElement('video');
+                STATE.captureVideo.muted = true;
+                STATE.captureVideo.playsInline = true;
+                STATE.captureVideo.style.cssText =
+                    'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;';
+                document.body.appendChild(STATE.captureVideo);
+            }
+            STATE.captureVideo.srcObject = stream;
+            await STATE.captureVideo.play();
+            stream.getVideoTracks().forEach((t) => {
+                t.addEventListener('ended', () => {
+                    _stopFrameBuffer();
+                    stopRealSnap();
+                    _toast('🔴 Stream đã ngắt — bấm 🎬 để bật lại', 'ok');
+                });
+            });
+            _startFrameBuffer();
+            renderRealSnapChip();
+            renderAutoModeChip();
+            _toast('✅ Auto-snap đã kết nối (iframe embed, no tab switch)', 'ok');
+            return true;
+        } catch (e) {
+            console.warn('[snap-embed] fail:', e?.message);
+            _toast('Hủy share: ' + e.message, 'err');
+            // Cleanup iframe nếu user hủy.
+            iframe.remove();
+            return false;
+        }
+    }
+
+    // Banner auto trên page load nếu live đang chạy + chưa connect.
+    function _maybeShowAutoSnapBanner() {
+        if (STATE.captureStream) return; // đã connect
+        if (document.getElementById('tpos-snap-auto-banner')) return;
+        if (localStorage.getItem('tpos_snap_banner_dismissed_session') === '1') return;
+        const camp = _findActiveLiveCampaign();
+        if (!camp?.Facebook_LiveId) return;
+        const banner = document.createElement('div');
+        banner.id = 'tpos-snap-auto-banner';
+        banner.style.cssText =
+            'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:99500;font-family:Inter,system-ui,sans-serif;';
+        banner.innerHTML = `
+            <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;background:linear-gradient(90deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);max-width:560px;">
+                <span style="font-size:32px;">🎬</span>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:14px;font-weight:700;color:#78350f;line-height:1.3;">Live đang chạy — bật auto-snap?</div>
+                    <div style="font-size:11px;color:#92400e;margin-top:2px;line-height:1.4;">1 click → mọi comment mới có ảnh thật từ buffer. <strong>Không nhảy tab</strong> (FB chạy trong iframe ẩn).</div>
+                </div>
+                <button id="tpos-snap-banner-go" type="button" style="background:#dc2626;color:#fff;font-weight:700;font-size:13px;padding:10px 18px;border:none;border-radius:6px;cursor:pointer;white-space:nowrap;">BẤM 1 LẦN</button>
+                <button id="tpos-snap-banner-skip" type="button" style="background:transparent;color:#78350f;font-size:12px;padding:4px 8px;border:none;cursor:pointer;">×</button>
+            </div>
+        `;
+        document.body.appendChild(banner);
+        document.getElementById('tpos-snap-banner-go').onclick = async () => {
+            banner.remove();
+            await _enableEmbeddedLiveCapture();
+        };
+        document.getElementById('tpos-snap-banner-skip').onclick = () => {
+            banner.remove();
+            sessionStorage.setItem('tpos_snap_banner_dismissed_session', '1');
+        };
+        // Auto-dismiss sau 60s.
+        setTimeout(() => banner.remove(), 60000);
     }
 
     async function toggleRealSnap() {
@@ -2095,6 +2204,16 @@ Throttle 30s/KH. Click để tắt.`;
                 console.log('[snap] chips mount done after', attempts, 'attempts');
             }
         }, 500);
+        // Banner auto: đợi liveCampaigns load → nếu có live → show banner
+        // "BẤM 1 LẦN" để bật embedded capture (no tab switch).
+        const bannerTimer = setInterval(() => {
+            const st = global.TposState;
+            if (st?.liveCampaigns?.length > 0) {
+                clearInterval(bannerTimer);
+                _maybeShowAutoSnapBanner();
+            }
+        }, 1000);
+        setTimeout(() => clearInterval(bannerTimer), 30000);
         // Initial inject ngay cho rows hiện có (nếu TPOS đã render trước script).
         // Observer sẽ handle rows mới sau đó.
         injectSnapButtonsAll();
