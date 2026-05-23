@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `3276a05` — fix(products/usage + cart): match products[] shape giữa cart (code/qty) và modal (productCode/quantity)
-**Last updated**: 2026-05-23 08:49:09 +07
-**Latest session**: [`RESUME:20260523-084909-3276a05`](../20260523-084909-3276a05.md)
-**Summary**: fix(products/usage + cart): match products[] shape giữa cart (code/qty) và modal (productCode/quantity)
+**Latest commit**: `5e5ec53` — fix(web2/products SSE): tách \_sseReloadTimer + \_sseUsageTimer riêng
+**Last updated**: 2026-05-23 09:04:49 +07
+**Latest session**: [`RESUME:20260523-090449-5e5ec53`](../20260523-090449-5e5ec53.md)
+**Summary**: fix(web2/products SSE): tách \_sseReloadTimer + \_sseUsageTimer riêng
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 3 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -51,7 +52,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-23 08:49
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-22 19:29
+- [`scripts/`](./scripts.md) — updated 2026-05-23 09:04
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-21 11:33
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
@@ -67,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-22 14:59
+- [`web2/`](./web2.md) — updated 2026-05-23 09:04
