@@ -22,8 +22,15 @@ function record(name, ok, detail) {
     const consoleErrors = [];
     page.on('console', (msg) => {
         const t = msg.text();
-        if (msg.type() === 'error' && !t.includes('favicon') && !t.includes('Thiếu quyền')) {
-            consoleErrors.push(t.slice(0, 200));
+        const locUrl = msg.location()?.url || '';
+        const isNoise =
+            t.includes('favicon') ||
+            t.includes('Thiếu quyền') ||
+            locUrl.includes('favicon') ||
+            locUrl.includes('scontent.') || // FB CDN aborted
+            locUrl.includes('fbcdn');
+        if (msg.type() === 'error' && !isNoise) {
+            consoleErrors.push(t.slice(0, 200) + (locUrl ? ` @${locUrl}` : ''));
         }
         if (t.includes('[snap')) {
             console.log(' [page]', t.slice(0, 220));
