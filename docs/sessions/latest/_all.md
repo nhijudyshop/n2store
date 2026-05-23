@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `278311c` — fix(snap vanity): \_isVanitySlug check — Facebook_UserName là display name không phải vanity
-**Last updated**: 2026-05-23 12:34:52 +07
-**Latest session**: [`RESUME:20260523-123452-278311c`](../20260523-123452-278311c.md)
-**Summary**: fix(snap vanity): \_isVanitySlug check — Facebook_UserName là display name không phải vanity
+**Latest commit**: `2762165` — fix(snap refresh-thumbnail): resolve TPOS thumbnail.url thay vì FB Graph 400
+**Last updated**: 2026-05-23 12:40:03 +07
+**Latest session**: [`RESUME:20260523-124003-2762165`](../20260523-124003-2762165.md)
+**Summary**: fix(snap refresh-thumbnail): resolve TPOS thumbnail.url thay vì FB Graph 400
 
 ## Folders affected in this commit
 
-- [`scripts/`](./scripts.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
@@ -50,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-23 12:23
+- [`render.com/`](./render.com.md) — updated 2026-05-23 12:40
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-23 12:34
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -62,7 +62,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 12:34
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-23 12:40
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
