@@ -77,6 +77,33 @@ async function ensureSchema(pool) {
     `);
     _schemaReady = true;
     console.log('[livestream-snapshots] schema ready');
+    // Auto-cleanup: snapshots > 30 ngày → hard delete. Chạy 1 lần ngay + every 6h.
+    _autoCleanupOldSnapshots(pool).catch(() => {});
+    if (!ensureSchema._cleanupTimer) {
+        ensureSchema._cleanupTimer = setInterval(
+            () => _autoCleanupOldSnapshots(pool).catch(() => {}),
+            6 * 60 * 60 * 1000
+        );
+    }
+}
+
+// Auto-delete snapshots > 30 ngày (kèm image_data BYTEA bytes).
+// Idempotent — chạy bao nhiêu lần cũng OK. CASCADE qua FK không có (table độc lập).
+async function _autoCleanupOldSnapshots(pool) {
+    if (!pool) return;
+    try {
+        const r = await pool.query(
+            `DELETE FROM livestream_snapshots
+             WHERE created_at < NOW() - INTERVAL '30 days'`
+        );
+        if (r.rowCount > 0) {
+            console.log(
+                `[livestream-snapshots] auto-cleanup deleted ${r.rowCount} snaps > 30 days`
+            );
+        }
+    } catch (e) {
+        console.warn('[livestream-snapshots] auto-cleanup fail:', e.message);
+    }
 }
 
 router.use(async (req, res, next) => {
@@ -419,6 +446,125 @@ router.get('/snapshots/batch-counts', async (req, res) => {
 });
 
 // DELETE /snapshot/:id
+// POST /offline-batch — Feature 2: backfill snapshots cho list comments
+// Body: {
+//   pageId, pageName, pageUsername?, liveCampaignId?, liveVideoId,
+//   broadcastStartMs (number, BẮT BUỘC — frontend tính qua TPOS livevideo),
+//   comments: [{ commentId, customerFbUserId, customerName, createdTime (ms), message? }],
+//   user: {id, name},
+//   skipExisting? (default true — skip nếu đã có snap cùng commentId)
+// }
+// Loop create snaps với offsetSec = (createdTime - broadcastStartMs)/1000.
+// Returns: { created: N, skipped: M, failed: K, snapshots: [...] }
+router.post('/offline-batch', express.json({ limit: '5mb' }), async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const b = req.body || {};
+        if (!b.liveVideoId) {
+            return res.status(400).json({ success: false, error: 'liveVideoId required' });
+        }
+        if (!Number.isFinite(Number(b.broadcastStartMs))) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'broadcastStartMs (number) required' });
+        }
+        if (!Array.isArray(b.comments) || b.comments.length === 0) {
+            return res.status(400).json({ success: false, error: 'comments[] required' });
+        }
+        const broadcastStart = Number(b.broadcastStartMs);
+        const skipExisting = b.skipExisting !== false;
+        const user = b.user || {};
+        const created = [];
+        const skipped = [];
+        const failed = [];
+
+        for (const c of b.comments) {
+            try {
+                if (!c.customerFbUserId || !c.createdTime) {
+                    failed.push({
+                        commentId: c.commentId,
+                        reason: 'missing customerFbUserId/createdTime',
+                    });
+                    continue;
+                }
+                const commentTime = Number(c.createdTime);
+                if (!Number.isFinite(commentTime)) {
+                    failed.push({ commentId: c.commentId, reason: 'invalid createdTime' });
+                    continue;
+                }
+                // Idempotency: skip nếu đã có snap với commentId này
+                if (skipExisting && c.commentId) {
+                    const exists = await pool.query(
+                        `SELECT id FROM livestream_snapshots WHERE comment_id = $1 LIMIT 1`,
+                        [c.commentId]
+                    );
+                    if (exists.rowCount > 0) {
+                        skipped.push({ commentId: c.commentId, snapshotId: exists.rows[0].id });
+                        continue;
+                    }
+                }
+                const offsetSec =
+                    commentTime > broadcastStart
+                        ? Math.floor((commentTime - broadcastStart) / 1000)
+                        : null;
+                const livestreamUrl = _computeLivestreamUrl(
+                    b.pageUsername || b.pageId,
+                    b.liveVideoId,
+                    offsetSec
+                );
+                const thumbnailUrl = _computeThumbnailUrl(b.liveVideoId);
+                const r = await pool.query(
+                    `INSERT INTO livestream_snapshots
+                     (comment_id, customer_fb_user_id, customer_name, page_id, page_name,
+                      live_campaign_id, live_video_id, captured_at, captured_by, captured_by_name,
+                      offset_seconds, livestream_url, thumbnail_url, note)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+                     RETURNING id`,
+                    [
+                        c.commentId || null,
+                        c.customerFbUserId,
+                        c.customerName || null,
+                        b.pageId,
+                        b.pageName || null,
+                        b.liveCampaignId || null,
+                        b.liveVideoId,
+                        commentTime,
+                        user.id || null,
+                        user.name || null,
+                        offsetSec,
+                        livestreamUrl,
+                        thumbnailUrl,
+                        c.message ? String(c.message).slice(0, 500) : null,
+                    ]
+                );
+                created.push({
+                    commentId: c.commentId,
+                    snapshotId: r.rows[0].id,
+                    offsetSec,
+                });
+                _notify('create', { customerFbUserId: c.customerFbUserId, id: r.rows[0].id });
+            } catch (e) {
+                failed.push({ commentId: c.commentId, reason: e.message });
+            }
+        }
+        res.json({
+            success: true,
+            summary: {
+                total: b.comments.length,
+                created: created.length,
+                skipped: skipped.length,
+                failed: failed.length,
+            },
+            created,
+            skipped,
+            failed,
+        });
+    } catch (e) {
+        console.error('[livestream-snapshots] offline-batch error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 router.delete('/snapshot/:id', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;

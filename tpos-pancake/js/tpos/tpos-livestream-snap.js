@@ -385,6 +385,184 @@
     }
 
     // -----------------------------------------------------
+    // Feature 2 — Offline batch backfill snapshots
+    // Compute offsetSec = (commentTime - broadcastStart) / 1000, gửi
+    // POST /offline-batch để backend lưu (background-style, không cần stream).
+    // -----------------------------------------------------
+    function _isStaffComment(c) {
+        const st = global.TposState;
+        const pageObj = st?.selectedPage;
+        return pageObj && c.from?.id === pageObj.Facebook_PageId;
+    }
+
+    async function offlineBatchAll(opts) {
+        opts = opts || {};
+        const pageObj = _resolvePageObj();
+        if (!pageObj) {
+            _toast('Chưa chọn page', 'err');
+            return;
+        }
+        const camp = _resolveActiveCampaign(pageObj);
+        if (!camp) {
+            _toast(`Page "${pageObj.Name}" chưa có live campaign`, 'err');
+            return;
+        }
+        const liveVideoId = camp.Facebook_LiveId || null;
+        if (!liveVideoId) {
+            _toast('Không tìm được liveVideoId', 'err');
+            return;
+        }
+        const videoInfo = await _fetchLiveVideoInfo(pageObj.Facebook_PageId, liveVideoId);
+        if (!videoInfo?.broadcastStartMs) {
+            _toast('Không lấy được broadcast_start_time (TPOS livevideo fail)', 'err');
+            return;
+        }
+        const allComments = (global.TposState?.comments || []).filter(
+            (c) => c.from?.id && !_isStaffComment(c)
+        );
+        const comments = opts.customerFbUserId
+            ? allComments.filter((c) => c.from.id === opts.customerFbUserId)
+            : allComments;
+        if (!comments.length) {
+            _toast(
+                opts.customerFbUserId
+                    ? 'KH không có comment trong campaign hiện tại'
+                    : 'Không có comment nào để backfill',
+                'err'
+            );
+            return;
+        }
+        const payload = {
+            pageId: pageObj.Facebook_PageId,
+            pageName: pageObj.Name,
+            pageUsername: _resolvePageVanity(pageObj),
+            liveCampaignId: camp.Id ? String(camp.Id) : null,
+            liveVideoId,
+            broadcastStartMs: videoInfo.broadcastStartMs,
+            comments: comments.map((c) => ({
+                commentId: c.id,
+                customerFbUserId: c.from.id,
+                customerName: c.from.name || '?',
+                createdTime: new Date(c.created_time || c.createdTime || Date.now()).getTime(),
+                message: c.message || '',
+            })),
+            skipExisting: opts.skipExisting !== false,
+            user: _user(),
+        };
+        _toast(`🔄 Đang backfill ${payload.comments.length} comments...`, 'ok');
+        try {
+            const r = await fetch(API + '/api/livestream/offline-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'omit',
+                body: JSON.stringify(payload),
+            });
+            const d = await r.json();
+            if (!d.success) throw new Error(d.error || 'batch failed');
+            _toast(
+                `✅ Backfill: ${d.summary.created} mới, ${d.summary.skipped} đã có, ${d.summary.failed} fail`,
+                d.summary.failed > 0 ? 'err' : 'ok'
+            );
+            const ids = Array.from(new Set(comments.map((c) => c.from.id)));
+            refreshCounts(ids);
+            return d;
+        } catch (e) {
+            _toast('Lỗi backfill: ' + e.message, 'err');
+            throw e;
+        }
+    }
+
+    async function offlineManualSnap() {
+        const pageObj = _resolvePageObj();
+        const camp = _resolveActiveCampaign(pageObj);
+        if (!camp) {
+            _toast('Chưa có campaign active', 'err');
+            return;
+        }
+        const videoInfo = await _fetchLiveVideoInfo(pageObj.Facebook_PageId, camp.Facebook_LiveId);
+        if (!videoInfo?.broadcastStartMs) {
+            _toast('Không lấy được broadcast_start_time', 'err');
+            return;
+        }
+        const customerId = prompt('FB User ID khách:');
+        if (!customerId) return;
+        const customerName = prompt('Tên khách:') || '?';
+        const timeStr = prompt(
+            'Thời gian comment (HH:MM:SS hôm nay, vd 17:32:15):',
+            new Date().toTimeString().slice(0, 8)
+        );
+        if (!timeStr) return;
+        const [h, m, s] = timeStr.split(':').map(Number);
+        const dt = new Date();
+        dt.setHours(h || 0, m || 0, s || 0, 0);
+        const commentTime = dt.getTime();
+        if (commentTime < videoInfo.broadcastStartMs) {
+            _toast('Thời gian comment trước khi live bắt đầu', 'err');
+            return;
+        }
+        const payload = {
+            pageId: pageObj.Facebook_PageId,
+            pageName: pageObj.Name,
+            pageUsername: _resolvePageVanity(pageObj),
+            liveCampaignId: camp.Id ? String(camp.Id) : null,
+            liveVideoId: camp.Facebook_LiveId,
+            broadcastStartMs: videoInfo.broadcastStartMs,
+            comments: [
+                {
+                    commentId: `manual_${Date.now()}`,
+                    customerFbUserId: customerId,
+                    customerName,
+                    createdTime: commentTime,
+                    message: '[manual offline snap]',
+                },
+            ],
+            skipExisting: false,
+            user: _user(),
+        };
+        try {
+            const r = await fetch(API + '/api/livestream/offline-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'omit',
+                body: JSON.stringify(payload),
+            });
+            const d = await r.json();
+            if (!d.success) throw new Error(d.error);
+            _toast(`✅ Manual snap created`, 'ok');
+            refreshCounts([customerId]);
+        } catch (e) {
+            _toast('Lỗi manual: ' + e.message, 'err');
+        }
+    }
+
+    function ensureBackfillChip() {
+        let chip = document.getElementById('tpos-snap-backfill-chip');
+        if (chip) return chip;
+        const host = _ensureFloatingHost();
+        if (!host) return null;
+        chip = document.createElement('div');
+        chip.id = 'tpos-snap-backfill-chip';
+        chip.style.cssText =
+            'display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#ede9fe;border:1px solid #c4b5fd;border-radius:14px;font-size:12px;font-weight:600;color:#6d28d9;cursor:pointer;user-select:none;';
+        chip.innerHTML = `🔄 <strong>Backfill</strong>`;
+        chip.title =
+            'Click: backfill snap cho mọi comment hiện tại (offset chính xác qua broadcast_start). Shift+click: manual nhập time + KH.';
+        chip.addEventListener('click', async (e) => {
+            if (e.shiftKey) {
+                await offlineManualSnap();
+                return;
+            }
+            const total = (global.TposState?.comments || []).filter(
+                (c) => c.from?.id && !_isStaffComment(c)
+            ).length;
+            if (!confirm(`Backfill ${total} comments? (skip những comment đã có snap)`)) return;
+            await offlineBatchAll({ skipExisting: true });
+        });
+        host.appendChild(chip);
+        return chip;
+    }
+
+    // -----------------------------------------------------
     // Auto-snap handler — gắn vào eventBus.on('tpos:newComment')
     // -----------------------------------------------------
     async function _handleNewCommentAuto(payload) {
@@ -1062,13 +1240,10 @@
             const c1 = ensureHeaderChip();
             const c2 = ensureRealSnapChip();
             const c3 = ensureAutoModeChip();
-            if ((c1 && c2 && c3) || attempts >= 20) {
+            const c4 = ensureBackfillChip();
+            if ((c1 && c2 && c3 && c4) || attempts >= 20) {
                 clearInterval(mountTimer);
-                if (c1 && c2 && c3) {
-                    console.log('[snap] all chips mounted after', attempts, 'attempts');
-                } else {
-                    console.warn('[snap] chips mount partial after 20 attempts');
-                }
+                console.log('[snap] chips mount done after', attempts, 'attempts');
             }
         }, 500);
         // Initial inject ngay cho rows hiện có (nếu TPOS đã render trước script).
