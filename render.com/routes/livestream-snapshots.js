@@ -124,11 +124,12 @@ router.use(async (req, res, next) => {
     }
 });
 
-// Compute thumbnail URL từ FB public picture endpoint (Phase 2).
-// FB cho phép unauthenticated access: /{video_id}/picture?type=large.
-function _computeThumbnailUrl(liveVideoId) {
-    if (!liveVideoId) return null;
-    return `https://graph.facebook.com/${encodeURIComponent(liveVideoId)}/picture?type=large`;
+// LEGACY: FB Graph picture endpoint trả 400 từ 05/2026. Giữ tên function
+// để không break import nhưng luôn trả null. Frontend ưu tiên TPOS
+// thumbnail.url qua _fetchLiveVideoInfo, hoặc chỉ lưu metadata (no thumb)
+// và để user click button '📸 Chụp' manual.
+function _computeThumbnailUrl(_liveVideoId) {
+    return null;
 }
 
 // Server-side fetch FB Graph thumbnail, return Buffer | null.

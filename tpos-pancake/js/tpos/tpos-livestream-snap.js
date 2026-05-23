@@ -545,7 +545,9 @@ Throttle 30s/KH. Click để tắt.`;
             liveCampaignId: camp.Id ? String(camp.Id) : null,
             liveVideoId,
             broadcastStartMs: videoInfo.broadcastStartMs,
-            thumbnailUrl: videoInfo.thumbnailUrl || undefined,
+            // KHÔNG pass thumbnailUrl generic — backfill / auto offline chỉ lưu metadata.
+            // User dùng button '📸 Chụp' per comment để fill ảnh thật từ FB tab.
+            thumbnailUrl: undefined,
             comments: comments.map((c) => {
                 const raw = c.created_time || c.createdTime || c.inserted_at || c.created_at;
                 const t = raw ? new Date(raw).getTime() : NaN;
@@ -618,7 +620,9 @@ Throttle 30s/KH. Click để tắt.`;
             liveCampaignId: camp.Id ? String(camp.Id) : null,
             liveVideoId: camp.Facebook_LiveId,
             broadcastStartMs: videoInfo.broadcastStartMs,
-            thumbnailUrl: videoInfo.thumbnailUrl || undefined,
+            // KHÔNG pass thumbnailUrl generic — backfill / auto offline chỉ lưu metadata.
+            // User dùng button '📸 Chụp' per comment để fill ảnh thật từ FB tab.
+            thumbnailUrl: undefined,
             comments: [
                 {
                     commentId: `manual_${Date.now()}`,
@@ -787,7 +791,9 @@ Throttle 30s/KH. Click để tắt.`;
             liveVideoId: camp.Facebook_LiveId,
             broadcastStartMs: videoInfo.broadcastStartMs,
             // FB CDN signed URL từ TPOS (FB Graph picture endpoint trả 400)
-            thumbnailUrl: videoInfo.thumbnailUrl || undefined,
+            // KHÔNG pass thumbnailUrl generic — backfill / auto offline chỉ lưu metadata.
+            // User dùng button '📸 Chụp' per comment để fill ảnh thật từ FB tab.
+            thumbnailUrl: undefined,
             comments: [
                 {
                     commentId,
@@ -1607,9 +1613,13 @@ Throttle 30s/KH. Click để tắt.`;
                 .map((s) => {
                     const t = new Date(s.capturedAt).toLocaleString('vi-VN', { hour12: false });
                     const url = s.livestreamUrl || '#';
-                    const thumb = s.thumbnailUrl
+                    // CHỈ hiển thị thumbnail nếu là URL self-served (frozen bytea — ảnh thật).
+                    // URL khác (FB CDN signed, FB Graph) đều coi như chưa có → placeholder.
+                    const isFrozenThumb =
+                        s.thumbnailUrl && s.thumbnailUrl.includes('/api/livestream/snapshot/');
+                    const thumb = isFrozenThumb
                         ? `<img src="${_esc(s.thumbnailUrl)}" alt="" style="width:54px;height:54px;object-fit:cover;border-radius:6px;background:#f1f5f9;" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';" /><span style="display:none;width:54px;height:54px;border-radius:6px;background:#f1f5f9;align-items:center;justify-content:center;font-size:18px;">📷</span>`
-                        : `<span style="display:inline-flex;width:54px;height:54px;border-radius:6px;background:#f1f5f9;align-items:center;justify-content:center;font-size:18px;">📷</span>`;
+                        : `<span title="Chưa có ảnh — bấm 📸 trên comment để chụp" style="display:inline-flex;width:54px;height:54px;border-radius:6px;background:#fef3c7;color:#92400e;align-items:center;justify-content:center;font-size:18px;border:1px dashed #fcd34d;">📸</span>`;
                     const pageBadge = s.pageName
                         ? `<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:6px;font-weight:600;">${_esc(s.pageName.replace(/^Nhi Judy /, '').replace(/^NhiJudy /, ''))}</span>`
                         : '';
