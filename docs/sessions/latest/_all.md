@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `be76373` — docs(dev-log): fix cancel PBH source_code SELECT + 2-tab realtime verified
-**Last updated**: 2026-05-22 19:44:41 +07
-**Latest session**: [`RESUME:20260522-194441-be76373`](../20260522-194441-be76373.md)
-**Summary**: docs(dev-log): fix cancel PBH source_code SELECT + 2-tab realtime verified
+**Latest commit**: `f23eeff` — feat(native-orders): lock edit khi status='confirmed' (đã tạo PBH) + bỏ merge confirmed
+**Last updated**: 2026-05-23 08:26:40 +07
+**Latest session**: [`RESUME:20260523-082640-f23eeff`](../20260523-082640-f23eeff.md)
+**Summary**: feat(native-orders): lock edit khi status='confirmed' (đã tạo PBH) + bỏ merge confirmed
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 2 file(s)
 - [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
@@ -39,7 +39,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-22 14:45
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-21 11:33
-- [`native-orders/`](./native-orders.md) — updated 2026-05-22 11:46
+- [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:26
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-05-21 15:39
@@ -50,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-22 19:44
+- [`render.com/`](./render.com.md) — updated 2026-05-23 08:26
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-22 19:29
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
