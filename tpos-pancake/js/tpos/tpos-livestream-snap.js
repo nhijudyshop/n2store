@@ -23,6 +23,10 @@
         counts: {}, // customerFbUserId → count
         cacheList: new Map(), // customerFbUserId → snapshots[]
         popoverOpen: null, // customerFbUserId
+        // Phase 3 — persistent screen capture stream
+        captureStream: null, // MediaStream
+        captureVideo: null, // <video> element (hidden, dùng draw frame)
+        captureCanvas: null, // <canvas> element (cached)
     };
 
     function _getSnapPagePref() {
@@ -121,6 +125,156 @@
     }
 
     // -----------------------------------------------------
+    // Phase 3 — Real screenshot via getDisplayMedia (persistent stream)
+    //
+    // User click "🔴 Bật snap thật" 1 lần đầu phiên → browser hiện picker → user
+    // chọn tab FB live. Stream lưu vào STATE.captureStream. Mỗi click 📸 sau đó
+    // = drawImage(video) → JPEG base64 → POST silent.
+    // -----------------------------------------------------
+    function ensureRealSnapChip() {
+        let chip = document.getElementById('tpos-snap-real-chip');
+        if (chip) return chip;
+        const host =
+            document.querySelector('.tpos-header-bar') ||
+            document.querySelector('.tpos-toolbar') ||
+            document.querySelector('#tposCommentHeader') ||
+            document.querySelector('#tposContent');
+        if (!host) return null;
+        chip = document.createElement('div');
+        chip.id = 'tpos-snap-real-chip';
+        chip.className = 'tpos-snap-real-chip';
+        chip.style.cssText =
+            'display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:14px;font-size:12px;font-weight:600;color:#374151;cursor:pointer;margin-left:6px;user-select:none;';
+        chip.addEventListener('click', toggleRealSnap);
+        host.appendChild(chip);
+        renderRealSnapChip();
+        return chip;
+    }
+    function renderRealSnapChip() {
+        const chip = document.getElementById('tpos-snap-real-chip');
+        if (!chip) return;
+        const active = !!STATE.captureStream;
+        if (active) {
+            chip.innerHTML = `<span style="display:inline-block;width:8px;height:8px;background:#dc2626;border-radius:50%;animation:snap-pulse 1.4s ease-in-out infinite;"></span> Snap thật: <strong>ON</strong> · click để tắt`;
+            chip.style.background = '#fee2e2';
+            chip.style.borderColor = '#fca5a5';
+            chip.style.color = '#991b1b';
+            chip.title = 'Đang share screen. 📸 click sẽ chụp ảnh thật từ tab đã chọn.';
+        } else {
+            chip.innerHTML = `⚪ Snap thật: <strong>OFF</strong> · click bật`;
+            chip.style.background = '#f3f4f6';
+            chip.style.borderColor = '#d1d5db';
+            chip.style.color = '#374151';
+            chip.title = 'Click để bật chế độ chụp ảnh thật (cần chọn tab FB live).';
+        }
+    }
+
+    async function toggleRealSnap() {
+        if (STATE.captureStream) {
+            stopRealSnap();
+            return;
+        }
+        try {
+            // Hint user trước khi mở picker
+            _toast('⚙ Browser sẽ mở picker — chọn tab FB live + bấm Share', 'ok');
+            // getDisplayMedia với preferences: prefer browser tab, no audio, no cursor
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: {
+                    cursor: 'never',
+                    displaySurface: 'browser',
+                    width: { ideal: 1920, max: 1920 },
+                    height: { ideal: 1080, max: 1080 },
+                },
+                audio: false,
+                preferCurrentTab: false,
+                selfBrowserSurface: 'exclude',
+            });
+            STATE.captureStream = stream;
+            // Tạo hidden video để draw frame
+            if (!STATE.captureVideo) {
+                STATE.captureVideo = document.createElement('video');
+                STATE.captureVideo.muted = true;
+                STATE.captureVideo.playsInline = true;
+                STATE.captureVideo.style.cssText =
+                    'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;';
+                document.body.appendChild(STATE.captureVideo);
+            }
+            STATE.captureVideo.srcObject = stream;
+            await STATE.captureVideo.play();
+            // Lắng nghe khi user "Stop sharing" qua browser UI
+            stream.getVideoTracks().forEach((t) => {
+                t.addEventListener('ended', () => {
+                    console.log('[snap-real] user stopped sharing → revert OFF');
+                    stopRealSnap();
+                    _toast('🔴 Snap thật đã tắt (user dừng share)', 'ok');
+                });
+            });
+            renderRealSnapChip();
+            _toast('🔴 Snap thật ON — mỗi 📸 sẽ chụp thật từ tab đã chọn', 'ok');
+        } catch (e) {
+            console.warn('[snap-real] getDisplayMedia rejected:', e?.message);
+            if (e?.name === 'NotAllowedError') {
+                _toast('Đã hủy chọn tab', 'err');
+            } else {
+                _toast('Bật snap thật thất bại: ' + e.message, 'err');
+            }
+            STATE.captureStream = null;
+            renderRealSnapChip();
+        }
+    }
+
+    function stopRealSnap() {
+        if (STATE.captureStream) {
+            STATE.captureStream.getTracks().forEach((t) => t.stop());
+            STATE.captureStream = null;
+        }
+        if (STATE.captureVideo) {
+            STATE.captureVideo.srcObject = null;
+        }
+        renderRealSnapChip();
+    }
+
+    // Capture 1 frame từ stream → JPEG base64. Return null nếu stream chưa sẵn.
+    async function _captureFrameJpeg(quality = 0.7, maxWidth = 1280) {
+        const v = STATE.captureVideo;
+        if (!STATE.captureStream || !v || !v.videoWidth) return null;
+        const w = v.videoWidth;
+        const h = v.videoHeight;
+        // Downscale to maxWidth (giữ aspect)
+        let targetW = w;
+        let targetH = h;
+        if (w > maxWidth) {
+            targetW = maxWidth;
+            targetH = Math.round(h * (maxWidth / w));
+        }
+        if (!STATE.captureCanvas) {
+            STATE.captureCanvas = document.createElement('canvas');
+        }
+        const canvas = STATE.captureCanvas;
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(v, 0, 0, targetW, targetH);
+        return new Promise((resolve) => {
+            canvas.toBlob(
+                (blob) => {
+                    if (!blob) return resolve(null);
+                    const fr = new FileReader();
+                    fr.onload = () => {
+                        const dataUrl = fr.result;
+                        // strip "data:image/jpeg;base64,"
+                        const i = dataUrl.indexOf(',');
+                        resolve(dataUrl.slice(i + 1));
+                    };
+                    fr.readAsDataURL(blob);
+                },
+                'image/jpeg',
+                quality
+            );
+        });
+    }
+
+    // -----------------------------------------------------
     // Snap action — POST /api/livestream/snapshot
     // -----------------------------------------------------
     async function snap(customerFbUserId, customerName, commentId, sourceBtn) {
@@ -150,6 +304,17 @@
             setTimeout(() => sourceBtn.classList.remove('snap-flash'), 400);
         }
 
+        // Phase 3: nếu real-snap toggle ON + stream sẵn → capture frame, gửi base64.
+        // Else backend tự fetch FB Graph thumb server-side → freeze moment.
+        let imageBase64 = null;
+        if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
+            try {
+                imageBase64 = await _captureFrameJpeg(0.72, 1280);
+            } catch (e) {
+                console.warn('[snap-real] capture frame failed:', e.message);
+            }
+        }
+
         try {
             const r = await fetch(API + '/api/livestream/snapshot', {
                 method: 'POST',
@@ -166,6 +331,8 @@
                     capturedAt: now,
                     offsetSeconds: offsetSec,
                     user: _user(),
+                    imageBase64,
+                    imageMime: imageBase64 ? 'image/jpeg' : undefined,
                 }),
             });
             const d = await r.json();
@@ -468,6 +635,7 @@
     // -----------------------------------------------------
     function init() {
         ensureHeaderChip();
+        ensureRealSnapChip();
         setupObserver();
         subscribeSSE();
         // Initial inject + count fetch (delay để TPOS render trước)

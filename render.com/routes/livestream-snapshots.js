@@ -54,12 +54,20 @@ async function ensureSchema(pool) {
             livestream_url TEXT,
             thumbnail_url TEXT,
             note TEXT,
+            image_data BYTEA,
+            image_mime VARCHAR(50),
+            image_size INTEGER,
             created_at TIMESTAMPTZ DEFAULT NOW()
         );
         CREATE INDEX IF NOT EXISTS idx_lss_customer
             ON livestream_snapshots(customer_fb_user_id, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_lss_live_video
             ON livestream_snapshots(page_id, live_video_id);
+        -- Phase 3: real screenshot via getDisplayMedia. Add image_data BYTEA cho
+        -- bảng cũ (idempotent ALTER).
+        ALTER TABLE livestream_snapshots ADD COLUMN IF NOT EXISTS image_data BYTEA;
+        ALTER TABLE livestream_snapshots ADD COLUMN IF NOT EXISTS image_mime VARCHAR(50);
+        ALTER TABLE livestream_snapshots ADD COLUMN IF NOT EXISTS image_size INTEGER;
     `);
     _schemaReady = true;
     console.log('[livestream-snapshots] schema ready');
@@ -79,6 +87,37 @@ router.use(async (req, res, next) => {
 function _computeThumbnailUrl(liveVideoId) {
     if (!liveVideoId) return null;
     return `https://graph.facebook.com/${encodeURIComponent(liveVideoId)}/picture?type=large`;
+}
+
+// Server-side fetch FB Graph thumbnail, return Buffer | null.
+// Dùng cho default snap path (user KHÔNG cần mở FB live tab) — backend tự kéo
+// frame mới nhất từ FB CDN tại moment user bấm 📸 → freeze vào DB.
+async function _fetchFbThumbnail(liveVideoId) {
+    if (!liveVideoId) return null;
+    const url = `https://graph.facebook.com/${encodeURIComponent(liveVideoId)}/picture?type=large&redirect=true`;
+    try {
+        const fetchFn = global.fetch || (await import('node-fetch')).default;
+        const r = await fetchFn(url, { redirect: 'follow' });
+        if (!r.ok) {
+            console.warn('[lss] FB thumb fetch fail:', r.status, url);
+            return null;
+        }
+        const ct = r.headers.get('content-type') || 'image/jpeg';
+        if (!ct.startsWith('image/')) {
+            console.warn('[lss] FB thumb not image:', ct);
+            return null;
+        }
+        const buf = Buffer.from(await r.arrayBuffer());
+        // Validate min size — FB sometimes returns 1×1 placeholder if video private/ended
+        if (buf.length < 1024) {
+            console.warn('[lss] FB thumb too small (likely placeholder):', buf.length);
+            return null;
+        }
+        return { buffer: buf, mime: ct };
+    } catch (e) {
+        console.warn('[lss] FB thumb fetch error:', e.message);
+        return null;
+    }
 }
 
 // Compute FB deep-link URL.
@@ -120,9 +159,12 @@ function _mapRow(row) {
 // Body: {
 //   commentId?, customerFbUserId, customerName,
 //   pageId, pageName, liveCampaignId, liveVideoId,
-//   capturedAt?, offsetSeconds?, note?, user: {id, name}
+//   capturedAt?, offsetSeconds?, note?, user: {id, name},
+//   imageBase64?   — Phase 3: real screenshot từ getDisplayMedia, base64 (no data: prefix OR with)
+//   imageMime?     — 'image/jpeg' | 'image/png' (default jpeg)
 // }
-router.post('/snapshot', async (req, res) => {
+// Body limit cần tăng (Express default 100kb không đủ). Mount middleware riêng route này.
+router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
         const b = req.body || {};
@@ -135,14 +177,50 @@ router.post('/snapshot', async (req, res) => {
         const capturedAt = Number(b.capturedAt) || Date.now();
         const offsetSec = Number.isFinite(b.offsetSeconds) ? Math.floor(b.offsetSeconds) : null;
         const livestreamUrl = _computeLivestreamUrl(b.pageId, b.liveVideoId, offsetSec);
-        const thumbnailUrl = _computeThumbnailUrl(b.liveVideoId);
+        // Image source priority:
+        //   1. b.imageBase64 (Phase 3 — frontend captured frame qua getDisplayMedia)
+        //   2. Server-side fetch FB Graph thumbnail (default — user KHÔNG cần FB tab)
+        //   3. Fallback: chỉ lưu URL FB Graph (live link, không freeze)
+        let imageBuffer = null;
+        let imageMime = null;
+        let imageSize = null;
+        if (b.imageBase64) {
+            try {
+                const raw = String(b.imageBase64).replace(/^data:[^;]+;base64,/, '');
+                imageBuffer = Buffer.from(raw, 'base64');
+                imageMime = String(b.imageMime || 'image/jpeg').slice(0, 50);
+                imageSize = imageBuffer.length;
+                if (imageSize > 5 * 1024 * 1024) {
+                    return res
+                        .status(413)
+                        .json({ success: false, error: 'image too large (>5MB)' });
+                }
+            } catch (e) {
+                return res
+                    .status(400)
+                    .json({ success: false, error: 'invalid imageBase64: ' + e.message });
+            }
+        } else if (b.liveVideoId && b.fetchFbThumbnail !== false) {
+            // Default: backend fetch FB Graph thumb để freeze moment user bấm 📸.
+            // Best-effort: nếu fail, snapshot vẫn được tạo, thumbnail_url để URL FB CDN.
+            const result = await _fetchFbThumbnail(b.liveVideoId);
+            if (result) {
+                imageBuffer = result.buffer;
+                imageMime = result.mime;
+                imageSize = result.buffer.length;
+            }
+        }
+        // Thumbnail URL: ưu tiên ảnh thật (sẽ resolve qua /image/:id), fallback FB Graph live URL.
+        // Tạm để FB Graph URL, update sau khi có insert id (vì cần id để build URL).
+        let thumbnailUrl = _computeThumbnailUrl(b.liveVideoId);
         const user = b.user || {};
         const r = await pool.query(
             `INSERT INTO livestream_snapshots
              (comment_id, customer_fb_user_id, customer_name, page_id, page_name,
               live_campaign_id, live_video_id, captured_at, captured_by, captured_by_name,
-              offset_seconds, livestream_url, thumbnail_url, note)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+              offset_seconds, livestream_url, thumbnail_url, note,
+              image_data, image_mime, image_size)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
              RETURNING *`,
             [
                 b.commentId || null,
@@ -159,13 +237,48 @@ router.post('/snapshot', async (req, res) => {
                 livestreamUrl,
                 thumbnailUrl,
                 b.note || null,
+                imageBuffer,
+                imageMime,
+                imageSize,
             ]
         );
+        // Nếu có image thật, update thumbnail_url về self-served endpoint
+        if (imageBuffer) {
+            const selfBase = req.app.locals.web2BaseUrl || '';
+            const selfImageUrl = `${selfBase}/api/livestream/snapshot/${r.rows[0].id}/image`;
+            await pool.query(`UPDATE livestream_snapshots SET thumbnail_url = $1 WHERE id = $2`, [
+                selfImageUrl,
+                r.rows[0].id,
+            ]);
+            r.rows[0].thumbnail_url = selfImageUrl;
+        }
         const snap = _mapRow(r.rows[0]);
         _notify('create', { customerFbUserId: snap.customerFbUserId, id: snap.id });
         res.json({ success: true, snapshot: snap });
     } catch (e) {
         console.error('[livestream-snapshots] create error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// GET /snapshot/:id/image — serve image bytea với Cache-Control immutable.
+router.get('/snapshot/:id/image', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const r = await pool.query(
+            `SELECT image_data, image_mime FROM livestream_snapshots WHERE id = $1`,
+            [req.params.id]
+        );
+        if (r.rows.length === 0 || !r.rows[0].image_data) {
+            return res.status(404).json({ success: false, error: 'image not found' });
+        }
+        const { image_data, image_mime } = r.rows[0];
+        res.setHeader('Content-Type', image_mime || 'image/jpeg');
+        res.setHeader('Content-Length', image_data.length);
+        // Image bất biến (snapshot frozen in time) → cache lâu OK
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        res.end(image_data);
+    } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
 });
