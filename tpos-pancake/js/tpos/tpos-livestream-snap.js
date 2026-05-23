@@ -497,11 +497,37 @@
                             </div>
                             <div style="display:flex;flex-direction:column;gap:3px;">
                                 <a href="${_esc(url)}" target="_blank" rel="noopener" title="Mở FB live tại thời điểm chụp" style="font-size:10px;color:#fff;background:#1877f2;padding:3px 8px;border-radius:5px;text-decoration:none;font-weight:600;text-align:center;">▶ Xem</a>
+                                <button type="button" class="snap-pop-refresh" data-id="${s.id}" title="Refresh thumbnail từ FB Graph (lazy fetch hiện tại)" style="font-size:10px;color:#0c4a6e;background:#e0f2fe;border:none;padding:3px 8px;border-radius:5px;cursor:pointer;font-weight:600;">🔄</button>
                                 <button type="button" class="snap-pop-del" data-id="${s.id}" title="Xóa snapshot" style="font-size:10px;color:#dc2626;background:#fee2e2;border:none;padding:3px 8px;border-radius:5px;cursor:pointer;font-weight:600;">Xóa</button>
                             </div>
                         </div>`;
                 })
                 .join('');
+            // 🔄 Refresh thumb: backend fetch FB Graph hiện tại → freeze ảnh
+            body.querySelectorAll('.snap-pop-refresh').forEach((btn) => {
+                btn.onclick = async (e) => {
+                    e.stopPropagation();
+                    const id = btn.dataset.id;
+                    const origText = btn.textContent;
+                    btn.textContent = '...';
+                    btn.disabled = true;
+                    try {
+                        const r = await fetch(
+                            API + '/api/livestream/snapshot/' + id + '/refresh-thumbnail',
+                            { method: 'POST', credentials: 'include' }
+                        );
+                        const d = await r.json();
+                        if (!d.success) throw new Error(d.error);
+                        STATE.cacheList.delete(customerFbUserId);
+                        _toast('🔄 Đã cập nhật thumb từ FB Graph', 'ok');
+                        _refreshPopoverContent(customerFbUserId);
+                    } catch (err) {
+                        _toast('Refresh fail: ' + err.message, 'err');
+                        btn.textContent = origText;
+                        btn.disabled = false;
+                    }
+                };
+            });
             body.querySelectorAll('.snap-pop-del').forEach((btn) => {
                 btn.onclick = async (e) => {
                     e.stopPropagation();

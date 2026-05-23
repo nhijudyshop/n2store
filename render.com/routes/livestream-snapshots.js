@@ -14,10 +14,16 @@
 //   offsetSeconds tính client-side (Date.now() - liveStartTimeMs)/1000
 //   FB chỉ hỗ trợ `?t=` trên VOD replay (sau khi live kết thúc)
 //
-// Thumbnail (Phase 2):
-//   Dùng FB public picture endpoint:
-//     https://graph.facebook.com/{liveVideoId}/picture?type=large
-//   Hoặc og:image của live URL. Không cần access token cho live public.
+// Thumbnail strategy (LAZY FETCH per user req 2026-05-23):
+//   Default → KHÔNG fetch ảnh tại snap-time. Save metadata (time, video_id,
+//     offset) + thumbnail_url = FB Graph picture URL trực tiếp.
+//   View → browser resolves <img src=thumbnail_url> tại view-time → lấy thumb
+//     fresh từ FB CDN (đặc biệt nếu live đã end, FB Graph trả FINAL thumb
+//     đẹp hơn frame stale lúc snap).
+//   Manual freeze → POST /snapshot/:id/refresh-thumbnail (opt-in, save bytea)
+//     hữu ích khi user muốn keep ảnh sau khi FB có thể xóa video.
+//   Real-snap toggle (frontend getDisplayMedia) → vẫn save bytea ngay tại snap
+//     time với imageBase64.
 // =====================================================
 
 const express = require('express');
@@ -200,9 +206,11 @@ router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
                     .status(400)
                     .json({ success: false, error: 'invalid imageBase64: ' + e.message });
             }
-        } else if (b.liveVideoId && b.fetchFbThumbnail !== false) {
-            // Default: backend fetch FB Graph thumb để freeze moment user bấm 📸.
-            // Best-effort: nếu fail, snapshot vẫn được tạo, thumbnail_url để URL FB CDN.
+        } else if (b.liveVideoId && b.fetchFbThumbnail === true) {
+            // Opt-in: backend fetch FB Graph thumb để freeze moment user bấm 📸.
+            // KHÔNG default — vì FB CDN trả thumb stale 5-30s, freeze sớm sẽ
+            // mất cơ hội lấy thumb tươi hơn lúc view (đặc biệt sau khi live ends
+            // FB Graph trả final thumb đẹp hơn frame stale lúc snap).
             const result = await _fetchFbThumbnail(b.liveVideoId);
             if (result) {
                 imageBuffer = result.buffer;
@@ -210,8 +218,11 @@ router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
                 imageSize = result.buffer.length;
             }
         }
-        // Thumbnail URL: ưu tiên ảnh thật (sẽ resolve qua /image/:id), fallback FB Graph live URL.
-        // Tạm để FB Graph URL, update sau khi có insert id (vì cần id để build URL).
+        // Thumbnail URL strategy (lazy fetch):
+        //   Default → FB Graph URL = always-fresh (browser resolves tại view-time):
+        //     · Live đang chạy: FB CDN trả thumb mới nhất
+        //     · Live kết thúc: FB Graph trả FINAL thumb (clean, không phải frame stale)
+        //   Real-snap → self-served `/api/.../image/:id` (frozen bytea từ getDisplayMedia)
         let thumbnailUrl = _computeThumbnailUrl(b.liveVideoId);
         const user = b.user || {};
         const r = await pool.query(
@@ -262,6 +273,56 @@ router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
         res.json({ success: true, snapshot: snap });
     } catch (e) {
         console.error('[livestream-snapshots] create error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /snapshot/:id/refresh-thumbnail
+// Fetch FB Graph thumb hiện tại → save bytea → update thumbnail_url về
+// self-served endpoint (freeze ảnh vĩnh viễn). Hữu ích khi:
+//   - Live đã kết thúc → FB Graph trả final thumb đẹp → user muốn keep
+//   - User lo FB sẽ xóa video → freeze trước
+// Idempotent: gọi nhiều lần sẽ replace ảnh cũ bằng ảnh mới nhất từ FB.
+router.post('/snapshot/:id/refresh-thumbnail', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const r0 = await pool.query(
+            `SELECT id, live_video_id FROM livestream_snapshots WHERE id = $1`,
+            [req.params.id]
+        );
+        if (r0.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'snapshot not found' });
+        }
+        const liveVideoId = r0.rows[0].live_video_id;
+        if (!liveVideoId) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'snapshot không có live_video_id' });
+        }
+        const result = await _fetchFbThumbnail(liveVideoId);
+        if (!result) {
+            return res.status(502).json({
+                success: false,
+                error: 'không lấy được thumb từ FB Graph (có thể video private/đã xóa)',
+            });
+        }
+        const selfBase =
+            req.app.locals.web2BaseUrl ||
+            process.env.SELF_URL ||
+            `${req.protocol}://${req.get('host')}`;
+        const selfImageUrl = `${selfBase}/api/livestream/snapshot/${req.params.id}/image`;
+        const r1 = await pool.query(
+            `UPDATE livestream_snapshots
+             SET image_data = $1, image_mime = $2, image_size = $3,
+                 thumbnail_url = $4
+             WHERE id = $5
+             RETURNING *`,
+            [result.buffer, result.mime, result.buffer.length, selfImageUrl, req.params.id]
+        );
+        const snap = _mapRow(r1.rows[0]);
+        _notify('refresh-thumbnail', { customerFbUserId: snap.customerFbUserId, id: snap.id });
+        res.json({ success: true, snapshot: snap });
+    } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
 });
