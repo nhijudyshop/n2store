@@ -242,9 +242,14 @@ router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
                 imageSize,
             ]
         );
-        // Nếu có image thật, update thumbnail_url về self-served endpoint
+        // Nếu có image thật, update thumbnail_url về self-served endpoint.
+        // Derive absolute URL từ request để frontend trên GH Pages / localhost
+        // đều resolve đúng origin Render.
         if (imageBuffer) {
-            const selfBase = req.app.locals.web2BaseUrl || '';
+            const selfBase =
+                req.app.locals.web2BaseUrl ||
+                process.env.SELF_URL ||
+                `${req.protocol}://${req.get('host')}`;
             const selfImageUrl = `${selfBase}/api/livestream/snapshot/${r.rows[0].id}/image`;
             await pool.query(`UPDATE livestream_snapshots SET thumbnail_url = $1 WHERE id = $2`, [
                 selfImageUrl,
