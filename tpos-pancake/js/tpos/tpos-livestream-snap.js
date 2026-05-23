@@ -21,6 +21,7 @@
     const LS_KEY_SNAP_PAGE = 'tpos_snap_live_page'; // 'store' | 'house'
     const LS_KEY_SNAP_MODE = 'tpos_snap_mode'; // 'live' (default) | 'lazy'
     const LS_KEY_AUTO_MODE = 'tpos_snap_auto'; // 'on' | 'off' (default 'on')
+    const LS_KEY_INLINE_THUMB = 'tpos_snap_inline_thumb'; // 'on' | 'off' (default 'off')
     const AUTO_THROTTLE_MS = 30 * 1000; // 30s per customer — tránh spam khi 1 KH spam comment
     // Mode definitions:
     //   'live' = 🎬 Chụp Live — getDisplayMedia capture frame từ tab FB live đã share
@@ -151,6 +152,26 @@
     function _setAutoMode(on) {
         localStorage.setItem(LS_KEY_AUTO_MODE, on ? 'on' : 'off');
         renderAutoModeChip();
+    }
+    // Toggle hiển thị inline thumbnail strip dưới mỗi comment. Default OFF.
+    function _isInlineThumbOn() {
+        return localStorage.getItem(LS_KEY_INLINE_THUMB) === 'on';
+    }
+    function _setInlineThumb(on) {
+        localStorage.setItem(LS_KEY_INLINE_THUMB, on ? 'on' : 'off');
+        renderInlineThumbChip();
+        if (on) {
+            // Bật → queue tất cả visible commentIds để fetch + render strip.
+            document.querySelectorAll('.tpos-conversation-item[data-comment-id]').forEach((row) => {
+                const cid = row.dataset.commentId;
+                if (!cid) return;
+                if (STATE.snapByComment.has(cid)) _renderThumbStripFor(cid);
+                else _queueSnapByComment(cid);
+            });
+        } else {
+            // Tắt → xóa toàn bộ strip hiện có.
+            document.querySelectorAll('.tpos-snap-thumb-strip').forEach((s) => s.remove());
+        }
     }
 
     // Resolve page object từ allPages dựa trên snap page preference.
@@ -422,6 +443,49 @@ Throttle 30s/KH. Click để tắt.`;
             chip.style.color = '#374151';
             chip.title =
                 'Auto OFF. Click bật: mỗi comment mới tự snap với offset chính xác (không cần FB tab share).';
+        }
+    }
+
+    // Toggle chip: bật/tắt hiển thị thumbnail snapshot inline trong comment row.
+    function ensureInlineThumbChip() {
+        let chip = document.getElementById('tpos-snap-thumb-chip');
+        if (chip) return chip;
+        const host = _ensureFloatingHost();
+        if (!host) return null;
+        chip = document.createElement('div');
+        chip.id = 'tpos-snap-thumb-chip';
+        chip.style.cssText =
+            'display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid #d1d5db;border-radius:14px;font-size:12px;font-weight:600;cursor:pointer;user-select:none;';
+        chip.addEventListener('click', () => {
+            const next = !_isInlineThumbOn();
+            _setInlineThumb(next);
+            _toast(
+                next ? '🖼 Inline thumb ON — hiện ảnh dưới comment' : '🖼 Inline thumb OFF',
+                'ok'
+            );
+        });
+        host.appendChild(chip);
+        renderInlineThumbChip();
+        return chip;
+    }
+    function renderInlineThumbChip() {
+        const chip = document.getElementById('tpos-snap-thumb-chip');
+        if (!chip) return;
+        const on = _isInlineThumbOn();
+        if (on) {
+            chip.innerHTML = `🖼 Thumb: <strong>ON</strong>`;
+            chip.style.background = '#dbeafe';
+            chip.style.borderColor = '#93c5fd';
+            chip.style.color = '#1e40af';
+            chip.title =
+                'Inline thumbnail ON. Mỗi comment có snap sẽ hiện ảnh nhỏ trong row. Click ảnh để zoom.';
+        } else {
+            chip.innerHTML = `🖼 Thumb: <strong>OFF</strong>`;
+            chip.style.background = '#f3f4f6';
+            chip.style.borderColor = '#d1d5db';
+            chip.style.color = '#374151';
+            chip.title =
+                'Inline thumbnail OFF. Click bật để hiện ảnh snapshot trực tiếp trong từng row comment.';
         }
     }
 
@@ -1160,8 +1224,13 @@ Throttle 30s/KH. Click để tắt.`;
             `.tpos-conversation-item[data-comment-id="${CSS.escape(commentId)}"]`
         );
         if (!row) return;
-        const data = STATE.snapByComment.get(commentId);
         let strip = row.querySelector('.tpos-snap-thumb-strip');
+        // Toggle OFF → xóa nếu có, không render.
+        if (!_isInlineThumbOn()) {
+            if (strip) strip.remove();
+            return;
+        }
+        const data = STATE.snapByComment.get(commentId);
         if (!data || !data.thumbnailUrl) {
             if (strip) strip.remove();
             return;
@@ -1173,11 +1242,12 @@ Throttle 30s/KH. Click để tắt.`;
         if (!strip) {
             strip = document.createElement('div');
             strip.className = 'tpos-snap-thumb-strip';
-            // Thụt vào trái ~52px để align với khu vực message (sau avatar).
-            // Compact: chỉ thumbnail nhỏ, click → zoom lightbox.
-            strip.style.cssText = 'margin:4px 0 2px 52px;display:inline-block;';
+            // Mount INSIDE .tpos-conv-info để cùng row với phone/address.
+            // Address (flex:1) sẽ tự thu lại nhường chỗ → bố cục gọn 1 dòng.
+            strip.style.cssText =
+                'display:inline-flex;align-items:center;flex-shrink:0;margin-left:4px;';
             const info = row.querySelector('.tpos-conv-info');
-            if (info) info.insertAdjacentElement('afterend', strip);
+            if (info) info.appendChild(strip);
             else row.appendChild(strip);
         }
         strip.innerHTML = `
@@ -1188,7 +1258,7 @@ Throttle 30s/KH. Click để tắt.`;
                  data-snap-url="${_esc(data.livestreamUrl || '')}"
                  data-snap-offset="${data.offsetSeconds ?? ''}"
                  title="Snapshot lúc Live @ ${offsetText} — click để zoom"
-                 style="width:64px;height:40px;object-fit:cover;border-radius:5px;border:1px solid #e2e8f0;cursor:zoom-in;display:block;background:#f1f5f9;"
+                 style="width:56px;height:32px;object-fit:cover;border-radius:5px;border:1px solid #e2e8f0;cursor:zoom-in;display:block;background:#f1f5f9;"
                  onerror="this.style.background='#fee2e2';this.removeAttribute('src');" />
         `;
         const img = strip.querySelector('img');
@@ -1511,11 +1581,13 @@ Throttle 30s/KH. Click để tắt.`;
             badge.textContent = cached;
             btn.appendChild(badge);
         }
-        // Queue thumbnail strip lookup — render dưới row khi data về.
-        if (STATE.snapByComment.has(commentId)) {
-            _renderThumbStripFor(commentId);
-        } else {
-            _queueSnapByComment(commentId);
+        // Queue thumbnail strip lookup chỉ khi toggle ON.
+        if (_isInlineThumbOn()) {
+            if (STATE.snapByComment.has(commentId)) {
+                _renderThumbStripFor(commentId);
+            } else {
+                _queueSnapByComment(commentId);
+            }
         }
     }
 
@@ -1658,7 +1730,8 @@ Throttle 30s/KH. Click để tắt.`;
             const c2 = ensureRealSnapChip();
             const c3 = ensureAutoModeChip();
             const c4 = ensureBackfillChip();
-            if ((c1 && c2 && c3 && c4) || attempts >= 20) {
+            const c5 = ensureInlineThumbChip();
+            if ((c1 && c2 && c3 && c4 && c5) || attempts >= 20) {
                 clearInterval(mountTimer);
                 console.log('[snap] chips mount done after', attempts, 'attempts');
             }
@@ -1692,5 +1765,7 @@ Throttle 30s/KH. Click để tắt.`;
         injectSnapButtonsAll,
         _getSnapPagePref,
         _setSnapPagePref,
+        _setInlineThumb,
+        _isInlineThumbOn,
     };
 })();

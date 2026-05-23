@@ -54,17 +54,18 @@ function record(name, ok, detail) {
     console.log('Trigger CRM team change:', JSON.stringify(triggered));
     await page.waitForTimeout(12000); // wait live-campaigns API
 
-    // Check 1: 4 chips mounted
+    // Check 1: 5 chips mounted (page+mode+auto+backfill+thumb)
     const chipsInfo = await page.evaluate(() => {
         const c1 = !!document.getElementById('tpos-snap-page-chip');
         const c2 = !!document.getElementById('tpos-snap-real-chip');
         const c3 = !!document.getElementById('tpos-snap-auto-chip');
         const c4 = !!document.getElementById('tpos-snap-backfill-chip');
-        return { c1, c2, c3, c4 };
+        const c5 = !!document.getElementById('tpos-snap-thumb-chip');
+        return { c1, c2, c3, c4, c5 };
     });
     record(
-        'C1: 4 chips mounted (page+mode+auto+backfill)',
-        chipsInfo.c1 && chipsInfo.c2 && chipsInfo.c3 && chipsInfo.c4,
+        'C1: 5 chips mounted (page+mode+auto+backfill+thumb)',
+        chipsInfo.c1 && chipsInfo.c2 && chipsInfo.c3 && chipsInfo.c4 && chipsInfo.c5,
         JSON.stringify(chipsInfo)
     );
 
@@ -439,8 +440,13 @@ function record(name, ok, detail) {
     );
     record('C18: by-comment-ids batch lookup returns snap data', c18.ok, JSON.stringify(c18));
 
-    // Check 19: Inline thumb img render + click → lightbox mở
-    // Wait tối đa 6s cho strip render (batch fetch debounce 300ms + network).
+    // Check 19: Inline thumb toggle (default OFF) → bật → strip render → click → lightbox
+    await page.evaluate(() => {
+        // _setInlineThumb(true) auto-queue tất cả comment hiện hữu + render strip.
+        if (window.TposLivestreamSnap?._setInlineThumb) {
+            window.TposLivestreamSnap._setInlineThumb(true);
+        }
+    });
     let c19Img = null;
     for (let i = 0; i < 24; i++) {
         c19Img = await page.evaluate(() => !!document.querySelector('.tpos-snap-thumb-img'));
@@ -482,7 +488,8 @@ function record(name, ok, detail) {
             const c2 = !!document.getElementById('tpos-snap-real-chip');
             const c3 = !!document.getElementById('tpos-snap-auto-chip');
             const c4 = !!document.getElementById('tpos-snap-backfill-chip');
-            return c1 && c2 && c3 && c4 ? Date.now() : null;
+            const c5 = !!document.getElementById('tpos-snap-thumb-chip');
+            return c1 && c2 && c3 && c4 && c5 ? Date.now() : null;
         });
         if (ready) {
             chipsReadyMs = ready - perfStart;
