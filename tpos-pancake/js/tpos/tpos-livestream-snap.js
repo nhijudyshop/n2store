@@ -412,8 +412,9 @@
             'display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid #d1d5db;border-radius:14px;font-size:12px;font-weight:600;cursor:pointer;user-select:none;';
         chip.addEventListener('click', () => {
             const next = !_isAutoMode();
-            // KHÔNG cần pre-check stream — auto fallback offline path khi không
-            // có stream (compute offset từ commentTime + broadcastStart).
+            // KHÔNG prompt share FB — auto-mode hoạt động độc lập (offset chính xác
+            // từ commentTime + broadcastStart, không cần stream). Stream chỉ cần
+            // nếu user muốn frame unique → bấm chip '🎬 Chụp Live' riêng.
             _setAutoMode(next);
             _toast(next ? '🤖 Auto ON — KH mới comment tự snap' : '🤖 Auto OFF', 'ok');
         });
@@ -710,9 +711,13 @@ Throttle 30s/KH. Click để tắt.`;
                     comment.created_at;
                 const parsedT = rawT ? new Date(rawT).getTime() : NaN;
                 const commentTimeMs = Number.isFinite(parsedT) ? parsedT : Date.now();
+                // Lookup buffered frame nearest commentTime. Trong window 30s
+                // → mỗi comment có frame riêng (đúng moment user thấy).
+                const buffered = _findNearestBufferedFrame(commentTimeMs, 30000);
                 await snap(customerFbUserId, customerName, commentId, null, {
                     commentTime: commentTimeMs,
                     comment,
+                    bufferedFrame: buffered, // pass for snap() to use instead of capturing current
                 });
             } else {
                 // Path 2: offline computed offset — không cần FB tab.
@@ -899,10 +904,15 @@ Throttle 30s/KH. Click để tắt.`;
             stream.getVideoTracks().forEach((t) => {
                 t.addEventListener('ended', () => {
                     console.log('[snap-real] user stopped sharing → revert OFF');
+                    _stopFrameBuffer();
                     stopRealSnap();
                     _toast('🔴 Snap thật đã tắt (user dừng share)', 'ok');
                 });
             });
+            // Khởi động frame buffer — capture 1 frame mỗi 5s, giữ 720 frames
+            // (1 tiếng). Mỗi entry { capturedAt: ms, jpegBase64 }. Auto-snap
+            // sau đó dùng buffer nearest commentTime → frame unique per comment.
+            _startFrameBuffer();
             renderRealSnapChip();
             renderAutoModeChip();
             _toast('🔴 Snap thật ON — mỗi 📸 sẽ chụp thật từ tab đã chọn', 'ok');
@@ -920,6 +930,7 @@ Throttle 30s/KH. Click để tắt.`;
     }
 
     function stopRealSnap() {
+        _stopFrameBuffer();
         if (STATE.captureStream) {
             STATE.captureStream.getTracks().forEach((t) => t.stop());
             STATE.captureStream = null;
@@ -929,6 +940,62 @@ Throttle 30s/KH. Click để tắt.`;
         }
         renderRealSnapChip();
         renderAutoModeChip();
+    }
+
+    // -----------------------------------------------------
+    // Frame buffer: capture 1 frame mỗi BUFFER_INTERVAL_MS (5s) khi stream active.
+    // Cap 720 entries (= 1 tiếng @ 5s/frame). Auto-snap lookup nearest commentTime
+    // → frame unique per comment (giải pháp duy nhất khả thi không cần FB HLS).
+    // -----------------------------------------------------
+    const FRAME_BUFFER_INTERVAL_MS = 5000;
+    const FRAME_BUFFER_MAX = 720;
+
+    function _startFrameBuffer() {
+        _stopFrameBuffer(); // safe re-init
+        STATE.frameBuffer = []; // [{ capturedAt: ms, jpegBase64: string }]
+        const tick = async () => {
+            if (!STATE.captureStream || !STATE.captureVideo?.videoWidth) return;
+            try {
+                const jpegBase64 = await _captureFrameJpeg(0.72, 1280);
+                if (!jpegBase64) return;
+                STATE.frameBuffer.push({ capturedAt: Date.now(), jpegBase64 });
+                if (STATE.frameBuffer.length > FRAME_BUFFER_MAX) {
+                    STATE.frameBuffer.splice(0, STATE.frameBuffer.length - FRAME_BUFFER_MAX);
+                }
+            } catch (e) {
+                console.warn('[snap-buffer] tick fail:', e.message);
+            }
+        };
+        // Capture 1 frame ngay khi start, sau đó interval.
+        tick();
+        STATE.frameBufferTimer = setInterval(tick, FRAME_BUFFER_INTERVAL_MS);
+        console.log('[snap-buffer] started — capture mỗi', FRAME_BUFFER_INTERVAL_MS, 'ms');
+    }
+
+    function _stopFrameBuffer() {
+        if (STATE.frameBufferTimer) {
+            clearInterval(STATE.frameBufferTimer);
+            STATE.frameBufferTimer = null;
+        }
+        if (STATE.frameBuffer) STATE.frameBuffer = [];
+    }
+
+    // Tìm frame buffered có capturedAt gần commentTimeMs nhất.
+    // Threshold: chỉ trả về nếu diff <= maxDiffMs (default 30s).
+    function _findNearestBufferedFrame(commentTimeMs, maxDiffMs = 30000) {
+        const buf = STATE.frameBuffer;
+        if (!buf?.length || !Number.isFinite(commentTimeMs)) return null;
+        let best = null;
+        let bestDiff = Infinity;
+        for (const f of buf) {
+            const d = Math.abs(f.capturedAt - commentTimeMs);
+            if (d < bestDiff) {
+                best = f;
+                bestDiff = d;
+            }
+        }
+        if (best && bestDiff <= maxDiffMs) return best;
+        return null;
     }
 
     // Capture 1 frame từ stream → JPEG base64. Return null nếu stream chưa sẵn.
@@ -1059,7 +1126,11 @@ Throttle 30s/KH. Click để tắt.`;
         // sau (browser <img src=thumbnailUrl> resolve tại view-time).
         const mode = _getSnapMode();
         let imageBase64 = null;
-        if (mode === MODE_LIVE) {
+        // Priority 1: caller pass bufferedFrame (auto-mode lookup nearest by commentTime)
+        // → mỗi comment có frame unique từ buffer, không phải current frame.
+        if (opts.bufferedFrame?.jpegBase64) {
+            imageBase64 = opts.bufferedFrame.jpegBase64;
+        } else if (mode === MODE_LIVE) {
             // Lazy init stream nếu chưa có
             if (!STATE.captureStream) {
                 try {
@@ -1195,10 +1266,8 @@ Throttle 30s/KH. Click để tắt.`;
         const ids = Array.from(STATE.snapByCommentPending);
         STATE.snapByCommentPending.clear();
         if (!ids.length) return;
-        // Bước 1: bulk fetch exact snap (frozen bytea image) theo comment_id.
         const chunks = [];
         for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
-        const exactMap = new Map();
         for (const chunk of chunks) {
             try {
                 const r = await fetch(
@@ -1209,67 +1278,22 @@ Throttle 30s/KH. Click để tắt.`;
                 );
                 const d = await r.json();
                 const map = d.byCommentId || {};
-                for (const id of chunk) if (map[id]) exactMap.set(id, map[id]);
+                for (const id of chunk) {
+                    const snap = map[id];
+                    // CHỈ chấp nhận snap có frozen bytea image (URL self-served
+                    // /api/livestream/snapshot/:id/image) — đó là frame thật unique.
+                    // Snap chỉ có thumbnail_url generic FB CDN (path 2 / backfill) → bỏ.
+                    if (snap && snap.thumbnailUrl?.includes('/api/livestream/snapshot/')) {
+                        STATE.snapByComment.set(id, snap);
+                    } else {
+                        STATE.snapByComment.set(id, null);
+                    }
+                    _renderThumbStripFor(id);
+                }
             } catch (e) {
                 console.warn('[snap] by-comment-ids fail:', e.message);
             }
         }
-        // Bước 2: cho mỗi commentId thiếu exact snap → compute từ comment.time
-        // + broadcastStartMs (cached qua _fetchLiveVideoInfo) → tạo data có cùng
-        // shape { thumbnailUrl, livestreamUrl, offsetSeconds } nhưng source='computed'.
-        for (const id of ids) {
-            const exact = exactMap.get(id);
-            if (exact) {
-                STATE.snapByComment.set(id, exact);
-                _renderThumbStripFor(id);
-                continue;
-            }
-            // Compute path (async — không block batch).
-            _computeAndRenderForComment(id).catch(() => {});
-        }
-    }
-
-    // Compute snapshot-equivalent data cho 1 comment: offset_seconds derived từ
-    // comment.created_time - broadcastStartMs, URL với ?t={offset}, thumbnail từ
-    // videoInfo.thumbnailUrl (FB CDN signed). Không hit DB — tính client-side.
-    async function _computeAndRenderForComment(commentId) {
-        const st = global.TposState;
-        const c = st?.comments?.find((x) => x.id === commentId);
-        if (!c?.from?.id) {
-            STATE.snapByComment.set(commentId, null);
-            return;
-        }
-        const rawT = c.created_time || c.createdTime || c.inserted_at || c.created_at;
-        const tMs = rawT ? new Date(rawT).getTime() : NaN;
-        if (!Number.isFinite(tMs)) {
-            STATE.snapByComment.set(commentId, null);
-            return;
-        }
-        const camp = _resolveCampaignForComment(c);
-        if (!camp?.Facebook_LiveId) {
-            STATE.snapByComment.set(commentId, null);
-            return;
-        }
-        const pageId = camp.Facebook_UserId;
-        const liveVideoId = camp.Facebook_LiveId;
-        const videoInfo = await _fetchLiveVideoInfo(pageId, liveVideoId);
-        if (!videoInfo?.broadcastStartMs) {
-            STATE.snapByComment.set(commentId, null);
-            return;
-        }
-        const offsetSec = Math.max(0, Math.floor((tMs - videoInfo.broadcastStartMs) / 1000));
-        const pageObj = st.allPages?.find((p) => p.Facebook_PageId === pageId);
-        const slug = _resolvePageVanity(pageObj) || pageId;
-        const videoIdShort = String(liveVideoId).replace(/^\d+_/, '');
-        const url = `https://www.facebook.com/${encodeURIComponent(slug)}/videos/${encodeURIComponent(videoIdShort)}/?locale=vi_VN&t=${offsetSec}`;
-        STATE.snapByComment.set(commentId, {
-            thumbnailUrl: videoInfo.thumbnailUrl || null,
-            livestreamUrl: url,
-            offsetSeconds: offsetSec,
-            capturedAt: tMs,
-            source: 'computed',
-        });
-        _renderThumbStripFor(commentId);
     }
 
     function _renderThumbStripFor(commentId) {
