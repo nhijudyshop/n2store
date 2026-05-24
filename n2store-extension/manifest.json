@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "N2Store Messenger",
     "short_name": "N2Store",
-    "version": "1.0.12",
+    "version": "1.0.13",
     "description": "N2Store unified messaging & management extension",
     "icons": {
         "16": "images/icon-16.png",
@@ -64,6 +64,15 @@
         "*://tomato.tpos.vn/*",
         "https://n2store-fallback.onrender.com/*"
     ],
+    "commands": {
+        "enable-stream-capture": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+S",
+                "mac": "Command+Shift+S"
+            },
+            "description": "Bật capture stream cho tab tpos-pancake (livestream snapshot)"
+        }
+    },
     "declarative_net_request": {
         "rule_resources": [
             {

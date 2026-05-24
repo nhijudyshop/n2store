@@ -160,6 +160,48 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
 });
 
+// === KEYBOARD COMMAND: enable-stream-capture (Ctrl+Shift+S / Cmd+Shift+S) ===
+// chrome.commands.onCommand fires với extension invocation context → grants
+// activeTab → getMediaStreamId hoạt động. Bind shortcut là cách dễ nhất để
+// user bật stream capture mà không phải tới rê chuột click icon.
+chrome.commands.onCommand.addListener(async (command) => {
+    if (command !== 'enable-stream-capture') return;
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.id || !tab?.url) {
+            log.warn(MODULE, 'enable-stream-capture: no active tab');
+            return;
+        }
+        const isTposPancake = /^https:\/\/nhijudy\.store\/tpos-pancake\//.test(tab.url);
+        if (!isTposPancake) {
+            log.warn(MODULE, 'enable-stream-capture: active tab không phải tpos-pancake');
+            return;
+        }
+        const streamId = await new Promise((resolve, reject) => {
+            chrome.tabCapture.getMediaStreamId(
+                { consumerTabId: tab.id, targetTabId: tab.id },
+                (id) => {
+                    const err = chrome.runtime.lastError;
+                    if (err) reject(new Error(err.message));
+                    else resolve(id);
+                }
+            );
+        });
+        if (!streamId) {
+            log.warn(MODULE, 'enable-stream-capture: no streamId');
+            return;
+        }
+        await chrome.tabs.sendMessage(tab.id, {
+            type: 'N2_TAB_STREAM_ID',
+            streamId,
+            ts: Date.now(),
+        });
+        log.info(MODULE, `enable-stream-capture: streamId sent to tab ${tab.id}`);
+    } catch (e) {
+        log.error(MODULE, 'enable-stream-capture failed:', e.message);
+    }
+});
+
 // Dedicated handler: tab stream grab triggered by page click. Sender activation
 // context MAY propagate (Chrome experimental). Returns streamId or error.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

@@ -139,7 +139,7 @@
     // Yêu cầu extension version >= REQUIRED_EXT_VERSION (host_permission
     // <all_urls> + N2_CAPTURE_VISIBLE_TAB handler).
     // -----------------------------------------------------
-    const REQUIRED_EXT_VERSION = '1.0.8';
+    const REQUIRED_EXT_VERSION = '1.0.13';
     function _cmpVersions(a, b) {
         const aa = String(a || '0')
             .split('.')
@@ -1328,23 +1328,32 @@ Throttle 30s/KH. Click để tắt.`;
         overlay.id = 'tpos-snap-stream-modal';
         overlay.style.cssText =
             'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.75);display:flex;align-items:center;justify-content:center;padding:24px;font-family:Inter,system-ui,sans-serif;backdrop-filter:blur(4px);';
+        const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+        const shortcutLabel = isMac ? 'Cmd+Shift+S' : 'Ctrl+Shift+S';
         overlay.innerHTML = `
-            <div style="background:#fff;border-radius:16px;padding:32px 36px;max-width:480px;width:100%;box-shadow:0 32px 80px rgba(0,0,0,0.4);">
+            <div style="background:#fff;border-radius:16px;padding:32px 36px;max-width:520px;width:100%;box-shadow:0 32px 80px rgba(0,0,0,0.4);">
                 <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
                     <span style="font-size:32px;">🎬</span>
-                    <h3 style="margin:0;font-size:18px;font-weight:800;color:#0f172a;">Bấm Enter để bật capture stream</h3>
+                    <h3 style="margin:0;font-size:18px;font-weight:800;color:#0f172a;">Bật capture stream — bấm phím tắt</h3>
                 </div>
                 <p style="margin:0 0 16px;font-size:14px;color:#475569;line-height:1.6;">
-                    Chrome browser yêu cầu user gesture để extension lấy stream tab.
-                    <strong>Bấm phím Enter</strong> 1 lần ngay bây giờ — sau đó capture
-                    livestream chạy tự động dù anh switch sang tab khác / minimize browser.
+                    Chrome yêu cầu <strong>extension invocation</strong> để lấy stream tab (page click không count).
+                    Cách dễ nhất: bấm <strong>${shortcutLabel}</strong> 1 lần — sau đó capture chạy tự động dù
+                    anh switch sang tab khác / minimize browser.
                 </p>
-                <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;margin-bottom:18px;display:flex;gap:10px;align-items:center;">
-                    <kbd style="padding:6px 14px;background:#fff;border:1px solid #cbd5e1;border-bottom-width:3px;border-radius:6px;font-family:ui-monospace,monospace;font-size:14px;font-weight:700;color:#0f172a;">Enter</kbd>
-                    <span style="font-size:13px;color:#78350f;font-weight:600;">— Bắt buộc bấm để dùng web</span>
+                <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+                    <div style="font-size:11px;color:#78350f;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:8px;">Phím tắt (recommended)</div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <kbd style="padding:8px 14px;background:#fff;border:1px solid #cbd5e1;border-bottom-width:3px;border-radius:6px;font-family:ui-monospace,monospace;font-size:14px;font-weight:700;color:#0f172a;">${shortcutLabel}</kbd>
+                        <span style="font-size:13px;color:#78350f;font-weight:600;">— Bật stream capture</span>
+                    </div>
+                </div>
+                <div style="background:#f1f5f9;border-radius:10px;padding:12px 14px;margin-bottom:18px;font-size:12px;color:#475569;line-height:1.5;">
+                    <strong>Hoặc</strong>: click icon <strong>N2Store</strong> trên thanh extension Chrome →
+                    popup tự grab streamId.
                 </div>
                 <button type="button" id="tpos-snap-stream-modal-go" autofocus style="width:100%;padding:14px 18px;background:linear-gradient(135deg,#0284c7,#0369a1);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 6px 16px rgba(2,132,199,0.35);">
-                    🎬 BẬT NGAY (Enter)
+                    🎬 Thử lại (Enter — best effort)
                 </button>
                 <div id="tpos-snap-stream-modal-status" style="margin-top:14px;font-size:12px;color:#64748b;line-height:1.5;min-height:18px;text-align:center;"></div>
             </div>`;
