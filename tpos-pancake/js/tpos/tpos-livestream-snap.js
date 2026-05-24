@@ -2064,18 +2064,25 @@ Throttle 30s/KH. Click để tắt.`;
     // -----------------------------------------------------
     // Popover — list snapshots
     // -----------------------------------------------------
-    async function togglePopover(customerFbUserId, customerName, anchor) {
+    // filterCommentId (optional): chỉ hiện snapshot match đúng comment đó
+    // (không list toàn bộ snapshots của KH). Click badge 📸 → pass commentId
+    // của row; nếu null → fallback hiện all (legacy behavior).
+    async function togglePopover(customerFbUserId, customerName, anchor, filterCommentId) {
+        const popoverKey = filterCommentId
+            ? `${customerFbUserId}:${filterCommentId}`
+            : customerFbUserId;
         const existing = document.querySelector('.tpos-snap-popover');
-        if (existing && STATE.popoverOpen === customerFbUserId) {
+        if (existing && STATE.popoverOpen === popoverKey) {
             existing.remove();
             STATE.popoverOpen = null;
             return;
         }
         if (existing) existing.remove();
-        STATE.popoverOpen = customerFbUserId;
+        STATE.popoverOpen = popoverKey;
 
         const pop = document.createElement('div');
         pop.className = 'tpos-snap-popover';
+        pop.dataset.filterCommentId = filterCommentId || '';
         pop.style.cssText =
             'position:absolute;z-index:9999;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);padding:10px;min-width:280px;max-width:340px;max-height:420px;overflow-y:auto;font-family:Inter,system-ui,sans-serif;';
         pop.innerHTML = `
@@ -2106,13 +2113,18 @@ Throttle 30s/KH. Click để tắt.`;
             document.addEventListener('click', closeOutside);
         }, 0);
 
-        await _refreshPopoverContent(customerFbUserId);
+        await _refreshPopoverContent(customerFbUserId, filterCommentId);
     }
 
-    async function _refreshPopoverContent(customerFbUserId) {
+    async function _refreshPopoverContent(customerFbUserId, filterCommentId) {
         const pop = document.querySelector('.tpos-snap-popover');
         if (!pop) return;
         const body = pop.querySelector('.snap-pop-body');
+        // Param filterCommentId optional. Nếu không pass, đọc từ pop.dataset
+        // (case refresh từ SSE 'extract-done' không biết filter).
+        if (filterCommentId === undefined) {
+            filterCommentId = pop.dataset.filterCommentId || '';
+        }
         try {
             const r = await fetch(
                 API +
@@ -2122,8 +2134,14 @@ Throttle 30s/KH. Click để tắt.`;
                 { credentials: 'omit' }
             );
             const d = await r.json();
-            const list = d.snapshots || [];
-            STATE.cacheList.set(customerFbUserId, list);
+            const allSnapshots = d.snapshots || [];
+            STATE.cacheList.set(customerFbUserId, allSnapshots);
+            // Filter theo commentId nếu có → chỉ hiện snapshot của comment đó.
+            // Snapshot có field commentId (Postgres snake_case 'comment_id'
+            // → API alias 'commentId'). String compare để robust với numeric/text.
+            const list = filterCommentId
+                ? allSnapshots.filter((s) => String(s.commentId || '') === String(filterCommentId))
+                : allSnapshots;
             // Phase 3 G: smart auto-fill — snap không có bytea + chưa extract →
             // enqueue background extract. UI sẽ tự update khi SSE 'extract-done'.
             const needExtract = list
@@ -2287,7 +2305,7 @@ Throttle 30s/KH. Click để tắt.`;
         btn.type = 'button';
         btn.className = 'tpos-snap-btn';
         btn.dataset.customerId = customerFbUserId;
-        btn.title = `📸 Snap livestream cho KH ${customerName}\nAuto mode ON: click → xem list snapshots (đã tự động chụp)\nAuto mode OFF: click → chụp ngay\nShift+click / right-click: luôn xem list`;
+        btn.title = `📸 Snap livestream cho KH ${customerName}\nAuto mode ON: click → xem snapshot của comment này (chỉ 1)\nAuto mode OFF: click → chụp ngay\nShift+click / right-click: xem TẤT CẢ snapshot của KH`;
         // Inline SVG (lucide:camera) — KHÔNG dùng <i data-lucide> + lucide.createIcons()
         // vì createIcons() scan toàn bộ DOM mỗi call → 100 rows = 100 scan = lag.
         btn.innerHTML =
@@ -2300,7 +2318,9 @@ Throttle 30s/KH. Click để tắt.`;
             // qua eventBus, không cần snap thủ công nữa). Shift / right-click vẫn
             // luôn view list. Auto OFF → click → snap thủ công như cũ.
             if (e.shiftKey || _isAutoMode()) {
-                togglePopover(customerFbUserId, customerName, btn);
+                // Filter theo commentId → chỉ hiện snapshot của ĐÚNG comment.
+                // Shift+click bypass filter → xem all snapshots của KH.
+                togglePopover(customerFbUserId, customerName, btn, e.shiftKey ? null : commentId);
             } else {
                 const commentTime = c?.created_time
                     ? new Date(c.created_time).getTime()
@@ -2313,7 +2333,7 @@ Throttle 30s/KH. Click để tắt.`;
                 });
             }
         };
-        // Right-click → show popover
+        // Right-click → show popover (all snapshots, không filter)
         btn.oncontextmenu = (e) => {
             e.preventDefault();
             e.stopPropagation();
