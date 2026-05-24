@@ -25,6 +25,36 @@
 
 ## 2026-05-24
 
+### [issue-tracking] BÁN HÀNG/TRẢ HÀNG CSS: pixel-match TPOS invoicelist style
+
+**User ask**: "browser test vào tpos invoicelist coi css, giao diện bảng, chức năng, cách hiển thị, font chữ, cỡ chữ, hover, màu sắc, button" — apply TPOS visual style verbatim cho 2 tab vừa làm.
+
+**Approach**: Playwright nav `https://tomato.tpos.vn/#/app/fastsaleorder/invoicelist` (session đã có sẵn từ trước nên không cần login), `getComputedStyle` chụp lại CSS tokens của body / th / td / tr / badge / button / pagination. Copy nguyên các giá trị sang `.tpos-fastsale` block trong `page-tabs.css`. Verify computed styles bằng eval đối chiếu — body bg `rgb(237,241,242)`, font `"Segoe UI", Tahoma, …`, th `rgb(240,238,238)` `36px` `padding 7px 8.4px 5.6px`, td `padding 5.6px 8.4px` `line-height 22.4px`, badge `text-info-lt badge-empty` (transparent bg + border `rgba(0,0,0,0.15)` + bold colored text), button purple `#7266ba` 12px 30px h.
+
+**Files**:
+
+- `issue-tracking/css/page-tabs.css`
+    - `.tpos-fastsale` palette rewrite: vars `--tp-page-bg: #edf1f2`, `--tp-border: #cccccc`, `--tp-row-stripe: #f5f5f5`, `--tp-text: #4c4c4c`, `--tp-text-strong: #333`, `--tp-th-bg: #f0eeee`, `--tp-accent: #7266ba` (purple), `--tp-link: #428bca`, semantic `--tp-{green,red,amber,blue}` = `#27c24c #f05050 #ff902b #3abee8`.
+    - `font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 14px;` thay Inter.
+    - Header/breadcrumb 14px, counter pill purple bg #fff text 12px weight 700 radius 10px.
+    - Filters padding 10/16, search input height 30px radius 2px (sharp corners, not 6px). Select/date input height 30px radius 2px.
+    - `tpos-btn-mini`: height 30px / padding 0 10px / radius 2px / font 12px weight 600 / bg white border #ccc / hover → purple bg #fff text.
+    - Table: `border-collapse: separate; border-spacing: 0;` + `1px solid #ccc` borders trên TỪNG cell (top/right/bottom + first-child left) thay vì collapse. th `bg #f0eeee` `color #000` `weight 600` `padding 7px 8.4px 5.6px` `height 36px`. td `padding 5.6px 8.4px` `line-height 22.4px` `color #333` `font-size 14px`.
+    - Zebra stripe: `tbody tr:nth-child(even) { background: #f5f5f5; }`. Hover: `#e8f3fc`.
+    - `tpos-fso-num` link blue `#428bca`, hover purple `#7266ba` + underline.
+    - Badge: transparent bg + `1px solid rgba(0,0,0,0.15)` border + 12px weight 700 padding 3/7 radius 10px → match TPOS `.badge-empty` exactly. Color theo state: `s-open #3abee8`, `s-paid #ff902b`, `s-done #27c24c`, `s-cancel #f05050`, `s-draft #98a6ad`.
+    - Table wrap: bỏ `border` + `box-shadow`, chỉ `margin: 10px 16px 0` (table tự có border từ cell).
+    - Pagination footer: bg `#f5f5f5` + `1px solid #ccc border-top: 0` → mimic Kendo `.k-pager-wrap`. Padding 6/12, height 34. Page input 50×26px radius 2px.
+
+**Verify** (Playwright localhost):
+
+- Computed styles match TPOS exactly: body bg `rgb(237,241,242)`, font `"Segoe UI", Tahoma, …`, th bg `rgb(240,238,238)` height 36px padding 7px/8.4px/5.6px border `1px solid rgb(204,204,204)`, td padding 5.6px/8.4px line-height 22.4px color #333, tr1 bg transparent + tr2 bg `rgb(245,245,245)` (zebra), badge color #3abee8 + border rgba(0,0,0,0.15) + transparent bg + 12px weight 700 radius 10px.
+- BÁN HÀNG: 13.993 HĐ total, search "0917446277" → 6 HĐ; limit=20 → 20 rows render với TPOS visual.
+- TRẢ HÀNG: 436 phiếu total, render với same TPOS theme.
+- Screenshots: `downloads/n2store-session/it-banhang-20rows.png`, `it-trahang-tpos-match.png`, reference `tpos-invoicelist-ref.png`.
+
+**Status**: ✅ Done
+
 ### [extension][shared/navigation] Install prompt + sidebar link Chrome Web Store
 
 **User ask**: (1) Thêm link extension vào thanh menu navigator modern. (2) Khi user vào web mà chưa cài extension thì hiện popup kêu cài.
