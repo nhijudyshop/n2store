@@ -2527,13 +2527,14 @@ async function commitInlineEditCost(td, input, costId, invoiceId, oldSoTien) {
     }
 
     try {
-        if (!Array.isArray(targetDot.chiPhiHangVe)) targetDot.chiPhiHangVe = [];
+        // chiPhiHangVe is per-(date, đợt) shared across NCC dots — work on the GROUP'S
+        // current array (not just targetDot), then mirror back to all dots.
+        const groupDots = _findDotsBySameShipment(targetDot);
+        let arr = _readGroupChiPhi(groupDots);
 
         if (costRecord) {
             if (newSoTien === 0) {
-                targetDot.chiPhiHangVe = targetDot.chiPhiHangVe.filter(
-                    (x) => x.id !== costRecord.id
-                );
+                arr = arr.filter((x) => x.id !== costRecord.id);
                 td.dataset.costId = '';
                 const noteCell = td.parentElement?.querySelector('.cost-note-cell');
                 if (noteCell) {
@@ -2541,26 +2542,39 @@ async function commitInlineEditCost(td, input, costId, invoiceId, oldSoTien) {
                     noteCell.innerHTML = '';
                 }
             } else {
-                costRecord.soTien = newSoTien;
+                const idx = arr.findIndex((x) => x.id === costRecord.id);
+                if (idx >= 0) arr[idx] = { ...arr[idx], soTien: newSoTien };
             }
         } else if (newSoTien > 0) {
             const newId = `cp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-            targetDot.chiPhiHangVe.push({ id: newId, loai: '', soTien: newSoTien });
+            arr.push({ id: newId, loai: '', soTien: newSoTien });
             td.dataset.costId = newId;
             const noteCell = td.parentElement?.querySelector('.cost-note-cell');
             if (noteCell) noteCell.dataset.costId = newId;
         }
 
-        targetDot.tongChiPhi = targetDot.chiPhiHangVe.reduce((s, c) => s + (c.soTien || 0), 0);
+        const newTongChiPhi = arr.reduce((s, c) => s + (c.soTien || 0), 0);
 
-        await shipmentsApi.update(targetDot.id, {
-            chiPhiHangVe: targetDot.chiPhiHangVe,
-            tongChiPhi: targetDot.tongChiPhi,
+        // Mirror to all dots locally + persist to all rows (so reload picks up new state
+        // regardless of which dot the data-loader iterates first).
+        groupDots.forEach((d) => {
+            d.chiPhiHangVe = arr.map((x) => ({ ...x }));
+            d.tongChiPhi = newTongChiPhi;
         });
+        await Promise.all(
+            groupDots.map((d) =>
+                shipmentsApi.update(d.id, {
+                    chiPhiHangVe: d.chiPhiHangVe,
+                    tongChiPhi: d.tongChiPhi,
+                })
+            )
+        );
 
         td.innerHTML = _renderCostValueHtml(newSoTien);
         _refreshCostTotal(td);
         flattenNCCData();
+        _refreshShipmentCards();
+        updateInventoryStatsBar();
         window.notificationManager?.success('Đã cập nhật chi phí');
     } catch (error) {
         console.error('[INLINE-COST] Error:', error);
@@ -2640,24 +2654,38 @@ async function commitInlineEditCostNote(td, input, costId, invoiceId, oldLoai) {
     }
 
     try {
-        if (!Array.isArray(targetDot.chiPhiHangVe)) targetDot.chiPhiHangVe = [];
+        const groupDots = _findDotsBySameShipment(targetDot);
+        let arr = _readGroupChiPhi(groupDots);
 
         if (costRecord) {
-            costRecord.loai = newLoai;
+            const idx = arr.findIndex((x) => x.id === costRecord.id);
+            if (idx >= 0) arr[idx] = { ...arr[idx], loai: newLoai };
         } else if (newLoai) {
             const newId = `cp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-            targetDot.chiPhiHangVe.push({ id: newId, loai: newLoai, soTien: 0 });
+            arr.push({ id: newId, loai: newLoai, soTien: 0 });
             td.dataset.costId = newId;
             const amtCell = td.parentElement?.querySelector('.cost-cell');
             if (amtCell) amtCell.dataset.costId = newId;
         }
 
-        await shipmentsApi.update(targetDot.id, {
-            chiPhiHangVe: targetDot.chiPhiHangVe,
+        const newTongChiPhi = arr.reduce((s, c) => s + (c.soTien || 0), 0);
+        groupDots.forEach((d) => {
+            d.chiPhiHangVe = arr.map((x) => ({ ...x }));
+            d.tongChiPhi = newTongChiPhi;
         });
+        await Promise.all(
+            groupDots.map((d) =>
+                shipmentsApi.update(d.id, {
+                    chiPhiHangVe: d.chiPhiHangVe,
+                    tongChiPhi: d.tongChiPhi,
+                })
+            )
+        );
 
         td.innerHTML = _renderCostNoteHtml(newLoai);
         flattenNCCData();
+        _refreshShipmentCards();
+        updateInventoryStatsBar();
         window.notificationManager?.success('Đã cập nhật ghi chú CP');
     } catch (error) {
         console.error('[INLINE-COST-NOTE] Error:', error);
@@ -2977,6 +3005,8 @@ async function _persistPaymentByDot(dotSo, patch) {
     flattenNCCData();
     _refreshPaymentDotSectionUI(ds);
     updateInventoryStatsBar();
+    // Re-render shipment cards: Số dư / Còn dư phụ thuộc trực tiếp vào thanhToanCK.
+    _refreshShipmentCards();
 }
 
 function _getPaymentsForDot(dotSo) {
