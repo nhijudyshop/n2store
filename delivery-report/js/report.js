@@ -99,9 +99,10 @@
         return dates;
     }
 
+    // Cached formatter — re-using saves ~1ms × hundreds of cells per render
+    const moneyFormatter = new Intl.NumberFormat('vi-VN');
     function formatMoney(n) {
-        const v = Math.round(Number(n) || 0);
-        return new Intl.NumberFormat('vi-VN').format(v);
+        return moneyFormatter.format(Math.round(Number(n) || 0));
     }
 
     function parseMoney(s) {
@@ -311,6 +312,17 @@
         render();
     }
 
+    // Coalesce multiple render() calls within the same frame (e.g. tab switch
+    // triggering both tab UI update + data refresh would render twice).
+    let renderRaf = 0;
+    function scheduleRender() {
+        if (renderRaf) return;
+        renderRaf = requestAnimationFrame(() => {
+            renderRaf = 0;
+            render();
+        });
+    }
+
     async function render() {
         // Tab visual state
         document.querySelectorAll('#drReportTabs button').forEach((b) => {
@@ -413,47 +425,50 @@
             <th class="num strong ${totals.totalLeft < 0 ? 'negative' : 'positive'}">${formatMoney(totals.totalLeft)}</th>
         </tr>`;
 
-        wireRowInputs();
+        // Delegation set up once in ensureModal() — no per-cell binding here.
     }
 
-    function wireRowInputs() {
+    // Single delegated listener set wired in ensureModal(). Avoids attaching
+    // O(rows × fields) handlers per render — major perf win when range is large.
+    function bindTbodyDelegation() {
         const tbody = document.getElementById('drReportTbody');
-        // Click on TIỀN cell to open image viewer/editor
-        tbody.querySelectorAll('td[data-action="open-img"]').forEach((cell) => {
-            cell.addEventListener('click', () => {
-                const row = cell.closest('tr');
-                openImageModal(row.dataset.date);
-            });
+        if (!tbody || tbody.dataset.delegationBound === '1') return;
+        tbody.dataset.delegationBound = '1';
+
+        tbody.addEventListener('focusout', (e) => {
+            const input = e.target.closest && e.target.closest('input[data-field]');
+            if (!input || !tbody.contains(input)) return;
+            const row = input.closest('tr[data-date]');
+            if (!row) return;
+            const field = input.dataset.field;
+            const value =
+                field === 'slDon'
+                    ? input.value === ''
+                        ? ''
+                        : Math.max(0, Number(input.value) || 0)
+                    : parseMoney(input.value);
+            setOverride(row.dataset.date, state.activeTab, { [field]: value });
+            scheduleRender();
         });
-        tbody.querySelectorAll('input[data-field]').forEach((input) => {
-            input.addEventListener('blur', () => {
-                const row = input.closest('tr');
-                const date = row.dataset.date;
-                const field = input.dataset.field;
-                const value =
-                    field === 'slDon'
-                        ? input.value === ''
-                            ? ''
-                            : Math.max(0, Number(input.value) || 0)
-                        : parseMoney(input.value);
-                const patch = {};
-                patch[field] = value;
-                setOverride(date, state.activeTab, patch);
-                render();
-            });
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') input.blur();
-            });
+
+        tbody.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.target && e.target.matches('input[data-field]')) {
+                e.target.blur();
+            }
         });
-        tbody.querySelectorAll('.dr-report-reset').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const date = btn.dataset.date;
-                const field = btn.dataset.field;
-                const patch = {};
-                patch[field] = '';
-                setOverride(date, state.activeTab, patch);
-                render();
-            });
+
+        tbody.addEventListener('click', (e) => {
+            const reset = e.target.closest && e.target.closest('.dr-report-reset');
+            if (reset) {
+                setOverride(reset.dataset.date, state.activeTab, { [reset.dataset.field]: '' });
+                scheduleRender();
+                return;
+            }
+            const imgCell = e.target.closest && e.target.closest('td[data-action="open-img"]');
+            if (imgCell) {
+                const row = imgCell.closest('tr[data-date]');
+                if (row) openImageModal(row.dataset.date);
+            }
         });
     }
 
