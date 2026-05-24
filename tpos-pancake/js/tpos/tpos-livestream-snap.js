@@ -372,19 +372,14 @@
         // Click chip = đổi mode (NOT toggle stream). Stream tự bật khi user
         // click 📸 trong mode='live' (lazy initialization, OS picker chỉ hiện
         // khi cần thật sự).
-        chip.addEventListener('click', async () => {
-            // Click 🎬 = 1-click toggle. Dùng EMBEDDED iframe FB live (no tab
-            // switch). Nếu đã share → stop + remove iframe.
-            if (STATE.captureStream) {
-                stopRealSnap();
-                const wrapper = document.getElementById('tpos-snap-fb-wrapper');
-                if (wrapper) wrapper.remove();
-                _setSnapMode(MODE_LAZY);
-                _toast('⏱️ Đã ngắt — auto-snap dùng metadata only', 'ok');
-                return;
-            }
-            _setSnapMode(MODE_LIVE);
-            await _enableEmbeddedLiveCapture();
+        chip.addEventListener('click', () => {
+            // Click 🎬 = info only. Sharing được loại bỏ — backend extract-frame
+            // (yt-dlp + ffmpeg) xử lý mọi frame capture. Sau khi live end →
+            // cron retry tự fill. Iframe + sharing là dư (browser CORS chặn).
+            _toast(
+                '🎬 Frame thật được backend tự extract (yt-dlp + ffmpeg). Comment trong live đang chạy sẽ fill ảnh khi live kết thúc.',
+                'ok'
+            );
         });
         host.appendChild(chip);
         renderRealSnapChip();
@@ -394,28 +389,13 @@
     function renderRealSnapChip() {
         const chip = document.getElementById('tpos-snap-real-chip');
         if (!chip) return;
-        const streamReady = !!STATE.captureStream;
-        const bufSize = STATE.frameBuffer?.length || 0;
-        if (streamReady) {
-            chip.innerHTML = `<span style="display:inline-block;width:8px;height:8px;background:#dc2626;border-radius:50%;animation:snap-pulse 1.4s ease-in-out infinite;"></span> 🎬 LIVE linked · ${bufSize} frames`;
-            chip.style.background = '#fee2e2';
-            chip.style.borderColor = '#fca5a5';
-            chip.style.color = '#991b1b';
-            chip.title = `Stream FB đang link. Mỗi 5s capture 1 frame vào buffer (giữ 1h). Auto-snap dùng frame nearest commentTime.
-Click chip để NGẮT stream.`;
-        } else {
-            chip.innerHTML = `🎬 Bắt đầu chụp live · click 1 cái mở FB + share`;
-            chip.style.background = '#fef3c7';
-            chip.style.borderColor = '#fcd34d';
-            chip.style.color = '#92400e';
-            chip.title = `Click: tự mở tab FB live + 3s sau prompt share. Sau khi share, frame buffer chạy → mọi auto-snap dùng frame thật. Không cần làm gì thêm.`;
-        }
+        chip.innerHTML = `🎬 Auto-snap (backend)`;
+        chip.style.background = '#dcfce7';
+        chip.style.borderColor = '#86efac';
+        chip.style.color = '#166534';
+        chip.title =
+            'Backend tự extract frame qua yt-dlp + ffmpeg. Comment trong live đang chạy → fill ảnh sau khi live kết thúc (cron retry mỗi giờ).';
     }
-
-    // Update buffer count trong chip mỗi 5s khi stream active.
-    setInterval(() => {
-        if (STATE.captureStream) renderRealSnapChip();
-    }, 5000);
 
     // -----------------------------------------------------
     // Auto-mode chip — khi mới có comment, tự động snap
@@ -1003,37 +983,11 @@ Throttle 30s/KH. Click để tắt.`;
         }
     }
 
-    // AUTO-START — DEFERRED IFRAME (lag fix v2):
-    // KHÔNG auto-inject iframe FB (plugin nặng, lag máy). Chỉ show 1 floating
-    // button "🎬 BẬT AUTO-SNAP" — user click → mới inject iframe + share.
+    // NO-OP — pill/banner removed. Backend extract-frame xử lý mọi frame capture
+    // qua yt-dlp + ffmpeg + retry cron khi live end. Iframe không cần thiết
+    // (browser CORS chặn JS đọc pixel iframe cross-origin, sharing là dư).
     function _maybeShowAutoSnapBanner() {
-        if (STATE.captureStream) return;
-        if (document.getElementById('tpos-snap-go-pill')) return;
-        const camp = _findActiveLiveCampaign();
-        if (!camp?.Facebook_LiveId) return;
-        // Floating pill button ở góc dưới phải — KHÔNG inject iframe trước.
-        const pill = document.createElement('button');
-        pill.id = 'tpos-snap-go-pill';
-        pill.type = 'button';
-        pill.title =
-            'Bấm 1 lần để bật auto-snap frame thật (iframe FB sẽ load + share). KHÔNG load trước để page không lag.';
-        pill.innerHTML =
-            '<span style="font-size:18px;">🎬</span> <span>BẬT AUTO-SNAP</span> <small style="opacity:0.8;font-weight:500;">1 click</small>';
-        pill.style.cssText =
-            'position:fixed;bottom:16px;right:16px;background:#dc2626;color:#fff;font-weight:700;font-size:13px;padding:12px 16px;border:none;border-radius:24px;cursor:pointer;z-index:99000;box-shadow:0 6px 20px rgba(0,0,0,0.35);display:inline-flex;align-items:center;gap:8px;font-family:Inter,system-ui,sans-serif;';
-        document.body.appendChild(pill);
-        pill.onclick = async () => {
-            pill.disabled = true;
-            pill.innerHTML = '⏳ Đang load iframe FB...';
-            const ok = await _enableEmbeddedLiveCapture();
-            if (ok) {
-                pill.remove();
-            } else {
-                pill.disabled = false;
-                pill.innerHTML =
-                    '<span style="font-size:18px;">🎬</span> <span>BẬT AUTO-SNAP</span> <small style="opacity:0.8;font-weight:500;">1 click</small>';
-            }
-        };
+        // intentionally empty
     }
 
     async function toggleRealSnap() {

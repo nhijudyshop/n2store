@@ -4093,6 +4093,204 @@ function initEventHandlers() {
 }
 
 // =====================================================
+// AUTO REFRESH — polling + cross-tab BroadcastChannel
+// =====================================================
+// Mục đích: bảng tự cập nhật khi user/tab khác sửa dữ liệu TPOS, không cần F5.
+// Polling 30s (configurable). Cross-tab: BroadcastChannel cho phép sửa ở tab A → tab B refresh ngay.
+// Anti-lag: hash diff để skip render khi data không đổi; preserve scroll/expanded; skip khi modal mở.
+
+const AutoRefresh = {
+    _timerId: null,
+    _intervalMs: 30000,
+    _minGapMs: 4000,
+    _tabId: `sd-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    _bc: null,
+    _lastTickAt: 0,
+    _lastDataHash: '',
+    _enabled: false,
+    _visBound: false,
+
+    start(intervalMs) {
+        if (intervalMs && intervalMs >= 5000) this._intervalMs = intervalMs;
+        if (this._timerId) return;
+        if (localStorage.getItem('supplier_debt_auto_refresh_disabled') === '1') {
+            console.log('[AutoRefresh] Disabled via localStorage flag');
+            return;
+        }
+        this._enabled = true;
+        this._timerId = setInterval(() => this.tick({ reason: 'poll' }), this._intervalMs);
+
+        if (typeof BroadcastChannel !== 'undefined' && !this._bc) {
+            try {
+                this._bc = new BroadcastChannel('supplier-debt-sync');
+                this._bc.addEventListener('message', (evt) => {
+                    const msg = evt.data || {};
+                    if (msg.source === this._tabId) return;
+                    if (msg.type === 'data-changed') {
+                        console.log('[AutoRefresh] cross-tab change:', msg.action || 'unknown');
+                        this.tick({ force: true, reason: 'broadcast', action: msg.action });
+                    }
+                });
+            } catch (e) {
+                console.warn('[AutoRefresh] BroadcastChannel unavailable:', e);
+            }
+        }
+
+        if (!this._visBound) {
+            document.addEventListener('visibilitychange', AutoRefresh._onVisibility);
+            this._visBound = true;
+        }
+        console.log(`[AutoRefresh] Started interval=${this._intervalMs}ms tabId=${this._tabId}`);
+    },
+
+    stop() {
+        this._enabled = false;
+        if (this._timerId) {
+            clearInterval(this._timerId);
+            this._timerId = null;
+        }
+        if (this._bc) {
+            try {
+                this._bc.close();
+            } catch (_) {}
+            this._bc = null;
+        }
+    },
+
+    _onVisibility() {
+        if (!document.hidden && AutoRefresh._enabled) {
+            AutoRefresh.tick({ force: true, reason: 'visibility' });
+        }
+    },
+
+    _isBusy() {
+        if (State.isLoading) return true;
+        if (document.hidden) return true;
+        const openModal = document.querySelector(
+            '#paymentModal.show, #noteEditModal.show, #invoiceDetailModal.show, #supplierNoteModal.show, #createSupplierModal.show, #returnOrderModal.show'
+        );
+        if (openModal) return true;
+        const ae = document.activeElement;
+        if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) {
+            return true;
+        }
+        // User mid-selecting refund orders → đừng wipe selection
+        if (RefundOrders && RefundOrders._selectedIds && RefundOrders._selectedIds.size > 0) {
+            return true;
+        }
+        return false;
+    },
+
+    async tick({ force = false, reason = 'poll', action = '' } = {}) {
+        if (!this._enabled && !force) return false;
+        const now = Date.now();
+        if (!force && now - this._lastTickAt < this._minGapMs) return false;
+        if (!force && this._isBusy()) return false;
+        this._lastTickAt = now;
+        try {
+            return await silentRefresh({ reason, action });
+        } catch (e) {
+            console.warn('[AutoRefresh] tick error:', e);
+            return false;
+        }
+    },
+
+    notifyChange(action) {
+        if (!this._bc) return;
+        try {
+            this._bc.postMessage({
+                type: 'data-changed',
+                source: this._tabId,
+                action,
+                ts: Date.now(),
+            });
+        } catch (_) {
+            /* ignore */
+        }
+    },
+
+    _hashData(rows) {
+        // Hash nhanh: chỉ các trường ảnh hưởng UI bảng tổng
+        return rows
+            .map((r) => `${r.PartnerId}:${r.Debit || 0}:${r.Credit || 0}:${r.End || 0}`)
+            .join('|');
+    },
+
+    seedHash() {
+        this._lastDataHash = this._hashData(State.data || []);
+    },
+};
+
+// Silent refresh: re-fetch + diff hash + render chỉ khi thay đổi.
+// KHÔNG: clear expandedRows, show success toast, mất scroll.
+async function silentRefresh({ reason = 'poll', action = '' } = {}) {
+    if (State.isLoading) return false;
+    State.isLoading = true;
+    try {
+        const params = new URLSearchParams();
+        params.set('Display', State.display);
+        params.set('DateFrom', toISODateString(State.dateFrom, false));
+        params.set('DateTo', toISODateString(State.dateTo, true));
+        params.set('ResultSelection', CONFIG.RESULT_SELECTION);
+        params.set('$top', State.pageSize);
+        params.set('$skip', (State.currentPage - 1) * State.pageSize);
+        params.set('$count', 'true');
+        params.set('$orderby', 'Code asc');
+
+        const url = `${CONFIG.API_BASE}/${CONFIG.ENDPOINT}?${params.toString()}`;
+        const response = await tposFetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const result = await response.json();
+        const rows = result.value || [];
+        const newHash = AutoRefresh._hashData(rows);
+
+        if (newHash === AutoRefresh._lastDataHash) {
+            // Không đổi → skip render (anti-lag)
+            return false;
+        }
+
+        const scrollY = window.scrollY;
+        State.data = rows;
+        State.totalCount = result['@odata.count'] || 0;
+        AutoRefresh._lastDataHash = newHash;
+
+        applySupplierFilter();
+        renderTable(); // expandedRows được preserve (không clear)
+        renderPagination();
+        calculateTotals();
+
+        // Restore scroll (renderTable thay tbody innerHTML → scrollY có thể nhảy)
+        if (window.scrollY !== scrollY) {
+            window.scrollTo({ top: scrollY, behavior: 'instant' });
+        }
+
+        // Refresh refund banner chỉ khi không có selection
+        if (RefundOrders && RefundOrders._selectedIds && RefundOrders._selectedIds.size === 0) {
+            RefundOrders.fetch().catch(() => {});
+        }
+
+        // Toast nhẹ chỉ khi do broadcast hoặc visibility (user thực sự cần biết)
+        if (
+            (reason === 'broadcast' || reason === 'visibility') &&
+            window.notificationManager?.info
+        ) {
+            const actionLabel = action ? ` (${action})` : '';
+            window.notificationManager.info(`Đã cập nhật dữ liệu${actionLabel}`);
+        }
+
+        console.log(
+            `[AutoRefresh] re-rendered reason=${reason}${action ? ' action=' + action : ''}`
+        );
+        return true;
+    } finally {
+        State.isLoading = false;
+    }
+}
+
+// Expose for cross-module access (return-order.js)
+window.SupplierDebtAutoRefresh = AutoRefresh;
+
+// =====================================================
 // INITIALIZATION
 // =====================================================
 
