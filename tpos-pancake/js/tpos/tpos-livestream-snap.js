@@ -977,8 +977,11 @@ Throttle 30s/KH. Click để tắt.`;
         if (!host) return null;
         chip = document.createElement('div');
         chip.id = 'tpos-snap-backfill-chip';
+        // ẨN visually — auto-snap on new comment + Force extract pending đã đủ
+        // bao phủ flow thường. Backfill chỉ cần khi user join late + chưa có
+        // user khác chụp. Giữ chức năng + handlers (revive bằng đổi display).
         chip.style.cssText =
-            'display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#ede9fe;border:1px solid #c4b5fd;border-radius:14px;font-size:12px;font-weight:600;color:#6d28d9;cursor:pointer;user-select:none;';
+            'display:none;align-items:center;gap:4px;padding:4px 10px;background:#ede9fe;border:1px solid #c4b5fd;border-radius:14px;font-size:12px;font-weight:600;color:#6d28d9;cursor:pointer;user-select:none;';
         chip.innerHTML = `🔄 <strong>Backfill</strong>`;
         chip.title =
             'Click: backfill snap cho mọi comment hiện tại (offset chính xác qua broadcast_start). Shift+click: manual nhập time + KH.';
