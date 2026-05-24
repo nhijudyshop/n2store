@@ -914,6 +914,62 @@ Throttle 30s/KH. Click để tắt.`;
         }
     }
 
+    // Force extract pending — re-trigger backend yt-dlp+ffmpeg cho mọi snap
+    // không có bytea (pending/fail/live_active/null). Useful khi live vừa end
+    // + biết FB đã có VOD nhưng cron retry hourly chưa chạy.
+    function ensureForceExtractChip() {
+        let chip = document.getElementById('tpos-snap-force-extract-chip');
+        if (chip) return chip;
+        const host = _ensureFloatingHost();
+        if (!host) return null;
+        chip = document.createElement('div');
+        chip.id = 'tpos-snap-force-extract-chip';
+        chip.style.cssText =
+            'display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#fef3c7;border:1px solid #fde68a;border-radius:14px;font-size:12px;font-weight:600;color:#92400e;cursor:pointer;user-select:none;';
+        chip.innerHTML = `⚡ <strong>Force extract</strong>`;
+        chip.title =
+            'Force backend re-extract tất cả snap không có bytea (yt-dlp + ffmpeg).\nFilter theo live hiện tại nếu có, không thì all.\nUseful khi live vừa end + VOD đã có nhưng cron 1h chưa chạy.';
+        chip.addEventListener('click', async () => {
+            const camp = _findActiveLiveCampaign();
+            const pageObj = _resolvePageObj();
+            const body = {};
+            if (camp?.Facebook_LiveId) body.liveVideoId = camp.Facebook_LiveId;
+            if (pageObj?.Facebook_PageId) body.pageId = pageObj.Facebook_PageId;
+            const scope = camp?.Facebook_LiveId
+                ? `live "${camp.Name || camp.Facebook_LiveId}"`
+                : 'TẤT CẢ lives';
+            if (!confirm(`Force re-extract pending snaps trong ${scope}?`)) return;
+            chip.style.opacity = '0.6';
+            chip.style.pointerEvents = 'none';
+            _toast('⏳ Đang queue pending snaps...', 'ok');
+            try {
+                const r = await fetch(API + '/api/livestream/extract-all-pending', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'omit',
+                    body: JSON.stringify(body),
+                });
+                const d = await r.json();
+                if (!d.success) throw new Error(d.error || 'request failed');
+                if (d.queued === 0) {
+                    _toast('Không có snap pending nào — tất cả đã extract', 'ok');
+                } else {
+                    _toast(
+                        `⚡ Queued ${d.queued} snaps — backend yt-dlp + ffmpeg đang chạy. SSE 'extract-done' sẽ refresh thumbnail.`,
+                        'ok'
+                    );
+                }
+            } catch (e) {
+                _toast('Lỗi force extract: ' + e.message, 'err');
+            } finally {
+                chip.style.opacity = '1';
+                chip.style.pointerEvents = 'auto';
+            }
+        });
+        host.appendChild(chip);
+        return chip;
+    }
+
     function ensureBackfillChip() {
         let chip = document.getElementById('tpos-snap-backfill-chip');
         if (chip) return chip;
@@ -2835,7 +2891,8 @@ Throttle 30s/KH. Click để tắt.`;
             const c2 = ensureRealSnapChip();
             const c3 = ensureAutoModeChip();
             const c4 = ensureBackfillChip();
-            if ((c1 && c2 && c3 && c4) || attempts >= 20) {
+            const c5 = ensureForceExtractChip();
+            if ((c1 && c2 && c3 && c4 && c5) || attempts >= 20) {
                 clearInterval(mountTimer);
                 console.log('[snap] chips mount done after', attempts, 'attempts');
             }

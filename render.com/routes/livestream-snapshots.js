@@ -840,6 +840,66 @@ router.post('/extract-frame', express.json({ limit: '500kb' }), async (req, res)
     }
 });
 
+// POST /extract-all-pending — force re-extract tất cả snap không có bytea
+// Body: { liveVideoId?, pageId?, limit? (default 500, max 500) }
+// Useful khi live end + VOD đã có nhưng cron chưa retry.
+router.post('/extract-all-pending', express.json({ limit: '500kb' }), async (req, res) => {
+    try {
+        if (!_ensureExtractDeps()) {
+            return res.status(503).json({ success: false, error: 'ffmpeg/yt-dlp not installed' });
+        }
+        const pool = req.app.locals.chatDb;
+        const b = req.body || {};
+        const limit = Math.min(Math.max(Number(b.limit) || 500, 1), 500);
+        const where = [
+            'image_data IS NULL',
+            'offset_seconds IS NOT NULL',
+            'live_video_id IS NOT NULL',
+            "(extract_status IS NULL OR extract_status IN ('pending','fail','live_active'))",
+        ];
+        const args = [];
+        if (b.liveVideoId) {
+            args.push(String(b.liveVideoId));
+            where.push(`live_video_id = $${args.length}`);
+        }
+        if (b.pageId) {
+            args.push(String(b.pageId));
+            where.push(`page_id = $${args.length}`);
+        }
+        args.push(limit);
+        const r = await pool.query(
+            `SELECT id, live_video_id, page_id, offset_seconds
+             FROM livestream_snapshots
+             WHERE ${where.join(' AND ')}
+             ORDER BY created_at DESC
+             LIMIT $${args.length}`,
+            args
+        );
+        const batchId = 'ex_pending_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        const status = { total: 0, done: 0, failed: 0, drmBlocked: 0 };
+        for (const row of r.rows) {
+            _extractQueue.push({
+                batchId,
+                snapshotId: Number(row.id),
+                offsetSec: Number(row.offset_seconds),
+                liveVideoId: row.live_video_id,
+                pageId: row.page_id,
+            });
+            await pool.query(
+                `UPDATE livestream_snapshots SET extract_status = 'pending' WHERE id = $1`,
+                [row.id]
+            );
+            status.total++;
+        }
+        _batchStatus.set(batchId, status);
+        setImmediate(() => _runWorker(pool).catch(() => {}));
+        res.json({ success: true, batchId, queued: status.total });
+    } catch (e) {
+        console.error('[lss-extract] pending batch error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // POST /extract-test — test extract 1 snap SYNCHRONOUSLY + return chi tiết error.
 router.post('/extract-test', express.json({ limit: '50kb' }), async (req, res) => {
     try {
