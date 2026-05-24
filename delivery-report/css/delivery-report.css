@@ -2423,3 +2423,18 @@
 #drPresetHint:hover {
     color: #1d4ed8;
 }
+
+.dr-report-hint {
+    margin-left: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #92400e;
+    background: #fef3c7;
+    padding: 3px 9px;
+    border-radius: 999px;
+    cursor: help;
+    border: 1px solid #fcd34d;
+}
+.dr-report-hint i {
+    margin-right: 4px;
+}

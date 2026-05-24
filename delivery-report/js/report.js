@@ -28,6 +28,11 @@
         fromDate: '',
         toDate: '',
         overrides: loadOverrides(),
+        // Per-range fetch cache: { rangeKey: { items, scanned, fetchedAt } }
+        fetchCache: {},
+        isFetching: false,
+        currentItems: [], // items for current range
+        currentScanned: new Set(), // scanned numbers for current range
     };
 
     function loadOverrides() {
@@ -106,18 +111,94 @@
         return Number(cleaned) || 0;
     }
 
-    // ── Data aggregation ──
+    // ── Fetch DB data for the report's date range (independent of main filter) ──
+    function rangeKey(from, to) {
+        return `${from}__${to}`;
+    }
+
+    async function fetchRange(from, to) {
+        if (!from || !to) return { items: [], scanned: new Set() };
+        const key = rangeKey(from, to);
+        const cached = state.fetchCache[key];
+        if (cached && Date.now() - cached.fetchedAt < 60000) {
+            return { items: cached.items, scanned: cached.scanned };
+        }
+        const DR = window.DeliveryReport;
+        if (!DR?._getToken || !DR?._workerUrl) {
+            console.warn('[report] DeliveryReport helpers not ready');
+            return { items: [], scanned: new Set() };
+        }
+        const token = await DR._getToken();
+        if (!token) return { items: [], scanned: new Set() };
+
+        const fromISO = new Date(from + 'T00:00:00').toISOString();
+        const toDate = new Date(to + 'T23:59:59.999');
+        const toISO = toDate.toISOString();
+
+        const params = new URLSearchParams();
+        params.set('FromDate', fromISO);
+        params.set('ToDate', toISO);
+        params.set('$top', '10000');
+        params.set('$orderby', 'DateInvoice desc,Number desc,Id desc');
+        params.set('$count', 'true');
+        const url = `${DR._workerUrl}/api/odata/Report/DeliveryReport?${params.toString()}`;
+
+        let items = [];
+        try {
+            const resp = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/json',
+                    tposappversion: window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1',
+                },
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const result = await resp.json();
+            items = result.value || [];
+        } catch (e) {
+            console.error('[report] fetch failed:', e?.message);
+            return { items: [], scanned: new Set() };
+        }
+
+        // Lookup scanned numbers for these orders (đã quét from DB)
+        let scannedSet = new Set();
+        const renderUrl = DR._renderUrl;
+        if (renderUrl && items.length > 0) {
+            try {
+                const orderNumbers = items.map((i) => i.Number).filter(Boolean);
+                const resp = await fetch(`${renderUrl}/api/v2/delivery-assignments/lookup-batch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderNumbers }),
+                });
+                if (resp.ok) {
+                    const result = await resp.json();
+                    if (result.success && result.data) {
+                        scannedSet = new Set(result.data.scannedNumbers || []);
+                    }
+                }
+            } catch (e) {
+                console.warn('[report] scanned lookup failed:', e?.message);
+            }
+        }
+
+        state.fetchCache[key] = { items, scanned: scannedSet, fetchedAt: Date.now() };
+        return { items, scanned: scannedSet };
+    }
+
+    // ── Data aggregation (uses scanned-only items per financial reporting requirement) ──
     function aggregateByDay(group, dates) {
-        const reportState = window.DeliveryReport?.getState?.() || window.DeliveryReportState || {};
-        const allData = reportState.allData || [];
+        const items = state.currentItems || [];
+        const scanned = state.currentScanned || new Set();
         const getItemGroup = window.DeliveryReport?._getItemGroup;
-        // Build map: date -> {count, money}
         const map = {};
         dates.forEach((d) => {
             map[d] = { sysCount: 0, money: 0 };
         });
-        allData.forEach((item) => {
-            // Determine group: prefer exposed helper, else fallback to lock+carrier rules
+        items.forEach((item) => {
+            // Only "đã quét" items count toward the financial report
+            if (!scanned.has(item.Number)) return;
             const g = getItemGroup ? getItemGroup(item) : inferGroup(item);
             if (g !== group) return;
             const dt = parseISO(item.DateInvoice);
@@ -155,6 +236,9 @@
               <div class="dr-report-title">
                 <i class="fas fa-chart-bar"></i> Báo cáo
                 <span class="dr-report-subtitle" id="drReportRangeLabel"></span>
+                <span class="dr-report-hint" title="SL ĐƠN và TIỀN chỉ tính các đơn đã quét xác nhận giao thành công">
+                  <i class="fas fa-info-circle"></i> chỉ tính đơn đã quét
+                </span>
               </div>
               <button class="dr-report-close" id="drReportClose" title="Đóng (ESC)">&times;</button>
             </div>
@@ -287,7 +371,7 @@
         render();
     }
 
-    function render() {
+    async function render() {
         // Tab visual state
         document.querySelectorAll('#drReportTabs button').forEach((b) => {
             b.classList.toggle('active', b.dataset.tab === state.activeTab);
@@ -307,6 +391,20 @@
             document.getElementById('drReportTfoot').innerHTML = '';
             return;
         }
+
+        // Fetch DB data + scanned numbers for current range (with loading state)
+        const key = rangeKey(state.fromDate, state.toDate);
+        const cached = state.fetchCache[key];
+        if (!cached || Date.now() - cached.fetchedAt >= 60000) {
+            document.getElementById('drReportTbody').innerHTML =
+                '<tr><td colspan="9" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>';
+            document.getElementById('drReportTfoot').innerHTML = '';
+        }
+        const { items, scanned } = await fetchRange(state.fromDate, state.toDate);
+        // Stale guard: if user changed dates mid-fetch, abort this render
+        if (rangeKey(state.fromDate, state.toDate) !== key) return;
+        state.currentItems = items;
+        state.currentScanned = scanned;
 
         const map = aggregateByDay(state.activeTab, dates);
         let totals = {

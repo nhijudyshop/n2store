@@ -4752,6 +4752,9 @@
         // Internals exposed so report.js can reuse classification logic
         _getItemGroup: (item) => getItemGroup(item),
         _isReturnItem: (item) => isReturnItem(item),
+        _getToken: getToken,
+        _workerUrl: WORKER_URL,
+        _renderUrl: RENDER_URL,
         traSoat: traSoat,
         setTab: setTab,
         setScanFilter: setScanFilter,
