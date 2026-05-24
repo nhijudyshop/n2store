@@ -514,22 +514,34 @@ function renderShipments(shipments) {
         window.UIState.pruneExpanded(shipments.map((s) => s.id));
     }
 
-    // Compute running balance per shipment in date-ASC order (oldest first):
-    //   row[0]: running = HD - CP
-    //   row[i] (i>0): running = running[i-1] - HD - CP
-    // Attach to shipment as _runningBalance so card can render regardless of display order.
-    const sortedAsc = [...shipments].sort((a, b) => {
-        const da = new Date(a.ngayDiHang || 0).getTime();
-        const db = new Date(b.ngayDiHang || 0).getTime();
-        if (da !== db) return da - db;
-        return (a.dotSo || 0) - (b.dotSo || 0);
+    // Compute running balance per shipment in date-ASC order, GROUPED BY đợt:
+    //   row[0] of đợt: running = TT_đợt - HD - CP
+    //   row[i] of đợt: running = running[i-1] - HD - CP
+    // → row cuối (newest) ra = TT - Σ HD - Σ CP = CÒN LẠI của đợt (match modal).
+    // TT là per-đợt — lấy từ `shipment.thanhToanCK` (mirrored across shipments cùng đợt).
+    // Attach to shipment: _runningBalance + _dotTongTT để card render độc lập với order.
+    const byDot = new Map();
+    shipments.forEach((s) => {
+        const k = s.dotSo || 0;
+        if (!byDot.has(k)) byDot.set(k, []);
+        byDot.get(k).push(s);
     });
-    let running = 0;
-    sortedAsc.forEach((s, i) => {
-        const hd = parseFloat(s.tongTienHoaDon) || 0;
-        const cp = parseFloat(s.tongChiPhi) || 0;
-        running = i === 0 ? hd - cp : running - hd - cp;
-        s._runningBalance = running;
+    byDot.forEach((arr) => {
+        arr.sort(
+            (a, b) => new Date(a.ngayDiHang || 0).getTime() - new Date(b.ngayDiHang || 0).getTime()
+        );
+        const payments = (arr[0] && arr[0].thanhToanCK) || [];
+        const dotTongTT = Array.isArray(payments)
+            ? payments.reduce((sum, p) => sum + (parseFloat(p.soTienTT) || 0), 0)
+            : 0;
+        let running = 0;
+        arr.forEach((s, i) => {
+            const hd = parseFloat(s.tongTienHoaDon) || 0;
+            const cp = parseFloat(s.tongChiPhi) || 0;
+            running = i === 0 ? dotTongTT - hd - cp : running - hd - cp;
+            s._runningBalance = running;
+            s._dotTongTT = dotTongTT;
+        });
     });
 
     // Render each shipment (expand state loaded from UIState, default collapsed)
@@ -670,6 +682,17 @@ function createShipmentCard(shipment) {
         return ` <span class="ship-tong-hd-vnd">(${formatNumber(Math.round((cny * shipTiGia) / 1000))})</span>`;
     };
     // Financial row (row 2): no leading `|` — joined with `|` separator between items.
+    // Tổng TT (đợt-level, đã absorb vào shipment.thanhToanCK) — show on row 2 trước HD.
+    const dotTongTT =
+        typeof shipment._dotTongTT === 'number'
+            ? shipment._dotTongTT
+            : Array.isArray(shipment.thanhToanCK)
+              ? shipment.thanhToanCK.reduce((s, p) => s + (parseFloat(p.soTienTT) || 0), 0)
+              : 0;
+    const ttHtml =
+        canViewTT && dotTongTT > 0
+            ? `<span class="ship-tong-tt">Tổng TT: <span class="ship-tong-tt-num">$${formatNumber(dotTongTT)}</span>${vndSuffix(dotTongTT)}</span>`
+            : '';
     const hdHtml =
         canViewTT && shipHD > 0
             ? `<span class="ship-tong-hd">Tổng HĐ: <span class="ship-tong-hd-num">$${formatNumber(shipHD)}</span>${vndSuffix(shipHD)}</span>`
@@ -687,7 +710,7 @@ function createShipmentCard(shipment) {
         canViewTT && canViewCost && runningVal !== null
             ? `<span class="ship-tong-running ${runningVal >= 0 ? 'is-pos' : 'is-neg'}">Còn dư: <span class="ship-tong-running-num">${fmtSignedCny(runningVal)}</span>${vndSuffix(runningVal)}</span>`
             : '';
-    const financialItems = [hdHtml, cpHtml, runningHtml].filter(Boolean);
+    const financialItems = [ttHtml, hdHtml, cpHtml, runningHtml].filter(Boolean);
     const financialRowHtml = financialItems.length
         ? `<div class="shipment-financial-row">${financialItems.join('<span class="shipment-separator">|</span>')}</div>`
         : '';
