@@ -3,19 +3,21 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e35d9bc` — auto: session update
-**Last updated**: 2026-05-24 13:30:06 +07
-**Latest session**: [`RESUME:20260524-133006-e35d9bc`](../20260524-133006-e35d9bc.md)
+**Latest commit**: `78a9bde` — auto: session update
+**Last updated**: 2026-05-24 13:33:55 +07
+**Latest session**: [`RESUME:20260524-133355-78a9bde`](../20260524-133355-78a9bde.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`.claude/`](./.claude.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
+- [`n2store-extension/`](./n2store-extension.md) — 1 file(s)
 
 ## All folder snapshots
 
-- [`.claude/`](./.claude.md) — updated 2026-05-21 15:32
+- [`.claude/`](./.claude.md) — updated 2026-05-24 13:33
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
 - [`_root/`](./_root.md) — updated 2026-05-24 13:30
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
@@ -25,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 13:22
-- [`docs/`](./docs.md) — updated 2026-05-24 13:25
+- [`docs/`](./docs.md) — updated 2026-05-24 13:33
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-24 13:25
@@ -36,9 +38,9 @@
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 10:44
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-24 13:25
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-24 13:33
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 13:22
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 13:33
 - [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
