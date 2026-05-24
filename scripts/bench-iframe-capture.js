@@ -89,6 +89,7 @@ const BASE = 'https://nhijudy.store';
     console.log('  Wrapper:', JSON.stringify(wrapperInfo));
 
     console.log('\n=== STEP 4: Click BẬT AUTO-SNAP → trigger share ===');
+    await page.bringToFront(); // ensure tab is foreground for capture
     const t5 = Date.now();
     await page.click('#tpos-snap-fb-go');
     // Wait for STATE.captureStream via debug accessor

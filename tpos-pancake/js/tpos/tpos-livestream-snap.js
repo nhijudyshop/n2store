@@ -1003,37 +1003,35 @@ Throttle 30s/KH. Click để tắt.`;
         }
     }
 
-    // AUTO-START: có live → inject iframe + nút BẬT to overlay trên iframe.
-    // Browser BẮT BUỘC 1 click rõ ràng — không thể bypass. Bỏ click-trap
-    // (quá intrusive: mọi click trên page đều trigger share dialog).
+    // AUTO-START — DEFERRED IFRAME (lag fix v2):
+    // KHÔNG auto-inject iframe FB (plugin nặng, lag máy). Chỉ show 1 floating
+    // button "🎬 BẬT AUTO-SNAP" — user click → mới inject iframe + share.
     function _maybeShowAutoSnapBanner() {
         if (STATE.captureStream) return;
+        if (document.getElementById('tpos-snap-go-pill')) return;
         const camp = _findActiveLiveCampaign();
         if (!camp?.Facebook_LiveId) return;
-        _ensureEmbeddedIframe(camp);
-        const wrapper = document.getElementById('tpos-snap-fb-wrapper');
-        if (!wrapper || wrapper.querySelector('#tpos-snap-fb-go')) return;
-        const goBtn = document.createElement('button');
-        goBtn.id = 'tpos-snap-fb-go';
-        goBtn.type = 'button';
-        goBtn.title =
-            'Browser bắt buộc 1 click — không bypass được. Bấm để bật auto-snap frame thật.';
-        goBtn.innerHTML =
-            '<span style="display:block;font-size:20px;margin-bottom:2px;">🎬</span>BẬT AUTO-SNAP';
-        goBtn.style.cssText =
-            'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#dc2626;color:#fff;font-weight:700;font-size:12px;padding:14px 18px;border:none;border-radius:10px;cursor:pointer;z-index:2;box-shadow:0 4px 16px rgba(0,0,0,0.5);text-align:center;line-height:1.2;letter-spacing:0.3px;';
-        wrapper.appendChild(goBtn);
-        goBtn.onclick = async (e) => {
-            e.stopPropagation();
-            goBtn.disabled = true;
-            goBtn.innerHTML = '⏳ Đang kết nối...';
+        // Floating pill button ở góc dưới phải — KHÔNG inject iframe trước.
+        const pill = document.createElement('button');
+        pill.id = 'tpos-snap-go-pill';
+        pill.type = 'button';
+        pill.title =
+            'Bấm 1 lần để bật auto-snap frame thật (iframe FB sẽ load + share). KHÔNG load trước để page không lag.';
+        pill.innerHTML =
+            '<span style="font-size:18px;">🎬</span> <span>BẬT AUTO-SNAP</span> <small style="opacity:0.8;font-weight:500;">1 click</small>';
+        pill.style.cssText =
+            'position:fixed;bottom:16px;right:16px;background:#dc2626;color:#fff;font-weight:700;font-size:13px;padding:12px 16px;border:none;border-radius:24px;cursor:pointer;z-index:99000;box-shadow:0 6px 20px rgba(0,0,0,0.35);display:inline-flex;align-items:center;gap:8px;font-family:Inter,system-ui,sans-serif;';
+        document.body.appendChild(pill);
+        pill.onclick = async () => {
+            pill.disabled = true;
+            pill.innerHTML = '⏳ Đang load iframe FB...';
             const ok = await _enableEmbeddedLiveCapture();
             if (ok) {
-                goBtn.remove();
+                pill.remove();
             } else {
-                goBtn.disabled = false;
-                goBtn.innerHTML =
-                    '<span style="display:block;font-size:20px;margin-bottom:2px;">🎬</span>BẬT AUTO-SNAP';
+                pill.disabled = false;
+                pill.innerHTML =
+                    '<span style="font-size:18px;">🎬</span> <span>BẬT AUTO-SNAP</span> <small style="opacity:0.8;font-weight:500;">1 click</small>';
             }
         };
     }
