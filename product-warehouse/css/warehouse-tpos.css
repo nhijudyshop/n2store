@@ -1,0 +1,703 @@
+/* #Note: TPOS-themed overrides for Kho Sản Phẩm — mirrors palette/typography from
+   issue-tracking/css/page-tabs.css (Segoe UI, #4c4c4c text, #edf1f2 bg, #f0eeee th,
+   purple #7266ba accent, badge-empty style, sharp 2px corners). Loaded AFTER
+   warehouse.css to override styles without modifying the 1200-line base file. */
+
+:root {
+    --pw-bg: #edf1f2;
+    --pw-bg-card: #ffffff;
+    --pw-border: #cccccc;
+    --pw-border-soft: #e6e6e6;
+    --pw-row-stripe: #f5f5f5;
+    --pw-row-hover: #e8f3fc;
+    --pw-text: #4c4c4c;
+    --pw-text-strong: #333333;
+    --pw-muted: #58666e;
+    --pw-th-bg: #f0eeee;
+    --pw-th-text: #000000;
+    --pw-accent: #7266ba;
+    --pw-accent-hover: #6457a8;
+    --pw-accent-soft: #ebe9f7;
+    --pw-link: #428bca;
+    --pw-green: #27c24c;
+    --pw-red: #f05050;
+    --pw-amber: #ff902b;
+    --pw-blue: #3abee8;
+    --pw-gray: #98a6ad;
+}
+
+html body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    font-size: 14px !important;
+    color: var(--pw-text) !important;
+    background: var(--pw-bg) !important;
+    letter-spacing: 0 !important;
+}
+
+/* ===== HEADER ===== */
+.main-content {
+    background: var(--pw-bg);
+}
+
+.page-header {
+    padding: 10px 16px;
+    background: var(--pw-bg-card);
+    border-bottom: 1px solid var(--pw-border);
+}
+
+.page-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--pw-text-strong);
+    gap: 8px;
+}
+
+.page-title i {
+    width: 18px;
+    height: 18px;
+    color: var(--pw-accent);
+}
+
+/* Header search box → sharp corners + TPOS purple focus */
+.header-search-box {
+    border: 1px solid var(--pw-border);
+    border-radius: 2px;
+    min-width: 260px;
+    height: 30px;
+}
+
+.header-search-box:focus-within {
+    border-color: var(--pw-accent);
+    box-shadow: 0 0 0 2px var(--pw-accent-soft);
+}
+
+.header-search-input {
+    padding: 0 8px;
+    font-size: 14px;
+    height: 28px;
+    color: var(--pw-text-strong);
+}
+
+.header-search-btn {
+    background: var(--pw-accent) !important;
+    height: 28px;
+    padding: 0 12px;
+}
+
+.header-search-btn:hover {
+    background: var(--pw-accent-hover) !important;
+}
+
+/* ===== TOOLBAR ===== */
+.warehouse-toolbar {
+    background: var(--pw-bg-card);
+    border-bottom: 1px solid var(--pw-border);
+    padding: 8px 16px;
+    gap: 8px;
+}
+
+.filter-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--pw-text);
+}
+
+.filter-select {
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid var(--pw-border) !important;
+    border-radius: 2px !important;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--pw-text-strong);
+    background: var(--pw-bg-card) !important;
+    box-shadow: none !important;
+}
+
+.filter-select:focus {
+    border-color: var(--pw-accent) !important;
+    box-shadow: 0 0 0 2px var(--pw-accent-soft) !important;
+}
+
+/* Remove the colored dropdown borders — TPOS uses uniform color */
+.filter-select-primary,
+.filter-select-info,
+.filter-select-success,
+.filter-select-warning {
+    border-color: var(--pw-border) !important;
+    color: var(--pw-text-strong) !important;
+}
+
+.result-count {
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--pw-accent);
+    padding: 3px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--pw-accent);
+}
+
+.result-count i {
+    width: 12px;
+    height: 12px;
+    color: #fff;
+}
+
+.result-count strong {
+    color: #fff;
+    font-weight: 700;
+}
+
+.toolbar-hint {
+    font-size: 12px;
+    color: var(--pw-muted);
+}
+
+/* Toolbar buttons → TPOS sharp 30px h, 12px text, white bg, purple hover */
+.btn-toolbar {
+    height: 30px;
+    padding: 0 10px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    background: var(--pw-bg-card) !important;
+    color: var(--pw-muted) !important;
+    border: 1px solid var(--pw-border) !important;
+    border-radius: 2px !important;
+    box-shadow: none !important;
+    transition:
+        background-color 160ms,
+        border-color 160ms,
+        color 160ms;
+    gap: 5px;
+}
+
+.btn-toolbar i {
+    width: 12px !important;
+    height: 12px !important;
+}
+
+.btn-toolbar:hover {
+    background: var(--pw-accent) !important;
+    border-color: var(--pw-accent) !important;
+    color: #fff !important;
+}
+
+/* TPOS producttemplate/list — "Tạo mới" button = solid purple. Apply to "Thêm SP". */
+.btn-create-product {
+    background: var(--pw-accent) !important;
+    border-color: var(--pw-accent) !important;
+    color: #fff !important;
+}
+
+.btn-create-product:hover {
+    background: var(--pw-accent-hover) !important;
+    border-color: var(--pw-accent-hover) !important;
+    color: #fff !important;
+}
+
+/* Other toolbar buttons stay neutral white with TPOS hover */
+.btn-import-excel:hover,
+.btn-export-excel:hover {
+    background: var(--pw-blue) !important;
+    border-color: var(--pw-blue) !important;
+    color: #fff !important;
+}
+
+.btn-bulk-price:hover {
+    background: var(--pw-amber) !important;
+    border-color: var(--pw-amber) !important;
+    color: #fff !important;
+}
+
+/* ===== TABLE ===== */
+.warehouse-table-wrapper {
+    background: var(--pw-bg-card);
+    margin: 10px 16px 0;
+    border: 0;
+    box-shadow: none;
+}
+
+.warehouse-table {
+    border-collapse: separate !important;
+    border-spacing: 0;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--pw-text-strong);
+}
+
+.warehouse-table thead th {
+    background: var(--pw-th-bg) !important;
+    color: var(--pw-th-text) !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    padding: 7px 8.4px 5.6px !important;
+    border-top: 1px solid var(--pw-border) !important;
+    border-bottom: 1px solid var(--pw-border) !important;
+    border-right: 1px solid var(--pw-border) !important;
+    height: 36px;
+}
+
+.warehouse-table thead th:first-child {
+    border-left: 1px solid var(--pw-border) !important;
+}
+
+.warehouse-table tbody td {
+    padding: 5.6px 8.4px !important;
+    border-bottom: 1px solid var(--pw-border) !important;
+    border-right: 1px solid var(--pw-border) !important;
+    color: var(--pw-text-strong) !important;
+    line-height: 22.4px !important;
+    font-size: 14px;
+}
+
+.warehouse-table tbody td:first-child {
+    border-left: 1px solid var(--pw-border) !important;
+}
+
+/* Zebra striping like TPOS */
+.warehouse-table tbody tr:nth-child(even) {
+    background: var(--pw-row-stripe) !important;
+}
+
+.warehouse-table tbody tr:hover {
+    background: var(--pw-row-hover) !important;
+}
+
+/* Sort + filter icons in th — keep them visible but subtle */
+.warehouse-table th .th-content {
+    color: var(--pw-th-text);
+}
+
+.warehouse-table th .sort-icon,
+.warehouse-table th .th-filter-icon {
+    color: var(--pw-muted);
+    opacity: 0.5;
+    transition:
+        opacity 160ms,
+        color 160ms;
+}
+
+.warehouse-table th:hover .sort-icon,
+.warehouse-table th:hover .th-filter-icon {
+    opacity: 1;
+    color: var(--pw-accent);
+}
+
+.warehouse-table th.sorted-asc .sort-icon,
+.warehouse-table th.sorted-desc .sort-icon {
+    opacity: 1;
+    color: var(--pw-accent);
+}
+
+.warehouse-table th .th-filter-input {
+    border: 1px solid var(--pw-border) !important;
+    border-radius: 2px !important;
+    padding: 2px 6px !important;
+    font-size: 12px !important;
+    height: 22px;
+}
+
+.warehouse-table th .th-filter-input:focus {
+    border-color: var(--pw-accent) !important;
+    box-shadow: 0 0 0 1px var(--pw-accent-soft) !important;
+}
+
+/* Sticky-left checkbox column matches TPOS gray-warm bg */
+.warehouse-table td.col-sticky-left,
+.warehouse-table th.col-sticky-left {
+    background: var(--pw-th-bg) !important;
+}
+
+/* Product code link — TPOS link blue, hover purple underline */
+.warehouse-table .col-code a,
+.warehouse-table .col-code .code-link,
+.warehouse-table .product-code-link {
+    color: var(--pw-link) !important;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.warehouse-table .col-code a:hover,
+.warehouse-table .product-code-link:hover {
+    color: var(--pw-accent) !important;
+    text-decoration: underline;
+}
+
+/* Row action buttons (Thao tác col) — TPOS uses SOLID color buttons per action
+   (Edit=green, Delete=red). Match producttemplate/list exactly: padding 5/10,
+   height 26px, radius 2px, weight 600, white icon. */
+.warehouse-table .col-actions {
+    white-space: nowrap;
+}
+
+.warehouse-table .col-actions .btn-action,
+.warehouse-table .col-actions button,
+.warehouse-table .col-actions .action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    margin: 0 1px;
+    border: 1px solid var(--pw-border);
+    border-radius: 2px;
+    background: var(--pw-bg-card);
+    color: var(--pw-muted);
+    cursor: pointer;
+    transition:
+        background-color 120ms,
+        border-color 120ms,
+        color 120ms,
+        transform 120ms;
+}
+
+.warehouse-table .col-actions .btn-action i,
+.warehouse-table .col-actions button i,
+.warehouse-table .col-actions .action-btn i {
+    width: 13px;
+    height: 13px;
+}
+
+.warehouse-table .col-actions .btn-action:hover {
+    transform: translateY(-1px);
+}
+
+/* Semantic action colors — solid like TPOS .btn-success / .btn-danger */
+.warehouse-table .col-actions .btn-action-expand {
+    background: var(--pw-blue);
+    border-color: var(--pw-blue);
+    color: #fff;
+}
+
+.warehouse-table .col-actions .btn-action-expand:hover {
+    background: #1aa2cc;
+    border-color: #1aa2cc;
+}
+
+.warehouse-table .col-actions .btn-action-edit {
+    background: var(--pw-green);
+    border-color: var(--pw-green);
+    color: #fff;
+}
+
+.warehouse-table .col-actions .btn-action-edit:hover {
+    background: #1faf3f;
+    border-color: #1faf3f;
+}
+
+.warehouse-table .col-actions .btn-action-stock {
+    background: var(--pw-accent);
+    border-color: var(--pw-accent);
+    color: #fff;
+}
+
+.warehouse-table .col-actions .btn-action-stock:hover {
+    background: var(--pw-accent-hover);
+    border-color: var(--pw-accent-hover);
+}
+
+.warehouse-table .col-actions .btn-action-print {
+    background: var(--pw-amber);
+    border-color: var(--pw-amber);
+    color: #fff;
+}
+
+.warehouse-table .col-actions .btn-action-print:hover {
+    background: #e07d18;
+    border-color: #e07d18;
+}
+
+.warehouse-table .col-actions .btn-action-delete {
+    background: var(--pw-red);
+    border-color: var(--pw-red);
+    color: #fff;
+}
+
+.warehouse-table .col-actions .btn-action-delete:hover {
+    background: #d63a3a;
+    border-color: #d63a3a;
+}
+
+/* Status badges — TPOS badge-empty (transparent + colored border + bold text) */
+.warehouse-table .status-badge,
+.warehouse-table .label,
+.warehouse-table .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 7px;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    background: transparent !important;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.warehouse-table .status-active,
+.warehouse-table .badge-success {
+    color: var(--pw-green) !important;
+}
+
+.warehouse-table .status-inactive,
+.warehouse-table .badge-secondary {
+    color: var(--pw-gray) !important;
+}
+
+.warehouse-table .badge-info {
+    color: var(--pw-blue) !important;
+}
+
+.warehouse-table .badge-warning {
+    color: var(--pw-amber) !important;
+}
+
+.warehouse-table .badge-danger {
+    color: var(--pw-red) !important;
+}
+
+/* ===== PAGINATION ===== */
+.pagination-controls,
+.pagination-wrap,
+.pagination {
+    background: var(--pw-row-stripe);
+    border: 1px solid var(--pw-border);
+    border-top: 0;
+    padding: 6px 12px;
+    margin: 0 16px 16px;
+    font-size: 14px;
+    color: var(--pw-text);
+    min-height: 34px;
+}
+
+.pagination-controls button,
+.pagination button,
+.page-btn {
+    height: 26px;
+    min-width: 30px;
+    padding: 0 8px !important;
+    border: 1px solid var(--pw-border) !important;
+    border-radius: 2px !important;
+    background: var(--pw-bg-card) !important;
+    color: var(--pw-link) !important;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 0 1px;
+    transition:
+        background-color 120ms,
+        color 120ms,
+        border-color 120ms;
+}
+
+.pagination-controls button:hover:not(:disabled),
+.pagination button:hover:not(:disabled),
+.page-btn:hover:not(:disabled) {
+    background: var(--pw-accent) !important;
+    border-color: var(--pw-accent) !important;
+    color: #fff !important;
+}
+
+.pagination-controls button.active,
+.pagination button.active,
+.page-btn.active,
+.page-btn[aria-current='page'] {
+    background: var(--pw-accent) !important;
+    border-color: var(--pw-accent) !important;
+    color: #fff !important;
+}
+
+.pagination-controls button:disabled,
+.pagination button:disabled,
+.page-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.pagination-info,
+#paginationInfo {
+    color: var(--pw-text);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.pagination-info strong,
+#paginationInfo strong {
+    color: var(--pw-text-strong);
+    font-weight: 600;
+}
+
+/* ===== SEARCH SUGGESTIONS dropdown ===== */
+.search-suggestions {
+    border: 1px solid var(--pw-border) !important;
+    border-radius: 2px !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
+}
+
+.suggestion-item {
+    border-bottom: 1px solid var(--pw-border-soft) !important;
+    font-size: 13px;
+    color: var(--pw-text-strong);
+}
+
+.suggestion-item:hover {
+    background: var(--pw-accent-soft) !important;
+    color: var(--pw-accent);
+}
+
+/* ===== BULK ACTIONS MENU ===== */
+#bulkActionsMenu {
+    border: 1px solid var(--pw-border) !important;
+    border-radius: 2px !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
+    font-size: 13px;
+}
+
+#bulkActionsMenu button,
+#bulkActionsMenu a {
+    color: var(--pw-text-strong);
+    transition:
+        background-color 120ms,
+        color 120ms;
+}
+
+#bulkActionsMenu button:hover,
+#bulkActionsMenu a:hover {
+    background: var(--pw-accent-soft);
+    color: var(--pw-accent);
+}
+
+/* Cell-level small text (date, count) */
+.warehouse-table .text-muted,
+.warehouse-table .cell-secondary,
+.warehouse-table .cell-meta {
+    color: var(--pw-muted);
+    font-size: 12.5px;
+}
+
+/* Image col — TPOS uses 50px wide image with auto height (preserves portrait aspect) */
+.warehouse-table .col-image,
+.warehouse-table .product-image-cell {
+    text-align: center;
+    width: 60px;
+    padding: 4px !important;
+}
+
+.warehouse-table .product-image-cell img,
+.warehouse-table .col-image img,
+.warehouse-table .product-thumb {
+    width: 50px !important;
+    height: auto !important;
+    max-height: 60px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    object-fit: contain !important;
+    margin: 0 auto;
+    display: block;
+}
+
+/* Code col — TPOS left-aligned, weight 500, hover blue link */
+.warehouse-table th.col-code,
+.warehouse-table td[data-col='code'] {
+    text-align: left !important;
+}
+
+.warehouse-table td[data-col='code'] {
+    color: var(--pw-text-strong);
+    font-weight: 500;
+}
+
+.warehouse-table td[data-col='code']:hover,
+.warehouse-table td[data-col='code'] a:hover {
+    color: var(--pw-link);
+    cursor: pointer;
+}
+
+/* Action col — tighter spacing (TPOS shows 2 buttons in 70px; we have 5 → ~150px) */
+.warehouse-table .col-actions {
+    text-align: center;
+    padding: 4px 4px !important;
+    width: 160px;
+}
+
+.warehouse-table .col-actions .btn-action {
+    width: 24px !important;
+    height: 24px !important;
+    margin: 0 0.5px !important;
+}
+
+.warehouse-table .col-actions .btn-action i {
+    width: 12px !important;
+    height: 12px !important;
+}
+
+/* Row height — TPOS ~58-66px; td padding 4px vertical matches image cell padding */
+.warehouse-table tbody td {
+    padding: 4px 8.4px !important;
+    line-height: 22.4px !important;
+}
+
+/* Numeric columns (Giá bán, Giá mua, Giá vốn, Số lượng) → right-aligned tabular */
+.warehouse-table td.td-price,
+.warehouse-table td.td-cost,
+.warehouse-table td.td-qty,
+.warehouse-table td[data-col='price'],
+.warehouse-table td[data-col='defaultBuyPrice'],
+.warehouse-table td[data-col='costPrice'],
+.warehouse-table td[data-col='qtyActual'],
+.warehouse-table td[data-col='qtyForecasted'] {
+    text-align: right !important;
+    font-variant-numeric: tabular-nums;
+}
+
+.warehouse-table th.col-price,
+.warehouse-table th.col-cost,
+.warehouse-table th.col-qty {
+    text-align: right;
+}
+
+/* Group + Unit cells left-aligned (TPOS default) */
+.warehouse-table td.td-group,
+.warehouse-table td.td-unit,
+.warehouse-table td[data-col='group'],
+.warehouse-table td[data-col='unit'] {
+    text-align: left !important;
+}
+
+/* Effective / status / tag cells centered */
+.warehouse-table td.td-active,
+.warehouse-table td.td-effective,
+.warehouse-table td.td-tag,
+.warehouse-table td.td-tag-status,
+.warehouse-table td[data-col='active'],
+.warehouse-table td[data-col='effective'],
+.warehouse-table td[data-col='tag'] {
+    text-align: center;
+}
+
+/* Name cell — TPOS left-aligned, normal text wrap */
+.warehouse-table td.td-name,
+.warehouse-table td[data-col='name'] {
+    text-align: left !important;
+    line-height: 1.4;
+}
+
+/* Checkbox cell — TPOS sticky warm bg */
+.warehouse-table td.col-checkbox,
+.warehouse-table th.col-checkbox {
+    background: var(--pw-th-bg) !important;
+    text-align: center;
+    padding: 4px !important;
+}
+
+/* TPOS "Có thể bán" text muted gray when value */
+.warehouse-table .text-muted,
+.warehouse-table .cell-secondary {
+    color: var(--pw-muted);
+}
