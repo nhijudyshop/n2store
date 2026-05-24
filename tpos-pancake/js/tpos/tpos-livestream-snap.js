@@ -1279,33 +1279,96 @@ Throttle 30s/KH. Click để tắt.`;
         }
     }
 
-    // Banner gợi ý user click N2Store icon để upgrade lên stream mode (Option B).
-    // Stream mode: capture liên tục dù tab inactive / browser minimize.
-    // Dismissible session-only. Auto-hide khi captureStream đã active.
+    // Custom modal — fallback khi page-click auto-grab fail. User press Enter
+    // (hoặc click button) → keydown handler trong DOM context → chrome.runtime
+    // .sendMessage → tab activation MAY propagate → getMediaStreamId success.
+    // Nếu Chrome reject Enter approach → instruct user click extension icon.
     function _showStreamModePrompt() {
         if (STATE.captureStream) return; // đã có stream → không cần
         if (sessionStorage.getItem('tpos_stream_prompt_dismiss')) return;
-        if (document.getElementById('tpos-snap-stream-prompt')) return;
-        const box = document.createElement('div');
-        box.id = 'tpos-snap-stream-prompt';
-        box.innerHTML = `
-            <div style="font-weight:700;font-size:13px;color:#0c4a6e;margin-bottom:6px;">💡 Bật capture tab-inactive</div>
-            <div style="font-size:12px;color:#075985;line-height:1.5;">
-                Hiện tại auto-snap chỉ work khi tpos-pancake là tab đang focused.
-                Click <strong>icon N2Store</strong> trên thanh extension Chrome
-                <strong>1 lần</strong> để bật stream mode → capture được dù anh
-                switch sang tab khác / minimize browser.
-            </div>
-            <div style="display:flex;gap:8px;margin-top:10px;">
-                <button type="button" id="tpos-snap-stream-prompt-ok" style="flex:1;padding:6px 12px;background:#0284c7;color:#fff;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;">Đã hiểu</button>
+        if (document.getElementById('tpos-snap-stream-modal')) return;
+        const overlay = document.createElement('div');
+        overlay.id = 'tpos-snap-stream-modal';
+        overlay.style.cssText =
+            'position:fixed;inset:0;z-index:99800;background:rgba(15,23,42,0.55);display:flex;align-items:center;justify-content:center;padding:24px;font-family:Inter,system-ui,sans-serif;';
+        overlay.innerHTML = `
+            <div style="background:#fff;border-radius:14px;padding:24px 28px;max-width:440px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,0.3);">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                    <span style="font-size:22px;">🎬</span>
+                    <h3 style="margin:0;font-size:16px;font-weight:700;color:#0f172a;">Bật capture stream</h3>
+                </div>
+                <p style="margin:0 0 14px;font-size:13px;color:#475569;line-height:1.55;">
+                    Page-click chưa đủ để Chrome cấp quyền capture tab-inactive.
+                    <strong>Bấm Enter</strong> để thử lại với user gesture mạnh hơn.
+                </p>
+                <div style="background:#f1f5f9;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
+                    <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px;">Phím tắt</div>
+                    <div style="display:flex;gap:6px;align-items:center;font-size:13px;">
+                        <kbd style="padding:3px 10px;background:#fff;border:1px solid #cbd5e1;border-bottom-width:2px;border-radius:5px;font-family:ui-monospace,monospace;font-size:12px;font-weight:600;color:#334155;">Enter</kbd>
+                        <span style="color:#475569;">— Thử grab streamId qua user gesture</span>
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button type="button" id="tpos-snap-stream-modal-go" style="flex:1;padding:10px 14px;background:#0284c7;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">Bật ngay (Enter)</button>
+                    <button type="button" id="tpos-snap-stream-modal-dismiss" style="padding:10px 14px;background:#e2e8f0;color:#475569;border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">Bỏ qua</button>
+                </div>
+                <div id="tpos-snap-stream-modal-status" style="margin-top:10px;font-size:11px;color:#64748b;line-height:1.4;min-height:14px;"></div>
             </div>`;
-        box.style.cssText =
-            'position:fixed;bottom:80px;right:16px;width:340px;background:#f0f9ff;border:1px solid #7dd3fc;border-radius:12px;padding:12px 14px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:99100;font-family:Inter,system-ui,sans-serif;';
-        document.body.appendChild(box);
-        document.getElementById('tpos-snap-stream-prompt-ok').onclick = () => {
-            sessionStorage.setItem('tpos_stream_prompt_dismiss', '1');
-            box.remove();
+        document.body.appendChild(overlay);
+        const status = overlay.querySelector('#tpos-snap-stream-modal-status');
+        const goBtn = overlay.querySelector('#tpos-snap-stream-modal-go');
+        const dismissBtn = overlay.querySelector('#tpos-snap-stream-modal-dismiss');
+        let attempts = 0;
+        const triggerGrab = () => {
+            attempts++;
+            goBtn.disabled = true;
+            status.style.color = '#475569';
+            status.textContent = `⏳ Đang grab streamId (attempt ${attempts})...`;
+            // Send message in synchronous click/keydown context → activation
+            // hopefully propagates.
+            window.postMessage({ type: 'N2_TAB_STREAM_GRAB_REQUEST', _activation: 1 }, '*');
+            // Timeout 3s — nếu streamId không về thì instruct user click icon.
+            const checkTimer = setTimeout(() => {
+                if (STATE.captureStream) {
+                    status.style.color = '#15803d';
+                    status.textContent = '✅ Stream OK — modal sẽ tự đóng.';
+                    setTimeout(() => overlay.remove(), 800);
+                } else {
+                    goBtn.disabled = false;
+                    status.style.color = '#b91c1c';
+                    status.innerHTML = `❌ Chrome reject. Hãy click <strong>icon N2Store</strong> trên thanh extension Chrome thay vì Enter.`;
+                }
+            }, 3000);
+            // Listen for stream OK to close
+            const onStream = (e) => {
+                if (e.source !== window || e.data?.type !== 'N2_TAB_STREAM_ID') return;
+                clearTimeout(checkTimer);
+                status.style.color = '#15803d';
+                status.textContent = '✅ Stream OK — modal đóng...';
+                window.removeEventListener('message', onStream);
+                setTimeout(() => overlay.remove(), 800);
+            };
+            window.addEventListener('message', onStream);
         };
+        goBtn.onclick = triggerGrab;
+        dismissBtn.onclick = () => {
+            sessionStorage.setItem('tpos_stream_prompt_dismiss', '1');
+            overlay.remove();
+        };
+        // Capture Enter keydown anywhere within document while modal open.
+        const onKey = (e) => {
+            if (e.key === 'Enter' && document.getElementById('tpos-snap-stream-modal')) {
+                e.preventDefault();
+                e.stopPropagation();
+                triggerGrab();
+            } else if (e.key === 'Escape') {
+                dismissBtn.click();
+                document.removeEventListener('keydown', onKey, true);
+            }
+        };
+        document.addEventListener('keydown', onKey, true);
+        // Auto-focus button để Enter trigger ngay.
+        setTimeout(() => goBtn.focus(), 50);
     }
 
     // Banner gợi ý install / update extension. Hiện khi detect live nhưng

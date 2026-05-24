@@ -25,6 +25,27 @@
 
 <body>
     <main class="main-content">
+        <!-- Page-level tabs: CSKH / BÁN HÀNG / TRẢ HÀNG -->
+        <nav class="page-tabs-bar" role="tablist" aria-label="Trang">
+            <button class="page-tab-btn active" type="button" role="tab"
+                    data-tab="cskh" aria-selected="true" tabindex="0">
+                <i data-lucide="clipboard-list" class="pt-ico"></i>
+                CSKH và Quản Lý
+            </button>
+            <button class="page-tab-btn" type="button" role="tab"
+                    data-tab="ban-hang" aria-selected="false" tabindex="-1">
+                <i data-lucide="receipt" class="pt-ico"></i>
+                BÁN HÀNG
+            </button>
+            <button class="page-tab-btn" type="button" role="tab"
+                    data-tab="tra-hang" aria-selected="false" tabindex="-1">
+                <i data-lucide="undo-2" class="pt-ico"></i>
+                TRẢ HÀNG
+            </button>
+        </nav>
+
+        <!-- Tab 1: CSKH và Quản Lý (current content) -->
+        <div class="page-tab-pane active" data-tab="cskh" role="tabpanel">
         <div class="container">
             <!-- Header -->
             <header class="header">
@@ -178,6 +199,33 @@
                         </tbody>
                     </table>
                 </div>
+            </div><!-- /.inner-content -->
+        </div><!-- /.container -->
+        </div><!-- /.page-tab-pane (Tab 1: CSKH) -->
+
+        <!-- Tab 2: BÁN HÀNG — TPOS-clone embed of /web2/fastsaleorder-invoice/ -->
+        <div class="page-tab-pane embed-pane" data-tab="ban-hang" role="tabpanel" aria-labelledby="pt-tab-ban-hang">
+            <div class="embed-skeleton" aria-live="polite">
+                <div class="embed-skeleton-spinner" aria-hidden="true"></div>
+                <div>Đang tải BÁN HÀNG…</div>
+            </div>
+            <iframe class="embed-iframe"
+                    data-src="../web2/fastsaleorder-invoice/?embed=issue-tracking"
+                    title="Bán hàng (Hóa đơn)"
+                    referrerpolicy="no-referrer-when-downgrade"></iframe>
+        </div>
+
+        <!-- Tab 3: TRẢ HÀNG — TPOS-clone embed of /web2/fastsaleorder-refund/ -->
+        <div class="page-tab-pane embed-pane" data-tab="tra-hang" role="tabpanel" aria-labelledby="pt-tab-tra-hang">
+            <div class="embed-skeleton" aria-live="polite">
+                <div class="embed-skeleton-spinner" aria-hidden="true"></div>
+                <div>Đang tải TRẢ HÀNG…</div>
+            </div>
+            <iframe class="embed-iframe"
+                    data-src="../web2/fastsaleorder-refund/?embed=issue-tracking"
+                    title="Trả hàng"
+                    referrerpolicy="no-referrer-when-downgrade"></iframe>
+        </div>
     </main>
     </div>
 
@@ -638,7 +686,7 @@ Ví dụ:
     <script src="js/script.js?v=20260521b"></script>
     <script src="js/customer-orders-lookup.js?v=20260521b"></script>
     <script src="js/phone-copy.js?v=20260521b"></script>
-    </main>
+    <script src="js/page-tabs.js?v=20260524a"></script>
 </body>
 
 </html>

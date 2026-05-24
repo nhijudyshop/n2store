@@ -241,6 +241,53 @@
         }
     });
 
+    // Page-triggered streamId grab (modal Enter / button click). Page postMessage
+    // 'N2_TAB_STREAM_GRAB_REQUEST' synchronously trong user gesture handler →
+    // forward chrome.runtime.sendMessage NGAY → background gọi getMediaStreamId.
+    // Activation context theory: page gesture → window.postMessage (sync) →
+    // content script listener (sync) → chrome.runtime.sendMessage (preserves
+    // activation). Chrome có propagate hay không = tùy implementation.
+    window.addEventListener(
+        'message',
+        (event) => {
+            if (event.source !== window) return;
+            if (event.data?.type !== 'N2_TAB_STREAM_GRAB_REQUEST') return;
+            try {
+                chrome.runtime.sendMessage(
+                    { type: 'N2_GRAB_TAB_STREAM_FROM_CLICK' },
+                    (response) => {
+                        if (chrome.runtime.lastError) {
+                            console.warn(
+                                '[N2EXT] tab stream grab (page-trigger) fail:',
+                                chrome.runtime.lastError.message
+                            );
+                            return;
+                        }
+                        if (response?.streamId) {
+                            console.log('[N2EXT] tab streamId grabbed via page modal ✓');
+                            window.postMessage(
+                                {
+                                    type: 'N2_TAB_STREAM_ID',
+                                    streamId: response.streamId,
+                                    ts: Date.now(),
+                                },
+                                '*'
+                            );
+                        } else {
+                            console.warn(
+                                '[N2EXT] tab stream grab (page-trigger) rejected:',
+                                response?.error
+                            );
+                        }
+                    }
+                );
+            } catch (e) {
+                console.warn('[N2EXT] sendMessage threw:', e.message);
+            }
+        },
+        false
+    );
+
     // === AUTO TAB-STREAM GRAB ON FIRST USER CLICK ===
     // Trên tpos-pancake page, listen click bất kỳ đâu (capture phase) → forward
     // user activation context tới background → background gọi
