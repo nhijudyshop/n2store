@@ -47,6 +47,8 @@
         'GET_CALL_LOG',
         'GET_ONCALL_SETTINGS',
         'OPEN_PHONE',
+        // Livestream Snapshot capture (no popup)
+        'N2_CAPTURE_VISIBLE_TAB',
     ]);
 
     // Message types to forward from service worker → page
@@ -116,6 +118,9 @@
         'GET_CALL_LOG_FAILURE',
         'GET_ONCALL_SETTINGS_SUCCESS',
         'GET_ONCALL_SETTINGS_FAILURE',
+        // Livestream Snapshot capture responses
+        'N2_CAPTURE_VISIBLE_TAB_SUCCESS',
+        'N2_CAPTURE_VISIBLE_TAB_FAILURE',
     ]);
 
     // === PORT CONNECTION ===

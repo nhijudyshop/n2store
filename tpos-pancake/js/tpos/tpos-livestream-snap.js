@@ -126,7 +126,95 @@
         // Auto-mode — throttle per customer
         autoLastSnap: new Map(), // customerFbUserId → lastTs (ms)
         autoStats: { total: 0, throttled: 0, errors: 0 }, // session counter
+        // N2Store Extension capture (no popup) — set khi nhận EXTENSION_LOADED
+        extReady: false,
+        extCapturePending: new Map(), // requestId → { resolve, reject, timer }
     };
+
+    // -----------------------------------------------------
+    // N2Store Extension bridge — chrome.tabs.captureVisibleTab via postMessage.
+    // Khi extension active, capture frame KHÔNG cần getDisplayMedia popup.
+    // Page postMessage('N2_CAPTURE_VISIBLE_TAB') → contentscript → background
+    // → captureVisibleTab → dataURL trả về qua postMessage.
+    // -----------------------------------------------------
+    window.addEventListener('message', (event) => {
+        if (event.source !== window) return;
+        const data = event.data;
+        if (!data || !data.type) return;
+        if (data.type === 'EXTENSION_LOADED' && data.from === 'EXTENSION') {
+            STATE.extReady = true;
+            console.log('[snap-ext] N2Store extension detected — capture không popup');
+        } else if (
+            data.type === 'N2_CAPTURE_VISIBLE_TAB_SUCCESS' ||
+            data.type === 'N2_CAPTURE_VISIBLE_TAB_FAILURE'
+        ) {
+            const req = STATE.extCapturePending.get(data.requestId);
+            if (!req) return;
+            clearTimeout(req.timer);
+            STATE.extCapturePending.delete(data.requestId);
+            if (data.type === 'N2_CAPTURE_VISIBLE_TAB_SUCCESS') {
+                req.resolve(data.dataUrl);
+            } else {
+                req.reject(new Error(data.error || 'ext capture failed'));
+            }
+        }
+    });
+
+    function _captureViaExtension(quality = 80, timeoutMs = 4000) {
+        return new Promise((resolve, reject) => {
+            if (!STATE.extReady) {
+                reject(new Error('extension not ready'));
+                return;
+            }
+            const requestId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            const timer = setTimeout(() => {
+                STATE.extCapturePending.delete(requestId);
+                reject(new Error('ext capture timeout'));
+            }, timeoutMs);
+            STATE.extCapturePending.set(requestId, { resolve, reject, timer });
+            window.postMessage({ type: 'N2_CAPTURE_VISIBLE_TAB', requestId, quality }, '*');
+        });
+    }
+
+    // Capture tab + crop vào iframe wrapper rect → JPEG base64 (không có prefix
+    // data:image/jpeg;base64,). Trả về null nếu fail.
+    async function _captureExtensionFrame() {
+        const wrapper = document.getElementById('tpos-snap-fb-wrapper');
+        if (!wrapper) return null;
+        let dataUrl;
+        try {
+            dataUrl = await _captureViaExtension(80, 4000);
+        } catch (e) {
+            console.warn('[snap-ext] capture fail:', e.message);
+            return null;
+        }
+        // Load full tab image, crop iframe rect via canvas.
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = () => reject(new Error('image load fail'));
+            img.src = dataUrl;
+        }).catch(() => null);
+        if (!img.naturalWidth) return null;
+        const rect = wrapper.getBoundingClientRect();
+        // Tab capture trả về vùng visible viewport. Crop bằng rect viewport coords.
+        // dpr scaling: nếu image natural lớn hơn viewport thì có scale factor.
+        const dpr = img.naturalWidth / window.innerWidth;
+        const sx = Math.max(0, Math.round(rect.left * dpr));
+        const sy = Math.max(0, Math.round(rect.top * dpr));
+        const sw = Math.max(1, Math.round(rect.width * dpr));
+        const sh = Math.max(1, Math.round(rect.height * dpr));
+        // Target 1280 wide max — giảm size frame.
+        const targetW = Math.min(1280, sw);
+        const targetH = Math.round((sh / sw) * targetW);
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+        const jpeg = canvas.toDataURL('image/jpeg', 0.72);
+        return jpeg.split(',')[1] || null;
+    }
 
     function _getSnapPagePref() {
         return localStorage.getItem(LS_KEY_SNAP_PAGE) || 'store';
@@ -374,8 +462,8 @@
         // khi cần thật sự).
         chip.addEventListener('click', async () => {
             // Click 🎬 = 1-click toggle. Dùng EMBEDDED iframe FB live (no tab
-            // switch). Nếu đã share → stop + remove iframe.
-            if (STATE.captureStream) {
+            // switch). Nếu đã share/ext-capture → stop + remove iframe.
+            if (STATE.captureStream || STATE.frameBufferTimer) {
                 stopRealSnap();
                 const wrapper = document.getElementById('tpos-snap-fb-wrapper');
                 if (wrapper) wrapper.remove();
@@ -394,14 +482,18 @@
     function renderRealSnapChip() {
         const chip = document.getElementById('tpos-snap-real-chip');
         if (!chip) return;
-        const streamReady = !!STATE.captureStream;
+        const streamReady = !!STATE.captureStream || !!STATE.frameBufferTimer;
         const bufSize = STATE.frameBuffer?.length || 0;
+        const viaExt = STATE.extReady && !STATE.captureStream && !!STATE.frameBufferTimer;
         if (streamReady) {
-            chip.innerHTML = `<span style="display:inline-block;width:8px;height:8px;background:#dc2626;border-radius:50%;animation:snap-pulse 1.4s ease-in-out infinite;"></span> 🎬 LIVE linked · ${bufSize} frames`;
+            const sourceLabel = viaExt ? 'EXT linked' : 'LIVE linked';
+            chip.innerHTML = `<span style="display:inline-block;width:8px;height:8px;background:#dc2626;border-radius:50%;animation:snap-pulse 1.4s ease-in-out infinite;"></span> 🎬 ${sourceLabel} · ${bufSize} frames`;
             chip.style.background = '#fee2e2';
             chip.style.borderColor = '#fca5a5';
             chip.style.color = '#991b1b';
-            chip.title = `Stream FB đang link. Mỗi 5s capture 1 frame vào buffer (giữ 1h). Auto-snap dùng frame nearest commentTime.
+            chip.title = viaExt
+                ? `Extension đang capture tab mỗi 5s (no popup). Buffer giữ 1h. Click chip để NGẮT.`
+                : `Stream FB đang link. Mỗi 5s capture 1 frame vào buffer (giữ 1h). Auto-snap dùng frame nearest commentTime.
 Click chip để NGẮT stream.`;
         } else {
             chip.innerHTML = `🎬 Bắt đầu chụp live · click 1 cái mở FB + share`;
@@ -687,8 +779,11 @@ Throttle 30s/KH. Click để tắt.`;
         }
         STATE.autoLastSnap.set(customerFbUserId, now);
         try {
-            if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
-                // Path 1: real-frame capture từ FB tab đã share.
+            const hasBufferedFrames =
+                (STATE.captureStream && STATE.captureVideo?.videoWidth) ||
+                (STATE.frameBufferTimer && STATE.frameBuffer?.length > 0);
+            if (hasBufferedFrames) {
+                // Path 1: real-frame capture từ FB tab đã share / extension.
                 // Pass comment.created_time để offset_seconds tính từ moment
                 // comment, không phải thời điểm capture frame.
                 const rawT =
@@ -916,7 +1011,7 @@ Throttle 30s/KH. Click để tắt.`;
     }
 
     async function _enableEmbeddedLiveCapture() {
-        if (STATE.captureStream) {
+        if (STATE.captureStream || STATE.frameBufferTimer) {
             _toast('Đã kết nối rồi', 'ok');
             return true;
         }
@@ -938,6 +1033,17 @@ Throttle 30s/KH. Click để tắt.`;
             await new Promise((r) => setTimeout(r, 4000));
         } else {
             await new Promise((r) => setTimeout(r, 500));
+        }
+        // Path A — N2Store Extension đang chạy: skip getDisplayMedia. Frame
+        // buffer dùng chrome.tabs.captureVisibleTab (no popup).
+        if (STATE.extReady) {
+            _startFrameBuffer();
+            renderRealSnapChip();
+            renderAutoModeChip();
+            const hint = document.getElementById('tpos-snap-fb-hint');
+            if (hint) hint.remove();
+            _toast('✅ Auto-snap qua extension — không cần share popup', 'ok');
+            return true;
         }
         try {
             const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -1006,8 +1112,9 @@ Throttle 30s/KH. Click để tắt.`;
     // AUTO-START — DEFERRED IFRAME (lag fix v2):
     // KHÔNG auto-inject iframe FB (plugin nặng, lag máy). Chỉ show 1 floating
     // button "🎬 BẬT AUTO-SNAP" — user click → mới inject iframe + share.
+    // Nếu N2Store Extension active → tự click pill ngay (zero user action).
     function _maybeShowAutoSnapBanner() {
-        if (STATE.captureStream) return;
+        if (STATE.captureStream || STATE.frameBufferTimer) return;
         if (document.getElementById('tpos-snap-go-pill')) return;
         const camp = _findActiveLiveCampaign();
         if (!camp?.Facebook_LiveId) return;
@@ -1015,8 +1122,9 @@ Throttle 30s/KH. Click để tắt.`;
         const pill = document.createElement('button');
         pill.id = 'tpos-snap-go-pill';
         pill.type = 'button';
-        pill.title =
-            'Bấm 1 lần để bật auto-snap frame thật (iframe FB sẽ load + share). KHÔNG load trước để page không lag.';
+        pill.title = STATE.extReady
+            ? 'Extension đang active — sẽ tự bấm để load iframe + capture không popup.'
+            : 'Bấm 1 lần để bật auto-snap frame thật (iframe FB sẽ load + share). KHÔNG load trước để page không lag.';
         pill.innerHTML =
             '<span style="font-size:18px;">🎬</span> <span>BẬT AUTO-SNAP</span> <small style="opacity:0.8;font-weight:500;">1 click</small>';
         pill.style.cssText =
@@ -1034,6 +1142,14 @@ Throttle 30s/KH. Click để tắt.`;
                     '<span style="font-size:18px;">🎬</span> <span>BẬT AUTO-SNAP</span> <small style="opacity:0.8;font-weight:500;">1 click</small>';
             }
         };
+        // Auto-click khi extension ready (zero user action). Đợi 800ms cho
+        // EXTENSION_LOADED message arrive trước khi quyết định.
+        setTimeout(() => {
+            if (STATE.extReady && !pill.disabled) {
+                console.log('[snap-ext] auto-click BẬT AUTO-SNAP (extension active)');
+                pill.click();
+            }
+        }, 800);
     }
 
     async function toggleRealSnap() {
@@ -1169,7 +1285,25 @@ Throttle 30s/KH. Click để tắt.`;
     function _startFrameBuffer() {
         _stopFrameBuffer(); // safe re-init
         STATE.frameBuffer = []; // [{ capturedAt: ms, jpegBase64: string }]
+        const useExt = STATE.extReady;
         const tick = async () => {
+            // Path A — extension: capture tab + crop iframe rect.
+            if (useExt) {
+                const wrapper = document.getElementById('tpos-snap-fb-wrapper');
+                if (!wrapper) return;
+                try {
+                    const jpegBase64 = await _captureExtensionFrame();
+                    if (!jpegBase64) return;
+                    STATE.frameBuffer.push({ capturedAt: Date.now(), jpegBase64 });
+                    if (STATE.frameBuffer.length > FRAME_BUFFER_MAX) {
+                        STATE.frameBuffer.splice(0, STATE.frameBuffer.length - FRAME_BUFFER_MAX);
+                    }
+                } catch (e) {
+                    console.warn('[snap-buffer-ext] tick fail:', e.message);
+                }
+                return;
+            }
+            // Path B — getDisplayMedia stream (legacy).
             if (!STATE.captureStream || !STATE.captureVideo?.videoWidth) return;
             try {
                 const jpegBase64 = await _captureFrameJpeg(0.72, 1280);
@@ -1185,7 +1319,12 @@ Throttle 30s/KH. Click để tắt.`;
         // Capture 1 frame ngay khi start, sau đó interval.
         tick();
         STATE.frameBufferTimer = setInterval(tick, FRAME_BUFFER_INTERVAL_MS);
-        console.log('[snap-buffer] started — capture mỗi', FRAME_BUFFER_INTERVAL_MS, 'ms');
+        console.log(
+            '[snap-buffer] started — capture mỗi',
+            FRAME_BUFFER_INTERVAL_MS,
+            'ms',
+            useExt ? '(via extension, no popup)' : '(via getDisplayMedia)'
+        );
     }
 
     function _stopFrameBuffer() {

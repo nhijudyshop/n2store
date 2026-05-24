@@ -457,6 +457,40 @@ async function handleMessage(msg, tabId, port, asyncSendResponse) {
             sendResponse({ success: true });
             break;
 
+        // === Livestream Snapshot — Tab Capture (no popup) ===
+        // Page (nhijudy.store/tpos-pancake) requests a JPEG of the visible tab.
+        // chrome.tabs.captureVisibleTab works without user gesture because we
+        // have host permission for nhijudy.store. Page crops iframe region itself.
+        case 'N2_CAPTURE_VISIBLE_TAB': {
+            try {
+                // Lookup tab → windowId. tabId comes from port.sender (passed in).
+                let windowId = null;
+                if (typeof tabId === 'number') {
+                    try {
+                        const tab = await chrome.tabs.get(tabId);
+                        windowId = tab.windowId;
+                    } catch {}
+                }
+                const dataUrl = await chrome.tabs.captureVisibleTab(windowId, {
+                    format: 'jpeg',
+                    quality: msg.quality || 80,
+                });
+                sendResponse({
+                    type: 'N2_CAPTURE_VISIBLE_TAB_SUCCESS',
+                    requestId: msg.requestId,
+                    dataUrl,
+                });
+            } catch (err) {
+                log.warn(MODULE, 'captureVisibleTab failed:', err.message);
+                sendResponse({
+                    type: 'N2_CAPTURE_VISIBLE_TAB_FAILURE',
+                    requestId: msg.requestId,
+                    error: err.message,
+                });
+            }
+            break;
+        }
+
         // === TPOS Interceptor Events ===
         case 'tpos:tag-assigned':
             log.info(
