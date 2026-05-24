@@ -110,6 +110,14 @@
         return Number(cleaned) || 0;
     }
 
+    function escapeHtml(s) {
+        return String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
     // ── Fetch from Render DB (delivery_assignments table) ──
     // Render DB is the source of truth for "đã quét" + COD per assignment.
     // No TPOS round-trip needed.
@@ -204,7 +212,7 @@
               <table class="dr-report-table" id="drReportTable">
                 <thead><tr>
                   <th>NGÀY</th>
-                  <th class="num">SL ĐƠN</th>
+                  <th class="num" title="Nhập số đơn rớt → trừ khỏi SL tự động">SL ĐƠN <small>(rớt)</small></th>
                   <th class="num">TIỀN</th>
                   <th class="num">PHÍ SHIP</th>
                   <th class="num">TỔNG TẤT CẢ</th>
@@ -212,6 +220,7 @@
                   <th class="num input-col">ATRƯỜNG NHẬN CK</th>
                   <th class="num input-col">CK TRƯỚC</th>
                   <th class="num">TỔNG CÒN LẠI</th>
+                  <th>GHI CHÚ</th>
                 </tr></thead>
                 <tbody id="drReportTbody"></tbody>
                 <tfoot id="drReportTfoot"></tfoot>
@@ -346,7 +355,7 @@
 
         if (dates.length === 0) {
             document.getElementById('drReportTbody').innerHTML =
-                '<tr><td colspan="9" class="dr-report-empty">Chọn khoảng ngày để xem báo cáo</td></tr>';
+                '<tr><td colspan="10" class="dr-report-empty">Chọn khoảng ngày để xem báo cáo</td></tr>';
             document.getElementById('drReportTfoot').innerHTML = '';
             return;
         }
@@ -362,7 +371,7 @@
 
         // Cold cache → show loading + async fetch
         document.getElementById('drReportTbody').innerHTML =
-            '<tr><td colspan="9" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>';
+            '<tr><td colspan="10" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>';
         document.getElementById('drReportTfoot').innerHTML = '';
         fetchRange(state.fromDate, state.toDate).then(({ byDateGroup }) => {
             if (rangeKey(state.fromDate, state.toDate) !== key) return; // stale
@@ -460,23 +469,37 @@
         tbody.dataset.delegationBound = '1';
 
         tbody.addEventListener('focusout', (e) => {
-            const input = e.target.closest && e.target.closest('input[data-field]');
-            if (!input || !tbody.contains(input)) return;
-            const row = input.closest('tr[data-date]');
+            const el = e.target.closest && e.target.closest('[data-field]');
+            if (!el || !tbody.contains(el)) return;
+            const row = el.closest('tr[data-date]');
             if (!row) return;
-            const field = input.dataset.field;
-            const value =
-                field === 'slDon'
-                    ? input.value === ''
-                        ? ''
-                        : Math.max(0, Number(input.value) || 0)
-                    : parseMoney(input.value);
+            const field = el.dataset.field;
+            let value;
+            if (field === 'slRot') {
+                value = el.value === '' ? '' : Math.max(0, Number(el.value) || 0);
+            } else if (field === 'note') {
+                value = el.value.trim();
+            } else {
+                value = parseMoney(el.value);
+            }
+            // Only persist + re-render if value actually changed
+            const ov = getOverride(row.dataset.date, state.activeTab);
+            const prev = ov[field];
+            const prevNorm = prev == null || prev === '' ? '' : prev;
+            const nextNorm = value == null || value === '' ? '' : value;
+            if (String(prevNorm) === String(nextNorm)) return;
             setOverride(row.dataset.date, state.activeTab, { [field]: value });
-            scheduleRender();
+            // Note field doesn't affect totals → skip full re-render
+            if (field !== 'note') scheduleRender();
         });
 
         tbody.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && e.target && e.target.matches('input[data-field]')) {
+            if (
+                e.key === 'Enter' &&
+                e.target &&
+                e.target.matches('input[data-field]') &&
+                e.target.dataset.field !== 'note'
+            ) {
                 e.target.blur();
             }
         });
