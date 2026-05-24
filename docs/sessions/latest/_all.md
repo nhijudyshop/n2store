@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ba72f62` — auto: session update
-**Last updated**: 2026-05-24 11:58:39 +07
-**Latest session**: [`RESUME:20260524-115839-ba72f62`](../20260524-115839-ba72f62.md)
-**Summary**: auto: session update
+**Latest commit**: `edc51e6` — perf(delivery-report/report): sync render on cache hit + event delegation (no per-cell listeners)
+**Last updated**: 2026-05-24 12:00:51 +07
+**Latest session**: [`RESUME:20260524-120051-edc51e6`](../20260524-120051-edc51e6.md)
+**Summary**: perf(delivery-report/report): sync render on cache hit + event delegation (no per-cell listeners)
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`delivery-report/`](./delivery-report.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +23,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 11:58
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 12:00
 - [`docs/`](./docs.md) — updated 2026-05-24 11:04
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
