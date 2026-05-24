@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0902ef0` — feat(delivery-report): Báo cáo modal — triple-click hint, 3 tabs, editable cells + image
-**Last updated**: 2026-05-24 11:38:49 +07
-**Latest session**: [`RESUME:20260524-113849-0902ef0`](../20260524-113849-0902ef0.md)
-**Summary**: feat(delivery-report): Báo cáo modal — triple-click hint, 3 tabs, editable cells + image
+**Latest commit**: `fc9f6c4` — fix(snap-ext): manifest v1.0.6 — thêm <all_urls> host permission
+**Last updated**: 2026-05-24 11:40:00 +07
+**Latest session**: [`RESUME:20260524-113959-fc9f6c4`](../20260524-113959-fc9f6c4.md)
+**Summary**: fix(snap-ext): manifest v1.0.6 — thêm <all_urls> host permission
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 4 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
+- [`n2store-extension/`](./n2store-extension.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -38,7 +37,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-22 14:45
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 11:35
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 11:40
 - [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
