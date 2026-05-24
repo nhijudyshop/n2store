@@ -3,15 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c5fe9b5` — debug: add AbortController + log to stream-url fetch (track 'Failed to fetch')
-**Last updated**: 2026-05-24 10:44:19 +07
-**Latest session**: [`RESUME:20260524-104419-c5fe9b5`](../20260524-104419-c5fe9b5.md)
-**Summary**: debug: add AbortController + log to stream-url fetch (track 'Failed to fetch')
+**Latest commit**: `c7adc3f` — revert: Step B (video + dash.js) — FB CDN không có CORS, không play được DASH chunks
+**Last updated**: 2026-05-24 10:50:19 +07
+**Latest session**: [`RESUME:20260524-105019-c7adc3f`](../20260524-105019-c7adc3f.md)
+**Summary**: revert: Step B (video + dash.js) — FB CDN không có CORS, không play được DASH chunks
 
 ## Folders affected in this commit
 
-- [`inventory-tracking/`](./inventory-tracking.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
@@ -63,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 10:44
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 10:50
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
