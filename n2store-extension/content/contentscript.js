@@ -227,6 +227,20 @@
         false
     );
 
+    // Livestream Snapshot — receive N2_TAB_STREAM_ID từ popup (qua chrome.tabs
+    // .sendMessage), relay vào page qua window.postMessage. Page consume streamId
+    // bằng navigator.mediaDevices.getUserMedia({chromeMediaSourceId}). 10s deadline
+    // từ Chrome — page phải getUserMedia gấp.
+    chrome.runtime.onMessage.addListener((msg) => {
+        if (msg && msg.type === 'N2_TAB_STREAM_ID' && msg.streamId) {
+            console.log(PREFIX_OUT, 'N2_TAB_STREAM_ID forwarded to page');
+            window.postMessage(
+                { type: 'N2_TAB_STREAM_ID', streamId: msg.streamId, ts: msg.ts },
+                '*'
+            );
+        }
+    });
+
     // === INITIALIZATION ===
 
     // Connect to service worker

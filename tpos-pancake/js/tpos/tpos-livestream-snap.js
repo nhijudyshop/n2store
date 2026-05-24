@@ -139,7 +139,7 @@
     // Yêu cầu extension version >= REQUIRED_EXT_VERSION (host_permission
     // <all_urls> + N2_CAPTURE_VISIBLE_TAB handler).
     // -----------------------------------------------------
-    const REQUIRED_EXT_VERSION = '1.0.6';
+    const REQUIRED_EXT_VERSION = '1.0.7';
     function _cmpVersions(a, b) {
         const aa = String(a || '0')
             .split('.')
@@ -178,6 +178,16 @@
                     `[snap-ext] v${data.version} TOO OLD — cần >= v${REQUIRED_EXT_VERSION}`
                 );
             }
+        } else if (data.type === 'N2_TAB_STREAM_ID' && data.streamId) {
+            // Option B: extension popup grab streamId → page tạo MediaStream
+            // qua getUserMedia. Stream bound vào tab SPECIFIC → capture mượt
+            // dù tab inactive / browser minimize. Replace captureVisibleTab
+            // path (chỉ work khi tab focused).
+            console.log('[snap-ext] received streamId — switching to stream mode');
+            _initStreamFromExtensionStreamId(data.streamId).catch((e) => {
+                console.warn('[snap-ext] stream init fail:', e.message);
+                _toast('Lỗi kết nối stream extension: ' + e.message, 'err');
+            });
         } else if (
             data.type === 'N2_CAPTURE_VISIBLE_TAB_SUCCESS' ||
             data.type === 'N2_CAPTURE_VISIBLE_TAB_FAILURE'
@@ -193,6 +203,66 @@
             }
         }
     });
+
+    // Option B init — page consume streamId từ extension popup, tạo MediaStream
+    // qua getUserMedia. Stream bound tab SPECIFIC → tab inactive vẫn capture.
+    // Replace captureVisibleTab (chỉ work tab focused). Frame buffer dùng
+    // _captureFrameJpeg() (canvas + STATE.captureVideo) như getDisplayMedia path.
+    async function _initStreamFromExtensionStreamId(streamId) {
+        // Stop existing stream nếu có (re-init when user re-click extension icon)
+        if (STATE.captureStream) {
+            STATE.captureStream.getTracks().forEach((t) => t.stop());
+            STATE.captureStream = null;
+        }
+        // getUserMedia với chromeMediaSource: 'tab' (legacy syntax, vẫn work MV3
+        // cho tab stream ID từ chrome.tabCapture). Chrome 10s deadline kể từ
+        // khi getMediaStreamId trả về.
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+                mandatory: {
+                    chromeMediaSource: 'tab',
+                    chromeMediaSourceId: streamId,
+                    maxWidth: 1920,
+                    maxHeight: 1080,
+                    maxFrameRate: 5,
+                },
+            },
+        });
+        STATE.captureStream = stream;
+        // Tạo hidden video element + play (giống getDisplayMedia path).
+        if (!STATE.captureVideo) {
+            STATE.captureVideo = document.createElement('video');
+            STATE.captureVideo.muted = true;
+            STATE.captureVideo.playsInline = true;
+            STATE.captureVideo.style.cssText =
+                'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;';
+            document.body.appendChild(STATE.captureVideo);
+        }
+        STATE.captureVideo.srcObject = stream;
+        await STATE.captureVideo.play();
+        // Listen 'ended' (user closes tab / stream revoked)
+        stream.getVideoTracks().forEach((t) => {
+            t.addEventListener('ended', () => {
+                console.log('[snap-ext] tab stream ended');
+                _stopFrameBuffer();
+                STATE.captureStream = null;
+                renderRealSnapChip();
+                _toast('🔴 Stream tab đã ngắt — click icon N2Store để bật lại', 'ok');
+            });
+        });
+        // Khởi động frame buffer (giờ dùng _captureFrameJpeg, không phải
+        // _captureExtensionFrame). Stream-based capture không bị Chrome
+        // rate-limit, work khi tab inactive.
+        _startFrameBuffer();
+        renderRealSnapChip();
+        renderAutoModeChip();
+        _toast('✅ Stream extension OK — tab inactive vẫn capture', 'ok');
+        STATE.extStreamActive = true;
+        // Remove stream mode prompt (đã wire xong)
+        const prompt = document.getElementById('tpos-snap-stream-prompt');
+        if (prompt) prompt.remove();
+    }
 
     function _captureViaExtension(quality = 80, timeoutMs = 4000) {
         return new Promise((resolve, reject) => {
@@ -559,16 +629,19 @@
         if (!chip) return;
         const streamReady = !!STATE.captureStream || !!STATE.frameBufferTimer;
         const bufSize = STATE.frameBuffer?.length || 0;
-        const viaExt = STATE.extReady && !STATE.captureStream && !!STATE.frameBufferTimer;
+        const viaExtStream = !!STATE.extStreamActive && !!STATE.captureStream;
+        const viaExtTab = STATE.extReady && !STATE.captureStream && !!STATE.frameBufferTimer;
         if (streamReady) {
-            const sourceLabel = viaExt ? 'EXT linked' : 'LIVE linked';
+            const sourceLabel = viaExtStream ? 'EXT stream' : viaExtTab ? 'EXT tab' : 'LIVE linked';
             chip.innerHTML = `<span style="display:inline-block;width:8px;height:8px;background:#dc2626;border-radius:50%;animation:snap-pulse 1.4s ease-in-out infinite;"></span> 🎬 ${sourceLabel} · ${bufSize} frames`;
             chip.style.background = '#fee2e2';
             chip.style.borderColor = '#fca5a5';
             chip.style.color = '#991b1b';
-            chip.title = viaExt
-                ? `Extension đang capture tab mỗi 5s (no popup). Buffer giữ 1h. Click chip để NGẮT.`
-                : `Stream FB đang link. Mỗi 5s capture 1 frame vào buffer (giữ 1h). Auto-snap dùng frame nearest commentTime.
+            chip.title = viaExtStream
+                ? `Extension tab stream — capture mọi lúc dù tab inactive / browser minimize. Buffer giữ 1h. Click chip để NGẮT.`
+                : viaExtTab
+                  ? `Extension visible tab — chỉ capture khi tpos-pancake là tab focused. Click icon N2Store để upgrade stream mode (tab inactive OK).`
+                  : `Stream FB đang link. Mỗi 5s capture 1 frame vào buffer (giữ 1h). Auto-snap dùng frame nearest commentTime.
 Click chip để NGẮT stream.`;
         } else {
             chip.innerHTML = `🎬 Bắt đầu chụp live · click 1 cái mở FB + share`;
@@ -1126,7 +1199,8 @@ Throttle 30s/KH. Click để tắt.`;
             await new Promise((r) => setTimeout(r, 500));
         }
         // Path A — N2Store Extension đang chạy: skip getDisplayMedia. Frame
-        // buffer dùng chrome.tabs.captureVisibleTab (no popup).
+        // buffer dùng chrome.tabs.captureVisibleTab (tab focused only) hoặc
+        // tab stream (tab inactive OK) tùy việc user đã click extension icon.
         if (STATE.extReady) {
             _startFrameBuffer();
             renderRealSnapChip();
@@ -1134,6 +1208,11 @@ Throttle 30s/KH. Click để tắt.`;
             const hint = document.getElementById('tpos-snap-fb-hint');
             if (hint) hint.remove();
             _toast('✅ Auto-snap qua extension — không cần share popup', 'ok');
+            // Show prompt để user upgrade lên stream mode (Option B):
+            // - Tab inactive vẫn capture được
+            // - Stream-based, no Chrome rate limit
+            // Banner ẩn nếu user dismiss hoặc đã có stream active.
+            _showStreamModePrompt();
             return true;
         }
         try {
@@ -1198,6 +1277,35 @@ Throttle 30s/KH. Click để tắt.`;
             if (wrapper) wrapper.remove();
             return false;
         }
+    }
+
+    // Banner gợi ý user click N2Store icon để upgrade lên stream mode (Option B).
+    // Stream mode: capture liên tục dù tab inactive / browser minimize.
+    // Dismissible session-only. Auto-hide khi captureStream đã active.
+    function _showStreamModePrompt() {
+        if (STATE.captureStream) return; // đã có stream → không cần
+        if (sessionStorage.getItem('tpos_stream_prompt_dismiss')) return;
+        if (document.getElementById('tpos-snap-stream-prompt')) return;
+        const box = document.createElement('div');
+        box.id = 'tpos-snap-stream-prompt';
+        box.innerHTML = `
+            <div style="font-weight:700;font-size:13px;color:#0c4a6e;margin-bottom:6px;">💡 Bật capture tab-inactive</div>
+            <div style="font-size:12px;color:#075985;line-height:1.5;">
+                Hiện tại auto-snap chỉ work khi tpos-pancake là tab đang focused.
+                Click <strong>icon N2Store</strong> trên thanh extension Chrome
+                <strong>1 lần</strong> để bật stream mode → capture được dù anh
+                switch sang tab khác / minimize browser.
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px;">
+                <button type="button" id="tpos-snap-stream-prompt-ok" style="flex:1;padding:6px 12px;background:#0284c7;color:#fff;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;">Đã hiểu</button>
+            </div>`;
+        box.style.cssText =
+            'position:fixed;bottom:80px;right:16px;width:340px;background:#f0f9ff;border:1px solid #7dd3fc;border-radius:12px;padding:12px 14px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:99100;font-family:Inter,system-ui,sans-serif;';
+        document.body.appendChild(box);
+        document.getElementById('tpos-snap-stream-prompt-ok').onclick = () => {
+            sessionStorage.setItem('tpos_stream_prompt_dismiss', '1');
+            box.remove();
+        };
     }
 
     // Banner gợi ý install / update extension. Hiện khi detect live nhưng
@@ -1420,10 +1528,29 @@ Throttle 30s/KH. Click để tắt.`;
     function _startFrameBuffer() {
         _stopFrameBuffer(); // safe re-init
         STATE.frameBuffer = []; // [{ capturedAt: ms, jpegBase64: string }]
-        const useExt = STATE.extReady;
+        // Capture path priority:
+        //   1. captureStream (Option B: extension streamId via getUserMedia OR
+        //      getDisplayMedia) → _captureFrameJpeg via canvas. Best: work khi
+        //      tab inactive, no Chrome rate-limit.
+        //   2. extension captureVisibleTab → tab-only crop. Chỉ work khi tab
+        //      focused. Fallback nếu user chưa click extension icon.
         const tick = async () => {
-            // Path A — extension: capture tab + crop iframe rect.
-            if (useExt) {
+            // Path 1 — stream-based (Option B preferred OR legacy getDisplayMedia)
+            if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
+                try {
+                    const jpegBase64 = await _captureFrameJpeg(0.72, 1280);
+                    if (!jpegBase64) return;
+                    STATE.frameBuffer.push({ capturedAt: Date.now(), jpegBase64 });
+                    if (STATE.frameBuffer.length > FRAME_BUFFER_MAX) {
+                        STATE.frameBuffer.splice(0, STATE.frameBuffer.length - FRAME_BUFFER_MAX);
+                    }
+                } catch (e) {
+                    console.warn('[snap-buffer-stream] tick fail:', e.message);
+                }
+                return;
+            }
+            // Path 2 — extension visible tab capture (chỉ work tab focused).
+            if (STATE.extReady) {
                 const wrapper = document.getElementById('tpos-snap-fb-wrapper');
                 if (!wrapper) return;
                 try {
@@ -1436,30 +1563,17 @@ Throttle 30s/KH. Click để tắt.`;
                 } catch (e) {
                     console.warn('[snap-buffer-ext] tick fail:', e.message);
                 }
-                return;
-            }
-            // Path B — getDisplayMedia stream (legacy).
-            if (!STATE.captureStream || !STATE.captureVideo?.videoWidth) return;
-            try {
-                const jpegBase64 = await _captureFrameJpeg(0.72, 1280);
-                if (!jpegBase64) return;
-                STATE.frameBuffer.push({ capturedAt: Date.now(), jpegBase64 });
-                if (STATE.frameBuffer.length > FRAME_BUFFER_MAX) {
-                    STATE.frameBuffer.splice(0, STATE.frameBuffer.length - FRAME_BUFFER_MAX);
-                }
-            } catch (e) {
-                console.warn('[snap-buffer] tick fail:', e.message);
             }
         };
         // Capture 1 frame ngay khi start, sau đó interval.
         tick();
         STATE.frameBufferTimer = setInterval(tick, FRAME_BUFFER_INTERVAL_MS);
-        console.log(
-            '[snap-buffer] started — capture mỗi',
-            FRAME_BUFFER_INTERVAL_MS,
-            'ms',
-            useExt ? '(via extension, no popup)' : '(via getDisplayMedia)'
-        );
+        const path = STATE.captureStream
+            ? '(stream-based, tab inactive OK)'
+            : STATE.extReady
+              ? '(extension visible tab, tab focused only)'
+              : '(no source)';
+        console.log('[snap-buffer] started — capture mỗi', FRAME_BUFFER_INTERVAL_MS, 'ms', path);
     }
 
     function _stopFrameBuffer() {
