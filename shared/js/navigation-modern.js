@@ -3413,6 +3413,21 @@ class UnifiedNavigationManager {
             '<hr style="border: none; border-top: 1px solid var(--border, rgba(0,0,0,0.1)); margin: 16px 0;">';
         sidebarNav.appendChild(divider);
 
+        // N2Store Extension link → mở Chrome Web Store ở tab mới
+        const extensionLink = document.createElement('a');
+        extensionLink.href =
+            'https://chromewebstore.google.com/detail/dgcicifdlgamleagjangkbbcdgbhmfea';
+        extensionLink.target = '_blank';
+        extensionLink.rel = 'noopener noreferrer';
+        extensionLink.className = 'nav-item nav-extension-link';
+        extensionLink.title = 'Cài đặt N2Store Extension trên Chrome Web Store';
+        extensionLink.innerHTML = `
+            <i data-lucide="puzzle"></i>
+            <span>Extension</span>
+            <i data-lucide="external-link" class="nav-extension-external-icon"></i>
+        `;
+        sidebarNav.appendChild(extensionLink);
+
         const settingsBtn = document.createElement('button');
         settingsBtn.id = 'btnSettings';
         settingsBtn.className = 'nav-item nav-settings-btn';
@@ -3439,6 +3454,29 @@ class UnifiedNavigationManager {
                 }
                 .nav-settings-btn i {
                     color: #fbbf24;
+                }
+                .nav-extension-link {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    text-decoration: none;
+                    color: inherit;
+                    position: relative;
+                }
+                .nav-extension-link:hover {
+                    background: rgba(255, 255, 255, 0.1) !important;
+                }
+                .nav-extension-link i[data-lucide="puzzle"] {
+                    color: #4f46e5;
+                }
+                .nav-extension-external-icon {
+                    margin-left: auto;
+                    width: 12px !important;
+                    height: 12px !important;
+                    opacity: 0.5;
+                }
+                .nav-extension-link:hover .nav-extension-external-icon {
+                    opacity: 0.9;
                 }
             `;
             document.head.insertBefore(style, document.head.firstChild);
@@ -7295,4 +7333,200 @@ setTimeout(() => {
     script.async = true;
     script.onerror = () => console.warn('[AI Widget] Failed to load widget script');
     document.head.appendChild(script);
+})();
+
+// =====================================================
+// N2STORE EXTENSION INSTALL PROMPT
+// Detect nếu user chưa cài extension → hiện modal kêu cài.
+// Marker từ extension content script: <html data-n2store-extension="1.0.x">
+// Cooldown: 7 ngày sau khi user dismiss
+// =====================================================
+(function installExtensionPrompt() {
+    const STORE_URL = 'https://chromewebstore.google.com/detail/dgcicifdlgamleagjangkbbcdgbhmfea';
+    const DISMISS_KEY = 'n2store_install_prompt_dismissed_at';
+    const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+    const CHECK_DELAY_MS = 2500; // chờ contentscript của extension chạy
+
+    // Skip if not on a page where extension content script would inject
+    // (Manifest matches: nhijudy.store/*, nhijudyshop.github.io/*, *.nhijudyshop.workers.dev/*)
+    const host = location.hostname;
+    const inScope =
+        host === 'nhijudy.store' ||
+        host.endsWith('.nhijudyshop.workers.dev') ||
+        host === 'nhijudyshop.workers.dev' ||
+        host.endsWith('.nhijudyshop.github.io') ||
+        host === 'nhijudyshop.github.io';
+    if (!inScope) return;
+
+    // Cooldown check
+    try {
+        const lastDismissed = parseInt(localStorage.getItem(DISMISS_KEY) || '0', 10);
+        if (lastDismissed && Date.now() - lastDismissed < COOLDOWN_MS) return;
+    } catch {}
+
+    function isExtensionInstalled() {
+        return !!document.documentElement.getAttribute('data-n2store-extension');
+    }
+
+    function showModal() {
+        if (document.getElementById('n2storeInstallPromptModal')) return;
+        const modal = document.createElement('div');
+        modal.id = 'n2storeInstallPromptModal';
+        modal.innerHTML = `
+            <div class="n2store-prompt-backdrop"></div>
+            <div class="n2store-prompt-card" role="dialog" aria-modal="true" aria-labelledby="n2storePromptTitle">
+                <button class="n2store-prompt-close" aria-label="Đóng">&times;</button>
+                <div class="n2store-prompt-icon">
+                    <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/>
+                    </svg>
+                </div>
+                <h3 id="n2storePromptTitle" class="n2store-prompt-title">Cài N2Store Extension</h3>
+                <p class="n2store-prompt-body">
+                    Cài extension để gửi tin nhắn Facebook Pages, đồng bộ đơn hàng và nhận thông báo real-time.
+                    Trải nghiệm đầy đủ hơn so với chỉ dùng website.
+                </p>
+                <div class="n2store-prompt-actions">
+                    <button class="n2store-prompt-btn-secondary" data-action="later">Để sau</button>
+                    <a class="n2store-prompt-btn-primary" href="${STORE_URL}" target="_blank" rel="noopener" data-action="install">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                        Cài ngay
+                    </a>
+                </div>
+            </div>
+        `;
+
+        if (!document.getElementById('n2storeInstallPromptStyles')) {
+            const style = document.createElement('style');
+            style.id = 'n2storeInstallPromptStyles';
+            style.textContent = `
+                #n2storeInstallPromptModal {
+                    position: fixed; inset: 0; z-index: 2147483646;
+                    display: flex; align-items: center; justify-content: center;
+                    animation: n2storePromptFade 200ms ease-out;
+                }
+                @keyframes n2storePromptFade { from { opacity: 0; } to { opacity: 1; } }
+                .n2store-prompt-backdrop {
+                    position: absolute; inset: 0;
+                    background: rgba(15, 23, 42, 0.55);
+                    backdrop-filter: blur(2px);
+                }
+                .n2store-prompt-card {
+                    position: relative;
+                    background: #fff;
+                    border-radius: 16px;
+                    padding: 28px 28px 24px;
+                    max-width: 420px; width: calc(100% - 40px);
+                    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+                    text-align: center;
+                    animation: n2storePromptPop 240ms cubic-bezier(0.16, 1, 0.3, 1);
+                }
+                @keyframes n2storePromptPop {
+                    from { transform: translateY(20px) scale(0.96); opacity: 0; }
+                    to { transform: translateY(0) scale(1); opacity: 1; }
+                }
+                .n2store-prompt-close {
+                    position: absolute; top: 10px; right: 12px;
+                    background: transparent; border: none;
+                    font-size: 24px; line-height: 1; cursor: pointer;
+                    color: #94a3b8; width: 32px; height: 32px;
+                    border-radius: 8px;
+                    transition: background 120ms ease, color 120ms ease;
+                }
+                .n2store-prompt-close:hover { background: #f1f5f9; color: #475569; }
+                .n2store-prompt-icon {
+                    width: 64px; height: 64px;
+                    margin: 0 auto 16px;
+                    border-radius: 16px;
+                    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+                    color: #fff;
+                    display: flex; align-items: center; justify-content: center;
+                    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.32);
+                }
+                .n2store-prompt-title {
+                    font-size: 19px; font-weight: 700;
+                    color: #0f172a; margin: 0 0 8px;
+                }
+                .n2store-prompt-body {
+                    font-size: 14px; line-height: 1.55;
+                    color: #475569; margin: 0 0 22px;
+                }
+                .n2store-prompt-actions {
+                    display: flex; gap: 10px; justify-content: center;
+                }
+                .n2store-prompt-btn-primary,
+                .n2store-prompt-btn-secondary {
+                    border-radius: 10px;
+                    padding: 10px 18px;
+                    font-size: 14px; font-weight: 600;
+                    cursor: pointer;
+                    border: none;
+                    transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+                    display: inline-flex; align-items: center; gap: 6px;
+                    text-decoration: none;
+                }
+                .n2store-prompt-btn-primary {
+                    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+                    color: #fff;
+                    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.32);
+                }
+                .n2store-prompt-btn-primary:hover {
+                    transform: translateY(-1px);
+                    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.42);
+                }
+                .n2store-prompt-btn-secondary {
+                    background: #f1f5f9; color: #475569;
+                }
+                .n2store-prompt-btn-secondary:hover { background: #e2e8f0; }
+                @media (prefers-color-scheme: dark) {
+                    .n2store-prompt-card { background: #1e293b; }
+                    .n2store-prompt-title { color: #f1f5f9; }
+                    .n2store-prompt-body { color: #cbd5e1; }
+                    .n2store-prompt-btn-secondary { background: #334155; color: #cbd5e1; }
+                    .n2store-prompt-btn-secondary:hover { background: #475569; }
+                    .n2store-prompt-close { color: #64748b; }
+                    .n2store-prompt-close:hover { background: #334155; color: #f1f5f9; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        document.body.appendChild(modal);
+
+        const close = (recordDismiss) => {
+            if (recordDismiss) {
+                try {
+                    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+                } catch {}
+            }
+            modal.style.animation = 'n2storePromptFade 160ms ease-in reverse';
+            setTimeout(() => modal.remove(), 160);
+        };
+
+        modal.querySelector('.n2store-prompt-close').addEventListener('click', () => close(true));
+        modal.querySelector('[data-action="later"]').addEventListener('click', () => close(true));
+        modal.querySelector('[data-action="install"]').addEventListener('click', () => close(true));
+        modal
+            .querySelector('.n2store-prompt-backdrop')
+            .addEventListener('click', () => close(true));
+    }
+
+    // Check sau khi DOM ready và chờ thêm chút cho extension contentscript chạy
+    function start() {
+        setTimeout(() => {
+            if (!isExtensionInstalled()) showModal();
+        }, CHECK_DELAY_MS);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start, { once: true });
+    } else {
+        start();
+    }
+
+    // Nếu extension cài muộn / sau khi modal đã hiện → tự đóng modal
+    window.addEventListener('n2store-extension-ready', () => {
+        const modal = document.getElementById('n2storeInstallPromptModal');
+        if (modal) modal.remove();
+    });
 })();

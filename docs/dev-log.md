@@ -25,6 +25,26 @@
 
 ## 2026-05-24
 
+### [extension][shared/navigation] Install prompt + sidebar link Chrome Web Store
+
+**User ask**: (1) Thêm link extension vào thanh menu navigator modern. (2) Khi user vào web mà chưa cài extension thì hiện popup kêu cài.
+
+**Approach**:
+
+- **Sidebar link**: thêm `<a>` element trong `addSettingsToNavigation()` (cạnh nút Cài Đặt), target=\_blank, icon `puzzle` + `external-link`. Không đụng `MENU_CONFIG` để tránh ảnh hưởng menu-edit modal / layout custom.
+- **Install detection**: extension `content/contentscript.js` set `<html data-n2store-extension="1.0.x">` ngay đầu IIFE + dispatch `n2store-extension-ready` event. Website check sau 2.5s, nếu marker thiếu → modal gradient tím-xanh "Cài N2Store Extension" với nút "Cài ngay" (mở store) / "Để sau" (cooldown 7 ngày qua localStorage `n2store_install_prompt_dismissed_at`). Scope check `location.hostname` để chỉ hiện trên `nhijudy.store` / `nhijudyshop.github.io` / `*.nhijudyshop.workers.dev` (đúng matches của extension manifest).
+- Nếu extension cài muộn (sau khi modal đã hiện) → modal tự đóng khi listen `n2store-extension-ready` event.
+
+**Files**:
+
+- `n2store-extension/content/contentscript.js` — set DOM marker + dispatch ready event
+- `n2store-extension/manifest.json` — bump v1.0.11 → v1.0.12
+- `shared/js/navigation-modern.js` — sidebar link trong `addSettingsToNavigation()` + `installExtensionPrompt()` IIFE ở cuối file (~150 dòng, self-contained, không export)
+
+**Status**: ✅ Done — auto-publish v1.0.12 qua Stop hook. Web side push lên GH Pages cùng commit.
+
+---
+
 ### [extension] Version-check + popup banner "Cập nhật" với link Chrome Web Store
 
 **User ask**: Khi user cài extension version cũ hơn version mới nhất → mở extension thấy popup banner có nút bấm để mở link store cài bản mới.

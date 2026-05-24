@@ -6,6 +6,17 @@
 (function () {
     'use strict';
 
+    // Marker để web page detect extension đã cài (dùng cho install-prompt modal).
+    // Set ngay đầu IIFE, trước mọi async work, để web check ngay được.
+    try {
+        const v = (chrome.runtime.getManifest && chrome.runtime.getManifest().version) || '?';
+        document.documentElement.setAttribute('data-n2store-extension', v);
+        // Dispatch event cho code chạy SAU contentscript (nếu listener đã register kịp)
+        window.dispatchEvent(
+            new CustomEvent('n2store-extension-ready', { detail: { version: v } })
+        );
+    } catch {}
+
     const PREFIX_IN = '[CS→BG]';
     const PREFIX_OUT = '[BG→CS]';
 

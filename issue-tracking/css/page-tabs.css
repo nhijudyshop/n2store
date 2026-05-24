@@ -149,53 +149,62 @@ body.pt-embed-active {
    TPOS-themed inline pane (BÁN HÀNG / TRẢ HÀNG — live TPOS fetch)
    --------------------------------------------------------------- */
 
+/* TPOS-matched palette: Segoe UI font, slate-blue page bg #edf1f2, warm-gray th bg #f0eeee,
+   purple primary #7266ba, badge style mirrors `.text-info-lt .badge .badge-empty` (transparent
+   bg + colored border + bold text). */
 .page-tab-pane.tpos-pane {
-    background: #f8fafc;
+    background: #edf1f2;
     min-height: calc(100vh - 49px);
     padding: 0;
 }
 
 .tpos-fastsale {
     --tp-bg: #ffffff;
-    --tp-border: #e5e7eb;
-    --tp-row-hover: #f1f5f9;
-    --tp-text: #1e293b;
-    --tp-muted: #64748b;
-    --tp-accent: #6366f1;
-    --tp-accent-soft: #eef2ff;
-    --tp-green: #10b981;
-    --tp-green-soft: #d1fae5;
-    --tp-red: #ef4444;
-    --tp-red-soft: #fee2e2;
-    --tp-amber: #f59e0b;
-    --tp-amber-soft: #fef3c7;
-    --tp-blue: #3b82f6;
-    --tp-blue-soft: #dbeafe;
-    --tp-gray: #6b7280;
+    --tp-page-bg: #edf1f2;
+    --tp-border: #cccccc;
+    --tp-border-soft: #e6e6e6;
+    --tp-row-stripe: #f5f5f5;
+    --tp-row-hover: #e8f3fc;
+    --tp-text: #4c4c4c;
+    --tp-text-strong: #333333;
+    --tp-muted: #58666e;
+    --tp-th-bg: #f0eeee;
+    --tp-th-text: #000000;
+    --tp-accent: #7266ba;
+    --tp-accent-hover: #6457a8;
+    --tp-accent-soft: #ebe9f7;
+    --tp-link: #428bca;
+    --tp-green: #27c24c;
+    --tp-green-soft: #e8f7ec;
+    --tp-red: #f05050;
+    --tp-red-soft: #fde8e8;
+    --tp-amber: #ff902b;
+    --tp-amber-soft: #fff1e2;
+    --tp-blue: #3abee8;
+    --tp-blue-soft: #eaf6fb;
+    --tp-gray: #98a6ad;
     --tp-gray-soft: #f3f4f6;
 
-    font-family:
-        'Inter',
-        -apple-system,
-        system-ui,
-        sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
     color: var(--tp-text);
     display: flex;
     flex-direction: column;
     min-height: calc(100vh - 49px);
+    background: var(--tp-page-bg);
 }
 
 .tpos-fso-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 20px;
+    padding: 10px 16px;
     background: var(--tp-bg);
     border-bottom: 1px solid var(--tp-border);
 }
 
 .tpos-fso-breadcrumb {
-    font-size: 13px;
+    font-size: 14px;
     color: var(--tp-muted);
     display: flex;
     align-items: center;
@@ -203,22 +212,22 @@ body.pt-embed-active {
 }
 
 .tpos-fso-breadcrumb strong {
-    color: var(--tp-text);
+    color: var(--tp-text-strong);
     font-weight: 600;
 }
 
 .tpos-fso-breadcrumb .sep {
-    color: #cbd5e1;
+    color: #b9c0c2;
 }
 
 .tpos-fso-counter {
-    font-size: 13px;
-    color: var(--tp-muted);
-    background: var(--tp-accent-soft);
-    color: var(--tp-accent);
-    padding: 4px 12px;
-    border-radius: 999px;
-    font-weight: 600;
+    font-size: 12px;
+    color: #fff;
+    background: var(--tp-accent);
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-weight: 700;
+    border: 1px solid var(--tp-accent);
 }
 
 .tpos-fso-counter strong {
@@ -229,7 +238,7 @@ body.pt-embed-active {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    padding: 12px 20px;
+    padding: 10px 16px;
     background: var(--tp-bg);
     border-bottom: 1px solid var(--tp-border);
     align-items: center;
@@ -247,32 +256,29 @@ body.pt-embed-active {
     left: 10px;
     top: 50%;
     transform: translateY(-50%);
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     color: var(--tp-muted);
     pointer-events: none;
 }
 
 .tpos-fso-search input {
     width: 100%;
-    height: 34px;
-    padding: 0 32px 0 32px;
+    height: 30px;
+    padding: 0 32px 0 30px;
     border: 1px solid var(--tp-border);
-    border-radius: 6px;
+    border-radius: 2px;
     font-family: inherit;
-    font-size: 13px;
-    color: var(--tp-text);
-    background: #fafbfc;
-    transition:
-        border-color 160ms,
-        background-color 160ms;
+    font-size: 14px;
+    color: var(--tp-text-strong);
+    background: var(--tp-bg);
+    transition: border-color 160ms;
 }
 
 .tpos-fso-search input:focus {
     outline: 0;
     border-color: var(--tp-accent);
-    background: var(--tp-bg);
-    box-shadow: 0 0 0 3px var(--tp-accent-soft);
+    box-shadow: 0 0 0 2px var(--tp-accent-soft);
 }
 
 .tpos-fso-search button {
@@ -315,24 +321,25 @@ body.pt-embed-active {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-weight: 500;
+    font-weight: 600;
+    color: var(--tp-text);
     white-space: nowrap;
 }
 
 .tpos-fso-chip label i {
-    width: 14px;
-    height: 14px;
+    width: 13px;
+    height: 13px;
 }
 
 .tpos-fso-chip select,
 .tpos-fso-chip input[type='date'] {
     height: 30px;
-    padding: 0 10px;
+    padding: 0 8px;
     border: 1px solid var(--tp-border);
-    border-radius: 6px;
+    border-radius: 2px;
     font-family: inherit;
-    font-size: 13px;
-    color: var(--tp-text);
+    font-size: 14px;
+    color: var(--tp-text-strong);
     background: var(--tp-bg);
     cursor: pointer;
     transition: border-color 160ms;
@@ -342,7 +349,7 @@ body.pt-embed-active {
 .tpos-fso-chip input[type='date']:focus {
     outline: 0;
     border-color: var(--tp-accent);
-    box-shadow: 0 0 0 3px var(--tp-accent-soft);
+    box-shadow: 0 0 0 2px var(--tp-accent-soft);
 }
 
 .tpos-fso-actions {
@@ -352,19 +359,20 @@ body.pt-embed-active {
     margin-left: auto;
 }
 
+/* Buttons: TPOS style — sharp 2px radius, 12px text, 30px height. Default = white/gray. */
 .tpos-btn-mini {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     height: 30px;
-    padding: 0 12px;
+    padding: 0 10px;
     border: 1px solid var(--tp-border);
-    border-radius: 6px;
+    border-radius: 2px;
     background: var(--tp-bg);
-    color: var(--tp-text);
+    color: var(--tp-muted);
     font-family: inherit;
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 12px;
+    font-weight: 600;
     cursor: pointer;
     transition:
         background-color 160ms,
@@ -373,14 +381,14 @@ body.pt-embed-active {
 }
 
 .tpos-btn-mini i {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
 }
 
 .tpos-btn-mini:hover {
-    background: var(--tp-accent-soft);
+    background: var(--tp-accent);
     border-color: var(--tp-accent);
-    color: var(--tp-accent);
+    color: #fff;
 }
 
 .tpos-btn-mini:disabled {
@@ -398,43 +406,63 @@ body.pt-embed-active {
     flex: 1 1 auto;
     overflow: auto;
     background: var(--tp-bg);
-    margin: 0 20px;
-    border: 1px solid var(--tp-border);
-    border-radius: 8px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+    margin: 10px 16px 0;
+    border-radius: 2px;
 }
 
+/* Table: TPOS uses border-collapse:separate + 1px solid #ccc per-cell + 36px th + 46px td.
+   Body: Segoe UI 14px / line-height 22.4 / color #333 / padding 5.6/8.4. */
 .tpos-fso-table {
     width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 14px;
+    color: var(--tp-text-strong);
 }
 
 .tpos-fso-table thead th {
     position: sticky;
     top: 0;
-    background: #f9fafb;
-    color: var(--tp-muted);
+    background: var(--tp-th-bg);
+    color: var(--tp-th-text);
     font-weight: 600;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    padding: 10px 12px;
+    font-size: 14px;
+    text-transform: none;
+    letter-spacing: 0;
+    padding: 7px 8.4px 5.6px;
     text-align: left;
+    border-top: 1px solid var(--tp-border);
     border-bottom: 1px solid var(--tp-border);
+    border-right: 1px solid var(--tp-border);
     white-space: nowrap;
     z-index: 1;
+    height: 36px;
+}
+
+.tpos-fso-table thead th:first-child {
+    border-left: 1px solid var(--tp-border);
 }
 
 .tpos-fso-table tbody td {
-    padding: 10px 12px;
-    border-bottom: 1px solid #f1f5f9;
+    padding: 5.6px 8.4px;
+    border-bottom: 1px solid var(--tp-border);
+    border-right: 1px solid var(--tp-border);
     vertical-align: middle;
-    color: var(--tp-text);
+    color: var(--tp-text-strong);
+    line-height: 22.4px;
 }
 
+.tpos-fso-table tbody td:first-child {
+    border-left: 1px solid var(--tp-border);
+}
+
+/* Zebra striping like TPOS — odd rows transparent, even rows #f5f5f5 */
 .tpos-fso-table tbody tr {
     transition: background-color 120ms;
+}
+
+.tpos-fso-table tbody tr:nth-child(even) {
+    background: var(--tp-row-stripe);
 }
 
 .tpos-fso-table tbody tr:hover {
@@ -448,33 +476,37 @@ body.pt-embed-active {
 }
 
 .tpos-fso-table .mono {
-    font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
 }
 
 .tpos-fso-num {
-    color: var(--tp-accent);
+    color: var(--tp-link);
     font-weight: 600;
     cursor: pointer;
+    text-decoration: none;
 }
 
 .tpos-fso-num:hover {
     text-decoration: underline;
+    color: var(--tp-accent);
 }
 
 .tpos-fso-customer {
     font-weight: 600;
-    color: var(--tp-text);
+    color: var(--tp-text-strong);
 }
 
 .tpos-fso-phone {
     color: var(--tp-muted);
     font-variant-numeric: tabular-nums;
+    font-size: 13px;
 }
 
 .tpos-fso-address {
     color: var(--tp-muted);
-    font-size: 12.5px;
+    font-size: 13px;
     line-height: 1.4;
     max-width: 360px;
     display: -webkit-box;
@@ -483,36 +515,40 @@ body.pt-embed-active {
     overflow: hidden;
 }
 
+/* Badge style: TPOS `.badge .badge-empty` — transparent bg + colored border + bold text.
+   12px / weight 700 / padding 3/7 / border-radius 10px / border 1px solid rgba(0,0,0,0.15). */
 .tpos-fso-badge {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 11.5px;
-    font-weight: 600;
+    padding: 3px 7px;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    background: transparent;
+    font-size: 12px;
+    font-weight: 700;
     line-height: 1.4;
     white-space: nowrap;
 }
 
+.tpos-fso-badge i {
+    width: 12px;
+    height: 12px;
+}
+
 .tpos-fso-badge.s-draft {
-    background: var(--tp-gray-soft);
     color: var(--tp-gray);
 }
 .tpos-fso-badge.s-open {
-    background: var(--tp-blue-soft);
     color: var(--tp-blue);
 }
 .tpos-fso-badge.s-paid {
-    background: var(--tp-amber-soft);
     color: var(--tp-amber);
 }
 .tpos-fso-badge.s-done {
-    background: var(--tp-green-soft);
     color: var(--tp-green);
 }
 .tpos-fso-badge.s-cancel {
-    background: var(--tp-red-soft);
     color: var(--tp-red);
 }
 
@@ -552,50 +588,57 @@ body.pt-embed-active {
     animation: pt-spin 0.7s linear infinite;
 }
 
+/* Pagination footer: TPOS Kendo `.k-pager-wrap` — bg #f5f5f5, border 1px solid #ccc, 14px. */
 .tpos-fso-pagination {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 20px;
-    background: var(--tp-bg);
-    border-top: 1px solid var(--tp-border);
-    font-size: 13px;
-    color: var(--tp-muted);
+    padding: 6px 12px;
+    margin: 0 16px 16px;
+    background: var(--tp-row-stripe);
+    border: 1px solid var(--tp-border);
+    border-top: 0;
+    font-size: 14px;
+    color: var(--tp-text);
     flex-wrap: wrap;
     gap: 10px;
+    min-height: 34px;
 }
 
 .tpos-fso-pagination strong {
-    color: var(--tp-text);
+    color: var(--tp-text-strong);
     font-weight: 600;
 }
 
 .tpos-fso-pagination .pages {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .tpos-fso-pagination input[type='number'] {
-    width: 60px;
-    height: 28px;
-    padding: 0 8px;
+    width: 50px;
+    height: 26px;
+    padding: 0 6px;
     border: 1px solid var(--tp-border);
-    border-radius: 6px;
+    border-radius: 2px;
     text-align: center;
     font-family: inherit;
-    font-size: 13px;
+    font-size: 14px;
+    background: #fff;
     font-variant-numeric: tabular-nums;
+    color: var(--tp-text-strong);
 }
 
 .tpos-fso-pagination input[type='number']:focus {
     outline: 0;
     border-color: var(--tp-accent);
-    box-shadow: 0 0 0 3px var(--tp-accent-soft);
+    box-shadow: 0 0 0 2px var(--tp-accent-soft);
 }
 
 .tpos-fso-pagination .tpos-btn-mini {
     padding: 0 8px;
+    height: 26px;
 }
 
 @media (max-width: 900px) {
