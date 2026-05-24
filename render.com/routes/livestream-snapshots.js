@@ -899,6 +899,38 @@ router.get('/extract-status', (req, res) => {
     res.json({ success: true, batchId, status, queued: _extractQueue.length });
 });
 
+// GET /stream-url?pageId=X&liveVideoId=Y
+// Resolve raw FB stream URL qua yt-dlp (cache 5min, share với extract worker).
+// Trả về { url, protocol: 'dash'|'hls'|'unknown' } để frontend chọn player.
+router.get('/stream-url', async (req, res) => {
+    try {
+        if (!_ensureExtractDeps()) {
+            return res.status(503).json({ success: false, error: 'yt-dlp not installed' });
+        }
+        const { pageId, liveVideoId } = req.query;
+        if (!pageId || !liveVideoId) {
+            return res.status(400).json({ success: false, error: 'pageId + liveVideoId required' });
+        }
+        const m = await _resolveM3u8Url(liveVideoId, pageId);
+        if (!m) {
+            return res.status(502).json({ success: false, error: 'yt-dlp resolve fail' });
+        }
+        if (m.drm) {
+            return res.json({ success: false, drm: true, error: m.error });
+        }
+        const url = String(m);
+        const protocol = /live-dash|dash-abr|\.mpd/i.test(url)
+            ? 'dash'
+            : /\.m3u8|hls/i.test(url)
+              ? 'hls'
+              : 'unknown';
+        res.json({ success: true, url, protocol });
+    } catch (e) {
+        console.error('[stream-url] error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // Ensure schema bổ sung extract_status column (idempotent).
 (async function _initExtractSchema() {
     // Sẽ chạy 1 lần khi route file load. ensureSchema base table đã có,

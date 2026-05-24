@@ -2404,6 +2404,40 @@ function _findDotByInvoiceId(invoiceId) {
     return null;
 }
 
+// chiPhiHangVe is per-(ngayDiHang, dotSo) — mirrored across all NCC dots in the group.
+// Return all dots sharing the same (ngayDiHang, dotSo) as the input dot.
+function _findDotsBySameShipment(dot) {
+    if (!dot) return [];
+    const targetDate = dot.ngayDiHang;
+    const targetDotSo = dot.dotSo || 1;
+    const result = [];
+    for (const ncc of globalState.nccList) {
+        for (const d of ncc.dotHang || []) {
+            if (d.ngayDiHang === targetDate && (d.dotSo || 1) === targetDotSo) {
+                result.push(d);
+            }
+        }
+    }
+    return result;
+}
+
+// Read the CURRENT chiPhiHangVe for the đợt-date group (first non-empty across dots).
+function _readGroupChiPhi(groupDots) {
+    for (const d of groupDots) {
+        if (Array.isArray(d.chiPhiHangVe) && d.chiPhiHangVe.length > 0) {
+            return d.chiPhiHangVe.map((x) => ({ ...x }));
+        }
+    }
+    return [];
+}
+
+// Refresh shipment cards in place (recompute Số dư / Còn dư / Tổng CP per row).
+function _refreshShipmentCards() {
+    if (typeof renderShipments === 'function') {
+        renderShipments(globalState.filteredShipments || globalState.shipments);
+    }
+}
+
 function _renderCostValueHtml(soTien) {
     return soTien > 0 ? `<strong class="cost-value">${formatNumber(soTien)}</strong>` : '';
 }

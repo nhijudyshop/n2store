@@ -833,48 +833,97 @@ Throttle 30s/KH. Click để tắt.`;
     // Capture API cropTo iframe → stream chỉ chứa video FB → buffer chạy.
     // User chỉ bấm 1 lần "BẤM 1 LẦN", không bao giờ rời tpos-pancake tab.
     // -----------------------------------------------------
+    // Load dash.js từ CDN (chỉ 1 lần). dash.js play DASH manifest từ FB live.
+    let _dashJsPromise = null;
+    function _loadDashJs() {
+        if (window.dashjs) return Promise.resolve(window.dashjs);
+        if (_dashJsPromise) return _dashJsPromise;
+        _dashJsPromise = new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.dashjs.org/latest/dash.all.min.js';
+            s.async = true;
+            s.onload = () => resolve(window.dashjs);
+            s.onerror = () => reject(new Error('dash.js load fail'));
+            document.head.appendChild(s);
+        });
+        return _dashJsPromise;
+    }
+
     function _ensureEmbeddedIframe(camp) {
+        // LEGACY name. Giờ tạo <video> element + dash.js, KHÔNG dùng FB iframe nữa.
         let wrapper = document.getElementById('tpos-snap-fb-wrapper');
-        if (wrapper) return wrapper.querySelector('iframe');
-        const fbVideoUrl = _buildFbLiveUrl(camp);
-        if (!fbVideoUrl) return null;
-        // FB plugin native size: width 560×420ish (16:9 video + header + footer).
-        // Trick: render iframe LỚN (đủ cho FB plugin render full) → wrapper bé,
-        // dùng CSS position offset để chừa view-port chỉ vào video (skip header
-        // page logo + footer reactions). Region Capture cropTo wrapper → capture
-        // đúng video pixels, không có FB UI chrome.
-        // Iframe natural size cho live video: 560 wide, ~480 tall (header 56 +
-        // video 16:9 ≈ 315 + footer ~110).
-        const IFRAME_W = 560;
-        const IFRAME_H = 480;
-        const HEADER_OFFSET = 56; // FB plugin header (logo + page name)
-        const VIDEO_H = Math.round((IFRAME_W * 9) / 16); // 315 — full video height
-        // Wrapper size: smaller display, only video area visible
+        if (wrapper) return wrapper.querySelector('video');
         const WRAPPER_W = 320;
         const WRAPPER_H = Math.round((WRAPPER_W * 9) / 16); // 180 — 16:9
-        const SCALE = WRAPPER_W / IFRAME_W; // 0.571
 
-        const embedUrl = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(fbVideoUrl)}&show_text=false&width=${IFRAME_W}&height=${IFRAME_H}&autoplay=1&mute=1&allowfullscreen=false&show_share=false&show_captions=false`;
         wrapper = document.createElement('div');
         wrapper.id = 'tpos-snap-fb-wrapper';
         wrapper.style.cssText = `position:fixed;bottom:8px;right:8px;width:${WRAPPER_W}px;height:${WRAPPER_H}px;border:2px solid #dc2626;border-radius:8px;z-index:99000;background:#000;box-shadow:0 4px 12px rgba(0,0,0,0.3);overflow:hidden;transition:all 0.2s ease;`;
 
-        // Inner container: iframe rendered AT FULL SIZE, translated lên để giấu
-        // FB header, scaled xuống để fit wrapper width.
-        const inner = document.createElement('div');
-        inner.style.cssText = `position:absolute;left:0;top:${-HEADER_OFFSET * SCALE}px;width:${IFRAME_W}px;height:${IFRAME_H}px;transform-origin:top left;transform:scale(${SCALE});`;
-        wrapper.appendChild(inner);
+        // <video> raw, full wrapper, no FB UI
+        const video = document.createElement('video');
+        video.id = 'tpos-snap-fb-video';
+        video.muted = true;
+        video.autoplay = true;
+        video.playsInline = true;
+        video.controls = false;
+        video.style.cssText =
+            'width:100%;height:100%;object-fit:contain;background:#000;display:block;';
+        wrapper.appendChild(video);
 
-        const iframe = document.createElement('iframe');
-        iframe.id = 'tpos-snap-fb-embed';
-        iframe.src = embedUrl;
-        iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
-        iframe.scrolling = 'no';
-        iframe.frameBorder = '0';
-        iframe.style.cssText = `width:${IFRAME_W}px;height:${IFRAME_H}px;display:block;border:0;`;
-        inner.appendChild(iframe);
-        wrapper._videoHeight = Math.round(VIDEO_H * SCALE); // wrapper-space video height
-        wrapper._scale = SCALE;
+        // Loading indicator
+        const loading = document.createElement('div');
+        loading.id = 'tpos-snap-video-loading';
+        loading.style.cssText =
+            'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;background:rgba(0,0,0,0.7);';
+        loading.textContent = '⏳ Đang load stream...';
+        wrapper.appendChild(loading);
+
+        // Khởi tạo stream async — fetch URL từ Render, init dash.js
+        (async () => {
+            try {
+                const apiBase =
+                    global.TposState?.proxyBaseUrl ||
+                    'https://chatomni-proxy.nhijudyshop.workers.dev';
+                const pageId = camp.Facebook_UserId;
+                const liveVideoId = camp.Facebook_LiveId;
+                const r = await fetch(
+                    `${apiBase}/api/livestream/stream-url?pageId=${encodeURIComponent(pageId)}&liveVideoId=${encodeURIComponent(liveVideoId)}`
+                );
+                const d = await r.json();
+                if (!d.success || !d.url) {
+                    loading.innerHTML = '❌ ' + (d.error || 'Không lấy được stream URL');
+                    return;
+                }
+                const url = d.url;
+                const protocol = d.protocol;
+                console.log(`[snap-video] stream URL (${protocol}):`, url.slice(0, 100));
+                if (protocol === 'dash' || /\.mpd|dash-abr/i.test(url)) {
+                    const dashjs = await _loadDashJs();
+                    const player = dashjs.MediaPlayer().create();
+                    player.initialize(video, url, true);
+                    player.setMute(true);
+                    wrapper._dashPlayer = player;
+                    player.on(dashjs.MediaPlayer.events.PLAYBACK_STARTED, () => {
+                        loading.remove();
+                        console.log('[snap-video] dash.js playback started');
+                    });
+                    player.on(dashjs.MediaPlayer.events.ERROR, (e) => {
+                        console.warn('[snap-video] dash.js error:', e?.error || e);
+                    });
+                } else {
+                    // HLS — Safari native, Chrome cần hls.js (skip cho now)
+                    video.src = url;
+                    video.addEventListener('playing', () => loading.remove());
+                    await video.play().catch(() => {});
+                }
+            } catch (e) {
+                loading.innerHTML = '❌ Load fail: ' + e.message;
+                console.warn('[snap-video] init fail:', e.message);
+            }
+        })();
+        wrapper._scale = 1;
+        wrapper._videoHeight = WRAPPER_H;
         // Overlay nút minimize ở góc trên phải.
         const minBtn = document.createElement('button');
         minBtn.type = 'button';
@@ -886,15 +935,15 @@ Throttle 30s/KH. Click để tắt.`;
         wrapper.appendChild(minBtn);
         minBtn.onclick = () => {
             const minimized = wrapper.dataset.minimized === '1';
-            const innerEl = wrapper.querySelector('div'); // the transform container
+            const videoEl = wrapper.querySelector('video');
             if (minimized) {
                 // Expand
                 wrapper.style.width = WRAPPER_W + 'px';
                 wrapper.style.height = WRAPPER_H + 'px';
                 wrapper.style.borderRadius = '8px';
-                if (innerEl) innerEl.style.display = 'block';
+                if (videoEl) videoEl.style.display = 'block';
                 minBtn.textContent = '–';
-                minBtn.title = 'Ẩn iframe (stream vẫn chạy)';
+                minBtn.title = 'Ẩn video (stream vẫn chạy)';
                 minBtn.style.cssText =
                     'position:absolute;top:4px;right:4px;width:24px;height:24px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:4px;font-size:14px;font-weight:700;cursor:pointer;line-height:1;padding:0;z-index:1;';
                 delete wrapper.dataset.minimized;
@@ -904,15 +953,15 @@ Throttle 30s/KH. Click để tắt.`;
                 wrapper.style.width = '44px';
                 wrapper.style.height = '44px';
                 wrapper.style.borderRadius = '50%';
-                if (innerEl) innerEl.style.display = 'none';
+                if (videoEl) videoEl.style.display = 'none';
                 minBtn.textContent = '🎬';
-                minBtn.title = 'Mở lại iframe';
+                minBtn.title = 'Mở lại video';
                 minBtn.style.cssText =
                     'position:absolute;top:50%;right:50%;transform:translate(50%,-50%);width:44px;height:44px;background:#dc2626;color:#fff;border:none;border-radius:50%;font-size:18px;font-weight:700;cursor:pointer;line-height:1;padding:0;z-index:1;';
             }
         };
         document.body.appendChild(wrapper);
-        return iframe;
+        return video;
     }
 
     async function _enableEmbeddedLiveCapture() {
@@ -925,48 +974,35 @@ Throttle 30s/KH. Click để tắt.`;
             _toast('Không có live nào đang chạy', 'err');
             return false;
         }
-        const wrapperExisted = !!document.getElementById('tpos-snap-fb-wrapper');
-        const iframe = _ensureEmbeddedIframe(camp);
-        if (!iframe) {
-            _toast('Không tạo được iframe embed', 'err');
+        // Step B: tạo <video> + dash.js (không iframe, không getDisplayMedia).
+        _toast('⏳ Đang load FB stream URL...', 'ok');
+        const video = _ensureEmbeddedIframe(camp); // (now returns <video>)
+        if (!video) {
+            _toast('Không tạo được video element', 'err');
             return false;
         }
-        // Nếu iframe vừa tạo mới → đợi 4s cho FB load + play.
-        // Nếu đã tồn tại (auto-start inject sớm) → chỉ đợi 500ms.
-        if (!wrapperExisted) {
-            _toast('⏳ Đang load FB live trong iframe (4s)...', 'ok');
-            await new Promise((r) => setTimeout(r, 4000));
-        } else {
-            await new Promise((r) => setTimeout(r, 500));
-        }
         try {
-            const stream = await navigator.mediaDevices.getDisplayMedia({
-                video: {
-                    displaySurface: 'browser',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                },
-                audio: false,
-                preferCurrentTab: true,
-                selfBrowserSurface: 'include',
-                surfaceSwitching: 'exclude',
-            });
-            // Region Capture: crop vào WRAPPER (visible bounding box, đã skip FB
-            // header qua transform). Chromium 104+. KHÔNG crop iframe element vì
-            // iframe rendered ngoài viewport (vùng FB header) cũng được tính.
-            if (window.CropTarget?.fromElement) {
-                try {
-                    const wrapper = document.getElementById('tpos-snap-fb-wrapper');
-                    const cropTarget = await CropTarget.fromElement(wrapper);
-                    const track = stream.getVideoTracks()[0];
-                    if (track.cropTo) {
-                        await track.cropTo(cropTarget);
-                        console.log('[snap] Region Capture cropped to wrapper ✓');
-                    }
-                } catch (e) {
-                    console.warn('[snap] cropTo fail (full tab capture):', e.message);
-                }
+            // Đợi video.captureStream khả dụng (HTMLMediaElement.captureStream).
+            // Loop tới khi video.videoWidth > 0 (player ready, có frames thật).
+            const t0 = Date.now();
+            while (Date.now() - t0 < 20000) {
+                if (video.videoWidth > 0 && !video.paused) break;
+                await new Promise((r) => setTimeout(r, 250));
             }
+            if (video.videoWidth === 0) {
+                throw new Error('Video không play được sau 20s (DRM / stream end / network)');
+            }
+            // captureStream() — KHÔNG cần getDisplayMedia, KHÔNG popup share.
+            const stream = video.captureStream ? video.captureStream() : video.mozCaptureStream?.();
+            if (!stream || stream.getVideoTracks().length === 0) {
+                throw new Error('video.captureStream() không return tracks');
+            }
+            console.log(
+                '[snap] video.captureStream → stream OK, dims =',
+                video.videoWidth,
+                'x',
+                video.videoHeight
+            );
             STATE.captureStream = stream;
             if (!STATE.captureVideo) {
                 STATE.captureVideo = document.createElement('video');
@@ -982,21 +1018,17 @@ Throttle 30s/KH. Click để tắt.`;
                 t.addEventListener('ended', () => {
                     _stopFrameBuffer();
                     stopRealSnap();
-                    _toast('🔴 Stream đã ngắt — bấm 🎬 để bật lại', 'ok');
+                    _toast('🔴 Stream ngắt — bấm 🎬 để bật lại', 'ok');
                 });
             });
             _startFrameBuffer();
             renderRealSnapChip();
             renderAutoModeChip();
-            // Remove hint label sau khi connect (đã share rồi).
-            const hint = document.getElementById('tpos-snap-fb-hint');
-            if (hint) hint.remove();
-            _toast('✅ Auto-snap đã kết nối — frame thật unique per comment', 'ok');
+            _toast('✅ Auto-snap đã kết nối (no popup, no tab switch)', 'ok');
             return true;
         } catch (e) {
             console.warn('[snap-embed] fail:', e?.message);
-            _toast('Hủy share: ' + e.message, 'err');
-            // Cleanup wrapper nếu user hủy.
+            _toast('Lỗi: ' + e.message, 'err');
             const wrapper = document.getElementById('tpos-snap-fb-wrapper');
             if (wrapper) wrapper.remove();
             return false;
