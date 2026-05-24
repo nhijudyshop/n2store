@@ -1665,14 +1665,34 @@ Throttle 30s/KH. Click để tắt.`;
     async function _captureFrameJpeg(quality = 0.7, maxWidth = 1280) {
         const v = STATE.captureVideo;
         if (!STATE.captureStream || !v || !v.videoWidth) return null;
-        const w = v.videoWidth;
-        const h = v.videoHeight;
-        // Downscale to maxWidth (giữ aspect)
-        let targetW = w;
-        let targetH = h;
-        if (w > maxWidth) {
+        const fullW = v.videoWidth;
+        const fullH = v.videoHeight;
+        // Crop về iframe wrapper region nếu có (tab capture lấy full tab, mình
+        // chỉ cần khung iframe live). Nếu wrapper không có (legacy getDisplayMedia
+        // đã cropTo từ trước) thì capture full frame.
+        const wrapper = document.getElementById('tpos-snap-fb-wrapper');
+        let srcX = 0,
+            srcY = 0,
+            srcW = fullW,
+            srcH = fullH;
+        if (wrapper) {
+            const rect = wrapper.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+                // dpr = video native px / viewport px. Tab capture matches
+                // viewport unless Chrome scales down to fit maxWidth constraint.
+                const dpr = fullW / Math.max(1, window.innerWidth);
+                srcX = Math.max(0, Math.round(rect.left * dpr));
+                srcY = Math.max(0, Math.round(rect.top * dpr));
+                srcW = Math.max(1, Math.min(fullW - srcX, Math.round(rect.width * dpr)));
+                srcH = Math.max(1, Math.min(fullH - srcY, Math.round(rect.height * dpr)));
+            }
+        }
+        // Downscale crop region to maxWidth (giữ aspect)
+        let targetW = srcW;
+        let targetH = srcH;
+        if (srcW > maxWidth) {
             targetW = maxWidth;
-            targetH = Math.round(h * (maxWidth / w));
+            targetH = Math.round(srcH * (maxWidth / srcW));
         }
         if (!STATE.captureCanvas) {
             STATE.captureCanvas = document.createElement('canvas');
@@ -1681,7 +1701,7 @@ Throttle 30s/KH. Click để tắt.`;
         canvas.width = targetW;
         canvas.height = targetH;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(v, 0, 0, targetW, targetH);
+        ctx.drawImage(v, srcX, srcY, srcW, srcH, 0, 0, targetW, targetH);
         return new Promise((resolve) => {
             canvas.toBlob(
                 (blob) => {
