@@ -553,6 +553,7 @@ function getAllDotHangAsShipments() {
             ghiChuThieu: dot.ghiChuThieu || '',
             anhHoaDon: dot.anhHoaDon || [],
             ghiChu: dot.ghiChu || '',
+            createdAt: dot.createdAt || null,
         });
 
         if (dot.kienHang && dot.kienHang.length > 0) {
@@ -614,6 +615,14 @@ function getAllDotHangAsShipments() {
     });
 
     const shipments = Object.values(byKey).map((ship) => {
+        // Sort NCC invoices by createdAt ASC (cũ trên, mới dưới) — phản ánh thứ tự nhập.
+        // Fallback to id-as-string compare khi không có timestamp.
+        ship.hoaDon.sort((a, b) => {
+            const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            if (ta !== tb) return ta - tb;
+            return String(a.id || '').localeCompare(String(b.id || ''));
+        });
         ship.tongKien = ship.kienHang.length;
         ship.tongKg = ship.kienHang.reduce((sum, k) => sum + (k.soKg || 0), 0);
         ship.tongTienHoaDon = ship.hoaDon.reduce((sum, hd) => sum + (hd.tongTienHD || 0), 0);
