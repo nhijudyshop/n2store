@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fc9f6c4` — fix(snap-ext): manifest v1.0.6 — thêm <all_urls> host permission
-**Last updated**: 2026-05-24 11:40:00 +07
-**Latest session**: [`RESUME:20260524-113959-fc9f6c4`](../20260524-113959-fc9f6c4.md)
-**Summary**: fix(snap-ext): manifest v1.0.6 — thêm <all_urls> host permission
+**Latest commit**: `9cdf78f` — feat(snap): extension version probe + hover zoom thumbnail
+**Last updated**: 2026-05-24 11:46:16 +07
+**Latest session**: [`RESUME:20260524-114616-9cdf78f`](../20260524-114616-9cdf78f.md)
+**Summary**: feat(snap): extension version probe + hover zoom thumbnail
 
 ## Folders affected in this commit
 
-- [`n2store-extension/`](./n2store-extension.md) — 1 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -61,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 11:35
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 11:46
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
