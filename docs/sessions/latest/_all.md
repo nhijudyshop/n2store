@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f11cf5c` — fix(snap-ext): VERSION constant sync với manifest.json (1.0.6)
-**Last updated**: 2026-05-24 11:51:12 +07
-**Latest session**: [`RESUME:20260524-115112-f11cf5c`](../20260524-115112-f11cf5c.md)
-**Summary**: fix(snap-ext): VERSION constant sync với manifest.json (1.0.6)
+**Latest commit**: `8aa70c0` — auto: session update
+**Last updated**: 2026-05-24 11:53:34 +07
+**Latest session**: [`RESUME:20260524-115334-8aa70c0`](../20260524-115334-8aa70c0.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`n2store-extension/`](./n2store-extension.md) — 1 file(s)
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2-extension/`](./web2-extension.md) — 35 file(s)
 
 ## All folder snapshots
 
@@ -23,7 +25,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 11:49
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 11:53
 - [`docs/`](./docs.md) — updated 2026-05-24 11:04
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
@@ -49,7 +51,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-24 10:29
+- [`render.com/`](./render.com.md) — updated 2026-05-24 11:53
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-24 11:38
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -63,7 +65,7 @@
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 11:46
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
-- [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
+- [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
