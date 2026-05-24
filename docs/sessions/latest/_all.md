@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `eeaa9ce` — feat(supplier-debt): auto refresh — polling 30s + cross-tab BroadcastChannel, no F5
-**Last updated**: 2026-05-24 11:04:55 +07
-**Latest session**: [`RESUME:20260524-110455-eeaa9ce`](../20260524-110455-eeaa9ce.md)
-**Summary**: feat(supplier-debt): auto refresh — polling 30s + cross-tab BroadcastChannel, no F5
+**Latest commit**: `81f16b3` — revert(snap): restore iframe + sharing (Step A baseline) — user muốn giữ flow share
+**Last updated**: 2026-05-24 11:11:52 +07
+**Latest session**: [`RESUME:20260524-111152-81f16b3`](../20260524-111152-81f16b3.md)
+**Summary**: revert(snap): restore iframe + sharing (Step A baseline) — user muốn giữ flow share
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
-- [`supplier-debt/`](./supplier-debt.md) — 3 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -63,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 10:59
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 11:11
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
