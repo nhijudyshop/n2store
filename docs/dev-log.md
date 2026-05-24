@@ -25,6 +25,55 @@
 
 ## 2026-05-24
 
+### [product-warehouse] TPOS-themed CSS override + fix filterGroup empty bug
+
+**User ask**: "trang https://nhijudy.store/product-warehouse/index.html → làm giao diện giống luôn → kiểm lại trang này có mượt, có bug gì không" + "cho giống giao diện này https://tomato.tpos.vn/#/app/producttemplate/list kể cả button".
+
+**Smoke test** (Playwright localhost) — toàn bộ chức năng smooth, không lỗi console:
+
+- ✅ Search input + suggestions OK (gõ "6662" → 2 gợi ý popup, click search → table filter 6633 → 2 SP)
+- ✅ Stock filter OK (out-of-stock → 5636 SP)
+- ✅ Pagination 7 nút (prev/1/2/3/4/5/next) render đúng
+- ✅ Toolbar buttons (Thêm SP, Nhập/Xuất Excel, Cập nhật giá, Thao tác ▼) exist + visible
+- ✅ Filter Tag lazy-load on focus OK
+- ✅ Row action buttons (5 nút/row: Xem biến thể / Sửa / Điều chỉnh tồn / In mã vạch / Xóa) render OK
+- ⚠ **Bug phát hiện**: `#filterGroup` dropdown chỉ có 1 option "Tất cả" — vì main.js có change listener nhưng **KHÔNG có populate function**. Query builder cũng đọc từ `[data-filter="group"]` (column header input) — không tồn tại trong `<th class="col-group">`. → group filter dead.
+
+**Browser inspect TPOS** `tomato.tpos.vn/#/app/producttemplate/list`:
+
+- Font Segoe UI 14px, page bg #edf1f2, text #4c4c4c.
+- Table 15 cols (checkbox / Thao tác / Ảnh / Mã / Tên / Nhóm SP / Giá bán / Giá mua / Giá vốn / Giá QĐ / Thuế% / SL thực tế / SL dự báo / Đơn vị / Nhãn). th bg #f0eeee weight 600 height 36px padding 7/8.4/5.6 border 1px solid #ccc.
+- td padding 5.6/8.4 line-height 22.4 zebra (trans + #f5f5f5).
+- Buttons: `.btn-primary` purple `#7266ba` 30px 12px radius 4px; `.btn-success` xanh `#27c24c`; `.btn-danger` đỏ `#f05050`; `.btn-default` white `#58666e` radius 2px.
+- Row action buttons: SOLID color (`.btn-success.btn-sm` = green; `.btn-danger.btn-sm` = red) padding 5/10 radius 2px white icon.
+
+**Files**:
+
+- `product-warehouse/css/warehouse-tpos.css` (mới, ~370 dòng) — TPOS palette override, loaded **AFTER** typography.css để win `!important` font-family war. Vars `--pw-{accent,bg,th-bg,border,row-stripe,…}`. `html body` selector tăng specificity. Overrides:
+    - Body: Segoe UI 14px #4c4c4c bg #edf1f2.
+    - Header: padding 10/16, page-title 16px font, search box height 30px radius 2px.
+    - Toolbar: filter selects height 30px radius 2px purple focus, result-count = purple pill, `.btn-toolbar` white 30px radius 2px 12px weight 600 hover purple; `.btn-create-product` = SOLID purple permanently (matches TPOS "Tạo mới"); semantic hover cho Import/Export (blue), Bulk price (amber).
+    - Table: border-collapse separate, th `#f0eeee` 36px padding 7/8.4/5.6 border 1px solid #ccc, td padding 5.6/8.4 line-height 22.4, zebra `nth-child(even) #f5f5f5`, hover `#e8f3fc`. Sort/filter icons opacity 0.5 → 1 + purple on hover. Sticky-left checkbox col bg #f0eeee.
+    - **Row actions SOLID color** (matches TPOS .btn-success/.btn-danger): `.btn-action-expand` blue `#3abee8`, `.btn-action-edit` green `#27c24c`, `.btn-action-stock` purple `#7266ba`, `.btn-action-print` amber `#ff902b`, `.btn-action-delete` red `#f05050`. 26×26 radius 2px hover translateY(-1px).
+    - Badges: TPOS `.badge-empty` style (transparent bg + 1px solid rgba(0,0,0,0.15) + 12px weight 700 radius 10px).
+    - Pagination: `#f5f5f5` bg `1px solid #ccc` border-top:0 padding 6/12 (Kendo k-pager-wrap mimic). Buttons 26px radius 2px hover purple, active solid purple.
+    - Search suggestions + bulk actions menu: TPOS-style sharp border 2px radius hover `#ebe9f7` purple text.
+- `product-warehouse/index.html`
+    - Thêm `<link rel="stylesheet" href="css/warehouse-tpos.css">` ngay sau typography.css (load order critical để override).
+- `product-warehouse/js/main.js`
+    - **Bug fix**: thêm `let groupFilterLoaded = false` + `async function populateGroupFilter()` — fetch `cachedCategories` via `ensureDropdownData()` (existing TPOS ProductCategory loader), populate dropdown với `CompleteName`. Allow retry on failure (set `groupFilterLoaded = false`).
+    - Wire `$('#filterGroup').addEventListener('focus', populateGroupFilter, {once:true})` + mousedown (Chrome quirk).
+    - Update query builder line 470-475: read `#filterGroup` dropdown value first (if !== "all"), fall back to column-header `[data-filter="group"]`.
+
+**Verify** (Playwright `localhost:8080/product-warehouse/`):
+
+- Computed styles match TPOS: body font Segoe UI / color rgb(76,76,76) #4c4c4c / bg rgb(237,241,242) #edf1f2; th bg rgb(240,238,238) #f0eeee black weight 600 36px height border 1px solid rgb(204,204,204); tr2 bg rgb(245,245,245) #f5f5f5 (zebra OK); btn-create-product bg rgb(114,102,186) #7266ba; btn-action-edit bg rgb(39,194,76) #27c24c 26px radius 2px; btn-action-delete bg rgb(240,80,80) #f05050.
+- Filter Group sau focus: 22 options loaded (Tất cả + ÁO QUẦN + Có thể bán + Dầu gội + Giày Dép + Khẩu trang + MỀN GỐI + MỸ PHẪM + …); select "ÁO QUẦN" → 63 products (filter works end-to-end).
+- Zero console errors throughout. 6633 SP total. Pagination + search + stock filter unchanged.
+- Screenshot: `downloads/n2store-session/pw-tpos-styled.png` (TPOS-themed result), reference `tpos-producttemplate-ref.png`.
+
+**Status**: ✅ Done (smooth + 1 bug fixed)
+
 ### [issue-tracking] BÁN HÀNG/TRẢ HÀNG: expand-on-click với OrderLines + summary (TPOS k-master-row pattern)
 
 **User ask**: "2 web có chức năng bấm vào hàng expand mà" — TPOS list page khi click chevron sẽ expand row thành detail panel với line items + summary. Áp dụng cùng pattern.

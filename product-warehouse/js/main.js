@@ -2080,7 +2080,7 @@
         if (!sel || groupFilterLoaded) return;
         groupFilterLoaded = true;
         try {
-            await ensureProductFormCaches();
+            await ensureDropdownData();
             const categories = Array.isArray(cachedCategories) ? cachedCategories : [];
             const currentVal = sel.value || 'all';
             sel.innerHTML =
