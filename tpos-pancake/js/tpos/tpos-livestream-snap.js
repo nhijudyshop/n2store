@@ -139,7 +139,7 @@
     // Yêu cầu extension version >= REQUIRED_EXT_VERSION (host_permission
     // <all_urls> + N2_CAPTURE_VISIBLE_TAB handler).
     // -----------------------------------------------------
-    const REQUIRED_EXT_VERSION = '1.0.7';
+    const REQUIRED_EXT_VERSION = '1.0.8';
     function _cmpVersions(a, b) {
         const aa = String(a || '0')
             .split('.')

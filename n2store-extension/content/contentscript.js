@@ -241,6 +241,56 @@
         }
     });
 
+    // === AUTO TAB-STREAM GRAB ON FIRST USER CLICK ===
+    // Trên tpos-pancake page, listen click bất kỳ đâu (capture phase) → forward
+    // user activation context tới background → background gọi
+    // chrome.tabCapture.getMediaStreamId. Chrome MAY propagate activation từ
+    // content script's gesture handler qua chrome.runtime.sendMessage. Best-effort:
+    // nếu Chrome accept → auto-enable stream mode (zero icon click). Nếu reject
+    // → fallback popup icon click.
+    if (/^https:\/\/nhijudy\.store\/tpos-pancake\//.test(location.href)) {
+        let _streamGrabAttempted = false;
+        const _tryGrabStream = () => {
+            if (_streamGrabAttempted) return;
+            _streamGrabAttempted = true;
+            try {
+                chrome.runtime.sendMessage(
+                    { type: 'N2_GRAB_TAB_STREAM_FROM_CLICK' },
+                    (response) => {
+                        if (chrome.runtime.lastError) {
+                            console.warn(
+                                '[N2EXT] tab stream grab fail:',
+                                chrome.runtime.lastError.message
+                            );
+                            _streamGrabAttempted = false; // allow retry on next click
+                            return;
+                        }
+                        if (response?.streamId) {
+                            console.log('[N2EXT] tab streamId grabbed via page click ✓');
+                            window.postMessage(
+                                {
+                                    type: 'N2_TAB_STREAM_ID',
+                                    streamId: response.streamId,
+                                    ts: Date.now(),
+                                },
+                                '*'
+                            );
+                            // Unregister listener (no need for more clicks)
+                            document.removeEventListener('click', _tryGrabStream, true);
+                        } else {
+                            console.warn('[N2EXT] tab stream grab rejected:', response?.error);
+                            _streamGrabAttempted = false; // allow retry
+                        }
+                    }
+                );
+            } catch (e) {
+                console.warn('[N2EXT] sendMessage threw:', e.message);
+                _streamGrabAttempted = false;
+            }
+        };
+        document.addEventListener('click', _tryGrabStream, true);
+    }
+
     // === INITIALIZATION ===
 
     // Connect to service worker

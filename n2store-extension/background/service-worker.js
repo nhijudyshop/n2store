@@ -151,6 +151,34 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
 });
 
+// Dedicated handler: tab stream grab triggered by page click. Sender activation
+// context MAY propagate (Chrome experimental). Returns streamId or error.
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg?.type !== 'N2_GRAB_TAB_STREAM_FROM_CLICK') return false;
+    const tabId = sender?.tab?.id;
+    if (typeof tabId !== 'number') {
+        sendResponse({ error: 'no sender tab' });
+        return false;
+    }
+    try {
+        chrome.tabCapture.getMediaStreamId(
+            { consumerTabId: tabId, targetTabId: tabId },
+            (streamId) => {
+                if (chrome.runtime.lastError || !streamId) {
+                    sendResponse({
+                        error: chrome.runtime.lastError?.message || 'no streamId',
+                    });
+                } else {
+                    sendResponse({ streamId });
+                }
+            }
+        );
+    } catch (e) {
+        sendResponse({ error: e.message });
+    }
+    return true; // async response
+});
+
 /**
  * Main message router
  */
