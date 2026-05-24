@@ -1045,42 +1045,9 @@ Throttle 30s/KH. Click để tắt.`;
         inner.appendChild(iframe);
         wrapper._videoHeight = Math.round(VIDEO_H * SCALE); // wrapper-space video height
         wrapper._scale = SCALE;
-        // Overlay nút minimize ở góc trên phải.
-        const minBtn = document.createElement('button');
-        minBtn.type = 'button';
-        minBtn.id = 'tpos-snap-fb-min';
-        minBtn.textContent = '–';
-        minBtn.title = 'Ẩn iframe (stream vẫn chạy)';
-        minBtn.style.cssText =
-            'position:absolute;top:4px;right:4px;width:24px;height:24px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:4px;font-size:14px;font-weight:700;cursor:pointer;line-height:1;padding:0;z-index:1;';
-        wrapper.appendChild(minBtn);
-        minBtn.onclick = () => {
-            const minimized = wrapper.dataset.minimized === '1';
-            const innerEl = wrapper.querySelector('div'); // the transform container
-            if (minimized) {
-                // Expand
-                wrapper.style.width = WRAPPER_W + 'px';
-                wrapper.style.height = WRAPPER_H + 'px';
-                wrapper.style.borderRadius = '8px';
-                if (innerEl) innerEl.style.display = 'block';
-                minBtn.textContent = '–';
-                minBtn.title = 'Ẩn iframe (stream vẫn chạy)';
-                minBtn.style.cssText =
-                    'position:absolute;top:4px;right:4px;width:24px;height:24px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:4px;font-size:14px;font-weight:700;cursor:pointer;line-height:1;padding:0;z-index:1;';
-                delete wrapper.dataset.minimized;
-            } else {
-                // Minimize → pill nhỏ (stream KHÔNG dừng).
-                wrapper.dataset.minimized = '1';
-                wrapper.style.width = '44px';
-                wrapper.style.height = '44px';
-                wrapper.style.borderRadius = '50%';
-                if (innerEl) innerEl.style.display = 'none';
-                minBtn.textContent = '🎬';
-                minBtn.title = 'Mở lại iframe';
-                minBtn.style.cssText =
-                    'position:absolute;top:50%;right:50%;transform:translate(50%,-50%);width:44px;height:44px;background:#dc2626;color:#fff;border:none;border-radius:50%;font-size:18px;font-weight:700;cursor:pointer;line-height:1;padding:0;z-index:1;';
-            }
-        };
+        // Minimize button đã gỡ — khi minimize iframe display:none → tab
+        // capture trả pixel trống (44x44 pill không có video) → buffer toàn
+        // frame rỗng. Giữ iframe luôn open để capture liên tục.
         document.body.appendChild(wrapper);
         return iframe;
     }
