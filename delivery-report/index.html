@@ -11,7 +11,7 @@
         <title>Thống Kê Giao Hàng - N2STORE</title>
 
         <!-- Shared CSS -->
-        <link rel="stylesheet" href="../shared/css/modern.css?v=20260522h" />
+        <link rel="stylesheet" href="../shared/css/modern.css?v=20260524a" />
 
         <!-- External CSS -->
         <link
@@ -24,16 +24,16 @@
         />
 
         <!-- Page CSS -->
-        <link rel="stylesheet" href="css/delivery-report.css?v=20260522h" />
+        <link rel="stylesheet" href="css/delivery-report.css?v=20260524a" />
 
         <!-- ES Module: Shared utilities (auto-inits authManager) -->
-        <script type="module" src="../shared/esm/compat.js?v=20260522h"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260524a"></script>
 
         <!-- Fallback for file:// protocol -->
         <script>
             if (window.location.protocol === 'file:') {
                 document.write(
-                    '<script src="../shared/js/shared-auth-manager.js?v=20260522h"><\/script>'
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260524a"><\/script>'
                 );
                 document.write(
                     '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
@@ -47,10 +47,10 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 
         <!-- Shared Configuration -->
-        <script src="../shared/js/firebase-config.js?v=20260522h"></script>
-        <script src="../shared/js/audit-logger.js?v=20260522h"></script>
-        <script defer src="../shared/js/navigation-modern.js?v=20260522h"></script>
-        <script defer src="../shared/js/common-utils.js?v=20260522h"></script>
+        <script src="../shared/js/firebase-config.js?v=20260524a"></script>
+        <script src="../shared/js/audit-logger.js?v=20260524a"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260524a"></script>
+        <script defer src="../shared/js/common-utils.js?v=20260524a"></script>
 
         <!-- Lucide Icons -->
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
@@ -60,7 +60,7 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="../shared/css/typography.css?v=20260522h" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260524a" />
         <!-- typography:shared -->
     </head>
 
@@ -547,25 +547,26 @@
         </div>
 
         <!-- Token Manager (standalone - needs its own token) -->
-        <script src="../shared/js/shop-config.js?v=20260522h"></script>
-        <script src="../shared/js/token-manager.js?v=20260522h"></script>
-        <script src="../shared/js/tpos-config.js?v=20260522h"></script>
+        <script src="../shared/js/shop-config.js?v=20260524a"></script>
+        <script src="../shared/js/token-manager.js?v=20260524a"></script>
+        <script src="../shared/js/tpos-config.js?v=20260524a"></script>
 
         <!-- XLSX for Excel export -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
         <!-- Pancake Customer Validator (shared) -->
-        <script src="../shared/js/pancake-customer-validator.js?v=20260522h"></script>
+        <script src="../shared/js/pancake-customer-validator.js?v=20260524a"></script>
 
         <!-- Image cache (IndexedDB TTL 7 ngày) -->
-        <script src="../shared/js/image-cache.js?v=20260522h"></script>
+        <script src="../shared/js/image-cache.js?v=20260524a"></script>
 
         <!-- Wallet pair filter (ẩn cặp tạo-hủy đơn) -->
-        <script src="../shared/js/wallet-pair-utils.js?v=20260522h"></script>
+        <script src="../shared/js/wallet-pair-utils.js?v=20260524a"></script>
 
         <!-- Delivery Report Logic -->
-        <script src="js/delivery-report.js?v=20260522h"></script>
-        <script src="js/cancel-request.js?v=20260522h"></script>
+        <script src="js/delivery-report.js?v=20260524a"></script>
+        <script src="js/cancel-request.js?v=20260524a"></script>
+        <script src="js/report.js?v=20260524a"></script>
 
         <!-- Cancel Request Modal -->
         <div class="cr-modal-overlay" id="drCancelModal">

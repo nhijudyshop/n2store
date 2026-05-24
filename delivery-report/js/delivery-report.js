@@ -4749,6 +4749,9 @@
         exportExcel: exportExcel,
         exportExcelProvince: exportExcelProvince,
         exportExcelGroup: exportExcelGroup,
+        // Internals exposed so report.js can reuse classification logic
+        _getItemGroup: (item) => getItemGroup(item),
+        _isReturnItem: (item) => isReturnItem(item),
         traSoat: traSoat,
         setTab: setTab,
         setScanFilter: setScanFilter,

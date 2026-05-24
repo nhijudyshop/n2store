@@ -108,10 +108,9 @@
 
     // ── Data aggregation ──
     function aggregateByDay(group, dates) {
-        const reportState = window.DeliveryReportState || {};
+        const reportState = window.DeliveryReport?.getState?.() || window.DeliveryReportState || {};
         const allData = reportState.allData || [];
         const getItemGroup = window.DeliveryReport?._getItemGroup;
-        const isReturnItem = window.DeliveryReport?._isReturnItem;
         // Build map: date -> {count, money}
         const map = {};
         dates.forEach((d) => {
@@ -611,12 +610,15 @@
         // Seed dates from main filter
         const mainFrom = document.getElementById('drFilterFromDate')?.value;
         const mainTo = document.getElementById('drFilterToDate')?.value;
-        if (mainFrom && mainTo) {
+        const reportFrom = document.getElementById('drReportFrom');
+        const reportTo = document.getElementById('drReportTo');
+        // Only re-seed if user hasn't yet picked report-specific dates this session
+        if (mainFrom && mainTo && (!state.fromDate || !state.toDate)) {
             state.fromDate = mainFrom;
             state.toDate = mainTo;
-            document.getElementById('drReportFrom').value = mainFrom;
-            document.getElementById('drReportTo').value = mainTo;
         }
+        if (reportFrom) reportFrom.value = state.fromDate || mainFrom || '';
+        if (reportTo) reportTo.value = state.toDate || mainTo || '';
         document.getElementById('drReportModal').classList.add('open');
         document.body.style.overflow = 'hidden';
         render();
