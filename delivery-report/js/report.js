@@ -2,9 +2,9 @@
 // =====================================================
 // DELIVERY REPORT MODAL — Báo cáo TOMATO / NAP / TP theo ngày
 // Triggered by triple-clicking the "Đang lọc: ..." hint in main filter section.
-// Editable cells (SL ĐƠN, BO NHẬN CK, ATRƯỜNG NHẬN CK, CK TRƯỚC) persisted in
-// localStorage keyed by date+group. Compute fields: PHÍ SHIP, TỔNG TẤT CẢ,
-// TỔNG CÒN LẠI auto-derived.
+// Editable cells (SL ĐƠN SHIP, BO NHẬN CK, ATRƯỜNG NHẬN CK, CK TRƯỚC, GHI CHÚ)
+// persisted in localStorage keyed by date+group. Compute fields: PHÍ SHIP,
+// TỔNG TẤT CẢ (= TIỀN − PHÍ SHIP + SL ĐƠN SHIP × 23k), TỔNG CÒN LẠI auto-derived.
 // =====================================================
 
 (function () {
@@ -231,9 +231,10 @@
               <table class="dr-report-table" id="drReportTable">
                 <thead><tr>
                   <th>NGÀY</th>
-                  <th class="num" title="Nhập số đơn rớt → trừ khỏi SL tự động">SL ĐƠN <small>(rớt)</small></th>
+                  <th class="num">SL ĐƠN</th>
                   <th class="num">TIỀN</th>
                   <th class="num">PHÍ SHIP</th>
+                  <th class="num input-col" title="Số đơn ship riêng, cộng thêm vào TỔNG TẤT CẢ × 23.000">SL ĐƠN SHIP</th>
                   <th class="num">TỔNG TẤT CẢ</th>
                   <th class="num input-col">BO NHẬN CK</th>
                   <th class="num input-col">ATRƯỜNG NHẬN CK</th>
@@ -379,7 +380,7 @@
 
         if (dates.length === 0) {
             document.getElementById('drReportTbody').innerHTML =
-                '<tr><td colspan="10" class="dr-report-empty">Chọn khoảng ngày để xem báo cáo</td></tr>';
+                '<tr><td colspan="11" class="dr-report-empty">Chọn khoảng ngày để xem báo cáo</td></tr>';
             document.getElementById('drReportTfoot').innerHTML = '';
             return;
         }
@@ -395,7 +396,7 @@
 
         // Cold cache → show loading + async fetch
         document.getElementById('drReportTbody').innerHTML =
-            '<tr><td colspan="10" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>';
+            '<tr><td colspan="11" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>';
         document.getElementById('drReportTfoot').innerHTML = '';
         fetchRange(realFrom, realTo).then(({ byDateGroup }) => {
             const curRealFrom = entryToReal(state.fromDate);
@@ -412,6 +413,7 @@
             slDon: 0,
             money: 0,
             shipFee: 0,
+            slShip: 0,
             totalAll: 0,
             boCK: 0,
             atruongCK: 0,
@@ -422,13 +424,12 @@
         const rows = dates.map((d) => {
             const sys = map[d] || { sysCount: 0, money: 0 };
             const ov = getOverride(d, state.activeTab);
-            // slRot = số đơn rớt (delta to subtract from system count)
-            const rot = Number(ov.slRot) || 0;
-            const sysCount = sys.sysCount;
-            const slDon = Math.max(0, sysCount - rot);
+            const slDon = sys.sysCount;
             const money = sys.money;
             const shipFee = slDon * SHIP_FEE_PER_ORDER;
-            const totalAll = money - shipFee;
+            const slShip = Number(ov.slShip) || 0;
+            // TỔNG TẤT CẢ = TIỀN − PHÍ SHIP + (SL ĐƠN SHIP × 23k)
+            const totalAll = money - shipFee + slShip * SHIP_FEE_PER_ORDER;
             const boCK = Number(ov.boCK) || 0;
             const atruongCK = Number(ov.atruongCK) || 0;
             const ckTruoc = Number(ov.ckTruoc) || 0;
@@ -438,6 +439,7 @@
             totals.slDon += slDon;
             totals.money += money;
             totals.shipFee += shipFee;
+            totals.slShip += slShip;
             totals.totalAll += totalAll;
             totals.boCK += boCK;
             totals.atruongCK += atruongCK;
@@ -445,21 +447,15 @@
             totals.totalLeft += totalLeft;
 
             const hasImg = !!ov.billImage;
-            const formula =
-                rot > 0
-                    ? `<div class="sl-formula"><span class="sl-orig">${formatNumber(sysCount)}</span> − <span class="sl-rot">${formatNumber(rot)}</span> = <strong>${formatNumber(slDon)}</strong></div>`
-                    : `<div class="sl-formula muted">${formatNumber(sysCount)}</div>`;
             return `<tr data-date="${d}">
                 <td class="date" title="Ngày thật: ${formatDDMMYYYY(d)}">${formatDDMMYYYY(realToEntry(d))}</td>
-                <td class="num sl-cell">
-                    <input type="number" min="0" data-field="slRot" value="${rot || ''}" placeholder="0" title="Nhập số đơn rớt — sẽ trừ khỏi SL tự động" />
-                    ${formula}
-                </td>
+                <td class="num strong">${formatNumber(slDon)}</td>
                 <td class="num clickable money-cell ${hasImg ? 'has-img' : 'no-img'}" data-action="open-img" title="${hasImg ? 'Bấm để xem/sửa ảnh' : 'Bấm để thêm ảnh chứng từ'}">
                     <span class="money-val">${formatMoney(money)}</span>
                     <span class="money-ico">${hasImg ? '<i class="fas fa-image"></i>' : '<i class="far fa-image"></i>'}</span>
                 </td>
                 <td class="num muted">${formatMoney(shipFee)}</td>
+                <td class="num"><input type="number" min="0" data-field="slShip" value="${slShip || ''}" placeholder="0" title="Số đơn ship riêng — cộng SL × 23.000 vào TỔNG TẤT CẢ" /></td>
                 <td class="num strong">${formatMoney(totalAll)}</td>
                 <td class="num"><input type="text" data-field="boCK" value="${boCK ? formatMoney(boCK) : ''}" placeholder="0" /></td>
                 <td class="num"><input type="text" data-field="atruongCK" value="${atruongCK ? formatMoney(atruongCK) : ''}" placeholder="0" /></td>
@@ -476,6 +472,7 @@
             <th class="num">${formatNumber(totals.slDon)}</th>
             <th class="num">${formatMoney(totals.money)}</th>
             <th class="num muted">${formatMoney(totals.shipFee)}</th>
+            <th class="num">${formatNumber(totals.slShip)}</th>
             <th class="num strong">${formatMoney(totals.totalAll)}</th>
             <th class="num">${formatMoney(totals.boCK)}</th>
             <th class="num">${formatMoney(totals.atruongCK)}</th>
@@ -501,7 +498,7 @@
             if (!row) return;
             const field = el.dataset.field;
             let value;
-            if (field === 'slRot') {
+            if (field === 'slShip') {
                 value = el.value === '' ? '' : Math.max(0, Number(el.value) || 0);
             } else if (field === 'note') {
                 value = el.value.trim();
