@@ -171,11 +171,22 @@
             if (ok) {
                 STATE.extReady = true;
                 console.log(`[snap-ext] v${data.version} OK — capture qua extension (no popup)`);
-                // MANDATORY Enter modal: show NGAY sau khi version OK. User
-                // bắt buộc bấm Enter để bật stream mode trước khi dùng web.
-                setTimeout(() => {
-                    if (!STATE.captureStream) _showStreamModePrompt();
-                }, 500);
+                // Smart modal logic:
+                // - First time ever: show MANDATORY modal → user bấm Enter consent
+                // - Subsequent visits: SKIP modal → silent auto-grab qua page click
+                //   (content script listener). Nếu sau 30s không có stream → show
+                //   floating banner reminder.
+                const consented = localStorage.getItem('tpos_stream_consented') === '1';
+                if (!consented) {
+                    setTimeout(() => {
+                        if (!STATE.captureStream) _showStreamModePrompt();
+                    }, 500);
+                } else {
+                    console.log('[snap-ext] consent đã có → skip modal, silent auto-grab');
+                    setTimeout(() => {
+                        if (!STATE.captureStream) _showStreamModeReminder();
+                    }, 30000);
+                }
             } else {
                 STATE.extReady = false;
                 STATE.extOutdated = true;
@@ -264,9 +275,33 @@
         renderAutoModeChip();
         _toast('✅ Stream extension OK — tab inactive vẫn capture', 'ok');
         STATE.extStreamActive = true;
-        // Remove stream mode prompt (đã wire xong)
-        const prompt = document.getElementById('tpos-snap-stream-prompt');
-        if (prompt) prompt.remove();
+        // Set consent flag → subsequent page loads skip mandatory modal,
+        // dùng silent auto-grab qua content script's click listener.
+        localStorage.setItem('tpos_stream_consented', '1');
+        // Remove any open modal/reminder (đã wire xong)
+        document.getElementById('tpos-snap-stream-modal')?.remove();
+        document.getElementById('tpos-snap-stream-reminder')?.remove();
+    }
+
+    // Reminder banner (non-blocking) — show khi consent đã có nhưng stream
+    // chưa wire sau 30s. User chỉ cần click bất kỳ đâu trên trang (content
+    // script auto-grab fires) hoặc click banner để trigger grab.
+    function _showStreamModeReminder() {
+        if (STATE.captureStream) return;
+        if (document.getElementById('tpos-snap-stream-reminder')) return;
+        const box = document.createElement('div');
+        box.id = 'tpos-snap-stream-reminder';
+        box.innerHTML = `
+            <span style="font-size:16px;margin-right:8px;">🎬</span>
+            <span style="flex:1;color:#0c4a6e;font-size:12px;font-weight:600;">Stream chưa kết nối — click đâu cũng được</span>
+            <button type="button" style="margin-left:8px;background:#0284c7;color:#fff;border:none;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">Bật ngay</button>
+        `;
+        box.style.cssText =
+            'position:fixed;bottom:16px;right:16px;display:inline-flex;align-items:center;background:#f0f9ff;border:1px solid #7dd3fc;border-radius:10px;padding:8px 12px;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:99100;font-family:Inter,system-ui,sans-serif;max-width:360px;';
+        document.body.appendChild(box);
+        box.querySelector('button').onclick = () => {
+            window.postMessage({ type: 'N2_TAB_STREAM_GRAB_REQUEST', _activation: 1 }, '*');
+        };
     }
 
     function _captureViaExtension(quality = 80, timeoutMs = 4000) {
