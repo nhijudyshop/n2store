@@ -3,23 +3,21 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d6b379b` — auto: session update
-**Last updated**: 2026-05-24 13:25:15 +07
-**Latest session**: [`RESUME:20260524-132515-d6b379b`](../20260524-132515-d6b379b.md)
+**Latest commit**: `e35d9bc` — auto: session update
+**Last updated**: 2026-05-24 13:30:06 +07
+**Latest session**: [`RESUME:20260524-133006-e35d9bc`](../20260524-133006-e35d9bc.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`downloads/`](./downloads.md) — 10 file(s)
-- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-05-21 15:32
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-05-22 19:29
+- [`_root/`](./_root.md) — updated 2026-05-24 13:30
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-05-22 12:35
@@ -64,7 +62,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 13:25
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 13:30
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
