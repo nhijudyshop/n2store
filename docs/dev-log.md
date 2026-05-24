@@ -25,6 +25,43 @@
 
 ## 2026-05-24
 
+### [issue-tracking] Tab 2/3 chuyển từ iframe sang live TPOS OData fetch + paging
+
+**User ask**: "lấy dữ liệu fetch từ tpos đi → cho paging" — Tab BÁN HÀNG + TRẢ HÀNG lấy live data từ TPOS thay vì iframe web2 (vốn đang dùng Postgres local).
+
+**Approach**: Inline DOM thay iframe. Single class `TposFastSaleTab` xử lý cả 2 type (invoice/refund) qua config-driven `TYPE_CFG`. Fetch qua `window.tokenManager.authenticatedFetch` (auto-refresh token) → CF Worker proxy `chatomni-proxy.../api/odata/FastSaleOrder/ODataService.GetView` → TPOS OData. Paging dùng OData chuẩn `$top + $skip + $count=true`.
+
+**Files**:
+
+- `issue-tracking/index.html`
+    - Bỏ 2 iframe + skeleton trong `.embed-pane`; thay bằng `<div class="tpos-fastsale" data-fso-type="invoice|refund" data-fso-ns="inv|rf">` với layout 4 section: header (breadcrumb + counter pill), filters (search + status select + date range + limit + reload/clear), table (sticky thead, hover row), pagination footer (info + prev/page#/next).
+    - Invoice columns (10): STT / Số HĐ / KH / SĐT / Địa chỉ / Tổng tiền / COD / Trạng thái / Kênh / Ngày HĐ.
+    - Refund columns (9): STT / Số phiếu / PBH gốc / KH / SĐT / Tiền hoàn / Trạng thái / Kênh / Ngày.
+    - Thêm `<script src="js/tpos-fastsale-tab.js">` trước `page-tabs.js`.
+- `issue-tracking/css/page-tabs.css`
+    - Thêm ~260 dòng style TPOS theme: `.tpos-fastsale` (Inter font + CSS vars `--tp-bg/border/accent/green/red/amber/blue/gray`), `.tpos-fso-header/breadcrumb/counter` (purple pill), `.tpos-fso-filters` (search 34px height + focus ring eef2ff, filter chips), `.tpos-fso-table` (sticky thead bg #f9fafb, hover row #f1f5f9, num cell tabular-nums), `.tpos-fso-badge.s-{draft,open,paid,done,cancel}` (soft pastel bg + color), `.tpos-fso-pagination` (page input 60px tabular).
+- `issue-tracking/js/tpos-fastsale-tab.js` (mới, ~340 dòng)
+    - `TYPE_CFG.invoice/refund` chứa `tposType` + `rowRenderer` riêng. `STATE_META` map TPOS State → label/css/icon. Helpers `fmtMoney` (vi-VN locale), `fmtDate` (dd/MM/yyyy HH:mm), `escapeHtml`, `debounce(400ms)`.
+    - `buildFilter()`: `Type eq '<type>'` + invoice exclude `IsMergeCancel ne true` + optional State + DateInvoice ge/le + smart search (số ≥4 chữ → Phone OR Number; chữ → PartnerNameNoSign OR Number OR Phone). Quotes escape `'` → `''`.
+    - `buildUrl()`: `$top + $skip=(page-1)*limit + $orderby=DateInvoice desc + $count=true + $filter=<urlencoded>`.
+    - `load()`: AbortController cancel in-flight cũ; `window.tokenManager.authenticatedFetch(url)` (auto 401 retry); hydrate `state.rows + state.total` từ `data.value + data['@odata.count']`; log timing.
+    - Bindings: search debounce 400ms reset page=1; state/date/limit change reset page=1; reload; clear (reset all + reload); prev/next/page-input pagination clamp [1, totalPages]; row click `data-action="open"` → `window.open(tomato.tpos.vn/#/app/<path>/<id>)`.
+    - Registry by tab id, expose `window.TposFastSaleTabs.activate(tabId)` cho `page-tabs.js` trigger first-load. Idempotent (`this.loaded` guard).
+- `issue-tracking/js/page-tabs.js`
+    - Bỏ toàn bộ logic iframe lazy + `injectEmbedCss` (~50 dòng); thêm `TPOS_TABS = new Set(['ban-hang','tra-hang'])` và call `window.TposFastSaleTabs.activate(tabId)` khi activate TPOS tab.
+
+**Verify** (Playwright `http://localhost:8080/issue-tracking/`):
+
+- BÁN HÀNG tab: 13.970 HĐ total, 140 pages × 100 rows/page. Row 1: `NJD/2026/68476` — Hạnh Nguyên — 0917446277 — Kiên Giang — 390.000đ — COD 425.000đ — Đang xử lý — NhiJudy Store — 24/05/2026 13:00.
+- Next button → page 2 rows 101-200 (`NJD/2026/68372`).
+- State filter `open` → 10.982 HĐ (Đang xử lý badge).
+- Search `0917446277` → 6 HĐ (smart filter: numeric pattern → Phone+Number OR).
+- TRẢ HÀNG tab: 436 phiếu total, 5 pages × 100. Row 1: `RINV/2026/2467` — Vo Thuy Hang — 0933283356 — 240.000đ — Đang xử lý — 23/05/2026 13:04.
+- Timing: ~500ms per fetch (CF worker → TPOS) — đủ smooth.
+- Screenshots: `downloads/n2store-session/it-tab{2,3}-{banhang,trahang}-tpos.png`.
+
+**Status**: ✅ Done
+
 ### [extension][scripts][docs] Auto-publish n2store-extension lên Chrome Web Store khi version đổi
 
 **User ask**: Tự động upload extension `n2store-extension/` lên Chrome Web Store khi version trong `manifest.json` thay đổi, và bắn notification cho end users biết về bản update mới.
