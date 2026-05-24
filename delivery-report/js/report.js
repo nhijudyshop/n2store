@@ -387,7 +387,10 @@
         const rows = dates.map((d) => {
             const sys = map[d] || { sysCount: 0, money: 0 };
             const ov = getOverride(d, state.activeTab);
-            const slDon = ov.slDon != null && ov.slDon !== '' ? Number(ov.slDon) : sys.sysCount;
+            // slRot = số đơn rớt (delta to subtract from system count)
+            const rot = Number(ov.slRot) || 0;
+            const sysCount = sys.sysCount;
+            const slDon = Math.max(0, sysCount - rot);
             const money = sys.money;
             const shipFee = slDon * SHIP_FEE_PER_ORDER;
             const totalAll = money - shipFee;
@@ -395,6 +398,7 @@
             const atruongCK = Number(ov.atruongCK) || 0;
             const ckTruoc = Number(ov.ckTruoc) || 0;
             const totalLeft = totalAll - boCK - atruongCK - ckTruoc;
+            const note = ov.note || '';
 
             totals.slDon += slDon;
             totals.money += money;
@@ -405,14 +409,17 @@
             totals.ckTruoc += ckTruoc;
             totals.totalLeft += totalLeft;
 
-            const reset =
-                ov.slDon != null && ov.slDon !== ''
-                    ? `<button class="dr-report-reset" data-date="${d}" data-field="slDon" title="Reset về tự động (${sys.sysCount})">↺</button>`
-                    : '';
             const hasImg = !!ov.billImage;
+            const formula =
+                rot > 0
+                    ? `<div class="sl-formula"><span class="sl-orig">${sysCount}</span> − <span class="sl-rot">${rot}</span> = <strong>${slDon}</strong></div>`
+                    : `<div class="sl-formula muted">${sysCount}</div>`;
             return `<tr data-date="${d}">
                 <td class="date">${formatDDMMYYYY(d)}</td>
-                <td class="num"><input type="number" min="0" data-field="slDon" value="${slDon}" />${reset}</td>
+                <td class="num sl-cell">
+                    <input type="number" min="0" data-field="slRot" value="${rot || ''}" placeholder="0" title="Nhập số đơn rớt — sẽ trừ khỏi SL tự động" />
+                    ${formula}
+                </td>
                 <td class="num clickable money-cell ${hasImg ? 'has-img' : 'no-img'}" data-action="open-img" title="${hasImg ? 'Bấm để xem/sửa ảnh' : 'Bấm để thêm ảnh chứng từ'}">
                     <span class="money-val">${formatMoney(money)}</span>
                     <span class="money-ico">${hasImg ? '<i class="fas fa-image"></i>' : '<i class="far fa-image"></i>'}</span>
@@ -423,6 +430,7 @@
                 <td class="num"><input type="text" data-field="atruongCK" value="${atruongCK ? formatMoney(atruongCK) : ''}" placeholder="0" /></td>
                 <td class="num"><input type="text" data-field="ckTruoc" value="${ckTruoc ? formatMoney(ckTruoc) : ''}" placeholder="0" /></td>
                 <td class="num strong ${totalLeft < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeft)}</td>
+                <td class="note-cell"><textarea data-field="note" rows="1" placeholder="Ghi chú…">${escapeHtml(note)}</textarea></td>
             </tr>`;
         });
 
@@ -438,6 +446,7 @@
             <th class="num">${formatMoney(totals.atruongCK)}</th>
             <th class="num">${formatMoney(totals.ckTruoc)}</th>
             <th class="num strong ${totals.totalLeft < 0 ? 'negative' : 'positive'}">${formatMoney(totals.totalLeft)}</th>
+            <th></th>
         </tr>`;
 
         // Delegation set up once in ensureModal() — no per-cell binding here.
