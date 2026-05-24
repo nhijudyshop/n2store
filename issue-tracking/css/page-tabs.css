@@ -1,0 +1,153 @@
+/* #Note: Page-level 3-tab bar (CSKH / BÁN HÀNG / TRẢ HÀNG). Tab 1 = current content, Tab 2/3 = lazy iframes of web2 pages. */
+
+:root {
+    --pt-bg: #ffffff;
+    --pt-border: #e2e8f0;
+    --pt-text: #475569;
+    --pt-text-hover: #1e293b;
+    --pt-text-active: #6366f1;
+    --pt-bg-hover: #f1f5f9;
+    --pt-bg-active: #eef2ff;
+    --pt-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.page-tabs-bar {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 0 16px;
+    background: var(--pt-bg);
+    border-bottom: 1px solid var(--pt-border);
+    box-shadow: var(--pt-shadow);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.page-tab-btn {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    padding: 14px 22px;
+    margin: 0;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--pt-text);
+    cursor: pointer;
+    transition:
+        color 160ms ease,
+        background-color 160ms ease,
+        border-color 160ms ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    line-height: 1;
+    text-transform: none;
+    white-space: nowrap;
+}
+
+.page-tab-btn:hover {
+    color: var(--pt-text-hover);
+    background: var(--pt-bg-hover);
+}
+
+.page-tab-btn:focus-visible {
+    outline: 2px solid var(--pt-text-active);
+    outline-offset: -2px;
+}
+
+.page-tab-btn.active {
+    color: var(--pt-text-active);
+    background: var(--pt-bg-active);
+    border-bottom-color: var(--pt-text-active);
+}
+
+.page-tab-btn .pt-ico {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    opacity: 0.85;
+}
+
+.page-tab-btn.active .pt-ico {
+    opacity: 1;
+}
+
+.page-tab-pane {
+    display: none;
+}
+
+.page-tab-pane.active {
+    display: block;
+}
+
+/* Iframe panes — full available height below the tab bar */
+.page-tab-pane.embed-pane {
+    height: calc(100vh - 49px);
+    width: 100%;
+    background: #f8fafc;
+    position: relative;
+}
+
+.page-tab-pane.embed-pane.active {
+    display: block;
+}
+
+.embed-iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+    background: #f8fafc;
+}
+
+.embed-skeleton {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: #64748b;
+    font-size: 14px;
+    background: #f8fafc;
+    z-index: 2;
+    transition: opacity 220ms ease;
+    pointer-events: none;
+}
+
+.embed-skeleton.hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.embed-skeleton-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: pt-spin 0.8s linear infinite;
+}
+
+@keyframes pt-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* When iframe pane is active, hide the host page's main scrollbar (iframe owns scroll) */
+body.pt-embed-active {
+    overflow: hidden;
+}
+
+@media (max-width: 768px) {
+    .page-tab-btn {
+        padding: 12px 14px;
+        font-size: 13px;
+    }
+}

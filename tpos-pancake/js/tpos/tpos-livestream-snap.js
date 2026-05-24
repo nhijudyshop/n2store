@@ -1208,11 +1208,12 @@ Throttle 30s/KH. Click để tắt.`;
             const hint = document.getElementById('tpos-snap-fb-hint');
             if (hint) hint.remove();
             _toast('✅ Auto-snap qua extension — không cần share popup', 'ok');
-            // Show prompt để user upgrade lên stream mode (Option B):
-            // - Tab inactive vẫn capture được
-            // - Stream-based, no Chrome rate limit
-            // Banner ẩn nếu user dismiss hoặc đã có stream active.
-            _showStreamModePrompt();
+            // Delay 5s rồi show modal Enter — đủ thời gian cho page-click
+            // auto-grab (content script listener) thử trước. Nếu Chrome accept
+            // page click → captureStream wired → modal không show.
+            setTimeout(() => {
+                if (!STATE.captureStream) _showStreamModePrompt();
+            }, 5000);
             return true;
         }
         try {
