@@ -682,8 +682,17 @@ function _ffmpegExtract(m3u8Url, offsetSec, mode) {
                 'image2',
             ]);
         }
-        // Timeout HTTP fetch 20s (avoid hang khi FB CDN slow/down).
-        cmd = cmd.inputOptions(['-timeout', '20000000', '-rw_timeout', '20000000']);
+        // Timeout HTTP fetch 20s + UA spoof (FB CDN reject default ffmpeg/curl UA → 403).
+        cmd = cmd.inputOptions([
+            '-timeout',
+            '20000000',
+            '-rw_timeout',
+            '20000000',
+            '-user_agent',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+            '-headers',
+            'Referer: https://www.facebook.com/\\r\\nOrigin: https://www.facebook.com',
+        ]);
         cmd.format('image2')
             .on('error', (err) => reject(new Error(`ffmpeg(${mode}): ` + err.message)))
             .on('end', () => {
