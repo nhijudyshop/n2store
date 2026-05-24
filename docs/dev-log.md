@@ -25,6 +25,30 @@
 
 ## 2026-05-24
 
+### [delivery-report] Báo cáo modal: NGÀY column hiển thị ngày nhập liệu (entry = real + 1), filter theo entry
+
+**User ask**: Cột NGÀY tự + lên 1 ngày → gọi là "ngày nhập liệu". Hover hiện ngày thật. Filter `Từ → Đến` cũng theo ngày nhập liệu. Không sửa dữ liệu — chỉ display + filter.
+
+**Files**:
+
+- `delivery-report/js/report.js`
+    - Thêm helpers `shiftDay(iso, delta)` + `entryToReal = -1` / `realToEntry = +1`.
+    - `render()`: `state.fromDate/toDate` giờ đại diện entry dates. Tính `realFrom = entryToReal(state.fromDate)`, `realTo = entryToReal(state.toDate)`. `eachDay`, `fetchRange`, `rangeKey` đều dùng real dates (data unchanged). Subtitle vẫn hiển thị entry range (matches input).
+    - `paintTable`: `<td class="date" title="Ngày thật: ${formatDDMMYYYY(d)}">${formatDDMMYYYY(realToEntry(d))}</td>` — display entry, native tooltip = real.
+    - Image modal subtitle: hiển thị `entry (thật real) — tabLabel`.
+    - `open()` seed từ main filter: `realToEntry(mainFrom/mainTo)` để khi mở từ main page (filter là real dates), report giữ cùng underlying data visible.
+- `data-date` attribute trên `<tr>` vẫn = real date → overrides storage key + tbody delegation logic không đổi → localStorage data backward compatible.
+
+**Verify**: Playwright session localhost:8080, filter 2026-05-18 → 2026-05-24:
+
+- 7 rows displayed
+- Row 1: NGÀY=18/05/2026, tooltip="Ngày thật: 17/05/2026", data-date=2026-05-17
+- Row 7: NGÀY=24/05/2026, tooltip="Ngày thật: 23/05/2026", data-date=2026-05-23
+- Data 22.500.000 / 39 đơn (real 18/05) giờ xuất hiện ở row entry 19/05/2026 — đúng spec
+- Screenshot: `downloads/n2store-session/dr-report-entry-date.png`
+
+**Status**: ✅ Done
+
 ### [supplier-debt] Auto refresh: polling 30s + cross-tab BroadcastChannel (không cần F5)
 
 **User ask**: Trang `supplier-debt/` khi chỉnh sửa/cập nhật dữ liệu → tự tính toán lại + cập nhật bảng liền, không cần refresh. Cả 2 case: (1) local edit (đã có sẵn — `fetchData()` sau payment/delete/refund) và (2) realtime sync khi user/tab khác sửa TPOS. Đảm bảo tốc độ không giật lag. Test bằng MOCK data (không đụng TPOS thật).

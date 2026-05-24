@@ -81,6 +81,21 @@
         return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
     }
 
+    // Entry date (ngày nhập liệu) = real date + 1 day. UI inputs and the NGÀY
+    // column display entry dates; data fetch/storage/overrides keep real dates.
+    function shiftDay(iso, delta) {
+        if (!iso) return '';
+        const d = new Date(iso + 'T00:00:00');
+        if (Number.isNaN(d.getTime())) return '';
+        d.setDate(d.getDate() + delta);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dd}`;
+    }
+    const entryToReal = (iso) => shiftDay(iso, -1);
+    const realToEntry = (iso) => shiftDay(iso, 1);
+
     function eachDay(fromISO, toISO) {
         const dates = [];
         if (!fromISO || !toISO) return dates;
@@ -349,7 +364,12 @@
     function render() {
         // Cheap, sync UI updates first — never await for these
         updateTabClasses();
-        const dates = eachDay(state.fromDate, state.toDate);
+        // state.fromDate / state.toDate are ENTRY dates (what the user picks
+        // and what the NGÀY column shows). Data fetched/aggregated by REAL
+        // dates = entry − 1. Storage and overrides are unchanged.
+        const realFrom = entryToReal(state.fromDate);
+        const realTo = entryToReal(state.toDate);
+        const dates = eachDay(realFrom, realTo); // iterate real dates
         const subtitle = dates.length
             ? `${formatDDMMYYYY(state.fromDate)}${
                   state.fromDate === state.toDate ? '' : ` → ${formatDDMMYYYY(state.toDate)}`
@@ -365,7 +385,7 @@
         }
 
         // Hot cache → sync path: paint immediately, no await, no loading flash.
-        const key = rangeKey(state.fromDate, state.toDate);
+        const key = rangeKey(realFrom, realTo);
         const cached = state.fetchCache[key];
         if (cached && Date.now() - cached.fetchedAt < 60000) {
             state.currentByDateGroup = cached.byDateGroup;
@@ -377,10 +397,12 @@
         document.getElementById('drReportTbody').innerHTML =
             '<tr><td colspan="10" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>';
         document.getElementById('drReportTfoot').innerHTML = '';
-        fetchRange(state.fromDate, state.toDate).then(({ byDateGroup }) => {
-            if (rangeKey(state.fromDate, state.toDate) !== key) return; // stale
+        fetchRange(realFrom, realTo).then(({ byDateGroup }) => {
+            const curRealFrom = entryToReal(state.fromDate);
+            const curRealTo = entryToReal(state.toDate);
+            if (rangeKey(curRealFrom, curRealTo) !== key) return; // stale
             state.currentByDateGroup = byDateGroup;
-            paintTable(eachDay(state.fromDate, state.toDate));
+            paintTable(eachDay(curRealFrom, curRealTo));
         });
     }
 
@@ -428,7 +450,7 @@
                     ? `<div class="sl-formula"><span class="sl-orig">${formatNumber(sysCount)}</span> − <span class="sl-rot">${formatNumber(rot)}</span> = <strong>${formatNumber(slDon)}</strong></div>`
                     : `<div class="sl-formula muted">${formatNumber(sysCount)}</div>`;
             return `<tr data-date="${d}">
-                <td class="date">${formatDDMMYYYY(d)}</td>
+                <td class="date" title="Ngày thật: ${formatDDMMYYYY(d)}">${formatDDMMYYYY(realToEntry(d))}</td>
                 <td class="num sl-cell">
                     <input type="number" min="0" data-field="slRot" value="${rot || ''}" placeholder="0" title="Nhập số đơn rớt — sẽ trừ khỏi SL tự động" />
                     ${formula}
@@ -678,7 +700,8 @@
         const deleteBtn = document.getElementById('drReportImgDelete');
         const info = document.getElementById('drReportImgInfo');
         const tabLabel = TABS.find((t) => t.key === state.activeTab)?.label || '';
-        subtitle.textContent = `${formatDDMMYYYY(date)} — ${tabLabel}`;
+        // `date` is the REAL date stored on the row; the column shows entry = real + 1
+        subtitle.textContent = `${formatDDMMYYYY(realToEntry(date))} (thật ${formatDDMMYYYY(date)}) — ${tabLabel}`;
 
         if (ov.billImage) {
             preview.src = ov.billImage;
@@ -710,18 +733,22 @@
 
     function open() {
         ensureModal();
-        // Seed dates from main filter
+        // Seed dates from main filter. Main filter uses REAL dates (delivery
+        // date); the report inputs are ENTRY dates (= real + 1), so shift +1
+        // when seeding to keep the same underlying data visible.
         const mainFrom = document.getElementById('drFilterFromDate')?.value;
         const mainTo = document.getElementById('drFilterToDate')?.value;
+        const seedFrom = realToEntry(mainFrom);
+        const seedTo = realToEntry(mainTo);
         const reportFrom = document.getElementById('drReportFrom');
         const reportTo = document.getElementById('drReportTo');
         // Only re-seed if user hasn't yet picked report-specific dates this session
-        if (mainFrom && mainTo && (!state.fromDate || !state.toDate)) {
-            state.fromDate = mainFrom;
-            state.toDate = mainTo;
+        if (seedFrom && seedTo && (!state.fromDate || !state.toDate)) {
+            state.fromDate = seedFrom;
+            state.toDate = seedTo;
         }
-        if (reportFrom) reportFrom.value = state.fromDate || mainFrom || '';
-        if (reportTo) reportTo.value = state.toDate || mainTo || '';
+        if (reportFrom) reportFrom.value = state.fromDate || seedFrom || '';
+        if (reportTo) reportTo.value = state.toDate || seedTo || '';
         // View swap: hide main page sections via body class, show báo cáo block in-flow
         document.body.classList.add('dr-mode-report');
         document.getElementById('drReportModal').classList.add('open');
