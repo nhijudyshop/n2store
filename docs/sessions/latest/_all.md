@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f17ceba` — auto: session update
-**Last updated**: 2026-05-24 14:02:17 +07
-**Latest session**: [`RESUME:20260524-140217-f17ceba`](../20260524-140217-f17ceba.md)
-**Summary**: auto: session update
+**Latest commit**: `5690bf8` — fix(snap): crop về iframe wrapper trong stream mode — không chụp cả web
+**Last updated**: 2026-05-24 14:07:20 +07
+**Latest session**: [`RESUME:20260524-140720-5690bf8`](../20260524-140720-5690bf8.md)
+**Summary**: fix(snap): crop về iframe wrapper trong stream mode — không chụp cả web
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -61,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 13:30
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 14:07
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
