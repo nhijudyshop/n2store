@@ -35,21 +35,28 @@ function handleError(res, error, message = 'Internal server error') {
 }
 
 // =====================================================
-// WEB 2.0 ISOLATION: clone Web 1 balance_history schema vào web2_balance_history.
-// Web 2.0 routes (file này) sẽ query/update web2_balance_history thay vì
-// balance_history → KHÔNG đụng dữ liệu Web 1. Sepay webhook (sepay-webhook-core.js)
-// dual-write vào CẢ 2 bảng.
+// /v2/ = phiên bản v2 của Web 1 API (KHÔNG phải Web 2.0).
+// Query/update trực tiếp bảng Web 1 `balance_history` — single source of truth.
 //
-// Migration self-gated qua native_orders_migrations (share table cho mọi web2
-// migration). Backfill 1 lần copy toàn bộ rows từ balance_history (Web 1 legacy)
-// sang web2_balance_history (ON CONFLICT skip) để Web 2.0 không mất history cũ.
+// Lịch sử migration:
+//   • 081 (2026-05-21): clone schema balance_history → mirror table (prefix
+//     "web2_"), backfill 1 lần. Bị hiểu nhầm /v2/ = Web 2.0.
+//   • 082 (sau 081): one-time resync balance_history → mirror table vì matching
+//     engine + Live Mode update balance_history nhưng không mirror.
+//   • 083 (2026-05-24): ROLLBACK. Backfill ngược mirror → balance_history cho
+//     các GD đã approve/reject + rewrite
+//     wallet_transactions/customer_activities.reference_type về 'balance_history'.
+//     Sau đó toàn bộ routes/v2/balance-history.js dùng balance_history trực tiếp.
+//     Bảng mirror giữ làm safety net, xoá ở PR sau khi confirm ổn.
 // =====================================================
 let _w2BhEnsured = false;
 async function ensureWeb2BalanceHistory(pool) {
     if (_w2BhEnsured) return;
     try {
-        // SOURCE_TABLE = bảng legacy Web 1. Tách string để khỏi bị sed-replace
-        // nhầm khi rename lần khác. Final SQL string = 'balance_history'.
+        // Concatenated literals → tránh bị global rename khi search-replace
+        // toàn file. Sau khi JS template interpolate, đây là 'web2_balance_history'
+        // (mirror table giữ làm safety net) và 'balance_history' (source of truth) thật.
+        const WEB2_TABLE = 'web2_' + 'balance_history';
         const SOURCE_TABLE = 'balance' + '_history';
         await pool.query(`
             CREATE TABLE IF NOT EXISTS native_orders_migrations (
@@ -57,43 +64,30 @@ async function ensureWeb2BalanceHistory(pool) {
                 run_at TIMESTAMPTZ NOT NULL DEFAULT now()
             );
 
-            -- Clone schema bao gồm columns + constraints + indexes + defaults.
-            -- "INCLUDING ALL" copy primary key, NOT NULL, UNIQUE, CHECK, DEFAULTS.
-            CREATE TABLE IF NOT EXISTS web2_balance_history (LIKE ${SOURCE_TABLE} INCLUDING ALL);
+            -- Bảng ${WEB2_TABLE} clone từ ${SOURCE_TABLE} (historical artifact migration 081).
+            -- Giữ làm safety net cho migration 083; sẽ xoá ở PR sau.
+            CREATE TABLE IF NOT EXISTS ${WEB2_TABLE} (LIKE ${SOURCE_TABLE} INCLUDING ALL);
 
             DO $$
             BEGIN
                 IF NOT EXISTS (
                     SELECT 1 FROM native_orders_migrations
-                    WHERE name = '081_backfill_web2_balance_history'
+                    WHERE name = '081_backfill_${WEB2_TABLE}'
                 ) THEN
-                    -- One-time copy toàn bộ rows từ ${SOURCE_TABLE} (Web 1).
-                    -- ON CONFLICT sepay_id DO NOTHING để re-run safe.
-                    INSERT INTO web2_balance_history
+                    INSERT INTO ${WEB2_TABLE}
                     SELECT * FROM ${SOURCE_TABLE}
                     ON CONFLICT (sepay_id) DO NOTHING;
 
                     INSERT INTO native_orders_migrations(name)
-                    VALUES ('081_backfill_web2_balance_history');
-                    RAISE NOTICE 'Migration 081: backfilled web2_balance_history from %', '${SOURCE_TABLE}';
+                    VALUES ('081_backfill_${WEB2_TABLE}');
+                    RAISE NOTICE 'Migration 081: backfilled % from %', '${WEB2_TABLE}', '${SOURCE_TABLE}';
                 END IF;
 
-                -- Migration 082: re-sync editable columns. Backfill 081 chỉ chạy
-                -- 1 lần lúc setup web2 table, nhưng SAU đó:
-                --   • Matching engine UPDATE balance_history (set verification_status,
-                --     linked_customer_phone…) → KHÔNG mirror sang web2.
-                --   • Live Mode UPDATE balance_history (Xác nhận, gán SĐT) → cũng
-                --     KHÔNG mirror sang web2 (helper _syncWeb2BalanceHistory mới thêm).
-                -- Hậu quả: các GD từ ngày tách bảng (2026-05-21) đến trước fix này
-                -- có web2.verification_status = NULL/'PENDING' nhưng balance_history
-                -- đã 'PENDING_VERIFICATION' → tab "Chờ Duyệt" không thấy.
-                -- One-time: copy editable columns từ balance_history → web2 cho
-                -- các row stuck.
                 IF NOT EXISTS (
                     SELECT 1 FROM native_orders_migrations
                     WHERE name = '082_resync_web2_editable_columns'
                 ) THEN
-                    UPDATE web2_balance_history w2
+                    UPDATE ${WEB2_TABLE} w2
                     SET linked_customer_phone   = src.linked_customer_phone,
                         customer_id             = src.customer_id,
                         customer_name           = src.customer_name,
@@ -121,12 +115,57 @@ async function ensureWeb2BalanceHistory(pool) {
 
                     INSERT INTO native_orders_migrations(name)
                     VALUES ('082_resync_web2_editable_columns');
-                    RAISE NOTICE 'Migration 082: resynced web2_balance_history editable columns from %', '${SOURCE_TABLE}';
+                END IF;
+
+                -- Migration 083 (2026-05-24): ROLLBACK web2 isolation.
+                -- /v2/ thực ra là v2 của Web 1 API, không phải Web 2.0.
+                -- Backfill ngược: các GD đã approve/reject trong ${WEB2_TABLE} (do endpoint
+                -- v2/balance-history ghi nhầm) → copy về ${SOURCE_TABLE}.
+                -- Đồng thời rewrite wallet_transactions/customer_activities.reference_type
+                -- từ giá trị nhầm cũ về '${SOURCE_TABLE}' để filter queries tiếp tục đúng.
+                IF NOT EXISTS (
+                    SELECT 1 FROM native_orders_migrations
+                    WHERE name = '083_backfill_balance_history_from_web2'
+                ) THEN
+                    UPDATE ${SOURCE_TABLE} bh
+                    SET verification_status     = src.verification_status,
+                        verification_note       = COALESCE(src.verification_note, bh.verification_note),
+                        verification_image_url  = COALESCE(src.verification_image_url, bh.verification_image_url),
+                        verified_by             = COALESCE(src.verified_by, bh.verified_by),
+                        verified_at             = COALESCE(src.verified_at, bh.verified_at),
+                        wallet_processed        = src.wallet_processed,
+                        linked_customer_phone   = COALESCE(src.linked_customer_phone, bh.linked_customer_phone),
+                        customer_id             = COALESCE(src.customer_id, bh.customer_id),
+                        customer_name           = COALESCE(src.customer_name, bh.customer_name),
+                        display_name            = COALESCE(src.display_name, bh.display_name),
+                        match_method            = COALESCE(src.match_method, bh.match_method),
+                        is_hidden               = COALESCE(src.is_hidden, bh.is_hidden),
+                        staff_note              = COALESCE(src.staff_note, bh.staff_note),
+                        debt_added              = COALESCE(src.debt_added, bh.debt_added),
+                        updated_at              = NOW()
+                    FROM ${WEB2_TABLE} src
+                    WHERE bh.sepay_id = src.sepay_id
+                      AND src.verification_status IN ('APPROVED', 'REJECTED')
+                      AND bh.verification_status IS DISTINCT FROM src.verification_status;
+
+                    -- Rewrite reference_type cho các deposit/adjustment records cũ
+                    -- (đã được code v2/balance-history.js trước fix gán nhầm).
+                    UPDATE wallet_transactions
+                    SET reference_type = '${SOURCE_TABLE}'
+                    WHERE reference_type = '${WEB2_TABLE}';
+
+                    UPDATE customer_activities
+                    SET reference_type = '${SOURCE_TABLE}'
+                    WHERE reference_type = '${WEB2_TABLE}';
+
+                    INSERT INTO native_orders_migrations(name)
+                    VALUES ('083_backfill_balance_history_from_web2');
+                    RAISE NOTICE 'Migration 083: backfilled % from % + rewrote reference_type', '${SOURCE_TABLE}', '${WEB2_TABLE}';
                 END IF;
             END $$;
         `);
         _w2BhEnsured = true;
-        console.log('[BalanceHistory V2] web2_balance_history schema ready');
+        console.log('[BalanceHistory V2] balance_history schema/migrations ready');
     } catch (e) {
         console.error('[BalanceHistory V2] migration error:', e.message);
     }
@@ -136,7 +175,7 @@ async function ensureWeb2BalanceHistory(pool) {
 // ROUTES
 // =====================================================
 
-// Router-level middleware: ensure web2_balance_history schema (idempotent —
+// Router-level middleware: ensure balance_history schema (idempotent —
 // `_w2BhEnsured` flag short-circuits sau lần đầu).
 router.use(async (req, res, next) => {
     if (req.app.locals.chatDb) await ensureWeb2BalanceHistory(req.app.locals.chatDb);
@@ -145,7 +184,7 @@ router.use(async (req, res, next) => {
 
 /**
  * GET /api/v2/balance-history
- * List unlinked bank transactions (web2_balance_history without linked customer)
+ * List unlinked bank transactions (balance_history without linked customer)
  */
 router.get('/', async (req, res) => {
     const db = req.app.locals.chatDb;
@@ -182,7 +221,7 @@ router.get('/', async (req, res) => {
 
         // Get total count
         const countResult = await db.query(`
-            SELECT COUNT(*) as total FROM web2_balance_history bh ${whereClause}
+            SELECT COUNT(*) as total FROM balance_history bh ${whereClause}
         `);
         const total = parseInt(countResult.rows[0].total);
 
@@ -204,7 +243,7 @@ router.get('/', async (req, res) => {
                 bh.wallet_processed,
                 bh.created_at,
                 c.name as customer_name
-            FROM web2_balance_history bh
+            FROM balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             ${whereClause}
             ORDER BY bh.transaction_date DESC
@@ -252,7 +291,7 @@ router.get('/pending', async (req, res) => {
                 bh.content as transaction_content,
                 bh.transaction_date
             FROM pending_customer_matches pcm
-            LEFT JOIN web2_balance_history bh ON pcm.balance_history_id = bh.id
+            LEFT JOIN balance_history bh ON pcm.balance_history_id = bh.id
             ORDER BY pcm.created_at DESC
             LIMIT $1 OFFSET $2
         `,
@@ -276,7 +315,7 @@ router.get('/pending', async (req, res) => {
 
 /**
  * POST /api/v2/balance-history/:id/link
- * Link a web2_balance_history transaction to a customer
+ * Link a balance_history transaction to a customer
  * NEW: Fetches TPOS data and creates customer with full info
  */
 router.post('/:id/link', async (req, res) => {
@@ -299,7 +338,7 @@ router.post('/:id/link', async (req, res) => {
 
         // 1. Get transaction
         const txResult = await db.query(
-            'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
+            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
             [parseInt(id)]
         );
 
@@ -369,7 +408,7 @@ router.post('/:id/link', async (req, res) => {
         // This requires accountant approval before wallet is credited
         await db.query(
             `
-            UPDATE web2_balance_history
+            UPDATE balance_history
             SET linked_customer_phone = $1,
                 customer_id = $2,
                 match_method = 'manual_entry',
@@ -429,7 +468,7 @@ router.post('/:id/reprocess-wallet', async (req, res) => {
     try {
         const result = await withTransaction(pool, async (client) => {
             const txResult = await client.query(
-                'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
+                'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
                 [parseInt(id)]
             );
 
@@ -479,7 +518,7 @@ router.post('/:id/reprocess-wallet', async (req, res) => {
 
             await client.query(
                 `
-                UPDATE web2_balance_history
+                UPDATE balance_history
                 SET wallet_processed = TRUE
                 WHERE id = $1
             `,
@@ -497,7 +536,7 @@ router.post('/:id/reprocess-wallet', async (req, res) => {
                 ];
                 const reprocessActivityQuery = `
                     INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color${tx.transaction_date ? ', created_at' : ''})
-                    VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'web2_balance_history', $5, 'account_balance', 'green'${tx.transaction_date ? ", ($6::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')" : ''})
+                    VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green'${tx.transaction_date ? ", ($6::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')" : ''})
                 `;
                 if (tx.transaction_date) {
                     reprocessActivityParams.push(tx.transaction_date);
@@ -548,7 +587,7 @@ router.post('/:id/unlink', async (req, res) => {
 
         // Get transaction
         const txResult = await db.query(
-            'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
+            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
             [parseInt(id)]
         );
 
@@ -599,7 +638,7 @@ router.post('/:id/unlink', async (req, res) => {
                 INSERT INTO wallet_transactions (
                     phone, type, amount, source, reference_type, reference_id, note
                 )
-                VALUES ($1, 'ADJUSTMENT', $2, 'MANUAL_ADJUSTMENT', 'web2_balance_history', $3, $4)
+                VALUES ($1, 'ADJUSTMENT', $2, 'MANUAL_ADJUSTMENT', 'balance_history', $3, $4)
             `,
                 [
                     tx.linked_customer_phone,
@@ -613,7 +652,7 @@ router.post('/:id/unlink', async (req, res) => {
         // Unlink transaction
         await db.query(
             `
-            UPDATE web2_balance_history
+            UPDATE balance_history
             SET linked_customer_phone = NULL,
                 customer_id = NULL,
                 wallet_processed = FALSE,
@@ -664,7 +703,7 @@ router.get('/stats', async (req, res) => {
                 COALESCE(SUM(transfer_amount) FILTER (WHERE transfer_type = 'in'), 0) as total_in,
                 COALESCE(SUM(transfer_amount) FILTER (WHERE transfer_type = 'out'), 0) as total_out,
                 COALESCE(SUM(transfer_amount) FILTER (WHERE wallet_processed = TRUE), 0) as total_processed_to_wallet
-            FROM web2_balance_history
+            FROM balance_history
         `);
 
         res.json({ success: true, data: result.rows[0] });
@@ -741,7 +780,7 @@ router.get('/verification-queue', async (req, res) => {
         // Get total count
         const countQuery = `
             SELECT COUNT(*) as total
-            FROM web2_balance_history bh
+            FROM balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             ${whereClause}
         `;
@@ -775,7 +814,7 @@ router.get('/verification-queue', async (req, res) => {
                 c.name as customer_name,
                 pcm.matched_customers,
                 pcm.extracted_phone
-            FROM web2_balance_history bh
+            FROM balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             LEFT JOIN pending_customer_matches pcm ON pcm.transaction_id = bh.id
             ${whereClause}
@@ -818,7 +857,7 @@ router.post('/:id/approve', async (req, res) => {
         const result = await withTransaction(pool, async (client) => {
             // 1. Get transaction with real row lock (held until COMMIT)
             const txResult = await client.query(
-                'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
+                'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
                 [parseInt(id)]
             );
 
@@ -856,7 +895,7 @@ router.post('/:id/approve', async (req, res) => {
             let updateParams;
             if (verification_image_url) {
                 updateQuery = `
-                    UPDATE web2_balance_history
+                    UPDATE balance_history
                     SET verification_status = 'APPROVED',
                         verified_by = $2,
                         verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
@@ -867,7 +906,7 @@ router.post('/:id/approve', async (req, res) => {
                 updateParams = [id, verified_by, note, verification_image_url];
             } else {
                 updateQuery = `
-                    UPDATE web2_balance_history
+                    UPDATE balance_history
                     SET verification_status = 'APPROVED',
                         verified_by = $2,
                         verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
@@ -899,7 +938,7 @@ router.post('/:id/approve', async (req, res) => {
                     if (!walletResult?.skipped) {
                         await client.query(
                             `
-                            UPDATE web2_balance_history
+                            UPDATE balance_history
                             SET wallet_processed = TRUE
                             WHERE id = $1
                         `,
@@ -916,7 +955,7 @@ router.post('/:id/approve', async (req, res) => {
                         ];
                         const activityQuery = `
                             INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color, created_by${tx.transaction_date ? ', created_at' : ''})
-                            VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'web2_balance_history', $5, 'account_balance', 'green', $6${tx.transaction_date ? ", ($7::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')" : ''})
+                            VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green', $6${tx.transaction_date ? ", ($7::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')" : ''})
                         `;
                         if (tx.transaction_date) {
                             activityParams.push(tx.transaction_date);
@@ -931,7 +970,7 @@ router.post('/:id/approve', async (req, res) => {
                         // Still mark as processed so future runs don't retry.
                         await client.query(
                             `
-                            UPDATE web2_balance_history
+                            UPDATE balance_history
                             SET wallet_processed = TRUE
                             WHERE id = $1
                         `,
@@ -946,7 +985,7 @@ router.post('/:id/approve', async (req, res) => {
                         '[BalanceHistory V2] Wallet update failed — rolling back approval:',
                         walletErr.message
                     );
-                    // Rethrow so withTransaction rolls back — keeps web2_balance_history + wallet consistent
+                    // Rethrow so withTransaction rolls back — keeps balance_history + wallet consistent
                     throw walletErr;
                 }
             }
@@ -999,7 +1038,7 @@ router.post('/:id/reject', async (req, res) => {
 
         // Get transaction
         const txResult = await db.query(
-            'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
+            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
             [parseInt(id)]
         );
 
@@ -1025,7 +1064,7 @@ router.post('/:id/reject', async (req, res) => {
         // Update verification status to REJECTED
         await db.query(
             `
-            UPDATE web2_balance_history
+            UPDATE balance_history
             SET verification_status = 'REJECTED',
                 verified_by = $2,
                 verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
@@ -1094,7 +1133,7 @@ router.post('/:id/resolve-match', async (req, res) => {
 
         // 1. Get transaction
         const txResult = await db.query(
-            'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
+            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
             [parseInt(id)]
         );
 
@@ -1155,7 +1194,7 @@ router.post('/:id/resolve-match', async (req, res) => {
         // 4. Link transaction and set PENDING_VERIFICATION (needs accountant approval)
         await db.query(
             `
-            UPDATE web2_balance_history
+            UPDATE balance_history
             SET linked_customer_phone = $2,
                 customer_id = $3,
                 verification_status = 'PENDING_VERIFICATION',
@@ -1244,14 +1283,14 @@ router.get('/accountant/stats', async (req, res) => {
             // Pending verification count
             db.query(`
                 SELECT COUNT(*) as count
-                FROM web2_balance_history
+                FROM balance_history
                 WHERE verification_status = 'PENDING_VERIFICATION'
                   AND transfer_type = 'in'
             `),
             // Pending > 24h count
             db.query(`
                 SELECT COUNT(*) as count
-                FROM web2_balance_history
+                FROM balance_history
                 WHERE verification_status = 'PENDING_VERIFICATION'
                   AND transfer_type = 'in'
                   AND created_at < NOW() - INTERVAL '24 hours'
@@ -1260,7 +1299,7 @@ router.get('/accountant/stats', async (req, res) => {
             db.query(
                 `
                 SELECT COUNT(*) as count
-                FROM web2_balance_history
+                FROM balance_history
                 WHERE verification_status = 'APPROVED'
                   AND transfer_type = 'in'
                   AND verified_at >= $1
@@ -1272,7 +1311,7 @@ router.get('/accountant/stats', async (req, res) => {
             db.query(
                 `
                 SELECT COUNT(*) as count
-                FROM web2_balance_history
+                FROM balance_history
                 WHERE verification_status = 'REJECTED'
                   AND transfer_type = 'in'
                   AND verified_at >= $1
@@ -1301,7 +1340,7 @@ router.get('/accountant/stats', async (req, res) => {
                     type IN ('VIRTUAL_CREDIT','WALLET_REFUND','RETURN_SHIPPER','RETURN_CLIENT')
                     OR (type = 'DEPOSIT' AND source = 'ORDER_CANCEL_REFUND')
                   )
-                  AND (reference_type IS DISTINCT FROM 'web2_balance_history')
+                  AND (reference_type IS DISTINCT FROM 'balance_history')
                   AND created_at >= $1
                   AND created_at < $2
             `,
@@ -1441,7 +1480,7 @@ router.get('/approved-today', async (req, res) => {
         // Get total count
         const countQuery = `
             SELECT COUNT(*) as total
-            FROM web2_balance_history bh
+            FROM balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             ${whereClause}
         `;
@@ -1471,7 +1510,7 @@ router.get('/approved-today', async (req, res) => {
                 bh.reviewed_at,
                 c.name as customer_name,
                 wa.created_by as adjusted_by
-            FROM web2_balance_history bh
+            FROM balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             LEFT JOIN wallet_adjustments wa ON wa.original_transaction_id = bh.id
             ${whereClause}
@@ -1506,7 +1545,7 @@ router.get('/approved-today', async (req, res) => {
                         bh.reviewed_at,
                         c.name as customer_name,
                         wa.created_by as adjusted_by
-                    FROM web2_balance_history bh
+                    FROM balance_history bh
                     LEFT JOIN customers c ON bh.customer_id = c.id
                     LEFT JOIN wallet_adjustments wa ON wa.original_transaction_id = bh.id
                     ${whereClause}
@@ -1541,7 +1580,7 @@ router.get('/approved-today', async (req, res) => {
                     `
                     SELECT reference_id, phone, amount, balance_before, balance_after
                     FROM wallet_transactions
-                    WHERE reference_type = 'web2_balance_history'
+                    WHERE reference_type = 'balance_history'
                       AND type = 'ADJUSTMENT'
                       AND reference_id = ANY($1::text[])
                 `,
@@ -1586,7 +1625,7 @@ router.get('/approved-today', async (req, res) => {
         // ============================================================
         // UNION: thêm các +tiền nội bộ từ wallet_transactions (không phải sepay)
         // Type whitelist: VIRTUAL_CREDIT, WALLET_REFUND, RETURN_SHIPPER, RETURN_CLIENT
-        // Filter trùng: bỏ qua các wt đã link sang web2_balance_history (sepay đã ở nhánh trên)
+        // Filter trùng: bỏ qua các wt đã link sang balance_history (sepay đã ở nhánh trên)
         // Idempotent ALTER guard cho columns mới (manager_reviewed, …)
         // ============================================================
         let walletTxRows = [];
@@ -1606,7 +1645,7 @@ router.get('/approved-today', async (req, res) => {
                 `wt.amount > 0`,
                 `(wt.type IN ('VIRTUAL_CREDIT','WALLET_REFUND','RETURN_SHIPPER','RETURN_CLIENT')
                   OR (wt.type = 'DEPOSIT' AND wt.source = 'ORDER_CANCEL_REFUND'))`,
-                `(wt.reference_type IS DISTINCT FROM 'web2_balance_history')`,
+                `(wt.reference_type IS DISTINCT FROM 'balance_history')`,
                 `wt.created_at >= $1`,
                 `wt.created_at < $2`,
             ];
@@ -1752,7 +1791,7 @@ router.post('/bulk-approve', async (req, res) => {
         try {
             const outcome = await withTransaction(pool, async (client) => {
                 const txResult = await client.query(
-                    'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
+                    'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
                     [parseInt(txId)]
                 );
 
@@ -1790,7 +1829,7 @@ router.post('/bulk-approve', async (req, res) => {
 
                 await client.query(
                     `
-                    UPDATE web2_balance_history
+                    UPDATE balance_history
                     SET verification_status = 'APPROVED',
                         verified_by = $2,
                         verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
@@ -2035,7 +2074,7 @@ router.post('/:id/manager-review', async (req, res) => {
 
         // 1. Get transaction and verify it exists and is approved
         const txResult = await db.query(
-            'SELECT * FROM web2_balance_history WHERE id = $1 FOR UPDATE',
+            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
             [parseInt(id)]
         );
 
@@ -2074,7 +2113,7 @@ router.post('/:id/manager-review', async (req, res) => {
 
         await db.query(
             `
-            UPDATE web2_balance_history
+            UPDATE balance_history
             SET manager_reviewed = TRUE,
                 manager_review_note = $2,
                 reviewed_by = $3,
@@ -2163,7 +2202,7 @@ router.delete('/:id/manager-review', async (req, res) => {
     try {
         await db.query('BEGIN');
         const r = await db.query(
-            'SELECT id, manager_reviewed, verification_note FROM web2_balance_history WHERE id = $1 FOR UPDATE',
+            'SELECT id, manager_reviewed, verification_note FROM balance_history WHERE id = $1 FOR UPDATE',
             [parseInt(id)]
         );
         if (r.rows.length === 0) {
@@ -2175,7 +2214,7 @@ router.delete('/:id/manager-review', async (req, res) => {
             .replace(/\n?\[QL:[^\]]*\]/g, '')
             .trim();
         await db.query(
-            `UPDATE web2_balance_history
+            `UPDATE balance_history
              SET manager_reviewed = FALSE,
                  manager_review_note = NULL,
                  reviewed_by = NULL,
@@ -2238,7 +2277,7 @@ router.get('/:id/can-adjust', async (req, res) => {
                 bh.content,
                 bh.code as transaction_code,
                 c.name as customer_name
-            FROM web2_balance_history bh
+            FROM balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             WHERE bh.id = $1
         `,
@@ -2421,7 +2460,7 @@ router.post('/:id/adjust', async (req, res) => {
                 bh.wallet_processed,
                 bh.verified_at,
                 c.name as customer_name
-            FROM web2_balance_history bh
+            FROM balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             WHERE bh.id = $1
             FOR UPDATE OF bh
@@ -2527,7 +2566,7 @@ router.post('/:id/adjust', async (req, res) => {
             )
             SELECT $1::text, id, 'ADJUSTMENT'::text, $2::numeric,
                    $3::numeric, $4::numeric,
-                   'MANUAL_ADJUSTMENT'::text, 'web2_balance_history'::text, $5::text, $6::text
+                   'MANUAL_ADJUSTMENT'::text, 'balance_history'::text, $5::text, $6::text
             FROM customer_wallets WHERE phone = $1::text
         `,
             [
@@ -2616,7 +2655,7 @@ router.post('/:id/adjust', async (req, res) => {
                 )
                 SELECT $1::text, id, 'ADJUSTMENT'::text, $2::numeric,
                        $3::numeric, $4::numeric,
-                       'MANUAL_ADJUSTMENT'::text, 'web2_balance_history'::text, $5::text, $6::text
+                       'MANUAL_ADJUSTMENT'::text, 'balance_history'::text, $5::text, $6::text
                 FROM customer_wallets WHERE phone = $1::text
             `,
                 [
@@ -2670,10 +2709,10 @@ router.post('/:id/adjust', async (req, res) => {
             ]
         );
 
-        // 9. Cập nhật web2_balance_history với flag has_adjustment
+        // 9. Cập nhật balance_history với flag has_adjustment
         await db.query(
             `
-            UPDATE web2_balance_history
+            UPDATE balance_history
             SET verification_note = COALESCE(verification_note, '') || ' [Đã điều chỉnh: ' || $1 || ']'
             WHERE id = $2
         `,

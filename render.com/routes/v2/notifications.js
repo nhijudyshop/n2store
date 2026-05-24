@@ -171,7 +171,7 @@ router.delete('/:id', async (req, res) => {
 //   2. PBH state=cancel mới trong 1h
 //   3. customer_wallets balance < 0
 //   4. web2_products stock < 5
-//   5. web2_balance_history pending > 1h
+//   5. balance_history pending > 1h
 router.get('/scan', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;

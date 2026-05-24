@@ -25,6 +25,37 @@
 
 ## 2026-05-24
 
+### [balance-history][delivery-report] Fix sync "Duyệt + ảnh ghi chú" giữa Kế Toán và Chi Tiết Đơn — migrate /v2/ về `balance_history` (Web 1) thay vì `web2_balance_history`
+
+**User báo**: Trên `/balance-history/index.html` tab **Kế Toán → Đã Duyệt** giao dịch hiển thị "ĐÃ KIỂM TRA" + có ảnh ghi chú. Nhưng trên `/delivery-report/index.html`, khi xem chi tiết 1 đơn của KH tương ứng, modal "BILL · HOẠT ĐỘNG KHÁCH HÀNG" vẫn báo giao dịch đó **"CHỜ DUYỆT"** + **không có icon con mắt** xem ảnh.
+
+**Root cause**: Convention sai trong codebase. Comment cũ (line 39-41 của `routes/v2/balance-history.js`) tự coi `/v2/` = Web 2.0 → đẩy toàn bộ write sang bảng `web2_balance_history`. Nhưng thực ra `/v2/` chỉ là **v2 của Web 1 API** (chỉ folder `web2/` và bảng có prefix `web2_*` mới là Web 2.0 thật). Hậu quả:
+
+- Approve flow `POST /api/v2/balance-history/:id/approve` ([render.com/routes/v2/balance-history.js:808-879](../render.com/routes/v2/balance-history.js#L808-L879)) UPDATE `web2_balance_history` SET `verification_status='APPROVED'`, `verification_image_url=$4`, `wallet_processed=TRUE`.
+- Endpoint `GET /api/v2/customers/:phone/quick-view` ([render.com/routes/v2/customers.js:1030-1145](../render.com/routes/v2/customers.js#L1030-L1145)) đọc từ `balance_history` (Web 1 table).
+- 2 bảng tách biệt, không sync sau approve → delivery-report thấy data cũ → label "CHỜ DUYỆT" + ảnh = NULL.
+- `wallet_transactions` JOIN trong quick-view dựa vào `bh.verification_image_url` cũng = NULL.
+
+**Files**:
+
+- [render.com/routes/v2/balance-history.js](../render.com/routes/v2/balance-history.js) — 64 references `web2_balance_history` → `balance_history`. Migration block (line 37-172) giữ migrations 081/082 cũ + thêm **Migration 083** (line 120-164) backfill ngược: `web2_balance_history.{verification_status,image_url,...}` → `balance_history` cho các GD APPROVED/REJECTED + rewrite `wallet_transactions.reference_type` 'web2_balance_history' → 'balance_history'. Dùng `WEB2_TABLE = 'web2_' + 'balance_history'` + `SOURCE_TABLE = 'balance' + '_history'` concatenation để tránh sed nhầm. Header comment line 38-50 mô tả lịch sử migration.
+- [render.com/routes/v2/dashboard-kpi.js:110](../render.com/routes/v2/dashboard-kpi.js#L110) — sepay_pending count: `web2_balance_history` → `balance_history`.
+- [render.com/routes/v2/smart-match.js:63](../render.com/routes/v2/smart-match.js#L63) — fetch transaction cho smart match: tương tự.
+- [render.com/routes/v2/notifications.js:174](../render.com/routes/v2/notifications.js#L174) — docstring fix.
+
+**KHÔNG đụng**:
+
+- `routes/sepay-wallet-operations.js` (`_syncWeb2BalanceHistory` helper) + `routes/sepay-webhook-core.js` (webhook dual-write) — giữ làm **safety net** mirror `balance_history` → `web2_balance_history`. Sau migrate, `web2_balance_history` không còn đọc bởi `/v2/` nhưng vẫn nhận data để rollback dễ.
+- Frontend (`balance-history/`, `web2/balance-history/`, `delivery-report/`) — không cần đổi, response API tự đúng sau khi backend chuyển bảng.
+
+**Verify**:
+
+- `node --check` pass cho cả 4 file đã sửa.
+- SQL kiểm tra trước migrate: `SELECT COUNT(*) FROM balance_history bh JOIN web2_balance_history wb ON bh.sepay_id=wb.sepay_id WHERE wb.verification_status='APPROVED' AND bh.verification_status='PENDING_VERIFICATION';` → > 0 (xác nhận có bug). Sau khi Render restart + migration 083 chạy → = 0.
+- Manual: approve 1 GD trên Kế Toán → mở delivery-report chi tiết đơn → GD chuyển sang "Hoạt động gần đây" + icon mắt mở được ảnh.
+
+**Risks**: Migration 083 idempotent qua `native_orders_migrations` table. Bảng `web2_balance_history` giữ nguyên, rollback bằng cách swap lại bảng nếu cần. Webhook dual-write tiếp tục mirror để bảng safety net không stale.
+
 ### [product-warehouse] TPOS-themed CSS override + fix filterGroup empty bug
 
 **User ask**: "trang https://nhijudy.store/product-warehouse/index.html → làm giao diện giống luôn → kiểm lại trang này có mượt, có bug gì không" + "cho giống giao diện này https://tomato.tpos.vn/#/app/producttemplate/list kể cả button".
