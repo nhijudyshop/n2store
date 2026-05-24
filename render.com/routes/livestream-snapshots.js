@@ -721,6 +721,56 @@ async function _extractFrameJpeg(m3u8Url, offsetSec) {
     }
 }
 
+// Robust path: dùng yt-dlp end-to-end để download tiny segment quanh offset
+// → local file → ffmpeg extract frame. yt-dlp handle FB auth/cookies/session
+// properly mà ffmpeg HTTP client không làm được (URL signed token IP/session
+// bound). Slower hơn direct ffmpeg nhưng work với FB CDN 403.
+async function _extractFrameViaYtdlp(fbUrl, offsetSec) {
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+    const tmpDir = os.tmpdir();
+    const tmpId = `snap_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    // Use template — yt-dlp may rename based on detected format
+    const tmpTemplate = path.join(tmpDir, `${tmpId}.%(ext)s`);
+    try {
+        // Download tiny window quanh offset. yt-dlp dùng FFmpeg external
+        // downloader để --download-sections work với HLS/DASH.
+        await _ytdlp(fbUrl, {
+            output: tmpTemplate,
+            downloadSections: `*${offsetSec}-${offsetSec + 2}`,
+            forceKeyframesAtCuts: true,
+            noWarnings: true,
+            noCheckCertificate: true,
+        });
+        // Find downloaded file (yt-dlp picks extension based on stream)
+        const files = fs
+            .readdirSync(tmpDir)
+            .filter((f) => f.startsWith(tmpId + '.'))
+            .map((f) => path.join(tmpDir, f));
+        if (!files.length) throw new Error('yt-dlp produced no file');
+        const tmpFile = files[0];
+        try {
+            // Extract frame ở giây 0 của file (file CHỈ chứa offset..offset+2)
+            return await _ffmpegExtract(tmpFile, 0, 'output');
+        } finally {
+            try {
+                fs.unlinkSync(tmpFile);
+            } catch {}
+        }
+    } catch (e) {
+        // Cleanup any partial files
+        try {
+            const files = fs
+                .readdirSync(tmpDir)
+                .filter((f) => f.startsWith(tmpId + '.'))
+                .map((f) => path.join(tmpDir, f));
+            for (const f of files) fs.unlinkSync(f);
+        } catch {}
+        throw new Error('yt-dlp-download: ' + String(e?.message || e).slice(0, 200));
+    }
+}
+
 async function _processExtractJob(pool, job) {
     const status = _batchStatus.get(job.batchId);
     try {
@@ -753,7 +803,27 @@ async function _processExtractJob(pool, job) {
             );
             return;
         }
-        const buf = await _extractFrameJpeg(m3u8, job.offsetSec);
+        // 2-tier extract:
+        //   Tier 1: direct ffmpeg fetch m3u8 (fast, ~1-2s/frame)
+        //   Tier 2: fallback yt-dlp download segment + ffmpeg local (~5-10s/frame
+        //     nhưng work với FB CDN 403)
+        let buf;
+        try {
+            buf = await _extractFrameJpeg(m3u8, job.offsetSec);
+        } catch (e1) {
+            const msg = String(e1?.message || e1);
+            // SIGSEGV (URL inaccessible) hoặc 403 → fallback yt-dlp download
+            if (/SIGSEGV|403|Forbidden|killed with signal/i.test(msg)) {
+                const videoIdShort = String(job.liveVideoId).replace(/^\d+_/, '');
+                const fbUrl = `https://www.facebook.com/${job.pageId}/videos/${videoIdShort}/`;
+                console.log(
+                    `[lss-extract] snap ${job.snapshotId}: tier1 fail → tier2 yt-dlp download`
+                );
+                buf = await _extractFrameViaYtdlp(fbUrl, job.offsetSec);
+            } else {
+                throw e1;
+            }
+        }
         await pool.query(
             `UPDATE livestream_snapshots
                SET image_data = $1, image_mime = 'image/jpeg', image_size = $2,
