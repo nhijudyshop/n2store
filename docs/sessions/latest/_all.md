@@ -3,14 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b4ea6cf` — feat(snap-ext): modal Enter chỉ lần đầu — subsequent visits silent
-**Last updated**: 2026-05-24 18:49:53 +07
-**Latest session**: [`RESUME:20260524-184953-b4ea6cf`](../20260524-184953-b4ea6cf.md)
-**Summary**: feat(snap-ext): modal Enter chỉ lần đầu — subsequent visits silent
+**Latest commit**: `d295a18` — auto: session update
+**Last updated**: 2026-05-24 18:55:02 +07
+**Latest session**: [`RESUME:20260524-185502-d295a18`](../20260524-185502-d295a18.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
+- [`n2store-extension/`](./n2store-extension.md) — 2 file(s)
+- [`shared/`](./shared.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 18:41
-- [`docs/`](./docs.md) — updated 2026-05-24 18:45
+- [`docs/`](./docs.md) — updated 2026-05-24 18:55
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-24 13:48
@@ -35,9 +38,9 @@
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 10:44
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-24 13:48
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-24 18:55
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 18:44
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 18:55
 - [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
@@ -53,7 +56,7 @@
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-24 12:08
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
-- [`shared/`](./shared.md) — updated 2026-05-21 11:33
+- [`shared/`](./shared.md) — updated 2026-05-24 18:55
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-05-22 11:46
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
