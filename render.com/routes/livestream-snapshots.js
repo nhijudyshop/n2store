@@ -656,24 +656,60 @@ async function _resolveM3u8Url(liveVideoId, pageId) {
     }
 }
 
-async function _extractFrameJpeg(m3u8Url, offsetSec) {
+// Run ffmpeg với input-seek (fast, có thể SIGSEGV) hoặc output-seek (slow,
+// reliable). Output-seek decode từ start nên chậm cho offset lớn nhưng không
+// crash với FB VOD MP4 fragments.
+function _ffmpegExtract(m3u8Url, offsetSec, mode) {
     return new Promise((resolve, reject) => {
         const ffmpeg = require('fluent-ffmpeg');
         ffmpeg.setFfmpegPath(_ffmpegPath);
         const chunks = [];
-        const cmd = ffmpeg(m3u8Url)
-            .inputOptions(['-ss', String(offsetSec)]) // input-seek nhanh hơn output-seek
-            .outputOptions(['-frames:v', '1', '-q:v', '5', '-f', 'image2'])
-            .format('image2')
-            .on('error', (err) => reject(new Error('ffmpeg: ' + err.message)))
+        let cmd = ffmpeg(m3u8Url);
+        if (mode === 'input') {
+            // -ss BEFORE -i: keyframe seek, nhanh nhưng SIGSEGV với một số HLS/VOD.
+            cmd = cmd.inputOptions(['-ss', String(offsetSec)]);
+            cmd = cmd.outputOptions(['-frames:v', '1', '-q:v', '5', '-f', 'image2']);
+        } else {
+            // -ss AFTER -i: decode từ start, accurate + reliable, slow cho offset lớn.
+            cmd = cmd.outputOptions([
+                '-ss',
+                String(offsetSec),
+                '-frames:v',
+                '1',
+                '-q:v',
+                '5',
+                '-f',
+                'image2',
+            ]);
+        }
+        // Timeout HTTP fetch 20s (avoid hang khi FB CDN slow/down).
+        cmd = cmd.inputOptions(['-timeout', '20000000', '-rw_timeout', '20000000']);
+        cmd.format('image2')
+            .on('error', (err) => reject(new Error(`ffmpeg(${mode}): ` + err.message)))
             .on('end', () => {
                 const buf = Buffer.concat(chunks);
-                if (buf.length < 512) reject(new Error('frame size quá nhỏ — placeholder?'));
+                if (buf.length < 512) reject(new Error('frame size quá nhỏ'));
                 else resolve(buf);
             });
         const stream = cmd.pipe();
         stream.on('data', (c) => chunks.push(c));
     });
+}
+
+async function _extractFrameJpeg(m3u8Url, offsetSec) {
+    // Try input-seek first (fast). Nếu SIGSEGV → fallback output-seek (reliable).
+    try {
+        return await _ffmpegExtract(m3u8Url, offsetSec, 'input');
+    } catch (e) {
+        const msg = String(e?.message || e);
+        if (/SIGSEGV|killed with signal/i.test(msg)) {
+            console.log(
+                `[lss-extract] input-seek SIGSEGV at offset ${offsetSec}s → fallback output-seek`
+            );
+            return await _ffmpegExtract(m3u8Url, offsetSec, 'output');
+        }
+        throw e;
+    }
 }
 
 async function _processExtractJob(pool, job) {
