@@ -882,13 +882,11 @@ Throttle 30s/KH. Click để tắt.`;
         // Khởi tạo stream async — fetch URL từ Render, init dash.js
         (async () => {
             try {
-                const apiBase =
-                    global.TposState?.proxyBaseUrl ||
-                    'https://chatomni-proxy.nhijudyshop.workers.dev';
+                // Gọi Render TRỰC TIẾP — CF worker không route /api/livestream/*.
                 const pageId = camp.Facebook_UserId;
                 const liveVideoId = camp.Facebook_LiveId;
                 const r = await fetch(
-                    `${apiBase}/api/livestream/stream-url?pageId=${encodeURIComponent(pageId)}&liveVideoId=${encodeURIComponent(liveVideoId)}`
+                    `${API}/api/livestream/stream-url?pageId=${encodeURIComponent(pageId)}&liveVideoId=${encodeURIComponent(liveVideoId)}`
                 );
                 const d = await r.json();
                 if (!d.success || !d.url) {
