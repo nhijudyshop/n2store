@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ca1751e` — auto: session update
-**Last updated**: 2026-05-24 13:55:25 +07
-**Latest session**: [`RESUME:20260524-135525-ca1751e`](../20260524-135525-ca1751e.md)
+**Latest commit**: `f17ceba` — auto: session update
+**Last updated**: 2026-05-24 14:02:17 +07
+**Latest session**: [`RESUME:20260524-140217-f17ceba`](../20260524-140217-f17ceba.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`n2store-extension/`](./n2store-extension.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 13:22
-- [`docs/`](./docs.md) — updated 2026-05-24 13:39
+- [`docs/`](./docs.md) — updated 2026-05-24 14:02
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-24 13:48
