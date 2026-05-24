@@ -6,25 +6,9 @@
     const TABS = ['cskh', 'ban-hang', 'tra-hang'];
     const DEFAULT_TAB = 'cskh';
 
-    const EMBED_SRC = {
-        'ban-hang': '../web2/fastsaleorder-invoice/',
-        'tra-hang': '../web2/fastsaleorder-refund/',
-    };
-
-    const EMBED_TITLES = {
-        cskh: 'CSKH và Quản Lý',
-        'ban-hang': 'Bán hàng (Hóa đơn)',
-        'tra-hang': 'Trả hàng',
-    };
-
-    // CSS injected into iframe to hide its built-in sidebar (we already have one in parent)
-    // and stretch its content to full iframe viewport.
-    const EMBED_OVERRIDE_CSS = `
-        .web2-aside { display: none !important; }
-        .web2-shell { display: block !important; }
-        .web2-shell > .main-content { height: 100vh !important; max-width: 100% !important; }
-        body { margin: 0; }
-    `;
+    // Tabs that fetch from TPOS directly (handled by tpos-fastsale-tab.js).
+    // page-tabs.js delegates first-load to window.TposFastSaleTabs.activate(tabId).
+    const TPOS_TABS = new Set(['ban-hang', 'tra-hang']);
 
     function activate(tabId, { updateHash = true } = {}) {
         if (!TABS.includes(tabId)) tabId = DEFAULT_TAB;
@@ -42,18 +26,13 @@
             pane.classList.toggle('active', pane.dataset.tab === tabId);
         });
 
-        // Lazy-load iframe for embed tabs
-        if (EMBED_SRC[tabId]) {
-            ensureIframeLoaded(tabId);
-            document.body.classList.add('pt-embed-active');
-        } else {
-            document.body.classList.remove('pt-embed-active');
-        }
-
-        // Update document title for clarity
-        const subtitle = EMBED_TITLES[tabId];
-        if (subtitle && /^CSKH/.test(document.title)) {
-            // keep original title structure; just append subtitle on switch (cheap, idempotent)
+        // For TPOS tabs, trigger first-load (idempotent — module handles dedupe).
+        if (TPOS_TABS.has(tabId)) {
+            try {
+                window.TposFastSaleTabs?.activate?.(tabId);
+            } catch (e) {
+                console.warn('[page-tabs] TPOS activate failed:', e);
+            }
         }
 
         // Sync URL hash without jumping
@@ -63,54 +42,6 @@
                 history.replaceState(null, '', next);
             }
         }
-    }
-
-    function ensureIframeLoaded(tabId) {
-        const pane = document.querySelector(`.page-tab-pane[data-tab="${tabId}"]`);
-        if (!pane) return;
-        let iframe = pane.querySelector('iframe.embed-iframe');
-        if (!iframe) return;
-
-        if (iframe.dataset.src && !iframe.src) {
-            iframe.addEventListener(
-                'load',
-                () => {
-                    injectEmbedCss(iframe);
-                    const sk = pane.querySelector('.embed-skeleton');
-                    if (sk) sk.classList.add('hidden');
-                },
-                { once: true }
-            );
-            iframe.src = iframe.dataset.src;
-        }
-    }
-
-    function injectEmbedCss(iframe) {
-        const apply = () => {
-            try {
-                const doc = iframe.contentDocument;
-                if (!doc || !doc.head) return false;
-                if (doc.getElementById('pt-embed-override')) return true;
-                const style = doc.createElement('style');
-                style.id = 'pt-embed-override';
-                style.textContent = EMBED_OVERRIDE_CSS;
-                doc.head.appendChild(style);
-                return true;
-            } catch (e) {
-                console.warn('[page-tabs] cannot inject override CSS:', e);
-                return false;
-            }
-        };
-
-        // First pass immediately; second pass on DOMContentLoaded inside iframe (in case head not ready)
-        if (!apply()) {
-            try {
-                iframe.contentWindow?.addEventListener('DOMContentLoaded', apply, { once: true });
-            } catch (_) {}
-        }
-        // Final retry after a short delay (web2 scripts may swap head content)
-        setTimeout(apply, 400);
-        setTimeout(apply, 1200);
     }
 
     function readInitialTab() {
