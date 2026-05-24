@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e1f5a48` — feat(delivery-report/report): prefix tien voi $
-**Last updated**: 2026-05-24 12:20:39 +07
-**Latest session**: [`RESUME:20260524-122039-e1f5a48`](../20260524-122039-e1f5a48.md)
-**Summary**: feat(delivery-report/report): prefix tien voi $
+**Latest commit**: `2ead903` — fix(snap): DB dedup — UNIQUE INDEX (comment_id) + ON CONFLICT + client cache skip
+**Last updated**: 2026-05-24 12:22:14 +07
+**Latest session**: [`RESUME:20260524-122214-2ead903`](../20260524-122214-2ead903.md)
+**Summary**: fix(snap): DB dedup — UNIQUE INDEX (comment_id) + ON CONFLICT + client cache skip
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -49,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-24 11:53
+- [`render.com/`](./render.com.md) — updated 2026-05-24 12:22
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-24 12:08
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -61,7 +62,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 12:12
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 12:22
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
