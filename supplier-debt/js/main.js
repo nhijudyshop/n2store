@@ -4353,6 +4353,10 @@ async function init() {
     // Load initial data and refund orders in parallel
     await Promise.all([fetchData(), RefundOrders.fetch()]);
 
+    // Seed data hash sau initial load + bật auto refresh (polling 30s + cross-tab)
+    AutoRefresh.seedHash();
+    AutoRefresh.start(30000);
+
     console.log('[SupplierDebt] Initialization complete');
 }
 

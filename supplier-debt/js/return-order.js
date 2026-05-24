@@ -23,23 +23,145 @@ window.ReturnOrderModal = (function () {
 
     const COMPANY_CONFIG = {
         1: {
-            JournalId: 4, AccountId: 4, PickingTypeId: 1, PaymentJournalId: 1,
-            Company: { Id: 1, Name: 'NJD Live', Sender: 'Tổng đài:19003357', Phone: '19003357', Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh', CurrencyId: 1, Active: true, AllowSaleNegative: true, Customer: false, Supplier: false, DepositAccountId: 11, DeliveryCarrierId: 7, City: { name: 'Thành phố Hồ Chí Minh', code: '79' }, District: { name: 'Quận 12', code: '761', cityCode: '79' }, Ward: { name: 'Phường Trung Mỹ Tây', code: '26785', cityCode: '79', districtCode: '761' } },
-            User: { Id: STATIC_USER_ID, Email: 'nvkt@gmail.com', Name: 'nvkt', UserName: 'nvkt', CompanyId: 1, CompanyName: 'NJD Live', Active: true },
-            Journal: { Id: 4, Name: 'Nhật ký mua hàng', Type: 'purchase', TypeGet: 'Mua hàng', UpdatePosted: true, DedicatedRefund: false },
-            PaymentJournal: { Id: 1, Name: 'Tiền mặt', Type: 'cash', TypeGet: 'Tiền mặt', UpdatePosted: true },
-            PickingType: { Id: 1, Code: 'incoming', Name: 'Nhận hàng', Active: true, WarehouseId: 1, UseCreateLots: true, UseExistingLots: true, NameGet: 'Nhi Judy Store: Nhận hàng' },
-            Account: { Id: 4, Name: 'Phải trả người bán', Code: '331', Active: true, NameGet: '331 Phải trả người bán', Reconcile: false }
+            JournalId: 4,
+            AccountId: 4,
+            PickingTypeId: 1,
+            PaymentJournalId: 1,
+            Company: {
+                Id: 1,
+                Name: 'NJD Live',
+                Sender: 'Tổng đài:19003357',
+                Phone: '19003357',
+                Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh',
+                CurrencyId: 1,
+                Active: true,
+                AllowSaleNegative: true,
+                Customer: false,
+                Supplier: false,
+                DepositAccountId: 11,
+                DeliveryCarrierId: 7,
+                City: { name: 'Thành phố Hồ Chí Minh', code: '79' },
+                District: { name: 'Quận 12', code: '761', cityCode: '79' },
+                Ward: {
+                    name: 'Phường Trung Mỹ Tây',
+                    code: '26785',
+                    cityCode: '79',
+                    districtCode: '761',
+                },
+            },
+            User: {
+                Id: STATIC_USER_ID,
+                Email: 'nvkt@gmail.com',
+                Name: 'nvkt',
+                UserName: 'nvkt',
+                CompanyId: 1,
+                CompanyName: 'NJD Live',
+                Active: true,
+            },
+            Journal: {
+                Id: 4,
+                Name: 'Nhật ký mua hàng',
+                Type: 'purchase',
+                TypeGet: 'Mua hàng',
+                UpdatePosted: true,
+                DedicatedRefund: false,
+            },
+            PaymentJournal: {
+                Id: 1,
+                Name: 'Tiền mặt',
+                Type: 'cash',
+                TypeGet: 'Tiền mặt',
+                UpdatePosted: true,
+            },
+            PickingType: {
+                Id: 1,
+                Code: 'incoming',
+                Name: 'Nhận hàng',
+                Active: true,
+                WarehouseId: 1,
+                UseCreateLots: true,
+                UseExistingLots: true,
+                NameGet: 'Nhi Judy Store: Nhận hàng',
+            },
+            Account: {
+                Id: 4,
+                Name: 'Phải trả người bán',
+                Code: '331',
+                Active: true,
+                NameGet: '331 Phải trả người bán',
+                Reconcile: false,
+            },
         },
         2: {
-            JournalId: 11, AccountId: 32, PickingTypeId: 5, PaymentJournalId: 8,
-            Company: { Id: 2, Name: 'NJD Shop', Sender: 'Tổng đài:19003357', Phone: '19003357', Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh', CurrencyId: 1, Active: true, AllowSaleNegative: true, Customer: false, Supplier: false, DepositAccountId: 11, DeliveryCarrierId: 7, City: { name: 'Thành phố Hồ Chí Minh', code: '79' }, District: { name: 'Quận 12', code: '761', cityCode: '79' }, Ward: { name: 'Phường Trung Mỹ Tây', code: '26785', cityCode: '79', districtCode: '761' } },
-            User: { Id: STATIC_USER_ID, Email: 'nvkt@gmail.com', Name: 'nvkt', UserName: 'nvkt', CompanyId: 2, CompanyName: 'NJD Shop', Active: true },
-            Journal: { Id: 11, Name: 'Nhật ký mua hàng', Type: 'purchase', TypeGet: 'Mua hàng', UpdatePosted: true, DedicatedRefund: false },
-            PaymentJournal: { Id: 8, Name: 'Tiền mặt', Type: 'cash', TypeGet: 'Tiền mặt', UpdatePosted: true },
-            PickingType: { Id: 5, Code: 'incoming', Name: 'Nhận hàng', Active: true, WarehouseId: 2, UseCreateLots: true, UseExistingLots: true, NameGet: 'Shop NJD: Nhận hàng' },
-            Account: { Id: 32, Name: 'Phải trả người bán', Code: '331', Active: true, NameGet: '331 Phải trả người bán', Reconcile: false }
-        }
+            JournalId: 11,
+            AccountId: 32,
+            PickingTypeId: 5,
+            PaymentJournalId: 8,
+            Company: {
+                Id: 2,
+                Name: 'NJD Shop',
+                Sender: 'Tổng đài:19003357',
+                Phone: '19003357',
+                Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh',
+                CurrencyId: 1,
+                Active: true,
+                AllowSaleNegative: true,
+                Customer: false,
+                Supplier: false,
+                DepositAccountId: 11,
+                DeliveryCarrierId: 7,
+                City: { name: 'Thành phố Hồ Chí Minh', code: '79' },
+                District: { name: 'Quận 12', code: '761', cityCode: '79' },
+                Ward: {
+                    name: 'Phường Trung Mỹ Tây',
+                    code: '26785',
+                    cityCode: '79',
+                    districtCode: '761',
+                },
+            },
+            User: {
+                Id: STATIC_USER_ID,
+                Email: 'nvkt@gmail.com',
+                Name: 'nvkt',
+                UserName: 'nvkt',
+                CompanyId: 2,
+                CompanyName: 'NJD Shop',
+                Active: true,
+            },
+            Journal: {
+                Id: 11,
+                Name: 'Nhật ký mua hàng',
+                Type: 'purchase',
+                TypeGet: 'Mua hàng',
+                UpdatePosted: true,
+                DedicatedRefund: false,
+            },
+            PaymentJournal: {
+                Id: 8,
+                Name: 'Tiền mặt',
+                Type: 'cash',
+                TypeGet: 'Tiền mặt',
+                UpdatePosted: true,
+            },
+            PickingType: {
+                Id: 5,
+                Code: 'incoming',
+                Name: 'Nhận hàng',
+                Active: true,
+                WarehouseId: 2,
+                UseCreateLots: true,
+                UseExistingLots: true,
+                NameGet: 'Shop NJD: Nhận hàng',
+            },
+            Account: {
+                Id: 32,
+                Name: 'Phải trả người bán',
+                Code: '331',
+                Active: true,
+                NameGet: '331 Phải trả người bán',
+                Reconcile: false,
+            },
+        },
     };
 
     function getConfig() {
@@ -65,7 +187,7 @@ window.ReturnOrderModal = (function () {
         categoryFilter: '',
         sortBy: 'DateCreated desc',
         isLoadingProducts: false,
-        orderLines: [],         // { product, quantity, price, productId, uom, uomId, accountId }
+        orderLines: [], // { product, quantity, price, productId, uom, uomId, accountId }
         selectedSupplier: null, // { Id, Name, Ref, DisplayName }
         suppliers: [],
         paymentMethods: [],
@@ -75,7 +197,7 @@ window.ReturnOrderModal = (function () {
         paymentAmount: 0,
         discountAmount: 0,
         isSubmitting: false,
-        searchDebounce: null
+        searchDebounce: null,
     };
 
     // =====================================================
@@ -99,7 +221,9 @@ window.ReturnOrderModal = (function () {
         return d.innerHTML;
     }
 
-    function $(id) { return document.getElementById(id); }
+    function $(id) {
+        return document.getElementById(id);
+    }
 
     // =====================================================
     // PRODUCT CATALOG
@@ -126,7 +250,7 @@ window.ReturnOrderModal = (function () {
             }
 
             const response = await tposFetch(url, {
-                headers: { 'feature-version': '2', 'x-tpos-lang': 'vi' }
+                headers: { 'feature-version': '2', 'x-tpos-lang': 'vi' },
             });
 
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -138,7 +262,8 @@ window.ReturnOrderModal = (function () {
             renderProductPagination();
         } catch (err) {
             console.error('[ReturnOrder] fetchProducts error:', err);
-            if (grid) grid.innerHTML = `<div class="return-product-loading" style="color:#dc2626;">Lỗi tải sản phẩm: ${err.message}</div>`;
+            if (grid)
+                grid.innerHTML = `<div class="return-product-loading" style="color:#dc2626;">Lỗi tải sản phẩm: ${err.message}</div>`;
         } finally {
             S.isLoadingProducts = false;
         }
@@ -154,7 +279,7 @@ window.ReturnOrderModal = (function () {
         }
 
         const fragment = document.createDocumentFragment();
-        S.products.forEach(p => {
+        S.products.forEach((p) => {
             const code = p.DefaultCode || '';
             const name = p.NameGet || p.Name || '';
             const unit = p.UOMName || 'Cái';
@@ -163,8 +288,10 @@ window.ReturnOrderModal = (function () {
             const forecast = p.VirtualAvailable ?? 0;
             const imageUrl = p.ImageUrl;
 
-            const stockClass = stock > 0 ? 'stock-value' : (stock === 0 ? 'stock-zero' : 'stock-negative');
-            const forecastClass = forecast > 0 ? 'stock-value' : (forecast < 0 ? 'stock-negative' : 'stock-zero');
+            const stockClass =
+                stock > 0 ? 'stock-value' : stock === 0 ? 'stock-zero' : 'stock-negative';
+            const forecastClass =
+                forecast > 0 ? 'stock-value' : forecast < 0 ? 'stock-negative' : 'stock-zero';
 
             const row = document.createElement('div');
             row.className = 'return-product-row';
@@ -201,7 +328,8 @@ window.ReturnOrderModal = (function () {
         }
 
         let html = '';
-        if (S.productPage > 1) html += `<button class="btn-page" data-page="${S.productPage - 1}">&laquo;</button>`;
+        if (S.productPage > 1)
+            html += `<button class="btn-page" data-page="${S.productPage - 1}">&laquo;</button>`;
 
         const start = Math.max(1, S.productPage - 2);
         const end = Math.min(totalPages, start + 4);
@@ -209,7 +337,8 @@ window.ReturnOrderModal = (function () {
             html += `<button class="btn-page ${i === S.productPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
         }
 
-        if (S.productPage < totalPages) html += `<button class="btn-page" data-page="${S.productPage + 1}">&raquo;</button>`;
+        if (S.productPage < totalPages)
+            html += `<button class="btn-page" data-page="${S.productPage + 1}">&raquo;</button>`;
         html += `<span class="return-product-page-info">${S.productTotal} SP</span>`;
 
         wrap.innerHTML = html;
@@ -224,11 +353,11 @@ window.ReturnOrderModal = (function () {
     // =====================================================
 
     async function _addProduct(productId) {
-        const product = S.products.find(p => p.Id === productId);
+        const product = S.products.find((p) => p.Id === productId);
         if (!product) return;
 
         // Check if already in order (by template ID)
-        const existing = S.orderLines.find(l => l.templateId === productId);
+        const existing = S.orderLines.find((l) => l.templateId === productId);
         if (existing) {
             existing.quantity += 1;
             renderOrderLines();
@@ -265,7 +394,7 @@ window.ReturnOrderModal = (function () {
             price: product.PurchasePrice || product.ListPrice || 0,
             uom: product.UOMName || 'Cái',
             uomId: product.UOMId || 1,
-            accountId: getConfig().AccountId
+            accountId: getConfig().AccountId,
         });
 
         renderOrderLines();
@@ -284,7 +413,10 @@ window.ReturnOrderModal = (function () {
         const row = document.querySelector(`tr[data-line-index="${index}"]`);
         if (row) {
             const totalCell = row.querySelector('.col-total');
-            if (totalCell) totalCell.textContent = fmt(S.orderLines[index].quantity * S.orderLines[index].price);
+            if (totalCell)
+                totalCell.textContent = fmt(
+                    S.orderLines[index].quantity * S.orderLines[index].price
+                );
         }
         renderSummary();
     }
@@ -314,7 +446,9 @@ window.ReturnOrderModal = (function () {
             return;
         }
 
-        tbody.innerHTML = S.orderLines.map((line, i) => `
+        tbody.innerHTML = S.orderLines
+            .map(
+                (line, i) => `
             <tr data-line-index="${i}">
                 <td class="col-stt">${i + 1}</td>
                 <td class="col-product">
@@ -331,7 +465,9 @@ window.ReturnOrderModal = (function () {
                     <button class="btn-remove-line" data-line="${i}" title="Xóa">&times;</button>
                 </td>
             </tr>
-        `).join('');
+        `
+            )
+            .join('');
 
         renderSummary();
     }
@@ -340,8 +476,9 @@ window.ReturnOrderModal = (function () {
         const summary = $('returnOrderSummary');
         if (!summary) return;
 
-        let totalQty = 0, totalAmount = 0;
-        S.orderLines.forEach(l => {
+        let totalQty = 0,
+            totalAmount = 0;
+        S.orderLines.forEach((l) => {
             totalQty += l.quantity;
             totalAmount += l.quantity * l.price;
         });
@@ -388,11 +525,11 @@ window.ReturnOrderModal = (function () {
     async function fetchSuppliers() {
         // Reuse from main.js State if available
         if (window.State && window.State.allSuppliers && window.State.allSuppliers.length > 0) {
-            S.suppliers = window.State.allSuppliers.map(s => ({
+            S.suppliers = window.State.allSuppliers.map((s) => ({
                 Id: s.PartnerId,
                 Name: s.Name,
                 Ref: s.Code,
-                DisplayName: `[${s.Code}] ${s.Name}`
+                DisplayName: `[${s.Code}] ${s.Name}`,
             }));
             return;
         }
@@ -402,11 +539,11 @@ window.ReturnOrderModal = (function () {
             const resp = await tposFetch(url);
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const data = await resp.json();
-            S.suppliers = (data.value || []).map(s => ({
+            S.suppliers = (data.value || []).map((s) => ({
                 Id: s.Id,
                 Name: s.Name,
                 Ref: s.Ref || '',
-                DisplayName: s.DisplayName || `[${s.Ref || ''}] ${s.Name}`
+                DisplayName: s.DisplayName || `[${s.Ref || ''}] ${s.Name}`,
             }));
         } catch (err) {
             console.error('[ReturnOrder] fetchSuppliers error:', err);
@@ -419,7 +556,11 @@ window.ReturnOrderModal = (function () {
 
         const q = (query || '').toLowerCase();
         const filtered = q
-            ? S.suppliers.filter(s => s.DisplayName.toLowerCase().includes(q) || (s.Ref || '').toLowerCase().includes(q))
+            ? S.suppliers.filter(
+                  (s) =>
+                      s.DisplayName.toLowerCase().includes(q) ||
+                      (s.Ref || '').toLowerCase().includes(q)
+              )
             : S.suppliers.slice(0, 30);
 
         if (!filtered.length) {
@@ -427,14 +568,18 @@ window.ReturnOrderModal = (function () {
             return;
         }
 
-        dropdown.innerHTML = filtered.slice(0, 30).map(s =>
-            `<div class="dropdown-item" onclick="ReturnOrderModal._selectSupplier(${s.Id})">${escHtml(s.DisplayName)}</div>`
-        ).join('');
+        dropdown.innerHTML = filtered
+            .slice(0, 30)
+            .map(
+                (s) =>
+                    `<div class="dropdown-item" onclick="ReturnOrderModal._selectSupplier(${s.Id})">${escHtml(s.DisplayName)}</div>`
+            )
+            .join('');
         dropdown.style.display = 'block';
     }
 
     function _selectSupplier(id) {
-        const supplier = S.suppliers.find(s => s.Id === id);
+        const supplier = S.suppliers.find((s) => s.Id === id);
         if (!supplier) return;
 
         S.selectedSupplier = supplier;
@@ -492,7 +637,7 @@ window.ReturnOrderModal = (function () {
             const data = await resp.json();
             // Deduplicate by Name (API can return duplicates across companies)
             const seen = new Set();
-            S.paymentMethods = (data.value || []).filter(m => {
+            S.paymentMethods = (data.value || []).filter((m) => {
                 if (seen.has(m.Name)) return false;
                 seen.add(m.Name);
                 return true;
@@ -500,7 +645,10 @@ window.ReturnOrderModal = (function () {
             renderPaymentMethods();
         } catch (err) {
             console.error('[ReturnOrder] fetchPaymentMethods error:', err);
-            S.paymentMethods = [{ Id: 8, Name: 'Ngân hàng', Type: 'bank' }, { Id: 1, Name: 'Tiền mặt', Type: 'cash' }];
+            S.paymentMethods = [
+                { Id: 8, Name: 'Ngân hàng', Type: 'bank' },
+                { Id: 1, Name: 'Tiền mặt', Type: 'cash' },
+            ];
             renderPaymentMethods();
         }
     }
@@ -510,12 +658,16 @@ window.ReturnOrderModal = (function () {
         if (!select) return;
 
         // Default to bank
-        select.innerHTML = S.paymentMethods.map(m =>
-            `<option value="${m.Id}" ${m.Type === 'bank' ? 'selected' : ''}>${escHtml(m.Name)}</option>`
-        ).join('');
+        select.innerHTML = S.paymentMethods
+            .map(
+                (m) =>
+                    `<option value="${m.Id}" ${m.Type === 'bank' ? 'selected' : ''}>${escHtml(m.Name)}</option>`
+            )
+            .join('');
 
         if (S.paymentMethods.length > 0) {
-            S.paymentMethodId = S.paymentMethods.find(m => m.Type === 'bank')?.Id || S.paymentMethods[0].Id;
+            S.paymentMethodId =
+                S.paymentMethods.find((m) => m.Type === 'bank')?.Id || S.paymentMethods[0].Id;
         }
     }
 
@@ -548,17 +700,33 @@ window.ReturnOrderModal = (function () {
             let orderDate = now;
             if (dateInput?.value) {
                 const [y, m, d] = dateInput.value.split('-').map(Number);
-                orderDate = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
+                orderDate = new Date(
+                    y,
+                    m - 1,
+                    d,
+                    now.getHours(),
+                    now.getMinutes(),
+                    now.getSeconds()
+                );
             }
             const paymentMethodSelect = $('returnPaymentMethod');
-            const paymentMethodId = paymentMethodSelect ? parseInt(paymentMethodSelect.value) : config.PaymentJournalId;
-            const paymentMethod = S.paymentMethods.find(m => m.Id === paymentMethodId) || { Id: config.PaymentJournalId, Name: 'Tiền mặt', Type: 'cash', TypeGet: 'Tiền mặt' };
+            const paymentMethodId = paymentMethodSelect
+                ? parseInt(paymentMethodSelect.value)
+                : config.PaymentJournalId;
+            const paymentMethod = S.paymentMethods.find((m) => m.Id === paymentMethodId) || {
+                Id: config.PaymentJournalId,
+                Name: 'Tiền mặt',
+                Type: 'cash',
+                TypeGet: 'Tiền mặt',
+            };
             const shippingCost = parseFmt($('returnShippingCost')?.value);
             const paymentAmount = parseFmt($('returnPaymentAmount')?.value);
 
             // Calculate totals
             let amountTotal = 0;
-            S.orderLines.forEach(l => { amountTotal += l.quantity * l.price; });
+            S.orderLines.forEach((l) => {
+                amountTotal += l.quantity * l.price;
+            });
             const finalAmount = amountTotal - S.discountAmount + shippingCost;
 
             // Build Partner object
@@ -574,7 +742,7 @@ window.ReturnOrderModal = (function () {
                 CompanyType: 'person',
                 Status: 'Normal',
                 StatusText: 'Bình thường',
-                Source: 'Default'
+                Source: 'Default',
             };
 
             // Build payload
@@ -638,44 +806,46 @@ window.ReturnOrderModal = (function () {
                 Account: config.Account,
 
                 // Order lines - use variant data (fetched when product was added)
-                OrderLines: S.orderLines.map(line => {
+                OrderLines: S.orderLines.map((line) => {
                     const v = line.variantData; // variant from ProductVariants expand
                     const p = line.product || {};
-                    const productObj = v ? {
-                        Id: v.Id,
-                        Name: v.Name,
-                        UOMId: v.UOMId || line.uomId,
-                        UOMName: v.UOMName || p.UOMName,
-                        NameGet: v.NameGet || p.NameGet,
-                        Barcode: v.Barcode || v.DefaultCode || p.DefaultCode || null,
-                        Price: v.Price || p.ListPrice || 0,
-                        DefaultCode: v.DefaultCode || p.DefaultCode,
-                        ProductTmplId: v.ProductTmplId || line.templateId,
-                        PurchaseOK: true,
-                        SaleOK: true,
-                        PurchasePrice: v.PurchasePrice || p.PurchasePrice || 0,
-                        DiscountSale: v.DiscountSale || 0,
-                        Weight: v.Weight || 0,
-                        DiscountPurchase: v.DiscountPurchase || 0,
-                        ImageUrl: v.ImageUrl || p.ImageUrl || null,
-                        Active: v.Active !== false,
-                        Factor: 1
-                    } : {
-                        Id: line.productId,
-                        Name: p.Name,
-                        UOMId: line.uomId,
-                        UOMName: p.UOMName,
-                        NameGet: p.NameGet,
-                        Barcode: p.DefaultCode || null,
-                        Price: p.ListPrice || 0,
-                        DefaultCode: p.DefaultCode,
-                        ProductTmplId: line.templateId || p.Id,
-                        PurchaseOK: true,
-                        SaleOK: true,
-                        PurchasePrice: p.PurchasePrice || 0,
-                        Active: true,
-                        Factor: 1
-                    };
+                    const productObj = v
+                        ? {
+                              Id: v.Id,
+                              Name: v.Name,
+                              UOMId: v.UOMId || line.uomId,
+                              UOMName: v.UOMName || p.UOMName,
+                              NameGet: v.NameGet || p.NameGet,
+                              Barcode: v.Barcode || v.DefaultCode || p.DefaultCode || null,
+                              Price: v.Price || p.ListPrice || 0,
+                              DefaultCode: v.DefaultCode || p.DefaultCode,
+                              ProductTmplId: v.ProductTmplId || line.templateId,
+                              PurchaseOK: true,
+                              SaleOK: true,
+                              PurchasePrice: v.PurchasePrice || p.PurchasePrice || 0,
+                              DiscountSale: v.DiscountSale || 0,
+                              Weight: v.Weight || 0,
+                              DiscountPurchase: v.DiscountPurchase || 0,
+                              ImageUrl: v.ImageUrl || p.ImageUrl || null,
+                              Active: v.Active !== false,
+                              Factor: 1,
+                          }
+                        : {
+                              Id: line.productId,
+                              Name: p.Name,
+                              UOMId: line.uomId,
+                              UOMName: p.UOMName,
+                              NameGet: p.NameGet,
+                              Barcode: p.DefaultCode || null,
+                              Price: p.ListPrice || 0,
+                              DefaultCode: p.DefaultCode,
+                              ProductTmplId: line.templateId || p.Id,
+                              PurchaseOK: true,
+                              SaleOK: true,
+                              PurchasePrice: p.PurchasePrice || 0,
+                              Active: true,
+                              Factor: 1,
+                          };
                     return {
                         Name: line.name,
                         ProductId: line.productId,
@@ -688,9 +858,9 @@ window.ReturnOrderModal = (function () {
                         Account: config.Account,
                         AccountId: config.AccountId,
                         PriceRecent: null,
-                        PriceSubTotal: line.quantity * line.price
+                        PriceSubTotal: line.quantity * line.price,
                     };
-                })
+                }),
             };
 
             console.log('[ReturnOrder] Submitting return order:', payload);
@@ -699,7 +869,7 @@ window.ReturnOrderModal = (function () {
             const response = await tposFetch(url, {
                 method: 'POST',
                 headers: { 'feature-version': '2' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
@@ -708,17 +878,28 @@ window.ReturnOrderModal = (function () {
             }
 
             const result = await response.json();
-            console.log('[ReturnOrder] Return order created:', result.Id, result.Number, result.ShowState);
+            console.log(
+                '[ReturnOrder] Return order created:',
+                result.Id,
+                result.Number,
+                result.ShowState
+            );
 
             if (loadingId) window.notificationManager?.remove?.(loadingId);
-            window.notificationManager?.success(`Đã tạo đơn trả hàng: ${result.Number || result.Id}`);
+            window.notificationManager?.success(
+                `Đã tạo đơn trả hàng: ${result.Number || result.Id}`
+            );
 
             close();
 
             // Refresh supplier debt data and refund orders table
-            if (typeof fetchData === 'function') fetchData();
+            if (typeof fetchData === 'function') {
+                fetchData().then(() => {
+                    window.SupplierDebtAutoRefresh?.seedHash?.();
+                    window.SupplierDebtAutoRefresh?.notifyChange?.('return-created');
+                });
+            }
             if (typeof RefundOrders !== 'undefined') RefundOrders.fetch();
-
         } catch (err) {
             console.error('[ReturnOrder] Submit error:', err);
             if (loadingId) window.notificationManager?.remove?.(loadingId);
@@ -911,6 +1092,6 @@ window.ReturnOrderModal = (function () {
         // Exposed for inline handlers still in use (supplier dropdown, discount)
         _selectSupplier,
         _clearSupplier,
-        _setDiscount
+        _setDiscount,
     };
 })();

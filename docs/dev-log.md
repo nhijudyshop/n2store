@@ -25,6 +25,37 @@
 
 ## 2026-05-24
 
+### [supplier-debt] Auto refresh: polling 30s + cross-tab BroadcastChannel (không cần F5)
+
+**User ask**: Trang `supplier-debt/` khi chỉnh sửa/cập nhật dữ liệu → tự tính toán lại + cập nhật bảng liền, không cần refresh. Cả 2 case: (1) local edit (đã có sẵn — `fetchData()` sau payment/delete/refund) và (2) realtime sync khi user/tab khác sửa TPOS. Đảm bảo tốc độ không giật lag. Test bằng MOCK data (không đụng TPOS thật).
+
+**Files**:
+
+- `supplier-debt/js/main.js`
+    - Module **AutoRefresh** (insert trước `init()`): polling timer (default 30s, configurable, `localStorage.supplier_debt_auto_refresh_disabled=1` để tắt), BroadcastChannel `supplier-debt-sync` để cross-tab notify. `_tabId` unique để loop-guard self-broadcast. `_isBusy()` skip khi: `State.isLoading`, `document.hidden`, modal đang mở (`.show`), focus trên input/textarea, `RefundOrders._selectedIds.size>0`. Resume on `visibilitychange`.
+    - Hàm **silentRefresh()**: fetch lại endpoint `Report/PartnerDebtReport` → hash data (`PartnerId:Debit:Credit:End` join `|`) → **skip render** nếu hash unchanged (anti-lag). Khi đổi: preserve scrollY, KHÔNG clear `expandedRows` (giữ trạng thái UI), `applySupplierFilter + renderTable + renderPagination + calculateTotals`. Refresh `RefundOrders.fetch()` chỉ khi `_selectedIds.size === 0` (tránh wipe selection mid-action). Toast nhẹ chỉ khi `reason === 'broadcast'` hoặc `'visibility'`.
+    - Wire `AutoRefresh.seedHash()` + `notifyChange(action)` sau mỗi `fetchData()` thành công trong `submitPayment` ('payment-created'), `deletePayment` ('payment-deleted'), `RefundOrders.confirmSelected` ('refund-confirmed').
+    - `init()`: sau initial `fetchData()` → `AutoRefresh.seedHash(); AutoRefresh.start(30000)`.
+    - Expose `window.SupplierDebtAutoRefresh` để cross-module (return-order.js) gọi được.
+- `supplier-debt/js/return-order.js`
+    - `submitReturn` success: gọi `window.SupplierDebtAutoRefresh?.seedHash?.()` + `notifyChange('return-created')` sau khi `fetchData()` xong.
+- `scripts/test-supplier-debt-auto-refresh.js` (mới)
+    - Playwright test, MOCK toàn bộ `tokenManager.authenticatedFetch` via `addInitScript` BEFORE page loads → KHÔNG đụng TPOS thật. Mock `notificationManager`, `authManager`, dataset switcher `initial`/`afterPayment`/`refundEmpty`.
+    - 7 scenarios test trên 2 browser tabs:
+        1. Initial render shows 3 mock NCC (TEST_A/B/C)
+        2. Hash diff skip khi data unchanged → `silentRefresh()` return `false`
+        3. Data changed (dataset='afterPayment', TEST_B End: 3.5M → 3M) → re-render + totalEnd update (8.6M → 8.1M)
+        4. Busy-skip khi modal `.show`
+        5. Scroll position preserved (`window.scrollY` delta < 10px)
+        6. Cross-tab: tab A `notifyChange('payment-created')` → tab B nhận BroadcastChannel + silent refresh + tăng TEST_B.End = 3M
+        7. Same-tab loop-guard: `notifyChange` không tự fire silentRefresh
+
+**Test result**: 7/7 PASS local.
+
+**Status**: ✅ Done.
+
+---
+
 ### [inventory-tracking] Header shipment: `$ CNY` cho Tổng HĐ, thêm Tổng CP + Còn dư (running balance)
 
 **User ask**: Tổng HĐ thêm `$` trước và ` CNY` sau (biết là tiền Trung). Thêm Tổng CP sau Tổng HĐ. Thêm cột "running balance": row đầu = HD − CP, row sau = prev − HD − CP.
