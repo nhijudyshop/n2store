@@ -25,6 +25,37 @@
 
 ## 2026-05-24
 
+### [issue-tracking] 3-tab page bar: CSKH và Quản Lý / BÁN HÀNG / TRẢ HÀNG
+
+**User ask**: Trang "CSKH và Quản Lý" thêm 3 tab — Tab 1 giữ nội dung hiện tại; Tab 2 BÁN HÀNG mimic TPOS `fastsaleorder/invoicelist`; Tab 3 TRẢ HÀNG mimic TPOS `fastsaleorder/refundlist`. UI/font/màu/hover/filter giống TPOS nhất có thể, mượt, dễ tương tác.
+
+**Approach**: Tận dụng `web2/fastsaleorder-invoice/` và `web2/fastsaleorder-refund/` đã là TPOS-clone production-ready (Inter font, `tpos-theme.css`, breadcrumb, filter chip, data-table). Tab 2/3 embed bằng iframe lazy-load (chỉ load khi tab active), inject CSS suppress sidebar `.web2-aside` để không double sidebar với parent. Không cross-import JS giữa legacy ↔ web2 — chỉ iframe URL.
+
+**Files**:
+
+- `issue-tracking/index.html`
+    - Thêm `<nav class="page-tabs-bar">` ngay trên content với 3 button `data-tab=cskh|ban-hang|tra-hang` + lucide icons (clipboard-list / receipt / undo-2).
+    - Wrap toàn bộ content cũ (`<div class="container">…`) trong `<div class="page-tab-pane active" data-tab="cskh">`.
+    - Thêm 2 pane `embed-pane` cho `ban-hang` và `tra-hang` chứa `<iframe class="embed-iframe" data-src="../web2/fastsaleorder-{invoice,refund}/?embed=issue-tracking">` + skeleton overlay.
+    - Thêm `<link rel="stylesheet" href="css/page-tabs.css">` + `<script src="js/page-tabs.js">`.
+    - Tidy: add explicit `</div>` closes cho `.inner-content` + `.container` (trước đó dựa vào browser leniency); xoá `</main>` đôi ở cuối file.
+- `issue-tracking/css/page-tabs.css` (mới, ~115 dòng)
+    - `.page-tabs-bar` sticky top:0 z:50, white bg, border-bottom, box-shadow nhỏ. `.page-tab-btn` 14px padding 14/22 border-bottom 3px transparent; active = bg `#eef2ff` border-bottom `#6366f1` color tím; hover bg `#f1f5f9`.
+    - `.embed-pane` `height: calc(100vh - 49px)` `position:relative`. `.embed-skeleton` absolute inset 0 z:2 flex center spinner+text, fade out via `.hidden { opacity:0; visibility:hidden }`. `body.pt-embed-active { overflow:hidden }` khi đang ở Tab 2/3.
+- `issue-tracking/js/page-tabs.js` (mới, ~145 dòng)
+    - `activate(tabId)` toggle button + pane + body class + URL hash. `ensureIframeLoaded` set `iframe.src = dataset.src` lần đầu, listen `load` → inject override CSS + ẩn skeleton. `injectEmbedCss` inject `<style id="pt-embed-override">` vào iframe document hide `.web2-aside`, stretch `.main-content` full viewport. Retry inject ở 0ms + 400ms + 1200ms để chống script trong iframe swap head.
+    - Keyboard: Arrow Left/Right cycle tabs. `hashchange` listener cho deep-link `#ban-hang` / `#tra-hang`.
+
+**Verify** (Playwright localhost `http://localhost:8080/issue-tracking/`):
+
+- Tab 1: h1 "CSKH và Quản Lý" visible, lookup bar visible, 6 sub-tabs (Tất cả/Chờ Hàng Về 63/Chờ Đối Soát Tiền 121/Hoàn Tất/Hủy 49/Lịch sử), 3 stat cards, click sub-tab "Tất cả" load 451 ticket rows OK.
+- Tab 2 `#ban-hang`: iframe load `/web2/fastsaleorder-invoice/?embed=issue-tracking`, breadcrumb "Bán hàng (Hóa đơn)", counter "6 PBH", data table với 6 PBH rows (HD-20260523-0001…0006), `pt-embed-override` injected, `.web2-aside { display: none }` xác nhận, skeleton hidden sau load.
+- Tab 3 `#tra-hang`: iframe load refund page, breadcrumb "Trả hàng", counter "0 phiếu", empty-state "Chưa có phiếu trả nào".
+- Hash sync: `replaceState('#cskh|#ban-hang|#tra-hang')`. Reload với `#ban-hang` → Tab 2 active từ đầu.
+- Screenshot: `downloads/n2store-session/it-tab{1,2,3}-{cskh,banhang,trahang}.png`.
+
+**Status**: ✅ Done
+
 ### [delivery-report] Báo cáo modal: hover ô TIỀN có ảnh → zoom preview popover
 
 **User ask**: Ô có ảnh đính kèm — rê chuột vào để zoom ảnh ra (không cần click mở modal).
