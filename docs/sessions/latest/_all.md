@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `635092d` — feat(delivery-report/report): SL ĐƠN nhập đơn rớt + cột GHI CHÚ + formula display
-**Last updated**: 2026-05-24 12:15:15 +07
-**Latest session**: [`RESUME:20260524-121515-635092d`](../20260524-121515-635092d.md)
-**Summary**: feat(delivery-report/report): SL ĐƠN nhập đơn rớt + cột GHI CHÚ + formula display
+**Latest commit**: `e1f5a48` — feat(delivery-report/report): prefix tien voi $
+**Last updated**: 2026-05-24 12:20:39 +07
+**Latest session**: [`RESUME:20260524-122039-e1f5a48`](../20260524-122039-e1f5a48.md)
+**Summary**: feat(delivery-report/report): prefix tien voi $
 
 ## Folders affected in this commit
 
@@ -23,7 +23,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 12:15
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 12:20
 - [`docs/`](./docs.md) — updated 2026-05-24 11:04
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
