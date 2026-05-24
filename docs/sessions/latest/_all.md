@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `229cb71` — feat(tpos-comments): archive fallback via SaleOnline_Order (post xóa khỏi FB vẫn có)
-**Last updated**: 2026-05-24 09:42:23 +07
-**Latest session**: [`RESUME:20260524-094223-229cb71`](../20260524-094223-229cb71.md)
-**Summary**: feat(tpos-comments): archive fallback via SaleOnline_Order (post xóa khỏi FB vẫn có)
+**Latest commit**: `9f2389d` — fix(inventory): bỏ ' CNY' suffix khỏi header — giữ $ prefix
+**Last updated**: 2026-05-24 09:45:37 +07
+**Latest session**: [`RESUME:20260524-094537-9f2389d`](../20260524-094537-9f2389d.md)
+**Summary**: fix(inventory): bỏ ' CNY' suffix khỏi header — giữ $ prefix
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`inventory-tracking/`](./inventory-tracking.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 2 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -37,7 +33,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 09:42
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 09:45
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-22 14:45
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
