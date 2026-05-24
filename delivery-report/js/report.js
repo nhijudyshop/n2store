@@ -255,11 +255,15 @@
             b.style.setProperty('--tab-color', t.color);
             b.style.setProperty('--tab-bg', t.bg);
             b.addEventListener('click', () => {
+                if (state.activeTab === t.key) return;
                 state.activeTab = t.key;
                 render();
             });
             tabsEl.appendChild(b);
         });
+
+        // One-time event delegation on tbody
+        bindTbodyDelegation();
     }
 
     function isOpen() {
@@ -323,12 +327,16 @@
         });
     }
 
-    async function render() {
-        // Tab visual state
-        document.querySelectorAll('#drReportTabs button').forEach((b) => {
-            b.classList.toggle('active', b.dataset.tab === state.activeTab);
-        });
+    function updateTabClasses() {
+        const tabs = document.querySelectorAll('#drReportTabs button');
+        for (let i = 0; i < tabs.length; i++) {
+            tabs[i].classList.toggle('active', tabs[i].dataset.tab === state.activeTab);
+        }
+    }
 
+    function render() {
+        // Cheap, sync UI updates first — never await for these
+        updateTabClasses();
         const dates = eachDay(state.fromDate, state.toDate);
         const subtitle = dates.length
             ? `${formatDDMMYYYY(state.fromDate)}${
@@ -344,19 +352,27 @@
             return;
         }
 
-        // Fetch from Render DB (aggregated by date+group, scanned-only)
+        // Hot cache → sync path: paint immediately, no await, no loading flash.
         const key = rangeKey(state.fromDate, state.toDate);
         const cached = state.fetchCache[key];
-        if (!cached || Date.now() - cached.fetchedAt >= 60000) {
-            document.getElementById('drReportTbody').innerHTML =
-                '<tr><td colspan="9" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>';
-            document.getElementById('drReportTfoot').innerHTML = '';
+        if (cached && Date.now() - cached.fetchedAt < 60000) {
+            state.currentByDateGroup = cached.byDateGroup;
+            paintTable(dates);
+            return;
         }
-        const { byDateGroup } = await fetchRange(state.fromDate, state.toDate);
-        // Stale guard
-        if (rangeKey(state.fromDate, state.toDate) !== key) return;
-        state.currentByDateGroup = byDateGroup;
 
+        // Cold cache → show loading + async fetch
+        document.getElementById('drReportTbody').innerHTML =
+            '<tr><td colspan="9" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>';
+        document.getElementById('drReportTfoot').innerHTML = '';
+        fetchRange(state.fromDate, state.toDate).then(({ byDateGroup }) => {
+            if (rangeKey(state.fromDate, state.toDate) !== key) return; // stale
+            state.currentByDateGroup = byDateGroup;
+            paintTable(eachDay(state.fromDate, state.toDate));
+        });
+    }
+
+    function paintTable(dates) {
         const map = aggregateByDay(state.activeTab, dates);
         let totals = {
             slDon: 0,
