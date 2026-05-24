@@ -109,3 +109,4 @@ backups/
 .local/
 downloads/n2store-session/console-*.json
 downloads/n2store-session/smoke-report-*.json
+.extension-last-published-version
