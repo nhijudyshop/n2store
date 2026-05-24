@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9f2389d` — fix(inventory): bỏ ' CNY' suffix khỏi header — giữ $ prefix
-**Last updated**: 2026-05-24 09:45:37 +07
-**Latest session**: [`RESUME:20260524-094537-9f2389d`](../20260524-094537-9f2389d.md)
-**Summary**: fix(inventory): bỏ ' CNY' suffix khỏi header — giữ $ prefix
+**Latest commit**: `fc67992` — fix(inventory/header): ép data 1 hàng — nowrap + overflow-x scroll cho row dài
+**Last updated**: 2026-05-24 09:50:01 +07
+**Latest session**: [`RESUME:20260524-095001-fc67992`](../20260524-095001-fc67992.md)
+**Summary**: fix(inventory/header): ép data 1 hàng — nowrap + overflow-x scroll cho row dài
 
 ## Folders affected in this commit
 
@@ -33,7 +33,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 09:45
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 09:50
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-22 14:45
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
