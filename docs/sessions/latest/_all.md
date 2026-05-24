@@ -3,15 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `78d2534` — auto: session update
-**Last updated**: 2026-05-24 13:48:05 +07
-**Latest session**: [`RESUME:20260524-134805-78d2534`](../20260524-134805-78d2534.md)
+**Latest commit**: `ca1751e` — auto: session update
+**Last updated**: 2026-05-24 13:55:25 +07
+**Latest session**: [`RESUME:20260524-135525-ca1751e`](../20260524-135525-ca1751e.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`downloads/`](./downloads.md) — 2 file(s)
-- [`issue-tracking/`](./issue-tracking.md) — 1 file(s)
 - [`n2store-extension/`](./n2store-extension.md) — 1 file(s)
 
 ## All folder snapshots
@@ -39,7 +37,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-24 13:48
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 13:48
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 13:55
 - [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
