@@ -85,7 +85,14 @@ Notification cho end users: `n2store-extension/background/update-notifier.js` li
 - `.gitignore` — add `.extension-last-published-version`
 - `docs/extension-auto-publish.md` (new) — setup guide 4 bước (5-10 phút), troubleshooting
 
-**Status**: ✅ Done — pipeline ready, chờ user setup OAuth credentials (4 bước trong docs/extension-auto-publish.md). Sau khi paste CWS_CLIENT_ID/SECRET/REFRESH_TOKEN vào `serect_dont_push.txt`, mỗi commit có version bump sẽ tự publish.
+**Status**: ✅ Done + verified live — pipeline đã chạy thực tế, **v1.0.10 đã publish lên Chrome Web Store**. OAuth credentials đã setup xong (#42 trong serect_dont_push.txt). Đã clean `<all_urls>` khỏi host_permissions theo Google warning để giảm review time. CWS API confirm `crxVersion: 1.0.10` live. Từ giờ mỗi lần bump version trong manifest + commit → Stop hook tự upload + publish.
+
+**Lesson learned**:
+
+- Chrome Web Store yêu cầu fill Privacy Practices tab (Single purpose + permission justifications + data usage) ở Developer Dashboard 1 lần đầu trước khi publish API hoạt động — API trả 400 "Publish condition not met" nếu thiếu.
+- Khi upload bị `ITEM_NOT_UPDATABLE` (state=FAILURE) — nghĩa là draft cũ đang lock item; phải vào dashboard click "Loại bỏ bản nháp" (click "Huỷ" trên dialog "Gửi để xem xét" chỉ huỷ submit, KHÔNG huỷ draft).
+- Bỏ `<all_urls>` khỏi host_permissions nếu đã list các specific URLs → Google review nhanh hơn nhiều, không trigger "evaluation chuyên sâu".
+- Test users phải được add vào OAuth consent screen (project Google Cloud) trước khi consent flow hoạt động (otherwise `Error 403: access_denied`).
 
 ---
 
