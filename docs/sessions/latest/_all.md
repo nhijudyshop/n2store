@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0922c96` — fix(snap): revert click-trap → 1 nút BẬT to rõ ràng trên iframe
-**Last updated**: 2026-05-23 20:01:23 +07
-**Latest session**: [`RESUME:20260523-200123-0922c96`](../20260523-200123-0922c96.md)
-**Summary**: fix(snap): revert click-trap → 1 nút BẬT to rõ ràng trên iframe
+**Latest commit**: `f64b2a5` — auto: session update
+**Last updated**: 2026-05-24 09:10:19 +07
+**Latest session**: [`RESUME:20260524-091019-f64b2a5`](../20260524-091019-f64b2a5.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-22 13:52
-- [`docs/`](./docs.md) — updated 2026-05-23 10:31
+- [`docs/`](./docs.md) — updated 2026-05-24 09:10
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-22 19:29
