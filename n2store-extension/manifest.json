@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "N2Store Messenger",
     "short_name": "N2Store",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "description": "N2Store unified messaging & management extension",
     "icons": {
         "16": "images/icon-16.png",
@@ -50,6 +50,7 @@
         "activeTab"
     ],
     "host_permissions": [
+        "<all_urls>",
         "*://business.facebook.com/*",
         "*://www.business.facebook.com/*",
         "*://upload-business.facebook.com/*",
