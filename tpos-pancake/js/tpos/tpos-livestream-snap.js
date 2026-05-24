@@ -136,14 +136,48 @@
     // Khi extension active, capture frame KHÔNG cần getDisplayMedia popup.
     // Page postMessage('N2_CAPTURE_VISIBLE_TAB') → contentscript → background
     // → captureVisibleTab → dataURL trả về qua postMessage.
+    // Yêu cầu extension version >= REQUIRED_EXT_VERSION (host_permission
+    // <all_urls> + N2_CAPTURE_VISIBLE_TAB handler).
     // -----------------------------------------------------
+    const REQUIRED_EXT_VERSION = '1.0.6';
+    function _cmpVersions(a, b) {
+        const aa = String(a || '0')
+            .split('.')
+            .map(Number);
+        const bb = String(b || '0')
+            .split('.')
+            .map(Number);
+        for (let i = 0; i < 3; i++) {
+            const x = aa[i] || 0;
+            const y = bb[i] || 0;
+            if (x > y) return 1;
+            if (x < y) return -1;
+        }
+        return 0;
+    }
+
     window.addEventListener('message', (event) => {
         if (event.source !== window) return;
         const data = event.data;
         if (!data || !data.type) return;
         if (data.type === 'EXTENSION_LOADED' && data.from === 'EXTENSION') {
-            STATE.extReady = true;
-            console.log('[snap-ext] N2Store extension detected — capture không popup');
+            // Probe version trước khi enable capture path. Outdated extension
+            // (chưa có N2_CAPTURE_VISIBLE_TAB) sẽ làm capture fail mỗi 5s.
+            console.log('[snap-ext] extension detected — probing version...');
+            window.postMessage({ type: 'CHECK_EXTENSION_VERSION' }, '*');
+        } else if (data.type === 'EXTENSION_VERSION') {
+            STATE.extVersion = data.version;
+            const ok = _cmpVersions(data.version, REQUIRED_EXT_VERSION) >= 0;
+            if (ok) {
+                STATE.extReady = true;
+                console.log(`[snap-ext] v${data.version} OK — capture qua extension (no popup)`);
+            } else {
+                STATE.extReady = false;
+                STATE.extOutdated = true;
+                console.warn(
+                    `[snap-ext] v${data.version} TOO OLD — cần >= v${REQUIRED_EXT_VERSION}`
+                );
+            }
         } else if (
             data.type === 'N2_CAPTURE_VISIBLE_TAB_SUCCESS' ||
             data.type === 'N2_CAPTURE_VISIBLE_TAB_FAILURE'
@@ -386,6 +420,47 @@
                     "'": '&#39;',
                 })[c]
         );
+    }
+
+    // Hover zoom preview cho thumbnail snapshot. Floating 480x270 cạnh thumb,
+    // auto-flip sang trái nếu overflow viewport. Shared single element để
+    // tránh leak DOM.
+    function _showZoomPreview(img) {
+        if (!img?.src) return;
+        let zoom = document.getElementById('tpos-snap-zoom-preview');
+        if (!zoom) {
+            zoom = document.createElement('div');
+            zoom.id = 'tpos-snap-zoom-preview';
+            zoom.style.cssText =
+                'position:fixed;z-index:99500;pointer-events:none;box-shadow:0 16px 48px rgba(0,0,0,0.45);border-radius:10px;background:#000;overflow:hidden;border:2px solid #fff;';
+            document.body.appendChild(zoom);
+        }
+        // Reuse big image element nếu src giống cũ → smooth re-position.
+        let bigImg = zoom.querySelector('img');
+        if (!bigImg || bigImg.src !== img.src) {
+            zoom.innerHTML = '';
+            bigImg = document.createElement('img');
+            bigImg.src = img.src;
+            bigImg.style.cssText = 'width:480px;height:270px;object-fit:cover;display:block;';
+            zoom.appendChild(bigImg);
+        }
+        const rect = img.getBoundingClientRect();
+        // Default: right of thumb, vertically centered.
+        let left = rect.right + 12;
+        if (left + 480 > window.innerWidth - 8) {
+            // Overflow right → flip to left of thumb.
+            left = rect.left - 12 - 480;
+        }
+        if (left < 8) left = 8;
+        let top = rect.top + rect.height / 2 - 135;
+        top = Math.max(8, Math.min(window.innerHeight - 270 - 8, top));
+        zoom.style.left = left + 'px';
+        zoom.style.top = top + 'px';
+        zoom.style.display = 'block';
+    }
+    function _hideZoomPreview() {
+        const zoom = document.getElementById('tpos-snap-zoom-preview');
+        if (zoom) zoom.style.display = 'none';
     }
 
     // -----------------------------------------------------
@@ -1109,6 +1184,38 @@ Throttle 30s/KH. Click để tắt.`;
         }
     }
 
+    // Banner gợi ý install / update extension. Hiện khi detect live nhưng
+    // extension không có (5s không nhận EXTENSION_LOADED) hoặc version cũ.
+    // Có nút "Đã hiểu" để dismiss session-only.
+    function _showExtPrompt(kind) {
+        if (sessionStorage.getItem('tpos_ext_prompt_dismiss')) return;
+        if (document.getElementById('tpos-snap-ext-prompt')) return;
+        const box = document.createElement('div');
+        box.id = 'tpos-snap-ext-prompt';
+        const title =
+            kind === 'outdated'
+                ? `⚠️ N2Store Extension v${STATE.extVersion || '?'} đã cũ`
+                : '⚠️ Cần cài N2Store Extension';
+        const body =
+            kind === 'outdated'
+                ? `Auto-snap không popup cần extension <strong>v${REQUIRED_EXT_VERSION}+</strong>. Bạn đang chạy <strong>v${STATE.extVersion || '?'}</strong>.<br><br>Vào <code>chrome://extensions</code> → tìm "N2Store Messenger" → click <strong>Reload</strong> (nút vòng tròn). Chrome sẽ hỏi accept permission mới → click <strong>Enable</strong>.`
+                : `Auto-snap frame thật không popup cần N2Store Extension <strong>v${REQUIRED_EXT_VERSION}+</strong> chrome.tabs.captureVisibleTab.<br><br>Hiện tại: <strong>không phát hiện extension</strong>. Cài đặt → reload trang. Nếu đã cài → mở <code>chrome://extensions</code> và bật N2Store Messenger.<br><br><em>Không cài cũng OK — fallback sang popup "Share this tab" mỗi session.</em>`;
+        box.innerHTML = `
+            <div style="font-weight:700;font-size:14px;color:#7c2d12;margin-bottom:8px;">${title}</div>
+            <div style="font-size:12px;color:#451a03;line-height:1.55;">${body}</div>
+            <div style="display:flex;gap:8px;margin-top:12px;">
+                <button type="button" id="tpos-snap-ext-prompt-ok" style="flex:1;padding:6px 12px;background:#ea580c;color:#fff;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;">Đã hiểu</button>
+                <a href="chrome://extensions" target="_blank" style="flex:1;padding:6px 12px;background:#fff;color:#ea580c;border:1px solid #ea580c;border-radius:6px;font-weight:600;font-size:12px;text-decoration:none;text-align:center;">Mở chrome://extensions</a>
+            </div>`;
+        box.style.cssText =
+            'position:fixed;bottom:80px;right:16px;width:340px;background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:14px 16px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:99100;font-family:Inter,system-ui,sans-serif;';
+        document.body.appendChild(box);
+        document.getElementById('tpos-snap-ext-prompt-ok').onclick = () => {
+            sessionStorage.setItem('tpos_ext_prompt_dismiss', '1');
+            box.remove();
+        };
+    }
+
     // AUTO-START — DEFERRED IFRAME (lag fix v2):
     // KHÔNG auto-inject iframe FB (plugin nặng, lag máy). Chỉ show 1 floating
     // button "🎬 BẬT AUTO-SNAP" — user click → mới inject iframe + share.
@@ -1118,6 +1225,18 @@ Throttle 30s/KH. Click để tắt.`;
         if (document.getElementById('tpos-snap-go-pill')) return;
         const camp = _findActiveLiveCampaign();
         if (!camp?.Facebook_LiveId) return;
+        // Detect extension missing/outdated → show prompt (chỉ khi có live).
+        if (!STATE.extReady) {
+            // Chrome chưa response sau 5s = không có extension.
+            // STATE.extOutdated = đã response nhưng version cũ.
+            setTimeout(() => {
+                if (STATE.extOutdated) {
+                    _showExtPrompt('outdated');
+                } else if (!STATE.extReady && !STATE.extVersion) {
+                    _showExtPrompt('missing');
+                }
+            }, 5000);
+        }
         // Floating pill button ở góc dưới phải — KHÔNG inject iframe trước.
         const pill = document.createElement('button');
         pill.id = 'tpos-snap-go-pill';
@@ -2076,7 +2195,7 @@ Throttle 30s/KH. Click để tắt.`;
                         s.thumbnailUrl && s.thumbnailUrl.includes('/api/livestream/snapshot/');
                     let thumb;
                     if (isFrozenThumb) {
-                        thumb = `<img src="${_esc(s.thumbnailUrl)}" alt="" style="width:54px;height:54px;object-fit:cover;border-radius:6px;background:#f1f5f9;" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';" /><span style="display:none;width:54px;height:54px;border-radius:6px;background:#f1f5f9;align-items:center;justify-content:center;font-size:18px;">📷</span>`;
+                        thumb = `<img class="snap-pop-thumb" src="${_esc(s.thumbnailUrl)}" alt="" style="width:54px;height:54px;object-fit:cover;border-radius:6px;background:#f1f5f9;cursor:zoom-in;" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';" /><span style="display:none;width:54px;height:54px;border-radius:6px;background:#f1f5f9;align-items:center;justify-content:center;font-size:18px;">📷</span>`;
                     } else if (s.extractStatus === 'drm_blocked') {
                         thumb = `<span title="Video bị DRM bảo vệ — không extract được tự động. Share FB tab khi đang live để dùng buffered frame." style="display:inline-flex;width:54px;height:54px;border-radius:6px;background:#fef2f2;color:#991b1b;align-items:center;justify-content:center;font-size:18px;border:1px dashed #fca5a5;">🔒</span>`;
                     } else if (s.extractStatus === 'live_active') {
@@ -2112,6 +2231,13 @@ Throttle 30s/KH. Click để tắt.`;
                         </div>`;
                 })
                 .join('');
+            // Hover zoom — preview ảnh 480x270 cạnh thumbnail khi user di chuột.
+            body.querySelectorAll('.snap-pop-thumb').forEach((img) => {
+                img.addEventListener('mouseenter', () => _showZoomPreview(img));
+                img.addEventListener('mousemove', () => _showZoomPreview(img));
+                img.addEventListener('mouseleave', _hideZoomPreview);
+            });
+
             // 🔄 button giờ trigger backend extract-frame (yt-dlp + ffmpeg) thay vì
             // fetch thumbnail URL. Frame extract tại đúng offset_seconds → bytea.
             body.querySelectorAll('.snap-pop-refresh').forEach((btn) => {
