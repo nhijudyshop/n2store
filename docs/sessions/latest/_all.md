@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5690bf8` — fix(snap): crop về iframe wrapper trong stream mode — không chụp cả web
-**Last updated**: 2026-05-24 14:07:20 +07
-**Latest session**: [`RESUME:20260524-140720-5690bf8`](../20260524-140720-5690bf8.md)
-**Summary**: fix(snap): crop về iframe wrapper trong stream mode — không chụp cả web
+**Latest commit**: `cc0a2e4` — auto: session update
+**Last updated**: 2026-05-24 18:41:13 +07
+**Latest session**: [`RESUME:20260524-184113-cc0a2e4`](../20260524-184113-cc0a2e4.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -23,7 +24,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 13:22
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 18:41
 - [`docs/`](./docs.md) — updated 2026-05-24 14:02
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
@@ -49,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-24 12:22
+- [`render.com/`](./render.com.md) — updated 2026-05-24 18:41
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-24 12:08
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
