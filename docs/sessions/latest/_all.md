@@ -3,14 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `72dc224` — test(snap): expose debug accessors + bench-iframe-capture script
-**Last updated**: 2026-05-24 10:17:10 +07
-**Latest session**: [`RESUME:20260524-101710-72dc224`](../20260524-101710-72dc224.md)
-**Summary**: test(snap): expose debug accessors + bench-iframe-capture script
+**Latest commit**: `912f2e1` — fix(snap-embed): Step A — defer iframe FB inject tới user click (fix lag máy)
+**Last updated**: 2026-05-24 10:21:08 +07
+**Latest session**: [`RESUME:20260524-102108-912f2e1`](../20260524-102108-912f2e1.md)
+**Summary**: fix(snap-embed): Step A — defer iframe FB inject tới user click (fix lag máy)
 
 ## Folders affected in this commit
 
-- [`inventory-tracking/`](./inventory-tracking.md) — 2 file(s)
 - [`scripts/`](./scripts.md) — 1 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
@@ -53,7 +52,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-24 09:42
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-24 10:17
+- [`scripts/`](./scripts.md) — updated 2026-05-24 10:21
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-21 11:33
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
@@ -63,7 +62,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 10:17
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 10:21
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
