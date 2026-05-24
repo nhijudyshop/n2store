@@ -885,9 +885,16 @@ Throttle 30s/KH. Click để tắt.`;
                 // Gọi Render TRỰC TIẾP — CF worker không route /api/livestream/*.
                 const pageId = camp.Facebook_UserId;
                 const liveVideoId = camp.Facebook_LiveId;
-                const r = await fetch(
-                    `${API}/api/livestream/stream-url?pageId=${encodeURIComponent(pageId)}&liveVideoId=${encodeURIComponent(liveVideoId)}`
-                );
+                const url = `${API}/api/livestream/stream-url?pageId=${encodeURIComponent(pageId)}&liveVideoId=${encodeURIComponent(liveVideoId)}`;
+                console.log('[snap-video] fetching:', url);
+                const ctrl = new AbortController();
+                const tid = setTimeout(() => ctrl.abort('timeout'), 30000);
+                const r = await fetch(url, {
+                    credentials: 'omit',
+                    signal: ctrl.signal,
+                });
+                clearTimeout(tid);
+                console.log('[snap-video] response:', r.status);
                 const d = await r.json();
                 if (!d.success || !d.url) {
                     loading.innerHTML = '❌ ' + (d.error || 'Không lấy được stream URL');
