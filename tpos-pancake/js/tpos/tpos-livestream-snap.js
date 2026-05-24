@@ -2324,5 +2324,9 @@ Throttle 30s/KH. Click để tắt.`;
         _setSnapPagePref,
         _setInlineThumb,
         _isInlineThumbOn,
+        // Debug accessors cho test scripts
+        _getStreamActive: () => !!STATE.captureStream,
+        _getBufferCount: () => STATE.frameBuffer?.length || 0,
+        _getLatestFrame: () => STATE.frameBuffer?.[STATE.frameBuffer.length - 1] || null,
     };
 })();
