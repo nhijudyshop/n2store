@@ -3,13 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ed92726` — feat(snap): Force extract — parallel workers + progress UI
-**Last updated**: 2026-05-24 19:29:31 +07
-**Latest session**: [`RESUME:20260524-192931-ed92726`](../20260524-192931-ed92726.md)
-**Summary**: feat(snap): Force extract — parallel workers + progress UI
+**Latest commit**: `213d0e3` — auto: session update
+**Last updated**: 2026-05-24 19:38:36 +07
+**Latest session**: [`RESUME:20260524-193836-213d0e3`](../20260524-193836-213d0e3.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
+- [`product-warehouse/`](./product-warehouse.md) — 2 file(s)
 - [`render.com/`](./render.com.md) — 1 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
@@ -45,12 +46,12 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-21 15:39
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-21 15:39
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-24 19:38
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-24 19:29
+- [`render.com/`](./render.com.md) — updated 2026-05-24 19:38
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-24 12:08
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -62,7 +63,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 19:29
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 19:38
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
