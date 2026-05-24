@@ -25,6 +25,27 @@
 
 ## 2026-05-24
 
+### [extension] Version-check + popup banner "Cập nhật" với link Chrome Web Store
+
+**User ask**: Khi user cài extension version cũ hơn version mới nhất → mở extension thấy popup banner có nút bấm để mở link store cài bản mới.
+
+**Approach**: Service worker poll `https://nhijudyshop.github.io/n2store/n2store-extension/manifest.json` (đã có trong host_permissions) mỗi 6h + 1 lần khi cold start → so sánh `manifest.version` remote vs `chrome.runtime.getManifest().version` → lưu `updateInfo` vào `chrome.storage.local`. Popup khi mở đọc storage, nếu `updateAvailable=true` thì show banner gradient tím-xanh đầu popup với nút "Cập nhật" (mở store) + nút × (dismiss cho version này, sẽ hiện lại khi có version mới hơn).
+
+Không dùng CWS API trực tiếp (client-side cần OAuth, không khả thi). Dùng GH Pages vì raw.githubusercontent cần thêm host permission. Pipeline auto-publish đảm bảo GH Pages và CWS đồng bộ version (vì manifest.json được commit khi bump, push lên GH Pages, đồng thời Stop hook upload lên CWS).
+
+**Files**:
+
+- `n2store-extension/background/version-checker.js` (new) — fetch + compare semver + chrome.alarms
+- `n2store-extension/background/service-worker.js` — import + `setupVersionChecker()` top-level
+- `n2store-extension/popup/popup.html` — banner div outside popup-container
+- `n2store-extension/popup/popup.css` — `.update-banner` gradient + animation slideDown 200ms
+- `n2store-extension/popup/popup.js` — `showUpdateBannerIfAvailable()` đọc storage, dismiss state per-version
+- `n2store-extension/manifest.json` — bump v1.0.10 → v1.0.11
+
+**Status**: ✅ Done — bump version sẽ trigger auto-publish (Stop hook) → user khác vào popup sẽ thấy banner.
+
+---
+
 ### [delivery-report] Báo cáo modal: SL ĐƠN SHIP đổi `+` → `-`, thêm cột THU VỀ cộng vào TỔNG TẤT CẢ
 
 **User ask**: (1) SL ĐƠN SHIP đang cộng vào TỔNG TẤT CẢ → đổi thành trừ. (2) Thêm cột THU VỀ sau SL ĐƠN SHIP, nhập tiền → cộng vào TỔNG TẤT CẢ.
