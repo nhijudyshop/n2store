@@ -28,11 +28,9 @@
         fromDate: '',
         toDate: '',
         overrides: loadOverrides(),
-        // Per-range fetch cache: { rangeKey: { items, scanned, fetchedAt } }
+        // Per-range fetch cache: { rangeKey: { byDateGroup: Map, fetchedAt } }
         fetchCache: {},
-        isFetching: false,
-        currentItems: [], // items for current range
-        currentScanned: new Set(), // scanned numbers for current range
+        currentByDateGroup: new Map(), // Map<`${date}__${groupName}`, {count, money}>
     };
 
     function loadOverrides() {
@@ -111,102 +109,61 @@
         return Number(cleaned) || 0;
     }
 
-    // ── Fetch DB data for the report's date range (independent of main filter) ──
+    // ── Fetch from Render DB (delivery_assignments table) ──
+    // Render DB is the source of truth for "đã quét" + COD per assignment.
+    // No TPOS round-trip needed.
     function rangeKey(from, to) {
         return `${from}__${to}`;
     }
 
     async function fetchRange(from, to) {
-        if (!from || !to) return { items: [], scanned: new Set() };
+        if (!from || !to) return { byDateGroup: new Map() };
         const key = rangeKey(from, to);
         const cached = state.fetchCache[key];
         if (cached && Date.now() - cached.fetchedAt < 60000) {
-            return { items: cached.items, scanned: cached.scanned };
+            return { byDateGroup: cached.byDateGroup };
         }
-        const DR = window.DeliveryReport;
-        if (!DR?._getToken || !DR?._workerUrl) {
-            console.warn('[report] DeliveryReport helpers not ready');
-            return { items: [], scanned: new Set() };
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl) {
+            console.warn('[report] Render URL not available');
+            return { byDateGroup: new Map() };
         }
-        const token = await DR._getToken();
-        if (!token) return { items: [], scanned: new Set() };
-
-        const fromISO = new Date(from + 'T00:00:00').toISOString();
-        const toDate = new Date(to + 'T23:59:59.999');
-        const toISO = toDate.toISOString();
-
-        const params = new URLSearchParams();
-        params.set('FromDate', fromISO);
-        params.set('ToDate', toISO);
-        params.set('$top', '10000');
-        params.set('$orderby', 'DateInvoice desc,Number desc,Id desc');
-        params.set('$count', 'true');
-        const url = `${DR._workerUrl}/api/odata/Report/DeliveryReport?${params.toString()}`;
-
-        let items = [];
+        const url =
+            `${renderUrl}/api/v2/delivery-assignments/by-date-group` +
+            `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&scanned_only=1`;
+        let rows = [];
         try {
-            const resp = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    Accept: 'application/json',
-                    tposappversion: window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1',
-                },
-            });
+            const resp = await fetch(url);
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const result = await resp.json();
-            items = result.value || [];
+            if (result.success) rows = result.rows || [];
+            else throw new Error(result.error || 'API returned success=false');
         } catch (e) {
-            console.error('[report] fetch failed:', e?.message);
-            return { items: [], scanned: new Set() };
+            console.error('[report] fetch /by-date-group failed:', e?.message);
+            return { byDateGroup: new Map() };
         }
 
-        // Lookup scanned numbers for these orders (đã quét from DB)
-        let scannedSet = new Set();
-        const renderUrl = DR._renderUrl;
-        if (renderUrl && items.length > 0) {
-            try {
-                const orderNumbers = items.map((i) => i.Number).filter(Boolean);
-                const resp = await fetch(`${renderUrl}/api/v2/delivery-assignments/lookup-batch`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ orderNumbers }),
-                });
-                if (resp.ok) {
-                    const result = await resp.json();
-                    if (result.success && result.data) {
-                        scannedSet = new Set(result.data.scannedNumbers || []);
-                    }
-                }
-            } catch (e) {
-                console.warn('[report] scanned lookup failed:', e?.message);
-            }
-        }
-
-        state.fetchCache[key] = { items, scanned: scannedSet, fetchedAt: Date.now() };
-        return { items, scanned: scannedSet };
+        // Index by `${date}__${groupName}` for quick aggregation
+        const map = new Map();
+        rows.forEach((r) => {
+            map.set(`${r.date}__${r.groupName}`, {
+                count: r.scannedCount,
+                money: r.scannedCod,
+            });
+        });
+        state.fetchCache[key] = { byDateGroup: map, fetchedAt: Date.now() };
+        return { byDateGroup: map };
     }
 
-    // ── Data aggregation (uses scanned-only items per financial reporting requirement) ──
+    // ── Data aggregation (reads from Render-pre-aggregated map) ──
     function aggregateByDay(group, dates) {
-        const items = state.currentItems || [];
-        const scanned = state.currentScanned || new Set();
-        const getItemGroup = window.DeliveryReport?._getItemGroup;
-        const map = {};
+        const m = state.currentByDateGroup || new Map();
+        const out = {};
         dates.forEach((d) => {
-            map[d] = { sysCount: 0, money: 0 };
+            const v = m.get(`${d}__${group}`) || { count: 0, money: 0 };
+            out[d] = { sysCount: v.count, money: v.money };
         });
-        items.forEach((item) => {
-            // Only "đã quét" items count toward the financial report
-            if (!scanned.has(item.Number)) return;
-            const g = getItemGroup ? getItemGroup(item) : inferGroup(item);
-            if (g !== group) return;
-            const dt = parseISO(item.DateInvoice);
-            if (!dt || !(dt in map)) return;
-            map[dt].sysCount += 1;
-            map[dt].money += Number(item.CashOnDelivery) || 0;
-        });
-        return map;
+        return out;
     }
 
     // Fallback group inference used when main controller helper isn't exposed.
@@ -392,7 +349,7 @@
             return;
         }
 
-        // Fetch DB data + scanned numbers for current range (with loading state)
+        // Fetch from Render DB (aggregated by date+group, scanned-only)
         const key = rangeKey(state.fromDate, state.toDate);
         const cached = state.fetchCache[key];
         if (!cached || Date.now() - cached.fetchedAt >= 60000) {
@@ -400,11 +357,10 @@
                 '<tr><td colspan="9" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>';
             document.getElementById('drReportTfoot').innerHTML = '';
         }
-        const { items, scanned } = await fetchRange(state.fromDate, state.toDate);
-        // Stale guard: if user changed dates mid-fetch, abort this render
+        const { byDateGroup } = await fetchRange(state.fromDate, state.toDate);
+        // Stale guard
         if (rangeKey(state.fromDate, state.toDate) !== key) return;
-        state.currentItems = items;
-        state.currentScanned = scanned;
+        state.currentByDateGroup = byDateGroup;
 
         const map = aggregateByDay(state.activeTab, dates);
         let totals = {

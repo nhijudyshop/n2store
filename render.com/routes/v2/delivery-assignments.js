@@ -515,4 +515,60 @@ router.get('/stats', async (req, res) => {
     }
 });
 
+// =====================================================
+// GET /by-date-group — Aggregate scanned counts + COD per (date, group_name)
+// Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD[&scanned_only=1]
+// Used by delivery-report Báo cáo modal (chỉ tính đơn đã quét).
+// =====================================================
+router.get('/by-date-group', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { from, to, scanned_only: scannedOnly } = req.query;
+        if (!from || !to) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing from/to query params (YYYY-MM-DD)',
+            });
+        }
+        const fromDate = String(from).slice(0, 10);
+        const toDate = String(to).slice(0, 10);
+        const onlyScanned = scannedOnly === '1' || scannedOnly === 'true';
+
+        const sql = `
+            SELECT
+                assignment_date::text                                         AS date,
+                COALESCE(NULLIF(group_name, ''), '')                          AS group_name,
+                COUNT(*)::int                                                 AS order_count,
+                COUNT(*) FILTER (WHERE is_scanned = TRUE)::int                AS scanned_count,
+                COALESCE(SUM(cash_on_delivery), 0)::numeric                   AS cod_total,
+                COALESCE(SUM(cash_on_delivery)
+                    FILTER (WHERE is_scanned = TRUE), 0)::numeric             AS scanned_cod
+            FROM delivery_assignments
+            WHERE assignment_date BETWEEN $1 AND $2
+              AND is_hidden = FALSE
+              ${onlyScanned ? 'AND is_scanned = TRUE' : ''}
+            GROUP BY assignment_date, COALESCE(NULLIF(group_name, ''), '')
+            ORDER BY assignment_date ASC, group_name ASC
+        `;
+        const result = await db.query(sql, [fromDate, toDate]);
+        const rows = result.rows.map((r) => ({
+            date: r.date,
+            groupName: r.group_name,
+            orderCount: Number(r.order_count) || 0,
+            scannedCount: Number(r.scanned_count) || 0,
+            codTotal: Number(r.cod_total) || 0,
+            scannedCod: Number(r.scanned_cod) || 0,
+        }));
+        res.json({
+            success: true,
+            range: { from: fromDate, to: toDate },
+            scannedOnly: onlyScanned,
+            rows,
+        });
+    } catch (err) {
+        console.error('[delivery-assignments] GET /by-date-group error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 module.exports = router;
