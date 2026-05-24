@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fcc2585` — feat(inventory/header): tách 2 hàng — Ngày+Đợt+Kiện row 1, Tổng HĐ+CP+Còn dư row 2
-**Last updated**: 2026-05-24 09:52:18 +07
-**Latest session**: [`RESUME:20260524-095218-fcc2585`](../20260524-095218-fcc2585.md)
-**Summary**: feat(inventory/header): tách 2 hàng — Ngày+Đợt+Kiện row 1, Tổng HĐ+CP+Còn dư row 2
+**Latest commit**: `37999a3` — feat(inventory): row 2 thêm Tổng TT + đổi công thức Còn dư = TT - HD - CP (per đợt)
+**Last updated**: 2026-05-24 09:58:51 +07
+**Latest session**: [`RESUME:20260524-095851-37999a3`](../20260524-095851-37999a3.md)
+**Summary**: feat(inventory): row 2 thêm Tổng TT + đổi công thức Còn dư = TT - HD - CP (per đợt)
 
 ## Folders affected in this commit
 
@@ -33,7 +33,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 09:52
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 09:58
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-22 14:45
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
