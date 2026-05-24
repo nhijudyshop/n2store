@@ -838,20 +838,43 @@ Throttle 30s/KH. Click để tắt.`;
         if (wrapper) return wrapper.querySelector('iframe');
         const fbVideoUrl = _buildFbLiveUrl(camp);
         if (!fbVideoUrl) return null;
-        // mute=1 + autoplay=1 → FB plugin tự muted theo policy (autoplay yêu cầu muted).
-        const embedUrl = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(fbVideoUrl)}&show_text=false&width=560&autoplay=1&mute=1`;
+        // FB plugin native size: width 560×420ish (16:9 video + header + footer).
+        // Trick: render iframe LỚN (đủ cho FB plugin render full) → wrapper bé,
+        // dùng CSS position offset để chừa view-port chỉ vào video (skip header
+        // page logo + footer reactions). Region Capture cropTo wrapper → capture
+        // đúng video pixels, không có FB UI chrome.
+        // Iframe natural size cho live video: 560 wide, ~480 tall (header 56 +
+        // video 16:9 ≈ 315 + footer ~110).
+        const IFRAME_W = 560;
+        const IFRAME_H = 480;
+        const HEADER_OFFSET = 56; // FB plugin header (logo + page name)
+        const VIDEO_H = Math.round((IFRAME_W * 9) / 16); // 315 — full video height
+        // Wrapper size: smaller display, only video area visible
+        const WRAPPER_W = 320;
+        const WRAPPER_H = Math.round((WRAPPER_W * 9) / 16); // 180 — 16:9
+        const SCALE = WRAPPER_W / IFRAME_W; // 0.571
+
+        const embedUrl = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(fbVideoUrl)}&show_text=false&width=${IFRAME_W}&height=${IFRAME_H}&autoplay=1&mute=1&allowfullscreen=false&show_share=false&show_captions=false`;
         wrapper = document.createElement('div');
         wrapper.id = 'tpos-snap-fb-wrapper';
-        wrapper.style.cssText =
-            'position:fixed;bottom:8px;right:8px;width:280px;height:158px;border:2px solid #dc2626;border-radius:8px;z-index:99000;background:#000;box-shadow:0 4px 12px rgba(0,0,0,0.3);overflow:hidden;transition:all 0.2s ease;';
+        wrapper.style.cssText = `position:fixed;bottom:8px;right:8px;width:${WRAPPER_W}px;height:${WRAPPER_H}px;border:2px solid #dc2626;border-radius:8px;z-index:99000;background:#000;box-shadow:0 4px 12px rgba(0,0,0,0.3);overflow:hidden;transition:all 0.2s ease;`;
+
+        // Inner container: iframe rendered AT FULL SIZE, translated lên để giấu
+        // FB header, scaled xuống để fit wrapper width.
+        const inner = document.createElement('div');
+        inner.style.cssText = `position:absolute;left:0;top:${-HEADER_OFFSET * SCALE}px;width:${IFRAME_W}px;height:${IFRAME_H}px;transform-origin:top left;transform:scale(${SCALE});`;
+        wrapper.appendChild(inner);
+
         const iframe = document.createElement('iframe');
         iframe.id = 'tpos-snap-fb-embed';
         iframe.src = embedUrl;
         iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
         iframe.scrolling = 'no';
         iframe.frameBorder = '0';
-        iframe.style.cssText = 'width:100%;height:100%;display:block;border:0;';
-        wrapper.appendChild(iframe);
+        iframe.style.cssText = `width:${IFRAME_W}px;height:${IFRAME_H}px;display:block;border:0;`;
+        inner.appendChild(iframe);
+        wrapper._videoHeight = Math.round(VIDEO_H * SCALE); // wrapper-space video height
+        wrapper._scale = SCALE;
         // Overlay nút minimize ở góc trên phải.
         const minBtn = document.createElement('button');
         minBtn.type = 'button';
@@ -863,13 +886,17 @@ Throttle 30s/KH. Click để tắt.`;
         wrapper.appendChild(minBtn);
         minBtn.onclick = () => {
             const minimized = wrapper.dataset.minimized === '1';
+            const innerEl = wrapper.querySelector('div'); // the transform container
             if (minimized) {
                 // Expand
-                wrapper.style.width = '280px';
-                wrapper.style.height = '158px';
-                iframe.style.display = 'block';
+                wrapper.style.width = WRAPPER_W + 'px';
+                wrapper.style.height = WRAPPER_H + 'px';
+                wrapper.style.borderRadius = '8px';
+                if (innerEl) innerEl.style.display = 'block';
                 minBtn.textContent = '–';
                 minBtn.title = 'Ẩn iframe (stream vẫn chạy)';
+                minBtn.style.cssText =
+                    'position:absolute;top:4px;right:4px;width:24px;height:24px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:4px;font-size:14px;font-weight:700;cursor:pointer;line-height:1;padding:0;z-index:1;';
                 delete wrapper.dataset.minimized;
             } else {
                 // Minimize → pill nhỏ (stream KHÔNG dừng).
@@ -877,17 +904,11 @@ Throttle 30s/KH. Click để tắt.`;
                 wrapper.style.width = '44px';
                 wrapper.style.height = '44px';
                 wrapper.style.borderRadius = '50%';
-                iframe.style.display = 'none';
+                if (innerEl) innerEl.style.display = 'none';
                 minBtn.textContent = '🎬';
                 minBtn.title = 'Mở lại iframe';
-                minBtn.style.fontSize = '18px';
-                minBtn.style.top = '50%';
-                minBtn.style.right = '50%';
-                minBtn.style.transform = 'translate(50%,-50%)';
-                minBtn.style.background = '#dc2626';
-                minBtn.style.width = '44px';
-                minBtn.style.height = '44px';
-                minBtn.style.borderRadius = '50%';
+                minBtn.style.cssText =
+                    'position:absolute;top:50%;right:50%;transform:translate(50%,-50%);width:44px;height:44px;background:#dc2626;color:#fff;border:none;border-radius:50%;font-size:18px;font-weight:700;cursor:pointer;line-height:1;padding:0;z-index:1;';
             }
         };
         document.body.appendChild(wrapper);
@@ -930,14 +951,17 @@ Throttle 30s/KH. Click để tắt.`;
                 selfBrowserSurface: 'include',
                 surfaceSwitching: 'exclude',
             });
-            // Region Capture: crop chỉ vào iframe FB (Chromium 104+).
+            // Region Capture: crop vào WRAPPER (visible bounding box, đã skip FB
+            // header qua transform). Chromium 104+. KHÔNG crop iframe element vì
+            // iframe rendered ngoài viewport (vùng FB header) cũng được tính.
             if (window.CropTarget?.fromElement) {
                 try {
-                    const cropTarget = await CropTarget.fromElement(iframe);
+                    const wrapper = document.getElementById('tpos-snap-fb-wrapper');
+                    const cropTarget = await CropTarget.fromElement(wrapper);
                     const track = stream.getVideoTracks()[0];
                     if (track.cropTo) {
                         await track.cropTo(cropTarget);
-                        console.log('[snap] Region Capture cropped to FB iframe ✓');
+                        console.log('[snap] Region Capture cropped to wrapper ✓');
                     }
                 } catch (e) {
                     console.warn('[snap] cropTo fail (full tab capture):', e.message);
