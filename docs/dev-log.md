@@ -25,6 +25,30 @@
 
 ## 2026-05-24
 
+### [delivery-report] Báo cáo modal: hover ô TIỀN có ảnh → zoom preview popover
+
+**User ask**: Ô có ảnh đính kèm — rê chuột vào để zoom ảnh ra (không cần click mở modal).
+
+**Files**:
+
+- `delivery-report/js/report.js`
+    - Thêm `ensureHoverPreview / showHoverPreview / positionHoverPreview / hideHoverPreview` + `hoverPreview` state.
+    - tbody delegation: `mouseover` lên `.money-cell.has-img` → show popover (lazy DOM `<div id="drReportImgHover">` body-attached); `mouseout` (nếu `relatedTarget` ngoài cell) → ẩn.
+    - Guard `currentCell` tránh re-position flicker khi mouse trượt trong cùng cell.
+    - Position: ưu tiên bên phải cell, flip sang trái nếu tràn viewport phải, clamp top/bottom 8px.
+- `delivery-report/css/delivery-report.css`
+    - `.dr-report-img-hover`: `position:fixed`, `pointer-events:none` (không chặn click), `z-index:9400` (dưới modal 9500), `max-width:560px / max-height:480px`, opacity+scale transition.
+    - `.dr-report-img-hover.open` → fade in scale 1.
+
+**Verify** (Playwright localhost, inject PNG test vào `2026-05-17__tomato`):
+
+- Reload → row 18/05 cell có icon ảnh (xanh).
+- Dispatch `mouseover` → popover xuất hiện cạnh phải cell, ảnh PNG hiển thị đầy đủ (`opacity:1`, `left:338px top:347px`).
+- Dispatch `mouseout` (relatedTarget=document.body) → popover ẩn (`opacity:0`, không còn class `open`).
+- Screenshot: `downloads/n2store-session/dr-report-hover-zoom2.png`.
+
+**Status**: ✅ Done
+
 ### [delivery-report] Báo cáo modal: bỏ input SL ĐƠN (rớt), thêm cột SL ĐƠN SHIP cộng vào TỔNG TẤT CẢ
 
 **User ask**: (1) Bỏ input "rớt" trong cột SL ĐƠN — chỉ còn số đếm. (2) Thêm cột SL ĐƠN SHIP (editable) — TỔNG TẤT CẢ = TIỀN − PHÍ SHIP + (SL ĐƠN SHIP × 23.000).

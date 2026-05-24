@@ -540,6 +540,79 @@
                 if (row) openImageModal(row.dataset.date);
             }
         });
+
+        // Hover preview: zoom ảnh chứng từ khi rê chuột lên ô TIỀN có ảnh.
+        // mouseover/mouseout bubble (mouseenter/leave do not); the currentCell
+        // guard avoids re-render flicker while moving inside the same cell.
+        tbody.addEventListener('mouseover', (e) => {
+            const cell = e.target.closest && e.target.closest('td.money-cell.has-img');
+            if (!cell) return;
+            if (hoverPreview.currentCell === cell) return;
+            const row = cell.closest('tr[data-date]');
+            if (!row) return;
+            const ov = getOverride(row.dataset.date, state.activeTab);
+            if (!ov.billImage) return;
+            showHoverPreview(cell, ov.billImage);
+        });
+        tbody.addEventListener('mouseout', (e) => {
+            const cell = e.target.closest && e.target.closest('td.money-cell.has-img');
+            if (!cell) return;
+            // Mouse moved within the same cell — still inside, keep preview.
+            const next = e.relatedTarget;
+            if (next && cell.contains(next)) return;
+            hideHoverPreview();
+        });
+    }
+
+    // ── Hover preview (zoom on rê chuột) ──
+    const hoverPreview = { currentCell: null };
+
+    function ensureHoverPreview() {
+        if (document.getElementById('drReportImgHover')) return;
+        const el = document.createElement('div');
+        el.id = 'drReportImgHover';
+        el.className = 'dr-report-img-hover';
+        el.innerHTML = '<img alt="Ảnh chứng từ (preview)" />';
+        document.body.appendChild(el);
+    }
+
+    function showHoverPreview(cell, src) {
+        ensureHoverPreview();
+        const el = document.getElementById('drReportImgHover');
+        const img = el.querySelector('img');
+        if (img.getAttribute('src') !== src) img.src = src;
+        hoverPreview.currentCell = cell;
+        el.classList.add('open');
+        positionHoverPreview(cell);
+        // Re-position after the image natural size resolves (first paint may be 0)
+        if (!img.complete) {
+            img.onload = () => {
+                if (hoverPreview.currentCell === cell) positionHoverPreview(cell);
+            };
+        }
+    }
+
+    function positionHoverPreview(cell) {
+        const el = document.getElementById('drReportImgHover');
+        if (!el) return;
+        const rect = cell.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const w = el.offsetWidth;
+        const h = el.offsetHeight;
+        let left = rect.right + 12;
+        if (left + w + 8 > vw) left = Math.max(8, rect.left - w - 12);
+        let top = rect.top + rect.height / 2 - h / 2;
+        if (top + h + 8 > vh) top = vh - h - 8;
+        if (top < 8) top = 8;
+        el.style.left = `${left}px`;
+        el.style.top = `${top}px`;
+    }
+
+    function hideHoverPreview() {
+        const el = document.getElementById('drReportImgHover');
+        if (el) el.classList.remove('open');
+        hoverPreview.currentCell = null;
     }
 
     // ── Image modal ──
