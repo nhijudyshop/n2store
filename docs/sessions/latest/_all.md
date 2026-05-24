@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d3f1d60` — feat(snap-ext): N2Store Extension auto-capture tab — zero popup
-**Last updated**: 2026-05-24 11:35:01 +07
-**Latest session**: [`RESUME:20260524-113501-d3f1d60`](../20260524-113501-d3f1d60.md)
-**Summary**: feat(snap-ext): N2Store Extension auto-capture tab — zero popup
+**Latest commit**: `0902ef0` — feat(delivery-report): Báo cáo modal — triple-click hint, 3 tabs, editable cells + image
+**Last updated**: 2026-05-24 11:38:49 +07
+**Latest session**: [`RESUME:20260524-113849-0902ef0`](../20260524-113849-0902ef0.md)
+**Summary**: feat(delivery-report): Báo cáo modal — triple-click hint, 3 tabs, editable cells + image
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 1 file(s)
-- [`n2store-extension/`](./n2store-extension.md) — 3 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`delivery-report/`](./delivery-report.md) — 4 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +24,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 11:35
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 11:38
 - [`docs/`](./docs.md) — updated 2026-05-24 11:04
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
@@ -53,7 +52,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-24 10:29
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-24 11:04
+- [`scripts/`](./scripts.md) — updated 2026-05-24 11:38
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-21 11:33
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
