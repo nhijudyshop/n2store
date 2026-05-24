@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `78a9bde` — auto: session update
-**Last updated**: 2026-05-24 13:33:55 +07
-**Latest session**: [`RESUME:20260524-133355-78a9bde`](../20260524-133355-78a9bde.md)
+**Latest commit**: `af6758a` — auto: session update
+**Last updated**: 2026-05-24 13:37:06 +07
+**Latest session**: [`RESUME:20260524-133706-af6758a`](../20260524-133706-af6758a.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`.claude/`](./.claude.md) — 1 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
 - [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
-- [`n2store-extension/`](./n2store-extension.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -38,7 +35,7 @@
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 10:44
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-24 13:33
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-24 13:37
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 13:33
 - [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:34
