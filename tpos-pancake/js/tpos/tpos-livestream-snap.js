@@ -1068,12 +1068,33 @@ Throttle 30s/KH. Click để tắt.`;
             _toast('Không tạo được iframe embed', 'err');
             return false;
         }
-        // Nếu iframe vừa tạo mới → đợi 4s cho FB load + play.
-        // Nếu đã tồn tại (auto-start inject sớm) → chỉ đợi 500ms.
+        // Đợi iframe load xong (FB plugin HTML + JS) RỒI thêm 7s buffer cho
+        // FB player thực sự start video (khác với chỉ load HTML). User báo:
+        // 'đợi iframe load xong rồi mới chụp chứ -> đừng vào là chụp liền'.
+        // Trước: fixed 4s → frame đầu thường là FB loading spinner / blank.
+        // Sau: load event + 7s = ~ thời điểm video bắt đầu play, capture frame
+        // thật.
         if (!wrapperExisted) {
-            _toast('⏳ Đang load FB live trong iframe (4s)...', 'ok');
-            await new Promise((r) => setTimeout(r, 4000));
+            _toast('⏳ Đợi iframe FB load + video play (~10s)...', 'ok');
+            await new Promise((resolve) => {
+                let done = false;
+                const finish = () => {
+                    if (done) return;
+                    done = true;
+                    resolve();
+                };
+                iframe.addEventListener('load', finish, { once: true });
+                // Hard timeout 6s nếu iframe load event không fire (đôi khi FB
+                // plugin defer fire). Sau timeout vẫn proceed → buffer sẽ skip
+                // frame xấu qua validation tick.
+                setTimeout(finish, 6000);
+            });
+            // FB plugin sau load event vẫn cần ~7s để actual video start (init
+            // player, fetch DASH manifest, buffer chunks).
+            await new Promise((r) => setTimeout(r, 7000));
         } else {
+            // Wrapper đã có sẵn (auto-start inject sớm) → video chắc đang play
+            // rồi, chỉ cần 500ms để frame buffer query rect ổn định.
             await new Promise((r) => setTimeout(r, 500));
         }
         // Path A — N2Store Extension đang chạy: skip getDisplayMedia. Frame
