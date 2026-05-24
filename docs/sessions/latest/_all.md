@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8aa70c0` — auto: session update
-**Last updated**: 2026-05-24 11:53:34 +07
-**Latest session**: [`RESUME:20260524-115334-8aa70c0`](../20260524-115334-8aa70c0.md)
-**Summary**: auto: session update
+**Latest commit**: `93b8ec1` — fix(snap): gỡ nút minimize iframe — minimize=display:none → capture rỗng
+**Last updated**: 2026-05-24 11:55:05 +07
+**Latest session**: [`RESUME:20260524-115505-93b8ec1`](../20260524-115505-93b8ec1.md)
+**Summary**: fix(snap): gỡ nút minimize iframe — minimize=display:none → capture rỗng
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2-extension/`](./web2-extension.md) — 35 file(s)
+- [`delivery-report/`](./delivery-report.md) — 1 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +24,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 11:53
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 11:55
 - [`docs/`](./docs.md) — updated 2026-05-24 11:04
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
@@ -63,7 +62,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 11:46
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 11:55
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
