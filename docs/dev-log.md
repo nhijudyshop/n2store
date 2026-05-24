@@ -25,6 +25,31 @@
 
 ## 2026-05-24
 
+### [delivery-report] Báo cáo modal: SL ĐƠN SHIP đổi `+` → `-`, thêm cột THU VỀ cộng vào TỔNG TẤT CẢ
+
+**User ask**: (1) SL ĐƠN SHIP đang cộng vào TỔNG TẤT CẢ → đổi thành trừ. (2) Thêm cột THU VỀ sau SL ĐƠN SHIP, nhập tiền → cộng vào TỔNG TẤT CẢ.
+
+**Files**:
+
+- `delivery-report/js/report.js`
+    - Header: thêm `<th>THU VỀ</th>` sau SL ĐƠN SHIP; đổi tooltip SL ĐƠN SHIP "trừ khỏi TỔNG TẤT CẢ".
+    - `paintTable`: thêm `thuVe = Number(ov.thuVe) || 0`; công thức `totalAll = money - shipFee - slShip * SHIP_FEE_PER_ORDER + thuVe`.
+    - Thêm cell `<input data-field="thuVe" type="text" formatMoney>` giữa slShip và TỔNG TẤT CẢ.
+    - Totals/footer: thêm `thuVe` cộng dồn.
+    - colspan 11 → 12 (empty/loading state).
+    - Header comment: cập nhật danh sách editable cells + công thức.
+    - tbody focusout: `thuVe` rơi vào nhánh `parseMoney` (đã có sẵn cho boCK/atruongCK/ckTruoc) — không cần thay đổi delegation.
+
+**Verify** (Playwright localhost, range entry 19/05–25/05):
+
+- Headers 12: NGÀY, SL ĐƠN, TIỀN, PHÍ SHIP, SL ĐƠN SHIP, **THU VỀ**, TỔNG TẤT CẢ, BO NHẬN CK, ATRƯỜNG NHẬN CK, CK TRƯỚC, TỔNG CÒN LẠI, GHI CHÚ ✅
+- Row 19/05 (real 18/05): SL ĐƠN=39, TIỀN=22.500.000, PHÍ SHIP=897.000 → TỔNG TẤT CẢ=21.603.000 (= 22.500.000 - 897.000) ✅
+- Nhập SL ĐƠN SHIP=5, THU VỀ=100.000 → TỔNG TẤT CẢ = 22.500.000 - 897.000 - 115.000 + 100.000 = **21.588.000** ✅
+- Footer THU VỀ cộng dồn = 100.000 ✅
+- Screenshot: `downloads/n2store-session/dr-report-thu-ve.png`.
+
+**Status**: ✅ Done
+
 ### [issue-tracking] Tab 2/3 chuyển từ iframe sang live TPOS OData fetch + paging
 
 **User ask**: "lấy dữ liệu fetch từ tpos đi → cho paging" — Tab BÁN HÀNG + TRẢ HÀNG lấy live data từ TPOS thay vì iframe web2 (vốn đang dùng Postgres local).
