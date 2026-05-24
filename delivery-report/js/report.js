@@ -101,8 +101,12 @@
 
     // Cached formatter — re-using saves ~1ms × hundreds of cells per render
     const moneyFormatter = new Intl.NumberFormat('vi-VN');
-    function formatMoney(n) {
+    function formatNumber(n) {
         return moneyFormatter.format(Math.round(Number(n) || 0));
+    }
+    // Money values prefix with $ for quick visual identification of currency cells
+    function formatMoney(n) {
+        return `$ ${formatNumber(n)}`;
     }
 
     function parseMoney(s) {
@@ -421,8 +425,8 @@
             const hasImg = !!ov.billImage;
             const formula =
                 rot > 0
-                    ? `<div class="sl-formula"><span class="sl-orig">${sysCount}</span> − <span class="sl-rot">${rot}</span> = <strong>${slDon}</strong></div>`
-                    : `<div class="sl-formula muted">${sysCount}</div>`;
+                    ? `<div class="sl-formula"><span class="sl-orig">${formatNumber(sysCount)}</span> − <span class="sl-rot">${formatNumber(rot)}</span> = <strong>${formatNumber(slDon)}</strong></div>`
+                    : `<div class="sl-formula muted">${formatNumber(sysCount)}</div>`;
             return `<tr data-date="${d}">
                 <td class="date">${formatDDMMYYYY(d)}</td>
                 <td class="num sl-cell">
@@ -447,7 +451,7 @@
 
         document.getElementById('drReportTfoot').innerHTML = `<tr class="total-row">
             <th>TỔNG (${dates.length} ngày)</th>
-            <th class="num">${formatMoney(totals.slDon)}</th>
+            <th class="num">${formatNumber(totals.slDon)}</th>
             <th class="num">${formatMoney(totals.money)}</th>
             <th class="num muted">${formatMoney(totals.shipFee)}</th>
             <th class="num strong">${formatMoney(totals.totalAll)}</th>
