@@ -3,13 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `020b3c7` — fix(snap-embed): full 16:9 video capture + skip FB header chrome
-**Last updated**: 2026-05-24 10:05:05 +07
-**Latest session**: [`RESUME:20260524-100505-020b3c7`](../20260524-100505-020b3c7.md)
-**Summary**: fix(snap-embed): full 16:9 video capture + skip FB header chrome
+**Latest commit**: `72dc224` — test(snap): expose debug accessors + bench-iframe-capture script
+**Last updated**: 2026-05-24 10:17:10 +07
+**Latest session**: [`RESUME:20260524-101710-72dc224`](../20260524-101710-72dc224.md)
+**Summary**: test(snap): expose debug accessors + bench-iframe-capture script
 
 ## Folders affected in this commit
 
+- [`inventory-tracking/`](./inventory-tracking.md) — 2 file(s)
 - [`scripts/`](./scripts.md) — 1 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
@@ -34,7 +35,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 09:58
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 10:17
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-22 14:45
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
@@ -52,7 +53,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-24 09:42
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-24 10:05
+- [`scripts/`](./scripts.md) — updated 2026-05-24 10:17
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-21 11:33
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
@@ -62,7 +63,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-21 15:39
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 10:05
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 10:17
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-21 16:36
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
