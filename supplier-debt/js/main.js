@@ -2676,6 +2676,8 @@ async function submitPayment() {
                 }
                 // Refresh bảng tổng
                 await fetchData();
+                AutoRefresh.seedHash();
+                AutoRefresh.notifyChange('payment-created');
             } else {
                 const actionError = await actionPostResponse.json();
                 throw new Error(actionError.error?.message || 'Lỗi xác nhận thanh toán');
@@ -3363,6 +3365,8 @@ async function deletePayment(paymentId, partnerId) {
 
         // Refresh main data
         await fetchData();
+        AutoRefresh.seedHash();
+        AutoRefresh.notifyChange('payment-deleted');
     } catch (error) {
         console.error('[SupplierDebt] Delete payment error:', error);
         if (window.notificationManager) {
@@ -3827,7 +3831,10 @@ const RefundOrders = {
             this.render();
 
             // Refresh main debt table
-            fetchData();
+            fetchData().then(() => {
+                AutoRefresh.seedHash();
+                AutoRefresh.notifyChange('refund-confirmed');
+            });
         } catch (err) {
             console.error('[RefundOrders] Confirm error:', err);
             window.notificationManager?.error?.(`Lỗi xác nhận: ${err.message}`);
