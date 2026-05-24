@@ -514,6 +514,14 @@ function renderShipments(shipments) {
         window.UIState.pruneExpanded(shipments.map((s) => s.id));
     }
 
+    // Fallback tỉ giá: shipments không có tiGia riêng vẫn được quy ra VND trên header
+    // bằng cách dùng tỉ giá đầu tiên non-zero ở bất kỳ shipment nào (vd đợt 1 đã set).
+    // Cuối cùng fallback hard-coded 4500 (same default as inner product table).
+    const fallbackTiGia = shipments.reduce((acc, s) => acc || parseFloat(s.tiGia) || 0, 0) || 4500;
+    shipments.forEach((s) => {
+        s._effectiveTiGia = parseFloat(s.tiGia) || fallbackTiGia;
+    });
+
     // Compute per-row balance, GROUPED BY đợt, sorted date-ASC:
     //   Số dư_i = (i==0 ? 0 : Còn dư_{i-1}) + payments_in_window
     //     - first row: payments with ngayTT <= ngayDiHang_0 (catch-up trước shipment đầu)
@@ -685,34 +693,32 @@ function createShipmentCard(shipment) {
     // Build packages info string with checkboxes
     const packages = shipment.kienHang || [];
     const totalKg = packages.reduce((sum, p) => sum + (p.soKg || 0), 0);
-    const canViewTT = permissionHelper?.can('view_thanhToanCK');
     const shipHD = parseFloat(shipment.tongTienHoaDon) || 0;
     const shipCP = parseFloat(shipment.tongChiPhi) || 0;
-    const shipTiGia = parseFloat(shipment.tiGia) || 0;
+    // Use _effectiveTiGia (shipment.tiGia || global fallback || 4500) — all đợt quy ra VND.
+    const shipTiGia = parseFloat(shipment._effectiveTiGia) || parseFloat(shipment.tiGia) || 4500;
     const vndSuffix = (cny) => {
         if (!cny || !shipTiGia) return '';
         return ` <span class="ship-tong-hd-vnd">(${formatNumber(Math.round((cny * shipTiGia) / 1000))})</span>`;
     };
-    // Financial row (row 2): no leading `|` — joined with `|` separator between items.
+    // Financial row (row 2) — hiển thị cho TẤT CẢ account (không gate permission).
     // Số dư (per-row): prev Còn dư + payments dated trong window này — xem renderShipments.
     const soDu = typeof shipment._soDu === 'number' ? shipment._soDu : 0;
     const fmtSignedCny = (n) => `${n < 0 ? '-' : ''}$${formatNumber(Math.abs(n))}`;
-    const ttHtml = canViewTT
-        ? `<span class="ship-so-du ${soDu >= 0 ? 'is-pos' : 'is-neg'}">Số dư: <span class="ship-so-du-num">${fmtSignedCny(soDu)}</span>${vndSuffix(soDu)}</span>`
-        : '';
+    const ttHtml = `<span class="ship-so-du ${soDu >= 0 ? 'is-pos' : 'is-neg'}">Số dư: <span class="ship-so-du-num">${fmtSignedCny(soDu)}</span>${vndSuffix(soDu)}</span>`;
     const hdHtml =
-        canViewTT && shipHD > 0
+        shipHD > 0
             ? `<span class="ship-tong-hd">Tổng HĐ: <span class="ship-tong-hd-num">$${formatNumber(shipHD)}</span>${vndSuffix(shipHD)}</span>`
             : '';
     const cpHtml =
-        canViewCost && shipCP > 0
+        shipCP > 0
             ? `<span class="ship-tong-cp">Tổng CP: <span class="ship-tong-cp-num">$${formatNumber(shipCP)}</span>${vndSuffix(shipCP)}</span>`
             : '';
-    // Còn dư (per-row): Số dư - HD - CP. Show only if user can see both HD + CP.
+    // Còn dư (per-row): Số dư - HD - CP.
     const runningVal =
         typeof shipment._runningBalance === 'number' ? shipment._runningBalance : null;
     const runningHtml =
-        canViewTT && canViewCost && runningVal !== null
+        runningVal !== null
             ? `<span class="ship-tong-running ${runningVal >= 0 ? 'is-pos' : 'is-neg'}">Còn dư: <span class="ship-tong-running-num">${fmtSignedCny(runningVal)}</span>${vndSuffix(runningVal)}</span>`
             : '';
     const financialItems = [ttHtml, hdHtml, cpHtml, runningHtml].filter(Boolean);
