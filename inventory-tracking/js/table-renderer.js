@@ -669,23 +669,28 @@ function createShipmentCard(shipment) {
         if (!cny || !shipTiGia) return '';
         return ` <span class="ship-tong-hd-vnd">(${formatNumber(Math.round((cny * shipTiGia) / 1000))})</span>`;
     };
-    const tongHDSuffix =
+    // Financial row (row 2): no leading `|` — joined with `|` separator between items.
+    const hdHtml =
         canViewTT && shipHD > 0
-            ? ` <span class="ship-tong-hd">| Tổng HĐ: <span class="ship-tong-hd-num">$${formatNumber(shipHD)}</span>${vndSuffix(shipHD)}</span>`
+            ? `<span class="ship-tong-hd">Tổng HĐ: <span class="ship-tong-hd-num">$${formatNumber(shipHD)}</span>${vndSuffix(shipHD)}</span>`
             : '';
-    const tongCPSuffix =
+    const cpHtml =
         canViewCost && shipCP > 0
-            ? ` <span class="ship-tong-cp">| Tổng CP: <span class="ship-tong-cp-num">$${formatNumber(shipCP)}</span>${vndSuffix(shipCP)}</span>`
+            ? `<span class="ship-tong-cp">Tổng CP: <span class="ship-tong-cp-num">$${formatNumber(shipCP)}</span>${vndSuffix(shipCP)}</span>`
             : '';
     // Running balance (date-ASC accumulated): row[0]=HD-CP; row[i]=prev-HD-CP.
     // Show only if user can see both HD (canViewTT) and CP (canViewCost).
     const runningVal =
         typeof shipment._runningBalance === 'number' ? shipment._runningBalance : null;
     const fmtSignedCny = (n) => `${n < 0 ? '-' : ''}$${formatNumber(Math.abs(n))}`;
-    const tongRunningSuffix =
+    const runningHtml =
         canViewTT && canViewCost && runningVal !== null
-            ? ` <span class="ship-tong-running ${runningVal >= 0 ? 'is-pos' : 'is-neg'}">| Còn dư: <span class="ship-tong-running-num">${fmtSignedCny(runningVal)}</span>${vndSuffix(runningVal)}</span>`
+            ? `<span class="ship-tong-running ${runningVal >= 0 ? 'is-pos' : 'is-neg'}">Còn dư: <span class="ship-tong-running-num">${fmtSignedCny(runningVal)}</span>${vndSuffix(runningVal)}</span>`
             : '';
+    const financialItems = [hdHtml, cpHtml, runningHtml].filter(Boolean);
+    const financialRowHtml = financialItems.length
+        ? `<div class="shipment-financial-row">${financialItems.join('<span class="shipment-separator">|</span>')}</div>`
+        : '';
     let packagesInfo;
     if (packages.length > 0) {
         const packageWeightsHtml = packages
@@ -703,27 +708,30 @@ function createShipmentCard(shipment) {
         const allChecked = packages.every((p) => !!p.daNhan);
         const checkAllAttr = allChecked ? ' checked' : '';
         packagesInfo =
-            `${packages.length} Kiện : ${packageWeightsHtml} | Tổng ${formatNumber(totalKg)} KG${tongHDSuffix}${tongCPSuffix}${tongRunningSuffix}` +
+            `${packages.length} Kiện : ${packageWeightsHtml} | Tổng ${formatNumber(totalKg)} KG` +
             `<label class="pkg-check-all-label" data-shipment="${shipment.id}">` +
             `<input type="checkbox" class="pkg-check-all" onclick="event.stopPropagation(); toggleAllPkgCheck(this)" title="Đánh dấu đã nhận toàn bộ"${checkAllAttr}>` +
             `</label>`;
     } else {
-        packagesInfo = `0 Kiện${tongHDSuffix}${tongCPSuffix}${tongRunningSuffix}`;
+        packagesInfo = `0 Kiện`;
     }
 
     card.innerHTML = `
         <div class="shipment-header">
-            <div class="shipment-date-packages">
-                <i data-lucide="chevron-right" class="shipment-chevron"></i>
-                <i data-lucide="calendar"></i>
-                <span class="shipment-date-text">Ngày giao: ${formatDateDisplay(shipment.ngayDiHang)}</span>
-                <span class="shipment-separator">-</span>
-                <span class="shipment-dot-badge" style="background:#EEF2FF;color:#4338CA;padding:2px 8px;border-radius:6px;font-weight:600;font-size:12px">Đợt ${shipment.dotSo || 1}</span>
-                <span class="shipment-separator">-</span>
-                <span class="shipment-packages-badge">
-                    <i data-lucide="box"></i>
-                    ${packagesInfo}
-                </span>
+            <div class="shipment-left">
+                <div class="shipment-date-packages">
+                    <i data-lucide="chevron-right" class="shipment-chevron"></i>
+                    <i data-lucide="calendar"></i>
+                    <span class="shipment-date-text">Ngày giao: ${formatDateDisplay(shipment.ngayDiHang)}</span>
+                    <span class="shipment-separator">-</span>
+                    <span class="shipment-dot-badge" style="background:#EEF2FF;color:#4338CA;padding:2px 8px;border-radius:6px;font-weight:600;font-size:12px">Đợt ${shipment.dotSo || 1}</span>
+                    <span class="shipment-separator">-</span>
+                    <span class="shipment-packages-badge">
+                        <i data-lucide="box"></i>
+                        ${packagesInfo}
+                    </span>
+                </div>
+                ${financialRowHtml}
             </div>
             <div class="shipment-actions">
                 ${

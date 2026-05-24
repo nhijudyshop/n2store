@@ -807,6 +807,15 @@ body {
     display: none;
 }
 
+/* Shipment header left side: 2-row layout (date+packages on row 1, financial on row 2) */
+.shipment-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
 /* Date and Packages Combined Header */
 .shipment-date-packages {
     display: flex;
@@ -814,7 +823,6 @@ body {
     gap: 10px;
     flex-wrap: nowrap;
     min-width: 0;
-    flex: 1 1 auto;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: thin;
@@ -825,6 +833,31 @@ body {
 .shipment-date-packages::-webkit-scrollbar-thumb {
     background: var(--gray-300);
     border-radius: 2px;
+}
+
+/* Row 2: Tổng HĐ | Tổng CP | Còn dư */
+.shipment-financial-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    padding-left: 34px;
+    font-size: 13px;
+}
+.shipment-financial-row::-webkit-scrollbar {
+    height: 4px;
+}
+.shipment-financial-row::-webkit-scrollbar-thumb {
+    background: var(--gray-300);
+    border-radius: 2px;
+}
+.shipment-financial-row > span {
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .shipment-date-packages > i {
