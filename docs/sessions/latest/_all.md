@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9194b42` — feat(delivery-report/report): NGAY column hien thi ngay nhap lieu (entry = real + 1), filter theo entry
-**Last updated**: 2026-05-24 12:59:48 +07
-**Latest session**: [`RESUME:20260524-125948-9194b42`](../20260524-125948-9194b42.md)
-**Summary**: feat(delivery-report/report): NGAY column hien thi ngay nhap lieu (entry = real + 1), filter theo entry
+**Latest commit**: `bcd130a` — auto: session update
+**Last updated**: 2026-05-24 13:06:48 +07
+**Latest session**: [`RESUME:20260524-130648-bcd130a`](../20260524-130648-bcd130a.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 1 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +23,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 12:59
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 13:06
 - [`docs/`](./docs.md) — updated 2026-05-24 12:59
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
