@@ -25,6 +25,29 @@
 
 ## 2026-05-24
 
+### [delivery-report] Báo cáo modal: bỏ input SL ĐƠN (rớt), thêm cột SL ĐƠN SHIP cộng vào TỔNG TẤT CẢ
+
+**User ask**: (1) Bỏ input "rớt" trong cột SL ĐƠN — chỉ còn số đếm. (2) Thêm cột SL ĐƠN SHIP (editable) — TỔNG TẤT CẢ = TIỀN − PHÍ SHIP + (SL ĐƠN SHIP × 23.000).
+
+**Files**:
+
+- `delivery-report/js/report.js`
+    - Header table: bỏ `<small>(rớt)</small>` + tooltip; thêm `<th class="num input-col">SL ĐƠN SHIP</th>` giữa PHÍ SHIP và TỔNG TẤT CẢ → tổng 11 cột.
+    - `paintTable`: cột SL ĐƠN giờ render `${formatNumber(slDon)}` (no input, no formula); thêm cell `<input data-field="slShip" type="number">`; công thức `totalAll = money - shipFee + slShip * SHIP_FEE_PER_ORDER`.
+    - Bỏ field `slRot` khỏi totals; thêm `slShip` totals + footer cell.
+    - `tbody focusout` delegation: handle `slShip` (replace `slRot` numeric branch).
+    - Empty/loading state colspan 10 → 11.
+
+**Verify** (Playwright localhost, range entry 18/05–24/05):
+
+- Headers: NGÀY, SL ĐƠN, TIỀN, PHÍ SHIP, SL ĐƠN SHIP, TỔNG TẤT CẢ, BO NHẬN CK, ATRƯỜNG NHẬN CK, CK TRƯỚC, TỔNG CÒN LẠI, GHI CHÚ (11).
+- Row entry 18/05: SL ĐƠN=2, TIỀN=1.058.000, PHÍ SHIP=46.000 (=2×23k), SL ĐƠN SHIP=∅ → TỔNG TẤT CẢ=1.012.000.
+- Nhập SL ĐƠN SHIP=5: TỔNG TẤT CẢ → 1.127.000 (=1.012.000 + 5×23.000) ✅
+- Footer SL ĐƠN SHIP tổng cộng dồn đúng.
+- Screenshot: `downloads/n2store-session/dr-report-slship.png`.
+
+**Status**: ✅ Done
+
 ### [delivery-report] Báo cáo modal: NGÀY column hiển thị ngày nhập liệu (entry = real + 1), filter theo entry
 
 **User ask**: Cột NGÀY tự + lên 1 ngày → gọi là "ngày nhập liệu". Hover hiện ngày thật. Filter `Từ → Đến` cũng theo ngày nhập liệu. Không sửa dữ liệu — chỉ display + filter.
