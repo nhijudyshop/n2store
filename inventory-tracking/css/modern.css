@@ -937,12 +937,16 @@ body {
     font-weight: 700;
 }
 
-.ship-tong-tt {
-    color: #1d4ed8;
+.ship-so-du {
     font-weight: 700;
 }
-.ship-tong-tt-num {
+.ship-so-du.is-pos {
     color: #1d4ed8;
+}
+.ship-so-du.is-neg {
+    color: #b91c1c;
+}
+.ship-so-du-num {
     font-weight: 700;
 }
 

@@ -514,12 +514,12 @@ function renderShipments(shipments) {
         window.UIState.pruneExpanded(shipments.map((s) => s.id));
     }
 
-    // Compute running balance per shipment in date-ASC order, GROUPED BY đợt:
-    //   row[0] of đợt: running = TT_đợt - HD - CP
-    //   row[i] of đợt: running = running[i-1] - HD - CP
-    // → row cuối (newest) ra = TT - Σ HD - Σ CP = CÒN LẠI của đợt (match modal).
-    // TT là per-đợt — lấy từ `shipment.thanhToanCK` (mirrored across shipments cùng đợt).
-    // Attach to shipment: _runningBalance + _dotTongTT để card render độc lập với order.
+    // Compute per-row balance, GROUPED BY đợt, sorted date-ASC:
+    //   Số dư_i = (i==0 ? 0 : Còn dư_{i-1}) + payments_in_window
+    //     - first row: payments with ngayTT <= ngayDiHang_0 (catch-up trước shipment đầu)
+    //     - row i>0: payments with ngayDiHang_{i-1} < ngayTT <= ngayDiHang_i
+    //   Còn dư_i = Số dư_i - HD_i - CP_i
+    // → last row Còn dư = Σ TT_đợt - Σ HD - Σ CP (match modal CÒN LẠI per-đợt)
     const byDot = new Map();
     shipments.forEach((s) => {
         const k = s.dotSo || 0;
@@ -531,16 +531,28 @@ function renderShipments(shipments) {
             (a, b) => new Date(a.ngayDiHang || 0).getTime() - new Date(b.ngayDiHang || 0).getTime()
         );
         const payments = (arr[0] && arr[0].thanhToanCK) || [];
-        const dotTongTT = Array.isArray(payments)
-            ? payments.reduce((sum, p) => sum + (parseFloat(p.soTienTT) || 0), 0)
-            : 0;
-        let running = 0;
+        const paymentsByDate = Array.isArray(payments) ? payments : [];
+        let conDuPrev = 0;
+        let prevDateMs = -Infinity;
         arr.forEach((s, i) => {
+            const curDateMs = s.ngayDiHang ? new Date(s.ngayDiHang).getTime() : 0;
+            // Sum payments in window (prevDateMs, curDateMs]. First row: window is (-∞, curDateMs].
+            const windowTT = paymentsByDate.reduce((sum, p) => {
+                const t = p.ngayTT ? new Date(p.ngayTT).getTime() : 0;
+                if (!t) return sum;
+                if (t > prevDateMs && t <= curDateMs) {
+                    return sum + (parseFloat(p.soTienTT) || 0);
+                }
+                return sum;
+            }, 0);
+            const soDu = (i === 0 ? 0 : conDuPrev) + windowTT;
             const hd = parseFloat(s.tongTienHoaDon) || 0;
             const cp = parseFloat(s.tongChiPhi) || 0;
-            running = i === 0 ? dotTongTT - hd - cp : running - hd - cp;
-            s._runningBalance = running;
-            s._dotTongTT = dotTongTT;
+            const conDu = soDu - hd - cp;
+            s._soDu = soDu;
+            s._runningBalance = conDu;
+            conDuPrev = conDu;
+            prevDateMs = curDateMs;
         });
     });
 
@@ -682,17 +694,12 @@ function createShipmentCard(shipment) {
         return ` <span class="ship-tong-hd-vnd">(${formatNumber(Math.round((cny * shipTiGia) / 1000))})</span>`;
     };
     // Financial row (row 2): no leading `|` — joined with `|` separator between items.
-    // Tổng TT (đợt-level, đã absorb vào shipment.thanhToanCK) — show on row 2 trước HD.
-    const dotTongTT =
-        typeof shipment._dotTongTT === 'number'
-            ? shipment._dotTongTT
-            : Array.isArray(shipment.thanhToanCK)
-              ? shipment.thanhToanCK.reduce((s, p) => s + (parseFloat(p.soTienTT) || 0), 0)
-              : 0;
-    const ttHtml =
-        canViewTT && dotTongTT > 0
-            ? `<span class="ship-tong-tt">Tổng TT: <span class="ship-tong-tt-num">$${formatNumber(dotTongTT)}</span>${vndSuffix(dotTongTT)}</span>`
-            : '';
+    // Số dư (per-row): prev Còn dư + payments dated trong window này — xem renderShipments.
+    const soDu = typeof shipment._soDu === 'number' ? shipment._soDu : 0;
+    const fmtSignedCny = (n) => `${n < 0 ? '-' : ''}$${formatNumber(Math.abs(n))}`;
+    const ttHtml = canViewTT
+        ? `<span class="ship-so-du ${soDu >= 0 ? 'is-pos' : 'is-neg'}">Số dư: <span class="ship-so-du-num">${fmtSignedCny(soDu)}</span>${vndSuffix(soDu)}</span>`
+        : '';
     const hdHtml =
         canViewTT && shipHD > 0
             ? `<span class="ship-tong-hd">Tổng HĐ: <span class="ship-tong-hd-num">$${formatNumber(shipHD)}</span>${vndSuffix(shipHD)}</span>`
@@ -701,11 +708,9 @@ function createShipmentCard(shipment) {
         canViewCost && shipCP > 0
             ? `<span class="ship-tong-cp">Tổng CP: <span class="ship-tong-cp-num">$${formatNumber(shipCP)}</span>${vndSuffix(shipCP)}</span>`
             : '';
-    // Running balance (date-ASC accumulated): row[0]=HD-CP; row[i]=prev-HD-CP.
-    // Show only if user can see both HD (canViewTT) and CP (canViewCost).
+    // Còn dư (per-row): Số dư - HD - CP. Show only if user can see both HD + CP.
     const runningVal =
         typeof shipment._runningBalance === 'number' ? shipment._runningBalance : null;
-    const fmtSignedCny = (n) => `${n < 0 ? '-' : ''}$${formatNumber(Math.abs(n))}`;
     const runningHtml =
         canViewTT && canViewCost && runningVal !== null
             ? `<span class="ship-tong-running ${runningVal >= 0 ? 'is-pos' : 'is-neg'}">Còn dư: <span class="ship-tong-running-num">${fmtSignedCny(runningVal)}</span>${vndSuffix(runningVal)}</span>`
