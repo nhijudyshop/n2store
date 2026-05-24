@@ -92,21 +92,23 @@ async function ensureSchema(pool) {
         );
         console.log('[livestream-snapshots] cleanup done — multi-client race condition fixed');
     }
-    // One-time post-crop-fix TRUNCATE: snapshot cũ saved trước khi crop logic
-    // có bytea = whole-web pixels. User báo: 'xóa DB snapshot cũ' → clear lại
-    // để snapshot mới đều dùng cropped iframe (commit 5690bf8a9).
-    // Gate qua table comment marker 'v20260524x-cropfix' → idempotent.
+    // One-time post-crop-fix TRUNCATE: user báo prev migration didn't actually
+    // clear DB (still seeing old snapshots in web). Bump marker để force re-run.
+    // Marker version mới: v20260524y-cropfix-v2.
     const descCheck = await pool.query(
         `SELECT obj_description('livestream_snapshots'::regclass, 'pg_class') AS d`
     );
     const desc = descCheck.rows[0]?.d || '';
-    if (!desc.includes('v20260524x-cropfix')) {
-        console.log('[livestream-snapshots] one-time post-crop-fix TRUNCATE...');
+    if (!desc.includes('v20260524y-cropfix-v2')) {
+        console.log('[livestream-snapshots] one-time post-crop-fix TRUNCATE v2 — force clear...');
+        const before = await pool.query(`SELECT count(*) AS c FROM livestream_snapshots`);
         await pool.query('TRUNCATE livestream_snapshots');
         await pool.query(
-            `COMMENT ON TABLE livestream_snapshots IS 'v20260524x-cropfix — snapshots cleared after crop-to-iframe logic'`
+            `COMMENT ON TABLE livestream_snapshots IS 'v20260524y-cropfix-v2 — snapshots cleared (forced) after crop-to-iframe logic'`
         );
-        console.log('[livestream-snapshots] post-crop-fix TRUNCATE done');
+        console.log(
+            `[livestream-snapshots] post-crop-fix TRUNCATE done — deleted ${before.rows[0].c} rows`
+        );
     }
     _schemaReady = true;
     console.log('[livestream-snapshots] schema ready');
