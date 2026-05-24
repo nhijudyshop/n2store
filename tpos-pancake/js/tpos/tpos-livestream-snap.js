@@ -171,6 +171,11 @@
             if (ok) {
                 STATE.extReady = true;
                 console.log(`[snap-ext] v${data.version} OK — capture qua extension (no popup)`);
+                // MANDATORY Enter modal: show NGAY sau khi version OK. User
+                // bắt buộc bấm Enter để bật stream mode trước khi dùng web.
+                setTimeout(() => {
+                    if (!STATE.captureStream) _showStreamModePrompt();
+                }, 500);
             } else {
                 STATE.extReady = false;
                 STATE.extOutdated = true;
@@ -1208,12 +1213,8 @@ Throttle 30s/KH. Click để tắt.`;
             const hint = document.getElementById('tpos-snap-fb-hint');
             if (hint) hint.remove();
             _toast('✅ Auto-snap qua extension — không cần share popup', 'ok');
-            // Delay 5s rồi show modal Enter — đủ thời gian cho page-click
-            // auto-grab (content script listener) thử trước. Nếu Chrome accept
-            // page click → captureStream wired → modal không show.
-            setTimeout(() => {
-                if (!STATE.captureStream) _showStreamModePrompt();
-            }, 5000);
+            // Modal Enter đã trigger sớm hơn ở EXTENSION_VERSION handler. Nếu
+            // user chưa bấm Enter (modal đang chờ) thì stream chưa wire.
             return true;
         }
         try {
@@ -1280,50 +1281,47 @@ Throttle 30s/KH. Click để tắt.`;
         }
     }
 
-    // Custom modal — fallback khi page-click auto-grab fail. User press Enter
-    // (hoặc click button) → keydown handler trong DOM context → chrome.runtime
-    // .sendMessage → tab activation MAY propagate → getMediaStreamId success.
-    // Nếu Chrome reject Enter approach → instruct user click extension icon.
+    // MANDATORY Enter modal — block toàn bộ web cho đến khi user bấm Enter để
+    // grant streamId. Chrome browser security yêu cầu user gesture cho
+    // chrome.tabCapture.getMediaStreamId → Enter keydown trong modal handler là
+    // chỗ ổn nhất để propagate activation tới background. Modal KHÔNG có nút
+    // Dismiss / Bỏ qua / Escape — bắt buộc Enter.
     function _showStreamModePrompt() {
         if (STATE.captureStream) return; // đã có stream → không cần
-        if (sessionStorage.getItem('tpos_stream_prompt_dismiss')) return;
         if (document.getElementById('tpos-snap-stream-modal')) return;
         const overlay = document.createElement('div');
         overlay.id = 'tpos-snap-stream-modal';
         overlay.style.cssText =
-            'position:fixed;inset:0;z-index:99800;background:rgba(15,23,42,0.55);display:flex;align-items:center;justify-content:center;padding:24px;font-family:Inter,system-ui,sans-serif;';
+            'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.75);display:flex;align-items:center;justify-content:center;padding:24px;font-family:Inter,system-ui,sans-serif;backdrop-filter:blur(4px);';
         overlay.innerHTML = `
-            <div style="background:#fff;border-radius:14px;padding:24px 28px;max-width:440px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,0.3);">
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                    <span style="font-size:22px;">🎬</span>
-                    <h3 style="margin:0;font-size:16px;font-weight:700;color:#0f172a;">Bật capture stream</h3>
+            <div style="background:#fff;border-radius:16px;padding:32px 36px;max-width:480px;width:100%;box-shadow:0 32px 80px rgba(0,0,0,0.4);">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                    <span style="font-size:32px;">🎬</span>
+                    <h3 style="margin:0;font-size:18px;font-weight:800;color:#0f172a;">Bấm Enter để bật capture stream</h3>
                 </div>
-                <p style="margin:0 0 14px;font-size:13px;color:#475569;line-height:1.55;">
-                    Page-click chưa đủ để Chrome cấp quyền capture tab-inactive.
-                    <strong>Bấm Enter</strong> để thử lại với user gesture mạnh hơn.
+                <p style="margin:0 0 16px;font-size:14px;color:#475569;line-height:1.6;">
+                    Chrome browser yêu cầu user gesture để extension lấy stream tab.
+                    <strong>Bấm phím Enter</strong> 1 lần ngay bây giờ — sau đó capture
+                    livestream chạy tự động dù anh switch sang tab khác / minimize browser.
                 </p>
-                <div style="background:#f1f5f9;border-radius:8px;padding:10px 12px;margin-bottom:14px;">
-                    <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px;">Phím tắt</div>
-                    <div style="display:flex;gap:6px;align-items:center;font-size:13px;">
-                        <kbd style="padding:3px 10px;background:#fff;border:1px solid #cbd5e1;border-bottom-width:2px;border-radius:5px;font-family:ui-monospace,monospace;font-size:12px;font-weight:600;color:#334155;">Enter</kbd>
-                        <span style="color:#475569;">— Thử grab streamId qua user gesture</span>
-                    </div>
+                <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;margin-bottom:18px;display:flex;gap:10px;align-items:center;">
+                    <kbd style="padding:6px 14px;background:#fff;border:1px solid #cbd5e1;border-bottom-width:3px;border-radius:6px;font-family:ui-monospace,monospace;font-size:14px;font-weight:700;color:#0f172a;">Enter</kbd>
+                    <span style="font-size:13px;color:#78350f;font-weight:600;">— Bắt buộc bấm để dùng web</span>
                 </div>
-                <div style="display:flex;gap:8px;">
-                    <button type="button" id="tpos-snap-stream-modal-go" style="flex:1;padding:10px 14px;background:#0284c7;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">Bật ngay (Enter)</button>
-                    <button type="button" id="tpos-snap-stream-modal-dismiss" style="padding:10px 14px;background:#e2e8f0;color:#475569;border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">Bỏ qua</button>
-                </div>
-                <div id="tpos-snap-stream-modal-status" style="margin-top:10px;font-size:11px;color:#64748b;line-height:1.4;min-height:14px;"></div>
+                <button type="button" id="tpos-snap-stream-modal-go" autofocus style="width:100%;padding:14px 18px;background:linear-gradient(135deg,#0284c7,#0369a1);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 6px 16px rgba(2,132,199,0.35);">
+                    🎬 BẬT NGAY (Enter)
+                </button>
+                <div id="tpos-snap-stream-modal-status" style="margin-top:14px;font-size:12px;color:#64748b;line-height:1.5;min-height:18px;text-align:center;"></div>
             </div>`;
         document.body.appendChild(overlay);
         const status = overlay.querySelector('#tpos-snap-stream-modal-status');
         const goBtn = overlay.querySelector('#tpos-snap-stream-modal-go');
-        const dismissBtn = overlay.querySelector('#tpos-snap-stream-modal-dismiss');
         let attempts = 0;
         const triggerGrab = () => {
             attempts++;
             goBtn.disabled = true;
-            status.style.color = '#475569';
+            goBtn.style.opacity = '0.6';
+            status.style.color = '#0c4a6e';
             status.textContent = `⏳ Đang grab streamId (attempt ${attempts})...`;
             // Send message in synchronous click/keydown context → activation
             // hopefully propagates.
@@ -1336,11 +1334,11 @@ Throttle 30s/KH. Click để tắt.`;
                     setTimeout(() => overlay.remove(), 800);
                 } else {
                     goBtn.disabled = false;
+                    goBtn.style.opacity = '1';
                     status.style.color = '#b91c1c';
-                    status.innerHTML = `❌ Chrome reject. Hãy click <strong>icon N2Store</strong> trên thanh extension Chrome thay vì Enter.`;
+                    status.innerHTML = `❌ Chrome reject. Click <strong>icon N2Store</strong> trên thanh extension Chrome → popup tự bật stream.`;
                 }
             }, 3000);
-            // Listen for stream OK to close
             const onStream = (e) => {
                 if (e.source !== window || e.data?.type !== 'N2_TAB_STREAM_ID') return;
                 clearTimeout(checkTimer);
@@ -1352,23 +1350,20 @@ Throttle 30s/KH. Click để tắt.`;
             window.addEventListener('message', onStream);
         };
         goBtn.onclick = triggerGrab;
-        dismissBtn.onclick = () => {
-            sessionStorage.setItem('tpos_stream_prompt_dismiss', '1');
-            overlay.remove();
-        };
-        // Capture Enter keydown anywhere within document while modal open.
+        // MANDATORY Enter — block ALL key events khác. Escape không dismiss.
         const onKey = (e) => {
-            if (e.key === 'Enter' && document.getElementById('tpos-snap-stream-modal')) {
+            if (!document.getElementById('tpos-snap-stream-modal')) {
+                document.removeEventListener('keydown', onKey, true);
+                return;
+            }
+            if (e.key === 'Enter') {
                 e.preventDefault();
                 e.stopPropagation();
                 triggerGrab();
-            } else if (e.key === 'Escape') {
-                dismissBtn.click();
-                document.removeEventListener('keydown', onKey, true);
             }
+            // KHÔNG handle Escape — modal không dismiss được.
         };
         document.addEventListener('keydown', onKey, true);
-        // Auto-focus button để Enter trigger ngay.
         setTimeout(() => goBtn.focus(), 50);
     }
 
