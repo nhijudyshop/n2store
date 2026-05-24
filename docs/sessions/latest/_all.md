@@ -3,16 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `bf82d11` — feat(snap): chip ⚡ Force extract — re-trigger backend yt-dlp+ffmpeg pending
-**Last updated**: 2026-05-24 19:19:52 +07
-**Latest session**: [`RESUME:20260524-191952-bf82d11`](../20260524-191952-bf82d11.md)
-**Summary**: feat(snap): chip ⚡ Force extract — re-trigger backend yt-dlp+ffmpeg pending
+**Latest commit**: `50156e2` — ui(snap): ẩn chip Backfill — auto-snap + Force extract đã cover flow chính
+**Last updated**: 2026-05-24 19:26:38 +07
+**Latest session**: [`RESUME:20260524-192638-50156e2`](../20260524-192638-50156e2.md)
+**Summary**: ui(snap): ẩn chip Backfill — auto-snap + Force extract đã cover flow chính
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`downloads/`](./downloads.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
@@ -64,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 19:19
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 19:26
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
