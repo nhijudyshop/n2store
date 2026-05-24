@@ -25,6 +25,26 @@
 
 ## 2026-05-24
 
+### [shared/navigation] Install-prompt 3-layer detection (fix false positive với extension v1.0.11)
+
+**Bug**: User báo "đã cài extension rồi mà nó cứ hiện popup cài extension". Diagnosis: CWS live version là v1.0.11 nhưng marker code `data-n2store-extension` chỉ được thêm trong v1.0.12 (local, chưa publish). User cài v1.0.11 → no marker → modal hiện sai.
+
+**Fix — 3-layer detection robust với mọi version extension**:
+
+1. **DOM marker** (v1.0.12+): instant detect qua `<html data-n2store-extension="..">`
+2. **postMessage ping** (mọi version có content script): page gửi `{type: 'CHECK_EXTENSION_VERSION'}`, content script forward tới SW, SW response `{type: 'EXTENSION_VERSION', version, build, name}`, content script relay về page qua `window.postMessage`. Listener bắt → detected.
+3. **Auto-fired `EXTENSION_LOADED`**: extension content script tự fire `window.postMessage({type: 'EXTENSION_LOADED', from: 'EXTENSION'})` khi inject (mọi version đều có). Đăng ký listener NGAY đầu IIFE để khỏi miss event.
+4. **localStorage memoization**: nếu detect được lần nào → save `n2store_extension_detected_at` timestamp. Lần visit sau trong vòng 24h trust luôn, không cần ping.
+5. **MutationObserver**: watch `data-n2store-extension` attribute → nếu set muộn (race condition) → mark detected + close modal nếu đang hiện.
+
+CHECK_DELAY_MS tăng 2.5s → 4s để chờ content script kịp inject.
+
+**Files**: `shared/js/navigation-modern.js` — function `isExtensionInstalled`, `markDetected`, `pingExtensionViaMessage`, MutationObserver, early window listener.
+
+**Status**: ✅ Done — không cần bump extension version vì fix ở web side. Push lên GH Pages là user thấy effect ngay.
+
+---
+
 ### [issue-tracking] BÁN HÀNG/TRẢ HÀNG CSS: pixel-match TPOS invoicelist style
 
 **User ask**: "browser test vào tpos invoicelist coi css, giao diện bảng, chức năng, cách hiển thị, font chữ, cỡ chữ, hover, màu sắc, button" — apply TPOS visual style verbatim cho 2 tab vừa làm.

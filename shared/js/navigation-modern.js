@@ -7344,8 +7344,10 @@ setTimeout(() => {
 (function installExtensionPrompt() {
     const STORE_URL = 'https://chromewebstore.google.com/detail/dgcicifdlgamleagjangkbbcdgbhmfea';
     const DISMISS_KEY = 'n2store_install_prompt_dismissed_at';
+    const DETECTED_KEY = 'n2store_extension_detected_at';
     const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-    const CHECK_DELAY_MS = 2500; // chờ contentscript của extension chạy
+    const DETECTED_TRUST_MS = 24 * 60 * 60 * 1000; // 24h trust window
+    const CHECK_DELAY_MS = 4000; // chờ contentscript của extension chạy (tăng từ 2.5s → 4s để an toàn)
 
     // Skip if not on a page where extension content script would inject
     // (Manifest matches: nhijudy.store/*, nhijudyshop.github.io/*, *.nhijudyshop.workers.dev/*)
@@ -7364,8 +7366,70 @@ setTimeout(() => {
         if (lastDismissed && Date.now() - lastDismissed < COOLDOWN_MS) return;
     } catch {}
 
+    // Early listener: extension content script (mọi version) tự fire EXTENSION_LOADED khi inject.
+    // Đăng ký listener NGAY để khỏi miss event nếu content script load nhanh hơn start().
+    window.addEventListener('message', (ev) => {
+        if (ev.source !== window) return;
+        const data = ev.data;
+        if (!data || typeof data !== 'object') return;
+        if (
+            (data.type === 'EXTENSION_LOADED' && data.from === 'EXTENSION') ||
+            data.type === 'EXTENSION_VERSION'
+        ) {
+            try {
+                localStorage.setItem(DETECTED_KEY, String(Date.now()));
+            } catch {}
+            const modal = document.getElementById('n2storeInstallPromptModal');
+            if (modal) modal.remove();
+        }
+    });
+
+    // Detection 3 lớp, robust với mọi version extension:
+    // 1. DOM marker (v1.0.12+) — instant detection
+    // 2. postMessage ping (mọi version có content script) — reply qua window message
+    // 3. localStorage memoization — nếu đã detect trong 24h gần đây, trust
     function isExtensionInstalled() {
-        return !!document.documentElement.getAttribute('data-n2store-extension');
+        if (document.documentElement.getAttribute('data-n2store-extension')) return true;
+        try {
+            const lastDetectedAt = parseInt(localStorage.getItem(DETECTED_KEY) || '0', 10);
+            if (lastDetectedAt && Date.now() - lastDetectedAt < DETECTED_TRUST_MS) return true;
+        } catch {}
+        return false;
+    }
+
+    function markDetected() {
+        try {
+            localStorage.setItem(DETECTED_KEY, String(Date.now()));
+        } catch {}
+    }
+
+    // postMessage ping: gửi WAKE_UP, content script (mọi version) sẽ forward
+    // tới service worker. Service worker SẼ phản hồi qua port message hoặc
+    // window message tùy version. Ta listen response trong 1.5s.
+    function pingExtensionViaMessage() {
+        return new Promise((resolve) => {
+            let resolved = false;
+            const finish = (installed) => {
+                if (resolved) return;
+                resolved = true;
+                window.removeEventListener('message', onMsg);
+                resolve(installed);
+            };
+            const onMsg = (ev) => {
+                if (ev.source !== window) return;
+                const data = ev.data;
+                if (!data || typeof data !== 'object' || !data.type) return;
+                // Reply types từ extension SW relay qua content script.
+                // EXTENSION_VERSION là response của CHECK_EXTENSION_VERSION.
+                // EXTENSION_LOADED là handshake init từ extension.
+                if (data.type === 'EXTENSION_VERSION' || data.type === 'EXTENSION_LOADED') {
+                    finish(true);
+                }
+            };
+            window.addEventListener('message', onMsg);
+            window.postMessage({ type: 'CHECK_EXTENSION_VERSION' }, '*');
+            setTimeout(() => finish(false), 1500);
+        });
     }
 
     function showModal() {
@@ -7511,11 +7575,39 @@ setTimeout(() => {
             .addEventListener('click', () => close(true));
     }
 
+    // Listen cho marker được set sau khi script chạy (race condition fallback)
+    new MutationObserver(() => {
+        if (document.documentElement.getAttribute('data-n2store-extension')) {
+            markDetected();
+            const modal = document.getElementById('n2storeInstallPromptModal');
+            if (modal) modal.remove();
+        }
+    }).observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['data-n2store-extension'],
+    });
+
     // Check sau khi DOM ready và chờ thêm chút cho extension contentscript chạy
-    function start() {
-        setTimeout(() => {
-            if (!isExtensionInstalled()) showModal();
-        }, CHECK_DELAY_MS);
+    async function start() {
+        // Lớp 1+3: marker DOM hoặc localStorage trust window
+        if (isExtensionInstalled()) {
+            markDetected();
+            return;
+        }
+        // Chờ contentscript có cơ hội inject marker
+        await new Promise((r) => setTimeout(r, CHECK_DELAY_MS));
+        if (isExtensionInstalled()) {
+            markDetected();
+            return;
+        }
+        // Lớp 2: postMessage ping — work với extension version cũ chưa có marker
+        const respondedToPing = await pingExtensionViaMessage();
+        if (respondedToPing) {
+            markDetected();
+            return;
+        }
+        // Cả 3 lớp đều fail → user chưa cài extension
+        showModal();
     }
 
     if (document.readyState === 'loading') {
@@ -7524,8 +7616,9 @@ setTimeout(() => {
         start();
     }
 
-    // Nếu extension cài muộn / sau khi modal đã hiện → tự đóng modal
+    // Nếu extension cài muộn / sau khi modal đã hiện → tự đóng modal + save detected
     window.addEventListener('n2store-extension-ready', () => {
+        markDetected();
         const modal = document.getElementById('n2storeInstallPromptModal');
         if (modal) modal.remove();
     });

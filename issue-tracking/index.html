@@ -7,9 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản lý Sự vụ & Điều phối sau bán hàng</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=20260524d">
-    <link rel="stylesheet" href="css/page-tabs.css?v=20260524d">
-    <link rel="stylesheet" href="../shared/css/modern.css?v=20260524d">
+    <link rel="stylesheet" href="css/style.css?v=20260524e">
+    <link rel="stylesheet" href="css/page-tabs.css?v=20260524e">
+    <link rel="stylesheet" href="../shared/css/modern.css?v=20260524e">
     <!-- Mermaid.js for Flow Diagrams -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <!-- Lucide Icons for Notifications -->
@@ -17,10 +17,10 @@
     <!-- Firebase SDK for menu layout sync -->
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="../shared/js/firebase-config.js?v=20260524d"></script>
+    <script src="../shared/js/firebase-config.js?v=20260524e"></script>
     <!-- Navigation (deferred) -->
-    <script defer src="../shared/js/navigation-modern.js?v=20260524d"></script>
-<link rel="stylesheet" href="../shared/css/typography.css?v=20260524d" /> <!-- typography:shared -->
+    <script defer src="../shared/js/navigation-modern.js?v=20260524e"></script>
+<link rel="stylesheet" href="../shared/css/typography.css?v=20260524e" /> <!-- typography:shared -->
 </head>
 
 <body>
@@ -265,6 +265,7 @@
                     <table class="tpos-fso-table">
                         <thead>
                             <tr>
+                                <th style="width:30px;" class="tpos-fso-exp-col" aria-label="Mở rộng"></th>
                                 <th style="width:50px;text-align:center;">STT</th>
                                 <th style="width:160px;">Số HĐ</th>
                                 <th>Khách hàng</th>
@@ -278,7 +279,7 @@
                             </tr>
                         </thead>
                         <tbody data-bind="tbody">
-                            <tr><td colspan="10" class="tpos-fso-empty"><div class="tpos-fso-loader"><div class="sp"></div>Đang tải…</div></td></tr>
+                            <tr><td colspan="11" class="tpos-fso-empty"><div class="tpos-fso-loader"><div class="sp"></div>Đang tải…</div></td></tr>
                         </tbody>
                     </table>
                 </section>
@@ -364,6 +365,7 @@
                     <table class="tpos-fso-table">
                         <thead>
                             <tr>
+                                <th style="width:30px;" class="tpos-fso-exp-col" aria-label="Mở rộng"></th>
                                 <th style="width:50px;text-align:center;">STT</th>
                                 <th style="width:160px;">Số phiếu</th>
                                 <th style="width:160px;">PBH gốc</th>
@@ -376,7 +378,7 @@
                             </tr>
                         </thead>
                         <tbody data-bind="tbody">
-                            <tr><td colspan="9" class="tpos-fso-empty"><div class="tpos-fso-loader"><div class="sp"></div>Đang tải…</div></td></tr>
+                            <tr><td colspan="10" class="tpos-fso-empty"><div class="tpos-fso-loader"><div class="sp"></div>Đang tải…</div></td></tr>
                         </tbody>
                     </table>
                 </section>
@@ -836,31 +838,31 @@ Ví dụ:
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 
     <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
-    <script type="module" src="../shared/esm/compat.js?v=20260524d"></script>
+    <script type="module" src="../shared/esm/compat.js?v=20260524e"></script>
 
     <!-- Fallback for file:// protocol -->
     <script>
         if (window.location.protocol === 'file:') {
-            document.write('<script src="../shared/js/shared-auth-manager.js?v=20260524d"><\/script>');
+            document.write('<script src="../shared/js/shared-auth-manager.js?v=20260524e"><\/script>');
             document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
         }
     </script>
 
     <!-- Shared API Utils -->
-    <script src="../shared/js/shop-config.js?v=20260524d"></script>
-    <script src="../shared/js/api-config.js?v=20260524d"></script>
-    <script src="../shared/js/token-manager.js?v=20260524d"></script>
-    <script src="../shared/js/api-handler.js?v=20260524d"></script>
+    <script src="../shared/js/shop-config.js?v=20260524e"></script>
+    <script src="../shared/js/api-config.js?v=20260524e"></script>
+    <script src="../shared/js/token-manager.js?v=20260524e"></script>
+    <script src="../shared/js/api-handler.js?v=20260524e"></script>
 
     <!-- Module Scripts -->
-    <script src="js/firebase-init.js?v=20260524d"></script>
-    <script src="../shared/js/api-service.js?v=20260524d"></script>
-    <script src="../shared/js/audit-logger.js?v=20260524d"></script>
-    <script src="js/script.js?v=20260524d"></script>
-    <script src="js/customer-orders-lookup.js?v=20260524d"></script>
-    <script src="js/phone-copy.js?v=20260524d"></script>
-    <script src="js/tpos-fastsale-tab.js?v=20260524d"></script>
-    <script src="js/page-tabs.js?v=20260524d"></script>
+    <script src="js/firebase-init.js?v=20260524e"></script>
+    <script src="../shared/js/api-service.js?v=20260524e"></script>
+    <script src="../shared/js/audit-logger.js?v=20260524e"></script>
+    <script src="js/script.js?v=20260524e"></script>
+    <script src="js/customer-orders-lookup.js?v=20260524e"></script>
+    <script src="js/phone-copy.js?v=20260524e"></script>
+    <script src="js/tpos-fastsale-tab.js?v=20260524e"></script>
+    <script src="js/page-tabs.js?v=20260524e"></script>
 </body>
 
 </html>

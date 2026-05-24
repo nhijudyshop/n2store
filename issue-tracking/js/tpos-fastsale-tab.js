@@ -10,16 +10,22 @@
         invoice: {
             tposType: 'invoice',
             label: 'Hóa đơn',
-            colCount: 10,
+            colCount: 11,
+            tposPath: 'fastsaleorder/invoicelist',
             rowRenderer: renderInvoiceRow,
         },
         refund: {
             tposType: 'refund',
             label: 'Trả hàng',
-            colCount: 9,
+            colCount: 10,
+            tposPath: 'fastsaleorder/refundlist',
             rowRenderer: renderRefundRow,
         },
     };
+
+    function expandCell() {
+        return `<td class="tpos-fso-exp-cell"><button type="button" class="tpos-fso-exp-btn" data-action="expand" aria-expanded="false" title="Xem chi tiết"><i data-lucide="chevron-right"></i></button></td>`;
+    }
 
     const STATE_META = {
         draft: { label: 'Nháp', cls: 's-draft', icon: 'file' },
@@ -67,6 +73,7 @@
         const channel = row.CRMTeamName || row.Source || '—';
         const date = fmtDate(row.DateInvoice);
         return `<tr data-tpos-id="${row.Id || ''}">
+            ${expandCell()}
             <td style="text-align:center;color:#94a3b8;font-variant-numeric:tabular-nums;">${idx}</td>
             <td><span class="tpos-fso-num mono" data-action="open" data-id="${row.Id || ''}" data-num="${escapeHtml(row.Number || '')}">${escapeHtml(row.Number || '—')}</span></td>
             <td><div class="tpos-fso-customer">${escapeHtml(customer)}</div></td>
