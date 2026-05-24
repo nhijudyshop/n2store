@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `edc51e6` — perf(delivery-report/report): sync render on cache hit + event delegation (no per-cell listeners)
-**Last updated**: 2026-05-24 12:00:51 +07
-**Latest session**: [`RESUME:20260524-120051-edc51e6`](../20260524-120051-edc51e6.md)
-**Summary**: perf(delivery-report/report): sync render on cache hit + event delegation (no per-cell listeners)
+**Latest commit**: `f134e60` — feat(snap): ẩn badge popover + ẩn Chụp button + thumbnail hover zoom
+**Last updated**: 2026-05-24 12:04:56 +07
+**Latest session**: [`RESUME:20260524-120456-f134e60`](../20260524-120456-f134e60.md)
+**Summary**: feat(snap): ẩn badge popover + ẩn Chụp button + thumbnail hover zoom
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 1 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -61,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 11:58
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 12:04
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
