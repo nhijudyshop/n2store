@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fc67992` — fix(inventory/header): ép data 1 hàng — nowrap + overflow-x scroll cho row dài
-**Last updated**: 2026-05-24 09:50:01 +07
-**Latest session**: [`RESUME:20260524-095001-fc67992`](../20260524-095001-fc67992.md)
-**Summary**: fix(inventory/header): ép data 1 hàng — nowrap + overflow-x scroll cho row dài
+**Latest commit**: `fcc2585` — feat(inventory/header): tách 2 hàng — Ngày+Đợt+Kiện row 1, Tổng HĐ+CP+Còn dư row 2
+**Last updated**: 2026-05-24 09:52:18 +07
+**Latest session**: [`RESUME:20260524-095218-fcc2585`](../20260524-095218-fcc2585.md)
+**Summary**: feat(inventory/header): tách 2 hàng — Ngày+Đợt+Kiện row 1, Tổng HĐ+CP+Còn dư row 2
 
 ## Folders affected in this commit
 
-- [`inventory-tracking/`](./inventory-tracking.md) — 1 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -33,7 +33,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 09:50
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 09:52
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-22 14:45
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
