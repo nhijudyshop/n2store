@@ -844,6 +844,14 @@ Throttle 30s/KH. Click để tắt.`;
         const customerName = comment.from?.name || '?';
         const commentId = comment.id;
         if (!customerFbUserId) return;
+        // Dedup multi-client: nếu local cache đã có snap với bytea cho commentId
+        // → skip POST. Backend DB unique constraint cũng dedup, đây là optimization
+        // để giảm POST + giảm capture wasted khi nhiều máy mở cùng trang.
+        const existingSnap = STATE.snapByComment.get(commentId);
+        if (existingSnap?.thumbnailUrl?.includes('/api/livestream/snapshot/')) {
+            console.log('[snap-auto] skip — snap đã có bytea cho commentId', commentId);
+            return;
+        }
         // Throttle per customer
         const lastTs = STATE.autoLastSnap.get(customerFbUserId) || 0;
         const now = Date.now();

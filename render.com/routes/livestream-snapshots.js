@@ -77,6 +77,21 @@ async function ensureSchema(pool) {
         -- Phase 2: background extract status (pending|done|fail|drm_blocked|null=not_attempted).
         ALTER TABLE livestream_snapshots ADD COLUMN IF NOT EXISTS extract_status VARCHAR(20);
     `);
+    // One-time dedup migration: multi-client race condition tạo duplicate rows
+    // cho cùng commentId. Trước khi add UNIQUE INDEX, phải clean dup. Gate
+    // qua index existence → idempotent (chạy 1 lần thôi).
+    const idxCheck = await pool.query(
+        `SELECT 1 FROM pg_indexes WHERE indexname = 'uq_lss_comment_id'`
+    );
+    if (!idxCheck.rows.length) {
+        console.log('[livestream-snapshots] one-time dedup cleanup + add UNIQUE INDEX...');
+        // User confirm: 'bạn xóa DB rồi làm cũng được' → TRUNCATE clean slate.
+        await pool.query('TRUNCATE livestream_snapshots');
+        await pool.query(
+            `CREATE UNIQUE INDEX uq_lss_comment_id ON livestream_snapshots(comment_id)`
+        );
+        console.log('[livestream-snapshots] cleanup done — multi-client race condition fixed');
+    }
     _schemaReady = true;
     console.log('[livestream-snapshots] schema ready');
     _autoCleanupOldSnapshots(pool).catch(() => {});
@@ -240,6 +255,11 @@ router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
         // (self-served URL). User req: 'bỏ hết chức năng lấy thumbnail'.
         let thumbnailUrl = null;
         const user = b.user || {};
+        // ON CONFLICT (comment_id) DO UPDATE — multi-client race protection.
+        // 'First writer with bytea wins' via COALESCE: nếu existing đã có
+        // image_data thì giữ, ngược lại nhận bytea từ writer mới. Tránh trường
+        // hợp 5 máy chụp 5 frame khác nhau → 5 rows. Comment_id NULL không
+        // conflict (Postgres unique allows multiple NULLs by default).
         const r = await pool.query(
             `INSERT INTO livestream_snapshots
              (comment_id, customer_fb_user_id, customer_name, page_id, page_name,
@@ -247,7 +267,13 @@ router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
               offset_seconds, livestream_url, thumbnail_url, note,
               image_data, image_mime, image_size)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
-             RETURNING *`,
+             ON CONFLICT (comment_id) DO UPDATE SET
+               image_data = COALESCE(livestream_snapshots.image_data, EXCLUDED.image_data),
+               image_mime = COALESCE(livestream_snapshots.image_mime, EXCLUDED.image_mime),
+               image_size = COALESCE(livestream_snapshots.image_size, EXCLUDED.image_size),
+               customer_name = COALESCE(livestream_snapshots.customer_name, EXCLUDED.customer_name),
+               offset_seconds = COALESCE(livestream_snapshots.offset_seconds, EXCLUDED.offset_seconds)
+             RETURNING *, (xmax = 0) AS was_inserted`,
             [
                 b.commentId || null,
                 b.customerFbUserId,
@@ -268,10 +294,11 @@ router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
                 imageSize,
             ]
         );
-        // Nếu có image thật, update thumbnail_url về self-served endpoint.
-        // Derive absolute URL từ request để frontend trên GH Pages / localhost
-        // đều resolve đúng origin Render.
-        if (imageBuffer) {
+        const wasInserted = r.rows[0].was_inserted;
+        // Nếu row có image_data (mới hoặc tồn tại sau ON CONFLICT) và thumbnail_url
+        // chưa set → update về self-served endpoint. Derive absolute URL từ request
+        // để frontend trên GH Pages / localhost đều resolve đúng origin Render.
+        if (r.rows[0].image_data && !r.rows[0].thumbnail_url) {
             const selfBase =
                 req.app.locals.web2BaseUrl || process.env.SELF_URL || _resolveSelfBase(req);
             const selfImageUrl = `${selfBase}/api/livestream/snapshot/${r.rows[0].id}/image`;
@@ -282,8 +309,13 @@ router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
             r.rows[0].thumbnail_url = selfImageUrl;
         }
         const snap = _mapRow(r.rows[0]);
-        _notify('create', { customerFbUserId: snap.customerFbUserId, id: snap.id });
-        res.json({ success: true, snapshot: snap });
+        // Chỉ broadcast 'create' khi thực sự insert mới. Update từ ON CONFLICT
+        // → broadcast 'update' để các client refresh thumbnail.
+        _notify(wasInserted ? 'create' : 'update', {
+            customerFbUserId: snap.customerFbUserId,
+            id: snap.id,
+        });
+        res.json({ success: true, snapshot: snap, wasInserted });
     } catch (e) {
         console.error('[livestream-snapshots] create error:', e.message);
         res.status(500).json({ success: false, error: e.message });
