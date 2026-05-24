@@ -938,10 +938,22 @@ Throttle 30s/KH. Click để tắt.`;
             chip.style.borderColor = '#fde68a';
             chip.style.color = '#92400e';
         };
-        const _renderProgress = (done, failed, drm, total) => {
-            const finished = done + failed + drm;
+        const _renderProgress = (s, total) => {
+            const done = s.done || 0;
+            const failed = s.failed || 0;
+            const drm = s.drmBlocked || 0;
+            const live = s.liveActive || 0;
+            const finished = done + failed + drm + live;
             const pct = Math.round((finished / Math.max(1, total)) * 100);
-            chip.innerHTML = `⚡ ${finished}/${total} (${pct}%) <small style="opacity:0.7;">${done}✓ ${failed}✗${drm > 0 ? ' ' + drm + '🔒' : ''}</small>`;
+            const parts = [
+                done > 0 ? `${done}✓` : '',
+                failed > 0 ? `${failed}✗` : '',
+                drm > 0 ? `${drm}🔒` : '',
+                live > 0 ? `${live}🔴` : '',
+            ]
+                .filter(Boolean)
+                .join(' ');
+            chip.innerHTML = `⚡ ${finished}/${total} (${pct}%) <small style="opacity:0.75;">${parts}</small>`;
             chip.style.background = '#dbeafe';
             chip.style.borderColor = '#93c5fd';
             chip.style.color = '#1e40af';
@@ -983,7 +995,7 @@ Throttle 30s/KH. Click để tắt.`;
                 const batchId = d.batchId;
                 const total = d.queued;
                 _toast(`⚡ Queued ${total} snaps — backend chạy song song nhiều worker`, 'ok');
-                _renderProgress(0, 0, 0, total);
+                _renderProgress({}, total);
                 // Poll status mỗi 1s, stop khi finished >= total hoặc timeout 10 phút.
                 const startMs = Date.now();
                 const pollTimer = setInterval(async () => {
@@ -1006,15 +1018,29 @@ Throttle 30s/KH. Click để tắt.`;
                             return;
                         }
                         const s = sd.status;
-                        const finished = s.done + s.failed + s.drmBlocked;
-                        _renderProgress(s.done, s.failed, s.drmBlocked, total);
+                        const liveActive = s.liveActive || 0;
+                        const finished =
+                            (s.done || 0) + (s.failed || 0) + (s.drmBlocked || 0) + liveActive;
+                        _renderProgress(s, total);
                         if (finished >= total) {
                             clearInterval(pollTimer);
-                            _toast(
-                                `✅ Extract xong: ${s.done} OK, ${s.failed} fail, ${s.drmBlocked} DRM`,
-                                s.failed + s.drmBlocked > 0 ? 'err' : 'ok'
-                            );
-                            setTimeout(_resetChip, 2000);
+                            const parts = [];
+                            if (s.done > 0) parts.push(`${s.done} OK`);
+                            if (s.failed > 0) parts.push(`${s.failed} fail`);
+                            if (s.drmBlocked > 0) parts.push(`${s.drmBlocked} DRM`);
+                            if (liveActive > 0) parts.push(`${liveActive} live đang chạy`);
+                            _toast(`Extract xong: ${parts.join(', ')}`, s.done > 0 ? 'ok' : 'err');
+                            // Nếu có errors → log chi tiết ra console + show 1 error trong toast
+                            if (s.lastErrors?.length) {
+                                console.warn('[force-extract] errors:', s.lastErrors);
+                                setTimeout(() => {
+                                    _toast(
+                                        `Lỗi 1 snap: ${s.lastErrors[0].msg.slice(0, 100)}`,
+                                        'err'
+                                    );
+                                }, 1500);
+                            }
+                            setTimeout(_resetChip, 3000);
                         }
                     } catch (pe) {
                         console.warn('[force-extract] poll fail:', pe.message);

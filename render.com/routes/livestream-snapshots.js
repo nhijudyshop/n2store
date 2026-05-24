@@ -698,7 +698,9 @@ async function _processExtractJob(pool, job) {
                 `UPDATE livestream_snapshots SET extract_status = 'live_active' WHERE id = $1`,
                 [job.snapshotId]
             );
-            if (status) status.failed++;
+            // Track riêng liveActive (không phải failure thật — chỉ đang đợi
+            // live end để FB convert thành VOD). User cần hiểu rõ.
+            if (status) status.liveActive = (status.liveActive || 0) + 1;
             console.log(
                 '[lss-extract] snap',
                 job.snapshotId,
@@ -723,15 +725,29 @@ async function _processExtractJob(pool, job) {
         _notify('extract-done', { snapshotId: job.snapshotId, batchId: job.batchId });
     } catch (e) {
         const msg = String(e?.message || e);
-        // SIGSEGV / unsupported live = thường do đang live → mark live_active.
-        const isLiveSegfault = /SIGSEGV|killed with signal|live|seek/i.test(msg);
+        // Phân loại error chính xác hơn — chỉ mark live_active khi rõ ràng
+        // do live còn chạy (SIGSEGV trên seek backward / DASH live). Errors
+        // khác (Forbidden, 404, network) → 'fail' thật sự.
+        const isLiveSegfault =
+            /SIGSEGV|killed with signal/i.test(msg) && /live|seek|backward/i.test(msg);
         const newStatus = isLiveSegfault ? 'live_active' : 'fail';
-        console.warn('[lss-extract] snap', job.snapshotId, '→', newStatus, ':', msg.slice(0, 200));
+        console.warn('[lss-extract] snap', job.snapshotId, '→', newStatus, ':', msg.slice(0, 300));
         await pool.query(`UPDATE livestream_snapshots SET extract_status = $1 WHERE id = $2`, [
             newStatus,
             job.snapshotId,
         ]);
-        if (status) status.failed++;
+        if (status) {
+            if (newStatus === 'live_active') {
+                status.liveActive = (status.liveActive || 0) + 1;
+            } else {
+                status.failed++;
+            }
+            // Lưu last 5 errors để frontend show chi tiết
+            status.lastErrors = status.lastErrors || [];
+            if (status.lastErrors.length < 5) {
+                status.lastErrors.push({ id: job.snapshotId, msg: msg.slice(0, 200) });
+            }
+        }
     }
 }
 
@@ -753,7 +769,13 @@ function _startLiveActiveRetry(pool) {
             if (!r.rows.length) return;
             console.log('[lss-extract] retry', r.rows.length, 'live_active snaps');
             const batchId = 'retry_' + Date.now();
-            _batchStatus.set(batchId, { total: r.rows.length, done: 0, failed: 0, drmBlocked: 0 });
+            _batchStatus.set(batchId, {
+                total: r.rows.length,
+                done: 0,
+                failed: 0,
+                drmBlocked: 0,
+                liveActive: 0,
+            });
             // Clear m3u8 cache để re-resolve (live có thể đã end → VOD URL khác).
             _m3u8Cache.clear();
             for (const row of r.rows) {
@@ -824,7 +846,7 @@ router.post('/extract-frame', express.json({ limit: '500kb' }), async (req, res)
             [ids]
         );
         const batchId = 'ex_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-        const status = { total: 0, done: 0, failed: 0, drmBlocked: 0 };
+        const status = { total: 0, done: 0, failed: 0, drmBlocked: 0, liveActive: 0 };
         for (const row of r.rows) {
             // Skip nếu đã extract done với bytea sẵn.
             if (row.image_data && row.extract_status === 'done') continue;
@@ -888,7 +910,7 @@ router.post('/extract-all-pending', express.json({ limit: '500kb' }), async (req
             args
         );
         const batchId = 'ex_pending_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-        const status = { total: 0, done: 0, failed: 0, drmBlocked: 0 };
+        const status = { total: 0, done: 0, failed: 0, drmBlocked: 0, liveActive: 0 };
         for (const row of r.rows) {
             _extractQueue.push({
                 batchId,
