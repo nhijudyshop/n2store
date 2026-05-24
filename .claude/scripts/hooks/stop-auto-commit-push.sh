@@ -41,6 +41,14 @@ if [[ $PUSH_RC -ne 0 ]]; then
   exit 0
 fi
 
+# ---- 2.5. Auto-publish Chrome Extension nếu manifest version đổi ----
+# Idempotent + silent no-op nếu version không đổi hoặc CWS credentials chưa setup.
+# Đặt SAU push (đảm bảo manifest version mới nhất đã lên remote) và TRƯỚC session resume
+# (để publish summary hiển thị trước RESUME token, dễ đọc).
+if [[ -x scripts/auto-publish-extension.sh ]]; then
+  bash scripts/auto-publish-extension.sh 2>&1 || true
+fi
+
 # ---- 3. Quyết định có cần gen session resume không ----
 CURRENT_SHA="$(git rev-parse --short=7 HEAD 2>/dev/null || echo "")"
 LAST_MSG="$(git log -1 --pretty=%s 2>/dev/null || echo "")"

@@ -7,9 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản lý Sự vụ & Điều phối sau bán hàng</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=20260521b">
-    <link rel="stylesheet" href="css/page-tabs.css?v=20260524a">
-    <link rel="stylesheet" href="../shared/css/modern.css?v=20260521b">
+    <link rel="stylesheet" href="css/style.css?v=20260524b">
+    <link rel="stylesheet" href="css/page-tabs.css?v=20260524b">
+    <link rel="stylesheet" href="../shared/css/modern.css?v=20260524b">
     <!-- Mermaid.js for Flow Diagrams -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <!-- Lucide Icons for Notifications -->
@@ -17,10 +17,10 @@
     <!-- Firebase SDK for menu layout sync -->
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="../shared/js/firebase-config.js?v=20260521b"></script>
+    <script src="../shared/js/firebase-config.js?v=20260524b"></script>
     <!-- Navigation (deferred) -->
-    <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
-<link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" /> <!-- typography:shared -->
+    <script defer src="../shared/js/navigation-modern.js?v=20260524b"></script>
+<link rel="stylesheet" href="../shared/css/typography.css?v=20260524b" /> <!-- typography:shared -->
 </head>
 
 <body>
@@ -203,28 +203,201 @@
         </div><!-- /.container -->
         </div><!-- /.page-tab-pane (Tab 1: CSKH) -->
 
-        <!-- Tab 2: BÁN HÀNG — TPOS-clone embed of /web2/fastsaleorder-invoice/ -->
-        <div class="page-tab-pane embed-pane" data-tab="ban-hang" role="tabpanel" aria-labelledby="pt-tab-ban-hang">
-            <div class="embed-skeleton" aria-live="polite">
-                <div class="embed-skeleton-spinner" aria-hidden="true"></div>
-                <div>Đang tải BÁN HÀNG…</div>
+        <!-- Tab 2: BÁN HÀNG — TPOS live fetch (FastSaleOrder type=invoice) -->
+        <div class="page-tab-pane tpos-pane" data-tab="ban-hang" role="tabpanel" aria-labelledby="pt-tab-ban-hang">
+            <div class="tpos-fastsale" data-fso-type="invoice" data-fso-ns="inv">
+                <header class="tpos-fso-header">
+                    <div class="tpos-fso-breadcrumb">
+                        <span>App</span>
+                        <span class="sep">/</span>
+                        <span>Bán hàng</span>
+                        <span class="sep">/</span>
+                        <strong>Hóa đơn (FastSaleOrder)</strong>
+                    </div>
+                    <span class="tpos-fso-counter"><strong data-bind="count">0</strong> HĐ</span>
+                </header>
+                <section class="tpos-fso-filters">
+                    <div class="tpos-fso-search">
+                        <i data-lucide="search" class="ic"></i>
+                        <input type="text" data-bind="search" placeholder="Tìm số HĐ, SĐT, tên khách…" autocomplete="off">
+                        <button type="button" data-bind="searchClear" title="Xóa">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                    <div class="tpos-fso-chip">
+                        <label><i data-lucide="bookmark-check"></i> Trạng thái:</label>
+                        <select data-bind="state">
+                            <option value="">Tất cả</option>
+                            <option value="draft">Nháp</option>
+                            <option value="open">Đang xử lý</option>
+                            <option value="paid">Đã thanh toán</option>
+                            <option value="done">Hoàn thành</option>
+                            <option value="cancel">Đã hủy</option>
+                        </select>
+                    </div>
+                    <div class="tpos-fso-chip">
+                        <label><i data-lucide="calendar"></i> Từ:</label>
+                        <input type="date" data-bind="dateFrom">
+                    </div>
+                    <div class="tpos-fso-chip">
+                        <label>Đến:</label>
+                        <input type="date" data-bind="dateTo">
+                    </div>
+                    <div class="tpos-fso-chip">
+                        <label><i data-lucide="list"></i> Hiển thị:</label>
+                        <select data-bind="limit">
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100" selected>100</option>
+                            <option value="200">200</option>
+                        </select>
+                    </div>
+                    <div class="tpos-fso-actions">
+                        <button type="button" class="tpos-btn-mini" data-bind="reload" title="Tải lại">
+                            <i data-lucide="refresh-cw"></i> Tải lại
+                        </button>
+                        <button type="button" class="tpos-btn-mini" data-bind="clear" title="Xóa lọc">
+                            <i data-lucide="filter-x"></i> Xóa lọc
+                        </button>
+                    </div>
+                </section>
+                <section class="tpos-fso-table-wrap">
+                    <table class="tpos-fso-table">
+                        <thead>
+                            <tr>
+                                <th style="width:50px;text-align:center;">STT</th>
+                                <th style="width:160px;">Số HĐ</th>
+                                <th>Khách hàng</th>
+                                <th style="width:130px;">SĐT</th>
+                                <th>Địa chỉ</th>
+                                <th style="width:130px;text-align:right;">Tổng tiền</th>
+                                <th style="width:110px;text-align:right;">COD</th>
+                                <th style="width:140px;">Trạng thái</th>
+                                <th style="width:130px;">Kênh</th>
+                                <th style="width:150px;">Ngày HĐ</th>
+                            </tr>
+                        </thead>
+                        <tbody data-bind="tbody">
+                            <tr><td colspan="10" class="tpos-fso-empty"><div class="tpos-fso-loader"><div class="sp"></div>Đang tải…</div></td></tr>
+                        </tbody>
+                    </table>
+                </section>
+                <footer class="tpos-fso-pagination">
+                    <div class="info">
+                        Hiển thị <strong data-bind="from">0</strong>–<strong data-bind="to">0</strong>
+                        / <strong data-bind="total">0</strong> bản ghi
+                    </div>
+                    <div class="pages">
+                        <button type="button" class="tpos-btn-mini" data-bind="prev" title="Trang trước">
+                            <i data-lucide="chevron-left"></i>
+                        </button>
+                        Trang
+                        <input type="number" min="1" value="1" data-bind="page">
+                        / <span data-bind="totalPages">1</span>
+                        <button type="button" class="tpos-btn-mini" data-bind="next" title="Trang sau">
+                            <i data-lucide="chevron-right"></i>
+                        </button>
+                    </div>
+                </footer>
             </div>
-            <iframe class="embed-iframe"
-                    data-src="../web2/fastsaleorder-invoice/?embed=issue-tracking"
-                    title="Bán hàng (Hóa đơn)"
-                    referrerpolicy="no-referrer-when-downgrade"></iframe>
         </div>
 
-        <!-- Tab 3: TRẢ HÀNG — TPOS-clone embed of /web2/fastsaleorder-refund/ -->
-        <div class="page-tab-pane embed-pane" data-tab="tra-hang" role="tabpanel" aria-labelledby="pt-tab-tra-hang">
-            <div class="embed-skeleton" aria-live="polite">
-                <div class="embed-skeleton-spinner" aria-hidden="true"></div>
-                <div>Đang tải TRẢ HÀNG…</div>
+        <!-- Tab 3: TRẢ HÀNG — TPOS live fetch (FastSaleOrder type=refund) -->
+        <div class="page-tab-pane tpos-pane" data-tab="tra-hang" role="tabpanel" aria-labelledby="pt-tab-tra-hang">
+            <div class="tpos-fastsale" data-fso-type="refund" data-fso-ns="rf">
+                <header class="tpos-fso-header">
+                    <div class="tpos-fso-breadcrumb">
+                        <span>App</span>
+                        <span class="sep">/</span>
+                        <span>Bán hàng</span>
+                        <span class="sep">/</span>
+                        <strong>Trả hàng</strong>
+                    </div>
+                    <span class="tpos-fso-counter"><strong data-bind="count">0</strong> phiếu</span>
+                </header>
+                <section class="tpos-fso-filters">
+                    <div class="tpos-fso-search">
+                        <i data-lucide="search" class="ic"></i>
+                        <input type="text" data-bind="search" placeholder="Tìm số phiếu, PBH gốc, SĐT, tên KH…" autocomplete="off">
+                        <button type="button" data-bind="searchClear" title="Xóa">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                    <div class="tpos-fso-chip">
+                        <label><i data-lucide="undo-2"></i> Trạng thái:</label>
+                        <select data-bind="state">
+                            <option value="">Tất cả</option>
+                            <option value="draft">Nháp</option>
+                            <option value="open">Đang xử lý</option>
+                            <option value="paid">Đã hoàn tiền</option>
+                            <option value="done">Hoàn thành</option>
+                            <option value="cancel">Đã hủy</option>
+                        </select>
+                    </div>
+                    <div class="tpos-fso-chip">
+                        <label><i data-lucide="calendar"></i> Từ:</label>
+                        <input type="date" data-bind="dateFrom">
+                    </div>
+                    <div class="tpos-fso-chip">
+                        <label>Đến:</label>
+                        <input type="date" data-bind="dateTo">
+                    </div>
+                    <div class="tpos-fso-chip">
+                        <label><i data-lucide="list"></i> Hiển thị:</label>
+                        <select data-bind="limit">
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100" selected>100</option>
+                            <option value="200">200</option>
+                        </select>
+                    </div>
+                    <div class="tpos-fso-actions">
+                        <button type="button" class="tpos-btn-mini" data-bind="reload" title="Tải lại">
+                            <i data-lucide="refresh-cw"></i> Tải lại
+                        </button>
+                        <button type="button" class="tpos-btn-mini" data-bind="clear" title="Xóa lọc">
+                            <i data-lucide="filter-x"></i> Xóa lọc
+                        </button>
+                    </div>
+                </section>
+                <section class="tpos-fso-table-wrap">
+                    <table class="tpos-fso-table">
+                        <thead>
+                            <tr>
+                                <th style="width:50px;text-align:center;">STT</th>
+                                <th style="width:160px;">Số phiếu</th>
+                                <th style="width:160px;">PBH gốc</th>
+                                <th>Khách hàng</th>
+                                <th style="width:130px;">SĐT</th>
+                                <th style="width:130px;text-align:right;">Tiền hoàn</th>
+                                <th style="width:140px;">Trạng thái</th>
+                                <th style="width:130px;">Kênh</th>
+                                <th style="width:150px;">Ngày</th>
+                            </tr>
+                        </thead>
+                        <tbody data-bind="tbody">
+                            <tr><td colspan="9" class="tpos-fso-empty"><div class="tpos-fso-loader"><div class="sp"></div>Đang tải…</div></td></tr>
+                        </tbody>
+                    </table>
+                </section>
+                <footer class="tpos-fso-pagination">
+                    <div class="info">
+                        Hiển thị <strong data-bind="from">0</strong>–<strong data-bind="to">0</strong>
+                        / <strong data-bind="total">0</strong> bản ghi
+                    </div>
+                    <div class="pages">
+                        <button type="button" class="tpos-btn-mini" data-bind="prev" title="Trang trước">
+                            <i data-lucide="chevron-left"></i>
+                        </button>
+                        Trang
+                        <input type="number" min="1" value="1" data-bind="page">
+                        / <span data-bind="totalPages">1</span>
+                        <button type="button" class="tpos-btn-mini" data-bind="next" title="Trang sau">
+                            <i data-lucide="chevron-right"></i>
+                        </button>
+                    </div>
+                </footer>
             </div>
-            <iframe class="embed-iframe"
-                    data-src="../web2/fastsaleorder-refund/?embed=issue-tracking"
-                    title="Trả hàng"
-                    referrerpolicy="no-referrer-when-downgrade"></iframe>
         </div>
     </main>
     </div>
@@ -663,30 +836,30 @@ Ví dụ:
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 
     <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
-    <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
+    <script type="module" src="../shared/esm/compat.js?v=20260524b"></script>
 
     <!-- Fallback for file:// protocol -->
     <script>
         if (window.location.protocol === 'file:') {
-            document.write('<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>');
+            document.write('<script src="../shared/js/shared-auth-manager.js?v=20260524b"><\/script>');
             document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
         }
     </script>
 
     <!-- Shared API Utils -->
-    <script src="../shared/js/shop-config.js?v=20260521b"></script>
-    <script src="../shared/js/api-config.js?v=20260521b"></script>
-    <script src="../shared/js/token-manager.js?v=20260521b"></script>
-    <script src="../shared/js/api-handler.js?v=20260521b"></script>
+    <script src="../shared/js/shop-config.js?v=20260524b"></script>
+    <script src="../shared/js/api-config.js?v=20260524b"></script>
+    <script src="../shared/js/token-manager.js?v=20260524b"></script>
+    <script src="../shared/js/api-handler.js?v=20260524b"></script>
 
     <!-- Module Scripts -->
-    <script src="js/firebase-init.js?v=20260521b"></script>
-    <script src="../shared/js/api-service.js?v=20260521b"></script>
-    <script src="../shared/js/audit-logger.js?v=20260521b"></script>
-    <script src="js/script.js?v=20260521b"></script>
-    <script src="js/customer-orders-lookup.js?v=20260521b"></script>
-    <script src="js/phone-copy.js?v=20260521b"></script>
-    <script src="js/page-tabs.js?v=20260524a"></script>
+    <script src="js/firebase-init.js?v=20260524b"></script>
+    <script src="../shared/js/api-service.js?v=20260524b"></script>
+    <script src="../shared/js/audit-logger.js?v=20260524b"></script>
+    <script src="js/script.js?v=20260524b"></script>
+    <script src="js/customer-orders-lookup.js?v=20260524b"></script>
+    <script src="js/phone-copy.js?v=20260524b"></script>
+    <script src="js/page-tabs.js?v=20260524b"></script>
 </body>
 
 </html>

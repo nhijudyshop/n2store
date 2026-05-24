@@ -25,6 +25,33 @@
 
 ## 2026-05-24
 
+### [extension][scripts][docs] Auto-publish n2store-extension lên Chrome Web Store khi version đổi
+
+**User ask**: Tự động upload extension `n2store-extension/` lên Chrome Web Store khi version trong `manifest.json` thay đổi, và bắn notification cho end users biết về bản update mới.
+
+**Approach**: Tích hợp vào Stop hook (đã có `stop-auto-commit-push.sh`). Sau `git push` thành công, gọi `scripts/auto-publish-extension.sh`:
+
+- Đọc version từ `manifest.json`, so sánh với `.extension-last-published-version` (gitignored)
+- Nếu đổi: zip extension → OAuth2 refresh → upload + publish qua Chrome Web Store API v1.1 → save version → macOS notification + console summary
+- Idempotent: re-run an toàn, no-op nếu version chưa đổi
+- Silent-skip nếu CWS credentials chưa setup (warn-once-per-hour, KHÔNG save tracker → first credentialed run sẽ publish)
+
+Notification cho end users: `n2store-extension/background/update-notifier.js` listen `chrome.runtime.onInstalled` reason='update' → bắn `chrome.notifications` với link Chrome Web Store, user click → mở trang detail.
+
+**Files**:
+
+- `scripts/auto-publish-extension.sh` (new) — main publish pipeline (~150 lines bash + curl)
+- `scripts/cws-get-refresh-token.js` (new) — one-time OAuth2 helper, Node.js + local callback server port 8765
+- `n2store-extension/background/update-notifier.js` (new) — in-extension update notification, registered top-level in service worker
+- `n2store-extension/background/service-worker.js` (edit) — import + call `setupUpdateNotifier()` trước async IIFE
+- `.claude/scripts/hooks/stop-auto-commit-push.sh` (edit) — gọi auto-publish sau push success, trước session resume gen
+- `.gitignore` — add `.extension-last-published-version`
+- `docs/extension-auto-publish.md` (new) — setup guide 4 bước (5-10 phút), troubleshooting
+
+**Status**: ✅ Done — pipeline ready, chờ user setup OAuth credentials (4 bước trong docs/extension-auto-publish.md). Sau khi paste CWS_CLIENT_ID/SECRET/REFRESH_TOKEN vào `serect_dont_push.txt`, mỗi commit có version bump sẽ tự publish.
+
+---
+
 ### [issue-tracking] 3-tab page bar: CSKH và Quản Lý / BÁN HÀNG / TRẢ HÀNG
 
 **User ask**: Trang "CSKH và Quản Lý" thêm 3 tab — Tab 1 giữ nội dung hiện tại; Tab 2 BÁN HÀNG mimic TPOS `fastsaleorder/invoicelist`; Tab 3 TRẢ HÀNG mimic TPOS `fastsaleorder/refundlist`. UI/font/màu/hover/filter giống TPOS nhất có thể, mượt, dễ tương tác.
