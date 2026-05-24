@@ -467,8 +467,11 @@
         if (stockFilter === 'in-stock') params.set('has_inventory', 'true');
         else if (stockFilter === 'out-of-stock') params.set('has_inventory', 'false');
 
-        // Category filter
-        const categoryFilter = ($('[data-filter="group"]')?.value || '').trim();
+        // Category filter — read from toolbar dropdown first, fall back to column-header input
+        const groupDropdownVal = $('#filterGroup')?.value;
+        const colHeaderGroupVal = ($('[data-filter="group"]')?.value || '').trim();
+        const categoryFilter =
+            groupDropdownVal && groupDropdownVal !== 'all' ? groupDropdownVal : colHeaderGroupVal;
         if (categoryFilter) params.set('category', categoryFilter);
 
         // Tag filter — resolve Tag → Template IDs via TPOS (bridge until Render schema has tags)
@@ -974,6 +977,11 @@
         $('#filterGroup')?.addEventListener('change', () => {
             currentPage = 1;
             fetchProducts();
+        });
+        // Lazy-load category list on first focus (mirrors filterTag pattern)
+        $('#filterGroup')?.addEventListener('focus', () => populateGroupFilter(), { once: true });
+        $('#filterGroup')?.addEventListener('mousedown', () => populateGroupFilter(), {
+            once: true,
         });
 
         // Column filter toggle
@@ -2061,6 +2069,40 @@
         if (!tags.length) {
             const opt = sel.querySelector('option[value="all"]');
             if (opt) opt.textContent = 'Tất cả (chưa load được)';
+        }
+    }
+
+    // Lazy-load product category list into #filterGroup dropdown when user first focuses it.
+    // Source: TPOS ProductCategory OData (already cached for product create/edit modal).
+    let groupFilterLoaded = false;
+    async function populateGroupFilter() {
+        const sel = $('#filterGroup');
+        if (!sel || groupFilterLoaded) return;
+        groupFilterLoaded = true;
+        try {
+            await ensureProductFormCaches();
+            const categories = Array.isArray(cachedCategories) ? cachedCategories : [];
+            const currentVal = sel.value || 'all';
+            sel.innerHTML =
+                '<option value="all">Tất cả</option>' +
+                categories
+                    .map(
+                        (c) =>
+                            `<option value="${escapeHtml(c.CompleteName || c.Name || '')}">${escapeHtml(c.CompleteName || c.Name || '')}</option>`
+                    )
+                    .join('');
+            // Restore selection if user picked one before focus loaded list (race condition safety)
+            if (currentVal && sel.querySelector(`option[value="${CSS.escape(currentVal)}"]`)) {
+                sel.value = currentVal;
+            }
+            if (!categories.length) {
+                const opt = sel.querySelector('option[value="all"]');
+                if (opt) opt.textContent = 'Tất cả (chưa load được)';
+                groupFilterLoaded = false; // allow retry
+            }
+        } catch (err) {
+            console.warn('[Group Filter] Load failed:', err.message);
+            groupFilterLoaded = false; // allow retry
         }
     }
 
