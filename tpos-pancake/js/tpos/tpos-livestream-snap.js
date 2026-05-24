@@ -868,9 +868,29 @@ Throttle 30s/KH. Click để tắt.`;
                     comment.created_at;
                 const parsedT = rawT ? new Date(rawT).getTime() : NaN;
                 const commentTimeMs = Number.isFinite(parsedT) ? parsedT : Date.now();
-                // Lookup buffered frame nearest commentTime. Trong window 30s
-                // → mỗi comment có frame riêng (đúng moment user thấy).
-                const buffered = _findNearestBufferedFrame(commentTimeMs, 30000);
+                // Lookup buffered frame nearest commentTime. Window 60s (mỗi
+                // tick 5s → 12 frames/min, đủ wiggle room cho clock skew giữa
+                // FB timestamp và browser local). Comment cũ > 60s → no match.
+                let buffered = _findNearestBufferedFrame(commentTimeMs, 60000);
+                // Fallback ext mode: nếu buffer rỗng / quá cũ → capture NOW
+                // qua extension thay vì gửi snap rỗng (snap không có bytea =
+                // không thumbnail). Chrome rate-limit tabs.captureVisibleTab
+                // ~2/sec, OK với throttle 30s/KH.
+                if (!buffered && STATE.extReady && STATE.frameBufferTimer) {
+                    try {
+                        const jpegBase64 = await _captureExtensionFrame();
+                        if (jpegBase64) {
+                            buffered = { capturedAt: Date.now(), jpegBase64 };
+                            // Inject vào buffer luôn để comment sau dùng được.
+                            STATE.frameBuffer?.push(buffered);
+                            console.log(
+                                '[snap-auto] ext live-capture fallback (buffer empty/stale)'
+                            );
+                        }
+                    } catch (e) {
+                        console.warn('[snap-auto] ext fallback capture fail:', e.message);
+                    }
+                }
                 await snap(customerFbUserId, customerName, commentId, null, {
                     commentTime: commentTimeMs,
                     comment,
@@ -1592,6 +1612,15 @@ Throttle 30s/KH. Click để tắt.`;
         // → mỗi comment có frame unique từ buffer, không phải current frame.
         if (opts.bufferedFrame?.jpegBase64) {
             imageBase64 = opts.bufferedFrame.jpegBase64;
+        } else if (STATE.extReady && STATE.frameBufferTimer) {
+            // Priority 1.5: extension mode + no buffered frame → live capture now
+            // via chrome.tabs.captureVisibleTab. Tránh fallback xuống getDisplayMedia
+            // sẽ open popup (đã ẩn flow popup khi extension active).
+            try {
+                imageBase64 = await _captureExtensionFrame();
+            } catch (e) {
+                console.warn('[snap] ext live-capture fail:', e.message);
+            }
         } else if (mode === MODE_LIVE) {
             // Lazy init stream nếu chưa có
             if (!STATE.captureStream) {
