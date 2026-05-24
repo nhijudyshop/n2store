@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2ead903` — fix(snap): DB dedup — UNIQUE INDEX (comment_id) + ON CONFLICT + client cache skip
-**Last updated**: 2026-05-24 12:22:14 +07
-**Latest session**: [`RESUME:20260524-122214-2ead903`](../20260524-122214-2ead903.md)
-**Summary**: fix(snap): DB dedup — UNIQUE INDEX (comment_id) + ON CONFLICT + client cache skip
+**Latest commit**: `7a5f6a7` — feat(snap-ext): Bước 2 — tabCapture.getMediaStreamId stream mode (tab inactive OK)
+**Last updated**: 2026-05-24 12:28:28 +07
+**Latest session**: [`RESUME:20260524-122828-7a5f6a7`](../20260524-122828-7a5f6a7.md)
+**Summary**: feat(snap-ext): Bước 2 — tabCapture.getMediaStreamId stream mode (tab inactive OK)
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`n2store-extension/`](./n2store-extension.md) — 3 file(s)
 - [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
@@ -38,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-22 14:45
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 11:51
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 12:28
 - [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
@@ -62,7 +62,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 12:22
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 12:28
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
