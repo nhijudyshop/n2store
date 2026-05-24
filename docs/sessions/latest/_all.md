@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e243945` — fix(snap-embed): gọi Render TRỰC TIẾP cho /api/livestream/stream-url (CF worker không proxy path này)
-**Last updated**: 2026-05-24 10:37:32 +07
-**Latest session**: [`RESUME:20260524-103732-e243945`](../20260524-103732-e243945.md)
-**Summary**: fix(snap-embed): gọi Render TRỰC TIẾP cho /api/livestream/stream-url (CF worker không proxy path này)
+**Latest commit**: `fcf5876` — feat(inventory/header): VND fallback rate cho mọi đợt + bỏ permission gate trên row 2
+**Last updated**: 2026-05-24 10:40:29 +07
+**Latest session**: [`RESUME:20260524-104029-fcf5876`](../20260524-104029-fcf5876.md)
+**Summary**: feat(inventory/header): VND fallback rate cho mọi đợt + bỏ permission gate trên row 2
 
 ## Folders affected in this commit
 
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -33,7 +33,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 10:29
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 10:40
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-22 14:45
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
