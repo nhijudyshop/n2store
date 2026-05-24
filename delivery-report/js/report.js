@@ -221,13 +221,12 @@
         </div>`;
         const wrapper = document.createElement('div');
         wrapper.innerHTML = tpl.trim();
-        document.body.appendChild(wrapper.firstChild);
+        // Inject inside the main container so layout flows naturally (no overlay)
+        const host = document.querySelector('.delivery-report-container') || document.body;
+        host.appendChild(wrapper.firstChild);
 
-        // Wire close
+        // Wire close (no overlay backdrop click — view-swap mode, ESC still works)
         document.getElementById('drReportClose').addEventListener('click', close);
-        document.getElementById('drReportModal').addEventListener('click', (e) => {
-            if (e.target.id === 'drReportModal') close();
-        });
         document.addEventListener('keydown', (e) => {
             if (e.key !== 'Escape') return;
             const imgModal = document.getElementById('drReportImgModal');
@@ -687,15 +686,18 @@
         }
         if (reportFrom) reportFrom.value = state.fromDate || mainFrom || '';
         if (reportTo) reportTo.value = state.toDate || mainTo || '';
+        // View swap: hide main page sections via body class, show báo cáo block in-flow
+        document.body.classList.add('dr-mode-report');
         document.getElementById('drReportModal').classList.add('open');
-        document.body.style.overflow = 'hidden';
+        // Scroll to top so user sees báo cáo header
+        window.scrollTo({ top: 0, behavior: 'instant' });
         render();
     }
 
     function close() {
         const el = document.getElementById('drReportModal');
         if (el) el.classList.remove('open');
-        document.body.style.overflow = '';
+        document.body.classList.remove('dr-mode-report');
     }
 
     function setupTripleClick() {
