@@ -23,6 +23,26 @@
 
 ---
 
+## 2026-05-24
+
+### [inventory-tracking] Header shipment: `$ CNY` cho Tổng HĐ, thêm Tổng CP + Còn dư (running balance)
+
+**User ask**: Tổng HĐ thêm `$` trước và ` CNY` sau (biết là tiền Trung). Thêm Tổng CP sau Tổng HĐ. Thêm cột "running balance": row đầu = HD − CP, row sau = prev − HD − CP.
+
+**Files**:
+
+- `inventory-tracking/js/table-renderer.js`
+    - `renderShipments()`: sau pruneExpanded, sort copy theo `ngayDiHang` ASC + `dotSo` ASC → loop accumulate `running = i===0 ? hd-cp : running-hd-cp` → attach `s._runningBalance`.
+    - `createShipmentCard()`: thêm `shipCP`, `vndSuffix(cny)` helper (gọi nhiều lần). HD format đổi từ `${formatNumber(shipHD)}` → `$${formatNumber(shipHD)} CNY`. Thêm `tongCPSuffix` (gating `canViewCost && shipCP > 0`) và `tongRunningSuffix` (gating `canViewTT && canViewCost && runningVal !== null`). Concatenate vào `packagesInfo` sau `tongHDSuffix`. Helper `fmtSignedCny(n)` để số âm ra `-$X CNY` thay vì `$-X CNY`.
+- `inventory-tracking/css/modern.css`
+    - Thêm `.ship-tong-cp` (`#92400e` amber) + `.ship-tong-running` với `is-pos`/`is-neg` (`#047857` green / `#b91c1c` red).
+
+**Math** (date ASC, sortedAsc): row[0] = HD − CP, row[i] = prev − HD − CP. Display vẫn DESC như cũ, attach `_runningBalance` vào shipment object để card render độc lập với order.
+
+**Status**: ✅ Done. Chưa live-test (browser session đã chết); logic markup + math thuần, an toàn.
+
+---
+
 ## 2026-05-23
 
 ### [tpos-pancake][livestream-snapshots] Refactor default: lazy fetch tại view-time + 🔄 manual freeze

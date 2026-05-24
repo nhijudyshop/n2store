@@ -199,26 +199,37 @@ const TposApi = {
             }
         }
         if (!response || !response.ok) {
-            // Fallback FB Graph direct với Pancake page token (post bị TPOS reject).
-            const fallback = await this._fallbackLoadCommentsFbGraph(pageId, postId, afterCursor);
-            if (fallback) return fallback;
+            // Fallback chain: Pancake Graph → TPOS Archive.
+            const fb = await this._fallbackChain(pageId, postId, afterCursor);
+            if (fb) return fb;
             throw lastErr || new Error(`API error: ${response?.status ?? 'unknown'}`);
         }
 
         const data = await response.json();
         // Backend giờ trả 200 + empty data khi upstream 4xx/timeout (success=false).
-        // Detect + fallback Pancake Graph.
+        // Detect + chạy fallback chain.
         if (data && data.success === false && Array.isArray(data.data) && data.data.length === 0) {
             console.warn(
-                `[TPOS-API] upstream ${data.upstream_status || 'timeout'} for post ${postId} → fallback Pancake Graph`
+                `[TPOS-API] upstream ${data.upstream_status || 'timeout'} for post ${postId} → fallback chain`
             );
-            const fallback = await this._fallbackLoadCommentsFbGraph(pageId, postId, afterCursor);
-            if (fallback) return fallback;
+            const fb = await this._fallbackChain(pageId, postId, afterCursor);
+            if (fb) return fb;
         }
         return {
             comments: data.data || [],
             nextPageUrl: data.paging?.next || null,
         };
+    },
+
+    // Fallback chain: thử Pancake Graph trước (FB live data) → TPOS Archive
+    // (SaleOnline_Order — chỉ có comments của KH đã đặt order).
+    async _fallbackChain(pageId, postId, afterCursor) {
+        const pancake = await this._fallbackLoadCommentsFbGraph(pageId, postId, afterCursor);
+        if (pancake && pancake.comments.length > 0) return pancake;
+        // Pancake không có → TPOS Archive (orders).
+        const archive = await this._fallbackLoadCommentsArchive(postId);
+        if (archive && archive.comments.length > 0) return archive;
+        return null;
     },
 
     // Fallback: gọi trực tiếp FB Graph API với Pancake page_access_token.
@@ -247,6 +258,37 @@ const TposApi = {
             };
         } catch (e) {
             console.warn('[TPOS-API] fallback FB Graph fail:', e.message);
+            return null;
+        }
+    },
+
+    // Fallback: TPOS Archive — query SaleOnline_Order theo Facebook_PostId.
+    // Mỗi order trở thành 1 "comment" với message=Note, name=Facebook_UserName.
+    // Chỉ có comments của KH đã đặt order (không phải tất cả comments).
+    // Hữu ích khi post bị xóa khỏi FB nhưng TPOS vẫn giữ orders forever.
+    async _fallbackLoadCommentsArchive(postId) {
+        try {
+            const state = window.TposState;
+            const token = await this.getToken();
+            if (!token) return null;
+            const r = await fetch(
+                `${state.proxyBaseUrl}/facebook/comments-archive?postId=${encodeURIComponent(postId)}&top=200`,
+                {
+                    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+                }
+            );
+            if (!r.ok) return null;
+            const d = await r.json();
+            if (!d.success || !Array.isArray(d.data)) return null;
+            console.log(
+                `[TPOS-API] Archive fallback: loaded ${d.data.length} comments-from-orders for ${postId}`
+            );
+            return {
+                comments: d.data,
+                nextPageUrl: null, // archive không paginate
+            };
+        } catch (e) {
+            console.warn('[TPOS-API] fallback Archive fail:', e.message);
             return null;
         }
     },

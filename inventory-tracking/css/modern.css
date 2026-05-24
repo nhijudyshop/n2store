@@ -890,6 +890,28 @@ body {
     font-weight: 700;
 }
 
+.ship-tong-cp {
+    color: #92400e;
+    font-weight: 700;
+}
+.ship-tong-cp-num {
+    color: #92400e;
+    font-weight: 700;
+}
+
+.ship-tong-running {
+    font-weight: 700;
+}
+.ship-tong-running.is-pos {
+    color: #047857;
+}
+.ship-tong-running.is-neg {
+    color: #b91c1c;
+}
+.ship-tong-running-num {
+    font-weight: 700;
+}
+
 /* Image Lightbox Overlay */
 .image-lightbox-overlay {
     display: none;

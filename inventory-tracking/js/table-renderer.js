@@ -514,6 +514,24 @@ function renderShipments(shipments) {
         window.UIState.pruneExpanded(shipments.map((s) => s.id));
     }
 
+    // Compute running balance per shipment in date-ASC order (oldest first):
+    //   row[0]: running = HD - CP
+    //   row[i] (i>0): running = running[i-1] - HD - CP
+    // Attach to shipment as _runningBalance so card can render regardless of display order.
+    const sortedAsc = [...shipments].sort((a, b) => {
+        const da = new Date(a.ngayDiHang || 0).getTime();
+        const db = new Date(b.ngayDiHang || 0).getTime();
+        if (da !== db) return da - db;
+        return (a.dotSo || 0) - (b.dotSo || 0);
+    });
+    let running = 0;
+    sortedAsc.forEach((s, i) => {
+        const hd = parseFloat(s.tongTienHoaDon) || 0;
+        const cp = parseFloat(s.tongChiPhi) || 0;
+        running = i === 0 ? hd - cp : running - hd - cp;
+        s._runningBalance = running;
+    });
+
     // Render each shipment (expand state loaded from UIState, default collapsed)
     shipments.forEach((shipment) => {
         const card = createShipmentCard(shipment);
@@ -645,15 +663,28 @@ function createShipmentCard(shipment) {
     const totalKg = packages.reduce((sum, p) => sum + (p.soKg || 0), 0);
     const canViewTT = permissionHelper?.can('view_thanhToanCK');
     const shipHD = parseFloat(shipment.tongTienHoaDon) || 0;
+    const shipCP = parseFloat(shipment.tongChiPhi) || 0;
     const shipTiGia = parseFloat(shipment.tiGia) || 0;
-    const shipHDVnd = shipHD * shipTiGia;
-    const vndPart =
-        shipHDVnd > 0
-            ? ` <span class="ship-tong-hd-vnd">(${formatNumber(Math.round(shipHDVnd / 1000))})</span>`
-            : '';
+    const vndSuffix = (cny) => {
+        if (!cny || !shipTiGia) return '';
+        return ` <span class="ship-tong-hd-vnd">(${formatNumber(Math.round((cny * shipTiGia) / 1000))})</span>`;
+    };
     const tongHDSuffix =
         canViewTT && shipHD > 0
-            ? ` <span class="ship-tong-hd">| Tổng HĐ: <span class="ship-tong-hd-num">${formatNumber(shipHD)}</span>${vndPart}</span>`
+            ? ` <span class="ship-tong-hd">| Tổng HĐ: <span class="ship-tong-hd-num">$${formatNumber(shipHD)} CNY</span>${vndSuffix(shipHD)}</span>`
+            : '';
+    const tongCPSuffix =
+        canViewCost && shipCP > 0
+            ? ` <span class="ship-tong-cp">| Tổng CP: <span class="ship-tong-cp-num">$${formatNumber(shipCP)} CNY</span>${vndSuffix(shipCP)}</span>`
+            : '';
+    // Running balance (date-ASC accumulated): row[0]=HD-CP; row[i]=prev-HD-CP.
+    // Show only if user can see both HD (canViewTT) and CP (canViewCost).
+    const runningVal =
+        typeof shipment._runningBalance === 'number' ? shipment._runningBalance : null;
+    const fmtSignedCny = (n) => `${n < 0 ? '-' : ''}$${formatNumber(Math.abs(n))} CNY`;
+    const tongRunningSuffix =
+        canViewTT && canViewCost && runningVal !== null
+            ? ` <span class="ship-tong-running ${runningVal >= 0 ? 'is-pos' : 'is-neg'}">| Còn dư: <span class="ship-tong-running-num">${fmtSignedCny(runningVal)}</span>${vndSuffix(runningVal)}</span>`
             : '';
     let packagesInfo;
     if (packages.length > 0) {
@@ -672,12 +703,12 @@ function createShipmentCard(shipment) {
         const allChecked = packages.every((p) => !!p.daNhan);
         const checkAllAttr = allChecked ? ' checked' : '';
         packagesInfo =
-            `${packages.length} Kiện : ${packageWeightsHtml} | Tổng ${formatNumber(totalKg)} KG${tongHDSuffix}` +
+            `${packages.length} Kiện : ${packageWeightsHtml} | Tổng ${formatNumber(totalKg)} KG${tongHDSuffix}${tongCPSuffix}${tongRunningSuffix}` +
             `<label class="pkg-check-all-label" data-shipment="${shipment.id}">` +
             `<input type="checkbox" class="pkg-check-all" onclick="event.stopPropagation(); toggleAllPkgCheck(this)" title="Đánh dấu đã nhận toàn bộ"${checkAllAttr}>` +
             `</label>`;
     } else {
-        packagesInfo = `0 Kiện${tongHDSuffix}`;
+        packagesInfo = `0 Kiện${tongHDSuffix}${tongCPSuffix}${tongRunningSuffix}`;
     }
 
     card.innerHTML = `

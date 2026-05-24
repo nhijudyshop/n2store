@@ -229,6 +229,104 @@ router.get('/facebook/comments', async (req, res) => {
     }
 });
 
+/**
+ * GET /facebook/comments-archive - Archived comments từ TPOS SaleOnline_Order
+ * Dùng khi post bị xóa khỏi FB nhưng TPOS vẫn giữ orders với Note=comment text.
+ * Query params:
+ * - postId (required): Full FB post ID
+ * - top (optional): Max records (default 200)
+ */
+router.get('/facebook/comments-archive', async (req, res) => {
+    try {
+        const token = await getAuthToken(req);
+        if (!token) {
+            return res.status(401).json({ success: false, error: 'No authorization token' });
+        }
+        const { postId, top = 200 } = req.query;
+        if (!postId) {
+            return res.status(400).json({ success: false, error: 'postId required' });
+        }
+        const selectFields = [
+            'Id',
+            'Code',
+            'Facebook_PostId',
+            'Facebook_ASUserId',
+            'Facebook_CommentId',
+            'Facebook_UserName',
+            'Note',
+            'DateCreated',
+        ].join(',');
+        const url =
+            `${TPOS_BASE_URL}/odata/SaleOnline_Order?` +
+            `$filter=Facebook_PostId%20eq%20%27${encodeURIComponent(postId)}%27&` +
+            `$top=${Math.min(Number(top) || 200, 500)}&` +
+            `$orderby=DateCreated%20desc&` +
+            `$select=${selectFields}`;
+        console.log(`📥 Fetching archive (orders) for post ${postId}...`);
+
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 4000);
+        let response;
+        try {
+            response = await fetch(url, {
+                headers: getTposHeaders(token),
+                signal: ctrl.signal,
+            });
+        } catch (e) {
+            clearTimeout(tid);
+            if (e.name === 'AbortError') {
+                return res.json({ success: false, upstream_timeout: true, data: [] });
+            }
+            throw e;
+        }
+        clearTimeout(tid);
+
+        if (!response.ok) {
+            const errBody = await response.text().catch(() => '');
+            console.warn(`⚠ Archive ${response.status}: ${errBody.slice(0, 150)}`);
+            return res.json({ success: false, upstream_status: response.status, data: [] });
+        }
+
+        const data = await response.json();
+        const orders = data?.value || [];
+
+        // Strip TPOS internal markers `["base64..."]` ra khỏi Note để chỉ giữ text user.
+        const cleanNote = (s) =>
+            String(s || '')
+                .replace(/\[\s*"[A-Za-z0-9+/=]{20,}"\s*\]/g, '')
+                .replace(/\r?\n+/g, ' ')
+                .trim();
+
+        // Map order shape → comment shape (drop-in replacement cho /facebook/comments)
+        const comments = orders.map((o) => {
+            // Facebook_CommentId có thể compound "id1,id2,..." → lấy id đầu
+            const commentId =
+                String(o.Facebook_CommentId || '')
+                    .split(',')[0]
+                    .trim() || o.Id;
+            return {
+                id: commentId,
+                message: cleanNote(o.Note),
+                from: {
+                    id: o.Facebook_ASUserId || '',
+                    name: o.Facebook_UserName || 'Khách',
+                },
+                created_time: o.DateCreated,
+                // Marker để frontend biết đây là archive (không phải FB realtime)
+                _archive: true,
+                _order_code: o.Code,
+                object: { id: postId },
+            };
+        });
+
+        console.log(`✅ Archive retrieved ${comments.length} comments from orders`);
+        res.json({ success: true, source: 'tpos_sale_orders', data: comments, paging: {} });
+    } catch (error) {
+        console.error('❌ Archive API error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // =====================================================
 // COMMENT STREAM (SSE PROXY)
 // =====================================================
