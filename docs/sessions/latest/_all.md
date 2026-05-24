@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `48ae6d7` — auto: session update
-**Last updated**: 2026-05-24 18:57:24 +07
-**Latest session**: [`RESUME:20260524-185724-48ae6d7`](../20260524-185724-48ae6d7.md)
-**Summary**: auto: session update
+**Latest commit**: `1939f05` — feat(snap-ext): chrome.commands shortcut Ctrl+Shift+S — bật stream capture
+**Last updated**: 2026-05-24 18:58:03 +07
+**Latest session**: [`RESUME:20260524-185803-1939f05`](../20260524-185803-1939f05.md)
+**Summary**: feat(snap-ext): chrome.commands shortcut Ctrl+Shift+S — bật stream capture
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`downloads/`](./downloads.md) — 3 file(s)
 - [`n2store-extension/`](./n2store-extension.md) — 2 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -40,7 +37,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-24 18:55
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 18:57
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 18:58
 - [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
