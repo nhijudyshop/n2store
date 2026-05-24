@@ -671,17 +671,17 @@ function createShipmentCard(shipment) {
     };
     const tongHDSuffix =
         canViewTT && shipHD > 0
-            ? ` <span class="ship-tong-hd">| Tổng HĐ: <span class="ship-tong-hd-num">$${formatNumber(shipHD)} CNY</span>${vndSuffix(shipHD)}</span>`
+            ? ` <span class="ship-tong-hd">| Tổng HĐ: <span class="ship-tong-hd-num">$${formatNumber(shipHD)}</span>${vndSuffix(shipHD)}</span>`
             : '';
     const tongCPSuffix =
         canViewCost && shipCP > 0
-            ? ` <span class="ship-tong-cp">| Tổng CP: <span class="ship-tong-cp-num">$${formatNumber(shipCP)} CNY</span>${vndSuffix(shipCP)}</span>`
+            ? ` <span class="ship-tong-cp">| Tổng CP: <span class="ship-tong-cp-num">$${formatNumber(shipCP)}</span>${vndSuffix(shipCP)}</span>`
             : '';
     // Running balance (date-ASC accumulated): row[0]=HD-CP; row[i]=prev-HD-CP.
     // Show only if user can see both HD (canViewTT) and CP (canViewCost).
     const runningVal =
         typeof shipment._runningBalance === 'number' ? shipment._runningBalance : null;
-    const fmtSignedCny = (n) => `${n < 0 ? '-' : ''}$${formatNumber(Math.abs(n))} CNY`;
+    const fmtSignedCny = (n) => `${n < 0 ? '-' : ''}$${formatNumber(Math.abs(n))}`;
     const tongRunningSuffix =
         canViewTT && canViewCost && runningVal !== null
             ? ` <span class="ship-tong-running ${runningVal >= 0 ? 'is-pos' : 'is-neg'}">| Còn dư: <span class="ship-tong-running-num">${fmtSignedCny(runningVal)}</span>${vndSuffix(runningVal)}</span>`
