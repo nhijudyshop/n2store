@@ -25,6 +25,45 @@
 
 ## 2026-05-24
 
+### [issue-tracking] BÁN HÀNG/TRẢ HÀNG: expand-on-click với OrderLines + summary (TPOS k-master-row pattern)
+
+**User ask**: "2 web có chức năng bấm vào hàng expand mà" — TPOS list page khi click chevron sẽ expand row thành detail panel với line items + summary. Áp dụng cùng pattern.
+
+**TPOS reference** (browser-inspected `tomato.tpos.vn/#/app/fastsaleorder/invoicelist`): mỗi row có `<tr class="k-master-row">` + first cell `<td class="k-hierarchy-cell"><a class="k-icon k-i-expand">`. Click expand sinh `<tr class="k-detail-row">` với inner table cột STT / Sản phẩm / Đơn vị tính / Số lượng / Đơn giá / Khối lượng (Kg) / Thành tiền.
+
+**Approach**: Thêm column expand đầu tiên (chevron-right icon button), click toggle expand. Fetch `FastSaleOrder({id})?$expand=OrderLines($expand=Product,ProductUOM)` qua `tokenManager.authenticatedFetch` để lấy line items + summary fields. Cache theo Id trong `Map` để collapse-expand không re-fetch. Insert `<tr class="tpos-fso-detail-row">` ngay sau row được bấm với colspan = total cols.
+
+**Files**:
+
+- `issue-tracking/index.html`
+    - Thêm `<th class="tpos-fso-exp-col">` đầu cả 2 thead (invoice + refund). Update initial loading `colspan="11"` (invoice) và `colspan="10"` (refund).
+- `issue-tracking/js/tpos-fastsale-tab.js`
+    - `TYPE_CFG.{invoice,refund}.colCount` → 11 / 10. Thêm `tposPath` để mở external link.
+    - `expandCell()` helper sinh `<td class="tpos-fso-exp-cell"><button class="tpos-fso-exp-btn" data-action="expand" aria-expanded="false"><i data-lucide="chevron-right"></i></button></td>`.
+    - `renderInvoiceRow / renderRefundRow`: prepend `${expandCell()}` ngay sau `<tr data-tpos-id>`.
+    - `renderDetailHTML(detail)`: render `<div class="tpos-fso-detail-wrap">` grid 2 cột — bên trái table line items (STT / Sản phẩm + SKU / Đơn vị / SL / Đơn giá / KL / Thành tiền), bên phải `<div class="tpos-fso-detail-summary">` với Tổng tiền hàng, Giảm giá (conditional), Phí giao hàng (conditional), Thuế (conditional), Tổng cộng (highlight purple), Tiền thu COD (conditional), Ghi chú (conditional).
+    - `toggleExpand(btn)`: nếu `btn.open` → remove `tpos-fso-detail-row` sibling + remove class + reset `aria-expanded`. Nếu chưa open → add class + insert loading row + fetch via `tokenManager.authenticatedFetch(`/api/odata/FastSaleOrder(id)?$expand=OrderLines($expand=Product,ProductUOM)`)` → cache → re-render detail HTML. Error → show error row với lucide alert-triangle.
+    - tbody click handler: ưu tiên `data-action="expand"` → toggle; rồi `data-action="open"` → open external TPOS; rồi click anywhere trên `tr[data-tpos-id]` (không phải detail row) → trigger expand button.
+- `issue-tracking/css/page-tabs.css`
+    - `.tpos-fso-exp-btn` 22×22 transparent → hover bg `--tp-accent-soft` color `--tp-accent`. `.open` state: bg purple `--tp-accent` color white, icon rotate 90deg (chevron-right → down).
+    - `.tpos-fso-table tbody tr.expanded` bg purple soft `--tp-accent-soft` (highlight parent row).
+    - `.tpos-fso-detail-row > td` no padding, bg `#fafafa`, border-bottom `2px solid var(--tp-accent)` (purple separator).
+    - `.tpos-fso-detail-wrap` grid 2 cols `1fr 300px` (responsive: collapse to 1col < 1100px).
+    - `.tpos-fso-detail-table` inner table TPOS th bg `#f0eeee` weight 600 padding 6/8, td padding 6/8 border 1px solid #ccc, zebra striping #fafafa, num col tabular-nums right-aligned.
+    - `.tpos-fso-detail-pname` bold + `.tpos-fso-detail-sku` 11px muted dưới name.
+    - `.tpos-fso-detail-summary` white card border 1px #ccc padding 12/14. Mỗi dòng `<div><span>label</span><strong>value</strong></div>` justified. `.total` border-top dashed + purple bold 15px. `.note` flex-col + italic text.
+
+**Verify** (Playwright `http://localhost:8080/issue-tracking/`):
+
+- 100 expand buttons render trong B HÀNG sau load.
+- Click first expand → `btn.open=true`, `tpos-fso-detail-row` inserted, fetch OrderLines via tokenManager, render: line `[B2487] 2105 B5 SET ÁO 2D NÚT + Q.LỬNG CHẤM BI NU` SKU B2487 qty 1 320.000đ, summary `Tổng tiền hàng: 320.000đ / Phí giao hàng: 35.000đ / Tổng cộng: 320.000đ / Tiền thu (COD): 355.000đ`.
+- Click again → collapse, row removed, btn.open=false.
+- TRẢ HÀNG: same pattern works — line `[MM17] 0605 B16 SET QL TÀN HÌNH COOL 5002 10C`, summary Tổng cộng 240.000đ.
+- Cache: re-expand same id không trigger HTTP request lần 2.
+- Visual: purple chevron rotate + purple-highlight parent row + 2px purple bottom border trên detail row + summary block bên phải. Screenshot `downloads/n2store-session/it-banhang-expand-detail.png`.
+
+**Status**: ✅ Done
+
 ### [shared/navigation] Install-prompt 3-layer detection (fix false positive với extension v1.0.11)
 
 **Bug**: User báo "đã cài extension rồi mà nó cứ hiện popup cài extension". Diagnosis: CWS live version là v1.0.11 nhưng marker code `data-n2store-extension` chỉ được thêm trong v1.0.12 (local, chưa publish). User cài v1.0.11 → no marker → modal hiện sai.
