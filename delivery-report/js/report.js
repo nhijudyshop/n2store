@@ -166,23 +166,6 @@
         return out;
     }
 
-    // Fallback group inference used when main controller helper isn't exposed.
-    function inferGroup(item) {
-        const carrier = String(item.CarrierName || '')
-            .normalize('NFD')
-            .replace(/[̀-ͯ]/g, '')
-            .toUpperCase();
-        const note = String(item.DeliveryNote || '')
-            .normalize('NFD')
-            .replace(/[̀-ͯ]/g, '')
-            .toUpperCase();
-        if (note.includes('THU VE')) return 'return';
-        if (carrier.includes('THANH PHO')) return 'city';
-        if (carrier.includes('BAN HANG SHOP')) return 'shop';
-        const groups = (window.DeliveryReportState || {}).provinceGroups || {};
-        return groups[item.Number] || 'nap';
-    }
-
     // ── Render ──
     function ensureModal() {
         if (document.getElementById('drReportModal')) return;
