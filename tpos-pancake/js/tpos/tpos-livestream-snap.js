@@ -1762,6 +1762,7 @@ Throttle 30s/KH. Click để tắt.`;
             else row.appendChild(strip);
         }
         // Có DB snap với frozen bytea (self-served URL) → render thumbnail thật.
+        // Optimized: 72x40 (16:9), hover zoom 480x270 cạnh thumb, click lightbox.
         if (data?.thumbnailUrl?.includes('/api/livestream/snapshot/')) {
             const offsetText =
                 Number.isFinite(data.offsetSeconds) && data.offsetSeconds >= 0
@@ -1771,29 +1772,37 @@ Throttle 30s/KH. Click để tắt.`;
                 <img src="${_esc(data.thumbnailUrl)}"
                      alt=""
                      loading="lazy"
-                     class="tpos-snap-thumb-img"
+                     class="tpos-snap-thumb-img snap-pop-thumb"
                      data-snap-url="${_esc(data.livestreamUrl || '')}"
                      data-snap-offset="${data.offsetSeconds ?? ''}"
-                     title="Snapshot lúc Live @ ${offsetText} — click để zoom"
-                     style="width:56px;height:32px;object-fit:cover;border-radius:5px;border:1px solid #e2e8f0;cursor:zoom-in;display:block;background:#f1f5f9;"
+                     title="Snapshot lúc Live @ ${offsetText} — hover zoom · click mở lớn"
+                     style="width:72px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;cursor:zoom-in;display:block;background:#f1f5f9;box-shadow:0 1px 3px rgba(0,0,0,0.08);"
                      onerror="this.style.background='#fee2e2';this.removeAttribute('src');" />
             `;
             const img = strip.querySelector('img');
             if (img) {
                 img.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    _hideZoomPreview();
                     _openSnapLightbox(data);
                 });
+                // Hover zoom — reuse popover zoom preview helper.
+                img.addEventListener('mouseenter', () => _showZoomPreview(img));
+                img.addEventListener('mousemove', () => _showZoomPreview(img));
+                img.addEventListener('mouseleave', _hideZoomPreview);
             }
             return;
         }
-        // Không có bytea → render button "📸 Chụp" → click mở FB tab @ offset + share + capture.
+        // Không có bytea → button "📸 Chụp" ẨN visually (display:none) nhưng giữ
+        // chức năng. Auto-snap qua extension/share đã fill ảnh tự động → manual
+        // capture hiếm khi cần. Bằng cách này nếu user muốn revive UI sau này
+        // chỉ cần đổi 1 CSS rule.
         strip.innerHTML = `
             <button type="button"
                     class="tpos-snap-capture-btn"
                     data-comment-id="${_esc(commentId)}"
                     title="Mở tab FB tại đúng giây comment + share để chụp frame thật"
-                    style="display:inline-flex;align-items:center;gap:4px;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;line-height:1;height:28px;">
+                    style="display:none;align-items:center;gap:4px;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;line-height:1;height:28px;">
                 📸 <span>Chụp</span>
             </button>
         `;
@@ -2310,8 +2319,11 @@ Throttle 30s/KH. Click để tắt.`;
         // vì createIcons() scan toàn bộ DOM mỗi call → 100 rows = 100 scan = lag.
         btn.innerHTML =
             '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>';
+        // ẨN visually (display:none) — primary UI giờ là inline thumbnail (hover
+        // zoom + click lightbox). Badge giữ logic để DOM query / event listener
+        // không break, revive bằng cách đổi display:inline-flex.
         btn.style.cssText =
-            'display:inline-flex;align-items:center;gap:3px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:600;cursor:pointer;margin-left:4px;line-height:1;position:relative;';
+            'display:none;align-items:center;gap:3px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:600;cursor:pointer;margin-left:4px;line-height:1;position:relative;';
         btn.onclick = (e) => {
             e.stopPropagation();
             // Auto mode ON (default) → click → view popover (snap đã chạy tự động
