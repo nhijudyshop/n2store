@@ -929,7 +929,30 @@ Throttle 30s/KH. Click để tắt.`;
         chip.innerHTML = `⚡ <strong>Force extract</strong>`;
         chip.title =
             'Force backend re-extract tất cả snap không có bytea (yt-dlp + ffmpeg).\nFilter theo live hiện tại nếu có, không thì all.\nUseful khi live vừa end + VOD đã có nhưng cron 1h chưa chạy.';
+        const _resetChip = () => {
+            chip.innerHTML = `⚡ <strong>Force extract</strong>`;
+            chip.dataset.running = '';
+            chip.style.opacity = '1';
+            chip.style.pointerEvents = 'auto';
+            chip.style.background = '#fef3c7';
+            chip.style.borderColor = '#fde68a';
+            chip.style.color = '#92400e';
+        };
+        const _renderProgress = (done, failed, drm, total) => {
+            const finished = done + failed + drm;
+            const pct = Math.round((finished / Math.max(1, total)) * 100);
+            chip.innerHTML = `⚡ ${finished}/${total} (${pct}%) <small style="opacity:0.7;">${done}✓ ${failed}✗${drm > 0 ? ' ' + drm + '🔒' : ''}</small>`;
+            chip.style.background = '#dbeafe';
+            chip.style.borderColor = '#93c5fd';
+            chip.style.color = '#1e40af';
+        };
         chip.addEventListener('click', async () => {
+            // Re-entry guard: nếu đang chạy → block second click. Chip vẫn
+            // pointerEvents:none nhưng safety check thêm.
+            if (chip.dataset.running === '1') {
+                _toast('Force extract đang chạy — đợi xong rồi click lại', 'ok');
+                return;
+            }
             const camp = _findActiveLiveCampaign();
             const pageObj = _resolvePageObj();
             const body = {};
@@ -939,9 +962,10 @@ Throttle 30s/KH. Click để tắt.`;
                 ? `live "${camp.Name || camp.Facebook_LiveId}"`
                 : 'TẤT CẢ lives';
             if (!confirm(`Force re-extract pending snaps trong ${scope}?`)) return;
-            chip.style.opacity = '0.6';
+            chip.dataset.running = '1';
+            chip.style.opacity = '0.85';
             chip.style.pointerEvents = 'none';
-            _toast('⏳ Đang queue pending snaps...', 'ok');
+            chip.innerHTML = `⏳ Queuing...`;
             try {
                 const r = await fetch(API + '/api/livestream/extract-all-pending', {
                     method: 'POST',
@@ -953,17 +977,52 @@ Throttle 30s/KH. Click để tắt.`;
                 if (!d.success) throw new Error(d.error || 'request failed');
                 if (d.queued === 0) {
                     _toast('Không có snap pending nào — tất cả đã extract', 'ok');
-                } else {
-                    _toast(
-                        `⚡ Queued ${d.queued} snaps — backend yt-dlp + ffmpeg đang chạy. SSE 'extract-done' sẽ refresh thumbnail.`,
-                        'ok'
-                    );
+                    _resetChip();
+                    return;
                 }
+                const batchId = d.batchId;
+                const total = d.queued;
+                _toast(`⚡ Queued ${total} snaps — backend chạy song song nhiều worker`, 'ok');
+                _renderProgress(0, 0, 0, total);
+                // Poll status mỗi 1s, stop khi finished >= total hoặc timeout 10 phút.
+                const startMs = Date.now();
+                const pollTimer = setInterval(async () => {
+                    if (Date.now() - startMs > 10 * 60 * 1000) {
+                        clearInterval(pollTimer);
+                        _toast('Force extract timeout 10 phút — check backend logs', 'err');
+                        _resetChip();
+                        return;
+                    }
+                    try {
+                        const sr = await fetch(
+                            API +
+                                '/api/livestream/extract-status?batchId=' +
+                                encodeURIComponent(batchId)
+                        );
+                        const sd = await sr.json();
+                        if (!sd.success || !sd.status) {
+                            clearInterval(pollTimer);
+                            _resetChip();
+                            return;
+                        }
+                        const s = sd.status;
+                        const finished = s.done + s.failed + s.drmBlocked;
+                        _renderProgress(s.done, s.failed, s.drmBlocked, total);
+                        if (finished >= total) {
+                            clearInterval(pollTimer);
+                            _toast(
+                                `✅ Extract xong: ${s.done} OK, ${s.failed} fail, ${s.drmBlocked} DRM`,
+                                s.failed + s.drmBlocked > 0 ? 'err' : 'ok'
+                            );
+                            setTimeout(_resetChip, 2000);
+                        }
+                    } catch (pe) {
+                        console.warn('[force-extract] poll fail:', pe.message);
+                    }
+                }, 1000);
             } catch (e) {
                 _toast('Lỗi force extract: ' + e.message, 'err');
-            } finally {
-                chip.style.opacity = '1';
-                chip.style.pointerEvents = 'auto';
+                _resetChip();
             }
         });
         host.appendChild(chip);

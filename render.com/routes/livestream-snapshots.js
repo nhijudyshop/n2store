@@ -779,14 +779,26 @@ function _startLiveActiveRetry(pool) {
     setTimeout(run, 5 * 60 * 1000);
 }
 
+// Worker concurrency — N parallel consumers cùng queue. Mỗi job chạy
+// yt-dlp (cache 5min/video → only first call per video slow) + ffmpeg seek
+// (~1-3s). 3 parallel safe trên Render 0.5 CPU; tăng nếu CPU tier cao hơn.
+const WORKER_CONCURRENCY = Number(process.env.EXTRACT_CONCURRENCY) || 3;
 async function _runWorker(pool) {
     if (_workerRunning) return;
     _workerRunning = true;
     try {
-        while (_extractQueue.length) {
-            const job = _extractQueue.shift();
-            await _processExtractJob(pool, job);
-        }
+        const workers = Array.from({ length: WORKER_CONCURRENCY }, async (_, idx) => {
+            while (_extractQueue.length) {
+                const job = _extractQueue.shift();
+                if (!job) break;
+                try {
+                    await _processExtractJob(pool, job);
+                } catch (e) {
+                    console.warn(`[lss-worker${idx}] job ${job.snapshotId} threw:`, e.message);
+                }
+            }
+        });
+        await Promise.all(workers);
     } finally {
         _workerRunning = false;
     }
