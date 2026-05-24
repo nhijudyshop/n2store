@@ -552,6 +552,232 @@ body.pt-embed-active {
     color: var(--tp-red);
 }
 
+/* Expand column — TPOS uses Kendo k-hierarchy-cell + k-i-expand icon */
+.tpos-fso-exp-col {
+    width: 30px !important;
+}
+
+.tpos-fso-exp-cell {
+    text-align: center;
+    padding: 0 !important;
+    vertical-align: middle;
+}
+
+.tpos-fso-exp-btn {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--tp-muted);
+    border-radius: 2px;
+    transition:
+        background-color 120ms,
+        color 120ms;
+    padding: 0;
+}
+
+.tpos-fso-exp-btn i {
+    width: 14px;
+    height: 14px;
+    transition: transform 200ms ease;
+}
+
+.tpos-fso-exp-btn:hover {
+    background: var(--tp-accent-soft);
+    color: var(--tp-accent);
+}
+
+.tpos-fso-exp-btn.open i {
+    transform: rotate(90deg);
+}
+
+.tpos-fso-exp-btn.open {
+    background: var(--tp-accent);
+    color: #fff;
+}
+
+.tpos-fso-table tbody tr.expanded {
+    background: var(--tp-accent-soft) !important;
+}
+
+/* Detail row — Kendo k-detail-row pattern: inner table mirrors TPOS expand panel. */
+.tpos-fso-detail-row > td {
+    padding: 0 !important;
+    background: #fafafa !important;
+    border-top: 0 !important;
+    border-bottom: 2px solid var(--tp-accent) !important;
+}
+
+.tpos-fso-detail-row:hover {
+    background: #fafafa !important;
+}
+
+.tpos-fso-detail-wrap {
+    padding: 14px 18px 16px;
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 18px;
+    align-items: start;
+}
+
+@media (max-width: 1100px) {
+    .tpos-fso-detail-wrap {
+        grid-template-columns: 1fr;
+    }
+}
+
+.tpos-fso-detail-loading,
+.tpos-fso-detail-error {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 18px 20px;
+    color: var(--tp-muted);
+    font-size: 13px;
+}
+
+.tpos-fso-detail-error {
+    color: var(--tp-red);
+    font-weight: 600;
+}
+
+.tpos-fso-detail-error i {
+    width: 16px;
+    height: 16px;
+}
+
+.tpos-fso-detail-loading .sp {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #e2e8f0;
+    border-top-color: var(--tp-accent);
+    border-radius: 50%;
+    animation: pt-spin 0.7s linear infinite;
+}
+
+.tpos-fso-detail-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+    background: #fff;
+}
+
+.tpos-fso-detail-table thead th {
+    background: var(--tp-th-bg);
+    color: var(--tp-th-text);
+    font-weight: 600;
+    font-size: 13px;
+    padding: 6px 8px;
+    text-align: left;
+    border: 1px solid var(--tp-border);
+    border-right: 0;
+    white-space: nowrap;
+}
+
+.tpos-fso-detail-table thead th:last-child {
+    border-right: 1px solid var(--tp-border);
+}
+
+.tpos-fso-detail-table tbody td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--tp-border);
+    border-left: 1px solid var(--tp-border);
+    color: var(--tp-text-strong);
+    vertical-align: top;
+    line-height: 1.5;
+}
+
+.tpos-fso-detail-table tbody td:last-child {
+    border-right: 1px solid var(--tp-border);
+}
+
+.tpos-fso-detail-table tbody tr:nth-child(even) {
+    background: #fafafa;
+}
+
+.tpos-fso-detail-table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.tpos-fso-detail-pname {
+    font-weight: 600;
+    color: var(--tp-text-strong);
+    line-height: 1.35;
+}
+
+.tpos-fso-detail-sku {
+    font-size: 11px;
+    color: var(--tp-muted);
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+}
+
+/* Summary block — right column inside detail */
+.tpos-fso-detail-summary {
+    background: #fff;
+    border: 1px solid var(--tp-border);
+    padding: 12px 14px;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tpos-fso-detail-summary > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 2px 0;
+}
+
+.tpos-fso-detail-summary > div span {
+    color: var(--tp-muted);
+}
+
+.tpos-fso-detail-summary > div strong {
+    color: var(--tp-text-strong);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.tpos-fso-detail-summary > div.total {
+    border-top: 1px dashed var(--tp-border);
+    padding-top: 8px;
+    margin-top: 4px;
+    font-size: 14px;
+}
+
+.tpos-fso-detail-summary > div.total strong {
+    color: var(--tp-accent);
+    font-weight: 700;
+    font-size: 15px;
+}
+
+.tpos-fso-detail-summary > div.note {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    border-top: 1px dashed var(--tp-border);
+    padding-top: 8px;
+    margin-top: 4px;
+}
+
+.tpos-fso-detail-summary > div.note em {
+    font-style: normal;
+    color: var(--tp-text-strong);
+    font-size: 12.5px;
+    line-height: 1.4;
+}
+
 .tpos-fso-empty {
     padding: 60px 20px !important;
     text-align: center;

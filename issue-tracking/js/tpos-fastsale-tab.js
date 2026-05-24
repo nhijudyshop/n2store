@@ -95,6 +95,7 @@
         const date = fmtDate(row.DateInvoice);
         const refundOf = row.RefundOrderName || row.Origin || '';
         return `<tr data-tpos-id="${row.Id || ''}">
+            ${expandCell()}
             <td style="text-align:center;color:#94a3b8;font-variant-numeric:tabular-nums;">${idx}</td>
             <td><span class="tpos-fso-num mono" data-action="open" data-id="${row.Id || ''}" data-num="${escapeHtml(row.Number || '')}">${escapeHtml(row.Number || '—')}</span></td>
             <td><span class="mono" style="color:#475569;">${escapeHtml(refundOf || '—')}</span></td>
@@ -105,6 +106,62 @@
             <td><span style="color:#475569;font-size:12px;">${escapeHtml(channel)}</span></td>
             <td><span class="mono" style="color:#64748b;">${date}</span></td>
         </tr>`;
+    }
+
+    function renderDetailHTML(detail) {
+        const lines = Array.isArray(detail.OrderLines) ? detail.OrderLines : [];
+        const subtotal = lines.reduce((s, l) => s + (Number(l.PriceTotal) || 0), 0);
+        const linesHtml = lines.length
+            ? lines
+                  .map((l, i) => {
+                      const pname = l.ProductNameGet || l.Name || l.ProductName || '';
+                      const sku = l.ProductBarcode || '';
+                      const uom = l.ProductUOMName || '';
+                      const qty = Number(l.ProductUOMQty) || 0;
+                      const price = fmtMoney(l.PriceUnit);
+                      const weight = Number(l.WeightTotal || l.Weight || 0);
+                      const lineTotal = fmtMoney(l.PriceTotal);
+                      return `<tr>
+                          <td style="text-align:center;color:#94a3b8;">${i + 1}</td>
+                          <td>
+                              <div class="tpos-fso-detail-pname">${escapeHtml(pname)}</div>
+                              ${sku ? `<div class="tpos-fso-detail-sku">SKU: ${escapeHtml(sku)}</div>` : ''}
+                          </td>
+                          <td>${escapeHtml(uom)}</td>
+                          <td class="num">${qty}</td>
+                          <td class="num">${price}</td>
+                          <td class="num">${weight ? weight.toFixed(3) : '—'}</td>
+                          <td class="num">${lineTotal}</td>
+                      </tr>`;
+                  })
+                  .join('')
+            : `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:16px;">Không có dòng sản phẩm</td></tr>`;
+
+        const summary = `<div class="tpos-fso-detail-summary">
+            <div><span>Tổng tiền hàng:</span><strong>${fmtMoney(subtotal)}</strong></div>
+            ${detail.DecreaseAmount > 0 ? `<div><span>Giảm giá:</span><strong>-${fmtMoney(detail.DecreaseAmount)}</strong></div>` : ''}
+            ${detail.DeliveryPrice > 0 ? `<div><span>Phí giao hàng:</span><strong>${fmtMoney(detail.DeliveryPrice)}</strong></div>` : ''}
+            ${detail.AmountTax > 0 ? `<div><span>Thuế:</span><strong>${fmtMoney(detail.AmountTax)}</strong></div>` : ''}
+            <div class="total"><span>Tổng cộng:</span><strong>${fmtMoney(detail.AmountTotal)}</strong></div>
+            ${detail.CashOnDelivery > 0 ? `<div><span>Tiền thu (COD):</span><strong>${fmtMoney(detail.CashOnDelivery)}</strong></div>` : ''}
+            ${detail.Note ? `<div class="note"><span>Ghi chú:</span><em>${escapeHtml(detail.Note)}</em></div>` : ''}
+        </div>`;
+
+        return `<div class="tpos-fso-detail-wrap">
+            <table class="tpos-fso-detail-table">
+                <thead><tr>
+                    <th style="width:50px;text-align:center;">STT</th>
+                    <th>Sản phẩm</th>
+                    <th style="width:80px;">Đơn vị</th>
+                    <th style="width:80px;text-align:right;">Số lượng</th>
+                    <th style="width:120px;text-align:right;">Đơn giá</th>
+                    <th style="width:90px;text-align:right;">KL (Kg)</th>
+                    <th style="width:130px;text-align:right;">Thành tiền</th>
+                </tr></thead>
+                <tbody>${linesHtml}</tbody>
+            </table>
+            ${summary}
+        </div>`;
     }
 
     class TposFastSaleTab {
@@ -235,21 +292,91 @@
                 });
             }
 
-            // Row click: open in TPOS
+            // Row click: open / expand
             const tbody = this.$.tbody;
             if (tbody) {
                 tbody.addEventListener('click', (e) => {
-                    const el = e.target.closest('[data-action="open"]');
-                    if (!el) return;
-                    const id = el.dataset.id;
-                    if (!id) return;
-                    const path =
-                        this.type === 'refund'
-                            ? 'fastsaleorder/refundlist'
-                            : 'fastsaleorder/invoicelist';
-                    window.open(`https://tomato.tpos.vn/#/app/${path}/${id}`, '_blank', 'noopener');
+                    const expandBtn = e.target.closest('[data-action="expand"]');
+                    if (expandBtn) {
+                        e.stopPropagation();
+                        this.toggleExpand(expandBtn);
+                        return;
+                    }
+                    const openLink = e.target.closest('[data-action="open"]');
+                    if (openLink) {
+                        const id = openLink.dataset.id;
+                        if (!id) return;
+                        const path = this.cfg.tposPath;
+                        window.open(
+                            `https://tomato.tpos.vn/#/app/${path}/${id}`,
+                            '_blank',
+                            'noopener'
+                        );
+                        return;
+                    }
+                    // Click anywhere on row (not on links) → toggle expand
+                    const tr = e.target.closest('tr[data-tpos-id]');
+                    if (tr && !tr.classList.contains('tpos-fso-detail-row')) {
+                        const btn = tr.querySelector('[data-action="expand"]');
+                        if (btn) this.toggleExpand(btn);
+                    }
                 });
             }
+        }
+
+        async toggleExpand(btn) {
+            const row = btn.closest('tr[data-tpos-id]');
+            if (!row) return;
+            const id = row.dataset.tposId;
+            if (!id) return;
+
+            const isOpen = btn.classList.contains('open');
+            const nextRow = row.nextElementSibling;
+
+            if (isOpen) {
+                if (nextRow && nextRow.classList.contains('tpos-fso-detail-row')) {
+                    nextRow.remove();
+                }
+                btn.classList.remove('open');
+                btn.setAttribute('aria-expanded', 'false');
+                row.classList.remove('expanded');
+                return;
+            }
+
+            // Open: insert loading detail row, then fetch
+            btn.classList.add('open');
+            btn.setAttribute('aria-expanded', 'true');
+            row.classList.add('expanded');
+
+            const detailTr = document.createElement('tr');
+            detailTr.className = 'tpos-fso-detail-row';
+            detailTr.innerHTML = `<td colspan="${this.cfg.colCount}"><div class="tpos-fso-detail-loading"><div class="sp"></div>Đang tải chi tiết đơn ${escapeHtml(id)}…</div></td>`;
+            row.after(detailTr);
+
+            if (!this.detailCache) this.detailCache = new Map();
+            let detail = this.detailCache.get(id);
+            if (!detail) {
+                try {
+                    const url = `${WORKER_URL}/api/odata/FastSaleOrder(${encodeURIComponent(id)})?$expand=OrderLines($expand=Product,ProductUOM)`;
+                    const resp = await window.tokenManager.authenticatedFetch(url, {
+                        method: 'GET',
+                        headers: { Accept: 'application/json' },
+                    });
+                    if (!resp.ok) {
+                        const t = await resp.text().catch(() => '');
+                        throw new Error(`HTTP ${resp.status} ${t.slice(0, 120)}`);
+                    }
+                    detail = await resp.json();
+                    this.detailCache.set(id, detail);
+                } catch (e) {
+                    console.error(`[tpos-fastsale:${this.type}] detail fetch failed:`, e);
+                    detailTr.innerHTML = `<td colspan="${this.cfg.colCount}"><div class="tpos-fso-detail-error"><i data-lucide="alert-triangle"></i> Lỗi tải chi tiết: ${escapeHtml(e.message)}</div></td>`;
+                    if (window.lucide) window.lucide.createIcons();
+                    return;
+                }
+            }
+            detailTr.innerHTML = `<td colspan="${this.cfg.colCount}">${renderDetailHTML(detail)}</td>`;
+            if (window.lucide) window.lucide.createIcons();
         }
 
         totalPages() {
