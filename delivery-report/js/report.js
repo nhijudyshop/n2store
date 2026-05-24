@@ -2,9 +2,10 @@
 // =====================================================
 // DELIVERY REPORT MODAL — Báo cáo TOMATO / NAP / TP theo ngày
 // Triggered by triple-clicking the "Đang lọc: ..." hint in main filter section.
-// Editable cells (SL ĐƠN SHIP, BO NHẬN CK, ATRƯỜNG NHẬN CK, CK TRƯỚC, GHI CHÚ)
-// persisted in localStorage keyed by date+group. Compute fields: PHÍ SHIP,
-// TỔNG TẤT CẢ (= TIỀN − PHÍ SHIP + SL ĐƠN SHIP × 23k), TỔNG CÒN LẠI auto-derived.
+// Editable cells (SL ĐƠN SHIP, THU VỀ, BO NHẬN CK, ATRƯỜNG NHẬN CK, CK TRƯỚC,
+// GHI CHÚ) persisted in localStorage keyed by date+group. Compute fields:
+// PHÍ SHIP, TỔNG TẤT CẢ (= TIỀN − PHÍ SHIP − SL ĐƠN SHIP × 23k + THU VỀ),
+// TỔNG CÒN LẠI auto-derived.
 // =====================================================
 
 (function () {
@@ -234,7 +235,8 @@
                   <th class="num">SL ĐƠN</th>
                   <th class="num">TIỀN</th>
                   <th class="num">PHÍ SHIP</th>
-                  <th class="num input-col" title="Số đơn ship riêng, cộng thêm vào TỔNG TẤT CẢ × 23.000">SL ĐƠN SHIP</th>
+                  <th class="num input-col" title="Số đơn ship riêng, trừ khỏi TỔNG TẤT CẢ (SL × 23.000)">SL ĐƠN SHIP</th>
+                  <th class="num input-col" title="Tiền thu về, cộng thêm vào TỔNG TẤT CẢ">THU VỀ</th>
                   <th class="num">TỔNG TẤT CẢ</th>
                   <th class="num input-col">BO NHẬN CK</th>
                   <th class="num input-col">ATRƯỜNG NHẬN CK</th>
@@ -380,7 +382,7 @@
 
         if (dates.length === 0) {
             document.getElementById('drReportTbody').innerHTML =
-                '<tr><td colspan="11" class="dr-report-empty">Chọn khoảng ngày để xem báo cáo</td></tr>';
+                '<tr><td colspan="12" class="dr-report-empty">Chọn khoảng ngày để xem báo cáo</td></tr>';
             document.getElementById('drReportTfoot').innerHTML = '';
             return;
         }
@@ -396,7 +398,7 @@
 
         // Cold cache → show loading + async fetch
         document.getElementById('drReportTbody').innerHTML =
-            '<tr><td colspan="11" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>';
+            '<tr><td colspan="12" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>';
         document.getElementById('drReportTfoot').innerHTML = '';
         fetchRange(realFrom, realTo).then(({ byDateGroup }) => {
             const curRealFrom = entryToReal(state.fromDate);
@@ -414,6 +416,7 @@
             money: 0,
             shipFee: 0,
             slShip: 0,
+            thuVe: 0,
             totalAll: 0,
             boCK: 0,
             atruongCK: 0,
@@ -428,8 +431,9 @@
             const money = sys.money;
             const shipFee = slDon * SHIP_FEE_PER_ORDER;
             const slShip = Number(ov.slShip) || 0;
-            // TỔNG TẤT CẢ = TIỀN − PHÍ SHIP + (SL ĐƠN SHIP × 23k)
-            const totalAll = money - shipFee + slShip * SHIP_FEE_PER_ORDER;
+            const thuVe = Number(ov.thuVe) || 0;
+            // TỔNG TẤT CẢ = TIỀN − PHÍ SHIP − (SL ĐƠN SHIP × 23k) + THU VỀ
+            const totalAll = money - shipFee - slShip * SHIP_FEE_PER_ORDER + thuVe;
             const boCK = Number(ov.boCK) || 0;
             const atruongCK = Number(ov.atruongCK) || 0;
             const ckTruoc = Number(ov.ckTruoc) || 0;
@@ -440,6 +444,7 @@
             totals.money += money;
             totals.shipFee += shipFee;
             totals.slShip += slShip;
+            totals.thuVe += thuVe;
             totals.totalAll += totalAll;
             totals.boCK += boCK;
             totals.atruongCK += atruongCK;
@@ -455,7 +460,8 @@
                     <span class="money-ico">${hasImg ? '<i class="fas fa-image"></i>' : '<i class="far fa-image"></i>'}</span>
                 </td>
                 <td class="num muted">${formatMoney(shipFee)}</td>
-                <td class="num"><input type="number" min="0" data-field="slShip" value="${slShip || ''}" placeholder="0" title="Số đơn ship riêng — cộng SL × 23.000 vào TỔNG TẤT CẢ" /></td>
+                <td class="num"><input type="number" min="0" data-field="slShip" value="${slShip || ''}" placeholder="0" title="Số đơn ship riêng — trừ SL × 23.000 khỏi TỔNG TẤT CẢ" /></td>
+                <td class="num"><input type="text" data-field="thuVe" value="${thuVe ? formatMoney(thuVe) : ''}" placeholder="0" title="Tiền thu về — cộng thêm vào TỔNG TẤT CẢ" /></td>
                 <td class="num strong">${formatMoney(totalAll)}</td>
                 <td class="num"><input type="text" data-field="boCK" value="${boCK ? formatMoney(boCK) : ''}" placeholder="0" /></td>
                 <td class="num"><input type="text" data-field="atruongCK" value="${atruongCK ? formatMoney(atruongCK) : ''}" placeholder="0" /></td>
@@ -473,6 +479,7 @@
             <th class="num">${formatMoney(totals.money)}</th>
             <th class="num muted">${formatMoney(totals.shipFee)}</th>
             <th class="num">${formatNumber(totals.slShip)}</th>
+            <th class="num">${formatMoney(totals.thuVe)}</th>
             <th class="num strong">${formatMoney(totals.totalAll)}</th>
             <th class="num">${formatMoney(totals.boCK)}</th>
             <th class="num">${formatMoney(totals.atruongCK)}</th>
