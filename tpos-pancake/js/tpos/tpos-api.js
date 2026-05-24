@@ -199,14 +199,56 @@ const TposApi = {
             }
         }
         if (!response || !response.ok) {
+            // Fallback FB Graph direct với Pancake page token (post bị TPOS reject).
+            const fallback = await this._fallbackLoadCommentsFbGraph(pageId, postId, afterCursor);
+            if (fallback) return fallback;
             throw lastErr || new Error(`API error: ${response?.status ?? 'unknown'}`);
         }
 
         const data = await response.json();
+        // Backend giờ trả 200 + empty data khi upstream 4xx/timeout (success=false).
+        // Detect + fallback Pancake Graph.
+        if (data && data.success === false && Array.isArray(data.data) && data.data.length === 0) {
+            console.warn(
+                `[TPOS-API] upstream ${data.upstream_status || 'timeout'} for post ${postId} → fallback Pancake Graph`
+            );
+            const fallback = await this._fallbackLoadCommentsFbGraph(pageId, postId, afterCursor);
+            if (fallback) return fallback;
+        }
         return {
             comments: data.data || [],
             nextPageUrl: data.paging?.next || null,
         };
+    },
+
+    // Fallback: gọi trực tiếp FB Graph API với Pancake page_access_token.
+    // Dùng khi TPOS proxy fail (post bị xóa từ TPOS / TPOS lỗi).
+    // Pancake token được cache trong PancakeTokenManager.pageAccessTokens.
+    async _fallbackLoadCommentsFbGraph(pageId, postId, afterCursor = null) {
+        try {
+            if (!window.PancakeTokenManager?.getOrGeneratePageAccessToken) return null;
+            const token = await window.PancakeTokenManager.getOrGeneratePageAccessToken(pageId);
+            if (!token) return null;
+            let url = `https://graph.facebook.com/${encodeURIComponent(postId)}/comments?access_token=${encodeURIComponent(token)}&limit=50&order=reverse_chronological&fields=from%7Bid%2Cname%2Cpicture%7D%2Cid%2Cmessage%2Ccreated_time%2Cattachment%2Ccan_hide%2Cis_hidden%2Ccan_remove`;
+            if (afterCursor) url += `&after=${encodeURIComponent(afterCursor)}`;
+            const r = await fetch(url, { credentials: 'omit' });
+            if (!r.ok) return null;
+            const d = await r.json();
+            if (d.error) {
+                console.warn('[TPOS-API] fallback FB Graph error:', d.error.message);
+                return null;
+            }
+            console.log(
+                `[TPOS-API] Fallback FB Graph: loaded ${d.data?.length || 0} comments for ${postId}`
+            );
+            return {
+                comments: d.data || [],
+                nextPageUrl: d.paging?.next || null,
+            };
+        } catch (e) {
+            console.warn('[TPOS-API] fallback FB Graph fail:', e.message);
+            return null;
+        }
     },
 
     /**

@@ -1,20 +1,22 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const fetch = require("node-fetch");
+const fetch = require('node-fetch');
 
 // Load environment variables
-require("dotenv").config();
+require('dotenv').config();
 
 // TPOS API Base URL
-const TPOS_BASE_URL = process.env.TPOS_BASE_URL || "https://tomato.tpos.vn";
+const TPOS_BASE_URL = process.env.TPOS_BASE_URL || 'https://tomato.tpos.vn';
 
 // Default fallback token (used if no Authorization header provided)
-const DEFAULT_TOKEN = process.env.FACEBOOK_TOKEN || "";
+const DEFAULT_TOKEN = process.env.FACEBOOK_TOKEN || '';
 
 // TPOS token manager — auto-fetch bearer token using server env creds
 let tposTokenManager = null;
-try { tposTokenManager = require('../services/tpos-token-manager'); } catch (_) {}
+try {
+    tposTokenManager = require('../services/tpos-token-manager');
+} catch (_) {}
 
 /**
  * Get authorization token from request, fallback to TPOS token manager (server creds),
@@ -42,11 +44,12 @@ async function getAuthToken(req) {
 function getTposHeaders(token) {
     return {
         Authorization: token,
-        "Content-Type": "application/json;IEEE754Compatible=false;charset=utf-8",
-        Accept: "application/json, text/plain, */*",
-        Origin: "https://tomato.tpos.vn",
-        Referer: "https://tomato.tpos.vn/",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
+        Accept: 'application/json, text/plain, */*',
+        Origin: 'https://tomato.tpos.vn',
+        Referer: 'https://tomato.tpos.vn/',
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
     };
 }
 
@@ -59,11 +62,11 @@ function getTposHeaders(token) {
  * Headers:
  * - Authorization: Bearer <token> (required)
  */
-router.get("/facebook/crm-teams", async (req, res) => {
+router.get('/facebook/crm-teams', async (req, res) => {
     try {
         const token = await getAuthToken(req);
         if (!token) {
-            return res.status(401).json({ success: false, error: "No authorization token" });
+            return res.status(401).json({ success: false, error: 'No authorization token' });
         }
 
         console.log(`📥 Fetching CRM Teams...`);
@@ -71,7 +74,7 @@ router.get("/facebook/crm-teams", async (req, res) => {
         const url = `${TPOS_BASE_URL}/odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs`;
 
         const response = await fetch(url, {
-            method: "GET",
+            method: 'GET',
             headers: getTposHeaders(token),
         });
 
@@ -84,7 +87,7 @@ router.get("/facebook/crm-teams", async (req, res) => {
 
         res.json(data);
     } catch (error) {
-        console.error("❌ CRM Teams API error:", error);
+        console.error('❌ CRM Teams API error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -100,11 +103,11 @@ router.get("/facebook/crm-teams", async (req, res) => {
  * Query params:
  * - top: Number of campaigns (default: 20)
  */
-router.get("/facebook/live-campaigns", async (req, res) => {
+router.get('/facebook/live-campaigns', async (req, res) => {
     try {
         const token = await getAuthToken(req);
         if (!token) {
-            return res.status(401).json({ success: false, error: "No authorization token" });
+            return res.status(401).json({ success: false, error: 'No authorization token' });
         }
 
         const { top = 20 } = req.query;
@@ -114,7 +117,7 @@ router.get("/facebook/live-campaigns", async (req, res) => {
         const url = `${TPOS_BASE_URL}/odata/SaleOnline_LiveCampaign/ODataService.GetAvailables?$orderby=DateCreated%20desc&$top=${top}`;
 
         const response = await fetch(url, {
-            method: "GET",
+            method: 'GET',
             headers: getTposHeaders(token),
         });
 
@@ -127,7 +130,7 @@ router.get("/facebook/live-campaigns", async (req, res) => {
 
         res.json(data);
     } catch (error) {
-        console.error("❌ Live Campaigns API error:", error);
+        console.error('❌ Live Campaigns API error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -146,11 +149,11 @@ router.get("/facebook/live-campaigns", async (req, res) => {
  * - limit: Number of comments (default: 50)
  * - after: Pagination cursor (optional)
  */
-router.get("/facebook/comments", async (req, res) => {
+router.get('/facebook/comments', async (req, res) => {
     try {
         const token = await getAuthToken(req);
         if (!token) {
-            return res.status(401).json({ success: false, error: "No authorization token" });
+            return res.status(401).json({ success: false, error: 'No authorization token' });
         }
 
         const { pageid, postId, limit = 50, after } = req.query;
@@ -158,25 +161,62 @@ router.get("/facebook/comments", async (req, res) => {
         if (!pageid || !postId) {
             return res.status(400).json({
                 success: false,
-                error: "Missing required parameters: pageid, postId",
+                error: 'Missing required parameters: pageid, postId',
             });
         }
 
         console.log(`📥 Fetching comments for post ${postId}...`);
 
-        let url = `${TPOS_BASE_URL}/api/facebook-graph/comment?pageid=${pageid}&facebook_type=Page&postId=${postId}&limit=${limit}&order=reverse_chronological`;
+        // Add &live_filter=no_filter — TPOS UI luôn pass param này cho post (live + past).
+        // Một số post past live cần param này, nếu thiếu → TPOS trả 400.
+        let url = `${TPOS_BASE_URL}/api/facebook-graph/comment?pageid=${pageid}&facebook_type=Page&postId=${postId}&limit=${limit}&order=reverse_chronological&live_filter=no_filter`;
 
         if (after) {
             url += `&after=${encodeURIComponent(after)}`;
         }
 
-        const response = await fetch(url, {
-            method: "GET",
-            headers: getTposHeaders(token),
-        });
+        // Fail fast: timeout 2.5s thay vì Node default 5 phút.
+        // Trước đây user mất ~7.3s cho post hỏng → 2 post = 15s. Giờ ≤ 2.5s × 2.
+        const ctrl = new AbortController();
+        const timeoutId = setTimeout(() => ctrl.abort(), 2500);
+
+        let response;
+        try {
+            response = await fetch(url, {
+                method: 'GET',
+                headers: getTposHeaders(token),
+                signal: ctrl.signal,
+            });
+        } catch (e) {
+            clearTimeout(timeoutId);
+            if (e.name === 'AbortError') {
+                console.warn(`⏱ TPOS comment timeout (post ${postId})`);
+                // Trả 200 + empty thay vì 500 → frontend có thể fallback Pancake Graph.
+                return res.json({
+                    success: false,
+                    upstream_timeout: true,
+                    data: [],
+                    paging: {},
+                });
+            }
+            throw e;
+        }
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
-            throw new Error(`TPOS API error: ${response.status}`);
+            const errBody = await response.text().catch(() => '');
+            console.warn(
+                `⚠ TPOS API ${response.status} (post ${postId}): ${errBody.slice(0, 200)}`
+            );
+            // 4xx upstream (post bị xóa / private / stale) → trả 200 empty + flag
+            // để frontend biết retry Pancake Graph fallback.
+            return res.json({
+                success: false,
+                upstream_status: response.status,
+                upstream_error: errBody.slice(0, 200),
+                data: [],
+                paging: {},
+            });
         }
 
         const data = await response.json();
@@ -184,7 +224,7 @@ router.get("/facebook/comments", async (req, res) => {
 
         res.json(data);
     } catch (error) {
-        console.error("❌ Comments API error:", error);
+        console.error('❌ Comments API error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -201,14 +241,14 @@ router.get("/facebook/comments", async (req, res) => {
  * - pageid: Facebook Page ID (required)
  * - postId: Post ID (required)
  */
-router.get("/facebook/comments/stream", async (req, res) => {
+router.get('/facebook/comments/stream', async (req, res) => {
     // EventSource doesn't support custom headers, so accept token from query param
     let token = await getAuthToken(req);
     if (!token && req.query.token) {
         token = `Bearer ${req.query.token}`;
     }
     if (!token) {
-        return res.status(401).json({ success: false, error: "No authorization token" });
+        return res.status(401).json({ success: false, error: 'No authorization token' });
     }
 
     const { pageid, postId } = req.query;
@@ -216,7 +256,7 @@ router.get("/facebook/comments/stream", async (req, res) => {
     if (!pageid || !postId) {
         return res.status(400).json({
             success: false,
-            error: "Missing required parameters: pageid, postId",
+            error: 'Missing required parameters: pageid, postId',
         });
     }
 
@@ -235,12 +275,12 @@ router.get("/facebook/comments/stream", async (req, res) => {
 
     try {
         const response = await fetch(sseUrl, {
-            method: "GET",
+            method: 'GET',
             headers: {
-                Accept: "text/event-stream",
-                "Cache-Control": "no-cache",
-                Origin: "https://tomato.tpos.vn",
-                Referer: "https://tomato.tpos.vn/",
+                Accept: 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                Origin: 'https://tomato.tpos.vn',
+                Referer: 'https://tomato.tpos.vn/',
             },
         });
 
@@ -273,9 +313,8 @@ router.get("/facebook/comments/stream", async (req, res) => {
             console.log(`📡 Client disconnected from SSE stream`);
             response.body.destroy();
         });
-
     } catch (error) {
-        console.error("❌ SSE connection error:", error);
+        console.error('❌ SSE connection error:', error);
         res.write(`data: {"error": "${error.message}"}\n\n`);
         res.end();
     }
@@ -292,11 +331,11 @@ router.get("/facebook/comments/stream", async (req, res) => {
  * Query params:
  * - postId: Full post ID in format pageId_postId (required)
  */
-router.get("/facebook/comment-orders", async (req, res) => {
+router.get('/facebook/comment-orders', async (req, res) => {
     try {
         const token = await getAuthToken(req);
         if (!token) {
-            return res.status(401).json({ success: false, error: "No authorization token" });
+            return res.status(401).json({ success: false, error: 'No authorization token' });
         }
 
         const { postId } = req.query;
@@ -304,7 +343,7 @@ router.get("/facebook/comment-orders", async (req, res) => {
         if (!postId) {
             return res.status(400).json({
                 success: false,
-                error: "Missing required parameter: postId",
+                error: 'Missing required parameter: postId',
             });
         }
 
@@ -313,7 +352,7 @@ router.get("/facebook/comment-orders", async (req, res) => {
         const url = `${TPOS_BASE_URL}/odata/SaleOnline_Facebook_Post/ODataService.GetCommentOrders?$expand=orders&PostId=${postId}`;
 
         const response = await fetch(url, {
-            method: "GET",
+            method: 'GET',
             headers: getTposHeaders(token),
         });
 
@@ -326,7 +365,7 @@ router.get("/facebook/comment-orders", async (req, res) => {
 
         res.json(data);
     } catch (error) {
-        console.error("❌ Comment Orders API error:", error);
+        console.error('❌ Comment Orders API error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -344,25 +383,21 @@ router.get("/facebook/comment-orders", async (req, res) => {
  * - limit: Number of videos (default: 10)
  * - facebook_Type: Type (default: page)
  */
-router.get("/facebook/livevideo", async (req, res) => {
+router.get('/facebook/livevideo', async (req, res) => {
     try {
         const token = await getAuthToken(req);
         if (!token) {
-            return res.status(401).json({ success: false, error: "No authorization token" });
+            return res.status(401).json({ success: false, error: 'No authorization token' });
         }
 
-        const {
-            pageid = "117267091364524",
-            limit = 10,
-            facebook_Type = "page",
-        } = req.query;
+        const { pageid = '117267091364524', limit = 10, facebook_Type = 'page' } = req.query;
 
         console.log(`📥 Fetching Facebook live videos...`);
 
         const url = `${TPOS_BASE_URL}/api/facebook-graph/livevideo?pageid=${pageid}&limit=${limit}&facebook_Type=${facebook_Type}`;
 
         const response = await fetch(url, {
-            method: "GET",
+            method: 'GET',
             headers: getTposHeaders(token),
         });
 
@@ -379,7 +414,7 @@ router.get("/facebook/livevideo", async (req, res) => {
             data: data,
         });
     } catch (error) {
-        console.error("❌ Live Video API error:", error);
+        console.error('❌ Live Video API error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -391,17 +426,17 @@ router.get("/facebook/livevideo", async (req, res) => {
 /**
  * GET /facebook/health - Health check
  */
-router.get("/facebook/health", (req, res) => {
+router.get('/facebook/health', (req, res) => {
     res.json({
-        status: "OK",
-        service: "Facebook/TPOS Proxy API",
+        status: 'OK',
+        service: 'Facebook/TPOS Proxy API',
         endpoints: [
-            "/facebook/crm-teams",
-            "/facebook/live-campaigns",
-            "/facebook/comments",
-            "/facebook/comments/stream",
-            "/facebook/comment-orders",
-            "/facebook/livevideo",
+            '/facebook/crm-teams',
+            '/facebook/live-campaigns',
+            '/facebook/comments',
+            '/facebook/comments/stream',
+            '/facebook/comment-orders',
+            '/facebook/livevideo',
         ],
         timestamp: new Date().toISOString(),
     });
