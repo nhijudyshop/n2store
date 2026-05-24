@@ -13,6 +13,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (el) el.textContent = `v${v}`;
     } catch {}
 
+    // Update banner: nếu version-checker đã lưu updateInfo và remote > installed → show
+    showUpdateBannerIfAvailable();
+
     // Livestream Snapshot: auto-grab tab streamId nếu active tab là tpos-pancake.
     // chrome.tabCapture.getMediaStreamId() yêu cầu user gesture (popup click =
     // gesture). Sau khi user click extension icon, streamId được sent về page
@@ -584,5 +587,48 @@ async function grabTabStreamForLivestreamSnap() {
     } catch (e) {
         // tabCapture API not available / permission denied / no host match — silent.
         console.warn('[popup] grabTabStream fail:', e.message);
+    }
+}
+
+// === Update Available Banner ===
+// Đọc updateInfo từ chrome.storage.local (do background/version-checker.js lưu).
+// Nếu remote > installed → show banner với nút mở Chrome Web Store.
+async function showUpdateBannerIfAvailable() {
+    try {
+        const banner = document.getElementById('updateBanner');
+        if (!banner) return;
+        const { updateInfo, updateBannerDismissedFor } = await chrome.storage.local.get([
+            'updateInfo',
+            'updateBannerDismissedFor',
+        ]);
+        if (!updateInfo || !updateInfo.updateAvailable) return;
+        // User đã dismiss banner cho version này → ẩn cho đến khi có version mới hơn
+        if (updateBannerDismissedFor === updateInfo.latestVersion) return;
+
+        const subEl = document.getElementById('updateBannerSub');
+        if (subEl) {
+            subEl.textContent = `v${updateInfo.installedVersion} → v${updateInfo.latestVersion}`;
+        }
+        banner.style.display = 'block';
+
+        const btn = document.getElementById('updateBannerBtn');
+        if (btn) {
+            btn.addEventListener('click', () => {
+                chrome.tabs.create({ url: updateInfo.storeUrl });
+                window.close();
+            });
+        }
+
+        const dismiss = document.getElementById('updateBannerDismiss');
+        if (dismiss) {
+            dismiss.addEventListener('click', async () => {
+                banner.style.display = 'none';
+                await chrome.storage.local.set({
+                    updateBannerDismissedFor: updateInfo.latestVersion,
+                });
+            });
+        }
+    } catch (e) {
+        console.warn('[popup] update banner check fail:', e.message);
     }
 }

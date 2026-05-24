@@ -16,6 +16,7 @@ import {
 import { handleSendComment, handleSendPrivateReply } from './facebook/commenter.js';
 import { startInterceptor, getInterceptedCount } from './facebook/doc-id-interceptor.js';
 import { setupUpdateNotifier } from './update-notifier.js';
+import { setupVersionChecker } from './version-checker.js';
 import { showNotification, setupNotificationClickHandlers } from './server/notifications.js';
 import { startSSE, stopSSE, restartSSE, getSSEStatus } from './server/sse-listener.js';
 import {
@@ -53,6 +54,9 @@ log.info(MODULE, `N2Store Extension v${VERSION} (build ${BUILD}) starting...`);
 // Setup update notifier early — must register onInstalled listener at top-level
 // of service worker, not inside async IIFE (Chrome may dispatch event before async init resolves).
 setupUpdateNotifier();
+
+// Periodic check GH Pages manifest for newer version → popup banner sẽ đọc storage.
+setupVersionChecker();
 
 // Initialize all subsystems
 (async () => {
