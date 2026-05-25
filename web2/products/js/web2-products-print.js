@@ -573,11 +573,28 @@
         const { showPrice, showBold, showProductName, showCurrency, hideBarcode } = opts;
         const { sheetW, sheetH, labelW, labelH, cols, fontSize } = paper;
 
-        const fs = fontSize || 9;
-        const lineH = fs + 1; // TPOS: FontSize * 1 + 1
-        const nameMaxH = fs * 2; // TPOS: FontSize * 2
+        // Scale font + spacing theo label dimensions (user feedback: scale theo
+        // độ rộng/dài tem). Paper preset fontSize làm base; tỷ lệ với labelW so
+        // các paper khác tự scale proportional.
+        //
+        // Reference proportions (paper 7 "2 Tem", labelW=25mm, labelH=21mm):
+        //   - fontSize (TPOS) = 6 → font/labelW ≈ 0.24
+        //   - lineH = fs + 1
+        //   - nameFont = base, codeFont = base * 0.9 (slightly smaller cho code/price)
+        //   - barcodeH = labelH * 0.45 (~9.5mm cho 21mm label)
+        //   - padding ≈ labelW * 0.02 (~0.5mm cho 25mm — match TPOS paper 7)
+        //
+        // Khi đổi paper → labelW thay đổi → tất cả scale theo.
+        const fs = fontSize || Math.max(5, Math.round(labelW * 0.24));
+        const fsCode = Math.max(4, Math.round(fs * 0.9));
+        const lineH = fs + 1;
+        const lineHCode = fsCode + 1;
+        const padScaled = Math.round(labelW * 0.02 * 10) / 10; // mm — fallback nếu paper.*Margin null
+        const barcodeH = Math.round(labelH * 0.45 * 10) / 10; // mm
 
-        // style_label() — only include props when not null (mirror TPOS controller)
+        // style_label() — only include props when not null (mirror TPOS controller).
+        // Padding fallback từ padScaled nếu paper config null (Paper 8 "1 Tem" có
+        // *Margin null nhưng vẫn cần padding nhỏ để content không sát mép).
         const labelStyleParts = [
             `width:${labelW}mm`,
             `height:${labelH}mm`,
@@ -587,11 +604,16 @@
             `text-align:center`,
             `margin-top:1px`,
         ];
-        if (paper.topMargin != null) labelStyleParts.push(`padding-top:${paper.topMargin}mm`);
-        if (paper.leftMargin != null) labelStyleParts.push(`padding-left:${paper.leftMargin}mm`);
-        if (paper.bottomMargin != null)
-            labelStyleParts.push(`padding-bottom:${paper.bottomMargin}mm`);
-        if (paper.rightMargin != null) labelStyleParts.push(`padding-right:${paper.rightMargin}mm`);
+        const padTop = paper.topMargin != null ? paper.topMargin : padScaled;
+        const padLeft = paper.leftMargin != null ? paper.leftMargin : padScaled;
+        const padBottom = paper.bottomMargin != null ? paper.bottomMargin : padScaled;
+        const padRight = paper.rightMargin != null ? paper.rightMargin : padScaled;
+        labelStyleParts.push(
+            `padding-top:${padTop}mm`,
+            `padding-left:${padLeft}mm`,
+            `padding-bottom:${padBottom}mm`,
+            `padding-right:${padRight}mm`
+        );
         if (paper.hSpacing != null) labelStyleParts.push(`margin-right:${paper.hSpacing}mm`);
         if (paper.vSpacing != null) labelStyleParts.push(`margin-bottom:${paper.vSpacing}mm`);
 
@@ -625,20 +647,15 @@
                     // PrintNew — 2-column table
                     sheetsHTML += `<div class="barcode_label" style="${labelStyle}"><table border="0" style="width:100%;height:100%;"><tr><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-code">${escapeHtml(label.code)}</div>${showPrice ? `<div class="barcode-price">${displayPrice}${currencyStr}</div>` : ''}</td><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-image">${!hideBarcode ? barcodeImg : ''}</div></td></tr></table></div>`;
                 } else {
-                    // Default vertical (TPOS PDF reference, captured 2026-05-25):
-                    //   - Title WRAPS multi-line (compact, no truncate)
-                    //   - Barcode dominates vertical (~50-60% label height)
-                    //   - Code + price tight ở dưới (~10-15%)
-                    //   - Layout pack tight at top, KHÔNG flex distribute slack
-                    // Override `.barcode_label div { flex: 1 auto }` của TPOS CSS
-                    // bằng inline `flex: 0 0 auto` cho text (no grow), `flex: 1 1 auto`
-                    // cho barcode-image (grow fill remaining). Match TPOS PDF visual.
-                    // Barcode height ~45-50% label height (theo TPOS PDF):
-                    // labelH 21mm → barcode ~9-10mm. Tính bằng labelH * 0.45.
-                    const barcodeH = Math.round(labelH * 0.45 * 10) / 10; // mm
+                    // Default vertical — proportional scaling theo label size:
+                    //   - Title: word-wrap multi-line, font = paper.fontSize (TPOS)
+                    //   - Barcode: 45% label height (labelH * 0.45)
+                    //   - Code + price: font = fs * 0.9 (slightly smaller), tight
+                    //   - Pack top, flex-start, no slack distribution
                     const labelStyleFinal = labelStyle + 'justify-content:flex-start;';
                     const tightFlex = 'flex:0 0 auto;';
                     const barcodeFlex = `flex:0 0 ${barcodeH}mm;height:${barcodeH}mm;display:flex;align-items:center;justify-content:center;min-height:0;`;
+                    const codeStyle = `${tightFlex}font-size:${fsCode}px;line-height:${lineHCode}px;`;
                     sheetsHTML += `<div class="barcode_label" style="${labelStyleFinal}">`;
                     if (showProductName) {
                         sheetsHTML += `<div class="barcode-pname" style="${tightFlex}${nameStyle}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
@@ -646,9 +663,9 @@
                     if (!hideBarcode && label.code) {
                         sheetsHTML += `<div class="barcode-image" style="${barcodeFlex}">${barcodeImg}</div>`;
                     }
-                    sheetsHTML += `<div style="${tightFlex}line-height:${lineH}px;"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
+                    sheetsHTML += `<div style="${codeStyle}"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
                     if (showPrice) {
-                        sheetsHTML += `<div style="${tightFlex}line-height:${lineH}px;"><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
+                        sheetsHTML += `<div style="${codeStyle}"><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
                     }
                     sheetsHTML += `</div>`;
                 }
