@@ -111,7 +111,10 @@
 
     function startObserver() {
         if (observerActive) return;
-        const target = document.getElementById('transactionTableBody') || document.body;
+        const target =
+            document.getElementById('w2bhTbody') ||
+            document.getElementById('transactionTableBody') ||
+            document.body;
         const mo = new MutationObserver(() => {
             // Debounce slight to coalesce bulk DOM updates
             if (flushTimer) return;
