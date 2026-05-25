@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `423232a` — auto: session update
-**Last updated**: 2026-05-25 16:00:03 +07
-**Latest session**: [`RESUME:20260525-160003-423232a`](../20260525-160003-423232a.md)
-**Summary**: auto: session update
+**Latest commit**: `b8a3f61` — feat(delivery-report): migrate overrides (slShip/thuVe/boCK/atruongCK/ckTruoc/note) localStorage -> Postgres
+**Last updated**: 2026-05-25 16:10:56 +07
+**Latest session**: [`RESUME:20260525-161056-b8a3f61`](../20260525-161056-b8a3f61.md)
+**Summary**: feat(delivery-report): migrate overrides (slShip/thuVe/boCK/atruongCK/ckTruoc/note) localStorage -> Postgres
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`delivery-report/`](./delivery-report.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -23,7 +24,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-25 15:53
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-25 16:10
 - [`docs/`](./docs.md) — updated 2026-05-25 16:00
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
@@ -49,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-25 15:53
+- [`render.com/`](./render.com.md) — updated 2026-05-25 16:10
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-25 15:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
