@@ -161,6 +161,17 @@ chatDbPool
         } catch (e) {
             console.warn('[web2-sepay-matching] require failed:', e.message);
         }
+        // DELIVERY ASSIGNMENTS — bill image storage (migrate localStorage → BYTEA).
+        try {
+            const { ensureImagesSchema } = require('./routes/v2/delivery-assignments');
+            if (typeof ensureImagesSchema === 'function') {
+                ensureImagesSchema(chatDbPool).catch((e) =>
+                    console.warn('[delivery-assignment-images] init warn:', e.message)
+                );
+            }
+        } catch (e) {
+            console.warn('[delivery-assignment-images] require failed:', e.message);
+        }
     })
     .catch((err) => console.error('[DATABASE] PostgreSQL connection error:', err.message));
 

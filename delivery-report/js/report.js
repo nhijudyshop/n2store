@@ -145,6 +145,122 @@
         return `${from}__${to}`;
     }
 
+    // ── Images storage: Postgres BYTEA via /api/v2/delivery-assignments/image/ ──
+    // Trước đây lưu trong localStorage `dr-report-overrides-v1.billImage`. Migrate
+    // 2026-05-25 sang DB để persist cross-device. localStorage giờ chỉ giữ các
+    // override khác (slShip, thuVe, boCK, atruongCK, ckTruoc, note).
+    state.imageFlags = state.imageFlags || new Set(); // `${date}__${group}` của các ô có ảnh trong range hiện tại
+    state.imageFlagsFetched = state.imageFlagsFetched || new Map(); // rangeKey → timestamp (TTL 60s)
+
+    function imageUrl(date, group, cacheBust) {
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl || !date || !group) return '';
+        const bust = cacheBust ? `?t=${cacheBust}` : '';
+        return `${renderUrl}/api/v2/delivery-assignments/image/${encodeURIComponent(date)}/${encodeURIComponent(group)}${bust}`;
+    }
+
+    async function loadImageFlags(from, to) {
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl || !from || !to) return;
+        const key = rangeKey(from, to);
+        const last = state.imageFlagsFetched.get(key);
+        if (last && Date.now() - last < 60000) return;
+        try {
+            const url = `${renderUrl}/api/v2/delivery-assignments/image-flags?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+            const resp = await fetch(url);
+            if (!resp.ok) return;
+            const j = await resp.json();
+            const flags = j.data?.flags || [];
+            // Refresh chỉ flags trong range này — đảm bảo set không mang flag stale
+            // từ range cũ với date không có trong range mới.
+            const dates = eachDay(from, to);
+            const inRange = new Set(dates);
+            for (const f of [...state.imageFlags]) {
+                const [d] = String(f).split('__');
+                if (inRange.has(d)) state.imageFlags.delete(f);
+            }
+            for (const f of flags) state.imageFlags.add(f);
+            state.imageFlagsFetched.set(key, Date.now());
+        } catch (e) {
+            console.warn('[report] loadImageFlags failed:', e?.message);
+        }
+    }
+
+    function hasImageFlag(date, group) {
+        return state.imageFlags.has(`${date}__${group}`);
+    }
+
+    async function uploadImage(date, group, dataUrl) {
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl) throw new Error('Render URL not available');
+        const resp = await fetch(
+            `${renderUrl}/api/v2/delivery-assignments/image/${encodeURIComponent(date)}/${encodeURIComponent(group)}`,
+            {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dataUrl }),
+            }
+        );
+        if (!resp.ok) {
+            const txt = await resp.text().catch(() => '');
+            throw new Error(`HTTP ${resp.status} ${txt}`);
+        }
+        state.imageFlags.add(`${date}__${group}`);
+    }
+
+    async function deleteImage(date, group) {
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl) throw new Error('Render URL not available');
+        const resp = await fetch(
+            `${renderUrl}/api/v2/delivery-assignments/image/${encodeURIComponent(date)}/${encodeURIComponent(group)}`,
+            { method: 'DELETE' }
+        );
+        if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status}`);
+        }
+        state.imageFlags.delete(`${date}__${group}`);
+    }
+
+    // One-time migration: scan localStorage `billImage` entries → upload to DB
+    // → clear `billImage` field. Marker `dr-report-images-migrated-v1` ngăn chạy lại.
+    async function migrateLocalStorageImagesOnce() {
+        const MARK_KEY = 'dr-report-images-migrated-v1';
+        if (localStorage.getItem(MARK_KEY) === '1') return;
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl) return;
+        const candidates = [];
+        for (const k in state.overrides) {
+            const ov = state.overrides[k];
+            if (!ov || !ov.billImage) continue;
+            const [date, group] = k.split('__');
+            if (!date || !group) continue;
+            candidates.push({ key: k, date, group, dataUrl: ov.billImage });
+        }
+        if (candidates.length === 0) {
+            localStorage.setItem(MARK_KEY, '1');
+            return;
+        }
+        console.log(`[report] migrating ${candidates.length} images localStorage → DB…`);
+        let ok = 0;
+        for (const c of candidates) {
+            try {
+                await uploadImage(c.date, c.group, c.dataUrl);
+                // Clear billImage but keep other override fields
+                const ov = { ...(state.overrides[c.key] || {}) };
+                delete ov.billImage;
+                const empty = Object.values(ov).every((v) => v == null || v === '' || v === 0);
+                if (empty) delete state.overrides[c.key];
+                else state.overrides[c.key] = ov;
+                ok++;
+            } catch (e) {
+                console.warn(`[report] migrate fail ${c.key}:`, e?.message);
+            }
+        }
+        saveOverrides();
+        localStorage.setItem(MARK_KEY, '1');
+        console.log(`[report] migrated ${ok}/${candidates.length} images → DB`);
+    }
+
     async function fetchRange(from, to) {
         if (!from || !to) return { byDateGroup: new Map() };
         const key = rangeKey(from, to);
@@ -387,6 +503,19 @@
             return;
         }
 
+        // Image flags fire-and-forget (sẽ tự re-paint khi xong nếu cần)
+        loadImageFlags(realFrom, realTo).then(() => {
+            // Repaint ngay nếu state range vẫn match (tránh flicker stale icons)
+            const curRealFrom = entryToReal(state.fromDate);
+            const curRealTo = entryToReal(state.toDate);
+            if (
+                rangeKey(curRealFrom, curRealTo) === rangeKey(realFrom, realTo) &&
+                document.getElementById('drReportTbody')?.children.length > 0
+            ) {
+                paintTable(eachDay(curRealFrom, curRealTo));
+            }
+        });
+
         // Hot cache → sync path: paint immediately, no await, no loading flash.
         const key = rangeKey(realFrom, realTo);
         const cached = state.fetchCache[key];
@@ -451,7 +580,7 @@
             totals.ckTruoc += ckTruoc;
             totals.totalLeft += totalLeft;
 
-            const hasImg = !!ov.billImage;
+            const hasImg = hasImageFlag(d, state.activeTab);
             return `<tr data-date="${d}">
                 <td class="date clickable" data-action="toggle-expand" title="Bấm để xem danh sách ${slDon} đơn (ngày thật: ${formatDDMMYYYY(d)})"><i class="fas fa-chevron-right dr-expand-chevron"></i> ${formatDDMMYYYY(realToEntry(d))}</td>
                 <td class="num strong clickable" data-action="toggle-expand" title="Bấm để xem chi tiết ${slDon} đơn">${formatNumber(slDon)}</td>
@@ -564,9 +693,10 @@
             if (hoverPreview.currentCell === cell) return;
             const row = cell.closest('tr[data-date]');
             if (!row) return;
-            const ov = getOverride(row.dataset.date, state.activeTab);
-            if (!ov.billImage) return;
-            showHoverPreview(cell, ov.billImage);
+            // Image URL từ server — browser cache theo ETag (60s) tránh re-download
+            const src = imageUrl(row.dataset.date, state.activeTab);
+            if (!src) return;
+            showHoverPreview(cell, src);
         });
         tbody.addEventListener('mouseout', (e) => {
             const cell = e.target.closest && e.target.closest('td.money-cell.has-img');
@@ -871,13 +1001,17 @@
         });
 
         document.getElementById('drReportImgSave').addEventListener('click', saveCurrentImage);
-        document.getElementById('drReportImgDelete').addEventListener('click', () => {
+        document.getElementById('drReportImgDelete').addEventListener('click', async () => {
             if (!confirm('Xóa ảnh hiện tại?')) return;
             const ctx = state._imgCtx;
             if (!ctx) return;
-            setOverride(ctx.date, state.activeTab, { billImage: '' });
-            closeImageModal();
-            render();
+            try {
+                await deleteImage(ctx.date, state.activeTab);
+                closeImageModal();
+                render();
+            } catch (e) {
+                alert('Xóa ảnh thất bại: ' + (e?.message || e));
+            }
         });
     }
 
@@ -924,18 +1058,23 @@
         });
     }
 
-    function saveCurrentImage() {
+    async function saveCurrentImage() {
         const ctx = state._imgCtx;
         if (!ctx || !state._pendingImage) return;
+        const saveBtn = document.getElementById('drReportImgSave');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu…';
+        }
         try {
-            setOverride(ctx.date, state.activeTab, { billImage: state._pendingImage });
+            await uploadImage(ctx.date, state.activeTab, state._pendingImage);
             closeImageModal();
             render();
         } catch (e) {
-            if (String(e).match(/quota/i)) {
-                alert('LocalStorage đầy — xóa bớt ảnh cũ rồi thử lại.');
-            } else {
-                alert('Lưu ảnh thất bại: ' + e.message);
+            alert('Lưu ảnh thất bại: ' + (e?.message || e));
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu';
             }
         }
     }
@@ -945,23 +1084,24 @@
         state._imgCtx = { date };
         state._pendingImage = null;
 
-        const ov = getOverride(date, state.activeTab);
+        const has = hasImageFlag(date, state.activeTab);
         const preview = document.getElementById('drReportImgPreview');
         const paste = document.getElementById('drReportImgPaste');
         const subtitle = document.getElementById('drReportImgSubtitle');
         const deleteBtn = document.getElementById('drReportImgDelete');
         const info = document.getElementById('drReportImgInfo');
+        const saveBtn = document.getElementById('drReportImgSave');
+        if (saveBtn) saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu';
         const tabLabel = TABS.find((t) => t.key === state.activeTab)?.label || '';
         // `date` is the REAL date stored on the row; the column shows entry = real + 1
         subtitle.textContent = `${formatDDMMYYYY(realToEntry(date))} (thật ${formatDDMMYYYY(date)}) — ${tabLabel}`;
 
-        if (ov.billImage) {
-            preview.src = ov.billImage;
+        if (has) {
+            preview.src = imageUrl(date, state.activeTab, Date.now());
             preview.style.display = 'block';
             paste.style.display = 'none';
             deleteBtn.style.display = '';
-            const sizeKB = Math.round((ov.billImage.length * 0.75) / 1024);
-            info.textContent = `~${sizeKB} KB (đã lưu)`;
+            info.textContent = 'Đã lưu trên server';
         } else {
             preview.src = '';
             preview.style.display = 'none';
@@ -969,7 +1109,7 @@
             deleteBtn.style.display = 'none';
             info.textContent = '';
         }
-        document.getElementById('drReportImgSave').disabled = !ov.billImage; // enable when new image pasted
+        if (saveBtn) saveBtn.disabled = true; // enable khi paste/upload ảnh mới
         document.getElementById('drReportImgFile').value = '';
         document.getElementById('drReportImgModal').classList.add('open');
         // Focus paste zone for immediate Ctrl+V
@@ -1006,6 +1146,9 @@
         document.getElementById('drReportModal').classList.add('open');
         // Scroll to top so user sees báo cáo header
         window.scrollTo({ top: 0, behavior: 'instant' });
+        // Migrate localStorage billImage → DB (one-time, marker prevents re-run).
+        // Fire-and-forget — render() ngay không đợi.
+        migrateLocalStorageImagesOnce().catch(() => {});
         render();
     }
 

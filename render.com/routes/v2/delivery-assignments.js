@@ -738,4 +738,177 @@ router.get('/by-date-group', async (req, res) => {
     }
 });
 
+// =====================================================
+// IMAGES — bill-image per (assignment_date, group_name)
+// Migrated 2026-05-25 từ localStorage `dr-report-overrides-v1.billImage` →
+// Postgres BYTEA để ảnh persist cross-device/browser.
+// =====================================================
+
+async function ensureImagesSchema(pool) {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS delivery_assignment_images (
+            assignment_date DATE NOT NULL,
+            group_name VARCHAR(20) NOT NULL,
+            image_data BYTEA NOT NULL,
+            mime_type VARCHAR(64) NOT NULL DEFAULT 'image/jpeg',
+            file_size INTEGER,
+            uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            uploaded_by VARCHAR(100) DEFAULT 'anonymous',
+            PRIMARY KEY (assignment_date, group_name)
+        )
+    `);
+    await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_delivery_assignment_images_date
+        ON delivery_assignment_images(assignment_date)
+    `);
+}
+
+// Parse data URL → { mime, buffer }
+function parseDataUrl(dataUrl) {
+    if (typeof dataUrl !== 'string') return null;
+    const m = /^data:([^;,]+)?(?:;base64)?,(.*)$/i.exec(dataUrl);
+    if (!m) return null;
+    const mime = (m[1] || 'image/jpeg').toLowerCase();
+    const body = m[2] || '';
+    let buffer;
+    if (/;base64/i.test(dataUrl)) {
+        try {
+            buffer = Buffer.from(body, 'base64');
+        } catch (_) {
+            return null;
+        }
+    } else {
+        try {
+            buffer = Buffer.from(decodeURIComponent(body), 'utf-8');
+        } catch (_) {
+            return null;
+        }
+    }
+    return { mime, buffer };
+}
+
+function isValidGroup(g) {
+    return ['tomato', 'nap', 'city', 'shop', 'return'].includes(g);
+}
+function isValidDate(d) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+}
+
+// PUT /image/:date/:group — upsert bill image
+// Body: { dataUrl: "data:image/jpeg;base64,..." } (≤10MB)
+router.put('/image/:date/:group', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { date, group } = req.params;
+        if (!isValidDate(date) || !isValidGroup(group)) {
+            return res.status(400).json({ success: false, error: 'Invalid date or group' });
+        }
+        const { dataUrl } = req.body || {};
+        if (!dataUrl) {
+            return res.status(400).json({ success: false, error: 'Missing dataUrl' });
+        }
+        const parsed = parseDataUrl(dataUrl);
+        if (!parsed || !parsed.buffer.length) {
+            return res.status(400).json({ success: false, error: 'Invalid dataUrl' });
+        }
+        if (parsed.buffer.length > 10 * 1024 * 1024) {
+            return res.status(413).json({ success: false, error: 'Image too large (max 10MB)' });
+        }
+        const user = getUserFromHeaders(req);
+        await db.query(
+            `INSERT INTO delivery_assignment_images
+                (assignment_date, group_name, image_data, mime_type, file_size, uploaded_by, uploaded_at)
+             VALUES ($1, $2, $3, $4, $5, $6, NOW())
+             ON CONFLICT (assignment_date, group_name) DO UPDATE
+             SET image_data = EXCLUDED.image_data,
+                 mime_type = EXCLUDED.mime_type,
+                 file_size = EXCLUDED.file_size,
+                 uploaded_by = EXCLUDED.uploaded_by,
+                 uploaded_at = NOW()`,
+            [date, group, parsed.buffer, parsed.mime, parsed.buffer.length, user]
+        );
+        res.json({
+            success: true,
+            data: { date, group, mime: parsed.mime, size: parsed.buffer.length },
+        });
+    } catch (err) {
+        console.error('[delivery-assignments] PUT /image error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// GET /image/:date/:group — serve image binary
+router.get('/image/:date/:group', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { date, group } = req.params;
+        if (!isValidDate(date) || !isValidGroup(group)) {
+            return res.status(400).send('Invalid date or group');
+        }
+        const result = await db.query(
+            `SELECT image_data, mime_type, file_size, uploaded_at
+             FROM delivery_assignment_images
+             WHERE assignment_date = $1 AND group_name = $2`,
+            [date, group]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).send('Image not found');
+        }
+        const row = result.rows[0];
+        res.setHeader('Content-Type', row.mime_type || 'image/jpeg');
+        res.setHeader('Cache-Control', 'private, max-age=60');
+        res.setHeader('ETag', `"${date}-${group}-${new Date(row.uploaded_at).getTime()}"`);
+        res.send(row.image_data);
+    } catch (err) {
+        console.error('[delivery-assignments] GET /image error:', err.message);
+        res.status(500).send('Server error');
+    }
+});
+
+// DELETE /image/:date/:group
+router.delete('/image/:date/:group', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { date, group } = req.params;
+        if (!isValidDate(date) || !isValidGroup(group)) {
+            return res.status(400).json({ success: false, error: 'Invalid date or group' });
+        }
+        const result = await db.query(
+            `DELETE FROM delivery_assignment_images
+             WHERE assignment_date = $1 AND group_name = $2
+             RETURNING assignment_date`,
+            [date, group]
+        );
+        res.json({ success: true, data: { deleted: result.rows.length } });
+    } catch (err) {
+        console.error('[delivery-assignments] DELETE /image error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// GET /image-flags?from=YYYY-MM-DD&to=YYYY-MM-DD
+// Returns: { flags: ["YYYY-MM-DD__group", ...] } — frontend dùng để biết
+// cell nào có ảnh (hiện icon đầy).
+router.get('/image-flags', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { from, to } = req.query;
+        if (!isValidDate(from) || !isValidDate(to)) {
+            return res.status(400).json({ success: false, error: 'Invalid from/to (YYYY-MM-DD)' });
+        }
+        const result = await db.query(
+            `SELECT assignment_date::text AS date, group_name
+             FROM delivery_assignment_images
+             WHERE assignment_date BETWEEN $1 AND $2`,
+            [from, to]
+        );
+        const flags = result.rows.map((r) => `${r.date}__${r.group_name}`);
+        res.json({ success: true, data: { flags, range: { from, to } } });
+    } catch (err) {
+        console.error('[delivery-assignments] GET /image-flags error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 module.exports = router;
+module.exports.ensureImagesSchema = ensureImagesSchema;
