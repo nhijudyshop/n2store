@@ -25,6 +25,24 @@
 
 ## 2026-05-25
 
+### [issue-tracking] Search ticket — thêm match sản phẩm + ghi chú
+
+**Yêu cầu user**: Input `Tìm theo SĐT, Mã đơn...` cũng cần search ra sản phẩm trong ticket (vd `Q288A2`, `QUẦN SUÔNG TRƠN`).
+
+**Thay đổi**:
+
+- [issue-tracking/js/script.js](../issue-tracking/js/script.js) — `renderDashboard` filter (line 2669-2685): mở rộng từ `{phone | orderId | customer}` sang `{phone | orderId | customer | note | products[].code | products[].name}`. Giữ accent-insensitive bằng `stripAccent`. Cùng pattern áp dụng cho tab Lịch sử (`renderHistoryTab`, line ~3737-3754).
+- [issue-tracking/index.html](../issue-tracking/index.html) — đổi placeholder 2 input: main → `Tìm theo SĐT, Mã đơn, Sản phẩm, Ghi chú...`, history → `Tìm theo Tên, SĐT, Mã đơn, Sản phẩm...`.
+
+**Verify** (Playwright localhost:8080, 69 tickets loaded):
+
+- `Q288A2` → 1 match (ticket 66558, đúng SKU)
+- `QUẦN SUÔNG TRƠN` (có dấu) → 1 match
+- `khong lien lac` (không dấu) → 4 match (ticket có note `KHÔNG LIÊN LẠC...`)
+- Regression: `0902349479` → 1 (phone), `ngoc hoai` → 1 (customer name), clear → 69 rows trở lại
+
+**Status**: ✅ Done
+
 ### [delivery-report] Tra soát phát đúng sound TOMATO / THÀNH PHỐ / NAP khi quét
 
 **Yêu cầu user**: Phần tra soát → quét chính xác TOMATO, THÀNH PHỐ, NAP theo các file trong `delivery-report/sound/`.
