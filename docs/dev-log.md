@@ -25,6 +25,28 @@
 
 ## 2026-05-25
 
+### [issue-tracking] Fix silent-skip auto-credit ví Postgres khi hoàn ticket RETURN_CLIENT (Web 1.0)
+
+**Bug**: Ticket 968 (TV-2026-00832, SĐT 0936395985, đơn 66897, 350k) hoàn tất nhưng ví Web 1.0 không cập nhật. DB: `wallet_credited=false`, `action_history=[]`. Trong 20 ticket RETURN_CLIENT COMPLETED gần nhất có 2 ticket bị skip silent (968 và 807).
+
+**Root cause**: `issue-tracking/js/script.js:1924` gọi `updateTicket({status:'COMPLETED'})` TRƯỚC khi check cộng ví. Nếu TPOS amount không khớp `ticket.money` (refundAmountFromJson/Html ≠ compensationAmount) hoặc `alreadyRefunded=true` → rơi vào branch warning `notificationManager.warning(...)` auto-dismiss 8-10s. Staff dễ miss. Ticket bị stuck COMPLETED + chưa credit ví.
+
+**Fix**:
+
+1. Đổi thứ tự: RETURN_CLIENT + amount match → gọi `resolveTicket` TRƯỚC (atomic credit + COMPLETED via Postgres FOR UPDATE transaction). Sau đó updateTicket chỉ để lưu refund_order_id/number.
+2. RETURN_CLIENT + amount mismatch / alreadyRefunded → `notificationManager.confirm()` BLOCKING modal (Promise-based, không auto-dismiss). Staff phải acknowledge trước khi ticket được mark COMPLETED.
+3. Resolve fail (exception/success=false) → cùng confirm modal.
+4. BOOM/FIX_COD/RETURN_SHIPPER hoặc compensation=0 → flow cũ updateTicket(status).
+
+**Note Web 1.0 vs Web 2.0**: thêm comment block to ở header `script.js` + tại chỗ refactor. Ví Web 1.0 (Postgres `customer_wallets` + `wallet_transactions`, qua Render `/api/v2/tickets/:id/resolve`) HOÀN TOÀN TÁCH BIỆT với ví Web 2.0 (Firestore `customer_wallet_v1/main` + localStorage `customerWallet_v1`, tính từ native-orders + PBH + SePay). KHÔNG bridge, KHÔNG cross-import. Fix này chỉ ảnh hưởng Web 1.0.
+
+**Cộng ví thủ công cho ticket 968**: chưa làm — cần user quyết (vào Customer 360 cộng 350k tay cho SĐT 0936395985, ref ticket TV-2026-00832 / refund RINV/2026/2469).
+
+**File**: `issue-tracking/js/script.js` (header + section 1914-2044)
+**Status**: ✅ Done
+
+---
+
 ### [delivery-report] Auto-clean ghost: POST assignments smart-upsert khi metadata đổi (date/group/carrier/COD)
 
 **User ask**: "có cách nào xử lý mấy đơn ghost bị xóa xong tạo lại → đơn mới tạo lại chuyển qua NAP → lệch số lượng 2 bên NAP, TOMATO, số tiền…" → user chọn phương án A (auto-clean khi user mở Tra Soát ngày mới).

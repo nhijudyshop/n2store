@@ -1928,38 +1928,25 @@ async function handleConfirmAction() {
             notificationManager.remove(loadingId);
             loadingId = notificationManager.loading('Đang cập nhật hệ thống...', 'Hoàn tất');
 
-            // Update ticket in Firebase with refund info
             // BOOM và FIX_COD cần qua PENDING_FINANCE để đối soát ĐVVC
             // RETURN_CLIENT, RETURN_SHIPPER → COMPLETED (không cần trả ĐVVC)
             const needFinanceSettlement = ticket.type === 'BOOM' || ticket.type === 'FIX_COD';
             const nextStatus = needFinanceSettlement ? 'PENDING_FINANCE' : 'COMPLETED';
 
-            await ApiService.updateTicket(pendingActionTicketId, {
-                status: nextStatus,
-                ...(nextStatus === 'COMPLETED'
-                    ? { completedAt: Date.now() }
-                    : { receivedAt: Date.now() }),
-                refundOrderId: result.refundOrderId || null,
-                refundNumber: result.confirmResult?.value?.[0]?.Number || null,
-                ...(result.alreadyRefunded ? { alreadyRefundedOnTpos: true } : {}),
-            });
-
-            // Thông báo chờ đối soát nếu cần
-            if (needFinanceSettlement) {
-                notificationManager.info(
-                    `Ticket chuyển sang "Chờ Đối Soát" - Cần Kế toán thanh toán ${formatCurrency(ticket.money)} cho ĐVVC`,
-                    5000,
-                    'Chờ đối soát'
-                );
-            }
-
             // =====================================================
-            // Credit wallet for RETURN_CLIENT only - ONLY if TPOS amount matches
-            // RETURN_SHIPPER: virtual_credit đã được cấp khi TẠO ticket (không cộng lại ở đây)
-            // Validate refund amount: prefer JSON (refundAmountFromJson, structured) over
-            // HTML parser (refundAmountFromHtml, fragile regex). Đoan Nghi case 2026-05-06:
-            // HTML parser failed → wallet_credited=false. Fix: AmountTotal từ refund order
-            // JSON là source of truth, HTML chỉ là fallback an toàn.
+            // Web 1.0 wallet auto-credit (Postgres customer_wallets via /resolve)
+            // KHÔNG liên quan ví Web 2.0 (Firestore customer_wallet_v1) — 2 hệ thống tách biệt.
+            //
+            // Refactor 2026-05-25: gọi resolveTicket TRƯỚC khi updateTicket(COMPLETED).
+            // Trước đây updateTicket(COMPLETED) chạy trước → nếu auto-credit skip
+            // (TPOS amount mismatch / alreadyRefunded) thì ticket bị stuck COMPLETED
+            // + wallet_credited=false + action_history=[] (vd ticket 968 TV-2026-00832
+            // SĐT 0936395985 ngày 2026-05-25). Frontend chỉ hiện warning 8-10s rồi tự
+            // tắt — staff dễ miss.
+            //
+            // Mới: branch RETURN_CLIENT+amount-match → resolveTicket atomic (COMPLETED
+            // + credit ví trong 1 transaction FOR UPDATE). Skip-credit branch dùng
+            // confirm dialog BLOCKING — user phải acknowledge trước khi COMPLETED.
             // =====================================================
             const compensationAmount = parseFloat(ticket.money) || 0;
             const customerPhone = ticket.phone;
@@ -1979,81 +1966,117 @@ async function handleConfirmAction() {
                 refundAmountForValidation
             );
 
-            // CHỈ cộng deposit cho RETURN_CLIENT (tiền thật khi hàng đã về)
-            // RETURN_SHIPPER đã được cấp virtual_credit ngay khi tạo ticket
-            if (compensationAmount > 0 && customerPhone && ticket.type === 'RETURN_CLIENT') {
-                // Validate: TPOS refund amount must match ticket.money
-                if (
-                    refundAmountForValidation !== null &&
-                    refundAmountForValidation === compensationAmount
-                ) {
-                    try {
-                        notificationManager.remove(loadingId);
-                        loadingId = notificationManager.loading(
-                            'Đang cộng tiền vào ví khách...',
-                            'Hoàn tất'
-                        );
+            const isReturnClientAutoCredit =
+                ticket.type === 'RETURN_CLIENT' && compensationAmount > 0 && !!customerPhone;
+            const amountMatches =
+                refundAmountForValidation !== null &&
+                refundAmountForValidation === compensationAmount;
 
-                        // RETURN_CLIENT: luôn dùng deposit (tiền thật)
-                        const compensationType = 'deposit';
+            let walletCreditedViaResolve = false;
 
-                        const resolveData = await ApiService.resolveTicket(pendingActionTicketId, {
-                            compensation_amount: compensationAmount,
-                            compensation_type: compensationType,
-                            performed_by:
-                                window.authManager?.getUserInfo()?.username || 'warehouse_staff',
-                            note: `Hoàn tiền từ ticket ${ticket.ticketCode || ticket.orderId} - Refund: ${result.refundOrderId}`,
-                        });
+            if (isReturnClientAutoCredit && amountMatches) {
+                // ===== HAPPY PATH: atomic resolveTicket (credit + COMPLETED) =====
+                try {
+                    notificationManager.remove(loadingId);
+                    loadingId = notificationManager.loading(
+                        'Đang cộng tiền vào ví khách...',
+                        'Hoàn tất'
+                    );
 
-                        if (resolveData.success) {
-                            console.log('[APP] Wallet credited successfully:', resolveData);
-                            notificationManager.success(
-                                `Đã cộng ${compensationAmount.toLocaleString()}đ vào ví ${customerPhone}`,
-                                3000,
-                                'Ví đã cập nhật'
-                            );
-                        } else {
-                            console.error('[APP] Wallet credit failed:', resolveData.error);
-                            notificationManager.warning(
-                                'Cộng ví thất bại, cần xử lý thủ công qua Customer 360',
-                                5000,
-                                'Cảnh báo'
-                            );
-                        }
-                    } catch (walletError) {
-                        console.error('[APP] Wallet credit error:', walletError);
-                        notificationManager.warning(
-                            'Không thể cộng ví tự động, vui lòng kiểm tra lại',
-                            5000,
-                            'Cảnh báo'
-                        );
+                    const resolveData = await ApiService.resolveTicket(pendingActionTicketId, {
+                        compensation_amount: compensationAmount,
+                        compensation_type: 'deposit',
+                        performed_by:
+                            window.authManager?.getUserInfo()?.username || 'warehouse_staff',
+                        note: `Hoàn tiền từ ticket ${ticket.ticketCode || ticket.orderId} - Refund: ${result.refundOrderId}`,
+                    });
+
+                    if (resolveData && resolveData.success) {
+                        walletCreditedViaResolve = true;
+                        console.log('[APP] Wallet credited via resolve:', resolveData);
+                    } else {
+                        console.error('[APP] resolveTicket returned !success:', resolveData);
                     }
-                } else if (result.alreadyRefunded) {
-                    // TPOS đã trả hàng trước đó → không có HTML để validate → không tự động cộng ví, yêu cầu kiểm tra tay
-                    console.warn(
-                        '[APP] Skipping wallet credit - TPOS already refunded before, cannot validate amount'
-                    );
-                    notificationManager.warning(
-                        `TPOS đã trả hết trước đó, không tự động cộng ${compensationAmount.toLocaleString()}đ vào ví ${customerPhone}. Vui lòng kiểm tra Customer 360 nếu cần xử lý thủ công.`,
-                        8000,
-                        'Cần xử lý ví thủ công'
-                    );
-                } else {
-                    // Amount mismatch - DO NOT auto-credit, warn user
-                    console.error(
-                        '[APP] Amount mismatch! Expected:',
-                        compensationAmount,
-                        'TPOS JSON:',
-                        refundAmountFromJson,
-                        'TPOS HTML:',
-                        refundAmountFromHtml
-                    );
-                    notificationManager.warning(
-                        `Số tiền không khớp! Ticket: ${compensationAmount.toLocaleString()}đ, TPOS: ${(refundAmountForValidation || 0).toLocaleString()}đ. Không tự động cộng ví — vào Customer 360 cộng tay.`,
-                        10000,
-                        'Cảnh báo: Cần kiểm tra'
+                } catch (walletError) {
+                    console.error('[APP] resolveTicket failed:', walletError);
+                }
+
+                if (!walletCreditedViaResolve) {
+                    notificationManager.remove(loadingId);
+                    loadingId = null;
+                    await notificationManager.confirm(
+                        `<b>⚠️ Không cộng được ví tự động</b><br><br>` +
+                            `Khách: <b>${customerPhone}</b><br>` +
+                            `Số tiền: <b>${compensationAmount.toLocaleString()}đ</b><br><br>` +
+                            `Lỗi khi gọi resolveTicket. Phải vào <b>Customer 360</b> cộng tay.<br><br>` +
+                            `Bấm Đồng ý để đánh dấu ticket Hoàn tất (status COMPLETED).`,
+                        'Cần cộng ví thủ công'
                     );
                 }
+            } else if (isReturnClientAutoCredit && !amountMatches) {
+                // ===== SKIP-CREDIT BRANCH: amount mismatch hoặc alreadyRefunded =====
+                console.error(
+                    '[APP] Auto-credit skipped! Expected:',
+                    compensationAmount,
+                    'TPOS JSON:',
+                    refundAmountFromJson,
+                    'TPOS HTML:',
+                    refundAmountFromHtml,
+                    'alreadyRefunded:',
+                    !!result.alreadyRefunded
+                );
+                notificationManager.remove(loadingId);
+                loadingId = null;
+
+                const reason = result.alreadyRefunded
+                    ? 'TPOS báo đơn này đã được trả hết trước đó.'
+                    : `Số tiền không khớp! Ticket: ${compensationAmount.toLocaleString()}đ vs TPOS: ${(refundAmountForValidation || 0).toLocaleString()}đ.`;
+
+                await notificationManager.confirm(
+                    `<b>⚠️ KHÔNG cộng ví tự động</b><br><br>` +
+                        `${reason}<br><br>` +
+                        `Khách: <b>${customerPhone}</b><br>` +
+                        `Cần cộng tay: <b>${compensationAmount.toLocaleString()}đ</b><br><br>` +
+                        `Vào <b>Customer 360</b> cộng tay sau.<br><br>` +
+                        `Bấm Đồng ý để đánh dấu ticket Hoàn tất.`,
+                    'Cần xử lý ví thủ công'
+                );
+            }
+
+            // Lưu refund_order_id / refund_number qua updateTicket.
+            // Nếu wallet đã credit qua resolveTicket thì backend đã set status=COMPLETED,
+            // ở đây không cần gửi status nữa (tránh re-trigger SSE update). Chỉ gửi
+            // status khi resolveTicket KHÔNG được dùng (BOOM/FIX_COD/RETURN_SHIPPER,
+            // không có amount, hoặc skip-credit branch đã acknowledge).
+            const updatePayload = {
+                refundOrderId: result.refundOrderId || null,
+                refundNumber: result.confirmResult?.value?.[0]?.Number || null,
+            };
+            if (!walletCreditedViaResolve) {
+                updatePayload.status = nextStatus;
+                if (nextStatus === 'COMPLETED') {
+                    updatePayload.completedAt = Date.now();
+                } else {
+                    updatePayload.receivedAt = Date.now();
+                }
+            }
+            await ApiService.updateTicket(pendingActionTicketId, updatePayload);
+
+            // Thông báo chờ đối soát nếu cần
+            if (needFinanceSettlement) {
+                notificationManager.info(
+                    `Ticket chuyển sang "Chờ Đối Soát" - Cần Kế toán thanh toán ${formatCurrency(ticket.money)} cho ĐVVC`,
+                    5000,
+                    'Chờ đối soát'
+                );
+            }
+
+            if (walletCreditedViaResolve) {
+                notificationManager.success(
+                    `Đã cộng ${compensationAmount.toLocaleString()}đ vào ví ${customerPhone}`,
+                    3000,
+                    'Ví đã cập nhật'
+                );
             }
 
             // Remove loading notification before showing success

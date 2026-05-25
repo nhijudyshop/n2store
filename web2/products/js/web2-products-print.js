@@ -633,10 +633,12 @@
                     // Override `.barcode_label div { flex: 1 auto }` của TPOS CSS
                     // bằng inline `flex: 0 0 auto` cho text (no grow), `flex: 1 1 auto`
                     // cho barcode-image (grow fill remaining). Match TPOS PDF visual.
+                    // Barcode height ~45-50% label height (theo TPOS PDF):
+                    // labelH 21mm → barcode ~9-10mm. Tính bằng labelH * 0.45.
+                    const barcodeH = Math.round(labelH * 0.45 * 10) / 10; // mm
                     const labelStyleFinal = labelStyle + 'justify-content:flex-start;';
                     const tightFlex = 'flex:0 0 auto;';
-                    const barcodeFlex =
-                        'flex:1 1 auto;display:flex;align-items:center;justify-content:center;min-height:0;';
+                    const barcodeFlex = `flex:0 0 ${barcodeH}mm;height:${barcodeH}mm;display:flex;align-items:center;justify-content:center;min-height:0;`;
                     sheetsHTML += `<div class="barcode_label" style="${labelStyleFinal}">`;
                     if (showProductName) {
                         sheetsHTML += `<div class="barcode-pname" style="${tightFlex}${nameStyle}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;

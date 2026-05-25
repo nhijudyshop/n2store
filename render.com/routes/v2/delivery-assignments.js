@@ -244,6 +244,71 @@ router.post('/', async (req, res) => {
 });
 
 // =====================================================
+// POST /cleanup-ghosts — Auto-hide rows not present in live TPOS data for a date.
+// Body: { date: "YYYY-MM-DD", validNumbers: ["NJD/X", ...], mode?: "hide"|"delete" }
+//   - Hide (default): SET is_hidden=TRUE — soft, reversible.
+//   - Delete: DELETE row hoàn toàn — irreversible.
+// Caller (frontend Tra Soát) bảo đảm validNumbers là TPOS live cho ngày đó,
+// fetch không bị filter keyword. Server an toàn: KHÔNG cleanup nếu validNumbers rỗng.
+// =====================================================
+router.post('/cleanup-ghosts', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { date, validNumbers, mode } = req.body || {};
+        if (!date || !Array.isArray(validNumbers)) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'Missing date or validNumbers (array)' });
+        }
+        const dateStr = String(date).slice(0, 10);
+        if (validNumbers.length === 0) {
+            return res.json({
+                success: true,
+                data: {
+                    date: dateStr,
+                    hiddenCount: 0,
+                    hiddenOrders: [],
+                    skipped: 'empty-valid-list',
+                },
+            });
+        }
+        const cleanMode = mode === 'delete' ? 'delete' : 'hide';
+        const ph = validNumbers.map((_, i) => `$${i + 2}`).join(', ');
+        let sql;
+        if (cleanMode === 'delete') {
+            sql = `DELETE FROM delivery_assignments
+                   WHERE assignment_date = $1
+                     AND order_number NOT IN (${ph})
+                   RETURNING order_number`;
+        } else {
+            sql = `UPDATE delivery_assignments
+                   SET is_hidden = TRUE, updated_at = NOW()
+                   WHERE assignment_date = $1
+                     AND order_number NOT IN (${ph})
+                     AND is_hidden = FALSE
+                   RETURNING order_number`;
+        }
+        const result = await db.query(sql, [dateStr, ...validNumbers]);
+        const affectedCount = result.rows.length;
+        console.log(
+            `[cleanup-ghosts] date=${dateStr} mode=${cleanMode}: ${affectedCount} ghost(s)`
+        );
+        res.json({
+            success: true,
+            data: {
+                date: dateStr,
+                mode: cleanMode,
+                hiddenCount: affectedCount,
+                hiddenOrders: result.rows.map((r) => r.order_number),
+            },
+        });
+    } catch (err) {
+        console.error('[delivery-assignments] POST /cleanup-ghosts error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// =====================================================
 // PATCH /scan/:orderNumber — Mark as scanned
 // `?date=` accepted but ignored (legacy compat).
 // =====================================================

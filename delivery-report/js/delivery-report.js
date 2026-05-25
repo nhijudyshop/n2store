@@ -2409,6 +2409,77 @@
         } else {
             updateAssignmentStatus(Object.keys(state.dbAssignments).length, 0);
         }
+
+        // Step 5: Auto-cleanup ghost — đơn trong DB cùng ngày nhưng KHÔNG còn
+        // trong TPOS live → mark is_hidden=TRUE. Safeguards: chỉ chạy khi
+        // filter là full-day (T00:00 → T23:59) VÀ không có keyword (Q),
+        // để allData đảm bảo là full snapshot ngày đó trên TPOS.
+        await autoCleanupGhosts(allData);
+    }
+
+    async function autoCleanupGhosts(items) {
+        const f = DeliveryReportState.filters;
+        // Skip nếu có keyword filter → TPOS query đã bị thu hẹp, allData không phải full snapshot
+        if (f.keyword && String(f.keyword).trim()) {
+            console.log('[DELIVERY-REPORT] Skip ghost cleanup: keyword filter active');
+            return;
+        }
+        // Skip nếu filter ngày không phải boundary chuẩn (T00:00 → T23:59) — tránh
+        // partial-hour fetch xóa nhầm đơn không nằm trong slice.
+        if (!/T00:00$/.test(String(f.fromDate || '')) || !/T23:59$/.test(String(f.toDate || ''))) {
+            console.log('[DELIVERY-REPORT] Skip ghost cleanup: non-boundary date filter');
+            return;
+        }
+
+        // Group items by extracted date (TPOS DateInvoice)
+        const byDate = {};
+        for (const item of items) {
+            const date = (item.DateInvoice && extractTposDate(item.DateInvoice)) || todayLocalStr();
+            (byDate[date] = byDate[date] || []).push(item.Number);
+        }
+        if (Object.keys(byDate).length === 0) {
+            console.log('[DELIVERY-REPORT] Skip ghost cleanup: no items');
+            return;
+        }
+
+        for (const date in byDate) {
+            const validNumbers = byDate[date];
+            // Extra safety: nếu chưa có đơn nào cho ngày này → skip (TPOS có thể trả empty bất thường)
+            if (validNumbers.length === 0) continue;
+            try {
+                const resp = await fetch(
+                    `${RENDER_URL}/api/v2/delivery-assignments/cleanup-ghosts`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ date, validNumbers, mode: 'hide' }),
+                    }
+                );
+                if (!resp.ok) {
+                    console.warn(
+                        `[DELIVERY-REPORT] cleanup-ghosts ${date} failed: HTTP ${resp.status}`
+                    );
+                    continue;
+                }
+                const j = await resp.json();
+                const hidden = j.data?.hiddenCount || 0;
+                if (hidden > 0) {
+                    console.log(
+                        `[DELIVERY-REPORT] Auto-hide ${hidden} ghost(s) for ${date}:`,
+                        j.data.hiddenOrders
+                    );
+                    // Cập nhật state để UI không hiển thị các Number vừa hide
+                    if (Array.isArray(j.data.hiddenOrders)) {
+                        for (const n of j.data.hiddenOrders) {
+                            DeliveryReportState.hiddenNumbers.add(n);
+                            delete DeliveryReportState.dbAssignments[n];
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn(`[DELIVERY-REPORT] cleanup-ghosts ${date} error:`, e.message);
+            }
+        }
     }
 
     function updateAssignmentStatus(lockedCount, newCount) {
