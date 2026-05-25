@@ -114,3 +114,12 @@ downloads/n2store-session/smoke-report-*.json
 # Barcode comparison test (TPOS vs JsBarcode) — local only
 downloads/n2store-session/barcode-compare*.html
 downloads/n2store-session/barcode-compare-*.png
+
+# TPOS test captures — chứa auth tokens, KHÔNG commit
+downloads/n2store-session/tpos-print-*.html
+downloads/n2store-session/tpos-print-*.json
+downloads/n2store-session/tpos-print-*.png
+downloads/n2store-session/tpos-session-*.json
+downloads/n2store-session/tpos-storage.json
+downloads/n2store-session/tpos-newpage-*.html
+downloads/n2store-session/tpos-download-*
