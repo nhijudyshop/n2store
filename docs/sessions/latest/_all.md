@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `975dbbd` — feat(barcode-label-dialog): pixel-match TPOS 100% — purple btn + Kho dropdown + Gan ton
-**Last updated**: 2026-05-25 09:02:13 +07
-**Latest session**: [`RESUME:20260525-090213-975dbbd`](../20260525-090213-975dbbd.md)
-**Summary**: feat(barcode-label-dialog): pixel-match TPOS 100% — purple btn + Kho dropdown + Gan ton
+**Latest commit**: `8de24da` — ui(snap): mở FB plugin player trong popup window 820×520 (không stretch fullscreen)
+**Last updated**: 2026-05-25 09:04:53 +07
+**Latest session**: [`RESUME:20260525-090453-8de24da`](../20260525-090453-8de24da.md)
+**Summary**: ui(snap): mở FB plugin player trong popup window 820×520 (không stretch fullscreen)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`downloads/`](./downloads.md) — 4 file(s)
-- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
-- [`purchase-orders/`](./purchase-orders.md) — 1 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -64,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-25 08:44
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-25 09:04
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
