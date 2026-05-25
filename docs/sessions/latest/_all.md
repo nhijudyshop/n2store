@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `52877f7` — auto: session update
-**Last updated**: 2026-05-25 15:20:57 +07
-**Latest session**: [`RESUME:20260525-152057-52877f7`](../20260525-152057-52877f7.md)
+**Latest commit**: `a42db74` — auto: session update
+**Last updated**: 2026-05-25 15:22:50 +07
+**Latest session**: [`RESUME:20260525-152250-a42db74`](../20260525-152250-a42db74.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 2 file(s)
+- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -35,7 +35,7 @@
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 10:44
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-25 14:12
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-25 15:22
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 18:58
 - [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:34
