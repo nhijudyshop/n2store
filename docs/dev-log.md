@@ -25,6 +25,39 @@
 
 ## 2026-05-25
 
+### [delivery-report] Auto-hide ghost orders: POST /cleanup-ghosts khi user mở Tra Soát
+
+**User ask**: "ghost tự động xóa đi" — đơn đã quét nhưng không còn trên TPOS live → tự ẩn khỏi báo cáo.
+
+**Files**:
+
+- `render.com/routes/v2/delivery-assignments.js`
+    - New `POST /api/v2/delivery-assignments/cleanup-ghosts`:
+        - Body: `{date, validNumbers: [...], mode?: "hide"|"delete"}`
+        - Hide (default): `UPDATE SET is_hidden=TRUE WHERE assignment_date=$1 AND order_number NOT IN (...)`
+        - Delete: `DELETE WHERE ...` (irreversible — optional, không dùng mặc định)
+        - Safety: empty validNumbers → no-op (tránh xóa nhầm khi TPOS fetch fail).
+        - RETURNING order_number → frontend log Numbers vừa hide.
+- `delivery-report/js/delivery-report.js`
+    - New `autoCleanupGhosts(items)`: group items by `extractTposDate(item.DateInvoice)` → per date call cleanup-ghosts với validNumbers.
+    - **Safeguards** trước khi cleanup:
+        - Skip nếu `filters.keyword` non-empty (TPOS query bị filter Q → allData không phải full snapshot).
+        - Skip nếu `filters.fromDate/toDate` không đúng `T00:00`/`T23:59` boundary (filter partial-hour có thể có dữ liệu ngoài slice).
+        - Per-date: skip nếu validNumbers rỗng (defensive).
+    - Update state local: thêm Numbers vào `hiddenNumbers` set + xoá khỏi `dbAssignments` ngay → UI sync không cần re-fetch.
+    - Trigger sau Step 4 (smart upsert) trong `traSoat` flow.
+
+**Flow**:
+
+1. User mở Tra Soát ngày X (vd 22/05, no keyword) → fetch TPOS full snapshot ngày X.
+2. `saveAssignmentsToDB` upsert (auto-clean A) → đơn cũ với metadata khác sẽ được UPDATE.
+3. `autoCleanupGhosts` → backend: hide tất cả rows `assignment_date=X AND order_number NOT IN tposLiveNumbers AND is_hidden=FALSE`.
+4. Báo cáo modal sau đó: không count ghost (vì `WHERE is_hidden=FALSE`).
+
+**Recover ghost** nếu hide nhầm: `UPDATE delivery_assignments SET is_hidden=FALSE WHERE order_number=$1` (vì dùng HIDE chứ không DELETE).
+
+**Status**: ✅ Done (chờ Render redeploy).
+
 ### [issue-tracking] Fix silent-skip auto-credit ví Postgres khi hoàn ticket RETURN_CLIENT (Web 1.0)
 
 **Bug**: Ticket 968 (TV-2026-00832, SĐT 0936395985, đơn 66897, 350k) hoàn tất nhưng ví Web 1.0 không cập nhật. DB: `wallet_credited=false`, `action_history=[]`. Trong 20 ticket RETURN_CLIENT COMPLETED gần nhất có 2 ticket bị skip silent (968 và 807).
