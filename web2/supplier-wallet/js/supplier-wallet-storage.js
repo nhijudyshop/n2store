@@ -19,8 +19,8 @@
 (function (global) {
     'use strict';
 
-    const STORAGE_KEY = 'supplierWallet_v1';
-    const FIRESTORE_COLLECTION = 'supplier_wallet_v1';
+    const STORAGE_KEY = 'supplierWallet_v1'; // localStorage cache — giữ tên cũ để không mất data local
+    const FIRESTORE_COLLECTION = 'web2_supplier_wallet'; // renamed 2026-05-25 from supplier_wallet_v1
     const FIRESTORE_DOC = 'main';
     const RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
@@ -291,7 +291,7 @@
                 return raw ? JSON.parse(raw) : null;
             }
             const db = firebase.firestore();
-            const snap = await db.collection('so_order_v2').doc('main').get();
+            const snap = await db.collection('web2_so_order').doc('main').get();
             if (snap.exists) {
                 const payload = snap.data() || {};
                 if (payload.data) return payload.data;

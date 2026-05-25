@@ -2,8 +2,8 @@
 // Báo cáo công nợ NCC — period-based report.
 //
 // Data sources:
-//   1. so_order_v2/main (Firestore) — derive purchases per supplier per shipment.
-//   2. supplier_wallet_v1/main (Firestore) — ledger (payment + return transactions).
+//   1. web2_so_order/main (Firestore) — derive purchases per supplier per shipment.
+//   2. web2_supplier_wallet/main (Firestore) — ledger (payment + return transactions).
 //
 // Calc per supplier per period [from, to]:
 //   purchases_before = Σ (qty × costPrice × rate→VND) WHERE shipment.date < from
@@ -33,7 +33,7 @@
     const STATE = {
         soOrderData: null,
         walletData: null,
-        suppliersList: [], // [{ id, code, name, createdAt }] from Firestore suppliers_v1
+        suppliersList: [], // [{ id, code, name, createdAt }] from Firestore web2_suppliers
         tposData: [], // raw TPOS supplier rows (from Report/PartnerDebtReport)
         tposCongNo: new Map(), // partnerId → congNo rows (lazy fetched on expand)
         rows: [], // aggregated supplier rows after filter
@@ -127,9 +127,9 @@
             }
             const db = firebase.firestore();
             const [soSnap, walletSnap, supSnap] = await Promise.all([
-                db.collection('so_order_v2').doc('main').get(),
-                db.collection('supplier_wallet_v1').doc('main').get(),
-                db.collection('suppliers_v1').doc('main').get(),
+                db.collection('web2_so_order').doc('main').get(),
+                db.collection('web2_supplier_wallet').doc('main').get(),
+                db.collection('web2_suppliers').doc('main').get(),
             ]);
             STATE.soOrderData = soSnap.exists ? soSnap.data()?.data || null : null;
             STATE.walletData = walletSnap.exists ? walletSnap.data()?.data || null : null;
@@ -146,7 +146,7 @@
 
     async function saveSupplier(code, name) {
         const db = firebase.firestore();
-        const ref = db.collection('suppliers_v1').doc('main');
+        const ref = db.collection('web2_suppliers').doc('main');
         const snap = await ref.get();
         const data = snap.exists ? snap.data()?.data || { suppliers: [] } : { suppliers: [] };
         const list = Array.isArray(data.suppliers) ? data.suppliers : [];
@@ -166,11 +166,11 @@
         STATE.suppliersList = list;
     }
 
-    // Save note for a supplier. If supplier doesn't exist in suppliers_v1 yet,
+    // Save note for a supplier. If supplier doesn't exist in web2_suppliers yet,
     // auto-create an entry with empty code (legacy/DEMO row).
     async function saveSupplierNote(rowKey, code, note) {
         const db = firebase.firestore();
-        const ref = db.collection('suppliers_v1').doc('main');
+        const ref = db.collection('web2_suppliers').doc('main');
         const snap = await ref.get();
         const data = snap.exists ? snap.data()?.data || { suppliers: [] } : { suppliers: [] };
         const list = Array.isArray(data.suppliers) ? data.suppliers : [];
@@ -238,14 +238,14 @@
         return `${prefix}/${year}/${String(max + 1).padStart(4, '0')}`;
     }
 
-    // Record a payment to a supplier: write transaction to supplier_wallet_v1.
+    // Record a payment to a supplier: write transaction to web2_supplier_wallet.
     // The supplier may not have a wallet yet (legacy/DEMO row) — auto-create.
     // Dedup: prevent identical (supplier+amount+date+note) trong 3s gần nhất (chống spam).
     async function recordPayment(supplierKey, amount, date, note) {
         if (!supplierKey) throw new Error('Thiếu NCC');
         if (!Number.isFinite(amount) || amount <= 0) throw new Error('Số tiền không hợp lệ');
         const db = firebase.firestore();
-        const ref = db.collection('supplier_wallet_v1').doc('main');
+        const ref = db.collection('web2_supplier_wallet').doc('main');
         const snap = await ref.get();
         const state = snap.exists ? snap.data()?.data || { wallets: {} } : { wallets: {} };
         const w = state.wallets[supplierKey] || {
@@ -468,7 +468,7 @@
             }
         }
 
-        // Finalize: compute opening + ending for Web 2.0 rows + attach code from suppliers_v1
+        // Finalize: compute opening + ending for Web 2.0 rows + attach code from web2_suppliers
         for (const supplier of Object.keys(result)) {
             const row = result[supplier];
             row.opening = row._purchasesBefore - row._txBefore;

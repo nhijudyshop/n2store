@@ -16,8 +16,8 @@
 (function (global) {
     'use strict';
 
-    const STORAGE_KEY = 'customerWallet_v1';
-    const FIRESTORE_COLLECTION = 'customer_wallet_v1';
+    const STORAGE_KEY = 'customerWallet_v1'; // localStorage cache — giữ tên cũ để không mất data local
+    const FIRESTORE_COLLECTION = 'web2_customer_wallet'; // renamed 2026-05-25 from customer_wallet_v1
     const FIRESTORE_DOC = 'main';
     const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';

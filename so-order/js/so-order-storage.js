@@ -1,7 +1,7 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi.
 // Sổ Order — localStorage persistence + Firestore sync.
 //
-// Schema (localStorage key = `soOrder_v1`, Firestore doc = `so_order_v2/main`):
+// Schema (localStorage key = `soOrder_v1`, Firestore doc = `web2_so_order/main`):
 //   {
 //     tabs: [
 //       {
@@ -386,10 +386,10 @@
 
     // -----------------------------------------------------------
     // Firestore sync layer — independent of the localStorage CRUD
-    // above so the page works offline. Doc: `so_order_v2/main`.
+    // above so the page works offline. Doc: `web2_so_order/main`.
     // -----------------------------------------------------------
 
-    const FIRESTORE_COLLECTION = 'so_order_v2';
+    const FIRESTORE_COLLECTION = 'web2_so_order';
     const FIRESTORE_DOC = 'main';
 
     const PUSH_DEBOUNCE_MS = 400;

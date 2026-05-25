@@ -9,7 +9,7 @@
         <link rel="stylesheet" href="../shared/web2-tpos-theme.css?v=20260522d" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.js" defer></script>
-        <!-- Firebase compat (đọc Firestore so_order_v2 + supplier_wallet_v1 — Web 2.0 source) -->
+        <!-- Firebase compat (đọc Firestore web2_so_order + web2_supplier_wallet — Web 2.0 source) -->
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
         <script src="../../shared/js/firebase-config.js?v=20260521b"></script>
@@ -269,14 +269,14 @@
                         document.getElementById('refDate').value ||
                         new Date().toISOString().slice(0, 10);
                     document.getElementById('ageBody').innerHTML =
-                        '<tr><td colspan="6" style="text-align:center; padding:20px; color:#94a3b8">Đang tải Firestore so_order_v2 + supplier_wallet_v1…</td></tr>';
+                        '<tr><td colspan="6" style="text-align:center; padding:20px; color:#94a3b8">Đang tải Firestore web2_so_order + web2_supplier_wallet…</td></tr>';
                     let soData = null,
                         walletData = null;
                     try {
                         const db = firebase.firestore();
                         const [soSnap, walletSnap] = await Promise.all([
-                            db.collection('so_order_v2').doc('main').get(),
-                            db.collection('supplier_wallet_v1').doc('main').get(),
+                            db.collection('web2_so_order').doc('main').get(),
+                            db.collection('web2_supplier_wallet').doc('main').get(),
                         ]);
                         soData = soSnap.exists ? soSnap.data()?.data || null : null;
                         walletData = walletSnap.exists ? walletSnap.data()?.data || null : null;
