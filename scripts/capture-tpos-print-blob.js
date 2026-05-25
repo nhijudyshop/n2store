@@ -67,9 +67,11 @@ const TS = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         console.log('[capture] DOWNLOAD:', dl.suggestedFilename(), '→', p);
     });
 
-    // Step 1: Product list
-    console.log('[capture] (1) nav product list');
-    await page.goto('https://tomato.tpos.vn/#/app/product/list', { waitUntil: 'domcontentloaded' });
+    // Step 1: Product TEMPLATE list (user pointed này — có In mã vạch trong Thao tác)
+    console.log('[capture] (1) nav producttemplate list');
+    await page.goto('https://tomato.tpos.vn/#/app/producttemplate/list', {
+        waitUntil: 'domcontentloaded',
+    });
     await page.waitForTimeout(10000);
     await page.waitForSelector('tbody tr', { timeout: 15000 });
 
@@ -182,15 +184,35 @@ const TS = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         window.__cap.moInstalled = true;
     });
 
-    // Step 4: Navigate to print page via Angular $state.go() — preserves selection
-    console.log('[capture] (4) navigate via Angular $state.go');
-    await page.evaluate(() => {
-        const $injector = window.angular.element(document.body).injector();
-        const $state = $injector.get('$state');
-        $state.go('app.barcodeproductlabel.printbarcode');
-    });
+    // Step 4: Click Thao tác dropdown → "In mã vạch" (THIS page has it!)
+    console.log('[capture] (4) click Thao tác → In mã vạch');
+    const thaoTacBtn = page.locator('button:has-text("Thao tác")').first();
+    await thaoTacBtn.scrollIntoViewIfNeeded();
+    await thaoTacBtn.click({ force: true });
+    await page.waitForTimeout(1500);
+    // Now click "In mã vạch" trong dropdown (KHÔNG phải "In mã vạch từ mã sản phẩm")
+    const inMaVach = page
+        .locator('ul.dropdown-menu:visible a:has-text("In mã vạch"):not(:has-text("từ mã"))')
+        .first();
+    try {
+        await inMaVach.click({ force: true });
+        console.log('[capture] In mã vạch clicked');
+    } catch (e) {
+        console.log('[capture] In mã vạch click err:', e.message.slice(0, 200));
+        // Fallback: pick any "In mã vạch" item in visible menu
+        await page.evaluate(() => {
+            const visibleMenu = [...document.querySelectorAll('ul.dropdown-menu')].find(
+                (m) => m.offsetParent !== null
+            );
+            if (visibleMenu) {
+                const items = [...visibleMenu.querySelectorAll('a')];
+                const exact = items.find((a) => a.textContent.trim() === 'In mã vạch');
+                (exact || items.find((a) => /^In mã vạch/i.test(a.textContent.trim())))?.click();
+            }
+        });
+    }
     await page.waitForTimeout(10000);
-    console.log('[capture] URL after $state.go:', page.url());
+    console.log('[capture] URL after click:', page.url());
 
     // Wait for Paper combobox + lines population
     await page.waitForTimeout(4000);
@@ -286,7 +308,51 @@ const TS = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         }
     }
 
-    // Ensure PaperId set (was 0)
+    // Set PriceList (required by validator) + ensure PaperId set
+    console.log('[capture] (6) set PriceList + PaperId');
+    const priceListSetup = await page.evaluate(async () => {
+        const $ = window.jQuery || window.$;
+        const $rs = window.angular.element(document.body).injector().get('$rootScope');
+        let target = null;
+        function walk(s, d) {
+            if (!s || d > 20) return;
+            if (s.vm?.savePdf && !target) target = s;
+            let c = s.$$childHead;
+            while (c) {
+                walk(c, d + 1);
+                c = c.$$nextSibling;
+            }
+        }
+        walk($rs, 0);
+        if (!target) return { error: 'no scope' };
+        // Set PaperId
+        if (target.vm.model.Paper && !target.vm.model.PaperId) {
+            target.$apply(() => {
+                target.vm.model.PaperId = target.vm.model.Paper.Id;
+            });
+        }
+        // Fetch PriceList datasource via Kendo widget
+        const $plSel = $('select[name="vm.model.PriceList"]');
+        const plWidget = $plSel.data('kendoComboBox') || $plSel.data('kendoDropDownList');
+        if (plWidget) {
+            await new Promise((r) => plWidget.dataSource.fetch(r));
+            const lists = plWidget.dataSource.data().toJSON
+                ? plWidget.dataSource.data().toJSON()
+                : Array.from(plWidget.dataSource.data());
+            if (lists.length) {
+                target.$apply(() => {
+                    target.vm.model.PriceList = lists[0];
+                    target.vm.model.PriceListId = lists[0].Id;
+                });
+                return { plName: lists[0].Name, plId: lists[0].Id, lists: lists.length };
+            }
+            return { error: 'no pricelist data' };
+        }
+        return { error: 'no kendo widget' };
+    });
+    console.log('[capture] priceList setup:', JSON.stringify(priceListSetup).slice(0, 500));
+
+    // Set Quantity on all lines (validator requires total > 0)
     await page.evaluate(() => {
         const $rs = window.angular.element(document.body).injector().get('$rootScope');
         let target = null;
@@ -300,12 +366,15 @@ const TS = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
             }
         }
         walk($rs, 0);
-        if (target && target.vm.model.Paper && !target.vm.model.PaperId) {
+        if (target?.vm?.lines) {
             target.$apply(() => {
-                target.vm.model.PaperId = target.vm.model.Paper.Id;
+                target.vm.lines.forEach((l) => {
+                    if (!l.Quantity || l.Quantity <= 0) l.Quantity = 2;
+                });
             });
         }
     });
+    await page.waitForTimeout(1000);
 
     // Step 6: Check vm state pre-click
     const preClick = await page.evaluate(() => {
@@ -345,8 +414,21 @@ const TS = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     }
     await page.waitForTimeout(15000);
 
+    // Wait extra for blob text resolution
+    await page.waitForTimeout(3000);
+
     // Step 8: Read captured data
     const result = await page.evaluate(() => window.__cap);
+
+    // Save blob contents (THIS is TPOS print HTML!)
+    for (let i = 0; i < result.blobs.length; i++) {
+        const b = result.blobs[i];
+        const p = path.join(OUT_DIR, `tpos-blob-${i}-${TS}.html`);
+        fs.writeFileSync(p, b.text || '(empty)');
+        console.log(
+            `[capture] BLOB ${i} (${b.type}, ${b.size}B) → ${p} (${b.text?.length || 0} chars)`
+        );
+    }
     console.log('[capture] result summary:', {
         opens: result.opens.length,
         blobs: result.blobs.length,
