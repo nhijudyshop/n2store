@@ -1,0 +1,157 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>FB Live Player @ giây N</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>
+            html,
+            body {
+                margin: 0;
+                padding: 0;
+                background: #000;
+                color: #fff;
+                font-family:
+                    'Inter',
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                overflow: hidden;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+            }
+            .topbar {
+                background: #18191a;
+                padding: 8px 14px;
+                font-size: 12px;
+                display: flex;
+                gap: 12px;
+                align-items: center;
+                border-bottom: 1px solid #303031;
+            }
+            .topbar .label {
+                opacity: 0.7;
+            }
+            .topbar .value {
+                font-weight: 700;
+                color: #4ade80;
+            }
+            #status {
+                margin-left: auto;
+                font-size: 11px;
+                opacity: 0.7;
+            }
+            .video-wrap {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 8px;
+            }
+            .fb-video {
+                max-width: 100%;
+                max-height: 100%;
+            }
+            .err {
+                color: #fca5a5;
+                padding: 20px;
+                text-align: center;
+                font-size: 13px;
+                line-height: 1.5;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="topbar">
+            <span class="label">Video:</span><span class="value" id="vidLabel">-</span>
+            <span class="label">Bắt đầu giây:</span><span class="value" id="offLabel">-</span>
+            <span id="status">⏳ Loading FB SDK...</span>
+        </div>
+        <div class="video-wrap" id="wrap">
+            <div id="fb-root"></div>
+            <div id="player-slot"></div>
+        </div>
+        <script>
+            (function () {
+                const qs = new URLSearchParams(location.search);
+                const videoId = qs.get('v');
+                const offsetSec = Math.max(0, Number(qs.get('t') || qs.get('start') || 0));
+                const pageSlug = qs.get('page') || '';
+                const status = document.getElementById('status');
+                document.getElementById('vidLabel').textContent = videoId || '-';
+                document.getElementById('offLabel').textContent =
+                    offsetSec > 0
+                        ? `${Math.floor(offsetSec / 60)}m${offsetSec % 60}s (${offsetSec}s)`
+                        : '0s';
+                if (!videoId) {
+                    document.getElementById('wrap').innerHTML =
+                        '<div class="err">❌ Thiếu param ?v=VIDEO_ID</div>';
+                    return;
+                }
+                // Build canonical FB video URL — data-href cho fb-video plugin.
+                const hrefUrl = pageSlug
+                    ? `https://www.facebook.com/${encodeURIComponent(pageSlug)}/videos/${videoId}/`
+                    : `https://www.facebook.com/watch/?v=${videoId}`;
+                const slot = document.getElementById('player-slot');
+                const fbVid = document.createElement('div');
+                fbVid.className = 'fb-video';
+                fbVid.dataset.href = hrefUrl;
+                fbVid.dataset.width = '720';
+                fbVid.dataset.allowfullscreen = 'true';
+                fbVid.dataset.showText = 'false';
+                fbVid.dataset.autoplay = 'true';
+                // FB SDK supports data-start-time AS WELL — set initial seek (some
+                // FB versions respect this for embeds).
+                if (offsetSec > 0) fbVid.dataset.startTime = String(offsetSec);
+                slot.appendChild(fbVid);
+
+                // Load FB SDK
+                window.fbAsyncInit = function () {
+                    FB.init({ xfbml: true, version: 'v18.0' });
+                    status.textContent = '⏳ SDK loaded — parsing player...';
+                    FB.Event.subscribe('xfbml.render', function (info) {
+                        status.textContent = '⏳ Player rendered — waiting seek...';
+                    });
+                    FB.Event.subscribe('xfbml.ready', function (msg) {
+                        if (msg.type !== 'video') return;
+                        const player = msg.instance;
+                        status.textContent = '▶ Player ready — seeking ' + offsetSec + 's...';
+                        // Seek + autoplay (player.seek requires VOD ready).
+                        try {
+                            if (offsetSec > 0 && typeof player.seek === 'function') {
+                                // Delay 500ms cho player init xong (some versions need it)
+                                setTimeout(() => {
+                                    try {
+                                        player.seek(offsetSec);
+                                        status.textContent =
+                                            '✅ Seek tới ' + offsetSec + 's qua FB Player API';
+                                    } catch (e) {
+                                        status.textContent = '⚠ player.seek fail: ' + e.message;
+                                    }
+                                }, 500);
+                            }
+                            if (typeof player.play === 'function') {
+                                player.play();
+                            }
+                        } catch (e) {
+                            status.textContent = '⚠ API error: ' + e.message;
+                        }
+                    });
+                };
+                (function (d, s, id) {
+                    const fjs = d.getElementsByTagName(s)[0];
+                    if (d.getElementById(id)) return;
+                    const js = d.createElement(s);
+                    js.id = id;
+                    js.src = 'https://connect.facebook.net/vi_VN/sdk.js';
+                    js.async = true;
+                    js.defer = true;
+                    js.crossOrigin = 'anonymous';
+                    fjs.parentNode.insertBefore(js, fjs);
+                })(document, 'script', 'facebook-jssdk');
+            })();
+        </script>
+    </body>
+</html>

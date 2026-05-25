@@ -184,25 +184,22 @@ function _computeLivestreamUrl(pageSlugOrId, liveVideoId, offsetSec) {
     let videoId = String(liveVideoId);
     const m = videoId.match(/^\d+_(\d+)$/);
     if (m) videoId = m[1];
-    // SEEK URL CHỌN: FB plugin video.php embed — URL DUY NHẤT respect t= param.
-    // Playwright test verify (scripts/test-fb-seek3.js):
-    //   /plugins/video.php?href=URL&t=6701 → currentTime=6701 ✅
-    //   /watch/live/?...&t=6701           → currentTime=7 (ignored) ❌
-    //   /{page}/videos/{id}/?start=6701    → currentTime=7 (ignored) ❌
-    //   /...?lst=6701, ?start_time=6701, #t=6701 — all ignored
-    // FB embed plugin player respect t param; main site player không.
-    // → Pages/{pageSlug}/videos/{videoId}/ làm 'href' input cho plugin.
-    const slug = pageSlugOrId || 'facebook'; // fallback nếu thiếu page
-    const videoUrl = `https://www.facebook.com/${slug}/videos/${videoId}/`;
-    const params = new URLSearchParams({
-        href: videoUrl,
-        width: '720',
-        show_text: 'false',
-    });
+    // FB official solution (verified qua FB Developer docs):
+    //   developers.facebook.com/docs/plugins/embedded-video-player/api/
+    //   → player.seek(seconds) là API DUY NHẤT reliable cho seek.
+    // URL params (?t=, ?start=, ?lst=, ?start_time=, #t=) đều unofficial,
+    // không reliable. FB doesn't natively support timestamp URL params
+    // (theo MakeVideoLink, Meta docs).
+    //
+    // Solution: local wrapper page tpos-pancake/fb-video-player.html load
+    // FB JS SDK + embed plugin + call player.seek(N) programmatic on
+    // xfbml.ready event. Reliable seek dù live VOD hay regular VOD.
+    const params = new URLSearchParams({ v: videoId });
+    if (pageSlugOrId) params.set('page', pageSlugOrId);
     if (offsetSec && Number.isFinite(offsetSec) && offsetSec > 0) {
         params.set('t', String(Math.floor(offsetSec)));
     }
-    return `https://www.facebook.com/plugins/video.php?${params.toString()}`;
+    return `https://nhijudy.store/tpos-pancake/fb-video-player.html?${params.toString()}`;
 }
 
 function _mapRow(row) {
