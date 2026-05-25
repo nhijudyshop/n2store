@@ -1,10 +1,15 @@
 <!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — clone của balance-history/ với TPOS sidebar + SSE realtime. -->
 <!--
   📖 GHI CHÚ CHO LẬP TRÌNH VIÊN:
-  Trang này là Web 2.0 clone của legacy /balance-history/. Mọi sửa đổi phải apply
-  cả 2 trang nếu muốn đồng bộ behavior. Khác biệt: thêm TPOS sidebar Web 2.0 +
-  Web2SSE subscribe 'wallet:all' để auto-refresh khi SePay nhận tiền (giảm reliance
-  vào polling).
+  Trang này là Web 2.0 clone của legacy /balance-history/. KHÔNG còn sync 1-1
+  với legacy nữa — Web 2.0 có policy riêng:
+    • KHÔNG kế toán duyệt thủ công → tab "Kế Toán" + 3 chip (Chờ/Đã duyệt/Từ chối) ẨN
+    • SePay match KH 100% (QR/exact phone/single partial) → tự động cộng ví
+    • Chỉ multi-match (cùng đuôi SĐT khác KH) mới hiện dropdown để user chọn
+    • KHÔNG có ví ảo — chỉ tiền thật từ CK SePay
+  Backend (sepay-webhook-core.js + sepay-transaction-matching.js) shared với
+  legacy — KHÔNG sửa. Web 2.0 chỉ ẩn UI kế toán + dùng `auto_approve_enabled=TRUE`
+  (mặc định) để skip PENDING_VERIFICATION.
 -->
 <!doctype html>
 <html lang="vi">
@@ -113,11 +118,16 @@
                                 >0</span
                             >
                         </button>
+                        <!-- WEB 2.0 policy: không cần kế toán duyệt — auto-credit hoàn toàn.
+                             Tab "Kế Toán" + filter chips PENDING/APPROVED/REJECTED bị ẩn cố định.
+                             Multi-match vẫn dùng dropdown chọn KH (pending_customer_matches). -->
                         <button
                             class="main-tab"
                             data-section="verification"
                             onclick="switchMainTab('verification')"
                             id="verificationTab"
+                            hidden
+                            style="display: none !important"
                         >
                             <i data-lucide="calculator"></i> Kế Toán
                             <span
@@ -430,7 +440,14 @@
                                     động
                                     <span class="chip-count" id="stat-auto">0</span>
                                 </button>
-                                <button class="filter-chip chip-approved" data-status="APPROVED">
+                                <!-- WEB 2.0 policy: bỏ kế toán duyệt — 3 chip dưới ẩn cố định.
+                                     Trạng thái mới của giao dịch giờ chỉ là AUTO_APPROVED hoặc NO_PHONE. -->
+                                <button
+                                    class="filter-chip chip-approved"
+                                    data-status="APPROVED"
+                                    hidden
+                                    style="display: none"
+                                >
                                     <i
                                         data-lucide="user-check"
                                         style="width: 12px; height: 12px"
@@ -441,12 +458,19 @@
                                 <button
                                     class="filter-chip chip-pending"
                                     data-status="PENDING_VERIFICATION"
+                                    hidden
+                                    style="display: none"
                                 >
                                     <i data-lucide="clock" style="width: 12px; height: 12px"></i>
                                     Chờ duyệt
                                     <span class="chip-count" id="stat-pending">0</span>
                                 </button>
-                                <button class="filter-chip chip-rejected" data-status="REJECTED">
+                                <button
+                                    class="filter-chip chip-rejected"
+                                    data-status="REJECTED"
+                                    hidden
+                                    style="display: none"
+                                >
                                     <i data-lucide="x-circle" style="width: 12px; height: 12px"></i>
                                     Từ chối
                                     <span class="chip-count" id="stat-rejected">0</span>
