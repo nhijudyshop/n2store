@@ -1678,6 +1678,7 @@
                 productCode: p.code || '',
                 variant: '',
                 quantity: Math.max(1, Math.round(p.qtyActual || 1)),
+                qtyActual: p.qtyActual || 0, // For "Gán tồn" checkbox in barcode dialog
                 sellingPrice: p.price || 0,
                 tposProductId: p.id, // product-warehouse ID = TPOS ProductTemplate ID
             })),

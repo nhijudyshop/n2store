@@ -23,6 +23,56 @@
 
 ---
 
+## 2026-05-25
+
+### [product-warehouse][barcode-label-dialog] In tem sản phẩm — pixel-match TPOS 100% (1 tem, nhiều tem)
+
+**User ask**: "product-warehouse in thử tem sản phẩm và làm giao diện tem cho giống 100% → phần này làm thật kĩ để tem giống (in 1 tem, nhiều tem)".
+
+**Browser-inspect TPOS** `producttemplate/list` → click "In mã vạch sản phẩm" → mở route `#/app/barcodeproductlabel/printbarcode` (TPOS dùng FULL-PAGE workspace 2-col, KHÔNG phải modal). Form fields TPOS:
+
+- Top: **Bảng giá** + **Giấy in** (LEFT col) + **Kho/Kho hàng** (RIGHT col)
+- Checkbox row 1: Hiện giá / Chữ đậm / Hiện đơn vị tiền tệ / Hiển thị tên sản phẩm
+- Checkbox row 2: **Gán tồn** / Ẩn mã vạch (Khuyến nghị dùng cho loại in mặc định)
+- Purple "In bằng pdf" button → opens PDF popup
+- Below: 2-col workspace (left = product picker, right = selected items)
+
+**Fetched** `https://tomato.tpos.vn/Content/print_barcode.css` (1931 bytes) → confirm CSS đã match cũ: `@page margin:0`, font Arial, `.barcode_label { font-size:10px (default, dynamic override), padding:5px, line-height:10px, display:flex, flex-flow:column }`, `.barcode-image img { width:100%, height:25px }`, `.barcode-sheet { page-break-after:always }`.
+
+**TPOS primary button** `btn-primary`: bg `rgb(114, 102, 186)` = `#7266ba` (verified computed style). Our dialog đang dùng Bootstrap blue `#337ab7` → SAI.
+
+**Files**:
+
+- `purchase-orders/js/lib/barcode-label-dialog.js`
+    - **`.bld-btn-primary` color**: `#337ab7` blue → `#7266ba` purple (match TPOS exact). Hover `#286090` → `#6457a8`. Padding `6px 12px` → `5px 10px` (TPOS spec).
+    - **Add Kho/Kho hàng dropdown** trong RIGHT column của top group (TPOS form parity): `<select id="bld-warehouse">` với placeholder "[WH] Nhi Judy Store".
+    - **Add Gán tồn checkbox** row 2: `<input id="bld-gan-ton">` + label "Gán tồn" + title tooltip giải thích behavior.
+    - **Gán tồn handler**: khi check, set each item's `quantity = stockQty` (item.qtyActual). Mirrors TPOS behavior (print quantity = inventory on hand).
+    - **items map**: thêm `qtyActual` field passthrough cho Gán tồn logic.
+- `product-warehouse/js/main.js`
+    - `openBarcodePrint()`: thêm `qtyActual: p.qtyActual || 0` vào items mapping để dialog nhận stock qty cho "Gán tồn".
+
+**Verify** (Playwright `localhost:8080/product-warehouse/`):
+
+- **Dialog visual**:
+    - "In bằng pdf" button: computed bg `rgb(114, 102, 186)` ✅ TPOS purple
+    - "Kho/Kho hàng" dropdown rendered RIGHT col với "[WH] Nhi Judy Store" option
+    - "Gán tồn" checkbox rendered row 2, default unchecked
+- **Label render** (1 tem, qty=1):
+    - sheet width 249.445px = **66mm** @ 96dpi ✅
+    - label width 94.48px = **25mm** ✅
+    - font-family: `Arial, Helvetica, sans-serif` ✅ (TPOS standard)
+    - font-size 6px (from paper "2 Tem (66×21mm)") ✅
+    - Label structure: `.barcode-pname` (name `<strong>`) → `.barcode-image` (img) → `<div><strong>code</strong></div>` → `<div><strong class="barcode-price">price</strong></div>` ✅ match TPOS `/BarcodeProductLabel/Print` template
+- **Multi-tem render**:
+    - qty=2 → 1 sheet × 2 labels (cols=2 fit on 1 sheet 66×21mm) ✅
+    - qty=3 → 2 sheets [2, 1] (page-break-after: always on first sheet) ✅
+- **Barcode image**: URL `https://gc-statics.tpos.vn/Web/Barcode?type=Code 128&value={code}&width=600&height=100` (TPOS server-side generator) ✅ match TPOS
+
+**Status**: ✅ Done — label HTML render is pixel-identical to TPOS template; dialog form fields nay đầy đủ (Bảng giá / Giấy in / Kho / Áp dụng nhanh SL / Hiện giá / Chữ đậm / Hiện đơn vị tiền tệ / Hiển thị tên SP / Gán tồn / Ẩn mã vạch / In theo mẫu TPOS).
+
+---
+
 ## 2026-05-24
 
 ### [balance-history][delivery-report] Fix sync "Duyệt + ảnh ghi chú" giữa Kế Toán và Chi Tiết Đơn — migrate /v2/ về `balance_history` (Web 1) thay vì `web2_balance_history`
@@ -38,7 +88,7 @@
 
 **Files**:
 
-- [render.com/routes/v2/balance-history.js](../render.com/routes/v2/balance-history.js) — 64 references `web2_balance_history` → `balance_history`. Migration block (line 37-172) giữ migrations 081/082 cũ + thêm **Migration 083** (line 120-164) backfill ngược: `web2_balance_history.{verification_status,image_url,...}` → `balance_history` cho các GD APPROVED/REJECTED + rewrite `wallet_transactions.reference_type` 'web2_balance_history' → 'balance_history'. Dùng `WEB2_TABLE = 'web2_' + 'balance_history'` + `SOURCE_TABLE = 'balance' + '_history'` concatenation để tránh sed nhầm. Header comment line 38-50 mô tả lịch sử migration.
+- [render.com/routes/v2/balance-history.js](../render.com/routes/v2/balance-history.js) — 64 references `web2_balance_history` → `balance_history`. Migration block (line 37-172) giữ migrations 081/082 cũ + thêm **Migration 083** (line 120-164) backfill ngược: `web2_balance_history.{verification_status,image_url,...}` → `balance_history` cho các GD APPROVED/REJECTED + rewrite `wallet_transactions.reference_type` 'web2*balance_history' → 'balance_history'. Dùng `WEB2_TABLE = 'web2*' + 'balance_history'`+`SOURCE_TABLE = 'balance' + '\_history'` concatenation để tránh sed nhầm. Header comment line 38-50 mô tả lịch sử migration.
 - [render.com/routes/v2/dashboard-kpi.js:110](../render.com/routes/v2/dashboard-kpi.js#L110) — sepay_pending count: `web2_balance_history` → `balance_history`.
 - [render.com/routes/v2/smart-match.js:63](../render.com/routes/v2/smart-match.js#L63) — fetch transaction cho smart match: tương tự.
 - [render.com/routes/v2/notifications.js:174](../render.com/routes/v2/notifications.js#L174) — docstring fix.

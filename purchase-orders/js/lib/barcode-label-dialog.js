@@ -83,6 +83,7 @@ window.BarcodeLabelDialog = (function () {
             parentCode: item.parentProductCode || item.productCode || '',
             variant: item.variant || '',
             quantity: item.quantity || 1,
+            qtyActual: item.qtyActual || 0, // Stock qty — used by "Gán tồn" checkbox
             price: item.sellingPrice || 0,
             purchasePrice: item.purchasePrice || 0,
             tposProductId: item.tposProductId || null,
@@ -279,6 +280,10 @@ window.BarcodeLabelDialog = (function () {
                 </div>
                 <!-- Checkboxes row 2 -->
                 <div class="bld-checkbox-row">
+                    <div class="bld-checkbox-item" title="Gán số lượng tồn kho từ Kho/Kho hàng vào số lượng in (TPOS-compat)">
+                        <label for="bld-gan-ton">Gán tồn</label>
+                        <input type="checkbox" id="bld-gan-ton">
+                    </div>
                     <div class="bld-checkbox-item">
                         <label for="bld-hide-barcode">Ẩn mã vạch (Khuyến nghị dùng cho loại in mặc định)</label>
                         <input type="checkbox" id="bld-hide-barcode">
@@ -846,6 +851,18 @@ window.BarcodeLabelDialog = (function () {
             const qty = Math.max(1, parseInt(overlay.querySelector('#bld-quick-qty').value) || 1);
             items.forEach((it) => {
                 it.quantity = qty;
+            });
+            renderTableRows();
+            updateCount();
+        });
+
+        // "Gán tồn" — when checked, set each item's print qty = stock qty (qtyActual).
+        // Mirrors TPOS behavior: each label sticker quantity = inventory on hand.
+        overlay.querySelector('#bld-gan-ton')?.addEventListener('change', (e) => {
+            if (!e.target.checked) return;
+            items.forEach((it) => {
+                const stockQty = Math.max(0, Math.round(it.qtyActual || it.stockQty || 0));
+                if (stockQty > 0) it.quantity = stockQty;
             });
             renderTableRows();
             updateCount();
