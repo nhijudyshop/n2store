@@ -65,7 +65,14 @@
 
 ### [web2/shared] Rename Firestore collections sang prefix `web2_*` đồng nhất
 
-**User ask**: "sao customer*wallet_v1 có chữ v1 mà nó là web 2.0 à?" → suffix `_v1`/`_v2` gây confuse với "Web 1.0/2.0". Chuẩn hoá: dùng prefix `web2*` cho mọi Firestore collection của Web 2.0.
+**User ask** (sequence):
+
+1. "sao customer*wallet_v1 có chữ v1 mà nó là web 2.0 à?" — suffix `_v1`/`_v2` gây confuse với "Web 1.0/2.0" → chuẩn hoá sang prefix `web2*`.
+2. "không force-refresh tất cả web được" — không thể bắt user refresh, ban đầu định làm dual-write transition.
+3. "xóa dữ liệu old đi cũng được vì web 2.0 là test nên không sao → backup lại".
+4. "khi backup → xóa db web 2.0 → thì tạo ra các dữ liệu ảo để test web 2.0".
+
+**Quyết định cuối**: vì Web 2.0 đang test env, không cần dual-write transition phức tạp. Quy trình: backup OLD → delete OLD → seed fake data NEW. Code chỉ đọc/ghi NEW (single-collection, không có legacy fallback).
 
 **Rename mapping**:
 
@@ -82,20 +89,29 @@
 
 **localStorage keys KHÔNG đổi** (`customerWallet_v1`, `supplierWallet_v1`, `soOrder_v1`) — chỉ là cache local, đổi sẽ mất offline state. Source-of-truth là Firestore.
 
-**Migration script**: [`scripts/migrate-firestore-web2-rename.html`](../scripts/migrate-firestore-web2-rename.html) — browser-runnable, copy data OLD → NEW, verify, delete OLD.
+**Migration script** ([scripts/migrate-firestore-web2-rename.html](../scripts/migrate-firestore-web2-rename.html)) — 3 button:
 
-**Quy trình deploy (BẮT BUỘC theo thứ tự)**:
+1. **📥 Backup & Download JSON** — đọc 4 OLD collection, gói thành JSON, tự download `web2-firestore-backup-<timestamp>.json`. Safety net để khôi phục nếu cần.
+2. **🗑️ Delete OLD** — xoá doc `main` trong cả 4 OLD collection. Chỉ enable sau khi backup xong.
+3. **🎲 Generate & Seed Fake Data** — bơm dữ liệu giả vào 4 NEW collection để test Web 2.0:
+    - **Sổ Order**: 3 tab (VN/Hà Nội, China/Quảng Châu, Korea/Dongdaemun) × 2-3 shipments × 18 line items × 5 NCC × 3 currency (VND/CNY/KRW)
+    - **Ví NCC**: auto compute `totalPurchased` từ so_order seed × rate, kèm 5 payment transactions `PAY/2026/0001-0005`
+    - **Ví KH**: 4 SĐT test (`0901111001`..`0904444004`) với tên Việt, transactions return + payment realistic, balance dương/âm/zero
+    - **DS NCC**: 5 entries với mã (A1, B5, GZ, GZ2, KR) + note nghiệp vụ
 
-1. Mở migration page (localhost hoặc GH Pages) → bấm **"📋 Copy data OLD → NEW"**. Data tồn tại ở cả 2 collection.
-2. Commit + push code mới (Stop hook auto). Đợi GH Pages deploy ~2-4 phút nếu test online.
-3. **Force-refresh** (Cmd+Shift+R) tất cả tab Web 2.0 đang mở. Code mới chỉ đọc/ghi `web2_*`.
-4. Quay lại migration page → bấm **"🔍 Verify NEW = OLD"**. Pass mới enable nút Delete.
-5. Bấm **"🗑️ Delete OLD"** → confirm 2 lần.
+**Quy trình deploy**:
 
-**Risk**: nếu user mở tab cũ sau khi delete OLD nhưng chưa refresh code → tab cũ sẽ thấy collection empty và ghi 1 doc trống vào OLD (Firestore tự tạo lại). Mitigate bằng cách đảm bảo force-refresh trước khi delete.
+1. Push code (Stop hook auto-commit). Code mới chỉ đọc/ghi `web2_*`.
+2. Mở migration page (`http://localhost:8080/scripts/migrate-firestore-web2-rename.html`).
+3. Bấm **Backup** → file JSON download.
+4. Bấm **Delete OLD** → 4 OLD collection bị xoá.
+5. Bấm **Seed** → 4 NEW collection có data giả.
+6. Mở Web 2.0 pages (`/so-order`, `/web2/supplier-debt`, `/web2/customer-wallet`, `/web2/supplier-wallet`, `/web2/supplier-aging`) verify.
 
-**Files**: 14 file code + 5 file docs + 1 migration script
-**Status**: 🔄 Code committed — chờ user chạy migration script
+**Code architecture**: single-collection, không có dual-read/dual-write fallback. Sau bước delete, OLD collection biến mất; tab user còn mở code cũ sẽ thấy OLD empty và app degrade gracefully (UI empty state). Khi user reload, code mới đọc NEW có fake data → app hoạt động bình thường.
+
+**Files**: 14 file code + 5 file docs + 1 migration script (backup/delete/seed)
+**Status**: ✅ Code ready — user cần chạy migration script (backup → delete → seed) qua localhost:8080
 
 ---
 
