@@ -25,6 +25,74 @@
 
 ## 2026-05-25
 
+### [web2/products] CSS print_barcode = TPOS verbatim — fetched /Content/print_barcode.css
+
+**User test**: "không có giống → làm cho kĩ lưỡng, đọc vào dữ liệu blob bên tpos lúc bill in ra đi". Reverse engineer thực sự TPOS print.
+
+**Reverse engineer flow** (extract qua TPOS controllers.min.js + services.min.js):
+
+- **TPOS savePdf flow** (`BarcodeProducLabelPrintBarcodeController` — typo "Produc" cố tình của TPOS):
+    1. Validate `Lines[].Quantity` total > 0
+    2. POST `a.model` (Lines + Paper + flags) → `BarcodeProductLabelService.save()` returns saved record `n.Id`
+    3. `printer.open_file("/BarcodeProductLabel/PrintBarcodePDF?id={Id}")` (hoặc `PrintBarcodeNewPDF`, `PrintBarcode10mmx42mmPDF`, `PrintBarcode15cmx10cmPDF`, `PrintBarcodeCustomPDF` theo `Paper.TypePrint`). Append `&isCode=true` khi tab "Sản phẩm không mã vạch".
+- **printer.open_file** (services.min.js):
+    1. `$http.get(url)` — fetch HTML từ backend (auth: Bearer accessToken)
+    2. Insert vào `<iframe>` invisible với `<link rel="stylesheet" href="/Content/print_barcode.css">` + Bootstrap
+    3. iframe `onload="printAndRemove()"` → trigger browser print dialog
+
+**Extracted TPOS official CSS** (`https://tomato.tpos.vn/Content/print_barcode.css`, 1934 bytes, 97 dòng):
+
+```css
+* {
+    box-sizing: border-box;
+}
+@page {
+    margin: 0 !important;
+} /* KHÔNG có "size:" */
+html,
+body {
+    padding: 0 !important;
+    margin: 0 !important;
+    font-family: Arial, Helvetica, sans-serif;
+}
+.barcode-sheet {
+    page-break-after: always;
+}
+.barcode_label {
+    box-sizing: border-box;
+    text-align: center;
+    float: left;
+    display: flex;
+    flex-flow: column;
+    overflow: hidden;
+    font-size: 10px;
+    padding: 5px;
+    line-height: 10px; /* defaults — controller override inline */
+}
+.barcode_label div {
+    flex: 1 auto;
+}
+.barcode-image img {
+    width: 100%;
+    height: 25px;
+}
+```
+
+**Diff Web 2.0 cũ vs TPOS → Fix**:
+
+| TPOS                                                                             | Web 2.0 cũ                         | Fix                                                 |
+| -------------------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------- |
+| `@page { margin: 0 }` (no size)                                                  | `@page { size: WxHmm; margin: 0 }` | Bỏ `size:` — để printer auto-fit (TPOS KHÔNG force) |
+| `.barcode-sheet { page-break-after: always }`                                    | + width/height/overflow            | Bỏ width/height (giữ inline only)                   |
+| `.barcode_label` có font-size:10px / padding:5px / line-height:10px **defaults** | Không có defaults                  | Thêm defaults (inline vẫn override per-paper)       |
+| Có `.barcodeCustom-sheet`, `.barcodeCustom_label`                                | Không                              | Thêm cho compatibility                              |
+
+**Test live** (Web 2.0 print iframe): CSS loaded "TPOS /Content/print_barcode.css verbatim", SVG `viewBox=0 0 600 100`, label inline `width:25mm; height:21mm; font-size:6px; line-height:7px; padding:0.5mm`. Bump cache `v=20260525d` → `v=20260525e`.
+
+**TPOS server HTML extract** (KHÔNG lấy được): endpoint `/BarcodeProductLabel/PrintBarcodePDF?id={N}` cần Bearer auth + POST save record trước. Hook block POST tới prod (đúng rule). CSS từ same domain = guaranteed identical visual.
+
+**Status**: ✅ Done — Web 2.0 CSS NOW VERBATIM TPOS.
+
 ### [issue-tracking] Search ticket — thêm match sản phẩm + ghi chú
 
 **Yêu cầu user**: Input `Tìm theo SĐT, Mã đơn...` cũng cần search ra sản phẩm trong ticket (vd `Q288A2`, `QUẦN SUÔNG TRƠN`).
