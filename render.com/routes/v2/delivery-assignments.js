@@ -254,7 +254,7 @@ router.post('/', async (req, res) => {
 router.post('/cleanup-ghosts', async (req, res) => {
     try {
         const db = getDb(req);
-        const { date, validNumbers, mode } = req.body || {};
+        const { date, validNumbers, mode, force } = req.body || {};
         if (!date || !Array.isArray(validNumbers)) {
             return res
                 .status(400)
@@ -272,6 +272,40 @@ router.post('/cleanup-ghosts', async (req, res) => {
                 },
             });
         }
+
+        // Safety guardrail: đếm trước bao nhiêu rows sẽ bị hide. Nếu hidden / total
+        // > 50% (suspicious — chắc client gửi list TPOS bị thiếu/truncate) thì
+        // reject trừ khi force=true. Tránh repeat của bug: 1 valid → 72 hidden.
+        const phPreview = validNumbers.map((_, i) => `$${i + 2}`).join(', ');
+        const previewSql = `
+            SELECT
+                COUNT(*) FILTER (WHERE order_number NOT IN (${phPreview}))::int AS would_hide,
+                COUNT(*) FILTER (WHERE is_hidden = FALSE)::int                  AS active_total
+            FROM delivery_assignments
+            WHERE assignment_date = $1`;
+        const preview = await db.query(previewSql, [dateStr, ...validNumbers]);
+        const wouldHide = Number(preview.rows[0]?.would_hide) || 0;
+        const activeTotal = Number(preview.rows[0]?.active_total) || 0;
+        const ratio = activeTotal > 0 ? wouldHide / activeTotal : 0;
+        if (!force && wouldHide > 5 && ratio > 0.5) {
+            console.warn(
+                `[cleanup-ghosts] REJECT date=${dateStr}: would hide ${wouldHide}/${activeTotal} (${(ratio * 100).toFixed(0)}%) — suspicious, require force=true`
+            );
+            return res.json({
+                success: true,
+                data: {
+                    date: dateStr,
+                    hiddenCount: 0,
+                    hiddenOrders: [],
+                    skipped: 'safety-guardrail',
+                    wouldHide,
+                    activeTotal,
+                    ratio,
+                    note: 'Refused — would hide more than 50% of active rows for this date. Pass force=true to override.',
+                },
+            });
+        }
+
         const cleanMode = mode === 'delete' ? 'delete' : 'hide';
         const ph = validNumbers.map((_, i) => `$${i + 2}`).join(', ');
         let sql;
@@ -291,7 +325,7 @@ router.post('/cleanup-ghosts', async (req, res) => {
         const result = await db.query(sql, [dateStr, ...validNumbers]);
         const affectedCount = result.rows.length;
         console.log(
-            `[cleanup-ghosts] date=${dateStr} mode=${cleanMode}: ${affectedCount} ghost(s)`
+            `[cleanup-ghosts] date=${dateStr} mode=${cleanMode}: ${affectedCount} ghost(s) hidden (active ${activeTotal})`
         );
         res.json({
             success: true,
