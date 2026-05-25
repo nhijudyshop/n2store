@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `947aea7` — fix(snap): ffmpeg HTTP flags only for URL input — local file fail 'Option timeout not found'
-**Last updated**: 2026-05-24 20:09:46 +07
-**Latest session**: [`RESUME:20260524-200946-947aea7`](../20260524-200946-947aea7.md)
-**Summary**: fix(snap): ffmpeg HTTP flags only for URL input — local file fail 'Option timeout not found'
+**Latest commit**: `0db506a` — ui(tpos): comment time hiển thị HH:MM thay vì CN/T2..T7
+**Last updated**: 2026-05-25 08:44:28 +07
+**Latest session**: [`RESUME:20260525-084428-0db506a`](../20260525-084428-0db506a.md)
+**Summary**: ui(tpos): comment time hiển thị HH:MM thay vì CN/T2..T7
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 5 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -62,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-24 19:38
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-25 08:44
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
