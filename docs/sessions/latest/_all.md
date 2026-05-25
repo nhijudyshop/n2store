@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `079ac35` — auto: session update
-**Last updated**: 2026-05-25 19:23:02 +07
-**Latest session**: [`RESUME:20260525-192302-079ac35`](../20260525-192302-079ac35.md)
+**Latest commit**: `4e87613` — auto: session update
+**Last updated**: 2026-05-25 19:26:18 +07
+**Latest session**: [`RESUME:20260525-192618-4e87613`](../20260525-192618-4e87613.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`product-warehouse/`](./product-warehouse.md) — 2 file(s)
+- [`issue-tracking/`](./issue-tracking.md) — 1 file(s)
+- [`shared/`](./shared.md) — 1 file(s)
+- [`supplier-debt/`](./supplier-debt.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -35,7 +37,7 @@
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 10:44
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-25 18:45
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-25 19:26
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 18:58
 - [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:34
@@ -53,14 +55,14 @@
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-25 19:19
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
-- [`shared/`](./shared.md) — updated 2026-05-25 18:45
+- [`shared/`](./shared.md) — updated 2026-05-25 19:26
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-05-25 15:59
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
-- [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-25 18:45
+- [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-25 19:26
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-25 15:59
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
