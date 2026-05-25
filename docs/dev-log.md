@@ -25,6 +25,20 @@
 
 ## 2026-05-25
 
+### [tpos-pancake][snap] Fit FB Live player popup cho video portrait 9:16
+
+**User báo**: popup `fb-video-player.html` mở đúng URL + seek đúng (status `✅ Seek tới 5037s qua FB Player API`), nhưng video tràn ra ngoài window 820×520 — livestream shop quay portrait 9:16 (PRISM Live mobile streaming), iframe FB plugin `data-width=720` → height ~1280px overflow.
+
+**Fix**:
+
+- `tpos-pancake/js/tpos/tpos-livestream-snap.js`: window size `820×520` → `480×860` (portrait-friendly cho 9:16; vẫn hợp với 1:1 và 16:9 ngắn). 2 chỗ `window.open` (lightbox + popover snap row) cùng đổi.
+- `tpos-pancake/fb-video-player.html`: `data-width="720"` → `data-width="adapt-container-width"` (FB plugin tự match width parent). CSS `.fb-video { width:100% }` + `max-width/max-height:100%` cho span/iframe con để fit container không overflow.
+- `.video-wrap` thêm `min-height:0` (flex item shrink properly), `#player-slot` 100% size.
+
+**Verify**: reload TPOS-Pancake (Ctrl+Shift+R) → click "Xem live tại giây N" → popup 480×860 với video fit gọn, không overflow.
+
+**Status**: ✅ Done
+
 ### [render][snap] Fix: button "Xem live tại giây N" mở FB native thay vì fb-video-player.html
 
 **User báo**: hình kèm — click "Xem live tại giây 5037" trong snap lightbox/strip mở thẳng `facebook.com/watch/live/?ref=watch_permalink&v=...` (FB native player, không seek được tới giây N), thay vì `https://nhijudy.store/tpos-pancake/fb-video-player.html?v=...&t=...&page=...` (wrapper FB JS SDK + `player.seek(N)`).

@@ -2484,7 +2484,7 @@ Throttle 30s/KH. Click để tắt.`;
             window.open(
                 url,
                 'fbVideoPlayer',
-                'width=820,height=520,toolbar=no,menubar=no,location=no,status=no,resizable=yes,scrollbars=no'
+                'width=480,height=860,toolbar=no,menubar=no,location=no,status=no,resizable=yes,scrollbars=no'
             );
         });
         lb.querySelector('.snap-lb-close').addEventListener('click', () => lb.remove());
@@ -2664,7 +2664,7 @@ Throttle 30s/KH. Click để tắt.`;
                                 <div style="font-size:10px;color:#64748b;margin-top:2px;display:flex;gap:4px;align-items:center;">${pageBadge}${s.note ? ' · ' + _esc(s.note) : ''}</div>
                             </div>
                             <div style="display:flex;flex-direction:column;gap:3px;">
-                                <button type="button" class="snap-pop-play" data-url="${_esc(url)}" title="Mở FB plugin player (popup 820×520) tại thời điểm chụp" style="font-size:10px;color:#fff;background:#1877f2;border:none;padding:3px 8px;border-radius:5px;cursor:pointer;font-weight:600;text-align:center;">▶ Xem</button>
+                                <button type="button" class="snap-pop-play" data-url="${_esc(url)}" title="Mở FB plugin player (popup 480×860 portrait-friendly) tại thời điểm chụp" style="font-size:10px;color:#fff;background:#1877f2;border:none;padding:3px 8px;border-radius:5px;cursor:pointer;font-weight:600;text-align:center;">▶ Xem</button>
                                 <button type="button" class="snap-pop-refresh" data-id="${s.id}" title="Refresh thumbnail từ FB Graph (lazy fetch hiện tại)" style="font-size:10px;color:#0c4a6e;background:#e0f2fe;border:none;padding:3px 8px;border-radius:5px;cursor:pointer;font-weight:600;">🔄</button>
                                 <button type="button" class="snap-pop-del" data-id="${s.id}" title="Xóa snapshot" style="font-size:10px;color:#dc2626;background:#fee2e2;border:none;padding:3px 8px;border-radius:5px;cursor:pointer;font-weight:600;">Xóa</button>
                             </div>
@@ -2688,7 +2688,7 @@ Throttle 30s/KH. Click để tắt.`;
                     window.open(
                         url,
                         'fbVideoPlayer',
-                        'width=820,height=520,toolbar=no,menubar=no,location=no,status=no,resizable=yes,scrollbars=no'
+                        'width=480,height=860,toolbar=no,menubar=no,location=no,status=no,resizable=yes,scrollbars=no'
                     );
                 };
             });
