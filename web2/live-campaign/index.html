@@ -1,60 +1,234 @@
-<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — sync 2-way TPOS. -->
 <!doctype html>
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
         <title>Chiến dịch Live - WEB 2.0</title>
-        <script src="../../web2/shared/page-shell.js?v=20260519j"></script>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260525a" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260525a" />
+        <link rel="stylesheet" href="../../web2/shared/web2-tpos-theme.css?v=20260525a" />
+        <link rel="stylesheet" href="css/live-campaign.css?v=20260525a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+        <script src="../../shared/js/firebase-config.js?v=20260525a"></script>
+        <script src="../../shared/js/notification-system.js?v=20260525a"></script>
+        <script src="../../shared/js/core-loader.js?v=20260525a"></script>
+        <script src="../../shared/js/token-manager.js?v=20260525a"></script>
     </head>
-    <body>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content lc-main">
+                <!-- Page head -->
+                <header class="lc-page-head">
+                    <nav class="lc-breadcrumb" aria-label="Breadcrumb">
+                        <span>App</span>
+                        <span class="sep">/</span>
+                        <span>Sale Online</span>
+                        <span class="sep">/</span>
+                        <span class="crumb-active">Chiến dịch Live</span>
+                    </nav>
+                    <div class="lc-page-title-row">
+                        <div class="lc-page-title">
+                            <i data-lucide="radio-tower"></i>
+                            <h1>Chiến dịch Live</h1>
+                            <span class="lc-count-badge" id="lcCountBadge">—</span>
+                            <span class="lc-sync-pill" id="lcSyncPill">
+                                <i data-lucide="refresh-cw"></i> Đồng bộ 2 chiều TPOS
+                            </span>
+                        </div>
+                        <div class="lc-page-actions">
+                            <button class="lc-btn" id="lcRefreshBtn" title="Tải lại từ TPOS">
+                                <i data-lucide="refresh-cw"></i> Tải lại
+                            </button>
+                            <button class="lc-btn lc-btn-primary" id="lcAddBtn">
+                                <i data-lucide="plus"></i> Thêm chiến dịch
+                            </button>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Filter bar -->
+                <section class="lc-filter-bar" aria-label="Bộ lọc">
+                    <div class="lc-filter-field">
+                        <i data-lucide="search"></i>
+                        <input
+                            id="lcSearchInput"
+                            type="search"
+                            placeholder="Tìm tên chiến dịch…"
+                            autocomplete="off"
+                        />
+                    </div>
+                    <div class="lc-filter-field">
+                        <label for="lcStatusSelect">Trạng thái:</label>
+                        <select id="lcStatusSelect">
+                            <option value="all">Tất cả</option>
+                            <option value="active">Đang hoạt động</option>
+                            <option value="inactive">Đã ngưng</option>
+                        </select>
+                    </div>
+                    <div class="lc-filter-field">
+                        <label for="lcDateFrom">Từ ngày:</label>
+                        <input id="lcDateFrom" type="date" />
+                    </div>
+                    <div class="lc-filter-field">
+                        <label for="lcDateTo">đến:</label>
+                        <input id="lcDateTo" type="date" />
+                    </div>
+                    <button class="lc-btn lc-btn-ghost lc-btn-sm" id="lcClearFiltersBtn">
+                        <i data-lucide="x"></i> Xóa lọc
+                    </button>
+                </section>
+
+                <!-- Table -->
+                <div class="lc-table-wrap">
+                    <table class="lc-table" id="lcTable">
+                        <thead>
+                            <tr>
+                                <th>Tên</th>
+                                <th>Facebook</th>
+                                <th>Live</th>
+                                <th>Ghi chú</th>
+                                <th>Excel</th>
+                                <th>Hoạt động</th>
+                                <th>Ngày tạo</th>
+                                <th class="lc-col-actions">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lcTableBody">
+                            <tr>
+                                <td colspan="8"><div class="lc-loading">Đang tải…</div></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <footer class="lc-pagination">
+                    <span class="lc-pagination-info" id="lcPaginationInfo">—</span>
+                    <div class="lc-pagination-buttons" id="lcPaginationButtons"></div>
+                </footer>
+            </main>
+        </div>
+
+        <!-- Create/Edit modal -->
+        <div
+            class="lc-modal"
+            id="lcModal"
+            hidden
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lcModalTitle"
+        >
+            <div class="lc-modal-backdrop" id="lcModalBackdrop"></div>
+            <div class="lc-modal-panel">
+                <header class="lc-modal-head">
+                    <h2 id="lcModalTitle">Thêm chiến dịch Live</h2>
+                    <button
+                        class="lc-modal-close"
+                        id="lcModalClose"
+                        type="button"
+                        aria-label="Đóng"
+                    >
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="lc-modal-body">
+                    <div class="lc-modal-banner">
+                        <i data-lucide="info"></i>
+                        Mọi thay đổi sẽ đồng bộ trực tiếp lên TPOS (tomato.tpos.vn).
+                    </div>
+                    <div class="lc-field-error" id="lcModalError"></div>
+                    <div class="lc-field">
+                        <label for="lcFieldName">Tên chiến dịch <span class="req">*</span></label>
+                        <input
+                            id="lcFieldName"
+                            type="text"
+                            placeholder="VD: HOUSE 25/05/2026"
+                            autocomplete="off"
+                        />
+                        <span class="lc-field-hint"
+                            >Tên phải duy nhất trong TPOS. Quy ước nội bộ:
+                            <code>{TÊN_PAGE} DD/MM/YYYY</code></span
+                        >
+                    </div>
+                    <div class="lc-field">
+                        <label for="lcFieldFbPage">Tên page Facebook</label>
+                        <input
+                            id="lcFieldFbPage"
+                            type="text"
+                            placeholder="VD: Nhi Judy House"
+                            autocomplete="off"
+                        />
+                        <span class="lc-field-hint"
+                            >Không bắt buộc — chỉ hiển thị, không link tới page thực</span
+                        >
+                    </div>
+                    <div class="lc-field">
+                        <label for="lcFieldLiveId">Facebook Live ID</label>
+                        <input
+                            id="lcFieldLiveId"
+                            type="text"
+                            placeholder="VD: 117267091364524_1003485565460369"
+                            autocomplete="off"
+                        />
+                        <span class="lc-field-hint"
+                            >Định dạng <code>{pageId}_{liveVideoId}</code> — có thể bỏ trống</span
+                        >
+                    </div>
+                    <div class="lc-field">
+                        <label for="lcFieldNote">Ghi chú</label>
+                        <textarea id="lcFieldNote" placeholder="Ghi chú tuỳ chọn…"></textarea>
+                    </div>
+                    <div
+                        class="lc-field"
+                        style="flex-direction: row; align-items: center; gap: 10px"
+                    >
+                        <label class="lc-toggle">
+                            <input type="checkbox" id="lcFieldActive" checked />
+                            <span class="lc-toggle-track"></span>
+                        </label>
+                        <label
+                            for="lcFieldActive"
+                            style="margin: 0; font-weight: 500; cursor: pointer"
+                        >
+                            Hoạt động
+                        </label>
+                    </div>
+                </div>
+                <footer class="lc-modal-foot">
+                    <button class="lc-btn" id="lcModalCancel" type="button">
+                        <i data-lucide="x"></i> Hủy
+                    </button>
+                    <button class="lc-btn lc-btn-primary" id="lcModalSave" type="button">
+                        <i data-lucide="save"></i> Lưu
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <script src="../../web2/shared/web2-auth.js?v=20260525a"></script>
+        <script src="../../web2/shared/tpos-sidebar.js?v=20260525a"></script>
+        <script src="js/live-campaign-api.js?v=20260525a"></script>
+        <script src="js/live-campaign-app.js?v=20260525a"></script>
         <script>
-            Web2Shell.bootstrap({
-                slug: 'livecampaign',
-                title: 'Chiến dịch Live',
-                breadcrumb: ['App', 'Sale Online'],
-                columns: [
-                    { key: 'code', label: 'Mã CD', width: 140, align: 'center' },
-                    { key: 'name', label: 'Tên chiến dịch', align: 'left' },
-                    { key: 'data.platform', label: 'Nền tảng', width: 130, align: 'center' },
-                    { key: 'data.dateStart', label: 'Bắt đầu', width: 130, align: 'center' },
-                    { key: 'data.dateEnd', label: 'Kết thúc', width: 130, align: 'center' },
-                    { key: 'data.status', label: 'Trạng thái', width: 130, align: 'center' },
-                ],
-                fields: [
-                    {
-                        key: 'code',
-                        label: 'Mã chiến dịch',
-                        type: 'text',
-                        required: true,
-                        placeholder: 'VD: LIVE2025',
-                    },
-                    { key: 'name', label: 'Tên chiến dịch', type: 'text', required: true },
-                    {
-                        key: 'data.platform',
-                        label: 'Nền tảng',
-                        type: 'select',
-                        options: [
-                            { value: 'facebook', label: 'Facebook' },
-                            { value: 'tiktok', label: 'TikTok' },
-                            { value: 'shopee', label: 'Shopee Live' },
-                        ],
-                    },
-                    { key: 'data.dateStart', label: 'Ngày bắt đầu', type: 'text' },
-                    { key: 'data.dateEnd', label: 'Ngày kết thúc', type: 'text' },
-                    {
-                        key: 'data.status',
-                        label: 'Trạng thái',
-                        type: 'select',
-                        options: [
-                            { value: 'draft', label: 'Nháp' },
-                            { value: 'live', label: 'Đang live' },
-                            { value: 'ended', label: 'Đã kết thúc' },
-                        ],
-                    },
-                    { key: 'data.note', label: 'Ghi chú', type: 'textarea' },
-                ],
-            });
+            Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
+            if (window.lucide) window.lucide.createIcons();
         </script>
     </body>
 </html>

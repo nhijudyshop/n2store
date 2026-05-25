@@ -25,6 +25,38 @@
 
 ## 2026-05-25
 
+### [web2][live-campaign] TPOS-clone "Chiến dịch Live" với sync 2 chiều TPOS — ✅ Done
+
+**Mục tiêu**: clone 100% UI + chức năng trang TPOS `#/app/saleOnline/liveCampaign/list` vào `web2/live-campaign/`, đồng bộ trực tiếp 2 chiều với TPOS (không có local cache — TPOS là source of truth).
+
+**Files mới**:
+
+- `web2/live-campaign/index.html` — TPOS-clone shell (đã replace placeholder Web2Shell cũ).
+- `web2/live-campaign/css/live-campaign.css` — table + filter bar + modal styles (TPOS look-alike: white card, blue accents, toggle xanh).
+- `web2/live-campaign/js/live-campaign-api.js` — wrapper OData `SaleOnline_LiveCampaign` (list/getOne/create/update/setActive/remove/exportExcel) đi qua `tokenManager.authenticatedFetch` → CF Worker `/api/odata/*` → TPOS.
+- `web2/live-campaign/js/live-campaign-app.js` — UI controller: render bảng 8 cột (Tên, Facebook, Live, Ghi chú, Excel, Hoạt động, Ngày tạo, Thao tác), filter bar (search/status/date range), pagination, create+edit modal, row toggle/delete, Excel download.
+
+**Doc**: `docs/web2/LIVE-CAMPAIGN-TPOS-API.md` — schema entity + endpoints verified (POST create, PUT update full-body, DELETE 204, POST `/SaleOnline_Order/ExportFile` cho Excel).
+
+**TPOS endpoint verified** (live test):
+
+- `GET /api/odata/SaleOnline_LiveCampaign?$top=20&$orderby=DateCreated desc&$count=true&$filter=…` — list + filter
+- `POST /api/odata/SaleOnline_LiveCampaign` body `{Name, Note, IsActive, Details:[]}` — create
+- `PUT /api/odata/SaleOnline_LiveCampaign({Id})` full body (PATCH trả 500 — bắt buộc PUT) — update
+- `DELETE /api/odata/SaleOnline_LiveCampaign({Id})` → 204
+- `POST /api/SaleOnline_Order/ExportFile?campaignId={Id}&sort=date` body `{"data":"{}"}` → xlsx binary
+
+**Tested in browser** (localhost:8080, persistent Playwright):
+
+- List 46 campaigns real từ TPOS ✓ count badge 46
+- Create test "TEST-WEB2-UI-353549" qua modal UI → 47 ✓
+- Toggle IsActive true → false → true ✓ (gọi PUT thật)
+- Edit modal pre-fill từ data thật + save với Note mới ✓
+- Delete với confirm → row biến mất, count về 46 ✓
+- Excel download "Tải về" → blob `HOUSE_22_05_2026.xlsx` ✓
+
+**Nondestructive**: tất cả test campaigns đã DELETE sạch (count: 0 leftover `TEST-WEB2-*`). Test KHÔNG đụng campaign HOUSE/STORE thật.
+
 ### [tpos-pancake][snap] Fallback: redirect popup thẳng tới FB plugin (autoplay work)
 
 **User báo**: iframe direct fallback chạy đúng (status `▶ Iframe direct (SDK timeout 4s) — t=5018s`), video fit gọn, NHƯNG không auto-play — user phải bấm nút play giữa video.
