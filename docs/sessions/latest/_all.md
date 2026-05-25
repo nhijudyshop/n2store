@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `932b259` — fix(web2): chatDb pool ref + Phase 2 customer-wallet enrich Web 2.0 wallet
-**Last updated**: 2026-05-25 15:43:19 +07
-**Latest session**: [`RESUME:20260525-154319-932b259`](../20260525-154319-932b259.md)
-**Summary**: fix(web2): chatDb pool ref + Phase 2 customer-wallet enrich Web 2.0 wallet
+**Latest commit**: `6126d8e` — auto: session update
+**Last updated**: 2026-05-25 15:47:09 +07
+**Latest session**: [`RESUME:20260525-154709-6126d8e`](../20260525-154709-6126d8e.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -68,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-25 15:43
+- [`web2/`](./web2.md) — updated 2026-05-25 15:47
