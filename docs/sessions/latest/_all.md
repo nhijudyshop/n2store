@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `53df9c2` — fix(snap): fallback iframe direct khi FB SDK xfbml.ready stuck
-**Last updated**: 2026-05-25 09:47:56 +07
-**Latest session**: [`RESUME:20260525-094756-53df9c2`](../20260525-094756-53df9c2.md)
-**Summary**: fix(snap): fallback iframe direct khi FB SDK xfbml.ready stuck
+**Latest commit**: `11182ca` — feat(web2/products): In tem sản phẩm — WEB 2.0 dedicated module, no TPOS API
+**Last updated**: 2026-05-25 09:51:06 +07
+**Latest session**: [`RESUME:20260525-095106-11182ca`](../20260525-095106-11182ca.md)
+**Summary**: feat(web2/products): In tem sản phẩm — WEB 2.0 dedicated module, no TPOS API
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
+- [`downloads/`](./downloads.md) — 2 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,10 +26,10 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 18:41
-- [`docs/`](./docs.md) — updated 2026-05-25 09:47
+- [`docs/`](./docs.md) — updated 2026-05-25 09:51
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
-- [`downloads/`](./downloads.md) — updated 2026-05-25 09:02
+- [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
 - [`facebook-services/`](./facebook-services.md) — updated 2026-05-21 15:39
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
@@ -68,4 +69,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-25 09:38
+- [`web2/`](./web2.md) — updated 2026-05-25 09:51
