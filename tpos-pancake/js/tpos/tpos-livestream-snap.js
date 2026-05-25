@@ -646,7 +646,7 @@
         chip.id = 'tpos-snap-real-chip';
         chip.className = 'tpos-snap-real-chip';
         chip.style.cssText =
-            'display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:14px;font-size:12px;font-weight:600;color:#374151;cursor:pointer;margin-left:6px;user-select:none;';
+            'display:none;align-items:center;gap:6px;padding:4px 10px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:14px;font-size:12px;font-weight:600;color:#374151;cursor:pointer;margin-left:6px;user-select:none;';
         // Click chip = đổi mode (NOT toggle stream). Stream tự bật khi user
         // click 📸 trong mode='live' (lazy initialization, OS picker chỉ hiện
         // khi cần thật sự).
