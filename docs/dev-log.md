@@ -25,6 +25,49 @@
 
 ## 2026-05-25
 
+### [issue-tracking][supplier-debt][shared] Extract ReturnOrderModal sang shared → 2 trang xài chung ✅
+
+**User ask**: "browser test vào fastpurchaseorder/refundform1 trả thử hàng → làm `issue-tracking#tra-hang-ncc` và `supplier-debt` có chức năng giống, từ css bảng trả hàng, list sản phẩm, các button,...".
+
+**Approach**: thay vì duplicate code, extract `ReturnOrderModal` từ `supplier-debt/` sang `shared/` rồi 2 trang cùng include.
+
+**Files mới**:
+
+- `shared/css/return-order.css` (627 dòng) — copy 1:1 từ `supplier-debt/css/return-order.css`
+- `shared/js/return-order-modal.js` (1274 dòng) — refactor từ `supplier-debt/js/return-order.js`:
+    - **Self-contained** `tposFetchLocal()` — fallback to `window.tokenManager.authenticatedFetch` (không cần `tposFetch` từ `supplier-debt/js/main.js` nữa).
+    - **Host-page hooks** `_hooks = {success, close}` + public `onSuccess(fn)` / `onClose(fn)` — thay cho direct `fetchData()` + `RefundOrders.fetch()` refs đã hardcoded vào supplier-debt.
+    - **`ensureMarkup()` + `MODAL_HTML` template string** — module tự inject modal HTML vào `<body>` lần đầu mở (idempotent). Page không cần copy-paste markup nữa.
+    - **`ensureEventsBound()`** — gắn event listeners 1 lần sau khi markup tồn tại. Auto-bind nếu markup có sẵn từ `DOMContentLoaded` (backwards-compat supplier-debt cũ).
+    - Public API: `{ ensureMarkup, open(supplierData?), close, onSuccess(fn), onClose(fn), _selectSupplier, _clearSupplier, _setDiscount }`.
+
+**Files modified**:
+
+- `supplier-debt/index.html`:
+    - `<link href="../shared/css/return-order.css">` (thay cho `css/return-order.css`).
+    - `<script src="../shared/js/return-order-modal.js">` (thay cho `js/return-order.js`).
+    - Inline script đăng ký `ReturnOrderModal.onSuccess(() => fetchData()...)` để thay cho previous hardcoded calls trong shared module.
+    - Modal HTML (~155 dòng) GIỮ NGUYÊN inline để backwards-compat — shared `ensureMarkup()` no-op nếu đã có.
+- `supplier-debt/js/return-order.js`: **xóa** (orphan).
+- `supplier-debt/css/return-order.css`: **xóa** (orphan).
+- `issue-tracking/index.html`:
+    - `<link href="../shared/css/return-order.css">` thêm vào head.
+    - `<script src="../shared/js/return-order-modal.js">` thêm sau page-tabs.js.
+    - Không cần inline modal markup — shared `ensureMarkup()` tự inject lần đầu open.
+- `issue-tracking/js/tpos-fastsale-tab.js`:
+    - Trong constructor: nếu instance là `purchaseRefund` (entity=FastPurchaseOrder, type=refund), đăng ký `ReturnOrderModal.onSuccess(() => this.load())` → auto-reload list khi tạo refund thành công.
+    - Trong `bindEvents()`: handler "Thêm" trên `purchaseRefund` tab gọi `window.ReturnOrderModal.open()` (real TPOS form) thay vì `openEditModal(null)` (mock). Fallback to mock modal nếu shared module chưa load.
+
+**Verification** (localhost:8080 qua persistent Playwright session):
+
+1. **supplier-debt regression**: shared module loaded, `ReturnOrderModal.open()` → modal show, 50 products fetched, supplier search input present, Lưu button visible. Module + inline markup co-exist OK.
+2. **issue-tracking#tra-hang-ncc**: click "Thêm" → shared modal mở, productRows=50, supplierInput=true, dateInput=true, saveBtn=true, no console errors.
+3. **End-to-end interaction**: click 1 product → orderLineCount=1, summary auto-update "Tổng tiền: 392.000"; gõ supplier "B16" → dropdown hiện `[B16] B16 LỤA SÁNG ( HÀ NỘI)`. Cùng UX với supplier-debt.
+
+**API call structure** (verified live trên TPOS refund form): submit POST `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastPurchaseOrder` với `Type: "refund"`, full nested objects (`Company`, `Partner`, `OrderLines[{Product, ProductUOM, Account}]`). Module đã handle đầy đủ — copy y nguyên payload từ original `submitReturn()`.
+
+**Known tech debt**: `shared/js/return-order-modal.js` = 1274 dòng (vượt 800 line limit). Phần lớn là CONFIG cho 2 company (NJD Live + NJD Shop) + payload schema TPOS yêu cầu đầy đủ. Cân nhắc tách thành `return-order-config.js` + `return-order-payload.js` ở session sau.
+
 ### [delivery-report] Migrate bill image localStorage → Postgres BYTEA (persist cross-device)
 
 **User ask**: "sao mất hình rồi?" → ảnh chứng từ trong Báo cáo modal bị mất khi đổi browser/clear cache. Vì lưu localStorage. User OK migrate sang DB.

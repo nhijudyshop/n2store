@@ -305,6 +305,16 @@
                 if (this.$.dateTo) this.$.dateTo.value = r.to;
             }
 
+            // For purchase refund tab: register host-page hook on shared ReturnOrderModal
+            // so that a successful real refund creation auto-reloads the list.
+            if (
+                this.cfg.tposType === 'refund' &&
+                this.cfg.entity === 'FastPurchaseOrder' &&
+                window.ReturnOrderModal?.onSuccess
+            ) {
+                window.ReturnOrderModal.onSuccess(() => this.load());
+            }
+
             // Mock CRUD overlay — only writes locally, never hits TPOS.
             this.mock = this.cfg.mockable
                 ? { overlay: new Map(), deleted: new Set(), added: [], nextId: 1 }
@@ -458,7 +468,22 @@
             // Toolbar buttons (purchase only)
             if (this.cfg.mockable) {
                 const addBtn = this.root.querySelector('[data-bind="addNew"]');
-                if (addBtn) addBtn.addEventListener('click', () => this.openEditModal(null));
+                if (addBtn) {
+                    addBtn.addEventListener('click', () => {
+                        // For purchase REFUND, prefer the shared full TPOS-clone return form
+                        // (real product picker + supplier search + real POST to FastPurchaseOrder).
+                        // Falls back to mock edit modal if shared module not loaded.
+                        if (
+                            this.cfg.tposType === 'refund' &&
+                            this.cfg.entity === 'FastPurchaseOrder' &&
+                            window.ReturnOrderModal?.open
+                        ) {
+                            window.ReturnOrderModal.open();
+                            return;
+                        }
+                        this.openEditModal(null);
+                    });
+                }
                 const bulkBtn = this.root.querySelector('[data-bind="bulkAction"]');
                 if (bulkBtn) {
                     bulkBtn.addEventListener('click', () => {

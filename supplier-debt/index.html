@@ -736,7 +736,19 @@
         <script src="../shared/js/token-manager.js?v=20260524b"></script>
 
         <!-- Return Order Module -->
-        <script src="js/return-order.js?v=20260524b"></script>
+        <script src="../shared/js/return-order-modal.js?v=20260525d"></script>
+        <script>
+            // Wire shared modal back to supplier-debt page-specific refresh hooks (replaces previous inline fetchData/RefundOrders calls).
+            window.ReturnOrderModal?.onSuccess?.(() => {
+                if (typeof fetchData === 'function') {
+                    fetchData().then(() => {
+                        window.SupplierDebtAutoRefresh?.seedHash?.();
+                        window.SupplierDebtAutoRefresh?.notifyChange?.('return-created');
+                    });
+                }
+                if (typeof RefundOrders !== 'undefined') RefundOrders.fetch();
+            });
+        </script>
 
         <!-- Page Script -->
         <script src="js/main.js?v=20260524b"></script>
