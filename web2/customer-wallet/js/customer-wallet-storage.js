@@ -1,7 +1,8 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 // Customer Wallet — storage + Firestore sync + PBH fetch.
 //
-// Schema (localStorage `customerWallet_v1`, Firestore `customer_wallet_v1/main`):
+// Schema (localStorage `customerWallet_v1`, Firestore `web2_customer_wallet/main` —
+// renamed 2026-05-25 from `customer_wallet_v1`):
 //   {
 //     wallets: {
 //       [phone]: {

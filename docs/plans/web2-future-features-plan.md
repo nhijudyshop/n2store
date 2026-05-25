@@ -191,7 +191,7 @@ File mới: `web2/shared/aging.js` — pure function `bucketByAge(transactions, 
 
 **Tech approach:**
 
-- Reuse data source supplier-debt (Firestore `so_order_v2` + `web2_records` + `supplier_wallet_v1`)
+- Reuse data source supplier-debt (Firestore `web2_so_order` + `web2_records` + `web2_supplier_wallet`)
 - Helper `web2/shared/aging.js` (cross-cutting 3.4)
 - Backend route `/api/v2/supplier-aging` aggregate + cache 5 phút
 - Excel export qua `web2/shared/export-helpers.js`
@@ -422,13 +422,13 @@ File mới: `web2/shared/aging.js` — pure function `bucketByAge(transactions, 
 - Search NCC → mở profile
 - Layout 4 panel:
     1. **Info** — tên, mã, SĐT, địa chỉ, tags
-    2. **Đơn mua** — list `so_order_v2` filter by supplier
+    2. **Đơn mua** — list `web2_so_order` filter by supplier
     3. **Công nợ + Ví** — biểu đồ + total + lịch sử thanh toán
     4. **Trả hàng + Rating** — refund history + custom rating (1-5 sao, comment)
 
 **Tech approach:**
 
-- Read-only v1 — aggregate từ 4 source: Firestore so-order, web2_records refund, supplier_wallet_v1, web2_balance_history filter NCC
+- Read-only v1 — aggregate từ 4 source: Firestore so-order, web2_records refund, web2_supplier_wallet, web2_balance_history filter NCC
 - Rating: bảng mới `web2_supplier_ratings (supplier_code, user_id, score, comment, created_at)`
 - Endpoint `/api/v2/supplier-360/:code` trả về tổng hợp
 

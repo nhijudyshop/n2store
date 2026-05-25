@@ -68,10 +68,10 @@
         │   └─────────────────────────────────────────────────────────┘
         │
         └────► Firestore (legacy — being deprecated):
-               - so_order_v2/main           (so-order data, supplier-wallet read)
-               - supplier_wallet_v1/main    (supplier-wallet ledger)
-               - customer_wallet_v1/main    (customer-wallet manual notes)
-               - suppliers_v1/main           (supplier-debt aggregation)
+               - web2_so_order/main           (so-order data, supplier-wallet read)
+               - web2_supplier_wallet/main    (supplier-wallet ledger)
+               - web2_customer_wallet/main    (customer-wallet manual notes)
+               - web2_suppliers/main           (supplier-debt aggregation)
 ```
 
 ---
@@ -83,7 +83,7 @@
 ─────────────────────────────────────────────────────────────┼──────────────────────────
                   Postgres    Firestore   API endpoints      │  Postgres    SSE Events
 ─────────────────────────────────────────────────────────────┼──────────────────────────
-so-order/         (none)      so_order_v2 web2-products/list │  Firestore   (none direct)
+so-order/         (none)      web2_so_order web2-products/list │  Firestore   (none direct)
                               web2_variants                  │  upsert-pending
 ─────────────────────────────────────────────────────────────┼──────────────────────────
 native-orders/    native_     (none)     /api/native-orders/ │  native_      web2:native-
@@ -114,13 +114,13 @@ customer-wallet/  fast_sale_  customer_  /api/fast-sale-     │  customer_    (
                                                              │              web2:customer-
                                                              │              wallet
 ─────────────────────────────────────────────────────────────┼──────────────────────────
-supplier-wallet/  (none)      so_order_v2 /api/wallet-        │  Firestore   subscribes
+supplier-wallet/  (none)      web2_so_order /api/wallet-        │  Firestore   subscribes
                               supplier_   deposits/load       │              wallet:all
                               wallet_v1                       │              web2:products
                                                              │              web2:supplier-
                                                              │              wallet
 ─────────────────────────────────────────────────────────────┼──────────────────────────
-supplier-debt/    (none)      so_order_v2 /api/odata/Report/  │  (read-only)  subscribes
+supplier-debt/    (none)      web2_so_order /api/odata/Report/  │  (read-only)  subscribes
                               supplier_   PartnerDebt         │              wallet:all
                               wallet_v1                       │              web2:products
                                                              │              web2:fast-sale-
@@ -433,7 +433,7 @@ Admin sửa role/permission của user X → user X (đang online ở tab khác)
 
 ### 📊 Flow 6: Supplier-wallet aggregation (read-only derive)
 
-Supplier-wallet KHÔNG có DB riêng — aggregate từ so_order_v2 (Firestore) + supplier_wallet_v1 (Firestore).
+Supplier-wallet KHÔNG có DB riêng — aggregate từ web2_so_order (Firestore) + web2_supplier_wallet (Firestore).
 
 ```
 ┌──────────────────┐
@@ -444,7 +444,7 @@ Supplier-wallet KHÔNG có DB riêng — aggregate từ so_order_v2 (Firestore) 
          ▼
 ┌──────────────────────────────────────────┐
 │ SupplierWalletStorage.loadSoOrderData()  │
-│  - Firestore.doc('so_order_v2/main')     │
+│  - Firestore.doc('web2_so_order/main')     │
 │  - aggregateSuppliers(soOrderData)       │
 │    → group by supplier name              │
 │    → tổng mua = Σ(qty × costPrice ×      │
@@ -453,7 +453,7 @@ Supplier-wallet KHÔNG có DB riêng — aggregate từ so_order_v2 (Firestore) 
          │ Plus:
          │ ┌────────────────────────────────────┐
          │ │ Sync.init() → Firestore subscribe  │
-         │ │ supplier_wallet_v1/main             │
+         │ │ web2_supplier_wallet/main             │
          │ │ → ledger (payment + return tx)     │
          │ │ → applyAggregation(state, walletData)│
          │ └────────────────────────────────────┘
@@ -521,7 +521,7 @@ Product (kho SP)          │ Postgres web2_products │ web2/products      │ 
 ──────────────────────────┼────────────────────────┼────────────────────┼─────────────────────
 Variant (biến thể)        │ Postgres web2_variants │ web2/variants      │ so-order (picker)
 ──────────────────────────┼────────────────────────┼────────────────────┼─────────────────────
-Shipment (đợt mua NCC)    │ Firestore so_order_v2  │ so-order           │ supplier-wallet,
+Shipment (đợt mua NCC)    │ Firestore web2_so_order  │ so-order           │ supplier-wallet,
                           │                        │                    │ supplier-debt
 ──────────────────────────┼────────────────────────┼────────────────────┼─────────────────────
 Đơn Web                   │ Postgres native_orders │ native-orders      │ tpos-pancake (chat),

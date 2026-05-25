@@ -10,33 +10,33 @@
 
 ### 1.1 Pages + data sources
 
-| Page                                                                                 | DB chính                                                     | Realtime hiện tại                      | Reads từ                                                               | Writes đến                                                                  |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------------------ | -------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `so-order/`                                                                          | **Firestore** `so_order_v2/main`                             | onSnapshot                             | Firestore + Web2ProductsCache + Web2VariantsCache                      | Firestore + `/api/web2-products/upsert-pending`                             |
-| `native-orders/`                                                                     | Postgres `native_orders`                                     | SSE `web2:native-orders`               | `/api/native-orders/load` + Web2ProductsCache                          | `/api/native-orders/*`, convert → `/api/fast-sale-orders/from-native-order` |
-| `tpos-pancake/`                                                                      | (Pancake bên ngoài)                                          | WS direct + Render broker              | Pancake API                                                            | TPOS API                                                                    |
-| `web2/products/`                                                                     | Postgres `web2_products`                                     | SSE `web2:products` + Firestore tickle | `/api/web2-products/list`                                              | `/api/web2-products/*`                                                      |
-| `web2/variants/`                                                                     | Postgres `web2_variants`                                     | SSE `web2:variants` + Firestore tickle | `/api/web2-variants/list`                                              | `/api/web2-variants/*`                                                      |
-| `web2/customer-wallet/`                                                              | Postgres `fast_sale_orders` + Firestore `customer_wallet_v1` | SSE `wallet:all`                       | `/api/fast-sale-orders/load` + `/api/wallet-deposits/load` + Firestore | Firestore (notes, payments)                                                 |
-| `web2/supplier-wallet/`                                                              | Firestore `supplier_wallet_v1` + `so_order_v2`               | SSE `wallet:all` + onSnapshot          | Firestore                                                              | Firestore                                                                   |
-| `web2/supplier-debt/`                                                                | Firestore + TPOS odata                                       | SSE × 3 topics                         | Firestore (so_order + supplier_wallet) + TPOS                          | (read-only)                                                                 |
-| `web2/fastsaleorder-invoice/` (PBH)                                                  | Postgres `fast_sale_orders`                                  | WS qua PbhRealtime                     | `/api/fast-sale-orders/*`                                              | `/api/fast-sale-orders/*`                                                   |
-| `web2/balance-history/`                                                              | Postgres `balance_history`                                   | SSE `wallet:all`                       | `/api/v2/balance-history/*` + SePay                                    | `/approve`, `/reject`, `/adjust`                                            |
-| `web2/live-campaign/`, `partner-customer/`, `partner-supplier/`, `product-category/` | Postgres `web2_records`                                      | SSE `web2:<slug>` (generic)            | `/api/web2/<slug>/list`                                                | `/api/web2/<slug>/*`                                                        |
-| `web2/users/`                                                                        | Postgres `web2_users`                                        | SSE `web2:users`                       | `/api/web2-users/list` + `/pages`                                      | `/api/web2-users/*`                                                         |
+| Page                                                                                 | DB chính                                                       | Realtime hiện tại                      | Reads từ                                                               | Writes đến                                                                  |
+| ------------------------------------------------------------------------------------ | -------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `so-order/`                                                                          | **Firestore** `web2_so_order/main`                             | onSnapshot                             | Firestore + Web2ProductsCache + Web2VariantsCache                      | Firestore + `/api/web2-products/upsert-pending`                             |
+| `native-orders/`                                                                     | Postgres `native_orders`                                       | SSE `web2:native-orders`               | `/api/native-orders/load` + Web2ProductsCache                          | `/api/native-orders/*`, convert → `/api/fast-sale-orders/from-native-order` |
+| `tpos-pancake/`                                                                      | (Pancake bên ngoài)                                            | WS direct + Render broker              | Pancake API                                                            | TPOS API                                                                    |
+| `web2/products/`                                                                     | Postgres `web2_products`                                       | SSE `web2:products` + Firestore tickle | `/api/web2-products/list`                                              | `/api/web2-products/*`                                                      |
+| `web2/variants/`                                                                     | Postgres `web2_variants`                                       | SSE `web2:variants` + Firestore tickle | `/api/web2-variants/list`                                              | `/api/web2-variants/*`                                                      |
+| `web2/customer-wallet/`                                                              | Postgres `fast_sale_orders` + Firestore `web2_customer_wallet` | SSE `wallet:all`                       | `/api/fast-sale-orders/load` + `/api/wallet-deposits/load` + Firestore | Firestore (notes, payments)                                                 |
+| `web2/supplier-wallet/`                                                              | Firestore `web2_supplier_wallet` + `web2_so_order`             | SSE `wallet:all` + onSnapshot          | Firestore                                                              | Firestore                                                                   |
+| `web2/supplier-debt/`                                                                | Firestore + TPOS odata                                         | SSE × 3 topics                         | Firestore (so_order + supplier_wallet) + TPOS                          | (read-only)                                                                 |
+| `web2/fastsaleorder-invoice/` (PBH)                                                  | Postgres `fast_sale_orders`                                    | WS qua PbhRealtime                     | `/api/fast-sale-orders/*`                                              | `/api/fast-sale-orders/*`                                                   |
+| `web2/balance-history/`                                                              | Postgres `balance_history`                                     | SSE `wallet:all`                       | `/api/v2/balance-history/*` + SePay                                    | `/approve`, `/reject`, `/adjust`                                            |
+| `web2/live-campaign/`, `partner-customer/`, `partner-supplier/`, `product-category/` | Postgres `web2_records`                                        | SSE `web2:<slug>` (generic)            | `/api/web2/<slug>/list`                                                | `/api/web2/<slug>/*`                                                        |
+| `web2/users/`                                                                        | Postgres `web2_users`                                          | SSE `web2:users`                       | `/api/web2-users/list` + `/pages`                                      | `/api/web2-users/*`                                                         |
 
 ### 1.2 8 frictions phát hiện
 
-| #   | Friction                                                     | Severity          | Where                                                                                               |
-| --- | ------------------------------------------------------------ | ----------------- | --------------------------------------------------------------------------------------------------- |
-| F1  | **Dual source Firestore vs Postgres**                        | 🔴 High           | so_order_v2, supplier_wallet_v1 Firestore-only; phần CRUD khác Postgres → ambiguous source of truth |
-| F2  | **ID scheme inconsistent** (code/number/displayStt/username) | 🟠 Medium         | Cross-page lookup phải có conditional mapping                                                       |
-| F3  | **Firestore tickle pattern brittle**                         | 🟠 Medium         | web2_products_sync/notify, web2_variants_sync/notify — race condition khi nhiều tab write           |
-| F4  | **Manual refresh thay vì auto-push**                         | 🟠 Medium         | PBH confirm → customer-wallet không refresh ngay (chỉ poll)                                         |
-| F5  | **Cross-page nav thiếu deep link**                           | 🟠 Medium         | PBH → source native-order ko link; supplier-wallet ↔ so-order không click-through                   |
-| F6  | **Cross-cache invalidation thiếu**                           | 🟠 Medium         | web2/products stock change KHÔNG broadcast tới supplier-wallet (subscribe sai topic)                |
-| F7  | **Users page no realtime permission updates**                | 🟡 Low (security) | Admin sửa role → user khác phải F5 mới mất quyền                                                    |
-| F8  | **Order→Wallet không transactional**                         | 🔴 High           | PBH create fail mid-tx → wallet thấy sai total, không rollback                                      |
+| #   | Friction                                                     | Severity          | Where                                                                                                   |
+| --- | ------------------------------------------------------------ | ----------------- | ------------------------------------------------------------------------------------------------------- |
+| F1  | **Dual source Firestore vs Postgres**                        | 🔴 High           | web2_so_order, web2_supplier_wallet Firestore-only; phần CRUD khác Postgres → ambiguous source of truth |
+| F2  | **ID scheme inconsistent** (code/number/displayStt/username) | 🟠 Medium         | Cross-page lookup phải có conditional mapping                                                           |
+| F3  | **Firestore tickle pattern brittle**                         | 🟠 Medium         | web2_products_sync/notify, web2_variants_sync/notify — race condition khi nhiều tab write               |
+| F4  | **Manual refresh thay vì auto-push**                         | 🟠 Medium         | PBH confirm → customer-wallet không refresh ngay (chỉ poll)                                             |
+| F5  | **Cross-page nav thiếu deep link**                           | 🟠 Medium         | PBH → source native-order ko link; supplier-wallet ↔ so-order không click-through                       |
+| F6  | **Cross-cache invalidation thiếu**                           | 🟠 Medium         | web2/products stock change KHÔNG broadcast tới supplier-wallet (subscribe sai topic)                    |
+| F7  | **Users page no realtime permission updates**                | 🟡 Low (security) | Admin sửa role → user khác phải F5 mới mất quyền                                                        |
+| F8  | **Order→Wallet không transactional**                         | 🔴 High           | PBH create fail mid-tx → wallet thấy sai total, không rollback                                          |
 
 ---
 
@@ -55,7 +55,7 @@ Mỗi item dưới đây ảnh hưởng UX rõ rệt, code change nhỏ, không 
 
 #### A2. Supplier-wallet listen `web2:products` + `web2:so-order` (Fix F6)
 
-- **Hiện**: Supplier-wallet đọc Firestore so_order_v2 nhưng không nhận event khi web2/products stock thay đổi.
+- **Hiện**: Supplier-wallet đọc Firestore web2_so_order nhưng không nhận event khi web2/products stock thay đổi.
 - **Fix**: Subscribe thêm `web2:products` (vì stock = mua từ NCC ảnh hưởng debt) + `web2:so-order` (placeholder topic — server emit khi so_order doc Firestore thay đổi qua sync layer).
 - **File**: `web2/supplier-wallet/js/supplier-wallet-app.js`
 
@@ -110,12 +110,12 @@ Mỗi item dưới đây ảnh hưởng UX rõ rệt, code change nhỏ, không 
 
 ### Phase C — Architectural (high-risk, defer cho session khác)
 
-#### C1. Migrate Firestore so_order_v2 → Postgres (Fix F1)
+#### C1. Migrate Firestore web2_so_order → Postgres (Fix F1)
 
 - Đại refactor: so-order data từ Firestore sang Postgres table `so_orders` + child `so_shipments` + `so_rows`.
 - Lý do defer: rủi ro mất data Sổ Order; cần migration script + verify song song trước khi cut over.
 
-#### C2. Migrate Firestore supplier_wallet_v1 → Postgres (Fix F1)
+#### C2. Migrate Firestore web2_supplier_wallet → Postgres (Fix F1)
 
 - Same pattern as C1. Defer.
 

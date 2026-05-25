@@ -44,11 +44,11 @@ Cloudflare Worker proxy: `https://chatomni-proxy.nhijudyshop.workers.dev` forwar
 
 ## Firestore collections (Web 2.0)
 
-| Collection           | Doc    | Mục đích                               |
-| -------------------- | ------ | -------------------------------------- |
-| `so_order_v2`        | `main` | Sổ Order state (tabs, shipments, rows) |
-| `supplier_wallet_v1` | `main` | Ví NCC ledger (wallets + transactions) |
-| `customer_wallet_v1` | `main` | Ví KH ledger                           |
+| Collection             | Doc    | Mục đích                               |
+| ---------------------- | ------ | -------------------------------------- |
+| `web2_so_order`        | `main` | Sổ Order state (tabs, shipments, rows) |
+| `web2_supplier_wallet` | `main` | Ví NCC ledger (wallets + transactions) |
+| `web2_customer_wallet` | `main` | Ví KH ledger                           |
 
 ## Shared client libs
 

@@ -25,6 +25,42 @@
 
 ## 2026-05-25
 
+### [web2/shared] Rename Firestore collections sang prefix `web2_*` đồng nhất
+
+**User ask**: "sao customer*wallet_v1 có chữ v1 mà nó là web 2.0 à?" → suffix `_v1`/`_v2` gây confuse với "Web 1.0/2.0". Chuẩn hoá: dùng prefix `web2*` cho mọi Firestore collection của Web 2.0.
+
+**Rename mapping**:
+
+| Cũ                        | Mới                         |
+| ------------------------- | --------------------------- |
+| `customer_wallet_v1/main` | `web2_customer_wallet/main` |
+| `supplier_wallet_v1/main` | `web2_supplier_wallet/main` |
+| `suppliers_v1/main`       | `web2_suppliers/main`       |
+| `so_order_v2/main`        | `web2_so_order/main`        |
+
+**Files updated** (code refs): `web2/customer-wallet/js/customer-wallet-storage.js`, `web2/supplier-wallet/js/supplier-wallet-storage.js`, `web2/supplier-debt/js/supplier-debt-app.js`, `web2/supplier-aging/index.html`, `web2/products/js/web2-products-app.js`, `web2/overview/index.html`, `tpos-pancake/js/pancake/inventory-panel.js`, `so-order/js/so-order-storage.js`, `render.com/routes/v2/supplier-aging.js`, `issue-tracking/js/script.js` (comment block tách biệt W1/W2).
+
+**Files updated** (docs): `CLAUDE.md` (convention), `docs/web2/WEB2-INDEX.md`, `docs/web2/INTERACTION-DIAGRAM.md`, `docs/web2/IMPROVEMENT-PLAN.md`, `docs/plans/web2-future-features-plan.md`.
+
+**localStorage keys KHÔNG đổi** (`customerWallet_v1`, `supplierWallet_v1`, `soOrder_v1`) — chỉ là cache local, đổi sẽ mất offline state. Source-of-truth là Firestore.
+
+**Migration script**: [`scripts/migrate-firestore-web2-rename.html`](../scripts/migrate-firestore-web2-rename.html) — browser-runnable, copy data OLD → NEW, verify, delete OLD.
+
+**Quy trình deploy (BẮT BUỘC theo thứ tự)**:
+
+1. Mở migration page (localhost hoặc GH Pages) → bấm **"📋 Copy data OLD → NEW"**. Data tồn tại ở cả 2 collection.
+2. Commit + push code mới (Stop hook auto). Đợi GH Pages deploy ~2-4 phút nếu test online.
+3. **Force-refresh** (Cmd+Shift+R) tất cả tab Web 2.0 đang mở. Code mới chỉ đọc/ghi `web2_*`.
+4. Quay lại migration page → bấm **"🔍 Verify NEW = OLD"**. Pass mới enable nút Delete.
+5. Bấm **"🗑️ Delete OLD"** → confirm 2 lần.
+
+**Risk**: nếu user mở tab cũ sau khi delete OLD nhưng chưa refresh code → tab cũ sẽ thấy collection empty và ghi 1 doc trống vào OLD (Firestore tự tạo lại). Mitigate bằng cách đảm bảo force-refresh trước khi delete.
+
+**Files**: 14 file code + 5 file docs + 1 migration script
+**Status**: 🔄 Code committed — chờ user chạy migration script
+
+---
+
 ### [web2-isolation] Web 2.0 wallet + SePay matching TRUE ISOLATION khỏi Web 1.0
 
 **Yêu cầu user**: "web 2.0 không cần ví ảo (chắc chắn không đụng web 1.0) → khách CK → khớp 100% → vào ví không cần duyệt → chỉ duyệt khi trùng → không cần kế toán duyệt. Tạo mới riêng web 2.0 không dùng chung web 1.0."

@@ -216,16 +216,25 @@
         return window.PartnerCustomerApi?.detectCarrier?.(phone) || '';
     }
 
+    function web2BalanceBadgeHtml(phone) {
+        const wallet = web2Wallets[phone];
+        if (!wallet) return '';
+        const bal = Number(wallet.balance || 0);
+        const cls = bal > 0 ? 'cw-web2-balance has-balance' : 'cw-web2-balance';
+        return `<span class="${cls}" title="Số dư ví Web 2.0 (CK SePay đã vào)">💳 ${fmtVnd(bal)}</span>`;
+    }
+
     function cardHtml(w) {
         const debt = w.balance > 0;
         const partner = tposPartners[w.phone];
         const tposPill = tposStatusPillHtml(partner);
         const carrier = carrierFromPartner(partner, w.phone);
+        const web2Balance = web2BalanceBadgeHtml(w.phone);
         return `<div class="sw-card" data-phone="${escapeHtml(w.phone)}">
             <div class="sw-card-head">
                 <div>
                     <div class="sw-card-name">${escapeHtml(w.name)} ${tposPill}</div>
-                    <div class="sw-card-phone">${escapeHtml(w.phone)}${carrier ? ` <span class="cw-carrier">· ${escapeHtml(carrier)}</span>` : ''}</div>
+                    <div class="sw-card-phone">${escapeHtml(w.phone)}${carrier ? ` <span class="cw-carrier">· ${escapeHtml(carrier)}</span>` : ''} ${web2Balance}</div>
                 </div>
                 <span class="sw-card-badge ${debt ? 'is-debt' : ''}">${debt ? 'Còn nợ' : 'Đủ'}</span>
             </div>
@@ -316,6 +325,17 @@
         if (credit && Math.abs(credit - w.balance) > 1) {
             fragments.push(
                 `<span class="cw-tpos-item cw-tpos-mismatch" title="Nợ TPOS ≠ Nợ ví — cần đối soát"><i data-lucide="alert-triangle"></i>Nợ TPOS: ${fmtVnd(credit)}</span>`
+            );
+        }
+
+        // Web 2.0 wallet info (số dư tiền THẬT do KH CK SePay vào)
+        const web2Wallet = web2Wallets[phone];
+        if (web2Wallet) {
+            const bal = Number(web2Wallet.balance || 0);
+            const dep = Number(web2Wallet.total_deposited || 0);
+            const wd = Number(web2Wallet.total_withdrawn || 0);
+            fragments.push(
+                `<span class="cw-tpos-item cw-web2-wallet-info" title="Ví Web 2.0 — tiền thật trong ví"><i data-lucide="wallet"></i>Ví: <b>${fmtVnd(bal)}</b> (nạp ${fmtVnd(dep)} / chi ${fmtVnd(wd)})</span>`
             );
         }
         extras.innerHTML = fragments.join('');
@@ -561,11 +581,60 @@
         pollDeposits().catch(() => {});
         // Enrich từ TPOS Partner (Status / Email / Address / Carrier) — best-effort
         enrichFromTpos().catch((e) => console.warn('[CustomerWallet] enrich fail:', e?.message));
+        enrichWeb2Wallets().catch((e) =>
+            console.warn('[CustomerWallet] web2 enrich fail:', e?.message)
+        );
     }
 
     // Map phone → partner record fetched from TPOS. Memory-only, not persisted.
     const tposPartners = {};
     let _enrichInflight = null;
+
+    // Map phone → Web 2.0 wallet (balance, total_deposited, total_withdrawn).
+    // Memory-only — Web 2.0 backend là source of truth.
+    const web2Wallets = {};
+    let _web2EnrichInflight = null;
+
+    async function enrichWeb2Wallets() {
+        if (!window.Web2WalletApi?.getWalletsByPhones) return;
+        const phones = Object.keys(walletState.wallets || {}).filter((p) => p && p.length >= 9);
+        if (!phones.length) return;
+        if (_web2EnrichInflight) return _web2EnrichInflight;
+        _web2EnrichInflight = (async () => {
+            try {
+                const map = await window.Web2WalletApi.getWalletsByPhones(phones, {
+                    concurrency: 5,
+                });
+                for (const [phone, wallet] of map.entries()) {
+                    web2Wallets[phone] = wallet;
+                }
+                renderList();
+                if (activePhone && !document.getElementById('cwDetailModal').hidden) {
+                    renderDetailExtras(activePhone);
+                }
+            } finally {
+                _web2EnrichInflight = null;
+            }
+        })();
+        return _web2EnrichInflight;
+    }
+
+    // Reload web2 wallet cho 1 phone duy nhất (sau khi nhận SSE event).
+    async function refreshWeb2Wallet(phone) {
+        if (!window.Web2WalletApi?.getWallet || !phone) return;
+        try {
+            const wallet = await window.Web2WalletApi.getWallet(phone);
+            if (wallet) {
+                web2Wallets[phone] = wallet;
+                renderList();
+                if (activePhone === phone && !document.getElementById('cwDetailModal').hidden) {
+                    renderDetailExtras(phone);
+                }
+            }
+        } catch (e) {
+            console.warn('[CustomerWallet] refreshWeb2Wallet fail:', e.message);
+        }
+    }
 
     async function enrichFromTpos() {
         if (!window.PartnerCustomerApi?.listByPhones) return;
@@ -752,6 +821,27 @@
                     );
                 }
             }, 800);
+        });
+
+        // WEB 2.0 wallet realtime — backend mới emit 'web2:wallet:update' khi
+        // SePay match Web 2.0 path. Refresh số dư ví Web 2.0 cho phone đó.
+        window.Web2SSE.subscribe('web2:wallet:*', (msg) => {
+            const phone = msg?.data?.phone;
+            const amount = msg?.data?.transaction?.amount;
+            if (!phone) return;
+            console.log(
+                '[CustomerWallet-SSE] web2:wallet:update:',
+                phone,
+                amount ? Number(amount).toLocaleString('vi-VN') + 'đ' : ''
+            );
+            // Reload chỉ ví Web 2.0 cho phone đó (không cần reload toàn bộ)
+            refreshWeb2Wallet(phone).catch(() => {});
+            if (amount && Number(amount) > 0) {
+                notify(
+                    `💳 Ví Web 2.0: +${Number(amount).toLocaleString('vi-VN')}đ → ${phone}`,
+                    'success'
+                );
+            }
         });
     }
 

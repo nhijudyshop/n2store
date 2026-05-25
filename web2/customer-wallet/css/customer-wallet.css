@@ -107,3 +107,36 @@
     font-style: italic;
     font-size: 12px;
 }
+
+/* Web 2.0 wallet info ----------------------------------------------- */
+.cw-web2-balance {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #ecfeff;
+    color: #155e75;
+    border: 1px solid #a5f3fc;
+}
+.cw-web2-balance.has-balance {
+    background: #d1fae5;
+    color: #065f46;
+    border-color: #6ee7b7;
+}
+
+.cw-web2-wallet-info {
+    background: #ecfeff;
+    border: 1px solid #a5f3fc;
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: #155e75;
+}
+.cw-web2-wallet-info i[data-lucide] {
+    color: #0891b2 !important;
+}
+.cw-web2-wallet-info b {
+    color: #065f46;
+    font-size: 13px;
+}

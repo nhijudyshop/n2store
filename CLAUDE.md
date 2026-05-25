@@ -252,12 +252,15 @@ Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc la
 - Có prefix `web2_`: `web2_products`, `web2_variants`, `web2_records`, `web2_entities`
 - Liên quan Web 2.0 nhưng KHÔNG prefix (legacy): `native_orders`, `fast_sale_orders`, `balance_history` (SePay)
 
-**Firestore collections** (Web 2.0 data):
+**Firestore collections** (Web 2.0 data — **convention thống nhất `web2_` prefix từ 2026-05-25**):
 
-- `so_order_v2/main` — Sổ Order
-- `supplier_wallet_v1/main` — Ví NCC
-- `customer_wallet_v1/main` — Ví KH
-- `web2_*` collections nếu sau này thêm
+- `web2_so_order/main` — Sổ Order (rename từ `so_order_v2`)
+- `web2_supplier_wallet/main` — Ví NCC (rename từ `supplier_wallet_v1`)
+- `web2_customer_wallet/main` — Ví KH (rename từ `customer_wallet_v1`)
+- `web2_suppliers/main` — Danh sách NCC (rename từ `suppliers_v1`)
+- Mọi Firestore collection mới của Web 2.0 PHẢI dùng prefix `web2_`. **Không dùng suffix `_v1`/`_v2`** — gây confuse với "Web 1.0/2.0".
+
+> Lý do rename: suffix `_v1` thoạt nhìn giống "Web 1.0". Chuẩn hoá sang prefix `web2_` cho rõ. Lịch sử: xem [docs/dev-log.md](docs/dev-log.md) entry 2026-05-25.
 
 ### Legacy N2Store — không phải Web 2.0
 
@@ -267,7 +270,7 @@ Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc la
 
 1. **Marker bắt buộc cho file mới Web 2.0**: thêm token `WEB2.0` vào #Note header.
     - Vd: `// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.`
-2. **Đặt tên DB table/Firestore mới**: prefix `web2_` cho Postgres, hậu tố `_v1`/`_v2` cho Firestore.
+2. **Đặt tên DB table/Firestore mới**: prefix `web2_` cho CẢ Postgres VÀ Firestore. Không dùng suffix `_v1`/`_v2` cho Firestore nữa (đã rename 2026-05-25 — xem dev-log).
 3. **API route mới**: prefix `/api/web2-...` hoặc `/api/web2/...`. Nếu phải dùng tên trung tính (vd `wallet-deposits`) → comment đầu file `// WEB2.0 MODULE`.
 4. **Không cross-import**: legacy/orders-report KHÔNG được import code từ web2/, web2/shared/, supplier-wallet/, customer-wallet/. Ngược lại OK (web2 dùng `shared/js/...` được vì shared là chung).
 5. **Khi sửa file legacy**: dừng lại hỏi user nếu thay đổi có thể ảnh hưởng web2 (và ngược lại).
