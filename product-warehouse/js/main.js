@@ -4224,15 +4224,34 @@
      * (spread in `populateAdvancedSections`), we passthrough every field TPOS sent and
      * only override what the user edited in the form. No hardcoded null/0/defaults.
      */
+    // Nested $expand sub-objects that TPOS UpdateV2 rejects (expects scalar IDs).
+    // Applies to each variant + UOM line — the IDs (UOMId, CategId, UOMPOId) suffice.
+    const VARIANT_NESTED_TO_STRIP = ['UOM', 'Categ', 'UOMPO', 'POSCateg', 'OriginCountry'];
+
+    // TPOS ProductTemplateUOMLineModel only accepts these fields — anything else triggers
+    // "The property 'X' does not exist on type 'ODataService.ProductTemplateUOMLineModel'".
+    // Verified by bisecting the bisect against the live TPOS endpoint (HTTP 400 + property name).
+    const UOM_LINE_ALLOWED_FIELDS = [
+        'Id',
+        'ProductTmplId',
+        'UOMId',
+        'TemplateUOMFactor',
+        'ListPrice',
+        'Price',
+        'Barcode',
+        'Factor',
+    ];
+
     function mergeAdvancedIntoPayload(payload) {
         // Attribute lines — spread original line verbatim; we don't hard-set internal fields.
         payload.AttributeLines = editAttributeLines.map((l) => ({ ...l }));
         payload.IsProductVariant = editAttributeLines.length > 0;
 
-        // Variants — spread original TPOS variant; only override fields the user edited.
+        // Variants — strip nested $expand objects (UOM/Categ/UOMPO) so TPOS OData parser
+        // doesn't fail with "StartArray expected PrimitiveValue".
         payload.ProductVariants = editVariants.map((v) => {
             const merged = { ...v };
-            // Ensure required linkage for InsertV2 — only set when missing/zero.
+            for (const k of VARIANT_NESTED_TO_STRIP) delete merged[k];
             if (!merged.Id) merged.Id = 0;
             if (!merged.ProductTmplId) merged.ProductTmplId = payload.Id || 0;
             if (!merged.NameTemplate)
@@ -4247,31 +4266,35 @@
         });
         payload.ProductVariantCount = payload.ProductVariants.length;
 
-        // Combo — spread original combo line; respect IsCombo toggle from form.
+        // Combo
         payload.IsCombo = !!$('#editIsCombo')?.checked;
         payload.ComboProducts = payload.IsCombo ? editComboProducts.map((c) => ({ ...c })) : [];
 
-        // UOM Lines — spread original line; preserve nested UOM object unchanged,
-        // fall back to cache lookup ONLY if TPOS didn't send UOM (e.g. new line added in UI).
+        // UOM Lines — allowlist only TPOS-accepted fields (strip Name/NameGet/UOMName/
+        // FactorInv/ProductId/etc. which TPOS rejects with HTTP 400 invalid_data).
         payload.UOMLines = editUOMLines.map((u) => {
-            const merged = { ...u };
-            if (!merged.Id) merged.Id = 0;
-            if (!merged.UOM) {
-                merged.UOM = (cachedUOMs || []).find((x) => x.Id === merged.UOMId) || null;
-            }
-            return merged;
+            const c = {};
+            for (const k of UOM_LINE_ALLOWED_FIELDS) if (u[k] !== undefined) c[k] = u[k];
+            if (c.Id == null) c.Id = 0;
+            return c;
         });
 
-        // Supplier infos — spread original supplier line (preserves Delay, CompanyId, etc.)
+        // Supplier infos — strip nested Partner ($expand sub-object).
         payload.ProductSupplierInfos = editSupplierInfos.map((s) => {
             const merged = { ...s };
+            delete merged.Partner;
             if (!merged.Id) merged.Id = 0;
             return merged;
         });
 
-        // Tags — spread original Tag objects so Name/Color/other fields preserved.
-        // Filter to only currently-selected IDs; add new entries from cache for newly-picked.
-        payload.Tags = editTagObjects.filter((t) => editTagIds.has(t.Id)).map((t) => ({ ...t }));
+        // Tags — Tags array shape triggers TPOS "StartArray" if it's non-empty objects.
+        // OMIT entirely when empty (instead of `Tags: []`) — TPOS handles missing as "no change".
+        const tagObjs = editTagObjects.filter((t) => editTagIds.has(t.Id)).map((t) => ({ ...t }));
+        if (tagObjs.length > 0) {
+            payload.Tags = tagObjs;
+        } else {
+            delete payload.Tags;
+        }
 
         return payload;
     }
