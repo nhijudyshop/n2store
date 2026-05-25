@@ -3,22 +3,23 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `49631b0` — feat(product-warehouse): edit modal 6 tab TPOS + fix expand + fix ảnh template
-**Last updated**: 2026-05-25 11:18:46 +07
-**Latest session**: [`RESUME:20260525-111846-49631b0`](../20260525-111846-49631b0.md)
-**Summary**: feat(product-warehouse): edit modal 6 tab TPOS + fix expand + fix ảnh template
+**Latest commit**: `0d625da` — auto: session update
+**Last updated**: 2026-05-25 11:32:32 +07
+**Latest session**: [`RESUME:20260525-113232-0d625da`](../20260525-113232-0d625da.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
+- [`_root/`](./_root.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`product-warehouse/`](./product-warehouse.md) — 2 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 3 file(s)
+- [`web2/`](./web2.md) — 10 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-05-24 13:33
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-05-24 13:30
+- [`_root/`](./_root.md) — updated 2026-05-25 11:32
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-05-22 12:35
@@ -26,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 18:41
-- [`docs/`](./docs.md) — updated 2026-05-25 11:18
+- [`docs/`](./docs.md) — updated 2026-05-25 11:32
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -46,7 +47,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-21 15:39
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 11:18
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 11:32
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
@@ -69,4 +70,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-25 11:18
+- [`web2/`](./web2.md) — updated 2026-05-25 11:32
