@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ddf7e02` — auto: session update
-**Last updated**: 2026-05-25 15:25:28 +07
-**Latest session**: [`RESUME:20260525-152528-ddf7e02`](../20260525-152528-ddf7e02.md)
-**Summary**: auto: session update
+**Latest commit**: `0b8daa1` — feat(delivery-report): auto-hide ghost orders qua POST /cleanup-ghosts
+**Last updated**: 2026-05-25 15:26:20 +07
+**Latest session**: [`RESUME:20260525-152620-0b8daa1`](../20260525-152620-0b8daa1.md)
+**Summary**: feat(delivery-report): auto-hide ghost orders qua POST /cleanup-ghosts
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-25 15:25
-- [`docs/`](./docs.md) — updated 2026-05-25 15:25
+- [`docs/`](./docs.md) — updated 2026-05-25 15:26
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
