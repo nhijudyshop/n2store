@@ -398,6 +398,42 @@ router.patch('/unscan-bulk', async (req, res) => {
 });
 
 // =====================================================
+// PATCH /unhide-bulk — Bulk un-hide (restore từ is_hidden=TRUE → FALSE).
+// Body: { orderNumbers: [...] }
+// Use case: recover sau khi cleanup-ghosts hide nhầm, hoặc restore đơn user
+// đã ẩn thủ công.
+// =====================================================
+router.patch('/unhide-bulk', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const body = req.body || {};
+        const orderNumbers = Array.isArray(body.orderNumbers) ? body.orderNumbers : [];
+        if (orderNumbers.length === 0) {
+            return res.status(400).json({ success: false, error: 'Missing orderNumbers (array)' });
+        }
+        const ph = orderNumbers.map((_, i) => `$${i + 1}`).join(', ');
+        const result = await db.query(
+            `UPDATE delivery_assignments
+             SET is_hidden = FALSE, updated_at = NOW()
+             WHERE order_number IN (${ph})
+               AND is_hidden = TRUE
+             RETURNING order_number`,
+            orderNumbers
+        );
+        res.json({
+            success: true,
+            data: {
+                unhidden: result.rows.length,
+                unhiddenOrders: result.rows.map((r) => r.order_number),
+            },
+        });
+    } catch (err) {
+        console.error('[delivery-assignments] PATCH /unhide-bulk error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// =====================================================
 // PATCH /hide/:orderNumber — Hide order (cancel approved)
 // =====================================================
 router.patch('/hide/:orderNumber', async (req, res) => {
