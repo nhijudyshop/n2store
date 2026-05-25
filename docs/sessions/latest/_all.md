@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7e651e0` — fix(snap): fallback redirect popup thẳng tới FB plugin — autoplay work
-**Last updated**: 2026-05-25 09:54:22 +07
-**Latest session**: [`RESUME:20260525-095422-7e651e0`](../20260525-095422-7e651e0.md)
-**Summary**: fix(snap): fallback redirect popup thẳng tới FB plugin — autoplay work
+**Latest commit**: `ecce600` — feat(web2): TPOS-clone Chiến dịch Live page với sync 2 chiều TPOS
+**Last updated**: 2026-05-25 10:10:59 +07
+**Latest session**: [`RESUME:20260525-101059-ecce600`](../20260525-101059-ecce600.md)
+**Summary**: feat(web2): TPOS-clone Chiến dịch Live page với sync 2 chiều TPOS
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 18:41
-- [`docs/`](./docs.md) — updated 2026-05-25 09:54
+- [`docs/`](./docs.md) — updated 2026-05-25 10:11
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -68,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-25 09:51
+- [`web2/`](./web2.md) — updated 2026-05-25 10:11
