@@ -691,23 +691,173 @@
     // =====================================================
     // API - Fetch products from Render DB
     // =====================================================
+    // =====================================================
+    // TPOS-DIRECT DATA SOURCE (per user requirement)
+    // Tab Sản phẩm → /api/odata/ProductTemplate/ODataService.GetViewV2 (TPOS templates)
+    // Tab Biến thể → /api/odata/Product/ODataService.GetViewV2 (TPOS variants)
+    // =====================================================
+
+    // Map UI sort key → TPOS OData field name (per viewType)
+    const TPOS_SORT_TEMPLATE = {
+        createdAt: 'DateCreated',
+        code: 'DefaultCode',
+        name: 'Name',
+        group: 'CategCompleteName',
+        price: 'ListPrice',
+        defaultBuyPrice: 'PurchasePrice',
+        costPrice: 'StandardPrice',
+        qtyActual: 'QtyAvailable',
+        active: 'Active',
+    };
+    const TPOS_SORT_VARIANT = {
+        createdAt: 'DateCreated',
+        code: 'DefaultCode',
+        name: 'Name',
+        group: 'CategCompleteName',
+        price: 'ListPrice',
+        defaultBuyPrice: 'PurchasePrice',
+        costPrice: 'StandardPrice',
+        qtyActual: 'QtyAvailable',
+        active: 'Active',
+    };
+
+    function buildTposODataUrl() {
+        const top = pageSize;
+        const skip = (currentPage - 1) * pageSize;
+        const sortMap = viewType === 'template' ? TPOS_SORT_TEMPLATE : TPOS_SORT_VARIANT;
+        const sortFieldTpos = sortMap[sortField] || 'DateCreated';
+        const order = sortDirection.toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+        const filters = [];
+
+        // Status filter — default mirrors TPOS "Đang hoạt động" (Active=true)
+        const statusFilter = $('#filterStatus')?.value || 'all';
+        if (statusFilter === 'active') filters.push('Active eq true');
+        else if (statusFilter === 'inactive') filters.push('Active eq false');
+
+        // Stock filter
+        const stockFilter = $('#filterStock')?.value || 'all';
+        if (stockFilter === 'in-stock') filters.push('QtyAvailable gt 0');
+        else if (stockFilter === 'out-of-stock') filters.push('QtyAvailable le 0');
+
+        // Category filter (CategCompleteName ILIKE)
+        const groupDropdownVal = $('#filterGroup')?.value;
+        const colHeaderGroupVal = ($('[data-filter="group"]')?.value || '').trim();
+        const categoryFilter =
+            groupDropdownVal && groupDropdownVal !== 'all' ? groupDropdownVal : colHeaderGroupVal;
+        if (categoryFilter) {
+            filters.push(`contains(CategCompleteName, '${_odataStr(categoryFilter)}')`);
+        }
+
+        // Search — match name or default code
+        const searchQuery = ($('#searchInput')?.value || '').trim();
+        if (searchQuery) {
+            const q = _odataStr(searchQuery);
+            filters.push(
+                `(contains(Name, '${q}') or contains(DefaultCode, '${q}') or contains(Barcode, '${q}'))`
+            );
+        }
+
+        // Build URL
+        const path =
+            viewType === 'template'
+                ? '/api/odata/ProductTemplate/ODataService.GetViewV2'
+                : '/api/odata/Product/ODataService.GetViewV2';
+        const qp = new URLSearchParams();
+        qp.set('$top', String(top));
+        qp.set('$skip', String(skip));
+        qp.set('$count', 'true');
+        qp.set('$orderby', `${sortFieldTpos} ${order}`);
+        if (filters.length) qp.set('$filter', filters.join(' and '));
+
+        return `${PROXY_URL}${path}?${qp.toString()}`;
+    }
+
+    /** Map TPOS GetViewV2 row → UI product shape (same keys used by render()).
+     *  TPOS ProductTemplate.GetViewV2 fields:
+     *    Id, Name, NameGet, DefaultCode, Barcode, CategCompleteName, ListPrice,
+     *    PurchasePrice, StandardPrice, QtyAvailable, VirtualAvailable, UOMName, UOMPOName,
+     *    Active, EnableAll, Tags, ImageUrl, DateCreated, CompanyName, CreatedByName,
+     *    DescriptionSale, DiscountSale, DiscountPurchase, VariantActiveCount, Type, Weight
+     *  TPOS Product (variant).GetViewV2 fields (FEWER):
+     *    Id, Name (already includes variant in parens), NameGet, DefaultCode, Barcode,
+     *    ListPrice, PriceVariant, StandardPrice, QtyAvailable, VirtualAvailable, UOMName,
+     *    Active, Tags, ImageUrl, DateCreated, Version, TaxAmount
+     */
+    function mapTposRow(row) {
+        const templateId = row.Id; // For template view: template Id; for variant view: variant Id
+        const productId = row.Id;
+        const cachedImg = imageCache[templateId];
+        const img = row.ImageUrl
+            ? `${RENDER_API}/image/${productId}` // Render proxies TPOS image (no CORS)
+            : cachedImg || '';
+
+        // Extract variant attribute string from NameGet/Name: trailing "(Đen, M)" pattern.
+        // Variant view returns Name = "Base Name (variant)"; we strip parens for `variant`.
+        let variantStr = null;
+        let baseName = row.Name || '';
+        if (viewType === 'variant') {
+            const m = /^(.+?)\s*\(([^()]+)\)\s*$/.exec(row.Name || '');
+            if (m) {
+                baseName = m[1];
+                variantStr = m[2];
+            }
+        }
+
+        const variantCount =
+            viewType === 'template' ? parseInt(row.VariantActiveCount, 10) || 0 : 0;
+
+        return {
+            id: templateId,
+            templateId,
+            productId,
+            code: row.DefaultCode || '',
+            name: baseName,
+            group: row.CategCompleteName || '',
+            price: parseFloat(row.ListPrice) || 0,
+            priceMax: parseFloat(row.ListPrice) || 0,
+            defaultBuyPrice: parseFloat(row.PurchasePrice) || 0,
+            costPrice: parseFloat(row.StandardPrice) || 0,
+            qtyActual: parseFloat(row.QtyAvailable) || 0,
+            qtyForecast: parseFloat(row.VirtualAvailable) || 0,
+            unit: row.UOMName || 'Cái',
+            tags: Array.isArray(row.Tags) ? row.Tags : [],
+            label: Array.isArray(row.Tags) && row.Tags.length > 0,
+            active: row.Active !== false,
+            allCompany: !!row.EnableAll,
+            note: row.DescriptionSale || '',
+            createdAt: row.DateCreated ? String(row.DateCreated).split('T')[0] : '',
+            company: row.CompanyName || '',
+            creator: row.CreatedByName || '',
+            image: img,
+            // Template view only
+            variantCount,
+            hasVariants: variantCount > 0,
+            // Variant view only
+            parentCode: null,
+            variant: variantStr,
+        };
+    }
+
     async function fetchProducts(silent = false) {
         if (isLoading) return;
         isLoading = true;
         if (!silent) showLoading(true);
 
         try {
-            const params = await buildRenderParams();
-            const url = `${RENDER_API}?${params.toString()}`;
+            const url = buildTposODataUrl();
 
-            const response = await fetch(url);
+            // Use tokenManager for TPOS auth (injects bearer token via proxy session)
+            const response = await window.tokenManager.authenticatedFetch(url, {
+                headers: { Accept: 'application/json' },
+            });
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
             const result = await response.json();
-            totalCount = result.pagination?.total || 0;
-            pageProducts = (result.data || []).map(mapProduct);
+            totalCount = parseInt(result['@odata.count']) || (result.value || []).length;
+            pageProducts = (result.value || []).map(mapTposRow);
 
             // Update tab badge for the active view
             if (viewType === 'template') templateTotalCount = totalCount;
@@ -715,19 +865,21 @@
             updateTabBadges();
 
             console.log(
-                '[Warehouse] Loaded',
+                '[Warehouse] TPOS',
+                viewType,
+                'loaded',
                 pageProducts.length,
-                viewType + 's, total:',
+                'of',
                 totalCount
             );
 
-            // Lazily refresh opposite tab's count (cheap call, limit=1)
+            // Lazily refresh opposite tab's count (cheap call, $top=1)
             fetchOtherTabCount();
         } catch (error) {
-            console.error('[Warehouse] Fetch error:', error);
+            console.error('[Warehouse] TPOS fetch error:', error);
             pageProducts = [];
             totalCount = 0;
-            showToast('Lỗi tải dữ liệu: ' + error.message, 'error');
+            showToast('Lỗi tải dữ liệu TPOS: ' + error.message, 'error');
         } finally {
             isLoading = false;
             if (!silent) showLoading(false);
@@ -742,16 +894,18 @@
             if (_otherCountAbort) _otherCountAbort.abort();
             _otherCountAbort = new AbortController();
             const otherView = viewType === 'template' ? 'variant' : 'template';
-            const params = await buildRenderParams();
-            params.set('viewType', otherView);
-            params.set('limit', '1');
-            params.set('page', '1');
-            const resp = await fetch(`${RENDER_API}?${params.toString()}`, {
+            const path =
+                otherView === 'template'
+                    ? '/api/odata/ProductTemplate/ODataService.GetViewV2'
+                    : '/api/odata/Product/ODataService.GetViewV2';
+            const url = `${PROXY_URL}${path}?$top=1&$skip=0&$count=true`;
+            const resp = await window.tokenManager.authenticatedFetch(url, {
                 signal: _otherCountAbort.signal,
+                headers: { Accept: 'application/json' },
             });
             if (!resp.ok) return;
             const json = await resp.json();
-            const otherTotal = json?.pagination?.total || 0;
+            const otherTotal = parseInt(json['@odata.count']) || 0;
             if (otherView === 'template') templateTotalCount = otherTotal;
             else variantTotalCount = otherTotal;
             updateTabBadges();

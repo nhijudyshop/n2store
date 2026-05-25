@@ -25,6 +25,46 @@
 
 ## 2026-05-25
 
+### [product-warehouse][tpos] Tab Sản phẩm/Biến thể — TPOS-direct + UI nút thao tác giống TPOS — ✅ Done
+
+**Mục tiêu**: chuyển kho web 1.0 từ "đọc data biến thể qua Render DB" sang "đọc trực tiếp 2 trang TPOS" — Tab **Sản phẩm** mirror `tomato.tpos.vn/#/app/producttemplate/list` (1 row = 1 template), Tab **Biến thể** mirror `tomato.tpos.vn/#/app/product/list` (1 row = 1 variant). Mặc định = Sản phẩm. Sắp xếp `DateCreated desc` (mới nhất trên cùng). Action buttons giao diện TPOS 100% (24×24, white bg, grey border, hover semantic).
+
+**Files modified**:
+
+- `product-warehouse/index.html` — thêm `<nav class="warehouse-tabs">` 2 nút (`#tabTemplate`, `#tabVariant`) với badge count + icon, đặt giữa `.page-header` và `.warehouse-toolbar`. Cache `v=20260525a`.
+- `product-warehouse/css/warehouse-tpos.css` — block `.warehouse-tabs` + `.warehouse-tab[.is-active]` + `.warehouse-tab-count` (TPOS underline-tab style với accent purple). Thêm `.variant-count-badge` (hiển thị `N BT` cạnh tên template), `.variant-attr` (italic muted cho attribute string). Rewrite `.col-actions .btn-action`: từ "solid color per action" → "white bg + grey border + grey icon, hover → semantic color" (giống TPOS producttemplate/list).
+- `product-warehouse/js/main.js`:
+    - Thêm `viewType` state (persist localStorage `n2store_warehouse_view_type`), default `'template'`.
+    - **PIVOT**: rewrite `fetchProducts` → gọi TPOS proxy trực tiếp qua `window.tokenManager.authenticatedFetch`. Endpoint switch:
+        - `viewType=template` → `/api/odata/ProductTemplate/ODataService.GetViewV2`
+        - `viewType=variant` → `/api/odata/Product/ODataService.GetViewV2`
+    - `buildTposODataUrl()` build OData params (`$top`, `$skip`, `$orderby`, `$filter`, `$count=true`).
+    - `mapTposRow()` map TPOS fields (Id, Name, DefaultCode, ListPrice, PurchasePrice, StandardPrice, QtyAvailable, VirtualAvailable, UOMName, CategCompleteName, Active, EnableAll, Tags, ImageUrl, DateCreated, CompanyName, CreatedByName, DescriptionSale, VariantActiveCount) → UI shape. Variant attribute extract từ Name pattern `Base (Attribute)`.
+    - `fetchOtherTabCount()` cập nhật badge tab kia bằng call `$top=1&$count=true` (cheap).
+    - Render: badge `N BT` cạnh tên template (template view), variant attr italic muted (variant view). Expand button chỉ hiện ở template view + `VariantActiveCount > 0`.
+    - Sort default: `tpos_template_id desc` (newest TPOS Id first, đồng nhất với TPOS UI). `SORT_FIELD_MAP.createdAt → tpos_template_id`.
+
+- `render.com/routes/v2/web-warehouse.js` — backward-compat: `GET /` thêm query `viewType=template|variant`. Branch `viewType=template` aggregate `GROUP BY tpos_template_id` (1 row/template, SUM qty, COUNT variants, MIN/MAX selling_price). Default sort = `tpos_template_id DESC`. Bộ phận này KHÔNG được dùng bởi product-warehouse nữa (client đã đi thẳng TPOS), nhưng giữ cho các trang khác có thể consume template-grouped view sau này.
+
+**Verification** (persistent browser session localhost:8080 + 2 tabs):
+
+- Tab Sản phẩm: 3701 templates, badge "2 BT" trên row "2505 B35 SET ÁO 2D + Q.SUÔNG REN" (template B2537), expand button hiển thị với title "Xem biến thể (2)".
+- Tab Biến thể: 6891 variants, row 1 = "2505 B35 SET ÁO 2D + Q.SUÔNG REN" với variant attr "Nude" hiển thị italic.
+- DateCreated desc sort: row đầu = 2026-05-25 (today) cho cả 2 tabs.
+- Action buttons: bg `rgb(255,255,255)`, border `rgb(204,204,204)`, color `rgb(88,102,110)`, 24×24, br 2px — match TPOS pixel.
+- Network: `/api/odata/ProductTemplate/ODataService.GetViewV2?$top=50&$skip=0&$count=true&$orderby=DateCreated desc` (template) + tương tự cho Product (variant) — qua `chatomni-proxy.nhijudyshop.workers.dev`.
+
+**SSE realtime web 1.0 (đã verify isolated khỏi web 2.0)**:
+
+- Topic = `web_warehouse` (KHÔNG có prefix `web2:`)
+- Endpoint = `/api/realtime/sse?keys=web_warehouse`
+- Render server `routes/realtime-sse.js` quản lý Map per-topic — không nhầm với `web2:*` topics
+- 2-way sync TPOS ↔ web 1.0: TPOS Socket.IO listener (`server.js`) push diffs vào SSE; UI edit/save POST trực tiếp TPOS qua proxy (`UpdateV2`/`InsertV2`). SSE chỉ dùng để invalidate cache + tự refresh khi sync cron lành.
+
+**Trade-off**: tốc độ tab Sản phẩm phụ thuộc TPOS API (vs Render DB cache trước đó) → mỗi page load ping tomato.tpos.vn qua proxy ~150-300ms. Đổi lại data luôn fresh (không stale do sync cron 30 phút).
+
+---
+
 ### [issue-tracking][tpos] Thêm 2 page-tab MUA HÀNG NCC + TRẢ HÀNG NCC — ✅ Done
 
 **Mục tiêu**: thêm 2 tab mới vào `issue-tracking/index.html` mirror trang TPOS `fastpurchaseorder/invoicelist` + `fastpurchaseorder/refundlist`, dùng cùng UI/CSS với tab BÁN HÀNG/TRẢ HÀNG có sẵn.

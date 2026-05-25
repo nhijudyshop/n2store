@@ -433,10 +433,10 @@ router.get('/', async (req, res) => {
         // Mirrors TPOS /app/producttemplate/list (1 row per template).
         // =====================================================
         if (viewType === 'template') {
-            // Allowed sort columns for template aggregate view
+            // Sort keys reference columns in the OUTER derived table (no `k.` alias).
             const tplSortMap = {
-                stt: 'MIN(k.stt)',
-                tpos_template_id: 'k.tpos_template_id',
+                stt: 'stt_min',
+                tpos_template_id: 'tpos_template_id',
                 product_code: 'template_code',
                 product_name: 'product_name',
                 category: 'category',
@@ -453,14 +453,14 @@ router.get('/', async (req, res) => {
                 barcode: 'barcode',
                 name_get: 'name_get',
             };
-            const tplSortField = tplSortMap[sort_by] || 'k.tpos_template_id';
+            const tplSortField = tplSortMap[sort_by] || 'tpos_template_id';
             const order = sort_order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
             // For aggregate rows: prefer parent_product_code (set on variants) over product_code.
             // If template has variants, parent_product_code = templateCode; if standalone, product_code IS the templateCode.
             const aggregateBase = `
                 SELECT
-                    k.tpos_template_id,
+                    k.tpos_template_id AS tpos_template_id,
                     COALESCE(
                         MAX(k.parent_product_code) FILTER (WHERE k.parent_product_code IS NOT NULL),
                         MAX(k.product_code) FILTER (WHERE k.parent_product_code IS NULL)
@@ -471,6 +471,7 @@ router.get('/', async (req, res) => {
                     MAX(k.uom_name) AS uom_name,
                     MAX(k.barcode) AS barcode,
                     MAX(k.image_url) AS image_url,
+                    MIN(k.stt) AS stt_min,
                     MIN(k.selling_price) AS min_selling_price,
                     MAX(k.selling_price) AS max_selling_price,
                     MIN(k.purchase_price) AS min_purchase_price,
