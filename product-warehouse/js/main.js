@@ -3492,13 +3492,29 @@
     async function ensureAttributesList() {
         if (cachedAttributes) return cachedAttributes;
         try {
-            const url = `${PROXY_URL}/api/odata/ProductAttribute?$expand=Values&$orderby=Id asc&$top=200`;
-            const r = await window.tokenManager.authenticatedFetch(url, {
-                headers: { Accept: 'application/json' },
-            });
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            const data = await r.json();
-            cachedAttributes = data.value || [];
+            // TPOS dropped the $expand=Values navigation on ProductAttribute (HTTP 400
+            // "Could not find a property named 'Values'"). Fetch the value table
+            // separately and join client-side.
+            const [attrResp, valResp] = await Promise.all([
+                window.tokenManager.authenticatedFetch(
+                    `${PROXY_URL}/api/odata/ProductAttribute?$orderby=Id asc&$top=200`,
+                    { headers: { Accept: 'application/json' } }
+                ),
+                window.tokenManager.authenticatedFetch(
+                    `${PROXY_URL}/api/odata/ProductAttributeValue?$orderby=AttributeId asc,Sequence asc,Id asc&$top=2000`,
+                    { headers: { Accept: 'application/json' } }
+                ),
+            ]);
+            if (!attrResp.ok) throw new Error(`HTTP ${attrResp.status} (attr)`);
+            if (!valResp.ok) throw new Error(`HTTP ${valResp.status} (vals)`);
+            const attrs = (await attrResp.json()).value || [];
+            const vals = (await valResp.json()).value || [];
+            const byAttr = new Map();
+            for (const v of vals) {
+                if (!byAttr.has(v.AttributeId)) byAttr.set(v.AttributeId, []);
+                byAttr.get(v.AttributeId).push(v);
+            }
+            cachedAttributes = attrs.map((a) => ({ ...a, Values: byAttr.get(a.Id) || [] }));
             return cachedAttributes;
         } catch (err) {
             console.warn('[Attr] Load failed:', err.message);
