@@ -4392,41 +4392,91 @@
 
         try {
             showToast('Đang điều chỉnh tồn...', 'info');
-            // TPOS StockChangeProductQty action (most common endpoint)
-            const payload = {
-                model: {
-                    ProductId: variant.Id,
-                    NewQuantity: newQty,
-                    LocationId: 12, // default warehouse location (TPOS std)
-                    Name: $('#stockAdjustReason').value || 'Điều chỉnh qua n2store',
-                },
+
+            // TPOS StockChangeProductQty action was removed (HTTP 404 on all 3 legacy paths).
+            // Replace with the StockInventory flow that TPOS UI uses:
+            //   1) POST /odata/StockInventory — create draft scoped to the variant
+            //      (Filter="partial" + ProductId auto-creates 1 InventoryLine)
+            //   2) PATCH the InventoryLine.ProductQty to the new value
+            //   3) POST /odata/StockInventory(id)/ODataService.ActionDone — validate
+            //      and apply to stock.quant (writes to real qty).
+            // All 3 steps go via authenticatedFetch through chatomni-proxy.
+            const reason =
+                $('#stockAdjustReason').value?.trim() ||
+                `Điều chỉnh: ${stockAdjustCtx.templateName || variant.NameGet || ''}`;
+            const variantName = variant.NameGet || variant.DefaultCode || `#${variant.Id}`;
+            const nowIso = new Date().toISOString();
+
+            // Step 1: create draft StockInventory with Filter=partial + ProductId
+            const createBody = {
+                Name: `Điều chỉnh: ${variantName}`,
+                Date: nowIso,
+                LocationId: 12,
+                ProductId: variant.Id,
+                Filter: 'partial',
+                CompanyId: 1,
+                CategoryId: null,
+                LotId: null,
             };
-            // Try multiple action paths (TPOS variants differ per tenant)
-            const candidates = [
-                `${PROXY_URL}/api/odata/StockChangeProductQty/ODataService.Change`,
-                `${PROXY_URL}/api/odata/StockChangeProductQty`,
-                `${PROXY_URL}/api/odata/Product/ODataService.ChangeProductQty`,
-            ];
-            let ok = false;
-            let lastErr = null;
-            for (const url of candidates) {
-                try {
-                    const r = await window.tokenManager.authenticatedFetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                        body: JSON.stringify(
-                            url.includes('ODataService') ? payload : payload.model
-                        ),
-                    });
-                    if (r.ok) {
-                        ok = true;
-                        break;
-                    }
-                    lastErr = `HTTP ${r.status} @ ${url}`;
-                } catch (e) {
-                    lastErr = e.message;
+            const createResp = await window.tokenManager.authenticatedFetch(
+                `${PROXY_URL}/api/odata/StockInventory?$expand=Location`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                    body: JSON.stringify(createBody),
                 }
+            );
+            if (!createResp.ok) {
+                const txt = await createResp.text().catch(() => '');
+                throw new Error(
+                    `Tạo phiếu kiểm kho: HTTP ${createResp.status} ${txt.slice(0, 150)}`
+                );
             }
+            const inventory = await createResp.json();
+            const inventoryId = inventory.Id;
+            if (!inventoryId) throw new Error('Không nhận được InventoryId từ TPOS');
+
+            // Step 2: read the line auto-created with TheoreticalQty + ProductId.
+            const linesResp = await window.tokenManager.authenticatedFetch(
+                `${PROXY_URL}/api/odata/StockInventory(${inventoryId})/InventoryLines`,
+                { headers: { Accept: 'application/json' } }
+            );
+            if (!linesResp.ok) {
+                throw new Error(`Đọc inventory line: HTTP ${linesResp.status}`);
+            }
+            const linesJson = await linesResp.json();
+            const line =
+                (linesJson.value || []).find((l) => l.ProductId === variant.Id) ||
+                (linesJson.value || [])[0];
+            if (!line || !line.Id) {
+                throw new Error('Không tìm thấy line trong phiếu kiểm kho');
+            }
+
+            // Update ProductQty to the new value (PATCH supports partial update)
+            const patchResp = await window.tokenManager.authenticatedFetch(
+                `${PROXY_URL}/api/odata/StockInventory(${inventoryId})/InventoryLines(${line.Id})`,
+                {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                    body: JSON.stringify({ ProductQty: newQty }),
+                }
+            );
+            if (!patchResp.ok) {
+                const txt = await patchResp.text().catch(() => '');
+                throw new Error(`Cập nhật SL: HTTP ${patchResp.status} ${txt.slice(0, 150)}`);
+            }
+
+            // Step 3: validate/apply (TPOS standard action — confirmed working pattern)
+            const doneResp = await window.tokenManager.authenticatedFetch(
+                `${PROXY_URL}/api/odata/StockInventory(${inventoryId})/ODataService.ActionDone`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                    body: '{}',
+                }
+            );
+            const ok = doneResp.ok;
+            const lastErr = ok ? null : `HTTP ${doneResp.status} (validate)`;
             if (!ok) throw new Error(lastErr || 'Không endpoint nào thành công');
 
             showToast(`Đã điều chỉnh tồn: ${variant.QtyAvailable} → ${newQty}`, 'success');
