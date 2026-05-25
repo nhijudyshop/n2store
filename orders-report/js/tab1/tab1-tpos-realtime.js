@@ -706,38 +706,9 @@
     }
 
     function toggle() {
-        // Permission gate: chỉ admin / lai-authenticated mới toggle được.
-        if (
-            typeof window._canTogglePowerSwitches === 'function' &&
-            !window._canTogglePowerSwitches()
-        ) {
-            console.warn('[TPOS-RT] Toggle: không có quyền');
-            return;
-        }
         tableUpdateEnabled = !tableUpdateEnabled;
         updateStatusIndicator(ws?.readyState === 1);
         console.log('[TPOS-RT] Table updates:', tableUpdateEnabled ? 'ON' : 'OFF');
-    }
-
-    // Hide RT switch cho user non-priv. Force ON (default) — họ vẫn có realtime
-    // updates nhưng không thấy + không tắt được.
-    function _hideRtUIIfNotAllowed() {
-        if (
-            typeof window._canTogglePowerSwitches === 'function' &&
-            !window._canTogglePowerSwitches()
-        ) {
-            const wrap = document.getElementById('tposRtToggle');
-            const label = document.getElementById('tposRtLabel');
-            if (wrap) wrap.style.display = 'none';
-            if (label) label.style.display = 'none';
-            // Force ON — đảm bảo state mặc định cho non-priv users.
-            tableUpdateEnabled = true;
-        }
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', _hideRtUIIfNotAllowed);
-    } else {
-        _hideRtUIIfNotAllowed();
     }
 
     // ===== Utilities =====

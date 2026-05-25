@@ -51,24 +51,6 @@
         <script src="js/utils/decoding-utility.js?v=20260521b"></script>
         <script src="js/utils/fetch-with-timeout.js?v=20260521b"></script>
         <script src="js/core/api-handler.js?v=20260521b"></script>
-        <script>
-            // Permission gate cho power-user toggles (RT, Auto T).
-            // Chỉ admin / lai-authenticated được toggle; users khác mặc định ON, ẩn switch.
-            // Dùng inline để load trước mọi module init switch UI.
-            window._canTogglePowerSwitches = function () {
-                try {
-                    const auth = JSON.parse(
-                        localStorage.getItem('loginindex_auth') ||
-                            sessionStorage.getItem('loginindex_auth') ||
-                            '{}'
-                    );
-                    const t = String(auth.userType || localStorage.getItem('userType') || '');
-                    return t === 'admin-authenticated' || t === 'lai-authenticated';
-                } catch (e) {
-                    return false;
-                }
-            };
-        </script>
         <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
         <!-- typography:shared -->
         <link rel="stylesheet" href="css/design-system.css?v=20260521b" />

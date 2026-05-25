@@ -25,6 +25,25 @@
 
 ## 2026-05-25
 
+### [orders] Gỡ permission gate cho 2 toggle RT & Auto T — mọi user đều dùng được
+
+User báo screenshot 2 toggle "RT" (Realtime) + "Auto T" (Auto clear T-tag) ở header bảng tab1, hiện chỉ admin / lai-authenticated thấy. Yêu cầu: tất cả user thấy và toggle được như nhau.
+
+**Files**:
+
+- [orders-report/tab1-orders.html](orders-report/tab1-orders.html) — xoá block inline `<script>` chứa `window._canTogglePowerSwitches` (cũ ở line 54-71).
+- [orders-report/js/tab1/tab1-tpos-realtime.js](orders-report/js/tab1/tab1-tpos-realtime.js) — xoá permission check ở đầu `toggle()`, xoá hoàn toàn `_hideRtUIIfNotAllowed()` + handler DOMContentLoaded gọi nó.
+- [orders-report/js/tab1/tab1-processing-tags.js](orders-report/js/tab1/tab1-processing-tags.js) — xoá `_hideAutoTUI()`, gỡ nhánh hide non-priv trong `_loadAutoTClearSetting()`, gỡ permission check ở đầu `toggleAutoTClear()`.
+
+**Chi tiết**:
+
+- Function `window._canTogglePowerSwitches` đã không còn caller → xoá luôn shim (grep verify 0 hit).
+- Default state giữ nguyên: RT mặc định `tableUpdateEnabled = true` (in-memory, reload reset), Auto T mặc định `_autoTClearEnabled = true` rồi load từ `userStorageManager` (persist per-user).
+- UI render logic không đổi: knob xanh/xám + label "BẬT/TẮT" hoạt động như cũ.
+- Permission từng là client-side only nên việc xoá không ảnh hưởng data integrity, chỉ thay đổi UX scope.
+
+**Status**: DONE.
+
 ### [web2/products] Fix barcode aspect: JsBarcode 600×100 match TPOS PNG canvas
 
 **User test**: "bạn tạo 1 sản phẩm giống tên, mã, giá vào kho web 2.0 giống 1 sản phẩm trên tpos rồi in mã 2 bên ra đi sẽ thấy khác nhau, test 1 sản phẩm, nhiều sản phẩm". User nghi ngờ visual khác — đúng.
@@ -1468,10 +1487,6 @@ User: "phần NCC cho chọn dropdown lấy theo tất cả tên NCC trong sổ 
 - Mọi `toLocaleDateString` / `toLocaleTimeString` liên quan timestamp đều truyền `{ timeZone: 'Asia/Ho_Chi_Minh', … }` → bất kể browser/server ở múi giờ nào, list/timeline/modal đều hiển thị giờ Hà Nội đúng.
 - `money.toLocaleString()` không đụng (đó là format tiền, không phải timestamp).
 - Filter date range (line 3760-3765) dùng `new Date(dateFrom).getTime()` vẫn parse "YYYY-MM-DD" theo UTC midnight → có sai lệch nhỏ ở biên ngày khi user filter, nhưng user chưa report nên giữ nguyên, sẽ fix khi có nhu cầu thực tế.
-
-**Status**: DONE.
-
----
 
 ### [web2/products] fix: bỏ `customPrefix` + prompt() — chỉ dùng ô NCC làm single source
 
