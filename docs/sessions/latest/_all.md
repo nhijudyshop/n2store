@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `425a582` — feat(snap): FB JS SDK player.seek() API — reliable seek (FB official method)
-**Last updated**: 2026-05-25 09:11:01 +07
-**Latest session**: [`RESUME:20260525-091101-425a582`](../20260525-091101-425a582.md)
-**Summary**: feat(snap): FB JS SDK player.seek() API — reliable seek (FB official method)
+**Latest commit**: `226d6c1` — auto: session update
+**Last updated**: 2026-05-25 09:15:23 +07
+**Latest session**: [`RESUME:20260525-091523-226d6c1`](../20260525-091523-226d6c1.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -45,7 +44,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-21 15:39
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 09:02
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 09:15
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
