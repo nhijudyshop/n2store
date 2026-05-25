@@ -157,6 +157,34 @@ html body {
     color: var(--pw-accent);
 }
 
+/* Variant count badge next to template product name in template view */
+.variant-count-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    background: var(--pw-accent-soft);
+    color: var(--pw-accent);
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+/* Variant attribute label in variant view (e.g. "Đen, M") */
+.variant-attr {
+    display: inline-block;
+    margin-left: 6px;
+    color: var(--pw-muted);
+    font-size: 12px;
+    font-style: italic;
+}
+
+/* Placeholder for hidden expand button (keeps action col width stable) */
+.btn-action-expand-placeholder {
+    width: 24px;
+    height: 24px;
+}
+
 /* ===== TOOLBAR ===== */
 .warehouse-toolbar {
     background: var(--pw-bg-card);

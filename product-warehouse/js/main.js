@@ -709,7 +709,20 @@
             totalCount = result.pagination?.total || 0;
             pageProducts = (result.data || []).map(mapProduct);
 
-            console.log('[Warehouse] Loaded', pageProducts.length, 'products, total:', totalCount);
+            // Update tab badge for the active view
+            if (viewType === 'template') templateTotalCount = totalCount;
+            else variantTotalCount = totalCount;
+            updateTabBadges();
+
+            console.log(
+                '[Warehouse] Loaded',
+                pageProducts.length,
+                viewType + 's, total:',
+                totalCount
+            );
+
+            // Lazily refresh opposite tab's count (cheap call, limit=1)
+            fetchOtherTabCount();
         } catch (error) {
             console.error('[Warehouse] Fetch error:', error);
             pageProducts = [];
@@ -721,6 +734,43 @@
             render();
             lazyLoadImages();
         }
+    }
+
+    let _otherCountAbort = null;
+    async function fetchOtherTabCount() {
+        try {
+            if (_otherCountAbort) _otherCountAbort.abort();
+            _otherCountAbort = new AbortController();
+            const otherView = viewType === 'template' ? 'variant' : 'template';
+            const params = await buildRenderParams();
+            params.set('viewType', otherView);
+            params.set('limit', '1');
+            params.set('page', '1');
+            const resp = await fetch(`${RENDER_API}?${params.toString()}`, {
+                signal: _otherCountAbort.signal,
+            });
+            if (!resp.ok) return;
+            const json = await resp.json();
+            const otherTotal = json?.pagination?.total || 0;
+            if (otherView === 'template') templateTotalCount = otherTotal;
+            else variantTotalCount = otherTotal;
+            updateTabBadges();
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.warn('[Warehouse] otherTabCount failed:', err.message);
+            }
+        }
+    }
+
+    function updateTabBadges() {
+        const fmt = (n) => {
+            if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+            return String(n);
+        };
+        const tplEl = document.getElementById('tabTemplateCount');
+        const varEl = document.getElementById('tabVariantCount');
+        if (tplEl) tplEl.textContent = fmt(templateTotalCount);
+        if (varEl) varEl.textContent = fmt(variantTotalCount);
     }
 
     function showLoading(show) {
@@ -867,11 +917,19 @@
                         const checked = selectedIds.has(p.id) ? 'checked' : '';
                         const rowClass = selectedIds.has(p.id) ? ' selected' : '';
 
+                        // Variant-expand button:
+                        //  - Template view: show iff template has variants (otherwise hidden — standalone product)
+                        //  - Variant view: hidden (already at variant level)
+                        const showExpand =
+                            viewType === 'template' && (p.hasVariants || p.variantCount > 0);
+                        const expandBtnHtml = showExpand
+                            ? `<button class="btn-action btn-action-expand${expandedIds.has(p.id) ? ' expanded' : ''}" title="Xem biến thể (${p.variantCount})" data-expand-id="${p.id}"><i data-lucide="chevron-down"></i></button>`
+                            : '<span class="btn-action btn-action-expand-placeholder" style="display:inline-block;width:24px;"></span>';
                         return `<tr class="${rowClass}" data-template-id="${p.id}">
                         <td class="col-checkbox"><input type="checkbox" class="row-checkbox" data-id="${p.id}" ${checked}></td>
                         <td class="col-actions">
                             <div class="action-btns">
-                                <button class="btn-action btn-action-expand${expandedIds.has(p.id) ? ' expanded' : ''}" title="Xem biến thể" data-expand-id="${p.id}"><i data-lucide="chevron-down"></i></button>
+                                ${expandBtnHtml}
                                 <button class="btn-action btn-action-edit" title="Sửa"><i data-lucide="pencil"></i></button>
                                 <button class="btn-action btn-action-stock" title="Điều chỉnh tồn" style="color:#0ea5e9;"><i data-lucide="package-plus"></i></button>
                                 <button class="btn-action btn-action-print" title="In mã vạch"><i data-lucide="printer"></i></button>
@@ -880,9 +938,22 @@
                         </td>
                         <td class="product-image-cell">${imageHtml}</td>
                         <td data-col="code"><span class="product-code">${highlightMatch(p.code, searchQuery)}</span></td>
-                        <td data-col="name" class="td-name"><span class="product-name">${highlightMatch(p.name, searchQuery)}</span></td>
+                        <td data-col="name" class="td-name">
+                            <span class="product-name">${highlightMatch(p.name, searchQuery)}</span>
+                            ${
+                                viewType === 'template' && p.variantCount > 0
+                                    ? `<span class="variant-count-badge" title="Số biến thể">${p.variantCount} BT</span>`
+                                    : viewType === 'variant' && p.variant
+                                      ? `<span class="variant-attr">${escapeHtml(p.variant)}</span>`
+                                      : ''
+                            }
+                        </td>
                         <td data-col="group" class="td-group"><span class="product-group-text">${escapeHtml(p.group)}</span></td>
-                        <td data-col="price" class="td-price">${formatPrice(p.price)}</td>
+                        <td data-col="price" class="td-price">${
+                            viewType === 'template' && p.priceMax && p.priceMax !== p.price
+                                ? `${formatPrice(p.price)} – ${formatPrice(p.priceMax)}`
+                                : formatPrice(p.price)
+                        }</td>
                         <td data-col="defaultBuyPrice" class="td-price">${formatPrice(p.defaultBuyPrice)}</td>
                         <td data-col="costPrice" class="td-price">${formatPrice(p.costPrice)}</td>
                         <td data-col="qtyActual" class="td-qty ${getQtyClass(p.qtyActual)}">${formatQty(p.qtyActual)}</td>
@@ -954,6 +1025,35 @@
     // EVENT HANDLERS
     // =====================================================
     function setupEventListeners() {
+        // View tabs (Sản phẩm | Biến thể) — switch viewType, reset page, reload
+        document.querySelectorAll('.warehouse-tab').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const next = btn.dataset.viewType;
+                if (!next || next === viewType) return;
+                viewType = next;
+                try {
+                    localStorage.setItem(STORAGE_VIEW_TYPE, viewType);
+                } catch (_) {
+                    /* ignore */
+                }
+                document.querySelectorAll('.warehouse-tab').forEach((b) => {
+                    const active = b.dataset.viewType === viewType;
+                    b.classList.toggle('is-active', active);
+                    b.setAttribute('aria-selected', active ? 'true' : 'false');
+                });
+                // Reset paging + clear expand state (variant nesting only makes sense in template view)
+                currentPage = 1;
+                expandedIds.clear();
+                fetchProducts();
+            });
+        });
+        // Apply persisted viewType to DOM (in case stored != initial HTML default)
+        document.querySelectorAll('.warehouse-tab').forEach((b) => {
+            const active = b.dataset.viewType === viewType;
+            b.classList.toggle('is-active', active);
+            b.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+
         // Search — show suggestion dropdown only (no server search on typing)
         const searchInput = $('#searchInput');
         if (searchInput) {
