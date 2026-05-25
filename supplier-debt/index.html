@@ -736,7 +736,11 @@
         <script src="../shared/js/token-manager.js?v=20260524b"></script>
 
         <!-- Return Order Module -->
-        <script src="../shared/js/return-order-modal.js?v=20260525d"></script>
+        <!-- Return-order modal split into 4 files (config → markup → payload → modal). Load order matters. -->
+        <script src="../shared/js/return-order-config.js?v=20260525e"></script>
+        <script src="../shared/js/return-order-markup.js?v=20260525e"></script>
+        <script src="../shared/js/return-order-payload.js?v=20260525e"></script>
+        <script src="../shared/js/return-order-modal.js?v=20260525e"></script>
         <script>
             // Wire shared modal back to supplier-debt page-specific refresh hooks (replaces previous inline fetchData/RefundOrders calls).
             window.ReturnOrderModal?.onSuccess?.(() => {

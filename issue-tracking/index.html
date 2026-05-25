@@ -1190,7 +1190,11 @@ Ví dụ:
     <script src="js/tpos-fastsale-tab.js?v=20260525g"></script>
     <script src="js/page-tabs.js?v=20260525g"></script>
     <!-- Shared return order modal (Trả hàng NCC). Auto-injects #returnOrderModal markup on first open. -->
-    <script src="../shared/js/return-order-modal.js?v=20260525g"></script>
+    <!-- Split into 4 files: config (static schema) → markup (HTML template) → payload (POST body builder) → modal (UI + state + events). -->
+    <script src="../shared/js/return-order-config.js?v=20260525e"></script>
+    <script src="../shared/js/return-order-markup.js?v=20260525e"></script>
+    <script src="../shared/js/return-order-payload.js?v=20260525e"></script>
+    <script src="../shared/js/return-order-modal.js?v=20260525e"></script>
 </body>
 
 </html>

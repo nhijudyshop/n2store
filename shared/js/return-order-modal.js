@@ -53,167 +53,15 @@ window.ReturnOrderModal = (function () {
     }
 
     // =====================================================
-    // STATIC CONFIG (from tpos-purchase.js)
+    // STATIC CONFIG — extracted to shared/js/return-order-config.js (window.ReturnOrderConfig)
     // =====================================================
 
-    const STATIC_USER_ID = 'ae5c70a1-898c-4e9f-b248-acc10b7036bc';
-
     function getCompanyId() {
-        return window.ShopConfig?.getConfig()?.CompanyId || 1;
+        return window.ReturnOrderConfig?.getCompanyId?.() ?? 1;
     }
-
-    const COMPANY_CONFIG = {
-        1: {
-            JournalId: 4,
-            AccountId: 4,
-            PickingTypeId: 1,
-            PaymentJournalId: 1,
-            Company: {
-                Id: 1,
-                Name: 'NJD Live',
-                Sender: 'Tổng đài:19003357',
-                Phone: '19003357',
-                Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh',
-                CurrencyId: 1,
-                Active: true,
-                AllowSaleNegative: true,
-                Customer: false,
-                Supplier: false,
-                DepositAccountId: 11,
-                DeliveryCarrierId: 7,
-                City: { name: 'Thành phố Hồ Chí Minh', code: '79' },
-                District: { name: 'Quận 12', code: '761', cityCode: '79' },
-                Ward: {
-                    name: 'Phường Trung Mỹ Tây',
-                    code: '26785',
-                    cityCode: '79',
-                    districtCode: '761',
-                },
-            },
-            User: {
-                Id: STATIC_USER_ID,
-                Email: 'nvkt@gmail.com',
-                Name: 'nvkt',
-                UserName: 'nvkt',
-                CompanyId: 1,
-                CompanyName: 'NJD Live',
-                Active: true,
-            },
-            Journal: {
-                Id: 4,
-                Name: 'Nhật ký mua hàng',
-                Type: 'purchase',
-                TypeGet: 'Mua hàng',
-                UpdatePosted: true,
-                DedicatedRefund: false,
-            },
-            PaymentJournal: {
-                Id: 1,
-                Name: 'Tiền mặt',
-                Type: 'cash',
-                TypeGet: 'Tiền mặt',
-                UpdatePosted: true,
-            },
-            PickingType: {
-                Id: 1,
-                Code: 'incoming',
-                Name: 'Nhận hàng',
-                Active: true,
-                WarehouseId: 1,
-                UseCreateLots: true,
-                UseExistingLots: true,
-                NameGet: 'Nhi Judy Store: Nhận hàng',
-            },
-            Account: {
-                Id: 4,
-                Name: 'Phải trả người bán',
-                Code: '331',
-                Active: true,
-                NameGet: '331 Phải trả người bán',
-                Reconcile: false,
-            },
-        },
-        2: {
-            JournalId: 11,
-            AccountId: 32,
-            PickingTypeId: 5,
-            PaymentJournalId: 8,
-            Company: {
-                Id: 2,
-                Name: 'NJD Shop',
-                Sender: 'Tổng đài:19003357',
-                Phone: '19003357',
-                Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh',
-                CurrencyId: 1,
-                Active: true,
-                AllowSaleNegative: true,
-                Customer: false,
-                Supplier: false,
-                DepositAccountId: 11,
-                DeliveryCarrierId: 7,
-                City: { name: 'Thành phố Hồ Chí Minh', code: '79' },
-                District: { name: 'Quận 12', code: '761', cityCode: '79' },
-                Ward: {
-                    name: 'Phường Trung Mỹ Tây',
-                    code: '26785',
-                    cityCode: '79',
-                    districtCode: '761',
-                },
-            },
-            User: {
-                Id: STATIC_USER_ID,
-                Email: 'nvkt@gmail.com',
-                Name: 'nvkt',
-                UserName: 'nvkt',
-                CompanyId: 2,
-                CompanyName: 'NJD Shop',
-                Active: true,
-            },
-            Journal: {
-                Id: 11,
-                Name: 'Nhật ký mua hàng',
-                Type: 'purchase',
-                TypeGet: 'Mua hàng',
-                UpdatePosted: true,
-                DedicatedRefund: false,
-            },
-            PaymentJournal: {
-                Id: 8,
-                Name: 'Tiền mặt',
-                Type: 'cash',
-                TypeGet: 'Tiền mặt',
-                UpdatePosted: true,
-            },
-            PickingType: {
-                Id: 5,
-                Code: 'incoming',
-                Name: 'Nhận hàng',
-                Active: true,
-                WarehouseId: 2,
-                UseCreateLots: true,
-                UseExistingLots: true,
-                NameGet: 'Shop NJD: Nhận hàng',
-            },
-            Account: {
-                Id: 32,
-                Name: 'Phải trả người bán',
-                Code: '331',
-                Active: true,
-                NameGet: '331 Phải trả người bán',
-                Reconcile: false,
-            },
-        },
-    };
 
     function getConfig() {
-        return COMPANY_CONFIG[getCompanyId()] || COMPANY_CONFIG[1];
-    }
-
-    function toVNDateString(date) {
-        const d = date || new Date();
-        const offset = 7 * 60;
-        const local = new Date(d.getTime() + offset * 60000);
-        return local.toISOString().replace('Z', '') + '+07:00';
+        return window.ReturnOrderConfig?.getConfig?.();
     }
 
     // =====================================================
@@ -763,146 +611,24 @@ window.ReturnOrderModal = (function () {
             const shippingCost = parseFmt($('returnShippingCost')?.value);
             const paymentAmount = parseFmt($('returnPaymentAmount')?.value);
 
-            // Calculate totals
-            let amountTotal = 0;
-            S.orderLines.forEach((l) => {
-                amountTotal += l.quantity * l.price;
+            // Build payload via shared schema builder (return-order-payload.js)
+            if (!window.ReturnOrderPayload?.buildRefundPayload) {
+                throw new Error(
+                    'ReturnOrderPayload not loaded — include shared/js/return-order-payload.js before return-order-modal.js'
+                );
+            }
+            const payload = window.ReturnOrderPayload.buildRefundPayload({
+                selectedSupplier: S.selectedSupplier,
+                orderLines: S.orderLines,
+                orderDate,
+                now,
+                paymentMethodId,
+                paymentMethod,
+                shippingCost,
+                paymentAmount,
+                discountAmount: S.discountAmount,
+                formAction,
             });
-            const finalAmount = amountTotal - S.discountAmount + shippingCost;
-
-            // Build Partner object
-            const partner = {
-                Id: S.selectedSupplier.Id,
-                Name: S.selectedSupplier.Name,
-                DisplayName: S.selectedSupplier.DisplayName,
-                Ref: S.selectedSupplier.Ref,
-                Supplier: true,
-                Customer: false,
-                Active: true,
-                Type: 'contact',
-                CompanyType: 'person',
-                Status: 'Normal',
-                StatusText: 'Bình thường',
-                Source: 'Default',
-            };
-
-            // Build payload
-            const payload = {
-                Id: 0,
-                Name: null,
-                PartnerId: S.selectedSupplier.Id,
-                PartnerDisplayName: null,
-                State: 'draft',
-                Date: null,
-                PickingTypeId: config.PickingTypeId,
-                AmountTotal: finalAmount,
-                TotalQuantity: 0,
-                Amount: null,
-                Discount: 0,
-                DiscountAmount: 0,
-                DecreaseAmount: S.discountAmount,
-                AmountTax: 0,
-                AmountUntaxed: amountTotal,
-                TaxId: null,
-                Note: '',
-                CompanyId: getCompanyId(),
-                JournalId: config.JournalId,
-                DateInvoice: toVNDateString(orderDate),
-                Number: null,
-                Type: 'refund',
-                Residual: null,
-                RefundOrderId: null,
-                Reconciled: null,
-                AccountId: config.AccountId,
-                UserId: STATIC_USER_ID,
-                AmountTotalSigned: null,
-                ResidualSigned: null,
-                ShowState: 'Nháp',
-                UserName: null,
-                PartnerNameNoSign: null,
-                PaymentJournalId: paymentMethodId,
-                PaymentAmount: paymentAmount,
-                Origin: null,
-                CompanyName: null,
-                PartnerPhone: null,
-                Address: null,
-                DateCreated: toVNDateString(now),
-                TaxView: null,
-                CostsIncurred: shippingCost,
-                VatInvoiceNumber: null,
-                ExchangeRate: null,
-                DestConvertCurrencyUnitId: null,
-                FormAction: formAction,
-                PaymentInfo: [],
-                Error: null,
-
-                // Nested objects
-                Company: config.Company,
-                PickingType: config.PickingType,
-                Journal: config.Journal,
-                User: config.User,
-                PaymentJournal: { ...paymentMethod, UpdatePosted: true },
-                DestConvertCurrencyUnit: null,
-                Partner: partner,
-                Account: config.Account,
-
-                // Order lines - use variant data (fetched when product was added)
-                OrderLines: S.orderLines.map((line) => {
-                    const v = line.variantData; // variant from ProductVariants expand
-                    const p = line.product || {};
-                    const productObj = v
-                        ? {
-                              Id: v.Id,
-                              Name: v.Name,
-                              UOMId: v.UOMId || line.uomId,
-                              UOMName: v.UOMName || p.UOMName,
-                              NameGet: v.NameGet || p.NameGet,
-                              Barcode: v.Barcode || v.DefaultCode || p.DefaultCode || null,
-                              Price: v.Price || p.ListPrice || 0,
-                              DefaultCode: v.DefaultCode || p.DefaultCode,
-                              ProductTmplId: v.ProductTmplId || line.templateId,
-                              PurchaseOK: true,
-                              SaleOK: true,
-                              PurchasePrice: v.PurchasePrice || p.PurchasePrice || 0,
-                              DiscountSale: v.DiscountSale || 0,
-                              Weight: v.Weight || 0,
-                              DiscountPurchase: v.DiscountPurchase || 0,
-                              ImageUrl: v.ImageUrl || p.ImageUrl || null,
-                              Active: v.Active !== false,
-                              Factor: 1,
-                          }
-                        : {
-                              Id: line.productId,
-                              Name: p.Name,
-                              UOMId: line.uomId,
-                              UOMName: p.UOMName,
-                              NameGet: p.NameGet,
-                              Barcode: p.DefaultCode || null,
-                              Price: p.ListPrice || 0,
-                              DefaultCode: p.DefaultCode,
-                              ProductTmplId: line.templateId || p.Id,
-                              PurchaseOK: true,
-                              SaleOK: true,
-                              PurchasePrice: p.PurchasePrice || 0,
-                              Active: true,
-                              Factor: 1,
-                          };
-                    return {
-                        Name: line.name,
-                        ProductId: line.productId,
-                        ProductUOMId: line.uomId,
-                        ProductUOM: { Id: line.uomId, Name: line.uom },
-                        ProductQty: line.quantity,
-                        PriceUnit: line.price,
-                        Discount: 0,
-                        Product: productObj,
-                        Account: config.Account,
-                        AccountId: config.AccountId,
-                        PriceRecent: null,
-                        PriceSubTotal: line.quantity * line.price,
-                    };
-                }),
-            };
 
             console.log('[ReturnOrder] Submitting return order:', payload);
 
@@ -1115,100 +841,8 @@ window.ReturnOrderModal = (function () {
     }
 
     // =====================================================
-    // MARKUP INJECTION (idempotent — safe to call from any host page)
+    // MARKUP INJECTION — template lives in shared/js/return-order-markup.js (window.ReturnOrderMarkup.MODAL_HTML)
     // =====================================================
-
-    const MODAL_HTML = `
-<div class="modal-overlay" id="returnOrderModal">
-    <div class="modal modal-return-order">
-        <div class="modal-header">
-            <h3>Đơn trả hàng nhà cung cấp</h3>
-            <button class="modal-close" id="btnCloseReturnOrder">&times;</button>
-        </div>
-        <div class="return-action-bar">
-            <button class="btn btn-save-draft" id="btnReturnSave">
-                <i data-lucide="save" style="width: 14px; height: 14px"></i> Lưu
-            </button>
-            <button class="btn btn-go-back" id="btnReturnBack">Trở lại</button>
-        </div>
-        <div class="return-order-body">
-            <div class="return-product-panel">
-                <div class="return-product-toolbar">
-                    <input type="text" id="returnProductSearch" class="return-product-search" placeholder="Tìm kiếm [F2]..." autocomplete="off" />
-                    <select id="returnSortBy" class="return-sort-select">
-                        <option value="DateCreated desc">Mới nhất</option>
-                        <option value="QtyAvailable desc">Tồn kho</option>
-                        <option value="Name asc">Tên A-Z</option>
-                    </select>
-                </div>
-                <div class="return-product-table-header">
-                    <span>Ảnh</span>
-                    <span>Tên sản phẩm</span>
-                    <span>ĐVT</span>
-                    <span style="text-align: right">Giá mua</span>
-                </div>
-                <div class="return-product-list" id="returnProductList"></div>
-                <div class="return-product-pagination" id="returnProductPagination"></div>
-            </div>
-            <div class="return-order-panel">
-                <div class="return-order-header">
-                    <div class="return-order-header-row">
-                        <div class="form-group" style="flex: 2">
-                            <label>Nhà cung cấp</label>
-                            <div class="return-supplier-wrapper" id="returnSupplierWrapper">
-                                <input type="text" id="returnSupplierSearch" class="form-input" placeholder="Tìm nhà cung cấp..." autocomplete="off" />
-                                <div class="searchable-dropdown" id="returnSupplierDropdown" style="display: none"></div>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Ngày đơn hàng</label>
-                            <input type="date" id="returnOrderDate" class="form-input" />
-                        </div>
-                        <div class="form-group">
-                            <label>Phương thức thanh toán</label>
-                            <select id="returnPaymentMethod" class="form-select">
-                                <option value="1">Tiền mặt</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="return-order-header-row">
-                        <div class="form-group">
-                            <label>Cước phí</label>
-                            <input type="text" id="returnShippingCost" class="form-input" inputmode="numeric" value="0" />
-                        </div>
-                        <div class="form-group">
-                            <label>Số tiền thanh toán</label>
-                            <input type="text" id="returnPaymentAmount" class="form-input" inputmode="numeric" value="0" />
-                        </div>
-                    </div>
-                </div>
-                <div class="return-order-table-wrap">
-                    <table class="return-order-table" id="returnOrderTable">
-                        <thead>
-                            <tr>
-                                <th class="col-stt">STT</th>
-                                <th class="col-product">Sản phẩm</th>
-                                <th class="col-qty">Số lượng</th>
-                                <th class="col-price">Đơn giá</th>
-                                <th class="col-total">Tổng</th>
-                                <th class="col-action"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="returnOrderLines">
-                            <tr><td colspan="6"><div class="return-order-empty"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" x2="21" y1="6" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg><div>Chọn sản phẩm từ danh sách bên trái</div></div></td></tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="return-order-footer">
-                    <div class="return-order-summary" id="returnOrderSummary">
-                        <div class="return-summary-row"><span class="label">Tổng số lượng:</span><span class="value">0</span></div>
-                        <div class="return-summary-row total"><span class="label">Tổng tiền:</span><span class="value">0</span></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>`;
 
     let _markupInjected = false;
     let _eventsInited = false;
@@ -1218,8 +852,13 @@ window.ReturnOrderModal = (function () {
             _markupInjected = true;
             return;
         }
+        if (!window.ReturnOrderMarkup?.MODAL_HTML) {
+            throw new Error(
+                'ReturnOrderMarkup not loaded — include shared/js/return-order-markup.js before return-order-modal.js'
+            );
+        }
         const wrap = document.createElement('div');
-        wrap.innerHTML = MODAL_HTML.trim();
+        wrap.innerHTML = window.ReturnOrderMarkup.MODAL_HTML.trim();
         document.body.appendChild(wrap.firstElementChild);
         _markupInjected = true;
         if (window.lucide?.createIcons) window.lucide.createIcons();
