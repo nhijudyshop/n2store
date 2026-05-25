@@ -458,7 +458,8 @@ router.get('/snapshots/by-comment-ids', async (req, res) => {
         if (!ids.length) return res.json({ success: true, byCommentId: {} });
         const limited = ids.slice(0, 200);
         const r = await pool.query(
-            `SELECT id, comment_id, thumbnail_url, livestream_url, offset_seconds, captured_at
+            `SELECT id, comment_id, thumbnail_url, livestream_url, offset_seconds, captured_at,
+                    page_id, live_video_id
              FROM livestream_snapshots
              WHERE comment_id = ANY($1::text[])`,
             [limited]
@@ -467,10 +468,17 @@ router.get('/snapshots/by-comment-ids', async (req, res) => {
         for (const row of r.rows) {
             const existing = byCommentId[row.comment_id];
             if (existing && Number(existing.capturedAt) > Number(row.captured_at)) continue;
+            // Recompute URL on read — DB còn rows lưu URL FB native cũ
+            // (/watch/?v= hoặc /<page>/videos/<id>/) không support seek.
+            // _mapRow đã làm, endpoint này trước đây bypass → bug click button
+            // "Xem live tại giây N" mở FB native thay vì fb-video-player.html.
+            const recomputed = row.live_video_id
+                ? _computeLivestreamUrl(row.page_id, row.live_video_id, row.offset_seconds)
+                : null;
             byCommentId[row.comment_id] = {
                 id: row.id,
                 thumbnailUrl: row.thumbnail_url,
-                livestreamUrl: row.livestream_url,
+                livestreamUrl: recomputed || row.livestream_url,
                 offsetSeconds: row.offset_seconds,
                 capturedAt: Number(row.captured_at),
                 source: 'exact',

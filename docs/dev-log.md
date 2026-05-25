@@ -25,6 +25,26 @@
 
 ## 2026-05-25
 
+### [render][snap] Fix: button "Xem live tại giây N" mở FB native thay vì fb-video-player.html
+
+**User báo**: hình kèm — click "Xem live tại giây 5037" trong snap lightbox/strip mở thẳng `facebook.com/watch/live/?ref=watch_permalink&v=...` (FB native player, không seek được tới giây N), thay vì `https://nhijudy.store/tpos-pancake/fb-video-player.html?v=...&t=...&page=...` (wrapper FB JS SDK + `player.seek(N)`).
+
+**Root cause**: endpoint `GET /api/livestream/snapshots/by-comment-ids` ([render.com/routes/livestream-snapshots.js:449-483](../render.com/routes/livestream-snapshots.js#L449-L483)) — nguồn data cho strip thumbnail + lightbox của conversation row — trả `livestreamUrl: row.livestream_url` đọc thẳng từ DB. Các snapshot tạo trước commit `4e592f456` / `425a5828d` (chuyển sang scheme wrapper) lưu URL FB native cũ → frontend nhận URL cũ → `window.open(URL_FB, ...)` mở thẳng FB live page.
+
+`_mapRow()` đã recompute on read cho 2 endpoint khác, nhưng endpoint `by-comment-ids` bypass do SELECT thiếu `page_id` + `live_video_id`.
+
+**Fix**:
+
+- Mở rộng SELECT lấy thêm `page_id`, `live_video_id`.
+- Inline `_computeLivestreamUrl(row.page_id, row.live_video_id, row.offset_seconds)` cho mỗi row, fallback `row.livestream_url` khi thiếu live_video_id.
+- Không cần migration DB — recompute on read.
+
+**Files**: `render.com/routes/livestream-snapshots.js` (+5 / -1 trong endpoint by-comment-ids).
+
+**Verify sau deploy**: reload TPOS-Pancake page (Ctrl+Shift+R clear cache JS) → click "Xem live tại giây" → popup 820×520 mở `nhijudy.store/tpos-pancake/fb-video-player.html?v=...&t=...&page=...` với FB SDK seek tới giây N.
+
+**Status**: ✅ Done (cần Render redeploy)
+
 ### [product-warehouse] Fix CRITICAL: TPOSClient missing → "In theo mẫu TPOS" không hoạt động → tem render khác TPOS
 
 **User báo**: "Hình 1 tem tpos, hình 2 tem web đâu có giống nhau?" — user thấy tem TPOS (image 1) name centered + barcode full-width, còn tem web (image 2) name left + barcode nhỏ.
