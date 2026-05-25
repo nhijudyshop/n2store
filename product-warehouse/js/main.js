@@ -388,10 +388,16 @@
             ['Thông tin cảnh báo', detail.InfoWarning],
         ];
         const renderCol = (rows) => rows.map(([l, v]) => renderExpandFieldRow(l, v)).join('');
-        return `<div class="expand-info-grid">
-            <div class="expand-info-col">${renderCol(col1)}</div>
-            <div class="expand-info-col">${renderCol(col2)}</div>
-            <div class="expand-info-col">${renderCol(col3)}</div>
+        const imgHtml = detail.ImageUrl
+            ? `<img src="${escapeHtml(detail.ImageUrl)}" alt="" class="expand-info-image" loading="lazy">`
+            : '<div class="expand-info-image-placeholder">No image</div>';
+        return `<div class="expand-info-layout">
+            <div class="expand-info-image-wrap">${imgHtml}</div>
+            <div class="expand-info-grid">
+                <div class="expand-info-col">${renderCol(col1)}</div>
+                <div class="expand-info-col">${renderCol(col2)}</div>
+                <div class="expand-info-col">${renderCol(col3)}</div>
+            </div>
         </div>`;
     }
 
@@ -1358,15 +1364,21 @@
                         const expandBtnHtml = showExpand
                             ? `<button class="btn-action btn-action-expand${expandedIds.has(p.id) ? ' expanded' : ''}" title="Xem biến thể (${p.variantCount})" data-expand-id="${p.id}"><i data-lucide="chevron-down"></i></button>`
                             : '<span class="btn-action btn-action-expand-placeholder" style="display:inline-block;width:24px;"></span>';
+                        // Variant view → only print button (per user request).
+                        // Template view → full action set.
+                        const actionButtonsHtml =
+                            viewType === 'variant'
+                                ? `<button class="btn-action btn-action-print" title="In mã vạch"><i data-lucide="printer"></i></button>`
+                                : `${expandBtnHtml}
+                                <button class="btn-action btn-action-edit" title="Sửa"><i data-lucide="pencil"></i></button>
+                                <button class="btn-action btn-action-stock" title="Điều chỉnh tồn" style="color:#0ea5e9;"><i data-lucide="package-plus"></i></button>
+                                <button class="btn-action btn-action-print" title="In mã vạch"><i data-lucide="printer"></i></button>
+                                <button class="btn-action btn-action-delete" title="Xóa"><i data-lucide="trash-2"></i></button>`;
                         return `<tr class="${rowClass}" data-template-id="${p.id}">
                         <td class="col-checkbox"><input type="checkbox" class="row-checkbox" data-id="${p.id}" ${checked}></td>
                         <td class="col-actions">
                             <div class="action-btns">
-                                ${expandBtnHtml}
-                                <button class="btn-action btn-action-edit" title="Sửa"><i data-lucide="pencil"></i></button>
-                                <button class="btn-action btn-action-stock" title="Điều chỉnh tồn" style="color:#0ea5e9;"><i data-lucide="package-plus"></i></button>
-                                <button class="btn-action btn-action-print" title="In mã vạch"><i data-lucide="printer"></i></button>
-                                <button class="btn-action btn-action-delete" title="Xóa"><i data-lucide="trash-2"></i></button>
+                                ${actionButtonsHtml}
                             </div>
                         </td>
                         <td class="product-image-cell">${imageHtml}</td>

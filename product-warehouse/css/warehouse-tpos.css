@@ -274,7 +274,9 @@ html body {
     text-transform: none;
 }
 
-/* ===== EXPAND PANEL — TPOS producttemplate expand mirror (8 tabs) ===== */
+/* ===== EXPAND PANEL — TPOS producttemplate expand mirror (8 tabs) =====
+   Tabs use BLUE link color (#428bca) + thick blue underline on active (matches
+   TPOS screenshot). Pane background = white card. */
 .expand-container {
     background: var(--pw-bg-card);
     border: 1px solid var(--pw-border);
@@ -287,19 +289,21 @@ html body {
     align-items: stretch;
     background: var(--pw-bg-card);
     border-bottom: 1px solid var(--pw-border);
-    padding: 0 8px;
+    padding: 0 16px;
+    gap: 8px;
     overflow-x: auto;
 }
 
 .expand-tab {
-    padding: 8px 14px;
+    padding: 10px 6px;
+    margin: 0 8px;
     background: transparent;
     border: none;
-    border-bottom: 2px solid transparent;
-    color: var(--pw-muted);
+    border-bottom: 3px solid transparent;
+    color: var(--pw-link);
     font-family: inherit;
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 14px;
+    font-weight: 400;
     cursor: pointer;
     white-space: nowrap;
     transition:
@@ -308,18 +312,18 @@ html body {
 }
 
 .expand-tab:hover {
-    color: var(--pw-text-strong);
+    color: #2a6496;
 }
 
 .expand-tab.is-active {
-    color: var(--pw-accent);
-    border-bottom-color: var(--pw-accent);
+    color: var(--pw-text-strong);
+    border-bottom-color: var(--pw-link);
     font-weight: 600;
 }
 
 .expand-panes {
-    padding: 16px;
-    background: var(--pw-bg);
+    padding: 20px 24px;
+    background: var(--pw-bg-card);
 }
 
 .expand-pane {
@@ -337,37 +341,69 @@ html body {
     display: block;
 }
 
-/* Tab "Thông tin" — 3-column grid */
+/* Tab "Thông tin" — image left + 3-column field grid (TPOS layout) */
+.expand-info-layout {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 24px;
+}
+
+.expand-info-image-wrap {
+    width: 180px;
+}
+
+.expand-info-image {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border: 1px solid var(--pw-border-soft);
+    border-radius: 2px;
+    display: block;
+}
+
+.expand-info-image-placeholder {
+    width: 100%;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f5f5f5;
+    border: 1px solid var(--pw-border-soft);
+    border-radius: 2px;
+    color: var(--pw-muted);
+    font-size: 13px;
+}
+
 .expand-info-grid {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 24px;
+    gap: 32px;
 }
 
 .expand-info-col {
     display: flex;
     flex-direction: column;
-    gap: 10px;
 }
 
 .expand-field {
     display: grid;
     grid-template-columns: 160px 1fr;
-    gap: 8px;
+    gap: 12px;
     align-items: baseline;
-    padding-bottom: 6px;
+    padding: 10px 0;
     border-bottom: 1px solid var(--pw-border-soft);
 }
 
 .expand-field-label {
-    color: var(--pw-muted);
-    font-size: 13px;
+    color: var(--pw-text);
+    font-size: 14px;
+    font-weight: 400;
 }
 
 .expand-field-value {
     color: var(--pw-text-strong);
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 700;
     word-break: break-word;
 }
 
@@ -714,8 +750,8 @@ html body {
     text-decoration: underline;
 }
 
-/* Row action buttons (Thao tác col) — TPOS producttemplate/list uses compact
-   white-bg icon buttons that color-tint only on hover. */
+/* Row action buttons (Thao tác col) — TPOS producttemplate/list uses SOLID color
+   per action (verified: edit=#27c24c, delete=#f05050, br 2px, 5px 10px padding). */
 .warehouse-table .col-actions {
     white-space: nowrap;
     text-align: center;
@@ -724,7 +760,7 @@ html body {
 .warehouse-table .col-actions .action-btns {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
 }
 
 .warehouse-table .col-actions .btn-action,
@@ -733,74 +769,79 @@ html body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
+    padding: 5px 10px;
     margin: 0;
-    border: 1px solid var(--pw-border);
+    border: 1px solid transparent;
     border-radius: 2px;
-    background: var(--pw-bg-card);
-    color: var(--pw-muted);
+    color: #fff;
+    font-size: 12px;
+    line-height: 18px;
     cursor: pointer;
     transition:
         background-color 120ms,
-        border-color 120ms,
-        color 120ms;
+        border-color 120ms;
 }
 
 .warehouse-table .col-actions .btn-action i,
 .warehouse-table .col-actions button i,
 .warehouse-table .col-actions .action-btn i {
-    width: 13px;
-    height: 13px;
+    width: 12px;
+    height: 12px;
 }
 
-.warehouse-table .col-actions .btn-action:hover {
-    background: var(--pw-accent);
-    border-color: var(--pw-accent);
-    color: #fff;
-}
-
-.warehouse-table .col-actions .btn-action:active {
-    background: var(--pw-accent-hover);
-    border-color: var(--pw-accent-hover);
-}
-
-/* Expand uses a chevron; rotate when expanded. Keep white bg with subtle hover blue. */
-.warehouse-table .col-actions .btn-action-expand:hover {
+/* Default solid color per action (matches TPOS pixel) */
+.warehouse-table .col-actions .btn-action-expand {
     background: var(--pw-blue);
     border-color: var(--pw-blue);
-    color: #fff;
 }
-
+.warehouse-table .col-actions .btn-action-expand:hover {
+    background: #1aa2cc;
+    border-color: #1aa2cc;
+}
 .warehouse-table .col-actions .btn-action-expand.expanded i {
     transform: rotate(180deg);
     transition: transform 160ms ease;
 }
 
-/* Each action keeps a semantic color HINT in its icon (not bg). Default icon = grey. */
-.warehouse-table .col-actions .btn-action-edit:hover {
+.warehouse-table .col-actions .btn-action-edit {
     background: var(--pw-green);
     border-color: var(--pw-green);
-    color: #fff;
+}
+.warehouse-table .col-actions .btn-action-edit:hover {
+    background: #1faf3f;
+    border-color: #1faf3f;
 }
 
-.warehouse-table .col-actions .btn-action-stock:hover {
+.warehouse-table .col-actions .btn-action-stock {
     background: var(--pw-accent);
     border-color: var(--pw-accent);
-    color: #fff;
+}
+.warehouse-table .col-actions .btn-action-stock:hover {
+    background: var(--pw-accent-hover);
+    border-color: var(--pw-accent-hover);
 }
 
-.warehouse-table .col-actions .btn-action-print:hover {
+.warehouse-table .col-actions .btn-action-print {
     background: var(--pw-amber);
     border-color: var(--pw-amber);
-    color: #fff;
+}
+.warehouse-table .col-actions .btn-action-print:hover {
+    background: #e07d18;
+    border-color: #e07d18;
 }
 
-.warehouse-table .col-actions .btn-action-delete:hover {
+.warehouse-table .col-actions .btn-action-delete {
     background: var(--pw-red);
     border-color: var(--pw-red);
-    color: #fff;
+}
+.warehouse-table .col-actions .btn-action-delete:hover {
+    background: #d63a3a;
+    border-color: #d63a3a;
+}
+
+/* Expanded parent row: highlight with TPOS-blue tint (matches screenshot) */
+.warehouse-table tr.row-expanded-parent > td {
+    background: #bce0fd !important;
 }
 
 /* Status badges — TPOS badge-empty (transparent + colored border + bold text) */
