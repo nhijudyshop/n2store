@@ -1,8 +1,8 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 //
 // Seed fake demo data vào Web 2.0 Firestore + Render:
-//   - so_order_v2/main: ~15 NCC, 3 tabs, ~80 rows over Jan–May 2026
-//   - supplier_wallet_v1/main: payment + return tx cho ~10 NCC để running balance đẹp
+//   - web2_so_order/main (renamed 2026-05-25 from so_order_v2): ~15 NCC, 3 tabs, ~80 rows over Jan–May 2026
+//   - web2_supplier_wallet/main (renamed 2026-05-25 from supplier_wallet_v1): payment + return tx cho ~10 NCC để running balance đẹp
 //   - web2_products (Render): ~40 sản phẩm
 //
 // Tất cả tên NCC + SP có suffix "(DEMO)" để dễ phân biệt + xóa sau.
@@ -285,8 +285,8 @@ async function seedSoOrderAndWallet(page, { replace }) {
         async ({ soData, walletTxs, replace, demoTag }) => {
             const db = firebase.firestore();
 
-            // ---- so_order_v2/main ----
-            const soSnap = await db.collection('so_order_v2').doc('main').get();
+            // ---- web2_so_order/main ----
+            const soSnap = await db.collection('web2_so_order').doc('main').get();
             const existing = soSnap.exists ? soSnap.data()?.data || { tabs: [] } : { tabs: [] };
             let nextTabs;
             if (replace) {
@@ -311,15 +311,15 @@ async function seedSoOrderAndWallet(page, { replace }) {
                 }
             }
             await db
-                .collection('so_order_v2')
+                .collection('web2_so_order')
                 .doc('main')
                 .set(
                     { data: { ...existing, tabs: nextTabs }, lastUpdated: Date.now() },
                     { merge: true }
                 );
 
-            // ---- supplier_wallet_v1/main ----
-            const swSnap = await db.collection('supplier_wallet_v1').doc('main').get();
+            // ---- web2_supplier_wallet/main ----
+            const swSnap = await db.collection('web2_supplier_wallet').doc('main').get();
             const swState = swSnap.exists
                 ? swSnap.data()?.data || { wallets: {} }
                 : { wallets: {} };
@@ -355,7 +355,7 @@ async function seedSoOrderAndWallet(page, { replace }) {
                 swState.wallets[supplier] = w;
             }
             await db
-                .collection('supplier_wallet_v1')
+                .collection('web2_supplier_wallet')
                 .doc('main')
                 .set({ data: swState, lastUpdated: Date.now() }, { merge: true });
 
