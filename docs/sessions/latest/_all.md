@@ -3,9 +3,9 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `57b2d47` — auto: session update
-**Last updated**: 2026-05-25 15:07:09 +07
-**Latest session**: [`RESUME:20260525-150709-57b2d47`](../20260525-150709-57b2d47.md)
+**Latest commit**: `f2142e1` — auto: session update
+**Last updated**: 2026-05-25 15:14:14 +07
+**Latest session**: [`RESUME:20260525-151414-f2142e1`](../20260525-151414-f2142e1.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
@@ -51,7 +51,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-25 10:44
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-25 15:07
+- [`scripts/`](./scripts.md) — updated 2026-05-25 15:14
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-24 19:12
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
