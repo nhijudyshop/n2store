@@ -3,15 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5dcdc5c` — auto: session update
-**Last updated**: 2026-05-25 14:44:10 +07
-**Latest session**: [`RESUME:20260525-144410-5dcdc5c`](../20260525-144410-5dcdc5c.md)
-**Summary**: auto: session update
+**Latest commit**: `1a0874e` — fix(web2/products): SVG preserveAspectRatio=none — match TPOS img stretch behavior
+**Last updated**: 2026-05-25 14:54:10 +07
+**Latest session**: [`RESUME:20260525-145410-1a0874e`](../20260525-145410-1a0874e.md)
+**Summary**: fix(web2/products): SVG preserveAspectRatio=none — match TPOS img stretch behavior
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
 - [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
@@ -69,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-25 14:44
+- [`web2/`](./web2.md) — updated 2026-05-25 14:54
