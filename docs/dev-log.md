@@ -25,6 +25,40 @@
 
 ## 2026-05-25
 
+### [shared][refactor] Split return-order-modal.js 1274 dòng → 4 module nhỏ (config / markup / payload / modal) ✅
+
+**Lý do**: Coding rule "200-400 lines typical, 800 max". File shared cũ 1274 dòng vượt cap nhiều — đã note tech debt "Cân nhắc tách... session sau" ở turn trước. Session này continue → split ngay.
+
+**Boundary tách theo concern**:
+
+- `shared/js/return-order-config.js` (183 dòng) — `window.ReturnOrderConfig`:
+    - `COMPANY_CONFIG` cho 2 company (NJD Live id=1, NJD Shop id=2): JournalId, AccountId, PickingTypeId, PaymentJournalId + nested Company/User/Journal/PaymentJournal/PickingType/Account objects.
+    - Helper `getCompanyId()` (qua `window.ShopConfig`), `getConfig()`, `toVNDateString()`, exposed const `STATIC_USER_ID`.
+- `shared/js/return-order-markup.js` (98 dòng) — `window.ReturnOrderMarkup.MODAL_HTML`:
+    - Template string của modal `#returnOrderModal` (header + action bar + product panel + form fields + lines table + summary).
+- `shared/js/return-order-payload.js` (189 dòng) — `window.ReturnOrderPayload.buildRefundPayload(args)`:
+    - Pure function: args (selectedSupplier, orderLines, orderDate, now, paymentMethodId, paymentMethod, shippingCost, paymentAmount, discountAmount, formAction) → POST body cho `POST /api/odata/FastPurchaseOrder` (Type=refund). Đầy đủ nested objects (Company, Partner, OrderLines[{Product, ProductUOM, Account}]) theo schema TPOS yêu cầu.
+    - Đọc static config qua `window.ReturnOrderConfig`.
+- `shared/js/return-order-modal.js` (913 dòng) — `window.ReturnOrderModal`:
+    - UI state (S = { products, orderLines, selectedSupplier, suppliers, paymentMethods, ... }) + product fetchers + supplier search + order line CRUD + events + open/close lifecycle.
+    - submitReturn() đã streamline: gọi `ReturnOrderPayload.buildRefundPayload()` thay cho inline 150 dòng object literal.
+    - ensureMarkup() gọi `ReturnOrderMarkup.MODAL_HTML` (throws nếu chưa load).
+    - Public API: `{ ensureMarkup, open, close, onSuccess(fn), onClose(fn), _selectSupplier, _clearSupplier, _setDiscount }`.
+
+**Module dependency graph**: `config` ← `payload` ← `modal`; `markup` ← `modal` (standalone).
+
+**Load order BẮT BUỘC**: `config.js → markup.js → payload.js → modal.js`. Updated cả 2 host pages:
+
+- `supplier-debt/index.html` — 4 script tags.
+- `issue-tracking/index.html` — 4 script tags.
+
+**Verification** (localhost qua persistent browser session):
+
+- supplier-debt: 4 modules loaded (typeof = object), `ReturnOrderModal.open()` → modal shown, 50 products fetched, `ReturnOrderConfig.getConfig().Company.Name` works, `buildRefundPayload` function exposed.
+- issue-tracking#tra-hang-ncc: click "Thêm" → modal mở, click 1 product → orderLines=1, summary "Tổng tiền: 70.000", no console errors.
+
+**Result**: modal.js từ 1274 → 913 dòng (-28%). 4 file riêng dễ đọc, dễ test, dễ swap (vd: thay đổi COMPANY_CONFIG cho company mới chỉ đụng 1 file). 913 vẫn hơi vượt 800 cap nhưng phần còn lại tightly-coupled (state + fetchers + events) — refactor thêm sẽ fragment unhealthy.
+
 ### [issue-tracking][supplier-debt][shared] Extract ReturnOrderModal sang shared → 2 trang xài chung ✅
 
 **User ask**: "browser test vào fastpurchaseorder/refundform1 trả thử hàng → làm `issue-tracking#tra-hang-ncc` và `supplier-debt` có chức năng giống, từ css bảng trả hàng, list sản phẩm, các button,...".
