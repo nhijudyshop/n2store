@@ -25,6 +25,35 @@
 
 ## 2026-05-25
 
+### [web2][live-campaign] Excel "Tải về" build từ native-orders (không gọi TPOS nữa) — ✅ Done
+
+**Yêu cầu user**: "phần tải excel thì không tải từ tpos nữa mà tải theo dữ liệu từ native orders".
+
+**Approach**: trước commit này, button "Tải về" gọi `POST /SaleOnline_Order/ExportFile` (TPOS server-rendered xlsx). Bây giờ build xlsx **client-side** từ `native_orders.live_campaign_id` qua SheetJS — bám sát 19 cột format TPOS.
+
+**Files**:
+
+- `web2/live-campaign/js/live-campaign-api.js` — rewrite `exportExcel(id, name)`:
+    - Lazy-load SheetJS từ 3 CDN fallback (`cdn.sheetjs.com` 0.20.3 → unpkg 0.18.5 → cdnjs 0.18.5). Jsdelivr xlsx@0.20.3 đã 404, đã loại.
+    - Fetch `/api/native-orders/load?campaignIds={id}&limit=1000&status=all` qua CF proxy.
+    - Build AOA 19 cột (`STT, ###, Kênh, Mã, Facebook, Email, Tên, Trạng thái KH, Điện thoại, Nhà mạng, Địa chỉ, Tổng tiền, Trạng thái, Ngày tạo, Sản phẩm, Tổng SL SP, Nhân viên, Ghi chú, Nhãn`) với title row "DANH SÁCH SALE ONLINE" merge A:S y hệt TPOS.
+    - `detectCarrier(phone)` — map 3-digit prefix → Viettel/Mobifone/Vinaphone/Vietnamobile/Gmobile/iTel.
+    - `formatProductsCell(products)` — multi-line `[CODE] NAME SL: qty Giá: price`.
+    - `excelSerialDate(ms)` — convert ms → Excel serial (epoch 1899-12-30, shifted +07:00 VN).
+    - Status map `draft → Nháp`, `confirmed → Đơn hàng`, `cancelled → Đã hủy`.
+    - Return `{ blob, count }`; throws `EMPTY` error nếu native_orders rỗng.
+- `web2/live-campaign/js/live-campaign-app.js` — `exportRow()` dùng API mới, notify `Đã tải Excel (N Đơn Web)`.
+- `web2/live-campaign/index.html` — bump cache `v=20260525d`, tooltip nút "Tải về" rõ source.
+
+**Verified live**:
+
+- STORE 22/05/2026 có 4 native_orders → xlsx 23419 bytes, 7 rows (2 title + 1 header + 4 data) ✓
+- Test xlsx mở được, 19 cột đúng thứ tự TPOS, multi-line "Sản phẩm" hiển thị `[CODE] NAME SL: 1 Giá: 280.000`, carrier 0333 → Viettel, status "Nháp"/"Đơn hàng" ✓
+- HOUSE 22/05/2026 không có native_orders → notify "Chiến dịch chưa có Đơn Web nào — không có gì để xuất Excel" ✓
+- Số tiền format `#,##0`, ngày `dd/mm/yyyy hh:mm`, sheet name = tên campaign.
+
+**Trade-off**: campaigns cũ (chỉ có TPOS-side orders, chưa migrate sang Đơn Web) sẽ Excel rỗng. Tradeoff chấp nhận theo yêu cầu user.
+
 ### [product-warehouse][tpos] Tab Sản phẩm/Biến thể — TPOS-direct + UI nút thao tác giống TPOS — ✅ Done
 
 **Mục tiêu**: chuyển kho web 1.0 từ "đọc data biến thể qua Render DB" sang "đọc trực tiếp 2 trang TPOS" — Tab **Sản phẩm** mirror `tomato.tpos.vn/#/app/producttemplate/list` (1 row = 1 template), Tab **Biến thể** mirror `tomato.tpos.vn/#/app/product/list` (1 row = 1 variant). Mặc định = Sản phẩm. Sắp xếp `DateCreated desc` (mới nhất trên cùng). Action buttons giao diện TPOS 100% (24×24, white bg, grey border, hover semantic).

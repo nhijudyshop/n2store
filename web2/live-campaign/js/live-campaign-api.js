@@ -341,7 +341,8 @@
             aoa.push([
                 i + 1, // A: STT
                 o.tposIndex || o.displayStt || '', // B: ###
-                o.liveCampaignName || o.fbUserName || '', // C: Kênh
+                // TPOS dùng tên page (Nhi Judy House…) ở cột Kênh, không phải tên campaign.
+                o.fbUserName || o.liveCampaignName || '', // C: Kênh
                 o.code || '', // D: Mã
                 o.fbUserName || '', // E: Facebook
                 o.email || '', // F: Email
