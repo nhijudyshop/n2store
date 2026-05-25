@@ -528,6 +528,13 @@ function registerRoutes(router, deps) {
             // Dual-write sang Web 2.0 isolation table (best-effort, async).
             _mirrorToWeb2BalanceHistory(db, webhookData.id).catch(() => {});
 
+            // WEB 2.0 INDEPENDENT PATH: INSERT web2_balance_history + run matching
+            // engine riêng (always auto, no virtual, no accountant approval).
+            // Fire-and-forget — không chặn webhook response.
+            _processWeb2Path(db, webhookData).catch((e) =>
+                console.warn('[WEB2-SEPAY] background fail:', e.message)
+            );
+
             console.log('[SEPAY-WEBHOOK] Transaction saved:', {
                 id: insertedId,
                 sepay_id: webhookData.id,
