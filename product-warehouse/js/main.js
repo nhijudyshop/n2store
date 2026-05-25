@@ -201,20 +201,26 @@
     async function loadVariantImages(templateId, rowElement) {
         if (!templateId || imageCache[templateId] !== undefined) return;
 
+        // TPOS-direct fallback: if a template's GetViewV2 row didn't include ImageUrl
+        // (rare — usually for brand-new products), look up the first variant with an
+        // image via ProductTemplate(id)?$expand=ProductVariants.
+        // Avoid the old Render DB lookup which 404s for newly-created templates not
+        // yet synced into web_warehouse, and for templates whose Id != tpos_product_id.
         try {
-            const result = await WarehouseAPI.getProduct(templateId);
-            if (!result || !result.product) {
+            const url = `${PROXY_URL}/api/odata/ProductTemplate(${templateId})?$expand=ProductVariants`;
+            const resp = await window.tokenManager.authenticatedFetch(url, {
+                headers: { Accept: 'application/json' },
+            });
+            if (!resp.ok) {
                 imageCache[templateId] = null;
                 return;
             }
-
-            // Find the row with an image_url to proxy
-            let imgRow = result.product.image_url ? result.product : null;
-            if (!imgRow && result.variants) {
-                imgRow = result.variants.find((v) => v.image_url);
+            const detail = await resp.json();
+            let imgUrl = detail.ImageUrl || null;
+            if (!imgUrl && Array.isArray(detail.ProductVariants)) {
+                const withImg = detail.ProductVariants.find((v) => v.ImageUrl);
+                if (withImg) imgUrl = withImg.ImageUrl;
             }
-
-            const imgUrl = imgRow ? WarehouseAPI.proxyImageUrl(imgRow) : null;
             imageCache[templateId] = imgUrl || null;
 
             if (imgUrl && rowElement) {
