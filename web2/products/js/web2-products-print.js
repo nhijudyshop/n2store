@@ -624,30 +624,24 @@
                     sheetsHTML += `<div class="barcode_label" style="${labelStyle}"><table border="0" style="width:100%;height:100%;"><tr><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-code">${escapeHtml(label.code)}</div>${showPrice ? `<div class="barcode-price">${displayPrice}${currencyStr}</div>` : ''}</td><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-image">${!hideBarcode ? barcodeImg : ''}</div></td></tr></table></div>`;
                 } else {
                     // Default vertical: name → barcode → code → price.
-                    // User feedback "spaces quá dài": với TPOS verbatim CSS
-                    // `.barcode_label div { flex: 1 auto }`, mỗi text div grow
-                    // → text vertically centered trong slack space (whitespace
-                    // trên/dưới text). Khi mọi children flex 0 0 auto (content-
-                    // sized), barcode-image bị stretch quá to.
-                    //
-                    // SOLUTION: tất cả children flex 0 0 auto + label
-                    // `justify-content: space-around` → content stack tight, slack
-                    // chia đều giữa các elements (gap above/below pname, around
-                    // barcode, between code & price). Tighter than TPOS verbatim
-                    // distribution mà vẫn cân đối visually.
-                    const tightFlex = 'flex:0 0 auto;';
-                    const labelStyleFinal =
-                        labelStyle + 'justify-content:space-around;align-items:center;';
-                    sheetsHTML += `<div class="barcode_label" style="${labelStyleFinal}">`;
+                    // Structure mirror TPOS BarcodeProductLabel/Print template exactly:
+                    // <div class="barcode_label" style="inline-from-paper">
+                    //   <div class="barcode-pname"><strong>NAME</strong></div>
+                    //   <div class="barcode-image"><img/svg/></div>
+                    //   <div><strong>CODE</strong></div>
+                    //   <div><strong class="barcode-price">PRICE</strong></div>
+                    // </div>
+                    // CSS `.barcode_label div { flex: 1 auto }` distributes slack.
+                    sheetsHTML += `<div class="barcode_label" style="${labelStyle}">`;
                     if (showProductName) {
-                        sheetsHTML += `<div class="barcode-pname" style="${tightFlex}${nameStyle}width:100%;"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
+                        sheetsHTML += `<div class="barcode-pname" style="${nameStyle}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
                     }
                     if (!hideBarcode && label.code) {
-                        sheetsHTML += `<div class="barcode-image" style="${tightFlex}width:100%;">${barcodeImg}</div>`;
+                        sheetsHTML += `<div class="barcode-image">${barcodeImg}</div>`;
                     }
-                    sheetsHTML += `<div style="${tightFlex}width:100%;"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
+                    sheetsHTML += `<div><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
                     if (showPrice) {
-                        sheetsHTML += `<div style="${tightFlex}width:100%;"><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
+                        sheetsHTML += `<div><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
                     }
                     sheetsHTML += `</div>`;
                 }
