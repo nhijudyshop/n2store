@@ -3,21 +3,22 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2815bca` — auto: session update
-**Last updated**: 2026-05-25 14:30:26 +07
-**Latest session**: [`RESUME:20260525-143026-2815bca`](../20260525-143026-2815bca.md)
-**Summary**: auto: session update
+**Latest commit**: `37f2713` — chore: gitignore TPOS test captures (chứa auth tokens)
+**Last updated**: 2026-05-25 14:32:55 +07
+**Latest session**: [`RESUME:20260525-143255-37f2713`](../20260525-143255-37f2713.md)
+**Summary**: chore: gitignore TPOS test captures (chứa auth tokens)
 
 ## Folders affected in this commit
 
-- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-05-24 13:33
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-05-25 11:32
+- [`_root/`](./_root.md) — updated 2026-05-25 14:32
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-05-22 12:35
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-25 14:08
-- [`docs/`](./docs.md) — updated 2026-05-25 14:16
+- [`docs/`](./docs.md) — updated 2026-05-25 14:32
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -52,7 +53,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-25 10:44
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-25 08:58
+- [`scripts/`](./scripts.md) — updated 2026-05-25 14:32
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-24 19:12
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
