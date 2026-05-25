@@ -2428,7 +2428,15 @@
             setTimeout(() => fetchProducts(true), 6000);
         } catch (err) {
             console.error('[Edit] Save failed:', err);
-            showToast('Lỗi lưu: ' + err.message, 'error');
+            // TPOS reject "ForeignKeyViolation" khi sản phẩm đã có stock.move / order line
+            // mà ta thay đổi AttributeLines/ProductVariants (xóa variant cũ vi phạm FK).
+            // Đây là limit TPOS, không phải bug code — báo rõ cho user.
+            let msg = err.message || 'Lỗi không xác định';
+            if (msg.includes('ForeignKeyViolation') || msg.includes('đang được sử dụng')) {
+                msg =
+                    'TPOS từ chối: biến thể đã có lịch sử kho/đơn hàng, không thể thay đổi thuộc tính. Tạo SP mới nếu cần biến thể khác.';
+            }
+            showToast('Lỗi lưu: ' + msg, 'error');
         } finally {
             const saveBtn = $('#saveEditProduct');
             if (saveBtn) saveBtn.disabled = false;
