@@ -783,10 +783,14 @@ html body {
 }
 
 .warehouse-table .col-actions .btn-action i,
+.warehouse-table .col-actions .btn-action svg,
 .warehouse-table .col-actions button i,
-.warehouse-table .col-actions .action-btn i {
-    width: 12px;
-    height: 12px;
+.warehouse-table .col-actions button svg,
+.warehouse-table .col-actions .action-btn i,
+.warehouse-table .col-actions .action-btn svg {
+    width: 12px !important;
+    height: 12px !important;
+    flex-shrink: 0;
 }
 
 /* Default solid color per action (matches TPOS pixel) */
