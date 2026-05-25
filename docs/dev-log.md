@@ -25,6 +25,31 @@
 
 ## 2026-05-25
 
+### [tpos-pancake] Ẩn chip "🎬 Bắt đầu chụp live · click 1 cái mở FB + share"
+
+**Yêu cầu user**: "ẩn nút như hình đi" (chip màu vàng floating trên `tpos-pancake/index.html`).
+
+**Thay đổi**: `tpos-pancake/js/tpos/tpos-livestream-snap.js` — `ensureRealSnapChip()` cssText `display:inline-flex` → `display:none`. Chip vẫn ở DOM (logic click/render giữ nguyên, không break) chỉ không hiển thị. `renderRealSnapChip()` không mutate `display` nên `none` persist qua mọi re-render.
+
+Status: ✅ Done
+
+### [tpos-pancake] Thêm nút "Mở thẻ KH" + fallback enrich qua PartnerCustomerApi.listByPhones
+
+**Yêu cầu user**: "trang này nữa tpos-pancake/index.html — tên khách, sđt, địa chỉ, trạng thái".
+
+**Phát hiện**: Trang **đã có** đầy đủ 4 trường (qua `state.partnerCache` từ `chatomni/info`). Tuy nhiên:
+
+1. Fetch theo FB user ID → fail silently khi user không có Partner trong CRM team (400)
+2. Không có nút mở thẻ KH Web 2.0 cho quản lý sâu hơn
+
+**Files thay đổi**:
+
+- `tpos-pancake/js/tpos/tpos-comment-list.js` — thêm nút "Mở thẻ KH Web 2.0" (lucide `id-card`, link `../web2/partner-customer/index.html?id=<Partner.Id>`) trong actions row, chỉ show khi `partner.Id`.
+- `tpos-pancake/js/tpos/tpos-partner-fallback.js` — mới: khi `partnerCache` miss cho user nhưng user đã có SĐT trong `<input id="phone-XXX">` → gom phones batch qua `PartnerCustomerApi.listByPhones(phones, chunkSize: 30)` → merge vào `partnerCache` → re-render. Wrap `TposCommentList.renderComments` để tự scan sau mỗi render. Debounce 600ms.
+- `tpos-pancake/index.html` — load `token-manager.js` + `partner-customer-api.js` + `tpos-partner-fallback.js` sau tpos modules, bump version.
+
+**Status**: ✅ Done. Syntax OK.
+
 ### [orders] Gỡ permission gate cho 2 toggle RT & Auto T — mọi user đều dùng được
 
 User báo screenshot 2 toggle "RT" (Realtime) + "Auto T" (Auto clear T-tag) ở header bảng tab1, hiện chỉ admin / lai-authenticated thấy. Yêu cầu: tất cả user thấy và toggle được như nhau.
