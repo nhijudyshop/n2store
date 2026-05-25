@@ -1,0 +1,291 @@
+<!doctype html>
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 cleanup — chỉ xoá so_order_v2 + supplier_wallet_v1 (rename → web2_*). -->
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Cleanup Firestore OLD collections</title>
+        <style>
+            body {
+                font-family: ui-sans-serif, system-ui, sans-serif;
+                background: #fafafa;
+                padding: 32px;
+                max-width: 720px;
+                margin: 0 auto;
+                color: #18181b;
+            }
+            h1 {
+                font-size: 22px;
+                margin: 0 0 8px;
+            }
+            .lead {
+                color: #71717a;
+                margin: 0 0 24px;
+                font-size: 14px;
+            }
+            .card {
+                background: #fff;
+                border: 1px solid #e4e4e7;
+                border-radius: 10px;
+                padding: 18px 20px;
+                margin: 14px 0;
+            }
+            .row {
+                display: grid;
+                grid-template-columns: 1.6fr 1fr 1fr;
+                gap: 12px;
+                padding: 10px 12px;
+                border-bottom: 1px solid #e4e4e7;
+                align-items: center;
+                font-size: 13px;
+            }
+            .row.head {
+                font-weight: 600;
+                background: #f4f4f5;
+            }
+            .row code {
+                background: #f4f4f5;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            button {
+                padding: 9px 16px;
+                border-radius: 6px;
+                border: 1px solid #d4d4d8;
+                background: #fff;
+                cursor: pointer;
+                font-size: 13px;
+                font-weight: 500;
+                margin-right: 8px;
+            }
+            button.primary {
+                background: #2563eb;
+                color: #fff;
+                border-color: #1d4ed8;
+            }
+            button.danger {
+                background: #dc2626;
+                color: #fff;
+                border-color: #b91c1c;
+            }
+            button[disabled] {
+                opacity: 0.45;
+                cursor: not-allowed;
+            }
+            .status.ok {
+                color: #16a34a;
+                font-weight: 600;
+            }
+            .status.warn {
+                color: #d97706;
+            }
+            .status.err {
+                color: #dc2626;
+            }
+            .status.idle {
+                color: #71717a;
+            }
+            pre.log {
+                background: #18181b;
+                color: #d4d4d8;
+                padding: 14px;
+                border-radius: 8px;
+                font-size: 12px;
+                line-height: 1.5;
+                max-height: 260px;
+                overflow: auto;
+                white-space: pre-wrap;
+                margin: 0;
+            }
+            .note {
+                background: #fee2e2;
+                border-left: 4px solid #dc2626;
+                padding: 10px 14px;
+                margin: 10px 0;
+                font-size: 12.5px;
+                border-radius: 4px;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Cleanup Firestore — xoá OLD collections</h1>
+        <p class="lead">
+            Xoá <code>so_order_v2/main</code> + <code>supplier_wallet_v1/main</code> sau khi đã
+            rename sang <code>web2_*</code>. Quy trình: <b>Check → Backup → Delete</b>.
+        </p>
+
+        <div class="note">
+            ⚠️ Xoá là vĩnh viễn. Backup trước nếu chưa có. Production code đã trỏ về
+            <code>web2_so_order</code> + <code>web2_supplier_wallet</code> → 2 collection cũ này
+            không còn được read/write, an toàn để xoá.
+        </div>
+
+        <div class="card">
+            <div class="row head">
+                <span>Collection</span>
+                <span>Có dữ liệu?</span>
+                <span>Status</span>
+            </div>
+            <div class="row" id="row-0">
+                <span><code>so_order_v2/main</code></span>
+                <span class="exists">—</span>
+                <span class="status idle">chưa check</span>
+            </div>
+            <div class="row" id="row-1">
+                <span><code>supplier_wallet_v1/main</code></span>
+                <span class="exists">—</span>
+                <span class="status idle">chưa check</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <button class="primary" id="btn-check">🔍 Check (đọc xem có data không)</button>
+            <button id="btn-backup" disabled>📥 Backup JSON</button>
+            <button class="danger" id="btn-delete" disabled>🗑️ Delete OLD</button>
+        </div>
+
+        <div class="card">
+            <pre class="log" id="log">[chờ thao tác]</pre>
+        </div>
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../shared/js/firebase-config.js?v=20260525-cleanup"></script>
+        <script>
+            const TARGETS = ['so_order_v2', 'supplier_wallet_v1'];
+            const DOC = 'main';
+            const state = { snapshots: {} };
+
+            const logEl = document.getElementById('log');
+            const btnCheck = document.getElementById('btn-check');
+            const btnBackup = document.getElementById('btn-backup');
+            const btnDelete = document.getElementById('btn-delete');
+
+            function log(msg, level = 'info') {
+                const ts = new Date().toLocaleTimeString();
+                const prefix =
+                    level === 'err'
+                        ? '❌'
+                        : level === 'ok'
+                          ? '✅'
+                          : level === 'warn'
+                            ? '⚠️ '
+                            : '  ';
+                logEl.textContent += `\n[${ts}] ${prefix} ${msg}`;
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+            function setRow(i, existsText, statusText, level = 'idle') {
+                const row = document.getElementById(`row-${i}`);
+                row.querySelector('.exists').textContent = existsText;
+                const st = row.querySelector('.status');
+                st.textContent = statusText;
+                st.className = `status ${level}`;
+            }
+
+            async function waitFirebase() {
+                for (let i = 0; i < 50; i++) {
+                    if (typeof firebase !== 'undefined' && firebase.firestore) {
+                        try {
+                            return firebase.firestore();
+                        } catch (_) {}
+                    }
+                    await new Promise((r) => setTimeout(r, 100));
+                }
+                throw new Error('Firebase chưa init sau 5s');
+            }
+
+            btnCheck.addEventListener('click', async () => {
+                btnCheck.disabled = true;
+                log('=== CHECK ===');
+                try {
+                    const db = await waitFirebase();
+                    let anyData = false;
+                    for (let i = 0; i < TARGETS.length; i++) {
+                        const col = TARGETS[i];
+                        setRow(i, '...', 'reading', 'warn');
+                        try {
+                            const snap = await db.collection(col).doc(DOC).get();
+                            if (snap.exists) {
+                                const d = snap.data() || {};
+                                const bytes = JSON.stringify(d).length;
+                                state.snapshots[col] = d;
+                                setRow(i, `${bytes.toLocaleString()} bytes`, '✓ có dữ liệu', 'ok');
+                                log(`${col}/${DOC}: ${bytes} bytes`, 'ok');
+                                anyData = true;
+                            } else {
+                                setRow(i, '∅', '✓ trống — không cần xoá', 'idle');
+                                log(`${col}/${DOC}: empty`);
+                            }
+                        } catch (e) {
+                            setRow(i, '?', `ERR: ${e.message}`, 'err');
+                            log(`${col} read FAIL: ${e.message}`, 'err');
+                        }
+                    }
+                    if (anyData) {
+                        btnBackup.disabled = false;
+                        log('Có data → Backup trước rồi Delete.', 'warn');
+                    } else {
+                        log('Cả 2 collection đã trống — không cần xoá. 🎉', 'ok');
+                    }
+                } catch (e) {
+                    log(`Fatal: ${e.message}`, 'err');
+                } finally {
+                    btnCheck.disabled = false;
+                }
+            });
+
+            btnBackup.addEventListener('click', () => {
+                const payload = {
+                    timestamp: new Date().toISOString(),
+                    note: 'Final backup before deleting OLD Firestore web2 collections',
+                    collections: state.snapshots,
+                };
+                const blob = new Blob([JSON.stringify(payload, null, 2)], {
+                    type: 'application/json',
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                a.href = url;
+                a.download = `firestore-cleanup-backup-${stamp}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                log(`Backup: ${a.download}`, 'ok');
+                btnDelete.disabled = false;
+            });
+
+            btnDelete.addEventListener('click', async () => {
+                if (!confirm('CHẮC CHẮN xoá so_order_v2 + supplier_wallet_v1?\nĐã backup chưa?')) {
+                    return;
+                }
+                btnDelete.disabled = true;
+                log('=== DELETE ===');
+                try {
+                    const db = await waitFirebase();
+                    for (let i = 0; i < TARGETS.length; i++) {
+                        const col = TARGETS[i];
+                        if (!state.snapshots[col]) {
+                            setRow(i, '∅', '(đã trống — bỏ qua)', 'idle');
+                            continue;
+                        }
+                        setRow(i, '...', 'deleting', 'warn');
+                        try {
+                            await db.collection(col).doc(DOC).delete();
+                            setRow(i, '∅', '✓ đã xoá', 'ok');
+                            log(`Deleted ${col}/${DOC}`, 'ok');
+                            delete state.snapshots[col];
+                        } catch (e) {
+                            setRow(i, '?', `ERR: ${e.message}`, 'err');
+                            log(`${col} delete FAIL: ${e.message}`, 'err');
+                        }
+                    }
+                    log('Done. Đóng tab này.', 'ok');
+                } catch (e) {
+                    log(`Fatal: ${e.message}`, 'err');
+                }
+            });
+
+            log(`Ready. Bấm Check để đọc trạng thái 2 collection.`);
+        </script>
+    </body>
+</html>
