@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `226d6c1` — auto: session update
-**Last updated**: 2026-05-25 09:15:23 +07
-**Latest session**: [`RESUME:20260525-091523-226d6c1`](../20260525-091523-226d6c1.md)
-**Summary**: auto: session update
+**Latest commit**: `ac13b16` — fix(snap): bỏ Path 2 captureVisibleTab — silence permission warning spam
+**Last updated**: 2026-05-25 09:18:21 +07
+**Latest session**: [`RESUME:20260525-091821-ac13b16`](../20260525-091821-ac13b16.md)
+**Summary**: fix(snap): bỏ Path 2 captureVisibleTab — silence permission warning spam
 
 ## Folders affected in this commit
 
-- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -61,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-25 09:11
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-25 09:18
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
