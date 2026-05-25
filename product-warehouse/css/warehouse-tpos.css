@@ -274,6 +274,180 @@ html body {
     text-transform: none;
 }
 
+/* ===== EXPAND PANEL — TPOS producttemplate expand mirror (8 tabs) ===== */
+.expand-container {
+    background: var(--pw-bg-card);
+    border: 1px solid var(--pw-border);
+    border-top: none;
+    padding: 0;
+}
+
+.expand-tabs {
+    display: flex;
+    align-items: stretch;
+    background: var(--pw-bg-card);
+    border-bottom: 1px solid var(--pw-border);
+    padding: 0 8px;
+    overflow-x: auto;
+}
+
+.expand-tab {
+    padding: 8px 14px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--pw-muted);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+        color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.expand-tab:hover {
+    color: var(--pw-text-strong);
+}
+
+.expand-tab.is-active {
+    color: var(--pw-accent);
+    border-bottom-color: var(--pw-accent);
+    font-weight: 600;
+}
+
+.expand-panes {
+    padding: 16px;
+    background: var(--pw-bg);
+}
+
+.expand-pane {
+    display: none;
+}
+
+.expand-panes[data-active-tab='info'] .expand-pane[data-expand-tab='info'],
+.expand-panes[data-active-tab='images'] .expand-pane[data-expand-tab='images'],
+.expand-panes[data-active-tab='stockcard'] .expand-pane[data-expand-tab='stockcard'],
+.expand-panes[data-active-tab='adjust'] .expand-pane[data-expand-tab='adjust'],
+.expand-panes[data-active-tab='stock'] .expand-pane[data-expand-tab='stock'],
+.expand-panes[data-active-tab='description'] .expand-pane[data-expand-tab='description'],
+.expand-panes[data-active-tab='history'] .expand-pane[data-expand-tab='history'],
+.expand-panes[data-active-tab='costhistory'] .expand-pane[data-expand-tab='costhistory'] {
+    display: block;
+}
+
+/* Tab "Thông tin" — 3-column grid */
+.expand-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 24px;
+}
+
+.expand-info-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.expand-field {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 8px;
+    align-items: baseline;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--pw-border-soft);
+}
+
+.expand-field-label {
+    color: var(--pw-muted);
+    font-size: 13px;
+}
+
+.expand-field-value {
+    color: var(--pw-text-strong);
+    font-size: 13px;
+    font-weight: 600;
+    word-break: break-word;
+}
+
+/* Tab "Ảnh" — gallery */
+.expand-images-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+}
+
+.expand-image-link {
+    display: block;
+    background: var(--pw-bg-card);
+    border: 1px solid var(--pw-border);
+    border-radius: 2px;
+    overflow: hidden;
+    aspect-ratio: 1;
+}
+
+.expand-image-link img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+/* Tab "Mô tả" */
+.expand-desc-block {
+    background: var(--pw-bg-card);
+    border: 1px solid var(--pw-border-soft);
+    border-radius: 2px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+}
+
+.expand-desc-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--pw-accent);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 6px;
+}
+
+.expand-desc-value {
+    color: var(--pw-text-strong);
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+/* Empty state inside expand panes */
+.expand-empty {
+    color: var(--pw-muted);
+    font-size: 13px;
+    padding: 16px;
+    text-align: center;
+}
+
+/* Tab "Lịch sử" — history table */
+.expand-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--pw-bg-card);
+    font-size: 13px;
+}
+
+.expand-history-table th,
+.expand-history-table td {
+    padding: 6px 10px;
+    border: 1px solid var(--pw-border);
+    text-align: left;
+    color: var(--pw-text-strong);
+}
+
+.expand-history-table thead th {
+    background: var(--pw-th-bg);
+    font-weight: 600;
+}
+
 /* Variant count badge next to template product name in template view */
 .variant-count-badge {
     display: inline-block;

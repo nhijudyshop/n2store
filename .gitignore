@@ -110,3 +110,7 @@ backups/
 downloads/n2store-session/console-*.json
 downloads/n2store-session/smoke-report-*.json
 .extension-last-published-version
+
+# Barcode comparison test (TPOS vs JsBarcode) — local only
+downloads/n2store-session/barcode-compare*.html
+downloads/n2store-session/barcode-compare-*.png

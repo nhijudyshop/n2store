@@ -341,14 +341,105 @@
             .join(', ');
     }
 
-    function renderVariantSubRow(variants, templateId, templateImage) {
-        if (!variants || variants.length === 0) {
-            return `<tr class="variant-expand-row" data-variant-for="${templateId}">
-                <td colspan="20"><div class="variant-loading">Không có biến thể</div></td>
-            </tr>`;
-        }
+    /**
+     * Render row of read-only field pairs (label : value) in a 2-col grid.
+     * Used inside expand sub-tabs (Thông tin, Tồn kho, ...).
+     */
+    function renderExpandFieldRow(label, value) {
+        const safeVal = value == null || value === '' ? '-' : escapeHtml(String(value));
+        return `<div class="expand-field">
+            <span class="expand-field-label">${escapeHtml(label)}:</span>
+            <span class="expand-field-value">${safeVal}</span>
+        </div>`;
+    }
 
-        const rows = variants
+    /**
+     * Tab "Thông tin" — 3-column layout mirroring TPOS producttemplate expand.
+     */
+    function renderExpandInfoTab(detail) {
+        const col1 = [
+            ['Mã sản phẩm', detail.DefaultCode],
+            ['Tên sản phẩm', detail.Name],
+            ['Nhóm sản phẩm', detail.CategCompleteName || detail.Categ?.CompleteName],
+            [
+                'Loại sản phẩm',
+                detail.ShowType || (detail.Type === 'product' ? 'Có thể lưu trữ' : detail.Type),
+            ],
+            ['Giá bán mặc định', detail.ListPrice != null ? formatPrice(detail.ListPrice) : '-'],
+            ['Chiết khấu bán', (detail.DiscountSale ?? 0) + '%'],
+            ['Cho phép bán ở công ty khác', detail.EnableAll ? 'true' : 'false'],
+        ];
+        const col2 = [
+            ['Công ty', detail.CompanyName || detail.Company?.Name],
+            ['Đơn vị mặc định', detail.UOMName || detail.UOM?.Name],
+            ['Giá mua', detail.PurchasePrice != null ? formatPrice(detail.PurchasePrice) : '-'],
+            ['Giá vốn', detail.StandardPrice != null ? formatPrice(detail.StandardPrice) : '-'],
+            ['Chiết khấu mua', (detail.DiscountPurchase ?? 0) + '%'],
+            ['Đơn vị mua', detail.UOMPOName || detail.UOMPO?.Name],
+            ['Khối lượng (g)', detail.Weight ?? 0],
+        ];
+        const col3 = [
+            ['Tên nhà phân phối', detail.DistributorName || detail.Distributor?.Name],
+            ['Nhà nhập khẩu', detail.ImporterName || detail.Importer?.Name],
+            ['Nhà sản xuất', detail.ProducerName || detail.Producer?.Name],
+            ['Xuất xứ', detail.OriginCountryName || detail.OriginCountry?.Name],
+            ['Thành phần', detail.Element],
+            ['Thông số kỹ thuật', detail.YearOfManufacture],
+            ['Thông tin cảnh báo', detail.InfoWarning],
+        ];
+        const renderCol = (rows) => rows.map(([l, v]) => renderExpandFieldRow(l, v)).join('');
+        return `<div class="expand-info-grid">
+            <div class="expand-info-col">${renderCol(col1)}</div>
+            <div class="expand-info-col">${renderCol(col2)}</div>
+            <div class="expand-info-col">${renderCol(col3)}</div>
+        </div>`;
+    }
+
+    /**
+     * Tab "Ảnh" — gallery from TPOS Images array.
+     */
+    function renderExpandImagesTab(detail) {
+        const all = [];
+        if (detail.ImageUrl) all.push(detail.ImageUrl);
+        (detail.Images || []).forEach((img) => {
+            const url = img.Url || img.ImageUrl || img.Image;
+            if (url && !all.includes(url)) all.push(url);
+        });
+        if (all.length === 0) {
+            return '<div class="expand-empty">Chưa có ảnh.</div>';
+        }
+        return `<div class="expand-images-grid">${all
+            .map(
+                (u) =>
+                    `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" class="expand-image-link">
+                        <img src="${escapeHtml(u)}" alt="" loading="lazy">
+                    </a>`
+            )
+            .join('')}</div>`;
+    }
+
+    /**
+     * Tab "Tồn kho" — variants with qty (or single line for standalone product).
+     */
+    function renderExpandStockTab(variants, detail, templateImage) {
+        const rows = (
+            variants && variants.length > 0
+                ? variants
+                : [
+                      {
+                          Id: detail.Id,
+                          DefaultCode: detail.DefaultCode,
+                          NameGet: detail.NameGet || detail.Name,
+                          AttributeValues: [],
+                          ImageUrl: detail.ImageUrl,
+                          Barcode: detail.Barcode || detail.DefaultCode,
+                          PriceVariant: detail.ListPrice,
+                          ListPrice: detail.ListPrice,
+                          StandardPrice: detail.StandardPrice,
+                          QtyAvailable: detail.QtyAvailable || 0,
+                      },
+                  ]
+        )
             .map((v) => {
                 const imgUrl = v.ImageUrl || templateImage || '';
                 const imgHtml = imgUrl
@@ -357,37 +448,129 @@
                 const qtyClass = (v.QtyAvailable || 0) <= 0 ? ' qty-zero' : '';
                 const price = v.PriceVariant || v.ListPrice || 0;
                 const cost = v.StandardPrice || 0;
-
                 return `<tr>
-                <td>${imgHtml}</td>
-                <td class="variant-code">${escapeHtml(v.DefaultCode || '')}</td>
-                <td>${escapeHtml(v.NameGet || '')}</td>
-                <td class="variant-attr">${formatAttributeValues(v.AttributeValues)}</td>
-                <td class="variant-price">${formatPrice(price)}</td>
-                <td class="variant-price">${formatPrice(cost)}</td>
-                <td class="variant-qty${qtyClass}">${formatQty(v.QtyAvailable || 0)}</td>
-                <td class="variant-barcode">${escapeHtml(v.Barcode || v.DefaultCode || '')}</td>
-            </tr>`;
+                    <td>${imgHtml}</td>
+                    <td class="variant-code">${escapeHtml(v.DefaultCode || '')}</td>
+                    <td>${escapeHtml(v.NameGet || '')}</td>
+                    <td class="variant-attr">${formatAttributeValues(v.AttributeValues)}</td>
+                    <td class="variant-price">${formatPrice(price)}</td>
+                    <td class="variant-price">${formatPrice(cost)}</td>
+                    <td class="variant-qty${qtyClass}">${formatQty(v.QtyAvailable || 0)}</td>
+                    <td class="variant-barcode">${escapeHtml(v.Barcode || v.DefaultCode || '')}</td>
+                </tr>`;
             })
             .join('');
+        return `<table class="variant-table">
+            <thead><tr>
+                <th style="width:40px"></th>
+                <th>Mã</th>
+                <th>Tên</th>
+                <th>Thuộc tính</th>
+                <th style="text-align:right">Giá bán</th>
+                <th style="text-align:right">Giá vốn</th>
+                <th style="text-align:right">Số lượng thực tế</th>
+                <th>Mã vạch</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+    }
 
+    /**
+     * Tab "Mô tả" — sale/purchase notes + full description from TPOS.
+     */
+    function renderExpandDescriptionTab(detail) {
+        const blocks = [
+            ['Ghi chú bán hàng', detail.DescriptionSale],
+            ['Ghi chú mua hàng', detail.DescriptionPurchase],
+            ['Mô tả chi tiết', detail.Description],
+        ];
+        const any = blocks.some(([, v]) => v && String(v).trim());
+        if (!any) return '<div class="expand-empty">Chưa có mô tả.</div>';
+        return blocks
+            .map(([label, val]) =>
+                val
+                    ? `<div class="expand-desc-block">
+                        <div class="expand-desc-label">${escapeHtml(label)}</div>
+                        <div class="expand-desc-value">${escapeHtml(val).replace(/\n/g, '<br>')}</div>
+                    </div>`
+                    : ''
+            )
+            .join('');
+    }
+
+    /**
+     * Tab "Lịch sử" — TPOS audit log (lazy-loaded on first activation).
+     * Re-uses the AuditLog OData endpoint already used by the edit modal.
+     */
+    async function loadExpandAuditLog(templateId, target) {
+        try {
+            const url = `${PROXY_URL}/api/odata/AuditLog?$filter=EntityId eq ${templateId} and EntityType eq 'ProductTemplate'&$orderby=DateCreated desc&$top=50`;
+            const resp = await window.tokenManager.authenticatedFetch(url, {
+                headers: { Accept: 'application/json' },
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            const items = data.value || [];
+            if (items.length === 0) {
+                target.innerHTML = '<div class="expand-empty">Chưa có lịch sử.</div>';
+                return;
+            }
+            target.innerHTML = `<table class="expand-history-table">
+                <thead><tr>
+                    <th>Thời gian</th>
+                    <th>Người thực hiện</th>
+                    <th>Thao tác</th>
+                    <th>Mô tả</th>
+                </tr></thead>
+                <tbody>${items
+                    .map((it) => {
+                        const date = it.DateCreated
+                            ? new Date(it.DateCreated).toLocaleString('vi-VN')
+                            : '-';
+                        return `<tr>
+                            <td>${escapeHtml(date)}</td>
+                            <td>${escapeHtml(it.UserName || '-')}</td>
+                            <td>${escapeHtml(it.ActionDisplay || it.Action || '-')}</td>
+                            <td>${escapeHtml(it.Description || it.Note || '-')}</td>
+                        </tr>`;
+                    })
+                    .join('')}</tbody>
+            </table>`;
+        } catch (err) {
+            target.innerHTML = `<div class="expand-empty" style="color:#dc2626">Lỗi tải lịch sử: ${escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    /**
+     * Build the full expand sub-row with 8 tabs (mirrors TPOS producttemplate expand).
+     */
+    function renderVariantSubRow(variants, templateId, templateImage, detail) {
+        detail = detail || {};
         return `<tr class="variant-expand-row" data-variant-for="${templateId}">
             <td colspan="20">
-                <div class="variant-container">
-                    <h4>*Biến thể</h4>
-                    <table class="variant-table">
-                        <thead><tr>
-                            <th style="width:40px"></th>
-                            <th>Mã</th>
-                            <th>Tên</th>
-                            <th>Thuộc tính</th>
-                            <th style="text-align:right">Giá biến thể</th>
-                            <th style="text-align:right">Giá vốn</th>
-                            <th style="text-align:right">Số lượng thực tế</th>
-                            <th>Mã vạch</th>
-                        </tr></thead>
-                        <tbody>${rows}</tbody>
-                    </table>
+                <div class="expand-container" data-expand-detail-id="${templateId}">
+                    <nav class="expand-tabs" role="tablist">
+                        <button type="button" class="expand-tab is-active" data-expand-tab="info" role="tab">Thông tin</button>
+                        <button type="button" class="expand-tab" data-expand-tab="images" role="tab">Ảnh</button>
+                        <button type="button" class="expand-tab" data-expand-tab="stockcard" role="tab">Thẻ kho</button>
+                        <button type="button" class="expand-tab" data-expand-tab="adjust" role="tab">Chi tiết điều chỉnh</button>
+                        <button type="button" class="expand-tab" data-expand-tab="stock" role="tab">Tồn kho</button>
+                        <button type="button" class="expand-tab" data-expand-tab="description" role="tab">Mô tả</button>
+                        <button type="button" class="expand-tab" data-expand-tab="history" role="tab">Lịch sử</button>
+                        <button type="button" class="expand-tab" data-expand-tab="costhistory" role="tab">Lịch sử giá vốn</button>
+                    </nav>
+                    <div class="expand-panes" data-active-tab="info">
+                        <div class="expand-pane" data-expand-tab="info">${renderExpandInfoTab(detail)}</div>
+                        <div class="expand-pane" data-expand-tab="images">${renderExpandImagesTab(detail)}</div>
+                        <div class="expand-pane" data-expand-tab="stockcard"><div class="expand-empty">Đang phát triển — xem trên TPOS.</div></div>
+                        <div class="expand-pane" data-expand-tab="adjust"><div class="expand-empty">Đang phát triển — xem trên TPOS.</div></div>
+                        <div class="expand-pane" data-expand-tab="stock">${renderExpandStockTab(variants, detail, templateImage)}</div>
+                        <div class="expand-pane" data-expand-tab="description">${renderExpandDescriptionTab(detail)}</div>
+                        <div class="expand-pane" data-expand-tab="history" data-lazy="audit">
+                            <div class="expand-empty">Đang tải lịch sử…</div>
+                        </div>
+                        <div class="expand-pane" data-expand-tab="costhistory"><div class="expand-empty">Đang phát triển — xem trên TPOS.</div></div>
+                    </div>
                 </div>
             </td>
         </tr>`;
@@ -421,15 +604,80 @@
         rowElement.after(loadingRow);
 
         try {
-            const variants = await fetchVariants(templateId);
+            // Fetch full detail (covers Info + Description + Images tabs in one call).
+            // Variants are extracted from `detail.ProductVariants` to avoid a 2nd fetch.
+            const expand = encodeURIComponent(
+                'UOM,UOMPO,Categ,Distributor,Importer,Producer,OriginCountry,Images,ProductVariants($expand=UOM,AttributeValues)'
+            );
+            const url = `${PROXY_URL}/api/odata/ProductTemplate(${templateId})?$expand=${expand}`;
+            const resp = await window.tokenManager.authenticatedFetch(url, {
+                headers: { Accept: 'application/json' },
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const detail = await resp.json();
+
+            const rawVariants = Array.isArray(detail.ProductVariants) ? detail.ProductVariants : [];
+            const variants = rawVariants
+                .filter((v) => v.Active !== false)
+                .map((v) => ({
+                    Id: v.Id,
+                    DefaultCode: v.DefaultCode || '',
+                    NameGet: v.NameGet || v.Name || '',
+                    QtyAvailable: parseFloat(v.QtyAvailable) || 0,
+                    ListPrice: parseFloat(v.ListPrice) || parseFloat(v.PriceVariant) || 0,
+                    PriceVariant: parseFloat(v.PriceVariant) || parseFloat(v.ListPrice) || 0,
+                    StandardPrice: parseFloat(v.StandardPrice) || 0,
+                    ImageUrl: v.ImageUrl || detail.ImageUrl || '',
+                    Barcode: v.Barcode || v.DefaultCode || '',
+                    Active: v.Active !== false,
+                    AttributeValues: Array.isArray(v.AttributeValues) ? v.AttributeValues : [],
+                }));
+            const sortedVariants = sortVariants(variants);
+            variantCache[templateId] = sortedVariants;
+
             const product = pageProducts.find((p) => p.id === templateId);
             const templateImage = product?.image || '';
-            loadingRow.outerHTML = renderVariantSubRow(variants, templateId, templateImage);
+            loadingRow.outerHTML = renderVariantSubRow(
+                sortedVariants,
+                templateId,
+                templateImage,
+                detail
+            );
         } catch (error) {
-            console.error('[Warehouse] Variant load error:', error);
+            console.error('[Warehouse] Expand load error:', error);
             loadingRow.innerHTML =
-                '<td colspan="20"><div class="variant-loading" style="color:#dc2626">Lỗi tải biến thể</div></td>';
+                '<td colspan="20"><div class="variant-loading" style="color:#dc2626">Lỗi tải dữ liệu</div></td>';
         }
+    }
+
+    /**
+     * Delegated tab-switch handler for expand panes (audit log loads lazily on first
+     * activation of the "Lịch sử" tab).
+     */
+    function bindExpandTabSwitching() {
+        document.addEventListener('click', (e) => {
+            const tabBtn = e.target.closest('.expand-tab');
+            if (!tabBtn) return;
+            const container = tabBtn.closest('.expand-container');
+            if (!container) return;
+            const tab = tabBtn.dataset.expandTab;
+            if (!tab) return;
+            container.querySelectorAll('.expand-tab').forEach((b) => {
+                b.classList.toggle('is-active', b.dataset.expandTab === tab);
+            });
+            const panes = container.querySelector('.expand-panes');
+            if (panes) panes.setAttribute('data-active-tab', tab);
+
+            // Lazy-load audit log on first "Lịch sử" activation
+            if (tab === 'history') {
+                const pane = container.querySelector('.expand-pane[data-expand-tab="history"]');
+                if (pane && pane.dataset.lazy === 'audit') {
+                    const templateId = parseInt(container.dataset.expandDetailId, 10);
+                    pane.dataset.lazy = '';
+                    if (templateId) loadExpandAuditLog(templateId, pane);
+                }
+            }
+        });
     }
 
     // =====================================================
@@ -1899,6 +2147,35 @@
 
         const payload = { ...editingProduct };
         delete payload['@odata.context'];
+
+        // Strip $expand sub-objects — TPOS UpdateV2 only accepts the flat ProductTemplate
+        // shape (scalar IDs like UOMId, CategId). Sending the nested UOM/Categ/UOMPO
+        // objects (or auto-expanded arrays like Thumbnails/Taxes/UOMView) causes
+        // "An unexpected 'StartArray' node was found ... A 'PrimitiveValue' was expected".
+        // The user-edited arrays (Tags, ProductVariants, etc.) are re-attached by
+        // mergeAdvancedIntoPayload below in the proper shape.
+        const EXPAND_FIELDS_TO_STRIP = [
+            'UOM',
+            'UOMCateg',
+            'Categ',
+            'UOMPO',
+            'POSCateg',
+            'UOMView',
+            'Distributor',
+            'Importer',
+            'Producer',
+            'OriginCountry',
+            'Thumbnails',
+            'UOMViewI',
+            // Auto-expanded read-only arrays (sometimes returned but not writable):
+            'Taxes',
+            'SupplierTaxes',
+            'Product_Teams',
+            'Images',
+        ];
+        for (const k of EXPAND_FIELDS_TO_STRIP) {
+            delete payload[k];
+        }
 
         // Basic info
         payload.Name = $('#editProductName').value.trim();
@@ -4140,6 +4417,7 @@
 
         loadColumnVisibility();
         setupEventListeners();
+        bindExpandTabSwitching();
         WS.initImageZoomHover('#productTableBody');
 
         WS.initIcons();

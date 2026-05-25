@@ -712,16 +712,28 @@ ${sheetsHTML}
 ${SCRIPT_OPEN} src="${JSBARCODE_URL}">${SCRIPT_CLOSE}
 ${SCRIPT_OPEN}>
 (function(){
+    // TPOS canvas convention: PNG 600×100 (barcode core + quiet zone scaled).
+    // JsBarcode native width = bars only, varies theo code length (DEMO-TUI-DENIM
+    // 14 chars → 378px, 123456789 9 chars → 202px). Để Web 2.0 visual identical
+    // TPOS khi cả 2 stretched vào label 25mm, ta compute margin sao cho total
+    // viewBox = 600. Render 2-pass: lần 1 đo native, lần 2 set margin = (600-native)/2.
+    const TARGET_W = 600;
     function draw(){
         if(!window.JsBarcode){ setTimeout(draw, 30); return; }
         document.querySelectorAll('.bcsvg').forEach(function(svg){
             try {
+                // Pass 1: measure native width
                 window.JsBarcode(svg, svg.dataset.code, {
-                    format: 'CODE128',
-                    width: 2,
-                    height: 100,
-                    displayValue: false,
-                    margin: 0
+                    format: 'CODE128', width: 2, height: 100,
+                    displayValue: false, margin: 0
+                });
+                const vb = (svg.getAttribute('viewBox') || '').split(' ');
+                const nativeW = parseFloat(vb[2]) || TARGET_W;
+                // Pass 2: re-render with margin để total = TARGET_W (match TPOS)
+                const margin = Math.max(0, Math.round((TARGET_W - nativeW) / 2));
+                window.JsBarcode(svg, svg.dataset.code, {
+                    format: 'CODE128', width: 2, height: 100,
+                    displayValue: false, margin: margin
                 });
             } catch(e) { console.warn('[w2p-print] barcode error', svg.dataset.code, e); }
         });
