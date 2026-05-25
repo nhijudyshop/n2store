@@ -814,7 +814,13 @@
 
         // Add new tag
         const newTags = [...currentTags, tagToAdd];
-        return await assignTagsToOrder(orderId, newTags);
+        const ok = await assignTagsToOrder(orderId, newTags);
+        // Mutate local order.Tags để guard ÂM MÃ ở reconcileTagsWithInvoices /
+        // onPtagBillCreated thấy ngay tag mới mà không phải đợi refetch.
+        if (ok) {
+            order.Tags = JSON.stringify(newTags);
+        }
+        return ok;
     }
 
     // =====================================================

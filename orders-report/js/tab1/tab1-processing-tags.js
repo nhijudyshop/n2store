@@ -1481,6 +1481,16 @@
     // source = 'single' | 'bulk' (logging only — luôn auto-tag, không gate)
     async function onPtagBillCreated(saleOnlineId, source) {
         const orderCode = _ptagResolveCode(saleOnlineId) || saleOnlineId;
+
+        // Guard ÂM MÃ: đơn FAIL bulk PBH (đã reset status về Nháp + gắn tag ÂM MÃ)
+        // không phải đơn ra thành công → KHÔNG chuyển XL sang ĐÃ RA ĐƠN.
+        if (_ptagHasAmMaTag(saleOnlineId) || _ptagHasAmMaTag(orderCode)) {
+            console.log(
+                `${PTAG_LOG} onPtagBillCreated(${orderCode}) — skip: order có tag ÂM MÃ (đơn FAIL về Nháp)`
+            );
+            return;
+        }
+
         let data =
             ProcessingTagState.getOrderData(orderCode) ||
             ProcessingTagState.getOrderDataByIdFallback(saleOnlineId);
@@ -1707,6 +1717,11 @@
             if (data.category !== PTAG_CATEGORIES.CHO_DI_DON) return;
             const orderId = _ptagResolveId(orderCode);
             if (!orderId) return;
+
+            // Guard ÂM MÃ: đơn FAIL bulk PBH có FSO active trên TPOS nhưng đã reset
+            // status về Nháp → KHÔNG được auto-flip sang ĐÃ RA ĐƠN.
+            if (_ptagHasAmMaTag(orderId) || _ptagHasAmMaTag(orderCode)) return;
+
             const invs = invStore.getAll(orderId) || [];
             const hasActive = invs.some((inv) => {
                 const st = String(inv.State || '').toLowerCase();
@@ -1738,6 +1753,33 @@
             } catch (e) {
                 console.warn(`${PTAG_LOG} reconcile failed for ${orderId}:`, e);
             }
+        }
+    }
+
+    // Check đơn có tag ÂM MÃ — đơn FAIL PBH đã reset status về Nháp.
+    // Why: failed orders trong bulk flow vẫn có FSO active trên TPOS → reconcileTagsWithInvoices
+    // sẽ lầm là đơn ra thành công và flip XL sang ĐÃ RA ĐƠN. Guard ngăn điều đó.
+    // How to apply: gọi ở entry onPtagBillCreated + filter trong reconcileTagsWithInvoices.
+    function _ptagHasAmMaTag(orderIdOrCode) {
+        try {
+            const key = String(orderIdOrCode);
+            const order =
+                (window.OrderStore && window.OrderStore.get(orderIdOrCode)) ||
+                (Array.isArray(window.displayedData) &&
+                    window.displayedData.find(
+                        (o) => String(o.Id) === key || String(o.Code) === key
+                    )) ||
+                null;
+            if (!order) return false;
+            let tags = [];
+            if (typeof order.Tags === 'string') {
+                tags = JSON.parse(order.Tags);
+            } else if (Array.isArray(order.Tags)) {
+                tags = order.Tags;
+            }
+            return Array.isArray(tags) && tags.some((t) => t && t.Name === 'ÂM MÃ');
+        } catch (_) {
+            return false;
         }
     }
 

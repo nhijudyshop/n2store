@@ -25,6 +25,23 @@
 
 ## 2026-05-25
 
+### [orders] Chặn auto-flip tag XL sang "ĐÃ RA ĐƠN" cho đơn ÂM MÃ
+
+**Why:** Đơn FAIL bulk PBH được reset status về Nháp + gắn tag "ÂM MÃ" (TPOS quirk: FSO vẫn tạo dù validation fail). Tuy nhiên `reconcileTagsWithInvoices()` chạy 3s sau mỗi lần tạo PBH vẫn coi đơn này có "PBH active" → flip XL từ CHỜ ĐI ĐƠN sang ĐÃ RA ĐƠN. Sai bản chất: đơn thiếu hàng, không ra đơn.
+
+**Files:**
+- [`orders-report/js/tab1/tab1-processing-tags.js`](../orders-report/js/tab1/tab1-processing-tags.js) — thêm helper `_ptagHasAmMaTag()` + 2 guard
+- [`orders-report/js/tab1/tab1-fast-sale-workflow.js`](../orders-report/js/tab1/tab1-fast-sale-workflow.js) — `addTagToOrder` mutate local `order.Tags` sau API success
+
+**Chi tiết:**
+
+1. **Helper `_ptagHasAmMaTag(orderIdOrCode)`** (tab1-processing-tags.js:~1763): đọc `OrderStore`/`displayedData`, parse `order.Tags`, return `true` nếu tag `Name === 'ÂM MÃ'`.
+2. **Guard 1 — `onPtagBillCreated()`** (line 1485-1492): early return + log nếu đơn có ÂM MÃ. Bảo vệ mọi entry point (single sale, bulk success path, reconcile).
+3. **Guard 2 — `reconcileTagsWithInvoices()`** (line 1721-1723): filter candidate trước khi check invoice. Đơn ÂM MÃ bị skip ngay.
+4. **Sync local Tags** — `addTagToOrder()` sau khi API gắn tag thành công, mutate `order.Tags = JSON.stringify(newTags)` để guard ở 2 chỗ trên thấy tag mới ngay trong cùng session (không phải đợi refetch). Quan trọng vì reconcile fire sau 3s — phải đảm bảo ÂM MÃ đã có trong local store trước khi reconcile chạy.
+
+**Status:** DONE.
+
 ### [tpos-pancake] Hover zoom = full ảnh (không crop) + Auto chip luôn ON, bỏ toggle
 
 **Yêu cầu user**:
