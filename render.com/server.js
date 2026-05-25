@@ -163,10 +163,18 @@ chatDbPool
         }
         // DELIVERY ASSIGNMENTS — bill image storage (migrate localStorage → BYTEA).
         try {
-            const { ensureImagesSchema } = require('./routes/v2/delivery-assignments');
+            const {
+                ensureImagesSchema,
+                ensureOverridesSchema,
+            } = require('./routes/v2/delivery-assignments');
             if (typeof ensureImagesSchema === 'function') {
                 ensureImagesSchema(chatDbPool).catch((e) =>
                     console.warn('[delivery-assignment-images] init warn:', e.message)
+                );
+            }
+            if (typeof ensureOverridesSchema === 'function') {
+                ensureOverridesSchema(chatDbPool).catch((e) =>
+                    console.warn('[delivery-assignment-overrides] init warn:', e.message)
                 );
             }
         } catch (e) {

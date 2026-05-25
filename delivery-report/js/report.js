@@ -28,25 +28,22 @@
         activeTab: 'tomato',
         fromDate: '',
         toDate: '',
-        overrides: loadOverrides(),
+        // overrides: in-memory cache loaded from server. Migrate 2026-05-25 từ
+        // localStorage → Postgres. `loadLegacyOverrides()` chỉ dùng cho migration
+        // 1 lần để upload data cũ lên server.
+        overrides: {},
+        overridesFetched: new Map(), // rangeKey → timestamp (TTL 60s)
         // Per-range fetch cache: { rangeKey: { byDateGroup: Map, fetchedAt } }
         fetchCache: {},
         currentByDateGroup: new Map(), // Map<`${date}__${groupName}`, {count, money}>
     };
 
-    function loadOverrides() {
+    // Legacy localStorage reader — chỉ dùng cho one-time migration.
+    function loadLegacyOverrides() {
         try {
             return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {};
         } catch {
             return {};
-        }
-    }
-
-    function saveOverrides() {
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.overrides));
-        } catch (e) {
-            console.warn('[report] localStorage save failed:', e?.message);
         }
     }
 
@@ -58,17 +55,107 @@
         return state.overrides[overrideKey(date, group)] || {};
     }
 
+    // setOverride: update local cache + fire-and-forget PUT lên server.
+    // Empty → server DELETE row tự động (PUT endpoint xử lý).
     function setOverride(date, group, patch) {
         const k = overrideKey(date, group);
         const next = { ...(state.overrides[k] || {}), ...patch };
-        // Drop empty overrides to keep storage clean
+        // Strip empty values to keep cache clean
         const isEmpty = Object.values(next).every((v) => v == null || v === '' || v === 0);
         if (isEmpty) {
             delete state.overrides[k];
         } else {
             state.overrides[k] = next;
         }
-        saveOverrides();
+        // Persist async to DB
+        persistOverride(date, group, isEmpty ? null : next).catch((e) =>
+            console.warn(`[report] persist override ${k} failed:`, e?.message)
+        );
+    }
+
+    async function persistOverride(date, group, ov) {
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl) return;
+        const url = `${renderUrl}/api/v2/delivery-assignments/overrides/${encodeURIComponent(date)}/${encodeURIComponent(group)}`;
+        const resp = await fetch(url, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ov || {}),
+        });
+        if (!resp.ok) {
+            const txt = await resp.text().catch(() => '');
+            throw new Error(`HTTP ${resp.status} ${txt}`);
+        }
+    }
+
+    async function loadOverridesRange(from, to) {
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl || !from || !to) return;
+        const key = rangeKey(from, to);
+        const last = state.overridesFetched.get(key);
+        if (last && Date.now() - last < 60000) return;
+        try {
+            const url = `${renderUrl}/api/v2/delivery-assignments/overrides?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+            const resp = await fetch(url);
+            if (!resp.ok) return;
+            const j = await resp.json();
+            const fresh = j.data?.overrides || {};
+            // Replace overrides cho các (date) trong range (giữ entries ngoài range)
+            const dates = eachDay(from, to);
+            const inRange = new Set(dates);
+            for (const k in state.overrides) {
+                const [d] = k.split('__');
+                if (inRange.has(d)) delete state.overrides[k];
+            }
+            for (const k in fresh) {
+                state.overrides[k] = fresh[k];
+            }
+            state.overridesFetched.set(key, Date.now());
+        } catch (e) {
+            console.warn('[report] loadOverridesRange failed:', e?.message);
+        }
+    }
+
+    // One-time migration: scan localStorage → upload all overrides + billImage → clear localStorage.
+    async function migrateLocalStorageOverridesOnce() {
+        const MARK_KEY = 'dr-report-overrides-migrated-v1';
+        if (localStorage.getItem(MARK_KEY) === '1') return;
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl) return;
+        const legacy = loadLegacyOverrides();
+        const entries = Object.entries(legacy);
+        if (entries.length === 0) {
+            localStorage.setItem(MARK_KEY, '1');
+            localStorage.removeItem(STORAGE_KEY);
+            return;
+        }
+        console.log(`[report] migrating ${entries.length} overrides localStorage → DB…`);
+        let ok = 0;
+        for (const [k, ov] of entries) {
+            const [date, group] = k.split('__');
+            if (!date || !group || !ov) continue;
+            // Skip billImage (đã có migration riêng — chỉ migrate scalar fields).
+            const scalarOv = {
+                slShip: Number(ov.slShip) || 0,
+                thuVe: Number(ov.thuVe) || 0,
+                boCK: Number(ov.boCK) || 0,
+                atruongCK: Number(ov.atruongCK) || 0,
+                ckTruoc: Number(ov.ckTruoc) || 0,
+                note: String(ov.note || '').trim(),
+            };
+            const isEmpty = Object.values(scalarOv).every((v) => v == null || v === '' || v === 0);
+            if (isEmpty) continue;
+            try {
+                await persistOverride(date, group, scalarOv);
+                ok++;
+            } catch (e) {
+                console.warn(`[report] migrate fail ${k}:`, e?.message);
+            }
+        }
+        // Migration done — purge localStorage (image migration runs separately)
+        localStorage.setItem(MARK_KEY, '1');
+        localStorage.removeItem(STORAGE_KEY);
+        console.log(`[report] migrated ${ok}/${entries.length} overrides → DB`);
     }
 
     // ── Date helpers ──
@@ -503,18 +590,20 @@
             return;
         }
 
-        // Image flags fire-and-forget (sẽ tự re-paint khi xong nếu cần)
-        loadImageFlags(realFrom, realTo).then(() => {
-            // Repaint ngay nếu state range vẫn match (tránh flicker stale icons)
-            const curRealFrom = entryToReal(state.fromDate);
-            const curRealTo = entryToReal(state.toDate);
-            if (
-                rangeKey(curRealFrom, curRealTo) === rangeKey(realFrom, realTo) &&
-                document.getElementById('drReportTbody')?.children.length > 0
-            ) {
-                paintTable(eachDay(curRealFrom, curRealTo));
+        // Image flags + overrides fire-and-forget (sẽ tự re-paint khi xong)
+        Promise.all([loadImageFlags(realFrom, realTo), loadOverridesRange(realFrom, realTo)]).then(
+            () => {
+                // Repaint nếu range vẫn match (tránh flicker stale data)
+                const curRealFrom = entryToReal(state.fromDate);
+                const curRealTo = entryToReal(state.toDate);
+                if (
+                    rangeKey(curRealFrom, curRealTo) === rangeKey(realFrom, realTo) &&
+                    document.getElementById('drReportTbody')?.children.length > 0
+                ) {
+                    paintTable(eachDay(curRealFrom, curRealTo));
+                }
             }
-        });
+        );
 
         // Hot cache → sync path: paint immediately, no await, no loading flash.
         const key = rangeKey(realFrom, realTo);
@@ -1146,9 +1235,22 @@
         document.getElementById('drReportModal').classList.add('open');
         // Scroll to top so user sees báo cáo header
         window.scrollTo({ top: 0, behavior: 'instant' });
-        // Migrate localStorage billImage → DB (one-time, marker prevents re-run).
+        // Migrate localStorage → DB (one-time, markers ngăn chạy lại):
+        //   - billImage → Postgres BYTEA
+        //   - slShip/thuVe/boCK/atruongCK/ckTruoc/note → delivery_assignment_overrides
         // Fire-and-forget — render() ngay không đợi.
         migrateLocalStorageImagesOnce().catch(() => {});
+        migrateLocalStorageOverridesOnce()
+            .then(() => {
+                // Sau migrate, refetch range để cache nhận data từ DB
+                state.overridesFetched.clear();
+                if (state.fromDate && state.toDate) {
+                    loadOverridesRange(entryToReal(state.fromDate), entryToReal(state.toDate)).then(
+                        () => scheduleRender()
+                    );
+                }
+            })
+            .catch(() => {});
         render();
     }
 

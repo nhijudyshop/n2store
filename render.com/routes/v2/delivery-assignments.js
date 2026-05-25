@@ -910,5 +910,162 @@ router.get('/image-flags', async (req, res) => {
     }
 });
 
+// =====================================================
+// OVERRIDES — manual entry fields per (assignment_date, group_name).
+// Migrated 2026-05-25 từ localStorage `dr-report-overrides-v1` (slShip/thuVe/
+// boCK/atruongCK/ckTruoc/note) → Postgres để persist cross-device.
+// =====================================================
+
+async function ensureOverridesSchema(pool) {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS delivery_assignment_overrides (
+            assignment_date DATE NOT NULL,
+            group_name VARCHAR(20) NOT NULL,
+            sl_ship INTEGER NOT NULL DEFAULT 0,
+            thu_ve NUMERIC(15,2) NOT NULL DEFAULT 0,
+            bo_ck NUMERIC(15,2) NOT NULL DEFAULT 0,
+            atruong_ck NUMERIC(15,2) NOT NULL DEFAULT 0,
+            ck_truoc NUMERIC(15,2) NOT NULL DEFAULT 0,
+            note TEXT NOT NULL DEFAULT '',
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_by VARCHAR(100) DEFAULT 'anonymous',
+            PRIMARY KEY (assignment_date, group_name)
+        )
+    `);
+    await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_delivery_assignment_overrides_date
+        ON delivery_assignment_overrides(assignment_date)
+    `);
+}
+
+function rowToOverride(row) {
+    return {
+        slShip: Number(row.sl_ship) || 0,
+        thuVe: Number(row.thu_ve) || 0,
+        boCK: Number(row.bo_ck) || 0,
+        atruongCK: Number(row.atruong_ck) || 0,
+        ckTruoc: Number(row.ck_truoc) || 0,
+        note: row.note || '',
+    };
+}
+
+function isOverrideEmpty(o) {
+    if (!o) return true;
+    return (
+        !Number(o.slShip || 0) &&
+        !Number(o.thuVe || 0) &&
+        !Number(o.boCK || 0) &&
+        !Number(o.atruongCK || 0) &&
+        !Number(o.ckTruoc || 0) &&
+        !(o.note && String(o.note).trim())
+    );
+}
+
+// GET /overrides?from=&to= — bulk fetch all overrides cho range
+router.get('/overrides', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { from, to } = req.query;
+        if (!isValidDate(from) || !isValidDate(to)) {
+            return res.status(400).json({ success: false, error: 'Invalid from/to (YYYY-MM-DD)' });
+        }
+        const result = await db.query(
+            `SELECT assignment_date::text AS date, group_name,
+                    sl_ship, thu_ve, bo_ck, atruong_ck, ck_truoc, note,
+                    updated_at, updated_by
+             FROM delivery_assignment_overrides
+             WHERE assignment_date BETWEEN $1 AND $2`,
+            [from, to]
+        );
+        // Map: { "YYYY-MM-DD__group": override }
+        const overrides = {};
+        for (const r of result.rows) {
+            overrides[`${r.date}__${r.group_name}`] = rowToOverride(r);
+        }
+        res.json({
+            success: true,
+            data: { overrides, count: result.rows.length, range: { from, to } },
+        });
+    } catch (err) {
+        console.error('[delivery-assignments] GET /overrides error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// PUT /overrides/:date/:group — upsert all 6 fields. Empty → DELETE row.
+router.put('/overrides/:date/:group', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { date, group } = req.params;
+        if (!isValidDate(date) || !isValidGroup(group)) {
+            return res.status(400).json({ success: false, error: 'Invalid date or group' });
+        }
+        const body = req.body || {};
+        const ov = {
+            slShip: Math.max(0, Number(body.slShip) || 0),
+            thuVe: Number(body.thuVe) || 0,
+            boCK: Number(body.boCK) || 0,
+            atruongCK: Number(body.atruongCK) || 0,
+            ckTruoc: Number(body.ckTruoc) || 0,
+            note: String(body.note || '').trim(),
+        };
+        if (isOverrideEmpty(ov)) {
+            // Empty → DELETE để storage sạch
+            const del = await db.query(
+                `DELETE FROM delivery_assignment_overrides
+                 WHERE assignment_date = $1 AND group_name = $2
+                 RETURNING assignment_date`,
+                [date, group]
+            );
+            return res.json({
+                success: true,
+                data: { date, group, deleted: del.rows.length, override: null },
+            });
+        }
+        const user = getUserFromHeaders(req);
+        await db.query(
+            `INSERT INTO delivery_assignment_overrides
+                (assignment_date, group_name, sl_ship, thu_ve, bo_ck, atruong_ck, ck_truoc, note, updated_by, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+             ON CONFLICT (assignment_date, group_name) DO UPDATE
+             SET sl_ship = EXCLUDED.sl_ship,
+                 thu_ve = EXCLUDED.thu_ve,
+                 bo_ck = EXCLUDED.bo_ck,
+                 atruong_ck = EXCLUDED.atruong_ck,
+                 ck_truoc = EXCLUDED.ck_truoc,
+                 note = EXCLUDED.note,
+                 updated_by = EXCLUDED.updated_by,
+                 updated_at = NOW()`,
+            [date, group, ov.slShip, ov.thuVe, ov.boCK, ov.atruongCK, ov.ckTruoc, ov.note, user]
+        );
+        res.json({ success: true, data: { date, group, override: ov } });
+    } catch (err) {
+        console.error('[delivery-assignments] PUT /overrides error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// DELETE /overrides/:date/:group
+router.delete('/overrides/:date/:group', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { date, group } = req.params;
+        if (!isValidDate(date) || !isValidGroup(group)) {
+            return res.status(400).json({ success: false, error: 'Invalid date or group' });
+        }
+        const result = await db.query(
+            `DELETE FROM delivery_assignment_overrides
+             WHERE assignment_date = $1 AND group_name = $2
+             RETURNING assignment_date`,
+            [date, group]
+        );
+        res.json({ success: true, data: { deleted: result.rows.length } });
+    } catch (err) {
+        console.error('[delivery-assignments] DELETE /overrides error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 module.exports = router;
 module.exports.ensureImagesSchema = ensureImagesSchema;
+module.exports.ensureOverridesSchema = ensureOverridesSchema;
