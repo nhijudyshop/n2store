@@ -1,7 +1,7 @@
 // #Note: WEB2.0 module. Kho SP panel — tab cùng cấp với Chat trong Pancake column.
 //
 // Logic:
-//   - Tabs lấy từ Firestore so_order_v2/main → data.tabs[].label/name.
+//   - Tabs lấy từ Firestore web2_so_order/main → data.tabs[].label/name.
 //   - Filter: SP có supplier === tabName (exact, case-insensitive).
 //   - Search: tokenize input, AND-match qua code/name/variant (ASCII normalize).
 //   - Drag source: mỗi card SP có draggable=true; setData('application/x-web2-product', JSON).
@@ -62,12 +62,12 @@
     }
 
     // ─────────────────────────────────────────────────────────
-    // Load NCC tabs từ Firestore so_order_v2
+    // Load NCC tabs từ Firestore web2_so_order
     // ─────────────────────────────────────────────────────────
     async function loadTabsFromSoOrder() {
         try {
             if (typeof firebase === 'undefined' || !firebase.firestore) return [];
-            const snap = await firebase.firestore().collection('so_order_v2').doc('main').get();
+            const snap = await firebase.firestore().collection('web2_so_order').doc('main').get();
             if (!snap.exists) return [];
             const data = snap.data()?.data || {};
             const names = [];

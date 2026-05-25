@@ -10,7 +10,7 @@
  * (`/api/v2/tickets/:id/resolve` → processManualDeposit).
  *
  * Web 2.0 (`web2/customer-wallet/`) chạy hoàn toàn độc lập trên Firestore
- * (`customer_wallet_v1/main`) + localStorage `customerWallet_v1`, tính balance
+ * (`web2_customer_wallet/main`) + localStorage `customerWallet_v1`, tính balance
  * từ native-orders + PBH + SePay. Không đọc/ghi Postgres wallet này.
  *
  * Đừng bridge / share data giữa 2 hệ thống. Nếu nghiệp vụ yêu cầu đồng bộ,
@@ -1935,7 +1935,7 @@ async function handleConfirmAction() {
 
             // =====================================================
             // Web 1.0 wallet auto-credit (Postgres customer_wallets via /resolve)
-            // KHÔNG liên quan ví Web 2.0 (Firestore customer_wallet_v1) — 2 hệ thống tách biệt.
+            // KHÔNG liên quan ví Web 2.0 (Firestore web2_customer_wallet) — 2 hệ thống tách biệt.
             //
             // Refactor 2026-05-25: gọi resolveTicket TRƯỚC khi updateTicket(COMPLETED).
             // Trước đây updateTicket(COMPLETED) chạy trước → nếu auto-credit skip

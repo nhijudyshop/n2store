@@ -375,7 +375,7 @@
     }
 
     // ---------- Supplier dropdown — nguồn DUY NHẤT là tabs trong Sổ Order ----------
-    // Cache list NCC từ Firestore so_order_v2/main. Load lazy + reload khi mở modal.
+    // Cache list NCC từ Firestore web2_so_order/main. Load lazy + reload khi mở modal.
     let _suppliersFromSoOrder = null;
     let _suppliersLoadPromise = null;
 
@@ -388,7 +388,11 @@
                     console.warn('[products] Firebase chưa load — fallback empty supplier list');
                     return [];
                 }
-                const snap = await firebase.firestore().collection('so_order_v2').doc('main').get();
+                const snap = await firebase
+                    .firestore()
+                    .collection('web2_so_order')
+                    .doc('main')
+                    .get();
                 if (!snap.exists) return [];
                 const data = snap.data()?.data || {};
                 const set = new Set();
@@ -409,7 +413,7 @@
                 _suppliersFromSoOrder = Array.from(set).sort();
                 return _suppliersFromSoOrder;
             } catch (e) {
-                console.warn('[products] load suppliers từ so_order_v2 fail:', e.message);
+                console.warn('[products] load suppliers từ web2_so_order fail:', e.message);
                 return [];
             }
         })();

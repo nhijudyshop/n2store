@@ -375,8 +375,8 @@
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">Storage</span>
-                                        Firestore <code>so_order_v2/main</code> (local-first sync) —
-                                        KHÔNG dùng Postgres riêng cho row
+                                        Firestore <code>web2_so_order/main</code> (local-first sync)
+                                        — KHÔNG dùng Postgres riêng cho row
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">API kho</span>
@@ -530,10 +530,10 @@
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">Nguồn data</span>
-                                        Tính trực tiếp từ <code>so_order_v2</code> (Firestore) +
+                                        Tính trực tiếp từ <code>web2_so_order</code> (Firestore) +
                                         <code>web2_records</code> (purchase-refund) +
-                                        <code>supplier_wallet_v1</code> (payments) — không có write
-                                        endpoint riêng
+                                        <code>web2_supplier_wallet</code> (payments) — không có
+                                        write endpoint riêng
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">Liên kết</span>
@@ -571,8 +571,9 @@
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">Storage</span>
-                                        Firestore <code>supplier_wallet_v1/main</code> + cross-read
-                                        <code>so_order_v2</code>
+                                        Firestore <code>web2_supplier_wallet/main</code> +
+                                        cross-read
+                                        <code>web2_so_order</code>
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">API</span>
@@ -881,7 +882,7 @@ balance_history (legacy)
 web2_balance_history    ← Trang: balance-history
    ↓ match customer/NCC
 customer_wallets        ← Trang: customer-wallet
-supplier_wallet_v1      ← Trang: supplier-wallet (Firestore)</pre
+web2_supplier_wallet      ← Trang: supplier-wallet (Firestore)</pre
                             >
                         </div>
 
@@ -905,7 +906,7 @@ customer_wallets</pre
                         <div class="ov-flow-block ov-flow-buy">
                             <h3>Mua hàng (Shop ← NCC)</h3>
                             <pre>
-so_order_v2 (Firestore)  ← Trang: so-order
+web2_so_order (Firestore)  ← Trang: so-order
    ↓ upsert-pending
 web2_products.pending
    ↓ confirm-purchase
@@ -913,7 +914,7 @@ web2_products.stock      ← Trang: products
    ↓ phát hiện trả hàng
 web2_records (purchase-refund) ← Trang: purchase-refund
    ↓ approve → giảm stock + giảm công nợ
-supplier_wallet_v1       ← Trang: supplier-wallet
+web2_supplier_wallet       ← Trang: supplier-wallet
    ↓ tổng hợp kỳ
 supplier-debt            ← Trang: báo cáo công nợ</pre
                             >
@@ -1029,9 +1030,11 @@ permission_templates    (role: admin/manager/staff)</pre
                         <div class="ov-db-card ov-db-success">
                             <h3>Firestore collections</h3>
                             <ul>
-                                <li><code>so_order_v2/main</code> — Sổ Order (local-first sync)</li>
-                                <li><code>supplier_wallet_v1/main</code> — Ví NCC</li>
-                                <li><code>customer_wallet_v1/main</code> — UI mirror ví KH</li>
+                                <li>
+                                    <code>web2_so_order/main</code> — Sổ Order (local-first sync)
+                                </li>
+                                <li><code>web2_supplier_wallet/main</code> — Ví NCC</li>
+                                <li><code>web2_customer_wallet/main</code> — UI mirror ví KH</li>
                                 <li>
                                     <code>pancake_tokens</code> · <code>tokens</code> — JWT
                                     Pancake/TPOS
