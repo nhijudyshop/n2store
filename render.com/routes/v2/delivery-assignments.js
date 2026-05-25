@@ -186,24 +186,56 @@ router.post('/', async (req, res) => {
             return res.json({ success: true, data: { inserted: 0, skipped: 0 } });
         }
 
-        // ON CONFLICT (order_number) — order_number is the new UNIQUE key.
+        // ON CONFLICT (order_number) DO UPDATE — smart upsert:
+        //   - Insert nếu Number chưa có
+        //   - Update nếu Number tồn tại VÀ metadata khác (date/group/carrier/COD/amount)
+        //     → tự dọn ghost: khi đơn cũ bị xóa rồi tạo lại với date/carrier khác trên TPOS,
+        //       lần saveAssignments tiếp theo sẽ overwrite row cũ với data mới.
+        //   - No-op nếu metadata giống hệt (WHERE filter ngăn update không cần thiết).
+        //   - is_scanned, scanned_at, scanned_by KHÔNG bị reset (chỉ /scan endpoint update).
         const query = `
             INSERT INTO delivery_assignments
                 (assignment_date, order_number, group_name, amount_total, cash_on_delivery, carrier_name, assigned_by)
             VALUES ${values.join(', ')}
-            ON CONFLICT (order_number) DO NOTHING
-            RETURNING order_number
+            ON CONFLICT (order_number) DO UPDATE
+            SET
+                assignment_date  = EXCLUDED.assignment_date,
+                group_name       = EXCLUDED.group_name,
+                amount_total     = EXCLUDED.amount_total,
+                cash_on_delivery = EXCLUDED.cash_on_delivery,
+                carrier_name     = EXCLUDED.carrier_name,
+                updated_at       = NOW()
+            WHERE
+                delivery_assignments.assignment_date  IS DISTINCT FROM EXCLUDED.assignment_date
+             OR delivery_assignments.group_name       IS DISTINCT FROM EXCLUDED.group_name
+             OR delivery_assignments.carrier_name     IS DISTINCT FROM EXCLUDED.carrier_name
+             OR delivery_assignments.cash_on_delivery IS DISTINCT FROM EXCLUDED.cash_on_delivery
+             OR delivery_assignments.amount_total     IS DISTINCT FROM EXCLUDED.amount_total
+            RETURNING order_number, (xmax = 0) AS was_inserted
         `;
 
         const result = await db.query(query, params);
-        const inserted = result.rows.length;
-        const skipped = assignments.length - inserted;
+        const insertedRows = result.rows.filter((r) => r.was_inserted);
+        const updatedRows = result.rows.filter((r) => !r.was_inserted);
+        const inserted = insertedRows.length;
+        const updated = updatedRows.length;
+        const unchanged = assignments.length - inserted - updated;
 
-        console.log(`[delivery-assignments] POST: ${inserted} inserted, ${skipped} skipped`);
+        console.log(
+            `[delivery-assignments] POST: ${inserted} inserted, ${updated} updated, ${unchanged} unchanged`
+        );
 
         res.json({
             success: true,
-            data: { inserted, skipped, insertedOrders: result.rows.map((r) => r.order_number) },
+            data: {
+                inserted,
+                updated,
+                unchanged,
+                // backward-compat alias — old clients đọc `skipped` (giờ là unchanged)
+                skipped: unchanged,
+                insertedOrders: insertedRows.map((r) => r.order_number),
+                updatedOrders: updatedRows.map((r) => r.order_number),
+            },
         });
     } catch (err) {
         console.error('[delivery-assignments] POST / error:', err.message);

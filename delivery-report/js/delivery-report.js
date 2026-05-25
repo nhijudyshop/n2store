@@ -2129,9 +2129,19 @@
             const result = await resp.json();
             if (result.success) {
                 DeliveryReportState._dbNewCount = result.data.inserted || 0;
+                const { inserted = 0, updated = 0, unchanged, skipped } = result.data;
+                // Updated = đơn cũ bị thay đổi (date/carrier/COD đổi trên TPOS). Tự
+                // động dọn ghost khi user mở Tra Soát ngày mới.
+                const unchangedCount = unchanged != null ? unchanged : skipped;
                 console.log(
-                    `[DELIVERY-REPORT] DB: saved ${result.data.inserted} new, ${result.data.skipped} already locked`
+                    `[DELIVERY-REPORT] DB: ${inserted} inserted, ${updated} updated (re-synced), ${unchangedCount} unchanged`
                 );
+                if (updated > 0) {
+                    console.log(
+                        '[DELIVERY-REPORT] Auto-cleaned ghost: re-synced metadata for',
+                        result.data.updatedOrders || []
+                    );
+                }
                 return result.data;
             }
         } catch (e) {
@@ -2373,28 +2383,28 @@
             assignTomatoNap(unassigned, state.provinceGroups);
         }
 
-        // Step 3: Build full assignment list and save new ones to DB
+        // Step 3: Build full assignment list — gửi TẤT CẢ items (không filter
+        // chỉ-new) để backend smart-upsert tự detect ghost: nếu Number đã có
+        // nhưng date/group/carrier/COD đã đổi → UPDATE; nếu giống hệt → no-op.
         const itemsToSave = [];
         const allGroups = {};
         for (const item of allData) {
             const group = getItemGroup(item);
             allGroups[item.Number] = group;
-            if (!state.dbAssignments[item.Number]) {
-                itemsToSave.push(item);
-            }
+            itemsToSave.push(item);
         }
 
-        // Step 4: Save new assignments to DB (ON CONFLICT DO NOTHING)
+        // Step 4: Smart upsert (ON CONFLICT DO UPDATE WHERE metadata changed)
         if (itemsToSave.length > 0) {
             const result = await saveAssignmentsToDB(itemsToSave, allGroups);
             for (const item of itemsToSave) {
                 state.dbAssignments[item.Number] = allGroups[item.Number];
             }
+            // Stats: inserted = new đơn lần đầu vào DB; updated = ghost cleanup
+            // (đơn cũ bị đổi date/carrier trên TPOS, giờ re-sync)
             updateAssignmentStatus(
-                Object.keys(state.dbAssignments).length -
-                    itemsToSave.length +
-                    (result.inserted || 0),
-                result.inserted || 0
+                Object.keys(state.dbAssignments).length,
+                (result.inserted || 0) + (result.updated || 0)
             );
         } else {
             updateAssignmentStatus(Object.keys(state.dbAssignments).length, 0);

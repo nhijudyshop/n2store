@@ -25,6 +25,41 @@
 
 ## 2026-05-25
 
+### [delivery-report] Auto-clean ghost: POST assignments smart-upsert khi metadata đổi (date/group/carrier/COD)
+
+**User ask**: "có cách nào xử lý mấy đơn ghost bị xóa xong tạo lại → đơn mới tạo lại chuyển qua NAP → lệch số lượng 2 bên NAP, TOMATO, số tiền…" → user chọn phương án A (auto-clean khi user mở Tra Soát ngày mới).
+
+**Files**:
+
+- `render.com/routes/v2/delivery-assignments.js` (`POST /api/v2/delivery-assignments`)
+    - Đổi `ON CONFLICT (order_number) DO NOTHING` → `DO UPDATE SET ...` với WHERE conditional:
+        - UPDATE chỉ khi `assignment_date | group_name | carrier_name | cash_on_delivery | amount_total` khác với incoming row.
+        - SET cập nhật cả 5 fields + `updated_at = NOW()`.
+        - **KHÔNG reset** `is_scanned`, `scanned_at`, `scanned_by`, `is_hidden` (lịch sử quét giữ nguyên).
+    - RETURNING `order_number, (xmax = 0) AS was_inserted` → PG trick phân biệt insert vs update.
+    - Response: `{inserted, updated, unchanged, skipped:unchanged (backward compat), insertedOrders, updatedOrders}`.
+- `delivery-report/js/delivery-report.js`
+    - `saveAssignmentsToDB` log: thêm `updated (re-synced)` + list `updatedOrders` (ghost cleanup signal).
+    - `traSoat` flow: **bỏ filter** `if (!state.dbAssignments[item.Number])` → gửi TẤT CẢ items, backend tự detect changes. Trước đây skip item đã có trong DB → ghost không bao giờ trigger update; giờ luôn upsert.
+
+**Flow xử lý ghost**:
+
+1. T1: Quét đơn X (TOMATO/22-05) → DB row (X, 22/05, tomato, scanned).
+2. T2: Đơn X trên TPOS bị xóa rồi tạo lại với date 23/05 + carrier NAP.
+3. T3: User mở Tra Soát ngày 23/05 → fetch TPOS thấy X với (23/05, nap, …).
+4. T4: `saveAssignmentsToDB` POST batch include X với metadata mới → backend smart-upsert detect khác → UPDATE row X thành (23/05, nap, scanned giữ TRUE).
+5. T5: Báo cáo 22/05 TOMATO không còn count X; báo cáo 23/05 NAP count X. **Tự dọn — không cần thao tác manual**.
+
+**Edge case** không tự dọn: đơn bị xóa vĩnh viễn (không tạo lại) → ghost vĩnh viễn ở DB. Cần nút "Xóa ghost" manual (option B) hoặc cron (option D) — chưa làm.
+
+**Verify** (sau khi Render auto-deploy):
+
+- User mở Tra Soát ngày bất kỳ → console log `[DELIVERY-REPORT] DB: N inserted, M updated (re-synced), K unchanged`.
+- Nếu có M > 0 → log `Auto-cleaned ghost: re-synced metadata for [Number1, Number2, …]`.
+- Báo cáo modal cũ (sai số do ghost) tự đúng dần khi user mở Tra Soát các ngày có ghost.
+
+**Status**: ✅ Done (backend chờ Render redeploy auto từ commit).
+
 ### [delivery-report] Báo cáo modal: expand row → liệt kê tất cả đơn (live + ghost) cho mỗi (ngày, nhóm)
 
 **User ask**: "cho bấm vào expand ra tất cả đơn" — bấm vào row → mở danh sách Number + khách + giờ + COD. Bonus: tự tách ghost rows (đơn đã quét nhưng không còn live trên TPOS cùng ngày).
