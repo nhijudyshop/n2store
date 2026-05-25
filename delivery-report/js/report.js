@@ -157,12 +157,9 @@
             console.warn('[report] Render URL not available');
             return { byDateGroup: new Map() };
         }
-        // exclude_zero=1: bỏ qua đơn 0đ — chúng không phải đơn giao có doanh thu
-        // thật, sẽ inflate SL ĐƠN + PHÍ SHIP nếu đếm vào (mỗi đơn cộng 23k ship
-        // dù COD=0). Đồng bộ với fix tab Tra Soát city/province/shop.
         const url =
             `${renderUrl}/api/v2/delivery-assignments/by-date-group` +
-            `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&scanned_only=1&exclude_zero=1`;
+            `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&scanned_only=1`;
         let rows = [];
         try {
             const resp = await fetch(url);
