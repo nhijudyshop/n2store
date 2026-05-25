@@ -1654,6 +1654,28 @@
     let barcodeTimeout = null;
     const soundError = new Audio('sound/sai.mp3');
     const soundDuplicate = new Audio('sound/trung.mp3');
+    const soundTomato = new Audio('sound/TOMATO.mp3');
+    const soundCity = new Audio('sound/THANHPHO.mp3');
+    const soundNap = new Audio('sound/NAP.mp3');
+
+    // Map group key → group-name audio (chỉ 3 nhóm có sound: TOMATO / THÀNH PHỐ / TỈNH NAP)
+    const GROUP_SOUNDS = {
+        tomato: soundTomato,
+        city: soundCity,
+        nap: soundNap,
+    };
+
+    function playGroupSound(group) {
+        const audio = GROUP_SOUNDS[group];
+        if (!audio) return;
+        try {
+            audio.currentTime = 0;
+            const p = audio.play();
+            if (p && typeof p.catch === 'function') p.catch(() => {});
+        } catch (e) {
+            /* fallback: no sound */
+        }
+    }
 
     // Sound riêng cho đơn 0đ — 2 beep ngắn tần số cao
     function playZeroDongSound() {
@@ -2822,6 +2844,9 @@
 
         // Save to DB
         saveScannedNumber(match.Number);
+
+        // Phát sound nhóm chính xác (TOMATO / THÀNH PHỐ / NAP) ngay khi quét thành công
+        playGroupSound(getItemGroup(match));
 
         // Detect 0đ order → play distinct sound
         const isZero = isZeroCOD(match);

@@ -25,11 +25,34 @@
 
 ## 2026-05-25
 
+### [delivery-report] Tra soát phát đúng sound TOMATO / THÀNH PHỐ / NAP khi quét
+
+**Yêu cầu user**: Phần tra soát → quét chính xác TOMATO, THÀNH PHỐ, NAP theo các file trong `delivery-report/sound/`.
+
+**Thay đổi** ([delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js)):
+
+- Thêm 3 `Audio` constants: `soundTomato` (`sound/TOMATO.mp3`), `soundCity` (`sound/THANHPHO.mp3`), `soundNap` (`sound/NAP.mp3`)
+- Thêm `GROUP_SOUNDS` map (`tomato` → tomato, `city` → city, `nap` → nap) + helper `playGroupSound(group)` (skip silently nếu group không có sound, vd `shop` / `return`)
+- Trong `processScan` ngay sau khi mark scanned + saveScannedNumber: gọi `playGroupSound(getItemGroup(match))` → phát đúng sound nhóm trước khi xử lý zero-đ beep / render view
+- Cũng add 3 file mp3 (`TOMATO.mp3`, `THANHPHO.mp3`, `NAP.mp3`) trước đây chưa được track
+
+**Hành vi**:
+
+- Quét thành công 1 đơn TOMATO → phát `TOMATO.mp3`
+- Quét thành công 1 đơn THÀNH PHỐ → phát `THANHPHO.mp3`
+- Quét thành công 1 đơn TỈNH NAP (carrier tỉnh không phải TPHCM/SHOP) → phát `NAP.mp3`
+- Quét thành công SHOP / THU VE → không có sound nhóm (giữ scan feedback + zero-beep nếu 0đ)
+- Quét sai / không có đơn / đã quét rồi → vẫn dùng `sai.mp3` / `trung.mp3` như cũ
+- Đơn 0đ → vẫn beep cao tần như cũ (sau khi phát sound nhóm)
+
+**Status**: ✅ Done
+
 ### [orders] Chặn auto-flip tag XL sang "ĐÃ RA ĐƠN" cho đơn ÂM MÃ
 
 **Why:** Đơn FAIL bulk PBH được reset status về Nháp + gắn tag "ÂM MÃ" (TPOS quirk: FSO vẫn tạo dù validation fail). Tuy nhiên `reconcileTagsWithInvoices()` chạy 3s sau mỗi lần tạo PBH vẫn coi đơn này có "PBH active" → flip XL từ CHỜ ĐI ĐƠN sang ĐÃ RA ĐƠN. Sai bản chất: đơn thiếu hàng, không ra đơn.
 
 **Files:**
+
 - [`orders-report/js/tab1/tab1-processing-tags.js`](../orders-report/js/tab1/tab1-processing-tags.js) — thêm helper `_ptagHasAmMaTag()` + 2 guard
 - [`orders-report/js/tab1/tab1-fast-sale-workflow.js`](../orders-report/js/tab1/tab1-fast-sale-workflow.js) — `addTagToOrder` mutate local `order.Tags` sau API success
 
