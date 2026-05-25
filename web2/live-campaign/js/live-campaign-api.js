@@ -12,7 +12,8 @@
 
     const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const BASE = PROXY + '/api/odata/SaleOnline_LiveCampaign';
-    const EXPORT_URL = PROXY + '/api/SaleOnline_Order/ExportFile';
+    const NATIVE_LOAD_URL = PROXY + '/api/native-orders/load';
+    const XLSX_CDN = 'https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js';
 
     function ensureTokenManager() {
         if (!window.tokenManager || typeof window.tokenManager.authenticatedFetch !== 'function') {
@@ -163,30 +164,224 @@
         return { Id: id, deleted: true };
     }
 
-    /**
-     * Export orders for a campaign as Excel.
-     * Returns a Blob (xlsx) or throws if no orders / TPOS error.
-     */
-    async function exportExcel(id) {
-        ensureTokenManager();
-        const url = `${EXPORT_URL}?campaignId=${encodeURIComponent(id)}&sort=date`;
-        const res = await window.tokenManager.authenticatedFetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: '{}' }),
+    // ── Excel export (client-side, từ native-orders) ────────────────────
+    // Thay vì gọi TPOS `/SaleOnline_Order/ExportFile`, build xlsx client-side
+    // bằng SheetJS từ dữ liệu Đơn Web (`native_orders.live_campaign_id`).
+    // Format cột bám sát file TPOS trả: STT, ###, Kênh, Mã, Facebook, Email,
+    // Tên, Trạng thái khách hàng, Điện thoại, Nhà mạng, Địa chỉ, Tổng tiền,
+    // Trạng thái, Ngày tạo, Sản phẩm, Tổng số lượng SP, Nhân viên, Ghi chú,
+    // Nhãn (19 cột, A..S).
+
+    function loadSheetJS() {
+        if (window.XLSX) return Promise.resolve(window.XLSX);
+        return new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = XLSX_CDN;
+            s.onload = () => resolve(window.XLSX);
+            s.onerror = () => reject(new Error('Không tải được SheetJS từ CDN'));
+            document.head.appendChild(s);
+        });
+    }
+
+    async function fetchNativeOrdersByCampaign(campaignId) {
+        const url = `${NATIVE_LOAD_URL}?campaignIds=${encodeURIComponent(campaignId)}&limit=1000&status=all`;
+        const res = await fetch(url, {
+            method: 'GET',
+            headers: { Accept: 'application/json' },
         });
         if (!res.ok) {
-            // TPOS returns 500 + HTML when no orders exist
-            const text = await res.text().catch(() => '');
-            const err = new Error(
-                res.status === 500 && /<html/i.test(text)
-                    ? 'Chiến dịch chưa có đơn — không có gì để xuất Excel'
-                    : `HTTP ${res.status}`
-            );
-            err.status = res.status;
+            throw new Error(`Lỗi tải Đơn Web (HTTP ${res.status})`);
+        }
+        const data = await res.json();
+        return Array.isArray(data && data.orders) ? data.orders : [];
+    }
+
+    // Vietnamese mobile prefix → carrier (3-digit). Best-effort, không tuyệt đối.
+    const CARRIER_PREFIXES = {
+        Viettel: [
+            '032',
+            '033',
+            '034',
+            '035',
+            '036',
+            '037',
+            '038',
+            '039',
+            '086',
+            '096',
+            '097',
+            '098',
+        ],
+        Mobifone: ['070', '076', '077', '078', '079', '089', '090', '093'],
+        Vinaphone: ['081', '082', '083', '084', '085', '088', '091', '094'],
+        Vietnamobile: ['052', '056', '058', '092'],
+        Gmobile: ['059', '099'],
+        iTel: ['087'],
+    };
+    const PREFIX_TO_CARRIER = (() => {
+        const m = {};
+        for (const carrier of Object.keys(CARRIER_PREFIXES)) {
+            for (const p of CARRIER_PREFIXES[carrier]) m[p] = carrier;
+        }
+        return m;
+    })();
+
+    function detectCarrier(phone) {
+        if (!phone) return '';
+        const digits = String(phone).replace(/\D/g, '');
+        if (digits.length < 3) return '';
+        // Normalize +84 / 84 → 0
+        const norm =
+            digits.startsWith('84') && digits.length >= 11 ? '0' + digits.slice(2) : digits;
+        return PREFIX_TO_CARRIER[norm.slice(0, 3)] || '';
+    }
+
+    const NATIVE_STATUS_LABEL = {
+        draft: 'Nháp',
+        confirmed: 'Đơn hàng',
+        cancelled: 'Đã hủy',
+        cancel: 'Đã hủy',
+        done: 'Hoàn thành',
+    };
+
+    function formatProductsCell(products) {
+        if (!Array.isArray(products) || !products.length) return '';
+        return products
+            .map((p) => {
+                const code = p.code || p.productCode || p.sku || '';
+                const name = p.name || p.productName || '';
+                const qty = Number(p.quantity || 0);
+                const price = Number(p.price || 0);
+                const codePart = code ? `[${code}] ` : '';
+                const priceStr = price ? price.toLocaleString('vi-VN') : '0';
+                return `${codePart}${name} SL: ${qty} Giá: ${priceStr}`;
+            })
+            .join('\n');
+    }
+
+    // Excel serial date number = days since 1899-12-30 (Lotus 1-2-3 leap-year quirk).
+    // TPOS uses VN local time interpreted as serial, so we offset to +07:00.
+    function excelSerialDate(ms) {
+        if (!ms) return '';
+        const EPOCH = Date.UTC(1899, 11, 30); // 1899-12-30 UTC
+        const local = ms + 7 * 3600 * 1000; // shift to VN local clock
+        return (local - EPOCH) / 86400000;
+    }
+
+    /**
+     * Build và trả Blob xlsx cho 1 campaign từ native_orders.
+     * @param {string} campaignId
+     * @param {string} [campaignName] - hiển thị ở sheet name
+     * @returns {Promise<{ blob: Blob, count: number }>}
+     */
+    async function exportExcel(campaignId, campaignName) {
+        const [XLSX, orders] = await Promise.all([
+            loadSheetJS(),
+            fetchNativeOrdersByCampaign(campaignId),
+        ]);
+        if (!orders.length) {
+            const err = new Error('Chiến dịch chưa có Đơn Web nào — không có gì để xuất Excel');
+            err.code = 'EMPTY';
+            err.count = 0;
             throw err;
         }
-        return await res.blob();
+
+        const headers = [
+            'STT',
+            '###',
+            'Kênh',
+            'Mã',
+            'Facebook',
+            'Email',
+            'Tên',
+            'Trạng thái khách hàng',
+            'Điện thoại',
+            'Nhà mạng',
+            'Địa chỉ',
+            'Tổng tiền',
+            'Trạng thái',
+            'Ngày tạo',
+            'Sản phẩm',
+            'Tổng số lượng SP',
+            'Nhân viên',
+            'Ghi chú',
+            'Nhãn',
+        ];
+
+        const titleRow = new Array(headers.length).fill('DANH SÁCH SALE ONLINE');
+        const aoa = [titleRow, titleRow.slice(), headers];
+
+        orders.forEach((o, i) => {
+            const phone = o.phone || '';
+            const tags = Array.isArray(o.tags) ? o.tags.filter(Boolean) : [];
+            const statusLabel =
+                NATIVE_STATUS_LABEL[String(o.status || '').toLowerCase()] || o.status || '';
+            aoa.push([
+                i + 1, // A: STT
+                o.tposIndex || o.displayStt || '', // B: ###
+                o.liveCampaignName || o.fbUserName || '', // C: Kênh
+                o.code || '', // D: Mã
+                o.fbUserName || '', // E: Facebook
+                o.email || '', // F: Email
+                o.customerName || '', // G: Tên
+                o.partnerStatus || '', // H: Trạng thái KH
+                phone, // I: Điện thoại
+                detectCarrier(phone), // J: Nhà mạng
+                o.address || '', // K: Địa chỉ
+                Number(o.totalAmount || 0), // L: Tổng tiền
+                statusLabel, // M: Trạng thái
+                excelSerialDate(Number(o.createdAt) || 0), // N: Ngày tạo (serial)
+                formatProductsCell(o.products), // O: Sản phẩm
+                Number(o.totalQuantity || 0), // P: Tổng SL SP
+                o.assignedEmployeeName || o.createdByName || '', // Q: Nhân viên
+                o.note || '', // R: Ghi chú
+                tags.join(', '), // S: Nhãn
+            ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        // Merge title rows (A1:S2)
+        ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 1, c: headers.length - 1 } }];
+        ws['!cols'] = [
+            { wch: 5 },
+            { wch: 6 },
+            { wch: 18 },
+            { wch: 14 },
+            { wch: 18 },
+            { wch: 22 },
+            { wch: 22 },
+            { wch: 18 },
+            { wch: 14 },
+            { wch: 11 },
+            { wch: 38 },
+            { wch: 12 },
+            { wch: 12 },
+            { wch: 18 },
+            { wch: 42 },
+            { wch: 10 },
+            { wch: 14 },
+            { wch: 22 },
+            { wch: 20 },
+        ];
+        // Format columns L (Tổng tiền) and N (Ngày tạo)
+        for (let r = 3; r < aoa.length; r++) {
+            const moneyCell = ws[XLSX.utils.encode_cell({ r, c: 11 })];
+            if (moneyCell) moneyCell.z = '#,##0';
+            const dateCell = ws[XLSX.utils.encode_cell({ r, c: 13 })];
+            if (dateCell && typeof dateCell.v === 'number') dateCell.z = 'dd/mm/yyyy hh:mm';
+        }
+
+        const wb = XLSX.utils.book_new();
+        const sheetName = (campaignName || 'Sale Online')
+            .replace(/[\\\/?*\[\]:]/g, '_')
+            .slice(0, 31);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Sale Online');
+
+        const arrBuf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+        const blob = new Blob([arrBuf], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        return { blob, count: orders.length };
     }
 
     window.LiveCampaignApi = {

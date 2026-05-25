@@ -165,7 +165,7 @@
                 <td>${liveHtml}</td>
                 <td>${noteHtml}</td>
                 <td>
-                  <button class="lc-btn lc-btn-sm" data-act="export">
+                  <button class="lc-btn lc-btn-sm" data-act="export" title="Xuất Excel từ Đơn Web (native-orders), không gọi TPOS">
                     <i data-lucide="download"></i> Tải về
                   </button>
                 </td>
@@ -374,19 +374,20 @@
     async function exportRow(id, tr) {
         const btn = tr.querySelector('[data-act="export"]');
         if (btn) btn.setAttribute('disabled', 'true');
+        const item = STATE.items.find((x) => x.Id === id);
+        const displayName = item && item.Name ? item.Name : 'campaign';
         try {
-            const blob = await window.LiveCampaignApi.exportExcel(id);
-            const item = STATE.items.find((x) => x.Id === id);
-            const name = (item && item.Name ? item.Name : 'campaign').replace(/[^\w\-]+/g, '_');
+            const { blob, count } = await window.LiveCampaignApi.exportExcel(id, displayName);
+            const safeName = displayName.replace(/[^\w\-]+/g, '_');
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${name}.xlsx`;
+            a.download = `${safeName}.xlsx`;
             document.body.appendChild(a);
             a.click();
             a.remove();
             setTimeout(() => URL.revokeObjectURL(url), 1000);
-            notify('Đã tải Excel chiến dịch', 'success');
+            notify(`Đã tải Excel (${count} Đơn Web)`, 'success');
         } catch (e) {
             console.warn('[LiveCampaign] export fail', e);
             notify(e.message || 'Lỗi xuất Excel', 'error');

@@ -26,19 +26,51 @@
             entity: 'FastPurchaseOrder',
             tposType: 'invoice',
             label: 'Mua hàng NCC',
-            colCount: 11,
+            colCount: 12,
             tposPath: 'fastpurchaseorder/invoicelist',
             rowRenderer: renderPurchaseRow,
+            mockable: true,
         },
         purchaseRefund: {
             entity: 'FastPurchaseOrder',
             tposType: 'refund',
             label: 'Trả hàng NCC',
-            colCount: 9,
+            colCount: 10,
             tposPath: 'fastpurchaseorder/refundlist',
             rowRenderer: renderPurchaseRefundRow,
+            mockable: true,
         },
     };
+
+    function ymd(d) {
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+
+    // datetime-local input expects YYYY-MM-DDTHH:mm in LOCAL time, not UTC.
+    function localDateTimeForInput(d) {
+        if (!d || isNaN(d)) return '';
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function getCurrentMonthRange() {
+        const now = new Date();
+        const first = new Date(now.getFullYear(), now.getMonth(), 1);
+        const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        return { from: ymd(first), to: ymd(last) };
+    }
+
+    function actionButtons(id) {
+        return `<td class="tpos-fso-actions-cell">
+            <button type="button" class="tpos-fso-row-btn tpos-fso-row-edit" data-action="edit" data-id="${id || ''}" title="Sửa">
+                <i data-lucide="pencil"></i>
+            </button>
+            <button type="button" class="tpos-fso-row-btn tpos-fso-row-delete" data-action="delete" data-id="${id || ''}" title="Xóa">
+                <i data-lucide="trash-2"></i>
+            </button>
+        </td>`;
+    }
 
     function expandCell() {
         return `<td class="tpos-fso-exp-cell"><button type="button" class="tpos-fso-exp-btn" data-action="expand" aria-expanded="false" title="Xem chi tiết"><i data-lucide="chevron-right"></i></button></td>`;
@@ -142,10 +174,11 @@
         const vatNum = row.VatInvoiceNumber || row.Origin || '';
         const employee = row.UserName || '—';
         const company = row.CompanyName || '—';
-        return `<tr data-tpos-id="${row.Id || ''}">
+        const isMock = String(row.Id || '').startsWith('MOCK-');
+        return `<tr data-tpos-id="${row.Id || ''}" ${isMock ? 'data-mock="1"' : ''} ${row.__mockEdited ? 'data-mock-edited="1"' : ''}>
             ${expandCell()}
             <td style="text-align:center;color:#94a3b8;font-variant-numeric:tabular-nums;">${idx}</td>
-            <td><div class="tpos-fso-customer">${escapeHtml(supplier)}</div></td>
+            <td><div class="tpos-fso-customer">${escapeHtml(supplier)}${isMock ? ' <span class="tpos-mock-tag">MOCK</span>' : ''}${row.__mockEdited ? ' <span class="tpos-mock-tag tpos-mock-tag-edited">SỬA</span>' : ''}</div></td>
             <td><span class="mono" style="color:#64748b;">${date}</span></td>
             <td><span class="tpos-fso-num mono" data-action="open" data-id="${row.Id || ''}" data-num="${escapeHtml(row.Number || '')}">${escapeHtml(row.Number || '—')}</span></td>
             <td><span class="mono" style="color:#475569;">${escapeHtml(vatNum || '—')}</span></td>
@@ -154,6 +187,7 @@
             <td>${stateBadge(row.State, PURCHASE_STATE_META)}</td>
             <td><span style="color:#475569;font-size:12px;">${escapeHtml(employee)}</span></td>
             <td><span style="color:#475569;font-size:12px;">${escapeHtml(company)}</span></td>
+            ${actionButtons(row.Id)}
         </tr>`;
     }
 
@@ -163,16 +197,18 @@
         const date = fmtDate(row.DateInvoice);
         const employee = row.UserName || '—';
         const company = row.CompanyName || '—';
-        return `<tr data-tpos-id="${row.Id || ''}">
+        const isMock = String(row.Id || '').startsWith('MOCK-');
+        return `<tr data-tpos-id="${row.Id || ''}" ${isMock ? 'data-mock="1"' : ''} ${row.__mockEdited ? 'data-mock-edited="1"' : ''}>
             ${expandCell()}
             <td style="text-align:center;color:#94a3b8;font-variant-numeric:tabular-nums;">${idx}</td>
             <td><span class="tpos-fso-num mono" data-action="open" data-id="${row.Id || ''}" data-num="${escapeHtml(row.Number || '')}">${escapeHtml(row.Number || '—')}</span></td>
-            <td><div class="tpos-fso-customer">${escapeHtml(supplier)}</div></td>
+            <td><div class="tpos-fso-customer">${escapeHtml(supplier)}${isMock ? ' <span class="tpos-mock-tag">MOCK</span>' : ''}${row.__mockEdited ? ' <span class="tpos-mock-tag tpos-mock-tag-edited">SỬA</span>' : ''}</div></td>
             <td><span class="mono" style="color:#64748b;">${date}</span></td>
             <td class="num" style="color:#dc2626;">${total}</td>
             <td>${stateBadge(row.State, PURCHASE_STATE_META)}</td>
             <td><span style="color:#475569;font-size:12px;">${escapeHtml(employee)}</span></td>
             <td><span style="color:#475569;font-size:12px;">${escapeHtml(company)}</span></td>
+            ${actionButtons(row.Id)}
         </tr>`;
     }
 
@@ -257,6 +293,20 @@
                 inflight: null,
                 lastLoadAt: 0,
             };
+
+            // Purchase entities default to current month range (matches TPOS native "36 Ngày" badge).
+            if (this.cfg.entity === 'FastPurchaseOrder') {
+                const r = getCurrentMonthRange();
+                this.state.dateFrom = r.from;
+                this.state.dateTo = r.to;
+                if (this.$.dateFrom) this.$.dateFrom.value = r.from;
+                if (this.$.dateTo) this.$.dateTo.value = r.to;
+            }
+
+            // Mock CRUD overlay — only writes locally, never hits TPOS.
+            this.mock = this.cfg.mockable
+                ? { overlay: new Map(), deleted: new Set(), added: [], nextId: 1 }
+                : null;
 
             this.loaded = false;
             this.bindEvents();
@@ -360,10 +410,22 @@
                 });
             }
 
-            // Row click: open / expand
+            // Row click: open / expand / edit / delete
             const tbody = this.$.tbody;
             if (tbody) {
                 tbody.addEventListener('click', (e) => {
+                    const editBtn = e.target.closest('[data-action="edit"]');
+                    if (editBtn) {
+                        e.stopPropagation();
+                        this.openEditModal(editBtn.dataset.id);
+                        return;
+                    }
+                    const deleteBtn = e.target.closest('[data-action="delete"]');
+                    if (deleteBtn) {
+                        e.stopPropagation();
+                        this.openDeleteConfirm(deleteBtn.dataset.id);
+                        return;
+                    }
                     const expandBtn = e.target.closest('[data-action="expand"]');
                     if (expandBtn) {
                         e.stopPropagation();
@@ -389,6 +451,30 @@
                         if (btn) this.toggleExpand(btn);
                     }
                 });
+            }
+
+            // Toolbar buttons (purchase only)
+            if (this.cfg.mockable) {
+                const addBtn = this.root.querySelector('[data-bind="addNew"]');
+                if (addBtn) addBtn.addEventListener('click', () => this.openEditModal(null));
+                const bulkBtn = this.root.querySelector('[data-bind="bulkAction"]');
+                if (bulkBtn) {
+                    bulkBtn.addEventListener('click', () => {
+                        toast(
+                            'Mock mode: thao tác hàng loạt chưa giả lập. Dùng nút Sửa/Xóa từng dòng.',
+                            'info'
+                        );
+                    });
+                }
+                const colBtn = this.root.querySelector('[data-bind="toggleCols"]');
+                if (colBtn) {
+                    colBtn.addEventListener('click', () => {
+                        toast(
+                            'Mock mode: ẩn/hiện cột chưa hỗ trợ. Mở rộng từng dòng để xem chi tiết.',
+                            'info'
+                        );
+                    });
+                }
             }
         }
 
@@ -557,29 +643,206 @@
             }
         }
 
+        // Apply local mock overlay (edits/deletes) + prepended mock rows. Does not mutate this.state.rows.
+        applyMockOverlay(rows) {
+            if (!this.mock) return rows;
+            const merged = [];
+            // Prepend any added mock rows (only on page 1 so they don't repeat across pages)
+            if (this.state.page === 1) {
+                for (const r of this.mock.added) {
+                    if (!this.mock.deleted.has(String(r.Id))) merged.push(r);
+                }
+            }
+            for (const r of rows) {
+                const id = String(r.Id);
+                if (this.mock.deleted.has(id)) continue;
+                const ov = this.mock.overlay.get(id);
+                if (ov) {
+                    merged.push({ ...r, ...ov, __mockEdited: true });
+                } else {
+                    merged.push(r);
+                }
+            }
+            return merged;
+        }
+
         render() {
             const { rows, total, page, limit } = this.state;
             const offset = (page - 1) * limit;
+            const visible = this.applyMockOverlay(rows);
 
-            if (!rows.length) {
+            if (!visible.length) {
                 this.showEmpty();
             } else {
-                const html = rows
+                const html = visible
                     .map((row, i) => this.cfg.rowRenderer(row, offset + i + 1, this.ns))
                     .join('');
                 this.$.tbody.innerHTML = html;
                 if (window.lucide) window.lucide.createIcons();
             }
 
-            // Counters
-            if (this.$.count) this.$.count.textContent = total.toLocaleString('vi-VN');
-            if (this.$.total) this.$.total.textContent = total.toLocaleString('vi-VN');
-            if (this.$.from) this.$.from.textContent = rows.length ? offset + 1 : 0;
-            if (this.$.to) this.$.to.textContent = offset + rows.length;
+            // Counters (purchase mock: total reflects server count + added - deleted on visible page)
+            const mockDelta = this.mock
+                ? (this.state.page === 1 ? this.mock.added.length : 0) -
+                  rows.filter((r) => this.mock.deleted.has(String(r.Id))).length
+                : 0;
+            const totalDisplay =
+                total + (this.mock ? this.mock.added.length - this.mock.deleted.size : 0);
+            if (this.$.count) this.$.count.textContent = totalDisplay.toLocaleString('vi-VN');
+            if (this.$.total) this.$.total.textContent = totalDisplay.toLocaleString('vi-VN');
+            if (this.$.from) this.$.from.textContent = visible.length ? offset + 1 : 0;
+            if (this.$.to) this.$.to.textContent = offset + visible.length;
             if (this.$.totalPages) this.$.totalPages.textContent = this.totalPages();
             if (this.$.page) this.$.page.value = this.state.page;
             if (this.$.prev) this.$.prev.disabled = this.state.page <= 1;
             if (this.$.next) this.$.next.disabled = this.state.page >= this.totalPages();
+        }
+
+        // --------------- MOCK CRUD ---------------
+        // Returns merged row (server row + overlay) for an id, or null if unknown.
+        getRowById(id) {
+            if (!id) return null;
+            const sId = String(id);
+            const fromAdded = this.mock?.added.find((r) => String(r.Id) === sId);
+            if (fromAdded) return fromAdded;
+            const fromServer = this.state.rows.find((r) => String(r.Id) === sId);
+            if (!fromServer) return null;
+            const ov = this.mock?.overlay.get(sId);
+            return ov ? { ...fromServer, ...ov } : fromServer;
+        }
+
+        openEditModal(id) {
+            const modal = document.getElementById('modal-purchase-edit');
+            if (!modal) {
+                toast('Modal sửa chưa load. Refresh trang.', 'error');
+                return;
+            }
+            const row = id ? this.getRowById(id) : null;
+            const isCreate = !row;
+            modal.dataset.activeNs = this.ns;
+            modal.dataset.activeId = isCreate ? '' : String(row.Id);
+            modal.querySelector('.modal-title').textContent = isCreate
+                ? `Thêm phiếu ${this.cfg.label} mới (Mock)`
+                : `Sửa phiếu ${escapeHtml(row.Number || row.Id)} (Mock)`;
+            const f = modal.querySelector('form');
+            f.reset();
+            const set = (name, val) => {
+                const el = f.elements[name];
+                if (el != null) el.value = val == null ? '' : val;
+            };
+            const seed = isCreate
+                ? {
+                      PartnerDisplayName: '',
+                      DateInvoice: localDateTimeForInput(new Date()),
+                      Number: '',
+                      VatInvoiceNumber: '',
+                      AmountTotal: 0,
+                      Residual: 0,
+                      State: 'draft',
+                      UserName: '',
+                      CompanyName: 'NJD Live',
+                      Note: '',
+                  }
+                : {
+                      PartnerDisplayName: row.PartnerDisplayName || '',
+                      DateInvoice: row.DateInvoice
+                          ? localDateTimeForInput(new Date(row.DateInvoice))
+                          : '',
+                      Number: row.Number || '',
+                      VatInvoiceNumber: row.VatInvoiceNumber || row.Origin || '',
+                      AmountTotal: row.AmountTotal || 0,
+                      Residual: row.Residual || 0,
+                      State: row.State || 'draft',
+                      UserName: row.UserName || '',
+                      CompanyName: row.CompanyName || '',
+                      Note: row.Note || '',
+                  };
+            Object.entries(seed).forEach(([k, v]) => set(k, v));
+            // Refund hides Residual + VatInvoiceNumber
+            const isRefund = this.cfg.tposType === 'refund';
+            modal.querySelectorAll('[data-only-invoice]').forEach((el) => {
+                el.style.display = isRefund ? 'none' : '';
+            });
+            modal.classList.add('show');
+        }
+
+        submitEditModal(formData) {
+            const modal = document.getElementById('modal-purchase-edit');
+            if (!modal || modal.dataset.activeNs !== this.ns) return;
+            const id = modal.dataset.activeId;
+            const isCreate = !id;
+            const patch = {
+                PartnerDisplayName: (formData.PartnerDisplayName || '').trim(),
+                DateInvoice: formData.DateInvoice
+                    ? new Date(formData.DateInvoice).toISOString()
+                    : new Date().toISOString(),
+                Number: (formData.Number || '').trim() || null,
+                VatInvoiceNumber: (formData.VatInvoiceNumber || '').trim() || null,
+                AmountTotal: Number(formData.AmountTotal) || 0,
+                Residual: Number(formData.Residual) || 0,
+                State: formData.State || 'draft',
+                UserName: (formData.UserName || '').trim() || 'mock-user',
+                CompanyName: (formData.CompanyName || '').trim() || 'NJD Live',
+                Note: formData.Note || '',
+            };
+            if (!patch.PartnerDisplayName) {
+                toast('Vui lòng nhập Nhà cung cấp', 'error');
+                return;
+            }
+            patch.PartnerNameNoSign = patch.PartnerDisplayName.normalize('NFD').replace(/[̀-ͯ]/g, '');
+            patch.Type = this.cfg.tposType;
+
+            if (isCreate) {
+                const newId = `MOCK-${this.ns}-${Date.now()}-${this.mock.nextId++}`;
+                this.mock.added.unshift({ Id: newId, ...patch });
+                toast(`Đã thêm phiếu mock cho ${patch.PartnerDisplayName} (chỉ local).`, 'success');
+            } else {
+                if (id.startsWith('MOCK-')) {
+                    // Editing a previously added mock row → update in-place
+                    const idx = this.mock.added.findIndex((r) => String(r.Id) === id);
+                    if (idx >= 0) this.mock.added[idx] = { ...this.mock.added[idx], ...patch };
+                } else {
+                    this.mock.overlay.set(id, patch);
+                }
+                toast(
+                    `Đã lưu thay đổi mock cho phiếu ${patch.Number || id} (chỉ local).`,
+                    'success'
+                );
+            }
+            modal.classList.remove('show');
+            this.render();
+        }
+
+        openDeleteConfirm(id) {
+            const row = this.getRowById(id);
+            if (!row) return;
+            const modal = document.getElementById('modal-purchase-delete');
+            if (!modal) {
+                if (confirm(`Xóa phiếu ${row.Number || id}? (Mock — chỉ local)`)) {
+                    this.executeDelete(id);
+                }
+                return;
+            }
+            modal.dataset.activeNs = this.ns;
+            modal.dataset.activeId = String(id);
+            modal.querySelector('[data-bind="deleteTarget"]').textContent =
+                `${row.Number || id} — ${row.PartnerDisplayName || ''}`;
+            modal.classList.add('show');
+        }
+
+        executeDelete(id) {
+            if (!this.mock) return;
+            const sId = String(id);
+            if (sId.startsWith('MOCK-')) {
+                this.mock.added = this.mock.added.filter((r) => String(r.Id) !== sId);
+            } else {
+                this.mock.deleted.add(sId);
+                this.mock.overlay.delete(sId);
+            }
+            toast(`Đã xóa phiếu ${sId} (mock — không sync TPOS).`, 'success');
+            const modal = document.getElementById('modal-purchase-delete');
+            if (modal) modal.classList.remove('show');
+            this.render();
         }
 
         async activate() {
@@ -587,6 +850,32 @@
             this.loaded = true;
             await this.load();
         }
+    }
+
+    // Lightweight toast that prefers notificationManager when available.
+    function toast(msg, level = 'info') {
+        try {
+            if (window.notificationManager?.show) {
+                window.notificationManager.show(msg, level);
+                return;
+            }
+        } catch (_) {}
+        // Fallback: log + inline div
+        let host = document.getElementById('tpos-mock-toast-host');
+        if (!host) {
+            host = document.createElement('div');
+            host.id = 'tpos-mock-toast-host';
+            host.style.cssText =
+                'position:fixed;top:80px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+            document.body.appendChild(host);
+        }
+        const div = document.createElement('div');
+        const bg = level === 'error' ? '#fee2e2' : level === 'success' ? '#d1fae5' : '#e0f2fe';
+        const fg = level === 'error' ? '#991b1b' : level === 'success' ? '#065f46' : '#1e3a8a';
+        div.style.cssText = `background:${bg};color:${fg};padding:10px 14px;border-radius:8px;border:1px solid currentColor;box-shadow:0 4px 12px rgba(0,0,0,0.12);font-size:13px;font-weight:500;min-width:200px;max-width:400px;`;
+        div.textContent = msg;
+        host.appendChild(div);
+        setTimeout(() => div.remove(), 3500);
     }
 
     // Registry — key by tab id so page-tabs.js can trigger first-load on click
@@ -600,8 +889,59 @@
         });
     }
 
+    // Wire up shared modals (edit form + delete confirm) for purchase mock CRUD.
+    function bindMockModals() {
+        const editModal = document.getElementById('modal-purchase-edit');
+        if (editModal && !editModal.dataset.bound) {
+            editModal.dataset.bound = '1';
+            editModal
+                .querySelectorAll('[data-bind="close"]')
+                .forEach((el) =>
+                    el.addEventListener('click', () => editModal.classList.remove('show'))
+                );
+            editModal.addEventListener('click', (e) => {
+                if (e.target === editModal) editModal.classList.remove('show');
+            });
+            const form = editModal.querySelector('form');
+            if (form) {
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const ns = editModal.dataset.activeNs;
+                    const inst = Object.values(REGISTRY).find((i) => i.ns === ns);
+                    if (!inst) return;
+                    const fd = new FormData(form);
+                    const data = {};
+                    fd.forEach((v, k) => (data[k] = v));
+                    inst.submitEditModal(data);
+                });
+            }
+        }
+        const delModal = document.getElementById('modal-purchase-delete');
+        if (delModal && !delModal.dataset.bound) {
+            delModal.dataset.bound = '1';
+            delModal
+                .querySelectorAll('[data-bind="close"]')
+                .forEach((el) =>
+                    el.addEventListener('click', () => delModal.classList.remove('show'))
+                );
+            delModal.addEventListener('click', (e) => {
+                if (e.target === delModal) delModal.classList.remove('show');
+            });
+            const confirmBtn = delModal.querySelector('[data-bind="confirmDelete"]');
+            if (confirmBtn) {
+                confirmBtn.addEventListener('click', () => {
+                    const ns = delModal.dataset.activeNs;
+                    const id = delModal.dataset.activeId;
+                    const inst = Object.values(REGISTRY).find((i) => i.ns === ns);
+                    if (inst && id) inst.executeDelete(id);
+                });
+            }
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         init();
+        bindMockModals();
         // If a TPOS tab is already active on load (e.g. via hash), trigger first load
         const activeTab = document.querySelector('.page-tab-pane.active')?.dataset.tab;
         if (activeTab && REGISTRY[activeTab]) REGISTRY[activeTab].activate();

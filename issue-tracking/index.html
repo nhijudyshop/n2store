@@ -7,9 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản lý Sự vụ & Điều phối sau bán hàng</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=20260525a">
-    <link rel="stylesheet" href="css/page-tabs.css?v=20260525a">
-    <link rel="stylesheet" href="../shared/css/modern.css?v=20260525a">
+    <link rel="stylesheet" href="css/style.css?v=20260525c">
+    <link rel="stylesheet" href="css/page-tabs.css?v=20260525c">
+    <link rel="stylesheet" href="../shared/css/modern.css?v=20260525c">
     <!-- Mermaid.js for Flow Diagrams -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <!-- Lucide Icons for Notifications -->
@@ -17,10 +17,10 @@
     <!-- Firebase SDK for menu layout sync -->
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="../shared/js/firebase-config.js?v=20260525a"></script>
+    <script src="../shared/js/firebase-config.js?v=20260525c"></script>
     <!-- Navigation (deferred) -->
-    <script defer src="../shared/js/navigation-modern.js?v=20260525a"></script>
-<link rel="stylesheet" href="../shared/css/typography.css?v=20260525a" /> <!-- typography:shared -->
+    <script defer src="../shared/js/navigation-modern.js?v=20260525c"></script>
+<link rel="stylesheet" href="../shared/css/typography.css?v=20260525c" /> <!-- typography:shared -->
 </head>
 
 <body>
@@ -425,6 +425,20 @@
                     </div>
                     <span class="tpos-fso-counter"><strong data-bind="count">0</strong> phiếu</span>
                 </header>
+                <div class="tpos-fso-toolbar">
+                    <button type="button" class="tpos-fso-btn-primary" data-bind="addNew" title="Thêm phiếu mới (mock)">
+                        <i data-lucide="plus"></i> Thêm
+                    </button>
+                    <button type="button" class="tpos-fso-btn-secondary" data-bind="bulkAction" title="Thao tác hàng loạt">
+                        <i data-lucide="settings-2"></i> Thao tác <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
+                    </button>
+                    <button type="button" class="tpos-fso-btn-secondary" data-bind="toggleCols" title="Ẩn / hiện cột">
+                        <i data-lucide="columns-3"></i> Ẩn hiện cột <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
+                    </button>
+                    <span class="tpos-mock-banner" title="Tất cả thay đổi Sửa/Xóa/Thêm chỉ lưu cục bộ trình duyệt, KHÔNG sync TPOS">
+                        <i data-lucide="flask-conical"></i> Mock mode — Sửa/Xóa/Thêm chỉ giả lập
+                    </span>
+                </div>
                 <section class="tpos-fso-filters">
                     <div class="tpos-fso-search">
                         <i data-lucide="search" class="ic"></i>
@@ -483,10 +497,11 @@
                                 <th style="width:140px;">Trạng thái</th>
                                 <th style="width:110px;">Nhân viên</th>
                                 <th style="width:110px;">Công ty</th>
+                                <th style="width:110px;text-align:center;">Hành động</th>
                             </tr>
                         </thead>
                         <tbody data-bind="tbody">
-                            <tr><td colspan="11" class="tpos-fso-empty"><div class="tpos-fso-loader"><div class="sp"></div>Đang tải…</div></td></tr>
+                            <tr><td colspan="12" class="tpos-fso-empty"><div class="tpos-fso-loader"><div class="sp"></div>Đang tải…</div></td></tr>
                         </tbody>
                     </table>
                 </section>
@@ -523,6 +538,20 @@
                     </div>
                     <span class="tpos-fso-counter"><strong data-bind="count">0</strong> phiếu</span>
                 </header>
+                <div class="tpos-fso-toolbar">
+                    <button type="button" class="tpos-fso-btn-primary" data-bind="addNew" title="Thêm phiếu trả mới (mock)">
+                        <i data-lucide="plus"></i> Thêm
+                    </button>
+                    <button type="button" class="tpos-fso-btn-secondary" data-bind="bulkAction" title="Thao tác hàng loạt">
+                        <i data-lucide="settings-2"></i> Thao tác <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
+                    </button>
+                    <button type="button" class="tpos-fso-btn-secondary" data-bind="toggleCols" title="Ẩn / hiện cột">
+                        <i data-lucide="columns-3"></i> Ẩn hiện cột <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
+                    </button>
+                    <span class="tpos-mock-banner" title="Tất cả thay đổi Sửa/Xóa/Thêm chỉ lưu cục bộ trình duyệt, KHÔNG sync TPOS">
+                        <i data-lucide="flask-conical"></i> Mock mode — Sửa/Xóa/Thêm chỉ giả lập
+                    </span>
+                </div>
                 <section class="tpos-fso-filters">
                     <div class="tpos-fso-search">
                         <i data-lucide="search" class="ic"></i>
@@ -579,10 +608,11 @@
                                 <th style="width:140px;">Trạng thái</th>
                                 <th style="width:110px;">Nhân viên</th>
                                 <th style="width:110px;">Công ty</th>
+                                <th style="width:110px;text-align:center;">Hành động</th>
                             </tr>
                         </thead>
                         <tbody data-bind="tbody">
-                            <tr><td colspan="9" class="tpos-fso-empty"><div class="tpos-fso-loader"><div class="sp"></div>Đang tải…</div></td></tr>
+                            <tr><td colspan="10" class="tpos-fso-empty"><div class="tpos-fso-loader"><div class="sp"></div>Đang tải…</div></td></tr>
                         </tbody>
                     </table>
                 </section>
@@ -1037,36 +1067,127 @@ Ví dụ:
         </div>
     </div>
 
+    <!-- Modal: Purchase Order Edit / Create (MOCK — local only, no TPOS sync) -->
+    <div id="modal-purchase-edit" class="modal tpos-mock-modal">
+        <div class="modal-content large-modal">
+            <span class="close-modal" data-bind="close">&times;</span>
+            <h2 class="modal-title">Sửa phiếu (Mock)</h2>
+            <p class="modal-mock-hint">
+                <i data-lucide="flask-conical"></i>
+                Mock mode — Thay đổi chỉ lưu cục bộ trình duyệt, không sync TPOS. Refresh tab sẽ mất.
+            </p>
+            <form class="tpos-mock-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nhà cung cấp <span style="color:#dc2626;">*</span></label>
+                        <input type="text" name="PartnerDisplayName" placeholder="VD: [B16] B16 LỤA SÁNG ( HÀ NỘI)" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Ngày đơn hàng</label>
+                        <input type="datetime-local" name="DateInvoice">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Số phiếu</label>
+                        <input type="text" name="Number" placeholder="VD: BILL/2026/1980">
+                    </div>
+                    <div class="form-group" data-only-invoice>
+                        <label>Số hóa đơn đỏ</label>
+                        <input type="text" name="VatInvoiceNumber" placeholder="(tùy chọn)">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tổng tiền (VND)</label>
+                        <input type="number" name="AmountTotal" min="0" step="1000" value="0">
+                    </div>
+                    <div class="form-group" data-only-invoice>
+                        <label>Còn nợ (VND)</label>
+                        <input type="number" name="Residual" min="0" step="1000" value="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Trạng thái</label>
+                        <select name="State">
+                            <option value="draft">Nháp</option>
+                            <option value="open">Đã xác nhận</option>
+                            <option value="cancel">Đã hủy</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Nhân viên</label>
+                        <input type="text" name="UserName" placeholder="VD: nvkt, Lài">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Công ty</label>
+                        <input type="text" name="CompanyName" value="NJD Live">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Ghi chú nội bộ</label>
+                    <textarea name="Note" rows="2" placeholder="Ghi chú thêm về phiếu mua / trả..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary">Lưu (Mock)</button>
+                    <button type="button" class="btn btn-secondary" data-bind="close">Hủy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Purchase Order Delete Confirm (MOCK) -->
+    <div id="modal-purchase-delete" class="modal tpos-mock-modal">
+        <div class="modal-content small-modal">
+            <span class="close-modal" data-bind="close">&times;</span>
+            <h2>Xác nhận xóa phiếu</h2>
+            <p class="modal-mock-hint">
+                <i data-lucide="flask-conical"></i>
+                Mock mode — Xóa chỉ ẩn dòng cục bộ, KHÔNG xóa thật trên TPOS.
+            </p>
+            <p style="font-size:14px;color:#475569;">
+                Bạn có chắc muốn xóa phiếu <strong data-bind="deleteTarget" style="color:#0f172a;"></strong>?
+            </p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-danger" data-bind="confirmDelete">Xóa (Mock)</button>
+                <button type="button" class="btn btn-secondary" data-bind="close">Hủy</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDKs (compat 10.7.1 - app + firestore đã load ở head) -->
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 
     <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
-    <script type="module" src="../shared/esm/compat.js?v=20260525a"></script>
+    <script type="module" src="../shared/esm/compat.js?v=20260525c"></script>
 
     <!-- Fallback for file:// protocol -->
     <script>
         if (window.location.protocol === 'file:') {
-            document.write('<script src="../shared/js/shared-auth-manager.js?v=20260525a"><\/script>');
+            document.write('<script src="../shared/js/shared-auth-manager.js?v=20260525c"><\/script>');
             document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
         }
     </script>
 
     <!-- Shared API Utils -->
-    <script src="../shared/js/shop-config.js?v=20260525a"></script>
-    <script src="../shared/js/api-config.js?v=20260525a"></script>
-    <script src="../shared/js/token-manager.js?v=20260525a"></script>
-    <script src="../shared/js/api-handler.js?v=20260525a"></script>
+    <script src="../shared/js/shop-config.js?v=20260525c"></script>
+    <script src="../shared/js/api-config.js?v=20260525c"></script>
+    <script src="../shared/js/token-manager.js?v=20260525c"></script>
+    <script src="../shared/js/api-handler.js?v=20260525c"></script>
 
     <!-- Module Scripts -->
-    <script src="js/firebase-init.js?v=20260525a"></script>
-    <script src="../shared/js/api-service.js?v=20260525a"></script>
-    <script src="../shared/js/audit-logger.js?v=20260525a"></script>
-    <script src="js/script.js?v=20260525a"></script>
-    <script src="js/customer-orders-lookup.js?v=20260525a"></script>
-    <script src="js/phone-copy.js?v=20260525a"></script>
-    <script src="js/tpos-fastsale-tab.js?v=20260525a"></script>
-    <script src="js/page-tabs.js?v=20260525a"></script>
+    <script src="js/firebase-init.js?v=20260525c"></script>
+    <script src="../shared/js/api-service.js?v=20260525c"></script>
+    <script src="../shared/js/audit-logger.js?v=20260525c"></script>
+    <script src="js/script.js?v=20260525c"></script>
+    <script src="js/customer-orders-lookup.js?v=20260525c"></script>
+    <script src="js/phone-copy.js?v=20260525c"></script>
+    <script src="js/tpos-fastsale-tab.js?v=20260525c"></script>
+    <script src="js/page-tabs.js?v=20260525c"></script>
 </body>
 
 </html>
