@@ -466,6 +466,15 @@
     background: #ddd6fe;
 }
 
+/* Print barcode action — amber (printer icon) */
+.btn-action.act-print {
+    color: #f59e0b;
+    background: #fffbeb;
+}
+.btn-action.act-print:hover {
+    background: #fde68a;
+}
+
 .w2p-history-modal {
     position: fixed;
     inset: 0;

@@ -89,6 +89,7 @@
                     <td>
                         <div class="row-actions">
                             <button class="btn-action act-edit" title="Sửa" onclick="Web2ProductsApp.openEdit('${escapeHtml(p.code)}')"><i data-lucide="pencil"></i></button>
+                            <button class="btn-action act-print" title="In tem mã vạch" onclick="Web2ProductsApp.printBarcode('${escapeHtml(p.code)}')"><i data-lucide="printer"></i></button>
                             <button class="btn-action act-confirm" title="${p.isActive ? 'Tạm dừng' : 'Bán lại'}" onclick="Web2ProductsApp.toggleActive('${escapeHtml(p.code)}', ${!p.isActive})"><i data-lucide="${p.isActive ? 'pause' : 'play'}"></i></button>
                             <button class="btn-action act-history" title="Lịch sử chỉnh sửa" onclick="Web2ProductsApp.openHistory('${escapeHtml(p.code)}')"><i data-lucide="history"></i></button>
                             <button class="btn-action act-delete" title="Xóa" onclick="Web2ProductsApp.remove('${escapeHtml(p.code)}')"><i data-lucide="trash-2"></i></button>
@@ -1142,6 +1143,21 @@
         }
     }
 
+    // Open print barcode dialog for a single product (by code).
+    // Uses dedicated Web2ProductsPrint module — no TPOS API, pure local render.
+    function printBarcode(code) {
+        if (!window.Web2ProductsPrint?.open) {
+            notify('Print module chưa load, refresh trang', 'error');
+            return;
+        }
+        const p = STATE.products.find((x) => x.code === code);
+        if (!p) {
+            notify('Không tìm thấy sản phẩm', 'error');
+            return;
+        }
+        window.Web2ProductsPrint.open([p]);
+    }
+
     window.Web2ProductsApp = {
         openEdit,
         toggleActive,
@@ -1150,6 +1166,7 @@
         goPage,
         openUsagePopover,
         openHistory,
+        printBarcode,
     };
 
     if (document.readyState === 'loading') {
