@@ -243,6 +243,70 @@ const TS = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     });
     console.log('[capture] setup:', JSON.stringify(setupResult).slice(0, 600));
 
+    // Step 5b: Add product via search input on print page (proper UI flow)
+    if (setupResult.linesLen === 0) {
+        console.log('[capture] (5b) add product via search input "Q370X"');
+        const searchInput = page.locator('input#searchString').first();
+        try {
+            await searchInput.scrollIntoViewIfNeeded();
+            await searchInput.click();
+            await searchInput.fill('Q370X');
+            await page.waitForTimeout(1500);
+            // Press Enter to trigger search
+            await searchInput.press('Enter');
+            await page.waitForTimeout(3000);
+            // Click first suggestion in autocomplete dropdown
+            const suggestion = page.locator('.k-list .k-item, ul.k-list li, .ui-menu-item').first();
+            try {
+                await suggestion.click({ force: true, timeout: 5000 });
+            } catch {}
+            await page.waitForTimeout(2000);
+            const linesAfter = await page.evaluate(() => {
+                const $rs = window.angular.element(document.body).injector().get('$rootScope');
+                let target = null;
+                function walk(s, d) {
+                    if (!s || d > 20) return;
+                    if (s.vm?.savePdf && !target) target = s;
+                    let c = s.$$childHead;
+                    while (c) {
+                        walk(c, d + 1);
+                        c = c.$$nextSibling;
+                    }
+                }
+                walk($rs, 0);
+                return {
+                    linesLen: target?.vm?.lines?.length,
+                    line0Keys: target?.vm?.lines?.[0] ? Object.keys(target.vm.lines[0]) : null,
+                    line0Sample: target?.vm?.lines?.[0],
+                };
+            });
+            console.log('[capture] after search:', JSON.stringify(linesAfter).slice(0, 600));
+        } catch (e) {
+            console.log('[capture] search add failed:', e.message.slice(0, 200));
+        }
+    }
+
+    // Ensure PaperId set (was 0)
+    await page.evaluate(() => {
+        const $rs = window.angular.element(document.body).injector().get('$rootScope');
+        let target = null;
+        function walk(s, d) {
+            if (!s || d > 20) return;
+            if (s.vm?.savePdf && !target) target = s;
+            let c = s.$$childHead;
+            while (c) {
+                walk(c, d + 1);
+                c = c.$$nextSibling;
+            }
+        }
+        walk($rs, 0);
+        if (target && target.vm.model.Paper && !target.vm.model.PaperId) {
+            target.$apply(() => {
+                target.vm.model.PaperId = target.vm.model.Paper.Id;
+            });
+        }
+    });
+
     // Step 6: Check vm state pre-click
     const preClick = await page.evaluate(() => {
         const $injector = window.angular?.element(document.body).injector();
