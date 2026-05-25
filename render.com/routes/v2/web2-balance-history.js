@@ -29,7 +29,7 @@ function handleError(res, err, msg = 'Internal error') {
 // =====================================================
 router.get('/', async (req, res) => {
     try {
-        const db = req.app.locals.db;
+        const db = req.app.locals.chatDb || req.app.locals.db;
         const limit = Math.min(parseInt(req.query.limit) || 50, 500);
         const offset = parseInt(req.query.offset) || 0;
         const status = req.query.status || 'all';
@@ -80,7 +80,7 @@ router.get('/', async (req, res) => {
 // =====================================================
 router.get('/stats', async (req, res) => {
     try {
-        const db = req.app.locals.db;
+        const db = req.app.locals.chatDb || req.app.locals.db;
         const r = await db.query(
             `SELECT
                 COUNT(*) AS total,
@@ -102,7 +102,7 @@ router.get('/stats', async (req, res) => {
 // =====================================================
 router.get('/pending', async (req, res) => {
     try {
-        const db = req.app.locals.db;
+        const db = req.app.locals.chatDb || req.app.locals.db;
         const r = await db.query(
             `SELECT pm.id, pm.transaction_id, pm.extracted_phone, pm.matched_customers,
                     pm.created_at,
@@ -125,7 +125,7 @@ router.get('/pending', async (req, res) => {
 // =====================================================
 router.post('/pending/:id/resolve', async (req, res) => {
     try {
-        const db = req.app.locals.db;
+        const db = req.app.locals.chatDb || req.app.locals.db;
         const id = parseInt(req.params.id);
         const { phone, name, resolvedBy } = req.body || {};
         if (!phone) {
@@ -151,7 +151,7 @@ router.post('/pending/:id/resolve', async (req, res) => {
 // =====================================================
 router.patch('/:id/link', async (req, res) => {
     try {
-        const db = req.app.locals.db;
+        const db = req.app.locals.chatDb || req.app.locals.db;
         const id = parseInt(req.params.id);
         const { phone, name } = req.body || {};
         if (!phone) {
