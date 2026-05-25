@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `36f4ba9` — auto: session update
-**Last updated**: 2026-05-25 19:34:45 +07
-**Latest session**: [`RESUME:20260525-193445-36f4ba9`](../20260525-193445-36f4ba9.md)
-**Summary**: auto: session update
+**Latest commit**: `732cd20` — feat(web2): Phase 3 — frontend isolation 100% qua /api/web2/_ (rewrite)
+**Last updated**: 2026-05-25 19:40:11 +07
+**Latest session**: [`RESUME:20260525-194011-732cd20`](../20260525-194011-732cd20.md)
+**Summary**: feat(web2): Phase 3 — frontend isolation 100% qua /api/web2/_ (rewrite)
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 2 file(s)
+- [`web2/`](./web2.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -67,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-25 19:34
+- [`web2/`](./web2.md) — updated 2026-05-25 19:40
