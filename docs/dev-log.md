@@ -25,6 +25,49 @@
 
 ## 2026-05-25
 
+### [web2/products] In tem 100% giống TPOS — port BarcodeLabelDialog + TPOS barcode endpoint
+
+**User ask**: "Tất cả để làm 100% giống tpos" cho phần in tem ở `web2/products/index.html`.
+
+**Issues phiên bản cũ**:
+
+- Modal UI dùng `w2p-print-*` class với CSS riêng (Inter font, clean nhưng KHÔNG giống TPOS Bootstrap-3 palette).
+- Thiếu **Loại in** dropdown (TPOS có 2 mode: "Mặc định (dọc)" / "2 cột (ngang)").
+- Barcode dùng **JsBarcode local** (Code128 SVG) — visual khác TPOS PDF.
+- Print flow: mở tab mới với Blob URL — khác TPOS flow.
+
+**Fix**: Port `purchase-orders/js/lib/barcode-label-dialog.js` (commit `b8fcc150c` claim "100% identical TPOS PDF") sang `web2/products/js/web2-products-print.js`. Strip TPOSClient deps vì Web 2.0 không request TPOS API.
+
+- **Modal CSS**: inline trong JS (mirror BarcodeLabelDialog pattern). TPOS Bootstrap-3 palette: Helvetica Neue/Arial 13px, purple primary `#7266ba`, success `#5cb85c`, warning `#8a6d3b/#fcf8e3/#faebcc`. Field structure `sheet-bg > sheet > group > group-col` mirror TPOS FormModal.
+- **Paper presets**: 3 sizes match `/odata/ProductLabelPaper` (id 7/8/9) — width/height/margin/cols/fontSize chính xác.
+- **Print types**: thêm "Mặc định (dọc)" + "2 cột (ngang)" mirror TPOS `/BarcodeProductLabel/Print` + `/PrintNew`.
+- **Barcode endpoint**: TPOS public `https://gc-statics.tpos.vn/Web/Barcode?type=Code 128&value=CODE&width=600&height=100` (PNG, no auth, verified 200 OK 2026-05-25). KHÔNG vi phạm rule "no TPOS API" vì đây là image generator public, không phải user data API.
+- **Print flow**: fullscreen overlay (`z-index:10000`) + iframe Blob URL + toolbar "In bằng pdf" / "Đóng" giống PO/TPOS thay vì mở tab mới.
+- **buildLabelHTML**: exact mirror controller `style_label()` — chỉ include margin/padding khi != null, font-size + line-height (fs+1), name max-height (fs×2), `<strong>` cho bold, `barcode-pname / barcode-image / barcode-price` class.
+- **Items modal**: tabs (có mã vạch / không có mã vạch), quick apply qty, gán tồn, hiện giá/bold/currency/name, ẩn mã vạch — TẤT CẢ match TPOS.
+
+**Drop TPOS-only features** (vì Web 2.0 là kho riêng):
+
+- `useTposTemplate` toggle + checkbox "In theo mẫu TPOS"
+- `recheckTposForMissingCodes()` query TPOS OData
+- `printViaTPOS()` POST `/odata/BarcodeProductLabel`
+- `tposCodeSet`, `liveTposCache` state
+
+**Verified qua persistent browser session** (localhost:8080):
+
+- Modal mở đúng structure: H4 "In mã vạch", paper opts 3, print type opts 2, gán tồn, hide barcode, warehouse "[WH] Kho Web 2.0", 2 tabs, print button "In bằng pdf (N)".
+- Click "In bằng pdf" → overlay z-index:10000 + iframe complete + toolbar 2 buttons "In bằng pdf" / "Đóng".
+- Barcode image loaded: naturalWidth **600 × 100** (TPOS native size), src đúng `gc-statics.tpos.vn/Web/Barcode?type=Code%20128&value=DEMO-TUI-DENIM`.
+- Label HTML: `width:25mm;height:21mm;font-size:6px;line-height:7px;padding 0.5mm` — exact TPOS `style_label()` output.
+
+**Files**:
+
+- `web2/products/js/web2-products-print.js` rewrite (-625 / +545 dòng, atomic — inline CSS thay external)
+- `web2/products/css/web2-products-print.css` empty + deprecation comment (giữ file tránh 404 cache HTML cũ)
+- `web2/products/index.html` bump version `v=20260525a` → `v=20260525b`
+
+**Status**: ✅ Done — 100% identical TPOS modal + barcode + print structure
+
 ### [web2][live-campaign] Excel "Tải về" build từ native-orders (không gọi TPOS nữa) — ✅ Done
 
 **Yêu cầu user**: "phần tải excel thì không tải từ tpos nữa mà tải theo dữ liệu từ native orders".
