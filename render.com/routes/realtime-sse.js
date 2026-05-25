@@ -440,6 +440,53 @@ walletEvents.on('wallet:update', (data) => {
 console.log('[SSE] Wallet event subscription initialized');
 
 // =====================================================
+// WEB 2.0 wallet events (web2:wallet:update + per-phone)
+// Tách khỏi legacy walletEvents — Web 2.0 wallet service emit riêng.
+// =====================================================
+try {
+    const { web2WalletEvents } = require('../services/web2-wallet-service');
+    web2WalletEvents.on('web2:wallet:update', (data) => {
+        const { phone, wallet, transaction } = data;
+        // Per-phone topic
+        try {
+            notifyClients(
+                `web2:wallet:${phone}`,
+                {
+                    action: 'update',
+                    phone,
+                    wallet,
+                    transaction,
+                    ts: Date.now(),
+                },
+                'wallet_update'
+            );
+        } catch (_) {}
+        // Wildcard topic for list pages
+        try {
+            notifyClientsWildcard('web2:wallet', data, 'wallet_update');
+        } catch (_) {}
+        // Specific Web 2.0 customer-wallet topic
+        try {
+            notifyClients(
+                'web2:customer-wallet',
+                {
+                    action: 'web2_credit',
+                    phone: phone || null,
+                    amount: transaction?.amount || 0,
+                    txType: transaction?.type || null,
+                    walletTxId: transaction?.id || null,
+                    ts: Date.now(),
+                },
+                'update'
+            );
+        } catch (_) {}
+    });
+    console.log('[SSE] Web 2.0 wallet event subscription initialized');
+} catch (e) {
+    console.warn('[SSE] web2-wallet-service not available:', e.message);
+}
+
+// =====================================================
 // EXPORTS
 // =====================================================
 

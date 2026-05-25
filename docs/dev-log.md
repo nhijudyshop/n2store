@@ -25,6 +25,65 @@
 
 ## 2026-05-25
 
+### [web2-isolation] Web 2.0 wallet + SePay matching TRUE ISOLATION khỏi Web 1.0
+
+**Yêu cầu user**: "web 2.0 không cần ví ảo (chắc chắn không đụng web 1.0) → khách CK → khớp 100% → vào ví không cần duyệt → chỉ duyệt khi trùng → không cần kế toán duyệt. Tạo mới riêng web 2.0 không dùng chung web 1.0."
+
+**Kiến trúc mới (cutover 2026-05-25)**:
+
+```
+SePay POST /api/sepay/webhook (1 URL, fan-out 2 path)
+├── LEGACY (Web 1.0) — KHÔNG đổi
+│   INSERT balance_history → processDebtUpdate (admin_settings.auto_approve)
+│   → wallet-event-processor.processDeposit
+│   → customer_wallets/wallet_transactions (có virtual_balance)
+│   → walletEvents.emit('wallet:update')
+└── WEB 2.0 (mới, độc lập)
+    INSERT web2_balance_history → web2-sepay-matching.processWeb2Match
+    → web2-wallet-service.processDeposit (LUÔN auto, KHÔNG virtual)
+    → web2_customer_wallets/web2_wallet_transactions
+    → web2WalletEvents.emit('web2:wallet:update')
+    → SSE topic 'web2:wallet:<phone>' + 'web2:customer-wallet'
+```
+
+**Files mới**:
+
+- `render.com/services/web2-wallet-service.js` — wallet ops trực tiếp web2\_\* (`processDeposit`, `processWithdraw`, `getWallet`, `listTransactions`). EventEmitter riêng `web2WalletEvents`.
+- `render.com/services/web2-sepay-matching.js` — clone simplified matching: QR / exact / single partial → auto; multi partial → `web2_pending_matches`. KHÔNG check `auto_approve_enabled`.
+- `render.com/routes/v2/web2-wallets.js` — `/api/web2/wallets/*` endpoints (list, by-phone, transactions, withdraw, manual deposit).
+- `render.com/routes/v2/web2-balance-history.js` — `/api/web2/balance-history/*` (list, stats, pending, resolve, manual link).
+
+**Files sửa**:
+
+- `render.com/services/web2-wallet-isolation.js` — DROP triggers legacy→web2 (Web 2.0 độc lập, không sync 1-chiều nữa). Thêm SEQUENCE riêng cho `web2_customer_wallets/wallet_transactions/wallet_adjustments` id (avoid collision với legacy backfill range).
+- `render.com/routes/sepay-webhook-core.js` — thêm `_processWeb2Path(db, webhookData)` fire-and-forget song song với legacy `processDebtUpdate`. Best-effort, fail không chặn webhook response.
+- `render.com/routes/realtime-sse.js` — subscribe `web2WalletEvents.on('web2:wallet:update')` → broadcast SSE topics `web2:wallet:<phone>`, `web2:wallet:*` wildcard, và `web2:customer-wallet` alias.
+- `render.com/server.js` — wire `ensureSchema` cho web2-sepay-matching + mount `/api/web2/wallets` + `/api/web2/balance-history`.
+- `web2/balance-history/index.html` — ẩn tab "Kế Toán" + 3 chip (Chờ duyệt/Đã duyệt/Từ chối). Comment policy header rõ Web 2.0 KHÔNG dùng accountant duyệt.
+
+**Schema mới (auto-created on startup)**:
+
+- `web2_customer_wallets` (LIKE customer_wallets, virtual_balance luôn 0 cho Web 2.0)
+- `web2_wallet_transactions`, `web2_wallet_adjustments`
+- `web2_balance_history` (đã có từ migration 081)
+- `web2_pending_matches` (mới — Web 2.0 only, schema giống `pending_customer_matches`)
+- 3 sequences riêng `web2_*_id_seq`
+
+**Backfill 1 lần (auto qua ensureSchema)**:
+
+- `web2_customer_wallets` ← `customer_wallets` (snapshot lúc cutover)
+- `web2_wallet_transactions` ← `wallet_transactions`
+- `web2_wallet_adjustments` ← `wallet_adjustments`
+
+**Policy Web 2.0 enforce**:
+
+- `auto_approve_enabled` setting **không ảnh hưởng** path Web 2.0 (luôn auto)
+- `virtual_balance` luôn 0 trong web2_customer_wallets (KHÔNG ghi credit ảo)
+- Match đa SĐT vẫn cần user chọn ở UI (đúng yêu cầu "cần duyệt mấy trường hợp trùng thôi")
+- KHÔNG có `PENDING_VERIFICATION` cho Web 2.0 transactions — chỉ `AUTO_APPROVED` hoặc null (chưa link)
+
+**Status**: ✅ Done Phase 1 backend. Phase 2 frontend (update `web2/customer-wallet` đọc từ `/api/web2/wallets`, `web2/balance-history` đọc từ `/api/web2/balance-history`) làm sau khi verify backend stable.
+
 ### [delivery-report] Auto-hide ghost orders: POST /cleanup-ghosts khi user mở Tra Soát
 
 **User ask**: "ghost tự động xóa đi" — đơn đã quét nhưng không còn trên TPOS live → tự ẩn khỏi báo cáo.

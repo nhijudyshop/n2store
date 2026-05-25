@@ -138,9 +138,9 @@ chatDbPool
         if (typeof ensurePhoneManagementTables === 'function') {
             ensurePhoneManagementTables(chatDbPool).catch(() => {});
         }
-        // WEB 2.0 — wallet isolation: tạo web2_customer_wallets/transactions/adjustments
-        // + Postgres triggers AFTER INSERT/UPDATE để mirror legacy → web2_* tự động.
-        // Web 1.0 KHÔNG đổi code; Web 2.0 readers chỉ touch web2_*.
+        // WEB 2.0 — wallet isolation (TRUE isolation từ 2026-05-25):
+        // tạo web2_customer_wallets/transactions/adjustments + sequence riêng.
+        // DROP triggers cũ (legacy → web2 sync) — Web 2.0 service tự ghi web2_*.
         try {
             const {
                 ensureSchema: ensureWalletIsolation,
@@ -150,6 +150,16 @@ chatDbPool
             );
         } catch (e) {
             console.warn('[web2-wallet-isolation] require failed:', e.message);
+        }
+        // WEB 2.0 — SePay matching isolation: tạo web2_balance_history +
+        // web2_pending_matches để Web 2.0 webhook fan-out có chỗ ghi.
+        try {
+            const { ensureSchema: ensureSepayMatching } = require('./services/web2-sepay-matching');
+            ensureSepayMatching(chatDbPool).catch((e) =>
+                console.warn('[web2-sepay-matching] init warn:', e.message)
+            );
+        } catch (e) {
+            console.warn('[web2-sepay-matching] require failed:', e.message);
         }
     })
     .catch((err) => console.error('[DATABASE] PostgreSQL connection error:', err.message));
@@ -488,6 +498,12 @@ const web2Supplier360Routes = require('./routes/v2/supplier-360');
 app.use('/api/v2/supplier-360', web2Supplier360Routes); // WEB2.0 NCC 360 (F07)
 const web2CartRoutes = require('./routes/v2/cart');
 app.use('/api/v2/cart', web2CartRoutes); // WEB2.0 Pancake comment cart (drag-drop SP)
+// WEB 2.0 — Wallet + Balance History độc lập (NO virtual, NO accountant approval).
+// Tách hoàn toàn khỏi /api/v2/wallets + /api/v2/balance-history (Web 1.0 v2 API).
+const web2WalletsRoutes = require('./routes/v2/web2-wallets');
+app.use('/api/web2/wallets', web2WalletsRoutes);
+const web2BalanceHistoryRoutes = require('./routes/v2/web2-balance-history');
+app.use('/api/web2/balance-history', web2BalanceHistoryRoutes);
 const livestreamSnapshotsRoutes = require('./routes/livestream-snapshots');
 app.use('/api/livestream', livestreamSnapshotsRoutes); // WEB2.0 livestream snapshot per customer
 app.use('/api/attendance', attendanceRoutes);
