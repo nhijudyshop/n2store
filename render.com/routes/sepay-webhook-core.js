@@ -8,18 +8,57 @@
 const { fetchWithTimeout } = require('../../shared/node/fetch-utils.cjs');
 
 // =====================================================
-// WEB 2.0 ISOLATION: dual-write Sepay transactions vào CẢ 2 bảng.
-// Mỗi lần webhook INSERT vào balance_history (Web 1 legacy), gọi helper này
-// để copy sang web2_balance_history. Best-effort — fail không chặn webhook
-// flow. Idempotent (ON CONFLICT sepay_id DO NOTHING).
-// Web 2.0 routes (v2/balance-history.js) chỉ đọc/sửa web2_balance_history → KHÔNG
-// đụng dữ liệu Web 1. Sepay vẫn dùng webhook cũ, KHÔNG cần đổi endpoint.
+// WEB 2.0 ISOLATION (TRUE): dual-path Sepay transactions.
+//
+// Mỗi webhook fire 2 đường song song:
+//   1. LEGACY: INSERT balance_history → processDebtUpdate (existing) → ghi
+//      customer_wallets, virtual_credits, accountant flow… (Web 1)
+//   2. WEB 2.0: INSERT web2_balance_history → web2_processWeb2Match → ghi
+//      web2_customer_wallets, web2_wallet_transactions, KHÔNG virtual, LUÔN auto
+//
+// 2 path độc lập hoàn toàn:
+//   - Failure 1 side không chặn side kia
+//   - Web 1.0 UI vẫn dùng admin_settings.auto_approve_enabled như cũ
+//   - Web 2.0 UI auto luôn, không có accountant duyệt
+//
+// Helper _mirrorToWeb2BalanceHistory bị giữ làm fallback cũ (no-op nếu Web 2.0
+// path mới đã chạy thành công).
 // =====================================================
+let _web2Sepay = null;
+try {
+    _web2Sepay = require('../services/web2-sepay-matching');
+} catch (e) {
+    console.warn('[SEPAY-WEBHOOK] web2-sepay-matching not loaded:', e.message);
+}
+
+async function _processWeb2Path(db, webhookData) {
+    if (!_web2Sepay || !db) return;
+    try {
+        const { id, isDuplicate } = await _web2Sepay.insertWeb2BalanceHistory(db, webhookData);
+        if (!id || isDuplicate) return; // skip if dup
+        // Run matching async (don't block legacy flow). Best-effort.
+        if (webhookData.transferType === 'in') {
+            const result = await _web2Sepay.processWeb2Match(db, id, fetchWithTimeout);
+            if (result?.success) {
+                console.log(
+                    `[WEB2-SEPAY] tx ${id} matched: method=${result.method} phone=${result.phone || '-'} wallet_tx=${result.walletTxId || '-'}`
+                );
+            } else {
+                console.log(
+                    `[WEB2-SEPAY] tx ${id} not matched: ${result?.reason || 'unknown'} ${result?.partialPhone ? '(' + result.partialPhone + ')' : ''}`
+                );
+            }
+        }
+    } catch (e) {
+        console.warn('[WEB2-SEPAY] _processWeb2Path failed:', e.message);
+    }
+}
+
+// Legacy fallback — giữ để khỏi vỡ migration cũ. Web 2.0 path mới đã INSERT
+// rồi, function này no-op vì ON CONFLICT DO NOTHING.
 async function _mirrorToWeb2BalanceHistory(db, sepayId) {
     if (!db || !sepayId) return;
     try {
-        // Copy row vừa INSERT sang web2_ table. Schema giống hệt (CREATE LIKE
-        // INCLUDING ALL trong v2/balance-history.js#ensureWeb2BalanceHistory).
         await db.query(
             `INSERT INTO web2_balance_history
              SELECT * FROM balance_history
@@ -28,8 +67,6 @@ async function _mirrorToWeb2BalanceHistory(db, sepayId) {
             [sepayId]
         );
     } catch (e) {
-        // Web 2.0 bảng chưa tồn tại (route v2/balance-history chưa hit lần nào
-        // → ensureWeb2BalanceHistory chưa chạy). Log warning, không throw.
         if (!String(e.message).includes('does not exist')) {
             console.warn('[SEPAY-WEBHOOK] mirror to web2 failed:', e.message);
         }
