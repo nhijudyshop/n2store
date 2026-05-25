@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `93a6e0f` — auto: session update
-**Last updated**: 2026-05-25 10:27:16 +07
-**Latest session**: [`RESUME:20260525-102716-93a6e0f`](../20260525-102716-93a6e0f.md)
+**Latest commit**: `7b6cd13` — auto: session update
+**Last updated**: 2026-05-25 10:29:49 +07
+**Latest session**: [`RESUME:20260525-102949-7b6cd13`](../20260525-102949-7b6cd13.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`issue-tracking/`](./issue-tracking.md) — 3 file(s)
 - [`product-warehouse/`](./product-warehouse.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -47,7 +44,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-21 15:39
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 10:27
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 10:29
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
