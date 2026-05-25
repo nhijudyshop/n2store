@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7a2656d` — fix(product-warehouse): loadVariantImages dùng TPOS thay vì Render DB
-**Last updated**: 2026-05-25 11:46:52 +07
-**Latest session**: [`RESUME:20260525-114652-7a2656d`](../20260525-114652-7a2656d.md)
-**Summary**: fix(product-warehouse): loadVariantImages dùng TPOS thay vì Render DB
+**Latest commit**: `e5cd3a3` — feat(orders-report): gỡ permission gate cho toggle RT & Auto T
+**Last updated**: 2026-05-25 11:48:06 +07
+**Latest session**: [`RESUME:20260525-114806-e5cd3a3`](../20260525-114806-e5cd3a3.md)
+**Summary**: feat(orders-report): gỡ permission gate cho toggle RT & Auto T
 
 ## Folders affected in this commit
 
-- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 18:41
-- [`docs/`](./docs.md) — updated 2026-05-25 11:35
+- [`docs/`](./docs.md) — updated 2026-05-25 11:48
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -41,7 +42,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-05-21 15:39
+- [`orders-report/`](./orders-report.md) — updated 2026-05-25 11:48
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 11:46
