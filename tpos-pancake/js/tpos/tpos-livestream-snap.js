@@ -2468,19 +2468,31 @@ Throttle 30s/KH. Click để tắt.`;
                  alt=""
                  style="max-width:90vw;max-height:78vh;object-fit:contain;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.6);cursor:default;" />
             <div style="margin-top:14px;display:flex;align-items:center;gap:12px;">
-                <a href="${_esc(data.livestreamUrl || '#')}" target="_blank" rel="noopener"
-                   style="background:#3b82f6;color:#fff;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;">
+                <button type="button" class="snap-lb-play"
+                        data-url="${_esc(data.livestreamUrl || '')}"
+                        style="background:#3b82f6;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;">
                    🔗 Xem live tại giây ${data.offsetSeconds ?? '?'} (${offsetText})
-                </a>
-                <button type="button"
+                </button>
+                <button type="button" class="snap-lb-close"
                         style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">
                    ✕ Đóng
                 </button>
             </div>
         `;
         lb.querySelector('img').addEventListener('click', (e) => e.stopPropagation());
-        lb.querySelector('a').addEventListener('click', (e) => e.stopPropagation());
-        lb.querySelector('button').addEventListener('click', () => lb.remove());
+        // Mở FB plugin player trong popup window size cố định (plugin URL stretches
+        // full khi mở tab thường vì design cho iframe embed).
+        lb.querySelector('.snap-lb-play').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const url = e.currentTarget.dataset.url;
+            if (!url) return;
+            window.open(
+                url,
+                'fbVideoPlayer',
+                'width=820,height=520,toolbar=no,menubar=no,location=no,status=no,resizable=yes,scrollbars=no'
+            );
+        });
+        lb.querySelector('.snap-lb-close').addEventListener('click', () => lb.remove());
         lb.addEventListener('click', () => lb.remove());
         const escClose = (e) => {
             if (e.key === 'Escape') {
@@ -2657,7 +2669,7 @@ Throttle 30s/KH. Click để tắt.`;
                                 <div style="font-size:10px;color:#64748b;margin-top:2px;display:flex;gap:4px;align-items:center;">${pageBadge}${s.note ? ' · ' + _esc(s.note) : ''}</div>
                             </div>
                             <div style="display:flex;flex-direction:column;gap:3px;">
-                                <a href="${_esc(url)}" target="_blank" rel="noopener" title="Mở FB live tại thời điểm chụp" style="font-size:10px;color:#fff;background:#1877f2;padding:3px 8px;border-radius:5px;text-decoration:none;font-weight:600;text-align:center;">▶ Xem</a>
+                                <button type="button" class="snap-pop-play" data-url="${_esc(url)}" title="Mở FB plugin player (popup 820×520) tại thời điểm chụp" style="font-size:10px;color:#fff;background:#1877f2;border:none;padding:3px 8px;border-radius:5px;cursor:pointer;font-weight:600;text-align:center;">▶ Xem</button>
                                 <button type="button" class="snap-pop-refresh" data-id="${s.id}" title="Refresh thumbnail từ FB Graph (lazy fetch hiện tại)" style="font-size:10px;color:#0c4a6e;background:#e0f2fe;border:none;padding:3px 8px;border-radius:5px;cursor:pointer;font-weight:600;">🔄</button>
                                 <button type="button" class="snap-pop-del" data-id="${s.id}" title="Xóa snapshot" style="font-size:10px;color:#dc2626;background:#fee2e2;border:none;padding:3px 8px;border-radius:5px;cursor:pointer;font-weight:600;">Xóa</button>
                             </div>
@@ -2669,6 +2681,21 @@ Throttle 30s/KH. Click để tắt.`;
                 img.addEventListener('mouseenter', () => _showZoomPreview(img));
                 img.addEventListener('mousemove', () => _showZoomPreview(img));
                 img.addEventListener('mouseleave', _hideZoomPreview);
+            });
+
+            // ▶ Xem button: open FB plugin player trong popup window size 820x520
+            // (URL plugin/video.php khi mở tab thường stretches full → xấu).
+            body.querySelectorAll('.snap-pop-play').forEach((btn) => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const url = btn.dataset.url;
+                    if (!url) return;
+                    window.open(
+                        url,
+                        'fbVideoPlayer',
+                        'width=820,height=520,toolbar=no,menubar=no,location=no,status=no,resizable=yes,scrollbars=no'
+                    );
+                };
             });
 
             // 🔄 button giờ trigger backend extract-frame (yt-dlp + ffmpeg) thay vì
