@@ -1052,15 +1052,10 @@ html body {
     width: 160px;
 }
 
+/* Action buttons size handled by main rule above (padding 5px 10px → ~34×30).
+   This block intentionally left without fixed width so TPOS padding shows correctly. */
 .warehouse-table .col-actions .btn-action {
-    width: 24px !important;
-    height: 24px !important;
     margin: 0 0.5px !important;
-}
-
-.warehouse-table .col-actions .btn-action i {
-    width: 12px !important;
-    height: 12px !important;
 }
 
 /* Row height — TPOS ~58-66px; td padding 4px vertical matches image cell padding */
