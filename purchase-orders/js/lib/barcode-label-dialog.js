@@ -202,8 +202,10 @@ window.BarcodeLabelDialog = (function () {
 .bld-add-row:hover{text-decoration:underline}
 /* Footer — .modal-footer */
 .bld-modal-footer{padding:15px;border-top:1px solid #e5e5e5;text-align:left}
-.bld-btn-primary{display:inline-block;padding:6px 12px;font-size:12px;font-weight:400;color:#fff;background:#337ab7;border:1px solid #2e6da4;border-radius:3px;cursor:pointer;line-height:1.5;margin-right:5px}
-.bld-btn-primary:hover{background:#286090;border-color:#204d74}
+/* TPOS purple primary (matches /Content/themes/angulr btn-primary) — verified
+   2026-05-25 from tomato.tpos.vn computed style rgb(114,102,186). */
+.bld-btn-primary{display:inline-block;padding:5px 10px;font-size:12px;font-weight:400;color:#fff;background:#7266ba;border:1px solid #7266ba;border-radius:3px;cursor:pointer;line-height:1.5;margin-right:5px}
+.bld-btn-primary:hover{background:#6457a8;border-color:#6457a8}
 .bld-btn-primary:disabled{opacity:.65;cursor:not-allowed}
 .bld-btn-default{display:inline-block;padding:6px 12px;font-size:12px;font-weight:400;color:#333;background:#fff;border:1px solid #ccc;border-radius:3px;cursor:pointer;line-height:1.5}
 .bld-btn-default:hover{background:#e6e6e6;border-color:#adadad}
@@ -240,8 +242,16 @@ window.BarcodeLabelDialog = (function () {
                             </div>
                         </div>
                     </div>
-                    <!-- Right column: Áp dụng nhanh số lượng -->
+                    <!-- Right column: Kho/Kho hàng (matches TPOS form layout) -->
                     <div class="bld-group-col">
+                        <div class="bld-field-row">
+                            <span class="bld-field-label">Kho/Kho hàng</span>
+                            <div class="bld-field-value">
+                                <select id="bld-warehouse">
+                                    <option selected>[WH] Nhi Judy Store</option>
+                                </select>
+                            </div>
+                        </div>
                         <div class="bld-field-row" style="justify-content:flex-end;gap:8px;">
                             <button class="bld-btn-success" id="bld-apply-qty">Áp dụng nhanh số lượng</button>
                             <input type="number" id="bld-quick-qty" class="bld-quick-input" value="1" min="1" max="999">
