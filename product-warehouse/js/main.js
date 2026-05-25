@@ -1832,6 +1832,19 @@
             // Populate Phase 2/3 sections
             await populateAdvancedSections(detail);
 
+            // Mirror small image preview into the bigger "Ảnh" tab preview
+            const smallPreview = document.getElementById('editImagePreview');
+            const largePreview = document.getElementById('editImagesPreviewLarge');
+            if (smallPreview && largePreview) {
+                const img = smallPreview.querySelector('img');
+                if (img && img.src) {
+                    largePreview.innerHTML = `<img src="${img.src}" alt="" style="max-width:100%;max-height:100%;object-fit:contain;">`;
+                } else {
+                    largePreview.innerHTML =
+                        '<span style="color:#9ca3af;font-size:13px">Chưa có ảnh</span>';
+                }
+            }
+
             $('#editProductModal').classList.add('show');
             WS.initIcons();
         } catch (err) {

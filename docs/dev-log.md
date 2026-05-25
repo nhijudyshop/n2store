@@ -25,6 +25,35 @@
 
 ## 2026-05-25
 
+### [web2/partner-customer] TPOS-clone Khách hàng — sync 2 chiều TPOS Partner
+
+**Yêu cầu user**: Clone trang `tomato.tpos.vn/#/app/partner/customer/list1` cho Web 2.0 (`web2/partner-customer/`), sync 2 chiều với TPOS (sửa ở web → TPOS, sửa ở TPOS → web thấy), hiển thị đầy đủ data TPOS.
+
+**Approach**: Bỏ placeholder cũ dùng `Web2Shell.bootstrap` + Postgres `web2_entities`. Build dedicated page gọi trực tiếp TPOS OData `/Partner` qua CF proxy — y hệt pattern `live-campaign` (commit `ecce60053`). Không có DB trung gian → sync 2 chiều "tự nhiên": mỗi load fetch fresh từ TPOS, mỗi action POST/PUT/DELETE đi thẳng TPOS.
+
+**Files thay đổi**:
+
+- `web2/partner-customer/index.html` — rewrite hoàn toàn từ Web2Shell shortcut → full HTML có: header KH + Sinh nhật badge + sync pill, ô tìm kiếm, toolbar (Thêm/Xuất Excel/…), status counts bar (Bình thường/Bom hàng/Cảnh báo/Nguy hiểm/VIP), bảng 9 cột (checkbox/Tên+Status/SĐT+Nhà mạng/Email/Địa chỉ/Nhãn/Nợ/Hiệu lực/Actions), pagination, modal Thêm/Sửa.
+- `web2/partner-customer/css/partner-customer.css` — mới: prefix `pc-` để tránh đụng chéo. Match tone của `tpos-theme.css`. Có popover đổi trạng thái với 5 dot màu.
+- `web2/partner-customer/js/partner-customer-api.js` — wrapper TPOS `Partner` OData (list/getStats/getOne/create/update/setActive/updateStatus/remove/listCategories) + helpers (statusText/statusClass/detectCarrier/formatCurrency). Tất cả qua `chatomni-proxy.../api/odata/Partner...`, auth qua `window.tokenManager.authenticatedFetch`.
+- `web2/partner-customer/js/partner-customer-app.js` — UI controller: render bảng, filter (status pill, hiệu lực, email, nhãn, nhóm KH), search, pagination, modal CRUD, bulk actions (bật/tắt hiệu lực, xóa), xuất Excel client-side (SheetJS 3 CDN fallback), **popover click status để đổi nhanh** (5 tùy chọn với dot màu, gọi `Partner({id})/ODataService.UpdateStatus` + fallback PUT full body).
+
+**API endpoints dùng** (TPOS OData qua CF proxy):
+
+- `GET /api/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&$filter=...&$top=...&$skip=...&$count=true&Name=<search>` — list + count
+- `GET /api/odata/Partner({id})` — get full record cho edit modal
+- `POST /api/odata/Partner` — create (Type='Customer', Customer=true)
+- `PUT /api/odata/Partner({id})` — update full body (GET first, merge, strip @odata, PUT)
+- `POST /api/odata/Partner({id})/ODataService.UpdateStatus` — quick status change
+- `DELETE /api/odata/Partner({id})` — remove
+- `GET /api/odata/PartnerCategory?$filter=Active+eq+true` — load Nhóm KH cho filter dropdown
+
+**Test live (localhost:8080)**: page render 91,853 KH (1–50 / 91.853), row đầu "Yến Iêuu | Bình thường | 0869695595 Viettel | …", 0 console errors. Stats per-status ban đầu trả 0 do `$top=0` — fix bằng `$top=1` (TPOS GetViewV2 không honor $top=0).
+
+**Quick status edit (user request "chỉnh trạng thái khách hàng")**: click chữ status (vd "Bình thường") dưới tên khách → popover ▾ hiện 5 lựa chọn với dot màu → click → optimistic update local + refresh stats + gọi TPOS UpdateStatus. Sync 2 chiều tự nhiên.
+
+**Status**: ✅ Done. Trang load real data từ TPOS, đủ filter/CRUD/Excel/quick-status. KHÔNG dùng `Web2Shell` framework nữa cho trang này — toàn bộ HTML + JS + CSS dedicated. KHÔNG cần SSE/Render route (vì không có DB trung gian).
+
 ### [web2/products] Bỏ TPOS barcode endpoint — chuyển JsBarcode CDN, ZERO request tpos.vn
 
 **User báo**: "không dùng request tpos nha, nếu đang dùng thì nói tôi đang dùng cái nào" + "tôi thấy bạn có thể clone của tpos được mà cần gì request".
@@ -129,6 +158,31 @@
 - Số tiền format `#,##0`, ngày `dd/mm/yyyy hh:mm`, sheet name = tên campaign.
 
 **Trade-off**: campaigns cũ (chỉ có TPOS-side orders, chưa migrate sang Đơn Web) sẽ Excel rỗng. Tradeoff chấp nhận theo yêu cầu user.
+
+### [product-warehouse][tpos] Edit modal 6 tab TPOS + fix expand + fix ảnh template — ✅ Done
+
+**Mục tiêu**: Edit modal mirror TPOS `producttemplate/form` 6 tab (Thông tin chung / Ảnh / Biến thể / Thông tin khác / Lịch sử / Lịch sử giá vốn). Đồng thời fix 2 regression sau khi chuyển sang TPOS-direct: (1) ảnh tab Sản phẩm không load do dùng Render proxy với template Id sai; (2) expand button báo "Không có biến thể" do `WarehouseAPI.getProduct(templateId)` lookup Render DB bằng `tpos_product_id`, nhưng template Id không phải `tpos_product_id` của row nào.
+
+**Files modified**:
+
+- `product-warehouse/index.html`: thêm `<nav class="tpos-edit-tabs">` 6 tab. `data-tab="general|images|variants|other|history|costhistory"` trên mỗi fieldset. Thêm fieldset Ảnh (240×240 preview mirror) + costhistory stub. Modal width 640 → 920px.
+- `product-warehouse/css/warehouse-tpos.css`: `.tpos-edit-tabs` underline TPOS style. `.tpos-edit-modal-body[data-active-tab=X] fieldset[data-tab=X]` selector show/hide. Restyle header xám TPOS, fieldset border `--pw-border`, legend uppercase purple `--pw-accent`, input 30px sharp 2px.
+- `product-warehouse/js/main.js`:
+    - Tab click handler set `body.dataset.activeTab` + toggle `.is-active`.
+    - `openEditProduct` reset tab về `general` + mirror ảnh nhỏ → preview to ở tab Ảnh.
+    - **Fix expand**: rewrite `fetchVariants` → gọi TPOS `ProductTemplate(${id})?$expand=ProductVariants($expand=AttributeValues,UOM)` trực tiếp thay vì `WarehouseAPI.getProduct`.
+    - **Fix HTTP 400**: drop `($expand=Partner)` khỏi `ProductSupplierInfos` trong `fetchProductDetail` (TPOS đã drop navigation property — đã có precedent fix ở `sync-tpos-products.js`).
+    - **Fix ảnh tab Sản phẩm**: `mapTposRow` dùng `row.ImageUrl` trực tiếp (TPOS CDN public URL) thay vì proxy qua `${RENDER_API}/image/${productId}`. Lý do: với template có variants, Render proxy 404 vì DB không có row `tpos_product_id = template_id`.
+
+**Verification** (localhost:8080 + Playwright, template B2537 / 119312 có 2 variants B2537H + B2537N):
+
+- Ảnh tab Sản phẩm: 49/49 load thành công, 0 broken.
+- Expand: 2 variant rows hiển thị với attribute, giá, kho.
+- Edit modal: opens với name "2505 B35 SET ÁO 2D + Q.SUÔNG REN", code "B2537", default tab "general" (8 fieldsets visible).
+- Tab switching qua 6 tabs: visible fieldsets match `data-tab` đúng (variants→2, other→1, history→1, costhistory→1, images→1).
+- Modal style: TPOS purple underline tabs, sharp 2px corners, grey borders.
+
+---
 
 ### [product-warehouse][tpos] Tab Sản phẩm/Biến thể — TPOS-direct + UI nút thao tác giống TPOS — ✅ Done
 
