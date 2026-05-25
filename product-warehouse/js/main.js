@@ -1380,6 +1380,20 @@
         $('#editProductModal')?.addEventListener('click', (e) => {
             if (e.target === e.currentTarget) closeEditModal();
         });
+
+        // TPOS edit modal tab bar — switch active tab pane
+        document.querySelectorAll('.tpos-edit-tab').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.editTab;
+                if (!tab) return;
+                document.querySelectorAll('.tpos-edit-tab').forEach((b) => {
+                    b.classList.toggle('is-active', b.dataset.editTab === tab);
+                });
+                const body = document.querySelector('.tpos-edit-modal-body');
+                if (body) body.setAttribute('data-active-tab', tab);
+            });
+        });
+
         setupImageUpload();
 
         // Print barcode — click print button (single product)
@@ -1683,10 +1697,11 @@
      * Fetch full product detail from TPOS (needed for UpdateV2)
      */
     async function fetchProductDetail(templateId) {
-        // Full $expand matches render.com/config/tpos.config.js:15 — all nested relations
-        // that TPOS exposes for ProductTemplate. Don't drop any; user wants 100% parity.
+        // Full $expand mirrors render.com/services/sync-tpos-products.js:245 — all nested
+        // relations TPOS exposes. `Partner` nested-expand was dropped by TPOS (HTTP 400),
+        // so ProductSupplierInfos is fetched without sub-expand.
         const expand = encodeURIComponent(
-            'UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues),AttributeLines($expand=Attribute,Values),UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos($expand=Partner)'
+            'UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues),AttributeLines($expand=Attribute,Values),UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos'
         );
         const url = `${PROXY_URL}/api/odata/ProductTemplate(${templateId})?$expand=${expand}`;
         const response = await window.tokenManager.authenticatedFetch(url, {
@@ -1752,6 +1767,13 @@
             editingProduct = detail;
             editImageBase64 = null;
             modalMode = 'edit';
+
+            // Reset active tab to "Thông tin chung" on every open
+            const tposBody = document.querySelector('.tpos-edit-modal-body');
+            if (tposBody) tposBody.setAttribute('data-active-tab', 'general');
+            document.querySelectorAll('.tpos-edit-tab').forEach((b) => {
+                b.classList.toggle('is-active', b.dataset.editTab === 'general');
+            });
 
             // Restore heading + save button for edit mode
             const heading = $('#editProductModal h3');
