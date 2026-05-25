@@ -25,6 +25,44 @@
 
 ## 2026-05-25
 
+### [delivery-report] Migrate bill image localStorage → Postgres BYTEA (persist cross-device)
+
+**User ask**: "sao mất hình rồi?" → ảnh chứng từ trong Báo cáo modal bị mất khi đổi browser/clear cache. Vì lưu localStorage. User OK migrate sang DB.
+
+**Files**:
+
+- `render.com/routes/v2/delivery-assignments.js`:
+    - `ensureImagesSchema()`: CREATE TABLE `delivery_assignment_images` (PK `assignment_date + group_name`) — BYTEA + mime + size + uploaded_by.
+    - `PUT /image/:date/:group` — upsert dataUrl (max 10MB), parseDataUrl (base64 vs raw). Validates `isValidDate` + `isValidGroup` (tomato/nap/city/shop/return).
+    - `GET /image/:date/:group` — serve binary với `Content-Type`, `Cache-Control: private,max-age=60`, ETag từ uploaded_at timestamp.
+    - `DELETE /image/:date/:group` — remove row.
+    - `GET /image-flags?from=&to=` — list `["YYYY-MM-DD__group", ...]` cho range — frontend dùng để biết cell nào hiện icon đầy.
+    - Export `ensureImagesSchema` cho server.js wire.
+- `render.com/server.js`: thêm startup hook gọi `ensureImagesSchema(chatDbPool)` (sau wallet + sepay isolation).
+- `delivery-report/js/report.js`:
+    - `state.imageFlags: Set` + `state.imageFlagsFetched: Map` (rangeKey → ts, TTL 60s).
+    - `imageUrl(date, group, cacheBust)` helper → endpoint URL.
+    - `loadImageFlags(from, to)` cache 60s, clear flags trong range trước khi rewrite (tránh stale).
+    - `hasImageFlag(date, group)` thay `!!ov.billImage` check ở `paintTable`.
+    - `uploadImage` / `deleteImage` async qua endpoint (PUT/DELETE).
+    - `saveCurrentImage` async + spinner button + alert on fail.
+    - `openImageModal`: nếu `hasImageFlag` → preview src = endpoint URL (cache-bust query); ngược lại paste zone. Info text "Đã lưu trên server".
+    - Hover preview: src = endpoint URL (browser cache theo ETag 60s).
+    - `render()` fire-and-forget `loadImageFlags` → khi xong repaint nếu range vẫn match.
+    - **`migrateLocalStorageImagesOnce()`**: scan `state.overrides` → upload từng `billImage` lên DB → clear billImage field localStorage. Marker `dr-report-images-migrated-v1` ngăn chạy lại. Trigger trong `open()` modal (fire-and-forget).
+
+**Verify** (Playwright localhost, sau Render deploy):
+
+- PUT /image/2026-05-22/tomato dataUrl 3.7KB JPEG → 200 OK, size 3733 ✅
+- GET /image-flags?from=22&to=22 → `{flags: ["2026-05-22__tomato"]}` ✅
+- GET /image/2026-05-22/tomato → 200, Content-Type image/jpeg, 3733 bytes ✅
+- Modal mở row 23/05/2026 entry (real 22/05) → cell `.has-img` + icon `<i class="fas fa-image">` ✅
+- Hover → popover hiện ảnh từ DB endpoint, natural width 400px ✅
+- DELETE /image/2026-05-22/tomato → `{deleted: 1}` ✅
+- Screenshot: `downloads/n2store-session/dr-img-db-hover.png`.
+
+**Status**: ✅ Done. Ảnh giờ persist cross-device. localStorage chỉ giữ override không phải ảnh (slShip/thuVe/boCK/atruongCK/ckTruoc/note).
+
 ### [web2/shared] Rename Firestore collections sang prefix `web2_*` đồng nhất
 
 **User ask**: "sao customer*wallet_v1 có chữ v1 mà nó là web 2.0 à?" → suffix `_v1`/`_v2` gây confuse với "Web 1.0/2.0". Chuẩn hoá: dùng prefix `web2*` cho mọi Firestore collection của Web 2.0.
