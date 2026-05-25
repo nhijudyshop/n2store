@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5b782f7` — fix(snap): FB seek param = 'start' (not 't') — verified qua Playwright test
-**Last updated**: 2026-05-25 08:55:28 +07
-**Latest session**: [`RESUME:20260525-085528-5b782f7`](../20260525-085528-5b782f7.md)
-**Summary**: fix(snap): FB seek param = 'start' (not 't') — verified qua Playwright test
+**Latest commit**: `8c441a4` — auto: session update
+**Last updated**: 2026-05-25 08:58:05 +07
+**Latest session**: [`RESUME:20260525-085805-8c441a4`](../20260525-085805-8c441a4.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
+- [`purchase-orders/`](./purchase-orders.md) — 2 file(s)
 - [`render.com/`](./render.com.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 2 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -47,12 +48,12 @@
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-24 19:52
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
-- [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-21 15:39
+- [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 08:58
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-25 08:55
+- [`render.com/`](./render.com.md) — updated 2026-05-25 08:58
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-25 08:55
+- [`scripts/`](./scripts.md) — updated 2026-05-25 08:58
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-24 19:12
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
