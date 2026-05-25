@@ -111,41 +111,23 @@ const SharedUtils = {
 
             const isSameDay = dateYear === nowYear && dateMonth === nowMonth && dateDay === nowDay;
 
-            if (isSameDay) {
-                return new Intl.DateTimeFormat('vi-VN', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    timeZone: 'Asia/Ho_Chi_Minh',
-                    hour12: false,
-                }).format(date);
-            }
+            const timeStr = new Intl.DateTimeFormat('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Asia/Ho_Chi_Minh',
+                hour12: false,
+            }).format(date);
 
-            const vnDateObj = new Date(dateYear, dateMonth - 1, dateDay);
-            const vnNowObj = new Date(nowYear, nowMonth - 1, nowDay);
-            const diffDays = Math.floor((vnNowObj - vnDateObj) / (24 * 60 * 60 * 1000));
+            if (isSameDay) return timeStr;
 
-            if (diffDays > 0 && diffDays < 7) {
-                const dayOfWeek = new Intl.DateTimeFormat('en-US', {
-                    timeZone: 'Asia/Ho_Chi_Minh',
-                    weekday: 'short',
-                }).format(date);
-                const days = {
-                    Sun: 'CN',
-                    Mon: 'T2',
-                    Tue: 'T3',
-                    Wed: 'T4',
-                    Thu: 'T5',
-                    Fri: 'T6',
-                    Sat: 'T7',
-                };
-                return days[dayOfWeek] || dayOfWeek;
-            }
-
-            return new Intl.DateTimeFormat('vi-VN', {
+            // Khác ngày → '<DD/MM> HH:MM' để user thấy ngày + giờ rõ ràng.
+            // User feedback: 'đừng ghi CN' — bỏ weekday label, hiện giờ.
+            const dayStr = new Intl.DateTimeFormat('vi-VN', {
                 day: '2-digit',
                 month: '2-digit',
                 timeZone: 'Asia/Ho_Chi_Minh',
             }).format(date);
+            return `${dayStr} ${timeStr}`;
         } catch {
             return '';
         }
