@@ -389,7 +389,11 @@
     // above so the page works offline. Doc: `web2_so_order/main`.
     // -----------------------------------------------------------
 
-    const FIRESTORE_COLLECTION = 'web2_so_order';
+    // Firestore rename transition 2026-05-25: dual-read + dual-write NEW vs OLD.
+    // Pull-style sync (no onSnapshot) — load() merge theo `lastUpdated`, push ghi BOTH.
+    // TODO bỏ OLD ~2026-06-25 sau khi tab user tự refresh hết.
+    const FIRESTORE_COLLECTION_NEW = 'web2_so_order';
+    const FIRESTORE_COLLECTION_OLD = 'so_order_v2';
     const FIRESTORE_DOC = 'main';
 
     const PUSH_DEBOUNCE_MS = 400;
@@ -426,12 +430,18 @@
         async _loadFromFirestore() {
             if (!this._db) return null;
             try {
-                const docRef = this._db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);
-                const snap = await docRef.get();
-                if (!snap.exists) return null;
-                const payload = snap.data() || {};
-                if (!payload.data) return null;
-                return { data: payload.data, lastUpdated: payload.lastUpdated || 0 };
+                const [newSnap, oldSnap] = await Promise.all([
+                    this._db.collection(FIRESTORE_COLLECTION_NEW).doc(FIRESTORE_DOC).get(),
+                    this._db.collection(FIRESTORE_COLLECTION_OLD).doc(FIRESTORE_DOC).get(),
+                ]);
+                const newPayload = newSnap.exists ? newSnap.data() || null : null;
+                const oldPayload = oldSnap.exists ? oldSnap.data() || null : null;
+                const winner =
+                    (Number(newPayload?.lastUpdated) || 0) >= (Number(oldPayload?.lastUpdated) || 0)
+                        ? newPayload
+                        : oldPayload;
+                if (!winner || !winner.data) return null;
+                return { data: winner.data, lastUpdated: winner.lastUpdated || 0 };
             } catch (e) {
                 console.warn('[SoOrderStorage.Sync] load failed:', e.message);
                 return null;
@@ -476,12 +486,22 @@
             const stateSnapshot = this._pendingState;
             this._pendingState = null;
             const ts = Date.now();
+            const payload = { data: stateSnapshot, lastUpdated: ts };
             try {
-                const docRef = this._db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);
-                await docRef.set({ data: stateSnapshot, lastUpdated: ts }, { merge: true });
+                // Dual-write: NEW canonical + OLD legacy mirror (transition).
+                await Promise.all([
+                    this._db
+                        .collection(FIRESTORE_COLLECTION_NEW)
+                        .doc(FIRESTORE_DOC)
+                        .set(payload, { merge: true }),
+                    this._db
+                        .collection(FIRESTORE_COLLECTION_OLD)
+                        .doc(FIRESTORE_DOC)
+                        .set(payload, { merge: true }),
+                ]);
                 this._localLastUpdated = ts;
             } catch (e) {
-                console.warn('[SoOrderStorage.Sync] push failed:', e.message);
+                console.warn('[SoOrderStorage.Sync] dual-push failed:', e.message);
             }
         },
 

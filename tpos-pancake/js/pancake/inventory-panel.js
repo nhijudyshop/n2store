@@ -67,9 +67,19 @@
     async function loadTabsFromSoOrder() {
         try {
             if (typeof firebase === 'undefined' || !firebase.firestore) return [];
-            const snap = await firebase.firestore().collection('web2_so_order').doc('main').get();
-            if (!snap.exists) return [];
-            const data = snap.data()?.data || {};
+            // Transition 2026-05-25: dual-read web2_so_order (NEW) + so_order_v2 (OLD).
+            // TODO bỏ OLD ~2026-06-25 sau khi tab user tự refresh hết.
+            const db = firebase.firestore();
+            const [snapNew, snapOld] = await Promise.all([
+                db.collection('web2_so_order').doc('main').get(),
+                db.collection('so_order_v2').doc('main').get(),
+            ]);
+            const pNew = snapNew.exists ? snapNew.data() || null : null;
+            const pOld = snapOld.exists ? snapOld.data() || null : null;
+            const winner =
+                (Number(pNew?.lastUpdated) || 0) >= (Number(pOld?.lastUpdated) || 0) ? pNew : pOld;
+            if (!winner) return [];
+            const data = winner.data || {};
             const names = [];
             const seen = new Set();
             for (const tab of data.tabs || []) {

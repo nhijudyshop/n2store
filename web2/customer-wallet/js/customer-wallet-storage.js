@@ -18,13 +18,7 @@
     'use strict';
 
     const STORAGE_KEY = 'customerWallet_v1'; // localStorage cache — giữ tên cũ để không mất data local
-    // Firestore rename transition 2026-05-25:
-    // - NEW canonical: `web2_customer_wallet` (đồng nhất prefix `web2_`)
-    // - OLD legacy   : `customer_wallet_v1` (mirror để tab cũ chưa refresh vẫn đồng bộ)
-    // Dual-write + dual-listen. TODO remove OLD writes/listens sau ngày sunset
-    // (đợi mọi tab user tự refresh — gợi ý ≥ 4 tuần, vào ~2026-06-25).
-    const FIRESTORE_COLLECTION_NEW = 'web2_customer_wallet';
-    const FIRESTORE_COLLECTION_OLD = 'customer_wallet_v1';
+    const FIRESTORE_COLLECTION = 'web2_customer_wallet'; // renamed 2026-05-25 from customer_wallet_v1
     const FIRESTORE_DOC = 'main';
     const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
@@ -125,16 +119,6 @@
         return entry;
     }
 
-    // Helper: chọn payload mới hơn theo lastUpdated (Firestore envelope = { data, lastUpdated }).
-    function pickLatest(a, b) {
-        if (!a && !b) return null;
-        if (!a) return b;
-        if (!b) return a;
-        const ta = Number(a.lastUpdated) || 0;
-        const tb = Number(b.lastUpdated) || 0;
-        return ta >= tb ? a : b;
-    }
-
     // ---- Firestore sync ----
     const Sync = {
         _db: null,
@@ -159,16 +143,14 @@
 
         async _load() {
             if (!this._db) return null;
-            // Transition: thử NEW trước, fallback OLD nếu NEW empty.
             try {
-                const [newSnap, oldSnap] = await Promise.all([
-                    this._db.collection(FIRESTORE_COLLECTION_NEW).doc(FIRESTORE_DOC).get(),
-                    this._db.collection(FIRESTORE_COLLECTION_OLD).doc(FIRESTORE_DOC).get(),
-                ]);
-                const newPayload = newSnap.exists ? newSnap.data() || {} : null;
-                const oldPayload = oldSnap.exists ? oldSnap.data() || {} : null;
-                const winner = pickLatest(newPayload, oldPayload);
-                return winner && winner.data ? winner.data : null;
+                const snap = await this._db
+                    .collection(FIRESTORE_COLLECTION)
+                    .doc(FIRESTORE_DOC)
+                    .get();
+                if (!snap.exists) return null;
+                const payload = snap.data() || {};
+                return payload.data || null;
             } catch (e) {
                 console.warn('[CustomerWallet.Sync] load fail:', e.message);
                 return null;
@@ -177,68 +159,36 @@
 
         _listen() {
             if (!this._db) return;
-            const refNew = this._db.collection(FIRESTORE_COLLECTION_NEW).doc(FIRESTORE_DOC);
-            const refOld = this._db.collection(FIRESTORE_COLLECTION_OLD).doc(FIRESTORE_DOC);
-
-            // Dual-listen: gộp snapshot từ NEW + OLD, dùng `lastUpdated` để chọn payload mới nhất.
-            let latestNew = null;
-            let latestOld = null;
-            const emit = () => {
-                const winner = pickLatest(latestNew, latestOld);
-                if (!winner || !winner.data) return;
-                this._isListening = true;
-                try {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(winner.data));
-                    if (this._onRemote) this._onRemote(winner.data);
-                } finally {
-                    setTimeout(() => {
-                        this._isListening = false;
-                    }, 50);
-                }
-            };
-
-            const unsubNew = refNew.onSnapshot(
+            const ref = this._db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);
+            this._unsub = ref.onSnapshot(
                 (snap) => {
-                    latestNew = snap.exists ? snap.data() || null : null;
-                    emit();
+                    if (!snap.exists) return;
+                    const payload = snap.data() || {};
+                    if (!payload.data) return;
+                    this._isListening = true;
+                    try {
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload.data));
+                        if (this._onRemote) this._onRemote(payload.data);
+                    } finally {
+                        setTimeout(() => {
+                            this._isListening = false;
+                        }, 50);
+                    }
                 },
-                (err) => console.warn('[CustomerWallet.Sync] snap NEW err:', err.message)
+                (err) => console.warn('[CustomerWallet.Sync] snap err:', err.message)
             );
-            const unsubOld = refOld.onSnapshot(
-                (snap) => {
-                    latestOld = snap.exists ? snap.data() || null : null;
-                    emit();
-                },
-                (err) => console.warn('[CustomerWallet.Sync] snap OLD err:', err.message)
-            );
-            this._unsub = () => {
-                try {
-                    unsubNew();
-                } catch (_) {}
-                try {
-                    unsubOld();
-                } catch (_) {}
-            };
         },
 
         async push(state) {
             if (!this._db || this._isListening) return false;
-            const payload = { data: state, lastUpdated: Date.now() };
-            // Dual-write: NEW (canonical) + OLD (legacy mirror cho tab cũ chưa refresh).
             try {
-                await Promise.all([
-                    this._db
-                        .collection(FIRESTORE_COLLECTION_NEW)
-                        .doc(FIRESTORE_DOC)
-                        .set(payload, { merge: true }),
-                    this._db
-                        .collection(FIRESTORE_COLLECTION_OLD)
-                        .doc(FIRESTORE_DOC)
-                        .set(payload, { merge: true }),
-                ]);
+                await this._db
+                    .collection(FIRESTORE_COLLECTION)
+                    .doc(FIRESTORE_DOC)
+                    .set({ data: state, lastUpdated: Date.now() }, { merge: true });
                 return true;
             } catch (e) {
-                console.warn('[CustomerWallet.Sync] dual-push fail:', e.message);
+                console.warn('[CustomerWallet.Sync] push fail:', e.message);
                 return false;
             }
         },

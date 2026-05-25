@@ -21,10 +21,7 @@
     'use strict';
 
     const STORAGE_KEY = 'supplierWallet_v1'; // localStorage cache — giữ tên cũ để không mất data local
-    // Firestore rename transition 2026-05-25: dual-write + dual-listen NEW vs OLD,
-    // merge theo `lastUpdated`. TODO bỏ OLD ~2026-06-25 sau khi tab user tự refresh hết.
-    const FIRESTORE_COLLECTION_NEW = 'web2_supplier_wallet';
-    const FIRESTORE_COLLECTION_OLD = 'supplier_wallet_v1';
+    const FIRESTORE_COLLECTION = 'web2_supplier_wallet'; // renamed 2026-05-25 from supplier_wallet_v1
     const FIRESTORE_DOC = 'main';
     const RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
