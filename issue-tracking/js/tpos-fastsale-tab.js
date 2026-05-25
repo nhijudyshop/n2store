@@ -1,13 +1,13 @@
-// #Note: TPOS FastSaleOrder list — invoice ('invoice') & refund ('refund'). Live fetch via window.tokenManager + Cloudflare worker proxy. Paging via OData $top/$skip/$count.
+// #Note: TPOS FastSaleOrder + FastPurchaseOrder list (4 types: invoice/refund/purchase/purchaseRefund). Live fetch via window.tokenManager + Cloudflare worker proxy. Paging via OData $top/$skip/$count.
 
 (function () {
     'use strict';
 
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const ODATA_BASE = `${WORKER_URL}/api/odata/FastSaleOrder/ODataService.GetView`;
 
     const TYPE_CFG = {
         invoice: {
+            entity: 'FastSaleOrder',
             tposType: 'invoice',
             label: 'Hóa đơn',
             colCount: 11,
@@ -15,11 +15,28 @@
             rowRenderer: renderInvoiceRow,
         },
         refund: {
+            entity: 'FastSaleOrder',
             tposType: 'refund',
             label: 'Trả hàng',
             colCount: 10,
             tposPath: 'fastsaleorder/refundlist',
             rowRenderer: renderRefundRow,
+        },
+        purchase: {
+            entity: 'FastPurchaseOrder',
+            tposType: 'invoice',
+            label: 'Mua hàng NCC',
+            colCount: 11,
+            tposPath: 'fastpurchaseorder/invoicelist',
+            rowRenderer: renderPurchaseRow,
+        },
+        purchaseRefund: {
+            entity: 'FastPurchaseOrder',
+            tposType: 'refund',
+            label: 'Trả hàng NCC',
+            colCount: 9,
+            tposPath: 'fastpurchaseorder/refundlist',
+            rowRenderer: renderPurchaseRefundRow,
         },
     };
 
@@ -30,6 +47,15 @@
     const STATE_META = {
         draft: { label: 'Nháp', cls: 's-draft', icon: 'file' },
         open: { label: 'Đang xử lý', cls: 's-open', icon: 'loader' },
+        paid: { label: 'Đã trả', cls: 's-paid', icon: 'wallet' },
+        done: { label: 'Hoàn thành', cls: 's-done', icon: 'check-circle' },
+        cancel: { label: 'Đã hủy', cls: 's-cancel', icon: 'x-circle' },
+    };
+
+    // Purchase orders use different state labels (TPOS: "Đã xác nhận" instead of "Đang xử lý")
+    const PURCHASE_STATE_META = {
+        draft: { label: 'Nháp', cls: 's-draft', icon: 'file' },
+        open: { label: 'Đã xác nhận', cls: 's-open', icon: 'check-circle' },
         paid: { label: 'Đã trả', cls: 's-paid', icon: 'wallet' },
         done: { label: 'Hoàn thành', cls: 's-done', icon: 'check-circle' },
         cancel: { label: 'Đã hủy', cls: 's-cancel', icon: 'x-circle' },
@@ -59,8 +85,8 @@
         };
     }
 
-    function stateBadge(state) {
-        const m = STATE_META[state] || { label: state || '—', cls: 's-draft', icon: 'help-circle' };
+    function stateBadge(state, meta = STATE_META) {
+        const m = meta[state] || { label: state || '—', cls: 's-draft', icon: 'help-circle' };
         return `<span class="tpos-fso-badge ${m.cls}"><i data-lucide="${m.icon}"></i>${m.label}</span>`;
     }
 
@@ -105,6 +131,48 @@
             <td>${stateBadge(row.State)}</td>
             <td><span style="color:#475569;font-size:12px;">${escapeHtml(channel)}</span></td>
             <td><span class="mono" style="color:#64748b;">${date}</span></td>
+        </tr>`;
+    }
+
+    function renderPurchaseRow(row, idx, ns) {
+        const supplier = row.PartnerDisplayName || row.PartnerName || '—';
+        const total = fmtMoney(row.AmountTotal);
+        const residual = row.Residual > 0 ? fmtMoney(row.Residual) : '0đ';
+        const date = fmtDate(row.DateInvoice);
+        const vatNum = row.VatInvoiceNumber || row.Origin || '';
+        const employee = row.UserName || '—';
+        const company = row.CompanyName || '—';
+        return `<tr data-tpos-id="${row.Id || ''}">
+            ${expandCell()}
+            <td style="text-align:center;color:#94a3b8;font-variant-numeric:tabular-nums;">${idx}</td>
+            <td><div class="tpos-fso-customer">${escapeHtml(supplier)}</div></td>
+            <td><span class="mono" style="color:#64748b;">${date}</span></td>
+            <td><span class="tpos-fso-num mono" data-action="open" data-id="${row.Id || ''}" data-num="${escapeHtml(row.Number || '')}">${escapeHtml(row.Number || '—')}</span></td>
+            <td><span class="mono" style="color:#475569;">${escapeHtml(vatNum || '—')}</span></td>
+            <td class="num">${total}</td>
+            <td class="num" style="color:${row.Residual > 0 ? '#dc2626' : '#475569'};">${residual}</td>
+            <td>${stateBadge(row.State, PURCHASE_STATE_META)}</td>
+            <td><span style="color:#475569;font-size:12px;">${escapeHtml(employee)}</span></td>
+            <td><span style="color:#475569;font-size:12px;">${escapeHtml(company)}</span></td>
+        </tr>`;
+    }
+
+    function renderPurchaseRefundRow(row, idx, ns) {
+        const supplier = row.PartnerDisplayName || row.PartnerName || '—';
+        const total = fmtMoney(Math.abs(row.AmountTotal || 0));
+        const date = fmtDate(row.DateInvoice);
+        const employee = row.UserName || '—';
+        const company = row.CompanyName || '—';
+        return `<tr data-tpos-id="${row.Id || ''}">
+            ${expandCell()}
+            <td style="text-align:center;color:#94a3b8;font-variant-numeric:tabular-nums;">${idx}</td>
+            <td><span class="tpos-fso-num mono" data-action="open" data-id="${row.Id || ''}" data-num="${escapeHtml(row.Number || '')}">${escapeHtml(row.Number || '—')}</span></td>
+            <td><div class="tpos-fso-customer">${escapeHtml(supplier)}</div></td>
+            <td><span class="mono" style="color:#64748b;">${date}</span></td>
+            <td class="num" style="color:#dc2626;">${total}</td>
+            <td>${stateBadge(row.State, PURCHASE_STATE_META)}</td>
+            <td><span style="color:#475569;font-size:12px;">${escapeHtml(employee)}</span></td>
+            <td><span style="color:#475569;font-size:12px;">${escapeHtml(company)}</span></td>
         </tr>`;
     }
 
@@ -357,7 +425,7 @@
             let detail = this.detailCache.get(id);
             if (!detail) {
                 try {
-                    const url = `${WORKER_URL}/api/odata/FastSaleOrder(${encodeURIComponent(id)})?$expand=OrderLines($expand=Product,ProductUOM)`;
+                    const url = `${WORKER_URL}/api/odata/${this.cfg.entity}(${encodeURIComponent(id)})?$expand=OrderLines($expand=Product,ProductUOM)`;
                     const resp = await window.tokenManager.authenticatedFetch(url, {
                         method: 'GET',
                         headers: { Accept: 'application/json' },
@@ -385,8 +453,11 @@
 
         buildFilter() {
             const parts = [`Type eq '${this.cfg.tposType}'`];
-            // Invoices exclude merge-cancel rows by default (matches TPOS native list)
-            if (this.cfg.tposType === 'invoice') parts.push('IsMergeCancel ne true');
+            // FastSaleOrder invoices exclude merge-cancel rows by default (matches TPOS native list).
+            // FastPurchaseOrder ViewModel doesn't expose IsMergeCancel — skip the filter for purchase entities.
+            if (this.cfg.entity === 'FastSaleOrder' && this.cfg.tposType === 'invoice') {
+                parts.push('IsMergeCancel ne true');
+            }
             if (this.state.stateFilter) parts.push(`State eq '${this.state.stateFilter}'`);
             if (this.state.dateFrom)
                 parts.push(`DateInvoice ge ${this.state.dateFrom}T00:00:00.000Z`);
@@ -394,8 +465,13 @@
             const q = this.state.search;
             if (q) {
                 const safe = q.replace(/'/g, "''");
-                // Phone numeric → match Phone OR PartnerNameNoSign OR Number
-                if (/^\d{4,}$/.test(q)) {
+                // FastPurchaseOrder ViewModel has no Phone field — match supplier/number only
+                if (this.cfg.entity === 'FastPurchaseOrder') {
+                    parts.push(
+                        `(contains(PartnerNameNoSign,'${safe}') or contains(Number,'${safe}'))`
+                    );
+                } else if (/^\d{4,}$/.test(q)) {
+                    // Phone numeric → match Phone OR Number
                     parts.push(`(contains(Phone,'${safe}') or contains(Number,'${safe}'))`);
                 } else {
                     parts.push(
@@ -414,7 +490,7 @@
             params.set('$orderby', 'DateInvoice desc');
             params.set('$count', 'true');
             params.set('$filter', this.buildFilter());
-            return `${ODATA_BASE}?${params.toString()}`;
+            return `${WORKER_URL}/api/odata/${this.cfg.entity}/ODataService.GetView?${params.toString()}`;
         }
 
         showLoading() {

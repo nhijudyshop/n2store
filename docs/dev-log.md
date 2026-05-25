@@ -25,6 +25,27 @@
 
 ## 2026-05-25
 
+### [issue-tracking][tpos] Thêm 2 page-tab MUA HÀNG NCC + TRẢ HÀNG NCC — ✅ Done
+
+**Mục tiêu**: thêm 2 tab mới vào `issue-tracking/index.html` mirror trang TPOS `fastpurchaseorder/invoicelist` + `fastpurchaseorder/refundlist`, dùng cùng UI/CSS với tab BÁN HÀNG/TRẢ HÀNG có sẵn.
+
+**Files modified**:
+
+- `issue-tracking/index.html` — thêm 2 button `.page-tab-btn` (icon `shopping-cart`, `package-x`) + 2 pane `.page-tab-pane` (`data-tab="mua-hang-ncc"`, `data-tab="tra-hang-ncc"`) với cùng markup `.tpos-fastsale > tpos-fso-header/filters/table-wrap/pagination`. Cache version `v=20260524f → v=20260525a`.
+- `issue-tracking/js/tpos-fastsale-tab.js` — `TYPE_CFG` thêm 2 keys: `purchase` (entity `FastPurchaseOrder` type `invoice`, 11 cột: Nhà cung cấp / Ngày / Số / Số HĐ đỏ / Tổng tiền / Còn nợ / Trạng thái / Nhân viên / Công ty) + `purchaseRefund` (entity `FastPurchaseOrder` type `refund`, 9 cột). 2 renderer mới: `renderPurchaseRow`, `renderPurchaseRefundRow`. `PURCHASE_STATE_META` (open → "Đã xác nhận"). `buildFilter()` skip `IsMergeCancel ne true` cho entity `FastPurchaseOrder` (field không có). `buildUrl()` dùng `cfg.entity` thay vì hardcoded `FastSaleOrder`. Detail fetch cũng dùng `cfg.entity`.
+- `issue-tracking/js/page-tabs.js` — `TABS` + `TPOS_TABS` thêm `mua-hang-ncc`, `tra-hang-ncc`.
+
+**API endpoint** (verified live qua CF worker proxy): `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastPurchaseOrder/ODataService.GetView?$top=100&$skip=0&$orderby=DateInvoice%20desc&$count=true&$filter=Type%20eq%20'invoice'`. ViewModel fields: `Id`, `PartnerDisplayName`, `PartnerNameNoSign`, `AmountTotal`, `Residual`, `State`, `DateInvoice`, `Number`, `Type`, `UserName`, `CompanyName`, `Origin`, `Note`, `DecreaseAmount`, `AmountTax`, `AmountUntaxed`. State values: `draft` (Nháp), `open` (Đã xác nhận), `cancel` (Đã hủy).
+
+**Verification** (localhost:8080 qua persistent browser session):
+
+- `#mua-hang-ncc` → load 1.437 phiếu, page 1 hiển thị 100 rows, columns + format khớp TPOS native (vd row #1 "[B16] B16 LỤA SÁNG" / 3.440.000đ / Nháp / Lài / NJD Live).
+- `#tra-hang-ncc` → load 53 phiếu, đúng thứ tự ngày giảm dần (140.000đ → 855.000đ → 910.000đ).
+- Expand detail row qua endpoint `/api/odata/FastPurchaseOrder({id})?$expand=OrderLines($expand=Product,ProductUOM)` render đầy đủ line items (SKU, qty, price, total).
+- Search filter `"B16"` → 61 rows, all `[B16]`.
+- State filter `cancel` → 155 phiếu, badge "Đã hủy".
+- Regression: tab BÁN HÀNG vẫn load 14.154 hóa đơn không lỗi.
+
 ### [web2][live-campaign] TPOS-clone "Chiến dịch Live" với sync 2 chiều TPOS — ✅ Done
 
 **Mục tiêu**: clone 100% UI + chức năng trang TPOS `#/app/saleOnline/liveCampaign/list` vào `web2/live-campaign/`, đồng bộ trực tiếp 2 chiều với TPOS (không có local cache — TPOS là source of truth).

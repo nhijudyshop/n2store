@@ -3,12 +3,12 @@
 (function () {
     'use strict';
 
-    const TABS = ['cskh', 'ban-hang', 'tra-hang'];
+    const TABS = ['cskh', 'ban-hang', 'tra-hang', 'mua-hang-ncc', 'tra-hang-ncc'];
     const DEFAULT_TAB = 'cskh';
 
     // Tabs that fetch from TPOS directly (handled by tpos-fastsale-tab.js).
     // page-tabs.js delegates first-load to window.TposFastSaleTabs.activate(tabId).
-    const TPOS_TABS = new Set(['ban-hang', 'tra-hang']);
+    const TPOS_TABS = new Set(['ban-hang', 'tra-hang', 'mua-hang-ncc', 'tra-hang-ncc']);
 
     function activate(tabId, { updateHash = true } = {}) {
         if (!TABS.includes(tabId)) tabId = DEFAULT_TAB;
