@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a2251f5` — auto: session update
-**Last updated**: 2026-05-25 14:12:42 +07
-**Latest session**: [`RESUME:20260525-141242-a2251f5`](../20260525-141242-a2251f5.md)
-**Summary**: auto: session update
+**Latest commit**: `7dc18f1` — docs(dev-log): note issue-tracking search mở rộng sang sản phẩm + ghi chú
+**Last updated**: 2026-05-25 14:16:53 +07
+**Latest session**: [`RESUME:20260525-141653-7dc18f1`](../20260525-141653-7dc18f1.md)
+**Summary**: docs(dev-log): note issue-tracking search mở rộng sang sản phẩm + ghi chú
 
 ## Folders affected in this commit
 
-- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
-- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-25 14:08
-- [`docs/`](./docs.md) — updated 2026-05-25 14:08
+- [`docs/`](./docs.md) — updated 2026-05-25 14:16
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
