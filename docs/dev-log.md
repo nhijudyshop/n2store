@@ -25,6 +25,20 @@
 
 ## 2026-05-25
 
+### [tpos-pancake] Hover zoom = full ảnh (không crop) + Auto chip luôn ON, bỏ toggle
+
+**Yêu cầu user**:
+
+1. Hover thumbnail snapshot → zoom hiển thị đầy đủ ảnh (không crop khi ảnh portrait).
+2. Chip "Auto: ON" tự động on luôn, không cho click toggle.
+
+**Thay đổi** `tpos-pancake/js/tpos/tpos-livestream-snap.js`:
+
+- `_showZoomPreview()`: thay vì box cố định 480×270 + `object-fit:cover` → box auto-size theo aspect ratio thật của ảnh, capped `max-width:min(720,60vw)px` và `max-height:min(720,80vh)px` + `object-fit:contain`. Ảnh portrait không bị crop. Re-position dùng `offsetWidth/Height` sau khi ảnh fit.
+- `ensureAutoModeChip()`: bỏ `addEventListener('click', toggle)` + bỏ `cursor:pointer`. Ép `_setAutoMode(true)` nếu chưa ON khi mount. Title `"Click để tắt"` → `"Auto-snap ON (luôn bật)"`.
+
+Status: ✅ Done
+
 ### [tpos-pancake] Ẩn chip "🎬 Bắt đầu chụp live · click 1 cái mở FB + share"
 
 **Yêu cầu user**: "ẩn nút như hình đi" (chip màu vàng floating trên `tpos-pancake/index.html`).

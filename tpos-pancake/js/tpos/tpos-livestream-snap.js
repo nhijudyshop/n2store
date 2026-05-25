@@ -550,25 +550,32 @@
                 'position:fixed;z-index:99500;pointer-events:none;box-shadow:0 16px 48px rgba(0,0,0,0.45);border-radius:10px;background:#000;overflow:hidden;border:2px solid #fff;';
             document.body.appendChild(zoom);
         }
-        // Reuse big image element nếu src giống cũ → smooth re-position.
+        // Box auto-fit aspect ratio thật của ảnh, contain để không crop.
+        // Cap kích thước theo viewport (75% width, 80% height) để luôn vừa.
+        const MAX_W = Math.min(720, Math.floor(window.innerWidth * 0.6));
+        const MAX_H = Math.min(720, Math.floor(window.innerHeight * 0.8));
         let bigImg = zoom.querySelector('img');
         if (!bigImg || bigImg.src !== img.src) {
             zoom.innerHTML = '';
             bigImg = document.createElement('img');
             bigImg.src = img.src;
-            bigImg.style.cssText = 'width:480px;height:270px;object-fit:cover;display:block;';
+            bigImg.style.cssText = `max-width:${MAX_W}px;max-height:${MAX_H}px;width:auto;height:auto;object-fit:contain;display:block;`;
             zoom.appendChild(bigImg);
+        } else {
+            bigImg.style.maxWidth = MAX_W + 'px';
+            bigImg.style.maxHeight = MAX_H + 'px';
         }
+        // Đo kích thước thật của zoom (sau khi ảnh fit) để position chính xác.
+        const zoomW = zoom.offsetWidth || MAX_W;
+        const zoomH = zoom.offsetHeight || MAX_H;
         const rect = img.getBoundingClientRect();
-        // Default: right of thumb, vertically centered.
         let left = rect.right + 12;
-        if (left + 480 > window.innerWidth - 8) {
-            // Overflow right → flip to left of thumb.
-            left = rect.left - 12 - 480;
+        if (left + zoomW > window.innerWidth - 8) {
+            left = rect.left - 12 - zoomW;
         }
         if (left < 8) left = 8;
-        let top = rect.top + rect.height / 2 - 135;
-        top = Math.max(8, Math.min(window.innerHeight - 270 - 8, top));
+        let top = rect.top + rect.height / 2 - zoomH / 2;
+        top = Math.max(8, Math.min(window.innerHeight - zoomH - 8, top));
         zoom.style.left = left + 'px';
         zoom.style.top = top + 'px';
         zoom.style.display = 'block';
@@ -710,18 +717,12 @@ Click chip để NGẮT stream.`;
         if (chip) return chip;
         const host = _ensureFloatingHost();
         if (!host) return null;
+        // Ép Auto luôn ON, không cho user toggle (yêu cầu UX: tự động chạy).
+        if (!_isAutoMode()) _setAutoMode(true);
         chip = document.createElement('div');
         chip.id = 'tpos-snap-auto-chip';
         chip.style.cssText =
-            'display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid #d1d5db;border-radius:14px;font-size:12px;font-weight:600;cursor:pointer;user-select:none;';
-        chip.addEventListener('click', () => {
-            const next = !_isAutoMode();
-            // KHÔNG prompt share FB — auto-mode hoạt động độc lập (offset chính xác
-            // từ commentTime + broadcastStart, không cần stream). Stream chỉ cần
-            // nếu user muốn frame unique → bấm chip '🎬 Chụp Live' riêng.
-            _setAutoMode(next);
-            _toast(next ? '🤖 Auto ON — KH mới comment tự snap' : '🤖 Auto OFF', 'ok');
-        });
+            'display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid #d1d5db;border-radius:14px;font-size:12px;font-weight:600;user-select:none;';
         host.appendChild(chip);
         renderAutoModeChip();
         return chip;
@@ -737,10 +738,10 @@ Click chip để NGẮT stream.`;
             chip.style.background = '#dcfce7';
             chip.style.borderColor = '#86efac';
             chip.style.color = '#166534';
-            chip.title = `Auto-snap ON.
+            chip.title = `Auto-snap ON (luôn bật).
 Path: ${streamOk ? 'real-frame từ FB tab share (chính xác moment)' : 'offset computed từ commentTime + broadcastStart (chính xác giây)'}
 Session: ${STATE.autoStats.total} OK, ${STATE.autoStats.throttled} throttled, ${STATE.autoStats.errors} errors.
-Throttle 30s/KH. Click để tắt.`;
+Throttle 30s/KH.`;
         } else {
             chip.innerHTML = `🤖 Auto: <strong>OFF</strong> · click bật`;
             chip.style.background = '#f3f4f6';
