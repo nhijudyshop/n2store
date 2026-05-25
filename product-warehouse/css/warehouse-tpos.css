@@ -88,6 +88,75 @@ html body {
     background: var(--pw-accent-hover) !important;
 }
 
+/* ===== VIEW TABS (Sản phẩm | Biến thể) — mirrors TPOS producttemplate/list tabs ===== */
+.warehouse-tabs {
+    display: flex;
+    align-items: stretch;
+    background: var(--pw-bg-card);
+    border-bottom: 1px solid var(--pw-border);
+    padding: 0 16px;
+    gap: 0;
+}
+
+.warehouse-tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--pw-muted);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+        color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.warehouse-tab i,
+.warehouse-tab [data-lucide] {
+    width: 15px;
+    height: 15px;
+}
+
+.warehouse-tab:hover {
+    color: var(--pw-text-strong);
+}
+
+.warehouse-tab.is-active {
+    color: var(--pw-accent);
+    border-bottom-color: var(--pw-accent);
+}
+
+.warehouse-tab.is-active i,
+.warehouse-tab.is-active [data-lucide] {
+    color: var(--pw-accent);
+}
+
+.warehouse-tab-count {
+    min-width: 22px;
+    height: 18px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #e5e7eb;
+    color: var(--pw-text);
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.warehouse-tab.is-active .warehouse-tab-count {
+    background: var(--pw-accent-soft);
+    color: var(--pw-accent);
+}
+
 /* ===== TOOLBAR ===== */
 .warehouse-toolbar {
     background: var(--pw-bg-card);

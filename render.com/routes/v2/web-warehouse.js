@@ -319,7 +319,7 @@ async function getHolders(db, productCode) {
          WHERE product_id = $1 AND (data->>'quantity')::int > 0`,
         [String(productCode)]
     );
-    return result.rows.map(row => ({
+    return result.rows.map((row) => ({
         orderId: row.order_id,
         userId: row.user_id,
         displayName: row.data?.displayName || row.user_id,
@@ -336,6 +336,12 @@ async function getHolders(db, productCode) {
  * GET /api/v2/web-warehouse
  * List products with search, filter, pagination
  * Enhanced: includes available_qty (quantity - held) and holders info
+ *
+ * viewType:
+ *   - 'variant' (default, backward-compat): each row = 1 variant (or 1 standalone template).
+ *     Mirrors TPOS /app/product/list page.
+ *   - 'template': group rows by tpos_template_id → 1 row per template, aggregate qty/variant
+ *     count. Mirrors TPOS /app/producttemplate/list page.
  */
 router.get('/', async (req, res) => {
     const db = req.app.locals.chatDb;
@@ -345,13 +351,16 @@ router.get('/', async (req, res) => {
         page = 1,
         limit = 200,
         search,
-        sort_by = 'stt',
-        sort_order = 'ASC',
+        // Default: order by TPOS template ID descending (auto-increment → newest first).
+        // Mirrors TPOS UI which lists newest products on top.
+        sort_by = 'tpos_template_id',
+        sort_order = 'DESC',
         include_holders = 'false',
         category,
         active,
         has_inventory,
         template_ids, // comma-separated TPOS template IDs (used by Tag filter on frontend)
+        viewType = 'variant',
     } = req.query;
 
     try {
@@ -395,9 +404,10 @@ router.get('/', async (req, res) => {
 
         // Filter by TPOS template IDs (tag filter bridge — frontend resolves tag → IDs via TPOS)
         if (template_ids) {
-            const ids = String(template_ids).split(',')
-                .map(s => parseInt(s.trim(), 10))
-                .filter(n => Number.isFinite(n));
+            const ids = String(template_ids)
+                .split(',')
+                .map((s) => parseInt(s.trim(), 10))
+                .filter((n) => Number.isFinite(n));
             if (ids.length) {
                 conditions.push(`k.tpos_template_id = ANY($${paramIndex}::int[])`);
                 params.push(ids);
@@ -418,6 +428,148 @@ router.get('/', async (req, res) => {
             GROUP BY product_id
         ) h ON h.product_id = k.product_code`;
 
+        // =====================================================
+        // BRANCH: viewType=template — group by tpos_template_id
+        // Mirrors TPOS /app/producttemplate/list (1 row per template).
+        // =====================================================
+        if (viewType === 'template') {
+            // Allowed sort columns for template aggregate view
+            const tplSortMap = {
+                stt: 'MIN(k.stt)',
+                tpos_template_id: 'k.tpos_template_id',
+                product_code: 'template_code',
+                product_name: 'product_name',
+                category: 'category',
+                selling_price: 'min_selling_price',
+                purchase_price: 'min_purchase_price',
+                standard_price: 'min_standard_price',
+                tpos_qty_available: 'total_qty',
+                quantity: 'total_quantity',
+                created_at: 'created_at',
+                updated_at: 'updated_at',
+                last_synced_at: 'last_synced_at',
+                active: 'has_active',
+                uom_name: 'uom_name',
+                barcode: 'barcode',
+                name_get: 'name_get',
+            };
+            const tplSortField = tplSortMap[sort_by] || 'k.tpos_template_id';
+            const order = sort_order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+
+            // For aggregate rows: prefer parent_product_code (set on variants) over product_code.
+            // If template has variants, parent_product_code = templateCode; if standalone, product_code IS the templateCode.
+            const aggregateBase = `
+                SELECT
+                    k.tpos_template_id,
+                    COALESCE(
+                        MAX(k.parent_product_code) FILTER (WHERE k.parent_product_code IS NOT NULL),
+                        MAX(k.product_code) FILTER (WHERE k.parent_product_code IS NULL)
+                    ) AS template_code,
+                    MAX(k.product_name) AS product_name,
+                    MAX(k.name_get) AS name_get,
+                    MAX(k.category) AS category,
+                    MAX(k.uom_name) AS uom_name,
+                    MAX(k.barcode) AS barcode,
+                    MAX(k.image_url) AS image_url,
+                    MIN(k.selling_price) AS min_selling_price,
+                    MAX(k.selling_price) AS max_selling_price,
+                    MIN(k.purchase_price) AS min_purchase_price,
+                    MAX(k.purchase_price) AS max_purchase_price,
+                    MIN(k.standard_price) AS min_standard_price,
+                    MAX(k.standard_price) AS max_standard_price,
+                    SUM(k.tpos_qty_available) AS total_qty,
+                    SUM(k.quantity) AS total_quantity,
+                    SUM(COALESCE(h.total_held, 0)) AS held_qty,
+                    SUM(k.quantity - COALESCE(h.total_held, 0)) AS available_qty,
+                    COUNT(*) FILTER (WHERE k.parent_product_code IS NOT NULL) AS variant_count,
+                    bool_or(k.active) AS has_active,
+                    bool_and(k.active) AS all_active,
+                    MIN(k.created_at) AS created_at,
+                    MAX(k.updated_at) AS updated_at,
+                    MAX(k.last_synced_at) AS last_synced_at,
+                    MAX(k.tags::text) AS tags_json
+                FROM web_warehouse k
+                ${joinClause}
+                ${whereClause}
+                GROUP BY k.tpos_template_id
+            `;
+
+            // Count distinct templates
+            const tplCountResult = await db.query(
+                `SELECT COUNT(*) FROM (${aggregateBase}) t`,
+                params
+            );
+            const total = parseInt(tplCountResult.rows[0].count);
+
+            // Pagination
+            const offset = (parseInt(page) - 1) * parseInt(limit);
+            const paginationParams = [...params, parseInt(limit), offset];
+
+            const tplQuery = `
+                SELECT * FROM (${aggregateBase}) t
+                ORDER BY ${tplSortField} ${order} NULLS LAST
+                LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+            `;
+
+            const tplResult = await db.query(tplQuery, paginationParams);
+
+            // Map to consistent shape — front-end can treat each row like a "product"
+            // with selling_price = min_selling_price, tpos_qty_available = total_qty,
+            // tpos_product_id = tpos_template_id, etc.
+            const data = tplResult.rows.map((row) => {
+                let tags = [];
+                try {
+                    if (row.tags_json) tags = JSON.parse(row.tags_json);
+                } catch (_) {
+                    /* ignore */
+                }
+                return {
+                    tpos_template_id: row.tpos_template_id,
+                    tpos_product_id: row.tpos_template_id, // alias for image proxy
+                    product_code: row.template_code,
+                    parent_product_code: null,
+                    product_name: row.product_name,
+                    name_get: row.name_get,
+                    category: row.category,
+                    uom_name: row.uom_name,
+                    barcode: row.barcode,
+                    image_url: row.image_url,
+                    selling_price: row.min_selling_price,
+                    selling_price_max: row.max_selling_price,
+                    purchase_price: row.min_purchase_price,
+                    purchase_price_max: row.max_purchase_price,
+                    standard_price: row.min_standard_price,
+                    standard_price_max: row.max_standard_price,
+                    tpos_qty_available: row.total_qty,
+                    quantity: row.total_quantity,
+                    held_qty: row.held_qty,
+                    available_qty: row.available_qty,
+                    variant_count: parseInt(row.variant_count) || 0,
+                    active: row.has_active,
+                    all_active: row.all_active,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                    last_synced_at: row.last_synced_at,
+                    tags,
+                };
+            });
+
+            return res.json({
+                success: true,
+                data,
+                viewType: 'template',
+                pagination: {
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    total,
+                    totalPages: Math.ceil(total / parseInt(limit)),
+                },
+            });
+        }
+
+        // =====================================================
+        // BRANCH: viewType=variant (default) — flat list
+        // =====================================================
         // Count total
         const countResult = await db.query(
             `SELECT COUNT(*) FROM web_warehouse k ${joinClause} ${whereClause}`,
@@ -427,13 +579,27 @@ router.get('/', async (req, res) => {
 
         // Sort
         const allowedSorts = [
-            'stt', 'product_code', 'product_name', 'quantity',
-            'purchase_price', 'selling_price', 'standard_price',
-            'created_at', 'updated_at', 'available_qty',
-            'category', 'tpos_qty_available', 'uom_name',
-            'barcode', 'name_get', 'active', 'last_synced_at',
+            'stt',
+            'product_code',
+            'product_name',
+            'quantity',
+            'purchase_price',
+            'selling_price',
+            'standard_price',
+            'created_at',
+            'updated_at',
+            'available_qty',
+            'category',
+            'tpos_qty_available',
+            'uom_name',
+            'barcode',
+            'name_get',
+            'active',
+            'last_synced_at',
+            'tpos_template_id',
+            'tpos_product_id',
         ];
-        const sortField = allowedSorts.includes(sort_by) ? sort_by : 'stt';
+        const sortField = allowedSorts.includes(sort_by) ? sort_by : 'tpos_template_id';
         const order = sort_order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
         // Pagination
@@ -468,12 +634,13 @@ router.get('/', async (req, res) => {
         res.json({
             success: true,
             data,
+            viewType: 'variant',
             pagination: {
                 page: parseInt(page),
                 limit: parseInt(limit),
                 total,
-                totalPages: Math.ceil(total / parseInt(limit))
-            }
+                totalPages: Math.ceil(total / parseInt(limit)),
+            },
         });
     } catch (error) {
         handleError(res, error, 'Failed to fetch web warehouse');
@@ -506,7 +673,8 @@ router.get('/search', async (req, res) => {
         // Light columns only — autocomplete endpoint fires on every keystroke.
         // Exclude tpos_raw (5-20KB per row) and heavy JSONB to keep response fast.
         // Consumers needing full data should hit GET /product/:tposProductId.
-        const result = await db.query(`
+        const result = await db.query(
+            `
             SELECT id, stt, product_code, parent_product_code, product_name, name_get,
                    variant, category, image_url, barcode, uom_name,
                    selling_price, purchase_price, standard_price, price_variant,
@@ -524,7 +692,9 @@ router.get('/search', async (req, res) => {
               )
             ORDER BY product_name ASC
             LIMIT $2
-        `, [searchTerm, maxLimit]);
+        `,
+            [searchTerm, maxLimit]
+        );
 
         res.json({ success: true, data: result.rows });
     } catch (error) {
@@ -553,7 +723,8 @@ router.post('/batch-lookup', async (req, res) => {
         const placeholders = safeCodes.map((_, i) => `$${i + 1}`).join(',');
         // Light columns — batch-lookup is for barcode label printing, not full product detail.
         // Exclude tpos_raw + heavy JSONB. Consumers needing more should call GET /product/:id.
-        const result = await db.query(`
+        const result = await db.query(
+            `
             SELECT id, stt, product_code, parent_product_code, product_name, name_get,
                    variant, category, image_url, barcode, uom_name,
                    selling_price, purchase_price, standard_price, price_variant,
@@ -562,7 +733,9 @@ router.post('/batch-lookup', async (req, res) => {
                    sale_ok, purchase_ok, available_in_pos, active
             FROM web_warehouse
             WHERE active = true AND product_code IN (${placeholders})
-        `, safeCodes);
+        `,
+            safeCodes
+        );
 
         res.json({ success: true, data: result.rows });
     } catch (error) {
@@ -652,13 +825,22 @@ router.post('/batch', async (req, res) => {
 
         for (const item of items) {
             const {
-                product_code, parent_product_code, product_name, variant,
-                quantity, purchase_price, source_po_id,
-                image_url, tpos_product_id, selling_price
+                product_code,
+                parent_product_code,
+                product_name,
+                variant,
+                quantity,
+                purchase_price,
+                source_po_id,
+                image_url,
+                tpos_product_id,
+                selling_price,
             } = item;
 
             if (!product_code || !product_name) {
-                results.errors.push(`Missing product_code or product_name for item: ${JSON.stringify(item)}`);
+                results.errors.push(
+                    `Missing product_code or product_name for item: ${JSON.stringify(item)}`
+                );
                 continue;
             }
 
@@ -685,20 +867,40 @@ router.post('/batch', async (req, res) => {
                          tpos_product_id = COALESCE($5, tpos_product_id),
                          selling_price = CASE WHEN $6::numeric > 0 THEN $6::numeric ELSE selling_price END
                      WHERE id = $7`,
-                    [newQty, poIds, purchase_price || 0, image_url || null, tpos_product_id || null, selling_price || 0, row.id]
+                    [
+                        newQty,
+                        poIds,
+                        purchase_price || 0,
+                        image_url || null,
+                        tpos_product_id || null,
+                        selling_price || 0,
+                        row.id,
+                    ]
                 );
                 results.updated++;
             } else {
                 // Insert: assign next STT
-                const maxSttResult = await client.query('SELECT COALESCE(MAX(stt), 0) as max_stt FROM web_warehouse');
+                const maxSttResult = await client.query(
+                    'SELECT COALESCE(MAX(stt), 0) as max_stt FROM web_warehouse'
+                );
                 const nextStt = maxSttResult.rows[0].max_stt + 1;
 
                 await client.query(
                     `INSERT INTO web_warehouse (stt, product_code, parent_product_code, product_name, variant, quantity, purchase_price, source_po_ids, image_url, tpos_product_id, selling_price)
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-                    [nextStt, product_code, parent_product_code || null, product_name, variant || null,
-                     quantity || 1, purchase_price || 0, source_po_id ? [source_po_id] : [],
-                     image_url || null, tpos_product_id || null, selling_price || 0]
+                    [
+                        nextStt,
+                        product_code,
+                        parent_product_code || null,
+                        product_name,
+                        variant || null,
+                        quantity || 1,
+                        purchase_price || 0,
+                        source_po_id ? [source_po_id] : [],
+                        image_url || null,
+                        tpos_product_id || null,
+                        selling_price || 0,
+                    ]
                 );
                 results.inserted++;
             }
@@ -712,7 +914,7 @@ router.post('/batch', async (req, res) => {
         res.json({
             success: true,
             message: `Batch complete: ${results.inserted} inserted, ${results.updated} updated`,
-            results
+            results,
         });
     } catch (error) {
         await client.query('ROLLBACK').catch(() => {});
@@ -781,7 +983,7 @@ router.post('/subtract', async (req, res) => {
         res.json({
             success: true,
             message: `Trừ kho: ${results.subtracted} cập nhật, ${results.removed} xóa, ${results.not_found} không tìm thấy`,
-            results
+            results,
         });
     } catch (error) {
         await client.query('ROLLBACK').catch(() => {});
@@ -800,20 +1002,49 @@ router.patch('/:id', async (req, res) => {
     await ensureTable(db);
 
     const { id } = req.params;
-    const { quantity, purchase_price, product_name, variant, image_url, tpos_product_id, selling_price } = req.body;
+    const {
+        quantity,
+        purchase_price,
+        product_name,
+        variant,
+        image_url,
+        tpos_product_id,
+        selling_price,
+    } = req.body;
 
     try {
         const fields = [];
         const params = [];
         let paramIndex = 1;
 
-        if (quantity !== undefined) { fields.push(`quantity = $${paramIndex++}`); params.push(quantity); }
-        if (purchase_price !== undefined) { fields.push(`purchase_price = $${paramIndex++}`); params.push(purchase_price); }
-        if (product_name !== undefined) { fields.push(`product_name = $${paramIndex++}`); params.push(product_name); }
-        if (variant !== undefined) { fields.push(`variant = $${paramIndex++}`); params.push(variant); }
-        if (image_url !== undefined) { fields.push(`image_url = $${paramIndex++}`); params.push(image_url); }
-        if (tpos_product_id !== undefined) { fields.push(`tpos_product_id = $${paramIndex++}`); params.push(tpos_product_id); }
-        if (selling_price !== undefined) { fields.push(`selling_price = $${paramIndex++}`); params.push(selling_price); }
+        if (quantity !== undefined) {
+            fields.push(`quantity = $${paramIndex++}`);
+            params.push(quantity);
+        }
+        if (purchase_price !== undefined) {
+            fields.push(`purchase_price = $${paramIndex++}`);
+            params.push(purchase_price);
+        }
+        if (product_name !== undefined) {
+            fields.push(`product_name = $${paramIndex++}`);
+            params.push(product_name);
+        }
+        if (variant !== undefined) {
+            fields.push(`variant = $${paramIndex++}`);
+            params.push(variant);
+        }
+        if (image_url !== undefined) {
+            fields.push(`image_url = $${paramIndex++}`);
+            params.push(image_url);
+        }
+        if (tpos_product_id !== undefined) {
+            fields.push(`tpos_product_id = $${paramIndex++}`);
+            params.push(tpos_product_id);
+        }
+        if (selling_price !== undefined) {
+            fields.push(`selling_price = $${paramIndex++}`);
+            params.push(selling_price);
+        }
 
         if (fields.length === 0) {
             return res.status(400).json({ success: false, error: 'No fields to update' });
@@ -855,7 +1086,10 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Product not found' });
         }
 
-        notifyWarehouseChange({ action: 'delete', id, product_code: result.rows[0].product_code }, 'deleted');
+        notifyWarehouseChange(
+            { action: 'delete', id, product_code: result.rows[0].product_code },
+            'deleted'
+        );
 
         res.json({ success: true, message: 'Product deleted' });
     } catch (error) {
@@ -924,10 +1158,22 @@ router.post('/bulk-update', async (req, res) => {
         const params = [ids]; // $1 = ids array
         let paramIndex = 2;
 
-        if (fields.quantity !== undefined) { sets.push(`quantity = $${paramIndex++}`); params.push(fields.quantity); }
-        if (fields.purchase_price !== undefined) { sets.push(`purchase_price = $${paramIndex++}`); params.push(fields.purchase_price); }
-        if (fields.selling_price !== undefined) { sets.push(`selling_price = $${paramIndex++}`); params.push(fields.selling_price); }
-        if (fields.active !== undefined) { sets.push(`active = $${paramIndex++}`); params.push(fields.active); }
+        if (fields.quantity !== undefined) {
+            sets.push(`quantity = $${paramIndex++}`);
+            params.push(fields.quantity);
+        }
+        if (fields.purchase_price !== undefined) {
+            sets.push(`purchase_price = $${paramIndex++}`);
+            params.push(fields.purchase_price);
+        }
+        if (fields.selling_price !== undefined) {
+            sets.push(`selling_price = $${paramIndex++}`);
+            params.push(fields.selling_price);
+        }
+        if (fields.active !== undefined) {
+            sets.push(`active = $${paramIndex++}`);
+            params.push(fields.active);
+        }
 
         if (sets.length === 0) {
             return res.status(400).json({ success: false, error: 'No valid fields to update' });
@@ -940,7 +1186,10 @@ router.post('/bulk-update', async (req, res) => {
             params
         );
 
-        notifyWarehouseChange({ action: 'bulk_update', count: result.rowCount, fields: Object.keys(fields) }, 'update');
+        notifyWarehouseChange(
+            { action: 'bulk_update', count: result.rowCount, fields: Object.keys(fields) },
+            'update'
+        );
         res.json({ success: true, updated: result.rowCount });
     } catch (error) {
         handleError(res, error, 'Bulk update failed');
@@ -1012,20 +1261,30 @@ router.post('/hold', async (req, res) => {
     await ensureTable(db);
 
     const {
-        orderId, productCode, userId, displayName,
-        quantity = 1, isDraft = false,
+        orderId,
+        productCode,
+        userId,
+        displayName,
+        quantity = 1,
+        isDraft = false,
         ...extraData
     } = req.body;
 
     if (!orderId || !productCode || !userId) {
-        return res.status(400).json({ success: false, error: 'orderId, productCode, userId are required' });
+        return res
+            .status(400)
+            .json({ success: false, error: 'orderId, productCode, userId are required' });
     }
 
     try {
         // Check warehouse product exists and has available qty
-        const product = await db.query('SELECT * FROM web_warehouse WHERE product_code = $1', [productCode]);
+        const product = await db.query('SELECT * FROM web_warehouse WHERE product_code = $1', [
+            productCode,
+        ]);
         if (product.rows.length === 0) {
-            return res.status(404).json({ success: false, error: 'Product not found in warehouse' });
+            return res
+                .status(404)
+                .json({ success: false, error: 'Product not found in warehouse' });
         }
 
         const warehouseProduct = product.rows[0];
@@ -1036,7 +1295,7 @@ router.post('/hold', async (req, res) => {
             return res.status(409).json({
                 success: false,
                 error: `Không đủ hàng. Còn ${availableQty}, yêu cầu ${quantity}`,
-                available: availableQty
+                available: availableQty,
             });
         }
 
@@ -1055,33 +1314,43 @@ router.post('/hold', async (req, res) => {
             quantity,
             timestamp: Date.now(),
             source: 'web_warehouse',
-            ...extraData
+            ...extraData,
         };
 
-        await db.query(`
+        await db.query(
+            `
             INSERT INTO held_products (order_id, product_id, user_id, data, is_draft, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ON CONFLICT (order_id, product_id, user_id) DO UPDATE SET
                 data = $4,
                 is_draft = $5,
                 updated_at = CURRENT_TIMESTAMP
-        `, [orderId, productCode, userId, JSON.stringify(heldData), isDraft]);
+        `,
+            [orderId, productCode, userId, JSON.stringify(heldData), isDraft]
+        );
 
         // Notify SSE — warehouse changed
-        notifyWarehouseChange({
-            action: 'held',
-            productCode,
-            availableQty: availableQty - quantity,
-            heldBy: displayName || userId
-        }, 'update');
+        notifyWarehouseChange(
+            {
+                action: 'held',
+                productCode,
+                availableQty: availableQty - quantity,
+                heldBy: displayName || userId,
+            },
+            'update'
+        );
 
         // Notify SSE — held_products for this order
         if (notifyClientsWildcard) {
-            notifyClientsWildcard(`held_products/${orderId}`, {
-                productId: productCode,
-                userId,
-                data: { ...heldData, isDraft }
-            }, 'update');
+            notifyClientsWildcard(
+                `held_products/${orderId}`,
+                {
+                    productId: productCode,
+                    userId,
+                    data: { ...heldData, isDraft },
+                },
+                'update'
+            );
         }
 
         res.json({
@@ -1093,8 +1362,8 @@ router.post('/hold', async (req, res) => {
                 quantity,
                 availableQty: availableQty - quantity,
                 warehouseQty: warehouseProduct.quantity,
-                product: heldData
-            }
+                product: heldData,
+            },
         });
     } catch (error) {
         handleError(res, error, 'Hold failed');
@@ -1120,15 +1389,23 @@ router.delete('/hold/:orderId/:productCode/:userId', async (req, res) => {
         // Notify SSE
         notifyWarehouseChange({ action: 'released', productCode }, 'update');
         if (notifyClientsWildcard) {
-            notifyClientsWildcard(`held_products/${orderId}`, {
-                productId: productCode, userId, deleted: true
-            }, 'deleted');
+            notifyClientsWildcard(
+                `held_products/${orderId}`,
+                {
+                    productId: productCode,
+                    userId,
+                    deleted: true,
+                },
+                'deleted'
+            );
         }
 
         res.json({
             success: true,
             deleted: result.rowCount > 0,
-            orderId, productCode, userId
+            orderId,
+            productCode,
+            userId,
         });
     } catch (error) {
         handleError(res, error, 'Release hold failed');
@@ -1150,7 +1427,10 @@ router.get('/holders/:productCode', async (req, res) => {
         const totalHeld = holders.reduce((sum, h) => sum + h.quantity, 0);
 
         // Get warehouse quantity
-        const product = await db.query('SELECT quantity FROM web_warehouse WHERE product_code = $1', [productCode]);
+        const product = await db.query(
+            'SELECT quantity FROM web_warehouse WHERE product_code = $1',
+            [productCode]
+        );
         const warehouseQty = product.rows.length > 0 ? product.rows[0].quantity : 0;
 
         res.json({
@@ -1159,7 +1439,7 @@ router.get('/holders/:productCode', async (req, res) => {
             warehouseQty,
             totalHeld,
             availableQty: warehouseQty - totalHeld,
-            holders
+            holders,
         });
     } catch (error) {
         handleError(res, error, 'Get holders failed');
@@ -1193,7 +1473,9 @@ router.post('/confirm-sale', async (req, res) => {
     const { orderId, orderStt, productCode, userId, displayName, quantity } = req.body;
 
     if (!orderId || !productCode || !userId) {
-        return res.status(400).json({ success: false, error: 'orderId, productCode, userId are required' });
+        return res
+            .status(400)
+            .json({ success: false, error: 'orderId, productCode, userId are required' });
     }
 
     const client = await db.connect();
@@ -1206,9 +1488,10 @@ router.post('/confirm-sale', async (req, res) => {
             [orderId, productCode, userId]
         );
 
-        const heldQty = heldResult.rows.length > 0
-            ? parseInt(heldResult.rows[0].data?.quantity) || 1
-            : (quantity || 1);
+        const heldQty =
+            heldResult.rows.length > 0
+                ? parseInt(heldResult.rows[0].data?.quantity) || 1
+                : quantity || 1;
         const confirmQty = quantity || heldQty;
 
         // 2. Get warehouse product
@@ -1219,7 +1502,9 @@ router.post('/confirm-sale', async (req, res) => {
 
         if (productResult.rows.length === 0) {
             await client.query('ROLLBACK');
-            return res.status(404).json({ success: false, error: 'Product not found in warehouse' });
+            return res
+                .status(404)
+                .json({ success: false, error: 'Product not found in warehouse' });
         }
 
         const warehouseProduct = productResult.rows[0];
@@ -1242,11 +1527,19 @@ router.post('/confirm-sale', async (req, res) => {
               image_url, tpos_product_id, quantity, order_id, order_stt, sold_by_user_id, sold_by_name, status)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'sold')`,
             [
-                productCode, warehouseProduct.parent_product_code, warehouseProduct.product_name,
-                warehouseProduct.variant, warehouseProduct.purchase_price, warehouseProduct.selling_price,
-                warehouseProduct.image_url, warehouseProduct.tpos_product_id,
-                confirmQty, orderId, orderStt || null,
-                userId, displayName || userId
+                productCode,
+                warehouseProduct.parent_product_code,
+                warehouseProduct.product_name,
+                warehouseProduct.variant,
+                warehouseProduct.purchase_price,
+                warehouseProduct.selling_price,
+                warehouseProduct.image_url,
+                warehouseProduct.tpos_product_id,
+                confirmQty,
+                orderId,
+                orderStt || null,
+                userId,
+                displayName || userId,
             ]
         );
 
@@ -1259,18 +1552,28 @@ router.post('/confirm-sale', async (req, res) => {
         await client.query('COMMIT');
 
         // SSE notify
-        notifyWarehouseChange({
-            action: 'sold',
-            productCode,
-            quantity: confirmQty,
-            orderId,
-            remainingQty: Math.max(0, newQty)
-        }, 'update');
+        notifyWarehouseChange(
+            {
+                action: 'sold',
+                productCode,
+                quantity: confirmQty,
+                orderId,
+                remainingQty: Math.max(0, newQty),
+            },
+            'update'
+        );
 
         if (notifyClientsWildcard) {
-            notifyClientsWildcard(`held_products/${orderId}`, {
-                productId: productCode, userId, deleted: true, confirmed: true
-            }, 'deleted');
+            notifyClientsWildcard(
+                `held_products/${orderId}`,
+                {
+                    productId: productCode,
+                    userId,
+                    deleted: true,
+                    confirmed: true,
+                },
+                'deleted'
+            );
         }
 
         res.json({
@@ -1280,8 +1583,8 @@ router.post('/confirm-sale', async (req, res) => {
                 productCode,
                 quantity: confirmQty,
                 orderId,
-                remainingWarehouseQty: Math.max(0, newQty)
-            }
+                remainingWarehouseQty: Math.max(0, newQty),
+            },
         });
     } catch (error) {
         await client.query('ROLLBACK').catch(() => {});
@@ -1350,39 +1653,53 @@ router.post('/return', async (req, res) => {
         } else if (saleResult.rows.length > 0) {
             // Product was deleted (qty reached 0) — recreate from sale record
             const sale = saleResult.rows[0];
-            const maxSttResult = await client.query('SELECT COALESCE(MAX(stt), 0) as max_stt FROM web_warehouse');
+            const maxSttResult = await client.query(
+                'SELECT COALESCE(MAX(stt), 0) as max_stt FROM web_warehouse'
+            );
             const nextStt = maxSttResult.rows[0].max_stt + 1;
 
             await client.query(
                 `INSERT INTO web_warehouse (stt, product_code, parent_product_code, product_name, variant,
                  quantity, purchase_price, selling_price, image_url, tpos_product_id, source_po_ids)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, '{}')`,
-                [nextStt, sale.product_code, sale.parent_product_code, sale.product_name,
-                 sale.variant, quantity, sale.purchase_price || 0, sale.selling_price || 0,
-                 sale.image_url, sale.tpos_product_id]
+                [
+                    nextStt,
+                    sale.product_code,
+                    sale.parent_product_code,
+                    sale.product_name,
+                    sale.variant,
+                    quantity,
+                    sale.purchase_price || 0,
+                    sale.selling_price || 0,
+                    sale.image_url,
+                    sale.tpos_product_id,
+                ]
             );
         } else {
             await client.query('ROLLBACK');
             return res.status(404).json({
                 success: false,
-                error: 'No sale record or warehouse product found for this product_code'
+                error: 'No sale record or warehouse product found for this product_code',
             });
         }
 
         await client.query('COMMIT');
 
         // SSE notify
-        notifyWarehouseChange({
-            action: 'returned',
-            productCode,
-            quantity,
-            orderId
-        }, 'update');
+        notifyWarehouseChange(
+            {
+                action: 'returned',
+                productCode,
+                quantity,
+                orderId,
+            },
+            'update'
+        );
 
         res.json({
             success: true,
             message: `Returned ${quantity}x ${productCode} to warehouse`,
-            returned: { productCode, quantity, orderId }
+            returned: { productCode, quantity, orderId },
         });
     } catch (error) {
         await client.query('ROLLBACK').catch(() => {});
@@ -1408,9 +1725,18 @@ router.get('/sales', async (req, res) => {
         const params = [];
         let paramIndex = 1;
 
-        if (orderId) { query += ` AND order_id = $${paramIndex++}`; params.push(orderId); }
-        if (productCode) { query += ` AND product_code = $${paramIndex++}`; params.push(productCode); }
-        if (status) { query += ` AND status = $${paramIndex++}`; params.push(status); }
+        if (orderId) {
+            query += ` AND order_id = $${paramIndex++}`;
+            params.push(orderId);
+        }
+        if (productCode) {
+            query += ` AND product_code = $${paramIndex++}`;
+            params.push(productCode);
+        }
+        if (status) {
+            query += ` AND status = $${paramIndex++}`;
+            params.push(status);
+        }
 
         query += ` ORDER BY sold_at DESC LIMIT $${paramIndex}`;
         params.push(parseInt(limit));
@@ -1463,13 +1789,15 @@ router.get('/image/:tposProductId', async (req, res) => {
         const tokenManager = req.app.locals.tposTokenManager;
         const token = tokenManager ? await tokenManager.getToken() : null;
 
-        const headers = { 'Accept': 'image/*' };
+        const headers = { Accept: 'image/*' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
         const imageResponse = await fetch(fullUrl, { headers });
 
         if (!imageResponse.ok) {
-            return res.status(imageResponse.status).json({ success: false, error: 'TPOS image fetch failed' });
+            return res
+                .status(imageResponse.status)
+                .json({ success: false, error: 'TPOS image fetch failed' });
         }
 
         // Stream the image back with caching headers
@@ -1522,9 +1850,8 @@ router.post('/sync', async (req, res) => {
 
     try {
         // Run async — don't block the response
-        const resultPromise = syncType === 'full'
-            ? syncService.fullSync()
-            : syncService.incrementalSync();
+        const resultPromise =
+            syncType === 'full' ? syncService.fullSync() : syncService.incrementalSync();
 
         // Return immediately with "started" status
         res.json({
@@ -1534,12 +1861,13 @@ router.post('/sync', async (req, res) => {
         });
 
         // Log result when done
-        resultPromise.then(stats => {
-            console.log(`[WebWarehouse] ${syncType} sync completed:`, JSON.stringify(stats));
-        }).catch(err => {
-            console.error(`[WebWarehouse] ${syncType} sync error:`, err.message);
-        });
-
+        resultPromise
+            .then((stats) => {
+                console.log(`[WebWarehouse] ${syncType} sync completed:`, JSON.stringify(stats));
+            })
+            .catch((err) => {
+                console.error(`[WebWarehouse] ${syncType} sync error:`, err.message);
+            });
     } catch (error) {
         handleError(res, error, 'Sync trigger failed');
     }
@@ -1597,7 +1925,9 @@ router.post('/notify-image-update', async (req, res) => {
     const { tposProductId, tposTemplateId } = req.body || {};
 
     if (!tposProductId && !tposTemplateId) {
-        return res.status(400).json({ success: false, error: 'tposProductId or tposTemplateId required' });
+        return res
+            .status(400)
+            .json({ success: false, error: 'tposProductId or tposTemplateId required' });
     }
 
     const timestamp = Date.now();
@@ -1610,13 +1940,18 @@ router.post('/notify-image-update', async (req, res) => {
     // Fallback: if sync is already running or times out >15s, emit anyway with
     // a best-effort timestamp.
     const emitImageUpdate = () => {
-        notifyWarehouseChange({
-            action: 'image_update',
-            tposProductId: tposProductId || null,
-            tposTemplateId: tposTemplateId || null,
-            timestamp,
-        }, 'update');
-        console.log(`[WebWarehouse] Image update notified: product=${tposProductId}, template=${tposTemplateId}`);
+        notifyWarehouseChange(
+            {
+                action: 'image_update',
+                tposProductId: tposProductId || null,
+                tposTemplateId: tposTemplateId || null,
+                timestamp,
+            },
+            'update'
+        );
+        console.log(
+            `[WebWarehouse] Image update notified: product=${tposProductId}, template=${tposTemplateId}`
+        );
     };
 
     if (!syncService) {
@@ -1633,8 +1968,9 @@ router.post('/notify-image-update', async (req, res) => {
         }
     }, 15000);
 
-    syncService.incrementalSync()
-        .catch(err => console.warn('[WebWarehouse] Image sync trigger failed:', err.message))
+    syncService
+        .incrementalSync()
+        .catch((err) => console.warn('[WebWarehouse] Image sync trigger failed:', err.message))
         .finally(() => {
             clearTimeout(fallbackTimer);
             if (!emitted) {

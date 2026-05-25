@@ -52,8 +52,20 @@
         costPrice: 'standard_price',
         qtyActual: 'tpos_qty_available',
         active: 'active',
-        createdAt: 'created_at',
+        createdAt: 'tpos_template_id', // "Ngày tạo" column sorts by TPOS ID desc → newest on top
     };
+
+    // View type — mirrors TPOS two pages:
+    //   'template' → /app/producttemplate/list (1 row per template, default)
+    //   'variant'  → /app/product/list (1 row per variant)
+    const STORAGE_VIEW_TYPE = 'n2store_warehouse_view_type';
+    let viewType = 'template';
+    try {
+        const saved = localStorage.getItem(STORAGE_VIEW_TYPE);
+        if (saved === 'template' || saved === 'variant') viewType = saved;
+    } catch (_) {
+        /* ignore */
+    }
 
     const RENDER_API = WS.WAREHOUSE_API; // https://.../api/v2/web-warehouse
     const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev'; // kept for edit/save operations
@@ -65,8 +77,13 @@
     let totalCount = 0; // total from @odata.count
     let currentPage = 1;
     let pageSize = 50;
+    // Default sort: TPOS template ID descending (newest products at top — matches TPOS UI).
     let sortField = 'createdAt';
     let sortDirection = 'desc';
+
+    // Tab counts (template + variant totals for badges) — fetched alongside main load
+    let templateTotalCount = 0;
+    let variantTotalCount = 0;
     let selectedIds = new Set();
     let isLoading = false;
 
@@ -411,12 +428,19 @@
             row.image_url && row.tpos_product_id
                 ? `${RENDER_API}/image/${row.tpos_product_id}`
                 : cachedImg || '';
+        const variantCount = parseInt(row.variant_count, 10) || 0;
+        const hasVariants = variantCount > 0;
+        const minPrice = parseFloat(row.selling_price) || 0;
+        const maxPrice = parseFloat(row.selling_price_max ?? row.selling_price) || minPrice;
         return {
             id: row.tpos_template_id || row.tpos_product_id,
+            templateId: row.tpos_template_id,
+            productId: row.tpos_product_id,
             code: row.product_code || '',
             name: row.product_name || '',
             group: row.category || '',
-            price: parseFloat(row.selling_price) || 0,
+            price: minPrice,
+            priceMax: maxPrice,
             defaultBuyPrice: parseFloat(row.purchase_price) || 0,
             costPrice: parseFloat(row.standard_price) || 0,
             qtyActual: parseFloat(row.tpos_qty_available) || 0,
@@ -436,6 +460,12 @@
             company: '',
             creator: '',
             image: img,
+            // Template view only: variant aggregate
+            variantCount,
+            hasVariants,
+            // Variant view only: parent template code for grouping/display
+            parentCode: row.parent_product_code || null,
+            variant: row.variant || null,
         };
     }
 
@@ -447,9 +477,10 @@
 
         params.set('page', String(currentPage));
         params.set('limit', String(pageSize));
+        params.set('viewType', viewType);
 
         // Sort
-        const dbField = SORT_FIELD_MAP[sortField] || 'created_at';
+        const dbField = SORT_FIELD_MAP[sortField] || 'tpos_template_id';
         params.set('sort_by', dbField);
         params.set('sort_order', sortDirection.toUpperCase());
 
