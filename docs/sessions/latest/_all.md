@@ -3,13 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f2142e1` — auto: session update
-**Last updated**: 2026-05-25 15:14:14 +07
-**Latest session**: [`RESUME:20260525-151414-f2142e1`](../20260525-151414-f2142e1.md)
+**Latest commit**: `f2d47f2` — auto: session update
+**Last updated**: 2026-05-25 15:18:02 +07
+**Latest session**: [`RESUME:20260525-151802-f2d47f2`](../20260525-151802-f2d47f2.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
+- [`delivery-report/`](./delivery-report.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 - [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
@@ -23,8 +26,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-25 14:44
-- [`docs/`](./docs.md) — updated 2026-05-25 14:44
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-25 15:18
+- [`docs/`](./docs.md) — updated 2026-05-25 15:18
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -49,9 +52,9 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-25 10:44
+- [`render.com/`](./render.com.md) — updated 2026-05-25 15:18
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-25 15:14
+- [`scripts/`](./scripts.md) — updated 2026-05-25 15:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-24 19:12
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
