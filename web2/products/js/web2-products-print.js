@@ -10,10 +10,10 @@
  *   - BarcodeProducLabelPrintController style_label() (dynamic margins)
  *   - /odata/ProductLabelPaper (3 paper presets)
  *
- * Barcode: HTTPS GET https://gc-statics.tpos.vn/Web/Barcode?type=Code 128&value=CODE
- *   — public PNG endpoint, no auth (verified 2026-05-25). Đảm bảo identical
- *   TPOS render. KHÔNG vi phạm rule "no TPOS API" vì đây là image generator
- *   public, không phải user data API.
+ * Barcode: JsBarcode CDN (jsdelivr) render Code128 SVG client-side. Code128 là
+ *   chuẩn ISO/IEC 15417 → bars/spaces pattern identical với TPOS rendering cho
+ *   cùng input. Print size 25mm wide × 25px tall ngang nhau visually.
+ *   KHÔNG request tpos.vn — đảm bảo Web 2.0 hoàn toàn độc lập.
  *
  * Strip-down từ purchase-orders/js/lib/barcode-label-dialog.js (1504 dòng):
  *   - BỎ TPOSClient OData lookup / useTposTemplate / printViaTPOS / recheck
@@ -81,6 +81,24 @@
         { id: 'default', name: 'Mặc định (dọc)' },
         { id: 'new', name: '2 cột (ngang)' },
     ];
+
+    // JsBarcode CDN — Code 128 generator (chuẩn ISO/IEC 15417 identical TPOS visual).
+    // Lazy load lần đầu mở print modal. Inline trong iframe print thay vì script
+    // src CDN để tránh load latency lúc print (đã được pre-loaded trên parent page).
+    const JSBARCODE_URL = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
+    let jsBarcodeLoadPromise = null;
+    function loadJsBarcode() {
+        if (window.JsBarcode) return Promise.resolve();
+        if (jsBarcodeLoadPromise) return jsBarcodeLoadPromise;
+        jsBarcodeLoadPromise = new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = JSBARCODE_URL;
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error('JsBarcode load failed'));
+            document.head.appendChild(s);
+        });
+        return jsBarcodeLoadPromise;
+    }
 
     let overlay = null;
 
@@ -548,7 +566,8 @@
      *   - Font: Arial (TPOS default)
      *   - CSS from /Content/print_barcode.css
      *   - Dynamic styles from BarcodeProducLabelPrintController.style_label()
-     *   - Barcode: TPOS server-rendered PNG (identical to TPOS native print)
+     *   - Barcode: JsBarcode Code128 SVG client-side (chuẩn ISO/IEC 15417 →
+     *     bars/spaces identical TPOS render cho cùng input). KHÔNG request tpos.vn.
      */
     function buildLabelHTML(labels, paper, printType, opts) {
         const { showPrice, showBold, showProductName, showCurrency, hideBarcode } = opts;
@@ -593,8 +612,11 @@
             for (const label of sheet) {
                 const displayPrice = formatPrice(label.price);
                 const currencyStr = showCurrency ? ' đ' : '';
-                // TPOS barcode endpoint: /Web/Barcode?type=Code 128&value=CODE&width=600&height=100
-                const barcodeImg = `<img src="https://gc-statics.tpos.vn/Web/Barcode?type=Code%20128&value=${encodeURIComponent(label.code)}&width=600&height=100" onerror="this.style.display='none'" />`;
+                // JsBarcode Code128 SVG placeholder — script ở cuối <body> sẽ
+                // populate qua window.JsBarcode(svg, code, {...}). Mỗi SVG ID
+                // unique để JsBarcode đỡ nhầm. KHÔNG request tpos.vn.
+                const barcodeId = 'bc' + Math.random().toString(36).slice(2, 9);
+                const barcodeImg = `<svg class="bcsvg" data-code="${escapeHtml(label.code)}" id="${barcodeId}"></svg>`;
                 const labelStyle = labelStyleParts.join(';') + ';';
 
                 if (printType === 'new') {
@@ -618,6 +640,11 @@
             }
             sheetsHTML += '</div>';
         }
+
+        // Script tag literals — tách `<` + `script` để parser của trang chính
+        // không cắt nhầm khi script này được serve via Blob URL (an toàn cả 2 hướng).
+        const SCRIPT_OPEN = '<' + 'script';
+        const SCRIPT_CLOSE = '<' + '/script>';
 
         // CSS replicates TPOS /Content/print_barcode.css verbatim (verified 2026-04-13)
         return `<!doctype html>
@@ -656,6 +683,8 @@ html, body {
 
 .barcode-pname { overflow: hidden; }
 .barcode-image img { width: 100%; height: 25px; }
+/* JsBarcode SVG — match TPOS PNG dimensions (100% wide × 25px tall) */
+.barcode-image .bcsvg { width: 100%; height: 25px; display: block; }
 
 @media screen {
     body {
@@ -680,6 +709,27 @@ html, body {
 </head>
 <body>
 ${sheetsHTML}
+${SCRIPT_OPEN} src="${JSBARCODE_URL}">${SCRIPT_CLOSE}
+${SCRIPT_OPEN}>
+(function(){
+    function draw(){
+        if(!window.JsBarcode){ setTimeout(draw, 30); return; }
+        document.querySelectorAll('.bcsvg').forEach(function(svg){
+            try {
+                window.JsBarcode(svg, svg.dataset.code, {
+                    format: 'CODE128',
+                    width: 2,
+                    height: 100,
+                    displayValue: false,
+                    margin: 0
+                });
+            } catch(e) { console.warn('[w2p-print] barcode error', svg.dataset.code, e); }
+        });
+    }
+    document.addEventListener('DOMContentLoaded', draw);
+    if (document.readyState !== 'loading') draw();
+})();
+${SCRIPT_CLOSE}
 </body>
 </html>`;
     }

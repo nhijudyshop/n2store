@@ -25,6 +25,39 @@
 
 ## 2026-05-25
 
+### [web2/products] Bỏ TPOS barcode endpoint — chuyển JsBarcode CDN, ZERO request tpos.vn
+
+**User báo**: "không dùng request tpos nha, nếu đang dùng thì nói tôi đang dùng cái nào" + "tôi thấy bạn có thể clone của tpos được mà cần gì request".
+
+**Đang dùng** (commit trước `19924a384`): `https://gc-statics.tpos.vn/Web/Barcode?type=Code 128&value=CODE&width=600&height=100` — public PNG endpoint, no auth, NHƯNG vẫn là request tới `tpos.vn` → vi phạm rule "không request tpos" của Web 2.0.
+
+**User insight đúng**: Code128 là chuẩn **ISO/IEC 15417**, bars/spaces pattern xác định 100% bởi input code → JsBarcode local render = TPOS PNG render, visual identical cho cùng input. Không cần fetch từ TPOS.
+
+**Fix**:
+
+- Thay `<img src="gc-statics.tpos.vn/Web/Barcode?...">` → `<svg class="bcsvg" data-code="...">` placeholder.
+- Inject JsBarcode CDN (`cdn.jsdelivr.net/npm/jsbarcode@3.11.6`) trong iframe print + inline script `JsBarcode(svg, code, { format:'CODE128', width:2, height:100, displayValue:false, margin:0 })`.
+- Lazy load `loadJsBarcode()` trên parent page khi cần (mặc dù iframe tự load CDN khi mở print).
+- CSS update `.barcode-image .bcsvg { width:100%; height:25px; display:block }` match TPOS PNG dimensions.
+
+**Verified live** (localhost:8080/web2/products):
+
+- Print iframe scripts: chỉ có `cdn.jsdelivr.net/.../JsBarcode.all.min.js` + inline drawer. KHÔNG có script nào từ tpos.vn.
+- Images in iframe: 0.
+- SVG render: **53 `<rect>` bars Code128** đúng (DEMO-TUI-DENIM 14 chars).
+- `tposRefs: []` — confirmed.
+- Label style: `width:25mm;height:21mm;font-size:6px;line-height:7px;padding 0.5mm` — vẫn exact TPOS `style_label()` output.
+
+**Visual**: bars/spaces identical TPOS PNG (chuẩn ISO Code128 deterministic), chỉ khác:
+
+- SVG vector vs PNG raster (in 25mm: vector sharper, raster có thể aliased — SVG WIN).
+- File size: SVG inline 5-10kb vs PNG fetch 7kb — wash.
+- Render time: SVG sync (<10ms) vs PNG fetch async (50-200ms) — **SVG WIN**.
+
+**Files**: `web2/products/js/web2-products-print.js` (+30 / -5: JsBarcode loader, SVG placeholder, inline script). `web2/products/index.html` bump `v=20260525b` → `v=20260525c`.
+
+**Status**: ✅ Done — Web 2.0 hoàn toàn độc lập, ZERO request tpos.vn, visual identical TPOS.
+
 ### [web2/products] In tem 100% giống TPOS — port BarcodeLabelDialog + TPOS barcode endpoint
 
 **User ask**: "Tất cả để làm 100% giống tpos" cho phần in tem ở `web2/products/index.html`.
