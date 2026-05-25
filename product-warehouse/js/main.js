@@ -503,42 +503,57 @@
      * Re-uses the AuditLog OData endpoint already used by the edit modal.
      */
     async function loadExpandAuditLog(templateId, target) {
-        try {
-            const url = `${PROXY_URL}/api/odata/AuditLog?$filter=EntityId eq ${templateId} and EntityType eq 'ProductTemplate'&$orderby=DateCreated desc&$top=50`;
-            const resp = await window.tokenManager.authenticatedFetch(url, {
-                headers: { Accept: 'application/json' },
-            });
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            const data = await resp.json();
-            const items = data.value || [];
-            if (items.length === 0) {
-                target.innerHTML = '<div class="expand-empty">Chưa có lịch sử.</div>';
-                return;
+        // TPOS exposes audit log under several paths; try each and use first success.
+        // Mirrors loadAuditLog() used in the edit modal.
+        const candidates = [
+            `${PROXY_URL}/api/odata/AuditLog/ODataService.GetAuditLogEntity(entityId=${templateId},entityType='ProductTemplate')`,
+            `${PROXY_URL}/api/odata/AuditLog?$filter=EntityId eq ${templateId} and EntityType eq 'ProductTemplate'&$orderby=DateCreated desc&$top=50`,
+            `${PROXY_URL}/api/odata/ProductTemplate(${templateId})/ODataService.GetAuditLogEntity`,
+        ];
+        let rows = null;
+        for (const url of candidates) {
+            try {
+                const r = await window.tokenManager.authenticatedFetch(url, {
+                    headers: { Accept: 'application/json' },
+                });
+                if (!r.ok) continue;
+                const data = await r.json();
+                rows = data.value || data.Items || data.data || (Array.isArray(data) ? data : null);
+                if (rows) break;
+            } catch (_) {
+                /* try next */
             }
-            target.innerHTML = `<table class="expand-history-table">
-                <thead><tr>
-                    <th>Thời gian</th>
-                    <th>Người thực hiện</th>
-                    <th>Thao tác</th>
-                    <th>Mô tả</th>
-                </tr></thead>
-                <tbody>${items
-                    .map((it) => {
-                        const date = it.DateCreated
-                            ? new Date(it.DateCreated).toLocaleString('vi-VN')
-                            : '-';
-                        return `<tr>
-                            <td>${escapeHtml(date)}</td>
-                            <td>${escapeHtml(it.UserName || '-')}</td>
-                            <td>${escapeHtml(it.ActionDisplay || it.Action || '-')}</td>
-                            <td>${escapeHtml(it.Description || it.Note || '-')}</td>
-                        </tr>`;
-                    })
-                    .join('')}</tbody>
-            </table>`;
-        } catch (err) {
-            target.innerHTML = `<div class="expand-empty" style="color:#dc2626">Lỗi tải lịch sử: ${escapeHtml(err.message)}</div>`;
         }
+        if (!rows) {
+            target.innerHTML =
+                '<div class="expand-empty">Endpoint audit log của TPOS chưa khả dụng — xem trên TPOS.</div>';
+            return;
+        }
+        if (rows.length === 0) {
+            target.innerHTML = '<div class="expand-empty">Chưa có lịch sử.</div>';
+            return;
+        }
+        target.innerHTML = `<table class="expand-history-table">
+            <thead><tr>
+                <th>Thời gian</th>
+                <th>Người thực hiện</th>
+                <th>Thao tác</th>
+                <th>Mô tả</th>
+            </tr></thead>
+            <tbody>${rows
+                .slice(0, 50)
+                .map((it) => {
+                    const raw = it.DateCreated || it.CreatedAt;
+                    const date = raw ? new Date(raw).toLocaleString('vi-VN') : '-';
+                    return `<tr>
+                        <td>${escapeHtml(date)}</td>
+                        <td>${escapeHtml(it.UserName || it.CreatedByName || '-')}</td>
+                        <td>${escapeHtml(it.ActionDisplay || it.Action || it.ActionName || '-')}</td>
+                        <td>${escapeHtml(it.Details || it.Description || it.Note || '-')}</td>
+                    </tr>`;
+                })
+                .join('')}</tbody>
+        </table>`;
     }
 
     /**
