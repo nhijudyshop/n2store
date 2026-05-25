@@ -25,6 +25,28 @@
 
 ## 2026-05-25
 
+### [web2/customer-wallet, web2/balance-history] Enrich từ TPOS Partner — status badge + Mở thẻ KH
+
+**Yêu cầu user**: "coi bên customer-wallet có cần dữ liệu gì không thì lấy luôn" + "và trang balance-history".
+
+**Đánh giá**: 2 trang đang thiếu signal từ TPOS Partner — status risk (Bom hàng/Cảnh báo/Nguy hiểm/VIP), email, địa chỉ, link mở thẻ KH. Đặc biệt customer-wallet (workflow thu nợ KH) cực cần status để nhận diện KH rủi ro.
+
+**Files thay đổi**:
+
+- `web2/partner-customer/js/partner-customer-api.js` — thêm method `listByPhones(phones, opts)`: batch fetch tối đa 30 phones / request qua OData `or` chain (TPOS không support `Phone in (...)`), concurrency 3, trả về `Map<phone, partner>`.
+- `web2/partner-customer/js/partner-customer-app.js` — deep-link `?id=<partnerId>` mở edit modal sau khi load, `?search=<phone>` prefill search.
+- `web2/customer-wallet/index.html` — load `token-manager.js` + `partner-customer-api.js`, bump CSS/JS version.
+- `web2/customer-wallet/js/customer-wallet-app.js` — sau `loadAndRender()` chạy `enrichFromTpos()` (memory-only cache, không persist), render TPOS status pill cạnh tên KH trong card + nhà mạng cạnh SĐT. `openDetail()` gọi `renderDetailExtras(phone)` hiển thị status pill, carrier, Email, FullAddress, link "Mở thẻ KH ↗", cảnh báo "Nợ TPOS ≠ Nợ ví" khi mismatch > 1₫.
+- `web2/customer-wallet/css/customer-wallet.css` — styles `cw-tpos-status-pill` (5 màu), `cw-tpos-extras`, `cw-tpos-link`, `cw-carrier`, `cw-tpos-mismatch`.
+- `web2/balance-history/index.html` — load `token-manager.js` + `partner-customer-api.js` + `tpos-partner-enricher.js` sau `main.js`, bump `web2-theme.css` version.
+- `web2/balance-history/css/web2-theme.css` — styles `bh-tpos-status-pill` (4 màu non-Normal) + `bh-tpos-link` icon button.
+- `web2/balance-history/js/balance-table.js` — thêm `data-customer-phone="..."` trên `<tr>` + `data-tpos-customer-cell="1"` trên customer name `<td>` để enricher target.
+- `web2/balance-history/js/tpos-partner-enricher.js` — mới: `MutationObserver` trên `transactionTableBody`, gom phones unique, batch `PartnerCustomerApi.listByPhones`, inject status pill (chỉ show ≠ Normal để giảm nhiễu) + link "Mở thẻ KH" cạnh tên KH. Cache memory-only, debounce 250ms.
+
+**Pattern**: cả 2 trang enrich lazy + cache memory-only. Không lưu Firestore/localStorage vì TPOS là source of truth — mỗi session fresh fetch.
+
+**Status**: ✅ Done. Syntax OK.
+
 ### [web2/partner-customer] TPOS-clone Khách hàng — sync 2 chiều TPOS Partner
 
 **Yêu cầu user**: Clone trang `tomato.tpos.vn/#/app/partner/customer/list1` cho Web 2.0 (`web2/partner-customer/`), sync 2 chiều với TPOS (sửa ở web → TPOS, sửa ở TPOS → web thấy), hiển thị đầy đủ data TPOS.

@@ -259,6 +259,69 @@
         return { Id: id, deleted: true };
     }
 
+    /**
+     * Batch-fetch TPOS partners by phone (Customer type). Uses OData `or` chains
+     * — TPOS GetViewV2 doesn't support `Phone in (...)`. Chunks of CHUNK_SIZE
+     * phones per request to stay under URL-length limits.
+     *
+     * @param {string[]} phones — list of normalized phone numbers
+     * @param {{chunkSize?: number}} [opts]
+     * @returns {Promise<Map<string, Object>>} Map keyed by Phone → partner record
+     */
+    async function listByPhones(phones, opts) {
+        const CHUNK_SIZE = (opts && opts.chunkSize) || 30;
+        const map = new Map();
+        const unique = Array.from(
+            new Set((phones || []).map((p) => String(p || '').trim()).filter((p) => p.length >= 3))
+        );
+        if (!unique.length) return map;
+
+        const chunks = [];
+        for (let i = 0; i < unique.length; i += CHUNK_SIZE) {
+            chunks.push(unique.slice(i, i + CHUNK_SIZE));
+        }
+
+        const fetchChunk = async (chunk) => {
+            const orClauses = chunk.map((p) => `Phone eq '${escapeOData(p)}'`).join(' or ');
+            const filter = `Type eq 'Customer' and (${orClauses})`;
+            const params = new URLSearchParams();
+            params.set('$top', String(chunk.length * 3));
+            params.set('$count', 'false');
+            params.set('Type', 'Customer');
+            params.set('Active', 'true');
+            params.set('$filter', filter);
+            const url = `${PARTNER_VIEW}?${params.toString()}`;
+            try {
+                const data = await jsonFetch(url, { method: 'GET' });
+                const arr = Array.isArray(data && data.value) ? data.value : [];
+                for (const p of arr) {
+                    const phone = String(p.Phone || p.Mobile || '').trim();
+                    if (!phone) continue;
+                    // Keep newest only (DateCreated desc — TPOS default for this list)
+                    if (!map.has(phone)) map.set(phone, p);
+                }
+            } catch (e) {
+                console.warn('[PartnerCustomerApi.listByPhones] chunk failed:', e.message);
+            }
+        };
+
+        // Concurrency 3 so we don't overload the worker proxy
+        const queue = [...chunks];
+        const workers = [];
+        for (let i = 0; i < Math.min(3, queue.length); i++) {
+            workers.push(
+                (async () => {
+                    while (queue.length) {
+                        const c = queue.shift();
+                        await fetchChunk(c);
+                    }
+                })()
+            );
+        }
+        await Promise.all(workers);
+        return map;
+    }
+
     /** Load partner categories (Nhóm KH) for the filter dropdown. */
     async function listCategories() {
         const url = `${BASE}/PartnerCategory?$top=200&$orderby=Name+asc&$filter=Active+eq+true`;
@@ -344,6 +407,7 @@
         updateStatus,
         remove,
         listCategories,
+        listByPhones,
         // helpers
         STATUS_TEXT,
         STATUS_VALUES,

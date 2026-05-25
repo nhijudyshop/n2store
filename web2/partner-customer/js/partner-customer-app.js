@@ -827,7 +827,19 @@
     async function init() {
         cacheDom();
         bindEvents();
+        // Deep-link support: ?id=<partnerId> mở edit modal sau khi load list,
+        // ?search=<phone|tên> prefill search box.
+        const url = new URL(window.location.href);
+        const deepId = url.searchParams.get('id');
+        const deepSearch = url.searchParams.get('search');
+        if (deepSearch) {
+            state.search = deepSearch;
+            dom.searchInput.value = deepSearch;
+        }
         await Promise.all([load(), loadCategories()]);
+        if (deepId) {
+            openModalForEdit(deepId);
+        }
     }
 
     if (document.readyState === 'loading') {

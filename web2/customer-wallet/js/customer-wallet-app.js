@@ -199,13 +199,33 @@
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
+    function tposStatusPillHtml(partner) {
+        if (!partner) return '';
+        const status = partner.Status || 'Normal';
+        const text = partner.StatusText || window.PartnerCustomerApi?.STATUS_TEXT?.[status] || '';
+        if (!text) return '';
+        const cls = (window.PartnerCustomerApi?.statusClass?.(status) || '').replace(
+            'pc-status-',
+            'cw-tpos-status-'
+        );
+        return `<span class="cw-tpos-status-pill ${cls}" title="Trạng thái TPOS">${escapeHtml(text)}</span>`;
+    }
+
+    function carrierFromPartner(partner, phone) {
+        if (partner?.NameNetwork) return partner.NameNetwork;
+        return window.PartnerCustomerApi?.detectCarrier?.(phone) || '';
+    }
+
     function cardHtml(w) {
         const debt = w.balance > 0;
+        const partner = tposPartners[w.phone];
+        const tposPill = tposStatusPillHtml(partner);
+        const carrier = carrierFromPartner(partner, w.phone);
         return `<div class="sw-card" data-phone="${escapeHtml(w.phone)}">
             <div class="sw-card-head">
                 <div>
-                    <div class="sw-card-name">${escapeHtml(w.name)}</div>
-                    <div class="sw-card-phone">${escapeHtml(w.phone)}</div>
+                    <div class="sw-card-name">${escapeHtml(w.name)} ${tposPill}</div>
+                    <div class="sw-card-phone">${escapeHtml(w.phone)}${carrier ? ` <span class="cw-carrier">· ${escapeHtml(carrier)}</span>` : ''}</div>
                 </div>
                 <span class="sw-card-badge ${debt ? 'is-debt' : ''}">${debt ? 'Còn nợ' : 'Đủ'}</span>
             </div>
@@ -226,15 +246,80 @@
         const c = customers[phone];
         if (!w) return;
         document.getElementById('cwDetailTitle').textContent = `${w.name} — ${phone}`;
-        document.getElementById('cwDetailSub').textContent = c
-            ? `${c.orders.length} PBH · ${Object.keys(c.campaigns).length} chiến dịch`
-            : '—';
+        renderDetailExtras(phone);
         document.getElementById('cwStatTotal').textContent = fmtVnd(w.totalPurchased);
         document.getElementById('cwStatPaid').textContent = fmtVnd(w.paidAmount);
         document.getElementById('cwStatReturned').textContent = fmtVnd(w.returnedAmount);
         document.getElementById('cwStatBalance').textContent = fmtVnd(w.balance);
         renderDetailTabs();
         document.getElementById('cwDetailModal').hidden = false;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    // Render sub-title + TPOS extras row (status, email, address, link).
+    // Tách riêng để gọi lại được khi enrichFromTpos resolve async sau khi modal đã mở.
+    function renderDetailExtras(phone) {
+        const sub = document.getElementById('cwDetailSub');
+        const c = customers[phone];
+        const partner = tposPartners[phone];
+        const w = walletState.wallets[phone];
+        if (!w) return;
+
+        const parts = [];
+        if (c) {
+            parts.push(`${c.orders.length} PBH · ${Object.keys(c.campaigns).length} chiến dịch`);
+        }
+        if (partner) {
+            const statusPill = tposStatusPillHtml(partner);
+            if (statusPill) parts.push(statusPill);
+            const carrier = carrierFromPartner(partner, phone);
+            if (carrier) parts.push(`<span class="cw-carrier">${escapeHtml(carrier)}</span>`);
+        }
+        const tposEditUrl = partner?.Id
+            ? `../partner-customer/index.html?id=${encodeURIComponent(partner.Id)}`
+            : `../partner-customer/index.html`;
+        parts.push(
+            `<a class="cw-tpos-link" href="${tposEditUrl}" target="_blank" rel="noopener" title="Mở thẻ KH trên Web 2.0">Mở thẻ KH ↗</a>`
+        );
+        sub.innerHTML = parts.join(' · ');
+
+        // Email + Address row — inject vào header dưới subtitle
+        let extras = document.getElementById('cwTposExtras');
+        if (!extras) {
+            extras = document.createElement('div');
+            extras.id = 'cwTposExtras';
+            extras.className = 'cw-tpos-extras';
+            sub.parentNode.appendChild(extras);
+        }
+        if (!partner) {
+            extras.innerHTML = '<span class="cw-tpos-loading">Đang lấy thông tin TPOS…</span>';
+            return;
+        }
+        const email = partner.Email || '';
+        const address =
+            partner.FullAddress ||
+            [partner.Street, partner.Ward, partner.District, partner.City]
+                .filter(Boolean)
+                .join(', ');
+        const credit = Number(partner.Credit || 0);
+        const fragments = [];
+        if (email) {
+            fragments.push(
+                `<span class="cw-tpos-item"><i data-lucide="mail"></i>${escapeHtml(email)}</span>`
+            );
+        }
+        if (address) {
+            fragments.push(
+                `<span class="cw-tpos-item"><i data-lucide="map-pin"></i>${escapeHtml(address)}</span>`
+            );
+        }
+        if (credit && Math.abs(credit - w.balance) > 1) {
+            fragments.push(
+                `<span class="cw-tpos-item cw-tpos-mismatch" title="Nợ TPOS ≠ Nợ ví — cần đối soát"><i data-lucide="alert-triangle"></i>Nợ TPOS: ${fmtVnd(credit)}</span>`
+            );
+        }
+        extras.innerHTML = fragments.join('');
+        if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
     function renderDetailTabs() {
@@ -474,6 +559,39 @@
         renderList();
         // Poll SePay deposits (incoming) → match KH theo phone → +payment
         pollDeposits().catch(() => {});
+        // Enrich từ TPOS Partner (Status / Email / Address / Carrier) — best-effort
+        enrichFromTpos().catch((e) => console.warn('[CustomerWallet] enrich fail:', e?.message));
+    }
+
+    // Map phone → partner record fetched from TPOS. Memory-only, not persisted.
+    const tposPartners = {};
+    let _enrichInflight = null;
+
+    async function enrichFromTpos() {
+        if (!window.PartnerCustomerApi?.listByPhones) return;
+        // Phone list = mọi KH đang có trong walletState
+        const phones = Object.keys(walletState.wallets || {}).filter(
+            (p) => p && p.length >= 9 && !tposPartners[p]
+        );
+        if (!phones.length) return;
+        if (_enrichInflight) return _enrichInflight;
+        _enrichInflight = (async () => {
+            try {
+                const map = await window.PartnerCustomerApi.listByPhones(phones, {
+                    chunkSize: 30,
+                });
+                for (const [phone, partner] of map.entries()) {
+                    tposPartners[phone] = partner;
+                }
+                renderList();
+                if (activePhone && !document.getElementById('cwDetailModal').hidden) {
+                    renderDetailExtras(activePhone);
+                }
+            } finally {
+                _enrichInflight = null;
+            }
+        })();
+        return _enrichInflight;
     }
 
     // Poll SePay deposits since lastDepositSync. Idempotent qua sepayId.

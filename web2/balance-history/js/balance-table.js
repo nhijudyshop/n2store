@@ -456,14 +456,14 @@ function renderTransactionRow(row) {
     const mappingSource = getMappingSource(row, uniqueCode);
 
     return `
-    <tr class="${rowClass}" data-transaction-id="${row.id}">
+    <tr class="${rowClass}" data-transaction-id="${row.id}" data-customer-phone="${row.linked_customer_phone || customerDisplay.phone || ''}">
         <td>${formatDateTime(row.transaction_date)}</td>
         <td class="${row.transfer_type === 'in' ? 'amount-in' : 'amount-out'}">
             ${formatCurrency(row.transfer_amount)}
         </td>
         <td style="word-wrap: break-word; max-width: 300px;">${content || 'N/A'}</td>
         <td>${row.reference_code || 'N/A'}</td>
-        <td class="customer-info-cell ${hasPendingMatch ? 'pending-match' : customerDisplay.hasInfo ? '' : 'no-info'}">
+        <td class="customer-info-cell ${hasPendingMatch ? 'pending-match' : customerDisplay.hasInfo ? '' : 'no-info'}" data-tpos-customer-cell="1">
             ${customerNameCell}
         </td>
         <td class="customer-info-cell ${customerDisplay.hasInfo ? '' : 'no-info'}">

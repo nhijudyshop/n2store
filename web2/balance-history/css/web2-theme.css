@@ -724,3 +724,51 @@ body.tpos-theme {
         font-size: 12.5px;
     }
 }
+
+/* TPOS Partner enricher --------------------------------------------- */
+.bh-tpos-enrich {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+.bh-tpos-status-pill {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.5;
+    background: #f1f5f9;
+    color: #475569;
+}
+.bh-tpos-status-pill.bh-tpos-status-bomb {
+    background: #fee2e2;
+    color: #991b1b;
+}
+.bh-tpos-status-pill.bh-tpos-status-warning {
+    background: #fef3c7;
+    color: #92400e;
+}
+.bh-tpos-status-pill.bh-tpos-status-danger {
+    background: #fecaca;
+    color: #7f1d1d;
+}
+.bh-tpos-status-pill.bh-tpos-status-vip {
+    background: #dbeafe;
+    color: #1e40af;
+}
+.bh-tpos-link {
+    color: #0891b2;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+}
+.bh-tpos-link i[data-lucide] {
+    width: 12px;
+    height: 12px;
+}
+.bh-tpos-link:hover {
+    color: #0e7490;
+}
