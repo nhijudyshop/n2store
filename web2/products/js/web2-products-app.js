@@ -388,21 +388,13 @@
                     console.warn('[products] Firebase chưa load — fallback empty supplier list');
                     return [];
                 }
-                // Transition 2026-05-25: read BOTH web2_so_order (NEW) + so_order_v2 (OLD)
-                // và lấy payload có lastUpdated mới hơn. TODO bỏ OLD ~2026-06-25.
-                const db = firebase.firestore();
-                const [snapNew, snapOld] = await Promise.all([
-                    db.collection('web2_so_order').doc('main').get(),
-                    db.collection('so_order_v2').doc('main').get(),
-                ]);
-                const pNew = snapNew.exists ? snapNew.data() || null : null;
-                const pOld = snapOld.exists ? snapOld.data() || null : null;
-                const winner =
-                    (Number(pNew?.lastUpdated) || 0) >= (Number(pOld?.lastUpdated) || 0)
-                        ? pNew
-                        : pOld;
-                if (!winner) return [];
-                const data = winner.data || {};
+                const snap = await firebase
+                    .firestore()
+                    .collection('web2_so_order')
+                    .doc('main')
+                    .get();
+                if (!snap.exists) return [];
+                const data = snap.data()?.data || {};
                 const set = new Set();
                 // Tabs[*].shipments[*].rows[*].supplier
                 for (const tab of data.tabs || []) {

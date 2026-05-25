@@ -274,23 +274,12 @@
                         walletData = null;
                     try {
                         const db = firebase.firestore();
-                        // Transition 2026-05-25: dual-read web2_* (NEW) + *_v1/v2 (OLD), pick latest by lastUpdated.
-                        // TODO bỏ OLD ~2026-06-25 sau khi tab user tự refresh hết.
-                        const [soNew, soOld, wNew, wOld] = await Promise.all([
+                        const [soSnap, walletSnap] = await Promise.all([
                             db.collection('web2_so_order').doc('main').get(),
-                            db.collection('so_order_v2').doc('main').get(),
                             db.collection('web2_supplier_wallet').doc('main').get(),
-                            db.collection('supplier_wallet_v1').doc('main').get(),
                         ]);
-                        const pickLatest = (a, b) => {
-                            const ta = a?.exists ? Number(a.data()?.lastUpdated) || 0 : -1;
-                            const tb = b?.exists ? Number(b.data()?.lastUpdated) || 0 : -1;
-                            return ta >= tb ? a : b;
-                        };
-                        const soWin = pickLatest(soNew, soOld);
-                        const wWin = pickLatest(wNew, wOld);
-                        soData = soWin?.exists ? soWin.data()?.data || null : null;
-                        walletData = wWin?.exists ? wWin.data()?.data || null : null;
+                        soData = soSnap.exists ? soSnap.data()?.data || null : null;
+                        walletData = walletSnap.exists ? walletSnap.data()?.data || null : null;
                     } catch (e) {
                         document.getElementById('ageBody').innerHTML =
                             '<tr><td colspan="6" style="text-align:center; padding:20px; color:#dc2626">Lỗi Firestore: ' +

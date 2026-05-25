@@ -18,57 +18,6 @@
 (function () {
     'use strict';
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Firestore rename transition 2026-05-25: dual-read + dual-write helpers.
-    // Mọi collection Web 2.0 đã rename từ suffix `_v1`/`_v2` sang prefix `web2_`.
-    // Trong giai đoạn chuyển tiếp (TODO bỏ ~2026-06-25), code mới ghi vào BOTH
-    // (NEW + OLD) và đọc BOTH (pick latest by lastUpdated) để tab cũ chưa refresh
-    // vẫn đồng bộ. Sau ngày sunset: xoá OLD names và 2 helper này.
-    // ─────────────────────────────────────────────────────────────────────────
-    const COLLECTION_ALIAS = {
-        web2_so_order: 'so_order_v2',
-        web2_supplier_wallet: 'supplier_wallet_v1',
-        web2_suppliers: 'suppliers_v1',
-        web2_customer_wallet: 'customer_wallet_v1',
-    };
-
-    // Đọc BOTH (NEW + OLD), trả về snapshot có lastUpdated mới hơn.
-    async function dualRead(db, collectionNew, docId) {
-        const oldName = COLLECTION_ALIAS[collectionNew];
-        if (!oldName) {
-            // Không phải collection đang transition → đọc thường.
-            return db.collection(collectionNew).doc(docId).get();
-        }
-        const [snapNew, snapOld] = await Promise.all([
-            db.collection(collectionNew).doc(docId).get(),
-            db.collection(oldName).doc(docId).get(),
-        ]);
-        const tNew = snapNew.exists ? Number(snapNew.data()?.lastUpdated) || 0 : -1;
-        const tOld = snapOld.exists ? Number(snapOld.data()?.lastUpdated) || 0 : -1;
-        return tNew >= tOld ? snapNew : snapOld;
-    }
-
-    // Ghi BOTH (NEW + OLD) song song. Giữ chữ ký giống ref.set() truyền thống.
-    async function dualWrite(db, collectionNew, docId, payload, opts) {
-        const oldName = COLLECTION_ALIAS[collectionNew];
-        if (!oldName) {
-            return db
-                .collection(collectionNew)
-                .doc(docId)
-                .set(payload, opts || {});
-        }
-        await Promise.all([
-            db
-                .collection(collectionNew)
-                .doc(docId)
-                .set(payload, opts || {}),
-            db
-                .collection(oldName)
-                .doc(docId)
-                .set(payload, opts || {}),
-        ]);
-    }
-
     const FALLBACK_RATES = {
         VND: 1,
         CNY: 3500,
@@ -178,9 +127,9 @@
             }
             const db = firebase.firestore();
             const [soSnap, walletSnap, supSnap] = await Promise.all([
-                dualRead(db, 'web2_so_order', 'main'),
-                dualRead(db, 'web2_supplier_wallet', 'main'),
-                dualRead(db, 'web2_suppliers', 'main'),
+                db.collection('web2_so_order').doc('main').get(),
+                db.collection('web2_supplier_wallet').doc('main').get(),
+                db.collection('web2_suppliers').doc('main').get(),
             ]);
             STATE.soOrderData = soSnap.exists ? soSnap.data()?.data || null : null;
             STATE.walletData = walletSnap.exists ? walletSnap.data()?.data || null : null;
@@ -197,7 +146,8 @@
 
     async function saveSupplier(code, name) {
         const db = firebase.firestore();
-        const snap = await dualRead(db, 'web2_suppliers', 'main');
+        const ref = db.collection('web2_suppliers').doc('main');
+        const snap = await ref.get();
         const data = snap.exists ? snap.data()?.data || { suppliers: [] } : { suppliers: [] };
         const list = Array.isArray(data.suppliers) ? data.suppliers : [];
         const codeUp = code.trim().toUpperCase();
@@ -212,13 +162,7 @@
             createdAt: Date.now(),
             updatedAt: Date.now(),
         });
-        await dualWrite(
-            db,
-            'web2_suppliers',
-            'main',
-            { data: { suppliers: list }, lastUpdated: Date.now() },
-            { merge: true }
-        );
+        await ref.set({ data: { suppliers: list }, lastUpdated: Date.now() }, { merge: true });
         STATE.suppliersList = list;
     }
 
@@ -226,7 +170,8 @@
     // auto-create an entry with empty code (legacy/DEMO row).
     async function saveSupplierNote(rowKey, code, note) {
         const db = firebase.firestore();
-        const snap = await dualRead(db, 'web2_suppliers', 'main');
+        const ref = db.collection('web2_suppliers').doc('main');
+        const snap = await ref.get();
         const data = snap.exists ? snap.data()?.data || { suppliers: [] } : { suppliers: [] };
         const list = Array.isArray(data.suppliers) ? data.suppliers : [];
         let entry = code
@@ -254,13 +199,7 @@
         }
         entry.note = String(note || '').trim();
         entry.updatedAt = Date.now();
-        await dualWrite(
-            db,
-            'web2_suppliers',
-            'main',
-            { data: { suppliers: list }, lastUpdated: Date.now() },
-            { merge: true }
-        );
+        await ref.set({ data: { suppliers: list }, lastUpdated: Date.now() }, { merge: true });
         STATE.suppliersList = list;
     }
 
@@ -306,7 +245,8 @@
         if (!supplierKey) throw new Error('Thiếu NCC');
         if (!Number.isFinite(amount) || amount <= 0) throw new Error('Số tiền không hợp lệ');
         const db = firebase.firestore();
-        const snap = await dualRead(db, 'web2_supplier_wallet', 'main');
+        const ref = db.collection('web2_supplier_wallet').doc('main');
+        const snap = await ref.get();
         const state = snap.exists ? snap.data()?.data || { wallets: {} } : { wallets: {} };
         const w = state.wallets[supplierKey] || {
             supplier: supplierKey,
@@ -350,13 +290,7 @@
         w.paidAmount = (Number(w.paidAmount) || 0) + amount;
         w.balance = (w.totalPurchased || 0) - (w.paidAmount || 0) - (w.returnedAmount || 0);
         state.wallets[supplierKey] = w;
-        await dualWrite(
-            db,
-            'web2_supplier_wallet',
-            'main',
-            { data: state, lastUpdated: Date.now() },
-            { merge: true }
-        );
+        await ref.set({ data: state, lastUpdated: Date.now() }, { merge: true });
         // Update in-memory state so next render picks it up
         STATE.walletData = state;
         return moveName;

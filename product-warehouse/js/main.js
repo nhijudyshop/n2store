@@ -4391,63 +4391,81 @@
         }
 
         try {
-            showToast('Đang tạo phiếu điều chỉnh trên TPOS...', 'info');
+            showToast('Đang điều chỉnh tồn trên TPOS...', 'info');
 
-            // TPOS removed StockChangeProductQty (HTTP 404 trên 3 path cũ). Modern TPOS
-            // dùng StockInventory workflow (Filter=partial + ProductId), nhưng action để
-            // sinh InventoryLines từ filter không được expose qua OData (tất cả candidates
-            // probe đều 404 hoặc 204-no-op).
+            // TPOS 2-step flow — discovered by hooking the producttemplate/form
+            // "Cập nhật số lượng thực tế" modal (NJD Live tenant, 2026-05-25):
             //
-            // Workaround: tạo phiếu kiểm kho draft với metadata sẵn sàng (Name có ghi giá
-            // trị mới), rồi mở TPOS form trong tab mới để user click "Bắt đầu kiểm kho"
-            // → set qty → "Xác nhận". Bớt 50% công so với làm từ đầu trên TPOS.
-            const variantName = variant.NameGet || variant.DefaultCode || `#${variant.Id}`;
-            const nowIso = new Date().toISOString();
-
-            const createBody = {
-                Name: `Điều chỉnh: ${variantName} → ${newQty}`,
-                Date: nowIso,
-                LocationId: 12,
-                ProductId: variant.Id,
-                Filter: 'partial',
-                CompanyId: 1,
-                CategoryId: null,
-                LotId: null,
+            //   1) POST /odata/StockChangeProductQty/ODataService.PostChangeQtyProduct
+            //      body: { model: [{ Id:0, ProductId, ProductTmplId, NewQuantity,
+            //                        LocationId:12, LotId:null, WarehouseId:null,
+            //                        CompanyId:null, ProductVariantCount:1 }] }
+            //      → 200 with { value: [{ Id, ... }] }  (creates draft StockChange records)
+            //
+            //   2) POST /odata/StockChangeProductQty/ODataService.ChangeProductQtyIds
+            //      body: { ids: [Id1, Id2, ...] }
+            //      → 204 No Content (writes stock.move state=done + bumps QtyAvailable)
+            //
+            // Verified end-to-end (variant 157482, qty 0 → 11) via Playwright.
+            const templateId = stockAdjustCtx.templateId;
+            const step1Body = {
+                model: [
+                    {
+                        Id: 0,
+                        ProductId: variant.Id,
+                        ProductTmplId: templateId,
+                        LotId: null,
+                        NewQuantity: newQty,
+                        LocationId: 12,
+                        WarehouseId: null,
+                        CompanyId: null,
+                        ProductVariantCount: 1,
+                    },
+                ],
             };
-            const createResp = await window.tokenManager.authenticatedFetch(
-                `${PROXY_URL}/api/odata/StockInventory?$expand=Location`,
+            const step1Resp = await window.tokenManager.authenticatedFetch(
+                `${PROXY_URL}/api/odata/StockChangeProductQty/ODataService.PostChangeQtyProduct`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                    body: JSON.stringify(createBody),
+                    body: JSON.stringify(step1Body),
                 }
             );
-            if (!createResp.ok) {
-                const txt = await createResp.text().catch(() => '');
+            if (!step1Resp.ok) {
+                const txt = await step1Resp.text().catch(() => '');
                 throw new Error(
-                    `Tạo phiếu kiểm kho: HTTP ${createResp.status} ${txt.slice(0, 150)}`
+                    `Bước 1 (PostChangeQtyProduct): HTTP ${step1Resp.status} ${txt.slice(0, 150)}`
                 );
             }
-            const inventory = await createResp.json();
-            const inventoryId = inventory.Id;
-            if (!inventoryId) throw new Error('Không nhận được InventoryId từ TPOS');
+            const step1Json = await step1Resp.json();
+            const ids = (step1Json.value || []).map((v) => v.Id).filter(Boolean);
+            if (ids.length === 0) {
+                throw new Error('Không nhận được Id từ PostChangeQtyProduct');
+            }
 
-            // Open TPOS form to finish (user chỉ cần click 2 button)
-            const tposUrl = `https://tomato.tpos.vn/#/app/stockinventory/form?id=${inventoryId}`;
-            const winRef = window.open(tposUrl, '_blank');
-            showToast(
-                winRef
-                    ? `Đã tạo phiếu #${inventoryId} — hoàn tất tại tab TPOS mới (click "Bắt đầu kiểm kho" → "Xác nhận").`
-                    : `Phiếu #${inventoryId} đã tạo. Mở TPOS thủ công: ${tposUrl}`,
-                'info'
+            // Step 2 — apply (writes stock.move + bumps QtyAvailable)
+            const step2Resp = await window.tokenManager.authenticatedFetch(
+                `${PROXY_URL}/api/odata/StockChangeProductQty/ODataService.ChangeProductQtyIds`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                    body: JSON.stringify({ ids }),
+                }
             );
+            if (!step2Resp.ok) {
+                const txt = await step2Resp.text().catch(() => '');
+                throw new Error(
+                    `Bước 2 (ChangeProductQtyIds): HTTP ${step2Resp.status} ${txt.slice(0, 150)}`
+                );
+            }
+
+            showToast(`Đã cập nhật tồn: ${variant.QtyAvailable} → ${newQty}`, 'success');
             closeStockAdjust();
 
-            // Sau khi user confirm trên TPOS, socket sẽ fire inventory_updated event →
-            // Render sync → SSE broadcast → fetchProducts auto-refresh. Trigger nudge:
-            setTimeout(() => {
-                fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(() => {});
-            }, 15000);
+            // TPOS Socket fires inventory_updated → Render sync → SSE → auto-refresh.
+            // Trigger nudge to Render as backup (in case socket misses the event):
+            fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(() => {});
+            setTimeout(() => fetchProducts(true), 4000);
         } catch (err) {
             console.error('[Stock] Adjust failed:', err);
             showToast('Lỗi điều chỉnh: ' + err.message, 'error');
