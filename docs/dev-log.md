@@ -25,6 +25,24 @@
 
 ## 2026-05-25
 
+### [tpos-pancake][snap] Fallback iframe direct khi FB SDK xfbml.ready stuck
+
+**User báo**: popup `fb-video-player.html` dừng ở status `⏳ Player rendered — waiting seek...` không tiến tiếp — `xfbml.render` fire xong nhưng `xfbml.ready` (event để lấy player instance + gọi `player.seek(N)`) KHÔNG fire. FB JS SDK Embedded Video Player API không reliable cho live VOD: video metadata chưa load xong / plugin không expose API trong vài case nhất là live đang/vừa kết thúc.
+
+**Fix**: hybrid approach — try FB SDK trước (cho seek chính xác), fallback iframe direct sau 4s timeout.
+
+- Giữ FB SDK xfbml plugin (cho seek API exact khi work).
+- Thêm `renderIframeDirect(reason)` thay xfbml bằng `<iframe src="https://www.facebook.com/plugins/video.php?href=...&autoplay=1&t=N">`. URL param `t=N` được FB respect cho VOD (verified commit `f6c0fe137`). Live đang chạy có thể ignore — user manual slider seek backup.
+- Trigger fallback trong 3 case:
+    - `setTimeout(4000)` — xfbml.ready chưa fire → SDK timeout
+    - `js.onerror` — SDK script load fail
+    - Flag `fallbackTriggered` chống double-render khi cả 2 path race.
+- Status messaging chi tiết: `⏳ Player rendered — waiting seek API...` → `✅ Seek tới Ns` HOẶC `▶ Iframe direct (SDK timeout 4s) — t=Ns (FB có thể ignore, dùng slider seek nếu cần)`.
+
+**Files**: `tpos-pancake/fb-video-player.html` (+50 / -10 trong script).
+
+**Status**: ✅ Done
+
 ### [tpos-pancake][snap] Fit FB Live player popup cho video portrait 9:16
 
 **User báo**: popup `fb-video-player.html` mở đúng URL + seek đúng (status `✅ Seek tới 5037s qua FB Player API`), nhưng video tràn ra ngoài window 820×520 — livestream shop quay portrait 9:16 (PRISM Live mobile streaming), iframe FB plugin `data-width=720` → height ~1280px overflow.
