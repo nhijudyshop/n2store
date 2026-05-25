@@ -65,6 +65,45 @@
 
 ---
 
+### [issue-tracking][tpos][mock-crud] Mock CRUD đầy đủ cho 2 tab MUA HÀNG NCC + TRẢ HÀNG NCC — ✅ Done
+
+**Mục tiêu**: 100% feature parity với TPOS native `fastpurchaseorder/invoicelist` + `refundlist`: default date range (tháng hiện tại), top toolbar (Thêm / Thao tác / Ẩn hiện cột), per-row Edit + Delete buttons, edit modal đầy đủ field. Write operations (Sửa/Xóa/Thêm) chỉ mock (overlay in-memory), không gọi TPOS API.
+
+**Files modified**:
+
+- `issue-tracking/js/tpos-fastsale-tab.js` (+~290 dòng):
+    - `TYPE_CFG.purchase` + `TYPE_CFG.purchaseRefund` thêm flag `mockable: true`, `colCount` +1 cho cột "Hành động".
+    - Helper `getCurrentMonthRange()`, `localDateTimeForInput(date)` (fix giờ datetime-local input cần local time chứ không UTC), `actionButtons(id)`.
+    - Constructor: nếu entity là `FastPurchaseOrder` → set `state.dateFrom/dateTo` = tháng hiện tại + populate inputs. Init `this.mock = { overlay: Map, deleted: Set, added: [], nextId }` cho mockable types.
+    - `bindEvents()`: thêm handlers cho tbody click — `[data-action="edit"]` → openEditModal, `[data-action="delete"]` → openDeleteConfirm; toolbar handlers `addNew` / `bulkAction` / `toggleCols`.
+    - `applyMockOverlay(rows)`: trộn server rows + mock overlay (edit) + mock deleted (filter ra) + mock added (prepend trang 1).
+    - `render()`: gọi `applyMockOverlay` trước khi render, total counter = server total + mock added - mock deleted.
+    - Mock CRUD methods: `getRowById`, `openEditModal(id|null)`, `submitEditModal(formData)`, `openDeleteConfirm(id)`, `executeDelete(id)`.
+    - `renderPurchaseRow` + `renderPurchaseRefundRow` thêm column "Hành động" (Edit green pencil + Delete red trash), thêm tag `MOCK` / `SỬA` cho rows có mock.
+    - `stateBadge(state, meta, textOnly)` — purchase rows gọi với `textOnly=true` → badge chỉ chữ ("Nháp"/"Đã xác nhận"/"Đã hủy"), không có icon (theo yêu cầu user).
+    - Helper `toast(msg, level)` dùng `window.notificationManager.show` (fallback inline div).
+    - `bindMockModals()`: wire submit + close events cho `#modal-purchase-edit` và `#modal-purchase-delete` (1 lần khi DOMContentLoaded).
+- `issue-tracking/index.html`:
+    - Thêm `.tpos-fso-toolbar` block (Thêm + Thao tác + Ẩn hiện cột + Mock banner) cho 2 purchase panes.
+    - Thêm `<th>Hành động</th>` + cập nhật colspan loading row (12 cho purchase invoice, 10 cho refund).
+    - Thêm `#modal-purchase-edit` (form 10 field: PartnerDisplayName, DateInvoice datetime-local, Number, VatInvoiceNumber, AmountTotal, Residual, State, UserName, CompanyName, Note) + `#modal-purchase-delete` (confirm dialog). 2 trường `[data-only-invoice]` (Residual + VatInvoiceNumber) ẩn cho refund mode.
+    - Cache version bump `v=20260525a → v=20260525c`.
+- `issue-tracking/css/page-tabs.css` (+~260 dòng): styles cho `.tpos-fso-toolbar`, `.tpos-fso-btn-primary` (purple), `.tpos-fso-btn-secondary`, `.tpos-mock-banner` (amber chip), `.tpos-fso-row-btn` (Edit green / Delete red), `.tpos-mock-tag` (MOCK/SỬA), `.tpos-mock-modal` (overlay), `.tpos-mock-form` (form layout). `.tpos-fso-badge-text` cho badge text-only (purchase). Highlight subtle gradient cho rows có `data-mock` / `data-mock-edited`.
+
+**Verification** (localhost:8080 qua persistent Playwright session):
+
+1. Default date range tháng hiện tại: `dateFrom = "2026-05-01"`, `dateTo = "2026-05-31"`. MUA HÀNG NCC 334 phiếu / TRẢ HÀNG NCC 21 phiếu (chỉ tháng 5) — khớp filter "36 Ngày" TPOS native.
+2. Edit cycle: click pencil row #1 (id 55885) → modal mở với title "Sửa phiếu 55885 (Mock)", pre-fill PartnerDisplayName="[B16] B16 LỤA SÁNG ( HÀ NỘI)", AmountTotal=3440000, DateInvoice="2026-05-25T09:41" (local). Sửa AmountTotal=7777000 → submit → row update inline (3.440.000đ → 7.777.000đ), tag "SỬA" xuất hiện, date `25/05/2026 09:41` preserved chính xác.
+3. Delete cycle: click trash row #1 → modal confirm "55885 — [B16] B16 LỤA SÁNG..." → confirm → total 334 → 333, row biến mất, first row mới là 55884.
+4. Add cycle: click "Thêm" → modal "Thêm phiếu Mua hàng NCC mới (Mock)" empty → fill PartnerDisplayName="[MOCK-CREATE] Test NCC mới", AmountTotal=9999000, UserName=mock-claude, State=open → submit → row mới (id `MOCK-po-{ts}-1`) prepend đầu list, tag "MOCK" hiển thị, total 333 → 334.
+5. Delete mock row vừa add: total 334 → 333 trở lại, first row 55885 (server).
+6. Refund tab: edit modal mở đúng, 2 field Residual + VatInvoiceNumber ẩn (data-only-invoice).
+7. Regression: BÁN HÀNG tab vẫn load 14.167 hóa đơn, KHÔNG có toolbar/action buttons (chỉ purchase mới có), badge state vẫn có icon (chỉ purchase badge mới text-only).
+8. Expand detail row vẫn hoạt động cho cả 2 purchase tab (qua `/api/odata/FastPurchaseOrder({id})?$expand=OrderLines`).
+9. State badge purchase rows: kiểm tra `firstThreeBadges` → chỉ text "Nháp"/"Đã xác nhận"/"Đã xác nhận", `hasIcon: false`, class `tpos-fso-badge-text`.
+
+**Mock mode UX**: banner amber chip ở toolbar warn rõ "Mock mode — Sửa/Xóa/Thêm chỉ giả lập", hint trong modal "Thay đổi chỉ lưu cục bộ trình duyệt, không sync TPOS. Refresh tab sẽ mất.", tag "MOCK" trên row mới add, tag "SỬA" trên row đã edit. Notification toast cho mỗi thao tác qua `window.notificationManager.show`.
+
 ### [issue-tracking][tpos] Thêm 2 page-tab MUA HÀNG NCC + TRẢ HÀNG NCC — ✅ Done
 
 **Mục tiêu**: thêm 2 tab mới vào `issue-tracking/index.html` mirror trang TPOS `fastpurchaseorder/invoicelist` + `fastpurchaseorder/refundlist`, dùng cùng UI/CSS với tab BÁN HÀNG/TRẢ HÀNG có sẵn.

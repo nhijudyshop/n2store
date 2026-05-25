@@ -1009,6 +1009,15 @@ body.pt-embed-active {
     color: #fff;
 }
 
+/* Text-only state badge variant (purchase tabs — no icon, just label) */
+.tpos-fso-badge.tpos-fso-badge-text {
+    gap: 0;
+    padding: 3px 10px;
+}
+.tpos-fso-badge.tpos-fso-badge-text > i {
+    display: none;
+}
+
 /* Mock tag on supplier name */
 .tpos-mock-tag {
     display: inline-block;

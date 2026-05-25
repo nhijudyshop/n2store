@@ -117,9 +117,11 @@
         };
     }
 
-    function stateBadge(state, meta = STATE_META) {
+    function stateBadge(state, meta = STATE_META, textOnly = false) {
         const m = meta[state] || { label: state || '—', cls: 's-draft', icon: 'help-circle' };
-        return `<span class="tpos-fso-badge ${m.cls}"><i data-lucide="${m.icon}"></i>${m.label}</span>`;
+        const iconHtml = textOnly ? '' : `<i data-lucide="${m.icon}"></i>`;
+        const extraCls = textOnly ? ' tpos-fso-badge-text' : '';
+        return `<span class="tpos-fso-badge ${m.cls}${extraCls}">${iconHtml}${m.label}</span>`;
     }
 
     function renderInvoiceRow(row, idx, ns) {
@@ -184,7 +186,7 @@
             <td><span class="mono" style="color:#475569;">${escapeHtml(vatNum || '—')}</span></td>
             <td class="num">${total}</td>
             <td class="num" style="color:${row.Residual > 0 ? '#dc2626' : '#475569'};">${residual}</td>
-            <td>${stateBadge(row.State, PURCHASE_STATE_META)}</td>
+            <td>${stateBadge(row.State, PURCHASE_STATE_META, true)}</td>
             <td><span style="color:#475569;font-size:12px;">${escapeHtml(employee)}</span></td>
             <td><span style="color:#475569;font-size:12px;">${escapeHtml(company)}</span></td>
             ${actionButtons(row.Id)}
@@ -205,7 +207,7 @@
             <td><div class="tpos-fso-customer">${escapeHtml(supplier)}${isMock ? ' <span class="tpos-mock-tag">MOCK</span>' : ''}${row.__mockEdited ? ' <span class="tpos-mock-tag tpos-mock-tag-edited">SỬA</span>' : ''}</div></td>
             <td><span class="mono" style="color:#64748b;">${date}</span></td>
             <td class="num" style="color:#dc2626;">${total}</td>
-            <td>${stateBadge(row.State, PURCHASE_STATE_META)}</td>
+            <td>${stateBadge(row.State, PURCHASE_STATE_META, true)}</td>
             <td><span style="color:#475569;font-size:12px;">${escapeHtml(employee)}</span></td>
             <td><span style="color:#475569;font-size:12px;">${escapeHtml(company)}</span></td>
             ${actionButtons(row.Id)}
