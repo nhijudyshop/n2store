@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e5cd3a3` — feat(orders-report): gỡ permission gate cho toggle RT & Auto T
-**Last updated**: 2026-05-25 11:48:06 +07
-**Latest session**: [`RESUME:20260525-114806-e5cd3a3`](../20260525-114806-e5cd3a3.md)
-**Summary**: feat(orders-report): gỡ permission gate cho toggle RT & Auto T
+**Latest commit**: `85bd8c6` — auto: session update
+**Last updated**: 2026-05-25 11:53:42 +07
+**Latest session**: [`RESUME:20260525-115342-85bd8c6`](../20260525-115342-85bd8c6.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`orders-report/`](./orders-report.md) — 3 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 2 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 18:41
-- [`docs/`](./docs.md) — updated 2026-05-25 11:48
+- [`docs/`](./docs.md) — updated 2026-05-25 11:53
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -45,7 +46,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-25 11:48
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 11:46
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 11:53
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
@@ -62,7 +63,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-25 09:54
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-25 11:53
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
