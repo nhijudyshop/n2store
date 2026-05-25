@@ -514,38 +514,38 @@
      * Tab "Lịch sử" — TPOS audit log (lazy-loaded on first activation).
      * Re-uses the AuditLog OData endpoint already used by the edit modal.
      */
+    /** Generic OData fetch helper for expand-panel lazy tabs. */
+    async function _expandFetch(path) {
+        const resp = await window.tokenManager.authenticatedFetch(`${PROXY_URL}${path}`, {
+            headers: { Accept: 'application/json' },
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return resp.json();
+    }
+
+    /**
+     * Tab "Lịch sử" — endpoint discovered by hooking TPOS XHR:
+     *   /odata/AuditLog/ODataService.GetAuditLogEntity?entityName=ProductTemplate&entityId={id}&skip=0&take=N
+     */
     async function loadExpandAuditLog(templateId, target) {
-        // TPOS exposes audit log under several paths; try each and use first success.
-        // Mirrors loadAuditLog() used in the edit modal.
-        const candidates = [
-            `${PROXY_URL}/api/odata/AuditLog/ODataService.GetAuditLogEntity(entityId=${templateId},entityType='ProductTemplate')`,
-            `${PROXY_URL}/api/odata/AuditLog?$filter=EntityId eq ${templateId} and EntityType eq 'ProductTemplate'&$orderby=DateCreated desc&$top=50`,
-            `${PROXY_URL}/api/odata/ProductTemplate(${templateId})/ODataService.GetAuditLogEntity`,
-        ];
-        let rows = null;
-        for (const url of candidates) {
-            try {
-                const r = await window.tokenManager.authenticatedFetch(url, {
-                    headers: { Accept: 'application/json' },
-                });
-                if (!r.ok) continue;
-                const data = await r.json();
-                rows = data.value || data.Items || data.data || (Array.isArray(data) ? data : null);
-                if (rows) break;
-            } catch (_) {
-                /* try next */
+        try {
+            const data = await _expandFetch(
+                `/api/odata/AuditLog/ODataService.GetAuditLogEntity?entityName=ProductTemplate&entityId=${templateId}&skip=0&take=50`
+            );
+            const rows = data.value || [];
+            if (rows.length === 0) {
+                target.innerHTML = '<div class="expand-empty">Chưa có lịch sử.</div>';
+                return;
             }
+            target.innerHTML = renderExpandHistoryTable(rows);
+        } catch (err) {
+            target.innerHTML = `<div class="expand-empty" style="color:#dc2626">Lỗi tải lịch sử: ${escapeHtml(err.message)}</div>`;
         }
-        if (!rows) {
-            target.innerHTML =
-                '<div class="expand-empty">Endpoint audit log của TPOS chưa khả dụng — xem trên TPOS.</div>';
-            return;
-        }
-        if (rows.length === 0) {
-            target.innerHTML = '<div class="expand-empty">Chưa có lịch sử.</div>';
-            return;
-        }
-        target.innerHTML = `<table class="expand-history-table">
+    }
+
+    /** Render audit-log style rows into a 4-col table (used by history + costhistory). */
+    function renderExpandHistoryTable(rows) {
+        return `<table class="expand-history-table">
             <thead><tr>
                 <th>Thời gian</th>
                 <th>Người thực hiện</th>
@@ -553,19 +553,139 @@
                 <th>Mô tả</th>
             </tr></thead>
             <tbody>${rows
-                .slice(0, 50)
                 .map((it) => {
-                    const raw = it.DateCreated || it.CreatedAt;
+                    const raw = it.DateCreated;
                     const date = raw ? new Date(raw).toLocaleString('vi-VN') : '-';
                     return `<tr>
                         <td>${escapeHtml(date)}</td>
-                        <td>${escapeHtml(it.UserName || it.CreatedByName || '-')}</td>
-                        <td>${escapeHtml(it.ActionDisplay || it.Action || it.ActionName || '-')}</td>
-                        <td>${escapeHtml(it.Details || it.Description || it.Note || '-')}</td>
+                        <td>${escapeHtml(it.UserName || '-')}</td>
+                        <td>${escapeHtml(it.Action || '-')}</td>
+                        <td>${escapeHtml(it.Description || '-')}</td>
                     </tr>`;
                 })
                 .join('')}</tbody>
         </table>`;
+    }
+
+    /**
+     * Tab "Lịch sử giá vốn" — endpoint:
+     *   /odata/AuditLog/ODataService.GetAuditLogStandardPrice?entityName=StandardPrice&entityId={id}&skip=0&take=N
+     */
+    async function loadExpandCostHistory(templateId, target) {
+        try {
+            const data = await _expandFetch(
+                `/api/odata/AuditLog/ODataService.GetAuditLogStandardPrice?entityName=StandardPrice&entityId=${templateId}&skip=0&take=50`
+            );
+            const rows = data.value || [];
+            if (rows.length === 0) {
+                target.innerHTML = '<div class="expand-empty">Chưa có thay đổi giá vốn.</div>';
+                return;
+            }
+            target.innerHTML = renderExpandHistoryTable(rows);
+        } catch (err) {
+            target.innerHTML = `<div class="expand-empty" style="color:#dc2626">Lỗi tải lịch sử giá vốn: ${escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    /**
+     * Tab "Thẻ kho" — endpoint:
+     *   /odata/StockMove/ODataService.GetStockMove_Product?productTmplId={id}&$top=N&$orderby=Date desc&$filter=ProductTmplId eq {id}&$count=true
+     */
+    async function loadExpandStockCard(templateId, target) {
+        try {
+            const params = new URLSearchParams();
+            params.set('productTmplId', String(templateId));
+            params.set('$format', 'json');
+            params.set('$top', '50');
+            params.set('$orderby', 'Date desc');
+            params.set('$filter', `ProductTmplId eq ${templateId}`);
+            params.set('$count', 'true');
+            const data = await _expandFetch(
+                `/api/odata/StockMove/ODataService.GetStockMove_Product?${params.toString()}`
+            );
+            const rows = data.value || [];
+            if (rows.length === 0) {
+                target.innerHTML = '<div class="expand-empty">Chưa có biến động kho.</div>';
+                return;
+            }
+            target.innerHTML = `<table class="expand-history-table">
+                <thead><tr>
+                    <th>Ngày</th>
+                    <th>Phiếu</th>
+                    <th>Sản phẩm</th>
+                    <th>Đối tác</th>
+                    <th style="text-align:right">SL</th>
+                    <th>ĐVT</th>
+                    <th>Trạng thái</th>
+                </tr></thead>
+                <tbody>${rows
+                    .map((m) => {
+                        const date = m.Date || m.DateExpected;
+                        const dateStr = date ? new Date(date).toLocaleString('vi-VN') : '-';
+                        return `<tr>
+                            <td>${escapeHtml(dateStr)}</td>
+                            <td>${escapeHtml(m.Origin || m.Name || '-')}</td>
+                            <td>${escapeHtml(m.ProductName || m.Name || '-')}</td>
+                            <td>${escapeHtml(m.PartnerName || m.PartnerId || '-')}</td>
+                            <td style="text-align:right">${formatQty(m.ProductUOMQty || m.ProductQty || 0)}</td>
+                            <td>${escapeHtml(m.ProductUOMName || '-')}</td>
+                            <td>${escapeHtml(m.StateText || m.State || '-')}</td>
+                        </tr>`;
+                    })
+                    .join('')}</tbody>
+            </table>`;
+        } catch (err) {
+            target.innerHTML = `<div class="expand-empty" style="color:#dc2626">Lỗi tải thẻ kho: ${escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    /**
+     * Tab "Chi tiết điều chỉnh" — endpoint:
+     *   /odata/StockInventory/GetAllInventoryLinesByProduct?ProductTemplateId={id}&$top=N&$count=true
+     */
+    async function loadExpandAdjust(templateId, target) {
+        try {
+            const params = new URLSearchParams();
+            params.set('ProductTemplateId', String(templateId));
+            params.set('$format', 'json');
+            params.set('$top', '50');
+            params.set('$count', 'true');
+            const data = await _expandFetch(
+                `/api/odata/StockInventory/GetAllInventoryLinesByProduct?${params.toString()}`
+            );
+            const rows = data.value || [];
+            if (rows.length === 0) {
+                target.innerHTML =
+                    '<div class="expand-empty">Chưa có lịch sử điều chỉnh tồn.</div>';
+                return;
+            }
+            target.innerHTML = `<table class="expand-history-table">
+                <thead><tr>
+                    <th>Ngày</th>
+                    <th>Phiếu</th>
+                    <th>Sản phẩm</th>
+                    <th style="text-align:right">SL lý thuyết</th>
+                    <th style="text-align:right">SL thực tế</th>
+                    <th>Trạng thái</th>
+                </tr></thead>
+                <tbody>${rows
+                    .map((l) => {
+                        const date = l.Date || l.DateInventory;
+                        const dateStr = date ? new Date(date).toLocaleString('vi-VN') : '-';
+                        return `<tr>
+                            <td>${escapeHtml(dateStr)}</td>
+                            <td>${escapeHtml(l.Name || l.InventoryName || '-')}</td>
+                            <td>${escapeHtml(l.ProductName || l.ProductDisplayName || '-')}</td>
+                            <td style="text-align:right">${formatQty(l.TheoreticalQty || 0)}</td>
+                            <td style="text-align:right">${formatQty(l.ProductQty || 0)}</td>
+                            <td>${escapeHtml(l.StateText || l.State || '-')}</td>
+                        </tr>`;
+                    })
+                    .join('')}</tbody>
+            </table>`;
+        } catch (err) {
+            target.innerHTML = `<div class="expand-empty" style="color:#dc2626">Lỗi tải chi tiết điều chỉnh: ${escapeHtml(err.message)}</div>`;
+        }
     }
 
     /**
@@ -589,14 +709,20 @@
                     <div class="expand-panes" data-active-tab="info">
                         <div class="expand-pane" data-expand-tab="info">${renderExpandInfoTab(detail)}</div>
                         <div class="expand-pane" data-expand-tab="images">${renderExpandImagesTab(detail)}</div>
-                        <div class="expand-pane" data-expand-tab="stockcard"><div class="expand-empty">Đang phát triển — xem trên TPOS.</div></div>
-                        <div class="expand-pane" data-expand-tab="adjust"><div class="expand-empty">Đang phát triển — xem trên TPOS.</div></div>
+                        <div class="expand-pane" data-expand-tab="stockcard" data-lazy="stockcard">
+                            <div class="expand-empty">Đang tải thẻ kho…</div>
+                        </div>
+                        <div class="expand-pane" data-expand-tab="adjust" data-lazy="adjust">
+                            <div class="expand-empty">Đang tải chi tiết điều chỉnh…</div>
+                        </div>
                         <div class="expand-pane" data-expand-tab="stock">${renderExpandStockTab(variants, detail, templateImage)}</div>
                         <div class="expand-pane" data-expand-tab="description">${renderExpandDescriptionTab(detail)}</div>
                         <div class="expand-pane" data-expand-tab="history" data-lazy="audit">
                             <div class="expand-empty">Đang tải lịch sử…</div>
                         </div>
-                        <div class="expand-pane" data-expand-tab="costhistory"><div class="expand-empty">Đang phát triển — xem trên TPOS.</div></div>
+                        <div class="expand-pane" data-expand-tab="costhistory" data-lazy="costhistory">
+                            <div class="expand-empty">Đang tải lịch sử giá vốn…</div>
+                        </div>
                     </div>
                 </div>
             </td>
@@ -695,13 +821,21 @@
             const panes = container.querySelector('.expand-panes');
             if (panes) panes.setAttribute('data-active-tab', tab);
 
-            // Lazy-load audit log on first "Lịch sử" activation
-            if (tab === 'history') {
-                const pane = container.querySelector('.expand-pane[data-expand-tab="history"]');
-                if (pane && pane.dataset.lazy === 'audit') {
+            // Lazy-load TPOS data on first activation of each lazy tab.
+            // dataset.lazy is set by renderVariantSubRow to the loader key; cleared after first hit.
+            const LAZY_LOADERS = {
+                audit: loadExpandAuditLog,
+                costhistory: loadExpandCostHistory,
+                stockcard: loadExpandStockCard,
+                adjust: loadExpandAdjust,
+            };
+            const pane = container.querySelector(`.expand-pane[data-expand-tab="${tab}"]`);
+            if (pane && pane.dataset.lazy) {
+                const loader = LAZY_LOADERS[pane.dataset.lazy];
+                if (loader) {
                     const templateId = parseInt(container.dataset.expandDetailId, 10);
                     pane.dataset.lazy = '';
-                    if (templateId) loadExpandAuditLog(templateId, pane);
+                    if (templateId) loader(templateId, pane);
                 }
             }
         });
