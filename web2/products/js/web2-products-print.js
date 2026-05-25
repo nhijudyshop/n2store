@@ -595,7 +595,9 @@
         if (paper.hSpacing != null) labelStyleParts.push(`margin-right:${paper.hSpacing}mm`);
         if (paper.vSpacing != null) labelStyleParts.push(`margin-bottom:${paper.vSpacing}mm`);
 
-        const nameStyle = `max-height:${nameMaxH}px;overflow:hidden;margin-bottom:2px;`;
+        // TPOS PDF: title WRAPS multi-line (không truncate). Bỏ max-height, dùng
+        // word-wrap. Tight line-height match TPOS PDF rendering.
+        const nameStyle = `word-wrap:break-word;overflow:hidden;margin-bottom:1px;line-height:${lineH}px;`;
 
         // Group labels into sheets (cols labels per sheet)
         const sheets = [];
@@ -623,25 +625,28 @@
                     // PrintNew — 2-column table
                     sheetsHTML += `<div class="barcode_label" style="${labelStyle}"><table border="0" style="width:100%;height:100%;"><tr><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-code">${escapeHtml(label.code)}</div>${showPrice ? `<div class="barcode-price">${displayPrice}${currencyStr}</div>` : ''}</td><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-image">${!hideBarcode ? barcodeImg : ''}</div></td></tr></table></div>`;
                 } else {
-                    // Default vertical: name → barcode → code → price.
-                    // Structure mirror TPOS BarcodeProductLabel/Print template exactly:
-                    // <div class="barcode_label" style="inline-from-paper">
-                    //   <div class="barcode-pname"><strong>NAME</strong></div>
-                    //   <div class="barcode-image"><img/svg/></div>
-                    //   <div><strong>CODE</strong></div>
-                    //   <div><strong class="barcode-price">PRICE</strong></div>
-                    // </div>
-                    // CSS `.barcode_label div { flex: 1 auto }` distributes slack.
-                    sheetsHTML += `<div class="barcode_label" style="${labelStyle}">`;
+                    // Default vertical (TPOS PDF reference, captured 2026-05-25):
+                    //   - Title WRAPS multi-line (compact, no truncate)
+                    //   - Barcode dominates vertical (~50-60% label height)
+                    //   - Code + price tight ở dưới (~10-15%)
+                    //   - Layout pack tight at top, KHÔNG flex distribute slack
+                    // Override `.barcode_label div { flex: 1 auto }` của TPOS CSS
+                    // bằng inline `flex: 0 0 auto` cho text (no grow), `flex: 1 1 auto`
+                    // cho barcode-image (grow fill remaining). Match TPOS PDF visual.
+                    const labelStyleFinal = labelStyle + 'justify-content:flex-start;';
+                    const tightFlex = 'flex:0 0 auto;';
+                    const barcodeFlex =
+                        'flex:1 1 auto;display:flex;align-items:center;justify-content:center;min-height:0;';
+                    sheetsHTML += `<div class="barcode_label" style="${labelStyleFinal}">`;
                     if (showProductName) {
-                        sheetsHTML += `<div class="barcode-pname" style="${nameStyle}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
+                        sheetsHTML += `<div class="barcode-pname" style="${tightFlex}${nameStyle}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
                     }
                     if (!hideBarcode && label.code) {
-                        sheetsHTML += `<div class="barcode-image">${barcodeImg}</div>`;
+                        sheetsHTML += `<div class="barcode-image" style="${barcodeFlex}">${barcodeImg}</div>`;
                     }
-                    sheetsHTML += `<div><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
+                    sheetsHTML += `<div style="${tightFlex}line-height:${lineH}px;"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
                     if (showPrice) {
-                        sheetsHTML += `<div><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
+                        sheetsHTML += `<div style="${tightFlex}line-height:${lineH}px;"><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
                     }
                     sheetsHTML += `</div>`;
                 }
@@ -721,12 +726,15 @@ html, body {
 
 .barcode-image img {
     width: 100%;
-    height: 25px;
+    height: 100%;
+    display: block;
 }
-/* JsBarcode SVG — match TPOS PNG img dimensions exactly */
+/* JsBarcode SVG fills barcode-image container (giống TPOS PDF — barcode chiếm
+   phần lớn label height, không cố định 25px). preserveAspectRatio="none" set
+   on SVG element → bars stretch fill 100% × 100% giống TPOS PDF rendering. */
 .barcode-image .bcsvg {
     width: 100%;
-    height: 25px;
+    height: 100%;
     display: block;
 }
 
