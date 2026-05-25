@@ -231,8 +231,22 @@
         });
     }
 
-    // ----- Manual link prompt -----
+    // ----- Manual link via smart customer search modal -----
+    // Dùng Web2LinkCustomerModal (tìm KH qua TPOS Partner OData fast search).
+    // Fallback prompt nếu modal chưa load.
     function openLinkPrompt(id) {
+        // Tự suy đoán default search từ content của row (extract digits)
+        const row = state.rows.find((x) => String(x.id) === String(id));
+        let defaultSearch = '';
+        if (row?.content) {
+            const m = String(row.content).match(/\d{5,}/);
+            if (m) defaultSearch = m[0];
+        }
+        if (window.Web2LinkCustomerModal?.openModal) {
+            window.Web2LinkCustomerModal.openModal(id, defaultSearch);
+            return;
+        }
+        // Fallback (modal chưa load)
         const phone = prompt('Nhập SĐT KH (10 chữ số):');
         if (!phone || !/^\d{9,11}$/.test(phone.trim())) {
             if (phone) notify('SĐT không hợp lệ', 'warning');
