@@ -157,6 +157,123 @@ html body {
     color: var(--pw-accent);
 }
 
+/* ===== EDIT MODAL — TPOS producttemplate/form mirror ===== */
+.tpos-edit-modal .column-settings-modal-content {
+    border-radius: 4px;
+    border: 1px solid var(--pw-border);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.tpos-edit-modal-header {
+    background: var(--pw-th-bg) !important;
+    border-bottom: 1px solid var(--pw-border) !important;
+    padding: 10px 16px !important;
+}
+
+.tpos-edit-modal-header h3 {
+    color: var(--pw-text-strong) !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+}
+
+.tpos-edit-modal-header h3 i {
+    color: var(--pw-accent) !important;
+    width: 16px;
+    height: 16px;
+}
+
+/* Tab bar inside edit modal */
+.tpos-edit-tabs {
+    display: flex;
+    align-items: stretch;
+    background: var(--pw-bg-card);
+    border-bottom: 1px solid var(--pw-border);
+    padding: 0 12px;
+    overflow-x: auto;
+}
+
+.tpos-edit-tab {
+    padding: 9px 14px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--pw-muted);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+        color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.tpos-edit-tab:hover {
+    color: var(--pw-text-strong);
+}
+
+.tpos-edit-tab.is-active {
+    color: var(--pw-accent);
+    border-bottom-color: var(--pw-accent);
+    font-weight: 600;
+}
+
+/* Show only fieldsets matching the active tab */
+.tpos-edit-modal-body fieldset[data-tab] {
+    display: none;
+}
+
+.tpos-edit-modal-body[data-active-tab='general'] fieldset[data-tab='general'],
+.tpos-edit-modal-body[data-active-tab='images'] fieldset[data-tab='images'],
+.tpos-edit-modal-body[data-active-tab='variants'] fieldset[data-tab='variants'],
+.tpos-edit-modal-body[data-active-tab='other'] fieldset[data-tab='other'],
+.tpos-edit-modal-body[data-active-tab='history'] fieldset[data-tab='history'],
+.tpos-edit-modal-body[data-active-tab='costhistory'] fieldset[data-tab='costhistory'] {
+    display: block;
+}
+
+/* Inside-modal fieldsets — sharper TPOS look (instead of rainbow legend colors) */
+.tpos-edit-modal-body fieldset {
+    border-color: var(--pw-border) !important;
+    border-radius: 2px !important;
+}
+
+.tpos-edit-modal-body fieldset legend {
+    color: var(--pw-accent) !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* TPOS-themed inputs inside the modal */
+.tpos-edit-modal-body .edit-input {
+    border: 1px solid var(--pw-border);
+    border-radius: 2px;
+    height: 30px;
+    padding: 0 8px;
+    color: var(--pw-text-strong);
+    background: var(--pw-bg-card);
+    font-size: 13px;
+}
+
+.tpos-edit-modal-body textarea.edit-input {
+    height: auto;
+    padding: 6px 8px;
+}
+
+.tpos-edit-modal-body .edit-input:focus {
+    border-color: var(--pw-accent);
+    box-shadow: 0 0 0 2px var(--pw-accent-soft);
+}
+
+.tpos-edit-modal-body .edit-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--pw-text);
+    text-transform: none;
+}
+
 /* Variant count badge next to template product name in template view */
 .variant-count-badge {
     display: inline-block;

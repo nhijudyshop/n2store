@@ -1,61 +1,334 @@
-<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — sync 2-way TPOS Partner (Customer). -->
 <!doctype html>
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
         <title>Khách hàng - WEB 2.0</title>
-        <script src="../../web2/shared/page-shell.js?v=20260519j"></script>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260525e" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260525e" />
+        <link rel="stylesheet" href="../../web2/shared/web2-tpos-theme.css?v=20260525e" />
+        <link rel="stylesheet" href="css/partner-customer.css?v=20260525e" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+        <script src="../../shared/js/firebase-config.js?v=20260525e"></script>
+        <script src="../../shared/js/notification-system.js?v=20260525e"></script>
+        <script src="../../shared/js/core-loader.js?v=20260525e"></script>
+        <script src="../../shared/js/token-manager.js?v=20260525e"></script>
     </head>
-    <body>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content pc-main">
+                <!-- Page head -->
+                <header class="pc-page-head">
+                    <nav class="pc-breadcrumb" aria-label="Breadcrumb">
+                        <span>App</span>
+                        <span class="sep">/</span>
+                        <span>Khách hàng</span>
+                    </nav>
+                    <div class="pc-page-title-row">
+                        <div class="pc-page-title">
+                            <i data-lucide="users"></i>
+                            <h1>Khách hàng</h1>
+                            <span class="pc-birthday-badge" id="pcBirthdayBadge"
+                                >Sinh nhật <b id="pcBirthdayCount">0</b></span
+                            >
+                            <span class="pc-sync-pill">
+                                <i data-lucide="refresh-cw"></i> Đồng bộ 2 chiều TPOS
+                            </span>
+                        </div>
+                        <div class="pc-page-search">
+                            <input
+                                id="pcSearchInput"
+                                type="search"
+                                placeholder="Từ khóa…"
+                                autocomplete="off"
+                            />
+                            <button class="pc-search-btn" id="pcSearchBtn" title="Tìm">
+                                <i data-lucide="search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Action toolbar -->
+                <section class="pc-toolbar" aria-label="Hành động">
+                    <div class="pc-toolbar-left">
+                        <button class="pc-btn pc-btn-primary" id="pcAddBtn">
+                            <i data-lucide="plus"></i> Thêm
+                        </button>
+                        <button class="pc-btn" id="pcImportBtn" disabled title="Sắp có">
+                            <i data-lucide="upload"></i> Thêm mới từ file
+                        </button>
+                        <button class="pc-btn" id="pcExportBtn">
+                            <i data-lucide="download"></i> Xuất excel
+                        </button>
+                        <button class="pc-btn" id="pcUpdateAddressBtn" disabled title="Sắp có">
+                            <i data-lucide="map-pin"></i> Cập nhật địa chỉ
+                        </button>
+                    </div>
+                    <div class="pc-toolbar-right">
+                        <div class="pc-dropdown" id="pcActionsDropdown">
+                            <button class="pc-btn pc-btn-ghost" data-toggle="pcActionsMenu">
+                                Thao tác <i data-lucide="chevron-down"></i>
+                            </button>
+                            <div class="pc-dropdown-menu" id="pcActionsMenu" hidden>
+                                <button type="button" data-bulk-action="active">
+                                    Bật hiệu lực (đã chọn)
+                                </button>
+                                <button type="button" data-bulk-action="inactive">
+                                    Tắt hiệu lực (đã chọn)
+                                </button>
+                                <button type="button" data-bulk-action="delete" class="danger">
+                                    Xóa (đã chọn)
+                                </button>
+                            </div>
+                        </div>
+                        <div class="pc-dropdown" id="pcColumnsDropdown">
+                            <button class="pc-btn pc-btn-ghost" data-toggle="pcColumnsMenu">
+                                Ẩn hiện cột <i data-lucide="chevron-down"></i>
+                            </button>
+                            <div class="pc-dropdown-menu" id="pcColumnsMenu" hidden>
+                                <label
+                                    ><input type="checkbox" data-col="email" checked /> Email</label
+                                >
+                                <label
+                                    ><input type="checkbox" data-col="address" checked /> Địa
+                                    chỉ</label
+                                >
+                                <label
+                                    ><input type="checkbox" data-col="tags" checked /> Nhãn</label
+                                >
+                                <label
+                                    ><input type="checkbox" data-col="credit" checked /> Nợ hiện
+                                    tại</label
+                                >
+                                <label
+                                    ><input type="checkbox" data-col="active" checked /> Hiệu
+                                    lực</label
+                                >
+                            </div>
+                        </div>
+                        <select id="pcGroupFilter" class="pc-select">
+                            <option value="">Lọc theo nhóm…</option>
+                        </select>
+                        <input
+                            id="pcTagSearch"
+                            class="pc-input"
+                            type="search"
+                            placeholder="Tìm kiếm nhãn…"
+                            autocomplete="off"
+                        />
+                    </div>
+                </section>
+
+                <!-- Status counts bar -->
+                <section class="pc-stats-bar" id="pcStatsBar" aria-label="Phân loại khách">
+                    <button class="pc-stat pc-stat-all is-active" data-status="all">
+                        Tất cả: <b id="pcStatAll">—</b>
+                    </button>
+                    <button class="pc-stat pc-stat-normal" data-status="Normal">
+                        Bình thường: <b id="pcStatNormal">—</b>
+                    </button>
+                    <button class="pc-stat pc-stat-bomb" data-status="BomHang">
+                        Bom hàng: <b id="pcStatBomb">—</b>
+                    </button>
+                    <button class="pc-stat pc-stat-warning" data-status="Warning">
+                        Cảnh báo: <b id="pcStatWarning">—</b>
+                    </button>
+                    <button class="pc-stat pc-stat-danger" data-status="Danger">
+                        Nguy hiểm: <b id="pcStatDanger">—</b>
+                    </button>
+                    <button class="pc-stat pc-stat-vip" data-status="VIP">
+                        VIP: <b id="pcStatVip">—</b>
+                    </button>
+                </section>
+
+                <!-- Table -->
+                <div class="pc-table-wrap">
+                    <table class="pc-table" id="pcTable">
+                        <thead>
+                            <tr>
+                                <th class="pc-col-check">
+                                    <input
+                                        type="checkbox"
+                                        id="pcSelectAll"
+                                        aria-label="Chọn tất cả"
+                                    />
+                                </th>
+                                <th class="pc-col-name">Tên</th>
+                                <th class="pc-col-phone">Điện thoại</th>
+                                <th class="pc-col-email" data-col="email">
+                                    <div class="pc-th-filter">
+                                        <span>Email</span>
+                                        <input
+                                            type="search"
+                                            id="pcEmailFilter"
+                                            placeholder=""
+                                            autocomplete="off"
+                                        />
+                                    </div>
+                                </th>
+                                <th class="pc-col-address" data-col="address">Địa chỉ</th>
+                                <th class="pc-col-tags" data-col="tags">Nhãn</th>
+                                <th class="pc-col-credit" data-col="credit">Nợ hiện tại</th>
+                                <th class="pc-col-active" data-col="active">
+                                    <div class="pc-th-filter">
+                                        <span>Hiệu lực</span>
+                                        <select id="pcActiveFilter">
+                                            <option value="">Hi…</option>
+                                            <option value="true">Hoạt động</option>
+                                            <option value="false">Ngưng</option>
+                                        </select>
+                                    </div>
+                                </th>
+                                <th class="pc-col-actions"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="pcTableBody">
+                            <tr>
+                                <td colspan="9"><div class="pc-loading">Đang tải…</div></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <footer class="pc-pagination">
+                    <span class="pc-pagination-info" id="pcPaginationInfo">—</span>
+                    <div class="pc-pagination-buttons" id="pcPaginationButtons"></div>
+                    <select id="pcPageSize" class="pc-select pc-pagesize">
+                        <option value="20">20 / trang</option>
+                        <option value="50" selected>50 / trang</option>
+                        <option value="100">100 / trang</option>
+                        <option value="200">200 / trang</option>
+                    </select>
+                </footer>
+            </main>
+        </div>
+
+        <!-- Create/Edit modal -->
+        <div
+            class="pc-modal"
+            id="pcModal"
+            hidden
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pcModalTitle"
+        >
+            <div class="pc-modal-backdrop" id="pcModalBackdrop"></div>
+            <div class="pc-modal-panel">
+                <header class="pc-modal-head">
+                    <h2 id="pcModalTitle">Thêm khách hàng</h2>
+                    <button
+                        class="pc-modal-close"
+                        id="pcModalClose"
+                        type="button"
+                        aria-label="Đóng"
+                    >
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="pc-modal-body">
+                    <div class="pc-modal-banner">
+                        <i data-lucide="info"></i>
+                        Mọi thay đổi sẽ đồng bộ trực tiếp lên TPOS (tomato.tpos.vn).
+                    </div>
+                    <div class="pc-field-error" id="pcModalError"></div>
+
+                    <div class="pc-form-grid">
+                        <div class="pc-field">
+                            <label for="pcFieldName"
+                                >Tên khách hàng <span class="req">*</span></label
+                            >
+                            <input
+                                id="pcFieldName"
+                                type="text"
+                                placeholder="VD: Nguyễn Văn A"
+                                autocomplete="off"
+                            />
+                        </div>
+                        <div class="pc-field">
+                            <label for="pcFieldPhone">Số điện thoại</label>
+                            <input
+                                id="pcFieldPhone"
+                                type="tel"
+                                placeholder="0901234567"
+                                autocomplete="off"
+                            />
+                        </div>
+                        <div class="pc-field">
+                            <label for="pcFieldEmail">Email</label>
+                            <input id="pcFieldEmail" type="email" placeholder="email@…" />
+                        </div>
+                        <div class="pc-field">
+                            <label for="pcFieldStatus">Trạng thái</label>
+                            <select id="pcFieldStatus">
+                                <option value="Normal">Bình thường</option>
+                                <option value="BomHang">Bom hàng</option>
+                                <option value="Warning">Cảnh báo</option>
+                                <option value="Danger">Nguy hiểm</option>
+                                <option value="VIP">VIP</option>
+                            </select>
+                        </div>
+                        <div class="pc-field pc-field-wide">
+                            <label for="pcFieldStreet">Địa chỉ</label>
+                            <textarea
+                                id="pcFieldStreet"
+                                rows="2"
+                                placeholder="Số nhà, đường, phường/xã, quận/huyện…"
+                            ></textarea>
+                        </div>
+                        <div class="pc-field">
+                            <label for="pcFieldTaxCode">Mã số thuế</label>
+                            <input id="pcFieldTaxCode" type="text" />
+                        </div>
+                        <div class="pc-field">
+                            <label class="pc-toggle-label">
+                                <input type="checkbox" id="pcFieldActive" checked />
+                                <span class="pc-toggle-track"></span>
+                                Hoạt động
+                            </label>
+                        </div>
+                        <div class="pc-field pc-field-wide">
+                            <label for="pcFieldNote">Ghi chú</label>
+                            <textarea id="pcFieldNote" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <footer class="pc-modal-foot">
+                    <button class="pc-btn" id="pcModalCancel" type="button">
+                        <i data-lucide="x"></i> Hủy
+                    </button>
+                    <button class="pc-btn pc-btn-primary" id="pcModalSave" type="button">
+                        <i data-lucide="save"></i> Lưu
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <script src="../../web2/shared/web2-auth.js?v=20260525e"></script>
+        <script src="../../web2/shared/tpos-sidebar.js?v=20260525e"></script>
+        <script src="js/partner-customer-api.js?v=20260525e"></script>
+        <script src="js/partner-customer-app.js?v=20260525e"></script>
         <script>
-            Web2Shell.bootstrap({
-                slug: 'partner-customer',
-                title: 'Khách hàng',
-                breadcrumb: ['App', 'Khách hàng'],
-                columns: [
-                    { key: 'code', label: 'Mã KH', width: 130, align: 'center' },
-                    { key: 'name', label: 'Tên KH', align: 'left' },
-                    { key: 'data.phone', label: 'SĐT', width: 120, align: 'center' },
-                    { key: 'data.email', label: 'Email', width: 200 },
-                    {
-                        key: 'data.partnerCategory',
-                        label: 'Nhóm KH',
-                        width: 140,
-                        align: 'center',
-                        link: 'partner-category',
-                    },
-                    { key: 'data.address', label: 'Địa chỉ' },
-                ],
-                fields: [
-                    {
-                        key: 'code',
-                        label: 'Mã KH',
-                        type: 'text',
-                        required: true,
-                        placeholder: 'VD: KH00001',
-                    },
-                    { key: 'name', label: 'Tên KH', type: 'text', required: true },
-                    {
-                        key: 'data.phone',
-                        label: 'Số điện thoại',
-                        type: 'tel',
-                        placeholder: '0901234567',
-                    },
-                    { key: 'data.email', label: 'Email', type: 'email' },
-                    {
-                        key: 'data.partnerCategory',
-                        label: 'Mã nhóm KH',
-                        type: 'ref',
-                        ref: 'partnercategory',
-                        placeholder: 'Code từ Nhóm khách hàng',
-                        link: 'partner-category',
-                    },
-                    { key: 'data.address', label: 'Địa chỉ', type: 'textarea' },
-                    { key: 'data.taxCode', label: 'Mã số thuế', type: 'text' },
-                    { key: 'data.note', label: 'Ghi chú', type: 'textarea' },
-                ],
-            });
+            Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
+            if (window.lucide) window.lucide.createIcons();
         </script>
     </body>
 </html>

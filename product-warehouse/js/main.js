@@ -291,29 +291,43 @@
     async function fetchVariants(templateId) {
         if (variantCache[templateId]) return variantCache[templateId];
 
-        const result = await WarehouseAPI.getProduct(templateId);
-        if (!result || !result.variants) return [];
+        // Fetch ProductTemplate with ProductVariants expanded — TPOS-direct, mirrors
+        // what TPOS producttemplate/form Variants tab shows. Avoids Render DB lookup
+        // which only works for templates with a row matching `tpos_product_id`.
+        const expand = encodeURIComponent('ProductVariants($expand=AttributeValues,UOM)');
+        const url = `${PROXY_URL}/api/odata/ProductTemplate(${templateId})?$expand=${expand}`;
+        try {
+            const resp = await window.tokenManager.authenticatedFetch(url, {
+                headers: { Accept: 'application/json' },
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const detail = await resp.json();
+            const raw = Array.isArray(detail.ProductVariants) ? detail.ProductVariants : [];
 
-        // Map Render DB rows to TPOS-compatible variant objects for rendering
-        const variants = result.variants
-            .filter((v) => v.active !== false)
-            .map((v) => ({
-                Id: v.tpos_product_id,
-                DefaultCode: v.product_code,
-                NameGet: v.name_get || v.product_name,
-                QtyAvailable: parseFloat(v.tpos_qty_available) || 0,
-                ListPrice: parseFloat(v.selling_price) || 0,
-                PriceVariant: parseFloat(v.selling_price) || 0,
-                StandardPrice: parseFloat(v.standard_price) || 0,
-                ImageUrl: v.image_url || '',
-                Barcode: v.barcode || v.product_code,
-                Active: v.active !== false,
-                AttributeValues: v.variant ? [{ Name: v.variant }] : [],
-            }));
+            // Filter to active + normalize shape (renderVariantSubRow already uses TPOS keys)
+            const variants = raw
+                .filter((v) => v.Active !== false)
+                .map((v) => ({
+                    Id: v.Id,
+                    DefaultCode: v.DefaultCode || '',
+                    NameGet: v.NameGet || v.Name || '',
+                    QtyAvailable: parseFloat(v.QtyAvailable) || 0,
+                    ListPrice: parseFloat(v.ListPrice) || parseFloat(v.PriceVariant) || 0,
+                    PriceVariant: parseFloat(v.PriceVariant) || parseFloat(v.ListPrice) || 0,
+                    StandardPrice: parseFloat(v.StandardPrice) || 0,
+                    ImageUrl: v.ImageUrl || detail.ImageUrl || '',
+                    Barcode: v.Barcode || v.DefaultCode || '',
+                    Active: v.Active !== false,
+                    AttributeValues: Array.isArray(v.AttributeValues) ? v.AttributeValues : [],
+                }));
 
-        const sorted = sortVariants(variants);
-        variantCache[templateId] = sorted;
-        return sorted;
+            const sorted = sortVariants(variants);
+            variantCache[templateId] = sorted;
+            return sorted;
+        } catch (err) {
+            console.error('[Warehouse] fetchVariants TPOS error:', err.message);
+            return [];
+        }
     }
 
     function formatAttributeValues(attrValues) {

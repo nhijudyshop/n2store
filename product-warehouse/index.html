@@ -13,18 +13,18 @@
         <title>Kho Sản Phẩm - N2STORE</title>
 
         <!-- Shared Styles -->
-        <link rel="stylesheet" href="../shared/css/modern.css?v=20260525c" />
+        <link rel="stylesheet" href="../shared/css/modern.css?v=20260525d" />
         <!-- Module Styles -->
-        <link rel="stylesheet" href="css/warehouse.css?v=20260525c" />
+        <link rel="stylesheet" href="css/warehouse.css?v=20260525d" />
         <!-- (warehouse-tpos.css is loaded AFTER typography.css below to override the !important font-family) -->
 
         <!-- ES Module: Shared utilities -->
-        <script type="module" src="../shared/esm/compat.js?v=20260525c"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260525d"></script>
         <!-- Fallback for file:// protocol -->
         <script>
             if (window.location.protocol === 'file:') {
                 document.write(
-                    '<script src="../shared/js/shared-auth-manager.js?v=20260525c"><\/script>'
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260525d"><\/script>'
                 );
                 document.write(
                     '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
@@ -32,7 +32,7 @@
             }
         </script>
         <!-- Navigation Manager -->
-        <script defer src="../shared/js/navigation-modern.js?v=20260525c"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260525d"></script>
 
         <!-- Lucide Icons CDN -->
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
@@ -42,14 +42,14 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
         <!-- Firebase Configuration (SHARED) -->
-        <script src="../shared/js/firebase-config.js?v=20260525c"></script>
+        <script src="../shared/js/firebase-config.js?v=20260525d"></script>
 
         <!-- Token Manager & API Config (kept for edit/save to TPOS) -->
-        <script src="../shared/js/api-config.js?v=20260525c"></script>
-        <script src="../shared/js/token-manager.js?v=20260525c"></script>
+        <script src="../shared/js/api-config.js?v=20260525d"></script>
+        <script src="../shared/js/token-manager.js?v=20260525d"></script>
 
         <!-- Warehouse API (Render DB) — product list, search, variants -->
-        <script src="../shared/js/warehouse-api.js?v=20260525c"></script>
+        <script src="../shared/js/warehouse-api.js?v=20260525d"></script>
 
         <!-- Suggestion dropdown styles (same as soluong-live) -->
         <style>
@@ -178,10 +178,10 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="../shared/css/typography.css?v=20260525c" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260525d" />
         <!-- typography:shared -->
         <!-- TPOS overrides — MUST load AFTER typography.css to win !important wars -->
-        <link rel="stylesheet" href="css/warehouse-tpos.css?v=20260525c" />
+        <link rel="stylesheet" href="css/warehouse-tpos.css?v=20260525d" />
     </head>
     <body>
         <!-- Main Content -->
@@ -661,23 +661,56 @@
             </div>
         </div>
 
-        <!-- Edit Product Modal -->
-        <div class="column-settings-modal" id="editProductModal">
-            <div class="column-settings-modal-content" style="max-width: 640px">
-                <div class="column-settings-modal-header">
+        <!-- Edit Product Modal — TPOS producttemplate/form mirror (6 tabs) -->
+        <div class="column-settings-modal tpos-edit-modal" id="editProductModal">
+            <div class="column-settings-modal-content" style="max-width: 920px">
+                <div class="column-settings-modal-header tpos-edit-modal-header">
                     <h3><i data-lucide="pencil"></i> Chỉnh sửa sản phẩm</h3>
                     <button class="column-settings-modal-close" id="closeEditProduct">
                         &times;
                     </button>
                 </div>
+                <!-- TPOS tab bar: Thông tin chung | Ảnh | Biến thể | Thông tin khác | Lịch sử | Lịch sử giá vốn -->
+                <nav class="tpos-edit-tabs" role="tablist">
+                    <button
+                        type="button"
+                        class="tpos-edit-tab is-active"
+                        role="tab"
+                        data-edit-tab="general"
+                    >
+                        Thông tin chung
+                    </button>
+                    <button type="button" class="tpos-edit-tab" role="tab" data-edit-tab="images">
+                        Ảnh
+                    </button>
+                    <button type="button" class="tpos-edit-tab" role="tab" data-edit-tab="variants">
+                        Biến thể
+                    </button>
+                    <button type="button" class="tpos-edit-tab" role="tab" data-edit-tab="other">
+                        Thông tin khác
+                    </button>
+                    <button type="button" class="tpos-edit-tab" role="tab" data-edit-tab="history">
+                        Lịch sử
+                    </button>
+                    <button
+                        type="button"
+                        class="tpos-edit-tab"
+                        role="tab"
+                        data-edit-tab="costhistory"
+                    >
+                        Lịch sử giá vốn
+                    </button>
+                </nav>
                 <div
-                    class="column-settings-modal-body"
-                    style="padding: 20px; max-height: 70vh; overflow-y: auto"
+                    class="column-settings-modal-body tpos-edit-modal-body"
+                    data-active-tab="general"
+                    style="padding: 20px; max-height: 65vh; overflow-y: auto"
                 >
                     <input type="hidden" id="editProductId" />
                     <div style="display: grid; gap: 16px">
                         <!-- Ảnh + Thông tin cơ bản -->
                         <fieldset
+                            data-tab="general"
                             style="
                                 border: 1px solid #e5e7eb;
                                 border-radius: 8px;
@@ -764,6 +797,7 @@
 
                         <!-- Giá -->
                         <fieldset
+                            data-tab="general"
                             style="
                                 border: 1px solid #e5e7eb;
                                 border-radius: 8px;
@@ -827,6 +861,7 @@
 
                         <!-- Phân loại -->
                         <fieldset
+                            data-tab="general"
                             style="
                                 border: 1px solid #e5e7eb;
                                 border-radius: 8px;
@@ -886,6 +921,7 @@
 
                         <!-- Trạng thái -->
                         <fieldset
+                            data-tab="general"
                             style="
                                 border: 1px solid #e5e7eb;
                                 border-radius: 8px;
@@ -922,6 +958,7 @@
 
                         <!-- Kế toán -->
                         <fieldset
+                            data-tab="general"
                             style="
                                 border: 1px solid #e5e7eb;
                                 border-radius: 8px;
@@ -960,6 +997,7 @@
                         <!-- Biến thể + Thuộc tính -->
                         <fieldset
                             id="fsVariants"
+                            data-tab="variants"
                             style="
                                 border: 1px solid #e5e7eb;
                                 border-radius: 8px;
@@ -1053,6 +1091,7 @@
                         <!-- Combo sản phẩm -->
                         <fieldset
                             id="fsCombo"
+                            data-tab="variants"
                             style="
                                 border: 1px solid #e5e7eb;
                                 border-radius: 8px;
@@ -1123,6 +1162,7 @@
                         <!-- ĐVT quy đổi -->
                         <fieldset
                             id="fsUOMLines"
+                            data-tab="general"
                             style="
                                 border: 1px solid #e5e7eb;
                                 border-radius: 8px;
@@ -1178,6 +1218,7 @@
                         <!-- Nhà cung cấp -->
                         <fieldset
                             id="fsSupplier"
+                            data-tab="other"
                             style="
                                 border: 1px solid #e5e7eb;
                                 border-radius: 8px;
@@ -1247,6 +1288,7 @@
                         <!-- Nhãn (Tags) -->
                         <fieldset
                             id="fsTags"
+                            data-tab="general"
                             style="
                                 border: 1px solid #e5e7eb;
                                 border-radius: 8px;
@@ -1276,6 +1318,7 @@
                         <!-- Audit log -->
                         <fieldset
                             id="fsAudit"
+                            data-tab="history"
                             style="
                                 border: 1px solid #e5e7eb;
                                 border-radius: 8px;
@@ -1318,8 +1361,34 @@
                             ></div>
                         </fieldset>
 
+                        <!-- Lịch sử giá vốn (TPOS-only, stub) -->
+                        <fieldset
+                            data-tab="costhistory"
+                            style="
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                padding: 14px;
+                                margin: 0;
+                            "
+                        >
+                            <legend
+                                style="
+                                    font-weight: 700;
+                                    font-size: 13px;
+                                    padding: 0 6px;
+                                    color: #475569;
+                                "
+                            >
+                                Lịch sử giá vốn
+                            </legend>
+                            <div style="font-size: 13px; color: #6b7280; padding: 12px 0">
+                                Đang phát triển — xem trên TPOS.
+                            </div>
+                        </fieldset>
+
                         <!-- Mô tả -->
                         <fieldset
+                            data-tab="general"
                             style="
                                 border: 1px solid #e5e7eb;
                                 border-radius: 8px;
@@ -1784,11 +1853,11 @@
             defer
         ></script>
         <!-- Shared Warehouse Utilities -->
-        <script src="../shared/js/warehouse-shared.js?v=20260525c"></script>
+        <script src="../shared/js/warehouse-shared.js?v=20260525d"></script>
         <!-- TPOSClient (window.TPOSClient) — required for barcode-label-dialog "In theo mẫu TPOS" -->
-        <script src="../shared/js/shop-config.js?v=20260525c"></script>
-        <script src="../purchase-orders/js/lib/tpos-search.js?v=20260525c"></script>
-        <script src="../purchase-orders/js/lib/barcode-label-dialog.js?v=20260525c"></script>
-        <script src="js/main.js?v=20260525c"></script>
+        <script src="../shared/js/shop-config.js?v=20260525d"></script>
+        <script src="../purchase-orders/js/lib/tpos-search.js?v=20260525d"></script>
+        <script src="../purchase-orders/js/lib/barcode-label-dialog.js?v=20260525d"></script>
+        <script src="js/main.js?v=20260525d"></script>
     </body>
 </html>
