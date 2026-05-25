@@ -1,7 +1,20 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
- * POST-SALES ISSUE TRACKING
+ * POST-SALES ISSUE TRACKING (Web 1.0 — LEGACY)
  * Powered by Firebase & TPOS API
+ *
+ * ⚠️ TÁCH BIỆT HOÀN TOÀN VỚI WEB 2.0 — KHÔNG CROSS-IMPORT, KHÔNG SHARE STATE.
+ *
+ * Module này thuộc Web 1.0 legacy n2store. Ví khách (customer wallet) ở đây
+ * dùng Postgres `customer_wallets` + `wallet_transactions` qua Render API
+ * (`/api/v2/tickets/:id/resolve` → processManualDeposit).
+ *
+ * Web 2.0 (`web2/customer-wallet/`) chạy hoàn toàn độc lập trên Firestore
+ * (`customer_wallet_v1/main`) + localStorage `customerWallet_v1`, tính balance
+ * từ native-orders + PBH + SePay. Không đọc/ghi Postgres wallet này.
+ *
+ * Đừng bridge / share data giữa 2 hệ thống. Nếu nghiệp vụ yêu cầu đồng bộ,
+ * dừng và hỏi user — không tự copy code hay đọc chéo state.
  */
 
 // Global State
