@@ -112,36 +112,27 @@
                 let seekDone = false;
                 let fallbackTriggered = false;
 
-                // Render iframe direct tới /plugins/video.php — không cần FB SDK,
-                // không stuck waiting xfbml.ready. URL param `t=N` được FB respect
-                // cho VOD (verified commit f6c0fe137 + general FB plugin doc).
-                // Live đang chạy có thể ignore — user manual slider seek backup.
+                // Fallback: navigate POPUP WINDOW thẳng tới FB plugin/video.php
+                // (KHÔNG nested iframe). Lý do: cross-origin iframe mất
+                // user-gesture context → Chrome autoplay policy block video play
+                // dù iframe có allow="autoplay". Direct nav preserve user-gesture
+                // từ window.open click → FB plugin autoplay work + t=N param
+                // được FB respect cho VOD (verified commit f6c0fe137).
+                // Tradeoff: mất topbar info (Video/Bắt đầu giây/Status) — popup
+                // become full FB plugin page. UX win: video play ngay, no
+                // manual click.
                 function renderIframeDirect(reason) {
                     if (fallbackTriggered) return;
                     fallbackTriggered = true;
-                    slot.innerHTML = '';
                     const pluginUrl = new URL('https://www.facebook.com/plugins/video.php');
                     pluginUrl.searchParams.set('href', hrefUrl);
                     pluginUrl.searchParams.set('show_text', 'false');
                     pluginUrl.searchParams.set('autoplay', '1');
                     pluginUrl.searchParams.set('allowfullscreen', 'true');
                     if (offsetSec > 0) pluginUrl.searchParams.set('t', String(offsetSec));
-                    const iframe = document.createElement('iframe');
-                    iframe.src = pluginUrl.toString();
-                    iframe.style.cssText =
-                        'width:100%;height:100%;border:0;max-width:100%;max-height:100%;';
-                    iframe.setAttribute('allowfullscreen', 'true');
-                    iframe.setAttribute(
-                        'allow',
-                        'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share'
-                    );
-                    iframe.setAttribute('scrolling', 'no');
-                    iframe.setAttribute('frameborder', '0');
-                    slot.appendChild(iframe);
-                    status.textContent =
-                        offsetSec > 0
-                            ? `▶ Iframe direct ${reason} — t=${offsetSec}s (FB có thể ignore, dùng slider seek nếu cần)`
-                            : `▶ Iframe direct ${reason} — playing`;
+                    status.textContent = `▶ Redirect ${reason} → FB plugin (autoplay t=${offsetSec}s)`;
+                    // Replace history entry (no back-button trap).
+                    location.replace(pluginUrl.toString());
                 }
 
                 // Approach A: xfbml plugin via FB SDK (cho seek API chính xác qua

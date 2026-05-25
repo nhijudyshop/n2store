@@ -25,6 +25,22 @@
 
 ## 2026-05-25
 
+### [tpos-pancake][snap] Fallback: redirect popup thẳng tới FB plugin (autoplay work)
+
+**User báo**: iframe direct fallback chạy đúng (status `▶ Iframe direct (SDK timeout 4s) — t=5018s`), video fit gọn, NHƯNG không auto-play — user phải bấm nút play giữa video.
+
+**Root cause**: Chrome autoplay policy block video play cho **cross-origin iframe** dù iframe có `allow="autoplay"`. User-gesture từ `window.open` click chỉ preserve cho top frame (popup), không truyền vào nested iframe (facebook.com). FB plugin tries `autoplay=1` → Chrome silent block → show manual play button.
+
+**Fix**: thay vì embed iframe trong popup `fb-video-player.html`, **redirect popup window thẳng** tới FB plugin URL bằng `location.replace(plugin_url)`. Popup top frame trở thành FB plugin → giữ user-gesture chain từ window.open → autoplay work.
+
+- Path A (FB SDK xfbml) vẫn try trước (cho seek API chính xác qua `player.seek` nếu work, GIỮ topbar info).
+- Fallback timer 4s → `renderIframeDirect()` giờ `location.replace(plugin_url)` thay vì embed iframe.
+- Tradeoff: mất topbar info (Video/Bắt đầu giây/Status) khi fallback active — popup become full FB plugin page. UX win: video play ngay, không cần click.
+
+**Files**: `tpos-pancake/fb-video-player.html` (-15 / +12 trong fallback function).
+
+**Status**: ✅ Done
+
 ### [web2/products] In tem sản phẩm — WEB 2.0 dedicated module, KHÔNG dùng TPOS API
 
 **User ask**: "làm cho trang `web2/products/index.html` có in sản phẩm và giao diện giống 100% tpos — nên nhớ đây là web 2.0 không liên quan tới web bạn vừa code nên code mới cho web này đừng sài chung gì hết — và web này là kho sản phẩm riêng không dùng các sản phẩm có sẵn tpos đâu nên không request tpos".
