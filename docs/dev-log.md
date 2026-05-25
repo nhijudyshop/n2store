@@ -25,6 +25,63 @@
 
 ## 2026-05-25
 
+### [web2/products] Fix barcode aspect: JsBarcode 600×100 match TPOS PNG canvas
+
+**User test**: "bạn tạo 1 sản phẩm giống tên, mã, giá vào kho web 2.0 giống 1 sản phẩm trên tpos rồi in mã 2 bên ra đi sẽ thấy khác nhau, test 1 sản phẩm, nhiều sản phẩm". User nghi ngờ visual khác — đúng.
+
+**Setup test page** `downloads/n2store-session/barcode-compare.html` (gitignored), render side-by-side TPOS PNG vs JsBarcode SVG cho 4 cases: short alphanumeric, short numeric, longer mixed, multi-product layout.
+
+**Root cause phát hiện qua test**:
+
+- TPOS PNG canvas: **LUÔN 600×100** (fixed). Bars + quiet zone scale fit canvas.
+- JsBarcode native viewBox: width thay đổi theo code length:
+    - `DEMO-TUI-DENIM` (14 chars) → 378×100
+    - `123456789` (9 chars) → 202×100
+    - `AO-MEW-MEW-XL-2024` (18 chars) → 444×100
+
+Khi cả 2 stretch vào label 25mm (`width:100%; height:25px`):
+
+- TPOS: bars có whitespace 2 bên → trông **mỏng hơn** sau stretch
+- JsBarcode: edge-to-edge → trông **dày hơn**
+
+→ User đúng: visual khác nhau dù cùng input.
+
+**Fix**: 2-pass render với dynamic side margin để total viewBox = 600 match TPOS canvas:
+
+```js
+// Pass 1: đo native width
+JsBarcode(svg, code, { format: 'CODE128', width: 2, height: 100, displayValue: false, margin: 0 });
+const nativeW = parseFloat(svg.viewBox.split(' ')[2]);
+// Pass 2: re-render với marginLeft/marginRight (KHÔNG margin uniform vì inflate height)
+const sideMargin = Math.max(0, Math.round((600 - nativeW) / 2));
+JsBarcode(svg, code, {
+    format: 'CODE128',
+    width: 2,
+    height: 100,
+    displayValue: false,
+    marginTop: 0,
+    marginBottom: 0,
+    marginLeft: sideMargin,
+    marginRight: sideMargin,
+});
+```
+
+**Gotcha**: ban đầu thử `margin: sideMargin` → viewBox height bị inflate (322/498/256 thay vì 100) vì JsBarcode apply margin uniform 4 cạnh. Phải dùng `marginLeft/marginRight` only + set `marginTop/marginBottom: 0` để giữ aspect 600×100.
+
+**Verified after fix** (test page screenshot `barcode-compare-after.png`):
+| Code | TPOS PNG | JsBarcode SVG | Match |
+|---|---|---|---|
+| DEMO-TUI-DENIM | 600×100 | 600×100 | ✅ |
+| 123456789 | 600×100 | 600×100 | ✅ |
+| AO-MEW-MEW-XL-2024 | 600×100 | 600×100 | ✅ |
+| Multi (6 SP, 3 sheets) | 600×100 each | 600×100 each | ✅ |
+
+Visual side-by-side ở zoom 4×, print size 25mm, multi-sheet layout — identical.
+
+**Files**: `web2/products/js/web2-products-print.js` (2-pass logic + side margin). Bump cache `v=20260525c` → `v=20260525d`.
+
+**Status**: ✅ Done — Web 2.0 barcode visual identical TPOS, ZERO request tpos.vn.
+
 ### [web2/customer-wallet, web2/balance-history] Enrich từ TPOS Partner — status badge + Mở thẻ KH
 
 **Yêu cầu user**: "coi bên customer-wallet có cần dữ liệu gì không thì lấy luôn" + "và trang balance-history".
@@ -180,6 +237,37 @@
 - Số tiền format `#,##0`, ngày `dd/mm/yyyy hh:mm`, sheet name = tên campaign.
 
 **Trade-off**: campaigns cũ (chỉ có TPOS-side orders, chưa migrate sang Đơn Web) sẽ Excel rỗng. Tradeoff chấp nhận theo yêu cầu user.
+
+### [product-warehouse][tpos] Expand panel 8 tab + fix save (strip $expand objects) — ✅ Done
+
+**Mục tiêu**: Khi click expand row, hiển thị panel 8 tab mirror TPOS producttemplate (xem screenshot user): **Thông tin** (default, 3-col) | **Ảnh** | **Thẻ kho** | **Chi tiết điều chỉnh** | **Tồn kho** | **Mô tả** | **Lịch sử** | **Lịch sử giá vốn**. Đồng thời fix save bug khi click "Lưu lên TPOS": UpdateV2 reject nested `$expand` sub-objects.
+
+**Files modified**:
+
+- `product-warehouse/js/main.js`:
+    - **Expand 8 tab**: rewrite `renderVariantSubRow(variants, templateId, image, detail)` → wrap 8 panes `.expand-pane[data-expand-tab]` trong `.expand-container > .expand-tabs + .expand-panes`. Tab "info" default.
+    - **toggleVariantExpand**: 1 single TPOS fetch `ProductTemplate(id)?$expand=UOM,UOMPO,Categ,Distributor,Importer,Producer,OriginCountry,Images,ProductVariants($expand=UOM,AttributeValues)` cho info + images + description + variants (thay vì gọi 2 lần).
+    - **bindExpandTabSwitching**: delegated click handler, toggle `.is-active` + set `panes.dataset.activeTab`. Lazy load audit log khi click "Lịch sử" lần đầu.
+    - `renderExpandInfoTab` 3 cột × 7 fields (Mã/Tên/Nhóm/Loại/Giá bán/Chiết khấu bán/Cho phép bán; Công ty/ĐVT/Giá mua/Giá vốn/Chiết khấu mua/ĐVT mua/Khối lượng; NCC/Nhập khẩu/Sản xuất/Xuất xứ/Thành phần/Thông số/Cảnh báo).
+    - `renderExpandImagesTab` gallery từ `detail.ImageUrl` + `detail.Images[]`.
+    - `renderExpandStockTab` variants với QtyAvailable (fallback 1 row template nếu không variant).
+    - `renderExpandDescriptionTab` 3 block (sale/purchase/full).
+    - `loadExpandAuditLog` 3-endpoint fallback (mirror loadAuditLog của edit modal).
+    - Stubs: Thẻ kho / Chi tiết điều chỉnh / Lịch sử giá vốn → "Đang phát triển — xem trên TPOS".
+
+- `product-warehouse/css/warehouse-tpos.css`: `.expand-tabs` underline purple, `.expand-info-grid` 3-col, `.expand-field` label 160px / value 1fr + border-bottom-soft, `.expand-images-grid` auto-fill 160px, `.expand-desc-block` purple uppercase legend, `.expand-history-table` TPOS bordered.
+
+- **Fix save** `saveEditProduct`: strip `EXPAND_FIELDS_TO_STRIP = [UOM, UOMCateg, Categ, UOMPO, POSCateg, UOMView, Distributor, Importer, Producer, OriginCountry, Thumbnails, Taxes, SupplierTaxes, Product_Teams, Images]` trước khi POST `UpdateV2`. Lý do: TPOS reject `"An unexpected 'StartArray' node was found ... A 'PrimitiveValue' was expected"` khi nhận nested sub-objects/arrays từ `$expand` chain. User-edited arrays vẫn re-add via `mergeAdvancedIntoPayload`.
+
+**Verification** (localhost:8080, template B2537/119312 + test product 119313):
+
+- 8 tab render đầy đủ, default Info ✓
+- Tồn kho: 2 variants B2537H + B2537N ✓
+- Save round-trip (minimal payload): TPOS UpdateV2 returns 200, Name/ListPrice persisted ✓
+
+**Test product 119313 `TEST-WEB-001` (TEST-WEBKHO-20260525)**: created via InsertV2 với user approval. Sẽ deactivate khi xong test.
+
+---
 
 ### [product-warehouse][tpos] Edit modal 6 tab TPOS + fix expand + fix ảnh template — ✅ Done
 

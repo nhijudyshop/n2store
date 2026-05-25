@@ -729,11 +729,15 @@ ${SCRIPT_OPEN}>
                 });
                 const vb = (svg.getAttribute('viewBox') || '').split(' ');
                 const nativeW = parseFloat(vb[2]) || TARGET_W;
-                // Pass 2: re-render with margin để total = TARGET_W (match TPOS)
-                const margin = Math.max(0, Math.round((TARGET_W - nativeW) / 2));
+                // Pass 2: re-render với marginLeft+marginRight only để total width
+                // = TARGET_W mà KHÔNG inflate height. marginTop/marginBottom = 0
+                // để giữ aspect ratio 600×100 match TPOS PNG.
+                const sideMargin = Math.max(0, Math.round((TARGET_W - nativeW) / 2));
                 window.JsBarcode(svg, svg.dataset.code, {
                     format: 'CODE128', width: 2, height: 100,
-                    displayValue: false, margin: margin
+                    displayValue: false,
+                    marginTop: 0, marginBottom: 0,
+                    marginLeft: sideMargin, marginRight: sideMargin
                 });
             } catch(e) { console.warn('[w2p-print] barcode error', svg.dataset.code, e); }
         });
