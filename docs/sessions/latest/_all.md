@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ac13b16` — fix(snap): bỏ Path 2 captureVisibleTab — silence permission warning spam
-**Last updated**: 2026-05-25 09:18:21 +07
-**Latest session**: [`RESUME:20260525-091821-ac13b16`](../20260525-091821-ac13b16.md)
-**Summary**: fix(snap): bỏ Path 2 captureVisibleTab — silence permission warning spam
+**Latest commit**: `fdb22f2` — auto: session update
+**Last updated**: 2026-05-25 09:20:56 +07
+**Latest session**: [`RESUME:20260525-092056-fdb22f2`](../20260525-092056-fdb22f2.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 18:41
-- [`docs/`](./docs.md) — updated 2026-05-25 09:02
+- [`docs/`](./docs.md) — updated 2026-05-25 09:20
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:02
