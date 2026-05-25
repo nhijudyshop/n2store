@@ -4391,25 +4391,21 @@
         }
 
         try {
-            showToast('Đang điều chỉnh tồn...', 'info');
+            showToast('Đang tạo phiếu điều chỉnh trên TPOS...', 'info');
 
-            // TPOS StockChangeProductQty action was removed (HTTP 404 on all 3 legacy paths).
-            // Replace with the StockInventory flow that TPOS UI uses:
-            //   1) POST /odata/StockInventory — create draft scoped to the variant
-            //      (Filter="partial" + ProductId auto-creates 1 InventoryLine)
-            //   2) PATCH the InventoryLine.ProductQty to the new value
-            //   3) POST /odata/StockInventory(id)/ODataService.ActionDone — validate
-            //      and apply to stock.quant (writes to real qty).
-            // All 3 steps go via authenticatedFetch through chatomni-proxy.
-            const reason =
-                $('#stockAdjustReason').value?.trim() ||
-                `Điều chỉnh: ${stockAdjustCtx.templateName || variant.NameGet || ''}`;
+            // TPOS removed StockChangeProductQty (HTTP 404 trên 3 path cũ). Modern TPOS
+            // dùng StockInventory workflow (Filter=partial + ProductId), nhưng action để
+            // sinh InventoryLines từ filter không được expose qua OData (tất cả candidates
+            // probe đều 404 hoặc 204-no-op).
+            //
+            // Workaround: tạo phiếu kiểm kho draft với metadata sẵn sàng (Name có ghi giá
+            // trị mới), rồi mở TPOS form trong tab mới để user click "Bắt đầu kiểm kho"
+            // → set qty → "Xác nhận". Bớt 50% công so với làm từ đầu trên TPOS.
             const variantName = variant.NameGet || variant.DefaultCode || `#${variant.Id}`;
             const nowIso = new Date().toISOString();
 
-            // Step 1: create draft StockInventory with Filter=partial + ProductId
             const createBody = {
-                Name: `Điều chỉnh: ${variantName}`,
+                Name: `Điều chỉnh: ${variantName} → ${newQty}`,
                 Date: nowIso,
                 LocationId: 12,
                 ProductId: variant.Id,
@@ -4436,53 +4432,22 @@
             const inventoryId = inventory.Id;
             if (!inventoryId) throw new Error('Không nhận được InventoryId từ TPOS');
 
-            // Step 2: read the line auto-created with TheoreticalQty + ProductId.
-            const linesResp = await window.tokenManager.authenticatedFetch(
-                `${PROXY_URL}/api/odata/StockInventory(${inventoryId})/InventoryLines`,
-                { headers: { Accept: 'application/json' } }
+            // Open TPOS form to finish (user chỉ cần click 2 button)
+            const tposUrl = `https://tomato.tpos.vn/#/app/stockinventory/form?id=${inventoryId}`;
+            const winRef = window.open(tposUrl, '_blank');
+            showToast(
+                winRef
+                    ? `Đã tạo phiếu #${inventoryId} — hoàn tất tại tab TPOS mới (click "Bắt đầu kiểm kho" → "Xác nhận").`
+                    : `Phiếu #${inventoryId} đã tạo. Mở TPOS thủ công: ${tposUrl}`,
+                'info'
             );
-            if (!linesResp.ok) {
-                throw new Error(`Đọc inventory line: HTTP ${linesResp.status}`);
-            }
-            const linesJson = await linesResp.json();
-            const line =
-                (linesJson.value || []).find((l) => l.ProductId === variant.Id) ||
-                (linesJson.value || [])[0];
-            if (!line || !line.Id) {
-                throw new Error('Không tìm thấy line trong phiếu kiểm kho');
-            }
-
-            // Update ProductQty to the new value (PATCH supports partial update)
-            const patchResp = await window.tokenManager.authenticatedFetch(
-                `${PROXY_URL}/api/odata/StockInventory(${inventoryId})/InventoryLines(${line.Id})`,
-                {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                    body: JSON.stringify({ ProductQty: newQty }),
-                }
-            );
-            if (!patchResp.ok) {
-                const txt = await patchResp.text().catch(() => '');
-                throw new Error(`Cập nhật SL: HTTP ${patchResp.status} ${txt.slice(0, 150)}`);
-            }
-
-            // Step 3: validate/apply (TPOS standard action — confirmed working pattern)
-            const doneResp = await window.tokenManager.authenticatedFetch(
-                `${PROXY_URL}/api/odata/StockInventory(${inventoryId})/ODataService.ActionDone`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                    body: '{}',
-                }
-            );
-            const ok = doneResp.ok;
-            const lastErr = ok ? null : `HTTP ${doneResp.status} (validate)`;
-            if (!ok) throw new Error(lastErr || 'Không endpoint nào thành công');
-
-            showToast(`Đã điều chỉnh tồn: ${variant.QtyAvailable} → ${newQty}`, 'success');
             closeStockAdjust();
-            fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(() => {});
-            setTimeout(() => fetchProducts(true), 5000);
+
+            // Sau khi user confirm trên TPOS, socket sẽ fire inventory_updated event →
+            // Render sync → SSE broadcast → fetchProducts auto-refresh. Trigger nudge:
+            setTimeout(() => {
+                fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(() => {});
+            }, 15000);
         } catch (err) {
             console.error('[Stock] Adjust failed:', err);
             showToast('Lỗi điều chỉnh: ' + err.message, 'error');
