@@ -2667,14 +2667,22 @@ function renderDashboard(tabName, searchTerm = '') {
     }
 
     // Filter by Search (accent-insensitive: "Diem" matches "Diễm")
+    // Matches: phone, orderId, customer name, ticket note, product code, product name
     if (searchTerm) {
         const termNoAccent = stripAccent(searchTerm);
-        filtered = filtered.filter(
-            (t) =>
-                (t.phone && t.phone.includes(termNoAccent)) ||
-                (t.orderId && stripAccent(t.orderId).includes(termNoAccent)) ||
-                (t.customer && stripAccent(t.customer).includes(termNoAccent))
-        );
+        filtered = filtered.filter((t) => {
+            if (t.phone && t.phone.includes(termNoAccent)) return true;
+            if (t.orderId && stripAccent(t.orderId).includes(termNoAccent)) return true;
+            if (t.customer && stripAccent(t.customer).includes(termNoAccent)) return true;
+            if (t.note && stripAccent(t.note).includes(termNoAccent)) return true;
+            if (Array.isArray(t.products)) {
+                for (const p of t.products) {
+                    if (p?.code && stripAccent(p.code).includes(termNoAccent)) return true;
+                    if (p?.name && stripAccent(p.name).includes(termNoAccent)) return true;
+                }
+            }
+            return false;
+        });
     }
 
     // Filter by created date
@@ -3735,14 +3743,22 @@ function renderHistoryTab() {
     let filtered = [...TICKETS];
 
     // Filter by search text (accent-insensitive)
+    // Matches: phone, orderId, customer name, firebaseId, ticket note, product code, product name
     if (searchTerm) {
-        filtered = filtered.filter(
-            (t) =>
-                (t.phone && t.phone.includes(searchTerm)) ||
-                (t.orderId && stripAccent(t.orderId).includes(searchTerm)) ||
-                (t.customer && stripAccent(t.customer).includes(searchTerm)) ||
-                (t.firebaseId && stripAccent(t.firebaseId).includes(searchTerm))
-        );
+        filtered = filtered.filter((t) => {
+            if (t.phone && t.phone.includes(searchTerm)) return true;
+            if (t.orderId && stripAccent(t.orderId).includes(searchTerm)) return true;
+            if (t.customer && stripAccent(t.customer).includes(searchTerm)) return true;
+            if (t.firebaseId && stripAccent(t.firebaseId).includes(searchTerm)) return true;
+            if (t.note && stripAccent(t.note).includes(searchTerm)) return true;
+            if (Array.isArray(t.products)) {
+                for (const p of t.products) {
+                    if (p?.code && stripAccent(p.code).includes(searchTerm)) return true;
+                    if (p?.name && stripAccent(p.name).includes(searchTerm)) return true;
+                }
+            }
+            return false;
+        });
     }
 
     // Filter by type

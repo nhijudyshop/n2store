@@ -7,9 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản lý Sự vụ & Điều phối sau bán hàng</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=20260525c">
-    <link rel="stylesheet" href="css/page-tabs.css?v=20260525c">
-    <link rel="stylesheet" href="../shared/css/modern.css?v=20260525c">
+    <link rel="stylesheet" href="css/style.css?v=20260525d">
+    <link rel="stylesheet" href="css/page-tabs.css?v=20260525d">
+    <link rel="stylesheet" href="../shared/css/modern.css?v=20260525d">
     <!-- Mermaid.js for Flow Diagrams -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <!-- Lucide Icons for Notifications -->
@@ -17,10 +17,10 @@
     <!-- Firebase SDK for menu layout sync -->
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="../shared/js/firebase-config.js?v=20260525c"></script>
+    <script src="../shared/js/firebase-config.js?v=20260525d"></script>
     <!-- Navigation (deferred) -->
-    <script defer src="../shared/js/navigation-modern.js?v=20260525c"></script>
-<link rel="stylesheet" href="../shared/css/typography.css?v=20260525c" /> <!-- typography:shared -->
+    <script defer src="../shared/js/navigation-modern.js?v=20260525d"></script>
+<link rel="stylesheet" href="../shared/css/typography.css?v=20260525d" /> <!-- typography:shared -->
 </head>
 
 <body>
@@ -158,7 +158,7 @@
 
                 <!-- Filters (Simplified) -->
                 <div class="filters-bar" id="default-filters">
-                    <input type="text" id="search-ticket" placeholder="Tìm theo SĐT, Mã đơn..." class="search-input">
+                    <input type="text" id="search-ticket" placeholder="Tìm theo SĐT, Mã đơn, Sản phẩm, Ghi chú..." class="search-input">
                     <input type="date" id="filter-date-created" class="date-input" title="Lọc theo ngày tạo">
                     <div class="type-tabs" id="type-tabs">
                         <button type="button" class="type-tab-btn active" data-type="all">Tất cả loại</button>
@@ -171,7 +171,7 @@
 
                 <!-- History Filters (shown only on History tab) -->
                 <div class="filters-bar hidden" id="history-filters">
-                    <input type="text" id="history-search" placeholder="Tìm theo Tên, SĐT, Mã đơn..." class="search-input">
+                    <input type="text" id="history-search" placeholder="Tìm theo Tên, SĐT, Mã đơn, Sản phẩm..." class="search-input">
                     <select id="history-filter-type" class="select-input">
                         <option value="all">Tất cả loại</option>
                         <option value="BOOM">Không Nhận Hàng</option>
@@ -1163,31 +1163,31 @@ Ví dụ:
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 
     <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
-    <script type="module" src="../shared/esm/compat.js?v=20260525c"></script>
+    <script type="module" src="../shared/esm/compat.js?v=20260525d"></script>
 
     <!-- Fallback for file:// protocol -->
     <script>
         if (window.location.protocol === 'file:') {
-            document.write('<script src="../shared/js/shared-auth-manager.js?v=20260525c"><\/script>');
+            document.write('<script src="../shared/js/shared-auth-manager.js?v=20260525d"><\/script>');
             document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
         }
     </script>
 
     <!-- Shared API Utils -->
-    <script src="../shared/js/shop-config.js?v=20260525c"></script>
-    <script src="../shared/js/api-config.js?v=20260525c"></script>
-    <script src="../shared/js/token-manager.js?v=20260525c"></script>
-    <script src="../shared/js/api-handler.js?v=20260525c"></script>
+    <script src="../shared/js/shop-config.js?v=20260525d"></script>
+    <script src="../shared/js/api-config.js?v=20260525d"></script>
+    <script src="../shared/js/token-manager.js?v=20260525d"></script>
+    <script src="../shared/js/api-handler.js?v=20260525d"></script>
 
     <!-- Module Scripts -->
-    <script src="js/firebase-init.js?v=20260525c"></script>
-    <script src="../shared/js/api-service.js?v=20260525c"></script>
-    <script src="../shared/js/audit-logger.js?v=20260525c"></script>
-    <script src="js/script.js?v=20260525c"></script>
-    <script src="js/customer-orders-lookup.js?v=20260525c"></script>
-    <script src="js/phone-copy.js?v=20260525c"></script>
-    <script src="js/tpos-fastsale-tab.js?v=20260525c"></script>
-    <script src="js/page-tabs.js?v=20260525c"></script>
+    <script src="js/firebase-init.js?v=20260525d"></script>
+    <script src="../shared/js/api-service.js?v=20260525d"></script>
+    <script src="../shared/js/audit-logger.js?v=20260525d"></script>
+    <script src="js/script.js?v=20260525d"></script>
+    <script src="js/customer-orders-lookup.js?v=20260525d"></script>
+    <script src="js/phone-copy.js?v=20260525d"></script>
+    <script src="js/tpos-fastsale-tab.js?v=20260525d"></script>
+    <script src="js/page-tabs.js?v=20260525d"></script>
 </body>
 
 </html>
