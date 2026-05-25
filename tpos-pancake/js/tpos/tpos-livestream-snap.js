@@ -329,7 +329,12 @@
         try {
             dataUrl = await _captureViaExtension(80, 4000);
         } catch (e) {
-            console.warn('[snap-ext] capture fail:', e.message);
+            // Silent skip cho permission errors (user chưa grant activeTab —
+            // bình thường, không cần spam warning). Other errors → log một lần.
+            const msg = String(e?.message || e);
+            if (!/all_urls|activeTab|permission|invoked/i.test(msg)) {
+                console.warn('[snap-ext] capture fail:', msg);
+            }
             return null;
         }
         // Load full tab image, crop iframe rect via canvas.
@@ -1796,21 +1801,11 @@ Throttle 30s/KH. Click để tắt.`;
                 }
                 return;
             }
-            // Path 2 — extension visible tab capture (chỉ work tab focused).
-            if (STATE.extReady) {
-                const wrapper = document.getElementById('tpos-snap-fb-wrapper');
-                if (!wrapper) return;
-                try {
-                    const jpegBase64 = await _captureExtensionFrame();
-                    if (!jpegBase64) return;
-                    STATE.frameBuffer.push({ capturedAt: Date.now(), jpegBase64 });
-                    if (STATE.frameBuffer.length > FRAME_BUFFER_MAX) {
-                        STATE.frameBuffer.splice(0, STATE.frameBuffer.length - FRAME_BUFFER_MAX);
-                    }
-                } catch (e) {
-                    console.warn('[snap-buffer-ext] tick fail:', e.message);
-                }
-            }
+            // Path 2 (DEPRECATED — bỏ): captureVisibleTab cần activeTab/all_urls
+            // permission, log spam mỗi 5s khi user chưa Ctrl+Shift+S. Stream
+            // mode (Path 1) là path duy nhất reliable giờ.
+            // Silent skip khi chưa có stream → buffer empty cho đến khi user
+            // grant streamId (Ctrl+Shift+S hoặc click icon N2Store).
         };
         // Capture 1 frame ngay khi start, sau đó interval.
         tick();
