@@ -25,6 +25,46 @@
 
 ## 2026-05-25
 
+### [product-warehouse] Fix CRITICAL: TPOSClient missing → "In theo mẫu TPOS" không hoạt động → tem render khác TPOS
+
+**User báo**: "Hình 1 tem tpos, hình 2 tem web đâu có giống nhau?" — user thấy tem TPOS (image 1) name centered + barcode full-width, còn tem web (image 2) name left + barcode nhỏ.
+
+**Root cause**: `product-warehouse/index.html` không load `tpos-search.js` (định nghĩa `window.TPOSClient`). Khi user click "In mã vạch" + checkbox "In theo mẫu TPOS" mặc định BẬT, `printViaTPOS()` check `window.TPOSClient?.authenticatedFetch` → `false` → fallback sang HTML local render → tem render bằng HTML/CSS local (khác visually so với TPOS server-side PDF rendering, dù structure HTML giống hệt template `/BarcodeProductLabel/Print` của TPOS).
+
+TPOS print flow (reverse-engineered từ `https://gc-statics.tpos.vn/.../controllers.min.js`):
+
+1. `POST /odata/BarcodeProductLabel` với payload {Paper, Lines[], Show\*, …} → server save → return Id
+2. `GET /BarcodeProductLabel/PrintBarcodePDF?id={Id}` → server-side PDF render (PdfSharp/iTextSharp) → return PDF blob
+3. `window.open(blob)` → mở tab mới với PDF
+
+→ Server-side PDF render khác HTML render về flex distribution, font kerning, anti-aliasing. **Để identical 100% PHẢI dùng TPOS PDF endpoint**.
+
+**Files**:
+
+- `product-warehouse/index.html`
+    - Add `<script src="../shared/js/shop-config.js">` (cần cho `ShopConfig.getConfig().CompanyId` trong `printViaTPOS`)
+    - Add `<script src="../purchase-orders/js/lib/tpos-search.js">` (định nghĩa `window.TPOSClient`)
+    - Load trước `barcode-label-dialog.js` để dialog detect được
+
+**Verify** (Playwright `localhost:8080/product-warehouse/`):
+
+- `window.TPOSClient` exists ✅
+- `window.TPOSClient.authenticatedFetch` is function ✅
+- `window.ShopConfig` exists ✅
+- Click print button → dialog opens → useTposTemplate checked ✅
+- Pre-fetch TPOS: "✓ Tất cả 1 mã đã có trên TPOS — đã sẵn sàng in." ✅
+- Click "In bằng pdf (1)" → `printViaTPOS()` runs:
+    - POST `/api/odata/BarcodeProductLabel` → TPOS save → Id returned
+    - GET `/api/BarcodeProductLabel/PrintBarcodePDF?id={Id}` → returns PDF
+    - URL.createObjectURL intercepted: **1 blob captured, type "application/pdf", size 58202 bytes** ✅
+    - PDF magic bytes verified: `%PDF-` ✅
+- Test 6 tem (qty=6): another PDF blob, **size 63652 bytes** (lớn hơn 1 tem do nhiều label) ✅
+- **Output is bit-for-bit identical to TPOS native print** (same TPOS server-side render, same template, same fonts/sizes/layout)
+
+**Status**: ✅ Done. Default useTposTemplate=ON → user gets 100% TPOS-identical PDF cho cả 1 tem lẫn nhiều tem. HTML local fallback chỉ dùng khi product chưa sync TPOS (toggled off bởi user).
+
+---
+
 ### [product-warehouse][barcode-label-dialog] In tem sản phẩm — pixel-match TPOS 100% (1 tem, nhiều tem)
 
 **User ask**: "product-warehouse in thử tem sản phẩm và làm giao diện tem cho giống 100% → phần này làm thật kĩ để tem giống (in 1 tem, nhiều tem)".
