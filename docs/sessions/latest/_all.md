@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `dbb7c2d` — feat(tpos-pancake): hover zoom full ảnh (không crop) + Auto chip luôn ON
-**Last updated**: 2026-05-25 12:00:21 +07
-**Latest session**: [`RESUME:20260525-120021-dbb7c2d`](../20260525-120021-dbb7c2d.md)
-**Summary**: feat(tpos-pancake): hover zoom full ảnh (không crop) + Auto chip luôn ON
+**Latest commit**: `65234fb` — feat(product-warehouse): wire 4 missing expand tabs với TPOS endpoints thật
+**Last updated**: 2026-05-25 13:45:10 +07
+**Latest session**: [`RESUME:20260525-134510-65234fb`](../20260525-134510-65234fb.md)
+**Summary**: feat(product-warehouse): wire 4 missing expand tabs với TPOS endpoints thật
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -45,7 +44,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-25 11:48
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 11:54
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 13:45
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
