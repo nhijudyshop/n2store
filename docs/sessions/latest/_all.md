@@ -3,15 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b8a3f61` — feat(delivery-report): migrate overrides (slShip/thuVe/boCK/atruongCK/ckTruoc/note) localStorage -> Postgres
-**Last updated**: 2026-05-25 16:10:56 +07
-**Latest session**: [`RESUME:20260525-161056-b8a3f61`](../20260525-161056-b8a3f61.md)
-**Summary**: feat(delivery-report): migrate overrides (slShip/thuVe/boCK/atruongCK/ckTruoc/note) localStorage -> Postgres
+**Latest commit**: `922d925` — refactor(shared): extract ReturnOrderModal — issue-tracking + supplier-debt cùng dùng full TPOS-clone refund form
+**Last updated**: 2026-05-25 18:45:19 +07
+**Latest session**: [`RESUME:20260525-184519-922d925`](../20260525-184519-922d925.md)
+**Summary**: refactor(shared): extract ReturnOrderModal — issue-tracking + supplier-debt cùng dùng full TPOS-clone refund form
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
+- [`shared/`](./shared.md) — 2 file(s)
+- [`supplier-debt/`](./supplier-debt.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-25 16:10
-- [`docs/`](./docs.md) — updated 2026-05-25 16:00
+- [`docs/`](./docs.md) — updated 2026-05-25 18:45
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -36,7 +38,7 @@
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 10:44
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-25 15:39
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-25 18:45
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 18:58
 - [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:34
@@ -54,14 +56,14 @@
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-25 15:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
-- [`shared/`](./shared.md) — updated 2026-05-24 19:12
+- [`shared/`](./shared.md) — updated 2026-05-25 18:45
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-05-25 15:59
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
-- [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-24 11:04
+- [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-25 18:45
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-25 15:59
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
