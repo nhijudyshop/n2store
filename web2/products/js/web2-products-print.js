@@ -646,30 +646,40 @@
         const SCRIPT_OPEN = '<' + 'script';
         const SCRIPT_CLOSE = '<' + '/script>';
 
-        // CSS replicates TPOS /Content/print_barcode.css verbatim (verified 2026-04-13)
+        // CSS = TPOS /Content/print_barcode.css verbatim (fetched 2026-05-25
+        // từ tomato.tpos.vn). TUYỆT ĐỐI không thêm/sửa rules ngoài screen preview
+        // block — TPOS print phải identical với Web 2.0 cùng @page handling.
+        // @page KHÔNG có `size:` — TPOS để printer driver auto-detect từ
+        // .barcode-sheet inline width/height. Forcing @page size có thể gây
+        // printer driver scale lệch khi paper khác mặc định.
         return `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
 <title>In mã vạch</title>
 <style>
-/* Barcode label CSS — matched TPOS /Content/print_barcode.css verbatim */
-* { box-sizing: border-box; }
-@page { size: ${sheetW}mm ${sheetH}mm; margin: 0 !important; }
-html, body {
+/* === TPOS /Content/print_barcode.css verbatim === */
+* {
+    box-sizing: border-box;
+}
+
+@page {
     margin: 0 !important;
+}
+
+html, body {
     padding: 0 !important;
+    margin: 0 !important;
     font-family: Arial, Helvetica, sans-serif;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
 }
+
 .barcode-sheet {
-    width: ${sheetW}mm;
-    height: ${sheetH}mm;
     page-break-after: always;
-    overflow: hidden;
 }
-.barcode-sheet:last-child { page-break-after: auto; }
+
+.barcodeCustom-sheet {
+    page-break-after: always;
+}
 
 .barcode_label {
     box-sizing: border-box;
@@ -678,14 +688,41 @@ html, body {
     display: flex;
     flex-flow: column;
     overflow: hidden;
+    font-size: 10px;
+    padding: 5px;
+    line-height: 10px;
 }
-.barcode_label div { flex: 1 auto; }
 
-.barcode-pname { overflow: hidden; }
-.barcode-image img { width: 100%; height: 25px; }
-/* JsBarcode SVG — match TPOS PNG dimensions (100% wide × 25px tall) */
-.barcode-image .bcsvg { width: 100%; height: 25px; display: block; }
+.barcodeCustom_label {
+    box-sizing: border-box;
+    text-align: left;
+    display: flex;
+    overflow: hidden;
+    font-size: 5px;
+}
 
+.barcode_label div {
+    flex: 1 auto;
+}
+
+.barcodeCustom_label div {
+    flex: 1 auto;
+    font-size: 5px;
+    line-height: 5px;
+}
+
+.barcode-image img {
+    width: 100%;
+    height: 25px;
+}
+/* JsBarcode SVG — match TPOS PNG img dimensions exactly */
+.barcode-image .bcsvg {
+    width: 100%;
+    height: 25px;
+    display: block;
+}
+
+/* === Screen preview only (không in) === */
 @media screen {
     body {
         background: #e5e7eb;
