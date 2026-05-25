@@ -184,18 +184,33 @@ function _computeLivestreamUrl(pageSlugOrId, liveVideoId, offsetSec) {
     let videoId = String(liveVideoId);
     const m = videoId.match(/^\d+_(\d+)$/);
     if (m) videoId = m[1];
-    const base = pageSlugOrId
-        ? `https://www.facebook.com/${encodeURIComponent(pageSlugOrId)}/videos/${encodeURIComponent(videoId)}/`
-        : `https://www.facebook.com/watch/live/?v=${encodeURIComponent(videoId)}`;
-    const qs = ['locale=vi_VN'];
+    // FB URL formats for seek support:
+    //   - /{page}/videos/{id}/?t=N  → FB thường IGNORE t param
+    //   - /watch/?v=ID&t=N          → ✅ working (FB native player)
+    //   - /watch/live/?v=ID&t=N     → working cho live VOD
+    // → Dùng /watch/?v=... format vì FB redirect tự xử lý seek đúng cách.
+    // PageSlug giữ trong query để FB hiển thị page context (không bắt buộc).
+    const params = new URLSearchParams({ v: videoId, locale: 'vi_VN' });
     if (offsetSec && Number.isFinite(offsetSec) && offsetSec > 0) {
-        qs.push(`t=${Math.floor(offsetSec)}`);
+        params.set('t', String(Math.floor(offsetSec)));
     }
-    return `${base}?${qs.join('&')}`;
+    return `https://www.facebook.com/watch/?${params.toString()}`;
 }
 
 function _mapRow(row) {
     if (!row) return null;
+    // Re-compute livestream_url với URL scheme hiện tại (/watch/?v=ID&t=N).
+    // Existing rows lưu old format /{page}/videos/{id}/?t= không seek được
+    // → recompute on read để frontend luôn nhận URL mới.
+    let livestreamUrl = row.livestream_url;
+    if (row.live_video_id) {
+        const recomputed = _computeLivestreamUrl(
+            row.page_id, // không có page vanity ở backend; FB redirect tự xử lý
+            row.live_video_id,
+            row.offset_seconds
+        );
+        if (recomputed) livestreamUrl = recomputed;
+    }
     return {
         id: row.id,
         commentId: row.comment_id,
@@ -209,7 +224,7 @@ function _mapRow(row) {
         capturedBy: row.captured_by,
         capturedByName: row.captured_by_name,
         offsetSeconds: row.offset_seconds,
-        livestreamUrl: row.livestream_url,
+        livestreamUrl,
         thumbnailUrl: row.thumbnail_url,
         note: row.note,
         extractStatus: row.extract_status,
