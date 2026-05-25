@@ -623,17 +623,31 @@
                     // PrintNew — 2-column table
                     sheetsHTML += `<div class="barcode_label" style="${labelStyle}"><table border="0" style="width:100%;height:100%;"><tr><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-code">${escapeHtml(label.code)}</div>${showPrice ? `<div class="barcode-price">${displayPrice}${currencyStr}</div>` : ''}</td><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-image">${!hideBarcode ? barcodeImg : ''}</div></td></tr></table></div>`;
                 } else {
-                    // Default — vertical: name → barcode → code → price
-                    sheetsHTML += `<div class="barcode_label" style="${labelStyle}">`;
+                    // Default vertical: name → barcode → code → price.
+                    // User feedback "spaces quá dài": với TPOS verbatim CSS
+                    // `.barcode_label div { flex: 1 auto }`, mỗi text div grow
+                    // → text vertically centered trong slack space (whitespace
+                    // trên/dưới text). Khi mọi children flex 0 0 auto (content-
+                    // sized), barcode-image bị stretch quá to.
+                    //
+                    // SOLUTION: tất cả children flex 0 0 auto + label
+                    // `justify-content: space-around` → content stack tight, slack
+                    // chia đều giữa các elements (gap above/below pname, around
+                    // barcode, between code & price). Tighter than TPOS verbatim
+                    // distribution mà vẫn cân đối visually.
+                    const tightFlex = 'flex:0 0 auto;';
+                    const labelStyleFinal =
+                        labelStyle + 'justify-content:space-around;align-items:center;';
+                    sheetsHTML += `<div class="barcode_label" style="${labelStyleFinal}">`;
                     if (showProductName) {
-                        sheetsHTML += `<div class="barcode-pname" style="${nameStyle}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
+                        sheetsHTML += `<div class="barcode-pname" style="${tightFlex}${nameStyle}width:100%;"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
                     }
                     if (!hideBarcode && label.code) {
-                        sheetsHTML += `<div class="barcode-image">${barcodeImg}</div>`;
+                        sheetsHTML += `<div class="barcode-image" style="${tightFlex}width:100%;">${barcodeImg}</div>`;
                     }
-                    sheetsHTML += `<div><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
+                    sheetsHTML += `<div style="${tightFlex}width:100%;"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
                     if (showPrice) {
-                        sheetsHTML += `<div><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
+                        sheetsHTML += `<div style="${tightFlex}width:100%;"><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
                     }
                     sheetsHTML += `</div>`;
                 }
@@ -750,10 +764,14 @@ ${SCRIPT_OPEN} src="${JSBARCODE_URL}">${SCRIPT_CLOSE}
 ${SCRIPT_OPEN}>
 (function(){
     // TPOS canvas convention: PNG 600×100 (barcode core + quiet zone scaled).
-    // JsBarcode native width = bars only, varies theo code length (DEMO-TUI-DENIM
-    // 14 chars → 378px, 123456789 9 chars → 202px). Để Web 2.0 visual identical
-    // TPOS khi cả 2 stretched vào label 25mm, ta compute margin sao cho total
-    // viewBox = 600. Render 2-pass: lần 1 đo native, lần 2 set margin = (600-native)/2.
+    // Render 2-pass: pass 1 đo native viewBox, pass 2 set marginLeft/Right để
+    // total viewBox = 600 (match TPOS PNG aspect 6:1).
+    //
+    // QUAN TRỌNG: SVG default preserveAspectRatio="xMidYMid meet" → preserves
+    // aspect → barcode chỉ chiếm 15px của 25px container, để 10px whitespace
+    // → user thấy "spaces quá dài". TPOS dùng <img> mặc định stretch fill 100%
+    // container. Set preserveAspectRatio="none" để SVG behave same as <img>:
+    // bars stretch fill container không whitespace dọc.
     const TARGET_W = 600;
     function draw(){
         if(!window.JsBarcode){ setTimeout(draw, 30); return; }
@@ -767,8 +785,7 @@ ${SCRIPT_OPEN}>
                 const vb = (svg.getAttribute('viewBox') || '').split(' ');
                 const nativeW = parseFloat(vb[2]) || TARGET_W;
                 // Pass 2: re-render với marginLeft+marginRight only để total width
-                // = TARGET_W mà KHÔNG inflate height. marginTop/marginBottom = 0
-                // để giữ aspect ratio 600×100 match TPOS PNG.
+                // = TARGET_W mà KHÔNG inflate height (giữ aspect 600×100).
                 const sideMargin = Math.max(0, Math.round((TARGET_W - nativeW) / 2));
                 window.JsBarcode(svg, svg.dataset.code, {
                     format: 'CODE128', width: 2, height: 100,
@@ -776,6 +793,8 @@ ${SCRIPT_OPEN}>
                     marginTop: 0, marginBottom: 0,
                     marginLeft: sideMargin, marginRight: sideMargin
                 });
+                // Force stretch fill container — match <img> behavior trong TPOS.
+                svg.setAttribute('preserveAspectRatio', 'none');
             } catch(e) { console.warn('[w2p-print] barcode error', svg.dataset.code, e); }
         });
     }
