@@ -25,6 +25,45 @@
 
 ## 2026-05-25
 
+### [web2/products] In tem sản phẩm — WEB 2.0 dedicated module, KHÔNG dùng TPOS API
+
+**User ask**: "làm cho trang `web2/products/index.html` có in sản phẩm và giao diện giống 100% tpos — nên nhớ đây là web 2.0 không liên quan tới web bạn vừa code nên code mới cho web này đừng sài chung gì hết — và web này là kho sản phẩm riêng không dùng các sản phẩm có sẵn tpos đâu nên không request tpos".
+
+**Constraints**:
+
+- **Web 2.0 layer separation**: KHÔNG sài lại `purchase-orders/js/lib/barcode-label-dialog.js` (legacy/product-warehouse), code mới riêng cho web2.
+- **NO TPOS API**: web2/products là kho RIÊNG (table `web2_products`), products khác TPOS hoàn toàn → KHÔNG có sản phẩm trên TPOS → KHÔNG gọi TPOS PDF endpoint. Render label hoàn toàn local HTML/CSS.
+
+**Approach**: Module mới `Web2ProductsPrint` (namespace riêng) — chỉ in tem local, dùng **JsBarcode CDN** (Code 128 client-side SVG) thay vì TPOS server-side `/Web/Barcode`. CSS dialog match TPOS visual (FormModal palette: Helvetica/Arial 13px #333, sheet bg #eee, white card, purple #7266ba primary, green #5cb85c success). Label render CSS mirror TPOS `/Content/print_barcode.css` verbatim (Arial, flex column, page-break-after per sheet, font-size dynamic per paper).
+
+**Files**:
+
+- `web2/products/js/web2-products-print.js` (mới, ~440 dòng) — module `window.Web2ProductsPrint`
+    - `PAPERS` = TPOS paper presets [2 Tem 66×21mm fs6, 1 Tem 65×22mm fs7, Tem 35×22mm fs8] với cols/margins/fontSize
+    - `loadJsBarcode()` async load `cdn.jsdelivr.net/npm/jsbarcode@3.11.6/.../JsBarcode.all.min.js` (one-time)
+    - `open(products[])` → `showSelectionModal(items)` → dialog với: Bảng giá / Giấy in / Kho/Kho hàng / Áp dụng nhanh số lượng / 4 checkbox row 1 / 2 checkbox row 2 / Tabs / Table / Footer "In (N)" purple + "Đóng" default
+    - `generateAndPrint()` build label HTML mirror TPOS template (name strong → barcode SVG → code strong → price strong) → inline `<style>` mirror `/Content/print_barcode.css` (flex column, page-break-after, Arial, .barcode-image img height 25px) → Blob HTML → `window.open(blob)`. Popup-blocked fallback → inline `<iframe>` overlay với button "🖨️ In".
+    - In-page có top bar "In mã vạch — N tem (M trang)" với button "In ngay" (manual `window.print()` trigger)
+    - JsBarcode renders SVG inline Code 128 (width:1, height:25, displayValue:false, margin:0) → mỗi barcode ~53 rect bars
+- `web2/products/css/web2-products-print.css` (mới, ~340 dòng) — dialog styles mirror TPOS FormModal palette
+- `web2/products/js/web2-products-app.js` — thêm row action button printer (amber), `printBarcode(code)` handler, export trong `Web2ProductsApp`
+- `web2/products/css/web2-products.css` — `.btn-action.act-print { color: #f59e0b; background: #fffbeb }` hover #fde68a
+- `web2/products/index.html` — link CSS + script JS
+
+**Verify** (Playwright `localhost:8080/web2/products/`):
+
+- 13 sản phẩm load, 13 nút print render ✅
+- `typeof window.Web2ProductsPrint?.open === "function"` ✅
+- Click print → dialog mở, title "In mã vạch", footer "In (1)" purple ✅
+- **1 tem**: Blob HTML 3013 bytes, 1 sheet × 1 label, **JsBarcode SVG = 53 rect bars** (Code 128) ✅
+- **6 tem** (qty=6): **3 sheets × 2 labels per sheet = 6 labels**, **318 barcode bars** (6 × 53), `page-break-after: always` ✅
+- Label HTML structure: `.barcode-pname > strong` → `.barcode-image > svg` → `<div><strong>code</strong></div>` → `<div><strong.barcode-price>price</strong></div>` mirror TPOS template ✅
+- Font: Arial Helvetica sans-serif, font-size 6px (paper "2 Tem"), padding 0.5mm ✅
+
+**Status**: ✅ Done — module độc lập web2, không request TPOS, render local 100% matching TPOS visual via mirrored CSS + JsBarcode Code 128. Cả 1 tem và 6 tem multi-sheet đều hoạt động đúng.
+
+---
+
 ### [tpos-pancake][snap] Fallback iframe direct khi FB SDK xfbml.ready stuck
 
 **User báo**: popup `fb-video-player.html` dừng ở status `⏳ Player rendered — waiting seek...` không tiến tiếp — `xfbml.render` fire xong nhưng `xfbml.ready` (event để lấy player instance + gọi `player.seek(N)`) KHÔNG fire. FB JS SDK Embedded Video Player API không reliable cho live VOD: video metadata chưa load xong / plugin không expose API trong vài case nhất là live đang/vừa kết thúc.
