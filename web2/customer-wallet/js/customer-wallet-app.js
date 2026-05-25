@@ -561,15 +561,20 @@
     }
 
     async function loadAndRender() {
-        // Pagination: loop tới khi hết (max 20 pages × 500 = 10k PBH)
-        // Fetch song song PBH + native-orders để giảm latency.
+        // PHASE 3 (2026-05-25): paidAmount giờ lấy từ Web 2.0 wallet
+        // (/api/web2/wallets) thay vì /api/wallet-deposits (legacy Web 1).
+        // KHÔNG còn pollDeposits — Web 2.0 webhook fan-out auto credit
+        // web2_customer_wallets rồi enrichWeb2Wallets() đọc về.
+        //
+        // PBH (Tổng mua) + native-orders (entry cho KH chưa lập PBH) vẫn
+        // dùng /api/fast-sale-orders + /api/native-orders vì đó là dữ liệu
+        // nghiệp vụ shared (shop chỉ có 1 bộ đơn hàng).
         const [list, nativeOrders] = await Promise.all([
             window.CustomerWalletStorage.fetchPbhList(20, 500),
             window.CustomerWalletStorage.fetchNativeOrders(20, 200).catch(() => []),
         ]);
         pbhList = list;
         customers = aggregateCustomers(pbhList);
-        // Ensure mỗi KH có Đơn Web cũng có entry trong ví (totalPurchased=0 nếu chưa lập PBH)
         mergeNativeOrdersIntoAgg(customers, nativeOrders);
         const mutated = mergeAggregation(walletState, customers);
         if (mutated) {
@@ -577,10 +582,9 @@
             pushSync();
         }
         renderList();
-        // Poll SePay deposits (incoming) → match KH theo phone → +payment
-        pollDeposits().catch(() => {});
         // Enrich từ TPOS Partner (Status / Email / Address / Carrier) — best-effort
         enrichFromTpos().catch((e) => console.warn('[CustomerWallet] enrich fail:', e?.message));
+        // Enrich Web 2.0 wallet → override paidAmount + show "💳 X₫" badge
         enrichWeb2Wallets().catch((e) =>
             console.warn('[CustomerWallet] web2 enrich fail:', e?.message)
         );
@@ -605,8 +609,26 @@
                 const map = await window.Web2WalletApi.getWalletsByPhones(phones, {
                     concurrency: 5,
                 });
+                let mutated = false;
                 for (const [phone, wallet] of map.entries()) {
                     web2Wallets[phone] = wallet;
+                    // PHASE 3: override paidAmount từ Web 2.0 wallet (source of truth
+                    // cho SePay deposits). returnedAmount giữ từ local Firestore
+                    // (return modal vẫn ghi local — TODO Phase 4 migrate qua
+                    // /api/web2/wallets/:phone/withdraw).
+                    const w = walletState.wallets[phone];
+                    if (w) {
+                        const newPaid = Number(wallet.total_deposited) || 0;
+                        if (Math.abs(newPaid - (w.paidAmount || 0)) > 1) {
+                            w.paidAmount = newPaid;
+                            w.balance =
+                                (w.totalPurchased || 0) - w.paidAmount - (w.returnedAmount || 0);
+                            mutated = true;
+                        }
+                    }
+                }
+                if (mutated) {
+                    window.CustomerWalletStorage.save(walletState);
                 }
                 renderList();
                 if (activePhone && !document.getElementById('cwDetailModal').hidden) {
@@ -800,28 +822,9 @@
         _sseUnsubscribeNo = window.Web2SSE.subscribe('web2:native-orders', (msg) =>
             reloadPbh(msg, 'native-orders')
         );
-        _sseUnsubscribe = window.Web2SSE.subscribe('wallet:all', (msg) => {
-            // Server gửi event 'wallet_update' với data { phone, wallet, transaction }
-            // Debounce 800ms — burst nhiều giao dịch SePay liên tiếp → 1 reload.
-            if (_ssePollTimer) clearTimeout(_ssePollTimer);
-            _ssePollTimer = setTimeout(async () => {
-                _ssePollTimer = null;
-                const phone = msg?.data?.phone;
-                const amount = msg?.data?.transaction?.amount;
-                console.log(
-                    '[CustomerWallet-SSE] wallet_update:',
-                    phone,
-                    amount ? amount.toLocaleString('vi-VN') + 'đ' : ''
-                );
-                await pollDeposits();
-                if (phone && amount) {
-                    notify(
-                        `💰 SePay: ${Number(amount).toLocaleString('vi-VN')}đ → ${phone}`,
-                        'success'
-                    );
-                }
-            }, 800);
-        });
+        // PHASE 3 (2026-05-25): KHÔNG subscribe 'wallet:all' Web 1.0 nữa.
+        // Web 2.0 dùng riêng 'web2:wallet:*' do web2-wallet-service.js emit
+        // qua webhook fan-out. Web 1 wallet:all chỉ phục vụ legacy.
 
         // WEB 2.0 wallet realtime — backend mới emit 'web2:wallet:update' khi
         // SePay match Web 2.0 path. Refresh số dư ví Web 2.0 cho phone đó.

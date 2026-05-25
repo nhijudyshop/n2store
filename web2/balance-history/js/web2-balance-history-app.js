@@ -1,0 +1,349 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — balance-history app (Phase 3 — 100% Web 2.0).
+// =====================================================================
+// Web2BalanceHistoryApp — quản lý list + filter + manual link cho
+// web2_balance_history. KHÔNG dùng /api/sepay/* + /api/v2/balance-history/*
+// nữa — toàn bộ qua /api/web2/balance-history/*.
+// =====================================================================
+
+(function (global) {
+    'use strict';
+
+    const BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/balance-history';
+    const DIRECT_BASE = 'https://n2store-fallback.onrender.com/api/web2/balance-history';
+
+    const STATUS_FILTERS = [
+        { key: 'all', label: 'Tất cả' },
+        { key: 'AUTO_APPROVED', label: 'Tự động', cls: 'chip-auto' },
+        { key: 'PENDING_MATCH', label: 'Trùng SĐT — cần chọn', cls: 'chip-pending' },
+        { key: 'NO_PHONE', label: 'Chưa gán KH', cls: 'chip-no-phone' },
+    ];
+
+    const state = {
+        rows: [],
+        total: 0,
+        page: 1,
+        pageSize: 50,
+        status: 'all',
+        search: '',
+        loading: false,
+        stats: {},
+    };
+
+    async function jsonFetch(url, options) {
+        const r = await fetch(url, options);
+        const ct = r.headers.get('content-type') || '';
+        const body = ct.includes('json') ? await r.json() : await r.text();
+        if (!r.ok) {
+            const msg =
+                (body && body.error) ||
+                (typeof body === 'string' ? body.slice(0, 200) : `HTTP ${r.status}`);
+            const err = new Error(msg);
+            err.status = r.status;
+            throw err;
+        }
+        return body;
+    }
+    async function withFallback(path, options) {
+        try {
+            return await jsonFetch(`${BASE}${path}`, options);
+        } catch (e) {
+            return await jsonFetch(`${DIRECT_BASE}${path}`, options);
+        }
+    }
+
+    // ----- Helpers -----
+    function fmtVnd(n) {
+        return Math.round(Number(n) || 0).toLocaleString('vi-VN');
+    }
+    function fmtTime(iso) {
+        if (!iso) return '—';
+        try {
+            const d = new Date(iso);
+            return (
+                d.toLocaleDateString('vi-VN') +
+                ' ' +
+                d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+            );
+        } catch {
+            return iso;
+        }
+    }
+    function escapeHtml(v) {
+        if (v == null) return '';
+        return String(v)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+    function notify(msg, type) {
+        try {
+            window.notificationManager?.show?.(msg, type || 'info');
+        } catch {}
+    }
+    function debounce(fn, delay) {
+        let t = null;
+        return function () {
+            const args = arguments;
+            if (t) clearTimeout(t);
+            t = setTimeout(() => fn.apply(this, args), delay);
+        };
+    }
+
+    // ----- DOM -----
+    const dom = {};
+    function cacheDom() {
+        dom.root = document.getElementById('web2BhApp');
+        dom.statsBar = document.getElementById('w2bhStatsBar');
+        dom.statTotal = document.getElementById('w2bhStatTotal');
+        dom.statAuto = document.getElementById('w2bhStatAuto');
+        dom.statPending = document.getElementById('w2bhStatPending');
+        dom.statNoPhone = document.getElementById('w2bhStatNoPhone');
+        dom.statSumIn = document.getElementById('w2bhStatSumIn');
+        dom.chips = document.getElementById('w2bhChips');
+        dom.search = document.getElementById('w2bhSearch');
+        dom.tbody = document.getElementById('w2bhTbody');
+        dom.pageInfo = document.getElementById('w2bhPageInfo');
+        dom.pageButtons = document.getElementById('w2bhPageButtons');
+        dom.pageSize = document.getElementById('w2bhPageSize');
+        dom.refreshBtn = document.getElementById('w2bhRefreshBtn');
+    }
+
+    // ----- Render -----
+    function renderStats() {
+        const s = state.stats || {};
+        if (dom.statTotal) dom.statTotal.textContent = fmtVnd(s.total);
+        if (dom.statAuto) dom.statAuto.textContent = fmtVnd(s.auto_approved);
+        if (dom.statPending) dom.statPending.textContent = fmtVnd(s.pending_match);
+        if (dom.statNoPhone) dom.statNoPhone.textContent = fmtVnd(s.no_phone);
+        if (dom.statSumIn) dom.statSumIn.textContent = fmtVnd(s.total_in) + '₫';
+    }
+
+    function renderChips() {
+        dom.chips.innerHTML = STATUS_FILTERS.map(
+            (f) =>
+                `<button type="button" class="w2bh-chip ${f.cls || ''} ${f.key === state.status ? 'is-active' : ''}" data-status="${f.key}">${f.label}</button>`
+        ).join('');
+        dom.chips.querySelectorAll('button').forEach((b) => {
+            b.addEventListener('click', () => {
+                state.status = b.getAttribute('data-status');
+                state.page = 1;
+                load();
+            });
+        });
+    }
+
+    function renderTable() {
+        if (state.loading) {
+            dom.tbody.innerHTML = `<tr><td colspan="6" class="w2bh-loading">Đang tải…</td></tr>`;
+            return;
+        }
+        if (!state.rows.length) {
+            dom.tbody.innerHTML = `<tr><td colspan="6" class="w2bh-empty">Không có giao dịch phù hợp</td></tr>`;
+            return;
+        }
+        dom.tbody.innerHTML = state.rows.map(renderRow).join('');
+        dom.tbody.querySelectorAll('[data-action="link"]').forEach((btn) => {
+            btn.addEventListener('click', () => openLinkPrompt(btn.getAttribute('data-id')));
+        });
+    }
+
+    function renderRow(r) {
+        const amount = Number(r.transfer_amount) || 0;
+        const isIn = r.transfer_type === 'in';
+        const cls = isIn ? 'in' : 'out';
+        const sign = isIn ? '+' : '-';
+        const phone = r.linked_customer_phone || '';
+        const name = r.display_name || '';
+        const method = r.match_method || '';
+        const verifBadge =
+            r.verification_status === 'AUTO_APPROVED'
+                ? '<span class="w2bh-pill auto">Tự động</span>'
+                : method === 'pending_match'
+                  ? '<span class="w2bh-pill pending">Chờ chọn</span>'
+                  : phone
+                    ? '<span class="w2bh-pill manual">Thủ công</span>'
+                    : '<span class="w2bh-pill nophone">Chưa gán</span>';
+        // data-customer-phone lets tpos-partner-enricher.js inject TPOS status pill
+        return `
+            <tr data-id="${r.id}" data-transaction-id="${r.id}" data-customer-phone="${escapeHtml(phone)}">
+                <td class="w2bh-cell-time">${escapeHtml(fmtTime(r.transaction_date))}</td>
+                <td class="w2bh-cell-amount ${cls}">${sign}${fmtVnd(amount)}₫</td>
+                <td class="w2bh-cell-content">${escapeHtml(r.content || '')}</td>
+                <td class="w2bh-cell-ref">${escapeHtml(r.reference_code || r.sepay_id || '')}</td>
+                <td class="w2bh-cell-customer" data-tpos-customer-cell="1">
+                    ${
+                        phone
+                            ? `<div class="w2bh-customer">
+                                  <span class="w2bh-customer-name">${escapeHtml(name || '(không tên)')}</span>
+                                  <span class="w2bh-customer-phone">${escapeHtml(phone)}</span>
+                               </div>`
+                            : `<button type="button" class="w2bh-link-btn" data-action="link" data-id="${r.id}">+ Gán KH</button>`
+                    }
+                    ${verifBadge}
+                </td>
+                <td class="w2bh-cell-actions">
+                    ${
+                        !phone
+                            ? `<button type="button" class="w2bh-icon-btn" data-action="link" data-id="${r.id}" title="Gán SĐT thủ công">
+                                <i data-lucide="user-plus" style="width:14px;height:14px;"></i>
+                            </button>`
+                            : ''
+                    }
+                </td>
+            </tr>
+        `;
+    }
+
+    function renderPagination() {
+        const total = state.total;
+        const size = state.pageSize;
+        const pages = Math.max(1, Math.ceil(total / size));
+        const page = Math.min(Math.max(1, state.page), pages);
+        const start = total === 0 ? 0 : (page - 1) * size + 1;
+        const end = Math.min(page * size, total);
+        dom.pageInfo.textContent = `${fmtVnd(start)}–${fmtVnd(end)} / ${fmtVnd(total)}`;
+
+        const btns = [];
+        const pushBtn = (label, target, opts) => {
+            const disabled = opts && opts.disabled ? 'disabled' : '';
+            const active = opts && opts.active ? 'is-active' : '';
+            btns.push(
+                `<button type="button" class="${active}" data-page="${target}" ${disabled}>${label}</button>`
+            );
+        };
+        pushBtn('«', 1, { disabled: page <= 1 });
+        pushBtn('‹', page - 1, { disabled: page <= 1 });
+        const win = 5;
+        let from = Math.max(1, page - 2);
+        let to = Math.min(pages, from + win - 1);
+        from = Math.max(1, to - win + 1);
+        for (let i = from; i <= to; i++) pushBtn(String(i), i, { active: i === page });
+        pushBtn('›', page + 1, { disabled: page >= pages });
+        pushBtn('»', pages, { disabled: page >= pages });
+        dom.pageButtons.innerHTML = btns.join('');
+        dom.pageButtons.querySelectorAll('button[data-page]').forEach((b) => {
+            b.addEventListener('click', () => {
+                if (b.disabled) return;
+                state.page = Math.max(1, Number(b.getAttribute('data-page')) || 1);
+                load();
+            });
+        });
+    }
+
+    // ----- Manual link prompt -----
+    function openLinkPrompt(id) {
+        const phone = prompt('Nhập SĐT KH (10 chữ số):');
+        if (!phone || !/^\d{9,11}$/.test(phone.trim())) {
+            if (phone) notify('SĐT không hợp lệ', 'warning');
+            return;
+        }
+        const name = prompt('Tên KH (tuỳ chọn):') || '';
+        linkManual(id, phone.trim(), name.trim());
+    }
+    async function linkManual(id, phone, name) {
+        try {
+            await withFallback(`/${encodeURIComponent(id)}/link`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, name: name || null }),
+            });
+            notify(`Đã gán ${name || phone} + cộng ví Web 2.0`, 'success');
+            await load();
+        } catch (e) {
+            notify('Lỗi gán: ' + e.message, 'error');
+        }
+    }
+
+    // ----- Data loading -----
+    let _seq = 0;
+    async function load() {
+        const my = ++_seq;
+        state.loading = true;
+        renderTable();
+        try {
+            const params = new URLSearchParams();
+            params.set('limit', String(state.pageSize));
+            params.set('offset', String((state.page - 1) * state.pageSize));
+            if (state.status !== 'all') params.set('status', state.status);
+            if (state.search) params.set('search', state.search);
+            const [list, stats] = await Promise.all([
+                withFallback(`?${params.toString()}`),
+                withFallback('/stats'),
+            ]);
+            if (my !== _seq) return;
+            state.rows = list?.data || [];
+            state.total = list?.total || 0;
+            state.stats = stats?.data || {};
+            state.loading = false;
+            renderStats();
+            renderTable();
+            renderPagination();
+            renderChips();
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+        } catch (e) {
+            if (my !== _seq) return;
+            state.loading = false;
+            state.rows = [];
+            dom.tbody.innerHTML = `<tr><td colspan="6" class="w2bh-error">Lỗi tải: ${escapeHtml(e.message)}</td></tr>`;
+        }
+    }
+
+    // ----- SSE realtime -----
+    function setupSSE() {
+        if (!window.Web2SSE?.subscribe) return;
+        let timer = null;
+        const reload = () => {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => {
+                timer = null;
+                load();
+            }, 800);
+        };
+        window.Web2SSE.subscribe('web2:wallet:*', reload);
+    }
+
+    // ----- Events -----
+    function bindEvents() {
+        if (dom.search) {
+            dom.search.addEventListener(
+                'input',
+                debounce(() => {
+                    state.search = dom.search.value.trim();
+                    state.page = 1;
+                    load();
+                }, 350)
+            );
+        }
+        if (dom.pageSize) {
+            dom.pageSize.addEventListener('change', () => {
+                state.pageSize = Number(dom.pageSize.value) || 50;
+                state.page = 1;
+                load();
+            });
+        }
+        if (dom.refreshBtn) {
+            dom.refreshBtn.addEventListener('click', () => load());
+        }
+    }
+
+    function init() {
+        cacheDom();
+        if (!dom.root) {
+            console.warn('[Web2BalanceHistory] container #web2BhApp not found');
+            return;
+        }
+        renderChips();
+        bindEvents();
+        load();
+        setupSSE();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+    global.Web2BalanceHistoryApp = { load, state };
+})(window);
