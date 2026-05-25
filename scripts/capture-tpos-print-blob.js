@@ -117,7 +117,7 @@ const TS = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
             window.__cap.opens.push({ url: String(a[0] || '').slice(0, 500), at: Date.now() });
             return _wo.apply(this, a);
         };
-        // Hook URL.createObjectURL — TPOS dùng cho blob iframe
+        // Hook URL.createObjectURL — TPOS dùng cho blob (PDF binary)
         const _co = URL.createObjectURL;
         URL.createObjectURL = function (blob) {
             const u = _co.apply(this, arguments);
@@ -128,8 +128,12 @@ const TS = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
                     size: blob?.size,
                     at: Date.now(),
                 }) - 1;
-            blob.text?.().then((t) => {
-                window.__cap.blobs[idx].text = t.slice(0, 50000);
+            // Read as ArrayBuffer (binary-safe) → base64
+            blob.arrayBuffer?.().then((buf) => {
+                const bytes = new Uint8Array(buf);
+                let bin = '';
+                for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+                window.__cap.blobs[idx].base64 = btoa(bin);
             });
             return u;
         };
@@ -420,14 +424,20 @@ const TS = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     // Step 8: Read captured data
     const result = await page.evaluate(() => window.__cap);
 
-    // Save blob contents (THIS is TPOS print HTML!)
+    // Save blob contents — binary-safe via base64 (TPOS returns PDF)
     for (let i = 0; i < result.blobs.length; i++) {
         const b = result.blobs[i];
-        const p = path.join(OUT_DIR, `tpos-blob-${i}-${TS}.html`);
-        fs.writeFileSync(p, b.text || '(empty)');
-        console.log(
-            `[capture] BLOB ${i} (${b.type}, ${b.size}B) → ${p} (${b.text?.length || 0} chars)`
-        );
+        const ext = b.type === 'application/pdf' ? 'pdf' : 'bin';
+        const p = path.join(OUT_DIR, `tpos-blob-${i}-${TS}.${ext}`);
+        if (b.base64) {
+            const buf = Buffer.from(b.base64, 'base64');
+            fs.writeFileSync(p, buf);
+            console.log(
+                `[capture] BLOB ${i} (${b.type}, ${b.size}B) → ${p} (binary ${buf.length}B)`
+            );
+        } else {
+            console.log(`[capture] BLOB ${i} (${b.type}, ${b.size}B) → no base64 captured`);
+        }
     }
     console.log('[capture] result summary:', {
         opens: result.opens.length,
