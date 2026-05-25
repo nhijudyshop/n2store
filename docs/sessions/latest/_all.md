@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `bed2595` — auto: session update
-**Last updated**: 2026-05-25 14:26:59 +07
-**Latest session**: [`RESUME:20260525-142659-bed2595`](../20260525-142659-bed2595.md)
+**Latest commit**: `2815bca` — auto: session update
+**Last updated**: 2026-05-25 14:30:26 +07
+**Latest session**: [`RESUME:20260525-143026-2815bca`](../20260525-143026-2815bca.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`product-warehouse/`](./product-warehouse.md) — 2 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -44,7 +45,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-25 14:08
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 14:26
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 14:30
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
@@ -67,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-25 11:35
+- [`web2/`](./web2.md) — updated 2026-05-25 14:30
