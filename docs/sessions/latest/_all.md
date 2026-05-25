@@ -3,13 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `65234fb` — feat(product-warehouse): wire 4 missing expand tabs với TPOS endpoints thật
-**Last updated**: 2026-05-25 13:45:10 +07
-**Latest session**: [`RESUME:20260525-134510-65234fb`](../20260525-134510-65234fb.md)
-**Summary**: feat(product-warehouse): wire 4 missing expand tabs với TPOS endpoints thật
+**Latest commit**: `e6f1745` — feat(delivery-report/tra-soat): phát đúng sound TOMATO / THÀNH PHỐ / NAP khi quét
+**Last updated**: 2026-05-25 14:08:29 +07
+**Latest session**: [`RESUME:20260525-140829-e6f1745`](../20260525-140829-e6f1745.md)
+**Summary**: feat(delivery-report/tra-soat): phát đúng sound TOMATO / THÀNH PHỐ / NAP khi quét
 
 ## Folders affected in this commit
 
+- [`delivery-report/`](./delivery-report.md) — 4 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 2 file(s)
 - [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
 
 ## All folder snapshots
@@ -23,8 +26,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-24 18:41
-- [`docs/`](./docs.md) — updated 2026-05-25 12:00
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-25 14:08
+- [`docs/`](./docs.md) — updated 2026-05-25 14:08
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -41,10 +44,10 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-05-25 11:48
+- [`orders-report/`](./orders-report.md) — updated 2026-05-25 14:08
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 13:45
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 14:08
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
