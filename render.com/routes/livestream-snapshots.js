@@ -184,19 +184,25 @@ function _computeLivestreamUrl(pageSlugOrId, liveVideoId, offsetSec) {
     let videoId = String(liveVideoId);
     const m = videoId.match(/^\d+_(\d+)$/);
     if (m) videoId = m[1];
-    // FB seek param verified qua Playwright test:
-    //   /watch/live/?...&t=N → FB redirect → /{page}/videos/{id}/?start=N
-    //   → 'start' là canonical seek param (NOT 't').
-    // → Dùng /watch/live/?ref=watch_permalink&v=ID&start=N để FB seek đúng.
-    // 't' không seek; 'start' seek.
+    // SEEK URL CHỌN: FB plugin video.php embed — URL DUY NHẤT respect t= param.
+    // Playwright test verify (scripts/test-fb-seek3.js):
+    //   /plugins/video.php?href=URL&t=6701 → currentTime=6701 ✅
+    //   /watch/live/?...&t=6701           → currentTime=7 (ignored) ❌
+    //   /{page}/videos/{id}/?start=6701    → currentTime=7 (ignored) ❌
+    //   /...?lst=6701, ?start_time=6701, #t=6701 — all ignored
+    // FB embed plugin player respect t param; main site player không.
+    // → Pages/{pageSlug}/videos/{videoId}/ làm 'href' input cho plugin.
+    const slug = pageSlugOrId || 'facebook'; // fallback nếu thiếu page
+    const videoUrl = `https://www.facebook.com/${slug}/videos/${videoId}/`;
     const params = new URLSearchParams({
-        ref: 'watch_permalink',
-        v: videoId,
+        href: videoUrl,
+        width: '720',
+        show_text: 'false',
     });
     if (offsetSec && Number.isFinite(offsetSec) && offsetSec > 0) {
-        params.set('start', String(Math.floor(offsetSec)));
+        params.set('t', String(Math.floor(offsetSec)));
     }
-    return `https://www.facebook.com/watch/live/?${params.toString()}`;
+    return `https://www.facebook.com/plugins/video.php?${params.toString()}`;
 }
 
 function _mapRow(row) {
