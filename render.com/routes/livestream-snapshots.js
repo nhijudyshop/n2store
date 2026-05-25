@@ -184,17 +184,19 @@ function _computeLivestreamUrl(pageSlugOrId, liveVideoId, offsetSec) {
     let videoId = String(liveVideoId);
     const m = videoId.match(/^\d+_(\d+)$/);
     if (m) videoId = m[1];
-    // FB URL formats for seek support:
-    //   - /{page}/videos/{id}/?t=N  → FB thường IGNORE t param
-    //   - /watch/?v=ID&t=N          → ✅ working (FB native player)
-    //   - /watch/live/?v=ID&t=N     → working cho live VOD
-    // → Dùng /watch/?v=... format vì FB redirect tự xử lý seek đúng cách.
-    // PageSlug giữ trong query để FB hiển thị page context (không bắt buộc).
-    const params = new URLSearchParams({ v: videoId, locale: 'vi_VN' });
+    // FB seek param verified qua Playwright test:
+    //   /watch/live/?...&t=N → FB redirect → /{page}/videos/{id}/?start=N
+    //   → 'start' là canonical seek param (NOT 't').
+    // → Dùng /watch/live/?ref=watch_permalink&v=ID&start=N để FB seek đúng.
+    // 't' không seek; 'start' seek.
+    const params = new URLSearchParams({
+        ref: 'watch_permalink',
+        v: videoId,
+    });
     if (offsetSec && Number.isFinite(offsetSec) && offsetSec > 0) {
-        params.set('t', String(Math.floor(offsetSec)));
+        params.set('start', String(Math.floor(offsetSec)));
     }
-    return `https://www.facebook.com/watch/?${params.toString()}`;
+    return `https://www.facebook.com/watch/live/?${params.toString()}`;
 }
 
 function _mapRow(row) {
