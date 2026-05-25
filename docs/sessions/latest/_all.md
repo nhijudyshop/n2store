@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4e87613` — auto: session update
-**Last updated**: 2026-05-25 19:26:18 +07
-**Latest session**: [`RESUME:20260525-192618-4e87613`](../20260525-192618-4e87613.md)
-**Summary**: auto: session update
+**Latest commit**: `eb748cb` — refactor(shared): split return-order-modal.js 1274 → 4 module nhỏ
+**Last updated**: 2026-05-25 19:28:30 +07
+**Latest session**: [`RESUME:20260525-192830-eb748cb`](../20260525-192830-eb748cb.md)
+**Summary**: refactor(shared): split return-order-modal.js 1274 → 4 module nhỏ
 
 ## Folders affected in this commit
 
-- [`issue-tracking/`](./issue-tracking.md) — 1 file(s)
-- [`shared/`](./shared.md) — 1 file(s)
-- [`supplier-debt/`](./supplier-debt.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`shared/`](./shared.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-25 16:10
-- [`docs/`](./docs.md) — updated 2026-05-25 18:45
+- [`docs/`](./docs.md) — updated 2026-05-25 19:28
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -55,7 +54,7 @@
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-25 19:19
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
-- [`shared/`](./shared.md) — updated 2026-05-25 19:26
+- [`shared/`](./shared.md) — updated 2026-05-25 19:28
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-05-25 15:59
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
