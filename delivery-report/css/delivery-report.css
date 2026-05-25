@@ -2308,6 +2308,148 @@ body.dr-mode-report #drTableWrapper {
     opacity: 1;
 }
 
+/* Expand row trong báo cáo modal — bấm vào ô NGÀY/SL ĐƠN để xem chi tiết
+   danh sách đơn của (ngày, nhóm). Loading inline, ghost-row được badge. */
+.dr-report-table td.date.clickable,
+.dr-report-table td.num.clickable[data-action='toggle-expand'] {
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.12s ease;
+}
+.dr-report-table td.date.clickable:hover,
+.dr-report-table td.num.clickable[data-action='toggle-expand']:hover {
+    background: #f1f5f9;
+}
+.dr-expand-chevron {
+    transition: transform 0.18s ease;
+    color: #94a3b8;
+    margin-right: 4px;
+    font-size: 11px;
+}
+.dr-expand-chevron.open {
+    transform: rotate(90deg);
+    color: #1e40af;
+}
+.dr-expand-row td {
+    background: #f8fafc;
+    padding: 12px 18px;
+    border-top: none;
+    border-bottom: 2px solid #e2e8f0;
+}
+.dr-expand-loading,
+.dr-expand-error,
+.dr-expand-empty {
+    text-align: center;
+    color: #64748b;
+    font-style: italic;
+    padding: 12px;
+}
+.dr-expand-error {
+    color: #dc2626;
+}
+.dr-expand-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: #475569;
+}
+.dr-expand-ghost-count {
+    color: #dc2626;
+    font-weight: 600;
+    margin-left: 6px;
+}
+.dr-expand-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.dr-expand-table thead th {
+    background: #f1f5f9;
+    text-align: left;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 1px solid #e2e8f0;
+}
+.dr-expand-table thead th.num {
+    text-align: right;
+}
+.dr-expand-table tbody td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+.dr-expand-table tbody tr:last-child td {
+    border-bottom: none;
+}
+.dr-expand-table tbody tr.is-ghost {
+    background: #fef2f2;
+    color: #991b1b;
+}
+.dr-expand-table tbody tr.is-zero {
+    background: #fefce8;
+}
+.dr-expand-idx {
+    width: 40px;
+    color: #94a3b8;
+    text-align: center;
+}
+.dr-expand-num a {
+    color: #2563eb;
+    text-decoration: none;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 12px;
+}
+.dr-expand-num a:hover {
+    text-decoration: underline;
+}
+.dr-expand-partner {
+    color: #1e293b;
+    font-weight: 500;
+}
+.dr-expand-time {
+    color: #64748b;
+    font-variant-numeric: tabular-nums;
+    width: 60px;
+}
+.dr-expand-cod {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.dr-expand-zero-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    background: #fde68a;
+    color: #92400e;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+.dr-expand-ghost-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    background: #fecaca;
+    color: #991b1b;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
 /* Hover-zoom preview cho ảnh chứng từ (xuất hiện khi rê chuột vào ô TIỀN
    có ảnh — không cần click vào modal). pointer-events:none để hover tiếp
    theo cell, không chặn click. position:fixed → tự ẩn khi cell scroll

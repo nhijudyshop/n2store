@@ -25,6 +25,48 @@
 
 ## 2026-05-25
 
+### [delivery-report] Báo cáo modal: expand row → liệt kê tất cả đơn (live + ghost) cho mỗi (ngày, nhóm)
+
+**User ask**: "cho bấm vào expand ra tất cả đơn" — bấm vào row → mở danh sách Number + khách + giờ + COD. Bonus: tự tách ghost rows (đơn đã quét nhưng không còn live trên TPOS cùng ngày).
+
+**Files**:
+
+- `delivery-report/js/report.js`
+    - NGÀY + SL ĐƠN cell: thêm `data-action="toggle-expand"` + chevron `<i class="fas fa-chevron-right dr-expand-chevron">`.
+    - tbody click delegation: handle `toggle-expand` → gọi `toggleExpandRow(row)`.
+    - `toggleExpandRow`: chèn `<tr.dr-expand-row><td colspan=12></td></tr>` ngay sau row, loading spinner → render bảng chi tiết.
+    - `fetchExpandData(date, group)`: 2 nguồn data:
+        1. `GET /api/v2/delivery-assignments/?date=` → lấy Numbers thuộc (date, group) + scanned set
+        2. `GET TPOS /api/odata/Report/DeliveryReport?$filter=Number eq ...` chunked 50/lần — lấy live data (Partner, COD, DateInvoice)
+    - Cache `state.expandCache[date__group]` TTL 60s.
+    - Item shape: `{ Number, partner, phone, cod, dateInvoice, ghost, scanned }`. Ghost = scanned nhưng không có trong live response.
+    - Sort: live trước, ghost sau; trong cùng nhóm theo DateInvoice desc.
+    - `renderExpandHtml`: bảng 5 cột (#, Số đơn link TPOS, Khách, Giờ, COD). Badge `0đ` (yellow) cho đơn 0đ, badge `ghost` (red) cho ghost row. Head: "N đơn — N live N ghost".
+- `delivery-report/css/delivery-report.css`
+    - `.dr-report-table td.date.clickable / td.num.clickable[data-action="toggle-expand"]`: cursor pointer + hover bg.
+    - `.dr-expand-chevron`: transition rotate 90° khi `.open`.
+    - `.dr-expand-row td`: bg `#f8fafc` + border bottom 2px.
+    - `.dr-expand-table`: bảng con với header gray, ghost row bg `#fef2f2`, zero row bg `#fefce8`.
+    - Badges: `.dr-expand-zero-badge` (yellow pill), `.dr-expand-ghost-badge` (red pill).
+
+**Verify** (Playwright localhost, range entry 23/05/2026 → real 22/05):
+
+- Bấm vào NGÀY cell → expand row chèn dưới với loading spinner → 5s sau render 16 dòng đơn TOMATO.
+- Head: "**16 đơn — 15 live 1 ghost**".
+- 15 dòng live: Number + Partner + Giờ + COD đúng từ TPOS live (vd #1 `NJD/2026/68404` Hoan My 19:53 $214.000).
+- 1 dòng ghost: `NJD/2026/68361` highlight đỏ, badge "ghost", COD `—`.
+- Bấm lại NGÀY cell → collapse, chevron rotate về.
+- Screenshot: `downloads/n2store-session/dr-report-expand.png`.
+
+**Bug context** (user discussion):
+
+- DB `delivery_assignments` 22/05 TOMATO = 16 đơn (snapshot quét).
+- TPOS live 22/05 TOMATO = 15 đơn (1 đã bị đổi ngày/state).
+- Modal hiện count = 16 (theo DB). Expand cho phép user thấy đơn nào là ghost.
+- Future fix (sau): có thể filter ghost ra khỏi count chính nếu user muốn "đồng bộ với TPOS live".
+
+**Status**: ✅ Done
+
 ### [web2/products] CSS print_barcode = TPOS verbatim — fetched /Content/print_barcode.css
 
 **User test**: "không có giống → làm cho kĩ lưỡng, đọc vào dữ liệu blob bên tpos lúc bill in ra đi". Reverse engineer thực sự TPOS print.

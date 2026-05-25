@@ -157,9 +157,12 @@
             console.warn('[report] Render URL not available');
             return { byDateGroup: new Map() };
         }
+        // exclude_zero=1: bỏ qua đơn 0đ — chúng không phải đơn giao có doanh thu
+        // thật, sẽ inflate SL ĐƠN + PHÍ SHIP nếu đếm vào (mỗi đơn cộng 23k ship
+        // dù COD=0). Đồng bộ với fix tab Tra Soát city/province/shop.
         const url =
             `${renderUrl}/api/v2/delivery-assignments/by-date-group` +
-            `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&scanned_only=1`;
+            `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&scanned_only=1&exclude_zero=1`;
         let rows = [];
         try {
             const resp = await fetch(url);
@@ -453,8 +456,8 @@
 
             const hasImg = !!ov.billImage;
             return `<tr data-date="${d}">
-                <td class="date" title="Ngày thật: ${formatDDMMYYYY(d)}">${formatDDMMYYYY(realToEntry(d))}</td>
-                <td class="num strong">${formatNumber(slDon)}</td>
+                <td class="date clickable" data-action="toggle-expand" title="Bấm để xem danh sách ${slDon} đơn (ngày thật: ${formatDDMMYYYY(d)})"><i class="fas fa-chevron-right dr-expand-chevron"></i> ${formatDDMMYYYY(realToEntry(d))}</td>
+                <td class="num strong clickable" data-action="toggle-expand" title="Bấm để xem chi tiết ${slDon} đơn">${formatNumber(slDon)}</td>
                 <td class="num clickable money-cell ${hasImg ? 'has-img' : 'no-img'}" data-action="open-img" title="${hasImg ? 'Bấm để xem/sửa ảnh' : 'Bấm để thêm ảnh chứng từ'}">
                     <span class="money-val">${formatMoney(money)}</span>
                     <span class="money-ico">${hasImg ? '<i class="fas fa-image"></i>' : '<i class="far fa-image"></i>'}</span>
@@ -545,6 +548,13 @@
             if (imgCell) {
                 const row = imgCell.closest('tr[data-date]');
                 if (row) openImageModal(row.dataset.date);
+                return;
+            }
+            const expandCell =
+                e.target.closest && e.target.closest('td[data-action="toggle-expand"]');
+            if (expandCell) {
+                const row = expandCell.closest('tr[data-date]');
+                if (row) toggleExpandRow(row);
             }
         });
 
@@ -569,6 +579,174 @@
             if (next && cell.contains(next)) return;
             hideHoverPreview();
         });
+    }
+
+    // ── Expand row: hiển thị danh sách đơn từng (date, group) ──
+    // state.expandCache: { `${date}__${group}`: [{ Number, partner, cod, scanned, carrier, dateInvoice }] }
+    state.expandCache = state.expandCache || {};
+
+    async function toggleExpandRow(row) {
+        if (!row) return;
+        const next = row.nextElementSibling;
+        if (next && next.classList.contains('dr-expand-row')) {
+            next.remove();
+            row.dataset.expanded = '0';
+            const chev = row.querySelector('.dr-expand-chevron');
+            if (chev) chev.classList.remove('open');
+            return;
+        }
+        row.dataset.expanded = '1';
+        const chev = row.querySelector('.dr-expand-chevron');
+        if (chev) chev.classList.add('open');
+
+        const date = row.dataset.date;
+        const group = state.activeTab;
+        const colCount = 12; // số cột table — đồng bộ với colspan empty/loading state
+
+        const loadingTr = document.createElement('tr');
+        loadingTr.className = 'dr-expand-row';
+        loadingTr.innerHTML = `<td colspan="${colCount}" class="dr-expand-loading"><i class="fas fa-spinner fa-spin"></i> Đang tải danh sách đơn…</td>`;
+        row.parentNode.insertBefore(loadingTr, row.nextSibling);
+
+        try {
+            const items = await fetchExpandData(date, group);
+            loadingTr.innerHTML = `<td colspan="${colCount}" class="dr-expand-content">${renderExpandHtml(items, date, group)}</td>`;
+        } catch (e) {
+            loadingTr.innerHTML = `<td colspan="${colCount}" class="dr-expand-error">Lỗi tải dữ liệu: ${escapeHtml(e?.message || 'unknown')}</td>`;
+        }
+    }
+
+    async function fetchExpandData(date, group) {
+        const cacheKey = `${date}__${group}`;
+        const cached = state.expandCache[cacheKey];
+        if (cached && Date.now() - cached.fetchedAt < 60000) return cached.items;
+
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        const workerUrl = window.DeliveryReport?._workerUrl;
+        const getToken = window.DeliveryReport?._getToken;
+        if (!renderUrl) throw new Error('Render URL not available');
+
+        // 1. Get DB Numbers for date + group (chỉ đơn đã quét)
+        const dbResp = await fetch(
+            `${renderUrl}/api/v2/delivery-assignments/?date=${encodeURIComponent(date)}`
+        );
+        if (!dbResp.ok) throw new Error(`DB HTTP ${dbResp.status}`);
+        const dbJson = await dbResp.json();
+        const assignments = dbJson.data?.assignments || {};
+        const scannedSet = new Set(dbJson.data?.scannedNumbers || []);
+        const targetNumbers = [];
+        for (const num in assignments) {
+            if (assignments[num] === group && scannedSet.has(num)) {
+                targetNumbers.push(num);
+            }
+        }
+        if (targetNumbers.length === 0) {
+            state.expandCache[cacheKey] = { items: [], fetchedAt: Date.now() };
+            return [];
+        }
+
+        // 2. Fetch TPOS live for those Numbers (best-effort — fail soft)
+        const liveMap = new Map();
+        if (workerUrl && getToken) {
+            try {
+                const token = await getToken();
+                if (token) {
+                    // Chunked filter để URL không quá dài (mỗi chunk ≤ 50 Numbers)
+                    const chunks = [];
+                    for (let i = 0; i < targetNumbers.length; i += 50) {
+                        chunks.push(targetNumbers.slice(i, i + 50));
+                    }
+                    for (const chunk of chunks) {
+                        const filter = chunk.map((n) => `Number eq '${n}'`).join(' or ');
+                        const url = `${workerUrl}/api/odata/Report/DeliveryReport?$top=1000&$filter=${encodeURIComponent(filter)}`;
+                        const resp = await fetch(url, {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                Accept: 'application/json',
+                                tposappversion: window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1',
+                            },
+                        });
+                        if (resp.ok) {
+                            const j = await resp.json();
+                            for (const it of j.value || []) {
+                                liveMap.set(it.Number, it);
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('[report] TPOS live fetch for expand failed:', e?.message);
+            }
+        }
+
+        const items = targetNumbers.map((num) => {
+            const live = liveMap.get(num);
+            return {
+                Number: num,
+                partner: live?.PartnerDisplayName || live?.PartnerName || '',
+                phone: live?.Telephone || live?.PartnerPhone || '',
+                cod: Number(live?.CashOnDelivery) || 0,
+                amountTotal: Number(live?.AmountTotal) || 0,
+                carrier: live?.CarrierName || '',
+                dateInvoice: live?.DateInvoice || '',
+                ghost: !live, // không tồn tại trong TPOS live → ghost row
+                scanned: true,
+            };
+        });
+        // Sort: ghosts cuối, các đơn còn lại theo DateInvoice desc
+        items.sort((a, b) => {
+            if (a.ghost !== b.ghost) return a.ghost ? 1 : -1;
+            return (b.dateInvoice || '').localeCompare(a.dateInvoice || '');
+        });
+
+        state.expandCache[cacheKey] = { items, fetchedAt: Date.now() };
+        return items;
+    }
+
+    function renderExpandHtml(items, date, group) {
+        if (!items || items.length === 0) {
+            return `<div class="dr-expand-empty">Không có đơn nào.</div>`;
+        }
+        const liveCount = items.filter((x) => !x.ghost).length;
+        const ghostCount = items.length - liveCount;
+        const tposBase = 'https://tomato.tpos.vn/#/app/saleonline-order';
+        const head = `
+            <div class="dr-expand-head">
+                <span class="dr-expand-summary">
+                    <strong>${items.length}</strong> đơn — ${liveCount} live${ghostCount ? ` <span class="dr-expand-ghost-count" title="Đơn đã quét nhưng không còn trên TPOS live cùng ngày">${ghostCount} ghost</span>` : ''}
+                </span>
+            </div>`;
+        const rows = items
+            .map((it, i) => {
+                const codFmt = it.ghost ? '<span class="muted">—</span>' : formatMoney(it.cod);
+                const timeFmt = it.dateInvoice
+                    ? new Date(it.dateInvoice).toLocaleTimeString('vi-VN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                      })
+                    : '';
+                const zeroBadge =
+                    !it.ghost && it.cod === 0 ? '<span class="dr-expand-zero-badge">0đ</span>' : '';
+                const ghostBadge = it.ghost
+                    ? '<span class="dr-expand-ghost-badge" title="Không còn trên TPOS live cùng ngày">ghost</span>'
+                    : '';
+                return `
+                    <tr class="dr-expand-item ${it.ghost ? 'is-ghost' : ''} ${!it.ghost && it.cod === 0 ? 'is-zero' : ''}">
+                        <td class="dr-expand-idx">${i + 1}</td>
+                        <td class="dr-expand-num"><a href="${tposBase}?id=${encodeURIComponent(it.Number)}" target="_blank" rel="noopener">${escapeHtml(it.Number)}</a></td>
+                        <td class="dr-expand-partner">${escapeHtml(it.partner || '—')}</td>
+                        <td class="dr-expand-time">${timeFmt}</td>
+                        <td class="dr-expand-cod num">${codFmt} ${zeroBadge}${ghostBadge}</td>
+                    </tr>`;
+            })
+            .join('');
+        return `${head}
+            <table class="dr-expand-table">
+                <thead><tr>
+                    <th>#</th><th>Số đơn</th><th>Khách</th><th>Giờ</th><th class="num">COD</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
     }
 
     // ── Hover preview (zoom on rê chuột) ──
