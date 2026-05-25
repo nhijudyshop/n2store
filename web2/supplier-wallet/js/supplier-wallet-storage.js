@@ -21,7 +21,10 @@
     'use strict';
 
     const STORAGE_KEY = 'supplierWallet_v1'; // localStorage cache — giữ tên cũ để không mất data local
-    const FIRESTORE_COLLECTION = 'web2_supplier_wallet'; // renamed 2026-05-25 from supplier_wallet_v1
+    // Firestore rename transition 2026-05-25: dual-write + dual-listen NEW vs OLD,
+    // merge theo `lastUpdated`. TODO bỏ OLD ~2026-06-25 sau khi tab user tự refresh hết.
+    const FIRESTORE_COLLECTION_NEW = 'web2_supplier_wallet';
+    const FIRESTORE_COLLECTION_OLD = 'supplier_wallet_v1';
     const FIRESTORE_DOC = 'main';
     const RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
@@ -152,13 +155,14 @@
         async _load() {
             if (!this._db) return null;
             try {
-                const snap = await this._db
-                    .collection(FIRESTORE_COLLECTION)
-                    .doc(FIRESTORE_DOC)
-                    .get();
-                if (!snap.exists) return null;
-                const payload = snap.data() || {};
-                return payload.data || null;
+                const [newSnap, oldSnap] = await Promise.all([
+                    this._db.collection(FIRESTORE_COLLECTION_NEW).doc(FIRESTORE_DOC).get(),
+                    this._db.collection(FIRESTORE_COLLECTION_OLD).doc(FIRESTORE_DOC).get(),
+                ]);
+                const newPayload = newSnap.exists ? newSnap.data() || null : null;
+                const oldPayload = oldSnap.exists ? oldSnap.data() || null : null;
+                const winner = _pickLatest(newPayload, oldPayload);
+                return winner && winner.data ? winner.data : null;
             } catch (e) {
                 console.warn('[SupplierWallet.Sync] load fail:', e.message);
                 return null;
@@ -167,41 +171,77 @@
 
         _listen() {
             if (!this._db) return;
-            const ref = this._db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);
-            this._unsub = ref.onSnapshot(
+            const refNew = this._db.collection(FIRESTORE_COLLECTION_NEW).doc(FIRESTORE_DOC);
+            const refOld = this._db.collection(FIRESTORE_COLLECTION_OLD).doc(FIRESTORE_DOC);
+            let latestNew = null;
+            let latestOld = null;
+            const emit = () => {
+                const winner = _pickLatest(latestNew, latestOld);
+                if (!winner || !winner.data) return;
+                this._isListening = true;
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(winner.data));
+                    if (this._onRemote) this._onRemote(winner.data);
+                } finally {
+                    setTimeout(() => {
+                        this._isListening = false;
+                    }, 50);
+                }
+            };
+            const unsubNew = refNew.onSnapshot(
                 (snap) => {
-                    if (!snap.exists) return;
-                    const payload = snap.data() || {};
-                    if (!payload.data) return;
-                    this._isListening = true;
-                    try {
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload.data));
-                        if (this._onRemote) this._onRemote(payload.data);
-                    } finally {
-                        setTimeout(() => {
-                            this._isListening = false;
-                        }, 50);
-                    }
+                    latestNew = snap.exists ? snap.data() || null : null;
+                    emit();
                 },
-                (err) => console.warn('[SupplierWallet.Sync] snap err:', err.message)
+                (err) => console.warn('[SupplierWallet.Sync] snap NEW err:', err.message)
             );
+            const unsubOld = refOld.onSnapshot(
+                (snap) => {
+                    latestOld = snap.exists ? snap.data() || null : null;
+                    emit();
+                },
+                (err) => console.warn('[SupplierWallet.Sync] snap OLD err:', err.message)
+            );
+            this._unsub = () => {
+                try {
+                    unsubNew();
+                } catch (_) {}
+                try {
+                    unsubOld();
+                } catch (_) {}
+            };
         },
 
         async push(state) {
             if (!this._db) return false;
             if (this._isListening) return false;
+            const payload = { data: state, lastUpdated: Date.now() };
             try {
-                await this._db
-                    .collection(FIRESTORE_COLLECTION)
-                    .doc(FIRESTORE_DOC)
-                    .set({ data: state, lastUpdated: Date.now() }, { merge: true });
+                await Promise.all([
+                    this._db
+                        .collection(FIRESTORE_COLLECTION_NEW)
+                        .doc(FIRESTORE_DOC)
+                        .set(payload, { merge: true }),
+                    this._db
+                        .collection(FIRESTORE_COLLECTION_OLD)
+                        .doc(FIRESTORE_DOC)
+                        .set(payload, { merge: true }),
+                ]);
                 return true;
             } catch (e) {
-                console.warn('[SupplierWallet.Sync] push fail:', e.message);
+                console.warn('[SupplierWallet.Sync] dual-push fail:', e.message);
                 return false;
             }
         },
     };
+
+    // Helper: chọn payload Firestore mới hơn theo lastUpdated.
+    function _pickLatest(a, b) {
+        if (!a && !b) return null;
+        if (!a) return b;
+        if (!b) return a;
+        return (Number(a.lastUpdated) || 0) >= (Number(b.lastUpdated) || 0) ? a : b;
+    }
 
     // Fetch SePay incoming deposits since `since` (unix ms). Match by content substring vs supplier name.
     async function fetchDeposits(since) {
