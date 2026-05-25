@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1a0874e` — fix(web2/products): SVG preserveAspectRatio=none — match TPOS img stretch behavior
-**Last updated**: 2026-05-25 14:54:10 +07
-**Latest session**: [`RESUME:20260525-145410-1a0874e`](../20260525-145410-1a0874e.md)
-**Summary**: fix(web2/products): SVG preserveAspectRatio=none — match TPOS img stretch behavior
+**Latest commit**: `9c80024` — auto: session update
+**Last updated**: 2026-05-25 15:03:43 +07
+**Latest session**: [`RESUME:20260525-150343-9c80024`](../20260525-150343-9c80024.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 2 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -51,7 +51,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-25 10:44
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-25 14:32
+- [`scripts/`](./scripts.md) — updated 2026-05-25 15:03
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-24 19:12
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
