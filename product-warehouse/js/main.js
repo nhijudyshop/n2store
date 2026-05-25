@@ -788,9 +788,11 @@
         const templateId = row.Id; // For template view: template Id; for variant view: variant Id
         const productId = row.Id;
         const cachedImg = imageCache[templateId];
-        const img = row.ImageUrl
-            ? `${RENDER_API}/image/${productId}` // Render proxies TPOS image (no CORS)
-            : cachedImg || '';
+        // TPOS ImageUrl is a public CDN URL (img1.tpos.vn/...) — use directly.
+        // Earlier we proxied via Render `/image/:tposProductId`, but that route looks up
+        // `tpos_product_id` in web_warehouse; for templates with variants the template Id
+        // is NOT a tpos_product_id row, so the lookup 404s. CDN URL works without auth.
+        const img = row.ImageUrl || cachedImg || '';
 
         // Extract variant attribute string from NameGet/Name: trailing "(Đen, M)" pattern.
         // Variant view returns Name = "Base Name (variant)"; we strip parens for `variant`.

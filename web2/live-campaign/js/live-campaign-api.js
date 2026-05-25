@@ -13,7 +13,13 @@
     const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const BASE = PROXY + '/api/odata/SaleOnline_LiveCampaign';
     const NATIVE_LOAD_URL = PROXY + '/api/native-orders/load';
-    const XLSX_CDN = 'https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js';
+    // SheetJS publishes only via cdn.sheetjs.com (official) — jsdelivr/npm dropped support.
+    // unpkg/cdnjs still host the legacy 0.18.5 build as fallback.
+    const XLSX_CDNS = [
+        'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
+        'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    ];
 
     function ensureTokenManager() {
         if (!window.tokenManager || typeof window.tokenManager.authenticatedFetch !== 'function') {
@@ -172,15 +178,31 @@
     // Trạng thái, Ngày tạo, Sản phẩm, Tổng số lượng SP, Nhân viên, Ghi chú,
     // Nhãn (19 cột, A..S).
 
-    function loadSheetJS() {
-        if (window.XLSX) return Promise.resolve(window.XLSX);
+    function loadScript(src) {
         return new Promise((resolve, reject) => {
             const s = document.createElement('script');
-            s.src = XLSX_CDN;
-            s.onload = () => resolve(window.XLSX);
-            s.onerror = () => reject(new Error('Không tải được SheetJS từ CDN'));
+            s.src = src;
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error('script load failed: ' + src));
             document.head.appendChild(s);
         });
+    }
+
+    async function loadSheetJS() {
+        if (window.XLSX) return window.XLSX;
+        let lastErr = null;
+        for (const cdn of XLSX_CDNS) {
+            try {
+                await loadScript(cdn);
+                if (window.XLSX) return window.XLSX;
+            } catch (e) {
+                lastErr = e;
+            }
+        }
+        throw new Error(
+            'Không tải được SheetJS từ CDN' +
+                (lastErr ? ' (' + lastErr.message.slice(0, 80) + ')' : '')
+        );
     }
 
     async function fetchNativeOrdersByCampaign(campaignId) {
