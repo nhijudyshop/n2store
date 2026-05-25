@@ -1,395 +1,325 @@
-// #Note: Local test script — capture TPOS print barcode HTML/blob để mirror Web 2.0.
-// Đọc TPOS session từ serect_dont_push.txt (block "tpos_session" hoặc cookies persisted),
-// navigate product list, click In mã vạch SP, capture network + iframe HTML, save JSON.
+// #Note: Local test script — capture TPOS print barcode HTML blob để mirror Web 2.0.
+// Real Playwright mouse clicks (NOT JS .click) để Angular ng-click trigger đúng.
 //
 // Usage: node scripts/capture-tpos-print-blob.js
-//
-// Output: downloads/n2store-session/tpos-print-capture-*.json/.html
 
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
-const STORAGE_STATE_FILE = '/Users/mac/Desktop/n2store/downloads/n2store-session/tpos-storage.json';
+const STORAGE_STATE = '/Users/mac/Desktop/n2store/downloads/n2store-session/tpos-storage.json';
 const OUT_DIR = '/Users/mac/Desktop/n2store/downloads/n2store-session';
 const TS = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 
 (async () => {
-    if (!fs.existsSync(STORAGE_STATE_FILE)) {
-        console.error('[capture] missing storage state file:', STORAGE_STATE_FILE);
-        console.error(
-            '[capture] Run: curl POST http://localhost:9999/cmd ... storage ' + STORAGE_STATE_FILE
-        );
+    if (!fs.existsSync(STORAGE_STATE)) {
+        console.error('[capture] missing storage state:', STORAGE_STATE);
         process.exit(1);
     }
 
-    const browser = await chromium.launch({ headless: false, slowMo: 200 });
+    const browser = await chromium.launch({ headless: false, slowMo: 250 });
     const context = await browser.newContext({
         viewport: { width: 1440, height: 900 },
         acceptDownloads: true,
-        storageState: STORAGE_STATE_FILE,
+        storageState: STORAGE_STATE,
     });
-    console.log('[capture] loaded storage state from', STORAGE_STATE_FILE);
-
     const page = await context.newPage();
 
-    // Download capture (PDF response từ TPOS)
-    const downloads = [];
-    page.on('download', async (download) => {
-        const savePath = path.join(OUT_DIR, `tpos-download-${TS}-${download.suggestedFilename()}`);
-        await download.saveAs(savePath);
-        downloads.push({
-            url: download.url(),
-            suggestedFilename: download.suggestedFilename(),
-            savedTo: savePath,
-        });
-        console.log('[capture] DOWNLOAD captured:', download.suggestedFilename(), '→', savePath);
-    });
-
-    // New page (window.open) capture
-    const newPages = [];
-    context.on('page', async (newPage) => {
-        try {
-            await newPage.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
-            const url = newPage.url();
-            const html = await newPage.content().catch(() => '');
-            const savePath = path.join(OUT_DIR, `tpos-newpage-${TS}-${newPages.length}.html`);
-            fs.writeFileSync(savePath, html);
-            newPages.push({ url, savedTo: savePath, htmlSize: html.length });
-            console.log('[capture] NEW PAGE captured:', url, '→', savePath);
-        } catch (e) {
-            console.log('[capture] new page error:', e.message);
-        }
-    });
-
-    // Network capture
+    // Capture ALL networks
     const networkLog = [];
     page.on('request', (req) => {
         const url = req.url();
-        if (/tpos|tomato|barcode/i.test(url)) {
-            networkLog.push({ type: 'request', method: req.method(), url, headers: req.headers() });
+        if (/tpos|tomato|barcode|print/i.test(url)) {
+            networkLog.push({ t: 'req', m: req.method(), url, at: Date.now() });
         }
     });
     page.on('response', async (res) => {
         const url = res.url();
-        if (/barcode|print|pdf/i.test(url)) {
-            const entry = { type: 'response', status: res.status(), url, headers: res.headers() };
+        if (/BarcodeProductLabel|PrintBarcode|barcode|print/i.test(url)) {
+            const entry = {
+                t: 'resp',
+                s: res.status(),
+                url,
+                ct: res.headers()['content-type'],
+                at: Date.now(),
+            };
             try {
-                const ct = res.headers()['content-type'] || '';
-                if (/json|text|html|xml/i.test(ct) && res.status() === 200) {
-                    entry.bodySnippet = (await res.text()).slice(0, 5000);
-                }
+                if (res.status() === 200) entry.body = (await res.text()).slice(0, 30000);
             } catch {}
             networkLog.push(entry);
         }
     });
-
-    console.log('[capture] navigating to TPOS product list...');
-    await page.goto('https://tomato.tpos.vn/#/app/product/list', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(8000);
-
-    // Check login
-    const isLoggedIn = await page.evaluate(() => !document.querySelector('input[type="password"]'));
-    if (!isLoggedIn) {
-        console.log('[capture] NOT logged in — login form detected. Aborting.');
-        const html = await page.content();
-        fs.writeFileSync(path.join(OUT_DIR, `tpos-print-NOT-LOGGED-IN-${TS}.html`), html);
-        await browser.close();
-        process.exit(1);
-    }
-    console.log('[capture] logged in. Selecting first product...');
-
-    // Wait for grid + click first row checkbox via label
-    await page.waitForSelector('tbody tr label.k-checkbox-label, tbody tr input[type=checkbox]', {
-        timeout: 15000,
-    });
-    await page.waitForTimeout(2000);
-
-    // Get first product info BEFORE clicking
-    const firstProduct = await page.evaluate(() => {
-        const row = document.querySelector('tbody tr');
-        return {
-            text: row?.textContent?.trim()?.slice(0, 200),
-            cells: [...(row?.cells || [])].map((c) => c.textContent.trim().slice(0, 50)),
-        };
-    });
-    console.log('[capture] first product:', firstProduct);
-
-    // Click checkbox via Playwright locator — clicks the label (Kendo pattern)
-    console.log('[capture] selecting first product...');
-    await page
-        .locator('tbody tr')
-        .first()
-        .locator('label.k-checkbox-label, input[type=checkbox]')
-        .first()
-        .click({ force: true });
-    await page.waitForTimeout(1500);
-
-    // Click sidebar "In mã vạch sản phẩm" while ON product list (preserves
-    // selection state through Angular service). Direct nav loses state.
-    console.log('[capture] clicking sidebar In mã vạch (preserve selection)...');
-    // Sidebar link uses uiSref. Click via DOM if visible.
-    await page.evaluate(() => {
-        const link = [...document.querySelectorAll('a')].find(
-            (a) =>
-                /In mã vạch sản phẩm/i.test(a.textContent) &&
-                a.getAttribute('ui-sref') === 'app.barcodeproductlabel.printbarcode'
-        );
-        if (link) {
-            // Simulate real click via dispatchEvent — bypass intercept
-            const rect = link.getBoundingClientRect();
-            const x = rect.left + rect.width / 2;
-            const y = rect.top + rect.height / 2;
-            ['mousedown', 'mouseup', 'click'].forEach((type) =>
-                link.dispatchEvent(
-                    new MouseEvent(type, {
-                        bubbles: true,
-                        cancelable: true,
-                        clientX: x,
-                        clientY: y,
-                    })
-                )
-            );
-        } else {
-            // Fallback: programmatic UI-Router transition
-            const $injector = window.angular?.element(document.body).injector();
-            if ($injector) {
-                const $state = $injector.get('$state');
-                $state.go('app.barcodeproductlabel.printbarcode');
-            }
+    context.on('page', async (newPage) => {
+        try {
+            await newPage.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {});
+            const url = newPage.url();
+            const html = await newPage.content().catch(() => '');
+            const savePath = path.join(OUT_DIR, `tpos-newpage-${TS}.html`);
+            fs.writeFileSync(savePath, html);
+            console.log('[capture] NEW PAGE:', url, '→', savePath, html.length, 'chars');
+        } catch (e) {
+            console.log('[capture] new page error:', e.message);
         }
     });
+    page.on('download', async (dl) => {
+        const p = path.join(OUT_DIR, `tpos-dl-${TS}-${dl.suggestedFilename()}`);
+        await dl.saveAs(p);
+        console.log('[capture] DOWNLOAD:', dl.suggestedFilename(), '→', p);
+    });
+
+    // Step 1: Product list
+    console.log('[capture] (1) nav product list');
+    await page.goto('https://tomato.tpos.vn/#/app/product/list', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(10000);
-    console.log('[capture] URL after sidebar click:', page.url());
+    await page.waitForSelector('tbody tr', { timeout: 15000 });
 
-    // Should be on printbarcode page now
-    console.log('[capture] URL after In mã vạch:', page.url());
-
-    // Capture print page state + waitfor Paper select to populate
-    console.log('[capture] waiting for Paper options to load...');
+    // Step 2: REAL click first row checkbox via Playwright check() (handles
+    // scroll + label automatically). Use .check() instead of .click() — works
+    // with Kendo Grid hidden checkboxes + labels.
+    console.log('[capture] (2) real click first product checkbox');
+    const firstCheckbox = page.locator('tbody tr').first().locator('input[type=checkbox]').first();
+    await firstCheckbox.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
     try {
-        await page.waitForFunction(
-            () => {
-                const s = document.querySelector('select[name="vm.model.Paper"]');
-                return s && s.options.length > 0;
-            },
-            { timeout: 30000 }
-        );
-        console.log('[capture] Paper options loaded');
-    } catch {
-        console.log('[capture] Paper options timeout — proceeding anyway');
+        await firstCheckbox.check({ force: true });
+    } catch (e) {
+        console.log('[capture] check() failed, fallback dispatchEvent:', e.message.slice(0, 100));
+        await firstCheckbox.evaluate((el) => {
+            el.click();
+            el.checked = true;
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        });
     }
     await page.waitForTimeout(2000);
-    const printPageInfo = await page.evaluate(() => {
-        const paperSel = document.querySelector('select[name="vm.model.Paper"]');
-        return {
-            url: location.href,
-            paperOpts: paperSel
-                ? [...paperSel.options].map((o) => ({ v: o.value, t: o.textContent.trim() }))
-                : [],
-            selectedPaperVal: paperSel?.value,
-            warehouseOpts: [
-                ...(document.querySelector('select[name="vm.model.Warehouse"]')?.options || []),
-            ].map((o) => o.textContent.trim()),
-            productRows: [...document.querySelectorAll('tbody tr')]
-                .filter((r) => !/Bảng giá|Giấy in|Kho/.test(r.textContent))
-                .map((r) => r.textContent.trim().slice(0, 100))
-                .slice(0, 5),
-            html: document.documentElement.outerHTML,
-        };
-    });
-    console.log('[capture] print page:', {
-        url: printPageInfo.url,
-        paperOpts: printPageInfo.paperOpts.length,
-        products: printPageInfo.productRows.length,
-    });
 
-    fs.writeFileSync(path.join(OUT_DIR, `tpos-print-page-${TS}.html`), printPageInfo.html);
+    // Get product info
+    const productInfo = await page.evaluate(() => {
+        const row = document.querySelector('tbody tr');
+        return [...(row?.cells || [])].map((c) => c.textContent.trim()).slice(0, 6);
+    });
+    console.log('[capture] selected product:', productInfo);
 
-    // Install hooks to capture print iframe blob
+    // Step 3: Hook BEFORE clicking sidebar — intercept window.open + URL.createObjectURL + iframe
+    console.log('[capture] (3) install hooks');
     await page.evaluate(() => {
-        window.__capture = { creates: [], opens: [], iframeHTMLs: [] };
-        const _cou = URL.createObjectURL;
+        window.__cap = {
+            opens: [],
+            blobs: [],
+            iframes: [],
+            httpGets: [],
+            httpPosts: [],
+        };
+        // Hook window.open
+        const _wo = window.open;
+        window.open = function (...a) {
+            window.__cap.opens.push({ url: String(a[0] || '').slice(0, 500), at: Date.now() });
+            return _wo.apply(this, a);
+        };
+        // Hook URL.createObjectURL — TPOS dùng cho blob iframe
+        const _co = URL.createObjectURL;
         URL.createObjectURL = function (blob) {
-            const u = _cou.apply(this, arguments);
-            window.__capture.creates.push({ url: u, type: blob?.type, size: blob?.size });
-            // Read blob content
-            blob.text?.().then((txt) => {
-                window.__capture.creates[window.__capture.creates.length - 1].bodySnippet =
-                    txt.slice(0, 50000);
+            const u = _co.apply(this, arguments);
+            const idx =
+                window.__cap.blobs.push({
+                    url: u,
+                    type: blob?.type,
+                    size: blob?.size,
+                    at: Date.now(),
+                }) - 1;
+            blob.text?.().then((t) => {
+                window.__cap.blobs[idx].text = t.slice(0, 50000);
             });
             return u;
         };
-        const _w = window.open;
-        window.open = function (...a) {
-            window.__capture.opens.push({ url: a[0]?.toString()?.slice(0, 300) });
-            return _w.apply(this, a);
+        // Hook XHR low-level — catches $resource + $http
+        const _open = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function (method, url) {
+            this.__m = method;
+            this.__u = url;
+            return _open.apply(this, arguments);
         };
-    });
-
-    // Set Paper via Kendo combobox widget API. k-auto-bind="false" requires
-    // explicit dataSource.fetch() to load options.
-    console.log('[capture] triggering Paper Kendo widget...');
-    await page
-        .evaluate(async () => {
-            const $ = window.jQuery || window.$;
-            if (!$) return { error: 'no jQuery' };
-            const $select = $('select[name="vm.model.Paper"]');
-            const widget = $select.data('kendoComboBox') || $select.data('kendoDropDownList');
-            if (!widget) return { error: 'no kendo widget' };
-            // Fetch datasource
-            await new Promise((resolve) => widget.dataSource.fetch(resolve));
-            const data = widget.dataSource.data().toJSON
-                ? widget.dataSource.data().toJSON()
-                : Array.from(widget.dataSource.data());
-            if (!data.length) return { error: 'datasource empty' };
-            // Set first option, trigger change
-            widget.value(data[0].Id);
-            widget.trigger('change');
-            // Also push to Angular scope
-            const scope = window.angular?.element($select[0]).scope();
-            if (scope) {
-                scope.$apply(() => {
-                    scope.vm.model.Paper = data[0];
-                    if (typeof scope.vm.changePaper === 'function') scope.vm.changePaper();
+        const _send = XMLHttpRequest.prototype.send;
+        XMLHttpRequest.prototype.send = function (body) {
+            const xhr = this;
+            if (/BarcodeProductLabel|PrintBarcode/i.test(this.__u || '')) {
+                xhr.addEventListener('load', () => {
+                    const arr = xhr.__m === 'POST' ? window.__cap.httpPosts : window.__cap.httpGets;
+                    arr.push({
+                        url: xhr.__u,
+                        status: xhr.status,
+                        ct: xhr.getResponseHeader('content-type'),
+                        bodyLen: xhr.responseText?.length,
+                        body: xhr.responseText?.slice(0, 50000),
+                    });
                 });
             }
-            return {
-                ok: true,
-                paperCount: data.length,
-                selectedName: data[0].Name,
-                selectedId: data[0].Id,
-                allPapers: data.map((p) => ({ id: p.Id, name: p.Name })),
-            };
-        })
-        .then((r) => console.log('[capture] paper widget:', JSON.stringify(r)));
-    await page.waitForTimeout(2000);
+            return _send.apply(this, arguments);
+        };
+        // Mutation observer to catch dynamically inserted iframes (printer service
+        // tạo hidden iframe rồi insert HTML qua document.write)
+        const mo = new MutationObserver((muts) => {
+            for (const m of muts) {
+                for (const node of m.addedNodes) {
+                    if (node.tagName === 'IFRAME') {
+                        setTimeout(() => {
+                            try {
+                                const doc = node.contentDocument;
+                                if (doc) {
+                                    window.__cap.iframes.push({
+                                        idx: window.__cap.iframes.length,
+                                        html: doc.documentElement?.outerHTML?.slice(0, 80000),
+                                        url: node.src || '(srcdoc)',
+                                        at: Date.now(),
+                                    });
+                                }
+                            } catch (e) {}
+                        }, 1500);
+                    }
+                }
+            }
+        });
+        mo.observe(document.body, { childList: true, subtree: true });
+        window.__cap.moInstalled = true;
+    });
 
-    // Hook console + invoke vm.savePdf directly via Angular scope to bypass
-    // button click intercept issues + capture any error thrown.
-    page.on('console', (msg) => {
-        const text = msg.text();
-        if (msg.type() === 'error' || /savePdf|barcode|pdf|print/i.test(text)) {
-            console.log('[page.console]', msg.type(), text.slice(0, 300));
+    // Step 4: Navigate to print page via Angular $state.go() — preserves selection
+    console.log('[capture] (4) navigate via Angular $state.go');
+    await page.evaluate(() => {
+        const $injector = window.angular.element(document.body).injector();
+        const $state = $injector.get('$state');
+        $state.go('app.barcodeproductlabel.printbarcode');
+    });
+    await page.waitForTimeout(10000);
+    console.log('[capture] URL after $state.go:', page.url());
+
+    // Wait for Paper combobox + lines population
+    await page.waitForTimeout(4000);
+
+    // Step 5: Set Paper via Kendo widget API + check lines
+    console.log('[capture] (5) set Paper + check lines');
+    const setupResult = await page.evaluate(async () => {
+        const $ = window.jQuery || window.$;
+        const $injector = window.angular.element(document.body).injector();
+        const $rs = $injector.get('$rootScope');
+        let target = null;
+        function walk(s, d) {
+            if (!s || d > 20) return;
+            if (s.vm?.savePdf && !target) target = s;
+            let c = s.$$childHead;
+            while (c) {
+                walk(c, d + 1);
+                c = c.$$nextSibling;
+            }
         }
-    });
-    page.on('pageerror', (err) => {
-        console.log('[page.error]', err.message.slice(0, 300));
-    });
+        walk($rs, 0);
+        if (!target) return { error: 'no vm scope' };
 
-    // Find the correct vm scope (button scope is wrong)
-    console.log('[capture] finding correct vm scope on print page...');
-    const scopeInfo = await page.evaluate(() => {
-        if (!window.angular) return { error: 'no angular' };
-        const found = [];
-        document.querySelectorAll('.ng-scope, [ng-controller], [ui-view]').forEach((el) => {
-            try {
-                const s = window.angular.element(el).scope();
-                if (s?.vm && (typeof s.vm.savePdf === 'function' || s.vm.paperDataSource)) {
-                    found.push({
-                        sel: el.tagName + '.' + (el.className?.toString().split(' ')[0] || ''),
-                        hasSavePdf: typeof s.vm.savePdf === 'function',
-                        hasPaperDS: !!s.vm.paperDataSource,
-                        gridDataLen: Array.isArray(s.vm.gridData) ? s.vm.gridData.length : null,
-                        modelPaperName: s.vm.model?.Paper?.Name,
+        // Set Paper if not already
+        if (!target.vm.model.Paper) {
+            const $sel = $('select[name="vm.model.Paper"]');
+            const widget = $sel.data('kendoComboBox') || $sel.data('kendoDropDownList');
+            if (widget) {
+                await new Promise((r) => widget.dataSource.fetch(r));
+                const papers = widget.dataSource.data().toJSON
+                    ? widget.dataSource.data().toJSON()
+                    : Array.from(widget.dataSource.data());
+                if (papers.length) {
+                    target.$apply(() => {
+                        target.vm.model.Paper = papers[0];
+                        target.vm.model.PaperId = papers[0].Id;
+                        if (typeof target.vm.changePaper === 'function') target.vm.changePaper();
                     });
                 }
-            } catch {}
-        });
-        return { found };
-    });
-    console.log('[capture] scope search:', JSON.stringify(scopeInfo).slice(0, 800));
-
-    // Invoke vm.savePdf on the FOUND scope (with proper detection)
-    console.log('[capture] invoking vm.savePdf()...');
-    const savePdfResult = await page.evaluate(async () => {
-        if (!window.angular) return { error: 'no angular' };
-        let targetScope = null;
-        document.querySelectorAll('.ng-scope, [ng-controller], [ui-view]').forEach((el) => {
-            try {
-                const s = window.angular.element(el).scope();
-                if (s?.vm && typeof s.vm.savePdf === 'function') {
-                    targetScope = s;
-                }
-            } catch {}
-        });
-        if (!targetScope) return { error: 'no scope with savePdf' };
-        try {
-            const result = await targetScope.vm.savePdf();
-            return {
-                ok: true,
-                returnType: typeof result,
-                returnVal: result?.toString?.()?.slice(0, 200),
-            };
-        } catch (e) {
-            return {
-                error: 'savePdf threw',
-                msg: e.message?.slice(0, 300),
-                stack: e.stack?.slice(0, 500),
-            };
+            }
         }
-    });
-    console.log('[capture] savePdf result:', JSON.stringify(savePdfResult).slice(0, 600));
-
-    // Wait for print response (download or new window)
-    await page.waitForTimeout(15000);
-
-    // Capture state
-    const captureResult = await page.evaluate(() => {
         return {
             url: location.href,
-            capture: window.__capture,
-            allIframes: [...document.querySelectorAll('iframe')].map((i) => ({
-                src: (i.src || '').slice(0, 200),
-                srcdoc: i.srcdoc ? i.srcdoc.slice(0, 200) : null,
-                contentHTML: i.contentDocument?.documentElement?.outerHTML?.slice(0, 50000),
-            })),
+            linesLen: target.vm.lines?.length,
+            line0: target.vm.lines?.[0],
+            paperName: target.vm.model?.Paper?.Name,
+            paperId: target.vm.model?.PaperId,
+            hasPriceList: !!target.vm.model?.PriceList,
         };
     });
+    console.log('[capture] setup:', JSON.stringify(setupResult).slice(0, 600));
 
-    fs.writeFileSync(
-        path.join(OUT_DIR, `tpos-print-capture-${TS}.json`),
-        JSON.stringify(
-            {
-                networkLog,
-                captureResult,
-                firstProduct,
-                printPageInfo: { ...printPageInfo, html: '(saved separately)' },
-            },
-            null,
-            2
-        )
-    );
-    console.log('[capture] saved:', path.join(OUT_DIR, `tpos-print-capture-${TS}.json`));
-
-    // Also save iframe HTML if any
-    for (let i = 0; i < (captureResult.allIframes || []).length; i++) {
-        const f = captureResult.allIframes[i];
-        if (f.contentHTML) {
-            fs.writeFileSync(
-                path.join(OUT_DIR, `tpos-print-iframe-${i}-${TS}.html`),
-                f.contentHTML
-            );
-            console.log('[capture] saved iframe', i, 'HTML');
+    // Step 6: Check vm state pre-click
+    const preClick = await page.evaluate(() => {
+        const $injector = window.angular?.element(document.body).injector();
+        if (!$injector) return { error: 'no injector' };
+        const $rs = $injector.get('$rootScope');
+        let target = null;
+        function walk(s, d) {
+            if (!s || d > 20) return;
+            if (s.vm?.savePdf && !target) target = s;
+            let c = s.$$childHead;
+            while (c) {
+                walk(c, d + 1);
+                c = c.$$nextSibling;
+            }
         }
+        walk($rs, 0);
+        return {
+            url: location.href,
+            linesLen: target?.vm?.lines?.length,
+            paperName: target?.vm?.model?.Paper?.Name,
+            paperId: target?.vm?.model?.PaperId,
+            hasPriceList: !!target?.vm?.model?.PriceList,
+        };
+    });
+    console.log('[capture] preClick state:', JSON.stringify(preClick));
+
+    // Step 7: REAL click "In bằng pdf" button
+    console.log('[capture] (7) real click In bằng pdf');
+    const printBtn = page.locator('button:has-text("In bằng pdf")').first();
+    try {
+        await printBtn.scrollIntoViewIfNeeded();
+        await printBtn.click({ force: true });
+        console.log('[capture] click succeeded, waiting for response...');
+    } catch (e) {
+        console.log('[capture] click error:', e.message.slice(0, 200));
+    }
+    await page.waitForTimeout(15000);
+
+    // Step 8: Read captured data
+    const result = await page.evaluate(() => window.__cap);
+    console.log('[capture] result summary:', {
+        opens: result.opens.length,
+        blobs: result.blobs.length,
+        iframes: result.iframes.length,
+        httpPosts: result.httpPosts.length,
+        httpGets: result.httpGets.length,
+    });
+
+    // Save iframe HTMLs (TPOS print content!)
+    for (let i = 0; i < result.iframes.length; i++) {
+        const f = result.iframes[i];
+        const p = path.join(OUT_DIR, `tpos-iframe-${i}-${TS}.html`);
+        fs.writeFileSync(p, f.html || '(empty)');
+        console.log(`[capture] iframe ${i} → ${p} (${f.html?.length || 0} chars)`);
+    }
+    // Save GET responses (PrintBarcodePDF)
+    for (let i = 0; i < result.httpGets.length; i++) {
+        const g = result.httpGets[i];
+        const p = path.join(OUT_DIR, `tpos-httpget-${i}-${TS}.html`);
+        fs.writeFileSync(p, g.body || '(empty)');
+        console.log(`[capture] http GET ${i} (${g.url}) → ${p} (${g.bodyLen} chars)`);
+    }
+    // Save POST responses
+    for (let i = 0; i < result.httpPosts.length; i++) {
+        const post = result.httpPosts[i];
+        console.log(`[capture] http POST ${i}: ${post.url} → ${post.status} (${post.bodyLen})`);
     }
 
-    // Take screenshot
-    await page.screenshot({
-        path: path.join(OUT_DIR, `tpos-print-final-${TS}.png`),
-        fullPage: true,
-    });
-    console.log('[capture] screenshot saved');
-
-    // Save updated session (cookies + localStorage for future use)
-    const cookies = await context.cookies();
-    const lsData = await page.evaluate(() => ({ ...localStorage }));
+    // Save full network log
     fs.writeFileSync(
-        path.join(OUT_DIR, `tpos-session-${TS}.json`),
-        JSON.stringify({ cookies, localStorage: lsData }, null, 2)
+        path.join(OUT_DIR, `tpos-network-${TS}.json`),
+        JSON.stringify({ networkLog, capture: result, productInfo, preClick }, null, 2)
     );
 
+    // Final screenshot
+    await page.screenshot({ path: path.join(OUT_DIR, `tpos-final-${TS}.png`), fullPage: true });
+
     console.log('[capture] DONE. Browser stays open. Press Ctrl+C to exit.');
-    // Keep open for manual inspection
     await new Promise(() => {});
 })();
