@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `922d925` — refactor(shared): extract ReturnOrderModal — issue-tracking + supplier-debt cùng dùng full TPOS-clone refund form
-**Last updated**: 2026-05-25 18:45:19 +07
-**Latest session**: [`RESUME:20260525-184519-922d925`](../20260525-184519-922d925.md)
-**Summary**: refactor(shared): extract ReturnOrderModal — issue-tracking + supplier-debt cùng dùng full TPOS-clone refund form
+**Latest commit**: `1b86f1c` — auto: session update
+**Last updated**: 2026-05-25 19:16:49 +07
+**Latest session**: [`RESUME:20260525-191649-1b86f1c`](../20260525-191649-1b86f1c.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
-- [`shared/`](./shared.md) — 2 file(s)
-- [`supplier-debt/`](./supplier-debt.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -54,7 +51,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-25 16:10
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-25 15:18
+- [`scripts/`](./scripts.md) — updated 2026-05-25 19:16
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-25 18:45
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
