@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `74eb239` — feat(product-warehouse): expand 8 tab + TPOS pixel-match CSS + variant view = print-only
-**Last updated**: 2026-05-25 11:41:31 +07
-**Latest session**: [`RESUME:20260525-114131-74eb239`](../20260525-114131-74eb239.md)
-**Summary**: feat(product-warehouse): expand 8 tab + TPOS pixel-match CSS + variant view = print-only
+**Latest commit**: `7a2656d` — fix(product-warehouse): loadVariantImages dùng TPOS thay vì Render DB
+**Last updated**: 2026-05-25 11:46:52 +07
+**Latest session**: [`RESUME:20260525-114652-7a2656d`](../20260525-114652-7a2656d.md)
+**Summary**: fix(product-warehouse): loadVariantImages dùng TPOS thay vì Render DB
 
 ## Folders affected in this commit
 
-- [`product-warehouse/`](./product-warehouse.md) — 2 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -44,7 +44,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-21 15:39
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 11:41
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 11:46
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
