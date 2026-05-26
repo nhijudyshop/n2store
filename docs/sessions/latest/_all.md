@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ff943bc` — auto: session update
-**Last updated**: 2026-05-26 16:09:35 +07
-**Latest session**: [`RESUME:20260526-160935-ff943bc`](../20260526-160935-ff943bc.md)
-**Summary**: auto: session update
+**Latest commit**: `048ccf9` — fix(snap): Force extract 3-step pipeline — guaranteed thumbnail cho mọi comment
+**Last updated**: 2026-05-26 16:11:39 +07
+**Latest session**: [`RESUME:20260526-161139-048ccf9`](../20260526-161139-048ccf9.md)
+**Summary**: fix(snap): Force extract 3-step pipeline — guaranteed thumbnail cho mọi comment
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 16:09
-- [`docs/`](./docs.md) — updated 2026-05-26 16:09
+- [`docs/`](./docs.md) — updated 2026-05-26 16:11
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -63,7 +62,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-25 19:26
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-26 16:09
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-26 16:11
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
