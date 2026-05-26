@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7bb437a` — auto: session update
-**Last updated**: 2026-05-26 10:12:15 +07
-**Latest session**: [`RESUME:20260526-101215-7bb437a`](../20260526-101215-7bb437a.md)
+**Latest commit**: `2f39fe9` — auto: session update
+**Last updated**: 2026-05-26 10:14:53 +07
+**Latest session**: [`RESUME:20260526-101453-2f39fe9`](../20260526-101453-2f39fe9.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`product-warehouse/`](./product-warehouse.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 8 file(s)
+- [`shared/`](./shared.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -54,7 +53,7 @@
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-25 19:19
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
-- [`shared/`](./shared.md) — updated 2026-05-25 19:28
+- [`shared/`](./shared.md) — updated 2026-05-26 10:14
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-05-25 15:59
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
