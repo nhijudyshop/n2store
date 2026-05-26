@@ -432,6 +432,110 @@ router.patch('/unscan-bulk', async (req, res) => {
 });
 
 // =====================================================
+// POST /sync-dates — Bulk fix ghost orders: UPDATE assignment_date theo TPOS
+// live + SET is_hidden=TRUE cho đơn truly deleted.
+// Body: {
+//   updates: [{orderNumber, newDate}],  // shift assignment_date
+//   hiddenNumbers: [...],                 // is_hidden=TRUE
+//   dryRun: true|false (default false)
+// }
+// Safety: dryRun trả về preview KHÔNG đụng DB. Default apply.
+// =====================================================
+router.post('/sync-dates', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { updates = [], hiddenNumbers = [], dryRun = false } = req.body || {};
+        if (!Array.isArray(updates) && !Array.isArray(hiddenNumbers)) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'Missing updates or hiddenNumbers array' });
+        }
+        // Validate updates shape
+        const validUpdates = (updates || []).filter(
+            (u) =>
+                u &&
+                typeof u.orderNumber === 'string' &&
+                typeof u.newDate === 'string' &&
+                /^\d{4}-\d{2}-\d{2}$/.test(u.newDate)
+        );
+        const validHidden = (hiddenNumbers || []).filter((n) => typeof n === 'string');
+
+        // Safety: bulk size limit
+        if (validUpdates.length > 2000 || validHidden.length > 2000) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'Too many changes (max 2000 per call)' });
+        }
+
+        if (dryRun) {
+            return res.json({
+                success: true,
+                data: {
+                    dryRun: true,
+                    proposedUpdates: validUpdates.length,
+                    proposedHidden: validHidden.length,
+                    sampleUpdates: validUpdates.slice(0, 5),
+                    sampleHidden: validHidden.slice(0, 5),
+                },
+            });
+        }
+
+        let updatedCount = 0;
+        let hiddenCount = 0;
+        const updatedOrders = [];
+        const hiddenOrders = [];
+
+        // Batch UPDATE assignment_date in groups of 100
+        for (let i = 0; i < validUpdates.length; i += 100) {
+            const batch = validUpdates.slice(i, i + 100);
+            for (const u of batch) {
+                const r = await db.query(
+                    `UPDATE delivery_assignments
+                     SET assignment_date = $1, updated_at = NOW()
+                     WHERE order_number = $2
+                       AND assignment_date <> $1
+                     RETURNING order_number`,
+                    [u.newDate, u.orderNumber]
+                );
+                if (r.rows.length > 0) {
+                    updatedCount++;
+                    updatedOrders.push(u.orderNumber);
+                }
+            }
+        }
+
+        // Bulk hide truly deleted
+        if (validHidden.length > 0) {
+            const ph = validHidden.map((_, i) => `$${i + 1}`).join(', ');
+            const r = await db.query(
+                `UPDATE delivery_assignments
+                 SET is_hidden = TRUE, updated_at = NOW()
+                 WHERE order_number IN (${ph})
+                   AND is_hidden = FALSE
+                 RETURNING order_number`,
+                validHidden
+            );
+            hiddenCount = r.rows.length;
+            hiddenOrders.push(...r.rows.map((row) => row.order_number));
+        }
+
+        console.log(`[sync-dates] applied: ${updatedCount} date-updates, ${hiddenCount} hidden`);
+        res.json({
+            success: true,
+            data: {
+                updatedCount,
+                hiddenCount,
+                updatedOrders,
+                hiddenOrders,
+            },
+        });
+    } catch (err) {
+        console.error('[delivery-assignments] POST /sync-dates error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// =====================================================
 // PATCH /unhide-bulk — Bulk un-hide (restore từ is_hidden=TRUE → FALSE).
 // Body: { orderNumbers: [...] }
 // Use case: recover sau khi cleanup-ghosts hide nhầm, hoặc restore đơn user
