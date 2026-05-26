@@ -10,26 +10,26 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
         <!-- CSS: Design tokens + Layout + Components + Module styles -->
-        <link rel="stylesheet" href="css/variables.css?v=20260526k" />
-        <link rel="stylesheet" href="css/layout.css?v=20260526k" />
-        <link rel="stylesheet" href="css/components.css?v=20260526k" />
+        <link rel="stylesheet" href="css/variables.css?v=20260526n" />
+        <link rel="stylesheet" href="css/layout.css?v=20260526n" />
+        <link rel="stylesheet" href="css/components.css?v=20260526n" />
         <!-- Old CSS (base styles still needed by Pancake pk-* classes) -->
-        <link rel="stylesheet" href="css/pancake-chat.css?v=20260526k" />
+        <link rel="stylesheet" href="css/pancake-chat.css?v=20260526n" />
         <!-- New CSS (overrides old styles with modern design) -->
-        <link rel="stylesheet" href="css/tpos/tpos-comments.css?v=20260526k" />
-        <link rel="stylesheet" href="css/pancake/pancake-chat-window.css?v=20260526k" />
+        <link rel="stylesheet" href="css/tpos/tpos-comments.css?v=20260526n" />
+        <link rel="stylesheet" href="css/pancake/pancake-chat-window.css?v=20260526n" />
 
         <!-- Web 2.0 sidebar shell (giống các trang web2/* khác) -->
-        <link rel="stylesheet" href="../web2/shared/tpos-sidebar.css?v=20260526k" />
+        <link rel="stylesheet" href="../web2/shared/tpos-sidebar.css?v=20260526n" />
 
         <!-- ESM Compat -->
-        <script type="module" src="../shared/esm/compat.js?v=20260526k"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260526n"></script>
         <!-- Auth: page là Web 2.0 module → dùng hệ thống user mới (web2/users/).
              Legacy AuthManager đã được gỡ. Page guard sẽ được wire qua web2-auth-guard
              trong Phase 2 (xem render.com/routes/web2-users.js). -->
 
         <!-- Storage Migration -->
-        <script src="../shared/js/storage-migration.js?v=20260526k"></script>
+        <script src="../shared/js/storage-migration.js?v=20260526n"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 if (window.StorageMigration) window.StorageMigration.migrateModuleStorage('tpos');
@@ -52,7 +52,7 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="../shared/css/typography.css?v=20260526k" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260526n" />
 
         <!-- Web 2.0 shell layout — sidebar on the left, main content on the right -->
         <style>
@@ -119,8 +119,8 @@
                 z-index: 9999;
             }
         </style>
-        <link rel="stylesheet" href="../web2/shared/web2-tpos-theme.css?v=20260526k" />
-        <link rel="stylesheet" href="css/inventory-panel.css?v=20260526k" />
+        <link rel="stylesheet" href="../web2/shared/web2-tpos-theme.css?v=20260526n" />
+        <link rel="stylesheet" href="css/inventory-panel.css?v=20260526n" />
     </head>
 
     <body class="tpos-theme">
@@ -662,62 +662,62 @@
             // SePay banner). Phase 2 sẽ thay bằng Web 2.0 auth guard.
             window.__SKIP_LEGACY_NAV_AUTH = true;
         </script>
-        <script src="../shared/js/firebase-config.js?v=20260526k"></script>
-        <script src="../shared/js/shared-cache-manager.js?v=20260526k"></script>
-        <script src="../shared/js/notification-system.js?v=20260526k"></script>
-        <script defer src="../shared/js/navigation-modern.js?v=20260526k"></script>
-        <script src="../shared/js/shop-config.js?v=20260526k"></script>
+        <script src="../shared/js/firebase-config.js?v=20260526n"></script>
+        <script src="../shared/js/shared-cache-manager.js?v=20260526n"></script>
+        <script src="../shared/js/notification-system.js?v=20260526n"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260526n"></script>
+        <script src="../shared/js/shop-config.js?v=20260526n"></script>
 
         <!-- Config -->
-        <script src="js/api-config.js?v=20260526k"></script>
-        <script src="js/config.js?v=20260526k"></script>
+        <script src="js/api-config.js?v=20260526n"></script>
+        <script src="js/config.js?v=20260526n"></script>
 
         <!-- Shared utilities (NEW modular) -->
-        <script src="js/shared/utils.js?v=20260526k"></script>
-        <script src="js/shared/cache-manager.js?v=20260526k"></script>
-        <script src="js/shared/debt-manager.js?v=20260526k"></script>
-        <script src="js/shared/event-bus.js?v=20260526k"></script>
+        <script src="js/shared/utils.js?v=20260526n"></script>
+        <script src="js/shared/cache-manager.js?v=20260526n"></script>
+        <script src="js/shared/debt-manager.js?v=20260526n"></script>
+        <script src="js/shared/event-bus.js?v=20260526n"></script>
 
         <!-- Layout modules (NEW modular) -->
-        <script src="js/layout/column-manager.js?v=20260526k"></script>
-        <script src="js/layout/settings-manager.js?v=20260526k"></script>
+        <script src="js/layout/column-manager.js?v=20260526n"></script>
+        <script src="js/layout/settings-manager.js?v=20260526n"></script>
 
         <!-- TPOS modules (NEW modular) -->
-        <script src="js/tpos/tpos-token-manager.js?v=20260526k"></script>
-        <script src="js/tpos/tpos-state.js?v=20260526k"></script>
-        <script src="js/tpos/tpos-api.js?v=20260526k"></script>
-        <script src="js/tpos/tpos-native-orders-api.js?v=20260526k"></script>
-        <script src="js/tpos/tpos-comment-list.js?v=20260526k"></script>
-        <script src="js/tpos/tpos-customer-panel.js?v=20260526k"></script>
-        <script src="js/tpos/tpos-realtime.js?v=20260526k"></script>
-        <script src="js/tpos/tpos-init.js?v=20260526k"></script>
+        <script src="js/tpos/tpos-token-manager.js?v=20260526n"></script>
+        <script src="js/tpos/tpos-state.js?v=20260526n"></script>
+        <script src="js/tpos/tpos-api.js?v=20260526n"></script>
+        <script src="js/tpos/tpos-native-orders-api.js?v=20260526n"></script>
+        <script src="js/tpos/tpos-comment-list.js?v=20260526n"></script>
+        <script src="js/tpos/tpos-customer-panel.js?v=20260526n"></script>
+        <script src="js/tpos/tpos-realtime.js?v=20260526n"></script>
+        <script src="js/tpos/tpos-init.js?v=20260526n"></script>
         <!-- Fallback enrich qua PartnerCustomerApi (theo phone, batch) khi chatomni/info miss -->
-        <script src="../shared/js/token-manager.js?v=20260526k"></script>
-        <script src="../web2/partner-customer/js/partner-customer-api.js?v=20260526k"></script>
-        <script src="js/tpos/tpos-partner-fallback.js?v=20260526k"></script>
+        <script src="../shared/js/token-manager.js?v=20260526n"></script>
+        <script src="../web2/partner-customer/js/partner-customer-api.js?v=20260526n"></script>
+        <script src="js/tpos/tpos-partner-fallback.js?v=20260526n"></script>
         <!-- Livestream Snapshot per customer (📸 button + popover) -->
-        <script src="js/tpos/tpos-livestream-snap.js?v=20260526m"></script>
+        <script src="js/tpos/tpos-livestream-snap.js?v=20260526n"></script>
 
         <!-- Pancake modules (NEW modular) -->
-        <script src="js/pancake/pancake-token-manager.js?v=20260526k"></script>
-        <script src="js/pancake/pancake-state.js?v=20260526k"></script>
-        <script src="js/pancake/pancake-api.js?v=20260526k"></script>
-        <script src="js/pancake/pancake-page-selector.js?v=20260526k"></script>
-        <script src="js/pancake/pancake-conversation-list.js?v=20260526k"></script>
-        <script src="js/pancake/pancake-chat-window.js?v=20260526k"></script>
-        <script src="js/pancake/pancake-context-menu.js?v=20260526k"></script>
-        <script src="js/pancake/pancake-realtime.js?v=20260526k"></script>
-        <script src="js/pancake/pancake-init.js?v=20260526k"></script>
+        <script src="js/pancake/pancake-token-manager.js?v=20260526n"></script>
+        <script src="js/pancake/pancake-state.js?v=20260526n"></script>
+        <script src="js/pancake/pancake-api.js?v=20260526n"></script>
+        <script src="js/pancake/pancake-page-selector.js?v=20260526n"></script>
+        <script src="js/pancake/pancake-conversation-list.js?v=20260526n"></script>
+        <script src="js/pancake/pancake-chat-window.js?v=20260526n"></script>
+        <script src="js/pancake/pancake-context-menu.js?v=20260526n"></script>
+        <script src="js/pancake/pancake-realtime.js?v=20260526n"></script>
+        <script src="js/pancake/pancake-init.js?v=20260526n"></script>
         <!-- Web 2.0 Kho SP panel (tab switcher giữa Chat & Kho) -->
-        <script src="js/pancake/inventory-panel.js?v=20260526k"></script>
-        <script src="js/pancake/pancake-mode-switcher.js?v=20260526k"></script>
+        <script src="js/pancake/inventory-panel.js?v=20260526n"></script>
+        <script src="js/pancake/pancake-mode-switcher.js?v=20260526n"></script>
 
         <!-- App Initialization (last - orchestrates everything) -->
-        <script src="js/layout/app-init.js?v=20260526k"></script>
+        <script src="js/layout/app-init.js?v=20260526n"></script>
 
         <!-- Web 2.0 sidebar mount -->
-        <script src="../web2/shared/web2-auth.js?v=20260526k"></script>
-        <script src="../web2/shared/tpos-sidebar.js?v=20260526k"></script>
+        <script src="../web2/shared/web2-auth.js?v=20260526n"></script>
+        <script src="../web2/shared/tpos-sidebar.js?v=20260526n"></script>
         <script>
             if (window.Web2Sidebar) {
                 try {

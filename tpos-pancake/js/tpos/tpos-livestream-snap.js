@@ -182,16 +182,6 @@
                     `[snap-ext] v${data.version} TOO OLD — cần >= v${REQUIRED_EXT_VERSION}`
                 );
             }
-        } else if (data.type === 'N2_TAB_STREAM_ID' && data.streamId) {
-            // Option B: extension popup grab streamId → page tạo MediaStream
-            // qua getUserMedia. Stream bound vào tab SPECIFIC → capture mượt
-            // dù tab inactive / browser minimize. Replace captureVisibleTab
-            // path (chỉ work khi tab focused).
-            console.log('[snap-ext] received streamId — switching to stream mode');
-            _initStreamFromExtensionStreamId(data.streamId).catch((e) => {
-                console.warn('[snap-ext] stream init fail:', e.message);
-                _toast('Lỗi kết nối stream extension: ' + e.message, 'err');
-            });
         } else if (
             data.type === 'N2_CAPTURE_VISIBLE_TAB_SUCCESS' ||
             data.type === 'N2_CAPTURE_VISIBLE_TAB_FAILURE'
@@ -207,106 +197,6 @@
             }
         }
     });
-
-    // Option B init — page consume streamId từ extension popup, tạo MediaStream
-    // qua getUserMedia. Stream bound tab SPECIFIC → tab inactive vẫn capture.
-    // Replace captureVisibleTab (chỉ work tab focused). Frame buffer dùng
-    // _captureFrameJpeg() (canvas + STATE.captureVideo) như getDisplayMedia path.
-    async function _initStreamFromExtensionStreamId(streamId) {
-        // Stop existing stream nếu có (re-init when user re-click extension icon)
-        if (STATE.captureStream) {
-            STATE.captureStream.getTracks().forEach((t) => t.stop());
-            STATE.captureStream = null;
-        }
-        // getUserMedia với chromeMediaSource: 'tab' (legacy syntax, vẫn work MV3
-        // cho tab stream ID từ chrome.tabCapture). Chrome 10s deadline kể từ
-        // khi getMediaStreamId trả về.
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: {
-                mandatory: {
-                    chromeMediaSource: 'tab',
-                    chromeMediaSourceId: streamId,
-                    maxWidth: 1920,
-                    maxHeight: 1080,
-                    maxFrameRate: 5,
-                },
-            },
-        });
-        STATE.captureStream = stream;
-        // Tạo hidden video element + play (giống getDisplayMedia path).
-        if (!STATE.captureVideo) {
-            STATE.captureVideo = document.createElement('video');
-            STATE.captureVideo.muted = true;
-            STATE.captureVideo.playsInline = true;
-            STATE.captureVideo.style.cssText =
-                'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;';
-            document.body.appendChild(STATE.captureVideo);
-        }
-        STATE.captureVideo.srcObject = stream;
-        await STATE.captureVideo.play();
-        // Listen 'ended' (user closes tab / stream revoked)
-        stream.getVideoTracks().forEach((t) => {
-            t.addEventListener('ended', () => {
-                console.log('[snap-ext] tab stream ended');
-                _stopFrameBuffer();
-                STATE.captureStream = null;
-                renderRealSnapChip();
-                // User feedback 2026-05-26: bỏ toast click hint. Khi stream
-                // ngắt, poll loop sẽ retry + _showExtPrompt sẽ guide nếu cần.
-                _showExtPrompt('missing');
-            });
-        });
-        // Ensure iframe wrapper exists trước khi start frame buffer
-        // (_captureExtensionFrame và _captureFrameJpeg đều query wrapper rect
-        // để crop). Nếu user vào trang khi đã có campaign active, modal sẽ
-        // hiện → click N2Store → streamId arrive → đây chính là điểm cần
-        // tạo iframe.
-        const camp = _findActiveLiveCampaign();
-        if (camp?.Facebook_LiveId) {
-            try {
-                await _ensureEmbeddedIframe(camp);
-            } catch (e) {
-                console.warn('[snap-ext] ensureIframe fail:', e?.message);
-            }
-        }
-        // Khởi động frame buffer (giờ dùng _captureFrameJpeg, không phải
-        // _captureExtensionFrame). Stream-based capture không bị Chrome
-        // rate-limit, work khi tab inactive.
-        _startFrameBuffer();
-        renderRealSnapChip();
-        renderAutoModeChip();
-        _toast('✅ Stream OK — tab inactive vẫn capture', 'ok');
-        STATE.extStreamActive = true;
-        // Set consent flag → subsequent page loads skip mandatory modal,
-        // dùng silent auto-grab qua content script's click listener.
-        localStorage.setItem('tpos_stream_consented', '1');
-        // Remove any open modal/reminder (đã wire xong)
-        document.getElementById('tpos-snap-stream-modal')?.remove();
-        document.getElementById('tpos-snap-stream-reminder')?.remove();
-        document.getElementById('tpos-snap-streamid-modal')?.remove();
-    }
-
-    // Reminder banner (non-blocking) — show khi consent đã có nhưng stream
-    // chưa wire sau 30s. User chỉ cần click bất kỳ đâu trên trang (content
-    // script auto-grab fires) hoặc click banner để trigger grab.
-    function _showStreamModeReminder() {
-        if (STATE.captureStream) return;
-        if (document.getElementById('tpos-snap-stream-reminder')) return;
-        const box = document.createElement('div');
-        box.id = 'tpos-snap-stream-reminder';
-        box.innerHTML = `
-            <span style="font-size:16px;margin-right:8px;">🎬</span>
-            <span style="flex:1;color:#0c4a6e;font-size:12px;font-weight:600;">Stream chưa kết nối — click đâu cũng được</span>
-            <button type="button" style="margin-left:8px;background:#0284c7;color:#fff;border:none;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">Bật ngay</button>
-        `;
-        box.style.cssText =
-            'position:fixed;bottom:16px;right:16px;display:inline-flex;align-items:center;background:#f0f9ff;border:1px solid #7dd3fc;border-radius:10px;padding:8px 12px;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:99100;font-family:Inter,system-ui,sans-serif;max-width:360px;';
-        document.body.appendChild(box);
-        box.querySelector('button').onclick = () => {
-            window.postMessage({ type: 'N2_TAB_STREAM_GRAB_REQUEST', _activation: 1 }, '*');
-        };
-    }
 
     function _captureViaExtension(quality = 80, timeoutMs = 4000) {
         return new Promise((resolve, reject) => {
@@ -685,20 +575,16 @@
         if (!chip) return;
         const streamReady = !!STATE.captureStream || !!STATE.frameBufferTimer;
         const bufSize = STATE.frameBuffer?.length || 0;
-        const viaExtStream = !!STATE.extStreamActive && !!STATE.captureStream;
         const viaExtTab = STATE.extReady && !STATE.captureStream && !!STATE.frameBufferTimer;
         if (streamReady) {
-            const sourceLabel = viaExtStream ? 'EXT stream' : viaExtTab ? 'EXT tab' : 'LIVE linked';
+            const sourceLabel = viaExtTab ? 'EXT tab' : 'LIVE linked';
             chip.innerHTML = `<span style="display:inline-block;width:8px;height:8px;background:#dc2626;border-radius:50%;animation:snap-pulse 1.4s ease-in-out infinite;"></span> 🎬 ${sourceLabel} · ${bufSize} frames`;
             chip.style.background = '#fee2e2';
             chip.style.borderColor = '#fca5a5';
             chip.style.color = '#991b1b';
-            chip.title = viaExtStream
-                ? `Extension tab stream — capture mọi lúc dù tab inactive / browser minimize. Buffer giữ 1h. Click chip để NGẮT.`
-                : viaExtTab
-                  ? `Extension visible tab — chỉ capture khi tpos-pancake là tab focused. Click icon N2Store để upgrade stream mode (tab inactive OK).`
-                  : `Stream FB đang link. Mỗi 5s capture 1 frame vào buffer (giữ 1h). Auto-snap dùng frame nearest commentTime.
-Click chip để NGẮT stream.`;
+            chip.title = viaExtTab
+                ? `Extension visible tab — chỉ capture khi tpos-pancake là tab focused. Switch tab khác → capture dừng (browser security).`
+                : `Stream FB đang link. Mỗi 5s capture 1 frame vào buffer (giữ 1h). Click chip để NGẮT stream.`;
         } else {
             chip.innerHTML = `🎬 Bắt đầu chụp live · click 1 cái mở FB + share`;
             chip.style.background = '#fef3c7';
@@ -1463,99 +1349,6 @@ Throttle 30s/KH.`;
             if (wrapper) wrapper.remove();
             return false;
         }
-    }
-
-    // DEPRECATED — user feedback 2026-05-26: bỏ Enter modal, chỉ giữ
-    // _showExtPrompt làm nguồn duy nhất. Function giữ làm no-op để tránh
-    // ReferenceError nếu có caller cũ.
-    function _showStreamModePromptDeprecated_REMOVED() {
-        if (STATE.captureStream) return; // đã có stream → không cần
-        if (document.getElementById('tpos-snap-stream-modal')) return;
-        const overlay = document.createElement('div');
-        overlay.id = 'tpos-snap-stream-modal';
-        overlay.style.cssText =
-            'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.75);display:flex;align-items:center;justify-content:center;padding:24px;font-family:Inter,system-ui,sans-serif;backdrop-filter:blur(4px);';
-        const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
-        const shortcutLabel = isMac ? 'Cmd+Shift+S' : 'Ctrl+Shift+S';
-        overlay.innerHTML = `
-            <div style="background:#fff;border-radius:16px;padding:32px 36px;max-width:520px;width:100%;box-shadow:0 32px 80px rgba(0,0,0,0.4);">
-                <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-                    <span style="font-size:32px;">🎬</span>
-                    <h3 style="margin:0;font-size:18px;font-weight:800;color:#0f172a;">Bật capture stream — bấm phím tắt</h3>
-                </div>
-                <p style="margin:0 0 16px;font-size:14px;color:#475569;line-height:1.6;">
-                    Chrome yêu cầu <strong>extension invocation</strong> để lấy stream tab (page click không count).
-                    Cách dễ nhất: bấm <strong>${shortcutLabel}</strong> 1 lần — sau đó capture chạy tự động dù
-                    anh switch sang tab khác / minimize browser.
-                </p>
-                <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
-                    <div style="font-size:11px;color:#78350f;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:8px;">Phím tắt (recommended)</div>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                        <kbd style="padding:8px 14px;background:#fff;border:1px solid #cbd5e1;border-bottom-width:3px;border-radius:6px;font-family:ui-monospace,monospace;font-size:14px;font-weight:700;color:#0f172a;">${shortcutLabel}</kbd>
-                        <span style="font-size:13px;color:#78350f;font-weight:600;">— Bật stream capture</span>
-                    </div>
-                </div>
-                <div style="background:#f1f5f9;border-radius:10px;padding:12px 14px;margin-bottom:18px;font-size:12px;color:#475569;line-height:1.5;">
-                    <strong>Hoặc</strong>: click icon <strong>N2Store</strong> trên thanh extension Chrome →
-                    popup tự grab streamId.
-                </div>
-                <button type="button" id="tpos-snap-stream-modal-go" autofocus style="width:100%;padding:14px 18px;background:linear-gradient(135deg,#0284c7,#0369a1);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 6px 16px rgba(2,132,199,0.35);">
-                    🎬 Thử lại (Enter — best effort)
-                </button>
-                <div id="tpos-snap-stream-modal-status" style="margin-top:14px;font-size:12px;color:#64748b;line-height:1.5;min-height:18px;text-align:center;"></div>
-            </div>`;
-        document.body.appendChild(overlay);
-        const status = overlay.querySelector('#tpos-snap-stream-modal-status');
-        const goBtn = overlay.querySelector('#tpos-snap-stream-modal-go');
-        let attempts = 0;
-        const triggerGrab = () => {
-            attempts++;
-            goBtn.disabled = true;
-            goBtn.style.opacity = '0.6';
-            status.style.color = '#0c4a6e';
-            status.textContent = `⏳ Đang grab streamId (attempt ${attempts})...`;
-            // Send message in synchronous click/keydown context → activation
-            // hopefully propagates.
-            window.postMessage({ type: 'N2_TAB_STREAM_GRAB_REQUEST', _activation: 1 }, '*');
-            // Timeout 3s — nếu streamId không về thì instruct user click icon.
-            const checkTimer = setTimeout(() => {
-                if (STATE.captureStream) {
-                    status.style.color = '#15803d';
-                    status.textContent = '✅ Stream OK — modal sẽ tự đóng.';
-                    setTimeout(() => overlay.remove(), 800);
-                } else {
-                    goBtn.disabled = false;
-                    goBtn.style.opacity = '1';
-                    status.style.color = '#b91c1c';
-                    status.innerHTML = `❌ Chrome reject. Click <strong>icon N2Store</strong> trên thanh extension Chrome → popup tự bật stream.`;
-                }
-            }, 3000);
-            const onStream = (e) => {
-                if (e.source !== window || e.data?.type !== 'N2_TAB_STREAM_ID') return;
-                clearTimeout(checkTimer);
-                status.style.color = '#15803d';
-                status.textContent = '✅ Stream OK — modal đóng...';
-                window.removeEventListener('message', onStream);
-                setTimeout(() => overlay.remove(), 800);
-            };
-            window.addEventListener('message', onStream);
-        };
-        goBtn.onclick = triggerGrab;
-        // MANDATORY Enter — block ALL key events khác. Escape không dismiss.
-        const onKey = (e) => {
-            if (!document.getElementById('tpos-snap-stream-modal')) {
-                document.removeEventListener('keydown', onKey, true);
-                return;
-            }
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                e.stopPropagation();
-                triggerGrab();
-            }
-            // KHÔNG handle Escape — modal không dismiss được.
-        };
-        document.addEventListener('keydown', onKey, true);
-        setTimeout(() => goBtn.focus(), 50);
     }
 
     // Visibility watcher — user feedback 2026-05-26: KHÔNG block switch tab
