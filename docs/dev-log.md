@@ -25,6 +25,51 @@
 
 ## 2026-05-26
 
+### [product-warehouse] Tab "Hết hiệu lực" + live search + per-column filters w/ operators ✅
+
+**User ask**: Sequence of 4 messages: (1) "phần tìm kiếm và sản phẩm hết hiệu lực không cần hiện -> có tab riêng cho sản phẩm hết hiệu lực", (2) "cho chức năng hết hiệu lực sản phẩm", (3) "Nhập tìm kiếm tên sản phẩm, mã sản phẩm, giá bán, giá mua -> render trực tiếp bảng không cần chọn ở search và enter -> tối ưu tốc độ", (4) "bấm vào phễu ở mỗi cột cho nhập tìm kiếm theo cột đó, cột nào giá trị số như giá thì cho các option nhập =, <, >, <=, >=".
+
+**Discovered TPOS API bug** (critical): `GetViewV2` endpoint silently IGNORES most $filter clauses (verified with 6+ syntax variants: `Active eq false`, `IsActive`, `Archived`, etc — all return identical 3745-row response). Field `Active` exists in row data, value `Active=false` exists (166 templates), but server-side filtering bypassed. Same goes for `ListPrice gt N` and other numeric filters.
+
+**Workaround**: full-list client-side filter pipeline:
+
+- `fetchAllTemplatesRaw()` — paged TPOS fetch (4 calls × $top=1000 ≈ 10s) → cached 60s.
+- `applyClientFilters(rows)` — single function reads live DOM (search input + .th-filter-input + .th-filter-op) and returns filtered subset. Handles text contains, numeric ops (eq/gt/lt/ge/le), and search-with-price-fallback (digit input matches ListPrice/Purchase/Standard).
+- `fetchProducts()` routes to client-side path when (a) `viewType === 'inactive'` or (b) any column filter has a value. Default empty-filter case still uses TPOS server pagination (fast).
+
+**Files modified**:
+
+- `product-warehouse/index.html`:
+    - 3rd tab `data-view-type="inactive"` with archive icon + count badge `#tabInactiveCount`.
+    - Added `.th-filter-input` to `group` col + `.th-filter-numeric` wrapper (operator `<select>` + number `<input>`) to price/defaultBuyPrice/costPrice/qtyActual/qtyForecast cols.
+- `product-warehouse/js/main.js`:
+    - `viewType` accepts `'inactive'` in localStorage validator + path selector.
+    - `buildTposODataUrl()` cleaned up to compose Active/search/price/per-column filters (still sent to TPOS for fast no-filter pagination path, ignored when triggered).
+    - New `fetchAllTemplatesRaw()` + 60s cache + `applyClientFilters()` + `hasActiveColumnFilters()` helpers.
+    - `fetchInactiveTemplates()` and `fetchActiveTemplatesClientFilter()` use cache + client-side filter + paginate.
+    - Row action col: `viewType==='inactive'` swaps red Delete btn → blue "Kích hoạt lại" btn (calls `reactivateProduct()` → UpdateV2 with `Active=true`).
+    - Live search: `#searchInput` input listener now debounces 350ms then triggers `fetchProducts(true)` (silent=true to avoid full-loading flicker). Suggestions dropdown kept as secondary affordance.
+    - Search now also matches prices: pure-digit input → adds `ListPrice eq N or PurchasePrice eq N or StandardPrice eq N` OData clauses (still client-side filtered too).
+    - Column filter toggle delegated on thead (lucide replaces `<i>` with `<svg>` so direct listener loses target). Numeric filter UI gets `.active` on wrapper + child input.
+    - `fetchOtherTabCount()` rewritten to derive accurate badges from `_allTemplatesCache` (template active vs inactive) instead of trusting broken TPOS $count.
+- `product-warehouse/css/warehouse-tpos.css`:
+    - `.th-filter-numeric` flex layout with operator dropdown (38px) + number input (80px).
+    - `.btn-action-reactivate` solid blue (`--pw-blue`).
+    - Override base `display:none` on .th-filter-input child when wrapper `.active`.
+
+**Verification (Playwright)**:
+
+- Initial template tab: 50 rows, all Active=true (B2548/B2547/B2546…). Badges: template 3.6k, variant 7k, inactive (0 until inactive tab visited).
+- Click `Hết hiệu lực`: 50 inactive rows (AO-DEN-2026, SP31377, TEST123321…), reactivate btn shown per row, badges now accurate (template 3.6k, inactive 166).
+- Live search `B254` in default tab: 31 rows of `B25xx` codes shown, no Enter required.
+- Open price funnel, select `>`, type `300000`: 50 rows all with ListPrice > 300000 (370K, 430K, 450K, 320K…) — confirmed client-side filter applied.
+
+**Trade-offs / known limitations**:
+
+- First column filter or first inactive tab visit triggers ~10s fetch (3745 templates / 1000 per page = 4 calls); subsequent operations hit 60s cache. Acceptable for warehouse browsing.
+- Pagination on filtered set is approximate-fast (client slice); badges accurate when cache populated.
+- Variant tab still uses TPOS server (different OData service `Product/GetViewV2` not yet audited for same bug).
+
 ### [delivery-report/report] Ảnh chứng từ trên dòng gộp — indicator + stacked preview + click expand ✅
 
 **User ask**: "hình ở gộp gì sao -> 2 children đều có hình hoặc có children có, có children không" — yêu cầu logic ảnh cho dòng gộp khi children có ảnh / partial / none.

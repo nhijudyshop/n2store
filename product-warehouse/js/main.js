@@ -1387,45 +1387,119 @@
         return all;
     }
 
-    async function fetchInactiveTemplates(silent = false) {
-        // Used when viewType==='inactive'. Fetch ALL templates (TPOS Active filter is
-        // broken — see fetchAllTemplatesRaw note), partition client-side to Active=false,
-        // then paginate. Search/sort filters from buildTposODataUrl still apply via
-        // an in-memory filter pass.
-        const all = await fetchAllTemplatesRaw();
-        const inactiveAll = all.filter((r) => r.Active === false);
-
-        // Apply search query client-side (since OData call is bypassed for inactive)
+    // Client-side filter pipeline — used whenever TPOS server-side filtering can't
+    // be trusted (inactive tab) OR when column-header filters need numeric ops that
+    // TPOS GetViewV2 silently ignores. Pulls state from the live DOM (search input,
+    // .th-filter-* elements) so it stays in sync with what the user sees.
+    function applyClientFilters(rows) {
+        // 1. Search query (matches name/code/barcode + price/cost/std)
         const searchQuery = ($('#searchInput')?.value || '').trim().toLowerCase();
-        let filtered = inactiveAll;
-        if (searchQuery) {
-            filtered = inactiveAll.filter((r) => {
+        // 2. Per-column header filters
+        const numericCols = {
+            price: 'ListPrice',
+            defaultBuyPrice: 'PurchasePrice',
+            costPrice: 'StandardPrice',
+            qtyActual: 'QtyAvailable',
+            qtyForecast: 'VirtualAvailable',
+        };
+        const textCols = {
+            code: 'DefaultCode',
+            name: 'Name',
+            group: 'CategCompleteName',
+        };
+        const colFilters = [];
+        Object.entries(textCols).forEach(([key, field]) => {
+            const input = document.querySelector(`.th-filter-input[data-filter="${key}"]`);
+            const v = (input?.value || '').trim().toLowerCase();
+            if (v) colFilters.push({ field, type: 'text', value: v });
+        });
+        Object.entries(numericCols).forEach(([key, field]) => {
+            const input = document.querySelector(`.th-filter-num[data-filter="${key}"]`);
+            const v = (input?.value || '').trim();
+            if (!v) return;
+            const n = parseFloat(v);
+            if (isNaN(n)) return;
+            const op =
+                document.querySelector(`.th-filter-op[data-filter-op="${key}"]`)?.value || 'eq';
+            colFilters.push({ field, type: 'num', value: n, op });
+        });
+
+        const cmp = {
+            eq: (a, b) => a === b,
+            gt: (a, b) => a > b,
+            lt: (a, b) => a < b,
+            ge: (a, b) => a >= b,
+            le: (a, b) => a <= b,
+        };
+
+        return rows.filter((r) => {
+            // Search query
+            if (searchQuery) {
                 const name = (r.Name || '').toLowerCase();
                 const code = (r.DefaultCode || '').toLowerCase();
                 const barcode = (r.Barcode || '').toLowerCase();
-                if (
+                let matched =
                     name.includes(searchQuery) ||
                     code.includes(searchQuery) ||
-                    barcode.includes(searchQuery)
-                ) {
-                    return true;
+                    barcode.includes(searchQuery);
+                if (!matched) {
+                    const cleaned = searchQuery.replace(/[\s,.]/g, '');
+                    if (/^\d+$/.test(cleaned)) {
+                        const n = parseInt(cleaned, 10);
+                        matched =
+                            parseFloat(r.ListPrice) === n ||
+                            parseFloat(r.PurchasePrice) === n ||
+                            parseFloat(r.StandardPrice) === n;
+                    }
                 }
-                const cleaned = searchQuery.replace(/[\s,.]/g, '');
-                if (/^\d+$/.test(cleaned)) {
-                    const n = parseInt(cleaned, 10);
-                    if (parseFloat(r.ListPrice) === n) return true;
-                    if (parseFloat(r.PurchasePrice) === n) return true;
-                    if (parseFloat(r.StandardPrice) === n) return true;
+                if (!matched) return false;
+            }
+            // Column filters (AND between cols)
+            for (const f of colFilters) {
+                const raw = r[f.field];
+                if (f.type === 'text') {
+                    if (
+                        !String(raw || '')
+                            .toLowerCase()
+                            .includes(f.value)
+                    )
+                        return false;
+                } else {
+                    const n = parseFloat(raw);
+                    if (isNaN(n)) return false;
+                    if (!cmp[f.op](n, f.value)) return false;
                 }
-                return false;
-            });
-        }
+            }
+            return true;
+        });
+    }
 
+    function hasActiveColumnFilters() {
+        return Array.from(document.querySelectorAll('.th-filter-input')).some(
+            (i) => (i.value || '').trim() !== ''
+        );
+    }
+
+    async function fetchInactiveTemplates(silent = false) {
+        const all = await fetchAllTemplatesRaw();
+        const inactiveOnly = all.filter((r) => r.Active === false);
+        const filtered = applyClientFilters(inactiveOnly);
         totalCount = filtered.length;
         const start = (currentPage - 1) * pageSize;
-        const pageRows = filtered.slice(start, start + pageSize);
-        pageProducts = pageRows.map(mapTposRow);
+        pageProducts = filtered.slice(start, start + pageSize).map(mapTposRow);
         inactiveTotalCount = totalCount;
+    }
+
+    async function fetchActiveTemplatesClientFilter() {
+        // Used when column filters are active (TPOS GetViewV2 ignores most filters).
+        // Pull full template list once (cached), apply client filters + paginate.
+        const all = await fetchAllTemplatesRaw();
+        const activeOnly = all.filter((r) => r.Active !== false);
+        const filtered = applyClientFilters(activeOnly);
+        totalCount = filtered.length;
+        const start = (currentPage - 1) * pageSize;
+        pageProducts = filtered.slice(start, start + pageSize).map(mapTposRow);
+        templateTotalCount = activeOnly.length;
     }
 
     async function fetchProducts(silent = false) {
@@ -1437,6 +1511,18 @@
             // Inactive tab: TPOS Active filter is broken — use client-side partition.
             if (viewType === 'inactive') {
                 await fetchInactiveTemplates(silent);
+                updateTabBadges();
+                fetchOtherTabCount();
+                return;
+            }
+
+            // Template tab + any column filter active → switch to client-side path.
+            // TPOS GetViewV2 silently ignores most $filter clauses (verified 2026-05-26)
+            // so column-level filtering can't be trusted server-side. Variant tab
+            // uses a different OData service (Product/) which we haven't audited yet —
+            // leave it on server-side path for now.
+            if (viewType === 'template' && hasActiveColumnFilters()) {
+                await fetchActiveTemplatesClientFilter();
                 updateTabBadges();
                 fetchOtherTabCount();
                 return;
@@ -1914,28 +2000,28 @@
             once: true,
         });
 
-        // Column filter toggle — click funnel icon opens text input OR numeric
-        // op+input combo (depending on whether th has .th-filter-numeric wrapper).
-        $$('.th-filter-icon').forEach((icon) => {
-            icon.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const th = e.target.closest('th');
-                if (!th) return;
-                const numericWrap = th.querySelector('.th-filter-numeric');
-                const target = numericWrap || th.querySelector('.th-filter-input');
-                if (!target) return;
-                const wasActive = target.classList.contains('active');
-                // Hide everything first
-                $$('.th-filter-input').forEach((i) => i.classList.remove('active'));
-                $$('.th-filter-numeric').forEach((w) => w.classList.remove('active'));
-                $$('.th-filter-icon').forEach((i) => i.classList.remove('active'));
-                if (!wasActive) {
-                    target.classList.add('active');
-                    icon.classList.add('active');
-                    const focusable = numericWrap ? numericWrap.querySelector('input') : target;
-                    focusable?.focus();
-                }
-            });
+        // Column filter toggle — delegated on thead so listener survives lucide
+        // icon replacement (<i data-lucide> → <svg>). Single-open: clicking another
+        // funnel closes the current one.
+        document.querySelector('.warehouse-table thead')?.addEventListener('click', (e) => {
+            const iconEl = e.target.closest('.th-filter-icon');
+            if (!iconEl) return;
+            e.stopPropagation();
+            const th = iconEl.closest('th');
+            if (!th) return;
+            const numericWrap = th.querySelector('.th-filter-numeric');
+            const target = numericWrap || th.querySelector('.th-filter-input');
+            if (!target) return;
+            const wasActive = target.classList.contains('active');
+            $$('.th-filter-input').forEach((i) => i.classList.remove('active'));
+            $$('.th-filter-numeric').forEach((w) => w.classList.remove('active'));
+            $$('.th-filter-icon').forEach((i) => i.classList.remove('active'));
+            if (!wasActive) {
+                target.classList.add('active');
+                iconEl.classList.add('active');
+                const focusable = numericWrap ? numericWrap.querySelector('input') : target;
+                focusable?.focus();
+            }
         });
 
         // Column filter inputs — debounced re-fetch (text + numeric share handler).

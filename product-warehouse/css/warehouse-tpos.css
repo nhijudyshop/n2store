@@ -814,7 +814,9 @@ body.has-selection .toolbar-bulk-actions {
 }
 
 /* Numeric filter — operator dropdown + number input side-by-side.
-   Hidden until user clicks the funnel icon (see .th-filter-input.active rule). */
+   Hidden until user clicks the funnel icon. The base warehouse.css hides
+   .th-filter-input via `display: none` so we must override that on the
+   numeric child input when the parent wrapper is active. */
 .warehouse-table th .th-filter-numeric {
     display: none;
     align-items: center;
@@ -824,6 +826,11 @@ body.has-selection .toolbar-bulk-actions {
 
 .warehouse-table th .th-filter-numeric.active {
     display: inline-flex;
+}
+
+.warehouse-table th .th-filter-numeric.active .th-filter-input {
+    display: inline-block !important;
+    margin-top: 0;
 }
 
 .warehouse-table th .th-filter-op {
