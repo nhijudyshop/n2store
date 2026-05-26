@@ -1518,6 +1518,7 @@
                 sumCkTruoc = 0;
             const sourceNotes = [];
             let anyApproved = false;
+            let allApproved = true;
             for (const cd of sourceDates) {
                 const sys = map[cd] || { sysCount: 0, money: 0 };
                 sumSlDon += sys.sysCount;
@@ -1535,6 +1536,7 @@
                     );
                 }
                 if (ov.approved) anyApproved = true;
+                else allApproved = false;
             }
             const totalAll = sumMoney - sumShipFee - sumSlShip * getShipFee(tab) + sumThuVe;
             const totalLeftRaw = totalAll - sumBoCK - sumAtruongCK - sumCkTruoc;
@@ -1555,7 +1557,13 @@
             const cls = ['dr-shift-agg-row', anyApproved ? 'is-approved' : '']
                 .filter(Boolean)
                 .join(' ');
-            return `<tr class="${cls}" data-shift-display="${displayDate}">
+            // Approve checkbox: checked khi TẤT CẢ source đã approved. Toggle → fan-out
+            // approved sang tất cả source overrides. Partial state (some approved)
+            // hiển thị unchecked + class 'is-partial' để admin biết.
+            const approveCellHtml = _isAdmin()
+                ? `<label class="dr-approve-toggle${anyApproved && !allApproved ? ' is-partial' : ''}" title="${anyApproved && !allApproved ? `Đã duyệt ${sourceDates.filter((s) => getOverride(s, tab).approved).length}/${sourceDates.length} ngày con — bấm để duyệt tất cả` : 'Duyệt tất cả ngày con'}"><input type="checkbox" data-field="approved-agg" ${allApproved ? 'checked' : ''} /><span></span></label>`
+                : '<span class="dr-approve-locked" title="Chỉ tài khoản Admin mới được duyệt"></span>';
+            return `<tr class="${cls}" data-shift-display="${displayDate}" data-shift-sources="${sourceDates.join(',')}">
                 <td class="date">
                     <span class="dr-shift-agg-badge" title="${sourceTitle}"><i class="fas fa-arrows-to-dot"></i> ${sourceDates.length} ngày</span>
                     <span class="dr-shift-agg-date">${formatDDMMYYYY(realToEntry(displayDate))}</span>
@@ -1572,7 +1580,7 @@
                 <td class="num">${formatMoney(sumCkTruoc)}</td>
                 <td class="num strong ${totalLeftDisplay < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeftDisplay)}</td>
                 <td class="note-cell" data-tooltip="${escapeHtml(sourceNotes.join('\n') || 'Không có ghi chú từ các ngày con')}">${sourceNotes.length ? '<i class="fas fa-comment-dots" title="Có ghi chú — hover xem"></i>' : ''}</td>
-                <td class="dr-report-td-approve">${_isAdmin() && anyApproved ? '<i class="fas fa-check-circle" style="color:#16a34a" title="Một/nhiều ngày con đã duyệt"></i>' : ''}</td>
+                <td class="dr-report-td-approve">${approveCellHtml}</td>
             </tr>`;
         }
 
@@ -1838,7 +1846,7 @@
                 updateSelectionBar();
                 return;
             }
-            // Approved checkbox
+            // Approved checkbox — single row hoặc merge row.
             if (el.dataset.field === 'approved') {
                 const mergeRow = el.closest('tr[data-merge-id]');
                 if (mergeRow) {
@@ -1857,6 +1865,25 @@
                 const next = !!el.checked;
                 if (!!ov.approved === next) return;
                 setOverride(row.dataset.date, state.activeTab, { approved: next });
+                scheduleRender();
+                return;
+            }
+            // Approved checkbox — aggregate row (date-shift dồn): fan-out sang TẤT
+            // CẢ source dates. data-shift-sources="2026-04-29,2026-04-30,2026-05-02".
+            if (el.dataset.field === 'approved-agg') {
+                const aggRow = el.closest('tr.dr-shift-agg-row');
+                if (!aggRow) return;
+                const sources = String(aggRow.dataset.shiftSources || '')
+                    .split(',')
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                if (sources.length === 0) return;
+                const next = !!el.checked;
+                for (const sd of sources) {
+                    const ov = getOverride(sd, state.activeTab);
+                    if (!!ov.approved === next) continue;
+                    setOverride(sd, state.activeTab, { approved: next });
+                }
                 scheduleRender();
             }
         });

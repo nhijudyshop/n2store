@@ -2436,6 +2436,23 @@ body.dr-mode-report #drTableWrapper {
     cursor: pointer;
     accent-color: #16a34a;
 }
+/* Aggregate row partial state: vài source approved, others chưa. Visual cue
+   để admin biết click sẽ bulk-approve tất cả ngày con (không phải toggle 1 ngày) */
+.dr-approve-toggle.is-partial {
+    position: relative;
+}
+.dr-approve-toggle.is-partial::after {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    width: 18px;
+    height: 18px;
+    margin: auto;
+    border-radius: 3px;
+    background: linear-gradient(135deg, #16a34a 0 50%, transparent 50% 100%);
+    pointer-events: none;
+    opacity: 0.45;
+}
 /* Non-admin: cell DUYỆT rỗng (placeholder gray dash). Hover → tooltip giải thích */
 .dr-approve-locked {
     display: inline-block;

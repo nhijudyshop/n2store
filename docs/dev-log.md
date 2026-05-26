@@ -25,6 +25,21 @@
 
 ## 2026-05-26
 
+### [delivery-report] Nút DUYỆT cho aggregate row (date-shift dồn) ✅
+
+**User ask**: "nút duyệt đâu?" — screenshot row "✦ 3 ngày — 02/05/2026" thiếu checkbox cột DUYỆT.
+
+**Root cause**: `renderShiftAggregateRow()` chỉ render icon `<i fa-check-circle>` khi `anyApproved`, không có checkbox để toggle.
+
+**Fix** ([report.js:1510-1577](delivery-report/js/report.js#L1510-L1577)):
+
+- Compute thêm `allApproved` (every source approved) song song `anyApproved`.
+- Render `<input type="checkbox" data-field="approved-agg">` cho admin. Checked khi `allApproved`. Class `is-partial` khi `anyApproved && !allApproved` (vài ngày con đã duyệt).
+- Tooltip: "Đã duyệt X/N ngày con — bấm để duyệt tất cả".
+- Thêm `data-shift-sources="2026-04-29,2026-04-30,2026-05-02"` cho handler.
+- Handler `data-field="approved-agg"` ([report.js:1882-1900](delivery-report/js/report.js#L1882-L1900)) parse `data-shift-sources` → `setOverride(sd, tab, {approved: next})` cho TỪNG source date. `setOverride` đã write-through DB → cross-machine sync nhờ override SSE topic.
+- CSS `.dr-approve-toggle.is-partial::after` triangle gradient visual cue.
+
 ### [delivery-report][render] Date shifts → Postgres + custom modal UI ✅
 
 **User ask** (2 tasks):
