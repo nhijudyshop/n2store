@@ -25,6 +25,72 @@
 
 ## 2026-05-26
 
+### [delivery-report/report] Virtual date shift — dời ngày + auto-aggregate khi trùng target ✅
+
+**User ask**: "kiểm tra lại toàn bộ dữ liệu tháng 4 luôn, phần ngày của riêng bảng này cho chỉnh ngày ảo → ví dụ 29/04, 30/04 tôi chỉnh thành 01/05, 02/05 thì hiển thị badge biết chỉnh sửa ngày và dữ liệu gộp vào 01/05, 02/05 → nếu 29/04, 30/04 tôi nhập cùng ngày 02/05 thì gộp 29/04, 30/04 hiển thị vào 02/05"
+
+**Fix** (`delivery-report/js/report.js` + `delivery-report/css/delivery-report.css`):
+
+**Storage layer**:
+
+- `_dateShifts` map (localStorage `dr-date-shifts-v1`): `{ '<realDate>__<group>': '<displayDate>' }`
+- Helpers: `getDisplayDate(realDate, group)`, `isDateShifted(realDate, group)`, `setDateShift(realDate, group, displayDate)`
+- Per machine; TODO sync server-side qua SSE notify
+
+**Render loop refactor** (`paintTable`):
+
+1. Build `displayBuckets: displayDate → [realDates]` (1 lần qua dates)
+2. Detect `virtualAggregates`: bucket có >1 sources HOẶC source ≠ target
+3. Sort union (`dates ∪ virtualAggregates.keys()`) làm thứ tự render
+4. Mỗi displayDate iterate:
+    - Là virtual agg → `renderShiftAggregateRow(displayDate, sources)` + mark all sources rendered
+    - Là source của virtual agg khác → skip (đã render qua target)
+    - Có manual merge → exclude shifted children khỏi merge, render bình thường (shift wins)
+    - Không gì → render single row bình thường
+
+**`renderShiftAggregateRow(displayDate, sources)`**:
+
+- Sum auto: `sysCount`, `money`, `shipFee` từ sources
+- Sum overrides: `slShip`, `thuVe`, `boCK`, `atruongCK`, `ckTruoc` từ sources
+- Approve: `anyApproved` = bất kỳ source approved → row hiển thị mờ + totalLeft=0
+- Read-only display (không có input fields — tránh ambiguity "input vào source nào")
+- Tổng row tally như merge row
+- Badge `<i class="fas fa-arrows-to-dot"></i> N ngày` purple chip + tooltip "Dồn từ N ngày: dd/mm, dd/mm → hiển thị tại dd/mm"
+- Class `dr-shift-agg-row` indigo bg
+- Admin có `×` unshift-all button
+
+**Single row badge + edit button**:
+
+- `dr-shift-badge` (amber chip "clock-rotate-left" icon) khi `isDateShifted(d, tab)` → tooltip "Ngày thật → hiển thị tại"
+- `dr-shift-edit` (pen icon, opacity-0 → opacity-1 on hover) → admin only, click prompt nhập YYYY-MM-DD
+- Row class `is-shifted` cho amber tint
+
+**Click handlers** (tbody):
+
+- `button[data-action="shift-edit"]` → admin prompt → `setDateShift` → `scheduleRender`
+- `[data-action="unshift-all"]` → tìm all keys shift về displayDate → `setDateShift(null)` từng cái → render
+
+**CSS** (`delivery-report.css`):
+
+- `.dr-shift-edit`: pen button hidden mặc định, opacity:1 khi `tr:hover`
+- `.dr-shift-badge`: amber chip
+- `.dr-shift-agg-row`: indigo `#eef2ff` bg, `:hover` → `#e0e7ff`, `.is-approved` mờ 0.65
+- `.dr-shift-agg-badge`: purple `#4338ca` pill
+- `.dr-shift-unshift`: red circle (giống dr-merge-unmerge pattern)
+
+**Verify** (Playwright init-script seed shifts):
+
+- Seed `{2026-05-02→2026-05-05, 2026-05-03→2026-05-05}` → render: aggregate row "3 ngày 06/05/2026 × 24 đơn", source rows 2026-05-02/03/05 đã consumed, total rows 24 → 23 ✅
+- Edit pen button: 24 buttons cho admin (1/row), title đúng ✅
+
+**TODO**:
+
+- Server-side sync (`delivery_assignment_date_shifts` table + SSE notify) — hiện tại per-machine
+- Inline editable (date input thay prompt) cho UX tốt hơn
+- Interaction với manual merge (hiện shift wins, có thể cần option khác)
+
+---
+
 ### [delivery-report/report] Non-admin: ẩn HẲN approved rows + đơn giản logic ✅
 
 **User ask**: "nếu không phải admin thì ẩn khỏi bảng các hàng được duyệt đi"
