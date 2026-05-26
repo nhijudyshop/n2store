@@ -342,6 +342,33 @@ Admin curl subscribe `web2:_admin:sse-log` + 2 lần trigger test broadcast → 
 
 ---
 
+### [product-warehouse] Instant search via idle-warmed template cache ✅
+
+**User ask**: "tìm kiếm sản phẩm render bảng theo dữ liệu nhập vào luôn đi" + "browser test phần tìm kiếm sao cho tối ưu nhất".
+
+**Previous behavior**: search input debounced 350ms → server OData fetch (~200-500ms) → render. Total perceived latency ~550-850ms per keystroke. Plus a server roundtrip for every typed character that survived the debounce.
+
+**Fix**: idle-warm the full template cache → per-keystroke search becomes a 5-20ms in-memory filter + render.
+
+- New `scheduleTemplateCachePrefetch()` — `requestIdleCallback` with `{timeout: 6000}` fires `fetchAllTemplatesRaw()` in background after first table load. ~14s to fetch all 3745 templates (4 calls of 1000), but happens once and doesn't block UI.
+- On search-input focus: also kick off cache fetch (if not already running) so users who type fast trigger the warm-up earlier.
+- `renderFromCacheBySearch()` — new fast path: filters the cached array via existing `applyClientFilters()` (text contains + numeric ops + price-eq fallback for digits), paginates, re-renders. No network call.
+- Search-input handler routes to fast path when `_allTemplatesCache && viewType === 'template'`. Falls back to a 250ms-debounced server fetch only while cache is still loading.
+- After prefetch settles, `fetchOtherTabCount()` is called so the inactive tab badge updates immediately.
+
+**Files modified**:
+
+- `product-warehouse/js/main.js`: `scheduleTemplateCachePrefetch()`, `renderFromCacheBySearch()`, search-input handler rewritten, init wires the prefetch.
+
+**Verification (Playwright)** with `page.on('request')` counter:
+
+- Initial table load: 1 server call.
+- Cache warms in ~14.6s in background (during user idle).
+- Type "B", "B2", "B25", "B254", "180000", "Combo", and clear: **0 additional server calls**. Per-keystroke wall-clock 90-154ms (test artificial wait 80ms → real render <70ms).
+- Result validity: "B254" → 11 rows (B2549 first), "180000" → 50 rows matched by ListPrice/PurchasePrice/StandardPrice, "Combo" → 21 rows, clear → 50 rows.
+
+Pattern reusable for any large list page where the dataset is bounded (~thousands).
+
 ### [product-warehouse] "Ẩn hiện cột" header btn + instant modal open ✅
 
 **User ask**: "chưa có cài đặt ẩn hiện cột, bật modal thêm sản phẩm lag quá -> web hiện tại mở modal rất lag, có cách nào thay thế modal hoặc tối ưu không?"

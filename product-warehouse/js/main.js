@@ -2732,12 +2732,17 @@
     function scheduleTemplateCachePrefetch() {
         const fire = () => {
             if (_allTemplatesCache) return; // already warm
-            fetchAllTemplatesRaw().catch((err) => {
-                console.warn(
-                    '[Prefetch] template cache failed (search falls back to server):',
-                    err
-                );
-            });
+            fetchAllTemplatesRaw()
+                .then(() => {
+                    // Refresh badges (inactive count) now that cache is hot
+                    fetchOtherTabCount();
+                })
+                .catch((err) => {
+                    console.warn(
+                        '[Prefetch] template cache failed (search falls back to server):',
+                        err
+                    );
+                });
         };
         if (typeof window.requestIdleCallback === 'function') {
             // Lower priority than dropdown prefetch (timeout 6s vs 3s) so it kicks
