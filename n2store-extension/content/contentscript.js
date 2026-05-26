@@ -306,7 +306,12 @@
     // content script's gesture handler qua chrome.runtime.sendMessage. Best-effort:
     // nếu Chrome accept → auto-enable stream mode (zero icon click). Nếu reject
     // → fallback popup icon click.
-    if (/^https:\/\/nhijudy\.store\/tpos-pancake\//.test(location.href)) {
+    // Match prod URL + localhost dev (browser test với --load-extension)
+    if (
+        /(https:\/\/nhijudy\.store|http:\/\/localhost(:\d+)?|http:\/\/127\.0\.0\.1(:\d+)?)\/tpos-pancake\//.test(
+            location.href
+        )
+    ) {
         let _streamGrabAttempted = false;
         const _tryGrabStream = () => {
             if (_streamGrabAttempted) return;

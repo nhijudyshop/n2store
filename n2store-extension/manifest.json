@@ -20,7 +20,11 @@
                 "https://*.nhijudyshop.workers.dev/*",
                 "https://nhijudyshop.workers.dev/*",
                 "https://nhijudyshop.github.io/*",
-                "https://nhijudy.store/*"
+                "https://nhijudy.store/*",
+                "http://localhost/*",
+                "http://localhost:*/*",
+                "http://127.0.0.1/*",
+                "http://127.0.0.1:*/*"
             ],
             "js": ["content/contentscript.js"],
             "run_at": "document_end"
@@ -62,7 +66,11 @@
         "https://nhijudyshop.github.io/*",
         "https://nhijudy.store/*",
         "*://tomato.tpos.vn/*",
-        "https://n2store-fallback.onrender.com/*"
+        "https://n2store-fallback.onrender.com/*",
+        "http://localhost/*",
+        "http://localhost:*/*",
+        "http://127.0.0.1/*",
+        "http://127.0.0.1:*/*"
     ],
     "commands": {
         "enable-stream-capture": {

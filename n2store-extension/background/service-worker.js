@@ -172,7 +172,11 @@ chrome.commands.onCommand.addListener(async (command) => {
             log.warn(MODULE, 'enable-stream-capture: no active tab');
             return;
         }
-        const isTposPancake = /^https:\/\/nhijudy\.store\/tpos-pancake\//.test(tab.url);
+        // Match prod + localhost dev
+        const isTposPancake =
+            /(https:\/\/nhijudy\.store|http:\/\/localhost(:\d+)?|http:\/\/127\.0\.0\.1(:\d+)?)\/tpos-pancake\//.test(
+                tab.url
+            );
         if (!isTposPancake) {
             log.warn(MODULE, 'enable-stream-capture: active tab không phải tpos-pancake');
             return;
