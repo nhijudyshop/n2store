@@ -3,29 +3,30 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7e6d827` — revert(snap): bỏ Option B mandatory modal — thay bằng visibility watcher
-**Last updated**: 2026-05-26 15:51:34 +07
-**Latest session**: [`RESUME:20260526-155134-7e6d827`](../20260526-155134-7e6d827.md)
-**Summary**: revert(snap): bỏ Option B mandatory modal — thay bằng visibility watcher
+**Latest commit**: `2f73eaa` — auto: session update
+**Last updated**: 2026-05-26 15:56:26 +07
+**Latest session**: [`RESUME:20260526-155626-2f73eaa`](../20260526-155626-2f73eaa.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
+- [`_root/`](./_root.md) — 1 file(s)
+- [`delivery-report/`](./delivery-report.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-05-24 13:33
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-05-26 13:59
+- [`_root/`](./_root.md) — updated 2026-05-26 15:56
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-05-22 12:35
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 15:44
-- [`docs/`](./docs.md) — updated 2026-05-26 15:51
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 15:56
+- [`docs/`](./docs.md) — updated 2026-05-26 15:56
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
