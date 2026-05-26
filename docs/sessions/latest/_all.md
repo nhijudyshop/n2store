@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `cf09cdc` — docs(dev-log): note TPOS visual match CSS polish for product-warehouse
-**Last updated**: 2026-05-26 10:45:12 +07
-**Latest session**: [`RESUME:20260526-104512-cf09cdc`](../20260526-104512-cf09cdc.md)
-**Summary**: docs(dev-log): note TPOS visual match CSS polish for product-warehouse
+**Latest commit**: `86804ab` — docs(dev-log): note balance-history UX overhaul (extraction_preview + date filter + CSV + auto-match)
+**Last updated**: 2026-05-26 10:46:48 +07
+**Latest session**: [`RESUME:20260526-104648-86804ab`](../20260526-104648-86804ab.md)
+**Summary**: docs(dev-log): note balance-history UX overhaul (extraction_preview + date filter + CSV + auto-match)
 
 ## Folders affected in this commit
 
@@ -24,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 09:55
-- [`docs/`](./docs.md) — updated 2026-05-26 10:45
+- [`docs/`](./docs.md) — updated 2026-05-26 10:46
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
