@@ -25,6 +25,50 @@
 
 ## 2026-05-26
 
+### [delivery-report/report] Phí ship per tab (tomato/nap=23k, city=20k) + settings popover + Admin gating ✅
+
+**User ask** (2 messages):
+
+1. "cho phí ship thành phố là 20, thêm cài đặt ở bảng → phần chỉnh phí ship cho từng cái"
+2. "tài khoản có tag Admin này thì mới cho duyệt và thấy những cái đã duyệt → tất cả tài khoản khác sẽ không thấy những cái đã duyệt và không bấm được checkbox duyệt"
+
+**Fix** (`delivery-report/js/report.js` + `delivery-report/css/delivery-report.css`):
+
+**Per-tab ship fee**:
+
+- Replace hằng `SHIP_FEE_PER_ORDER=23000` bằng `SHIP_FEE_DEFAULTS={tomato:23000, nap:23000, city:20000}` + helper `getShipFee(tab)` / `setShipFee(tab, value)`
+- Persist `localStorage[dr-report-ship-fees-v1]` per machine
+- Thay tất cả 8 callsites:
+    - 4 trong `computeTotalLeftForTab(tab, ...)` → dùng `tab` arg
+    - 4 trong `paintTable` / `renderSingleRow` / `renderMergeRow` → dùng `state.activeTab`
+- Settings UI: gear button `.dr-report-settings-btn` thêm vào `#drReportTabs`. Click → popover floating gần button, 3 inputs (per tab) với "Lưu" / "Mặc định" actions. Click outside để đóng. CSS dark popover với border-left color theo tab.
+
+**Admin gating**:
+
+- Helper `_isAdmin()` (reuse pattern từ `orders-report/js/phone-auto-register.js`): check `localStorage.userType.startsWith('admin')` || `auth.isAdmin === true` || `auth.roleTemplate === 'admin'` || `auth.checkLogin === 0`
+- Helper `effectiveApproved(value)` → returns `false` cho non-admin, `value` cho admin
+- Wire vào 5 nơi đọc `approved`:
+    - `renderSingleRow` line 1019: `const approved = effectiveApproved(ov.approved)`
+    - `renderMergeRow` line 1108: `const approved = effectiveApproved(merge.approved)`
+    - `computeTotalLeftForTab` 2 nơi (merge + single): `effectiveApproved(...) ? 0 : totalLeftRaw`
+    - Approve cell HTML: non-admin → `<span class="dr-approve-locked">` placeholder thay vì `<label><input>` checkbox
+- CSS `.dr-approve-locked`: diagonal stripe pattern gray, cursor not-allowed, tooltip "Chỉ tài khoản Admin mới được duyệt"
+
+**Hệ quả non-admin**:
+
+- Không thấy checkbox DUYỆT (chỉ thấy ô gạch chéo xám)
+- Không thấy row `is-approved` styling (mờ 0.45 opacity)
+- Tổng còn lại tính FULL (không trừ approved → thấy đầy đủ outstanding)
+- Tab totals cũng không trừ approved
+
+**Verify** (Playwright multi-state test):
+
+- ADMIN: `hasCheckbox:true, hasLock:false, hasSettingsBtn:true` ✅
+- Settings popover: 3 inputs với defaults `tomato=23000, nap=23000, city=20000` ✅
+- NON-ADMIN: `hasCheckbox:false, hasLock:true, approvedRowCount:0` ✅
+
+---
+
 ### [delivery-report/report] Tổng còn lại per tab + grand total ngang ✅
 
 **User ask**: "tổng còn lại chi nằm ở dưới chữ hình 2, ví dụ tổng còn lại tomato cho nằm dưới tomato, nap cho nằm dưới nap, thành phố cho nằm dưới thành phố (canh giữa các phần này, chỉ cần ghi số tiền) → bên phải thành phố có tổng = 3 cái tổng còn lại + lại".
