@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `732cd20` — feat(web2): Phase 3 — frontend isolation 100% qua /api/web2/_ (rewrite)
-**Last updated**: 2026-05-25 19:40:11 +07
-**Latest session**: [`RESUME:20260525-194011-732cd20`](../20260525-194011-732cd20.md)
-**Summary**: feat(web2): Phase 3 — frontend isolation 100% qua /api/web2/_ (rewrite)
+**Latest commit**: `8421a58` — feat(product-warehouse): variant DefaultCode rỗng → TPOS auto-generate
+**Last updated**: 2026-05-26 09:09:28 +07
+**Latest session**: [`RESUME:20260526-090928-8421a58`](../20260526-090928-8421a58.md)
+**Summary**: feat(product-warehouse): variant DefaultCode rỗng → TPOS auto-generate
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 5 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
+- [`web2/`](./web2.md) — 6 file(s)
 
 ## All folder snapshots
 
@@ -44,7 +45,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-25 14:08
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-25 19:23
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 09:09
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
@@ -67,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-25 19:40
+- [`web2/`](./web2.md) — updated 2026-05-26 09:09
