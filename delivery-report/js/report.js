@@ -38,15 +38,35 @@
 
     // Admin gating: chỉ tag Admin mới thấy + bấm được DUYỆT. Non-admin xem báo
     // cáo bình thường (treat approved=false → thấy đầy đủ outstanding amount).
-    // Reuse pattern từ orders-report/js/phone-auto-register.js _isAdmin().
+    //
+    // Canonical source: sessionStorage/localStorage 'loginindex_auth' (cùng key
+    // với shared/js/permissions-helper.js → PermissionHelper.isAdmin()). Auth
+    // object có dạng { isAdmin:true, roleTemplate:'admin', userType:'admin-*',
+    // checkLogin:'admin'|0, ... }. Tag "Admin" UI ở account management map
+    // sang `roleTemplate='admin'` hoặc `isAdmin=true` flag.
     function _isAdmin() {
         try {
-            const auth = window.authManager?.getAuthData?.();
-            const userType = (localStorage.getItem('userType') || '').toLowerCase();
-            if (userType.startsWith('admin')) return true;
-            if (auth?.isAdmin === true) return true;
-            if (auth?.roleTemplate === 'admin') return true;
-            if (auth?.checkLogin === 0) return true;
+            // 1. Canonical: loginindex_auth (PermissionHelper source of truth)
+            //    Nếu canonical hiện diện → STRICT, không fallback legacy
+            //    (tránh legacy localStorage.userType cũ override quyết định).
+            const raw =
+                sessionStorage.getItem('loginindex_auth') ||
+                localStorage.getItem('loginindex_auth');
+            if (raw) {
+                const auth = JSON.parse(raw);
+                if (auth?.isAdmin === true) return true;
+                if (auth?.roleTemplate === 'admin') return true;
+                const at = String(auth?.userType || '').toLowerCase();
+                if (at.startsWith('admin')) return true;
+                if (auth?.checkLogin === 'admin' || auth?.checkLogin === 0) return true;
+                return false; // Canonical nói KHÔNG admin → dừng, không fallback
+            }
+            // Canonical absent (rare) → thử fallback
+            const am = window.authManager?.getAuthData?.();
+            if (am?.isAdmin === true || am?.roleTemplate === 'admin') return true;
+            if (window.PermissionHelper?.isAdmin?.()) return true;
+            const ut = (localStorage.getItem('userType') || '').toLowerCase();
+            if (ut.startsWith('admin')) return true;
             return false;
         } catch {
             return false;
@@ -57,6 +77,30 @@
     function effectiveApproved(value) {
         return _isAdmin() ? !!value : false;
     }
+    // Debug helper — gõ vào DevTools: window.__DR_authDebug() để xem chi tiết
+    // lý do bị/không bị detect là Admin.
+    window.__DR_authDebug = function () {
+        const raw =
+            sessionStorage.getItem('loginindex_auth') || localStorage.getItem('loginindex_auth');
+        let auth = null;
+        try {
+            auth = raw ? JSON.parse(raw) : null;
+        } catch {}
+        return {
+            isAdminResult: _isAdmin(),
+            authPresent: !!auth,
+            isAdminFlag: auth?.isAdmin,
+            roleTemplate: auth?.roleTemplate,
+            authUserType: auth?.userType,
+            checkLogin: auth?.checkLogin,
+            legacyUserTypeLS: localStorage.getItem('userType'),
+            hasAuthManager: !!window.authManager,
+            authManagerIsAdmin:
+                window.authManager?.getAuthData?.()?.isAdmin === true ||
+                window.authManager?.getAuthData?.()?.roleTemplate === 'admin',
+            hasPermissionHelper: !!window.PermissionHelper,
+        };
+    };
 
     function toggleShipFeeSettings(anchorBtn) {
         const existing = document.getElementById('drShipFeePopover');

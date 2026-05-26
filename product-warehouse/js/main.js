@@ -2597,6 +2597,7 @@
 
         // Column settings modal
         $('#btnColumnSettings')?.addEventListener('click', openColumnSettings);
+        $('#btnColumnSettingsHeader')?.addEventListener('click', openColumnSettings);
         $('#closeColumnSettings')?.addEventListener('click', closeColumnSettingsModal);
         $('#cancelColumnSettings')?.addEventListener('click', closeColumnSettingsModal);
         $('#saveColumnSettings')?.addEventListener('click', saveColumnSettingsFromModal);

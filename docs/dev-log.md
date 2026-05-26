@@ -25,6 +25,32 @@
 
 ## 2026-05-26
 
+### [delivery-report/report] Fix Admin detection — strict canonical + debug helper ✅
+
+**User báo**: "hình như chưa nhận biết được account Admin và chỗ để so sánh nhận biết Admin"
+
+**Diagnosis** (Playwright dump auth):
+
+- Canonical source: `localStorage['loginindex_auth']` (cùng PermissionHelper) — auth thật: `{isAdmin:true, roleTemplate:'admin', userType:'admin-authenticated', checkLogin:'admin'}`
+- `_isAdmin()` cũ check `window.authManager.getAuthData()` — work OK với admin session
+- **Bug ẩn**: fallback `localStorage.userType` legacy key vẫn còn giá trị `"admin-authenticated"` từ session admin trước → khi non-admin login, fallback positive sai → tag Admin "leak" cho non-admin
+
+**Fix** (`delivery-report/js/report.js`):
+
+- Rewrite `_isAdmin()` với 4 strategies có ưu tiên rõ:
+    1. **STRICT canonical**: đọc `sessionStorage`/`localStorage['loginindex_auth']`. Nếu có → check `isAdmin === true` || `roleTemplate === 'admin'` || `userType.startsWith('admin')` || `checkLogin in ['admin', 0]`. **Trả về kết quả ngay, KHÔNG fallback** (tránh legacy override quyết định)
+       2-4. Fallback `authManager` / `PermissionHelper` / legacy `userType` — chỉ khi canonical absent
+- Thêm `window.__DR_authDebug()` — gõ vào DevTools dump full auth state + lý do detect/không detect Admin
+
+**Verify** (Playwright):
+
+- Real admin session → `_isAdmin() = true` ✅
+- Override `{isAdmin:false, roleTemplate:'user'}` → `_isAdmin() = false` ✅ (legacy `userType` cũ không leak nữa)
+
+**Cách user verify trong DevTools**: `window.__DR_authDebug()` → object với `isAdminResult` + breakdown các field.
+
+---
+
 ### [shared][supplier-debt] Fix bug search + tối ưu modal "Trả hàng NCC" (bulk-fetch + cache + client filter) ✅
 
 **User ask**: "bảng trả hàng -> tìm kiếm sản phẩm chưa được và lag -> browser test vào tomato.tpos.vn/refundform1 xem tất cả chức năng" + "thường web bật modal rất lag -> tìm cách khác tối ưu".

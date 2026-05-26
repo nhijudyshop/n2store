@@ -110,6 +110,40 @@ html body {
     border-color: var(--pw-accent-hover) !important;
 }
 
+/* Ẩn hiện cột — always visible in header next to Thêm SP. White btn that lights
+   up purple on hover to match the other toolbar btns. */
+.btn-column-settings-header {
+    margin-left: 6px;
+    height: 30px;
+    padding: 0 10px !important;
+    background: var(--pw-bg-card) !important;
+    border: 1px solid var(--pw-border) !important;
+    color: var(--pw-muted) !important;
+    border-radius: 2px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        border-color 0.15s,
+        color 0.15s;
+}
+
+.btn-column-settings-header i,
+.btn-column-settings-header svg {
+    width: 12px !important;
+    height: 12px !important;
+}
+
+.btn-column-settings-header:hover {
+    background: var(--pw-accent) !important;
+    border-color: var(--pw-accent) !important;
+    color: #fff !important;
+}
+
 .btn-toggle-filters {
     margin-left: 8px;
     width: 32px;
