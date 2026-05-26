@@ -618,50 +618,46 @@ app.use('/api/pancake-page-tokens', pancakePageTokensRoutes);
 const { initializeNotifiers } = require('./routes/realtime-db');
 initializeNotifiers(realtimeSseRoutes.notifyClients, realtimeSseRoutes.notifyClientsWildcard);
 
-// Initialize SSE notifier for Web 2.0 products (topic: 'web2:products').
-// Replaces Firestore tickle pattern — server broadcasts after each DB mutation
-// so client cache (web2-products-cache.js → web2-sse-bridge.js) refreshes
-// without paying Firestore reads/writes per change.
-if (web2ProductsRoutes.initializeNotifiers) {
-    web2ProductsRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
-}
-if (nativeOrdersRoutes.initializeNotifiers) {
-    nativeOrdersRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
-}
-if (web2GenericRoutes.initializeNotifiers) {
-    web2GenericRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
-}
-if (web2VariantsRoutes.initializeNotifiers) {
-    web2VariantsRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
-}
-if (purchaseRefundRoutes.initializeNotifiers) {
-    purchaseRefundRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
-}
-// fastSaleOrdersRoutes đã require ở top (line 332). Web2-users require inline qua
-// app.use line 456 — re-require ở đây để có handle gọi initializeNotifiers.
+// Initialize SSE notifier for Web 2.0 routes — dùng web2RealtimeSseRoutes (hub riêng).
+// Topic naming: 'web2:<entity>'. Tách hoàn toàn khỏi Web 1.0 SSE từ 2026-05-26.
 // Pattern thống nhất: gọi initializeNotifiers ở top-level if, không block-scope
 // (block scope đã verified bug — SSE event không fire dù require cached).
+if (web2ProductsRoutes.initializeNotifiers) {
+    web2ProductsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
+if (nativeOrdersRoutes.initializeNotifiers) {
+    nativeOrdersRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
+if (web2GenericRoutes.initializeNotifiers) {
+    web2GenericRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
+if (web2VariantsRoutes.initializeNotifiers) {
+    web2VariantsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
+if (purchaseRefundRoutes.initializeNotifiers) {
+    purchaseRefundRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
 if (fastSaleOrdersRoutes.initializeNotifiers) {
-    fastSaleOrdersRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+    fastSaleOrdersRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
 if (reconcileRoutes.initializeNotifiers) {
-    reconcileRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+    reconcileRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
 const web2UsersRoutes = require('./routes/web2-users');
 if (web2UsersRoutes.initializeNotifiers) {
-    web2UsersRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+    web2UsersRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
 if (web2NotificationsRoutes.initializeNotifiers) {
-    web2NotificationsRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+    web2NotificationsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
 if (web2DashboardRoutes.initializeNotifiers) {
-    web2DashboardRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+    web2DashboardRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
 if (web2CartRoutes.initializeNotifiers) {
-    web2CartRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+    web2CartRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
 if (livestreamSnapshotsRoutes.initializeNotifiers) {
-    livestreamSnapshotsRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+    livestreamSnapshotsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
 
 // Initialize SSE notifiers in order-notes routes
