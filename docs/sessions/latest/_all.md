@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c099ceb` — fix(web2/customer-wallet): merge wallet-only customers (KH có ví Web 2 nhưng chưa lập PBH)
-**Last updated**: 2026-05-26 09:31:37 +07
-**Latest session**: [`RESUME:20260526-093137-c099ceb`](../20260526-093137-c099ceb.md)
-**Summary**: fix(web2/customer-wallet): merge wallet-only customers (KH có ví Web 2 nhưng chưa lập PBH)
+**Latest commit**: `6ed0ed9` — auto: session update
+**Last updated**: 2026-05-26 09:41:43 +07
+**Latest session**: [`RESUME:20260526-094143-6ed0ed9`](../20260526-094143-6ed0ed9.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
@@ -67,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-26 09:31
+- [`web2/`](./web2.md) — updated 2026-05-26 09:41
