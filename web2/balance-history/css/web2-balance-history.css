@@ -350,11 +350,14 @@
     background: #fee2e2;
     color: #991b1b;
 }
-.w2bh-pill.legacy {
+.w2bh-pill.processing {
     background: #f3f4f6;
     color: #6b7280;
     border: 1px dashed #d1d5db;
     cursor: help;
+}
+.w2bh-pill.processing::before {
+    content: '⏳ ';
 }
 
 .w2bh-link-btn {

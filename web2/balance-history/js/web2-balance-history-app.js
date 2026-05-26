@@ -127,6 +127,35 @@
         dom.csvBtn = document.getElementById('w2bhCsvBtn');
     }
 
+    // Auto-reprocess: fire-and-forget background reprocess khi page load.
+    // Web 2.0 = 100% auto — không để user phải bấm nút thủ công cho legacy
+    // rows. Throttle bằng sessionStorage để chỉ chạy 1 lần/session.
+    let _autoReprocessFired = false;
+    async function autoReprocessOnLoad() {
+        if (_autoReprocessFired) return;
+        _autoReprocessFired = true;
+        const lastRun = Number(sessionStorage.getItem('w2bh_last_auto_reprocess') || 0);
+        if (Date.now() - lastRun < 5 * 60 * 1000) return; // throttle 5min/session
+        sessionStorage.setItem('w2bh_last_auto_reprocess', String(Date.now()));
+        try {
+            const r = await withFallback('/reprocess-unmatched', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ limit: 200 }),
+            });
+            const s = r?.data || {};
+            if (s.picked > 0 && (s.matched > 0 || s.pending > 0)) {
+                notify(
+                    `Auto-process: ${s.matched} cộng ví, ${s.pending} chờ chọn KH, ${s.no_match} không match`,
+                    'info'
+                );
+                await load();
+            }
+        } catch (e) {
+            console.warn('[w2bh] auto-reprocess failed:', e.message);
+        }
+    }
+
     async function reprocessUnmatched() {
         const btn = dom.reprocessBtn;
         if (!btn) return;
@@ -237,34 +266,24 @@
         const phone = r.linked_customer_phone || '';
         const name = r.display_name || '';
         const method = r.match_method || '';
-        // Badge logic — phân biệt rõ:
-        //   AUTO_APPROVED + Web 2.0 method → "Tự động" (xanh)
-        //   pending_match / pending_low_confidence → "Chờ chọn" (vàng)
-        //   manual_link → "Thủ công" (xanh dương — user click "Gán KH")
-        //   phone + debt_added=false → "Legacy" (xám — backfill từ Web 1.0,
-        //     ví Web 2.0 CHƯA cộng tiền, cần Reprocess hoặc bỏ qua)
-        //   phone + debt_added=true (legacy single_match/qr_code) → "Cũ" (xám nhạt)
-        //   no phone → "Chưa gán" (đỏ)
-        const WEB2_AUTO_METHODS = new Set(['exact_phone', 'single_match', 'qr_code']);
+        // Badge logic — Web 2.0 = 100% tự động. Chỉ 3 trạng thái:
+        //   AUTO_APPROVED hoặc debt_added=true → "Tự động" (xanh, đã cộng ví)
+        //   pending_match / pending_low_confidence → "Chờ chọn" (vàng, multi-match cần user)
+        //   chưa xử lý → "Đang xử lý…" (xám, auto-reprocess sẽ chạy)
+        //   no phone + đã reprocess không ra → "Chưa gán" (đỏ, cần user gán hoặc bỏ qua)
         const verifBadge = (() => {
             if (method === 'pending_match') {
-                return '<span class="w2bh-pill pending">Chờ chọn</span>';
+                return '<span class="w2bh-pill pending">Chờ chọn KH</span>';
             }
             if (method === 'pending_low_confidence') {
-                return '<span class="w2bh-pill pending">Low conf</span>';
+                return '<span class="w2bh-pill pending">Chờ xác minh</span>';
             }
-            if (method === 'manual_link') {
-                return '<span class="w2bh-pill manual" title="User click Gán KH trên Web 2.0">Thủ công</span>';
-            }
-            if (r.verification_status === 'AUTO_APPROVED' && WEB2_AUTO_METHODS.has(method)) {
-                return '<span class="w2bh-pill auto">Tự động</span>';
+            if (r.debt_added === true) {
+                return '<span class="w2bh-pill auto" title="Đã cộng ví Web 2.0 tự động">Tự động</span>';
             }
             if (phone) {
-                // Có phone nhưng KHÔNG phải Web 2.0 process → legacy backfill
-                if (r.debt_added && r.wallet_processed) {
-                    return '<span class="w2bh-pill legacy" title="Legacy: extract từ Web 1.0, đã cộng ví">Cũ — đã cộng ví</span>';
-                }
-                return '<span class="w2bh-pill legacy" title="Legacy: có phone từ extractor cũ nhưng ví Web 2.0 chưa cộng. Bấm ⚡ để reprocess.">Cũ — chưa cộng ví</span>';
+                // Có phone nhưng wallet chưa process → đang chờ auto-reprocess
+                return '<span class="w2bh-pill processing" title="Đang chờ Web 2.0 matcher cộng ví. Bấm ⚡ để chạy ngay.">Đang xử lý…</span>';
             }
             return '<span class="w2bh-pill nophone">Chưa gán</span>';
         })();
@@ -303,9 +322,9 @@
             r.extraction_preview &&
             r.extraction_preview.type !== 'none' &&
             r.extraction_preview.value;
-        // Legacy row: có phone từ Web 1.0 extractor nhưng ví Web 2.0 chưa cộng
-        // → cho phép reprocess để Web 2.0 matcher tự cộng ví.
-        const isLegacyUnprocessed =
+        // Row có phone nhưng ví Web 2.0 chưa cộng → cho phép Reprocess thủ công
+        // (auto-reprocess đã chạy background; nút này để user trigger ngay nếu cần).
+        const needsProcessing =
             phone &&
             !r.debt_added &&
             r.transfer_type === 'in' &&
@@ -338,8 +357,8 @@
                             : ''
                     }
                     ${
-                        isLegacyUnprocessed
-                            ? `<button type="button" class="w2bh-icon-btn auto-match" data-action="auto-match" data-id="${r.id}" title="Reprocess legacy: chạy lại Web 2.0 matcher để cộng ví">
+                        needsProcessing
+                            ? `<button type="button" class="w2bh-icon-btn auto-match" data-action="auto-match" data-id="${r.id}" title="Chạy ngay Web 2.0 matcher để cộng ví">
                                 <i data-lucide="zap" style="width:14px;height:14px;"></i>
                             </button>`
                             : ''
@@ -631,6 +650,9 @@
         bindEvents();
         load();
         setupSSE();
+        // Fire auto-reprocess in background after initial render. Web 2.0 = 100%
+        // tự động — không để user thấy "Đang xử lý…" lâu cho rows từ legacy backfill.
+        setTimeout(() => autoReprocessOnLoad(), 2000);
     }
 
     if (document.readyState === 'loading') {

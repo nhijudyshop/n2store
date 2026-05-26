@@ -270,8 +270,11 @@ router.post('/:id/auto-match', async (req, res) => {
 
 // =====================================================
 // POST /api/web2/balance-history/reprocess-unmatched
-// Bulk re-run processWeb2Match for NO_PHONE rows (backfilled từ legacy
-// chưa từng đi qua Web 2.0 matching engine với improved extractor).
+// Bulk re-run processWeb2Match for ALL unprocessed 'in' rows:
+//   - linked_customer_phone IS NULL (chưa extract được phone), OR
+//   - linked_customer_phone IS NOT NULL nhưng debt_added=false (legacy
+//     từ Web 1.0 backfill, có phone nhưng ví Web 2.0 chưa cộng tiền)
+// Web 2.0 = 100% auto: không có khái niệm "manual" hay "cũ" cho user.
 // Body: { limit?: number, dryRun?: boolean }
 // =====================================================
 router.post('/reprocess-unmatched', async (req, res) => {
@@ -280,14 +283,13 @@ router.post('/reprocess-unmatched', async (req, res) => {
         const limit = Math.min(parseInt(req.body?.limit) || 200, 500);
         const dryRun = req.body?.dryRun === true;
         const { fetchWithTimeout } = require('../../../shared/node/fetch-utils.cjs');
-        // path is 3 levels up: routes/v2 → routes → render.com → n2store → shared/
 
         const rows = await db.query(
-            `SELECT id, sepay_id, content, transfer_amount
+            `SELECT id, sepay_id, content, transfer_amount, linked_customer_phone
              FROM web2_balance_history
-             WHERE linked_customer_phone IS NULL
-               AND transfer_type = 'in'
+             WHERE transfer_type = 'in'
                AND debt_added = FALSE
+               AND COALESCE(match_method, '') NOT IN ('pending_match', 'pending_low_confidence')
              ORDER BY transaction_date DESC NULLS LAST
              LIMIT $1`,
             [limit]
