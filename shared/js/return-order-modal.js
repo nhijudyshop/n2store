@@ -174,14 +174,19 @@ window.ReturnOrderModal = (function () {
         _writeProductCache(S.allProducts);
     }
 
+    // Strip Vietnamese diacritics so users can search "dam" → matches "ĐẦM", etc.
+    function _normalizeVi(s) {
+        return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+    }
+
     function _applyFilterSort() {
-        const q = (S.searchQuery || '').trim().toLowerCase();
+        const q = _normalizeVi((S.searchQuery || '').trim());
         let arr = S.allProducts;
         if (q) {
             arr = arr.filter((p) => {
-                const name = (p.NameGet || p.Name || '').toLowerCase();
-                const code = (p.DefaultCode || '').toLowerCase();
-                const barcode = (p.Barcode || '').toLowerCase();
+                const name = _normalizeVi(p.NameGet || p.Name || '');
+                const code = _normalizeVi(p.DefaultCode || '');
+                const barcode = _normalizeVi(p.Barcode || '');
                 return name.includes(q) || code.includes(q) || barcode.includes(q);
             });
         }

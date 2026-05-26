@@ -65,25 +65,33 @@
     background: #16a34a;
     color: white;
 }
-.btn-confirm-print:hover { background: #15803d; }
+.btn-confirm-print:hover {
+    background: #15803d;
+}
 
 .btn-confirm-view {
     background: #f59e0b;
     color: white;
 }
-.btn-confirm-view:hover { background: #d97706; }
+.btn-confirm-view:hover {
+    background: #d97706;
+}
 
 .btn-save-draft {
     background: #6366f1;
     color: white;
 }
-.btn-save-draft:hover { background: #4f46e5; }
+.btn-save-draft:hover {
+    background: #4f46e5;
+}
 
 .btn-go-back {
     background: #e2e8f0;
     color: #334155;
 }
-.btn-go-back:hover { background: #cbd5e1; }
+.btn-go-back:hover {
+    background: #cbd5e1;
+}
 
 /* Two-panel body */
 .return-order-body {
@@ -248,6 +256,11 @@
     color: #94a3b8;
 }
 
+.return-product-stock .stock-unknown {
+    color: #cbd5e1;
+    font-style: italic;
+}
+
 /* Unit & Price columns */
 .return-product-unit {
     font-size: 12px;
@@ -379,7 +392,7 @@
     border-top: none;
     border-radius: 0 0 4px 4px;
     z-index: 10;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .return-supplier-wrapper .dropdown-item {

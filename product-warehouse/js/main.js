@@ -48,6 +48,11 @@
     // they load this build — old key `n2store_warehouse_columns` (all-visible) becomes
     // stale and is ignored. After v2 read, save() persists their preference.
     const STORAGE_KEY = 'n2store_warehouse_columns_v2';
+    // Manual column widths set via drag-resize handle. Per-column key → px width.
+    // Absence of a key means "use default / auto-fit (for name)".
+    const STORAGE_COL_WIDTHS = 'n2store_warehouse_col_widths';
+    const MIN_COL_WIDTH = 40;
+    const MAX_COL_WIDTH = 800;
 
     // Sort field mapping (local key → Render DB column)
     const SORT_FIELD_MAP = {
@@ -1639,6 +1644,162 @@
     const showToast = WS.showToast;
 
     // =====================================================
+    // COLUMN WIDTHS — drag-resize per-column + auto-fit Name col
+    // =====================================================
+    // Manual widths loaded from localStorage; key = col data-col, value = px.
+    // Object lives at module scope so resize/auto-fit can read+write without
+    // re-parsing storage on each frame.
+    let manualColWidths = {};
+
+    function loadColWidths() {
+        try {
+            const raw = localStorage.getItem(STORAGE_COL_WIDTHS);
+            if (raw) manualColWidths = JSON.parse(raw) || {};
+        } catch (_) {
+            manualColWidths = {};
+        }
+    }
+
+    function saveColWidths() {
+        try {
+            localStorage.setItem(STORAGE_COL_WIDTHS, JSON.stringify(manualColWidths));
+        } catch (_) {
+            /* quota / private mode — silently ignore */
+        }
+    }
+
+    function applyColWidthsToDOM() {
+        Object.entries(manualColWidths).forEach(([colKey, w]) => {
+            const px = Math.max(MIN_COL_WIDTH, Math.min(MAX_COL_WIDTH, parseInt(w, 10) || 0));
+            if (!px) return;
+            const th = document.querySelector(`.warehouse-table th[data-col="${colKey}"]`);
+            if (th) {
+                th.style.width = px + 'px';
+                th.style.minWidth = px + 'px';
+                th.style.maxWidth = px + 'px';
+            }
+        });
+    }
+
+    function attachColResizeHandles() {
+        // One handle per th[data-col]. Idempotent — skips ths that already have one.
+        document.querySelectorAll('.warehouse-table thead th[data-col]').forEach((th) => {
+            if (th.querySelector('.col-resize-handle')) return;
+            // Skip cosmetic/icon-only cols (no useful content to size against)
+            const colKey = th.dataset.col;
+            if (!colKey || ['checkbox', 'actions', 'image'].includes(colKey)) return;
+            const handle = document.createElement('span');
+            handle.className = 'col-resize-handle';
+            handle.setAttribute('aria-label', 'Kéo để chỉnh độ rộng cột');
+            handle.title = 'Kéo để chỉnh độ rộng (double-click = auto)';
+            th.appendChild(handle);
+        });
+    }
+
+    // Mouse-driven drag: track via flag so we don't re-add listeners per th.
+    function setupColResizeDrag() {
+        const thead = document.querySelector('.warehouse-table thead');
+        if (!thead) return;
+        let resizing = null; // {colKey, startX, startWidth, th}
+
+        thead.addEventListener('mousedown', (e) => {
+            const handle = e.target.closest('.col-resize-handle');
+            if (!handle) return;
+            const th = handle.closest('th[data-col]');
+            const colKey = th?.dataset.col;
+            if (!colKey) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const rect = th.getBoundingClientRect();
+            resizing = { colKey, startX: e.clientX, startWidth: rect.width, th };
+            handle.classList.add('is-resizing');
+            document.body.classList.add('col-resizing');
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!resizing) return;
+            const delta = e.clientX - resizing.startX;
+            const newW = Math.max(
+                MIN_COL_WIDTH,
+                Math.min(MAX_COL_WIDTH, Math.round(resizing.startWidth + delta))
+            );
+            resizing.th.style.width = newW + 'px';
+            resizing.th.style.minWidth = newW + 'px';
+            resizing.th.style.maxWidth = newW + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!resizing) return;
+            const rect = resizing.th.getBoundingClientRect();
+            manualColWidths[resizing.colKey] = Math.round(rect.width);
+            saveColWidths();
+            document
+                .querySelectorAll('.col-resize-handle.is-resizing')
+                .forEach((h) => h.classList.remove('is-resizing'));
+            document.body.classList.remove('col-resizing');
+            resizing = null;
+        });
+
+        // Double-click handle → reset that column to default (delete saved width).
+        thead.addEventListener('dblclick', (e) => {
+            const handle = e.target.closest('.col-resize-handle');
+            if (!handle) return;
+            const th = handle.closest('th[data-col]');
+            const colKey = th?.dataset.col;
+            if (!colKey) return;
+            e.preventDefault();
+            e.stopPropagation();
+            delete manualColWidths[colKey];
+            saveColWidths();
+            th.style.width = '';
+            th.style.minWidth = '';
+            th.style.maxWidth = '';
+            // Re-run auto-fit for name col if applicable
+            if (colKey === 'name') autoFitNameColumn();
+        });
+    }
+
+    // Auto-fit "Tên" column to longest visible product name. Skipped when:
+    //   - User has manually resized name col (saved width takes precedence).
+    //   - Search query is active (avoids reflow lag per keystroke).
+    // Idempotent: safe to call after every render.
+    function autoFitNameColumn() {
+        if (manualColWidths.name) return;
+        if (($('#searchInput')?.value || '').trim() !== '') return;
+        const nameTds = document.querySelectorAll(
+            '.warehouse-table tbody td[data-col="name"] .product-name'
+        );
+        if (nameTds.length === 0) return;
+
+        // Measure via a temporary off-screen span using the same font/size.
+        const sample = nameTds[0];
+        const cs = getComputedStyle(sample);
+        const probe = document.createElement('span');
+        probe.style.cssText = `
+            position: absolute; visibility: hidden; white-space: nowrap;
+            font: ${cs.font};
+            padding: 0; margin: 0; border: 0;
+        `;
+        document.body.appendChild(probe);
+        let maxW = 0;
+        nameTds.forEach((el) => {
+            probe.textContent = el.textContent.trim();
+            const w = probe.offsetWidth;
+            if (w > maxW) maxW = w;
+        });
+        document.body.removeChild(probe);
+        if (maxW === 0) return;
+
+        // Add padding (cell padding + variant badge slack) + cap at 480px
+        const target = Math.min(480, Math.max(140, maxW + 24));
+        const th = document.querySelector('.warehouse-table th[data-col="name"]');
+        if (th) {
+            th.style.width = target + 'px';
+            th.style.minWidth = target + 'px';
+        }
+    }
+
+    // =====================================================
     // COLUMN VISIBILITY
     // =====================================================
     function loadColumnVisibility() {
@@ -1843,6 +2004,11 @@
 
         // Lucide icons
         WS.initIcons();
+
+        // Column widths — apply saved + auto-fit Name (skipped if user resized
+        // or search is active). Run after render so name cells are measurable.
+        applyColWidthsToDOM();
+        autoFitNameColumn();
     }
 
     function renderPagination(total, totalPages, start, end) {
@@ -5107,11 +5273,16 @@
         if (pageSizeSelect) pageSize = parseInt(pageSizeSelect.value, 10);
 
         loadColumnVisibility();
+        loadColWidths();
+        attachColResizeHandles();
+        setupColResizeDrag();
         setupEventListeners();
         bindExpandTabSwitching();
         WS.initImageZoomHover('#productTableBody');
 
         WS.initIcons();
+        // Apply saved col widths after icons so the th layout is stable
+        applyColWidthsToDOM();
 
         // Fetch first page from Render DB
         await fetchProducts();

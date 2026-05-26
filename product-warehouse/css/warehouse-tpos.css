@@ -746,6 +746,41 @@ body.has-selection .toolbar-bulk-actions {
     border-bottom: 1px solid var(--pw-border) !important;
     border-right: 1px solid var(--pw-border) !important;
     height: 36px;
+    position: relative;
+}
+
+/* Resize handle on right edge of each th — drag to adjust column width.
+   Saved per-column to localStorage (key: n2store_warehouse_col_widths).
+   5px hit area, expands hover/active band for clear affordance. */
+.warehouse-table thead th .col-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -2px;
+    width: 5px;
+    height: 100%;
+    cursor: col-resize;
+    user-select: none;
+    z-index: 3;
+    background: transparent;
+    transition: background 0.12s;
+}
+
+.warehouse-table thead th .col-resize-handle:hover,
+.warehouse-table thead th .col-resize-handle.is-resizing {
+    background: var(--pw-accent);
+    opacity: 0.55;
+}
+
+/* While dragging: stretch the colored band slightly + lock pointer so
+   accidental hovers don't break the drag affordance. */
+body.col-resizing {
+    cursor: col-resize !important;
+    user-select: none !important;
+}
+
+body.col-resizing * {
+    cursor: col-resize !important;
+    user-select: none !important;
 }
 
 .warehouse-table thead th:first-child {
