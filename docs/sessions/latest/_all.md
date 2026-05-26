@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2f066d5` — perf(product-warehouse): optimistic UI update + background save (10× faster)
-**Last updated**: 2026-05-26 09:15:55 +07
-**Latest session**: [`RESUME:20260526-091555-2f066d5`](../20260526-091555-2f066d5.md)
-**Summary**: perf(product-warehouse): optimistic UI update + background save (10× faster)
+**Latest commit**: `89da4e8` — fix(delivery-report/report): expand row fetch TPOS theo date-range thay vi chunked Number filter
+**Last updated**: 2026-05-26 09:25:52 +07
+**Latest session**: [`RESUME:20260526-092552-89da4e8`](../20260526-092552-89da4e8.md)
+**Summary**: fix(delivery-report/report): expand row fetch TPOS theo date-range thay vi chunked Number filter
 
 ## Folders affected in this commit
 
-- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
+- [`delivery-report/`](./delivery-report.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -23,7 +23,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-25 16:10
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 09:25
 - [`docs/`](./docs.md) — updated 2026-05-25 19:28
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
