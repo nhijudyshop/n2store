@@ -1496,22 +1496,14 @@
                         const checked = selectedIds.has(p.id) ? 'checked' : '';
                         const rowClass = selectedIds.has(p.id) ? ' selected' : '';
 
-                        // Variant-expand button:
-                        //  - Template view: show iff template has variants (otherwise hidden — standalone product)
-                        //  - Variant view: hidden (already at variant level)
-                        const showExpand =
-                            viewType === 'template' && (p.hasVariants || p.variantCount > 0);
-                        const expandBtnHtml = showExpand
-                            ? `<button class="btn-action btn-action-expand${expandedIds.has(p.id) ? ' expanded' : ''}" title="Xem biến thể (${p.variantCount})" data-expand-id="${p.id}"><i data-lucide="chevron-down"></i></button>`
-                            : '<span class="btn-action btn-action-expand-placeholder" style="display:inline-block;width:24px;"></span>';
-                        // Variant view → only print button (per user request).
-                        // Template view → full action set.
+                        // Row actions — Edit / Print / Delete only.
+                        // Expand button removed (clicking row body toggles expand).
+                        // Stock adjust button moved to toolbar bulk-actions (open dialog
+                        // cho exactly 1 selected row).
                         const actionButtonsHtml =
                             viewType === 'variant'
                                 ? `<button class="btn-action btn-action-print" title="In mã vạch"><i data-lucide="printer"></i></button>`
-                                : `${expandBtnHtml}
-                                <button class="btn-action btn-action-edit" title="Sửa"><i data-lucide="pencil"></i></button>
-                                <button class="btn-action btn-action-stock" title="Điều chỉnh tồn" style="color:#0ea5e9;"><i data-lucide="package-plus"></i></button>
+                                : `<button class="btn-action btn-action-edit" title="Sửa"><i data-lucide="pencil"></i></button>
                                 <button class="btn-action btn-action-print" title="In mã vạch"><i data-lucide="printer"></i></button>
                                 <button class="btn-action btn-action-delete" title="Xóa"><i data-lucide="trash-2"></i></button>`;
                         return `<tr class="${rowClass}" data-template-id="${p.id}">
@@ -1871,23 +1863,12 @@
             }
         });
 
-        // Variant expand — click expand button or click on row
+        // Variant expand — click anywhere on row body (no dedicated expand button).
         $('#productTableBody')?.addEventListener('click', (e) => {
-            // Expand button click
-            const expandBtn = e.target.closest('.btn-action-expand');
-            if (expandBtn) {
-                e.stopPropagation();
-                const templateId = parseInt(expandBtn.dataset.expandId, 10);
-                const row = expandBtn.closest('tr');
-                if (templateId && row) toggleVariantExpand(templateId, row);
-                return;
-            }
-
-            // Row click (exclude checkbox, actions buttons, image)
+            // Exclude checkbox + remaining row action buttons + image cell + already-expanded sub-row.
             if (
                 e.target.closest('.col-checkbox') ||
                 e.target.closest('.btn-action-edit') ||
-                e.target.closest('.btn-action-stock') ||
                 e.target.closest('.btn-action-print') ||
                 e.target.closest('.btn-action-delete') ||
                 e.target.closest('.product-image-cell') ||
@@ -2069,14 +2050,19 @@
             if (id) loadAuditLog(id);
         });
 
-        // Stock adjust
-        $('#productTableBody')?.addEventListener('click', (e) => {
-            const stockBtn = e.target.closest('.btn-action-stock');
-            if (stockBtn) {
-                e.stopPropagation();
-                const row = stockBtn.closest('tr[data-template-id]');
-                if (row) openStockAdjust(parseInt(row.dataset.templateId, 10));
+        // Stock adjust — toolbar button (per-row btn removed). Opens for the single
+        // selected row; warns if 0 or >1 are selected.
+        $('#btnBulkStockAdjust')?.addEventListener('click', () => {
+            const ids = Array.from(selectedIds);
+            if (ids.length === 0) {
+                showToast('Chọn 1 SP để điều chỉnh tồn', 'warning');
+                return;
             }
+            if (ids.length > 1) {
+                showToast('Chỉ chỉnh được tồn cho 1 SP cùng lúc — bỏ tick các SP khác', 'warning');
+                return;
+            }
+            openStockAdjust(ids[0]);
         });
         $('#closeStockAdjust')?.addEventListener('click', closeStockAdjust);
         $('#cancelStockAdjust')?.addEventListener('click', closeStockAdjust);

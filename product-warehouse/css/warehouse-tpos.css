@@ -146,6 +146,13 @@ html body {
     display: none !important;
 }
 
+/* Bulk stock adjust button — light-blue accent (matches old row btn color) */
+.btn-bulk-stock:hover {
+    background: #0ea5e9 !important;
+    border-color: #0ea5e9 !important;
+    color: #fff !important;
+}
+
 /* Bulk-action toolbar-right items hidden until at least 1 row selected.
    Body gets `.has-selection` class from main.js when selectedIds.size > 0. */
 .toolbar-bulk-actions {
