@@ -555,7 +555,7 @@ const TposCommentList = {
                     ${
                         partner.Id
                             ? `<a class="tpos-action-btn" title="Mở thẻ KH Web 2.0" href="../web2/partner-customer/index.html?id=${encodeURIComponent(partner.Id)}" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="color:#0891b2;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">
-                        <i data-lucide="id-card" style="width:13px;height:13px;"></i>
+                        <i data-lucide="contact" style="width:13px;height:13px;"></i>
                     </a>`
                             : ''
                     }
