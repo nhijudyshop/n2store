@@ -69,6 +69,12 @@
                 { label: 'Print / Export', our: '../web2/print-export/index.html', tpos: '' },
                 { label: 'Smart Match SePay', our: '../web2/smart-match/index.html', tpos: '' },
                 { label: 'Phân quyền', our: '../web2/users-permissions/index.html', tpos: '' },
+                {
+                    label: 'SSE Monitor (Admin)',
+                    our: '../web2/admin-sse-monitor/index.html',
+                    tpos: '',
+                    adminOnly: true,
+                },
             ],
         },
         {
@@ -658,6 +664,7 @@
         'web2/print-export/index.html',
         'web2/smart-match/index.html',
         'web2/users-permissions/index.html',
+        'web2/admin-sse-monitor/index.html',
     ]);
     function isWeb2Item(item) {
         if (!item || !item.our) return false;
@@ -666,7 +673,28 @@
         return WEB2_PAGES.has(path);
     }
 
+    // Admin gating — items with `adminOnly: true` only render if current user is admin.
+    // Same pattern as shared/js/navigation-modern.js for consistency.
+    function _isAdmin() {
+        try {
+            const authStr =
+                localStorage.getItem('loginindex_auth') ||
+                sessionStorage.getItem('loginindex_auth') ||
+                '{}';
+            const auth = JSON.parse(authStr);
+            const userType = localStorage.getItem('userType') || '';
+            return (
+                auth.isAdmin === true ||
+                auth.roleTemplate === 'admin' ||
+                userType.startsWith('admin')
+            );
+        } catch {
+            return false;
+        }
+    }
+
     function renderItem(item, activeUrl) {
+        if (item.adminOnly && !_isAdmin()) return '';
         const isImpl = isOurRoute(item);
         const href = isImpl ? resolveOur(item.our) : '#';
         const isActive =
