@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `095fd0d` — auto: session update
-**Last updated**: 2026-05-26 14:30:26 +07
-**Latest session**: [`RESUME:20260526-143026-095fd0d`](../20260526-143026-095fd0d.md)
-**Summary**: auto: session update
+**Latest commit**: `8706f28` — fix(tpos-pancake): bỏ "click icon extension" — bước dư thừa
+**Last updated**: 2026-05-26 14:33:00 +07
+**Latest session**: [`RESUME:20260526-143300-8706f28`](../20260526-143300-8706f28.md)
+**Summary**: fix(tpos-pancake): bỏ "click icon extension" — bước dư thừa
 
 ## Folders affected in this commit
 
-- [`product-warehouse/`](./product-warehouse.md) — 3 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -61,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-25 19:26
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-26 14:19
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-05-26 14:33
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04

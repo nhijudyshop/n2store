@@ -3,11 +3,11 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260526-141911-c4b3e14`
-**Session file**: [`./20260526-141911-c4b3e14.md`](../20260526-141911-c4b3e14.md)
-**Commit**: `c4b3e14` — auto: session update
-**Last updated**: 2026-05-26 14:19:11 +07
-**Summary**: auto: session update
+**Latest session**: `RESUME:20260526-143300-8706f28`
+**Session file**: [`./20260526-143300-8706f28.md`](../20260526-143300-8706f28.md)
+**Commit**: `8706f28` — fix(tpos-pancake): bỏ "click icon extension" — bước dư thừa
+**Last updated**: 2026-05-26 14:33:00 +07
+**Summary**: fix(tpos-pancake): bỏ "click icon extension" — bước dư thừa
 
 ## Files changed in this commit (`tpos-pancake/`)
 
@@ -16,11 +16,11 @@
 
 ## Last 5 commits touching `tpos-pancake/`
 
+- `8706f28ba` fix(tpos-pancake): bỏ "click icon extension" — bước dư thừa _(2026-05-26)_
 - `c4b3e14b4` auto: session update _(2026-05-26)_
 - `2e19af504` fix(tpos-pancake): id-card icon → contact (spam console mỗi SSE update) _(2026-05-26)_
 - `17deec40c` auto: session update _(2026-05-26)_
 - `106a1ffd8` auto: session update _(2026-05-26)_
-- `1e1a21108` fix(tpos-pancake): iframe FB render at wrapper size — fix lệch + giảm lag _(2026-05-26)_
 
 ---
 
@@ -28,4 +28,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260526-141911-c4b3e14` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260526-143300-8706f28` cho Claude walk chain theo CLAUDE.md protocol.
