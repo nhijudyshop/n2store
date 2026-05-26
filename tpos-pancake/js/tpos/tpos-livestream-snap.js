@@ -171,21 +171,12 @@
             if (ok) {
                 STATE.extReady = true;
                 console.log(`[snap-ext] v${data.version} OK — capture qua extension (no popup)`);
-                // Smart modal logic:
-                // - First time ever: show MANDATORY modal → user bấm Enter consent
-                // - Subsequent visits: SKIP modal → silent auto-grab qua page click
-                //   (content script listener). Nếu sau 30s không có stream → show
-                //   floating banner reminder.
-                const consented = localStorage.getItem('tpos_stream_consented') === '1';
-                if (!consented) {
-                    setTimeout(() => {
-                        if (!STATE.captureStream) _showStreamModePrompt();
-                    }, 500);
-                } else {
-                    console.log('[snap-ext] consent đã có → skip modal, silent auto-grab');
-                    // User feedback 2026-05-26: bỏ stream reminder "click đâu cũng được"
-                    // banner — chỉ 1 nguồn thông báo qua _showExtPrompt nếu cần.
-                }
+                // User feedback 2026-05-26: BỎ Enter consent modal hoàn toàn.
+                // Chỉ 1 nguồn thông báo duy nhất = _showExtPrompt hint "click icon
+                // N2Store Extension". Khi user click icon → background grant
+                // activeTab + grab streamId silent → capture auto-start.
+                // Set consent flag để không show modal trong các flow khác.
+                localStorage.setItem('tpos_stream_consented', '1');
             } else {
                 STATE.extReady = false;
                 STATE.extOutdated = true;
@@ -1463,12 +1454,10 @@ Throttle 30s/KH.`;
         }
     }
 
-    // MANDATORY Enter modal — block toàn bộ web cho đến khi user bấm Enter để
-    // grant streamId. Chrome browser security yêu cầu user gesture cho
-    // chrome.tabCapture.getMediaStreamId → Enter keydown trong modal handler là
-    // chỗ ổn nhất để propagate activation tới background. Modal KHÔNG có nút
-    // Dismiss / Bỏ qua / Escape — bắt buộc Enter.
-    function _showStreamModePrompt() {
+    // DEPRECATED — user feedback 2026-05-26: bỏ Enter modal, chỉ giữ
+    // _showExtPrompt làm nguồn duy nhất. Function giữ làm no-op để tránh
+    // ReferenceError nếu có caller cũ.
+    function _showStreamModePromptDeprecated_REMOVED() {
         if (STATE.captureStream) return; // đã có stream → không cần
         if (document.getElementById('tpos-snap-stream-modal')) return;
         const overlay = document.createElement('div');
