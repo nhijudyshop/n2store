@@ -26,6 +26,29 @@
 const express = require('express');
 const router = express.Router();
 
+// SSE realtime notification — cross-machine sync cho báo cáo delivery-report.
+// Topic 'delivery_assignments' nhận update khi: override (slShip/thuVe/boCK/...
+// note/approved) save/delete; merge create/update/delete; image upload/delete.
+// Client subscribe ở delivery-report/js/report.js debounce 600ms re-fetch.
+// Payload chỉ chứa {action, date?, group?, id?, ts} — KHÔNG broadcast PII.
+let _notify = () => 0; // no-op fallback nếu chưa wire
+try {
+    const realtimeSse = require('../realtime-sse');
+    _notify = (action, extra = {}) => {
+        try {
+            realtimeSse.notifyClients(
+                'delivery_assignments',
+                { action, ts: Date.now(), ...extra },
+                'update'
+            );
+        } catch (e) {
+            console.warn('[delivery-assignments] notify failed:', e.message);
+        }
+    };
+} catch (e) {
+    console.warn('[delivery-assignments] realtime-sse module not loaded:', e.message);
+}
+
 function getDb(req) {
     return req.app.locals.chatDb;
 }
@@ -931,6 +954,7 @@ router.put('/image/:date/:group', async (req, res) => {
                  uploaded_at = NOW()`,
             [date, group, parsed.buffer, parsed.mime, parsed.buffer.length, user]
         );
+        _notify('image-upserted', { date, group });
         res.json({
             success: true,
             data: { date, group, mime: parsed.mime, size: parsed.buffer.length },
@@ -983,6 +1007,7 @@ router.delete('/image/:date/:group', async (req, res) => {
              RETURNING assignment_date`,
             [date, group]
         );
+        if (result.rows.length > 0) _notify('image-deleted', { date, group });
         res.json({ success: true, data: { deleted: result.rows.length } });
     } catch (err) {
         console.error('[delivery-assignments] DELETE /image error:', err.message);
@@ -1129,6 +1154,7 @@ router.put('/overrides/:date/:group', async (req, res) => {
                  RETURNING assignment_date`,
                 [date, group]
             );
+            if (del.rows.length > 0) _notify('override-deleted', { date, group });
             return res.json({
                 success: true,
                 data: { date, group, deleted: del.rows.length, override: null },
@@ -1162,6 +1188,7 @@ router.put('/overrides/:date/:group', async (req, res) => {
                 user,
             ]
         );
+        _notify('override-upserted', { date, group });
         res.json({ success: true, data: { date, group, override: ov } });
     } catch (err) {
         console.error('[delivery-assignments] PUT /overrides error:', err.message);
@@ -1291,13 +1318,11 @@ router.post('/merges', async (req, res) => {
             [groupName, fromDate, toDate]
         );
         if (overlap.rows.length > 0) {
-            return res
-                .status(409)
-                .json({
-                    success: false,
-                    error: 'Range overlaps an existing merge',
-                    existingId: overlap.rows[0].id,
-                });
+            return res.status(409).json({
+                success: false,
+                error: 'Range overlaps an existing merge',
+                existingId: overlap.rows[0].id,
+            });
         }
         const user = getUserFromHeaders(req);
         const result = await db.query(
