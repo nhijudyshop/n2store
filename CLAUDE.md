@@ -276,18 +276,24 @@ Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc la
 5. **Khi sửa file legacy**: dừng lại hỏi user nếu thay đổi có thể ảnh hưởng web2 (và ngược lại).
 6. **Realtime / Data sync — BẮT BUỘC**: KHÔNG dùng Firebase Firestore listener cho Web 2.0 nữa. Web 2.0 dùng **SSE pub/sub trên Render** (topic-based). Trước khi code bất kỳ feature nào liên quan realtime, cross-tab sync, listener data → **PHẢI đọc [`docs/web2/SSE-REALTIME.md`](docs/web2/SSE-REALTIME.md)** (architecture + recipe server/client + topic naming + migration checklist + verification). Topic convention: `web2:<entity>` hoặc `web2:<entity>:<id>`. Pattern proven trong web2-products + native-orders.
 
-### SSE Server thống nhất cho CẢ Web 1.0 + Web 2.0 (BẮT BUỘC)
+### SSE Server TÁCH RIÊNG Web 1.0 và Web 2.0 (BẮT BUỘC từ 2026-05-26)
 
-**Chỉ có 1 server SSE chung** tại `render.com/routes/realtime-sse.js` (endpoint `/api/realtime/sse?keys=topic1,topic2`). Cả 2 layer dùng chung server này, khác convention:
+Project có **2 hub SSE độc lập** — DB đã tách (`web2_*` tables), giờ tách nốt SSE để bug 1 layer không ảnh hưởng layer kia:
 
-| Aspect           | Web 2.0                                                                      | Web 1.0                                                    |
-| ---------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Topic naming     | `web2:<entity>[:id]` prefix                                                  | bare snake_case (vd `celebration`, `delivery_assignments`) |
-| Client subscribe | `Web2SSE.subscribe('web2:foo', cb)` bridge singleton                         | `new EventSource('/api/realtime/sse?keys=foo')` trực tiếp  |
-| Server publish   | `_notify()` wrapper trong route + `initializeNotifiers` wiring ở `server.js` | `notifyClients(topic, data)` direct trong route handler    |
-| Docs             | `docs/web2/SSE-REALTIME.md`                                                  | `MEMORY: reference_sse_servers_unified.md`                 |
+| Aspect           | Web 1.0                                                                                                                               | Web 2.0                                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Server file      | [render.com/routes/realtime-sse.js](render.com/routes/realtime-sse.js)                                                                | [render.com/routes/realtime-sse-web2.js](render.com/routes/realtime-sse-web2.js)                                 |
+| Endpoint client  | `/api/realtime/sse?keys=...`                                                                                                          | `/api/realtime/web2/sse?keys=...`                                                                                |
+| Topic naming     | bare snake_case (`celebration`, `kpi_statistics`, `held_products`, `tickets`, `web_warehouse`, `order_notes_global`, `tpos_token`, …) | prefix `web2:` (`web2:products`, `web2:variants`, `web2:native-orders`, `web2:fast-sale-orders`, `web2:cart`, …) |
+| Client subscribe | `new EventSource('/api/realtime/sse?keys=foo')` hoặc `RealtimeClient` bridge                                                          | `Web2SSE.subscribe('web2:foo', cb)` bridge singleton (`web2/shared/web2-sse-bridge.js`)                          |
+| Server publish   | `realtimeSseRoutes.notifyClients(topic, data)` hoặc `app.locals.realtimeSseNotify`                                                    | `web2RealtimeSseRoutes.notifyClients(topic, data)` hoặc `app.locals.web2RealtimeSseNotify`                       |
+| Wallet listener  | `walletEvents` (services/wallet-event-processor.js) — Web 1.0 `customer_wallets`                                                      | `web2WalletEvents` (services/web2-wallet-service.js) — Web 2.0 `web2_customer_wallets`                           |
+| Log prefix       | `[SSE]`                                                                                                                               | `[SSE-WEB2]`                                                                                                     |
+| Docs             | `MEMORY: reference_sse_servers_unified.md`                                                                                            | [docs/web2/SSE-REALTIME.md](docs/web2/SSE-REALTIME.md)                                                           |
 
-**TUYỆT ĐỐI không build server SSE thứ 2** cho bất kỳ module nào — luôn extend server hiện tại với topic mới. Recipe Web 1.0:
+**TUYỆT ĐỐI không trộn**: route Web 2.0 wire `web2RealtimeSseRoutes.notifyClients`, không phải legacy. Topic `web2:*` chỉ broadcast qua hub Web 2.0. Topic bare snake_case chỉ broadcast qua hub Web 1.0. SePay → Web 2.0 wallet chỉ qua `web2WalletEvents` listener trong `realtime-sse-web2.js` (đã remove cross-publish `web2:customer-wallet` từ legacy `walletEvents`).
+
+Recipe Web 1.0:
 
 1. **Server** (vd `routes/v2/delivery-assignments.js`): `const realtimeSse = require('../realtime-sse');` + sau mutation thành công gọi `realtimeSse.notifyClients('delivery_assignments', {action, date, group, ts: Date.now()});`
 2. **Client** (vd `delivery-report/js/report.js`): `const es = new EventSource('${API_BASE}/sse?keys=delivery_assignments');` + `es.addEventListener('update', e => debounceRefresh());` debounce 500-600ms để gom burst + `es.close()` khi page/modal đóng

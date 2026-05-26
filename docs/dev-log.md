@@ -25,6 +25,35 @@
 
 ## 2026-05-26
 
+### [render][web2] Tách SSE server riêng cho Web 2.0 — không chia chung với Web 1.0 ✅
+
+**User ask**: "kiểm lại sse realtime server web 2.0 -> hiện tại đang dùng chung web 1.0 -> tôi cần build riêng cho web 2.0". DB đã tách (`customer_wallets` vs `web2_customer_wallets`), giờ tách nốt SSE.
+
+**Files**:
+
+- **CREATE**: `render.com/routes/realtime-sse-web2.js` — SSE hub riêng cho Web 2.0, Map độc lập, log prefix `[SSE-WEB2]`, endpoint `/api/realtime/web2/sse?keys=...`. Listener `web2WalletEvents.on('web2:wallet:update')` chuyển từ legacy sang đây.
+- **EDIT**: `render.com/server.js` — mount `/api/realtime/web2` trước `/api/realtime`; đổi 12 `initializeNotifiers(realtimeSseRoutes.notifyClients)` → `web2RealtimeSseRoutes.notifyClients` (web2-products/variants/users/generic, native-orders, fast-sale-orders, reconcile, purchase-refund, livestream-snapshots, v2/cart, v2/notifications, v2/dashboard-kpi); thêm `app.locals.web2RealtimeSseNotify`.
+- **EDIT**: `render.com/routes/realtime-sse.js` — REMOVE cross-publish `web2:customer-wallet` từ legacy `walletEvents` listener + REMOVE block `web2WalletEvents` listener (đã chuyển).
+- **EDIT**: `render.com/routes/fast-sale-orders.js` + `routes/native-orders.js` — đổi 15 callsites `req.app.locals.realtimeSseNotify` → `req.app.locals.web2RealtimeSseNotify` (tất cả broadcast topic `web2:*`).
+- **EDIT**: `web2/shared/web2-sse-bridge.js` — `SSE_BASE` đổi `/api/realtime/sse` → `/api/realtime/web2/sse`.
+- **EDIT**: `web2/shared/page-shell.js` + 16 HTML files — bump `web2-sse-bridge.js?v=20260526sse2`.
+- **EDIT**: `docs/web2/SSE-REALTIME.md` + `CLAUDE.md` + memory `reference_sse_servers_unified.md` — đổi từ "unified" sang "2 hub độc lập".
+
+**Lý do**: DB tách từ trước → SSE chia chung Map là coupling không cần thiết. Tách giúp debug riêng (log prefix), memory state riêng, Web 2.0 test mới không risk Web 1.0. SePay → Web 2.0 wallet chỉ qua `web2WalletEvents` → web2 hub (không còn cross-publish từ legacy).
+
+**Verify**:
+
+```bash
+curl -N "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2/sse?keys=web2:products" | head -3
+curl -s "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2/sse/stats" | jq    # → "server":"web2"
+```
+
+CF Worker không đổi (`handleRealtimeProxy` match `/api/realtime/*` cover cả `/web2/`).
+
+**Status**: ✅ Phase 1 done. Phase 2 (cắt Web 1.0 Sepay matching entirely) — chờ user confirm sau verify phase 1 live.
+
+---
+
 ### [delivery-report/report] Phí ship per tab (tomato/nap=23k, city=20k) + settings popover + Admin gating ✅
 
 **User ask** (2 messages):

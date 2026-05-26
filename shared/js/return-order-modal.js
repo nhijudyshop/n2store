@@ -77,7 +77,8 @@ window.ReturnOrderModal = (function () {
     // =====================================================
 
     const S = {
-        products: [],
+        allProducts: [], // bulk-loaded catalog index — populated once per cache TTL
+        products: [], // current page slice for render
         productPage: 1,
         productTotal: 0,
         searchQuery: '',
@@ -146,10 +147,7 @@ window.ReturnOrderModal = (function () {
 
     function _writeProductCache(data) {
         try {
-            sessionStorage.setItem(
-                CACHE_KEY_PRODUCTS,
-                JSON.stringify({ data, ts: Date.now() })
-            );
+            sessionStorage.setItem(CACHE_KEY_PRODUCTS, JSON.stringify({ data, ts: Date.now() }));
         } catch (_) {
             // Quota exceeded — skip cache, in-memory still works
         }
@@ -264,14 +262,31 @@ window.ReturnOrderModal = (function () {
             const name = p.NameGet || p.Name || '';
             const unit = p.UOMName || 'Cái';
             const price = p.PurchasePrice || p.ListPrice || 0;
-            const stock = p.QtyAvailable ?? 0;
-            const forecast = p.VirtualAvailable ?? 0;
+            // Stock fields are computed by TPOS and unavailable from bulk $select endpoint.
+            // Show "—" instead of misleading "0" when value is genuinely unknown.
+            const hasStock = p.QtyAvailable !== undefined;
+            const stock = hasStock ? p.QtyAvailable : null;
+            const forecast = hasStock ? (p.VirtualAvailable ?? 0) : null;
             const imageUrl = p.ImageUrl;
 
+            const stockText = stock === null ? '—' : fmt(stock);
+            const forecastText = forecast === null ? '—' : fmt(forecast);
             const stockClass =
-                stock > 0 ? 'stock-value' : stock === 0 ? 'stock-zero' : 'stock-negative';
+                stock === null
+                    ? 'stock-unknown'
+                    : stock > 0
+                      ? 'stock-value'
+                      : stock === 0
+                        ? 'stock-zero'
+                        : 'stock-negative';
             const forecastClass =
-                forecast > 0 ? 'stock-value' : forecast < 0 ? 'stock-negative' : 'stock-zero';
+                forecast === null
+                    ? 'stock-unknown'
+                    : forecast > 0
+                      ? 'stock-value'
+                      : forecast < 0
+                        ? 'stock-negative'
+                        : 'stock-zero';
 
             const row = document.createElement('div');
             row.className = 'return-product-row';
@@ -285,7 +300,7 @@ window.ReturnOrderModal = (function () {
                 ${imgHtml}
                 <div class="return-product-info">
                     <div class="return-product-name">${code ? `<span class="product-code">[${escHtml(code)}]</span> ` : ''}${escHtml(name)}</div>
-                    <div class="return-product-stock">Tồn kho: <span class="${stockClass}">${fmt(stock)}</span> / Tồn dự báo: <span class="${forecastClass}">${fmt(forecast)}</span></div>
+                    <div class="return-product-stock">Tồn kho: <span class="${stockClass}">${stockText}</span> / Tồn dự báo: <span class="${forecastClass}">${forecastText}</span></div>
                 </div>
                 <div class="return-product-unit">${escHtml(unit)}</div>
                 <div class="return-product-price">${fmt(price)}</div>
@@ -502,6 +517,24 @@ window.ReturnOrderModal = (function () {
     // SUPPLIER SELECTOR
     // =====================================================
 
+    function _readRefCache(key) {
+        try {
+            const raw = sessionStorage.getItem(key);
+            if (!raw) return null;
+            const { data, ts } = JSON.parse(raw);
+            if (!Array.isArray(data) || Date.now() - ts > CACHE_TTL_REFDATA) return null;
+            return data;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function _writeRefCache(key, data) {
+        try {
+            sessionStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
+        } catch (_) {}
+    }
+
     async function fetchSuppliers() {
         // Reuse from main.js State if available
         if (window.State && window.State.allSuppliers && window.State.allSuppliers.length > 0) {
@@ -511,6 +544,12 @@ window.ReturnOrderModal = (function () {
                 Ref: s.Code,
                 DisplayName: `[${s.Code}] ${s.Name}`,
             }));
+            return;
+        }
+
+        const cached = _readRefCache(CACHE_KEY_SUPPLIERS);
+        if (cached) {
+            S.suppliers = cached;
             return;
         }
 
@@ -525,6 +564,7 @@ window.ReturnOrderModal = (function () {
                 Ref: s.Ref || '',
                 DisplayName: s.DisplayName || `[${s.Ref || ''}] ${s.Name}`,
             }));
+            _writeRefCache(CACHE_KEY_SUPPLIERS, S.suppliers);
         } catch (err) {
             console.error('[ReturnOrder] fetchSuppliers error:', err);
         }
@@ -610,6 +650,13 @@ window.ReturnOrderModal = (function () {
     // =====================================================
 
     async function fetchPaymentMethods() {
+        const cached = _readRefCache(CACHE_KEY_PAYMENT);
+        if (cached) {
+            S.paymentMethods = cached;
+            renderPaymentMethods();
+            return;
+        }
+
         try {
             const url = `${PROXY_URL}/api/odata/AccountJournal?$filter=${encodeURIComponent("Type eq 'cash' or Type eq 'bank'")}&$select=Id,Name,Type`;
             const resp = await tposFetch(url);
@@ -622,6 +669,7 @@ window.ReturnOrderModal = (function () {
                 seen.add(m.Name);
                 return true;
             });
+            _writeRefCache(CACHE_KEY_PAYMENT, S.paymentMethods);
             renderPaymentMethods();
         } catch (err) {
             console.error('[ReturnOrder] fetchPaymentMethods error:', err);
@@ -905,7 +953,7 @@ window.ReturnOrderModal = (function () {
         // Action buttons
         $('btnReturnSave')?.addEventListener('click', () => submitReturn(null));
 
-        // Product search
+        // Product search — client-side filter, tiny debounce to coalesce rapid keystrokes
         const searchInput = $('returnProductSearch');
         if (searchInput) {
             searchInput.addEventListener('input', () => {
@@ -913,7 +961,7 @@ window.ReturnOrderModal = (function () {
                 S.searchDebounce = setTimeout(() => {
                     S.searchQuery = searchInput.value.trim();
                     fetchProducts(1);
-                }, 400);
+                }, 80);
             });
         }
 
