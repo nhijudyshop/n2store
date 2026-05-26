@@ -1299,43 +1299,39 @@ Throttle 30s/KH.`;
         if (wrapper) return wrapper.querySelector('iframe');
         const fbVideoUrl = _buildFbLiveUrl(camp);
         if (!fbVideoUrl) return null;
-        // FB plugin native size: width 560×420ish (16:9 video + header + footer).
-        // Trick: render iframe LỚN (đủ cho FB plugin render full) → wrapper bé,
-        // dùng CSS position offset để chừa view-port chỉ vào video (skip header
-        // page logo + footer reactions). Region Capture cropTo wrapper → capture
-        // đúng video pixels, không có FB UI chrome.
-        // Iframe natural size cho live video: 560 wide, ~480 tall (header 56 +
-        // video 16:9 ≈ 315 + footer ~110).
-        const IFRAME_W = 560;
-        const IFRAME_H = 480;
-        const HEADER_OFFSET = 56; // FB plugin header (logo + page name)
-        const VIDEO_H = Math.round((IFRAME_W * 9) / 16); // 315 — full video height
-        // Wrapper size: smaller display, only video area visible
+        // User feedback 2026-05-26: capture lệch iframe + lag sau khi kết nối.
+        // Root cause: render iframe 560×480 rồi scale 0.571 → DOM compositing
+        // overhead + nếu FB plugin update layout, HEADER_OFFSET cố định lệch.
+        //
+        // Fix: render iframe AT WRAPPER SIZE (no scale transform), pass width
+        // matching wrapper trực tiếp cho FB plugin URL. FB plugin tự render
+        // responsive theo width → ít DOM + capture đúng video area.
+        //
+        // HEADER_OFFSET vẫn cần (FB plugin có thanh header mỏng ~30px ở size
+        // nhỏ). Wrapper overflow:hidden + iframe translate Y up để skip header.
         const WRAPPER_W = 320;
-        const WRAPPER_H = Math.round((WRAPPER_W * 9) / 16); // 180 — 16:9
-        const SCALE = WRAPPER_W / IFRAME_W; // 0.571
+        const WRAPPER_H = Math.round((WRAPPER_W * 9) / 16); // 180 — 16:9 video area
+        const HEADER_OFFSET = 30; // FB plugin header @ width 320 (~30px)
+        const IFRAME_W = WRAPPER_W;
+        const IFRAME_H = WRAPPER_H + HEADER_OFFSET; // total iframe height = video + header
 
         const embedUrl = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(fbVideoUrl)}&show_text=false&width=${IFRAME_W}&height=${IFRAME_H}&autoplay=1&mute=1&allowfullscreen=false&show_share=false&show_captions=false`;
         wrapper = document.createElement('div');
         wrapper.id = 'tpos-snap-fb-wrapper';
-        wrapper.style.cssText = `position:fixed;bottom:8px;right:8px;width:${WRAPPER_W}px;height:${WRAPPER_H}px;border:2px solid #dc2626;border-radius:8px;z-index:99000;background:#000;box-shadow:0 4px 12px rgba(0,0,0,0.3);overflow:hidden;transition:all 0.2s ease;`;
+        wrapper.style.cssText = `position:fixed;bottom:8px;right:8px;width:${WRAPPER_W}px;height:${WRAPPER_H}px;border:2px solid #dc2626;border-radius:8px;z-index:99000;background:#000;box-shadow:0 4px 12px rgba(0,0,0,0.3);overflow:hidden;`;
 
-        // Inner container: iframe rendered AT FULL SIZE, translated lên để giấu
-        // FB header, scaled xuống để fit wrapper width.
-        const inner = document.createElement('div');
-        inner.style.cssText = `position:absolute;left:0;top:${-HEADER_OFFSET * SCALE}px;width:${IFRAME_W}px;height:${IFRAME_H}px;transform-origin:top left;transform:scale(${SCALE});`;
-        wrapper.appendChild(inner);
-
+        // No scale transform — iframe rendered AT wrapper width (320). Chỉ
+        // translate up by HEADER_OFFSET để skip FB plugin header.
         const iframe = document.createElement('iframe');
         iframe.id = 'tpos-snap-fb-embed';
         iframe.src = embedUrl;
         iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
         iframe.scrolling = 'no';
         iframe.frameBorder = '0';
-        iframe.style.cssText = `width:${IFRAME_W}px;height:${IFRAME_H}px;display:block;border:0;`;
-        inner.appendChild(iframe);
-        wrapper._videoHeight = Math.round(VIDEO_H * SCALE); // wrapper-space video height
-        wrapper._scale = SCALE;
+        iframe.style.cssText = `position:absolute;left:0;top:${-HEADER_OFFSET}px;width:${IFRAME_W}px;height:${IFRAME_H}px;display:block;border:0;`;
+        wrapper.appendChild(iframe);
+        wrapper._videoHeight = WRAPPER_H;
+        wrapper._scale = 1; // no scaling
         // Minimize button đã gỡ — khi minimize iframe display:none → tab
         // capture trả pixel trống (44x44 pill không có video) → buffer toàn
         // frame rỗng. Giữ iframe luôn open để capture liên tục.
