@@ -286,6 +286,37 @@ SSE stream nhận: event: update\ndata: {key:web2:products, data:{action,code,ts
 
 ---
 
+### [product-warehouse] "Ẩn hiện cột" header btn + instant modal open ✅
+
+**User ask**: "chưa có cài đặt ẩn hiện cột, bật modal thêm sản phẩm lag quá -> web hiện tại mở modal rất lag, có cách nào thay thế modal hoặc tối ưu không?"
+
+**Root causes** (verified by reading openCreateProduct + openEditProduct):
+
+1. "Cài đặt cột" btn was inside `.toolbar-bulk-actions` (only shown when rows are selected AND filters toolbar is expanded). Most users never see it.
+2. Modal blocked on 3 sequential OData calls (`ProductCategory $top=500`, `POSCategory $top=500`, `ProductUOM $top=200`) — ~1.5-3s lag — BEFORE adding `.show` class. User perceives a frozen UI.
+3. After awaiting data, modal populated 4 `<select>`s of ~500 options each + advanced sections + tag picker + 5 bind\*EventHandlers + full-document `lucide.createIcons()` — another ~150-300ms of synchronous work.
+
+**Fix**: instant-show + async populate + idle prefetch (pattern researched via docs-lookup):
+
+- New `btnColumnSettingsHeader` ("Ẩn hiện cột") next to "Thêm SP" — always visible.
+- `ensureDropdownData()` refactored to fire 3 OData calls via `Promise.all` (was sequential — ~3s → ~1s wall-clock first time).
+- New `scheduleDropdownPrefetch()` — `requestIdleCallback(ensureDropdownData, {timeout: 3000})` after first table load → cache warm by the time user clicks "Thêm SP".
+- `openCreateProduct()` + `openEditProduct()` rewritten with show-first / populate-after pattern: synchronous skeleton (selects show "Đang tải…", inputs cleared) → add `.show` immediately → `requestAnimationFrame` schedules heavy populate AFTER first paint.
+
+**Files modified**:
+
+- `product-warehouse/index.html`: new `#btnColumnSettingsHeader`.
+- `product-warehouse/css/warehouse-tpos.css`: `.btn-column-settings-header` (white toolbar btn, purple hover).
+- `product-warehouse/js/main.js`: parallelized `ensureDropdownData`, added `scheduleDropdownPrefetch`, refactored `openCreateProduct` + `openEditProduct`, wired prefetch into init.
+
+**Verification (Playwright)**:
+
+- `#btnColumnSettingsHeader` visible, click → opens column settings modal.
+- First "Thêm SP" modal: **visible at 103ms** (was 1500-3000ms), dropdowns populated at 106ms (prefetch warm).
+- Second open: visible 137ms, populated 141ms.
+
+Pattern reusable for any other heavy modal in n2store.
+
 ### [product-warehouse] Column resize (drag) + auto-fit Name col ✅
 
 **User ask**: "cho cài đặt cột -> cho cột kéo độ rộng tùy chỉnh theo ý muốn (mặc định cột tên sản phẩm scale theo tên sản phẩm dài nhất hiện trong bảng) -> phần tìm kiếm sản phẩm không cần scale tự động vì nó sẽ lag".

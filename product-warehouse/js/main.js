@@ -2661,16 +2661,44 @@
             return r.ok ? (await r.json()).value || [] : [];
         };
 
+        // Fire all three in parallel — they're independent. First-time cost
+        // drops from ~3s sequential to ~1s wall-clock (slowest of the three).
+        const tasks = [];
         if (!cachedCategories) {
-            cachedCategories = await fetchJSON(
-                'ProductCategory?$orderby=CompleteName asc&$top=500'
+            tasks.push(
+                fetchJSON('ProductCategory?$orderby=CompleteName asc&$top=500').then(
+                    (v) => (cachedCategories = v)
+                )
             );
         }
         if (!cachedPOSCategories) {
-            cachedPOSCategories = await fetchJSON('POSCategory?$orderby=Name asc&$top=500');
+            tasks.push(
+                fetchJSON('POSCategory?$orderby=Name asc&$top=500').then(
+                    (v) => (cachedPOSCategories = v)
+                )
+            );
         }
         if (!cachedUOMs) {
-            cachedUOMs = await fetchJSON('ProductUOM?$orderby=Name asc&$top=200');
+            tasks.push(
+                fetchJSON('ProductUOM?$orderby=Name asc&$top=200').then((v) => (cachedUOMs = v))
+            );
+        }
+        if (tasks.length) await Promise.all(tasks);
+    }
+
+    // Background prefetch — call once after page loads & first table fetch settled.
+    // By the time user clicks "Thêm SP" the dropdown cache is warm so the modal
+    // populates in <50ms instead of waiting on 3 OData calls.
+    function scheduleDropdownPrefetch() {
+        const fire = () => {
+            ensureDropdownData().catch((err) => {
+                console.warn('[Prefetch] dropdown data failed (will retry on modal open):', err);
+            });
+        };
+        if (typeof window.requestIdleCallback === 'function') {
+            window.requestIdleCallback(fire, { timeout: 3000 });
+        } else {
+            setTimeout(fire, 1500);
         }
     }
 
@@ -2690,107 +2718,156 @@
     }
 
     /**
-     * Open edit modal for a product
+     * Open edit modal — INSTANT show, async data fetch.
+     *
+     * Same instant-open pattern as openCreateProduct: show modal with skeleton
+     * + "Đang tải…" placeholder text, then in the next frame fire both
+     * fetchProductDetail() and ensureDropdownData() in parallel, then fill the
+     * fields. User sees the modal open in <50ms instead of waiting 1-3s.
      */
     async function openEditProduct(templateId) {
         if (_modalOpening) return; // prevent concurrent open from rapid row clicks
         _modalOpening = true;
-        try {
-            showToast('Đang tải chi tiết...', 'info');
+        editingProduct = null;
+        editImageBase64 = null;
+        modalMode = 'edit';
 
-            const [detail] = await Promise.all([
-                fetchProductDetail(templateId),
-                ensureDropdownData(),
-            ]);
-            editingProduct = detail;
-            editImageBase64 = null;
-            modalMode = 'edit';
+        // Reset active tab to "Thông tin chung" on every open
+        const tposBody = document.querySelector('.tpos-edit-modal-body');
+        if (tposBody) tposBody.setAttribute('data-active-tab', 'general');
+        document.querySelectorAll('.tpos-edit-tab').forEach((b) => {
+            b.classList.toggle('is-active', b.dataset.editTab === 'general');
+        });
 
-            // Reset active tab to "Thông tin chung" on every open
-            const tposBody = document.querySelector('.tpos-edit-modal-body');
-            if (tposBody) tposBody.setAttribute('data-active-tab', 'general');
-            document.querySelectorAll('.tpos-edit-tab').forEach((b) => {
-                b.classList.toggle('is-active', b.dataset.editTab === 'general');
-            });
+        // Heading + save button labels
+        const heading = $('#editProductModal h3');
+        if (heading) heading.innerHTML = '<i data-lucide="pencil"></i> Chỉnh sửa sản phẩm';
+        const saveBtn = $('#saveEditProduct');
+        if (saveBtn) saveBtn.innerHTML = '<i data-lucide="check"></i> Lưu lên TPOS';
 
-            // Restore heading + save button for edit mode
-            const heading = $('#editProductModal h3');
-            if (heading) heading.innerHTML = '<i data-lucide="pencil"></i> Chỉnh sửa sản phẩm';
-            const saveBtn = $('#saveEditProduct');
-            if (saveBtn) saveBtn.innerHTML = '<i data-lucide="check"></i> Lưu lên TPOS';
-
-            // Basic info
-            $('#editProductId').value = templateId;
-            $('#editProductName').value = detail.Name || '';
-            $('#editProductCode').value = detail.DefaultCode || '';
-            $('#editBarcode').value = detail.Barcode || '';
-
-            // Image preview
-            const imgPreview = $('#editImagePreview');
-            if (imgPreview) {
-                const imgUrl =
-                    detail.ImageUrl ||
-                    (detail.Image ? `data:image/png;base64,${detail.Image}` : '');
-                imgPreview.innerHTML = imgUrl
-                    ? `<img src="${imgUrl}" style="width:100%;height:100%;object-fit:cover;">`
-                    : '<span style="color:#9ca3af;font-size:11px;">No image</span>';
+        // Skeleton: lock in templateId + clear basic fields until detail arrives
+        $('#editProductId').value = templateId;
+        $('#editProductName').value = 'Đang tải…';
+        $('#editProductCode').value = '';
+        $('#editBarcode').value = '';
+        $('#editListPrice').value = 0;
+        $('#editPurchasePrice').value = 0;
+        $('#editDiscountSale').value = 0;
+        $('#editDiscountPurchase').value = 0;
+        $('#editWeight').value = 0;
+        $('#editDescriptionSale').value = '';
+        $('#editDescriptionPurchase').value = '';
+        $('#editDescription').value = '';
+        ['#editCategId', '#editPOSCategId', '#editUOMId', '#editUOMPOId'].forEach((sel) => {
+            const el = $(sel);
+            if (el && el.options.length <= 1) {
+                el.innerHTML = '<option value="">Đang tải…</option>';
             }
+        });
+        const imgPreview = $('#editImagePreview');
+        if (imgPreview)
+            imgPreview.innerHTML = '<span style="color:#9ca3af;font-size:11px;">Đang tải…</span>';
 
-            // Prices
-            $('#editListPrice').value = detail.ListPrice || 0;
-            $('#editPurchasePrice').value = detail.PurchasePrice || 0;
-            $('#editDiscountSale').value = detail.DiscountSale || 0;
-            $('#editDiscountPurchase').value = detail.DiscountPurchase || 0;
+        // SHOW modal IMMEDIATELY
+        $('#editProductModal')?.classList.add('show');
+        WS.initIcons();
+        _modalOpening = false;
 
-            // Categories & UOM dropdowns
-            populateSelect('#editCategId', cachedCategories, 'Id', 'CompleteName', detail.CategId);
-            populateSelect('#editPOSCategId', cachedPOSCategories, 'Id', 'Name', detail.POSCategId);
-            populateSelect('#editUOMId', cachedUOMs, 'Id', 'Name', detail.UOMId);
-            populateSelect('#editUOMPOId', cachedUOMs, 'Id', 'Name', detail.UOMPOId);
+        // Defer heavy work to next paint
+        const populateAsync = async () => {
+            try {
+                const [detail] = await Promise.all([
+                    fetchProductDetail(templateId),
+                    ensureDropdownData(),
+                ]);
+                editingProduct = detail;
 
-            // Classification
-            $('#editWeight').value = detail.Weight || 0;
-            $('#editTracking').value = detail.Tracking || 'none';
+                // Basic info
+                $('#editProductName').value = detail.Name || '';
+                $('#editProductCode').value = detail.DefaultCode || '';
+                $('#editBarcode').value = detail.Barcode || '';
 
-            // Status checkboxes
-            $('#editActive').checked = detail.Active !== false;
-            $('#editSaleOK').checked = detail.SaleOK !== false;
-            $('#editPurchaseOK').checked = detail.PurchaseOK !== false;
-            $('#editAvailableInPOS').checked = detail.AvailableInPOS !== false;
-
-            // Accounting
-            $('#editInvoicePolicy').value = detail.InvoicePolicy || 'order';
-            $('#editPurchaseMethod').value = detail.PurchaseMethod || 'receive';
-
-            // Descriptions
-            $('#editDescriptionSale').value = detail.DescriptionSale || '';
-            $('#editDescriptionPurchase').value = detail.DescriptionPurchase || '';
-            $('#editDescription').value = detail.Description || '';
-
-            // Populate Phase 2/3 sections
-            await populateAdvancedSections(detail);
-
-            // Mirror small image preview into the bigger "Ảnh" tab preview
-            const smallPreview = document.getElementById('editImagePreview');
-            const largePreview = document.getElementById('editImagesPreviewLarge');
-            if (smallPreview && largePreview) {
-                const img = smallPreview.querySelector('img');
-                if (img && img.src) {
-                    largePreview.innerHTML = `<img src="${img.src}" alt="" style="max-width:100%;max-height:100%;object-fit:contain;">`;
-                } else {
-                    largePreview.innerHTML =
-                        '<span style="color:#9ca3af;font-size:13px">Chưa có ảnh</span>';
+                // Image preview
+                const imgPreview2 = $('#editImagePreview');
+                if (imgPreview2) {
+                    const imgUrl =
+                        detail.ImageUrl ||
+                        (detail.Image ? `data:image/png;base64,${detail.Image}` : '');
+                    imgPreview2.innerHTML = imgUrl
+                        ? `<img src="${imgUrl}" style="width:100%;height:100%;object-fit:cover;">`
+                        : '<span style="color:#9ca3af;font-size:11px;">No image</span>';
                 }
-            }
 
-            $('#editProductModal').classList.add('show');
-            WS.initIcons();
-        } catch (err) {
-            console.error('[Edit] Failed to load product detail:', err);
-            showToast('Lỗi tải chi tiết: ' + err.message, 'error');
-        } finally {
-            _modalOpening = false;
-        }
+                // Prices
+                $('#editListPrice').value = detail.ListPrice || 0;
+                $('#editPurchasePrice').value = detail.PurchasePrice || 0;
+                $('#editDiscountSale').value = detail.DiscountSale || 0;
+                $('#editDiscountPurchase').value = detail.DiscountPurchase || 0;
+
+                // Categories & UOM dropdowns
+                populateSelect(
+                    '#editCategId',
+                    cachedCategories,
+                    'Id',
+                    'CompleteName',
+                    detail.CategId
+                );
+                populateSelect(
+                    '#editPOSCategId',
+                    cachedPOSCategories,
+                    'Id',
+                    'Name',
+                    detail.POSCategId
+                );
+                populateSelect('#editUOMId', cachedUOMs, 'Id', 'Name', detail.UOMId);
+                populateSelect('#editUOMPOId', cachedUOMs, 'Id', 'Name', detail.UOMPOId);
+
+                // Classification
+                $('#editWeight').value = detail.Weight || 0;
+                $('#editTracking').value = detail.Tracking || 'none';
+
+                // Status checkboxes
+                $('#editActive').checked = detail.Active !== false;
+                $('#editSaleOK').checked = detail.SaleOK !== false;
+                $('#editPurchaseOK').checked = detail.PurchaseOK !== false;
+                $('#editAvailableInPOS').checked = detail.AvailableInPOS !== false;
+
+                // Accounting
+                $('#editInvoicePolicy').value = detail.InvoicePolicy || 'order';
+                $('#editPurchaseMethod').value = detail.PurchaseMethod || 'receive';
+
+                // Descriptions
+                $('#editDescriptionSale').value = detail.DescriptionSale || '';
+                $('#editDescriptionPurchase').value = detail.DescriptionPurchase || '';
+                $('#editDescription').value = detail.Description || '';
+
+                // Populate Phase 2/3 sections
+                await populateAdvancedSections(detail);
+
+                // Mirror small image preview into the bigger "Ảnh" tab preview
+                const smallPreview = document.getElementById('editImagePreview');
+                const largePreview = document.getElementById('editImagesPreviewLarge');
+                if (smallPreview && largePreview) {
+                    const img = smallPreview.querySelector('img');
+                    if (img && img.src) {
+                        largePreview.innerHTML = `<img src="${img.src}" alt="" style="max-width:100%;max-height:100%;object-fit:contain;">`;
+                    } else {
+                        largePreview.innerHTML =
+                            '<span style="color:#9ca3af;font-size:13px">Chưa có ảnh</span>';
+                    }
+                }
+
+                WS.initIcons();
+            } catch (err) {
+                console.error('[Edit] Failed to load product detail:', err);
+                showToast('Lỗi tải chi tiết: ' + err.message, 'error');
+                // Reset placeholder so user knows the load failed
+                $('#editProductName').value = '';
+            }
+        };
+        requestAnimationFrame(() => {
+            populateAsync();
+        });
     }
 
     function closeEditModal() {
@@ -3125,70 +3202,100 @@
 
     // =====================================================
     // CREATE PRODUCT — reuse edit modal in 'create' mode
-    // =====================================================
+    // Open Create-Product modal — INSTANT show, async populate.
+    //
+    // Previously this awaited ensureDropdownData() (3 OData calls, 1.5-3s on
+    // first open) BEFORE adding .show class, so the user saw a frozen UI for
+    // seconds. Now we:
+    //   1. Reset form fields synchronously (fast),
+    //   2. Show modal immediately,
+    //   3. Populate big <select>s + tag picker + bind handlers in the next frame,
+    //      so the user can already start typing into Name/Code/Barcode/Prices.
+    //
+    // Dropdown data is also prefetched on idle (see scheduleDropdownPrefetch
+    // call at init) — by the time user clicks "Thêm SP", cache is usually warm
+    // so populate is near-instant.
     async function openCreateProduct() {
         if (_modalOpening) return;
         _modalOpening = true;
-        try {
-            showToast('Đang chuẩn bị form...', 'info');
-            await ensureDropdownData();
-            modalMode = 'create';
-            editingProduct = null;
-            editImageBase64 = null;
+        modalMode = 'create';
+        editingProduct = null;
+        editImageBase64 = null;
 
-            const heading = $('#editProductModal h3');
-            if (heading) heading.innerHTML = '<i data-lucide="plus"></i> Thêm sản phẩm mới';
-            const saveBtn = $('#saveEditProduct');
-            if (saveBtn) saveBtn.innerHTML = '<i data-lucide="plus"></i> Tạo sản phẩm';
+        // Heading + save button labels (synchronous DOM writes)
+        const heading = $('#editProductModal h3');
+        if (heading) heading.innerHTML = '<i data-lucide="plus"></i> Thêm sản phẩm mới';
+        const saveBtn = $('#saveEditProduct');
+        if (saveBtn) saveBtn.innerHTML = '<i data-lucide="plus"></i> Tạo sản phẩm';
 
-            // Reset fields
-            $('#editProductId').value = '';
-            $('#editProductName').value = '';
-            $('#editProductCode').value = '';
-            $('#editBarcode').value = '';
-            $('#editListPrice').value = 0;
-            $('#editPurchasePrice').value = 0;
-            $('#editDiscountSale').value = 0;
-            $('#editDiscountPurchase').value = 0;
-            $('#editWeight').value = 0;
-            $('#editTracking').value = 'none';
-            $('#editActive').checked = true;
-            $('#editSaleOK').checked = true;
-            $('#editPurchaseOK').checked = true;
-            $('#editAvailableInPOS').checked = true;
-            $('#editInvoicePolicy').value = 'order';
-            $('#editPurchaseMethod').value = 'receive';
-            $('#editDescriptionSale').value = '';
-            $('#editDescriptionPurchase').value = '';
-            $('#editDescription').value = '';
+        // Reset basic fields synchronously — all cheap operations
+        $('#editProductId').value = '';
+        $('#editProductName').value = '';
+        $('#editProductCode').value = '';
+        $('#editBarcode').value = '';
+        $('#editListPrice').value = 0;
+        $('#editPurchasePrice').value = 0;
+        $('#editDiscountSale').value = 0;
+        $('#editDiscountPurchase').value = 0;
+        $('#editWeight').value = 0;
+        $('#editTracking').value = 'none';
+        $('#editActive').checked = true;
+        $('#editSaleOK').checked = true;
+        $('#editPurchaseOK').checked = true;
+        $('#editAvailableInPOS').checked = true;
+        $('#editInvoicePolicy').value = 'order';
+        $('#editPurchaseMethod').value = 'receive';
+        $('#editDescriptionSale').value = '';
+        $('#editDescriptionPurchase').value = '';
+        $('#editDescription').value = '';
 
-            populateSelect('#editCategId', cachedCategories, 'Id', 'CompleteName', null);
-            populateSelect('#editPOSCategId', cachedPOSCategories, 'Id', 'Name', null);
-            populateSelect('#editUOMId', cachedUOMs, 'Id', 'Name', 1);
-            populateSelect('#editUOMPOId', cachedUOMs, 'Id', 'Name', 1);
+        const imgPreview = $('#editImagePreview');
+        if (imgPreview)
+            imgPreview.innerHTML = '<span style="color:#9ca3af;font-size:11px;">No image</span>';
 
-            const imgPreview = $('#editImagePreview');
-            if (imgPreview)
-                imgPreview.innerHTML =
-                    '<span style="color:#9ca3af;font-size:11px;">No image</span>';
+        // Skeleton dropdowns — show "Đang tải..." until data populates
+        ['#editCategId', '#editPOSCategId', '#editUOMId', '#editUOMPOId'].forEach((sel) => {
+            const el = $(sel);
+            if (el && el.options.length <= 1) {
+                el.innerHTML = '<option value="">Đang tải…</option>';
+            }
+        });
 
-            // Reset advanced sections + render empty tag picker
-            resetAdvancedSections();
-            await renderTagsPicker([]);
-            bindTagsPickerEvents();
-            bindComboSearchEvents();
-            bindSupplierEvents();
-            bindUOMLinesEvents();
-            bindVariantsTableEvents();
+        // SHOW modal IMMEDIATELY — user perceives this as instant
+        const modal = $('#editProductModal');
+        if (modal) modal.classList.add('show');
 
-            $('#editProductModal').classList.add('show');
-            WS.initIcons();
-        } catch (err) {
-            console.error('[Create] Prepare form failed:', err);
-            showToast('Lỗi mở form: ' + err.message, 'error');
-        } finally {
-            _modalOpening = false;
-        }
+        // Initialize icons only for the just-shown header/save button (cheap; avoids
+        // the large body scan until populated content actually has icons).
+        WS.initIcons();
+
+        _modalOpening = false; // unblock further clicks (idempotent show)
+
+        // Defer heavy work to the next paint so the user sees the modal open first.
+        const populateAsync = async () => {
+            try {
+                await ensureDropdownData();
+                populateSelect('#editCategId', cachedCategories, 'Id', 'CompleteName', null);
+                populateSelect('#editPOSCategId', cachedPOSCategories, 'Id', 'Name', null);
+                populateSelect('#editUOMId', cachedUOMs, 'Id', 'Name', 1);
+                populateSelect('#editUOMPOId', cachedUOMs, 'Id', 'Name', 1);
+
+                resetAdvancedSections();
+                await renderTagsPicker([]);
+                bindTagsPickerEvents();
+                bindComboSearchEvents();
+                bindSupplierEvents();
+                bindUOMLinesEvents();
+                bindVariantsTableEvents();
+                WS.initIcons();
+            } catch (err) {
+                console.error('[Create] Populate form failed:', err);
+                showToast('Lỗi tải dữ liệu form: ' + err.message, 'error');
+            }
+        };
+        requestAnimationFrame(() => {
+            populateAsync();
+        });
     }
 
     function _uomPayload(u) {
@@ -5287,6 +5394,11 @@
 
         // Fetch first page from Render DB
         await fetchProducts();
+
+        // Warm the modal dropdown cache on idle so first "Thêm SP" / row edit
+        // open feels instant. Cache hits → modal populate takes <50ms instead of
+        // 1-3s waiting on 3 OData calls.
+        scheduleDropdownPrefetch();
 
         // SSE real-time: auto-refresh when TPOS products change
         sseCtrl = WS.setupSSE({
