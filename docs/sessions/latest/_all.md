@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b7e24a5` — perf(product-warehouse): instant search via idle-warmed template cache
-**Last updated**: 2026-05-26 14:22:38 +07
-**Latest session**: [`RESUME:20260526-142238-b7e24a5`](../20260526-142238-b7e24a5.md)
-**Summary**: perf(product-warehouse): instant search via idle-warmed template cache
+**Latest commit**: `bbaf4c0` — fix(tpos-pancake): thumbnail capture work — restore Path 2 (captureVisibleTab) + <all_urls>
+**Last updated**: 2026-05-26 14:24:35 +07
+**Latest session**: [`RESUME:20260526-142435-bbaf4c0`](../20260526-142435-bbaf4c0.md)
+**Summary**: fix(tpos-pancake): thumbnail capture work — restore Path 2 (captureVisibleTab) + <all_urls>
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
+- [`n2store-extension/`](./n2store-extension.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -38,7 +37,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-26 14:19
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-26 14:24
 - [`native-orders/`](./native-orders.md) — updated 2026-05-26 13:38
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
