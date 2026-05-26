@@ -72,11 +72,10 @@
             return false;
         }
     }
-    // effectiveApproved → false cho non-admin để totalLeft tính đầy đủ + UI không
-    // hiển thị trạng thái approved. Admin nhận lại giá trị thật.
-    function effectiveApproved(value) {
-        return _isAdmin() ? !!value : false;
-    }
+    // Note: KHÔNG còn dùng effectiveApproved() — đã đơn giản hoá:
+    // - Approved rows: admin thấy mờ (totalLeft=0), non-admin bị ẩn HẲN trong render loop
+    // - Tab totals: approved → 0 contribution cho cả 2 (consistent)
+    // - Approve cell HTML: dùng _isAdmin() trực tiếp (checkbox vs lock placeholder)
     // Debug helper — gõ vào DevTools: window.__DR_authDebug() để xem chi tiết
     // lý do bị/không bị detect là Admin.
     window.__DR_authDebug = function () {
@@ -1240,6 +1239,9 @@
             </tr>`;
         }
 
+        // Non-admin: ẩn HẲN các hàng đã duyệt khỏi bảng (cả merge lẫn single).
+        // Vẫn mark rendered để vòng lặp không tạo duplicate cho child của merge bị skip.
+        const isAdminView = _isAdmin();
         const rendered = new Set();
         const rowsHtml = [];
         for (const d of dates) {
@@ -1248,13 +1250,18 @@
             if (merge) {
                 const childDates = dates.filter((cd) => cd >= merge.fromDate && cd <= merge.toDate);
                 for (const cd of childDates) rendered.add(cd);
+                if (!isAdminView && merge.approved) continue; // ẩn merge đã duyệt
                 rowsHtml.push(renderMergeRow(merge, childDates));
                 if (merge.expanded) {
                     for (const cd of childDates) rowsHtml.push(renderSingleRow(cd, true));
                 }
             } else {
-                rowsHtml.push(renderSingleRow(d, false));
                 rendered.add(d);
+                if (!isAdminView) {
+                    const ov = getOverride(d, state.activeTab);
+                    if (ov.approved) continue; // ẩn single row đã duyệt
+                }
+                rowsHtml.push(renderSingleRow(d, false));
             }
         }
 
