@@ -306,30 +306,36 @@
     // content script's gesture handler qua chrome.runtime.sendMessage. Best-effort:
     // nếu Chrome accept → auto-enable stream mode (zero icon click). Nếu reject
     // → fallback popup icon click.
-    // Match prod URL + localhost dev (browser test với --load-extension)
+    // Match prod URL + localhost dev (browser test với --load-extension).
+    // Auto-grab streamId trên FIRST user gesture (mọi loại: click, key,
+    // scroll, pointer). Khi user mở tpos-pancake + tương tác chút ít → grant
+    // streamId → capture chạy cả khi tab inactive (user feedback 2026-05-26:
+    // "mở tab khác không chụp được").
     if (
         /(https:\/\/nhijudy\.store|http:\/\/localhost(:\d+)?|http:\/\/127\.0\.0\.1(:\d+)?)\/tpos-pancake\//.test(
             location.href
         )
     ) {
-        let _streamGrabAttempted = false;
-        const _tryGrabStream = () => {
-            if (_streamGrabAttempted) return;
-            _streamGrabAttempted = true;
+        let _streamGrabbed = false;
+        let _streamGrabbing = false;
+        const _tryGrabStream = (e) => {
+            if (_streamGrabbed || _streamGrabbing) return;
+            _streamGrabbing = true;
             try {
                 chrome.runtime.sendMessage(
                     { type: 'N2_GRAB_TAB_STREAM_FROM_CLICK' },
                     (response) => {
+                        _streamGrabbing = false;
                         if (chrome.runtime.lastError) {
                             console.warn(
-                                '[N2EXT] tab stream grab fail:',
+                                '[N2EXT] streamId grab fail:',
                                 chrome.runtime.lastError.message
                             );
-                            _streamGrabAttempted = false; // allow retry on next click
-                            return;
+                            return; // allow retry on next gesture
                         }
                         if (response?.streamId) {
-                            console.log('[N2EXT] tab streamId grabbed via page click ✓');
+                            _streamGrabbed = true;
+                            console.log('[N2EXT] streamId grabbed ✓ via', e?.type || 'gesture');
                             window.postMessage(
                                 {
                                     type: 'N2_TAB_STREAM_ID',
@@ -338,20 +344,30 @@
                                 },
                                 '*'
                             );
-                            // Unregister listener (no need for more clicks)
-                            document.removeEventListener('click', _tryGrabStream, true);
+                            // Unregister listeners — streamId ổn rồi
+                            _unregisterAll();
                         } else {
-                            console.warn('[N2EXT] tab stream grab rejected:', response?.error);
-                            _streamGrabAttempted = false; // allow retry
+                            console.warn('[N2EXT] streamId grab rejected:', response?.error);
                         }
                     }
                 );
             } catch (e) {
                 console.warn('[N2EXT] sendMessage threw:', e.message);
-                _streamGrabAttempted = false;
+                _streamGrabbing = false;
             }
         };
-        document.addEventListener('click', _tryGrabStream, true);
+        // Bind nhiều gesture types — Chrome activation gấp granted bởi bất kỳ
+        // loại nào (click/keydown/pointer). capture phase (true) để fire sớm
+        // dù event bị stopPropagation downstream.
+        const GESTURE_EVENTS = ['click', 'keydown', 'pointerdown', 'touchstart'];
+        const _unregisterAll = () => {
+            for (const ev of GESTURE_EVENTS) {
+                document.removeEventListener(ev, _tryGrabStream, true);
+            }
+        };
+        for (const ev of GESTURE_EVENTS) {
+            document.addEventListener(ev, _tryGrabStream, true);
+        }
     }
 
     // === INITIALIZATION ===
