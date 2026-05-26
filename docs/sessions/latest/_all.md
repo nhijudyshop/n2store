@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a28d398` — feat(product-warehouse): UX redesign — header add-btn + collapsible filters + selection-only bulk
-**Last updated**: 2026-05-26 09:55:54 +07
-**Latest session**: [`RESUME:20260526-095554-a28d398`](../20260526-095554-a28d398.md)
-**Summary**: feat(product-warehouse): UX redesign — header add-btn + collapsible filters + selection-only bulk
+**Latest commit**: `8812e7c` — feat(product-warehouse): bỏ row expand btn + dời stock adjust lên toolbar
+**Last updated**: 2026-05-26 10:02:05 +07
+**Latest session**: [`RESUME:20260526-100205-8812e7c`](../20260526-100205-8812e7c.md)
+**Summary**: feat(product-warehouse): bỏ row expand btn + dời stock adjust lên toolbar
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 1 file(s)
 - [`product-warehouse/`](./product-warehouse.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -46,7 +44,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-25 14:08
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 09:55
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 10:02
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
