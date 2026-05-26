@@ -849,7 +849,7 @@
                 <td class="num"><input type="text" data-field="atruongCK" value="${atruongCK ? formatMoney(atruongCK) : ''}" placeholder="0" ${disabled} /></td>
                 <td class="num"><input type="text" data-field="ckTruoc" value="${ckTruoc ? formatMoney(ckTruoc) : ''}" placeholder="0" ${disabled} /></td>
                 <td class="num strong ${totalLeftDisplay < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeftDisplay)}</td>
-                <td class="note-cell"><textarea data-field="note" rows="1" placeholder="Ghi chú…" title="${note ? escapeHtml(note) : 'Ghi chú cho ngày này'}" ${disabled}>${escapeHtml(note)}</textarea></td>
+                <td class="note-cell" data-tooltip="${note ? escapeHtml(note) : ''}"><textarea data-field="note" rows="1" placeholder="Ghi chú…" ${disabled}>${escapeHtml(note)}</textarea></td>
                 <td class="dr-report-td-approve"><label class="dr-approve-toggle"><input type="checkbox" data-field="approved" ${approved ? 'checked' : ''} ${disabled} /><span></span></label></td>
             </tr>`;
         }
@@ -941,7 +941,7 @@
                 <td class="num"><input type="text" data-field="atruongCK" value="${useMerge(merge.atruongCK) ? formatMoney(merge.atruongCK) : ''}" placeholder="${sumAtruongCK ? formatMoney(sumAtruongCK) : '0'}" title="${useMerge(merge.atruongCK) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumAtruongCK) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
                 <td class="num"><input type="text" data-field="ckTruoc" value="${useMerge(merge.ckTruoc) ? formatMoney(merge.ckTruoc) : ''}" placeholder="${sumCkTruoc ? formatMoney(sumCkTruoc) : '0'}" title="${useMerge(merge.ckTruoc) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumCkTruoc) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
                 <td class="num strong ${totalLeftDisplay < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeftDisplay)}</td>
-                <td class="note-cell"><textarea data-field="note" rows="1" placeholder="${escapeHtml(childNotes.length ? childNotes.join(' | ') : 'Ghi chú…')}" title="${escapeHtml([merge.note ? `Ghi chú gộp: ${merge.note}` : '', childNotes.length ? `Ghi chú từ children:\n${childNotes.join('\n')}` : ''].filter(Boolean).join('\n\n') || 'Ghi chú cho dòng gộp')}">${escapeHtml(merge.note || '')}</textarea></td>
+                <td class="note-cell" data-tooltip="${escapeHtml([merge.note ? `Ghi chú gộp:\n${merge.note}` : '', childNotes.length ? `Ghi chú các ngày:\n${childNotes.join('\n')}` : ''].filter(Boolean).join('\n\n'))}"><textarea data-field="note" rows="1" placeholder="${escapeHtml(childNotes.length ? childNotes.join(' | ') : 'Ghi chú…')}">${escapeHtml(merge.note || '')}</textarea></td>
                 <td class="dr-report-td-approve"><label class="dr-approve-toggle"><input type="checkbox" data-field="approved" ${approved ? 'checked' : ''} /><span></span></label></td>
             </tr>`;
         }
@@ -1216,6 +1216,25 @@
             if (next && cell.contains(next)) return;
             hideHoverPreview();
         });
+
+        // Note hover tooltip — textarea rows=1 truncate visible content. Custom
+        // popup show full ghi chú (multi-line, preserve \n). data-tooltip on
+        // <td.note-cell> chứa raw text (đã escape khi render).
+        tbody.addEventListener('mouseover', (e) => {
+            const cell = e.target.closest && e.target.closest('td.note-cell[data-tooltip]');
+            if (!cell) return;
+            const text = cell.dataset.tooltip;
+            if (!text) return;
+            if (noteTooltip.currentCell === cell) return;
+            showNoteTooltip(cell, text);
+        });
+        tbody.addEventListener('mouseout', (e) => {
+            const cell = e.target.closest && e.target.closest('td.note-cell[data-tooltip]');
+            if (!cell) return;
+            const next = e.relatedTarget;
+            if (next && cell.contains(next)) return;
+            hideNoteTooltip();
+        });
     }
 
     // ── Expand row: hiển thị danh sách đơn từng (date, group) ──
@@ -1444,6 +1463,55 @@
         const el = document.getElementById('drReportImgHover');
         if (el) el.classList.remove('open');
         hoverPreview.currentCell = null;
+    }
+
+    // ── Note tooltip (hover note cell hiển thị full text multi-line) ──
+    const noteTooltip = { currentCell: null };
+
+    function ensureNoteTooltip() {
+        if (document.getElementById('drReportNoteTooltip')) return;
+        const el = document.createElement('div');
+        el.id = 'drReportNoteTooltip';
+        el.className = 'dr-note-tooltip';
+        document.body.appendChild(el);
+    }
+
+    function showNoteTooltip(cell, text) {
+        ensureNoteTooltip();
+        const el = document.getElementById('drReportNoteTooltip');
+        // textContent giữ \n + auto-escape HTML — kết hợp với white-space:pre-line
+        // trong CSS để render multi-line đúng.
+        el.textContent = text;
+        noteTooltip.currentCell = cell;
+        el.classList.add('open');
+        positionNoteTooltip(cell);
+    }
+
+    function positionNoteTooltip(cell) {
+        const el = document.getElementById('drReportNoteTooltip');
+        if (!el) return;
+        const rect = cell.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const w = el.offsetWidth;
+        const h = el.offsetHeight;
+        // Default: above the cell, horizontally centered
+        let left = rect.left + rect.width / 2 - w / 2;
+        let top = rect.top - h - 8;
+        // Fallback below if no room above
+        if (top < 8) top = rect.bottom + 8;
+        // Clamp to viewport
+        if (left + w + 8 > vw) left = vw - w - 8;
+        if (left < 8) left = 8;
+        if (top + h + 8 > vh) top = vh - h - 8;
+        el.style.left = `${left}px`;
+        el.style.top = `${top}px`;
+    }
+
+    function hideNoteTooltip() {
+        const el = document.getElementById('drReportNoteTooltip');
+        if (el) el.classList.remove('open');
+        noteTooltip.currentCell = null;
     }
 
     // ── Image modal ──

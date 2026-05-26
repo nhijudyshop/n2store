@@ -25,6 +25,24 @@
 
 ## 2026-05-26
 
+### [delivery-report/report] Custom hover tooltip cho ô ghi chú (multi-line popup) ✅
+
+**User ask**: "hover vào hiện tooltip toàn bộ nội dung ghi chú" — native `title` browser tooltip có delay + không preserve newline tốt.
+
+Sau khi build: "bỏ chữ children đi" — label "Ghi chú từ children:" không tự nhiên → đổi sang "Ghi chú các ngày:".
+
+**Fix** (`delivery-report/js/report.js` + `delivery-report/css/delivery-report.css`):
+
+- Đổi `title="..."` → `data-tooltip="..."` trên `<td.note-cell>` (move ra cell wrapper thay vì textarea để hover area lớn hơn).
+- Thêm `noteTooltip` state + `showNoteTooltip` / `positionNoteTooltip` / `hideNoteTooltip` (mirror pattern `hoverPreview` cho image cell).
+- `tbody.mouseover/mouseout` delegated handler cho `td.note-cell[data-tooltip]` — show floating popup, position ABOVE cell (fallback BELOW nếu hết chỗ), clamp viewport.
+- CSS `.dr-note-tooltip`: dark `#1f2937` bg + white text, `white-space: pre-line` để render `\n` đúng, `pointer-events: none` để không cản focus textarea, `z-index: 9500`.
+- Label merge tooltip "Ghi chú các ngày:" thay vì "Ghi chú từ children:" (tiếng Việt tự nhiên).
+
+**Verify** (Playwright real hover): popup show với text đầy đủ multi-line ✅, position trên cell, open=true ✅.
+
+---
+
 ### [delivery-report/report] Default range = "Tháng này" + hover ghi chú show full text ✅
 
 **User ask** (2 micro-requests sau session merge-fix):

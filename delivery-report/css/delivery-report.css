@@ -2673,6 +2673,38 @@ body.dr-mode-report #drTableWrapper {
     object-fit: contain;
 }
 
+/* Note hover tooltip — show full multi-line ghi chú khi rê chuột lên ô NGHI CHU
+   (textarea rows=1 truncate visible). position:fixed + pointer-events:none để
+   không chặn focus textarea, không cản scroll. */
+.dr-note-tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: #1f2937;
+    color: #f9fafb;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow:
+        0 14px 30px rgba(15, 23, 42, 0.3),
+        0 3px 8px rgba(15, 23, 42, 0.18);
+    z-index: 9500;
+    max-width: 420px;
+    min-width: 160px;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-line; /* respect \n in textContent */
+    word-break: break-word;
+    opacity: 0;
+    transform: translateY(4px);
+    transition:
+        opacity 0.1s ease,
+        transform 0.1s ease;
+}
+.dr-note-tooltip.open {
+    opacity: 1;
+    transform: translateY(0);
+}
+
 /* Image modal */
 .dr-report-img-overlay {
     position: fixed;
