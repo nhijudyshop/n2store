@@ -465,8 +465,11 @@
         return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
     }
 
-    // Entry date (ngày nhập liệu) = real date + 1 day. UI inputs and the NGÀY
-    // column display entry dates; data fetch/storage/overrides keep real dates.
+    // shiftDay vẫn giữ (dùng cho consecutive merge validation, eachDay loop).
+    // ENTRY date = REAL date — 2026-05-26 align với main page (user pick ngày
+    // 29/04 thì lookup data ship-date 29/04, không shift -1 nữa).
+    // Trước đây: entryToReal = real - 1, realToEntry = real + 1 → off-by-one
+    // với main page (treat input là real ship date). Đã fix.
     function shiftDay(iso, delta) {
         if (!iso) return '';
         const d = new Date(iso + 'T00:00:00');
@@ -477,8 +480,8 @@
         const dd = String(d.getDate()).padStart(2, '0');
         return `${y}-${m}-${dd}`;
     }
-    const entryToReal = (iso) => shiftDay(iso, -1);
-    const realToEntry = (iso) => shiftDay(iso, 1);
+    const entryToReal = (iso) => iso || '';
+    const realToEntry = (iso) => iso || '';
 
     function eachDay(fromISO, toISO) {
         const dates = [];

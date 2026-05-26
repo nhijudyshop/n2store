@@ -25,6 +25,42 @@
 
 ## 2026-05-26
 
+### [delivery-report/report] Fix off-by-one — entry-date = real-date (align với main page) ✅
+
+**User báo**: "sao 29/04, 30/04 không có dữ liệu?" — chọn range 29/04 → 30/04 trong báo cáo modal, modal hiển thị $0/0 đơn cho cả 2 ngày, NHƯNG main page với cùng date range hiển thị TOMATO 79/82 đơn, CN 1.329.000.
+
+**Diagnosis** (Playwright API debug):
+
+- Main page treat date input là REAL ship date → lookup data ngày 29/04 + 30/04 → tìm thấy tomato 79 đơn ở 2026-04-30
+- Modal `entryToReal = real - 1` (`shiftDay(iso, -1)`) → khi user pick 29/04 → 30/04, modal fetch real 28/04 → 29/04 → MISS real 30/04 (nơi 79 tomato thực sự ở)
+- API verify: `GET /by-date-group?from=2026-04-29&to=2026-04-30` trả về tomato:79 ở `date:"2026-04-30"` ✅
+
+**Root cause**: convention `entry-date = real-date + 1` (UI shift) lệch với main page (no shift). Modal fetches off-by-one date range.
+
+**Fix** (`delivery-report/js/report.js` line 480-481):
+
+```js
+// Before:
+const entryToReal = (iso) => shiftDay(iso, -1);
+const realToEntry = (iso) => shiftDay(iso, 1);
+
+// After: identity — entry-date = real-date thẳng
+const entryToReal = (iso) => iso || '';
+const realToEntry = (iso) => iso || '';
+```
+
+`shiftDay` vẫn giữ vì còn dùng cho `eachDay` loop + consecutive-merge validation (`shiftDay(sorted[i-1], 1) !== sorted[i]`).
+
+**Verify** (Playwright with range 29/04 → 30/04, tab TOMATO):
+
+- Before: row 29/04 = $0, row 30/04 = $0 ❌
+- After: row 29/04 = $0 (đúng — không có tomato ship 29/04), row 30/04 = **79 đơn, $41.524.000, totalLeft $39.707.000** ✅ khớp main page
+- Tab totals (tomato/nap/city) = $39.707.000 / $135.003.000 / $98.082.000, TỔNG $272.792.000 ✅
+
+**Backward compat note**: existing merges + overrides + date shifts trong DB lưu theo REAL date. Vì entry==real giờ, không cần migrate dữ liệu. Các display label `formatDDMMYYYY(realToEntry(d))` giờ = `formatDDMMYYYY(d)` — không đổi gì với data hiện có.
+
+---
+
 ### [delivery-report/report] Virtual date shift — dời ngày + auto-aggregate khi trùng target ✅
 
 **User ask**: "kiểm tra lại toàn bộ dữ liệu tháng 4 luôn, phần ngày của riêng bảng này cho chỉnh ngày ảo → ví dụ 29/04, 30/04 tôi chỉnh thành 01/05, 02/05 thì hiển thị badge biết chỉnh sửa ngày và dữ liệu gộp vào 01/05, 02/05 → nếu 29/04, 30/04 tôi nhập cùng ngày 02/05 thì gộp 29/04, 30/04 hiển thị vào 02/05"
