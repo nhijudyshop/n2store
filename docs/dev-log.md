@@ -25,6 +25,38 @@
 
 ## 2026-05-26
 
+### [delivery-report] Main page filter respect date shifts (ext range + client filter) ✅
+
+**User ask**: "ngày 29/04, 30/04 tôi chỉnh thành 02/05 cả 2 ngày thì filter search 02/05 ra dữ liệu 29/04, 30/04 ảo luôn đi"
+
+Date shifts từ báo cáo modal (localStorage `dr-date-shifts-v1`) giờ ảnh hưởng main page filter: filter `02/05` → trả về cả orders thật ở real 29/04, 30/04 (đã shift display = 02/05) + orders thật ở 02/05.
+
+**Fix** (`delivery-report/js/delivery-report.js`):
+
+- `_readDateShifts()`: đọc storage map mỗi lần (không cache trong scope main page, sync với báo cáo modal mới nhất)
+- `getEffectiveDisplayDate(realDate, shifts)`: group-agnostic lookup — `realDate` có shift trong BẤT KỲ group nào → dùng shift target
+- `_computeExtendedRange(origFrom, origTo)`: extend fetch range để include real dates có displayDate ∈ origRange. VD shifts `{29/04→02/05, 30/04→02/05}`, filter `[02/05, 02/05]` → extended `[29/04, 02/05]`
+- `collectFilters`: save `_origFromDate/_origToDate` (user-typed); set `f.fromDate/f.toDate` = extended range cho fetch
+- Post-fetch filter (line 982+): chỉ keep order nếu `displayDate(item.DateInvoice) ∈ origRange` → orders ở real 29-30/04 + shift target 02/05 sẽ pass; orders ở 03/05+ trong extended range nếu không có sẽ bị filter out
+
+**Behavior**:
+
+- User trong báo cáo modal dời 29/04, 30/04 → 02/05 (cùng target)
+- Đóng modal, mở main page
+- Filter date input: 02/05 → 02/05
+- Kết quả: orders từ real 29/04 + 30/04 + 02/05 (tất cả "thuộc" displayDate 02/05)
+- DateInvoice column vẫn show ngày thật → user biết order gốc thuộc ngày nào
+
+**Verify** (Playwright pre-seed shifts):
+
+- Pre-seed `_dateShifts` = `{29/04, 30/04 → 02/05}` (cả 3 group)
+- Filter main page `[02/05, 02/05]`
+- Result: **543 orders** rendered, breakdown: 504 từ 30/04, 36 từ 29/04 ✅
+
+**TODO** server-side sync (next session): hiện shifts vẫn per-machine. Cần migrate sang server table + SSE notify để all clients thấy same view.
+
+---
+
 ### [delivery-report/report] Revert: expand + gộp + chỉnh ngày KHÔNG còn admin-only ✅
 
 **User clarify**: "hiểu sai ý tôi rồi các phần này cho tất cả account tương tác được → 3 phần này → expand, gộp và chỉnh ngày hiển thị (dời sang ngày khác)"

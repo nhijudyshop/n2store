@@ -791,6 +791,43 @@
         }
     }
 
+    // Date shifts (shared với báo cáo modal — key 'dr-date-shifts-v1').
+    // VD: user trong báo cáo dời 29/04, 30/04 → 02/05. Khi main page filter 02/05,
+    // ta extend fetch range để include real 29/04+30/04, sau đó filter client-side
+    // bằng displayDate (= shift target hoặc realDate).
+    function _readDateShifts() {
+        try {
+            return JSON.parse(localStorage.getItem('dr-date-shifts-v1') || '{}');
+        } catch (_) {
+            return {};
+        }
+    }
+    // Group-agnostic: nếu realDate có shift ở BẤT KỲ group nào → dùng shift đầu tiên tìm thấy
+    function getEffectiveDisplayDate(realDate, shifts) {
+        if (!realDate) return realDate;
+        const map = shifts || _readDateShifts();
+        for (const key in map) {
+            if (key.startsWith(realDate + '__')) return map[key];
+        }
+        return realDate;
+    }
+    // Tính extended range cho fetch: thêm các real dates có shift vào displayDate trong [origFrom..origTo]
+    function _computeExtendedRange(origFrom, origTo) {
+        if (!origFrom || !origTo) return { from: origFrom, to: origTo };
+        const shifts = _readDateShifts();
+        let extFrom = origFrom;
+        let extTo = origTo;
+        for (const key of Object.keys(shifts)) {
+            const displayDate = shifts[key];
+            if (displayDate >= origFrom && displayDate <= origTo) {
+                const realDate = key.split('__')[0];
+                if (realDate && realDate < extFrom) extFrom = realDate;
+                if (realDate && realDate > extTo) extTo = realDate;
+            }
+        }
+        return { from: extFrom, to: extTo };
+    }
+
     function collectFilters() {
         const f = DeliveryReportState.filters;
         const fromDate = document.getElementById('drFilterFromDate')?.value || '';
@@ -809,10 +846,19 @@
             if (toInput) toInput.value = effTo;
         }
 
+        // Original (user-typed) range — dùng để filter client-side sau khi fetch
+        f._origFromDate = effFrom;
+        f._origToDate = effTo;
+
+        // Extended range — include real dates shifted vào range gốc
+        const ext = _computeExtendedRange(effFrom, effTo);
+        const fetchFrom = ext.from;
+        const fetchTo = ext.to;
+
         // Time always pinned: 00:00 start of fromDate → 23:59 (end-of-minute pad
         // applied in buildApiUrl) of toDate. No manual time inputs.
-        f.fromDate = effFrom ? `${effFrom}T00:00` : '';
-        f.toDate = effTo ? `${effTo}T23:59` : '';
+        f.fromDate = fetchFrom ? `${fetchFrom}T00:00` : '';
+        f.toDate = fetchTo ? `${fetchTo}T23:59` : '';
         f.keyword = document.getElementById('drFilterKeyword')?.value?.trim() || '';
 
         updatePresetHint();
@@ -979,9 +1025,20 @@
 
             const result = await response.json();
             const raw = result.value || [];
-            DeliveryReportState.allData = raw.filter(
-                (i) => !DeliveryReportState.hiddenNumbers.has(i.Number)
-            );
+            // Filter client-side bằng displayDate (effective shift). Range fetch
+            // mở rộng include shift sources; chỉ giữ order có displayDate ∈ origRange.
+            const _f = DeliveryReportState.filters;
+            const _origFrom = _f._origFromDate || '';
+            const _origTo = _f._origToDate || '';
+            const _shifts = _readDateShifts();
+            DeliveryReportState.allData = raw.filter((i) => {
+                if (DeliveryReportState.hiddenNumbers.has(i.Number)) return false;
+                if (!_origFrom || !_origTo) return true;
+                const realDate = (i.DateInvoice && extractTposDate(i.DateInvoice)) || '';
+                if (!realDate) return true;
+                const displayDate = getEffectiveDisplayDate(realDate, _shifts);
+                return displayDate >= _origFrom && displayDate <= _origTo;
+            });
 
             // Debug: check DeliveryNote field
             const withNote = DeliveryReportState.allData.filter((i) => i.DeliveryNote);
