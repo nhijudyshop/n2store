@@ -247,6 +247,29 @@ Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc la
 - Liên quan Web 2.0 nhưng KHÔNG prefix (legacy, đã có sẵn — đừng dời): `/api/native-orders`, `/api/fast-sale-orders` (PBH), `/api/wallet-deposits`
 - Bằng chứng "thuộc Web 2.0" khi không có prefix: comment `// WEB2.0 MODULE` ở đầu file route.
 
+### ⚠ `/api/v2/*` namespace — CHIA CHUNG (mixed Web 1.0 + Web 2.0)
+
+`/api/v2/*` được tạo **2026-01-12 cho Web 1.0** ("Unified Customer 360" — replace `/api/customers`, `/api/wallets` cũ — xem `render.com/routes/v2/index.js` line 13). Web 2.0 sau này (Q1-Q2 2026) cũng piggy-back vào cùng namespace cho tiện → technical debt.
+
+**Core `/api/v2/*` — Web 1.0** (Unified Customer 360, consumer là `inbox/`, `tpos-pancake/`, `balance-history/`, `orders-report/`, `delivery-report/`, `render-data-manager/`, `order-management/`):
+
+`customers`, `wallets` (table `customer_wallets`), `tickets`, `balance-history` (table `balance_history`), `analytics`, `web-warehouse`, `purchase-orders`, `inventory-tracking`, `delivery-assignments`, `pending-withdrawals`, `odata` (TPOS shadow — cross-cutting).
+
+**Mounted dưới `/api/v2/*` nhưng THỰC SỰ là Web 2.0** (piggy-back, không có prefix `web2-` — đừng nhầm):
+
+`notifications` (F06), `audit-log` (F05), `supplier-aging` (F02), `dashboard-kpi` (F01), `smart-match` (F09), `inventory-forecast` (F11), `supplier-360` (F07), `cart` (drag-drop từ Pancake).
+
+→ Consumer: `web2/notifications/`, `web2/dashboard/`, `web2/audit-log/`, `web2/smart-match/`, `web2/supplier-aging/`, `web2/supplier-360/`, `web2-notification-bell.js`.
+
+**`/api/v2/web2-*` — Web 2.0 với prefix RÕ RÀNG** (convention mới, sau khi separation rõ ra — comment ở `server.js:573` ghi "Tách hoàn toàn khỏi `/api/v2/wallets` + `/api/v2/balance-history` của Web 1.0"):
+
+`web2-wallets` (table `web2_customer_wallets`), `web2-balance-history` (table `web2_balance_history`), `web2-monitoring`, `web2-customer-wallet`.
+
+**Convention đi tới**:
+
+- **Route Web 2.0 MỚI**: dùng `/api/web2-<entity>` (root level, preferred) HOẶC `/api/v2/web2-<entity>` (cho features cần namespace v2). KHÔNG mount dưới `/api/v2/*` mà không có prefix nữa.
+- **Route Web 1.0 MỚI**: tránh thêm vào `/api/v2/*` core (đã deprecated sunset 2025-07-01 nhưng vẫn live). Path mới Web 1.0 → `/api/<feature>`.
+
 **Postgres tables**:
 
 - Có prefix `web2_`: `web2_products`, `web2_variants`, `web2_records`, `web2_entities`

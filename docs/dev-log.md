@@ -700,6 +700,47 @@ SSE stream nhận: event: update\ndata: {key:web2:products, data:{action,code,ts
 
 ---
 
+### [docs][api] /api/v2/\* namespace — CHIA CHUNG Web 1.0 + Web 2.0 (chống nhầm) ✅
+
+**User ask**: "kiểm lại api end point v2 là của web 1 hay web 2".
+
+**Tóm**: `/api/v2/*` KHÔNG phải "version 2 = Web 2.0". Đây là technical debt — tạo 2026-01-12 cho Web 1.0 "Unified Customer 360", Web 2.0 sau này piggy-back vào cùng namespace.
+
+**Phát hiện qua audit `render.com/routes/v2/index.js` + `server.js` line 448-580**:
+
+**Core `/api/v2/*` thuộc Web 1.0** (Unified Customer 360, replace path cũ `/api/customers`, `/api/wallets`):
+
+- `customers`, `wallets` (table `customer_wallets`), `tickets`, `balance-history` (table `balance_history`), `analytics`, `web-warehouse` (table `web_warehouse`), `purchase-orders`, `inventory-tracking`, `delivery-assignments`, `pending-withdrawals`, `odata`
+- Consumer: `inbox/`, `tpos-pancake/`, `balance-history/`, `orders-report/`, `delivery-report/`, `order-management/`, `render-data-manager/`
+
+**Mounted dưới `/api/v2/*` nhưng THỰC SỰ là Web 2.0** (piggy-back, không có prefix `web2-`):
+
+- `notifications` (F06), `audit-log` (F05), `supplier-aging` (F02), `dashboard-kpi` (F01), `smart-match` (F09), `inventory-forecast` (F11), `supplier-360` (F07), `cart`
+- Bằng chứng: comment `// WEB2.0` ở header route file + comment server.js mount line
+
+**`/api/v2/web2-*` — Web 2.0 prefix RÕ RÀNG** (convention mới, sau khi separation rõ):
+
+- `web2-wallets` (table `web2_customer_wallets`), `web2-balance-history` (table `web2_balance_history`), `web2-monitoring`, `web2-customer-wallet`
+- Comment `server.js:573` confirm: _"Tách hoàn toàn khỏi `/api/v2/wallets` + `/api/v2/balance-history` (Web 1.0 v2 API)"_
+
+**Convention đi tới**:
+
+- Route Web 2.0 MỚI → `/api/web2-<entity>` (root, preferred) HOẶC `/api/v2/web2-<entity>`. KHÔNG mount dưới `/api/v2/<name>` không có `web2-` prefix.
+- Route Web 1.0 MỚI → tránh `/api/v2/*` core (đã deprecated sunset 2025-07-01). Dùng `/api/<feature>`.
+
+**Files**:
+
+- **EDIT** `CLAUDE.md` — thêm subsection "⚠ `/api/v2/*` namespace — CHIA CHUNG" dưới "API / Render routes" với phân loại 3 nhóm + convention đi tới
+- **CREATE** memory `reference_api_v2_namespace.md` — đầy đủ phân loại 12 routes Web 1.0 + 8 routes Web 2.0 piggy-back + 4 routes prefix rõ, anti-patterns
+- **EDIT** memory `MEMORY.md` — thêm pointer mục mới
+- **EDIT** dev-log (entry này)
+
+**Áp dụng**: Khi review code/route mới, KHÔNG giả định "v2 = Web 2.0". Check file route header (`// WEB2.0` comment) hoặc consumer folder (`web2/*` hay `inbox/`, `orders-report/`, …) để xác định layer.
+
+**Status**: ✅ Done. 3 nơi memory để session sau biết.
+
+---
+
 ### [docs][web2] SSE-first rule cho mọi feature/page mới — meta-instruction ✅
 
 **User ask**: "thêm vào devlog, memory, claude → có server sse socket realtime listening, reading dữ liệu log để ui realtime, cập nhật dữ liệu không cần refresh, đồng bộ giữa các máy với nhau → nên lúc nào code chức năng mới hoặc trang mới thì biết có server sse để dùng log server nếu cần thiết".
