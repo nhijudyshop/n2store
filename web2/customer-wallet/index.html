@@ -14,16 +14,16 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260525i" />
-        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260525i" />
-        <link rel="stylesheet" href="../supplier-wallet/css/supplier-wallet.css?v=20260525i" />
-        <link rel="stylesheet" href="css/customer-wallet.css?v=20260525i" />
+        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260526a" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260526a" />
+        <link rel="stylesheet" href="../supplier-wallet/css/supplier-wallet.css?v=20260526a" />
+        <link rel="stylesheet" href="css/customer-wallet.css?v=20260526a" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
-        <script src="../../shared/js/notification-system.js?v=20260525i"></script>
-        <script src="../../shared/js/core-loader.js?v=20260525i"></script>
-        <script src="../../shared/js/token-manager.js?v=20260525i"></script>
+        <script src="../../shared/js/notification-system.js?v=20260526a"></script>
+        <script src="../../shared/js/core-loader.js?v=20260526a"></script>
+        <script src="../../shared/js/token-manager.js?v=20260526a"></script>
     </head>
     <body class="tpos-theme">
         <div class="web2-shell">
@@ -62,25 +62,77 @@
                     </div>
                 </header>
 
+                <!-- Stats summary cards -->
+                <section class="cw-stats-row" id="cwStatsRow">
+                    <div class="cw-stat-card">
+                        <span class="cw-stat-label">Tổng KH</span>
+                        <span class="cw-stat-val" id="cwStatKh">—</span>
+                    </div>
+                    <div class="cw-stat-card stat-debt">
+                        <span class="cw-stat-label">Còn nợ KH</span>
+                        <span class="cw-stat-val" id="cwStatDebt">—</span>
+                    </div>
+                    <div class="cw-stat-card stat-wallet">
+                        <span class="cw-stat-label">Dư ví tổng</span>
+                        <span class="cw-stat-val" id="cwStatWallet">—</span>
+                    </div>
+                    <div class="cw-stat-card">
+                        <span class="cw-stat-label">Đã thu (lifetime)</span>
+                        <span class="cw-stat-val" id="cwStatPaid">—</span>
+                    </div>
+                </section>
+
+                <!-- Quick filter chips -->
+                <section class="cw-chips" id="cwChips">
+                    <button type="button" class="cw-chip is-active" data-filter="all">
+                        Tất cả <span class="cw-chip-count" id="cwChipAll">—</span>
+                    </button>
+                    <button type="button" class="cw-chip chip-debt" data-filter="debt">
+                        Còn nợ <span class="cw-chip-count" id="cwChipDebt">—</span>
+                    </button>
+                    <button type="button" class="cw-chip chip-balance" data-filter="has_balance">
+                        Có dư ví <span class="cw-chip-count" id="cwChipBalance">—</span>
+                    </button>
+                    <button type="button" class="cw-chip chip-vip" data-filter="vip">
+                        VIP <span class="cw-chip-count" id="cwChipVip">—</span>
+                    </button>
+                    <button type="button" class="cw-chip chip-warning" data-filter="warning">
+                        Cảnh báo <span class="cw-chip-count" id="cwChipWarn">—</span>
+                    </button>
+                    <button type="button" class="cw-chip chip-bomb" data-filter="bomb">
+                        Bom hàng <span class="cw-chip-count" id="cwChipBomb">—</span>
+                    </button>
+                </section>
+
                 <section class="sw-toolbar">
                     <div class="sw-search-wrap">
                         <i data-lucide="search"></i>
                         <input
                             id="cwSearch"
                             type="search"
-                            placeholder="Tìm KH theo tên hoặc SĐT…"
+                            placeholder="Tìm theo tên (không dấu OK), SĐT, hoặc /6 đuôi… (Ctrl/⌘+K)"
                             autocomplete="off"
                         />
+                        <kbd class="cw-kbd-hint" title="Ctrl+K / ⌘+K to focus">⌘K</kbd>
                     </div>
                     <div class="sw-sort-wrap">
                         <label for="cwSort">Sắp xếp:</label>
                         <select id="cwSort">
                             <option value="balance-desc">Còn nợ nhiều → ít</option>
                             <option value="balance-asc">Còn nợ ít → nhiều</option>
+                            <option value="wallet-desc">Dư ví nhiều → ít</option>
                             <option value="total-desc">Tổng mua nhiều → ít</option>
                             <option value="name-asc">Tên A → Z</option>
                         </select>
                     </div>
+                    <button
+                        type="button"
+                        class="btn-secondary"
+                        id="cwExportCsv"
+                        title="Xuất CSV theo filter hiện tại"
+                    >
+                        <i data-lucide="download"></i> CSV
+                    </button>
                 </section>
 
                 <section class="sw-list-wrap">
@@ -172,9 +224,9 @@
         </div>
 
         <!-- Web 2.0 ONLY scripts (NO Firebase, NO Firestore, NO wallet-deposits) -->
-        <script src="../../web2/shared/web2-auth.js?v=20260525i"></script>
-        <script src="../../web2/shared/tpos-sidebar.js?v=20260525i"></script>
-        <script src="../../web2/shared/web2-sse-bridge.js?v=20260525i"></script>
+        <script src="../../web2/shared/web2-auth.js?v=20260526a"></script>
+        <script src="../../web2/shared/tpos-sidebar.js?v=20260526a"></script>
+        <script src="../../web2/shared/web2-sse-bridge.js?v=20260526a"></script>
         <script src="../partner-customer/js/partner-customer-api.js?v=20260526a"></script>
         <script src="js/web2-wallet-api.js?v=20260526a"></script>
         <script src="js/web2-customer-wallet-app.js?v=20260526a"></script>

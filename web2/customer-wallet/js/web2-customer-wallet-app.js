@@ -29,14 +29,26 @@
     const state = {
         customers: {}, // { [phone]: { phone, name, totalPurchased, paidAmount, returnedAmount, balance, orders[], campaigns{} } }
         web2Wallets: {}, // { [phone]: { phone, balance, total_deposited, total_withdrawn, customer_id } }
-        web2ReturnAmounts: {}, // { [phone]: number } — sum of WITHDRAW return transactions
-        tposPartners: {}, // { [phone]: TPOS partner } enriched
+        web2ReturnAmounts: {}, // { [phone]: number }
+        tposPartners: {}, // { [phone]: TPOS partner }
         activePhone: null,
         detailTab: 'orders',
         sort: 'balance-desc',
         search: '',
+        quickFilter: 'all', // 'all' | 'debt' | 'has_balance' | 'vip' | 'bomb' | 'warning'
         loading: false,
     };
+
+    // Diacritic strip (inline, no deps)
+    function stripDiacritics(s) {
+        if (!s) return '';
+        return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    }
+    function searchNormalize(s) {
+        return stripDiacritics(String(s || ''))
+            .toLowerCase()
+            .trim();
+    }
 
     // ─── Helpers ────────────────────────────────────────────────────
     const EXCLUDED_PBH_STATES = new Set(['cancelled', 'cancel', 'canceled', 'huy', 'hủy']);
@@ -279,6 +291,18 @@
         dom.totalOutstanding = document.getElementById('cwTotalOutstanding');
         dom.refreshBtn = document.getElementById('cwRefreshBtn');
         dom.hardResetBtn = document.getElementById('cwHardResetBtn');
+        dom.exportCsvBtn = document.getElementById('cwExportCsv');
+        dom.statKh = document.getElementById('cwStatKh');
+        dom.statDebt = document.getElementById('cwStatDebt');
+        dom.statWallet = document.getElementById('cwStatWallet');
+        dom.statPaid = document.getElementById('cwStatPaid');
+        dom.chipAll = document.getElementById('cwChipAll');
+        dom.chipDebt = document.getElementById('cwChipDebt');
+        dom.chipBalance = document.getElementById('cwChipBalance');
+        dom.chipVip = document.getElementById('cwChipVip');
+        dom.chipWarn = document.getElementById('cwChipWarn');
+        dom.chipBomb = document.getElementById('cwChipBomb');
+        dom.chipsContainer = document.getElementById('cwChips');
         dom.detailModal = document.getElementById('cwDetailModal');
         dom.detailTitle = document.getElementById('cwDetailTitle');
         dom.detailSub = document.getElementById('cwDetailSub');
@@ -293,26 +317,59 @@
     }
 
     // ─── Render ─────────────────────────────────────────────────────
-    function renderList() {
-        const search = (dom.search.value || '').trim().toLowerCase();
-        const sortBy = dom.sort.value;
-        const items = Object.values(state.customers).filter(
-            (c) =>
-                !search || (c.name || '').toLowerCase().includes(search) || c.phone.includes(search)
-        );
-
-        // Compute paidAmount + returnedAmount + balance from Web 2.0 sources
-        for (const c of items) {
+    function computeAllCustomerFields() {
+        // Pre-compute fields cho TẤT CẢ customers (stats + filter cần)
+        const arr = Object.values(state.customers);
+        for (const c of arr) {
             const w = state.web2Wallets[c.phone];
             c.paidAmount = w ? Number(w.total_deposited || 0) : 0;
             c.returnedAmount = Number(state.web2ReturnAmounts[c.phone] || 0);
             c.balance = (c.totalPurchased || 0) - c.paidAmount - c.returnedAmount;
+            c.walletBalance = w ? Number(w.balance || 0) : 0;
             c.web2Wallet = w || null;
+            const partner = state.tposPartners[c.phone];
+            c.tposStatus = partner?.Status || null;
         }
+        return arr;
+    }
+
+    function applyQuickFilter(c) {
+        switch (state.quickFilter) {
+            case 'debt':
+                return c.balance > 0;
+            case 'has_balance':
+                return c.walletBalance > 0;
+            case 'vip':
+                return c.tposStatus === 'VIP';
+            case 'warning':
+                return c.tposStatus === 'Warning';
+            case 'bomb':
+                return c.tposStatus === 'BomHang' || c.tposStatus === 'Danger';
+            default:
+                return true;
+        }
+    }
+
+    function renderList() {
+        const arr = computeAllCustomerFields();
+        const searchRaw = (dom.search.value || '').trim();
+        const search = searchNormalize(searchRaw);
+        const searchDigits = searchRaw.replace(/\D/g, '');
+        const sortBy = dom.sort.value;
+
+        const items = arr.filter((c) => {
+            if (!applyQuickFilter(c)) return false;
+            if (!search) return true;
+            return (
+                searchNormalize(c.name).includes(search) ||
+                (searchDigits && c.phone.includes(searchDigits))
+            );
+        });
 
         items.sort((a, b) => {
             if (sortBy === 'balance-desc') return b.balance - a.balance;
             if (sortBy === 'balance-asc') return a.balance - b.balance;
+            if (sortBy === 'wallet-desc') return b.walletBalance - a.walletBalance;
             if (sortBy === 'total-desc') return b.totalPurchased - a.totalPurchased;
             return (a.name || '').localeCompare(b.name || '');
         });
@@ -328,9 +385,39 @@
             });
         }
 
-        const totalOutstanding = items.reduce((s, c) => s + Math.max(0, c.balance), 0);
-        dom.totalCustomers.textContent = `${items.length} KH`;
-        dom.totalOutstanding.textContent = `Công nợ: ${fmtVnd(totalOutstanding)}`;
+        // Counters
+        const totalDebt = arr.reduce((s, c) => s + Math.max(0, c.balance), 0);
+        const totalWallet = arr.reduce((s, c) => s + c.walletBalance, 0);
+        const totalPaid = arr.reduce((s, c) => s + c.paidAmount, 0);
+        const filteredDebt = items.reduce((s, c) => s + Math.max(0, c.balance), 0);
+        dom.totalCustomers.textContent = `${items.length} / ${arr.length} KH`;
+        dom.totalOutstanding.textContent = `Công nợ filter: ${fmtVnd(filteredDebt)}`;
+
+        if (dom.statKh) dom.statKh.textContent = arr.length.toLocaleString('vi-VN');
+        if (dom.statDebt) dom.statDebt.textContent = fmtVnd(totalDebt);
+        if (dom.statWallet) dom.statWallet.textContent = fmtVnd(totalWallet);
+        if (dom.statPaid) dom.statPaid.textContent = fmtVnd(totalPaid);
+
+        // Filter chip counts (always global, không bị filter chip nhau)
+        const cnt = {
+            all: arr.length,
+            debt: arr.filter((c) => c.balance > 0).length,
+            has_balance: arr.filter((c) => c.walletBalance > 0).length,
+            vip: arr.filter((c) => c.tposStatus === 'VIP').length,
+            warning: arr.filter((c) => c.tposStatus === 'Warning').length,
+            bomb: arr.filter((c) => c.tposStatus === 'BomHang' || c.tposStatus === 'Danger').length,
+        };
+        if (dom.chipAll) dom.chipAll.textContent = cnt.all;
+        if (dom.chipDebt) dom.chipDebt.textContent = cnt.debt;
+        if (dom.chipBalance) dom.chipBalance.textContent = cnt.has_balance;
+        if (dom.chipVip) dom.chipVip.textContent = cnt.vip;
+        if (dom.chipWarn) dom.chipWarn.textContent = cnt.warning;
+        if (dom.chipBomb) dom.chipBomb.textContent = cnt.bomb;
+
+        document.querySelectorAll('#cwChips .cw-chip').forEach((b) => {
+            b.classList.toggle('is-active', b.dataset.filter === state.quickFilter);
+        });
+
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
@@ -699,12 +786,86 @@
         window.Web2SSE.subscribe('web2:native-orders', () => reloadDebounced());
     }
 
+    // ─── CSV export ─────────────────────────────────────────────────
+    function exportCsv() {
+        const arr = computeAllCustomerFields().filter(applyQuickFilter);
+        const searchRaw = (dom.search.value || '').trim();
+        const search = searchNormalize(searchRaw);
+        const searchDigits = searchRaw.replace(/\D/g, '');
+        const items = arr.filter(
+            (c) =>
+                !search ||
+                searchNormalize(c.name).includes(search) ||
+                (searchDigits && c.phone.includes(searchDigits))
+        );
+        if (!items.length) {
+            notify('Không có KH nào để xuất', 'warning');
+            return;
+        }
+        const headers = [
+            'Phone',
+            'Name',
+            'TPOS Status',
+            'Tổng mua',
+            'Đã thu',
+            'Đã trả',
+            'Còn nợ',
+            'Dư ví',
+        ];
+        const csvEscape = (v) => {
+            const s = String(v ?? '');
+            if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+            return s;
+        };
+        const lines = [headers.map(csvEscape).join(',')];
+        for (const c of items) {
+            const partner = state.tposPartners[c.phone];
+            lines.push(
+                [
+                    c.phone,
+                    c.name || '',
+                    partner?.StatusText || partner?.Status || '',
+                    Math.round(c.totalPurchased),
+                    Math.round(c.paidAmount),
+                    Math.round(c.returnedAmount),
+                    Math.round(c.balance),
+                    Math.round(c.walletBalance),
+                ]
+                    .map(csvEscape)
+                    .join(',')
+            );
+        }
+        // Add BOM for Excel Vietnamese support
+        const csv = '﻿' + lines.join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        a.href = url;
+        a.download = `vi-khach-hang-${state.quickFilter}-${stamp}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        notify(`Đã xuất ${items.length} KH (filter: ${state.quickFilter})`, 'success');
+    }
+
     // ─── Wire UI ────────────────────────────────────────────────────
     function wireUi() {
         dom.search.addEventListener('input', debounce(renderList, 200));
         dom.sort.addEventListener('change', renderList);
         dom.refreshBtn?.addEventListener('click', load);
         dom.hardResetBtn?.addEventListener('click', hardReset);
+        dom.exportCsvBtn?.addEventListener('click', exportCsv);
+
+        // Quick filter chips
+        dom.chipsContainer?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.cw-chip[data-filter]');
+            if (!btn) return;
+            state.quickFilter = btn.dataset.filter || 'all';
+            renderList();
+        });
+
         document.addEventListener('click', (e) => {
             if (e.target.closest('[data-cw-close]')) {
                 document.querySelectorAll('.sw-modal:not([hidden])').forEach((m) => {
@@ -717,11 +878,35 @@
                 renderDetailTabs();
             }
         });
+
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape')
-                document.querySelectorAll('.sw-modal:not([hidden])').forEach((m) => {
-                    m.hidden = true;
-                });
+            // Ctrl/⌘+K → focus search
+            if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+                e.preventDefault();
+                dom.search?.focus();
+                dom.search?.select();
+                return;
+            }
+            // Esc → close modal HOẶC clear search
+            if (e.key === 'Escape') {
+                const openModal = document.querySelector('.sw-modal:not([hidden])');
+                if (openModal) {
+                    openModal.hidden = true;
+                } else if (document.activeElement === dom.search && dom.search.value) {
+                    dom.search.value = '';
+                    renderList();
+                }
+            }
+            // / → focus search (Gmail-style)
+            if (
+                e.key === '/' &&
+                document.activeElement?.tagName !== 'INPUT' &&
+                document.activeElement?.tagName !== 'TEXTAREA'
+            ) {
+                e.preventDefault();
+                dom.search?.focus();
+                dom.search?.select();
+            }
         });
     }
 
