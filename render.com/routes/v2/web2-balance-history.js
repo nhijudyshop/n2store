@@ -17,6 +17,8 @@ const express = require('express');
 const router = express.Router();
 const web2SepayMatching = require('../../services/web2-sepay-matching');
 const web2WalletService = require('../../services/web2-wallet-service');
+const web2ContentParser = require('../../services/web2-content-parser');
+const { extractPhoneFromContent } = require('../sepay-transaction-matching');
 
 function handleError(res, err, msg = 'Internal error') {
     console.error(`[Web2BalanceHistory] ${msg}:`, err.message);
@@ -50,6 +52,17 @@ router.get('/', async (req, res) => {
                 `(content ILIKE $${params.length} OR linked_customer_phone ILIKE $${params.length} OR sepay_id ILIKE $${params.length})`
             );
         }
+        // Date range filter (YYYY-MM-DD inclusive)
+        const since = (req.query.since || '').trim();
+        const until = (req.query.until || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(since)) {
+            params.push(since + ' 00:00:00');
+            where.push(`transaction_date >= $${params.length}`);
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(until)) {
+            params.push(until + ' 23:59:59');
+            where.push(`transaction_date <= $${params.length}`);
+        }
         const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
 
         const list = await db.query(
@@ -63,9 +76,27 @@ router.get('/', async (req, res) => {
             `SELECT COUNT(*) AS n FROM web2_balance_history ${whereSql}`,
             params
         );
+        // Phase 6 UX: include extraction preview for rows chưa gán
+        // (NO_PHONE) — server-side extractor cho UI hiển thị candidate
+        // mà không cần port logic xuống client.
+        const rows = list.rows.map((r) => {
+            if (!r.linked_customer_phone && r.content) {
+                try {
+                    const ext = extractPhoneFromContent(r.content);
+                    r.extraction_preview = {
+                        type: ext.type,
+                        value: ext.value,
+                        note: ext.note,
+                    };
+                } catch (e) {
+                    r.extraction_preview = null;
+                }
+            }
+            return r;
+        });
         res.json({
             success: true,
-            data: list.rows,
+            data: rows,
             total: Number(count.rows[0].n) || 0,
             limit,
             offset,
@@ -218,6 +249,22 @@ router.patch('/:id/link', async (req, res) => {
         });
     } catch (e) {
         handleError(res, e, 'Link');
+    }
+});
+
+// =====================================================
+// POST /api/web2/balance-history/:id/auto-match
+// Single-row reprocess — chạy lại processWeb2Match với extractor mới.
+// =====================================================
+router.post('/:id/auto-match', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb || req.app.locals.db;
+        const id = parseInt(req.params.id);
+        const { fetchWithTimeout } = require('../../../shared/node/fetch-utils.cjs');
+        const result = await web2SepayMatching.processWeb2Match(db, id, fetchWithTimeout);
+        res.json({ success: true, data: result });
+    } catch (e) {
+        handleError(res, e, 'Auto-match single');
     }
 });
 

@@ -4,11 +4,14 @@
    warehouse.css to override styles without modifying the 1200-line base file. */
 
 :root {
-    --pw-bg: #edf1f2;
+    /* TPOS-exact palette (verified live at tomato.tpos.vn 2026-05-26):
+       page bg = rgb(245, 245, 245), th = rgb(240, 238, 238), card = rgb(237, 241, 242).
+       Sharp 2px corners, Segoe UI 14px, purple #7266ba accent. */
+    --pw-bg: #f5f5f5;
     --pw-bg-card: #ffffff;
     --pw-border: #cccccc;
     --pw-border-soft: #e6e6e6;
-    --pw-row-stripe: #f5f5f5;
+    --pw-row-stripe: #fafafa;
     --pw-row-hover: #e8f3fc;
     --pw-text: #4c4c4c;
     --pw-text-strong: #333333;
@@ -58,11 +61,12 @@ html body {
     color: var(--pw-accent);
 }
 
-/* Header search box → sharp corners + TPOS purple focus */
+/* Header search box → sharp corners + TPOS purple focus.
+   TPOS uses a wide search box (~420px+) right-aligned. Match that prominence. */
 .header-search-box {
     border: 1px solid var(--pw-border);
     border-radius: 2px;
-    min-width: 260px;
+    min-width: 420px;
     height: 30px;
 }
 
@@ -840,7 +844,7 @@ body.has-selection .toolbar-bulk-actions {
 .warehouse-table .col-actions .action-btns {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
 }
 
 .warehouse-table .col-actions .btn-action,
@@ -849,13 +853,13 @@ body.has-selection .toolbar-bulk-actions {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 5px 10px;
+    padding: 3px 7px;
     margin: 0;
     border: 1px solid transparent;
     border-radius: 2px;
     color: #fff;
-    font-size: 12px;
-    line-height: 18px;
+    font-size: 11px;
+    line-height: 16px;
     cursor: pointer;
     transition:
         background-color 120ms,
@@ -868,8 +872,8 @@ body.has-selection .toolbar-bulk-actions {
 .warehouse-table .col-actions button svg,
 .warehouse-table .col-actions .action-btn i,
 .warehouse-table .col-actions .action-btn svg {
-    width: 12px !important;
-    height: 12px !important;
+    width: 11px !important;
+    height: 11px !important;
     flex-shrink: 0;
 }
 
@@ -1125,11 +1129,12 @@ body.has-selection .toolbar-bulk-actions {
     cursor: pointer;
 }
 
-/* Action col — tighter spacing (TPOS shows 2 buttons in 70px; we have 5 → ~150px) */
+/* Action col — TPOS shows 2 small buttons in ~70px; we keep 3 (edit/print/delete)
+   so target ~110px. Print btn kept (useful), but tightened to TPOS visual weight. */
 .warehouse-table .col-actions {
     text-align: center;
     padding: 4px 4px !important;
-    width: 160px;
+    width: 110px;
 }
 
 /* Action buttons size handled by main rule above (padding 5px 10px → ~34×30).

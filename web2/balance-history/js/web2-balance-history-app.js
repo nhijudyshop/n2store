@@ -25,9 +25,22 @@
         pageSize: 50,
         status: 'all',
         search: '',
+        dateFrom: '',
+        dateTo: '',
         loading: false,
         stats: {},
     };
+
+    // Diacritic strip (inline)
+    function stripDiacritics(s) {
+        if (!s) return '';
+        return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    }
+    function searchNormalize(s) {
+        return stripDiacritics(String(s || ''))
+            .toLowerCase()
+            .trim();
+    }
 
     async function jsonFetch(url, options) {
         const r = await fetch(url, options);
@@ -108,6 +121,10 @@
         dom.pageSize = document.getElementById('w2bhPageSize');
         dom.refreshBtn = document.getElementById('w2bhRefreshBtn');
         dom.reprocessBtn = document.getElementById('w2bhReprocessBtn');
+        dom.dateFrom = document.getElementById('w2bhDateFrom');
+        dom.dateTo = document.getElementById('w2bhDateTo');
+        dom.dateClear = document.getElementById('w2bhDateClear');
+        dom.csvBtn = document.getElementById('w2bhCsvBtn');
     }
 
     async function reprocessUnmatched() {
@@ -180,6 +197,36 @@
         dom.tbody.querySelectorAll('[data-action="link"]').forEach((btn) => {
             btn.addEventListener('click', () => openLinkPrompt(btn.getAttribute('data-id')));
         });
+        dom.tbody.querySelectorAll('[data-action="auto-match"]').forEach((btn) => {
+            btn.addEventListener('click', () => autoMatchSingle(btn.getAttribute('data-id')));
+        });
+    }
+
+    async function autoMatchSingle(id) {
+        try {
+            const r = await withFallback(`/${encodeURIComponent(id)}/auto-match`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
+            const data = r?.data || {};
+            if (data.success && data.phone) {
+                notify(
+                    `✅ Match ${data.method}: ${data.customerName || data.phone} (conf ${data.confidenceScore || '-'})`,
+                    'success'
+                );
+            } else if (
+                data.method === 'pending_match_created' ||
+                data.method === 'pending_low_confidence'
+            ) {
+                notify(`⏳ Push to pending (${data.method})`, 'warning');
+            } else {
+                notify(`❌ Không match được: ${data.reason || 'unknown'}`, 'warning');
+            }
+            await load();
+        } catch (e) {
+            notify('Lỗi auto-match: ' + e.message, 'error');
+        }
     }
 
     function renderRow(r) {
@@ -195,10 +242,46 @@
                 ? '<span class="w2bh-pill auto">Tự động</span>'
                 : method === 'pending_match'
                   ? '<span class="w2bh-pill pending">Chờ chọn</span>'
-                  : phone
-                    ? '<span class="w2bh-pill manual">Thủ công</span>'
-                    : '<span class="w2bh-pill nophone">Chưa gán</span>';
-        // data-customer-phone lets tpos-partner-enricher.js inject TPOS status pill
+                  : method === 'pending_low_confidence'
+                    ? '<span class="w2bh-pill pending">Low conf</span>'
+                    : phone
+                      ? '<span class="w2bh-pill manual">Thủ công</span>'
+                      : '<span class="w2bh-pill nophone">Chưa gán</span>';
+        // Extraction preview cho row chưa gán
+        let extractionBadge = '';
+        if (!phone && r.extraction_preview) {
+            const ext = r.extraction_preview;
+            if (ext.type !== 'none' && ext.value) {
+                const icon =
+                    ext.type === 'qr_code'
+                        ? 'qr-code'
+                        : ext.type === 'exact_phone'
+                          ? 'phone'
+                          : 'hash';
+                const label =
+                    ext.type === 'qr_code'
+                        ? 'QR'
+                        : ext.type === 'exact_phone'
+                          ? 'SĐT đủ'
+                          : 'Đuôi SĐT';
+                extractionBadge = `
+                    <div class="w2bh-extract-hint" title="Extracted: ${escapeHtml(ext.type)} = ${escapeHtml(ext.value)}">
+                        <i data-lucide="${icon}" style="width:11px;height:11px"></i>
+                        <span>${label}: ${escapeHtml(ext.value)}</span>
+                    </div>
+                `;
+            } else {
+                extractionBadge = `<div class="w2bh-extract-hint w2bh-extract-empty" title="Không extract được phone từ content">
+                    <i data-lucide="alert-circle" style="width:11px;height:11px"></i>
+                    <span>Không có thông tin</span>
+                </div>`;
+            }
+        }
+        const canAutoMatch =
+            !phone &&
+            r.extraction_preview &&
+            r.extraction_preview.type !== 'none' &&
+            r.extraction_preview.value;
         return `
             <tr data-id="${r.id}" data-transaction-id="${r.id}" data-customer-phone="${escapeHtml(phone)}">
                 <td class="w2bh-cell-time">${escapeHtml(fmtTime(r.transaction_date))}</td>
@@ -212,11 +295,19 @@
                                   <span class="w2bh-customer-name">${escapeHtml(name || '(không tên)')}</span>
                                   <span class="w2bh-customer-phone">${escapeHtml(phone)}</span>
                                </div>`
-                            : `<button type="button" class="w2bh-link-btn" data-action="link" data-id="${r.id}">+ Gán KH</button>`
+                            : extractionBadge +
+                              `<button type="button" class="w2bh-link-btn" data-action="link" data-id="${r.id}">+ Gán KH</button>`
                     }
                     ${verifBadge}
                 </td>
                 <td class="w2bh-cell-actions">
+                    ${
+                        canAutoMatch
+                            ? `<button type="button" class="w2bh-icon-btn auto-match" data-action="auto-match" data-id="${r.id}" title="Auto-match từ extracted: ${escapeHtml(r.extraction_preview.value)}">
+                                <i data-lucide="zap" style="width:14px;height:14px;"></i>
+                            </button>`
+                            : ''
+                    }
                     ${
                         !phone
                             ? `<button type="button" class="w2bh-icon-btn" data-action="link" data-id="${r.id}" title="Gán SĐT thủ công">
@@ -315,6 +406,8 @@
             params.set('offset', String((state.page - 1) * state.pageSize));
             if (state.status !== 'all') params.set('status', state.status);
             if (state.search) params.set('search', state.search);
+            if (state.dateFrom) params.set('since', state.dateFrom);
+            if (state.dateTo) params.set('until', state.dateTo);
             const [list, stats] = await Promise.all([
                 withFallback(`?${params.toString()}`),
                 withFallback('/stats'),
@@ -351,6 +444,85 @@
         window.Web2SSE.subscribe('web2:wallet:*', reload);
     }
 
+    // ----- CSV export -----
+    async function exportCsv() {
+        const btn = dom.csvBtn;
+        if (!btn) return;
+        btn.disabled = true;
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="loader-2"></i> Đang xuất…';
+        if (window.lucide) window.lucide.createIcons();
+        try {
+            const params = new URLSearchParams();
+            params.set('limit', '500');
+            params.set('offset', '0');
+            if (state.status !== 'all') params.set('status', state.status);
+            if (state.search) params.set('search', state.search);
+            if (state.dateFrom) params.set('since', state.dateFrom);
+            if (state.dateTo) params.set('until', state.dateTo);
+            const r = await withFallback(`?${params.toString()}`);
+            const rows = r?.data || [];
+            const header = [
+                'Thời gian',
+                'Loại',
+                'Số tiền',
+                'SĐT KH',
+                'Tên KH',
+                'Trạng thái',
+                'Match method',
+                'Confidence',
+                'Sepay ID',
+                'Reference',
+                'Nội dung',
+            ];
+            const escape = (v) => {
+                if (v == null) return '';
+                const s = String(v).replace(/"/g, '""');
+                return /[",\n]/.test(s) ? `"${s}"` : s;
+            };
+            const lines = [header.join(',')];
+            for (const row of rows) {
+                lines.push(
+                    [
+                        fmtTime(row.transaction_date),
+                        row.transfer_type === 'in' ? 'Vào' : 'Ra',
+                        row.transfer_amount || 0,
+                        row.linked_customer_phone || '',
+                        row.display_name || '',
+                        row.verification_status || '',
+                        row.match_method || '',
+                        row.confidence_score || '',
+                        row.sepay_id || '',
+                        row.reference_code || '',
+                        row.content || '',
+                    ]
+                        .map(escape)
+                        .join(',')
+                );
+            }
+            const csv = '﻿' + lines.join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const stamp = new Date().toISOString().slice(0, 10);
+            a.href = url;
+            a.download = `balance-history-${stamp}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+            notify(`Xuất ${rows.length} dòng CSV`, 'success');
+        } catch (e) {
+            notify('Lỗi xuất CSV: ' + e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
     // ----- Events -----
     function bindEvents() {
         if (dom.search) {
@@ -376,6 +548,41 @@
         if (dom.reprocessBtn) {
             dom.reprocessBtn.addEventListener('click', () => reprocessUnmatched());
         }
+        if (dom.dateFrom) {
+            dom.dateFrom.addEventListener('change', () => {
+                state.dateFrom = dom.dateFrom.value || '';
+                state.page = 1;
+                load();
+            });
+        }
+        if (dom.dateTo) {
+            dom.dateTo.addEventListener('change', () => {
+                state.dateTo = dom.dateTo.value || '';
+                state.page = 1;
+                load();
+            });
+        }
+        if (dom.dateClear) {
+            dom.dateClear.addEventListener('click', () => {
+                state.dateFrom = '';
+                state.dateTo = '';
+                if (dom.dateFrom) dom.dateFrom.value = '';
+                if (dom.dateTo) dom.dateTo.value = '';
+                state.page = 1;
+                load();
+            });
+        }
+        if (dom.csvBtn) {
+            dom.csvBtn.addEventListener('click', () => exportCsv());
+        }
+        // Cmd/Ctrl + K → focus search
+        document.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                dom.search?.focus();
+                dom.search?.select();
+            }
+        });
     }
 
     function init() {

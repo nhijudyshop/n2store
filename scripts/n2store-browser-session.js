@@ -651,6 +651,16 @@ const sseEmit = (type, data) => {
             }, `shot ${p}`);
             return;
         }
+        if (cmd === 'shotview') {
+            // Viewport-only screenshot — useful when fullPage is huge and only the
+            // visible viewport matters (e.g. comparing top of page against TPOS).
+            const p = arg || path.join(OUT_DIR, `shotview-${Date.now()}.png`);
+            await safe(async () => {
+                await page.screenshot({ path: p, fullPage: false });
+                return { ok: true, path: p };
+            }, `shotview ${p}`);
+            return;
+        }
         if (cmd === 'storage') {
             // Dump full Playwright storageState (cookies incl. HttpOnly +
             // localStorage + sessionStorage) — usable to re-auth later via
