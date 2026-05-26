@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b1bc0ba` — fix(web2-sepay-matching): trust legacy linked_customer_phone, credit vi khong can re-extract
-**Last updated**: 2026-05-26 18:28:51 +07
-**Latest session**: [`RESUME:20260526-182851-b1bc0ba`](../20260526-182851-b1bc0ba.md)
-**Summary**: fix(web2-sepay-matching): trust legacy linked_customer_phone, credit vi khong can re-extract
+**Latest commit**: `b0358d5` — refactor(sepay-webhook): full isolation — bo mirror balance_history -> web2_balance_history
+**Last updated**: 2026-05-26 18:33:05 +07
+**Latest session**: [`RESUME:20260526-183305-b0358d5`](../20260526-183305-b0358d5.md)
+**Summary**: refactor(sepay-webhook): full isolation — bo mirror balance_history -> web2_balance_history
 
 ## Folders affected in this commit
 
@@ -49,7 +49,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-26 18:28
+- [`render.com/`](./render.com.md) — updated 2026-05-26 18:33
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-26 13:38
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
