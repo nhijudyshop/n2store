@@ -25,6 +25,33 @@
 
 ## 2026-05-26
 
+### [delivery-report/report] Admin gating expand (toggle-expand + toggle-merge) ✅
+
+**User ask**: "3 phần này → expand, gộp và chỉnh ngày hiển thị (dời sang ngày khác) → cho các account không phải ADMIN tương tác luôn"
+
+Bổ sung **expand** vào danh sách admin-only (gộp + chỉnh ngày đã có sẵn trong commit `73a922f98`).
+
+**Fix** (`delivery-report/js/report.js`):
+
+| Element                                               | Admin                                           | Non-Admin                                                          |
+| ----------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------ |
+| Date cell click (toggle-expand)                       | `td.date.clickable[data-action]` + chevron icon | `td.date` (không data-action, không chevron, không cursor pointer) |
+| SL ĐƠN cell click (toggle-expand)                     | `td.num.strong.clickable[data-action]`          | `td.num.strong` (plain)                                            |
+| Toggle-merge chev button (mở rộng children của merge) | Render `<button>` + handler chạy                | Skip render + handler early-return                                 |
+
+**Defense in depth**:
+
+- UI: skip render `data-action="toggle-expand"`, `data-action="toggle-merge"`, `clickable` class, `dr-expand-chevron` cho non-admin → không có visual cue
+- Handler `tbody.click` toggle-expand: `if (!_isAdmin()) return` early
+- Handler `tbody.click` toggle-merge: `if (!_isAdmin()) return` early
+
+**Verify** (Playwright switch auth):
+
+- ADMIN: 48 expand cells (24 dates × date+SL), 24 chevrons, 1 toggle-merge button ✅
+- NON-ADMIN: 0 expand cells, 0 chevrons, 0 toggle-merge buttons (clickable=3 còn lại là money-cell.has-img cho preview ảnh — OK giữ) ✅
+
+---
+
 ### [tpos-pancake] Option B mandatory streamId modal — tab inactive capture ✅
 
 **User ask**: "Option B và check chưa có session thì hỏi, có rồi thì đừng hỏi -> chỉ có 1 nút xác nhận để bắt buộc"
