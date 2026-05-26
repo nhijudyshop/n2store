@@ -170,12 +170,10 @@
             const ok = _cmpVersions(data.version, REQUIRED_EXT_VERSION) >= 0;
             if (ok) {
                 STATE.extReady = true;
-                console.log(`[snap-ext] v${data.version} OK — capture qua extension (no popup)`);
-                // User feedback 2026-05-26: BỎ Enter consent modal hoàn toàn.
-                // Chỉ 1 nguồn thông báo duy nhất = _showExtPrompt hint "click icon
-                // N2Store Extension". Khi user click icon → background grant
-                // activeTab + grab streamId silent → capture auto-start.
-                // Set consent flag để không show modal trong các flow khác.
+                console.log(`[snap-ext] v${data.version} OK — capture silent qua <all_urls>`);
+                // Extension v1.0.15+ có <all_urls> → chrome.tabs.captureVisibleTab
+                // hoạt động NGẦM, không cần click icon. Set consent flag để skip
+                // các modal cũ (đã bị deprecate).
                 localStorage.setItem('tpos_stream_consented', '1');
             } else {
                 STATE.extReady = false;
@@ -1547,14 +1545,13 @@ Throttle 30s/KH.`;
         setTimeout(() => goBtn.focus(), 50);
     }
 
-    // Banner gợi ý install / update extension. Hiện khi detect live nhưng
-    // extension không có (5s không nhận EXTENSION_LOADED) hoặc version cũ.
-    // Single notification — user feedback 2026-05-26: chỉ 1 thông báo
-    // "Bấm vào extension", BỎ "click ở mọi nơi" thừa.
+    // Banner install/update extension. Hiện khi detect live nhưng extension
+    // KHÔNG có (5s không nhận EXTENSION_LOADED) hoặc version cũ.
     //
-    // Hint tới user: click icon N2Store Messenger ở thanh extension Chrome
-    // (góc trên phải) để grant activeTab permission cho session này. Sau đó
-    // capture silent qua chrome.tabs.captureVisibleTab.
+    // User feedback 2026-05-26: "đâu cần click vào extension — đây là bước dư
+    // thừa". Đúng — extension v1.0.15+ có <all_urls> host_permissions →
+    // chrome.tabs.captureVisibleTab silent KHÔNG cần click icon. Prompt chỉ
+    // hướng dẫn cài/update extension (no click instruction).
     function _showExtPrompt(kind) {
         if (sessionStorage.getItem('tpos_ext_prompt_dismiss')) return;
         if (document.getElementById('tpos-snap-ext-prompt')) return;
@@ -1563,11 +1560,11 @@ Throttle 30s/KH.`;
         const title =
             kind === 'outdated'
                 ? `⚠️ N2Store Extension v${STATE.extVersion || '?'} đã cũ`
-                : '🧩 Bấm vào icon N2Store Extension';
+                : '⚠️ Cần cài N2Store Extension';
         const body =
             kind === 'outdated'
-                ? `Auto-snap cần extension <strong>v${REQUIRED_EXT_VERSION}+</strong>. Bạn đang chạy <strong>v${STATE.extVersion || '?'}</strong>.<br><br>Mở <code>chrome://extensions</code> → "N2Store Messenger" → <strong>Reload</strong>.`
-                : `Để bật capture livestream tự động không popup:<br><br>1. Click icon <strong>N2Store Messenger</strong> ở thanh extension Chrome (góc phải URL bar)<br>2. Capture sẽ tự chạy ngầm sau click<br><br><em>Chrome bắt buộc click 1 lần/session để cấp quyền — không bypass được.</em>`;
+                ? `Auto-snap cần extension <strong>v${REQUIRED_EXT_VERSION}+</strong>. Bạn đang chạy <strong>v${STATE.extVersion || '?'}</strong>.<br><br>Mở <code>chrome://extensions</code> → "N2Store Messenger" → bấm <strong>Reload</strong>. Capture sẽ tự chạy.`
+                : `Auto-snap livestream cần extension <strong>N2Store Messenger</strong>.<br><br>1. Cài: <a href="https://chromewebstore.google.com/detail/dgcicifdlgamleagjangkbbcdgbhmfea" target="_blank" style="color:#ea580c;font-weight:700;">Chrome Web Store</a><br>2. Reload trang<br><br><em>Sau khi cài, capture tự chạy ngầm — không cần thao tác gì thêm.</em>`;
         box.innerHTML = `
             <div style="font-weight:700;font-size:14px;color:#7c2d12;margin-bottom:8px;">${title}</div>
             <div style="font-size:12px;color:#451a03;line-height:1.55;">${body}</div>
