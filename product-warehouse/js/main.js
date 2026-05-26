@@ -62,14 +62,15 @@
         createdAt: 'tpos_template_id', // "Ngày tạo" column sorts by TPOS ID desc → newest on top
     };
 
-    // View type — mirrors TPOS two pages:
-    //   'template' → /app/producttemplate/list (1 row per template, default)
-    //   'variant'  → /app/product/list (1 row per variant)
+    // View type — mirrors TPOS two pages + a 3rd archived-only tab:
+    //   'template' → /app/producttemplate/list (1 row per template, Active=true only — default)
+    //   'variant'  → /app/product/list (1 row per variant, Active=true only)
+    //   'inactive' → templates with Active=false (archived/ngưng hiệu lực)
     const STORAGE_VIEW_TYPE = 'n2store_warehouse_view_type';
     let viewType = 'template';
     try {
         const saved = localStorage.getItem(STORAGE_VIEW_TYPE);
-        if (saved === 'template' || saved === 'variant') viewType = saved;
+        if (saved === 'template' || saved === 'variant' || saved === 'inactive') viewType = saved;
     } catch (_) {
         /* ignore */
     }
@@ -91,6 +92,7 @@
     // Tab counts (template + variant totals for badges) — fetched alongside main load
     let templateTotalCount = 0;
     let variantTotalCount = 0;
+    let inactiveTotalCount = 0;
     let selectedIds = new Set();
     let isLoading = false;
 
@@ -1154,16 +1156,26 @@
     function buildTposODataUrl() {
         const top = pageSize;
         const skip = (currentPage - 1) * pageSize;
-        const sortMap = viewType === 'template' ? TPOS_SORT_TEMPLATE : TPOS_SORT_VARIANT;
+        // 'inactive' tab uses template entity (variants of an archived template don't
+        // surface independently in TPOS) — same sort map as 'template'.
+        const sortMap = viewType === 'variant' ? TPOS_SORT_VARIANT : TPOS_SORT_TEMPLATE;
         const sortFieldTpos = sortMap[sortField] || 'DateCreated';
         const order = sortDirection.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
         const filters = [];
 
-        // Status filter — default mirrors TPOS "Đang hoạt động" (Active=true)
-        const statusFilter = $('#filterStatus')?.value || 'all';
-        if (statusFilter === 'active') filters.push('Active eq true');
-        else if (statusFilter === 'inactive') filters.push('Active eq false');
+        // Active filter — tabs are authoritative:
+        //   'inactive' tab → Active=false (archived/ngưng hiệu lực)
+        //   'template' or 'variant' tab → Active=true (matches TPOS "Đang hoạt động")
+        // Dropdown override only kicks in if user explicitly chose non-'all' AND it
+        // doesn't conflict with the inactive tab.
+        if (viewType === 'inactive') {
+            filters.push('Active eq false');
+        } else {
+            const statusFilter = $('#filterStatus')?.value || 'all';
+            if (statusFilter === 'inactive') filters.push('Active eq false');
+            else filters.push('Active eq true');
+        }
 
         // Stock filter
         const stockFilter = $('#filterStock')?.value || 'all';
@@ -1188,11 +1200,11 @@
             );
         }
 
-        // Build URL
+        // Build URL — 'inactive' tab uses template entity (archived templates)
         const path =
-            viewType === 'template'
-                ? '/api/odata/ProductTemplate/ODataService.GetViewV2'
-                : '/api/odata/Product/ODataService.GetViewV2';
+            viewType === 'variant'
+                ? '/api/odata/Product/ODataService.GetViewV2'
+                : '/api/odata/ProductTemplate/ODataService.GetViewV2';
         const qp = new URLSearchParams();
         qp.set('$top', String(top));
         qp.set('$skip', String(skip));
@@ -1236,8 +1248,9 @@
             }
         }
 
-        const variantCount =
-            viewType === 'template' ? parseInt(row.VariantActiveCount, 10) || 0 : 0;
+        // Template-based views ('template' + 'inactive') include VariantActiveCount;
+        // variant view rows don't carry it.
+        const variantCount = viewType === 'variant' ? 0 : parseInt(row.VariantActiveCount, 10) || 0;
 
         return {
             id: templateId,
@@ -1293,7 +1306,8 @@
 
             // Update tab badge for the active view
             if (viewType === 'template') templateTotalCount = totalCount;
-            else variantTotalCount = totalCount;
+            else if (viewType === 'variant') variantTotalCount = totalCount;
+            else if (viewType === 'inactive') inactiveTotalCount = totalCount;
             updateTabBadges();
 
             console.log(
@@ -1322,24 +1336,57 @@
 
     let _otherCountAbort = null;
     async function fetchOtherTabCount() {
+        // Refresh badge counts for the OTHER tabs in parallel ($count only, no rows).
+        // Counts always reflect the same "Active=true" / "Active=false" partitions that
+        // the actual tabs render — so badges stay accurate as user switches tabs.
         try {
             if (_otherCountAbort) _otherCountAbort.abort();
             _otherCountAbort = new AbortController();
-            const otherView = viewType === 'template' ? 'variant' : 'template';
-            const path =
-                otherView === 'template'
-                    ? '/api/odata/ProductTemplate/ODataService.GetViewV2'
-                    : '/api/odata/Product/ODataService.GetViewV2';
-            const url = `${PROXY_URL}${path}?$top=1&$skip=0&$count=true`;
-            const resp = await window.tokenManager.authenticatedFetch(url, {
-                signal: _otherCountAbort.signal,
-                headers: { Accept: 'application/json' },
-            });
-            if (!resp.ok) return;
-            const json = await resp.json();
-            const otherTotal = parseInt(json['@odata.count']) || 0;
-            if (otherView === 'template') templateTotalCount = otherTotal;
-            else variantTotalCount = otherTotal;
+            const signal = _otherCountAbort.signal;
+
+            const specs = [];
+            if (viewType !== 'template') {
+                specs.push({
+                    key: 'template',
+                    path: '/api/odata/ProductTemplate/ODataService.GetViewV2',
+                    filter: 'Active eq true',
+                });
+            }
+            if (viewType !== 'variant') {
+                specs.push({
+                    key: 'variant',
+                    path: '/api/odata/Product/ODataService.GetViewV2',
+                    filter: 'Active eq true',
+                });
+            }
+            if (viewType !== 'inactive') {
+                specs.push({
+                    key: 'inactive',
+                    path: '/api/odata/ProductTemplate/ODataService.GetViewV2',
+                    filter: 'Active eq false',
+                });
+            }
+
+            await Promise.all(
+                specs.map(async (spec) => {
+                    const qp = new URLSearchParams();
+                    qp.set('$top', '1');
+                    qp.set('$skip', '0');
+                    qp.set('$count', 'true');
+                    qp.set('$filter', spec.filter);
+                    const url = `${PROXY_URL}${spec.path}?${qp.toString()}`;
+                    const resp = await window.tokenManager.authenticatedFetch(url, {
+                        signal,
+                        headers: { Accept: 'application/json' },
+                    });
+                    if (!resp.ok) return;
+                    const json = await resp.json();
+                    const total = parseInt(json['@odata.count']) || 0;
+                    if (spec.key === 'template') templateTotalCount = total;
+                    else if (spec.key === 'variant') variantTotalCount = total;
+                    else if (spec.key === 'inactive') inactiveTotalCount = total;
+                })
+            );
             updateTabBadges();
         } catch (err) {
             if (err.name !== 'AbortError') {
@@ -1355,8 +1402,10 @@
         };
         const tplEl = document.getElementById('tabTemplateCount');
         const varEl = document.getElementById('tabVariantCount');
+        const inactEl = document.getElementById('tabInactiveCount');
         if (tplEl) tplEl.textContent = fmt(templateTotalCount);
         if (varEl) varEl.textContent = fmt(variantTotalCount);
+        if (inactEl) inactEl.textContent = fmt(inactiveTotalCount);
     }
 
     function showLoading(show) {
@@ -1503,16 +1552,21 @@
                         const checked = selectedIds.has(p.id) ? 'checked' : '';
                         const rowClass = selectedIds.has(p.id) ? ' selected' : '';
 
-                        // Row actions — Edit / Print / Delete only.
-                        // Expand button removed (clicking row body toggles expand).
-                        // Stock adjust button moved to toolbar bulk-actions (open dialog
-                        // cho exactly 1 selected row).
-                        const actionButtonsHtml =
-                            viewType === 'variant'
-                                ? `<button class="btn-action btn-action-print" title="In mã vạch"><i data-lucide="printer"></i></button>`
-                                : `<button class="btn-action btn-action-edit" title="Sửa"><i data-lucide="pencil"></i></button>
+                        // Row actions vary by tab:
+                        //   variant view → just Print (1 btn)
+                        //   inactive tab → Edit + Reactivate (green check) replaces Delete
+                        //   template view → Edit + Print + Delete (archive)
+                        let actionButtonsHtml;
+                        if (viewType === 'variant') {
+                            actionButtonsHtml = `<button class="btn-action btn-action-print" title="In mã vạch"><i data-lucide="printer"></i></button>`;
+                        } else if (viewType === 'inactive') {
+                            actionButtonsHtml = `<button class="btn-action btn-action-edit" title="Sửa"><i data-lucide="pencil"></i></button>
+                                <button class="btn-action btn-action-reactivate" title="Kích hoạt lại"><i data-lucide="check-circle-2"></i></button>`;
+                        } else {
+                            actionButtonsHtml = `<button class="btn-action btn-action-edit" title="Sửa"><i data-lucide="pencil"></i></button>
                                 <button class="btn-action btn-action-print" title="In mã vạch"><i data-lucide="printer"></i></button>
-                                <button class="btn-action btn-action-delete" title="Xóa"><i data-lucide="trash-2"></i></button>`;
+                                <button class="btn-action btn-action-delete" title="Ngưng hiệu lực (lưu trữ)"><i data-lucide="trash-2"></i></button>`;
+                        }
                         return `<tr class="${rowClass}" data-template-id="${p.id}">
                         <td class="col-checkbox"><input type="checkbox" class="row-checkbox" data-id="${p.id}" ${checked}></td>
                         <td class="col-actions">
@@ -1525,7 +1579,7 @@
                         <td data-col="name" class="td-name">
                             <span class="product-name">${highlightMatch(p.name, searchQuery)}</span>
                             ${
-                                viewType === 'template' && p.variantCount > 0
+                                viewType !== 'variant' && p.variantCount > 0
                                     ? `<span class="variant-count-badge" title="Số biến thể">${p.variantCount} BT</span>`
                                     : viewType === 'variant' && p.variant
                                       ? `<span class="variant-attr">${escapeHtml(p.variant)}</span>`
@@ -1534,7 +1588,7 @@
                         </td>
                         <td data-col="group" class="td-group"><span class="product-group-text">${escapeHtml(p.group)}</span></td>
                         <td data-col="price" class="td-price">${
-                            viewType === 'template' && p.priceMax && p.priceMax !== p.price
+                            viewType !== 'variant' && p.priceMax && p.priceMax !== p.price
                                 ? `${formatPrice(p.price)} – ${formatPrice(p.priceMax)}`
                                 : formatPrice(p.price)
                         }</td>
@@ -1856,7 +1910,7 @@
             }
         });
 
-        // Delete product — click delete button
+        // Delete product — click delete button (archive / Active=false)
         $('#productTableBody')?.addEventListener('click', (e) => {
             const deleteBtn = e.target.closest('.btn-action-delete');
             if (deleteBtn) {
@@ -1870,6 +1924,20 @@
             }
         });
 
+        // Reactivate product — click reactivate button (inactive tab only, Active=true)
+        $('#productTableBody')?.addEventListener('click', (e) => {
+            const reBtn = e.target.closest('.btn-action-reactivate');
+            if (reBtn) {
+                e.stopPropagation();
+                const row = reBtn.closest('tr[data-template-id]');
+                if (row) {
+                    const templateId = parseInt(row.dataset.templateId, 10);
+                    if (templateId) reactivateProduct(templateId);
+                }
+                return;
+            }
+        });
+
         // Variant expand — click anywhere on row body (no dedicated expand button).
         $('#productTableBody')?.addEventListener('click', (e) => {
             // Exclude checkbox + remaining row action buttons + image cell + already-expanded sub-row.
@@ -1878,6 +1946,7 @@
                 e.target.closest('.btn-action-edit') ||
                 e.target.closest('.btn-action-print') ||
                 e.target.closest('.btn-action-delete') ||
+                e.target.closest('.btn-action-reactivate') ||
                 e.target.closest('.product-image-cell') ||
                 e.target.closest('.variant-expand-row')
             )
@@ -2574,6 +2643,53 @@
         } catch (err) {
             console.error('[Delete] Failed:', err);
             showToast('Lỗi xóa: ' + err.message, 'error');
+        }
+    }
+
+    // Reactivate a previously archived template (Active=false → true).
+    // Used only from the "Hết hiệu lực" tab. Same UpdateV2 call as delete,
+    // just with Active=true. After success the row disappears from the
+    // current tab (now matches "active" not "inactive") — reload to refresh.
+    async function reactivateProduct(templateId) {
+        const product = pageProducts.find((p) => p.id === templateId);
+        const name = product ? `${product.code} - ${product.name}` : `ID ${templateId}`;
+
+        if (
+            !confirm(
+                `Kích hoạt lại sản phẩm "${name}"?\n\nSản phẩm sẽ hiện lại trên tab "Sản phẩm".`
+            )
+        ) {
+            return;
+        }
+
+        try {
+            showToast('Đang kích hoạt lại...', 'info');
+
+            const detail = await fetchProductDetail(templateId);
+            const payload = { ...detail };
+            delete payload['@odata.context'];
+            payload.Active = true;
+
+            const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.UpdateV2`;
+            const response = await window.tokenManager.authenticatedFetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error?.message || `HTTP ${response.status}`);
+            }
+
+            showToast(`Đã kích hoạt lại "${name}"`, 'success');
+            fetchProducts(true);
+        } catch (err) {
+            console.error('[Reactivate] Failed:', err);
+            showToast('Lỗi kích hoạt lại: ' + err.message, 'error');
         }
     }
 

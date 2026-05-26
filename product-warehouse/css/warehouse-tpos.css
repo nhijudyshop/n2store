@@ -927,6 +927,17 @@ body.has-selection .toolbar-bulk-actions {
     border-color: #d63a3a;
 }
 
+/* Reactivate btn — only shown on "Hết hiệu lực" tab. Solid blue to distinguish
+   from edit (green) and signal "this is a state change" not an inline edit. */
+.warehouse-table .col-actions .btn-action-reactivate {
+    background: var(--pw-blue);
+    border-color: var(--pw-blue);
+}
+.warehouse-table .col-actions .btn-action-reactivate:hover {
+    background: #1aa2cc;
+    border-color: #1aa2cc;
+}
+
 /* Expanded parent row: highlight with TPOS-blue tint (matches screenshot) */
 .warehouse-table tr.row-expanded-parent > td {
     background: #bce0fd !important;
