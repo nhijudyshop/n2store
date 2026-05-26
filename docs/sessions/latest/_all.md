@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7064527` — feat(delivery-report/report): nút DUYỆT cho aggregate row (date-shift dồn)
-**Last updated**: 2026-05-26 17:18:07 +07
-**Latest session**: [`RESUME:20260526-171807-7064527`](../20260526-171807-7064527.md)
-**Summary**: feat(delivery-report/report): nút DUYỆT cho aggregate row (date-shift dồn)
+**Latest commit**: `0d6d5ec` — fix(web2/balance-history): label "Thủ công" sai cho legacy backfilled rows
+**Last updated**: 2026-05-26 18:08:29 +07
+**Latest session**: [`RESUME:20260526-180829-0d6d5ec`](../20260526-180829-0d6d5ec.md)
+**Summary**: fix(web2/balance-history): label "Thủ công" sai cho legacy backfilled rows
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -68,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-26 14:19
+- [`web2/`](./web2.md) — updated 2026-05-26 18:08
