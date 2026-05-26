@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ec6c671` — fix(delivery-report/report): default range = Thang nay + hover note show full text
-**Last updated**: 2026-05-26 12:46:38 +07
-**Latest session**: [`RESUME:20260526-124638-ec6c671`](../20260526-124638-ec6c671.md)
-**Summary**: fix(delivery-report/report): default range = Thang nay + hover note show full text
+**Latest commit**: `baa6d8a` — auto: session update
+**Last updated**: 2026-05-26 12:55:27 +07
+**Latest session**: [`RESUME:20260526-125527-baa6d8a`](../20260526-125527-baa6d8a.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 1 file(s)
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -25,8 +25,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 12:46
-- [`docs/`](./docs.md) — updated 2026-05-26 12:46
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 12:55
+- [`docs/`](./docs.md) — updated 2026-05-26 12:55
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -46,7 +46,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-25 14:08
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 10:43
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 12:55
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
