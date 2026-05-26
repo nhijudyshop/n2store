@@ -1009,6 +1009,119 @@ body.pt-embed-active {
     color: #fff;
 }
 
+/* ============================================================
+   Refund-from-BILL controls inside purchase detail expand
+   ============================================================ */
+.tpos-refund-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: #fef9c3;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.tpos-refund-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        filter 150ms,
+        transform 100ms;
+}
+.tpos-refund-btn:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+}
+.tpos-refund-btn:active {
+    transform: translateY(0);
+}
+.tpos-refund-btn i {
+    width: 15px;
+    height: 15px;
+}
+
+.tpos-refund-btn-secondary {
+    background: #fff;
+    color: #475569;
+    border-color: #cbd5e1;
+}
+.tpos-refund-btn-secondary:hover {
+    background: #f1f5f9;
+}
+
+.tpos-refund-btn-primary {
+    background: #dc2626;
+    color: #fff;
+    border-color: #b91c1c;
+}
+
+.tpos-refund-btn-warning {
+    background: #f59e0b;
+    color: #fff;
+    border-color: #d97706;
+}
+
+.tpos-refund-hint {
+    margin-left: auto;
+    font-size: 12px;
+    color: #92400e;
+    font-style: italic;
+}
+
+.tpos-refund-check {
+    text-align: center !important;
+}
+.tpos-refund-check input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+.tpos-refund-qty input[type='number'] {
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+.tpos-refund-qty input[type='number']:focus {
+    outline: 2px solid #f59e0b;
+    outline-offset: -1px;
+    border-color: #f59e0b;
+}
+
+/* Refund-from-purchase modal mode — hide product catalog, full-width form */
+.modal-overlay.mode-from-purchase .return-product-panel {
+    display: none !important;
+}
+.modal-overlay.mode-from-purchase .return-order-panel {
+    flex: 1 1 100%;
+    max-width: 100%;
+}
+.modal-overlay.mode-from-purchase .modal-header h3 {
+    color: #b45309;
+}
+
+@media (max-width: 720px) {
+    .tpos-refund-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .tpos-refund-hint {
+        margin-left: 0;
+        text-align: center;
+    }
+}
+
 /* Text-only state badge variant (purchase tabs — no icon, just label) */
 .tpos-fso-badge.tpos-fso-badge-text {
     gap: 0;

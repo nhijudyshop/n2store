@@ -214,20 +214,28 @@
         </tr>`;
     }
 
-    function renderDetailHTML(detail) {
+    function renderDetailHTML(detail, opts = {}) {
         const lines = Array.isArray(detail.OrderLines) ? detail.OrderLines : [];
         const subtotal = lines.reduce((s, l) => s + (Number(l.PriceTotal) || 0), 0);
+        const showRefund = !!opts.showRefundActions;
+        const colCount = showRefund ? 9 : 7;
         const linesHtml = lines.length
             ? lines
                   .map((l, i) => {
                       const pname = l.ProductNameGet || l.Name || l.ProductName || '';
                       const sku = l.ProductBarcode || '';
                       const uom = l.ProductUOMName || '';
-                      const qty = Number(l.ProductUOMQty) || 0;
+                      // FastSaleOrder lines: ProductUOMQty · FastPurchaseOrder lines: ProductQty
+                      const qty = Number(l.ProductUOMQty ?? l.ProductQty) || 0;
                       const price = fmtMoney(l.PriceUnit);
                       const weight = Number(l.WeightTotal || l.Weight || 0);
                       const lineTotal = fmtMoney(l.PriceTotal);
-                      return `<tr>
+                      const refundCols = showRefund
+                          ? `<td class="tpos-refund-check"><input type="checkbox" data-refund-line="${i}" checked></td>
+                             <td class="tpos-refund-qty"><input type="number" data-refund-qty="${i}" min="0" max="${qty}" step="1" value="${qty}" style="width:62px;text-align:right;"></td>`
+                          : '';
+                      return `<tr data-line-idx="${i}">
+                          ${refundCols}
                           <td style="text-align:center;color:#94a3b8;">${i + 1}</td>
                           <td>
                               <div class="tpos-fso-detail-pname">${escapeHtml(pname)}</div>
@@ -241,7 +249,7 @@
                       </tr>`;
                   })
                   .join('')
-            : `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:16px;">Không có dòng sản phẩm</td></tr>`;
+            : `<tr><td colspan="${colCount}" style="text-align:center;color:#94a3b8;padding:16px;">Không có dòng sản phẩm</td></tr>`;
 
         const summary = `<div class="tpos-fso-detail-summary">
             <div><span>Tổng tiền hàng:</span><strong>${fmtMoney(subtotal)}</strong></div>
@@ -253,9 +261,34 @@
             ${detail.Note ? `<div class="note"><span>Ghi chú:</span><em>${escapeHtml(detail.Note)}</em></div>` : ''}
         </div>`;
 
-        return `<div class="tpos-fso-detail-wrap">
+        const refundToolbar = showRefund
+            ? `<div class="tpos-refund-toolbar">
+                  <button type="button" class="tpos-refund-btn tpos-refund-btn-secondary" data-refund-action="select-all">
+                      <i data-lucide="check-square"></i> Chọn tất cả
+                  </button>
+                  <button type="button" class="tpos-refund-btn tpos-refund-btn-secondary" data-refund-action="deselect-all">
+                      <i data-lucide="square"></i> Bỏ chọn
+                  </button>
+                  <button type="button" class="tpos-refund-btn tpos-refund-btn-primary" data-refund-action="refund-all" title="Trả toàn bộ BILL này">
+                      <i data-lucide="undo-2"></i> Trả toàn bộ
+                  </button>
+                  <button type="button" class="tpos-refund-btn tpos-refund-btn-warning" data-refund-action="refund-selected" title="Trả các dòng đã chọn với số lượng đã điều chỉnh">
+                      <i data-lucide="package-x"></i> Trả đã chọn
+                  </button>
+                  <span class="tpos-refund-hint">Bỏ tick = không trả dòng đó · Sửa số lượng để trả 1 phần</span>
+              </div>`
+            : '';
+
+        const refundCols = showRefund
+            ? `<th style="width:36px;text-align:center;">Chọn</th>
+               <th style="width:88px;text-align:center;">SL trả</th>`
+            : '';
+
+        return `<div class="tpos-fso-detail-wrap ${showRefund ? 'tpos-fso-detail-purchase' : ''}">
+            ${refundToolbar}
             <table class="tpos-fso-detail-table">
                 <thead><tr>
+                    ${refundCols}
                     <th style="width:50px;text-align:center;">STT</th>
                     <th>Sản phẩm</th>
                     <th style="width:80px;">Đơn vị</th>
@@ -556,8 +589,129 @@
                     return;
                 }
             }
-            detailTr.innerHTML = `<td colspan="${this.cfg.colCount}">${renderDetailHTML(detail)}</td>`;
+            // Show refund-from-BILL controls only for purchase invoice rows in non-cancelled state
+            const canRefund =
+                this.cfg.entity === 'FastPurchaseOrder' &&
+                this.cfg.tposType === 'invoice' &&
+                detail.State !== 'cancel';
+            detailTr.innerHTML = `<td colspan="${this.cfg.colCount}">${renderDetailHTML(detail, { showRefundActions: canRefund })}</td>`;
             if (window.lucide) window.lucide.createIcons();
+
+            if (canRefund) this.bindRefundActions(detailTr, detail);
+        }
+
+        // Wire up the refund-from-BILL toolbar inside an expanded purchase detail row.
+        bindRefundActions(detailTr, detail) {
+            const wrap = detailTr.querySelector('.tpos-fso-detail-purchase');
+            if (!wrap) return;
+
+            const getSelectedLines = (mode) => {
+                const allLines = Array.isArray(detail.OrderLines) ? detail.OrderLines : [];
+                if (mode === 'all') {
+                    // Trả toàn bộ — use original qty for every line.
+                    // FastPurchaseOrder lines use ProductQty (not ProductUOMQty like FastSaleOrder).
+                    return allLines.map((l) => ({
+                        src: l,
+                        qty: Number(l.ProductUOMQty ?? l.ProductQty) || 0,
+                    }));
+                }
+                // mode === 'selected' — read checkboxes + qty inputs
+                const out = [];
+                wrap.querySelectorAll('tr[data-line-idx]').forEach((tr) => {
+                    const idx = Number(tr.dataset.lineIdx);
+                    const checked = tr.querySelector('[data-refund-line]')?.checked;
+                    const qty = Number(tr.querySelector('[data-refund-qty]')?.value) || 0;
+                    if (checked && qty > 0 && allLines[idx]) {
+                        out.push({ src: allLines[idx], qty });
+                    }
+                });
+                return out;
+            };
+
+            const adaptLine = (entry) => {
+                const l = entry.src;
+                const p = l.Product || {};
+                return {
+                    templateId: p.ProductTmplId || p.Id,
+                    productId: l.ProductId || p.Id,
+                    variantData: p.Id
+                        ? {
+                              Id: p.Id,
+                              Name: p.Name,
+                              UOMId: p.UOMId || l.ProductUOMId,
+                              UOMName: p.UOMName || l.ProductUOMName,
+                              NameGet: p.NameGet || l.ProductNameGet,
+                              Barcode: p.Barcode || l.ProductBarcode,
+                              Price: p.Price || l.PriceUnit,
+                              DefaultCode: p.DefaultCode || l.ProductBarcode,
+                              ProductTmplId: p.ProductTmplId,
+                              PurchaseOK: true,
+                              SaleOK: true,
+                              PurchasePrice: p.PurchasePrice || l.PriceUnit,
+                              Weight: p.Weight || 0,
+                              ImageUrl: p.ImageUrl || l.ProductImageUrl || null,
+                              Active: p.Active !== false,
+                              Factor: 1,
+                          }
+                        : null,
+                    product: p,
+                    name: l.Name || l.ProductNameGet || '',
+                    code: p.DefaultCode || l.ProductBarcode || '',
+                    quantity: entry.qty,
+                    price: Number(l.PriceUnit) || 0,
+                    uom: l.ProductUOMName || p.UOMName || 'Cái',
+                    uomId: l.ProductUOMId || p.UOMId || 1,
+                };
+            };
+
+            const openRefund = (mode) => {
+                if (!window.ReturnOrderModal?.open) {
+                    toast('Modal trả hàng chưa load', 'error');
+                    return;
+                }
+                const entries = getSelectedLines(mode);
+                if (!entries.length) {
+                    toast('Chọn ít nhất 1 dòng để trả', 'error');
+                    return;
+                }
+                const supplierData = {
+                    Id: detail.PartnerId,
+                    Name: detail.Partner?.Name || detail.PartnerDisplayName,
+                    DisplayName: detail.PartnerDisplayName || detail.Partner?.DisplayName,
+                    Ref: detail.Partner?.Ref || null,
+                };
+                window.ReturnOrderModal.open({
+                    supplierData,
+                    presetLines: entries.map(adaptLine),
+                    refundOrderId: detail.Id,
+                    origin: detail.Number || `BILL/Id-${detail.Id}`,
+                    title: `Trả hàng từ ${detail.Number || '(BILL nháp)'} — chỉnh số lượng / xoá dòng để trả 1 phần`,
+                });
+            };
+
+            wrap.querySelector('[data-refund-action="select-all"]')?.addEventListener(
+                'click',
+                () => {
+                    wrap.querySelectorAll('[data-refund-line]').forEach(
+                        (cb) => (cb.checked = true)
+                    );
+                }
+            );
+            wrap.querySelector('[data-refund-action="deselect-all"]')?.addEventListener(
+                'click',
+                () => {
+                    wrap.querySelectorAll('[data-refund-line]').forEach(
+                        (cb) => (cb.checked = false)
+                    );
+                }
+            );
+            wrap.querySelector('[data-refund-action="refund-all"]')?.addEventListener('click', () =>
+                openRefund('all')
+            );
+            wrap.querySelector('[data-refund-action="refund-selected"]')?.addEventListener(
+                'click',
+                () => openRefund('selected')
+            );
         }
 
         totalPages() {

@@ -628,6 +628,8 @@ window.ReturnOrderModal = (function () {
                 paymentAmount,
                 discountAmount: S.discountAmount,
                 formAction,
+                refundOrderId: S.refundOrderId,
+                origin: S.origin,
             });
 
             console.log('[ReturnOrder] Submitting return order:', payload);
@@ -674,16 +676,86 @@ window.ReturnOrderModal = (function () {
     // MODAL LIFECYCLE
     // =====================================================
 
-    function open(supplierData) {
+    /**
+     * Open the refund modal. Two usage modes:
+     *
+     *   1. open() / open(supplierData)
+     *      Free-form refund — user picks supplier + products manually.
+     *
+     *   2. open({ supplierData, presetLines, refundOrderId, origin, title, note })
+     *      Refund-from-purchase mode — locks supplier, hides product catalog,
+     *      pre-fills order lines from the source BILL. User adjusts qty / removes
+     *      lines to partially refund, or keeps as-is to refund the full BILL.
+     *      `refundOrderId` + `origin` get forwarded to the POST payload.
+     */
+    function open(arg) {
         resetState();
+
+        // Normalize: legacy `open(supplierData)` vs new `open(opts)`
+        const opts =
+            arg && (arg.presetLines || arg.refundOrderId || arg.supplierData)
+                ? arg
+                : arg
+                  ? { supplierData: arg }
+                  : {};
+
+        const supplierData = opts.supplierData;
+        const presetLines = Array.isArray(opts.presetLines) ? opts.presetLines : null;
+        S.refundOrderId = opts.refundOrderId || null;
+        S.origin = opts.origin || null;
+        S.modeFromPurchase = !!(presetLines && presetLines.length);
+
+        const modal = $('returnOrderModal');
+        if (!modal) return;
+
+        // Toggle product panel visibility for refund-from-purchase mode (no catalog needed)
+        const productPanel = modal.querySelector('.return-product-panel');
+        if (productPanel) {
+            productPanel.style.display = S.modeFromPurchase ? 'none' : '';
+        }
+        modal.classList.toggle('mode-from-purchase', S.modeFromPurchase);
+
+        // Optional title override + source banner
+        const titleEl = modal.querySelector('.modal-header h3');
+        if (titleEl) {
+            titleEl.textContent =
+                opts.title ||
+                (S.modeFromPurchase
+                    ? `Trả hàng từ ${opts.origin || 'BILL'} — chỉnh số lượng / xóa dòng cho trả 1 phần`
+                    : 'Đơn trả hàng nhà cung cấp');
+        }
 
         // Pre-fill supplier if provided
         if (supplierData) {
-            _selectSupplier(supplierData.Id || supplierData.PartnerId);
+            // Inject into state immediately so _selectSupplier can find it even
+            // before fetchSuppliers resolves.
+            const Id = supplierData.Id || supplierData.PartnerId;
+            const existing = S.suppliers.find((s) => s.Id === Id);
+            if (!existing) {
+                S.suppliers = [
+                    {
+                        Id,
+                        Name: supplierData.Name || supplierData.PartnerName || '',
+                        DisplayName:
+                            supplierData.DisplayName ||
+                            supplierData.PartnerDisplayName ||
+                            supplierData.Name ||
+                            '',
+                        Ref: supplierData.Ref || null,
+                        Active: true,
+                    },
+                    ...S.suppliers,
+                ];
+            }
+            _selectSupplier(Id);
         }
 
-        const modal = $('returnOrderModal');
-        if (modal) modal.classList.add('show');
+        // Seed preset order lines (refund-from-purchase mode)
+        if (presetLines) {
+            S.orderLines = presetLines.map((l) => ({ ...l }));
+        }
+
+        modal.classList.add('show');
 
         // Set default date (date only, time uses current machine time on submit)
         const dateInput = $('returnOrderDate');
@@ -692,8 +764,8 @@ window.ReturnOrderModal = (function () {
             dateInput.value = now.toISOString().slice(0, 10);
         }
 
-        // Load data
-        fetchProducts();
+        // Load data — skip product catalog in from-purchase mode
+        if (!S.modeFromPurchase) fetchProducts();
         fetchSuppliers();
         fetchPaymentMethods();
         renderOrderLines();
@@ -719,6 +791,9 @@ window.ReturnOrderModal = (function () {
         S.paymentAmount = 0;
         S.discountAmount = 0;
         S.isSubmitting = false;
+        S.refundOrderId = null;
+        S.origin = null;
+        S.modeFromPurchase = false;
 
         // Reset supplier input
         _clearSupplier();
