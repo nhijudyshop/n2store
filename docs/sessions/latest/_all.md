@@ -3,23 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1893833` — auto: session update
-**Last updated**: 2026-05-26 13:38:33 +07
-**Latest session**: [`RESUME:20260526-133833-1893833`](../20260526-133833-1893833.md)
+**Latest commit**: `a6af1d4` — auto: session update
+**Last updated**: 2026-05-26 13:42:19 +07
+**Latest session**: [`RESUME:20260526-134219-a6af1d4`](../20260526-134219-a6af1d4.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
-- [`delivery-report/`](./delivery-report.md) — 3 file(s)
-- [`docs/`](./docs.md) — 2 file(s)
-- [`n2store-extension/`](./n2store-extension.md) — 3 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 4 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
-- [`shared/`](./shared.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 16 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`shared/`](./shared.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -53,16 +46,16 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-25 14:08
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 13:17
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 13:42
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-26 13:38
+- [`render.com/`](./render.com.md) — updated 2026-05-26 13:42
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-26 13:38
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
-- [`shared/`](./shared.md) — updated 2026-05-26 13:38
+- [`shared/`](./shared.md) — updated 2026-05-26 13:42
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-05-26 13:38
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
