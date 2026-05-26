@@ -1176,11 +1176,13 @@ body.col-resizing * {
     font-weight: 600;
 }
 
-/* ===== SEARCH SUGGESTIONS dropdown ===== */
+/* ===== SEARCH SUGGESTIONS dropdown — DISABLED per UX request 2026-05-26.
+   User: "không cần suggestion sản phẩm (hiện trực tiếp ở bảng luôn đi)" —
+   the table now updates as you type (live search via cache), so the
+   dropdown duplicates information. Force-hidden so even if any legacy
+   code path calls displaySuggestions() it stays invisible. ===== */
 .search-suggestions {
-    border: 1px solid var(--pw-border) !important;
-    border-radius: 2px !important;
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
+    display: none !important;
 }
 
 .suggestion-item {

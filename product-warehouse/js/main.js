@@ -2105,21 +2105,11 @@
             searchInput.addEventListener('input', (e) => {
                 const searchText = e.target.value.trim();
 
-                // Suggestions dropdown (optional UX, decoupled from main render)
-                if (searchText.length >= 2) {
-                    if (_suggestionTimer) clearTimeout(_suggestionTimer);
-                    _suggestionTimer = setTimeout(async () => {
-                        const results = await searchProductsSuggestion(searchText);
-                        if (
-                            document.activeElement === searchInput &&
-                            searchInput.value.trim() === searchText
-                        ) {
-                            displaySuggestions(results);
-                        }
-                    }, 200);
-                } else {
-                    hideSuggestions();
-                }
+                // Suggestions dropdown intentionally disabled — user prefers
+                // results rendered directly into the main table (less visual
+                // noise, one source of truth). The dropdown DOM is left in
+                // place for now (hidden) so the existing CSS rules don't break.
+                hideSuggestions();
 
                 // Cancel any pending server-side search
                 if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
