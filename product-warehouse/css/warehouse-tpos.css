@@ -1,7 +1,7 @@
 /* #Note: TPOS-themed overrides for Kho Sản Phẩm — mirrors palette/typography from
-   issue-tracking/css/page-tabs.css (Segoe UI, #4c4c4c text, #edf1f2 bg, #f0eeee th,
-   purple #7266ba accent, badge-empty style, sharp 2px corners). Loaded AFTER
-   warehouse.css to override styles without modifying the 1200-line base file. */
+   live tomato.tpos.vn/#/app/producttemplate/list (Segoe UI 14px, #4c4c4c text,
+   #f5f5f5 page bg, #f0eeee th, purple #7266ba accent, badge-empty style,
+   sharp 2px corners). Loaded AFTER warehouse.css to override the base file. */
 
 :root {
     /* TPOS-exact palette (verified live at tomato.tpos.vn 2026-05-26):
@@ -43,21 +43,21 @@ html body {
 }
 
 .page-header {
-    padding: 10px 16px;
+    padding: 12px 20px;
     background: var(--pw-bg-card);
     border-bottom: 1px solid var(--pw-border);
 }
 
 .page-title {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 600;
     color: var(--pw-text-strong);
     gap: 8px;
 }
 
 .page-title i {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     color: var(--pw-accent);
 }
 
