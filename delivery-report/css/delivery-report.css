@@ -2523,6 +2523,28 @@ body.dr-mode-report #drTableWrapper {
     background: #fffbeb;
 }
 
+/* Shifted-out row: ngày thật bị dời sang displayDate ngoài filter → render rỗng */
+.dr-report-table tbody tr.is-shifted-out {
+    background: #fafafa;
+    opacity: 0.7;
+}
+.dr-report-table tbody tr.is-shifted-out td.muted {
+    color: #9ca3af;
+}
+.dr-shift-moved-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    padding: 2px 8px;
+    background: #fef3c7;
+    color: #92400e;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: help;
+}
+
 /* Virtual aggregate row (1+ ngày con dời tới displayDate) */
 .dr-report-table tbody tr.dr-shift-agg-row {
     background: #eef2ff;

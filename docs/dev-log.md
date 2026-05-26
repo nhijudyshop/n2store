@@ -25,6 +25,47 @@
 
 ## 2026-05-26
 
+### [delivery-report/report] Shift data flow correct: source rows empty + aggregate đầy đủ ✅
+
+**User ask**: "chỉnh ngày hiển thị 02/05 → dữ liệu 29/04, 30/04 sẽ hiển thị trong ngày 02/05 bất kể chỉnh filter nào → cột 29/04, 30/04 cũ dữ liệu sẽ rỗng"
+
+**Refactor paintTable + computeTotalLeftForTab + render fetch**:
+
+Date shift hành xử như "moving data": source dates trống rỗng (data đã đi), target date có data từ tất cả sources.
+
+**Render fetch extension** (`render()`):
+
+- Tính `extFrom/extTo` mở rộng từ filter range để include shift sources có target ∈ filter
+- Cache key dùng `rangeKey(extFrom, extTo)` thay vì `rangeKey(realFrom, realTo)`
+- `fetchRange(extFrom, extTo)` để có data cho aggregate
+
+**paintTable refactor**:
+
+- Bỏ `displayBuckets/virtualAggregates/dateInVirtualAgg` (cũ — gộp dates filter)
+- Scan TẤT CẢ shifts cho tab, phân loại:
+    - `aggregateSources`: displayDate (∈ filter) → [realDates] (kể cả nguồn ngoài filter)
+    - `sourceShiftedToFilter`: realDates có target ∈ filter (skip render — data trong aggregate)
+    - `sourceShiftedOutOfFilter`: realDates ∈ filter có target ∉ filter (render EMPTY)
+- Add target's own data vào sources nếu target chưa shift đi
+- aggregateByDay map phải include shift sources ngoài filter để aggregate có data
+- Render loop chỉ iterate `dates` (filter range, KHÔNG union với agg keys)
+
+**`renderShiftedOutRow(d)`** mới — row 13 cột với tất cả `muted 0`/`$0`, badge "dời → dd/mm/yyyy" amber, vẫn có pen edit để admin chỉnh tiếp.
+
+**`computeTotalLeftForTab` refactor** đồng bộ logic với paintTable (extended date list cho aggregateByDay, aggregate sum, source-shifted-out = 0 contribution).
+
+**CSS** thêm `.is-shifted-out` (bg #fafafa, opacity 0.7, td.muted gray) + `.dr-shift-moved-badge` (amber chip).
+
+**Verify** (Playwright 3 scenarios với shift `{29/04→02/05, 30/04→02/05}`):
+
+| Scenario                                   | Expect                                                                                           | Result |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------ |
+| Filter [29/04, 30/04] (chỉ sources)        | 2 rows EMPTY + "dời → 02/05" badge, NO aggregate                                                 | ✅     |
+| Filter [02/05, 02/05] (chỉ target)         | 1 aggregate "3 ngày × 79 đơn $41.524.000"                                                        | ✅     |
+| Filter [29/04, 02/05] (cả source + target) | 29/04 + 30/04 KHÔNG render (consumed), 01/05 normal, 02/05 aggregate full data — NO double count | ✅     |
+
+---
+
 ### [tpos-pancake] Force extract → 3-step guaranteed thumbnail (backfill + extract + cache refresh) ✅
 
 **User ask**: "sao force extract không lấy được hết thumnbnail comment? -> có comment là chắc chắn có snap shot và thumbnail"

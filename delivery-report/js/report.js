@@ -928,6 +928,21 @@
         const realFrom = entryToReal(state.fromDate);
         const realTo = entryToReal(state.toDate);
         const dates = eachDay(realFrom, realTo); // iterate real dates
+        // Extended fetch range: include shift sources có target ∈ filter.
+        // VD filter [02/05, 02/05] với shift {29/04→02/05, 30/04→02/05} →
+        // fetch [29/04, 02/05] để aggregate row tại 02/05 có data.
+        const filterSet = new Set(dates);
+        let extFrom = realFrom;
+        let extTo = realTo;
+        for (const k of Object.keys(_dateShifts)) {
+            if (!k.endsWith(`__${state.activeTab}`)) continue;
+            const realDate = k.split('__')[0];
+            const target = _dateShifts[k];
+            if (filterSet.has(target)) {
+                if (realDate < extFrom) extFrom = realDate;
+                if (realDate > extTo) extTo = realDate;
+            }
+        }
         const subtitle = dates.length
             ? `${formatDDMMYYYY(state.fromDate)}${
                   state.fromDate === state.toDate ? '' : ` → ${formatDDMMYYYY(state.toDate)}`
@@ -942,11 +957,12 @@
             return;
         }
 
-        // Image flags + overrides + merges fire-and-forget (sẽ tự re-paint khi xong)
+        // Image flags + overrides + merges fire-and-forget (sẽ tự re-paint khi xong).
+        // Dùng extended range để bao gồm shift sources.
         Promise.all([
-            loadImageFlags(realFrom, realTo),
-            loadOverridesRange(realFrom, realTo),
-            loadMergesRange(realFrom, realTo),
+            loadImageFlags(extFrom, extTo),
+            loadOverridesRange(extFrom, extTo),
+            loadMergesRange(extFrom, extTo),
         ]).then(() => {
             // Repaint nếu range vẫn match (tránh flicker stale data)
             const curRealFrom = entryToReal(state.fromDate);
@@ -960,7 +976,7 @@
         });
 
         // Hot cache → sync path: paint immediately, no await, no loading flash.
-        const key = rangeKey(realFrom, realTo);
+        const key = rangeKey(extFrom, extTo);
         const cached = state.fetchCache[key];
         if (cached && Date.now() - cached.fetchedAt < 60000) {
             state.currentByDateGroup = cached.byDateGroup;
@@ -969,18 +985,18 @@
             return;
         }
 
-        // Cold cache → show loading + async fetch
+        // Cold cache → show loading + async fetch (extended range)
         document.getElementById('drReportTbody').innerHTML =
             '<tr><td colspan="13" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>';
         document.getElementById('drReportTfoot').innerHTML = '';
-        fetchRange(realFrom, realTo).then(({ byDateGroup }) => {
+        fetchRange(extFrom, extTo).then(({ byDateGroup }) => {
             const curRealFrom = entryToReal(state.fromDate);
             const curRealTo = entryToReal(state.toDate);
-            if (rangeKey(curRealFrom, curRealTo) !== key) return; // stale
+            if (rangeKey(curRealFrom, curRealTo) !== rangeKey(realFrom, realTo)) return; // stale
             state.currentByDateGroup = byDateGroup;
-            const allDates = eachDay(curRealFrom, curRealTo);
-            paintTable(allDates);
-            paintTabTotals(allDates);
+            const filterDates = eachDay(curRealFrom, curRealTo);
+            paintTable(filterDates);
+            paintTabTotals(filterDates);
         });
     }
 
@@ -989,21 +1005,98 @@
     // approved → totalLeft = 0. Duplicated nhẹ để tránh refactor lớn paintTable;
     // gọi 3 lần (1/tab) để hiển thị dưới mỗi tab button.
     function computeTotalLeftForTab(tab, dates) {
-        const map = aggregateByDay(tab, dates);
+        // Logic phải match paintTable:
+        // - Aggregate target ∈ filter: sum tất cả sources (kể cả nguồn ngoài filter)
+        // - Source shift-out-of-filter: contribute 0 (data đã dời đi)
+        // - Bình thường: tính normal
+        const filterSet = new Set(dates);
+        // Build shift maps cho tab này
+        const aggregateSources = new Map();
+        const sourceShiftedToFilter = new Set();
+        const sourceShiftedOutOfFilter = new Set();
+        for (const k of Object.keys(_dateShifts)) {
+            const m = k.match(/^(\d{4}-\d{2}-\d{2})__(.+)$/);
+            if (!m || m[2] !== tab) continue;
+            const realDate = m[1];
+            const target = _dateShifts[k];
+            if (filterSet.has(target)) {
+                if (!aggregateSources.has(target)) aggregateSources.set(target, []);
+                aggregateSources.get(target).push(realDate);
+                sourceShiftedToFilter.add(realDate);
+            } else if (filterSet.has(realDate)) {
+                sourceShiftedOutOfFilter.add(realDate);
+            }
+        }
+        for (const target of aggregateSources.keys()) {
+            if (!_dateShifts[`${target}__${tab}`]) {
+                aggregateSources.get(target).push(target);
+            }
+        }
+        // Build extended date list (cho aggregateByDay lookup) — include shift sources
+        const extDates = new Set(dates);
+        for (const sources of aggregateSources.values()) {
+            for (const s of sources) extDates.add(s);
+        }
+        const map = aggregateByDay(tab, [...extDates]);
         const rendered = new Set();
         let total = 0;
         const useMerge = (mv) => mv != null && mv !== '' && Number(mv) !== 0;
         for (const d of dates) {
             if (rendered.has(d)) continue;
+            // Aggregate target
+            if (aggregateSources.has(d)) {
+                const sources = aggregateSources.get(d);
+                for (const s of sources) rendered.add(s);
+                rendered.add(d);
+                let sumMoney = 0,
+                    sumShipFee = 0;
+                let sumSlShip = 0,
+                    sumThuVe = 0,
+                    sumBoCK = 0,
+                    sumAtruongCK = 0,
+                    sumCkTruoc = 0;
+                let anyApproved = false;
+                for (const s of sources) {
+                    const sys = map[s] || { sysCount: 0, money: 0 };
+                    sumMoney += sys.money;
+                    sumShipFee += sys.sysCount * getShipFee(tab);
+                    const ov = getOverride(s, tab);
+                    sumSlShip += Number(ov.slShip) || 0;
+                    sumThuVe += Number(ov.thuVe) || 0;
+                    sumBoCK += Number(ov.boCK) || 0;
+                    sumAtruongCK += Number(ov.atruongCK) || 0;
+                    sumCkTruoc += Number(ov.ckTruoc) || 0;
+                    if (ov.approved) anyApproved = true;
+                }
+                const totalAll = sumMoney - sumShipFee - sumSlShip * getShipFee(tab) + sumThuVe;
+                const totalLeftRaw = totalAll - sumBoCK - sumAtruongCK - sumCkTruoc;
+                total += anyApproved ? 0 : totalLeftRaw;
+                continue;
+            }
+            // Shifted out of filter → 0 contribution
+            if (sourceShiftedOutOfFilter.has(d)) {
+                rendered.add(d);
+                continue;
+            }
+            // Manual merge or single — exclude shifted children
             const merge = findMergeForDate(d, tab);
             if (merge) {
-                const childDates = dates.filter((cd) => cd >= merge.fromDate && cd <= merge.toDate);
-                for (const cd of childDates) rendered.add(cd);
+                const childDates = dates.filter(
+                    (cd) =>
+                        cd >= merge.fromDate &&
+                        cd <= merge.toDate &&
+                        !sourceShiftedToFilter.has(cd) &&
+                        !sourceShiftedOutOfFilter.has(cd)
+                );
+                for (const cd of dates.filter((cd) => cd >= merge.fromDate && cd <= merge.toDate)) {
+                    rendered.add(cd);
+                }
+                if (childDates.length === 0) continue;
                 let sumMoney = 0,
-                    sumShipFee = 0,
-                    sumSlShip = 0,
-                    sumThuVe = 0;
-                let sumBoCK = 0,
+                    sumShipFee = 0;
+                let sumSlShip = 0,
+                    sumThuVe = 0,
+                    sumBoCK = 0,
                     sumAtruongCK = 0,
                     sumCkTruoc = 0;
                 for (const cd of childDates) {
@@ -1027,20 +1120,21 @@
                 const totalAll = sumMoney - sumShipFee - slShip * getShipFee(tab) + thuVe;
                 const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
                 total += !!merge.approved ? 0 : totalLeftRaw;
-            } else {
-                const sys = map[d] || { sysCount: 0, money: 0 };
-                const shipFee = sys.sysCount * getShipFee(tab);
-                const ov = getOverride(d, tab);
-                const slShip = Number(ov.slShip) || 0;
-                const thuVe = Number(ov.thuVe) || 0;
-                const boCK = Number(ov.boCK) || 0;
-                const atruongCK = Number(ov.atruongCK) || 0;
-                const ckTruoc = Number(ov.ckTruoc) || 0;
-                const totalAll = sys.money - shipFee - slShip * getShipFee(tab) + thuVe;
-                const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
-                total += !!ov.approved ? 0 : totalLeftRaw;
-                rendered.add(d);
+                continue;
             }
+            // Single row
+            rendered.add(d);
+            const sys = map[d] || { sysCount: 0, money: 0 };
+            const shipFee = sys.sysCount * getShipFee(tab);
+            const ov = getOverride(d, tab);
+            const slShip = Number(ov.slShip) || 0;
+            const thuVe = Number(ov.thuVe) || 0;
+            const boCK = Number(ov.boCK) || 0;
+            const atruongCK = Number(ov.atruongCK) || 0;
+            const ckTruoc = Number(ov.ckTruoc) || 0;
+            const totalAll = sys.money - shipFee - slShip * getShipFee(tab) + thuVe;
+            const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
+            total += !!ov.approved ? 0 : totalLeftRaw;
         }
         return total;
     }
@@ -1067,7 +1161,17 @@
     }
 
     function paintTable(dates) {
-        const map = aggregateByDay(state.activeTab, dates);
+        // aggregateByDay phải include shift sources (ngoài filter) để aggregate
+        // row có data từ real 29/04, 30/04 khi filter chỉ là [02/05, 02/05].
+        const _filterSet = new Set(dates);
+        const _extDates = new Set(dates);
+        for (const k of Object.keys(_dateShifts)) {
+            const m = k.match(/^(\d{4}-\d{2}-\d{2})__(.+)$/);
+            if (!m || m[2] !== state.activeTab) continue;
+            const target = _dateShifts[k];
+            if (_filterSet.has(target)) _extDates.add(m[1]);
+        }
+        const map = aggregateByDay(state.activeTab, [..._extDates]);
         let totals = {
             slDon: 0,
             money: 0,
@@ -1282,6 +1386,29 @@
             </tr>`;
         }
 
+        // Shifted-out row: ngày thật d đã dời data sang displayDate KHÔNG nằm trong
+        // filter hiện tại → render row rỗng (tất cả 0) + badge giải thích.
+        function renderShiftedOutRow(d) {
+            const target = getDisplayDate(d, tab);
+            const editBtn = `<button class="dr-shift-edit" data-action="shift-edit" data-real="${d}" title="Chỉnh ngày hiển thị (dời sang ngày khác)"><i class="fas fa-pen-to-square"></i></button>`;
+            const movedBadge = `<span class="dr-shift-moved-badge" title="Dữ liệu ngày này đã dời sang ${formatDDMMYYYY(realToEntry(target))} (không nằm trong filter hiện tại)"><i class="fas fa-arrow-right-from-bracket"></i> dời → ${formatDDMMYYYY(realToEntry(target))}</span>`;
+            return `<tr data-date="${d}" class="is-shifted-out">
+                <td class="date" title="Ngày thật: ${formatDDMMYYYY(d)}">${formatDDMMYYYY(realToEntry(d))}${movedBadge}${editBtn}</td>
+                <td class="num strong muted">0</td>
+                <td class="num muted">$ 0</td>
+                <td class="num muted">$ 0</td>
+                <td class="num muted">0</td>
+                <td class="num muted">$ 0</td>
+                <td class="num muted">$ 0</td>
+                <td class="num muted">$ 0</td>
+                <td class="num muted">$ 0</td>
+                <td class="num muted">$ 0</td>
+                <td class="num muted">$ 0</td>
+                <td class="note-cell"></td>
+                <td class="dr-report-td-approve"></td>
+            </tr>`;
+        }
+
         // Virtual aggregate row: 1+ real dates dời tới displayDate. Sum auto-computed
         // fields từ tất cả sources, sum overrides từ sources (read-only display để
         // tránh ambiguity "input vào source nào"). Badge ✏️ + tooltip ngày thật.
@@ -1355,45 +1482,51 @@
         }
 
         // Non-admin: ẩn HẲN các hàng đã duyệt khỏi bảng (cả merge lẫn single).
-        // Date shift: real dates có thể bị "dời" sang displayDate khác. Nhiều real
-        // dates dời cùng displayDate → render thành 1 virtual aggregate row.
+        // Date shift logic (refactor 2026-05-26):
+        //   - Aggregate render CHỈ khi displayDate ∈ filter range
+        //   - Source dates ∈ filter có target ∉ filter → render EMPTY row (data đã dời)
+        //   - Fetch range đã được extend ở render() để include shift sources
         const isAdminView = _isAdmin();
         const tab = state.activeTab;
+        const filterSet = new Set(dates);
 
-        // Build display buckets: displayDate → [realDates...]
-        const displayBuckets = new Map();
-        for (const d of dates) {
-            const dd = getDisplayDate(d, tab);
-            if (!displayBuckets.has(dd)) displayBuckets.set(dd, []);
-            displayBuckets.get(dd).push(d);
+        // Scan ALL shifts cho tab này (kể cả nguồn nằm ngoài filter)
+        const aggregateSources = new Map(); // displayDate (in filter) → [realDates...]
+        const sourceShiftedToFilter = new Set(); // realDates đã shift đến target ∈ filter
+        const sourceShiftedOutOfFilter = new Set(); // realDates ∈ filter, target ∉ filter
+        for (const k of Object.keys(_dateShifts)) {
+            const m = k.match(/^(\d{4}-\d{2}-\d{2})__(.+)$/);
+            if (!m || m[2] !== tab) continue;
+            const realDate = m[1];
+            const target = _dateShifts[k];
+            if (filterSet.has(target)) {
+                if (!aggregateSources.has(target)) aggregateSources.set(target, []);
+                aggregateSources.get(target).push(realDate);
+                sourceShiftedToFilter.add(realDate);
+            } else if (filterSet.has(realDate)) {
+                sourceShiftedOutOfFilter.add(realDate);
+            }
         }
-        // Identify virtual aggregates: bucket có >1 source HOẶC source != target
-        const virtualAggregates = new Map(); // displayDate → [realDates]
-        const dateInVirtualAgg = new Set();
-        for (const [dd, sources] of displayBuckets) {
-            const isVirtual = sources.length > 1 || sources.some((s) => s !== dd);
-            if (isVirtual) {
-                virtualAggregates.set(dd, sources);
-                for (const s of sources) dateInVirtualAgg.add(s);
+        // Add target's own data into aggregate sources nếu target chưa được shift đi
+        for (const target of aggregateSources.keys()) {
+            const targetShiftedAway = _dateShifts[`${target}__${tab}`];
+            if (!targetShiftedAway) {
+                aggregateSources.get(target).push(target);
             }
         }
 
         const rendered = new Set();
         const rowsHtml = [];
-        // Iterate displayDates (gồm virtual targets) hợp nhất với realDates không shifted
-        const allDisplaySorted = Array.from(
-            new Set([...dates, ...virtualAggregates.keys()])
-        ).sort();
 
-        for (const d of allDisplaySorted) {
+        for (const d of dates) {
             if (rendered.has(d)) continue;
 
-            // 1) Virtual aggregate (1+ realDates dời về d)
-            if (virtualAggregates.has(d)) {
-                const sources = virtualAggregates.get(d);
+            // 1) d là aggregate target (có ≥1 nguồn shift về đây)
+            if (aggregateSources.has(d)) {
+                const sources = aggregateSources.get(d);
                 for (const s of sources) rendered.add(s);
                 rendered.add(d);
-                // Non-admin: ẩn nếu MỌI source đều approved (any unapproved → show)
+                // Non-admin: ẩn nếu MỌI source đều approved
                 if (!isAdminView) {
                     const allApproved = sources.every((s) => {
                         const ov = getOverride(s, tab);
@@ -1405,23 +1538,33 @@
                 continue;
             }
 
-            // 2) Date là source của virtual agg khác → đã render qua target, skip
-            if (dateInVirtualAgg.has(d)) {
+            // 2) d là source dời SANG target ∈ filter → đã consumed bởi aggregate, skip
+            if (sourceShiftedToFilter.has(d)) {
                 rendered.add(d);
                 continue;
             }
 
-            // 3) Manual merge (loại trừ các source dates bị shift)
+            // 3) d là source bị dời sang target nằm ngoài filter → render EMPTY row
+            if (sourceShiftedOutOfFilter.has(d)) {
+                rendered.add(d);
+                rowsHtml.push(renderShiftedOutRow(d));
+                continue;
+            }
+
+            // 3) Manual merge (loại trừ source dates bị shift)
             const merge = findMergeForDate(d, tab);
             if (merge) {
                 const childDates = dates.filter(
-                    (cd) => cd >= merge.fromDate && cd <= merge.toDate && !dateInVirtualAgg.has(cd)
+                    (cd) =>
+                        cd >= merge.fromDate &&
+                        cd <= merge.toDate &&
+                        !sourceShiftedToFilter.has(cd) &&
+                        !sourceShiftedOutOfFilter.has(cd)
                 );
-                // Mark all original merge dates as rendered (kể cả shifted ones — đã render qua aggregate)
                 for (const cd of dates.filter((cd) => cd >= merge.fromDate && cd <= merge.toDate)) {
                     rendered.add(cd);
                 }
-                if (childDates.length === 0) continue; // tất cả children đã shift đi nơi khác
+                if (childDates.length === 0) continue;
                 if (!isAdminView && merge.approved) continue;
                 rowsHtml.push(renderMergeRow(merge, childDates));
                 if (merge.expanded) {
