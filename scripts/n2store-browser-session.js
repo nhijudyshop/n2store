@@ -484,6 +484,19 @@ const sseEmit = (type, data) => {
             await safe(() => getFrame().evaluate(`(async()=>{ ${arg} })()`), 'feval');
             return;
         }
+        if (cmd === 'click') {
+            // Real Playwright mouse click via selector. Usage: click <CSS selector>
+            await safe(() => page.locator(arg).first().click({ timeout: 3000 }), `click ${arg}`);
+            return;
+        }
+        if (cmd === 'clickxy') {
+            // Real Playwright mouse click at coordinates. Usage: clickxy <x> <y>
+            const [xStr, yStr] = arg.split(/\s+/);
+            const x = Number(xStr),
+                y = Number(yStr);
+            await safe(() => page.mouse.click(x, y), `clickxy ${x},${y}`);
+            return;
+        }
         if (cmd === 'filter') {
             const key = arg === 'null' || arg === '' ? null : arg;
             await safe(

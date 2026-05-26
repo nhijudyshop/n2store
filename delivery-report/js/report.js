@@ -855,21 +855,44 @@
         }
 
         function renderMergeRow(merge, childDates) {
+            // Sum tự động từ overrides của children — để cell gộp phản ánh dữ liệu user đã
+            // nhập trong từng ngày con (slShip/thuVe/boCK/atruongCK/ckTruoc/note).
+            // Nếu user nhập trực tiếp vào ô gộp (merge.field !== null/''), giá trị đó OVERRIDE
+            // sum. Để trống ô gộp = "lấy sum của children" (placeholder hiển thị sum).
             let sumSlDon = 0,
                 sumMoney = 0,
-                sumShipFee = 0;
+                sumShipFee = 0,
+                sumSlShip = 0,
+                sumThuVe = 0,
+                sumBoCK = 0,
+                sumAtruongCK = 0,
+                sumCkTruoc = 0;
+            const childNotes = [];
             for (const cd of childDates) {
                 const da = computeDayAuto(cd);
                 sumSlDon += da.slDon;
                 sumMoney += da.money;
                 sumShipFee += da.shipFee;
+                const ovChild = getOverride(cd, state.activeTab);
+                sumSlShip += Number(ovChild.slShip) || 0;
+                sumThuVe += Number(ovChild.thuVe) || 0;
+                sumBoCK += Number(ovChild.boCK) || 0;
+                sumAtruongCK += Number(ovChild.atruongCK) || 0;
+                sumCkTruoc += Number(ovChild.ckTruoc) || 0;
+                if (ovChild.note && String(ovChild.note).trim()) {
+                    childNotes.push(
+                        `${formatDDMMYYYY(realToEntry(cd))}: ${String(ovChild.note).trim()}`
+                    );
+                }
             }
-            const slShip = Number(merge.slShip) || 0;
-            const thuVe = Number(merge.thuVe) || 0;
+            // Helper: lấy giá trị effective — merge.field nếu được set, không thì lấy sum
+            const useMerge = (mv) => mv != null && mv !== '' && Number(mv) !== 0;
+            const slShip = useMerge(merge.slShip) ? Number(merge.slShip) : sumSlShip;
+            const thuVe = useMerge(merge.thuVe) ? Number(merge.thuVe) : sumThuVe;
             const totalAll = sumMoney - sumShipFee - slShip * SHIP_FEE_PER_ORDER + thuVe;
-            const boCK = Number(merge.boCK) || 0;
-            const atruongCK = Number(merge.atruongCK) || 0;
-            const ckTruoc = Number(merge.ckTruoc) || 0;
+            const boCK = useMerge(merge.boCK) ? Number(merge.boCK) : sumBoCK;
+            const atruongCK = useMerge(merge.atruongCK) ? Number(merge.atruongCK) : sumAtruongCK;
+            const ckTruoc = useMerge(merge.ckTruoc) ? Number(merge.ckTruoc) : sumCkTruoc;
             const approved = !!merge.approved;
             const expanded = !!merge.expanded;
             const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
@@ -911,14 +934,14 @@
                 <td class="num strong">${formatNumber(sumSlDon)}</td>
                 <td class="num">${formatMoney(sumMoney)}</td>
                 <td class="num muted">${formatMoney(sumShipFee)}</td>
-                <td class="num"><input type="number" min="0" data-field="slShip" value="${slShip || ''}" placeholder="0" /></td>
-                <td class="num"><input type="text" data-field="thuVe" value="${thuVe ? formatMoney(thuVe) : ''}" placeholder="0" /></td>
+                <td class="num"><input type="number" min="0" data-field="slShip" value="${useMerge(merge.slShip) ? merge.slShip : ''}" placeholder="${sumSlShip || 0}" title="${useMerge(merge.slShip) ? 'Giá trị nhập tay (override sum=' + sumSlShip + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
+                <td class="num"><input type="text" data-field="thuVe" value="${useMerge(merge.thuVe) ? formatMoney(merge.thuVe) : ''}" placeholder="${sumThuVe ? formatMoney(sumThuVe) : '0'}" title="${useMerge(merge.thuVe) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumThuVe) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
                 <td class="num strong">${formatMoney(totalAll)}</td>
-                <td class="num"><input type="text" data-field="boCK" value="${boCK ? formatMoney(boCK) : ''}" placeholder="0" /></td>
-                <td class="num"><input type="text" data-field="atruongCK" value="${atruongCK ? formatMoney(atruongCK) : ''}" placeholder="0" /></td>
-                <td class="num"><input type="text" data-field="ckTruoc" value="${ckTruoc ? formatMoney(ckTruoc) : ''}" placeholder="0" /></td>
+                <td class="num"><input type="text" data-field="boCK" value="${useMerge(merge.boCK) ? formatMoney(merge.boCK) : ''}" placeholder="${sumBoCK ? formatMoney(sumBoCK) : '0'}" title="${useMerge(merge.boCK) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumBoCK) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
+                <td class="num"><input type="text" data-field="atruongCK" value="${useMerge(merge.atruongCK) ? formatMoney(merge.atruongCK) : ''}" placeholder="${sumAtruongCK ? formatMoney(sumAtruongCK) : '0'}" title="${useMerge(merge.atruongCK) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumAtruongCK) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
+                <td class="num"><input type="text" data-field="ckTruoc" value="${useMerge(merge.ckTruoc) ? formatMoney(merge.ckTruoc) : ''}" placeholder="${sumCkTruoc ? formatMoney(sumCkTruoc) : '0'}" title="${useMerge(merge.ckTruoc) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumCkTruoc) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
                 <td class="num strong ${totalLeftDisplay < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeftDisplay)}</td>
-                <td class="note-cell"><textarea data-field="note" rows="1" placeholder="Ghi chú…">${escapeHtml(merge.note || '')}</textarea></td>
+                <td class="note-cell"><textarea data-field="note" rows="1" placeholder="${escapeHtml(childNotes.length ? childNotes.join(' | ') : 'Ghi chú…')}" title="${childNotes.length ? 'Ghi chú từ children:\n' + childNotes.join('\n') + '\n\n(Nhập riêng cho dòng gộp nếu muốn override)' : 'Ghi chú cho dòng gộp'}">${escapeHtml(merge.note || '')}</textarea></td>
                 <td class="dr-report-td-approve"><label class="dr-approve-toggle"><input type="checkbox" data-field="approved" ${approved ? 'checked' : ''} /><span></span></label></td>
             </tr>`;
         }
@@ -1038,6 +1061,9 @@
         tbody.addEventListener('focusout', (e) => {
             const el = e.target.closest && e.target.closest('[data-field]');
             if (!el || !tbody.contains(el)) return;
+            // Checkbox (approved) là field non-numeric — change handler đã xử lý riêng.
+            // Nếu không skip ở đây, parseMoney(cb.value="on")=0 sẽ ghi đè approved=true vừa set.
+            if (el.type === 'checkbox') return;
             const field = el.dataset.field;
             let value;
             if (field === 'slShip') {

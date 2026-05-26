@@ -25,6 +25,38 @@
 
 ## 2026-05-26
 
+### [delivery-report/report] Fix 3 bug merge row: click Duyệt + sum children + note ✅
+
+**User báo (3 bug liên tiếp)**:
+
+1. "nút duyệt tôi click chuột vào không được"
+2. "dữ liệu nhập vào sao không tính toán vào ô gộp"
+3. "logic phần ghi chú của gộp"
+
+**Diagnosis** (1-shot Playwright debug `_oneshot-duyet-click.js`, hook events ở mọi level):
+
+- **Bug Duyệt**: click chuột thật fire chuỗi `pointerdown → mousedown → focus → focusin → pointerup → mouseup → click(checked:true) → input → change(checked:true) → blur → focusout`. Change handler đúng nhưng `focusout` handler (line 1038) chạy cho MỌI `[data-field]` input, kể cả checkbox. Cho cb approve: `parseMoney(cb.value="on") = 0` → `updateMerge(id, {approved: 0})` → GHI ĐÈ approved=true vừa set bởi change handler → re-render → cb về unchecked. Programmatic `cb.click()` không trigger blur nên không gặp bug, real mouse click luôn dính.
+- **Bug sum**: `renderMergeRow` (line 870-872) chỉ đọc `merge.boCK/atruongCK/ckTruoc/slShip/thuVe` từ state của merge, không sum từ overrides của children. User nhập $1.012.000 vào ngày 18 child + $20.320.000 vào ngày 19 child → merge row hiển thị 0 (vì merge.boCK chưa set).
+- **Bug note**: `merge.note` độc lập với child notes → user nhập "GỘP VÀO NGÀY 19 SHIP LẤY" ở child 18, merge row note rỗng.
+
+**Fix** (`delivery-report/js/report.js`):
+
+- **focusout skip checkbox** — return sớm nếu `el.type === 'checkbox'`, change handler đã xử lý approved riêng.
+- **Sum from children** — `renderMergeRow` compute `sumSlShip/sumThuVe/sumBoCK/sumAtruongCK/sumCkTruoc` từ `getOverride(childDate, tab)`. Hàm `useMerge(mv)` quyết định: nếu `merge.field` set (≠ null/''/0) thì dùng merge (override), ngược lại dùng sum. Effective value dùng cho totalAll + totalLeft + totals.
+- **Input UX** — value chỉ show khi merge override (`useMerge(merge.X)`), placeholder = sum from children (format money/number tùy field). Title tooltip giải thích "Tổng từ N ngày con (để trống = dùng sum)" hoặc "Giá trị nhập tay (override sum=X)".
+- **Note logic** — `childNotes` array gom tất cả children notes (format `dd/mm/yyyy: text`). Textarea value = `merge.note` (giữ data integrity, không pollute với aggregated value). Placeholder = aggregated children notes joined by `|`. Title tooltip show full multi-line aggregated notes nếu có.
+
+**Verify** (1-shot Playwright):
+
+- TEST 1 `page.locator(cb).click()` (real mouse via Playwright auto-scroll): trước fix ❌ NO TOGGLE, sau fix ✅ TOGGLED.
+- Type child boCK + note → merge row reflects: `placeholder="$ 21.332.000"` + `notePlaceholder="18/05/2026: GỘP VÀO NGÀY 19 SHIP LẤY"`. Row "Tổng còn lại" tự tính lại: $22.615.000 − $21.332.000 = $1.283.000 ✅.
+
+**Files**: `delivery-report/js/report.js` (focusout line 1041, renderMergeRow line 857-923).
+
+**Note kỹ thuật**: TEST 2/3 (`page.mouse.click(x,y)` không auto-scroll) vẫn fail vì sticky table header che cb khi scroll position chạm header. Đây là pre-existing UX issue, không liên quan bug user báo (user click thấy cb ở giữa viewport). Để fix triệt để cần thêm `scroll-margin-top` trên cb hoặc giảm `z-index` của sticky header phía dưới cb.
+
+---
+
 ### [web2/customer-wallet, partner-customer] Perf — server-side paging cho 100k KH ✅
 
 **User ask**: "customer-wallet, partner-customer load lâu → làm paging và cải thiện tốc độ 2 trang dữ liệu nhiều này → dữ liệu lên tới 100k khách"
