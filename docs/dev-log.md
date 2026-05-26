@@ -25,6 +25,35 @@
 
 ## 2026-05-26
 
+### [delivery-report, docs, MEMORY] SSE realtime server thống nhất Web 1.0 + Web 2.0 — server notify (server-side checkpoint) 🔄
+
+**User ask** (sequence 5 msgs): (1) "đồng bộ realtime sync các máy luôn → coi có server sse của web 1.0 chưa (nhớ là web 1.0 đừng động vào web 2.0) → server sse này sẽ log các tương tác cần realtime ở các máy → các client sẽ listening và đúng trang client đang mở sẽ cập nhật"; (2) "note vào memory, claude, devlog là có server realtime sse của web 1.0 và 2.0, dùng 2 server này dùng cho toàn bộ để thực hiện tính năng realtime, đồng bộ tất cả"; (3) "web 2.0 có server sse realtime riêng đúng không?"; (4) "web 1.0 có cần setting giống web 2.0 để tối ưu hay không?"; (5) "tại vì web 1.0 cũng cần để các page truyền dữ liệu đồng bộ cho nhau đó".
+
+**Survey findings** (qua Explore agent):
+
+- **Chỉ có 1 server SSE chung** tại `render.com/routes/realtime-sse.js` (endpoint `/api/realtime/sse?keys=topic1,topic2`). Cả Web 1.0 + Web 2.0 dùng chung. KHÔNG có server thứ 2.
+- Khác convention: Web 2.0 dùng `web2:<entity>` prefix + `Web2SSE.subscribe()` singleton bridge; Web 1.0 dùng bare snake_case topics (`celebration`, `kpi_statistics`) + `new EventSource()` direct hoặc `class RealtimeClient` (`shared/js/realtime-client.js` — đã used bởi inventory-tracking).
+- Production-live: orders-report (celebration KPI, tab1-order-notes, tab1-kpi-stats-strip).
+
+**Docs (committed)**:
+
+- Memory: `~/.claude/projects/-Users-mac-Desktop-n2store/memory/reference_sse_servers_unified.md` (mới, full pattern + recipe + anti-patterns + verify cmds)
+- CLAUDE.md: thêm section "SSE Server thống nhất cho CẢ Web 1.0 + Web 2.0 (BẮT BUỘC)" sau section Web 2.0 realtime
+- MEMORY.md index: thêm pointer `reference_sse_servers_unified.md`
+
+**Server checkpoint** (`render.com/routes/v2/delivery-assignments.js`):
+
+- Lazy `require('../realtime-sse')` + `_notify(action, extra)` wrapper (no-op fallback nếu module fail load)
+- Notify topic `delivery_assignments` với payload `{action, ts, [date, group, id]}` cho 7 mutations:
+    - PUT/DELETE `/image/:date/:group` → `image-upserted` / `image-deleted`
+    - PUT empty-override → `override-deleted`; non-empty PUT → `override-upserted`; DELETE → `override-deleted`
+    - POST `/merges` → `merge-created`; PUT `/merges/:id` → `merge-updated`; DELETE → `merge-deleted`
+- Payload chỉ chứa identifiers + action — KHÔNG broadcast PII
+
+**TODO** (next session): client subscribe ở `delivery-report/js/report.js` khi modal open, dùng `RealtimeClient` bridge hoặc raw EventSource + debounce 600ms re-fetch `loadOverridesRange + loadMergesRange + loadImageFlagsRange`.
+
+---
+
 ### [product-warehouse] Tab "Hết hiệu lực" + live search + per-column filters w/ operators ✅
 
 **User ask**: Sequence of 4 messages: (1) "phần tìm kiếm và sản phẩm hết hiệu lực không cần hiện -> có tab riêng cho sản phẩm hết hiệu lực", (2) "cho chức năng hết hiệu lực sản phẩm", (3) "Nhập tìm kiếm tên sản phẩm, mã sản phẩm, giá bán, giá mua -> render trực tiếp bảng không cần chọn ở search và enter -> tối ưu tốc độ", (4) "bấm vào phễu ở mỗi cột cho nhập tìm kiếm theo cột đó, cột nào giá trị số như giá thì cho các option nhập =, <, >, <=, >=".

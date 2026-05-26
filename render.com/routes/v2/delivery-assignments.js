@@ -1210,6 +1210,7 @@ router.delete('/overrides/:date/:group', async (req, res) => {
              RETURNING assignment_date`,
             [date, group]
         );
+        if (result.rows.length > 0) _notify('override-deleted', { date, group });
         res.json({ success: true, data: { deleted: result.rows.length } });
     } catch (err) {
         console.error('[delivery-assignments] DELETE /overrides error:', err.message);
@@ -1333,7 +1334,9 @@ router.post('/merges', async (req, res) => {
                        sl_ship, thu_ve, bo_ck, atruong_ck, ck_truoc, note, approved, expanded`,
             [groupName, fromDate, toDate, user]
         );
-        res.json({ success: true, data: { merge: rowToMerge(result.rows[0]) } });
+        const merge = rowToMerge(result.rows[0]);
+        _notify('merge-created', { id: merge.id, groupName, fromDate, toDate });
+        res.json({ success: true, data: { merge } });
     } catch (err) {
         console.error('[delivery-assignments] POST /merges error:', err.message);
         res.status(500).json({ success: false, error: err.message });
@@ -1384,7 +1387,9 @@ router.put('/merges/:id', async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Merge not found' });
         }
-        res.json({ success: true, data: { merge: rowToMerge(result.rows[0]) } });
+        const merge = rowToMerge(result.rows[0]);
+        _notify('merge-updated', { id: merge.id });
+        res.json({ success: true, data: { merge } });
     } catch (err) {
         console.error('[delivery-assignments] PUT /merges error:', err.message);
         res.status(500).json({ success: false, error: err.message });
@@ -1403,6 +1408,7 @@ router.delete('/merges/:id', async (req, res) => {
             `DELETE FROM delivery_assignment_merges WHERE id = $1 RETURNING id`,
             [id]
         );
+        if (result.rows.length > 0) _notify('merge-deleted', { id });
         res.json({ success: true, data: { deleted: result.rows.length } });
     } catch (err) {
         console.error('[delivery-assignments] DELETE /merges error:', err.message);
