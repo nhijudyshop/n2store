@@ -968,6 +968,90 @@ Throttle 30s/KH.`;
         return chip;
     }
 
+    // Silent variant của Force extract — không confirm dialog, không update
+    // chip UI, không toast verbose. Dùng cho auto-trigger khi user quay lại
+    // tab sau tab inactive (capture không chạy → thumbnail rỗng → tự fill).
+    // Re-entrant guard tránh chạy đè nhau khi user switch nhiều lần liên tiếp.
+    async function _runSilentForceExtract() {
+        if (STATE._silentExtractRunning) return;
+        STATE._silentExtractRunning = true;
+        try {
+            const camp = _findActiveLiveCampaign();
+            const pageObj = _resolvePageObj();
+            if (!camp?.Facebook_LiveId || !pageObj?.Facebook_PageId) {
+                return; // không có live active → bỏ qua
+            }
+            // Step 1: backfill metadata cho comments visible
+            try {
+                await offlineBatchAll({ skipExisting: true });
+            } catch (e) {
+                console.warn('[snap-auto-extract] backfill fail:', e?.message);
+            }
+            // Step 2: queue extract-all-pending
+            const r = await fetch(API + '/api/livestream/extract-all-pending', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'omit',
+                body: JSON.stringify({
+                    liveVideoId: camp.Facebook_LiveId,
+                    pageId: pageObj.Facebook_PageId,
+                }),
+            });
+            const d = await r.json();
+            if (!d.success || d.queued === 0) {
+                // Vẫn refresh cache để pickup thumbs vừa được fill bytea bởi
+                // các client khác / cron / previous extract batch.
+                _invalidateSnapCacheAndRefresh();
+                return;
+            }
+            _toast(`⚡ Auto-fill ${d.queued} thumbnails (tab inactive)...`, 'ok');
+            // Step 3: poll status, max 5 phút (silent flow ngắn hơn manual 10min)
+            const batchId = d.batchId;
+            const total = d.queued;
+            const startMs = Date.now();
+            await new Promise((resolve) => {
+                const pollTimer = setInterval(async () => {
+                    if (Date.now() - startMs > 5 * 60 * 1000) {
+                        clearInterval(pollTimer);
+                        resolve();
+                        return;
+                    }
+                    try {
+                        const sr = await fetch(
+                            API +
+                                '/api/livestream/extract-status?batchId=' +
+                                encodeURIComponent(batchId)
+                        );
+                        const sd = await sr.json();
+                        if (!sd.success || !sd.status) {
+                            clearInterval(pollTimer);
+                            resolve();
+                            return;
+                        }
+                        const s = sd.status;
+                        const finished =
+                            (s.done || 0) +
+                            (s.failed || 0) +
+                            (s.drmBlocked || 0) +
+                            (s.liveActive || 0);
+                        if (finished >= total) {
+                            clearInterval(pollTimer);
+                            if (s.done > 0) {
+                                _toast(`✅ Fill xong ${s.done} thumbnails`, 'ok');
+                            }
+                            _invalidateSnapCacheAndRefresh();
+                            resolve();
+                        }
+                    } catch (_) {
+                        // ignore, retry next tick
+                    }
+                }, 2000);
+            });
+        } finally {
+            STATE._silentExtractRunning = false;
+        }
+    }
+
     function ensureBackfillChip() {
         let chip = document.getElementById('tpos-snap-backfill-chip');
         if (chip) return chip;
@@ -1448,13 +1532,23 @@ Throttle 30s/KH.`;
                     } catch (_) {}
                     currentNotif = null;
                 }
+                const hiddenDuration = Date.now() - lastHiddenTs;
                 // Hidden > 5s → show tip toast 1 lần
-                if (Date.now() - lastHiddenTs > 5000) {
+                if (hiddenDuration > 5000) {
                     if (!sessionStorage.getItem('tpos_snap_2browser_tip_shown')) {
                         sessionStorage.setItem('tpos_snap_2browser_tip_shown', '1');
                         _toast(
                             '💡 Mở 2 trình duyệt riêng — 1 cho livestream, 1 cho việc khác → capture không bị dừng',
                             'ok'
+                        );
+                    }
+                    // Hidden > 10s → comments có thể đã arrive trong khi tab inactive
+                    // (captureVisibleTab fail silently → snap row tạo nhưng không
+                    // có bytea). Auto-trigger Force extract silently để fill
+                    // thumbnail mà user không phải click chip thủ công.
+                    if (hiddenDuration > 10000) {
+                        _runSilentForceExtract().catch((e) =>
+                            console.warn('[snap-vis] auto-extract fail:', e?.message)
                         );
                     }
                 }
