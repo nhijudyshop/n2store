@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6ed0ed9` — auto: session update
-**Last updated**: 2026-05-26 09:41:43 +07
-**Latest session**: [`RESUME:20260526-094143-6ed0ed9`](../20260526-094143-6ed0ed9.md)
-**Summary**: auto: session update
+**Latest commit**: `0a730ae` — fix(product-warehouse): stock adjust SP có nhiều biến thể (Active=false bị ẩn)
+**Last updated**: 2026-05-26 09:45:27 +07
+**Latest session**: [`RESUME:20260526-094527-0a730ae`](../20260526-094527-0a730ae.md)
+**Summary**: fix(product-warehouse): stock adjust SP có nhiều biến thể (Active=false bị ẩn)
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 2 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -44,7 +44,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-25 14:08
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 09:15
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 09:45
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
