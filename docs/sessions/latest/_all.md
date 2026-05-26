@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8af863e` — fix(delivery-report/report): bo confirm popup khi click x bo gop (instant action)
-**Last updated**: 2026-05-26 11:30:52 +07
-**Latest session**: [`RESUME:20260526-113052-8af863e`](../20260526-113052-8af863e.md)
-**Summary**: fix(delivery-report/report): bo confirm popup khi click x bo gop (instant action)
+**Latest commit**: `d076b6a` — fix(web2/customer-wallet): icons in .btn-secondary buttons oversized (14px)
+**Last updated**: 2026-05-26 12:08:39 +07
+**Latest session**: [`RESUME:20260526-120839-d076b6a`](../20260526-120839-d076b6a.md)
+**Summary**: fix(web2/customer-wallet): icons in .btn-secondary buttons oversized (14px)
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -67,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-26 11:17
+- [`web2/`](./web2.md) — updated 2026-05-26 12:08
