@@ -1593,37 +1593,46 @@ Throttle 30s/KH.`;
         };
     }
 
-    // AUTO-START — FULLY AUTOMATED (user feedback 2026-05-26):
-    // Bỏ pill button "BẬT AUTO-SNAP 1 click". Detect live active → tự động bật
-    // capture luôn (extension OR fallback popup). KHÔNG cần user interaction.
+    // AUTO-START — chỉ khi extension ready (user feedback 2026-05-26):
+    // Detect live active + extension active → tự bật capture silent
+    // (chrome.tabs.captureVisibleTab qua extension, NO popup).
     //
-    // Extension active → _enableEmbeddedLiveCapture() chạy silent (load iframe
-    // FB ẩn + extension chrome.tabs.captureVisibleTab, no popup).
-    // Extension missing → vẫn cố enable (sẽ fallback chrome popup "Share this
-    // tab" mỗi session nếu cần). User có thể decline popup mà vẫn dùng được
-    // page (snap thủ công qua nút 📸 trên comment).
+    // Nếu extension KHÔNG ready: KHÔNG auto-trigger getDisplayMedia (sẽ hiện
+    // Chrome popup "Allow http://... to see this tab" — gây phiền). Thay vào
+    // đó show prompt info 1 lần để user cài/reload extension. User vẫn snap
+    // thủ công được qua nút 📸 trên từng comment row.
+    //
+    // Poll loop sẽ retry mỗi 2s × 60s; nếu extension load muộn (vd user vừa
+    // enable rồi reload), lần poll sau sẽ catch + auto-start capture.
     async function _maybeShowAutoSnapBanner() {
         if (STATE.captureStream || STATE.frameBufferTimer) return;
-        if (STATE.autoSnapStarting) return; // tránh trigger trùng từ poller
+        if (STATE.autoSnapStarting) return;
         const camp = _findActiveLiveCampaign();
         if (!camp?.Facebook_LiveId) return;
-        STATE.autoSnapStarting = true;
-        // Detect extension missing/outdated → show prompt 1 lần (chỉ thông báo,
-        // không phải button click — page vẫn tự bật capture qua fallback).
+
+        // Đợi 1500ms cho EXTENSION_LOADED message arrive trước khi decide.
+        // (Lần đầu poll fire, ext có thể chưa response — content-script chậm
+        // hơn page script.)
+        await new Promise((r) => setTimeout(r, 1500));
+
+        // Extension không ready → SKIP auto-trigger để tránh getDisplayMedia
+        // popup. Show prompt info 1 lần. Poll loop sẽ retry.
         if (!STATE.extReady) {
-            setTimeout(() => {
+            if (!STATE._extPromptShown) {
+                STATE._extPromptShown = true;
                 if (STATE.extOutdated) _showExtPrompt('outdated');
-                else if (!STATE.extReady && !STATE.extVersion) _showExtPrompt('missing');
-            }, 5000);
+                else if (!STATE.extVersion) _showExtPrompt('missing');
+            }
+            return;
         }
-        // Đợi 800ms cho EXTENSION_LOADED message arrive trước khi enable.
-        await new Promise((r) => setTimeout(r, 800));
-        console.log('[snap] auto-enabling live capture (extReady=' + !!STATE.extReady + ')');
+
+        STATE.autoSnapStarting = true;
+        console.log('[snap] auto-enabling live capture (extension ready, no popup)');
         try {
             await _enableEmbeddedLiveCapture();
         } catch (e) {
             console.warn('[snap] auto-enable failed:', e?.message);
-            STATE.autoSnapStarting = false; // allow retry next poll
+            STATE.autoSnapStarting = false;
         }
     }
 
