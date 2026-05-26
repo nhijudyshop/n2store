@@ -225,6 +225,128 @@
 
         HoverPreview.init();
         setupTitleTripleClick();
+
+        // Background self-heal: tự sync DB ↔ TPOS 1 lần/ngày (per browser).
+        // Catches case: admin edit DateInvoice trên TPOS → DB ghost không tự fix
+        // vì auto-cleanup chỉ trigger khi user mở Tra Soát ngày đó. Self-heal
+        // chạy nightly để dọn nền, không cần user thao tác.
+        // Fire-and-forget — không block UI.
+        setTimeout(() => {
+            selfHealOnce().catch((e) => console.warn('[self-heal] failed:', e?.message || e));
+        }, 5000);
+    }
+
+    // ── Background self-heal: sync DB date ↔ TPOS DateInvoice cho 30 ngày gần ──
+    // Marker localStorage `dr-last-bulk-sync` (YYYY-MM-DD) → throttle 1 lần/ngày.
+    // Chỉ chạy nếu user có quyền Tra Soát (admin/power user).
+    async function selfHealOnce() {
+        if (!canTraSoat()) return;
+        const MARK_KEY = 'dr-last-bulk-sync';
+        const today = todayLocalStr();
+        if (localStorage.getItem(MARK_KEY) === today) return; // throttled
+
+        const token = await getToken().catch(() => null);
+        if (!token) return;
+
+        console.log('[self-heal] starting daily sync (30 days)…');
+        const t0 = Date.now();
+
+        // 1. Build wide TPOS superset (last 45 days, weekly chunks ≤ 10k/chunk)
+        const allLive = new Map();
+        const now = new Date();
+        const weekStarts = [];
+        for (let w = 6; w >= 0; w--) {
+            const d = new Date(now);
+            d.setDate(d.getDate() - w * 7);
+            weekStarts.push(d.toISOString().slice(0, 10));
+        }
+        for (const ws of weekStarts) {
+            try {
+                const s = new Date(ws + 'T00:00:00').toISOString();
+                const e = new Date(ws + 'T00:00:00');
+                e.setDate(e.getDate() + 6);
+                e.setHours(23, 59, 59, 999);
+                const url = `${WORKER_URL}/api/odata/Report/DeliveryReport?FromDate=${encodeURIComponent(s)}&ToDate=${encodeURIComponent(e.toISOString())}&%24top=10000`;
+                const r = await fetch(url, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        Accept: 'application/json',
+                        tposappversion: window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1',
+                    },
+                });
+                if (!r.ok) continue;
+                const j = await r.json();
+                for (const it of j.value || []) {
+                    if (!allLive.has(it.Number)) allLive.set(it.Number, it);
+                }
+            } catch (e) {
+                console.warn(`[self-heal] week ${ws} fetch failed:`, e?.message);
+            }
+        }
+
+        // 2. Iterate last 30 days, compute moves only. Hides bị skip — hide
+        // tự động risky (đơn dời sang ngày ngoài 45-day window có thể bị nhầm
+        // là truly deleted). Hide qua manual cleanup-ghosts với safeguard 50%.
+        const updates = [];
+        let candidateHides = 0;
+        for (let i = 0; i < 30; i++) {
+            const d = new Date(now);
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().slice(0, 10);
+            try {
+                const r = await fetch(`${RENDER_URL}/api/v2/delivery-assignments/?date=${dateStr}`);
+                if (!r.ok) continue;
+                const j = await r.json();
+                const a = j.data?.assignments || {};
+                for (const num in a) {
+                    const live = allLive.get(num);
+                    if (!live) {
+                        candidateHides++; // log only — không auto-hide
+                    } else {
+                        const liveDate = (live.DateInvoice || '').slice(0, 10);
+                        if (liveDate && liveDate !== dateStr) {
+                            updates.push({ orderNumber: num, newDate: liveDate });
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn(`[self-heal] day ${dateStr} fetch failed:`, e?.message);
+            }
+        }
+
+        if (updates.length === 0) {
+            console.log(
+                `[self-heal] DB clean — no date-shifts needed (${candidateHides} candidate hides skipped)`
+            );
+            localStorage.setItem(MARK_KEY, today);
+            return;
+        }
+
+        console.log(
+            `[self-heal] applying ${updates.length} date-shifts (${candidateHides} candidate hides skipped — manual review)`
+        );
+
+        // 3. Apply updates in batches of 1500 (endpoint limit 2000)
+        let totalUpdated = 0;
+        for (let i = 0; i < updates.length; i += 1500) {
+            const payload = { updates: updates.slice(i, i + 1500), hiddenNumbers: [] };
+            try {
+                const r = await fetch(`${RENDER_URL}/api/v2/delivery-assignments/sync-dates`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                if (!r.ok) continue;
+                const j = await r.json();
+                totalUpdated += j.data?.updatedCount || 0;
+            } catch (e) {
+                console.warn('[self-heal] sync chunk failed:', e?.message);
+            }
+        }
+
+        const elapsedSec = ((Date.now() - t0) / 1000).toFixed(1);
+        console.log(`[self-heal] done in ${elapsedSec}s — applied ${totalUpdated} date-shifts`);
+        localStorage.setItem(MARK_KEY, today);
     }
 
     // =====================================================
