@@ -3,17 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `06828cd` — auto: session update
-**Last updated**: 2026-05-26 11:01:08 +07
-**Latest session**: [`RESUME:20260526-110108-06828cd`](../20260526-110108-06828cd.md)
+**Latest commit**: `5b9a7eb` — auto: session update
+**Last updated**: 2026-05-26 11:04:55 +07
+**Latest session**: [`RESUME:20260526-110455-5b9a7eb`](../20260526-110455-5b9a7eb.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 3 file(s)
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 - [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 - [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
@@ -27,8 +26,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 11:01
-- [`docs/`](./docs.md) — updated 2026-05-26 10:46
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 11:04
+- [`docs/`](./docs.md) — updated 2026-05-26 11:04
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -39,7 +38,7 @@
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 10:44
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:01
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-24 18:58
 - [`native-orders/`](./native-orders.md) — updated 2026-05-23 08:34
@@ -71,4 +70,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-26 11:01
+- [`web2/`](./web2.md) — updated 2026-05-26 11:04
