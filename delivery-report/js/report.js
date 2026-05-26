@@ -36,6 +36,11 @@
         // Per-range fetch cache: { rangeKey: { byDateGroup: Map, fetchedAt } }
         fetchCache: {},
         currentByDateGroup: new Map(), // Map<`${date}__${groupName}`, {count, money}>
+        // Merges: gộp nhiều ngày liên tiếp thành 1 báo cáo (per group).
+        merges: new Map(), // id → mergeObj
+        mergesFetched: new Map(), // rangeKey → timestamp
+        // Selection mode: user check rows để gộp. Set<dateStr> cho activeTab.
+        selectedDates: new Set(),
     };
 
     // Legacy localStorage reader — chỉ dùng cho one-time migration.
@@ -113,6 +118,104 @@
             state.overridesFetched.set(key, Date.now());
         } catch (e) {
             console.warn('[report] loadOverridesRange failed:', e?.message);
+        }
+    }
+
+    // ── Merges API: gộp ngày liên tiếp ──
+    async function loadMergesRange(from, to) {
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl || !from || !to) return;
+        const key = rangeKey(from, to);
+        const last = state.mergesFetched.get(key);
+        if (last && Date.now() - last < 60000) return;
+        try {
+            const url = `${renderUrl}/api/v2/delivery-assignments/merges?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+            const resp = await fetch(url);
+            if (!resp.ok) return;
+            const j = await resp.json();
+            const list = j.data?.merges || [];
+            // Replace merges trong range — giữ merges ngoài range
+            for (const [id, m] of [...state.merges]) {
+                if (m.fromDate <= to && m.toDate >= from) state.merges.delete(id);
+            }
+            for (const m of list) state.merges.set(m.id, m);
+            state.mergesFetched.set(key, Date.now());
+        } catch (e) {
+            console.warn('[report] loadMergesRange failed:', e?.message);
+        }
+    }
+
+    function findMergeForDate(date, group) {
+        // Return merge nếu date ∈ [fromDate..toDate] của bất kỳ merge nào cho group
+        for (const m of state.merges.values()) {
+            if (m.groupName !== group) continue;
+            if (date >= m.fromDate && date <= m.toDate) return m;
+        }
+        return null;
+    }
+
+    async function createMerge(groupName, fromDate, toDate) {
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl) throw new Error('Render URL not available');
+        const resp = await fetch(`${renderUrl}/api/v2/delivery-assignments/merges`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ groupName, fromDate, toDate }),
+        });
+        const j = await resp.json();
+        if (!resp.ok || !j.success) {
+            throw new Error(j.error || `HTTP ${resp.status}`);
+        }
+        const m = j.data?.merge;
+        if (m) state.merges.set(m.id, m);
+        // Bust cache for affected range
+        for (const [k] of state.mergesFetched) {
+            const [f, t] = k.split('__');
+            if (fromDate <= t && toDate >= f) state.mergesFetched.delete(k);
+        }
+        return m;
+    }
+
+    async function updateMerge(id, patch) {
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl) return;
+        const cur = state.merges.get(id);
+        if (!cur) return;
+        const merged = { ...cur, ...patch };
+        // Optimistic update
+        state.merges.set(id, merged);
+        try {
+            const resp = await fetch(`${renderUrl}/api/v2/delivery-assignments/merges/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    slShip: merged.slShip,
+                    thuVe: merged.thuVe,
+                    boCK: merged.boCK,
+                    atruongCK: merged.atruongCK,
+                    ckTruoc: merged.ckTruoc,
+                    note: merged.note,
+                    approved: merged.approved,
+                    expanded: merged.expanded,
+                }),
+            });
+            const j = await resp.json();
+            if (j.success && j.data?.merge) state.merges.set(id, j.data.merge);
+        } catch (e) {
+            console.warn('[report] updateMerge failed:', e?.message);
+        }
+    }
+
+    async function deleteMerge(id) {
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl) return;
+        state.merges.delete(id);
+        try {
+            await fetch(`${renderUrl}/api/v2/delivery-assignments/merges/${id}`, {
+                method: 'DELETE',
+            });
+        } catch (e) {
+            console.warn('[report] deleteMerge failed:', e?.message);
         }
     }
 
@@ -610,20 +713,22 @@
             return;
         }
 
-        // Image flags + overrides fire-and-forget (sẽ tự re-paint khi xong)
-        Promise.all([loadImageFlags(realFrom, realTo), loadOverridesRange(realFrom, realTo)]).then(
-            () => {
-                // Repaint nếu range vẫn match (tránh flicker stale data)
-                const curRealFrom = entryToReal(state.fromDate);
-                const curRealTo = entryToReal(state.toDate);
-                if (
-                    rangeKey(curRealFrom, curRealTo) === rangeKey(realFrom, realTo) &&
-                    document.getElementById('drReportTbody')?.children.length > 0
-                ) {
-                    paintTable(eachDay(curRealFrom, curRealTo));
-                }
+        // Image flags + overrides + merges fire-and-forget (sẽ tự re-paint khi xong)
+        Promise.all([
+            loadImageFlags(realFrom, realTo),
+            loadOverridesRange(realFrom, realTo),
+            loadMergesRange(realFrom, realTo),
+        ]).then(() => {
+            // Repaint nếu range vẫn match (tránh flicker stale data)
+            const curRealFrom = entryToReal(state.fromDate);
+            const curRealTo = entryToReal(state.toDate);
+            if (
+                rangeKey(curRealFrom, curRealTo) === rangeKey(realFrom, realTo) &&
+                document.getElementById('drReportTbody')?.children.length > 0
+            ) {
+                paintTable(eachDay(curRealFrom, curRealTo));
             }
-        );
+        });
 
         // Hot cache → sync path: paint immediately, no await, no loading flash.
         const key = rangeKey(realFrom, realTo);
