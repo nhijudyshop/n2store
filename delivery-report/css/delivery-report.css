@@ -2672,6 +2672,81 @@ body.dr-mode-report #drTableWrapper {
     border-radius: 6px;
     object-fit: contain;
 }
+/* Multi-image hover (merge row): stack figure dọc, mỗi figure 1 thumb + caption ngày */
+.dr-report-img-hover.multi {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 360px;
+    max-height: 560px;
+    overflow-y: auto;
+    padding: 8px;
+}
+.dr-report-img-hover.multi figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+}
+.dr-report-img-hover.multi figure img {
+    max-width: 320px;
+    max-height: 220px;
+    object-fit: contain;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+}
+.dr-report-img-hover.multi figure figcaption {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+/* Merge row TIỀN cell — image status indicator */
+.dr-report-table tbody tr.dr-merge-row td.money-cell-merge {
+    cursor: pointer;
+    position: relative;
+    text-align: right;
+    padding-right: 28px;
+}
+.dr-report-table tbody tr.dr-merge-row td.money-cell-merge .money-val {
+    display: inline-block;
+}
+.dr-report-table tbody tr.dr-merge-row td.money-cell-merge .money-ico {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 13px;
+    line-height: 1;
+}
+.dr-report-table tbody tr.dr-merge-row td.money-cell-merge.img-all .money-ico {
+    color: #16a34a; /* green — all children có ảnh */
+}
+.dr-report-table tbody tr.dr-merge-row td.money-cell-merge.img-partial .money-ico {
+    color: #d97706; /* amber — partial */
+}
+.dr-report-table tbody tr.dr-merge-row td.money-cell-merge.img-none .money-ico {
+    color: #9ca3af; /* gray — chưa có */
+}
+.dr-report-table tbody tr.dr-merge-row td.money-cell-merge.img-none {
+    cursor: pointer;
+}
+.dr-report-table tbody tr.dr-merge-row td.money-cell-merge .dr-merge-img-badge {
+    position: absolute;
+    right: -2px;
+    top: 2px;
+    background: #d97706;
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 8px;
+    line-height: 1.2;
+}
+.dr-report-table tbody tr.dr-merge-row td.money-cell-merge:hover {
+    background: #fef3c7;
+}
 
 /* Note hover tooltip — show full multi-line ghi chú khi rê chuột lên ô NGHI CHU
    (textarea rows=1 truncate visible). position:fixed + pointer-events:none để

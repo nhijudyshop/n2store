@@ -25,6 +25,37 @@
 
 ## 2026-05-26
 
+### [delivery-report/report] Ảnh chứng từ trên dòng gộp — indicator + stacked preview + click expand ✅
+
+**User ask**: "hình ở gộp gì sao -> 2 children đều có hình hoặc có children có, có children không" — yêu cầu logic ảnh cho dòng gộp khi children có ảnh / partial / none.
+
+**Logic** (`renderMergeRow` line 928-942):
+
+- Compute `childImgInfo = childDates.map(d => ({date, hasImg: hasImageFlag(d, tab)}))`
+- 3 trạng thái:
+    - **all** (cả N children đều có ảnh) → icon `fas fa-images` xanh, title "Cả N/N ngày con đều có ảnh"
+    - **partial** (X<N có) → icon `fas fa-images` amber + badge `X/N` góc phải, title liệt kê ngày có ảnh
+    - **none** (0 có) → icon `far fa-image` xám, title "Chưa có ảnh — click để mở rộng + thêm"
+- Cell `<td class="num money-cell-merge img-${state}" data-action="merge-img">` với cursor pointer
+
+**Behaviors**:
+
+- **Hover** (`tbody.mouseover` line ~1200): reuse `showHoverPreview` đã extend để accept Array `[{date, src}]`. Show popup multi với `<figure>` stacked dọc, mỗi figure 1 ảnh thumb + caption "dd/mm/yyyy". CSS `.dr-report-img-hover.multi` max-height 560px overflow-y auto. Chỉ show nếu state != 'none'.
+- **Click** (`tbody.click` line ~1165): set `merge.expanded=true` (force expand) → user thấy các child rows, từ đó click ô TIỀN child để xem/sửa ảnh per-date qua image modal (UX nhất quán với child cells).
+
+**Helper** (line ~157): `getMergeChildDates(merge)` enumerate tất cả YYYY-MM-DD trong `[merge.fromDate..merge.toDate]` inclusive (dùng cho hover handler bên ngoài render).
+
+**CSS** (`delivery-report.css`):
+
+- `.dr-report-img-hover.multi` — flex column, gap 8px, max-width 360px, max-height 560px, scroll
+- `.dr-report-img-hover.multi figure` — img max-height 220px + figcaption dưới
+- `.money-cell-merge` — cursor pointer, relative; `.money-ico` absolute right; `.dr-merge-img-badge` absolute top-right `X/N` chip
+- `img-all` icon xanh `#16a34a`, `img-partial` amber `#d97706` + badge, `img-none` gray `#9ca3af`
+
+**Verify**: manual mouseover dispatchEvent → `popupExists:true, popupOpen:true, popupMulti:true, figCount:2, captions=["18/05/2026","19/05/2026"]`. Click cell → `merge.expanded: false→true, childCount: 0→2` ✅. Real mouse hover positioning dùng chung code path `positionHoverPreview` đã proven với child cells.
+
+---
+
 ### [delivery-report/report] Custom hover tooltip cho ô ghi chú (multi-line popup) ✅
 
 **User ask**: "hover vào hiện tooltip toàn bộ nội dung ghi chú" — native `title` browser tooltip có delay + không preserve newline tốt.

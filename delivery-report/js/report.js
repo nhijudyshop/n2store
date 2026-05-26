@@ -154,6 +154,20 @@
         return null;
     }
 
+    // Enumerate tất cả ngày (YYYY-MM-DD) trong khoảng merge.fromDate..merge.toDate (inclusive)
+    function getMergeChildDates(merge) {
+        const out = [];
+        const start = new Date(merge.fromDate + 'T00:00:00');
+        const end = new Date(merge.toDate + 'T00:00:00');
+        for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
+            const y = cur.getFullYear();
+            const m = String(cur.getMonth() + 1).padStart(2, '0');
+            const d = String(cur.getDate()).padStart(2, '0');
+            out.push(`${y}-${m}-${d}`);
+        }
+        return out;
+    }
+
     async function createMerge(groupName, fromDate, toDate) {
         const renderUrl = window.DeliveryReport?._renderUrl;
         if (!renderUrl) throw new Error('Render URL not available');
@@ -924,6 +938,36 @@
                 .filter(Boolean)
                 .join(' ');
             const chevIcon = expanded ? 'down' : 'right';
+            // Image status cho ô TIỀN gộp: count children có ảnh.
+            // - all → icon filled (xanh), tooltip "N/N ngày có ảnh"
+            // - partial → icon multiple (vàng) + badge "X/N"
+            // - none → icon outline (chỉ hiển thị placeholder, không clickable)
+            const childImgInfo = childDates.map((d) => ({
+                date: d,
+                hasImg: hasImageFlag(d, state.activeTab),
+            }));
+            const imgCount = childImgInfo.filter((c) => c.hasImg).length;
+            const imgTotal = childImgInfo.length;
+            const imgState = imgCount === 0 ? 'none' : imgCount === imgTotal ? 'all' : 'partial';
+            const imgIcon =
+                imgState === 'all'
+                    ? '<i class="fas fa-images"></i>'
+                    : imgState === 'partial'
+                      ? '<i class="fas fa-images"></i>'
+                      : '<i class="far fa-image"></i>';
+            const imgTitle =
+                imgState === 'all'
+                    ? `Cả ${imgTotal}/${imgTotal} ngày con đều có ảnh — rê chuột xem preview, click để mở rộng chỉnh từng ngày`
+                    : imgState === 'partial'
+                      ? `${imgCount}/${imgTotal} ngày con có ảnh (${childImgInfo
+                            .filter((c) => c.hasImg)
+                            .map((c) => formatDDMMYYYY(realToEntry(c.date)))
+                            .join(', ')}) — click để mở rộng chỉnh ngày còn thiếu`
+                      : `Chưa có ảnh — click để mở rộng + thêm cho từng ngày con`;
+            const imgBadge =
+                imgState === 'partial'
+                    ? `<span class="dr-merge-img-badge">${imgCount}/${imgTotal}</span>`
+                    : '';
             return `<tr data-merge-id="${merge.id}" class="${cls}">
                 <td class="date">
                     <button class="dr-merge-chev" data-action="toggle-merge" title="${expanded ? 'Thu gọn' : 'Mở rộng các ngày con'}"><i class="fas fa-chevron-${chevIcon}"></i></button>
@@ -932,7 +976,11 @@
                     <button class="dr-merge-unmerge" data-action="unmerge" title="Bỏ gộp">×</button>
                 </td>
                 <td class="num strong">${formatNumber(sumSlDon)}</td>
-                <td class="num">${formatMoney(sumMoney)}</td>
+                <td class="num money-cell-merge img-${imgState}" data-action="merge-img" title="${imgTitle}">
+                    <span class="money-val">${formatMoney(sumMoney)}</span>
+                    <span class="money-ico">${imgIcon}</span>
+                    ${imgBadge}
+                </td>
                 <td class="num muted">${formatMoney(sumShipFee)}</td>
                 <td class="num"><input type="number" min="0" data-field="slShip" value="${useMerge(merge.slShip) ? merge.slShip : ''}" placeholder="${sumSlShip || 0}" title="${useMerge(merge.slShip) ? 'Giá trị nhập tay (override sum=' + sumSlShip + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
                 <td class="num"><input type="text" data-field="thuVe" value="${useMerge(merge.thuVe) ? formatMoney(merge.thuVe) : ''}" placeholder="${sumThuVe ? formatMoney(sumThuVe) : '0'}" title="${useMerge(merge.thuVe) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumThuVe) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
@@ -1184,6 +1232,22 @@
                 }
                 return;
             }
+            // Click ô TIỀN gộp (có image indicator) → force expand merge để user thao tác
+            // từng ngày con (xem/thêm/sửa ảnh per-date qua child row's money cell).
+            const mergeImgCell =
+                e.target.closest && e.target.closest('td[data-action="merge-img"]');
+            if (mergeImgCell) {
+                const tr = mergeImgCell.closest('tr[data-merge-id]');
+                if (tr) {
+                    const id = Number(tr.dataset.mergeId);
+                    const m = state.merges.get(id);
+                    if (m && !m.expanded) {
+                        updateMerge(id, { expanded: true });
+                        scheduleRender();
+                    }
+                }
+                return;
+            }
             const expandCell =
                 e.target.closest && e.target.closest('td[data-action="toggle-expand"]');
             if (expandCell) {
@@ -1198,18 +1262,40 @@
         // mouseover/mouseout bubble (mouseenter/leave do not); the currentCell
         // guard avoids re-render flicker while moving inside the same cell.
         tbody.addEventListener('mouseover', (e) => {
-            const cell = e.target.closest && e.target.closest('td.money-cell.has-img');
-            if (!cell) return;
-            if (hoverPreview.currentCell === cell) return;
-            const row = cell.closest('tr[data-date]');
-            if (!row) return;
-            // Image URL từ server — browser cache theo ETag (60s) tránh re-download
-            const src = imageUrl(row.dataset.date, state.activeTab);
-            if (!src) return;
-            showHoverPreview(cell, src);
+            // Child row money cell (single image)
+            const cellChild = e.target.closest && e.target.closest('td.money-cell.has-img');
+            if (cellChild) {
+                if (hoverPreview.currentCell === cellChild) return;
+                const row = cellChild.closest('tr[data-date]');
+                if (!row) return;
+                const src = imageUrl(row.dataset.date, state.activeTab);
+                if (!src) return;
+                showHoverPreview(cellChild, src);
+                return;
+            }
+            // Merge row money cell (stacked children images) — chỉ show nếu ≥1 child có ảnh
+            const cellMerge =
+                e.target.closest && e.target.closest('td.money-cell-merge:not(.img-none)');
+            if (cellMerge) {
+                if (hoverPreview.currentCell === cellMerge) return;
+                const tr = cellMerge.closest('tr[data-merge-id]');
+                if (!tr) return;
+                const id = Number(tr.dataset.mergeId);
+                const m = state.merges.get(id);
+                if (!m) return;
+                const dates = getMergeChildDates(m);
+                const list = dates
+                    .filter((d) => hasImageFlag(d, state.activeTab))
+                    .map((d) => ({ date: d, src: imageUrl(d, state.activeTab) }));
+                if (list.length === 0) return;
+                showHoverPreview(cellMerge, list);
+            }
         });
         tbody.addEventListener('mouseout', (e) => {
-            const cell = e.target.closest && e.target.closest('td.money-cell.has-img');
+            const cell =
+                e.target.closest &&
+                (e.target.closest('td.money-cell.has-img') ||
+                    e.target.closest('td.money-cell-merge'));
             if (!cell) return;
             // Mouse moved within the same cell — still inside, keep preview.
             const next = e.relatedTarget;
@@ -1422,24 +1508,40 @@
         const el = document.createElement('div');
         el.id = 'drReportImgHover';
         el.className = 'dr-report-img-hover';
-        el.innerHTML = '<img alt="Ảnh chứng từ (preview)" />';
         document.body.appendChild(el);
     }
 
-    function showHoverPreview(cell, src) {
+    // showHoverPreview accepts:
+    //   - string `src` → single image (child cell hover)
+    //   - Array<{date, src}> → multi image stacked (merge cell hover) với label ngày
+    function showHoverPreview(cell, srcOrList) {
         ensureHoverPreview();
         const el = document.getElementById('drReportImgHover');
-        const img = el.querySelector('img');
-        if (img.getAttribute('src') !== src) img.src = src;
+        if (Array.isArray(srcOrList)) {
+            const items = srcOrList.filter((it) => it && it.src);
+            el.classList.add('multi');
+            el.innerHTML = items
+                .map(
+                    (it) =>
+                        `<figure><img alt="Ảnh ${formatDDMMYYYY(realToEntry(it.date))}" src="${it.src}" /><figcaption>${formatDDMMYYYY(realToEntry(it.date))}</figcaption></figure>`
+                )
+                .join('');
+        } else {
+            el.classList.remove('multi');
+            el.innerHTML = `<img alt="Ảnh chứng từ (preview)" src="${srcOrList}" />`;
+        }
         hoverPreview.currentCell = cell;
         el.classList.add('open');
         positionHoverPreview(cell);
-        // Re-position after the image natural size resolves (first paint may be 0)
-        if (!img.complete) {
-            img.onload = () => {
-                if (hoverPreview.currentCell === cell) positionHoverPreview(cell);
-            };
-        }
+        // Re-position sau khi ảnh load xong (kích thước natural mới biết)
+        const imgs = el.querySelectorAll('img');
+        imgs.forEach((img) => {
+            if (!img.complete) {
+                img.onload = () => {
+                    if (hoverPreview.currentCell === cell) positionHoverPreview(cell);
+                };
+            }
+        });
     }
 
     function positionHoverPreview(cell) {
