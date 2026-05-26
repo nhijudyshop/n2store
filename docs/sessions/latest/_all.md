@@ -3,18 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c4b3e14` — auto: session update
-**Last updated**: 2026-05-26 14:19:11 +07
-**Latest session**: [`RESUME:20260526-141911-c4b3e14`](../20260526-141911-c4b3e14.md)
-**Summary**: auto: session update
+**Latest commit**: `b7e24a5` — perf(product-warehouse): instant search via idle-warmed template cache
+**Last updated**: 2026-05-26 14:22:38 +07
+**Latest session**: [`RESUME:20260526-142238-b7e24a5`](../20260526-142238-b7e24a5.md)
+**Summary**: perf(product-warehouse): instant search via idle-warmed template cache
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`n2store-extension/`](./n2store-extension.md) — 1 file(s)
-- [`product-warehouse/`](./product-warehouse.md) — 2 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 14:08
-- [`docs/`](./docs.md) — updated 2026-05-26 14:19
+- [`docs/`](./docs.md) — updated 2026-05-26 14:22
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -48,7 +45,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-25 14:08
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 14:19
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 14:22
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
