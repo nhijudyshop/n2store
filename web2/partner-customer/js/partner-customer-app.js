@@ -252,6 +252,43 @@
 
     // ───────── Data loading ─────────
     let _loadSeq = 0;
+    let _statsSeq = 0;
+    // Stats cache by filter signature (5s TTL). Pagination within the
+    // same filter set shouldn't refetch 7 $count queries.
+    const _statsCache = { sig: null, ts: 0, data: null };
+    const STATS_TTL_MS = 5_000;
+
+    function statsSignature() {
+        return JSON.stringify({
+            search: state.search,
+            status: state.statusFilter,
+            email: state.emailFilter,
+            tag: state.tagFilter,
+            active: state.activeFilter,
+            group: state.groupId,
+        });
+    }
+
+    async function loadStats() {
+        const sig = statsSignature();
+        if (_statsCache.sig === sig && Date.now() - _statsCache.ts < STATS_TTL_MS) {
+            state.stats = _statsCache.data;
+            renderStats();
+            return;
+        }
+        const mySeq = ++_statsSeq;
+        try {
+            const stats = await Api.getStats(state.search);
+            if (mySeq !== _statsSeq) return; // stale
+            _statsCache.sig = sig;
+            _statsCache.ts = Date.now();
+            _statsCache.data = stats;
+            state.stats = stats;
+            renderStats();
+        } catch (e) {
+            // silent — stats are optional
+        }
+    }
 
     async function load() {
         const mySeq = ++_loadSeq;
@@ -269,16 +306,17 @@
                 tag: state.tagFilter || null,
                 partnerCategoryId: state.groupId ? Number(state.groupId) : null,
             };
-            const [listResult, stats] = await Promise.all([
-                Api.list(opts),
-                Api.getStats(state.search),
-            ]);
+            // Render list ASAP — stats fetch in background. At 100k records,
+            // the 7 $count queries can take 2-4s each; pagination changes
+            // should NOT block on them.
+            const listResult = await Api.list(opts);
             if (mySeq !== _loadSeq) return; // stale, ignore
             state.rows = listResult.value;
             state.count = listResult.count;
-            state.stats = stats;
             state.loading = false;
             render();
+            // Fire-and-forget stats (uses TTL cache for repeat calls)
+            loadStats().catch(() => {});
         } catch (err) {
             if (mySeq !== _loadSeq) return;
             state.loading = false;
