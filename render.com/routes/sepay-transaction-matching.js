@@ -7,7 +7,10 @@
 
 const tposTokenManager = require('../services/tpos-token-manager');
 const { searchCustomerByPhone } = require('../services/tpos-customer-service');
-const { getOrCreateCustomerFromTPOS, getOrCreateCustomerWithAliases } = require('../services/customer-creation-service');
+const {
+    getOrCreateCustomerFromTPOS,
+    getOrCreateCustomerWithAliases,
+} = require('../services/customer-creation-service');
 const { processDeposit } = require('../services/wallet-event-processor');
 const adminSettingsService = require('../services/admin-settings-service');
 
@@ -16,7 +19,7 @@ const adminSettingsService = require('../services/admin-settings-service');
 // Bao gom: so tai khoan ngan hang cua shop, ma giao dich, etc.
 // =====================================================
 const PHONE_EXTRACTION_BLACKLIST = [
-    '75918',    // So tai khoan ACB cua shop
+    '75918', // So tai khoan ACB cua shop
     // Them cac so khac can bo qua o day
 ];
 
@@ -41,18 +44,29 @@ function extractPhoneFromContent(content) {
             type: 'none',
             value: null,
             uniqueCode: null,
-            note: 'NO_CONTENT'
+            note: 'NO_CONTENT',
         };
     }
 
     let textToParse = content;
     let isMomo = false; // Track if this is a Momo transaction
 
-    // Step 1: If has "GD", take part before " GD" or "-GD"
-    const gdMatch = content.match(/^(.*?)(?:\s*-?\s*GD)/i);
-    if (gdMatch) {
-        textToParse = gdMatch[1].trim();
-        console.log('[EXTRACT] Found GD, parsing before GD:', textToParse);
+    // Step 1 (NEW 2026-05-26): Strip noise tokens BEFORE extracting numbers.
+    // Cũ cut everything after first GD → bị lost case 'Name<5d>-GD-<6d>-...'
+    // (vd ACB;75918;MeiguiHuang47908-GD-936769-250526-16:14:51 → mất 936769).
+    // Mới: strip date-time, FT tx IDs, GD bank refs trên TOÀN content, keep
+    // everything else để extract numbers từ phần "useful" của text.
+    textToParse = textToParse
+        // Date-time stamp: DDMMYY-HH:MM:SS (yêu cầu colon để tránh over-match
+        // 6digit-6digit như 936769-250526 — pattern phổ biến trong content user).
+        .replace(/\b\d{6}-\d{2}:\d{2}:\d{2}\b/g, ' ')
+        // FT bank tx ID: FT26145253410062 (8+ digits after FT)
+        .replace(/\bFT\d{8,}\b/gi, ' ')
+        // GD bank ref: GD 6024IBT1fWHRBQYL, GD 6022VBAAA2YPZSU3, GD 6023BIDVE2F7HRF4
+        .replace(/\bGD\s+\d+[A-Z]{2,}[A-Z0-9]+\b/gi, ' ');
+
+    if (textToParse !== content) {
+        console.log('[EXTRACT] Stripped noise tokens, parsing:', textToParse);
     }
 
     // Step 1.5: MOMO PATTERN DETECTION
@@ -62,14 +76,14 @@ function extractPhoneFromContent(content) {
     const momoPattern = /^(\d{12})-(0\d{9})-(.+)$/;
     const momoMatch = textToParse.match(momoPattern);
     if (momoMatch) {
-        const momoCode = momoMatch[1];      // 113524023776 (ignore)
-        const senderPhone = momoMatch[2];   // 0396513324 (ignore - sender's phone)
+        const momoCode = momoMatch[1]; // 113524023776 (ignore)
+        const senderPhone = momoMatch[2]; // 0396513324 (ignore - sender's phone)
         const customerContent = momoMatch[3]; // 652722 (extract this!)
 
         console.log('[EXTRACT] Detected MOMO pattern:', {
             momoCode,
             senderPhone: senderPhone + ' (ignored)',
-            customerContent
+            customerContent,
         });
 
         // Mark as Momo transaction
@@ -92,7 +106,7 @@ function extractPhoneFromContent(content) {
 
         console.log('[EXTRACT] Detected Vietcombank (MBVCB) pattern:', {
             fullMatch: mbvcbMatch[0],
-            customerPhone
+            customerPhone,
         });
 
         // Return directly with the extracted phone
@@ -100,7 +114,7 @@ function extractPhoneFromContent(content) {
             type: 'partial_phone',
             value: customerPhone,
             uniqueCode: null,
-            note: 'VCB:PARTIAL_PHONE_EXTRACTED'
+            note: 'VCB:PARTIAL_PHONE_EXTRACTED',
         };
     }
 
@@ -113,7 +127,7 @@ function extractPhoneFromContent(content) {
             type: 'qr_code',
             value: qrCode,
             uniqueCode: qrCode, // Use QR code as unique code
-            note: 'QR_CODE_FOUND'
+            note: 'QR_CODE_FOUND',
         };
     }
 
@@ -125,12 +139,13 @@ function extractPhoneFromContent(content) {
     if (exactPhones && exactPhones.length > 0) {
         const exactPhone = exactPhones[exactPhones.length - 1]; // Take last match
         console.log('[EXTRACT] Found EXACT 10-digit phone:', exactPhone);
-        const baseNote = exactPhones.length > 1 ? 'MULTIPLE_EXACT_PHONES_FOUND' : 'EXACT_PHONE_EXTRACTED';
+        const baseNote =
+            exactPhones.length > 1 ? 'MULTIPLE_EXACT_PHONES_FOUND' : 'EXACT_PHONE_EXTRACTED';
         return {
             type: 'exact_phone',
             value: exactPhone,
             uniqueCode: `PHONE${exactPhone}`, // Direct unique code
-            note: isMomo ? `MOMO:${baseNote}` : baseNote
+            note: isMomo ? `MOMO:${baseNote}` : baseNote,
         };
     }
 
@@ -145,7 +160,7 @@ function extractPhoneFromContent(content) {
         // Filter numbers:
         // 1. Reasonable phone length (5-10 digits)
         // 2. NOT in blacklist (bank account numbers, etc.)
-        const phoneLikeNumbers = allNumbers.filter(num => {
+        const phoneLikeNumbers = allNumbers.filter((num) => {
             const isValidLength = num.length >= 5 && num.length <= 10;
             const isBlacklisted = PHONE_EXTRACTION_BLACKLIST.includes(num);
             if (isBlacklisted) {
@@ -155,14 +170,45 @@ function extractPhoneFromContent(content) {
         });
 
         if (phoneLikeNumbers.length > 0) {
-            const partialPhone = phoneLikeNumbers[0];  // Take FIRST non-blacklisted phone-like number
-            console.log('[EXTRACT] Found partial phone (5-10 digits, first non-blacklisted):', partialPhone, 'from:', allNumbers);
-            const baseNote = phoneLikeNumbers.length > 1 ? 'MULTIPLE_NUMBERS_FOUND' : 'PARTIAL_PHONE_EXTRACTED';
+            // NEW 2026-05-26: PREFER 6-digit (most common KH suffix pattern in VN).
+            // Sort priority: 6 > 7-10 > 5. Trong cùng độ dài: giữ thứ tự xuất hiện.
+            const lengthScore = (n) =>
+                n.length === 6
+                    ? 0
+                    : n.length === 7
+                      ? 1
+                      : n.length === 8
+                        ? 2
+                        : n.length === 9
+                          ? 3
+                          : n.length === 10
+                            ? 4
+                            : n.length === 5
+                              ? 5
+                              : 6;
+            const sortedPhones = [...phoneLikeNumbers].sort((a, b) => {
+                const sa = lengthScore(a);
+                const sb = lengthScore(b);
+                if (sa !== sb) return sa - sb;
+                // Same length: keep original order (stable sort via indexOf)
+                return phoneLikeNumbers.indexOf(a) - phoneLikeNumbers.indexOf(b);
+            });
+            const partialPhone = sortedPhones[0];
+            console.log(
+                '[EXTRACT] Found partial phone (prefer 6-digit, blacklist filtered):',
+                partialPhone,
+                'from:',
+                allNumbers,
+                'sorted:',
+                sortedPhones
+            );
+            const baseNote =
+                phoneLikeNumbers.length > 1 ? 'MULTIPLE_NUMBERS_FOUND' : 'PARTIAL_PHONE_EXTRACTED';
             return {
                 type: 'partial_phone',
                 value: partialPhone,
                 uniqueCode: null, // Will be determined after TPOS search
-                note: isMomo ? `MOMO:${baseNote}` : baseNote
+                note: isMomo ? `MOMO:${baseNote}` : baseNote,
             };
         }
 
@@ -175,7 +221,7 @@ function extractPhoneFromContent(content) {
         type: 'none',
         value: null,
         uniqueCode: null,
-        note: isMomo ? 'MOMO:NO_PHONE_FOUND' : 'NO_PHONE_FOUND'
+        note: isMomo ? 'MOMO:NO_PHONE_FOUND' : 'NO_PHONE_FOUND',
     };
 }
 
@@ -201,13 +247,17 @@ async function searchTPOSByPartialPhone(partialPhone, fetchWithTimeout) {
         // Call TPOS Partner API
         const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${partialPhone}&$top=50&$orderby=DateCreated+desc&$count=true`;
 
-        const response = await fetchWithTimeout(tposUrl, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        }, 15000); // 15 second timeout for TPOS API
+        const response = await fetchWithTimeout(
+            tposUrl,
+            {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            },
+            15000
+        ); // 15 second timeout for TPOS API
 
         if (!response.ok) {
             throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
@@ -222,7 +272,7 @@ async function searchTPOSByPartialPhone(partialPhone, fetchWithTimeout) {
             return {
                 success: true,
                 uniquePhones: [],
-                totalResults: 0
+                totalResults: 0,
             };
         }
 
@@ -246,7 +296,7 @@ async function searchTPOSByPartialPhone(partialPhone, fetchWithTimeout) {
                     network: customer.NameNetwork,
                     status: customer.Status,
                     credit: customer.Credit,
-                    debit: customer.Debit
+                    debit: customer.Debit,
                 });
             }
         }
@@ -255,10 +305,12 @@ async function searchTPOSByPartialPhone(partialPhone, fetchWithTimeout) {
         const allUniquePhones = Array.from(phoneMap.entries()).map(([phone, customers]) => ({
             phone,
             customers, // Array of customers with this phone (sorted by DateCreated desc from TPOS)
-            count: customers.length
+            count: customers.length,
         }));
 
-        console.log(`[TPOS-SEARCH] Grouped into ${allUniquePhones.length} unique phones (before filter):`);
+        console.log(
+            `[TPOS-SEARCH] Grouped into ${allUniquePhones.length} unique phones (before filter):`
+        );
         allUniquePhones.forEach(({ phone, count }) => {
             console.log(`  - ${phone}: ${count} customer(s)`);
         });
@@ -268,7 +320,9 @@ async function searchTPOSByPartialPhone(partialPhone, fetchWithTimeout) {
         const uniquePhones = allUniquePhones.filter(({ phone }) => {
             const matches = phone.endsWith(partialPhone);
             if (!matches) {
-                console.log(`[TPOS-SEARCH] Filtered out ${phone} (does not end with ${partialPhone})`);
+                console.log(
+                    `[TPOS-SEARCH] Filtered out ${phone} (does not end with ${partialPhone})`
+                );
             }
             return matches;
         });
@@ -281,16 +335,15 @@ async function searchTPOSByPartialPhone(partialPhone, fetchWithTimeout) {
         return {
             success: true,
             uniquePhones,
-            totalResults
+            totalResults,
         };
-
     } catch (error) {
         console.error('[TPOS-SEARCH] Error:', error);
         return {
             success: false,
             error: error.message,
             uniquePhones: [],
-            totalResults: 0
+            totalResults: 0,
         };
     }
 }
@@ -314,13 +367,17 @@ async function searchTPOSByPhone(fullPhone, fetchWithTimeout) {
         // Call TPOS Partner API with full phone
         const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${fullPhone}&$top=10&$orderby=DateCreated+desc&$count=true`;
 
-        const response = await fetchWithTimeout(tposUrl, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        }, 15000);
+        const response = await fetchWithTimeout(
+            tposUrl,
+            {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            },
+            15000
+        );
 
         if (!response.ok) {
             throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
@@ -335,7 +392,7 @@ async function searchTPOSByPhone(fullPhone, fetchWithTimeout) {
             return {
                 success: true,
                 customer: null,
-                totalResults: 0
+                totalResults: 0,
             };
         }
 
@@ -345,7 +402,9 @@ async function searchTPOSByPhone(fullPhone, fetchWithTimeout) {
 
             // Check for exact match
             if (phone === fullPhone) {
-                console.log(`[TPOS-PHONE] Found exact match: ${customer.Name || customer.DisplayName}`);
+                console.log(
+                    `[TPOS-PHONE] Found exact match: ${customer.Name || customer.DisplayName}`
+                );
                 return {
                     success: true,
                     customer: {
@@ -357,9 +416,9 @@ async function searchTPOSByPhone(fullPhone, fetchWithTimeout) {
                         network: customer.NameNetwork,
                         status: customer.Status,
                         credit: customer.Credit,
-                        debit: customer.Debit
+                        debit: customer.Debit,
                     },
-                    totalResults
+                    totalResults,
                 };
             }
         }
@@ -369,16 +428,15 @@ async function searchTPOSByPhone(fullPhone, fetchWithTimeout) {
         return {
             success: true,
             customer: null,
-            totalResults
+            totalResults,
         };
-
     } catch (error) {
         console.error('[TPOS-PHONE] Error:', error);
         return {
             success: false,
             error: error.message,
             customer: null,
-            totalResults: 0
+            totalResults: 0,
         };
     }
 }
@@ -482,7 +540,9 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                 // Create or update customer with full TPOS data
                 const customerResult = await getOrCreateCustomerFromTPOS(db, phone, tposData);
                 customerId = customerResult.customerId;
-                console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
+                console.log(
+                    `[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`
+                );
 
                 // Process wallet deposit immediately ONLY if auto-approve is enabled
                 if (autoApproveEnabled && amount > 0) {
@@ -497,14 +557,21 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                             null, // transactionDate not tracked here
                             tx.sepay_id
                         );
-                        console.log(`[DEBT-UPDATE] Wallet updated: TX ${walletResult.transactionId}`);
+                        console.log(
+                            `[DEBT-UPDATE] Wallet updated: TX ${walletResult.transactionId}`
+                        );
                         walletProcessedSuccess = true; // Only set true on SUCCESS
                     } catch (walletErr) {
-                        console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
+                        console.error(
+                            '[DEBT-UPDATE] Wallet update failed (will retry via cron):',
+                            walletErr.message
+                        );
                         walletProcessedSuccess = false; // Ensure false on failure
                     }
                 } else if (!autoApproveEnabled) {
-                    console.log('[DEBT-UPDATE] Auto-approve DISABLED - wallet deposit pending accountant approval');
+                    console.log(
+                        '[DEBT-UPDATE] Auto-approve DISABLED - wallet deposit pending accountant approval'
+                    );
                 }
             } catch (err) {
                 console.error('[DEBT-UPDATE] Customer/Wallet creation failed:', err.message);
@@ -514,7 +581,9 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
             // 7. Mark transaction as processed AND link to customer phone + customer_id
             // QR code match: AUTO_APPROVED if setting enabled, else PENDING_VERIFICATION
             // CRITICAL: wallet_processed = TRUE ONLY if processDeposit actually succeeded
-            const verificationStatus = autoApproveEnabled ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION';
+            const verificationStatus = autoApproveEnabled
+                ? 'AUTO_APPROVED'
+                : 'PENDING_VERIFICATION';
             await db.query(
                 `UPDATE balance_history
                  SET debt_added = TRUE,
@@ -526,7 +595,14 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                      display_name = COALESCE(display_name, $6),
                      verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') ELSE NULL END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, phone, customerId, walletProcessedSuccess, verificationStatus, customerName]
+                [
+                    transactionId,
+                    phone,
+                    customerId,
+                    walletProcessedSuccess,
+                    verificationStatus,
+                    customerName,
+                ]
             );
 
             console.log('[DEBT-UPDATE] Success (QR method):', {
@@ -536,7 +612,7 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                 linkedPhone: phone,
                 customerId,
                 customerName,
-                amount
+                amount,
             });
 
             return {
@@ -548,7 +624,7 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                 customerId,
                 customerName,
                 amount,
-                walletProcessed: amount > 0
+                walletProcessed: amount > 0,
             };
         }
     }
@@ -566,7 +642,7 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
         return {
             success: false,
             reason: 'No valid identifier found',
-            note: extractResult.note
+            note: extractResult.note,
         };
     }
 
@@ -603,7 +679,7 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                 const tposResult = await searchTPOSByPartialPhone(exactPhone, fetchWithTimeout);
 
                 if (tposResult.success && tposResult.uniquePhones.length > 0) {
-                    const phoneData = tposResult.uniquePhones.find(p => p.phone === exactPhone);
+                    const phoneData = tposResult.uniquePhones.find((p) => p.phone === exactPhone);
                     if (phoneData && phoneData.customers.length > 0) {
                         customerName = phoneData.customers[0].name;
                         dataSource = 'TPOS';
@@ -626,7 +702,9 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
             customerId = customerResult.customerId;
             customerName = customerResult.customerName || customerName;
             allNames = customerResult.allNames || [];
-            console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}, aliases: ${allNames.length}`);
+            console.log(
+                `[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}, aliases: ${allNames.length}`
+            );
 
             // Process wallet deposit immediately ONLY if auto-approve is enabled
             if (autoApproveEnabled && amount > 0) {
@@ -644,11 +722,16 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                     console.log(`[DEBT-UPDATE] Wallet updated: TX ${walletResult.transactionId}`);
                     walletProcessedSuccess = true; // Only set true on SUCCESS
                 } catch (walletErr) {
-                    console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
+                    console.error(
+                        '[DEBT-UPDATE] Wallet update failed (will retry via cron):',
+                        walletErr.message
+                    );
                     walletProcessedSuccess = false; // Ensure false on failure
                 }
             } else if (!autoApproveEnabled) {
-                console.log('[DEBT-UPDATE] Auto-approve DISABLED - wallet deposit pending accountant approval');
+                console.log(
+                    '[DEBT-UPDATE] Auto-approve DISABLED - wallet deposit pending accountant approval'
+                );
             }
         } catch (err) {
             console.error('[DEBT-UPDATE] Customer/Wallet creation failed:', err.message);
@@ -658,7 +741,9 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
         // Mark transaction as processed AND link to customer phone + customer_id
         // Exact 10-digit phone: AUTO_APPROVED if setting enabled, else PENDING_VERIFICATION
         // CRITICAL: wallet_processed = TRUE ONLY if processDeposit actually succeeded
-        const verificationStatusExact = autoApproveEnabled ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION';
+        const verificationStatusExact = autoApproveEnabled
+            ? 'AUTO_APPROVED'
+            : 'PENDING_VERIFICATION';
         await db.query(
             `UPDATE balance_history
              SET debt_added = TRUE,
@@ -670,7 +755,14 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                  display_name = COALESCE(display_name, $6),
                  verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') ELSE NULL END
              WHERE id = $1 AND linked_customer_phone IS NULL`,
-            [transactionId, exactPhone, customerId, walletProcessedSuccess, verificationStatusExact, customerName]
+            [
+                transactionId,
+                exactPhone,
+                customerId,
+                walletProcessedSuccess,
+                verificationStatusExact,
+                customerName,
+            ]
         );
 
         console.log('[DEBT-UPDATE] Success (exact phone method):', {
@@ -680,7 +772,7 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
             customerId,
             customerName,
             dataSource,
-            amount
+            amount,
         });
 
         return {
@@ -693,7 +785,7 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
             customerName,
             dataSource,
             amount,
-            walletProcessed: amount > 0
+            walletProcessed: amount > 0,
         };
     }
 
@@ -715,12 +807,20 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
         let dataSource = 'LOCAL_DB';
 
         if (localResult.rows.length > 0) {
-            console.log(`[DEBT-UPDATE] Found ${localResult.rows.length} matches in LOCAL DB (skipping TPOS)`);
+            console.log(
+                `[DEBT-UPDATE] Found ${localResult.rows.length} matches in LOCAL DB (skipping TPOS)`
+            );
             matchedPhones = localResult.rows.map((row, index) => ({
                 phone: row.customer_phone,
                 // Use phone as ID when from LOCAL_DB (prefix with LOCAL_ to distinguish)
-                customers: [{ name: row.customer_name, id: `LOCAL_${row.customer_phone}`, phone: row.customer_phone }],
-                count: 1
+                customers: [
+                    {
+                        name: row.customer_name,
+                        id: `LOCAL_${row.customer_phone}`,
+                        phone: row.customer_phone,
+                    },
+                ],
+                count: 1,
             }));
         } else {
             // Step 2: Not in local DB - try TPOS
@@ -743,7 +843,7 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                 success: false,
                 reason: 'No matches found',
                 partialPhone,
-                note: 'NOT_FOUND'
+                note: 'NOT_FOUND',
             };
         }
 
@@ -770,7 +870,9 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                 customerId = customerResult.customerId;
                 customerName = customerResult.customerName || customerName;
                 allNames = customerResult.allNames || [];
-                console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}, aliases: ${allNames.length}`);
+                console.log(
+                    `[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}, aliases: ${allNames.length}`
+                );
 
                 // Process wallet deposit immediately ONLY if auto-approve is enabled
                 if (autoApproveEnabled && amount > 0) {
@@ -785,14 +887,21 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                             null,
                             tx.sepay_id
                         );
-                        console.log(`[DEBT-UPDATE] Wallet updated: TX ${walletResult.transactionId}`);
+                        console.log(
+                            `[DEBT-UPDATE] Wallet updated: TX ${walletResult.transactionId}`
+                        );
                         walletProcessedSuccess = true; // Only set TRUE on success
                     } catch (walletErr) {
-                        console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
+                        console.error(
+                            '[DEBT-UPDATE] Wallet update failed (will retry via cron):',
+                            walletErr.message
+                        );
                         walletProcessedSuccess = false; // Ensure FALSE on failure
                     }
                 } else if (!autoApproveEnabled) {
-                    console.log('[DEBT-UPDATE] Auto-approve DISABLED - wallet deposit pending accountant approval');
+                    console.log(
+                        '[DEBT-UPDATE] Auto-approve DISABLED - wallet deposit pending accountant approval'
+                    );
                 }
             } catch (err) {
                 console.error('[DEBT-UPDATE] Customer/Wallet creation failed:', err.message);
@@ -801,7 +910,9 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
             // Update balance_history with customer_id
             // Single match: AUTO_APPROVED if setting enabled, else PENDING_VERIFICATION
             // CRITICAL: wallet_processed = walletProcessedSuccess (only TRUE if processDeposit succeeded)
-            const verificationStatusSingle = autoApproveEnabled ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION';
+            const verificationStatusSingle = autoApproveEnabled
+                ? 'AUTO_APPROVED'
+                : 'PENDING_VERIFICATION';
             const updateResult = await db.query(
                 `UPDATE balance_history
                  SET debt_added = TRUE,
@@ -813,12 +924,21 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                      display_name = COALESCE(display_name, $6),
                      verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') ELSE NULL END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatusSingle, customerName]
+                [
+                    transactionId,
+                    fullPhone,
+                    customerId,
+                    walletProcessedSuccess,
+                    verificationStatusSingle,
+                    customerName,
+                ]
             );
 
             if (updateResult.rowCount === 0) {
                 // Giao dich co the da co linked_customer_phone, thu update bang cach khac
-                console.log('[DEBT-UPDATE] No rows updated (may already have linked_customer_phone), trying force update...');
+                console.log(
+                    '[DEBT-UPDATE] No rows updated (may already have linked_customer_phone), trying force update...'
+                );
                 await db.query(
                     `UPDATE balance_history
                      SET debt_added = TRUE,
@@ -830,11 +950,22 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                          display_name = COALESCE(display_name, $6),
                          verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') ELSE NULL END
                      WHERE id = $1`,
-                    [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatusSingle, customerName]
+                    [
+                        transactionId,
+                        fullPhone,
+                        customerId,
+                        walletProcessedSuccess,
+                        verificationStatusSingle,
+                        customerName,
+                    ]
                 );
                 console.log('[DEBT-UPDATE] Force updated balance_history');
             } else {
-                console.log('[DEBT-UPDATE] Updated balance_history:', updateResult.rowCount, 'row(s)');
+                console.log(
+                    '[DEBT-UPDATE] Updated balance_history:',
+                    updateResult.rowCount,
+                    'row(s)'
+                );
             }
 
             console.log('[DEBT-UPDATE] Success (auto-matched):', {
@@ -845,7 +976,7 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                 customerId,
                 customerName,
                 dataSource,
-                amount
+                amount,
             });
 
             return {
@@ -859,31 +990,27 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                 customerName,
                 dataSource,
                 amount,
-                walletProcessed: walletProcessedSuccess
+                walletProcessed: walletProcessedSuccess,
             };
-
         } else {
             // MULTIPLE PHONES: Create pending match for admin to choose
             // Set verification_status = PENDING_VERIFICATION (needs accountant approval)
-            console.log(`[DEBT-UPDATE] Multiple phones found (${matchedPhones.length}) from ${dataSource}, creating pending match...`);
+            console.log(
+                `[DEBT-UPDATE] Multiple phones found (${matchedPhones.length}) from ${dataSource}, creating pending match...`
+            );
 
             // Format matched_customers JSONB
-            const matchedCustomersJson = matchedPhones.map(phoneData => ({
+            const matchedCustomersJson = matchedPhones.map((phoneData) => ({
                 phone: phoneData.phone,
                 count: phoneData.count || 1,
-                customers: phoneData.customers
+                customers: phoneData.customers,
             }));
 
             // Create pending match
             await db.query(
                 `INSERT INTO pending_customer_matches (transaction_id, extracted_phone, matched_customers, status)
                  VALUES ($1, $2, $3, $4)`,
-                [
-                    transactionId,
-                    partialPhone,
-                    JSON.stringify(matchedCustomersJson),
-                    'pending'
-                ]
+                [transactionId, partialPhone, JSON.stringify(matchedCustomersJson), 'pending']
             );
 
             // Update balance_history with PENDING_VERIFICATION status
@@ -896,7 +1023,9 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
             );
 
             console.log('[DEBT-UPDATE] Created pending match for transaction:', transactionId);
-            console.log(`[DEBT-UPDATE] Found ${matchedPhones.length} unique phones from ${dataSource}:`);
+            console.log(
+                `[DEBT-UPDATE] Found ${matchedPhones.length} unique phones from ${dataSource}:`
+            );
             matchedPhones.forEach(({ phone, count }) => {
                 console.log(`  - ${phone}: ${count || 1} customer(s)`);
             });
@@ -909,7 +1038,7 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                 uniquePhonesCount: matchedPhones.length,
                 dataSource,
                 pendingMatch: true,
-                verificationStatus: 'PENDING_VERIFICATION'
+                verificationStatus: 'PENDING_VERIFICATION',
             };
         }
     }
@@ -919,9 +1048,8 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
     return {
         success: false,
         reason: 'Unexpected extraction type',
-        type: extractResult.type
+        type: extractResult.type,
     };
-
 }
 
 /**
@@ -947,7 +1075,7 @@ function registerRoutes(router, helpers) {
         if (!phone) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing required parameter: phone'
+                error: 'Missing required parameter: phone',
             });
         }
 
@@ -961,7 +1089,12 @@ function registerRoutes(router, helpers) {
                 normalizedPhone = '0' + normalizedPhone; // Add leading 0
             }
 
-            console.log('[DEBT-SUMMARY] Fetching for phone:', phone, '-> normalized:', normalizedPhone);
+            console.log(
+                '[DEBT-SUMMARY] Fetching for phone:',
+                phone,
+                '-> normalized:',
+                normalizedPhone
+            );
 
             // NEW SIMPLE LOGIC: Query directly by linked_customer_phone
             const txQuery = `
@@ -985,34 +1118,41 @@ function registerRoutes(router, helpers) {
             const transactions = txResult.rows;
 
             // Calculate total debt
-            const totalDebt = transactions.reduce((sum, t) => sum + (parseInt(t.transfer_amount) || 0), 0);
+            const totalDebt = transactions.reduce(
+                (sum, t) => sum + (parseInt(t.transfer_amount) || 0),
+                0
+            );
             const source = transactions.length > 0 ? 'balance_history' : 'no_data';
 
-            console.log('[DEBT-SUMMARY] Found', transactions.length, 'transactions, total:', totalDebt);
+            console.log(
+                '[DEBT-SUMMARY] Found',
+                transactions.length,
+                'transactions, total:',
+                totalDebt
+            );
 
             res.json({
                 success: true,
                 data: {
                     phone,
                     total_debt: totalDebt,
-                    transactions: transactions.map(t => ({
+                    transactions: transactions.map((t) => ({
                         id: t.id,
                         amount: parseInt(t.transfer_amount) || 0,
                         date: t.transaction_date,
                         content: t.content,
-                        debt_added: t.debt_added
+                        debt_added: t.debt_added,
                     })),
                     transaction_count: transactions.length,
-                    source
-                }
+                    source,
+                },
             });
-
         } catch (error) {
             console.error('[DEBT-SUMMARY] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to fetch debt summary',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1028,7 +1168,7 @@ function registerRoutes(router, helpers) {
         if (!phones || !Array.isArray(phones) || phones.length === 0) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing required parameter: phones (array)'
+                error: 'Missing required parameter: phones (array)',
             });
         }
 
@@ -1036,7 +1176,7 @@ function registerRoutes(router, helpers) {
         if (phones.length > 200) {
             return res.status(400).json({
                 success: false,
-                error: 'Too many phones. Maximum 200 per request.'
+                error: 'Too many phones. Maximum 200 per request.',
             });
         }
 
@@ -1044,16 +1184,18 @@ function registerRoutes(router, helpers) {
             const results = {};
 
             // Normalize all phones to full 10-digit format (0xxxxxxxxx)
-            const normalizedPhones = phones.map(phone => {
-                let normalized = (phone || '').replace(/\D/g, '');
-                if (normalized.startsWith('84') && normalized.length > 9) {
-                    normalized = normalized.substring(2);
-                }
-                if (!normalized.startsWith('0') && normalized.length === 9) {
-                    normalized = '0' + normalized; // Add leading 0
-                }
-                return normalized;
-            }).filter(p => p.length === 10);
+            const normalizedPhones = phones
+                .map((phone) => {
+                    let normalized = (phone || '').replace(/\D/g, '');
+                    if (normalized.startsWith('84') && normalized.length > 9) {
+                        normalized = normalized.substring(2);
+                    }
+                    if (!normalized.startsWith('0') && normalized.length === 9) {
+                        normalized = '0' + normalized; // Add leading 0
+                    }
+                    return normalized;
+                })
+                .filter((p) => p.length === 10);
 
             const uniquePhones = [...new Set(normalizedPhones)];
 
@@ -1078,11 +1220,11 @@ function registerRoutes(router, helpers) {
 
             // Build result map from query
             const debtMap = {};
-            txResult.rows.forEach(row => {
+            txResult.rows.forEach((row) => {
                 if (row.linked_customer_phone) {
                     debtMap[row.linked_customer_phone] = {
                         total_debt: parseInt(row.total_amount) || 0,
-                        transaction_count: parseInt(row.transaction_count) || 0
+                        transaction_count: parseInt(row.transaction_count) || 0,
                     };
                 }
             });
@@ -1095,25 +1237,26 @@ function registerRoutes(router, helpers) {
 
                 results[phoneWithout0] = {
                     total_debt: data ? data.total_debt : 0,
-                    source: data && data.total_debt > 0 ? 'balance_history' : 'no_data'
+                    source: data && data.total_debt > 0 ? 'balance_history' : 'no_data',
                 };
             }
 
             // Log summary (not individual phones to reduce noise)
-            console.log(`[DEBT-SUMMARY-BATCH] Processed ${uniquePhones.length} phones, found debt for ${txResult.rows.length}`);
+            console.log(
+                `[DEBT-SUMMARY-BATCH] Processed ${uniquePhones.length} phones, found debt for ${txResult.rows.length}`
+            );
 
             res.json({
                 success: true,
                 data: results,
-                count: Object.keys(results).length
+                count: Object.keys(results).length,
             });
-
         } catch (error) {
             console.error('[DEBT-SUMMARY-BATCH] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to fetch debt summary batch',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1129,7 +1272,7 @@ function registerRoutes(router, helpers) {
         if (!phone) {
             return res.status(400).json({
                 success: false,
-                error: 'Phone number is required'
+                error: 'Phone number is required',
             });
         }
 
@@ -1143,7 +1286,9 @@ function registerRoutes(router, helpers) {
                 normalizedPhone = '0' + normalizedPhone; // Add leading 0
             }
 
-            console.log(`[DEBT] Fetching debt for phone: ${phone} -> normalized: ${normalizedPhone}`);
+            console.log(
+                `[DEBT] Fetching debt for phone: ${phone} -> normalized: ${normalizedPhone}`
+            );
 
             // Query debt from balance_history by linked_customer_phone
             const query = `
@@ -1161,21 +1306,22 @@ function registerRoutes(router, helpers) {
             const debt = parseFloat(row.total_debt) || 0;
             const transactionCount = parseInt(row.transaction_count) || 0;
 
-            console.log(`[DEBT] Phone ${normalizedPhone}: ${debt} VND (${transactionCount} transactions)`);
+            console.log(
+                `[DEBT] Phone ${normalizedPhone}: ${debt} VND (${transactionCount} transactions)`
+            );
 
             res.json({
                 success: true,
                 phone: normalizedPhone,
                 debt: debt,
-                transaction_count: transactionCount
+                transaction_count: transactionCount,
             });
-
         } catch (error) {
             console.error('[DEBT] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to fetch debt',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1220,20 +1366,24 @@ function registerRoutes(router, helpers) {
 
             const result = await db.query(query, [status, limitCount]);
 
-            console.log('[PENDING-MATCHES] Found', result.rows.length, 'matches with status:', status);
+            console.log(
+                '[PENDING-MATCHES] Found',
+                result.rows.length,
+                'matches with status:',
+                status
+            );
 
             res.json({
                 success: true,
                 data: result.rows,
-                count: result.rows.length
+                count: result.rows.length,
             });
-
         } catch (error) {
             console.error('[PENDING-MATCHES] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to fetch pending matches',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1250,7 +1400,7 @@ function registerRoutes(router, helpers) {
         if (!customer_id) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing required parameter: customer_id'
+                error: 'Missing required parameter: customer_id',
             });
         }
 
@@ -1278,7 +1428,7 @@ function registerRoutes(router, helpers) {
             if (matchResult.rows.length === 0) {
                 return res.status(404).json({
                     success: false,
-                    error: 'Pending match not found or already resolved'
+                    error: 'Pending match not found or already resolved',
                 });
             }
 
@@ -1287,7 +1437,7 @@ function registerRoutes(router, helpers) {
                 return res.status(404).json({
                     success: false,
                     error: 'Pending match not found or already resolved',
-                    current_status: currentStatus
+                    current_status: currentStatus,
                 });
             }
 
@@ -1302,22 +1452,31 @@ function registerRoutes(router, helpers) {
                     console.error('[RESOLVE-MATCH] Failed to parse matched_customers:', parseErr);
                     return res.status(400).json({
                         success: false,
-                        error: 'Invalid matched_customers data format'
+                        error: 'Invalid matched_customers data format',
                     });
                 }
             }
 
             // Validate matchedCustomers is an array
             if (!Array.isArray(matchedCustomers)) {
-                console.error('[RESOLVE-MATCH] matched_customers is not an array:', typeof matchedCustomers);
+                console.error(
+                    '[RESOLVE-MATCH] matched_customers is not an array:',
+                    typeof matchedCustomers
+                );
                 return res.status(400).json({
                     success: false,
                     error: 'matched_customers is not an array',
-                    debug_type: typeof matchedCustomers
+                    debug_type: typeof matchedCustomers,
                 });
             }
 
-            console.log('[RESOLVE-MATCH] Looking for customer_id:', customer_id, 'in', matchedCustomers.length, 'phone groups');
+            console.log(
+                '[RESOLVE-MATCH] Looking for customer_id:',
+                customer_id,
+                'in',
+                matchedCustomers.length,
+                'phone groups'
+            );
 
             // 3. Find customer in nested structure
             let selectedCustomer = null;
@@ -1334,9 +1493,16 @@ function registerRoutes(router, helpers) {
 
                 for (const c of customers) {
                     if (isLocalId) {
-                        if (c.phone === localPhone || (c.id === null && phoneGroup.phone === localPhone)) {
+                        if (
+                            c.phone === localPhone ||
+                            (c.id === null && phoneGroup.phone === localPhone)
+                        ) {
                             selectedCustomer = c;
-                            console.log('[RESOLVE-MATCH] Found customer by LOCAL phone:', c.name, c.phone);
+                            console.log(
+                                '[RESOLVE-MATCH] Found customer by LOCAL phone:',
+                                c.name,
+                                c.phone
+                            );
                             break;
                         }
                     } else {
@@ -1360,16 +1526,26 @@ function registerRoutes(router, helpers) {
                         }
                     }
                 }
-                console.error('[RESOLVE-MATCH] Customer not found. Target:', customer_id, 'Available:', allCustomerIds);
+                console.error(
+                    '[RESOLVE-MATCH] Customer not found. Target:',
+                    customer_id,
+                    'Available:',
+                    allCustomerIds
+                );
                 return res.status(400).json({
                     success: false,
                     error: 'Selected customer not in matched list',
                     requested_id: customer_id,
-                    available_customers: allCustomerIds
+                    available_customers: allCustomerIds,
                 });
             }
 
-            console.log('[RESOLVE-MATCH] Resolving match', id, 'with customer:', selectedCustomer.phone);
+            console.log(
+                '[RESOLVE-MATCH] Resolving match',
+                id,
+                'with customer:',
+                selectedCustomer.phone
+            );
 
             // 3. Create/update customer with TPOS data
             let customerId = null;
@@ -1384,17 +1560,26 @@ function registerRoutes(router, helpers) {
                         console.log('[RESOLVE-MATCH] Got TPOS data:', tposData.name);
                     }
                 } catch (e) {
-                    console.log('[RESOLVE-MATCH] TPOS fetch failed, using selected customer name:', e.message);
+                    console.log(
+                        '[RESOLVE-MATCH] TPOS fetch failed, using selected customer name:',
+                        e.message
+                    );
                 }
 
                 // Create/update customer
                 if (!tposData) {
                     tposData = { name: customerName };
                 }
-                const customerResult = await getOrCreateCustomerFromTPOS(db, selectedCustomer.phone, tposData);
+                const customerResult = await getOrCreateCustomerFromTPOS(
+                    db,
+                    selectedCustomer.phone,
+                    tposData
+                );
                 customerId = customerResult.customerId;
                 customerName = customerResult.customerName || customerName;
-                console.log(`[RESOLVE-MATCH] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
+                console.log(
+                    `[RESOLVE-MATCH] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`
+                );
             } catch (err) {
                 console.error('[RESOLVE-MATCH] Customer creation failed:', err.message);
             }
@@ -1414,17 +1599,27 @@ function registerRoutes(router, helpers) {
                 [match.transaction_id, selectedCustomer.phone, customerId, staff_note || null]
             );
 
-            console.log('[RESOLVE-MATCH] Linked transaction', match.transaction_id, 'to phone:', selectedCustomer.phone, 'customer_id:', customerId, staff_note ? `staff_note: "${staff_note}"` : '');
+            console.log(
+                '[RESOLVE-MATCH] Linked transaction',
+                match.transaction_id,
+                'to phone:',
+                selectedCustomer.phone,
+                'customer_id:',
+                customerId,
+                staff_note ? `staff_note: "${staff_note}"` : ''
+            );
 
             // 5. DO NOT process wallet immediately - needs accountant approval first
             let walletProcessed = false;
-            console.log('[RESOLVE-MATCH] Wallet processing deferred - awaiting accountant approval');
+            console.log(
+                '[RESOLVE-MATCH] Wallet processing deferred - awaiting accountant approval'
+            );
 
             // 6. Update pending match status with selected customer info as JSON
             const selectedCustomerJson = JSON.stringify({
                 id: customerId,
                 name: customerName,
-                phone: selectedCustomer.phone
+                phone: selectedCustomer.phone,
             });
 
             await db.query(
@@ -1435,12 +1630,7 @@ function registerRoutes(router, helpers) {
                      resolved_by = $3,
                      resolution_notes = $4
                  WHERE id = $1`,
-                [
-                    id,
-                    customerId,
-                    resolved_by,
-                    selectedCustomerJson
-                ]
+                [id, customerId, resolved_by, selectedCustomerJson]
             );
 
             // Track recent transfer phone (7-day TTL, total amount)
@@ -1452,7 +1642,7 @@ function registerRoutes(router, helpers) {
                 customer_phone: selectedCustomer.phone,
                 customer_id: customerId,
                 amount,
-                walletProcessed
+                walletProcessed,
             });
 
             res.json({
@@ -1464,19 +1654,18 @@ function registerRoutes(router, helpers) {
                     customer: {
                         id: customerId,
                         phone: selectedCustomer.phone,
-                        name: customerName
+                        name: customerName,
                     },
                     amount_added: amount,
-                    wallet_processed: walletProcessed
-                }
+                    wallet_processed: walletProcessed,
+                },
             });
-
         } catch (error) {
             console.error('[RESOLVE-MATCH] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to resolve match',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1493,7 +1682,7 @@ function registerRoutes(router, helpers) {
         if (!matched_customers || !Array.isArray(matched_customers)) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing or invalid matched_customers array'
+                error: 'Missing or invalid matched_customers array',
             });
         }
 
@@ -1509,24 +1698,28 @@ function registerRoutes(router, helpers) {
             if (result.rows.length === 0) {
                 return res.status(404).json({
                     success: false,
-                    error: 'Pending match not found or already resolved'
+                    error: 'Pending match not found or already resolved',
                 });
             }
 
-            console.log('[UPDATE-CUSTOMERS] Updated matched_customers for pending match:', id, '- new count:', matched_customers.length);
+            console.log(
+                '[UPDATE-CUSTOMERS] Updated matched_customers for pending match:',
+                id,
+                '- new count:',
+                matched_customers.length
+            );
 
             res.json({
                 success: true,
                 message: 'Matched customers updated successfully',
-                data: result.rows[0]
+                data: result.rows[0],
             });
-
         } catch (error) {
             console.error('[UPDATE-CUSTOMERS] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to update matched customers',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1555,7 +1748,7 @@ function registerRoutes(router, helpers) {
             if (result.rows.length === 0) {
                 return res.status(404).json({
                     success: false,
-                    error: 'Pending match not found or already resolved'
+                    error: 'Pending match not found or already resolved',
                 });
             }
 
@@ -1564,15 +1757,14 @@ function registerRoutes(router, helpers) {
             res.json({
                 success: true,
                 message: 'Match skipped successfully',
-                data: result.rows[0]
+                data: result.rows[0],
             });
-
         } catch (error) {
             console.error('[SKIP-MATCH] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to skip match',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1596,7 +1788,7 @@ function registerRoutes(router, helpers) {
             if (checkResult.rows.length === 0) {
                 return res.status(404).json({
                     success: false,
-                    error: 'Pending match not found'
+                    error: 'Pending match not found',
                 });
             }
 
@@ -1604,7 +1796,7 @@ function registerRoutes(router, helpers) {
                 return res.status(400).json({
                     success: false,
                     error: 'Match is not in skipped status',
-                    current_status: checkResult.rows[0].status
+                    current_status: checkResult.rows[0].status,
                 });
             }
 
@@ -1626,15 +1818,14 @@ function registerRoutes(router, helpers) {
             res.json({
                 success: true,
                 message: 'Match reset to pending successfully',
-                data: result.rows[0]
+                data: result.rows[0],
             });
-
         } catch (error) {
             console.error('[UNDO-SKIP] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to undo skip',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1678,7 +1869,7 @@ function registerRoutes(router, helpers) {
                 not_found: 0,
                 skipped: 0,
                 failed: 0,
-                details: []
+                details: [],
             };
 
             // Process each transaction using processDebtUpdate()
@@ -1695,9 +1886,11 @@ function registerRoutes(router, helpers) {
                                 transaction_id: tx.id,
                                 status: 'pending_match',
                                 partial_phone: updateResult.partialPhone,
-                                unique_phones_count: updateResult.uniquePhonesCount
+                                unique_phones_count: updateResult.uniquePhonesCount,
                             });
-                            console.log(`[BATCH-UPDATE] Transaction ${tx.id}: pending match (${updateResult.uniquePhonesCount} phones)`);
+                            console.log(
+                                `[BATCH-UPDATE] Transaction ${tx.id}: pending match (${updateResult.uniquePhonesCount} phones)`
+                            );
                         } else {
                             results.success++;
                             results.details.push({
@@ -1705,21 +1898,28 @@ function registerRoutes(router, helpers) {
                                 status: 'success',
                                 method: updateResult.method,
                                 phone: updateResult.fullPhone || updateResult.qrCode,
-                                customer_name: updateResult.customerName
+                                customer_name: updateResult.customerName,
                             });
-                            console.log(`[BATCH-UPDATE] Transaction ${tx.id}: ${updateResult.method}`);
+                            console.log(
+                                `[BATCH-UPDATE] Transaction ${tx.id}: ${updateResult.method}`
+                            );
                         }
                     } else {
-                        if (updateResult.reason === 'No TPOS matches' || updateResult.note === 'NOT_FOUND_IN_TPOS') {
+                        if (
+                            updateResult.reason === 'No TPOS matches' ||
+                            updateResult.note === 'NOT_FOUND_IN_TPOS'
+                        ) {
                             results.not_found++;
                             results.details.push({
                                 transaction_id: tx.id,
                                 status: 'not_found',
                                 partial_phone: updateResult.partialPhone,
                                 content: tx.content || '',
-                                reason: updateResult.reason
+                                reason: updateResult.reason,
                             });
-                            console.log(`[BATCH-UPDATE] Transaction ${tx.id}: no TPOS matches for ${updateResult.partialPhone}`);
+                            console.log(
+                                `[BATCH-UPDATE] Transaction ${tx.id}: no TPOS matches for ${updateResult.partialPhone}`
+                            );
                         } else {
                             results.skipped++;
                             results.details.push({
@@ -1727,18 +1927,19 @@ function registerRoutes(router, helpers) {
                                 status: 'skipped',
                                 content: tx.content || '',
                                 reason: updateResult.reason,
-                                note: updateResult.note
+                                note: updateResult.note,
                             });
-                            console.log(`[BATCH-UPDATE] Transaction ${tx.id}: ${updateResult.reason}`);
+                            console.log(
+                                `[BATCH-UPDATE] Transaction ${tx.id}: ${updateResult.reason}`
+                            );
                         }
                     }
-
                 } catch (error) {
                     results.failed++;
                     results.details.push({
                         transaction_id: tx.id,
                         status: 'failed',
-                        error: error.message
+                        error: error.message,
                     });
                     console.error(`[BATCH-UPDATE] Transaction ${tx.id}:`, error.message);
                 }
@@ -1749,15 +1950,14 @@ function registerRoutes(router, helpers) {
             res.json({
                 success: true,
                 message: `Batch update completed: ${results.success} success, ${results.pending_matches} pending matches, ${results.not_found} not found, ${results.skipped} skipped, ${results.failed} failed`,
-                data: results
+                data: results,
             });
-
         } catch (error) {
             console.error('[BATCH-UPDATE] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to batch update phones',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1773,7 +1973,7 @@ function registerRoutes(router, helpers) {
             if (!phone || !/^\d{10}$/.test(phone)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Invalid phone number (must be 10 digits)'
+                    error: 'Invalid phone number (must be 10 digits)',
                 });
             }
 
@@ -1785,13 +1985,17 @@ function registerRoutes(router, helpers) {
             // Call TPOS Partner API
             const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${phone}&$top=50&$orderby=DateCreated+desc&$count=true`;
 
-            const response = await fetchWithTimeout(tposUrl, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            }, 15000);
+            const response = await fetchWithTimeout(
+                tposUrl,
+                {
+                    method: 'GET',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                },
+                15000
+            );
 
             if (!response.ok) {
                 throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
@@ -1816,26 +2020,27 @@ function registerRoutes(router, helpers) {
                             address: customer.FullAddress || customer.Street,
                             statusText: customer.StatusText,
                             status: customer.Status,
-                            credit: customer.Credit
+                            credit: customer.Credit,
                         });
                     }
                 }
             }
 
-            console.log(`[TPOS-CUSTOMER] Found ${uniqueCustomers.length} unique customers for ${phone}`);
+            console.log(
+                `[TPOS-CUSTOMER] Found ${uniqueCustomers.length} unique customers for ${phone}`
+            );
 
             res.json({
                 success: true,
                 data: uniqueCustomers,
-                count: uniqueCustomers.length
+                count: uniqueCustomers.length,
             });
-
         } catch (error) {
             console.error('[TPOS-CUSTOMER] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to fetch customer from TPOS',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1852,7 +2057,7 @@ function registerRoutes(router, helpers) {
             if (!partialPhone || !/^\d{5,10}$/.test(partialPhone)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Invalid partial phone (must be 5-10 digits)'
+                    error: 'Invalid partial phone (must be 5-10 digits)',
                 });
             }
 
@@ -1864,13 +2069,17 @@ function registerRoutes(router, helpers) {
             // Call TPOS Partner API
             const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${partialPhone}&$top=50&$orderby=DateCreated+desc&$count=true`;
 
-            const response = await fetchWithTimeout(tposUrl, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            }, 15000);
+            const response = await fetchWithTimeout(
+                tposUrl,
+                {
+                    method: 'GET',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                },
+                15000
+            );
 
             if (!response.ok) {
                 throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
@@ -1889,7 +2098,7 @@ function registerRoutes(router, helpers) {
                             phoneGroups[custPhone] = {
                                 phone: custPhone,
                                 count: 0,
-                                customers: []
+                                customers: [],
                             };
                         }
                         phoneGroups[custPhone].count++;
@@ -1899,28 +2108,29 @@ function registerRoutes(router, helpers) {
                             name: customer.Name || customer.FullName || 'N/A',
                             email: customer.Email,
                             status: customer.Status,
-                            credit: customer.Credit
+                            credit: customer.Credit,
                         });
                     }
                 }
             }
 
             const uniquePhones = Object.values(phoneGroups);
-            console.log(`[TPOS-SEARCH] Found ${uniquePhones.length} unique phones for ${partialPhone}`);
+            console.log(
+                `[TPOS-SEARCH] Found ${uniquePhones.length} unique phones for ${partialPhone}`
+            );
 
             res.json({
                 success: true,
                 data: uniquePhones,
                 totalResults: data['@odata.count'] || 0,
-                uniquePhoneCount: uniquePhones.length
+                uniquePhoneCount: uniquePhones.length,
             });
-
         } catch (error) {
             console.error('[TPOS-SEARCH] Error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to search TPOS',
-                message: error.message
+                message: error.message,
             });
         }
     });
@@ -1934,8 +2144,9 @@ function registerRoutes(router, helpers) {
         return res.status(410).json({
             success: false,
             error: 'Endpoint no longer supported',
-            message: 'Manual debt adjustment has been removed. Debt is now calculated automatically from transactions in balance_history.',
-            deprecated: true
+            message:
+                'Manual debt adjustment has been removed. Debt is now calculated automatically from transactions in balance_history.',
+            deprecated: true,
         });
     });
 }
@@ -1945,5 +2156,5 @@ module.exports = {
     searchTPOSByPartialPhone,
     searchTPOSByPhone,
     processDebtUpdate,
-    registerRoutes
+    registerRoutes,
 };
