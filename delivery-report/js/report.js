@@ -547,6 +547,7 @@
                   </div>
                 </div>
                 <div class="dr-report-tabs" id="drReportTabs"></div>
+                <div class="dr-report-tabs-totals" id="drReportTabsTotals" title="Tổng còn lại từng nhóm trong khoảng ngày đang chọn"></div>
               </div>
             </div>
 
