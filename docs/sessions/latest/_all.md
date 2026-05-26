@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8421a58` — feat(product-warehouse): variant DefaultCode rỗng → TPOS auto-generate
-**Last updated**: 2026-05-26 09:09:28 +07
-**Latest session**: [`RESUME:20260526-090928-8421a58`](../20260526-090928-8421a58.md)
-**Summary**: feat(product-warehouse): variant DefaultCode rỗng → TPOS auto-generate
+**Latest commit**: `2f066d5` — perf(product-warehouse): optimistic UI update + background save (10× faster)
+**Last updated**: 2026-05-26 09:15:55 +07
+**Latest session**: [`RESUME:20260526-091555-2f066d5`](../20260526-091555-2f066d5.md)
+**Summary**: perf(product-warehouse): optimistic UI update + background save (10× faster)
 
 ## Folders affected in this commit
 
 - [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
-- [`web2/`](./web2.md) — 6 file(s)
 
 ## All folder snapshots
 
@@ -45,7 +44,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-25 14:08
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 09:09
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 09:15
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
