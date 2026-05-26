@@ -13,18 +13,18 @@
         <title>Kho Sản Phẩm - N2STORE</title>
 
         <!-- Shared Styles -->
-        <link rel="stylesheet" href="../shared/css/modern.css?v=20260526n" />
+        <link rel="stylesheet" href="../shared/css/modern.css?v=20260526o" />
         <!-- Module Styles -->
-        <link rel="stylesheet" href="css/warehouse.css?v=20260526n" />
+        <link rel="stylesheet" href="css/warehouse.css?v=20260526o" />
         <!-- (warehouse-tpos.css is loaded AFTER typography.css below to override the !important font-family) -->
 
         <!-- ES Module: Shared utilities -->
-        <script type="module" src="../shared/esm/compat.js?v=20260526n"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260526o"></script>
         <!-- Fallback for file:// protocol -->
         <script>
             if (window.location.protocol === 'file:') {
                 document.write(
-                    '<script src="../shared/js/shared-auth-manager.js?v=20260526n"><\/script>'
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260526o"><\/script>'
                 );
                 document.write(
                     '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
@@ -32,7 +32,7 @@
             }
         </script>
         <!-- Navigation Manager -->
-        <script defer src="../shared/js/navigation-modern.js?v=20260526n"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260526o"></script>
 
         <!-- Lucide Icons CDN -->
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
@@ -42,14 +42,14 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
         <!-- Firebase Configuration (SHARED) -->
-        <script src="../shared/js/firebase-config.js?v=20260526n"></script>
+        <script src="../shared/js/firebase-config.js?v=20260526o"></script>
 
         <!-- Token Manager & API Config (kept for edit/save to TPOS) -->
-        <script src="../shared/js/api-config.js?v=20260526n"></script>
-        <script src="../shared/js/token-manager.js?v=20260526n"></script>
+        <script src="../shared/js/api-config.js?v=20260526o"></script>
+        <script src="../shared/js/token-manager.js?v=20260526o"></script>
 
         <!-- Warehouse API (Render DB) — product list, search, variants -->
-        <script src="../shared/js/warehouse-api.js?v=20260526n"></script>
+        <script src="../shared/js/warehouse-api.js?v=20260526o"></script>
 
         <!-- Suggestion dropdown styles (same as soluong-live) -->
         <style>
@@ -178,10 +178,10 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="../shared/css/typography.css?v=20260526n" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260526o" />
         <!-- typography:shared -->
         <!-- TPOS overrides — MUST load AFTER typography.css to win !important wars -->
-        <link rel="stylesheet" href="css/warehouse-tpos.css?v=20260526n" />
+        <link rel="stylesheet" href="css/warehouse-tpos.css?v=20260526o" />
     </head>
     <body>
         <!-- Main Content -->
@@ -2047,11 +2047,11 @@
             defer
         ></script>
         <!-- Shared Warehouse Utilities -->
-        <script src="../shared/js/warehouse-shared.js?v=20260526n"></script>
+        <script src="../shared/js/warehouse-shared.js?v=20260526o"></script>
         <!-- TPOSClient (window.TPOSClient) — required for barcode-label-dialog "In theo mẫu TPOS" -->
-        <script src="../shared/js/shop-config.js?v=20260526n"></script>
-        <script src="../purchase-orders/js/lib/tpos-search.js?v=20260526n"></script>
-        <script src="../purchase-orders/js/lib/barcode-label-dialog.js?v=20260526n"></script>
-        <script src="js/main.js?v=20260526n"></script>
+        <script src="../shared/js/shop-config.js?v=20260526o"></script>
+        <script src="../purchase-orders/js/lib/tpos-search.js?v=20260526o"></script>
+        <script src="../purchase-orders/js/lib/barcode-label-dialog.js?v=20260526o"></script>
+        <script src="js/main.js?v=20260526o"></script>
     </body>
 </html>

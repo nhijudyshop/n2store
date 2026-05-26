@@ -1437,6 +1437,16 @@
             le: (a, b) => a <= b,
         };
 
+        // 3. Toolbar filter dropdowns (Tồn kho / Nhóm SP / Hiệu lực / Nhãn).
+        //    TPOS GetViewV2 ignores these server-side too, so honour them in JS.
+        const stockFilter = $('#filterStock')?.value || 'all';
+        const statusFilter = $('#filterStatus')?.value || 'all';
+        const groupDropdown =
+            $('#filterGroup')?.value && $('#filterGroup').value !== 'all'
+                ? $('#filterGroup').value.toLowerCase()
+                : '';
+        const tagFilter = $('#filterTag')?.value || 'all';
+
         return rows.filter((r) => {
             // Search query
             if (searchQuery) {
@@ -1475,14 +1485,50 @@
                     if (!cmp[f.op](n, f.value)) return false;
                 }
             }
+            // Toolbar dropdowns
+            if (stockFilter !== 'all') {
+                const qty = parseFloat(r.QtyAvailable) || 0;
+                if (stockFilter === 'in-stock' && qty <= 0) return false;
+                if (stockFilter === 'low-stock' && !(qty > 0 && qty <= 5)) return false;
+                if (stockFilter === 'out-of-stock' && qty > 0) return false;
+            }
+            if (statusFilter === 'active' && r.Active === false) return false;
+            if (statusFilter === 'inactive' && r.Active !== false) return false;
+            if (groupDropdown) {
+                if (!(r.CategCompleteName || '').toLowerCase().includes(groupDropdown))
+                    return false;
+            }
+            if (tagFilter && tagFilter !== 'all') {
+                const tags = Array.isArray(r.Tags) ? r.Tags : [];
+                // Tag values stored as IDs or names — match either
+                const found = tags.some((t) => {
+                    const tid = t?.Id !== undefined ? String(t.Id) : '';
+                    const tname = (t?.Name || '').toLowerCase();
+                    return tid === String(tagFilter) || tname === String(tagFilter).toLowerCase();
+                });
+                if (!found) return false;
+            }
             return true;
         });
     }
 
+    // Are any of the in-DOM filter UIs holding a value? Used to decide whether
+    // to route to the client-side filter path (cache must be warm).
     function hasActiveColumnFilters() {
-        return Array.from(document.querySelectorAll('.th-filter-input')).some(
+        const headerInputs = Array.from(document.querySelectorAll('.th-filter-input')).some(
             (i) => (i.value || '').trim() !== ''
         );
+        if (headerInputs) return true;
+        const toolbarFilters = [
+            ['#filterStock', 'all'],
+            ['#filterGroup', 'all'],
+            ['#filterStatus', 'all'],
+            ['#filterTag', 'all'],
+        ];
+        return toolbarFilters.some(([sel, defVal]) => {
+            const el = document.querySelector(sel);
+            return el && el.value && el.value !== defVal;
+        });
     }
 
     async function fetchInactiveTemplates(silent = false) {
@@ -2161,19 +2207,15 @@
             }
         });
 
-        // Filters — reset to page 1 and re-fetch
-        $('#filterStock')?.addEventListener('change', () => {
+        // Filters — reset to page 1 and re-fetch. Silent=true keeps the loading
+        // spinner from flashing when cache is warm (client-side filter is instant).
+        const onToolbarFilterChange = () => {
             currentPage = 1;
-            fetchProducts();
-        });
-        $('#filterStatus')?.addEventListener('change', () => {
-            currentPage = 1;
-            fetchProducts();
-        });
-        $('#filterGroup')?.addEventListener('change', () => {
-            currentPage = 1;
-            fetchProducts();
-        });
+            fetchProducts(true);
+        };
+        $('#filterStock')?.addEventListener('change', onToolbarFilterChange);
+        $('#filterStatus')?.addEventListener('change', onToolbarFilterChange);
+        $('#filterGroup')?.addEventListener('change', onToolbarFilterChange);
         // Lazy-load category list on first focus (mirrors filterTag pattern)
         $('#filterGroup')?.addEventListener('focus', () => populateGroupFilter(), { once: true });
         $('#filterGroup')?.addEventListener('mousedown', () => populateGroupFilter(), {
@@ -2492,7 +2534,7 @@
         );
         $('#filterTag')?.addEventListener('change', () => {
             currentPage = 1;
-            fetchProducts();
+            fetchProducts(true);
         });
 
         // --- P2/P3 features ---

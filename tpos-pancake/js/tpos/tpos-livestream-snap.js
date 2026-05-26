@@ -1544,6 +1544,84 @@ Throttle 30s/KH.`;
         setTimeout(() => goBtn.focus(), 50);
     }
 
+    // Mandatory streamId modal — Option B (user feedback 2026-05-26):
+    // Tab inactive capture cần Path 1 stream-based. Chrome MV3 yêu cầu
+    // extension invocation (click icon) để getMediaStreamId hoạt động — page
+    // click không count. Modal hiện khi:
+    //   - Extension ready (v1.0.13+)
+    //   - Chưa có captureStream (chưa có session)
+    //   - Có active live campaign
+    // Modal có 1 nút "Đã hiểu" (chỉ acknowledge). User click icon N2Store
+    // trên thanh extension → popup grab streamId → modal auto-close.
+    // Escape KHÔNG dismiss được — bắt buộc.
+    function _showStreamIdRequiredModal() {
+        if (STATE.captureStream) return; // đã có session
+        if (document.getElementById('tpos-snap-streamid-modal')) return;
+        const overlay = document.createElement('div');
+        overlay.id = 'tpos-snap-streamid-modal';
+        overlay.style.cssText =
+            'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.78);display:flex;align-items:center;justify-content:center;padding:24px;font-family:Inter,system-ui,sans-serif;backdrop-filter:blur(6px);';
+        overlay.innerHTML = `
+            <div style="background:#fff;border-radius:16px;padding:32px 36px;max-width:480px;width:100%;box-shadow:0 32px 80px rgba(0,0,0,0.45);">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                    <span style="font-size:36px;">🎬</span>
+                    <h3 style="margin:0;font-size:18px;font-weight:800;color:#0f172a;">Bật capture livestream</h3>
+                </div>
+                <p style="margin:0 0 18px;font-size:14px;color:#475569;line-height:1.6;">
+                    Để chụp được kể cả khi anh switch sang tab khác,
+                    click icon <strong>N2Store</strong> trên thanh extension Chrome
+                    (góc trên-phải URL bar).<br><br>
+                    Chrome yêu cầu thao tác này <strong>1 lần / session</strong>.
+                </p>
+                <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:14px 16px;margin-bottom:20px;display:flex;gap:12px;align-items:center;">
+                    <span style="font-size:28px;line-height:1;">👉</span>
+                    <span style="font-size:13px;color:#0c4a6e;line-height:1.5;font-weight:600;">
+                        Click icon <strong>N2Store</strong> trên thanh extension (góc trên-phải Chrome)
+                    </span>
+                </div>
+                <button type="button" id="tpos-snap-streamid-ack" autofocus style="width:100%;padding:14px 18px;background:linear-gradient(135deg,#0284c7,#0369a1);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 6px 16px rgba(2,132,199,0.35);">
+                    Đã hiểu — Tôi sẽ click icon N2Store
+                </button>
+                <div id="tpos-snap-streamid-status" style="margin-top:14px;font-size:12px;color:#64748b;line-height:1.5;min-height:18px;text-align:center;">
+                    Đang chờ stream...
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+        const status = overlay.querySelector('#tpos-snap-streamid-status');
+        const ackBtn = overlay.querySelector('#tpos-snap-streamid-ack');
+        ackBtn.onclick = () => {
+            ackBtn.disabled = true;
+            ackBtn.style.opacity = '0.65';
+            ackBtn.textContent = '⏳ Đang chờ stream...';
+            status.style.color = '#0c4a6e';
+            status.textContent =
+                '⏳ Hãy click icon N2Store trên thanh extension Chrome ngay bây giờ.';
+        };
+        // Stream arrival → auto-close
+        const onStreamId = (e) => {
+            if (e.source !== window) return;
+            if (e.data?.type !== 'N2_TAB_STREAM_ID') return;
+            status.style.color = '#15803d';
+            status.textContent = '✅ Stream đã kết nối — đóng modal...';
+            window.removeEventListener('message', onStreamId);
+            setTimeout(() => overlay.remove(), 700);
+        };
+        window.addEventListener('message', onStreamId);
+        // Block Escape — modal mandatory
+        const onKey = (e) => {
+            if (!document.getElementById('tpos-snap-streamid-modal')) {
+                document.removeEventListener('keydown', onKey, true);
+                return;
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        };
+        document.addEventListener('keydown', onKey, true);
+        setTimeout(() => ackBtn.focus(), 50);
+    }
+
     // Banner install/update extension. Hiện khi detect live nhưng extension
     // KHÔNG có (5s không nhận EXTENSION_LOADED) hoặc version cũ.
     //
@@ -1609,6 +1687,15 @@ Throttle 30s/KH.`;
                 if (STATE.extOutdated) _showExtPrompt('outdated');
                 else if (!STATE.extVersion) _showExtPrompt('missing');
             }
+            return;
+        }
+
+        // Option B (user feedback 2026-05-26): chưa có streamId session →
+        // show modal mandatory bắt user click icon N2Store. Modal auto-close
+        // khi N2_TAB_STREAM_ID arrive. KHÔNG fallback sang captureVisibleTab
+        // path (Path 2) vì user muốn tab inactive cũng chụp được.
+        if (!STATE.captureStream) {
+            _showStreamIdRequiredModal();
             return;
         }
 
