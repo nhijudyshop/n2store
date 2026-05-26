@@ -2087,16 +2087,29 @@
         //   - Last-input guard: if value changed since debounce fired, skip
         const searchInput = $('#searchInput');
         if (searchInput) {
+            // Eagerly warm the template cache the moment user focuses search.
+            // First-focus fires once; if cache already present, no-op.
+            searchInput.addEventListener(
+                'focus',
+                () => {
+                    if (!_allTemplatesCache) {
+                        // Fire and forget — the user's keystrokes will pick up the
+                        // cache as soon as it arrives. While loading we fall through
+                        // to the server-side debounced search.
+                        fetchAllTemplatesRaw().catch(() => {});
+                    }
+                },
+                { once: true }
+            );
+
             searchInput.addEventListener('input', (e) => {
                 const searchText = e.target.value.trim();
 
-                // Suggestions dropdown (optional UX)
+                // Suggestions dropdown (optional UX, decoupled from main render)
                 if (searchText.length >= 2) {
-                    // Suggestion fetch uses its own short debounce + lower priority
                     if (_suggestionTimer) clearTimeout(_suggestionTimer);
                     _suggestionTimer = setTimeout(async () => {
                         const results = await searchProductsSuggestion(searchText);
-                        // Only display if input hasn't changed and is still focused
                         if (
                             document.activeElement === searchInput &&
                             searchInput.value.trim() === searchText
@@ -2108,14 +2121,25 @@
                     hideSuggestions();
                 }
 
-                // Live table refresh — debounced 350ms
+                // Cancel any pending server-side search
                 if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
+
+                // FAST PATH: cache is warm → render INSTANTLY client-side.
+                // No debounce needed because the work is just an in-memory filter +
+                // template re-render (~5-20ms on 3700 rows).
+                if (_allTemplatesCache && viewType === 'template') {
+                    currentPage = 1;
+                    renderFromCacheBySearch();
+                    return;
+                }
+
+                // SLOW PATH (cache not yet warm): debounced server fetch fallback.
+                // Once the prefetch finishes the next keystroke will hit the fast path.
                 _searchDebounceTimer = setTimeout(() => {
-                    // Last-input guard: skip if value drifted again (rapid typing)
                     if (searchInput.value.trim() !== searchText) return;
                     currentPage = 1;
-                    fetchProducts(true); // silent=true → no full-loading flicker
-                }, 350);
+                    fetchProducts(true);
+                }, 250);
             });
 
             // Enter key: still works, but now just commits whatever's in flight
@@ -2700,6 +2724,48 @@
         } else {
             setTimeout(fire, 1500);
         }
+    }
+
+    // Background prefetch — full template list so search becomes instant client-side.
+    // Same pattern as scheduleDropdownPrefetch but for ~3700 template rows. The cost
+    // (~10s of background API calls) is paid once, then every keystroke is 5-20ms.
+    function scheduleTemplateCachePrefetch() {
+        const fire = () => {
+            if (_allTemplatesCache) return; // already warm
+            fetchAllTemplatesRaw().catch((err) => {
+                console.warn(
+                    '[Prefetch] template cache failed (search falls back to server):',
+                    err
+                );
+            });
+        };
+        if (typeof window.requestIdleCallback === 'function') {
+            // Lower priority than dropdown prefetch (timeout 6s vs 3s) so it kicks
+            // in after the more user-visible modal data is ready.
+            window.requestIdleCallback(fire, { timeout: 6000 });
+        } else {
+            setTimeout(fire, 3000);
+        }
+    }
+
+    // Render search results purely from the cached template list — no network call.
+    // Used when search runs while _allTemplatesCache is warm. Cost: ~3700-row filter
+    // + 50-row template render ≈ 5-20ms, perceived instant.
+    function renderFromCacheBySearch() {
+        if (!_allTemplatesCache) return;
+        const all = _allTemplatesCache.data;
+        const activeOnly =
+            viewType === 'inactive'
+                ? all.filter((r) => r.Active === false)
+                : all.filter((r) => r.Active !== false);
+        const filtered = applyClientFilters(activeOnly);
+        totalCount = filtered.length;
+        const start = (currentPage - 1) * pageSize;
+        pageProducts = filtered.slice(start, start + pageSize).map(mapTposRow);
+        if (viewType === 'inactive') inactiveTotalCount = totalCount;
+        else templateTotalCount = activeOnly.length;
+        render();
+        lazyLoadImages();
     }
 
     function populateSelect(selectId, items, valueField, textField, selectedValue) {
@@ -5399,6 +5465,10 @@
         // open feels instant. Cache hits → modal populate takes <50ms instead of
         // 1-3s waiting on 3 OData calls.
         scheduleDropdownPrefetch();
+        // Warm the full template list cache so live search becomes instant
+        // (no network roundtrip per keystroke). Lower-priority idle callback,
+        // user can still search via the server-side fallback while cache loads.
+        scheduleTemplateCachePrefetch();
 
         // SSE real-time: auto-refresh when TPOS products change
         sseCtrl = WS.setupSSE({

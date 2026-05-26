@@ -1766,7 +1766,8 @@ Throttle 30s/KH.`;
         //   2. extension captureVisibleTab → tab-only crop. Chỉ work khi tab
         //      focused. Fallback nếu user chưa click extension icon.
         const tick = async () => {
-            // Path 1 — stream-based (Option B preferred OR legacy getDisplayMedia)
+            // Path 1 — stream-based (Option B: extension streamId OR legacy getDisplayMedia)
+            // Best: work khi tab inactive, no Chrome rate-limit.
             if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
                 try {
                     const jpegBase64 = await _captureFrameJpeg(0.72, 1280);
@@ -1780,11 +1781,26 @@ Throttle 30s/KH.`;
                 }
                 return;
             }
-            // Path 2 (DEPRECATED — bỏ): captureVisibleTab cần activeTab/all_urls
-            // permission, log spam mỗi 5s khi user chưa Ctrl+Shift+S. Stream
-            // mode (Path 1) là path duy nhất reliable giờ.
-            // Silent skip khi chưa có stream → buffer empty cho đến khi user
-            // grant streamId (Ctrl+Shift+S hoặc click icon N2Store).
+            // Path 2 — extension captureVisibleTab. Reactivated 2026-05-26:
+            // manifest extension thêm <all_urls> host_permissions → chrome.tabs
+            // .captureVisibleTab work silent KHÔNG cần user click extension icon.
+            // Limitation: chỉ work khi tab focused. Tab inactive → silent skip
+            // (chrome rate-limit ~2/sec OK với 5s interval).
+            if (STATE.extReady) {
+                try {
+                    const jpegBase64 = await _captureExtensionFrame(80);
+                    if (!jpegBase64) return;
+                    STATE.frameBuffer.push({ capturedAt: Date.now(), jpegBase64 });
+                    if (STATE.frameBuffer.length > FRAME_BUFFER_MAX) {
+                        STATE.frameBuffer.splice(0, STATE.frameBuffer.length - FRAME_BUFFER_MAX);
+                    }
+                } catch (e) {
+                    // Silent: tab unfocused / chrome reject. Don't spam log.
+                    if (!/activeTab|all_urls|permission|invoked/i.test(e.message)) {
+                        console.warn('[snap-buffer-ext] tick fail:', e.message);
+                    }
+                }
+            }
         };
         // Capture 1 frame ngay khi start, sau đó interval.
         tick();
