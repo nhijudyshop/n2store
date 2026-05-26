@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d076b6a` — fix(web2/customer-wallet): icons in .btn-secondary buttons oversized (14px)
-**Last updated**: 2026-05-26 12:08:39 +07
-**Latest session**: [`RESUME:20260526-120839-d076b6a`](../20260526-120839-d076b6a.md)
-**Summary**: fix(web2/customer-wallet): icons in .btn-secondary buttons oversized (14px)
+**Latest commit**: `ec6c671` — fix(delivery-report/report): default range = Thang nay + hover note show full text
+**Last updated**: 2026-05-26 12:46:38 +07
+**Latest session**: [`RESUME:20260526-124638-ec6c671`](../20260526-124638-ec6c671.md)
+**Summary**: fix(delivery-report/report): default range = Thang nay + hover note show full text
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 2 file(s)
+- [`delivery-report/`](./delivery-report.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -23,8 +25,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 11:30
-- [`docs/`](./docs.md) — updated 2026-05-26 11:21
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 12:46
+- [`docs/`](./docs.md) — updated 2026-05-26 12:46
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -51,7 +53,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-26 11:21
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-26 10:37
+- [`scripts/`](./scripts.md) — updated 2026-05-26 12:46
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-26 10:23
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
