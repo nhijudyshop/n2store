@@ -25,6 +25,46 @@
 
 ## 2026-05-26
 
+### [tpos-pancake] Force extract → 3-step guaranteed thumbnail (backfill + extract + cache refresh) ✅
+
+**User ask**: "sao force extract không lấy được hết thumnbnail comment? -> có comment là chắc chắn có snap shot và thumbnail"
+
+**Root cause analysis** (`tpos-livestream-snap.js`):
+
+3 lý do thumbnail bị missing sau Force extract:
+
+1. **Comment chưa có snap row trong DB**: Comment đến trước khi auto-snap chạy (vd page mới mở, comment cũ trước khi feature enable). `extract-all-pending` chỉ select rows tồn tại với `image_data IS NULL AND offset_seconds IS NOT NULL` → bỏ qua comments không có row.
+
+2. **Frontend cache stale `null`**: `STATE.snapByComment` cache entry `null` cho commentId không có bytea. `_queueSnapByComment` có guard `if (STATE.snapByComment.has(cid)) return` → không re-fetch khi backend đã fill bytea.
+
+3. **Step 1+2 không tự động chain**: Force extract chỉ xử lý step 2, không backfill metadata step 1, không refresh cache step 3.
+
+**Fix** — Force extract chip giờ chạy 3 bước:
+
+```
+[click] → Backfill metadata (offlineBatchAll, skipExisting:true)
+       → Queue extract-all-pending (filter live + page)
+       → Poll status (1s/lần, 10min timeout)
+       → Done → _invalidateSnapCacheAndRefresh()
+                  ↓ Wipe entries cho rows visible
+                  ↓ _queueSnapByComment(cid) cho từng row
+                  ↓ _flushSnapByCommentBatch fetch DB → render thumbnail
+```
+
+**Helper mới** `_invalidateSnapCacheAndRefresh()`:
+
+- Query `.tpos-conversation-item[data-comment-id]` visible
+- `STATE.snapByComment.delete(cid)` cho từng row → wipe stale null entries
+- `_queueSnapByComment(cid)` re-queue → debounce 300ms → batch fetch + render
+
+**Edge case**: Backfill có thể fail nếu không lấy được `broadcastStartMs` (TPOS livevideo API down). Wrap try-catch + log warn, vẫn tiếp tục extract-all-pending vì rows đã backfill từ auto-snap path có thể vẫn dùng được.
+
+**Cache bust**: `v=20260526o` → `v=20260526p`
+
+**Files**: tpos-pancake/js/tpos/tpos-livestream-snap.js, tpos-pancake/index.html
+
+---
+
 ### [delivery-report] Main page filter respect date shifts (ext range + client filter) ✅
 
 **User ask**: "ngày 29/04, 30/04 tôi chỉnh thành 02/05 cả 2 ngày thì filter search 02/05 ra dữ liệu 29/04, 30/04 ảo luôn đi"
