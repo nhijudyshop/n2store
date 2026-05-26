@@ -25,6 +25,47 @@
 
 ## 2026-05-26
 
+### [shared][supplier-debt] Fix bug search + tối ưu modal "Trả hàng NCC" (bulk-fetch + cache + client filter) ✅
+
+**User ask**: "bảng trả hàng -> tìm kiếm sản phẩm chưa được và lag -> browser test vào tomato.tpos.vn/refundform1 xem tất cả chức năng" + "thường web bật modal rất lag -> tìm cách khác tối ưu".
+
+**Investigation** (browser test qua persistent Playwright):
+
+- Bug: `ODataService.GetViewV2?$filter=contains(NameGet,'q12')` — TPOS server **silently ignores `$filter`** trên endpoint này. Response luôn trả `count=3579` + sản phẩm gốc → user gõ gì cũng không lọc.
+- TPOS native `refundform1` dùng pattern khác hẳn: `/api/v2/warehouse/inventorywithlastid` cursor-pagination cho stock, bulk preload product index, **filter client-side** → 0 network/keystroke.
+
+**Benchmark** (qua chatomni-proxy thật):
+
+| Strategy                                        | Time      | Items       | Size   |
+| ----------------------------------------------- | --------- | ----------- | ------ |
+| Cũ: GetViewV2 paginated 50                      | 824ms     | 50/3579     | 45 KB  |
+| Mới: plain `/ProductTemplate $select=tiny` bulk | **932ms** | **3579 đủ** | 1.1 MB |
+
+**Files**:
+
+- [shared/js/return-order-modal.js](shared/js/return-order-modal.js):
+    - Đổi endpoint `ODataService.GetViewV2` → plain `/odata/ProductTemplate?$filter=Active eq true&$top=5000&$select=Id,NameGet,Name,DefaultCode,Barcode,PurchasePrice,ListPrice,UOMName,UOMId,ImageUrl,Type,DateCreated` (load 1 lần).
+    - `S.allProducts` lưu full index, cache `sessionStorage` TTL 10 phút.
+    - `_applyFilterSort()`: filter/sort/paginate hoàn toàn client-side.
+    - `_normalizeVi()`: strip diacritics + lowercase → "dam"/"DAM"/"đầm"/"ĐẦM" match đúng "ĐẦM..." trong tên SP.
+    - Search debounce 400ms → 80ms (chỉ để gom keystrokes nhanh, không phải đợi network).
+    - Cache thêm suppliers + payment methods (TTL 30 phút).
+    - Stock không khả dụng từ `$select` (QtyAvailable/VirtualAvailable là computed nav, gây 500 server) → show `—` (italic xám) thay vì "0" gây hiểu nhầm.
+- [shared/css/return-order.css](shared/css/return-order.css): thêm `.stock-unknown` cho display "—".
+
+**Verified live (persistent browser)**:
+
+- Search `q12` → 11 SP đúng, `netCount=0`, instant
+- Search `B254` → 11 SP, `B2548` → 1 SP, `2605` → 14 SP, clear → 3581 SP page 1, tất cả `netCount=0`
+- Diacritic: `dam`/`DAM`/`DAm`/`dầm`/`đầm` → cùng 266 SP
+- Pagination page 2 → 0 network call
+- Modal re-open lần 2 (cache hit): **313ms / 0 network call** (vs ~3000ms ban đầu)
+- Supplier dropdown + add product (B2548) → order line OK, không break flow cũ
+
+Status: ✅ Done. Cache `sessionStorage` keys: `returnOrder_productIndex_v1`, `returnOrder_suppliers_v1`, `returnOrder_paymentMethods_v1`.
+
+---
+
 ### [render][web2] Tách SSE server riêng cho Web 2.0 — không chia chung với Web 1.0 ✅
 
 **User ask**: "kiểm lại sse realtime server web 2.0 -> hiện tại đang dùng chung web 1.0 -> tôi cần build riêng cho web 2.0". DB đã tách (`customer_wallets` vs `web2_customer_wallets`), giờ tách nốt SSE.
