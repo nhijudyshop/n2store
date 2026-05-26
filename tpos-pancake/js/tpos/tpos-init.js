@@ -5,6 +5,62 @@
  * Exposes TposColumnManager on window for backward compatibility
  */
 
+// Cache live videos per pageId (5 phút TTL). TPOS livevideo endpoint trả
+// list FB Live broadcasts gần đây cho page. Mỗi broadcast = 1 Facebook_PostId.
+// Cần cho việc resolve all post IDs thuộc 1 campaign (TPOS web "Bài live"
+// shows MULTIPLE post IDs per campaign — selecting campaign chỉ lấy 1 post
+// → missing comments của các post khác cùng campaign).
+const _liveVideosCachePerPage = new Map(); // pageId → { videos, fetchedAt }
+const LIVE_VIDEOS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function _fetchLiveVideosForPage(pageId) {
+    const cached = _liveVideosCachePerPage.get(pageId);
+    if (cached && Date.now() - cached.fetchedAt < LIVE_VIDEOS_CACHE_TTL_MS) {
+        return cached.videos;
+    }
+    const state = window.TposState;
+    if (!state?.proxyBaseUrl || !window.TposApi?.authenticatedFetch) return [];
+    try {
+        const r = await window.TposApi.authenticatedFetch(
+            `${state.proxyBaseUrl}/facebook/livevideo?pageid=${encodeURIComponent(pageId)}&limit=50`
+        );
+        if (!r.ok) return [];
+        const json = await r.json();
+        const raw = json?.data?.data || [];
+        const videos = raw.map((v) => ({
+            objectId: v.objectId, // Facebook_PostId = pageId_videoId
+            title: v.title || '',
+            startMs: v.channelCreatedTime ? new Date(v.channelCreatedTime).getTime() : null,
+            statusLive: v.statusLive,
+            countComment: v.countComment || 0,
+        }));
+        _liveVideosCachePerPage.set(pageId, { videos, fetchedAt: Date.now() });
+        return videos;
+    } catch (e) {
+        console.warn('[TPOS-INIT] fetchLiveVideosForPage fail:', pageId, e.message);
+        return [];
+    }
+}
+
+// Resolve all Facebook_PostIds thuộc 1 campaign. Logic: campaign reuses cho
+// các live tạo sau DateCreated, until next campaign created on same page.
+// Lives match: startMs ∈ [campaign.DateCreated, nextCampaignOfPage.DateCreated).
+function _resolveCampaignLivePosts(campaign, allCampaigns, liveVideos) {
+    if (!campaign?.Facebook_UserId) return [];
+    const pageCamps = allCampaigns
+        .filter((c) => c.Facebook_UserId === campaign.Facebook_UserId)
+        .map((c) => ({ ...c, _ts: new Date(c.DateCreated || 0).getTime() }))
+        .filter((c) => Number.isFinite(c._ts))
+        .sort((a, b) => a._ts - b._ts);
+    const campIdx = pageCamps.findIndex((c) => c.Id === campaign.Id);
+    if (campIdx === -1) return [];
+    const startMs = pageCamps[campIdx]._ts;
+    const endMs = campIdx < pageCamps.length - 1 ? pageCamps[campIdx + 1]._ts : Infinity;
+    return liveVideos.filter(
+        (lv) => Number.isFinite(lv.startMs) && lv.startMs >= startMs && lv.startMs < endMs
+    );
+}
+
 const TposColumnManager = {
     /**
      * Initialize the TPOS column
@@ -249,36 +305,74 @@ const TposColumnManager = {
                 .map((id) => state.liveCampaigns.find((c) => c.Id === id))
                 .filter(Boolean);
 
-            // Load comments from all selected campaigns in parallel
+            // Prefetch live videos per page (dedupe). Mỗi campaign có thể link
+            // tới NHIỀU Facebook_PostId — TPOS web "Bài live" show 1 row/post.
+            // User feedback 2026-05-26: "chọn theo campaign nó bị thiếu không
+            // đủ" → resolve all post IDs in campaign date range.
+            const uniquePageIds = Array.from(new Set(campaigns.map((c) => c.Facebook_UserId)));
+            const pageLiveVideosMap = new Map();
+            await Promise.all(
+                uniquePageIds.map(async (pid) => {
+                    pageLiveVideosMap.set(pid, await _fetchLiveVideosForPage(pid));
+                })
+            );
+
+            // Load comments from all selected campaigns × all their posts (parallel)
             const results = await Promise.all(
                 campaigns.map(async (campaign) => {
                     const pageId = campaign.Facebook_UserId;
-                    const postId = campaign.Facebook_LiveId;
                     const pageName = campaign.Facebook_UserName || '';
-
-                    // Find the matching page object
                     const page =
                         state.allPages.find((p) => p.Facebook_PageId === pageId) ||
                         state.selectedPage;
-
-                    try {
-                        const result = await window.TposApi.loadComments(pageId, postId);
-                        // Tag each comment with page name and campaign info
-                        (result.comments || []).forEach((c) => {
-                            c._pageName = pageName;
-                            c._campaignId = campaign.Id;
-                            c._campaignName = campaign.Name;
-                            c._pageId = pageId;
-                            c._pageObj = page;
-                        });
-                        return result.comments || [];
-                    } catch (error) {
-                        console.warn(
-                            `[TPOS-INIT] Error loading comments for ${campaign.Name}:`,
-                            error
-                        );
-                        return [];
+                    const pageLiveVideos = pageLiveVideosMap.get(pageId) || [];
+                    let livePosts = _resolveCampaignLivePosts(
+                        campaign,
+                        state.liveCampaigns,
+                        pageLiveVideos
+                    );
+                    // Fallback: campaign chưa có post (TPOS livevideo empty) hoặc
+                    // resolve fail → dùng campaign.Facebook_LiveId làm post duy nhất.
+                    if (livePosts.length === 0 && campaign.Facebook_LiveId) {
+                        livePosts = [
+                            {
+                                objectId: campaign.Facebook_LiveId,
+                                title: campaign.Name,
+                                startMs: new Date(campaign.DateCreated || 0).getTime(),
+                            },
+                        ];
                     }
+                    console.log(
+                        `[TPOS-INIT] Campaign "${campaign.Name}" → ${livePosts.length} live posts`
+                    );
+                    // Load comments từ TỪNG post in parallel + merge
+                    const postResults = await Promise.all(
+                        livePosts.map(async (lp) => {
+                            try {
+                                const result = await window.TposApi.loadComments(
+                                    pageId,
+                                    lp.objectId
+                                );
+                                (result.comments || []).forEach((c) => {
+                                    c._pageName = pageName;
+                                    c._campaignId = campaign.Id;
+                                    c._campaignName = campaign.Name;
+                                    c._pageId = pageId;
+                                    c._pageObj = page;
+                                    c._postId = lp.objectId;
+                                    c._postTitle = lp.title;
+                                });
+                                return result.comments || [];
+                            } catch (error) {
+                                console.warn(
+                                    `[TPOS-INIT] Error loading comments for post ${lp.objectId}:`,
+                                    error
+                                );
+                                return [];
+                            }
+                        })
+                    );
+                    return postResults.flat();
                 })
             );
 
@@ -307,13 +401,24 @@ const TposColumnManager = {
             );
             window.TposCommentList.renderComments();
 
-            // Start SSE for each campaign
+            // Start SSE for EVERY live post in every campaign. TPOS SSE
+            // stream gắn vào postId — 1 campaign nhiều post → cần SSE đa kênh
+            // để không miss realtime comments của các post phụ.
             campaigns.forEach((c) => {
-                window.TposRealtime.startSSE(
-                    c.Facebook_UserId,
-                    c.Facebook_LiveId,
-                    c.Facebook_UserName
-                );
+                const pageLiveVideos = pageLiveVideosMap.get(c.Facebook_UserId) || [];
+                const livePosts = _resolveCampaignLivePosts(c, state.liveCampaigns, pageLiveVideos);
+                // Active (statusLive=1) hoặc just-ended — cần SSE chính. Old
+                // VOD posts (statusLive=0, đã end lâu) thường không nhận
+                // comment mới → vẫn subscribe vì FB cho phép comment vào VOD.
+                const postIdsToWatch =
+                    livePosts.length > 0
+                        ? livePosts.map((lp) => lp.objectId)
+                        : c.Facebook_LiveId
+                          ? [c.Facebook_LiveId]
+                          : [];
+                postIdsToWatch.forEach((postId) => {
+                    window.TposRealtime.startSSE(c.Facebook_UserId, postId, c.Facebook_UserName);
+                });
             });
 
             // Load session index for all campaigns

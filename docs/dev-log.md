@@ -25,6 +25,41 @@
 
 ## 2026-05-26
 
+### [tpos-pancake] Campaign select giờ aggregate ALL Facebook_PostIds (TPOS "Bài live" parity) ✅
+
+**User ask**: "danh sách bài live nè -> bạn chọn theo campaign nó bị thiếu không đủ -> hiện tại đã chính xác nhưng không đủ"
+
+**Root cause**:
+
+1 campaign TPOS (vd `HOUSE 25/05/2026`) thường link nhiều `Facebook_PostId` (mỗi lần phát live mới = 1 post mới, nhưng vẫn map về campaign đang active cho page). TPOS web `/saleOnline/facebook/post` show LIST `Bài live` — mỗi row 1 `Facebook_PostId`. Code cũ chỉ lấy `campaign.Facebook_LiveId` (1 post DUY NHẤT) → comment các post còn lại của campaign bị miss.
+
+**Verified qua TPOS API** `/api/facebook-graph/livevideo?pageid=X`:
+
+- Page HOUSE có 4 lives: 26/05 18:18, 26/05 13:11, 26/05 09:53, 24/05 13:27
+- 3 lives đầu (≥ 25/05 17:52 = HOUSE 25/05/2026 DateCreated) thuộc campaign HOUSE 25/05/2026
+- Live 24/05 thuộc campaign HOUSE 22/05/2026 (date < HOUSE 25/05 DateCreated)
+- `campaign.Facebook_LiveId` chỉ trỏ tới live mới nhất (4438027239853150) → 3 lives khác bị miss
+
+**Fix** (`tpos-pancake/js/tpos/tpos-init.js`):
+
+1. **`_fetchLiveVideosForPage(pageId)` mới**: gọi `/facebook/livevideo?pageid=X&limit=50` (endpoint đã có). Cache 5 phút per page. Return list `{objectId, title, startMs, statusLive, countComment}`.
+
+2. **`_resolveCampaignLivePosts(campaign, allCampaigns, liveVideos)` mới**: với campaign X, return livevideos thoả mãn `startMs ∈ [campaign.DateCreated, nextCampaignOnSamePage.DateCreated)`. Logic dựa trên TPOS behavior: live tạo sau DateCreated của campaign hiện tại (và trước campaign tiếp theo của cùng page) thuộc về campaign đó.
+
+3. **`onMultiCampaignChange` update**:
+    - Prefetch live videos per page (dedupe) trước khi load
+    - Cho mỗi campaign → resolve all post IDs → load comments từ TỪNG post in parallel
+    - Tag comments với `_postId` + `_postTitle` ngoài campaign tags
+    - Fallback: nếu livevideo empty / resolve fail → fallback campaign.Facebook_LiveId (giữ behavior cũ)
+
+4. **SSE multi-post**: subscribe SSE cho TỪNG post ID thay vì 1 (TposRealtime đã support multi-connection sẵn). Mỗi post stream comments riêng → realtime đầy đủ.
+
+**Cache bust**: `tpos-init.js?v=20260526o` → `v=20260526s`
+
+**Files**: tpos-pancake/js/tpos/tpos-init.js, tpos-pancake/index.html
+
+---
+
 ### [delivery-report] Hiển thị thumbnail ảnh trên aggregate row nếu children có ảnh ✅
 
 **User ask**: "hiển thị hình ảnh cho ngày hiển thị nếu children có ảnh"
