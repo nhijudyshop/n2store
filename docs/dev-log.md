@@ -25,6 +25,29 @@
 
 ## 2026-05-26
 
+### [tpos-pancake] Option B mandatory streamId modal — tab inactive capture ✅
+
+**User ask**: "Option B và check chưa có session thì hỏi, có rồi thì đừng hỏi -> chỉ có 1 nút xác nhận để bắt buộc"
+
+**Why**: `chrome.tabs.captureVisibleTab` chỉ chụp được tab focused. Tab inactive cần Path 1 stream-based qua `chrome.tabCapture.getMediaStreamId` — Chrome MV3 yêu cầu extension invocation (click icon N2Store) chứ KHÔNG cho page click trigger.
+
+**Fix** (`tpos-pancake/js/tpos/tpos-livestream-snap.js`):
+
+1. New `_showStreamIdRequiredModal()` — modal mandatory với 1 nút "Đã hiểu", Escape không dismiss. Auto-close khi nhận `N2_TAB_STREAM_ID`. Hint click icon N2Store trên thanh extension Chrome.
+2. `_maybeShowAutoSnapBanner` mới: nếu `extReady && !captureStream` → show modal (thay vì fallback captureVisibleTab path). Có `captureStream` → skip modal, chạy normal flow.
+3. `_initStreamFromExtensionStreamId`: gọi `_ensureEmbeddedIframe(camp)` trước khi `_startFrameBuffer()` để wrapper tồn tại cho capture crop region. Remove modal sau khi wire xong.
+4. Cache bust `v=20260526k` → `v=20260526l`.
+
+**Flow**:
+
+- Vào trang có live → 1500ms wait probe extension → ext ready + no stream → modal lock UI
+- User click icon N2Store (Chrome toolbar, outside page DOM) → popup `getMediaStreamId` → `N2_TAB_STREAM_ID` → page tạo MediaStream → captureStream set → modal auto-close
+- Sau đó tab inactive vẫn capture được forever cho đến khi stream end / page reload
+
+**Files**: tpos-pancake/js/tpos/tpos-livestream-snap.js, tpos-pancake/index.html
+
+---
+
 ### [delivery-report/report] Admin gating mở rộng: gộp + chỉnh ngày → ẩn cho non-admin ✅
 
 **User ask**: "gộp và chỉnh ngày hiển thị (dời sang ngày khác) → cho các account không phải tương tác luôn"

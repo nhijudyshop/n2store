@@ -257,13 +257,26 @@
                 _showExtPrompt('missing');
             });
         });
+        // Ensure iframe wrapper exists trước khi start frame buffer
+        // (_captureExtensionFrame và _captureFrameJpeg đều query wrapper rect
+        // để crop). Nếu user vào trang khi đã có campaign active, modal sẽ
+        // hiện → click N2Store → streamId arrive → đây chính là điểm cần
+        // tạo iframe.
+        const camp = _findActiveLiveCampaign();
+        if (camp?.Facebook_LiveId) {
+            try {
+                await _ensureEmbeddedIframe(camp);
+            } catch (e) {
+                console.warn('[snap-ext] ensureIframe fail:', e?.message);
+            }
+        }
         // Khởi động frame buffer (giờ dùng _captureFrameJpeg, không phải
         // _captureExtensionFrame). Stream-based capture không bị Chrome
         // rate-limit, work khi tab inactive.
         _startFrameBuffer();
         renderRealSnapChip();
         renderAutoModeChip();
-        _toast('✅ Stream extension OK — tab inactive vẫn capture', 'ok');
+        _toast('✅ Stream OK — tab inactive vẫn capture', 'ok');
         STATE.extStreamActive = true;
         // Set consent flag → subsequent page loads skip mandatory modal,
         // dùng silent auto-grab qua content script's click listener.
@@ -271,6 +284,7 @@
         // Remove any open modal/reminder (đã wire xong)
         document.getElementById('tpos-snap-stream-modal')?.remove();
         document.getElementById('tpos-snap-stream-reminder')?.remove();
+        document.getElementById('tpos-snap-streamid-modal')?.remove();
     }
 
     // Reminder banner (non-blocking) — show khi consent đã có nhưng stream
