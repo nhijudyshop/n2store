@@ -861,33 +861,42 @@
             return [];
         }
 
-        // 2. Fetch TPOS live for those Numbers (best-effort — fail soft)
+        // 2. Fetch TPOS live for the date (cùng pattern main page dùng: filter
+        // theo DateInvoice, không filter Number — tránh URL quá dài / Number filter
+        // encoding issue với "/" trong NJD/2026/XXX). Sau đó intersect Numbers
+        // client-side qua targetSet.
+        const targetSet = new Set(targetNumbers);
         const liveMap = new Map();
         if (workerUrl && getToken) {
             try {
                 const token = await getToken();
                 if (token) {
-                    // Chunked filter để URL không quá dài (mỗi chunk ≤ 50 Numbers)
-                    const chunks = [];
-                    for (let i = 0; i < targetNumbers.length; i += 50) {
-                        chunks.push(targetNumbers.slice(i, i + 50));
-                    }
-                    for (const chunk of chunks) {
-                        const filter = chunk.map((n) => `Number eq '${n}'`).join(' or ');
-                        const url = `${workerUrl}/api/odata/Report/DeliveryReport?$top=1000&$filter=${encodeURIComponent(filter)}`;
-                        const resp = await fetch(url, {
-                            headers: {
-                                Authorization: `Bearer ${token}`,
-                                Accept: 'application/json',
-                                tposappversion: window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1',
-                            },
-                        });
-                        if (resp.ok) {
-                            const j = await resp.json();
-                            for (const it of j.value || []) {
-                                liveMap.set(it.Number, it);
-                            }
+                    const fromIso = new Date(date + 'T00:00:00').toISOString();
+                    const toEnd = new Date(date + 'T00:00:00');
+                    toEnd.setHours(23, 59, 59, 999);
+                    const toIso = toEnd.toISOString();
+                    const params = new URLSearchParams({
+                        FromDate: fromIso,
+                        ToDate: toIso,
+                        $top: '10000',
+                    });
+                    const url = `${workerUrl}/api/odata/Report/DeliveryReport?${params.toString()}`;
+                    const resp = await fetch(url, {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            Accept: 'application/json',
+                            tposappversion: window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1',
+                        },
+                    });
+                    if (resp.ok) {
+                        const j = await resp.json();
+                        for (const it of j.value || []) {
+                            if (targetSet.has(it.Number)) liveMap.set(it.Number, it);
                         }
+                    } else {
+                        console.warn(
+                            `[report] TPOS live fetch HTTP ${resp.status} for expand ${date}`
+                        );
                     }
                 }
             } catch (e) {
