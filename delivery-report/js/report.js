@@ -613,9 +613,27 @@
             b.addEventListener('click', () => {
                 if (state.activeTab === t.key) return;
                 state.activeTab = t.key;
+                state.selectedDates.clear(); // selection theo group, đổi tab → reset
                 render();
             });
             tabsEl.appendChild(b);
+        });
+
+        // Selection bar: floating bar dưới modal, hiện khi có ngày được chọn
+        const selBar = document.createElement('div');
+        selBar.id = 'drReportSelectionBar';
+        selBar.className = 'dr-selection-bar';
+        selBar.innerHTML = `
+            <span class="dr-selection-count" id="drSelCount">0 ngày được chọn</span>
+            <span class="dr-selection-hint" id="drSelHint"></span>
+            <button class="dr-selection-btn dr-selection-btn-primary" id="drSelMergeBtn" disabled>Gộp</button>
+            <button class="dr-selection-btn" id="drSelClearBtn">Hủy chọn</button>
+        `;
+        document.getElementById('drReportModal').appendChild(selBar);
+        document.getElementById('drSelMergeBtn').addEventListener('click', onMergeClick);
+        document.getElementById('drSelClearBtn').addEventListener('click', () => {
+            state.selectedDates.clear();
+            scheduleRender();
         });
 
         // One-time event delegation on tbody
@@ -767,61 +785,162 @@
             totalLeft: 0,
         };
 
-        const rows = dates.map((d) => {
+        function computeDayAuto(d) {
             const sys = map[d] || { sysCount: 0, money: 0 };
-            const ov = getOverride(d, state.activeTab);
             const slDon = sys.sysCount;
             const money = sys.money;
             const shipFee = slDon * SHIP_FEE_PER_ORDER;
+            return { slDon, money, shipFee };
+        }
+
+        function renderSingleRow(d, isChild) {
+            const { slDon, money, shipFee } = computeDayAuto(d);
+            const ov = getOverride(d, state.activeTab);
             const slShip = Number(ov.slShip) || 0;
             const thuVe = Number(ov.thuVe) || 0;
-            // TỔNG TẤT CẢ = TIỀN − PHÍ SHIP − (SL ĐƠN SHIP × 23k) + THU VỀ
             const totalAll = money - shipFee - slShip * SHIP_FEE_PER_ORDER + thuVe;
             const boCK = Number(ov.boCK) || 0;
             const atruongCK = Number(ov.atruongCK) || 0;
             const ckTruoc = Number(ov.ckTruoc) || 0;
             const approved = !!ov.approved;
-            // Duyệt → TỔNG CÒN LẠI hiển thị 0đ + row mờ. Vẫn cộng totals theo
-            // giá trị thực, KHÔNG ép tổng = 0 (đơn duyệt = đã thanh toán đối,
-            // tổng cộng dồn của ngày vẫn phản ánh số gốc cho audit).
             const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
             const totalLeftDisplay = approved ? 0 : totalLeftRaw;
             const note = ov.note || '';
-
-            totals.slDon += slDon;
-            totals.money += money;
-            totals.shipFee += shipFee;
-            totals.slShip += slShip;
-            totals.thuVe += thuVe;
-            totals.totalAll += totalAll;
-            totals.boCK += boCK;
-            totals.atruongCK += atruongCK;
-            totals.ckTruoc += ckTruoc;
-            // Footer total cũng tôn trọng duyệt — đơn đã duyệt = 0 trong tổng còn lại
-            totals.totalLeft += approved ? 0 : totalLeftRaw;
-
+            if (!isChild) {
+                // Child rows skip cộng totals — đã cộng vào merge row parent
+                totals.slDon += slDon;
+                totals.money += money;
+                totals.shipFee += shipFee;
+                totals.slShip += slShip;
+                totals.thuVe += thuVe;
+                totals.totalAll += totalAll;
+                totals.boCK += boCK;
+                totals.atruongCK += atruongCK;
+                totals.ckTruoc += ckTruoc;
+                totals.totalLeft += approved ? 0 : totalLeftRaw;
+            }
             const hasImg = hasImageFlag(d, state.activeTab);
-            return `<tr data-date="${d}" class="${approved ? 'is-approved' : ''}">
-                <td class="date clickable" data-action="toggle-expand" title="Bấm để xem danh sách ${slDon} đơn (ngày thật: ${formatDDMMYYYY(d)})"><i class="fas fa-chevron-right dr-expand-chevron"></i> ${formatDDMMYYYY(realToEntry(d))}</td>
+            const selected = state.selectedDates.has(d);
+            const cls = [
+                approved ? 'is-approved' : '',
+                selected ? 'is-selected' : '',
+                isChild ? 'dr-merge-child' : '',
+            ]
+                .filter(Boolean)
+                .join(' ');
+            const disabled = isChild ? 'disabled' : '';
+            const selectCell = isChild
+                ? '<span class="dr-merge-child-indicator" title="Thuộc nhóm gộp">└</span>'
+                : `<input type="checkbox" class="dr-row-select" data-action="select-day" ${selected ? 'checked' : ''} title="Chọn để gộp" />`;
+            return `<tr data-date="${d}" class="${cls}">
+                <td class="date clickable" data-action="toggle-expand" title="Bấm để xem danh sách ${slDon} đơn (ngày thật: ${formatDDMMYYYY(d)})">${selectCell}<i class="fas fa-chevron-right dr-expand-chevron"></i> ${formatDDMMYYYY(realToEntry(d))}</td>
                 <td class="num strong clickable" data-action="toggle-expand" title="Bấm để xem chi tiết ${slDon} đơn">${formatNumber(slDon)}</td>
                 <td class="num clickable money-cell ${hasImg ? 'has-img' : 'no-img'}" data-action="open-img" title="${hasImg ? 'Bấm để xem/sửa ảnh' : 'Bấm để thêm ảnh chứng từ'}">
                     <span class="money-val">${formatMoney(money)}</span>
                     <span class="money-ico">${hasImg ? '<i class="fas fa-image"></i>' : '<i class="far fa-image"></i>'}</span>
                 </td>
                 <td class="num muted">${formatMoney(shipFee)}</td>
-                <td class="num"><input type="number" min="0" data-field="slShip" value="${slShip || ''}" placeholder="0" title="Số đơn ship riêng — trừ SL × 23.000 khỏi TỔNG TẤT CẢ" /></td>
-                <td class="num"><input type="text" data-field="thuVe" value="${thuVe ? formatMoney(thuVe) : ''}" placeholder="0" title="Tiền thu về — cộng thêm vào TỔNG TẤT CẢ" /></td>
+                <td class="num"><input type="number" min="0" data-field="slShip" value="${slShip || ''}" placeholder="0" ${disabled} /></td>
+                <td class="num"><input type="text" data-field="thuVe" value="${thuVe ? formatMoney(thuVe) : ''}" placeholder="0" ${disabled} /></td>
+                <td class="num strong">${formatMoney(totalAll)}</td>
+                <td class="num"><input type="text" data-field="boCK" value="${boCK ? formatMoney(boCK) : ''}" placeholder="0" ${disabled} /></td>
+                <td class="num"><input type="text" data-field="atruongCK" value="${atruongCK ? formatMoney(atruongCK) : ''}" placeholder="0" ${disabled} /></td>
+                <td class="num"><input type="text" data-field="ckTruoc" value="${ckTruoc ? formatMoney(ckTruoc) : ''}" placeholder="0" ${disabled} /></td>
+                <td class="num strong ${totalLeftDisplay < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeftDisplay)}</td>
+                <td class="note-cell"><textarea data-field="note" rows="1" placeholder="Ghi chú…" ${disabled}>${escapeHtml(note)}</textarea></td>
+                <td class="dr-report-td-approve"><label class="dr-approve-toggle"><input type="checkbox" data-field="approved" ${approved ? 'checked' : ''} ${disabled} /><span></span></label></td>
+            </tr>`;
+        }
+
+        function renderMergeRow(merge, childDates) {
+            let sumSlDon = 0,
+                sumMoney = 0,
+                sumShipFee = 0;
+            for (const cd of childDates) {
+                const da = computeDayAuto(cd);
+                sumSlDon += da.slDon;
+                sumMoney += da.money;
+                sumShipFee += da.shipFee;
+            }
+            const slShip = Number(merge.slShip) || 0;
+            const thuVe = Number(merge.thuVe) || 0;
+            const totalAll = sumMoney - sumShipFee - slShip * SHIP_FEE_PER_ORDER + thuVe;
+            const boCK = Number(merge.boCK) || 0;
+            const atruongCK = Number(merge.atruongCK) || 0;
+            const ckTruoc = Number(merge.ckTruoc) || 0;
+            const approved = !!merge.approved;
+            const expanded = !!merge.expanded;
+            const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
+            const totalLeftDisplay = approved ? 0 : totalLeftRaw;
+            totals.slDon += sumSlDon;
+            totals.money += sumMoney;
+            totals.shipFee += sumShipFee;
+            totals.slShip += slShip;
+            totals.thuVe += thuVe;
+            totals.totalAll += totalAll;
+            totals.boCK += boCK;
+            totals.atruongCK += atruongCK;
+            totals.ckTruoc += ckTruoc;
+            totals.totalLeft += approved ? 0 : totalLeftRaw;
+            const rangeLabel = `${formatDDMMYYYY(realToEntry(merge.fromDate))} → ${formatDDMMYYYY(realToEntry(merge.toDate))}`;
+            const daysInRange = childDates.length;
+            const totalDays =
+                Math.round(
+                    (new Date(merge.toDate + 'T00:00:00') -
+                        new Date(merge.fromDate + 'T00:00:00')) /
+                        86400000
+                ) + 1;
+            const partial = daysInRange < totalDays;
+            const cls = [
+                'dr-merge-row',
+                approved ? 'is-approved' : '',
+                expanded ? 'is-expanded' : '',
+            ]
+                .filter(Boolean)
+                .join(' ');
+            const chevIcon = expanded ? 'down' : 'right';
+            return `<tr data-merge-id="${merge.id}" class="${cls}">
+                <td class="date">
+                    <button class="dr-merge-chev" data-action="toggle-merge" title="${expanded ? 'Thu gọn' : 'Mở rộng các ngày con'}"><i class="fas fa-chevron-${chevIcon}"></i></button>
+                    <span class="dr-merge-range">${rangeLabel}</span>
+                    <span class="dr-merge-count" title="${partial ? 'Chỉ tính ' + daysInRange + '/' + totalDays + ' ngày trong khoảng filter' : daysInRange + ' ngày gộp'}">${daysInRange}${partial ? '/' + totalDays : ''} ngày</span>
+                    <button class="dr-merge-unmerge" data-action="unmerge" title="Bỏ gộp">×</button>
+                </td>
+                <td class="num strong">${formatNumber(sumSlDon)}</td>
+                <td class="num">${formatMoney(sumMoney)}</td>
+                <td class="num muted">${formatMoney(sumShipFee)}</td>
+                <td class="num"><input type="number" min="0" data-field="slShip" value="${slShip || ''}" placeholder="0" /></td>
+                <td class="num"><input type="text" data-field="thuVe" value="${thuVe ? formatMoney(thuVe) : ''}" placeholder="0" /></td>
                 <td class="num strong">${formatMoney(totalAll)}</td>
                 <td class="num"><input type="text" data-field="boCK" value="${boCK ? formatMoney(boCK) : ''}" placeholder="0" /></td>
                 <td class="num"><input type="text" data-field="atruongCK" value="${atruongCK ? formatMoney(atruongCK) : ''}" placeholder="0" /></td>
                 <td class="num"><input type="text" data-field="ckTruoc" value="${ckTruoc ? formatMoney(ckTruoc) : ''}" placeholder="0" /></td>
                 <td class="num strong ${totalLeftDisplay < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeftDisplay)}</td>
-                <td class="note-cell"><textarea data-field="note" rows="1" placeholder="Ghi chú…">${escapeHtml(note)}</textarea></td>
-                <td class="dr-report-td-approve"><label class="dr-approve-toggle" title="${approved ? 'Bỏ duyệt' : 'Duyệt — tổng còn lại về 0, dòng mờ'}"><input type="checkbox" data-field="approved" ${approved ? 'checked' : ''} /><span></span></label></td>
+                <td class="note-cell"><textarea data-field="note" rows="1" placeholder="Ghi chú…">${escapeHtml(merge.note || '')}</textarea></td>
+                <td class="dr-report-td-approve"><label class="dr-approve-toggle"><input type="checkbox" data-field="approved" ${approved ? 'checked' : ''} /><span></span></label></td>
             </tr>`;
-        });
+        }
 
-        document.getElementById('drReportTbody').innerHTML = rows.join('');
+        const rendered = new Set();
+        const rowsHtml = [];
+        for (const d of dates) {
+            if (rendered.has(d)) continue;
+            const merge = findMergeForDate(d, state.activeTab);
+            if (merge) {
+                const childDates = dates.filter((cd) => cd >= merge.fromDate && cd <= merge.toDate);
+                for (const cd of childDates) rendered.add(cd);
+                rowsHtml.push(renderMergeRow(merge, childDates));
+                if (merge.expanded) {
+                    for (const cd of childDates) rowsHtml.push(renderSingleRow(cd, true));
+                }
+            } else {
+                rowsHtml.push(renderSingleRow(d, false));
+                rendered.add(d);
+            }
+        }
+
+        document.getElementById('drReportTbody').innerHTML = rowsHtml.join('');
+        updateSelectionBar();
 
         document.getElementById('drReportTfoot').innerHTML = `<tr class="total-row">
             <th>TỔNG (${dates.length} ngày)</th>
@@ -842,6 +961,70 @@
         // Delegation set up once in ensureModal() — no per-cell binding here.
     }
 
+    // Update selection bar based on state.selectedDates
+    function updateSelectionBar() {
+        const bar = document.getElementById('drReportSelectionBar');
+        if (!bar) return;
+        const count = state.selectedDates.size;
+        const countEl = document.getElementById('drSelCount');
+        const hintEl = document.getElementById('drSelHint');
+        const btn = document.getElementById('drSelMergeBtn');
+        if (count === 0) {
+            bar.classList.remove('open');
+            if (countEl) countEl.textContent = '0 ngày được chọn';
+            if (hintEl) hintEl.textContent = '';
+            if (btn) btn.disabled = true;
+            return;
+        }
+        bar.classList.add('open');
+        if (countEl) countEl.textContent = `${count} ngày được chọn`;
+        // Validate consecutive
+        const sorted = [...state.selectedDates].sort();
+        let consecutive = true;
+        for (let i = 1; i < sorted.length; i++) {
+            const prev = new Date(sorted[i - 1] + 'T00:00:00');
+            prev.setDate(prev.getDate() + 1);
+            if (prev.toISOString().slice(0, 10) !== sorted[i]) {
+                consecutive = false;
+                break;
+            }
+        }
+        // Validate không trùng merge nào sẵn có
+        let overlapsMerge = false;
+        for (const d of sorted) {
+            if (findMergeForDate(d, state.activeTab)) {
+                overlapsMerge = true;
+                break;
+            }
+        }
+        const canMerge = count >= 2 && consecutive && !overlapsMerge;
+        if (btn) btn.disabled = !canMerge;
+        if (hintEl) {
+            if (overlapsMerge) hintEl.textContent = '⚠ Có ngày đã thuộc nhóm gộp khác';
+            else if (count < 2) hintEl.textContent = 'Chọn ≥ 2 ngày liên tiếp';
+            else if (!consecutive) hintEl.textContent = '⚠ Các ngày không liên tiếp';
+            else
+                hintEl.textContent = `${formatDDMMYYYY(realToEntry(sorted[0]))} → ${formatDDMMYYYY(realToEntry(sorted[sorted.length - 1]))}`;
+        }
+    }
+
+    async function onMergeClick() {
+        const sorted = [...state.selectedDates].sort();
+        if (sorted.length < 2) return;
+        const fromDate = sorted[0];
+        const toDate = sorted[sorted.length - 1];
+        const btn = document.getElementById('drSelMergeBtn');
+        if (btn) btn.disabled = true;
+        try {
+            await createMerge(state.activeTab, fromDate, toDate);
+            state.selectedDates.clear();
+            scheduleRender();
+        } catch (e) {
+            alert('Gộp thất bại: ' + (e?.message || e));
+            if (btn) btn.disabled = false;
+        }
+    }
+
     // Single delegated listener set wired in ensureModal(). Avoids attaching
     // O(rows × fields) handlers per render — major perf win when range is large.
     function bindTbodyDelegation() {
@@ -852,8 +1035,6 @@
         tbody.addEventListener('focusout', (e) => {
             const el = e.target.closest && e.target.closest('[data-field]');
             if (!el || !tbody.contains(el)) return;
-            const row = el.closest('tr[data-date]');
-            if (!row) return;
             const field = el.dataset.field;
             let value;
             if (field === 'slShip') {
@@ -863,14 +1044,29 @@
             } else {
                 value = parseMoney(el.value);
             }
-            // Only persist + re-render if value actually changed
+            const mergeRow = el.closest('tr[data-merge-id]');
+            if (mergeRow) {
+                const id = Number(mergeRow.dataset.mergeId);
+                const m = state.merges.get(id);
+                if (!m) return;
+                const prev = m[field];
+                const prevNorm = prev == null || prev === '' ? '' : prev;
+                const nextNorm = value == null || value === '' ? '' : value;
+                if (String(prevNorm) === String(nextNorm)) return;
+                updateMerge(id, { [field]: value });
+                if (field !== 'note') scheduleRender();
+                return;
+            }
+            const row = el.closest('tr[data-date]');
+            if (!row) return;
+            // Child rows trong merge: input disabled, skip (defensive)
+            if (row.classList.contains('dr-merge-child')) return;
             const ov = getOverride(row.dataset.date, state.activeTab);
             const prev = ov[field];
             const prevNorm = prev == null || prev === '' ? '' : prev;
             const nextNorm = value == null || value === '' ? '' : value;
             if (String(prevNorm) === String(nextNorm)) return;
             setOverride(row.dataset.date, state.activeTab, { [field]: value });
-            // Note field doesn't affect totals → skip full re-render
             if (field !== 'note') scheduleRender();
         });
 
@@ -885,20 +1081,67 @@
             }
         });
 
-        // Checkbox approved cần listen 'change' (focusout không reliable cho checkbox)
+        // Checkbox approved + select-day — listen 'change' (focusout không reliable cho checkbox)
         tbody.addEventListener('change', (e) => {
             const el = e.target;
-            if (!el || el.type !== 'checkbox' || el.dataset.field !== 'approved') return;
-            const row = el.closest('tr[data-date]');
-            if (!row) return;
-            const ov = getOverride(row.dataset.date, state.activeTab);
-            const next = !!el.checked;
-            if (!!ov.approved === next) return;
-            setOverride(row.dataset.date, state.activeTab, { approved: next });
-            scheduleRender();
+            if (!el || el.type !== 'checkbox') return;
+            // Select-day checkbox: toggle state.selectedDates
+            if (el.dataset.action === 'select-day') {
+                const row = el.closest('tr[data-date]');
+                if (!row) return;
+                const d = row.dataset.date;
+                if (el.checked) state.selectedDates.add(d);
+                else state.selectedDates.delete(d);
+                row.classList.toggle('is-selected', el.checked);
+                updateSelectionBar();
+                return;
+            }
+            // Approved checkbox
+            if (el.dataset.field === 'approved') {
+                const mergeRow = el.closest('tr[data-merge-id]');
+                if (mergeRow) {
+                    const id = Number(mergeRow.dataset.mergeId);
+                    const m = state.merges.get(id);
+                    if (!m) return;
+                    const next = !!el.checked;
+                    if (!!m.approved === next) return;
+                    updateMerge(id, { approved: next });
+                    scheduleRender();
+                    return;
+                }
+                const row = el.closest('tr[data-date]');
+                if (!row || row.classList.contains('dr-merge-child')) return;
+                const ov = getOverride(row.dataset.date, state.activeTab);
+                const next = !!el.checked;
+                if (!!ov.approved === next) return;
+                setOverride(row.dataset.date, state.activeTab, { approved: next });
+                scheduleRender();
+            }
         });
 
         tbody.addEventListener('click', (e) => {
+            // Toggle merge expanded
+            const chev = e.target.closest && e.target.closest('button[data-action="toggle-merge"]');
+            if (chev) {
+                const tr = chev.closest('tr[data-merge-id]');
+                if (!tr) return;
+                const id = Number(tr.dataset.mergeId);
+                const m = state.merges.get(id);
+                if (!m) return;
+                updateMerge(id, { expanded: !m.expanded });
+                scheduleRender();
+                return;
+            }
+            // Unmerge
+            const unmerge = e.target.closest && e.target.closest('button[data-action="unmerge"]');
+            if (unmerge) {
+                const tr = unmerge.closest('tr[data-merge-id]');
+                if (!tr) return;
+                if (!confirm('Bỏ gộp nhóm này?')) return;
+                const id = Number(tr.dataset.mergeId);
+                deleteMerge(id).finally(() => scheduleRender());
+                return;
+            }
             const reset = e.target.closest && e.target.closest('.dr-report-reset');
             if (reset) {
                 setOverride(reset.dataset.date, state.activeTab, { [reset.dataset.field]: '' });
@@ -908,14 +1151,16 @@
             const imgCell = e.target.closest && e.target.closest('td[data-action="open-img"]');
             if (imgCell) {
                 const row = imgCell.closest('tr[data-date]');
-                if (row) openImageModal(row.dataset.date);
+                if (row && !row.classList.contains('dr-merge-row')) {
+                    openImageModal(row.dataset.date);
+                }
                 return;
             }
             const expandCell =
                 e.target.closest && e.target.closest('td[data-action="toggle-expand"]');
             if (expandCell) {
                 const row = expandCell.closest('tr[data-date]');
-                if (row) toggleExpandRow(row);
+                if (row && !row.classList.contains('dr-merge-row')) toggleExpandRow(row);
             }
         });
 
