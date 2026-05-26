@@ -25,6 +25,40 @@
 
 ## 2026-05-26
 
+### [issue-tracking] Ẩn hiện cột BÁN HÀNG + TRẢ HÀNG — default ẩn Kênh + PBH gốc ✅
+
+**User ask**: "cho nút ẩn hiện cột → mặc định ẩn cột Kênh đi" → "bên `#tra-hang` ẩn cột PBH gốc".
+
+**Feature**: nút "Ẩn hiện cột" trên toolbar BÁN HÀNG + TRẢ HÀNG mở dropdown với checkbox mỗi cột toggleable. State persist vào localStorage (key `tpos-cols-hidden-{ns}`). Lần đầu vào (chưa có saved state) áp default:
+
+- `#ban-hang`: ẩn cột Kênh.
+- `#tra-hang`: ẩn cột Kênh + PBH gốc.
+
+**Files modified**:
+
+- `issue-tracking/js/tpos-fastsale-tab.js`:
+    - Config `TOGGLEABLE_COLS` (per tposType): `invoice: [channel]`, `refund: [refundOf, channel]`.
+    - Config `DEFAULT_HIDDEN_COLS`: `invoice: [channel]`, `refund: [refundOf, channel]`.
+    - Helpers: `loadHiddenCols(ns, tposType)` (đọc localStorage hoặc fallback default), `saveHiddenCols(ns, set)`, `applyHiddenColClasses(root, set)` (clean class cũ + apply mới).
+    - Constructor: `this.hiddenCols = loadHiddenCols(...)`, `applyHiddenColClasses(root, ...)` → khi class `tpos-hide-col-{key}` được apply lên `.tpos-fastsale`, CSS rule ẩn cả `<th>` + `<td>` có `data-col="{key}"`.
+    - Method `bindColumnToggle()`: render dropdown checkbox per col, wire click open/close + outside-click close + change event update state + save + reapply classes.
+    - `renderInvoiceRow`: `<td>` channel có `data-col="channel"`.
+    - `renderRefundRow`: `<td>` refundOf có `data-col="refundOf"`, `<td>` channel có `data-col="channel"`.
+- `issue-tracking/index.html`:
+    - 2 panes `ban-hang` + `tra-hang`: thêm `<div class="tpos-fso-toolbar tpos-fso-toolbar-sale">` với button "Ẩn hiện cột" + dropdown container.
+    - `<th>` channel + refundOf thêm `data-col` attribute.
+- `issue-tracking/css/page-tabs.css`:
+    - `.tpos-fso-toolbar-sale` (gọn, background slate).
+    - `.tpos-col-toggle` + `.tpos-col-dropdown` (absolute popover, white bg, shadow).
+    - `.tpos-col-row` (label + checkbox row, hover bg).
+    - CSS rules: `.tpos-fastsale.tpos-hide-col-channel [data-col='channel'] { display: none; }` + tương tự refundOf.
+
+**Verification** (localhost qua persistent browser session):
+
+1. Vào `#ban-hang` lần đầu (storage null): root class `tpos-hide-col-channel`, `<th>` + `<td>` Kênh đều `display:none`.
+2. Vào `#tra-hang` lần đầu: root có cả `tpos-hide-col-refundOf` + `tpos-hide-col-channel`, Kênh + PBH gốc đều ẩn. Click "Ẩn hiện cột" → dropdown mở với 2 checkbox unchecked (= hidden).
+3. Tick lại "PBH gốc" → root chỉ còn class `tpos-hide-col-channel`, `<th>` PBH gốc visible, storage `tpos-cols-hidden-rf = ["channel"]` persist.
+
 ### [web2/balance-history] UX overhaul — view & process unmatched rows clearly ✅
 
 **User ask**: "http://localhost:8080/web2/balance-history/index.html → cải thiện giao diện user, cải thiện tính năng auto → coi được các chuyển khoản không có thông tin"

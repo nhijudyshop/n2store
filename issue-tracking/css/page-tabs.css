@@ -1014,6 +1014,67 @@ body.pt-embed-active {
 }
 
 /* ============================================================
+   Column toggle (Ẩn hiện cột) — selectable column dropdown + hide rules
+   ============================================================ */
+.tpos-fso-toolbar-sale {
+    background: #f8fafc;
+    border-bottom: 1px solid var(--tp-border, #e2e8f0);
+    padding: 8px 16px;
+}
+
+.tpos-col-toggle {
+    position: relative;
+    display: inline-block;
+}
+
+.tpos-col-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 200px;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+    padding: 6px;
+    z-index: 50;
+}
+
+.tpos-col-dropdown[hidden] {
+    display: none;
+}
+
+.tpos-col-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #334155;
+    cursor: pointer;
+    user-select: none;
+}
+
+.tpos-col-row:hover {
+    background: #f1f5f9;
+}
+
+.tpos-col-row input[type='checkbox'] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+}
+
+/* Hide column rules — when root has the class, both <th> + <td> for that data-col disappear */
+.tpos-fastsale.tpos-hide-col-channel [data-col='channel'] {
+    display: none;
+}
+.tpos-fastsale.tpos-hide-col-refundOf [data-col='refundOf'] {
+    display: none;
+}
+
+/* ============================================================
    Refund-from-BILL controls inside purchase detail expand
    ============================================================ */
 .tpos-refund-toolbar {

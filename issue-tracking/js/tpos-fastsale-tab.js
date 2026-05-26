@@ -650,16 +650,63 @@
                         );
                     });
                 }
-                const colBtn = this.root.querySelector('[data-bind="toggleCols"]');
-                if (colBtn) {
-                    colBtn.addEventListener('click', () => {
-                        toast(
-                            'Mock mode: ẩn/hiện cột chưa hỗ trợ. Mở rộng từng dòng để xem chi tiết.',
-                            'info'
-                        );
-                    });
-                }
             }
+
+            // Column toggle button + dropdown — wired for ALL tabs (not just mockable)
+            this.bindColumnToggle();
+        }
+
+        bindColumnToggle() {
+            const cols = TOGGLEABLE_COLS[this.cfg.tposType] || [];
+            const btn = this.root.querySelector('[data-bind="toggleCols"]');
+            const dropdown = this.root.querySelector('[data-bind="colDropdown"]');
+            if (!btn || !dropdown || !cols.length) return;
+
+            const renderDropdown = () => {
+                dropdown.innerHTML = cols
+                    .map((c) => {
+                        const hidden = this.hiddenCols.has(c.key);
+                        return `<label class="tpos-col-row">
+                            <input type="checkbox" data-col-key="${c.key}" ${hidden ? '' : 'checked'}>
+                            <span>${escapeHtml(c.label)}</span>
+                        </label>`;
+                    })
+                    .join('');
+            };
+
+            renderDropdown();
+
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isOpen = !dropdown.hasAttribute('hidden');
+                if (isOpen) {
+                    dropdown.setAttribute('hidden', '');
+                } else {
+                    renderDropdown();
+                    dropdown.removeAttribute('hidden');
+                }
+            });
+
+            // Outside click closes
+            document.addEventListener('click', (e) => {
+                if (dropdown.hasAttribute('hidden')) return;
+                if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+                    dropdown.setAttribute('hidden', '');
+                }
+            });
+
+            dropdown.addEventListener('change', (e) => {
+                const cb = e.target.closest('input[data-col-key]');
+                if (!cb) return;
+                const key = cb.dataset.colKey;
+                if (cb.checked) {
+                    this.hiddenCols.delete(key);
+                } else {
+                    this.hiddenCols.add(key);
+                }
+                applyHiddenColClasses(this.root, this.hiddenCols);
+                saveHiddenCols(this.ns, this.hiddenCols);
+            });
         }
 
         async toggleExpand(btn) {
