@@ -276,6 +276,35 @@ Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc la
 5. **Khi sửa file legacy**: dừng lại hỏi user nếu thay đổi có thể ảnh hưởng web2 (và ngược lại).
 6. **Realtime / Data sync — BẮT BUỘC**: KHÔNG dùng Firebase Firestore listener cho Web 2.0 nữa. Web 2.0 dùng **SSE pub/sub trên Render** (topic-based). Trước khi code bất kỳ feature nào liên quan realtime, cross-tab sync, listener data → **PHẢI đọc [`docs/web2/SSE-REALTIME.md`](docs/web2/SSE-REALTIME.md)** (architecture + recipe server/client + topic naming + migration checklist + verification). Topic convention: `web2:<entity>` hoặc `web2:<entity>:<id>`. Pattern proven trong web2-products + native-orders.
 
+### ⚡ SSE-first khi code chức năng / trang mới (BẮT BUỘC NHỚ)
+
+**Project đã có sẵn server SSE socket realtime đang LISTEN + READING data log** (`render.com/routes/realtime-sse-web2.js`, endpoint `/api/realtime/web2/sse`). Cứ mỗi lần code feature mới hoặc trang mới có data thay đổi → **MẶC ĐỊNH dùng SSE để**:
+
+- ✅ UI realtime cập nhật **không cần refresh** (mutate ở tab A → tab B/C/D tự update)
+- ✅ Đồng bộ dữ liệu **giữa các máy** (user 1 sửa ở máy ở nhà → user 2 thấy ngay ở máy văn phòng)
+- ✅ Server-side log đầy đủ (`[SSE-WEB2]` Render logs + ring buffer 500 entries)
+- ✅ Admin debug realtime qua [/web2/admin-sse-monitor/](web2/admin-sse-monitor/index.html) — sidebar "Tính năng mới" → "SSE Monitor (Admin)"
+
+**KHÔNG**:
+
+- ❌ Tự build polling 5s/lần "cho đỡ phức tạp" — SSE đã có sẵn, infra đã trả tiền
+- ❌ Dùng Firestore listener (cost reads)
+- ❌ Yêu cầu user refresh bằng tay
+- ❌ Code WebSocket riêng (đã có SSE hub, chỉ build WS khi thực sự cần bidirectional)
+
+**Quy trình** khi code feature/page mới có data động:
+
+1. Đọc [`docs/web2/SSE-REALTIME.md`](docs/web2/SSE-REALTIME.md) §3 (server recipe) + §4 (client recipe) — pattern 2 step server, 2 step client
+2. Route mutation: thêm `_notify(action, code)` SAU `pg COMMIT`, TRƯỚC `res.json`
+3. `server.js`: wire `<module>Routes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients)`
+4. HTML: load `web2-sse-bridge.js?v=<latest>` TRƯỚC page-app
+5. Page-app: `Web2SSE.subscribe('web2:<entity>', cb)` trong `init()` + debounce 500-600ms → `reload()`
+6. **Verify ngay** qua Admin SSE Monitor: mở Monitor + tab page → mutate → thấy log entry `notify topic clientsNotified=N` realtime
+
+**Nếu debug UI không update**: mở SSE Monitor xem log live, không cần đọc Render Dashboard logs (truy cập chậm + cần web access).
+
+Topics đã active (xem `docs/web2/SSE-REALTIME.md` §9): `web2:products`, `web2:variants`, `web2:users`, `web2:native-orders`, `web2:fast-sale-orders`, `web2:cart`, `web2:notifications`, `web2:reconcile`, `web2:purchase-refund`, `web2:livestream-snapshots`, `web2:wallet:<phone>`, `web2:customer-wallet`, `web2:<slug>` (78 generic), `web2:_admin:sse-log` (admin).
+
 ### SSE Server TÁCH RIÊNG Web 1.0 và Web 2.0 (BẮT BUỘC từ 2026-05-26)
 
 Project có **2 hub SSE độc lập** — DB đã tách (`web2_*` tables), giờ tách nốt SSE để bug 1 layer không ảnh hưởng layer kia:
