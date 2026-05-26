@@ -207,7 +207,7 @@
             <td><div class="tpos-fso-address" title="${escapeHtml(address)}">${escapeHtml(address || '—')}</div></td>
             <td class="num">${total}</td>
             <td class="num" style="color:#475569;">${cod}</td>
-            <td>${stateBadge(row.State)}</td>
+            <td>${stateBadge(row.State, STATE_META, true)}</td>
             <td><span style="color:#475569;font-size:12px;">${escapeHtml(channel)}</span></td>
             <td><span class="mono" style="color:#64748b;">${date}</span></td>
             ${printCell(row.Id)}
@@ -229,7 +229,7 @@
             <td><div class="tpos-fso-customer">${escapeHtml(customer)}</div></td>
             <td><span class="tpos-fso-phone">${escapeHtml(phone || '—')}</span></td>
             <td class="num" style="color:#dc2626;">${total}</td>
-            <td>${stateBadge(row.State)}</td>
+            <td>${stateBadge(row.State, STATE_META, true)}</td>
             <td><span style="color:#475569;font-size:12px;">${escapeHtml(channel)}</span></td>
             <td><span class="mono" style="color:#64748b;">${date}</span></td>
             ${printCell(row.Id)}
