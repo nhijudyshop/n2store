@@ -25,6 +25,26 @@
 
 ## 2026-05-26
 
+### [delivery-report/report] Default range = "Tháng này" + hover ghi chú show full text ✅
+
+**User ask** (2 micro-requests sau session merge-fix):
+
+1. "mặc định 'tháng này'" — mở modal default Tháng này (ngày 1 → hôm nay)
+2. "hover vào ghi chú coi được tất cả nội dung ghi chú" — note textarea rows=1 truncate, cần tooltip show full
+
+**Fix** (`delivery-report/js/report.js`):
+
+- **`open()` default range**: bỏ logic seed từ main filter (`drFilterFromDate`/`drFilterToDate`), thay bằng default Tháng này khi `state.fromDate`/`state.toDate` chưa set. Rationale: báo cáo workflow review cả tháng, Hôm nay không hợp lý. Nếu user đã đổi range trong session, giữ nguyên.
+- **Note textarea title**: child row note thêm `title="${escapeHtml(note)}"` show full text khi hover (fallback "Ghi chú cho ngày này" khi rỗng). Merge row title combine `merge.note` + aggregated children notes multi-line.
+
+**Verify** (one-shot Playwright):
+
+- Default: `from="2026-05-01" to="2026-05-26"` ✅
+- Child note: `title` = full text "+35k 1 đơn đi riêng của shop\n(CK DƯ 199K)" ✅
+- Merge note: `title` = "Ghi chú từ children:\n18/05/2026: GỘP VÀO NGÀY 19 SHIP LẤY" ✅
+
+---
+
 ### [delivery-report/report] Fix 3 bug merge row: click Duyệt + sum children + note ✅
 
 **User báo (3 bug liên tiếp)**:

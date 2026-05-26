@@ -849,7 +849,7 @@
                 <td class="num"><input type="text" data-field="atruongCK" value="${atruongCK ? formatMoney(atruongCK) : ''}" placeholder="0" ${disabled} /></td>
                 <td class="num"><input type="text" data-field="ckTruoc" value="${ckTruoc ? formatMoney(ckTruoc) : ''}" placeholder="0" ${disabled} /></td>
                 <td class="num strong ${totalLeftDisplay < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeftDisplay)}</td>
-                <td class="note-cell"><textarea data-field="note" rows="1" placeholder="Ghi chú…" ${disabled}>${escapeHtml(note)}</textarea></td>
+                <td class="note-cell"><textarea data-field="note" rows="1" placeholder="Ghi chú…" title="${note ? escapeHtml(note) : 'Ghi chú cho ngày này'}" ${disabled}>${escapeHtml(note)}</textarea></td>
                 <td class="dr-report-td-approve"><label class="dr-approve-toggle"><input type="checkbox" data-field="approved" ${approved ? 'checked' : ''} ${disabled} /><span></span></label></td>
             </tr>`;
         }
@@ -941,7 +941,7 @@
                 <td class="num"><input type="text" data-field="atruongCK" value="${useMerge(merge.atruongCK) ? formatMoney(merge.atruongCK) : ''}" placeholder="${sumAtruongCK ? formatMoney(sumAtruongCK) : '0'}" title="${useMerge(merge.atruongCK) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumAtruongCK) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
                 <td class="num"><input type="text" data-field="ckTruoc" value="${useMerge(merge.ckTruoc) ? formatMoney(merge.ckTruoc) : ''}" placeholder="${sumCkTruoc ? formatMoney(sumCkTruoc) : '0'}" title="${useMerge(merge.ckTruoc) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumCkTruoc) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
                 <td class="num strong ${totalLeftDisplay < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeftDisplay)}</td>
-                <td class="note-cell"><textarea data-field="note" rows="1" placeholder="${escapeHtml(childNotes.length ? childNotes.join(' | ') : 'Ghi chú…')}" title="${childNotes.length ? 'Ghi chú từ children:\n' + childNotes.join('\n') + '\n\n(Nhập riêng cho dòng gộp nếu muốn override)' : 'Ghi chú cho dòng gộp'}">${escapeHtml(merge.note || '')}</textarea></td>
+                <td class="note-cell"><textarea data-field="note" rows="1" placeholder="${escapeHtml(childNotes.length ? childNotes.join(' | ') : 'Ghi chú…')}" title="${escapeHtml([merge.note ? `Ghi chú gộp: ${merge.note}` : '', childNotes.length ? `Ghi chú từ children:\n${childNotes.join('\n')}` : ''].filter(Boolean).join('\n\n') || 'Ghi chú cho dòng gộp')}">${escapeHtml(merge.note || '')}</textarea></td>
                 <td class="dr-report-td-approve"><label class="dr-approve-toggle"><input type="checkbox" data-field="approved" ${approved ? 'checked' : ''} /><span></span></label></td>
             </tr>`;
         }
@@ -1644,22 +1644,21 @@
 
     function open() {
         ensureModal();
-        // Seed dates from main filter. Main filter uses REAL dates (delivery
-        // date); the report inputs are ENTRY dates (= real + 1), so shift +1
-        // when seeding to keep the same underlying data visible.
-        const mainFrom = document.getElementById('drFilterFromDate')?.value;
-        const mainTo = document.getElementById('drFilterToDate')?.value;
-        const seedFrom = realToEntry(mainFrom);
-        const seedTo = realToEntry(mainTo);
+        // Default range = "Tháng này" (ngày 1 → hôm nay) khi user mở modal lần đầu trong session.
+        // Báo cáo workflow thường review cả tháng nên Tháng này hợp lý hơn Hôm nay từ main filter.
+        // Nếu user đã đổi range trong session (state.fromDate/state.toDate đã set) → giữ nguyên.
         const reportFrom = document.getElementById('drReportFrom');
         const reportTo = document.getElementById('drReportTo');
-        // Only re-seed if user hasn't yet picked report-specific dates this session
-        if (seedFrom && seedTo && (!state.fromDate || !state.toDate)) {
-            state.fromDate = seedFrom;
-            state.toDate = seedTo;
+        if (!state.fromDate || !state.toDate) {
+            const today = new Date();
+            const first = new Date(today.getFullYear(), today.getMonth(), 1);
+            const fmt = (d) =>
+                `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            state.fromDate = fmt(first);
+            state.toDate = fmt(today);
         }
-        if (reportFrom) reportFrom.value = state.fromDate || seedFrom || '';
-        if (reportTo) reportTo.value = state.toDate || seedTo || '';
+        if (reportFrom) reportFrom.value = state.fromDate;
+        if (reportTo) reportTo.value = state.toDate;
         // View swap: hide main page sections via body class, show báo cáo block in-flow
         document.body.classList.add('dr-mode-report');
         document.getElementById('drReportModal').classList.add('open');
