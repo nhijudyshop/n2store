@@ -21,8 +21,8 @@ const { fetchWithTimeout } = require('../../shared/node/fetch-utils.cjs');
 //   - Web 1.0 UI vẫn dùng admin_settings.auto_approve_enabled như cũ
 //   - Web 2.0 UI auto luôn, không có accountant duyệt
 //
-// Helper _mirrorToWeb2BalanceHistory bị giữ làm fallback cũ (no-op nếu Web 2.0
-// path mới đã chạy thành công).
+// FULL ISOLATION: KHÔNG còn mirror/copy từ balance_history sang web2_balance_history
+// nữa. Web 2.0 path tự INSERT data từ webhook payload qua insertWeb2BalanceHistory().
 // =====================================================
 let _web2Sepay = null;
 try {
@@ -60,24 +60,6 @@ async function _processWeb2Path(db, webhookData) {
     }
 }
 
-// Legacy fallback — giữ để khỏi vỡ migration cũ. Web 2.0 path mới đã INSERT
-// rồi, function này no-op vì ON CONFLICT DO NOTHING.
-async function _mirrorToWeb2BalanceHistory(db, sepayId) {
-    if (!db || !sepayId) return;
-    try {
-        await db.query(
-            `INSERT INTO web2_balance_history
-             SELECT * FROM balance_history
-             WHERE sepay_id = $1
-             ON CONFLICT (sepay_id) DO NOTHING`,
-            [sepayId]
-        );
-    } catch (e) {
-        if (!String(e.message).includes('does not exist')) {
-            console.warn('[SEPAY-WEBHOOK] mirror to web2 failed:', e.message);
-        }
-    }
-}
 const aikolTelegram = (() => {
     try {
         return require('../services/aikol-telegram-service');
@@ -531,8 +513,8 @@ function registerRoutes(router, deps) {
 
             const insertedId = result.rows[0].id;
 
-            // Dual-write sang Web 2.0 isolation table (best-effort, async).
-            _mirrorToWeb2BalanceHistory(db, webhookData.id).catch(() => {});
+            // Web 2.0 isolation: KHÔNG mirror từ balance_history nữa — Web 2.0 path
+            // dưới đây tự INSERT trực tiếp với data từ webhook, full isolation từ Web 1.0.
 
             // WEB 2.0 INDEPENDENT PATH: INSERT web2_balance_history + run matching
             // engine riêng (always auto, no virtual, no accountant approval).
@@ -1202,8 +1184,7 @@ function registerRoutes(router, deps) {
             const result = await db.query(insertQuery, values);
 
             if (result.rows.length > 0) {
-                // Dual-write sang Web 2.0 (best-effort)
-                _mirrorToWeb2BalanceHistory(db, webhookData.id).catch(() => {});
+                // Web 2.0 isolation: KHÔNG mirror từ balance_history (Web 1.0).
                 // Success - update queue status
                 await db.query(
                     `
@@ -1323,8 +1304,7 @@ function registerRoutes(router, deps) {
                         ]
                     );
 
-                    // Dual-write sang Web 2.0 (best-effort)
-                    _mirrorToWeb2BalanceHistory(db, webhookData.id).catch(() => {});
+                    // Web 2.0 isolation: KHÔNG mirror từ balance_history (Web 1.0).
 
                     await db.query(
                         `
@@ -1557,8 +1537,7 @@ function registerRoutes(router, deps) {
             const result = await db.query(insertQuery, values);
 
             if (result.rows.length > 0) {
-                // Dual-write sang Web 2.0 (best-effort)
-                _mirrorToWeb2BalanceHistory(db, transaction.id).catch(() => {});
+                // Web 2.0 isolation: KHÔNG mirror từ balance_history (Web 1.0).
 
                 // Mark gap as resolved
                 await db.query(
