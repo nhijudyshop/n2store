@@ -2550,6 +2550,10 @@ body.dr-mode-report #drTableWrapper {
     background: #eef2ff;
     font-weight: 600;
 }
+/* Tránh wrap "$ 98.082.000" thành 2 hàng khi cell hẹp (áp dụng cho mọi row có money cell) */
+.dr-report-table tbody td.num {
+    white-space: nowrap;
+}
 .dr-report-table tbody tr.dr-shift-agg-row:hover {
     background: #e0e7ff;
 }
