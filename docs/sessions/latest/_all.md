@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `09a46fc` — feat(web2/balance-history): 100% tu dong — bo khai niem 'Cu' / 'manual', auto-reprocess on page load
-**Last updated**: 2026-05-26 18:13:57 +07
-**Latest session**: [`RESUME:20260526-181357-09a46fc`](../20260526-181357-09a46fc.md)
-**Summary**: feat(web2/balance-history): 100% tu dong — bo khai niem 'Cu' / 'manual', auto-reprocess on page load
+**Latest commit**: `6add770` — feat(web2/balance-history): bo nut Reprocess thu cong tung dong — 100% auto
+**Last updated**: 2026-05-26 18:17:30 +07
+**Latest session**: [`RESUME:20260526-181730-6add770`](../20260526-181730-6add770.md)
+**Summary**: feat(web2/balance-history): bo nut Reprocess thu cong tung dong — 100% auto
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -68,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-26 18:13
+- [`web2/`](./web2.md) — updated 2026-05-26 18:17
