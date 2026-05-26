@@ -1593,59 +1593,38 @@ Throttle 30s/KH.`;
         };
     }
 
-    // AUTO-START — DEFERRED IFRAME (lag fix v2):
-    // KHÔNG auto-inject iframe FB (plugin nặng, lag máy). Chỉ show 1 floating
-    // button "🎬 BẬT AUTO-SNAP" — user click → mới inject iframe + share.
-    // Nếu N2Store Extension active → tự click pill ngay (zero user action).
-    function _maybeShowAutoSnapBanner() {
+    // AUTO-START — FULLY AUTOMATED (user feedback 2026-05-26):
+    // Bỏ pill button "BẬT AUTO-SNAP 1 click". Detect live active → tự động bật
+    // capture luôn (extension OR fallback popup). KHÔNG cần user interaction.
+    //
+    // Extension active → _enableEmbeddedLiveCapture() chạy silent (load iframe
+    // FB ẩn + extension chrome.tabs.captureVisibleTab, no popup).
+    // Extension missing → vẫn cố enable (sẽ fallback chrome popup "Share this
+    // tab" mỗi session nếu cần). User có thể decline popup mà vẫn dùng được
+    // page (snap thủ công qua nút 📸 trên comment).
+    async function _maybeShowAutoSnapBanner() {
         if (STATE.captureStream || STATE.frameBufferTimer) return;
-        if (document.getElementById('tpos-snap-go-pill')) return;
+        if (STATE.autoSnapStarting) return; // tránh trigger trùng từ poller
         const camp = _findActiveLiveCampaign();
         if (!camp?.Facebook_LiveId) return;
-        // Detect extension missing/outdated → show prompt (chỉ khi có live).
+        STATE.autoSnapStarting = true;
+        // Detect extension missing/outdated → show prompt 1 lần (chỉ thông báo,
+        // không phải button click — page vẫn tự bật capture qua fallback).
         if (!STATE.extReady) {
-            // Chrome chưa response sau 5s = không có extension.
-            // STATE.extOutdated = đã response nhưng version cũ.
             setTimeout(() => {
-                if (STATE.extOutdated) {
-                    _showExtPrompt('outdated');
-                } else if (!STATE.extReady && !STATE.extVersion) {
-                    _showExtPrompt('missing');
-                }
+                if (STATE.extOutdated) _showExtPrompt('outdated');
+                else if (!STATE.extReady && !STATE.extVersion) _showExtPrompt('missing');
             }, 5000);
         }
-        // Floating pill button ở góc dưới phải — KHÔNG inject iframe trước.
-        const pill = document.createElement('button');
-        pill.id = 'tpos-snap-go-pill';
-        pill.type = 'button';
-        pill.title = STATE.extReady
-            ? 'Extension đang active — sẽ tự bấm để load iframe + capture không popup.'
-            : 'Bấm 1 lần để bật auto-snap frame thật (iframe FB sẽ load + share). KHÔNG load trước để page không lag.';
-        pill.innerHTML =
-            '<span style="font-size:18px;">🎬</span> <span>BẬT AUTO-SNAP</span> <small style="opacity:0.8;font-weight:500;">1 click</small>';
-        pill.style.cssText =
-            'position:fixed;bottom:16px;right:16px;background:#dc2626;color:#fff;font-weight:700;font-size:13px;padding:12px 16px;border:none;border-radius:24px;cursor:pointer;z-index:99000;box-shadow:0 6px 20px rgba(0,0,0,0.35);display:inline-flex;align-items:center;gap:8px;font-family:Inter,system-ui,sans-serif;';
-        document.body.appendChild(pill);
-        pill.onclick = async () => {
-            pill.disabled = true;
-            pill.innerHTML = '⏳ Đang load iframe FB...';
-            const ok = await _enableEmbeddedLiveCapture();
-            if (ok) {
-                pill.remove();
-            } else {
-                pill.disabled = false;
-                pill.innerHTML =
-                    '<span style="font-size:18px;">🎬</span> <span>BẬT AUTO-SNAP</span> <small style="opacity:0.8;font-weight:500;">1 click</small>';
-            }
-        };
-        // Auto-click khi extension ready (zero user action). Đợi 800ms cho
-        // EXTENSION_LOADED message arrive trước khi quyết định.
-        setTimeout(() => {
-            if (STATE.extReady && !pill.disabled) {
-                console.log('[snap-ext] auto-click BẬT AUTO-SNAP (extension active)');
-                pill.click();
-            }
-        }, 800);
+        // Đợi 800ms cho EXTENSION_LOADED message arrive trước khi enable.
+        await new Promise((r) => setTimeout(r, 800));
+        console.log('[snap] auto-enabling live capture (extReady=' + !!STATE.extReady + ')');
+        try {
+            await _enableEmbeddedLiveCapture();
+        } catch (e) {
+            console.warn('[snap] auto-enable failed:', e?.message);
+            STATE.autoSnapStarting = false; // allow retry next poll
+        }
     }
 
     async function toggleRealSnap() {
@@ -3008,16 +2987,22 @@ Throttle 30s/KH.`;
                 console.log('[snap] chips mount done after', attempts, 'attempts');
             }
         }, 500);
-        // Banner auto: đợi liveCampaigns load → nếu có live → show banner
-        // "BẤM 1 LẦN" để bật embedded capture (no tab switch).
+        // FULL AUTO: đợi liveCampaigns load → tự bật embedded capture (no popup,
+        // no manual click). Retry mỗi 2s trong 60s nếu live xuất hiện muộn hoặc
+        // capture init fail (vd extension chưa ready). Stop khi đã capture hoặc
+        // hết 60s. User feedback 2026-05-26: page phải tự động hoàn toàn.
         const bannerTimer = setInterval(() => {
+            // Đã chạy hoặc đang chạy → stop poll
+            if (STATE.captureStream || STATE.frameBufferTimer) {
+                clearInterval(bannerTimer);
+                return;
+            }
             const st = global.TposState;
             if (st?.liveCampaigns?.length > 0) {
-                clearInterval(bannerTimer);
                 _maybeShowAutoSnapBanner();
             }
-        }, 1000);
-        setTimeout(() => clearInterval(bannerTimer), 30000);
+        }, 2000);
+        setTimeout(() => clearInterval(bannerTimer), 60000);
         // Initial inject ngay cho rows hiện có (nếu TPOS đã render trước script).
         // Observer sẽ handle rows mới sau đó.
         injectSnapButtonsAll();
