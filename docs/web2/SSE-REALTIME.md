@@ -309,15 +309,80 @@ curl -X POST "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2/s
 # → tất cả client subscribe web2:products phải nhận `event: test`
 ```
 
-### E. Render logs
+### E. Render logs — cấu trúc log SSE Web 2.0
 
-Render Dashboard → `n2store-fallback` → Logs. Tìm prefix `[SSE-WEB2]`:
+Render Dashboard → `n2store-fallback` → Logs. Filter `[SSE-WEB2]` (không nhầm với `[SSE]` của Web 1.0).
 
-- `[SSE-WEB2] Client connected (web2conn_...), watching: web2:products` — client connect
-- `[<MODULE>] _notify` hoặc `[SSE-WEB2] Notified N clients for key: web2:products` — server broadcast
-- `[SSE-WEB2] Client disconnected (web2conn_...) after Ns` — disconnect
+| Log line                                                                                    | Khi nào fire                                                                  | Đọc gì                                                                                                |
+| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `[SSE-WEB2] Client connected (web2conn_<ts>_<rand>), watching: web2:products,web2:variants` | Browser mở EventSource đến `/api/realtime/web2/sse?keys=...`                  | Topic mà client đăng ký, connectionId duy nhất                                                        |
+| `[SSE-WEB2] Active connections: N`                                                          | Sau mỗi connect/disconnect                                                    | Tổng số subscriber (sum per-topic) hiện tại                                                           |
+| `[SSE-WEB2] Notified N clients for key: web2:products`                                      | Route gọi `_notify(action, code)` SAU DB write thành công                     | N clients được fire event. Nếu N=0 → log thành `No clients listening to key: web2:products`           |
+| `[<MODULE>] _notify failed: <msg>`                                                          | Lỗi khi gọi `_notifyClients` (vd module chưa init notifier)                   | Module name + lý do (vd token chưa expire, JSON stringify lỗi)                                        |
+| `[SSE-WEB2] No clients listening to key: web2:products`                                     | Route fire broadcast nhưng không client nào subscribe                         | Bình thường khi không có tab nào mở page liên quan. Nếu page mở mà vẫn log này → bridge endpoint sai. |
+| `[SSE-WEB2] Wildcard notified N clients for pattern: web2:wallet`                           | `notifyClientsWildcard('web2:wallet', ...)` cho list pages (admin)            | Pattern match prefix → fire all subscribers có topic bắt đầu bằng prefix                              |
+| `[SSE-WEB2] Error sending to client: <err>`                                                 | `res.write()` throw — socket đã đóng nhưng chưa được cleanup                  | Tự cleanup ở next `req.on('close')`                                                                   |
+| `[SSE-WEB2] Client disconnected (web2conn_...) after <Ns>s`                                 | Browser đóng tab / network drop / proxy timeout                               | Connection time. Quá ngắn (<5s) lặp đi lặp lại = reconnect bug                                        |
+| `[SSE-WEB2] Web 2.0 wallet event subscription initialized`                                  | Server boot xong, attach listener `web2WalletEvents.on('web2:wallet:update')` | Phải thấy 1 lần khi server start. Nếu KHÔNG thấy → web2-wallet-service không load                     |
 
-Log prefix `[SSE]` (không có `-WEB2`) là của hub Web 1.0 (`routes/realtime-sse.js`) — không nên xuất hiện cho web2 topics nữa.
+### F. Read–write loop (UI realtime, không cần refresh)
+
+Đây là contract mà toàn bộ Web 2.0 dùng để sync UI không cần refresh:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  WRITE path (tab A — user mutate dữ liệu)                                   │
+│                                                                              │
+│  user click button                                                           │
+│    → fetch('/api/web2-products/KHO-X', { method:'PATCH', body: ... })        │
+│      → CF Worker proxy → Render route handler                                │
+│        → pg query: UPDATE web2_products SET ... WHERE code='KHO-X'           │
+│        → DB commit OK                                                        │
+│        → _notify('update', 'KHO-X')                                          │
+│          → web2RealtimeSseRoutes.notifyClients('web2:products', {            │
+│              action: 'update', code: 'KHO-X', ts: Date.now()                 │
+│            }, 'update')                                                      │
+│          → Render log: "[SSE-WEB2] Notified 3 clients for key: web2:products"│
+│        → res.json({ success: true })                                         │
+│    → tab A local UI update từ response                                       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  READ path (tab B, C, D — đang mở Web2SSE.subscribe)                         │
+│                                                                              │
+│  EventSource open: /api/realtime/web2/sse?keys=web2:products                 │
+│    → CF Worker stream proxy (text/event-stream, no buffering)                │
+│    → Render route SSE write:                                                 │
+│        event: update                                                         │
+│        data: {"key":"web2:products","data":{"action":"update",               │
+│              "code":"KHO-X","ts":1779778500},"event":"update", ...}          │
+│    → Browser EventSource fires 'update' event                                │
+│    → web2-sse-bridge.js dispatch → callback của subscriber                   │
+│    → Page handler:                                                           │
+│        if (debounceTimer) clearTimeout(debounceTimer)                        │
+│        debounceTimer = setTimeout(() => reload(), 600)                       │
+│    → 600ms sau: page re-fetch + re-render → UI fresh                         │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Không cần page refresh** vì:
+
+1. Server side: route nào mutate DB cũng PHẢI gọi `_notify(action, code)` sau commit (xem [Step 2 Section 3](#step-2-gọi-_notify-sau-mỗi-successful-write))
+2. Client side: page nào hiển thị data PHẢI `Web2SSE.subscribe(topic, cb)` trong `init()` (xem [Step 2 Section 4](#step-2-subscribe-trong-appjs))
+3. Bridge maintain 1 EventSource singleton, multiplex topics qua `?keys=`, auto-reconnect khi mất kết nối
+
+### G. Debug khi UI không update (cheatsheet)
+
+| Hiện tượng                                     | Check                                                                                                                                          |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mutate ở tab A → tab B không update            | DevTools tab B → Network → tìm EventSource đến `/api/realtime/web2/sse` (status pending). Không có? → bridge chưa load / endpoint sai          |
+| Stream có nhưng không fire callback            | Console tab B → bridge log `[Web2SSE]` payload nhận được? Topic có match? Subscriber có register kịp init() không?                             |
+| Render log show "Notified 0 clients"           | Tab nào đang mở? Browser cache cũ `?v=` → bridge cũ vẫn trỏ về `/api/realtime/sse` (Web 1.0). Hard refresh / bump `?v=`                        |
+| Render log không có `[SSE-WEB2] Notified`      | Route handler chưa gọi `_notify(action, code)` sau DB write. Hoặc `initializeNotifiers` trong server.js chưa wire qua `web2RealtimeSseRoutes`. |
+| `[SSE-WEB2] Wallet event subscription` missing | `services/web2-wallet-service.js` không load — check stack trace server boot                                                                   |
+| Stream connect rồi disconnect liên tục         | CF Worker timeout? Heartbeat (30s) bị drop ở middlebox? Check `req.on('error')` log                                                            |
 
 ---
 

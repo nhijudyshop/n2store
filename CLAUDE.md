@@ -301,6 +301,65 @@ Recipe Web 1.0:
 
 Reference Web 1.0 production: `orders-report/js/celebration.js`, `orders-report/js/tab1/tab1-order-notes.js`, `orders-report/js/tab1/tab1-kpi-stats-strip.js` (topics `celebration`, `kpi_statistics,kpi_base`).
 
+### Render SSE log structure — đọc/viết để verify realtime UI (không refresh)
+
+**Write path** (Web 2.0): route mutation gọi `_notify(action, code)` SAU DB commit, TRƯỚC `res.json` → server log:
+
+```
+[SSE-WEB2] Notified 3 clients for key: web2:products       ← 3 tab đang mở subscribe topic này
+[SSE-WEB2] No clients listening to key: web2:products      ← không tab nào subscribe (bình thường khi không ai dùng)
+[<MODULE>] _notify failed: <error>                          ← lỗi trong route wrapper (vd `[WEB2-PRODUCTS] _notify failed: ...`)
+```
+
+**Read path** (client subscribe): browser open `/api/realtime/web2/sse?keys=web2:products` → server log:
+
+```
+[SSE-WEB2] Client connected (web2conn_1779778472163_qxpod2aax), watching: web2:products
+[SSE-WEB2] Active connections: 5
+...
+[SSE-WEB2] Client disconnected (web2conn_1779778472163_qxpod2aax) after 234.5s
+[SSE-WEB2] Active connections: 4
+```
+
+**Boot log** (1 lần khi server start): `[SSE-WEB2] Web 2.0 wallet event subscription initialized` — nếu thiếu, `web2-wallet-service` không load.
+
+**Read–write loop** để UI tab B/C/D update mà không cần refresh:
+
+```
+Tab A: user click → PATCH /api/web2-products/KHO-X
+  → Render: UPDATE web2_products WHERE code=KHO-X → COMMIT OK
+  → _notify('update', 'KHO-X') → broadcast SSE event 'update' với data {action,code,ts}
+  → Log: [SSE-WEB2] Notified N clients for key: web2:products
+  → res.json({success:true}) → tab A local re-render
+
+Tab B/C/D (đang subscribe): Web2SSE.subscribe('web2:products', cb)
+  → callback fire với {topic:'web2:products', eventType:'update', data:{action,code,ts}}
+  → debounce 500-600ms (gom burst) → reload() → UI fresh
+```
+
+3 điều kiện bắt buộc:
+
+1. Route handler gọi `_notify(action, code)` sau commit, trước response
+2. `server.js` wire `<module>Routes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients)` (đúng hub web2)
+3. HTML load `web2-sse-bridge.js?v=<latest>` TRƯỚC page-app + page gọi `Web2SSE.subscribe(topic, cb)` trong `init()`
+
+**Verify production** (curl):
+
+```bash
+# 1) Stats (server alive + per-topic subscriber count)
+curl -s "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2/sse/stats" | jq
+# → {"success":true,"server":"web2","totalClients":N,"uniqueKeys":M,"keyStats":{...}}
+
+# 2) Open stream + trigger test event
+curl -N "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2/sse?keys=web2:test-topic" &  # background
+curl -X POST "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2/sse/test" \
+  -H "Content-Type: application/json" \
+  -d '{"key":"web2:test-topic","data":{"action":"smoke","ts":'$(date +%s)'}}'
+# → stream nhận: event: test\ndata: {key:web2:test-topic,data:{action:smoke,...}}
+```
+
+Đầy đủ log lines + debug cheatsheet UI không update: xem [docs/web2/SSE-REALTIME.md §7E-§7G](docs/web2/SSE-REALTIME.md).
+
 ### Index quick-lookup
 
 - [`docs/web2/WEB2-INDEX.md`](docs/web2/WEB2-INDEX.md) — folder, route, table, Firestore collection của Web 2.0
