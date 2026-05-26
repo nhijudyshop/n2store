@@ -107,6 +107,40 @@
         dom.pageButtons = document.getElementById('w2bhPageButtons');
         dom.pageSize = document.getElementById('w2bhPageSize');
         dom.refreshBtn = document.getElementById('w2bhRefreshBtn');
+        dom.reprocessBtn = document.getElementById('w2bhReprocessBtn');
+    }
+
+    async function reprocessUnmatched() {
+        const btn = dom.reprocessBtn;
+        if (!btn) return;
+        const ok = confirm(
+            'Chạy lại extractor cho 200 giao dịch chưa gán KH gần nhất?\n\n' +
+                'Các giao dịch match được sẽ tự động cộng ví Web 2.0. Multi-match → pending modal.'
+        );
+        if (!ok) return;
+        btn.disabled = true;
+        const origText = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="loader-2"></i> Đang xử lý…';
+        if (window.lucide) window.lucide.createIcons();
+        try {
+            const r = await withFallback('/reprocess-unmatched', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ limit: 200 }),
+            });
+            const s = r?.data || {};
+            notify(
+                `✅ Reprocess ${s.picked} GD: ${s.matched} auto match, ${s.pending} pending, ${s.no_match} no match, ${s.errors} lỗi`,
+                'success'
+            );
+            await load();
+        } catch (e) {
+            notify('Lỗi reprocess: ' + e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = origText;
+            if (window.lucide) window.lucide.createIcons();
+        }
     }
 
     // ----- Render -----
@@ -338,6 +372,9 @@
         }
         if (dom.refreshBtn) {
             dom.refreshBtn.addEventListener('click', () => load());
+        }
+        if (dom.reprocessBtn) {
+            dom.reprocessBtn.addEventListener('click', () => reprocessUnmatched());
         }
     }
 

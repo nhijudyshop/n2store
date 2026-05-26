@@ -221,4 +221,78 @@ router.patch('/:id/link', async (req, res) => {
     }
 });
 
+// =====================================================
+// POST /api/web2/balance-history/reprocess-unmatched
+// Bulk re-run processWeb2Match for NO_PHONE rows (backfilled từ legacy
+// chưa từng đi qua Web 2.0 matching engine với improved extractor).
+// Body: { limit?: number, dryRun?: boolean }
+// =====================================================
+router.post('/reprocess-unmatched', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb || req.app.locals.db;
+        const limit = Math.min(parseInt(req.body?.limit) || 200, 500);
+        const dryRun = req.body?.dryRun === true;
+        const { fetchWithTimeout } = require('../../../shared/node/fetch-utils.cjs');
+        // path is 3 levels up: routes/v2 → routes → render.com → n2store → shared/
+
+        const rows = await db.query(
+            `SELECT id, sepay_id, content, transfer_amount
+             FROM web2_balance_history
+             WHERE linked_customer_phone IS NULL
+               AND transfer_type = 'in'
+               AND debt_added = FALSE
+             ORDER BY transaction_date DESC NULLS LAST
+             LIMIT $1`,
+            [limit]
+        );
+
+        if (rows.rows.length === 0) {
+            return res.json({
+                success: true,
+                data: { picked: 0, matched: 0, pending: 0, no_match: 0, errors: 0 },
+            });
+        }
+
+        const stats = { picked: rows.rows.length, matched: 0, pending: 0, no_match: 0, errors: 0 };
+        const results = [];
+
+        for (const row of rows.rows) {
+            try {
+                const r = await web2SepayMatching.processWeb2Match(db, row.id, fetchWithTimeout);
+                const r2 = {
+                    id: row.id,
+                    sepay: row.sepay_id,
+                    amount: row.transfer_amount,
+                    method: r?.method || null,
+                    phone: r?.phone || null,
+                    name: r?.customerName || null,
+                    confidence: r?.confidenceScore || null,
+                };
+                if (
+                    r?.success &&
+                    (r.method === 'exact_phone' ||
+                        r.method === 'single_match' ||
+                        r.method === 'qr_code')
+                ) {
+                    stats.matched++;
+                } else if (
+                    r?.method === 'pending_match_created' ||
+                    r?.method === 'pending_low_confidence'
+                ) {
+                    stats.pending++;
+                } else {
+                    stats.no_match++;
+                }
+                if (results.length < 50) results.push(r2);
+            } catch (e) {
+                stats.errors++;
+                console.warn(`[reprocess] row ${row.id} fail:`, e.message);
+            }
+        }
+        res.json({ success: true, data: { ...stats, sample: results } });
+    } catch (e) {
+        handleError(res, e, 'Reprocess unmatched');
+    }
+});
+
 module.exports = router;
