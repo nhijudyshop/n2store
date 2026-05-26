@@ -144,7 +144,8 @@ async function insertWeb2BalanceHistory(db, webhookData) {
 async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
     // 1. Load row
     const r = await db.query(
-        `SELECT id, sepay_id, content, transfer_amount, transfer_type, debt_added
+        `SELECT id, sepay_id, content, transfer_amount, transfer_type, debt_added,
+                linked_customer_phone, display_name, match_method
          FROM web2_balance_history WHERE id = $1`,
         [web2BhId]
     );
@@ -164,6 +165,45 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
     const amount = parseInt(tx.transfer_amount) || 0;
     if (amount <= 0) {
         return { success: false, reason: 'Invalid amount' };
+    }
+
+    // LEGACY MIGRATION: nếu row đã có linked_customer_phone (từ Web 1.0 manual
+    // entry / extractor cũ) mà ví Web 2.0 chưa cộng → tin dữ liệu cũ, credit
+    // luôn không cần re-extract. Lý do: phone đã được user verify trong Web 1.0.
+    if (tx.linked_customer_phone && tx.linked_customer_phone.length >= 9) {
+        try {
+            const walletResult = await web2WalletService.processDeposit(
+                db,
+                tx.linked_customer_phone,
+                amount,
+                tx.id,
+                'Nap tu CK (legacy migration)',
+                null,
+                null,
+                tx.sepay_id
+            );
+            await db.query(
+                `UPDATE web2_balance_history
+                 SET debt_added = TRUE,
+                     wallet_processed = TRUE,
+                     verification_status = 'AUTO_APPROVED',
+                     match_method = 'legacy_credited',
+                     verified_at = NOW()
+                 WHERE id = $1`,
+                [tx.id]
+            );
+            return {
+                success: true,
+                method: 'legacy_credited',
+                phone: tx.linked_customer_phone,
+                customerName: tx.display_name,
+                amount,
+                walletTxId: walletResult?.transaction?.id,
+            };
+        } catch (e) {
+            console.warn(`[processWeb2Match] legacy credit fail for id=${tx.id}:`, e.message);
+            // Fall through to normal re-extraction
+        }
     }
 
     const content = tx.content || '';
