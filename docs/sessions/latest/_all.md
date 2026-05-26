@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `bbaf4c0` — fix(tpos-pancake): thumbnail capture work — restore Path 2 (captureVisibleTab) + <all_urls>
-**Last updated**: 2026-05-26 14:24:35 +07
-**Latest session**: [`RESUME:20260526-142435-bbaf4c0`](../20260526-142435-bbaf4c0.md)
-**Summary**: fix(tpos-pancake): thumbnail capture work — restore Path 2 (captureVisibleTab) + <all_urls>
+**Latest commit**: `095fd0d` — auto: session update
+**Last updated**: 2026-05-26 14:30:26 +07
+**Latest session**: [`RESUME:20260526-143026-095fd0d`](../20260526-143026-095fd0d.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`n2store-extension/`](./n2store-extension.md) — 1 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -44,7 +44,7 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-25 14:08
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 14:22
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 14:30
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
