@@ -1190,6 +1190,202 @@ router.delete('/overrides/:date/:group', async (req, res) => {
     }
 });
 
+// =====================================================
+// MERGES — gộp nhiều ngày liên tiếp thành 1 báo cáo (cho 1 group).
+// Số liệu auto (SL ĐƠN, TIỀN, PHÍ SHIP, TỔNG TẤT CẢ, TỔNG CÒN LẠI) cộng dồn
+// từ các ngày con. Override fields (slShip/thuVe/boCK/atruongCK/ckTruoc/note/
+// approved) nhập riêng cho merge — KHÔNG cộng dồn từ override ngày con.
+// =====================================================
+
+async function ensureMergesSchema(pool) {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS delivery_assignment_merges (
+            id SERIAL PRIMARY KEY,
+            group_name VARCHAR(20) NOT NULL,
+            from_date DATE NOT NULL,
+            to_date DATE NOT NULL,
+            sl_ship INTEGER NOT NULL DEFAULT 0,
+            thu_ve NUMERIC(15,2) NOT NULL DEFAULT 0,
+            bo_ck NUMERIC(15,2) NOT NULL DEFAULT 0,
+            atruong_ck NUMERIC(15,2) NOT NULL DEFAULT 0,
+            ck_truoc NUMERIC(15,2) NOT NULL DEFAULT 0,
+            note TEXT NOT NULL DEFAULT '',
+            approved BOOLEAN NOT NULL DEFAULT FALSE,
+            expanded BOOLEAN NOT NULL DEFAULT FALSE,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_by VARCHAR(100),
+            CHECK (from_date <= to_date),
+            UNIQUE (group_name, from_date)
+        )
+    `);
+    await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_delivery_merges_group_range
+        ON delivery_assignment_merges (group_name, from_date, to_date)
+    `);
+}
+
+function rowToMerge(r) {
+    return {
+        id: Number(r.id),
+        groupName: r.group_name,
+        fromDate:
+            typeof r.from_date === 'string' ? r.from_date : r.from_date.toISOString().slice(0, 10),
+        toDate: typeof r.to_date === 'string' ? r.to_date : r.to_date.toISOString().slice(0, 10),
+        slShip: Number(r.sl_ship) || 0,
+        thuVe: Number(r.thu_ve) || 0,
+        boCK: Number(r.bo_ck) || 0,
+        atruongCK: Number(r.atruong_ck) || 0,
+        ckTruoc: Number(r.ck_truoc) || 0,
+        note: r.note || '',
+        approved: !!r.approved,
+        expanded: !!r.expanded,
+    };
+}
+
+// GET /merges?from=&to= — list merges overlapping date range
+router.get('/merges', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { from, to, group } = req.query;
+        if (!isValidDate(from) || !isValidDate(to)) {
+            return res.status(400).json({ success: false, error: 'Invalid from/to (YYYY-MM-DD)' });
+        }
+        const params = [from, to];
+        let where = `(from_date <= $2 AND to_date >= $1)`;
+        if (group && isValidGroup(group)) {
+            params.push(group);
+            where += ` AND group_name = $3`;
+        }
+        const result = await db.query(
+            `SELECT id, group_name, from_date::text, to_date::text,
+                    sl_ship, thu_ve, bo_ck, atruong_ck, ck_truoc, note, approved, expanded
+             FROM delivery_assignment_merges
+             WHERE ${where}
+             ORDER BY group_name, from_date`,
+            params
+        );
+        res.json({ success: true, data: { merges: result.rows.map(rowToMerge) } });
+    } catch (err) {
+        console.error('[delivery-assignments] GET /merges error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /merges body {groupName, fromDate, toDate}
+router.post('/merges', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { groupName, fromDate, toDate } = req.body || {};
+        if (!isValidGroup(groupName) || !isValidDate(fromDate) || !isValidDate(toDate)) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'Invalid groupName / fromDate / toDate' });
+        }
+        if (fromDate > toDate) {
+            return res.status(400).json({ success: false, error: 'fromDate > toDate' });
+        }
+        // Reject overlap với merge khác cùng group
+        const overlap = await db.query(
+            `SELECT id FROM delivery_assignment_merges
+             WHERE group_name = $1 AND from_date <= $3 AND to_date >= $2 LIMIT 1`,
+            [groupName, fromDate, toDate]
+        );
+        if (overlap.rows.length > 0) {
+            return res
+                .status(409)
+                .json({
+                    success: false,
+                    error: 'Range overlaps an existing merge',
+                    existingId: overlap.rows[0].id,
+                });
+        }
+        const user = getUserFromHeaders(req);
+        const result = await db.query(
+            `INSERT INTO delivery_assignment_merges
+                (group_name, from_date, to_date, updated_by)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, group_name, from_date::text, to_date::text,
+                       sl_ship, thu_ve, bo_ck, atruong_ck, ck_truoc, note, approved, expanded`,
+            [groupName, fromDate, toDate, user]
+        );
+        res.json({ success: true, data: { merge: rowToMerge(result.rows[0]) } });
+    } catch (err) {
+        console.error('[delivery-assignments] POST /merges error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// PUT /merges/:id — update override fields + expanded
+router.put('/merges/:id', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const id = Number(req.params.id);
+        if (!Number.isFinite(id) || id <= 0) {
+            return res.status(400).json({ success: false, error: 'Invalid id' });
+        }
+        const body = req.body || {};
+        const fields = {
+            sl_ship: Math.max(0, Number(body.slShip) || 0),
+            thu_ve: Number(body.thuVe) || 0,
+            bo_ck: Number(body.boCK) || 0,
+            atruong_ck: Number(body.atruongCK) || 0,
+            ck_truoc: Number(body.ckTruoc) || 0,
+            note: String(body.note || '').trim(),
+            approved: !!body.approved,
+            expanded: !!body.expanded,
+        };
+        const user = getUserFromHeaders(req);
+        const result = await db.query(
+            `UPDATE delivery_assignment_merges
+             SET sl_ship = $1, thu_ve = $2, bo_ck = $3, atruong_ck = $4, ck_truoc = $5,
+                 note = $6, approved = $7, expanded = $8,
+                 updated_at = NOW(), updated_by = $9
+             WHERE id = $10
+             RETURNING id, group_name, from_date::text, to_date::text,
+                       sl_ship, thu_ve, bo_ck, atruong_ck, ck_truoc, note, approved, expanded`,
+            [
+                fields.sl_ship,
+                fields.thu_ve,
+                fields.bo_ck,
+                fields.atruong_ck,
+                fields.ck_truoc,
+                fields.note,
+                fields.approved,
+                fields.expanded,
+                user,
+                id,
+            ]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Merge not found' });
+        }
+        res.json({ success: true, data: { merge: rowToMerge(result.rows[0]) } });
+    } catch (err) {
+        console.error('[delivery-assignments] PUT /merges error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// DELETE /merges/:id
+router.delete('/merges/:id', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const id = Number(req.params.id);
+        if (!Number.isFinite(id) || id <= 0) {
+            return res.status(400).json({ success: false, error: 'Invalid id' });
+        }
+        const result = await db.query(
+            `DELETE FROM delivery_assignment_merges WHERE id = $1 RETURNING id`,
+            [id]
+        );
+        res.json({ success: true, data: { deleted: result.rows.length } });
+    } catch (err) {
+        console.error('[delivery-assignments] DELETE /merges error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 module.exports = router;
 module.exports.ensureImagesSchema = ensureImagesSchema;
 module.exports.ensureOverridesSchema = ensureOverridesSchema;
+module.exports.ensureMergesSchema = ensureMergesSchema;
