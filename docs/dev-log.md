@@ -25,6 +25,39 @@
 
 ## 2026-05-26
 
+### [delivery-report/report] Admin gating mở rộng: gộp + chỉnh ngày → ẩn cho non-admin ✅
+
+**User ask**: "gộp và chỉnh ngày hiển thị (dời sang ngày khác) → cho các account không phải tương tác luôn"
+
+**Fix** (`delivery-report/js/report.js` + `delivery-report/css/delivery-report.css`):
+
+Mở rộng admin-only gating đã có cho DUYỆT, bao gồm 4 tính năng:
+
+| Feature                           | Element                            | Non-admin behavior                                                                                                                     |
+| --------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Select-day checkbox (chọn để gộp) | `input.dr-row-select`              | Replace bằng `<span class="dr-row-select-locked">` gạch chéo gray, cursor:not-allowed, tooltip "Chỉ Admin được gộp ngày"               |
+| Gộp button                        | `#drSelMergeBtn`                   | Selection bar tự không mở (state.selectedDates rỗng) vì checkbox đã hidden. Defensive: `onMergeClick` early-return + alert "Chỉ Admin" |
+| Unmerge × button                  | `button[data-action="unmerge"]`    | Skip render (admin: render; non-admin: empty). Handler `if (!_isAdmin()) return`                                                       |
+| Shift edit pen                    | `button[data-action="shift-edit"]` | Đã admin-only từ trước (renderSingleRow check `_isAdmin() && !isChild`)                                                                |
+| Unshift × trên aggregate row      | `[data-action="unshift-all"]`      | Đã admin-only từ trước                                                                                                                 |
+
+**Defense in depth** (cả UI + handler):
+
+- `updateSelectionBar`: non-admin → `state.selectedDates.clear()` + bar không `.open` (cho dù state bị poison qua DevTools)
+- `tbody.change` handler `select-day`: non-admin → set `el.checked=false`, không update state
+- `onMergeClick`: non-admin → alert + return
+- `tbody.click` unmerge: non-admin → return
+- `tbody.click` shift-edit: đã có `if (!_isAdmin()) return` từ trước
+
+**CSS**: thêm `.dr-row-select-locked` (cùng pattern `dr-approve-locked`): 16×16 diagonal-stripe gray, không click được.
+
+**Verify** (Playwright switch auth):
+
+- ADMIN: selectDayCb=true, unmergeBtn=true, shiftEditBtn=true ✅
+- NON-ADMIN (override `{isAdmin:false, roleTemplate:'user'}`): selectDayCb=false (locked), unmergeBtn=false, shiftEditBtn=false, selBarOpen=false ✅
+
+---
+
 ### [delivery-report/report] Fix off-by-one — entry-date = real-date (align với main page) ✅
 
 **User báo**: "sao 29/04, 30/04 không có dữ liệu?" — chọn range 29/04 → 30/04 trong báo cáo modal, modal hiển thị $0/0 đơn cho cả 2 ngày, NHƯNG main page với cùng date range hiển thị TOMATO 79/82 đơn, CN 1.329.000.

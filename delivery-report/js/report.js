@@ -1127,7 +1127,9 @@
             const disabled = isChild ? 'disabled' : '';
             const selectCell = isChild
                 ? '<span class="dr-merge-child-indicator" title="Thuộc nhóm gộp">└</span>'
-                : `<input type="checkbox" class="dr-row-select" data-action="select-day" ${selected ? 'checked' : ''} title="Chọn để gộp" />`;
+                : _isAdmin()
+                  ? `<input type="checkbox" class="dr-row-select" data-action="select-day" ${selected ? 'checked' : ''} title="Chọn để gộp" />`
+                  : '<span class="dr-row-select-locked" title="Chỉ Admin được gộp ngày"></span>';
             // Badge "đã dời ngày" nếu real != display. Click cell date sẽ mở date input để admin chỉnh.
             const shifted = isDateShifted(d, state.activeTab);
             const editBtn =
@@ -1262,7 +1264,7 @@
                     <button class="dr-merge-chev" data-action="toggle-merge" title="${expanded ? 'Thu gọn' : 'Mở rộng các ngày con'}"><i class="fas fa-chevron-${chevIcon}"></i></button>
                     <span class="dr-merge-range">${rangeLabel}</span>
                     <span class="dr-merge-count" title="${partial ? 'Chỉ tính ' + daysInRange + '/' + totalDays + ' ngày trong khoảng filter' : daysInRange + ' ngày gộp'}">${daysInRange}${partial ? '/' + totalDays : ''} ngày</span>
-                    <button class="dr-merge-unmerge" data-action="unmerge" title="Bỏ gộp">×</button>
+                    ${_isAdmin() ? '<button class="dr-merge-unmerge" data-action="unmerge" title="Bỏ gộp">×</button>' : ''}
                 </td>
                 <td class="num strong">${formatNumber(sumSlDon)}</td>
                 <td class="num money-cell-merge img-${imgState}" data-action="merge-img" title="${imgTitle}">
@@ -1466,6 +1468,12 @@
     function updateSelectionBar() {
         const bar = document.getElementById('drReportSelectionBar');
         if (!bar) return;
+        // Non-admin không gộp được → ép selection rỗng + ẩn bar (defensive)
+        if (!_isAdmin()) {
+            state.selectedDates.clear();
+            bar.classList.remove('open');
+            return;
+        }
         const count = state.selectedDates.size;
         const countEl = document.getElementById('drSelCount');
         const hintEl = document.getElementById('drSelHint');
@@ -1511,6 +1519,10 @@
     }
 
     async function onMergeClick() {
+        if (!_isAdmin()) {
+            alert('Chỉ tài khoản Admin mới được gộp ngày.');
+            return;
+        }
         const sorted = [...state.selectedDates].sort();
         if (sorted.length < 2) return;
         const fromDate = sorted[0];
@@ -1590,8 +1602,12 @@
         tbody.addEventListener('change', (e) => {
             const el = e.target;
             if (!el || el.type !== 'checkbox') return;
-            // Select-day checkbox: toggle state.selectedDates
+            // Select-day checkbox: toggle state.selectedDates (admin only)
             if (el.dataset.action === 'select-day') {
+                if (!_isAdmin()) {
+                    el.checked = false;
+                    return;
+                }
                 const row = el.closest('tr[data-date]');
                 if (!row) return;
                 const d = row.dataset.date;
@@ -1677,9 +1693,10 @@
                 scheduleRender();
                 return;
             }
-            // Unmerge — no confirm, instant action (user feedback request)
+            // Unmerge — no confirm, instant action (user feedback request). Admin only.
             const unmerge = e.target.closest && e.target.closest('button[data-action="unmerge"]');
             if (unmerge) {
+                if (!_isAdmin()) return;
                 const tr = unmerge.closest('tr[data-merge-id]');
                 if (!tr) return;
                 const id = Number(tr.dataset.mergeId);
