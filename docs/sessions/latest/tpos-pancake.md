@@ -3,10 +3,10 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260526-154131-0f7b544`
-**Session file**: [`./20260526-154131-0f7b544.md`](../20260526-154131-0f7b544.md)
-**Commit**: `0f7b544` — auto: session update
-**Last updated**: 2026-05-26 15:41:31 +07
+**Latest session**: `RESUME:20260526-154415-3c42030`
+**Session file**: [`./20260526-154415-3c42030.md`](../20260526-154415-3c42030.md)
+**Commit**: `3c42030` — auto: session update
+**Last updated**: 2026-05-26 15:44:15 +07
 **Summary**: auto: session update
 
 ## Files changed in this commit (`tpos-pancake/`)
@@ -16,11 +16,11 @@
 
 ## Last 5 commits touching `tpos-pancake/`
 
+- `f456f85f5` feat(snap): Option B mandatory streamId modal — tab inactive vẫn capture _(2026-05-26)_
 - `0f7b544ae` auto: session update _(2026-05-26)_
 - `c850e3795` fix(tpos-pancake): bỏ throttle per-customer 30s — comment liền nhau cùng KH đều snap _(2026-05-26)_
 - `8706f28ba` fix(tpos-pancake): bỏ "click icon extension" — bước dư thừa _(2026-05-26)_
 - `c4b3e14b4` auto: session update _(2026-05-26)_
-- `2e19af504` fix(tpos-pancake): id-card icon → contact (spam console mỗi SSE update) _(2026-05-26)_
 
 ---
 
@@ -28,4 +28,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260526-154131-0f7b544` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260526-154415-3c42030` cho Claude walk chain theo CLAUDE.md protocol.
