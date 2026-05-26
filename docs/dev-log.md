@@ -52,6 +52,33 @@ Bổ sung **expand** vào danh sách admin-only (gộp + chỉnh ngày đã có 
 
 ---
 
+### [tpos-pancake] Revert Option B modal — thay bằng visibility watcher (title flash + browser notif + tip toast) ✅
+
+**User ask**: "bỏ chức năng này đi, lag quá -> khi vào trang này đang livestream và đang capture thì không cho chuyển tab (phần này khả thi không?) -> còn không khi chuyển tab sẽ hiện popup thông báo và có nút chuyển về tab tpos-pancake, kêu người dùng dùng 2 trình duyệt"
+
+**Trả lời "không cho chuyển tab"**: KHÔNG khả thi — browser security cấm. Chỉ DETECT được qua `document.visibilitychange`.
+
+**Fix** (`tpos-pancake/js/tpos/tpos-livestream-snap.js`):
+
+1. **Bỏ** `_showStreamIdRequiredModal()` function (lag, kể cả chỉ 1 modal)
+2. **Bỏ** modal call trong `_maybeShowAutoSnapBanner` — quay lại fallback `_enableEmbeddedLiveCapture()` (captureVisibleTab path, tab focused only)
+3. **Thêm** `_setupVisibilityWatcher()` — gọi 1 lần khi `_startFrameBuffer()` chạy, gắn `document.visibilitychange` listener:
+    - Khi `visibilityState === 'hidden'` AND `STATE.frameBufferTimer` đang chạy:
+        - Title flash 1s/lần: "⚠️ QUAY LẠI TAB LIVESTREAM" ↔ "🔴 Capture đang dừng — focus lại"
+        - Browser Notification API (one-shot, click → `window.focus()`). Auto-request permission lần đầu.
+    - Khi quay lại `visibilityState === 'visible'`:
+        - Stop title flash + restore title gốc
+        - Close notification
+        - Nếu hidden >5s → show toast tip 1 lần / session: "💡 Mở 2 trình duyệt riêng — 1 cho livestream, 1 cho việc khác → capture không bị dừng"
+
+**Tại sao không block switch tab**: không có browser API nào prevent user chuyển tab. `beforeunload` chỉ fire khi close tab/window. `visibilitychange` chỉ là detector. Title flash + browser notification là cách thực tế nhất để alert user.
+
+**Cache bust**: `v=20260526l` → `v=20260526m`
+
+**Files**: tpos-pancake/js/tpos/tpos-livestream-snap.js, tpos-pancake/index.html
+
+---
+
 ### [tpos-pancake] Option B mandatory streamId modal — tab inactive capture ✅
 
 **User ask**: "Option B và check chưa có session thì hỏi, có rồi thì đừng hỏi -> chỉ có 1 nút xác nhận để bắt buộc"
