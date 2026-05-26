@@ -527,6 +527,31 @@ Admin curl subscribe `web2:_admin:sse-log` + 2 lần trigger test broadcast → 
 
 ---
 
+### [product-warehouse] Fix toolbar filters + auto-load history tab ✅
+
+**User ask**: (1) "browser test các filter hình 1" — test 4 toolbar dropdowns. (2) "tab lịch sử ở chỉnh sửa sản phẩm -> tự động hiện khi vào tab" — auto-load audit log instead of requiring "Tải lịch sử" click.
+
+**Findings**: all 4 toolbar dropdowns broken — TPOS GetViewV2 ignores `$filter=QtyAvailable gt 0`, `Active eq false`, `contains(CategCompleteName, ...)`, etc. Example: Tồn kho="Còn hàng" still returned rows with qty 0.
+
+**Fixes**:
+
+- `applyClientFilters()` extended to honour toolbar dropdowns (Tồn kho stock state, Hiệu lực Active partition, Nhóm SP CategCompleteName substring, Nhãn tag-id/name match).
+- `hasActiveColumnFilters()` extended to consider toolbar dropdowns — `fetchProducts()` routes through cached client-side path whenever any filter has non-default value.
+- Toolbar change handlers call `fetchProducts(true)` (silent=true) for instant cache hits.
+- Hiệu lực dropdown syncs with tabs: "Hết hiệu lực" auto-clicks the inactive tab (was 0 rows because tab+dropdown contradicted).
+- Edit-modal tab click: "Lịch sử" auto-triggers `loadAuditLog(templateId)`. Tracked via `_auditLogLoadedForTemplate` (one fetch per modal open); reset in `closeEditModal()`. "Tải lịch sử" button kept as manual refresh.
+
+**Files**: `product-warehouse/js/main.js`.
+
+**Verification (Playwright)** with cache warm:
+
+- Tồn kho="Còn hàng": 50 rows, all qtys > 0 ✓.
+- Tồn kho="Hết hàng": 50 rows, all qtys = 0 ✓.
+- Hiệu lực="Hết hiệu lực": auto-switches to inactive tab ✓.
+- Nhóm SP populates real categories; selection filters client-side.
+- 0 server calls for filter changes (all via warmed cache).
+- Click "Lịch sử" tab → `#auditLogContent` flips empty → "Đang tải…" automatically ✓.
+
 ### [product-warehouse] Instant search via idle-warmed template cache ✅
 
 **User ask**: "tìm kiếm sản phẩm render bảng theo dữ liệu nhập vào luôn đi" + "browser test phần tìm kiếm sao cho tối ưu nhất".
