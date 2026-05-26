@@ -171,10 +171,6 @@
             if (ok) {
                 STATE.extReady = true;
                 console.log(`[snap-ext] v${data.version} OK — capture silent qua <all_urls>`);
-                // Extension v1.0.15+ có <all_urls> → chrome.tabs.captureVisibleTab
-                // hoạt động NGẦM, không cần click icon. Set consent flag để skip
-                // các modal cũ (đã bị deprecate).
-                localStorage.setItem('tpos_stream_consented', '1');
             } else {
                 STATE.extReady = false;
                 STATE.extOutdated = true;

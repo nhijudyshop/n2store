@@ -16,13 +16,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Update banner: nếu version-checker đã lưu updateInfo và remote > installed → show
     showUpdateBannerIfAvailable();
 
-    // Livestream Snapshot: auto-grab tab streamId nếu active tab là tpos-pancake.
-    // chrome.tabCapture.getMediaStreamId() yêu cầu user gesture (popup click =
-    // gesture). Sau khi user click extension icon, streamId được sent về page
-    // → page dùng getUserMedia tạo MediaStream → capture tab dù focused hay
-    // không (no popup, no tab-switch limitation).
-    grabTabStreamForLivestreamSnap();
-
     // Load status from service worker
     await loadStatus();
     await updateTabCount();
@@ -537,57 +530,6 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
-}
-
-// Livestream Snapshot — grab tab streamId on popup open + send tới active tab.
-// chrome.tabCapture.getMediaStreamId() là API duy nhất cho phép page lấy stream
-// của tab SPECIFIC (regardless tab focus). Yêu cầu user gesture → popup click.
-// Sau khi sent streamId, page dùng navigator.mediaDevices.getUserMedia
-// ({chromeMediaSourceId}) tạo MediaStream → frame buffer + capture work mượt
-// dù user switch sang tab khác.
-async function grabTabStreamForLivestreamSnap() {
-    try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (!tab?.id || !tab?.url) return;
-        // Chỉ grab cho tpos-pancake page (host check). Pages khác không cần.
-        const isTposPancake =
-            /^https:\/\/nhijudy\.store\/tpos-pancake\//.test(tab.url) ||
-            /^http:\/\/localhost(:\d+)?\/tpos-pancake\//.test(tab.url);
-        if (!isTposPancake) return;
-        // chrome.tabCapture.getMediaStreamId() — MV3 API, requires user gesture.
-        // Popup click chính là gesture. consumerTabId = tab cần dùng stream;
-        // targetTabId = tab cần capture (cùng tabId vì page tự dùng cho mình).
-        const streamId = await new Promise((resolve, reject) => {
-            chrome.tabCapture.getMediaStreamId(
-                { consumerTabId: tab.id, targetTabId: tab.id },
-                (id) => {
-                    const err = chrome.runtime.lastError;
-                    if (err) reject(new Error(err.message));
-                    else resolve(id);
-                }
-            );
-        });
-        if (!streamId) {
-            console.warn('[popup] no streamId returned');
-            return;
-        }
-        // Send streamId via chrome.tabs.sendMessage. Content script forward
-        // vào page qua window.postMessage. Page có 10s để consume streamId
-        // (Chrome timeout for tab stream IDs).
-        try {
-            await chrome.tabs.sendMessage(tab.id, {
-                type: 'N2_TAB_STREAM_ID',
-                streamId,
-                ts: Date.now(),
-            });
-            console.log('[popup] streamId sent to tab', tab.id);
-        } catch (e) {
-            console.warn('[popup] sendMessage fail:', e.message);
-        }
-    } catch (e) {
-        // tabCapture API not available / permission denied / no host match — silent.
-        console.warn('[popup] grabTabStream fail:', e.message);
-    }
 }
 
 // === Update Available Banner ===

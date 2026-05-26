@@ -92,6 +92,38 @@ Bổ sung **expand** vào danh sách admin-only (gộp + chỉnh ngày đã có 
 
 ---
 
+### [tpos-pancake][extension] Bỏ hoàn toàn tab stream-based path (getMediaStreamId) ✅
+
+**User ask**: "bỏ chức năng bấm vào extension lấy sessionId sharing đi"
+
+**Cleanup toàn bộ flow stream-based**:
+
+**Page side** (`tpos-pancake/js/tpos/tpos-livestream-snap.js`):
+
+- Bỏ `_initStreamFromExtensionStreamId()` function (getUserMedia với `chromeMediaSource: 'tab'`)
+- Bỏ `_showStreamModeReminder()` (banner reminder) + `_showStreamModePromptDeprecated_REMOVED()` (modal Enter)
+- Bỏ message handler `N2_TAB_STREAM_ID` trong page listener
+- Bỏ `STATE.extStreamActive` ref + branch trong `renderRealSnapChip` (chỉ còn EXT tab và LIVE linked)
+- Bỏ `localStorage.setItem('tpos_stream_consented', '1')`
+
+**Extension side**:
+
+- `popup/popup.js`: bỏ `grabTabStreamForLivestreamSnap()` function + call khi mở popup
+- `content/contentscript.js`: bỏ message listeners `N2_TAB_STREAM_ID` (relay vào page) + `N2_TAB_STREAM_GRAB_REQUEST` (page-triggered grab)
+- `background/service-worker.js`: bỏ `chrome.commands.onCommand` handler `enable-stream-capture` + `N2_GRAB_TAB_STREAM_FROM_CLICK` handler
+- `manifest.json`: bỏ permission `"tabCapture"` + bỏ toàn bộ `"commands"` block (Ctrl+Shift+S). Version `1.0.16` → `1.0.17`
+
+**Flow sau cleanup**:
+
+- Tab focused → `chrome.tabs.captureVisibleTab` silent qua `<all_urls>` (path duy nhất)
+- Tab inactive → KHÔNG chụp được. Visibility watcher từ commit trước alert user
+
+**Cache bust**: `v=20260526m` → `v=20260526n` (auto-bumped)
+
+**Files**: tpos-pancake/{js/tpos/tpos-livestream-snap.js, index.html}, n2store-extension/{manifest.json, popup/popup.js, content/contentscript.js, background/service-worker.js}
+
+---
+
 ### [tpos-pancake] Revert Option B modal — thay bằng visibility watcher (title flash + browser notif + tip toast) ✅
 
 **User ask**: "bỏ chức năng này đi, lag quá -> khi vào trang này đang livestream và đang capture thì không cho chuyển tab (phần này khả thi không?) -> còn không khi chuyển tab sẽ hiện popup thông báo và có nút chuyển về tab tpos-pancake, kêu người dùng dùng 2 trình duyệt"

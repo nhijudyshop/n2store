@@ -238,86 +238,12 @@
         false
     );
 
-    // Livestream Snapshot — receive N2_TAB_STREAM_ID từ popup (qua chrome.tabs
-    // .sendMessage), relay vào page qua window.postMessage. Page consume streamId
-    // bằng navigator.mediaDevices.getUserMedia({chromeMediaSourceId}). 10s deadline
-    // từ Chrome — page phải getUserMedia gấp.
-    chrome.runtime.onMessage.addListener((msg) => {
-        if (msg && msg.type === 'N2_TAB_STREAM_ID' && msg.streamId) {
-            console.log(PREFIX_OUT, 'N2_TAB_STREAM_ID forwarded to page');
-            window.postMessage(
-                { type: 'N2_TAB_STREAM_ID', streamId: msg.streamId, ts: msg.ts },
-                '*'
-            );
-        }
-    });
-
-    // Page-triggered streamId grab (modal Enter / button click). Page postMessage
-    // 'N2_TAB_STREAM_GRAB_REQUEST' synchronously trong user gesture handler →
-    // forward chrome.runtime.sendMessage NGAY → background gọi getMediaStreamId.
-    // Activation context theory: page gesture → window.postMessage (sync) →
-    // content script listener (sync) → chrome.runtime.sendMessage (preserves
-    // activation). Chrome có propagate hay không = tùy implementation.
-    window.addEventListener(
-        'message',
-        (event) => {
-            if (event.source !== window) return;
-            if (event.data?.type !== 'N2_TAB_STREAM_GRAB_REQUEST') return;
-            try {
-                chrome.runtime.sendMessage(
-                    { type: 'N2_GRAB_TAB_STREAM_FROM_CLICK' },
-                    (response) => {
-                        if (chrome.runtime.lastError) {
-                            console.warn(
-                                '[N2EXT] tab stream grab (page-trigger) fail:',
-                                chrome.runtime.lastError.message
-                            );
-                            return;
-                        }
-                        if (response?.streamId) {
-                            console.log('[N2EXT] tab streamId grabbed via page modal ✓');
-                            window.postMessage(
-                                {
-                                    type: 'N2_TAB_STREAM_ID',
-                                    streamId: response.streamId,
-                                    ts: Date.now(),
-                                },
-                                '*'
-                            );
-                        } else {
-                            console.warn(
-                                '[N2EXT] tab stream grab (page-trigger) rejected:',
-                                response?.error
-                            );
-                        }
-                    }
-                );
-            } catch (e) {
-                console.warn('[N2EXT] sendMessage threw:', e.message);
-            }
-        },
-        false
-    );
-
-    // === AUTO TAB-STREAM GRAB ON FIRST USER CLICK ===
-    // Trên tpos-pancake page, listen click bất kỳ đâu (capture phase) → forward
-    // user activation context tới background → background gọi
-    // chrome.tabCapture.getMediaStreamId. Chrome MAY propagate activation từ
-    // content script's gesture handler qua chrome.runtime.sendMessage. Best-effort:
-    // nếu Chrome accept → auto-enable stream mode (zero icon click). Nếu reject
-    // → fallback popup icon click.
-    // NOTE: chrome.tabCapture.getMediaStreamId KHÔNG hoạt động qua page click.
-    // Chrome MV3 rule: activeTab permission CHỈ grant qua extension invocation
-    // (chrome.action click hoặc chrome.commands shortcut). Page-level click
-    // không count → getMediaStreamId luôn reject với "Extension has not been
-    // invoked".
-    //
-    // Capture flow hiện tại:
+    // Livestream Snapshot capture flow (after user feedback 2026-05-26):
     //   - Tab focused → chrome.tabs.captureVisibleTab silent (<all_urls>)
-    //   - Tab inactive → cần Path 1 stream-based:
-    //     1. User click extension icon (popup auto-grab streamId) HOẶC
-    //     2. User Ctrl+Shift+S (chrome.commands.onCommand auto-grab)
-    //   - Sau khi streamId được grant → capture forever (bypass tab focused)
+    //   - Tab inactive → KHÔNG capture được. Page-side visibility watcher
+    //     alert user (title flash + browser notification + 2-browser tip).
+    // chrome.tabCapture.getMediaStreamId path đã bỏ — không stream-based,
+    // không streamId, không Ctrl+Shift+S.
 
     // === INITIALIZATION ===
 
