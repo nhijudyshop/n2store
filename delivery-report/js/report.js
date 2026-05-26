@@ -1127,32 +1127,18 @@
             const disabled = isChild ? 'disabled' : '';
             const selectCell = isChild
                 ? '<span class="dr-merge-child-indicator" title="Thuộc nhóm gộp">└</span>'
-                : _isAdmin()
-                  ? `<input type="checkbox" class="dr-row-select" data-action="select-day" ${selected ? 'checked' : ''} title="Chọn để gộp" />`
-                  : '<span class="dr-row-select-locked" title="Chỉ Admin được gộp ngày"></span>';
-            // Badge "đã dời ngày" nếu real != display. Click cell date sẽ mở date input để admin chỉnh.
+                : `<input type="checkbox" class="dr-row-select" data-action="select-day" ${selected ? 'checked' : ''} title="Chọn để gộp" />`;
             const shifted = isDateShifted(d, state.activeTab);
-            const editBtn =
-                _isAdmin() && !isChild
-                    ? `<button class="dr-shift-edit" data-action="shift-edit" data-real="${d}" title="Chỉnh ngày hiển thị (dời sang ngày khác)"><i class="fas fa-pen-to-square"></i></button>`
-                    : '';
+            // Expand + chỉnh ngày hiển thị: cho TẤT CẢ account dùng (chỉ DUYỆT mới admin-only).
+            const editBtn = !isChild
+                ? `<button class="dr-shift-edit" data-action="shift-edit" data-real="${d}" title="Chỉnh ngày hiển thị (dời sang ngày khác)"><i class="fas fa-pen-to-square"></i></button>`
+                : '';
             const shiftBadge = shifted
                 ? `<span class="dr-shift-badge" title="Ngày thật: ${formatDDMMYYYY(realToEntry(d))} → hiển thị tại: ${formatDDMMYYYY(realToEntry(getDisplayDate(d, state.activeTab)))}"><i class="fas fa-clock-rotate-left"></i></span>`
                 : '';
-            // Non-admin: bỏ data-action="toggle-expand" + class clickable + chevron icon
-            const expandable = _isAdmin();
-            const dateExpandAttrs = expandable
-                ? `class="date clickable" data-action="toggle-expand" title="Bấm để xem danh sách ${slDon} đơn (ngày thật: ${formatDDMMYYYY(d)})"`
-                : `class="date" title="Ngày thật: ${formatDDMMYYYY(d)}"`;
-            const slDonExpandAttrs = expandable
-                ? `class="num strong clickable" data-action="toggle-expand" title="Bấm để xem chi tiết ${slDon} đơn"`
-                : `class="num strong"`;
-            const chevIcon = expandable
-                ? '<i class="fas fa-chevron-right dr-expand-chevron"></i> '
-                : '';
             return `<tr data-date="${d}" class="${cls}${shifted ? ' is-shifted' : ''}">
-                <td ${dateExpandAttrs}>${selectCell}${chevIcon}${formatDDMMYYYY(realToEntry(d))}${shiftBadge}${editBtn}</td>
-                <td ${slDonExpandAttrs}>${formatNumber(slDon)}</td>
+                <td class="date clickable" data-action="toggle-expand" title="Bấm để xem danh sách ${slDon} đơn (ngày thật: ${formatDDMMYYYY(d)})">${selectCell}<i class="fas fa-chevron-right dr-expand-chevron"></i> ${formatDDMMYYYY(realToEntry(d))}${shiftBadge}${editBtn}</td>
+                <td class="num strong clickable" data-action="toggle-expand" title="Bấm để xem chi tiết ${slDon} đơn">${formatNumber(slDon)}</td>
                 <td class="num clickable money-cell ${hasImg ? 'has-img' : 'no-img'}" data-action="open-img" title="${hasImg ? 'Bấm để xem/sửa ảnh' : 'Bấm để thêm ảnh chứng từ'}">
                     <span class="money-val">${formatMoney(money)}</span>
                     <span class="money-ico">${hasImg ? '<i class="fas fa-image"></i>' : '<i class="far fa-image"></i>'}</span>
@@ -1275,7 +1261,7 @@
                     <button class="dr-merge-chev" data-action="toggle-merge" title="${expanded ? 'Thu gọn' : 'Mở rộng các ngày con'}"><i class="fas fa-chevron-${chevIcon}"></i></button>
                     <span class="dr-merge-range">${rangeLabel}</span>
                     <span class="dr-merge-count" title="${partial ? 'Chỉ tính ' + daysInRange + '/' + totalDays + ' ngày trong khoảng filter' : daysInRange + ' ngày gộp'}">${daysInRange}${partial ? '/' + totalDays : ''} ngày</span>
-                    ${_isAdmin() ? '<button class="dr-merge-unmerge" data-action="unmerge" title="Bỏ gộp">×</button>' : ''}
+                    <button class="dr-merge-unmerge" data-action="unmerge" title="Bỏ gộp">×</button>
                 </td>
                 <td class="num strong">${formatNumber(sumSlDon)}</td>
                 <td class="num money-cell-merge img-${imgState}" data-action="merge-img" title="${imgTitle}">
@@ -1351,7 +1337,7 @@
                 <td class="date">
                     <span class="dr-shift-agg-badge" title="${sourceTitle}"><i class="fas fa-arrows-to-dot"></i> ${sourceDates.length} ngày</span>
                     <span class="dr-shift-agg-date">${formatDDMMYYYY(realToEntry(displayDate))}</span>
-                    ${_isAdmin() ? `<button class="dr-shift-unshift" data-action="unshift-all" data-display="${displayDate}" title="Bỏ dời tất cả ngày con">×</button>` : ''}
+                    <button class="dr-shift-unshift" data-action="unshift-all" data-display="${displayDate}" title="Bỏ dời tất cả ngày con">×</button>
                 </td>
                 <td class="num strong">${formatNumber(sumSlDon)}</td>
                 <td class="num">${formatMoney(sumMoney)}</td>
@@ -1479,12 +1465,6 @@
     function updateSelectionBar() {
         const bar = document.getElementById('drReportSelectionBar');
         if (!bar) return;
-        // Non-admin không gộp được → ép selection rỗng + ẩn bar (defensive)
-        if (!_isAdmin()) {
-            state.selectedDates.clear();
-            bar.classList.remove('open');
-            return;
-        }
         const count = state.selectedDates.size;
         const countEl = document.getElementById('drSelCount');
         const hintEl = document.getElementById('drSelHint');
@@ -1530,10 +1510,6 @@
     }
 
     async function onMergeClick() {
-        if (!_isAdmin()) {
-            alert('Chỉ tài khoản Admin mới được gộp ngày.');
-            return;
-        }
         const sorted = [...state.selectedDates].sort();
         if (sorted.length < 2) return;
         const fromDate = sorted[0];
@@ -1613,12 +1589,8 @@
         tbody.addEventListener('change', (e) => {
             const el = e.target;
             if (!el || el.type !== 'checkbox') return;
-            // Select-day checkbox: toggle state.selectedDates (admin only)
+            // Select-day checkbox: toggle state.selectedDates
             if (el.dataset.action === 'select-day') {
-                if (!_isAdmin()) {
-                    el.checked = false;
-                    return;
-                }
                 const row = el.closest('tr[data-date]');
                 if (!row) return;
                 const d = row.dataset.date;
@@ -1652,12 +1624,11 @@
         });
 
         tbody.addEventListener('click', (e) => {
-            // Date shift — admin chỉnh ngày hiển thị (dời sang ngày khác)
+            // Date shift — chỉnh ngày hiển thị (dời sang ngày khác). Cho tất cả account.
             const shiftEditBtn =
                 e.target.closest && e.target.closest('button[data-action="shift-edit"]');
             if (shiftEditBtn) {
                 e.stopPropagation();
-                if (!_isAdmin()) return;
                 const realDate = shiftEditBtn.dataset.real;
                 const currentDisplay = getDisplayDate(realDate, state.activeTab);
                 const newDisplay = window.prompt(
@@ -1675,11 +1646,10 @@
                 scheduleRender();
                 return;
             }
-            // Unshift all — bỏ tất cả dời ngày của một virtual aggregate
+            // Unshift all — bỏ tất cả dời ngày của một virtual aggregate. Cho tất cả account.
             const unshiftBtn = e.target.closest && e.target.closest('[data-action="unshift-all"]');
             if (unshiftBtn) {
                 e.stopPropagation();
-                if (!_isAdmin()) return;
                 const displayDate = unshiftBtn.dataset.display;
                 // Find all real dates currently shifted to this displayDate
                 const tab2 = state.activeTab;
@@ -1692,10 +1662,9 @@
                 scheduleRender();
                 return;
             }
-            // Toggle merge expanded (admin only)
+            // Toggle merge expanded
             const chev = e.target.closest && e.target.closest('button[data-action="toggle-merge"]');
             if (chev) {
-                if (!_isAdmin()) return;
                 const tr = chev.closest('tr[data-merge-id]');
                 if (!tr) return;
                 const id = Number(tr.dataset.mergeId);
@@ -1705,10 +1674,9 @@
                 scheduleRender();
                 return;
             }
-            // Unmerge — no confirm, instant action (user feedback request). Admin only.
+            // Unmerge — no confirm, instant action (user feedback request)
             const unmerge = e.target.closest && e.target.closest('button[data-action="unmerge"]');
             if (unmerge) {
-                if (!_isAdmin()) return;
                 const tr = unmerge.closest('tr[data-merge-id]');
                 if (!tr) return;
                 const id = Number(tr.dataset.mergeId);
@@ -1748,8 +1716,6 @@
             const expandCell =
                 e.target.closest && e.target.closest('td[data-action="toggle-expand"]');
             if (expandCell) {
-                // Admin only — non-admin không xem chi tiết đơn được
-                if (!_isAdmin()) return;
                 // Bỏ qua nếu click trúng checkbox select-day (đã có change handler riêng)
                 if (e.target.closest && e.target.closest('[data-action="select-day"]')) return;
                 const row = expandCell.closest('tr[data-date]');

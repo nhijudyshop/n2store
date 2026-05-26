@@ -25,6 +25,46 @@
 
 ## 2026-05-26
 
+### [delivery-report/report] Revert: expand + gộp + chỉnh ngày KHÔNG còn admin-only ✅
+
+**User clarify**: "hiểu sai ý tôi rồi các phần này cho tất cả account tương tác được → 3 phần này → expand, gộp và chỉnh ngày hiển thị (dời sang ngày khác)"
+
+→ User muốn 3 features này cho **TẤT CẢ account** (kể cả non-admin). Trước đó tôi hiểu ngược (gate admin-only). Revert hoàn toàn.
+
+**Revert** (`delivery-report/js/report.js`):
+
+| Element                                                                                                          | Trước revert (admin-only)                        | Sau revert (tất cả account)            |
+| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------- |
+| Select-day checkbox (gộp)                                                                                        | `.dr-row-select-locked` cho non-admin            | `<input type="checkbox">` cho mọi user |
+| Selection bar + Gộp button                                                                                       | non-admin clear state + bar không open           | hoạt động bình thường                  |
+| Unmerge × button                                                                                                 | skip render cho non-admin                        | render cho mọi user                    |
+| Toggle-merge chev button                                                                                         | handler return non-admin                         | handler chạy bình thường               |
+| Toggle-expand cell                                                                                               | non-admin không có data-action/clickable/chevron | đầy đủ cho mọi user                    |
+| Shift-edit pen button                                                                                            | render `_isAdmin() && !isChild`                  | render khi `!isChild` (mọi user)       |
+| Unshift × button (aggregate)                                                                                     | skip non-admin                                   | render cho mọi user                    |
+| Tất cả handlers (onMergeClick, select-day change, toggle-expand, toggle-merge, unmerge, shift-edit, unshift-all) | early-return non-admin                           | bỏ guard                               |
+
+**Vẫn giữ admin-only**:
+
+- Duyệt checkbox (`.dr-approve-toggle` vs `.dr-approve-locked` cho non-admin)
+- Approved rows hidden hẳn cho non-admin
+- Aggregate row approve indicator (xanh check) chỉ admin thấy
+- `updateSelectionBar` không còn gate non-admin
+
+**Final admin-only behavior** (tóm tắt):
+
+| Feature                        | Admin | Non-Admin                      |
+| ------------------------------ | ----- | ------------------------------ |
+| Expand chi tiết đơn            | ✅    | ✅                             |
+| Gộp / Bỏ gộp                   | ✅    | ✅                             |
+| Chỉnh / Bỏ chỉnh ngày hiển thị | ✅    | ✅                             |
+| **DUYỆT (approve)**            | ✅    | ❌ (locked + ẩn approved rows) |
+| Cài đặt phí ship               | ✅    | ✅                             |
+
+**Verify** (Playwright non-admin override): expand=6 td, chevron=3, select-day=3, shift-edit=3 ✅ (3 row vì approved rows hidden); approve checkbox=0, locker=3 (DUYỆT vẫn locked) ✅
+
+---
+
 ### [delivery-report/report] Admin gating expand (toggle-expand + toggle-merge) ✅
 
 **User ask**: "3 phần này → expand, gộp và chỉnh ngày hiển thị (dời sang ngày khác) → cho các account không phải ADMIN tương tác luôn"
