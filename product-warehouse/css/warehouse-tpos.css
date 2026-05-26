@@ -813,6 +813,52 @@ body.has-selection .toolbar-bulk-actions {
     box-shadow: 0 0 0 1px var(--pw-accent-soft) !important;
 }
 
+/* Numeric filter — operator dropdown + number input side-by-side.
+   Hidden until user clicks the funnel icon (see .th-filter-input.active rule). */
+.warehouse-table th .th-filter-numeric {
+    display: none;
+    align-items: center;
+    gap: 2px;
+    margin-top: 4px;
+}
+
+.warehouse-table th .th-filter-numeric.active {
+    display: inline-flex;
+}
+
+.warehouse-table th .th-filter-op {
+    border: 1px solid var(--pw-border);
+    border-radius: 2px;
+    padding: 0 4px;
+    font-size: 12px;
+    height: 22px;
+    background: var(--pw-bg-card);
+    color: var(--pw-text-strong);
+    cursor: pointer;
+    font-family: inherit;
+    width: 38px;
+}
+
+.warehouse-table th .th-filter-op:focus {
+    border-color: var(--pw-accent);
+    outline: none;
+}
+
+.warehouse-table th .th-filter-num {
+    width: 80px;
+    text-align: right;
+}
+
+/* Hide num-input spinner buttons (cleaner look) */
+.warehouse-table th .th-filter-num::-webkit-inner-spin-button,
+.warehouse-table th .th-filter-num::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.warehouse-table th .th-filter-num {
+    -moz-appearance: textfield;
+}
+
 /* Sticky-left checkbox column matches TPOS gray-warm bg */
 .warehouse-table td.col-sticky-left,
 .warehouse-table th.col-sticky-left {

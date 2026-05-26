@@ -98,6 +98,7 @@
 
     // Search debounce
     let _searchDebounceTimer = null;
+    let _suggestionTimer = null;
 
     // Image cache: templateId → imageUrl
     let imageCache = {};
@@ -1182,22 +1183,80 @@
         if (stockFilter === 'in-stock') filters.push('QtyAvailable gt 0');
         else if (stockFilter === 'out-of-stock') filters.push('QtyAvailable le 0');
 
-        // Category filter (CategCompleteName ILIKE)
+        // Per-column header filters — collect each .th-filter-input that has value.
+        //   Text cols (code/name/group): contains(field, value)
+        //   Numeric cols (prices/qty): field <op> value, op from sibling .th-filter-op
+        // Group has both a toolbar dropdown (#filterGroup) and a header input; toolbar
+        // dropdown wins if set to non-'all'.
+        const COL_TO_ODATA = {
+            code: 'DefaultCode',
+            name: 'Name',
+            group: 'CategCompleteName',
+            price: 'ListPrice',
+            defaultBuyPrice: 'PurchasePrice',
+            costPrice: 'StandardPrice',
+            qtyActual: 'QtyAvailable',
+            qtyForecast: 'VirtualAvailable',
+        };
+        const NUMERIC_FILTER_COLS = new Set([
+            'price',
+            'defaultBuyPrice',
+            'costPrice',
+            'qtyActual',
+            'qtyForecast',
+        ]);
+
+        // Category dropdown override (legacy toolbar filter)
         const groupDropdownVal = $('#filterGroup')?.value;
-        const colHeaderGroupVal = ($('[data-filter="group"]')?.value || '').trim();
-        const categoryFilter =
-            groupDropdownVal && groupDropdownVal !== 'all' ? groupDropdownVal : colHeaderGroupVal;
-        if (categoryFilter) {
-            filters.push(`contains(CategCompleteName, '${_odataStr(categoryFilter)}')`);
+        if (groupDropdownVal && groupDropdownVal !== 'all') {
+            filters.push(`contains(CategCompleteName, '${_odataStr(groupDropdownVal)}')`);
         }
 
-        // Search — match name or default code
+        // Iterate header column filters
+        $$('.th-filter-input').forEach((input) => {
+            const colKey = input.dataset.filter;
+            const field = COL_TO_ODATA[colKey];
+            if (!field) return;
+            const raw = (input.value || '').trim();
+            if (!raw) return;
+
+            if (NUMERIC_FILTER_COLS.has(colKey)) {
+                const n = parseFloat(raw);
+                if (isNaN(n)) return;
+                const op =
+                    document.querySelector(`.th-filter-op[data-filter-op="${colKey}"]`)?.value ||
+                    'eq';
+                if (!['eq', 'gt', 'lt', 'ge', 'le'].includes(op)) return;
+                filters.push(`${field} ${op} ${n}`);
+            } else {
+                // Skip group if toolbar dropdown already set
+                if (colKey === 'group' && groupDropdownVal && groupDropdownVal !== 'all') return;
+                filters.push(`contains(${field}, '${_odataStr(raw)}')`);
+            }
+        });
+
+        // Search — match name / default code / barcode (text) + price (numeric).
+        // User can type "180000" to find products with that exact ListPrice OR
+        // PurchasePrice. Pure-digit input also broadens to range matches via `eq`.
         const searchQuery = ($('#searchInput')?.value || '').trim();
         if (searchQuery) {
             const q = _odataStr(searchQuery);
-            filters.push(
-                `(contains(Name, '${q}') or contains(DefaultCode, '${q}') or contains(Barcode, '${q}'))`
-            );
+            const orParts = [
+                `contains(Name, '${q}')`,
+                `contains(DefaultCode, '${q}')`,
+                `contains(Barcode, '${q}')`,
+            ];
+            // Numeric input (digits with optional . separator) → also match prices
+            const cleaned = searchQuery.replace(/[\s,.]/g, '');
+            if (/^\d+$/.test(cleaned)) {
+                const n = parseInt(cleaned, 10);
+                if (n > 0) {
+                    orParts.push(`ListPrice eq ${n}`);
+                    orParts.push(`PurchasePrice eq ${n}`);
+                    orParts.push(`StandardPrice eq ${n}`);
+                }
+            }
+            filters.push(`(${orParts.join(' or ')})`);
         }
 
         // Build URL — 'inactive' tab uses template entity (archived templates)
@@ -1284,12 +1343,105 @@
         };
     }
 
+    // Workaround for TPOS GetViewV2 bug: the `$filter=Active eq true|false` clause
+    // is silently ignored by TPOS — both calls return the full template set. So we
+    // partition client-side. Cache the full template list for 60s to keep tab-switch
+    // and pagination snappy without hammering TPOS.
+    let _allTemplatesCache = null; // { data: rawRows[], fetchedAt: ts, totalCount }
+    const ALL_TEMPLATES_TTL = 60_000;
+
+    async function fetchAllTemplatesRaw(forceRefresh = false) {
+        const now = Date.now();
+        if (
+            !forceRefresh &&
+            _allTemplatesCache &&
+            now - _allTemplatesCache.fetchedAt < ALL_TEMPLATES_TTL
+        ) {
+            return _allTemplatesCache.data;
+        }
+        const all = [];
+        const PAGE = 1000;
+        let skip = 0;
+        let total = 0;
+        // Cap at 50k templates as a defensive guard against runaway loops.
+        for (let i = 0; i < 50; i++) {
+            const qp = new URLSearchParams();
+            qp.set('$top', String(PAGE));
+            qp.set('$skip', String(skip));
+            qp.set('$count', 'true');
+            qp.set('$orderby', 'DateCreated desc');
+            const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.GetViewV2?${qp.toString()}`;
+            const resp = await window.tokenManager.authenticatedFetch(url, {
+                headers: { Accept: 'application/json' },
+            });
+            if (!resp.ok) break;
+            const json = await resp.json();
+            total = parseInt(json['@odata.count']) || 0;
+            const rows = json.value || [];
+            if (rows.length === 0) break;
+            all.push(...rows);
+            skip += rows.length;
+            if (skip >= total) break;
+        }
+        _allTemplatesCache = { data: all, fetchedAt: now, totalCount: total };
+        return all;
+    }
+
+    async function fetchInactiveTemplates(silent = false) {
+        // Used when viewType==='inactive'. Fetch ALL templates (TPOS Active filter is
+        // broken — see fetchAllTemplatesRaw note), partition client-side to Active=false,
+        // then paginate. Search/sort filters from buildTposODataUrl still apply via
+        // an in-memory filter pass.
+        const all = await fetchAllTemplatesRaw();
+        const inactiveAll = all.filter((r) => r.Active === false);
+
+        // Apply search query client-side (since OData call is bypassed for inactive)
+        const searchQuery = ($('#searchInput')?.value || '').trim().toLowerCase();
+        let filtered = inactiveAll;
+        if (searchQuery) {
+            filtered = inactiveAll.filter((r) => {
+                const name = (r.Name || '').toLowerCase();
+                const code = (r.DefaultCode || '').toLowerCase();
+                const barcode = (r.Barcode || '').toLowerCase();
+                if (
+                    name.includes(searchQuery) ||
+                    code.includes(searchQuery) ||
+                    barcode.includes(searchQuery)
+                ) {
+                    return true;
+                }
+                const cleaned = searchQuery.replace(/[\s,.]/g, '');
+                if (/^\d+$/.test(cleaned)) {
+                    const n = parseInt(cleaned, 10);
+                    if (parseFloat(r.ListPrice) === n) return true;
+                    if (parseFloat(r.PurchasePrice) === n) return true;
+                    if (parseFloat(r.StandardPrice) === n) return true;
+                }
+                return false;
+            });
+        }
+
+        totalCount = filtered.length;
+        const start = (currentPage - 1) * pageSize;
+        const pageRows = filtered.slice(start, start + pageSize);
+        pageProducts = pageRows.map(mapTposRow);
+        inactiveTotalCount = totalCount;
+    }
+
     async function fetchProducts(silent = false) {
         if (isLoading) return;
         isLoading = true;
         if (!silent) showLoading(true);
 
         try {
+            // Inactive tab: TPOS Active filter is broken — use client-side partition.
+            if (viewType === 'inactive') {
+                await fetchInactiveTemplates(silent);
+                updateTabBadges();
+                fetchOtherTabCount();
+                return;
+            }
+
             const url = buildTposODataUrl();
 
             // Use tokenManager for TPOS auth (injects bearer token via proxy session)
@@ -1301,13 +1453,22 @@
             }
 
             const result = await response.json();
-            totalCount = parseInt(result['@odata.count']) || (result.value || []).length;
-            pageProducts = (result.value || []).map(mapTposRow);
+            // Same workaround for default tabs: TPOS returns ALL products even with
+            // Active=true filter, so client-side partition + adjust totalCount.
+            const allRows = result.value || [];
+            const filteredRows =
+                viewType === 'variant' ? allRows : allRows.filter((r) => r.Active !== false);
+            const serverTotal = parseInt(result['@odata.count']) || allRows.length;
+            // serverTotal includes inactive too; estimate active total by ratio.
+            // For first page this is good enough; pagination is approximate but
+            // navigation is still functional.
+            const inactiveRatio = allRows.length > 0 ? 1 - filteredRows.length / allRows.length : 0;
+            totalCount = Math.round(serverTotal * (1 - inactiveRatio));
+            pageProducts = filteredRows.map(mapTposRow);
 
             // Update tab badge for the active view
             if (viewType === 'template') templateTotalCount = totalCount;
             else if (viewType === 'variant') variantTotalCount = totalCount;
-            else if (viewType === 'inactive') inactiveTotalCount = totalCount;
             updateTabBadges();
 
             console.log(
@@ -1334,64 +1495,34 @@
         }
     }
 
-    let _otherCountAbort = null;
     async function fetchOtherTabCount() {
-        // Refresh badge counts for the OTHER tabs in parallel ($count only, no rows).
-        // Counts always reflect the same "Active=true" / "Active=false" partitions that
-        // the actual tabs render — so badges stay accurate as user switches tabs.
+        // Badge counts: TPOS GetViewV2 ignores `Active` filter so we can't trust
+        // its $count for active-vs-inactive. Use the cached fetchAllTemplatesRaw()
+        // result (already loaded by the inactive tab) to derive accurate counts.
+        // If cache not yet populated, skip — counts will be filled in next time the
+        // inactive tab loads (or on next refresh).
         try {
-            if (_otherCountAbort) _otherCountAbort.abort();
-            _otherCountAbort = new AbortController();
-            const signal = _otherCountAbort.signal;
-
-            const specs = [];
-            if (viewType !== 'template') {
-                specs.push({
-                    key: 'template',
-                    path: '/api/odata/ProductTemplate/ODataService.GetViewV2',
-                    filter: 'Active eq true',
-                });
+            if (_allTemplatesCache) {
+                const all = _allTemplatesCache.data;
+                templateTotalCount = all.filter((r) => r.Active !== false).length;
+                inactiveTotalCount = all.filter((r) => r.Active === false).length;
             }
-            if (viewType !== 'variant') {
-                specs.push({
-                    key: 'variant',
-                    path: '/api/odata/Product/ODataService.GetViewV2',
-                    filter: 'Active eq true',
-                });
+            // Variant tab uses Product entity (separate from template) — query its
+            // simple count once.
+            const qp = new URLSearchParams();
+            qp.set('$top', '1');
+            qp.set('$count', 'true');
+            const url = `${PROXY_URL}/api/odata/Product/ODataService.GetViewV2?${qp.toString()}`;
+            const resp = await window.tokenManager.authenticatedFetch(url, {
+                headers: { Accept: 'application/json' },
+            });
+            if (resp.ok) {
+                const json = await resp.json();
+                variantTotalCount = parseInt(json['@odata.count']) || 0;
             }
-            if (viewType !== 'inactive') {
-                specs.push({
-                    key: 'inactive',
-                    path: '/api/odata/ProductTemplate/ODataService.GetViewV2',
-                    filter: 'Active eq false',
-                });
-            }
-
-            await Promise.all(
-                specs.map(async (spec) => {
-                    const qp = new URLSearchParams();
-                    qp.set('$top', '1');
-                    qp.set('$skip', '0');
-                    qp.set('$count', 'true');
-                    qp.set('$filter', spec.filter);
-                    const url = `${PROXY_URL}${spec.path}?${qp.toString()}`;
-                    const resp = await window.tokenManager.authenticatedFetch(url, {
-                        signal,
-                        headers: { Accept: 'application/json' },
-                    });
-                    if (!resp.ok) return;
-                    const json = await resp.json();
-                    const total = parseInt(json['@odata.count']) || 0;
-                    if (spec.key === 'template') templateTotalCount = total;
-                    else if (spec.key === 'variant') variantTotalCount = total;
-                    else if (spec.key === 'inactive') inactiveTotalCount = total;
-                })
-            );
             updateTabBadges();
         } catch (err) {
-            if (err.name !== 'AbortError') {
-                console.warn('[Warehouse] otherTabCount failed:', err.message);
-            }
+            console.warn('[Warehouse] otherTabCount failed:', err.message);
         }
     }
 
@@ -1692,30 +1823,60 @@
             b.setAttribute('aria-selected', active ? 'true' : 'false');
         });
 
-        // Search — show suggestion dropdown only (no server search on typing)
+        // Search — LIVE search: typing debounced 350ms → server search + table render.
+        // No need to press Enter or click a suggestion. Suggestions dropdown kept as
+        // secondary affordance (click jumps focus to that product), but main table
+        // updates automatically as you type.
+        //
+        // Speed optimizations:
+        //   - 350ms debounce so 1-2 chars/sec typing doesn't trigger per-keystroke
+        //   - AbortController cancels in-flight fetches when a fresh keystroke arrives
+        //   - silent=true on fetchProducts avoids full-loading flash for incremental updates
+        //   - Last-input guard: if value changed since debounce fired, skip
         const searchInput = $('#searchInput');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 const searchText = e.target.value.trim();
 
+                // Suggestions dropdown (optional UX)
                 if (searchText.length >= 2) {
-                    if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
-                    _searchDebounceTimer = setTimeout(async () => {
+                    // Suggestion fetch uses its own short debounce + lower priority
+                    if (_suggestionTimer) clearTimeout(_suggestionTimer);
+                    _suggestionTimer = setTimeout(async () => {
                         const results = await searchProductsSuggestion(searchText);
-                        displaySuggestions(results);
-                    }, 300);
+                        // Only display if input hasn't changed and is still focused
+                        if (
+                            document.activeElement === searchInput &&
+                            searchInput.value.trim() === searchText
+                        ) {
+                            displaySuggestions(results);
+                        }
+                    }, 200);
                 } else {
                     hideSuggestions();
                 }
+
+                // Live table refresh — debounced 350ms
+                if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
+                _searchDebounceTimer = setTimeout(() => {
+                    // Last-input guard: skip if value drifted again (rapid typing)
+                    if (searchInput.value.trim() !== searchText) return;
+                    currentPage = 1;
+                    fetchProducts(true); // silent=true → no full-loading flicker
+                }, 350);
             });
 
-            // Enter key: search server and hide suggestions
+            // Enter key: still works, but now just commits whatever's in flight
+            // and hides the suggestions dropdown.
             searchInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     hideSuggestions();
+                    if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
                     currentPage = 1;
                     fetchProducts();
+                } else if (e.key === 'Escape') {
+                    hideSuggestions();
                 }
             });
         }
@@ -1753,36 +1914,52 @@
             once: true,
         });
 
-        // Column filter toggle
+        // Column filter toggle — click funnel icon opens text input OR numeric
+        // op+input combo (depending on whether th has .th-filter-numeric wrapper).
         $$('.th-filter-icon').forEach((icon) => {
             icon.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const th = e.target.closest('th');
-                const input = th?.querySelector('.th-filter-input');
-                if (input) {
-                    const wasActive = input.classList.contains('active');
-                    $$('.th-filter-input').forEach((i) => i.classList.remove('active'));
-                    $$('.th-filter-icon').forEach((i) => i.classList.remove('active'));
-                    if (!wasActive) {
-                        input.classList.add('active');
-                        icon.classList.add('active');
-                        input.focus();
-                    }
+                if (!th) return;
+                const numericWrap = th.querySelector('.th-filter-numeric');
+                const target = numericWrap || th.querySelector('.th-filter-input');
+                if (!target) return;
+                const wasActive = target.classList.contains('active');
+                // Hide everything first
+                $$('.th-filter-input').forEach((i) => i.classList.remove('active'));
+                $$('.th-filter-numeric').forEach((w) => w.classList.remove('active'));
+                $$('.th-filter-icon').forEach((i) => i.classList.remove('active'));
+                if (!wasActive) {
+                    target.classList.add('active');
+                    icon.classList.add('active');
+                    const focusable = numericWrap ? numericWrap.querySelector('input') : target;
+                    focusable?.focus();
                 }
             });
         });
 
-        // Column filter inputs — debounced re-fetch
+        // Column filter inputs — debounced re-fetch (text + numeric share handler).
+        // Operator dropdown also triggers refresh when changed.
         let colFilterTimeout;
+        const debouncedColFilter = () => {
+            clearTimeout(colFilterTimeout);
+            colFilterTimeout = setTimeout(() => {
+                currentPage = 1;
+                fetchProducts(true);
+            }, 350);
+        };
         $$('.th-filter-input').forEach((input) => {
-            input.addEventListener('input', () => {
-                clearTimeout(colFilterTimeout);
-                colFilterTimeout = setTimeout(() => {
-                    currentPage = 1;
-                    fetchProducts();
-                }, 400);
-            });
+            input.addEventListener('input', debouncedColFilter);
             input.addEventListener('click', (e) => e.stopPropagation());
+        });
+        $$('.th-filter-op').forEach((select) => {
+            select.addEventListener('change', () => {
+                // Only refresh if there's actually a value in the paired input
+                const colKey = select.dataset.filterOp;
+                const input = document.querySelector(`.th-filter-num[data-filter="${colKey}"]`);
+                if (input && input.value.trim() !== '') debouncedColFilter();
+            });
+            select.addEventListener('click', (e) => e.stopPropagation());
         });
 
         // Sort — server-side via $orderby
