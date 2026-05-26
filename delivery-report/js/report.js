@@ -38,16 +38,19 @@
 
     // Date shift (per (realDate, group)) — cho phép chỉnh "ngày ảo" hiển thị.
     // VD: 29/04 → 02/05, 30/04 → 02/05 thì 2 ngày con đều dồn vào 02/05 (aggregate).
-    // Persist localStorage per machine. Admin-only edit, non-admin chỉ xem.
-    // TODO: chuyển sang server-side + SSE notify để sync cross-machine.
-    const DATE_SHIFTS_KEY = 'dr-date-shifts-v1';
-    const _dateShifts = (() => {
-        try {
-            return JSON.parse(localStorage.getItem(DATE_SHIFTS_KEY) || '{}');
-        } catch (_) {
-            return {};
-        }
-    })();
+    //
+    // 2026-05-26: MIGRATED localStorage → Postgres + SSE.
+    // Server table `delivery_assignment_date_shifts` là source of truth. Client
+    // giữ in-memory cache `_dateShifts` đồng bộ với server qua `loadDateShifts
+    // Range()` + SSE topic 'delivery_assignments'. localStorage chỉ dùng cho
+    // 1-time migration (cũ → DB) rồi purge.
+    //
+    // Lý do: trước đây mỗi máy có localStorage riêng → admin shift trên máy A,
+    // boss mở máy B không thấy (vì localStorage tách biệt).
+    const DATE_SHIFTS_KEY = 'dr-date-shifts-v1'; // legacy localStorage key (kept for migration)
+    const DATE_SHIFTS_MIGRATED_KEY = 'dr-date-shifts-migrated-v1';
+    const _dateShifts = {}; // in-memory cache, populated by loadDateShiftsRange
+    const _dateShiftsFetched = new Map(); // rangeKey → timestamp (TTL 60s)
     const _shiftKey = (date, group) => `${date}__${group}`;
     function getDisplayDate(realDate, group) {
         return _dateShifts[_shiftKey(realDate, group)] || realDate;
@@ -56,6 +59,9 @@
         const v = _dateShifts[_shiftKey(realDate, group)];
         return !!v && v !== realDate;
     }
+    // setDateShift: write-through cache. Optimistic update local, PUT server.
+    // Async nhưng caller không cần await — UI repaint ngay, SSE sẽ correct nếu
+    // server reject. Trả về Promise để admin flow có thể await nếu cần.
     function setDateShift(realDate, group, displayDate) {
         const k = _shiftKey(realDate, group);
         if (!displayDate || displayDate === realDate) {
@@ -63,9 +69,97 @@
         } else {
             _dateShifts[k] = displayDate;
         }
+        return persistDateShift(realDate, group, displayDate).catch((e) =>
+            console.warn(`[report] persist date-shift ${k} failed:`, e?.message)
+        );
+    }
+
+    async function persistDateShift(realDate, group, displayDate) {
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl) return;
+        const url = `${renderUrl}/api/v2/delivery-assignments/date-shifts/${encodeURIComponent(realDate)}/${encodeURIComponent(group)}`;
+        const resp = await fetch(url, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ displayDate: displayDate || null }),
+        });
+        if (!resp.ok) {
+            const txt = await resp.text().catch(() => '');
+            throw new Error(`HTTP ${resp.status} ${txt}`);
+        }
+    }
+
+    // Load shifts overlapping [from, to] (either real_date or display_date in range).
+    // Bust cache + re-fetch khi user paint mới (rangeKey-based, TTL 60s).
+    async function loadDateShiftsRange(from, to) {
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl || !from || !to) return;
+        const key = `${from}__${to}`;
+        const last = _dateShiftsFetched.get(key);
+        if (last && Date.now() - last < 60000) return;
         try {
-            localStorage.setItem(DATE_SHIFTS_KEY, JSON.stringify(_dateShifts));
+            const url = `${renderUrl}/api/v2/delivery-assignments/date-shifts?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+            const resp = await fetch(url);
+            if (!resp.ok) return;
+            const j = await resp.json();
+            const fresh = j.data?.shifts || {};
+            // Replace entries có real_date HOẶC display_date trong range.
+            const inRange = new Set();
+            const start = new Date(from + 'T00:00:00');
+            const end = new Date(to + 'T00:00:00');
+            for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
+                const y = cur.getFullYear();
+                const m = String(cur.getMonth() + 1).padStart(2, '0');
+                const d = String(cur.getDate()).padStart(2, '0');
+                inRange.add(`${y}-${m}-${d}`);
+            }
+            for (const k of Object.keys(_dateShifts)) {
+                const [realDate] = k.split('__');
+                const target = _dateShifts[k];
+                if (inRange.has(realDate) || inRange.has(target)) delete _dateShifts[k];
+            }
+            for (const k in fresh) _dateShifts[k] = fresh[k];
+            _dateShiftsFetched.set(key, Date.now());
+        } catch (e) {
+            console.warn('[report] loadDateShiftsRange failed:', e?.message);
+        }
+    }
+
+    // One-time migration: scan localStorage → upload all shifts → mark migrated.
+    async function migrateLocalStorageDateShiftsOnce() {
+        if (localStorage.getItem(DATE_SHIFTS_MIGRATED_KEY) === '1') return;
+        const renderUrl = window.DeliveryReport?._renderUrl;
+        if (!renderUrl) return;
+        let legacy = {};
+        try {
+            legacy = JSON.parse(localStorage.getItem(DATE_SHIFTS_KEY) || '{}');
         } catch (_) {}
+        const entries = Object.entries(legacy).filter(([k, v]) => {
+            if (!k || !v) return false;
+            const m = /^(\d{4}-\d{2}-\d{2})__(.+)$/.exec(k);
+            return !!m && /^\d{4}-\d{2}-\d{2}$/.test(v) && m[1] !== v;
+        });
+        if (entries.length === 0) {
+            localStorage.setItem(DATE_SHIFTS_MIGRATED_KEY, '1');
+            localStorage.removeItem(DATE_SHIFTS_KEY);
+            return;
+        }
+        console.log(`[report] migrating ${entries.length} date-shifts localStorage → DB…`);
+        let ok = 0;
+        for (const [k, displayDate] of entries) {
+            const m = /^(\d{4}-\d{2}-\d{2})__(.+)$/.exec(k);
+            if (!m) continue;
+            const [, realDate, group] = m;
+            try {
+                await persistDateShift(realDate, group, displayDate);
+                ok++;
+            } catch (e) {
+                console.warn(`[report] migrate date-shift fail ${k}:`, e?.message);
+            }
+        }
+        localStorage.setItem(DATE_SHIFTS_MIGRATED_KEY, '1');
+        localStorage.removeItem(DATE_SHIFTS_KEY);
+        console.log(`[report] migrated ${ok}/${entries.length} date-shifts → DB`);
     }
 
     // Admin gating: chỉ tag Admin mới thấy + bấm được DUYỆT. Non-admin xem báo
@@ -957,12 +1051,13 @@
             return;
         }
 
-        // Image flags + overrides + merges fire-and-forget (sẽ tự re-paint khi xong).
-        // Dùng extended range để bao gồm shift sources.
+        // Image flags + overrides + merges + date-shifts fire-and-forget (sẽ tự
+        // re-paint khi xong). Dùng extended range để bao gồm shift sources.
         Promise.all([
             loadImageFlags(extFrom, extTo),
             loadOverridesRange(extFrom, extTo),
             loadMergesRange(extFrom, extTo),
+            loadDateShiftsRange(extFrom, extTo),
         ]).then(() => {
             // Repaint nếu range vẫn match (tránh flicker stale data)
             const curRealFrom = entryToReal(state.fromDate);
@@ -1774,19 +1869,13 @@
                 e.stopPropagation();
                 const realDate = shiftEditBtn.dataset.real;
                 const currentDisplay = getDisplayDate(realDate, state.activeTab);
-                const newDisplay = window.prompt(
-                    `Chỉnh NGÀY HIỂN THỊ cho ngày thật ${formatDDMMYYYY(realToEntry(realDate))}\n\n` +
-                        `Nhập ngày mới (YYYY-MM-DD), hoặc bỏ trống để khôi phục ngày gốc:`,
-                    currentDisplay
-                );
-                if (newDisplay === null) return; // cancel
-                const trimmed = String(newDisplay).trim();
-                if (trimmed && !/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-                    alert('Định dạng phải là YYYY-MM-DD (vd 2026-05-02)');
-                    return;
-                }
-                setDateShift(realDate, state.activeTab, trimmed || null);
-                scheduleRender();
+                openDateShiftModal({ realDate, currentDisplay }).then((result) => {
+                    if (result === null) return; // cancel
+                    // '' (reset) hoặc 'YYYY-MM-DD' đều xử lý qua setDateShift.
+                    // Empty/equal realDate → setDateShift sẽ DELETE row trên server.
+                    setDateShift(realDate, state.activeTab, result || null);
+                    scheduleRender();
+                });
                 return;
             }
             // Unshift all — bỏ tất cả dời ngày của một virtual aggregate. Cho tất cả account.
@@ -2420,6 +2509,123 @@
         state._imgCtx = null;
     }
 
+    // ── Date shift modal (custom UI, thay window.prompt) ──
+    // Trả Promise resolve một trong:
+    //   - 'YYYY-MM-DD' → user chọn ngày mới
+    //   - ''           → user bấm "Khôi phục ngày gốc"
+    //   - null         → user cancel
+    function ensureDateShiftModal() {
+        if (document.getElementById('drReportShiftModal')) return;
+        const tpl = `
+        <div class="dr-shift-overlay" id="drReportShiftModal" role="dialog" aria-modal="true" aria-labelledby="drShiftTitle">
+          <div class="dr-shift-window">
+            <div class="dr-shift-header">
+              <div class="dr-shift-title" id="drShiftTitle">
+                <i class="fas fa-calendar-alt"></i> Chỉnh ngày hiển thị
+              </div>
+              <button class="dr-report-close" id="drShiftClose" title="Đóng (ESC)">&times;</button>
+            </div>
+            <div class="dr-shift-body">
+              <div class="dr-shift-row">
+                <label class="dr-shift-label">Ngày thật</label>
+                <div class="dr-shift-real" id="drShiftRealDate">—</div>
+              </div>
+              <div class="dr-shift-row">
+                <label class="dr-shift-label" for="drShiftNewDate">Ngày hiển thị mới</label>
+                <input type="date" id="drShiftNewDate" class="dr-shift-input" />
+              </div>
+              <div class="dr-shift-hint">
+                Dữ liệu ngày thật sẽ dồn vào ngày hiển thị này. Bấm
+                <strong>Khôi phục ngày gốc</strong> để bỏ dời.
+              </div>
+            </div>
+            <div class="dr-shift-footer">
+              <button class="dr-btn dr-btn-danger" id="drShiftReset">
+                <i class="fas fa-undo"></i> Khôi phục ngày gốc
+              </button>
+              <div class="dr-shift-actions-right">
+                <button class="dr-btn" id="drShiftCancel">Hủy</button>
+                <button class="dr-btn dr-btn-primary" id="drShiftOk">
+                  <i class="fas fa-check"></i> Áp dụng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>`;
+        const wrap = document.createElement('div');
+        wrap.innerHTML = tpl.trim();
+        document.body.appendChild(wrap.firstChild);
+    }
+
+    function openDateShiftModal({ realDate, currentDisplay }) {
+        ensureDateShiftModal();
+        const modal = document.getElementById('drReportShiftModal');
+        const realLabel = document.getElementById('drShiftRealDate');
+        const input = document.getElementById('drShiftNewDate');
+        const btnOk = document.getElementById('drShiftOk');
+        const btnCancel = document.getElementById('drShiftCancel');
+        const btnReset = document.getElementById('drShiftReset');
+        const btnClose = document.getElementById('drShiftClose');
+
+        realLabel.textContent = formatDDMMYYYY(realToEntry(realDate));
+        input.value = currentDisplay || realDate;
+        // Reset button chỉ enable khi đang có shift (currentDisplay khác realDate)
+        const hasShift = currentDisplay && currentDisplay !== realDate;
+        btnReset.style.visibility = hasShift ? 'visible' : 'hidden';
+
+        modal.classList.add('open');
+        setTimeout(() => input.focus(), 50);
+
+        return new Promise((resolve) => {
+            const cleanup = () => {
+                modal.classList.remove('open');
+                btnOk.removeEventListener('click', onOk);
+                btnCancel.removeEventListener('click', onCancel);
+                btnReset.removeEventListener('click', onReset);
+                btnClose.removeEventListener('click', onCancel);
+                modal.removeEventListener('click', onBackdrop);
+                input.removeEventListener('keydown', onKey);
+                document.removeEventListener('keydown', onEsc);
+            };
+            const onOk = () => {
+                const v = String(input.value || '').trim();
+                if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+                    input.focus();
+                    return;
+                }
+                cleanup();
+                resolve(v || '');
+            };
+            const onCancel = () => {
+                cleanup();
+                resolve(null);
+            };
+            const onReset = () => {
+                cleanup();
+                resolve('');
+            };
+            const onBackdrop = (e) => {
+                if (e.target.id === 'drReportShiftModal') onCancel();
+            };
+            const onKey = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    onOk();
+                }
+            };
+            const onEsc = (e) => {
+                if (e.key === 'Escape' && modal.classList.contains('open')) onCancel();
+            };
+            btnOk.addEventListener('click', onOk);
+            btnCancel.addEventListener('click', onCancel);
+            btnReset.addEventListener('click', onReset);
+            btnClose.addEventListener('click', onCancel);
+            modal.addEventListener('click', onBackdrop);
+            input.addEventListener('keydown', onKey);
+            document.addEventListener('keydown', onEsc);
+        });
+    }
+
     function open() {
         ensureModal();
         // Default range = "Tháng này" (ngày 1 → hôm nay) khi user mở modal lần đầu trong session.
@@ -2455,6 +2661,18 @@
                     loadOverridesRange(entryToReal(state.fromDate), entryToReal(state.toDate)).then(
                         () => scheduleRender()
                     );
+                }
+            })
+            .catch(() => {});
+        // 2026-05-26: migrate date shifts localStorage → DB (per-machine → shared)
+        migrateLocalStorageDateShiftsOnce()
+            .then(() => {
+                _dateShiftsFetched.clear();
+                if (state.fromDate && state.toDate) {
+                    loadDateShiftsRange(
+                        entryToReal(state.fromDate),
+                        entryToReal(state.toDate)
+                    ).then(() => scheduleRender());
                 }
             })
             .catch(() => {});

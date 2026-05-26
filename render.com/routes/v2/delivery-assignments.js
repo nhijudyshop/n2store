@@ -1219,6 +1219,140 @@ router.delete('/overrides/:date/:group', async (req, res) => {
 });
 
 // =====================================================
+// DATE SHIFTS — chỉnh "ngày hiển thị" của 1 (real_date, group).
+// Tách khỏi overrides vì semantics khác: shift dồn dữ liệu sang ngày khác,
+// không phải override numeric. Schema rất đơn giản.
+// Migrated 2026-05-26 từ localStorage `dr-date-shifts-v1` → Postgres để
+// account "boss" (máy khác) thấy được shift admin tạo. Trước đây per-machine.
+// =====================================================
+
+async function ensureDateShiftsSchema(pool) {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS delivery_assignment_date_shifts (
+            real_date DATE NOT NULL,
+            group_name VARCHAR(20) NOT NULL,
+            display_date DATE NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_by VARCHAR(100) DEFAULT 'anonymous',
+            PRIMARY KEY (real_date, group_name),
+            CHECK (display_date <> real_date)
+        )
+    `);
+    await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_delivery_date_shifts_display
+        ON delivery_assignment_date_shifts(display_date)
+    `);
+    await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_delivery_date_shifts_real
+        ON delivery_assignment_date_shifts(real_date)
+    `);
+}
+
+// GET /date-shifts?from=&to= — bulk fetch shifts touching range.
+// "Touching" = real_date OR display_date trong [from, to] để client có đủ
+// thông tin về cả sources (ngoài range) lẫn targets (trong range) khi paint.
+router.get('/date-shifts', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { from, to } = req.query;
+        if (!isValidDate(from) || !isValidDate(to)) {
+            return res.status(400).json({ success: false, error: 'Invalid from/to (YYYY-MM-DD)' });
+        }
+        const result = await db.query(
+            `SELECT real_date::text AS real_date,
+                    group_name,
+                    display_date::text AS display_date,
+                    updated_at, updated_by
+             FROM delivery_assignment_date_shifts
+             WHERE (real_date BETWEEN $1 AND $2)
+                OR (display_date BETWEEN $1 AND $2)`,
+            [from, to]
+        );
+        // Map: { "YYYY-MM-DD__group": "YYYY-MM-DD" } — match client _dateShifts shape
+        const shifts = {};
+        for (const r of result.rows) {
+            shifts[`${r.real_date}__${r.group_name}`] = r.display_date;
+        }
+        res.json({
+            success: true,
+            data: { shifts, count: result.rows.length, range: { from, to } },
+        });
+    } catch (err) {
+        console.error('[delivery-assignments] GET /date-shifts error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// PUT /date-shifts/:date/:group — upsert. Body `{displayDate}`. Empty/equal → DELETE.
+router.put('/date-shifts/:date/:group', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { date, group } = req.params;
+        if (!isValidDate(date) || !isValidGroup(group)) {
+            return res.status(400).json({ success: false, error: 'Invalid date or group' });
+        }
+        const raw = req.body?.displayDate;
+        const displayDate = raw == null || raw === '' ? null : String(raw).trim();
+        if (displayDate != null && !isValidDate(displayDate)) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'Invalid displayDate (YYYY-MM-DD)' });
+        }
+        if (!displayDate || displayDate === date) {
+            const del = await db.query(
+                `DELETE FROM delivery_assignment_date_shifts
+                 WHERE real_date = $1 AND group_name = $2
+                 RETURNING real_date`,
+                [date, group]
+            );
+            if (del.rows.length > 0) _notify('date-shift-deleted', { date, group });
+            return res.json({
+                success: true,
+                data: { date, group, deleted: del.rows.length, displayDate: null },
+            });
+        }
+        const user = getUserFromHeaders(req);
+        await db.query(
+            `INSERT INTO delivery_assignment_date_shifts
+                (real_date, group_name, display_date, updated_by, updated_at)
+             VALUES ($1, $2, $3, $4, NOW())
+             ON CONFLICT (real_date, group_name) DO UPDATE
+             SET display_date = EXCLUDED.display_date,
+                 updated_by = EXCLUDED.updated_by,
+                 updated_at = NOW()`,
+            [date, group, displayDate, user]
+        );
+        _notify('date-shift-upserted', { date, group, displayDate });
+        res.json({ success: true, data: { date, group, displayDate } });
+    } catch (err) {
+        console.error('[delivery-assignments] PUT /date-shifts error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// DELETE /date-shifts/:date/:group
+router.delete('/date-shifts/:date/:group', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { date, group } = req.params;
+        if (!isValidDate(date) || !isValidGroup(group)) {
+            return res.status(400).json({ success: false, error: 'Invalid date or group' });
+        }
+        const result = await db.query(
+            `DELETE FROM delivery_assignment_date_shifts
+             WHERE real_date = $1 AND group_name = $2
+             RETURNING real_date`,
+            [date, group]
+        );
+        if (result.rows.length > 0) _notify('date-shift-deleted', { date, group });
+        res.json({ success: true, data: { deleted: result.rows.length } });
+    } catch (err) {
+        console.error('[delivery-assignments] DELETE /date-shifts error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// =====================================================
 // MERGES — gộp nhiều ngày liên tiếp thành 1 báo cáo (cho 1 group).
 // Số liệu auto (SL ĐƠN, TIỀN, PHÍ SHIP, TỔNG TẤT CẢ, TỔNG CÒN LẠI) cộng dồn
 // từ các ngày con. Override fields (slShip/thuVe/boCK/atruongCK/ckTruoc/note/
@@ -1420,3 +1554,4 @@ module.exports = router;
 module.exports.ensureImagesSchema = ensureImagesSchema;
 module.exports.ensureOverridesSchema = ensureOverridesSchema;
 module.exports.ensureMergesSchema = ensureMergesSchema;
+module.exports.ensureDateShiftsSchema = ensureDateShiftsSchema;

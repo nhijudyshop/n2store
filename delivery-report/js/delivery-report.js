@@ -221,6 +221,16 @@
         }
 
         OrderCheckStore.init();
+        // Prefetch date shifts từ server (cross-machine sync) — fire-and-forget,
+        // re-fetch sau khi xong để extended range tính đúng.
+        prefetchDateShifts().then(() => {
+            if (DeliveryReportState.allData.length > 0) {
+                // Re-collect filters để extended range cập nhật theo shifts mới
+                collectFilters();
+                renderTable();
+                renderStats();
+            }
+        });
         loadHiddenNumbers().finally(() => fetchData());
 
         HoverPreview.init();
@@ -791,15 +801,45 @@
         }
     }
 
-    // Date shifts (shared với báo cáo modal — key 'dr-date-shifts-v1').
+    // Date shifts (shared với báo cáo modal). Source of truth: server table
+    // `delivery_assignment_date_shifts` qua endpoint `/api/v2/delivery-assignments/date-shifts`.
+    // 2026-05-26: migrated từ localStorage → server cho cross-machine sync.
     // VD: user trong báo cáo dời 29/04, 30/04 → 02/05. Khi main page filter 02/05,
     // ta extend fetch range để include real 29/04+30/04, sau đó filter client-side
     // bằng displayDate (= shift target hoặc realDate).
+    //
+    // Cache strategy: in-memory `_dateShiftsCache` populated bởi `prefetchDateShifts()`
+    // (gọi lúc init + trước mỗi search). Fallback localStorage chỉ để serve dữ liệu
+    // cũ trong lúc chờ fetch lần đầu — sau migration sẽ rỗng.
+    const _dateShiftsCache = { map: {}, fetchedAt: 0 };
     function _readDateShifts() {
+        // Trả cache nếu đã fetch. Else fallback localStorage (1-time grace period).
+        if (_dateShiftsCache.fetchedAt > 0) return _dateShiftsCache.map;
         try {
             return JSON.parse(localStorage.getItem('dr-date-shifts-v1') || '{}');
         } catch (_) {
             return {};
+        }
+    }
+    async function prefetchDateShifts() {
+        try {
+            // Fetch khoảng rộng (12 tháng quanh hôm nay) để cover mọi filter user
+            // có thể chọn mà không gọi server liên tục mỗi lần đổi filter.
+            const today = new Date();
+            const from = new Date(today);
+            from.setMonth(from.getMonth() - 6);
+            const to = new Date(today);
+            to.setMonth(to.getMonth() + 6);
+            const fmt = (d) =>
+                `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const url = `${RENDER_URL}/api/v2/delivery-assignments/date-shifts?from=${fmt(from)}&to=${fmt(to)}`;
+            const resp = await fetch(url);
+            if (!resp.ok) return;
+            const j = await resp.json();
+            _dateShiftsCache.map = j.data?.shifts || {};
+            _dateShiftsCache.fetchedAt = Date.now();
+        } catch (e) {
+            console.warn('[delivery-report] prefetchDateShifts failed:', e?.message);
         }
     }
     // Group-agnostic: nếu realDate có shift ở BẤT KỲ group nào → dùng shift đầu tiên tìm thấy

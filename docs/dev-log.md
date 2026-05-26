@@ -25,6 +25,36 @@
 
 ## 2026-05-26
 
+### [delivery-report][render] Date shifts → Postgres + custom modal UI ✅
+
+**User ask** (2 tasks):
+
+1. "Cho custom giao diện cho phần chọn ngày hình" — replace native `prompt()`
+2. "Sao tôi chỉnh bằng account admin 29/04, 30/04 về ngày 02/05 → account khác thấy nhưng account boss lại không thấy?" — cross-machine sync bug
+
+**Root cause task 2**: `_dateShifts` lưu `localStorage['dr-date-shifts-v1']` per browser (per machine). Comment cũ ở `report.js:41-42` đã nêu TODO migrate server-side.
+
+**Files**:
+
+- `render.com/routes/v2/delivery-assignments.js` — thêm `ensureDateShiftsSchema(pool)` + 3 endpoint mới:
+    - `GET /api/v2/delivery-assignments/date-shifts?from=&to=` — bulk fetch shifts overlapping range (touching real_date OR display_date)
+    - `PUT /api/v2/delivery-assignments/date-shifts/:date/:group` — upsert. Empty/equal real_date → DELETE row
+    - `DELETE /api/v2/delivery-assignments/date-shifts/:date/:group`
+    - Table `delivery_assignment_date_shifts(real_date DATE, group_name VARCHAR, display_date DATE, ...)` PK `(real_date, group_name)`, CHECK `display <> real`
+    - SSE broadcast topic `delivery_assignments` actions `date-shift-upserted` / `date-shift-deleted`
+- `render.com/server.js` — wire `ensureDateShiftsSchema(chatDbPool)` lúc boot.
+- `delivery-report/js/report.js` —
+    - Replace localStorage-init của `_dateShifts` bằng in-memory cache + `loadDateShiftsRange()` server fetch (TTL 60s).
+    - `setDateShift()` giờ async PUT server (write-through), local cache optimistic.
+    - Thêm `migrateLocalStorageDateShiftsOnce()` 1-time upload legacy localStorage → DB, marker `dr-date-shifts-migrated-v1`.
+    - Thêm `openDateShiftModal({realDate, currentDisplay})` returns Promise → resolve YYYY-MM-DD / '' (reset) / null (cancel). Modal có header gradient, `<input type="date">` native picker, 3 nút (Khôi phục / Hủy / Áp dụng), ESC + Enter shortcuts.
+    - Replace `window.prompt()` ở handler `data-action="shift-edit"` bằng `openDateShiftModal()` async.
+    - Wire `loadDateShiftsRange(extFrom, extTo)` vào `Promise.all` parallel với overrides/merges/images.
+- `delivery-report/js/delivery-report.js` (main filter page) — refactor `_readDateShifts()` đọc từ in-memory cache `_dateShiftsCache` (fetched bởi `prefetchDateShifts()` lúc init, ±6 tháng quanh hôm nay). Fallback localStorage chỉ trong grace period trước khi fetch lần đầu.
+- `delivery-report/css/delivery-report.css` — thêm `.dr-shift-overlay`/`.dr-shift-window`/etc. (header gradient 2563eb→1e3a8a, slide+fade animation, native date input focus ring).
+
+**Status**: ✅ Done. Server endpoint cần Render redeploy để ENV nhận; migration tự chạy lần đầu user mở báo cáo modal (idempotent qua marker key).
+
 ### [tpos-pancake] Nút X xóa thumbnail trên hover — chụp nhầm có thể xóa và snap lại ✅
 
 **User ask**: "cho nút xóa thumbnail vì có khi chụp nhầm cần cập nhật lại"

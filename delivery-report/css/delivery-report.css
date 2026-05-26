@@ -3270,3 +3270,198 @@ body.dr-mode-report #drTableWrapper {
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
+
+/* ── Date shift modal (custom, replaces native window.prompt) ── */
+.dr-shift-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9600;
+    padding: 24px;
+    backdrop-filter: blur(3px);
+    animation: drShiftFade 140ms ease-out;
+}
+.dr-shift-overlay.open {
+    display: flex;
+}
+@keyframes drShiftFade {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+.dr-shift-window {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.28),
+        0 2px 6px rgba(0, 0, 0, 0.08);
+    width: min(440px, 100%);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: drShiftSlide 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes drShiftSlide {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+.dr-shift-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+    color: #fff;
+}
+.dr-shift-title {
+    font-weight: 700;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.dr-shift-title i {
+    opacity: 0.85;
+}
+.dr-shift-header .dr-report-close {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.16);
+    border: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 120ms;
+}
+.dr-shift-header .dr-report-close:hover {
+    background: rgba(255, 255, 255, 0.28);
+}
+.dr-shift-body {
+    padding: 20px 22px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.dr-shift-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.dr-shift-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.dr-shift-real {
+    font-size: 17px;
+    font-weight: 700;
+    color: #111827;
+    padding: 8px 10px;
+    background: #f3f4f6;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    font-variant-numeric: tabular-nums;
+}
+.dr-shift-input {
+    font-size: 15px;
+    padding: 10px 12px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    color: #111827;
+    font-family: inherit;
+    transition:
+        border-color 120ms,
+        box-shadow 120ms;
+    font-variant-numeric: tabular-nums;
+}
+.dr-shift-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+.dr-shift-hint {
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.5;
+    padding: 8px 10px;
+    background: #fef3c7;
+    border-left: 3px solid #f59e0b;
+    border-radius: 4px;
+}
+.dr-shift-hint strong {
+    color: #92400e;
+    font-weight: 600;
+}
+.dr-shift-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-top: 1px solid #e5e7eb;
+    background: #f9fafb;
+}
+.dr-shift-actions-right {
+    display: flex;
+    gap: 8px;
+}
+.dr-shift-footer .dr-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    border-radius: 7px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    color: #374151;
+    cursor: pointer;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition:
+        background 120ms,
+        border-color 120ms,
+        transform 80ms;
+}
+.dr-shift-footer .dr-btn:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+}
+.dr-shift-footer .dr-btn:active {
+    transform: translateY(1px);
+}
+.dr-shift-footer .dr-btn-primary {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+.dr-shift-footer .dr-btn-primary:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+}
+.dr-shift-footer .dr-btn-danger {
+    background: #fff;
+    border-color: #fca5a5;
+    color: #b91c1c;
+}
+.dr-shift-footer .dr-btn-danger:hover {
+    background: #fee2e2;
+    border-color: #ef4444;
+    color: #991b1b;
+}

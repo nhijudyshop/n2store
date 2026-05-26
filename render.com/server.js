@@ -203,6 +203,7 @@ chatDbPool
                 ensureImagesSchema,
                 ensureOverridesSchema,
                 ensureMergesSchema,
+                ensureDateShiftsSchema,
             } = require('./routes/v2/delivery-assignments');
             if (typeof ensureImagesSchema === 'function') {
                 ensureImagesSchema(chatDbPool).catch((e) =>
@@ -217,6 +218,11 @@ chatDbPool
             if (typeof ensureMergesSchema === 'function') {
                 ensureMergesSchema(chatDbPool).catch((e) =>
                     console.warn('[delivery-assignment-merges] init warn:', e.message)
+                );
+            }
+            if (typeof ensureDateShiftsSchema === 'function') {
+                ensureDateShiftsSchema(chatDbPool).catch((e) =>
+                    console.warn('[delivery-assignment-date-shifts] init warn:', e.message)
                 );
             }
         } catch (e) {
