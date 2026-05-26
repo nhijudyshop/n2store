@@ -276,6 +276,25 @@ Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc la
 5. **Khi sửa file legacy**: dừng lại hỏi user nếu thay đổi có thể ảnh hưởng web2 (và ngược lại).
 6. **Realtime / Data sync — BẮT BUỘC**: KHÔNG dùng Firebase Firestore listener cho Web 2.0 nữa. Web 2.0 dùng **SSE pub/sub trên Render** (topic-based). Trước khi code bất kỳ feature nào liên quan realtime, cross-tab sync, listener data → **PHẢI đọc [`docs/web2/SSE-REALTIME.md`](docs/web2/SSE-REALTIME.md)** (architecture + recipe server/client + topic naming + migration checklist + verification). Topic convention: `web2:<entity>` hoặc `web2:<entity>:<id>`. Pattern proven trong web2-products + native-orders.
 
+### SSE Server thống nhất cho CẢ Web 1.0 + Web 2.0 (BẮT BUỘC)
+
+**Chỉ có 1 server SSE chung** tại `render.com/routes/realtime-sse.js` (endpoint `/api/realtime/sse?keys=topic1,topic2`). Cả 2 layer dùng chung server này, khác convention:
+
+| Aspect           | Web 2.0                                                                      | Web 1.0                                                    |
+| ---------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Topic naming     | `web2:<entity>[:id]` prefix                                                  | bare snake_case (vd `celebration`, `delivery_assignments`) |
+| Client subscribe | `Web2SSE.subscribe('web2:foo', cb)` bridge singleton                         | `new EventSource('/api/realtime/sse?keys=foo')` trực tiếp  |
+| Server publish   | `_notify()` wrapper trong route + `initializeNotifiers` wiring ở `server.js` | `notifyClients(topic, data)` direct trong route handler    |
+| Docs             | `docs/web2/SSE-REALTIME.md`                                                  | `MEMORY: reference_sse_servers_unified.md`                 |
+
+**TUYỆT ĐỐI không build server SSE thứ 2** cho bất kỳ module nào — luôn extend server hiện tại với topic mới. Recipe Web 1.0:
+
+1. **Server** (vd `routes/v2/delivery-assignments.js`): `const realtimeSse = require('../realtime-sse');` + sau mutation thành công gọi `realtimeSse.notifyClients('delivery_assignments', {action, date, group, ts: Date.now()});`
+2. **Client** (vd `delivery-report/js/report.js`): `const es = new EventSource('${API_BASE}/sse?keys=delivery_assignments');` + `es.addEventListener('update', e => debounceRefresh());` debounce 500-600ms để gom burst + `es.close()` khi page/modal đóng
+3. **Anti-patterns**: KHÔNG broadcast PII trong payload (chỉ `{action, id, ts}` — client re-fetch); KHÔNG subscribe nhiều topics riêng cho 1 module (1 topic + filter ở client); LUÔN debounce
+
+Reference Web 1.0 production: `orders-report/js/celebration.js`, `orders-report/js/tab1/tab1-order-notes.js`, `orders-report/js/tab1/tab1-kpi-stats-strip.js` (topics `celebration`, `kpi_statistics,kpi_base`).
+
 ### Index quick-lookup
 
 - [`docs/web2/WEB2-INDEX.md`](docs/web2/WEB2-INDEX.md) — folder, route, table, Firestore collection của Web 2.0
