@@ -3691,22 +3691,22 @@
             existingBySig.set(sig(v.AttributeValues || []), v);
         }
 
-        const templateCode = $('#editProductCode')?.value?.trim() || 'SP';
         const listPrice = parseFloat($('#editListPrice')?.value) || 0;
 
         editVariants = combos.map((combo) => {
             const signature = sig(combo);
             const existing = existingBySig.get(signature);
             if (existing) return existing;
-            // New variant
+            // New variant — leave DefaultCode empty so TPOS auto-generates:
+            //   {parentCode}{first-ASCII-letter-of-each-attr-value} (e.g. SP31377TS)
+            //   numeric values become A{value} (e.g. SP31377A27)
+            //   collisions get numeric suffix (DS → DS1)
+            // This avoids "Mã biến thể chỉ chứa chữ Latin" validation errors when
+            // user types Vietnamese in custom codes (Trắng/Đen/Đỏ).
             const attrStr = combo.map((v) => v.Name).join(', ');
             return {
                 Id: 0,
-                DefaultCode:
-                    `${templateCode}-${combo.map((v) => v.Code || v.Name).join('-')}`.replace(
-                        /\s+/g,
-                        ''
-                    ),
+                DefaultCode: '',
                 Barcode: null,
                 PriceVariant: listPrice,
                 Active: true,
