@@ -2965,11 +2965,23 @@ Throttle 30s/KH.`;
         setupObserver();
         subscribeSSE();
         // Subscribe TPOS new-comment event cho auto-mode (lazy — eventBus có thể
-        // chưa setup tại DOMContentLoaded, fail-safe retry)
+        // chưa setup tại DOMContentLoaded, fail-safe retry).
+        // Cũng subscribe campaignsChanged để re-trigger _maybeShowAutoSnapBanner()
+        // ngay khi user chọn campaign (user feedback 2026-05-26: nếu chọn campaign
+        // sau khi poll timeout 60s, iframe không tự tạo → phải refresh).
         const subscribeNewComment = () => {
             if (global.eventBus?.on) {
                 global.eventBus.on('tpos:newComment', _handleNewCommentAuto);
-                console.log('[snap] subscribed to tpos:newComment for auto-mode');
+                global.eventBus.on('tpos:campaignsChanged', () => {
+                    // Reset autoSnapStarting để cho phép retry (vd lần trước fail
+                    // hoặc campaign cũ không có Facebook_LiveId).
+                    if (!STATE.captureStream && !STATE.frameBufferTimer) {
+                        STATE.autoSnapStarting = false;
+                        console.log('[snap] campaignsChanged → re-trigger auto-snap');
+                        _maybeShowAutoSnapBanner();
+                    }
+                });
+                console.log('[snap] subscribed to tpos:newComment + tpos:campaignsChanged');
                 return true;
             }
             return false;
@@ -2997,11 +3009,12 @@ Throttle 30s/KH.`;
             }
         }, 500);
         // FULL AUTO: đợi liveCampaigns load → tự bật embedded capture (no popup,
-        // no manual click). Retry mỗi 2s trong 60s nếu live xuất hiện muộn hoặc
-        // capture init fail (vd extension chưa ready). Stop khi đã capture hoặc
-        // hết 60s. User feedback 2026-05-26: page phải tự động hoàn toàn.
+        // no manual click). Retry mỗi 3s, persistent cho tới khi capture chạy.
+        // User feedback 2026-05-26: bỏ timeout 60s — nếu user chọn campaign trễ
+        // (sau popup, đọc menu, etc.) poll dead → iframe không tự tạo. Giờ poll
+        // sống mãi đến khi capture started; cũng có 'campaignsChanged' event
+        // listener re-trigger ngay khi user thay đổi selection.
         const bannerTimer = setInterval(() => {
-            // Đã chạy hoặc đang chạy → stop poll
             if (STATE.captureStream || STATE.frameBufferTimer) {
                 clearInterval(bannerTimer);
                 return;
@@ -3010,8 +3023,8 @@ Throttle 30s/KH.`;
             if (st?.liveCampaigns?.length > 0) {
                 _maybeShowAutoSnapBanner();
             }
-        }, 2000);
-        setTimeout(() => clearInterval(bannerTimer), 60000);
+        }, 3000);
+        // KHÔNG clearInterval timeout — poll sống cho tới khi capture chạy.
         // Initial inject ngay cho rows hiện có (nếu TPOS đã render trước script).
         // Observer sẽ handle rows mới sau đó.
         injectSnapButtonsAll();
