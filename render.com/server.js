@@ -161,6 +161,42 @@ chatDbPool
         } catch (e) {
             console.warn('[web2-sepay-matching] require failed:', e.message);
         }
+        // WEB 2.0 Phase 5/6: match audit log + retry queue + blacklist tables
+        try {
+            const matchAudit = require('./services/web2-match-audit');
+            matchAudit
+                .ensureSchema(chatDbPool)
+                .catch((e) => console.warn('[web2-match-audit] init warn:', e.message));
+            const retry = require('./services/web2-webhook-retry');
+            retry
+                .ensureSchema(chatDbPool)
+                .catch((e) => console.warn('[web2-webhook-retry] init warn:', e.message));
+            const blacklist = require('./services/web2-blacklist');
+            blacklist
+                .ensureSchema(chatDbPool)
+                .catch((e) => console.warn('[web2-blacklist] init warn:', e.message));
+            // Start retry cron — re-runs failed Web 2.0 webhook payloads.
+            // Delay 5s để schema tables tạo xong.
+            setTimeout(() => {
+                try {
+                    const sepayMatching = require('./services/web2-sepay-matching');
+                    const { fetchWithTimeout } = require('../shared/node/fetch-utils.cjs');
+                    retry.startCron(chatDbPool, async (webhookData) => {
+                        const { id, isDuplicate } = await sepayMatching.insertWeb2BalanceHistory(
+                            chatDbPool,
+                            webhookData
+                        );
+                        if (id && !isDuplicate && webhookData.transferType === 'in') {
+                            await sepayMatching.processWeb2Match(chatDbPool, id, fetchWithTimeout);
+                        }
+                    });
+                } catch (e) {
+                    console.warn('[web2-webhook-retry] cron start fail:', e.message);
+                }
+            }, 5000);
+        } catch (e) {
+            console.warn('[web2 phase-5] init failed:', e.message);
+        }
         // DELIVERY ASSIGNMENTS — bill image storage (migrate localStorage → BYTEA).
         try {
             const {
@@ -523,6 +559,8 @@ const web2WalletsRoutes = require('./routes/v2/web2-wallets');
 app.use('/api/web2/wallets', web2WalletsRoutes);
 const web2BalanceHistoryRoutes = require('./routes/v2/web2-balance-history');
 app.use('/api/web2/balance-history', web2BalanceHistoryRoutes);
+const web2MonitoringRoutes = require('./routes/v2/web2-monitoring');
+app.use('/api/web2/monitoring', web2MonitoringRoutes);
 const livestreamSnapshotsRoutes = require('./routes/livestream-snapshots');
 app.use('/api/livestream', livestreamSnapshotsRoutes); // WEB2.0 livestream snapshot per customer
 app.use('/api/attendance', attendanceRoutes);

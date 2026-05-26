@@ -26,6 +26,12 @@ const {
     searchTPOSByPartialPhone,
 } = require('../routes/sepay-transaction-matching');
 const web2WalletService = require('./web2-wallet-service');
+const web2ContentParser = require('./web2-content-parser');
+const web2MatchAudit = require('./web2-match-audit');
+
+// Confidence threshold for auto-credit (single match only).
+// Multi-match always goes to pending_match regardless of score.
+const AUTO_CREDIT_MIN_SCORE = 70;
 
 // Ensure web2_balance_history + web2_pending_matches schema. Idempotent.
 let _ready = false;
@@ -258,7 +264,7 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
                 customerName = matchedPhones[0].customers?.[0]?.name || null;
                 matchMethod = 'single_match';
             } else if (matchedPhones.length > 1) {
-                // Multi match → create pending for user pick
+                // Multi match → create pending for user pick + audit log
                 const insertPending = await db.query(
                     `INSERT INTO web2_pending_matches
                        (transaction_id, extracted_phone, matched_customers, status)
@@ -272,6 +278,31 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
                      WHERE id = $1`,
                     [web2BhId]
                 );
+                // Audit log multi-match decision
+                const auditCandidates = matchedPhones.flatMap((m) =>
+                    (m.customers || []).map((c) => ({
+                        phone: m.phone || c.phone,
+                        name: c.name,
+                    }))
+                );
+                await web2MatchAudit.log(db, {
+                    transactionId: web2BhId,
+                    sepayId: tx.sepay_id,
+                    extractedValue: partialPhone,
+                    extractedType: 'partial_phone',
+                    candidates: auditCandidates,
+                    chosenPhone: null,
+                    chosenName: null,
+                    decisionTier: 'pending_ambiguous',
+                    confidenceScore: 0,
+                    confidenceBreakdown: {
+                        reason: 'multi_match',
+                        candidateCount: matchedPhones.length,
+                    },
+                    amount,
+                    decidedBy: 'auto',
+                    note: `Multi-match ${matchedPhones.length} candidates → user pick`,
+                });
                 return {
                     success: true,
                     method: 'pending_match_created',
@@ -298,7 +329,68 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
         }
     }
 
-    // 4. We have matched phone → AUTO credit Web 2.0 wallet (always)
+    // 4. (NEW Phase 5) Compute confidence score before auto-credit.
+    // Single match nhưng confidence thấp → push pending để user review.
+    // Multi match đã skip ở bước trên (return early với pending_match_created).
+    const candidate = { Name: customerName || '', Phone: matchedPhone };
+    const conf = web2ContentParser.scoreConfidence({
+        content,
+        candidate,
+        phoneMatchType:
+            matchMethod === 'qr_code'
+                ? 'qr_code'
+                : matchMethod === 'exact_phone'
+                  ? 'exact_phone'
+                  : 'partial_phone',
+        multiMatchCount: 1, // we're here only after single-match path
+    });
+    const tier = web2ContentParser.decisionTier(conf.score, 1);
+
+    if (tier === 'pending_ambiguous' || tier === 'review_low') {
+        // Confidence quá thấp dù single match — không tự credit, đẩy về pending
+        const candidatePayload = [{ phone: matchedPhone, name: customerName, score: conf.score }];
+        const insertPending = await db.query(
+            `INSERT INTO web2_pending_matches
+               (transaction_id, extracted_phone, matched_customers, status)
+             VALUES ($1, $2, $3, 'pending')
+             RETURNING id`,
+            [web2BhId, matchedPhone, JSON.stringify(candidatePayload)]
+        );
+        await db.query(
+            `UPDATE web2_balance_history
+             SET match_method = 'pending_low_confidence'
+             WHERE id = $1`,
+            [web2BhId]
+        );
+        // Audit log: decision = pending_low_confidence
+        await web2MatchAudit.log(db, {
+            transactionId: web2BhId,
+            sepayId: tx.sepay_id,
+            extractedValue: matchedPhone,
+            extractedType: matchMethod,
+            candidates: candidatePayload,
+            chosenPhone: null,
+            chosenName: null,
+            decisionTier: tier,
+            confidenceScore: conf.score,
+            confidenceBreakdown: conf.breakdown,
+            amount,
+            decidedBy: 'auto',
+            note: `Single match but confidence ${conf.score} < ${AUTO_CREDIT_MIN_SCORE}`,
+        });
+        return {
+            success: true,
+            method: 'pending_low_confidence',
+            pendingMatchId: insertPending.rows[0].id,
+            transactionId: web2BhId,
+            phone: matchedPhone,
+            customerName,
+            confidenceScore: conf.score,
+            note: 'Single match but confidence low — needs user review',
+        };
+    }
+
+    // 5. Auto credit Web 2.0 wallet (confidence ≥ 70)
     let walletResult;
     try {
         walletResult = await web2WalletService.processDeposit(
@@ -306,14 +398,13 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
             matchedPhone,
             amount,
             tx.id,
-            `Nap tu CK (${matchMethod})`,
-            null, // customerId — Web 2.0 không cần
+            `Nap tu CK (${matchMethod}, conf ${conf.score})`,
+            null,
             null,
             tx.sepay_id
         );
     } catch (e) {
         console.error('[web2-sepay-matching] processDeposit failed:', e.message);
-        // Mark as failed but still link phone (so user can manually retry)
         await db.query(
             `UPDATE web2_balance_history
              SET linked_customer_phone = $2, match_method = $3,
@@ -321,6 +412,21 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
              WHERE id = $1`,
             [web2BhId, matchedPhone, matchMethod, customerName]
         );
+        await web2MatchAudit.log(db, {
+            transactionId: web2BhId,
+            sepayId: tx.sepay_id,
+            extractedValue: matchedPhone,
+            extractedType: matchMethod,
+            candidates: [{ phone: matchedPhone, name: customerName, score: conf.score }],
+            chosenPhone: matchedPhone,
+            chosenName: customerName,
+            decisionTier: 'error_wallet_credit',
+            confidenceScore: conf.score,
+            confidenceBreakdown: conf.breakdown,
+            amount,
+            decidedBy: 'auto',
+            note: `Wallet credit failed: ${e.message}`,
+        });
         return {
             success: false,
             reason: 'Wallet credit failed',
@@ -329,7 +435,7 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
         };
     }
 
-    // 5. Mark balance_history row as processed + link phone
+    // 6. Mark balance_history row processed
     await db.query(
         `UPDATE web2_balance_history
          SET debt_added = TRUE,
@@ -343,6 +449,24 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
         [web2BhId, matchedPhone, matchMethod, customerName]
     );
 
+    // 7. Audit log: SUCCESS
+    await web2MatchAudit.log(db, {
+        transactionId: web2BhId,
+        sepayId: tx.sepay_id,
+        extractedValue: matchedPhone,
+        extractedType: matchMethod,
+        candidates: [{ phone: matchedPhone, name: customerName, score: conf.score }],
+        chosenPhone: matchedPhone,
+        chosenName: customerName,
+        decisionTier: tier,
+        confidenceScore: conf.score,
+        confidenceBreakdown: conf.breakdown,
+        amount,
+        decidedBy: 'auto',
+        walletTxId: walletResult.transaction?.id,
+        note: `Auto credit (${matchMethod}, conf ${conf.score})`,
+    });
+
     return {
         success: true,
         method: matchMethod,
@@ -353,6 +477,8 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
         amount,
         walletTxId: walletResult.transaction?.id,
         alreadyProcessed: walletResult.alreadyProcessed,
+        confidenceScore: conf.score,
+        decisionTier: tier,
     };
 }
 
@@ -412,6 +538,24 @@ async function resolveWeb2PendingMatch(db, pendingId, selectedPhone, selectedNam
          WHERE id = $1`,
         [pendingId, resolvedBy || null, `Resolved to ${selectedPhone} ${selectedName || ''}`]
     );
+
+    // Audit log manual resolve
+    await web2MatchAudit.log(db, {
+        transactionId: pending.transaction_id,
+        sepayId: tx.sepay_id,
+        extractedValue: selectedPhone,
+        extractedType: 'manual_resolve',
+        candidates: [{ phone: selectedPhone, name: selectedName }],
+        chosenPhone: selectedPhone,
+        chosenName: selectedName,
+        decisionTier: 'manual_resolve',
+        confidenceScore: 100,
+        confidenceBreakdown: { reason: 'user_picked' },
+        amount,
+        decidedBy: resolvedBy || 'manual',
+        walletTxId: walletResult.transaction?.id,
+        note: `Pending #${pendingId} resolved manually`,
+    });
 
     return {
         success: true,

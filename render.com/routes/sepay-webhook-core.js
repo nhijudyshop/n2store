@@ -35,13 +35,12 @@ async function _processWeb2Path(db, webhookData) {
     if (!_web2Sepay || !db) return;
     try {
         const { id, isDuplicate } = await _web2Sepay.insertWeb2BalanceHistory(db, webhookData);
-        if (!id || isDuplicate) return; // skip if dup
-        // Run matching async (don't block legacy flow). Best-effort.
+        if (!id || isDuplicate) return;
         if (webhookData.transferType === 'in') {
             const result = await _web2Sepay.processWeb2Match(db, id, fetchWithTimeout);
             if (result?.success) {
                 console.log(
-                    `[WEB2-SEPAY] tx ${id} matched: method=${result.method} phone=${result.phone || '-'} wallet_tx=${result.walletTxId || '-'}`
+                    `[WEB2-SEPAY] tx ${id} matched: method=${result.method} phone=${result.phone || '-'} conf=${result.confidenceScore || '-'} wallet_tx=${result.walletTxId || '-'}`
                 );
             } else {
                 console.log(
@@ -51,6 +50,13 @@ async function _processWeb2Path(db, webhookData) {
         }
     } catch (e) {
         console.warn('[WEB2-SEPAY] _processWeb2Path failed:', e.message);
+        // Phase 5: push to retry queue on failure
+        try {
+            const retry = require('../services/web2-webhook-retry');
+            await retry.enqueue(db, webhookData.id, webhookData, e.message);
+        } catch (re) {
+            console.warn('[WEB2-SEPAY] retry enqueue also failed:', re.message);
+        }
     }
 }
 
