@@ -25,6 +25,27 @@
 
 ## 2026-05-26
 
+### [product-warehouse] CSS — TPOS visual match polish ✅
+
+**User ask**: "browser vào https://tomato.tpos.vn/#/app/producttemplate/list làm giao diện giống tpos, từ màu nên, bảng, vị trí thanh tìm kiếm, các nút tpos,..."
+
+**Strategy**: keep existing structural choices (collapsible filters, Thêm SP in header, 3 row-action buttons) — only tweak CSS palette + sizing to match TPOS visual rhythm. Captured live TPOS reference via Playwright at tomato.tpos.vn → inspected computed colors → matched.
+
+**Files modified** (`product-warehouse/css/warehouse-tpos.css`):
+
+- Palette: `--pw-bg: #edf1f2 → #f5f5f5` (TPOS exact page bg, verified `rgb(245,245,245)`). `--pw-row-stripe: #f5f5f5 → #fafafa` (softer zebra to match TPOS subtle striping).
+- Header: `padding 10px 16px → 12px 20px`, `.page-title font-size 16 → 18px`, title icon `18 → 20px`. More prominent header strip matching TPOS h1 weight.
+- Search box: `min-width 260px → 420px` so search bar reaches TPOS prominence (right-aligned wide input).
+- Row action col: `width 160 → 110px`, btn `padding 5px 10px → 3px 7px`, `font-size 12 → 11px`, `line-height 18 → 16px`, btn gap `4 → 2px`, svg `12 → 11px`. Keeps all 3 buttons (edit/print/delete) but tightens visual weight to match TPOS 2-button compactness.
+- Comment header refreshed: now references live tomato.tpos.vn (not stale issue-tracking source).
+
+**Verification** (Playwright side-script connecting to localhost:8080 with session restore):
+
+- Baseline `pw-viewport-before.png` (heavy blue-gray bg, large action buttons, narrow search) vs after `pw-viewport-final.png` (neutral gray bg, tight action col, wide search prominently right-aligned). All 7 default-visible cols + user's localStorage v2 override (group, active) still rendering correctly.
+- `getComputedStyle(body).backgroundColor` → `rgb(245, 245, 245)` ✓ matches TPOS exactly.
+
+**Out of scope (not changed)**: collapsible toolbar (intentional Phase 5 design), Thêm SP in header (intentional Phase 1), 3 row-action buttons including print (functional choice — TPOS hides print in a menu but losing it from the row would be a regression).
+
 ### [issue-tracking] In bill — BÁN HÀNG + TRẢ HÀNG (FastSaleOrder TPOS template) ✅
 
 **User ask**: Browser test TPOS `fastsaleorder/invoicelist` + `refundlist` phần "in bill" → làm cho local `issue-tracking#ban-hang` + `#tra-hang`.
