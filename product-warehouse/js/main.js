@@ -2214,8 +2214,25 @@
             fetchProducts(true);
         };
         $('#filterStock')?.addEventListener('change', onToolbarFilterChange);
-        $('#filterStatus')?.addEventListener('change', onToolbarFilterChange);
         $('#filterGroup')?.addEventListener('change', onToolbarFilterChange);
+
+        // Hiệu lực dropdown — sync with the view tabs to avoid UX conflicts.
+        // On "Sản phẩm" tab the rows are already Active=true; selecting "Hết
+        // hiệu lực" in the dropdown would yield 0 rows because the tab + dropdown
+        // contradict. Auto-switch tabs instead.
+        $('#filterStatus')?.addEventListener('change', () => {
+            const v = $('#filterStatus').value;
+            const targetTab =
+                v === 'inactive' ? 'inactive' : viewType === 'inactive' ? 'template' : viewType;
+            if (targetTab !== viewType) {
+                const btn = document.querySelector(`.warehouse-tab[data-view-type="${targetTab}"]`);
+                if (btn) {
+                    btn.click();
+                    return;
+                }
+            }
+            onToolbarFilterChange();
+        });
         // Lazy-load category list on first focus (mirrors filterTag pattern)
         $('#filterGroup')?.addEventListener('focus', () => populateGroupFilter(), { once: true });
         $('#filterGroup')?.addEventListener('mousedown', () => populateGroupFilter(), {

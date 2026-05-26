@@ -1139,9 +1139,20 @@
             const shiftBadge = shifted
                 ? `<span class="dr-shift-badge" title="Ngày thật: ${formatDDMMYYYY(realToEntry(d))} → hiển thị tại: ${formatDDMMYYYY(realToEntry(getDisplayDate(d, state.activeTab)))}"><i class="fas fa-clock-rotate-left"></i></span>`
                 : '';
+            // Non-admin: bỏ data-action="toggle-expand" + class clickable + chevron icon
+            const expandable = _isAdmin();
+            const dateExpandAttrs = expandable
+                ? `class="date clickable" data-action="toggle-expand" title="Bấm để xem danh sách ${slDon} đơn (ngày thật: ${formatDDMMYYYY(d)})"`
+                : `class="date" title="Ngày thật: ${formatDDMMYYYY(d)}"`;
+            const slDonExpandAttrs = expandable
+                ? `class="num strong clickable" data-action="toggle-expand" title="Bấm để xem chi tiết ${slDon} đơn"`
+                : `class="num strong"`;
+            const chevIcon = expandable
+                ? '<i class="fas fa-chevron-right dr-expand-chevron"></i> '
+                : '';
             return `<tr data-date="${d}" class="${cls}${shifted ? ' is-shifted' : ''}">
-                <td class="date clickable" data-action="toggle-expand" title="Bấm để xem danh sách ${slDon} đơn (ngày thật: ${formatDDMMYYYY(d)})">${selectCell}<i class="fas fa-chevron-right dr-expand-chevron"></i> ${formatDDMMYYYY(realToEntry(d))}${shiftBadge}${editBtn}</td>
-                <td class="num strong clickable" data-action="toggle-expand" title="Bấm để xem chi tiết ${slDon} đơn">${formatNumber(slDon)}</td>
+                <td ${dateExpandAttrs}>${selectCell}${chevIcon}${formatDDMMYYYY(realToEntry(d))}${shiftBadge}${editBtn}</td>
+                <td ${slDonExpandAttrs}>${formatNumber(slDon)}</td>
                 <td class="num clickable money-cell ${hasImg ? 'has-img' : 'no-img'}" data-action="open-img" title="${hasImg ? 'Bấm để xem/sửa ảnh' : 'Bấm để thêm ảnh chứng từ'}">
                     <span class="money-val">${formatMoney(money)}</span>
                     <span class="money-ico">${hasImg ? '<i class="fas fa-image"></i>' : '<i class="far fa-image"></i>'}</span>
@@ -1681,9 +1692,10 @@
                 scheduleRender();
                 return;
             }
-            // Toggle merge expanded
+            // Toggle merge expanded (admin only)
             const chev = e.target.closest && e.target.closest('button[data-action="toggle-merge"]');
             if (chev) {
+                if (!_isAdmin()) return;
                 const tr = chev.closest('tr[data-merge-id]');
                 if (!tr) return;
                 const id = Number(tr.dataset.mergeId);
@@ -1736,6 +1748,8 @@
             const expandCell =
                 e.target.closest && e.target.closest('td[data-action="toggle-expand"]');
             if (expandCell) {
+                // Admin only — non-admin không xem chi tiết đơn được
+                if (!_isAdmin()) return;
                 // Bỏ qua nếu click trúng checkbox select-day (đã có change handler riêng)
                 if (e.target.closest && e.target.closest('[data-action="select-day"]')) return;
                 const row = expandCell.closest('tr[data-date]');
