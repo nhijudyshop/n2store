@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `92f9c3b` — feat(delivery-report/report): tong con lai per tab + grand total ngang
-**Last updated**: 2026-05-26 13:27:31 +07
-**Latest session**: [`RESUME:20260526-132731-92f9c3b`](../20260526-132731-92f9c3b.md)
-**Summary**: feat(delivery-report/report): tong con lai per tab + grand total ngang
+**Latest commit**: `8eb576b` — auto: session update
+**Last updated**: 2026-05-26 13:29:37 +07
+**Latest session**: [`RESUME:20260526-132937-8eb576b`](../20260526-132937-8eb576b.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
+- [`delivery-report/`](./delivery-report.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +24,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 13:27
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 13:29
 - [`docs/`](./docs.md) — updated 2026-05-26 13:27
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
@@ -50,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-26 13:23
+- [`render.com/`](./render.com.md) — updated 2026-05-26 13:29
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-26 12:46
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
