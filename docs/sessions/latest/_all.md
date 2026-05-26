@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `17d2791` — docs(api): document /api/v2/_ namespace is mixed Web 1.0 + Web 2.0
-**Last updated**: 2026-05-26 18:24:56 +07
-**Latest session**: [`RESUME:20260526-182456-17d2791`](../20260526-182456-17d2791.md)
-**Summary**: docs(api): document /api/v2/_ namespace is mixed Web 1.0 + Web 2.0
+**Latest commit**: `b1bc0ba` — fix(web2-sepay-matching): trust legacy linked_customer_phone, credit vi khong can re-extract
+**Last updated**: 2026-05-26 18:28:51 +07
+**Latest session**: [`RESUME:20260526-182851-b1bc0ba`](../20260526-182851-b1bc0ba.md)
+**Summary**: fix(web2-sepay-matching): trust legacy linked_customer_phone, credit vi khong can re-extract
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -50,7 +49,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-26 18:13
+- [`render.com/`](./render.com.md) — updated 2026-05-26 18:28
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-26 13:38
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
