@@ -350,6 +350,12 @@
     background: #fee2e2;
     color: #991b1b;
 }
+.w2bh-pill.legacy {
+    background: #f3f4f6;
+    color: #6b7280;
+    border: 1px dashed #d1d5db;
+    cursor: help;
+}
 
 .w2bh-link-btn {
     background: #fef3c7;

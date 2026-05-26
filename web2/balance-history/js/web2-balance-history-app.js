@@ -237,16 +237,37 @@
         const phone = r.linked_customer_phone || '';
         const name = r.display_name || '';
         const method = r.match_method || '';
-        const verifBadge =
-            r.verification_status === 'AUTO_APPROVED'
-                ? '<span class="w2bh-pill auto">Tự động</span>'
-                : method === 'pending_match'
-                  ? '<span class="w2bh-pill pending">Chờ chọn</span>'
-                  : method === 'pending_low_confidence'
-                    ? '<span class="w2bh-pill pending">Low conf</span>'
-                    : phone
-                      ? '<span class="w2bh-pill manual">Thủ công</span>'
-                      : '<span class="w2bh-pill nophone">Chưa gán</span>';
+        // Badge logic — phân biệt rõ:
+        //   AUTO_APPROVED + Web 2.0 method → "Tự động" (xanh)
+        //   pending_match / pending_low_confidence → "Chờ chọn" (vàng)
+        //   manual_link → "Thủ công" (xanh dương — user click "Gán KH")
+        //   phone + debt_added=false → "Legacy" (xám — backfill từ Web 1.0,
+        //     ví Web 2.0 CHƯA cộng tiền, cần Reprocess hoặc bỏ qua)
+        //   phone + debt_added=true (legacy single_match/qr_code) → "Cũ" (xám nhạt)
+        //   no phone → "Chưa gán" (đỏ)
+        const WEB2_AUTO_METHODS = new Set(['exact_phone', 'single_match', 'qr_code']);
+        const verifBadge = (() => {
+            if (method === 'pending_match') {
+                return '<span class="w2bh-pill pending">Chờ chọn</span>';
+            }
+            if (method === 'pending_low_confidence') {
+                return '<span class="w2bh-pill pending">Low conf</span>';
+            }
+            if (method === 'manual_link') {
+                return '<span class="w2bh-pill manual" title="User click Gán KH trên Web 2.0">Thủ công</span>';
+            }
+            if (r.verification_status === 'AUTO_APPROVED' && WEB2_AUTO_METHODS.has(method)) {
+                return '<span class="w2bh-pill auto">Tự động</span>';
+            }
+            if (phone) {
+                // Có phone nhưng KHÔNG phải Web 2.0 process → legacy backfill
+                if (r.debt_added && r.wallet_processed) {
+                    return '<span class="w2bh-pill legacy" title="Legacy: extract từ Web 1.0, đã cộng ví">Cũ — đã cộng ví</span>';
+                }
+                return '<span class="w2bh-pill legacy" title="Legacy: có phone từ extractor cũ nhưng ví Web 2.0 chưa cộng. Bấm ⚡ để reprocess.">Cũ — chưa cộng ví</span>';
+            }
+            return '<span class="w2bh-pill nophone">Chưa gán</span>';
+        })();
         // Extraction preview cho row chưa gán
         let extractionBadge = '';
         if (!phone && r.extraction_preview) {
@@ -282,6 +303,14 @@
             r.extraction_preview &&
             r.extraction_preview.type !== 'none' &&
             r.extraction_preview.value;
+        // Legacy row: có phone từ Web 1.0 extractor nhưng ví Web 2.0 chưa cộng
+        // → cho phép reprocess để Web 2.0 matcher tự cộng ví.
+        const isLegacyUnprocessed =
+            phone &&
+            !r.debt_added &&
+            r.transfer_type === 'in' &&
+            method !== 'pending_match' &&
+            method !== 'pending_low_confidence';
         return `
             <tr data-id="${r.id}" data-transaction-id="${r.id}" data-customer-phone="${escapeHtml(phone)}">
                 <td class="w2bh-cell-time">${escapeHtml(fmtTime(r.transaction_date))}</td>
@@ -304,6 +333,13 @@
                     ${
                         canAutoMatch
                             ? `<button type="button" class="w2bh-icon-btn auto-match" data-action="auto-match" data-id="${r.id}" title="Auto-match từ extracted: ${escapeHtml(r.extraction_preview.value)}">
+                                <i data-lucide="zap" style="width:14px;height:14px;"></i>
+                            </button>`
+                            : ''
+                    }
+                    ${
+                        isLegacyUnprocessed
+                            ? `<button type="button" class="w2bh-icon-btn auto-match" data-action="auto-match" data-id="${r.id}" title="Reprocess legacy: chạy lại Web 2.0 matcher để cộng ví">
                                 <i data-lucide="zap" style="width:14px;height:14px;"></i>
                             </button>`
                             : ''
