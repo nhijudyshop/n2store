@@ -306,69 +306,18 @@
     // content script's gesture handler qua chrome.runtime.sendMessage. Best-effort:
     // nếu Chrome accept → auto-enable stream mode (zero icon click). Nếu reject
     // → fallback popup icon click.
-    // Match prod URL + localhost dev (browser test với --load-extension).
-    // Auto-grab streamId trên FIRST user gesture (mọi loại: click, key,
-    // scroll, pointer). Khi user mở tpos-pancake + tương tác chút ít → grant
-    // streamId → capture chạy cả khi tab inactive (user feedback 2026-05-26:
-    // "mở tab khác không chụp được").
-    if (
-        /(https:\/\/nhijudy\.store|http:\/\/localhost(:\d+)?|http:\/\/127\.0\.0\.1(:\d+)?)\/tpos-pancake\//.test(
-            location.href
-        )
-    ) {
-        let _streamGrabbed = false;
-        let _streamGrabbing = false;
-        const _tryGrabStream = (e) => {
-            if (_streamGrabbed || _streamGrabbing) return;
-            _streamGrabbing = true;
-            try {
-                chrome.runtime.sendMessage(
-                    { type: 'N2_GRAB_TAB_STREAM_FROM_CLICK' },
-                    (response) => {
-                        _streamGrabbing = false;
-                        if (chrome.runtime.lastError) {
-                            console.warn(
-                                '[N2EXT] streamId grab fail:',
-                                chrome.runtime.lastError.message
-                            );
-                            return; // allow retry on next gesture
-                        }
-                        if (response?.streamId) {
-                            _streamGrabbed = true;
-                            console.log('[N2EXT] streamId grabbed ✓ via', e?.type || 'gesture');
-                            window.postMessage(
-                                {
-                                    type: 'N2_TAB_STREAM_ID',
-                                    streamId: response.streamId,
-                                    ts: Date.now(),
-                                },
-                                '*'
-                            );
-                            // Unregister listeners — streamId ổn rồi
-                            _unregisterAll();
-                        } else {
-                            console.warn('[N2EXT] streamId grab rejected:', response?.error);
-                        }
-                    }
-                );
-            } catch (e) {
-                console.warn('[N2EXT] sendMessage threw:', e.message);
-                _streamGrabbing = false;
-            }
-        };
-        // Bind nhiều gesture types — Chrome activation gấp granted bởi bất kỳ
-        // loại nào (click/keydown/pointer). capture phase (true) để fire sớm
-        // dù event bị stopPropagation downstream.
-        const GESTURE_EVENTS = ['click', 'keydown', 'pointerdown', 'touchstart'];
-        const _unregisterAll = () => {
-            for (const ev of GESTURE_EVENTS) {
-                document.removeEventListener(ev, _tryGrabStream, true);
-            }
-        };
-        for (const ev of GESTURE_EVENTS) {
-            document.addEventListener(ev, _tryGrabStream, true);
-        }
-    }
+    // NOTE: chrome.tabCapture.getMediaStreamId KHÔNG hoạt động qua page click.
+    // Chrome MV3 rule: activeTab permission CHỈ grant qua extension invocation
+    // (chrome.action click hoặc chrome.commands shortcut). Page-level click
+    // không count → getMediaStreamId luôn reject với "Extension has not been
+    // invoked".
+    //
+    // Capture flow hiện tại:
+    //   - Tab focused → chrome.tabs.captureVisibleTab silent (<all_urls>)
+    //   - Tab inactive → cần Path 1 stream-based:
+    //     1. User click extension icon (popup auto-grab streamId) HOẶC
+    //     2. User Ctrl+Shift+S (chrome.commands.onCommand auto-grab)
+    //   - Sau khi streamId được grant → capture forever (bypass tab focused)
 
     // === INITIALIZATION ===
 

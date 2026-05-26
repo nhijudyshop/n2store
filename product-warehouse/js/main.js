@@ -2323,7 +2323,9 @@
             if (e.target === e.currentTarget) closeEditModal();
         });
 
-        // TPOS edit modal tab bar — switch active tab pane
+        // TPOS edit modal tab bar — switch active tab pane.
+        // History tab also auto-loads the audit log (no separate "Tải lịch sử"
+        // click needed). Loaded once per modal open; tracked via _auditLogLoadedForTemplate.
         document.querySelectorAll('.tpos-edit-tab').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const tab = btn.dataset.editTab;
@@ -2333,6 +2335,15 @@
                 });
                 const body = document.querySelector('.tpos-edit-modal-body');
                 if (body) body.setAttribute('data-active-tab', tab);
+
+                // Lazy-load history when the user opens the "Lịch sử" tab.
+                if (tab === 'history') {
+                    const id = parseInt($('#editProductId')?.value, 10);
+                    if (id && _auditLogLoadedForTemplate !== id) {
+                        _auditLogLoadedForTemplate = id;
+                        loadAuditLog(id);
+                    }
+                }
             });
         });
 
@@ -2638,6 +2649,9 @@
 
     let editingProduct = null; // full TPOS product detail for update
     let _modalOpening = false; // guard against concurrent open (rapid row clicks)
+    // Tracks which template's audit log has been loaded into the modal — used to
+    // avoid re-fetching on every history-tab click. Reset on modal close.
+    let _auditLogLoadedForTemplate = null;
     let cachedCategories = null;
     let cachedPOSCategories = null;
     let cachedUOMs = null;
@@ -2936,6 +2950,7 @@
         editingProduct = null;
         editImageBase64 = null;
         modalMode = 'edit';
+        _auditLogLoadedForTemplate = null;
         resetAdvancedSections();
     }
 
