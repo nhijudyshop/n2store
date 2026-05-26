@@ -25,6 +25,35 @@
 
 ## 2026-05-26
 
+### [delivery-report/report] Non-admin: ẩn HẲN approved rows + đơn giản logic ✅
+
+**User ask**: "nếu không phải admin thì ẩn khỏi bảng các hàng được duyệt đi"
+
+**Fix** (`delivery-report/js/report.js`):
+
+- Render loop (line 1244+): trước khi push merge/single row, check `if (!_isAdmin() && approved) continue` → skip render hẳn. Cả merge row + child rows (single row trong merge) đều skip
+- Loại bỏ `effectiveApproved()` helper (không cần nữa). Thay tất cả 4 callsites bằng raw `!!ov.approved` / `!!merge.approved`:
+    - `computeTotalLeftForTab` × 2: approved → 0 contribution cho cả admin (settled) lẫn non-admin (hidden) — consistent
+    - `renderSingleRow` / `renderMergeRow` × 2: approved → is-approved styling + totalLeftDisplay=0 (chỉ admin thấy vì non-admin đã bị filter trước)
+- Approve cell HTML vẫn dùng `_isAdmin()` trực tiếp để decide checkbox vs lock placeholder
+
+**Kết quả**:
+
+|                       | Admin             | Non-Admin                    |
+| --------------------- | ----------------- | ---------------------------- |
+| Approved rows         | Visible (mờ 0.45) | **Hidden hoàn toàn**         |
+| Approve checkbox cell | Bấm được          | Placeholder gạch chéo gray   |
+| TotalLeft đóng góp    | 0 (approved)      | 0 (hidden — same result)     |
+| Tab totals            | Approved trừ ra   | Approved trừ ra (consistent) |
+
+**Verify** (Playwright):
+
+- ADMIN: 24 rows visible, 9 với class `is-approved` ✅
+- NON-ADMIN (sau override `{isAdmin:false, roleTemplate:'user'}`): 15 rows visible (9 approved đã ẩn) ✅
+- Tab totals non-admin: $154.855.000 / $551.964.000 / $668.070.000 → TỔNG $1.374.889.000 (đúng = sum 3) ✅
+
+---
+
 ### [delivery-report/report] Fix Admin detection — strict canonical + debug helper ✅
 
 **User báo**: "hình như chưa nhận biết được account Admin và chỗ để so sánh nhận biết Admin"

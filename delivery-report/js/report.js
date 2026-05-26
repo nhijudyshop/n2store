@@ -991,7 +991,7 @@
                 const ckTruoc = useMerge(merge.ckTruoc) ? Number(merge.ckTruoc) : sumCkTruoc;
                 const totalAll = sumMoney - sumShipFee - slShip * getShipFee(tab) + thuVe;
                 const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
-                total += effectiveApproved(merge.approved) ? 0 : totalLeftRaw;
+                total += !!merge.approved ? 0 : totalLeftRaw;
             } else {
                 const sys = map[d] || { sysCount: 0, money: 0 };
                 const shipFee = sys.sysCount * getShipFee(tab);
@@ -1003,7 +1003,7 @@
                 const ckTruoc = Number(ov.ckTruoc) || 0;
                 const totalAll = sys.money - shipFee - slShip * getShipFee(tab) + thuVe;
                 const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
-                total += effectiveApproved(ov.approved) ? 0 : totalLeftRaw;
+                total += !!ov.approved ? 0 : totalLeftRaw;
                 rendered.add(d);
             }
         }
@@ -1063,7 +1063,7 @@
             const boCK = Number(ov.boCK) || 0;
             const atruongCK = Number(ov.atruongCK) || 0;
             const ckTruoc = Number(ov.ckTruoc) || 0;
-            const approved = effectiveApproved(ov.approved);
+            const approved = !!ov.approved;
             const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
             const totalLeftDisplay = approved ? 0 : totalLeftRaw;
             const note = ov.note || '';
@@ -1152,7 +1152,7 @@
             const boCK = useMerge(merge.boCK) ? Number(merge.boCK) : sumBoCK;
             const atruongCK = useMerge(merge.atruongCK) ? Number(merge.atruongCK) : sumAtruongCK;
             const ckTruoc = useMerge(merge.ckTruoc) ? Number(merge.ckTruoc) : sumCkTruoc;
-            const approved = effectiveApproved(merge.approved);
+            const approved = !!merge.approved;
             const expanded = !!merge.expanded;
             const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
             const totalLeftDisplay = approved ? 0 : totalLeftRaw;
