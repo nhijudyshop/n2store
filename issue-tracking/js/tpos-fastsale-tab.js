@@ -10,7 +10,7 @@
             entity: 'FastSaleOrder',
             tposType: 'invoice',
             label: 'Hóa đơn',
-            colCount: 11,
+            colCount: 12, // +1 for "In bill" action column
             tposPath: 'fastsaleorder/invoicelist',
             rowRenderer: renderInvoiceRow,
         },
@@ -18,7 +18,7 @@
             entity: 'FastSaleOrder',
             tposType: 'refund',
             label: 'Trả hàng',
-            colCount: 10,
+            colCount: 11, // +1 for "In bill" action column
             tposPath: 'fastsaleorder/refundlist',
             rowRenderer: renderRefundRow,
         },
@@ -70,6 +70,72 @@
                 <i data-lucide="trash-2"></i>
             </button>
         </td>`;
+    }
+
+    // Print bill cell — for FastSaleOrder rows (BÁN HÀNG + TRẢ HÀNG).
+    // Fetches TPOS rendered HTML via /api/fastsaleorder/print1 and opens print popup.
+    function printCell(id) {
+        return `<td class="tpos-fso-actions-cell">
+            <button type="button" class="tpos-fso-row-btn tpos-fso-row-print" data-action="print" data-id="${id || ''}" title="In bill">
+                <i data-lucide="printer"></i>
+            </button>
+        </td>`;
+    }
+
+    async function printBill(id) {
+        if (!id) return;
+        const toastMsg = (msg, level = 'info') => {
+            try {
+                window.notificationManager?.show?.(msg, level);
+            } catch (_) {}
+        };
+        try {
+            const loading = window.notificationManager?.loading?.('Đang tải bill từ TPOS...');
+            const url = `${WORKER_URL}/api/fastsaleorder/print1?ids=${encodeURIComponent(id)}`;
+            const resp = await window.tokenManager.authenticatedFetch(url, {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json, text/javascript, */*; q=0.01',
+                    'feature-version': '2',
+                    'x-tpos-lang': 'vi',
+                },
+            });
+            if (loading) window.notificationManager?.remove?.(loading);
+            if (!resp.ok) {
+                const t = await resp.text().catch(() => '');
+                throw new Error(`HTTP ${resp.status} ${t.slice(0, 120)}`);
+            }
+            const data = await resp.json();
+            if (!data?.html) throw new Error('TPOS không trả về HTML in bill');
+            openPrintPopup(data.html);
+        } catch (e) {
+            console.error(`[tpos-fastsale] print error:`, e);
+            toastMsg(`Lỗi in bill: ${e.message}`, 'error');
+        }
+    }
+
+    function openPrintPopup(html) {
+        const win = window.open('', '_blank', 'width=800,height=900,scrollbars=yes');
+        if (!win) {
+            try {
+                window.notificationManager?.warning?.(
+                    'Không thể mở cửa sổ in. Vui lòng cho phép popup cho trang này.'
+                );
+            } catch (_) {}
+            return;
+        }
+        win.document.write(html);
+        win.document.close();
+        let printed = false;
+        const trigger = () => {
+            if (printed || !win || win.closed) return;
+            printed = true;
+            win.focus();
+            win.print();
+        };
+        win.onafterprint = () => win.close();
+        win.onload = () => setTimeout(trigger, 500);
+        setTimeout(trigger, 1500);
     }
 
     function expandCell() {
@@ -144,6 +210,7 @@
             <td>${stateBadge(row.State)}</td>
             <td><span style="color:#475569;font-size:12px;">${escapeHtml(channel)}</span></td>
             <td><span class="mono" style="color:#64748b;">${date}</span></td>
+            ${printCell(row.Id)}
         </tr>`;
     }
 
@@ -165,6 +232,7 @@
             <td>${stateBadge(row.State)}</td>
             <td><span style="color:#475569;font-size:12px;">${escapeHtml(channel)}</span></td>
             <td><span class="mono" style="color:#64748b;">${date}</span></td>
+            ${printCell(row.Id)}
         </tr>`;
     }
 
@@ -469,6 +537,12 @@
                     if (deleteBtn) {
                         e.stopPropagation();
                         this.openDeleteConfirm(deleteBtn.dataset.id);
+                        return;
+                    }
+                    const printBtn = e.target.closest('[data-action="print"]');
+                    if (printBtn) {
+                        e.stopPropagation();
+                        printBill(printBtn.dataset.id);
                         return;
                     }
                     const expandBtn = e.target.closest('[data-action="expand"]');
