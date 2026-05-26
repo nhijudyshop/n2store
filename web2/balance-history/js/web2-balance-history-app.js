@@ -128,14 +128,14 @@
     }
 
     // Auto-reprocess: fire-and-forget background reprocess khi page load.
-    // Web 2.0 = 100% auto — không để user phải bấm nút thủ công cho legacy
-    // rows. Throttle bằng sessionStorage để chỉ chạy 1 lần/session.
-    let _autoReprocessFired = false;
+    // Web 2.0 = 100% auto — không có nút thủ công, hệ thống tự handle. Throttle
+    // 30s/page-load để chống spam khi user F5 liên tục.
+    let _autoReprocessRunning = false;
     async function autoReprocessOnLoad() {
-        if (_autoReprocessFired) return;
-        _autoReprocessFired = true;
+        if (_autoReprocessRunning) return;
         const lastRun = Number(sessionStorage.getItem('w2bh_last_auto_reprocess') || 0);
-        if (Date.now() - lastRun < 5 * 60 * 1000) return; // throttle 5min/session
+        if (Date.now() - lastRun < 30 * 1000) return; // throttle 30s
+        _autoReprocessRunning = true;
         sessionStorage.setItem('w2bh_last_auto_reprocess', String(Date.now()));
         try {
             const r = await withFallback('/reprocess-unmatched', {
@@ -150,20 +150,37 @@
                     'info'
                 );
                 await load();
+                // Nếu còn rows chưa xử lý → loop tiếp (max 5 lần để chống vô hạn)
+                if (
+                    s.picked === 200 &&
+                    Number(sessionStorage.getItem('w2bh_loop_count') || 0) < 5
+                ) {
+                    sessionStorage.setItem(
+                        'w2bh_loop_count',
+                        String(Number(sessionStorage.getItem('w2bh_loop_count') || 0) + 1)
+                    );
+                    sessionStorage.removeItem('w2bh_last_auto_reprocess');
+                    setTimeout(() => {
+                        _autoReprocessRunning = false;
+                        autoReprocessOnLoad();
+                    }, 1500);
+                    return;
+                }
+                sessionStorage.removeItem('w2bh_loop_count');
             }
         } catch (e) {
             console.warn('[w2bh] auto-reprocess failed:', e.message);
+        } finally {
+            _autoReprocessRunning = false;
         }
     }
 
     async function reprocessUnmatched() {
         const btn = dom.reprocessBtn;
         if (!btn) return;
-        const ok = confirm(
-            'Chạy lại extractor cho 200 giao dịch chưa gán KH gần nhất?\n\n' +
-                'Các giao dịch match được sẽ tự động cộng ví Web 2.0. Multi-match → pending modal.'
-        );
-        if (!ok) return;
+        // No confirm — Web 2.0 = 100% auto, no friction. User chỉ click khi muốn
+        // force-run thay vì đợi auto-reprocess on load.
+        sessionStorage.removeItem('w2bh_last_auto_reprocess');
         btn.disabled = true;
         const origText = btn.innerHTML;
         btn.innerHTML = '<i data-lucide="loader-2"></i> Đang xử lý…';
@@ -317,19 +334,9 @@
                 </div>`;
             }
         }
-        const canAutoMatch =
-            !phone &&
-            r.extraction_preview &&
-            r.extraction_preview.type !== 'none' &&
-            r.extraction_preview.value;
-        // Row có phone nhưng ví Web 2.0 chưa cộng → cho phép Reprocess thủ công
-        // (auto-reprocess đã chạy background; nút này để user trigger ngay nếu cần).
-        const needsProcessing =
-            phone &&
-            !r.debt_added &&
-            r.transfer_type === 'in' &&
-            method !== 'pending_match' &&
-            method !== 'pending_low_confidence';
+        // Web 2.0 = 100% auto. Không có nút ⚡ thủ công. Auto-reprocess background
+        // (init + SSE) sẽ tự cộng ví cho mọi row eligible. Chỉ giữ nút "Gán KH" cho
+        // edge case: extract không ra phone → user nhập tay (rare).
         return `
             <tr data-id="${r.id}" data-transaction-id="${r.id}" data-customer-phone="${escapeHtml(phone)}">
                 <td class="w2bh-cell-time">${escapeHtml(fmtTime(r.transaction_date))}</td>
@@ -350,22 +357,8 @@
                 </td>
                 <td class="w2bh-cell-actions">
                     ${
-                        canAutoMatch
-                            ? `<button type="button" class="w2bh-icon-btn auto-match" data-action="auto-match" data-id="${r.id}" title="Auto-match từ extracted: ${escapeHtml(r.extraction_preview.value)}">
-                                <i data-lucide="zap" style="width:14px;height:14px;"></i>
-                            </button>`
-                            : ''
-                    }
-                    ${
-                        needsProcessing
-                            ? `<button type="button" class="w2bh-icon-btn auto-match" data-action="auto-match" data-id="${r.id}" title="Chạy ngay Web 2.0 matcher để cộng ví">
-                                <i data-lucide="zap" style="width:14px;height:14px;"></i>
-                            </button>`
-                            : ''
-                    }
-                    ${
                         !phone
-                            ? `<button type="button" class="w2bh-icon-btn" data-action="link" data-id="${r.id}" title="Gán SĐT thủ công">
+                            ? `<button type="button" class="w2bh-icon-btn" data-action="link" data-id="${r.id}" title="Gán SĐT thủ công (fallback khi extractor không tìm ra)">
                                 <i data-lucide="user-plus" style="width:14px;height:14px;"></i>
                             </button>`
                             : ''
