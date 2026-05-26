@@ -3,20 +3,21 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6add770` — feat(web2/balance-history): bo nut Reprocess thu cong tung dong — 100% auto
-**Last updated**: 2026-05-26 18:17:30 +07
-**Latest session**: [`RESUME:20260526-181730-6add770`](../20260526-181730-6add770.md)
-**Summary**: feat(web2/balance-history): bo nut Reprocess thu cong tung dong — 100% auto
+**Latest commit**: `17d2791` — docs(api): document /api/v2/_ namespace is mixed Web 1.0 + Web 2.0
+**Last updated**: 2026-05-26 18:24:56 +07
+**Latest session**: [`RESUME:20260526-182456-17d2791`](../20260526-182456-17d2791.md)
+**Summary**: docs(api): document /api/v2/_ namespace is mixed Web 1.0 + Web 2.0
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 2 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-05-24 13:33
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-05-26 15:56
+- [`_root/`](./_root.md) — updated 2026-05-26 18:24
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-05-22 12:35
@@ -24,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 17:18
-- [`docs/`](./docs.md) — updated 2026-05-26 17:18
+- [`docs/`](./docs.md) — updated 2026-05-26 18:24
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
