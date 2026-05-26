@@ -157,6 +157,20 @@
         if (!window.Web2WalletApi?.getWalletsByPhones) return new Map();
         return await window.Web2WalletApi.getWalletsByPhones(phones, { concurrency: 5 });
     }
+    // Fetch toàn bộ ví Web 2.0 (KH đã từng có CK / wallet adjustment).
+    // Để hiển thị cả KH chưa có PBH/Đơn Web nhưng đã có ví (vd backfilled
+    // từ legacy customer_wallets, hoặc CK SePay đầu tiên mà chưa lập đơn).
+    async function fetchAllWeb2Wallets() {
+        if (!window.Web2WalletApi?.listWallets) return [];
+        try {
+            // listWallets ORDER BY balance DESC — KH có dư hiện trên top
+            const r = await window.Web2WalletApi.listWallets({ limit: 2000, offset: 0 });
+            return r?.data || [];
+        } catch (e) {
+            console.warn('[CW4] fetchAllWeb2Wallets fail:', e.message);
+            return [];
+        }
+    }
     async function fetchWalletReturns(phone) {
         if (!window.Web2WalletApi?.getTransactions) return 0;
         const txns = await window.Web2WalletApi.getTransactions(phone, {
@@ -517,6 +531,12 @@
             const map = await window.PartnerCustomerApi.listByPhones(phones, { chunkSize: 30 });
             for (const [phone, partner] of map.entries()) {
                 state.tposPartners[phone] = partner;
+                // Override name for wallet-only customers (PBH-only KH giữ
+                // tên từ PBH vì có thể chính xác hơn cho shop)
+                const c = state.customers[phone];
+                if (c && c.walletOnly && partner.Name) {
+                    c.name = partner.Name;
+                }
             }
             renderList();
             if (
@@ -536,27 +556,56 @@
         state.loading = true;
         if (window.lucide?.createIcons) window.lucide.createIcons();
         try {
-            // Step 1: PBH + native-orders (parallel)
-            const [pbhList, natOrders] = await Promise.all([
+            // Step 1: PBH + native-orders + ALL Web 2.0 wallets (parallel)
+            const [pbhList, natOrders, allWallets] = await Promise.all([
                 fetchPbhList(20, 500),
                 fetchNativeOrders(20, 200).catch(() => []),
+                fetchAllWeb2Wallets().catch(() => []),
             ]);
-            // Step 2: Aggregate to customer map
+            // Step 2: Aggregate customer map from PBH + native-orders
             const customers = aggregateFromPbh(pbhList);
             mergeNativeOrders(customers, natOrders);
+            // Step 3: Merge wallet-only customers (KH có ví Web 2.0 nhưng chưa
+            // có PBH/Đơn Web). Bao gồm cả backfilled từ legacy customer_wallets
+            // hoặc CK SePay đầu tiên cho KH mới.
+            state.web2Wallets = {};
+            for (const w of allWallets) {
+                const phone = normPhone(w.phone);
+                if (!phone) continue;
+                state.web2Wallets[phone] = w;
+                if (!customers[phone]) {
+                    const bal = Number(w.balance || 0);
+                    const dep = Number(w.total_deposited || 0);
+                    const wd = Number(w.total_withdrawn || 0);
+                    // Chỉ thêm wallet-only nếu có hoạt động (balance > 0 hoặc
+                    // đã từng nạp/chi). Skip ví rỗng 0/0/0 để giữ UI sạch.
+                    if (bal > 0 || dep > 0 || wd > 0) {
+                        customers[phone] = {
+                            phone,
+                            name: phone, // TPOS enrich sẽ cập nhật tên
+                            orders: [],
+                            totalPurchased: 0,
+                            campaigns: {},
+                            walletOnly: true,
+                        };
+                    }
+                }
+            }
             state.customers = customers;
             const phones = Object.keys(customers);
-            // Step 3: Fetch Web 2.0 wallets for all phones (parallel batches)
-            const [walletsMap, returnAmts] = await Promise.all([
-                fetchWeb2Wallets(phones),
-                fetchWeb2ReturnAmountsBatch(phones, 5),
-            ]);
-            state.web2Wallets = {};
-            for (const [p, w] of walletsMap.entries()) state.web2Wallets[p] = w;
-            state.web2ReturnAmounts = returnAmts;
+            // Step 4: Phones không có trong listWallets response (chưa fetch
+            // wallet) → fetch chính xác từng phone (chỉ PBH-only customers).
+            const missingPhones = phones.filter((p) => !state.web2Wallets[p]);
+            if (missingPhones.length) {
+                const walletsMap = await fetchWeb2Wallets(missingPhones);
+                for (const [p, w] of walletsMap.entries()) state.web2Wallets[p] = w;
+            }
+            // Step 5: Return amounts (parallel)
+            state.web2ReturnAmounts = await fetchWeb2ReturnAmountsBatch(phones, 5);
             state.loading = false;
             renderList();
-            // Step 4: enrich TPOS partners (async, non-blocking)
+            // Step 6: enrich TPOS partners (async, non-blocking) → cập nhật
+            // tên KH cho wallet-only customers (phone-only ban đầu).
             enrichTpos().catch(() => {});
         } catch (e) {
             state.loading = false;
