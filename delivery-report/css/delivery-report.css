@@ -2174,6 +2174,8 @@ body.dr-mode-report #drTableWrapper {
     cursor: pointer;
     letter-spacing: 0.3px;
     transition: all 0.15s;
+    min-width: 130px; /* match width với dr-tab-total bên dưới để cột thẳng hàng */
+    text-align: center;
 }
 .dr-report-tabs button:hover {
     transform: translateY(-1px);
@@ -2196,7 +2198,7 @@ body.dr-mode-report #drTableWrapper {
 .dr-report-tabs-totals .dr-tab-total {
     --tab-color: #6b7280;
     flex: 0 0 auto;
-    min-width: 90px;
+    min-width: 130px; /* khớp button width → cột thẳng hàng */
     padding: 6px 18px;
     text-align: center;
     font-weight: 700;
@@ -2208,6 +2210,7 @@ body.dr-mode-report #drTableWrapper {
     align-items: center;
     justify-content: center;
     gap: 6px;
+    box-sizing: border-box;
 }
 .dr-report-tabs-totals .dr-tab-total.positive {
     color: #16a34a;
@@ -2220,8 +2223,8 @@ body.dr-mode-report #drTableWrapper {
     font-weight: 500;
 }
 .dr-report-tabs-totals .dr-tab-total-grand {
-    margin-left: auto;
-    min-width: 140px;
+    /* Bỏ margin-left:auto: sit ngay sau THÀNH PHỐ thay vì flush-right */
+    min-width: 180px;
     border-left: 2px solid #d1d5db;
     background: #fef3c7;
     color: #92400e;
