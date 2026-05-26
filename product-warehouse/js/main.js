@@ -2388,9 +2388,34 @@
         // Merge Phase 2/3 advanced sections (variants, attrs, combo, uom-lines, supplier, tags)
         mergeAdvancedIntoPayload(payload);
 
-        try {
-            showToast('Đang lưu...', 'info');
+        // Optimistic update: apply changes to local pageProducts + close modal IMMEDIATELY.
+        // POST UpdateV2 runs in background; SSE eventually confirms. On error → rollback.
+        // User sees instant UI feedback instead of waiting 5-7s for TPOS round-trip.
+        const templateId = parseInt($('#editProductId').value);
+        const localIdx = pageProducts.findIndex((p) => p.id === templateId);
+        const snapshot = localIdx >= 0 ? { ...pageProducts[localIdx] } : null;
 
+        if (snapshot) {
+            // Mutate local row with optimistic values
+            pageProducts[localIdx] = {
+                ...snapshot,
+                code: payload.DefaultCode || snapshot.code,
+                name: payload.Name || snapshot.name,
+                price: payload.ListPrice ?? snapshot.price,
+                priceMax: payload.ListPrice ?? snapshot.priceMax,
+                defaultBuyPrice: payload.PurchasePrice ?? snapshot.defaultBuyPrice,
+                costPrice: payload.StandardPrice ?? snapshot.costPrice,
+                unit: snapshot.unit, // UOM not changing in basic edit
+                active: payload.Active !== false,
+                note: payload.DescriptionSale || snapshot.note,
+            };
+            render();
+        }
+
+        showToast('Đã lưu (đang đồng bộ ngầm)...', 'success');
+        closeEditModal();
+
+        try {
             const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.UpdateV2`;
             const response = await window.tokenManager.authenticatedFetch(url, {
                 method: 'POST',
@@ -2406,12 +2431,8 @@
                 throw new Error(errData.error?.message || `HTTP ${response.status}`);
             }
 
-            showToast('Đã lưu. Đang đồng bộ TPOS…', 'success');
-            closeEditModal();
-
-            // Notify SSE clients (soluong-live, order-management) about image update
+            // Notify SSE clients about image update
             if (editImageBase64) {
-                const templateId = parseInt($('#editProductId').value);
                 fetch(`${RENDER_API}/notify-image-update`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2422,15 +2443,17 @@
                 }).catch((e) => console.warn('[Edit] Notify image update failed:', e));
             }
 
-            // Render DB lags behind: TPOS socket event (~instant) → listener debounce 3s
-            // → _syncTemplate fetch (~1-2s) → SSE notify. Total ~5-7s.
-            // Delay explicit refresh; SSE handler (setupSSE) will also refresh when sync lands.
-            setTimeout(() => fetchProducts(true), 6000);
+            // SSE picks up TPOS socket event ~5-7s later → auto-refresh. Backup nudge:
+            fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(() => {});
         } catch (err) {
-            console.error('[Edit] Save failed:', err);
+            console.error('[Edit] Save failed (rolling back local UI):', err);
+            // Rollback optimistic update
+            if (snapshot && localIdx >= 0) {
+                pageProducts[localIdx] = snapshot;
+                render();
+            }
             // TPOS reject "ForeignKeyViolation" khi sản phẩm đã có stock.move / order line
             // mà ta thay đổi AttributeLines/ProductVariants (xóa variant cũ vi phạm FK).
-            // Đây là limit TPOS, không phải bug code — báo rõ cho user.
             let msg = err.message || 'Lỗi không xác định';
             if (msg.includes('ForeignKeyViolation') || msg.includes('đang được sử dụng')) {
                 msg =
@@ -4398,24 +4421,35 @@
             return;
         }
 
-        try {
-            showToast('Đang điều chỉnh tồn trên TPOS...', 'info');
+        // Optimistic update: apply new qty to local row + close dialog NGAY.
+        // 2-step TPOS POST runs in background. On error → rollback.
+        const templateId = stockAdjustCtx.templateId;
+        const localIdx = pageProducts.findIndex((p) => p.id === templateId);
+        const oldQty = variant.QtyAvailable;
+        const snapshot = localIdx >= 0 ? { ...pageProducts[localIdx] } : null;
 
-            // TPOS 2-step flow — discovered by hooking the producttemplate/form
-            // "Cập nhật số lượng thực tế" modal (NJD Live tenant, 2026-05-25):
-            //
+        // Update template's qtyActual (template view shows sum across variants).
+        // If template has multiple variants, adjust by delta on this variant.
+        if (snapshot) {
+            const delta = newQty - oldQty;
+            pageProducts[localIdx] = {
+                ...snapshot,
+                qtyActual: (snapshot.qtyActual || 0) + delta,
+            };
+            render();
+        }
+
+        showToast(`Đang điều chỉnh tồn: ${oldQty} → ${newQty} (ngầm)...`, 'info');
+        closeStockAdjust();
+
+        try {
+            // TPOS 2-step flow (discovered 2026-05-25):
             //   1) POST /odata/StockChangeProductQty/ODataService.PostChangeQtyProduct
             //      body: { model: [{ Id:0, ProductId, ProductTmplId, NewQuantity,
             //                        LocationId:12, LotId:null, WarehouseId:null,
             //                        CompanyId:null, ProductVariantCount:1 }] }
-            //      → 200 with { value: [{ Id, ... }] }  (creates draft StockChange records)
-            //
             //   2) POST /odata/StockChangeProductQty/ODataService.ChangeProductQtyIds
             //      body: { ids: [Id1, Id2, ...] }
-            //      → 204 No Content (writes stock.move state=done + bumps QtyAvailable)
-            //
-            // Verified end-to-end (variant 157482, qty 0 → 11) via Playwright.
-            const templateId = stockAdjustCtx.templateId;
             const step1Body = {
                 model: [
                     {
@@ -4451,7 +4485,7 @@
                 throw new Error('Không nhận được Id từ PostChangeQtyProduct');
             }
 
-            // Step 2 — apply (writes stock.move + bumps QtyAvailable)
+            // Step 2 — apply
             const step2Resp = await window.tokenManager.authenticatedFetch(
                 `${PROXY_URL}/api/odata/StockChangeProductQty/ODataService.ChangeProductQtyIds`,
                 {
@@ -4467,15 +4501,18 @@
                 );
             }
 
-            showToast(`Đã cập nhật tồn: ${variant.QtyAvailable} → ${newQty}`, 'success');
-            closeStockAdjust();
+            showToast(`✓ Đã đồng bộ TPOS: tồn = ${newQty}`, 'success');
 
             // TPOS Socket fires inventory_updated → Render sync → SSE → auto-refresh.
-            // Trigger nudge to Render as backup (in case socket misses the event):
+            // Backup nudge in case socket misses:
             fetch(`${RENDER_API}/sync?type=incremental`, { method: 'POST' }).catch(() => {});
-            setTimeout(() => fetchProducts(true), 4000);
         } catch (err) {
-            console.error('[Stock] Adjust failed:', err);
+            console.error('[Stock] Adjust failed (rolling back):', err);
+            // Rollback optimistic UI
+            if (snapshot && localIdx >= 0) {
+                pageProducts[localIdx] = snapshot;
+                render();
+            }
             showToast('Lỗi điều chỉnh: ' + err.message, 'error');
         }
     }
