@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0a730ae` — fix(product-warehouse): stock adjust SP có nhiều biến thể (Active=false bị ẩn)
-**Last updated**: 2026-05-26 09:45:27 +07
-**Latest session**: [`RESUME:20260526-094527-0a730ae`](../20260526-094527-0a730ae.md)
-**Summary**: fix(product-warehouse): stock adjust SP có nhiều biến thể (Active=false bị ẩn)
+**Latest commit**: `8ba15ad` — feat(delivery-assignments): POST /sync-dates — bulk fix ghost qua UPDATE assignment_date + bulk hide
+**Last updated**: 2026-05-26 09:48:46 +07
+**Latest session**: [`RESUME:20260526-094846-8ba15ad`](../20260526-094846-8ba15ad.md)
+**Summary**: feat(delivery-assignments): POST /sync-dates — bulk fix ghost qua UPDATE assignment_date + bulk hide
 
 ## Folders affected in this commit
 
-- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -49,7 +49,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-25 16:10
+- [`render.com/`](./render.com.md) — updated 2026-05-26 09:48
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-25 19:19
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
