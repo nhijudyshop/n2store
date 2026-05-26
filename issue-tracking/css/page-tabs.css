@@ -1008,6 +1008,10 @@ body.pt-embed-active {
     background: #ef4444;
     color: #fff;
 }
+.tpos-fso-row-print {
+    background: #3b82f6;
+    color: #fff;
+}
 
 /* ============================================================
    Refund-from-BILL controls inside purchase detail expand

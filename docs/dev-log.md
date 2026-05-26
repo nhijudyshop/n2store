@@ -25,6 +25,36 @@
 
 ## 2026-05-26
 
+### [issue-tracking] In bill — BÁN HÀNG + TRẢ HÀNG (FastSaleOrder TPOS template) ✅
+
+**User ask**: Browser test TPOS `fastsaleorder/invoicelist` + `refundlist` phần "in bill" → làm cho local `issue-tracking#ban-hang` + `#tra-hang`.
+
+**Endpoint TPOS** (verified): `GET https://chatomni-proxy.nhijudyshop.workers.dev/api/fastsaleorder/print1?ids={id}` → `{html: "<full bill HTML>"}` — TPOS render bill template 80mm sẵn (đã có @page margin, styles, header NJD Live, line items, COD, ship info). Pattern đã có sẵn trong `orders-report/js/utils/bill-service.js` (function `fetchTPOSBillHTML` + `openPrintPopupWithHtml`). Reuse pattern, không pull bill-service.js (specific cho orders-report).
+
+**Files modified**:
+
+- `issue-tracking/js/tpos-fastsale-tab.js`:
+    - Helper mới `printCell(id)` — render `<td>` với button blue `data-action="print"` + lucide icon `printer`.
+    - Helper mới `printBill(id)` — call `tokenManager.authenticatedFetch(WORKER_URL + '/api/fastsaleorder/print1?ids=' + id)` → parse JSON → `openPrintPopup(html)`. Show loading toast khi đang fetch. Error toast nếu fail.
+    - Helper mới `openPrintPopup(html)` — `window.open()` 800×900 popup, `document.write(html)` + `document.close()`, auto-trigger `print()` qua `onload + setTimeout(500ms)` + fallback 1500ms, `onafterprint` close popup. Idempotent flag tránh double-print.
+    - `renderInvoiceRow()` + `renderRefundRow()` thêm `${printCell(row.Id)}` ở cuối.
+    - `TYPE_CFG.invoice.colCount: 11 → 12`, `refund.colCount: 10 → 11`.
+    - tbody click handler thêm branch `[data-action="print"]` → `printBill(printBtn.dataset.id)`.
+- `issue-tracking/index.html`:
+    - Pane `ban-hang`: thêm `<th>In bill</th>` (width 64px text-center) ở cuối thead, update colspan loading row 11→12.
+    - Pane `tra-hang`: thêm `<th>In bill</th>` cuối thead, update colspan 10→11.
+    - Cache version `v=20260526a → v=20260526b`.
+- `issue-tracking/css/page-tabs.css`: thêm class `.tpos-fso-row-print { background: #3b82f6; color: #fff; }` (blue button, phân biệt với green edit + red delete của purchase tabs).
+
+**Verification** (localhost qua persistent browser session):
+
+1. Tab `#ban-hang`: 14.291 hóa đơn, columnCount=12, có cột "In bill", row #1 (NJD/2026/68798 id=437037) có button print.
+2. Direct API call: `GET /api/fastsaleorder/print1?ids=437037` → status 200, htmlLen=22.681, `<body>` tag present, chứa số `NJD/2026/68798`.
+3. Click print button: `window.open` capture được 1 popup với features `width=800,height=900,scrollbars=yes` (đúng setup).
+4. Cùng renderer pattern cho refund row → button + handler cùng share `printCell()` + `printBill()`.
+
+**Implementation note**: TPOS endpoint render full bill HTML server-side bao gồm @page CSS cho thermal printer 80mm. Mỗi click button = 1 API call + popup window. Backend đã được CF Worker proxy (`/api/fastsaleorder/print1`) — không phải gọi trực tiếp TPOS để né CORS.
+
 ### [issue-tracking][shared] Trả hàng NCC từ BILL — Trả toàn bộ + Trả từng dòng được chọn ✅
 
 **User ask**: "tạo dữ liệu test → trả hàng → trả toàn bộ → trả từng sản phẩm được chọn → test hết".
