@@ -629,7 +629,9 @@
             <button class="dr-selection-btn dr-selection-btn-primary" id="drSelMergeBtn" disabled>Gộp</button>
             <button class="dr-selection-btn" id="drSelClearBtn">Hủy chọn</button>
         `;
-        document.getElementById('drReportModal').appendChild(selBar);
+        // Mount selection bar BÊN TRONG sticky-top → bar dán theo header lên đầu
+        // bảng, không bị che bởi rows scroll qua. User thao tác "Gộp" dễ hơn.
+        document.getElementById('drReportStickyTop').appendChild(selBar);
         document.getElementById('drSelMergeBtn').addEventListener('click', onMergeClick);
         document.getElementById('drSelClearBtn').addEventListener('click', () => {
             state.selectedDates.clear();
@@ -978,13 +980,14 @@
         }
         bar.classList.add('open');
         if (countEl) countEl.textContent = `${count} ngày được chọn`;
-        // Validate consecutive
+        // Validate consecutive — dùng shiftDay (local TZ) thay vì toISOString().
+        // Bug cũ: VN UTC+7 → `new Date('2026-05-17T00:00:00').toISOString()` ra
+        // '2026-05-16T17:00:00Z' → slice(0,10)='2026-05-16' → off-by-1 → check
+        // sai mọi ngày liên tiếp.
         const sorted = [...state.selectedDates].sort();
         let consecutive = true;
         for (let i = 1; i < sorted.length; i++) {
-            const prev = new Date(sorted[i - 1] + 'T00:00:00');
-            prev.setDate(prev.getDate() + 1);
-            if (prev.toISOString().slice(0, 10) !== sorted[i]) {
+            if (shiftDay(sorted[i - 1], 1) !== sorted[i]) {
                 consecutive = false;
                 break;
             }

@@ -2356,25 +2356,20 @@ body.dr-mode-report #drTableWrapper {
     font-family: monospace;
 }
 
-/* Floating selection bar (gộp ngày) */
+/* Selection bar (gộp ngày) — gắn vào sticky-top header, hiện trên cùng khi
+   có ngày được chọn để user thao tác "Gộp" dễ dàng. Không che bởi rows scroll. */
 .dr-selection-bar {
-    position: sticky;
-    bottom: 12px;
-    margin: 12px auto 0;
-    max-width: fit-content;
     background: #1f2937;
     color: #f9fafb;
     padding: 10px 16px;
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
+    border-top: 1px solid #374151;
     display: none;
     align-items: center;
     gap: 12px;
-    z-index: 5;
     font-size: 13px;
 }
 .dr-selection-bar.open {
-    display: inline-flex;
+    display: flex;
 }
 .dr-selection-count {
     font-weight: 700;
@@ -2410,6 +2405,10 @@ body.dr-mode-report #drTableWrapper {
 .dr-report-table td.date {
     font-weight: 600;
     color: #1f2937;
+    white-space: nowrap; /* checkbox + chevron + ngày trên 1 hàng */
+}
+.dr-report-table td.date > * {
+    vertical-align: middle;
 }
 .dr-report-table td.muted {
     color: #6b7280;
