@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9bb135f` — auto: session update
-**Last updated**: 2026-05-26 15:34:25 +07
-**Latest session**: [`RESUME:20260526-153425-9bb135f`](../20260526-153425-9bb135f.md)
+**Latest commit**: `1c7de4d` — auto: session update
+**Last updated**: 2026-05-26 15:37:46 +07
+**Latest session**: [`RESUME:20260526-153746-1c7de4d`](../20260526-153746-1c7de4d.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 1 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
-- [`n2store-extension/`](./n2store-extension.md) — 2 file(s)
+- [`n2store-extension/`](./n2store-extension.md) — 1 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -39,14 +38,14 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-26 15:34
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-26 15:37
 - [`native-orders/`](./native-orders.md) — updated 2026-05-26 13:38
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-05-25 14:08
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 14:30
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 15:37
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
