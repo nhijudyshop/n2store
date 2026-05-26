@@ -1563,6 +1563,20 @@
             const approveCellHtml = _isAdmin()
                 ? `<label class="dr-approve-toggle${anyApproved && !allApproved ? ' is-partial' : ''}" title="${anyApproved && !allApproved ? `Đã duyệt ${sourceDates.filter((s) => getOverride(s, tab).approved).length}/${sourceDates.length} ngày con — bấm để duyệt tất cả` : 'Duyệt tất cả ngày con'}"><input type="checkbox" data-field="approved-agg" ${allApproved ? 'checked' : ''} /><span></span></label>`
                 : '<span class="dr-approve-locked" title="Chỉ tài khoản Admin mới được duyệt"></span>';
+            // Image indicator: lọc các ngày con có ảnh. Click → mở modal ngày đầu
+            // tiên có ảnh. Hover title liệt kê tất cả ngày con có ảnh để user biết.
+            // Multi-image cycling out-of-scope — start simple, user iterate sau.
+            const childImgDates = sourceDates.filter((s) => hasImageFlag(s, tab));
+            const hasAnyImg = childImgDates.length > 0;
+            const imgCellTitle = hasAnyImg
+                ? `Có ảnh ở ${childImgDates.length}/${sourceDates.length} ngày con: ${childImgDates.map((s) => formatDDMMYYYY(realToEntry(s))).join(', ')} — bấm để xem`
+                : 'Chưa có ảnh chứng từ ở ngày con nào (bỏ dời để thêm)';
+            const imgCellAttrs = hasAnyImg
+                ? `class="num clickable money-cell has-img" data-action="open-agg-img" title="${imgCellTitle}"`
+                : `class="num money-cell no-img" title="${imgCellTitle}"`;
+            const imgIcon = hasAnyImg
+                ? `<i class="fas fa-image"></i>${childImgDates.length > 1 ? `<span class="dr-img-count">${childImgDates.length}</span>` : ''}`
+                : '<i class="far fa-image"></i>';
             return `<tr class="${cls}" data-shift-display="${displayDate}" data-shift-sources="${sourceDates.join(',')}">
                 <td class="date">
                     <span class="dr-shift-agg-badge" title="${sourceTitle}"><i class="fas fa-arrows-to-dot"></i> ${sourceDates.length} ngày</span>
@@ -1570,7 +1584,10 @@
                     <button class="dr-shift-unshift" data-action="unshift-all" data-display="${displayDate}" title="Bỏ dời tất cả ngày con">×</button>
                 </td>
                 <td class="num strong">${formatNumber(sumSlDon)}</td>
-                <td class="num">${formatMoney(sumMoney)}</td>
+                <td ${imgCellAttrs}>
+                    <span class="money-val">${formatMoney(sumMoney)}</span>
+                    <span class="money-ico">${imgIcon}</span>
+                </td>
                 <td class="num muted">${formatMoney(sumShipFee)}</td>
                 <td class="num">${formatNumber(sumSlShip)}</td>
                 <td class="num">${formatMoney(sumThuVe)}</td>
@@ -1954,6 +1971,22 @@
                 if (row && !row.classList.contains('dr-merge-row')) {
                     openImageModal(row.dataset.date);
                 }
+                return;
+            }
+            // Aggregate row (date-shift dồn) — mở image modal cho ngày con đầu
+            // tiên có ảnh. Title cell đã liệt kê tất cả ngày có ảnh để user biết
+            // chọn ngày nào — out-of-scope cycle UI, user mở từng ngày con nếu cần.
+            const aggImgCell =
+                e.target.closest && e.target.closest('td[data-action="open-agg-img"]');
+            if (aggImgCell) {
+                const aggRow = aggImgCell.closest('tr.dr-shift-agg-row');
+                if (!aggRow) return;
+                const sources = String(aggRow.dataset.shiftSources || '')
+                    .split(',')
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                const firstImg = sources.find((s) => hasImageFlag(s, state.activeTab));
+                if (firstImg) openImageModal(firstImg);
                 return;
             }
             // Click ô TIỀN gộp (có image indicator) → force expand merge để user thao tác

@@ -2811,6 +2811,31 @@ body.dr-mode-report #drTableWrapper {
 .dr-report-table td.money-cell:hover .money-ico {
     opacity: 1;
 }
+/* Aggregate row: cell no-img KHÔNG clickable (vì không xác định ngày nào của
+   ngày con để add ảnh — user phải bỏ dời trước). */
+.dr-report-table tbody tr.dr-shift-agg-row td.money-cell.no-img {
+    cursor: default;
+}
+.dr-report-table tbody tr.dr-shift-agg-row td.money-cell.no-img:hover {
+    background: transparent;
+}
+/* Badge số đếm ngày con có ảnh (chỉ hiện khi >1) */
+.dr-img-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    margin-left: 3px;
+    background: #2563eb;
+    color: white;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    vertical-align: super;
+}
 
 /* Expand row trong báo cáo modal — bấm vào ô NGÀY/SL ĐƠN để xem chi tiết
    danh sách đơn của (ngày, nhóm). Loading inline, ghost-row được badge. */

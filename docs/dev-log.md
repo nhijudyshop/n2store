@@ -25,6 +25,20 @@
 
 ## 2026-05-26
 
+### [delivery-report] Hiển thị thumbnail ảnh trên aggregate row nếu children có ảnh ✅
+
+**User ask**: "hiển thị hình ảnh cho ngày hiển thị nếu children có ảnh"
+
+**Trước**: aggregate row (date-shift dồn) chỉ render `<td class="num">${formatMoney(sumMoney)}</td>` cột TIỀN — không có image indicator dù ngày con có ảnh.
+
+**Fix** ([report.js renderShiftAggregateRow](delivery-report/js/report.js#L1510-L1590)):
+
+- Compute `childImgDates = sourceDates.filter(s => hasImageFlag(s, tab))`.
+- Money cell: nếu `childImgDates.length > 0` → `class="num clickable money-cell has-img" data-action="open-agg-img"`, icon `fa-image` (solid) + badge số đếm nếu >1. Title hover liệt kê tất cả ngày con có ảnh.
+- Nếu không có ảnh ở ngày con nào → cell no-img, cursor default, hover không highlight (user phải bỏ dời trước để add ảnh cho ngày cụ thể).
+- Handler `data-action="open-agg-img"` parse `data-shift-sources`, tìm ngày đầu tiên có ảnh, gọi `openImageModal(firstImg)`. Multi-image cycle UI out-of-scope.
+- CSS: `.dr-img-count` badge xanh nhỏ (>1 ảnh), `.dr-shift-agg-row td.money-cell.no-img { cursor: default }` để no-img không pretend clickable.
+
 ### [delivery-report] Nút DUYỆT cho aggregate row (date-shift dồn) ✅
 
 **User ask**: "nút duyệt đâu?" — screenshot row "✦ 3 ngày — 02/05/2026" thiếu checkbox cột DUYỆT.
