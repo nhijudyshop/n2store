@@ -183,9 +183,8 @@
                     }, 500);
                 } else {
                     console.log('[snap-ext] consent đã có → skip modal, silent auto-grab');
-                    setTimeout(() => {
-                        if (!STATE.captureStream) _showStreamModeReminder();
-                    }, 30000);
+                    // User feedback 2026-05-26: bỏ stream reminder "click đâu cũng được"
+                    // banner — chỉ 1 nguồn thông báo qua _showExtPrompt nếu cần.
                 }
             } else {
                 STATE.extReady = false;
@@ -264,7 +263,9 @@
                 _stopFrameBuffer();
                 STATE.captureStream = null;
                 renderRealSnapChip();
-                _toast('🔴 Stream tab đã ngắt — click icon N2Store để bật lại', 'ok');
+                // User feedback 2026-05-26: bỏ toast click hint. Khi stream
+                // ngắt, poll loop sẽ retry + _showExtPrompt sẽ guide nếu cần.
+                _showExtPrompt('missing');
             });
         });
         // Khởi động frame buffer (giờ dùng _captureFrameJpeg, không phải
@@ -1559,7 +1560,12 @@ Throttle 30s/KH.`;
 
     // Banner gợi ý install / update extension. Hiện khi detect live nhưng
     // extension không có (5s không nhận EXTENSION_LOADED) hoặc version cũ.
-    // Có nút "Đã hiểu" để dismiss session-only.
+    // Single notification — user feedback 2026-05-26: chỉ 1 thông báo
+    // "Bấm vào extension", BỎ "click ở mọi nơi" thừa.
+    //
+    // Hint tới user: click icon N2Store Messenger ở thanh extension Chrome
+    // (góc trên phải) để grant activeTab permission cho session này. Sau đó
+    // capture silent qua chrome.tabs.captureVisibleTab.
     function _showExtPrompt(kind) {
         if (sessionStorage.getItem('tpos_ext_prompt_dismiss')) return;
         if (document.getElementById('tpos-snap-ext-prompt')) return;
@@ -1568,17 +1574,16 @@ Throttle 30s/KH.`;
         const title =
             kind === 'outdated'
                 ? `⚠️ N2Store Extension v${STATE.extVersion || '?'} đã cũ`
-                : '⚠️ Cần cài N2Store Extension';
+                : '🧩 Bấm vào icon N2Store Extension';
         const body =
             kind === 'outdated'
-                ? `Auto-snap không popup cần extension <strong>v${REQUIRED_EXT_VERSION}+</strong>. Bạn đang chạy <strong>v${STATE.extVersion || '?'}</strong>.<br><br>Vào <code>chrome://extensions</code> → tìm "N2Store Messenger" → click <strong>Reload</strong> (nút vòng tròn). Chrome sẽ hỏi accept permission mới → click <strong>Enable</strong>.`
-                : `Auto-snap frame thật không popup cần N2Store Extension <strong>v${REQUIRED_EXT_VERSION}+</strong> chrome.tabs.captureVisibleTab.<br><br>Hiện tại: <strong>không phát hiện extension</strong>. Cài đặt → reload trang. Nếu đã cài → mở <code>chrome://extensions</code> và bật N2Store Messenger.<br><br><em>Không cài cũng OK — fallback sang popup "Share this tab" mỗi session.</em>`;
+                ? `Auto-snap cần extension <strong>v${REQUIRED_EXT_VERSION}+</strong>. Bạn đang chạy <strong>v${STATE.extVersion || '?'}</strong>.<br><br>Mở <code>chrome://extensions</code> → "N2Store Messenger" → <strong>Reload</strong>.`
+                : `Để bật capture livestream tự động không popup:<br><br>1. Click icon <strong>N2Store Messenger</strong> ở thanh extension Chrome (góc phải URL bar)<br>2. Capture sẽ tự chạy ngầm sau click<br><br><em>Chrome bắt buộc click 1 lần/session để cấp quyền — không bypass được.</em>`;
         box.innerHTML = `
             <div style="font-weight:700;font-size:14px;color:#7c2d12;margin-bottom:8px;">${title}</div>
             <div style="font-size:12px;color:#451a03;line-height:1.55;">${body}</div>
-            <div style="display:flex;gap:8px;margin-top:12px;">
-                <button type="button" id="tpos-snap-ext-prompt-ok" style="flex:1;padding:6px 12px;background:#ea580c;color:#fff;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;">Đã hiểu</button>
-                <a href="chrome://extensions" target="_blank" style="flex:1;padding:6px 12px;background:#fff;color:#ea580c;border:1px solid #ea580c;border-radius:6px;font-weight:600;font-size:12px;text-decoration:none;text-align:center;">Mở chrome://extensions</a>
+            <div style="margin-top:12px;">
+                <button type="button" id="tpos-snap-ext-prompt-ok" style="width:100%;padding:6px 12px;background:#ea580c;color:#fff;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;">Đã hiểu</button>
             </div>`;
         box.style.cssText =
             'position:fixed;bottom:80px;right:16px;width:340px;background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:14px 16px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:99100;font-family:Inter,system-ui,sans-serif;';
