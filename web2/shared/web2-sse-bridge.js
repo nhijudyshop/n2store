@@ -6,8 +6,10 @@
 // Single EventSource multiplexed across multiple topics. Replaces per-store
 // Firestore onSnapshot tickles → save Firestore reads/writes, reduce flicker.
 //
-// Server side: render.com/routes/realtime-sse.js — notifyClients(topic, data, eventType)
-// CF Worker proxies /api/realtime/sse?keys=... → n2store-fallback Render.
+// Server side (TÁCH RIÊNG khỏi Web 1.0 từ 2026-05-26):
+//   render.com/routes/realtime-sse-web2.js — notifyClients(topic, data, eventType)
+//   Endpoint: /api/realtime/web2/sse?keys=web2:foo,web2:bar
+// CF Worker proxies /api/realtime/web2/* → n2store-fallback Render (handleRealtimeProxy).
 //
 // Public API:
 //   Web2SSE.subscribe(topic, callback) → unsubscribe fn
@@ -22,7 +24,7 @@
 
     if (global.Web2SSE) return;
 
-    const SSE_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/sse';
+    const SSE_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2/sse';
     const RECONNECT_BASE_MS = 1500;
     const RECONNECT_MAX_MS = 30000;
 

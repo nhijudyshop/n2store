@@ -60,7 +60,7 @@
     // subscribe topic 'web2:<entity-slug>' (xem docs/web2/SSE-REALTIME.md).
     const SCRIPTS_MOUNT = [
         '../../web2/shared/tpos-sidebar.js',
-        '../../web2/shared/web2-sse-bridge.js',
+        '../../web2/shared/web2-sse-bridge.js?v=20260526sse2',
         '../../web2/shared/web2-api.js',
         '../../web2/shared/page-builder.js',
     ];

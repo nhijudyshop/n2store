@@ -38,16 +38,19 @@ Pattern realtime của Web 2.0 dùng **Server-Sent Events (SSE)** thay vì Fireb
                                           └─────────────────────────────────────┘
 ```
 
-**File quan trọng**:
+**File quan trọng** (Web 2.0 dùng hub RIÊNG từ 2026-05-26 — KHÔNG chia chung với Web 1.0 nữa):
 
-| Layer             | File                                                                                                                                   | Vai trò                                                                        |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Server hub        | [render.com/routes/realtime-sse.js](../../render.com/routes/realtime-sse.js)                                                           | `notifyClients(topic, data, eventType)`, per-topic `Map<topic, Set<Response>>` |
-| Server route      | render.com/routes/`<module>`.js                                                                                                        | Gọi `_notify(action, code)` sau mỗi DB write                                   |
-| Server wiring     | [render.com/server.js](../../render.com/server.js)                                                                                     | `<module>Routes.initializeNotifiers(realtimeSseRoutes.notifyClients)`          |
-| Proxy             | [cloudflare-worker/modules/handlers/proxy-handler.js](../../cloudflare-worker/modules/handlers/proxy-handler.js) `handleRealtimeProxy` | Proxy `/api/realtime/*` đến n2store-fallback, preserves stream                 |
-| Client bridge     | [web2/shared/web2-sse-bridge.js](../../web2/shared/web2-sse-bridge.js)                                                                 | Singleton `EventSource`, multiplex topics qua `?keys=`, auto-reconnect         |
-| Client subscriber | per-page JS                                                                                                                            | `Web2SSE.subscribe(topic, cb)`                                                 |
+| Layer             | File                                                                                                                                   | Vai trò                                                                                                      |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Server hub        | [render.com/routes/realtime-sse-web2.js](../../render.com/routes/realtime-sse-web2.js)                                                 | `notifyClients(topic, data, eventType)`, Map RIÊNG cho Web 2.0                                               |
+| Server route      | render.com/routes/`<module>`.js                                                                                                        | Gọi `_notify(action, code)` sau mỗi DB write                                                                 |
+| Server wiring     | [render.com/server.js](../../render.com/server.js)                                                                                     | `<module>Routes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients)`                                    |
+| Endpoint client   | `/api/realtime/web2/sse?keys=web2:foo,web2:bar`                                                                                        | TÁCH với Web 1.0 endpoint `/api/realtime/sse` (legacy: tickets, KPI, kho, celebration, …)                    |
+| Proxy             | [cloudflare-worker/modules/handlers/proxy-handler.js](../../cloudflare-worker/modules/handlers/proxy-handler.js) `handleRealtimeProxy` | Pattern `/api/realtime/*` cover cả `/web2/` → n2store-fallback. `pathname.endsWith('/sse')` preserves stream |
+| Client bridge     | [web2/shared/web2-sse-bridge.js](../../web2/shared/web2-sse-bridge.js)                                                                 | Singleton `EventSource` trỏ về `/api/realtime/web2/sse`, multiplex topics qua `?keys=`                       |
+| Client subscriber | per-page JS                                                                                                                            | `Web2SSE.subscribe(topic, cb)`                                                                               |
+
+> **Lưu ý phân chia**: Web 1.0 vẫn dùng `routes/realtime-sse.js` cho topics legacy (`celebration`, `kpi_statistics`, `held_products`, `tickets`, `web_warehouse`, `tpos_token`, `wallet:<phone>` của customer-hub cũ, `order_notes_global`, `processing_tags_global`, …). Web 2.0 routes (web2-products/variants/users/generic, native-orders, fast-sale-orders, reconcile, purchase-refund, livestream-snapshots, v2/cart, v2/notifications, v2/dashboard-kpi) wire qua `web2RealtimeSseRoutes.notifyClients`. SePay → Web 2.0 wallet đi qua `web2WalletEvents` listener trong `realtime-sse-web2.js` (KHÔNG còn cross-publish từ legacy `walletEvents`).
 
 ---
 
@@ -279,16 +282,16 @@ Hiện tại hầu hết các module dùng debounce — chưa cần strict.
 ### A. SSE endpoint sống không?
 
 ```bash
-curl -N "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/sse?keys=web2:products" 2>&1 | head -20
-# Expect: "event: connected\ndata: {...}" trong 1-2s đầu
+curl -N "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2/sse?keys=web2:products" 2>&1 | head -20
+# Expect: "event: connected\ndata: {...,\"server\":\"web2\"}" trong 1-2s đầu
 # Sau đó: ":heartbeat <ts>" mỗi 30s
 ```
 
 ### B. Server stats
 
 ```bash
-curl -s "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/sse/stats" | jq
-# Expect: { totalClients, uniqueKeys, keyStats: { "web2:products": 3, ... } }
+curl -s "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2/sse/stats" | jq
+# Expect: { "server":"web2", totalClients, uniqueKeys, keyStats: { "web2:products": 3, ... } }
 ```
 
 ### C. Browser DevTools
@@ -300,7 +303,7 @@ curl -s "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/sse/stats" 
 ### D. Trigger test event thủ công
 
 ```bash
-curl -X POST "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/sse/test" \
+curl -X POST "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2/sse/test" \
   -H "Content-Type: application/json" \
   -d '{"key":"web2:products","data":{"action":"test","ts":'$(date +%s%3N)'}}'
 # → tất cả client subscribe web2:products phải nhận `event: test`
@@ -308,11 +311,13 @@ curl -X POST "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/sse/te
 
 ### E. Render logs
 
-Render Dashboard → `n2store-fallback` → Logs. Tìm:
+Render Dashboard → `n2store-fallback` → Logs. Tìm prefix `[SSE-WEB2]`:
 
-- `[SSE] Client connected (conn_...), watching: web2:products` — client connect
-- `[<MODULE>] _notify` hoặc `[SSE] Notified N clients for key: web2:products` — server broadcast
-- `[SSE] Client disconnected (conn_...) after Ns` — disconnect (browser tab close)
+- `[SSE-WEB2] Client connected (web2conn_...), watching: web2:products` — client connect
+- `[<MODULE>] _notify` hoặc `[SSE-WEB2] Notified N clients for key: web2:products` — server broadcast
+- `[SSE-WEB2] Client disconnected (web2conn_...) after Ns` — disconnect
+
+Log prefix `[SSE]` (không có `-WEB2`) là của hub Web 1.0 (`routes/realtime-sse.js`) — không nên xuất hiện cho web2 topics nữa.
 
 ---
 

@@ -1205,9 +1205,9 @@ router.patch('/:code', async (req, res) => {
         let pbhSync = null;
         if (body.status) {
             pbhSync = await syncPbhStateFromNativeOrder(pool, order.code, body.status);
-            if (pbhSync.synced > 0 && req.app.locals.realtimeSseNotify) {
+            if (pbhSync.synced > 0 && req.app.locals.web2RealtimeSseNotify) {
                 try {
-                    req.app.locals.realtimeSseNotify(
+                    req.app.locals.web2RealtimeSseNotify(
                         'web2:fast-sale-orders',
                         {
                             action: 'native-status-sync',
@@ -1268,9 +1268,9 @@ router.post('/:code/confirm', async (req, res) => {
         const order = mapRowToOrder(r.rows[0]);
         // Auto sync state sang PBH liên kết (single + merged).
         const pbhSync = await syncPbhStateFromNativeOrder(pool, code, 'confirmed');
-        if (pbhSync.synced > 0 && req.app.locals.realtimeSseNotify) {
+        if (pbhSync.synced > 0 && req.app.locals.web2RealtimeSseNotify) {
             try {
-                req.app.locals.realtimeSseNotify(
+                req.app.locals.web2RealtimeSseNotify(
                     'web2:fast-sale-orders',
                     { action: 'native-status-sync', code, status: 'confirmed', ts: Date.now() },
                     'update'
@@ -1333,9 +1333,9 @@ router.post('/:code/cancel', async (req, res) => {
         // đổi state PBH qua syncPbhStateFromNativeOrder (đơn giản). Nếu cần
         // restock chính xác, gọi /by-source/cancel của fast-sale-orders.
         const pbhSync = await syncPbhStateFromNativeOrder(pool, code, 'cancelled');
-        if (pbhSync.synced > 0 && req.app.locals.realtimeSseNotify) {
+        if (pbhSync.synced > 0 && req.app.locals.web2RealtimeSseNotify) {
             try {
-                req.app.locals.realtimeSseNotify(
+                req.app.locals.web2RealtimeSseNotify(
                     'web2:fast-sale-orders',
                     { action: 'native-status-sync', code, status: 'cancelled', ts: Date.now() },
                     'update'
@@ -1808,7 +1808,7 @@ router.post('/merge-to-pbh', async (req, res) => {
         // Notify cả 2 topics
         _notify('merge-to-pbh', null);
         // Direct broadcast fast-sale-orders topic (route khác, không gọi _notify của route đó được)
-        const realtimeSse = req.app.locals.realtimeSseNotify;
+        const realtimeSse = req.app.locals.web2RealtimeSseNotify;
         if (typeof realtimeSse === 'function') {
             realtimeSse(
                 'web2:fast-sale-orders',

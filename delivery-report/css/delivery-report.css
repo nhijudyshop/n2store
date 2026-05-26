@@ -2186,6 +2186,113 @@ body.dr-mode-report #drTableWrapper {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--tab-color) 18%, transparent);
 }
 
+/* Gear button — cài đặt phí ship per tab */
+.dr-report-tabs .dr-report-settings-btn {
+    --tab-color: #6b7280;
+    --tab-bg: transparent;
+    min-width: 38px;
+    padding: 8px 12px;
+    color: #6b7280;
+    background: transparent;
+    border: 1px dashed #d1d5db;
+    font-size: 14px;
+}
+.dr-report-tabs .dr-report-settings-btn:hover {
+    color: #2563eb;
+    border-color: #2563eb;
+    background: #eff6ff;
+}
+
+/* Ship fee popover */
+.dr-ship-fee-popover {
+    position: fixed;
+    z-index: 9600;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow:
+        0 16px 36px rgba(15, 23, 42, 0.18),
+        0 4px 10px rgba(15, 23, 42, 0.08);
+    padding: 14px 16px 12px;
+    min-width: 280px;
+    font-size: 13px;
+}
+.dr-ship-fee-popover .dr-ship-fee-header {
+    font-weight: 700;
+    font-size: 13px;
+    color: #111827;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.dr-ship-fee-popover .dr-ship-fee-header i {
+    color: #2563eb;
+}
+.dr-ship-fee-popover .dr-ship-fee-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 50px;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 4px 6px;
+    border-left: 3px solid var(--tab-color);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--tab-color) 6%, transparent);
+}
+.dr-ship-fee-popover .dr-ship-fee-label {
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--tab-color);
+    letter-spacing: 0.3px;
+}
+.dr-ship-fee-popover input[type='number'] {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.dr-ship-fee-popover input[type='number']:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+}
+.dr-ship-fee-popover .dr-ship-fee-unit {
+    font-size: 11px;
+    color: #6b7280;
+}
+.dr-ship-fee-popover .dr-ship-fee-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f3f4f6;
+}
+.dr-ship-fee-popover .dr-ship-fee-actions button {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+}
+.dr-ship-fee-popover .dr-ship-fee-actions button:hover {
+    background: #f9fafb;
+}
+.dr-ship-fee-popover .dr-ship-fee-actions button.primary {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+}
+.dr-ship-fee-popover .dr-ship-fee-actions button.primary:hover {
+    background: #1d4ed8;
+}
+
 /* Tab totals row — tổng còn lại cho từng tab + grand total bên phải.
    Layout flex match tabs row above (same gap + button widths). Mỗi total căn
    giữa dưới button tương ứng. Grand total bên phải có viền trái phân tách. */
@@ -2328,6 +2435,16 @@ body.dr-mode-report #drTableWrapper {
     height: 18px;
     cursor: pointer;
     accent-color: #16a34a;
+}
+/* Non-admin: cell DUYỆT rỗng (placeholder gray dash). Hover → tooltip giải thích */
+.dr-approve-locked {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    background: repeating-linear-gradient(45deg, #f3f4f6 0 4px, #e5e7eb 4px 8px);
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 /* Row select checkbox (gộp) */

@@ -2171,8 +2171,14 @@ app.locals.broadcastToClients = broadcastToClients;
 
 // Expose SSE notifier to routes (use req.app.locals.realtimeSseNotify)
 // Cho phép routes cross-broadcast SSE topic không phải của mình
-// (vd native-orders/merge-to-pbh broadcast web2:fast-sale-orders + web2:customer-wallet).
+// (vd order-notes broadcast tickets, KPI route broadcast order-status).
 app.locals.realtimeSseNotify = realtimeSseRoutes.notifyClients;
+
+// WEB2.0 — SSE notifier riêng (req.app.locals.web2RealtimeSseNotify).
+// Dùng cho cross-broadcast Web 2.0: native-orders/merge-to-pbh broadcast
+// web2:fast-sale-orders + web2:customer-wallet, fast-sale-orders broadcast
+// web2:native-orders sau status bump, v.v.
+app.locals.web2RealtimeSseNotify = web2RealtimeSseRoutes.notifyClients;
 
 // Heartbeat for Frontend Clients (Keep-Alive)
 const interval = setInterval(function ping() {

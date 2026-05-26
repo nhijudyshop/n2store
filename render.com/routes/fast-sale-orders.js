@@ -1295,9 +1295,9 @@ router.post('/from-native-order', async (req, res) => {
                 [Date.now(), src.id]
             );
             // SSE notify để native-orders UI tự refresh status badge từ "Huỷ bỏ" → "Đơn hàng"
-            if (req.app.locals.realtimeSseNotify) {
+            if (req.app.locals.web2RealtimeSseNotify) {
                 try {
-                    req.app.locals.realtimeSseNotify(
+                    req.app.locals.web2RealtimeSseNotify(
                         'web2:native-orders',
                         {
                             action: 'status-bumped',
@@ -1594,9 +1594,9 @@ router.post('/:number/cancel', async (req, res) => {
         let nativeSync = null;
         if (wasNotCancelled) {
             nativeSync = await syncNativeOrderStatusFromPbh(pool, prevRow, 'cancel');
-            if (nativeSync.synced > 0 && req.app.locals.realtimeSseNotify) {
+            if (nativeSync.synced > 0 && req.app.locals.web2RealtimeSseNotify) {
                 try {
-                    req.app.locals.realtimeSseNotify(
+                    req.app.locals.web2RealtimeSseNotify(
                         'web2:native-orders',
                         {
                             action: 'pbh-state-sync',
@@ -1689,9 +1689,9 @@ router.post('/by-source/:nativeOrderCode/cancel', async (req, res) => {
         _notify('cancel', o.number);
 
         // Cũng emit cho native-orders để row update ngay (status badge đổi)
-        if (req.app.locals.realtimeSseNotify) {
+        if (req.app.locals.web2RealtimeSseNotify) {
             try {
-                req.app.locals.realtimeSseNotify(
+                req.app.locals.web2RealtimeSseNotify(
                     'web2:native-orders',
                     {
                         action: 'pbh-cancelled',
@@ -1721,9 +1721,9 @@ router.post('/:number/confirm', async (req, res) => {
         const o = mapRow(r.rows[0]);
         // Sync ngược: PBH done → native-orders confirmed (cả single + merged)
         const nativeSync = await syncNativeOrderStatusFromPbh(pool, r.rows[0], 'done');
-        if (nativeSync.synced > 0 && req.app.locals.realtimeSseNotify) {
+        if (nativeSync.synced > 0 && req.app.locals.web2RealtimeSseNotify) {
             try {
-                req.app.locals.realtimeSseNotify(
+                req.app.locals.web2RealtimeSseNotify(
                     'web2:native-orders',
                     {
                         action: 'pbh-state-sync',

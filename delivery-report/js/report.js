@@ -11,7 +11,111 @@
 (function () {
     'use strict';
 
-    const SHIP_FEE_PER_ORDER = 23000; // 23k đồng / đơn
+    // Phí ship per đơn theo từng nhóm (user chỉnh được qua nút Cài đặt ⚙).
+    // Default: tomato/nap = 23k, city = 20k. Persist localStorage per machine.
+    const SHIP_FEE_DEFAULTS = { tomato: 23000, nap: 23000, city: 20000 };
+    const SHIP_FEE_STORAGE_KEY = 'dr-report-ship-fees-v1';
+    const _shipFees = (() => {
+        try {
+            const raw = localStorage.getItem(SHIP_FEE_STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                return { ...SHIP_FEE_DEFAULTS, ...parsed };
+            }
+        } catch (_) {}
+        return { ...SHIP_FEE_DEFAULTS };
+    })();
+    function getShipFee(tab) {
+        const v = Number(_shipFees[tab]);
+        return Number.isFinite(v) && v >= 0 ? v : SHIP_FEE_DEFAULTS[tab] || 0;
+    }
+    function setShipFee(tab, value) {
+        _shipFees[tab] = Math.max(0, Number(value) || 0);
+        try {
+            localStorage.setItem(SHIP_FEE_STORAGE_KEY, JSON.stringify(_shipFees));
+        } catch (_) {}
+    }
+
+    // Admin gating: chỉ tag Admin mới thấy + bấm được DUYỆT. Non-admin xem báo
+    // cáo bình thường (treat approved=false → thấy đầy đủ outstanding amount).
+    // Reuse pattern từ orders-report/js/phone-auto-register.js _isAdmin().
+    function _isAdmin() {
+        try {
+            const auth = window.authManager?.getAuthData?.();
+            const userType = (localStorage.getItem('userType') || '').toLowerCase();
+            if (userType.startsWith('admin')) return true;
+            if (auth?.isAdmin === true) return true;
+            if (auth?.roleTemplate === 'admin') return true;
+            if (auth?.checkLogin === 0) return true;
+            return false;
+        } catch {
+            return false;
+        }
+    }
+    // effectiveApproved → false cho non-admin để totalLeft tính đầy đủ + UI không
+    // hiển thị trạng thái approved. Admin nhận lại giá trị thật.
+    function effectiveApproved(value) {
+        return _isAdmin() ? !!value : false;
+    }
+
+    function toggleShipFeeSettings(anchorBtn) {
+        const existing = document.getElementById('drShipFeePopover');
+        if (existing) {
+            existing.remove();
+            return;
+        }
+        const pop = document.createElement('div');
+        pop.id = 'drShipFeePopover';
+        pop.className = 'dr-ship-fee-popover';
+        pop.innerHTML = `
+            <div class="dr-ship-fee-header"><i class="fas fa-truck"></i> Phí ship per đơn</div>
+            ${TABS.map(
+                (t) => `
+                <label class="dr-ship-fee-row" style="--tab-color:${t.color}">
+                    <span class="dr-ship-fee-label">${t.label}</span>
+                    <input type="number" min="0" step="500" data-tab="${t.key}" value="${getShipFee(t.key)}" />
+                    <span class="dr-ship-fee-unit">đ/đơn</span>
+                </label>
+            `
+            ).join('')}
+            <div class="dr-ship-fee-actions">
+                <button type="button" data-action="reset" title="Khôi phục mặc định (TOMATO/NAP=23k, THÀNH PHỐ=20k)">Mặc định</button>
+                <button type="button" data-action="save" class="primary">Lưu</button>
+            </div>
+        `;
+        document.body.appendChild(pop);
+        const rect = anchorBtn.getBoundingClientRect();
+        pop.style.top = `${rect.bottom + 8}px`;
+        pop.style.left = `${Math.max(8, rect.left)}px`;
+        // Save
+        pop.querySelector('[data-action="save"]').addEventListener('click', () => {
+            pop.querySelectorAll('input[data-tab]').forEach((inp) => {
+                setShipFee(inp.dataset.tab, inp.value);
+            });
+            pop.remove();
+            scheduleRender();
+        });
+        // Reset to defaults
+        pop.querySelector('[data-action="reset"]').addEventListener('click', () => {
+            Object.entries(SHIP_FEE_DEFAULTS).forEach(([k, v]) => setShipFee(k, v));
+            pop.remove();
+            scheduleRender();
+        });
+        // Click outside closes
+        setTimeout(() => {
+            const onOutside = (e) => {
+                if (
+                    !pop.contains(e.target) &&
+                    e.target !== anchorBtn &&
+                    !anchorBtn.contains(e.target)
+                ) {
+                    pop.remove();
+                    document.removeEventListener('click', onOutside, true);
+                }
+            };
+            document.addEventListener('click', onOutside, true);
+        }, 0);
+    }
     const STORAGE_KEY = 'dr-report-overrides-v1';
 
     const TABS = [
@@ -634,6 +738,18 @@
             tabsEl.appendChild(b);
         });
 
+        // Settings button (gear) — mở popover cài phí ship per tab
+        const settingsBtn = document.createElement('button');
+        settingsBtn.className = 'dr-report-settings-btn';
+        settingsBtn.type = 'button';
+        settingsBtn.innerHTML = '<i class="fas fa-cog"></i>';
+        settingsBtn.title = 'Cài đặt phí ship per đơn theo từng nhóm';
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleShipFeeSettings(settingsBtn);
+        });
+        tabsEl.appendChild(settingsBtn);
+
         // Selection bar: floating bar dưới modal, hiện khi có ngày được chọn
         const selBar = document.createElement('div');
         selBar.id = 'drReportSelectionBar';
@@ -815,7 +931,7 @@
                 for (const cd of childDates) {
                     const sys = map[cd] || { sysCount: 0, money: 0 };
                     sumMoney += sys.money;
-                    sumShipFee += sys.sysCount * SHIP_FEE_PER_ORDER;
+                    sumShipFee += sys.sysCount * getShipFee(tab);
                     const ovc = getOverride(cd, tab);
                     sumSlShip += Number(ovc.slShip) || 0;
                     sumThuVe += Number(ovc.thuVe) || 0;
@@ -830,21 +946,21 @@
                     ? Number(merge.atruongCK)
                     : sumAtruongCK;
                 const ckTruoc = useMerge(merge.ckTruoc) ? Number(merge.ckTruoc) : sumCkTruoc;
-                const totalAll = sumMoney - sumShipFee - slShip * SHIP_FEE_PER_ORDER + thuVe;
+                const totalAll = sumMoney - sumShipFee - slShip * getShipFee(tab) + thuVe;
                 const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
-                total += merge.approved ? 0 : totalLeftRaw;
+                total += effectiveApproved(merge.approved) ? 0 : totalLeftRaw;
             } else {
                 const sys = map[d] || { sysCount: 0, money: 0 };
-                const shipFee = sys.sysCount * SHIP_FEE_PER_ORDER;
+                const shipFee = sys.sysCount * getShipFee(tab);
                 const ov = getOverride(d, tab);
                 const slShip = Number(ov.slShip) || 0;
                 const thuVe = Number(ov.thuVe) || 0;
                 const boCK = Number(ov.boCK) || 0;
                 const atruongCK = Number(ov.atruongCK) || 0;
                 const ckTruoc = Number(ov.ckTruoc) || 0;
-                const totalAll = sys.money - shipFee - slShip * SHIP_FEE_PER_ORDER + thuVe;
+                const totalAll = sys.money - shipFee - slShip * getShipFee(tab) + thuVe;
                 const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
-                total += ov.approved ? 0 : totalLeftRaw;
+                total += effectiveApproved(ov.approved) ? 0 : totalLeftRaw;
                 rendered.add(d);
             }
         }
@@ -891,7 +1007,7 @@
             const sys = map[d] || { sysCount: 0, money: 0 };
             const slDon = sys.sysCount;
             const money = sys.money;
-            const shipFee = slDon * SHIP_FEE_PER_ORDER;
+            const shipFee = slDon * getShipFee(state.activeTab);
             return { slDon, money, shipFee };
         }
 
@@ -900,11 +1016,11 @@
             const ov = getOverride(d, state.activeTab);
             const slShip = Number(ov.slShip) || 0;
             const thuVe = Number(ov.thuVe) || 0;
-            const totalAll = money - shipFee - slShip * SHIP_FEE_PER_ORDER + thuVe;
+            const totalAll = money - shipFee - slShip * getShipFee(state.activeTab) + thuVe;
             const boCK = Number(ov.boCK) || 0;
             const atruongCK = Number(ov.atruongCK) || 0;
             const ckTruoc = Number(ov.ckTruoc) || 0;
-            const approved = !!ov.approved;
+            const approved = effectiveApproved(ov.approved);
             const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
             const totalLeftDisplay = approved ? 0 : totalLeftRaw;
             const note = ov.note || '';
@@ -950,7 +1066,7 @@
                 <td class="num"><input type="text" data-field="ckTruoc" value="${ckTruoc ? formatMoney(ckTruoc) : ''}" placeholder="0" ${disabled} /></td>
                 <td class="num strong ${totalLeftDisplay < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeftDisplay)}</td>
                 <td class="note-cell" data-tooltip="${note ? escapeHtml(note) : ''}"><textarea data-field="note" rows="1" placeholder="Ghi chú…" ${disabled}>${escapeHtml(note)}</textarea></td>
-                <td class="dr-report-td-approve"><label class="dr-approve-toggle"><input type="checkbox" data-field="approved" ${approved ? 'checked' : ''} ${disabled} /><span></span></label></td>
+                <td class="dr-report-td-approve">${_isAdmin() ? `<label class="dr-approve-toggle"><input type="checkbox" data-field="approved" ${approved ? 'checked' : ''} ${disabled} /><span></span></label>` : '<span class="dr-approve-locked" title="Chỉ tài khoản Admin mới được duyệt"></span>'}</td>
             </tr>`;
         }
 
@@ -989,11 +1105,11 @@
             const useMerge = (mv) => mv != null && mv !== '' && Number(mv) !== 0;
             const slShip = useMerge(merge.slShip) ? Number(merge.slShip) : sumSlShip;
             const thuVe = useMerge(merge.thuVe) ? Number(merge.thuVe) : sumThuVe;
-            const totalAll = sumMoney - sumShipFee - slShip * SHIP_FEE_PER_ORDER + thuVe;
+            const totalAll = sumMoney - sumShipFee - slShip * getShipFee(state.activeTab) + thuVe;
             const boCK = useMerge(merge.boCK) ? Number(merge.boCK) : sumBoCK;
             const atruongCK = useMerge(merge.atruongCK) ? Number(merge.atruongCK) : sumAtruongCK;
             const ckTruoc = useMerge(merge.ckTruoc) ? Number(merge.ckTruoc) : sumCkTruoc;
-            const approved = !!merge.approved;
+            const approved = effectiveApproved(merge.approved);
             const expanded = !!merge.expanded;
             const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
             const totalLeftDisplay = approved ? 0 : totalLeftRaw;
@@ -1076,7 +1192,7 @@
                 <td class="num"><input type="text" data-field="ckTruoc" value="${useMerge(merge.ckTruoc) ? formatMoney(merge.ckTruoc) : ''}" placeholder="${sumCkTruoc ? formatMoney(sumCkTruoc) : '0'}" title="${useMerge(merge.ckTruoc) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumCkTruoc) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
                 <td class="num strong ${totalLeftDisplay < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeftDisplay)}</td>
                 <td class="note-cell" data-tooltip="${escapeHtml([merge.note ? `Ghi chú gộp:\n${merge.note}` : '', childNotes.length ? `Ghi chú các ngày:\n${childNotes.join('\n')}` : ''].filter(Boolean).join('\n\n'))}"><textarea data-field="note" rows="1" placeholder="${escapeHtml(childNotes.length ? childNotes.join(' | ') : 'Ghi chú…')}">${escapeHtml(merge.note || '')}</textarea></td>
-                <td class="dr-report-td-approve"><label class="dr-approve-toggle"><input type="checkbox" data-field="approved" ${approved ? 'checked' : ''} /><span></span></label></td>
+                <td class="dr-report-td-approve">${_isAdmin() ? `<label class="dr-approve-toggle"><input type="checkbox" data-field="approved" ${approved ? 'checked' : ''} /><span></span></label>` : '<span class="dr-approve-locked" title="Chỉ tài khoản Admin mới được duyệt"></span>'}</td>
             </tr>`;
         }
 

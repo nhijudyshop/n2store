@@ -414,77 +414,12 @@ walletEvents.on('wallet:update', (data) => {
     // Also notify wildcard watchers for "wallet" key (admin dashboard)
     notifyClientsWildcard('wallet', data, 'wallet_update');
 
-    // Web 2.0 customer-wallet page subscribes the canonical 'web2:customer-wallet'
-    // topic (per docs/web2/SSE-REALTIME.md naming convention). Re-broadcast the
-    // same payload there with a lightweight shape so the page can fetch the
-    // matching balance_history row + credit the wallet. Auto-approve và
-    // duyệt-tay đều đi qua processDeposit → walletEvents → here → page reloads.
-    try {
-        notifyClients(
-            'web2:customer-wallet',
-            {
-                action: 'sepay_credit',
-                phone: phone || null,
-                amount: transaction?.amount || 0,
-                sepayId: transaction?.sepayId || null,
-                source: transaction?.source || null,
-                ts: Date.now(),
-            },
-            'update'
-        );
-    } catch (e) {
-        console.warn('[SSE-WALLET] web2:customer-wallet bridge failed:', e.message);
-    }
+    // Web 2.0 bridge ĐÃ TÁCH sang routes/realtime-sse-web2.js (2026-05-26).
+    // Web 2.0 wallet events đi qua web2WalletEvents (web2-wallet-service)
+    // → realtime-sse-web2.js subscribe và broadcast trên hub riêng.
 });
 
 console.log('[SSE] Wallet event subscription initialized');
-
-// =====================================================
-// WEB 2.0 wallet events (web2:wallet:update + per-phone)
-// Tách khỏi legacy walletEvents — Web 2.0 wallet service emit riêng.
-// =====================================================
-try {
-    const { web2WalletEvents } = require('../services/web2-wallet-service');
-    web2WalletEvents.on('web2:wallet:update', (data) => {
-        const { phone, wallet, transaction } = data;
-        // Per-phone topic
-        try {
-            notifyClients(
-                `web2:wallet:${phone}`,
-                {
-                    action: 'update',
-                    phone,
-                    wallet,
-                    transaction,
-                    ts: Date.now(),
-                },
-                'wallet_update'
-            );
-        } catch (_) {}
-        // Wildcard topic for list pages
-        try {
-            notifyClientsWildcard('web2:wallet', data, 'wallet_update');
-        } catch (_) {}
-        // Specific Web 2.0 customer-wallet topic
-        try {
-            notifyClients(
-                'web2:customer-wallet',
-                {
-                    action: 'web2_credit',
-                    phone: phone || null,
-                    amount: transaction?.amount || 0,
-                    txType: transaction?.type || null,
-                    walletTxId: transaction?.id || null,
-                    ts: Date.now(),
-                },
-                'update'
-            );
-        } catch (_) {}
-    });
-    console.log('[SSE] Web 2.0 wallet event subscription initialized');
-} catch (e) {
-    console.warn('[SSE] web2-wallet-service not available:', e.message);
-}
 
 // =====================================================
 // EXPORTS

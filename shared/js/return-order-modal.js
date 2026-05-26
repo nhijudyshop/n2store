@@ -20,6 +20,14 @@ window.ReturnOrderModal = (function () {
     const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const PRODUCTS_PER_PAGE = 50;
 
+    // Bulk-load + client-side filter (TPOS refundform1 pattern). Eliminates per-keystroke
+    // server fetches and fixes silent $filter ignore on ODataService.GetViewV2 endpoint.
+    const CACHE_KEY_PRODUCTS = 'returnOrder_productIndex_v1';
+    const CACHE_KEY_SUPPLIERS = 'returnOrder_suppliers_v1';
+    const CACHE_KEY_PAYMENT = 'returnOrder_paymentMethods_v1';
+    const CACHE_TTL_PRODUCTS = 10 * 60 * 1000;
+    const CACHE_TTL_REFDATA = 30 * 60 * 1000;
+
     // Self-contained authenticated fetch. Uses global tposFetch helper if defined by host page,
     // otherwise falls back to window.tokenManager.authenticatedFetch with TPOS headers.
     async function tposFetchLocal(url, options = {}) {
@@ -117,45 +125,128 @@ window.ReturnOrderModal = (function () {
     // =====================================================
     // PRODUCT CATALOG
     // =====================================================
+    //
+    // Strategy: bulk-fetch all active products once (≈1s, ~1MB), then filter/sort/paginate
+    // client-side. Old code used ODataService.GetViewV2 with $filter — TPOS server silently
+    // ignores $filter on that endpoint, so search returned unfiltered data (3579 rows).
+    // Plain /odata/ProductTemplate respects $filter and matches TPOS native refundform1
+    // behavior (client-side search after bulk preload + cache).
+
+    function _readProductCache() {
+        try {
+            const raw = sessionStorage.getItem(CACHE_KEY_PRODUCTS);
+            if (!raw) return null;
+            const { data, ts } = JSON.parse(raw);
+            if (!Array.isArray(data) || Date.now() - ts > CACHE_TTL_PRODUCTS) return null;
+            return data;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function _writeProductCache(data) {
+        try {
+            sessionStorage.setItem(
+                CACHE_KEY_PRODUCTS,
+                JSON.stringify({ data, ts: Date.now() })
+            );
+        } catch (_) {
+            // Quota exceeded — skip cache, in-memory still works
+        }
+    }
+
+    async function loadProductIndex(force = false) {
+        if (!force && S.allProducts.length > 0) return;
+        if (!force) {
+            const cached = _readProductCache();
+            if (cached) {
+                S.allProducts = cached;
+                return;
+            }
+        }
+        // QtyAvailable/VirtualAvailable are computed nav fields and cannot appear in $select
+        // (server returns 500). Stock is intentionally omitted — shown as "—" in list.
+        const url = `${PROXY_URL}/api/odata/ProductTemplate?$top=5000&$count=true&$filter=${encodeURIComponent('Active eq true')}&$select=Id,NameGet,Name,DefaultCode,Barcode,PurchasePrice,ListPrice,UOMName,UOMId,ImageUrl,Type,DateCreated`;
+        const response = await tposFetch(url, {
+            headers: { 'feature-version': '2', 'x-tpos-lang': 'vi' },
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        S.allProducts = data.value || [];
+        _writeProductCache(S.allProducts);
+    }
+
+    function _applyFilterSort() {
+        const q = (S.searchQuery || '').trim().toLowerCase();
+        let arr = S.allProducts;
+        if (q) {
+            arr = arr.filter((p) => {
+                const name = (p.NameGet || p.Name || '').toLowerCase();
+                const code = (p.DefaultCode || '').toLowerCase();
+                const barcode = (p.Barcode || '').toLowerCase();
+                return name.includes(q) || code.includes(q) || barcode.includes(q);
+            });
+        }
+        // Sort: client-side replica of $orderby. Default = newest first via DateCreated, fallback Id desc.
+        if (S.sortBy === 'DateCreated desc' || !S.sortBy) {
+            arr = arr.slice().sort((a, b) => {
+                const da = a.DateCreated ? new Date(a.DateCreated).getTime() : 0;
+                const db = b.DateCreated ? new Date(b.DateCreated).getTime() : 0;
+                if (da !== db) return db - da;
+                return (b.Id || 0) - (a.Id || 0);
+            });
+        } else if (S.sortBy === 'DateCreated asc') {
+            arr = arr.slice().sort((a, b) => {
+                const da = a.DateCreated ? new Date(a.DateCreated).getTime() : 0;
+                const db = b.DateCreated ? new Date(b.DateCreated).getTime() : 0;
+                return da - db;
+            });
+        } else if (S.sortBy === 'NameGet asc' || S.sortBy === 'Name asc') {
+            arr = arr
+                .slice()
+                .sort((a, b) =>
+                    (a.NameGet || a.Name || '').localeCompare(b.NameGet || b.Name || '', 'vi')
+                );
+        } else if (S.sortBy === 'PurchasePrice desc') {
+            arr = arr.slice().sort((a, b) => (b.PurchasePrice || 0) - (a.PurchasePrice || 0));
+        } else if (S.sortBy === 'PurchasePrice asc') {
+            arr = arr.slice().sort((a, b) => (a.PurchasePrice || 0) - (b.PurchasePrice || 0));
+        }
+        return arr;
+    }
 
     async function fetchProducts(page = 1) {
         if (S.isLoadingProducts) return;
-        S.isLoadingProducts = true;
-        S.productPage = page;
 
         const grid = $('returnProductList');
-        if (grid) {
-            grid.innerHTML = `<div class="return-product-loading"><svg class="spin" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Đang tải...</div>`;
-        }
 
-        try {
-            const skip = (page - 1) * PRODUCTS_PER_PAGE;
-            let url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.GetViewV2?Active=true&$top=${PRODUCTS_PER_PAGE}&$skip=${skip}&$count=true&$orderby=${encodeURIComponent(S.sortBy)}`;
-
-            // Search filter
-            if (S.searchQuery) {
-                const q = S.searchQuery.trim();
-                url += `&$filter=${encodeURIComponent(`contains(NameGet,'${q}') or contains(DefaultCode,'${q}') or contains(Barcode,'${q}')`)}`;
+        // First-time load (or after cache expiry / force refresh)
+        if (S.allProducts.length === 0) {
+            S.isLoadingProducts = true;
+            if (grid) {
+                grid.innerHTML = `<div class="return-product-loading"><svg class="spin" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Đang tải danh mục...</div>`;
             }
-
-            const response = await tposFetch(url, {
-                headers: { 'feature-version': '2', 'x-tpos-lang': 'vi' },
-            });
-
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-            const data = await response.json();
-            S.products = data.value || [];
-            S.productTotal = data['@odata.count'] || S.products.length;
-            renderProductList();
-            renderProductPagination();
-        } catch (err) {
-            console.error('[ReturnOrder] fetchProducts error:', err);
-            if (grid)
-                grid.innerHTML = `<div class="return-product-loading" style="color:#dc2626;">Lỗi tải sản phẩm: ${err.message}</div>`;
-        } finally {
+            try {
+                await loadProductIndex();
+            } catch (err) {
+                console.error('[ReturnOrder] loadProductIndex error:', err);
+                if (grid) {
+                    grid.innerHTML = `<div class="return-product-loading" style="color:#dc2626;">Lỗi tải sản phẩm: ${err.message}</div>`;
+                }
+                S.isLoadingProducts = false;
+                return;
+            }
             S.isLoadingProducts = false;
         }
+
+        S.productPage = page;
+        const filtered = _applyFilterSort();
+        S.productTotal = filtered.length;
+        const skip = (page - 1) * PRODUCTS_PER_PAGE;
+        S.products = filtered.slice(skip, skip + PRODUCTS_PER_PAGE);
+
+        renderProductList();
+        renderProductPagination();
     }
 
     function renderProductList() {
