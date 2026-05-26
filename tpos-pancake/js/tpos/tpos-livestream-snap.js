@@ -2143,6 +2143,49 @@ Throttle 30s/KH.`;
         STATE.snapByCommentTimer = setTimeout(_flushSnapByCommentBatch, 300);
     }
 
+    // Xóa snap row + invalidate cache để row hiện trạng "chưa snap". User
+    // có thể click 📸 trên row để chụp lại bằng frame hiện tại. Gọi từ nút
+    // X overlay trên thumbnail (visible khi hover).
+    async function _deleteSnapByComment(commentId, snapId) {
+        if (!commentId) return;
+        if (!confirm('Xóa thumbnail snap? Sau đó dùng nút 📸 trên comment để chụp lại.')) {
+            return;
+        }
+        try {
+            // Backend xóa qua snap.id. Nếu thiếu snapId (snap row null trong cache)
+            // → fallback resolve qua by-comment-ids.
+            let resolvedId = snapId;
+            if (!resolvedId) {
+                const r = await fetch(
+                    API +
+                        '/api/livestream/snapshots/by-comment-ids?commentIds=' +
+                        encodeURIComponent(commentId),
+                    { credentials: 'omit' }
+                );
+                const d = await r.json();
+                resolvedId = d?.byCommentId?.[commentId]?.id;
+            }
+            if (!resolvedId) {
+                _toast('Không tìm thấy snap để xóa', 'err');
+                return;
+            }
+            const r = await fetch(API + '/api/livestream/snapshot/' + resolvedId, {
+                method: 'DELETE',
+                credentials: 'omit',
+            });
+            const d = await r.json();
+            if (!d.success) throw new Error(d.error || 'delete failed');
+            // Clear local cache → re-queue → fetch DB sẽ trả null → row trở
+            // về trạng thái "chưa snap". User click 📸 để chụp lại.
+            STATE.snapByComment.delete(commentId);
+            _renderThumbStripFor(commentId);
+            _queueSnapByComment(commentId);
+            _toast('✅ Đã xóa thumbnail — bấm 📸 trên comment để chụp lại', 'ok');
+        } catch (e) {
+            _toast('Lỗi xóa thumbnail: ' + e.message, 'err');
+        }
+    }
+
     // Clear STATE.snapByComment + re-queue mọi comment row visible. Gọi sau
     // Force extract done để frontend lấy fresh data (lúc trước có thể là null
     // hoặc snap chưa có bytea — giờ DB đã có bytea cho rows extracted thành công).
@@ -2222,18 +2265,46 @@ Throttle 30s/KH.`;
                 Number.isFinite(data.offsetSeconds) && data.offsetSeconds >= 0
                     ? `${Math.floor(data.offsetSeconds / 60)}m${data.offsetSeconds % 60}s`
                     : '?';
+            // Wrapper cho img + nút X xóa. Nút X hidden default, hover-show.
             strip.innerHTML = `
-                <img src="${_esc(data.thumbnailUrl)}"
-                     alt=""
-                     loading="lazy"
-                     class="tpos-snap-thumb-img snap-pop-thumb"
-                     data-snap-url="${_esc(data.livestreamUrl || '')}"
-                     data-snap-offset="${data.offsetSeconds ?? ''}"
-                     title="Snapshot lúc Live @ ${offsetText} — hover zoom · click mở lớn"
-                     style="width:72px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;cursor:zoom-in;display:block;background:#f1f5f9;box-shadow:0 1px 3px rgba(0,0,0,0.08);"
-                     onerror="this.style.background='#fee2e2';this.removeAttribute('src');" />
+                <div class="tpos-snap-thumb-wrap" style="position:relative;display:inline-block;">
+                    <img src="${_esc(data.thumbnailUrl)}"
+                         alt=""
+                         loading="lazy"
+                         class="tpos-snap-thumb-img snap-pop-thumb"
+                         data-snap-url="${_esc(data.livestreamUrl || '')}"
+                         data-snap-offset="${data.offsetSeconds ?? ''}"
+                         title="Snapshot lúc Live @ ${offsetText} — hover zoom · click mở lớn"
+                         style="width:72px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;cursor:zoom-in;display:block;background:#f1f5f9;box-shadow:0 1px 3px rgba(0,0,0,0.08);"
+                         onerror="this.style.background='#fee2e2';this.removeAttribute('src');" />
+                    <button type="button"
+                            class="tpos-snap-thumb-del"
+                            data-snap-id="${data.id || ''}"
+                            data-comment-id="${_esc(commentId)}"
+                            title="Xóa thumbnail — chụp lại bằng nút 📸"
+                            style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#dc2626;color:#fff;border:2px solid #fff;font-size:11px;font-weight:700;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;box-shadow:0 2px 6px rgba(220,38,38,0.4);">×</button>
+                </div>
             `;
+            const wrap = strip.querySelector('.tpos-snap-thumb-wrap');
             const img = strip.querySelector('img');
+            const delBtn = strip.querySelector('.tpos-snap-thumb-del');
+            // Hover wrap → show del button
+            if (wrap && delBtn) {
+                wrap.addEventListener('mouseenter', () => {
+                    delBtn.style.display = 'flex';
+                });
+                wrap.addEventListener('mouseleave', () => {
+                    delBtn.style.display = 'none';
+                });
+            }
+            if (delBtn) {
+                delBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    _hideZoomPreview();
+                    await _deleteSnapByComment(commentId, data.id);
+                });
+            }
             if (img) {
                 img.addEventListener('click', (e) => {
                     e.stopPropagation();

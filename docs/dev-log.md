@@ -25,6 +25,38 @@
 
 ## 2026-05-26
 
+### [tpos-pancake] Nút X xóa thumbnail trên hover — chụp nhầm có thể xóa và snap lại ✅
+
+**User ask**: "cho nút xóa thumbnail vì có khi chụp nhầm cần cập nhật lại"
+
+**Implementation** (`tpos-pancake/js/tpos/tpos-livestream-snap.js`):
+
+1. `_renderThumbStripFor()` — wrap img trong `<div.tpos-snap-thumb-wrap>` + nút `<button.tpos-snap-thumb-del>` overlay:
+    - Position absolute top-right corner thumb (`-6px`/`-6px`)
+    - Đỏ tròn 18x18px với "×", hidden default
+    - `mouseenter` wrap → show, `mouseleave` → hide
+    - `data-snap-id` + `data-comment-id` để handler resolve target
+
+2. `_deleteSnapByComment(commentId, snapId)` mới:
+    - Confirm dialog
+    - Nếu thiếu snapId (snap row null trong cache) → fallback resolve qua `GET /snapshots/by-comment-ids`
+    - `DELETE /api/livestream/snapshot/:id` (endpoint backend đã sẵn có từ trước)
+    - `STATE.snapByComment.delete(commentId)` → wipe cache
+    - `_renderThumbStripFor(commentId)` ngay → xóa thumbnail UI
+    - `_queueSnapByComment(commentId)` → debounced re-fetch (sẽ trả null → row trở về trạng thái "chưa snap")
+    - Toast "✅ Đã xóa thumbnail — bấm 📸 trên comment để chụp lại"
+
+**UX flow**:
+
+- Hover lên thumbnail → nút X hiện
+- Click X → confirm → DELETE → thumbnail mất → nút 📸 trên comment row vẫn còn để chụp lại với frame hiện tại
+
+**Cache bust**: `v=20260526q` → `v=20260526r`
+
+**Files**: tpos-pancake/js/tpos/tpos-livestream-snap.js, tpos-pancake/index.html
+
+---
+
 ### [delivery-report/report] Shift data flow correct: source rows empty + aggregate đầy đủ ✅
 
 **User ask**: "chỉnh ngày hiển thị 02/05 → dữ liệu 29/04, 30/04 sẽ hiển thị trong ngày 02/05 bất kể chỉnh filter nào → cột 29/04, 30/04 cũ dữ liệu sẽ rỗng"
