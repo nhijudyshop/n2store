@@ -478,6 +478,37 @@ SSE stream nhận: event: update\ndata: {key:web2:products, data:{action,code,ts
 
 ---
 
+### [docs][web2] SSE-first rule cho mọi feature/page mới — meta-instruction ✅
+
+**User ask**: "thêm vào devlog, memory, claude → có server sse socket realtime listening, reading dữ liệu log để ui realtime, cập nhật dữ liệu không cần refresh, đồng bộ giữa các máy với nhau → nên lúc nào code chức năng mới hoặc trang mới thì biết có server sse để dùng log server nếu cần thiết".
+
+**Tóm**: project có sẵn server SSE realtime + log buffer + Admin Monitor. Khi code BẤT KỲ feature/page mới có data động → MẶC ĐỊNH dùng SSE thay vì polling/Firestore/refresh-tay.
+
+**Files**:
+
+- **EDIT** `CLAUDE.md` section "SSE Server TÁCH RIÊNG" — thêm subsection "⚡ SSE-first khi code chức năng / trang mới (BẮT BUỘC NHỚ)" với:
+    - 3 lợi ích SSE đã sẵn có (UI không refresh / sync giữa máy / log server)
+    - Anti-patterns (polling, Firestore listener, manual refresh, WebSocket khi không cần)
+    - Quy trình 6 bước khi code feature mới
+    - Topics đã active list
+- **EDIT** memory `reference_sse_servers_unified.md` — thêm "Rule quan trọng nhất" ở đầu file, mô tả SSE-first default
+- **EDIT** `docs/dev-log.md` — entry này (meta-instruction note)
+
+**Áp dụng từ giờ**:
+
+Khi user yêu cầu code feature/page có data thay đổi (CRUD, status update, counter, list, kanban, …), trước khi viết code:
+
+1. Hỏi: "Có cần realtime sync không?" — gần như luôn là CÓ (nếu nhiều user/tab dùng cùng lúc)
+2. Nếu có → wire qua SSE pattern thay vì polling/Firestore
+3. Verify ngay bằng Admin SSE Monitor (`web2/admin-sse-monitor/`)
+4. Document topic mới trong `docs/web2/SSE-REALTIME.md` §9
+
+Không cần hỏi lại user — đây là default behaviour của project Web 2.0 từ 2026-05-26.
+
+**Status**: ✅ Done. Saved trong 3 nơi để Claude session tương lai (qua chain walking + folder snapshot) đều thấy rule này.
+
+---
+
 ### [web2][render] Admin SSE Monitor — trang xem realtime SSE log từ browser ✅
 
 **User ask**: "admin có 1 nút ở menu bấm bật lên xem được realtime sse log đang chạy".
