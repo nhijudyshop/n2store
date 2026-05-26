@@ -1135,12 +1135,11 @@
                 scheduleRender();
                 return;
             }
-            // Unmerge
+            // Unmerge — no confirm, instant action (user feedback request)
             const unmerge = e.target.closest && e.target.closest('button[data-action="unmerge"]');
             if (unmerge) {
                 const tr = unmerge.closest('tr[data-merge-id]');
                 if (!tr) return;
-                if (!confirm('Bỏ gộp nhóm này?')) return;
                 const id = Number(tr.dataset.mergeId);
                 deleteMerge(id).finally(() => scheduleRender());
                 return;
