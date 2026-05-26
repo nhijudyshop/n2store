@@ -3,13 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8ba15ad` — feat(delivery-assignments): POST /sync-dates — bulk fix ghost qua UPDATE assignment_date + bulk hide
-**Last updated**: 2026-05-26 09:48:46 +07
-**Latest session**: [`RESUME:20260526-094846-8ba15ad`](../20260526-094846-8ba15ad.md)
-**Summary**: feat(delivery-assignments): POST /sync-dates — bulk fix ghost qua UPDATE assignment_date + bulk hide
+**Latest commit**: `a28d398` — feat(product-warehouse): UX redesign — header add-btn + collapsible filters + selection-only bulk
+**Last updated**: 2026-05-26 09:55:54 +07
+**Latest session**: [`RESUME:20260526-095554-a28d398`](../20260526-095554-a28d398.md)
+**Summary**: feat(product-warehouse): UX redesign — header add-btn + collapsible filters + selection-only bulk
 
 ## Folders affected in this commit
 
+- [`delivery-report/`](./delivery-report.md) — 1 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 3 file(s)
 - [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
@@ -23,7 +25,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 09:25
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 09:55
 - [`docs/`](./docs.md) — updated 2026-05-25 19:28
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
@@ -44,12 +46,12 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-05-25 14:08
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 09:45
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 09:55
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-26 09:48
+- [`render.com/`](./render.com.md) — updated 2026-05-26 09:55
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-25 19:19
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
