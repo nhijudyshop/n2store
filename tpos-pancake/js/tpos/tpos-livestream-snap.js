@@ -1105,15 +1105,14 @@ Throttle 30s/KH.`;
             console.log('[snap-auto] skip — snap đã có bytea cho commentId', commentId);
             return;
         }
-        // Throttle per customer
-        const lastTs = STATE.autoLastSnap.get(customerFbUserId) || 0;
-        const now = Date.now();
-        if (now - lastTs < AUTO_THROTTLE_MS) {
-            STATE.autoStats.throttled++;
-            renderAutoModeChip();
-            return;
-        }
-        STATE.autoLastSnap.set(customerFbUserId, now);
+        // User feedback 2026-05-26: bỏ throttle per-customer (trước đây 30s/KH)
+        // → mỗi comment unique đều snap, không drop. Dedup đã có ở line trên
+        // qua commentId (existingSnap check + backend DB unique constraint).
+        // Spam capture không vấn đề vì:
+        //   1. commentId unique → backend dedup, không tạo bản ghi trùng
+        //   2. Chrome rate-limit captureVisibleTab ~2/sec — đủ rộng
+        //   3. Throttle per-customer chặn quá tay khi KH spam 2-3 comment liền
+        STATE.autoLastSnap.set(customerFbUserId, Date.now());
         try {
             const hasBufferedFrames =
                 (STATE.captureStream && STATE.captureVideo?.videoWidth) ||
