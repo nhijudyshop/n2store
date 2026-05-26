@@ -25,6 +25,41 @@
 
 ## 2026-05-26
 
+### [web2/customer-wallet, partner-customer] Perf — server-side paging cho 100k KH ✅
+
+**User ask**: "customer-wallet, partner-customer load lâu → làm paging và cải thiện tốc độ 2 trang dữ liệu nhiều này → dữ liệu lên tới 100k khách"
+
+**Diagnosis**:
+
+- `customer-wallet` cũ KHÔNG paginate: fetch 10k PBH + 4k native orders + 2k wallets upfront → aggregate client-side. Sau đó gọi N WITHDRAW txn fetches (1/KH với concurrency 5) cho TẤT CẢ KH → 472 KH hiện tại = 472 API calls; 100k → 100k calls = death. Plus TPOS enrich listByPhones cho TẤT CẢ phone → TPOS rate limit hit.
+- `partner-customer` đã paged ở OData level (50/page) NHƯNG mỗi load fire 7 song song `getStats` ($count cho mỗi status) → ở 100k records mỗi $count scan ~2-4s → mỗi paging/search/filter blocks tới 3-5s vì await Promise.all.
+
+**Backend** ([render.com/routes/v2/web2-customer-wallet.js](render.com/routes/v2/web2-customer-wallet.js) — file mới):
+
+- `GET /api/web2/customer-wallet/aggregate?limit=&offset=&sort=&filter=&search=` — single SQL CTE join giữa `fast_sale_orders` + `native_orders` + `web2_customer_wallets` + `web2_wallet_transactions` (returns) → trả paged customer cards với `totalPurchased / paidAmount / returnedAmount / balance / walletBalance` pre-computed. Filter `all|debt|has_balance|paid_off`. Sort `balance-desc|balance-asc|wallet-desc|total-desc|paid-desc|name-asc`. Search: digits → `phone LIKE`, text → `name ILIKE`.
+- `GET /api/web2/customer-wallet/stats` — overall counts/totals (debt_count, has_balance_count, total_debt, total_paid, …), cache 5s TTL in-memory để chống hammering khi user click filter rapid.
+- Tên KH: COALESCE(pbh.partner_name, native.customer_name, phone) — server trả tên mà không cần TPOS round-trip cho card thường.
+- Excluded states: `cancel/cancelled/canceled/huy/hủy` — match aggregateFromPbh logic frontend cũ.
+
+**Frontend** ([web2/customer-wallet/js/web2-customer-wallet-app.js](web2/customer-wallet/js/web2-customer-wallet-app.js) + [index.html](web2/customer-wallet/index.html) + [customer-wallet.css](web2/customer-wallet/css/customer-wallet.css)):
+
+- `state` đổi từ `{customers, web2Wallets, web2ReturnAmounts, tposPartners}` (toàn bộ data client) sang `{rows, total, page, pageSize, cache, stats, tposPartners}` (chỉ current page + global stats từ server).
+- `load()` rewrite: call `/aggregate` + `/stats` parallel, render ngay khi list về (~200ms ở 100k thay vì 10s+ trước).
+- Pagination footer added: `«‹ 1 2 3 ... ›»` + size selector 30/50/100/200.
+- TPOS enrich chỉ chạy cho 50 phones của current page (concurrency 8) — không spam TPOS với 100k requests nữa.
+- Detail modal: PBH lazy-fetch khi mở (gọi `/api/v2/customers/by-phone/:phone/orders`) thay vì preload tất cả.
+- CSV export: fetch 500 rows từ server theo filter hiện tại (thay vì client-side iterate).
+- SSE realtime: debounce reload current page (server returns fresh aggregates) thay vì N per-customer refresh.
+
+**Frontend partner-customer** ([web2/partner-customer/js/partner-customer-app.js](web2/partner-customer/js/partner-customer-app.js)):
+
+- Tách `loadStats()` khỏi `load()` — load fetches list (1 OData call) và render ngay; stats fires-and-forget async sau.
+- Stats cache 5s TTL theo `statsSignature()` (search+status+email+tag+active+group) → pagination trong cùng filter set không refetch 7 $count nữa. UX: filter sang trang khác instant; chỉ initial load + filter change phải đợi stats.
+
+**Verify**: backend `node -c` OK. partner-customer browser test: 50 rows render + stats 91.876 KH loaded (sau khi list render xong). Customer-wallet đang chờ Render deploy `/api/web2/customer-wallet/*` mới (currently 404).
+
+**Status**: ✅ Done frontend + backend. Render auto-deploy ~3-5 phút sau push.
+
 ### [issue-tracking] Ẩn hiện cột BÁN HÀNG + TRẢ HÀNG — default ẩn Kênh + PBH gốc ✅
 
 **User ask**: "cho nút ẩn hiện cột → mặc định ẩn cột Kênh đi" → "bên `#tra-hang` ẩn cột PBH gốc".
