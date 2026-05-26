@@ -404,31 +404,33 @@
         const tpl = `
         <div class="dr-report-overlay" id="drReportModal" role="dialog" aria-modal="true">
           <div class="dr-report-window">
-            <div class="dr-report-header">
-              <div class="dr-report-title">
-                <i class="fas fa-chart-bar"></i> Báo cáo
-                <span class="dr-report-subtitle" id="drReportRangeLabel"></span>
-                <span class="dr-report-hint" title="SL ĐƠN và TIỀN chỉ tính các đơn đã quét xác nhận giao thành công">
-                  <i class="fas fa-info-circle"></i> chỉ tính đơn đã quét
-                </span>
-              </div>
-              <button class="dr-report-close" id="drReportClose" title="Đóng (ESC)">&times;</button>
-            </div>
-
-            <div class="dr-report-toolbar">
-              <div class="dr-report-range">
-                <label>Từ <input type="date" id="drReportFrom" /></label>
-                <span>→</span>
-                <label>Đến <input type="date" id="drReportTo" /></label>
-                <div class="dr-report-presets">
-                  <button data-preset="today">Hôm nay</button>
-                  <button data-preset="yesterday">Hôm qua</button>
-                  <button data-preset="last7">7 ngày</button>
-                  <button data-preset="thisMonth">Tháng này</button>
-                  <button data-preset="lastMonth">Tháng trước</button>
+            <div class="dr-report-sticky-top" id="drReportStickyTop">
+              <div class="dr-report-header">
+                <div class="dr-report-title">
+                  <i class="fas fa-chart-bar"></i> Báo cáo
+                  <span class="dr-report-subtitle" id="drReportRangeLabel"></span>
+                  <span class="dr-report-hint" title="SL ĐƠN và TIỀN chỉ tính các đơn đã quét xác nhận giao thành công">
+                    <i class="fas fa-info-circle"></i> chỉ tính đơn đã quét
+                  </span>
                 </div>
+                <button class="dr-report-close" id="drReportClose" title="Đóng (ESC)">&times;</button>
               </div>
-              <div class="dr-report-tabs" id="drReportTabs"></div>
+
+              <div class="dr-report-toolbar">
+                <div class="dr-report-range">
+                  <label>Từ <input type="date" id="drReportFrom" /></label>
+                  <span>→</span>
+                  <label>Đến <input type="date" id="drReportTo" /></label>
+                  <div class="dr-report-presets">
+                    <button data-preset="today">Hôm nay</button>
+                    <button data-preset="yesterday">Hôm qua</button>
+                    <button data-preset="last7">7 ngày</button>
+                    <button data-preset="thisMonth">Tháng này</button>
+                    <button data-preset="lastMonth">Tháng trước</button>
+                  </div>
+                </div>
+                <div class="dr-report-tabs" id="drReportTabs"></div>
+              </div>
             </div>
 
             <div class="dr-report-table-wrap">
@@ -446,6 +448,7 @@
                   <th class="num input-col">CK TRƯỚC</th>
                   <th class="num">TỔNG CÒN LẠI</th>
                   <th>GHI CHÚ</th>
+                  <th class="dr-report-th-approve" title="Đánh dấu đã duyệt — TỔNG CÒN LẠI về 0đ, dòng mờ đi">DUYỆT</th>
                 </tr></thead>
                 <tbody id="drReportTbody"></tbody>
                 <tfoot id="drReportTfoot"></tfoot>
@@ -458,6 +461,23 @@
         // Inject inside the main container so layout flows naturally (no overlay)
         const host = document.querySelector('.delivery-report-container') || document.body;
         host.appendChild(wrapper.firstChild);
+
+        // Sticky-top: cập nhật CSS var --dr-sticky-top-height = height của
+        // sticky header (title + filter + tabs) → thead's `top` được CSS dùng
+        // để dán xuống dưới sticky header chính xác, không cần magic number.
+        const stickyEl = document.getElementById('drReportStickyTop');
+        const modalEl = document.getElementById('drReportModal');
+        if (stickyEl && modalEl) {
+            const updateStickyHeight = () => {
+                const h = stickyEl.offsetHeight || 0;
+                modalEl.style.setProperty('--dr-sticky-top-height', h + 'px');
+            };
+            updateStickyHeight();
+            if (typeof ResizeObserver !== 'undefined') {
+                new ResizeObserver(updateStickyHeight).observe(stickyEl);
+            }
+            window.addEventListener('resize', updateStickyHeight, { passive: true });
+        }
 
         // Wire close (no overlay backdrop click — view-swap mode, ESC still works)
         document.getElementById('drReportClose').addEventListener('click', close);
@@ -585,7 +605,7 @@
 
         if (dates.length === 0) {
             document.getElementById('drReportTbody').innerHTML =
-                '<tr><td colspan="12" class="dr-report-empty">Chọn khoảng ngày để xem báo cáo</td></tr>';
+                '<tr><td colspan="13" class="dr-report-empty">Chọn khoảng ngày để xem báo cáo</td></tr>';
             document.getElementById('drReportTfoot').innerHTML = '';
             return;
         }
@@ -616,7 +636,7 @@
 
         // Cold cache → show loading + async fetch
         document.getElementById('drReportTbody').innerHTML =
-            '<tr><td colspan="12" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>';
+            '<tr><td colspan="13" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>';
         document.getElementById('drReportTfoot').innerHTML = '';
         fetchRange(realFrom, realTo).then(({ byDateGroup }) => {
             const curRealFrom = entryToReal(state.fromDate);
@@ -655,7 +675,12 @@
             const boCK = Number(ov.boCK) || 0;
             const atruongCK = Number(ov.atruongCK) || 0;
             const ckTruoc = Number(ov.ckTruoc) || 0;
-            const totalLeft = totalAll - boCK - atruongCK - ckTruoc;
+            const approved = !!ov.approved;
+            // Duyệt → TỔNG CÒN LẠI hiển thị 0đ + row mờ. Vẫn cộng totals theo
+            // giá trị thực, KHÔNG ép tổng = 0 (đơn duyệt = đã thanh toán đối,
+            // tổng cộng dồn của ngày vẫn phản ánh số gốc cho audit).
+            const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
+            const totalLeftDisplay = approved ? 0 : totalLeftRaw;
             const note = ov.note || '';
 
             totals.slDon += slDon;
@@ -667,10 +692,11 @@
             totals.boCK += boCK;
             totals.atruongCK += atruongCK;
             totals.ckTruoc += ckTruoc;
-            totals.totalLeft += totalLeft;
+            // Footer total cũng tôn trọng duyệt — đơn đã duyệt = 0 trong tổng còn lại
+            totals.totalLeft += approved ? 0 : totalLeftRaw;
 
             const hasImg = hasImageFlag(d, state.activeTab);
-            return `<tr data-date="${d}">
+            return `<tr data-date="${d}" class="${approved ? 'is-approved' : ''}">
                 <td class="date clickable" data-action="toggle-expand" title="Bấm để xem danh sách ${slDon} đơn (ngày thật: ${formatDDMMYYYY(d)})"><i class="fas fa-chevron-right dr-expand-chevron"></i> ${formatDDMMYYYY(realToEntry(d))}</td>
                 <td class="num strong clickable" data-action="toggle-expand" title="Bấm để xem chi tiết ${slDon} đơn">${formatNumber(slDon)}</td>
                 <td class="num clickable money-cell ${hasImg ? 'has-img' : 'no-img'}" data-action="open-img" title="${hasImg ? 'Bấm để xem/sửa ảnh' : 'Bấm để thêm ảnh chứng từ'}">
@@ -684,8 +710,9 @@
                 <td class="num"><input type="text" data-field="boCK" value="${boCK ? formatMoney(boCK) : ''}" placeholder="0" /></td>
                 <td class="num"><input type="text" data-field="atruongCK" value="${atruongCK ? formatMoney(atruongCK) : ''}" placeholder="0" /></td>
                 <td class="num"><input type="text" data-field="ckTruoc" value="${ckTruoc ? formatMoney(ckTruoc) : ''}" placeholder="0" /></td>
-                <td class="num strong ${totalLeft < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeft)}</td>
+                <td class="num strong ${totalLeftDisplay < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeftDisplay)}</td>
                 <td class="note-cell"><textarea data-field="note" rows="1" placeholder="Ghi chú…">${escapeHtml(note)}</textarea></td>
+                <td class="dr-report-td-approve"><label class="dr-approve-toggle" title="${approved ? 'Bỏ duyệt' : 'Duyệt — tổng còn lại về 0, dòng mờ'}"><input type="checkbox" data-field="approved" ${approved ? 'checked' : ''} /><span></span></label></td>
             </tr>`;
         });
 
@@ -703,6 +730,7 @@
             <th class="num">${formatMoney(totals.atruongCK)}</th>
             <th class="num">${formatMoney(totals.ckTruoc)}</th>
             <th class="num strong ${totals.totalLeft < 0 ? 'negative' : 'positive'}">${formatMoney(totals.totalLeft)}</th>
+            <th></th>
             <th></th>
         </tr>`;
 
@@ -750,6 +778,19 @@
             ) {
                 e.target.blur();
             }
+        });
+
+        // Checkbox approved cần listen 'change' (focusout không reliable cho checkbox)
+        tbody.addEventListener('change', (e) => {
+            const el = e.target;
+            if (!el || el.type !== 'checkbox' || el.dataset.field !== 'approved') return;
+            const row = el.closest('tr[data-date]');
+            if (!row) return;
+            const ov = getOverride(row.dataset.date, state.activeTab);
+            const next = !!el.checked;
+            if (!!ov.approved === next) return;
+            setOverride(row.dataset.date, state.activeTab, { approved: next });
+            scheduleRender();
         });
 
         tbody.addEventListener('click', (e) => {
@@ -817,7 +858,7 @@
 
         const date = row.dataset.date;
         const group = state.activeTab;
-        const colCount = 12; // số cột table — đồng bộ với colspan empty/loading state
+        const colCount = 13; // số cột table — đồng bộ với colspan empty/loading state
 
         const loadingTr = document.createElement('tr');
         loadingTr.className = 'dr-expand-row';

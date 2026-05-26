@@ -1036,6 +1036,11 @@ async function ensureOverridesSchema(pool) {
             PRIMARY KEY (assignment_date, group_name)
         )
     `);
+    // Idempotent ALTER — thêm column approved nếu chưa có (deploy < 2026-05-26).
+    await pool.query(`
+        ALTER TABLE delivery_assignment_overrides
+        ADD COLUMN IF NOT EXISTS approved BOOLEAN NOT NULL DEFAULT FALSE
+    `);
     await pool.query(`
         CREATE INDEX IF NOT EXISTS idx_delivery_assignment_overrides_date
         ON delivery_assignment_overrides(assignment_date)
@@ -1050,6 +1055,7 @@ function rowToOverride(row) {
         atruongCK: Number(row.atruong_ck) || 0,
         ckTruoc: Number(row.ck_truoc) || 0,
         note: row.note || '',
+        approved: !!row.approved,
     };
 }
 
@@ -1061,7 +1067,8 @@ function isOverrideEmpty(o) {
         !Number(o.boCK || 0) &&
         !Number(o.atruongCK || 0) &&
         !Number(o.ckTruoc || 0) &&
-        !(o.note && String(o.note).trim())
+        !(o.note && String(o.note).trim()) &&
+        !o.approved
     );
 }
 
@@ -1075,7 +1082,7 @@ router.get('/overrides', async (req, res) => {
         }
         const result = await db.query(
             `SELECT assignment_date::text AS date, group_name,
-                    sl_ship, thu_ve, bo_ck, atruong_ck, ck_truoc, note,
+                    sl_ship, thu_ve, bo_ck, atruong_ck, ck_truoc, note, approved,
                     updated_at, updated_by
              FROM delivery_assignment_overrides
              WHERE assignment_date BETWEEN $1 AND $2`,
@@ -1112,6 +1119,7 @@ router.put('/overrides/:date/:group', async (req, res) => {
             atruongCK: Number(body.atruongCK) || 0,
             ckTruoc: Number(body.ckTruoc) || 0,
             note: String(body.note || '').trim(),
+            approved: !!body.approved,
         };
         if (isOverrideEmpty(ov)) {
             // Empty → DELETE để storage sạch
@@ -1129,8 +1137,8 @@ router.put('/overrides/:date/:group', async (req, res) => {
         const user = getUserFromHeaders(req);
         await db.query(
             `INSERT INTO delivery_assignment_overrides
-                (assignment_date, group_name, sl_ship, thu_ve, bo_ck, atruong_ck, ck_truoc, note, updated_by, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+                (assignment_date, group_name, sl_ship, thu_ve, bo_ck, atruong_ck, ck_truoc, note, approved, updated_by, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
              ON CONFLICT (assignment_date, group_name) DO UPDATE
              SET sl_ship = EXCLUDED.sl_ship,
                  thu_ve = EXCLUDED.thu_ve,
@@ -1138,9 +1146,21 @@ router.put('/overrides/:date/:group', async (req, res) => {
                  atruong_ck = EXCLUDED.atruong_ck,
                  ck_truoc = EXCLUDED.ck_truoc,
                  note = EXCLUDED.note,
+                 approved = EXCLUDED.approved,
                  updated_by = EXCLUDED.updated_by,
                  updated_at = NOW()`,
-            [date, group, ov.slShip, ov.thuVe, ov.boCK, ov.atruongCK, ov.ckTruoc, ov.note, user]
+            [
+                date,
+                group,
+                ov.slShip,
+                ov.thuVe,
+                ov.boCK,
+                ov.atruongCK,
+                ov.ckTruoc,
+                ov.note,
+                ov.approved,
+                user,
+            ]
         );
         res.json({ success: true, data: { date, group, override: ov } });
     } catch (err) {
