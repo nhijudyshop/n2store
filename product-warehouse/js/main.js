@@ -21,26 +21,33 @@
     // =====================================================
     // COLUMN DEFINITIONS (order matches screenshot)
     // =====================================================
+    // Default visibility: keep core data columns shown, hide secondary metadata.
+    // Hidden cột theo yêu cầu user (per UX redesign 2026-05-26):
+    //   group / unit / label / active / allCompany / note / createdAt / company / creator
+    // User vẫn có thể bật lại qua "Cài đặt cột" (localStorage override).
     const COLUMNS = [
         { key: 'code', label: 'Mã', visible: true, locked: false },
         { key: 'name', label: 'Tên', visible: true, locked: false },
-        { key: 'group', label: 'Nhóm sản phẩm', visible: true, locked: false },
+        { key: 'group', label: 'Nhóm sản phẩm', visible: false, locked: false },
         { key: 'price', label: 'Giá bán', visible: true, locked: false },
         { key: 'defaultBuyPrice', label: 'Giá mua mặc định', visible: true, locked: false },
         { key: 'costPrice', label: 'Giá vốn', visible: true, locked: false },
         { key: 'qtyActual', label: 'Số lượng thực tế', visible: true, locked: false },
         { key: 'qtyForecast', label: 'Số lượng dự báo', visible: true, locked: false },
-        { key: 'unit', label: 'Đơn vị', visible: true, locked: false },
-        { key: 'label', label: 'Nhãn', visible: true, locked: false },
-        { key: 'active', label: 'Hiệu lực', visible: true, locked: false },
-        { key: 'allCompany', label: 'All company', visible: true, locked: false },
-        { key: 'note', label: 'Ghi chú', visible: true, locked: false },
-        { key: 'createdAt', label: 'Ngày tạo', visible: true, locked: false },
-        { key: 'company', label: 'Công ty', visible: true, locked: false },
-        { key: 'creator', label: 'Người tạo', visible: true, locked: false },
+        { key: 'unit', label: 'Đơn vị', visible: false, locked: false },
+        { key: 'label', label: 'Nhãn', visible: false, locked: false },
+        { key: 'active', label: 'Hiệu lực', visible: false, locked: false },
+        { key: 'allCompany', label: 'All company', visible: false, locked: false },
+        { key: 'note', label: 'Ghi chú', visible: false, locked: false },
+        { key: 'createdAt', label: 'Ngày tạo', visible: false, locked: false },
+        { key: 'company', label: 'Công ty', visible: false, locked: false },
+        { key: 'creator', label: 'Người tạo', visible: false, locked: false },
     ];
 
-    const STORAGE_KEY = 'n2store_warehouse_columns';
+    // Bump storage key version (v2) so existing users get new defaults the FIRST time
+    // they load this build — old key `n2store_warehouse_columns` (all-visible) becomes
+    // stale and is ignored. After v2 read, save() persists their preference.
+    const STORAGE_KEY = 'n2store_warehouse_columns_v2';
 
     // Sort field mapping (local key → Render DB column)
     const SORT_FIELD_MAP = {
