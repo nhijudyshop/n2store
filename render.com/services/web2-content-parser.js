@@ -133,6 +133,23 @@ function extractACBPrefix(content) {
     return { shopAcc: m[1], rest: m[2] };
 }
 
+// ────────────── Dash-GD phone hint ──────────────
+// Pattern: '<x>-GD-<digit5-7>-<date>' where the middle digit is the
+// customer phone suffix (verified prod: MeiguiHuang47908-GD-936769-...,
+// TRUONG THI KIM SA size1 252464-GD-820543-...). The legacy bank ref
+// pattern is 'GD <digits><letters>' (with space + alnum letters); only
+// the dash-wrapped pure-numeric one is customer-typed.
+function findDashGdPhones(content) {
+    const out = [];
+    if (!content) return out;
+    const re = /[-\s]GD[-\s](\d{5,7})(?:[-\s]|$)/gi;
+    let m;
+    while ((m = re.exec(content)) !== null) {
+        out.push(m[1]);
+    }
+    return out;
+}
+
 // ────────────── Phone candidate extraction ──────────────
 // Returns sorted candidates with priority hint
 function extractPhoneCandidates(content, blacklist = []) {
@@ -171,6 +188,9 @@ function extractPhoneCandidates(content, blacklist = []) {
     const blacklistSet = new Set(blacklist || []);
     const candidates = [];
 
+    // Boost: phones in '-GD-<digit>-' pattern (customer-typed)
+    const dashGdHints = new Set(findDashGdPhones(content));
+
     // Add exact phones first (priority by appearance order)
     for (const p of exactMatches) {
         if (blacklistSet.has(p)) continue;
@@ -183,7 +203,7 @@ function extractPhoneCandidates(content, blacklist = []) {
         if (blacklistSet.has(p)) continue;
         if (p.length > 10) continue; // tx IDs
         // priority: 6-digit = 10, 7-10 = 20, 5 = 30 (lower = higher priority)
-        const priority =
+        let priority =
             p.length === 6
                 ? 10
                 : p.length === 7
@@ -195,7 +215,10 @@ function extractPhoneCandidates(content, blacklist = []) {
                       : p.length === 5
                         ? 30
                         : 99;
-        candidates.push({ value: p, source: 'partial_phone', priority, type: 'partial_phone' });
+        // BOOST: appears in '-GD-<digit>-' pattern → much higher priority
+        if (dashGdHints.has(p)) priority = 5;
+        const src = dashGdHints.has(p) ? 'dash_gd_phone' : 'partial_phone';
+        candidates.push({ value: p, source: src, priority, type: 'partial_phone' });
     }
 
     // Sort by priority asc (lower wins)

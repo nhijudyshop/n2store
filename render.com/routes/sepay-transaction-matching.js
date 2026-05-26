@@ -186,11 +186,23 @@ function extractPhoneFromContent(content) {
                             : n.length === 5
                               ? 5
                               : 6;
+            // BOOST: phones trong '-GD-<digit>-' pattern (customer-typed, không
+            // phải bank ref). VD: 'TRUONG THI KIM SA size1 252464-GD-820543-...'
+            // → 252464 + 820543 cùng 6d, nhưng 820543 sau '-GD-' là phone đúng.
+            const dashGdRe = /[-\s]GD[-\s](\d{5,7})(?:[-\s]|$)/gi;
+            const dashGdSet = new Set();
+            let mGd;
+            while ((mGd = dashGdRe.exec(content)) !== null) {
+                dashGdSet.add(mGd[1]);
+            }
             const sortedPhones = [...phoneLikeNumbers].sort((a, b) => {
+                // Dash-GD phones LUÔN ưu tiên cao nhất
+                const ga = dashGdSet.has(a) ? 0 : 1;
+                const gb = dashGdSet.has(b) ? 0 : 1;
+                if (ga !== gb) return ga - gb;
                 const sa = lengthScore(a);
                 const sb = lengthScore(b);
                 if (sa !== sb) return sa - sb;
-                // Same length: keep original order (stable sort via indexOf)
                 return phoneLikeNumbers.indexOf(a) - phoneLikeNumbers.indexOf(b);
             });
             const partialPhone = sortedPhones[0];
