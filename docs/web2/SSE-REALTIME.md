@@ -279,6 +279,27 @@ Hiện tại hầu hết các module dùng debounce — chưa cần strict.
 
 ## 7. Verification & debugging
 
+### Admin SSE Monitor page — xem live activity từ browser
+
+Trang `/web2/admin-sse-monitor/` (sidebar "Tính năng mới" → "SSE Monitor (Admin)", chỉ admin thấy) hiển thị:
+
+- **Stats** (poll 2s): tổng subscriber, số topic active, events received page session, buffer seq
+- **Topics panel**: list topics đang được subscribe + count, sorted by count desc
+- **Live feed**: connect/disconnect/notify events trong realtime — auto-scroll, color-coded tags
+- **Toolbar**: pause/resume feed, filter text (topic/type/connectionId), clear, send test event
+
+Pattern dùng để debug:
+
+1. Mở SSE Monitor + 1 tab Web 2.0 khác (vd products)
+2. Mutate dữ liệu ở tab products → log entry `notify web2:products clientsNotified=N` hiển thị NGAY trong Monitor
+3. Nếu `clientsNotified=0` mà có tab đang mở → bridge cache cũ / subscribe sai topic
+4. Nếu không có log entry nào → route chưa gọi `_notify(action, code)` sau DB write
+
+Endpoint backing data:
+
+- `GET /api/realtime/web2/sse/log?since=<seq>&limit=<n>` — buffer 500 entries gần nhất (bootstrap khi mở page)
+- SSE topic `web2:_admin:sse-log` — live feed cho events mới (Web2SSE.subscribe)
+
 ### A. SSE endpoint sống không?
 
 ```bash

@@ -226,6 +226,33 @@ SSE stream nhận: event: update\ndata: {key:web2:products, data:{action,code,ts
 
 ---
 
+### [web2][render] Admin SSE Monitor — trang xem realtime SSE log từ browser ✅
+
+**User ask**: "admin có 1 nút ở menu bấm bật lên xem được realtime sse log đang chạy".
+
+**Files**:
+
+- **EDIT**: `render.com/routes/realtime-sse-web2.js` (+90 lines): ring buffer 500 entries (`recentLogs`) + seq monotonic; `_pushLog` hook vào 4 chỗ (connect, disconnect, notify success, notify zero-clients) + broadcast lên topic riêng `web2:_admin:sse-log`. Endpoint mới `GET /api/realtime/web2/sse/log?since=<seq>&limit=<n>` returns `{adminTopic, bufferSize, currentSeq, entries:[...]}`.
+- **CREATE**: `web2/admin-sse-monitor/index.html` + `js/monitor.js` (~650 lines): trang admin có header bar (live dot + status label), 4 stat cards (total subscriber, unique topics, events received, buffer seq), 2 panels (topics sorted by count + live activity feed), toolbar (pause/resume, text filter, clear, send test event). Color-coded log tags: connect(green)/disconnect(red)/notify(blue)/notify-0(yellow). Auto-scroll chỉ khi user gần bottom. Admin gate: `isAdmin || roleTemplate==='admin' || userType.startsWith('admin')` từ `loginindex_auth`.
+- **EDIT**: `web2/shared/tpos-sidebar.js`: thêm menu item "SSE Monitor (Admin)" trong "Tính năng mới" với `adminOnly: true`, helper `_isAdmin()` match `navigation-modern.js`, `renderItem` filter ẩn item cho non-admin, register vào `WEB2_PAGES`.
+
+**E2E verify post-deploy**:
+
+Admin curl subscribe `web2:_admin:sse-log` + 2 lần trigger test broadcast → admin stream nhận **3 log events**: `connect` (chính mình, seq=3), `notify web2:demo-topic action=demo-1 clientsNotified=0` (seq=4), `notify web2:products action=demo-2 clientsNotified=0` (seq=5). Ngay sau deploy buffer đã có real production event `web2:livestream-snapshots create → 0 clients` (seq=1) → broadcast pipeline hoạt động.
+
+**Cách dùng**:
+
+1. Login admin → sidebar Web 2.0 → "Tính năng mới" → "SSE Monitor (Admin)"
+2. Page show: stats poll 2s, topics list, live feed cuộn xuống dưới cùng
+3. Click "🚀 Send test" → prompt nhập topic → trigger broadcast → verify
+4. Filter "web2:products" → chỉ thấy events liên quan
+5. Mở thêm tab Web 2.0 khác + mutate dữ liệu → log entry `notify topic clientsNotified=N` xuất hiện ngay → verify pub/sub fire đúng
+6. Nếu `clientsNotified=0` dù có tab mở page → bridge cache cũ hoặc subscribe sai topic
+
+**Status**: ✅ Done + live verified. Server endpoint `/sse/log` + admin topic `web2:_admin:sse-log` + page `/web2/admin-sse-monitor/` + sidebar menu item.
+
+---
+
 ### [delivery-report/report] Phí ship per tab (tomato/nap=23k, city=20k) + settings popover + Admin gating ✅
 
 **User ask** (2 messages):
