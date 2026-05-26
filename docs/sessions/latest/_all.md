@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `df58398` — style(delivery-report/report): fix wrap "\$ 98.082.000" thanh 2 hang tren agg row
-**Last updated**: 2026-05-26 16:39:36 +07
-**Latest session**: [`RESUME:20260526-163936-df58398`](../20260526-163936-df58398.md)
-**Summary**: style(delivery-report/report): fix wrap "\$ 98.082.000" thanh 2 hang tren agg row
+**Latest commit**: `f7667cb` — feat(delivery-report): date shifts → server (cross-machine sync) + custom modal UI
+**Last updated**: 2026-05-26 17:02:34 +07
+**Latest session**: [`RESUME:20260526-170234-f7667cb`](../20260526-170234-f7667cb.md)
+**Summary**: feat(delivery-report): date shifts → server (cross-machine sync) + custom modal UI
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 1 file(s)
+- [`delivery-report/`](./delivery-report.md) — 3 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -23,8 +25,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 16:39
-- [`docs/`](./docs.md) — updated 2026-05-26 16:36
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 17:02
+- [`docs/`](./docs.md) — updated 2026-05-26 17:02
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -49,7 +51,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-26 14:08
+- [`render.com/`](./render.com.md) — updated 2026-05-26 17:02
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-26 13:38
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
