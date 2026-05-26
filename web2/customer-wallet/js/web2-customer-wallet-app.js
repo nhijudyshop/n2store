@@ -27,16 +27,26 @@
     const FALLBACK = 'https://n2store-fallback.onrender.com';
 
     const state = {
-        customers: {}, // { [phone]: { phone, name, totalPurchased, paidAmount, returnedAmount, balance, orders[], campaigns{} } }
-        web2Wallets: {}, // { [phone]: { phone, balance, total_deposited, total_withdrawn, customer_id } }
-        web2ReturnAmounts: {}, // { [phone]: number }
-        tposPartners: {}, // { [phone]: TPOS partner }
+        // Server-paged rows for current view (50/page typical, max 200)
+        rows: [],
+        total: 0,
+        page: 1,
+        pageSize: 50,
+        // Local cache: { [phone]: row } — populated as user pages through.
+        // Used for detail modal lookup + SSE in-place updates.
+        cache: {},
+        // Stats summary (aggregate across ALL customers, not just current page)
+        stats: {},
+        // TPOS partner enrichment per phone (only for visible page)
+        tposPartners: {},
         activePhone: null,
         detailTab: 'orders',
         sort: 'balance-desc',
         search: '',
-        quickFilter: 'all', // 'all' | 'debt' | 'has_balance' | 'vip' | 'bomb' | 'warning'
+        quickFilter: 'all', // server-side: all | debt | has_balance | paid_off | vip | bomb | warning
         loading: false,
+        // Detail-only data (fetched on openDetail)
+        detailOrders: [], // PBH list for active phone
     };
 
     // Diacritic strip (inline, no deps)
@@ -115,7 +125,55 @@
         return body;
     }
 
-    // ─── Data fetch ─────────────────────────────────────────────────
+    // ─── Aggregate endpoint (server-side join + paging) ────────────
+    const AGGREGATE_BASE = `${PROXY}/api/web2/customer-wallet`;
+    const AGGREGATE_FALLBACK = `${FALLBACK}/api/web2/customer-wallet`;
+
+    async function fetchAggregate(opts) {
+        const params = new URLSearchParams();
+        params.set('limit', String(opts.limit || 50));
+        params.set('offset', String(opts.offset || 0));
+        if (opts.sort) params.set('sort', opts.sort);
+        if (opts.filter && opts.filter !== 'all') params.set('filter', opts.filter);
+        if (opts.search) params.set('search', opts.search);
+        const qs = params.toString();
+        try {
+            return await jsonFetch(`${AGGREGATE_BASE}/aggregate?${qs}`);
+        } catch (e) {
+            return await jsonFetch(`${AGGREGATE_FALLBACK}/aggregate?${qs}`);
+        }
+    }
+
+    async function fetchAggregateStats() {
+        try {
+            return await jsonFetch(`${AGGREGATE_BASE}/stats`);
+        } catch (e) {
+            return await jsonFetch(`${AGGREGATE_FALLBACK}/stats`);
+        }
+    }
+
+    // ─── PBH-detail fetch (called only when opening a customer detail) ──
+    async function fetchPbhListForPhone(phone) {
+        // Sử dụng /api/customers/<phone>/orders cho detail view.
+        // Trả về { native:[], pbh:[] }.
+        try {
+            const data = await jsonFetch(
+                `${PROXY}/api/v2/customers/by-phone/${encodeURIComponent(phone)}/orders?limit=100`
+            );
+            return data?.data || data || { native: [], pbh: [] };
+        } catch (e) {
+            try {
+                const data = await jsonFetch(
+                    `${FALLBACK}/api/v2/customers/by-phone/${encodeURIComponent(phone)}/orders?limit=100`
+                );
+                return data?.data || data || { native: [], pbh: [] };
+            } catch (_) {
+                return { native: [], pbh: [] };
+            }
+        }
+    }
+
+    // ─── Legacy fetchers (kept for SSE refresh / single-phone use) ─────
     async function fetchPbhList(maxPages = 20, pageSize = 500) {
         const all = [];
         for (let page = 0; page < maxPages; page++) {
@@ -314,9 +372,14 @@
         dom.historyBody = document.getElementById('cwHistoryBody');
         dom.returnBtn = document.getElementById('cwReturnBtn');
         dom.payBtn = document.getElementById('cwPayBtn');
+        dom.pagination = document.getElementById('cwPagination');
+        dom.pageInfo = document.getElementById('cwPageInfo');
+        dom.pageButtons = document.getElementById('cwPageButtons');
+        dom.pageSize = document.getElementById('cwPageSize');
     }
 
     // ─── Render ─────────────────────────────────────────────────────
+    // Legacy compute kept for backwards-compat with detail modal callers
     function computeAllCustomerFields() {
         // Pre-compute fields cho TẤT CẢ customers (stats + filter cần)
         const arr = Object.values(state.customers);

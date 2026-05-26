@@ -7,9 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản lý Sự vụ & Điều phối sau bán hàng</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=20260526c">
-    <link rel="stylesheet" href="css/page-tabs.css?v=20260526c">
-    <link rel="stylesheet" href="../shared/css/modern.css?v=20260526c">
+    <link rel="stylesheet" href="css/style.css?v=20260526d">
+    <link rel="stylesheet" href="css/page-tabs.css?v=20260526d">
+    <link rel="stylesheet" href="../shared/css/modern.css?v=20260526d">
     <!-- Mermaid.js for Flow Diagrams -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <!-- Lucide Icons for Notifications -->
@@ -17,11 +17,11 @@
     <!-- Firebase SDK for menu layout sync -->
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="../shared/js/firebase-config.js?v=20260526c"></script>
+    <script src="../shared/js/firebase-config.js?v=20260526d"></script>
     <!-- Navigation (deferred) -->
-    <script defer src="../shared/js/navigation-modern.js?v=20260526c"></script>
-<link rel="stylesheet" href="../shared/css/typography.css?v=20260526c" /> <!-- typography:shared -->
-    <link rel="stylesheet" href="../shared/css/return-order.css?v=20260526c" />
+    <script defer src="../shared/js/navigation-modern.js?v=20260526d"></script>
+<link rel="stylesheet" href="../shared/css/typography.css?v=20260526d" /> <!-- typography:shared -->
+    <link rel="stylesheet" href="../shared/css/return-order.css?v=20260526d" />
 </head>
 
 <body>
@@ -227,6 +227,14 @@
                     </div>
                     <span class="tpos-fso-counter"><strong data-bind="count">0</strong> HĐ</span>
                 </header>
+                <div class="tpos-fso-toolbar tpos-fso-toolbar-sale">
+                    <div class="tpos-col-toggle" data-bind="colToggleWrap">
+                        <button type="button" class="tpos-fso-btn-secondary" data-bind="toggleCols" title="Ẩn / hiện cột">
+                            <i data-lucide="columns-3"></i> Ẩn hiện cột <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
+                        </button>
+                        <div class="tpos-col-dropdown" data-bind="colDropdown" hidden></div>
+                    </div>
+                </div>
                 <section class="tpos-fso-filters">
                     <div class="tpos-fso-search">
                         <i data-lucide="search" class="ic"></i>
@@ -285,7 +293,7 @@
                                 <th style="width:130px;text-align:right;">Tổng tiền</th>
                                 <th style="width:110px;text-align:right;">COD</th>
                                 <th style="width:140px;">Trạng thái</th>
-                                <th style="width:130px;">Kênh</th>
+                                <th style="width:130px;" data-col="channel">Kênh</th>
                                 <th style="width:150px;">Ngày HĐ</th>
                                 <th style="width:64px;text-align:center;">In bill</th>
                             </tr>
@@ -328,6 +336,14 @@
                     </div>
                     <span class="tpos-fso-counter"><strong data-bind="count">0</strong> phiếu</span>
                 </header>
+                <div class="tpos-fso-toolbar tpos-fso-toolbar-sale">
+                    <div class="tpos-col-toggle" data-bind="colToggleWrap">
+                        <button type="button" class="tpos-fso-btn-secondary" data-bind="toggleCols" title="Ẩn / hiện cột">
+                            <i data-lucide="columns-3"></i> Ẩn hiện cột <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
+                        </button>
+                        <div class="tpos-col-dropdown" data-bind="colDropdown" hidden></div>
+                    </div>
+                </div>
                 <section class="tpos-fso-filters">
                     <div class="tpos-fso-search">
                         <i data-lucide="search" class="ic"></i>
@@ -380,12 +396,12 @@
                                 <th style="width:30px;" class="tpos-fso-exp-col" aria-label="Mở rộng"></th>
                                 <th style="width:50px;text-align:center;">STT</th>
                                 <th style="width:160px;">Số phiếu</th>
-                                <th style="width:160px;">PBH gốc</th>
+                                <th style="width:160px;" data-col="refundOf">PBH gốc</th>
                                 <th>Khách hàng</th>
                                 <th style="width:130px;">SĐT</th>
                                 <th style="width:130px;text-align:right;">Tiền hoàn</th>
                                 <th style="width:140px;">Trạng thái</th>
-                                <th style="width:130px;">Kênh</th>
+                                <th style="width:130px;" data-col="channel">Kênh</th>
                                 <th style="width:150px;">Ngày</th>
                                 <th style="width:64px;text-align:center;">In bill</th>
                             </tr>
@@ -1166,37 +1182,37 @@ Ví dụ:
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 
     <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
-    <script type="module" src="../shared/esm/compat.js?v=20260526c"></script>
+    <script type="module" src="../shared/esm/compat.js?v=20260526d"></script>
 
     <!-- Fallback for file:// protocol -->
     <script>
         if (window.location.protocol === 'file:') {
-            document.write('<script src="../shared/js/shared-auth-manager.js?v=20260526c"><\/script>');
+            document.write('<script src="../shared/js/shared-auth-manager.js?v=20260526d"><\/script>');
             document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
         }
     </script>
 
     <!-- Shared API Utils -->
-    <script src="../shared/js/shop-config.js?v=20260526c"></script>
-    <script src="../shared/js/api-config.js?v=20260526c"></script>
-    <script src="../shared/js/token-manager.js?v=20260526c"></script>
-    <script src="../shared/js/api-handler.js?v=20260526c"></script>
+    <script src="../shared/js/shop-config.js?v=20260526d"></script>
+    <script src="../shared/js/api-config.js?v=20260526d"></script>
+    <script src="../shared/js/token-manager.js?v=20260526d"></script>
+    <script src="../shared/js/api-handler.js?v=20260526d"></script>
 
     <!-- Module Scripts -->
-    <script src="js/firebase-init.js?v=20260526c"></script>
-    <script src="../shared/js/api-service.js?v=20260526c"></script>
-    <script src="../shared/js/audit-logger.js?v=20260526c"></script>
-    <script src="js/script.js?v=20260526c"></script>
-    <script src="js/customer-orders-lookup.js?v=20260526c"></script>
-    <script src="js/phone-copy.js?v=20260526c"></script>
-    <script src="js/tpos-fastsale-tab.js?v=20260526c"></script>
-    <script src="js/page-tabs.js?v=20260526c"></script>
+    <script src="js/firebase-init.js?v=20260526d"></script>
+    <script src="../shared/js/api-service.js?v=20260526d"></script>
+    <script src="../shared/js/audit-logger.js?v=20260526d"></script>
+    <script src="js/script.js?v=20260526d"></script>
+    <script src="js/customer-orders-lookup.js?v=20260526d"></script>
+    <script src="js/phone-copy.js?v=20260526d"></script>
+    <script src="js/tpos-fastsale-tab.js?v=20260526d"></script>
+    <script src="js/page-tabs.js?v=20260526d"></script>
     <!-- Shared return order modal (Trả hàng NCC). Auto-injects #returnOrderModal markup on first open. -->
     <!-- Split into 4 files: config (static schema) → markup (HTML template) → payload (POST body builder) → modal (UI + state + events). -->
-    <script src="../shared/js/return-order-config.js?v=20260526c"></script>
-    <script src="../shared/js/return-order-markup.js?v=20260526c"></script>
-    <script src="../shared/js/return-order-payload.js?v=20260526c"></script>
-    <script src="../shared/js/return-order-modal.js?v=20260526c"></script>
+    <script src="../shared/js/return-order-config.js?v=20260526d"></script>
+    <script src="../shared/js/return-order-markup.js?v=20260526d"></script>
+    <script src="../shared/js/return-order-payload.js?v=20260526d"></script>
+    <script src="../shared/js/return-order-modal.js?v=20260526d"></script>
 </body>
 
 </html>

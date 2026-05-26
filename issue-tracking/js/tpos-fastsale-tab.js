@@ -61,6 +61,52 @@
         return { from: ymd(first), to: ymd(last) };
     }
 
+    // ============================================================
+    // Column toggle config — per tab type, declare toggleable cols + which hidden by default
+    // ============================================================
+    const TOGGLEABLE_COLS = {
+        invoice: [{ key: 'channel', label: 'Kênh' }],
+        refund: [
+            { key: 'refundOf', label: 'PBH gốc' },
+            { key: 'channel', label: 'Kênh' },
+        ],
+        purchase: [],
+        purchaseRefund: [],
+    };
+    const DEFAULT_HIDDEN_COLS = {
+        invoice: ['channel'],
+        refund: ['refundOf', 'channel'],
+        purchase: [],
+        purchaseRefund: [],
+    };
+    const COL_STORE_KEY = (ns) => `tpos-cols-hidden-${ns}`;
+
+    function loadHiddenCols(ns, tposType) {
+        try {
+            const raw = localStorage.getItem(COL_STORE_KEY(ns));
+            if (raw === null) return new Set(DEFAULT_HIDDEN_COLS[tposType] || []);
+            const arr = JSON.parse(raw);
+            return new Set(Array.isArray(arr) ? arr : []);
+        } catch (_) {
+            return new Set(DEFAULT_HIDDEN_COLS[tposType] || []);
+        }
+    }
+
+    function saveHiddenCols(ns, hiddenSet) {
+        try {
+            localStorage.setItem(COL_STORE_KEY(ns), JSON.stringify([...hiddenSet]));
+        } catch (_) {}
+    }
+
+    function applyHiddenColClasses(root, hiddenSet) {
+        // Remove all previous tpos-hide-col-* classes
+        Array.from(root.classList)
+            .filter((c) => c.startsWith('tpos-hide-col-'))
+            .forEach((c) => root.classList.remove(c));
+        // Apply new
+        hiddenSet.forEach((key) => root.classList.add(`tpos-hide-col-${key}`));
+    }
+
     function actionButtons(id) {
         return `<td class="tpos-fso-actions-cell">
             <button type="button" class="tpos-fso-row-btn tpos-fso-row-edit" data-action="edit" data-id="${id || ''}" title="Sửa">
@@ -208,7 +254,7 @@
             <td class="num">${total}</td>
             <td class="num" style="color:#475569;">${cod}</td>
             <td>${stateBadge(row.State, STATE_META, true)}</td>
-            <td><span style="color:#475569;font-size:12px;">${escapeHtml(channel)}</span></td>
+            <td data-col="channel"><span style="color:#475569;font-size:12px;">${escapeHtml(channel)}</span></td>
             <td><span class="mono" style="color:#64748b;">${date}</span></td>
             ${printCell(row.Id)}
         </tr>`;
@@ -225,12 +271,12 @@
             ${expandCell()}
             <td style="text-align:center;color:#94a3b8;font-variant-numeric:tabular-nums;">${idx}</td>
             <td><span class="tpos-fso-num mono" data-action="open" data-id="${row.Id || ''}" data-num="${escapeHtml(row.Number || '')}">${escapeHtml(row.Number || '—')}</span></td>
-            <td><span class="mono" style="color:#475569;">${escapeHtml(refundOf || '—')}</span></td>
+            <td data-col="refundOf"><span class="mono" style="color:#475569;">${escapeHtml(refundOf || '—')}</span></td>
             <td><div class="tpos-fso-customer">${escapeHtml(customer)}</div></td>
             <td><span class="tpos-fso-phone">${escapeHtml(phone || '—')}</span></td>
             <td class="num" style="color:#dc2626;">${total}</td>
             <td>${stateBadge(row.State, STATE_META, true)}</td>
-            <td><span style="color:#475569;font-size:12px;">${escapeHtml(channel)}</span></td>
+            <td data-col="channel"><span style="color:#475569;font-size:12px;">${escapeHtml(channel)}</span></td>
             <td><span class="mono" style="color:#64748b;">${date}</span></td>
             ${printCell(row.Id)}
         </tr>`;
@@ -420,6 +466,10 @@
             this.mock = this.cfg.mockable
                 ? { overlay: new Map(), deleted: new Set(), added: [], nextId: 1 }
                 : null;
+
+            // Column visibility — load saved or apply defaults
+            this.hiddenCols = loadHiddenCols(this.ns, this.cfg.tposType);
+            applyHiddenColClasses(this.root, this.hiddenCols);
 
             this.loaded = false;
             this.bindEvents();

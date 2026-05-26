@@ -14,16 +14,16 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260526a" />
-        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260526a" />
-        <link rel="stylesheet" href="../supplier-wallet/css/supplier-wallet.css?v=20260526a" />
-        <link rel="stylesheet" href="css/customer-wallet.css?v=20260526a" />
+        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260526b" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260526b" />
+        <link rel="stylesheet" href="../supplier-wallet/css/supplier-wallet.css?v=20260526b" />
+        <link rel="stylesheet" href="css/customer-wallet.css?v=20260526b" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
-        <script src="../../shared/js/notification-system.js?v=20260526a"></script>
-        <script src="../../shared/js/core-loader.js?v=20260526a"></script>
-        <script src="../../shared/js/token-manager.js?v=20260526a"></script>
+        <script src="../../shared/js/notification-system.js?v=20260526b"></script>
+        <script src="../../shared/js/core-loader.js?v=20260526b"></script>
+        <script src="../../shared/js/token-manager.js?v=20260526b"></script>
     </head>
     <body class="tpos-theme">
         <div class="web2-shell">
@@ -146,6 +146,18 @@
                         </p>
                     </div>
                 </section>
+
+                <!-- Pagination (server-side) -->
+                <footer class="cw-pagination" id="cwPagination">
+                    <span class="cw-page-info" id="cwPageInfo">—</span>
+                    <div class="cw-page-buttons" id="cwPageButtons"></div>
+                    <select id="cwPageSize" class="cw-page-size">
+                        <option value="30">30 / trang</option>
+                        <option value="50" selected>50 / trang</option>
+                        <option value="100">100 / trang</option>
+                        <option value="200">200 / trang</option>
+                    </select>
+                </footer>
             </main>
         </div>
 
@@ -224,12 +236,12 @@
         </div>
 
         <!-- Web 2.0 ONLY scripts (NO Firebase, NO Firestore, NO wallet-deposits) -->
-        <script src="../../web2/shared/web2-auth.js?v=20260526a"></script>
-        <script src="../../web2/shared/tpos-sidebar.js?v=20260526a"></script>
-        <script src="../../web2/shared/web2-sse-bridge.js?v=20260526a"></script>
-        <script src="../partner-customer/js/partner-customer-api.js?v=20260526a"></script>
-        <script src="js/web2-wallet-api.js?v=20260526a"></script>
-        <script src="js/web2-customer-wallet-app.js?v=20260526a"></script>
+        <script src="../../web2/shared/web2-auth.js?v=20260526b"></script>
+        <script src="../../web2/shared/tpos-sidebar.js?v=20260526b"></script>
+        <script src="../../web2/shared/web2-sse-bridge.js?v=20260526b"></script>
+        <script src="../partner-customer/js/partner-customer-api.js?v=20260526b"></script>
+        <script src="js/web2-wallet-api.js?v=20260526b"></script>
+        <script src="js/web2-customer-wallet-app.js?v=20260526b"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
         </script>

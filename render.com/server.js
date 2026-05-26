@@ -561,6 +561,8 @@ const web2BalanceHistoryRoutes = require('./routes/v2/web2-balance-history');
 app.use('/api/web2/balance-history', web2BalanceHistoryRoutes);
 const web2MonitoringRoutes = require('./routes/v2/web2-monitoring');
 app.use('/api/web2/monitoring', web2MonitoringRoutes);
+const web2CustomerWalletRoutes = require('./routes/v2/web2-customer-wallet');
+app.use('/api/web2/customer-wallet', web2CustomerWalletRoutes);
 const livestreamSnapshotsRoutes = require('./routes/livestream-snapshots');
 app.use('/api/livestream', livestreamSnapshotsRoutes); // WEB2.0 livestream snapshot per customer
 app.use('/api/attendance', attendanceRoutes);
