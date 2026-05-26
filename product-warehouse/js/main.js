@@ -1752,6 +1752,20 @@
             });
         });
 
+        // Toggle <body>.has-selection to show/hide bulk action toolbar.
+        // Also expand the warehouse-toolbar when there's at least 1 selection so user
+        // sees the bulk actions immediately without needing to click the toggle.
+        const syncSelectionUI = () => {
+            const has = selectedIds.size > 0;
+            document.body.classList.toggle('has-selection', has);
+            const toolbar = document.getElementById('warehouseToolbar');
+            const toggleBtn = document.getElementById('btnToggleFilters');
+            if (has && toolbar) {
+                toolbar.classList.remove('is-collapsed');
+                if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
+            }
+        };
+
         // Select all checkbox
         $('#selectAll')?.addEventListener('change', (e) => {
             const checked = e.target.checked;
@@ -1762,6 +1776,7 @@
                 else selectedIds.delete(id);
                 cb.closest('tr')?.classList.toggle('selected', checked);
             });
+            syncSelectionUI();
         });
 
         // Row checkbox delegation
@@ -1771,8 +1786,24 @@
                 if (e.target.checked) selectedIds.add(id);
                 else selectedIds.delete(id);
                 e.target.closest('tr')?.classList.toggle('selected', e.target.checked);
+                syncSelectionUI();
             }
         });
+
+        // Toggle filters/bulk actions toolbar (Image 1 collapse + Image 2 visibility).
+        document.getElementById('btnToggleFilters')?.addEventListener('click', () => {
+            const toolbar = document.getElementById('warehouseToolbar');
+            const btn = document.getElementById('btnToggleFilters');
+            if (!toolbar || !btn) return;
+            const willExpand = toolbar.classList.contains('is-collapsed');
+            toolbar.classList.toggle('is-collapsed', !willExpand);
+            btn.setAttribute('aria-expanded', willExpand ? 'true' : 'false');
+        });
+
+        // New "Thêm SP" button on header (always visible, doesn't depend on selection)
+        document
+            .getElementById('btnCreateProductHeader')
+            ?.addEventListener('click', openCreateProduct);
 
         // Edit product — click edit button
         $('#productTableBody')?.addEventListener('click', (e) => {

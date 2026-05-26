@@ -212,6 +212,22 @@
                         </button>
                         <div class="search-suggestions" id="searchSuggestions"></div>
                     </div>
+                    <button
+                        class="btn-toolbar btn-create-product btn-create-product-header"
+                        id="btnCreateProductHeader"
+                        title="Thêm sản phẩm mới"
+                    >
+                        <i data-lucide="plus"></i>
+                        Thêm SP
+                    </button>
+                    <button
+                        class="btn-icon btn-toggle-filters"
+                        id="btnToggleFilters"
+                        title="Bộ lọc & thao tác hàng loạt"
+                        aria-expanded="false"
+                    >
+                        <i data-lucide="sliders-horizontal"></i>
+                    </button>
                 </div>
             </header>
 
@@ -243,8 +259,8 @@
                 </button>
             </nav>
 
-            <!-- Filter & Toolbar Bar -->
-            <div class="warehouse-toolbar">
+            <!-- Filter & Toolbar Bar — collapsible (Image 1 = filters; Image 2 = bulk actions hidden until selection) -->
+            <div class="warehouse-toolbar is-collapsed" id="warehouseToolbar">
                 <div class="toolbar-left">
                     <div class="toolbar-filter-group">
                         <label class="filter-label">Tồn kho:</label>
@@ -280,19 +296,11 @@
                         <strong>0</strong> sản phẩm
                     </span>
                 </div>
-                <div class="toolbar-right">
+                <div class="toolbar-right toolbar-bulk-actions" data-bulk-toolbar>
                     <span class="toolbar-hint">
                         <i data-lucide="lightbulb"></i>
                         Gõ để tìm kiếm nhanh
                     </span>
-                    <button
-                        class="btn-toolbar btn-create-product"
-                        id="btnCreateProduct"
-                        title="Thêm sản phẩm mới"
-                    >
-                        <i data-lucide="plus"></i>
-                        Thêm SP
-                    </button>
                     <button
                         class="btn-toolbar btn-import-excel"
                         id="btnImportExcel"

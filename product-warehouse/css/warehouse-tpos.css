@@ -88,6 +88,79 @@ html body {
     background: var(--pw-accent-hover) !important;
 }
 
+/* ===== HEADER ADD-PRODUCT BUTTON (moved from toolbar per UX redesign) ===== */
+.btn-create-product-header {
+    margin-left: 12px;
+    height: 30px;
+    padding: 0 12px !important;
+    background: var(--pw-accent) !important;
+    border-color: var(--pw-accent) !important;
+    color: #fff !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    border-radius: 2px !important;
+}
+
+.btn-create-product-header:hover {
+    background: var(--pw-accent-hover) !important;
+    border-color: var(--pw-accent-hover) !important;
+}
+
+.btn-toggle-filters {
+    margin-left: 8px;
+    width: 32px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--pw-bg-card);
+    border: 1px solid var(--pw-border);
+    border-radius: 2px;
+    color: var(--pw-muted);
+    cursor: pointer;
+    transition:
+        color 0.15s,
+        border-color 0.15s,
+        background 0.15s;
+}
+
+.btn-toggle-filters:hover {
+    color: var(--pw-accent);
+    border-color: var(--pw-accent);
+}
+
+.btn-toggle-filters[aria-expanded='true'] {
+    background: var(--pw-accent-soft);
+    color: var(--pw-accent);
+    border-color: var(--pw-accent);
+}
+
+.btn-toggle-filters i,
+.btn-toggle-filters svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Collapsible warehouse-toolbar — default collapsed */
+.warehouse-toolbar.is-collapsed {
+    display: none !important;
+}
+
+/* Bulk-action toolbar-right items hidden until at least 1 row selected.
+   Body gets `.has-selection` class from main.js when selectedIds.size > 0. */
+.toolbar-bulk-actions {
+    display: none !important;
+}
+
+body.has-selection .toolbar-bulk-actions {
+    display: flex !important;
+}
+
+/* When toolbar expanded but no selection: show only filter side */
+.warehouse-toolbar:not(.is-collapsed) .toolbar-left {
+    display: flex;
+}
+
 /* ===== VIEW TABS (Sản phẩm | Biến thể) — mirrors TPOS producttemplate/list tabs ===== */
 .warehouse-tabs {
     display: flex;
