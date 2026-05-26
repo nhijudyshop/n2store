@@ -37,6 +37,10 @@ window.ReturnOrderPayload = (function () {
         paymentAmount,
         discountAmount,
         formAction,
+        // Optional: link this refund to a source purchase BILL (refund-from-purchase mode)
+        refundOrderId = null,
+        origin = null,
+        note = '',
     }) {
         const C = window.ReturnOrderConfig;
         if (!C) throw new Error('ReturnOrderConfig not loaded');
@@ -84,14 +88,14 @@ window.ReturnOrderPayload = (function () {
             AmountTax: 0,
             AmountUntaxed: amountTotal,
             TaxId: null,
-            Note: '',
+            Note: note || '',
             CompanyId: companyId,
             JournalId: config.JournalId,
             DateInvoice: toVNDateString(orderDate),
             Number: null,
             Type: 'refund',
             Residual: null,
-            RefundOrderId: null,
+            RefundOrderId: refundOrderId,
             Reconciled: null,
             AccountId: config.AccountId,
             UserId: STATIC_USER_ID,
@@ -102,7 +106,7 @@ window.ReturnOrderPayload = (function () {
             PartnerNameNoSign: null,
             PaymentJournalId: paymentMethodId,
             PaymentAmount: paymentAmount,
-            Origin: null,
+            Origin: origin,
             CompanyName: null,
             PartnerPhone: null,
             Address: null,
