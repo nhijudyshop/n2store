@@ -36,6 +36,38 @@
         } catch (_) {}
     }
 
+    // Date shift (per (realDate, group)) — cho phép chỉnh "ngày ảo" hiển thị.
+    // VD: 29/04 → 02/05, 30/04 → 02/05 thì 2 ngày con đều dồn vào 02/05 (aggregate).
+    // Persist localStorage per machine. Admin-only edit, non-admin chỉ xem.
+    // TODO: chuyển sang server-side + SSE notify để sync cross-machine.
+    const DATE_SHIFTS_KEY = 'dr-date-shifts-v1';
+    const _dateShifts = (() => {
+        try {
+            return JSON.parse(localStorage.getItem(DATE_SHIFTS_KEY) || '{}');
+        } catch (_) {
+            return {};
+        }
+    })();
+    const _shiftKey = (date, group) => `${date}__${group}`;
+    function getDisplayDate(realDate, group) {
+        return _dateShifts[_shiftKey(realDate, group)] || realDate;
+    }
+    function isDateShifted(realDate, group) {
+        const v = _dateShifts[_shiftKey(realDate, group)];
+        return !!v && v !== realDate;
+    }
+    function setDateShift(realDate, group, displayDate) {
+        const k = _shiftKey(realDate, group);
+        if (!displayDate || displayDate === realDate) {
+            delete _dateShifts[k];
+        } else {
+            _dateShifts[k] = displayDate;
+        }
+        try {
+            localStorage.setItem(DATE_SHIFTS_KEY, JSON.stringify(_dateShifts));
+        } catch (_) {}
+    }
+
     // Admin gating: chỉ tag Admin mới thấy + bấm được DUYỆT. Non-admin xem báo
     // cáo bình thường (treat approved=false → thấy đầy đủ outstanding amount).
     //
@@ -1093,8 +1125,17 @@
             const selectCell = isChild
                 ? '<span class="dr-merge-child-indicator" title="Thuộc nhóm gộp">└</span>'
                 : `<input type="checkbox" class="dr-row-select" data-action="select-day" ${selected ? 'checked' : ''} title="Chọn để gộp" />`;
-            return `<tr data-date="${d}" class="${cls}">
-                <td class="date clickable" data-action="toggle-expand" title="Bấm để xem danh sách ${slDon} đơn (ngày thật: ${formatDDMMYYYY(d)})">${selectCell}<i class="fas fa-chevron-right dr-expand-chevron"></i> ${formatDDMMYYYY(realToEntry(d))}</td>
+            // Badge "đã dời ngày" nếu real != display. Click cell date sẽ mở date input để admin chỉnh.
+            const shifted = isDateShifted(d, state.activeTab);
+            const editBtn =
+                _isAdmin() && !isChild
+                    ? `<button class="dr-shift-edit" data-action="shift-edit" data-real="${d}" title="Chỉnh ngày hiển thị (dời sang ngày khác)"><i class="fas fa-pen-to-square"></i></button>`
+                    : '';
+            const shiftBadge = shifted
+                ? `<span class="dr-shift-badge" title="Ngày thật: ${formatDDMMYYYY(realToEntry(d))} → hiển thị tại: ${formatDDMMYYYY(realToEntry(getDisplayDate(d, state.activeTab)))}"><i class="fas fa-clock-rotate-left"></i></span>`
+                : '';
+            return `<tr data-date="${d}" class="${cls}${shifted ? ' is-shifted' : ''}">
+                <td class="date clickable" data-action="toggle-expand" title="Bấm để xem danh sách ${slDon} đơn (ngày thật: ${formatDDMMYYYY(d)})">${selectCell}<i class="fas fa-chevron-right dr-expand-chevron"></i> ${formatDDMMYYYY(realToEntry(d))}${shiftBadge}${editBtn}</td>
                 <td class="num strong clickable" data-action="toggle-expand" title="Bấm để xem chi tiết ${slDon} đơn">${formatNumber(slDon)}</td>
                 <td class="num clickable money-cell ${hasImg ? 'has-img' : 'no-img'}" data-action="open-img" title="${hasImg ? 'Bấm để xem/sửa ảnh' : 'Bấm để thêm ảnh chứng từ'}">
                     <span class="money-val">${formatMoney(money)}</span>
@@ -1239,30 +1280,161 @@
             </tr>`;
         }
 
+        // Virtual aggregate row: 1+ real dates dời tới displayDate. Sum auto-computed
+        // fields từ tất cả sources, sum overrides từ sources (read-only display để
+        // tránh ambiguity "input vào source nào"). Badge ✏️ + tooltip ngày thật.
+        function renderShiftAggregateRow(displayDate, sourceDates) {
+            let sumSlDon = 0,
+                sumMoney = 0,
+                sumShipFee = 0;
+            let sumSlShip = 0,
+                sumThuVe = 0,
+                sumBoCK = 0,
+                sumAtruongCK = 0,
+                sumCkTruoc = 0;
+            const sourceNotes = [];
+            let anyApproved = false;
+            for (const cd of sourceDates) {
+                const sys = map[cd] || { sysCount: 0, money: 0 };
+                sumSlDon += sys.sysCount;
+                sumMoney += sys.money;
+                sumShipFee += sys.sysCount * getShipFee(tab);
+                const ov = getOverride(cd, tab);
+                sumSlShip += Number(ov.slShip) || 0;
+                sumThuVe += Number(ov.thuVe) || 0;
+                sumBoCK += Number(ov.boCK) || 0;
+                sumAtruongCK += Number(ov.atruongCK) || 0;
+                sumCkTruoc += Number(ov.ckTruoc) || 0;
+                if (ov.note && String(ov.note).trim()) {
+                    sourceNotes.push(
+                        `${formatDDMMYYYY(realToEntry(cd))}: ${String(ov.note).trim()}`
+                    );
+                }
+                if (ov.approved) anyApproved = true;
+            }
+            const totalAll = sumMoney - sumShipFee - sumSlShip * getShipFee(tab) + sumThuVe;
+            const totalLeftRaw = totalAll - sumBoCK - sumAtruongCK - sumCkTruoc;
+            const totalLeftDisplay = anyApproved ? 0 : totalLeftRaw;
+            // Tổng row tally
+            totals.slDon += sumSlDon;
+            totals.money += sumMoney;
+            totals.shipFee += sumShipFee;
+            totals.slShip += sumSlShip;
+            totals.thuVe += sumThuVe;
+            totals.totalAll += totalAll;
+            totals.boCK += sumBoCK;
+            totals.atruongCK += sumAtruongCK;
+            totals.ckTruoc += sumCkTruoc;
+            totals.totalLeft += anyApproved ? 0 : totalLeftRaw;
+            const sourceLabels = sourceDates.map((s) => formatDDMMYYYY(realToEntry(s))).join(', ');
+            const sourceTitle = `Dồn từ ${sourceDates.length} ngày: ${sourceLabels} → hiển thị tại ${formatDDMMYYYY(realToEntry(displayDate))}`;
+            const cls = ['dr-shift-agg-row', anyApproved ? 'is-approved' : '']
+                .filter(Boolean)
+                .join(' ');
+            return `<tr class="${cls}" data-shift-display="${displayDate}">
+                <td class="date">
+                    <span class="dr-shift-agg-badge" title="${sourceTitle}"><i class="fas fa-arrows-to-dot"></i> ${sourceDates.length} ngày</span>
+                    <span class="dr-shift-agg-date">${formatDDMMYYYY(realToEntry(displayDate))}</span>
+                    ${_isAdmin() ? `<button class="dr-shift-unshift" data-action="unshift-all" data-display="${displayDate}" title="Bỏ dời tất cả ngày con">×</button>` : ''}
+                </td>
+                <td class="num strong">${formatNumber(sumSlDon)}</td>
+                <td class="num">${formatMoney(sumMoney)}</td>
+                <td class="num muted">${formatMoney(sumShipFee)}</td>
+                <td class="num">${formatNumber(sumSlShip)}</td>
+                <td class="num">${formatMoney(sumThuVe)}</td>
+                <td class="num strong">${formatMoney(totalAll)}</td>
+                <td class="num">${formatMoney(sumBoCK)}</td>
+                <td class="num">${formatMoney(sumAtruongCK)}</td>
+                <td class="num">${formatMoney(sumCkTruoc)}</td>
+                <td class="num strong ${totalLeftDisplay < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeftDisplay)}</td>
+                <td class="note-cell" data-tooltip="${escapeHtml(sourceNotes.join('\n') || 'Không có ghi chú từ các ngày con')}">${sourceNotes.length ? '<i class="fas fa-comment-dots" title="Có ghi chú — hover xem"></i>' : ''}</td>
+                <td class="dr-report-td-approve">${_isAdmin() && anyApproved ? '<i class="fas fa-check-circle" style="color:#16a34a" title="Một/nhiều ngày con đã duyệt"></i>' : ''}</td>
+            </tr>`;
+        }
+
         // Non-admin: ẩn HẲN các hàng đã duyệt khỏi bảng (cả merge lẫn single).
-        // Vẫn mark rendered để vòng lặp không tạo duplicate cho child của merge bị skip.
+        // Date shift: real dates có thể bị "dời" sang displayDate khác. Nhiều real
+        // dates dời cùng displayDate → render thành 1 virtual aggregate row.
         const isAdminView = _isAdmin();
+        const tab = state.activeTab;
+
+        // Build display buckets: displayDate → [realDates...]
+        const displayBuckets = new Map();
+        for (const d of dates) {
+            const dd = getDisplayDate(d, tab);
+            if (!displayBuckets.has(dd)) displayBuckets.set(dd, []);
+            displayBuckets.get(dd).push(d);
+        }
+        // Identify virtual aggregates: bucket có >1 source HOẶC source != target
+        const virtualAggregates = new Map(); // displayDate → [realDates]
+        const dateInVirtualAgg = new Set();
+        for (const [dd, sources] of displayBuckets) {
+            const isVirtual = sources.length > 1 || sources.some((s) => s !== dd);
+            if (isVirtual) {
+                virtualAggregates.set(dd, sources);
+                for (const s of sources) dateInVirtualAgg.add(s);
+            }
+        }
+
         const rendered = new Set();
         const rowsHtml = [];
-        for (const d of dates) {
+        // Iterate displayDates (gồm virtual targets) hợp nhất với realDates không shifted
+        const allDisplaySorted = Array.from(
+            new Set([...dates, ...virtualAggregates.keys()])
+        ).sort();
+
+        for (const d of allDisplaySorted) {
             if (rendered.has(d)) continue;
-            const merge = findMergeForDate(d, state.activeTab);
+
+            // 1) Virtual aggregate (1+ realDates dời về d)
+            if (virtualAggregates.has(d)) {
+                const sources = virtualAggregates.get(d);
+                for (const s of sources) rendered.add(s);
+                rendered.add(d);
+                // Non-admin: ẩn nếu MỌI source đều approved (any unapproved → show)
+                if (!isAdminView) {
+                    const allApproved = sources.every((s) => {
+                        const ov = getOverride(s, tab);
+                        return !!ov.approved;
+                    });
+                    if (allApproved) continue;
+                }
+                rowsHtml.push(renderShiftAggregateRow(d, sources));
+                continue;
+            }
+
+            // 2) Date là source của virtual agg khác → đã render qua target, skip
+            if (dateInVirtualAgg.has(d)) {
+                rendered.add(d);
+                continue;
+            }
+
+            // 3) Manual merge (loại trừ các source dates bị shift)
+            const merge = findMergeForDate(d, tab);
             if (merge) {
-                const childDates = dates.filter((cd) => cd >= merge.fromDate && cd <= merge.toDate);
-                for (const cd of childDates) rendered.add(cd);
-                if (!isAdminView && merge.approved) continue; // ẩn merge đã duyệt
+                const childDates = dates.filter(
+                    (cd) => cd >= merge.fromDate && cd <= merge.toDate && !dateInVirtualAgg.has(cd)
+                );
+                // Mark all original merge dates as rendered (kể cả shifted ones — đã render qua aggregate)
+                for (const cd of dates.filter((cd) => cd >= merge.fromDate && cd <= merge.toDate)) {
+                    rendered.add(cd);
+                }
+                if (childDates.length === 0) continue; // tất cả children đã shift đi nơi khác
+                if (!isAdminView && merge.approved) continue;
                 rowsHtml.push(renderMergeRow(merge, childDates));
                 if (merge.expanded) {
                     for (const cd of childDates) rowsHtml.push(renderSingleRow(cd, true));
                 }
-            } else {
-                rendered.add(d);
-                if (!isAdminView) {
-                    const ov = getOverride(d, state.activeTab);
-                    if (ov.approved) continue; // ẩn single row đã duyệt
-                }
-                rowsHtml.push(renderSingleRow(d, false));
+                continue;
             }
+
+            // 4) Single row, không shift
+            rendered.add(d);
+            if (!isAdminView) {
+                const ov = getOverride(d, tab);
+                if (ov.approved) continue;
+            }
+            rowsHtml.push(renderSingleRow(d, false));
         }
 
         document.getElementById('drReportTbody').innerHTML = rowsHtml.join('');
@@ -1450,6 +1622,46 @@
         });
 
         tbody.addEventListener('click', (e) => {
+            // Date shift — admin chỉnh ngày hiển thị (dời sang ngày khác)
+            const shiftEditBtn =
+                e.target.closest && e.target.closest('button[data-action="shift-edit"]');
+            if (shiftEditBtn) {
+                e.stopPropagation();
+                if (!_isAdmin()) return;
+                const realDate = shiftEditBtn.dataset.real;
+                const currentDisplay = getDisplayDate(realDate, state.activeTab);
+                const newDisplay = window.prompt(
+                    `Chỉnh NGÀY HIỂN THỊ cho ngày thật ${formatDDMMYYYY(realToEntry(realDate))}\n\n` +
+                        `Nhập ngày mới (YYYY-MM-DD), hoặc bỏ trống để khôi phục ngày gốc:`,
+                    currentDisplay
+                );
+                if (newDisplay === null) return; // cancel
+                const trimmed = String(newDisplay).trim();
+                if (trimmed && !/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                    alert('Định dạng phải là YYYY-MM-DD (vd 2026-05-02)');
+                    return;
+                }
+                setDateShift(realDate, state.activeTab, trimmed || null);
+                scheduleRender();
+                return;
+            }
+            // Unshift all — bỏ tất cả dời ngày của một virtual aggregate
+            const unshiftBtn = e.target.closest && e.target.closest('[data-action="unshift-all"]');
+            if (unshiftBtn) {
+                e.stopPropagation();
+                if (!_isAdmin()) return;
+                const displayDate = unshiftBtn.dataset.display;
+                // Find all real dates currently shifted to this displayDate
+                const tab2 = state.activeTab;
+                Object.keys(_dateShifts)
+                    .filter((k) => k.endsWith(`__${tab2}`) && _dateShifts[k] === displayDate)
+                    .forEach((k) => {
+                        const realDate = k.split('__')[0];
+                        setDateShift(realDate, tab2, null);
+                    });
+                scheduleRender();
+                return;
+            }
             // Toggle merge expanded
             const chev = e.target.closest && e.target.closest('button[data-action="toggle-merge"]');
             if (chev) {

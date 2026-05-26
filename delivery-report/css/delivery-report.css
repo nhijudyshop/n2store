@@ -2471,6 +2471,91 @@ body.dr-mode-report #drTableWrapper {
 .dr-report-table tbody tr.dr-merge-row.is-approved {
     background: #f1f5f9 !important;
 }
+
+/* Shift (dời ngày): badge + edit button trên single row, virtual aggregate row */
+.dr-shift-edit {
+    background: transparent;
+    border: 0;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 2px 6px;
+    margin-left: 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.dr-report-table tbody tr:hover .dr-shift-edit {
+    opacity: 1;
+}
+.dr-shift-edit:hover {
+    background: #eff6ff;
+    color: #2563eb;
+}
+.dr-shift-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 6px;
+    padding: 2px 6px;
+    background: #fef3c7;
+    color: #b45309;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    cursor: help;
+}
+.dr-report-table tbody tr.is-shifted {
+    background: #fffbeb;
+}
+
+/* Virtual aggregate row (1+ ngày con dời tới displayDate) */
+.dr-report-table tbody tr.dr-shift-agg-row {
+    background: #eef2ff;
+    font-weight: 600;
+}
+.dr-report-table tbody tr.dr-shift-agg-row:hover {
+    background: #e0e7ff;
+}
+.dr-report-table tbody tr.dr-shift-agg-row.is-approved {
+    background: #f1f5f9 !important;
+    opacity: 0.65;
+}
+.dr-shift-agg-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: #4338ca;
+    color: white;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-right: 6px;
+    cursor: help;
+}
+.dr-shift-agg-date {
+    color: #4338ca;
+    font-weight: 700;
+}
+.dr-shift-unshift {
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+    color: #b91c1c;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    font-weight: 700;
+    padding: 0;
+    margin-left: 6px;
+}
+.dr-shift-unshift:hover {
+    background: #fecaca;
+}
 .dr-merge-chev {
     background: transparent;
     border: 0;
