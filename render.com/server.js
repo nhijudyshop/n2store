@@ -403,7 +403,8 @@ const autofbRoutes = require('./routes/autofb');
 const aikolRoutes = require('./routes/aikol');
 
 // === FIREBASE REPLACEMENT ROUTES (SSE + PostgreSQL) ===
-const realtimeSseRoutes = require('./routes/realtime-sse');
+const realtimeSseRoutes = require('./routes/realtime-sse'); // Web 1.0 SSE hub
+const web2RealtimeSseRoutes = require('./routes/realtime-sse-web2'); // WEB2.0 — SSE hub riêng, không chia chung với Web 1.0
 const realtimeDbRoutes = require('./routes/realtime-db');
 const adminMigrationRoutes = require('./routes/admin-migration');
 const adminDataRoutes = require('./routes/admin-data');
@@ -518,9 +519,12 @@ app.use('/api/autofb', autofbRoutes);
 app.use('/api/aikol', aikolRoutes);
 
 // === FIREBASE REPLACEMENT ROUTES ===
-// SSE for realtime updates (replaces Firebase listeners)
+// SSE TÁCH RIÊNG cho Web 2.0 (mount TRƯỚC để có path specificity rõ ràng)
+// Endpoint client: /api/realtime/web2/sse?keys=web2:foo,web2:bar
+app.use('/api/realtime/web2', web2RealtimeSseRoutes);
+// SSE Web 1.0 (Firebase listener replacement) — celebration, kpi, held_products, tickets, ...
 app.use('/api/realtime', realtimeSseRoutes);
-// REST API for CRUD operations (replaces Firebase database operations)
+// REST API for CRUD operations (replaces Firebase database operations) — Web 1.0
 app.use('/api/realtime', realtimeDbRoutes);
 // Admin migration endpoint
 app.use('/api/admin', adminMigrationRoutes);
