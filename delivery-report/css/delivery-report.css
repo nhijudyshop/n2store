@@ -2184,7 +2184,12 @@ body.dr-mode-report #drTableWrapper {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--tab-color) 18%, transparent);
 }
 .dr-report-table-wrap {
-    overflow-x: auto;
+    /* KHÔNG dùng overflow-x: auto vì sẽ tạo scroll container con, làm sticky
+       thead bị stuck trong wrapper thay vì dán lên viewport top. Để wrapper
+       overflow visible → body là scroll context → thead sticky lên viewport
+       với top = sticky-top-height (header+toolbar). Trade-off: nếu table
+       quá rộng > viewport thì body sẽ horizontal-scroll thay vì wrapper. */
+    overflow-x: visible;
     padding: 12px 20px 20px;
 }
 /* Sticky-top: wrap header + toolbar — dán lên viewport top khi user scroll

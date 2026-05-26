@@ -379,64 +379,16 @@
     }
 
     // ─── Render ─────────────────────────────────────────────────────
-    // Legacy compute kept for backwards-compat with detail modal callers
-    function computeAllCustomerFields() {
-        // Pre-compute fields cho TẤT CẢ customers (stats + filter cần)
-        const arr = Object.values(state.customers);
-        for (const c of arr) {
-            const w = state.web2Wallets[c.phone];
-            c.paidAmount = w ? Number(w.total_deposited || 0) : 0;
-            c.returnedAmount = Number(state.web2ReturnAmounts[c.phone] || 0);
-            c.balance = (c.totalPurchased || 0) - c.paidAmount - c.returnedAmount;
-            c.walletBalance = w ? Number(w.balance || 0) : 0;
-            c.web2Wallet = w || null;
-            const partner = state.tposPartners[c.phone];
-            c.tposStatus = partner?.Status || null;
-        }
-        return arr;
-    }
-
-    function applyQuickFilter(c) {
-        switch (state.quickFilter) {
-            case 'debt':
-                return c.balance > 0;
-            case 'has_balance':
-                return c.walletBalance > 0;
-            case 'vip':
-                return c.tposStatus === 'VIP';
-            case 'warning':
-                return c.tposStatus === 'Warning';
-            case 'bomb':
-                return c.tposStatus === 'BomHang' || c.tposStatus === 'Danger';
-            default:
-                return true;
-        }
-    }
-
+    // Server-paged: state.rows is the current page from /aggregate.
+    // No client-side filter/sort/search — server handles everything.
     function renderList() {
-        const arr = computeAllCustomerFields();
-        const searchRaw = (dom.search.value || '').trim();
-        const search = searchNormalize(searchRaw);
-        const searchDigits = searchRaw.replace(/\D/g, '');
-        const sortBy = dom.sort.value;
+        const items = state.rows;
 
-        const items = arr.filter((c) => {
-            if (!applyQuickFilter(c)) return false;
-            if (!search) return true;
-            return (
-                searchNormalize(c.name).includes(search) ||
-                (searchDigits && c.phone.includes(searchDigits))
-            );
-        });
-
-        items.sort((a, b) => {
-            if (sortBy === 'balance-desc') return b.balance - a.balance;
-            if (sortBy === 'balance-asc') return a.balance - b.balance;
-            if (sortBy === 'wallet-desc') return b.walletBalance - a.walletBalance;
-            if (sortBy === 'total-desc') return b.totalPurchased - a.totalPurchased;
-            return (a.name || '').localeCompare(b.name || '');
-        });
-
+        if (state.loading) {
+            dom.list.innerHTML = `<div class="cw-loading">Đang tải…</div>`;
+            dom.empty.hidden = true;
+            return;
+        }
         if (!items.length) {
             dom.list.innerHTML = '';
             dom.empty.hidden = false;
@@ -448,40 +400,66 @@
             });
         }
 
-        // Counters
-        const totalDebt = arr.reduce((s, c) => s + Math.max(0, c.balance), 0);
-        const totalWallet = arr.reduce((s, c) => s + c.walletBalance, 0);
-        const totalPaid = arr.reduce((s, c) => s + c.paidAmount, 0);
-        const filteredDebt = items.reduce((s, c) => s + Math.max(0, c.balance), 0);
-        dom.totalCustomers.textContent = `${items.length} / ${arr.length} KH`;
+        renderPagination();
+
+        // Stats (overall, from server)
+        const s = state.stats || {};
+        const total = Number(s.total) || 0;
+        const filteredDebt = items.reduce((acc, c) => acc + Math.max(0, c.balance || 0), 0);
+        dom.totalCustomers.textContent = `${items.length} / ${total.toLocaleString('vi-VN')} KH`;
         dom.totalOutstanding.textContent = `Công nợ filter: ${fmtVnd(filteredDebt)}`;
 
-        if (dom.statKh) dom.statKh.textContent = arr.length.toLocaleString('vi-VN');
-        if (dom.statDebt) dom.statDebt.textContent = fmtVnd(totalDebt);
-        if (dom.statWallet) dom.statWallet.textContent = fmtVnd(totalWallet);
-        if (dom.statPaid) dom.statPaid.textContent = fmtVnd(totalPaid);
+        if (dom.statKh) dom.statKh.textContent = total.toLocaleString('vi-VN');
+        if (dom.statDebt) dom.statDebt.textContent = fmtVnd(s.total_debt);
+        if (dom.statWallet) dom.statWallet.textContent = fmtVnd(s.total_wallet_balance);
+        if (dom.statPaid) dom.statPaid.textContent = fmtVnd(s.total_paid);
 
-        // Filter chip counts (always global, không bị filter chip nhau)
-        const cnt = {
-            all: arr.length,
-            debt: arr.filter((c) => c.balance > 0).length,
-            has_balance: arr.filter((c) => c.walletBalance > 0).length,
-            vip: arr.filter((c) => c.tposStatus === 'VIP').length,
-            warning: arr.filter((c) => c.tposStatus === 'Warning').length,
-            bomb: arr.filter((c) => c.tposStatus === 'BomHang' || c.tposStatus === 'Danger').length,
-        };
-        if (dom.chipAll) dom.chipAll.textContent = cnt.all;
-        if (dom.chipDebt) dom.chipDebt.textContent = cnt.debt;
-        if (dom.chipBalance) dom.chipBalance.textContent = cnt.has_balance;
-        if (dom.chipVip) dom.chipVip.textContent = cnt.vip;
-        if (dom.chipWarn) dom.chipWarn.textContent = cnt.warning;
-        if (dom.chipBomb) dom.chipBomb.textContent = cnt.bomb;
+        if (dom.chipAll) dom.chipAll.textContent = (s.total || 0).toLocaleString('vi-VN');
+        if (dom.chipDebt) dom.chipDebt.textContent = (s.debt_count || 0).toLocaleString('vi-VN');
+        if (dom.chipBalance)
+            dom.chipBalance.textContent = (s.has_balance_count || 0).toLocaleString('vi-VN');
+        // VIP/Warning/Bomb counts require TPOS data — leave dash until TPOS loads
+        // (these filters are still implemented client-side via TPOS partner status)
+        if (dom.chipVip) dom.chipVip.textContent = state.tposPartnerCounts?.vip ?? '—';
+        if (dom.chipWarn) dom.chipWarn.textContent = state.tposPartnerCounts?.warning ?? '—';
+        if (dom.chipBomb) dom.chipBomb.textContent = state.tposPartnerCounts?.bomb ?? '—';
 
         document.querySelectorAll('#cwChips .cw-chip').forEach((b) => {
             b.classList.toggle('is-active', b.dataset.filter === state.quickFilter);
         });
 
         if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function renderPagination() {
+        const total = state.total || 0;
+        const size = state.pageSize;
+        const pages = Math.max(1, Math.ceil(total / size));
+        const page = Math.min(Math.max(1, state.page), pages);
+        const start = total === 0 ? 0 : (page - 1) * size + 1;
+        const end = Math.min(page * size, total);
+        if (dom.pageInfo) {
+            dom.pageInfo.textContent = `${start.toLocaleString('vi-VN')}–${end.toLocaleString('vi-VN')} / ${total.toLocaleString('vi-VN')}`;
+        }
+        if (!dom.pageButtons) return;
+        const btns = [];
+        const push = (label, target, opts) => {
+            const disabled = opts?.disabled ? 'disabled' : '';
+            const active = opts?.active ? 'is-active' : '';
+            btns.push(
+                `<button type="button" class="${active}" data-page="${target}" ${disabled}>${label}</button>`
+            );
+        };
+        push('«', 1, { disabled: page <= 1 });
+        push('‹', page - 1, { disabled: page <= 1 });
+        const win = 5;
+        let from = Math.max(1, page - 2);
+        let to = Math.min(pages, from + win - 1);
+        from = Math.max(1, to - win + 1);
+        for (let i = from; i <= to; i++) push(String(i), i, { active: i === page });
+        push('›', page + 1, { disabled: page >= pages });
+        push('»', pages, { disabled: page >= pages });
+        dom.pageButtons.innerHTML = btns.join('');
     }
 
     function tposPartnerBadge(phone) {
@@ -498,17 +476,21 @@
     }
 
     function cardHtml(c) {
-        const debt = c.balance > 0;
+        const debt = (c.balance || 0) > 0;
         const partner = state.tposPartners[c.phone];
         const tposPill = tposPartnerBadge(c.phone);
         const carrier =
             partner?.NameNetwork || window.PartnerCustomerApi?.detectCarrier?.(c.phone) || '';
-        const w2 = c.web2Wallet;
-        const w2Balance = w2 ? Number(w2.balance || 0) : null;
-        const w2Pill =
-            w2Balance != null
-                ? `<span class="cw-web2-balance ${w2Balance > 0 ? 'has-balance' : ''}" title="Số dư ví Web 2.0 hiện tại">💳 ${fmtVnd(w2Balance)}</span>`
-                : '<span class="cw-web2-balance cw-no-wallet" title="Chưa có ví Web 2.0 — sẽ tự tạo khi nhận CK">—</span>';
+        // Server returns walletBalance directly (no nested object); only show
+        // "no wallet" pill when the row genuinely has no wallet (paid/withdraw
+        // both zero AND walletBalance is exactly 0 with no deposit history).
+        const hasWallet =
+            c.walletBalance != null &&
+            (c.walletBalance > 0 || c.totalDeposited > 0 || c.totalWithdrawn > 0);
+        const w2Balance = c.walletBalance != null ? Number(c.walletBalance || 0) : null;
+        const w2Pill = hasWallet
+            ? `<span class="cw-web2-balance ${w2Balance > 0 ? 'has-balance' : ''}" title="Số dư ví Web 2.0 hiện tại">💳 ${fmtVnd(w2Balance)}</span>`
+            : '<span class="cw-web2-balance cw-no-wallet" title="Chưa có ví Web 2.0 — sẽ tự tạo khi nhận CK">—</span>';
         return `
             <div class="sw-card" data-phone="${escapeHtml(c.phone)}">
                 <div class="sw-card-head">
@@ -532,27 +514,39 @@
     async function openDetail(phone) {
         state.activePhone = phone;
         state.detailTab = 'orders';
-        const c = state.customers[phone];
+        const c = state.cache[phone];
         if (!c) return;
         dom.detailTitle.textContent = `${c.name || '(không tên)'} — ${phone}`;
-        renderDetailExtras(phone);
         dom.statTotal.textContent = fmtVnd(c.totalPurchased);
         dom.statPaid.textContent = fmtVnd(c.paidAmount);
         dom.statReturned.textContent = fmtVnd(c.returnedAmount);
         dom.statBalance.textContent = fmtVnd(c.balance);
+        renderDetailExtras(phone);
         renderDetailTabs();
         dom.detailModal.hidden = false;
         if (window.lucide?.createIcons) window.lucide.createIcons();
+        // Lazy-fetch PBH detail for this phone (not loaded for list view)
+        state.detailOrders = [];
+        try {
+            const orders = await fetchPbhListForPhone(phone);
+            state.detailOrders = orders;
+            if (state.activePhone === phone && state.detailTab === 'orders') renderOrders();
+        } catch (_) {}
     }
     function renderDetailExtras(phone) {
-        const c = state.customers[phone];
+        const c = state.cache[phone];
         const partner = state.tposPartners[phone];
-        const w2 = state.web2Wallets[phone];
+        const w2 = c
+            ? {
+                  balance: c.walletBalance,
+                  total_deposited: c.totalDeposited,
+                  total_withdrawn: c.totalWithdrawn,
+              }
+            : null;
         if (!c) return;
         const parts = [];
-        if (c.orders.length) {
-            parts.push(`${c.orders.length} PBH · ${Object.keys(c.campaigns).length} chiến dịch`);
-        }
+        if (c.pbhCount > 0) parts.push(`${c.pbhCount} PBH`);
+        if (c.nativeCount > 0) parts.push(`${c.nativeCount} Đơn Web`);
         if (partner) {
             const tposPill = tposPartnerBadge(phone);
             if (tposPill) parts.push(tposPill);
@@ -614,19 +608,25 @@
         else renderHistory();
     }
     function renderOrders() {
-        const c = state.customers[state.activePhone];
-        if (!c || !c.orders.length) {
-            dom.ordersBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:24px;">Chưa có PBH</td></tr>`;
+        const orders = state.detailOrders;
+        const pbh = Array.isArray(orders?.pbh) ? orders.pbh : [];
+        if (!pbh.length) {
+            dom.ordersBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:24px;">${orders === null ? 'Đang tải…' : 'Chưa có PBH'}</td></tr>`;
             return;
         }
-        const sorted = [...c.orders].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+        const sorted = [...pbh].sort((a, b) =>
+            String(b.dateInvoice || b.dateCreated || '').localeCompare(
+                String(a.dateInvoice || a.dateCreated || '')
+            )
+        );
         dom.ordersBody.innerHTML = sorted
             .map((o) => {
-                const totalQty = o.lines.reduce((s, l) => s + l.quantity, 0);
+                const totalQty = o.totalQuantity || 0;
+                const date = o.dateInvoice || o.dateCreated || '';
                 return `<tr>
-                    <td>${escapeHtml(fmtDate(o.date))}</td>
-                    <td><span class="cw-pbh-pill">${escapeHtml(o.number)}</span></td>
-                    <td>${o.campaignName ? `<span class="cw-campaign-pill">${escapeHtml(o.campaignName)}</span>` : '—'}</td>
+                    <td>${escapeHtml(fmtDate(date))}</td>
+                    <td><span class="cw-pbh-pill">${escapeHtml(o.number || '')}</span></td>
+                    <td>${o.liveCampaign?.name ? `<span class="cw-campaign-pill">${escapeHtml(o.liveCampaign.name)}</span>` : '—'}</td>
                     <td class="num">${totalQty}</td>
                     <td class="num">${fmtVnd(o.amountTotal)}</td>
                     <td><span class="sw-status-pill">${escapeHtml(o.state || '—')}</span></td>
@@ -670,22 +670,24 @@
         }
     }
 
-    // ─── TPOS enrichment ────────────────────────────────────────────
-    async function enrichTpos() {
+    // ─── TPOS enrichment (current page only, non-blocking) ────────────
+    async function enrichTposForCurrentPage() {
         if (!window.PartnerCustomerApi?.listByPhones) return;
-        const phones = Object.keys(state.customers).filter(
-            (p) => p && p.length >= 9 && !state.tposPartners[p]
-        );
+        const phones = state.rows
+            .map((r) => r.phone)
+            .filter((p) => p && p.length >= 9 && !state.tposPartners[p]);
         if (!phones.length) return;
         try {
-            const map = await window.PartnerCustomerApi.listByPhones(phones, { chunkSize: 30 });
+            // Concurrency 8 — chỉ enrich 50 phones tối đa (current page size)
+            const map = await window.PartnerCustomerApi.listByPhones(phones, { concurrency: 8 });
             for (const [phone, partner] of map.entries()) {
                 state.tposPartners[phone] = partner;
-                // Override name for wallet-only customers (PBH-only KH giữ
-                // tên từ PBH vì có thể chính xác hơn cho shop)
-                const c = state.customers[phone];
-                if (c && c.walletOnly && partner.Name) {
-                    c.name = partner.Name;
+                // Cập nhật tên KH wallet-only nếu server trả về `<phone>` (chưa
+                // có name từ PBH/native) — TPOS partner thường có name chính xác.
+                const row = state.rows.find((r) => r.phone === phone);
+                if (row && row.name === row.phone && partner.Name) {
+                    row.name = partner.Name;
+                    if (state.cache[phone]) state.cache[phone].name = partner.Name;
                 }
             }
             renderList();
@@ -697,108 +699,76 @@
                 renderDetailExtras(state.activePhone);
             }
         } catch (e) {
-            console.warn('[CW4] enrichTpos fail:', e.message);
+            console.warn('[CW4] enrichTposForCurrentPage fail:', e.message);
         }
     }
 
-    // ─── Main load ──────────────────────────────────────────────────
+    // ─── Main load (server-paged aggregate) ──────────────────────────
+    let _loadSeq = 0;
     async function load() {
+        const mySeq = ++_loadSeq;
         state.loading = true;
-        if (window.lucide?.createIcons) window.lucide.createIcons();
+        renderList();
         try {
-            // Step 1: PBH + native-orders + ALL Web 2.0 wallets (parallel)
-            const [pbhList, natOrders, allWallets] = await Promise.all([
-                fetchPbhList(20, 500),
-                fetchNativeOrders(20, 200).catch(() => []),
-                fetchAllWeb2Wallets().catch(() => []),
+            const opts = {
+                limit: state.pageSize,
+                offset: (state.page - 1) * state.pageSize,
+                sort: state.sort,
+                filter: state.quickFilter,
+                search: state.search,
+            };
+            // Stats fetched in parallel (cheap thanks to 5s TTL on server)
+            const [aggResult, statsResult] = await Promise.all([
+                fetchAggregate(opts),
+                fetchAggregateStats().catch(() => ({ data: state.stats })),
             ]);
-            // Step 2: Aggregate customer map from PBH + native-orders
-            const customers = aggregateFromPbh(pbhList);
-            mergeNativeOrders(customers, natOrders);
-            // Step 3: Merge wallet-only customers (KH có ví Web 2.0 nhưng chưa
-            // có PBH/Đơn Web). Bao gồm cả backfilled từ legacy customer_wallets
-            // hoặc CK SePay đầu tiên cho KH mới.
-            state.web2Wallets = {};
-            for (const w of allWallets) {
-                const phone = normPhone(w.phone);
-                if (!phone) continue;
-                state.web2Wallets[phone] = w;
-                if (!customers[phone]) {
-                    const bal = Number(w.balance || 0);
-                    const dep = Number(w.total_deposited || 0);
-                    const wd = Number(w.total_withdrawn || 0);
-                    // Chỉ thêm wallet-only nếu có hoạt động (balance > 0 hoặc
-                    // đã từng nạp/chi). Skip ví rỗng 0/0/0 để giữ UI sạch.
-                    if (bal > 0 || dep > 0 || wd > 0) {
-                        customers[phone] = {
-                            phone,
-                            name: phone, // TPOS enrich sẽ cập nhật tên
-                            orders: [],
-                            totalPurchased: 0,
-                            campaigns: {},
-                            walletOnly: true,
-                        };
-                    }
-                }
-            }
-            state.customers = customers;
-            const phones = Object.keys(customers);
-            // Step 4: Phones không có trong listWallets response (chưa fetch
-            // wallet) → fetch chính xác từng phone (chỉ PBH-only customers).
-            const missingPhones = phones.filter((p) => !state.web2Wallets[p]);
-            if (missingPhones.length) {
-                const walletsMap = await fetchWeb2Wallets(missingPhones);
-                for (const [p, w] of walletsMap.entries()) state.web2Wallets[p] = w;
-            }
-            // Step 5: Return amounts (parallel)
-            state.web2ReturnAmounts = await fetchWeb2ReturnAmountsBatch(phones, 5);
+            if (mySeq !== _loadSeq) return; // stale
+            state.rows = aggResult?.data || [];
+            state.total = aggResult?.total || 0;
+            state.stats = statsResult?.data || {};
+            // Cache rows by phone for detail modal lookup
+            for (const r of state.rows) state.cache[r.phone] = r;
             state.loading = false;
             renderList();
-            // Step 6: enrich TPOS partners (async, non-blocking) → cập nhật
-            // tên KH cho wallet-only customers (phone-only ban đầu).
-            enrichTpos().catch(() => {});
+            // Lazy TPOS enrich (current page only — 50 phones max)
+            enrichTposForCurrentPage().catch(() => {});
         } catch (e) {
+            if (mySeq !== _loadSeq) return;
             state.loading = false;
+            state.rows = [];
             console.error('[CW4] load fail:', e.message);
+            dom.list.innerHTML = `<div class="cw-error">Lỗi tải: ${escapeHtml(e.message)}</div>`;
             notify('Lỗi tải dữ liệu: ' + e.message, 'error');
         }
     }
 
     // ─── Refresh single wallet (SSE) ────────────────────────────────
+    // For SSE deposit events: just re-fetch the current page so amounts
+    // stay consistent (server-side aggregate). Cheap (~50 rows).
+    const _reloadOnSse = debounce(() => load(), 800);
     async function refreshSinglePhone(phone) {
         if (!phone) return;
-        try {
-            const w = await window.Web2WalletApi.getWallet(phone);
-            if (w) {
-                state.web2Wallets[phone] = w;
-                // Re-fetch return amount cũng
-                state.web2ReturnAmounts[phone] = await fetchWalletReturns(phone);
-                // Ensure customer entry exists (KH mới chỉ có Web 2.0 wallet, chưa có PBH)
-                if (!state.customers[phone]) {
-                    state.customers[phone] = {
-                        phone,
-                        name: phone,
-                        orders: [],
-                        totalPurchased: 0,
-                        campaigns: {},
-                    };
-                }
-                renderList();
-                if (state.activePhone === phone && !dom.detailModal.hidden) {
+        // Trigger debounced page reload — server returns fresh aggregates.
+        _reloadOnSse();
+        // If detail modal open for this phone, update amount display from
+        // single-wallet lookup (faster than full reload for modal).
+        if (state.activePhone === phone && !dom.detailModal.hidden) {
+            try {
+                const w = await window.Web2WalletApi.getWallet(phone);
+                const c = state.cache[phone];
+                if (w && c) {
+                    c.walletBalance = Number(w.balance || 0);
+                    c.totalDeposited = Number(w.total_deposited || 0);
+                    c.totalWithdrawn = Number(w.total_withdrawn || 0);
+                    c.paidAmount = c.totalDeposited;
+                    c.balance = (c.totalPurchased || 0) - c.paidAmount - (c.returnedAmount || 0);
+                    dom.statPaid.textContent = fmtVnd(c.paidAmount);
+                    dom.statBalance.textContent = fmtVnd(c.balance);
                     renderDetailExtras(phone);
-                    const c = state.customers[phone];
-                    if (c) {
-                        c.paidAmount = Number(w.total_deposited || 0);
-                        c.returnedAmount = Number(state.web2ReturnAmounts[phone] || 0);
-                        c.balance = (c.totalPurchased || 0) - c.paidAmount - c.returnedAmount;
-                        dom.statPaid.textContent = fmtVnd(c.paidAmount);
-                        dom.statReturned.textContent = fmtVnd(c.returnedAmount);
-                        dom.statBalance.textContent = fmtVnd(c.balance);
-                    }
                 }
+            } catch (e) {
+                console.warn('[CW4] refreshSinglePhone modal fail:', e.message);
             }
-        } catch (e) {
-            console.warn('[CW4] refreshSinglePhone fail:', e.message);
         }
     }
 
@@ -814,9 +784,10 @@
             localStorage.removeItem('customerWallet_v1');
             localStorage.removeItem('customerWallet_v2');
             localStorage.removeItem('web2CustomerWallet');
-            state.customers = {};
-            state.web2Wallets = {};
-            state.web2ReturnAmounts = {};
+            state.rows = [];
+            state.total = 0;
+            state.page = 1;
+            state.cache = {};
             state.tposPartners = {};
             renderList();
             notify('Đã clear cache. Đang reload từ Web 2.0…', 'info');
@@ -849,84 +820,123 @@
         window.Web2SSE.subscribe('web2:native-orders', () => reloadDebounced());
     }
 
-    // ─── CSV export ─────────────────────────────────────────────────
-    function exportCsv() {
-        const arr = computeAllCustomerFields().filter(applyQuickFilter);
-        const searchRaw = (dom.search.value || '').trim();
-        const search = searchNormalize(searchRaw);
-        const searchDigits = searchRaw.replace(/\D/g, '');
-        const items = arr.filter(
-            (c) =>
-                !search ||
-                searchNormalize(c.name).includes(search) ||
-                (searchDigits && c.phone.includes(searchDigits))
-        );
-        if (!items.length) {
-            notify('Không có KH nào để xuất', 'warning');
-            return;
+    // ─── CSV export (fetches up to 500 rows from server with current filter) ─
+    async function exportCsv() {
+        const btn = dom.exportCsvBtn;
+        if (btn) btn.disabled = true;
+        try {
+            notify('Đang chuẩn bị CSV…', 'info');
+            const result = await fetchAggregate({
+                limit: 500,
+                offset: 0,
+                sort: state.sort,
+                filter: state.quickFilter,
+                search: state.search,
+            });
+            const items = result?.data || [];
+            if (!items.length) {
+                notify('Không có KH nào để xuất', 'warning');
+                return;
+            }
+            const headers = [
+                'Phone',
+                'Name',
+                'TPOS Status',
+                'Tổng mua',
+                'Đã thu',
+                'Đã trả',
+                'Còn nợ',
+                'Dư ví',
+            ];
+            const csvEscape = (v) => {
+                const s = String(v ?? '');
+                if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+                return s;
+            };
+            const lines = [headers.map(csvEscape).join(',')];
+            for (const c of items) {
+                const partner = state.tposPartners[c.phone];
+                lines.push(
+                    [
+                        c.phone,
+                        c.name || '',
+                        partner?.StatusText || partner?.Status || '',
+                        Math.round(c.totalPurchased || 0),
+                        Math.round(c.paidAmount || 0),
+                        Math.round(c.returnedAmount || 0),
+                        Math.round(c.balance || 0),
+                        Math.round(c.walletBalance || 0),
+                    ]
+                        .map(csvEscape)
+                        .join(',')
+                );
+            }
+            const csv = '﻿' + lines.join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            a.href = url;
+            a.download = `vi-khach-hang-${state.quickFilter}-${stamp}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            notify(`Đã xuất ${items.length} KH (filter: ${state.quickFilter})`, 'success');
+        } catch (e) {
+            notify('Lỗi xuất CSV: ' + e.message, 'error');
+        } finally {
+            if (btn) btn.disabled = false;
         }
-        const headers = [
-            'Phone',
-            'Name',
-            'TPOS Status',
-            'Tổng mua',
-            'Đã thu',
-            'Đã trả',
-            'Còn nợ',
-            'Dư ví',
-        ];
-        const csvEscape = (v) => {
-            const s = String(v ?? '');
-            if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
-            return s;
-        };
-        const lines = [headers.map(csvEscape).join(',')];
-        for (const c of items) {
-            const partner = state.tposPartners[c.phone];
-            lines.push(
-                [
-                    c.phone,
-                    c.name || '',
-                    partner?.StatusText || partner?.Status || '',
-                    Math.round(c.totalPurchased),
-                    Math.round(c.paidAmount),
-                    Math.round(c.returnedAmount),
-                    Math.round(c.balance),
-                    Math.round(c.walletBalance),
-                ]
-                    .map(csvEscape)
-                    .join(',')
-            );
-        }
-        // Add BOM for Excel Vietnamese support
-        const csv = '﻿' + lines.join('\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        a.href = url;
-        a.download = `vi-khach-hang-${state.quickFilter}-${stamp}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        notify(`Đã xuất ${items.length} KH (filter: ${state.quickFilter})`, 'success');
     }
 
     // ─── Wire UI ────────────────────────────────────────────────────
     function wireUi() {
-        dom.search.addEventListener('input', debounce(renderList, 200));
-        dom.sort.addEventListener('change', renderList);
+        dom.search.addEventListener(
+            'input',
+            debounce(() => {
+                state.search = dom.search.value.trim();
+                state.page = 1;
+                load();
+            }, 350)
+        );
+        dom.sort.addEventListener('change', () => {
+            state.sort = dom.sort.value;
+            state.page = 1;
+            load();
+        });
         dom.refreshBtn?.addEventListener('click', load);
         dom.hardResetBtn?.addEventListener('click', hardReset);
         dom.exportCsvBtn?.addEventListener('click', exportCsv);
+
+        if (dom.pageSize) {
+            dom.pageSize.addEventListener('change', () => {
+                state.pageSize = Number(dom.pageSize.value) || 50;
+                state.page = 1;
+                load();
+            });
+        }
+        if (dom.pageButtons) {
+            dom.pageButtons.addEventListener('click', (e) => {
+                const btn = e.target.closest('button[data-page]');
+                if (!btn || btn.disabled) return;
+                const target = Number(btn.getAttribute('data-page'));
+                if (!Number.isFinite(target)) return;
+                state.page = Math.max(1, target);
+                load();
+            });
+        }
 
         // Quick filter chips
         dom.chipsContainer?.addEventListener('click', (e) => {
             const btn = e.target.closest('.cw-chip[data-filter]');
             if (!btn) return;
-            state.quickFilter = btn.dataset.filter || 'all';
-            renderList();
+            const f = btn.dataset.filter || 'all';
+            // VIP/Warning/Bomb hiện chưa hỗ trợ server-side (cần join TPOS).
+            // Giữ filter này local-only — load all + filter client-side. TODO.
+            state.quickFilter = f;
+            state.page = 1;
+            load();
         });
 
         document.addEventListener('click', (e) => {

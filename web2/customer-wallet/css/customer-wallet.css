@@ -283,3 +283,68 @@
     color: #065f46;
     font-size: 13px;
 }
+
+/* ────────── Server-side pagination footer (Phase 5) ────────── */
+.cw-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 4px 6px;
+    flex-wrap: wrap;
+}
+.cw-page-info {
+    font-size: 12px;
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+}
+.cw-page-buttons {
+    display: flex;
+    gap: 4px;
+}
+.cw-page-buttons button {
+    background: #fff;
+    border: 1px solid #d1d5db;
+    color: #374151;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    min-width: 32px;
+    font-variant-numeric: tabular-nums;
+}
+.cw-page-buttons button:hover:not(:disabled) {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+}
+.cw-page-buttons button.is-active {
+    background: #0891b2;
+    color: #fff;
+    border-color: #0891b2;
+}
+.cw-page-buttons button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.cw-page-size {
+    border: 1px solid #d1d5db;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    background: #fff;
+    cursor: pointer;
+}
+.cw-loading,
+.cw-error {
+    padding: 32px 16px;
+    text-align: center;
+    color: #6b7280;
+    font-style: italic;
+}
+.cw-error {
+    color: #b91c1c;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+}
