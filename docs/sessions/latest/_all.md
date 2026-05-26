@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2f5b8d2` — fix(shared/return-order): bulk-fetch + cache + client filter — fix bug search ignored, 3s → 13ms re-open
-**Last updated**: 2026-05-26 13:44:46 +07
-**Latest session**: [`RESUME:20260526-134446-2f5b8d2`](../20260526-134446-2f5b8d2.md)
-**Summary**: fix(shared/return-order): bulk-fetch + cache + client filter — fix bug search ignored, 3s → 13ms re-open
+**Latest commit**: `6a71008` — docs(dev-log): note column resize + auto-fit Name col for product-warehouse
+**Last updated**: 2026-05-26 13:45:48 +07
+**Latest session**: [`RESUME:20260526-134548-6a71008`](../20260526-134548-6a71008.md)
+**Summary**: docs(dev-log): note column resize + auto-fit Name col for product-warehouse
 
 ## Folders affected in this commit
 
@@ -24,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 13:38
-- [`docs/`](./docs.md) — updated 2026-05-26 13:44
+- [`docs/`](./docs.md) — updated 2026-05-26 13:45
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
