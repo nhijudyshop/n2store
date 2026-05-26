@@ -25,6 +25,41 @@
 
 ## 2026-05-26
 
+### [web2/balance-history] UX overhaul — view & process unmatched rows clearly ✅
+
+**User ask**: "http://localhost:8080/web2/balance-history/index.html → cải thiện giao diện user, cải thiện tính năng auto → coi được các chuyển khoản không có thông tin"
+
+**Goal**: 996 NO_PHONE rows trong DB (backfilled từ legacy chưa qua matcher mới). User cần (a) thấy rõ row nào có thể tự match được, (b) bấm 1 phát để auto-match, (c) xuất CSV để xử lý offline, (d) lọc theo ngày để focus dải cần xử lý.
+
+**Backend** (`render.com/routes/v2/web2-balance-history.js`):
+
+- Import `extractPhoneFromContent` từ `routes/sepay-transaction-matching.js` (Web 2.0 dùng chung extractor).
+- `GET /api/web2/balance-history` — nhúng `extraction_preview = {type, value, note}` cho mỗi row chưa gán phone → UI hiển thị candidate phone server-extracted, không cần port logic xuống client.
+- Thêm date filter `?since=YYYY-MM-DD&until=YYYY-MM-DD` (inclusive) — regex-validate trước khi push vào params để tránh SQL injection.
+- `POST /api/web2/balance-history/:id/auto-match` — single-row reprocess (gọi `web2SepayMatching.processWeb2Match` cho 1 row). Dùng để retry 1 GD cụ thể từ UI thay vì bulk.
+
+**HTML/JS** (`web2/balance-history/index.html` + `js/web2-balance-history-app.js`):
+
+- Toolbar mới: search input (với `<kbd>⌘K</kbd>` badge) + date range (`<input type="date">` From/To + nút × clear) + nút CSV.
+- `state.dateFrom`/`state.dateTo` truyền vào GET query làm `since`/`until`.
+- `stripDiacritics()` + `searchNormalize()` inline helpers (NFD + đ→d) — chuẩn bị cho client-side diacritic search nếu cần (hiện ILIKE server đã xử lý 80% case).
+- `renderRow()` rewrite: với row chưa gán phone, hiển thị `w2bh-extract-hint` badge với icon + text (QR / SĐT đủ / Đuôi SĐT / "Không có thông tin") để user thấy ngay row nào có hi vọng match được. Row có candidate hiện thêm icon-button ⚡ (auto-match) cạnh button gán thủ công.
+- `autoMatchSingle(id)` — call `/:id/auto-match` → toast result (match / pending / no match) → reload list.
+- `exportCsv()` — fetch 500 rows theo filter hiện tại, build CSV với BOM (UTF-8 BOM cho Excel), trigger download `balance-history-YYYY-MM-DD.csv`.
+- Cmd/Ctrl+K → focus search.
+
+**CSS** (`web2/balance-history/css/web2-balance-history.css`):
+
+- `.w2bh-toolbar` — flex wrap, gap 10px (search + date range + CSV cùng hàng, wrap khi narrow).
+- `.w2bh-kbd` — kbd badge absolute trong search box, mono font, subtle gray.
+- `.w2bh-date-range` — inline group với border-radius 6 + label "Từ/Đến" + 2 date inputs + nút × clear.
+- `.w2bh-extract-hint` — pill cyan cho candidate phone, pill red `.w2bh-extract-empty` cho "không có thông tin".
+- `.w2bh-icon-btn.auto-match` — gradient amber→dark amber để phân biệt với button gán manual (cyan).
+
+**Verify**: served HTML/JS có toàn bộ element mới, `node -c` cả frontend + backend đều OK. Browser session đang stuck navigation; user verify visual riêng nếu cần.
+
+**Status**: ✅ Done — auto-committed via Stop hook trong cycle `ec5e4c149`.
+
 ### [product-warehouse] CSS — TPOS visual match polish ✅
 
 **User ask**: "browser vào https://tomato.tpos.vn/#/app/producttemplate/list làm giao diện giống tpos, từ màu nên, bảng, vị trí thanh tìm kiếm, các nút tpos,..."
