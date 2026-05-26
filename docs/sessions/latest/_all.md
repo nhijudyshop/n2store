@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `17deec4` — auto: session update
-**Last updated**: 2026-05-26 11:30:15 +07
-**Latest session**: [`RESUME:20260526-113015-17deec4`](../20260526-113015-17deec4.md)
-**Summary**: auto: session update
+**Latest commit**: `8af863e` — fix(delivery-report/report): bo confirm popup khi click x bo gop (instant action)
+**Last updated**: 2026-05-26 11:30:52 +07
+**Latest session**: [`RESUME:20260526-113052-8af863e`](../20260526-113052-8af863e.md)
+**Summary**: fix(delivery-report/report): bo confirm popup khi click x bo gop (instant action)
 
 ## Folders affected in this commit
 
 - [`delivery-report/`](./delivery-report.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
