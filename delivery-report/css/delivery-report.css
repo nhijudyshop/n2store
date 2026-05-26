@@ -2183,6 +2183,64 @@ body.dr-mode-report #drTableWrapper {
     border-color: var(--tab-color);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--tab-color) 18%, transparent);
 }
+
+/* Tab totals row — tổng còn lại cho từng tab + grand total bên phải.
+   Layout flex match tabs row above (same gap + button widths). Mỗi total căn
+   giữa dưới button tương ứng. Grand total bên phải có viền trái phân tách. */
+.dr-report-tabs-totals {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    align-items: stretch;
+}
+.dr-report-tabs-totals .dr-tab-total {
+    --tab-color: #6b7280;
+    flex: 0 0 auto;
+    min-width: 90px;
+    padding: 6px 18px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--tab-color);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--tab-color) 5%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+.dr-report-tabs-totals .dr-tab-total.positive {
+    color: #16a34a;
+}
+.dr-report-tabs-totals .dr-tab-total.negative {
+    color: #dc2626;
+}
+.dr-report-tabs-totals .dr-tab-total.zero {
+    color: #9ca3af;
+    font-weight: 500;
+}
+.dr-report-tabs-totals .dr-tab-total-grand {
+    margin-left: auto;
+    min-width: 140px;
+    border-left: 2px solid #d1d5db;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 15px;
+    padding-left: 16px;
+}
+.dr-report-tabs-totals .dr-tab-total-grand.positive {
+    color: #15803d;
+}
+.dr-report-tabs-totals .dr-tab-total-grand.negative {
+    color: #b91c1c;
+}
+.dr-report-tabs-totals .dr-tab-total-grand .dr-tab-total-label {
+    font-size: 11px;
+    opacity: 0.7;
+    letter-spacing: 0.5px;
+    margin-right: 4px;
+}
+
 .dr-report-table-wrap {
     /* KHÔNG dùng overflow-x: auto vì sẽ tạo scroll container con, làm sticky
        thead bị stuck trong wrapper thay vì dán lên viewport top. Để wrapper

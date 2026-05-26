@@ -771,6 +771,7 @@
         if (cached && Date.now() - cached.fetchedAt < 60000) {
             state.currentByDateGroup = cached.byDateGroup;
             paintTable(dates);
+            paintTabTotals(dates);
             return;
         }
 
@@ -783,8 +784,92 @@
             const curRealTo = entryToReal(state.toDate);
             if (rangeKey(curRealFrom, curRealTo) !== key) return; // stale
             state.currentByDateGroup = byDateGroup;
-            paintTable(eachDay(curRealFrom, curRealTo));
+            const allDates = eachDay(curRealFrom, curRealTo);
+            paintTable(allDates);
+            paintTabTotals(allDates);
         });
+    }
+
+    // Compute tổng còn lại (totalLeft) cho 1 tab trong range hiện tại.
+    // Logic phải đồng bộ paintTable: child + merge (sum from children, override),
+    // approved → totalLeft = 0. Duplicated nhẹ để tránh refactor lớn paintTable;
+    // gọi 3 lần (1/tab) để hiển thị dưới mỗi tab button.
+    function computeTotalLeftForTab(tab, dates) {
+        const map = aggregateByDay(tab, dates);
+        const rendered = new Set();
+        let total = 0;
+        const useMerge = (mv) => mv != null && mv !== '' && Number(mv) !== 0;
+        for (const d of dates) {
+            if (rendered.has(d)) continue;
+            const merge = findMergeForDate(d, tab);
+            if (merge) {
+                const childDates = dates.filter((cd) => cd >= merge.fromDate && cd <= merge.toDate);
+                for (const cd of childDates) rendered.add(cd);
+                let sumMoney = 0,
+                    sumShipFee = 0,
+                    sumSlShip = 0,
+                    sumThuVe = 0;
+                let sumBoCK = 0,
+                    sumAtruongCK = 0,
+                    sumCkTruoc = 0;
+                for (const cd of childDates) {
+                    const sys = map[cd] || { sysCount: 0, money: 0 };
+                    sumMoney += sys.money;
+                    sumShipFee += sys.sysCount * SHIP_FEE_PER_ORDER;
+                    const ovc = getOverride(cd, tab);
+                    sumSlShip += Number(ovc.slShip) || 0;
+                    sumThuVe += Number(ovc.thuVe) || 0;
+                    sumBoCK += Number(ovc.boCK) || 0;
+                    sumAtruongCK += Number(ovc.atruongCK) || 0;
+                    sumCkTruoc += Number(ovc.ckTruoc) || 0;
+                }
+                const slShip = useMerge(merge.slShip) ? Number(merge.slShip) : sumSlShip;
+                const thuVe = useMerge(merge.thuVe) ? Number(merge.thuVe) : sumThuVe;
+                const boCK = useMerge(merge.boCK) ? Number(merge.boCK) : sumBoCK;
+                const atruongCK = useMerge(merge.atruongCK)
+                    ? Number(merge.atruongCK)
+                    : sumAtruongCK;
+                const ckTruoc = useMerge(merge.ckTruoc) ? Number(merge.ckTruoc) : sumCkTruoc;
+                const totalAll = sumMoney - sumShipFee - slShip * SHIP_FEE_PER_ORDER + thuVe;
+                const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
+                total += merge.approved ? 0 : totalLeftRaw;
+            } else {
+                const sys = map[d] || { sysCount: 0, money: 0 };
+                const shipFee = sys.sysCount * SHIP_FEE_PER_ORDER;
+                const ov = getOverride(d, tab);
+                const slShip = Number(ov.slShip) || 0;
+                const thuVe = Number(ov.thuVe) || 0;
+                const boCK = Number(ov.boCK) || 0;
+                const atruongCK = Number(ov.atruongCK) || 0;
+                const ckTruoc = Number(ov.ckTruoc) || 0;
+                const totalAll = sys.money - shipFee - slShip * SHIP_FEE_PER_ORDER + thuVe;
+                const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
+                total += ov.approved ? 0 : totalLeftRaw;
+                rendered.add(d);
+            }
+        }
+        return total;
+    }
+
+    function paintTabTotals(dates) {
+        const el = document.getElementById('drReportTabsTotals');
+        if (!el) return;
+        const totals = TABS.map((t) => ({
+            key: t.key,
+            label: t.label,
+            color: t.color,
+            value: computeTotalLeftForTab(t.key, dates),
+        }));
+        const grand = totals.reduce((s, t) => s + t.value, 0);
+        const cls = (v) => (v < 0 ? 'negative' : v > 0 ? 'positive' : 'zero');
+        el.innerHTML =
+            totals
+                .map(
+                    (t) =>
+                        `<div class="dr-tab-total ${cls(t.value)}" data-tab="${t.key}" style="--tab-color:${t.color}" title="Tổng còn lại ${t.label}"><span class="dr-tab-total-val">${formatMoney(t.value)}</span></div>`
+                )
+                .join('') +
+            `<div class="dr-tab-total dr-tab-total-grand ${cls(grand)}" title="TỔNG = TOMATO + NAP + THÀNH PHỐ"><span class="dr-tab-total-label">TỔNG</span><span class="dr-tab-total-val">${formatMoney(grand)}</span></div>`;
     }
 
     function paintTable(dates) {

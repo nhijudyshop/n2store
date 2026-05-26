@@ -25,6 +25,22 @@
 
 ## 2026-05-26
 
+### [delivery-report/report] Tổng còn lại per tab + grand total ngang ✅
+
+**User ask**: "tổng còn lại chi nằm ở dưới chữ hình 2, ví dụ tổng còn lại tomato cho nằm dưới tomato, nap cho nằm dưới nap, thành phố cho nằm dưới thành phố (canh giữa các phần này, chỉ cần ghi số tiền) → bên phải thành phố có tổng = 3 cái tổng còn lại + lại".
+
+**Fix** (`delivery-report/js/report.js` + `delivery-report/css/delivery-report.css`):
+
+- HTML: thêm `<div id="drReportTabsTotals">` ngay dưới `#drReportTabs`
+- Helper `computeTotalLeftForTab(tab, dates)` — port logic totalLeft từ paintTable (single + merge + children sum + override + approved=0). Duplicated nhẹ để tránh refactor lớn paintTable. Gọi 3 lần (1/tab) mỗi render.
+- `paintTabTotals(dates)` — build 4 cells: TOMATO/NAP/THÀNH PHỐ totals (background tint theo tab color, color green positive / red negative / gray zero) + TỔNG bên phải (`margin-left: auto`, yellow `#fef3c7` bg, border-left phân tách)
+- Hook vào render cycle: cả hot cache path lẫn cold fetch path đều gọi `paintTabTotals(dates)` sau `paintTable(dates)`
+- CSS `.dr-report-tabs-totals`: flex row, gap 8px match tabs row; mỗi `.dr-tab-total` min-width 90px center-aligned; grand total min-width 140px label "TỔNG" nhỏ + value lớn
+
+**Verify** (Playwright): 4 cells render đúng: `TOMATO $154.855.000`, `NAP $551.964.000`, `THÀNH PHỐ $303.290.000`, `TỔNG $1.010.109.000` (đúng = 154.855 + 551.964 + 303.290). Layout: 3 totals căn dưới buttons, grand total flush-right với border-left phân tách.
+
+---
+
 ### [delivery-report, docs, MEMORY] SSE realtime server thống nhất Web 1.0 + Web 2.0 — server notify (server-side checkpoint) 🔄
 
 **User ask** (sequence 5 msgs): (1) "đồng bộ realtime sync các máy luôn → coi có server sse của web 1.0 chưa (nhớ là web 1.0 đừng động vào web 2.0) → server sse này sẽ log các tương tác cần realtime ở các máy → các client sẽ listening và đúng trang client đang mở sẽ cập nhật"; (2) "note vào memory, claude, devlog là có server realtime sse của web 1.0 và 2.0, dùng 2 server này dùng cho toàn bộ để thực hiện tính năng realtime, đồng bộ tất cả"; (3) "web 2.0 có server sse realtime riêng đúng không?"; (4) "web 1.0 có cần setting giống web 2.0 để tối ưu hay không?"; (5) "tại vì web 1.0 cũng cần để các page truyền dữ liệu đồng bộ cho nhau đó".
