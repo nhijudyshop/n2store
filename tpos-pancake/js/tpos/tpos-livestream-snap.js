@@ -869,7 +869,21 @@ Throttle 30s/KH.`;
             chip.dataset.running = '1';
             chip.style.opacity = '0.85';
             chip.style.pointerEvents = 'none';
-            chip.innerHTML = `⏳ Queuing...`;
+            // Step 1 — Backfill metadata trước. User feedback 2026-05-26: "có
+            // comment là chắc chắn có snap shot và thumbnail". Nguyên nhân
+            // missing thumbnail: comment đến trước khi auto-snap chạy → không
+            // có row trong DB → extract-all-pending bỏ qua. Backfill ensure
+            // row + offset_seconds tồn tại cho mọi comment visible trước khi
+            // extract bytea. skipExisting: true → không touch row đã có bytea.
+            chip.innerHTML = `⏳ Backfill metadata...`;
+            try {
+                if (camp?.Facebook_LiveId && pageObj?.Facebook_PageId) {
+                    await offlineBatchAll({ skipExisting: true });
+                }
+            } catch (bfErr) {
+                console.warn('[force-extract] backfill fail (continue):', bfErr?.message);
+            }
+            chip.innerHTML = `⏳ Queuing extract...`;
             try {
                 const r = await fetch(API + '/api/livestream/extract-all-pending', {
                     method: 'POST',
@@ -932,6 +946,13 @@ Throttle 30s/KH.`;
                                     );
                                 }, 1500);
                             }
+                            // Step 3 — Invalidate cache + re-fetch thumbnails.
+                            // User feedback 2026-05-26: sau Force extract, thumbnail
+                            // visible đôi khi không cập nhật vì STATE.snapByComment
+                            // có entry null từ lần fetch trước (khi snap chưa có
+                            // bytea). _queueSnapByComment có guard `has()` →
+                            // không re-fetch entry null. Clear cache + queue lại.
+                            _invalidateSnapCacheAndRefresh();
                             setTimeout(_resetChip, 3000);
                         }
                     } catch (pe) {
@@ -2026,6 +2047,22 @@ Throttle 30s/KH.`;
         if (STATE.snapByCommentTimer) return;
         // Debounce gom 300ms → 1 batch fetch tối đa 200 IDs.
         STATE.snapByCommentTimer = setTimeout(_flushSnapByCommentBatch, 300);
+    }
+
+    // Clear STATE.snapByComment + re-queue mọi comment row visible. Gọi sau
+    // Force extract done để frontend lấy fresh data (lúc trước có thể là null
+    // hoặc snap chưa có bytea — giờ DB đã có bytea cho rows extracted thành công).
+    function _invalidateSnapCacheAndRefresh() {
+        const rows = document.querySelectorAll('.tpos-conversation-item[data-comment-id]');
+        const cids = [];
+        rows.forEach((row) => {
+            const cid = row.dataset.commentId;
+            if (cid) cids.push(cid);
+        });
+        // Wipe entries cho các commentId visible → ép re-fetch
+        cids.forEach((cid) => STATE.snapByComment.delete(cid));
+        // Queue lại tất cả → _flushSnapByCommentBatch fetch from DB + render
+        cids.forEach((cid) => _queueSnapByComment(cid));
     }
 
     async function _flushSnapByCommentBatch() {
