@@ -4355,7 +4355,11 @@
         try {
             showToast('Đang tải tồn kho...', 'info');
             const detail = await fetchProductDetail(templateId);
-            const variants = (detail.ProductVariants || []).filter((v) => v.Active !== false);
+            // Include ALL variants (including Active=false). TPOS marks variants created
+            // via UpdateV2 as Active=false initially — they still exist + need qty adjust.
+            // "Active" here means "available for sale", not "exists". User should still
+            // be able to set qty for archived/inactive variants.
+            const variants = detail.ProductVariants || [];
 
             stockAdjustCtx = {
                 templateId,
