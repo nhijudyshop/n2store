@@ -269,51 +269,51 @@
      * @returns {Promise<Map<string, Object>>} Map keyed by Phone → partner record
      */
     async function listByPhones(phones, opts) {
-        const CHUNK_SIZE = (opts && opts.chunkSize) || 30;
+        // FIX 2026-05-26: TPOS GetViewV2 IGNORES `Phone eq '<x>' or Phone eq '<y>'`
+        // trong $filter (verified browser test trả unrelated top N). Phải dùng URL
+        // param `Phone=<digits>` per-phone với concurrency.
+        const concurrency = (opts && opts.concurrency) || (opts && opts.chunkSize) || 8;
         const map = new Map();
         const unique = Array.from(
             new Set((phones || []).map((p) => String(p || '').trim()).filter((p) => p.length >= 3))
         );
         if (!unique.length) return map;
 
-        const chunks = [];
-        for (let i = 0; i < unique.length; i += CHUNK_SIZE) {
-            chunks.push(unique.slice(i, i + CHUNK_SIZE));
-        }
-
-        const fetchChunk = async (chunk) => {
-            const orClauses = chunk.map((p) => `Phone eq '${escapeOData(p)}'`).join(' or ');
-            const filter = `Type eq 'Customer' and (${orClauses})`;
+        const fetchOne = async (phone) => {
             const params = new URLSearchParams();
-            params.set('$top', String(chunk.length * 3));
+            params.set('$top', '5');
             params.set('$count', 'false');
             params.set('Type', 'Customer');
             params.set('Active', 'true');
-            params.set('$filter', filter);
+            params.set('Phone', phone); // TPOS substring search on Phone
+            params.set('$orderby', 'DateCreated desc');
             const url = `${PARTNER_VIEW}?${params.toString()}`;
             try {
                 const data = await jsonFetch(url, { method: 'GET' });
                 const arr = Array.isArray(data && data.value) ? data.value : [];
-                for (const p of arr) {
-                    const phone = String(p.Phone || p.Mobile || '').trim();
-                    if (!phone) continue;
-                    // Keep newest only (DateCreated desc — TPOS default for this list)
-                    if (!map.has(phone)) map.set(phone, p);
-                }
+                // Exact match priority; fallback endsWith match
+                const exact = arr.find((p) => String(p.Phone || p.Mobile || '').trim() === phone);
+                const match =
+                    exact ||
+                    arr.find((p) =>
+                        String(p.Phone || p.Mobile || '')
+                            .trim()
+                            .endsWith(phone.slice(-9))
+                    );
+                if (match) map.set(phone, match);
             } catch (e) {
-                console.warn('[PartnerCustomerApi.listByPhones] chunk failed:', e.message);
+                // silent — phone không có trong TPOS
             }
         };
 
-        // Concurrency 3 so we don't overload the worker proxy
-        const queue = [...chunks];
+        const queue = [...unique];
         const workers = [];
-        for (let i = 0; i < Math.min(3, queue.length); i++) {
+        for (let i = 0; i < Math.min(concurrency, queue.length); i++) {
             workers.push(
                 (async () => {
                     while (queue.length) {
-                        const c = queue.shift();
-                        await fetchChunk(c);
+                        const p = queue.shift();
+                        await fetchOne(p);
                     }
                 })()
             );
