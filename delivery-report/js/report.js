@@ -1162,6 +1162,8 @@
             const expandCell =
                 e.target.closest && e.target.closest('td[data-action="toggle-expand"]');
             if (expandCell) {
+                // Bỏ qua nếu click trúng checkbox select-day (đã có change handler riêng)
+                if (e.target.closest && e.target.closest('[data-action="select-day"]')) return;
                 const row = expandCell.closest('tr[data-date]');
                 if (row && !row.classList.contains('dr-merge-row')) toggleExpandRow(row);
             }
