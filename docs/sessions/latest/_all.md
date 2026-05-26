@@ -3,13 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0d6d5ec` — fix(web2/balance-history): label "Thủ công" sai cho legacy backfilled rows
-**Last updated**: 2026-05-26 18:08:29 +07
-**Latest session**: [`RESUME:20260526-180829-0d6d5ec`](../20260526-180829-0d6d5ec.md)
-**Summary**: fix(web2/balance-history): label "Thủ công" sai cho legacy backfilled rows
+**Latest commit**: `09a46fc` — feat(web2/balance-history): 100% tu dong — bo khai niem 'Cu' / 'manual', auto-reprocess on page load
+**Last updated**: 2026-05-26 18:13:57 +07
+**Latest session**: [`RESUME:20260526-181357-09a46fc`](../20260526-181357-09a46fc.md)
+**Summary**: feat(web2/balance-history): 100% tu dong — bo khai niem 'Cu' / 'manual', auto-reprocess on page load
 
 ## Folders affected in this commit
 
+- [`render.com/`](./render.com.md) — 1 file(s)
 - [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
@@ -49,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-26 17:02
+- [`render.com/`](./render.com.md) — updated 2026-05-26 18:13
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-26 13:38
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -67,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-26 18:08
+- [`web2/`](./web2.md) — updated 2026-05-26 18:13
