@@ -12,6 +12,8 @@
 
     const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const BASE = PROXY + '/api/odata/SaleOnline_LiveCampaign';
+    const CRM_TEAMS_URL = PROXY + '/api/odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs';
+    const LIVE_VIDEO_URL = PROXY + '/api/facebook-graph/livevideo';
     const NATIVE_LOAD_URL = PROXY + '/api/native-orders/load';
     // SheetJS publishes only via cdn.sheetjs.com (official) — jsdelivr/npm dropped support.
     // unpkg/cdnjs still host the legacy 0.18.5 build as fallback.
@@ -106,6 +108,58 @@
         };
     }
 
+    // List Facebook pages user có quyền (qua CRMTeam tree). Flatten ra
+    // {pageId, pageName, teamId, teamName}. Cache 5 min in-memory.
+    let _pagesCache = null;
+    let _pagesCacheAt = 0;
+    const PAGES_TTL = 5 * 60 * 1000;
+    async function loadPages() {
+        if (_pagesCache && Date.now() - _pagesCacheAt < PAGES_TTL) return _pagesCache;
+        const data = await jsonFetch(CRM_TEAMS_URL, { method: 'GET' });
+        const teams = Array.isArray(data && data.value) ? data.value : [];
+        const out = [];
+        for (const team of teams) {
+            const childs = Array.isArray(team.Childs) ? team.Childs : [];
+            for (const c of childs) {
+                if (c.Facebook_PageId && c.Facebook_TypeId === 'Page') {
+                    out.push({
+                        pageId: c.Facebook_PageId,
+                        pageName: c.Facebook_PageName || c.Name || c.Facebook_PageId,
+                        teamId: team.Id,
+                        teamName: team.Name || '',
+                    });
+                }
+            }
+        }
+        _pagesCache = out;
+        _pagesCacheAt = Date.now();
+        return out;
+    }
+
+    // Live videos của 1 page (qua TPOS facebook-graph proxy). Trả mới nhất trước.
+    // Cache 1 min per pageId.
+    const _liveVideoCache = new Map(); // pageId → {videos, fetchedAt}
+    const LIVE_VIDEO_TTL = 60 * 1000;
+    async function loadLiveVideos(pageId, limit) {
+        if (!pageId) return [];
+        const cached = _liveVideoCache.get(pageId);
+        if (cached && Date.now() - cached.fetchedAt < LIVE_VIDEO_TTL) return cached.videos;
+        const url = `${LIVE_VIDEO_URL}?pageid=${encodeURIComponent(pageId)}&limit=${limit || 20}&facebook_Type=page`;
+        const data = await jsonFetch(url, { method: 'GET' });
+        // TPOS shape: { data: [...] } when direct, or { data: { data: [...] } } via Render wrapper
+        const raw = (data && data.data && (data.data.data || data.data)) || [];
+        const videos = (Array.isArray(raw) ? raw : []).map((v) => ({
+            objectId: v.objectId,
+            title: v.title || '',
+            startMs: v.channelCreatedTime ? new Date(v.channelCreatedTime).getTime() : null,
+            statusLive: v.statusLive,
+            countComment: v.countComment || 0,
+            thumbnail: v.thumbnail && v.thumbnail.url ? v.thumbnail.url : null,
+        }));
+        _liveVideoCache.set(pageId, { videos, fetchedAt: Date.now() });
+        return videos;
+    }
+
     async function getOne(id) {
         const url = `${BASE}(${encodeURIComponent(id)})`;
         return await jsonFetch(url, { method: 'GET' });
@@ -126,6 +180,9 @@
             Facebook_UserName: payload.Facebook_UserName || null,
             Facebook_UserId: payload.Facebook_UserId || null,
             Facebook_LiveId: payload.Facebook_LiveId || null,
+            Config: payload.Config || 'Draft',
+            MinAmountDeposit: payload.MinAmountDeposit || 0,
+            MaxAmountDepositRequired: payload.MaxAmountDepositRequired || 0,
             Details: [],
         };
         return await jsonFetch(BASE, {
@@ -415,5 +472,7 @@
         setActive,
         remove,
         exportExcel,
+        loadPages,
+        loadLiveVideos,
     };
 })();

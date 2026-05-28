@@ -23,6 +23,51 @@
 
 ---
 
+## 2026-05-28
+
+### [web2/live-campaign] Modal tạo campaign giống TPOS: page picker + live video cascade + Config dropdown ✅
+
+**User ask**: "browser test vào tomato.tpos.vn/.../liveCampaign/list tạo chiến dịch test để hiểu rõ và làm đúng web2/live-campaign/index.html"
+
+**Test trên TPOS** xác nhận schema `SaleOnline_LiveCampaign` cần các field:
+
+- `Name` (required, unique)
+- `Facebook_UserId` + `Facebook_UserName` (page TPOS đã liên kết qua CRMTeam)
+- `Facebook_LiveId` (optional, format `{pageId}_{videoId}` từ FB Graph live videos)
+- `Config` (`Draft` / `Active` / `Closed` — show as `Nháp` / `Đang chạy` / `Đã đóng`)
+- `IsActive` (toggle)
+- `Note`
+- `MinAmountDeposit`, `MaxAmountDepositRequired` (advanced — default 0)
+
+**Fix** — UI giờ matched TPOS web:
+
+1. **`LiveCampaignApi.loadPages()` mới**: fetch `/api/odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs`, flatten ra `[{pageId, pageName, teamId, teamName}]`. Cache 5min.
+
+2. **`LiveCampaignApi.loadLiveVideos(pageId)` mới**: fetch `/api/facebook-graph/livevideo?pageid=X&limit=20` (CF route FACEBOOK_LIVE). Cache 1min per page. Return `[{objectId, title, startMs, statusLive, countComment}]`.
+
+3. **Modal HTML refactor**:
+    - Field "Page Facebook" → `<select>` populated từ `loadPages()` (auto-fill Facebook_UserId + Facebook_UserName)
+    - Field "Bài Live" → `<select>` cascade khi page change (badge 🔴 cho live đang chạy + title + time + count comment)
+    - Field "Trạng thái cấu hình" mới (Config: Draft/Active/Closed)
+    - Auto-suggest Name: chọn page → fill `{LAST_WORD_UPPER} DD/MM/YYYY` (TPOS convention, vd "Nhi Judy House" → "HOUSE 28/05/2026"). Dirty flag không overwrite nếu user đã edit.
+
+4. **Create payload** giờ pass đầy đủ: `Facebook_UserId`, `Facebook_UserName`, `Config`, `MinAmountDeposit`, `MaxAmountDepositRequired`.
+
+5. **Edit pre-fill**: page select auto-match Facebook_UserId. Nếu page không còn trong CRMTeam → chèn option tạm "(không còn trong CRM)" để giữ data. Tương tự cho live video không có trong 20 lives gần nhất.
+
+**Verified qua browser test** (localhost:8080 + persistent Playwright session):
+
+- Open modal → 7 page options (1 placeholder + 6 pages thật)
+- Chọn "Nhi Judy House" → Name auto-fill "HOUSE 28/05/2026" + 10 live videos load
+- Create → row mới xuất hiện trong table với status "Nháp"
+- Open Edit cho campaign hiện có → pre-fill Name + page + live + Config đúng
+
+**Cache bust**: `?v=20260525d` → `?v=20260528a`
+
+**Files**: web2/live-campaign/{index.html, js/live-campaign-api.js, js/live-campaign-app.js}
+
+---
+
 ## 2026-05-26
 
 ### [tpos-pancake] Campaign select giờ aggregate ALL Facebook_PostIds (TPOS "Bài live" parity) ✅

@@ -42,9 +42,9 @@
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
     };
-    const fmtDateTime = (iso) => {
-        if (!iso) return '—';
-        const d = new Date(iso);
+    const fmtDateTime = (input) => {
+        if (!input) return '—';
+        const d = input instanceof Date ? input : new Date(input);
         if (isNaN(d.getTime())) return '—';
         const pad = (n) => String(n).padStart(2, '0');
         return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -399,44 +399,164 @@
     // ── Modal: Create / Edit ────────────────────────────────────────────
     let modalMode = 'create'; // 'create' | 'edit'
     let modalEditingId = null;
+    let modalPages = []; // [{pageId, pageName, teamId, teamName}]
+    let modalLiveVideos = []; // [{objectId, title, ...}] cho page đang chọn
+    let modalAutoNameDirty = false; // user đã edit Name → không auto-overwrite
 
-    function openCreateModal() {
+    async function ensurePagesLoaded() {
+        if (modalPages.length) return;
+        try {
+            modalPages = await window.LiveCampaignApi.loadPages();
+        } catch (e) {
+            console.warn('[LiveCampaign] loadPages fail', e);
+            modalPages = [];
+        }
+        const sel = $('lcFieldFbPage');
+        if (!sel) return;
+        sel.innerHTML =
+            '<option value="">— Không chọn —</option>' +
+            modalPages
+                .map(
+                    (p) =>
+                        `<option value="${escapeHtml(p.pageId)}" data-name="${escapeHtml(p.pageName)}">${escapeHtml(p.pageName)} — ${escapeHtml(p.teamName)}</option>`
+                )
+                .join('');
+    }
+
+    async function loadLiveVideosForCurrentPage() {
+        const pageSel = $('lcFieldFbPage');
+        const lvSel = $('lcFieldLiveId');
+        const hint = $('lcFieldLiveIdHint');
+        if (!pageSel || !lvSel) return;
+        const pageId = pageSel.value;
+        if (!pageId) {
+            lvSel.innerHTML = '<option value="">— Chọn page trước —</option>';
+            lvSel.disabled = true;
+            modalLiveVideos = [];
+            return;
+        }
+        lvSel.disabled = true;
+        lvSel.innerHTML = '<option value="">Đang tải lives…</option>';
+        if (hint) hint.textContent = 'Đang tải từ TPOS Facebook Graph…';
+        try {
+            modalLiveVideos = await window.LiveCampaignApi.loadLiveVideos(pageId, 20);
+        } catch (e) {
+            console.warn('[LiveCampaign] loadLiveVideos fail', e);
+            modalLiveVideos = [];
+            if (hint) hint.textContent = 'Lỗi tải live: ' + (e.message || 'unknown');
+        }
+        lvSel.innerHTML =
+            '<option value="">— Không gắn live cụ thể —</option>' +
+            modalLiveVideos
+                .map((lv) => {
+                    const liveBadge = lv.statusLive === 1 ? '🔴 LIVE ' : '';
+                    const t = lv.startMs ? fmtDateTime(lv.startMs) : '';
+                    const title = lv.title ? lv.title.slice(0, 60) : '(không tên)';
+                    return `<option value="${escapeHtml(lv.objectId)}">${liveBadge}${escapeHtml(title)} — ${escapeHtml(t)} · ${lv.countComment} cmt</option>`;
+                })
+                .join('');
+        lvSel.disabled = false;
+        if (hint) {
+            hint.textContent = modalLiveVideos.length
+                ? `${modalLiveVideos.length} lives gần nhất. Live đang chạy có badge 🔴.`
+                : 'Page này chưa có live video.';
+        }
+    }
+
+    function suggestNameFromPage() {
+        if (modalAutoNameDirty) return; // đã edit thủ công
+        const pageSel = $('lcFieldFbPage');
+        if (!pageSel || !pageSel.value) return;
+        const opt = pageSel.options[pageSel.selectedIndex];
+        const pageName = opt ? opt.getAttribute('data-name') || '' : '';
+        if (!pageName) return;
+        // Convention TPOS internal: {PAGE_NAME_FIRST_WORD_UPPER} DD/MM/YYYY
+        // VD "Nhi Judy House" → "HOUSE 28/05/2026" (lấy từ cuối). Fallback: full name upper.
+        const parts = pageName.trim().split(/\s+/);
+        const tag =
+            parts.length > 1 ? parts[parts.length - 1].toUpperCase() : pageName.toUpperCase();
+        const d = new Date();
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        const suggested = `${tag} ${dd}/${mm}/${yyyy}`;
+        $('lcFieldName').value = suggested;
+    }
+
+    async function openCreateModal() {
         modalMode = 'create';
         modalEditingId = null;
+        modalAutoNameDirty = false;
         $('lcModalTitle').textContent = 'Thêm chiến dịch Live';
         $('lcFieldName').value = '';
         $('lcFieldNote').value = '';
-        $('lcFieldFbPage').value = '';
-        $('lcFieldLiveId').value = '';
+        $('lcFieldConfig').value = 'Draft';
         $('lcFieldActive').checked = true;
         clearModalError();
         showModal();
+        await ensurePagesLoaded();
+        $('lcFieldFbPage').value = '';
+        await loadLiveVideosForCurrentPage();
     }
 
     async function openEditModal(id) {
         modalMode = 'edit';
         modalEditingId = id;
+        modalAutoNameDirty = true; // edit mode → không overwrite name
         $('lcModalTitle').textContent = 'Sửa chiến dịch Live';
-        // Pre-fill from cached row to render fast; then refresh from TPOS
-        const cached = STATE.items.find((x) => x.Id === id);
-        if (cached) fillModalFromRecord(cached);
         clearModalError();
         showModal();
+        await ensurePagesLoaded();
+        // Pre-fill from cached row to render fast; then refresh from TPOS
+        const cached = STATE.items.find((x) => x.Id === id);
+        if (cached) await fillModalFromRecord(cached);
         try {
             const fresh = await window.LiveCampaignApi.getOne(id);
-            fillModalFromRecord(fresh);
+            await fillModalFromRecord(fresh);
         } catch (e) {
             console.warn('[LiveCampaign] getOne fail', e);
             notify('Lỗi tải dữ liệu mới nhất: ' + e.message, 'error');
         }
     }
 
-    function fillModalFromRecord(r) {
+    async function fillModalFromRecord(r) {
         $('lcFieldName').value = r.Name || '';
         $('lcFieldNote').value = r.Note || '';
-        $('lcFieldFbPage').value = r.Facebook_UserName || '';
-        $('lcFieldLiveId').value = r.Facebook_LiveId || '';
         $('lcFieldActive').checked = !!r.IsActive;
+        $('lcFieldConfig').value = r.Config || 'Draft';
+        // Set page nếu có Facebook_UserId match
+        const pageSel = $('lcFieldFbPage');
+        const targetPageId = r.Facebook_UserId || '';
+        const hasOption = Array.from(pageSel.options).some((o) => o.value === targetPageId);
+        if (hasOption) {
+            pageSel.value = targetPageId;
+        } else if (targetPageId) {
+            // Page không có trong CRMTeam (vd đã bỏ liên kết) — chèn option tạm
+            const opt = document.createElement('option');
+            opt.value = targetPageId;
+            opt.textContent = `${r.Facebook_UserName || targetPageId} (không còn trong CRM)`;
+            opt.setAttribute('data-name', r.Facebook_UserName || '');
+            pageSel.appendChild(opt);
+            pageSel.value = targetPageId;
+        } else {
+            pageSel.value = '';
+        }
+        await loadLiveVideosForCurrentPage();
+        // Set live video nếu có
+        const lvSel = $('lcFieldLiveId');
+        const targetLiveId = r.Facebook_LiveId || '';
+        const hasLv = Array.from(lvSel.options).some((o) => o.value === targetLiveId);
+        if (hasLv) {
+            lvSel.value = targetLiveId;
+        } else if (targetLiveId) {
+            const opt = document.createElement('option');
+            opt.value = targetLiveId;
+            opt.textContent = `${targetLiveId} (live cũ)`;
+            lvSel.appendChild(opt);
+            lvSel.value = targetLiveId;
+        } else {
+            lvSel.value = '';
+        }
     }
 
     function showModal() {
@@ -464,6 +584,15 @@
         $('lcModalCancel').addEventListener('click', hideModal);
         $('lcModalBackdrop').addEventListener('click', hideModal);
         $('lcModalSave').addEventListener('click', saveModal);
+        // Cascade: chọn page → load live videos + suggest name
+        $('lcFieldFbPage').addEventListener('change', async () => {
+            await loadLiveVideosForCurrentPage();
+            if (modalMode === 'create') suggestNameFromPage();
+        });
+        // Mark name dirty khi user edit thủ công → không auto-overwrite
+        $('lcFieldName').addEventListener('input', () => {
+            modalAutoNameDirty = true;
+        });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !$('lcModal').hasAttribute('hidden')) hideModal();
         });
@@ -475,11 +604,17 @@
             showModalError('Tên chiến dịch không được trống');
             return;
         }
+        const pageSel = $('lcFieldFbPage');
+        const pageId = pageSel.value || null;
+        const pageOpt = pageSel.options[pageSel.selectedIndex];
+        const pageName = pageOpt ? pageOpt.getAttribute('data-name') || null : null;
         const payload = {
             Name: name,
             Note: $('lcFieldNote').value.trim() || null,
-            Facebook_UserName: $('lcFieldFbPage').value.trim() || null,
-            Facebook_LiveId: $('lcFieldLiveId').value.trim() || null,
+            Facebook_UserId: pageId,
+            Facebook_UserName: pageName,
+            Facebook_LiveId: $('lcFieldLiveId').value || null,
+            Config: $('lcFieldConfig').value || 'Draft',
             IsActive: $('lcFieldActive').checked,
         };
         const saveBtn = $('lcModalSave');

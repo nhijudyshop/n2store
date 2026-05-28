@@ -14,10 +14,10 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260525d" />
-        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260525d" />
-        <link rel="stylesheet" href="../../web2/shared/web2-tpos-theme.css?v=20260525d" />
-        <link rel="stylesheet" href="css/live-campaign.css?v=20260525d" />
+        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260528a" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260528a" />
+        <link rel="stylesheet" href="../../web2/shared/web2-tpos-theme.css?v=20260528a" />
+        <link rel="stylesheet" href="css/live-campaign.css?v=20260528a" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
@@ -25,10 +25,10 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
-        <script src="../../shared/js/firebase-config.js?v=20260525d"></script>
-        <script src="../../shared/js/notification-system.js?v=20260525d"></script>
-        <script src="../../shared/js/core-loader.js?v=20260525d"></script>
-        <script src="../../shared/js/token-manager.js?v=20260525d"></script>
+        <script src="../../shared/js/firebase-config.js?v=20260528a"></script>
+        <script src="../../shared/js/notification-system.js?v=20260528a"></script>
+        <script src="../../shared/js/core-loader.js?v=20260528a"></script>
+        <script src="../../shared/js/token-manager.js?v=20260528a"></script>
     </head>
     <body class="tpos-theme">
         <div class="web2-shell">
@@ -155,6 +155,16 @@
                     </div>
                     <div class="lc-field-error" id="lcModalError"></div>
                     <div class="lc-field">
+                        <label for="lcFieldFbPage">Page Facebook</label>
+                        <select id="lcFieldFbPage">
+                            <option value="">— Không chọn —</option>
+                        </select>
+                        <span class="lc-field-hint"
+                            >Chọn từ list page TPOS đã liên kết. Auto-fill
+                            <code>Facebook_UserId</code> + <code>Facebook_UserName</code>.</span
+                        >
+                    </div>
+                    <div class="lc-field">
                         <label for="lcFieldName">Tên chiến dịch <span class="req">*</span></label>
                         <input
                             id="lcFieldName"
@@ -163,33 +173,26 @@
                             autocomplete="off"
                         />
                         <span class="lc-field-hint"
-                            >Tên phải duy nhất trong TPOS. Quy ước nội bộ:
-                            <code>{TÊN_PAGE} DD/MM/YYYY</code></span
+                            >Tên phải duy nhất trong TPOS. Chọn page trên → tự gợi ý
+                            <code>{TÊN_PAGE} DD/MM/YYYY</code>.</span
                         >
                     </div>
                     <div class="lc-field">
-                        <label for="lcFieldFbPage">Tên page Facebook</label>
-                        <input
-                            id="lcFieldFbPage"
-                            type="text"
-                            placeholder="VD: Nhi Judy House"
-                            autocomplete="off"
-                        />
-                        <span class="lc-field-hint"
-                            >Không bắt buộc — chỉ hiển thị, không link tới page thực</span
+                        <label for="lcFieldLiveId">Bài Live</label>
+                        <select id="lcFieldLiveId" disabled>
+                            <option value="">— Chọn page trước —</option>
+                        </select>
+                        <span class="lc-field-hint" id="lcFieldLiveIdHint"
+                            >Hiển thị 20 live mới nhất của page. Live đang chạy có badge 🔴.</span
                         >
                     </div>
                     <div class="lc-field">
-                        <label for="lcFieldLiveId">Facebook Live ID</label>
-                        <input
-                            id="lcFieldLiveId"
-                            type="text"
-                            placeholder="VD: 117267091364524_1003485565460369"
-                            autocomplete="off"
-                        />
-                        <span class="lc-field-hint"
-                            >Định dạng <code>{pageId}_{liveVideoId}</code> — có thể bỏ trống</span
-                        >
+                        <label for="lcFieldConfig">Trạng thái cấu hình</label>
+                        <select id="lcFieldConfig">
+                            <option value="Draft">Nháp</option>
+                            <option value="Active">Đang chạy</option>
+                            <option value="Closed">Đã đóng</option>
+                        </select>
                     </div>
                     <div class="lc-field">
                         <label for="lcFieldNote">Ghi chú</label>
@@ -222,10 +225,10 @@
             </div>
         </div>
 
-        <script src="../../web2/shared/web2-auth.js?v=20260525d"></script>
-        <script src="../../web2/shared/tpos-sidebar.js?v=20260525d"></script>
-        <script src="js/live-campaign-api.js?v=20260525d"></script>
-        <script src="js/live-campaign-app.js?v=20260525d"></script>
+        <script src="../../web2/shared/web2-auth.js?v=20260528a"></script>
+        <script src="../../web2/shared/tpos-sidebar.js?v=20260528a"></script>
+        <script src="js/live-campaign-api.js?v=20260528a"></script>
+        <script src="js/live-campaign-app.js?v=20260528a"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
             if (window.lucide) window.lucide.createIcons();
