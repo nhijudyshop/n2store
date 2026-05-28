@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e15ff61` — fix(tpos-pancake): campaign chọn giờ load comments từ TẤT CẢ Facebook_PostId
-**Last updated**: 2026-05-26 18:59:12 +07
-**Latest session**: [`RESUME:20260526-185912-e15ff61`](../20260526-185912-e15ff61.md)
-**Summary**: fix(tpos-pancake): campaign chọn giờ load comments từ TẤT CẢ Facebook_PostId
+**Latest commit**: `4662e68` — feat(web2/live-campaign): modal tạo/sửa campaign giống TPOS — page picker + live video cascade + Config dropdown
+**Last updated**: 2026-05-28 15:24:47 +07
+**Latest session**: [`RESUME:20260528-152447-4662e68`](../20260528-152447-4662e68.md)
+**Summary**: feat(web2/live-campaign): modal tạo/sửa campaign giống TPOS — page picker + live video cascade + Config dropdown
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-26 18:59
+- [`docs/`](./docs.md) — updated 2026-05-28 15:24
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -68,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-26 18:17
+- [`web2/`](./web2.md) — updated 2026-05-28 15:24
