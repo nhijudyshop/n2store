@@ -1196,6 +1196,7 @@ function renderProductRow(opts) {
             ${isFirstRow ? `<td class="col-ncc ${rowspanBorderClass} ${nccClass}" rowspan="${rowSpan}" ${nccClickHandler}>${nccDisplay}${subInvoiceIndicator}</td>` : ''}
             <td class="col-stt ${borderClass}">
                 ${product ? `<span class="stt-num">${productIdx + 1}</span><button class="btn-del-stt" onclick="event.stopPropagation(); window.deleteProductRow('${invoiceId}', ${productIdx})" title="Xóa STT ${productIdx + 1}"><i data-lucide="x"></i></button>` : '-'}
+                ${isLastRow ? `<button class="btn-add-stt" onclick="event.stopPropagation(); window.addProductRow('${invoiceId}')" title="Thêm hàng (STT ${(product ? productIdx + 1 : 0) + 1})"><i data-lucide="plus"></i></button>` : ''}
             </td>
             <td class="col-sku editable-cell ${borderClass}" ${editAttrs} data-field="maSP" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${maSP}${poDraftBadge}</td>
             <td class="col-desc editable-cell ${borderClass}" ${editAttrs} data-field="moTa" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${moTa}</td>
