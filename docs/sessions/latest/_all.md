@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `439a79a` — feat(so-order): custom confirm popup thay window.confirm() — fix delay + match UI
-**Last updated**: 2026-05-29 21:01:29 +07
-**Latest session**: [`RESUME:20260529-210129-439a79a`](../20260529-210129-439a79a.md)
-**Summary**: feat(so-order): custom confirm popup thay window.confirm() — fix delay + match UI
+**Latest commit**: `909de65` — fix(inventory): variant mismatch keeps Tổng SL untouched + red row highlight
+**Last updated**: 2026-05-29 21:11:46 +07
+**Latest session**: [`RESUME:20260529-211146-909de65`](../20260529-211146-909de65.md)
+**Summary**: fix(inventory): variant mismatch keeps Tổng SL untouched + red row highlight
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 3 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-29 21:01
+- [`docs/`](./docs.md) — updated 2026-05-29 21:11
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -34,7 +34,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-29 20:31
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-29 21:11
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
