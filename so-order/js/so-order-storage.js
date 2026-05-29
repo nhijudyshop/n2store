@@ -243,6 +243,9 @@
                 weightKg: Number(meta.weightKg) || 0,
                 contractAmount: Number(meta.contractAmount) || 0,
                 contractCurrency: meta.contractCurrency || tab.currency || 'VND',
+                // P1 2026-05-29: ETA (Expected Delivery Date). Hiển thị badge
+                // "📦 còn N ngày" / "⚠️ quá hạn" trên shipment header. Nullable.
+                expectedDeliveryDate: meta.expectedDeliveryDate || null,
                 collapsed: false,
                 rows: [],
             };
@@ -263,6 +266,8 @@
             if (patch.contractAmount !== undefined)
                 sh.contractAmount = Number(patch.contractAmount) || 0;
             if (patch.contractCurrency !== undefined) sh.contractCurrency = patch.contractCurrency;
+            if (patch.expectedDeliveryDate !== undefined)
+                sh.expectedDeliveryDate = patch.expectedDeliveryDate || null;
             if (patch.collapsed !== undefined) sh.collapsed = !!patch.collapsed;
             _write(state);
             return true;

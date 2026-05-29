@@ -214,6 +214,7 @@
                 if (action === 'edit-shipment') openShipmentModal(shId);
                 else if (action === 'delete-shipment') deleteShipment(shId);
                 else if (action === 'add-row') openOrderModal(null, shId);
+                else if (action === 'receive') openReceiveShipmentModal(shId);
             });
         });
         // Inline-edit pills in shipment header (date / batch / caseCount / weightKg)
@@ -548,12 +549,44 @@
         return header + colHead + rows;
     }
 
+    // ETA badge — "📦 còn N ngày" / "⚠️ quá hạn N ngày" / "✅ giao hôm nay"
+    // P1 2026-05-29. Trả {html, color} hoặc null nếu không có ETA.
+    function _etaBadgeHtml(etaStr) {
+        if (!etaStr) return null;
+        const eta = new Date(etaStr + 'T00:00:00');
+        if (isNaN(eta.getTime())) return null;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const diffDays = Math.round((eta.getTime() - today.getTime()) / 86400000);
+        let text, color, icon;
+        if (diffDays < 0) {
+            text = `Quá hạn ${Math.abs(diffDays)} ngày`;
+            color = '#dc2626';
+            icon = 'alert-triangle';
+        } else if (diffDays === 0) {
+            text = 'Giao hôm nay';
+            color = '#16a34a';
+            icon = 'truck';
+        } else if (diffDays <= 3) {
+            text = `Còn ${diffDays} ngày`;
+            color = '#f59e0b';
+            icon = 'clock';
+        } else {
+            text = `Còn ${diffDays} ngày`;
+            color = '#0284c7';
+            icon = 'package';
+        }
+        const etaDisplay = formatDateVN(etaStr);
+        return `<span class="so-shipment-eta" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:${color}1a;color:${color};border-radius:6px;font-size:11px;font-weight:600;" title="ETA giao hàng: ${etaDisplay}"><i data-lucide="${icon}" style="width:11px;height:11px;"></i>${text}</span>`;
+    }
+
     function shipmentHeaderHtml(sh, tab, colSpan) {
         const dateText = sh.date ? formatDateVN(sh.date) : '—';
         const batchVal = sh.batch || '';
         const batchLabel = batchVal ? `Đợt ${escapeHtml(batchVal)}` : 'Chưa đặt đợt';
         const caseCount = Number(sh.caseCount) || 0;
         const weightKg = Number(sh.weightKg) || 0;
+        const etaBadge = _etaBadgeHtml(sh.expectedDeliveryDate);
         // Contract amount: always rendered in the tab's currency.
         // Legacy data may store shipment.contractCurrency != tab.currency
         // (e.g. recorded in CNY while the tab is VND); convert through VND
@@ -583,6 +616,7 @@
                     <span class="so-shipment-meta so-shipment-batch">
                         ${pill('batch', escapeHtml(batchLabel), 'Click để sửa số đợt')}
                     </span>
+                    ${etaBadge ? `<span class="so-shipment-sep">—</span>${etaBadge}` : ''}
                     <span class="so-shipment-sep">—</span>
                     <span class="so-shipment-meta">
                         <i data-lucide="package"></i>
@@ -597,6 +631,9 @@
                         <span class="so-shipment-contract-raw">${escapeHtml(contractDisplayText)}</span>
                     </span>
                     <span class="so-shipment-spacer"></span>
+                    <button class="so-action-btn" type="button" data-shipment-action="receive" data-shipment-id="${escapeHtml(sh.id)}" title="Nhận hàng từ NCC — mở modal nhập qty thực nhận, hỗ trợ mua đủ / mua 1 phần" style="background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;">
+                        <i data-lucide="truck"></i> Nhận hàng
+                    </button>
                     <button class="so-action-btn" type="button" data-shipment-action="add-row" data-shipment-id="${escapeHtml(sh.id)}" title="Thêm dòng vào lô này">
                         <i data-lucide="plus-circle"></i>
                     </button>
@@ -1345,6 +1382,288 @@
         }
     }
 
+    // ---------- Nhận hàng modal (partial-purchase support) — P1 2026-05-29 ----------
+    // Click "Nhận hàng" button trên shipment header → modal liệt kê tất cả rows
+    // trong shipment, default qty_received = qty_ordered. User chỉnh nếu mua thiếu.
+    // Submit → 1) upsertPending (đảm bảo có code DB) 2) confirm-purchase-partial.
+    let _receiveItems = []; // [{key, rowId, shipmentId, name, variant, supplier, qty, costPriceVnd, sellPriceVnd, imageUrl}]
+    function openReceiveShipmentModal(shId) {
+        if (!window.Web2ProductsApi) {
+            notify('Web2ProductsApi chưa load', 'error');
+            return;
+        }
+        const tab = window.SoOrderStorage.getActiveTab(state);
+        const sh = tab?.shipments.find((s) => s.id === shId);
+        if (!sh) {
+            notify('Không tìm thấy shipment', 'error');
+            return;
+        }
+        const rate = Number(tab.rate) || 1;
+        const ccy = tab.currency || 'VND';
+        const tabLabel = (tab.label || '').trim();
+
+        _receiveItems = (sh.rows || [])
+            .filter(
+                (r) =>
+                    (r.productName || '').trim() && Number(r.qty) > 0 && (r.supplier || '').trim()
+            )
+            .map((r) => ({
+                key: r.id,
+                rowId: r.id,
+                shipmentId: sh.id,
+                name: (r.productName || '').trim(),
+                variant: (r.variant || '').trim() || null,
+                qty: Number(r.qty) || 0,
+                supplier: (r.supplier || '').trim(),
+                costPriceRaw: Number(r.costPrice) || 0,
+                sellPriceRaw: Number(r.sellPrice) || 0,
+                costPriceVnd: Math.round((Number(r.costPrice) || 0) * rate),
+                sellPriceVnd: Math.round((Number(r.sellPrice) || 0) * rate),
+                imageUrl: r.productImage || null,
+                note: tabLabel || null,
+            }));
+
+        let modal = document.getElementById('soReceiveModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'soReceiveModal';
+            modal.className = 'so-modal';
+            modal.hidden = true;
+            modal.innerHTML = `
+                <div class="so-modal-backdrop" data-so-receive-close></div>
+                <div class="so-modal-panel so-modal-panel-narrow" style="max-width:880px;">
+                    <header class="so-modal-head">
+                        <h2 id="soReceiveTitle">Nhận hàng từ NCC</h2>
+                        <button class="so-modal-close" type="button" data-so-receive-close>
+                            <i data-lucide="x"></i>
+                        </button>
+                    </header>
+                    <div class="so-modal-body">
+                        <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#0c4a6e;">
+                            <strong>Hướng dẫn:</strong> Default qty nhận = qty đã đặt (mua đủ).
+                            Sửa qty nhận nếu mua thiếu → status sẽ là <strong>MUA 1 PHẦN</strong>.
+                            Để qty nhận = 0 nếu chưa nhận SP đó.
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <button type="button" class="btn-secondary btn-sm" id="soReceiveAllFull">Tất cả mua đủ</button>
+                            <span style="font-size:11px;color:#64748b;" id="soReceiveSummary"></span>
+                        </div>
+                        <div class="so-receive-list" id="soReceiveList" style="max-height:55vh;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;"></div>
+                    </div>
+                    <footer class="so-modal-foot">
+                        <button class="btn-secondary" type="button" data-so-receive-close>Hủy</button>
+                        <button class="btn-primary" type="button" id="soReceiveConfirmBtn">
+                            <i data-lucide="check"></i> Xác nhận nhận hàng
+                        </button>
+                    </footer>
+                </div>`;
+            document.body.appendChild(modal);
+            modal.querySelectorAll('[data-so-receive-close]').forEach((el) => {
+                el.addEventListener('click', () => {
+                    modal.hidden = true;
+                });
+            });
+            document
+                .getElementById('soReceiveConfirmBtn')
+                .addEventListener('click', confirmReceiveFromModal);
+            document.getElementById('soReceiveAllFull').addEventListener('click', () => {
+                document
+                    .querySelectorAll('#soReceiveList input[data-receive-qty]')
+                    .forEach((inp) => {
+                        inp.value = Number(inp.dataset.receiveQtyMax) || 0;
+                        inp.dispatchEvent(new Event('input', { bubbles: true }));
+                    });
+            });
+        }
+        const shipLabel = sh.batch
+            ? `Đợt ${sh.batch} · ${formatDateVN(sh.date)}`
+            : formatDateVN(sh.date);
+        document.getElementById('soReceiveTitle').textContent = `Nhận hàng — ${shipLabel}`;
+        const listEl = document.getElementById('soReceiveList');
+        if (!_receiveItems.length) {
+            listEl.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;">Shipment không có SP nào hợp lệ (cần NCC + tên SP + qty>0).</div>`;
+        } else {
+            // Group by supplier
+            const bySupplier = new Map();
+            for (const it of _receiveItems) {
+                if (!bySupplier.has(it.supplier)) bySupplier.set(it.supplier, []);
+                bySupplier.get(it.supplier).push(it);
+            }
+            const html = [];
+            for (const [supplier, items] of bySupplier) {
+                html.push(
+                    `<div style="padding:8px 12px;background:#f8fafc;font-weight:700;font-size:12px;border-bottom:1px solid #e2e8f0;">${escapeHtml(supplier)} (${items.length} SP)</div>`
+                );
+                for (const it of items) {
+                    html.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #f1f5f9;" data-receive-row="${escapeHtml(it.key)}">
+                        ${it.imageUrl ? `<img src="${escapeHtml(it.imageUrl)}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0;">` : '<div style="width:32px;height:32px;background:#f1f5f9;border-radius:4px;flex-shrink:0;"></div>'}
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(it.name)}</div>
+                            ${it.variant ? `<div style="font-size:11px;color:#64748b;">${escapeHtml(it.variant)}</div>` : ''}
+                        </div>
+                        <div style="font-size:11px;color:#64748b;white-space:nowrap;">Đã đặt: <strong>${it.qty}</strong></div>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                            <label style="font-size:11px;color:#0f172a;">Nhận:</label>
+                            <input type="number" min="0" max="${it.qty}" value="${it.qty}" data-receive-qty="${escapeHtml(it.key)}" data-receive-qty-max="${it.qty}" style="width:60px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;text-align:center;font-weight:600;" />
+                        </div>
+                        <span data-receive-status="${escapeHtml(it.key)}" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#166534;">MUA ĐỦ</span>
+                    </div>`);
+                }
+            }
+            listEl.innerHTML = html.join('');
+            // Wire qty inputs → update status badge + summary
+            listEl.querySelectorAll('input[data-receive-qty]').forEach((inp) => {
+                inp.addEventListener('input', () => _updateReceiveRowStatus(inp));
+            });
+        }
+        _updateReceiveSummary();
+        modal.hidden = false;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function _updateReceiveRowStatus(input) {
+        const key = input.dataset.receiveQty;
+        const max = Number(input.dataset.receiveQtyMax) || 0;
+        const val = Math.min(Math.max(0, Number(input.value) || 0), max);
+        if (val !== Number(input.value)) input.value = val;
+        const badge = document.querySelector(`[data-receive-status="${CSS.escape(key)}"]`);
+        if (badge) {
+            if (val === 0) {
+                badge.textContent = 'CHƯA NHẬN';
+                badge.style.background = '#f1f5f9';
+                badge.style.color = '#475569';
+            } else if (val < max) {
+                badge.textContent = `MUA 1 PHẦN (${val}/${max})`;
+                badge.style.background = '#fef3c7';
+                badge.style.color = '#92400e';
+            } else {
+                badge.textContent = 'MUA ĐỦ';
+                badge.style.background = '#dcfce7';
+                badge.style.color = '#166534';
+            }
+        }
+        _updateReceiveSummary();
+    }
+
+    function _updateReceiveSummary() {
+        const inputs = document.querySelectorAll('#soReceiveList input[data-receive-qty]');
+        let totalReceived = 0,
+            totalOrdered = 0,
+            partial = 0,
+            full = 0,
+            none = 0;
+        inputs.forEach((inp) => {
+            const max = Number(inp.dataset.receiveQtyMax) || 0;
+            const val = Number(inp.value) || 0;
+            totalOrdered += max;
+            totalReceived += val;
+            if (val === 0) none++;
+            else if (val < max) partial++;
+            else full++;
+        });
+        const el = document.getElementById('soReceiveSummary');
+        if (el) {
+            el.textContent = `Tổng: ${totalReceived}/${totalOrdered} cái · ${full} mua đủ · ${partial} mua 1 phần · ${none} chưa nhận`;
+        }
+    }
+
+    async function confirmReceiveFromModal() {
+        const modal = document.getElementById('soReceiveModal');
+        const btn = document.getElementById('soReceiveConfirmBtn');
+        if (!btn || btn.disabled) return;
+        const inputs = document.querySelectorAll('#soReceiveList input[data-receive-qty]');
+        if (!inputs.length) {
+            notify('Không có SP nào', 'warning');
+            return;
+        }
+        const receivedMap = new Map();
+        inputs.forEach((inp) => {
+            const key = inp.dataset.receiveQty;
+            const val = Math.min(
+                Math.max(0, Number(inp.value) || 0),
+                Number(inp.dataset.receiveQtyMax) || 0
+            );
+            if (val > 0) receivedMap.set(key, val);
+        });
+        if (!receivedMap.size) {
+            notify('Tất cả qty nhận đều = 0 → không có gì để xác nhận', 'warning');
+            return;
+        }
+        const itemsToProcess = _receiveItems.filter((it) => receivedMap.has(it.key));
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2"></i> Đang xử lý…';
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+        try {
+            // 1. Upsert pending để có code DB (tạo SP nếu chưa có).
+            const upsertPayload = itemsToProcess.map((it) => ({
+                name: it.name,
+                variant: it.variant,
+                qty: it.qty,
+                costPrice: it.costPriceVnd,
+                sellPrice: it.sellPriceVnd,
+                supplier: it.supplier,
+                imageUrl: it.imageUrl,
+                note: it.note,
+            }));
+            const upsertRes = await window.Web2ProductsApi.upsertPending(upsertPayload);
+            const upsertItems = (upsertRes && upsertRes.items) || [];
+            const codeByKey = new Map();
+            for (let i = 0; i < upsertItems.length && i < itemsToProcess.length; i++) {
+                if (upsertItems[i].code) codeByKey.set(itemsToProcess[i].key, upsertItems[i].code);
+            }
+            // 2. Confirm-purchase-partial với qtyReceived per code.
+            const partialItems = itemsToProcess
+                .filter((it) => codeByKey.has(it.key))
+                .map((it) => ({
+                    code: codeByKey.get(it.key),
+                    qtyReceived: receivedMap.get(it.key),
+                }));
+            if (!partialItems.length) throw new Error('Không có code nào để confirm partial');
+            const res = await fetch(
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-products/confirm-purchase-partial',
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'omit',
+                    body: JSON.stringify({ items: partialItems }),
+                }
+            );
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            if (window.Web2ProductsCache) {
+                window.Web2ProductsCache.pushTickle({ action: 'so-order-partial-receive' });
+            }
+            // 3. Update so-order row status: 'received' nếu mua đủ, 'partial_received' nếu mua 1 phần.
+            //    Storage layer chưa có status 'partial_received' — dùng note để track.
+            //    TODO: thêm vào ROW_STATUS enum nếu muốn pill badge cụ thể.
+            const tab = window.SoOrderStorage.getActiveTab(state);
+            for (const it of itemsToProcess) {
+                const received = receivedMap.get(it.key);
+                const newStatus = received >= it.qty ? 'received' : 'partial_received';
+                window.SoOrderStorage.updateRow(state, tab.id, it.shipmentId, it.rowId, {
+                    status: newStatus,
+                });
+            }
+            pushSync();
+            renderAll();
+            const fullCount = (data.items || []).filter((r) => r.status === 'DANG_BAN').length;
+            const partialCount = (data.items || []).filter((r) => r.status === 'MUA_1_PHAN').length;
+            notify(
+                `✅ Đã xử lý ${data.processed} SP — ${fullCount} mua đủ, ${partialCount} mua 1 phần`,
+                'success'
+            );
+            modal.hidden = true;
+        } catch (e) {
+            console.warn('[so-order] confirmReceive fail:', e);
+            notify('Lỗi nhận hàng: ' + (e.message || e), 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+        }
+    }
+
     // ---------- Barcode print modal ----------
     function openBarcodePrintModal(items, supplier) {
         let modal = document.getElementById('soBarcodeModal');
@@ -1986,6 +2305,9 @@ window.addEventListener('load', () => {
         form.elements.shipWeightKg.value = 0;
         form.elements.shipContractAmount.value = 0;
         form.elements.shipContractCurrency.value = tab.currency || 'VND';
+        if (form.elements.shipExpectedDeliveryDate) {
+            form.elements.shipExpectedDeliveryDate.value = '';
+        }
 
         if (rowId && shipmentId) {
             const sh = tab.shipments.find((s) => s.id === shipmentId);
@@ -1998,6 +2320,9 @@ window.addEventListener('load', () => {
             form.elements.shipWeightKg.value = sh.weightKg || 0;
             form.elements.shipContractAmount.value = sh.contractAmount || 0;
             form.elements.shipContractCurrency.value = sh.contractCurrency || tab.currency || 'VND';
+            if (form.elements.shipExpectedDeliveryDate) {
+                form.elements.shipExpectedDeliveryDate.value = sh.expectedDeliveryDate || '';
+            }
             form.elements.supplier.value = r.supplier || '';
             form.elements.status.value = r.status || 'draft';
             form.elements.note.value = r.note || '';
@@ -2025,6 +2350,10 @@ window.addEventListener('load', () => {
                     form.elements.shipContractAmount.value = sh.contractAmount || 0;
                     form.elements.shipContractCurrency.value =
                         sh.contractCurrency || tab.currency || 'VND';
+                    if (form.elements.shipExpectedDeliveryDate) {
+                        form.elements.shipExpectedDeliveryDate.value =
+                            sh.expectedDeliveryDate || '';
+                    }
                 }
             } else {
                 titleEl.textContent = 'Tạo Đơn Hàng (Nháp)';
@@ -2068,6 +2397,7 @@ window.addEventListener('load', () => {
             weightKg: Number(form.elements.shipWeightKg.value) || 0,
             contractAmount: Number(form.elements.shipContractAmount.value) || 0,
             contractCurrency: form.elements.shipContractCurrency.value,
+            expectedDeliveryDate: form.elements.shipExpectedDeliveryDate?.value || null,
         };
         const sharedFields = {
             supplier: form.elements.supplier.value.trim(),
@@ -2332,27 +2662,117 @@ window.addEventListener('load', () => {
         return `${base}-${ts}${rnd}`;
     }
 
-    function deleteRow(shipmentId, rowId) {
-        if (!confirm('Xóa dòng order này?')) return;
+    // P1 2026-05-29: kiểm tra xem rows sắp xóa có dính SP đã nhận hàng
+    // (stock > 0) trong web2_products không. Nếu có → cảnh báo + chặn nếu
+    // user không confirm force. Trả {hasStock, items: [{name, supplier, stock}]}
+    // hoặc {error} nếu API fail. Bypass nếu Web2ProductsApi không load.
+    async function _checkRowsHaveStock(rows) {
+        if (!window.Web2ProductsApi?.checkRowsStock && !window.Web2ProductsApi) {
+            return { hasStock: false, items: [] };
+        }
+        const matches = (rows || [])
+            .map((r) => {
+                const m = _rowToKhoMatch(r);
+                return m.name ? { name: m.name, variant: m.variant || null } : null;
+            })
+            .filter(Boolean);
+        if (!matches.length) return { hasStock: false, items: [] };
+        try {
+            // Use existing /pending endpoint to filter — actually we need to query
+            // products by name+variant pairs. Easier: query /list?search=<name>
+            // for each unique name (deduped). Or use /usage endpoint with codes.
+            // For now use a simple POST helper if available, else fallback to
+            // querying pending only (skip stock check).
+            const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const flagged = [];
+            for (const m of matches) {
+                try {
+                    const r = await fetch(
+                        `${PROXY}/api/web2/products/list?search=${encodeURIComponent(m.name)}&limit=20`,
+                        { credentials: 'omit' }
+                    );
+                    const data = await r.json();
+                    const products = data.products || data.items || [];
+                    for (const p of products) {
+                        const sameVariant =
+                            (m.variant || '').toLowerCase() === (p.variant || '').toLowerCase();
+                        if (
+                            (p.name || '').toLowerCase() === m.name.toLowerCase() &&
+                            sameVariant &&
+                            Number(p.quantity || 0) > 0
+                        ) {
+                            flagged.push({
+                                code: p.code,
+                                name: p.name,
+                                variant: p.variant,
+                                supplier: p.supplier,
+                                stock: p.quantity,
+                                pending: p.pendingQty || 0,
+                            });
+                        }
+                    }
+                } catch (_) {}
+            }
+            return { hasStock: flagged.length > 0, items: flagged };
+        } catch (e) {
+            console.warn('[so-order] checkRowsStock fail (skip guard):', e.message);
+            return { hasStock: false, items: [], skipped: true };
+        }
+    }
+
+    async function deleteRow(shipmentId, rowId) {
         const tab = window.SoOrderStorage.getActiveTab(state);
-        // Capture row TRƯỚC khi xóa để sync pending về Kho.
         const sh = tab.shipments.find((s) => s.id === shipmentId);
         const r = sh?.rows.find((x) => x.id === rowId);
-        const adj = r ? { ..._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) } : null;
+        if (!r) return;
+        // Guard P1: cảnh báo nếu SP đã có stock trong Kho (đã nhận hàng).
+        const stockCheck = await _checkRowsHaveStock([r]);
+        if (stockCheck.hasStock) {
+            const it = stockCheck.items[0];
+            if (
+                !confirm(
+                    `⚠️ SP "${it.name}${it.variant ? ' (' + it.variant + ')' : ''}" còn ${it.stock} cái tồn kho từ NCC ${it.supplier || '?'}.\n\nXóa dòng order sẽ mất link tracking nhưng KHÔNG xóa stock trong Kho.\nTiếp tục?`
+                )
+            ) {
+                return;
+            }
+        } else if (!confirm('Xóa dòng order này?')) {
+            return;
+        }
+        const adj = { ..._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) };
         window.SoOrderStorage.deleteRow(state, tab.id, shipmentId, rowId);
         notify('Đã xóa dòng', 'info');
-        if (adj && adj.name && adj.delta !== 0) adjustKhoPending([adj]);
+        if (adj.name && adj.delta !== 0) adjustKhoPending([adj]);
         pushSync();
         renderAll();
     }
 
-    function deleteShipment(shipmentId) {
+    async function deleteShipment(shipmentId) {
         const tab = window.SoOrderStorage.getActiveTab(state);
         const sh = tab.shipments.find((s) => s.id === shipmentId);
         if (!sh) return;
         const n = sh.rows.length;
-        if (!confirm(`Xóa lô này + ${n} dòng order bên trong?`)) return;
-        // Capture rows TRƯỚC khi xóa.
+        const stockCheck = await _checkRowsHaveStock(sh.rows || []);
+        if (stockCheck.hasStock) {
+            const lines = stockCheck.items
+                .slice(0, 5)
+                .map(
+                    (it) =>
+                        `  • ${it.name}${it.variant ? ' (' + it.variant + ')' : ''}: ${it.stock} tồn từ ${it.supplier || '?'}`
+                )
+                .join('\n');
+            const more =
+                stockCheck.items.length > 5 ? `\n  ... +${stockCheck.items.length - 5} SP nữa` : '';
+            if (
+                !confirm(
+                    `⚠️ Lô này có ${stockCheck.items.length} SP còn tồn kho:\n${lines}${more}\n\nXóa lô + ${n} dòng order sẽ mất link tracking nhưng KHÔNG xóa stock trong Kho.\nTiếp tục?`
+                )
+            ) {
+                return;
+            }
+        } else if (!confirm(`Xóa lô này + ${n} dòng order bên trong?`)) {
+            return;
+        }
         const adjustments = (sh.rows || [])
             .map((r) => ({ ..._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) }))
             .filter((a) => a.name && a.delta !== 0);
@@ -2423,12 +2843,43 @@ window.addEventListener('load', () => {
         renderAll();
     }
 
-    function handleTabDelete() {
-        if (!confirm('Xóa tab và toàn bộ order trong tab này?')) return;
+    async function handleTabDelete() {
         const form = document.getElementById('soTabSettingsForm');
         const tabId = form.dataset.tabId;
         if (!tabId) return;
+        const tab = state.tabs.find((t) => t.id === tabId);
+        if (!tab) return;
+        const allRows = [];
+        for (const sh of tab.shipments || []) {
+            for (const r of sh.rows || []) allRows.push(r);
+        }
+        // P1 2026-05-29 fix orphan bug: trước đây deleteTab() bỏ qua adjust
+        // pending qty của các rows trong tab → pending stuck ở web2_products.
+        // Giờ guard + iterate rows.
+        const stockCheck = await _checkRowsHaveStock(allRows);
+        if (stockCheck.hasStock) {
+            const lines = stockCheck.items
+                .slice(0, 5)
+                .map((it) => `  • ${it.name}: ${it.stock} tồn từ ${it.supplier || '?'}`)
+                .join('\n');
+            const more =
+                stockCheck.items.length > 5 ? `\n  ... +${stockCheck.items.length - 5} SP nữa` : '';
+            if (
+                !confirm(
+                    `⚠️ Tab này có ${stockCheck.items.length} SP còn tồn kho từ ${allRows.length} dòng order:\n${lines}${more}\n\nXóa tab sẽ mất link tracking nhưng KHÔNG xóa stock trong Kho.\nTiếp tục?`
+                )
+            ) {
+                return;
+            }
+        } else if (!confirm(`Xóa tab và toàn bộ ${allRows.length} order trong tab này?`)) {
+            return;
+        }
+        // Trừ pending cho rows trước khi delete tab.
+        const adjustments = allRows
+            .map((r) => ({ ..._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) }))
+            .filter((a) => a.name && a.delta !== 0);
         if (window.SoOrderStorage.deleteTab(state, tabId)) {
+            if (adjustments.length) adjustKhoPending(adjustments);
             notify('Đã xóa tab', 'info');
             hideModal('soTabSettingsModal');
             pushSync();

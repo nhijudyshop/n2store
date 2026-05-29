@@ -615,11 +615,33 @@ router.patch('/:code', async (req, res) => {
         sets.push(`updated_at = $${params.length}`);
         params.push(req.params.code);
 
-        // Fetch previous row for history diff (cần trước UPDATE).
+        // Fetch previous row for history diff + stock-vs-pending guard.
         const prevQ = await pool.query(`SELECT * FROM web2_products WHERE code = $1`, [
             req.params.code,
         ]);
         const prevMapped = prevQ.rows[0] ? mapRow(prevQ.rows[0]) : null;
+
+        // Guard: nếu user PATCH stock và stock mới < pending_qty hiện tại
+        // (SP còn N cái CHỜ MUA chưa nhận) → 409 với message rõ. User phải
+        // confirm-purchase pending về stock TRƯỚC khi giảm stock dưới mức đó.
+        // Lý do: pending = số đã ORDER từ NCC, là cam kết phải nhận. Nếu giảm
+        // stock dưới pending, sau khi nhận hàng tổng sẽ overflow → inconsistent.
+        if (req.body.stock !== undefined && prevMapped) {
+            const newStock = Number(req.body.stock);
+            const curPending = Number(prevMapped.pendingQty) || 0;
+            if (Number.isFinite(newStock) && newStock < curPending && !req.query.force) {
+                return res.status(409).json({
+                    error: 'stock_less_than_pending',
+                    code: req.params.code,
+                    name: prevMapped.name,
+                    currentStock: prevMapped.quantity,
+                    newStock,
+                    pendingQty: curPending,
+                    supplier: prevMapped.supplier,
+                    message: `Không thể giảm tồn kho xuống ${newStock} vì còn ${curPending} cái CHỜ MUA từ ${prevMapped.supplier || 'NCC'}. Confirm-purchase trước hoặc force=1 để bỏ qua.`,
+                });
+            }
+        }
 
         const r = await pool.query(
             `UPDATE web2_products SET ${sets.join(', ')}
@@ -1088,7 +1110,14 @@ router.post('/upsert-pending', async (req, res) => {
                 const curStock = Number(row.stock) || 0;
                 const curPending = Number(row.pending_qty) || 0;
                 const newPending = curPending + qty;
-                const newStatus = curStock === 0 ? 'CHO_MUA' : row.status;
+                // Status logic (P1 2026-05-29: + MUA_1_PHAN handling):
+                //   - stock=0, newPending>0 → CHO_MUA (chưa nhận gì)
+                //   - stock>0, newPending>0 → MUA_1_PHAN (đã có hàng + đang chờ thêm)
+                //   - stock>0, newPending=0 → DANG_BAN (đủ hàng)
+                let newStatus;
+                if (curStock === 0) newStatus = 'CHO_MUA';
+                else if (newPending > 0) newStatus = 'MUA_1_PHAN';
+                else newStatus = 'DANG_BAN';
                 const newSupplier = row.supplier || supplier;
                 const r2 = await pool.query(
                     `UPDATE web2_products
@@ -1141,7 +1170,9 @@ router.post('/confirm-purchase', async (req, res) => {
             return res.status(400).json({ error: 'Cần codes[] hoặc supplier' });
         }
         const now = Date.now();
-        const whereParts = ["status = 'CHO_MUA'"];
+        // Cập nhật: cho phép cả CHO_MUA và MUA_1_PHAN (P1 2026-05-29) — cả
+        // 2 status đều có pending_qty > 0 chờ chuyển sang stock.
+        const whereParts = ["status IN ('CHO_MUA', 'MUA_1_PHAN')"];
         const params = [];
         if (codes.length) {
             params.push(codes);
@@ -1170,6 +1201,112 @@ router.post('/confirm-purchase', async (req, res) => {
         });
     } catch (e) {
         console.error('[WEB2-PRODUCTS] confirm-purchase error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/web2-products/confirm-purchase-partial
+// Mua 1 phần — user nhập số lượng thực tế nhận về cho từng SP. Khác với
+// confirm-purchase (mua đủ): cho phép qty_received < pending_qty hiện tại.
+//
+// Body: { items: [{ code, qtyReceived }] }
+//
+// Logic per SP:
+//   - qtyR = min(qtyReceived, current_pending)  (cap để tránh overflow)
+//   - stock += qtyR
+//   - pending -= qtyR
+//   - status:
+//       * pending > 0 && stock > 0 → MUA_1_PHAN
+//       * pending == 0 && stock > 0 → DANG_BAN
+//       * pending > 0 && stock == 0 → giữ nguyên CHO_MUA (qtyR == 0 case)
+//       * pending == 0 && stock == 0 → DANG_BAN (edge case sau cleanup)
+// Returns: { success, processed, items: [{code, name, stock, pendingQty, status, qtyReceived}] }
+router.post('/confirm-purchase-partial', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const items = Array.isArray((req.body || {}).items) ? req.body.items : [];
+        if (!items.length) {
+            return res.status(400).json({ error: 'items[] required' });
+        }
+        const now = Date.now();
+        const results = [];
+        for (const it of items) {
+            const code = String(it.code || '').trim();
+            const qtyReq = Math.max(0, Number(it.qtyReceived) || 0);
+            if (!code) {
+                results.push({ code: null, action: 'error', error: 'missing code' });
+                continue;
+            }
+            const cur = await pool.query(`SELECT * FROM web2_products WHERE code = $1 FOR UPDATE`, [
+                code,
+            ]);
+            if (!cur.rows.length) {
+                results.push({ code, action: 'error', error: 'not_found' });
+                continue;
+            }
+            const row = cur.rows[0];
+            const curPending = Number(row.pending_qty) || 0;
+            const curStock = Number(row.stock) || 0;
+            // Cap qtyR at pending để tránh stock overflow (đáng lẽ phải tăng
+            // pending trước qua upsert-pending nếu user thực sự nhận nhiều hơn).
+            const qtyR = Math.min(qtyReq, curPending);
+            const newStock = curStock + qtyR;
+            const newPending = curPending - qtyR;
+            let newStatus;
+            if (newPending > 0 && newStock > 0) newStatus = 'MUA_1_PHAN';
+            else if (newPending === 0 && newStock > 0) newStatus = 'DANG_BAN';
+            else if (newPending > 0 && newStock === 0) newStatus = 'CHO_MUA';
+            else newStatus = 'DANG_BAN';
+            const upd = await pool.query(
+                `UPDATE web2_products
+                   SET stock       = $1,
+                       pending_qty = $2,
+                       status      = $3,
+                       updated_at  = $4
+                 WHERE code = $5
+                RETURNING *`,
+                [newStock, newPending, newStatus, now, code]
+            );
+            const m = mapRow(upd.rows[0]);
+            results.push({
+                code: m.code,
+                name: m.name,
+                action: 'partial-purchase',
+                qtyReceived: qtyR,
+                qtyRequested: qtyReq,
+                stock: m.quantity,
+                pendingQty: m.pendingQty,
+                status: m.status,
+            });
+            // History log
+            try {
+                await _logHistory(
+                    pool,
+                    code,
+                    'partial-purchase',
+                    {
+                        qtyReceived: qtyR,
+                        qtyRequested: qtyReq,
+                        beforeStock: curStock,
+                        afterStock: newStock,
+                        beforePending: curPending,
+                        afterPending: newPending,
+                        beforeStatus: row.status,
+                        afterStatus: newStatus,
+                        supplier: row.supplier,
+                    },
+                    _extractUser(req),
+                    _extractSourcePage(req) || 'so-order'
+                );
+            } catch (_) {}
+        }
+        const processed = results.filter((r) => r.action === 'partial-purchase').length;
+        if (processed) _notify('confirm-purchase-partial', null);
+        res.json({ success: true, processed, items: results });
+    } catch (e) {
+        console.error('[WEB2-PRODUCTS] confirm-purchase-partial error:', e.message);
         res.status(500).json({ error: e.message });
     }
 });
