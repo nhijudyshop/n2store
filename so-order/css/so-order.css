@@ -916,6 +916,51 @@
     border-color: #cbd5e1;
 }
 
+/* P1 2026-05-29: loading state cho confirm popup
+ * User: "bấm vào thùng rác nó không hiện lên liền mà delay nên người dùng
+ * spam vào nút này". Stock check (~300-800ms) chạy trước khi soConfirm
+ * gây delay → spam click. Fix: mở popup ngay với "đang kiểm tra tồn
+ * kho..." + OK disabled, stock check chạy nền, update content khi xong.
+ */
+.so-confirm-modal .so-confirm-loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    color: #475569;
+    font-size: 13px;
+    margin-top: 10px;
+}
+.so-confirm-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #e2e8f0;
+    border-top-color: #dc2626;
+    border-radius: 50%;
+    animation: soConfirmSpin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+@keyframes soConfirmSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+.so-confirm-modal .so-btn-confirm-danger:disabled,
+.so-confirm-modal .so-btn-confirm-primary:disabled {
+    opacity: 0.55;
+    cursor: wait;
+    pointer-events: none;
+}
+/* Spam guard: disable delete button while popup open */
+.so-action-btn[data-pending-delete='1'] {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
 /* Form */
 
 .so-form-grid {

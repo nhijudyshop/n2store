@@ -2663,77 +2663,122 @@ window.addEventListener('load', () => {
     }
 
     async function deleteRow(shipmentId, rowId) {
+        const key = `row:${rowId}`;
+        if (_pendingDeleteKeys.has(key)) return;
         const tab = window.SoOrderStorage.getActiveTab(state);
         const sh = tab.shipments.find((s) => s.id === shipmentId);
         const r = sh?.rows.find((x) => x.id === rowId);
         if (!r) return;
-        // Guard P1: cảnh báo nếu SP đã có stock trong Kho (đã nhận hàng).
-        const stockCheck = await _checkRowsHaveStock([r]);
-        if (stockCheck.hasStock) {
-            const it = stockCheck.items[0];
-            const ok = await soConfirm({
-                title: '⚠️ Sản phẩm còn tồn kho',
-                message: `SP "${it.name}${it.variant ? ' (' + it.variant + ')' : ''}" còn ${it.stock} cái tồn kho từ NCC ${it.supplier || '?'}.`,
-                footNote: 'Xóa dòng order sẽ mất link tracking nhưng KHÔNG xóa stock trong Kho.',
-                confirmText: 'Vẫn xóa',
-                cancelText: 'Hủy',
-                danger: true,
-            });
-            if (!ok) return;
-        } else {
-            const ok = await soConfirm({
+        const btn = document.querySelector(
+            `[data-row-action='delete'][data-row-id='${CSS.escape(rowId)}']`
+        );
+        _markDeletePending(key, btn);
+        try {
+            // Open popup INSTANTLY với loading state, stock check chạy nền.
+            const ctrl = soConfirmOpen({
                 title: 'Xóa dòng order?',
                 message: 'Bạn có chắc muốn xóa dòng order này?',
                 confirmText: 'Xóa',
                 cancelText: 'Hủy',
                 danger: true,
+                loading: true,
+                loadingText: 'Đang kiểm tra tồn kho...',
             });
+            _checkRowsHaveStock([r])
+                .then((stockCheck) => {
+                    if (ctrl.closed) return;
+                    if (stockCheck.hasStock) {
+                        const it = stockCheck.items[0];
+                        ctrl.update({
+                            title: '⚠️ Sản phẩm còn tồn kho',
+                            message: `SP "${it.name}${it.variant ? ' (' + it.variant + ')' : ''}" còn ${it.stock} cái tồn kho từ NCC ${it.supplier || '?'}.`,
+                            footNote:
+                                'Xóa dòng order sẽ mất link tracking nhưng KHÔNG xóa stock trong Kho.',
+                            confirmText: 'Vẫn xóa',
+                            loading: false,
+                        });
+                    } else {
+                        ctrl.update({ loading: false });
+                    }
+                })
+                .catch((e) => {
+                    console.warn('[so-order] stock check fail:', e.message);
+                    if (!ctrl.closed) ctrl.update({ loading: false });
+                });
+            const ok = await ctrl.result;
             if (!ok) return;
+            const adj = { ..._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) };
+            window.SoOrderStorage.deleteRow(state, tab.id, shipmentId, rowId);
+            notify('Đã xóa dòng', 'info');
+            if (adj.name && adj.delta !== 0) adjustKhoPending([adj]);
+            pushSync();
+            renderAll();
+        } finally {
+            _unmarkDeletePending(key, btn);
         }
-        const adj = { ..._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) };
-        window.SoOrderStorage.deleteRow(state, tab.id, shipmentId, rowId);
-        notify('Đã xóa dòng', 'info');
-        if (adj.name && adj.delta !== 0) adjustKhoPending([adj]);
-        pushSync();
-        renderAll();
     }
 
     async function deleteShipment(shipmentId) {
+        const key = `ship:${shipmentId}`;
+        if (_pendingDeleteKeys.has(key)) return;
         const tab = window.SoOrderStorage.getActiveTab(state);
         const sh = tab.shipments.find((s) => s.id === shipmentId);
         if (!sh) return;
         const n = sh.rows.length;
-        const stockCheck = await _checkRowsHaveStock(sh.rows || []);
-        if (stockCheck.hasStock) {
-            const lines = stockCheck.items
-                .slice(0, 5)
-                .map(
-                    (it) =>
-                        `${it.name}${it.variant ? ' (' + it.variant + ')' : ''}: ${it.stock} tồn từ ${it.supplier || '?'}`
-                );
-            if (stockCheck.items.length > 5) {
-                lines.push(`... +${stockCheck.items.length - 5} SP nữa`);
-            }
-            const ok = await soConfirm({
-                title: `⚠️ Lô này có ${stockCheck.items.length} SP còn tồn kho`,
-                message: 'Các sản phẩm dưới đây đã nhận hàng và còn stock trong Kho:',
-                items: lines,
-                footNote: `Xóa lô + ${n} dòng order sẽ mất link tracking nhưng KHÔNG xóa stock trong Kho.`,
-                confirmText: 'Vẫn xóa lô',
-                cancelText: 'Hủy',
-                danger: true,
-            });
-            if (!ok) return;
-        } else {
-            const ok = await soConfirm({
+        const btn = document.querySelector(
+            `[data-shipment-action='delete-shipment'][data-shipment-id='${CSS.escape(shipmentId)}']`
+        );
+        _markDeletePending(key, btn);
+        try {
+            // Open popup INSTANTLY với default content + loading. Stock check
+            // chạy nền, upgrade nội dung khi có kết quả.
+            const ctrl = soConfirmOpen({
                 title: 'Xóa lô?',
                 message: `Xóa lô này + ${n} dòng order bên trong?`,
                 confirmText: 'Xóa lô',
                 cancelText: 'Hủy',
                 danger: true,
+                loading: true,
+                loadingText: 'Đang kiểm tra tồn kho...',
             });
+            _checkRowsHaveStock(sh.rows || [])
+                .then((stockCheck) => {
+                    if (ctrl.closed) return;
+                    if (stockCheck.hasStock) {
+                        const lines = stockCheck.items
+                            .slice(0, 5)
+                            .map(
+                                (it) =>
+                                    `${it.name}${it.variant ? ' (' + it.variant + ')' : ''}: ${it.stock} tồn từ ${it.supplier || '?'}`
+                            );
+                        if (stockCheck.items.length > 5) {
+                            lines.push(`... +${stockCheck.items.length - 5} SP nữa`);
+                        }
+                        ctrl.update({
+                            title: `⚠️ Lô này có ${stockCheck.items.length} SP còn tồn kho`,
+                            message: 'Các sản phẩm dưới đây đã nhận hàng và còn stock trong Kho:',
+                            items: lines,
+                            footNote: `Xóa lô + ${n} dòng order sẽ mất link tracking nhưng KHÔNG xóa stock trong Kho.`,
+                            confirmText: 'Vẫn xóa lô',
+                            loading: false,
+                        });
+                    } else {
+                        ctrl.update({ loading: false });
+                    }
+                })
+                .catch((e) => {
+                    console.warn('[so-order] stock check fail:', e.message);
+                    if (!ctrl.closed) ctrl.update({ loading: false });
+                });
+            const ok = await ctrl.result;
             if (!ok) return;
+            return _finalizeDeleteShipment(tab, sh, shipmentId);
+        } finally {
+            _unmarkDeletePending(key, btn);
         }
+    }
+
+    function _finalizeDeleteShipment(tab, sh, shipmentId) {
         const adjustments = (sh.rows || [])
             .map((r) => ({ ..._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) }))
             .filter((a) => a.name && a.delta !== 0);
@@ -2910,75 +2955,85 @@ window.addEventListener('load', () => {
     }
 
     /**
-     * Custom confirm dialog — async, returns Promise<boolean>.
-     * Drop-in cho window.confirm() nhưng:
-     *  - Không block event loop (no native browser delay)
-     *  - Styled khớp UI so-order, danger variant cho delete
-     *  - Hỗ trợ danh sách items + foot note
-     *  - Esc = cancel, Enter = confirm
+     * Open confirm dialog instantly + return controller cho late update.
+     * Khắc phục delay khi caller cần chạy async check (vd: stock check)
+     * trước khi populate full content — popup hiện ngay với loading state,
+     * caller chạy check trong nền, gọi ctrl.update() khi xong.
      *
      * @param {Object} opts
      * @param {string} [opts.title='Xác nhận']
-     * @param {string} [opts.message=''] - body text (single paragraph)
-     * @param {string[]} [opts.items=null] - list rendered as <ul> warning
-     * @param {string} [opts.footNote=''] - footer warning box
+     * @param {string} [opts.message='']
+     * @param {string[]} [opts.items=null] - list rendered as <ul>
+     * @param {string} [opts.footNote=''] - red foot warning box
      * @param {string} [opts.confirmText='OK']
      * @param {string} [opts.cancelText='Hủy']
-     * @param {boolean} [opts.danger=true] - red confirm button
-     * @returns {Promise<boolean>}
+     * @param {boolean} [opts.danger=true]
+     * @param {boolean} [opts.loading=false] - show spinner + disable OK
+     * @param {string} [opts.loadingText='Đang kiểm tra...']
+     * @returns {{ result: Promise<boolean>, update: (patch) => void, close: (val?: boolean) => void, closed: boolean }}
      */
-    function soConfirm(opts = {}) {
-        const {
-            title = 'Xác nhận',
-            message = '',
-            items = null,
-            footNote = '',
-            confirmText = 'OK',
-            cancelText = 'Hủy',
-            danger = true,
-        } = opts;
-        return new Promise((resolve) => {
-            let modal = document.getElementById('soConfirmModal');
-            if (!modal) {
-                modal = document.createElement('div');
-                modal.id = 'soConfirmModal';
-                modal.className = 'so-modal so-confirm-modal';
-                modal.hidden = true;
-                modal.innerHTML = `
-                    <div class="so-modal-backdrop" data-so-confirm-cancel></div>
-                    <div class="so-modal-panel so-modal-panel-narrow" role="dialog" aria-modal="true" aria-labelledby="soConfirmTitle">
-                        <header class="so-modal-head">
-                            <h2 id="soConfirmTitle" data-so-confirm-title></h2>
-                            <button class="so-modal-close" type="button" data-so-confirm-cancel aria-label="Hủy">
-                                <i data-lucide="x"></i>
-                            </button>
-                        </header>
-                        <div class="so-modal-body so-confirm-body">
-                            <p data-so-confirm-message></p>
-                            <ul data-so-confirm-items hidden></ul>
-                            <div class="so-confirm-foot-note" data-so-confirm-foot hidden></div>
+    function soConfirmOpen(opts = {}) {
+        let modal = document.getElementById('soConfirmModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'soConfirmModal';
+            modal.className = 'so-modal so-confirm-modal';
+            modal.hidden = true;
+            modal.innerHTML = `
+                <div class="so-modal-backdrop" data-so-confirm-cancel></div>
+                <div class="so-modal-panel so-modal-panel-narrow" role="dialog" aria-modal="true" aria-labelledby="soConfirmTitle">
+                    <header class="so-modal-head">
+                        <h2 id="soConfirmTitle" data-so-confirm-title></h2>
+                        <button class="so-modal-close" type="button" data-so-confirm-cancel aria-label="Hủy">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </header>
+                    <div class="so-modal-body so-confirm-body">
+                        <p data-so-confirm-message></p>
+                        <ul data-so-confirm-items hidden></ul>
+                        <div class="so-confirm-foot-note" data-so-confirm-foot hidden></div>
+                        <div class="so-confirm-loading" data-so-confirm-loading hidden>
+                            <span class="so-confirm-spinner"></span>
+                            <span data-so-confirm-loading-text>Đang kiểm tra...</span>
                         </div>
-                        <footer class="so-modal-foot">
-                            <span class="so-modal-foot-spacer"></span>
-                            <button type="button" class="so-btn-confirm-cancel" data-so-confirm-cancel></button>
-                            <button type="button" data-so-confirm-ok></button>
-                        </footer>
                     </div>
-                `;
-                document.body.appendChild(modal);
-            }
-            const titleEl = modal.querySelector('[data-so-confirm-title]');
-            const msgEl = modal.querySelector('[data-so-confirm-message]');
-            const itemsEl = modal.querySelector('[data-so-confirm-items]');
-            const footEl = modal.querySelector('[data-so-confirm-foot]');
-            const okBtn = modal.querySelector('[data-so-confirm-ok]');
-            const cancelBtn = modal.querySelector('.so-btn-confirm-cancel');
+                    <footer class="so-modal-foot">
+                        <span class="so-modal-foot-spacer"></span>
+                        <button type="button" class="so-btn-confirm-cancel" data-so-confirm-cancel></button>
+                        <button type="button" data-so-confirm-ok></button>
+                    </footer>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        const titleEl = modal.querySelector('[data-so-confirm-title]');
+        const msgEl = modal.querySelector('[data-so-confirm-message]');
+        const itemsEl = modal.querySelector('[data-so-confirm-items]');
+        const footEl = modal.querySelector('[data-so-confirm-foot]');
+        const loadingEl = modal.querySelector('[data-so-confirm-loading]');
+        const loadingTextEl = modal.querySelector('[data-so-confirm-loading-text]');
+        const okBtn = modal.querySelector('[data-so-confirm-ok]');
+        const cancelBtn = modal.querySelector('.so-btn-confirm-cancel');
 
-            titleEl.textContent = title;
-            msgEl.textContent = message;
-            msgEl.hidden = !message;
-            if (Array.isArray(items) && items.length) {
-                itemsEl.innerHTML = items
+        let current = {
+            title: 'Xác nhận',
+            message: '',
+            items: null,
+            footNote: '',
+            confirmText: 'OK',
+            cancelText: 'Hủy',
+            danger: true,
+            loading: false,
+            loadingText: 'Đang kiểm tra...',
+            ...opts,
+        };
+
+        const render = () => {
+            titleEl.textContent = current.title;
+            msgEl.textContent = current.message;
+            msgEl.hidden = !current.message;
+            if (Array.isArray(current.items) && current.items.length) {
+                itemsEl.innerHTML = current.items
                     .map((it) => `<li>${escapeHtml(String(it))}</li>`)
                     .join('');
                 itemsEl.hidden = false;
@@ -2986,42 +3041,95 @@ window.addEventListener('load', () => {
                 itemsEl.innerHTML = '';
                 itemsEl.hidden = true;
             }
-            if (footNote) {
-                footEl.textContent = footNote;
+            if (current.footNote) {
+                footEl.textContent = current.footNote;
                 footEl.hidden = false;
             } else {
                 footEl.textContent = '';
                 footEl.hidden = true;
             }
-            okBtn.textContent = confirmText;
-            okBtn.className = danger ? 'so-btn-confirm-danger' : 'so-btn-confirm-primary';
-            cancelBtn.textContent = cancelText;
-            modal.classList.toggle('is-danger', !!danger);
+            if (current.loading) {
+                loadingTextEl.textContent = current.loadingText;
+                loadingEl.hidden = false;
+                okBtn.disabled = true;
+            } else {
+                loadingEl.hidden = true;
+                okBtn.disabled = false;
+            }
+            okBtn.textContent = current.confirmText;
+            okBtn.className = current.danger ? 'so-btn-confirm-danger' : 'so-btn-confirm-primary';
+            cancelBtn.textContent = current.cancelText;
+            modal.classList.toggle('is-danger', !!current.danger);
+        };
 
-            modal.hidden = false;
-            if (window.lucide?.createIcons) window.lucide.createIcons();
+        render();
+        modal.hidden = false;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
 
-            let done = false;
-            const finish = (val) => {
-                if (done) return;
-                done = true;
-                modal.hidden = true;
-                modal.removeEventListener('click', onClick);
-                document.removeEventListener('keydown', onKey);
-                resolve(val);
-            };
-            const onClick = (e) => {
-                if (e.target.closest('[data-so-confirm-ok]')) finish(true);
-                else if (e.target.closest('[data-so-confirm-cancel]')) finish(false);
-            };
-            const onKey = (e) => {
-                if (e.key === 'Escape') finish(false);
-                else if (e.key === 'Enter') finish(true);
-            };
-            modal.addEventListener('click', onClick);
-            document.addEventListener('keydown', onKey);
-            setTimeout(() => okBtn.focus(), 30);
+        let closed = false;
+        let resolveFn;
+        const result = new Promise((r) => {
+            resolveFn = r;
         });
+        const finish = (val) => {
+            if (closed) return;
+            closed = true;
+            modal.hidden = true;
+            modal.removeEventListener('click', onClick);
+            document.removeEventListener('keydown', onKey);
+            resolveFn(val);
+        };
+        const onClick = (e) => {
+            const okEl = e.target.closest('[data-so-confirm-ok]');
+            if (okEl) {
+                if (!okBtn.disabled) finish(true);
+                return;
+            }
+            if (e.target.closest('[data-so-confirm-cancel]')) finish(false);
+        };
+        const onKey = (e) => {
+            if (e.key === 'Escape') finish(false);
+            else if (e.key === 'Enter' && !okBtn.disabled) finish(true);
+        };
+        modal.addEventListener('click', onClick);
+        document.addEventListener('keydown', onKey);
+        setTimeout(() => {
+            if (closed) return;
+            if (!okBtn.disabled) okBtn.focus();
+            else cancelBtn.focus();
+        }, 30);
+
+        return {
+            result,
+            get closed() {
+                return closed;
+            },
+            update(patch) {
+                if (closed) return;
+                current = { ...current, ...(patch || {}) };
+                render();
+            },
+            close(val = false) {
+                finish(val);
+            },
+        };
+    }
+
+    /** Drop-in cho window.confirm() — returns Promise<boolean> trực tiếp. */
+    function soConfirm(opts = {}) {
+        return soConfirmOpen(opts).result;
+    }
+
+    // Spam guard: track delete actions đang pending. Click lần 2 trên cùng
+    // target → bỏ qua. CSS [data-pending-delete='1'] làm icon mờ.
+    const _pendingDeleteKeys = new Set();
+    function _markDeletePending(key, btn) {
+        _pendingDeleteKeys.add(key);
+        if (btn) btn.dataset.pendingDelete = '1';
+    }
+    function _unmarkDeletePending(key, btn) {
+        _pendingDeleteKeys.delete(key);
+        if (btn) delete btn.dataset.pendingDelete;
     }
 
     function openLightbox(src) {
