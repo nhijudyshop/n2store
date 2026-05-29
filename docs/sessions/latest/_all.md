@@ -3,14 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `94b6986` — fix(nav): verify SePay billing warning via live expiryDate, not calendar
-**Last updated**: 2026-05-29 15:31:00 +07
-**Latest session**: [`RESUME:20260529-153100-94b6986`](../20260529-153100-94b6986.md)
-**Summary**: fix(nav): verify SePay billing warning via live expiryDate, not calendar
+**Latest commit**: `b730177` — auto: session update
+**Last updated**: 2026-05-29 15:42:20 +07
+**Latest session**: [`RESUME:20260529-154220-b730177`](../20260529-154220-b730177.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`shared/`](./shared.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-29 15:31
+- [`docs/`](./docs.md) — updated 2026-05-29 15:42
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -49,13 +52,13 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-29 12:13
+- [`render.com/`](./render.com.md) — updated 2026-05-29 15:42
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-29 15:03
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
-- [`shared/`](./shared.md) — updated 2026-05-29 15:28
+- [`shared/`](./shared.md) — updated 2026-05-29 15:42
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
-- [`so-order/`](./so-order.md) — updated 2026-05-26 13:38
+- [`so-order/`](./so-order.md) — updated 2026-05-29 15:42
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
