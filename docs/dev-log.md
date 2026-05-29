@@ -25,6 +25,52 @@
 
 ## 2026-05-29
 
+### [scripts][pancake] Pancake livestream comment-count booster ✅
+
+**User ask**: dùng Pancake gửi reply công khai vào các thread comment đến từ livestream để **tăng comment count** trên livestream post (đẩy reach), KHÔNG spam DM khách (không làm phiền). Filter "Đến từ livestream" trong Pancake UI = client-side filter `conversation.post.type === "livestream"` (radio value `is_livestream_post_on`).
+
+**Reverse-engineered endpoint** (capture qua persistent browser session `pancake-browser-session.js` + XHR body interceptor, anh comment thật 3 lần demo4/5/6):
+
+```
+POST https://pancake.vn/api/v1/pages/<pageId>/conversations/<convId>/messages?access_token=<JWT>
+Body: {
+  "action": "reply_comment",
+  "message_id": "<conv.id>",
+  "parent_id":  "<conv.id>",
+  "user_selected_reply_to": null,
+  "post_id": "<conv.post_id>",        // "<pageId>_<postShortId>"
+  "message": "<text>",
+  "send_by_platform": "web"
+}
+Response 200: { id: "<new_comment_id>", success: true }
+```
+
+**Files**:
+
+- [scripts/pancake-livestream-comment-spam.js](../scripts/pancake-livestream-comment-spam.js) — CLI booster: fetch comment conversations qua POST `/conversations?type=COMMENT` (body), filter `post.type === "livestream"`, sort theo `last_customer_interactive_at` DESC, queue có cap-per-conv / cap-per-customer, random template + random delay, log JSON report
+- [scripts/pancake-browser-session.js](../scripts/pancake-browser-session.js) — enhance log: capture page console + pageerror + req/res với method/status, file log dạng JSON-lines + session log → `downloads/n2store-session/pancake-inspect/`
+
+**Default config**:
+
+- `--limit 30`, `--cap-per-conv 1`, `--cap-per-customer 1`
+- `--delay-min 2500 --delay-max 5500` (random jitter)
+- Templates mặc định: `. .. 🙏 ❤ ❤❤ 🌹 🥰 "Dạ ạ" "iB shop ạ" ✓ 👍 "Đẹp ạ"`
+- Skip conversation đã có page reply (`last_sent_by.id === pageId`) trừ khi `--reply-even-if-answered`
+
+**Verified test 1/2 OK**: Thùy Trang nhận public comment ID `1997708787498711_1297743775900692`. Kim Giang fail vì FB error 100/33 (comment bị xóa hoặc privacy block — script handle gracefully).
+
+**Reports**: `downloads/n2store-session/pancake-comment-bump/bump-<ts>.json`.
+
+**Safety notes**:
+
+- Reply là public comment thật, KHÔNG vào DM khách (đúng yêu cầu) — nhưng FB vẫn push notification "X replied to your comment" cho khách
+- Khuyến nghị: ≤ 50 reply/livestream, mix template ≥ 5 loại, delay ≥ 2s để tránh FB flag spam pattern
+- Script không tự chạy — user trigger qua CLI với flag
+
+**Status**: ✅ Done
+
+---
+
 ### [so-order × web2/products] P1 integration: MUA_1_PHAN + ETA + Bulk receive modal + delete guards ✅
 
 **User ask**: "thêm trạng thái MUA_1_PHAN" + làm full P1.
