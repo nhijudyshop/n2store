@@ -1101,6 +1101,35 @@
         _updateReceiveSummary();
     }
 
+    // P1 2026-05-29: Khi panel Nhận hàng mở, ẩn các shipments khác để focus
+    // vào shipment đang nhận. Walk tbody children, track active state qua
+    // .so-shipment-head rows. Mọi row nằm trong shipment khác → add class
+    // .so-receive-hidden (CSS display: none).
+    function _hideOtherShipments(activeShId) {
+        const tbody = document.getElementById('soTableBody');
+        if (!tbody) return;
+        let activeMode = false;
+        for (const child of tbody.children) {
+            if (child.classList.contains('so-shipment-head')) {
+                activeMode = child.dataset.shipmentId === activeShId;
+                if (!activeMode) child.classList.add('so-receive-hidden');
+                continue;
+            }
+            if (child.classList.contains('so-receive-panel-row')) {
+                // Panel row đã chèn cho active shipment → giữ visible
+                continue;
+            }
+            if (!activeMode) {
+                child.classList.add('so-receive-hidden');
+            }
+        }
+    }
+    function _showAllShipments() {
+        document.querySelectorAll('.so-receive-hidden').forEach((el) => {
+            el.classList.remove('so-receive-hidden');
+        });
+    }
+
     function openReceiveShipmentModal(shId) {
         if (!window.Web2ProductsApi) {
             notify('Web2ProductsApi chưa load', 'error');
@@ -1164,8 +1193,10 @@
         const oldModal = document.getElementById('soReceiveModal');
         if (oldModal) oldModal.remove();
 
-        // Close other open panels (chỉ 1 shipment receiving cùng lúc)
+        // Close other open panels (chỉ 1 shipment receiving cùng lúc) + show
+        // back các shipments đã ẩn trước đó.
         document.querySelectorAll('.so-receive-panel-row').forEach((row) => row.remove());
+        _showAllShipments();
 
         // Tìm shipment header row để insert panel sau
         const shipHeaderRow = document.querySelector(
@@ -1192,6 +1223,10 @@
                         <div class="so-receive-panel-title">
                             <i data-lucide="truck" style="width:18px;height:18px;color:#16a34a;"></i>
                             <strong>Nhận hàng — ${escapeHtml(shipLabel)}</strong>
+                            <span style="font-size:11px;font-weight:500;color:#64748b;background:#fef3c7;padding:2px 8px;border-radius:4px;margin-left:8px;">
+                                <i data-lucide="eye-off" style="width:11px;height:11px;vertical-align:-1px;"></i>
+                                Các đợt khác tạm ẩn
+                            </span>
                         </div>
                         <button type="button" class="so-receive-panel-close" data-so-receive-close title="Đóng (Esc)">
                             <i data-lucide="x"></i>
@@ -1218,14 +1253,21 @@
             </td>`;
         shipHeaderRow.insertAdjacentElement('afterend', panelRow);
 
-        // Wire close handlers
+        // Ẩn các shipments khác để focus vào shipment đang nhận
+        _hideOtherShipments(shId);
+
+        // Wire close handlers — đóng panel + show lại các shipments khác
+        const closePanel = () => {
+            panelRow.remove();
+            _showAllShipments();
+        };
         panelRow.querySelectorAll('[data-so-receive-close]').forEach((el) => {
-            el.addEventListener('click', () => panelRow.remove());
+            el.addEventListener('click', closePanel);
         });
         // Esc closes panel
         const escHandler = (e) => {
             if (e.key === 'Escape') {
-                panelRow.remove();
+                closePanel();
                 document.removeEventListener('keydown', escHandler);
             }
         };

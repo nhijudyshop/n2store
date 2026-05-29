@@ -393,6 +393,11 @@
     padding: 0 !important;
     background: #fff;
 }
+
+/* P1 2026-05-29: ẩn các shipments khác khi panel Nhận hàng mở (focus mode) */
+.so-receive-hidden {
+    display: none !important;
+}
 .so-receive-panel {
     margin: 0;
     padding: 16px 20px;
