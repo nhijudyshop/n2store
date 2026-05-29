@@ -103,20 +103,48 @@ const log = (...a) => {
 
     const page = await ctx.newPage();
 
+    // Persistent file log for page-side console + errors
+    const consoleFile = fs.createWriteStream(path.join(OUT_DIR, `console-${Date.now()}.log`), {
+        flags: 'a',
+    });
+    const consoleBuf = [];
+    const pushConsole = (level, text, location) => {
+        const entry = { t: ts(), level, text: String(text).slice(0, 800), location };
+        consoleBuf.push(entry);
+        if (consoleBuf.length > 1000) consoleBuf.shift();
+        consoleFile.write(JSON.stringify(entry) + '\n');
+        if (/error|warn|pageerror/i.test(level)) {
+            log(`[page-${level}]`, entry.text);
+        }
+    };
+    page.on('console', (msg) => {
+        const loc = msg.location?.();
+        pushConsole(msg.type(), msg.text(), loc ? `${loc.url}:${loc.lineNumber}` : '');
+    });
+    page.on('pageerror', (err) => pushConsole('pageerror', err.message || String(err), ''));
+
     // Capture Pancake API calls for retrospective debug
     const netBuf = [];
+    page.on('request', (req) => {
+        const u = req.url();
+        if (!/pancake\.vn|pages\.fm/.test(u)) return;
+        log(`[req] ${req.method()} ${u.slice(0, 180)}`);
+    });
     page.on('response', async (res) => {
         const u = res.url();
         if (!/pancake\.vn|pages\.fm/.test(u)) return;
         try {
             const j = await res.json().catch(() => null);
-            netBuf.push({
+            const entry = {
                 t: ts(),
                 status: res.status(),
+                method: res.request().method(),
                 url: u.slice(0, 220),
                 body: j ? JSON.stringify(j).slice(0, 500) : null,
-            });
+            };
+            netBuf.push(entry);
             if (netBuf.length > 200) netBuf.shift();
+            log(`[res ${entry.status}] ${entry.method} ${entry.url}`);
         } catch (_e) {
             /* ignore */
         }
@@ -156,8 +184,23 @@ const log = (...a) => {
         }
         if (cmd === 'help') {
             console.log(
-                'Commands: nav <url> | eval <js> | shot <path> | wait <ms> | netlast [N] | help | quit'
+                'Commands: nav <url> | eval <js> | shot <path> | wait <ms> | netlast [N] | console [N] | dumpconsole [path] | help | quit'
             );
+            return;
+        }
+        if (cmd === 'console') {
+            const n = Math.max(1, parseInt(arg, 10) || 30);
+            const tail = consoleBuf.slice(-n);
+            log(`console(${tail.length}/${consoleBuf.length}):`);
+            for (const e of tail) {
+                log(`  [${e.level}] ${e.text}${e.location ? ' @ ' + e.location : ''}`);
+            }
+            return;
+        }
+        if (cmd === 'dumpconsole') {
+            const p = arg || path.join(OUT_DIR, `console-dump-${Date.now()}.json`);
+            fs.writeFileSync(p, JSON.stringify(consoleBuf, null, 2));
+            log(`Dumped ${consoleBuf.length} entries to ${p}`);
             return;
         }
         if (cmd === 'nav') {

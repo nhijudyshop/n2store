@@ -85,6 +85,7 @@ function _notify(action, code) {
             'adjust-stock',
             'upsert-pending',
             'confirm-purchase',
+            'confirm-purchase-partial',
             'adjust-pending',
         ]);
         if (stockAffectingActions.has(action)) {

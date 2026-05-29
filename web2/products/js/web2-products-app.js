@@ -73,13 +73,20 @@
                     <td>
                         ${(() => {
                             // Status ưu tiên hơn isActive:
-                            // - CHO_MUA → "CHỜ HÀNG" (chưa Mua hàng xong, chưa nhập kho).
+                            // - CHO_MUA → "CHỜ HÀNG" (chưa Mua hàng, stock=0).
+                            // - MUA_1_PHAN → "MUA 1 PHẦN" (P1 2026-05-29: nhận được 1 phần,
+                            //   còn pending). Hiển thị stock đang có + pending còn chờ.
                             // - DANG_BAN + isActive → "Đang bán".
                             // - !isActive → "Tạm dừng".
                             if (p.status === 'CHO_MUA') {
                                 const pendingTxt =
                                     Number(p.pendingQty) > 0 ? ` (×${p.pendingQty})` : '';
                                 return `<span class="active-badge active-pending" title="Chờ Mua hàng từ NCC${p.supplier ? ' ' + p.supplier : ''}"><i data-lucide="clock"></i>CHỜ HÀNG${pendingTxt}</span>`;
+                            }
+                            if (p.status === 'MUA_1_PHAN') {
+                                const stock = Number(p.quantity || 0);
+                                const pend = Number(p.pendingQty || 0);
+                                return `<span class="active-badge" style="background:#fef3c7;color:#92400e;border-color:#fcd34d;" title="Đã nhận ${stock} cái, còn ${pend} cái chờ mua tiếp từ NCC ${p.supplier || '?'}"><i data-lucide="package-2"></i>MUA 1 PHẦN <span style="opacity:0.85;font-weight:500;margin-left:4px;">(${stock} đã nhận · ${pend} chờ)</span></span>`;
                             }
                             return p.isActive
                                 ? `<span class="active-badge active-yes"><i data-lucide="check"></i>Đang bán</span>`
