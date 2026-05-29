@@ -4152,15 +4152,14 @@ class UnifiedNavigationManager {
 
     /**
      * Check billing alerts (manual payment services only):
-     * - Cloudflare: show when OVERDUE (billing day arrived/passed)
-     * - SePay: show 3 days BEFORE billing day
+     * - SePay: dùng expiryDate THỰC từ SePay API (cache 6h) khi có.
+     *   Khi không có cache → fallback time-based (billingDay 27 + showDays 3).
      * Note: Render + Firebase auto-pay → warning chỉ khi downgrade (check via API trong service-costs)
      */
     getBillingAlerts() {
-        // Render + Firebase auto-pay → chỉ warning khi downgrade (check riêng via API)
-        // Chỉ giữ các dịch vụ cần nhắc thanh toán thủ công
         const BILLING_SCHEDULE = [
             {
+                id: 'sepay-vip',
                 name: 'SePay VIP (589K đ)',
                 amount: 589000,
                 amountVND: true,
@@ -4174,23 +4173,40 @@ class UnifiedNavigationManager {
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const alerts = [];
 
-        BILLING_SCHEDULE.forEach((bill) => {
-            // Current month's billing date
-            let billingThisMonth = new Date(today.getFullYear(), today.getMonth(), bill.billingDay);
+        // Live SePay status (cached). Fire-and-forget refresh if stale/missing.
+        const sepayLive = this._getSepayLiveStatus();
+        this._maybeRefreshSepayLiveStatus();
 
-            // Days since/until this month's billing
-            const diffMs = billingThisMonth - today;
-            const daysDiff = Math.round(diffMs / (1000 * 60 * 60 * 24)); // negative = overdue
+        BILLING_SCHEDULE.forEach((bill) => {
+            let daysDiff;
+            let source = 'calendar';
+
+            if (bill.id === 'sepay-vip' && sepayLive && sepayLive.expiryDate) {
+                // Use real expiry date from SePay → days until subscription expires
+                // (positive = still active, negative = past expiry/unpaid)
+                const expiry = new Date(`${sepayLive.expiryDate}T00:00:00`);
+                if (!isNaN(expiry.getTime())) {
+                    daysDiff = Math.round((expiry - today) / (1000 * 60 * 60 * 24));
+                    source = 'sepay-api';
+                }
+            }
+
+            if (daysDiff === undefined) {
+                // Fallback: this month's calendar billing day
+                const billingThisMonth = new Date(
+                    today.getFullYear(),
+                    today.getMonth(),
+                    bill.billingDay
+                );
+                daysDiff = Math.round((billingThisMonth - today) / (1000 * 60 * 60 * 24));
+            }
 
             let shouldAlert = false;
-            let daysLeft = daysDiff;
             let isOverdue = false;
 
-            // Before billing day: alert if within warnBefore days
             if (bill.warnBefore > 0 && daysDiff > 0 && daysDiff <= bill.warnBefore) {
                 shouldAlert = true;
             }
-            // On or after billing day: alert if within showDays
             if (bill.showDays > 0 && daysDiff <= 0 && daysDiff >= -bill.showDays) {
                 shouldAlert = true;
                 isOverdue = true;
@@ -4219,11 +4235,130 @@ class UnifiedNavigationManager {
                     note: bill.note || '',
                     label,
                     payment: bill.payment || null,
+                    source,
                 });
             }
         });
 
         return alerts;
+    }
+
+    /**
+     * Read cached SePay live status from localStorage (TTL 6h).
+     * Returns { expiryDate, latestInvoiceStatus, fetchedAt } or null.
+     */
+    _getSepayLiveStatus() {
+        try {
+            const raw = localStorage.getItem('sepay_live_status_v1');
+            if (!raw) return null;
+            const cached = JSON.parse(raw);
+            if (!cached || typeof cached.fetchedAt !== 'number') return null;
+            const ageMs = Date.now() - cached.fetchedAt;
+            const TTL_MS = 6 * 60 * 60 * 1000;
+            if (ageMs > TTL_MS) return null;
+            return cached;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Trigger a background refresh of SePay live status if cache is stale/missing.
+     * Re-renders billing UI on success. Throttled by `_sepayLiveRefreshing`.
+     */
+    _maybeRefreshSepayLiveStatus() {
+        if (this._sepayLiveRefreshing) return;
+        if (this._getSepayLiveStatus()) return; // cache still valid
+
+        // Inflight guard for the rest of the session
+        this._sepayLiveRefreshing = true;
+        this._refreshSepayLiveStatus()
+            .then((updated) => {
+                if (updated) this._rerenderBillingUI();
+            })
+            .catch(() => {})
+            .finally(() => {
+                // Allow retry after 5min if it failed
+                setTimeout(
+                    () => {
+                        this._sepayLiveRefreshing = false;
+                    },
+                    5 * 60 * 1000
+                );
+            });
+    }
+
+    async _refreshSepayLiveStatus() {
+        const SEPAY_LIVE_ENDPOINT =
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/sepay-dashboard';
+        // NOTE: Same credentials already used by service-costs/js/service-costs.js
+        // (CF Worker logs into my.sepay.vn server-side; nothing useful exposed in browser).
+        const body = {
+            email: 'nhijudyshop@gmail.com',
+            password: 'PBqRhge5~!',
+            api_key: 'E0ZGXZSECWKPFPNKJNYOXJGHQ1ODYCDH2U0WIIIBWRUVCMC8DMTUS5HQMYVZOTBY',
+        };
+
+        let json;
+        try {
+            const res = await fetch(SEPAY_LIVE_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (!res.ok) return false;
+            json = await res.json();
+        } catch {
+            return false;
+        }
+
+        if (!json || !json.success || !json.data) return false;
+
+        const expiryDate = json.data?.plans?.expiryDate || null;
+        const invoices = Array.isArray(json.data?.invoices) ? json.data.invoices : [];
+        const latest = invoices[0] || null;
+
+        const cache = {
+            fetchedAt: Date.now(),
+            expiryDate, // "YYYY-MM-DD"
+            latestInvoiceId: latest?.id || null,
+            latestInvoiceStatus: latest?.status || null,
+            latestInvoiceAmount: latest?.amount || null,
+            latestInvoiceDate: latest?.date || null,
+        };
+
+        try {
+            localStorage.setItem('sepay_live_status_v1', JSON.stringify(cache));
+        } catch {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Re-render banner + sidebar badge after live SePay data arrives.
+     */
+    _rerenderBillingUI() {
+        const existingBanner = document.querySelector('.nav-billing-banner');
+        if (existingBanner) existingBanner.remove();
+        // Respect session dismissal
+        if (!sessionStorage.getItem('billing_alert_dismissed')) {
+            this.showBillingAlertBanner();
+        }
+        // Sidebar badge refresh
+        document.querySelectorAll('.billing-alert-badge').forEach((el) => el.remove());
+        const alerts = this.getBillingAlerts();
+        if (alerts.length > 0) {
+            document
+                .querySelectorAll('[data-page-identifier="service-costs"]')
+                .forEach((navItem) => {
+                    const badge = document.createElement('span');
+                    badge.className = 'billing-alert-badge';
+                    badge.title = alerts.map((a) => a.label).join(', ');
+                    badge.textContent = String(alerts.length);
+                    navItem.appendChild(badge);
+                });
+        }
     }
 
     /**
