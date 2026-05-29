@@ -14,6 +14,63 @@
     if (window.__n2storePancakeBumpInjected) return;
     window.__n2storePancakeBumpInjected = true;
 
+    // ── Bootstrap: capture pageId + JWT from Pancake's own outgoing API calls ──
+    // Content script runs in isolated world — we can wrap window.fetch/XHR in this
+    // world, but Pancake's real fetches happen in MAIN world. So we inject a
+    // <script> in MAIN world to mirror the values back via postMessage.
+    const ctx = (window.__n2storePancakeBumpCtx = window.__n2storePancakeBumpCtx || {
+        pageId: null,
+        jwt: null,
+        firstSeenAt: null,
+    });
+
+    function installMainWorldSniffer() {
+        if (document.getElementById('n2store-pancake-bump-sniffer')) return;
+        const s = document.createElement('script');
+        s.id = 'n2store-pancake-bump-sniffer';
+        s.textContent = `
+            (function() {
+                if (window.__n2storeSnifferInstalled) return;
+                window.__n2storeSnifferInstalled = true;
+                function publish(pageId, jwt) {
+                    window.postMessage({ type: 'n2store-pancake-ctx', pageId, jwt }, '*');
+                }
+                function extract(url) {
+                    try {
+                        const u = String(url || '');
+                        const mp = u.match(/\\/api\\/v1\\/pages\\/(\\d{10,20})/);
+                        const mt = u.match(/[?&]access_token=([^&]+)/);
+                        if (mp || mt) publish(mp ? mp[1] : null, mt ? decodeURIComponent(mt[1]) : null);
+                    } catch (_e) {}
+                }
+                const _f = window.fetch;
+                window.fetch = function(...args) {
+                    const u = typeof args[0] === 'string' ? args[0] : args[0]?.url;
+                    extract(u);
+                    return _f.apply(this, args);
+                };
+                const _xo = XMLHttpRequest.prototype.open;
+                XMLHttpRequest.prototype.open = function(method, url) {
+                    extract(url);
+                    return _xo.apply(this, arguments);
+                };
+            })();
+        `;
+        (document.head || document.documentElement).appendChild(s);
+        s.remove();
+    }
+
+    window.addEventListener('message', (e) => {
+        if (e.source !== window) return;
+        const d = e.data;
+        if (!d || d.type !== 'n2store-pancake-ctx') return;
+        if (d.pageId && !ctx.pageId) ctx.pageId = d.pageId;
+        if (d.jwt && !ctx.jwt) ctx.jwt = d.jwt;
+        if ((d.pageId || d.jwt) && !ctx.firstSeenAt) ctx.firstSeenAt = Date.now();
+    });
+
+    installMainWorldSniffer();
+
     const LS_KEY = 'n2store.pancake.bump.cfg.v1';
     const DEFAULT_TEMPLATES = [
         '.',
@@ -626,21 +683,24 @@
     // ----- Pancake API helpers (port từ scripts/pancake-livestream-comment-spam.js) -----
 
     function getJwt() {
+        if (ctx.jwt) return ctx.jwt;
         try {
-            return localStorage.getItem('jwt') || localStorage.getItem('access_token') || null;
-        } catch (_) {
-            return null;
-        }
+            const ls = localStorage.getItem('jwt') || localStorage.getItem('access_token');
+            if (ls) return ls;
+        } catch (_) {}
+        // Cookie fallback (works only for non-HttpOnly)
+        const m = (document.cookie || '').match(/(?:^|;\s*)(?:jwt|access_token)=([^;]+)/);
+        if (m) return decodeURIComponent(m[1]);
+        return null;
     }
 
     function detectPageId() {
-        // Try cookies, then any /api/v1/pages/<id>/ URL on the page
+        if (ctx.pageId) return ctx.pageId;
         const imgs = document.querySelectorAll('img[src*="/api/v1/pages/"]');
         for (const img of imgs) {
             const m = (img.src || '').match(/\/api\/v1\/pages\/(\d{10,20})\//);
             if (m) return m[1];
         }
-        // Try any link href
         const links = document.querySelectorAll('[href*="/pages/"], [data-page-id]');
         for (const el of links) {
             const id = el.getAttribute('data-page-id');
@@ -649,6 +709,15 @@
             if (m) return m[1];
         }
         return null;
+    }
+
+    async function waitForCtx(timeoutMs = 4000) {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+            if (ctx.pageId && ctx.jwt) return true;
+            await sleep(150);
+        }
+        return !!(ctx.pageId && ctx.jwt);
     }
 
     async function fetchLivestreamConvs(jwt, pageId, postIdScope) {

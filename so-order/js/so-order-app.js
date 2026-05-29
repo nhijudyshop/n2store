@@ -1156,68 +1156,95 @@
             };
         });
 
-        let modal = document.getElementById('soReceiveModal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'soReceiveModal';
-            modal.className = 'so-modal';
-            modal.hidden = true;
-            modal.innerHTML = `
-                <div class="so-modal-backdrop" data-so-receive-close></div>
-                <div class="so-modal-panel so-receive-panel" style="width:96vw;max-width:1600px;height:94vh;max-height:94vh;display:flex;flex-direction:column;">
-                    <header class="so-modal-head" style="flex-shrink:0;">
-                        <h2 id="soReceiveTitle">Nhận hàng từ NCC</h2>
-                        <button class="so-modal-close" type="button" data-so-receive-close>
+        // PERF 2026-05-29: Replace modal with INLINE EXPANSION trong tbody.
+        // User báo "scroll modal lag không mượt" — modal có overlay + fixed
+        // position + GPU layer + nested scroll → composite work nặng.
+        // Inline panel chèn vào table flow → native page scroll, nhẹ + mượt nhất.
+        // Remove old modal nếu còn từ version cũ
+        const oldModal = document.getElementById('soReceiveModal');
+        if (oldModal) oldModal.remove();
+
+        // Close other open panels (chỉ 1 shipment receiving cùng lúc)
+        document.querySelectorAll('.so-receive-panel-row').forEach((row) => row.remove());
+
+        // Tìm shipment header row để insert panel sau
+        const shipHeaderRow = document.querySelector(
+            `tr.so-shipment-head[data-shipment-id="${CSS.escape(shId)}"]`
+        );
+        if (!shipHeaderRow) {
+            notify('Không tìm thấy shipment row để gắn panel', 'error');
+            return;
+        }
+        const colSpan = shipHeaderRow.querySelector('td')?.getAttribute('colspan') || 12;
+
+        const shipLabel = sh.batch
+            ? `Đợt ${sh.batch} · ${formatDateVN(sh.date)}`
+            : formatDateVN(sh.date);
+
+        // Tạo panel row + chèn vào tbody sau header
+        const panelRow = document.createElement('tr');
+        panelRow.className = 'so-receive-panel-row';
+        panelRow.dataset.receivePanelFor = shId;
+        panelRow.innerHTML = `
+            <td colspan="${colSpan}" style="padding:0;">
+                <div class="so-receive-panel">
+                    <header class="so-receive-panel-head">
+                        <div class="so-receive-panel-title">
+                            <i data-lucide="truck" style="width:18px;height:18px;color:#16a34a;"></i>
+                            <strong>Nhận hàng — ${escapeHtml(shipLabel)}</strong>
+                        </div>
+                        <button type="button" class="so-receive-panel-close" data-so-receive-close title="Đóng (Esc)">
                             <i data-lucide="x"></i>
                         </button>
                     </header>
-                    <div class="so-modal-body" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;">
-                        <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#0c4a6e;flex-shrink:0;">
-                            <strong>Hướng dẫn:</strong> Default qty nhận = số <strong>còn chờ</strong>
-                            (đã trừ phần đã nhận lần trước).
-                            SP đã có lịch sử nhận hiển thị <span style="color:#16a34a;">Đã nhận: X</span>
-                            + <span style="color:#f59e0b;">Còn chờ: Y</span>. Sửa qty nhận để chỉ nhận
-                            1 phần trong số còn chờ.
-                            SP đã nhận đủ tự bị disable (không nhận thêm được).
-                        </div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-shrink:0;gap:12px;">
-                            <button type="button" class="btn-secondary btn-sm" id="soReceiveAllFull">
-                                <i data-lucide="check-check" style="width:14px;height:14px;"></i> Tất cả mua đủ
-                            </button>
-                            <span style="font-size:12px;color:#64748b;flex:1;text-align:right;" id="soReceiveSummary"></span>
-                        </div>
-                        <div class="so-receive-list" id="soReceiveList" style="flex:1;min-height:0;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;"></div>
+                    <div class="so-receive-panel-hint">
+                        <strong>Hướng dẫn:</strong> Default qty nhận = số <strong>còn chờ</strong>.
+                        Sửa qty nhận để chỉ nhận 1 phần. SP đã đủ tự disable.
                     </div>
-                    <footer class="so-modal-foot" style="flex-shrink:0;">
+                    <div class="so-receive-panel-toolbar">
+                        <button type="button" class="btn-secondary btn-sm" id="soReceiveAllFull">
+                            <i data-lucide="check-check" style="width:14px;height:14px;"></i> Tất cả mua đủ
+                        </button>
+                        <span class="so-receive-panel-summary" id="soReceiveSummary"></span>
+                    </div>
+                    <div class="so-receive-list" id="soReceiveList"></div>
+                    <footer class="so-receive-panel-foot">
                         <button class="btn-secondary" type="button" data-so-receive-close>Hủy</button>
                         <button class="btn-primary" type="button" id="soReceiveConfirmBtn">
                             <i data-lucide="check"></i> Xác nhận nhận hàng
                         </button>
                     </footer>
-                </div>`;
-            document.body.appendChild(modal);
-            modal.querySelectorAll('[data-so-receive-close]').forEach((el) => {
-                el.addEventListener('click', () => {
-                    modal.hidden = true;
-                });
+                </div>
+            </td>`;
+        shipHeaderRow.insertAdjacentElement('afterend', panelRow);
+
+        // Wire close handlers
+        panelRow.querySelectorAll('[data-so-receive-close]').forEach((el) => {
+            el.addEventListener('click', () => panelRow.remove());
+        });
+        // Esc closes panel
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                panelRow.remove();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+
+        // Confirm button
+        panelRow
+            .querySelector('#soReceiveConfirmBtn')
+            .addEventListener('click', confirmReceiveFromModal);
+
+        // Tất cả mua đủ button
+        panelRow.querySelector('#soReceiveAllFull').addEventListener('click', () => {
+            panelRow.querySelectorAll('input[data-receive-qty]').forEach((inp) => {
+                inp.value = Number(inp.dataset.receiveQtyMax) || 0;
+                inp.dispatchEvent(new Event('input', { bubbles: true }));
             });
-            document
-                .getElementById('soReceiveConfirmBtn')
-                .addEventListener('click', confirmReceiveFromModal);
-            document.getElementById('soReceiveAllFull').addEventListener('click', () => {
-                document
-                    .querySelectorAll('#soReceiveList input[data-receive-qty]')
-                    .forEach((inp) => {
-                        inp.value = Number(inp.dataset.receiveQtyMax) || 0;
-                        inp.dispatchEvent(new Event('input', { bubbles: true }));
-                    });
-            });
-        }
-        const shipLabel = sh.batch
-            ? `Đợt ${sh.batch} · ${formatDateVN(sh.date)}`
-            : formatDateVN(sh.date);
-        document.getElementById('soReceiveTitle').textContent = `Nhận hàng — ${shipLabel}`;
-        const listEl = document.getElementById('soReceiveList');
+        });
+
+        const listEl = panelRow.querySelector('#soReceiveList');
         if (!_receiveItems.length) {
             listEl.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;">Shipment không có SP nào hợp lệ (cần NCC + tên SP + qty>0).</div>`;
         } else {
@@ -1288,16 +1315,17 @@
             });
         }
         _updateReceiveSummary();
-        modal.hidden = false;
         if (window.lucide?.createIcons) window.lucide.createIcons();
 
+        // Smooth scroll panel into view (native scroll, không lag)
+        panelRow.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
         // PERF: fire-and-forget background lookup (no await). Khi xong → patch
-        // DOM rows có "đã nhận / còn chờ" từ web2_products thực tế. Modal đã
-        // mở ngay nên user không thấy lag. Cache hit (5s) → skip lookup.
+        // DOM rows có "đã nhận / còn chờ" từ web2_products thực tế. Panel đã
+        // hiển thị ngay nên user không thấy lag. Cache hit (5s) → skip lookup.
         const hasCache = cached && Date.now() - cached.fetchedAt < RECEIVE_LOOKUP_TTL_MS;
         if (!hasCache && eligibleRows.length > 0) {
-            // Subtle loading hint trong summary
-            const summaryEl = document.getElementById('soReceiveSummary');
+            const summaryEl = panelRow.querySelector('#soReceiveSummary');
             if (summaryEl) {
                 const prevText = summaryEl.textContent;
                 summaryEl.textContent = '⏳ Đang kiểm tra tình trạng đã nhận... · ' + prevText;
@@ -1308,15 +1336,12 @@
                         stateByKey: stateByKeyFresh,
                         fetchedAt: Date.now(),
                     });
-                    // Modal still open? Patch rows.
-                    const modalEl = document.getElementById('soReceiveModal');
-                    if (!modalEl || modalEl.hidden) return;
+                    // Panel còn trong DOM? Patch rows.
+                    if (!document.body.contains(panelRow)) return;
                     let patched = 0;
                     for (const item of _receiveItems) {
                         const ps = stateByKeyFresh.get(item.rowId);
                         if (!ps) continue;
-                        // Skip patch nếu state đã matching item (avoid no-op DOM
-                        // mutation that triggers reflow).
                         if (ps.pendingQty === item.remainingPending && ps.code === item.code) {
                             continue;
                         }
@@ -1330,7 +1355,7 @@
                 })
                 .catch((e) => {
                     console.warn(
-                        '[so-order] receive lookup fail (modal vẫn dùng được):',
+                        '[so-order] receive lookup fail (panel vẫn dùng được):',
                         e?.message
                     );
                     _updateReceiveSummary();
@@ -1369,7 +1394,10 @@
     }
 
     function _updateReceiveSummary() {
-        const inputs = document.querySelectorAll('#soReceiveList input[data-receive-qty]');
+        // Scoped to active panel (inline expansion 2026-05-29)
+        const panelRow = document.querySelector('.so-receive-panel-row');
+        if (!panelRow) return;
+        const inputs = panelRow.querySelectorAll('input[data-receive-qty]');
         let totalReceiving = 0,
             totalRemaining = 0,
             totalAlready = 0,
@@ -1390,7 +1418,7 @@
             else if (qtyAlready + val >= qtyOrdered) full++;
             else partial++;
         });
-        const el = document.getElementById('soReceiveSummary');
+        const el = panelRow.querySelector('#soReceiveSummary');
         if (el) {
             const parts = [
                 `Đang nhận: ${totalReceiving}/${totalRemaining} còn chờ`,
@@ -1403,10 +1431,11 @@
     }
 
     async function confirmReceiveFromModal() {
-        const modal = document.getElementById('soReceiveModal');
-        const btn = document.getElementById('soReceiveConfirmBtn');
+        // Panel = inline expansion (replace modal 2026-05-29 for scroll perf)
+        const panelRow = document.querySelector('.so-receive-panel-row');
+        const btn = panelRow?.querySelector('#soReceiveConfirmBtn');
         if (!btn || btn.disabled) return;
-        const inputs = document.querySelectorAll('#soReceiveList input[data-receive-qty]');
+        const inputs = panelRow.querySelectorAll('input[data-receive-qty]');
         if (!inputs.length) {
             notify('Không có SP nào', 'warning');
             return;
@@ -1494,7 +1523,7 @@
                 `✅ Đã xử lý ${data.processed} SP — ${fullCount} mua đủ, ${partialCount} mua 1 phần`,
                 'success'
             );
-            modal.hidden = true;
+            panelRow.remove();
             // P1 2026-05-29: in barcode cho SP đã nhận (mua đủ hoặc mua 1 phần).
             // Merge variant + qty thực nhận từ itemsToProcess (server response
             // không trả variant). Skip SP qtyReceived=0.

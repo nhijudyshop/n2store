@@ -376,20 +376,101 @@
     background: #bbf7d0;
 }
 
-/* ============ Nhận hàng modal — perf-optimized scroll ============
- * User feedback 2026-05-29: "scroll modal nó lag không mượt".
- * Fixes:
- *   - contain: layout style paint per row → isolated layout/paint
- *   - content-visibility: auto + contain-intrinsic-size → skip off-screen rows
- *   - will-change: transform + translateZ(0) on list → GPU layer promotion
- *   - overscroll-behavior: contain → ngăn scroll chain với page bg
- *   - Sticky header solid bg (không gradient) → ít repaint
+/* ============ Nhận hàng INLINE PANEL — native scroll, no modal ============
+ * User feedback 2026-05-29: "scroll modal nó lag không mượt → có cách khác
+ * không dùng modal không?"
+ *
+ * Solution: inline expansion chèn <tr> vào tbody — KHÔNG dùng modal/overlay.
+ * Native page scroll = nhẹ nhất, không có:
+ *   ✗ Modal backdrop layer
+ *   ✗ Fixed positioning
+ *   ✗ GPU layer cho overlay
+ *   ✗ Nested scroll container
+ *
+ * Panel chỉ là <tr> bình thường trong table, scroll cùng page.
+ */
+.so-receive-panel-row > td {
+    padding: 0 !important;
+    background: #fff;
+}
+.so-receive-panel {
+    margin: 0;
+    padding: 16px 20px;
+    background: linear-gradient(180deg, #ecfdf5 0%, #ffffff 60px, #ffffff 100%);
+    border-top: 3px solid #16a34a;
+    border-bottom: 3px solid #16a34a;
+    box-shadow: inset 0 1px 0 #fff;
+}
+.so-receive-panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.so-receive-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    color: #064e3b;
+}
+.so-receive-panel-close {
+    appearance: none;
+    background: transparent;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #64748b;
+}
+.so-receive-panel-close:hover {
+    background: #fee2e2;
+    color: #dc2626;
+    border-color: #fca5a5;
+}
+.so-receive-panel-hint {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: #0c4a6e;
+}
+.so-receive-panel-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 12px;
+}
+.so-receive-panel-summary {
+    font-size: 12px;
+    color: #64748b;
+    flex: 1;
+    text-align: right;
+}
+.so-receive-panel-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e2e8f0;
+}
+
+/* List inside panel — KHÔNG có overflow auto (native page scroll handle).
+ * Bỏ will-change, content-visibility, sticky — tất cả đều nặng và không cần
+ * vì giờ scroll là native page scroll.
  */
 .so-receive-list {
-    will-change: transform;
-    transform: translateZ(0);
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
 }
 .so-receive-list .so-receive-row {
     display: grid;
@@ -398,9 +479,9 @@
     gap: 14px;
     padding: 10px 16px;
     border-bottom: 1px solid #f1f5f9;
-    contain: layout style paint;
-    content-visibility: auto;
-    contain-intrinsic-size: auto 76px;
+}
+.so-receive-list .so-receive-row:last-child {
+    border-bottom: none;
 }
 .so-receive-list .so-receive-row.is-fully {
     opacity: 0.6;
@@ -423,10 +504,7 @@
     font-size: 10px;
 }
 .so-receive-list .so-receive-group-head {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    padding: 12px 16px;
+    padding: 10px 14px;
     font-weight: 700;
     font-size: 13px;
     background: #f0f9ff;
@@ -435,7 +513,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    contain: layout style;
+}
+.so-receive-list .so-receive-group-head:first-child {
+    border-top: none;
 }
 
 /* P1 2026-05-29: Nhận hàng button — text + icon, wider than square 28px */
