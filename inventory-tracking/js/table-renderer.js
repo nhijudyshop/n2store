@@ -987,8 +987,7 @@ function renderInvoicesSection(shipment) {
                         <tr>
                             <th class="col-ncc">NCC</th>
                             <th class="col-stt">STT</th>
-                            <th class="col-sku">Mã hàng <span class="detail-toggle" onclick="toggleDetailColumns(this)" title="Hiện/Ẩn Mô tả & Chi tiết">&#9654;</span></th>
-                            <th class="col-desc">Mô tả</th>
+                            <th class="col-sku">Mã hàng <span class="detail-toggle" onclick="toggleDetailColumns(this)" title="Hiện/Ẩn Chi tiết màu sắc">&#9654;</span></th>
                             <th class="col-colors">Chi tiết màu sắc</th>
                             <th class="col-qty text-center">Tổng SL</th>
                             <th class="col-price text-right">Đơn giá <span class="th-currency-tag">(Trung)</span></th>
@@ -1210,7 +1209,6 @@ function renderProductRow(opts) {
                 ${isLastRow ? `<button class="btn-add-stt" onclick="event.stopPropagation(); window.addProductRow('${invoiceId}')" title="Thêm hàng (STT ${(product ? productIdx + 1 : 0) + 1})"><i data-lucide="plus"></i></button>` : ''}
             </td>
             <td class="col-sku editable-cell ${borderClass}" ${editAttrs} data-field="maSP" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${maSP}${poDraftBadge}</td>
-            <td class="col-desc editable-cell ${borderClass}" ${editAttrs} data-field="moTa" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${moTa}</td>
             <td class="col-colors editable-cell ${borderClass}" ${editAttrs} ondblclick="window.openVariantModal(this)" title="Nhấp đúp để tạo biến thể">${colorDetails}</td>
             <td class="col-qty text-center editable-cell ${borderClass}" ${editAttrs} data-field="tongSoLuong" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${tongSoLuong !== '-' ? formatNumber(tongSoLuong) : '-'}</td>
             <td class="col-price text-right editable-cell ${borderClass}" ${editAttrs} data-ti-gia="${tg}" data-field="giaDonVi" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa (Đơn giá tiền Trung) — VND hiển thị trong ngoặc">${giaDonVi > 0 ? `${formatNumber(giaDonVi)}${_vndSuffixHtml(giaDonVi, tg)}` : '-'}</td>
@@ -1265,8 +1263,12 @@ function renderProductRow(opts) {
 }
 
 /**
- * Toggle visibility of Mô tả & Chi tiết màu sắc columns — apply to ALL tables
+ * Toggle visibility of "Chi tiết màu sắc" column — apply to ALL tables
  * và persist qua UIState để F5 nhớ lựa chọn của user.
+ *
+ * Historical note: this also toggled "Mô tả" but that column was removed
+ * (2026-05-29 — bỏ cột mô tả). The class name `.detail-cols-hidden` and
+ * `_applyDetailColsVisibility` are kept for compat with UIState.
  */
 function toggleDetailColumns(btn) {
     const clickedTable = btn.closest('table');
@@ -1279,7 +1281,12 @@ function toggleDetailColumns(btn) {
 
 /**
  * Apply `detail-cols-hidden` class to all invoice tables + arrow + tfoot colspan.
- * @param {boolean} visible - true = show columns, false = hide
+ *
+ * Visible columns before col-amount: NCC, STT, Mã hàng, [Chi tiết], Tổng SL,
+ * Đơn giá. Tfoot "TỔNG:" label spans all of these → 6 when Chi tiết visible,
+ * 5 when hidden.
+ *
+ * @param {boolean} visible - true = show "Chi tiết màu sắc", false = hide
  */
 function _applyDetailColsVisibility(visible) {
     const tables = document.querySelectorAll('table.invoice-table');
@@ -1289,7 +1296,7 @@ function _applyDetailColsVisibility(visible) {
         const toggleBtn = t.querySelector('.detail-toggle');
         if (toggleBtn) toggleBtn.innerHTML = visible ? '&#9664;' : '&#9654;';
         const tfootLabel = t.querySelector('.tfoot-total-label');
-        if (tfootLabel) tfootLabel.setAttribute('colspan', visible ? '7' : '5');
+        if (tfootLabel) tfootLabel.setAttribute('colspan', visible ? '6' : '5');
     });
 }
 

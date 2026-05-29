@@ -16,7 +16,6 @@ window.ColumnToggle = (function () {
         { key: 'col-ncc', label: 'NCC' },
         { key: 'col-stt', label: 'STT' },
         { key: 'col-sku', label: 'Mã hàng' },
-        { key: 'col-desc', label: 'Mô tả' },
         { key: 'col-colors', label: 'Chi tiết màu' },
         { key: 'col-qty', label: 'Tổng SL' },
         { key: 'col-price', label: 'Đơn giá' },

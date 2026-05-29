@@ -25,6 +25,22 @@
 
 ## 2026-05-29
 
+### [inventory] Bỏ cột "MÔ TẢ" khỏi bảng ✅
+
+**User ask**: "bỏ cột mô tả đi".
+
+**Files**:
+
+- `inventory-tracking/js/table-renderer.js` — remove `<th class="col-desc">` ở header invoice-table + `<td class="col-desc">` trong renderProductRow. Update detail-toggle title sang "Hiện/Ẩn Chi tiết màu sắc". Đổi `_applyDetailColsVisibility` colspan từ `7 : 5` → `6 : 5` (toggle giờ chỉ ảnh hưởng 1 col).
+- `inventory-tracking/js/column-toggle.js` — remove entry `{ key: 'col-desc', label: 'Mô tả' }` khỏi COL_META.
+- `inventory-tracking/index.html` — bump cache `?v=20260529h` cho 2 file.
+
+**Kept**: trường `moTa` vẫn còn trong data model (sanPham[].moTa) và export.js vẫn xuất ra Excel — chỉ ẩn khỏi bảng UI. CSS `.products-detail-table .col-desc` cho modal detail vẫn giữ.
+
+Status: ✅ Done.
+
+---
+
 ### [web2] Debug browser test sâu — 3 phases: render + API + cross-page = 85/85 PASS ✅
 
 **User ask**: "debug browser test lại toàn bộ web 2.0 coi hoạt động chính xác".
