@@ -25,6 +25,70 @@
 
 ## 2026-05-29
 
+### [so-order × web2/products] P1 integration: MUA_1_PHAN + ETA + Bulk receive modal + delete guards ✅
+
+**User ask**: "thêm trạng thái MUA_1_PHAN" + làm full P1.
+
+**5 features delivered**:
+
+#### 1. Status `MUA_1_PHAN` (mua 1 phần)
+
+- Backend (`render.com/routes/web2-products.js`):
+    - `upsert-pending` logic update: `stock>0 + newPending>0 → MUA_1_PHAN`
+    - `confirm-purchase` mở rộng filter: cho phép cả `CHO_MUA` lẫn `MUA_1_PHAN`
+    - **Endpoint mới `POST /confirm-purchase-partial`** body `{items:[{code, qtyReceived}]}`:
+        - `stock += qtyR`, `pending -= qtyR` (cap qtyR ≤ pending)
+        - Status: `pending>0+stock>0 → MUA_1_PHAN`; `pending=0+stock>0 → DANG_BAN`; `pending>0+stock=0 → CHO_MUA`
+        - History log + SSE broadcast `web2:products` + cross-broadcast `web2:supplier-wallet`
+- Frontend products (`web2/products/js/web2-products-app.js`):
+    - Badge mới: `📦 MUA 1 PHẦN (X đã nhận · Y chờ)` màu vàng
+
+#### 2. Stock edit guard (Bug 3)
+
+- `PATCH /api/web2-products/:code`: nếu `stock_new < pending_qty` (không `?force=1`) → **409** với message rõ + `currentStock`, `newStock`, `pendingQty`, `supplier`
+
+#### 3. ETA giao hàng per shipment
+
+- Schema (`so-order/js/so-order-storage.js`): `expectedDeliveryDate` field thêm vào `addShipment`/`updateShipment`
+- Modal form: input `<input type="date" name="shipExpectedDeliveryDate">` cạnh "Ngày tạo"
+- Badge UI `_etaBadgeHtml(etaStr)`:
+    - `< today` → 🔴 "Quá hạn N ngày" | `= today` → 🟢 "Giao hôm nay"
+    - `≤ 3 days` → 🟡 "Còn N ngày" | `> 3 days` → 🔵 "Còn N ngày"
+- Verified: `expectedDeliveryDate: "2026-06-05"` → badge "Còn 7 ngày"
+
+#### 4. "Nhận hàng" button per shipment + Partial Receive modal (Bug 1 UX)
+
+- Button gradient xanh: `<i data-lucide="truck"></i> Nhận hàng` trên mỗi shipment header
+- Click → `openReceiveShipmentModal(shId)`:
+    - Modal grouped by NCC, mỗi row: ảnh + tên + variant + qty đã đặt + input qty nhận (default = qty đặt) + live badge MUA ĐỦ / MUA 1 PHẦN (N/M) / CHƯA NHẬN
+    - Button "Tất cả mua đủ" reset, live summary
+- Submit: `upsertPending` → `confirm-purchase-partial` → update so-order row.status (`received` / `partial_received`)
+- Verified browser: 8 inputs, qty 50→20 → "MUA 1 PHẦN (20/50)", qty 30→0 → "CHƯA NHẬN"
+
+#### 5. Delete row/tab guard với stock check (Bug 4)
+
+- `_checkRowsHaveStock(rows)` helper: query `/api/web2/products/list?search=<name>` per row, filter products có `quantity > 0`
+- `deleteRow`/`deleteShipment`: confirm "⚠️ SP X còn N tồn kho từ NCC Y. Xóa dòng order sẽ mất link tracking nhưng KHÔNG xóa stock. Tiếp tục?"
+- `handleTabDelete` **fix orphan bug**: trước đây xóa tab KHÔNG iterate rows → pending stuck. Giờ trừ pending cho tất cả rows + guard stock.
+
+**Verified end-to-end**:
+
+- 20 TEST rows trên so-order → 20 SP web2_products `CHO_MUA` ✓
+- confirm-purchase 2 codes → `DANG_BAN`, stock=25 ✓
+- delete guard 409 với pending product ✓
+- Receive modal: 8 inputs, badges update live ✓
+- ETA badge "Còn 7 ngày" ✓
+
+**Cache bust**: so-order `v=20260529a→v=20260529b`, products-app `v=20260523b→v=20260529b`
+
+**Files**: render.com/routes/web2-products.js, so-order/{js/so-order-app.js, js/so-order-storage.js, index.html}, web2/products/{index.html, js/web2-products-app.js}
+
+**Test data**: 20 TEST-NCC- rows vẫn còn trên DB + Firestore. Cleanup: `bash scripts/so-order-test-data-load.sh cleanup`.
+
+---
+
+## 2026-05-29
+
 ### [shared][nav] SePay billing alert: 100% live-driven, kèm QR VietQR + bank info khi expand ✅
 
 **User ask**: "lấy linh hoạt theo sepay được không? Tôi không muốn cố định → khi sepay báo có hóa đơn thì mới hiện → bấm chi tiết sẽ hiện chi tiết thanh toán bao gồm cả mã qr chuyển khoản".
