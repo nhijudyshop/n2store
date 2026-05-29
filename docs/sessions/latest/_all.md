@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `200fb3f` — feat(so-order): Receive modal show "đã nhận N / còn M chờ" per row
-**Last updated**: 2026-05-29 16:02:18 +07
-**Latest session**: [`RESUME:20260529-160218-200fb3f`](../20260529-160218-200fb3f.md)
-**Summary**: feat(so-order): Receive modal show "đã nhận N / còn M chờ" per row
+**Latest commit**: `d305d31` — fix(so-order): Nhận hàng button text bị clip vì so-action-btn fixed 28x28
+**Last updated**: 2026-05-29 18:18:26 +07
+**Latest session**: [`RESUME:20260529-181826-d305d31`](../20260529-181826-d305d31.md)
+**Summary**: fix(so-order): Nhận hàng button text bị clip vì so-action-btn fixed 28x28
 
 ## Folders affected in this commit
 
-- [`so-order/`](./so-order.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-29 15:49
+- [`docs/`](./docs.md) — updated 2026-05-29 18:18
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -52,11 +53,11 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-29 15:44
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-29 15:44
+- [`scripts/`](./scripts.md) — updated 2026-05-29 18:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-29 15:42
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
-- [`so-order/`](./so-order.md) — updated 2026-05-29 16:02
+- [`so-order/`](./so-order.md) — updated 2026-05-29 18:18
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
