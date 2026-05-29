@@ -119,6 +119,27 @@ Status: ✅ Done.
 
 ---
 
+### [extension][pancake] Bump UI — dynamic load pages từ Render qua CF Worker proxy ✅
+
+**User ask**: "ok dynamic" → đổi từ hardcode sang fetch list pages khi modal mở.
+
+**Backend source**: `GET /api/pancake-page-tokens` (Render route `pancake-page-tokens.js`) trả `{success, tokens: {<pageId>: {pageId, pageName, token, ...}}}`. Cloudflare Worker `chatomni-proxy.nhijudyshop.workers.dev` đã proxy route này → CORS-friendly cho pancake.vn origin (Render CORS chỉ allow nhijudy.store/github.io/localhost, KHÔNG có pancake.vn).
+
+**Changes** ([n2store-extension/content/pancake-bump.js](../n2store-extension/content/pancake-bump.js)):
+
+- Const `PAGES_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake-page-tokens'`
+- `fetchPagesFromBackend()`: GET, parse `tokens` object, extract chỉ `{id, name}` (KHÔNG lưu token client-side), cache vào `localStorage['n2store.pancake.bump.pages.v1']` với timestamp
+- `getSourcePages()`: priority backend (in-memory) → cache (localStorage) → BOOTSTRAP_PAGES (3 page hardcoded fallback)
+- `populatePageSelect()` show data source + cache age trong hint: `Nguồn: backend|cache|bootstrap (cache X phút trước). Bấm 🔄 để fetch lại.`
+- Nút 🔄 mới bên cạnh dropdown để force refresh
+- Khi modal mount lần đầu: render từ cache/bootstrap ngay (instant) → async fetch backend in background → update dropdown khi resolve
+
+Manifest version `1.0.22` → `1.0.23`.
+
+**Status**: ✅ Done. CWS auto-publish triggered.
+
+---
+
 ### [extension][pancake] Bump UI — hardcode page dropdown thay vì candidate-endpoint fetch ✅
 
 **User ask**: anh nói "NhiJudy House và NhiJudy Store có id page cụ thể mà?" + "hardcode trong extension luôn". → bỏ approach dò động qua candidate endpoints, hardcode list pages biết trước.

@@ -56,14 +56,51 @@
     }
 
     const LS_KEY = 'n2store.pancake.bump.cfg.v1';
+    const LS_PAGES_KEY = 'n2store.pancake.bump.pages.v1';
+    const PAGES_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake-page-tokens';
 
-    // Hardcoded list of N2Store's Pancake pages. ID-only (no tokens) — token
-    // dùng JWT trong URL từ session đang đăng nhập, lấy từ sniffer.
-    const KNOWN_PAGES = [
+    // Bootstrap fallback list — used only if backend fetch fails AND no cache.
+    // Real source of truth: `GET ${PAGES_API}` (Cloudflare Worker proxy của Render).
+    const BOOTSTRAP_PAGES = [
         { id: '270136663390370', name: 'NhiJudy Store' },
         { id: '117267091364524', name: 'Nhi Judy House' },
         { id: '112678138086607', name: 'Nhi Judy Ơi' },
     ];
+
+    // Source-of-truth for dropdown — populated from cache then backend.
+    let backendPages = null;
+
+    function getCachedPages() {
+        try {
+            return JSON.parse(localStorage.getItem(LS_PAGES_KEY) || 'null');
+        } catch (_) {
+            return null;
+        }
+    }
+    function setCachedPages(pages) {
+        try {
+            localStorage.setItem(LS_PAGES_KEY, JSON.stringify({ pages, cachedAt: Date.now() }));
+        } catch (_) {}
+    }
+
+    async function fetchPagesFromBackend() {
+        try {
+            const r = await fetch(PAGES_API, { headers: { Accept: 'application/json' } });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const j = await r.json();
+            const tokens = j?.tokens || {};
+            // Extract only id + name — DO NOT keep tokens client-side.
+            const pages = Object.values(tokens)
+                .filter((t) => t && /^\d{10,20}$/.test(String(t.pageId)))
+                .map((t) => ({ id: String(t.pageId), name: t.pageName || 'Page ' + t.pageId }));
+            if (!pages.length) throw new Error('empty pages');
+            backendPages = pages;
+            setCachedPages(pages);
+            return pages;
+        } catch (e) {
+            return null;
+        }
+    }
 
     const DEFAULT_TEMPLATES = [
         '.',
@@ -288,9 +325,10 @@
                             <label>📄 Page</label>
                             <div style="display:flex; gap:6px;">
                                 <select id="cfg-page-select" style="flex:1;"></select>
+                                <button class="btn btn-secondary" id="btn-refresh-pages" title="Fetch list pages từ backend">🔄</button>
                                 <button class="btn btn-secondary" id="btn-add-page" title="Thêm page bằng tay">+ Thêm</button>
                             </div>
-                            <div class="hint" id="page-hint">Chọn page hoặc thêm bằng tay (ID + tên).</div>
+                            <div class="hint" id="page-hint">Đang khởi tạo...</div>
                         </div>
 
                         <div class="stat-strip" id="stats">
@@ -414,10 +452,13 @@
             pickerSelected: $('#picker-selected'),
             pageSelect: $('#cfg-page-select'),
             btnAddPage: $('#btn-add-page'),
+            btnRefreshPages: $('#btn-refresh-pages'),
             pageHint: $('#page-hint'),
         };
 
         populatePageSelect(els);
+        // Async fetch in background — update dropdown when resolves
+        refreshPagesFromBackend(els);
 
         // Picker state
         els.state = {
@@ -470,6 +511,7 @@
                 refreshConvs(els);
             }
         });
+        els.btnRefreshPages.addEventListener('click', () => refreshPagesFromBackend(els));
         els.btnAddPage.addEventListener('click', () => {
             const id = prompt('Page ID (số):');
             if (!id || !/^\d{10,20}$/.test(id.trim())) return;
@@ -496,11 +538,19 @@
         } catch (_) {}
     }
 
+    function getSourcePages() {
+        // Priority: backend (fresh) → cache → bootstrap
+        if (backendPages?.length) return backendPages;
+        const cached = getCachedPages();
+        if (cached?.pages?.length) return cached.pages;
+        return BOOTSTRAP_PAGES;
+    }
+
     function populatePageSelect(els) {
         const custom = loadCustomPages();
         const seen = new Set();
         const all = [];
-        for (const p of [...KNOWN_PAGES, ...custom]) {
+        for (const p of [...getSourcePages(), ...custom]) {
             if (seen.has(p.id)) continue;
             seen.add(p.id);
             all.push(p);
@@ -522,6 +572,27 @@
         if (current && /^\d{10,20}$/.test(current)) {
             ctx.pageId = current;
             els.statPage.textContent = current;
+        }
+        // Indicate data source in hint
+        const src = backendPages?.length
+            ? 'backend'
+            : getCachedPages()?.pages?.length
+              ? 'cache'
+              : 'bootstrap';
+        if (els.pageHint) {
+            const cacheTs = getCachedPages()?.cachedAt;
+            const age = cacheTs ? Math.round((Date.now() - cacheTs) / 60_000) : null;
+            els.pageHint.textContent = `Nguồn: ${src}${age != null ? ` (cache ${age} phút trước)` : ''}. Bấm 🔄 để fetch lại.`;
+        }
+    }
+
+    async function refreshPagesFromBackend(els) {
+        if (els.pageHint) els.pageHint.textContent = 'Đang fetch list pages từ backend...';
+        const pages = await fetchPagesFromBackend();
+        if (pages) {
+            populatePageSelect(els);
+        } else if (els.pageHint) {
+            els.pageHint.textContent = 'Fetch fail — dùng cache/bootstrap. Check network.';
         }
     }
 
