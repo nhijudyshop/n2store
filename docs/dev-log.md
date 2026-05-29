@@ -25,6 +25,27 @@
 
 ## 2026-05-29
 
+### [web2] P2 audit fix — remove 4 Firestore onSnapshot listeners (SSE đã verified production) ✅
+
+**Bối cảnh**: P1 đã bump cache. P2 fix 4 vi phạm `docs/web2/SSE-REALTIME.md` (no Firestore listener cho Web 2.0):
+
+| File                                                 | Action                                                                                                                                                                                                  |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `web2/shared/web2-products-cache.js`                 | Remove Firestore fallback trong `_setupRealtime()` + `pushTickle()` write. SSE primary đã chạy 10+ ngày OK.                                                                                             |
+| `web2/shared/web2-variants-cache.js`                 | Same pattern — remove Firestore fallback.                                                                                                                                                               |
+| `web2/customer-wallet/js/customer-wallet-storage.js` | Remove `_listen()` + `_isListening` echo guard. Keep `_load()` (cross-device init snapshot) + `push()` (write only). Realtime giờ qua SSE topics `web2:wallet:*` + `web2:fast-sale-orders` ở app layer. |
+| `web2/supplier-wallet/js/supplier-wallet-storage.js` | Same pattern — remove `_listen()`.                                                                                                                                                                      |
+
+**Rationale**: Wallet computed state (returnedLineKeys, totals) derives từ PBH/SePay data đã được sync qua SSE topics. Khi tab A mutate → server publish SSE → tab B nhận → recompute từ server-authoritative data → converge tự nhiên. Firestore listener trước đó là **redundant** cho cross-device sync (cùng compute từ cùng source). Firestore `push()` vẫn giữ cho cross-device cold-start (tab mới mở → `_load()` lấy snapshot mới nhất).
+
+**Verify**: smoke test 4 pages (products, variants, customer-wallet, supplier-wallet) → render OK, 0 JS errors, "Ví Khách Hàng" + "Ví Nhà Cung Cấp" h1 hiện đầy đủ.
+
+**Cost savings** (theo docs): Firestore reads/day giảm 5,000-15,000 → ~0 cho 4 collections này. Tiết kiệm ~$5-30/tháng.
+
+**Files**: 4 JS files. 0 onSnapshot remaining ở Web 2.0 modules.
+
+---
+
 ### [web2] Audit lớn + P1: bump 72 trang stale cache + verify 15 active pages render OK ✅
 
 **User ask**: Plan kiểm tra lớn 4 dimensions (smoke test, SSE realtime, cross-page link, consistency).

@@ -129,8 +129,10 @@
         _isListening: false,
         _onRemote: null,
 
-        async init(onRemote) {
-            this._onRemote = onRemote;
+        async init(_onRemote) {
+            // Firestore listener removed 2026-05-29. _onRemote callback no
+            // longer wired — SSE topics 'wallet:all' + 'web2:wallet:*' xử lý
+            // realtime trong supplier-wallet-app layer.
             try {
                 if (typeof firebase === 'undefined' || !firebase.firestore) {
                     console.warn('[SupplierWallet.Sync] no firebase — local only');
@@ -141,7 +143,6 @@
                 if (remote) {
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
                 }
-                this._listen();
                 return true;
             } catch (e) {
                 console.warn('[SupplierWallet.Sync] init fail:', e.message);
@@ -165,31 +166,8 @@
             }
         },
 
-        _listen() {
-            if (!this._db) return;
-            const ref = this._db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);
-            this._unsub = ref.onSnapshot(
-                (snap) => {
-                    if (!snap.exists) return;
-                    const payload = snap.data() || {};
-                    if (!payload.data) return;
-                    this._isListening = true;
-                    try {
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload.data));
-                        if (this._onRemote) this._onRemote(payload.data);
-                    } finally {
-                        setTimeout(() => {
-                            this._isListening = false;
-                        }, 50);
-                    }
-                },
-                (err) => console.warn('[SupplierWallet.Sync] snap err:', err.message)
-            );
-        },
-
         async push(state) {
             if (!this._db) return false;
-            if (this._isListening) return false;
             try {
                 await this._db
                     .collection(FIRESTORE_COLLECTION)

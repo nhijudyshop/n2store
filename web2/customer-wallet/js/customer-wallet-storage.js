@@ -119,21 +119,22 @@
         return entry;
     }
 
-    // ---- Firestore sync ----
+    // ---- Firestore sync (cross-device cache snapshot only — listener removed
+    // 2026-05-29). Realtime updates đi qua SSE topics 'web2:wallet:*' +
+    // 'web2:fast-sale-orders' do customer-wallet-app subscribe trực tiếp.
+    // Sync chỉ còn: load 1 lần on init (cross-device bootstrap) + push sau
+    // mỗi mutation (giữ snapshot cho tab/device mới).
     const Sync = {
         _db: null,
-        _unsub: null,
-        _isListening: false,
-        _onRemote: null,
+        _onRemote: null, // deprecated — giữ field cho backward compat
 
-        async init(onRemote) {
-            this._onRemote = onRemote;
+        async init(_onRemote) {
+            // _onRemote callback no longer wired — SSE handles realtime trong app layer.
             try {
                 if (typeof firebase === 'undefined' || !firebase.firestore) return false;
                 this._db = firebase.firestore();
                 const remote = await this._load();
                 if (remote) localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
-                this._listen();
                 return true;
             } catch (e) {
                 console.warn('[CustomerWallet.Sync] init fail:', e.message);
@@ -157,30 +158,8 @@
             }
         },
 
-        _listen() {
-            if (!this._db) return;
-            const ref = this._db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);
-            this._unsub = ref.onSnapshot(
-                (snap) => {
-                    if (!snap.exists) return;
-                    const payload = snap.data() || {};
-                    if (!payload.data) return;
-                    this._isListening = true;
-                    try {
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload.data));
-                        if (this._onRemote) this._onRemote(payload.data);
-                    } finally {
-                        setTimeout(() => {
-                            this._isListening = false;
-                        }, 50);
-                    }
-                },
-                (err) => console.warn('[CustomerWallet.Sync] snap err:', err.message)
-            );
-        },
-
         async push(state) {
-            if (!this._db || this._isListening) return false;
+            if (!this._db) return false;
             try {
                 await this._db
                     .collection(FIRESTORE_COLLECTION)

@@ -118,31 +118,18 @@
     }
 
     function _setupRealtime() {
-        // Prefer SSE bridge (server pub/sub) — không tốn Firestore reads.
-        // Xem docs/web2/SSE-REALTIME.md. Fallback Firestore tickle nếu
-        // bridge không load.
+        // SSE bridge only — Firestore fallback removed 2026-05-29 (SSE verified
+        // stable từ 2026-05-19). Xem docs/web2/SSE-REALTIME.md.
         if (global.Web2SSE && typeof global.Web2SSE.subscribe === 'function') {
             state.unsubscribe = global.Web2SSE.subscribe('web2:variants', (msg) => {
                 if (msg?.data?.by && msg.data.by === state.clientId) return;
                 _scheduleRefresh('sse');
             });
-            return;
+        } else {
+            console.warn(
+                '[Web2VariantsCache] Web2SSE bridge not loaded — realtime updates disabled. Manual refresh required.'
+            );
         }
-        const db = _ensureFirestore();
-        if (!db) return;
-        const ref = db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);
-        state.unsubscribe = ref.onSnapshot(
-            (snap) => {
-                if (!snap.exists) return;
-                const data = snap.data() || {};
-                if (!data.lastUpdated) return;
-                if (data.lastUpdated === state.lastSeenTickle) return;
-                state.lastSeenTickle = data.lastUpdated;
-                if (data.by && data.by === state.clientId) return;
-                _scheduleRefresh('tickle');
-            },
-            (err) => console.warn('[Web2VariantsCache] snapshot err:', err.message)
-        );
     }
 
     async function init() {
@@ -193,24 +180,10 @@
         return !!findByValueExact(value);
     }
 
-    async function pushTickle(opts = {}) {
+    async function pushTickle(_opts = {}) {
+        // Firestore tickle write removed 2026-05-29 — SSE topic 'web2:variants'
+        // đã fan-out qua server (web2RealtimeSseRoutes.notifyClients).
         _scheduleRefresh('local');
-        const db = _ensureFirestore();
-        if (!db) return;
-        try {
-            const ref = db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);
-            await ref.set(
-                {
-                    lastUpdated: Date.now(),
-                    by: state.clientId,
-                    action: opts.action || 'change',
-                    id: opts.id || null,
-                },
-                { merge: true }
-            );
-        } catch (e) {
-            console.warn('[Web2VariantsCache] pushTickle failed:', e.message);
-        }
     }
 
     function subscribe(cb) {
