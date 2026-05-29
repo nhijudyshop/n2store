@@ -631,7 +631,7 @@
                         <span class="so-shipment-contract-raw">${escapeHtml(contractDisplayText)}</span>
                     </span>
                     <span class="so-shipment-spacer"></span>
-                    <button class="so-action-btn" type="button" data-shipment-action="receive" data-shipment-id="${escapeHtml(sh.id)}" title="Nhận hàng từ NCC — mở modal nhập qty thực nhận, hỗ trợ mua đủ / mua 1 phần" style="background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;">
+                    <button class="so-action-btn" type="button" data-shipment-action="receive" data-shipment-id="${escapeHtml(sh.id)}" title="Nhận hàng từ NCC — mở modal nhập qty thực nhận, hỗ trợ mua đủ / mua 1 phần">
                         <i data-lucide="truck"></i> Nhận hàng
                     </button>
                     <button class="so-action-btn" type="button" data-shipment-action="add-row" data-shipment-id="${escapeHtml(sh.id)}" title="Thêm dòng vào lô này">

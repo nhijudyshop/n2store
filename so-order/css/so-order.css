@@ -376,6 +376,28 @@
     background: #bbf7d0;
 }
 
+/* P1 2026-05-29: Nhận hàng button — text + icon, wider than square 28px */
+.so-action-btn[data-shipment-action='receive'] {
+    width: auto;
+    min-width: 100px;
+    padding: 0 12px;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(22, 163, 74, 0.3);
+}
+.so-action-btn[data-shipment-action='receive']:hover {
+    background: linear-gradient(135deg, #15803d, #166534);
+    box-shadow: 0 2px 6px rgba(22, 163, 74, 0.4);
+}
+.so-action-btn[data-shipment-action='receive'] i {
+    width: 14px;
+    height: 14px;
+}
+
 .so-action-btn i {
     width: 14px;
     height: 14px;
