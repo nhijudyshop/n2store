@@ -1118,7 +1118,22 @@ function renderProductRow(opts) {
     } = opts;
     const tg = parseFloat(tiGia) || 0;
 
-    const rowClass = `${invoiceClass} ${isLastRow ? 'invoice-last-row' : ''}`;
+    // Variant mismatch flag — row gets a red highlight when sum(mauSac.soLuong)
+    // does not equal product.tongSoLuong. The variant modal explicitly allows
+    // saving in this state so the user can fix it later. Skip when there are
+    // no variants or no Tổng SL set yet.
+    const _sumVariants = Array.isArray(product?.mauSac)
+        ? product.mauSac.reduce((s, v) => s + (parseInt(v?.soLuong) || 0), 0)
+        : 0;
+    const _declaredTotal = parseInt(product?.tongSoLuong || product?.soLuong || 0, 10) || 0;
+    const variantMismatch =
+        !!product &&
+        Array.isArray(product?.mauSac) &&
+        product.mauSac.length > 0 &&
+        _declaredTotal > 0 &&
+        _sumVariants !== _declaredTotal;
+
+    const rowClass = `${invoiceClass} ${isLastRow ? 'invoice-last-row' : ''}${variantMismatch ? ' variant-mismatch-row' : ''}`;
 
     // Extract product details for new columns
     const maSP = product?.maSP || '-';
@@ -1129,6 +1144,9 @@ function renderProductRow(opts) {
             : product?.soMau
               ? `${product.soMau} màu`
               : '-';
+    const mismatchTitle = variantMismatch
+        ? ` title="Tổng biến thể (${_sumVariants}) ≠ Tổng SL (${_declaredTotal})"`
+        : '';
     const tongSoLuong = product?.tongSoLuong || product?.soLuong || '-';
     const giaDonVi = product?.giaDonVi || 0;
 
@@ -1213,8 +1231,8 @@ function renderProductRow(opts) {
                 ${isLastRow ? `<button class="btn-add-stt" onclick="event.stopPropagation(); window.addProductRow('${invoiceId}')" title="Thêm hàng (STT ${(product ? productIdx + 1 : 0) + 1})"><i data-lucide="plus"></i></button>` : ''}
             </td>
             <td class="col-sku editable-cell ${borderClass}" ${editAttrs} data-field="maSP" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${maSP}${poDraftBadge}</td>
-            <td class="col-colors editable-cell ${borderClass}" ${editAttrs} ondblclick="window.openVariantModal(this)" title="Nhấp đúp để tạo biến thể">${colorDetails}</td>
-            <td class="col-qty text-center editable-cell ${borderClass}" ${editAttrs} data-field="tongSoLuong" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${tongSoLuong !== '-' ? formatNumber(tongSoLuong) : '-'}</td>
+            <td class="col-colors editable-cell ${borderClass}${variantMismatch ? ' variant-mismatch-cell' : ''}" ${editAttrs} ondblclick="window.openVariantModal(this)"${variantMismatch ? mismatchTitle : ' title="Nhấp đúp để tạo biến thể"'}>${colorDetails}${variantMismatch ? ` <span class="variant-mismatch-badge" title="Tổng biến thể ${_sumVariants} ≠ Tổng SL ${_declaredTotal}">⚠ ${_sumVariants}≠${_declaredTotal}</span>` : ''}</td>
+            <td class="col-qty text-center editable-cell ${borderClass}${variantMismatch ? ' variant-mismatch-cell' : ''}" ${editAttrs} data-field="tongSoLuong" ondblclick="startInlineEdit(this)"${variantMismatch ? mismatchTitle : ' title="Nhấp đúp để sửa"'}>${tongSoLuong !== '-' ? formatNumber(tongSoLuong) : '-'}</td>
             <td class="col-price text-right editable-cell ${borderClass}" ${editAttrs} data-ti-gia="${tg}" data-field="giaDonVi" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa (Đơn giá tiền Trung) — VND hiển thị trong ngoặc">${giaDonVi > 0 ? `${formatNumber(giaDonVi)}${_vndSuffixHtml(giaDonVi, tg)}` : '-'}</td>
             ${
                 isFirstRow

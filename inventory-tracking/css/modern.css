@@ -5962,6 +5962,36 @@ textarea.inline-edit-input {
     }
 }
 
+/* ========== VARIANT MISMATCH ROW ==========
+ * Highlight rows where sum(mauSac.soLuong) ≠ Tổng SL so the user can
+ * spot the discrepancy at a glance. Triggered after they accepted the
+ * confirm in the variant modal.
+ */
+.invoice-table tr.variant-mismatch-row > td {
+    background: rgba(254, 226, 226, 0.55); /* red-100 ~ 55% */
+}
+.invoice-table tr.variant-mismatch-row:hover > td {
+    background: rgba(254, 202, 202, 0.7); /* red-200 ~ 70% on hover */
+}
+.invoice-table td.variant-mismatch-cell {
+    color: #991b1b; /* red-800 */
+    font-weight: 600;
+}
+.variant-mismatch-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
 @media (max-width: 640px) {
     .hist-change {
         grid-template-columns: 1fr;

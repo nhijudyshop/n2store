@@ -25,6 +25,29 @@
 
 ## 2026-05-29
 
+### [inventory] Variant mismatch: cho lưu nhưng tô đỏ hàng để nhắc ✅
+
+**User correction**: "không phải accept variant làm tổng SL mà vẫn cho nhập nhưng đỏ hàng đó lên để biết nhập khác SL".
+
+**Behavior mới**:
+
+- User save variants → nếu `sum(mauSac.soLuong) ≠ tongSoLuong` → confirm.
+- **Đồng ý** → save `mauSac` nhưng GIỮ NGUYÊN `tongSoLuong` (không overwrite). Hàng đó được tô đỏ + badge `⚠ SUM≠TỔNG` để user thấy ngay khi nhìn bảng.
+- **Hủy** → abort, modal vẫn mở.
+
+**Files**:
+
+- `inventory-tracking/js/modal-variant.js#_saveVariants` — thêm flag `mismatchAccepted`. Khi true → skip `product.tongSoLuong = sumVariants` assignment.
+- `inventory-tracking/js/table-renderer.js#renderProductRow` — compute `variantMismatch` (mauSac có item + tongSoLuong > 0 + sum ≠ tongSoLuong). Apply class `variant-mismatch-row` lên TR, class `variant-mismatch-cell` lên 2 ô Chi tiết màu sắc + Tổng SL, badge `<span class="variant-mismatch-badge">⚠ X≠Y</span>` sau colorDetails, tooltip giải thích.
+- `inventory-tracking/css/modern.css` — `.variant-mismatch-row > td` background red-100 (hover red-200), `.variant-mismatch-cell` text red-800 weight 600, `.variant-mismatch-badge` pill đỏ.
+- `inventory-tracking/index.html` — bump `?v=20260529k` cho 3 file.
+
+**Tự khỏi sau khi sửa**: user có thể sửa Tổng SL inline hoặc reopen variant modal để chỉnh SL biến thể cho khớp → check tự re-evaluate → red highlight biến mất.
+
+Status: ✅ Done.
+
+---
+
 ### [so-order] Custom confirm popup thay native `window.confirm()` ✅
 
 **User ask**: "bấm xóa bị delay và làm custom popup confirm" (screenshot native `localhost:8080 says` dialog xấu + lag).

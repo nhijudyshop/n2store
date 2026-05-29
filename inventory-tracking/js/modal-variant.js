@@ -443,25 +443,32 @@ async function _saveVariants() {
         const product = targetDot.sanPham[productIdx];
 
         // Sanity-check the variant total against the existing Tổng SL the user
-        // (or AI extractor) typed in for this product. A mismatch usually
-        // means the user fat-fingered a variant qty or forgot to add one —
-        // surface it through the custom confirm modal instead of silently
-        // overwriting tongSoLuong.
+        // (or AI extractor) typed in for this product. Mismatch usually means
+        // the user fat-fingered a variant qty or forgot to add one — show
+        // confirm. On accept we DO NOT overwrite tongSoLuong: the row stays
+        // mismatched (rendered red in the table) so the user can spot the
+        // discrepancy later and fix one side or the other.
         const sumVariants = mauSac.reduce((sum, v) => sum + (parseInt(v.soLuong) || 0), 0);
         const existingTotal = parseInt(product.tongSoLuong || product.soLuong || 0, 10) || 0;
+        let mismatchAccepted = false;
         if (existingTotal > 0 && sumVariants !== existingTotal) {
             const ok = await window.notificationManager.confirm(
                 `Tổng số lượng biến thể (${sumVariants}) khác với Tổng SL (${existingTotal}).\n\n` +
-                    `Bấm "Đồng ý" để LƯU (Tổng SL sẽ cập nhật thành ${sumVariants}), ` +
-                    `hoặc "Hủy" để quay lại chỉnh sửa.`,
+                    `Bấm "Đồng ý" để LƯU (Tổng SL giữ nguyên ${existingTotal}, hàng sẽ ` +
+                    `được tô đỏ trong bảng để nhắc), hoặc "Hủy" để quay lại chỉnh sửa.`,
                 'Tổng biến thể không khớp'
             );
             if (!ok) return;
+            mismatchAccepted = true;
         }
 
         product.mauSac = mauSac;
-        // Recalculate tongSoLuong as sum of all variant quantities
-        product.tongSoLuong = sumVariants;
+        // Only auto-set tongSoLuong when there's no mismatch (or no prior
+        // Tổng SL). When mismatched, keep the user's Tổng SL untouched so
+        // the row keeps signalling the discrepancy.
+        if (!mismatchAccepted) {
+            product.tongSoLuong = sumVariants;
+        }
         product.soMau = mauSac.length;
         product.thanhTien = (product.tongSoLuong || 0) * (product.giaDonVi || 0);
 
