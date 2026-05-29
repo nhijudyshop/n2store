@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d305d31` — fix(so-order): Nhận hàng button text bị clip vì so-action-btn fixed 28x28
-**Last updated**: 2026-05-29 18:18:26 +07
-**Latest session**: [`RESUME:20260529-181826-d305d31`](../20260529-181826-d305d31.md)
-**Summary**: fix(so-order): Nhận hàng button text bị clip vì so-action-btn fixed 28x28
+**Latest commit**: `0bd4433` — feat(inventory): per-NCC + per-shipment edit history (30-day retention)
+**Last updated**: 2026-05-29 19:42:57 +07
+**Latest session**: [`RESUME:20260529-194257-0bd4433`](../20260529-194257-0bd4433.md)
+**Summary**: feat(inventory): per-NCC + per-shipment edit history (30-day retention)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 3 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 5 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-29 18:18
+- [`docs/`](./docs.md) — updated 2026-05-29 19:42
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -35,7 +35,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-29 14:52
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-29 19:42
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
@@ -51,7 +51,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-29 15:44
+- [`render.com/`](./render.com.md) — updated 2026-05-29 19:42
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-29 18:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
