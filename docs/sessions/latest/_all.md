@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `741ac92` — auto: session update
-**Last updated**: 2026-05-29 15:44:13 +07
-**Latest session**: [`RESUME:20260529-154413-741ac92`](../20260529-154413-741ac92.md)
-**Summary**: auto: session update
+**Latest commit**: `841fda2` — feat(so-order × web2/products): P1 integration — MUA_1_PHAN + ETA + bulk receive modal + delete guards
+**Last updated**: 2026-05-29 15:49:44 +07
+**Latest session**: [`RESUME:20260529-154944-841fda2`](../20260529-154944-841fda2.md)
+**Summary**: feat(so-order × web2/products): P1 integration — MUA_1_PHAN + ETA + bulk receive modal + delete guards
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-29 15:42
+- [`docs/`](./docs.md) — updated 2026-05-29 15:49
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
