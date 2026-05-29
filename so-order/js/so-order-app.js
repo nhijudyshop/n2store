@@ -2853,55 +2853,72 @@ window.addEventListener('load', () => {
         const form = document.getElementById('soTabSettingsForm');
         const tabId = form.dataset.tabId;
         if (!tabId) return;
+        const key = `tab:${tabId}`;
+        if (_pendingDeleteKeys.has(key)) return;
         const tab = state.tabs.find((t) => t.id === tabId);
         if (!tab) return;
         const allRows = [];
         for (const sh of tab.shipments || []) {
             for (const r of sh.rows || []) allRows.push(r);
         }
-        // P1 2026-05-29 fix orphan bug: trước đây deleteTab() bỏ qua adjust
-        // pending qty của các rows trong tab → pending stuck ở web2_products.
-        // Giờ guard + iterate rows.
-        const stockCheck = await _checkRowsHaveStock(allRows);
-        if (stockCheck.hasStock) {
-            const lines = stockCheck.items
-                .slice(0, 5)
-                .map((it) => `${it.name}: ${it.stock} tồn từ ${it.supplier || '?'}`);
-            if (stockCheck.items.length > 5) {
-                lines.push(`... +${stockCheck.items.length - 5} SP nữa`);
-            }
-            const ok = await soConfirm({
-                title: `⚠️ Tab có ${stockCheck.items.length} SP còn tồn kho`,
-                message: `Tab này có ${allRows.length} dòng order và các SP dưới đây còn stock trong Kho:`,
-                items: lines,
-                footNote: 'Xóa tab sẽ mất link tracking nhưng KHÔNG xóa stock trong Kho.',
-                confirmText: 'Vẫn xóa tab',
-                cancelText: 'Hủy',
-                danger: true,
-            });
-            if (!ok) return;
-        } else {
-            const ok = await soConfirm({
+        const btn = document.getElementById('soTabDeleteBtn');
+        _markDeletePending(key, btn);
+        try {
+            const ctrl = soConfirmOpen({
                 title: 'Xóa tab?',
                 message: `Xóa tab và toàn bộ ${allRows.length} order trong tab này?`,
                 confirmText: 'Xóa tab',
                 cancelText: 'Hủy',
                 danger: true,
+                loading: true,
+                loadingText: 'Đang kiểm tra tồn kho...',
             });
+            // P1 2026-05-29 fix orphan bug: trước đây deleteTab() bỏ qua adjust
+            // pending qty của các rows trong tab → pending stuck ở web2_products.
+            _checkRowsHaveStock(allRows)
+                .then((stockCheck) => {
+                    if (ctrl.closed) return;
+                    if (stockCheck.hasStock) {
+                        const lines = stockCheck.items
+                            .slice(0, 5)
+                            .map((it) => `${it.name}: ${it.stock} tồn từ ${it.supplier || '?'}`);
+                        if (stockCheck.items.length > 5) {
+                            lines.push(`... +${stockCheck.items.length - 5} SP nữa`);
+                        }
+                        ctrl.update({
+                            title: `⚠️ Tab có ${stockCheck.items.length} SP còn tồn kho`,
+                            message: `Tab này có ${allRows.length} dòng order và các SP dưới đây còn stock trong Kho:`,
+                            items: lines,
+                            footNote:
+                                'Xóa tab sẽ mất link tracking nhưng KHÔNG xóa stock trong Kho.',
+                            confirmText: 'Vẫn xóa tab',
+                            loading: false,
+                        });
+                    } else {
+                        ctrl.update({ loading: false });
+                    }
+                })
+                .catch((e) => {
+                    console.warn('[so-order] stock check fail:', e.message);
+                    if (!ctrl.closed) ctrl.update({ loading: false });
+                });
+            const ok = await ctrl.result;
             if (!ok) return;
-        }
-        // Trừ pending cho rows trước khi delete tab.
-        const adjustments = allRows
-            .map((r) => ({ ..._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) }))
-            .filter((a) => a.name && a.delta !== 0);
-        if (window.SoOrderStorage.deleteTab(state, tabId)) {
-            if (adjustments.length) adjustKhoPending(adjustments);
-            notify('Đã xóa tab', 'info');
-            hideModal('soTabSettingsModal');
-            pushSync();
-            renderAll();
-        } else {
-            notify('Cần giữ lại ít nhất 1 tab', 'warning');
+            // Trừ pending cho rows trước khi delete tab.
+            const adjustments = allRows
+                .map((r) => ({ ..._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) }))
+                .filter((a) => a.name && a.delta !== 0);
+            if (window.SoOrderStorage.deleteTab(state, tabId)) {
+                if (adjustments.length) adjustKhoPending(adjustments);
+                notify('Đã xóa tab', 'info');
+                hideModal('soTabSettingsModal');
+                pushSync();
+                renderAll();
+            } else {
+                notify('Cần giữ lại ít nhất 1 tab', 'warning');
+            }
+        } finally {
+            _unmarkDeletePending(key, btn);
         }
     }
 

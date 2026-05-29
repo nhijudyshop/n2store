@@ -25,6 +25,37 @@
 
 ## 2026-05-29
 
+### [so-order] Confirm popup mở instant + spam guard ✅
+
+**User ask**: "bấm vào thùng rác nó không hiện lên liền mà delay nên người dùng hay spam vào nút này, mở popup confirm rất chậm".
+
+**Files**:
+
+- `so-order/css/so-order.css` — `.so-confirm-loading` (spinner 14px + text), `@keyframes soConfirmSpin`, `.so-btn-confirm-*[:disabled]`, `.so-action-btn[data-pending-delete='1']`.
+- `so-order/js/so-order-app.js` — refactor `soConfirm()` → `soConfirmOpen()` returns controller `{ result, update, close, closed }`. Add `_pendingDeleteKeys` Set + `_markDeletePending` / `_unmarkDeletePending` helpers. Rewrite `deleteRow`, `deleteShipment`, `handleTabDelete`: mở popup INSTANTLY với loading state, stock check chạy nền, `ctrl.update()` khi xong.
+- `so-order/index.html` — bump cache `v=20260529p`.
+
+**Root cause**: trước đây code chạy `await _checkRowsHaveStock(rows)` TRƯỚC khi gọi `soConfirm()`. Stock check call `/api/web2-products/list?search=<name>` cho từng SP unique → ~300-800ms delay tùy số SP và network. Trong thời gian đó user không thấy phản hồi → spam click nút trash.
+
+**Fix**:
+
+1. **Popup hiện ngay (~5ms)** với default content + spinner "Đang kiểm tra tồn kho...". OK button disabled, Cancel/Esc vẫn hoạt động bình thường.
+2. **Stock check chạy nền** (fire-and-forget Promise). Khi resolve:
+    - Có stock → `ctrl.update({ title, items, footNote, confirmText, loading: false })` swap content + enable OK
+    - Không stock → `ctrl.update({ loading: false })` chỉ enable OK
+3. **Spam guard** dùng `_pendingDeleteKeys` Set keyed by `ship:<id>` / `row:<id>` / `tab:<id>`. Click lần 2 → bypass ngay. Plus CSS `[data-pending-delete='1']` → opacity 0.45 + pointer-events: none cho visual feedback.
+
+**Verify** (Playwright):
+
+- Click → popup visible **5.1ms** (gần như 0 delay).
+- Spam 5 clicks → 1 modal duy nhất, trash btn opacity 0.45 + pointer-events: none.
+- Stock check ~2s sau swap title sang "⚠️ Lô có 3 SP còn tồn kho", items list 3 dòng, footNote red box, OK enabled với text "Vẫn xóa lô".
+- Cancel → btn restored về opacity 1 + pointer-events: auto.
+
+**Status**: ✅ Done. Screenshot: `downloads/n2store-session/so-confirm-popup-loading.png`.
+
+---
+
 ### [inventory] Variant mismatch: cho lưu nhưng tô đỏ hàng để nhắc ✅
 
 **User correction**: "không phải accept variant làm tổng SL mà vẫn cho nhập nhưng đỏ hàng đó lên để biết nhập khác SL".
