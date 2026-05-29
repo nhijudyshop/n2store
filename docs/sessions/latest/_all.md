@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c194f52` — feat(so-order): test data scripts — 5 NCC × 20 SP × demo images cho 29/05/2026
-**Last updated**: 2026-05-29 15:03:56 +07
-**Latest session**: [`RESUME:20260529-150356-c194f52`](../20260529-150356-c194f52.md)
-**Summary**: feat(so-order): test data scripts — 5 NCC × 20 SP × demo images cho 29/05/2026
+**Latest commit**: `2684200` — auto: session update
+**Last updated**: 2026-05-29 15:28:19 +07
+**Latest session**: [`RESUME:20260529-152819-2684200`](../20260529-152819-2684200.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 3 file(s)
+- [`shared/`](./shared.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -54,7 +53,7 @@
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-29 15:03
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
-- [`shared/`](./shared.md) — updated 2026-05-26 13:42
+- [`shared/`](./shared.md) — updated 2026-05-29 15:28
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-05-26 13:38
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
