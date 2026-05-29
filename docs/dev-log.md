@@ -25,6 +25,34 @@
 
 ## 2026-05-29
 
+### [so-order] Custom confirm popup thay native `window.confirm()` ✅
+
+**User ask**: "bấm xóa bị delay và làm custom popup confirm" (screenshot native `localhost:8080 says` dialog xấu + lag).
+
+**Files**:
+
+- `so-order/css/so-order.css` — `.so-confirm-modal` + `.is-danger` variant + `.so-confirm-foot-note` + 3 button classes (danger / primary / cancel).
+- `so-order/js/so-order-app.js` — thêm `soConfirm({ title, message, items, footNote, confirmText, cancelText, danger })` async helper next to `showModal/hideModal`. Replace 6 native `confirm()` callsites trong `deleteRow` (2), `deleteShipment` (2), `handleTabDelete` (2).
+- `so-order/index.html` — bump CSS/JS cache `v=20260529n`.
+
+**Chi tiết**:
+
+- Lý do native delay: `window.confirm()` block event loop + Chrome throttle nếu mở liên tiếp ("Prevent this page from creating additional dialogs"). UI cũng không matchable styling.
+- Helper API: `await soConfirm({ title, message, items: ['line 1', 'line 2'], footNote: 'warning red box', confirmText: 'Xóa', cancelText: 'Hủy', danger: true })` → returns `Promise<boolean>`.
+- Modal được lazy-create 1 lần, reuse via `getElementById('soConfirmModal')`. DOM tránh re-create overhead.
+- Esc = cancel, Enter = confirm, click backdrop = cancel. Auto-focus OK button sau 30ms để Enter dùng được ngay.
+- Sample khi xóa lô có stock:
+    - Title: `⚠️ Lô này có 3 SP còn tồn kho`
+    - Message: `Các sản phẩm dưới đây đã nhận hàng và còn stock trong Kho:`
+    - Items: yellow `<ul>` list 3 SP + tên/biến thể/tồn/NCC
+    - Foot note: red box `Xóa lô + 8 dòng order sẽ mất link tracking nhưng KHÔNG xóa stock trong Kho.`
+    - Buttons: `Hủy` (white) + `Vẫn xóa lô` (red)
+- Verify: Playwright browser test — click delete-shipment → modal hiện instant (no native delay), items count 3, isDanger:true, Cancel + Esc đều đóng modal không xóa, simple case (no stock) cũng hoạt động với title "Xóa lô?" + message ngắn.
+
+**Status**: ✅ Done. Screenshots: `downloads/n2store-session/so-confirm-popup.png` (danger variant với items), `so-confirm-popup-simple.png` (simple variant).
+
+---
+
 ### [inventory] Variant modal: confirm khi tổng biến thể ≠ Tổng SL ✅
 
 **User ask**: "tổng số lượng biến thể nhập vào phải bằng tổng món → nếu khác thì có custom confirm xác nhận".
