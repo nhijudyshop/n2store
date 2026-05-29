@@ -4151,94 +4151,90 @@ class UnifiedNavigationManager {
     }
 
     /**
-     * Check billing alerts (manual payment services only):
-     * - SePay: dùng expiryDate THỰC từ SePay API (cache 6h) khi có.
-     *   Khi không có cache → fallback time-based (billingDay 27 + showDays 3).
-     * Note: Render + Firebase auto-pay → warning chỉ khi downgrade (check via API trong service-costs)
+     * Billing alerts driven 100% by SePay live data (no calendar fallback).
+     * Rules:
+     *   - No SePay cache yet → no alert (don't guess from calendar).
+     *   - Any unpaid invoice surfaced by SePay → one alert per invoice (QR + bank).
+     *   - Subscription expiryDate already passed AND no unpaid invoice → fallback
+     *     "subscription lapsed" alert with default 589K renewal QR.
+     *   - Subscription expiryDate still in the future AND no unpaid invoice → no alert.
      */
     getBillingAlerts() {
-        const BILLING_SCHEDULE = [
-            {
-                id: 'sepay-vip',
-                name: 'SePay VIP (589K đ)',
-                amount: 589000,
-                amountVND: true,
-                billingDay: 27,
-                warnBefore: 3,
-                showDays: 3,
-            },
-        ];
-
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const alerts = [];
-
-        // Live SePay status (cached). Fire-and-forget refresh if stale/missing.
         const sepayLive = this._getSepayLiveStatus();
         this._maybeRefreshSepayLiveStatus();
 
-        BILLING_SCHEDULE.forEach((bill) => {
-            let daysDiff;
-            let source = 'calendar';
+        if (!sepayLive) return [];
 
-            if (bill.id === 'sepay-vip' && sepayLive && sepayLive.expiryDate) {
-                // Use real expiry date from SePay → days until subscription expires
-                // (positive = still active, negative = past expiry/unpaid)
-                const expiry = new Date(`${sepayLive.expiryDate}T00:00:00`);
-                if (!isNaN(expiry.getTime())) {
-                    daysDiff = Math.round((expiry - today) / (1000 * 60 * 60 * 24));
-                    source = 'sepay-api';
-                }
-            }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-            if (daysDiff === undefined) {
-                // Fallback: this month's calendar billing day
-                const billingThisMonth = new Date(
-                    today.getFullYear(),
-                    today.getMonth(),
-                    bill.billingDay
-                );
-                daysDiff = Math.round((billingThisMonth - today) / (1000 * 60 * 60 * 24));
-            }
+        const PAYMENT_BANK = 'ACB';
+        const PAYMENT_ACC = '75918';
+        const PAYMENT_BENEFICIARY = 'LAI THUY YEN NHI';
+        const DEFAULT_AMOUNT = 589000;
 
-            let shouldAlert = false;
-            let isOverdue = false;
+        const buildPayment = (invoiceId, amountValue) => {
+            const id = invoiceId ? String(invoiceId) : null;
+            const content = id ? `SEPAY ${id}` : 'SEPAY VIP';
+            const qrUrl =
+                `https://img.vietqr.io/image/${PAYMENT_BANK}-${PAYMENT_ACC}-compact2.png` +
+                `?amount=${amountValue}` +
+                `&addInfo=${encodeURIComponent(content)}` +
+                `&accountName=${encodeURIComponent(PAYMENT_BENEFICIARY)}`;
+            return {
+                invoiceId: id || 'GIA-HAN',
+                amountVND: amountValue,
+                bank: PAYMENT_BANK,
+                acc: PAYMENT_ACC,
+                beneficiary: PAYMENT_BENEFICIARY,
+                content,
+                qrUrl,
+                invoiceUrl: id
+                    ? `https://my.sepay.vn/invoices/${id}`
+                    : 'https://my.sepay.vn/invoices',
+            };
+        };
 
-            if (bill.warnBefore > 0 && daysDiff > 0 && daysDiff <= bill.warnBefore) {
-                shouldAlert = true;
-            }
-            if (bill.showDays > 0 && daysDiff <= 0 && daysDiff >= -bill.showDays) {
-                shouldAlert = true;
-                isOverdue = true;
-            }
+        const alerts = [];
 
-            if (shouldAlert) {
-                let label;
-                if (isOverdue) {
-                    label =
-                        daysDiff === 0
-                            ? `${bill.name}: HÔM NAY là ngày thanh toán`
-                            : `${bill.name}: quá hạn ${Math.abs(daysDiff)} ngày`;
-                } else {
-                    label =
-                        daysDiff === 0
-                            ? `${bill.name}: HÔM NAY`
-                            : `${bill.name}: còn ${daysDiff} ngày`;
-                }
-
-                alerts.push({
-                    name: bill.name,
-                    amount: bill.amount,
-                    amountVND: bill.amountVND || false,
-                    daysLeft: daysDiff,
-                    isOverdue,
-                    note: bill.note || '',
-                    label,
-                    payment: bill.payment || null,
-                    source,
-                });
-            }
+        // 1) Each unpaid invoice from SePay → one alert
+        const unpaid = Array.isArray(sepayLive.unpaidInvoices) ? sepayLive.unpaidInvoices : [];
+        unpaid.forEach((inv) => {
+            const amountValue = inv.amountValue > 0 ? inv.amountValue : DEFAULT_AMOUNT;
+            const idStr = inv.id ? `#${inv.id}` : '';
+            alerts.push({
+                name: `Hóa đơn SePay ${idStr}`.trim(),
+                amount: amountValue,
+                amountVND: true,
+                daysLeft: 0,
+                isOverdue: true,
+                note: inv.date || '',
+                label: `Hóa đơn SePay ${idStr}: ${amountValue.toLocaleString('vi-VN')}đ chưa thanh toán${inv.date ? ` (${inv.date})` : ''}`,
+                payment: buildPayment(inv.id, amountValue),
+                source: 'sepay-invoice',
+            });
         });
+
+        // 2) Subscription past expiry but no invoice surfaced → nudge renewal
+        if (sepayLive.expiryDate && unpaid.length === 0) {
+            const expiry = new Date(`${sepayLive.expiryDate}T00:00:00`);
+            if (!isNaN(expiry.getTime())) {
+                const daysDiff = Math.round((expiry - today) / (1000 * 60 * 60 * 24));
+                if (daysDiff < 0) {
+                    alerts.push({
+                        name: 'SePay VIP (589K đ)',
+                        amount: DEFAULT_AMOUNT,
+                        amountVND: true,
+                        daysLeft: daysDiff,
+                        isOverdue: true,
+                        note: `hết hạn ${sepayLive.expiryDate}`,
+                        label: `SePay VIP: gói đã hết hạn ${Math.abs(daysDiff)} ngày — cần gia hạn`,
+                        payment: buildPayment(null, DEFAULT_AMOUNT),
+                        source: 'sepay-expiry',
+                    });
+                }
+            }
+        }
 
         return alerts;
     }
@@ -4249,7 +4245,7 @@ class UnifiedNavigationManager {
      */
     _getSepayLiveStatus() {
         try {
-            const raw = localStorage.getItem('sepay_live_status_v1');
+            const raw = localStorage.getItem('sepay_live_status_v2');
             if (!raw) return null;
             const cached = JSON.parse(raw);
             if (!cached || typeof cached.fetchedAt !== 'number') return null;
@@ -4315,20 +4311,40 @@ class UnifiedNavigationManager {
         if (!json || !json.success || !json.data) return false;
 
         const expiryDate = json.data?.plans?.expiryDate || null;
-        const invoices = Array.isArray(json.data?.invoices) ? json.data.invoices : [];
-        const latest = invoices[0] || null;
+        const rawInvoices = Array.isArray(json.data?.invoices) ? json.data.invoices : [];
+
+        // Treat anything explicitly marked unpaid/pending as outstanding.
+        // Paid statuses ("đã thanh toán", "paid", "hoàn tất") are filtered out.
+        const isPaidStatus = (s) =>
+            typeof s === 'string' && /(đã\s*thanh|paid|hoàn\s*t[aấ]t|complete)/i.test(s);
+        const isUnpaidStatus = (s) =>
+            typeof s === 'string' && /(chưa|unpaid|pending|nợ|đợi|outstanding|due)/i.test(s);
+
+        const parseAmountToNumber = (s) => {
+            if (!s) return 0;
+            const digits = String(s).replace(/[^\d]/g, '');
+            return digits ? parseInt(digits, 10) : 0;
+        };
+
+        const unpaidInvoices = rawInvoices
+            .filter((i) => i && isUnpaidStatus(i.status) && !isPaidStatus(i.status))
+            .map((i) => ({
+                id: i.id || null,
+                amountText: i.amount || '',
+                amountValue: parseAmountToNumber(i.amount),
+                date: i.date || null,
+                status: i.status || null,
+            }));
 
         const cache = {
             fetchedAt: Date.now(),
             expiryDate, // "YYYY-MM-DD"
-            latestInvoiceId: latest?.id || null,
-            latestInvoiceStatus: latest?.status || null,
-            latestInvoiceAmount: latest?.amount || null,
-            latestInvoiceDate: latest?.date || null,
+            unpaidInvoices,
+            rawInvoiceCount: rawInvoices.length,
         };
 
         try {
-            localStorage.setItem('sepay_live_status_v1', JSON.stringify(cache));
+            localStorage.setItem('sepay_live_status_v2', JSON.stringify(cache));
         } catch {
             return false;
         }

@@ -25,6 +25,33 @@
 
 ## 2026-05-29
 
+### [shared][nav] SePay billing alert: 100% live-driven, kèm QR VietQR + bank info khi expand ✅
+
+**User ask**: "lấy linh hoạt theo sepay được không? Tôi không muốn cố định → khi sepay báo có hóa đơn thì mới hiện → bấm chi tiết sẽ hiện chi tiết thanh toán bao gồm cả mã qr chuyển khoản".
+
+**Approach**: bỏ hoàn toàn calendar fallback. Banner chỉ hiện khi SePay live data nói có hóa đơn chưa thanh toán HOẶC subscription đã hết hạn. "Chi tiết ▼" expand panel có sẵn QR + thông tin chuyển khoản.
+
+**Files**:
+
+- `shared/js/navigation-modern.js`:
+    - `getBillingAlerts()`: rewrite. Không có cache → return `[]` (không guess). Loop `sepayLive.unpaidInvoices` → push alert per invoice với amount/date/id từ SePay. Nếu `expiryDate < today` và không có invoice surfaced → fallback "subscription lapsed" alert với 589K renewal.
+    - `_refreshSepayLiveStatus()`: cache `v2` schema: `{fetchedAt, expiryDate, unpaidInvoices[], rawInvoiceCount}`. Filter `rawInvoices` bằng regex `isUnpaidStatus` ("chưa", "unpaid", "pending", "nợ", "đợi", "outstanding", "due") + exclude `isPaidStatus` ("đã thanh", "paid", "hoàn tất", "complete"). Parse amount bằng strip digit.
+    - `buildPayment(invoiceId, amountValue)` inline trong `getBillingAlerts`: tạo VietQR URL `img.vietqr.io/image/ACB-75918-compact2.png?amount=N&addInfo=SEPAY_<id>&accountName=LAI%20THUY%20YEN%20NHI` + invoiceUrl `my.sepay.vn/invoices/<id>` (hoặc list khi không có id).
+    - Cache key v1 → v2 invalidate cache schema cũ tự động.
+
+**Bank constant**: ACB - 75918 - LAI THUY YEN NHI - 589,000đ - content "SEPAY <invoiceId>" hoặc "SEPAY VIP".
+
+**Verify** (persistent browser session):
+
+- Subscription active (expiry 2026-06-27, unpaid:[]) → CF Worker trả về → cache `{unpaidInvoices:[]}` → 0 alerts → banner KHÔNG hiện ✅
+- Inject fake `{unpaidInvoices:[{id:"INV12345",amountValue:589000,date:"29/05/2026",status:"Chưa thanh toán"}]}` + `_rerenderBillingUI()` → banner header "Hóa đơn SePay #INV12345 589.000đ — hôm nay (29/05/2026)" ✅
+- Toggle "Chi tiết ▼" → details panel display:flex, QR `<img>` visible. QR URL `curl -I` trả `HTTP 200 image/png 72KB` ✅
+- Rows: Ngân hàng ACB, Số tài khoản 75918 (copy-clickable), Thụ hưởng LAI THUY YEN NHI, Nội dung CK SEPAY INV12345 (copy-clickable), Số tiền 589.000đ + link "Xem trên SePay →" ✅
+
+**Status**: ✅ Done
+
+---
+
 ### [shared][nav] SePay billing alert: dùng expiryDate THỰC từ CF Worker thay vì calendar cứng ✅
 
 **Bug**: User đã thanh toán SePay VIP nhưng banner đỏ ở mọi trang vẫn hiện "SePay VIP (589K đ) 589.000đ — quá hạn 2 ngày". Sidebar badge service-costs cũng đếm sai.
