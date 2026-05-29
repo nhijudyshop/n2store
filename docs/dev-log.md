@@ -68,6 +68,30 @@ Status: ✅ Done.
 
 ---
 
+### [extension][pancake] Bump UI — hardcode page dropdown thay vì candidate-endpoint fetch ✅
+
+**User ask**: anh nói "NhiJudy House và NhiJudy Store có id page cụ thể mà?" + "hardcode trong extension luôn". → bỏ approach dò động qua candidate endpoints, hardcode list pages biết trước.
+
+**Page IDs** (lấy từ `GET /api/pancake-page-tokens` Render route — chỉ lấy id+name, KHÔNG đụng token):
+
+- `270136663390370` — NhiJudy Store
+- `117267091364524` — Nhi Judy House
+- `112678138086607` — Nhi Judy Ơi
+
+**Changes** ([n2store-extension/content/pancake-bump.js](../n2store-extension/content/pancake-bump.js)):
+
+- Const `KNOWN_PAGES` ở đầu file
+- Row mới ở top body modal: `📄 Page` dropdown (KNOWN_PAGES + custom) + nút `+ Thêm` (prompt nhập ID + tên, persist `localStorage['n2store.pancake.bump.customPages.v1']`)
+- `populatePageSelect()` build options từ KNOWN_PAGES + custom, default value = ctx.pageId hoặc saved hoặc first
+- `openModal()` đơn giản hơn: skip 4.5s wait cho pageId (đã có từ dropdown), chỉ chờ JWT
+- Bỏ logic try candidate endpoints (dead path)
+
+Manifest version `1.0.21` → `1.0.22`.
+
+**Status**: ✅ Done.
+
+---
+
 ### [extension][pancake] Bump UI fix — page picker cho /multi_pages view ✅
 
 **User ask**: trên `pancake.vn/multi_pages` (multi-page aggregated view), JWT bắt được nhưng pageId không (Pancake không gọi `/api/v1/pages/<id>/...` ở view này, dùng endpoint aggregate khác). Log: `Không bắt được context (pageId=?, jwt=OK)`.
