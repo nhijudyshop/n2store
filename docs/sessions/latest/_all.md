@@ -3,17 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `95460a1` — fix(extension): pancake bump — MAIN world + auto-capture pageId/JWT
-**Last updated**: 2026-05-29 20:31:11 +07
-**Latest session**: [`RESUME:20260529-203111-95460a1`](../20260529-203111-95460a1.md)
-**Summary**: fix(extension): pancake bump — MAIN world + auto-capture pageId/JWT
+**Latest commit**: `4178249` — fix(extension): pancake bump — page picker for /multi_pages view
+**Last updated**: 2026-05-29 20:42:27 +07
+**Latest session**: [`RESUME:20260529-204227-4178249`](../20260529-204227-4178249.md)
+**Summary**: fix(extension): pancake bump — page picker for /multi_pages view
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`inventory-tracking/`](./inventory-tracking.md) — 2 file(s)
 - [`n2store-extension/`](./n2store-extension.md) — 2 file(s)
-- [`so-order/`](./so-order.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-29 20:31
+- [`docs/`](./docs.md) — updated 2026-05-29 20:42
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -40,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-29 20:31
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-29 20:42
 - [`native-orders/`](./native-orders.md) — updated 2026-05-26 13:38
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
