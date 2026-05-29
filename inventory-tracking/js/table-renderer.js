@@ -760,6 +760,11 @@ function createShipmentCard(shipment) {
                     <span class="shipment-separator">-</span>
                     <span class="shipment-dot-badge" style="background:#EEF2FF;color:#4338CA;padding:2px 8px;border-radius:6px;font-weight:600;font-size:12px">Đợt ${shipment.dotSo || 1}</span>
                     <span class="shipment-separator">-</span>
+                    <span class="shipment-ncc-badge" title="Tổng số NCC trong đợt" style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:6px;font-weight:600;font-size:12px;display:inline-flex;align-items:center;gap:4px">
+                        <i data-lucide="users" style="width:13px;height:13px"></i>
+                        ${(shipment.hoaDon || []).length} NCC
+                    </span>
+                    <span class="shipment-separator">-</span>
                     <span class="shipment-packages-badge">
                         <i data-lucide="box"></i>
                         ${packagesInfo}

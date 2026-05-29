@@ -25,6 +25,21 @@
 
 ## 2026-05-29
 
+### [inventory] Header shipment card: thêm badge "N NCC" ✅
+
+**User ask**: "hiện tổng có bao nhiêu NCC".
+
+**Files**:
+
+- `inventory-tracking/js/table-renderer.js` (renderShipmentCard) — thêm `.shipment-ncc-badge` (amber pill, icon `users`) giữa Đợt badge và Kiện badge: hiển thị `${shipment.hoaDon.length} NCC`.
+- `inventory-tracking/index.html` — bump `table-renderer.js?v=20260529e`.
+
+Count = `shipment.hoaDon.length` (mỗi hoaDon = 1 NCC trong (date, dotSo) group, đã aggregate ở `getAllDotHangAsShipments`).
+
+Status: ✅ Done.
+
+---
+
 ### [inventory] Thêm hàng inline trên bảng — nút "+" cuối mỗi NCC invoice ✅
 
 **User ask**: "cho thêm hàng ở bảng, ví dụ hàng thứ 6 -> logic tất cả thông tin như thêm hàng bình thường".
