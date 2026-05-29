@@ -233,8 +233,6 @@
                 const shId = btn.dataset.shipmentId;
                 if (action === 'edit') openOrderModal(rowId, shId);
                 else if (action === 'delete') deleteRow(shId, rowId);
-                else if (action === 'buy')
-                    openPurchaseModal({ scope: 'row', rowId, shipmentId: shId });
             });
         });
         tbody.querySelectorAll('img[data-zoomable]').forEach((img) => {
@@ -886,10 +884,9 @@
     }
 
     function actionsCell(rowId, shipmentId) {
+        // P1 2026-05-29: bỏ nút "Mua hàng" per row (đã thay bằng "Nhận hàng"
+        // per shipment trên header — handle cả mua đủ lẫn mua 1 phần).
         return `<td class="so-cell-actions">
-            <button class="so-action-btn so-action-btn-buy" type="button" data-row-action="buy" data-row-id="${escapeHtml(rowId)}" data-shipment-id="${escapeHtml(shipmentId)}" title="Mua hàng dòng này">
-                <i data-lucide="shopping-cart"></i>
-            </button>
             <button class="so-action-btn" type="button" data-row-action="edit" data-row-id="${escapeHtml(rowId)}" data-shipment-id="${escapeHtml(shipmentId)}" title="Sửa">
                 <i data-lucide="edit-2"></i>
             </button>
@@ -994,392 +991,7 @@
         renderTableHead();
         renderTableBody();
         renderFooterTotals();
-        renderPurchasePanel();
         if (window.lucide?.createIcons) window.lucide.createIcons();
-    }
-
-    // ---------- Purchase drawer (Mua hàng per NCC + global, right-side toggle) ----------
-    function _ensurePurchaseDrawer() {
-        // Cleanup any legacy inline panel (created bởi version cũ).
-        const oldInline = document.getElementById('soPurchasePanel');
-        if (oldInline && !oldInline.classList.contains('so-purchase-drawer')) {
-            oldInline.remove();
-        }
-        let drawer = document.getElementById('soPurchaseDrawer');
-        if (drawer) {
-            return {
-                drawer,
-                body: drawer.querySelector('.so-purchase-drawer-body'),
-                toggle: document.getElementById('soPurchaseToggle'),
-            };
-        }
-        // Inline SVG — không phụ thuộc lucide CDN, hoạt động ngay cả offline.
-        const cartSvg = `<svg class="so-purchase-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>`;
-        const xSvg = `<svg class="so-purchase-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
-
-        // FAB toggle button (right edge, mặc định ẩn khi không có NCC nào).
-        const toggle = document.createElement('button');
-        toggle.id = 'soPurchaseToggle';
-        toggle.type = 'button';
-        toggle.className = 'so-purchase-toggle';
-        toggle.hidden = true;
-        toggle.title = 'Mua hàng theo NCC';
-        toggle.innerHTML =
-            cartSvg +
-            '<span class="so-purchase-toggle-label">Mua hàng</span>' +
-            '<span class="so-purchase-toggle-badge">0</span>';
-        document.body.appendChild(toggle);
-
-        drawer = document.createElement('aside');
-        drawer.id = 'soPurchaseDrawer';
-        drawer.className = 'so-purchase-drawer';
-        drawer.innerHTML = `
-            <div class="so-purchase-drawer-backdrop" data-so-drawer-close></div>
-            <div class="so-purchase-drawer-panel">
-                <header class="so-purchase-drawer-head">
-                    <span class="so-purchase-drawer-title">
-                        ${cartSvg}
-                        <strong>Mua hàng theo NCC</strong>
-                    </span>
-                    <button class="so-purchase-drawer-close" type="button" data-so-drawer-close title="Đóng">
-                        ${xSvg}
-                    </button>
-                </header>
-                <div class="so-purchase-drawer-body"></div>
-            </div>`;
-        document.body.appendChild(drawer);
-        toggle.addEventListener('click', () => {
-            drawer.classList.toggle('is-open');
-        });
-        drawer.querySelectorAll('[data-so-drawer-close]').forEach((el) => {
-            el.addEventListener('click', () => drawer.classList.remove('is-open'));
-        });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && drawer.classList.contains('is-open')) {
-                drawer.classList.remove('is-open');
-            }
-        });
-        return {
-            drawer,
-            body: drawer.querySelector('.so-purchase-drawer-body'),
-            toggle,
-        };
-    }
-
-    function renderPurchasePanel() {
-        const els = _ensurePurchaseDrawer();
-        const tab = window.SoOrderStorage.getActiveTab(state);
-        if (!tab) {
-            els.toggle.hidden = true;
-            els.drawer.classList.remove('is-open');
-            return;
-        }
-        const groups = {};
-        let totalAllRows = 0;
-        let totalAllValue = 0;
-        for (const sh of tab.shipments || []) {
-            for (const r of sh.rows || []) {
-                const supplier = (r.supplier || '').trim();
-                if (!supplier) continue;
-                const name = (r.productName || '').trim();
-                const qty = Number(r.qty) || 0;
-                if (!name || qty <= 0) continue;
-                if (!groups[supplier]) {
-                    groups[supplier] = { supplier, rows: [], total: 0 };
-                }
-                groups[supplier].rows.push(r);
-                const cost = Number(r.costPrice) || 0;
-                groups[supplier].total += qty * cost;
-                totalAllRows += 1;
-                totalAllValue += qty * cost;
-            }
-        }
-        const suppliers = Object.values(groups).sort((a, b) =>
-            a.supplier.localeCompare(b.supplier)
-        );
-        if (!suppliers.length) {
-            els.toggle.hidden = true;
-            els.drawer.classList.remove('is-open');
-            return;
-        }
-        els.toggle.hidden = false;
-        const badge = els.toggle.querySelector('.so-purchase-toggle-badge');
-        if (badge) badge.textContent = String(suppliers.length);
-
-        const rate = Number(tab.rate) || 1;
-        const ccy = tab.currency || 'VND';
-        const totalAllValueVnd = Math.round(totalAllValue * rate);
-        els.body.innerHTML = `<div class="so-purchase-head">
-                <span class="so-purchase-hint">${suppliers.length} NCC trong ${escapeHtml(tab.label || '')}</span>
-                <button class="so-purchase-btn so-purchase-btn-all" type="button" data-purchase-all>
-                    <i data-lucide="shopping-bag"></i>
-                    Mua hàng tất cả (${totalAllRows} SP · ${ccy !== 'VND' ? totalAllValueVnd.toLocaleString('vi-VN') + '₫' : totalAllValue.toLocaleString('vi-VN') + '₫'})
-                </button>
-            </div>
-            <div class="so-purchase-grid">
-                ${suppliers
-                    .map((g) => {
-                        const totalVnd = Math.round(g.total * rate);
-                        return `<div class="so-purchase-card">
-                        <div class="so-purchase-card-head">
-                            <span class="so-purchase-ncc">${escapeHtml(g.supplier)}</span>
-                            <span class="so-purchase-count">${g.rows.length} SP</span>
-                        </div>
-                        <div class="so-purchase-totals">
-                            <span class="so-purchase-currency">${escapeHtml(ccy)}: ${g.total.toLocaleString('vi-VN')}</span>
-                            ${ccy !== 'VND' ? `<span class="so-purchase-vnd">≈ ${totalVnd.toLocaleString('vi-VN')}₫</span>` : ''}
-                        </div>
-                        <button class="so-purchase-btn" type="button" data-purchase-supplier="${escapeHtml(g.supplier)}">
-                            <i data-lucide="check-circle"></i> Mua hàng
-                        </button>
-                    </div>`;
-                    })
-                    .join('')}
-            </div>`;
-        els.body.querySelectorAll('[data-purchase-supplier]').forEach((btn) => {
-            btn.addEventListener('click', () =>
-                openPurchaseModal({ scope: 'supplier', supplier: btn.dataset.purchaseSupplier })
-            );
-        });
-        const allBtn = els.body.querySelector('[data-purchase-all]');
-        if (allBtn) {
-            allBtn.addEventListener('click', () => openPurchaseModal({ scope: 'all' }));
-        }
-    }
-
-    // ---------- Purchase modal (lấy SP trực tiếp từ rows local) ----------
-    // _currentPurchaseItems: items đang hiển thị trong modal (1 item = 1 row trong tab).
-    // Confirm flow: upsertPending (auto Lưu Nháp) → confirmPurchase với codes trả về.
-    let _currentPurchaseItems = [];
-
-    /**
-     * Mở modal mua hàng.
-     * opts:
-     *   - scope: 'all' | 'supplier' | 'row'
-     *   - supplier?: string (cho scope='supplier')
-     *   - rowId?: string, shipmentId?: string (cho scope='row')
-     */
-    function openPurchaseModal(opts) {
-        if (!window.Web2ProductsApi) {
-            notify('Web2ProductsApi chưa load', 'error');
-            return;
-        }
-        const tab = window.SoOrderStorage.getActiveTab(state);
-        if (!tab) {
-            notify('Không có tab active', 'error');
-            return;
-        }
-        const scope = (opts && opts.scope) || 'all';
-        const rate = Number(tab.rate) || 1;
-        const ccy = tab.currency || 'VND';
-        const tabLabel = (tab.label || '').trim();
-
-        const items = [];
-        for (const sh of tab.shipments || []) {
-            for (const r of sh.rows || []) {
-                const supplier = (r.supplier || '').trim();
-                const name = (r.productName || '').trim();
-                const qty = Number(r.qty) || 0;
-                if (!name || qty <= 0) continue;
-                if (scope === 'supplier' && supplier !== opts.supplier) continue;
-                if (scope === 'row' && r.id !== opts.rowId) continue;
-                if (scope !== 'row' && !supplier) continue;
-                items.push({
-                    key: r.id,
-                    rowId: r.id,
-                    shipmentId: sh.id,
-                    name,
-                    variant: (r.variant || '').trim() || null,
-                    qty,
-                    supplier: supplier || null,
-                    costPriceRaw: Number(r.costPrice) || 0,
-                    sellPriceRaw: Number(r.sellPrice) || 0,
-                    costPriceVnd: Math.round((Number(r.costPrice) || 0) * rate),
-                    sellPriceVnd: Math.round((Number(r.sellPrice) || 0) * rate),
-                    imageUrl: r.productImage || null,
-                    note: tabLabel || null,
-                });
-            }
-        }
-        _currentPurchaseItems = items;
-
-        let title;
-        if (scope === 'supplier') title = `Mua hàng từ ${opts.supplier}`;
-        else if (scope === 'row') title = items[0] ? `Mua hàng SP: ${items[0].name}` : 'Mua hàng';
-        else title = `Mua hàng tất cả NCC — ${tabLabel || tab.id}`;
-
-        let modal = document.getElementById('soPurchaseModal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'soPurchaseModal';
-            modal.className = 'so-modal';
-            modal.hidden = true;
-            modal.innerHTML = `
-                <div class="so-modal-backdrop" data-so-purchase-close></div>
-                <div class="so-modal-panel so-modal-panel-narrow">
-                    <header class="so-modal-head">
-                        <h2 id="soPurchaseTitle">Mua hàng</h2>
-                        <button class="so-modal-close" type="button" data-so-purchase-close>
-                            <i data-lucide="x"></i>
-                        </button>
-                    </header>
-                    <div class="so-modal-body">
-                        <div class="so-purchase-toolbar">
-                            <label><input type="checkbox" id="soPurchaseCheckAll" checked /> Chọn tất cả</label>
-                            <span class="so-purchase-summary" id="soPurchaseSummary"></span>
-                        </div>
-                        <div class="so-purchase-list" id="soPurchaseList"></div>
-                    </div>
-                    <footer class="so-modal-foot">
-                        <button class="btn-secondary" type="button" data-so-purchase-close>Hủy</button>
-                        <button class="btn-primary" type="button" id="soPurchaseConfirmBtn">
-                            <i data-lucide="check"></i> Xác nhận mua hàng
-                        </button>
-                    </footer>
-                </div>`;
-            document.body.appendChild(modal);
-            modal.querySelectorAll('[data-so-purchase-close]').forEach((el) => {
-                el.addEventListener('click', () => {
-                    modal.hidden = true;
-                });
-            });
-            document.getElementById('soPurchaseCheckAll').addEventListener('change', (e) => {
-                document.querySelectorAll('#soPurchaseList input[type=checkbox]').forEach((cb) => {
-                    cb.checked = e.target.checked;
-                });
-                _updatePurchaseSummary();
-            });
-            document
-                .getElementById('soPurchaseConfirmBtn')
-                .addEventListener('click', confirmPurchaseFromModal);
-        }
-        document.getElementById('soPurchaseTitle').textContent = title;
-        const listEl = document.getElementById('soPurchaseList');
-        const checkAll = document.getElementById('soPurchaseCheckAll');
-        if (checkAll) checkAll.checked = true;
-
-        if (!items.length) {
-            listEl.innerHTML = `<div class="so-purchase-empty">Không có SP hợp lệ. Kiểm tra cột NCC, Tên SP, SL.</div>`;
-            _updatePurchaseSummary();
-            modal.hidden = false;
-            if (window.lucide?.createIcons) window.lucide.createIcons();
-            return;
-        }
-        const showSupplier = scope !== 'supplier';
-        listEl.innerHTML = items
-            .map((it) => {
-                const lineCost = it.qty * it.costPriceRaw;
-                const lineCostVnd = it.qty * it.costPriceVnd;
-                return `<label class="so-purchase-row">
-                    <input type="checkbox" data-purchase-key="${escapeHtml(it.key)}" data-purchase-qty="${it.qty}" data-purchase-cost-vnd="${lineCostVnd}" checked />
-                    ${showSupplier && it.supplier ? `<span class="so-purchase-supplier-tag">${escapeHtml(it.supplier)}</span>` : ''}
-                    <span class="so-purchase-name">${escapeHtml(it.name)}</span>
-                    ${it.variant ? `<span class="so-purchase-variant">${escapeHtml(it.variant)}</span>` : ''}
-                    <span class="so-purchase-qty">×${it.qty}</span>
-                    <span class="so-purchase-line-cost">${ccy !== 'VND' ? `${lineCost.toLocaleString('vi-VN')} ${ccy} · ` : ''}${lineCostVnd.toLocaleString('vi-VN')}₫</span>
-                </label>`;
-            })
-            .join('');
-        listEl.querySelectorAll('input[type=checkbox]').forEach((cb) => {
-            cb.addEventListener('change', _updatePurchaseSummary);
-        });
-        _updatePurchaseSummary();
-        modal.hidden = false;
-        if (window.lucide?.createIcons) window.lucide.createIcons();
-    }
-
-    function _updatePurchaseSummary() {
-        const checks = document.querySelectorAll('#soPurchaseList input[type=checkbox]:checked');
-        let totalQty = 0;
-        let totalCostVnd = 0;
-        checks.forEach((cb) => {
-            totalQty += Number(cb.dataset.purchaseQty) || 0;
-            totalCostVnd += Number(cb.dataset.purchaseCostVnd) || 0;
-        });
-        const el = document.getElementById('soPurchaseSummary');
-        if (el) {
-            el.textContent = `${checks.length} SP · ${totalQty} cái · ${totalCostVnd.toLocaleString('vi-VN')}₫`;
-        }
-    }
-
-    async function confirmPurchaseFromModal() {
-        const modal = document.getElementById('soPurchaseModal');
-        const btn = document.getElementById('soPurchaseConfirmBtn');
-        if (!btn || btn.disabled) return;
-        const selectedKeys = new Set(
-            Array.from(document.querySelectorAll('#soPurchaseList input[type=checkbox]:checked'))
-                .map((cb) => cb.dataset.purchaseKey)
-                .filter(Boolean)
-        );
-        const selectedItems = _currentPurchaseItems.filter((it) => selectedKeys.has(it.key));
-        if (!selectedItems.length) {
-            notify('Chưa chọn SP nào', 'warning');
-            return;
-        }
-        const missingSupplier = selectedItems.filter((it) => !it.supplier);
-        if (missingSupplier.length) {
-            notify(
-                `${missingSupplier.length} SP chưa có NCC: ${missingSupplier.map((it) => it.name).join(', ')}`,
-                'error'
-            );
-            return;
-        }
-        const orig = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<i data-lucide="loader-2"></i> Đang xử lý…';
-        if (window.lucide?.createIcons) window.lucide.createIcons();
-        try {
-            // 1. Auto Lưu Nháp: upsertPending để có code trong DB.
-            const upsertPayload = selectedItems.map((it) => ({
-                name: it.name,
-                variant: it.variant,
-                qty: it.qty,
-                costPrice: it.costPriceVnd,
-                sellPrice: it.sellPriceVnd,
-                supplier: it.supplier,
-                imageUrl: it.imageUrl,
-                note: it.note,
-            }));
-            const upsertRes = await window.Web2ProductsApi.upsertPending(upsertPayload);
-            const upsertItems = (upsertRes && upsertRes.items) || [];
-            const codes = upsertItems.map((i) => i.code).filter(Boolean);
-            if (!codes.length) {
-                throw new Error('Không tạo/cập nhật được SP nào trong Kho');
-            }
-            if (window.Web2ProductsCache) {
-                window.Web2ProductsCache.pushTickle({ action: 'so-order-buy' });
-            }
-
-            // 2. Confirm purchase: status='DANG_BAN', stock += pending_qty.
-            const confirmRes = await window.Web2ProductsApi.confirmPurchase({ codes });
-            const confirmedItems = (confirmRes && confirmRes.items) || [];
-
-            // Merge variant info từ selectedItems (confirmRes ko trả variant).
-            const variantByCode = new Map();
-            for (let i = 0; i < upsertItems.length && i < selectedItems.length; i++) {
-                if (upsertItems[i].code) {
-                    variantByCode.set(upsertItems[i].code, selectedItems[i].variant);
-                }
-            }
-            const enriched = confirmedItems.map((p) => ({
-                ...p,
-                variant: variantByCode.get(p.code) || null,
-            }));
-
-            const supplierLabel = (() => {
-                const uniq = Array.from(new Set(selectedItems.map((it) => it.supplier)));
-                return uniq.length === 1 ? uniq[0] : `${uniq.length} NCC`;
-            })();
-            notify(`Đã mua ${confirmedItems.length} SP từ ${supplierLabel}`, 'success');
-            modal.hidden = true;
-            openBarcodePrintModal(enriched, supplierLabel);
-        } catch (e) {
-            notify('Lỗi mua hàng: ' + (e.message || e), 'error');
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = orig;
-            if (window.lucide?.createIcons) window.lucide.createIcons();
-        }
     }
 
     // ---------- Nhận hàng modal (partial-purchase support) — P1 2026-05-29 ----------
@@ -1769,6 +1381,36 @@
                 'success'
             );
             modal.hidden = true;
+            // P1 2026-05-29: in barcode cho SP đã nhận (mua đủ hoặc mua 1 phần).
+            // Merge variant + qty thực nhận từ itemsToProcess (server response
+            // không trả variant). Skip SP qtyReceived=0.
+            try {
+                const printableItems = itemsToProcess
+                    .filter((it) => receivedMap.has(it.key))
+                    .map((it) => {
+                        const code = codeByKey.get(it.key);
+                        const serverRow = (data.items || []).find((r) => r.code === code);
+                        if (!serverRow) return null;
+                        return {
+                            ...serverRow,
+                            variant: it.variant,
+                            qtyReceived: receivedMap.get(it.key),
+                        };
+                    })
+                    .filter(Boolean);
+                if (printableItems.length > 0) {
+                    const uniqSuppliers = Array.from(
+                        new Set(itemsToProcess.map((it) => it.supplier))
+                    );
+                    const supplierLabel =
+                        uniqSuppliers.length === 1
+                            ? uniqSuppliers[0]
+                            : `${uniqSuppliers.length} NCC`;
+                    openBarcodePrintModal(printableItems, supplierLabel);
+                }
+            } catch (printErr) {
+                console.warn('[so-order] barcode print skip:', printErr.message);
+            }
         } catch (e) {
             console.warn('[so-order] confirmReceive fail:', e);
             notify('Lỗi nhận hàng: ' + (e.message || e), 'error');
