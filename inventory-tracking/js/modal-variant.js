@@ -441,9 +441,27 @@ async function _saveVariants() {
 
     try {
         const product = targetDot.sanPham[productIdx];
+
+        // Sanity-check the variant total against the existing Tổng SL the user
+        // (or AI extractor) typed in for this product. A mismatch usually
+        // means the user fat-fingered a variant qty or forgot to add one —
+        // surface it through the custom confirm modal instead of silently
+        // overwriting tongSoLuong.
+        const sumVariants = mauSac.reduce((sum, v) => sum + (parseInt(v.soLuong) || 0), 0);
+        const existingTotal = parseInt(product.tongSoLuong || product.soLuong || 0, 10) || 0;
+        if (existingTotal > 0 && sumVariants !== existingTotal) {
+            const ok = await window.notificationManager.confirm(
+                `Tổng số lượng biến thể (${sumVariants}) khác với Tổng SL (${existingTotal}).\n\n` +
+                    `Bấm "Đồng ý" để LƯU (Tổng SL sẽ cập nhật thành ${sumVariants}), ` +
+                    `hoặc "Hủy" để quay lại chỉnh sửa.`,
+                'Tổng biến thể không khớp'
+            );
+            if (!ok) return;
+        }
+
         product.mauSac = mauSac;
         // Recalculate tongSoLuong as sum of all variant quantities
-        product.tongSoLuong = mauSac.reduce((sum, v) => sum + v.soLuong, 0);
+        product.tongSoLuong = sumVariants;
         product.soMau = mauSac.length;
         product.thanhTien = (product.tongSoLuong || 0) * (product.giaDonVi || 0);
 

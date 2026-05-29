@@ -25,6 +25,23 @@
 
 ## 2026-05-29
 
+### [inventory] Variant modal: confirm khi tổng biến thể ≠ Tổng SL ✅
+
+**User ask**: "tổng số lượng biến thể nhập vào phải bằng tổng món → nếu khác thì có custom confirm xác nhận".
+
+**File**:
+
+- `inventory-tracking/js/modal-variant.js#_saveVariants` — trước khi overwrite `product.tongSoLuong`, compute `sumVariants = sum(mauSac.soLuong)` và `existingTotal = product.tongSoLuong || product.soLuong`. Nếu `existingTotal > 0` và `sumVariants !== existingTotal` → `notificationManager.confirm("Tổng số lượng biến thể (X) khác với Tổng SL (Y). Bấm Đồng ý để LƯU (Tổng SL → X), hoặc Hủy để chỉnh sửa.", 'Tổng biến thể không khớp')`. Cancel → abort, không lưu, modal vẫn mở để user sửa SL.
+- `inventory-tracking/index.html` — bump `modal-variant.js?v=20260529j`.
+
+**Guard**: chỉ confirm khi `existingTotal > 0` (sản phẩm đã có Tổng SL trước đó). Nếu là product mới chưa có Tổng SL → accept trực tiếp (variant total trở thành Tổng SL).
+
+**Scope**: chỉ áp dụng cho variant modal save, không áp dụng cho inline edit `tongSoLuong` (user có thể chủ động override Tổng SL inline).
+
+Status: ✅ Done.
+
+---
+
 ### [inventory] Lịch sử chỉnh sửa per-NCC + per-đợt (lưu 30 ngày) ✅
 
 **User ask**: "thêm lịch sử chỉnh sửa riêng của từng ngày giao, từng NCC (lịch sử lưu 30 ngày)".
