@@ -25,6 +25,44 @@
 
 ## 2026-05-29
 
+### [web2] Comprehensive recheck — 50/50 pages smoke PASS + SSE end-to-end verified ✅
+
+**User ask**: "tiếp tục và kiểm lại toàn bộ web 2.0".
+
+**Smoke test broad (50 pages)** qua persistent browser:
+
+- Categories: core (12), reports (7), accounting (5), products+inventory (8), partners (3), sales (5), configs (4), marketing (3), admin (3)
+- Eval/page: `err`, `mainLen`, sidebar presence, `h1/h2` text
+- **Result: 50/50 PASS, 0 JS errors, 100% sidebar render**
+- Notable: pages config-driven (`Web2Shell.bootstrap`) hiển thị shell `~2300 chars` khi empty state (expected); pages có data render `5k-100k chars` (products, variants, wallets, partner lists)
+
+**SSE infrastructure health**:
+
+- Web 2.0 hub (`/api/realtime/web2/sse/stats`): **26 clients, 9 topics**
+    - web2:products (6), web2:fast-sale-orders (6), web2:native-orders (4), web2:variants (3), web2:wallet:\* (2), web2:supplier-wallet (1), web2:reconcile (1), web2:stockmove (1), wallet:all (2 — cross-hub for supplier debt)
+- Web 1.0 hub: 94 clients, 19 topics (legacy)
+- **End-to-end test**: POST `/api/realtime/web2/sse/test` topic `web2:products` → `clientsNotified:1` (admin-sse-monitor browser nhận event live) → fan-out hoạt động.
+
+**High-risk pages revisit**: phân tích lại 5 pages "minimal error handling":
+
+- `pancake-settings`: 0 try/catch nhưng dùng `{ok, reason}` result envelope pattern — OK, không bug
+- `purchase-refund`: 6 catches in 539 lines — adequate
+- `supplier-wallet-app`: 3 catches in 577 lines — adequate
+- `users-app`: 7 catches in 493 lines — adequate
+- `admin-sse-monitor`: 3 catches in 298 lines — adequate
+- → **Không có page nào thực sự ở mức risky**, audit lần trước overcount do grep pattern.
+
+**P3 tech debt status**:
+
+- 33 custom HTML pages (vs 72 page-shell.js DRY): active feature pages (products, variants, wallets, …) — working fine, refactor sang DRY là high-effort low-value, **defer**.
+- Rename `rf-app.js`/`pbh-app.js`/`dlv-app.js` → tên dài: defer (không break gì).
+
+**Conclusion**: Web 2.0 ổn định production. Không có blocker.
+
+**Files**: docs/dev-log.md (recheck report)
+
+---
+
 ### [inventory] SSE realtime auto-refresh + bobo grant CP perms ✅
 
 **Bối cảnh**: User báo 2 vấn đề trên `inventory-tracking/`:
