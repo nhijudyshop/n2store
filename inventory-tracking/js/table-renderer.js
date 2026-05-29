@@ -794,6 +794,9 @@ function createShipmentCard(shipment) {
                 <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); updateShortage('${shipment.id}')" title="Cập nhật thiếu">
                     <i data-lucide="clipboard-check"></i>
                 </button>
+                <button class="btn btn-sm btn-outline btn-hist-shipment" onclick="event.stopPropagation(); window.showEditHistoryForShipment('${shipment.ngayDiHang}', ${shipment.dotSo || 1}, '${formatDateDisplay(shipment.ngayDiHang)} — Đợt ${shipment.dotSo || 1}')" title="Lịch sử chỉnh sửa đợt (30 ngày)">
+                    <i data-lucide="history"></i>
+                </button>
             </div>
         </div>
         <div class="shipment-body${wasExpanded ? '' : ' hidden'}" data-lazy="${wasExpanded ? '0' : '1'}">
@@ -1169,6 +1172,7 @@ function renderProductRow(opts) {
     const nccDeleteBtn = `<button class="btn-del-ncc" onclick="event.stopPropagation(); window.deleteNccInvoice('${_escAttr(invoiceId)}')" title="Xóa NCC ${nccKey}"><i data-lucide="trash-2"></i></button>`;
     const nccConvertBtn = `<button class="btn-convert-po" onclick="event.stopPropagation(); window.openConvertToPurchaseOrderModal('${_escAttr(invoiceId)}')" title="Chuyển NCC ${nccKey} qua Đặt hàng Nháp"><i data-lucide="shopping-cart"></i></button>`;
     const nccEditBtn = `<button class="btn-edit-ncc" onclick="event.stopPropagation(); window.openEditNccInvoiceModal('${_escAttr(invoiceId)}')" title="Sửa hóa đơn NCC ${nccKey}"><i data-lucide="pencil"></i></button>`;
+    const nccHistBtn = `<button class="btn-hist-ncc" onclick="event.stopPropagation(); window.showEditHistoryForInvoice('${_escAttr(invoiceId)}', 'NCC ${nccKey}')" title="Lịch sử chỉnh sửa NCC ${nccKey} (30 ngày gần nhất)"><i data-lucide="history"></i></button>`;
     // Đếm số sản phẩm của dotHang này đã được đưa qua PO Nháp.
     // Schema: globalState.shipments[].hoaDon[].sanPham[] (xem config.js).
     // Dùng bare reference vì `let globalState` không bind vào `window`.
@@ -1192,7 +1196,7 @@ function renderProductRow(opts) {
         productsInDraft > 0
             ? `<span class="ncc-draft-chip" title="${productsInDraft}/${productsTotal} sản phẩm đã có trong Đặt hàng Nháp">📋 ${productsInDraft}/${productsTotal}</span>`
             : '';
-    const nccDisplay = `${nccCheckbox}<span class="ncc-name editable-cell" data-invoice-id="${_escAttr(invoiceId)}" data-field="tenNCC" ondblclick="event.stopPropagation(); window.startInlineEditNcc(this)" title="Nhấp đúp để sửa">${nccDisplayName}</span>${nccDraftChip}${nccEditBtn}${nccConvertBtn}${nccDeleteBtn}`;
+    const nccDisplay = `${nccCheckbox}<span class="ncc-name editable-cell" data-invoice-id="${_escAttr(invoiceId)}" data-field="tenNCC" ondblclick="event.stopPropagation(); window.startInlineEditNcc(this)" title="Nhấp đúp để sửa">${nccDisplayName}</span>${nccDraftChip}${nccEditBtn}${nccHistBtn}${nccConvertBtn}${nccDeleteBtn}`;
     const doneClass = nccDone ? 'ncc-row-done' : '';
 
     // Drag-drop wired only on rows that have a product (skip the "0 products"

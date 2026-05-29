@@ -25,6 +25,32 @@
 
 ## 2026-05-29
 
+### [inventory] Lịch sử chỉnh sửa per-NCC + per-đợt (lưu 30 ngày) ✅
+
+**User ask**: "thêm lịch sử chỉnh sửa riêng của từng ngày giao, từng NCC (lịch sử lưu 30 ngày)".
+
+**Server (`render.com/routes/v2/inventory-tracking.js`)**:
+
+- New helper `logShipmentHistory(db, action, row, opts)` — auto-log mọi mutation shipment (POST/PUT/PATCH shortage/DELETE) ngay sau khi commit. Mỗi log gồm `changes[]` diff (via `_diffShipment`), snapshot (cho create/delete), meta `{ngay_di_hang, dot_so, ten_ncc}`.
+- GET `/edit-history` enhance: filter mới `entity_id`, `stt_ncc`, `(ngay_di_hang + dot_so)` (resolve qua sub-select `inventory_shipments`). Hard 30-day window trong WHERE + lazy cleanup `DELETE WHERE created_at < NOW() - INTERVAL '30 days'` chạy tối đa 1 lần/giờ/process.
+- PUT/DELETE shipments SELECT-before để compute diff/snapshot rồi log.
+
+**Client**:
+
+- `api-client.js#editHistoryApi.getAll` — thêm filter `entityId`, `sttNcc`, `ngayDiHang`, `dotSo`.
+- `edit-history.js` — rewrite: 2 entry point mới `showEditHistoryForInvoice(invoiceId, label)` + `showEditHistoryForShipment(ngayDiHang, dotSo, label)`. Modal `#modalEditHistory` tạo lazy lần đầu mở (không thêm vào index.html). Render entry với badge action (Tạo mới / Cập nhật / Xóa), user, time, meta, diff list (field VN labels, value cũ gạch ngang đỏ → value mới xanh).
+- `table-renderer.js`:
+    - NCC cell: thêm `.btn-hist-ncc` (icon `history`, amber) — hover-reveal. Click → per-NCC modal.
+    - Shipment header: thêm `.btn-hist-shipment` luôn visible cạnh nút Cập nhật thiếu. Click → per-(date,đợt) modal.
+- `modern.css` — modal styles + 2 button styles + responsive grid.
+- `index.html` — bump `?v=20260529i` cho 4 file.
+
+**Granularity**: mỗi inline edit ô (đơn giá, SL, mã hàng, …) đều gọi `PUT /shipments/:id` → server SELECT old → compute diff per-column → log. User không cần làm gì client-side.
+
+Status: ✅ Done.
+
+---
+
 ### [scripts][pancake] Pancake livestream comment-count booster ✅
 
 **User ask**: dùng Pancake gửi reply công khai vào các thread comment đến từ livestream để **tăng comment count** trên livestream post (đẩy reach), KHÔNG spam DM khách (không làm phiền). Filter "Đến từ livestream" trong Pancake UI = client-side filter `conversation.post.type === "livestream"` (radio value `is_livestream_post_on`).

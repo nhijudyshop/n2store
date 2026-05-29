@@ -67,6 +67,59 @@ function notify(topic, action, extra) {
     }
 }
 
+// ===== EDIT-HISTORY LOGGER (server-side) =====
+// Tracks every shipment mutation so the audit trail is reliable even when
+// inline edits skip the client-side logEditHistory helper. Per-NCC scope
+// because each row in inventory_shipments is one (date, đợt, NCC) entry —
+// entity_id == row id == NCC identity inside the đợt.
+//
+// Fields excluded from diff: ids, timestamps, audit columns. Keeps the
+// changes JSON readable on the UI.
+const HIST_SKIP_FIELDS = new Set(['id', 'created_at', 'updated_at', 'created_by', 'updated_by']);
+
+function _diffShipment(oldRow, newRow) {
+    if (!oldRow || !newRow) return [];
+    const changes = [];
+    const keys = new Set([...Object.keys(oldRow), ...Object.keys(newRow)]);
+    for (const k of keys) {
+        if (HIST_SKIP_FIELDS.has(k)) continue;
+        const a = JSON.stringify(oldRow[k] ?? null);
+        const b = JSON.stringify(newRow[k] ?? null);
+        if (a !== b) changes.push({ field: k, oldValue: oldRow[k], newValue: newRow[k] });
+    }
+    return changes;
+}
+
+async function logShipmentHistory(db, action, row, opts = {}) {
+    if (!row || !row.id) return;
+    try {
+        const changes = opts.changes || null;
+        const snapshot = opts.snapshot !== false ? row : null;
+        await db.query(
+            `INSERT INTO inventory_edit_history
+                (id, action, entity_type, entity_id, stt_ncc, changes, user_name)
+             VALUES ($1, $2, 'shipment', $3, $4, $5, $6)`,
+            [
+                generateId('hist'),
+                action,
+                row.id,
+                row.stt_ncc || null,
+                JSON.stringify({
+                    changes,
+                    snapshot,
+                    ngay_di_hang: row.ngay_di_hang || null,
+                    dot_so: row.dot_so || null,
+                    ten_ncc: row.ten_ncc || null,
+                    user: opts.user || null,
+                }),
+                opts.user || null,
+            ]
+        );
+    } catch (e) {
+        console.warn('[inventory] logShipmentHistory failed:', e.message);
+    }
+}
+
 function getDb(req) {
     return req.app.locals.chatDb;
 }
@@ -766,6 +819,7 @@ router.post('/shipments', async (req, res) => {
         );
 
         notify('inventory_shipments', 'create', { id: result.rows[0].id, dot_so: resolvedDotSo });
+        await logShipmentHistory(db, 'create', result.rows[0], { user });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('[inventory] POST /shipments error:', err.message);
@@ -798,6 +852,13 @@ router.put('/shipments/:id', async (req, res) => {
             ti_gia,
             dot_so,
         } = req.body;
+
+        // Snapshot the row before update so we can compute a granular diff
+        // for the audit trail.
+        const oldRes = await db.query('SELECT * FROM inventory_shipments WHERE id = $1', [
+            req.params.id,
+        ]);
+        const oldRow = oldRes.rows[0] || null;
 
         const result = await db.query(
             `
@@ -854,6 +915,14 @@ router.put('/shipments/:id', async (req, res) => {
         if (result.rows.length === 0)
             return res.status(404).json({ success: false, error: 'Not found' });
         notify('inventory_shipments', 'update', { id: req.params.id });
+        const changes = _diffShipment(oldRow, result.rows[0]);
+        if (changes.length > 0) {
+            await logShipmentHistory(db, 'update', result.rows[0], {
+                user,
+                changes,
+                snapshot: false,
+            });
+        }
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('[inventory] PUT /shipments/:id error:', err.message);
@@ -914,6 +983,12 @@ router.patch('/shipments/:id/shortage', async (req, res) => {
         const user = getUserFromHeaders(req);
         const { so_mon_thieu, ghi_chu_thieu } = req.body;
 
+        const oldRes = await db.query(
+            'SELECT so_mon_thieu, ghi_chu_thieu, stt_ncc, ngay_di_hang, dot_so, ten_ncc FROM inventory_shipments WHERE id = $1',
+            [req.params.id]
+        );
+        const oldRow = oldRes.rows[0] || null;
+
         const result = await db.query(
             `
             UPDATE inventory_shipments SET
@@ -928,6 +1003,14 @@ router.patch('/shipments/:id/shortage', async (req, res) => {
         if (result.rows.length === 0)
             return res.status(404).json({ success: false, error: 'Not found' });
         notify('inventory_shipments', 'shortage', { id: req.params.id });
+        const changes = _diffShipment(oldRow, result.rows[0]);
+        if (changes.length > 0) {
+            await logShipmentHistory(db, 'shortage', result.rows[0], {
+                user,
+                changes,
+                snapshot: false,
+            });
+        }
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -937,6 +1020,13 @@ router.patch('/shipments/:id/shortage', async (req, res) => {
 router.delete('/shipments/:id', async (req, res) => {
     try {
         const db = getDb(req);
+        const user = getUserFromHeaders(req);
+        // Snapshot the row before delete so audit trail keeps the last state.
+        const oldRes = await db.query('SELECT * FROM inventory_shipments WHERE id = $1', [
+            req.params.id,
+        ]);
+        const oldRow = oldRes.rows[0] || null;
+
         const result = await db.query(
             'DELETE FROM inventory_shipments WHERE id = $1 RETURNING id',
             [req.params.id]
@@ -944,6 +1034,7 @@ router.delete('/shipments/:id', async (req, res) => {
         if (result.rows.length === 0)
             return res.status(404).json({ success: false, error: 'Not found' });
         notify('inventory_shipments', 'delete', { id: req.params.id });
+        if (oldRow) await logShipmentHistory(db, 'delete', oldRow, { user });
         res.json({ success: true, deleted: req.params.id });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -1154,26 +1245,78 @@ router.get('/finance/summary', async (req, res) => {
 // EDIT HISTORY
 // =====================================================
 
+// Lazy 30-day cleanup — runs at most once per server process per hour.
+// Avoids growing the table forever without needing a dedicated cron job.
+let _lastHistCleanup = 0;
+async function _maybeCleanupHistory(db) {
+    const now = Date.now();
+    if (now - _lastHistCleanup < 60 * 60 * 1000) return;
+    _lastHistCleanup = now;
+    try {
+        const result = await db.query(
+            `DELETE FROM inventory_edit_history WHERE created_at < NOW() - INTERVAL '30 days'`
+        );
+        if (result.rowCount > 0) {
+            console.log(`[inventory] edit-history cleanup: deleted ${result.rowCount} rows >30d`);
+        }
+    } catch (e) {
+        console.warn('[inventory] edit-history cleanup failed:', e.message);
+    }
+}
+
 router.get('/edit-history', async (req, res) => {
     try {
         const db = getDb(req);
-        const { limit = 50, offset = 0, entity_type } = req.query;
+        const {
+            limit = 100,
+            offset = 0,
+            entity_type,
+            entity_id,
+            ngay_di_hang,
+            dot_so,
+            stt_ncc,
+        } = req.query;
 
-        let query = 'SELECT * FROM inventory_edit_history';
+        // Fire-and-forget — never await inside the hot path
+        _maybeCleanupHistory(db);
+
+        // Hard 30-day window on reads so callers never see stale rows even if
+        // the lazy cleanup hasn't run yet on a freshly restarted process.
+        const conds = [`created_at > NOW() - INTERVAL '30 days'`];
         const params = [];
-        let paramIdx = 1;
+        let p = 1;
 
         if (entity_type) {
-            query += ` WHERE entity_type = $${paramIdx++}`;
+            conds.push(`entity_type = $${p++}`);
             params.push(entity_type);
         }
+        if (entity_id) {
+            conds.push(`entity_id = $${p++}`);
+            params.push(entity_id);
+        }
+        if (stt_ncc) {
+            conds.push(`stt_ncc = $${p++}`);
+            params.push(parseInt(stt_ncc, 10));
+        }
+        // (ngay_di_hang, dot_so) scoped query — resolves to entity_id IN (...)
+        // via a sub-select against inventory_shipments so we get every NCC row
+        // of that đợt in one call.
+        if (ngay_di_hang && dot_so) {
+            conds.push(
+                `entity_id IN (SELECT id FROM inventory_shipments WHERE ngay_di_hang = $${p++} AND dot_so = $${p++})`
+            );
+            params.push(ngay_di_hang, parseInt(dot_so, 10));
+        }
 
-        query += ` ORDER BY created_at DESC LIMIT $${paramIdx++} OFFSET $${paramIdx++}`;
+        const where = `WHERE ${conds.join(' AND ')}`;
         params.push(parseInt(limit), parseInt(offset));
+        const query = `SELECT * FROM inventory_edit_history ${where}
+                       ORDER BY created_at DESC LIMIT $${p++} OFFSET $${p++}`;
 
         const result = await db.query(query, params);
         res.json({ success: true, data: result.rows });
     } catch (err) {
+        console.error('[inventory] GET /edit-history error:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });

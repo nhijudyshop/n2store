@@ -5762,3 +5762,212 @@ textarea.inline-edit-input {
     border-radius: 4px;
     font-size: 12px;
 }
+
+/* ========== EDIT HISTORY MODAL ==========
+ * Per-NCC and per-(date, đợt) audit trail. Retention is enforced
+ * server-side (30 days) — the footer just reminds the user.
+ */
+#modalEditHistory .hist-modal-container {
+    max-width: 760px;
+    width: 92vw;
+}
+#modalEditHistory .hist-modal-body {
+    padding: 16px 20px;
+    overflow-y: auto;
+    max-height: calc(90vh - 140px);
+}
+.hist-modal-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    border-top: 1px solid var(--gray-200);
+}
+.hist-retention-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--gray-500, #6b7280);
+    font-size: 12px;
+}
+.hist-retention-hint i {
+    width: 13px;
+    height: 13px;
+}
+
+.hist-loading,
+.hist-empty {
+    text-align: center;
+    color: var(--gray-500, #6b7280);
+    padding: 36px 12px;
+    font-size: 13px;
+}
+.hist-loading i {
+    animation: spin 1s linear infinite;
+    width: 16px;
+    height: 16px;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+
+/* History entry list */
+.hist-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.hist-entry {
+    border: 1px solid var(--gray-200, #e5e7eb);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: var(--gray-50, #f9fafb);
+}
+.hist-entry-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.hist-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.hist-action i {
+    width: 12px;
+    height: 12px;
+}
+.hist-action-create {
+    background: #dcfce7;
+    color: #166534;
+}
+.hist-action-update {
+    background: #dbeafe;
+    color: #1e40af;
+}
+.hist-action-delete {
+    background: #fee2e2;
+    color: #991b1b;
+}
+.hist-user {
+    color: var(--gray-700, #374151);
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.hist-user i {
+    width: 12px;
+    height: 12px;
+}
+.hist-time {
+    margin-left: auto;
+    color: var(--gray-500, #6b7280);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+.hist-meta {
+    margin-top: 4px;
+    color: var(--gray-600, #4b5563);
+    font-size: 12px;
+}
+.hist-changes {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.hist-change {
+    display: grid;
+    grid-template-columns: 160px 1fr 16px 1fr;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    padding: 4px 8px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid var(--gray-100, #f3f4f6);
+}
+.hist-change-field {
+    font-weight: 600;
+    color: var(--gray-800, #1f2937);
+}
+.hist-change-old {
+    color: #b91c1c;
+    text-decoration: line-through;
+    text-decoration-color: rgba(185, 28, 28, 0.35);
+    word-break: break-word;
+}
+.hist-change-new {
+    color: #166534;
+    font-weight: 500;
+    word-break: break-word;
+}
+.hist-change-arrow {
+    width: 14px;
+    height: 14px;
+    color: var(--gray-400);
+}
+.hist-null {
+    color: var(--gray-400);
+    font-style: italic;
+}
+
+/* History triggers — small clock-style buttons next to existing
+ * edit/delete affordances. Same hover-reveal pattern as btn-edit-ncc.
+ */
+.btn-hist-ncc {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 1px 3px;
+    border-radius: 4px;
+    line-height: 1;
+    vertical-align: middle;
+    color: #b45309; /* amber-700 */
+    margin-top: 4px;
+}
+.btn-hist-ncc i {
+    width: 13px;
+    height: 13px;
+}
+.btn-hist-ncc:hover {
+    background: rgba(180, 83, 9, 0.12);
+}
+.invoice-table td.col-ncc:hover .btn-hist-ncc {
+    display: inline-block;
+}
+
+/* Shipment-card-level history button — always visible (consistent with
+ * the other top-level shipment actions like Sửa / Xóa).
+ */
+.btn-hist-shipment {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #b45309;
+}
+.btn-hist-shipment:hover {
+    background: rgba(180, 83, 9, 0.12);
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 640px) {
+    .hist-change {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+    .hist-change-arrow {
+        display: none;
+    }
+}

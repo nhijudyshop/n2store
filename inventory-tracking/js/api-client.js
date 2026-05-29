@@ -354,6 +354,10 @@ const editHistoryApi = {
     async getAll(filters = {}) {
         const params = new URLSearchParams();
         if (filters.entityType) params.set('entity_type', filters.entityType);
+        if (filters.entityId) params.set('entity_id', filters.entityId);
+        if (filters.sttNcc) params.set('stt_ncc', filters.sttNcc);
+        if (filters.ngayDiHang) params.set('ngay_di_hang', filters.ngayDiHang);
+        if (filters.dotSo) params.set('dot_so', filters.dotSo);
         if (filters.limit) params.set('limit', filters.limit);
         if (filters.offset) params.set('offset', filters.offset);
 
