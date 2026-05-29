@@ -1386,8 +1386,56 @@
     // Click "Nhận hàng" button trên shipment header → modal liệt kê tất cả rows
     // trong shipment, default qty_received = qty_ordered. User chỉnh nếu mua thiếu.
     // Submit → 1) upsertPending (đảm bảo có code DB) 2) confirm-purchase-partial.
-    let _receiveItems = []; // [{key, rowId, shipmentId, name, variant, supplier, qty, costPriceVnd, sellPriceVnd, imageUrl}]
-    function openReceiveShipmentModal(shId) {
+    let _receiveItems = []; // [{key, rowId, shipmentId, name, variant, supplier, qty, alreadyReceived, remainingPending, costPriceVnd, sellPriceVnd, imageUrl}]
+    // Lookup current product state (stock/pendingQty) for so-order rows.
+    // Trả Map key (rowId) → { code, stock, pendingQty } cho rows đã sync DB.
+    // P1 2026-05-29: dùng trong Receive modal để show "đã nhận N / còn M chờ"
+    // thay vì chỉ hiển thị qty đặt gốc.
+    async function _lookupProductStateForRows(rows) {
+        const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const stateByKey = new Map();
+        const uniqueNames = Array.from(
+            new Set(rows.map((r) => (r.productName || '').trim()).filter(Boolean))
+        );
+        // Query each unique name (batch parallel). Server LOWER match name+variant.
+        const fetched = new Map(); // name(lower) → [products]
+        await Promise.all(
+            uniqueNames.map(async (name) => {
+                try {
+                    const r = await fetch(
+                        `${PROXY}/api/web2-products/list?search=${encodeURIComponent(name)}&limit=30`,
+                        { credentials: 'omit' }
+                    );
+                    const data = await r.json();
+                    const ps = data.products || data.items || [];
+                    fetched.set(name.toLowerCase(), ps);
+                } catch (_) {
+                    fetched.set(name.toLowerCase(), []);
+                }
+            })
+        );
+        for (const r of rows) {
+            const name = (r.productName || '').trim();
+            const variant = (r.variant || '').trim().toLowerCase();
+            const products = fetched.get(name.toLowerCase()) || [];
+            const match = products.find(
+                (p) =>
+                    (p.name || '').toLowerCase() === name.toLowerCase() &&
+                    (p.variant || '').toLowerCase() === variant
+            );
+            if (match) {
+                stateByKey.set(r.id, {
+                    code: match.code,
+                    stock: Number(match.stock) || 0,
+                    pendingQty: Number(match.pendingQty) || 0,
+                    status: match.status,
+                });
+            }
+        }
+        return stateByKey;
+    }
+
+    async function openReceiveShipmentModal(shId) {
         if (!window.Web2ProductsApi) {
             notify('Web2ProductsApi chưa load', 'error');
             return;
@@ -1402,18 +1450,37 @@
         const ccy = tab.currency || 'VND';
         const tabLabel = (tab.label || '').trim();
 
-        _receiveItems = (sh.rows || [])
-            .filter(
-                (r) =>
-                    (r.productName || '').trim() && Number(r.qty) > 0 && (r.supplier || '').trim()
-            )
-            .map((r) => ({
+        const eligibleRows = (sh.rows || []).filter(
+            (r) => (r.productName || '').trim() && Number(r.qty) > 0 && (r.supplier || '').trim()
+        );
+        // Lookup current product state to compute "đã nhận / còn chờ" per row.
+        // Có thể fail nếu API offline — fallback: assume chưa nhận, full pending.
+        let stateByKey = new Map();
+        try {
+            stateByKey = await _lookupProductStateForRows(eligibleRows);
+        } catch (e) {
+            console.warn('[so-order] lookupProductState fail:', e.message);
+        }
+
+        _receiveItems = eligibleRows.map((r) => {
+            const qtyOrdered = Number(r.qty) || 0;
+            const ps = stateByKey.get(r.id);
+            // remainingPending: số CÒN CHỜ thực tế từ web2_products.pendingQty.
+            // Nếu SP đã tồn tại DB và đã partial-received → còn ít hơn qtyOrdered.
+            // Nếu SP chưa sync DB → assume full pending = qtyOrdered.
+            const remainingPending = ps ? ps.pendingQty : qtyOrdered;
+            const alreadyReceived = Math.max(0, qtyOrdered - remainingPending);
+            return {
                 key: r.id,
                 rowId: r.id,
                 shipmentId: sh.id,
+                code: ps?.code || null,
                 name: (r.productName || '').trim(),
                 variant: (r.variant || '').trim() || null,
-                qty: Number(r.qty) || 0,
+                qty: qtyOrdered, // qty đặt gốc (từ so-order row)
+                alreadyReceived,
+                remainingPending,
+                currentStock: ps?.stock || 0,
                 supplier: (r.supplier || '').trim(),
                 costPriceRaw: Number(r.costPrice) || 0,
                 sellPriceRaw: Number(r.sellPrice) || 0,
@@ -1421,7 +1488,8 @@
                 sellPriceVnd: Math.round((Number(r.sellPrice) || 0) * rate),
                 imageUrl: r.productImage || null,
                 note: tabLabel || null,
-            }));
+            };
+        });
 
         let modal = document.getElementById('soReceiveModal');
         if (!modal) {
@@ -1440,9 +1508,12 @@
                     </header>
                     <div class="so-modal-body">
                         <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#0c4a6e;">
-                            <strong>Hướng dẫn:</strong> Default qty nhận = qty đã đặt (mua đủ).
-                            Sửa qty nhận nếu mua thiếu → status sẽ là <strong>MUA 1 PHẦN</strong>.
-                            Để qty nhận = 0 nếu chưa nhận SP đó.
+                            <strong>Hướng dẫn:</strong> Default qty nhận = số <strong>còn chờ</strong>
+                            (đã trừ phần đã nhận lần trước).<br>
+                            SP đã có lịch sử nhận hiển thị <span style="color:#16a34a;">Đã nhận: X</span>
+                            + <span style="color:#f59e0b;">Còn chờ: Y</span>. Sửa qty nhận để chỉ nhận
+                            1 phần trong số còn chờ.<br>
+                            SP đã nhận đủ tự bị disable (không nhận thêm được).
                         </div>
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                             <button type="button" class="btn-secondary btn-sm" id="soReceiveAllFull">Tất cả mua đủ</button>
@@ -1495,18 +1566,38 @@
                     `<div style="padding:8px 12px;background:#f8fafc;font-weight:700;font-size:12px;border-bottom:1px solid #e2e8f0;">${escapeHtml(supplier)} (${items.length} SP)</div>`
                 );
                 for (const it of items) {
-                    html.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #f1f5f9;" data-receive-row="${escapeHtml(it.key)}">
+                    const hasPartial = it.alreadyReceived > 0;
+                    // P1 2026-05-29: show "Đã đặt N · Đã nhận M · Còn K chờ".
+                    // Input default = remainingPending (số còn chờ thực tế),
+                    // max = remainingPending. Nếu remainingPending=0 thì SP đã nhận
+                    // đủ rồi, disable input.
+                    const remaining = it.remainingPending;
+                    const fullyReceived = remaining === 0;
+                    const qtyInfo = hasPartial
+                        ? `<div style="font-size:11px;color:#64748b;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;">
+                            <span>Đã đặt: <strong>${it.qty}</strong></span>
+                            <span style="color:#16a34a;">Đã nhận: <strong>${it.alreadyReceived}</strong></span>
+                            <span style="color:#f59e0b;">Còn chờ: <strong>${remaining}</strong></span>
+                          </div>`
+                        : `<div style="font-size:11px;color:#64748b;white-space:nowrap;">Đã đặt: <strong>${it.qty}</strong></div>`;
+                    const defaultStatus = fullyReceived
+                        ? `<span data-receive-status="${escapeHtml(it.key)}" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:#dbeafe;color:#1e40af;">ĐÃ NHẬN ĐỦ</span>`
+                        : `<span data-receive-status="${escapeHtml(it.key)}" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#166534;">MUA ĐỦ</span>`;
+                    const inputAttrs = fullyReceived
+                        ? `disabled value="0"`
+                        : `value="${remaining}"`;
+                    html.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #f1f5f9;${fullyReceived ? 'opacity:0.6;' : ''}" data-receive-row="${escapeHtml(it.key)}">
                         ${it.imageUrl ? `<img src="${escapeHtml(it.imageUrl)}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0;">` : '<div style="width:32px;height:32px;background:#f1f5f9;border-radius:4px;flex-shrink:0;"></div>'}
                         <div style="flex:1;min-width:0;">
                             <div style="font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(it.name)}</div>
                             ${it.variant ? `<div style="font-size:11px;color:#64748b;">${escapeHtml(it.variant)}</div>` : ''}
                         </div>
-                        <div style="font-size:11px;color:#64748b;white-space:nowrap;">Đã đặt: <strong>${it.qty}</strong></div>
+                        ${qtyInfo}
                         <div style="display:flex;align-items:center;gap:4px;">
                             <label style="font-size:11px;color:#0f172a;">Nhận:</label>
-                            <input type="number" min="0" max="${it.qty}" value="${it.qty}" data-receive-qty="${escapeHtml(it.key)}" data-receive-qty-max="${it.qty}" style="width:60px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;text-align:center;font-weight:600;" />
+                            <input type="number" min="0" max="${remaining}" ${inputAttrs} data-receive-qty="${escapeHtml(it.key)}" data-receive-qty-max="${remaining}" data-receive-qty-ordered="${it.qty}" data-receive-qty-already="${it.alreadyReceived}" style="width:60px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;text-align:center;font-weight:600;${fullyReceived ? 'background:#f1f5f9;color:#94a3b8;cursor:not-allowed;' : ''}" />
                         </div>
-                        <span data-receive-status="${escapeHtml(it.key)}" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#166534;">MUA ĐỦ</span>
+                        ${defaultStatus}
                     </div>`);
                 }
             }
@@ -1522,24 +1613,30 @@
     }
 
     function _updateReceiveRowStatus(input) {
+        if (input.disabled) return;
         const key = input.dataset.receiveQty;
+        // max = remainingPending (số còn chờ thực tế).
+        // qtyOrdered + qtyAlready = số gốc đặt + số đã nhận từ trước.
         const max = Number(input.dataset.receiveQtyMax) || 0;
+        const qtyOrdered = Number(input.dataset.receiveQtyOrdered) || 0;
+        const qtyAlready = Number(input.dataset.receiveQtyAlready) || 0;
         const val = Math.min(Math.max(0, Number(input.value) || 0), max);
         if (val !== Number(input.value)) input.value = val;
+        const totalReceivedAfter = qtyAlready + val;
         const badge = document.querySelector(`[data-receive-status="${CSS.escape(key)}"]`);
         if (badge) {
-            if (val === 0) {
+            if (val === 0 && qtyAlready === 0) {
                 badge.textContent = 'CHƯA NHẬN';
                 badge.style.background = '#f1f5f9';
                 badge.style.color = '#475569';
-            } else if (val < max) {
-                badge.textContent = `MUA 1 PHẦN (${val}/${max})`;
-                badge.style.background = '#fef3c7';
-                badge.style.color = '#92400e';
-            } else {
-                badge.textContent = 'MUA ĐỦ';
+            } else if (totalReceivedAfter >= qtyOrdered) {
+                badge.textContent = `MUA ĐỦ${qtyAlready > 0 ? ` (${qtyAlready}+${val}=${totalReceivedAfter}/${qtyOrdered})` : ''}`;
                 badge.style.background = '#dcfce7';
                 badge.style.color = '#166534';
+            } else {
+                badge.textContent = `MUA 1 PHẦN (${totalReceivedAfter}/${qtyOrdered})`;
+                badge.style.background = '#fef3c7';
+                badge.style.color = '#92400e';
             }
         }
         _updateReceiveSummary();
@@ -1547,23 +1644,35 @@
 
     function _updateReceiveSummary() {
         const inputs = document.querySelectorAll('#soReceiveList input[data-receive-qty]');
-        let totalReceived = 0,
-            totalOrdered = 0,
+        let totalReceiving = 0,
+            totalRemaining = 0,
+            totalAlready = 0,
             partial = 0,
             full = 0,
-            none = 0;
+            none = 0,
+            alreadyFull = 0;
         inputs.forEach((inp) => {
             const max = Number(inp.dataset.receiveQtyMax) || 0;
-            const val = Number(inp.value) || 0;
-            totalOrdered += max;
-            totalReceived += val;
-            if (val === 0) none++;
-            else if (val < max) partial++;
-            else full++;
+            const qtyAlready = Number(inp.dataset.receiveQtyAlready) || 0;
+            const qtyOrdered = Number(inp.dataset.receiveQtyOrdered) || 0;
+            const val = inp.disabled ? 0 : Number(inp.value) || 0;
+            totalRemaining += max;
+            totalReceiving += val;
+            totalAlready += qtyAlready;
+            if (inp.disabled) alreadyFull++;
+            else if (val === 0 && qtyAlready === 0) none++;
+            else if (qtyAlready + val >= qtyOrdered) full++;
+            else partial++;
         });
         const el = document.getElementById('soReceiveSummary');
         if (el) {
-            el.textContent = `Tổng: ${totalReceived}/${totalOrdered} cái · ${full} mua đủ · ${partial} mua 1 phần · ${none} chưa nhận`;
+            const parts = [
+                `Đang nhận: ${totalReceiving}/${totalRemaining} còn chờ`,
+                totalAlready > 0 ? `đã nhận trước: ${totalAlready}` : null,
+                `${full} mua đủ · ${partial} mua 1 phần · ${none} chưa nhận`,
+                alreadyFull > 0 ? `${alreadyFull} đã đủ trước` : null,
+            ].filter(Boolean);
+            el.textContent = parts.join(' · ');
         }
     }
 
@@ -1634,13 +1743,19 @@
             if (window.Web2ProductsCache) {
                 window.Web2ProductsCache.pushTickle({ action: 'so-order-partial-receive' });
             }
-            // 3. Update so-order row status: 'received' nếu mua đủ, 'partial_received' nếu mua 1 phần.
-            //    Storage layer chưa có status 'partial_received' — dùng note để track.
-            //    TODO: thêm vào ROW_STATUS enum nếu muốn pill badge cụ thể.
+            // 3. Update so-order row status. P1 2026-05-29: tính total đã nhận
+            // (lần này + đã nhận trước đó) so với qty đặt gốc.
+            //   - total >= qtyOrdered → 'received' (mua đủ qua N lần)
+            //   - 0 < total < qtyOrdered → 'partial_received'
+            //   - total == 0 → giữ status cũ
             const tab = window.SoOrderStorage.getActiveTab(state);
             for (const it of itemsToProcess) {
-                const received = receivedMap.get(it.key);
-                const newStatus = received >= it.qty ? 'received' : 'partial_received';
+                const receivedThisTime = receivedMap.get(it.key) || 0;
+                const totalReceived = (it.alreadyReceived || 0) + receivedThisTime;
+                let newStatus;
+                if (totalReceived >= it.qty) newStatus = 'received';
+                else if (totalReceived > 0) newStatus = 'partial_received';
+                else continue;
                 window.SoOrderStorage.updateRow(state, tab.id, it.shipmentId, it.rowId, {
                     status: newStatus,
                 });
@@ -2688,7 +2803,7 @@ window.addEventListener('load', () => {
             for (const m of matches) {
                 try {
                     const r = await fetch(
-                        `${PROXY}/api/web2/products/list?search=${encodeURIComponent(m.name)}&limit=20`,
+                        `${PROXY}/api/web2-products/list?search=${encodeURIComponent(m.name)}&limit=20`,
                         { credentials: 'omit' }
                     );
                     const data = await r.json();
@@ -2699,14 +2814,14 @@ window.addEventListener('load', () => {
                         if (
                             (p.name || '').toLowerCase() === m.name.toLowerCase() &&
                             sameVariant &&
-                            Number(p.quantity || 0) > 0
+                            Number(p.stock || 0) > 0
                         ) {
                             flagged.push({
                                 code: p.code,
                                 name: p.name,
                                 variant: p.variant,
                                 supplier: p.supplier,
-                                stock: p.quantity,
+                                stock: p.stock,
                                 pending: p.pendingQty || 0,
                             });
                         }

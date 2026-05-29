@@ -84,7 +84,7 @@
                                 return `<span class="active-badge active-pending" title="Chờ Mua hàng từ NCC${p.supplier ? ' ' + p.supplier : ''}"><i data-lucide="clock"></i>CHỜ HÀNG${pendingTxt}</span>`;
                             }
                             if (p.status === 'MUA_1_PHAN') {
-                                const stock = Number(p.quantity || 0);
+                                const stock = Number(p.stock || 0);
                                 const pend = Number(p.pendingQty || 0);
                                 return `<span class="active-badge" style="background:#fef3c7;color:#92400e;border-color:#fcd34d;" title="Đã nhận ${stock} cái, còn ${pend} cái chờ mua tiếp từ NCC ${p.supplier || '?'}"><i data-lucide="package-2"></i>MUA 1 PHẦN <span style="opacity:0.85;font-weight:500;margin-left:4px;">(${stock} đã nhận · ${pend} chờ)</span></span>`;
                             }
