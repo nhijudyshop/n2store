@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c24c6b5` — perf(so-order): Receive modal scroll smoothness fix (CSS containment + GPU layer)
-**Last updated**: 2026-05-29 20:18:32 +07
-**Latest session**: [`RESUME:20260529-201832-c24c6b5`](../20260529-201832-c24c6b5.md)
-**Summary**: perf(so-order): Receive modal scroll smoothness fix (CSS containment + GPU layer)
+**Latest commit**: `baf55c9` — feat(extension): pancake bump UI — conversation picker with checkboxes
+**Last updated**: 2026-05-29 20:24:07 +07
+**Latest session**: [`RESUME:20260529-202407-baf55c9`](../20260529-202407-baf55c9.md)
+**Summary**: feat(extension): pancake bump UI — conversation picker with checkboxes
 
 ## Folders affected in this commit
 
-- [`so-order/`](./so-order.md) — 3 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`n2store-extension/`](./n2store-extension.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-29 20:05
+- [`docs/`](./docs.md) — updated 2026-05-29 20:24
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -37,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-29 20:05
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-29 20:24
 - [`native-orders/`](./native-orders.md) — updated 2026-05-26 13:38
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
