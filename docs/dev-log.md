@@ -25,6 +25,25 @@
 
 ## 2026-05-29
 
+### [inventory] Thêm hàng inline trên bảng — nút "+" cuối mỗi NCC invoice ✅
+
+**User ask**: "cho thêm hàng ở bảng, ví dụ hàng thứ 6 -> logic tất cả thông tin như thêm hàng bình thường".
+
+**Files**:
+
+- `inventory-tracking/js/table-renderer.js` (renderProductRow) — render thêm nút `.btn-add-stt` (icon `+`) bên cạnh `.btn-del-stt` trên row CUỐI cùng (`isLastRow=true`) của mỗi NCC invoice. Cả invoice rỗng (`product=null`) cũng có nút để thêm hàng đầu tiên.
+- `inventory-tracking/js/crud-operations.js` — `addProductRow(invoiceId)`: append 1 blank product với schema chuẩn (giống `modal-edit-ncc.js#_addBlankRow`), recompute tongMon + tongTienHD, `shipmentsApi.update` → server emit SSE `inventory_shipments` → các tab khác auto-reload.
+- `inventory-tracking/css/modern.css` — `.btn-add-stt` style (green, hover bg, hidden by default + reveal on `td.col-stt:hover`).
+- `inventory-tracking/index.html` — bump cache `?v=20260529d` cho 3 file đụng.
+
+**UX**: hover ô STT row cuối → 2 nút lộ ra (x đỏ + + xanh). Click `+` → row 6 xuất hiện ngay với cell "-" → user double-click mỗi cell (Mã hàng / Mô tả / Tổng SL / Đơn giá) để fill, dùng inline-edit pipeline đã có (`startInlineEdit`).
+
+**Pattern**: mirror `deleteProductRow` 1:1 — same lookup `nccList`, same `flattenNCCData() + applyFiltersAndRender()` re-render path. Backend (PUT /shipments/:id) sẽ tự fire `notify('inventory_shipments', 'update', …)` → các tab khác đang xem nhận event qua SSE bridge đã wire sáng nay, debounce 300ms reload.
+
+Status: ✅ Done.
+
+---
+
 ### [web2] Comprehensive recheck — 50/50 pages smoke PASS + SSE end-to-end verified ✅
 
 **User ask**: "tiếp tục và kiểm lại toàn bộ web 2.0".

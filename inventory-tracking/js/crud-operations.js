@@ -415,8 +415,76 @@ async function deleteNccInvoice(invoiceId) {
     }
 }
 
+/**
+ * Append a blank product row to an NCC invoice (dotHang).
+ *
+ * Mirrors the schema used by modal-edit-ncc.js#_addBlankRow so the new row
+ * behaves identically to one created via the full edit modal — user then
+ * double-clicks each cell (maSP / moTa / SL / đơn giá) to fill it in via
+ * the existing inline-edit pipeline (no extra modal needed).
+ *
+ * Totals are recomputed before save so the aggregated stats bar stays
+ * accurate even though the new row contributes 0 until the user fills it.
+ */
+async function addProductRow(invoiceId) {
+    let targetDot = null;
+    for (const ncc of globalState.nccList) {
+        const dot = (ncc.dotHang || []).find((d) => d.id === invoiceId);
+        if (dot) {
+            targetDot = dot;
+            break;
+        }
+    }
+
+    if (!targetDot) {
+        window.notificationManager?.error('Không tìm thấy hóa đơn');
+        return;
+    }
+
+    const products = Array.isArray(targetDot.sanPham) ? [...targetDot.sanPham] : [];
+    const newProduct = {
+        maSP: '',
+        moTa: '',
+        tongSoLuong: 0,
+        soLuong: 0,
+        giaDonVi: 0,
+        mauSac: [],
+        ghiChu: '',
+        thanhTien: 0,
+    };
+    products.push(newProduct);
+
+    const qtyOf = window.getProductEffectiveQty || ((p) => p.tongSoLuong || p.soLuong || 0);
+    const amtOf =
+        window.getProductAmount || ((p) => (p.tongSoLuong || p.soLuong || 0) * (p.giaDonVi || 0));
+    const newTongMon = products.reduce((sum, p) => sum + qtyOf(p), 0);
+    const newTongTien = products.reduce((sum, p) => sum + amtOf(p), 0);
+
+    try {
+        await shipmentsApi.update(invoiceId, {
+            sanPham: products,
+            tongMon: newTongMon,
+            tongTienHD: newTongTien,
+        });
+
+        // Update local state — SSE will broadcast to other tabs.
+        targetDot.sanPham = products;
+        targetDot.tongMon = newTongMon;
+        targetDot.tongTienHD = newTongTien;
+
+        flattenNCCData();
+        if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+
+        window.notificationManager?.success(`Đã thêm STT ${products.length}`);
+    } catch (error) {
+        console.error('[CRUD] Error adding product row:', error);
+        window.notificationManager?.error('Không thể thêm hàng: ' + error.message);
+    }
+}
+
 // Expose functions globally for inline onclick handlers
 window.deleteNccInvoice = deleteNccInvoice;
 window.deleteProductRow = deleteProductRow;
+window.addProductRow = addProductRow;
 
 console.log('[CRUD] CRUD operations initialized (API mode)');
