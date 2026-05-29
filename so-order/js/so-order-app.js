@@ -1091,7 +1091,7 @@
             inp.style.background = '#f1f5f9';
             inp.style.color = '#94a3b8';
             inp.style.cursor = 'not-allowed';
-            rowEl.style.opacity = '0.6';
+            rowEl.classList.add('is-fully');
             badgeEl.textContent = 'ĐÃ NHẬN ĐỦ';
             badgeEl.style.background = '#dbeafe';
             badgeEl.style.color = '#1e40af';
@@ -1235,7 +1235,7 @@
                     0
                 );
                 html.push(
-                    `<div style="padding:12px 16px;background:linear-gradient(90deg,#f0f9ff,#ffffff);font-weight:700;font-size:13px;border-bottom:2px solid #bae6fd;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1;">
+                    `<div class="so-receive-group-head">
                         <span style="display:flex;align-items:center;gap:8px;color:#0c4a6e;">
                             <i data-lucide="store" style="width:16px;height:16px;color:#0284c7;"></i>
                             ${escapeHtml(supplier)}
@@ -1262,8 +1262,8 @@
                     const inputAttrs = fullyReceived
                         ? `disabled value="0"`
                         : `value="${remaining}"`;
-                    html.push(`<div style="display:grid;grid-template-columns:56px 1fr 140px 110px auto 130px;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid #f1f5f9;${fullyReceived ? 'opacity:0.6;background:#fafafa;' : ''}" data-receive-row="${escapeHtml(it.key)}">
-                        ${it.imageUrl ? `<img src="${escapeHtml(it.imageUrl)}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;">` : '<div style="width:56px;height:56px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:10px;">no img</div>'}
+                    html.push(`<div class="so-receive-row${fullyReceived ? ' is-fully' : ''}" data-receive-row="${escapeHtml(it.key)}">
+                        ${it.imageUrl ? `<img src="${escapeHtml(it.imageUrl)}" loading="lazy" decoding="async" alt="">` : '<div class="so-receive-img-fallback">no img</div>'}
                         <div style="min-width:0;">
                             <div style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#0f172a;">${escapeHtml(it.name)}</div>
                             ${it.variant ? `<div style="font-size:12px;color:#64748b;margin-top:2px;">${escapeHtml(it.variant)}</div>` : ''}
