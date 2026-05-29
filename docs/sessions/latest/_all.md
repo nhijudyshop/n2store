@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ef2dc55` — feat(inventory): remove "Mô tả" column from invoice table
-**Last updated**: 2026-05-29 14:52:35 +07
-**Latest session**: [`RESUME:20260529-145235-ef2dc55`](../20260529-145235-ef2dc55.md)
-**Summary**: feat(inventory): remove "Mô tả" column from invoice table
+**Latest commit**: `c194f52` — feat(so-order): test data scripts — 5 NCC × 20 SP × demo images cho 29/05/2026
+**Last updated**: 2026-05-29 15:03:56 +07
+**Latest session**: [`RESUME:20260529-150356-c194f52`](../20260529-150356-c194f52.md)
+**Summary**: feat(so-order): test data scripts — 5 NCC × 20 SP × demo images cho 29/05/2026
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`inventory-tracking/`](./inventory-tracking.md) — 3 file(s)
+- [`scripts/`](./scripts.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-29 14:52
+- [`docs/`](./docs.md) — updated 2026-05-29 15:03
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -52,7 +52,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-29 12:13
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-29 12:16
+- [`scripts/`](./scripts.md) — updated 2026-05-29 15:03
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-26 13:42
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
