@@ -68,6 +68,23 @@ Status: ✅ Done.
 
 ---
 
+### [extension][pancake] Bump UI fix — content script chuyển MAIN world + auto-capture pageId/JWT ✅
+
+**User ask**: bump modal mở nhưng "không load được đoạn hội thoại". Root cause: `getJwt()` đọc `localStorage.getItem('jwt')` không có trên Pancake (Pancake lưu JWT trong cookie HttpOnly + bộ nhớ React state). `detectPageId()` dò avatar img nhưng Pancake redirect `/api/v1/pages/<pid>/avatar/...` → `content.pancake.vn/...` → match regex hỏng.
+
+**Fix** ([n2store-extension/content/pancake-bump.js](../n2store-extension/content/pancake-bump.js) + [manifest.json](../n2store-extension/manifest.json)):
+
+1. **Manifest**: chuyển content script Pancake `world: "MAIN"` + `run_at: "document_start"` → script chạy trong cùng JS context với Pancake's React app → wrap `window.fetch` + `XMLHttpRequest.prototype.open` thấy được mọi outgoing API call thật.
+2. **Sniffer**: extract pageId từ URL pattern `/api/v1/pages/(\d{10,20})` + JWT từ `[?&]access_token=([^&]+)`. Cache vào `window.__n2storePancakeBumpCtx`. Mỗi lần Pancake poll conv list / load message → ta tự động bắt được context.
+3. **Modal openModal()**: chờ tối đa 4.5s cho ctx được populated (`waitForCtx`), show progress trong log. Nếu vẫn không có → báo "Mở trang Hội thoại của Pancake, đợi list load xong, rồi mở lại" (UX clear cho user).
+4. **getJwt fallback chain**: ctx → localStorage → cookie (non-HttpOnly).
+
+Manifest version `1.0.19` → `1.0.20`.
+
+**Status**: ✅ Done. Reload extension + refresh pancake.vn → bấm 🚀 → log sẽ in `Captured: pageId=... jwt=...` rồi load list.
+
+---
+
 ### [extension][pancake] Bump UI — thêm conversation picker với checkbox ✅
 
 **User ask**: thay vì auto-include tất cả livestream conv, cho **tick chọn** từng dòng (như list trong Pancake).

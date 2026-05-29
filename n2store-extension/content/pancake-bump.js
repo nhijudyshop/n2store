@@ -15,61 +15,45 @@
     window.__n2storePancakeBumpInjected = true;
 
     // ── Bootstrap: capture pageId + JWT from Pancake's own outgoing API calls ──
-    // Content script runs in isolated world — we can wrap window.fetch/XHR in this
-    // world, but Pancake's real fetches happen in MAIN world. So we inject a
-    // <script> in MAIN world to mirror the values back via postMessage.
+    // Content script runs in MAIN world (per manifest) — wrap fetch + XHR
+    // directly. Pancake's real API calls will trip our extractor.
     const ctx = (window.__n2storePancakeBumpCtx = window.__n2storePancakeBumpCtx || {
         pageId: null,
         jwt: null,
         firstSeenAt: null,
     });
 
-    function installMainWorldSniffer() {
-        if (document.getElementById('n2store-pancake-bump-sniffer')) return;
-        const s = document.createElement('script');
-        s.id = 'n2store-pancake-bump-sniffer';
-        s.textContent = `
-            (function() {
-                if (window.__n2storeSnifferInstalled) return;
-                window.__n2storeSnifferInstalled = true;
-                function publish(pageId, jwt) {
-                    window.postMessage({ type: 'n2store-pancake-ctx', pageId, jwt }, '*');
+    function extractCtx(url) {
+        try {
+            const u = String(url || '');
+            const mp = u.match(/\/api\/v1\/pages\/(\d{10,20})/);
+            const mt = u.match(/[?&]access_token=([^&]+)/);
+            if (mp && !ctx.pageId) ctx.pageId = mp[1];
+            if (mt && !ctx.jwt) {
+                try {
+                    ctx.jwt = decodeURIComponent(mt[1]);
+                } catch (_) {
+                    ctx.jwt = mt[1];
                 }
-                function extract(url) {
-                    try {
-                        const u = String(url || '');
-                        const mp = u.match(/\\/api\\/v1\\/pages\\/(\\d{10,20})/);
-                        const mt = u.match(/[?&]access_token=([^&]+)/);
-                        if (mp || mt) publish(mp ? mp[1] : null, mt ? decodeURIComponent(mt[1]) : null);
-                    } catch (_e) {}
-                }
-                const _f = window.fetch;
-                window.fetch = function(...args) {
-                    const u = typeof args[0] === 'string' ? args[0] : args[0]?.url;
-                    extract(u);
-                    return _f.apply(this, args);
-                };
-                const _xo = XMLHttpRequest.prototype.open;
-                XMLHttpRequest.prototype.open = function(method, url) {
-                    extract(url);
-                    return _xo.apply(this, arguments);
-                };
-            })();
-        `;
-        (document.head || document.documentElement).appendChild(s);
-        s.remove();
+            }
+            if (!ctx.firstSeenAt && (ctx.pageId || ctx.jwt)) ctx.firstSeenAt = Date.now();
+        } catch (_) {}
     }
 
-    window.addEventListener('message', (e) => {
-        if (e.source !== window) return;
-        const d = e.data;
-        if (!d || d.type !== 'n2store-pancake-ctx') return;
-        if (d.pageId && !ctx.pageId) ctx.pageId = d.pageId;
-        if (d.jwt && !ctx.jwt) ctx.jwt = d.jwt;
-        if ((d.pageId || d.jwt) && !ctx.firstSeenAt) ctx.firstSeenAt = Date.now();
-    });
-
-    installMainWorldSniffer();
+    if (!window.__n2storeBumpFetchWrapped) {
+        window.__n2storeBumpFetchWrapped = true;
+        const _f = window.fetch;
+        window.fetch = function (...args) {
+            const u = typeof args[0] === 'string' ? args[0] : args[0]?.url;
+            extractCtx(u);
+            return _f.apply(this, args);
+        };
+        const _xo = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function (method, url) {
+            extractCtx(url);
+            return _xo.apply(this, arguments);
+        };
+    }
 
     const LS_KEY = 'n2store.pancake.bump.cfg.v1';
     const DEFAULT_TEMPLATES = [
@@ -456,18 +440,33 @@
 
     async function openModal(els) {
         els.overlay.classList.add('show');
-        const pageId = detectPageId();
-        els.statPage.textContent = pageId || '?';
+        els.statPage.textContent = '...';
         els.statLive.textContent = '...';
         els.statQueue.textContent = '-';
-        if (!pageId) {
+        els.log.classList.remove('hidden');
+        clearLog(els);
+
+        // Wait for Main-world sniffer to capture pageId + JWT from any
+        // Pancake API call. If page already loaded, this is usually instant
+        // (Pancake polls /conversations every few seconds).
+        appendLog(els, 'info', 'Đang chờ Pancake gọi API để bắt pageId + JWT...');
+        const ok = await waitForCtx(4500);
+        if (!ok) {
             appendLog(
                 els,
                 'fail',
-                'Không detect được Page ID. Mở 1 page Pancake trước rồi thử lại.'
+                `Không bắt được context (pageId=${ctx.pageId || '?'}, jwt=${ctx.jwt ? 'OK' : '?'}).`
             );
+            appendLog(
+                els,
+                'info',
+                'Cách fix: chuyển sang trang Hội thoại của Pancake, đợi list load xong, rồi mở lại modal này.'
+            );
+            els.statPage.textContent = ctx.pageId || '?';
             return;
         }
+        els.statPage.textContent = ctx.pageId;
+        appendLog(els, 'info', `Captured: pageId=${ctx.pageId}, jwt=...${ctx.jwt.slice(-12)}`);
         await refreshConvs(els);
     }
 

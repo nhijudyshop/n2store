@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "N2Store Messenger",
     "short_name": "N2Store",
-    "version": "1.0.19",
+    "version": "1.0.20",
     "description": "N2Store unified messaging & management extension",
     "icons": {
         "16": "images/icon-16.png",
@@ -40,7 +40,8 @@
         {
             "matches": ["*://pancake.vn/*"],
             "js": ["content/pancake-bump.js"],
-            "run_at": "document_idle"
+            "run_at": "document_start",
+            "world": "MAIN"
         }
     ],
     "action": {
