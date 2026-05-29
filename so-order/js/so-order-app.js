@@ -1164,29 +1164,31 @@
             modal.hidden = true;
             modal.innerHTML = `
                 <div class="so-modal-backdrop" data-so-receive-close></div>
-                <div class="so-modal-panel so-modal-panel-narrow" style="max-width:880px;">
-                    <header class="so-modal-head">
+                <div class="so-modal-panel so-receive-panel" style="width:96vw;max-width:1600px;height:94vh;max-height:94vh;display:flex;flex-direction:column;">
+                    <header class="so-modal-head" style="flex-shrink:0;">
                         <h2 id="soReceiveTitle">Nhận hàng từ NCC</h2>
                         <button class="so-modal-close" type="button" data-so-receive-close>
                             <i data-lucide="x"></i>
                         </button>
                     </header>
-                    <div class="so-modal-body">
-                        <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#0c4a6e;">
+                    <div class="so-modal-body" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;">
+                        <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#0c4a6e;flex-shrink:0;">
                             <strong>Hướng dẫn:</strong> Default qty nhận = số <strong>còn chờ</strong>
-                            (đã trừ phần đã nhận lần trước).<br>
+                            (đã trừ phần đã nhận lần trước).
                             SP đã có lịch sử nhận hiển thị <span style="color:#16a34a;">Đã nhận: X</span>
                             + <span style="color:#f59e0b;">Còn chờ: Y</span>. Sửa qty nhận để chỉ nhận
-                            1 phần trong số còn chờ.<br>
+                            1 phần trong số còn chờ.
                             SP đã nhận đủ tự bị disable (không nhận thêm được).
                         </div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                            <button type="button" class="btn-secondary btn-sm" id="soReceiveAllFull">Tất cả mua đủ</button>
-                            <span style="font-size:11px;color:#64748b;" id="soReceiveSummary"></span>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-shrink:0;gap:12px;">
+                            <button type="button" class="btn-secondary btn-sm" id="soReceiveAllFull">
+                                <i data-lucide="check-check" style="width:14px;height:14px;"></i> Tất cả mua đủ
+                            </button>
+                            <span style="font-size:12px;color:#64748b;flex:1;text-align:right;" id="soReceiveSummary"></span>
                         </div>
-                        <div class="so-receive-list" id="soReceiveList" style="max-height:55vh;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;"></div>
+                        <div class="so-receive-list" id="soReceiveList" style="flex:1;min-height:0;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;"></div>
                     </div>
-                    <footer class="so-modal-foot">
+                    <footer class="so-modal-foot" style="flex-shrink:0;">
                         <button class="btn-secondary" type="button" data-so-receive-close>Hủy</button>
                         <button class="btn-primary" type="button" id="soReceiveConfirmBtn">
                             <i data-lucide="check"></i> Xác nhận nhận hàng
@@ -1227,40 +1229,53 @@
             }
             const html = [];
             for (const [supplier, items] of bySupplier) {
+                const totalQty = items.reduce((s, it) => s + (it.qty || 0), 0);
+                const totalVnd = items.reduce(
+                    (s, it) => s + (it.qty || 0) * (it.costPriceVnd || 0),
+                    0
+                );
                 html.push(
-                    `<div style="padding:8px 12px;background:#f8fafc;font-weight:700;font-size:12px;border-bottom:1px solid #e2e8f0;">${escapeHtml(supplier)} (${items.length} SP)</div>`
+                    `<div style="padding:12px 16px;background:linear-gradient(90deg,#f0f9ff,#ffffff);font-weight:700;font-size:13px;border-bottom:2px solid #bae6fd;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1;">
+                        <span style="display:flex;align-items:center;gap:8px;color:#0c4a6e;">
+                            <i data-lucide="store" style="width:16px;height:16px;color:#0284c7;"></i>
+                            ${escapeHtml(supplier)}
+                            <span style="font-size:11px;font-weight:600;padding:2px 8px;background:#0284c7;color:#fff;border-radius:10px;">${items.length} SP</span>
+                        </span>
+                        <span style="font-size:12px;color:#64748b;font-weight:500;">${totalQty} cái · <strong style="color:#16a34a;">${totalVnd.toLocaleString('vi-VN')}₫</strong></span>
+                    </div>`
                 );
                 for (const it of items) {
                     const hasPartial = it.alreadyReceived > 0;
-                    // P1 2026-05-29: show "Đã đặt N · Đã nhận M · Còn K chờ".
-                    // Input default = remainingPending (số còn chờ thực tế),
-                    // max = remainingPending. Nếu remainingPending=0 thì SP đã nhận
-                    // đủ rồi, disable input.
                     const remaining = it.remainingPending;
                     const fullyReceived = remaining === 0;
+                    const lineCostVnd = it.qty * it.costPriceVnd;
                     const qtyInfo = hasPartial
-                        ? `<div data-receive-qtyinfo="${escapeHtml(it.key)}" style="font-size:11px;color:#64748b;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;">
-                            <span>Đã đặt: <strong>${it.qty}</strong></span>
+                        ? `<div data-receive-qtyinfo="${escapeHtml(it.key)}" style="font-size:12px;color:#64748b;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;line-height:1.4;">
+                            <span>Đã đặt: <strong style="color:#0f172a;">${it.qty}</strong></span>
                             <span style="color:#16a34a;">Đã nhận: <strong>${it.alreadyReceived}</strong></span>
                             <span style="color:#f59e0b;">Còn chờ: <strong>${remaining}</strong></span>
                           </div>`
-                        : `<div data-receive-qtyinfo="${escapeHtml(it.key)}" style="font-size:11px;color:#64748b;white-space:nowrap;">Đã đặt: <strong>${it.qty}</strong></div>`;
+                        : `<div data-receive-qtyinfo="${escapeHtml(it.key)}" style="font-size:13px;color:#64748b;white-space:nowrap;">Đã đặt: <strong style="color:#0f172a;font-size:15px;">${it.qty}</strong></div>`;
                     const defaultStatus = fullyReceived
-                        ? `<span data-receive-status="${escapeHtml(it.key)}" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:#dbeafe;color:#1e40af;">ĐÃ NHẬN ĐỦ</span>`
-                        : `<span data-receive-status="${escapeHtml(it.key)}" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#166534;">MUA ĐỦ</span>`;
+                        ? `<span data-receive-status="${escapeHtml(it.key)}" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;background:#dbeafe;color:#1e40af;white-space:nowrap;">ĐÃ NHẬN ĐỦ</span>`
+                        : `<span data-receive-status="${escapeHtml(it.key)}" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;background:#dcfce7;color:#166534;white-space:nowrap;">MUA ĐỦ</span>`;
                     const inputAttrs = fullyReceived
                         ? `disabled value="0"`
                         : `value="${remaining}"`;
-                    html.push(`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #f1f5f9;${fullyReceived ? 'opacity:0.6;' : ''}" data-receive-row="${escapeHtml(it.key)}">
-                        ${it.imageUrl ? `<img src="${escapeHtml(it.imageUrl)}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0;">` : '<div style="width:32px;height:32px;background:#f1f5f9;border-radius:4px;flex-shrink:0;"></div>'}
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(it.name)}</div>
-                            ${it.variant ? `<div style="font-size:11px;color:#64748b;">${escapeHtml(it.variant)}</div>` : ''}
+                    html.push(`<div style="display:grid;grid-template-columns:56px 1fr 140px 110px auto 130px;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid #f1f5f9;${fullyReceived ? 'opacity:0.6;background:#fafafa;' : ''}" data-receive-row="${escapeHtml(it.key)}">
+                        ${it.imageUrl ? `<img src="${escapeHtml(it.imageUrl)}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;">` : '<div style="width:56px;height:56px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:10px;">no img</div>'}
+                        <div style="min-width:0;">
+                            <div style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#0f172a;">${escapeHtml(it.name)}</div>
+                            ${it.variant ? `<div style="font-size:12px;color:#64748b;margin-top:2px;">${escapeHtml(it.variant)}</div>` : ''}
+                        </div>
+                        <div style="font-size:11px;color:#64748b;white-space:nowrap;text-align:right;">
+                            <div>Giá: <strong style="color:#0f172a;">${it.costPriceVnd.toLocaleString('vi-VN')}₫</strong></div>
+                            <div style="margin-top:2px;">Tổng: <strong style="color:#16a34a;">${lineCostVnd.toLocaleString('vi-VN')}₫</strong></div>
                         </div>
                         ${qtyInfo}
-                        <div style="display:flex;align-items:center;gap:4px;">
-                            <label style="font-size:11px;color:#0f172a;">Nhận:</label>
-                            <input type="number" min="0" max="${remaining}" ${inputAttrs} data-receive-qty="${escapeHtml(it.key)}" data-receive-qty-max="${remaining}" data-receive-qty-ordered="${it.qty}" data-receive-qty-already="${it.alreadyReceived}" style="width:60px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;text-align:center;font-weight:600;${fullyReceived ? 'background:#f1f5f9;color:#94a3b8;cursor:not-allowed;' : ''}" />
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <label style="font-size:12px;color:#0f172a;font-weight:600;">Nhận:</label>
+                            <input type="number" min="0" max="${remaining}" ${inputAttrs} data-receive-qty="${escapeHtml(it.key)}" data-receive-qty-max="${remaining}" data-receive-qty-ordered="${it.qty}" data-receive-qty-already="${it.alreadyReceived}" style="width:80px;padding:8px 10px;border:2px solid #cbd5e1;border-radius:6px;text-align:center;font-weight:700;font-size:15px;${fullyReceived ? 'background:#f1f5f9;color:#94a3b8;cursor:not-allowed;' : 'background:#fff;'}" />
                         </div>
                         ${defaultStatus}
                     </div>`);
