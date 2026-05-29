@@ -56,6 +56,15 @@
     }
 
     const LS_KEY = 'n2store.pancake.bump.cfg.v1';
+
+    // Hardcoded list of N2Store's Pancake pages. ID-only (no tokens) — token
+    // dùng JWT trong URL từ session đang đăng nhập, lấy từ sniffer.
+    const KNOWN_PAGES = [
+        { id: '270136663390370', name: 'NhiJudy Store' },
+        { id: '117267091364524', name: 'Nhi Judy House' },
+        { id: '112678138086607', name: 'Nhi Judy Ơi' },
+    ];
+
     const DEFAULT_TEMPLATES = [
         '.',
         '..',
@@ -275,6 +284,15 @@
                             <strong>Lưu ý:</strong> Tính năng gửi public comment-reply hàng loạt vào các thread comment từ livestream. KHÔNG gửi DM khách. Mục đích: tăng comment count → đẩy reach. Khách vẫn nhận FB notification "X replied to your comment".
                         </div>
 
+                        <div class="row">
+                            <label>📄 Page</label>
+                            <div style="display:flex; gap:6px;">
+                                <select id="cfg-page-select" style="flex:1;"></select>
+                                <button class="btn btn-secondary" id="btn-add-page" title="Thêm page bằng tay">+ Thêm</button>
+                            </div>
+                            <div class="hint" id="page-hint">Chọn page hoặc thêm bằng tay (ID + tên).</div>
+                        </div>
+
                         <div class="stat-strip" id="stats">
                             <div class="stat"><div class="num" id="stat-page">-</div><div class="lbl">Page ID</div></div>
                             <div class="stat"><div class="num" id="stat-live">-</div><div class="lbl">Livestream convs</div></div>
@@ -394,7 +412,12 @@
             pickerVisible: $('#picker-visible'),
             pickerTotal: $('#picker-total'),
             pickerSelected: $('#picker-selected'),
+            pageSelect: $('#cfg-page-select'),
+            btnAddPage: $('#btn-add-page'),
+            pageHint: $('#page-hint'),
         };
+
+        populatePageSelect(els);
 
         // Picker state
         els.state = {
@@ -436,54 +459,103 @@
             renderConvList(els);
         });
         els.postId.addEventListener('change', () => refreshConvs(els));
+
+        // Page selector
+        els.pageSelect.addEventListener('change', () => {
+            const pid = els.pageSelect.value;
+            if (pid && /^\d{10,20}$/.test(pid)) {
+                ctx.pageId = pid;
+                els.statPage.textContent = pid;
+                saveCfg(els);
+                refreshConvs(els);
+            }
+        });
+        els.btnAddPage.addEventListener('click', () => {
+            const id = prompt('Page ID (số):');
+            if (!id || !/^\d{10,20}$/.test(id.trim())) return;
+            const name = prompt('Tên page:', 'Page ' + id) || 'Page ' + id;
+            const custom = loadCustomPages();
+            custom.push({ id: id.trim(), name: name.trim() });
+            saveCustomPages(custom);
+            populatePageSelect(els);
+            els.pageSelect.value = id.trim();
+            els.pageSelect.dispatchEvent(new Event('change'));
+        });
+    }
+
+    function loadCustomPages() {
+        try {
+            return JSON.parse(localStorage.getItem('n2store.pancake.bump.customPages.v1') || '[]');
+        } catch (_) {
+            return [];
+        }
+    }
+    function saveCustomPages(list) {
+        try {
+            localStorage.setItem('n2store.pancake.bump.customPages.v1', JSON.stringify(list));
+        } catch (_) {}
+    }
+
+    function populatePageSelect(els) {
+        const custom = loadCustomPages();
+        const seen = new Set();
+        const all = [];
+        for (const p of [...KNOWN_PAGES, ...custom]) {
+            if (seen.has(p.id)) continue;
+            seen.add(p.id);
+            all.push(p);
+        }
+        const saved = (() => {
+            try {
+                return JSON.parse(localStorage.getItem(LS_KEY) || '{}').pageId;
+            } catch (_) {
+                return null;
+            }
+        })();
+        const current = ctx.pageId || saved || all[0]?.id || '';
+        els.pageSelect.innerHTML = all
+            .map(
+                (p) =>
+                    `<option value="${p.id}" ${p.id === current ? 'selected' : ''}>${escapeHtml(p.name)} (${p.id})</option>`
+            )
+            .join('');
+        if (current && /^\d{10,20}$/.test(current)) {
+            ctx.pageId = current;
+            els.statPage.textContent = current;
+        }
     }
 
     async function openModal(els) {
         els.overlay.classList.add('show');
-        els.statPage.textContent = '...';
         els.statLive.textContent = '...';
         els.statQueue.textContent = '-';
         els.log.classList.remove('hidden');
         clearLog(els);
 
-        // Wait for Main-world sniffer to capture pageId + JWT from any
-        // Pancake API call. If page already loaded, this is usually instant
-        // (Pancake polls /conversations every few seconds).
-        appendLog(els, 'info', 'Đang chờ Pancake gọi API để bắt pageId + JWT...');
-        const ok = await waitForCtx(4500);
-        if (!ok) {
-            const isMultiPages = /\/multi_pages/i.test(location.pathname);
-            if (isMultiPages) {
-                appendLog(
-                    els,
-                    'info',
-                    'Đang ở /multi_pages — Pancake không gọi /api/v1/pages/<id>/ ở view này. Đang fetch list pages...'
-                );
-            } else {
-                appendLog(
-                    els,
-                    'fail',
-                    `Không bắt được context (pageId=${ctx.pageId || '?'}, jwt=${ctx.jwt ? 'OK' : '?'}).`
-                );
-            }
-            if (ctx.jwt) {
-                const ok2 = await promptPagePicker(els);
-                if (!ok2) {
-                    appendLog(
-                        els,
-                        'info',
-                        'Cách fix nhanh: từ multi_pages click 1 page cụ thể (vd "NhiJudy Store") → URL đổi thành /<slug> → bấm 🚀 lại.'
-                    );
-                    els.statPage.textContent = ctx.pageId || '?';
-                    return;
-                }
-            } else {
-                appendLog(els, 'fail', 'JWT missing — đăng nhập lại Pancake.');
-                return;
-            }
+        // Page comes from dropdown (hardcoded KNOWN_PAGES + custom adds). JWT
+        // still needs Main-world sniffer because token rotates every login.
+        const dropdownPid = els.pageSelect.value;
+        if (dropdownPid && /^\d{10,20}$/.test(dropdownPid)) {
+            ctx.pageId = dropdownPid;
         }
-        els.statPage.textContent = ctx.pageId;
-        appendLog(els, 'info', `Captured: pageId=${ctx.pageId}, jwt=...${ctx.jwt.slice(-12)}`);
+        els.statPage.textContent = ctx.pageId || '?';
+
+        appendLog(els, 'info', 'Đang chờ Pancake gọi API để bắt JWT...');
+        const ok = await waitForCtx(4500);
+        if (!ctx.jwt) {
+            appendLog(els, 'fail', 'JWT chưa bắt được. Pancake chưa gọi API có ?access_token.');
+            appendLog(
+                els,
+                'info',
+                'Mở trang Hội thoại của Pancake, đợi list load xong, rồi mở lại modal.'
+            );
+            return;
+        }
+        if (!ctx.pageId) {
+            appendLog(els, 'fail', 'Chưa chọn page. Bấm dropdown 📄 Page ở trên rồi thử lại.');
+            return;
+        }
+        appendLog(els, 'info', `Using: pageId=${ctx.pageId}, jwt=...${ctx.jwt.slice(-12)}`);
         await refreshConvs(els);
     }
 
