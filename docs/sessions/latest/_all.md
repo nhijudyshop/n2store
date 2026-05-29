@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e617e3a` — feat(inventory-tracking): SSE realtime auto-refresh + grant bobo CP perms
-**Last updated**: 2026-05-29 12:16:33 +07
-**Latest session**: [`RESUME:20260529-121633-e617e3a`](../20260529-121633-e617e3a.md)
-**Summary**: feat(inventory-tracking): SSE realtime auto-refresh + grant bobo CP perms
+**Latest commit**: `072e139` — auto: session update
+**Last updated**: 2026-05-29 12:30:35 +07
+**Latest session**: [`RESUME:20260529-123035-072e139`](../20260529-123035-072e139.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-29 12:16
+- [`docs/`](./docs.md) — updated 2026-05-29 12:30
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -34,7 +34,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-29 12:13
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-29 12:30
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
