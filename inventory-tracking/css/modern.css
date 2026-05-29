@@ -1251,6 +1251,7 @@ tr.ncc-row-done td.col-ncc {
 /* Delete buttons — hidden by default, show on hover */
 .btn-del-stt,
 .btn-add-stt,
+.btn-copy-stt,
 .btn-del-ncc,
 .btn-edit-ncc {
     display: none;
@@ -1280,6 +1281,67 @@ tr.ncc-row-done td.col-ncc {
 .btn-add-stt:hover {
     background: rgba(22, 163, 74, 0.12);
 }
+.btn-copy-stt {
+    color: #2563eb;
+    margin-left: 2px;
+}
+.btn-copy-stt i {
+    width: 12px;
+    height: 12px;
+}
+.btn-copy-stt:hover {
+    background: rgba(37, 99, 235, 0.12);
+}
+
+/* Drag handle — always visible (faded) so users discover the affordance
+ * without hovering. Highlights to full opacity on cell hover and when the
+ * row is mid-drag. STT cells already have padding so the handle fits
+ * without resizing the column.
+ */
+.invoice-table td.col-stt {
+    position: relative;
+}
+.drag-stt {
+    display: inline-flex;
+    align-items: center;
+    cursor: grab;
+    opacity: 0.32;
+    margin-right: 4px;
+    padding: 1px 2px;
+    border-radius: 4px;
+    color: var(--gray-500, #6b7280);
+    vertical-align: middle;
+    transition:
+        opacity 120ms ease,
+        background 120ms ease;
+}
+.drag-stt i {
+    width: 13px;
+    height: 13px;
+}
+.invoice-table td.col-stt:hover .drag-stt {
+    opacity: 1;
+}
+.drag-stt:active {
+    cursor: grabbing;
+}
+
+/* Active drag state — dim the source row so users see where they're moving from. */
+.invoice-table tr.dragging-row > td {
+    opacity: 0.45;
+}
+
+/* Drop hints — solid line above or below the hovered row indicates where the
+ * dragged row will land. Same column the rest of the table uses for borders
+ * so it doesn't shift layout.
+ */
+.invoice-table tr.drop-target-above > td {
+    box-shadow: inset 0 2px 0 0 #2563eb;
+}
+.invoice-table tr.drop-target-below > td {
+    box-shadow: inset 0 -2px 0 0 #2563eb;
+}
+
 .btn-del-ncc {
     color: var(--danger, #e74c3c);
     margin-top: 4px;
@@ -1301,6 +1363,7 @@ tr.ncc-row-done td.col-ncc {
 /* Show on row / cell hover */
 .invoice-table td.col-stt:hover .btn-del-stt,
 .invoice-table td.col-stt:hover .btn-add-stt,
+.invoice-table td.col-stt:hover .btn-copy-stt,
 .invoice-table td.col-ncc:hover .btn-del-ncc,
 .invoice-table td.col-ncc:hover .btn-edit-ncc {
     display: inline-block;

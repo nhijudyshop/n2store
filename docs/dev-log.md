@@ -25,6 +25,27 @@
 
 ## 2026-05-29
 
+### [inventory] Copy MÃ HÀNG + drag-drop reorder product rows ✅
+
+**User ask**: 1) "STT này có nút copy → tạo hàng mới copy lại MÃ HÀNG" 2) "Cho kéo vị trí hàng → STT vẫn giữ nguyên không đi theo hàng, STT vẫn là 1, 2, 3, 4, 5, 6, 7, 8, 9".
+
+**Files**:
+
+- `inventory-tracking/js/table-renderer.js` (renderProductRow) — STT cell giờ render: drag handle `<span.drag-stt>` (icon `grip-vertical`, draggable=true), STT number, nút xóa, nút copy `<button.btn-copy-stt>` (icon `copy`), nút "+" thêm hàng (cuối cùng). 5 window handlers mới: `startProductRowDrag`, `endProductRowDrag`, `allowProductDrop`, `clearProductDropTarget`, `dropProductRow`.
+- `inventory-tracking/js/crud-operations.js` — 2 hàm CRUD mới: `copyProductRow(invoiceId, productIdx)` (copy maSP only, các field khác blank, insert ngay sau row gốc) + `reorderProductRow(invoiceId, srcIdx, destIdx)` (splice out → splice in trong cùng sanPham[]). Refactor common với `_findDotHangByInvoiceId` + `_persistSanPham` helpers.
+- `inventory-tracking/css/modern.css` — `.btn-copy-stt` (blue, hover bg), `.drag-stt` (cursor grab, opacity 0.32 → 1 on hover, icon grip-vertical), `.dragging-row` (opacity 0.45), `.drop-target-above/.drop-target-below` (inset box-shadow 2px blue for drop position hint).
+- `inventory-tracking/index.html` — bump cache `?v=20260529g` cho modern.css, table-renderer.js, crud-operations.js.
+
+**STT logic**: STT number = `productIdx + 1`, render từ Array.map → tự chạy 1,2,3,... theo thứ tự mới. Khi user kéo row 5 lên đầu, sanPham[] reorder → row đó thành index 0 → STT hiển thị 1. Đúng spec "STT không đi theo hàng".
+
+**Drag-drop UX**: handle ⋮⋮ xám nhạt mặc định → đậm khi hover STT. Drag → row gốc fade. Hover row đích → đường kẻ xanh inset trên/dưới cho thấy drop position. Drop cross-invoice → warning "Chỉ được kéo trong cùng 1 NCC".
+
+**Copy logic**: Click copy → POST sanPham mới (insert sau row src với maSP=src.maSP). Server emit SSE `inventory_shipments` → tab khác auto-reload.
+
+Status: ✅ Done.
+
+---
+
 ### [inventory] Custom confirm modal cho mọi delete action ✅
 
 **User ask**: "xóa sẽ có custom confirm".

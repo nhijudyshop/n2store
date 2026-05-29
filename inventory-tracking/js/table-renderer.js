@@ -1196,11 +1196,17 @@ function renderProductRow(opts) {
     const nccDisplay = `${nccCheckbox}<span class="ncc-name editable-cell" data-invoice-id="${_escAttr(invoiceId)}" data-field="tenNCC" ondblclick="event.stopPropagation(); window.startInlineEditNcc(this)" title="Nhấp đúp để sửa">${nccDisplayName}</span>${nccDraftChip}${nccEditBtn}${nccConvertBtn}${nccDeleteBtn}`;
     const doneClass = nccDone ? 'ncc-row-done' : '';
 
+    // Drag-drop wired only on rows that have a product (skip the "0 products"
+    // placeholder). Drop is restricted to same invoice in the JS handler.
+    const dragAttrs = product
+        ? ` data-product-idx="${productIdx}" data-invoice-id="${_escAttr(invoiceId)}" ondragover="window.allowProductDrop(event)" ondragleave="window.clearProductDropTarget(event)" ondrop="window.dropProductRow(event)"`
+        : '';
+
     return `
-        <tr class="${rowClass} ${doneClass}">
+        <tr class="${rowClass} ${doneClass}"${dragAttrs}>
             ${isFirstRow ? `<td class="col-ncc ${rowspanBorderClass} ${nccClass}" rowspan="${rowSpan}" ${nccClickHandler}>${nccDisplay}${subInvoiceIndicator}</td>` : ''}
             <td class="col-stt ${borderClass}">
-                ${product ? `<span class="stt-num">${productIdx + 1}</span><button class="btn-del-stt" onclick="event.stopPropagation(); window.deleteProductRow('${invoiceId}', ${productIdx})" title="Xóa STT ${productIdx + 1}"><i data-lucide="x"></i></button>` : '-'}
+                ${product ? `<span class="drag-stt" draggable="true" ondragstart="window.startProductRowDrag(event)" ondragend="window.endProductRowDrag(event)" title="Kéo để đổi vị trí"><i data-lucide="grip-vertical"></i></span><span class="stt-num">${productIdx + 1}</span><button class="btn-del-stt" onclick="event.stopPropagation(); window.deleteProductRow('${invoiceId}', ${productIdx})" title="Xóa STT ${productIdx + 1}"><i data-lucide="x"></i></button><button class="btn-copy-stt" onclick="event.stopPropagation(); window.copyProductRow('${invoiceId}', ${productIdx})" title="Copy Mã hàng → tạo hàng mới"><i data-lucide="copy"></i></button>` : '-'}
                 ${isLastRow ? `<button class="btn-add-stt" onclick="event.stopPropagation(); window.addProductRow('${invoiceId}')" title="Thêm hàng (STT ${(product ? productIdx + 1 : 0) + 1})"><i data-lucide="plus"></i></button>` : ''}
             </td>
             <td class="col-sku editable-cell ${borderClass}" ${editAttrs} data-field="maSP" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${maSP}${poDraftBadge}</td>
@@ -3239,6 +3245,90 @@ function closePaymentSlideOver() {
     slideOver.classList.remove('open');
     setTimeout(() => slideOver.classList.add('hidden'), 250);
 }
+
+// =====================================================
+// PRODUCT ROW DRAG-DROP (reorder within same NCC invoice)
+// STT cell uses index+1 so the column always reads 1,2,3,...
+// regardless of how the user reorders the underlying sanPham[].
+// Cross-invoice drops are silently rejected.
+// =====================================================
+
+function startProductRowDrag(e) {
+    const tr = e.target.closest('tr[data-invoice-id]');
+    if (!tr) return;
+    const payload = {
+        invoiceId: tr.dataset.invoiceId,
+        productIdx: parseInt(tr.dataset.productIdx, 10),
+    };
+    try {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', JSON.stringify(payload));
+        // Use the TR as drag image so the whole row is visible during drag
+        e.dataTransfer.setDragImage(tr, 20, 12);
+    } catch (_) {
+        /* some browsers throw if called outside a real dragstart */
+    }
+    tr.classList.add('dragging-row');
+}
+
+function endProductRowDrag(/* e */) {
+    document.querySelectorAll('.dragging-row').forEach((el) => el.classList.remove('dragging-row'));
+    document
+        .querySelectorAll('.drop-target-above, .drop-target-below')
+        .forEach((el) => el.classList.remove('drop-target-above', 'drop-target-below'));
+}
+
+function allowProductDrop(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const tr = e.currentTarget;
+    const rect = tr.getBoundingClientRect();
+    const above = e.clientY < rect.top + rect.height / 2;
+    tr.classList.toggle('drop-target-above', above);
+    tr.classList.toggle('drop-target-below', !above);
+}
+
+function clearProductDropTarget(e) {
+    const tr = e.currentTarget;
+    if (tr) tr.classList.remove('drop-target-above', 'drop-target-below');
+}
+
+async function dropProductRow(e) {
+    e.preventDefault();
+    const tr = e.currentTarget;
+    if (!tr) return;
+    const rect = tr.getBoundingClientRect();
+    const dropAbove = e.clientY < rect.top + rect.height / 2;
+    endProductRowDrag(e);
+
+    let payload;
+    try {
+        payload = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
+    } catch {
+        return;
+    }
+    if (!payload || payload.invoiceId !== tr.dataset.invoiceId) {
+        window.notificationManager?.warning('Chỉ được kéo trong cùng 1 NCC');
+        return;
+    }
+
+    const srcIdx = payload.productIdx;
+    const baseIdx = parseInt(tr.dataset.productIdx, 10);
+    let destIdx = dropAbove ? baseIdx : baseIdx + 1;
+    // Removing src shifts indices after it; adjust dest accordingly.
+    if (srcIdx < destIdx) destIdx -= 1;
+    if (srcIdx === destIdx) return;
+
+    if (typeof window.reorderProductRow === 'function') {
+        await window.reorderProductRow(tr.dataset.invoiceId, srcIdx, destIdx);
+    }
+}
+
+window.startProductRowDrag = startProductRowDrag;
+window.endProductRowDrag = endProductRowDrag;
+window.allowProductDrop = allowProductDrop;
+window.clearProductDropTarget = clearProductDropTarget;
+window.dropProductRow = dropProductRow;
 
 // Expose functions globally for inline event handlers
 window.startInlineEdit = startInlineEdit;

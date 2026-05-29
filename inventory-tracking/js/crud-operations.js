@@ -494,9 +494,118 @@ async function addProductRow(invoiceId) {
     }
 }
 
+/**
+ * Find the dotHang containing a given invoiceId. Returns null if not found.
+ * Shared lookup used by add/delete/copy/reorder so they all hit the same path.
+ */
+function _findDotHangByInvoiceId(invoiceId) {
+    for (const ncc of globalState.nccList) {
+        const dot = (ncc.dotHang || []).find((d) => d.id === invoiceId);
+        if (dot) return dot;
+    }
+    return null;
+}
+
+/**
+ * Persist a mutated sanPham[] back to the server + sync local state +
+ * re-render. Used by addProductRow / copyProductRow / reorderProductRow.
+ *
+ * Recomputes tongMon + tongTienHD from the new array so the aggregated stats
+ * bar stays accurate.
+ */
+async function _persistSanPham(targetDot, newProducts) {
+    const qtyOf = window.getProductEffectiveQty || ((p) => p.tongSoLuong || p.soLuong || 0);
+    const amtOf =
+        window.getProductAmount || ((p) => (p.tongSoLuong || p.soLuong || 0) * (p.giaDonVi || 0));
+    const newTongMon = newProducts.reduce((sum, p) => sum + qtyOf(p), 0);
+    const newTongTien = newProducts.reduce((sum, p) => sum + amtOf(p), 0);
+
+    await shipmentsApi.update(targetDot.id, {
+        sanPham: newProducts,
+        tongMon: newTongMon,
+        tongTienHD: newTongTien,
+    });
+
+    targetDot.sanPham = newProducts;
+    targetDot.tongMon = newTongMon;
+    targetDot.tongTienHD = newTongTien;
+
+    flattenNCCData();
+    if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+}
+
+/**
+ * Copy an existing product row's MÃ HÀNG into a new blank row.
+ * Other fields (mô tả, mauSac, SL, đơn giá, ghi chú) start empty so user
+ * can fill in variant-specific data via inline edit.
+ */
+async function copyProductRow(invoiceId, productIdx) {
+    const targetDot = _findDotHangByInvoiceId(invoiceId);
+    if (!targetDot) {
+        window.notificationManager?.error('Không tìm thấy hóa đơn');
+        return;
+    }
+
+    const products = Array.isArray(targetDot.sanPham) ? [...targetDot.sanPham] : [];
+    if (productIdx < 0 || productIdx >= products.length) return;
+    const src = products[productIdx];
+
+    const newProduct = {
+        maSP: src.maSP || '',
+        moTa: '',
+        tongSoLuong: 0,
+        soLuong: 0,
+        giaDonVi: 0,
+        mauSac: [],
+        ghiChu: '',
+        thanhTien: 0,
+    };
+    // Insert right after the source row so it lands as the next STT.
+    products.splice(productIdx + 1, 0, newProduct);
+
+    try {
+        await _persistSanPham(targetDot, products);
+        window.notificationManager?.success(`Đã copy MÃ HÀNG → STT ${productIdx + 2}`);
+    } catch (error) {
+        console.error('[CRUD] Error copying product row:', error);
+        window.notificationManager?.error('Không thể copy: ' + error.message);
+    }
+}
+
+/**
+ * Reorder products inside a single invoice (no cross-invoice moves).
+ * srcIdx / destIdx are 0-based, normalized by the drag handler so that
+ * "splice out then splice in" gives the visually expected position.
+ */
+async function reorderProductRow(invoiceId, srcIdx, destIdx) {
+    const targetDot = _findDotHangByInvoiceId(invoiceId);
+    if (!targetDot) {
+        window.notificationManager?.error('Không tìm thấy hóa đơn');
+        return;
+    }
+
+    const products = Array.isArray(targetDot.sanPham) ? [...targetDot.sanPham] : [];
+    if (srcIdx < 0 || srcIdx >= products.length) return;
+    if (destIdx < 0 || destIdx > products.length) return;
+    if (srcIdx === destIdx) return;
+
+    const [moved] = products.splice(srcIdx, 1);
+    products.splice(destIdx, 0, moved);
+
+    try {
+        await _persistSanPham(targetDot, products);
+        window.notificationManager?.success(`Đã chuyển STT ${srcIdx + 1} → ${destIdx + 1}`);
+    } catch (error) {
+        console.error('[CRUD] Error reordering product row:', error);
+        window.notificationManager?.error('Không thể đổi vị trí: ' + error.message);
+    }
+}
+
 // Expose functions globally for inline onclick handlers
 window.deleteNccInvoice = deleteNccInvoice;
 window.deleteProductRow = deleteProductRow;
 window.addProductRow = addProductRow;
+window.copyProductRow = copyProductRow;
+window.reorderProductRow = reorderProductRow;
 
 console.log('[CRUD] CRUD operations initialized (API mode)');
