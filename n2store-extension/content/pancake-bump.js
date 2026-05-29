@@ -452,22 +452,108 @@
         appendLog(els, 'info', 'Đang chờ Pancake gọi API để bắt pageId + JWT...');
         const ok = await waitForCtx(4500);
         if (!ok) {
-            appendLog(
-                els,
-                'fail',
-                `Không bắt được context (pageId=${ctx.pageId || '?'}, jwt=${ctx.jwt ? 'OK' : '?'}).`
-            );
-            appendLog(
-                els,
-                'info',
-                'Cách fix: chuyển sang trang Hội thoại của Pancake, đợi list load xong, rồi mở lại modal này.'
-            );
-            els.statPage.textContent = ctx.pageId || '?';
-            return;
+            const isMultiPages = /\/multi_pages/i.test(location.pathname);
+            if (isMultiPages) {
+                appendLog(
+                    els,
+                    'info',
+                    'Đang ở /multi_pages — Pancake không gọi /api/v1/pages/<id>/ ở view này. Đang fetch list pages...'
+                );
+            } else {
+                appendLog(
+                    els,
+                    'fail',
+                    `Không bắt được context (pageId=${ctx.pageId || '?'}, jwt=${ctx.jwt ? 'OK' : '?'}).`
+                );
+            }
+            if (ctx.jwt) {
+                const ok2 = await promptPagePicker(els);
+                if (!ok2) {
+                    appendLog(
+                        els,
+                        'info',
+                        'Cách fix nhanh: từ multi_pages click 1 page cụ thể (vd "NhiJudy Store") → URL đổi thành /<slug> → bấm 🚀 lại.'
+                    );
+                    els.statPage.textContent = ctx.pageId || '?';
+                    return;
+                }
+            } else {
+                appendLog(els, 'fail', 'JWT missing — đăng nhập lại Pancake.');
+                return;
+            }
         }
         els.statPage.textContent = ctx.pageId;
         appendLog(els, 'info', `Captured: pageId=${ctx.pageId}, jwt=...${ctx.jwt.slice(-12)}`);
         await refreshConvs(els);
+    }
+
+    async function promptPagePicker(els) {
+        const tok = ctx.jwt;
+        const candidates = [
+            '/api/v1/me/pages',
+            '/api/v1/users/me/pages',
+            '/api/v1/pages',
+            '/api/v1/multi_pages/pages',
+        ];
+        let pages = null;
+        let usedUrl = null;
+        for (const p of candidates) {
+            try {
+                const r = await fetch(p + '?access_token=' + encodeURIComponent(tok), {
+                    headers: { Accept: 'application/json' },
+                });
+                if (!r.ok) continue;
+                const j = await r.json();
+                const list = j?.pages || j?.data || j?.user_pages || (Array.isArray(j) ? j : null);
+                if (Array.isArray(list) && list.length) {
+                    pages = list;
+                    usedUrl = p;
+                    break;
+                }
+            } catch (_) {}
+        }
+        if (!pages) {
+            appendLog(
+                els,
+                'fail',
+                'Không fetch được list pages qua các endpoint thử (' + candidates.join(', ') + ').'
+            );
+            return false;
+        }
+        appendLog(els, 'info', `Tìm thấy ${pages.length} pages qua ${usedUrl}. Bấm để chọn:`);
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px; padding:6px 0;';
+        let resolved = false;
+        const result = new Promise((resolve) => {
+            for (const p of pages) {
+                const pid = String(p.id || p.page_id || p.fb_id || '');
+                const pname = p.name || p.page_name || pid;
+                if (!/^\d{10,20}$/.test(pid)) continue;
+                const b = document.createElement('button');
+                b.textContent = pname;
+                b.style.cssText =
+                    'background:#16a34a; color:white; border:none; border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer;';
+                b.addEventListener('click', () => {
+                    ctx.pageId = pid;
+                    appendLog(els, 'ok', `Đã chọn page: ${pname} (${pid})`);
+                    wrap.remove();
+                    els.statPage.textContent = pid;
+                    if (!resolved) {
+                        resolved = true;
+                        resolve(true);
+                    }
+                });
+                wrap.appendChild(b);
+            }
+            els.log.appendChild(wrap);
+            setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    resolve(false);
+                }
+            }, 60_000);
+        });
+        return result;
     }
 
     function closeModal(els) {

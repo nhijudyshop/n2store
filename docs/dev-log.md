@@ -68,6 +68,23 @@ Status: ✅ Done.
 
 ---
 
+### [extension][pancake] Bump UI fix — page picker cho /multi_pages view ✅
+
+**User ask**: trên `pancake.vn/multi_pages` (multi-page aggregated view), JWT bắt được nhưng pageId không (Pancake không gọi `/api/v1/pages/<id>/...` ở view này, dùng endpoint aggregate khác). Log: `Không bắt được context (pageId=?, jwt=OK)`.
+
+**Fix** ([n2store-extension/content/pancake-bump.js](../n2store-extension/content/pancake-bump.js)):
+
+- Detect `location.pathname` chứa `/multi_pages` → message rõ ràng
+- Nếu JWT có (đủ auth) → fetch list pages user có quyền qua các candidate endpoints: `/api/v1/me/pages`, `/api/v1/users/me/pages`, `/api/v1/pages`, `/api/v1/multi_pages/pages` (Pancake doc không public nên thử nhiều)
+- Render inline button cho mỗi page trong log area → user bấm → `ctx.pageId` được set → trigger `refreshConvs()` load list livestream
+- Nếu cả 4 endpoint đều fail → message clear "click 1 page cụ thể (vd 'NhiJudy Store') từ multi_pages → URL đổi thành /<slug> → bấm 🚀 lại"
+
+Manifest version `1.0.20` → `1.0.21`.
+
+**Status**: ✅ Done. Reload extension + test trên `/multi_pages`.
+
+---
+
 ### [extension][pancake] Bump UI fix — content script chuyển MAIN world + auto-capture pageId/JWT ✅
 
 **User ask**: bump modal mở nhưng "không load được đoạn hội thoại". Root cause: `getJwt()` đọc `localStorage.getItem('jwt')` không có trên Pancake (Pancake lưu JWT trong cookie HttpOnly + bộ nhớ React state). `detectPageId()` dò avatar img nhưng Pancake redirect `/api/v1/pages/<pid>/avatar/...` → `content.pancake.vn/...` → match regex hỏng.
