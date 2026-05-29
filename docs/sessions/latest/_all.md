@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4cfc8c1` — auto: session update
-**Last updated**: 2026-05-29 20:05:36 +07
-**Latest session**: [`RESUME:20260529-200536-4cfc8c1`](../20260529-200536-4cfc8c1.md)
-**Summary**: auto: session update
+**Latest commit**: `c24c6b5` — perf(so-order): Receive modal scroll smoothness fix (CSS containment + GPU layer)
+**Last updated**: 2026-05-29 20:18:32 +07
+**Latest session**: [`RESUME:20260529-201832-c24c6b5`](../20260529-201832-c24c6b5.md)
+**Summary**: perf(so-order): Receive modal scroll smoothness fix (CSS containment + GPU layer)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`n2store-extension/`](./n2store-extension.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 2 file(s)
+- [`so-order/`](./so-order.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -57,7 +55,7 @@
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-29 15:42
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
-- [`so-order/`](./so-order.md) — updated 2026-05-29 20:05
+- [`so-order/`](./so-order.md) — updated 2026-05-29 20:18
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
