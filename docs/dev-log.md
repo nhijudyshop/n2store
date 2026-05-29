@@ -25,6 +25,51 @@
 
 ## 2026-05-29
 
+### [so-order] Tạo bulk test data ngày 29/05/2026 — 5 NCC × 20 SP × demo images ✅
+
+**User ask**: "Browser test -> tạo dữ liệu test ngày 29/05/2026 / tạo đầy đủ dữ liệu nhiều NCC, sản phẩm, đầy đủ hình ảnh demo".
+
+**Approach**: Eval qua persistent browser session vào `SoOrderStorage` API (`addShipment` + `addRow` + `Sync.flush`). Tránh UI fill từng row một (chậm + flaky).
+
+**Data structure** — 3 tabs × 5 NCC × 4 SP/NCC = 20 rows total:
+
+| Tab                | Currency | NCC                   | Products                       | Rows |
+| ------------------ | -------- | --------------------- | ------------------------------ | ---- |
+| VN — Hà Nội        | VND      | TEST-NCC-AOQUOC-QC    | AO-THUN-FORM-RONG, AO-POLO-NAM | 4    |
+|                    |          | TEST-NCC-QUANJEAN-VN  | QUAN-JEAN-RACH, QUAN-KAKI-NU   | 4    |
+| China — Quảng Châu | CNY      | TEST-NCC-GUANGZHOU-A  | DAM-LEN-DAI, CHAN-VAY-XOE      | 4    |
+|                    |          | TEST-NCC-SHENZHEN-B   | TUI-XACH-NU, GIAY-SNEAKER      | 4    |
+| Korea — Dongdaemun | KRW      | TEST-NCC-DONGDAEMUN-K | AO-LEN-COLAU, VAY-XOA-KOREA    | 4    |
+
+- **Date** uniform: `2026-05-29`
+- **Batch IDs** unique: `TEST-BATCH-{VN,CN,KR}-001`
+- **Variants**: kích cỡ + màu (Trắng-M, Đen-L, 38/39 cho giày…)
+- **Images**: `picsum.photos/seed/{vn1..kr4}` — productImage 300×300, invoiceImage 600×200, stable seeded URLs
+- **Prices**: sellPrice 180k–850k, costPrice 120k–560k
+- **Notes**: "Auto-test data — claude code 2026-05-29"
+
+**Verified UI render** qua 3 screenshots:
+
+- VN: 8 rows render đủ supplier badges, variants, ảnh demo, total 53.940.000 ₫
+- CN: 8 rows + currency CNY, total 463.090.000 ₫
+- KR: 4 rows + currency KRW, total 23.130.000 ₫
+
+**Helper scripts** (saved for future use):
+
+- `scripts/so-order-test-data-create.js` — bulk insert via SoOrderStorage
+- `scripts/so-order-test-data-cleanup.js` — strip rows `supplier LIKE TEST-NCC-%` + drop ships `batch LIKE TEST-BATCH-%`
+- `scripts/so-order-test-data-load.sh create|cleanup` — wrapper gọi persistent browser session (port 9999)
+
+**Cleanup tested**: 3 ships + 20 rows removed cleanly, Firestore flushed.
+
+**Persistence note**: Storage là local-first → cần `Sync.flush()` sau bulk insert mới ép write Firestore TRƯỚC khi reload (page init pulls fresh từ Firestore, sẽ overwrite local nếu chưa flush).
+
+**Screenshots**: `downloads/n2store-session/so-order-test-{vn,cn,kr}.png` (gitignored).
+
+**Files**: scripts/so-order-test-data-{create.js, cleanup.js, load.sh}
+
+---
+
 ### [inventory] Bỏ cột "MÔ TẢ" khỏi bảng ✅
 
 **User ask**: "bỏ cột mô tả đi".
