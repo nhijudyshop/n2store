@@ -25,6 +25,31 @@
 
 ## 2026-05-29
 
+### [shared][nav] SePay billing alert: dùng expiryDate THỰC từ CF Worker thay vì calendar cứng ✅
+
+**Bug**: User đã thanh toán SePay VIP nhưng banner đỏ ở mọi trang vẫn hiện "SePay VIP (589K đ) 589.000đ — quá hạn 2 ngày". Sidebar badge service-costs cũng đếm sai.
+
+**Root cause**: `getBillingAlerts()` trong `shared/js/navigation-modern.js` chỉ tính theo lịch cố định (`billingDay: 27 + showDays: 3`). Hôm nay 29/05 → 2 ngày sau 27 → hiện overdue dù subscription thực tế còn active đến 27/06.
+
+**Fix**: Verify với SePay live data qua CF Worker `/api/sepay-dashboard` (đã có sẵn cho service-costs).
+
+**Files**:
+
+- `shared/js/navigation-modern.js`:
+    - `getBillingAlerts()`: nếu cache `sepay_live_status_v1` còn fresh (TTL 6h) và có `expiryDate` → tính `daysDiff = expiry - today`. Subscription còn 29 ngày → out-of-window → không alert. Fallback time-based khi cache miss/network fail.
+    - `_getSepayLiveStatus()` / `_maybeRefreshSepayLiveStatus()` / `_refreshSepayLiveStatus()`: read cache, throttle inflight, POST CF Worker với credentials đã được service-costs.js dùng sẵn.
+    - `_rerenderBillingUI()`: sau khi API trả về, xóa banner cũ + re-render sidebar badge nếu sessionStorage chưa dismiss.
+
+**Verify** (persistent browser session `http://localhost:8080/orders-report/main.html`):
+
+- Curl CF Worker → `plans.expiryDate: "2026-06-27"` ✅
+- Fresh load (no cache): banner "quá hạn 2 ngày" hiện ~5s → CF Worker trả về → cache populated `{expiryDate:"2026-06-27"}` → banner tự biến mất ✅
+- Reload tiếp (cache hit): không hiện banner luôn ✅
+
+**Status**: ✅ Done
+
+---
+
 ### [so-order] Tạo bulk test data ngày 29/05/2026 — 5 NCC × 20 SP × demo images ✅
 
 **User ask**: "Browser test -> tạo dữ liệu test ngày 29/05/2026 / tạo đầy đủ dữ liệu nhiều NCC, sản phẩm, đầy đủ hình ảnh demo".
