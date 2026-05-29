@@ -51,6 +51,38 @@ Status: ✅ Done.
 
 ---
 
+### [extension][pancake] Comment-Count Booster UI inject vào Pancake admin ✅
+
+**User ask**: thêm UI cho tính năng bump comment count (đã có CLI ở entry dưới). Chọn Option B = inject qua N2Store Extension vào pancake.vn (không build trang web2 mới).
+
+**Files**:
+
+- [n2store-extension/content/pancake-bump.js](../n2store-extension/content/pancake-bump.js) — Content script, IIFE, Shadow DOM isolated UI. FAB float góc dưới-phải → modal config (limit/delay/templates/cap-per-conv/skip-answered/post-id) + Dry-run/Run/Stop. Progress bar + colored log realtime. Templates lưu localStorage.
+- [n2store-extension/manifest.json](../n2store-extension/manifest.json) — version `1.0.17` → `1.0.18`. Thêm content_scripts entry `{matches: ["*://pancake.vn/*"], js: ["content/pancake-bump.js"], run_at: "document_idle"}` + host_permissions `*://pancake.vn/*`.
+
+**Tech**:
+
+- Shadow DOM (`:host { all: initial }`) tránh conflict với Pancake's React + CSS
+- Detect pageId từ `<img src="/api/v1/pages/<id>/avatar/...">` (avatar luôn có path full)
+- JWT từ `localStorage.getItem('jwt')` — content script runs on pancake.vn → same-origin, không cần CORS proxy
+- Port logic từ `scripts/pancake-livestream-comment-spam.js`: `fetchLivestreamConvs()`, `selectQueue()`, `sendCommentReply()`
+
+**UI**:
+
+- FAB 🚀 green gradient (matches Pancake's brand) `position:fixed bottom-right z:2147483647`
+- Modal dark theme (`#1e293b` slate) với green accents (`#16a34a`)
+- 3 stat cells: Page ID / Livestream convs count / Queue size
+- 4 buttons: Đóng / Dry-run / Dừng / Chạy thật
+- Live colored log: ok=green, fail=red, dry=yellow, info=gray
+- Progress bar realtime % theo queue
+- Config persist trong `localStorage['n2store.pancake.bump.cfg.v1']`
+
+**Activation**: User reload extension (`chrome://extensions/` → Reload) HOẶC đợi CWS auto-publish (bump version → Stop hook → CWS) → refresh pancake.vn tab → thấy nút 🚀 ở góc dưới-phải.
+
+**Status**: ✅ Done — code committed, CWS auto-publish triggered.
+
+---
+
 ### [scripts][pancake] Pancake livestream comment-count booster ✅
 
 **User ask**: dùng Pancake gửi reply công khai vào các thread comment đến từ livestream để **tăng comment count** trên livestream post (đẩy reach), KHÔNG spam DM khách (không làm phiền). Filter "Đến từ livestream" trong Pancake UI = client-side filter `conversation.post.type === "livestream"` (radio value `is_livestream_post_on`).
