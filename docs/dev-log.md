@@ -25,6 +25,33 @@
 
 ## 2026-05-29
 
+### [inventory] SSE realtime auto-refresh + bobo grant CP perms ✅
+
+**Bối cảnh**: User báo 2 vấn đề trên `inventory-tracking/`:
+
+1. Thêm/chỉnh sửa dữ liệu bảng → phải refresh mới thấy UI update (không realtime).
+2. Account `bobo` cần thấy + chỉnh sửa cột "Chi phí" và "Ghi chú CP".
+
+**Files**:
+
+- `render.com/routes/v2/inventory-tracking.js` — wire `notify(topic, action, extra)` helper sau mỗi mutation (POST/PUT/PATCH/DELETE) trên 5 entity: `inventory_suppliers`, `inventory_order_bookings`, `inventory_shipments`, `inventory_prepayments`, `inventory_other_expenses` (17 notify calls). `product_images` đã wire trước.
+- `inventory-tracking/js/data-loader.js` — refactor `setupProductImagesRealtimeSync` → `setupInventoryRealtimeSync`: 1 SSE client subscribe 6 topics, split debounced reload paths (200ms images / 300ms full data / 300ms finance).
+- `inventory-tracking/index.html` — bump `data-loader.js?v=20260529b` (linter auto-bump cache version cùng đợt).
+- `scripts/grant-bobo-cp-perms.js` — one-shot: login admin → fetch bobo → flip 4 perms (`view_chiPhiHangVe`, `edit_chiPhiHangVe`, `view_ghiChuAdmin`, `edit_ghiChuAdmin`) → PUT → verify. Đã chạy thành công trên prod.
+
+**Pattern**: Inventory-tracking nằm trên hub Web 1.0 SSE (`/api/realtime/sse`) với topic naming bare snake_case (giống `celebration`, `kpi_statistics`, `product_images`). KHÔNG dùng prefix `web2:` vì page này không thuộc Web 2.0.
+
+**Debounce strategy**: `loadNCCData()` reload toàn bộ supplier+booking+shipment trong 1 fetch chain (parallel). `loadFinanceData()` reload prepayments+expenses. Skip nếu `globalState.isLoading=true` để tránh stomp manual reload đang chạy.
+
+**Verify**:
+
+- Server log line cần thấy sau mutation: `[SSE] Notified N clients for key: inventory_shipments` (hoặc topic tương ứng). N>0 = có tab khác đang subscribe.
+- Client console line cần thấy khi nhận event: `[DATA] SSE event inventory_shipments: update` rồi `[DATA] SSE → reloading inventory data`.
+
+Status: ✅ Done — bobo verified `view_chiPhiHangVe=true, edit_chiPhiHangVe=true, view_ghiChuAdmin=true, edit_ghiChuAdmin=true` qua public read endpoint. SSE deploy chờ Render auto-deploy (~3 min).
+
+---
+
 ### [web2] P2 audit fix — remove 4 Firestore onSnapshot listeners (SSE đã verified production) ✅
 
 **Bối cảnh**: P1 đã bump cache. P2 fix 4 vi phạm `docs/web2/SSE-REALTIME.md` (no Firestore listener cho Web 2.0):
