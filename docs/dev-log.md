@@ -51,6 +51,26 @@ Status: ✅ Done.
 
 ---
 
+### [extension][pancake] Bump UI — thêm conversation picker với checkbox ✅
+
+**User ask**: thay vì auto-include tất cả livestream conv, cho **tick chọn** từng dòng (như list trong Pancake).
+
+**Changes** ([n2store-extension/content/pancake-bump.js](../n2store-extension/content/pancake-bump.js)):
+
+- Picker panel mới giữa templates + progress bar
+- Search input (filter theo tên KH), select filter (Tất cả / Chưa reply / Đã reply), nút "Tick tất cả" / "Bỏ tick" / "↻ Refresh"
+- Scrollable list (max-height 260px) — mỗi conv 1 row: checkbox + tên KH + tag "đã reply" + post ID + giờ
+- Counter footer: "Hiển thị X/Y" + "Đã chọn N"
+- Default behavior: khi mở modal, auto-fetch + auto-tick các conv chưa reply (theo `skip-answered` config)
+- Run dùng `state.selected` Set thay vì auto `selectQueue` — anh kiểm soát chính xác cái nào bump
+- Limit vẫn là hard safety cap (nếu tick > limit thì cap còn N đầu)
+
+Manifest version `1.0.18` → `1.0.19`.
+
+**Status**: ✅ Done. CWS auto-publish triggered. Reload extension để thấy picker.
+
+---
+
 ### [extension][pancake] Comment-Count Booster UI inject vào Pancake admin ✅
 
 **User ask**: thêm UI cho tính năng bump comment count (đã có CLI ở entry dưới). Chọn Option B = inject qua N2Store Extension vào pancake.vn (không build trang web2 mới).

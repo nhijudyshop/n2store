@@ -170,6 +170,54 @@
                     margin-bottom: 12px;
                 }
                 .warning strong { color: #fed7aa; }
+
+                .picker {
+                    background: #0f172a; border: 1px solid #334155;
+                    border-radius: 8px; margin-bottom: 12px; overflow: hidden;
+                }
+                .picker-head {
+                    display: flex; gap: 6px; padding: 8px;
+                    background: #1e293b; border-bottom: 1px solid #334155;
+                    align-items: center; flex-wrap: wrap;
+                }
+                .picker-head input[type=text] {
+                    flex: 1; min-width: 140px; padding: 6px 8px; font-size: 12px;
+                }
+                .picker-head select { width: auto; padding: 6px 8px; font-size: 12px; }
+                .picker-head .btn { padding: 6px 10px; font-size: 11px; }
+                .picker-list {
+                    max-height: 260px; overflow-y: auto;
+                    background: #020617;
+                }
+                .picker-empty { padding: 24px; text-align: center; color: #64748b; font-size: 12px; }
+                .conv-row {
+                    display: flex; align-items: center; gap: 10px;
+                    padding: 8px 10px; border-bottom: 1px solid #1e293b;
+                    cursor: pointer; transition: background .1s;
+                }
+                .conv-row:hover { background: #1e293b; }
+                .conv-row.checked { background: rgba(22, 163, 74, 0.08); }
+                .conv-row.answered { opacity: 0.55; }
+                .conv-row input[type=checkbox] {
+                    width: 16px; height: 16px; accent-color: #22c55e;
+                    flex-shrink: 0; margin: 0; cursor: pointer;
+                }
+                .conv-info { flex: 1; min-width: 0; }
+                .conv-name { font-size: 13px; color: #e2e8f0; font-weight: 500; }
+                .conv-meta { font-size: 11px; color: #64748b; margin-top: 2px; display: flex; gap: 6px; align-items: center; }
+                .conv-meta .tag {
+                    background: #1e293b; color: #94a3b8; padding: 1px 6px;
+                    border-radius: 3px; font-size: 10px;
+                }
+                .conv-meta .tag.answered { background: #422006; color: #fbbf24; }
+                .conv-time { color: #64748b; font-size: 11px; flex-shrink: 0; }
+
+                .picker-counter {
+                    padding: 6px 10px; font-size: 11px; color: #94a3b8;
+                    background: #0f172a; border-top: 1px solid #1e293b;
+                    display: flex; justify-content: space-between;
+                }
+                .picker-counter strong { color: #22c55e; }
             </style>
 
             <button class="fab" title="Bump Comment Livestream">🚀</button>
@@ -234,6 +282,30 @@
                             <input type="text" id="cfg-post-id" placeholder="Để trống = tất cả livestream">
                         </div>
 
+                        <div class="row">
+                            <label>Chọn conversations để bump</label>
+                            <div class="picker">
+                                <div class="picker-head">
+                                    <input type="text" id="picker-search" placeholder="🔍 Tìm tên...">
+                                    <select id="picker-filter">
+                                        <option value="all">Tất cả</option>
+                                        <option value="unanswered">Chưa reply</option>
+                                        <option value="answered">Đã reply</option>
+                                    </select>
+                                    <button class="btn btn-secondary" id="picker-check-all">Tick tất cả</button>
+                                    <button class="btn btn-secondary" id="picker-uncheck-all">Bỏ tick</button>
+                                    <button class="btn btn-secondary" id="picker-refresh" title="Refresh danh sách">↻</button>
+                                </div>
+                                <div class="picker-list" id="picker-list">
+                                    <div class="picker-empty">Bấm Refresh ↻ để load danh sách</div>
+                                </div>
+                                <div class="picker-counter">
+                                    <span>Hiển thị: <strong id="picker-visible">0</strong>/<span id="picker-total">0</span></span>
+                                    <span>Đã chọn: <strong id="picker-selected">0</strong></span>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="progress-bar hidden" id="progress-wrap"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
                         <div class="log hidden" id="log"></div>
                     </div>
@@ -272,6 +344,21 @@
             log: $('#log'),
             progressWrap: $('#progress-wrap'),
             progressFill: $('#progress-fill'),
+            pickerSearch: $('#picker-search'),
+            pickerFilter: $('#picker-filter'),
+            pickerCheckAll: $('#picker-check-all'),
+            pickerUncheckAll: $('#picker-uncheck-all'),
+            pickerRefresh: $('#picker-refresh'),
+            pickerList: $('#picker-list'),
+            pickerVisible: $('#picker-visible'),
+            pickerTotal: $('#picker-total'),
+            pickerSelected: $('#picker-selected'),
+        };
+
+        // Picker state
+        els.state = {
+            convs: [], // all fetched livestream conversations
+            selected: new Set(), // conv.id of checked rows
         };
 
         loadCfg(els);
@@ -294,6 +381,20 @@
                 els[k].addEventListener('change', () => saveCfg(els));
             }
         );
+
+        // Picker events
+        els.pickerSearch.addEventListener('input', () => renderConvList(els));
+        els.pickerFilter.addEventListener('change', () => renderConvList(els));
+        els.pickerRefresh.addEventListener('click', () => refreshConvs(els));
+        els.pickerCheckAll.addEventListener('click', () => {
+            for (const c of filteredConvs(els)) els.state.selected.add(c.id);
+            renderConvList(els);
+        });
+        els.pickerUncheckAll.addEventListener('click', () => {
+            for (const c of filteredConvs(els)) els.state.selected.delete(c.id);
+            renderConvList(els);
+        });
+        els.postId.addEventListener('change', () => refreshConvs(els));
     }
 
     async function openModal(els) {
@@ -310,19 +411,7 @@
             );
             return;
         }
-        try {
-            const jwt = getJwt();
-            if (!jwt) {
-                appendLog(els, 'fail', 'Không tìm thấy JWT. Đăng nhập Pancake trước.');
-                return;
-            }
-            const convs = await fetchLivestreamConvs(jwt, pageId, els.postId.value.trim());
-            els.statLive.textContent = String(convs.length);
-            updateQueueStat(els, convs);
-        } catch (e) {
-            els.statLive.textContent = 'err';
-            appendLog(els, 'fail', 'Fetch convs lỗi: ' + (e?.message || e));
-        }
+        await refreshConvs(els);
     }
 
     function closeModal(els) {
@@ -333,10 +422,115 @@
         els.overlay.classList.remove('show');
     }
 
-    async function updateQueueStat(els, convs) {
-        const cfg = readCfg(els);
-        const queue = selectQueue(convs, cfg);
-        els.statQueue.textContent = String(queue.length);
+    async function refreshConvs(els) {
+        const pageId = detectPageId();
+        const jwt = getJwt();
+        if (!pageId || !jwt) {
+            appendLog(els, 'fail', 'Thiếu Page ID hoặc JWT.');
+            return;
+        }
+        els.pickerList.innerHTML = '<div class="picker-empty">Đang load...</div>';
+        try {
+            const convs = await fetchLivestreamConvs(jwt, pageId, els.postId.value.trim());
+            els.state.convs = convs;
+            els.statLive.textContent = String(convs.length);
+            // Default: select all unanswered (respect skip-answered config)
+            const cfg = readCfg(els);
+            els.state.selected = new Set();
+            for (const c of convs) {
+                if (cfg.skipAnswered && c.last_sent_by?.id === pageId) continue;
+                els.state.selected.add(c.id);
+            }
+            renderConvList(els);
+        } catch (e) {
+            els.pickerList.innerHTML =
+                '<div class="picker-empty">Lỗi load: ' +
+                escapeHtml(String(e?.message || e)) +
+                '</div>';
+            appendLog(els, 'fail', 'Fetch convs lỗi: ' + (e?.message || e));
+        }
+    }
+
+    function filteredConvs(els) {
+        const q = (els.pickerSearch.value || '').toLowerCase().trim();
+        const filter = els.pickerFilter.value;
+        const pageId = detectPageId();
+        return (els.state.convs || []).filter((c) => {
+            const name = (c.from?.name || '').toLowerCase();
+            if (q && !name.includes(q)) return false;
+            const isAnswered = c.last_sent_by?.id === pageId;
+            if (filter === 'answered' && !isAnswered) return false;
+            if (filter === 'unanswered' && isAnswered) return false;
+            return true;
+        });
+    }
+
+    function renderConvList(els) {
+        const visible = filteredConvs(els);
+        const pageId = detectPageId();
+        els.pickerVisible.textContent = String(visible.length);
+        els.pickerTotal.textContent = String(els.state.convs.length);
+        els.pickerSelected.textContent = String(els.state.selected.size);
+        els.statQueue.textContent = String(els.state.selected.size);
+
+        if (!visible.length) {
+            els.pickerList.innerHTML =
+                '<div class="picker-empty">Không có conversation nào khớp filter</div>';
+            return;
+        }
+
+        const frag = document.createDocumentFragment();
+        for (const c of visible) {
+            const row = document.createElement('div');
+            const checked = els.state.selected.has(c.id);
+            const isAnswered = c.last_sent_by?.id === pageId;
+            row.className =
+                'conv-row' + (checked ? ' checked' : '') + (isAnswered ? ' answered' : '');
+            const time = c.last_customer_interactive_at || c.inserted_at || '';
+            const timeStr = time ? time.slice(11, 16) : '';
+            row.innerHTML = `
+                <input type="checkbox" ${checked ? 'checked' : ''}>
+                <div class="conv-info">
+                    <div class="conv-name">${escapeHtml(c.from?.name || '?')}</div>
+                    <div class="conv-meta">
+                        ${isAnswered ? '<span class="tag answered">đã reply</span>' : ''}
+                        <span>post ${escapeHtml((c.post_id || '').split('_')[1] || '?')}</span>
+                    </div>
+                </div>
+                <div class="conv-time">${timeStr}</div>
+            `;
+            const cb = row.querySelector('input');
+            const toggle = () => {
+                if (cb.checked) els.state.selected.add(c.id);
+                else els.state.selected.delete(c.id);
+                row.classList.toggle('checked', cb.checked);
+                els.pickerSelected.textContent = String(els.state.selected.size);
+                els.statQueue.textContent = String(els.state.selected.size);
+            };
+            cb.addEventListener('change', toggle);
+            row.addEventListener('click', (e) => {
+                if (e.target === cb) return;
+                cb.checked = !cb.checked;
+                toggle();
+            });
+            frag.appendChild(row);
+        }
+        els.pickerList.innerHTML = '';
+        els.pickerList.appendChild(frag);
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(
+            /[&<>"']/g,
+            (c) =>
+                ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;',
+                })[c]
+        );
     }
 
     async function runBump(els, dryRun) {
@@ -363,20 +557,28 @@
         clearLog(els);
 
         try {
+            // Build queue from picker selection (intersected with fetched convs)
+            // Re-fetch is not needed — user already curated the list via picker.
+            const selectedIds = els.state.selected;
+            if (!selectedIds.size) {
+                appendLog(els, 'fail', 'Chưa chọn conversation nào. Tick ít nhất 1 dòng.');
+                return;
+            }
+            const convsById = new Map((els.state.convs || []).map((c) => [c.id, c]));
+            let queue = [...selectedIds].map((id) => convsById.get(id)).filter(Boolean);
+            // Apply limit (hard safety cap)
+            if (queue.length > cfg.limit) {
+                appendLog(
+                    els,
+                    'info',
+                    `Đã chọn ${queue.length} nhưng limit=${cfg.limit} → cap còn ${cfg.limit} đầu.`
+                );
+                queue = queue.slice(0, cfg.limit);
+            }
             appendLog(
                 els,
                 'info',
-                `${dryRun ? '[DRY-RUN] ' : ''}Page=${pageId}, fetching livestream convs...`
-            );
-            const convs = await fetchLivestreamConvs(jwt, pageId, cfg.postId);
-            appendLog(els, 'info', `Fetched ${convs.length} livestream conversations.`);
-            els.statLive.textContent = String(convs.length);
-            const queue = selectQueue(convs, cfg);
-            els.statQueue.textContent = String(queue.length);
-            appendLog(
-                els,
-                'info',
-                `Queue: ${queue.length} convs (cap-per-conv=${cfg.capPerConv}, skip-answered=${cfg.skipAnswered})`
+                `${dryRun ? '[DRY-RUN] ' : ''}Page=${pageId}, queue=${queue.length} conversations.`
             );
 
             let okCount = 0;
