@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0bd4433` — feat(inventory): per-NCC + per-shipment edit history (30-day retention)
-**Last updated**: 2026-05-29 19:42:57 +07
-**Latest session**: [`RESUME:20260529-194257-0bd4433`](../20260529-194257-0bd4433.md)
-**Summary**: feat(inventory): per-NCC + per-shipment edit history (30-day retention)
+**Latest commit**: `f3d777a` — auto: session update
+**Last updated**: 2026-05-29 20:02:25 +07
+**Latest session**: [`RESUME:20260529-200225-f3d777a`](../20260529-200225-f3d777a.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`inventory-tracking/`](./inventory-tracking.md) — 5 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`n2store-extension/`](./n2store-extension.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -39,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-26 16:02
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-29 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-05-26 13:38
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
@@ -57,7 +56,7 @@
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-29 15:42
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
-- [`so-order/`](./so-order.md) — updated 2026-05-29 18:18
+- [`so-order/`](./so-order.md) — updated 2026-05-29 20:02
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
