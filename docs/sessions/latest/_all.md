@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f3d777a` — auto: session update
-**Last updated**: 2026-05-29 20:02:25 +07
-**Latest session**: [`RESUME:20260529-200225-f3d777a`](../20260529-200225-f3d777a.md)
+**Latest commit**: `4cfc8c1` — auto: session update
+**Last updated**: 2026-05-29 20:05:36 +07
+**Latest session**: [`RESUME:20260529-200536-4cfc8c1`](../20260529-200536-4cfc8c1.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
+- [`docs/`](./docs.md) — 1 file(s)
 - [`n2store-extension/`](./n2store-extension.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 3 file(s)
+- [`so-order/`](./so-order.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-29 19:42
+- [`docs/`](./docs.md) — updated 2026-05-29 20:05
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -38,7 +39,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-29 20:02
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-29 20:05
 - [`native-orders/`](./native-orders.md) — updated 2026-05-26 13:38
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
@@ -56,7 +57,7 @@
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-29 15:42
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
-- [`so-order/`](./so-order.md) — updated 2026-05-29 20:02
+- [`so-order/`](./so-order.md) — updated 2026-05-29 20:05
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
