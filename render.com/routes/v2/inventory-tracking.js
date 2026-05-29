@@ -43,12 +43,28 @@
 const express = require('express');
 const router = express.Router();
 
-// SSE notifier for realtime sync
+// SSE notifier for realtime sync (Web 1.0 hub — bare snake_case topics).
+// Topics:
+//   inventory_suppliers         — supplier list changed
+//   inventory_order_bookings    — order booking CRUD (Tab Đặt Hàng)
+//   inventory_shipments         — shipment CRUD (Tab Theo Dõi Nhập Hàng)
+//   inventory_prepayments       — prepayment CRUD (Tab Công Nợ)
+//   inventory_other_expenses    — other expense CRUD (Tab Công Nợ)
+//   product_images              — product image CRUD (separate, already wired)
 let sseRouter;
 try {
     sseRouter = require('../realtime-sse');
 } catch (e) {
     sseRouter = { notifyClients: () => {} };
+}
+
+// Fire-and-forget broadcast. Never block the response on SSE.
+function notify(topic, action, extra) {
+    try {
+        sseRouter.notifyClients(topic, { action, ...(extra || {}), ts: Date.now() });
+    } catch (e) {
+        console.warn(`[inventory] notify ${topic} failed:`, e.message);
+    }
 }
 
 function getDb(req) {
@@ -161,6 +177,7 @@ router.post('/suppliers', async (req, res) => {
             [generateId('ncc'), stt_ncc, ten_ncc || null]
         );
 
+        notify('inventory_suppliers', 'upsert', { stt_ncc: result.rows[0].stt_ncc });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('[inventory] POST /suppliers error:', err.message);
@@ -335,6 +352,7 @@ router.post('/order-bookings', async (req, res) => {
             ]
         );
 
+        notify('inventory_order_bookings', 'create', { id: result.rows[0].id });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('[inventory] POST /order-bookings error:', err.message);
@@ -395,6 +413,7 @@ router.put('/order-bookings/:id', async (req, res) => {
 
         if (result.rows.length === 0)
             return res.status(404).json({ success: false, error: 'Not found' });
+        notify('inventory_order_bookings', 'update', { id: req.params.id });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('[inventory] PUT /order-bookings/:id error:', err.message);
@@ -420,6 +439,7 @@ router.patch('/order-bookings/:id/status', async (req, res) => {
 
         if (result.rows.length === 0)
             return res.status(404).json({ success: false, error: 'Not found' });
+        notify('inventory_order_bookings', 'status', { id: req.params.id, trang_thai });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -435,6 +455,7 @@ router.delete('/order-bookings/:id', async (req, res) => {
         );
         if (result.rows.length === 0)
             return res.status(404).json({ success: false, error: 'Not found' });
+        notify('inventory_order_bookings', 'delete', { id: req.params.id });
         res.json({ success: true, deleted: req.params.id });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -670,6 +691,7 @@ router.post('/shipments', async (req, res) => {
                     user,
                 ]
             );
+            notify('inventory_shipments', 'merge', { id: upd.rows[0].id });
             return res.json({ success: true, data: upd.rows[0], merged: true });
         }
 
@@ -743,6 +765,7 @@ router.post('/shipments', async (req, res) => {
             ]
         );
 
+        notify('inventory_shipments', 'create', { id: result.rows[0].id, dot_so: resolvedDotSo });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('[inventory] POST /shipments error:', err.message);
@@ -830,6 +853,7 @@ router.put('/shipments/:id', async (req, res) => {
 
         if (result.rows.length === 0)
             return res.status(404).json({ success: false, error: 'Not found' });
+        notify('inventory_shipments', 'update', { id: req.params.id });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         console.error('[inventory] PUT /shipments/:id error:', err.message);
@@ -867,6 +891,10 @@ router.patch('/shipments/payment-by-dot', async (req, res) => {
             ]
         );
 
+        notify('inventory_shipments', 'payment', {
+            dot_so: parseInt(dot_so, 10),
+            updated: result.rows.length,
+        });
         res.json({
             success: true,
             data: {
@@ -899,6 +927,7 @@ router.patch('/shipments/:id/shortage', async (req, res) => {
 
         if (result.rows.length === 0)
             return res.status(404).json({ success: false, error: 'Not found' });
+        notify('inventory_shipments', 'shortage', { id: req.params.id });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -914,6 +943,7 @@ router.delete('/shipments/:id', async (req, res) => {
         );
         if (result.rows.length === 0)
             return res.status(404).json({ success: false, error: 'Not found' });
+        notify('inventory_shipments', 'delete', { id: req.params.id });
         res.json({ success: true, deleted: req.params.id });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -951,6 +981,7 @@ router.post('/prepayments', async (req, res) => {
             [generateId('prep'), ngay, so_tien, ghi_chu, user]
         );
 
+        notify('inventory_prepayments', 'create', { id: result.rows[0].id });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -973,6 +1004,7 @@ router.put('/prepayments/:id', async (req, res) => {
 
         if (result.rows.length === 0)
             return res.status(404).json({ success: false, error: 'Not found' });
+        notify('inventory_prepayments', 'update', { id: req.params.id });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -988,6 +1020,7 @@ router.delete('/prepayments/:id', async (req, res) => {
         );
         if (result.rows.length === 0)
             return res.status(404).json({ success: false, error: 'Not found' });
+        notify('inventory_prepayments', 'delete', { id: req.params.id });
         res.json({ success: true, deleted: req.params.id });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -1025,6 +1058,7 @@ router.post('/other-expenses', async (req, res) => {
             [generateId('exp'), ngay, loai_chi, so_tien, ghi_chu, user]
         );
 
+        notify('inventory_other_expenses', 'create', { id: result.rows[0].id });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -1048,6 +1082,7 @@ router.put('/other-expenses/:id', async (req, res) => {
 
         if (result.rows.length === 0)
             return res.status(404).json({ success: false, error: 'Not found' });
+        notify('inventory_other_expenses', 'update', { id: req.params.id });
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -1063,6 +1098,7 @@ router.delete('/other-expenses/:id', async (req, res) => {
         );
         if (result.rows.length === 0)
             return res.status(404).json({ success: false, error: 'Not found' });
+        notify('inventory_other_expenses', 'delete', { id: req.params.id });
         res.json({ success: true, deleted: req.params.id });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });

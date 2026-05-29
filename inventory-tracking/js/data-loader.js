@@ -50,8 +50,8 @@ async function loadNCCData() {
             applyFiltersAndRender();
         }
 
-        // Setup realtime sync for product images (cross-device)
-        setupProductImagesRealtimeSync();
+        // Setup realtime sync (product images + all inventory CRUD entities)
+        setupInventoryRealtimeSync();
     } catch (error) {
         console.error('[DATA] Error loading NCC data:', error);
         throw error;
@@ -134,36 +134,44 @@ async function loadProductImages() {
 }
 
 /**
- * Setup SSE realtime listener for product images
- * When another device saves images, this device auto-updates
+ * Setup SSE realtime sync for inventory tracking (single shared connection).
+ *
+ * Subscribes to 6 topics on the Web 1.0 SSE hub. Each topic maps to a
+ * different reload path so we don't re-fetch everything on every change:
+ *
+ *   product_images           → image-only refresh (modal warns on conflict)
+ *   inventory_shipments      → full reload (shipment ↔ supplier ↔ booking linkage)
+ *   inventory_order_bookings → full reload (same nested store)
+ *   inventory_suppliers      → full reload (supplier list drives both tabs)
+ *   inventory_prepayments    → finance tab refresh
+ *   inventory_other_expenses → finance tab refresh
+ *
+ * Debounce 300ms on the "reload all" path because a single user action
+ * (vd save shipment) may fire shipments + suppliers events back-to-back.
  */
-function setupProductImagesRealtimeSync() {
+function setupInventoryRealtimeSync() {
     if (typeof RealtimeClient === 'undefined') {
-        console.log(
-            '[DATA] RealtimeClient not available, skipping realtime sync for product images'
-        );
+        console.log('[DATA] RealtimeClient not available, skipping inventory realtime sync');
         return;
     }
 
     try {
         const client = new RealtimeClient('https://chatomni-proxy.nhijudyshop.workers.dev');
-        client.connect(['product_images']);
+        client.connect([
+            'product_images',
+            'inventory_suppliers',
+            'inventory_order_bookings',
+            'inventory_shipments',
+            'inventory_prepayments',
+            'inventory_other_expenses',
+        ]);
+        window._inventoryRealtimeClient = client;
 
-        // Client-side debounce: a single modal save fires N PUTs (one per đợt
-        // bucket + orphan slots), each PUT triggers its own SSE event. Without
-        // debounce the client would re-render the table N times in a burst.
-        // 200ms is well below user-perceptible latency and coalesces a typical
-        // multi-đợt save into one update.
-        let _debounceTimer = null;
-        let _latestData = null;
-
-        const _applyUpdate = (data) => {
+        // --- Product images: optimistic in-memory update, image-manager hook ---
+        let _imgTimer = null;
+        let _imgLatest = null;
+        const _applyImages = (data) => {
             if (data && data.data) {
-                // Full update: replace all product images. CRITICAL: map
-                // snake_case columns (ngay_di_hang, dot_so) → camelCase so
-                // downstream readers (img.dotSo / img.ngayDiHang) keep
-                // working. Without this, every SSE event silently wiped
-                // dotSo in memory, making all đợt 2 images appear as đợt 1.
                 globalState.productImages = data.data.map((img) => ({
                     ...img,
                     ngayDiHang: img.ngay_di_hang ? String(img.ngay_di_hang).split('T')[0] : null,
@@ -171,34 +179,70 @@ function setupProductImagesRealtimeSync() {
                     urls: typeof img.urls === 'string' ? JSON.parse(img.urls) : img.urls || [],
                 }));
             } else {
-                // Deleted or partial update: reload from API
                 loadProductImages();
             }
-
-            // Re-render table to reflect new images
             if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
-
-            // Tell the image-manager modal (if open) so it can warn about
-            // concurrent edits — but only if this update did NOT originate
-            // from the modal's own save (modal tracks that via _saveInProgress).
             if (typeof ImageManager !== 'undefined' && ImageManager._onExternalUpdate) {
                 ImageManager._onExternalUpdate();
             }
         };
-
         client.on('product_images', (data) => {
-            console.log('[DATA] Product images SSE event received (will debounce 200ms)');
-            _latestData = data;
-            if (_debounceTimer) clearTimeout(_debounceTimer);
-            _debounceTimer = setTimeout(() => {
-                _debounceTimer = null;
-                _applyUpdate(_latestData);
+            _imgLatest = data;
+            if (_imgTimer) clearTimeout(_imgTimer);
+            _imgTimer = setTimeout(() => {
+                _imgTimer = null;
+                _applyImages(_imgLatest);
             }, 200);
         });
 
-        console.log('[DATA] Product images realtime sync enabled (debounced 200ms)');
+        // --- Shared "reload everything" path for shipments / bookings / suppliers ---
+        // We don't try to merge partial events into local state because the
+        // nested ncc → datHang/dotHang structure plus aggregated shipments make
+        // a partial patch surprisingly error-prone. A single full reload from
+        // API is fast (< 1s for current data volumes) and always correct.
+        let _allTimer = null;
+        const reloadAll = () => {
+            if (_allTimer) clearTimeout(_allTimer);
+            _allTimer = setTimeout(() => {
+                _allTimer = null;
+                if (globalState.isLoading) return; // skip if a manual reload is mid-flight
+                console.log('[DATA] SSE → reloading inventory data');
+                loadNCCData().catch((e) => console.error('[DATA] SSE-triggered reload failed:', e));
+            }, 300);
+        };
+        ['inventory_shipments', 'inventory_order_bookings', 'inventory_suppliers'].forEach((t) => {
+            client.on(t, (data) => {
+                console.log(`[DATA] SSE event ${t}:`, data?.action || '');
+                reloadAll();
+            });
+        });
+
+        // --- Finance tab: prepayments + other expenses ---
+        let _finTimer = null;
+        const reloadFinance = () => {
+            if (_finTimer) clearTimeout(_finTimer);
+            _finTimer = setTimeout(() => {
+                _finTimer = null;
+                if (typeof loadFinanceData === 'function') {
+                    console.log('[DATA] SSE → reloading finance data');
+                    loadFinanceData().catch((e) =>
+                        console.error('[DATA] SSE-triggered finance reload failed:', e)
+                    );
+                }
+            }, 300);
+        };
+        ['inventory_prepayments', 'inventory_other_expenses'].forEach((t) => {
+            client.on(t, (data) => {
+                console.log(`[DATA] SSE event ${t}:`, data?.action || '');
+                reloadFinance();
+            });
+        });
+
+        console.log(
+            '[DATA] Inventory realtime sync enabled (6 topics, debounced 300ms reload paths)'
+        );
     } catch (error) {
-        console.error('[DATA] Error setting up product images realtime sync:', error);
+        console.error('[DATA] Error setting up inventory realtime sync:', error);
     }
 }
 
