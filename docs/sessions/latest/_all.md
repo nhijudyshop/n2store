@@ -3,15 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4662e68` — feat(web2/live-campaign): modal tạo/sửa campaign giống TPOS — page picker + live video cascade + Config dropdown
-**Last updated**: 2026-05-28 15:24:47 +07
-**Latest session**: [`RESUME:20260528-152447-4662e68`](../20260528-152447-4662e68.md)
-**Summary**: feat(web2/live-campaign): modal tạo/sửa campaign giống TPOS — page picker + live video cascade + Config dropdown
+**Latest commit**: `1bcb2ec` — auto: session update
+**Last updated**: 2026-05-29 12:13:53 +07
+**Latest session**: [`RESUME:20260529-121353-1bcb2ec`](../20260529-121353-1bcb2ec.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 77 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-28 15:24
+- [`docs/`](./docs.md) — updated 2026-05-29 12:13
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -34,7 +36,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-24 10:44
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-29 12:13
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
@@ -50,7 +52,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-26 18:33
+- [`render.com/`](./render.com.md) — updated 2026-05-29 12:13
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-26 13:38
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -68,4 +70,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-28 15:24
+- [`web2/`](./web2.md) — updated 2026-05-29 12:13
