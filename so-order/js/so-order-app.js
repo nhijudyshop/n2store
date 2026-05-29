@@ -996,21 +996,30 @@
 
     // ---------- Nhận hàng modal (partial-purchase support) — P1 2026-05-29 ----------
     // Click "Nhận hàng" button trên shipment header → modal liệt kê tất cả rows
-    // trong shipment, default qty_received = qty_ordered. User chỉnh nếu mua thiếu.
-    // Submit → 1) upsertPending (đảm bảo có code DB) 2) confirm-purchase-partial.
-    let _receiveItems = []; // [{key, rowId, shipmentId, name, variant, supplier, qty, alreadyReceived, remainingPending, costPriceVnd, sellPriceVnd, imageUrl}]
-    // Lookup current product state (stock/pendingQty) for so-order rows.
-    // Trả Map key (rowId) → { code, stock, pendingQty } cho rows đã sync DB.
-    // P1 2026-05-29: dùng trong Receive modal để show "đã nhận N / còn M chờ"
-    // thay vì chỉ hiển thị qty đặt gốc.
+    // trong shipment. Default qty_received = qty_ordered (mới) hoặc qty còn chờ
+    // (sau partial-purchase). Submit → upsertPending → confirm-purchase-partial.
+    //
+    // PERF FIX 2026-05-29 (user feedback "modal bị lag"):
+    //   - Modal mở NGAY với qty=qtyOrdered, không await API
+    //   - Lookup product state CHẠY NGẦM sau khi modal render
+    //   - Khi lookup xong → patch DOM rows có "đã nhận N · còn M chờ"
+    //   - Cache 5s tránh re-fetch khi user mở/đóng modal liên tục
+    let _receiveItems = []; // [{key, rowId, shipmentId, name, variant, supplier, qty, alreadyReceived, remainingPending, ...}]
+    const _receiveLookupCache = new Map(); // shId → { stateByKey, fetchedAt }
+    const RECEIVE_LOOKUP_TTL_MS = 5000;
+
+    // Background lookup — return Map(rowId → {code, stock, pendingQty, status})
+    // Query tất cả rows có productName (kể cả draft — vì có thể đã sync DB
+    // qua syncRowsToKho từ syncRowsToKho hoặc bằng API trực tiếp).
     async function _lookupProductStateForRows(rows) {
         const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const stateByKey = new Map();
+        const eligibleForLookup = rows.filter((r) => (r.productName || '').trim());
+        if (!eligibleForLookup.length) return stateByKey;
         const uniqueNames = Array.from(
-            new Set(rows.map((r) => (r.productName || '').trim()).filter(Boolean))
+            new Set(eligibleForLookup.map((r) => (r.productName || '').trim()))
         );
-        // Query each unique name (batch parallel). Server LOWER match name+variant.
-        const fetched = new Map(); // name(lower) → [products]
+        const fetched = new Map();
         await Promise.all(
             uniqueNames.map(async (name) => {
                 try {
@@ -1019,14 +1028,13 @@
                         { credentials: 'omit' }
                     );
                     const data = await r.json();
-                    const ps = data.products || data.items || [];
-                    fetched.set(name.toLowerCase(), ps);
+                    fetched.set(name.toLowerCase(), data.products || data.items || []);
                 } catch (_) {
                     fetched.set(name.toLowerCase(), []);
                 }
             })
         );
-        for (const r of rows) {
+        for (const r of eligibleForLookup) {
             const name = (r.productName || '').trim();
             const variant = (r.variant || '').trim().toLowerCase();
             const products = fetched.get(name.toLowerCase()) || [];
@@ -1047,7 +1055,53 @@
         return stateByKey;
     }
 
-    async function openReceiveShipmentModal(shId) {
+    // Patch 1 row trong modal khi lookup data về (sau khi modal đã render).
+    // Update: "Đã nhận: N · Còn chờ: M" + input default + max + badge fully-received.
+    function _patchReceiveRowFromLookup(item, ps) {
+        const rowEl = document.querySelector(`[data-receive-row="${CSS.escape(item.key)}"]`);
+        if (!rowEl) return;
+        const inp = rowEl.querySelector('input[data-receive-qty]');
+        const qtyInfoEl = rowEl.querySelector('[data-receive-qtyinfo]');
+        const badgeEl = rowEl.querySelector('[data-receive-status]');
+        if (!inp || !qtyInfoEl || !badgeEl) return;
+        const qtyOrdered = item.qty;
+        const remainingPending = ps.pendingQty;
+        const alreadyReceived = Math.max(0, qtyOrdered - remainingPending);
+        const fullyReceived = remainingPending === 0;
+        // Update item state (used by confirmReceiveFromModal)
+        item.code = ps.code;
+        item.alreadyReceived = alreadyReceived;
+        item.remainingPending = remainingPending;
+        item.currentStock = ps.stock;
+        // Patch qty info display
+        if (alreadyReceived > 0) {
+            qtyInfoEl.innerHTML = `<span>Đã đặt: <strong>${qtyOrdered}</strong></span>
+                <span style="color:#16a34a;">Đã nhận: <strong>${alreadyReceived}</strong></span>
+                <span style="color:#f59e0b;">Còn chờ: <strong>${remainingPending}</strong></span>`;
+            qtyInfoEl.style.cssText =
+                'font-size:11px;color:#64748b;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;';
+        }
+        // Patch input
+        inp.dataset.receiveQtyAlready = alreadyReceived;
+        inp.dataset.receiveQtyMax = remainingPending;
+        inp.max = remainingPending;
+        if (fullyReceived) {
+            inp.value = 0;
+            inp.disabled = true;
+            inp.style.background = '#f1f5f9';
+            inp.style.color = '#94a3b8';
+            inp.style.cursor = 'not-allowed';
+            rowEl.style.opacity = '0.6';
+            badgeEl.textContent = 'ĐÃ NHẬN ĐỦ';
+            badgeEl.style.background = '#dbeafe';
+            badgeEl.style.color = '#1e40af';
+        } else {
+            inp.value = remainingPending;
+        }
+        _updateReceiveSummary();
+    }
+
+    function openReceiveShipmentModal(shId) {
         if (!window.Web2ProductsApi) {
             notify('Web2ProductsApi chưa load', 'error');
             return;
@@ -1065,21 +1119,20 @@
         const eligibleRows = (sh.rows || []).filter(
             (r) => (r.productName || '').trim() && Number(r.qty) > 0 && (r.supplier || '').trim()
         );
-        // Lookup current product state to compute "đã nhận / còn chờ" per row.
-        // Có thể fail nếu API offline — fallback: assume chưa nhận, full pending.
-        let stateByKey = new Map();
-        try {
-            stateByKey = await _lookupProductStateForRows(eligibleRows);
-        } catch (e) {
-            console.warn('[so-order] lookupProductState fail:', e.message);
-        }
+
+        // PERF: dùng cache nếu có (TTL 5s) — tránh re-fetch khi user open/close
+        // liên tục. Cache expires → background re-lookup.
+        const cached = _receiveLookupCache.get(shId);
+        const stateByKey =
+            cached && Date.now() - cached.fetchedAt < RECEIVE_LOOKUP_TTL_MS
+                ? cached.stateByKey
+                : new Map();
 
         _receiveItems = eligibleRows.map((r) => {
             const qtyOrdered = Number(r.qty) || 0;
             const ps = stateByKey.get(r.id);
-            // remainingPending: số CÒN CHỜ thực tế từ web2_products.pendingQty.
-            // Nếu SP đã tồn tại DB và đã partial-received → còn ít hơn qtyOrdered.
-            // Nếu SP chưa sync DB → assume full pending = qtyOrdered.
+            // Nếu cache hit → dùng pendingQty thực. Cache miss → assume qtyOrdered
+            // (modal hiển thị ngay, lookup background sẽ patch sau).
             const remainingPending = ps ? ps.pendingQty : qtyOrdered;
             const alreadyReceived = Math.max(0, qtyOrdered - remainingPending);
             return {
@@ -1186,12 +1239,12 @@
                     const remaining = it.remainingPending;
                     const fullyReceived = remaining === 0;
                     const qtyInfo = hasPartial
-                        ? `<div style="font-size:11px;color:#64748b;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;">
+                        ? `<div data-receive-qtyinfo="${escapeHtml(it.key)}" style="font-size:11px;color:#64748b;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;">
                             <span>Đã đặt: <strong>${it.qty}</strong></span>
                             <span style="color:#16a34a;">Đã nhận: <strong>${it.alreadyReceived}</strong></span>
                             <span style="color:#f59e0b;">Còn chờ: <strong>${remaining}</strong></span>
                           </div>`
-                        : `<div style="font-size:11px;color:#64748b;white-space:nowrap;">Đã đặt: <strong>${it.qty}</strong></div>`;
+                        : `<div data-receive-qtyinfo="${escapeHtml(it.key)}" style="font-size:11px;color:#64748b;white-space:nowrap;">Đã đặt: <strong>${it.qty}</strong></div>`;
                     const defaultStatus = fullyReceived
                         ? `<span data-receive-status="${escapeHtml(it.key)}" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:#dbeafe;color:#1e40af;">ĐÃ NHẬN ĐỦ</span>`
                         : `<span data-receive-status="${escapeHtml(it.key)}" style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#166534;">MUA ĐỦ</span>`;
@@ -1222,6 +1275,52 @@
         _updateReceiveSummary();
         modal.hidden = false;
         if (window.lucide?.createIcons) window.lucide.createIcons();
+
+        // PERF: fire-and-forget background lookup (no await). Khi xong → patch
+        // DOM rows có "đã nhận / còn chờ" từ web2_products thực tế. Modal đã
+        // mở ngay nên user không thấy lag. Cache hit (5s) → skip lookup.
+        const hasCache = cached && Date.now() - cached.fetchedAt < RECEIVE_LOOKUP_TTL_MS;
+        if (!hasCache && eligibleRows.length > 0) {
+            // Subtle loading hint trong summary
+            const summaryEl = document.getElementById('soReceiveSummary');
+            if (summaryEl) {
+                const prevText = summaryEl.textContent;
+                summaryEl.textContent = '⏳ Đang kiểm tra tình trạng đã nhận... · ' + prevText;
+            }
+            _lookupProductStateForRows(eligibleRows)
+                .then((stateByKeyFresh) => {
+                    _receiveLookupCache.set(shId, {
+                        stateByKey: stateByKeyFresh,
+                        fetchedAt: Date.now(),
+                    });
+                    // Modal still open? Patch rows.
+                    const modalEl = document.getElementById('soReceiveModal');
+                    if (!modalEl || modalEl.hidden) return;
+                    let patched = 0;
+                    for (const item of _receiveItems) {
+                        const ps = stateByKeyFresh.get(item.rowId);
+                        if (!ps) continue;
+                        // Skip patch nếu state đã matching item (avoid no-op DOM
+                        // mutation that triggers reflow).
+                        if (ps.pendingQty === item.remainingPending && ps.code === item.code) {
+                            continue;
+                        }
+                        _patchReceiveRowFromLookup(item, ps);
+                        patched++;
+                    }
+                    if (patched > 0 && window.lucide?.createIcons) {
+                        window.lucide.createIcons();
+                    }
+                    _updateReceiveSummary();
+                })
+                .catch((e) => {
+                    console.warn(
+                        '[so-order] receive lookup fail (modal vẫn dùng được):',
+                        e?.message
+                    );
+                    _updateReceiveSummary();
+                });
+        }
     }
 
     function _updateReceiveRowStatus(input) {
