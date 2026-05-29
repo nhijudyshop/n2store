@@ -184,7 +184,12 @@ async function updateShipment(id, data) {
  * Delete shipment - removes all dotHang entries for the given date
  */
 async function deleteShipment(id) {
-    if (!confirm('Bạn có chắc muốn xóa đợt hàng này?')) {
+    if (
+        !(await window.notificationManager.confirm(
+            'Bạn có chắc muốn xóa đợt hàng này?',
+            'Xóa đợt hàng'
+        ))
+    ) {
         return false;
     }
 
@@ -341,7 +346,13 @@ async function deleteProductRow(invoiceId, productIdx) {
     if (productIdx < 0 || productIdx >= products.length) return;
 
     const product = products[productIdx];
-    if (!confirm(`Xóa STT ${productIdx + 1} (${product.maSP || ''})? `)) return;
+    if (
+        !(await window.notificationManager.confirm(
+            `Xóa STT ${productIdx + 1} (${product.maSP || '-'})?`,
+            'Xóa hàng'
+        ))
+    )
+        return;
 
     try {
         // Remove product from array
@@ -396,7 +407,8 @@ async function deleteNccInvoice(invoiceId) {
     }
 
     const nccLabel = targetDot.tenNCC || targetDot.sttNCC;
-    if (!confirm(`Xóa toàn bộ NCC ${nccLabel}?`)) return;
+    if (!(await window.notificationManager.confirm(`Xóa toàn bộ NCC ${nccLabel}?`, 'Xóa NCC')))
+        return;
 
     try {
         await shipmentsApi.delete(invoiceId);

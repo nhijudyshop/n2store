@@ -21,7 +21,7 @@ async function loadOrderBookings() {
         const bookings = getAllDatHang();
 
         // Check for differences with linked shipments
-        bookings.forEach(booking => {
+        bookings.forEach((booking) => {
             if (booking.linkedDotHangId) {
                 booking.hasDifference = checkBookingDifference(booking);
             }
@@ -60,14 +60,14 @@ async function createOrderBooking(data) {
             tongTienHD: data.tongTienHD || 0,
             tongMon: data.tongMon || 0,
             anhHoaDon: data.anhHoaDon || [],
-            ghiChu: data.ghiChu || ''
+            ghiChu: data.ghiChu || '',
         };
 
         // Save via API
         const saved = await orderBookingsApi.create(newBooking);
 
         // Update local state
-        const ncc = getNCCById(sttNCC) || await getOrCreateNCC(sttNCC);
+        const ncc = getNCCById(sttNCC) || (await getOrCreateNCC(sttNCC));
         if (ncc) {
             if (!ncc.datHang) ncc.datHang = [];
             ncc.datHang.push(pgToBooking(saved));
@@ -90,7 +90,7 @@ async function createOrderBooking(data) {
  */
 async function updateOrderBooking(bookingId, data) {
     try {
-        const existingBooking = globalState.orderBookings.find(b => b.id === bookingId);
+        const existingBooking = globalState.orderBookings.find((b) => b.id === bookingId);
         if (!existingBooking) {
             throw new Error('Booking not found');
         }
@@ -103,7 +103,7 @@ async function updateOrderBooking(bookingId, data) {
         // Update local state
         const ncc = getNCCById(sttNCC);
         if (ncc) {
-            const idx = (ncc.datHang || []).findIndex(b => b.id === bookingId);
+            const idx = (ncc.datHang || []).findIndex((b) => b.id === bookingId);
             if (idx !== -1) {
                 ncc.datHang[idx] = pgToBooking(saved);
             }
@@ -126,7 +126,7 @@ async function updateOrderBooking(bookingId, data) {
  */
 async function deleteOrderBookingFromDB(bookingId) {
     try {
-        const existingBooking = globalState.orderBookings.find(b => b.id === bookingId);
+        const existingBooking = globalState.orderBookings.find((b) => b.id === bookingId);
         if (!existingBooking) {
             throw new Error('Booking not found');
         }
@@ -139,7 +139,7 @@ async function deleteOrderBookingFromDB(bookingId) {
         // Update local state
         const ncc = getNCCById(sttNCC);
         if (ncc) {
-            ncc.datHang = (ncc.datHang || []).filter(b => b.id !== bookingId);
+            ncc.datHang = (ncc.datHang || []).filter((b) => b.id !== bookingId);
         }
 
         flattenNCCData();
@@ -156,7 +156,7 @@ async function deleteOrderBookingFromDB(bookingId) {
  * Edit order booking - open modal with data
  */
 function editOrderBooking(bookingId) {
-    const booking = globalState.orderBookings.find(b => b.id === bookingId);
+    const booking = globalState.orderBookings.find((b) => b.id === bookingId);
     if (!booking) {
         window.notificationManager?.error('Không tìm thấy đơn đặt hàng');
         return;
@@ -181,13 +181,16 @@ async function deleteOrderBooking(bookingId) {
         return;
     }
 
-    const booking = globalState.orderBookings.find(b => b.id === bookingId);
+    const booking = globalState.orderBookings.find((b) => b.id === bookingId);
     if (!booking) {
         window.notificationManager?.error('Không tìm thấy đơn đặt hàng');
         return;
     }
 
-    const confirmed = confirm(`Bạn có chắc muốn xóa đơn đặt hàng NCC ${booking.sttNCC}?`);
+    const confirmed = await window.notificationManager.confirm(
+        `Bạn có chắc muốn xóa đơn đặt hàng NCC ${booking.sttNCC}?`,
+        'Xóa đơn đặt hàng'
+    );
     if (!confirmed) return;
 
     try {
@@ -232,8 +235,8 @@ async function uploadBookingImages(files) {
                     image: base64,
                     fileName: filename,
                     folderPath: 'order_bookings',
-                    mimeType: file.type
-                })
+                    mimeType: file.type,
+                }),
             });
 
             const result = await response.json();
@@ -270,7 +273,7 @@ function fileToBase64(file) {
  */
 function getBookingNCCList() {
     const nccSet = new Set();
-    globalState.orderBookings.forEach(booking => {
+    globalState.orderBookings.forEach((booking) => {
         if (booking.sttNCC) {
             nccSet.add(String(booking.sttNCC));
         }
@@ -290,7 +293,7 @@ function populateBookingNCCFilter() {
 
     select.innerHTML = '<option value="all">Tất cả NCC</option>';
 
-    nccList.forEach(ncc => {
+    nccList.forEach((ncc) => {
         const nccDoc = getNCCById(parseInt(ncc));
         const tenNCC = getNCCDisplayName(nccDoc);
         const option = document.createElement('option');

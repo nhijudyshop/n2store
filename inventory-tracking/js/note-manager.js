@@ -6,12 +6,12 @@
 // =====================================================
 
 const NoteManager = {
-    _cache: {},             // { invoiceId: [noteRow, ...] }
-    _tooltipEl: null,       // Fixed-position image preview tooltip
-    _imgCache: {},          // { key: [urls] } for inline event handlers
+    _cache: {}, // { invoiceId: [noteRow, ...] }
+    _tooltipEl: null, // Fixed-position image preview tooltip
+    _imgCache: {}, // { key: [urls] } for inline event handlers
     _currentInvoiceId: null,
-    _currentNoteId: null,   // null = create, number = edit
-    _pendingImages: [],     // Images being uploaded in modal
+    _currentNoteId: null, // null = create, number = edit
+    _pendingImages: [], // Images being uploaded in modal
 
     // ==================== INIT ====================
 
@@ -65,7 +65,9 @@ const NoteManager = {
     _getVisibleInvoiceIds() {
         const cells = document.querySelectorAll('.note-cell[data-invoice-id]');
         const ids = new Set();
-        cells.forEach(c => { if (c.dataset.invoiceId) ids.add(c.dataset.invoiceId); });
+        cells.forEach((c) => {
+            if (c.dataset.invoiceId) ids.add(c.dataset.invoiceId);
+        });
         return [...ids];
     },
 
@@ -85,16 +87,23 @@ const NoteManager = {
             // Store URLs in a global lookup so inline handlers work regardless of click target
             const imgKey = 'note_imgs_' + n.id;
             if (imgCount > 0) NoteManager._imgCache[imgKey] = n.note_images;
-            const imgs = imgCount > 0
-                ? '<span class="note-img-icon" ' +
-                  'onmouseenter="NoteManager.showImgTooltip(event,\'' + imgKey + '\')" ' +
-                  'onmouseleave="NoteManager.hideTooltip()" ' +
-                  'onclick="NoteManager.openImgLightbox(\'' + imgKey + '\'); event.stopPropagation();" ' +
-                  'title="' + imgCount + ' ảnh đính kèm">' +
-                  '<i data-lucide="image"></i>' +
-                  (imgCount > 1 ? '<span class="note-img-count">' + imgCount + '</span>' : '') +
-                  '</span>'
-                : '';
+            const imgs =
+                imgCount > 0
+                    ? '<span class="note-img-icon" ' +
+                      'onmouseenter="NoteManager.showImgTooltip(event,\'' +
+                      imgKey +
+                      '\')" ' +
+                      'onmouseleave="NoteManager.hideTooltip()" ' +
+                      'onclick="NoteManager.openImgLightbox(\'' +
+                      imgKey +
+                      '\'); event.stopPropagation();" ' +
+                      'title="' +
+                      imgCount +
+                      ' ảnh đính kèm">' +
+                      '<i data-lucide="image"></i>' +
+                      (imgCount > 1 ? '<span class="note-img-count">' + imgCount + '</span>' : '') +
+                      '</span>'
+                    : '';
 
             html += '<div class="note-row">';
             html += '<span class="note-text ' + cls + '">';
@@ -104,7 +113,12 @@ const NoteManager = {
             html += imgs;
             // Edit pencil at end of each note row (only own notes)
             if (isOwn) {
-                html += '<button class="note-row-btn" onclick="NoteManager.openModal(\'' + invoiceId + '\',' + n.id + '); event.stopPropagation();" title="Sửa ghi chú">';
+                html +=
+                    '<button class="note-row-btn" onclick="NoteManager.openModal(\'' +
+                    invoiceId +
+                    "'," +
+                    n.id +
+                    '); event.stopPropagation();" title="Sửa ghi chú">';
                 html += '<i data-lucide="pencil-line"></i></button>';
             }
             html += '</div>';
@@ -112,7 +126,10 @@ const NoteManager = {
 
         // Bottom row: pencil for new note
         html += '<div class="note-row note-row-new">';
-        html += '<button class="note-add-btn" onclick="NoteManager.openModal(\'' + invoiceId + '\',null); event.stopPropagation();" title="Thêm ghi chú">';
+        html +=
+            '<button class="note-add-btn" onclick="NoteManager.openModal(\'' +
+            invoiceId +
+            '\',null); event.stopPropagation();" title="Thêm ghi chú">';
         html += '<i data-lucide="plus"></i></button>';
         html += '</div>';
 
@@ -122,7 +139,7 @@ const NoteManager = {
 
     refreshAllCells() {
         const cells = document.querySelectorAll('.note-cell[data-invoice-id]');
-        cells.forEach(cell => {
+        cells.forEach((cell) => {
             const invoiceId = cell.dataset.invoiceId;
             const tmp = document.createElement('div');
             tmp.innerHTML = this.renderCell(invoiceId);
@@ -141,7 +158,7 @@ const NoteManager = {
         const el = this._tooltipEl;
         if (!el) return;
 
-        el.innerHTML = urls.map(u => '<img src="' + u + '">').join('');
+        el.innerHTML = urls.map((u) => '<img src="' + u + '">').join('');
         el.style.display = 'block';
 
         // Position near the icon, above it if possible
@@ -178,8 +195,11 @@ const NoteManager = {
 
         const overlay = document.createElement('div');
         overlay.id = 'noteLightbox';
-        overlay.innerHTML = '<div class="note-lightbox-bg"></div>' +
-            '<img class="note-lightbox-img" src="' + url + '">' +
+        overlay.innerHTML =
+            '<div class="note-lightbox-bg"></div>' +
+            '<img class="note-lightbox-img" src="' +
+            url +
+            '">' +
             '<button class="note-lightbox-close">&times;</button>';
 
         // Close on click anywhere except image
@@ -191,7 +211,10 @@ const NoteManager = {
 
         // Close on Escape
         const escHandler = (e) => {
-            if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); }
+            if (e.key === 'Escape') {
+                overlay.remove();
+                document.removeEventListener('keydown', escHandler);
+            }
         };
         document.addEventListener('keydown', escHandler);
 
@@ -211,7 +234,7 @@ const NoteManager = {
         if (noteId !== null && noteId !== undefined) {
             // Edit mode - find the note
             const notes = this._cache[invoiceId] || [];
-            const note = notes.find(n => n.id === noteId);
+            const note = notes.find((n) => n.id === noteId);
             if (note) {
                 this._pendingImages = [...(note.note_images || [])];
                 this._renderModalEdit(body, note);
@@ -251,12 +274,19 @@ const NoteManager = {
     },
 
     _renderModalEdit(body, note) {
-        const imagesHtml = (note.note_images || []).map((url, i) =>
-            '<div class="note-preview-item">' +
-            '<img src="' + url + '">' +
-            '<button class="note-preview-remove" onclick="NoteManager.removePreviewImage(' + i + ')">&times;</button>' +
-            '</div>'
-        ).join('');
+        const imagesHtml = (note.note_images || [])
+            .map(
+                (url, i) =>
+                    '<div class="note-preview-item">' +
+                    '<img src="' +
+                    url +
+                    '">' +
+                    '<button class="note-preview-remove" onclick="NoteManager.removePreviewImage(' +
+                    i +
+                    ')">&times;</button>' +
+                    '</div>'
+            )
+            .join('');
 
         body.innerHTML = `
             <div class="note-modal-form">
@@ -304,7 +334,7 @@ const NoteManager = {
                 await notesApi.create(this._currentInvoiceId, {
                     noteText: text,
                     noteImages: images,
-                    isAdmin: this._isAdmin()
+                    isAdmin: this._isAdmin(),
                 });
             }
 
@@ -321,7 +351,7 @@ const NoteManager = {
 
     async deleteNote() {
         if (!this._currentNoteId) return;
-        if (!confirm('Xóa ghi chú này?')) return;
+        if (!(await window.notificationManager.confirm('Xóa ghi chú này?', 'Xóa ghi chú'))) return;
 
         try {
             await notesApi.deleteNote(this._currentNoteId);
@@ -385,12 +415,19 @@ const NoteManager = {
     _renderImagePreviews() {
         const container = document.getElementById('noteImagePreview');
         if (!container) return;
-        container.innerHTML = this._pendingImages.map((url, i) =>
-            '<div class="note-preview-item">' +
-            '<img src="' + url + '">' +
-            '<button class="note-preview-remove" onclick="NoteManager.removePreviewImage(' + i + ')">&times;</button>' +
-            '</div>'
-        ).join('');
+        container.innerHTML = this._pendingImages
+            .map(
+                (url, i) =>
+                    '<div class="note-preview-item">' +
+                    '<img src="' +
+                    url +
+                    '">' +
+                    '<button class="note-preview-remove" onclick="NoteManager.removePreviewImage(' +
+                    i +
+                    ')">&times;</button>' +
+                    '</div>'
+            )
+            .join('');
     },
 
     // ==================== HELPERS ====================
@@ -399,7 +436,7 @@ const NoteManager = {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
-    }
+    },
 };
 
 // Auto-init when script loads

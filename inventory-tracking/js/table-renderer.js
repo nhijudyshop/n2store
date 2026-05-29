@@ -1368,7 +1368,7 @@ function viewInvoiceImages(shipmentId, invoiceIdentifier) {
  * Delete an image from invoice
  */
 async function deleteInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
-    if (!confirm('Bạn có chắc muốn xóa ảnh này?')) {
+    if (!(await window.notificationManager.confirm('Bạn có chắc muốn xóa ảnh này?', 'Xóa ảnh'))) {
         return;
     }
 
@@ -1568,7 +1568,7 @@ function viewSubInvoiceImages(shipmentId, invoiceIdx) {
  * Delete sub-invoice image
  */
 async function deleteSubInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
-    if (!confirm('Bạn có chắc muốn xóa ảnh này?')) {
+    if (!(await window.notificationManager.confirm('Bạn có chắc muốn xóa ảnh này?', 'Xóa ảnh'))) {
         return;
     }
 
@@ -2369,7 +2369,7 @@ async function _saveTableImages() {
  * Remove image from invoice's anhHoaDon with confirm
  */
 async function removeTableImage(invoiceId, imageUrl) {
-    if (!confirm('Xóa ảnh này?')) return;
+    if (!(await window.notificationManager.confirm('Xóa ảnh này?', 'Xóa ảnh'))) return;
 
     let targetDot = null;
     for (const ncc of globalState.nccList) {

@@ -19,7 +19,7 @@ function renderOrderBookings(bookings) {
 
     // Clear previous content (except loading/empty states)
     const cards = container.querySelectorAll('.booking-card');
-    cards.forEach(card => card.remove());
+    cards.forEach((card) => card.remove());
 
     // Show empty state if no data
     if (!bookings || bookings.length === 0) {
@@ -36,7 +36,7 @@ function renderOrderBookings(bookings) {
     // Render each date group
     Object.keys(groupedByDate)
         .sort((a, b) => new Date(b) - new Date(a)) // Sort by date descending
-        .forEach(date => {
+        .forEach((date) => {
             const card = createBookingDateCard(date, groupedByDate[date]);
             container.appendChild(card);
         });
@@ -55,7 +55,7 @@ function renderOrderBookings(bookings) {
  */
 function groupBookingsByDate(bookings) {
     const grouped = {};
-    bookings.forEach(booking => {
+    bookings.forEach((booking) => {
         const date = booking.ngayDatHang || 'unknown';
         if (!grouped[date]) {
             grouped[date] = [];
@@ -77,9 +77,9 @@ function createBookingDateCard(date, bookings) {
     const statusCounts = {
         pending: 0,
         received: 0,
-        cancelled: 0
+        cancelled: 0,
     };
-    bookings.forEach(b => {
+    bookings.forEach((b) => {
         const status = b.trangThai || 'pending';
         if (statusCounts[status] !== undefined) {
             statusCounts[status]++;
@@ -89,13 +89,19 @@ function createBookingDateCard(date, bookings) {
     // Build status summary
     const statusSummary = [];
     if (statusCounts.pending > 0) {
-        statusSummary.push(`<span class="status-count status-pending-count">${statusCounts.pending} chờ giao</span>`);
+        statusSummary.push(
+            `<span class="status-count status-pending-count">${statusCounts.pending} chờ giao</span>`
+        );
     }
     if (statusCounts.received > 0) {
-        statusSummary.push(`<span class="status-count status-received-count">${statusCounts.received} đã nhận</span>`);
+        statusSummary.push(
+            `<span class="status-count status-received-count">${statusCounts.received} đã nhận</span>`
+        );
     }
     if (statusCounts.cancelled > 0) {
-        statusSummary.push(`<span class="status-count status-cancelled-count">${statusCounts.cancelled} đã hủy</span>`);
+        statusSummary.push(
+            `<span class="status-count status-cancelled-count">${statusCounts.cancelled} đã hủy</span>`
+        );
     }
 
     card.innerHTML = `
@@ -147,9 +153,11 @@ function renderBookingInvoicesTable(bookings) {
     }, 0);
 
     // Build rows - each booking expands to multiple product rows
-    const rows = bookings.map((booking, idx) =>
-        renderBookingProductRows(booking, idx, canEdit, canDelete, canUpdateStatus)
-    ).join('');
+    const rows = bookings
+        .map((booking, idx) =>
+            renderBookingProductRows(booking, idx, canEdit, canDelete, canUpdateStatus)
+        )
+        .join('');
 
     return `
         <div class="shipment-section shipment-table-section">
@@ -211,13 +219,15 @@ function renderBookingProductRows(booking, bookingIdx, canEdit, canDelete, canUp
         : `<strong>${booking.sttNCC || '-'}</strong>`;
 
     // Status dropdown or badge
-    const statusHtml = canUpdateStatus ? `
+    const statusHtml = canUpdateStatus
+        ? `
         <select class="status-select ${statusConfig.badgeClass}" onchange="updateBookingStatus('${booking.id}', this.value)">
             <option value="pending" ${status === 'pending' ? 'selected' : ''}>Đang chờ giao</option>
             <option value="received" ${status === 'received' ? 'selected' : ''}>Đã nhận hàng</option>
             <option value="cancelled" ${status === 'cancelled' ? 'selected' : ''}>Đã hủy</option>
         </select>
-    ` : `
+    `
+        : `
         <span class="status-badge ${statusConfig.badgeClass}">
             <i data-lucide="${statusConfig.icon}"></i>
             ${statusConfig.label}
@@ -227,26 +237,37 @@ function renderBookingProductRows(booking, bookingIdx, canEdit, canDelete, canUp
     // Action buttons
     const actionsHtml = `
         <div class="action-buttons">
-            ${canEdit ? `
+            ${
+                canEdit
+                    ? `
                 <button class="btn btn-sm btn-outline" onclick="editOrderBooking('${booking.id}')" title="Sửa">
                     <i data-lucide="edit"></i>
                 </button>
-            ` : ''}
-            ${canDelete ? `
+            `
+                    : ''
+            }
+            ${
+                canDelete
+                    ? `
                 <button class="btn btn-sm btn-outline btn-danger-outline" onclick="deleteOrderBooking('${booking.id}')" title="Xóa">
                     <i data-lucide="trash-2"></i>
                 </button>
-            ` : ''}
+            `
+                    : ''
+            }
         </div>
     `;
 
     // Image cell
-    const imageHtml = imageCount > 0 ? `
+    const imageHtml =
+        imageCount > 0
+            ? `
         <span class="image-count" onclick="viewBookingImages('${booking.id}')" style="cursor: pointer;">
             <i data-lucide="image"></i>
             ${imageCount}
         </span>
-    ` : '-';
+    `
+            : '-';
 
     // Build rows
     let rowsHtml = '';
@@ -282,7 +303,9 @@ function renderBookingProductRows(booking, bookingIdx, canEdit, canDelete, canUp
             // Get product display text
             let productText = '';
             if (isVietnamese) {
-                productText = product.rawText_vi || translateToVietnamese(product.rawText || '') ||
+                productText =
+                    product.rawText_vi ||
+                    translateToVietnamese(product.rawText || '') ||
                     `${product.maSP || ''} ${translateToVietnamese(product.soMau || '')}`;
             } else {
                 productText = product.rawText || `${product.maSP || ''} ${product.soMau || ''}`;
@@ -334,7 +357,7 @@ function renderBookingProductRows(booking, bookingIdx, canEdit, canDelete, canUp
  * View booking images
  */
 function viewBookingImages(bookingId) {
-    const booking = globalState.orderBookings.find(b => b.id === bookingId);
+    const booking = globalState.orderBookings.find((b) => b.id === bookingId);
     if (!booking || !booking.anhHoaDon?.length) {
         window.notificationManager?.info('Không có ảnh hóa đơn');
         return;
@@ -344,7 +367,9 @@ function viewBookingImages(bookingId) {
     const body = document.getElementById('imageViewerBody');
 
     if (body) {
-        body.innerHTML = booking.anhHoaDon.map((url, index) => `
+        body.innerHTML = booking.anhHoaDon
+            .map(
+                (url, index) => `
             <div class="image-item" style="position: relative;">
                 <img src="${url}" alt="Hóa đơn đặt hàng" onclick="window.open('${url}', '_blank')" style="cursor: pointer;">
                 <button class="btn-delete-image" onclick="deleteBookingImage('${bookingId}', ${index})"
@@ -354,7 +379,9 @@ function viewBookingImages(bookingId) {
                     font-size: 14px; line-height: 1; display: flex; align-items: center;
                     justify-content: center;">×</button>
             </div>
-        `).join('');
+        `
+            )
+            .join('');
     }
 
     if (modal) {
@@ -370,10 +397,11 @@ function viewBookingImages(bookingId) {
  * Delete booking image
  */
 async function deleteBookingImage(bookingId, imageIndex) {
-    if (!confirm('Bạn có chắc muốn xóa ảnh này?')) return;
+    if (!(await window.notificationManager.confirm('Bạn có chắc muốn xóa ảnh này?', 'Xóa ảnh')))
+        return;
 
     try {
-        const booking = globalState.orderBookings.find(b => b.id === bookingId);
+        const booking = globalState.orderBookings.find((b) => b.id === bookingId);
         if (!booking || !booking.anhHoaDon) return;
 
         // Remove image from array
@@ -411,7 +439,7 @@ function updateBookingCount(count) {
  */
 async function updateBookingStatus(bookingId, newStatus) {
     try {
-        const booking = globalState.orderBookings.find(b => b.id === bookingId);
+        const booking = globalState.orderBookings.find((b) => b.id === bookingId);
         if (!booking) return;
 
         const oldStatus = booking.trangThai || 'pending';
@@ -445,7 +473,7 @@ async function updateBookingStatus(bookingId, newStatus) {
  * Show link shipment modal
  */
 function showLinkShipmentModal(bookingId) {
-    const booking = globalState.orderBookings.find(b => b.id === bookingId);
+    const booking = globalState.orderBookings.find((b) => b.id === bookingId);
     if (!booking) return;
 
     const modal = document.getElementById('modalLinkShipment');
@@ -465,11 +493,15 @@ function showLinkShipmentModal(bookingId) {
                 <label>Chọn đợt hàng thực nhận để liên kết:</label>
                 <select id="selectLinkShipment" class="form-input">
                     <option value="">-- Không liên kết --</option>
-                    ${matchingShipments.map(s => `
+                    ${matchingShipments
+                        .map(
+                            (s) => `
                         <option value="${s.shipmentId}|${s.invoiceIdx}">
                             ${formatDateDisplay(s.ngayDiHang)} - NCC ${s.sttNCC} - ${formatNumber(s.tongTienHD)}đ
                         </option>
-                    `).join('')}
+                    `
+                        )
+                        .join('')}
                 </select>
             </div>
             <p class="link-note">
@@ -495,18 +527,20 @@ function showLinkShipmentModal(bookingId) {
 function findMatchingShipments(booking) {
     const matches = [];
 
-    globalState.shipments.forEach(shipment => {
+    globalState.shipments.forEach((shipment) => {
         (shipment.hoaDon || []).forEach((invoice, idx) => {
             // Match by NCC number
-            if (invoice.sttNCC === booking.sttNCC ||
-                String(invoice.sttNCC) === String(booking.sttNCC)) {
+            if (
+                invoice.sttNCC === booking.sttNCC ||
+                String(invoice.sttNCC) === String(booking.sttNCC)
+            ) {
                 matches.push({
                     shipmentId: shipment.id,
                     invoiceIdx: idx,
                     ngayDiHang: shipment.ngayDiHang,
                     sttNCC: invoice.sttNCC,
                     tongTienHD: invoice.tongTienHD || invoice.tongTien || 0,
-                    tongMon: invoice.tongMon || 0
+                    tongMon: invoice.tongMon || 0,
                 });
             }
         });
@@ -531,7 +565,7 @@ async function confirmLinkShipment() {
     const selectedValue = select.value;
 
     try {
-        const booking = globalState.orderBookings.find(b => b.id === bookingId);
+        const booking = globalState.orderBookings.find((b) => b.id === bookingId);
         if (!booking) return;
 
         let linkedShipmentId = null;
@@ -546,7 +580,7 @@ async function confirmLinkShipment() {
         // Update via API
         await orderBookingsApi.update(bookingId, {
             trangThai: 'received',
-            linkedDotHangId: linkedShipmentId
+            linkedDotHangId: linkedShipmentId,
         });
 
         // Update local state
@@ -578,7 +612,7 @@ async function confirmLinkShipment() {
 function checkBookingDifference(booking) {
     if (!booking.linkedShipmentId) return false;
 
-    const shipment = globalState.shipments.find(s => s.id === booking.linkedShipmentId);
+    const shipment = globalState.shipments.find((s) => s.id === booking.linkedShipmentId);
     if (!shipment || !shipment.hoaDon) return false;
 
     const invoice = shipment.hoaDon[booking.linkedInvoiceIdx];
@@ -601,13 +635,13 @@ function checkBookingDifference(booking) {
  * Show booking comparison modal
  */
 function showBookingComparison(bookingId) {
-    const booking = globalState.orderBookings.find(b => b.id === bookingId);
+    const booking = globalState.orderBookings.find((b) => b.id === bookingId);
     if (!booking || !booking.linkedShipmentId) {
         window.notificationManager?.info('Đơn đặt hàng chưa được liên kết');
         return;
     }
 
-    const shipment = globalState.shipments.find(s => s.id === booking.linkedShipmentId);
+    const shipment = globalState.shipments.find((s) => s.id === booking.linkedShipmentId);
     if (!shipment) {
         window.notificationManager?.info('Không tìm thấy đợt hàng liên kết');
         return;
@@ -626,7 +660,7 @@ function showBookingComparison(bookingId) {
 }
 
 // Initialize link shipment modal events
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Close modal
     const btnCloseLinkShipment = document.getElementById('btnCloseLinkShipmentModal');
     const btnCancelLinkShipment = document.getElementById('btnCancelLinkShipment');

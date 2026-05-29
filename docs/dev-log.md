@@ -25,6 +25,37 @@
 
 ## 2026-05-29
 
+### [inventory] Custom confirm modal cho mọi delete action ✅
+
+**User ask**: "xóa sẽ có custom confirm".
+
+Replace native `confirm()` bằng `window.notificationManager.confirm(message, title)` (Promise<boolean>, đã có sẵn trong `shared/js/notification-system.js:306`) cho 10 delete actions:
+
+| File                                              | Action                                     | Title            |
+| ------------------------------------------------- | ------------------------------------------ | ---------------- |
+| `crud-operations.js#deleteShipment`               | "Bạn có chắc muốn xóa đợt hàng này?"       | Xóa đợt hàng     |
+| `crud-operations.js#deleteProductRow`             | "Xóa STT ${n} (${maSP})?"                  | Xóa hàng         |
+| `crud-operations.js#deleteNccInvoice`             | "Xóa toàn bộ NCC ${tên}?"                  | Xóa NCC          |
+| `table-renderer.js#deleteInvoiceImage`            | "Bạn có chắc muốn xóa ảnh này?"            | Xóa ảnh          |
+| `table-renderer.js#deleteSubInvoiceImage`         | "Bạn có chắc muốn xóa ảnh này?"            | Xóa ảnh          |
+| `table-renderer.js#removeTableImage`              | "Xóa ảnh này?"                             | Xóa ảnh          |
+| `finance-manager.js#deleteTransaction`            | "Bạn có chắc muốn xóa giao dịch này?"      | Xóa giao dịch    |
+| `note-manager.js#deleteNote`                      | "Xóa ghi chú này?"                         | Xóa ghi chú      |
+| `order-booking-crud.js#deleteOrderBooking`        | "Bạn có chắc muốn xóa đơn đặt hàng NCC X?" | Xóa đơn đặt hàng |
+| `order-booking-renderer.js#deleteBookingImage`    | "Bạn có chắc muốn xóa ảnh này?"            | Xóa ảnh          |
+| `modal-image-manager.js#removeRow` (made async)   | "Xóa NCC ${tên} và N ảnh?"                 | Xóa NCC          |
+| `modal-image-manager.js#removeImage` (made async) | "Xóa ảnh này?"                             | Xóa ảnh          |
+
+2 hàm `removeRow`/`removeImage` phải đổi sang `async` (gọi qua onclick inline, async OK).
+
+**Kept native**: 1 `confirm()` còn lại ở `modal-image-manager.js:677` (warning concurrent-edit race) — multi-line text + OK/Cancel asymmetry, không map sạch sang custom modal.
+
+**Files bump**: `?v=20260529f` cho table-renderer, modal-image-manager, note-manager, crud-operations, finance-manager, order-booking-renderer, order-booking-crud.
+
+Status: ✅ Done.
+
+---
+
 ### [inventory] Header shipment card: thêm badge "N NCC" ✅
 
 **User ask**: "hiện tổng có bao nhiêu NCC".

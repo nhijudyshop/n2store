@@ -13,10 +13,7 @@ async function loadFinanceData() {
 
     try {
         // Load all data in parallel
-        await Promise.all([
-            loadPrepaymentsData(),
-            loadOtherExpensesData()
-        ]);
+        await Promise.all([loadPrepaymentsData(), loadOtherExpensesData()]);
 
         // Build transactions list
         buildTransactionsList();
@@ -26,7 +23,6 @@ async function loadFinanceData() {
 
         // Update balance display
         updateBalanceDisplay();
-
     } catch (error) {
         console.error('[FINANCE] Error loading finance data:', error);
         window.notificationManager?.error('Không thể tải dữ liệu tài chính');
@@ -40,7 +36,7 @@ function buildTransactionsList() {
     const transactions = [];
 
     // 1. Prepayments (positive, green)
-    globalState.prepayments.forEach(p => {
+    globalState.prepayments.forEach((p) => {
         transactions.push({
             type: TRANSACTION_TYPES.PREPAYMENT,
             ngay: p.ngay,
@@ -49,20 +45,20 @@ function buildTransactionsList() {
             id: p.id,
             canEdit: permissionHelper?.can('edit_prepayment'),
             canDelete: permissionHelper?.can('delete_prepayment'),
-            canViewDetail: false
+            canViewDetail: false,
         });
     });
 
     // 2. Invoices (negative, red) - grouped by date
     const invoicesByDate = {};
-    globalState.shipments.forEach(s => {
+    globalState.shipments.forEach((s) => {
         const date = s.ngayDiHang;
         if (!invoicesByDate[date]) {
             invoicesByDate[date] = { shipments: [], total: 0, nccCount: 0 };
         }
         invoicesByDate[date].shipments.push(s);
         invoicesByDate[date].total += s.tongTienHoaDon || 0;
-        invoicesByDate[date].nccCount += (s.hoaDon?.length || 0);
+        invoicesByDate[date].nccCount += s.hoaDon?.length || 0;
     });
 
     Object.entries(invoicesByDate).forEach(([date, data]) => {
@@ -72,17 +68,17 @@ function buildTransactionsList() {
                 ngay: date,
                 soTien: data.total,
                 ghiChu: `${data.nccCount} NCC`,
-                shipmentIds: data.shipments.map(s => s.id),
+                shipmentIds: data.shipments.map((s) => s.id),
                 canEdit: permissionHelper?.can('edit_invoice_from_finance'),
                 canDelete: false,
-                canViewDetail: true
+                canViewDetail: true,
             });
         }
     });
 
     // 3. Shipping costs (negative, red) - grouped by date
     const shippingByDate = {};
-    globalState.shipments.forEach(s => {
+    globalState.shipments.forEach((s) => {
         if (s.chiPhiHangVe?.length > 0) {
             const date = s.ngayDiHang;
             if (!shippingByDate[date]) {
@@ -101,16 +97,16 @@ function buildTransactionsList() {
                 ngay: date,
                 soTien: data.total,
                 ghiChu: `${data.count} khoan`,
-                shipmentIds: data.shipments.map(s => s.id),
+                shipmentIds: data.shipments.map((s) => s.id),
                 canEdit: permissionHelper?.can('edit_shipping_from_finance'),
                 canDelete: false,
-                canViewDetail: true
+                canViewDetail: true,
             });
         }
     });
 
     // 4. Other expenses (negative, red)
-    globalState.otherExpenses.forEach(e => {
+    globalState.otherExpenses.forEach((e) => {
         transactions.push({
             type: TRANSACTION_TYPES.OTHER_EXPENSE,
             ngay: e.ngay,
@@ -119,7 +115,7 @@ function buildTransactionsList() {
             id: e.id,
             canEdit: permissionHelper?.can('edit_otherExpense'),
             canDelete: permissionHelper?.can('delete_otherExpense'),
-            canViewDetail: false
+            canViewDetail: false,
         });
     });
 
@@ -150,13 +146,14 @@ function renderFinanceTable() {
         return;
     }
 
-    tbody.innerHTML = transactions.map(txn => {
-        const config = TRANSACTION_CONFIG[txn.type];
-        const isPositive = config.isPositive;
-        const amountClass = isPositive ? 'amount-positive' : 'amount-negative';
-        const prefix = isPositive ? '+' : '-';
+    tbody.innerHTML = transactions
+        .map((txn) => {
+            const config = TRANSACTION_CONFIG[txn.type];
+            const isPositive = config.isPositive;
+            const amountClass = isPositive ? 'amount-positive' : 'amount-negative';
+            const prefix = isPositive ? '+' : '-';
 
-        return `
+            return `
             <tr>
                 <td>${formatDateDisplay(txn.ngay)}</td>
                 <td>
@@ -169,26 +166,39 @@ function renderFinanceTable() {
                 <td class="text-right ${amountClass}">${prefix}${formatNumber(txn.soTien)}</td>
                 <td class="text-center">
                     <div class="action-icons">
-                        ${txn.canEdit ? `
+                        ${
+                            txn.canEdit
+                                ? `
                             <button class="btn-edit" onclick="editTransaction('${txn.type}', '${txn.id || txn.ngay}')" title="Sua">
                                 <i data-lucide="edit"></i>
                             </button>
-                        ` : ''}
-                        ${txn.canDelete ? `
+                        `
+                                : ''
+                        }
+                        ${
+                            txn.canDelete
+                                ? `
                             <button class="btn-delete" onclick="deleteTransaction('${txn.type}', '${txn.id}')" title="Xoa">
                                 <i data-lucide="trash-2"></i>
                             </button>
-                        ` : ''}
-                        ${txn.canViewDetail ? `
+                        `
+                                : ''
+                        }
+                        ${
+                            txn.canViewDetail
+                                ? `
                             <button class="btn-view" onclick="viewTransactionDetail('${txn.type}', '${txn.ngay}')" title="Xem chi tiet">
                                 <i data-lucide="eye"></i>
                             </button>
-                        ` : ''}
+                        `
+                                : ''
+                        }
                     </div>
                 </td>
             </tr>
         `;
-    }).join('');
+        })
+        .join('');
 
     // Re-initialize icons
     if (window.lucide) {
@@ -204,14 +214,14 @@ function editTransaction(type, id) {
 
     switch (type) {
         case TRANSACTION_TYPES.PREPAYMENT:
-            const prepayment = globalState.prepayments.find(p => p.id === id);
+            const prepayment = globalState.prepayments.find((p) => p.id === id);
             if (prepayment && typeof openPrepaymentModal === 'function') {
                 openPrepaymentModal(prepayment);
             }
             break;
 
         case TRANSACTION_TYPES.OTHER_EXPENSE:
-            const expense = globalState.otherExpenses.find(e => e.id === id);
+            const expense = globalState.otherExpenses.find((e) => e.id === id);
             if (expense && typeof openExpenseModal === 'function') {
                 openExpenseModal(expense);
             }
@@ -229,7 +239,13 @@ function editTransaction(type, id) {
  * Delete transaction
  */
 async function deleteTransaction(type, id) {
-    if (!confirm('Bạn có chắc muốn xóa?')) return;
+    if (
+        !(await window.notificationManager.confirm(
+            'Bạn có chắc muốn xóa giao dịch này?',
+            'Xóa giao dịch'
+        ))
+    )
+        return;
 
     try {
         switch (type) {
@@ -246,7 +262,6 @@ async function deleteTransaction(type, id) {
 
         // Reload finance data
         await loadFinanceData();
-
     } catch (error) {
         console.error('[FINANCE] Error deleting:', error);
         window.notificationManager?.error('Không thể xóa');

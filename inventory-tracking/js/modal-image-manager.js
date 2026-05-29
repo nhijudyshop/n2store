@@ -493,10 +493,16 @@ const ImageManager = (() => {
     /**
      * Remove a row (with confirm if has images)
      */
-    function removeRow(rowId) {
+    async function removeRow(rowId) {
         const row = _rows.find((r) => r.id === rowId);
         if (row && row.uploadedUrls.length > 0) {
-            if (!confirm(`Xóa NCC ${row.ncc || '?'} và ${row.uploadedUrls.length} ảnh?`)) return;
+            if (
+                !(await window.notificationManager.confirm(
+                    `Xóa NCC ${row.ncc || '?'} và ${row.uploadedUrls.length} ảnh?`,
+                    'Xóa NCC'
+                ))
+            )
+                return;
         }
         _rows = _rows.filter((r) => r.id !== rowId);
         if (_rows.length === 0) _rows.push(_createRow());
@@ -637,11 +643,11 @@ const ImageManager = (() => {
     /**
      * Remove an image from a row (with confirm)
      */
-    function removeImage(rowId, imageIdx) {
+    async function removeImage(rowId, imageIdx) {
         const row = _rows.find((r) => r.id === rowId);
         if (!row || imageIdx >= row.uploadedUrls.length) return;
 
-        if (!confirm('Xóa ảnh này?')) return;
+        if (!(await window.notificationManager.confirm('Xóa ảnh này?', 'Xóa ảnh'))) return;
 
         row.uploadedUrls.splice(imageIdx, 1);
         _render();
