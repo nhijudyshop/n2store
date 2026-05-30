@@ -1136,9 +1136,26 @@
         const ccy = tab.currency || 'VND';
         const tabLabel = (tab.label || '').trim();
 
+        // P1 2026-05-30: Loại bỏ rows đã nhận đủ (status='received') khỏi panel.
+        // User feedback: "Nhận hàng đủ với SL sản phẩm -> không cho nhận hàng
+        // sản phẩm đó nữa". Trước đây vẫn show row với input disabled "ĐÃ NHẬN
+        // ĐỦ" gây nhiễu. Giờ ẩn hoàn toàn.
         const eligibleRows = (sh.rows || []).filter(
-            (r) => (r.productName || '').trim() && Number(r.qty) > 0 && (r.supplier || '').trim()
+            (r) =>
+                (r.productName || '').trim() &&
+                Number(r.qty) > 0 &&
+                (r.supplier || '').trim() &&
+                r.status !== 'received'
         );
+
+        // Nếu shipment không còn row nào chưa nhận → báo notify + thoát.
+        const totalRows = (sh.rows || []).filter(
+            (r) => (r.productName || '').trim() && Number(r.qty) > 0 && (r.supplier || '').trim()
+        ).length;
+        if (totalRows > 0 && eligibleRows.length === 0) {
+            notify('Tất cả SP trong lô này đã nhận đủ', 'info');
+            return;
+        }
 
         // PERF: dùng cache nếu có (TTL 5s) — tránh re-fetch khi user open/close
         // liên tục. Cache expires → background re-lookup.
