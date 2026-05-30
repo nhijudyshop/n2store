@@ -25,6 +25,28 @@
 
 ## 2026-05-30
 
+### [web2][shared] Modal Anti-Lag playbook + Tier 1 fixes global ✅
+
+**User ask**: research vấn đề modal lag → tổng hợp best practices → áp dụng cho TẤT CẢ modal Web 2.0 + lưu memory để future Claude code modal mới biết làm.
+
+**Files**:
+
+- `web2/shared/web2-tpos-theme.css` — thêm Tier 1 fixes global: `contain: layout style paint` cho modal-body/content (bao gồm `[class*='modal-body']` `[class*='modal-content']`), `overscroll-behavior: contain` + `-webkit-overflow-scrolling: touch` + `scrollbar-gutter: stable` cho mọi vùng scroll trong modal, `content-visibility: auto` + `contain-intrinsic-size: 0 64px` cho `.modal-row` / `.cv-auto`. Update PERFORMANCE NOTES + thêm MODAL ANTI-LAG CHECKLIST.
+- `docs/web2/MODAL-ANTI-LAG.md` (mới) — full playbook 8 sections: nguyên nhân, Tier 1 (đã apply global), checklist HTML, virtualization với IntersectionObserver + TanStack Virtual, JS patterns (passive listeners, iOS-safe body scroll lock, avoid layout thrashing, debounce/throttle), khi nào dùng alternative (drawer, routed page, inline expand, bottom sheet, native `<dialog>`), profiling bằng Chrome DevTools.
+- `CLAUDE.md` — thêm rule #7 trong "Web 2.0 vs Legacy" → BẮT BUỘC đọc MODAL-ANTI-LAG.md trước khi code/sửa modal.
+- `MEMORY.md` global — thêm pointer `reference_web2_modal_anti_lag.md`.
+
+**Audit hiện trạng** (trước fix):
+
+- 17 modal CSS rules trong `web2-tpos-theme.css` shared, 14-15 trong balance-history/css.
+- 11 HTML files có modal structure, 15 JS files có modal logic (top: accountant.js 145 hits, balance-verification.js 78, live-campaign-app.js 62).
+- **Đã có**: `contain: layout style` + `will-change` + compositor-only transitions trong shared CSS.
+- **Còn thiếu**: `contain: paint`, `overscroll-behavior: contain`, `content-visibility` global, passive listeners trong JS (KHÔNG có `{passive: true}` nào trong web2/).
+
+**Action**: shared CSS sửa 1 lần → mọi modal Web 2.0 dùng `tpos-theme` + class `modal-content`/`modal-body` đều auto inherit fixes. Không cần edit từng modal file.
+
+**Status**: ✅ Done — CSS + docs + memory wired. JS passive listeners để future iteration apply per-page khi user gặp lag cụ thể (tránh churn rộng không cần thiết).
+
 ### [web2-products] Multi-select checkbox → In tem hàng loạt ✅
 
 **User ask**: "cho checkbox chọn sản phẩm để in nhiều tem sản phẩm".
