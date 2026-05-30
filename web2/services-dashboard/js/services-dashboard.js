@@ -8,11 +8,10 @@
     const API = `${WORKER}/api/services-overview`;
 
     // Limits per DB (used for usage bar calc)
-    // Render Postgres Basic 1GB plan ($19/mo) — current chatDb tier estimate
-    // Neon Free Tier 512MB — web2Db
+    // Cả 2 đều Render Postgres Basic 1GB plan ($19/mo) từ 2026-05-30
     const DB_LIMITS = {
         chatDb: { bytes: 1024 * 1024 * 1024, label: '1 GB (Render PG Basic)' },
-        web2Db: { bytes: 0.5 * 1024 * 1024 * 1024, label: '512 MB (Neon Free)' },
+        web2Db: { bytes: 1024 * 1024 * 1024, label: '1 GB (Render PG Basic)' },
     };
 
     function $(id) {
@@ -96,12 +95,12 @@
             const pct = limit.bytes > 0 ? (stats.dbSizeBytes / limit.bytes) * 100 : 0;
             const usageClass = pct >= 80 ? 'danger' : pct >= 60 ? 'warn' : '';
             const planClass = poolKey === 'web2Db' ? 'sd-plan-free' : '';
-            const planLabel = poolKey === 'web2Db' ? 'Free Tier' : 'Basic 1GB';
-            const provider = poolKey === 'chatDb' ? 'Render Postgres' : 'Neon';
+            const planLabel = 'Basic 1GB';
+            const provider = poolKey === 'chatDb' ? 'Render PG (chính)' : 'Render PG (Web 2.0)';
             const purpose =
                 poolKey === 'chatDb'
-                    ? 'DB chính (Render Postgres Singapore) — web2_products, native_orders, fast_sale_orders, customers, ...'
-                    : '⚠️ Neon Free Tier — DUPLICATE provider. User đề xuất consolidate về Render Postgres (cùng provider Render backend, đã trả phí).';
+                    ? 'DB chính Web 1.0 — web2_products, native_orders, fast_sale_orders, customers, ...'
+                    : 'DB Web 2.0 generic — web2_records (78+ entities, JSONB). TÁCH RIÊNG khỏi chatDb (beta isolation).';
 
             const tablesHtml = (stats.tables || [])
                 .slice(0, 8)
