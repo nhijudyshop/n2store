@@ -68,6 +68,18 @@
 
 ---
 
+### [inventory-tracking] iPad: bút chì cột Chi tiết màu — tap 1 lần mở modal biến thể ✅
+
+**Sửa**:
+
+- `inventory-tracking/js/table-renderer.js` — cột `col-colors`: thêm `<button class="btn-edit-cell btn-edit-variant"><i data-lucide="pencil"></i></button>` cuối cell, onclick `event.stopPropagation(); window.openVariantModal(this.closest('td'))`.
+- Tái sử dụng CSS `.btn-edit-cell` (commit trước) → tự động ẩn trên desktop, hiện trên iPad/Android qua `@media (hover:none) and (pointer:coarse)`.
+- KHÔNG cần `_restoreDecorations` vì cell này mở MODAL (không phải inline edit như SKU) — modal close + table re-render full, button luôn còn.
+
+**Status**: ✅ Done
+
+---
+
 ### [inventory-tracking] iPad: bút chì edit cột Mã hàng (tap 1 lần, bypass double-click) ✅
 
 **Vấn đề (user báo)**: trên iPad double-tap không tin cậy (kể cả sau khi đã tắt zoom). Cần icon bút chì 1-tap để chỉnh sửa Mã hàng.
