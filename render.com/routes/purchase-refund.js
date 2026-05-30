@@ -93,6 +93,28 @@ async function saveRefundData(pool, code, dataPatch) {
     );
 }
 
+/**
+ * Append entry vào data.history (audit log).
+ * P1 2026-05-30 — user ask "lịch sử chỉnh sửa kèm tên user tương tác".
+ * Append vs replace: load existing history, push new, save full array.
+ *
+ * @param {Object} existingData - data hiện tại từ row
+ * @param {Object} entry - { action, userId, userName, note, extra? }
+ * @returns {Array} new history array để include trong dataPatch
+ */
+function appendHistory(existingData, entry) {
+    const history = Array.isArray(existingData?.history) ? [...existingData.history] : [];
+    history.push({
+        ts: Date.now(),
+        action: entry.action || 'unknown',
+        userId: entry.userId || null,
+        userName: entry.userName || '(ẩn danh)',
+        note: entry.note || null,
+        ...(entry.extra || {}),
+    });
+    return history;
+}
+
 // Trừ tồn: web2_products.stock -= qty. CHO PHÉP âm — nếu shop trả lượng > tồn
 // (vd hàng cũ chưa nhập đủ), stock âm phản ánh đúng tình trạng thực + sẽ về 0
 // sau nhập kho kỳ sau. Trả về list {code, deducted, before, after}.
@@ -171,11 +193,22 @@ router.post('/:code/approve', async (req, res) => {
         }
 
         const stockResults = await deductStock(pool, lines);
+        const userName = req.body?.userName || '(ẩn danh)';
+        const newHistory = appendHistory(data, {
+            action: 'approve',
+            userId: req.body?.userId,
+            userName,
+            note: `Duyệt phiếu + trừ kho ${stockResults.length} dòng SP`,
+            extra: { stockResults },
+        });
         await saveRefundData(pool, code, {
             status: 'approved',
             stock_deducted: true,
             approved_at: Date.now(),
             approved_note: req.body?.note || null,
+            approved_by: userName,
+            approved_by_id: req.body?.userId || null,
+            history: newHistory,
         });
         _notify('approve', code);
         res.json({
@@ -210,11 +243,21 @@ router.post('/:code/cancel-approve', async (req, res) => {
         }
         const lines = normalizeLines(parseProducts(data.products));
         const stockResults = data.stock_deducted ? await restockStock(pool, lines) : [];
+        const userName = req.body?.userName || '(ẩn danh)';
+        const newHistory = appendHistory(data, {
+            action: 'cancel-approve',
+            userId: req.body?.userId,
+            userName,
+            note: `Hủy duyệt + trả tồn ${stockResults.length} dòng. Lý do: ${req.body?.reason || '(không)'}`,
+            extra: { stockResults },
+        });
         await saveRefundData(pool, code, {
             status: 'sent',
             stock_deducted: false,
             cancel_approve_at: Date.now(),
             cancel_approve_reason: req.body?.reason || null,
+            cancel_approve_by: userName,
+            history: newHistory,
         });
         _notify('cancel-approve', code);
         res.json({
@@ -246,12 +289,21 @@ router.post('/:code/refunded', async (req, res) => {
                 error: `Chỉ mark refunded sau khi approved (hiện: ${data.status})`,
             });
         }
+        const userName = req.body?.userName || '(ẩn danh)';
+        const newHistory = appendHistory(data, {
+            action: 'refunded',
+            userId: req.body?.userId,
+            userName,
+            note: `NCC đã hoàn tiền (${req.body?.refundMethod || data.refundMethod || 'unknown'})`,
+        });
         await saveRefundData(pool, code, {
             status: 'refunded',
             refunded_at: Date.now(),
             refundMethod: req.body?.refundMethod || data.refundMethod || null,
             refundAmount: req.body?.refundAmount ?? data.totalAmount ?? null,
             refunded_note: req.body?.note || null,
+            refunded_by: userName,
+            history: newHistory,
         });
         _notify('refunded', code);
         res.json({ success: true, refund: { code, status: 'refunded' } });
@@ -281,11 +333,21 @@ router.post('/:code/reject', async (req, res) => {
             const lines = normalizeLines(parseProducts(data.products));
             stockResults = await restockStock(pool, lines);
         }
+        const userName = req.body?.userName || '(ẩn danh)';
+        const newHistory = appendHistory(data, {
+            action: 'reject',
+            userId: req.body?.userId,
+            userName,
+            note: `NCC từ chối${stockResults.length ? ` + trả tồn ${stockResults.length} dòng` : ''}. Lý do: ${req.body?.reason || '(không)'}`,
+            extra: { stockResults },
+        });
         await saveRefundData(pool, code, {
             status: 'rejected',
             stock_deducted: false,
             rejected_at: Date.now(),
             rejected_reason: req.body?.reason || null,
+            rejected_by: userName,
+            history: newHistory,
         });
         _notify('reject', code);
         res.json({

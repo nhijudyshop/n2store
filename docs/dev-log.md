@@ -25,6 +25,34 @@
 
 ## 2026-05-30
 
+### [web2/purchase-refund] Audit log: lịch sử chỉnh sửa kèm tên user ✅
+
+**User ask**: "có hệ thống user → lịch sử chỉnh sửa kèm theo tên user tương tác".
+
+**Files**:
+
+- `web2/purchase-refund/js/purchase-refund-app.js`:
+    - `_currentUserInfo()`: Web2Auth (primary) → AuthManager (fallback) → `{userId, userName, sourcePage}`. Fallback "(ẩn danh)".
+    - `HISTORY_ACTION_LABEL` (create/approve/cancel-approve/refunded/reject với emoji) + `fmtDateTime(ts)`.
+    - `submitQuickRefund()`: seed `data.history[0]={ts,action:'create',userId,userName,note}` lúc create. Pass `userId/userName` body vào `/approve` + `updateSupplierWallet`.
+    - `handleAction()`: pass `userId/userName` body cho approve/cancel-approve/refunded/reject.
+    - `updateSupplierWallet()`: note "· bởi {userName}", ref `{userId, userName}`.
+    - `renderDetail()`: section "Lịch sử chỉnh sửa (N)" — timeline marker tròn color per action, badge user xanh + icon.
+- `render.com/routes/purchase-refund.js`:
+    - `appendHistory(data, entry)`: load `data.history` → push `{ts, action, userId, userName, note, ...extra}` → return full array (JSONB merge overwrites).
+    - 4 action endpoints append entry tương ứng + lưu `<status>_by` field.
+- `web2/purchase-refund/css/purchase-refund.css`: `.pr-history-timeline` vertical line, `.pr-timeline-marker` color per action, `.pr-timeline-user` badge xanh.
+- `web2/purchase-refund/index.html`: CSS `v=20260530c`, JS `v=20260530e`.
+
+**Verify** (Playwright, fake user "Nguyễn Văn Test"):
+
+- Trigger refund → record created với `data.history[0]` chứa userName.
+- Detail timeline render: "📝 Tạo phiếu · 11:03:35 30/5/2026 · 👤 Nguyễn Văn Test · Tạo phiếu trả 2× TEST-AO-THUN-FORM-RONG (Trắng - M) cho TEST-NCC-AOQUOC-QC".
+
+**Status**: ✅ Client done. Server appendHistory deploy sau push. Screenshot: `pr-history-timeline.png`.
+
+---
+
 ### [web2/purchase-refund] Refactor lớn: auto Sổ Order + quick refund + ví NCC ✅
 
 **User ask**: "đâu cần tạo phiếu mới — purchase-refund SẼ CÓ DANH SÁCH nhận hàng từ so-order → trả hàng confirm thì nhớ logic SL + tiền ví NCC".
@@ -390,6 +418,31 @@ Status: ✅ Done.
 **Granularity**: mỗi inline edit ô (đơn giá, SL, mã hàng, …) đều gọi `PUT /shipments/:id` → server SELECT old → compute diff per-column → log. User không cần làm gì client-side.
 
 Status: ✅ Done.
+
+---
+
+### [extension][pancake] Bump modal anti-lag — apply Tier 1 fixes từ MODAL-ANTI-LAG playbook ✅
+
+**User ask**: "modal mở từ 🚀 bị lag, đọc phần cải tiến modal không lag có trong dự án". → Đọc [docs/web2/MODAL-ANTI-LAG.md](web2/MODAL-ANTI-LAG.md) → apply Tier 1 fixes vào Shadow DOM của pancake-bump.
+
+**Anti-patterns đã có**:
+
+- `.overlay`: `backdrop-filter: blur(2px)` → kill GPU Mac retina khi modal mở/đóng
+- `.modal`: `box-shadow: 0 24px 64px rgba(0,0,0,0.6)` → repaint vùng rộng mỗi frame animation
+- `.body` + `.picker-list`: không có CSS containment → reflow scope toàn modal
+- `.conv-row`: render hết kể cả offscreen — picker list ≥ 30 rows lag scroll
+
+**Tier 1 fixes** ([n2store-extension/content/pancake-bump.js](../n2store-extension/content/pancake-bump.js)):
+
+- Bỏ `backdrop-filter` khỏi `.overlay`, tăng opacity bg 0.6→0.55 bù
+- `box-shadow: 0 24px 64px → 0 8px 24px` + alpha 0.6→0.4
+- `.modal`: thêm `contain: layout style paint; will-change: transform, opacity; transition: transform .18s, opacity .18s` (compositor-only animation)
+- `.body` + `.picker-list`: thêm `contain: layout style paint; overscroll-behavior: contain; scrollbar-gutter: stable; -webkit-overflow-scrolling: touch`
+- `.conv-row`: `content-visibility: auto; contain-intrinsic-size: 0 56px` → skip render khi ngoài viewport, ~7× faster scroll
+
+Manifest version `1.0.24` → `1.0.25`.
+
+**Status**: ✅ Done. Anh reload extension test cảm nhận responsiveness khi click 🚀.
 
 ---
 

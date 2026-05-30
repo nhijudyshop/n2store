@@ -67,6 +67,47 @@
             .replace(/"/g, '&quot;');
     }
 
+    /**
+     * Lấy user hiện tại từ Web2Auth (primary) hoặc AuthManager (legacy fallback).
+     * Trả về { userId, userName, sourcePage } để pass server làm audit log.
+     * P1 2026-05-30 — user ask "lịch sử chỉnh sửa kèm theo tên user tương tác".
+     */
+    function _currentUserInfo() {
+        let user = null;
+        try {
+            user = window.Web2Auth?.getStored?.()?.user || null;
+        } catch {}
+        if (!user) {
+            try {
+                user = window.AuthManager?.getCurrentUser?.() || null;
+            } catch {}
+        }
+        if (!user) return { userId: null, userName: '(ẩn danh)', sourcePage: 'purchase-refund' };
+        return {
+            userId: user.id || user.uid || user.username || user.email || null,
+            userName: user.displayName || user.username || user.email || '(ẩn danh)',
+            sourcePage: 'purchase-refund',
+        };
+    }
+
+    function fmtDateTime(ts) {
+        if (!ts) return '—';
+        try {
+            return new Date(ts).toLocaleString('vi-VN');
+        } catch {
+            return String(ts);
+        }
+    }
+
+    const HISTORY_ACTION_LABEL = {
+        create: '📝 Tạo phiếu',
+        approve: '✓ Duyệt + trừ kho',
+        'cancel-approve': '↩ Hủy duyệt (trả tồn về)',
+        refunded: '💰 NCC đã hoàn tiền',
+        reject: '✗ NCC từ chối',
+        update: '✎ Cập nhật',
+    };
+
     // ---------- API ----------
     async function fetchJson(url, opts) {
         const r = await fetch(url, opts);
@@ -257,6 +298,38 @@
             }
 
             <div class="pr-detail-actions">${actions.join('')}</div>
+
+            ${(() => {
+                const history = Array.isArray(r.history) ? r.history : [];
+                if (!history.length) return '';
+                return `
+            <div class="pr-history-timeline">
+                <h3>📋 Lịch sử chỉnh sửa (${history.length})</h3>
+                <ul class="pr-timeline">
+                ${history
+                    .slice()
+                    .reverse()
+                    .map((h) => {
+                        const label = HISTORY_ACTION_LABEL[h.action] || h.action;
+                        const user = h.userName || h.userId || '(ẩn danh)';
+                        return `<li class="pr-timeline-entry pr-timeline-${h.action || 'unknown'}">
+                            <div class="pr-timeline-marker"></div>
+                            <div class="pr-timeline-body">
+                                <div class="pr-timeline-head">
+                                    <strong>${escapeHtml(label)}</strong>
+                                    <span class="pr-timeline-ts">${fmtDateTime(h.ts)}</span>
+                                </div>
+                                <div class="pr-timeline-meta">
+                                    <span class="pr-timeline-user"><i data-lucide="user"></i> ${escapeHtml(user)}</span>
+                                    ${h.note ? `<span class="pr-timeline-note">${escapeHtml(h.note)}</span>` : ''}
+                                </div>
+                            </div>
+                        </li>`;
+                    })
+                    .join('')}
+                </ul>
+            </div>`;
+            })()}
         `;
 
         detail.querySelectorAll('[data-action]').forEach((btn) => {
@@ -316,7 +389,10 @@
                 const res = await fetchJson(`${SM_API}/${encodeURIComponent(code)}/approve`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({}),
+                    body: JSON.stringify({
+                        userId: _currentUserInfo().userId,
+                        userName: _currentUserInfo().userName,
+                    }),
                 });
                 const n = res.linesProcessed || 0;
                 notify(
@@ -341,7 +417,11 @@
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ reason }),
+                        body: JSON.stringify({
+                            reason,
+                            userId: _currentUserInfo().userId,
+                            userName: _currentUserInfo().userName,
+                        }),
                     }
                 );
                 notify(`✓ Đã trả tồn về (${res.linesProcessed || 0} dòng SP)`, 'success');
@@ -362,7 +442,11 @@
                 await fetchJson(`${SM_API}/${encodeURIComponent(code)}/refunded`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ refundMethod: method }),
+                    body: JSON.stringify({
+                        refundMethod: method,
+                        userId: _currentUserInfo().userId,
+                        userName: _currentUserInfo().userName,
+                    }),
                 });
                 notify(`✓ Đã ghi nhận NCC hoàn tiền`, 'success');
                 await loadList();
@@ -379,7 +463,11 @@
                 const res = await fetchJson(`${SM_API}/${encodeURIComponent(code)}/reject`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ reason }),
+                    body: JSON.stringify({
+                        reason,
+                        userId: _currentUserInfo().userId,
+                        userName: _currentUserInfo().userName,
+                    }),
                 });
                 notify(
                     `✓ Đã từ chối${res.linesProcessed ? ` + trả tồn ${res.linesProcessed} dòng` : ''}`,
@@ -1032,11 +1120,13 @@
         const orig = submitBtn.innerHTML;
         submitBtn.innerHTML = '<i data-lucide="loader"></i> Đang xử lý...';
 
+        const userInfo = _currentUserInfo();
         try {
-            // Step 1: tạo phiếu draft
+            // Step 1: tạo phiếu draft + seed history với entry "create"
             const createPayload = {
                 code: refundCode,
                 name: refundName,
+                createdBy: userInfo.userId,
                 data: {
                     supplierName: item.supplier,
                     supplierCode: null,
@@ -1056,6 +1146,16 @@
                     ],
                     status: 'draft',
                     sourcePurchaseCode: item.sources?.[0]?.ship || null,
+                    createdByName: userInfo.userName,
+                    history: [
+                        {
+                            ts: Date.now(),
+                            action: 'create',
+                            userId: userInfo.userId,
+                            userName: userInfo.userName,
+                            note: `Tạo phiếu trả ${qty}× ${item.name}${item.variant ? ' (' + item.variant + ')' : ''} cho ${item.supplier}`,
+                        },
+                    ],
                 },
             };
             await fetchJson(`${GENERIC_API}/create`, {
@@ -1064,14 +1164,18 @@
                 body: JSON.stringify(createPayload),
             });
 
-            // Step 2: auto-approve → trừ stock
+            // Step 2: auto-approve → trừ stock + server append history entry
             await fetchJson(`${SM_API}/${encodeURIComponent(refundCode)}/approve`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({}),
+                body: JSON.stringify({
+                    userId: userInfo.userId,
+                    userName: userInfo.userName,
+                    sourcePage: userInfo.sourcePage,
+                }),
             });
 
-            // Step 3 + 4: cập nhật Ví NCC (supplier wallet)
+            // Step 3 + 4: cập nhật Ví NCC (supplier wallet) — note có user
             await updateSupplierWallet(item.supplier, {
                 amount,
                 refundCode,
@@ -1079,6 +1183,8 @@
                 productName: item.name,
                 variant: item.variant,
                 method,
+                userId: userInfo.userId,
+                userName: userInfo.userName,
             });
 
             notify(
@@ -1120,12 +1226,19 @@
         const productLabel = opts.variant
             ? `${opts.productName} (${opts.variant})`
             : opts.productName;
-        const note = `Trả ${opts.qty}× ${productLabel} — ${opts.refundCode} (${opts.method})`;
+        const byUser = opts.userName ? ` · bởi ${opts.userName}` : '';
+        const note = `Trả ${opts.qty}× ${productLabel} — ${opts.refundCode} (${opts.method})${byUser}`;
         SW.addTransaction(state, supplier, {
             type: 'return',
             amount: opts.amount,
             note,
-            ref: { refundCode: opts.refundCode, qty: opts.qty, method: opts.method },
+            ref: {
+                refundCode: opts.refundCode,
+                qty: opts.qty,
+                method: opts.method,
+                userId: opts.userId || null,
+                userName: opts.userName || null,
+            },
         });
         // Push to Firestore (async, fire-and-forget — SSE sẽ broadcast cho tab khác)
         SW.Sync.push(state).catch((e) =>

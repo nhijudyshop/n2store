@@ -960,3 +960,124 @@ body {
     padding-top: 12px;
     border-top: 1px solid #e2e8f0;
 }
+
+/* P1 2026-05-30: Audit history timeline trong detail view
+ * User ask "có hệ thống user → lịch sử chỉnh sửa kèm tên user tương tác".
+ */
+.pr-history-timeline {
+    margin-top: 18px;
+    padding: 14px 16px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+.pr-history-timeline h3 {
+    margin: 0 0 12px;
+    font-size: 14px;
+    color: #475569;
+    font-weight: 700;
+}
+.pr-timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    position: relative;
+}
+.pr-timeline::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: #cbd5e1;
+}
+.pr-timeline-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 6px 0 10px;
+    position: relative;
+}
+.pr-timeline-marker {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid #94a3b8;
+    flex-shrink: 0;
+    margin-top: 3px;
+    position: relative;
+    z-index: 1;
+}
+.pr-timeline-create .pr-timeline-marker {
+    border-color: #2563eb;
+    background: #dbeafe;
+}
+.pr-timeline-approve .pr-timeline-marker {
+    border-color: #16a34a;
+    background: #dcfce7;
+}
+.pr-timeline-cancel-approve .pr-timeline-marker {
+    border-color: #d97706;
+    background: #fef3c7;
+}
+.pr-timeline-refunded .pr-timeline-marker {
+    border-color: #059669;
+    background: #d1fae5;
+}
+.pr-timeline-reject .pr-timeline-marker {
+    border-color: #dc2626;
+    background: #fee2e2;
+}
+.pr-timeline-body {
+    flex: 1;
+    min-width: 0;
+}
+.pr-timeline-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 13px;
+}
+.pr-timeline-head strong {
+    color: #0f172a;
+}
+.pr-timeline-ts {
+    font-size: 11px;
+    color: #94a3b8;
+    font-family:
+        ui-monospace,
+        SF Mono,
+        Menlo,
+        monospace;
+    white-space: nowrap;
+}
+.pr-timeline-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #475569;
+    flex-wrap: wrap;
+}
+.pr-timeline-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #e0f2fe;
+    color: #075985;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+.pr-timeline-user i {
+    width: 12px;
+    height: 12px;
+}
+.pr-timeline-note {
+    color: #64748b;
+    font-style: italic;
+}
