@@ -25,6 +25,27 @@
 
 ## 2026-05-30
 
+### [web2/services-dashboard] Trang dịch vụ & chi phí — DB stats + service inventory ✅
+
+**User ask**: "tạo 1 trang dịch vụ ghi rõ đang dùng db gì → chi phí ra sao → hiển thị data đã dùng".
+
+**Files**:
+
+- `render.com/routes/services-overview.js` (mới): `GET /api/services-overview`:
+    - 2 DB pools stats: `pg_database_size`, top 10 tables size + rows, connection counts, pool internal.
+    - Process: uptime, memory RSS/heap, Node version.
+    - Static `SERVICES_INVENTORY` 8 dịch vụ: Supabase, Neon, Render, CF Workers, Firestore, Firebase Auth, Bunny CDN, GH Pages — với plan/cost/free tier/paid limit/purpose/url.
+- `render.com/server.js`: mount `/api/services-overview`.
+- `web2/services-dashboard/`:
+    - `index.html`: header, 4 cost cards (tổng/paid/free/uptime), 3 sections (Databases, Services inventory, Process).
+    - `css/services-dashboard.css`: cost strip border-left color, DB cards với usage bar (green<60%, yellow<80%, red>80%) + top tables, service grid responsive.
+    - `js/services-dashboard.js`: fetch + render, auto-refresh 60s, `DB_LIMITS` cho usage % calc.
+- `web2/shared/tpos-sidebar.js`: thêm "Bảng dịch vụ & chi phí" vào nhóm "Tính năng mới".
+
+**Status**: ✅ Done. Render auto-deploy server endpoint.
+
+---
+
 ### [web2/purchase-refund] Fix 2-DB pool bug + bỏ action buttons ✅
 
 **User feedback**:

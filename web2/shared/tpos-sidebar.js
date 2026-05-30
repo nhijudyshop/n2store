@@ -75,6 +75,11 @@
                     tpos: '',
                     adminOnly: true,
                 },
+                {
+                    label: 'Bảng dịch vụ & chi phí',
+                    our: '../web2/services-dashboard/index.html',
+                    tpos: '',
+                },
             ],
         },
         {
