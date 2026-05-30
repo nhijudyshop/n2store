@@ -30,26 +30,82 @@
         return { wallets: {}, lastUpdated: 0 };
     }
 
-    function load() {
+    // P1 2026-05-30: persist localStorage → IndexedDB qua Web2IdbStore.
+    let _idbStore = null;
+    function _getStore() {
+        if (_idbStore) return _idbStore;
+        const root = typeof window !== 'undefined' ? window : globalThis;
+        if (!root.Web2IdbStore) return null;
+        _idbStore = root.Web2IdbStore.open('supplier_wallet_storage', {
+            migrateFromLs: STORAGE_KEY,
+        });
+        return _idbStore;
+    }
+
+    let _cachedState = null;
+    let _writeTimer = null;
+    const WRITE_DEBOUNCE_MS = 150;
+
+    async function load() {
         try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (!raw) return emptyState();
-            const parsed = JSON.parse(raw);
-            if (!parsed || typeof parsed !== 'object') return emptyState();
+            const store = _getStore();
+            let parsed = null;
+            if (store) parsed = await store.get();
+            if (!parsed) {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    try {
+                        parsed = JSON.parse(raw);
+                    } catch {
+                        parsed = null;
+                    }
+                }
+            }
+            if (!parsed || typeof parsed !== 'object') {
+                _cachedState = emptyState();
+                return _cachedState;
+            }
             parsed.wallets = parsed.wallets || {};
+            _cachedState = parsed;
             return parsed;
         } catch (e) {
             console.warn('[SupplierWallet] load fail:', e.message);
-            return emptyState();
+            _cachedState = emptyState();
+            return _cachedState;
         }
     }
 
+    function loadCached() {
+        return _cachedState || emptyState();
+    }
+
     function save(state) {
+        state.lastUpdated = Date.now();
+        _cachedState = state;
+        if (_writeTimer) clearTimeout(_writeTimer);
+        _writeTimer = setTimeout(async () => {
+            _writeTimer = null;
+            try {
+                const store = _getStore();
+                if (store) await store.set(state);
+                else localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch (e) {
+                console.warn('[SupplierWallet] save fail:', e.message);
+            }
+        }, WRITE_DEBOUNCE_MS);
+    }
+
+    async function flush() {
+        if (!_writeTimer) return;
+        clearTimeout(_writeTimer);
+        _writeTimer = null;
+        if (!_cachedState) return;
         try {
-            state.lastUpdated = Date.now();
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            const store = _getStore();
+            if (store) await store.set(_cachedState);
+            else localStorage.setItem(STORAGE_KEY, JSON.stringify(_cachedState));
         } catch (e) {
-            console.warn('[SupplierWallet] save fail:', e.message);
+            console.warn('[SupplierWallet] flush fail:', e.message);
         }
     }
 
@@ -141,7 +197,10 @@
                 this._db = firebase.firestore();
                 const remote = await this._load();
                 if (remote) {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+                    // P1 2026-05-30: persist qua IDB
+                    _cachedState = remote;
+                    const store = _getStore();
+                    if (store) await store.set(remote);
                 }
                 return true;
             } catch (e) {
@@ -300,7 +359,9 @@
 
     global.SupplierWalletStorage = {
         load,
+        loadCached,
         save,
+        flush,
         cleanupOldTransactions,
         getOrCreateWallet,
         recalcBalance,

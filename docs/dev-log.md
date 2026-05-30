@@ -25,6 +25,83 @@
 
 ## 2026-05-30
 
+### [web2-storage] All Web 2.0 stores migrated localStorage → IndexedDB ✅
+
+**User feedback**: "làm tất cả vì web 2.0 hiện đang test".
+
+**Stores migrated** (qua Web2IdbStore helper):
+
+| Store                 | Module                                               | LS key cũ              | IDB key mới                    |
+| --------------------- | ---------------------------------------------------- | ---------------------- | ------------------------------ |
+| Sổ Order              | `so-order/js/so-order-storage.js`                    | `soOrder_v1`           | `so_order_storage:main`        |
+| Customer Wallet       | `web2/customer-wallet/js/customer-wallet-storage.js` | `customerWallet_v1`    | `customer_wallet_storage:main` |
+| Supplier Wallet       | `web2/supplier-wallet/js/supplier-wallet-storage.js` | `supplierWallet_v1`    | `supplier_wallet_storage:main` |
+| Balance History cache | `web2/balance-history/js/accountant-history.js`      | `acc_history_cache_v2` | `acc_history_cache:main`       |
+
+**Pattern áp dụng** (so-order, wallets):
+
+- `_cachedState` in-memory mirror cho sync access (sau load lần đầu).
+- `_idbStore` lazy init (chỉ open IDB lần đầu cần).
+- `load()` async: try IDB → fallback LS legacy (auto-migrate qua Web2IdbStore.open() `migrateFromLs` flag) → heal/migrate state shape → return + cache.
+- `save(state)` sync API: update `_cachedState` + schedule debounced (150ms) async IDB write. Caller không cần await.
+- `flush()` async: force flush pending write (gọi trước unload).
+- Sync layer (Firestore): persist remote data qua IDB store thay vì `localStorage.setItem`.
+
+**Pattern accountant-history cache** (read-heavy):
+
+- `_cachedRecords` undefined→null→object (3-state) để track "chưa load lần đầu".
+- `loadCacheFromIdb()` async: 1 lần ở đầu `load()`.
+- `readCache()` sync: trả `_cachedRecords` từ memory.
+- `writeCache()` sync API: update memory + fire-and-forget IDB put.
+
+**Auto-migrate** (Web2IdbStore.open option `migrateFromLs`):
+
+- Lần đầu `open(store, {migrateFromLs:'oldKey'})` đọc `localStorage.oldKey` → put IDB key `${store}:main` → xóa LS key.
+- Idempotent: sau migrate LS rỗng, lần sau không chạy lại.
+- Per-store, không cần intervention.
+
+**Cross-module references** (so-order data từ purchase-refund, supplier-wallet):
+
+- `web2/purchase-refund/js/purchase-refund-app.js` `loadSoOrderReceivedItems()` đọc IDB trước, fallback LS legacy, fallback Firestore.
+- `web2/supplier-wallet/js/supplier-wallet-storage.js` `loadSoOrderData()` tương tự.
+
+**HTML pages added script** `web2/shared/web2-idb-store.js`:
+
+- `so-order/index.html`
+- `web2/purchase-refund/index.html`
+- `web2/supplier-wallet/index.html`
+- `web2/customer-wallet/index.legacy.html`
+- `web2/balance-history/index.legacy.html`
+
+**Caller API breaks**:
+
+- `SoOrderStorage.load()`, `CustomerWalletStorage.load()`, `SupplierWalletStorage.load()` giờ async → call sites `await`.
+- `save()` vẫn sync (fire-and-forget) → callers không thay đổi.
+
+**Verify live** (persistent browser session):
+
+- so-order navigate: IDB key `so_order_storage:main` có 3 tabs, LS `soOrder_v1` cleared ✅
+- supplier-wallet navigate: IDB keys `[so_order, supplier_wallet, ...]`, LS `supplierWallet_v1` cleared ✅
+- purchase-refund: no console errors về IDB/global ✅
+
+**Trade-offs**:
+
+- Pro: data per-store có thể lớn hơn 5-10MB LS cap (IDB dùng ~50% disk).
+- Pro: single IDB connection chia sẻ giữa các store (1 DB `web2_kv_v1` + prefix key).
+- Con: init() phải await IDB read (~10-30ms). Vẫn nhanh hơn HTTP cold.
+- Con: save() debounced 150ms — nếu tab close ngay sau mutation, có thể mất last edit. Khắc phục: gọi `flush()` trên `beforeunload`/`visibilitychange→hidden` (TODO).
+
+**Files** (15+):
+
+- `web2/shared/web2-idb-store.js` (helper)
+- `so-order/js/so-order-storage.js` + `so-order/js/so-order-app.js` + `so-order/index.html`
+- `web2/customer-wallet/js/customer-wallet-storage.js` + `web2/customer-wallet/js/customer-wallet-app.js` + `web2/customer-wallet/index.legacy.html`
+- `web2/supplier-wallet/js/supplier-wallet-storage.js` + `web2/supplier-wallet/js/supplier-wallet-app.js` + `web2/supplier-wallet/index.html`
+- `web2/balance-history/js/accountant-history.js` + `web2/balance-history/index.legacy.html`
+- `web2/purchase-refund/js/purchase-refund-app.js` + `web2/purchase-refund/index.html`
+
+---
+
 ### [web2-shared] Web2IdbStore helper + audit localStorage cho phase migration ✅
 
 **User feedback**: "web 2.0 dữ liệu rất lớn nên coi phần nào chuyển qua index db khỏi dùng local cache".

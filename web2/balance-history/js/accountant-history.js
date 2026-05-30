@@ -445,17 +445,54 @@
         document.getElementById('accHistoryEndDate').value = iso(end);
     }
 
-    function readCache() {
+    // P1 2026-05-30: cache chuyển từ localStorage → IndexedDB qua Web2IdbStore.
+    // Records list có thể lớn (snapshots all balance records) → đáng chuyển
+    // sang IDB để không tốn LS quota. API readCache vẫn sync (return cached
+    // in-memory) sau khi load() lần đầu; writeCache fire-and-forget.
+    let _idbStore = null;
+    function _getCacheStore() {
+        if (_idbStore) return _idbStore;
+        const root = typeof window !== 'undefined' ? window : globalThis;
+        if (!root.Web2IdbStore) return null;
+        _idbStore = root.Web2IdbStore.open('acc_history_cache', {
+            migrateFromLs: CACHE_KEY,
+        });
+        return _idbStore;
+    }
+
+    let _cachedRecords = undefined; // undefined = chưa load; null/object = đã load
+
+    async function loadCacheFromIdb() {
         try {
-            const raw = localStorage.getItem(CACHE_KEY);
-            if (!raw) return null;
-            const obj = JSON.parse(raw);
-            if (!obj || !Array.isArray(obj.records) || !obj.savedAt) return null;
-            // Records cache lưu timestamp ms (đã convert) + giữ raw fields khác
+            const store = _getCacheStore();
+            let obj = null;
+            if (store) obj = await store.get();
+            if (!obj) {
+                const raw = localStorage.getItem(CACHE_KEY);
+                if (raw) {
+                    try {
+                        obj = JSON.parse(raw);
+                    } catch {
+                        obj = null;
+                    }
+                }
+            }
+            if (!obj || !Array.isArray(obj.records) || !obj.savedAt) {
+                _cachedRecords = null;
+                return null;
+            }
+            _cachedRecords = obj;
             return obj;
         } catch (e) {
+            _cachedRecords = null;
             return null;
         }
+    }
+
+    function readCache() {
+        // Trả cached in-memory; caller phải gọi loadCacheFromIdb() trước khi
+        // dùng (tại init).
+        return _cachedRecords || null;
     }
 
     function writeCache(records) {
@@ -467,7 +504,15 @@
                     timestamp: ts ? ts.getTime() : null,
                 };
             });
-            localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), records: slim }));
+            const payload = { savedAt: Date.now(), records: slim };
+            _cachedRecords = payload;
+            const store = _getCacheStore();
+            if (store) {
+                // Fire-and-forget IDB write — không await trong sync caller
+                store.set(payload).catch(() => {});
+            } else {
+                localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+            }
         } catch (e) {
             // QuotaExceeded etc. — bỏ qua
         }
@@ -514,6 +559,11 @@
     async function load(forceRefresh) {
         readFiltersFromUI();
 
+        // P1 2026-05-30: load IDB cache lần đầu (async). Subsequent calls
+        // dùng _cachedRecords từ memory.
+        if (_cachedRecords === undefined) {
+            await loadCacheFromIdb();
+        }
         // Stale-while-revalidate: nếu có cache, hiển thị NGAY rồi fetch nền
         const cached = !forceRefresh ? readCache() : null;
         const cacheAgeMs = cached ? Date.now() - cached.savedAt : Infinity;

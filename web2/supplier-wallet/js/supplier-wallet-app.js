@@ -482,7 +482,8 @@
     }
 
     async function init() {
-        walletState = window.SupplierWalletStorage.load();
+        // P1 2026-05-30: SupplierWalletStorage.load() giờ async (IDB read)
+        walletState = await window.SupplierWalletStorage.load();
         const purged = window.SupplierWalletStorage.cleanupOldTransactions(walletState);
         if (purged) window.SupplierWalletStorage.save(walletState);
         wireUi();
@@ -502,7 +503,7 @@
             }
         });
         if (ok) {
-            walletState = window.SupplierWalletStorage.load();
+            walletState = await window.SupplierWalletStorage.load();
             renderList();
             pushSync();
         }

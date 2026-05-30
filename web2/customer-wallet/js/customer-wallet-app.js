@@ -755,7 +755,8 @@
     }
 
     async function init() {
-        walletState = window.CustomerWalletStorage.load();
+        // P1 2026-05-30: CustomerWalletStorage.load() giờ async (IDB read)
+        walletState = await window.CustomerWalletStorage.load();
         const purged = window.CustomerWalletStorage.cleanupOldTransactions(walletState);
         if (purged) window.CustomerWalletStorage.save(walletState);
         wireUi();
@@ -769,7 +770,7 @@
             }
         });
         if (ok) {
-            walletState = window.CustomerWalletStorage.load();
+            walletState = await window.CustomerWalletStorage.load();
             renderList();
             pushSync();
         }
