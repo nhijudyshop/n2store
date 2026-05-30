@@ -28,8 +28,22 @@
  *     border-color/background swap thay shadow lift.
  *   - will-change CHỈ trên modal-content khi animate, KHÔNG permanent.
  *   - content-visibility: auto cho long lists/kanban → defer offscreen.
+ *   - contain: layout style paint trên modal-body — cách ly reflow + repaint.
+ *   - overscroll-behavior: contain — chặn scroll chaining ra body khi modal scroll
+ *     đến boundary (đỡ jank trên iOS/Mac trackpad).
+ *   - scrollbar-gutter: stable — tránh layout shift khi scrollbar xuất hiện.
+ *
+ * MODAL ANTI-LAG CHECKLIST (cho code modal mới):
+ *   1. HTML: dùng class `modal-content` + `modal-body` (auto inherit Tier 1 fixes).
+ *   2. Row dài (list/table trong modal) → thêm class `cv-auto` hoặc `modal-row`.
+ *   3. Scroll handler trong JS: addEventListener('scroll', fn, {passive:true}).
+ *   4. KHÔNG dùng backdrop-filter, KHÔNG box-shadow > 20px trên modal.
+ *   5. Khi nội dung > 100 rows: virtualize (TanStack Virtual) thay vì render hết.
+ *   6. body scroll lock: dùng pattern position:fixed + top:-scrollY thay overflow:hidden
+ *      để iOS Safari không jump (xem JS pattern docs/web2/MODAL-ANTI-LAG.md nếu cần).
  *
  * Reference: https://web.dev/articles/animations-guide (compositor props).
+ *            https://web.dev/articles/content-visibility (defer offscreen render).
  * ===================================================== */
 
 /* ─── Color tokens (idempotent — same values như native-orders.css) ─── */
@@ -375,10 +389,30 @@ body.tpos-theme.modal-open {
     overflow: hidden;
 }
 
-/* Modal body — cách ly reflow */
+/* Modal body — cách ly reflow + paint scope */
 .tpos-theme .modal-body,
-.tpos-theme .modal-content {
-    contain: layout style;
+.tpos-theme .modal-content,
+.tpos-theme [class*='modal-body'],
+.tpos-theme [class*='modal-content'] {
+    contain: layout style paint;
+}
+
+/* Modal scrollable area — chặn scroll chaining + smooth touch + skip offscreen render */
+.tpos-theme .modal-body,
+.tpos-theme [class*='modal-body'],
+.tpos-theme .modal-scroll,
+.tpos-theme [class*='modal'] [class*='scroll'] {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+}
+
+/* Long lists/rows trong modal — skip render khi ngoài viewport (7x faster) */
+.tpos-theme .modal .cv-row,
+.tpos-theme .modal .modal-row,
+.tpos-theme [class*='modal'] .cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 64px;
 }
 
 /* Modal inputs — focus chỉ border-color (compositor friendly) */

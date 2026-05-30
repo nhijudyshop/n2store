@@ -345,13 +345,14 @@
                         </div>
 
                         <div class="row">
-                            <label>⚡ Preset nhanh</label>
+                            <label>⚡ Preset nhanh (số cmt × số khách)</label>
                             <div class="preset-row">
                                 <button class="btn-preset" data-cap="1" data-limit="30">Nhẹ (1×30)</button>
-                                <button class="btn-preset" data-cap="2" data-limit="30">Vừa (2×30)</button>
-                                <button class="btn-preset" data-cap="3" data-limit="30">Mạnh (3×30)</button>
+                                <button class="btn-preset" data-cap="3" data-limit="50">Vừa (3×50)</button>
+                                <button class="btn-preset" data-cap="5" data-limit="100">Mạnh (5×100)</button>
+                                <button class="btn-preset" data-cap="10" data-limit="200">Khủng (10×200)</button>
                             </div>
-                            <div class="hint">Khách nhận FB notification mỗi reply. Cap thấp để minh bạch.</div>
+                            <div class="hint">Tổng comment = cap × limit. Khi mode = Chain: chỉ reply #1 báo khách.</div>
                         </div>
 
                         <div class="grid-3">
@@ -381,7 +382,7 @@
                                 <select id="cfg-mode">
                                     <option value="reply" selected>Reply (báo khách 🔔)</option>
                                 </select>
-                                <div class="hint">Mỗi reply gửi FB notification "X replied to your comment" — minh bạch.</div>
+                                <div class="hint">Mỗi reply gửi FB notification "X replied to your comment".</div>
                             </div>
                             <div class="row">
                                 <label for="cfg-post-id">Post ID (optional)</label>
