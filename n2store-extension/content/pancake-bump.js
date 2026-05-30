@@ -925,6 +925,7 @@
             let sentN = 0;
             outer: for (let i = 0; i < queue.length; i++) {
                 const conv = queue[i];
+                let lastReplyId = null;
                 for (let j = 0; j < cfg.capPerConv; j++) {
                     if (window.__n2storeBumpStopFlag) {
                         appendLog(els, 'info', `Đã dừng tại ${sentN}/${totalCount}.`);
@@ -936,10 +937,12 @@
                         appendLog(els, 'dry', 'DRY ' + tag);
                         okCount++;
                     } else {
-                        const r = await sendCommentReply(jwt, pageId, conv, tmpl);
+                        const parent = j > 0 ? lastReplyId : undefined;
+                        const r = await sendCommentReply(jwt, pageId, conv, tmpl, parent);
                         if (r.ok) {
                             appendLog(els, 'ok', '✓ ' + tag + ' → ' + r.newId);
                             okCount++;
+                            lastReplyId = r.newId;
                         } else {
                             appendLog(els, 'fail', '✗ ' + tag + ' → ' + (r.error || r.status));
                             failCount++;
@@ -1039,7 +1042,7 @@
         return sorted.slice(0, cfg.limit);
     }
 
-    async function sendCommentReply(jwt, pageId, conv, message) {
+    async function sendCommentReply(jwt, pageId, conv, message, parentOverride) {
         const url =
             `/api/v1/pages/${encodeURIComponent(pageId)}` +
             `/conversations/${encodeURIComponent(conv.id)}/messages` +
@@ -1047,7 +1050,7 @@
         const body = {
             action: 'reply_comment',
             message_id: conv.id,
-            parent_id: conv.id,
+            parent_id: parentOverride || conv.id,
             user_selected_reply_to: null,
             post_id: conv.post_id,
             message,

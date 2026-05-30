@@ -26,50 +26,142 @@
                     <div>
                         <h1>Trả hàng NCC</h1>
                         <p class="pr-sub">
-                            Quản lý phiếu trả hàng cho Nhà Cung Cấp + state machine + tự trừ tồn
-                            kho.
+                            Hàng đã nhận từ Sổ Order — chọn để trả NCC. Tự động trừ kho + cập nhật
+                            Ví NCC.
                         </p>
                     </div>
                     <div class="pr-header-actions">
-                        <button id="prNewBtn" class="btn btn-primary">
-                            <i data-lucide="plus"></i> Tạo phiếu mới
-                        </button>
                         <button id="prReloadBtn" class="btn btn-secondary">
                             <i data-lucide="refresh-cw"></i> Tải lại
                         </button>
                     </div>
                 </header>
 
-                <div class="pr-filters">
-                    <label>Trạng thái:</label>
-                    <select id="prFilterStatus">
-                        <option value="">Tất cả</option>
-                        <option value="draft">Nháp</option>
-                        <option value="sent">Đã gửi NCC</option>
-                        <option value="approved">NCC duyệt (đã trừ kho)</option>
-                        <option value="refunded">NCC đã hoàn tiền</option>
-                        <option value="rejected">NCC từ chối</option>
-                        <option value="cancelled">Hủy</option>
-                    </select>
-                    <input type="text" id="prSearch" placeholder="Tìm mã / NCC / lý do..." />
-                </div>
+                <!-- Section A: hàng nhận từ so-order — main UI -->
+                <section class="pr-source-section">
+                    <div class="pr-source-head">
+                        <h2>
+                            <i data-lucide="package-check"></i>
+                            Hàng đã nhận từ Sổ Order
+                            <span class="pr-source-count" id="prSourceCount">0 SP</span>
+                        </h2>
+                        <div class="pr-source-filters">
+                            <input
+                                type="text"
+                                id="prSourceSearch"
+                                placeholder="Tìm mã / tên SP / NCC..."
+                            />
+                            <select id="prSourceSupplier">
+                                <option value="">Tất cả NCC</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="pr-source-list" id="prSourceList"></div>
+                    <div class="pr-empty" id="prSourceEmpty" hidden>
+                        Chưa có SP đã nhận hàng từ Sổ Order — vào
+                        <a href="../../so-order/index.html" style="color: #2563eb">Sổ Order</a>
+                        → Nhận hàng trước.
+                    </div>
+                </section>
 
-                <div class="pr-layout">
-                    <section class="pr-list-section">
-                        <div class="pr-list-head">
-                            <span id="prListCount">0 phiếu</span>
-                        </div>
-                        <ul class="pr-list" id="prList"></ul>
-                        <div class="pr-empty" id="prEmpty" hidden>Chưa có phiếu trả hàng nào.</div>
-                    </section>
-                    <section class="pr-detail-section">
-                        <div class="pr-detail-empty" id="prDetailEmpty">
-                            Chọn 1 phiếu bên trái để xem chi tiết.
-                        </div>
-                        <div class="pr-detail" id="prDetail" hidden></div>
-                    </section>
-                </div>
+                <!-- Section B: lịch sử phiếu trả (collapsible) -->
+                <details class="pr-history-section" id="prHistoryDetails">
+                    <summary>
+                        <i data-lucide="history"></i>
+                        Lịch sử phiếu trả NCC
+                        <span class="pr-history-count" id="prListCount">0 phiếu</span>
+                    </summary>
+                    <div class="pr-filters">
+                        <label>Trạng thái:</label>
+                        <select id="prFilterStatus">
+                            <option value="">Tất cả</option>
+                            <option value="draft">Nháp</option>
+                            <option value="sent">Đã gửi NCC</option>
+                            <option value="approved">NCC duyệt (đã trừ kho)</option>
+                            <option value="refunded">NCC đã hoàn tiền</option>
+                            <option value="rejected">NCC từ chối</option>
+                            <option value="cancelled">Hủy</option>
+                        </select>
+                        <input type="text" id="prSearch" placeholder="Tìm mã / NCC / lý do..." />
+                    </div>
+                    <div class="pr-layout">
+                        <section class="pr-list-section">
+                            <ul class="pr-list" id="prList"></ul>
+                            <div class="pr-empty" id="prEmpty" hidden>
+                                Chưa có phiếu trả hàng nào.
+                            </div>
+                        </section>
+                        <section class="pr-detail-section">
+                            <div class="pr-detail-empty" id="prDetailEmpty">
+                                Chọn 1 phiếu bên trái để xem chi tiết.
+                            </div>
+                            <div class="pr-detail" id="prDetail" hidden></div>
+                        </section>
+                    </div>
+                </details>
             </main>
+        </div>
+
+        <!-- Quick Refund Modal — chọn qty + reason + method cho 1 SP -->
+        <div class="pr-quick-modal" id="prQuickModal" hidden>
+            <div class="pr-quick-backdrop" data-pr-quick-close></div>
+            <div class="pr-quick-content">
+                <header class="pr-quick-head">
+                    <h2><i data-lucide="undo-2"></i> Trả hàng cho NCC</h2>
+                    <button data-pr-quick-close class="pr-quick-close">×</button>
+                </header>
+                <form id="prQuickForm">
+                    <div class="pr-quick-info" id="prQuickInfo">
+                        <!-- prefilled: NCC, SP code, SP name, stock available -->
+                    </div>
+                    <div class="pr-quick-grid">
+                        <label>
+                            Số lượng trả <span style="color: #dc2626">*</span>
+                            <input type="number" name="qty" required min="1" />
+                            <small id="prQuickQtyHint">Tối đa: <span></span></small>
+                        </label>
+                        <label>
+                            Giá / SP
+                            <input type="number" name="price" min="0" />
+                        </label>
+                        <label>
+                            Lý do
+                            <select name="reason">
+                                <option value="defect">Hàng lỗi / hỏng</option>
+                                <option value="wrong_item">Sai mã / sai SP</option>
+                                <option value="excess">Dư hàng / nhận thừa</option>
+                                <option value="quality">Chất lượng kém</option>
+                                <option value="other">Khác</option>
+                            </select>
+                        </label>
+                        <label>
+                            Phương thức hoàn
+                            <select name="refundMethod">
+                                <option value="debt_offset">Trừ vào công nợ kỳ sau</option>
+                                <option value="cash">Tiền mặt</option>
+                                <option value="bank">Chuyển khoản</option>
+                                <option value="replace">Đổi hàng mới</option>
+                            </select>
+                        </label>
+                    </div>
+                    <label class="pr-quick-full">
+                        Ghi chú
+                        <textarea name="note" rows="2"></textarea>
+                    </label>
+                    <div class="pr-quick-totalbox" id="prQuickTotalBox">
+                        <span>Tổng tiền NCC sẽ hoàn:</span>
+                        <strong id="prQuickTotal">0₫</strong>
+                    </div>
+                    <div class="pr-quick-actions">
+                        <button type="button" data-pr-quick-close class="btn btn-secondary">
+                            Hủy
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="prQuickSubmit">
+                            <i data-lucide="check"></i> Xác nhận trả NCC
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
 
         <!-- Modal Create / Edit -->
@@ -235,6 +327,7 @@
         <script src="../shared/web2-sse-bridge.js?v=20260526sse2"></script>
         <script src="../products/js/web2-products-api.js?v=20260530a"></script>
         <script src="../shared/web2-products-cache.js?v=20260530a"></script>
-        <script src="js/purchase-refund-app.js?v=20260530c"></script>
+        <script src="../supplier-wallet/js/supplier-wallet-storage.js?v=20260530a"></script>
+        <script src="js/purchase-refund-app.js?v=20260530d"></script>
     </body>
 </html>
