@@ -68,6 +68,18 @@
 
 ---
 
+### [inventory-tracking] iPad: bút chì cột Tổng SL — tap 1 lần sửa số lượng ✅
+
+**Sửa**:
+
+- `inventory-tracking/js/table-renderer.js` — cột `col-qty` (Tổng SL): thêm `<button class="btn-edit-cell btn-edit-qty">` cuối cell, onclick `event.stopPropagation(); startInlineEdit(this.closest('td'))`.
+- Tái dùng CSS `.btn-edit-cell` + cơ chế `_restoreDecorations` từ commit Mã hàng → button survive sau commit/escape/error (decoration selector đã match `.btn-edit-cell` rồi).
+- isNumeric extraction an toàn: button không có text → `td.textContent.trim()` chỉ trả số formatted ("12,000") → strip commas → number.
+
+**Status**: ✅ Done
+
+---
+
 ### [inventory-tracking] iPad: bút chì cột Chi tiết màu — tap 1 lần mở modal biến thể ✅
 
 **Sửa**:
