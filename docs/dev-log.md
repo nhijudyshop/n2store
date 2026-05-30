@@ -25,6 +25,28 @@
 
 ## 2026-05-30
 
+### [web2/shared] Sidebar brand — thay text "N2" bằng logo emblem N2 Store ✅
+
+**User ask**: copy `/Users/mac/Desktop/n2store/index/logo.jpg`, chỉnh sửa phù hợp để thêm vào sidebar Web 2.0 (chỗ đang là `N2` gradient + "Web 2.0 v1.0").
+
+**Files**:
+
+- `web2/shared/img/logo-emblem.png` (mới, 256x256, ~63 KB, PNG32 transparent):
+    - Crop region 720x720 từ `(260, 150)` trên ảnh gốc 1201x1201 — giữ phần vương miện + emblem tròn N2 vàng, bỏ chữ "N2 STORE" phía dưới.
+    - Alpha flood-fill từ 4 góc với `-fuzz 28%` để xoá nền đen → transparent (giữ chi tiết viền vàng).
+    - Resize 256x256 cho retina-ready ở display size 32px.
+- `web2/shared/tpos-sidebar.js`:
+    - Thêm `SCRIPT_BASE_URL` resolve qua `document.currentScript.src` + `LOGO_URL = new URL('./img/logo-emblem.png?v=20260530', SCRIPT_BASE_URL)` → path đúng cho mọi depth host page (`/web2/<page>/`, `/web2/index.html`, `/native-orders/`, `/tpos-pancake/`, `/so-order/`).
+    - Thay `<span class="web2-brand-logo">N2</span>` → `<img class="web2-brand-logo" src="${LOGO_URL}" alt="N2 Store" width="32" height="32" decoding="async">`.
+- `web2/shared/tpos-sidebar.css`:
+    - `.web2-brand-logo` bỏ gradient `linear-gradient(135deg, #27c24c, #7266ba)` + text styles → `object-fit: contain`, `width/height: 32px`, `filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45))` cho độ nổi nhẹ trên `#131e26` sidebar bg.
+
+**Verify**: Persistent browser session FIFO + HTTP — nav `web2/products/index.html` localhost:8080, `shotview` + crop. Expanded state: logo gold N2 + crown hiển thị rõ bên cạnh "Web 2.0 v1.0" + collapse button. Collapsed state (56px width): logo vẫn fit + drop-shadow giữ nguyên contrast.
+
+**Status**: ✅ Done
+
+---
+
 ### [web2/services-dashboard] Trang dịch vụ & chi phí — DB stats + service inventory ✅
 
 **User ask**: "tạo 1 trang dịch vụ ghi rõ đang dùng db gì → chi phí ra sao → hiển thị data đã dùng".
