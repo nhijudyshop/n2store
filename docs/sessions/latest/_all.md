@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2936f6e` — feat(so-order): receive UX + edit-shipment + variant dropdown + barcode print + modal full-viewport
-**Last updated**: 2026-05-30 13:06:06 +07
-**Latest session**: [`RESUME:20260530-130606-2936f6e`](../20260530-130606-2936f6e.md)
-**Summary**: feat(so-order): receive UX + edit-shipment + variant dropdown + barcode print + modal full-viewport
+**Latest commit**: `2da08a7` — fix(inventory-tracking): iPad — tắt double-tap zoom cho editable cells
+**Last updated**: 2026-05-30 13:13:42 +07
+**Latest session**: [`RESUME:20260530-131342-2da08a7`](../20260530-131342-2da08a7.md)
+**Summary**: fix(inventory-tracking): iPad — tắt double-tap zoom cho editable cells
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 3 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-30 13:06
+- [`docs/`](./docs.md) — updated 2026-05-30 13:13
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -34,7 +34,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-30 12:12
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-30 13:13
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
