@@ -25,6 +25,41 @@
 
 ## 2026-05-30
 
+### [web2/purchase-refund] Refactor lớn: auto Sổ Order + quick refund + ví NCC ✅
+
+**User ask**: "đâu cần tạo phiếu mới — purchase-refund SẼ CÓ DANH SÁCH nhận hàng từ so-order → trả hàng confirm thì nhớ logic SL + tiền ví NCC".
+
+**Refactor**:
+
+- **Bỏ "Tạo phiếu mới"** ở header.
+- **Section A "Hàng đã nhận từ Sổ Order"** — main UI auto-load on init, render rows group by NCC + button "Trả NCC" đỏ per row.
+- **Section B "Lịch sử phiếu trả NCC"** — collapsible details bottom, giữ list+detail cũ cho audit.
+- **Quick Refund Modal** — click "Trả NCC" mở modal pre-filled (NCC + Mã + Tên + Tồn + đã đặt), xác nhận qty + lý do + phương thức → submit.
+- **Submit 3-step atomic**:
+    1. `POST /api/web2/purchase-refund/create` — tạo phiếu draft 1 product line
+    2. `POST /api/purchase-refund/:code/approve` — auto-approve, trừ `web2_products.stock`
+    3. `SupplierWalletStorage.addTransaction(supplier, {type:'return', amount, ref:{refundCode}})` + push Firestore → **giảm balance Ví NCC**
+
+**Server bug fix** (`render.com/routes/purchase-refund.js`): routes state machine dùng `req.app.locals.chatDb` nhưng generic CRUD dùng `web2Db` → "Refund not found". Sửa 4× `chatDb → web2Db`.
+
+**Files**:
+
+- `web2/purchase-refund/index.html`: bỏ `prNewBtn`, thêm section A + section B (details), quick modal. Load `supplier-wallet-storage.js`. CSS `v=20260530b`, JS `v=20260530d`.
+- `web2/purchase-refund/js/purchase-refund-app.js`: `SOURCE_STATE`/`loadSourceItems()`/`renderSourceList()` (group by NCC), `QUICK_STATE`/`openQuickRefund()`/`submitQuickRefund()` (3-step), `updateSupplierWallet()` (Sync.init + addTransaction + push).
+- `web2/purchase-refund/css/purchase-refund.css`: `.pr-source-*` (group border-left xanh, refund button đỏ nhạt), `.pr-history-section` (details với ▶ marker), `.pr-quick-modal` (red head, info box, total box vàng).
+- `render.com/routes/purchase-refund.js`: 4× `chatDb → web2Db`.
+
+**Verify** (Playwright):
+
+- Page → "Tạo phiếu mới" bỏ ✓. Section A 4 SP × 2 NCC groups ✓.
+- Click "Trả NCC" → modal pre-filled NCC/Mã/Tên/Tồn 20/đã đặt 50, qty default 20, total 3.600.000đ.
+- Đổi qty=5 → total auto 900.000đ.
+- Submit → record TRA-20260530-TESTNC-XXXX xuất hiện Section B ✓ (approve fail prod do server bug chưa deploy — sẽ work sau push).
+
+**Status**: ✅ Client done. Server fix push để Render auto-deploy. Screenshots: `pr-refactor-main.png`, `pr-quick-modal.png`.
+
+---
+
 ### [web2/purchase-refund] Picker source từ Sổ Order (đã nhận hàng) ✅
 
 **User clarify**: "sản phẩm đã nhận hàng bên so-order sẽ có danh sách bên trả hàng NCC" + "bên trả hàng lấy danh sách NCC và sản phẩm bên so-order".

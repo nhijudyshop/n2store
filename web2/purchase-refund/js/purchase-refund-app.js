@@ -824,29 +824,375 @@
         });
     }
 
+    // ---------- Section A: Hàng nhận từ Sổ Order (main UI) ----------
+    //
+    // P1 2026-05-30: user ask "đâu cần tạo phiếu mới — purchase-refund SẼ CÓ
+    // DANH SÁCH nhận hàng từ so-order → trả hàng confirm, nhớ logic SL +
+    // tiền ví NCC". Page giờ auto load so-order items khi init, render section
+    // A. User click "Trả NCC" trên 1 row → quick modal → submit:
+    //   1) POST /create với prefilled single product line
+    //   2) POST /:code/approve (trừ stock idempotent)
+    //   3) SupplierWalletStorage.addTransaction type='return' (giảm balance NCC)
+    //   4) Push wallet → Firestore
+    //   5) Reload section A + section B
+
+    const SOURCE_STATE = {
+        items: [],
+        search: '',
+        supplierFilter: '',
+        loaded: false,
+    };
+
+    async function loadSourceItems() {
+        if (!window.Web2ProductsCache) {
+            notify('Web2ProductsCache chưa load — refresh trang', 'error');
+            return;
+        }
+        try {
+            await window.Web2ProductsCache.init();
+        } catch (e) {
+            notify(`Tải kho SP: ${e.message}`, 'error');
+        }
+        const { items, err } = await loadSoOrderReceivedItems();
+        if (err) notify(`Tải Sổ Order: ${err}`, 'warning');
+        SOURCE_STATE.items = items;
+        SOURCE_STATE.loaded = true;
+
+        // Populate supplier dropdown distinct
+        const suppliers = Array.from(new Set(items.map((it) => it.supplier))).sort();
+        const sel = $('prSourceSupplier');
+        sel.innerHTML =
+            '<option value="">Tất cả NCC</option>' +
+            suppliers
+                .map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`)
+                .join('');
+        if (SOURCE_STATE.supplierFilter) sel.value = SOURCE_STATE.supplierFilter;
+
+        renderSourceList();
+    }
+
+    function renderSourceList() {
+        const q = SOURCE_STATE.search.trim().toLowerCase();
+        const filtered = SOURCE_STATE.items.filter((it) => {
+            if (SOURCE_STATE.supplierFilter && it.supplier !== SOURCE_STATE.supplierFilter)
+                return false;
+            if (q) {
+                const hay =
+                    `${it.code} ${it.name} ${it.variant || ''} ${it.supplier}`.toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            return true;
+        });
+
+        $('prSourceCount').textContent = `${filtered.length} SP`;
+        const listEl = $('prSourceList');
+        const emptyEl = $('prSourceEmpty');
+        if (!filtered.length) {
+            listEl.innerHTML = '';
+            emptyEl.hidden = false;
+            return;
+        }
+        emptyEl.hidden = true;
+
+        // Group by supplier
+        const grouped = new Map();
+        for (const it of filtered) {
+            if (!grouped.has(it.supplier)) grouped.set(it.supplier, []);
+            grouped.get(it.supplier).push(it);
+        }
+
+        let html = '';
+        for (const [supplier, items] of grouped) {
+            const totalValue = items.reduce((s, it) => s + it.stock * it.price, 0);
+            html += `<div class="pr-source-group">
+                <h3 class="pr-source-group-head">
+                    <i data-lucide="building-2"></i>
+                    ${escapeHtml(supplier)}
+                    <span class="pr-source-group-meta">${items.length} SP · tồn ${fmtMoney(totalValue)}</span>
+                </h3>
+                <table class="pr-source-table">
+                    <thead><tr>
+                        <th style="width:130px">Mã SP</th>
+                        <th>Tên + Biến thể</th>
+                        <th class="num" style="width:80px">Đã đặt</th>
+                        <th class="num" style="width:80px">Tồn kho</th>
+                        <th class="num" style="width:110px">Giá</th>
+                        <th style="width:130px"></th>
+                    </tr></thead>
+                    <tbody>
+                ${items
+                    .map(
+                        (it) => `<tr data-src-code="${escapeHtml(it.code)}">
+                        <td><code>${escapeHtml(it.code)}</code></td>
+                        <td>${escapeHtml(it.name)}${it.variant ? ` <small style="color:#64748b">(${escapeHtml(it.variant)})</small>` : ''}</td>
+                        <td class="num" style="color:#64748b">${it.orderedQty}</td>
+                        <td class="num"><strong>${it.stock}</strong></td>
+                        <td class="num">${fmtMoney(it.price)}</td>
+                        <td><button class="btn btn-danger btn-sm pr-source-refund" data-src-code="${escapeHtml(it.code)}"><i data-lucide="undo-2"></i> Trả NCC</button></td>
+                    </tr>`
+                    )
+                    .join('')}
+                    </tbody>
+                </table>
+            </div>`;
+        }
+        listEl.innerHTML = html;
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    // ---------- Quick Refund Modal ----------
+
+    const QUICK_STATE = {
+        item: null, // current source item being refunded
+    };
+
+    function openQuickRefund(code) {
+        const item = SOURCE_STATE.items.find((it) => it.code === code);
+        if (!item) {
+            notify('SP không còn trong danh sách', 'error');
+            return;
+        }
+        QUICK_STATE.item = item;
+        const form = $('prQuickForm');
+        form.reset();
+        form.elements['qty'].value = item.stock;
+        form.elements['qty'].max = item.stock;
+        form.elements['price'].value = item.price;
+        $('prQuickQtyHint').querySelector('span').textContent = String(item.stock);
+
+        $('prQuickInfo').innerHTML = `
+            <div class="pr-quick-info-row">
+                <span class="pr-quick-label">NCC:</span>
+                <strong>${escapeHtml(item.supplier)}</strong>
+            </div>
+            <div class="pr-quick-info-row">
+                <span class="pr-quick-label">Mã SP:</span>
+                <code>${escapeHtml(item.code)}</code>
+            </div>
+            <div class="pr-quick-info-row">
+                <span class="pr-quick-label">Tên SP:</span>
+                ${escapeHtml(item.name)}${item.variant ? ` <small style="color:#64748b">(${escapeHtml(item.variant)})</small>` : ''}
+            </div>
+            <div class="pr-quick-info-row">
+                <span class="pr-quick-label">Tồn kho:</span>
+                <strong>${item.stock}</strong>
+                <span style="color:#64748b">· đã đặt qua Sổ Order ${item.orderedQty}</span>
+            </div>
+        `;
+        updateQuickTotal();
+        $('prQuickModal').hidden = false;
+        if (window.lucide) window.lucide.createIcons();
+        setTimeout(() => form.elements['qty'].focus(), 50);
+    }
+
+    function closeQuickRefund() {
+        $('prQuickModal').hidden = true;
+        QUICK_STATE.item = null;
+    }
+
+    function updateQuickTotal() {
+        const form = $('prQuickForm');
+        const qty = Number(form.elements['qty'].value) || 0;
+        const price = Number(form.elements['price'].value) || 0;
+        $('prQuickTotal').textContent = fmtMoney(qty * price);
+    }
+
+    /**
+     * Submit quick refund:
+     *   1. POST /api/web2/purchase-refund/create — tạo phiếu draft
+     *   2. POST /api/purchase-refund/:code/approve — trừ stock idempotent
+     *   3. SupplierWalletStorage.addTransaction type='return' — giảm balance NCC
+     *   4. Push wallet → Firestore
+     */
+    async function submitQuickRefund(e) {
+        e.preventDefault();
+        const item = QUICK_STATE.item;
+        if (!item) return;
+        const form = $('prQuickForm');
+        const qty = Math.max(1, Math.min(item.stock, Number(form.elements['qty'].value) || 0));
+        const price = Number(form.elements['price'].value) || 0;
+        const reason = form.elements['reason'].value;
+        const method = form.elements['refundMethod'].value;
+        const note = form.elements['note'].value || '';
+        const amount = qty * price;
+
+        // Gen mã phiếu: TRA-<yyyymmdd>-<NCCshort>-<rand4>
+        const today = new Date();
+        const ymd = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+        const ncShort = (item.supplier || 'NCC')
+            .replace(/[^A-Z0-9]/gi, '')
+            .toUpperCase()
+            .slice(0, 6);
+        const rand = Math.random().toString(36).toUpperCase().slice(2, 6);
+        const refundCode = `TRA-${ymd}-${ncShort}-${rand}`;
+        const refundName = `Trả ${item.name}${item.variant ? ' (' + item.variant + ')' : ''} cho ${item.supplier}`;
+
+        const submitBtn = $('prQuickSubmit');
+        submitBtn.disabled = true;
+        const orig = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i data-lucide="loader"></i> Đang xử lý...';
+
+        try {
+            // Step 1: tạo phiếu draft
+            const createPayload = {
+                code: refundCode,
+                name: refundName,
+                data: {
+                    supplierName: item.supplier,
+                    supplierCode: null,
+                    refundDate: today.toISOString().slice(0, 10),
+                    reason,
+                    refundMethod: method,
+                    totalQty: qty,
+                    totalAmount: amount,
+                    note,
+                    products: [
+                        {
+                            code: item.code,
+                            name: item.variant ? `${item.name} (${item.variant})` : item.name,
+                            qty,
+                            price,
+                        },
+                    ],
+                    status: 'draft',
+                    sourcePurchaseCode: item.sources?.[0]?.ship || null,
+                },
+            };
+            await fetchJson(`${GENERIC_API}/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(createPayload),
+            });
+
+            // Step 2: auto-approve → trừ stock
+            await fetchJson(`${SM_API}/${encodeURIComponent(refundCode)}/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
+
+            // Step 3 + 4: cập nhật Ví NCC (supplier wallet)
+            await updateSupplierWallet(item.supplier, {
+                amount,
+                refundCode,
+                qty,
+                productName: item.name,
+                variant: item.variant,
+                method,
+            });
+
+            notify(
+                `✓ Đã trả ${qty} ${item.name} cho ${item.supplier} — giảm ví NCC ${fmtMoney(amount)}`,
+                'success'
+            );
+            closeQuickRefund();
+            // Reload section A (stock đã giảm) + section B (phiếu mới)
+            await loadSourceItems();
+            await loadList();
+        } catch (e) {
+            console.error('[quick refund] fail:', e);
+            notify(`Trả NCC thất bại: ${e.message}`, 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = orig;
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
+    /**
+     * Add transaction type='return' to supplier wallet → giảm balance.
+     * Wallet là local-first (localStorage `supplierWallet_v1` + Firestore
+     * `web2_supplier_wallet/main`). Pattern: load → mutate → push.
+     */
+    async function updateSupplierWallet(supplier, opts) {
+        if (!window.SupplierWalletStorage) {
+            console.warn('[quick refund] SupplierWalletStorage missing — skip wallet');
+            return;
+        }
+        const SW = window.SupplierWalletStorage;
+        try {
+            // Pull latest từ Firestore (so other tabs/máy đã mutate cũng sync)
+            await SW.Sync.init();
+        } catch (e) {
+            console.warn('[quick refund] wallet sync init fail:', e.message);
+        }
+        const state = SW.load();
+        const productLabel = opts.variant
+            ? `${opts.productName} (${opts.variant})`
+            : opts.productName;
+        const note = `Trả ${opts.qty}× ${productLabel} — ${opts.refundCode} (${opts.method})`;
+        SW.addTransaction(state, supplier, {
+            type: 'return',
+            amount: opts.amount,
+            note,
+            ref: { refundCode: opts.refundCode, qty: opts.qty, method: opts.method },
+        });
+        // Push to Firestore (async, fire-and-forget — SSE sẽ broadcast cho tab khác)
+        SW.Sync.push(state).catch((e) =>
+            console.warn('[quick refund] wallet push fail:', e.message)
+        );
+    }
+
+    function wireQuickModal() {
+        $('prQuickForm').addEventListener('submit', submitQuickRefund);
+        document
+            .querySelectorAll('[data-pr-quick-close]')
+            .forEach((el) => el.addEventListener('click', closeQuickRefund));
+        const form = $('prQuickForm');
+        form.elements['qty'].addEventListener('input', updateQuickTotal);
+        form.elements['price'].addEventListener('input', updateQuickTotal);
+        // Esc to close
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !$('prQuickModal').hidden) closeQuickRefund();
+        });
+    }
+
+    function wireSourceList() {
+        $('prReloadBtn').addEventListener('click', async () => {
+            await Promise.all([loadSourceItems(), loadList()]);
+        });
+        $('prSourceSearch').addEventListener('input', (e) => {
+            SOURCE_STATE.search = e.target.value;
+            renderSourceList();
+        });
+        $('prSourceSupplier').addEventListener('change', (e) => {
+            SOURCE_STATE.supplierFilter = e.target.value;
+            renderSourceList();
+        });
+        // Delegate "Trả NCC" buttons
+        $('prSourceList').addEventListener('click', (e) => {
+            const btn = e.target.closest('.pr-source-refund');
+            if (!btn) return;
+            openQuickRefund(btn.dataset.srcCode);
+        });
+    }
+
     // ---------- Init ----------
     function init() {
         // Mount sidebar
         if (window.Web2Sidebar) {
             window.Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
         }
-        // Wire UI
-        $('prNewBtn').addEventListener('click', () => openModal(null));
-        $('prReloadBtn').addEventListener('click', loadList);
-        $('prFilterStatus').addEventListener('change', (e) => {
+        // Wire UI — section A + B
+        $('prFilterStatus')?.addEventListener('change', (e) => {
             STATE.filterStatus = e.target.value;
             renderList();
         });
-        $('prSearch').addEventListener('input', (e) => {
+        $('prSearch')?.addEventListener('input', (e) => {
             STATE.search = e.target.value;
             renderList();
         });
+        // Legacy modal close (still has form for edit existing)
         document
             .querySelectorAll('[data-pr-modal-close]')
             .forEach((el) => el.addEventListener('click', closeModal));
-        $('prForm').addEventListener('submit', handleFormSubmit);
+        $('prForm')?.addEventListener('submit', handleFormSubmit);
         wirePicker();
+        wireSourceList();
+        wireQuickModal();
 
+        // Initial loads: section A (so-order) + section B (refunds)
+        loadSourceItems();
         loadList();
         setupSSE();
     }

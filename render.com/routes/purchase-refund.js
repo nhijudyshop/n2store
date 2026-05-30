@@ -140,7 +140,7 @@ async function restockStock(pool, lines) {
 // Body: { note?: string }
 // -----------------------------------------------------
 router.post('/:code/approve', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
     try {
@@ -195,7 +195,7 @@ router.post('/:code/approve', async (req, res) => {
 // Body: { reason?: string }
 // -----------------------------------------------------
 router.post('/:code/cancel-approve', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
     try {
@@ -234,7 +234,7 @@ router.post('/:code/cancel-approve', async (req, res) => {
 // Body: { refundMethod?: 'cash'|'bank'|'debt_offset'|'replace', refundAmount?, note? }
 // -----------------------------------------------------
 router.post('/:code/refunded', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
     try {
@@ -266,7 +266,7 @@ router.post('/:code/refunded', async (req, res) => {
 // Body: { reason?: string }
 // -----------------------------------------------------
 router.post('/:code/reject', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
     try {
