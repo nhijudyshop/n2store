@@ -25,6 +25,21 @@
 
 ## 2026-05-30
 
+### [inventory-tracking] iPad: tắt double-tap zoom cho editable cells ✅
+
+**Vấn đề (user báo)**: trên iPad, `https://nhijudy.store/inventory-tracking/index.html` — bấm 2 lần để chỉnh sửa cột bị đụng với double-tap zoom của Safari → trải nghiệm tệ, dblclick handler không fire đúng lúc.
+
+**Sửa**:
+
+- `inventory-tracking/css/modern.css` — `.editable-cell { touch-action: manipulation; -webkit-touch-callout: none; }`
+- `touch-action: manipulation` cho phép pan + pinch-zoom nhưng disable double-tap zoom + 300ms click delay → `ondblclick` fire ngay, không bị browser nuốt thành gesture
+- Áp dụng cho mọi editable cell (NCC, SKU, màu/biến thể, Tổng SL, Đơn giá, COST, Payment ngày/số tiền/ghi chú, Tỉ giá) qua selector chung
+- KHÔNG chạm viewport `user-scalable=no` (giữ pinch-zoom toàn page cho accessibility)
+
+**Status**: ✅ Done
+
+---
+
 ### [so-order] UX overhaul: receive flow + edit-shipment full rows + variant dropdown + barcode print + modal full-viewport ✅
 
 **User feedback (multi-turn)**:

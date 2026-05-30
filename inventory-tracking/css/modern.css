@@ -1648,6 +1648,10 @@ tr.ncc-row-hidden {
 /* Inline edit cells */
 .editable-cell {
     cursor: pointer;
+    /* iPad: tắt double-tap zoom của Safari để dblclick chỉnh sửa cột không bị
+       browser nuốt thành gesture zoom. Vẫn cho phép pinch-zoom + pan scroll. */
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
 }
 .editable-cell:hover {
     background: rgba(74, 124, 255, 0.06);
