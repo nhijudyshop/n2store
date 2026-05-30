@@ -317,10 +317,6 @@
                     </div>
 
                     <div class="body">
-                        <div class="warning">
-                            <strong>Lưu ý:</strong> Tính năng gửi public comment-reply hàng loạt vào các thread comment từ livestream. KHÔNG gửi DM khách. Mục đích: tăng comment count → đẩy reach. Khách vẫn nhận FB notification "X replied to your comment".
-                        </div>
-
                         <div class="row">
                             <label>📄 Page</label>
                             <div style="display:flex; gap:6px;">
@@ -332,51 +328,70 @@
                         </div>
 
                         <div class="stat-strip" id="stats">
-                            <div class="stat"><div class="num" id="stat-page">-</div><div class="lbl">Page ID</div></div>
                             <div class="stat"><div class="num" id="stat-live">-</div><div class="lbl">Livestream convs</div></div>
                             <div class="stat"><div class="num" id="stat-queue">-</div><div class="lbl">Sẽ gửi</div></div>
+                            <div class="stat"><div class="num" id="stat-total" style="font-size:14px">-</div><div class="lbl">Tổng comment</div></div>
+                            <div class="stat" style="display:none"><div class="num" id="stat-page">-</div><div class="lbl">Page</div></div>
+                        </div>
+
+                        <div class="row">
+                            <label>⚡ Preset nhanh (số comment / khách)</label>
+                            <div class="preset-row">
+                                <button class="btn-preset" data-cap="1" data-limit="50">Nhẹ (1×50)</button>
+                                <button class="btn-preset" data-cap="3" data-limit="50">Vừa (3×50)</button>
+                                <button class="btn-preset" data-cap="5" data-limit="100">Mạnh (5×100)</button>
+                                <button class="btn-preset" data-cap="10" data-limit="200">Khủng (10×200)</button>
+                            </div>
+                            <div class="hint">Chọn nhanh hoặc chỉnh tay bên dưới. cap×limit = tổng comment tối đa.</div>
                         </div>
 
                         <div class="grid-3">
                             <div class="row">
-                                <label for="cfg-limit">Số reply tối đa</label>
-                                <input type="number" id="cfg-limit" min="1" max="200" value="30">
-                                <div class="hint">1–200</div>
+                                <label for="cfg-per-conv">Comment / khách</label>
+                                <input type="number" id="cfg-per-conv" min="1" max="100" value="3">
+                                <div class="hint">1–100</div>
                             </div>
                             <div class="row">
-                                <label for="cfg-delay-min">Delay min (ms)</label>
-                                <input type="number" id="cfg-delay-min" min="300" max="30000" value="2500">
+                                <label for="cfg-limit">Số conv tối đa</label>
+                                <input type="number" id="cfg-limit" min="1" max="500" value="50">
+                                <div class="hint">1–500</div>
                             </div>
                             <div class="row">
-                                <label for="cfg-delay-max">Delay max (ms)</label>
-                                <input type="number" id="cfg-delay-max" min="300" max="60000" value="5500">
+                                <label for="cfg-delay-min">Delay min (s)</label>
+                                <input type="number" id="cfg-delay-min" min="0.3" max="60" step="0.1" value="2.5">
                             </div>
                         </div>
 
-                        <div class="grid-2">
+                        <div class="grid-3">
                             <div class="row">
-                                <label for="cfg-per-conv">Cap mỗi conversation</label>
-                                <input type="number" id="cfg-per-conv" min="1" max="20" value="1">
-                                <div class="hint">Mặc định 1 = mỗi khách 1 reply / lần chạy</div>
+                                <label for="cfg-delay-max">Delay max (s)</label>
+                                <input type="number" id="cfg-delay-max" min="0.3" max="60" step="0.1" value="5.5">
                             </div>
                             <div class="row">
-                                <label for="cfg-skip-answered">Skip đã reply rồi</label>
-                                <select id="cfg-skip-answered">
-                                    <option value="yes" selected>Có (an toàn)</option>
-                                    <option value="no">Không (reply tất cả)</option>
+                                <label for="cfg-mode">Mode</label>
+                                <select id="cfg-mode">
+                                    <option value="reply" selected>Reply (báo khách 🔔)</option>
+                                    <option value="chain">Chain reply (chỉ báo lần đầu)</option>
+                                    <option value="comment" disabled>Comment root — cần capture</option>
                                 </select>
+                                <div class="hint">Chain: reply #1 báo khách, #2..N nối vào reply #1 → không thêm notif.</div>
+                            </div>
+                            <div class="row">
+                                <label for="cfg-post-id">Post ID (optional)</label>
+                                <input type="text" id="cfg-post-id" placeholder="Để trống = tất cả">
                             </div>
                         </div>
 
                         <div class="row">
                             <label for="cfg-templates">Templates comment (mỗi dòng 1 cái — random pick)</label>
-                            <textarea id="cfg-templates" rows="5"></textarea>
-                            <div class="hint">Tối thiểu 1 dòng. Mix ≥ 5 loại để tránh FB flag spam.</div>
-                        </div>
-
-                        <div class="row">
-                            <label for="cfg-post-id">Giới hạn vào 1 post ID (optional)</label>
-                            <input type="text" id="cfg-post-id" placeholder="Để trống = tất cả livestream">
+                            <textarea id="cfg-templates" rows="4"></textarea>
+                            <div class="preset-row" style="margin-top:6px">
+                                <button class="btn-tmpl" data-set="emoji">Emoji</button>
+                                <button class="btn-tmpl" data-set="count">Số đếm</button>
+                                <button class="btn-tmpl" data-set="sale">Sale</button>
+                                <button class="btn-tmpl" data-set="dot">Chấm</button>
+                            </div>
+                            <div class="hint">Mix ≥ 5 loại để tránh FB flag spam.</div>
                         </div>
 
                         <div class="row">
