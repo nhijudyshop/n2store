@@ -414,6 +414,7 @@
                             id: r.id || sh.id || '',
                             shipmentId: sh.id || '',
                             rowId: r.id || '',
+                            invoiceGroupId: r.invoiceGroupId || '',
                             date: sh.date,
                             tabLabel: tab.label || '',
                             productName: r.productName || '',
@@ -912,21 +913,41 @@
     // Result: cuối cùng currentEnd === row.ending (sanity check).
     function buildCongNoEntries(row) {
         const entries = [];
+        // Group purchases theo (date + invoiceGroupId). Rows tạo cùng 1 modal
+        // submit chia chung invoiceGroupId = 1 đơn → gộp vào 1 entry chung PO.
+        // Fallback rowId/id khi không có invoiceGroupId (rows pre-2026-05-30).
+        const groups = new Map();
         for (const p of row.purchasesInPeriod || []) {
-            // moveName unique per shipment row: PO/<date>/<rowIdSuffix>
-            const year = String(p.date || '').slice(0, 4) || new Date().getFullYear();
-            const idSuffix =
-                String(p.rowId || p.id || '')
-                    .slice(-6)
-                    .toUpperCase() || '----';
-            entries.push({
-                sortKey: String(p.date || '') + ' 00:00:00',
-                date: p.date || '',
-                desc: `Mua: ${p.productName || '—'}${p.variant ? ` (${p.variant})` : ''}`,
-                moveName: `PO/${year}/${idSuffix}`,
-                debit: p.subtotal || 0,
-                credit: 0,
-            });
+            const gid = p.invoiceGroupId || p.rowId || p.id || '';
+            const groupKey = String(p.date || '') + '|' + String(gid);
+            let entry = groups.get(groupKey);
+            if (!entry) {
+                const year = String(p.date || '').slice(0, 4) || new Date().getFullYear();
+                const idSuffix =
+                    String(gid)
+                        .replace(/[^A-Za-z0-9]/g, '')
+                        .slice(-6)
+                        .toUpperCase() || '----';
+                entry = {
+                    // sortKey không gồm idSuffix → same-date entries giữ stable
+                    // insertion order (= thứ tự rows trong so-order state, ~
+                    // chronological theo lúc tạo đơn).
+                    sortKey: String(p.date || '') + ' 00:00:00',
+                    date: p.date || '',
+                    moveName: `PO/${year}/${idSuffix}`,
+                    debit: 0,
+                    credit: 0,
+                    _items: [],
+                };
+                groups.set(groupKey, entry);
+            }
+            entry.debit += p.subtotal || 0;
+            entry._items.push(`${p.productName || '—'}${p.variant ? ` (${p.variant})` : ''}`);
+        }
+        for (const entry of groups.values()) {
+            entry.desc = `Mua: ${entry._items.join(' + ')}`;
+            delete entry._items;
+            entries.push(entry);
         }
         for (const t of row.txInPeriod || []) {
             const d = t.ts ? new Date(Number(t.ts)) : null;

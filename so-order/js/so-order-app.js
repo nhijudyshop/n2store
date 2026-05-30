@@ -589,12 +589,21 @@
             ncc: { render: true, span: 1 },
             inv: { render: true, span: 1 },
         }));
-        // Walk groups: NCC consecutive supplier, Inv consecutive invoiceGroupId.
+        // Walk groups: NCC merge consecutive rows có CÙNG supplier VÀ cùng
+        // invoiceGroupId (đơn). Nếu cùng NCC nhưng khác đơn → tách cell ra
+        // để mỗi đơn 1 ô riêng. Fallback `invoiceGroupId || id` giữ behavior
+        // cũ cho rows pre-2026-05-30 chưa có invoiceGroupId.
         let i = 0;
         while (i < rows.length) {
             let j = i + 1;
             const sup = rows[i].supplier || '';
-            while (j < rows.length && (rows[j].supplier || '') === sup) j++;
+            const gid = rows[i].invoiceGroupId || rows[i].id;
+            while (
+                j < rows.length &&
+                (rows[j].supplier || '') === sup &&
+                (rows[j].invoiceGroupId || rows[j].id) === gid
+            )
+                j++;
             out[i].ncc = { render: true, span: j - i };
             for (let k = i + 1; k < j; k++) out[k].ncc = { render: false, span: 0 };
             i = j;
