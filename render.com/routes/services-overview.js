@@ -9,11 +9,9 @@
 // Endpoint: GET /api/services-overview
 //
 // Trả về snapshot:
-//   - 2 Postgres pools (chatDb=Supabase + web2Db=Neon) với:
-//     - DB size (pg_database_size)
-//     - Top 10 tables theo size
-//     - Connection stats (pg_stat_activity)
-//     - Active queries count
+//   - 2 Postgres pools (cùng Render PG Basic 1GB, Singapore):
+//     - chatDb (n2store-chat-db) — DB chính Web 1.0 / 2.0 cũ
+//     - web2Db (n2store-web2-db) — DB Web 2.0 generic web2_records (2026-05-30 thay Neon)
 //   - Process stats (uptime, memory, node version)
 //   - Service inventory static (cost + plan + free tier limits)
 //
