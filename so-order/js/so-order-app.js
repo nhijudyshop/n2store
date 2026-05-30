@@ -629,9 +629,27 @@
                         <span class="so-shipment-contract-raw">${escapeHtml(contractDisplayText)}</span>
                     </span>
                     <span class="so-shipment-spacer"></span>
-                    <button class="so-action-btn" type="button" data-shipment-action="receive" data-shipment-id="${escapeHtml(sh.id)}" title="Nhận hàng từ NCC — mở modal nhập qty thực nhận, hỗ trợ mua đủ / mua 1 phần">
-                        <i data-lucide="truck"></i> Nhận hàng
-                    </button>
+                    ${(() => {
+                        // P1 2026-05-30: nếu mọi row hợp lệ đã received → disable
+                        // button + đổi nhãn "ĐÃ NHẬN ĐỦ". Tránh user click rồi
+                        // thấy popup rỗng.
+                        const eligible = (sh.rows || []).filter(
+                            (r) =>
+                                (r.productName || '').trim() &&
+                                Number(r.qty) > 0 &&
+                                (r.supplier || '').trim()
+                        );
+                        const allReceived =
+                            eligible.length > 0 && eligible.every((r) => r.status === 'received');
+                        if (allReceived) {
+                            return `<button class="so-action-btn so-action-btn-done" type="button" disabled title="Tất cả SP trong lô này đã nhận đủ">
+                                <i data-lucide="check-circle-2"></i> Đã nhận đủ
+                            </button>`;
+                        }
+                        return `<button class="so-action-btn" type="button" data-shipment-action="receive" data-shipment-id="${escapeHtml(sh.id)}" title="Nhận hàng từ NCC — mở modal nhập qty thực nhận, hỗ trợ mua đủ / mua 1 phần">
+                            <i data-lucide="truck"></i> Nhận hàng
+                        </button>`;
+                    })()}
                     <button class="so-action-btn" type="button" data-shipment-action="add-row" data-shipment-id="${escapeHtml(sh.id)}" title="Thêm dòng vào lô này">
                         <i data-lucide="plus-circle"></i>
                     </button>
@@ -1755,6 +1773,9 @@ window.addEventListener('load', () => {
         modalRowCounter += 1;
         return {
             uid: 'r' + modalRowCounter + '-' + Math.random().toString(36).slice(2, 7),
+            // P1 2026-05-30: rowId track existing storage row id khi
+            // modalMode='edit-shipment' để update không tạo mới.
+            rowId: prefill.rowId || null,
             productName: prefill.productName || '',
             variant: prefill.variant || '',
             qty: Number.isFinite(Number(prefill.qty)) ? Number(prefill.qty) : 1,
@@ -1783,7 +1804,7 @@ window.addEventListener('load', () => {
                    <i data-lucide="plus-circle"></i> SP mới
                </span>`;
         const delBtnHtml =
-            modalMode === 'create' && total > 1
+            (modalMode === 'create' || modalMode === 'edit-shipment') && total > 1
                 ? `<button type="button" class="so-action-btn so-row-del" data-action="remove-row" data-uid="${row.uid}" title="Xóa dòng">
                        <i data-lucide="x"></i>
                    </button>`
@@ -1906,9 +1927,10 @@ window.addEventListener('load', () => {
         const tbody = document.getElementById('soModalProductsBody');
         if (!tbody) return;
         tbody.innerHTML = modalRows.map((r, i) => modalRowHtml(r, i, modalRows.length)).join('');
-        // Show + button only in create mode
+        // Show + button trong create mode VÀ edit-shipment mode (cho phép thêm
+        // SP mới vào lô khi sửa nguyên lô).
         const addWrap = document.getElementById('soModalAddRowWrap');
-        if (addWrap) addWrap.hidden = modalMode !== 'create';
+        if (addWrap) addWrap.hidden = modalMode !== 'create' && modalMode !== 'edit-shipment';
         wireModalRowInputs();
         wireModalImagePasteDrop();
         if (window.lucide?.createIcons) window.lucide.createIcons();
@@ -1929,15 +1951,21 @@ window.addEventListener('load', () => {
             .forEach((input) => {
                 input.addEventListener('blur', onModalPriceBlur);
             });
-        // Product name dropdown trigger
+        // Product name dropdown trigger.
+        // P1 2026-05-30: bỏ trigger trên 'focus' — gây suggestion auto-bật
+        // spam khi mở edit modal (input đã pre-fill tên SP). Chỉ trigger
+        // khi user thực sự gõ ('input') hoặc nhấn ArrowDown chủ động.
         tbody.querySelectorAll('input[data-field="productName"]').forEach((input) => {
-            input.addEventListener('focus', () => {
-                activeSuggestUid = input.dataset.uid;
-                showSuggest(input.dataset.uid, input.value);
-            });
             input.addEventListener('input', () => {
                 activeSuggestUid = input.dataset.uid;
                 showSuggest(input.dataset.uid, input.value);
+            });
+            // ArrowDown khi focus → mở suggest dropdown thủ công.
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowDown') {
+                    activeSuggestUid = input.dataset.uid;
+                    showSuggest(input.dataset.uid, input.value);
+                }
             });
             input.addEventListener('blur', () => {
                 // Delay so click on suggestion item registers first
@@ -1946,14 +1974,18 @@ window.addEventListener('load', () => {
                 }, 180);
             });
         });
-        // Variant picker per row — pick từ Kho Biến Thể
+        // Variant picker per row — pick từ Kho Biến Thể.
+        // P1 2026-05-30: cùng pattern — chỉ trigger trên 'input' / ArrowDown,
+        // không trên focus.
         tbody.querySelectorAll('input[data-field="variant"]').forEach((input) => {
-            input.addEventListener('focus', () =>
-                showVariantSuggest(input.dataset.uid, input.value)
-            );
             input.addEventListener('input', () =>
                 showVariantSuggest(input.dataset.uid, input.value)
             );
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowDown') {
+                    showVariantSuggest(input.dataset.uid, input.value);
+                }
+            });
             input.addEventListener('blur', () => {
                 setTimeout(() => hideVariantSuggest(input.dataset.uid), 180);
             });
@@ -2108,6 +2140,11 @@ window.addEventListener('load', () => {
                 </button>`;
             })
             .join('');
+        // P1 2026-05-30: position:fixed + JS anchor để không bị modal-body clip
+        const inputEl = document.querySelector(
+            `#soModalProductsBody input[data-field="productName"][data-uid="${uid}"]`
+        );
+        if (inputEl) _positionFixedDropdown(list, inputEl);
         list.hidden = false;
         list.querySelectorAll('.so-suggest-item').forEach((btn) => {
             btn.addEventListener('mousedown', (e) => e.preventDefault()); // keep input focus
@@ -2128,6 +2165,43 @@ window.addEventListener('load', () => {
         }
     }
 
+    // P1 2026-05-30: variant dropdown bị che bởi modal-body overflow:auto
+    // dù z-index=80. Fix: dùng position:fixed + JS tính từ input rect (anchor
+    // lên window). Dropdown bay ra khỏi clip của modal-body, hover/click OK.
+    function _positionFixedDropdown(list, anchorInput) {
+        const rect = anchorInput.getBoundingClientRect();
+        list.style.position = 'fixed';
+        list.style.top = rect.bottom + 4 + 'px';
+        list.style.left = rect.left + 'px';
+        list.style.width = Math.max(rect.width, 220) + 'px';
+        list.style.right = 'auto';
+        list.style.zIndex = '9999';
+    }
+
+    // Khi modal-body scroll, fixed dropdown sẽ stay lệch khỏi input → đóng
+    // hết để user gõ tiếp thì popup mở lại đúng vị trí.
+    let _modalScrollListenerBound = false;
+    function _bindModalScrollCloseDropdowns() {
+        if (_modalScrollListenerBound) return;
+        const modal = document.getElementById('soOrderModal');
+        const body = modal?.querySelector('.so-modal-body');
+        if (!body) return;
+        body.addEventListener(
+            'scroll',
+            () => {
+                document
+                    .querySelectorAll(
+                        '.so-suggest-dropdown:not([hidden]), .so-variant-dropdown:not([hidden])'
+                    )
+                    .forEach((el) => {
+                        el.hidden = true;
+                    });
+            },
+            { passive: true }
+        );
+        _modalScrollListenerBound = true;
+    }
+
     function showVariantSuggest(uid, query) {
         const list = document.querySelector(`.so-variant-dropdown[data-variant-for="${uid}"]`);
         if (!list) return;
@@ -2139,20 +2213,24 @@ window.addEventListener('load', () => {
                 Kho Biến Thể chưa có giá trị nào khớp.
                 <a href="../web2/variants/index.html" target="_blank">Thêm mới →</a>
             </div>`;
-            list.hidden = false;
-            return;
+        } else {
+            list.innerHTML = items
+                .map((v) => {
+                    const grp = v.groupName
+                        ? `<span class="so-variant-group">${escapeHtml(v.groupName)}</span>`
+                        : '';
+                    return `<button type="button" class="so-variant-item" data-uid="${uid}" data-val="${escapeHtml(v.value)}">
+                        <span class="so-variant-val">${escapeHtml(v.value)}</span>
+                        ${grp}
+                    </button>`;
+                })
+                .join('');
         }
-        list.innerHTML = items
-            .map((v) => {
-                const grp = v.groupName
-                    ? `<span class="so-variant-group">${escapeHtml(v.groupName)}</span>`
-                    : '';
-                return `<button type="button" class="so-variant-item" data-uid="${uid}" data-val="${escapeHtml(v.value)}">
-                    <span class="so-variant-val">${escapeHtml(v.value)}</span>
-                    ${grp}
-                </button>`;
-            })
-            .join('');
+        // Anchor lên input bằng position:fixed để thoát khỏi modal-body overflow
+        const inputEl = document.querySelector(
+            `#soModalProductsBody input[data-field="variant"][data-uid="${uid}"]`
+        );
+        if (inputEl) _positionFixedDropdown(list, inputEl);
         list.hidden = false;
         list.querySelectorAll('.so-variant-item').forEach((btn) => {
             btn.addEventListener('mousedown', (e) => e.preventDefault());
@@ -2328,6 +2406,7 @@ window.addEventListener('load', () => {
         form.elements.shipContractCurrency.onchange = updateContractHint;
         renderModalRows();
         showModal('soOrderModal');
+        _bindModalScrollCloseDropdowns();
         setTimeout(() => {
             const firstNameInput = document.querySelector(
                 '#soModalProductsBody input[data-field="productName"]'
@@ -2461,6 +2540,51 @@ window.addEventListener('load', () => {
                     adjustKhoPending([{ ...oldMatch, delta: -oldQty }]);
                 }
                 syncRowsToKho([r], tab).catch(() => {});
+            }
+        } else if (modalMode === 'edit-shipment' && editingShipmentId) {
+            // P1 2026-05-30: bulk update nguyên shipment.
+            // Logic: rows có rowId → update tại chỗ; rows không có rowId →
+            // addRow mới; rows từng có rowId trong sh nhưng modalRows không
+            // còn → xóa (user đã click X xóa trong modal).
+            const sh = tab.shipments.find((s) => s.id === editingShipmentId);
+            if (!sh) {
+                notify('Không tìm thấy lô để cập nhật', 'error');
+                return;
+            }
+            window.SoOrderStorage.updateShipment(state, tab.id, sh.id, shipMeta);
+            const keptIds = new Set(validRows.filter((r) => r.rowId).map((r) => r.rowId));
+            // Xóa rows bị remove khỏi modal
+            const toDelete = (sh.rows || []).filter((r) => !keptIds.has(r.id));
+            for (const old of toDelete) {
+                if (old.status === 'received') continue; // bảo vệ rows đã nhận
+                window.SoOrderStorage.deleteRow(state, tab.id, sh.id, old.id);
+            }
+            // Update / add rows
+            const addedRows = [];
+            for (const r of validRows) {
+                const rowData = {
+                    ...sharedFields,
+                    productName: r.productName.trim(),
+                    variant: r.variant.trim(),
+                    qty: Number(r.qty) || 0,
+                    sellPrice: Number(r.sellPrice) || 0,
+                    costPrice: Number(r.costPrice) || 0,
+                    productImage: r.productImage.trim(),
+                    invoiceImage: r.invoiceImage.trim(),
+                };
+                if (r.rowId) {
+                    window.SoOrderStorage.updateRow(state, tab.id, sh.id, r.rowId, rowData);
+                } else {
+                    window.SoOrderStorage.addRow(state, tab.id, sh.id, rowData);
+                    addedRows.push(r);
+                }
+            }
+            notify(
+                `Đã cập nhật lô (${validRows.length} SP${toDelete.length ? `, xóa ${toDelete.length}` : ''})`,
+                'success'
+            );
+            if (addedRows.length > 0) {
+                syncRowsToKho(addedRows, tab).catch(() => {});
             }
         } else {
             let sh = window.SoOrderStorage.findShipment(tab, shipMeta);
@@ -2878,18 +3002,77 @@ window.addEventListener('load', () => {
     }
 
     function openShipmentModal(shipmentId) {
-        // Reuse order modal but only let user touch shipment fields.
-        // Simpler: open order modal preloaded with first row of the
-        // shipment (or empty if no rows). User can hit Lưu — submit
-        // logic above handles the in-place shipment update.
+        // P1 2026-05-30: trước chỉ load row đầu (sh.rows[0]) → user nói
+        // "chỉ thấy 1 sản phẩm đầu". Giờ load TẤT CẢ rows của shipment
+        // vào modal để user thấy + sửa nguyên lô.
         const tab = window.SoOrderStorage.getActiveTab(state);
         const sh = tab.shipments.find((s) => s.id === shipmentId);
         if (!sh) return;
-        if (sh.rows.length) {
-            openOrderModal(sh.rows[0].id, shipmentId);
-        } else {
+        if (!sh.rows.length) {
             openOrderModal(null, shipmentId);
+            return;
         }
+        openShipmentEditAllRows(sh, tab);
+    }
+
+    // P1 2026-05-30: mở modal edit shipment với TẤT CẢ rows
+    // (vs openOrderModal(rowId, ...) chỉ edit 1 row).
+    // Modal mode = 'edit-shipment' — handleOrderSubmit handle update bulk rows.
+    function openShipmentEditAllRows(sh, tab) {
+        editingRowId = null;
+        editingShipmentId = sh.id;
+        editingTabId = tab.id;
+        modalMode = 'edit-shipment';
+        const form = document.getElementById('soOrderForm');
+        const titleEl = document.getElementById('soModalTitle');
+        form.reset();
+        titleEl.textContent = `Sửa lô — ${sh.batch ? 'Đợt ' + sh.batch : formatDateVN(sh.date)}`;
+        form.elements.shipDate.value = sh.date || '';
+        form.elements.shipBatch.value = sh.batch || '';
+        form.elements.shipCaseCount.value = sh.caseCount || 0;
+        form.elements.shipWeightKg.value = sh.weightKg || 0;
+        form.elements.shipContractAmount.value = sh.contractAmount || 0;
+        form.elements.shipContractCurrency.value = sh.contractCurrency || tab.currency || 'VND';
+        if (form.elements.shipExpectedDeliveryDate) {
+            form.elements.shipExpectedDeliveryDate.value = sh.expectedDeliveryDate || '';
+        }
+        // Shared fields lấy từ row đầu — user có thể sửa shipment-wide
+        const r0 = sh.rows[0] || {};
+        form.elements.supplier.value = r0.supplier || '';
+        form.elements.status.value = r0.status || 'draft';
+        form.elements.note.value = r0.note || '';
+        form.elements.costNote.value = r0.costNote || '';
+        // Load TẤT CẢ rows vào modal
+        modalRows = sh.rows.map((r) =>
+            _newModalRow({
+                rowId: r.id, // track existing row id để update không tạo mới
+                productName: r.productName || '',
+                variant: r.variant || '',
+                qty: r.qty,
+                sellPrice: r.sellPrice,
+                costPrice: r.costPrice,
+                productImage: r.productImage || '',
+                invoiceImage: r.invoiceImage || '',
+            })
+        );
+        const curHint =
+            tab.currency === 'VND'
+                ? 'VNĐ · gõ 100 = 100k'
+                : `${tab.currency} (≈ ${Number(tab.rate).toLocaleString('vi-VN')} ₫)`;
+        document.getElementById('soSellCurHint').textContent = `[${curHint}]`;
+        document.getElementById('soCostCurHint').textContent = `[${curHint}]`;
+        const updateContractHint = () => {
+            const cur = form.elements.shipContractCurrency.value;
+            const rate = currencyToVndRate(cur, tab);
+            const text = cur === 'VND' ? 'VNĐ' : `${cur} (≈ ${rate.toLocaleString('vi-VN')} ₫)`;
+            const el = document.getElementById('soContractCurHint');
+            if (el) el.textContent = `[${text}]`;
+        };
+        updateContractHint();
+        form.elements.shipContractCurrency.onchange = updateContractHint;
+        renderModalRows();
+        showModal('soOrderModal');
+        _bindModalScrollCloseDropdowns();
     }
 
     // Tab settings modal — currency + rate
