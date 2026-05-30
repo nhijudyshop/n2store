@@ -325,6 +325,16 @@
     font-size: 11px;
     color: #2563eb;
 }
+.w2bh-ncc-tag {
+    color: #92400e !important;
+    background: #fef3c7;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    width: fit-content;
+}
 
 .w2bh-pill {
     display: inline-block;

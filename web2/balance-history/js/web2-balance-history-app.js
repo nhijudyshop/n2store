@@ -284,6 +284,10 @@
         const phone = r.linked_customer_phone || '';
         const name = r.display_name || '';
         const method = r.match_method || '';
+        const isManual = method === 'manual_deposit' || method === 'manual_withdraw';
+        // Manual NCC: có display_name nhưng KHÔNG có phone (Firestore-based).
+        //   Không show "+ Gán KH" / "Không có thông tin" như rows webhook unmatched.
+        const isManualNcc = isManual && !phone && name;
         // Badge logic — Web 2.0 = 100% tự động. Chỉ 3 trạng thái:
         //   AUTO_APPROVED hoặc debt_added=true → "Tự động" (xanh, đã cộng ví)
         //   pending_match / pending_low_confidence → "Chờ chọn" (vàng, multi-match cần user)
@@ -305,9 +309,9 @@
             }
             return '<span class="w2bh-pill nophone">Chưa gán</span>';
         })();
-        // Extraction preview cho row chưa gán
+        // Extraction preview cho row chưa gán (KHÔNG áp cho manual deposit)
         let extractionBadge = '';
-        if (!phone && r.extraction_preview) {
+        if (!phone && !isManual && r.extraction_preview) {
             const ext = r.extraction_preview;
             if (ext.type !== 'none' && ext.value) {
                 const icon =
@@ -351,14 +355,19 @@
                                   <span class="w2bh-customer-name">${escapeHtml(name || '(không tên)')}</span>
                                   <span class="w2bh-customer-phone">${escapeHtml(phone)}</span>
                                </div>`
-                            : extractionBadge +
-                              `<button type="button" class="w2bh-link-btn" data-action="link" data-id="${r.id}">+ Gán KH</button>`
+                            : isManualNcc
+                              ? `<div class="w2bh-customer">
+                                    <span class="w2bh-customer-name">${escapeHtml(name)}</span>
+                                    <span class="w2bh-customer-phone w2bh-ncc-tag">NCC</span>
+                                 </div>`
+                              : extractionBadge +
+                                `<button type="button" class="w2bh-link-btn" data-action="link" data-id="${r.id}">+ Gán KH</button>`
                     }
                     ${verifBadge}
                 </td>
                 <td class="w2bh-cell-actions">
                     ${
-                        !phone
+                        !phone && !isManualNcc
                             ? `<button type="button" class="w2bh-icon-btn" data-action="link" data-id="${r.id}" title="Gán SĐT thủ công (fallback khi extractor không tìm ra)">
                                 <i data-lucide="user-plus" style="width:14px;height:14px;"></i>
                             </button>`
