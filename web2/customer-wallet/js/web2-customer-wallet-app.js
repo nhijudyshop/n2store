@@ -658,12 +658,27 @@
         const content = document.getElementById('cwQrContent');
         const empty = document.getElementById('cwQrEmpty');
         loading.hidden = false;
+        loading.textContent = 'Đang tải / tạo QR…';
         content.hidden = true;
         empty.hidden = true;
         try {
             const r = await qrFetch(`/${encodeURIComponent(phone)}/qr`);
             if (r.status === 404) {
-                renderQrEmpty();
+                // Auto-create: gọi POST UPSERT (backend tự lookup TPOS partner_id)
+                const c = state.cache[phone];
+                const partner = state.tposPartners[phone];
+                const post = await qrFetch(`/${encodeURIComponent(phone)}/qr`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        customerId: partner?.Id || c?.customerId || undefined,
+                        customerName: partner?.Name || c?.name || undefined,
+                    }),
+                });
+                if (post.status !== 200) {
+                    throw new Error(post.body?.error || `HTTP ${post.status}`);
+                }
+                renderQrData(post.body.data);
                 return;
             }
             renderQrData(r.body.data);

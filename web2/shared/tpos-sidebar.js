@@ -100,21 +100,6 @@
             icon: 'shopping-bag',
             children: [
                 {
-                    label: 'Điểm bán hàng',
-                    tpos: '#/app/posconfig/kanban',
-                    our: '../web2/pos-config/index.html',
-                },
-                {
-                    label: 'Phiên bán hàng',
-                    tpos: '#/app/possession/list',
-                    our: '../web2/pos-session/index.html',
-                },
-                {
-                    label: 'Đơn hàng (POS)',
-                    tpos: '#/app/posorder/list',
-                    our: '../web2/pos-order/index.html',
-                },
-                {
                     label: 'Bán hàng (HĐ)',
                     tpos: '#/app/fastsaleorder/invoicelist',
                     our: '../web2/fastsaleorder-invoice/index.html',
@@ -671,6 +656,8 @@
         'web2/variants/index.html',
         'web2/product-category/index.html',
         'web2/users/index.html',
+        'web2/customer-wallet/index.html',
+        'web2/partner-customer/index.html',
         // F01-F12 future-development pages
         'web2/dashboard/index.html',
         'web2/notifications/index.html',
