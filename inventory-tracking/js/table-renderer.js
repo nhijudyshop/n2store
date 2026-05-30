@@ -1249,7 +1249,7 @@ function renderProductRow(opts) {
                 ${product ? `<span class="drag-stt" draggable="true" ondragstart="window.startProductRowDrag(event)" ondragend="window.endProductRowDrag(event)" title="Kéo để đổi vị trí"><i data-lucide="grip-vertical"></i></span><span class="stt-num">${productIdx + 1}</span><button class="btn-del-stt" onclick="event.stopPropagation(); window.deleteProductRow('${invoiceId}', ${productIdx})" title="Xóa STT ${productIdx + 1}"><i data-lucide="x"></i></button><button class="btn-copy-stt" onclick="event.stopPropagation(); window.copyProductRow('${invoiceId}', ${productIdx})" title="Copy Mã hàng → tạo hàng mới"><i data-lucide="copy"></i></button>` : '-'}
                 ${isLastRow ? `<button class="btn-add-stt" onclick="event.stopPropagation(); window.addProductRow('${invoiceId}')" title="Thêm hàng (STT ${(product ? productIdx + 1 : 0) + 1})"><i data-lucide="plus"></i></button>` : ''}
             </td>
-            <td class="col-sku editable-cell ${borderClass}" ${editAttrs} data-field="maSP" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${maSP}${poDraftBadge}</td>
+            <td class="col-sku editable-cell ${borderClass}" ${editAttrs} data-field="maSP" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa">${maSP}${poDraftBadge}<button class="btn-edit-cell btn-edit-sku" onclick="event.stopPropagation(); startInlineEdit(this.closest('td'))" title="Sửa Mã hàng"><i data-lucide="pencil"></i></button></td>
             <td class="col-colors editable-cell ${borderClass}${variantMismatch ? ' variant-mismatch-cell' : ''}" ${editAttrs} ondblclick="window.openVariantModal(this)"${variantMismatch ? mismatchTitle : ' title="Nhấp đúp để tạo biến thể"'}>${colorDetails}${variantMismatch ? ` <span class="variant-mismatch-badge" title="Tổng biến thể ${_sumVariants} ≠ Tổng SL ${_declaredTotal}">⚠ ${_sumVariants}≠${_declaredTotal}</span>` : ''}</td>
             <td class="col-qty text-center editable-cell ${borderClass}${variantMismatch ? ' variant-mismatch-cell' : ''}" ${editAttrs} data-field="tongSoLuong" ondblclick="startInlineEdit(this)"${variantMismatch ? mismatchTitle : ' title="Nhấp đúp để sửa"'}>${tongSoLuong !== '-' ? formatNumber(tongSoLuong) : '-'}</td>
             <td class="col-price text-right editable-cell ${borderClass}" ${editAttrs} data-ti-gia="${tg}" data-field="giaDonVi" ondblclick="startInlineEdit(this)" title="Nhấp đúp để sửa (Đơn giá tiền Trung) — VND hiển thị trong ngoặc">${giaDonVi > 0 ? `${formatNumber(giaDonVi)}${_vndSuffixHtml(giaDonVi, tg)}` : '-'}</td>
@@ -2234,6 +2234,13 @@ function startInlineEdit(td) {
     }
     input.className = 'inline-edit-input';
     input.value = oldValue === '-' ? '' : oldValue;
+    // Preserve trailing decoration elements (pencil button, draft badge) so
+    // chúng không bị wipe khi commit set td.innerHTML = displayValue.
+    td._restoreDecorations = Array.from(
+        td.querySelectorAll(':scope > .btn-edit-cell, :scope > .po-draft-badge')
+    )
+        .map((el) => el.outerHTML)
+        .join('');
     td.textContent = '';
     td.appendChild(input);
     input.focus();
@@ -2249,13 +2256,16 @@ function startInlineEdit(td) {
         }
         if (e.key === 'Escape') {
             input.removeEventListener('blur', commit);
+            const deco = td._restoreDecorations || '';
             if (isNumeric && field === 'giaDonVi' && oldValue && oldValue !== '-') {
                 const tg = parseFloat(td.dataset.tiGia) || 0;
                 const n = parseFloat(oldValue) || 0;
-                td.innerHTML = n > 0 ? `${formatNumber(n)}${_vndSuffixHtml(n, tg)}` : '-';
+                td.innerHTML = (n > 0 ? `${formatNumber(n)}${_vndSuffixHtml(n, tg)}` : '-') + deco;
             } else {
-                td.textContent = oldValue === '' ? '-' : oldValue;
+                td.innerHTML = (oldValue === '' ? '-' : oldValue) + deco;
             }
+            delete td._restoreDecorations;
+            if (deco && window.lucide?.createIcons) window.lucide.createIcons();
         }
     });
 }
@@ -2281,9 +2291,16 @@ async function commitInlineEdit(td, input, field, invoiceId, productIdx, oldValu
               ? '-'
               : oldValue;
 
+    const deco = td._restoreDecorations || '';
+    delete td._restoreDecorations;
+    const restoreLucide = () => {
+        if (deco && window.lucide?.createIcons) window.lucide.createIcons();
+    };
+
     // No change
     if (newValue === oldValue || (newValue === '' && oldValue === '-')) {
-        td.innerHTML = restoreValue;
+        td.innerHTML = restoreValue + deco;
+        restoreLucide();
         return;
     }
 
@@ -2297,7 +2314,8 @@ async function commitInlineEdit(td, input, field, invoiceId, productIdx, oldValu
         }
     }
     if (!targetDot || !targetDot.sanPham?.[productIdx]) {
-        td.textContent = oldValue;
+        td.innerHTML = (oldValue === '' ? '-' : oldValue) + deco;
+        restoreLucide();
         window.notificationManager?.error('Không tìm thấy sản phẩm');
         return;
     }
@@ -2327,7 +2345,8 @@ async function commitInlineEdit(td, input, field, invoiceId, productIdx, oldValu
             tongTienHD: targetDot.tongTienHD,
         });
 
-        td.innerHTML = displayValue;
+        td.innerHTML = displayValue + deco;
+        restoreLucide();
         flattenNCCData();
 
         // Re-render totals in current card if tongMon/tongTienHD changed
@@ -2353,7 +2372,8 @@ async function commitInlineEdit(td, input, field, invoiceId, productIdx, oldValu
         window.notificationManager?.success('Đã cập nhật');
     } catch (error) {
         console.error('[INLINE-EDIT] Error:', error);
-        td.innerHTML = restoreValue;
+        td.innerHTML = restoreValue + deco;
+        restoreLucide();
         window.notificationManager?.error('Không thể cập nhật: ' + error.message);
     }
 }

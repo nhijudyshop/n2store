@@ -25,6 +25,24 @@
 
 ## 2026-05-30
 
+### [inventory-tracking] iPad: bút chì edit cột Mã hàng (tap 1 lần, bypass double-click) ✅
+
+**Vấn đề (user báo)**: trên iPad double-tap không tin cậy (kể cả sau khi đã tắt zoom). Cần icon bút chì 1-tap để chỉnh sửa Mã hàng.
+
+**Sửa**:
+
+- `inventory-tracking/js/table-renderer.js`:
+    - Cột Mã hàng (`col-sku`): thêm `<button class="btn-edit-cell btn-edit-sku"><i data-lucide="pencil"></i></button>` cuối cell. Onclick `event.stopPropagation(); startInlineEdit(this.closest('td'))` — tap 1 lần là mở input ngay.
+    - `startInlineEdit`: save trailing decoration elements (`.btn-edit-cell`, `.po-draft-badge`) vào `td._restoreDecorations` trước khi wipe textContent → input không mất các phần tử bên cạnh sau khi commit/escape/error.
+    - `commitInlineEdit`: 4 nhánh restore (no-change / not-found / success / error) đều append `deco` vào innerHTML + gọi `lucide.createIcons()` re-render SVG cho icon mới.
+- `inventory-tracking/css/modern.css`:
+    - `.btn-edit-cell` mặc định `display: none` (desktop ẩn — vẫn dùng double-click).
+    - `@media (hover: none) and (pointer: coarse)`: `display: inline-flex` — CHỈ hiện trên touch device (iPad/Android). Style: border xanh nhạt, padding compact, icon 14px, `touch-action: manipulation` + `-webkit-tap-highlight-color`.
+
+**Status**: ✅ Done
+
+---
+
 ### [inventory-tracking] iPad: tắt double-tap zoom + double-click edit đồng nhất ✅
 
 **Vấn đề (user báo)**:
