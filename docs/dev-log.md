@@ -25,6 +25,64 @@
 
 ## 2026-05-30
 
+### [inventory-tracking] Ẩn NCC qua checkbox (sync cross-device) + iPad table touch scroll ✅
+
+**User ask**:
+
+1. `nhijudy.store/inventory-tracking/index.html` — tick checkbox bên trái NCC để **ẩn** dòng (trước đó chỉ làm mờ opacity 0.35). Đồng bộ giữa các máy.
+2. Thêm tương tác bảng cho iPad (kéo qua lại, ...).
+
+**Files**:
+
+- `render.com/migrations/071_create_inventory_hidden_nccs.sql` (mới): table `inventory_hidden_nccs (id, shipment_id TEXT, ncc_key TEXT, hidden_by, created_at, UNIQUE (shipment_id, ncc_key))` + index. Không FK vì shipment_id có thể là temp/legacy id.
+- `render.com/routes/v2/inventory-tracking.js`:
+    - Idempotent `ensureHiddenNccsSchema(db)` bootstrap chạy 1 lần — feature work ngay cả khi admin chưa run migration 071.
+    - `GET/POST/DELETE /api/v2/inventory-tracking/hidden-nccs` — POST/DELETE notify SSE topic `inventory_hidden_nccs` với payload `{action, shipment_id, ncc_key, hidden_by, ts}`. POST dùng `ON CONFLICT … DO UPDATE` cho idempotency.
+- `inventory-tracking/js/api-client.js`: thêm `hiddenNccsApi.getAll/hide/show`.
+- `inventory-tracking/js/data-loader.js`:
+    - `loadHiddenNccs()` chạy song song với product images trong `loadNCCData()` → patch `globalState.hiddenNccs` map.
+    - Subscribe topic mới `inventory_hidden_nccs` (now 7 topics). SSE callback patch map in-place + debounce 150ms → `window.applyHiddenNccsToDom()` — KHÔNG reload shipments (chỉ visibility class đổi).
+- `inventory-tracking/js/table-renderer.js`:
+    - Bỏ localStorage `inventory_ncc_done` → đọc từ `globalState.hiddenNccs` (top-level `let` script-scoped, KHÔNG dùng `window.globalState` vì let không attach).
+    - `toggleNccDone(sid, nccKey, checked)` → async optimistic: patch map + `applyHiddenNccsToDom()` instant, gọi API, rollback + notification.error nếu fail.
+    - `applyHiddenNccsToDom()` (mới): full re-apply qua tất cả `.shipment-card` → toggle class `ncc-row-hidden` trên rowspan group qua `_setRowsHiddenForCell(nccCell, hidden)`, update badge count + label.
+    - `toggleShowHiddenForShipment(sid)` + sessionStorage `inventory_show_hidden_per_shipment` (per-shipment override, KHÔNG sync) → CSS `.shipment-card.shipment-reveal-hidden tr.ncc-row-hidden { display:table-row; opacity:0.4; striped bg }` cho phép user untick.
+    - Render shipment header thêm `<span class="shipment-hidden-badge">` (bg đỏ nhạt, eye-off icon, click stopPropagation → `toggleShowHiddenForShipment`). Initial count tính ngay từ globalState.hiddenNccs khi render.
+    - Expose `window.toggleNccDone`, `toggleShowHiddenForShipment`, `applyHiddenNccsToDom`.
+- `inventory-tracking/css/modern.css`:
+    - `tr.ncc-row-hidden { display: none; }` default. `.shipment-card.shipment-reveal-hidden tr.ncc-row-hidden` → bring back với striped pattern + opacity.
+    - `.shipment-table-section .table-container`: `overflow-x: auto` (was `hidden`) + `-webkit-overflow-scrolling: touch` + `touch-action: pan-x pan-y` + `cursor: grab` (`grabbing` khi `.is-dragging`) + `overscroll-behavior-x: contain` + 10px webkit scrollbar.
+    - `@media (pointer: coarse)` — tap target nâng cho ipad: checkbox 22px, btn-\* min 32x32px, hidden-badge padding 6/12.
+- `inventory-tracking/js/table-touch-scroll.js` (mới): drag-to-scroll cho mouse/pen/touch qua PointerEvent.
+    - Skip selector tránh trigger trên button/input/editable-cell/drag-stt/ncc-name/pkg-check/badge — chỉ scroll khi nhấn vùng trống của bảng.
+    - 6px threshold + `setPointerCapture` + suppress click ngay sau khi end-drag để không trigger sai handler bên trong.
+    - MutationObserver + `render:done` event scan các `.table-container` mới render khi user expand shipment-card lazy.
+- `inventory-tracking/index.html`: thêm `<script src="js/table-touch-scroll.js?v=20260530d"></script>` sau table-renderer. Versions bumped to `?v=20260530d`.
+
+**Verify (localhost:8080 persistent FIFO + HTTP)**:
+
+- Page load: `window.applyHiddenNccsToDom = function`, `toggleNccDone = function`, `globalState.hiddenNccs = {}` (backend chưa deploy → trả 404 → fallback empty).
+- Expand shipment-card: 4 `.ncc-done-check` checkboxes rendered, table container 1090×1763, `init=1` (touch scroll wired).
+- Inject test entry vào `globalState.hiddenNccs["ship_..._THÊM"]` + call `applyHiddenNccsToDom()`:
+    - tr gets `ncc-row-hidden` class, `display: none` ✅
+    - badge becomes visible, label `"1 NCC ẩn — click để hiện tạm"` ✅
+- Call `toggleShowHiddenForShipment(sid)`:
+    - card gets `shipment-reveal-hidden` class ✅
+    - tr `display: table-row` lại với striped repeating-linear-gradient bg ✅
+    - badge label đổi `"Đang hiện 1 NCC ẩn — click để ẩn lại"` ✅
+- Drag-to-scroll via PointerEvent (`pointerdown` + 2 `pointermove` -300px + `pointerup`): `tc.scrollLeft 0 → 199.5` ✅
+- `feval typeof globalState !== "undefined" && globalState.hiddenNccs` (script scope) — pass; trước fix `window.globalState` không tồn tại (let top-level không attach) gây count=0 → đã sửa.
+- Console errors trong 5s sau load: 0.
+
+**Deploy**:
+
+- Render server cần auto-deploy sau push (Render watches main). Endpoint `/api/v2/inventory-tracking/hidden-nccs` hiện 404 → sẽ live sau ~2-3 min.
+- Migration 071 chạy tự động qua `ensureHiddenNccsSchema` lần đầu request → admin không cần manual run.
+
+**Status**: ✅ Done — Frontend logic verified locally với mock state. Backend code committed; live verification cross-device sau Render deploy.
+
+---
+
 ### [web2/shared] Sidebar brand — thay text "N2" bằng logo emblem N2 Store ✅
 
 **User ask**: copy `/Users/mac/Desktop/n2store/index/logo.jpg`, chỉnh sửa phù hợp để thêm vào sidebar Web 2.0 (chỗ đang là `N2` gradient + "Web 2.0 v1.0").
