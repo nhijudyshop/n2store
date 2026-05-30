@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `550bf2f` — auto: session update
-**Last updated**: 2026-05-30 19:21:54 +07
-**Latest session**: [`RESUME:20260530-192154-550bf2f`](../20260530-192154-550bf2f.md)
-**Summary**: auto: session update
+**Latest commit**: `8890b51` — fix(web2-balance-history): batch A+B+D+E cleanup + better extractor
+**Last updated**: 2026-05-30 19:26:23 +07
+**Latest session**: [`RESUME:20260530-192623-8890b51`](../20260530-192623-8890b51.md)
+**Summary**: fix(web2-balance-history): batch A+B+D+E cleanup + better extractor
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -50,7 +49,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-30 19:03
+- [`render.com/`](./render.com.md) — updated 2026-05-30 19:26
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-29 18:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
