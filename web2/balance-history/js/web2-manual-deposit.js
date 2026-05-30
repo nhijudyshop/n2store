@@ -106,6 +106,21 @@
 .w2md-source-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 .w2md-source-web2 { background: #dbeafe; color: #1e40af; }
 .w2md-source-tpos { background: #fef3c7; color: #92400e; }
+
+/* NCC field — label row + create button + new input wrap */
+.w2md-label-row { display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px; }
+.w2md-label-row label { margin: 0 !important; }
+.w2md-mini-btn { display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 4px;
+  background: #6366f1; color: #fff; border: 0; cursor: pointer;
+  text-transform: uppercase; letter-spacing: 0.04em; }
+.w2md-mini-btn:hover { background: #4f46e5; }
+.w2md-mini-btn svg { width: 12px; height: 12px; }
+.w2md-mini-btn-ghost { background: #f3f4f6; color: #6b7280; }
+.w2md-mini-btn-ghost:hover { background: #e5e7eb; color: #111827; }
+.w2md-ncc-new-wrap { display: flex; gap: 6px; margin-top: 8px; }
+.w2md-ncc-new-wrap input { flex: 1; }
 .w2md-result-empty { padding: 16px; text-align: center; color: #6b7280; font-size: 13px; }
 .w2md-selected { margin-top: 8px; padding: 10px 12px; background: #f0fdf4;
   border: 1px solid #86efac; border-radius: 6px; display: flex; gap: 10px;
@@ -337,10 +352,10 @@
         }, 250);
     }
 
-    // ───────────── NCC datalist (Firestore + free input cho NCC mới) ─────
+    // ───────────── NCC select (Firestore) + Tạo mới button ─────────────
     async function loadNccList() {
         if (_nccLoaded) return;
-        const datalist = document.getElementById('w2mdNccDatalist');
+        const select = document.getElementById('w2mdNccSelect');
         try {
             if (!window.firebase?.firestore) throw new Error('Firestore chưa load');
             const db = window.firebase.firestore();
@@ -350,17 +365,53 @@
             const names = Object.keys(wallets)
                 .filter(Boolean)
                 .sort((a, b) => a.localeCompare(b, 'vi'));
-            const options = names.map((name) => {
+            if (names.length === 0) {
+                select.innerHTML = '<option value="">-- Chưa có NCC, bấm "Tạo mới" --</option>';
+                _nccLoaded = true;
+                return;
+            }
+            const options = ['<option value="">-- Chọn NCC --</option>'];
+            for (const name of names) {
                 const w = wallets[name] || {};
                 const bal = Number(w.balance || 0);
-                const label = bal !== 0 ? `${name} (${bal.toLocaleString('vi-VN')}₫)` : name;
-                return `<option value="${escapeAttr(name)}" label="${escapeAttr(label)}"></option>`;
-            });
-            datalist.innerHTML = options.join('');
+                const balLabel = bal !== 0 ? ` (${bal.toLocaleString('vi-VN')}₫)` : '';
+                options.push(
+                    `<option value="${escapeAttr(name)}">${escapeHtml(name)}${escapeHtml(balLabel)}</option>`
+                );
+            }
+            select.innerHTML = options.join('');
             _nccLoaded = true;
         } catch (e) {
             console.warn('[w2md] loadNccList fail:', e.message);
+            select.innerHTML = `<option value="">-- Lỗi tải: ${escapeHtml(e.message)} --</option>`;
         }
+    }
+
+    function showNccNewInput() {
+        const wrap = document.getElementById('w2mdNccNewWrap');
+        const input = document.getElementById('w2mdNccNewInput');
+        const select = document.getElementById('w2mdNccSelect');
+        wrap.hidden = false;
+        select.value = '';
+        select.disabled = true;
+        input.value = '';
+        setTimeout(() => input.focus(), 50);
+        if (window.lucide) window.lucide.createIcons();
+    }
+    function hideNccNewInput() {
+        const wrap = document.getElementById('w2mdNccNewWrap');
+        const input = document.getElementById('w2mdNccNewInput');
+        const select = document.getElementById('w2mdNccSelect');
+        wrap.hidden = true;
+        input.value = '';
+        select.disabled = false;
+    }
+    function getNccValue() {
+        const newWrap = document.getElementById('w2mdNccNewWrap');
+        if (!newWrap.hidden) {
+            return document.getElementById('w2mdNccNewInput').value.trim();
+        }
+        return document.getElementById('w2mdNccSelect').value;
     }
 
     function escapeHtml(v) {
@@ -386,8 +437,15 @@
         document.getElementById('w2mdKhResults').hidden = true;
         document.getElementById('w2mdKhResults').innerHTML = '';
         document.getElementById('w2mdKhSelected').hidden = true;
-        const nccInp = document.getElementById('w2mdNccInput');
-        if (nccInp) nccInp.value = '';
+        const nccSel = document.getElementById('w2mdNccSelect');
+        if (nccSel) {
+            nccSel.value = '';
+            nccSel.disabled = false;
+        }
+        const nccNewInp = document.getElementById('w2mdNccNewInput');
+        if (nccNewInp) nccNewInp.value = '';
+        const nccNewWrap = document.getElementById('w2mdNccNewWrap');
+        if (nccNewWrap) nccNewWrap.hidden = true;
         document.getElementById('w2mdAmount').value = '';
         document.getElementById('w2mdNote').value = '';
         document.getElementById('w2mdError').hidden = true;
@@ -441,9 +499,9 @@
             name = _selectedKh.name;
             customerId = _selectedKh.id || null;
         } else {
-            name = document.getElementById('w2mdNccInput').value.trim();
+            name = getNccValue();
             if (!name) {
-                errEl.textContent = 'Tên NCC bắt buộc (chọn dropdown hoặc gõ NCC mới)';
+                errEl.textContent = 'Chọn NCC từ dropdown hoặc bấm "Tạo mới" để nhập NCC mới';
                 errEl.hidden = false;
                 return;
             }
@@ -526,6 +584,9 @@
         });
         document.getElementById('w2mdKhSearchBtn')?.addEventListener('click', doKhSearch);
         document.getElementById('w2mdKhClear')?.addEventListener('click', clearKh);
+        // NCC "Tạo mới" toggle
+        document.getElementById('w2mdNccCreateBtn')?.addEventListener('click', showNccNewInput);
+        document.getElementById('w2mdNccNewCancel')?.addEventListener('click', hideNccNewInput);
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !modal.hidden) close();
         });

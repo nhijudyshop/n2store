@@ -258,22 +258,43 @@
                         </div>
                     </div>
 
-                    <!-- NCC dropdown panel (combobox: dropdown + free input cho NCC mới) -->
+                    <!-- NCC panel: dropdown select luôn hiển thị + button "Tạo mới" -->
                     <div class="w2md-field" id="w2mdNccPanel" hidden>
-                        <label>Nhà cung cấp *</label>
-                        <input
-                            type="text"
-                            id="w2mdNccInput"
-                            list="w2mdNccDatalist"
-                            placeholder="Chọn từ danh sách hoặc gõ tên NCC mới…"
-                            autocomplete="off"
-                        />
-                        <datalist id="w2mdNccDatalist"></datalist>
+                        <div class="w2md-label-row">
+                            <label for="w2mdNccSelect">Nhà cung cấp *</label>
+                            <button
+                                type="button"
+                                class="w2md-mini-btn"
+                                id="w2mdNccCreateBtn"
+                                title="Tạo NCC mới"
+                            >
+                                <i data-lucide="plus"></i> Tạo mới
+                            </button>
+                        </div>
+                        <select id="w2mdNccSelect">
+                            <option value="">-- Đang tải danh sách NCC… --</option>
+                        </select>
+                        <div class="w2md-ncc-new-wrap" id="w2mdNccNewWrap" hidden>
+                            <input
+                                type="text"
+                                id="w2mdNccNewInput"
+                                placeholder="Tên NCC mới…"
+                                autocomplete="off"
+                            />
+                            <button
+                                type="button"
+                                class="w2md-mini-btn w2md-mini-btn-ghost"
+                                id="w2mdNccNewCancel"
+                                title="Huỷ"
+                            >
+                                <i data-lucide="x"></i>
+                            </button>
+                        </div>
                         <small class="w2md-hint"
                             >Danh sách từ
                             <a href="../supplier-wallet/index.html" target="_blank"
                                 >supplier-wallet</a
-                            >. Gõ tên mới nếu chưa có (sẽ auto-tạo sau khi nạp).</small
+                            >. NCC mới sẽ auto-tạo trong supplier-wallet sau khi nạp tay.</small
                         >
                     </div>
                     <div class="w2md-field">
