@@ -25,6 +25,26 @@
 
 ## 2026-05-30
 
+### [so-order][supplier-debt] NCC + PO group respect invoiceGroupId (đơn boundary) ✅
+
+**User**: "STT 2 và 3,4 là 2 đơn khác nhau nên tách B4 ra" (so-order). "STT 3,4 cùng đơn nên đừng tách ra" (supplier-debt).
+
+**Root cause**:
+
+- so-order NCC merge cũ chỉ check `supplier` consecutive → 3 rows cùng NCC B4 nhưng khác đơn vẫn merge thành 1 cell.
+- supplier-debt PO code cũ `PO/<year>/<rowId-suffix>` → mỗi row 1 PO riêng dù rows cùng `invoiceGroupId` (cùng đơn, submit chung modal).
+
+**Fix**:
+
+- `so-order/js/so-order-app.js` `_computeRowSpans`: NCC merge consecutive yêu cầu CẢ `supplier` VÀ `invoiceGroupId || id` giống. Rows cùng NCC nhưng khác đơn → tách cell.
+- `web2/supplier-debt/js/supplier-debt-app.js`:
+    - `aggregate()`: pass `r.invoiceGroupId` vào `purchasesInPeriod` entries.
+    - `buildCongNoEntries()`: group rows theo `(date, invoiceGroupId)` qua `Map` → 1 entry per đơn. PO code = `PO/<year>/<gid-suffix-uppercase>`. desc = `Mua: <SP1> + <SP2> + ...`. debit = sum subtotal. sortKey không gồm suffix → stable insertion order = chronological.
+
+**Test live**: B4 ở so-order giờ hiện 2 cell (1+2 rowspan) thay vì 1 cell rowspan 3. Supplier-debt Công nợ tab cho B4 hiện 2 entries: `PO/2026/UEXLLG — Mua: b (Màu Beo) — 150.000đ` (STT 2 alone) + `PO/2026/9SMHX8 — Mua: 2 (Màu Bạc) + b — 100.090đ` (STT 3+4 combined). Running balance: 0→150.000→250.090. Zero JS errors.
+
+**Status**: ✅ Done.
+
 ### [so-order][supplier-wallet] NCC autocomplete + "Tạo NCC" manual create ✅
 
 **User**: "supplier-wallet có chức năng tạo NCC → chỗ nhập tên NCC hiện dropdown từ Ví NCC → tên chưa có → tạo mới".
