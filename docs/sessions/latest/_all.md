@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f5c220c` — feat(so-order): invoice grouping + NCC/invoice cell merge + suggestion ranking + paste thumbnail
-**Last updated**: 2026-05-30 13:46:02 +07
-**Latest session**: [`RESUME:20260530-134602-f5c220c`](../20260530-134602-f5c220c.md)
-**Summary**: feat(so-order): invoice grouping + NCC/invoice cell merge + suggestion ranking + paste thumbnail
+**Latest commit**: `b39bdcf` — feat(inventory-tracking): cột Chi tiết màu — bút chì 1-tap mở modal biến thể (iPad)
+**Last updated**: 2026-05-30 14:11:48 +07
+**Latest session**: [`RESUME:20260530-141148-b39bdcf`](../20260530-141148-b39bdcf.md)
+**Summary**: feat(inventory-tracking): cột Chi tiết màu — bút chì 1-tap mở modal biến thể (iPad)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 3 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-30 13:46
+- [`docs/`](./docs.md) — updated 2026-05-30 14:11
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -35,7 +34,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-30 13:34
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-30 14:11
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
