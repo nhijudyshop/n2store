@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1a46415` — feat(web2): migrate all Web 2.0 stores localStorage → IndexedDB
-**Last updated**: 2026-05-30 16:13:20 +07
-**Latest session**: [`RESUME:20260530-161320-1a46415`](../20260530-161320-1a46415.md)
-**Summary**: feat(web2): migrate all Web 2.0 stores localStorage → IndexedDB
+**Latest commit**: `8de1009` — fix(web2-balance-history): expand match_method CHECK constraint cho Web 2.0 values
+**Last updated**: 2026-05-30 16:25:07 +07
+**Latest session**: [`RESUME:20260530-162507-8de1009`](../20260530-162507-8de1009.md)
+**Summary**: fix(web2-balance-history): expand match_method CHECK constraint cho Web 2.0 values
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 7 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -50,7 +49,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-30 16:03
+- [`render.com/`](./render.com.md) — updated 2026-05-30 16:25
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-29 18:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
