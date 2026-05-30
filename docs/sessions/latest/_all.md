@@ -3,13 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c4f0a7d` — feat(manual-deposit): NCC select dropdown visible + Tạo mới button kế label
-**Last updated**: 2026-05-30 19:09:34 +07
-**Latest session**: [`RESUME:20260530-190934-c4f0a7d`](../20260530-190934-c4f0a7d.md)
-**Summary**: feat(manual-deposit): NCC select dropdown visible + Tạo mới button kế label
+**Latest commit**: `4528e65` — auto: session update
+**Last updated**: 2026-05-30 19:18:41 +07
+**Latest session**: [`RESUME:20260530-191841-4528e65`](../20260530-191841-4528e65.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
+- [`so-order/`](./so-order.md) — 2 file(s)
 - [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
@@ -55,7 +56,7 @@
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-29 15:42
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
-- [`so-order/`](./so-order.md) — updated 2026-05-30 17:09
+- [`so-order/`](./so-order.md) — updated 2026-05-30 19:18
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
@@ -67,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-30 19:09
+- [`web2/`](./web2.md) — updated 2026-05-30 19:18
