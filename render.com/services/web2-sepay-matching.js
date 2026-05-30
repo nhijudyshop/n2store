@@ -404,12 +404,80 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
         const bestIsExact = bestCand.length === 10 && bestCand.startsWith('0');
 
         if (merged.length === 1) {
-            // Single unique phone → auto credit
+            // Single unique phone → auto credit (skip confidence check).
+            // Aggregation dedupe đã là validation: nhiều TPOS entries collapse
+            // về 1 phone = strong signal. User spec: "1 KH thì chọn KH đó".
             matchedPhone = merged[0].phone;
             customerName = merged[0].customers?.[0]?.name || null;
             customerId = merged[0].customers?.[0]?.id || null;
             matchMethod =
                 bestIsExact && bestCand === merged[0].phone ? 'exact_phone' : 'single_match';
+            // Credit ví trực tiếp, bỏ qua nhánh confidence scoring bên dưới
+            try {
+                const walletResult = await web2WalletService.processDeposit(
+                    db,
+                    matchedPhone,
+                    amount,
+                    tx.id,
+                    `Nap tu CK (${matchMethod}, aggregate)`,
+                    customerId,
+                    null,
+                    tx.sepay_id
+                );
+                await db.query(
+                    `UPDATE web2_balance_history
+                     SET debt_added = TRUE,
+                         linked_customer_phone = $2,
+                         wallet_processed = TRUE,
+                         verification_status = 'AUTO_APPROVED',
+                         match_method = $3,
+                         display_name = COALESCE(display_name, $4),
+                         verified_at = NOW()
+                     WHERE id = $1`,
+                    [web2BhId, matchedPhone, matchMethod, customerName]
+                );
+                await web2MatchAudit.log(db, {
+                    transactionId: web2BhId,
+                    sepayId: tx.sepay_id,
+                    extractedValue: candidates.join(','),
+                    extractedType: matchMethod,
+                    candidates: [{ phone: matchedPhone, name: customerName, customerId }],
+                    chosenPhone: matchedPhone,
+                    chosenName: customerName,
+                    decisionTier: 'auto_aggregate',
+                    confidenceScore: 100,
+                    confidenceBreakdown: {
+                        reason: 'single_unique_phone_after_aggregate',
+                        candidatesTried: candidates.length,
+                    },
+                    amount,
+                    decidedBy: 'auto',
+                    walletTxId: walletResult.transaction?.id,
+                    note: `Auto credit aggregate (1 unique phone từ ${candidates.length} candidates)`,
+                });
+                return {
+                    success: true,
+                    method: matchMethod,
+                    transactionId: web2BhId,
+                    phone: matchedPhone,
+                    customerName,
+                    dataSource,
+                    amount,
+                    walletTxId: walletResult.transaction?.id,
+                    alreadyProcessed: walletResult.alreadyProcessed,
+                };
+            } catch (e) {
+                console.error(
+                    `[web2-sepay-matching] aggregate credit fail for ${web2BhId}:`,
+                    e.message
+                );
+                return {
+                    success: false,
+                    reason: 'Wallet credit failed',
+                    error: e.message,
+                    phone: matchedPhone,
+                };
+            }
         } else if (merged.length > 1) {
             // Multi unique phones → pending_match
             const insertPending = await db.query(
