@@ -92,6 +92,41 @@ async function ensureSchema(pool) {
                 END IF;
             END $$;
         `);
+        // Match-method CHECK constraint — Web 2.0 cần thêm value vào allowed list
+        // mà Web 1.0 không có (`legacy_credited` cho legacy migration path,
+        // `pending_low_confidence` cho single match conf < threshold). Constraint
+        // gốc inherit từ `LIKE balance_history` chỉ allow 6 giá trị → mọi UPDATE
+        // SET match_method='legacy_credited' bị throw → toàn bộ legacy migration
+        // block fail → display_name không được backfill. Idempotent.
+        await pool.query(`
+            DO $$
+            BEGIN
+                -- Drop both possible inherited names (Web 1.0 'balance_history_match_method_check'
+                -- hoặc Web 2.0 mới 'web2_balance_history_match_method_check')
+                ALTER TABLE web2_balance_history
+                    DROP CONSTRAINT IF EXISTS balance_history_match_method_check;
+                ALTER TABLE web2_balance_history
+                    DROP CONSTRAINT IF EXISTS web2_balance_history_match_method_check;
+                ALTER TABLE web2_balance_history
+                    ADD CONSTRAINT web2_balance_history_match_method_check
+                    CHECK (match_method IS NULL OR match_method IN (
+                        'qr_code',
+                        'exact_phone',
+                        'single_match',
+                        'pending_match',
+                        'pending_low_confidence',
+                        'manual_entry',
+                        'manual_link',
+                        'legacy_credited'
+                    ));
+            EXCEPTION WHEN OTHERS THEN
+                -- Nếu constraint không tồn tại (vd table mới được tạo từ explicit
+                -- schema fallback, không có constraint legacy), ADD vẫn chạy được
+                -- trong nhánh trên. Catch để idempotent với mọi state.
+                RAISE NOTICE 'web2_balance_history match_method constraint reset: %', SQLERRM;
+            END $$;
+        `);
+
         // Sequence riêng — chỉ tham chiếu web2_balance_history (zero Web 1.0 dep).
         // Lần đầu init: nếu bảng rỗng, sequence khởi đầu từ 10000 — đủ buffer cho
         // mọi row legacy đã backfill (ID < 10000 không tồn tại trong web2_).
