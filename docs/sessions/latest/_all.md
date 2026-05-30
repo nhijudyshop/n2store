@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `03ce0c4` — auto: session update
-**Last updated**: 2026-05-30 09:47:41 +07
-**Latest session**: [`RESUME:20260530-094741-03ce0c4`](../20260530-094741-03ce0c4.md)
-**Summary**: auto: session update
+**Latest commit**: `b27e663` — feat(extension): pancake bump UX restructure + cap-per-conv loop
+**Last updated**: 2026-05-30 09:53:41 +07
+**Latest session**: [`RESUME:20260530-095341-b27e663`](../20260530-095341-b27e663.md)
+**Summary**: feat(extension): pancake bump UX restructure + cap-per-conv loop
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`n2store-extension/`](./n2store-extension.md) — 1 file(s)
+- [`n2store-extension/`](./n2store-extension.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-30 09:47
+- [`docs/`](./docs.md) — updated 2026-05-30 09:53
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -38,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-30 09:47
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-30 09:53
 - [`native-orders/`](./native-orders.md) — updated 2026-05-26 13:38
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
