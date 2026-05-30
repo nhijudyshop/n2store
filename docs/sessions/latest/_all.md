@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `57655d5` — feat(web2-shared): Web2SuppliersCache helper cho dropdown NCC
-**Last updated**: 2026-05-30 16:48:55 +07
-**Latest session**: [`RESUME:20260530-164855-57655d5`](../20260530-164855-57655d5.md)
-**Summary**: feat(web2-shared): Web2SuppliersCache helper cho dropdown NCC
+**Latest commit**: `26defed` — feat(web2-customer-wallet): tab QR VietQR — generate + display QR cho từng KH
+**Last updated**: 2026-05-30 16:56:21 +07
+**Latest session**: [`RESUME:20260530-165621-26defed`](../20260530-165621-26defed.md)
+**Summary**: feat(web2-customer-wallet): tab QR VietQR — generate + display QR cho từng KH
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -49,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-30 16:47
+- [`render.com/`](./render.com.md) — updated 2026-05-30 16:56
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-29 18:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -67,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-30 16:48
+- [`web2/`](./web2.md) — updated 2026-05-30 16:56
