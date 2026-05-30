@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8890b51` — fix(web2-balance-history): batch A+B+D+E cleanup + better extractor
-**Last updated**: 2026-05-30 19:26:23 +07
-**Latest session**: [`RESUME:20260530-192623-8890b51`](../20260530-192623-8890b51.md)
-**Summary**: fix(web2-balance-history): batch A+B+D+E cleanup + better extractor
+**Latest commit**: `355f0c5` — auto: session update
+**Last updated**: 2026-05-30 19:32:14 +07
+**Latest session**: [`RESUME:20260530-193214-355f0c5`](../20260530-193214-355f0c5.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`so-order/`](./so-order.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -55,7 +55,7 @@
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-29 15:42
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
-- [`so-order/`](./so-order.md) — updated 2026-05-30 19:21
+- [`so-order/`](./so-order.md) — updated 2026-05-30 19:32
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
