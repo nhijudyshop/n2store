@@ -213,30 +213,13 @@
         const status = r.status || 'draft';
         const products = parseProducts(r.products);
 
+        // P1 2026-05-30: bỏ tất cả action buttons (Duyệt/NCC từ chối/Sửa/
+        // Hủy duyệt/Hoàn tiền). User ask "trả → xác nhận là trả luôn" —
+        // quick refund đã auto-create + auto-approve + trừ kho + ghi ví NCC
+        // atomic. Detail view CHỈ HIỂN THỊ thông tin + lịch sử (read-only).
+        // Phiếu đã chốt khi tạo → không cần state machine UI nữa.
         const actions = [];
-        if (['draft', 'sent'].includes(status)) {
-            actions.push(
-                `<button class="btn btn-success btn-sm" data-action="approve"><i data-lucide="check-circle"></i> Duyệt + Trừ kho</button>`
-            );
-            actions.push(
-                `<button class="btn btn-danger btn-sm" data-action="reject"><i data-lucide="x-circle"></i> NCC từ chối</button>`
-            );
-            actions.push(
-                `<button class="btn btn-secondary btn-sm" data-action="edit"><i data-lucide="edit-3"></i> Sửa</button>`
-            );
-        }
-        if (status === 'approved') {
-            actions.push(
-                `<button class="btn btn-success btn-sm" data-action="refunded"><i data-lucide="banknote"></i> NCC đã hoàn tiền</button>`
-            );
-            actions.push(
-                `<button class="btn btn-warn btn-sm" data-action="cancel-approve"><i data-lucide="undo-2"></i> Hủy duyệt (trả tồn về)</button>`
-            );
-            actions.push(
-                `<button class="btn btn-danger btn-sm" data-action="reject"><i data-lucide="x-circle"></i> NCC từ chối (trả tồn)</button>`
-            );
-        }
-        if (status === 'refunded' || status === 'rejected' || status === 'cancelled') {
+        if (false) {
             actions.push(
                 `<button class="btn btn-secondary btn-sm" data-action="view-only" disabled>Đã chốt — không sửa được</button>`
             );

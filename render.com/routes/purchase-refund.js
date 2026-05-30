@@ -162,11 +162,13 @@ async function restockStock(pool, lines) {
 // Body: { note?: string }
 // -----------------------------------------------------
 router.post('/:code/approve', async (req, res) => {
-    const pool = req.app.locals.web2Db;
-    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    // P1 2026-05-30: 2 DB pools — records ở web2Db, products ở chatDb
+    const recordsPool = req.app.locals.web2Db;
+    const productsPool = req.app.locals.chatDb;
+    if (!recordsPool || !productsPool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
     try {
-        const row = await loadRefund(pool, code);
+        const row = await loadRefund(recordsPool, code);
         if (!row) return res.status(404).json({ error: 'Refund not found' });
         const data = row.data || {};
         const currentStatus = data.status || 'draft';
@@ -192,7 +194,7 @@ router.post('/:code/approve', async (req, res) => {
             });
         }
 
-        const stockResults = await deductStock(pool, lines);
+        const stockResults = await deductStock(productsPool, lines);
         const userName = req.body?.userName || '(ẩn danh)';
         const newHistory = appendHistory(data, {
             action: 'approve',
@@ -201,7 +203,7 @@ router.post('/:code/approve', async (req, res) => {
             note: `Duyệt phiếu + trừ kho ${stockResults.length} dòng SP`,
             extra: { stockResults },
         });
-        await saveRefundData(pool, code, {
+        await saveRefundData(recordsPool, code, {
             status: 'approved',
             stock_deducted: true,
             approved_at: Date.now(),
@@ -228,11 +230,12 @@ router.post('/:code/approve', async (req, res) => {
 // Body: { reason?: string }
 // -----------------------------------------------------
 router.post('/:code/cancel-approve', async (req, res) => {
-    const pool = req.app.locals.web2Db;
-    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const recordsPool = req.app.locals.web2Db;
+    const productsPool = req.app.locals.chatDb;
+    if (!recordsPool || !productsPool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
     try {
-        const row = await loadRefund(pool, code);
+        const row = await loadRefund(recordsPool, code);
         if (!row) return res.status(404).json({ error: 'Refund not found' });
         const data = row.data || {};
         const currentStatus = data.status || 'draft';
@@ -242,7 +245,7 @@ router.post('/:code/cancel-approve', async (req, res) => {
             });
         }
         const lines = normalizeLines(parseProducts(data.products));
-        const stockResults = data.stock_deducted ? await restockStock(pool, lines) : [];
+        const stockResults = data.stock_deducted ? await restockStock(productsPool, lines) : [];
         const userName = req.body?.userName || '(ẩn danh)';
         const newHistory = appendHistory(data, {
             action: 'cancel-approve',
@@ -277,11 +280,11 @@ router.post('/:code/cancel-approve', async (req, res) => {
 // Body: { refundMethod?: 'cash'|'bank'|'debt_offset'|'replace', refundAmount?, note? }
 // -----------------------------------------------------
 router.post('/:code/refunded', async (req, res) => {
-    const pool = req.app.locals.web2Db;
-    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const recordsPool = req.app.locals.web2Db;
+    if (!recordsPool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
     try {
-        const row = await loadRefund(pool, code);
+        const row = await loadRefund(recordsPool, code);
         if (!row) return res.status(404).json({ error: 'Refund not found' });
         const data = row.data || {};
         if (data.status !== 'approved') {
@@ -296,7 +299,7 @@ router.post('/:code/refunded', async (req, res) => {
             userName,
             note: `NCC đã hoàn tiền (${req.body?.refundMethod || data.refundMethod || 'unknown'})`,
         });
-        await saveRefundData(pool, code, {
+        await saveRefundData(recordsPool, code, {
             status: 'refunded',
             refunded_at: Date.now(),
             refundMethod: req.body?.refundMethod || data.refundMethod || null,
@@ -318,11 +321,12 @@ router.post('/:code/refunded', async (req, res) => {
 // Body: { reason?: string }
 // -----------------------------------------------------
 router.post('/:code/reject', async (req, res) => {
-    const pool = req.app.locals.web2Db;
-    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const recordsPool = req.app.locals.web2Db;
+    const productsPool = req.app.locals.chatDb;
+    if (!recordsPool || !productsPool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
     try {
-        const row = await loadRefund(pool, code);
+        const row = await loadRefund(recordsPool, code);
         if (!row) return res.status(404).json({ error: 'Refund not found' });
         const data = row.data || {};
         if (data.status === 'rejected') {
@@ -331,7 +335,7 @@ router.post('/:code/reject', async (req, res) => {
         let stockResults = [];
         if (data.stock_deducted) {
             const lines = normalizeLines(parseProducts(data.products));
-            stockResults = await restockStock(pool, lines);
+            stockResults = await restockStock(productsPool, lines);
         }
         const userName = req.body?.userName || '(ẩn danh)';
         const newHistory = appendHistory(data, {
@@ -341,7 +345,7 @@ router.post('/:code/reject', async (req, res) => {
             note: `NCC từ chối${stockResults.length ? ` + trả tồn ${stockResults.length} dòng` : ''}. Lý do: ${req.body?.reason || '(không)'}`,
             extra: { stockResults },
         });
-        await saveRefundData(pool, code, {
+        await saveRefundData(recordsPool, code, {
             status: 'rejected',
             stock_deducted: false,
             rejected_at: Date.now(),
