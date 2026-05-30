@@ -25,6 +25,30 @@
 
 ## 2026-05-30
 
+### [so-order] Fix: pick SP từ dropdown → lưu chỉ giữ text gõ ban đầu (stale change event) ✅
+
+**User bug**: gõ "b" → dropdown gợi ý → click "2000 QUAN test nhap b4" → modal hiện tên full đúng → Lưu nháp → row lưu chỉ là "b".
+
+**Root cause**: race condition giữa `applySuggestionToRow` và `change` event:
+
+1. User gõ "b" → input event → `row.productName = "b"`. Input "focused value baseline" = "" (lúc focus đầu tiên).
+2. User click dropdown item → `applySuggestionToRow` set `row.productName = "2000 QUAN test nhap b4"` → `renderModalRows()` replace `tbody.innerHTML` → OLD input detached khỏi DOM.
+3. Browser **async** fires `blur` + `change` trên OLD input (value "b" ≠ focused baseline "") **SAU KHI** click handler complete.
+4. `change` listener cũ (`onModalRowFieldInput`) chạy trên OLD detached input, đọc `input.value = "b"` + uid (uid match vì preserved) → ghi đè `row.productName = "b"` trên modalRows state.
+5. User click Lưu nháp → submit đọc `row.productName = "b"` (bị overwrite).
+
+**Fix** (`so-order-app.js` `onModalRowFieldInput`):
+
+```js
+if (!input.isConnected) return; // guard stale event từ detached input
+```
+
+Ignore mọi input/change event đến từ element đã bị remove khỏi DOM. Synchronous parts của `applySuggestionToRow` đã set state đúng → sau khi DOM detached, không có event nào được phép thay đổi state nữa.
+
+**Verify live**: gõ "b" → pick "2000 QUAN test nhap b4" → submit → saved `productName = "2000 QUAN test nhap b4"`, variant = "Màu Beo" ✓. Thử dispatch manual `change` event lên OLD input cũng không ghi đè được.
+
+**Status**: ✅ Done.
+
 ### [so-order] Bỏ variant validation + Lock row "Đã nhận" ✅
 
 **User feedback**:
