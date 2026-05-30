@@ -360,54 +360,64 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
         }
     }
 
-    // 2b. Exact 10-digit phone path
-    if (!matchedPhone && extracted.type === 'exact_phone') {
-        const exactPhone = extracted.value;
-        try {
-            const tposResult = await searchTposByPhone(exactPhone, fetchWithTimeout);
-            if (tposResult?.success && tposResult.uniquePhones?.length > 0) {
-                const phoneData = tposResult.uniquePhones.find((p) => p.phone === exactPhone);
-                if (phoneData && phoneData.customers?.length > 0) {
-                    customerName = phoneData.customers[0].name;
-                    customerId = phoneData.customers[0].id || null;
-                    dataSource = 'TPOS';
-                }
-            }
-        } catch (e) {
-            console.warn('[web2-sepay-matching] TPOS exact phone lookup failed:', e.message);
+    // 2b. Aggregate ALL phone candidates (5–10 digits) — search TPOS per
+    //     candidate, merge unique phones (dedup by phone). 1 unique → auto
+    //     credit; >1 unique → pending; 0 → no_match.
+    //     Cap MAX_CANDIDATES_TO_TRY để tránh spam TPOS calls.
+    const MAX_CANDIDATES_TO_TRY = 5;
+    if (!matchedPhone) {
+        const candidates = (extracted.phoneCandidates || []).slice(0, MAX_CANDIDATES_TO_TRY);
+        if (candidates.length === 0) {
+            return {
+                success: false,
+                reason: 'No identifier found',
+                note: extracted.note,
+            };
         }
-        matchedPhone = exactPhone;
-        matchMethod = 'exact_phone';
-    }
 
-    // 2c. Partial phone (5–10 digits) path
-    if (!matchedPhone && extracted.type === 'partial_phone') {
-        const partialPhone = extracted.value;
-        let matchedPhones = [];
-        try {
-            const tposResult = await searchTposByPhone(partialPhone, fetchWithTimeout);
-            if (tposResult?.success && tposResult.uniquePhones?.length > 0) {
-                matchedPhones = tposResult.uniquePhones;
+        const phoneMap = new Map(); // unique phone → { phone, customers[], sourceCandidate }
+        for (const cand of candidates) {
+            try {
+                const r = await searchTposByPhone(cand, fetchWithTimeout);
+                if (!r?.success || !r.uniquePhones?.length) continue;
                 dataSource = 'TPOS';
+                for (const u of r.uniquePhones) {
+                    if (!phoneMap.has(u.phone)) {
+                        phoneMap.set(u.phone, { ...u, sourceCandidate: cand });
+                    } else {
+                        // Merge customers by id (dedup)
+                        const ex = phoneMap.get(u.phone);
+                        for (const c of u.customers || []) {
+                            if (!ex.customers.find((x) => x.id === c.id)) {
+                                ex.customers.push(c);
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn(`[web2-sepay-matching] TPOS search "${cand}" failed:`, e.message);
             }
-        } catch (e) {
-            console.warn('[web2-sepay-matching] TPOS partial lookup failed:', e.message);
         }
 
-        if (matchedPhones.length === 1) {
-            // Single match → auto credit
-            matchedPhone = matchedPhones[0].phone;
-            customerName = matchedPhones[0].customers?.[0]?.name || null;
-            customerId = matchedPhones[0].customers?.[0]?.id || null;
-            matchMethod = 'single_match';
-        } else if (matchedPhones.length > 1) {
-            // Multi match → create pending for user pick + audit log
+        const merged = Array.from(phoneMap.values());
+        const bestCand = candidates[0];
+        const bestIsExact = bestCand.length === 10 && bestCand.startsWith('0');
+
+        if (merged.length === 1) {
+            // Single unique phone → auto credit
+            matchedPhone = merged[0].phone;
+            customerName = merged[0].customers?.[0]?.name || null;
+            customerId = merged[0].customers?.[0]?.id || null;
+            matchMethod =
+                bestIsExact && bestCand === merged[0].phone ? 'exact_phone' : 'single_match';
+        } else if (merged.length > 1) {
+            // Multi unique phones → pending_match
             const insertPending = await db.query(
                 `INSERT INTO web2_pending_matches
                    (transaction_id, extracted_phone, matched_customers, status)
                  VALUES ($1, $2, $3, 'pending')
                  RETURNING id`,
-                [web2BhId, partialPhone, JSON.stringify(matchedPhones)]
+                [web2BhId, candidates.join(','), JSON.stringify(merged)]
             );
             await db.query(
                 `UPDATE web2_balance_history
@@ -415,7 +425,7 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
                  WHERE id = $1`,
                 [web2BhId]
             );
-            const auditCandidates = matchedPhones.flatMap((m) =>
+            const auditCandidates = merged.flatMap((m) =>
                 (m.customers || []).map((c) => ({
                     phone: m.phone || c.phone,
                     name: c.name,
@@ -424,7 +434,7 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
             await web2MatchAudit.log(db, {
                 transactionId: web2BhId,
                 sepayId: tx.sepay_id,
-                extractedValue: partialPhone,
+                extractedValue: candidates.join(','),
                 extractedType: 'partial_phone',
                 candidates: auditCandidates,
                 chosenPhone: null,
@@ -432,37 +442,30 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
                 decisionTier: 'pending_ambiguous',
                 confidenceScore: 0,
                 confidenceBreakdown: {
-                    reason: 'multi_match',
-                    candidateCount: matchedPhones.length,
+                    reason: 'multi_match_aggregated',
+                    candidatesTried: candidates.length,
+                    uniquePhonesFound: merged.length,
                 },
                 amount,
                 decidedBy: 'auto',
-                note: `Multi-match ${matchedPhones.length} candidates → user pick`,
+                note: `Multi-match ${merged.length} unique phones từ ${candidates.length} candidates → user pick`,
             });
             return {
                 success: true,
                 method: 'pending_match_created',
                 pendingMatchId: insertPending.rows[0].id,
                 transactionId: web2BhId,
-                partialPhone,
-                uniquePhonesCount: matchedPhones.length,
+                candidates,
+                uniquePhonesCount: merged.length,
             };
         } else {
+            // 0 match — no TPOS customer found for any candidate
             return {
                 success: false,
                 reason: 'No match found',
-                partialPhone,
+                candidates,
             };
         }
-    }
-
-    // 2d. No identifier extracted (content không có QR / phone / partial)
-    if (!matchedPhone && extracted.type === 'none') {
-        return {
-            success: false,
-            reason: 'No identifier found',
-            note: extracted.note,
-        };
     }
 
     // 4. (NEW Phase 5) Compute confidence score before auto-credit.

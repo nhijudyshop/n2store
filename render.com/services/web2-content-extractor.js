@@ -56,6 +56,7 @@ function extractIdentifier(content) {
             uniqueCode: null,
             note: 'NO_CONTENT',
             qrCandidates: [],
+            phoneCandidates: [],
         };
     }
 
@@ -110,6 +111,7 @@ function extractIdentifier(content) {
             uniqueCode: null,
             note: 'VCB:PARTIAL_PHONE_EXTRACTED',
             qrCandidates,
+            phoneCandidates: [mbvcbMatch[1]],
         };
     }
 
@@ -129,19 +131,24 @@ function extractIdentifier(content) {
         const exactPhone = exactPhones[exactPhones.length - 1];
         const baseNote =
             exactPhones.length > 1 ? 'MULTIPLE_EXACT_PHONES_FOUND' : 'EXACT_PHONE_EXTRACTED';
+        // Phối hợp exact_phone vào phoneCandidates → matcher có thể aggregate
+        // với các partial phone trong content (vd vừa có exact 0xxx vừa có
+        // partial 6-digit cùng KH).
         return {
             type: 'exact_phone',
             value: exactPhone,
             uniqueCode: `PHONE${exactPhone}`,
             note: isMomo ? `MOMO:${baseNote}` : baseNote,
             qrCandidates,
+            phoneCandidates: Array.from(new Set(exactPhones)),
         };
     }
 
-    // Step 6: Partial phone — number 5–10 digits, blacklist filtered.
-    // Sort priority: 6 > 7-10 > 5 (6-digit là pattern KH phổ biến nhất ở VN).
-    // BOOST: phone trong '-GD-<digit>-' pattern (customer-typed) ưu tiên cao nhất.
+    // Step 6: Phone candidates — extract ALL 5–10 digit numbers, blacklist
+    // filtered, sorted by priority. Matcher search từng candidate qua TPOS
+    // rồi aggregate unique phones (dedup), 1 → auto credit, >1 → pending.
     const allNumbers = textToParse.match(/\d{5,}/g);
+    let phoneCandidates = [];
     if (allNumbers && allNumbers.length > 0) {
         const phoneLikeNumbers = allNumbers.filter((num) => {
             const validLen = num.length >= 5 && num.length <= 10;
@@ -150,27 +157,28 @@ function extractIdentifier(content) {
             return validLen && !blacklisted && !testPattern;
         });
         if (phoneLikeNumbers.length > 0) {
-            const lengthScore = (n) =>
-                n.length === 6
-                    ? 0
-                    : n.length === 7
-                      ? 1
-                      : n.length === 8
-                        ? 2
-                        : n.length === 9
-                          ? 3
-                          : n.length === 10
-                            ? 4
-                            : n.length === 5
-                              ? 5
-                              : 6;
+            // Priority score (smaller = higher priority):
+            //   10-digit starting "0" (exact phone) = -1 — highest signal
+            //   6 = 0 (most common KH suffix pattern)
+            //   7-10 = 1-4
+            //   5 = 5
+            const lengthScore = (n) => {
+                if (n.length === 10 && n.startsWith('0')) return -1;
+                if (n.length === 6) return 0;
+                if (n.length === 7) return 1;
+                if (n.length === 8) return 2;
+                if (n.length === 9) return 3;
+                if (n.length === 10) return 4;
+                if (n.length === 5) return 5;
+                return 6;
+            };
             const dashGdRe = /[-\s]GD[-\s](\d{5,7})(?:[-\s]|$)/gi;
             const dashGdSet = new Set();
             let mGd;
             while ((mGd = dashGdRe.exec(content)) !== null) {
                 dashGdSet.add(mGd[1]);
             }
-            const sorted = [...phoneLikeNumbers].sort((a, b) => {
+            const sorted = [...new Set(phoneLikeNumbers)].sort((a, b) => {
                 const ga = dashGdSet.has(a) ? 0 : 1;
                 const gb = dashGdSet.has(b) ? 0 : 1;
                 if (ga !== gb) return ga - gb;
@@ -179,24 +187,33 @@ function extractIdentifier(content) {
                 if (sa !== sb) return sa - sb;
                 return phoneLikeNumbers.indexOf(a) - phoneLikeNumbers.indexOf(b);
             });
-            const baseNote =
-                phoneLikeNumbers.length > 1 ? 'MULTIPLE_NUMBERS_FOUND' : 'PARTIAL_PHONE_EXTRACTED';
-            return {
-                type: 'partial_phone',
-                value: sorted[0],
-                uniqueCode: null,
-                note: isMomo ? `MOMO:${baseNote}` : baseNote,
-                qrCandidates,
-            };
+            phoneCandidates = sorted;
         }
     }
 
+    if (phoneCandidates.length === 0) {
+        return {
+            type: 'none',
+            value: null,
+            uniqueCode: null,
+            note: isMomo ? 'MOMO:NO_PHONE_FOUND' : 'NO_PHONE_FOUND',
+            qrCandidates,
+            phoneCandidates: [],
+        };
+    }
+
+    // Determine type của best candidate (cho backward compat)
+    const best = phoneCandidates[0];
+    const bestIsExact = best.length === 10 && best.startsWith('0');
+    const baseNote =
+        phoneCandidates.length > 1 ? 'MULTIPLE_NUMBERS_FOUND' : 'PARTIAL_PHONE_EXTRACTED';
     return {
-        type: 'none',
-        value: null,
-        uniqueCode: null,
-        note: isMomo ? 'MOMO:NO_PHONE_FOUND' : 'NO_PHONE_FOUND',
+        type: bestIsExact ? 'exact_phone' : 'partial_phone',
+        value: best,
+        uniqueCode: bestIsExact ? `PHONE${best}` : null,
+        note: isMomo ? `MOMO:${baseNote}` : baseNote,
         qrCandidates,
+        phoneCandidates,
     };
 }
 
