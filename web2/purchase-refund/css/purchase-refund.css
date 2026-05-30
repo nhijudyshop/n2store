@@ -306,6 +306,10 @@ body {
     align-items: center;
     justify-content: center;
 }
+/* HTML5 [hidden] attribute phải override display:flex trên .pr-modal */
+.pr-modal[hidden] {
+    display: none !important;
+}
 .pr-modal-backdrop {
     position: absolute;
     inset: 0;
