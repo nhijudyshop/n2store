@@ -30,11 +30,37 @@ const PHONE_EXTRACTION_BLACKLIST = ['75918'];
  */
 function extractIdentifier(content) {
     if (!content) {
-        return { type: 'none', value: null, uniqueCode: null, note: 'NO_CONTENT' };
+        return {
+            type: 'none',
+            value: null,
+            uniqueCode: null,
+            note: 'NO_CONTENT',
+            qrCandidates: [],
+        };
     }
 
     let textToParse = content;
     let isMomo = false;
+
+    // Extract qr_code candidates upfront (independent of type).
+    // Format: [A-Z]{2,15}\d{1,15} (uppercase name slug + numeric id) matches
+    // generator format <slug(name)><partner_id>, vd 'ANHNGOCHOANG571046'.
+    // Legacy 'N2[A-Z0-9]{16}' cũng match. Matcher tries each candidate qua
+    // single DB query `WHERE qr_code = ANY($1)`.
+    const qrCandidateSet = new Set();
+    const upperContent = String(content).toUpperCase();
+    const flexibleRe = /\b[A-Z]{2,15}\d{1,15}\b/g;
+    let mFlex;
+    while ((mFlex = flexibleRe.exec(upperContent)) !== null) {
+        const tok = mFlex[0];
+        if (tok.length >= 5 && tok.length <= 50) qrCandidateSet.add(tok);
+    }
+    const legacyRe = /\bN2[A-Z0-9]{16}\b/g;
+    let mLeg;
+    while ((mLeg = legacyRe.exec(upperContent)) !== null) {
+        qrCandidateSet.add(mLeg[0]);
+    }
+    const qrCandidates = Array.from(qrCandidateSet);
 
     // Step 1: Strip noise tokens trước khi parse number.
     // Date-time DDMMYY-HH:MM:SS — giữ colon để tránh over-match 6-6 digit
@@ -60,21 +86,14 @@ function extractIdentifier(content) {
             value: mbvcbMatch[1],
             uniqueCode: null,
             note: 'VCB:PARTIAL_PHONE_EXTRACTED',
+            qrCandidates,
         };
     }
 
-    // Step 4: QR Code N2 (18 chars: N2 + 16 alphanumeric).
-    // Generator: native-orders gửi VietQR cho khách — content kèm qr_code.
-    // Lookup table web2_payment_qr_codes (KHÔNG dùng table Web 1.0 cũ).
-    const qrMatch = textToParse.match(/\bN2[A-Z0-9]{16}\b/);
-    if (qrMatch) {
-        return {
-            type: 'qr_code',
-            value: qrMatch[0],
-            uniqueCode: qrMatch[0],
-            note: 'QR_CODE_FOUND',
-        };
-    }
+    // Step 4: QR Code path REMOVED từ exclusive return — đã đẩy lên top-level
+    // qrCandidates array để matcher có thể check DB cho cả format mới
+    // (<slug><partner_id>) lẫn legacy (N2 + 16 chars). Matcher quyết định
+    // dùng QR path hay phone path dựa trên DB hit.
 
     // Step 5: Exact 10-digit phone (0xxxxxxxxx). Skip TPOS partial lookup —
     // chỉ cần verify customer tồn tại trên TPOS để lấy name.
@@ -88,6 +107,7 @@ function extractIdentifier(content) {
             value: exactPhone,
             uniqueCode: `PHONE${exactPhone}`,
             note: isMomo ? `MOMO:${baseNote}` : baseNote,
+            qrCandidates,
         };
     }
 
@@ -138,6 +158,7 @@ function extractIdentifier(content) {
                 value: sorted[0],
                 uniqueCode: null,
                 note: isMomo ? `MOMO:${baseNote}` : baseNote,
+                qrCandidates,
             };
         }
     }
@@ -147,6 +168,7 @@ function extractIdentifier(content) {
         value: null,
         uniqueCode: null,
         note: isMomo ? 'MOMO:NO_PHONE_FOUND' : 'NO_PHONE_FOUND',
+        qrCandidates,
     };
 }
 

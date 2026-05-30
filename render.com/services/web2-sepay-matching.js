@@ -327,20 +327,21 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
     let dataSource = null;
     let qrCodeUsed = null; // remember QR để mark used sau khi credit
 
-    // 2. Extract identifier (QR / exact_phone / partial_phone)
+    // 2. Extract identifier (QR candidates + phone)
     const extracted = extractIdentifier(content);
 
-    // 2a. QR code path — lookup web2_payment_qr_codes (Web 2.0 native registry).
-    //     Persistent: 1 KH = 1 qr_code = <slug(tên)><partner_id> (vd NHI571046).
-    //     Khách dùng cùng QR cho nhiều CK → credit nhiều lần OK, chỉ track
-    //     use_count + last_used_* cho audit.
-    if (extracted.type === 'qr_code') {
+    // 2a. QR code path — try DB lookup với tất cả candidates từ extractor
+    //     (format mới <slug><partner_id> + legacy N2+16). Match ≥1 candidate
+    //     → use QR path. Miss → fall through to phone extraction (không
+    //     return early — content có thể có phone hợp lệ kèm theo).
+    const candidates = extracted.qrCandidates || [];
+    if (candidates.length > 0) {
         const qrLookup = await db.query(
             `SELECT qr_code, phone, customer_name, customer_id
              FROM web2_payment_qr_codes
-             WHERE qr_code = $1
+             WHERE qr_code = ANY($1)
              LIMIT 1`,
-            [extracted.value]
+            [candidates]
         );
         if (qrLookup.rows.length > 0) {
             const qr = qrLookup.rows[0];
@@ -352,13 +353,8 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
             qrCodeUsed = qr.qr_code;
         } else {
             console.log(
-                `[processWeb2Match] QR ${extracted.value} không có trong web2_payment_qr_codes — KH chưa được tạo QR registry`
+                `[processWeb2Match] QR candidates [${candidates.join(',')}] không có trong web2_payment_qr_codes — fallback phone extraction`
             );
-            return {
-                success: false,
-                reason: 'QR not registered',
-                qrCode: extracted.value,
-            };
         }
     }
 
