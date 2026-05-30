@@ -16,6 +16,7 @@
         loading: false,
         editingCode: null, // null = creating, string = editing
         usage: {}, // productCode → array of order entries (from /usage endpoint)
+        selectedCodes: new Set(), // P1 2026-05-30: multi-select cho bulk in tem
     };
 
     const $ = (sel) => document.querySelector(sel);
@@ -54,8 +55,11 @@
         const priceBuy = Number(p.originalPrice) || 0;
         const priceSell = Number(p.price) || 0;
         const variantText = (p.variant || '').trim();
+        const checked = STATE.selectedCodes.has(p.code) ? ' checked' : '';
+        const rowSelectedClass = STATE.selectedCodes.has(p.code) ? ' is-selected' : '';
         return `
-                <tr data-code="${escapeHtml(p.code)}">
+                <tr data-code="${escapeHtml(p.code)}" class="${rowSelectedClass.trim()}">
+                    <td class="select-cell"><input type="checkbox" class="w2p-checkbox" data-select-code="${escapeHtml(p.code)}"${checked} /></td>
                     <td>${n}</td>
                     <td>${imgHtml}</td>
                     <td><span class="code-badge code-product" onclick="Web2ProductsApp.copyCode('${escapeHtml(p.code)}')"><i data-lucide="tag"></i>${escapeHtml(p.code)}</span></td>
@@ -108,15 +112,122 @@
     function renderRows() {
         const items = STATE.products;
         if (!items.length) {
-            tbody().innerHTML = `<tr><td colspan="12" class="empty-row">
+            tbody().innerHTML = `<tr><td colspan="13" class="empty-row">
                 Chưa có sản phẩm — bấm "Thêm SP" để tạo
             </td></tr>`;
+            _updateSelectAllState();
+            _updateBulkBar();
             return;
         }
         tbody().innerHTML = items
             .map((p, idx) => _rowHtml(p, (STATE.page - 1) * STATE.limit + idx + 1))
             .join('');
         if (window.lucide) lucide.createIcons();
+        _updateSelectAllState();
+        _updateBulkBar();
+    }
+
+    // ---------- Bulk selection (P1 2026-05-30) ----------
+    //
+    // Selection persist qua paginate/filter — STATE.selectedCodes là Set<code>.
+    // Khi user filter/đổi trang, các code chọn ở trang khác vẫn được giữ.
+    // Bulk bar fixed-bottom, chỉ hiện khi size > 0. Print dùng Web2ProductsCache
+    // để lookup product objects (vì SP có thể ở trang khác, không có trong
+    // STATE.products hiện tại).
+
+    function _toggleSelect(code, checked) {
+        if (!code) return;
+        if (checked) STATE.selectedCodes.add(code);
+        else STATE.selectedCodes.delete(code);
+        const tr = tbody().querySelector(`tr[data-code="${cssEscape(code)}"]`);
+        if (tr) tr.classList.toggle('is-selected', checked);
+        _updateSelectAllState();
+        _updateBulkBar();
+    }
+
+    function _updateBulkBar() {
+        const bar = $('#w2pBulkBar');
+        if (!bar) return;
+        const n = STATE.selectedCodes.size;
+        if (n === 0) {
+            bar.hidden = true;
+            return;
+        }
+        bar.hidden = false;
+        const countEl = $('#w2pBulkCount');
+        const printCountEl = $('#w2pBulkPrintCount');
+        if (countEl) countEl.textContent = String(n);
+        if (printCountEl) printCountEl.textContent = String(n);
+    }
+
+    function _updateSelectAllState() {
+        const head = $('#selectAllProducts');
+        if (!head) return;
+        const visible = STATE.products.map((p) => p.code);
+        if (!visible.length) {
+            head.checked = false;
+            head.indeterminate = false;
+            return;
+        }
+        const sel = visible.filter((c) => STATE.selectedCodes.has(c)).length;
+        head.checked = sel === visible.length;
+        head.indeterminate = sel > 0 && sel < visible.length;
+    }
+
+    function _selectAllVisible(checked) {
+        for (const p of STATE.products) {
+            if (checked) STATE.selectedCodes.add(p.code);
+            else STATE.selectedCodes.delete(p.code);
+        }
+        // Repaint checkboxes + row classes
+        for (const inp of tbody().querySelectorAll('input[data-select-code]')) {
+            inp.checked = checked;
+            const tr = inp.closest('tr');
+            if (tr) tr.classList.toggle('is-selected', checked);
+        }
+        _updateBulkBar();
+    }
+
+    function _clearSelection() {
+        STATE.selectedCodes.clear();
+        for (const inp of tbody().querySelectorAll('input[data-select-code]')) {
+            inp.checked = false;
+            const tr = inp.closest('tr');
+            if (tr) tr.classList.remove('is-selected');
+        }
+        _updateSelectAllState();
+        _updateBulkBar();
+    }
+
+    function _bulkPrint() {
+        if (!STATE.selectedCodes.size) {
+            notify('Chưa chọn SP nào để in', 'warning');
+            return;
+        }
+        if (!window.Web2ProductsPrint?.open) {
+            notify('Print module chưa load, refresh trang', 'error');
+            return;
+        }
+        // Gather products — selectedCodes có thể ở trang khác nên fallback qua
+        // Web2ProductsCache trước, rồi STATE.products.
+        const cache = window.Web2ProductsCache;
+        const collected = [];
+        const missing = [];
+        for (const code of STATE.selectedCodes) {
+            const fromCache = cache?.findByCode?.(code);
+            const fromState = STATE.products.find((p) => p.code === code);
+            const p = fromCache || fromState;
+            if (p) collected.push(p);
+            else missing.push(code);
+        }
+        if (!collected.length) {
+            notify('Không tìm thấy SP đã chọn (cache có thể chưa load)', 'error');
+            return;
+        }
+        if (missing.length) {
+            console.warn('[web2-products] bulk print missing codes:', missing);
+        }
+        window.Web2ProductsPrint.open(collected);
     }
 
     // In-place update — replace ONE row's HTML, GIỮ position trong bảng + KHÔNG
@@ -333,7 +444,7 @@
     async function load() {
         if (STATE.loading) return;
         STATE.loading = true;
-        tbody().innerHTML = `<tr><td colspan="12" class="loading-row">
+        tbody().innerHTML = `<tr><td colspan="13" class="loading-row">
             <div class="spinner"></div>Đang tải dữ liệu...
         </td></tr>`;
         try {
@@ -353,7 +464,7 @@
             _loadUsageForCurrentPage();
         } catch (e) {
             console.error(e);
-            tbody().innerHTML = `<tr><td colspan="12" class="empty-row" style="color:#ef4444;">
+            tbody().innerHTML = `<tr><td colspan="13" class="empty-row" style="color:#ef4444;">
                 Lỗi tải: ${escapeHtml(e.message)}
             </td></tr>`;
             notify('Lỗi tải dữ liệu: ' + e.message, 'error');
@@ -1037,6 +1148,10 @@
                     }
                 }
             }
+            // Delete → cũng xóa khỏi selection (giữ Set clean across re-renders)
+            if (action === 'delete' && code) {
+                STATE.selectedCodes.delete(code);
+            }
             // create/delete/bulk-stock → full load (total changes)
             debouncedFullLoad();
         });
@@ -1065,6 +1180,21 @@
         if (window.lucide) lucide.createIcons();
         $('#btnCreateProduct')?.addEventListener('click', openCreate);
         _setupSse();
+
+        // Bulk selection wiring (P1 2026-05-30)
+        // - Delegate change event trên tbody cho mọi checkbox SP
+        // - Select-all header checkbox toggle visible rows
+        // - Bulk bar buttons (clear + print)
+        tbody()?.addEventListener('change', (e) => {
+            const inp = e.target.closest('input[data-select-code]');
+            if (!inp) return;
+            _toggleSelect(inp.dataset.selectCode, inp.checked);
+        });
+        $('#selectAllProducts')?.addEventListener('change', (e) => {
+            _selectAllVisible(e.target.checked);
+        });
+        $('#w2pBulkClear')?.addEventListener('click', _clearSelection);
+        $('#w2pBulkPrint')?.addEventListener('click', _bulkPrint);
 
         // Upload + Ctrl+V paste + drag-drop cho field ảnh trong modal.
         // Khi nhận ảnh → ghi base64 vào input #pmImage + cập nhật preview.

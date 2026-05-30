@@ -19,7 +19,7 @@
         <link rel="stylesheet" href="../shared/web2-effects.css?v=20260521c" />
         <link rel="stylesheet" href="../../native-orders/css/native-orders.css?v=20260521c" />
         <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260521c" />
-        <link rel="stylesheet" href="css/web2-products.css?v=20260521c" />
+        <link rel="stylesheet" href="css/web2-products.css?v=20260530a" />
         <!-- Print barcode dialog CSS (WEB2.0 module) -->
         <link rel="stylesheet" href="css/web2-products-print.css?v=20260525l" />
 
@@ -110,6 +110,14 @@
                         <table class="data-table" id="productsTable">
                             <thead>
                                 <tr>
+                                    <th style="width: 36px" class="select-cell">
+                                        <input
+                                            type="checkbox"
+                                            id="selectAllProducts"
+                                            class="w2p-checkbox"
+                                            title="Chọn tất cả SP trên trang"
+                                        />
+                                    </th>
                                     <th style="width: 48px">#</th>
                                     <th style="width: 72px">ẢNH</th>
                                     <th style="width: 140px">MÃ SP</th>
@@ -131,7 +139,7 @@
                             </thead>
                             <tbody id="productsTbody">
                                 <tr>
-                                    <td colspan="12" class="loading-row">
+                                    <td colspan="13" class="loading-row">
                                         <div class="spinner"></div>
                                         Đang tải dữ liệu...
                                     </td>
@@ -141,6 +149,41 @@
                     </div>
                     <div class="pagination" id="pagination"></div>
                 </section>
+
+                <!-- Bulk action bar — chỉ hiện khi >0 SP đã chọn -->
+                <div
+                    class="w2p-bulk-bar"
+                    id="w2pBulkBar"
+                    hidden
+                    role="region"
+                    aria-label="Thao tác hàng loạt"
+                >
+                    <div class="w2p-bulk-info">
+                        <i data-lucide="check-square"></i>
+                        <strong id="w2pBulkCount">0</strong>
+                        <span>SP đã chọn</span>
+                    </div>
+                    <div class="w2p-bulk-actions">
+                        <button
+                            type="button"
+                            class="w2p-bulk-btn-secondary"
+                            id="w2pBulkClear"
+                            title="Bỏ chọn tất cả"
+                        >
+                            <i data-lucide="x"></i>
+                            Bỏ chọn
+                        </button>
+                        <button
+                            type="button"
+                            class="w2p-bulk-btn-primary"
+                            id="w2pBulkPrint"
+                            title="In tem mã vạch cho các SP đã chọn"
+                        >
+                            <i data-lucide="printer"></i>
+                            In tem (<span id="w2pBulkPrintCount">0</span>)
+                        </button>
+                    </div>
+                </div>
             </main>
         </div>
         <!-- /.web2-shell -->
@@ -309,7 +352,7 @@
         <script src="../shared/web2-sse-bridge.js?v=20260526sse2"></script>
         <script src="../shared/web2-products-cache.js?v=20260521c"></script>
         <script src="../shared/web2-variants-cache.js?v=20260521c"></script>
-        <script src="js/web2-products-app.js?v=20260529b"></script>
+        <script src="js/web2-products-app.js?v=20260530a"></script>
         <!-- Print barcode (WEB2.0 module — mirror TPOS 100%, dùng TPOS public barcode image endpoint) -->
         <script src="js/web2-products-print.js?v=20260525l"></script>
     </body>

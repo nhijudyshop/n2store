@@ -25,6 +25,35 @@
 
 ## 2026-05-30
 
+### [web2-products] Multi-select checkbox → In tem hàng loạt ✅
+
+**User ask**: "cho checkbox chọn sản phẩm để in nhiều tem sản phẩm".
+
+**Insight**: `Web2ProductsPrint.open(productsArray)` đã sẵn support array → render selection modal với qty per SP. Chỉ cần add UI để chọn nhiều SP rồi pass array.
+
+**Files**:
+
+- `web2/products/index.html`: thêm `<th class="select-cell">` với select-all checkbox, mỗi row có checkbox column, bulk bar fixed-bottom (`#w2pBulkBar`) "Bỏ chọn" + "In tem (N)". Bump colspan loading/empty 12 → 13. Cache `v=20260530a`.
+- `web2/products/js/web2-products-app.js`:
+    - `STATE.selectedCodes = new Set()` persist qua paginate/filter.
+    - `_rowHtml`: checkbox với `data-select-code` + `tr.is-selected` khi đang chọn.
+    - Helpers: `_toggleSelect`, `_updateBulkBar`, `_updateSelectAllState`, `_selectAllVisible`, `_clearSelection`, `_bulkPrint`.
+    - `init()`: event delegation trên tbody, select-all toggle, bulk bar buttons.
+    - SSE delete → cleanup `selectedCodes.delete(code)`.
+    - `_bulkPrint`: gather từ `Web2ProductsCache.findByCode()` fallback `STATE.products` → `Web2ProductsPrint.open(collected)`.
+- `web2/products/css/web2-products.css`: `.w2p-checkbox` (accent blue), `tr.is-selected` highlight blue box-shadow border-left, `.w2p-bulk-bar` fixed-bottom-center dark slate slideUp + 2 buttons.
+
+**Verify** (Playwright):
+
+- Reload → 32 checkboxes hiện, select-all header có, bulk bar hidden.
+- Click 3 → bulk bar slide-up "3 SP đã chọn", 3 rows highlighted, select-all indeterminate.
+- Click select-all → 32 selected.
+- Click "In tem (3)" → `Web2ProductsPrint` modal mở với 3 SP, qty 1, ready to generate PDF.
+
+**Status**: ✅ Done. Screenshots: `downloads/n2store-session/w2p-bulk-select-3.png`, `w2p-bulk-print-modal.png`.
+
+---
+
 ### [so-order] Stock check 24,000× faster — dùng Web2ProductsCache thay HTTP serial ✅
 
 **User ask**: "sao 'Đang kiểm tra tồn kho...' lâu vậy? Đây là kho của web mà → có cách nào tìm kiếm sản phẩm nhanh không? Tìm các thuật toán trên google, github,...".
