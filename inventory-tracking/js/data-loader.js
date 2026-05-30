@@ -37,6 +37,7 @@ async function loadNCCData() {
             loadAndAttachOrderBookings(),
             loadAndAttachShipments(),
             loadProductImages(),
+            loadHiddenNccs(),
         ]);
 
         // Flatten data for backward compatibility
@@ -134,6 +135,28 @@ async function loadProductImages() {
 }
 
 /**
+ * Load hidden-NCC map from API. Stored on globalState so table-renderer can
+ * read synchronously while rendering. Map key: `${shipmentId}_${nccKey}`.
+ */
+async function loadHiddenNccs() {
+    try {
+        const rows = await hiddenNccsApi.getAll();
+        const map = {};
+        rows.forEach((r) => {
+            map[`${r.shipment_id}_${r.ncc_key}`] = {
+                hiddenBy: r.hidden_by || null,
+                createdAt: r.created_at || null,
+            };
+        });
+        globalState.hiddenNccs = map;
+        console.log(`[DATA] Loaded ${rows.length} hidden NCC entries`);
+    } catch (error) {
+        console.error('[DATA] Error loading hidden NCCs:', error);
+        globalState.hiddenNccs = globalState.hiddenNccs || {};
+    }
+}
+
+/**
  * Setup SSE realtime sync for inventory tracking (single shared connection).
  *
  * Subscribes to 6 topics on the Web 1.0 SSE hub. Each topic maps to a
@@ -164,6 +187,7 @@ function setupInventoryRealtimeSync() {
             'inventory_shipments',
             'inventory_prepayments',
             'inventory_other_expenses',
+            'inventory_hidden_nccs',
         ]);
         window._inventoryRealtimeClient = client;
 
@@ -238,8 +262,36 @@ function setupInventoryRealtimeSync() {
             });
         });
 
+        // --- Hidden NCC checkbox: patch in-memory map + re-render rows ---
+        // No reload of shipments — only the visibility class changes.
+        let _hiddenTimer = null;
+        client.on('inventory_hidden_nccs', (data) => {
+            const action = data?.action;
+            const sid = data?.shipment_id;
+            const nccKey = data?.ncc_key;
+            if (!sid || !nccKey) return;
+            globalState.hiddenNccs = globalState.hiddenNccs || {};
+            const key = `${sid}_${nccKey}`;
+            if (action === 'hide') {
+                globalState.hiddenNccs[key] = {
+                    hiddenBy: data?.hidden_by || null,
+                    createdAt: Date.now(),
+                };
+            } else if (action === 'show') {
+                delete globalState.hiddenNccs[key];
+            }
+            // Debounce — burst of changes on the same shipment is common.
+            if (_hiddenTimer) clearTimeout(_hiddenTimer);
+            _hiddenTimer = setTimeout(() => {
+                _hiddenTimer = null;
+                if (typeof window.applyHiddenNccsToDom === 'function') {
+                    window.applyHiddenNccsToDom();
+                }
+            }, 150);
+        });
+
         console.log(
-            '[DATA] Inventory realtime sync enabled (6 topics, debounced 300ms reload paths)'
+            '[DATA] Inventory realtime sync enabled (7 topics, debounced 300ms reload paths)'
         );
     } catch (error) {
         console.error('[DATA] Error setting up inventory realtime sync:', error);

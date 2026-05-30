@@ -1568,6 +1568,108 @@ router.put('/product-images', async (req, res) => {
     }
 });
 
+// =====================================================
+// HIDDEN NCCs API (per-(shipment, NCC) checkbox sync)
+// Replaces localStorage-only inventory_ncc_done map.
+// Topic: inventory_hidden_nccs.
+// =====================================================
+
+// Idempotent bootstrap — runs once per process. Lets the feature work even if
+// the operator hasn't run migration 071 via the admin endpoint yet.
+let _hiddenNccsSchemaReady = null;
+async function ensureHiddenNccsSchema(db) {
+    if (_hiddenNccsSchemaReady) return _hiddenNccsSchemaReady;
+    _hiddenNccsSchemaReady = (async () => {
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS inventory_hidden_nccs (
+                id SERIAL PRIMARY KEY,
+                shipment_id TEXT NOT NULL,
+                ncc_key TEXT NOT NULL,
+                hidden_by TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE (shipment_id, ncc_key)
+            );
+            CREATE INDEX IF NOT EXISTS idx_inv_hidden_shipment ON inventory_hidden_nccs(shipment_id);
+        `);
+    })().catch((e) => {
+        _hiddenNccsSchemaReady = null;
+        throw e;
+    });
+    return _hiddenNccsSchemaReady;
+}
+
+router.get('/hidden-nccs', async (req, res) => {
+    try {
+        const db = getDb(req);
+        await ensureHiddenNccsSchema(db);
+        const result = await db.query(
+            `SELECT shipment_id, ncc_key, hidden_by, created_at
+             FROM inventory_hidden_nccs
+             ORDER BY created_at DESC`
+        );
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error('[inventory] GET /hidden-nccs error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+router.post('/hidden-nccs', async (req, res) => {
+    try {
+        const db = getDb(req);
+        await ensureHiddenNccsSchema(db);
+        const { shipment_id, ncc_key } = req.body || {};
+        if (!shipment_id || !ncc_key) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'shipment_id and ncc_key required' });
+        }
+        const user = getUserFromHeaders(req);
+        await db.query(
+            `INSERT INTO inventory_hidden_nccs (shipment_id, ncc_key, hidden_by)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (shipment_id, ncc_key) DO UPDATE
+                 SET hidden_by = EXCLUDED.hidden_by,
+                     created_at = NOW()`,
+            [String(shipment_id), String(ncc_key), user]
+        );
+        notify('inventory_hidden_nccs', 'hide', {
+            shipment_id: String(shipment_id),
+            ncc_key: String(ncc_key),
+            hidden_by: user,
+        });
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[inventory] POST /hidden-nccs error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+router.delete('/hidden-nccs', async (req, res) => {
+    try {
+        const db = getDb(req);
+        await ensureHiddenNccsSchema(db);
+        const { shipment_id, ncc_key } = req.body || {};
+        if (!shipment_id || !ncc_key) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'shipment_id and ncc_key required' });
+        }
+        await db.query(
+            `DELETE FROM inventory_hidden_nccs WHERE shipment_id = $1 AND ncc_key = $2`,
+            [String(shipment_id), String(ncc_key)]
+        );
+        notify('inventory_hidden_nccs', 'show', {
+            shipment_id: String(shipment_id),
+            ncc_key: String(ncc_key),
+        });
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[inventory] DELETE /hidden-nccs error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 router.delete('/product-images/:id', async (req, res) => {
     try {
         const db = getDb(req);

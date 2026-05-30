@@ -769,6 +769,24 @@ function createShipmentCard(shipment) {
                         <i data-lucide="box"></i>
                         ${packagesInfo}
                     </span>
+                    ${(() => {
+                        const map = (window.globalState && globalState.hiddenNccs) || {};
+                        const sid = String(shipment.id);
+                        let cnt = 0;
+                        for (const k of Object.keys(map)) {
+                            if (k.startsWith(sid + '_')) cnt++;
+                        }
+                        const reveal = _isShowHiddenFor(sid);
+                        const label = reveal
+                            ? `Đang hiện ${cnt} NCC ẩn — click để ẩn lại`
+                            : `${cnt} NCC ẩn — click để hiện tạm`;
+                        const display = cnt > 0 ? '' : 'display:none;';
+                        return `<span class="shipment-separator" style="${display}">-</span>
+                            <span class="shipment-hidden-badge" data-count="${cnt}" style="${display}background:#FEE2E2;color:#991B1B;padding:2px 8px;border-radius:6px;font-weight:600;font-size:12px;display:${cnt > 0 ? 'inline-flex' : 'none'};align-items:center;gap:4px;cursor:pointer" onclick="event.stopPropagation(); toggleShowHiddenForShipment('${_escAttr(sid)}')">
+                                <i data-lucide="eye-off" style="width:13px;height:13px"></i>
+                                <span class="shipment-hidden-badge-label">${label}</span>
+                            </span>`;
+                    })()}
                 </div>
                 ${financialRowHtml}
             </div>
@@ -1814,50 +1832,133 @@ function _hideImgZoom(wrap) {
 }
 
 // =====================================================
-// NCC DONE CHECKBOX (localStorage persistence)
+// NCC HIDE CHECKBOX (cross-device sync via backend + SSE)
+//
+// Map lives on globalState.hiddenNccs (loaded by loadHiddenNccs in
+// data-loader.js). Each key = `${shipmentId}_${nccKey}`. Server pushes
+// SSE topic `inventory_hidden_nccs` on every change so other tabs/machines
+// stay in sync without reloading shipments.
+//
+// Per-shipment "show hidden" override lives in sessionStorage only — local
+// reveal that does not need to sync across machines.
 // =====================================================
 
-const NCC_DONE_KEY = 'inventory_ncc_done';
+const SHOW_HIDDEN_SESSION_KEY = 'inventory_show_hidden_per_shipment';
 
-function _getNccDoneMap() {
-    try {
-        return JSON.parse(localStorage.getItem(NCC_DONE_KEY) || '{}');
-    } catch (_) {
-        return {};
-    }
+function _getHiddenNccsMap() {
+    return (window.globalState && globalState.hiddenNccs) || {};
 }
 
 function _isNccDone(shipmentId, nccKey) {
-    const map = _getNccDoneMap();
-    return !!map[`${shipmentId}_${nccKey}`];
+    return !!_getHiddenNccsMap()[`${shipmentId}_${nccKey}`];
 }
 
-function toggleNccDone(shipmentId, nccKey, checked) {
-    const map = _getNccDoneMap();
-    const key = `${shipmentId}_${nccKey}`;
-
-    if (checked) {
-        map[key] = true;
-    } else {
-        delete map[key];
+function _getShowHiddenSet() {
+    try {
+        return new Set(JSON.parse(sessionStorage.getItem(SHOW_HIDDEN_SESSION_KEY) || '[]'));
+    } catch (_) {
+        return new Set();
     }
+}
 
-    localStorage.setItem(NCC_DONE_KEY, JSON.stringify(map));
+function _saveShowHiddenSet(set) {
+    try {
+        sessionStorage.setItem(SHOW_HIDDEN_SESSION_KEY, JSON.stringify([...set]));
+    } catch (_) {
+        /* ignore */
+    }
+}
 
-    // Update all rows for this NCC in the DOM via checkbox's parent cell
-    const checkbox = document.querySelector(
-        `.shipment-card[data-id="${shipmentId}"] .ncc-done-check[data-ncc-key="${nccKey}"]`
-    );
-    const nccCell = checkbox?.closest('.col-ncc');
-    if (nccCell) {
-        const tr = nccCell.closest('tr');
-        let current = tr;
-        const rowSpan = parseInt(nccCell.getAttribute('rowspan') || '1');
-        for (let i = 0; i < rowSpan && current; i++) {
-            current.classList.toggle('ncc-row-done', checked);
-            current = current.nextElementSibling;
+function _isShowHiddenFor(shipmentId) {
+    return _getShowHiddenSet().has(String(shipmentId));
+}
+
+function _setRowsHiddenForCell(nccCell, hidden) {
+    if (!nccCell) return;
+    const tr = nccCell.closest('tr');
+    if (!tr) return;
+    const rowSpan = parseInt(nccCell.getAttribute('rowspan') || '1');
+    let current = tr;
+    for (let i = 0; i < rowSpan && current; i++) {
+        current.classList.toggle('ncc-row-hidden', hidden);
+        current = current.nextElementSibling;
+    }
+}
+
+// Recompute hide/show state for every row in every shipment based on
+// globalState.hiddenNccs + per-shipment "show hidden" override. Called from
+// SSE handler and from the local toggle button.
+function applyHiddenNccsToDom() {
+    const map = _getHiddenNccsMap();
+    const cards = document.querySelectorAll('.shipment-card');
+    cards.forEach((card) => {
+        const shipmentId = card.dataset.id;
+        const reveal = _isShowHiddenFor(shipmentId);
+        card.classList.toggle('shipment-reveal-hidden', reveal);
+        let hiddenCount = 0;
+        const cells = card.querySelectorAll('.ncc-done-check');
+        cells.forEach((cb) => {
+            const nccKey = cb.dataset.nccKey;
+            const isHidden = !!map[`${shipmentId}_${nccKey}`];
+            if (isHidden) hiddenCount++;
+            cb.checked = isHidden;
+            _setRowsHiddenForCell(cb.closest('.col-ncc'), isHidden);
+        });
+        const badge = card.querySelector('.shipment-hidden-badge');
+        if (badge) {
+            badge.dataset.count = String(hiddenCount);
+            badge.style.display = hiddenCount > 0 ? '' : 'none';
+            const label = badge.querySelector('.shipment-hidden-badge-label');
+            if (label) {
+                label.textContent = reveal
+                    ? `Đang hiện ${hiddenCount} NCC ẩn — click để ẩn lại`
+                    : `${hiddenCount} NCC ẩn — click để hiện tạm`;
+            }
+        }
+    });
+}
+
+async function toggleNccDone(shipmentId, nccKey, checked) {
+    // Optimistic UI: update local map + DOM immediately, rollback on error.
+    globalState.hiddenNccs = globalState.hiddenNccs || {};
+    const key = `${shipmentId}_${nccKey}`;
+    const prev = globalState.hiddenNccs[key];
+    if (checked) {
+        globalState.hiddenNccs[key] = { hiddenBy: 'me', createdAt: Date.now() };
+    } else {
+        delete globalState.hiddenNccs[key];
+    }
+    applyHiddenNccsToDom();
+
+    try {
+        if (checked) {
+            await hiddenNccsApi.hide(shipmentId, nccKey);
+        } else {
+            await hiddenNccsApi.show(shipmentId, nccKey);
+        }
+    } catch (err) {
+        // Rollback
+        if (prev) globalState.hiddenNccs[key] = prev;
+        else delete globalState.hiddenNccs[key];
+        applyHiddenNccsToDom();
+        console.error('[RENDERER] toggleNccDone failed:', err);
+        if (typeof notificationManager?.error === 'function') {
+            notificationManager.error('Không lưu được trạng thái ẩn NCC: ' + err.message);
+        } else {
+            alert('Không lưu được trạng thái ẩn NCC: ' + err.message);
         }
     }
+}
+
+// Per-shipment toggle: reveal all hidden NCCs in this shipment so user can
+// untick them, then re-applies. Session-scoped, not synced.
+function toggleShowHiddenForShipment(shipmentId) {
+    const set = _getShowHiddenSet();
+    const id = String(shipmentId);
+    if (set.has(id)) set.delete(id);
+    else set.add(id);
+    _saveShowHiddenSet(set);
+    applyHiddenNccsToDom();
 }
 
 console.log('[RENDERER] Table renderer initialized');
@@ -1874,6 +1975,9 @@ window.togglePkgCheck = togglePkgCheck;
 window.toggleAllPkgCheck = toggleAllPkgCheck;
 window.openImageLightbox = openImageLightbox;
 window.closeImageLightbox = closeImageLightbox;
+window.toggleNccDone = toggleNccDone;
+window.toggleShowHiddenForShipment = toggleShowHiddenForShipment;
+window.applyHiddenNccsToDom = applyHiddenNccsToDom;
 
 /**
  * Persist daNhan flag for one kien in its source dot, update cached dot, and PUT to server.

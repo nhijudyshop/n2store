@@ -22,6 +22,19 @@
 (function (global) {
     'use strict';
 
+    // Resolve this script's own directory so we can reference sibling assets
+    // (logo image, sub-modules) regardless of which depth the host page sits at.
+    const SCRIPT_BASE_URL = (() => {
+        const cs = document.currentScript;
+        if (cs && cs.src) return cs.src;
+        const list = document.getElementsByTagName('script');
+        for (let i = list.length - 1; i >= 0; i--) {
+            if (list[i].src && /tpos-sidebar\.js(\?|#|$)/.test(list[i].src)) return list[i].src;
+        }
+        return location.href;
+    })();
+    const LOGO_URL = new URL('./img/logo-emblem.png?v=20260530', SCRIPT_BASE_URL).toString();
+
     // Auto-load shared Web 2.0 modules (popup + delivery picker).
     // Resolves URLs relative to this script so it works regardless of which
     // depth the host page sits at (/web2/foo/, /native-orders/, /tpos-pancake/, etc.).
@@ -845,7 +858,7 @@
             const activeUrl = opts.activeUrl || window.location.href;
             el.innerHTML = `
                 <div class="web2-brand">
-                    <span class="web2-brand-logo">N2</span>
+                    <img class="web2-brand-logo" src="${LOGO_URL}" alt="N2 Store" width="32" height="32" decoding="async">
                     <span class="web2-brand-text">Web 2.0</span>
                     <span class="web2-brand-sub">v${opts.version || '1.0'}</span>
                     <button class="web2-sidebar-toggle" id="web2SidebarToggle" type="button" title="Ẩn/hiện menu">

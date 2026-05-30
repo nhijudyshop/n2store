@@ -538,4 +538,30 @@ const productImagesApi = {
     },
 };
 
+// Per-(shipment, NCC) "ẩn dòng" — replaces localStorage-only inventory_ncc_done.
+// Server broadcasts SSE topic `inventory_hidden_nccs` on every change so tabs
+// on other machines re-render.
+const hiddenNccsApi = {
+    async getAll() {
+        const result = await apiFetch('/hidden-nccs');
+        return result.data;
+    },
+
+    async hide(shipmentId, nccKey) {
+        await apiFetch('/hidden-nccs', {
+            method: 'POST',
+            body: JSON.stringify({ shipment_id: shipmentId, ncc_key: nccKey }),
+        });
+        return true;
+    },
+
+    async show(shipmentId, nccKey) {
+        await apiFetch('/hidden-nccs', {
+            method: 'DELETE',
+            body: JSON.stringify({ shipment_id: shipmentId, ncc_key: nccKey }),
+        });
+        return true;
+    },
+};
+
 console.log('[API-CLIENT] Inventory tracking API client initialized');

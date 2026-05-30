@@ -1230,6 +1230,30 @@ tr.ncc-row-done td {
 tr.ncc-row-done td.col-ncc {
     opacity: 0.6;
 }
+
+/* Hidden NCC rows — cross-device sync via inventory_hidden_nccs.
+   Default: fully hidden. Per-shipment "reveal hidden" override surfaces
+   them again with reduced opacity so the user can untick. */
+tr.ncc-row-hidden {
+    display: none;
+}
+.shipment-card.shipment-reveal-hidden tr.ncc-row-hidden {
+    display: table-row;
+    opacity: 0.4;
+    background: repeating-linear-gradient(
+        45deg,
+        transparent 0,
+        transparent 6px,
+        rgba(239, 68, 68, 0.06) 6px,
+        rgba(239, 68, 68, 0.06) 12px
+    );
+}
+.shipment-card.shipment-reveal-hidden tr.ncc-row-hidden td.col-ncc {
+    opacity: 0.7;
+}
+.shipment-hidden-badge:hover {
+    background: #fecaca !important;
+}
 .invoice-table .col-stt {
     width: 32px;
     text-align: center;
@@ -1872,7 +1896,58 @@ textarea.inline-edit-input {
 
 .shipment-table-section .table-container {
     border-radius: var(--radius-lg);
-    overflow: hidden;
+    /* Cho phép kéo ngang trên iPad / touch device. overflow-y giữ visible để
+       không cắt dropdown / lightbox. */
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+    /* Drag-to-scroll cursor cue khi vùng trống được nhấn giữ. JS handler
+       bật class .is-dragging để đổi cursor sang grabbing. */
+    cursor: grab;
+    overscroll-behavior-x: contain;
+}
+.shipment-table-section .table-container.is-dragging {
+    cursor: grabbing;
+    user-select: none;
+}
+.shipment-table-section .table-container.is-dragging * {
+    pointer-events: none;
+}
+.shipment-table-section .table-container::-webkit-scrollbar {
+    height: 10px;
+}
+.shipment-table-section .table-container::-webkit-scrollbar-thumb {
+    background: var(--gray-300);
+    border-radius: 5px;
+}
+.shipment-table-section .table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-400);
+}
+/* Touch-friendly tap target cho checkbox / button trong bảng — iPad cần
+   tối thiểu 44x44 hit area. */
+@media (pointer: coarse) {
+    .invoice-table .ncc-done-check,
+    .invoice-table .pkg-check,
+    .invoice-table .pkg-check-all {
+        width: 22px;
+        height: 22px;
+    }
+    .invoice-table .btn-del-stt,
+    .invoice-table .btn-copy-stt,
+    .invoice-table .btn-add-stt,
+    .invoice-table .btn-del-ncc,
+    .invoice-table .btn-edit-ncc,
+    .invoice-table .btn-hist-ncc,
+    .invoice-table .btn-convert-po {
+        min-width: 32px;
+        min-height: 32px;
+        padding: 6px;
+    }
+    .shipment-hidden-badge {
+        padding: 6px 12px !important;
+        font-size: 13px !important;
+    }
 }
 
 /* Admin Note */
