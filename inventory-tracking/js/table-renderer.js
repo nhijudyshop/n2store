@@ -770,7 +770,8 @@ function createShipmentCard(shipment) {
                         ${packagesInfo}
                     </span>
                     ${(() => {
-                        const map = (window.globalState && globalState.hiddenNccs) || {};
+                        const map =
+                            (typeof globalState !== 'undefined' && globalState.hiddenNccs) || {};
                         const sid = String(shipment.id);
                         let cnt = 0;
                         for (const k of Object.keys(map)) {
@@ -1846,7 +1847,15 @@ function _hideImgZoom(wrap) {
 const SHOW_HIDDEN_SESSION_KEY = 'inventory_show_hidden_per_shipment';
 
 function _getHiddenNccsMap() {
-    return (window.globalState && globalState.hiddenNccs) || {};
+    // `globalState` is a top-level `let` in config.js — script-scoped, NOT
+    // on window. Inside this script's scope we read it directly. Calls from
+    // window-bound code path (e.g. SSE callback) go through the exposed
+    // `window.applyHiddenNccsToDom` which closes over this scope.
+    try {
+        return (typeof globalState !== 'undefined' && globalState.hiddenNccs) || {};
+    } catch (_) {
+        return {};
+    }
 }
 
 function _isNccDone(shipmentId, nccKey) {
