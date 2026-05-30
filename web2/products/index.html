@@ -104,6 +104,44 @@
                     </div>
                 </section>
 
+                <!-- Bulk action bar — chỉ hiện khi >0 SP đã chọn.
+                     Đặt NGAY TRƯỚC table (sticky top trong section) thay vì
+                     fixed-bottom để user thấy ngay khi tick checkbox, không
+                     bị che bởi notification toast / scroll viewport. -->
+                <div
+                    class="w2p-bulk-bar"
+                    id="w2pBulkBar"
+                    hidden
+                    role="region"
+                    aria-label="Thao tác hàng loạt"
+                >
+                    <div class="w2p-bulk-info">
+                        <i data-lucide="check-square"></i>
+                        <strong id="w2pBulkCount">0</strong>
+                        <span>SP đã chọn</span>
+                    </div>
+                    <div class="w2p-bulk-actions">
+                        <button
+                            type="button"
+                            class="w2p-bulk-btn-secondary"
+                            id="w2pBulkClear"
+                            title="Bỏ chọn tất cả"
+                        >
+                            <i data-lucide="x"></i>
+                            Bỏ chọn
+                        </button>
+                        <button
+                            type="button"
+                            class="w2p-bulk-btn-primary"
+                            id="w2pBulkPrint"
+                            title="In tem mã vạch cho các SP đã chọn"
+                        >
+                            <i data-lucide="printer"></i>
+                            In tem (<span id="w2pBulkPrintCount">0</span>)
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Table -->
                 <section class="table-section">
                     <div class="table-scroll">
@@ -149,41 +187,6 @@
                     </div>
                     <div class="pagination" id="pagination"></div>
                 </section>
-
-                <!-- Bulk action bar — chỉ hiện khi >0 SP đã chọn -->
-                <div
-                    class="w2p-bulk-bar"
-                    id="w2pBulkBar"
-                    hidden
-                    role="region"
-                    aria-label="Thao tác hàng loạt"
-                >
-                    <div class="w2p-bulk-info">
-                        <i data-lucide="check-square"></i>
-                        <strong id="w2pBulkCount">0</strong>
-                        <span>SP đã chọn</span>
-                    </div>
-                    <div class="w2p-bulk-actions">
-                        <button
-                            type="button"
-                            class="w2p-bulk-btn-secondary"
-                            id="w2pBulkClear"
-                            title="Bỏ chọn tất cả"
-                        >
-                            <i data-lucide="x"></i>
-                            Bỏ chọn
-                        </button>
-                        <button
-                            type="button"
-                            class="w2p-bulk-btn-primary"
-                            id="w2pBulkPrint"
-                            title="In tem mã vạch cho các SP đã chọn"
-                        >
-                            <i data-lucide="printer"></i>
-                            In tem (<span id="w2pBulkPrintCount">0</span>)
-                        </button>
-                    </div>
-                </div>
             </main>
         </div>
         <!-- /.web2-shell -->
