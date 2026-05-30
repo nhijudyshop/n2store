@@ -395,4 +395,90 @@ router.post('/:phone/qr', async (req, res) => {
     }
 });
 
+// =====================================================
+// POST /overlay-by-phones — body: { phones: ['0123...', ...] }
+// Trả overlay data Web 2.0 cho list phones cụ thể (mảng phones từ TPOS).
+// Khác /aggregate: KHÔNG tự liệt kê tất cả phones; chỉ trả phones có trong
+// input. Phone không có web2 activity vẫn return row với zeros (để frontend
+// merge với TPOS list).
+// =====================================================
+router.post('/overlay-by-phones', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb || req.app.locals.db;
+        const phones = Array.isArray(req.body?.phones) ? req.body.phones : [];
+        const normalized = Array.from(
+            new Set(
+                phones
+                    .map((p) => String(p || '').replace(/\D/g, ''))
+                    .filter((p) => p.length >= 9 && p.length <= 12)
+            )
+        );
+        if (normalized.length === 0) {
+            return res.json({ success: true, data: [] });
+        }
+
+        const sql = `
+            WITH input_phones AS (
+                SELECT UNNEST($1::text[]) AS phone
+            ),
+            purchases AS (
+                SELECT partner_phone AS phone,
+                       SUM(amount_total)::numeric AS total_purchased,
+                       COUNT(*)::int AS pbh_count
+                FROM fast_sale_orders
+                WHERE partner_phone = ANY($1::text[])
+                  AND LOWER(COALESCE(state, '')) NOT IN ('cancel', 'cancelled', 'canceled', 'huy', 'hủy')
+                GROUP BY partner_phone
+            ),
+            natives AS (
+                SELECT phone, COUNT(*)::int AS native_count
+                FROM native_orders
+                WHERE phone = ANY($1::text[])
+                GROUP BY phone
+            ),
+            returns_agg AS (
+                SELECT phone, SUM(amount)::numeric AS total_returned
+                FROM web2_wallet_transactions
+                WHERE type = 'WITHDRAW' AND reference_type = 'return'
+                  AND phone = ANY($1::text[])
+                GROUP BY phone
+            )
+            SELECT
+                ip.phone,
+                COALESCE(p.total_purchased, 0)::numeric AS total_purchased,
+                COALESCE(p.pbh_count, 0) AS pbh_count,
+                COALESCE(n.native_count, 0) AS native_count,
+                COALESCE(w.balance, 0)::numeric AS wallet_balance,
+                COALESCE(w.total_deposited, 0)::numeric AS total_deposited,
+                COALESCE(w.total_withdrawn, 0)::numeric AS total_withdrawn,
+                COALESCE(r.total_returned, 0)::numeric AS total_returned,
+                (COALESCE(p.total_purchased, 0)
+                    - COALESCE(w.total_deposited, 0)
+                    - COALESCE(r.total_returned, 0))::numeric AS balance,
+                w.customer_id
+            FROM input_phones ip
+            LEFT JOIN web2_customer_wallets w ON w.phone = ip.phone
+            LEFT JOIN purchases p ON p.phone = ip.phone
+            LEFT JOIN natives n ON n.phone = ip.phone
+            LEFT JOIN returns_agg r ON r.phone = ip.phone
+        `;
+        const r = await db.query(sql, [normalized]);
+        const data = r.rows.map((row) => ({
+            phone: row.phone,
+            totalPurchased: Number(row.total_purchased) || 0,
+            pbhCount: row.pbh_count,
+            nativeCount: row.native_count,
+            walletBalance: Number(row.wallet_balance) || 0,
+            totalDeposited: Number(row.total_deposited) || 0,
+            totalWithdrawn: Number(row.total_withdrawn) || 0,
+            totalReturned: Number(row.total_returned) || 0,
+            balance: Number(row.balance) || 0,
+            customerId: row.customer_id ? Number(row.customer_id) : null,
+        }));
+        res.json({ success: true, data });
+    } catch (e) {
+        handleError(res, e, 'Overlay by phones');
+    }
+});
+
 module.exports = router;
