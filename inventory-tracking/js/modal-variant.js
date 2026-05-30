@@ -426,13 +426,19 @@ async function _saveVariants() {
         .map((c) => ({ mau: c, soLuong: _variantQuantities.get(c) || 0 }));
 
     // Find dotHang
-    let targetDot = null;
-    for (const ncc of globalState.nccList) {
-        const dot = (ncc.dotHang || []).find((d) => d.id === invoiceId);
-        if (dot) {
-            targetDot = dot;
-            break;
+    const _findTargetDot = () => {
+        for (const ncc of globalState.nccList) {
+            const dot = (ncc.dotHang || []).find((d) => d.id === invoiceId);
+            if (dot) return dot;
         }
+        return null;
+    };
+    let targetDot = _findTargetDot();
+    // ④ Nếu đang có reload (globalState.isLoading) thì dotHang có thể tạm rỗng →
+    //    chờ load xong thử lại 1 lần thay vì báo "Không tìm thấy sản phẩm" oan.
+    if (!targetDot?.sanPham?.[productIdx] && globalState.isLoading) {
+        await new Promise((r) => setTimeout(r, 600));
+        targetDot = _findTargetDot();
     }
     if (!targetDot?.sanPham?.[productIdx]) {
         window.notificationManager?.error('Không tìm thấy sản phẩm');

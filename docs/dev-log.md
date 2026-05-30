@@ -25,6 +25,25 @@
 
 ## 2026-05-30
 
+### [inventory-tracking] Fix realtime self-reload làm hỏng "Tạo biến thể" + sửa inline ("Không tìm thấy sản phẩm") ✅
+
+**Bug (user báo)**: Tạo biến thể không lưu/không phản ứng, cập nhật tên/SL sản phẩm lỗi, toast đỏ "Không tìm thấy sản phẩm", và realtime chạy quá nhiều (2 SSE connectionId trong ~1.6s).
+
+**Nguyên nhân gốc** (regression từ bản 7-topic realtime `v20260530d`):
+- `shipmentsApi.update()` → server broadcast `inventory_shipments` SSE → **chính máy đó nhận lại echo** → `reloadAll()` → `loadNCCData()` tải lại toàn bộ. Giai đoạn đầu `nccList` có `dotHang: []` rỗng → lookup `dot.id===invoiceId` fail → "Không tìm thấy sản phẩm"; save bị ghi đè bởi reload → như không lưu.
+- `loadNCCData()` gọi `setupInventoryRealtimeSync()` ở cuối **không guard** → mỗi reload mở thêm 1 SSE connection → bão realtime tự nhân.
+- SSE payload chỉ có `{key,data}`, không có sender id → chống echo bằng cửa sổ thời gian local-write.
+
+**Files**:
+- `inventory-tracking/js/api-client.js` — `apiFetch()` đóng dấu `window.__inventoryLastLocalWrite` cho mọi mutation (POST/PUT/DELETE/PATCH).
+- `inventory-tracking/js/data-loader.js` — (②) guard `if (window._inventoryRealtimeClient) return` đầu `setupInventoryRealtimeSync` → đúng 1 connection; (①) `reloadAll`/`reloadFinance` bỏ qua echo trong 3s sau local-write + reconcile 1 lần để vẫn sync máy khác; (③) helper `_inventoryUiBusy()` (modal mở / `.inline-edit-input`) → hoãn reload + hoãn re-render `product_images` khi đang sửa.
+- `inventory-tracking/js/modal-variant.js` `_saveVariants()` & `table-renderer.js` `commitInlineEdit()` — (④) lookup fail mà `globalState.isLoading` → chờ 600ms thử lại 1 lần thay vì báo lỗi oan.
+- `inventory-tracking/index.html` — bump 4 JS `?v=20260530d → 20260530e`.
+
+**Chi tiết**: giữ realtime đồng bộ đa máy (không cắt topic); fix hoàn toàn phía client, không đụng server/worker/SSE protocol. node --check pass cả 4 file.
+
+**Status**: ✅ Done (verify online sau deploy: chỉ 1 "Connected to SSE server"; tạo biến thể giữ nguyên không bị refresh; sửa inline OK; 2 tab vẫn sync sau ~3s).
+
 ### [so-order] Round 2: NCC + Invoice cell merged (rowspan) + suggestion ranking + paste thumbnail card ✅
 
 **User feedback**:

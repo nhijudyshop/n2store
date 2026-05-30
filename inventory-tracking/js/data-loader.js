@@ -172,11 +172,36 @@ async function loadHiddenNccs() {
  * Debounce 300ms on the "reload all" path because a single user action
  * (vd save shipment) may fire shipments + suppliers events back-to-back.
  */
+// Cửa sổ bỏ qua echo SSE do CHÍNH máy này vừa ghi (tránh self-reload làm văng
+// modal/edit đang mở). Mọi mutation qua apiFetch() đóng dấu window.__inventoryLastLocalWrite.
+const _SELF_WRITE_SUPPRESS_MS = 3000;
+function _inventorySelfWroteRecently() {
+    return Date.now() - (window.__inventoryLastLocalWrite || 0) < _SELF_WRITE_SUPPRESS_MS;
+}
+
+// Trang "bận" khi có modal đang mở (openModal đặt body.overflow='hidden') hoặc
+// đang có ô sửa inline (.inline-edit-input). Khi bận thì hoãn reload/re-render
+// để không vẽ lại bảng làm văng thao tác đang dở của user.
+function _inventoryUiBusy() {
+    return (
+        document.body.style.overflow === 'hidden' ||
+        !!document.querySelector('.inline-edit-input')
+    );
+}
+if (typeof window !== 'undefined') {
+    window._inventoryUiBusy = _inventoryUiBusy;
+}
+
 function setupInventoryRealtimeSync() {
     if (typeof RealtimeClient === 'undefined') {
         console.log('[DATA] RealtimeClient not available, skipping inventory realtime sync');
         return;
     }
+
+    // ② Idempotent: đã có client rồi thì KHÔNG mở connection thứ 2.
+    // loadNCCData() gọi hàm này ở cuối mỗi lần (kể cả SSE-triggered reload) → guard
+    // biến các lần sau thành no-op → đúng 1 SSE connection suốt phiên (hết rò rỉ).
+    if (window._inventoryRealtimeClient) return;
 
     try {
         const client = new RealtimeClient('https://chatomni-proxy.nhijudyshop.workers.dev');
@@ -205,7 +230,16 @@ function setupInventoryRealtimeSync() {
             } else {
                 loadProductImages();
             }
-            if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+            // ③ Hoãn vẽ lại bảng nếu đang mở modal/sửa inline (state ảnh đã cập nhật
+            //    ở trên; chỉ trì hoãn phần render để không văng thao tác đang dở).
+            const _renderImages = () => {
+                if (_inventoryUiBusy()) {
+                    setTimeout(_renderImages, 800);
+                    return;
+                }
+                if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+            };
+            _renderImages();
             if (typeof ImageManager !== 'undefined' && ImageManager._onExternalUpdate) {
                 ImageManager._onExternalUpdate();
             }
@@ -225,10 +259,37 @@ function setupInventoryRealtimeSync() {
         // a partial patch surprisingly error-prone. A single full reload from
         // API is fast (< 1s for current data volumes) and always correct.
         let _allTimer = null;
+        let _allReconcileScheduled = false;
         const reloadAll = () => {
             if (_allTimer) clearTimeout(_allTimer);
             _allTimer = setTimeout(() => {
                 _allTimer = null;
+                // ① Echo do CHÍNH máy này vừa ghi → bỏ qua (save đã optimistic render).
+                //    Vẫn hẹn 1 lần reconcile sau cửa sổ, phòng MÁY KHÁC đổi dữ liệu
+                //    rơi đúng cửa sổ thì vẫn được nạp lại (giữ sync đa máy).
+                if (_inventorySelfWroteRecently()) {
+                    if (!_allReconcileScheduled) {
+                        _allReconcileScheduled = true;
+                        const wait =
+                            _SELF_WRITE_SUPPRESS_MS -
+                            (Date.now() - (window.__inventoryLastLocalWrite || 0)) +
+                            200;
+                        setTimeout(
+                            () => {
+                                _allReconcileScheduled = false;
+                                reloadAll();
+                            },
+                            Math.max(200, wait)
+                        );
+                    }
+                    return;
+                }
+                // ③ Đang mở modal / sửa inline → hoãn tới khi user xong.
+                //    Dùng lại _allTimer để nhiều event không sinh nhiều chuỗi poll.
+                if (_inventoryUiBusy()) {
+                    _allTimer = setTimeout(reloadAll, 800);
+                    return;
+                }
                 if (globalState.isLoading) return; // skip if a manual reload is mid-flight
                 console.log('[DATA] SSE → reloading inventory data');
                 loadNCCData().catch((e) => console.error('[DATA] SSE-triggered reload failed:', e));
@@ -243,16 +304,39 @@ function setupInventoryRealtimeSync() {
 
         // --- Finance tab: prepayments + other expenses ---
         let _finTimer = null;
+        let _finReconcileScheduled = false;
         const reloadFinance = () => {
             if (_finTimer) clearTimeout(_finTimer);
             _finTimer = setTimeout(() => {
                 _finTimer = null;
-                if (typeof loadFinanceData === 'function') {
-                    console.log('[DATA] SSE → reloading finance data');
-                    loadFinanceData().catch((e) =>
-                        console.error('[DATA] SSE-triggered finance reload failed:', e)
-                    );
+                if (typeof loadFinanceData !== 'function') return;
+                // ① Echo của chính mình → bỏ qua + reconcile (xem reloadAll).
+                if (_inventorySelfWroteRecently()) {
+                    if (!_finReconcileScheduled) {
+                        _finReconcileScheduled = true;
+                        const wait =
+                            _SELF_WRITE_SUPPRESS_MS -
+                            (Date.now() - (window.__inventoryLastLocalWrite || 0)) +
+                            200;
+                        setTimeout(
+                            () => {
+                                _finReconcileScheduled = false;
+                                reloadFinance();
+                            },
+                            Math.max(200, wait)
+                        );
+                    }
+                    return;
                 }
+                // ③ Đang sửa inline (cost/payment) → hoãn (dùng lại _finTimer).
+                if (_inventoryUiBusy()) {
+                    _finTimer = setTimeout(reloadFinance, 800);
+                    return;
+                }
+                console.log('[DATA] SSE → reloading finance data');
+                loadFinanceData().catch((e) =>
+                    console.error('[DATA] SSE-triggered finance reload failed:', e)
+                );
             }, 300);
         };
         ['inventory_prepayments', 'inventory_other_expenses'].forEach((t) => {

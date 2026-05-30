@@ -39,6 +39,14 @@ async function apiFetch(path, options = {}) {
         throw new Error(data.error || `API error: ${response.status}`);
     }
 
+    // Đánh dấu "máy này vừa ghi" để bộ xử lý SSE (data-loader.js) bỏ qua echo
+    // của chính nó — tránh self-reload làm văng modal/edit đang mở.
+    // Chỉ stamp cho mutation; GET (load/reload) không tính là local write.
+    const _m = (options.method || 'GET').toUpperCase();
+    if (_m === 'POST' || _m === 'PUT' || _m === 'DELETE' || _m === 'PATCH') {
+        window.__inventoryLastLocalWrite = Date.now();
+    }
+
     return data;
 }
 
