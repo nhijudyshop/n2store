@@ -25,6 +25,39 @@
 
 ## 2026-05-30
 
+### [web2/purchase-refund] Picker source từ Sổ Order (đã nhận hàng) ✅
+
+**User clarify**: "sản phẩm đã nhận hàng bên so-order sẽ có danh sách bên trả hàng NCC" + "bên trả hàng lấy danh sách NCC và sản phẩm bên so-order".
+
+**Refactor**: picker không còn dùng `Web2ProductsCache.getAll()` thuần (toàn bộ kho), giờ **join Sổ Order ∩ web2_products** để chỉ show SP user đã thực sự đặt từ NCC qua so-order VÀ đã nhận hàng (stock>0).
+
+**Files**:
+
+- `web2/purchase-refund/index.html`:
+    - Thêm Firebase compat CDN scripts (app + auth + firestore) — page thiếu, cần cho Firestore fallback.
+    - Bỏ checkbox "Chỉ SP còn tồn" → thay bằng badge `Nguồn: Sổ Order (đã nhận hàng)`.
+    - Cache `v=20260530c`.
+- `web2/purchase-refund/js/purchase-refund-app.js`:
+    - `loadSoOrderReceivedItems()`:
+        - **Source**: localStorage `soOrder_v1` trước (latest, so-order local-first) → fallback Firestore `web2_so_order/main`.
+        - **Join**: HashMap O(1) key = `normalize(name)+'|'+normalize(variant)` từ Web2ProductsCache.
+        - **Filter**: chỉ rows có matching web2_product + stock>0.
+        - **Aggregate**: by `(supplier, code)` — sum `orderedQty` qua shipments.
+    - `PICKER_STATE`: rename `products` → `items` cho schema `{supplier, code, name, variant, orderedQty, stock, price}`.
+    - `renderPicker()`: thêm cột "Đã đặt" (so-order qty, grey) + "Tồn kho" (web2 stock, bold = max trả). Empty state: "Chưa có SP đã nhận hàng từ Sổ Order — vào Sổ Order → Nhận hàng trước."
+    - `confirmPicker()`: dùng `it.stock` làm max thay vì 9999.
+- `web2/purchase-refund/css/purchase-refund.css`: `.pr-picker-stockhint` badge cyan.
+
+**Verify** (Playwright):
+
+- localStorage `soOrder_v1`: 3 tabs, 33 rows, 5+ distinct suppliers.
+- Picker mở → 2 NCC groups, 4 SP rows (intersection so-order ∩ stock>0).
+- Sample: KHO-KD36-MPQNKZVI / TEST-AO-THUN-FORM-RONG (Trắng - M) / Đã đặt **50** / Tồn kho **20** / Trả SL 20 / 180.000đ.
+
+**Status**: ✅ Done. Screenshot: `downloads/n2store-session/pr-picker-so-order-source.png`.
+
+---
+
 ### [web2/purchase-refund] Picker chọn SP từ Kho (stock>0) group by NCC ✅
 
 **User ask**: "nhận hàng → purchase-refund sẽ có danh sách để trả hàng cho NCC".
