@@ -42,18 +42,32 @@
                 return _fetchJson(`${base}/list?${qs}`);
             },
             get: (code) => _fetchJson(`${base}/get/${encodeURIComponent(code)}`),
-            create: (payload) =>
-                _fetchJson(`${base}/create`, {
+            create: (payload) => {
+                // P1 2026-05-30: auto-attach user info cho audit log.
+                // Web2UserInfo.attachToPayload mutates payload thêm userId/
+                // userName/sourcePage + seed data.history nếu chưa có.
+                const body = payload ? { ...payload } : {};
+                if (global.Web2UserInfo?.attachToPayload) {
+                    global.Web2UserInfo.attachToPayload(body, slug);
+                }
+                return _fetchJson(`${base}/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload || {}),
-                }),
-            update: (code, fields) =>
-                _fetchJson(`${base}/update/${encodeURIComponent(code)}`, {
+                    body: JSON.stringify(body),
+                });
+            },
+            update: (code, fields) => {
+                // P1 2026-05-30: auto-attach user info cho audit append history.
+                const body = fields ? { ...fields } : {};
+                if (global.Web2UserInfo?.attachToBody) {
+                    global.Web2UserInfo.attachToBody(body, slug);
+                }
+                return _fetchJson(`${base}/update/${encodeURIComponent(code)}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(fields || {}),
-                }),
+                    body: JSON.stringify(body),
+                });
+            },
             remove: (code) =>
                 _fetchJson(`${base}/delete/${encodeURIComponent(code)}`, {
                     method: 'DELETE',

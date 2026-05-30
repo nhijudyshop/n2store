@@ -25,6 +25,58 @@
 
 ## 2026-05-30
 
+### [web2/shared] Audit user-attribution toàn Web 2.0 — shared modules + server auto-history ✅
+
+**User ask**: "tất cả trang khác trong web 2.0" — audit log với tên user cho TẤT CẢ trang.
+
+**Approach**: shared modules + server-side auto-history. KHÔNG cần sửa từng page.
+
+**Shared modules**:
+
+- `web2/shared/web2-user-info.js` — `Web2UserInfo`:
+    - `get(sourcePage?)` → `{userId, userName, sourcePage}` từ Web2Auth → AuthManager → "(ẩn danh)".
+    - `attachToPayload(payload, slug)` mutate payload thêm `userId/userName/sourcePage/createdBy` + seed `data.history[0]`.
+    - `attachToBody(body, slug)` cho state-machine endpoints (server append history).
+    - `detectSourcePage()` auto-derive từ pathname.
+- `web2/shared/web2-history-timeline.js` — `Web2HistoryTimeline`:
+    - `render(history, opts)` → HTML string với marker tròn color per action, badge user xanh, sortable.
+    - Auto-inject CSS lần đầu render. 14 actions với emoji + màu.
+
+**Server auto-history** (`render.com/routes/web2-generic.js`):
+
+- `/create`: auto-seed `data.history[0]` từ body `{userId, userName, sourcePage}`.
+- `/update`: load existing → append entry `{ts, action:'update', userId, userName, ...}` → save merged.
+- **78+ entities qua generic CRUD tự động có audit log không cần thay đổi code per-entity**.
+
+**Client auto-attach** (`web2/shared/web2-api.js`):
+
+- `Web2Api.create(payload)` → tự `Web2UserInfo.attachToPayload`.
+- `Web2Api.update(code, fields)` → tự `Web2UserInfo.attachToBody`.
+
+**Page integration**:
+
+- `web2/shared/page-shell.js`: SCRIPTS_PRELOAD thêm 2 helpers → 72+ pages dùng `Web2Shell.bootstrap()` auto load.
+- Bulk script inject vào 33 pages custom (purchase-refund, supplier-wallet, customer-wallet, etc) qua anchor `web2-auth.js`.
+
+**purchase-refund refactor** dùng shared:
+
+- `_currentUserInfo()` delegate sang `Web2UserInfo.get()`.
+- `renderDetail()` thay timeline inline bằng `Web2HistoryTimeline.render(r.history)`.
+
+**Files**:
+
+- New: `web2/shared/web2-user-info.js`, `web2/shared/web2-history-timeline.js`.
+- Modified: `page-shell.js` (preload), `web2-api.js` (auto-attach), `render.com/routes/web2-generic.js` (auto-history), 33 web2 pages bulk inject.
+
+**Verify** (Playwright):
+
+- purchase-refund: `Web2UserInfo.get()` → `{userId:"admin-001", userName:"Nguyễn Văn Test", sourcePage:"purchase-refund"}` ✓.
+- account-thu (page-shell): `Web2UserInfo` + `Web2HistoryTimeline` available, `sourcePage:"web2-account-thu"` auto ✓.
+
+**Status**: ✅ Done. Server auto-history deploy sau push.
+
+---
+
 ### [web2/purchase-refund] Audit log: lịch sử chỉnh sửa kèm tên user ✅
 
 **User ask**: "có hệ thống user → lịch sử chỉnh sửa kèm theo tên user tương tác".

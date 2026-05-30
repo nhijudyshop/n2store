@@ -53,6 +53,11 @@
         '../../shared/js/notification-system.js',
         '../../web2/shared/web2-auth.js',
         '../../web2/shared/web2-effects.js',
+        // P1 2026-05-30: audit log helpers — Web2UserInfo + Web2HistoryTimeline.
+        // Load AFTER web2-auth.js để pick up user correctly + AVAILABLE cho
+        // page-builder gọi attachToPayload trong /create + /update.
+        '../../web2/shared/web2-user-info.js?v=20260530a',
+        '../../web2/shared/web2-history-timeline.js?v=20260530a',
     ];
 
     // Scripts mount sidebar + SSE bridge + api + page-builder.

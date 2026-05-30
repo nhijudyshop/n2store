@@ -249,6 +249,22 @@ router.post('/:entity/create', async (req, res) => {
         const b = req.body || {};
         if (!b.name) return res.status(400).json({ error: 'name required' });
         const now = Date.now();
+        // P1 2026-05-30: auto-seed data.history[0] = "create" entry với user
+        // nếu client chưa seed. Caller pages chỉ cần pass userId/userName.
+        const data = b.data && typeof b.data === 'object' ? { ...b.data } : {};
+        if (!Array.isArray(data.history)) {
+            data.history = [
+                {
+                    ts: now,
+                    action: 'create',
+                    userId: b.userId || b.createdBy || null,
+                    userName: b.userName || data.createdByName || '(ẩn danh)',
+                    sourcePage: b.sourcePage || null,
+                    note: null,
+                },
+            ];
+        }
+        if (b.userName && !data.createdByName) data.createdByName = b.userName;
         try {
             const r = await pool.query(
                 `INSERT INTO web2_records (entity_slug, code, name, data, is_active, created_by, created_at, updated_at)
@@ -257,9 +273,9 @@ router.post('/:entity/create', async (req, res) => {
                     req.params.entity,
                     b.code ? String(b.code).trim() : null,
                     String(b.name).trim(),
-                    JSON.stringify(b.data || {}),
+                    JSON.stringify(data),
                     b.isActive !== false,
-                    b.createdBy || null,
+                    b.createdBy || b.userId || null,
                     now,
                 ]
             );
@@ -290,11 +306,39 @@ router.patch('/:entity/update/:code', async (req, res) => {
     try {
         await ensureTables(pool);
         const allowed = { name: 'name', data: 'data', isActive: 'is_active' };
+        // P1 2026-05-30: auto-append history entry "update" với user info.
+        // Đọc existing data, append new entry, mới ghi lại.
+        const b = req.body || {};
+        let dataPayload = b.data;
+        if (b.userId || b.userName || dataPayload !== undefined) {
+            const existing = await pool.query(
+                `SELECT data FROM web2_records WHERE entity_slug = $1 AND code = $2 LIMIT 1`,
+                [req.params.entity, req.params.code]
+            );
+            const existingData = existing.rows[0]?.data || {};
+            const merged =
+                dataPayload && typeof dataPayload === 'object'
+                    ? { ...existingData, ...dataPayload }
+                    : { ...existingData };
+            const history = Array.isArray(merged.history) ? [...merged.history] : [];
+            history.push({
+                ts: Date.now(),
+                action: 'update',
+                userId: b.userId || null,
+                userName: b.userName || '(ẩn danh)',
+                sourcePage: b.sourcePage || null,
+                note: b.updateNote || null,
+            });
+            merged.history = history;
+            if (b.userName) merged.updatedByName = b.userName;
+            dataPayload = merged;
+        }
         const sets = [];
         const params = [];
         for (const [k, col] of Object.entries(allowed)) {
-            if (req.body[k] === undefined) continue;
-            params.push(k === 'data' ? JSON.stringify(req.body[k]) : req.body[k]);
+            const value = k === 'data' ? dataPayload : b[k];
+            if (value === undefined) continue;
+            params.push(k === 'data' ? JSON.stringify(value) : value);
             sets.push(`${col} = $${params.length}`);
         }
         if (!sets.length) return res.status(400).json({ error: 'No update fields' });

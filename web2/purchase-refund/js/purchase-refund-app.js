@@ -68,11 +68,15 @@
     }
 
     /**
-     * Lấy user hiện tại từ Web2Auth (primary) hoặc AuthManager (legacy fallback).
-     * Trả về { userId, userName, sourcePage } để pass server làm audit log.
-     * P1 2026-05-30 — user ask "lịch sử chỉnh sửa kèm theo tên user tương tác".
+     * Lấy user hiện tại — delegate sang shared Web2UserInfo.
+     * P1 2026-05-30: shared module thay cho per-page inline helper. Fallback
+     * inline nếu Web2UserInfo chưa load (race condition).
      */
     function _currentUserInfo() {
+        if (window.Web2UserInfo?.get) {
+            return window.Web2UserInfo.get('purchase-refund');
+        }
+        // Fallback inline (rare race condition)
         let user = null;
         try {
             user = window.Web2Auth?.getStored?.()?.user || null;
@@ -299,37 +303,11 @@
 
             <div class="pr-detail-actions">${actions.join('')}</div>
 
-            ${(() => {
-                const history = Array.isArray(r.history) ? r.history : [];
-                if (!history.length) return '';
-                return `
-            <div class="pr-history-timeline">
-                <h3>📋 Lịch sử chỉnh sửa (${history.length})</h3>
-                <ul class="pr-timeline">
-                ${history
-                    .slice()
-                    .reverse()
-                    .map((h) => {
-                        const label = HISTORY_ACTION_LABEL[h.action] || h.action;
-                        const user = h.userName || h.userId || '(ẩn danh)';
-                        return `<li class="pr-timeline-entry pr-timeline-${h.action || 'unknown'}">
-                            <div class="pr-timeline-marker"></div>
-                            <div class="pr-timeline-body">
-                                <div class="pr-timeline-head">
-                                    <strong>${escapeHtml(label)}</strong>
-                                    <span class="pr-timeline-ts">${fmtDateTime(h.ts)}</span>
-                                </div>
-                                <div class="pr-timeline-meta">
-                                    <span class="pr-timeline-user"><i data-lucide="user"></i> ${escapeHtml(user)}</span>
-                                    ${h.note ? `<span class="pr-timeline-note">${escapeHtml(h.note)}</span>` : ''}
-                                </div>
-                            </div>
-                        </li>`;
-                    })
-                    .join('')}
-                </ul>
-            </div>`;
-            })()}
+            ${
+                window.Web2HistoryTimeline?.render
+                    ? window.Web2HistoryTimeline.render(r.history)
+                    : ''
+            }
         `;
 
         detail.querySelectorAll('[data-action]').forEach((btn) => {
