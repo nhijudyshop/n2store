@@ -220,6 +220,30 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
     // entry / extractor cũ) mà ví Web 2.0 chưa cộng → tin dữ liệu cũ, credit
     // luôn không cần re-extract. Lý do: phone đã được user verify trong Web 1.0.
     if (tx.linked_customer_phone && tx.linked_customer_phone.length >= 9) {
+        // Backfill display_name từ TPOS nếu null (Web 1.0 cũ lưu name ở
+        // balance_customer_info đã rip out — phải fetch realtime).
+        let legacyName = tx.display_name;
+        if (!legacyName) {
+            try {
+                const tposResult = await searchTPOSByPartialPhone(
+                    tx.linked_customer_phone,
+                    fetchWithTimeout
+                );
+                if (tposResult?.success && tposResult.uniquePhones?.length > 0) {
+                    const phoneData = tposResult.uniquePhones.find(
+                        (p) => p.phone === tx.linked_customer_phone
+                    );
+                    if (phoneData?.customers?.length > 0) {
+                        legacyName = phoneData.customers[0].name || null;
+                    }
+                }
+            } catch (e) {
+                console.warn(
+                    `[processWeb2Match] legacy TPOS name lookup fail for ${tx.linked_customer_phone}:`,
+                    e.message
+                );
+            }
+        }
         try {
             const walletResult = await web2WalletService.processDeposit(
                 db,
@@ -237,15 +261,16 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
                      wallet_processed = TRUE,
                      verification_status = 'AUTO_APPROVED',
                      match_method = 'legacy_credited',
+                     display_name = COALESCE(display_name, $2),
                      verified_at = NOW()
                  WHERE id = $1`,
-                [tx.id]
+                [tx.id, legacyName]
             );
             return {
                 success: true,
                 method: 'legacy_credited',
                 phone: tx.linked_customer_phone,
-                customerName: tx.display_name,
+                customerName: legacyName,
                 amount,
                 walletTxId: walletResult?.transaction?.id,
             };
