@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `68aa4f8` — auto: session update
-**Last updated**: 2026-05-30 10:43:03 +07
-**Latest session**: [`RESUME:20260530-104303-68aa4f8`](../20260530-104303-68aa4f8.md)
-**Summary**: auto: session update
+**Latest commit**: `c7a40e7` — feat(web2/purchase-refund): picker source từ Sổ Order (đã nhận hàng)
+**Last updated**: 2026-05-30 10:43:56 +07
+**Latest session**: [`RESUME:20260530-104356-c7a40e7`](../20260530-104356-c7a40e7.md)
+**Summary**: feat(web2/purchase-refund): picker source từ Sổ Order (đã nhận hàng)
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 3 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-30 10:33
+- [`docs/`](./docs.md) — updated 2026-05-30 10:43
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
