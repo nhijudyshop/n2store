@@ -28,18 +28,24 @@
     // ---------- Paper presets — exact mirror TPOS /odata/ProductLabelPaper ----------
     const PAPERS = [
         {
+            // P1 2026-05-30: user ask "bố cục cho phù hợp dài rộng máy in 2
+            // tem, chia 2 tem đều, canh giữa". TPOS std cũ labelW=25 (×2=50)
+            // trong sheet 66mm → dư 16mm bên phải, không cân. Sửa labelW=33
+            // = sheetW/cols để 2 tem fill chính xác nửa sheet → canh giữa
+            // tự nhiên (2×33=66=sheetW). FontSize 6→8 proportional theo
+            // labelW lớn hơn (fs/labelW giữ ~0.24).
             id: 7,
             name: '2 Tem (66×21mm)',
             sheetW: 66,
             sheetH: 21,
-            labelW: 25,
+            labelW: 33,
             labelH: 21,
             cols: 2,
-            fontSize: 6,
-            topMargin: 0.5,
-            leftMargin: 0.5,
-            bottomMargin: 0.5,
-            rightMargin: 0.5,
+            fontSize: 8,
+            topMargin: 1,
+            leftMargin: 1,
+            bottomMargin: 1,
+            rightMargin: 1,
             hSpacing: 0,
             vSpacing: 0,
         },
@@ -651,8 +657,10 @@
                     //   - Title: word-wrap multi-line, font = paper.fontSize (TPOS)
                     //   - Barcode: 45% label height (labelH * 0.45)
                     //   - Code + price: font = fs * 0.9 (slightly smaller), tight
-                    //   - Pack top, flex-start, no slack distribution
-                    const labelStyleFinal = labelStyle + 'justify-content:flex-start;';
+                    //   - P1 2026-05-30: justify-content center (was flex-start)
+                    //     để content (title + barcode + code) canh GIỮA dọc tem
+                    //     thay vì dồn lên top. User ask "canh giữa".
+                    const labelStyleFinal = labelStyle + 'justify-content:center;';
                     const tightFlex = 'flex:0 0 auto;';
                     const barcodeFlex = `flex:0 0 ${barcodeH}mm;height:${barcodeH}mm;display:flex;align-items:center;justify-content:center;min-height:0;`;
                     const codeStyle = `${tightFlex}font-size:${fsCode}px;line-height:${lineHCode}px;`;
@@ -707,6 +715,14 @@ html, body {
 
 .barcode-sheet {
     page-break-after: always;
+    /* P1 2026-05-30: flex centering — labels canh GIỮA ngang trên sheet.
+     * Khi labelW × cols = sheetW (paper 7 mới), 2 tem fill chính xác sheet.
+     * Khi labelW × cols < sheetW (paper khác), flex tự center labels group. */
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
 }
 
 .barcodeCustom-sheet {
@@ -716,13 +732,14 @@ html, body {
 .barcode_label {
     box-sizing: border-box;
     text-align: center;
-    float: left;
+    /* float: left bỏ vì .barcode-sheet giờ flex (P1 2026-05-30 canh giữa) */
     display: flex;
     flex-flow: column;
     overflow: hidden;
     font-size: 10px;
     padding: 5px;
     line-height: 10px;
+    flex: 0 0 auto;
 }
 
 .barcodeCustom_label {
