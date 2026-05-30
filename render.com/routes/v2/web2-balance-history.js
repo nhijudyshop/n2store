@@ -400,12 +400,33 @@ router.post('/manual-deposit', async (req, res) => {
         // qua name match (NCC). Format: "[Nạp tay] <userName> → <target>:<name> | <note>"
         const content = `[Nạp tay] ${userName} -> ${target}: ${name}` + (note ? ` | ${note}` : '');
 
-        // Insert row
+        // Ensure raw_data column exists (table có thể chưa có nếu schema cũ).
+        // Idempotent — chạy rất nhanh khi column đã tồn tại.
+        try {
+            await db.query(
+                `ALTER TABLE web2_balance_history ADD COLUMN IF NOT EXISTS raw_data JSONB`
+            );
+        } catch (_) {}
+
+        const metadataJson = JSON.stringify({
+            manual: true,
+            target,
+            name,
+            phone: phone || null,
+            customerId,
+            note,
+            userName,
+            userId: body.userId || null,
+            timestamp: new Date().toISOString(),
+        });
+
+        // Insert row — schema thật dùng `raw_data` (Web 1.0 schema, inherited
+        // qua LIKE balance_history). Không có column `body` riêng.
         const insertResult = await db.query(
             `INSERT INTO web2_balance_history (
                 sepay_id, gateway, transaction_date, account_number, code,
                 content, transfer_type, transfer_amount, accumulated,
-                sub_account, reference_code, description, body,
+                sub_account, reference_code, description, raw_data,
                 linked_customer_phone, display_name, match_method,
                 debt_added, wallet_processed, verification_status, verified_at
              )
@@ -422,17 +443,7 @@ router.post('/manual-deposit', async (req, res) => {
                 amount,
                 `MANUAL-${manualSepayId}`,
                 note || null,
-                JSON.stringify({
-                    manual: true,
-                    target,
-                    name,
-                    phone: phone || null,
-                    customerId,
-                    note,
-                    userName,
-                    userId: body.userId || null,
-                    timestamp: new Date().toISOString(),
-                }),
+                metadataJson,
                 target === 'KH' ? phone : null,
                 name,
                 target === 'KH', // wallet_processed=true cho KH ngay, NCC sẽ false (poll sau)

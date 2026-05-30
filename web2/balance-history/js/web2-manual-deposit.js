@@ -100,8 +100,12 @@
   display: flex; justify-content: space-between; gap: 12px; align-items: center; }
 .w2md-result-row:last-child { border-bottom: 0; }
 .w2md-result-row:hover { background: #f9fafb; }
+.w2md-result-info { display: flex; gap: 8px; align-items: center; flex: 1; }
 .w2md-result-name { font-weight: 500; color: #111827; font-size: 14px; }
 .w2md-result-phone { color: #6b7280; font-size: 13px; font-family: ui-monospace, monospace; }
+.w2md-source-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.w2md-source-web2 { background: #dbeafe; color: #1e40af; }
+.w2md-source-tpos { background: #fef3c7; color: #92400e; }
 .w2md-result-empty { padding: 16px; text-align: center; color: #6b7280; font-size: 13px; }
 .w2md-selected { margin-top: 8px; padding: 10px 12px; background: #f0fdf4;
   border: 1px solid #86efac; border-radius: 6px; display: flex; gap: 10px;
@@ -147,16 +151,94 @@
         } catch {}
     }
 
-    // ───────────── KH search (TPOS Partner) ─────────────
-    // GetViewV2 với `Name=` param tự match cả Name lẫn Phone substring
-    // → 1 call duy nhất handle cả 2 cases.
-    async function searchKh(query) {
+    // ───────────── KH search — fast path (Postgres aggregate) + TPOS fallback ─────
+    // Strategy ưu tiên tốc độ:
+    //   1. Postgres /aggregate (~100-200ms, cached 5s server-side): search KH có
+    //      web2 activity (5k+ active customers). Phone digits + name ILIKE work.
+    //   2. Nếu /aggregate trả 0 rows VÀ user search by name → fallback TPOS
+    //      (~2-3s, full coverage 92k customers nhưng KH chưa active web2).
+    //   3. Phone search-only: /aggregate đủ vì KH có web2 activity = có wallet.
+    //
+    // Cache client-side LRU (max 30 queries) cho repeat searches → instant.
+
+    const _searchCache = new Map(); // key: q-lower → { ts, results }
+    const SEARCH_CACHE_MAX = 30;
+    const SEARCH_CACHE_TTL = 60_000; // 1 min
+
+    function _cacheGet(q) {
+        const k = q.toLowerCase();
+        const v = _searchCache.get(k);
+        if (!v) return null;
+        if (Date.now() - v.ts > SEARCH_CACHE_TTL) {
+            _searchCache.delete(k);
+            return null;
+        }
+        return v.results;
+    }
+    function _cacheSet(q, results) {
+        const k = q.toLowerCase();
+        if (_searchCache.size >= SEARCH_CACHE_MAX) {
+            const oldestKey = _searchCache.keys().next().value;
+            _searchCache.delete(oldestKey);
+        }
+        _searchCache.set(k, { ts: Date.now(), results });
+    }
+
+    const CW_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customer-wallet';
+    const CW_FALLBACK = 'https://n2store-fallback.onrender.com/api/web2/customer-wallet';
+
+    async function searchKhAggregate(query) {
+        const url = `${CW_BASE}/aggregate?limit=20&search=${encodeURIComponent(query)}`;
+        const fallbackUrl = `${CW_FALLBACK}/aggregate?limit=20&search=${encodeURIComponent(query)}`;
+        let data;
+        try {
+            data = await jsonFetch(url);
+        } catch {
+            data = await jsonFetch(fallbackUrl);
+        }
+        // Aggregate shape: { data: [{ phone, name, customerId, walletBalance, ... }] }
+        const rows = data?.data || [];
+        return rows.map((r) => ({
+            Id: r.customerId,
+            Name: r.name,
+            Phone: r.phone,
+            _source: 'web2',
+            _wallet: r.walletBalance,
+        }));
+    }
+
+    async function searchKhTpos(query) {
         const Api = window.PartnerCustomerApi;
         if (!Api?.list) throw new Error('PartnerCustomerApi chưa load');
+        const r = await Api.list({ top: 20, search: query });
+        return (r?.value || []).map((p) => ({ ...p, _source: 'tpos' }));
+    }
+
+    async function searchKh(query) {
         const q = String(query || '').trim();
         if (!q) return [];
-        const r = await Api.list({ top: 20, search: q });
-        return r?.value || [];
+        // Cache hit
+        const cached = _cacheGet(q);
+        if (cached) return cached;
+        // 1. Fast path aggregate (~150ms)
+        try {
+            const fast = await searchKhAggregate(q);
+            if (fast.length > 0) {
+                _cacheSet(q, fast);
+                return fast;
+            }
+        } catch (e) {
+            console.warn('[w2md] aggregate search fail:', e.message);
+        }
+        // 2. Fallback TPOS — chỉ dùng khi aggregate miss
+        try {
+            const tpos = await searchKhTpos(q);
+            _cacheSet(q, tpos);
+            return tpos;
+        } catch (e) {
+            console.warn('[w2md] TPOS search fail:', e.message);
+            return [];
+        }
     }
 
     function renderKhResults(partners) {
@@ -170,8 +252,15 @@
             .map((p) => {
                 const phone = (p.Phone || p.Mobile || '').replace(/\D/g, '');
                 const name = p.Name || '(không tên)';
-                return `<div class="w2md-result-row" data-id="${p.Id}" data-phone="${phone}" data-name="${escapeAttr(name)}">
-                    <span class="w2md-result-name">${escapeHtml(name)}</span>
+                const sourceLabel =
+                    p._source === 'web2'
+                        ? '<span class="w2md-source-badge w2md-source-web2">Web 2.0</span>'
+                        : '<span class="w2md-source-badge w2md-source-tpos">TPOS</span>';
+                return `<div class="w2md-result-row" data-id="${p.Id || ''}" data-phone="${phone}" data-name="${escapeAttr(name)}">
+                    <div class="w2md-result-info">
+                        <span class="w2md-result-name">${escapeHtml(name)}</span>
+                        ${sourceLabel}
+                    </div>
                     <span class="w2md-result-phone">${escapeHtml(phone || '(no phone)')}</span>
                 </div>`;
             })
@@ -211,19 +300,41 @@
         document.getElementById('w2mdKhSearch').focus();
     }
 
+    let _searchSeq = 0;
     async function doKhSearch() {
+        const mySeq = ++_searchSeq;
         const input = document.getElementById('w2mdKhSearch');
         const q = input.value.trim();
-        if (!q) return;
         const listEl = document.getElementById('w2mdKhResults');
-        listEl.innerHTML = '<div class="w2md-result-empty">Đang tìm…</div>';
-        listEl.hidden = false;
+        if (!q) {
+            listEl.hidden = true;
+            listEl.innerHTML = '';
+            return;
+        }
+        // Show "Đang tìm" chỉ khi cache miss (instant nếu hit)
+        const cached = _cacheGet(q);
+        if (!cached) {
+            listEl.innerHTML = '<div class="w2md-result-empty">Đang tìm…</div>';
+            listEl.hidden = false;
+        }
         try {
             const partners = await searchKh(q);
+            if (mySeq !== _searchSeq) return; // stale (user gõ tiếp)
             renderKhResults(partners);
         } catch (e) {
+            if (mySeq !== _searchSeq) return;
             listEl.innerHTML = `<div class="w2md-result-empty">Lỗi: ${escapeHtml(e.message)}</div>`;
         }
+    }
+
+    // Debounce 250ms: search-as-you-type giúp user thấy kết quả ngay
+    let _debounceTimer = null;
+    function scheduleSearch() {
+        if (_debounceTimer) clearTimeout(_debounceTimer);
+        _debounceTimer = setTimeout(() => {
+            _debounceTimer = null;
+            doKhSearch();
+        }, 250);
     }
 
     // ───────────── NCC dropdown (Firestore) ─────────────
@@ -400,10 +511,16 @@
         document.querySelectorAll('[name="w2mdTarget"]').forEach((r) => {
             r.addEventListener('change', () => toggleTargetPanel(r.value));
         });
-        // KH search
-        document.getElementById('w2mdKhSearch')?.addEventListener('keydown', (e) => {
+        // KH search — debounce 250ms as-you-type + Enter for instant
+        const searchInput = document.getElementById('w2mdKhSearch');
+        searchInput?.addEventListener('input', scheduleSearch);
+        searchInput?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
+                if (_debounceTimer) {
+                    clearTimeout(_debounceTimer);
+                    _debounceTimer = null;
+                }
                 doKhSearch();
             }
         });
