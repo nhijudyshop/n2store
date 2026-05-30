@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fc47649` — feat(web2-manual-deposit): NCC dropdown + KH search-by-name+Enter
-**Last updated**: 2026-05-30 18:52:02 +07
-**Latest session**: [`RESUME:20260530-185202-fc47649`](../20260530-185202-fc47649.md)
-**Summary**: feat(web2-manual-deposit): NCC dropdown + KH search-by-name+Enter
+**Latest commit**: `c3a1717` — feat(manual-deposit): support withdraw (rút tay) + NCC datalist + filter chip MANUAL
+**Last updated**: 2026-05-30 19:03:33 +07
+**Latest session**: [`RESUME:20260530-190333-c3a1717`](../20260530-190333-c3a1717.md)
+**Summary**: feat(manual-deposit): support withdraw (rút tay) + NCC datalist + filter chip MANUAL
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -49,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-30 18:44
+- [`render.com/`](./render.com.md) — updated 2026-05-30 19:03
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-29 18:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -67,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-30 18:52
+- [`web2/`](./web2.md) — updated 2026-05-30 19:03
