@@ -1346,6 +1346,30 @@ body {
     font-family: 'JetBrains Mono', 'Menlo', monospace;
     margin-top: 2px;
 }
+.product-source-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.4;
+    vertical-align: middle;
+    letter-spacing: 0.2px;
+}
+.product-source-badge.src-live {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+.product-source-badge.src-live i {
+    width: 10px;
+    height: 10px;
+    stroke-width: 2.5;
+}
 .expand-qty {
     font-family: 'JetBrains Mono', 'Menlo', monospace;
     font-weight: 700;

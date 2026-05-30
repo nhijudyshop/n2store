@@ -143,6 +143,9 @@ function _buildProduct(input, qty, user) {
         qty: qty,
         addedAt: Date.now(),
         addedBy: user?.name || null,
+        // Nguồn thêm: 'livestream' = drag từ TPOS-Pancake panel (chốt live).
+        // SP thêm trực tiếp từ native-orders modal sẽ không có field này → coi như direct.
+        source: 'livestream',
     };
 }
 
@@ -312,6 +315,8 @@ router.post('/:commentId/add', async (req, res) => {
                 qty: qtyAfter,
                 addedAt: Date.now(),
                 addedBy: user.name || products[idx].addedBy,
+                // Re-add qua cart drag → đánh dấu (hoặc nâng cấp) thành livestream.
+                source: products[idx].source || 'livestream',
             };
         } else {
             qtyAfter = qtyAdd;

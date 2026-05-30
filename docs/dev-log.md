@@ -25,6 +25,28 @@
 
 ## 2026-05-30
 
+### [native-orders][render] Badge "Livestream" cho SP kéo từ TPOS-Pancake ✅
+
+**User feedback**: "tpos-pancake -> sản phẩm được kéo vào đơn để tạo ra bên native orders -> bên native orders sẽ có badge là livestream (để phân biệt với sản phẩm thêm trực tiếp từ native hoặc thêm từ livestream tpos-pancake)"
+
+**Decision**: gắn `source: 'livestream'` lên product khi đi qua cart drag-drop endpoint. SP add trực tiếp từ modal native-orders không set field → coi như direct (default).
+
+**Files**:
+
+- `render.com/routes/v2/cart.js` — `_buildProduct()` set `source: 'livestream'`; nhánh merge qua-trùng-code giữ/nâng cấp `source` cho row cũ.
+- `native-orders/js/native-orders-app.js` — render badge ở expand row + edit modal line code; preserve `source` qua `saveEdit()` PATCH (nếu strip thì lần lưu kế tiếp sẽ mất badge).
+- `native-orders/css/native-orders.css` — `.product-source-badge.src-live` (đỏ pastel + icon `radio`).
+
+**Flow**:
+
+1. User drag SP từ TPOS-Pancake inventory panel → POST `/api/v2/web2-cart/:commentId/add` → `_buildProduct` push `{...products, source: 'livestream'}` vào `native_orders.products`.
+2. Native-orders mở expand row hoặc edit modal → check `l.source === 'livestream'` → render `<span class="product-source-badge src-live">📻 Livestream</span>` cạnh code.
+3. SP add trực tiếp từ "Thêm SP" picker trong native-orders → không set `source` → không badge.
+
+**Backwards compat**: SP cũ trong DB chưa có `source` → mặc định không badge (đúng — không phân biệt được nguồn trước migration); SP mới tự được tag.
+
+---
+
 ### [so-order] Lock shipment-edit modal khỏi rows received + Trash 7-day restore + Modal anti-lag ✅
 
 **User feedback** (3 yêu cầu liên quan):

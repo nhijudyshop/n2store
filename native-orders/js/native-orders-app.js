@@ -339,13 +339,17 @@
                     ? `<img src="${escapeHtml(l.imageUrl)}" class="expand-img" onerror="this.style.display='none';this.nextElementSibling.style.setProperty('display','inline-flex');">
                    <span class="expand-img-ph" style="display:none;"><i data-lucide="image"></i></span>`
                     : `<span class="expand-img-ph"><i data-lucide="image"></i></span>`;
+                const liveBadge =
+                    l.source === 'livestream'
+                        ? `<span class="product-source-badge src-live" title="SP được kéo từ TPOS-Pancake (livestream)"><i data-lucide="radio"></i>Livestream</span>`
+                        : '';
                 return `
                 <tr>
                     <td>${i + 1}</td>
                     <td>${img}</td>
                     <td>
                         <div class="expand-name">${escapeHtml(l.name || '—')}</div>
-                        <div class="expand-code">${escapeHtml(l.productCode || '')}</div>
+                        <div class="expand-code">${escapeHtml(l.productCode || '')}${liveBadge}</div>
                     </td>
                     <td class="expand-qty">${qty}</td>
                     <td class="expand-price">${price.toLocaleString('vi-VN')}đ</td>
@@ -1382,13 +1386,17 @@
                         style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#475569;background:#f8fafc;"
                     />
                 </div>`;
+            const liveBadge =
+                l.source === 'livestream'
+                    ? `<span class="product-source-badge src-live" title="SP được kéo từ TPOS-Pancake (livestream)"><i data-lucide="radio"></i>Livestream</span>`
+                    : '';
             return `
                 <tr data-idx="${i}">
                     <td>${i + 1}</td>
                     <td>${img}</td>
                     <td>
                         <div class="line-name">${escapeHtml(l.name || '—')}</div>
-                        <div class="line-code">${escapeHtml(l.productCode || '')}</div>
+                        <div class="line-code">${escapeHtml(l.productCode || '')}${liveBadge}</div>
                         ${noteCell}
                     </td>
                     <td>${qtyCell}</td>
@@ -1459,6 +1467,8 @@
             note: l.note || null,
             total: (Number(l.price) || 0) * (Number(l.quantity) || 0),
             addedAt: l.addedAt || Date.now(),
+            // Giữ nguồn (vd 'livestream' khi SP đã được kéo từ TPOS-Pancake) qua edit cycle.
+            source: l.source || undefined,
         }));
         try {
             const resp = await window.NativeOrdersApi.update(STATE.editingCode, fields);
