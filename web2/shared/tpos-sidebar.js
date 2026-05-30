@@ -118,41 +118,6 @@
                     tpos: '#/app/fastsaleorder/deliveryinvoice',
                     our: '../web2/fastsaleorder-delivery/index.html',
                 },
-                {
-                    label: 'Lịch sử đối soát',
-                    tpos: '#/app/historyds/list',
-                    our: '../web2/history-ds/index.html',
-                },
-                {
-                    label: 'Đối soát SP',
-                    tpos: '#/app/fastsaleorder/historycrosscheckproduct',
-                    our: '../web2/history-cross-check-product/index.html',
-                },
-                {
-                    label: 'Hóa đơn điện tử',
-                    tpos: '#/app/wiinvoice/list',
-                    our: '../web2/wi-invoice/index.html',
-                },
-                {
-                    label: 'HĐ điện tử lịch sử',
-                    tpos: '#/app/wiinvoice/listhistory',
-                    our: '../web2/wi-invoice-history/index.html',
-                },
-                {
-                    label: 'HĐ điện tử cấu hình',
-                    tpos: '#/app/wiinvoice/config',
-                    our: '../web2/wi-invoice-config/index.html',
-                },
-                {
-                    label: 'Báo giá',
-                    tpos: '#/app/salequotation/quotationlist',
-                    our: '../web2/sale-quotation/index.html',
-                },
-                {
-                    label: 'Đơn đặt hàng',
-                    tpos: '#/app/saleorder/list2',
-                    our: '../web2/sale-order/index.html',
-                },
             ],
         },
         {
@@ -291,16 +256,6 @@
             icon: 'users',
             children: [
                 {
-                    label: 'Nhóm khách hàng',
-                    tpos: '#/app/partnercategory/list',
-                    our: '../web2/partner-category/index.html',
-                },
-                {
-                    label: 'Cấu hình nhóm doanh số',
-                    tpos: '#/app/partnercategory_revenueconfig/list',
-                    our: '../web2/partner-category-revenue-config/index.html',
-                },
-                {
                     label: 'Khách hàng',
                     tpos: '#/app/partner/customer/list1',
                     our: '../web2/partner-customer/index.html',
@@ -308,26 +263,6 @@
                 {
                     label: 'Ví Khách Hàng',
                     our: '../web2/customer-wallet/index.html',
-                },
-                {
-                    label: 'Nhà cung cấp',
-                    tpos: '#/app/partner/supplier/list1',
-                    our: '../web2/partner-supplier/index.html',
-                },
-                {
-                    label: 'DSD đầu kỳ KH',
-                    tpos: '#/app/revenuebegan/list',
-                    our: '../web2/revenue-began-customer/index.html',
-                },
-                {
-                    label: 'DSD đầu kỳ NCC',
-                    tpos: '#/app/revenuebegan/list_supplier',
-                    our: '../web2/revenue-began-supplier/index.html',
-                },
-                {
-                    label: 'Đối tác giao hàng',
-                    tpos: '#/app/deliverycarrier/list',
-                    our: '../web2/delivery-carrier/index.html',
                 },
             ],
         },

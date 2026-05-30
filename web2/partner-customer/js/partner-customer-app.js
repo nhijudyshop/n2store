@@ -203,6 +203,9 @@
                     <i data-lucide="${active ? 'check' : 'minus'}" class="pc-active-icon ${active ? '' : 'is-off'}"></i>
                 </td>
                 <td class="pc-col-actions">
+                    <button type="button" class="pc-btn pc-btn-icon pc-btn-qr" data-action="qr" data-id="${escapeHtml(id)}" data-phone="${escapeHtml(phone)}" data-name="${escapeHtml(p.Name || '')}" title="QR VietQR" ${!phone ? 'disabled' : ''}>
+                        <i data-lucide="qr-code"></i>
+                    </button>
                     <button type="button" class="pc-btn pc-btn-icon pc-btn-edit" data-action="edit" data-id="${escapeHtml(id)}" title="Sửa">
                         <i data-lucide="square-pen"></i>
                     </button>
@@ -778,11 +781,22 @@
 
         // Table row actions (event delegation)
         dom.tableBody.addEventListener('click', (e) => {
+            const qrBtn = e.target.closest('[data-action="qr"]');
             const editBtn = e.target.closest('[data-action="edit"]');
             const delBtn = e.target.closest('[data-action="delete"]');
             const tagBtn = e.target.closest('[data-action="tags"]');
             const statusBtn = e.target.closest('[data-action="status"]');
-            if (editBtn) {
+            if (qrBtn) {
+                if (qrBtn.disabled) return;
+                const phone = qrBtn.getAttribute('data-phone');
+                const customerId = Number(qrBtn.getAttribute('data-id'));
+                const customerName = qrBtn.getAttribute('data-name');
+                if (window.Web2QrModal?.open) {
+                    window.Web2QrModal.open(phone, { customerId, customerName });
+                } else {
+                    notify('QR modal chưa load — refresh trang', 'warning');
+                }
+            } else if (editBtn) {
                 openModalForEdit(editBtn.getAttribute('data-id'));
             } else if (delBtn) {
                 deleteOne(delBtn.getAttribute('data-id'));
