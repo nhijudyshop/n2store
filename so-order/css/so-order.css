@@ -1429,7 +1429,7 @@
     position: relative;
     background: #fff;
     border-radius: 12px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
     /* P1 2026-05-30: user feedback "modal to bằng browser, quá nhiều khoảng
      * trống thừa". Cho panel ăn gần hết viewport — chỉ chừa 16px gutter
      * mỗi cạnh để user vẫn click backdrop đóng được. */
@@ -1439,7 +1439,12 @@
     max-height: calc(100vh - 32px);
     display: flex;
     flex-direction: column;
-    animation: soPop 0.18s ease-out;
+    /* Anti-lag Tier 1 (xem docs/web2/MODAL-ANTI-LAG.md):
+     * - contain: layout style paint → cô lập reflow + repaint
+     * - will-change + compositor-only transition → smooth open/close */
+    contain: layout style paint;
+    will-change: transform, opacity;
+    animation: soPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .so-modal-head-v2 {
@@ -1464,6 +1469,19 @@
     flex: 1;
     overflow-y: auto;
     padding: 24px;
+    /* Anti-lag Tier 1: cô lập scroll + ngăn scroll chaining ra body */
+    contain: layout style paint;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+}
+
+/* Modal table rows — content-visibility cho > 50 rows
+ * (so-order modal có thể chứa nhiều SP trong cùng 1 lô khi edit-shipment).
+ * `contain-intrinsic-size` placeholder để tránh layout shift. */
+.so-modal-v2 .so-modal-table tbody tr.so-modal-row {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 56px;
 }
 
 .so-form-row-top,

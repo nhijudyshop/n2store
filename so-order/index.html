@@ -15,11 +15,11 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../web2/shared/tpos-sidebar.css?v=20260530m" />
-        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260530m" />
-        <link rel="stylesheet" href="../native-orders/css/tpos-theme.css?v=20260530m" />
-        <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260530m" />
-        <link rel="stylesheet" href="css/so-order.css?v=20260530m" />
+        <link rel="stylesheet" href="../web2/shared/tpos-sidebar.css?v=20260530n" />
+        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260530n" />
+        <link rel="stylesheet" href="../native-orders/css/tpos-theme.css?v=20260530n" />
+        <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260530n" />
+        <link rel="stylesheet" href="css/so-order.css?v=20260530n" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
@@ -28,11 +28,11 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
-        <script src="../shared/js/firebase-config.js?v=20260530m"></script>
-        <script src="../shared/js/notification-system.js?v=20260530m"></script>
-        <script src="../web2/shared/web2-effects.js?v=20260530m"></script>
-        <script src="../web2/shared/web2-db-badge.js?v=20260530m"></script>
-        <link rel="stylesheet" href="../web2/shared/web2-tpos-theme.css?v=20260530m" />
+        <script src="../shared/js/firebase-config.js?v=20260530n"></script>
+        <script src="../shared/js/notification-system.js?v=20260530n"></script>
+        <script src="../web2/shared/web2-effects.js?v=20260530n"></script>
+        <script src="../web2/shared/web2-db-badge.js?v=20260530n"></script>
+        <link rel="stylesheet" href="../web2/shared/web2-tpos-theme.css?v=20260530n" />
     </head>
     <body class="tpos-theme">
         <div class="web2-shell">
@@ -81,6 +81,16 @@
                         >
                             <i data-lucide="cog"></i>
                             <span id="soActiveTabLabel">—</span>
+                        </button>
+                        <button
+                            id="soTrashBtn"
+                            class="btn-secondary"
+                            type="button"
+                            title="Thùng rác — lô đã nhận đủ bị xoá. Tự xoá vĩnh viễn sau 7 ngày."
+                        >
+                            <i data-lucide="trash"></i>
+                            <span>Thùng rác</span>
+                            <span id="soTrashCount" class="so-trash-count" hidden>0</span>
                         </button>
                         <button id="soCreateOrderBtn" class="btn-primary" type="button">
                             <i data-lucide="plus-square"></i>
@@ -455,23 +465,45 @@
             </div>
         </div>
 
-        <script src="../web2/shared/web2-auth.js?v=20260530m"></script>
-        <script src="../web2/shared/tpos-sidebar.js?v=20260530m"></script>
+        <!-- Thùng rác — soft-deleted shipments, restore trong 7 ngày -->
+        <div class="so-modal so-modal-v2" id="soTrashModal" hidden>
+            <div class="so-modal-backdrop" data-so-close></div>
+            <div class="so-modal-panel-v2 so-trash-panel">
+                <header class="so-modal-head-v2">
+                    <h2>Thùng rác — Lô đã xoá</h2>
+                    <button class="so-modal-close" type="button" data-so-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="so-modal-body-v2">
+                    <p class="so-trash-hint">
+                        Lô đã nhận đủ hàng sẽ vào đây khi xoá. Tự xoá vĩnh viễn sau 7 ngày. Bấm
+                        <strong>Khôi phục</strong> để đưa lô về tab gốc.
+                    </p>
+                    <div id="soTrashList" class="so-trash-list">
+                        <!-- Trash entries injected -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="../web2/shared/web2-auth.js?v=20260530n"></script>
+        <script src="../web2/shared/tpos-sidebar.js?v=20260530n"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () =>
                 window.Web2Sidebar.mount('#web2Aside', { activeRoute: 'so-order' })
             );
         </script>
 
-        <script src="../web2/products/js/web2-products-api.js?v=20260530m"></script>
-        <script src="../web2/products/js/web2-products-print.js?v=20260530m"></script>
-        <script src="../web2/variants/js/web2-variants-api.js?v=20260530m"></script>
-        <script src="../web2/shared/web2-sse-bridge.js?v=20260530m"></script>
-        <script src="../web2/shared/web2-idb-store.js?v=20260530m"></script>
-        <script src="../web2/shared/web2-products-cache.js?v=20260530m"></script>
-        <script src="../web2/shared/web2-variants-cache.js?v=20260530m"></script>
-        <script src="../web2/shared/web2-suppliers-cache.js?v=20260530m"></script>
-        <script src="js/so-order-storage.js?v=20260530m"></script>
-        <script src="js/so-order-app.js?v=20260530m"></script>
+        <script src="../web2/products/js/web2-products-api.js?v=20260530n"></script>
+        <script src="../web2/products/js/web2-products-print.js?v=20260530n"></script>
+        <script src="../web2/variants/js/web2-variants-api.js?v=20260530n"></script>
+        <script src="../web2/shared/web2-sse-bridge.js?v=20260530n"></script>
+        <script src="../web2/shared/web2-idb-store.js?v=20260530n"></script>
+        <script src="../web2/shared/web2-products-cache.js?v=20260530n"></script>
+        <script src="../web2/shared/web2-variants-cache.js?v=20260530n"></script>
+        <script src="../web2/shared/web2-suppliers-cache.js?v=20260530n"></script>
+        <script src="js/so-order-storage.js?v=20260530n"></script>
+        <script src="js/so-order-app.js?v=20260530n"></script>
     </body>
 </html>

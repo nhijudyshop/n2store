@@ -3345,7 +3345,21 @@ window.addEventListener('load', () => {
     }
 
     function _finalizeDeleteShipment(tab, sh, shipmentId) {
-        const adjustments = (sh.rows || [])
+        // 2026-05-30: nếu MỌI rows trong lô đã nhận (status='received') → soft
+        // delete vào trash với retention 7 ngày. User có thể restore trong
+        // "Thùng rác". Lô có draft/ordered rows vẫn hard delete như cũ.
+        const rows = sh.rows || [];
+        const allReceived = rows.length > 0 && rows.every((r) => r.status === 'received');
+        if (allReceived) {
+            const entry = window.SoOrderStorage.softDeleteShipment(state, tab.id, shipmentId);
+            if (entry) {
+                notify(`Đã chuyển lô vào Thùng rác. Tự xoá vĩnh viễn sau 7 ngày.`, 'info');
+                pushSync();
+                renderAll();
+                return;
+            }
+        }
+        const adjustments = rows
             .map((r) => ({ ..._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) }))
             .filter((a) => a.name && a.delta !== 0);
         window.SoOrderStorage.deleteShipment(state, tab.id, shipmentId);
@@ -3353,6 +3367,129 @@ window.addEventListener('load', () => {
         if (adjustments.length) adjustKhoPending(adjustments);
         pushSync();
         renderAll();
+    }
+
+    // ---------- Trash UI ----------
+
+    function _fmtTrashDate(ts) {
+        const d = new Date(Number(ts) || 0);
+        return (
+            d.toLocaleDateString('vi-VN') +
+            ' ' +
+            d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+        );
+    }
+
+    function _daysUntilPurge(deletedAt) {
+        const remainMs = 7 * 24 * 60 * 60 * 1000 - (Date.now() - Number(deletedAt));
+        if (remainMs <= 0) return 0;
+        return Math.ceil(remainMs / (24 * 60 * 60 * 1000));
+    }
+
+    function updateTrashCountBadge() {
+        const badge = document.getElementById('soTrashCount');
+        if (!badge) return;
+        const trash = window.SoOrderStorage.getTrash(state);
+        if (!trash.length) {
+            badge.hidden = true;
+            badge.textContent = '0';
+        } else {
+            badge.hidden = false;
+            badge.textContent = String(trash.length);
+        }
+    }
+
+    function openTrashModal() {
+        renderTrashList();
+        showModal('soTrashModal');
+    }
+
+    function renderTrashList() {
+        const list = document.getElementById('soTrashList');
+        if (!list) return;
+        const trash = [...window.SoOrderStorage.getTrash(state)].sort(
+            (a, b) => Number(b.deletedAt) - Number(a.deletedAt)
+        );
+        if (!trash.length) {
+            list.innerHTML = `<div class="so-trash-empty">Thùng rác trống.</div>`;
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+            return;
+        }
+        list.innerHTML = trash
+            .map((entry) => {
+                const sh = entry.shipment || {};
+                const rows = sh.rows || [];
+                const suppliers = Array.from(new Set(rows.map((r) => r.supplier).filter(Boolean)));
+                const supplierLabel = suppliers.join(', ') || '—';
+                const totalQty = rows.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+                const daysLeft = _daysUntilPurge(entry.deletedAt);
+                const dateLabel = sh.batch
+                    ? `Đợt ${escapeHtml(sh.batch)}`
+                    : formatDateVN(sh.date) || '—';
+                return `<div class="so-trash-card" data-trash-id="${escapeHtml(entry.id)}">
+                    <div class="so-trash-card-main">
+                        <div class="so-trash-card-title">
+                            <span class="so-trash-tab">${escapeHtml(entry.tabLabel || entry.tabId)}</span>
+                            <span class="so-trash-batch">${dateLabel}</span>
+                        </div>
+                        <div class="so-trash-card-sub">
+                            <span><i data-lucide="store"></i> ${escapeHtml(supplierLabel)}</span>
+                            <span><i data-lucide="package"></i> ${rows.length} SP · ${totalQty} món</span>
+                            <span><i data-lucide="clock"></i> Xoá ${escapeHtml(_fmtTrashDate(entry.deletedAt))}</span>
+                            <span class="so-trash-countdown ${daysLeft <= 1 ? 'is-urgent' : ''}">
+                                <i data-lucide="hourglass"></i> Còn ${daysLeft} ngày
+                            </span>
+                        </div>
+                    </div>
+                    <div class="so-trash-card-actions">
+                        <button class="btn-secondary" type="button" data-trash-action="restore" data-trash-id="${escapeHtml(entry.id)}">
+                            <i data-lucide="rotate-ccw"></i> Khôi phục
+                        </button>
+                        <button class="btn-danger" type="button" data-trash-action="purge" data-trash-id="${escapeHtml(entry.id)}">
+                            <i data-lucide="trash-2"></i> Xoá vĩnh viễn
+                        </button>
+                    </div>
+                </div>`;
+            })
+            .join('');
+        list.querySelectorAll('[data-trash-action]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const action = btn.dataset.trashAction;
+                const id = btn.dataset.trashId;
+                if (action === 'restore') handleTrashRestore(id);
+                else if (action === 'purge') handleTrashPurge(id);
+            });
+        });
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function handleTrashRestore(id) {
+        const ok = window.SoOrderStorage.restoreFromTrash(state, id);
+        if (!ok) {
+            notify('Không tìm thấy entry để khôi phục', 'error');
+            return;
+        }
+        notify('Đã khôi phục lô', 'success');
+        pushSync();
+        renderAll();
+        updateTrashCountBadge();
+        renderTrashList();
+    }
+
+    async function handleTrashPurge(id) {
+        const ok = await soConfirm({
+            title: 'Xoá vĩnh viễn?',
+            body: 'Lô này sẽ bị xoá hoàn toàn, không thể khôi phục.',
+            confirmText: 'Xoá vĩnh viễn',
+            cancelText: 'Huỷ',
+            danger: true,
+        });
+        if (!ok) return;
+        window.SoOrderStorage.purgeFromTrash(state, id);
+        notify('Đã xoá vĩnh viễn', 'info');
+        pushSync();
+        updateTrashCountBadge();
+        renderTrashList();
     }
 
     function openShipmentModal(shipmentId) {
@@ -3366,13 +3503,26 @@ window.addEventListener('load', () => {
             openOrderModal(null, shipmentId);
             return;
         }
-        openShipmentEditAllRows(sh, tab);
+        // 2026-05-30: rows đã nhận (status='received') bị khoá. Nếu TẤT CẢ
+        // rows đã nhận → không cho mở modal. Nếu có rows draft/ordered →
+        // mở modal nhưng chỉ load rows editable (received rows giữ nguyên
+        // trong storage, bảo vệ qua _finalizeShipmentSubmit toDelete loop).
+        const editableRows = (sh.rows || []).filter((r) => r.status !== 'received');
+        const skippedCount = (sh.rows || []).length - editableRows.length;
+        if (!editableRows.length) {
+            notify('Tất cả SP trong lô đã nhận — không sửa được. Xoá lô nếu muốn dọn.', 'warning');
+            return;
+        }
+        if (skippedCount > 0) {
+            notify(`Bỏ qua ${skippedCount} SP đã nhận khỏi modal (giữ nguyên trong lô).`, 'info');
+        }
+        openShipmentEditAllRows(sh, tab, editableRows);
     }
 
     // P1 2026-05-30: mở modal edit shipment với TẤT CẢ rows
     // (vs openOrderModal(rowId, ...) chỉ edit 1 row).
     // Modal mode = 'edit-shipment' — handleOrderSubmit handle update bulk rows.
-    function openShipmentEditAllRows(sh, tab) {
+    function openShipmentEditAllRows(sh, tab, rowsOverride) {
         editingRowId = null;
         editingShipmentId = sh.id;
         editingTabId = tab.id;
@@ -3396,8 +3546,10 @@ window.addEventListener('load', () => {
         form.elements.status.value = r0.status || 'draft';
         form.elements.note.value = r0.note || '';
         form.elements.costNote.value = r0.costNote || '';
-        // Load TẤT CẢ rows vào modal
-        modalRows = sh.rows.map((r) =>
+        // Load rows vào modal. rowsOverride filter rows đã nhận trước khi
+        // vào modal — guarantee user không thấy/sửa được rows received.
+        const rowsToLoad = rowsOverride || sh.rows;
+        modalRows = rowsToLoad.map((r) =>
             _newModalRow({
                 rowId: r.id, // track existing row id để update không tạo mới
                 productName: r.productName || '',
@@ -3855,6 +4007,7 @@ window.addEventListener('load', () => {
         document
             .getElementById('soCreateOrderBtn')
             .addEventListener('click', () => openOrderModal(null));
+        document.getElementById('soTrashBtn')?.addEventListener('click', openTrashModal);
         document.getElementById('soColumnSettingsBtn').addEventListener('click', openColumnModal);
         document.getElementById('soTabDeleteBtn').addEventListener('click', handleTabDelete);
         const editBtn = document.getElementById('soEditTableBtn');

@@ -229,6 +229,13 @@
                 mutated = true;
                 delete data.columnVisibility;
             }
+            // Purge trash > 7 ngày
+            if (Array.isArray(data.trash) && data.trash.length) {
+                const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+                const before = data.trash.length;
+                data.trash = data.trash.filter((e) => Number(e?.deletedAt) > cutoff);
+                if (data.trash.length !== before) mutated = true;
+            }
             _cachedState = data;
             if (mutated) _write(data);
             return data;
@@ -381,6 +388,75 @@
             const tab = state.tabs.find((t) => t.id === tabId);
             if (!tab) return false;
             tab.shipments = tab.shipments.filter((s) => s.id !== shipmentId);
+            _write(state);
+            return true;
+        },
+
+        // Trash system (2026-05-30): lô đã nhận đủ hàng được soft delete
+        // vào `state.trash` thay vì xoá vĩnh viễn. Retention 7 ngày — sau
+        // đó auto purge khi load state. User có thể restore về tab gốc
+        // trước khi hết hạn.
+        TRASH_RETENTION_MS: 7 * 24 * 60 * 60 * 1000,
+
+        softDeleteShipment(state, tabId, shipmentId) {
+            const tab = state.tabs.find((t) => t.id === tabId);
+            if (!tab) return null;
+            const idx = tab.shipments.findIndex((s) => s.id === shipmentId);
+            if (idx === -1) return null;
+            const sh = tab.shipments[idx];
+            tab.shipments.splice(idx, 1);
+            if (!Array.isArray(state.trash)) state.trash = [];
+            const entry = {
+                id:
+                    'trash-' +
+                    Date.now().toString(36) +
+                    '-' +
+                    Math.random().toString(36).slice(2, 7),
+                tabId,
+                tabLabel: tab.label || tabId,
+                shipment: sh,
+                deletedAt: Date.now(),
+            };
+            state.trash.push(entry);
+            _write(state);
+            return entry;
+        },
+
+        getTrash(state) {
+            return Array.isArray(state.trash) ? state.trash : [];
+        },
+
+        restoreFromTrash(state, trashId) {
+            if (!Array.isArray(state.trash)) return false;
+            const idx = state.trash.findIndex((e) => e.id === trashId);
+            if (idx === -1) return false;
+            const entry = state.trash[idx];
+            // Tab gốc đã bị xoá? → restore vào tab đầu tiên còn lại.
+            let tab = state.tabs.find((t) => t.id === entry.tabId);
+            if (!tab) tab = state.tabs[0];
+            if (!tab) return false;
+            tab.shipments.push(entry.shipment);
+            state.trash.splice(idx, 1);
+            _write(state);
+            return true;
+        },
+
+        purgeFromTrash(state, trashId) {
+            if (!Array.isArray(state.trash)) return false;
+            const before = state.trash.length;
+            state.trash = state.trash.filter((e) => e.id !== trashId);
+            if (state.trash.length === before) return false;
+            _write(state);
+            return true;
+        },
+
+        // Drop entries past retention. Returns true nếu có purge.
+        purgeOldTrash(state, retentionMs) {
+            if (!Array.isArray(state.trash) || !state.trash.length) return false;
+            const cutoff = Date.now() - (retentionMs || 7 * 24 * 60 * 60 * 1000);
+            const before = state.trash.length;
+            state.trash = state.trash.filter((e) => Number(e.deletedAt) > cutoff);
+            if (state.trash.length === before) return false;
             _write(state);
             return true;
         },
