@@ -1634,6 +1634,30 @@
 
     // ---------- Barcode print modal ----------
     function openBarcodePrintModal(items, supplier) {
+        // P1 2026-05-30: delegate sang Web2ProductsPrint để dùng cùng modal
+        // chọn giấy / SL / kiểu in / có giá... như trang web2/products.
+        // Items đã có {code, name, variant, qtyReceived, sellPriceVnd, ...}
+        // Map: quantity = qtyReceived (caller request "in theo SL nhận").
+        if (window.Web2ProductsPrint?.open) {
+            try {
+                const products = items.map((it) => ({
+                    code: it.code || '',
+                    name: it.name || '',
+                    variant: it.variant || '',
+                    quantity: Math.max(1, Number(it.qtyReceived) || 1),
+                    price: Number(it.price) || Number(it.sellPriceVnd) || 0,
+                    stock: Number(it.stock) || 0,
+                }));
+                window.Web2ProductsPrint.open(products);
+                return;
+            } catch (e) {
+                console.warn(
+                    '[so-order] Web2ProductsPrint.open failed, fallback legacy modal:',
+                    e?.message
+                );
+            }
+        }
+        // Fallback: legacy inline modal nếu Web2ProductsPrint chưa load
         let modal = document.getElementById('soBarcodeModal');
         if (!modal) {
             modal = document.createElement('div');

@@ -25,6 +25,46 @@
 
 ## 2026-05-30
 
+### [so-order] UX overhaul: receive flow + edit-shipment full rows + variant dropdown + barcode print + modal full-viewport ✅
+
+**User feedback (multi-turn)**:
+
+1. "Nhận hàng đủ với SL sản phẩm → không cho nhận hàng sản phẩm đó nữa"
+2. "Lúc chưa nhận hàng thì sản phẩm bên products là chờ hàng → nhận thì logic lại phần này bên products"
+3. "Bấm vào chỉnh sửa → chỉ thấy 1 sản phẩm đầu và suggestion sản phẩm trong kho spam tự bật lên"
+4. "Chọn biến thể thì list biến thể hiện ra bị che"
+5. "Khi nhận hàng xong cho in mã thì cho in mã sản phẩm tương tự bên products ấy, in các mã sản phẩm nhận hàng ra (theo số lượng nhận)"
+6. "Cho modal to bằng browser đi, quá nhiều khoảng trống thừa → để tối ưu tương tác người dùng"
+
+**Sửa**:
+
+- **Issue 1 — block re-receive**:
+    - Receive panel filter `r.status !== 'received'`, notify nếu shipment đã nhận hết.
+    - Shipment header: nếu mọi row `status='received'` → đổi button "Nhận hàng" thành disabled "✓ Đã nhận đủ" (CSS `.so-action-btn-done`).
+- **Issue 2 — products page logic**: server đã đúng (CHO_MUA → MUA_1_PHAN → DANG_BAN qua `confirm-purchase-partial`), SSE broadcast `web2:products` đã wire — verified.
+- **Issue 3a — suggestion spam**: bỏ trigger showSuggest/showVariantSuggest trên `focus` event (input pre-filled gây auto-popup). Chỉ trigger trên `input` event hoặc `ArrowDown`.
+- **Issue 3b — edit-shipment load all rows**: thêm modalMode `'edit-shipment'`, hàm mới `openShipmentEditAllRows()` load toàn bộ rows + cho phép thêm/xóa rows. handleOrderSubmit handle bulk update (rowId tracking).
+- **Issue 4 — variant dropdown bị che**: chuyển `.so-variant-dropdown` + `.so-suggest-dropdown` sang `position: fixed` với JS anchor (`_positionFixedDropdown`) — thoát khỏi clip của `.so-modal-body { overflow: auto }`. Đóng dropdown khi modal-body scroll để tránh lệch.
+- **Issue 5 — barcode print giống web2-products**: `openBarcodePrintModal()` delegate sang `Web2ProductsPrint.open()` với `quantity` preset = `qtyReceived`. Sửa `web2-products-print.js` để respect `p.quantity` từ caller (trước hardcode `1`). Thêm script + CSS print vào `so-order/index.html`.
+- **Issue 6 — modal full viewport**: `.so-modal-v2 .so-modal-panel-v2` đổi từ `width: min(1600px, 96vw); max-height: 95vh` → `width: calc(100vw - 32px); height: calc(100vh - 32px)` (chiếm 94% viewport — verified live).
+
+**Files**:
+
+- `so-order/js/so-order-app.js` — receive filter, shipment header button state, openShipmentEditAllRows, handleOrderSubmit edit-shipment mode, suggestion trigger fix, position:fixed dropdown helper, scroll-close, openBarcodePrintModal delegate to Web2ProductsPrint
+- `so-order/css/so-order.css` — `.so-action-btn-done` styling, modal-panel-v2 full viewport
+- `so-order/index.html` — load web2-products-print.{js,css}
+- `web2/products/js/web2-products-print.js` — respect caller `p.quantity` (default 1)
+
+**Verify live (persistent browser session)**:
+
+- `doneBtns: 1` shipment header "Đã nhận đủ" disabled khi mọi row received ✅
+- Edit-shipment modal: `modalRows: 3`, `title: "Sửa lô — 30/5/2026"`, `suggestOpen: false`, `variantOpen: false` ✅
+- Variant dropdown sau gõ input: `pos: "fixed"`, `top: "445.133px"`, `z: 9999` ✅
+- Web2ProductsPrint.open với preset qty: modal opened, `qty: ["5", "3"]` đúng ✅
+- Modal full-viewport: 1408×868 / 1440×900 (occupied 94%) ✅
+
+---
+
 ### [infra] Migrate Web 2.0 DB: Neon Free Tier → Render Postgres Basic 1GB ✅
 
 **User ask**: "sao lại dùng neon? Dự án trả phí cho render và firebase nên ưu tiên qua 2 bên này" → "tạo db mới cho web 2.0" → "basic_1gb -> và web 2.0 đang beta test nên dữ liệu không cần đem qua đâu" → "bạn update env luôn đi".

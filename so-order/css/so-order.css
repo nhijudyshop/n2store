@@ -1410,8 +1410,13 @@
     background: #fff;
     border-radius: 12px;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    width: min(1600px, 96vw);
-    max-height: 95vh;
+    /* P1 2026-05-30: user feedback "modal to bằng browser, quá nhiều khoảng
+     * trống thừa". Cho panel ăn gần hết viewport — chỉ chừa 16px gutter
+     * mỗi cạnh để user vẫn click backdrop đóng được. */
+    width: calc(100vw - 32px);
+    max-width: none;
+    height: calc(100vh - 32px);
+    max-height: calc(100vh - 32px);
     display: flex;
     flex-direction: column;
     animation: soPop 0.18s ease-out;
