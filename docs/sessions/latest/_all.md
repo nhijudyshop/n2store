@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `355f0c5` — auto: session update
-**Last updated**: 2026-05-30 19:32:14 +07
-**Latest session**: [`RESUME:20260530-193214-355f0c5`](../20260530-193214-355f0c5.md)
-**Summary**: auto: session update
+**Latest commit**: `8d3f92e` — docs(dev-log): pick SP từ dropdown bị stale change event overwrite
+**Last updated**: 2026-05-30 19:33:33 +07
+**Latest session**: [`RESUME:20260530-193333-8d3f92e`](../20260530-193333-8d3f92e.md)
+**Summary**: docs(dev-log): pick SP từ dropdown bị stale change event overwrite
 
 ## Folders affected in this commit
 
-- [`so-order/`](./so-order.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-30 19:21
+- [`docs/`](./docs.md) — updated 2026-05-30 19:33
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
