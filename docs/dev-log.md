@@ -25,6 +25,33 @@
 
 ## 2026-05-30
 
+### [web2-products] In tem 2-tem: chia đều + canh giữa theo TPOS spec ✅
+
+**User ask**: "bố cục cho phù hợp dài rộng máy in 2 tem, chia 2 tem đều, canh giữa". User cung cấp TPOS settings chính xác: Sheet 66×21mm, Label 25×21mm, Margins 0.5mm, FontSize 6.
+
+**Vấn đề trước**: `.barcode_label { float: left }` dồn 2 nhãn về trái sheet, 16mm dư (66 − 2×25 − margins) đẩy hết sang phải → không cân.
+
+**Fix**:
+
+- `web2/products/js/web2-products-print.js`:
+    - Paper 7 giữ đúng TPOS spec (labelW=25, fontSize=6, margins=0.5).
+    - `.barcode-sheet`: `display: flex; flex-direction: row; align-items: center; justify-content: space-evenly` → chia 16mm dư thành 3 vùng đều (~5.3mm/vùng): `gap | tem1 | gap | tem2 | gap`.
+    - `.barcode_label`: bỏ `float: left`, thêm `flex: 0 0 auto` (tương thích flex parent).
+    - Default print type: `justify-content: flex-start` → `center` (content canh giữa dọc trong tem).
+- `web2/products/index.html`: cache `v=20260530b`.
+
+**Verify** (Playwright iframe inspect):
+
+- Sheet 249.45px (=66mm), 2 nhãn 94.5px (=25mm).
+- Gap distribution: **20.5 | 94.5 | 19.5 | 94.5 | 20.5 px** → 3 vùng gap ≈5.4mm đều.
+- `justify-content: space-evenly`, `padding: 0.5mm`, `fontSize: 6px` ✓.
+
+**Tradeoff**: TPOS gốc dùng `float: left` (dồn trái) — comment cũ "TUYỆT ĐỐI không sửa rules". User explicit ask override → giữ dimensions (labelW=25, fits physical roll) nhưng đổi layout flex space-evenly.
+
+**Status**: ✅ Done. Screenshot: `downloads/n2store-session/w2p-2tem-centered.png`.
+
+---
+
 ### [web2][shared] Modal Anti-Lag playbook + Tier 1 fixes global ✅
 
 **User ask**: research vấn đề modal lag → tổng hợp best practices → áp dụng cho TẤT CẢ modal Web 2.0 + lưu memory để future Claude code modal mới biết làm.
