@@ -30,11 +30,13 @@
 **Bug (user báo)**: Tạo biến thể không lưu/không phản ứng, cập nhật tên/SL sản phẩm lỗi, toast đỏ "Không tìm thấy sản phẩm", và realtime chạy quá nhiều (2 SSE connectionId trong ~1.6s).
 
 **Nguyên nhân gốc** (regression từ bản 7-topic realtime `v20260530d`):
+
 - `shipmentsApi.update()` → server broadcast `inventory_shipments` SSE → **chính máy đó nhận lại echo** → `reloadAll()` → `loadNCCData()` tải lại toàn bộ. Giai đoạn đầu `nccList` có `dotHang: []` rỗng → lookup `dot.id===invoiceId` fail → "Không tìm thấy sản phẩm"; save bị ghi đè bởi reload → như không lưu.
 - `loadNCCData()` gọi `setupInventoryRealtimeSync()` ở cuối **không guard** → mỗi reload mở thêm 1 SSE connection → bão realtime tự nhân.
 - SSE payload chỉ có `{key,data}`, không có sender id → chống echo bằng cửa sổ thời gian local-write.
 
 **Files**:
+
 - `inventory-tracking/js/api-client.js` — `apiFetch()` đóng dấu `window.__inventoryLastLocalWrite` cho mọi mutation (POST/PUT/DELETE/PATCH).
 - `inventory-tracking/js/data-loader.js` — (②) guard `if (window._inventoryRealtimeClient) return` đầu `setupInventoryRealtimeSync` → đúng 1 connection; (①) `reloadAll`/`reloadFinance` bỏ qua echo trong 3s sau local-write + reconcile 1 lần để vẫn sync máy khác; (③) helper `_inventoryUiBusy()` (modal mở / `.inline-edit-input`) → hoãn reload + hoãn re-render `product_images` khi đang sửa.
 - `inventory-tracking/js/modal-variant.js` `_saveVariants()` & `table-renderer.js` `commitInlineEdit()` — (④) lookup fail mà `globalState.isLoading` → chờ 600ms thử lại 1 lần thay vì báo lỗi oan.
@@ -42,8 +44,47 @@
 
 **Chi tiết**: giữ realtime đồng bộ đa máy (không cắt topic); fix hoàn toàn phía client, không đụng server/worker/SSE protocol. node --check pass cả 4 file.
 
-**Status**: ✅ Done (verify online sau deploy: chỉ 1 "Connected to SSE server"; tạo biến thể giữ nguyên không bị refresh; sửa inline OK; 2 tab vẫn sync sau ~3s).
-=======
+# **Status**: ✅ Done (verify online sau deploy: chỉ 1 "Connected to SSE server"; tạo biến thể giữ nguyên không bị refresh; sửa inline OK; 2 tab vẫn sync sau ~3s).
+
+### [web2-cache] Stale-while-revalidate localStorage persist → kho SP load instant không cần HTTP fetch ✅
+
+**User feedback**: "có cách nào lấy dữ liệu sản phẩm từ kho sản phẩm db web 2.0 truy xuất nhanh".
+
+**Phân tích**: cold-start cache.init() đợi HTTP `/api/web2-products?page=1&limit=1000` (1 round-trip tới Render → Postgres) → 200-1500ms tùy network + Render cold start. App phải đợi cache.init() rồi mới render badge "Đã có ở kho", suggest, stock check.
+
+**Sửa** (`web2/shared/web2-products-cache.js`):
+
+- Pattern **stale-while-revalidate** dùng localStorage key `web2ProductsCache_v1`:
+    - Sau mỗi `_loadList()` thành công → debounce 200ms → save `{ts, list}` JSON (4MB cap).
+    - SSE `_upsertLocal` / `_removeLocal` cũng trigger save.
+    - `init()`: thử `_loadFromPersist()` trước. Nếu có & TTL 24h → set `state.initialized=true` + setup SSE + emit `persist-restore` → return STATE ngay. Background fire `_loadList()` revalidate.
+    - Persist chỉ load nếu list không rỗng + TTL còn → tránh stale infinite.
+- Lần đầu (cold): vẫn fetch HTTP, sau đó persist. Reload tiếp theo: sub-ms load.
+
+**Verify live**:
+
+- Cold start: persist không có → HTTP → cache 35 SP, persist 27KB.
+- Reload: persist có → cache instant với 35 SP (no HTTP wait). Background revalidate.
+
+**Trade-offs**:
+
+- Pro: page reload không cần HTTP, sub-ms ready, vẫn realtime qua SSE.
+- Pro: offline-friendly (read-only).
+- Con: persist stale tối đa 24h nếu SSE bị skip. Khắc phục: invalidate trên user-explicit refresh / SSE recovery.
+- Limit: ~4MB JSON (~5-8K SP). Kho hiện 35 SP = 27KB → còn xa limit.
+
+**Tương lai có thể thêm**:
+
+- IndexedDB cho kho > 8K SP.
+- CDN edge cache GET `/api/web2-products` 5s (Cloudflare Worker) — invalidate khi SSE fire.
+- Reduce payload server-side (chỉ trả field cache cần).
+
+**Files**:
+
+- `web2/shared/web2-products-cache.js` — `_loadFromPersist`, `_saveToPersist` (debounce 200ms), `init()` SWR path.
+
+---
+
 ### [so-order] Stock check trước delete: cache.isReady() + timeout 1.2s fallback ✅
 
 **User feedback**: "kiểm tra tồn kho quá lâu → db đã chuyển sang db web 2.0, kho riêng".
