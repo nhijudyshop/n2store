@@ -25,6 +25,50 @@
 
 ## 2026-05-30
 
+### [so-order] Lock shipment-edit modal khỏi rows received + Trash 7-day restore + Modal anti-lag ✅
+
+**User feedback** (3 yêu cầu liên quan):
+
+1. "nút chỉnh sửa này bấm vào không cho chỉnh sửa sản phẩm đã nhận hàng" — pencil ở header lô vẫn cho mở modal edit rows đã nhận.
+2. "khi nhận đủ hàng của đơn có thể xóa → qua tab thùng rác xóa sau 7 ngày có thể phục hồi" — cần soft-delete + trash + restore.
+3. "dự án có logic làm cho modal mượt hơn đó → áp dụng cho modal chỉnh sửa" — modal so-order chưa apply anti-lag pattern.
+
+**Fix 1 — Lock shipment edit modal**:
+
+- `openShipmentModal` filter `rows.filter(r => r.status !== 'received')` trước khi vào `openShipmentEditAllRows`.
+- Nếu tất cả received → notify "Tất cả SP đã nhận — xoá lô nếu muốn dọn" + return.
+- Nếu mix → notify count rows bị skip + load chỉ editable rows vào modal.
+- `openShipmentEditAllRows` accept `rowsOverride` parameter để load từ filtered list.
+- Submit `toDelete` loop đã có guard `if (old.status === 'received') continue` → received rows giữ nguyên trong sh.rows ngay cả khi modal không hiện.
+
+**Fix 2 — Trash system với 7-day restore**:
+
+- `so-order-storage.js`: `state.trash = [{id, tabId, tabLabel, shipment, deletedAt}, ...]`.
+    - `softDeleteShipment(state, tabId, shId)` move shipment vào trash.
+    - `restoreFromTrash(state, trashId)` restore về tab gốc (fallback tab[0] nếu tab gốc bị xoá).
+    - `purgeFromTrash(state, trashId)` xoá vĩnh viễn 1 entry.
+    - `purgeOldTrash(state, retentionMs)` + auto-purge trong `_read()` khi load state — drop entries > 7 ngày.
+- `so-order-app.js` `_finalizeDeleteShipment`: nếu `rows.every(r => r.status === 'received')` → `softDeleteShipment` + notify "Tự xoá sau 7 ngày"; else hard delete (existing).
+- UI mới (`index.html`): nút "Thùng rác" + badge count cạnh "Tạo Đơn Hàng"; modal `#soTrashModal` list cards với tab badge, supplier, qty, deleted time, countdown days, "Khôi phục" + "Xoá vĩnh viễn" buttons.
+- `purge` action có confirm "Lô này sẽ bị xoá hoàn toàn, không thể khôi phục" qua `soConfirm`.
+
+**Fix 3 — Modal anti-lag** (per `docs/web2/MODAL-ANTI-LAG.md` Tier 1):
+
+- `.so-modal-v2 .so-modal-panel-v2`: `contain: layout style paint` + `will-change: transform, opacity` + `cubic-bezier(0.16, 1, 0.3, 1)` easing + giảm box-shadow từ `0 25px 50px -12px` → `0 8px 24px`.
+- `.so-modal-body-v2`: `contain: layout style paint` + `overscroll-behavior: contain` + `-webkit-overflow-scrolling: touch` + `scrollbar-gutter: stable`.
+- `.so-modal-table tbody tr.so-modal-row`: `content-visibility: auto` + `contain-intrinsic-size: 0 56px` (skip render khi rows ngoài viewport).
+- `.so-modal-backdrop`: bỏ `backdrop-filter: blur(2px)` (gây repaint mỗi frame, đặc biệt nặng khi table phía sau).
+- HTML: `tr.so-modal-row` + class `modal-row` để inherit global Tier 1 từ `web2-tpos-theme.css` cũng được.
+
+**Tested live**:
+
+- Edit pencil lô có 4 received + 3 draft → modal mở chỉ load 3 draft rows, notify "Bỏ qua 4 SP đã nhận" ✓.
+- Soft delete fully-received shipment → trash badge `+1`, modal list hiện đúng entry, restore đẩy về tab gốc, purge hỏi confirm rồi xoá hẳn ✓.
+- Modal Tạo Đơn Hàng mở/đóng smooth, scroll body không trigger body scroll bên dưới ✓.
+- Zero JS errors.
+
+**Status**: ✅ Done.
+
 ### [so-order] Fix: pick SP từ dropdown → lưu chỉ giữ text gõ ban đầu (stale change event) ✅
 
 **User bug**: gõ "b" → dropdown gợi ý → click "2000 QUAN test nhap b4" → modal hiện tên full đúng → Lưu nháp → row lưu chỉ là "b".
