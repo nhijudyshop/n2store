@@ -345,4 +345,177 @@ router.post('/reprocess-unmatched', async (req, res) => {
     }
 });
 
+// =====================================================
+// POST /api/web2/balance-history/manual-deposit
+// User có quyền (admin) nạp tay tiền vào ví KH hoặc NCC. Tạo row giả lập
+// trong web2_balance_history với match_method='manual_deposit', đồng thời
+// credit ví Web 2.0 cho KH (Postgres). NCC dùng Firestore — chỉ insert
+// balance_history row, supplier-wallet polling sẽ pick up qua content match.
+//
+// Body: {
+//   target: 'KH' | 'NCC',
+//   phone?: string (KH bắt buộc, NCC optional),
+//   name: string (display name),
+//   customerId?: number (TPOS partner id KH),
+//   amount: number (VND > 0),
+//   note?: string,
+//   userId?: string,
+//   userName?: string
+// }
+// =====================================================
+router.post('/manual-deposit', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb || req.app.locals.db;
+        const body = req.body || {};
+        const target = String(body.target || '').toUpperCase();
+        const amount = Math.floor(Number(body.amount) || 0);
+        const name = String(body.name || '').trim();
+        const phone = String(body.phone || '').replace(/\D/g, '');
+        const note = String(body.note || '').trim();
+        const userName = String(body.userName || 'system').trim();
+        const customerId = Number(body.customerId) || null;
+
+        if (!['KH', 'NCC'].includes(target)) {
+            return res.status(400).json({ success: false, error: 'target phải là KH hoặc NCC' });
+        }
+        if (amount <= 0) {
+            return res.status(400).json({ success: false, error: 'amount phải > 0' });
+        }
+        if (!name) {
+            return res.status(400).json({ success: false, error: 'name bắt buộc' });
+        }
+        if (target === 'KH' && phone.length < 9) {
+            return res.status(400).json({
+                success: false,
+                error: 'KH bắt buộc có phone hợp lệ (≥9 digits)',
+            });
+        }
+
+        // Unique negative sepay_id cho manual deposit (không trùng SePay thật).
+        // SePay id INTEGER PostgreSQL range: −2_147_483_648 to 2_147_483_647.
+        // Dùng floor(Date.now() / 1000) như magnitude, mark negative.
+        const manualSepayId = -Math.floor(Date.now() / 1000);
+
+        // Build content readable cho audit + cho supplier-wallet polling pick up
+        // qua name match (NCC). Format: "[Nạp tay] <userName> → <target>:<name> | <note>"
+        const content = `[Nạp tay] ${userName} -> ${target}: ${name}` + (note ? ` | ${note}` : '');
+
+        // Insert row
+        const insertResult = await db.query(
+            `INSERT INTO web2_balance_history (
+                sepay_id, gateway, transaction_date, account_number, code,
+                content, transfer_type, transfer_amount, accumulated,
+                sub_account, reference_code, description, body,
+                linked_customer_phone, display_name, match_method,
+                debt_added, wallet_processed, verification_status, verified_at
+             )
+             VALUES ($1, 'MANUAL', NOW(), 'MANUAL', NULL,
+                     $2, 'in', $3, 0,
+                     NULL, $4, $5, $6,
+                     $7, $8, 'manual_deposit',
+                     TRUE, $9, 'AUTO_APPROVED', NOW())
+             ON CONFLICT (sepay_id) DO NOTHING
+             RETURNING id`,
+            [
+                manualSepayId,
+                content,
+                amount,
+                `MANUAL-${manualSepayId}`,
+                note || null,
+                JSON.stringify({
+                    manual: true,
+                    target,
+                    name,
+                    phone: phone || null,
+                    customerId,
+                    note,
+                    userName,
+                    userId: body.userId || null,
+                    timestamp: new Date().toISOString(),
+                }),
+                target === 'KH' ? phone : null,
+                name,
+                target === 'KH', // wallet_processed=true cho KH ngay, NCC sẽ false (poll sau)
+            ]
+        );
+
+        if (insertResult.rows.length === 0) {
+            return res.status(409).json({ success: false, error: 'Trùng manual sepay_id (rare)' });
+        }
+        const balanceHistoryId = insertResult.rows[0].id;
+
+        // Credit ví KH (Web 2.0 Postgres web2_customer_wallets)
+        let walletResult = null;
+        if (target === 'KH') {
+            try {
+                const web2WalletService = require('../../services/web2-wallet-service');
+                walletResult = await web2WalletService.processDeposit(
+                    db,
+                    phone,
+                    amount,
+                    balanceHistoryId,
+                    `Nạp tay bởi ${userName}` + (note ? ` (${note})` : ''),
+                    customerId,
+                    null,
+                    String(manualSepayId)
+                );
+            } catch (e) {
+                console.error('[manual-deposit] KH wallet credit fail:', e.message);
+                return res.status(500).json({
+                    success: false,
+                    error: 'Credit ví KH thất bại: ' + e.message,
+                    balanceHistoryId,
+                });
+            }
+        }
+
+        // SSE notify: balance-history page refresh + KH wallet event
+        try {
+            const notify = req.app.locals.web2RealtimeSseNotify;
+            if (notify) {
+                notify('web2:balance-history', {
+                    action: 'manual-deposit',
+                    id: balanceHistoryId,
+                    target,
+                    name,
+                    amount,
+                    ts: Date.now(),
+                });
+                if (target === 'KH') {
+                    notify(`web2:wallet:${phone}`, {
+                        action: 'manual-deposit',
+                        amount,
+                        ts: Date.now(),
+                    });
+                    notify('web2:wallet:update', {
+                        phone,
+                        action: 'manual-deposit',
+                        amount,
+                        ts: Date.now(),
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn('[manual-deposit] SSE notify fail:', e.message);
+        }
+
+        res.json({
+            success: true,
+            data: {
+                balanceHistoryId,
+                manualSepayId,
+                target,
+                phone: phone || null,
+                name,
+                amount,
+                userName,
+                walletTxId: walletResult?.transaction?.id || null,
+                walletNewBalance: walletResult?.wallet?.balance || null,
+            },
+        });
+    } catch (e) {
+        handleError(res, e, 'Manual deposit');
+    }
+});
+
 module.exports = router;

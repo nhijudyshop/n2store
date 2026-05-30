@@ -63,6 +63,15 @@
                     <div class="w2bh-head-actions">
                         <button
                             type="button"
+                            class="w2bh-btn w2bh-btn-primary"
+                            id="w2bhManualDepositBtn"
+                            title="Nạp tay vào ví KH hoặc NCC (admin only)"
+                            hidden
+                        >
+                            <i data-lucide="plus-circle"></i> Nạp tay
+                        </button>
+                        <button
+                            type="button"
                             class="w2bh-btn"
                             id="w2bhReprocessBtn"
                             title="Reprocess unmatched: chạy lại extractor cho rows chưa gán KH"
@@ -172,18 +181,97 @@
             </main>
         </div>
 
+        <!-- Manual deposit modal (admin only) -->
+        <div class="w2md-modal" id="w2mdModal" hidden>
+            <div class="w2md-backdrop" data-w2md-close></div>
+            <div class="w2md-panel">
+                <header class="w2md-head">
+                    <h3>Nạp tay vào ví</h3>
+                    <button type="button" class="w2md-close" data-w2md-close aria-label="Đóng">
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="w2md-body">
+                    <div class="w2md-banner">
+                        <i data-lucide="info"></i>
+                        Tạo giao dịch giả lập trong lịch sử biến động + credit ví Web 2.0 ngay. Ghi
+                        nhãn người nạp + thời gian + ghi chú để audit.
+                    </div>
+                    <div class="w2md-field">
+                        <label>Loại ví *</label>
+                        <div class="w2md-target-row">
+                            <label class="w2md-radio">
+                                <input type="radio" name="w2mdTarget" value="KH" checked />
+                                <span>Khách hàng (KH)</span>
+                            </label>
+                            <label class="w2md-radio">
+                                <input type="radio" name="w2mdTarget" value="NCC" />
+                                <span>Nhà cung cấp (NCC)</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="w2md-field" id="w2mdPhoneField">
+                        <label>Số điện thoại KH *</label>
+                        <input
+                            type="text"
+                            id="w2mdPhone"
+                            placeholder="0xxxxxxxxx"
+                            autocomplete="off"
+                        />
+                        <small class="w2md-hint">10 digits VN — sẽ lookup TPOS để lấy tên</small>
+                    </div>
+                    <div class="w2md-field">
+                        <label>Tên (KH/NCC) *</label>
+                        <input
+                            type="text"
+                            id="w2mdName"
+                            placeholder="Tên đầy đủ"
+                            autocomplete="off"
+                        />
+                    </div>
+                    <div class="w2md-field">
+                        <label>Số tiền *</label>
+                        <input
+                            type="number"
+                            id="w2mdAmount"
+                            min="1000"
+                            step="1000"
+                            placeholder="100000"
+                        />
+                        <small class="w2md-hint">VND, > 0</small>
+                    </div>
+                    <div class="w2md-field">
+                        <label>Ghi chú</label>
+                        <textarea
+                            id="w2mdNote"
+                            rows="2"
+                            placeholder="Lý do nạp tay (vd: KH chuyển tiền mặt, hoàn tiền, …)"
+                        ></textarea>
+                    </div>
+                    <div class="w2md-error" id="w2mdError" hidden></div>
+                </div>
+                <footer class="w2md-foot">
+                    <button type="button" class="w2bh-btn" data-w2md-close>Huỷ</button>
+                    <button type="button" class="w2bh-btn w2bh-btn-primary" id="w2mdSubmit">
+                        <i data-lucide="check"></i> Nạp tay
+                    </button>
+                </footer>
+            </div>
+        </div>
+
         <!-- Web 2.0 isolated scripts ONLY (no legacy /api/sepay, no /api/v2/balance-history) -->
         <script src="../../web2/shared/web2-auth.js?v=20260526e"></script>
         <script src="../shared/web2-user-info.js?v=20260530a"></script>
         <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
         <script src="../shared/web2-db-badge.js?v=20260530a"></script>
-        <script src="../../web2/shared/tpos-sidebar.js?v=20260526e"></script>
+        <script src="../../web2/shared/tpos-sidebar.js?v=20260530b"></script>
         <script src="../../web2/shared/web2-sse-bridge.js?v=20260526sse2"></script>
         <script src="../partner-customer/js/partner-customer-api.js?v=20260526e"></script>
         <script src="js/tpos-partner-enricher.js?v=20260526e"></script>
         <script src="js/web2-pending-match.js?v=20260526e"></script>
         <script src="js/web2-link-customer-modal.js?v=20260526e"></script>
-        <script src="js/web2-balance-history-app.js?v=20260526e"></script>
+        <script src="js/web2-manual-deposit.js?v=20260530a"></script>
+        <script src="js/web2-balance-history-app.js?v=20260530a"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
             if (window.lucide) window.lucide.createIcons();
