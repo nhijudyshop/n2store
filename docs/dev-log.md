@@ -25,16 +25,26 @@
 
 ## 2026-05-30
 
-### [inventory-tracking] iPad: tắt double-tap zoom cho editable cells ✅
+### [inventory-tracking] iPad: tắt double-tap zoom + double-click edit đồng nhất ✅
 
-**Vấn đề (user báo)**: trên iPad, `https://nhijudy.store/inventory-tracking/index.html` — bấm 2 lần để chỉnh sửa cột bị đụng với double-tap zoom của Safari → trải nghiệm tệ, dblclick handler không fire đúng lúc.
+**Vấn đề (user báo)**:
+
+1. iPad: bấm 2 lần chỉnh sửa cột đụng với double-tap zoom của Safari → dblclick không fire đúng lúc
+2. Cho zoom 2 ngón (pinch), bỏ double-tap zoom — ưu tiên double-click = edit
+3. Double-tap mọi cột trong bảng đều phải edit được
 
 **Sửa**:
 
-- `inventory-tracking/css/modern.css` — `.editable-cell { touch-action: manipulation; -webkit-touch-callout: none; }`
-- `touch-action: manipulation` cho phép pan + pinch-zoom nhưng disable double-tap zoom + 300ms click delay → `ondblclick` fire ngay, không bị browser nuốt thành gesture
-- Áp dụng cho mọi editable cell (NCC, SKU, màu/biến thể, Tổng SL, Đơn giá, COST, Payment ngày/số tiền/ghi chú, Tỉ giá) qua selector chung
+- `inventory-tracking/css/modern.css`:
+    - `.editable-cell { touch-action: manipulation; -webkit-touch-callout: none; }` — tắt double-tap zoom + 300ms click delay trên cell editable
+    - `.table-container { touch-action: manipulation; }` — chặn double-tap zoom toàn bảng (kể cả non-editable cell)
+    - `.shipment-table-section .table-container`: đổi `touch-action: pan-x pan-y` → `manipulation` (trước đó disable pinch-zoom, sai)
+- `inventory-tracking/js/table-renderer.js`:
+    - Cột **Thiếu** (`col-shortage`): đổi từ `onclick="startInlineShortage(this)"` → `ondblclick="startInlineShortage(this)"` + thêm class `editable-cell` cho đồng nhất convention "double-click = edit"
+- `manipulation` = `pan-x pan-y pinch-zoom` (cho pan + 2-ngón zoom), CHỈ tắt double-tap zoom + click delay
 - KHÔNG chạm viewport `user-scalable=no` (giữ pinch-zoom toàn page cho accessibility)
+
+**Cột editable bằng double-click sau fix**: NCC, Mã hàng, Chi tiết màu (mở modal biến thể), Tổng SL, Đơn giá, Thiếu, COST, COST Note, Payment ngày/số tiền/ghi chú, Tỉ giá. **Không editable** (đúng logic): STT (chỉ nút), Tiền HĐ + Tổng Món (auto-calc), Ảnh (lightbox/upload), Ghi Chú (NoteManager).
 
 **Status**: ✅ Done
 

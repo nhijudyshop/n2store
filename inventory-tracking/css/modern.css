@@ -1905,7 +1905,9 @@ textarea.inline-edit-input {
     overflow-x: auto;
     overflow-y: visible;
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pan-y;
+    /* iPad: cho pan (scroll) + pinch-zoom 2 ngón, tắt double-tap zoom để
+       dblclick chỉnh sửa cell fire ngay. `manipulation` = pan-x pan-y pinch-zoom. */
+    touch-action: manipulation;
     /* Drag-to-scroll cursor cue khi vùng trống được nhấn giữ. JS handler
        bật class .is-dragging để đổi cursor sang grabbing. */
     cursor: grab;
@@ -3078,6 +3080,8 @@ textarea.inline-edit-input {
 .table-container {
     overflow-x: auto;
     border-radius: var(--radius);
+    /* iPad: tắt double-tap zoom toàn bảng, vẫn cho pinch-zoom 2 ngón. */
+    touch-action: manipulation;
 }
 
 .finance-table tbody tr:hover,

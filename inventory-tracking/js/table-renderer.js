@@ -1262,10 +1262,10 @@ function renderProductRow(opts) {
                 <td class="col-total text-center ${rowspanBorderClass}" rowspan="${rowSpan}">
                     <strong class="total-value">${formatNumber(tongMon)}</strong>
                 </td>
-                <td class="col-shortage text-center ${rowspanBorderClass}" rowspan="${rowSpan}"
+                <td class="col-shortage text-center editable-cell ${rowspanBorderClass}" rowspan="${rowSpan}"
                     data-shipment-id="${shipmentId}" data-invoice-id="${invoiceId}" data-stt-ncc="${sttNCC}"
                     data-raw-value="${soMonThieu || 0}" data-tong-mon="${tongMon}"
-                    onclick="startInlineShortage(this)" title="Click để sửa">
+                    ondblclick="startInlineShortage(this)" title="Nhấp đúp để sửa">
                     <strong class="shortage-value">${soMonThieu > 0 ? formatNumber(soMonThieu) : '-'}</strong>
                 </td>
             `
