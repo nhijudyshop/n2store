@@ -2351,6 +2351,38 @@ body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover 
     }
 }
 
+/* ===== Locked row (status='received') ===== */
+
+.so-data-row.is-locked {
+    background: #f8fafc;
+}
+.so-data-row.is-locked td[data-cell-field] {
+    cursor: not-allowed;
+    color: #475569;
+}
+.so-data-row.is-locked td[data-cell-field]:hover {
+    background: transparent;
+    box-shadow: none;
+}
+.so-data-row.is-locked .so-cell-img img {
+    opacity: 0.85;
+}
+.so-cell-actions-locked {
+    text-align: center;
+}
+.so-action-locked {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    cursor: not-allowed;
+    background: #f1f5f9;
+}
+.so-action-locked:hover {
+    color: #64748b;
+    background: #e2e8f0;
+}
+
 /* ===== Inline image edit modal ===== */
 
 .so-inline-img-drop {

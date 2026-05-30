@@ -25,6 +25,34 @@
 
 ## 2026-05-30
 
+### [so-order] Bỏ variant validation + Lock row "Đã nhận" ✅
+
+**User feedback**:
+
+1. "lúc tạo sản phẩm đơn hàng đâu cần quan tâm tồn kho đúng không?" — biến thể không cần phải có sẵn trong Kho Biến Thể.
+2. "đã nhận sẽ không cho chỉnh sửa" — rows có status='received' phải lock.
+
+**Fix 1 — bỏ variant validation** (`so-order/js/so-order-app.js`):
+
+- Gỡ 3 chỗ check `variantCache.findByValueExact(value)`: dblclick inline edit (`beginInlineCellEdit.commit`), bulk-edit commit (`commitBulkEditField`), modal submit (`handleOrderSubmit`).
+- Lý do: so-order là draft đơn — user có thể gõ size/màu mới chưa khai báo trong Kho Biến Thể.
+
+**Fix 2 — lock row "Đã nhận"**:
+
+- `rowHtml`: thêm class `is-locked` + `data-row-status` cho `<tr>`. Local `edit = editTableMode && status !== 'received'` → bulk edit mode bật vẫn render read-only cho rows received.
+- `actionsCell(rowId, sid, status)`: status='received' → render `<span.so-action-locked>` với icon lock thay 2 nút sửa/xoá.
+- Helper `_isRowLocked(rowId, sid)` đọc `data-row-status` từ DOM (fast, no state lookup).
+- Guards:
+    - `onCellDoubleClick`: locked → notify warning + return.
+    - `data-img-edit` click handler: locked → block.
+    - `openOrderModal(rowId, sid)`: edit-mode + locked row → block.
+    - `deleteRow`: locked → block.
+- CSS `so-order/css/so-order.css`: `.so-data-row.is-locked` background gray + cursor not-allowed + image opacity 0.85; `.so-action-locked` muted color.
+
+**Test live**: 4/17 rows ở so-order có status='received' → all 4 rows hiện lock icon thay edit/delete, 13 draft rows giữ nút bình thường. Dblclick locked row → blocked + warning. Bulk edit mode bật → locked rows vẫn read-only, draft rows hiện inputs. JS syntax OK.
+
+**Status**: ✅ Done.
+
 ### [so-order][supplier-debt] NCC + PO group respect invoiceGroupId (đơn boundary) ✅
 
 **User**: "STT 2 và 3,4 là 2 đơn khác nhau nên tách B4 ra" (so-order). "STT 3,4 cùng đơn nên đừng tách ra" (supplier-debt).

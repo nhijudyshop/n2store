@@ -250,6 +250,10 @@
                 const rowId = td.dataset.rowId;
                 const shipmentId = td.dataset.shipmentId;
                 if (!field || !rowId || !shipmentId) return;
+                if (_isRowLocked(rowId, shipmentId)) {
+                    notify('Dòng "Đã nhận" — không chỉnh sửa được', 'warning');
+                    return;
+                }
                 openInlineImageModal(rowId, shipmentId, field);
             });
         });
@@ -2616,6 +2620,16 @@ window.addEventListener('load', () => {
 
     function openOrderModal(rowId, shipmentId) {
         const tab = window.SoOrderStorage.getActiveTab(state);
+        // Guard: rows đã nhận → không mở modal edit. User phải revert status
+        // (trả hàng / chuyển nháp) ở chỗ khác trước khi sửa.
+        if (rowId && shipmentId) {
+            const sh = tab.shipments.find((s) => s.id === shipmentId);
+            const r = sh?.rows.find((x) => x.id === rowId);
+            if (r?.status === 'received') {
+                notify('Dòng "Đã nhận" — không chỉnh sửa được', 'warning');
+                return;
+            }
+        }
         editingRowId = rowId || null;
         editingShipmentId = shipmentId || null;
         editingTabId = tab.id;
@@ -3181,6 +3195,10 @@ window.addEventListener('load', () => {
         const sh = tab.shipments.find((s) => s.id === shipmentId);
         const r = sh?.rows.find((x) => x.id === rowId);
         if (!r) return;
+        if (r.status === 'received') {
+            notify('Dòng "Đã nhận" — không xóa được', 'warning');
+            return;
+        }
         const btn = document.querySelector(
             `[data-row-action='delete'][data-row-id='${CSS.escape(rowId)}']`
         );
