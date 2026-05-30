@@ -92,7 +92,8 @@ async function ensureSchema(pool) {
                         'manual_entry',
                         'manual_link',
                         'prelink_credit',
-                        'manual_deposit',  -- nạp tay từ balance-history page
+                        'manual_deposit',  -- nạp tay (+) từ balance-history page
+                        'manual_withdraw', -- rút tay (-) từ balance-history page
                         'legacy_credited'  -- giữ lại cho row đã có value cũ, KHÔNG dùng cho UPDATE mới
                     ));
             EXCEPTION WHEN OTHERS THEN

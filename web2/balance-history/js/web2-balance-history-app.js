@@ -13,6 +13,7 @@
 
     const STATUS_FILTERS = [
         { key: 'all', label: 'Tất cả' },
+        { key: 'MANUAL', label: 'Nạp/Rút tay', cls: 'chip-manual' },
         { key: 'AUTO_APPROVED', label: 'Tự động', cls: 'chip-auto' },
         { key: 'PENDING_MATCH', label: 'Trùng SĐT — cần chọn', cls: 'chip-pending' },
         { key: 'NO_PHONE', label: 'Chưa gán KH', cls: 'chip-no-phone' },

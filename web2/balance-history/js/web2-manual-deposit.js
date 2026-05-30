@@ -337,42 +337,29 @@
         }, 250);
     }
 
-    // ───────────── NCC dropdown (Firestore) ─────────────
+    // ───────────── NCC datalist (Firestore + free input cho NCC mới) ─────
     async function loadNccList() {
         if (_nccLoaded) return;
-        const select = document.getElementById('w2mdNccSelect');
+        const datalist = document.getElementById('w2mdNccDatalist');
         try {
             if (!window.firebase?.firestore) throw new Error('Firestore chưa load');
             const db = window.firebase.firestore();
             const snap = await db.collection('web2_supplier_wallet').doc('main').get();
-            if (!snap.exists) {
-                select.innerHTML = '<option value="">-- Chưa có NCC --</option>';
-                _nccLoaded = true;
-                return;
-            }
-            const data = snap.data() || {};
+            const data = snap.exists ? snap.data() || {} : {};
             const wallets = data.wallets || {};
             const names = Object.keys(wallets)
                 .filter(Boolean)
                 .sort((a, b) => a.localeCompare(b, 'vi'));
-            if (names.length === 0) {
-                select.innerHTML = '<option value="">-- Chưa có NCC --</option>';
-                _nccLoaded = true;
-                return;
-            }
-            const options = ['<option value="">-- Chọn NCC --</option>'];
-            for (const name of names) {
+            const options = names.map((name) => {
                 const w = wallets[name] || {};
                 const bal = Number(w.balance || 0);
-                const balLabel = bal !== 0 ? ` (${bal.toLocaleString('vi-VN')}₫)` : '';
-                options.push(
-                    `<option value="${escapeAttr(name)}">${escapeHtml(name)}${escapeHtml(balLabel)}</option>`
-                );
-            }
-            select.innerHTML = options.join('');
+                const label = bal !== 0 ? `${name} (${bal.toLocaleString('vi-VN')}₫)` : name;
+                return `<option value="${escapeAttr(name)}" label="${escapeAttr(label)}"></option>`;
+            });
+            datalist.innerHTML = options.join('');
             _nccLoaded = true;
         } catch (e) {
-            select.innerHTML = `<option value="">-- Lỗi tải: ${escapeHtml(e.message)} --</option>`;
+            console.warn('[w2md] loadNccList fail:', e.message);
         }
     }
 
@@ -399,14 +386,20 @@
         document.getElementById('w2mdKhResults').hidden = true;
         document.getElementById('w2mdKhResults').innerHTML = '';
         document.getElementById('w2mdKhSelected').hidden = true;
-        document.getElementById('w2mdNccSelect').value = '';
+        const nccInp = document.getElementById('w2mdNccInput');
+        if (nccInp) nccInp.value = '';
         document.getElementById('w2mdAmount').value = '';
         document.getElementById('w2mdNote').value = '';
         document.getElementById('w2mdError').hidden = true;
         document.querySelectorAll('[name="w2mdTarget"]').forEach((r) => {
             r.checked = r.value === 'KH';
         });
+        document.querySelectorAll('[name="w2mdType"]').forEach((r) => {
+            r.checked = r.value === 'deposit';
+        });
         toggleTargetPanel('KH');
+        // Preload NCC datalist (background) — sẵn sàng khi user switch sang NCC
+        loadNccList().catch(() => {});
         modal.hidden = false;
         document.body.style.overflow = 'hidden';
         setTimeout(() => document.getElementById('w2mdKhSearch')?.focus(), 50);
@@ -431,6 +424,7 @@
         const errEl = document.getElementById('w2mdError');
         errEl.hidden = true;
         const target = document.querySelector('[name="w2mdTarget"]:checked')?.value || 'KH';
+        const type = document.querySelector('[name="w2mdType"]:checked')?.value || 'deposit';
         const amount = Number(document.getElementById('w2mdAmount').value);
         const note = document.getElementById('w2mdNote').value.trim();
 
@@ -447,9 +441,9 @@
             name = _selectedKh.name;
             customerId = _selectedKh.id || null;
         } else {
-            name = document.getElementById('w2mdNccSelect').value;
+            name = document.getElementById('w2mdNccInput').value.trim();
             if (!name) {
-                errEl.textContent = 'Phải chọn NCC từ dropdown';
+                errEl.textContent = 'Tên NCC bắt buộc (chọn dropdown hoặc gõ NCC mới)';
                 errEl.hidden = false;
                 return;
             }
@@ -469,6 +463,7 @@
         try {
             const payload = {
                 target,
+                type,
                 phone,
                 name,
                 amount,
@@ -477,7 +472,12 @@
                 customerId,
             };
             await postManualDeposit(payload);
-            notify(`Đã nạp ${amount.toLocaleString('vi-VN')}₫ cho ${target} ${name}`, 'success');
+            const verb = type === 'deposit' ? 'nạp' : 'rút';
+            const dir = type === 'deposit' ? 'vào' : 'khỏi';
+            notify(
+                `Đã ${verb} ${amount.toLocaleString('vi-VN')}₫ ${dir} ví ${target} ${name}`,
+                'success'
+            );
             close();
             window.Web2BalanceHistoryApp?.load?.();
         } catch (e) {

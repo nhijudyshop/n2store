@@ -210,6 +210,20 @@
                             </label>
                         </div>
                     </div>
+
+                    <div class="w2md-field">
+                        <label>Loại giao dịch *</label>
+                        <div class="w2md-target-row">
+                            <label class="w2md-radio">
+                                <input type="radio" name="w2mdType" value="deposit" checked />
+                                <span>Nạp tiền vào ví (+)</span>
+                            </label>
+                            <label class="w2md-radio">
+                                <input type="radio" name="w2mdType" value="withdraw" />
+                                <span>Rút tiền khỏi ví (−)</span>
+                            </label>
+                        </div>
+                    </div>
                     <!-- KH search panel -->
                     <div class="w2md-field" id="w2mdKhPanel">
                         <label>Tìm khách hàng *</label>
@@ -244,14 +258,22 @@
                         </div>
                     </div>
 
-                    <!-- NCC dropdown panel -->
+                    <!-- NCC dropdown panel (combobox: dropdown + free input cho NCC mới) -->
                     <div class="w2md-field" id="w2mdNccPanel" hidden>
-                        <label>Chọn nhà cung cấp *</label>
-                        <select id="w2mdNccSelect">
-                            <option value="">-- Đang tải danh sách NCC… --</option>
-                        </select>
+                        <label>Nhà cung cấp *</label>
+                        <input
+                            type="text"
+                            id="w2mdNccInput"
+                            list="w2mdNccDatalist"
+                            placeholder="Chọn từ danh sách hoặc gõ tên NCC mới…"
+                            autocomplete="off"
+                        />
+                        <datalist id="w2mdNccDatalist"></datalist>
                         <small class="w2md-hint"
-                            >Từ Firestore <code>web2_supplier_wallet/main</code></small
+                            >Danh sách từ
+                            <a href="../supplier-wallet/index.html" target="_blank"
+                                >supplier-wallet</a
+                            >. Gõ tên mới nếu chưa có (sẽ auto-tạo sau khi nạp).</small
                         >
                     </div>
                     <div class="w2md-field">

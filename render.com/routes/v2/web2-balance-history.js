@@ -45,6 +45,8 @@ router.get('/', async (req, res) => {
             where.push(`linked_customer_phone IS NULL`);
         } else if (status === 'PENDING_MATCH') {
             where.push(`match_method = 'pending_match'`);
+        } else if (status === 'MANUAL') {
+            where.push(`match_method IN ('manual_deposit', 'manual_withdraw')`);
         }
         if (search) {
             params.push(`%${search}%`);
@@ -118,6 +120,7 @@ router.get('/stats', async (req, res) => {
                 COUNT(*) FILTER (WHERE verification_status = 'AUTO_APPROVED') AS auto_approved,
                 COUNT(*) FILTER (WHERE linked_customer_phone IS NULL) AS no_phone,
                 COUNT(*) FILTER (WHERE match_method = 'pending_match') AS pending_match,
+                COUNT(*) FILTER (WHERE match_method IN ('manual_deposit', 'manual_withdraw')) AS manual,
                 COALESCE(SUM(CASE WHEN transfer_type = 'in' THEN transfer_amount ELSE 0 END), 0) AS total_in,
                 COALESCE(SUM(CASE WHEN transfer_type = 'out' THEN transfer_amount ELSE 0 END), 0) AS total_out
              FROM web2_balance_history`
@@ -347,27 +350,29 @@ router.post('/reprocess-unmatched', async (req, res) => {
 
 // =====================================================
 // POST /api/web2/balance-history/manual-deposit
-// User có quyền (admin) nạp tay tiền vào ví KH hoặc NCC. Tạo row giả lập
-// trong web2_balance_history với match_method='manual_deposit', đồng thời
-// credit ví Web 2.0 cho KH (Postgres). NCC dùng Firestore — chỉ insert
-// balance_history row, supplier-wallet polling sẽ pick up qua content match.
+// User có quyền (admin) nạp/rút tay tiền vào ví KH hoặc NCC.
 //
 // Body: {
 //   target: 'KH' | 'NCC',
+//   type?: 'deposit' | 'withdraw'   (default 'deposit')
 //   phone?: string (KH bắt buộc, NCC optional),
-//   name: string (display name),
+//   name: string,
 //   customerId?: number (TPOS partner id KH),
 //   amount: number (VND > 0),
 //   note?: string,
-//   userId?: string,
 //   userName?: string
 // }
+//
+// Withdraw guards: balance sau khi trừ KHÔNG được < 0. KH check via Postgres
+// FOR UPDATE lock + balance comparison. NCC qua Firestore (chưa enforce ở
+// backend — sẽ check ở supplier-wallet client trước khi POST).
 // =====================================================
 router.post('/manual-deposit', async (req, res) => {
     try {
         const db = req.app.locals.chatDb || req.app.locals.db;
         const body = req.body || {};
         const target = String(body.target || '').toUpperCase();
+        const type = String(body.type || 'deposit').toLowerCase();
         const amount = Math.floor(Number(body.amount) || 0);
         const name = String(body.name || '').trim();
         const phone = String(body.phone || '').replace(/\D/g, '');
@@ -377,6 +382,11 @@ router.post('/manual-deposit', async (req, res) => {
 
         if (!['KH', 'NCC'].includes(target)) {
             return res.status(400).json({ success: false, error: 'target phải là KH hoặc NCC' });
+        }
+        if (!['deposit', 'withdraw'].includes(type)) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'type phải là deposit hoặc withdraw' });
         }
         if (amount <= 0) {
             return res.status(400).json({ success: false, error: 'amount phải > 0' });
@@ -389,6 +399,22 @@ router.post('/manual-deposit', async (req, res) => {
                 success: false,
                 error: 'KH bắt buộc có phone hợp lệ (≥9 digits)',
             });
+        }
+
+        // Withdraw: pre-check balance để fail fast trước khi insert balance_history
+        if (type === 'withdraw' && target === 'KH') {
+            const balCheck = await db.query(
+                `SELECT balance FROM web2_customer_wallets WHERE phone = $1`,
+                [phone]
+            );
+            const currentBal = Number(balCheck.rows[0]?.balance || 0);
+            if (currentBal < amount) {
+                return res.status(400).json({
+                    success: false,
+                    error: `Số dư ví KH không đủ. Hiện có ${currentBal.toLocaleString('vi-VN')}đ, cần ${amount.toLocaleString('vi-VN')}đ`,
+                    currentBalance: currentBal,
+                });
+            }
         }
 
         // Unique negative sepay_id cho manual deposit (không trùng SePay thật).
@@ -410,6 +436,7 @@ router.post('/manual-deposit', async (req, res) => {
 
         const metadataJson = JSON.stringify({
             manual: true,
+            type,
             target,
             name,
             phone: phone || null,
@@ -420,8 +447,10 @@ router.post('/manual-deposit', async (req, res) => {
             timestamp: new Date().toISOString(),
         });
 
-        // Insert row — schema thật dùng `raw_data` (Web 1.0 schema, inherited
-        // qua LIKE balance_history). Không có column `body` riêng.
+        const transferType = type === 'deposit' ? 'in' : 'out';
+        const matchMethod = type === 'deposit' ? 'manual_deposit' : 'manual_withdraw';
+
+        // Insert row
         const insertResult = await db.query(
             `INSERT INTO web2_balance_history (
                 sepay_id, gateway, transaction_date, account_number, code,
@@ -431,9 +460,9 @@ router.post('/manual-deposit', async (req, res) => {
                 debt_added, wallet_processed, verification_status, verified_at
              )
              VALUES ($1, 'MANUAL', NOW(), 'MANUAL', NULL,
-                     $2, 'in', $3, 0,
+                     $2, $10, $3, 0,
                      NULL, $4, $5, $6,
-                     $7, $8, 'manual_deposit',
+                     $7, $8, $11,
                      TRUE, $9, 'AUTO_APPROVED', NOW())
              ON CONFLICT (sepay_id) DO NOTHING
              RETURNING id`,
@@ -446,7 +475,9 @@ router.post('/manual-deposit', async (req, res) => {
                 metadataJson,
                 target === 'KH' ? phone : null,
                 name,
-                target === 'KH', // wallet_processed=true cho KH ngay, NCC sẽ false (poll sau)
+                target === 'KH',
+                transferType,
+                matchMethod,
             ]
         );
 
@@ -455,27 +486,47 @@ router.post('/manual-deposit', async (req, res) => {
         }
         const balanceHistoryId = insertResult.rows[0].id;
 
-        // Credit ví KH (Web 2.0 Postgres web2_customer_wallets)
+        // Credit/Debit ví KH (Postgres web2_customer_wallets)
         let walletResult = null;
         if (target === 'KH') {
             try {
                 const web2WalletService = require('../../services/web2-wallet-service');
-                walletResult = await web2WalletService.processDeposit(
-                    db,
-                    phone,
-                    amount,
-                    balanceHistoryId,
-                    `Nạp tay bởi ${userName}` + (note ? ` (${note})` : ''),
-                    customerId,
-                    null,
-                    String(manualSepayId)
-                );
+                const opLabel = type === 'deposit' ? 'Nạp tay' : 'Rút tay';
+                const opNote = `${opLabel} bởi ${userName}` + (note ? ` (${note})` : '');
+                if (type === 'deposit') {
+                    walletResult = await web2WalletService.processDeposit(
+                        db,
+                        phone,
+                        amount,
+                        balanceHistoryId,
+                        opNote,
+                        customerId,
+                        null,
+                        String(manualSepayId)
+                    );
+                } else {
+                    // Withdraw — signature (db, phone, amount, referenceType, referenceId, note)
+                    // Atomic balance check trong transaction; throw nếu insufficient.
+                    walletResult = await web2WalletService.processWithdraw(
+                        db,
+                        phone,
+                        amount,
+                        'manual_balance_history',
+                        String(balanceHistoryId),
+                        opNote
+                    );
+                }
             } catch (e) {
-                console.error('[manual-deposit] KH wallet credit fail:', e.message);
+                console.error(`[manual-deposit] KH wallet ${type} fail:`, e.message);
+                // Rollback balance_history row
+                try {
+                    await db.query(`DELETE FROM web2_balance_history WHERE id = $1`, [
+                        balanceHistoryId,
+                    ]);
+                } catch (_) {}
                 return res.status(500).json({
                     success: false,
-                    error: 'Credit ví KH thất bại: ' + e.message,
-                    balanceHistoryId,
+                    error: `${type === 'deposit' ? 'Nạp' : 'Rút'} ví KH thất bại: ${e.message}`,
                 });
             }
         }
