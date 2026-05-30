@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c119fd7` — feat(web2/shared): thay text "N2" bằng logo emblem N2 Store
-**Last updated**: 2026-05-30 12:03:36 +07
-**Latest session**: [`RESUME:20260530-120336-c119fd7`](../20260530-120336-c119fd7.md)
-**Summary**: feat(web2/shared): thay text "N2" bằng logo emblem N2 Store
+**Latest commit**: `93c4506` — auto: session update
+**Last updated**: 2026-05-30 12:09:02 +07
+**Latest session**: [`RESUME:20260530-120902-93c4506`](../20260530-120902-93c4506.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 1 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -33,7 +34,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-30 11:58
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-30 12:09
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
@@ -49,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-30 12:02
+- [`render.com/`](./render.com.md) — updated 2026-05-30 12:09
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-29 18:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
