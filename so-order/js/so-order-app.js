@@ -287,8 +287,23 @@
         el.blur(); // triggers change
     }
     function onBulkEditFocusIn(e) {
-        const el = e.target.closest('input[data-edit-field="variant"]');
-        if (el) attachVariantPickerOnDemand(el);
+        const elVariant = e.target.closest('input[data-edit-field="variant"]');
+        if (elVariant) attachVariantPickerOnDemand(elVariant);
+        const elSupplier = e.target.closest('input[data-edit-field="supplier"]');
+        if (elSupplier) {
+            _ensureSupplierCacheSubscription();
+            attachSupplierPickerOnDemand(elSupplier, {
+                onPick: (val) => {
+                    commitBulkEditField(
+                        elSupplier.dataset.rowId,
+                        elSupplier.dataset.shipmentId,
+                        'supplier',
+                        val
+                    );
+                    _ensureSupplierAsync(val);
+                },
+            });
+        }
     }
 
     function onCellDoubleClick(e) {
@@ -359,6 +374,7 @@
             }
             window.SoOrderStorage.updateRow(state, tab.id, shipmentId, rowId, { [field]: value });
             if (pendingAdj && pendingAdj.name) adjustKhoPending([pendingAdj]);
+            if (field === 'supplier' && value) _ensureSupplierAsync(value);
             pushSync();
             inlineCellEditingKey = null;
             renderAll();
@@ -382,6 +398,11 @@
             inputHtml = `<div class="so-edit-variant-wrap">
                 <input class="so-edit-input" type="text" value="${escapeHtml(r.variant || '')}" placeholder="Pick từ kho…" autocomplete="off" autofocus />
                 <div class="so-edit-variant-dropdown" hidden></div>
+            </div>`;
+        } else if (field === 'supplier') {
+            inputHtml = `<div class="so-supplier-pick-wrap">
+                <input class="so-edit-input" type="text" value="${escapeHtml(r.supplier || '')}" placeholder="Pick từ Ví NCC…" autocomplete="off" autofocus />
+                <div class="so-supplier-dropdown" hidden></div>
             </div>`;
         } else {
             inputHtml = `<input class="so-edit-input" type="text" value="${escapeHtml(r[field] || '')}" autofocus />`;
@@ -457,6 +478,17 @@
             el.addEventListener('focus', refresh);
             el.addEventListener('input', refresh);
             refresh();
+        }
+
+        if (field === 'supplier') {
+            _ensureSupplierCacheSubscription();
+            attachSupplierPickerOnDemand(el, {
+                onPick: (val) => {
+                    el.value = val;
+                    finish();
+                    _ensureSupplierAsync(val);
+                },
+            });
         }
     }
 
@@ -827,6 +859,14 @@
                 </div>
             </td>`;
         }
+        if (field === 'supplier') {
+            return `<td class="${tdClass} so-cell-edit so-cell-edit-supplier" ${dataAttr}${extra}>
+                <div class="so-supplier-pick-wrap">
+                    <input class="so-edit-input" type="text" value="${escapeHtml(r.supplier || '')}" placeholder="Pick từ Ví NCC…" autocomplete="off" data-edit-field="supplier" data-row-id="${rid}" data-shipment-id="${sid}" />
+                    <div class="so-supplier-dropdown" hidden></div>
+                </div>
+            </td>`;
+        }
         return `<td class="${tdClass} so-cell-edit" ${dataAttr}${extra}>
             <input class="so-edit-input" type="text" value="${escapeHtml(r[field] || '')}" data-edit-field="${field}" data-row-id="${rid}" data-shipment-id="${sid}" />
         </td>`;
@@ -891,6 +931,7 @@
         }
         window.SoOrderStorage.updateRow(state, tab.id, shipmentId, rowId, { [field]: value });
         if (pendingAdj && pendingAdj.name) adjustKhoPending([pendingAdj]);
+        if (field === 'supplier' && value) _ensureSupplierAsync(value);
         pushSync();
         renderFooterTotals();
         flashRow(rowId);
@@ -950,6 +991,151 @@
             setTimeout(() => {
                 if (dropdown) dropdown.hidden = true;
             }, 150);
+        });
+    }
+
+    // Thu thập danh sách supplier names có trong state hiện tại (mọi tab),
+    // để merge vào dropdown gợi ý — đảm bảo tên đã dùng trong soOrder hiển thị
+    // ngay cả khi cache Ví NCC chưa load xong / chưa có Firestore.
+    function _currentStateSuppliers() {
+        const names = new Set();
+        const tabs = state?.tabs || [];
+        for (const tab of tabs) {
+            for (const sh of tab.shipments || []) {
+                for (const r of sh.rows || []) {
+                    const s = (r.supplier || '').trim();
+                    if (s) names.add(s);
+                }
+            }
+        }
+        return Array.from(names);
+    }
+
+    // Gắn dropdown gợi ý NCC cho 1 input. Idempotent (mỗi input chỉ gắn 1 lần).
+    // Hỗ trợ:
+    //   - Phím ↑↓ chọn item, Enter để commit (nếu có item active), Escape ẩn.
+    //   - Hiển thị badge "Tạo mới" cho text chưa có trong Ví NCC.
+    //   - opts.dropdownEl: element dropdown đi kèm (nếu input nằm sẵn trong
+    //     `.so-supplier-pick-wrap > .so-supplier-dropdown`, tự dò bằng closest).
+    //   - opts.onPick(name): callback khi user chọn item (mặc định chỉ set value).
+    function attachSupplierPickerOnDemand(input, opts) {
+        if (!input || input.__supplierPickerBound) return;
+        input.__supplierPickerBound = true;
+        const wrap = input.closest('.so-supplier-pick-wrap');
+        const dropdown = opts?.dropdownEl || wrap?.querySelector('.so-supplier-dropdown');
+        if (!dropdown) return;
+        let activeIdx = -1;
+        let lastItems = [];
+
+        const renderDropdown = () => {
+            const cache = window.Web2SuppliersCache;
+            const q = (input.value || '').trim();
+            const extras = _currentStateSuppliers();
+            const items = cache ? cache.search(q, 10, extras) : extras.slice(0, 10);
+            lastItems = items;
+            activeIdx = -1;
+            const isNew = q.length > 0 && !(cache?.has(q) || extras.some((n) => n === q));
+            const itemsHtml = items
+                .map(
+                    (
+                        name
+                    ) => `<button type="button" class="so-supplier-item" data-val="${escapeHtml(name)}">
+                        <span class="so-supplier-item-name">${escapeHtml(name)}</span>
+                        <span class="so-supplier-item-existing">Ví NCC</span>
+                    </button>`
+                )
+                .join('');
+            const createHtml =
+                isNew && q.length >= 1
+                    ? `<button type="button" class="so-supplier-item is-create" data-val="${escapeHtml(q)}" data-create="1">
+                        <span class="so-supplier-item-name">+ Tạo NCC "${escapeHtml(q)}"</span>
+                        <span class="so-supplier-item-new">Mới</span>
+                    </button>`
+                    : '';
+            if (!items.length && !createHtml) {
+                dropdown.innerHTML = `<div class="so-supplier-empty">Chưa có NCC nào — gõ tên để tạo mới.</div>`;
+            } else {
+                dropdown.innerHTML = createHtml + itemsHtml;
+            }
+            dropdown.hidden = false;
+            // Wire item clicks. mousedown preventDefault để input không blur
+            // trước khi click register.
+            dropdown.querySelectorAll('.so-supplier-item').forEach((btn) => {
+                btn.addEventListener('mousedown', (e) => e.preventDefault());
+                btn.addEventListener('click', () => {
+                    const val = btn.dataset.val;
+                    input.value = val;
+                    dropdown.hidden = true;
+                    if (opts?.onPick) opts.onPick(val);
+                });
+            });
+        };
+
+        const updateActiveHighlight = () => {
+            const items = dropdown.querySelectorAll('.so-supplier-item');
+            items.forEach((el, i) => el.classList.toggle('is-active', i === activeIdx));
+            const el = items[activeIdx];
+            if (el && typeof el.scrollIntoView === 'function') {
+                el.scrollIntoView({ block: 'nearest' });
+            }
+        };
+
+        input.addEventListener('focus', renderDropdown);
+        input.addEventListener('input', renderDropdown);
+        // Render ngay nếu input đã focus (vd: inline edit attach SAU khi focus
+        // fired). Cho phép dropdown hiện ngay khi user dblclick để edit.
+        if (document.activeElement === input) renderDropdown();
+        input.addEventListener('keydown', (e) => {
+            const items = dropdown.querySelectorAll('.so-supplier-item');
+            if (!items.length) return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeIdx = (activeIdx + 1) % items.length;
+                updateActiveHighlight();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeIdx = activeIdx <= 0 ? items.length - 1 : activeIdx - 1;
+                updateActiveHighlight();
+            } else if (e.key === 'Enter') {
+                if (activeIdx >= 0 && items[activeIdx]) {
+                    e.preventDefault();
+                    items[activeIdx].click();
+                }
+            } else if (e.key === 'Escape') {
+                dropdown.hidden = true;
+            }
+        });
+        input.addEventListener('blur', () => {
+            setTimeout(() => {
+                if (dropdown) dropdown.hidden = true;
+            }, 150);
+        });
+    }
+
+    // Subscribe to cache changes (only once) so any modal-open re-render
+    // picks up newly-added suppliers. Lazy-bound to avoid running before
+    // Web2SuppliersCache.init().
+    let _supplierCacheSubscribed = false;
+    function _ensureSupplierCacheSubscription() {
+        if (_supplierCacheSubscribed) return;
+        if (!window.Web2SuppliersCache?.subscribe) return;
+        _supplierCacheSubscribed = true;
+        window.Web2SuppliersCache.subscribe(() => {
+            // Nếu modal đang mở, refresh dropdown của input đang focus.
+            const focused = document.activeElement;
+            if (focused?.matches?.('input[name="supplier"]')) {
+                focused.dispatchEvent(new Event('input', { bubbles: false }));
+            }
+        });
+    }
+
+    // Fire-and-forget: đảm bảo NCC tồn tại trong Ví NCC (Firestore). Idempotent.
+    function _ensureSupplierAsync(name) {
+        if (!name) return;
+        const cache = window.Web2SuppliersCache;
+        if (!cache?.ensure) return;
+        cache.ensure(name).catch((e) => {
+            console.warn('[so-order] supplier ensure fail:', e?.message || e);
         });
     }
 
@@ -2504,6 +2690,11 @@ window.addEventListener('load', () => {
         renderModalRows();
         showModal('soOrderModal');
         _bindModalScrollCloseDropdowns();
+        // Bind supplier picker (idempotent — chỉ bind 1 lần cho input cố định).
+        _ensureSupplierCacheSubscription();
+        if (form.elements.supplier) {
+            attachSupplierPickerOnDemand(form.elements.supplier);
+        }
         setTimeout(() => {
             const firstNameInput = document.querySelector(
                 '#soModalProductsBody input[data-field="productName"]'
@@ -2531,6 +2722,9 @@ window.addEventListener('load', () => {
             costNote: form.elements.costNote.value.trim(),
             status: form.elements.status.value,
         };
+        // Auto-create NCC vào Ví NCC nếu tên chưa có. Fire-and-forget — không
+        // chặn submit, lỗi Firestore chỉ console.warn (vẫn lưu row bình thường).
+        _ensureSupplierAsync(sharedFields.supplier);
         // Validate at least 1 row có tên SP
         const validRows = modalRows.filter((r) => r.productName.trim());
         if (!validRows.length) {
@@ -3205,6 +3399,10 @@ window.addEventListener('load', () => {
         renderModalRows();
         showModal('soOrderModal');
         _bindModalScrollCloseDropdowns();
+        _ensureSupplierCacheSubscription();
+        if (form.elements.supplier) {
+            attachSupplierPickerOnDemand(form.elements.supplier);
+        }
     }
 
     // Tab settings modal — currency + rate
@@ -3830,6 +4028,13 @@ window.addEventListener('load', () => {
         // Web2VariantsCache — bật picker cho cột Biến Thể.
         if (window.Web2VariantsCache) {
             window.Web2VariantsCache.init();
+        }
+
+        // Web2SuppliersCache — bật picker NCC cho input modal + inline edit.
+        // Idempotent, fail-safe: nếu Firestore offline → cache rỗng, dropdown
+        // chỉ gợi ý từ supplier names có trong state hiện tại.
+        if (window.Web2SuppliersCache) {
+            window.Web2SuppliersCache.init().catch(() => {});
         }
 
         // Firestore sync — local-first (so-order only):

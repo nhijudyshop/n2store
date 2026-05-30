@@ -137,9 +137,12 @@
         const emptyEl = document.getElementById('swEmptyState');
         const search = (document.getElementById('swSearch').value || '').trim().toLowerCase();
         const sortBy = document.getElementById('swSort').value;
+        // Hiển thị MỌI wallet entry trong state: derived từ Sổ Order (có
+        // purchases) HOẶC manually-created qua nút "Tạo NCC" (transactions
+        // rỗng + totalPurchased = 0). Empty entries vẫn hữu ích vì có mặt
+        // trong dropdown gợi ý so-order.
         const items = Object.keys(walletState.wallets)
             .map((s) => walletState.wallets[s])
-            .filter((w) => suppliers[w.supplier] || w.totalPurchased > 0)
             .filter((w) => !search || w.supplier.toLowerCase().includes(search));
 
         items.sort((a, b) => {
@@ -365,6 +368,45 @@
         openDetail(activeSupplier);
     }
 
+    // ---------- Create NCC modal ----------
+    function openCreateModal() {
+        const input = document.getElementById('swCreateName');
+        if (input) input.value = '';
+        document.getElementById('swCreateModal').hidden = false;
+        setTimeout(() => input?.focus(), 80);
+    }
+
+    async function confirmCreate() {
+        const input = document.getElementById('swCreateName');
+        const rawName = (input?.value || '').trim();
+        if (!rawName) {
+            notify('Cần nhập tên NCC', 'warning');
+            input?.focus();
+            return;
+        }
+        // Đối chiếu case-insensitive với state hiện tại trước khi viết.
+        const existingKey = Object.keys(walletState.wallets || {}).find(
+            (k) => k.toLowerCase() === rawName.toLowerCase()
+        );
+        if (existingKey) {
+            notify(`NCC "${existingKey}" đã tồn tại`, 'warning');
+            document.getElementById('swCreateModal').hidden = true;
+            return;
+        }
+        // Tạo wallet entry rỗng + push Firestore qua SupplierWalletStorage để
+        // bảo toàn migration shape. Sau đó cũng đồng bộ Web2SuppliersCache
+        // (giúp các trang khác đang mở thấy ngay qua snapshot listener).
+        window.SupplierWalletStorage.getOrCreateWallet(walletState, rawName);
+        window.SupplierWalletStorage.save(walletState);
+        pushSync();
+        if (window.Web2SuppliersCache?.ensure) {
+            window.Web2SuppliersCache.ensure(rawName).catch(() => {});
+        }
+        notify(`Đã tạo NCC "${rawName}"`, 'success');
+        document.getElementById('swCreateModal').hidden = true;
+        renderList();
+    }
+
     // ---------- Payment modal ----------
     function openPayModal() {
         document.getElementById('swPaySupplier').textContent = activeSupplier;
@@ -437,6 +479,14 @@
         document.getElementById('swSearch').addEventListener('input', renderList);
         document.getElementById('swSort').addEventListener('change', renderList);
         document.getElementById('swRefreshBtn').addEventListener('click', loadAndRender);
+        document.getElementById('swCreateBtn')?.addEventListener('click', openCreateModal);
+        document.getElementById('swCreateConfirmBtn')?.addEventListener('click', confirmCreate);
+        document.getElementById('swCreateName')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                confirmCreate();
+            }
+        });
         document.querySelectorAll('#swDetailModal .sw-tab').forEach((b) => {
             b.addEventListener('click', () => {
                 detailTab = b.dataset.detailTab;

@@ -42,6 +42,15 @@
                         <span class="counter-pill" id="swTotalSuppliers">— NCC</span>
                         <span class="counter-pill" id="swTotalOutstanding">Công nợ: 0₫</span>
                         <button
+                            id="swCreateBtn"
+                            class="btn-primary"
+                            type="button"
+                            title="Tạo NCC mới (chưa có giao dịch)"
+                        >
+                            <i data-lucide="plus"></i>
+                            Tạo NCC
+                        </button>
+                        <button
                             id="swRefreshBtn"
                             class="btn-secondary"
                             type="button"
@@ -213,6 +222,40 @@
             </div>
         </div>
 
+        <!-- Create NCC modal -->
+        <div class="sw-modal" id="swCreateModal" hidden>
+            <div class="sw-modal-backdrop" data-sw-close></div>
+            <div class="sw-modal-panel sw-modal-panel-narrow">
+                <header class="sw-modal-head">
+                    <h2>Tạo NCC mới</h2>
+                    <button class="sw-modal-close" type="button" data-sw-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="sw-modal-body">
+                    <p class="sw-hint">
+                        Nhập tên NCC để tạo entry trong Ví NCC. Sau khi tạo, tên này sẽ tự xuất hiện
+                        trong gợi ý ở Sổ Order.
+                    </p>
+                    <label class="sw-field">
+                        <span>Tên NCC</span>
+                        <input
+                            id="swCreateName"
+                            type="text"
+                            placeholder="VD: Xưởng Thuận Phát"
+                            autocomplete="off"
+                        />
+                    </label>
+                </div>
+                <footer class="sw-modal-foot">
+                    <button class="btn-secondary" type="button" data-sw-close>Hủy</button>
+                    <button class="btn-primary" id="swCreateConfirmBtn" type="button">
+                        <i data-lucide="check"></i> Tạo NCC
+                    </button>
+                </footer>
+            </div>
+        </div>
+
         <!-- Payment modal -->
         <div class="sw-modal" id="swPayModal" hidden>
             <div class="sw-modal-backdrop" data-sw-close></div>
@@ -255,8 +298,9 @@
         <script src="../../web2/shared/web2-sse-bridge.js?v=20260526sse2"></script>
         <script src="../../web2/shared/web2-idb-store.js?v=20260530f"></script>
         <script src="../../web2/shared/web2-products-cache.js?v=20260530f"></script>
-        <script src="js/supplier-wallet-storage.js?v=20260530f"></script>
-        <script src="js/supplier-wallet-app.js?v=20260530f"></script>
+        <script src="../../web2/shared/web2-suppliers-cache.js?v=20260530h"></script>
+        <script src="js/supplier-wallet-storage.js?v=20260530h"></script>
+        <script src="js/supplier-wallet-app.js?v=20260530h"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
         </script>

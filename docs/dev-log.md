@@ -25,6 +25,38 @@
 
 ## 2026-05-30
 
+### [so-order][supplier-wallet] NCC autocomplete + "Tạo NCC" manual create ✅
+
+**User**: "supplier-wallet có chức năng tạo NCC → chỗ nhập tên NCC hiện dropdown từ Ví NCC → tên chưa có → tạo mới".
+
+**Files**:
+
+- NEW `web2/shared/web2-suppliers-cache.js` — shared cache read `web2_supplier_wallet/main` Firestore doc. Public API: `init()`, `getNames()`, `has(name)`, `search(q, limit, extras)`, `ensure(name)`, `subscribe(cb)`. Realtime via `onSnapshot` cho cross-tab.
+- `so-order/index.html` — wrap input `name="supplier"` trong `.so-supplier-pick-wrap` + load `web2-suppliers-cache.js`.
+- `so-order/css/so-order.css` — `.so-supplier-pick-wrap`, `.so-supplier-dropdown`, `.so-supplier-item`, `.so-supplier-item-new`/`-existing` badges.
+- `so-order/js/so-order-app.js`:
+    - `attachSupplierPickerOnDemand(input, opts)` — idempotent picker với ↑↓Enter keyboard, badge "Mới"/"Ví NCC", merge extras (current state suppliers).
+    - `_currentStateSuppliers()`, `_ensureSupplierAsync(name)`, `_ensureSupplierCacheSubscription()`.
+    - Wire vào `openOrderModal`, `openShipmentEditAllRows`, `onBulkEditFocusIn` (bulk edit cell), `beginInlineCellEdit` (dblclick path).
+    - `editableCellHtml('supplier', ...)` render `.so-supplier-pick-wrap` markup.
+    - `handleOrderSubmit` + `commitBulkEditField` + inline `commit` đều fire-and-forget `_ensureSupplierAsync(supplier)` sau khi save row.
+    - `init()` gọi `Web2SuppliersCache.init()`.
+- `web2/supplier-wallet/index.html` — thêm nút "Tạo NCC" (`#swCreateBtn`) + modal `#swCreateModal` (input tên + nút Tạo). Load `web2-suppliers-cache.js`.
+- `web2/supplier-wallet/js/supplier-wallet-app.js`:
+    - `openCreateModal()`, `confirmCreate()` — tạo wallet entry rỗng qua `SupplierWalletStorage.getOrCreateWallet` + push Firestore + cũng gọi `Web2SuppliersCache.ensure`.
+    - `wireUi` bind nút + Enter key trên input.
+    - **Relax filter** `renderList`: trước đây ẩn wallet có `totalPurchased = 0`, giờ hiện hết (NCC manually-created vẫn xuất hiện dù chưa có giao dịch).
+
+**Flow**:
+
+1. User mở `supplier-wallet/index.html` → click "Tạo NCC" → nhập tên → Lưu → wallet entry tạo trong Firestore `web2_supplier_wallet/main.data.wallets[name]`.
+2. User mở `so-order/index.html` → "Tạo Đơn Hàng" → focus input NCC → dropdown gợi ý từ Ví NCC + state hiện tại. Click item → fill. Gõ tên mới → hiện pill "+ Tạo NCC '...' Mới" → submit form → cache.ensure() ghi Firestore + supplier name xuất hiện trong Ví NCC list lần sau.
+3. Bulk edit + dblclick inline edit supplier cell cũng có cùng dropdown.
+
+**Test browser** (live trên localhost): tạo NCC từ supplier-wallet → 12 cards, mới hiện ngay; mở so-order modal → cache có 12 names; type "TEST-" → dropdown 7 items (6 ví + 1 pill "Mới"); type tên mới → pill duy nhất; submit → auto-ensure thành công, cache.has trả true. Inline dblclick supplier → dropdown 10 items (empty query). Zero JS errors. Cleanup test data sau khi xong.
+
+**Status**: ✅ Done.
+
 ### [web2-storage] All Web 2.0 stores migrated localStorage → IndexedDB ✅
 
 **User feedback**: "làm tất cả vì web 2.0 hiện đang test".

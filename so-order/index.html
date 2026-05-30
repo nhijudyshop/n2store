@@ -15,11 +15,11 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../web2/shared/tpos-sidebar.css?v=20260530g" />
-        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260530g" />
-        <link rel="stylesheet" href="../native-orders/css/tpos-theme.css?v=20260530g" />
-        <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260530g" />
-        <link rel="stylesheet" href="css/so-order.css?v=20260530g" />
+        <link rel="stylesheet" href="../web2/shared/tpos-sidebar.css?v=20260530i" />
+        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260530i" />
+        <link rel="stylesheet" href="../native-orders/css/tpos-theme.css?v=20260530i" />
+        <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260530i" />
+        <link rel="stylesheet" href="css/so-order.css?v=20260530i" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
@@ -28,11 +28,11 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
-        <script src="../shared/js/firebase-config.js?v=20260530g"></script>
-        <script src="../shared/js/notification-system.js?v=20260530g"></script>
-        <script src="../web2/shared/web2-effects.js?v=20260530g"></script>
-        <script src="../web2/shared/web2-db-badge.js?v=20260530g"></script>
-        <link rel="stylesheet" href="../web2/shared/web2-tpos-theme.css?v=20260530g" />
+        <script src="../shared/js/firebase-config.js?v=20260530i"></script>
+        <script src="../shared/js/notification-system.js?v=20260530i"></script>
+        <script src="../web2/shared/web2-effects.js?v=20260530i"></script>
+        <script src="../web2/shared/web2-db-badge.js?v=20260530i"></script>
+        <link rel="stylesheet" href="../web2/shared/web2-tpos-theme.css?v=20260530i" />
     </head>
     <body class="tpos-theme">
         <div class="web2-shell">
@@ -163,12 +163,16 @@
                     <div class="so-form-row-top">
                         <div class="so-form-cell so-cell-supplier-input">
                             <label class="so-form-label"> Nhà cung cấp </label>
-                            <input
-                                type="text"
-                                name="supplier"
-                                placeholder="Nhập tên nhà cung cấp"
-                                class="so-input-v2"
-                            />
+                            <div class="so-supplier-pick-wrap">
+                                <input
+                                    type="text"
+                                    name="supplier"
+                                    placeholder="Nhập tên NCC — gợi ý từ Ví NCC"
+                                    class="so-input-v2"
+                                    autocomplete="off"
+                                />
+                                <div class="so-supplier-dropdown" hidden></div>
+                            </div>
                         </div>
                         <div class="so-form-cell">
                             <label class="so-form-label">Ngày tạo</label>
@@ -451,22 +455,23 @@
             </div>
         </div>
 
-        <script src="../web2/shared/web2-auth.js?v=20260530g"></script>
-        <script src="../web2/shared/tpos-sidebar.js?v=20260530g"></script>
+        <script src="../web2/shared/web2-auth.js?v=20260530i"></script>
+        <script src="../web2/shared/tpos-sidebar.js?v=20260530i"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () =>
                 window.Web2Sidebar.mount('#web2Aside', { activeRoute: 'so-order' })
             );
         </script>
 
-        <script src="../web2/products/js/web2-products-api.js?v=20260530g"></script>
-        <script src="../web2/products/js/web2-products-print.js?v=20260530g"></script>
-        <script src="../web2/variants/js/web2-variants-api.js?v=20260530g"></script>
-        <script src="../web2/shared/web2-sse-bridge.js?v=20260530g"></script>
-        <script src="../web2/shared/web2-idb-store.js?v=20260530g"></script>
-        <script src="../web2/shared/web2-products-cache.js?v=20260530g"></script>
-        <script src="../web2/shared/web2-variants-cache.js?v=20260530g"></script>
-        <script src="js/so-order-storage.js?v=20260530g"></script>
-        <script src="js/so-order-app.js?v=20260530g"></script>
+        <script src="../web2/products/js/web2-products-api.js?v=20260530i"></script>
+        <script src="../web2/products/js/web2-products-print.js?v=20260530i"></script>
+        <script src="../web2/variants/js/web2-variants-api.js?v=20260530i"></script>
+        <script src="../web2/shared/web2-sse-bridge.js?v=20260530i"></script>
+        <script src="../web2/shared/web2-idb-store.js?v=20260530i"></script>
+        <script src="../web2/shared/web2-products-cache.js?v=20260530i"></script>
+        <script src="../web2/shared/web2-variants-cache.js?v=20260530i"></script>
+        <script src="../web2/shared/web2-suppliers-cache.js?v=20260530i"></script>
+        <script src="js/so-order-storage.js?v=20260530i"></script>
+        <script src="js/so-order-app.js?v=20260530i"></script>
     </body>
 </html>
