@@ -543,8 +543,40 @@
         if (sh.collapsed) return header;
         // Expanded → emit column header row, then data rows.
         const colHead = columnHeaderRowHtml();
-        const rows = sh.rows.map((r, idx) => rowHtml(r, idx, tab, sh.id)).join('');
+        // P1 2026-05-30: pre-compute group spans cho NCC + Ảnh Hóa Đơn.
+        // - NCC: consecutive rows cùng `supplier` → rowspan (cell render lần đầu).
+        // - Ảnh Hóa Đơn: consecutive rows cùng `invoiceGroupId` → rowspan.
+        // Map: rowIdx → { ncc: {render, span}, inv: {render, span} }
+        const meta = _computeRowSpans(sh.rows);
+        const rows = sh.rows.map((r, idx) => rowHtml(r, idx, tab, sh.id, meta[idx])).join('');
         return header + colHead + rows;
+    }
+
+    function _computeRowSpans(rows) {
+        const out = rows.map(() => ({
+            ncc: { render: true, span: 1 },
+            inv: { render: true, span: 1 },
+        }));
+        // Walk groups: NCC consecutive supplier, Inv consecutive invoiceGroupId.
+        let i = 0;
+        while (i < rows.length) {
+            let j = i + 1;
+            const sup = rows[i].supplier || '';
+            while (j < rows.length && (rows[j].supplier || '') === sup) j++;
+            out[i].ncc = { render: true, span: j - i };
+            for (let k = i + 1; k < j; k++) out[k].ncc = { render: false, span: 0 };
+            i = j;
+        }
+        i = 0;
+        while (i < rows.length) {
+            let j = i + 1;
+            const g = rows[i].invoiceGroupId || rows[i].id;
+            while (j < rows.length && (rows[j].invoiceGroupId || rows[j].id) === g) j++;
+            out[i].inv = { render: true, span: j - i };
+            for (let k = i + 1; k < j; k++) out[k].inv = { render: false, span: 0 };
+            i = j;
+        }
+        return out;
     }
 
     // ETA badge — "📦 còn N ngày" / "⚠️ quá hạn N ngày" / "✅ giao hôm nay"
@@ -679,14 +711,22 @@
     ]);
     const INLINE_IMAGE_FIELDS = new Set(['productImage', 'invoiceImage']);
 
-    function rowHtml(r, idx, tab, shipmentId) {
+    function rowHtml(r, idx, tab, shipmentId, meta) {
         const rid = escapeHtml(r.id);
         const sid = escapeHtml(shipmentId);
         const edit = editTableMode;
+        // P1 2026-05-30: meta = { ncc: {render, span}, inv: {render, span} }.
+        // Fallback nếu caller cũ chưa pass.
+        const nccMeta = meta?.ncc || { render: true, span: 1 };
+        const invMeta = meta?.inv || { render: true, span: 1 };
+        const nccRowspanAttr = nccMeta.span > 1 ? ` rowspan="${nccMeta.span}"` : '';
+        const invRowspanAttr = invMeta.span > 1 ? ` rowspan="${invMeta.span}"` : '';
         const cells = {
-            supplier: edit
-                ? editableCellHtml('supplier', r, rid, sid)
-                : `<td class="so-cell-supplier" data-cell-field="supplier" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.supplier || '—')}</td>`,
+            supplier: !nccMeta.render
+                ? ''
+                : edit
+                  ? editableCellHtml('supplier', r, rid, sid, nccRowspanAttr)
+                  : `<td class="so-cell-supplier${nccMeta.span > 1 ? ' so-cell-merged' : ''}" data-cell-field="supplier" data-row-id="${rid}" data-shipment-id="${sid}"${nccRowspanAttr}>${escapeHtml(r.supplier || '—')}</td>`,
             stt: `<td class="so-cell-stt">${idx + 1}</td>`,
             productName: edit
                 ? editableCellHtml('productName', r, rid, sid)
@@ -704,7 +744,18 @@
                 ? editableCellHtml('costPrice', r, rid, sid)
                 : priceCell(r.costPrice, tab, { rid, sid, field: 'costPrice' }),
             productImage: imgCell(r.productImage, { rid, sid, field: 'productImage' }),
-            invoiceImage: imgCell(r.invoiceImage, { rid, sid, field: 'invoiceImage' }),
+            // P1 2026-05-30: invoiceImage cell merged khi invMeta.span > 1.
+            // Skip render khi không phải dòng đầu group.
+            invoiceImage: !invMeta.render
+                ? ''
+                : imgCell(r.invoiceImage, {
+                      rid,
+                      sid,
+                      field: 'invoiceImage',
+                      rowspan: invMeta.span,
+                      invoiceGroupId: r.invoiceGroupId || '',
+                      merged: invMeta.span > 1,
+                  }),
             note: edit
                 ? editableCellHtml('note', r, rid, sid)
                 : `<td class="so-cell-note" data-cell-field="note" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.note || '')}</td>`,
@@ -732,8 +783,9 @@
     // Tạo HTML <td> chứa input/select khi whole-table edit mode bật.
     // Field nào không có handler riêng → text input. Status → select.
     // Variant → wrapper với picker dropdown (lazy refresh khi focus/typing).
-    function editableCellHtml(field, r, rid, sid) {
+    function editableCellHtml(field, r, rid, sid, extraTdAttr) {
         const dataAttr = `data-cell-field="${field}" data-row-id="${rid}" data-shipment-id="${sid}"`;
+        const extra = extraTdAttr || '';
         const tdClass =
             {
                 qty: 'so-cell-qty',
@@ -747,7 +799,7 @@
                 productName: 'so-cell-product',
             }[field] || '';
         if (field === 'qty') {
-            return `<td class="${tdClass} so-cell-edit" ${dataAttr}>
+            return `<td class="${tdClass} so-cell-edit" ${dataAttr}${extra}>
                 <input class="so-edit-input so-edit-num" type="number" min="0" step="1" value="${Number(r.qty) || 0}" data-edit-field="qty" data-row-id="${rid}" data-shipment-id="${sid}" />
             </td>`;
         }
@@ -775,7 +827,7 @@
                 </div>
             </td>`;
         }
-        return `<td class="${tdClass} so-cell-edit" ${dataAttr}>
+        return `<td class="${tdClass} so-cell-edit" ${dataAttr}${extra}>
             <input class="so-edit-input" type="text" value="${escapeHtml(r[field] || '')}" data-edit-field="${field}" data-row-id="${rid}" data-shipment-id="${sid}" />
         </td>`;
     }
@@ -957,8 +1009,13 @@
     }
 
     function imgCell(url, meta) {
+        const rowspan = meta?.rowspan && meta.rowspan > 1 ? ` rowspan="${meta.rowspan}"` : '';
+        const mergedClass = meta?.merged ? ' so-cell-merged' : '';
+        const igAttr = meta?.invoiceGroupId
+            ? ` data-invoice-group-id="${escapeHtml(meta.invoiceGroupId)}"`
+            : '';
         const attrs = meta
-            ? ` data-cell-field="${meta.field}" data-row-id="${meta.rid}" data-shipment-id="${meta.sid}"`
+            ? ` data-cell-field="${meta.field}" data-row-id="${meta.rid}" data-shipment-id="${meta.sid}"${igAttr}`
             : '';
         // Edit affordance: pencil button overlay top-right (always rendered;
         // CSS shows it on hover). Click → opens inline image modal so user
@@ -967,9 +1024,9 @@
             ? `<button type="button" class="so-cell-img-edit" data-img-edit data-cell-field="${meta.field}" data-row-id="${meta.rid}" data-shipment-id="${meta.sid}" title="Sửa ảnh"><i data-lucide="pencil"></i></button>`
             : '';
         if (!url) {
-            return `<td class="so-cell-img"${attrs}><span class="so-cell-img-missing" data-img-edit>—</span>${editBtn}</td>`;
+            return `<td class="so-cell-img${mergedClass}"${attrs}${rowspan}><span class="so-cell-img-missing" data-img-edit>—</span>${editBtn}</td>`;
         }
-        return `<td class="so-cell-img"${attrs}><img src="${escapeHtml(url)}" alt="" data-zoomable loading="lazy" />${editBtn}</td>`;
+        return `<td class="so-cell-img${mergedClass}"${attrs}${rowspan}><img src="${escapeHtml(url)}" alt="" data-zoomable loading="lazy" />${editBtn}</td>`;
     }
 
     function statusCell(status, meta) {
@@ -1811,6 +1868,40 @@ window.addEventListener('load', () => {
         };
     }
 
+    // P1 2026-05-30: paste image cell helper — show thumbnail card khi đã
+    // có ảnh thay vì input "data:image/jpeg;base..." raw. User feedback
+    // "area khi paste hình làm đẹp hơn".
+    function _imgPasteCellHtml(row, fieldName) {
+        const val = row[fieldName] || '';
+        const isDataUrl = val.startsWith('data:');
+        const inputValueDisplay = isDataUrl ? '' : val;
+        const placeholderText = val ? 'Đổi URL (xóa input để thay ảnh)' : 'Hoặc dán URL';
+        const hasImg = !!val;
+        return `
+            <div class="so-img-cell-v2${hasImg ? ' has-image' : ''}" tabindex="0" data-img-cell data-uid="${row.uid}" data-img-name="${fieldName}">
+                ${
+                    hasImg
+                        ? `<div class="so-img-thumb-wrap">
+                                <img class="so-img-thumb" src="${escapeHtml(val)}" alt="" />
+                                <button type="button" class="so-img-thumb-clear" data-uid="${row.uid}" data-img-name="${fieldName}" title="Xóa ảnh"><i data-lucide="x"></i></button>
+                                <div class="so-img-thumb-label"><i data-lucide="check-circle-2"></i> Đã có ảnh</div>
+                           </div>`
+                        : `<div class="so-img-cell-hint">
+                                <i data-lucide="clipboard-paste"></i>
+                                <span>Ctrl+V / Kéo thả ảnh</span>
+                           </div>`
+                }
+                <input
+                    type="text"
+                    data-field="${fieldName}"
+                    data-uid="${row.uid}"
+                    placeholder="${placeholderText}"
+                    class="so-input-v2 so-input-mini so-input-url"
+                    value="${escapeHtml(inputValueDisplay)}"
+                />
+            </div>`;
+    }
+
     function modalRowHtml(row, idx, total) {
         const matched = row.matchedCode
             ? window.Web2ProductsCache?.findByCode?.(row.matchedCode) || null
@@ -1906,42 +1997,10 @@ window.addEventListener('load', () => {
                 <span data-total-for="${row.uid}">0₫</span>
             </td>
             <td class="so-td-img">
-                <div class="so-img-cell-v2" tabindex="0" data-img-cell data-uid="${row.uid}" data-img-name="productImage">
-                    <div class="so-img-cell-hint">
-                        <i data-lucide="clipboard-paste"></i>
-                        <span>Ctrl+V / Kéo thả</span>
-                    </div>
-                    <input
-                        type="url"
-                        data-field="productImage"
-                        data-uid="${row.uid}"
-                        placeholder="hoặc dán URL"
-                        class="so-input-v2 so-input-mini so-input-url"
-                        value="${escapeHtml(row.productImage)}"
-                    />
-                </div>
-                <div class="so-img-preview" data-preview-uid="${row.uid}" data-img-name="productImage">${
-                    row.productImage ? `<img src="${escapeHtml(row.productImage)}" alt="" />` : ''
-                }</div>
+                ${_imgPasteCellHtml(row, 'productImage')}
             </td>
             <td class="so-td-img">
-                <div class="so-img-cell-v2" tabindex="0" data-img-cell data-uid="${row.uid}" data-img-name="invoiceImage">
-                    <div class="so-img-cell-hint">
-                        <i data-lucide="clipboard-paste"></i>
-                        <span>Ctrl+V / Kéo thả</span>
-                    </div>
-                    <input
-                        type="url"
-                        data-field="invoiceImage"
-                        data-uid="${row.uid}"
-                        placeholder="hoặc dán URL"
-                        class="so-input-v2 so-input-mini so-input-url"
-                        value="${escapeHtml(row.invoiceImage)}"
-                    />
-                </div>
-                <div class="so-img-preview" data-preview-uid="${row.uid}" data-img-name="invoiceImage">${
-                    row.invoiceImage ? `<img src="${escapeHtml(row.invoiceImage)}" alt="" />` : ''
-                }</div>
+                ${_imgPasteCellHtml(row, 'invoiceImage')}
             </td>
             <td class="so-td-row-actions">${delBtnHtml}</td>
         </tr>`;
@@ -2309,6 +2368,12 @@ window.addEventListener('load', () => {
         const row = modalRows.find((r) => r.uid === uid);
         if (!row) return;
         row[name] = dataUrl;
+        // P1 2026-05-30: nếu dataUrl là blob/data → re-render row để show
+        // thumbnail card thay vì input có raw data URL ugly text.
+        if (typeof dataUrl === 'string' && dataUrl.startsWith('data:')) {
+            renderModalRows();
+            return;
+        }
         const formInput = document.querySelector(
             `#soModalProductsBody input[data-field="${name}"][data-uid="${uid}"]`
         );
@@ -2335,6 +2400,14 @@ window.addEventListener('load', () => {
                         _applyImageToRow(uid, name, dataUrl);
                     },
                     notify,
+                });
+            }
+            // Wire thumbnail clear button (P1 2026-05-30)
+            const clearBtn = cell.querySelector('.so-img-thumb-clear');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    _applyImageToRow(uid, name, '');
                 });
             }
         });
@@ -2583,8 +2656,11 @@ window.addEventListener('load', () => {
                 if (old.status === 'received') continue; // bảo vệ rows đã nhận
                 window.SoOrderStorage.deleteRow(state, tab.id, sh.id, old.id);
             }
-            // Update / add rows
+            // Update / add rows.
+            // P1 2026-05-30: rows MỚI thêm trong cùng modal submit dùng
+            // chung 1 invoiceGroupId — share Ảnh Hóa Đơn cell (rowspan).
             const addedRows = [];
+            const newInvoiceGroupId = `inv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
             for (const r of validRows) {
                 const rowData = {
                     ...sharedFields,
@@ -2599,7 +2675,10 @@ window.addEventListener('load', () => {
                 if (r.rowId) {
                     window.SoOrderStorage.updateRow(state, tab.id, sh.id, r.rowId, rowData);
                 } else {
-                    window.SoOrderStorage.addRow(state, tab.id, sh.id, rowData);
+                    window.SoOrderStorage.addRow(state, tab.id, sh.id, {
+                        ...rowData,
+                        invoiceGroupId: newInvoiceGroupId,
+                    });
                     addedRows.push(r);
                 }
             }
@@ -2623,6 +2702,9 @@ window.addEventListener('load', () => {
                 };
                 window.SoOrderStorage.updateShipment(state, tab.id, sh.id, merged);
             }
+            // P1 2026-05-30: rows trong cùng modal submit dùng chung 1
+            // invoiceGroupId → hóa đơn chung (cell rowspan + sync paste).
+            const newInvoiceGroupId = `inv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
             for (const r of validRows) {
                 window.SoOrderStorage.addRow(state, tab.id, sh.id, {
                     ...sharedFields,
@@ -2633,6 +2715,7 @@ window.addEventListener('load', () => {
                     costPrice: Number(r.costPrice) || 0,
                     productImage: r.productImage.trim(),
                     invoiceImage: r.invoiceImage.trim(),
+                    invoiceGroupId: newInvoiceGroupId,
                 });
             }
             notify(`Đã thêm ${validRows.length} dòng order (Nháp)`, 'success');
@@ -3615,13 +3698,39 @@ window.addEventListener('load', () => {
         const tab = window.SoOrderStorage.getActiveTab(state);
         const urlInput = document.getElementById('soInlineImageUrl');
         const newUrl = (urlInput?.value || inlineImageCtx.newUrl || '').trim();
-        window.SoOrderStorage.updateRow(state, tab.id, shipmentId, rowId, {
-            [field]: newUrl,
-        });
+        // P1 2026-05-30: invoiceImage = share toàn group → broadcast tất cả
+        // rows cùng invoiceGroupId trong shipment. productImage vẫn per-row.
+        if (field === 'invoiceImage') {
+            const sh = tab.shipments.find((s) => s.id === shipmentId);
+            const row = sh?.rows.find((r) => r.id === rowId);
+            const gid = row?.invoiceGroupId;
+            if (gid && window.SoOrderStorage.updateInvoiceImageForGroup) {
+                const n = window.SoOrderStorage.updateInvoiceImageForGroup(
+                    state,
+                    tab.id,
+                    shipmentId,
+                    gid,
+                    newUrl
+                );
+                notify(
+                    n > 1 ? `Đã lưu ảnh hóa đơn cho ${n} SP cùng nhóm` : 'Đã lưu ảnh hóa đơn',
+                    'success'
+                );
+            } else {
+                window.SoOrderStorage.updateRow(state, tab.id, shipmentId, rowId, {
+                    [field]: newUrl,
+                });
+                notify('Đã lưu ảnh', 'success');
+            }
+        } else {
+            window.SoOrderStorage.updateRow(state, tab.id, shipmentId, rowId, {
+                [field]: newUrl,
+            });
+            notify('Đã lưu ảnh', 'success');
+        }
         pushSync();
         renderAll();
         flashRow(rowId);
-        notify('Đã lưu ảnh', 'success');
         hideModal('soInlineImageModal');
         inlineImageCtx = null;
     }

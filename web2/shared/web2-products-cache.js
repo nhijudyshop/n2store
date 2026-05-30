@@ -196,6 +196,32 @@
             else if (name.includes(q) || code.includes(q)) contains.push(p);
             if (exact.length + startsWith.length + contains.length > limit * 4) break;
         }
+        // P1 2026-05-30: ranking heuristic — user feedback gõ "b4" trả SP cũ
+        // tên ngắn "B4" stock=1 lên top thay vì SP đầy đủ "2000 QUAN test
+        // nhap b4" stock=6.
+        //
+        // Cách fix:
+        //   - Query NGẮN (<4 chars) → gộp tất cả tier + sort theo composite
+        //     score (stock + name length). Tên ngắn = q exact match KHÔNG
+        //     ưu tiên vì nó thường là noise (SP cũ test, code rút gọn).
+        //   - Query DÀI (>=4 chars) → giữ tier order (exact → startsWith →
+        //     contains) vì user gõ tên đầy đủ chủ ý.
+        //   - Trong cùng tier: sort theo (stock + pending) * 1000 + nameLen.
+        const scoreFor = (p) => {
+            const s = Number(p.stock) || 0;
+            const pq = Number(p.pendingQty) || 0;
+            const nameLen = String(p.name || '').length;
+            return (s + pq) * 1000 + nameLen;
+        };
+        if (q.length < 4) {
+            const all = [...exact, ...startsWith, ...contains];
+            all.sort((a, b) => scoreFor(b) - scoreFor(a));
+            return all.slice(0, limit);
+        }
+        const sortTier = (arr) => arr.sort((a, b) => scoreFor(b) - scoreFor(a));
+        sortTier(exact);
+        sortTier(startsWith);
+        sortTier(contains);
         return [...exact, ...startsWith, ...contains].slice(0, limit);
     }
 

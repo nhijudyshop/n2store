@@ -25,6 +25,49 @@
 
 ## 2026-05-30
 
+### [so-order] Round 2: NCC + Invoice cell merged (rowspan) + suggestion ranking + paste thumbnail card ✅
+
+**User feedback**:
+
+1. "STT 1, 2 nhập 1 lần → 1 hóa đơn chung" (cùng modal submit)
+2. "STT 3, 4 nhập 1 lần đợt 2 → 1 hóa đơn"
+3. "Cột NCC giống nhau gộp chung B4"
+4. "Nhập 1 lần chung hóa đơn → cột hóa đơn chung"
+5. Suggestion gõ "b4" trả SP cũ tên ngắn thay vì SP đầy đủ tên dài stock cao
+6. "Area paste hình làm đẹp hơn" (đang show raw data URL text)
+
+**Sửa**:
+
+- **Issue 1-4 — invoiceGroupId + cell merge**:
+    - Field `invoiceGroupId` mới trong row. Auto-generate 1 group / modal submit. Backfill rows cũ qua walk consecutive supplier.
+    - `_computeRowSpans(rows)` pre-compute spans per row (NCC = consecutive supplier; Inv = consecutive invoiceGroupId).
+    - `rowHtml(meta)` nhận meta → render dòng đầu group với `rowspan=N`, dòng sau skip cell.
+    - `SoOrderStorage.updateInvoiceImageForGroup` broadcast paste ảnh hóa đơn cho all rows cùng group.
+    - CSS `.so-cell-merged` (gradient bg, border-right purple/green, vertical-align middle); merged invoice img 56×56.
+- **Issue 5 — Suggestion ranking** (`findByName`):
+    - Query < 4 chars → gộp all tier + sort theo composite `(stock + pendingQty) * 1000 + nameLen`.
+    - Query >= 4 chars → tier order giữ nguyên, sort trong tier theo score.
+    - Verified: "b4" giờ trả `[2000 QUAN... stock 6, 2000 ao... stock 3, B4 stock 1]` (đảo ngược cũ).
+- **Issue 6 — Paste area thumbnail**:
+    - `_imgPasteCellHtml(row, field)` mới: chưa có ảnh → hint "Ctrl+V / Kéo thả", có ảnh → thumbnail card (max 120px) + nút clear ✕ + badge "✓ Đã có ảnh".
+    - Input giữ value để form submit, NHƯNG hiển thị empty khi value startsWith `data:` → không lộ raw data URL.
+    - `_applyImageToRow` re-render rows khi nhận data URL → thumbnail show ngay.
+
+**Files**:
+
+- `so-order/js/so-order-storage.js` — `invoiceGroupId` field + backfill + `updateInvoiceImageForGroup`
+- `so-order/js/so-order-app.js` — `_computeRowSpans`, `rowHtml(meta)` rowspan, `_imgPasteCellHtml`, `_applyImageToRow` re-render, `_saveInlineImage` broadcast, handleOrderSubmit pass invoiceGroupId
+- `so-order/css/so-order.css` — `.so-cell-merged`, `.so-img-cell-v2.has-image` thumb card styles
+- `web2/shared/web2-products-cache.js` — `findByName` short-query composite ranking
+
+**Verify live (persistent browser session)**:
+
+- NCC: 3 cells `rowspan=4` class `so-cell-merged` ✅
+- Paste thumbnail: `hasImgCells=1`, `thumbExists=true`, thumb src `data:...` ✅
+- Suggestion "b4" top = `2000 QUAN test nhap b4 (stock 6)` ✅
+
+---
+
 ### [inventory-tracking] iPad: bút chì edit cột Mã hàng (tap 1 lần, bypass double-click) ✅
 
 **Vấn đề (user báo)**: trên iPad double-tap không tin cậy (kể cả sau khi đã tắt zoom). Cần icon bút chì 1-tap để chỉnh sửa Mã hàng.

@@ -121,6 +121,24 @@
             if (sh.collapsed == null) sh.collapsed = false;
             if (!sh.date) sh.date = new Date().toISOString().slice(0, 10);
             if (!sh.contractCurrency) sh.contractCurrency = tab.currency || 'VND';
+            // P1 2026-05-30: backfill invoiceGroupId cho rows cũ chưa có.
+            // Gộp các rows kế nhau cùng supplier (heuristic: nhiều khả năng
+            // được tạo cùng 1 đợt) → 1 group. Đổi supplier → group mới.
+            let lastSupplier = null;
+            let curGroup = null;
+            for (const r of sh.rows) {
+                if (r.invoiceGroupId) {
+                    lastSupplier = r.supplier || '';
+                    curGroup = r.invoiceGroupId;
+                    continue;
+                }
+                const supplier = r.supplier || '';
+                if (supplier !== lastSupplier || !curGroup) {
+                    curGroup = _mkId();
+                    lastSupplier = supplier;
+                }
+                r.invoiceGroupId = curGroup;
+            }
         }
         // First-visit default: collapse every shipment except the newest
         // (sort by date desc, keep first one expanded). Subsequent loads
@@ -307,6 +325,11 @@
             const now = Date.now();
             const row = {
                 id: _mkId(),
+                // P1 2026-05-30: invoiceGroupId nhóm các rows tạo cùng 1 lần
+                // (1 modal submit) → share invoiceImage + render cell merged
+                // (rowspan). Nếu caller không pass → tạo group mới riêng cho
+                // row này.
+                invoiceGroupId: rowData.invoiceGroupId || _mkId(),
                 supplier: rowData.supplier || '',
                 productName: rowData.productName || '',
                 variant: rowData.variant || '',
@@ -324,6 +347,27 @@
             sh.rows.push(row);
             _write(state);
             return row;
+        },
+
+        // P1 2026-05-30: helper update invoiceImage cho toàn bộ rows cùng
+        // invoiceGroupId trong shipment — dùng khi user dán ảnh vào 1 cell
+        // merged. Trả về số rows được update.
+        updateInvoiceImageForGroup(state, tabId, shipmentId, invoiceGroupId, imageUrl) {
+            const tab = state.tabs.find((t) => t.id === tabId);
+            if (!tab) return 0;
+            const sh = tab.shipments.find((s) => s.id === shipmentId);
+            if (!sh) return 0;
+            let n = 0;
+            const now = Date.now();
+            for (const r of sh.rows) {
+                if (r.invoiceGroupId === invoiceGroupId) {
+                    r.invoiceImage = imageUrl || '';
+                    r.updatedAt = now;
+                    n++;
+                }
+            }
+            if (n) _write(state);
+            return n;
         },
 
         updateRow(state, tabId, shipmentId, rowId, patch) {
