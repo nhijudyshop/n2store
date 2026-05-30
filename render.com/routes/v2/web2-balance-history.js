@@ -321,7 +321,8 @@ router.post('/reprocess-unmatched', async (req, res) => {
                     r?.success &&
                     (r.method === 'exact_phone' ||
                         r.method === 'single_match' ||
-                        r.method === 'qr_code')
+                        r.method === 'qr_code' ||
+                        r.method === 'legacy_credited')
                 ) {
                     stats.matched++;
                 } else if (
