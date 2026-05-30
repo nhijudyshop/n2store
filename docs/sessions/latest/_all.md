@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `514d8b2` — auto: session update
-**Last updated**: 2026-05-30 10:17:19 +07
-**Latest session**: [`RESUME:20260530-101719-514d8b2`](../20260530-101719-514d8b2.md)
+**Latest commit**: `aac5b32` — auto: session update
+**Last updated**: 2026-05-30 10:20:07 +07
+**Latest session**: [`RESUME:20260530-102007-aac5b32`](../20260530-102007-aac5b32.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 3 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -67,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-30 10:17
+- [`web2/`](./web2.md) — updated 2026-05-30 10:20
