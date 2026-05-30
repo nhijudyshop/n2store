@@ -25,6 +25,29 @@
 
 ## 2026-05-30
 
+### [web2-products] Sheet lẻ (1 label) đẩy về slot 1 bên trái ✅
+
+**User ask**: "nếu in 1 tem thì cho qua bên trái chứ để ở giữa bị in ra máy in là in giữa tem".
+
+**Vấn đề**: Sau commit trước (`space-evenly`), sheet cuối có 1 label sẽ canh GIỮA sheet. Nhưng physical label roll có gap giữa 2 con tem vật lý → in giữa sheet = in vào vùng GAP = lệch ra ngoài label vật lý.
+
+**Fix**:
+
+- `web2/products/js/web2-products-print.js`:
+    - Tính `singleGap = (sheetW - cols × labelW) / (cols + 1)` (= ~5.33mm cho Paper 7).
+    - Loop sheets: `isPartial = sheet.length < cols`. Nếu partial → inline style `justify-content: flex-start; padding-left: <singleGap>mm` → đẩy label về SLOT 1 vật lý (match position với layout đầy đủ).
+    - Sheet full giữ `space-evenly`.
+- `web2/products/index.html`: cache `v=20260530c`.
+
+**Verify** (Playwright iframe):
+
+- 1 SP × 1 qty → 1 sheet, 1 label: `flex-start`, `padding-left: 20.14px` (=5.33mm), label tại 21.1-115.6px = slot 1.
+- 3 SP × 1 qty → 2 sheets: Sheet 0 (2 labels, `space-evenly`), Sheet 1 (1 label, `flex-start` + padding 20.14px).
+
+**Status**: ✅ Done. Screenshots: `downloads/n2store-session/w2p-1tem-leftaligned.png`, `w2p-3labels-mix.png`.
+
+---
+
 ### [web2-products] In tem 2-tem: chia đều + canh giữa theo TPOS spec ✅
 
 **User ask**: "bố cục cho phù hợp dài rộng máy in 2 tem, chia 2 tem đều, canh giữa". User cung cấp TPOS settings chính xác: Sheet 66×21mm, Label 25×21mm, Margins 0.5mm, FontSize 6.

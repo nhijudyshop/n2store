@@ -637,10 +637,20 @@
 
         const bTag = showBold ? 'strong' : 'span';
 
+        // P1 2026-05-30: sheet partial (số label < cols) → đẩy label về SLOT
+        // 1 BÊN TRÁI thay vì canh giữa sheet. Lý do: physical label roll có 2
+        // con tem cách nhau gap vật lý; với space-evenly + 1 label, label sẽ
+        // canh giữa sheet → in VÀO VÙNG GAP giữa 2 tem → in lệch. Phải align
+        // với slot 1 (offset = singleGap = (sheetW - cols×labelW)/(cols+1)).
+        const singleGap = Math.round(((sheetW - cols * labelW) / (cols + 1)) * 100) / 100;
         let sheetsHTML = '';
         for (const sheet of sheets) {
             // TPOS: ng-style="data.style_sheet()" → {width: SheetWidth+"mm", height: SheetHeight+"mm"}
-            sheetsHTML += `<div class="barcode-sheet" style="width:${sheetW}mm;height:${sheetH}mm;">`;
+            const isPartial = sheet.length < cols;
+            const sheetExtraStyle = isPartial
+                ? `justify-content:flex-start;padding-left:${singleGap}mm;`
+                : '';
+            sheetsHTML += `<div class="barcode-sheet" style="width:${sheetW}mm;height:${sheetH}mm;${sheetExtraStyle}">`;
             for (const label of sheet) {
                 const displayPrice = formatPrice(label.price);
                 const currencyStr = showCurrency ? ' đ' : '';
