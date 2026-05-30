@@ -1,36 +1,29 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — fully isolated.
 // =====================================================================
 // Web2SepayMatching — Match SePay deposit → KH → cộng ví Web 2.0
 // =====================================================================
-// Tách hoàn toàn khỏi routes/sepay-transaction-matching.js (Web 1).
-// Khác biệt Web 2.0 spec:
-//   • LUÔN auto-credit khi match 1-1 (KHÔNG check auto_approve_enabled)
-//   • KHÔNG có virtual_credit/virtual_balance
-//   • KHÔNG có verification_status PENDING/APPROVED/REJECTED
+// Web 2.0 spec:
+//   • LUÔN auto-credit khi match 1-1 (không check auto_approve_enabled)
+//   • Không có virtual_credit/virtual_balance
+//   • Không có verification_status PENDING/APPROVED/REJECTED
 //   • Match đa SĐT → tạo web2_pending_matches để user chọn ở UI
 //   • Ghi vào web2_balance_history + web2_customer_wallets/web2_wallet_transactions
 //
-// Phase 4 (2026-05-30): ZERO Web 1.0 dependency.
-//   • Bỏ đọc legacy table balance_customer_info (QR + phone name cache)
-//   • Bỏ đọc legacy table balance_history (sequence init)
-//   • Name lookup CHỈ qua TPOS OData (live, không local cache)
-//   • Trade-off: 1 TPOS call mỗi unknown phone (~150ms), bù lại data luôn fresh
-//
-// Reuse các helper extract/search từ legacy (pure function, không write DB):
-//   • extractPhoneFromContent
-//   • searchTPOSByPhone
-//   • searchTPOSByPartialPhone
+// Phase 5 (2026-05-30): zero coupling với module SePay khác trong repo.
+//   • Self-contained extractor + TPOS search trong web2-content-extractor.js
+//   • QR code path live qua bảng web2_payment_qr_codes (native-orders generate
+//     QR persistent per customer; matcher detect QR trong content + lookup
+//     → credit. Format: <slug(tên)><TPOS_partner_id>, vd 'NHIJUDY571046'.)
+//   • Phone length range: 5–10 digits (extractor sort priority 6>7-10>5)
+//   • match_method 'prelink_credit' — row đã có linked_customer_phone trước
+//     khi matcher fire, chỉ cần re-credit ví, không cần re-extract content.
 //
 // API public:
 //   • processWeb2Match(db, web2BalanceHistoryRow, fetchWithTimeout)
 //     → { success, method, phone?, customerName?, walletTxnId?, pendingMatchId? }
 // =====================================================================
 
-const {
-    extractPhoneFromContent,
-    searchTPOSByPhone,
-    searchTPOSByPartialPhone,
-} = require('../routes/sepay-transaction-matching');
+const { extractIdentifier, searchTposByPhone } = require('./web2-content-extractor');
 const web2WalletService = require('./web2-wallet-service');
 const web2ContentParser = require('./web2-content-parser');
 const web2MatchAudit = require('./web2-match-audit');
@@ -44,65 +37,46 @@ let _ready = false;
 async function ensureSchema(pool) {
     if (_ready || !pool) return;
     try {
-        // Web 1.0-independent bootstrap:
-        //   • Nếu balance_history (legacy) tồn tại → vẫn dùng LIKE để inherit
-        //     mọi migration đã apply trên table cũ (safest cho legacy-shared env).
-        //   • Nếu legacy không tồn tại → tạo explicit schema từ
-        //     migrations/create_balance_history.sql (base cols Web 2.0 cần).
-        //     Các col Web 2.0-only (debt_added, linked_customer_phone, …) được
-        //     ALTER thêm idempotent ở phần ALTER bên dưới.
-        // Trên prod: web2_balance_history đã tồn tại → cả 2 nhánh CREATE đều no-op.
+        // web2_balance_history — explicit Web 2.0 schema, self-contained.
+        // Idempotent: trên prod table đã tồn tại → CREATE IF NOT EXISTS no-op.
         await pool.query(`
-            DO $$
-            BEGIN
-                IF NOT EXISTS (
-                    SELECT 1 FROM pg_class WHERE relname = 'web2_balance_history'
-                ) THEN
-                    IF EXISTS (
-                        SELECT 1 FROM pg_class WHERE relname = 'balance_history'
-                    ) THEN
-                        CREATE TABLE web2_balance_history (
-                            LIKE balance_history INCLUDING DEFAULTS
-                                                 INCLUDING CONSTRAINTS
-                                                 INCLUDING INDEXES
-                        );
-                    ELSE
-                        CREATE TABLE web2_balance_history (
-                            id SERIAL PRIMARY KEY,
-                            sepay_id INTEGER UNIQUE NOT NULL,
-                            gateway VARCHAR(100) NOT NULL,
-                            transaction_date TIMESTAMP NOT NULL,
-                            account_number VARCHAR(50) NOT NULL,
-                            code VARCHAR(100),
-                            content TEXT,
-                            transfer_type VARCHAR(10) NOT NULL CHECK (transfer_type IN ('in', 'out')),
-                            transfer_amount BIGINT NOT NULL,
-                            accumulated BIGINT NOT NULL,
-                            sub_account VARCHAR(100),
-                            reference_code VARCHAR(100),
-                            description TEXT,
-                            body JSONB,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                        );
-                        CREATE INDEX idx_web2_bh_sepay_id ON web2_balance_history(sepay_id);
-                        CREATE INDEX idx_web2_bh_tx_date ON web2_balance_history(transaction_date DESC);
-                        CREATE INDEX idx_web2_bh_transfer_type ON web2_balance_history(transfer_type);
-                    END IF;
-                END IF;
-            END $$;
+            CREATE TABLE IF NOT EXISTS web2_balance_history (
+                id BIGINT PRIMARY KEY,
+                sepay_id INTEGER UNIQUE NOT NULL,
+                gateway VARCHAR(100) NOT NULL,
+                transaction_date TIMESTAMP NOT NULL,
+                account_number VARCHAR(50) NOT NULL,
+                code VARCHAR(100),
+                content TEXT,
+                transfer_type VARCHAR(10) NOT NULL CHECK (transfer_type IN ('in', 'out')),
+                transfer_amount BIGINT NOT NULL,
+                accumulated BIGINT NOT NULL,
+                sub_account VARCHAR(100),
+                reference_code VARCHAR(100),
+                description TEXT,
+                body JSONB,
+                linked_customer_phone VARCHAR(20),
+                display_name VARCHAR(255),
+                debt_added BOOLEAN DEFAULT FALSE,
+                wallet_processed BOOLEAN DEFAULT FALSE,
+                match_method VARCHAR(40),
+                verification_status VARCHAR(40),
+                verified_at TIMESTAMPTZ,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_web2_bh_sepay_id ON web2_balance_history(sepay_id);
+            CREATE INDEX IF NOT EXISTS idx_web2_bh_tx_date ON web2_balance_history(transaction_date DESC);
+            CREATE INDEX IF NOT EXISTS idx_web2_bh_transfer_type ON web2_balance_history(transfer_type);
+            CREATE INDEX IF NOT EXISTS idx_web2_bh_debt_added ON web2_balance_history(debt_added) WHERE debt_added = FALSE;
         `);
-        // Match-method CHECK constraint — Web 2.0 cần thêm value vào allowed list
-        // mà Web 1.0 không có (`legacy_credited` cho legacy migration path,
-        // `pending_low_confidence` cho single match conf < threshold). Constraint
-        // gốc inherit từ `LIKE balance_history` chỉ allow 6 giá trị → mọi UPDATE
-        // SET match_method='legacy_credited' bị throw → toàn bộ legacy migration
-        // block fail → display_name không được backfill. Idempotent.
+
+        // Match-method CHECK constraint — Web 2.0 enumerated values.
+        // 'manual_entry' giữ lại vì 1500+ row hiện có đã set value đó (read-only,
+        // không tạo mới qua flow Web 2.0). Idempotent.
         await pool.query(`
             DO $$
             BEGIN
-                -- Drop both possible inherited names (Web 1.0 'balance_history_match_method_check'
-                -- hoặc Web 2.0 mới 'web2_balance_history_match_method_check')
                 ALTER TABLE web2_balance_history
                     DROP CONSTRAINT IF EXISTS balance_history_match_method_check;
                 ALTER TABLE web2_balance_history
@@ -117,19 +91,49 @@ async function ensureSchema(pool) {
                         'pending_low_confidence',
                         'manual_entry',
                         'manual_link',
-                        'legacy_credited'
+                        'prelink_credit',
+                        'legacy_credited'  -- giữ lại cho row đã có value cũ, KHÔNG dùng cho UPDATE mới
                     ));
             EXCEPTION WHEN OTHERS THEN
-                -- Nếu constraint không tồn tại (vd table mới được tạo từ explicit
-                -- schema fallback, không có constraint legacy), ADD vẫn chạy được
-                -- trong nhánh trên. Catch để idempotent với mọi state.
                 RAISE NOTICE 'web2_balance_history match_method constraint reset: %', SQLERRM;
             END $$;
         `);
 
-        // Sequence riêng — chỉ tham chiếu web2_balance_history (zero Web 1.0 dep).
-        // Lần đầu init: nếu bảng rỗng, sequence khởi đầu từ 10000 — đủ buffer cho
-        // mọi row legacy đã backfill (ID < 10000 không tồn tại trong web2_).
+        // web2_payment_qr_codes — Web 2.0 native QR registry, PERSISTENT per KH.
+        // Workflow:
+        //   1. native-orders bấm "Gửi VietQR" cho KH có TPOS Partner Id = 571046
+        //   2. Generator tạo qr_code = <slug(tên)><partner_id>, vd 'NHIJUDY571046'
+        //      — tên có thể trùng giữa nhiều KH, nhưng partner_id TPOS là UNIQUE
+        //        toàn shop → qr_code unique, KH đổi tên thì qr_code regenerate
+        //        nhưng partner_id giữ nguyên (UPSERT theo customer_id).
+        //   3. INSERT/UPDATE row (customer_id PK).
+        //   4. Gửi VietQR cho khách → khách CK với nội dung chứa qr_code.
+        //   5. SePay webhook → matcher scan content → match qr_code → credit.
+        //   6. QR persistent: khách dùng nhiều CK cùng QR, không expire/use_at
+        //      block. last_used_at chỉ để audit + UI hiển thị "lần gần nhất".
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS web2_payment_qr_codes (
+                customer_id BIGINT PRIMARY KEY,
+                qr_code VARCHAR(50) NOT NULL UNIQUE,
+                phone VARCHAR(20) NOT NULL,
+                customer_name VARCHAR(255) NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                last_used_at TIMESTAMPTZ,
+                last_used_balance_history_id BIGINT,
+                use_count INTEGER NOT NULL DEFAULT 0,
+                CONSTRAINT web2_payment_qr_codes_format
+                    CHECK (qr_code ~ '^[A-Z0-9]{5,50}$')
+            );
+            CREATE INDEX IF NOT EXISTS idx_web2_qr_code_lookup
+                ON web2_payment_qr_codes(qr_code);
+            CREATE INDEX IF NOT EXISTS idx_web2_qr_phone
+                ON web2_payment_qr_codes(phone);
+        `);
+
+        // Sequence riêng — chỉ tham chiếu web2_balance_history. Lần đầu init:
+        // nếu bảng rỗng, sequence khởi đầu từ 10000 — buffer an toàn cho mọi
+        // row đã có ID < 10000 (nếu có) không bị collision.
         await pool.query(`
             CREATE SEQUENCE IF NOT EXISTS web2_balance_history_id_seq;
             DO $$
@@ -251,16 +255,16 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
         return { success: false, reason: 'Invalid amount' };
     }
 
-    // LEGACY MIGRATION: nếu row đã có linked_customer_phone (từ Web 1.0 manual
-    // entry / extractor cũ) mà ví Web 2.0 chưa cộng → tin dữ liệu cũ, credit
-    // luôn không cần re-extract. Lý do: phone đã được user verify trong Web 1.0.
-    if (tx.linked_customer_phone && tx.linked_customer_phone.length >= 9) {
-        // Backfill display_name từ TPOS nếu null (Web 1.0 cũ lưu name ở
-        // balance_customer_info đã rip out — phải fetch realtime).
-        let legacyName = tx.display_name;
-        if (!legacyName) {
+    // 1. PRELINK CREDIT: row đã có linked_customer_phone (phone ≥ 5 digits)
+    //    nhưng ví Web 2.0 chưa cộng → credit lại theo phone đã link, fill name
+    //    qua TPOS realtime. Không cần re-extract content. Phone < 5 digit
+    //    là artifact extraction lỗi, KHÔNG credit (tránh tạo wallet sai).
+    if (tx.linked_customer_phone && tx.linked_customer_phone.length >= 5) {
+        // Backfill display_name từ TPOS nếu null
+        let prelinkName = tx.display_name;
+        if (!prelinkName) {
             try {
-                const tposResult = await searchTPOSByPartialPhone(
+                const tposResult = await searchTposByPhone(
                     tx.linked_customer_phone,
                     fetchWithTimeout
                 );
@@ -269,12 +273,12 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
                         (p) => p.phone === tx.linked_customer_phone
                     );
                     if (phoneData?.customers?.length > 0) {
-                        legacyName = phoneData.customers[0].name || null;
+                        prelinkName = phoneData.customers[0].name || null;
                     }
                 }
             } catch (e) {
                 console.warn(
-                    `[processWeb2Match] legacy TPOS name lookup fail for ${tx.linked_customer_phone}:`,
+                    `[processWeb2Match] prelink TPOS name lookup fail for ${tx.linked_customer_phone}:`,
                     e.message
                 );
             }
@@ -285,7 +289,7 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
                 tx.linked_customer_phone,
                 amount,
                 tx.id,
-                'Nap tu CK (legacy migration)',
+                'Nap tu CK (prelink credit)',
                 null,
                 null,
                 tx.sepay_id
@@ -295,22 +299,22 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
                  SET debt_added = TRUE,
                      wallet_processed = TRUE,
                      verification_status = 'AUTO_APPROVED',
-                     match_method = 'legacy_credited',
+                     match_method = 'prelink_credit',
                      display_name = COALESCE(display_name, $2),
                      verified_at = NOW()
                  WHERE id = $1`,
-                [tx.id, legacyName]
+                [tx.id, prelinkName]
             );
             return {
                 success: true,
-                method: 'legacy_credited',
+                method: 'prelink_credit',
                 phone: tx.linked_customer_phone,
-                customerName: legacyName,
+                customerName: prelinkName,
                 amount,
                 walletTxId: walletResult?.transaction?.id,
             };
         } catch (e) {
-            console.warn(`[processWeb2Match] legacy credit fail for id=${tx.id}:`, e.message);
+            console.warn(`[processWeb2Match] prelink credit fail for id=${tx.id}:`, e.message);
             // Fall through to normal re-extraction
         }
     }
@@ -318,116 +322,149 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
     const content = tx.content || '';
     let matchedPhone = null;
     let customerName = null;
+    let customerId = null;
     let matchMethod = null;
     let dataSource = null;
+    let qrCodeUsed = null; // remember QR để mark used sau khi credit
 
-    // 2. QR code path REMOVED — QR codes (N2 + 16 chars) chỉ tồn tại trong table
-    //    Web 1.0 `balance_customer_info`. Web 2.0 không generate QR codes mới,
-    //    nên không có gì để lookup. Fallback to phone extraction.
+    // 2. Extract identifier (QR / exact_phone / partial_phone)
+    const extracted = extractIdentifier(content);
 
-    // 3. Try exact / partial phone extraction
-    if (!matchedPhone) {
-        const extracted = extractPhoneFromContent(content);
-        if (extracted.type === 'exact_phone') {
-            const exactPhone = extracted.value;
-            // TPOS-only lookup (no local cache — zero Web 1.0 dependency)
-            try {
-                const tposResult = await searchTPOSByPartialPhone(exactPhone, fetchWithTimeout);
-                if (tposResult?.success && tposResult.uniquePhones?.length > 0) {
-                    const phoneData = tposResult.uniquePhones.find((p) => p.phone === exactPhone);
-                    if (phoneData && phoneData.customers?.length > 0) {
-                        customerName = phoneData.customers[0].name;
-                        dataSource = 'TPOS';
-                    }
-                }
-            } catch (e) {
-                console.warn('[web2-sepay-matching] TPOS exact phone lookup failed:', e.message);
-            }
-            matchedPhone = exactPhone;
-            matchMethod = 'exact_phone';
-        } else if (extracted.type === 'partial_phone') {
-            const partialPhone = extracted.value;
-            // TPOS-only lookup (no local cache — zero Web 1.0 dependency)
-            let matchedPhones = [];
-            try {
-                const tposResult = await searchTPOSByPartialPhone(partialPhone, fetchWithTimeout);
-                if (tposResult?.success && tposResult.uniquePhones?.length > 0) {
-                    matchedPhones = tposResult.uniquePhones;
-                    dataSource = 'TPOS';
-                }
-            } catch (e) {
-                console.warn('[web2-sepay-matching] TPOS partial lookup failed:', e.message);
-            }
-
-            if (matchedPhones.length === 1) {
-                // Single match → auto credit
-                matchedPhone = matchedPhones[0].phone;
-                customerName = matchedPhones[0].customers?.[0]?.name || null;
-                matchMethod = 'single_match';
-            } else if (matchedPhones.length > 1) {
-                // Multi match → create pending for user pick + audit log
-                const insertPending = await db.query(
-                    `INSERT INTO web2_pending_matches
-                       (transaction_id, extracted_phone, matched_customers, status)
-                     VALUES ($1, $2, $3, 'pending')
-                     RETURNING id`,
-                    [web2BhId, partialPhone, JSON.stringify(matchedPhones)]
-                );
-                await db.query(
-                    `UPDATE web2_balance_history
-                     SET match_method = 'pending_match'
-                     WHERE id = $1`,
-                    [web2BhId]
-                );
-                // Audit log multi-match decision
-                const auditCandidates = matchedPhones.flatMap((m) =>
-                    (m.customers || []).map((c) => ({
-                        phone: m.phone || c.phone,
-                        name: c.name,
-                    }))
-                );
-                await web2MatchAudit.log(db, {
-                    transactionId: web2BhId,
-                    sepayId: tx.sepay_id,
-                    extractedValue: partialPhone,
-                    extractedType: 'partial_phone',
-                    candidates: auditCandidates,
-                    chosenPhone: null,
-                    chosenName: null,
-                    decisionTier: 'pending_ambiguous',
-                    confidenceScore: 0,
-                    confidenceBreakdown: {
-                        reason: 'multi_match',
-                        candidateCount: matchedPhones.length,
-                    },
-                    amount,
-                    decidedBy: 'auto',
-                    note: `Multi-match ${matchedPhones.length} candidates → user pick`,
-                });
-                return {
-                    success: true,
-                    method: 'pending_match_created',
-                    pendingMatchId: insertPending.rows[0].id,
-                    transactionId: web2BhId,
-                    partialPhone,
-                    uniquePhonesCount: matchedPhones.length,
-                };
-            } else {
-                // No match
-                return {
-                    success: false,
-                    reason: 'No match found',
-                    partialPhone,
-                };
-            }
+    // 2a. QR code path — lookup web2_payment_qr_codes (Web 2.0 native registry).
+    //     Persistent: 1 KH = 1 qr_code = <slug(tên)><partner_id> (vd NHI571046).
+    //     Khách dùng cùng QR cho nhiều CK → credit nhiều lần OK, chỉ track
+    //     use_count + last_used_* cho audit.
+    if (extracted.type === 'qr_code') {
+        const qrLookup = await db.query(
+            `SELECT qr_code, phone, customer_name, customer_id
+             FROM web2_payment_qr_codes
+             WHERE qr_code = $1
+             LIMIT 1`,
+            [extracted.value]
+        );
+        if (qrLookup.rows.length > 0) {
+            const qr = qrLookup.rows[0];
+            matchedPhone = qr.phone;
+            customerName = qr.customer_name;
+            customerId = qr.customer_id;
+            matchMethod = 'qr_code';
+            dataSource = 'WEB2_QR';
+            qrCodeUsed = qr.qr_code;
         } else {
-            // type === 'none'
+            console.log(
+                `[processWeb2Match] QR ${extracted.value} không có trong web2_payment_qr_codes — KH chưa được tạo QR registry`
+            );
             return {
                 success: false,
-                reason: 'No identifier found',
-                note: extracted.note,
+                reason: 'QR not registered',
+                qrCode: extracted.value,
             };
         }
+    }
+
+    // 2b. Exact 10-digit phone path
+    if (!matchedPhone && extracted.type === 'exact_phone') {
+        const exactPhone = extracted.value;
+        try {
+            const tposResult = await searchTposByPhone(exactPhone, fetchWithTimeout);
+            if (tposResult?.success && tposResult.uniquePhones?.length > 0) {
+                const phoneData = tposResult.uniquePhones.find((p) => p.phone === exactPhone);
+                if (phoneData && phoneData.customers?.length > 0) {
+                    customerName = phoneData.customers[0].name;
+                    customerId = phoneData.customers[0].id || null;
+                    dataSource = 'TPOS';
+                }
+            }
+        } catch (e) {
+            console.warn('[web2-sepay-matching] TPOS exact phone lookup failed:', e.message);
+        }
+        matchedPhone = exactPhone;
+        matchMethod = 'exact_phone';
+    }
+
+    // 2c. Partial phone (5–10 digits) path
+    if (!matchedPhone && extracted.type === 'partial_phone') {
+        const partialPhone = extracted.value;
+        let matchedPhones = [];
+        try {
+            const tposResult = await searchTposByPhone(partialPhone, fetchWithTimeout);
+            if (tposResult?.success && tposResult.uniquePhones?.length > 0) {
+                matchedPhones = tposResult.uniquePhones;
+                dataSource = 'TPOS';
+            }
+        } catch (e) {
+            console.warn('[web2-sepay-matching] TPOS partial lookup failed:', e.message);
+        }
+
+        if (matchedPhones.length === 1) {
+            // Single match → auto credit
+            matchedPhone = matchedPhones[0].phone;
+            customerName = matchedPhones[0].customers?.[0]?.name || null;
+            customerId = matchedPhones[0].customers?.[0]?.id || null;
+            matchMethod = 'single_match';
+        } else if (matchedPhones.length > 1) {
+            // Multi match → create pending for user pick + audit log
+            const insertPending = await db.query(
+                `INSERT INTO web2_pending_matches
+                   (transaction_id, extracted_phone, matched_customers, status)
+                 VALUES ($1, $2, $3, 'pending')
+                 RETURNING id`,
+                [web2BhId, partialPhone, JSON.stringify(matchedPhones)]
+            );
+            await db.query(
+                `UPDATE web2_balance_history
+                 SET match_method = 'pending_match'
+                 WHERE id = $1`,
+                [web2BhId]
+            );
+            const auditCandidates = matchedPhones.flatMap((m) =>
+                (m.customers || []).map((c) => ({
+                    phone: m.phone || c.phone,
+                    name: c.name,
+                }))
+            );
+            await web2MatchAudit.log(db, {
+                transactionId: web2BhId,
+                sepayId: tx.sepay_id,
+                extractedValue: partialPhone,
+                extractedType: 'partial_phone',
+                candidates: auditCandidates,
+                chosenPhone: null,
+                chosenName: null,
+                decisionTier: 'pending_ambiguous',
+                confidenceScore: 0,
+                confidenceBreakdown: {
+                    reason: 'multi_match',
+                    candidateCount: matchedPhones.length,
+                },
+                amount,
+                decidedBy: 'auto',
+                note: `Multi-match ${matchedPhones.length} candidates → user pick`,
+            });
+            return {
+                success: true,
+                method: 'pending_match_created',
+                pendingMatchId: insertPending.rows[0].id,
+                transactionId: web2BhId,
+                partialPhone,
+                uniquePhonesCount: matchedPhones.length,
+            };
+        } else {
+            return {
+                success: false,
+                reason: 'No match found',
+                partialPhone,
+            };
+        }
+    }
+
+    // 2d. No identifier extracted (content không có QR / phone / partial)
+    if (!matchedPhone && extracted.type === 'none') {
+        return {
+            success: false,
+            reason: 'No identifier found',
+            note: extracted.note,
+        };
     }
 
     // 4. (NEW Phase 5) Compute confidence score before auto-credit.
@@ -549,6 +586,25 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
          WHERE id = $1`,
         [web2BhId, matchedPhone, matchMethod, customerName]
     );
+
+    // 6b. Nếu credit từ QR path → update use_count + last_used_* (audit)
+    if (qrCodeUsed) {
+        await db
+            .query(
+                `UPDATE web2_payment_qr_codes
+             SET use_count = use_count + 1,
+                 last_used_at = NOW(),
+                 last_used_balance_history_id = $2
+             WHERE qr_code = $1`,
+                [qrCodeUsed, web2BhId]
+            )
+            .catch((e) =>
+                console.warn(
+                    `[processWeb2Match] QR usage update fail for ${qrCodeUsed}:`,
+                    e.message
+                )
+            );
+    }
 
     // 7. Audit log: SUCCESS
     await web2MatchAudit.log(db, {
