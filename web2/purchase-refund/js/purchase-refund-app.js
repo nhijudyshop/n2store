@@ -583,17 +583,35 @@
 
         let data = null;
         let source = 'none';
-        try {
-            const raw = localStorage.getItem('soOrder_v1');
-            if (raw) {
-                data = JSON.parse(raw);
-                source = 'localStorage';
+        // P1 2026-05-30: soOrder_v1 chuyển sang IDB qua Web2IdbStore.
+        // Đọc IDB trước, fallback localStorage (legacy nếu chưa migrate).
+        if (window.Web2IdbStore) {
+            try {
+                const store = window.Web2IdbStore.open('so_order_storage', {
+                    migrateFromLs: 'soOrder_v1',
+                });
+                const idbData = await store.get();
+                if (idbData) {
+                    data = idbData;
+                    source = 'idb';
+                }
+            } catch (e) {
+                console.warn('[picker] IDB read fail:', e.message);
             }
-        } catch (e) {
-            console.warn('[picker] localStorage parse fail:', e.message);
+        }
+        if (!data) {
+            try {
+                const raw = localStorage.getItem('soOrder_v1');
+                if (raw) {
+                    data = JSON.parse(raw);
+                    source = 'localStorage';
+                }
+            } catch (e) {
+                console.warn('[picker] localStorage parse fail:', e.message);
+            }
         }
 
-        // Fallback Firestore nếu localStorage trống
+        // Fallback Firestore nếu cả IDB + localStorage trống
         if (!data || !Array.isArray(data.tabs) || data.tabs.length === 0) {
             if (typeof firebase === 'undefined' || !firebase.firestore) {
                 return { items: [], err: 'Firebase chưa load + localStorage trống' };

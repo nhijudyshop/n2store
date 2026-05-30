@@ -3803,7 +3803,8 @@ window.addEventListener('load', () => {
     }
 
     async function init() {
-        state = window.SoOrderStorage.load();
+        // P1 2026-05-30: load() giờ async (IDB read). Await trước khi render.
+        state = await window.SoOrderStorage.load();
         applyEditTableModeUi();
         renderAll();
         wireToolbar();
@@ -3843,8 +3844,8 @@ window.addEventListener('load', () => {
             // back-fill, shipment shape heal) is always applied to any
             // FB-sourced data — otherwise raw payload would clobber the
             // post-migration state with un-migrated fields.
-            const remoteHandler = () => {
-                state = window.SoOrderStorage.load();
+            const remoteHandler = async () => {
+                state = await window.SoOrderStorage.load();
                 renderAll();
             };
             const conflictHandler = (loaded) => {
@@ -3858,7 +3859,7 @@ window.addEventListener('load', () => {
             };
             const ok = await window.SoOrderStorage.Sync.init(remoteHandler, conflictHandler);
             if (ok) {
-                state = window.SoOrderStorage.load();
+                state = await window.SoOrderStorage.load();
                 renderAll();
                 // Push back so Firestore picks up the first-visit
                 // migration (uiInitialized = true, default collapses).

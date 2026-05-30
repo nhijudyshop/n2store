@@ -158,17 +158,65 @@
         }
     }
 
-    function _read() {
+    // P1 2026-05-30: Persistent storage chuyển từ localStorage → IndexedDB
+    // qua Web2IdbStore. Reason: dữ liệu Web 2.0 có khả năng grow lớn (nhiều
+    // shipments với base64 images) → vượt 5-10MB localStorage cap.
+    //
+    // Sync API (load/save) giữ NGUYÊN — caller không cần await. Layer này
+    // dùng cached in-memory state + async background persist:
+    //   - load(): async return Promise<state> — caller phải await
+    //   - save(state): sync — schedule debounced async IDB write
+    //   - Sync memory cache `_cachedState` để sync code path đọc nhanh
+    //
+    // Migrate path: lần đầu open() Web2IdbStore với migrateFromLs sẽ tự
+    // copy `localStorage.soOrder_v1` → IDB key `so_order_storage:main` rồi
+    // xóa LS. Idempotent (chạy 1 lần duy nhất).
+    let _idbStore = null;
+    function _getStore() {
+        if (_idbStore) return _idbStore;
+        const root = typeof window !== 'undefined' ? window : globalThis;
+        if (!root.Web2IdbStore) {
+            console.warn('[SoOrderStorage] Web2IdbStore not loaded — fallback localStorage only');
+            return null;
+        }
+        _idbStore = root.Web2IdbStore.open('so_order_storage', {
+            migrateFromLs: STORAGE_KEY,
+        });
+        return _idbStore;
+    }
+
+    let _cachedState = null; // in-memory mirror, sync access
+    let _writeTimer = null;
+    const WRITE_DEBOUNCE_MS = 150;
+
+    async function _read() {
         try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (!raw) return _defaultState();
-            const data = JSON.parse(raw);
+            const store = _getStore();
+            let data = null;
+            if (store) {
+                data = await store.get();
+            }
+            // Fallback localStorage nếu IDB unavailable HOẶC chưa migrate (rare).
+            if (!data) {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    try {
+                        data = JSON.parse(raw);
+                    } catch {
+                        data = null;
+                    }
+                }
+            }
+            if (!data) {
+                _cachedState = _defaultState();
+                return _cachedState;
+            }
             // Heal partials so the rest of the app never has to null-check
             if (!Array.isArray(data.tabs) || !data.tabs.length) data.tabs = _defaultState().tabs;
             if (!data.activeTabId || !data.tabs.find((t) => t.id === data.activeTabId)) {
                 data.activeTabId = data.tabs[0].id;
             }
-            const globalColVis = data.columnVisibility; // legacy top-level
+            const globalColVis = data.columnVisibility;
             let mutated = false;
             for (const tab of data.tabs) {
                 if (!tab.footer) tab.footer = { discount: 0, shipping: 0 };
@@ -181,35 +229,73 @@
                 mutated = true;
                 delete data.columnVisibility;
             }
-            // Persist migration so the auto-collapse-on-first-visit only
-            // runs once and uiInitialized stays true across reloads.
+            _cachedState = data;
             if (mutated) _write(data);
             return data;
         } catch (e) {
             console.warn('[SoOrderStorage] read failed:', e.message);
-            return _defaultState();
+            _cachedState = _defaultState();
+            return _cachedState;
         }
     }
 
+    // Sync API — caller không cần await. Schedule debounced async IDB write.
     function _write(state) {
+        _cachedState = state;
+        if (_writeTimer) clearTimeout(_writeTimer);
+        _writeTimer = setTimeout(async () => {
+            _writeTimer = null;
+            try {
+                const store = _getStore();
+                if (store) {
+                    await store.set(state);
+                } else {
+                    // Fallback localStorage nếu IDB không khả dụng
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                }
+            } catch (e) {
+                console.error('[SoOrderStorage] write failed:', e.message);
+            }
+        }, WRITE_DEBOUNCE_MS);
+        return true;
+    }
+
+    // Flush pending IDB write — dùng khi tab unload để không mất last edits.
+    async function _flushWrite() {
+        if (!_writeTimer) return;
+        clearTimeout(_writeTimer);
+        _writeTimer = null;
+        if (!_cachedState) return;
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-            return true;
+            const store = _getStore();
+            if (store) await store.set(_cachedState);
+            else localStorage.setItem(STORAGE_KEY, JSON.stringify(_cachedState));
         } catch (e) {
-            console.error('[SoOrderStorage] write failed:', e.message);
-            return false;
+            console.error('[SoOrderStorage] flush write failed:', e.message);
         }
     }
 
     // ------ PUBLIC API ------
 
     const SoOrderStorage = {
+        // Async load — returns Promise<state>. Caller must await.
+        // P1 2026-05-30: chuyển từ sync localStorage sang async IDB.
         load() {
             return _read();
         },
 
+        // Sync cached state nếu đã load 1 lần (after first load() resolved).
+        // Caller dùng cho code path không thể await (event handlers re-read).
+        loadCached() {
+            return _cachedState || _defaultState();
+        },
+
         save(state) {
             return _write(state);
+        },
+
+        flush() {
+            return _flushWrite();
         },
 
         getActiveTab(state) {
@@ -462,7 +548,10 @@
                 this._db = firebase.firestore();
                 const loaded = await this._loadFromFirestore();
                 if (loaded) {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(loaded.data));
+                    // P1 2026-05-30: persist qua IDB store thay vì localStorage
+                    _cachedState = loaded.data;
+                    const store = _getStore();
+                    if (store) await store.set(loaded.data);
                     this._localLastUpdated = loaded.lastUpdated || 0;
                 }
                 return true;
@@ -501,7 +590,10 @@
                 return false;
             }
             this._localLastUpdated = loaded.lastUpdated;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(loaded.data));
+            // P1 2026-05-30: IDB persist thay vì localStorage
+            _cachedState = loaded.data;
+            const store = _getStore();
+            if (store) await store.set(loaded.data);
             if (this._onRemoteUpdate) this._onRemoteUpdate(loaded.data);
             return true;
         },

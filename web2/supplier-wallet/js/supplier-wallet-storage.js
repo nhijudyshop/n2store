@@ -262,12 +262,28 @@
     }
 
     // Load so-order data (read-only) to derive purchases.
+    // P1 2026-05-30: soOrder_v1 chuyển sang IDB. Đọc IDB → fallback Firestore
+    // → fallback localStorage legacy.
+    async function _readSoOrderLocal() {
+        if (global.Web2IdbStore) {
+            try {
+                const store = global.Web2IdbStore.open('so_order_storage', {
+                    migrateFromLs: 'soOrder_v1',
+                });
+                const d = await store.get();
+                if (d) return d;
+            } catch (e) {
+                console.warn('[SupplierWallet] IDB read fail:', e.message);
+            }
+        }
+        const raw = localStorage.getItem('soOrder_v1');
+        return raw ? JSON.parse(raw) : null;
+    }
+
     async function loadSoOrderData() {
         try {
             if (typeof firebase === 'undefined' || !firebase.firestore) {
-                // fallback to localStorage
-                const raw = localStorage.getItem('soOrder_v1');
-                return raw ? JSON.parse(raw) : null;
+                return await _readSoOrderLocal();
             }
             const db = firebase.firestore();
             const snap = await db.collection('web2_so_order').doc('main').get();
@@ -275,8 +291,7 @@
                 const payload = snap.data() || {};
                 if (payload.data) return payload.data;
             }
-            const raw = localStorage.getItem('soOrder_v1');
-            return raw ? JSON.parse(raw) : null;
+            return await _readSoOrderLocal();
         } catch (e) {
             console.warn('[SupplierWallet] loadSoOrderData fail:', e.message);
             return null;
