@@ -605,8 +605,130 @@
             p.hidden = p.dataset.panel !== state.detailTab;
         });
         if (state.detailTab === 'orders') renderOrders();
-        else renderHistory();
+        else if (state.detailTab === 'history') renderHistory();
+        else if (state.detailTab === 'qr') renderQrTab();
     }
+
+    // ----- QR VietQR tab -----
+    const QR_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customer-wallet';
+    const QR_DIRECT_BASE = 'https://n2store-fallback.onrender.com/api/web2/customer-wallet';
+    async function qrFetch(path, options) {
+        try {
+            const r = await fetch(`${QR_BASE}${path}`, options);
+            if (r.status === 404) return { status: 404, body: await r.json().catch(() => ({})) };
+            const body = await r.json();
+            if (!r.ok) throw new Error(body?.error || `HTTP ${r.status}`);
+            return { status: r.status, body };
+        } catch (e) {
+            const r = await fetch(`${QR_DIRECT_BASE}${path}`, options);
+            if (r.status === 404) return { status: 404, body: await r.json().catch(() => ({})) };
+            const body = await r.json();
+            if (!r.ok) throw new Error(body?.error || `HTTP ${r.status}`);
+            return { status: r.status, body };
+        }
+    }
+    function renderQrEmpty() {
+        document.getElementById('cwQrLoading').hidden = true;
+        document.getElementById('cwQrContent').hidden = true;
+        document.getElementById('cwQrEmpty').hidden = false;
+        if (window.lucide) window.lucide.createIcons();
+    }
+    function renderQrData(qr) {
+        document.getElementById('cwQrLoading').hidden = true;
+        document.getElementById('cwQrEmpty').hidden = true;
+        document.getElementById('cwQrContent').hidden = false;
+        document.getElementById('cwQrImage').src = qr.vietqr_url;
+        document.getElementById('cwQrCode').textContent = qr.qr_code;
+        document.getElementById('cwQrPartnerId').textContent = qr.customer_id || '—';
+        document.getElementById('cwQrUseCount').textContent = qr.use_count || 0;
+        document.getElementById('cwQrLastUsed').textContent = qr.last_used_at
+            ? new Date(qr.last_used_at).toLocaleString('vi-VN')
+            : '(chưa dùng)';
+        document.getElementById('cwQrCopyImage').href = qr.vietqr_url;
+        if (qr.bank) {
+            document.getElementById('cwQrBank').textContent =
+                `${qr.bank.code} · ${qr.bank.accountNo} · ${qr.bank.accountName}`;
+        }
+        if (window.lucide) window.lucide.createIcons();
+    }
+    async function renderQrTab() {
+        const phone = state.activePhone;
+        if (!phone) return;
+        const loading = document.getElementById('cwQrLoading');
+        const content = document.getElementById('cwQrContent');
+        const empty = document.getElementById('cwQrEmpty');
+        loading.hidden = false;
+        content.hidden = true;
+        empty.hidden = true;
+        try {
+            const r = await qrFetch(`/${encodeURIComponent(phone)}/qr`);
+            if (r.status === 404) {
+                renderQrEmpty();
+                return;
+            }
+            renderQrData(r.body.data);
+        } catch (e) {
+            loading.textContent = `Lỗi: ${e.message}`;
+        }
+    }
+    async function upsertQr() {
+        const phone = state.activePhone;
+        if (!phone) return;
+        const c = state.cache[phone];
+        const partner = state.tposPartners[phone];
+        const btnCreate = document.getElementById('cwQrCreate');
+        const btnUpsert = document.getElementById('cwQrUpsert');
+        const targetBtn = btnUpsert?.offsetParent ? btnUpsert : btnCreate;
+        if (targetBtn) {
+            targetBtn.disabled = true;
+            targetBtn.dataset._txt = targetBtn.innerHTML;
+            targetBtn.innerHTML = '<i data-lucide="loader-2"></i> Đang xử lý…';
+            if (window.lucide) window.lucide.createIcons();
+        }
+        try {
+            const body = {
+                customerId: partner?.Id || c?.customerId || undefined,
+                customerName: partner?.Name || c?.name || undefined,
+            };
+            const r = await qrFetch(`/${encodeURIComponent(phone)}/qr`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            renderQrData(r.body.data);
+            try {
+                window.notificationManager?.show?.('Đã tạo QR thành công', 'success');
+            } catch (_) {}
+        } catch (e) {
+            try {
+                window.notificationManager?.show?.('Lỗi tạo QR: ' + e.message, 'error');
+            } catch (_) {}
+        } finally {
+            if (targetBtn) {
+                targetBtn.disabled = false;
+                targetBtn.innerHTML = targetBtn.dataset._txt;
+                if (window.lucide) window.lucide.createIcons();
+            }
+        }
+    }
+    function copyQrCode() {
+        const code = document.getElementById('cwQrCode').textContent;
+        if (!code || code === '—') return;
+        navigator.clipboard?.writeText(code).then(
+            () => window.notificationManager?.show?.('Đã copy mã QR', 'success'),
+            () => window.notificationManager?.show?.('Copy thất bại', 'error')
+        );
+    }
+    // Wire QR buttons after DOM ready
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('#cwQrCreate, #cwQrUpsert')) {
+            e.preventDefault();
+            upsertQr();
+        } else if (e.target.closest('#cwQrCopyCode')) {
+            e.preventDefault();
+            copyQrCode();
+        }
+    });
     function renderOrders() {
         const orders = state.detailOrders;
         const pbh = Array.isArray(orders?.pbh) ? orders.pbh : [];

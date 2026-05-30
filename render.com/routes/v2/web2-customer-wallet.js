@@ -14,10 +14,44 @@
 
 const express = require('express');
 const router = express.Router();
+const { searchTposByPhone } = require('../../services/web2-content-extractor');
 
 function handleError(res, err, msg = 'Internal error') {
     console.error(`[Web2CustomerWallet] ${msg}:`, err.message);
     res.status(500).json({ success: false, error: msg, details: err.message });
+}
+
+// Shop bank config — hardcoded từ N2 Store ACB account.
+// Đổi qua env var khi shop có nhiều tài khoản.
+const SHOP_BANK = {
+    bin: '970416',
+    code: 'ACB',
+    accountNo: '75918',
+    accountName: 'LAI THUY YEN NHI',
+};
+
+// Slugify customer name → uppercase alphanumeric (max 15 chars).
+// VN: "Lai Thuy Yen Nhi" → "LAITHUYYENNHI". Bỏ dấu, bỏ khoảng trắng.
+function slugifyName(name) {
+    if (!name) return 'KH';
+    return String(name)
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/đ/gi, 'd')
+        .replace(/[^A-Za-z0-9]/g, '')
+        .toUpperCase()
+        .slice(0, 15);
+}
+
+// Build VietQR image URL via vietqr.io's print template.
+// Customer scan → bank app auto-fill account + addInfo (qr_code). User nhập amount.
+function buildVietQRUrl(qrCode) {
+    const base = `https://img.vietqr.io/image/${SHOP_BANK.bin}-${SHOP_BANK.accountNo}-print.png`;
+    const params = new URLSearchParams({
+        addInfo: qrCode,
+        accountName: SHOP_BANK.accountName,
+    });
+    return `${base}?${params.toString()}`;
 }
 
 // Build SQL CTE that aggregates all sources by phone. Returns CTE block +
@@ -240,6 +274,124 @@ router.get('/stats', async (req, res) => {
         res.json({ success: true, data, cached: false });
     } catch (e) {
         handleError(res, e, 'Stats');
+    }
+});
+
+// =====================================================
+// GET /:phone/qr — fetch QR registry row + VietQR image URL.
+// Trả 404 nếu chưa register (frontend nên call POST để tạo).
+// =====================================================
+router.get('/:phone/qr', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb || req.app.locals.db;
+        const phone = String(req.params.phone || '').replace(/\D/g, '');
+        if (phone.length < 9) {
+            return res.status(400).json({ success: false, error: 'Invalid phone' });
+        }
+        const r = await db.query(
+            `SELECT customer_id, qr_code, phone, customer_name,
+                    created_at, updated_at, last_used_at,
+                    last_used_balance_history_id, use_count
+             FROM web2_payment_qr_codes
+             WHERE phone = $1
+             LIMIT 1`,
+            [phone]
+        );
+        if (r.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'QR not registered' });
+        }
+        const qr = r.rows[0];
+        res.json({
+            success: true,
+            data: {
+                ...qr,
+                customer_id: Number(qr.customer_id),
+                vietqr_url: buildVietQRUrl(qr.qr_code),
+                bank: SHOP_BANK,
+            },
+        });
+    } catch (e) {
+        handleError(res, e, 'Get QR');
+    }
+});
+
+// =====================================================
+// POST /:phone/qr — UPSERT QR cho phone.
+// Body: { customerId?, customerName? }
+//   - Nếu thiếu → lookup TPOS qua searchTposByPhone(phone)
+//   - Nếu TPOS không có KH → 404 (yêu cầu tạo KH trên TPOS trước)
+// qr_code = <slug(name)><customer_id>, UPSERT theo customer_id PK.
+// =====================================================
+router.post('/:phone/qr', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb || req.app.locals.db;
+        const phone = String(req.params.phone || '').replace(/\D/g, '');
+        if (phone.length < 9) {
+            return res.status(400).json({ success: false, error: 'Invalid phone' });
+        }
+
+        let customerId = Number(req.body?.customerId) || null;
+        let customerName = String(req.body?.customerName || '').trim();
+
+        // Lookup TPOS nếu thiếu customer_id hoặc name
+        if (!customerId || !customerName) {
+            const { fetchWithTimeout } = require('../../../shared/node/fetch-utils.cjs');
+            const tpos = await searchTposByPhone(phone, fetchWithTimeout);
+            if (!tpos?.success) {
+                return res.status(502).json({
+                    success: false,
+                    error: 'TPOS lookup failed',
+                    details: tpos?.error,
+                });
+            }
+            const phoneData = tpos.uniquePhones.find((p) => p.phone === phone);
+            const tposCustomer = phoneData?.customers?.[0];
+            if (!tposCustomer) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Customer not in TPOS — tạo KH trên TPOS trước',
+                });
+            }
+            customerId = customerId || Number(tposCustomer.id);
+            customerName = customerName || String(tposCustomer.name || '').trim();
+        }
+
+        if (!customerId || !customerName) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing customerId/customerName',
+            });
+        }
+
+        const qrCode = slugifyName(customerName) + customerId;
+        // UPSERT theo customer_id (PK) — đổi tên thì regenerate qr_code,
+        // nhưng row giữ nguyên + use_count tích lũy.
+        const r = await db.query(
+            `INSERT INTO web2_payment_qr_codes
+               (customer_id, qr_code, phone, customer_name, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, NOW(), NOW())
+             ON CONFLICT (customer_id) DO UPDATE
+               SET qr_code = EXCLUDED.qr_code,
+                   phone = EXCLUDED.phone,
+                   customer_name = EXCLUDED.customer_name,
+                   updated_at = NOW()
+             RETURNING customer_id, qr_code, phone, customer_name,
+                       created_at, updated_at, last_used_at,
+                       last_used_balance_history_id, use_count`,
+            [customerId, qrCode, phone, customerName]
+        );
+        const row = r.rows[0];
+        res.json({
+            success: true,
+            data: {
+                ...row,
+                customer_id: Number(row.customer_id),
+                vietqr_url: buildVietQRUrl(row.qr_code),
+                bank: SHOP_BANK,
+            },
+        });
+    } catch (e) {
+        handleError(res, e, 'Upsert QR');
     }
 });
 
