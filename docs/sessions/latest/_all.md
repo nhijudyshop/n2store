@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f2451b1` — fix(web2-products): sheet lẻ (1 label) đẩy về slot 1 bên trái
-**Last updated**: 2026-05-30 10:26:53 +07
-**Latest session**: [`RESUME:20260530-102653-f2451b1`](../20260530-102653-f2451b1.md)
-**Summary**: fix(web2-products): sheet lẻ (1 label) đẩy về slot 1 bên trái
+**Latest commit**: `0a4d9de` — feat(web2/purchase-refund): picker chọn SP từ Kho group by NCC
+**Last updated**: 2026-05-30 10:33:48 +07
+**Latest session**: [`RESUME:20260530-103348-0a4d9de`](../20260530-103348-0a4d9de.md)
+**Summary**: feat(web2/purchase-refund): picker chọn SP từ Kho group by NCC
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-21 11:33
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-30 10:26
+- [`docs/`](./docs.md) — updated 2026-05-30 10:33
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -68,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-30 10:26
+- [`web2/`](./web2.md) — updated 2026-05-30 10:33
