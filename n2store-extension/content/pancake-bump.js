@@ -258,6 +258,16 @@
                 }
                 .warning strong { color: #fed7aa; }
 
+                .preset-row { display: flex; gap: 6px; flex-wrap: wrap; }
+                .btn-preset, .btn-tmpl {
+                    background: #1e293b; color: #e2e8f0; border: 1px solid #334155;
+                    border-radius: 5px; padding: 6px 10px; font-size: 11px; cursor: pointer;
+                    font-family: inherit; transition: all .1s;
+                }
+                .btn-preset:hover, .btn-tmpl:hover { background: #16a34a; border-color: #15803d; color: white; }
+                .btn-preset.active { background: #16a34a; border-color: #15803d; color: white; }
+                .btn-tmpl { font-size: 10px; padding: 4px 8px; }
+
                 .picker {
                     background: #0f172a; border: 1px solid #334155;
                     border-radius: 8px; margin-bottom: 12px; overflow: hidden;
@@ -447,12 +457,13 @@
             delayMin: $('#cfg-delay-min'),
             delayMax: $('#cfg-delay-max'),
             perConv: $('#cfg-per-conv'),
-            skipAnswered: $('#cfg-skip-answered'),
+            mode: $('#cfg-mode'),
             templates: $('#cfg-templates'),
             postId: $('#cfg-post-id'),
             statPage: $('#stat-page'),
             statLive: $('#stat-live'),
             statQueue: $('#stat-queue'),
+            statTotal: $('#stat-total'),
             log: $('#log'),
             progressWrap: $('#progress-wrap'),
             progressFill: $('#progress-fill'),
@@ -496,11 +507,40 @@
             appendLog(els, 'info', 'Đang dừng — đợi request hiện tại xong...');
         });
 
-        ['limit', 'delayMin', 'delayMax', 'perConv', 'skipAnswered', 'templates', 'postId'].forEach(
-            (k) => {
-                els[k].addEventListener('change', () => saveCfg(els));
-            }
-        );
+        ['limit', 'delayMin', 'delayMax', 'perConv', 'mode', 'templates', 'postId'].forEach((k) => {
+            els[k].addEventListener('change', () => {
+                saveCfg(els);
+                updateTotalEstimate(els);
+            });
+        });
+
+        // Preset buttons (cap × limit)
+        shadow.querySelectorAll('.btn-preset').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                els.perConv.value = btn.dataset.cap;
+                els.limit.value = btn.dataset.limit;
+                saveCfg(els);
+                updateTotalEstimate(els);
+                shadow.querySelectorAll('.btn-preset').forEach((b) => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+
+        // Template set buttons
+        const TEMPLATE_SETS = {
+            emoji: ['🙏', '❤', '❤❤', '🌹', '🥰', '👍', '✓', '😍', '🔥', '💯'],
+            count: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+            sale: ['iB ạ', 'Em chốt', 'Dạ ạ', 'iB shop', 'Đẹp ạ', 'Iu shop', 'Đặt 1', 'Chốt'],
+            dot: ['.', '..', '...', '....', '.....'],
+        };
+        shadow.querySelectorAll('.btn-tmpl').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const set = TEMPLATE_SETS[btn.dataset.set];
+                if (!set) return;
+                els.templates.value = set.join('\n');
+                saveCfg(els);
+            });
+        });
 
         // Picker events
         els.pickerSearch.addEventListener('input', () => renderConvList(els));
@@ -1046,11 +1086,11 @@
         const pageId = detectPageId();
         return {
             pageId,
-            limit: clamp(int(els.limit.value, 30), 1, 200),
-            delayMin: clamp(int(els.delayMin.value, 2500), 300, 30000),
-            delayMax: clamp(int(els.delayMax.value, 5500), 300, 60000),
-            capPerConv: clamp(int(els.perConv.value, 1), 1, 20),
-            skipAnswered: els.skipAnswered.value === 'yes',
+            limit: clamp(int(els.limit.value, 50), 1, 500),
+            delayMin: clamp(Math.round(parseFloat(els.delayMin.value || 2.5) * 1000), 300, 60_000),
+            delayMax: clamp(Math.round(parseFloat(els.delayMax.value || 5.5) * 1000), 300, 60_000),
+            capPerConv: clamp(int(els.perConv.value, 3), 1, 100),
+            mode: els.mode.value || 'reply',
             templates: els.templates.value
                 .split('\n')
                 .map((s) => s.trim())
@@ -1065,15 +1105,24 @@
             saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
         } catch (_) {}
         if (!saved) saved = {};
-        els.limit.value = saved.limit ?? 30;
-        els.delayMin.value = saved.delayMin ?? 2500;
-        els.delayMax.value = saved.delayMax ?? 5500;
-        els.perConv.value = saved.capPerConv ?? 1;
-        els.skipAnswered.value = saved.skipAnswered === false ? 'no' : 'yes';
+        els.limit.value = saved.limit ?? 50;
+        els.delayMin.value = ((saved.delayMin ?? 2500) / 1000).toString();
+        els.delayMax.value = ((saved.delayMax ?? 5500) / 1000).toString();
+        els.perConv.value = saved.capPerConv ?? 3;
+        els.mode.value = saved.mode ?? 'reply';
         els.templates.value = (
             saved.templates && saved.templates.length ? saved.templates : DEFAULT_TEMPLATES
         ).join('\n');
         els.postId.value = saved.postId ?? '';
+    }
+
+    function updateTotalEstimate(els) {
+        const cfg = readCfg(els);
+        const total = Math.min(
+            cfg.capPerConv * cfg.limit,
+            cfg.capPerConv * (els.state?.selected?.size || cfg.limit)
+        );
+        if (els.statTotal) els.statTotal.textContent = String(total);
     }
 
     function saveCfg(els) {
