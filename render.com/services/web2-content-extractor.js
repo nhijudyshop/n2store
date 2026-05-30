@@ -14,7 +14,27 @@ const tposTokenManager = require('./tpos-token-manager');
 
 // Số tài khoản shop & các số trong content cần bỏ qua. Append vào đây khi
 // phát hiện noise mới (vd số tài khoản ngân hàng khác của shop).
-const PHONE_EXTRACTION_BLACKLIST = ['75918'];
+const PHONE_EXTRACTION_BLACKLIST = [
+    '75918', // shop ACB account
+    '0123456788', // test customer mặc định "Huỳnh Thành Đạt"
+    '0912121212', // test phone all-repeat pattern
+    '0123456789', // test phone sequential
+    // Pattern-based test phones detected runtime qua isObviousTestPhone()
+];
+
+// Detect obviously fake/test phone patterns to skip extraction.
+// Pure pattern check — không catch real customers having unusual phones.
+function isObviousTestPhone(s) {
+    const digits = String(s).replace(/\D/g, '');
+    if (digits.length !== 10) return false;
+    // All same digit: 0000000000, 1111111111, …
+    if (/^(\d)\1{9}$/.test(digits)) return true;
+    // Sequential ascending: 0123456789
+    if (digits === '0123456789') return true;
+    // Repeating 2-digit pattern: 0xyxyxyxyxy (vd 0912121212)
+    if (/^(\d)(\d)\1\2\1\2\1\2\1\2$/.test(digits)) return true;
+    return false;
+}
 
 /**
  * Extract customer identifier từ transaction content.
@@ -68,7 +88,10 @@ function extractIdentifier(content) {
     textToParse = textToParse
         .replace(/\b\d{6}-\d{2}:\d{2}:\d{2}\b/g, ' ')
         .replace(/\bFT\d{8,}\b/gi, ' ')
-        .replace(/\bGD\s+\d+[A-Z]{2,}[A-Z0-9]+\b/gi, ' ');
+        .replace(/\bGD\s+\d+[A-Z]{2,}[A-Z0-9]+\b/gi, ' ')
+        // E (2026-05-30): ACB bank ref dash form `-GD-<digits>(-|$)` — vd
+        // 'MeiguiHuang47908-GD-936769-250526' bị lầm 936769 là phone.
+        .replace(/[\s\-]GD-\d{4,8}(?=[\s\-]|$)/gi, ' ');
 
     // Step 2: Momo pattern — {12d}-{10d sender}-{customer content}
     // Extract phần customer content (bỏ sender phone).
@@ -97,8 +120,12 @@ function extractIdentifier(content) {
 
     // Step 5: Exact 10-digit phone (0xxxxxxxxx). Skip TPOS partial lookup —
     // chỉ cần verify customer tồn tại trên TPOS để lấy name.
-    const exactPhones = textToParse.match(/\b0\d{9}\b/g);
-    if (exactPhones && exactPhones.length > 0) {
+    // Filter out test phone patterns + blacklist.
+    const exactPhonesRaw = textToParse.match(/\b0\d{9}\b/g) || [];
+    const exactPhones = exactPhonesRaw.filter(
+        (p) => !PHONE_EXTRACTION_BLACKLIST.includes(p) && !isObviousTestPhone(p)
+    );
+    if (exactPhones.length > 0) {
         const exactPhone = exactPhones[exactPhones.length - 1];
         const baseNote =
             exactPhones.length > 1 ? 'MULTIPLE_EXACT_PHONES_FOUND' : 'EXACT_PHONE_EXTRACTED';
@@ -119,7 +146,8 @@ function extractIdentifier(content) {
         const phoneLikeNumbers = allNumbers.filter((num) => {
             const validLen = num.length >= 5 && num.length <= 10;
             const blacklisted = PHONE_EXTRACTION_BLACKLIST.includes(num);
-            return validLen && !blacklisted;
+            const testPattern = num.length === 10 && isObviousTestPhone(num);
+            return validLen && !blacklisted && !testPattern;
         });
         if (phoneLikeNumbers.length > 0) {
             const lengthScore = (n) =>

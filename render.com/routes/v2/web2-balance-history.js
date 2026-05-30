@@ -42,7 +42,12 @@ router.get('/', async (req, res) => {
         if (status === 'AUTO_APPROVED') {
             where.push(`verification_status = 'AUTO_APPROVED'`);
         } else if (status === 'NO_PHONE') {
+            // B (2026-05-30): exclude manual deposit/withdraw NCC — đã có
+            // display_name dù không phone, không phải webhook unmatched.
             where.push(`linked_customer_phone IS NULL`);
+            where.push(
+                `(match_method IS NULL OR match_method NOT IN ('manual_deposit', 'manual_withdraw'))`
+            );
         } else if (status === 'PENDING_MATCH') {
             where.push(`match_method = 'pending_match'`);
         } else if (status === 'MANUAL') {
@@ -577,6 +582,100 @@ router.post('/manual-deposit', async (req, res) => {
         });
     } catch (e) {
         handleError(res, e, 'Manual deposit');
+    }
+});
+
+// =====================================================
+// POST /api/web2/balance-history/cleanup-stale-pending
+// Cleanup web2_pending_matches entries không thể giải quyết:
+//   - candidates rỗng (customers=[]) → user không có gì để pick
+//   - duplicate cho cùng transaction_id → keep newest
+// Reset balance_history.match_method về null cho cleaned rows → re-process
+// có thể chạy lại (TPOS state có thể đã đổi).
+//
+// Body (optional): { dryRun?: boolean }
+// =====================================================
+router.post('/cleanup-stale-pending', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb || req.app.locals.db;
+        const dryRun = req.body?.dryRun === true;
+
+        // Detect stale: any candidate có customers=[] empty
+        const stale = await db.query(`
+            SELECT pm.id, pm.transaction_id, pm.matched_customers
+            FROM web2_pending_matches pm
+            WHERE pm.status = 'pending'
+              AND (
+                  jsonb_array_length(pm.matched_customers) = 0
+                  OR NOT EXISTS (
+                      SELECT 1 FROM jsonb_array_elements(pm.matched_customers) cand
+                      WHERE jsonb_array_length(COALESCE(cand->'customers', '[]'::jsonb)) > 0
+                  )
+              )
+        `);
+
+        // Detect duplicates: cùng transaction_id, keep id mới nhất
+        const dups = await db.query(`
+            SELECT id, transaction_id FROM web2_pending_matches
+            WHERE status = 'pending'
+              AND id NOT IN (
+                  SELECT MAX(id) FROM web2_pending_matches
+                  WHERE status = 'pending'
+                  GROUP BY transaction_id
+              )
+        `);
+
+        const stalePendingIds = stale.rows.map((r) => Number(r.id));
+        const dupPendingIds = dups.rows.map((r) => Number(r.id));
+        const allDelIds = Array.from(new Set([...stalePendingIds, ...dupPendingIds]));
+        const affectedTxIds = Array.from(
+            new Set([
+                ...stale.rows.map((r) => Number(r.transaction_id)),
+                ...dups.rows.map((r) => Number(r.transaction_id)),
+            ])
+        ).filter(Boolean);
+
+        if (dryRun) {
+            return res.json({
+                success: true,
+                dryRun: true,
+                staleCount: stalePendingIds.length,
+                dupCount: dupPendingIds.length,
+                totalDelete: allDelIds.length,
+                resetTxCount: affectedTxIds.length,
+            });
+        }
+
+        let deletedPending = 0;
+        let resetBalanceHistory = 0;
+        if (allDelIds.length > 0) {
+            const delResult = await db.query(
+                `DELETE FROM web2_pending_matches WHERE id = ANY($1::int[])`,
+                [allDelIds]
+            );
+            deletedPending = delResult.rowCount || 0;
+        }
+        if (affectedTxIds.length > 0) {
+            // Reset match_method='pending_match' về null → reprocess
+            const resetResult = await db.query(
+                `UPDATE web2_balance_history
+                 SET match_method = NULL
+                 WHERE id = ANY($1::bigint[])
+                   AND match_method = 'pending_match'
+                   AND debt_added = FALSE`,
+                [affectedTxIds]
+            );
+            resetBalanceHistory = resetResult.rowCount || 0;
+        }
+        res.json({
+            success: true,
+            deletedPending,
+            resetBalanceHistory,
+            staleCount: stalePendingIds.length,
+            dupCount: dupPendingIds.length,
+        });
+    } catch (e) {
+        handleError(res, e, 'Cleanup stale pending');
     }
 });
 
