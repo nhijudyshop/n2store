@@ -207,7 +207,7 @@
                         <i data-lucide="qr-code"></i>
                     </button>
                     <button type="button" class="pc-btn pc-btn-icon pc-btn-edit" data-action="edit" data-id="${escapeHtml(id)}" title="Sửa">
-                        <i data-lucide="square-pen"></i>
+                        <i data-lucide="pencil"></i>
                     </button>
                     <button type="button" class="pc-btn pc-btn-icon pc-btn-delete" data-action="delete" data-id="${escapeHtml(id)}" title="Xóa">
                         <i data-lucide="trash-2"></i>
