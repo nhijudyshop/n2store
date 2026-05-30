@@ -95,23 +95,103 @@
         }
     }
 
-    // P1 2026-05-30: Persistent cache layer (localStorage) — stale-while-revalidate.
-    // Page reload → load instant từ localStorage (sub-ms) → app render ngay
-    // → background HTTP fetch refresh → SSE invalidate khi data thay đổi.
-    // Lý do dùng localStorage thay vì IndexedDB: kho hiện ~35-200 SP × ~500
-    // bytes JSON = 17-100KB << 5MB localStorage limit. Đơn giản, sync API.
-    const PERSIST_KEY = 'web2ProductsCache_v1';
+    // P1 2026-05-30: Persistent cache → IndexedDB (chuyển từ localStorage).
+    // Lý do: localStorage limit 5-10MB, sync API block main thread; IndexedDB
+    // 50% disk available, async (chỉ tốn ~10-30ms), structured clone (giữ
+    // type Date, Map nếu cần sau này). Page reload → load IDB (sub-50ms) →
+    // initialized=true → background HTTP fetch revalidate qua SSE.
+    //
+    // Migrate path: nếu thấy key `web2ProductsCache_v1` ở localStorage cũ →
+    // import vào IDB rồi xóa localStorage entry.
+    const LEGACY_LS_KEY = 'web2ProductsCache_v1';
+    const IDB_NAME = 'web2_cache';
+    const IDB_VERSION = 1;
+    const IDB_STORE = 'kv';
+    const IDB_KEY_PRODUCTS = 'products';
     const PERSIST_TTL_MS = 24 * 60 * 60 * 1000; // 24h hard expire
-    const PERSIST_MAX_BYTES = 4 * 1024 * 1024; // 4MB safety
 
-    function _loadFromPersist() {
+    let _idbPromise = null;
+    function _openIdb() {
+        if (_idbPromise) return _idbPromise;
+        _idbPromise = new Promise((resolve, reject) => {
+            if (typeof indexedDB === 'undefined') {
+                reject(new Error('IndexedDB unavailable'));
+                return;
+            }
+            const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+            req.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(IDB_STORE)) {
+                    db.createObjectStore(IDB_STORE);
+                }
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+            req.onblocked = () => reject(new Error('IDB open blocked'));
+        }).catch((e) => {
+            console.warn('[Web2ProductsCache] IDB open failed:', e.message);
+            _idbPromise = null;
+            return null;
+        });
+        return _idbPromise;
+    }
+
+    function _idbGet(db, key) {
+        return new Promise((resolve, reject) => {
+            try {
+                const tx = db.transaction(IDB_STORE, 'readonly');
+                const store = tx.objectStore(IDB_STORE);
+                const req = store.get(key);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
+
+    function _idbSet(db, key, value) {
+        return new Promise((resolve, reject) => {
+            try {
+                const tx = db.transaction(IDB_STORE, 'readwrite');
+                const store = tx.objectStore(IDB_STORE);
+                const req = store.put(value, key);
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
+
+    // Migrate localStorage legacy → IDB rồi xóa key cũ. Idempotent.
+    async function _migrateLegacyLsToIdb() {
         try {
-            const raw = localStorage.getItem(PERSIST_KEY);
-            if (!raw) return false;
+            const raw = localStorage.getItem(LEGACY_LS_KEY);
+            if (!raw) return null;
             const obj = JSON.parse(raw);
+            localStorage.removeItem(LEGACY_LS_KEY);
+            if (!obj || !Array.isArray(obj.list)) return null;
+            const db = await _openIdb();
+            if (db) await _idbSet(db, IDB_KEY_PRODUCTS, obj);
+            return obj;
+        } catch (e) {
+            console.warn('[Web2ProductsCache] LS→IDB migrate failed:', e.message);
+            return null;
+        }
+    }
+
+    async function _loadFromPersist() {
+        try {
+            const db = await _openIdb();
+            let obj = db ? await _idbGet(db, IDB_KEY_PRODUCTS) : null;
+            // Fallback: thử migrate từ localStorage cũ
+            if (!obj || !Array.isArray(obj.list)) {
+                obj = await _migrateLegacyLsToIdb();
+            }
             if (!obj || !Array.isArray(obj.list)) return false;
             if (!obj.ts || Date.now() - obj.ts > PERSIST_TTL_MS) {
-                localStorage.removeItem(PERSIST_KEY);
+                if (db) await _idbSet(db, IDB_KEY_PRODUCTS, null);
                 return false;
             }
             state.list = obj.list;
@@ -126,18 +206,13 @@
     let _persistDebounceTimer = null;
     function _saveToPersist() {
         if (_persistDebounceTimer) clearTimeout(_persistDebounceTimer);
-        _persistDebounceTimer = setTimeout(() => {
+        _persistDebounceTimer = setTimeout(async () => {
             _persistDebounceTimer = null;
             try {
+                const db = await _openIdb();
+                if (!db) return;
                 const payload = { ts: Date.now(), list: state.list };
-                const json = JSON.stringify(payload);
-                if (json.length > PERSIST_MAX_BYTES) {
-                    console.warn(
-                        `[Web2ProductsCache] persist skip — too big (${(json.length / 1024 / 1024).toFixed(2)} MB)`
-                    );
-                    return;
-                }
-                localStorage.setItem(PERSIST_KEY, json);
+                await _idbSet(db, IDB_KEY_PRODUCTS, payload);
             } catch (e) {
                 console.warn('[Web2ProductsCache] persist save failed:', e.message);
             }
@@ -210,23 +285,23 @@
     async function init() {
         if (state.initialized) return state;
         if (state.initPromise) return state.initPromise;
-        // P1 2026-05-30: Stale-while-revalidate — load persist instant trước
-        // khi await HTTP fetch. App có data ngay (initialized=true) → caller
-        // không cần loading state. Background fetch refresh sẽ emit 'refresh'
-        // khi data thay đổi.
-        const persistCount = _loadFromPersist();
-        if (persistCount) {
-            state.initialized = true;
-            _setupRealtime();
-            _emit('persist-restore');
-            // Background fetch — không await, không block.
-            state.initPromise = (async () => {
-                await _loadList();
-                return state;
-            })();
-            return state;
-        }
+        // P1 2026-05-30: Stale-while-revalidate — load IDB persist trước khi
+        // await HTTP fetch. IDB read ~10-30ms (vs 200-1500ms HTTP cold). Khi
+        // có persist: initialized=true ngay sau read → background fetch
+        // revalidate; không có persist → fallback fetch HTTP như cũ.
         state.initPromise = (async () => {
+            const persistCount = await _loadFromPersist();
+            if (persistCount) {
+                state.initialized = true;
+                _setupRealtime();
+                _emit('persist-restore');
+                // Background revalidate — không await trong init promise.
+                _loadList().catch((e) =>
+                    console.warn('[Web2ProductsCache] revalidate fail:', e.message)
+                );
+                return state;
+            }
+            // Cold start — fetch HTTP rồi setup realtime.
             await _loadList();
             _setupRealtime();
             state.initialized = true;

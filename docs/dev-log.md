@@ -25,6 +25,45 @@
 
 ## 2026-05-30
 
+### [web2-cache] Chuyển persist sang IndexedDB (từ localStorage) + auto-migrate ✅
+
+**User feedback**:
+
+> "vậy chuyển qua index db đi → với dữ liệu vừa chuyển db sang web 2.0 mà trang này còn dữ liệu vậy? → Kiểm tra lại dữ liệu đang lưu ở đâu"
+
+**Trả lời "data đang ở đâu"** (4 nơi):
+
+1. **Sổ Order** (sheets, shipments, rows) → Firestore `web2_so_order/main` (cloud) + localStorage `soOrder_v1` (38KB local cache).
+2. **Kho SP Web 2.0** (source of truth) → Postgres `web2_products` table @ `chatDb` (Render basic_1gb). **KHÔNG bị migration đụng** — migration Neon→Render PG chỉ chuyển `web2_db.web2_records` (generic CRUD), beta data không copy.
+3. **Cache kho SP** (vừa thêm) → localStorage `web2ProductsCache_v1` (27KB, 35 SP) → giờ chuyển sang IDB.
+4. **localStorage khác**: webWarehouseCache (1.7MB), orderNotesStore_v1, walletAdjustment, …
+
+**Sửa** (`web2/shared/web2-products-cache.js`):
+
+- IDB schema: database `web2_cache` v1, object store `kv`, key `products`, value `{ts, list}`.
+- `_openIdb()` idempotent, lazy (mở lần đầu cần); error → fallback fetch HTTP.
+- `_loadFromPersist()` async: open IDB → get → trả list. Fallback `_migrateLegacyLsToIdb()` đọc `localStorage.web2ProductsCache_v1`, save sang IDB, xóa LS key (1 lần duy nhất).
+- `_saveToPersist()` debounce 200ms async put.
+- `init()` async path: `_loadFromPersist()` trước → có persist → setInitialized + setup SSE + background revalidate; không có → cold start fetch HTTP.
+
+**Trade-offs LS → IDB**:
+
+| Aspect          | localStorage      | IndexedDB                      |
+| --------------- | ----------------- | ------------------------------ |
+| Access          | Sync (block main) | Async (~10-30ms)               |
+| Limit           | 5-10 MB           | ~50% disk available            |
+| API             | get/set string    | Object store, structured clone |
+| Migrate kho lớn | Cap nhanh         | OK                             |
+
+Trade-off: init() phải await IDB read (~10-30ms). Vẫn nhanh hơn HTTP cold (200-1500ms) 1-2 order of magnitude.
+
+**Verify live**:
+
+- Sau navigate page: IDB tồn tại `kv/products` với 35 SP, `localStorage.web2ProductsCache_v1` = null (migrated) ✅
+- Sau reload: cache instant từ IDB, `cacheReady=true`, no LS legacy ✅
+
+---
+
 ### [inventory-tracking] Fix realtime self-reload làm hỏng "Tạo biến thể" + sửa inline ("Không tìm thấy sản phẩm") ✅
 
 **Bug (user báo)**: Tạo biến thể không lưu/không phản ứng, cập nhật tên/SL sản phẩm lỗi, toast đỏ "Không tìm thấy sản phẩm", và realtime chạy quá nhiều (2 SSE connectionId trong ~1.6s).
