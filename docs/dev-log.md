@@ -25,6 +25,37 @@
 
 ## 2026-05-30
 
+### [web2/purchase-refund] Fix 2-DB pool bug + bỏ action buttons ✅
+
+**User feedback**:
+
+1. Error `relation "web2_products" does not exist` khi approve.
+2. "bỏ phần như hình, trả → xác nhận là trả luôn" — bỏ buttons Duyệt+Trừ kho / NCC từ chối / Sửa.
+
+**Root cause DB**: app có 2 Postgres pools:
+
+- `chatDb` = DB chính chứa `web2_products`, `native_orders`, ...
+- `web2Db` = Neon isolated CHỈ chứa `web2_records` (generic CRUD)
+
+Trước fix: 1 pool cho cả 2 → query `web2_products` ở wrong DB.
+
+**Fix server** (`render.com/routes/purchase-refund.js`):
+
+- 4 routes: tách `recordsPool = web2Db` + `productsPool = chatDb`.
+- `loadRefund`/`saveRefundData` → recordsPool. `deductStock`/`restockStock` → productsPool.
+
+**Fix UI** (`web2/purchase-refund/js/purchase-refund-app.js`):
+
+- `renderDetail()`: bỏ toàn bộ action buttons. Detail = read-only info + history timeline.
+- Quick refund auto-create + auto-approve + trừ kho + ghi ví NCC atomic → phiếu đã chốt khi tạo → không cần state machine UI.
+- Cache `v=20260530g`.
+
+**Verify** (Playwright): click phiếu → detail render 0 action buttons.
+
+**Status**: ✅ Done. Render auto-deploy server fix.
+
+---
+
 ### [web2/shared] Audit user-attribution toàn Web 2.0 — shared modules + server auto-history ✅
 
 **User ask**: "tất cả trang khác trong web 2.0" — audit log với tên user cho TẤT CẢ trang.
