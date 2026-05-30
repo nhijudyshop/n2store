@@ -25,6 +25,56 @@
 
 ## 2026-05-30
 
+### [web2-shared] Web2IdbStore helper + audit localStorage cho phase migration ✅
+
+**User feedback**: "web 2.0 dữ liệu rất lớn nên coi phần nào chuyển qua index db khỏi dùng local cache".
+
+**Audit localStorage hiện tại** (Web 2.0):
+
+| Key                               | Size    | Module                                                      | Growth                                            |
+| --------------------------------- | ------- | ----------------------------------------------------------- | ------------------------------------------------- |
+| `soOrder_v1`                      | 38 KB   | so-order, supplier-wallet, customer-wallet, purchase-refund | **Cao** (shipments + base64 ảnh sản phẩm/hóa đơn) |
+| `web2_customer_wallet_v1`         | ~3 KB   | customer-wallet                                             | Cao (transactions)                                |
+| `web2_supplier_wallet_v1`         | ~3 KB   | supplier-wallet                                             | Cao (transactions)                                |
+| `accountant-history` cache        | varies  | balance-history                                             | Cao (records snapshot)                            |
+| `web2-quick-reply` LS_CACHE       | nhỏ     | shared chat                                                 | Thấp                                              |
+| `web2-msg-template` TEMPLATES_KEY | nhỏ     | shared chat                                                 | Thấp                                              |
+| TPOS token, accounts              | nhỏ     | shared                                                      | Thấp (giữ LS OK)                                  |
+| `webWarehouseCache`               | 1.67 MB | orders-report (Web **1.0** — KHÔNG trong scope)             | —                                                 |
+
+**Deliver**: helper `web2/shared/web2-idb-store.js` (generic kv với auto-migrate từ LS).
+
+**API**:
+
+```js
+const store = Web2IdbStore.open('so_order_cache', { migrateFromLs: 'soOrder_v1' });
+await store.set({ tabs: [...] });
+const data = await store.get(); // null nếu chưa có
+await store.remove();
+```
+
+Auto-migrate idempotent: lần đầu open() với `migrateFromLs` → đọc LS → put IDB → xóa LS key. Sau đó LS rỗng nên không chạy lại.
+
+Tất cả store share 1 IDB database (`web2_kv_v1`) + 1 object store (`_default`) + prefix key (`storeName:key`) để tránh phức tạp versioning khi thêm store mới.
+
+**Verified live**: round-trip `set({hello:"world", n:42}) / get() === {hello:"world", n:42}` ✅
+
+**Migration roadmap** (chờ user confirm scope từng phase để tránh break stores đang stable):
+
+1. **Phase 1 (POC)**: `web2_products` cache đã chuyển (commit `c42f5eadc`).
+2. **Phase 2**: `soOrder_v1` (so-order-storage) — refactor `_read/_write` sync → async qua Web2IdbStore. Test tab switching, multi-shipment, sync với Firestore.
+3. **Phase 3**: `customer-wallet-storage`, `supplier-wallet-storage` — pattern tương tự so-order.
+4. **Phase 4**: `accountant-history` cache trong balance-history.
+5. **Skip**: TPOS token, pancake accounts, UI prefs (nhỏ, sync OK).
+
+Risk Phase 2-3: storage layer sync API hiện tại được call ở nhiều nơi (~50+ sites/store). Async migration cần thay đổi tất cả call sites.
+
+**Files**:
+
+- `web2/shared/web2-idb-store.js` — helper mới.
+
+---
+
 ### [render][web2-balance-history] Rip out 100% Web 1.0 dependencies trong matcher ✅
 
 **User feedback**:
