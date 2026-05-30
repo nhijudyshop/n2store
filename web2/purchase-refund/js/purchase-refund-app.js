@@ -496,23 +496,120 @@
         }
     }
 
-    // ---------- Picker: chọn SP từ Kho (stock>0) ----------
+    // ---------- Picker: chọn SP đã nhận hàng từ so-order ----------
     //
-    // P1 2026-05-30: user ask "nhận hàng -> purchase-refund sẽ có danh sách
-    // để trả hàng cho NCC". Thay vì gõ thủ công textarea, mở picker hiển thị
-    // tất cả SP đã nhập kho (stock>0) group by NCC, multi-select + qty editor.
-    // Sau khi confirm → emit lines vào textarea + auto compute totals.
+    // P1 2026-05-30 (refactor): user ask "sản phẩm đã NHẬN HÀNG bên so-order
+    // sẽ có danh sách bên trả hàng NCC". Picker giờ source từ Firestore
+    // `web2_so_order/main` (purchase context — NCC + SP user đặt), cross-ref
+    // với Web2ProductsCache để biết stock thực (= max refundable qty).
     //
-    // Data source: Web2ProductsCache (đã pre-load tất cả SP, refresh qua SSE).
+    // Filter: chỉ rows có matching web2_product VÀ stock > 0 (= đã nhận hàng).
+    // Group by supplier (từ so-order row.supplier — NCC user thực sự mua từ,
+    // KHÔNG dùng web2_products.supplier vì field đó chỉ giữ NCC đầu tiên).
+    //
+    // Schema mỗi item: { supplier, code, name, variant, orderedQty, stock,
+    //                    price, sources: [{tab, ship, qty}] }
 
     const PICKER_STATE = {
-        products: [],
+        items: [], // (supplier, code) aggregates from so-order ∩ web2_products
         selectedCodes: new Set(),
         qtyOverrides: new Map(), // code → qty user nhập
         supplierFilter: '',
         search: '',
         onlyStock: true,
     };
+
+    /**
+     * Load so-order data từ localStorage (cùng domain) → fallback Firestore.
+     * Join với Web2ProductsCache. Trả về aggregates by (supplier, code) cho
+     * SP đã nhận hàng (stock>0).
+     *
+     * Lý do localStorage trước: so-order là local-first; data trong localStorage
+     * mới nhất, Firestore có thể trễ vì debounced push. Same-domain key
+     * `soOrder_v1` accessible cross-page.
+     */
+    async function loadSoOrderReceivedItems() {
+        const cache = window.Web2ProductsCache;
+        if (!cache) return { items: [], err: 'Web2ProductsCache chưa load' };
+
+        let data = null;
+        let source = 'none';
+        try {
+            const raw = localStorage.getItem('soOrder_v1');
+            if (raw) {
+                data = JSON.parse(raw);
+                source = 'localStorage';
+            }
+        } catch (e) {
+            console.warn('[picker] localStorage parse fail:', e.message);
+        }
+
+        // Fallback Firestore nếu localStorage trống
+        if (!data || !Array.isArray(data.tabs) || data.tabs.length === 0) {
+            if (typeof firebase === 'undefined' || !firebase.firestore) {
+                return { items: [], err: 'Firebase chưa load + localStorage trống' };
+            }
+            try {
+                const db = firebase.firestore();
+                const snap = await db.collection('web2_so_order').doc('main').get();
+                if (snap.exists) {
+                    data = snap.data();
+                    source = 'firestore';
+                }
+            } catch (e) {
+                return { items: [], err: `Firestore: ${e.message}` };
+            }
+        }
+        if (!data) return { items: [], err: null };
+        console.log(`[picker] so-order loaded from ${source}`);
+        const norm = cache._normalize;
+
+        // HashMap O(1) lookup: normalize(name|variant) → product
+        const productByKey = new Map();
+        for (const p of cache.getAll()) {
+            const key = norm(p.name) + '|' + norm(p.variant || '');
+            if (!productByKey.has(key)) productByKey.set(key, p);
+        }
+
+        // Aggregate so-order rows by (supplier, code) — sum qty across shipments
+        const agg = new Map();
+        for (const tab of data.tabs || []) {
+            for (const sh of tab.shipments || []) {
+                for (const r of sh.rows || []) {
+                    const supplier = (r.supplier || '').trim();
+                    const productName = (r.productName || '').trim();
+                    if (!supplier || !productName) continue;
+                    const variant = (r.variant || '').trim();
+                    const key = norm(productName) + '|' + norm(variant);
+                    const matched = productByKey.get(key);
+                    if (!matched) continue; // SP chưa sync web2_products
+                    const stock = Number(matched.stock || 0);
+                    if (stock <= 0) continue; // chưa nhận hàng → không trả được
+                    const aggKey = `${supplier}::${matched.code}`;
+                    if (!agg.has(aggKey)) {
+                        agg.set(aggKey, {
+                            supplier,
+                            code: matched.code,
+                            name: matched.name,
+                            variant: matched.variant || variant,
+                            stock,
+                            price: Number(matched.price || r.price || 0),
+                            orderedQty: 0,
+                            sources: [],
+                        });
+                    }
+                    const entry = agg.get(aggKey);
+                    entry.orderedQty += Number(r.qty || 0);
+                    entry.sources.push({
+                        tab: tab.label || tab.id,
+                        ship: sh.id,
+                        qty: Number(r.qty || 0),
+                    });
+                }
+            }
+        }
+        return { items: Array.from(agg.values()), err: null };
+    }
 
     async function openPicker() {
         if (!window.Web2ProductsCache) {
@@ -528,15 +625,19 @@
             notify(`Tải kho SP thất bại: ${e.message}`, 'error');
             return;
         }
-        PICKER_STATE.products = window.Web2ProductsCache.getAll() || [];
+        const { items, err } = await loadSoOrderReceivedItems();
+        if (err) {
+            notify(`Tải so-order: ${err}`, 'warning');
+        }
+        PICKER_STATE.items = items;
 
         // Pre-fill supplier filter từ form NCC nếu có
         const formSupplier = $('prForm').elements['supplierName']?.value?.trim() || '';
         PICKER_STATE.supplierFilter = formSupplier;
 
-        // Populate supplier dropdown — distinct list từ tất cả products
+        // Populate supplier dropdown — distinct từ so-order items
         const suppliers = Array.from(
-            new Set(PICKER_STATE.products.map((p) => (p.supplier || '').trim()).filter(Boolean))
+            new Set(PICKER_STATE.items.map((p) => p.supplier).filter(Boolean))
         ).sort();
         const supSel = $('prPickerSupplierFilter');
         supSel.innerHTML =
@@ -559,13 +660,12 @@
 
     function renderPicker() {
         const q = PICKER_STATE.search.trim().toLowerCase();
-        const filtered = PICKER_STATE.products.filter((p) => {
-            if (PICKER_STATE.onlyStock && Number(p.stock || 0) <= 0) return false;
-            if (PICKER_STATE.supplierFilter && (p.supplier || '') !== PICKER_STATE.supplierFilter)
+        const filtered = PICKER_STATE.items.filter((it) => {
+            if (PICKER_STATE.supplierFilter && it.supplier !== PICKER_STATE.supplierFilter)
                 return false;
             if (q) {
                 const hay =
-                    `${p.code || ''} ${p.name || ''} ${p.variant || ''} ${p.supplier || ''}`.toLowerCase();
+                    `${it.code} ${it.name} ${it.variant || ''} ${it.supplier}`.toLowerCase();
                 if (!hay.includes(q)) return false;
             }
             return true;
@@ -573,44 +673,49 @@
 
         // Group by supplier
         const grouped = new Map();
-        for (const p of filtered) {
-            const k = p.supplier || '(Chưa có NCC)';
+        for (const it of filtered) {
+            const k = it.supplier;
             if (!grouped.has(k)) grouped.set(k, []);
-            grouped.get(k).push(p);
+            grouped.get(k).push(it);
         }
 
         const listEl = $('prPickerList');
         if (!grouped.size) {
-            listEl.innerHTML = '<div class="pr-picker-empty">Không có SP nào phù hợp filter.</div>';
+            const emptyMsg = PICKER_STATE.items.length
+                ? 'Không có SP nào phù hợp filter.'
+                : 'Chưa có SP đã nhận hàng từ Sổ Order — vào Sổ Order → Nhận hàng trước.';
+            listEl.innerHTML = `<div class="pr-picker-empty">${emptyMsg}</div>`;
             updatePickerCount();
             return;
         }
         let html = '';
         for (const [supplier, items] of grouped) {
             html += `<div class="pr-picker-group">
-                <h4>${escapeHtml(supplier)} <span class="pr-picker-group-count">${items.length} SP</span></h4>
+                <h4>${escapeHtml(supplier)} <span class="pr-picker-group-count">${items.length} SP đã nhận</span></h4>
                 <table class="pr-picker-table">
                     <thead><tr>
                         <th style="width:32px"></th>
                         <th style="width:140px">Mã SP</th>
                         <th>Tên + Biến thể</th>
-                        <th class="num" style="width:60px">Tồn</th>
+                        <th class="num" style="width:70px" title="Tổng SL đã đặt từ Sổ Order">Đã đặt</th>
+                        <th class="num" style="width:70px" title="Tồn kho hiện tại = đã nhận, tối đa có thể trả">Tồn kho</th>
                         <th class="num" style="width:80px">Trả SL</th>
                         <th class="num" style="width:100px">Giá</th>
                     </tr></thead>
                     <tbody>
                 ${items
-                    .map((p) => {
-                        const isPicked = PICKER_STATE.selectedCodes.has(p.code);
-                        const stock = Number(p.stock || 0);
-                        const qty = PICKER_STATE.qtyOverrides.get(p.code) ?? stock;
-                        return `<tr data-pick-code="${escapeHtml(p.code)}" class="${isPicked ? 'is-picked' : ''}">
+                    .map((it) => {
+                        const isPicked = PICKER_STATE.selectedCodes.has(it.code);
+                        const stock = it.stock;
+                        const qty = PICKER_STATE.qtyOverrides.get(it.code) ?? stock;
+                        return `<tr data-pick-code="${escapeHtml(it.code)}" class="${isPicked ? 'is-picked' : ''}">
                             <td><input type="checkbox" class="pr-pick-cb" ${isPicked ? 'checked' : ''}></td>
-                            <td><code>${escapeHtml(p.code)}</code></td>
-                            <td>${escapeHtml(p.name)}${p.variant ? ` <small style="color:#64748b">(${escapeHtml(p.variant)})</small>` : ''}</td>
-                            <td class="num">${stock}</td>
+                            <td><code>${escapeHtml(it.code)}</code></td>
+                            <td>${escapeHtml(it.name)}${it.variant ? ` <small style="color:#64748b">(${escapeHtml(it.variant)})</small>` : ''}</td>
+                            <td class="num" style="color:#64748b">${it.orderedQty}</td>
+                            <td class="num"><strong>${stock}</strong></td>
                             <td class="num"><input type="number" class="pr-pick-qty" min="1" max="${stock}" value="${qty}" style="width:60px;text-align:right;"></td>
-                            <td class="num">${fmtMoney(p.price)}</td>
+                            <td class="num">${fmtMoney(it.price)}</td>
                         </tr>`;
                     })
                     .join('')}
@@ -635,16 +740,13 @@
         let addedQty = 0;
         let addedAmount = 0;
         for (const code of PICKER_STATE.selectedCodes) {
-            const p = PICKER_STATE.products.find((x) => x.code === code);
-            if (!p) continue;
-            const stock = Number(p.stock || 0);
-            const qty = Math.min(
-                Math.max(1, PICKER_STATE.qtyOverrides.get(code) ?? stock),
-                stock || 9999
-            );
-            const nameWithVariant = p.variant ? `${p.name} (${p.variant})` : p.name;
-            const price = Number(p.price) || 0;
-            lines.push(`${p.code} | ${nameWithVariant} | ${qty} | ${price}`);
+            const it = PICKER_STATE.items.find((x) => x.code === code);
+            if (!it) continue;
+            const stock = it.stock;
+            const qty = Math.min(Math.max(1, PICKER_STATE.qtyOverrides.get(code) ?? stock), stock);
+            const nameWithVariant = it.variant ? `${it.name} (${it.variant})` : it.name;
+            const price = Number(it.price) || 0;
+            lines.push(`${it.code} | ${nameWithVariant} | ${qty} | ${price}`);
             addedQty += qty;
             addedAmount += qty * price;
         }

@@ -7,7 +7,13 @@
         <title>Trả hàng NCC - WEB 2.0</title>
         <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260521b" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <script src="../../shared/js/firebase-config.js?v=20260521b"></script>
+
+        <!-- Firebase Compat (Firestore) — cần cho picker load so-order data -->
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+        <script src="../../shared/js/firebase-config.js?v=20260530a"></script>
         <script src="../../shared/js/notification-system.js?v=20260521b"></script>
         <link rel="stylesheet" href="css/purchase-refund.css?v=20260530a" />
         <link rel="stylesheet" href="../../web2/shared/web2-tpos-theme.css?v=20260522d" />
@@ -201,10 +207,13 @@
                     <select id="prPickerSupplierFilter">
                         <option value="">Tất cả NCC</option>
                     </select>
-                    <label class="pr-picker-stockfilter">
-                        <input type="checkbox" id="prPickerOnlyStock" checked />
-                        Chỉ SP còn tồn (stock &gt; 0)
-                    </label>
+                    <span
+                        class="pr-picker-stockhint"
+                        title="Picker đã filter sẵn SP đã nhận hàng từ Sổ Order (stock > 0)"
+                    >
+                        Nguồn: Sổ Order (đã nhận hàng)
+                    </span>
+                    <input type="hidden" id="prPickerOnlyStock" value="1" />
                 </div>
                 <div class="pr-picker-list" id="prPickerList"></div>
                 <footer class="pr-picker-foot">
@@ -226,6 +235,6 @@
         <script src="../shared/web2-sse-bridge.js?v=20260526sse2"></script>
         <script src="../products/js/web2-products-api.js?v=20260530a"></script>
         <script src="../shared/web2-products-cache.js?v=20260530a"></script>
-        <script src="js/purchase-refund-app.js?v=20260530a"></script>
+        <script src="js/purchase-refund-app.js?v=20260530c"></script>
     </body>
 </html>

@@ -598,3 +598,18 @@ body {
     display: flex;
     gap: 8px;
 }
+
+/* Hint badge replacing "Chỉ SP còn tồn" toggle */
+.pr-picker-stockhint {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: #ecfeff;
+    border: 1px solid #67e8f9;
+    border-radius: 6px;
+    color: #155e75;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
