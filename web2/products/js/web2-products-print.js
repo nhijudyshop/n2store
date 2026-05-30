@@ -28,24 +28,26 @@
     // ---------- Paper presets — exact mirror TPOS /odata/ProductLabelPaper ----------
     const PAPERS = [
         {
-            // P1 2026-05-30: user ask "bố cục cho phù hợp dài rộng máy in 2
-            // tem, chia 2 tem đều, canh giữa". TPOS std cũ labelW=25 (×2=50)
-            // trong sheet 66mm → dư 16mm bên phải, không cân. Sửa labelW=33
-            // = sheetW/cols để 2 tem fill chính xác nửa sheet → canh giữa
-            // tự nhiên (2×33=66=sheetW). FontSize 6→8 proportional theo
-            // labelW lớn hơn (fs/labelW giữ ~0.24).
+            // P1 2026-05-30: TPOS spec chuẩn (user paste settings).
+            // Sheet 66×21mm, 2 nhãn × 25mm = 50mm + 0.5mm margin × 4 lề = 2mm.
+            // → còn dư 14mm là khoảng cách physical giữa 2 con tem trên roll
+            //   nhãn. Trước đây float:left dồn 2 nhãn về trái, gap dư ở phải.
+            // → Refactor: sheet dùng flex space-evenly để chia 14mm dư thành
+            //   3 vùng đều (~4.7mm/vùng) — 2 tem CHIA ĐỀU + CANH GIỮA trên
+            //   sheet. CSS handle bên dưới (.barcode-sheet flex space-evenly).
+            // FontSize giữ 6 đúng TPOS preset 7.
             id: 7,
             name: '2 Tem (66×21mm)',
             sheetW: 66,
             sheetH: 21,
-            labelW: 33,
+            labelW: 25,
             labelH: 21,
             cols: 2,
-            fontSize: 8,
-            topMargin: 1,
-            leftMargin: 1,
-            bottomMargin: 1,
-            rightMargin: 1,
+            fontSize: 6,
+            topMargin: 0.5,
+            leftMargin: 0.5,
+            bottomMargin: 0.5,
+            rightMargin: 0.5,
             hSpacing: 0,
             vSpacing: 0,
         },
@@ -715,14 +717,15 @@ html, body {
 
 .barcode-sheet {
     page-break-after: always;
-    /* P1 2026-05-30: flex centering — labels canh GIỮA ngang trên sheet.
-     * Khi labelW × cols = sheetW (paper 7 mới), 2 tem fill chính xác sheet.
-     * Khi labelW × cols < sheetW (paper khác), flex tự center labels group. */
+    /* P1 2026-05-30: flex space-evenly — chia khoảng dư (sheetW - cols×labelW)
+     * thành 3 (cols+1) vùng ĐỀU NHAU. Vd Paper 7 (TPOS): sheet 66, 2 nhãn ×
+     * 25 = 50, dư 16mm → 3 vùng × ~5.3mm: |gap|tem1|gap|tem2|gap| →
+     * 2 tem canh giữa + chia đều. Trước đây float:left dồn nhãn về trái với
+     * gap dư bên phải, không đều. */
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: center;
-    gap: 0;
+    justify-content: space-evenly;
 }
 
 .barcodeCustom-sheet {
