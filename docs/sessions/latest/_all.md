@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `3a058e7` — refactor(web2-balance-history): rip out 100% Web 1.0 dependencies trong matcher
-**Last updated**: 2026-05-30 15:54:54 +07
-**Latest session**: [`RESUME:20260530-155454-3a058e7`](../20260530-155454-3a058e7.md)
-**Summary**: refactor(web2-balance-history): rip out 100% Web 1.0 dependencies trong matcher
+**Latest commit**: `07299b9` — feat(web2-shared): Web2IdbStore helper — generic IDB kv với auto-migrate từ LS
+**Last updated**: 2026-05-30 15:56:52 +07
+**Latest session**: [`RESUME:20260530-155652-07299b9`](../20260530-155652-07299b9.md)
+**Summary**: feat(web2-shared): Web2IdbStore helper — generic IDB kv với auto-migrate từ LS
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
 - [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-30 15:54
+- [`docs/`](./docs.md) — updated 2026-05-30 15:56
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -69,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-30 15:54
+- [`web2/`](./web2.md) — updated 2026-05-30 15:56
