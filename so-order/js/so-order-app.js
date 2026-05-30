@@ -2316,6 +2316,12 @@ window.addEventListener('load', () => {
 
     function onModalRowFieldInput(e) {
         const input = e.currentTarget;
+        // Guard chống stale `change` event từ input đã bị detach (vd:
+        // applySuggestionToRow rerender → renderModalRows replace tbody
+        // → OLD input detached → browser async firebrate 'change' với value
+        // user gõ TRƯỚC khi pick → handler cũ ghi đè row.productName về
+        // text query → SAVE sai. Verified 2026-05-30.
+        if (!input.isConnected) return;
         const uid = input.dataset.uid;
         const field = input.dataset.field;
         const row = modalRows.find((r) => r.uid === uid);
