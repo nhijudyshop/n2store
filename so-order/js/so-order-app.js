@@ -315,6 +315,10 @@
         const rowId = td.dataset.rowId;
         const shipmentId = td.dataset.shipmentId;
         if (!field || !rowId || !shipmentId) return;
+        if (_isRowLocked(rowId, shipmentId)) {
+            notify('Dòng "Đã nhận" — không chỉnh sửa được', 'warning');
+            return;
+        }
         if (INLINE_IMAGE_FIELDS.has(field)) {
             // Don't trigger lightbox — preventDefault on image bubbling
             e.preventDefault();
@@ -351,18 +355,8 @@
             } else if (typeof value === 'string') {
                 value = value.trim();
             }
-            // Variant validation
-            if (field === 'variant' && value) {
-                const cache = window.Web2VariantsCache;
-                if (cache && !cache.findByValueExact(value)) {
-                    notify(
-                        `Biến thể "${value}" chưa có trong Kho Biến Thể — thêm trước rồi pick lại.`,
-                        'error'
-                    );
-                    restore();
-                    return;
-                }
-            }
+            // Variant không bắt buộc tồn tại trong Kho Biến Thể (so-order là
+            // draft đơn, có thể gõ size mới chưa khai báo).
             // Capture delta TRƯỚC khi update (cho qty change → sync Kho).
             let pendingAdj = null;
             if (field === 'qty') {
@@ -755,7 +749,9 @@
     function rowHtml(r, idx, tab, shipmentId, meta) {
         const rid = escapeHtml(r.id);
         const sid = escapeHtml(shipmentId);
-        const edit = editTableMode;
+        // Row đã nhận hàng → ép read-only ngay cả khi bulk edit mode bật.
+        // Khoá toàn bộ field, hiển thị visual `is-locked` để user biết.
+        const edit = editTableMode && r.status !== 'received';
         // P1 2026-05-30: meta = { ncc: {render, span}, inv: {render, span} }.
         // Fallback nếu caller cũ chưa pass.
         const nccMeta = meta?.ncc || { render: true, span: 1 };
@@ -806,19 +802,32 @@
             status: edit
                 ? editableCellHtml('status', r, rid, sid)
                 : statusCell(r.status, { rid, sid }),
-            actions: actionsCell(r.id, shipmentId),
+            actions: actionsCell(r.id, shipmentId, r.status),
         };
+        const lockedClass = r.status === 'received' ? ' is-locked' : '';
         return (
-            '<tr class="so-data-row" data-row-id="' +
+            '<tr class="so-data-row' +
+            lockedClass +
+            '" data-row-id="' +
             rid +
             '" data-shipment-id="' +
             sid +
+            '" data-row-status="' +
+            escapeHtml(r.status || 'draft') +
             '">' +
             COLUMNS.filter((c) => activeColVis()[c.key])
                 .map((c) => cells[c.key])
                 .join('') +
             '</tr>'
         );
+    }
+
+    // Helper: check row status từ DOM (rẻ, tránh load lại state).
+    function _isRowLocked(rowId, shipmentId) {
+        const tr = document.querySelector(
+            `#soTableBody tr.so-data-row[data-row-id="${CSS.escape(rowId)}"][data-shipment-id="${CSS.escape(shipmentId)}"]`
+        );
+        return tr?.dataset?.rowStatus === 'received';
     }
 
     // Tạo HTML <td> chứa input/select khi whole-table edit mode bật.
@@ -913,21 +922,8 @@
         } else if (typeof value === 'string') {
             value = value.trim();
         }
-        if (field === 'variant' && value) {
-            const cache = window.Web2VariantsCache;
-            if (cache && !cache.findByValueExact(value)) {
-                notify(
-                    `Biến thể "${value}" chưa có trong Kho Biến Thể — thêm trước rồi pick lại.`,
-                    'error'
-                );
-                // Revert input value
-                const input = document.querySelector(
-                    `#soTableBody [data-edit-field="variant"][data-row-id="${rowId}"]`
-                );
-                if (input) input.value = r.variant || '';
-                return;
-            }
-        }
+        // Variant không bắt buộc tồn tại trong Kho Biến Thể (so-order là
+        // draft đơn, có thể gõ size mới chưa khai báo).
         if (r[field] === value) return; // no-op skip
         // Capture delta cho qty change → sync Kho.
         let pendingAdj = null;
@@ -1148,9 +1144,19 @@
         });
     }
 
-    function actionsCell(rowId, shipmentId) {
+    function actionsCell(rowId, shipmentId, status) {
         // P1 2026-05-29: bỏ nút "Mua hàng" per row (đã thay bằng "Nhận hàng"
         // per shipment trên header — handle cả mua đủ lẫn mua 1 phần).
+        // 2026-05-30: status='received' (Đã nhận) → khoá row, thay nút sửa/xoá
+        // bằng icon lock. User muốn sửa lại phải dùng flow "trả hàng" hoặc
+        // revert status từ UI khác.
+        if (status === 'received') {
+            return `<td class="so-cell-actions so-cell-actions-locked">
+                <span class="so-action-btn so-action-locked" title="Đã nhận hàng — không thể chỉnh sửa">
+                    <i data-lucide="lock"></i>
+                </span>
+            </td>`;
+        }
         return `<td class="so-cell-actions">
             <button class="so-action-btn" type="button" data-row-action="edit" data-row-id="${escapeHtml(rowId)}" data-shipment-id="${escapeHtml(shipmentId)}" title="Sửa">
                 <i data-lucide="edit-2"></i>
@@ -2740,20 +2746,9 @@ window.addEventListener('load', () => {
             notify('Cần ít nhất 1 sản phẩm có tên', 'warning');
             return;
         }
-        // Validate variant: từng row nếu có variant phải tồn tại trong Kho Biến Thể
-        const variantCache = window.Web2VariantsCache;
-        if (variantCache) {
-            for (const r of validRows) {
-                const v = (r.variant || '').trim();
-                if (v && !variantCache.findByValueExact(v)) {
-                    notify(
-                        `Biến thể "${v}" chưa có trong Kho Biến Thể — vui lòng thêm trước rồi chọn lại.`,
-                        'error'
-                    );
-                    return;
-                }
-            }
-        }
+        // Variant không bắt buộc tồn tại trong Kho Biến Thể (so-order là draft
+        // đơn — user có thể gõ size/màu mới chưa khai báo). Validation cũ đã
+        // gỡ vì block flow không cần thiết.
         if (modalMode === 'edit' && editingRowId && editingShipmentId) {
             const r = validRows[0];
             const rowData = {
