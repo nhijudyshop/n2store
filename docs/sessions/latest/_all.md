@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8de1009` — fix(web2-balance-history): expand match_method CHECK constraint cho Web 2.0 values
-**Last updated**: 2026-05-30 16:25:07 +07
-**Latest session**: [`RESUME:20260530-162507-8de1009`](../20260530-162507-8de1009.md)
-**Summary**: fix(web2-balance-history): expand match_method CHECK constraint cho Web 2.0 values
+**Latest commit**: `2b90270` — fix(web2-balance-history): count legacy_credited là matched trong reprocess stats
+**Last updated**: 2026-05-30 16:27:23 +07
+**Latest session**: [`RESUME:20260530-162723-2b90270`](../20260530-162723-2b90270.md)
+**Summary**: fix(web2-balance-history): count legacy_credited là matched trong reprocess stats
 
 ## Folders affected in this commit
 
@@ -49,7 +49,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-30 16:25
+- [`render.com/`](./render.com.md) — updated 2026-05-30 16:27
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-29 18:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
