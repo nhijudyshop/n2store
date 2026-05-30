@@ -140,6 +140,9 @@ export const ROUTES = {
     // Purchase Refund (Web 2.0) — Trả hàng NCC state machine + stock side-effects
     PURCHASE_REFUND: { pattern: '/api/purchase-refund/*' },
 
+    // Services Overview (Web 2.0) — DB stats + service inventory
+    SERVICES_OVERVIEW: { pattern: '/api/services-overview' },
+
     // Web 2.0 Users — user account system (auth + CRUD)
     WEB2_USERS: { pattern: '/api/web2-users/*' },
 
@@ -238,6 +241,8 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/web2/')) return 'WEB2_GENERIC';
     if (pathname.startsWith('/api/wallet-deposits/')) return 'WALLET_DEPOSITS';
     if (pathname.startsWith('/api/purchase-refund/')) return 'PURCHASE_REFUND';
+    if (pathname === '/api/services-overview' || pathname.startsWith('/api/services-overview/'))
+        return 'SERVICES_OVERVIEW';
     if (pathname.startsWith('/api/web2-users/')) return 'WEB2_USERS';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
