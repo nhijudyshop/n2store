@@ -23,6 +23,54 @@
 
 ---
 
+## 2026-05-30
+
+### [so-order] Stock check 24,000× faster — dùng Web2ProductsCache thay HTTP serial ✅
+
+**User ask**: "sao 'Đang kiểm tra tồn kho...' lâu vậy? Đây là kho của web mà → có cách nào tìm kiếm sản phẩm nhanh không? Tìm các thuật toán trên google, github,...".
+
+**Root cause** (không phải search algo — vấn đề KIẾN TRÚC):
+`_checkRowsHaveStock` chạy **N×HTTP fetch tuần tự** qua CF Worker → Render → Postgres ILIKE search:
+
+- 8 rows × 300-800ms latency = **~2400ms tổng** (CF round trip + ILIKE %x% sequential scan + JSON transfer 20 products mỗi call)
+- `_lookupProductStateForRows` cùng vấn đề (receive panel)
+
+**Insight**: `Web2ProductsCache` (shared module) **đã pre-load TẤT CẢ SP vào in-memory Map** khi page init, auto refresh qua SSE `web2:products`. Cache đã chứa data — code đang ignore nó và đi network hopper.
+
+**Algorithm áp dụng**: **HashMap (inverted index)** key = `normalize(name) + '|' + normalize(variant)`:
+
+1. Build O(N_products) — chỉ index SP còn stock > 0 (loại 90% records).
+2. Lookup O(1) per row — Map.get().
+3. Vietnamese normalize: NFD + bỏ dấu + đ→d + lowercase (sẵn có ở `Web2ProductsCache._normalize`).
+
+**Files**:
+
+- `so-order/js/so-order-app.js`:
+    - Refactor `_checkRowsHaveStock` async path để dùng cache (vẫn `await cache.init()` để chống cold-start race).
+    - Refactor `_lookupProductStateForRows` (receive panel) tương tự.
+    - Thêm `_checkRowsHaveStockSync()` + `_isStockCacheReady()` — fast path khi cache đã loaded.
+    - Refactor 3 delete fn (`deleteRow`/`deleteShipment`/`handleTabDelete`): thử sync trước → mở popup với **final content luôn** (no loading flash); fallback async + loading nếu cold start.
+- `so-order/css/so-order.css`: fix `.so-confirm-loading[hidden]` override `display: flex` → `display: none`.
+- `so-order/index.html`: bump cache `v=20260530b`.
+
+**Benchmarks** (verified qua Playwright session):
+
+- **Trước**: 8 rows × ~300ms = ~2400ms (HTTP serial)
+- **Sau (cache hit, hot path)**: 0.1ms cho 8 rows × 32 products lookup
+- **Click → popup hiện với final content**: ~4-5ms (5 lần đo: 4.5, 4.1, 5.1, 4.7, 4.6)
+- **Improvement**: ~24,000× faster — popup hiện ngay với "⚠️ Lô có 3 SP còn tồn kho" + danh sách + foot note, không có visual flash từ loading state
+
+**Tại sao KHÔNG cần search lib** (FlexSearch/MiniSearch/Fuse.js/Lunr.js):
+
+- Use case = exact (name, variant) match cho stock>0 check, không phải fuzzy/substring search.
+- HashMap lookup O(1) > inverted index lib O(log N) trong scale 32-20k products.
+- Lib search có overhead ~10-50kb gz + index build time; HashMap = 50 dòng JS thuần.
+- Nếu sau này cần fuzzy search (typo tolerance) — đề xuất MiniSearch (5kb, O(1) trigram).
+
+**Status**: ✅ Done. Screenshot: `downloads/n2store-session/so-confirm-instant-cache-fixed.png`.
+
+---
+
 ## 2026-05-29
 
 ### [so-order] Confirm popup mở instant + spam guard ✅

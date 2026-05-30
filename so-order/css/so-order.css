@@ -934,6 +934,9 @@
     font-size: 13px;
     margin-top: 10px;
 }
+.so-confirm-modal .so-confirm-loading[hidden] {
+    display: none;
+}
 .so-confirm-spinner {
     display: inline-block;
     width: 14px;
