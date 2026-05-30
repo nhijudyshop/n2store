@@ -1271,6 +1271,7 @@
         renderTableHead();
         renderTableBody();
         renderFooterTotals();
+        if (typeof updateTrashCountBadge === 'function') updateTrashCountBadge();
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
@@ -2130,7 +2131,7 @@ window.addEventListener('load', () => {
                    </button>`
                 : '';
         return `
-        <tr class="so-modal-row" data-uid="${row.uid}">
+        <tr class="so-modal-row modal-row" data-uid="${row.uid}">
             <td class="so-td-stt">${idx + 1}</td>
             <td class="so-td-product">
                 <div class="so-product-input-wrap">
