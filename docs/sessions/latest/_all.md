@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f1ebdaa` — feat(inventory-tracking): cột Mã hàng — bút chì edit 1-tap trên iPad
-**Last updated**: 2026-05-30 13:34:38 +07
-**Latest session**: [`RESUME:20260530-133438-f1ebdaa`](../20260530-133438-f1ebdaa.md)
-**Summary**: feat(inventory-tracking): cột Mã hàng — bút chì edit 1-tap trên iPad
+**Latest commit**: `f5c220c` — feat(so-order): invoice grouping + NCC/invoice cell merge + suggestion ranking + paste thumbnail
+**Last updated**: 2026-05-30 13:46:02 +07
+**Latest session**: [`RESUME:20260530-134602-f5c220c`](../20260530-134602-f5c220c.md)
+**Summary**: feat(so-order): invoice grouping + NCC/invoice cell merge + suggestion ranking + paste thumbnail
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`inventory-tracking/`](./inventory-tracking.md) — 2 file(s)
+- [`so-order/`](./so-order.md) — 3 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-30 13:34
+- [`docs/`](./docs.md) — updated 2026-05-30 13:46
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -56,7 +57,7 @@
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-29 15:42
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
-- [`so-order/`](./so-order.md) — updated 2026-05-30 13:06
+- [`so-order/`](./so-order.md) — updated 2026-05-30 13:46
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
@@ -68,4 +69,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-30 12:57
+- [`web2/`](./web2.md) — updated 2026-05-30 13:46
