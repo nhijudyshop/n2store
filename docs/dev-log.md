@@ -43,6 +43,30 @@
 **Chi tiết**: giữ realtime đồng bộ đa máy (không cắt topic); fix hoàn toàn phía client, không đụng server/worker/SSE protocol. node --check pass cả 4 file.
 
 **Status**: ✅ Done (verify online sau deploy: chỉ 1 "Connected to SSE server"; tạo biến thể giữ nguyên không bị refresh; sửa inline OK; 2 tab vẫn sync sau ~3s).
+=======
+### [so-order] Stock check trước delete: cache.isReady() + timeout 1.2s fallback ✅
+
+**User feedback**: "kiểm tra tồn kho quá lâu → db đã chuyển sang db web 2.0, kho riêng".
+
+**Vấn đề**:
+
+- `_isStockCacheReady` chỉ check `getAll().length > 0` → khi kho rỗng (hoặc cache vừa init xong nhưng list rỗng) trả `false` → rơi vào fallback async path → hiện loading "Đang kiểm tra tồn kho..." chờ `cache.init()` chạy lại.
+- Async path không có timeout → nếu HTTP `/api/web2-products` chậm → user thấy loading lâu.
+
+**Sửa**:
+
+- `Web2ProductsCache` expose `isReady()` (flag `state.initialized`) — distinguish "init xong, kho rỗng" vs "chưa init".
+- `_isStockCacheReady` ưu tiên `cache.isReady()`, fallback `getAll().length > 0` cho cache version cũ.
+- Async fallback path (deleteRow + deleteShipment + deleteTab): timeout 1.2s → resolve với `stockCheck=null` (skip warn) thay vì treo.
+
+**Files**:
+
+- `web2/shared/web2-products-cache.js` — expose `isReady()`
+- `so-order/js/so-order-app.js` — `_isStockCacheReady` priority isReady(), timeout 1.2s ở 3 nơi (deleteRow, deleteShipment, deleteTab)
+
+**Verify**: `Web2ProductsCache.isReady() === true`, `cacheCount: 35` — delete popup mở instant (sync fast-path), không loading flash.
+
+---
 
 ### [so-order] Round 2: NCC + Invoice cell merged (rowspan) + suggestion ranking + paste thumbnail card ✅
 

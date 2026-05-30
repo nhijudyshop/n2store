@@ -290,6 +290,10 @@
         hasByName,
         pushTickle,
         subscribe,
+        // P1 2026-05-30: expose flag init xong (kể cả khi list rỗng).
+        // Caller cần biết "cache đã chạy 1 lần fetch xong" vs "list rỗng vì
+        // kho thật sự rỗng" để pick fast-path (no loading).
+        isReady: () => state.initialized === true,
         _upsertLocal,
         _removeLocal,
         _normalize,

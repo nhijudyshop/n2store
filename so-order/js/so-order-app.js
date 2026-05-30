@@ -2844,11 +2844,14 @@ window.addEventListener('load', () => {
     }
 
     /** Cache đã có data trong memory chưa? Dùng trước khi gọi async check
-     *  để bỏ qua loading state nếu lookup sẽ instant. */
+     *  để bỏ qua loading state nếu lookup sẽ instant.
+     *  P1 2026-05-30: ưu tiên flag `isReady()` (init xong, kể cả kho rỗng).
+     *  Fallback `getAll().length > 0` cho version cache cũ chưa expose flag. */
     function _isStockCacheReady() {
         const cache = window.Web2ProductsCache;
         if (!cache) return false;
         try {
+            if (typeof cache.isReady === 'function' && cache.isReady()) return true;
             return cache.getAll().length > 0;
         } catch {
             return false;
@@ -2993,19 +2996,33 @@ window.addEventListener('load', () => {
                 ok = await soConfirm(_buildRowDeleteConfirm(syncResult));
             } else {
                 // Cold start fallback: cache đang load → mở popup với loading.
+                // P1 2026-05-30: timeout 1.2s → bỏ qua check, dùng confirm
+                // generic. User feedback "kiểm tra tồn kho quá lâu".
                 const ctrl = soConfirmOpen({
                     ..._buildRowDeleteConfirm(null),
                     loading: true,
                     loadingText: 'Đang kiểm tra tồn kho...',
                 });
+                const STOCK_CHECK_TIMEOUT_MS = 1200;
+                let resolved = false;
+                const finishWith = (stockCheck) => {
+                    if (resolved || ctrl.closed) return;
+                    resolved = true;
+                    ctrl.update({
+                        ..._buildRowDeleteConfirm(stockCheck),
+                        loading: false,
+                    });
+                };
+                const timer = setTimeout(() => finishWith(null), STOCK_CHECK_TIMEOUT_MS);
                 _checkRowsHaveStock([r])
                     .then((stockCheck) => {
-                        if (ctrl.closed) return;
-                        ctrl.update({ ..._buildRowDeleteConfirm(stockCheck), loading: false });
+                        clearTimeout(timer);
+                        finishWith(stockCheck);
                     })
                     .catch((e) => {
                         console.warn('[so-order] stock check fail:', e.message);
-                        if (!ctrl.closed) ctrl.update({ loading: false });
+                        clearTimeout(timer);
+                        finishWith(null);
                     });
                 ok = await ctrl.result;
             }
@@ -3070,23 +3087,31 @@ window.addEventListener('load', () => {
             if (syncResult) {
                 ok = await soConfirm(_buildShipmentDeleteConfirm(syncResult, n));
             } else {
-                // Cold start fallback.
+                // Cold start fallback — timeout 1.2s để không treo lâu.
                 const ctrl = soConfirmOpen({
                     ..._buildShipmentDeleteConfirm(null, n),
                     loading: true,
                     loadingText: 'Đang kiểm tra tồn kho...',
                 });
+                let resolved = false;
+                const finishWith = (stockCheck) => {
+                    if (resolved || ctrl.closed) return;
+                    resolved = true;
+                    ctrl.update({
+                        ..._buildShipmentDeleteConfirm(stockCheck, n),
+                        loading: false,
+                    });
+                };
+                const timer = setTimeout(() => finishWith(null), 1200);
                 _checkRowsHaveStock(sh.rows || [])
                     .then((stockCheck) => {
-                        if (ctrl.closed) return;
-                        ctrl.update({
-                            ..._buildShipmentDeleteConfirm(stockCheck, n),
-                            loading: false,
-                        });
+                        clearTimeout(timer);
+                        finishWith(stockCheck);
                     })
                     .catch((e) => {
                         console.warn('[so-order] stock check fail:', e.message);
-                        if (!ctrl.closed) ctrl.update({ loading: false });
+                        clearTimeout(timer);
+                        finishWith(null);
                     });
                 ok = await ctrl.result;
             }
@@ -3280,14 +3305,22 @@ window.addEventListener('load', () => {
                     loading: true,
                     loadingText: 'Đang kiểm tra tồn kho...',
                 });
+                let resolved = false;
+                const finishWith = (stockCheck) => {
+                    if (resolved || ctrl.closed) return;
+                    resolved = true;
+                    ctrl.update({ ...buildOpts(stockCheck), loading: false });
+                };
+                const timer = setTimeout(() => finishWith(null), 1200);
                 _checkRowsHaveStock(allRows)
                     .then((stockCheck) => {
-                        if (ctrl.closed) return;
-                        ctrl.update({ ...buildOpts(stockCheck), loading: false });
+                        clearTimeout(timer);
+                        finishWith(stockCheck);
                     })
                     .catch((e) => {
                         console.warn('[so-order] stock check fail:', e.message);
-                        if (!ctrl.closed) ctrl.update({ loading: false });
+                        clearTimeout(timer);
+                        finishWith(null);
                     });
                 ok = await ctrl.result;
             }
