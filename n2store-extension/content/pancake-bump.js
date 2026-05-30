@@ -160,9 +160,9 @@
                 }
 
                 .overlay {
-                    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+                    position: fixed; inset: 0; background: rgba(0,0,0,0.55);
                     display: none; align-items: center; justify-content: center;
-                    backdrop-filter: blur(2px);
+                    /* No backdrop-filter — kills GPU on Mac retina */
                 }
                 .overlay.show { display: flex; }
 
@@ -170,9 +170,12 @@
                     background: #1e293b; color: #e2e8f0;
                     width: min(640px, 92vw); max-height: 88vh; overflow: hidden;
                     border-radius: 12px;
-                    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+                    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
                     display: flex; flex-direction: column;
                     border: 1px solid #334155;
+                    contain: layout style paint;
+                    will-change: transform, opacity;
+                    transition: transform .18s, opacity .18s;
                 }
 
                 .header {
@@ -187,7 +190,13 @@
                 }
                 .close-btn:hover { background: rgba(255,255,255,0.15); }
 
-                .body { padding: 16px 20px; overflow-y: auto; flex: 1; }
+                .body {
+                    padding: 16px 20px; overflow-y: auto; flex: 1;
+                    contain: layout style paint;
+                    overscroll-behavior: contain;
+                    scrollbar-gutter: stable;
+                    -webkit-overflow-scrolling: touch;
+                }
                 .row { margin-bottom: 14px; }
                 .row label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; }
                 .row .hint { font-size: 11px; color: #64748b; margin-top: 4px; }
@@ -285,12 +294,18 @@
                 .picker-list {
                     max-height: 260px; overflow-y: auto;
                     background: #020617;
+                    contain: layout style paint;
+                    overscroll-behavior: contain;
+                    scrollbar-gutter: stable;
+                    -webkit-overflow-scrolling: touch;
                 }
                 .picker-empty { padding: 24px; text-align: center; color: #64748b; font-size: 12px; }
                 .conv-row {
                     display: flex; align-items: center; gap: 10px;
                     padding: 8px 10px; border-bottom: 1px solid #1e293b;
                     cursor: pointer; transition: background .1s;
+                    content-visibility: auto;
+                    contain-intrinsic-size: 0 56px;
                 }
                 .conv-row:hover { background: #1e293b; }
                 .conv-row.checked { background: rgba(22, 163, 74, 0.08); }
