@@ -129,7 +129,27 @@
     const AGGREGATE_BASE = `${PROXY}/api/web2/customer-wallet`;
     const AGGREGATE_FALLBACK = `${FALLBACK}/api/web2/customer-wallet`;
 
-    async function fetchAggregate(opts) {
+    // V2 (2026-05-30): TPOS Partner làm primary source + overlay Web 2.0
+    // wallet/debt data per page. Replaces /aggregate (chỉ list KH có web2
+    // activity). Giờ list toàn bộ TPOS customers (5000+ KH), debt/wallet là
+    // overlay → KH chưa CK vẫn xuất hiện với balance 0 (cho phép tạo QR).
+    async function fetchOverlay(phones) {
+        const opts = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phones }),
+        };
+        try {
+            return await jsonFetch(`${AGGREGATE_BASE}/overlay-by-phones`, opts);
+        } catch (e) {
+            return await jsonFetch(`${AGGREGATE_FALLBACK}/overlay-by-phones`, opts);
+        }
+    }
+
+    // Hybrid filter mode: 'debt' / 'has_balance' / 'paid_off' chỉ áp KH có
+    // web2 activity → dùng /aggregate (server filter + paginate). 'all' / TPOS
+    // status (vip/warning/bomb) → dùng TPOS source.
+    async function fetchAggregateWeb2Only(opts) {
         const params = new URLSearchParams();
         params.set('limit', String(opts.limit || 50));
         params.set('offset', String(opts.offset || 0));
@@ -402,19 +422,23 @@
 
         renderPagination();
 
-        // Stats (overall, from server)
+        // Stats overlay:
+        // - Header counter pill = TPOS total (full customer base, 90k+)
+        // - Stat cards: Tổng KH (TPOS) + Có hoạt động Web 2.0 (web2 stats)
         const s = state.stats || {};
-        const total = Number(s.total) || 0;
+        const web2Total = Number(s.total) || 0;
+        const tposTotal = Number(state.total) || 0; // primary source khi filter=all/vip/warning/bomb
+        const headerTotal = tposTotal || web2Total;
         const filteredDebt = items.reduce((acc, c) => acc + Math.max(0, c.balance || 0), 0);
-        dom.totalCustomers.textContent = `${items.length} / ${total.toLocaleString('vi-VN')} KH`;
+        dom.totalCustomers.textContent = `${items.length} / ${headerTotal.toLocaleString('vi-VN')} KH`;
         dom.totalOutstanding.textContent = `Công nợ filter: ${fmtVnd(filteredDebt)}`;
 
-        if (dom.statKh) dom.statKh.textContent = total.toLocaleString('vi-VN');
+        if (dom.statKh) dom.statKh.textContent = headerTotal.toLocaleString('vi-VN');
         if (dom.statDebt) dom.statDebt.textContent = fmtVnd(s.total_debt);
         if (dom.statWallet) dom.statWallet.textContent = fmtVnd(s.total_wallet_balance);
         if (dom.statPaid) dom.statPaid.textContent = fmtVnd(s.total_paid);
 
-        if (dom.chipAll) dom.chipAll.textContent = (s.total || 0).toLocaleString('vi-VN');
+        if (dom.chipAll) dom.chipAll.textContent = headerTotal.toLocaleString('vi-VN');
         if (dom.chipDebt) dom.chipDebt.textContent = (s.debt_count || 0).toLocaleString('vi-VN');
         if (dom.chipBalance)
             dom.chipBalance.textContent = (s.has_balance_count || 0).toLocaleString('vi-VN');
@@ -840,35 +864,143 @@
         }
     }
 
-    // ─── Main load (server-paged aggregate) ──────────────────────────
+    // ─── Main load (TPOS primary + Web 2.0 overlay) ──────────────────
+    // V2 architecture (2026-05-30):
+    //   1. Source primary = PartnerCustomerApi.list (TPOS Partner OData)
+    //   2. Cho phones page hiện tại → POST /overlay-by-phones lấy wallet/debt
+    //   3. Merge: TPOS partner data + overlay → state.rows
+    //   4. Client-side filter cho 'debt' / 'has_balance' (chỉ trên page)
+    //   5. Stats vẫn từ /stats endpoint (web2 aggregate, có thể khác total
+    //      nhưng vẫn hữu ích cho summary)
     let _loadSeq = 0;
     async function load() {
         const mySeq = ++_loadSeq;
         state.loading = true;
         renderList();
         try {
-            const opts = {
-                limit: state.pageSize,
-                offset: (state.page - 1) * state.pageSize,
-                sort: state.sort,
-                filter: state.quickFilter,
-                search: state.search,
+            // Hybrid: wallet-focused filter → /aggregate web2-only.
+            // Có thể fetch debt/has_balance globally (KH có web2 activity).
+            if (
+                state.quickFilter === 'debt' ||
+                state.quickFilter === 'has_balance' ||
+                state.quickFilter === 'paid_off'
+            ) {
+                const aggResult = await fetchAggregateWeb2Only({
+                    limit: state.pageSize,
+                    offset: (state.page - 1) * state.pageSize,
+                    sort: state.sort,
+                    filter: state.quickFilter,
+                    search: state.search,
+                });
+                if (mySeq !== _loadSeq) return;
+                const statsResult = await fetchAggregateStats().catch(() => ({
+                    data: state.stats,
+                }));
+                state.rows = (aggResult?.data || []).map((r) => ({
+                    ...r,
+                    tposStatus: 'Normal',
+                    tposActive: true,
+                }));
+                state.total = aggResult?.total || 0;
+                state.stats = statsResult?.data || {};
+                for (const r of state.rows) state.cache[r.phone] = r;
+                state.loading = false;
+                renderList();
+                enrichTposForCurrentPage().catch(() => {});
+                return;
+            }
+
+            // TPOS-primary mode: list toàn bộ TPOS customers + overlay web2 data
+            const tposOpts = {
+                top: state.pageSize,
+                skip: (state.page - 1) * state.pageSize,
+                orderby: 'DateCreated desc',
             };
-            // Stats fetched in parallel (cheap thanks to 5s TTL on server)
-            const [aggResult, statsResult] = await Promise.all([
-                fetchAggregate(opts),
+            if (state.search) tposOpts.search = state.search;
+            if (state.quickFilter === 'vip') tposOpts.status = 'VIP';
+            else if (state.quickFilter === 'warning') tposOpts.status = 'Warning';
+            else if (state.quickFilter === 'bomb') tposOpts.status = 'BomHang';
+
+            const tposResult = await window.PartnerCustomerApi.list(tposOpts);
+            if (mySeq !== _loadSeq) return;
+            const partners = tposResult?.value || [];
+            const tposTotal = tposResult?.count || partners.length;
+
+            // Extract phones (normalize → 10-digit)
+            const phones = partners
+                .map((p) => String(p.Phone || p.Mobile || '').replace(/\D/g, ''))
+                .filter((p) => p.length >= 9 && p.length <= 12);
+
+            // Parallel: overlay + stats
+            const [overlayResult, statsResult] = await Promise.all([
+                phones.length > 0
+                    ? fetchOverlay(phones).catch(() => ({ data: [] }))
+                    : Promise.resolve({ data: [] }),
                 fetchAggregateStats().catch(() => ({ data: state.stats })),
             ]);
-            if (mySeq !== _loadSeq) return; // stale
-            state.rows = aggResult?.data || [];
-            state.total = aggResult?.total || 0;
+            if (mySeq !== _loadSeq) return;
+
+            const overlayMap = new Map();
+            for (const o of overlayResult?.data || []) overlayMap.set(o.phone, o);
+
+            // Merge TPOS + overlay
+            const merged = partners.map((p) => {
+                const phone = String(p.Phone || p.Mobile || '').replace(/\D/g, '');
+                const o = overlayMap.get(phone) || {};
+                return {
+                    phone,
+                    name: p.Name || phone || '(không tên)',
+                    customerId: p.Id,
+                    tposStatus: p.Status || 'Normal',
+                    tposActive: p.Active !== false,
+                    totalPurchased: o.totalPurchased || 0,
+                    paidAmount: o.totalDeposited || 0,
+                    returnedAmount: o.totalReturned || 0,
+                    balance: o.balance || 0,
+                    walletBalance: o.walletBalance || 0,
+                    totalDeposited: o.totalDeposited || 0,
+                    totalWithdrawn: o.totalWithdrawn || 0,
+                    pbhCount: o.pbhCount || 0,
+                    nativeCount: o.nativeCount || 0,
+                };
+            });
+
+            // Client-side wallet filter (chỉ áp page hiện tại)
+            let rows = merged;
+            if (state.quickFilter === 'debt') {
+                rows = rows.filter((r) => r.balance > 0);
+            } else if (state.quickFilter === 'has_balance') {
+                rows = rows.filter((r) => r.walletBalance > 0);
+            }
+
+            // Client-side sort cho wallet-related (TPOS đã sort theo DateCreated)
+            if (state.sort === 'balance-desc') {
+                rows.sort((a, b) => b.balance - a.balance);
+            } else if (state.sort === 'balance-asc') {
+                rows.sort((a, b) => a.balance - b.balance);
+            } else if (state.sort === 'wallet-desc') {
+                rows.sort((a, b) => b.walletBalance - a.walletBalance);
+            } else if (state.sort === 'total-desc') {
+                rows.sort((a, b) => b.totalPurchased - a.totalPurchased);
+            } else if (state.sort === 'paid-desc') {
+                rows.sort((a, b) => b.paidAmount - a.paidAmount);
+            } else if (state.sort === 'name-asc') {
+                rows.sort((a, b) => String(a.name).localeCompare(String(b.name), 'vi'));
+            }
+
+            state.rows = rows;
+            state.total = tposTotal;
             state.stats = statsResult?.data || {};
-            // Cache rows by phone for detail modal lookup
+
+            // Cache rows + tposPartners cho detail modal & QR
+            for (const p of partners) {
+                const phone = String(p.Phone || p.Mobile || '').replace(/\D/g, '');
+                if (phone) state.tposPartners[phone] = p;
+            }
             for (const r of state.rows) state.cache[r.phone] = r;
+
             state.loading = false;
             renderList();
-            // Lazy TPOS enrich (current page only — 50 phones max)
-            enrichTposForCurrentPage().catch(() => {});
         } catch (e) {
             if (mySeq !== _loadSeq) return;
             state.loading = false;
