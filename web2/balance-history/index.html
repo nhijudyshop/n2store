@@ -210,24 +210,49 @@
                             </label>
                         </div>
                     </div>
-                    <div class="w2md-field" id="w2mdPhoneField">
-                        <label>Số điện thoại KH *</label>
-                        <input
-                            type="text"
-                            id="w2mdPhone"
-                            placeholder="0xxxxxxxxx"
-                            autocomplete="off"
-                        />
-                        <small class="w2md-hint">10 digits VN — sẽ lookup TPOS để lấy tên</small>
+                    <!-- KH search panel -->
+                    <div class="w2md-field" id="w2mdKhPanel">
+                        <label>Tìm khách hàng *</label>
+                        <div class="w2md-search-wrap">
+                            <input
+                                type="text"
+                                id="w2mdKhSearch"
+                                placeholder="Nhập tên KH (hoặc SĐT) rồi Enter…"
+                                autocomplete="off"
+                            />
+                            <button
+                                type="button"
+                                class="w2md-icon-btn"
+                                id="w2mdKhSearchBtn"
+                                title="Tìm"
+                            >
+                                <i data-lucide="search"></i>
+                            </button>
+                        </div>
+                        <div class="w2md-result-list" id="w2mdKhResults" hidden></div>
+                        <div class="w2md-selected" id="w2mdKhSelected" hidden>
+                            <span class="w2md-selected-name" id="w2mdKhSelectedName"></span>
+                            <span class="w2md-selected-phone" id="w2mdKhSelectedPhone"></span>
+                            <button
+                                type="button"
+                                class="w2md-clear"
+                                id="w2mdKhClear"
+                                title="Đổi KH"
+                            >
+                                <i data-lucide="x"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="w2md-field">
-                        <label>Tên (KH/NCC) *</label>
-                        <input
-                            type="text"
-                            id="w2mdName"
-                            placeholder="Tên đầy đủ"
-                            autocomplete="off"
-                        />
+
+                    <!-- NCC dropdown panel -->
+                    <div class="w2md-field" id="w2mdNccPanel" hidden>
+                        <label>Chọn nhà cung cấp *</label>
+                        <select id="w2mdNccSelect">
+                            <option value="">-- Đang tải danh sách NCC… --</option>
+                        </select>
+                        <small class="w2md-hint"
+                            >Từ Firestore <code>web2_supplier_wallet/main</code></small
+                        >
                     </div>
                     <div class="w2md-field">
                         <label>Số tiền *</label>
