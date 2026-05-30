@@ -3,10 +3,10 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260530-100441-7836364`
-**Session file**: [`./20260530-100441-7836364.md`](../20260530-100441-7836364.md)
-**Commit**: `7836364` — auto: session update
-**Last updated**: 2026-05-30 10:04:41 +07
+**Latest session**: `RESUME:20260530-104843-916df85`
+**Session file**: [`./20260530-104843-916df85.md`](../20260530-104843-916df85.md)
+**Commit**: `916df85` — auto: session update
+**Last updated**: 2026-05-30 10:48:43 +07
 **Summary**: auto: session update
 
 ## Files changed in this commit (`n2store-extension/`)
@@ -15,11 +15,11 @@
 
 ## Last 5 commits touching `n2store-extension/`
 
+- `916df85c9` auto: session update _(2026-05-30)_
 - `783636441` auto: session update _(2026-05-30)_
 - `b27e66327` feat(extension): pancake bump UX restructure + cap-per-conv loop _(2026-05-30)_
 - `03ce0c478` auto: session update _(2026-05-30)_
 - `ed2e18eba` auto: session update _(2026-05-30)_
-- `c88191571` feat(extension): pancake bump — dynamic page list from Render via CF Worker _(2026-05-29)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260530-100441-7836364` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260530-104843-916df85` cho Claude walk chain theo CLAUDE.md protocol.
