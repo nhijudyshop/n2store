@@ -119,16 +119,18 @@ async function _dbStats(pool, name) {
 const SERVICES_INVENTORY = [
     {
         category: 'database',
-        name: 'Supabase Postgres',
-        plan: 'Pro',
-        provider: 'Supabase',
-        costMonth: 25,
+        name: 'Render Postgres',
+        plan: 'Basic 1GB (Singapore)',
+        provider: 'Render',
+        costMonth: 19,
         currency: 'USD',
-        freeTier: { storage: '500 MB', connections: 60 },
-        paidLimit: { storage: '8 GB', connections: 200 },
-        purpose: 'DB chính — web2_products, native_orders, fast_sale_orders, customers, ...',
-        url: 'https://supabase.com/dashboard',
+        freeTier: { storage: '1 GB', expiration: '90 days' },
+        paidLimit: { storage: '1 GB Basic $19/mo · 4 GB Pro $55/mo · 8 GB Pro+ $95/mo' },
+        purpose:
+            'DB chính — web2_products, native_orders, fast_sale_orders, customers, invoice_status, ...',
+        url: 'https://dashboard.render.com',
         poolKey: 'chatDb',
+        host: 'dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com',
     },
     {
         category: 'database',
@@ -139,9 +141,13 @@ const SERVICES_INVENTORY = [
         currency: 'USD',
         freeTier: { storage: '0.5 GB', connections: '100 (autoscale)', branches: 10 },
         paidLimit: { storage: '3 GB (Launch $19/mo)', connections: 'unlimited' },
-        purpose: 'DB Web 2.0 generic — web2_records (78+ entities, JSONB)',
+        purpose:
+            '⚠️ DUPLICATE provider — web2_records (199MB, 131k rows). User đề xuất consolidate về Render Postgres (cùng provider, đã trả phí).',
         url: 'https://console.neon.tech',
         poolKey: 'web2Db',
+        host: 'ep-orange-cloud-aox4ddrx.c-2.ap-southeast-1.aws.neon.tech',
+        warning:
+            'Đang dùng 38.9% Free Tier. Khuyến nghị: migrate sang Render Postgres để giảm số service + tránh hit Free limit.',
     },
     {
         category: 'compute',
