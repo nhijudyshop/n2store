@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4c4f58a` — auto: session update
-**Last updated**: 2026-05-30 12:02:30 +07
-**Latest session**: [`RESUME:20260530-120230-4c4f58a`](../20260530-120230-4c4f58a.md)
-**Summary**: auto: session update
+**Latest commit**: `c119fd7` — feat(web2/shared): thay text "N2" bằng logo emblem N2 Store
+**Last updated**: 2026-05-30 12:03:36 +07
+**Latest session**: [`RESUME:20260530-120336-c119fd7`](../20260530-120336-c119fd7.md)
+**Summary**: feat(web2/shared): thay text "N2" bằng logo emblem N2 Store
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -69,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-30 12:02
+- [`web2/`](./web2.md) — updated 2026-05-30 12:03
