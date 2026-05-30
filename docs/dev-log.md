@@ -25,6 +25,47 @@
 
 ## 2026-05-30
 
+### [render][web2-balance-history] Rip out 100% Web 1.0 dependencies trong matcher ✅
+
+**User feedback**:
+
+> "coi lại toàn bộ dữ liệu balance-history → đang dùng dữ liệu từ đâu → có khi còn sót lại dữ liệu bên web 1.0"
+> "rip out 100%" → "bỏ local cache"
+
+**Audit findings** (frontend đã isolated, backend còn 2 leftover):
+
+- ✅ Frontend `web2/balance-history/` 100% Web 2.0: tất cả fetch đi `/api/web2/balance-history/*`, SSE topic `web2:wallet:*`, TPOS partner enrich qua OData.
+- ⚠ Backend `render.com/services/web2-sepay-matching.js`:
+    - `SELECT MAX(id) FROM balance_history` trong sequence init (line 53, để tránh collision ID legacy).
+    - 3× `SELECT ... FROM balance_customer_info` cho QR + exact + partial phone name cache.
+    - `CREATE TABLE web2_balance_history (LIKE balance_history ...)` clone schema từ legacy table.
+
+**Files changed**:
+
+- [render.com/services/web2-sepay-matching.js](../render.com/services/web2-sepay-matching.js)
+
+**Changes**:
+
+1. **Sequence init**: bỏ `MAX(id) FROM balance_history`. Chỉ tham chiếu `MAX(id) FROM web2_balance_history` + `+10000` buffer.
+2. **QR code path**: bỏ luôn block lookup `balance_customer_info` qua unique_code. QR codes (`N2` + 16 chars) chỉ tồn tại trong table Web 1.0 → Web 2.0 không generate mới nên không có gì để lookup. Fallback to phone extraction (path 3).
+3. **Exact phone path**: bỏ `SELECT customer_name FROM balance_customer_info WHERE customer_phone=$1`. Lookup name CHỈ qua TPOS OData (`searchTPOSByPartialPhone`).
+4. **Partial phone path**: bỏ `SELECT DISTINCT ... FROM balance_customer_info WHERE customer_phone LIKE $1`. Lookup CHỈ qua TPOS.
+5. **Schema bootstrap**: wrap `CREATE TABLE ... LIKE balance_history` trong `DO $$ IF NOT EXISTS web2_balance_history $$` + `IF EXISTS balance_history`. Nếu legacy không có (env fresh hoàn toàn) → fallback explicit schema base cols. Trên prod đã có table → cả 2 nhánh CREATE no-op.
+6. Update header comment: thêm "Phase 4 (2026-05-30): ZERO Web 1.0 dependency" + giải thích trade-off (1 TPOS call ~150ms mỗi unknown phone, đổi lại data luôn fresh).
+
+**Trade-off**:
+
+- Trước: name cache local DB → instant; fallback TPOS khi miss.
+- Sau: chỉ TPOS → 1 round-trip ~150ms cho mỗi unknown phone. Cache TPOS-side vẫn hit khi search trùng phone gần đây.
+- Lợi: zero stale data risk (TPOS là source of truth cho customer info), zero dependency vào Web 1.0 table được populate bởi flow legacy.
+
+**Verified**:
+
+- `node --check render.com/services/web2-sepay-matching.js` → SYNTAX OK.
+- `grep -nE "(FROM|UPDATE|INSERT INTO) (balance_history|balance_customer_info|sepay_webhook_logs)\b"` trong toàn bộ backend stack Web 2.0 balance-history → 0 matches.
+
+**Status**: ✅ Done. Cần test live sau khi deploy: SePay webhook → match → confirm `dataSource = 'TPOS'` only, không có `'LOCAL_DB'`.
+
 ### [web2-cache] Chuyển persist sang IndexedDB (từ localStorage) + auto-migrate ✅
 
 **User feedback**:

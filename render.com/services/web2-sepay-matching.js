@@ -10,6 +10,12 @@
 //   • Match đa SĐT → tạo web2_pending_matches để user chọn ở UI
 //   • Ghi vào web2_balance_history + web2_customer_wallets/web2_wallet_transactions
 //
+// Phase 4 (2026-05-30): ZERO Web 1.0 dependency.
+//   • Bỏ đọc legacy table balance_customer_info (QR + phone name cache)
+//   • Bỏ đọc legacy table balance_history (sequence init)
+//   • Name lookup CHỈ qua TPOS OData (live, không local cache)
+//   • Trade-off: 1 TPOS call mỗi unknown phone (~150ms), bù lại data luôn fresh
+//
 // Reuse các helper extract/search từ legacy (pure function, không write DB):
 //   • extractPhoneFromContent
 //   • searchTPOSByPhone
@@ -38,21 +44,64 @@ let _ready = false;
 async function ensureSchema(pool) {
     if (_ready || !pool) return;
     try {
+        // Web 1.0-independent bootstrap:
+        //   • Nếu balance_history (legacy) tồn tại → vẫn dùng LIKE để inherit
+        //     mọi migration đã apply trên table cũ (safest cho legacy-shared env).
+        //   • Nếu legacy không tồn tại → tạo explicit schema từ
+        //     migrations/create_balance_history.sql (base cols Web 2.0 cần).
+        //     Các col Web 2.0-only (debt_added, linked_customer_phone, …) được
+        //     ALTER thêm idempotent ở phần ALTER bên dưới.
+        // Trên prod: web2_balance_history đã tồn tại → cả 2 nhánh CREATE đều no-op.
         await pool.query(`
-            CREATE TABLE IF NOT EXISTS web2_balance_history (
-                LIKE balance_history INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES
-            );
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_class WHERE relname = 'web2_balance_history'
+                ) THEN
+                    IF EXISTS (
+                        SELECT 1 FROM pg_class WHERE relname = 'balance_history'
+                    ) THEN
+                        CREATE TABLE web2_balance_history (
+                            LIKE balance_history INCLUDING DEFAULTS
+                                                 INCLUDING CONSTRAINTS
+                                                 INCLUDING INDEXES
+                        );
+                    ELSE
+                        CREATE TABLE web2_balance_history (
+                            id SERIAL PRIMARY KEY,
+                            sepay_id INTEGER UNIQUE NOT NULL,
+                            gateway VARCHAR(100) NOT NULL,
+                            transaction_date TIMESTAMP NOT NULL,
+                            account_number VARCHAR(50) NOT NULL,
+                            code VARCHAR(100),
+                            content TEXT,
+                            transfer_type VARCHAR(10) NOT NULL CHECK (transfer_type IN ('in', 'out')),
+                            transfer_amount BIGINT NOT NULL,
+                            accumulated BIGINT NOT NULL,
+                            sub_account VARCHAR(100),
+                            reference_code VARCHAR(100),
+                            description TEXT,
+                            body JSONB,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        );
+                        CREATE INDEX idx_web2_bh_sepay_id ON web2_balance_history(sepay_id);
+                        CREATE INDEX idx_web2_bh_tx_date ON web2_balance_history(transaction_date DESC);
+                        CREATE INDEX idx_web2_bh_transfer_type ON web2_balance_history(transfer_type);
+                    END IF;
+                END IF;
+            END $$;
         `);
-        // Sequence riêng — tránh collision với legacy
+        // Sequence riêng — chỉ tham chiếu web2_balance_history (zero Web 1.0 dep).
+        // Lần đầu init: nếu bảng rỗng, sequence khởi đầu từ 10000 — đủ buffer cho
+        // mọi row legacy đã backfill (ID < 10000 không tồn tại trong web2_).
         await pool.query(`
             CREATE SEQUENCE IF NOT EXISTS web2_balance_history_id_seq;
             DO $$
             DECLARE max_id BIGINT;
             BEGIN
-                SELECT GREATEST(
-                    COALESCE((SELECT MAX(id) FROM balance_history), 0),
-                    COALESCE((SELECT MAX(id) FROM web2_balance_history), 0)
-                ) + 10000 INTO max_id;
+                SELECT COALESCE((SELECT MAX(id) FROM web2_balance_history), 0) + 10000
+                  INTO max_id;
                 PERFORM setval('web2_balance_history_id_seq', max_id, false);
             END $$;
             ALTER TABLE web2_balance_history
@@ -212,90 +261,42 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
     let matchMethod = null;
     let dataSource = null;
 
-    // 2. Try QR code (N2 + 16 alphanumeric)
-    const qrMatch = content.toUpperCase().match(/N2[A-Z0-9]{16}/);
-    if (qrMatch) {
-        const qrCode = qrMatch[0];
-        const infoResult = await db.query(
-            `SELECT customer_phone, customer_name FROM balance_customer_info
-             WHERE UPPER(unique_code) = $1`,
-            [qrCode]
-        );
-        if (infoResult.rows.length > 0 && infoResult.rows[0].customer_phone) {
-            matchedPhone = infoResult.rows[0].customer_phone;
-            customerName = infoResult.rows[0].customer_name || null;
-            matchMethod = 'qr_code';
-            dataSource = 'LOCAL_DB';
-        }
-    }
+    // 2. QR code path REMOVED — QR codes (N2 + 16 chars) chỉ tồn tại trong table
+    //    Web 1.0 `balance_customer_info`. Web 2.0 không generate QR codes mới,
+    //    nên không có gì để lookup. Fallback to phone extraction.
 
     // 3. Try exact / partial phone extraction
     if (!matchedPhone) {
         const extracted = extractPhoneFromContent(content);
         if (extracted.type === 'exact_phone') {
             const exactPhone = extracted.value;
-            // Try local DB then TPOS
-            const localResult = await db.query(
-                `SELECT customer_name FROM balance_customer_info
-                 WHERE customer_phone = $1 AND customer_name IS NOT NULL AND customer_name != ''
-                 ORDER BY updated_at DESC LIMIT 1`,
-                [exactPhone]
-            );
-            if (localResult.rows.length > 0) {
-                customerName = localResult.rows[0].customer_name;
-                dataSource = 'LOCAL_DB';
-            } else {
-                try {
-                    const tposResult = await searchTPOSByPartialPhone(exactPhone, fetchWithTimeout);
-                    if (tposResult?.success && tposResult.uniquePhones?.length > 0) {
-                        const phoneData = tposResult.uniquePhones.find(
-                            (p) => p.phone === exactPhone
-                        );
-                        if (phoneData && phoneData.customers?.length > 0) {
-                            customerName = phoneData.customers[0].name;
-                            dataSource = 'TPOS';
-                        }
+            // TPOS-only lookup (no local cache — zero Web 1.0 dependency)
+            try {
+                const tposResult = await searchTPOSByPartialPhone(exactPhone, fetchWithTimeout);
+                if (tposResult?.success && tposResult.uniquePhones?.length > 0) {
+                    const phoneData = tposResult.uniquePhones.find((p) => p.phone === exactPhone);
+                    if (phoneData && phoneData.customers?.length > 0) {
+                        customerName = phoneData.customers[0].name;
+                        dataSource = 'TPOS';
                     }
-                } catch (e) {
-                    console.warn(
-                        '[web2-sepay-matching] TPOS exact phone lookup failed:',
-                        e.message
-                    );
                 }
+            } catch (e) {
+                console.warn('[web2-sepay-matching] TPOS exact phone lookup failed:', e.message);
             }
             matchedPhone = exactPhone;
             matchMethod = 'exact_phone';
         } else if (extracted.type === 'partial_phone') {
             const partialPhone = extracted.value;
-            // Try local DB
-            const localResult = await db.query(
-                `SELECT DISTINCT customer_phone, customer_name FROM balance_customer_info
-                 WHERE customer_phone LIKE $1
-                 AND customer_name IS NOT NULL AND customer_name != ''
-                 ORDER BY customer_phone`,
-                [`%${partialPhone}`]
-            );
+            // TPOS-only lookup (no local cache — zero Web 1.0 dependency)
             let matchedPhones = [];
-            if (localResult.rows.length > 0) {
-                matchedPhones = localResult.rows.map((row) => ({
-                    phone: row.customer_phone,
-                    customers: [{ name: row.customer_name, phone: row.customer_phone }],
-                    count: 1,
-                }));
-                dataSource = 'LOCAL_DB';
-            } else {
-                try {
-                    const tposResult = await searchTPOSByPartialPhone(
-                        partialPhone,
-                        fetchWithTimeout
-                    );
-                    if (tposResult?.success && tposResult.uniquePhones?.length > 0) {
-                        matchedPhones = tposResult.uniquePhones;
-                        dataSource = 'TPOS';
-                    }
-                } catch (e) {
-                    console.warn('[web2-sepay-matching] TPOS partial lookup failed:', e.message);
+            try {
+                const tposResult = await searchTPOSByPartialPhone(partialPhone, fetchWithTimeout);
+                if (tposResult?.success && tposResult.uniquePhones?.length > 0) {
+                    matchedPhones = tposResult.uniquePhones;
+                    dataSource = 'TPOS';
                 }
+            } catch (e) {
+                console.warn('[web2-sepay-matching] TPOS partial lookup failed:', e.message);
             }
 
             if (matchedPhones.length === 1) {
