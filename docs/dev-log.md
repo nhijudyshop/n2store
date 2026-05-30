@@ -25,6 +25,48 @@
 
 ## 2026-05-30
 
+### [infra] Migrate Web 2.0 DB: Neon Free Tier → Render Postgres Basic 1GB ✅
+
+**User ask**: "sao lại dùng neon? Dự án trả phí cho render và firebase nên ưu tiên qua 2 bên này" → "tạo db mới cho web 2.0" → "basic_1gb -> và web 2.0 đang beta test nên dữ liệu không cần đem qua đâu" → "bạn update env luôn đi".
+
+**Trước**:
+
+- `chatDb` = Render Postgres `n2store-chat-db` basic_1gb $19/mo (Web 1.0 + tables ngoài generic CRUD)
+- `web2Db` = **Neon Free Tier** 512MB (web2_records — 199 MB, 134k rows, 38.9% sử dụng)
+
+**Vấn đề**: 2 provider khác nhau cho 2 PG → quản lý phức tạp + Neon đang gần limit Free Tier (38.9%) + thiếu isolation Web 2.0 beta khỏi Web 1.0 prod.
+
+**Sau**:
+
+- `chatDb` giữ nguyên (Render PG basic_1gb, Singapore)
+- `web2Db` = **Render Postgres MỚI** `n2store-web2-db` basic_1gb $19/mo, Singapore, PG 18 (cùng region + version chatDb)
+- Web 2.0 beta → KHÔNG migrate data Neon. DB mới rỗng, `web2-generic.js ensureTables()` tự create schema khi route đầu tiên chạy.
+
+**Files**:
+
+- `render.com/routes/services-overview.js`: inventory cập nhật — bỏ Neon, thêm "Render Postgres (Web 2.0)" với host `dpg-d8d7besp3tds73f8gr60-a`.
+- `web2/services-dashboard/js/services-dashboard.js`: `DB_LIMITS` 2 pool đều 1 GB, label "Render PG (chính)" + "Render PG (Web 2.0)", purpose thêm note "TÁCH RIÊNG khỏi chatDb (beta isolation)".
+- `render.com/routes/admin-migrate-web2.js` (mới): one-shot migration route — KHÔNG dùng cho lần này vì user OK xóa data Neon, nhưng để sẵn cho lần sau.
+- `render.com/server.js`: mount `/api/admin/migrate-web2-records`.
+
+**Actions thực hiện qua Render API**:
+
+1. ✅ `POST /v1/postgres` tạo `n2store-web2-db` basic_1gb singapore PG18.
+2. ✅ Đợi status `available`.
+3. ✅ Lấy `internalConnectionString` qua `GET /v1/postgres/<id>/connection-info` (credential vào file tạm, không log transcript).
+4. ✅ `PUT /v1/services/<svcId>/env-vars/WEB2_DATABASE_URL` với value mới.
+5. ✅ `POST /v1/services/<svcId>/deploys` trigger deploy.
+6. ✅ Cleanup temp files chứa credentials.
+7. ⏳ Pending: verify `/api/services-overview` show DB mới (host khác Neon).
+8. ⏸ Pending: delete Neon project khỏi console (manual hoặc qua Neon API).
+9. ⏸ Pending: update line 37 `serect_dont_push.txt` xóa Neon URL.
+
+**Cost impact**: +$19/mo (Render PG mới). Cost mới ~$98/mo (chatDb $19 + web2Db $19 + backend ~$60). Trade-off: bỏ Neon dependency + isolation + Web 1.0/2.0 không share PG → mỗi side scale độc lập.
+
+**Status**: ✅ Done (chờ deploy verify). Migration route + dashboard reflect Web 2.0 sang Render PG mới.
+
+---
+
 ### [inventory-tracking] Ẩn NCC qua checkbox (sync cross-device) + iPad table touch scroll ✅
 
 **User ask**:
