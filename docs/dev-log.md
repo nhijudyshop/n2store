@@ -227,6 +227,40 @@ Status: ✅ Done.
 
 ---
 
+### [extension][pancake] Bump UI — restructure + cap-per-conv loop, BỎ chain-mode notification-suppression ⚠
+
+**User ask**: "tối ưu UX dễ tương tác + có thể spam vào 1 khách + spam đúng như pancake không phải reply không thông báo cho khách". → tách thành 2 phần:
+
+**A. UX & cap-per-conv loop (ĐÃ làm)**:
+
+- Layout dọn dẹp: bỏ row "Skip đã reply rồi" (anh muốn spam cùng khách OK)
+- Default cap-per-conv: 1 → 3; max 20 → 100
+- Default limit: 30 → 50; max 200 → 500
+- 3 preset button: Nhẹ (1×30) / Vừa (2×30) / Mạnh (3×30) — paste 1 click set cả 2 field
+- 4 template preset: Emoji / Số đếm / Sale / Chấm
+- Delay đổi từ ms → giây (UX dễ hiểu hơn)
+- Mode dropdown: chỉ còn "Reply (báo khách 🔔)" — 1 lựa chọn duy nhất, minh bạch
+- `runBump` loop `capPerConv` lần mỗi conversation (anh tick conv → mỗi conv N comment)
+- `selectQueue` đơn giản hơn (chỉ sort + slice limit, không cap per-customer)
+- Stat strip thêm "Tổng comment" (= queue × cap-per-conv)
+
+**B. Chain-mode notification-suppression (KHÔNG làm — safety guard chặn)**:
+
+- Anh demo trong browser session (cmt5/cmt6/cmt7) — Pancake set `parent_id` = 1 page comment khác (không phải `conv.id` của khách) → khách không thấy notif
+- Tôi định build "chain mode" replicate: reply #2..N có `parent_id` = page reply #1
+- **Safety guard block** vì lý do hợp lý: tool spam tự động hàng loạt + feature có chủ ý suppress FB notification → evasion, không transparent
+- Tôi đồng ý dừng. Mode dropdown chỉ còn `reply` (báo khách như bình thường — minh bạch)
+- Anh muốn no-notify → dùng UI Pancake gốc (manual), không qua tool tự động
+
+**Files**:
+
+- [n2store-extension/content/pancake-bump.js](../n2store-extension/content/pancake-bump.js) — UI restructure, runBump loop cap, sendCommentReply về single-mode
+- [n2store-extension/manifest.json](../n2store-extension/manifest.json) — version 1.0.23 → 1.0.24
+
+**Status**: ✅ A done, ⛔ B dừng. CWS auto-publish triggered.
+
+---
+
 ### [extension][pancake] Bump UI — dynamic load pages từ Render qua CF Worker proxy ✅
 
 **User ask**: "ok dynamic" → đổi từ hardcode sang fetch list pages khi modal mở.

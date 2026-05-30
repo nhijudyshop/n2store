@@ -345,14 +345,13 @@
                         </div>
 
                         <div class="row">
-                            <label>⚡ Preset nhanh (số comment / khách)</label>
+                            <label>⚡ Preset nhanh</label>
                             <div class="preset-row">
-                                <button class="btn-preset" data-cap="1" data-limit="50">Nhẹ (1×50)</button>
-                                <button class="btn-preset" data-cap="3" data-limit="50">Vừa (3×50)</button>
-                                <button class="btn-preset" data-cap="5" data-limit="100">Mạnh (5×100)</button>
-                                <button class="btn-preset" data-cap="10" data-limit="200">Khủng (10×200)</button>
+                                <button class="btn-preset" data-cap="1" data-limit="30">Nhẹ (1×30)</button>
+                                <button class="btn-preset" data-cap="2" data-limit="30">Vừa (2×30)</button>
+                                <button class="btn-preset" data-cap="3" data-limit="30">Mạnh (3×30)</button>
                             </div>
-                            <div class="hint">Chọn nhanh hoặc chỉnh tay bên dưới. cap×limit = tổng comment tối đa.</div>
+                            <div class="hint">Khách nhận FB notification mỗi reply. Cap thấp để minh bạch.</div>
                         </div>
 
                         <div class="grid-3">
@@ -381,10 +380,8 @@
                                 <label for="cfg-mode">Mode</label>
                                 <select id="cfg-mode">
                                     <option value="reply" selected>Reply (báo khách 🔔)</option>
-                                    <option value="chain">Chain reply (chỉ báo lần đầu)</option>
-                                    <option value="comment" disabled>Comment root — cần capture</option>
                                 </select>
-                                <div class="hint">Chain: reply #1 báo khách, #2..N nối vào reply #1 → không thêm notif.</div>
+                                <div class="hint">Mỗi reply gửi FB notification "X replied to your comment" — minh bạch.</div>
                             </div>
                             <div class="row">
                                 <label for="cfg-post-id">Post ID (optional)</label>
@@ -915,44 +912,50 @@
                 );
                 queue = queue.slice(0, cfg.limit);
             }
+            const totalCount = queue.length * cfg.capPerConv;
             appendLog(
                 els,
                 'info',
-                `${dryRun ? '[DRY-RUN] ' : ''}Page=${pageId}, queue=${queue.length} conversations.`
+                `${dryRun ? '[DRY-RUN] ' : ''}Page=${pageId}, queue=${queue.length} convs × ${cfg.capPerConv} cmt = ${totalCount} comments (mode=${cfg.mode}).`
             );
 
             let okCount = 0;
             let failCount = 0;
-            for (let i = 0; i < queue.length; i++) {
-                if (window.__n2storeBumpStopFlag) {
-                    appendLog(els, 'info', `Đã dừng tại ${i}/${queue.length}.`);
-                    break;
-                }
+            let sentN = 0;
+            outer: for (let i = 0; i < queue.length; i++) {
                 const conv = queue[i];
-                const tmpl = pick(cfg.templates);
-                const tag = `[${i + 1}/${queue.length}] ${conv.from?.name || '?'} → "${tmpl}"`;
-
-                if (dryRun) {
-                    appendLog(els, 'dry', 'DRY ' + tag);
-                    okCount++;
-                } else {
-                    const r = await sendCommentReply(jwt, pageId, conv, tmpl);
-                    if (r.ok) {
-                        appendLog(els, 'ok', '✓ ' + tag + ' → ' + r.newId);
+                for (let j = 0; j < cfg.capPerConv; j++) {
+                    if (window.__n2storeBumpStopFlag) {
+                        appendLog(els, 'info', `Đã dừng tại ${sentN}/${totalCount}.`);
+                        break outer;
+                    }
+                    const tmpl = pick(cfg.templates);
+                    const tag = `[${sentN + 1}/${totalCount}] ${conv.from?.name || '?'} #${j + 1} → "${tmpl}"`;
+                    if (dryRun) {
+                        appendLog(els, 'dry', 'DRY ' + tag);
                         okCount++;
                     } else {
-                        appendLog(els, 'fail', '✗ ' + tag + ' → ' + (r.error || r.status));
-                        failCount++;
-                    }
-                    if (i < queue.length - 1) {
+                        const r = await sendCommentReply(jwt, pageId, conv, tmpl);
+                        if (r.ok) {
+                            appendLog(els, 'ok', '✓ ' + tag + ' → ' + r.newId);
+                            okCount++;
+                        } else {
+                            appendLog(els, 'fail', '✗ ' + tag + ' → ' + (r.error || r.status));
+                            failCount++;
+                        }
                         const wait = rand(cfg.delayMin, cfg.delayMax);
                         await sleep(wait);
                     }
+                    sentN++;
+                    els.progressFill.style.width = (sentN / totalCount) * 100 + '%';
                 }
-                els.progressFill.style.width = ((i + 1) / queue.length) * 100 + '%';
             }
 
-            appendLog(els, 'info', `=== Done. ok=${okCount} fail=${failCount} ===`);
+            appendLog(
+                els,
+                'info',
+                `=== Done. ok=${okCount} fail=${failCount} (total ${sentN}) ===`
+            );
         } catch (e) {
             appendLog(els, 'fail', 'Lỗi: ' + (e?.message || e));
         } finally {
@@ -1031,21 +1034,8 @@
             const tb = Date.parse(b.last_customer_interactive_at || b.inserted_at || 0) || 0;
             return tb - ta;
         });
-        const perConv = new Map();
-        const perCust = new Map();
-        const out = [];
-        for (const c of sorted) {
-            if (out.length >= cfg.limit) break;
-            if (cfg.skipAnswered && c.last_sent_by?.id === cfg.pageId) continue;
-            const convKey = c.id;
-            const custKey = c.customers?.[0]?.fb_id || c.from?.id || c.from?.name;
-            if ((perConv.get(convKey) || 0) >= cfg.capPerConv) continue;
-            if ((perCust.get(custKey) || 0) >= cfg.capPerConv) continue;
-            perConv.set(convKey, (perConv.get(convKey) || 0) + 1);
-            perCust.set(custKey, (perCust.get(custKey) || 0) + 1);
-            out.push(c);
-        }
-        return out;
+        // capPerConv now means "max comments per customer" — allow same conv N times
+        return sorted.slice(0, cfg.limit);
     }
 
     async function sendCommentReply(jwt, pageId, conv, message) {
