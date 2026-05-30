@@ -25,6 +25,32 @@
 
 ## 2026-05-30
 
+### [web2/purchase-refund] Picker chọn SP từ Kho (stock>0) group by NCC ✅
+
+**User ask**: "nhận hàng → purchase-refund sẽ có danh sách để trả hàng cho NCC".
+
+**Insight**: web2_products đã có sẵn `stock` + `supplier`. Sau khi "Nhận hàng" trong so-order, SP có stock>0 + supplier set → Picker dùng làm source. Bỏ gõ thủ công textarea.
+
+**Files**:
+
+- `web2/purchase-refund/index.html`: button "Chọn SP từ Kho" cạnh textarea + picker modal (#prPicker) với search + dropdown NCC + "Chỉ SP còn tồn" toggle + group list. Load `web2-products-api.js` + `web2-products-cache.js`. Cache `v=20260530a`.
+- `web2/purchase-refund/js/purchase-refund-app.js`:
+    - `PICKER_STATE = { products, selectedCodes: Set, qtyOverrides: Map, supplierFilter, search, onlyStock }`.
+    - `openPicker()`: `Web2ProductsCache.init()` → `getAll()` → populate supplier dropdown distinct + pre-fill từ form NCC.
+    - `renderPicker()`: filter stock + supplier + search; group by supplier; mỗi group là table với checkbox + qty input (default qty = stock).
+    - `confirmPicker()`: emit `code | name (variant) | qty | price` → append textarea + auto totalQty/totalAmount.
+    - UX: user nhập qty mà chưa tick → auto check.
+- `web2/purchase-refund/css/purchase-refund.css`: `.pr-picker*` overlay (gradient blue head, group cards border-left xanh, picked rows blue highlight, hover effects).
+
+**Verify** (Playwright):
+
+- Tạo phiếu → Chọn SP từ Kho → picker hiện 6 NCC groups, 12 SP stock>0.
+- Tick 2, đổi qty 1 → 5, confirm → textarea fill 2 dòng đúng format, totals auto 30/6,400,000đ.
+
+**Status**: ✅ Done. Screenshot: `downloads/n2store-session/pr-picker-open.png`.
+
+---
+
 ### [web2-products] Sheet lẻ (1 label) đẩy về slot 1 bên trái ✅
 
 **User ask**: "nếu in 1 tem thì cho qua bên trái chứ để ở giữa bị in ra máy in là in giữa tem".

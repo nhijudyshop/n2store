@@ -9,7 +9,7 @@
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
         <script src="../../shared/js/firebase-config.js?v=20260521b"></script>
         <script src="../../shared/js/notification-system.js?v=20260521b"></script>
-        <link rel="stylesheet" href="css/purchase-refund.css?v=20260521b" />
+        <link rel="stylesheet" href="css/purchase-refund.css?v=20260530a" />
         <link rel="stylesheet" href="../../web2/shared/web2-tpos-theme.css?v=20260522d" />
     </head>
     <body>
@@ -133,7 +133,33 @@
                         </label>
                     </div>
                     <label class="pr-form-full">
-                        Danh sách SP trả (1 dòng / SP — format: <code>MA_SP | TÊN | SL | GIÁ</code>)
+                        <div
+                            style="
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                margin-bottom: 4px;
+                            "
+                        >
+                            <span>
+                                Danh sách SP trả (1 dòng / SP — format:
+                                <code>MA_SP | TÊN | SL | GIÁ</code>)
+                            </span>
+                            <button
+                                type="button"
+                                id="prPickFromKho"
+                                class="btn btn-secondary btn-sm"
+                                style="
+                                    display: inline-flex;
+                                    align-items: center;
+                                    gap: 6px;
+                                    padding: 6px 12px;
+                                    font-size: 13px;
+                                "
+                            >
+                                <i data-lucide="package-search"></i> Chọn SP từ Kho
+                            </button>
+                        </div>
                         <textarea
                             name="productsText"
                             rows="6"
@@ -158,9 +184,48 @@
             </div>
         </div>
 
+        <!-- Picker modal — chọn SP từ Kho (stock > 0), group by NCC -->
+        <div class="pr-picker" id="prPicker" hidden>
+            <div class="pr-picker-backdrop" data-pr-picker-close></div>
+            <div class="pr-picker-content">
+                <header class="pr-picker-head">
+                    <h2><i data-lucide="package-search"></i> Chọn SP từ Kho — để trả NCC</h2>
+                    <button data-pr-picker-close class="pr-picker-close">×</button>
+                </header>
+                <div class="pr-picker-filters">
+                    <input
+                        type="text"
+                        id="prPickerSearch"
+                        placeholder="Tìm mã / tên SP / biến thể / NCC..."
+                    />
+                    <select id="prPickerSupplierFilter">
+                        <option value="">Tất cả NCC</option>
+                    </select>
+                    <label class="pr-picker-stockfilter">
+                        <input type="checkbox" id="prPickerOnlyStock" checked />
+                        Chỉ SP còn tồn (stock &gt; 0)
+                    </label>
+                </div>
+                <div class="pr-picker-list" id="prPickerList"></div>
+                <footer class="pr-picker-foot">
+                    <span id="prPickerCount" class="pr-picker-count">0 SP đã chọn</span>
+                    <div class="pr-picker-actions">
+                        <button type="button" data-pr-picker-close class="btn btn-secondary">
+                            Hủy
+                        </button>
+                        <button type="button" id="prPickerConfirm" class="btn btn-primary">
+                            <i data-lucide="check"></i> Thêm vào danh sách
+                        </button>
+                    </div>
+                </footer>
+            </div>
+        </div>
+
         <script src="../shared/web2-auth.js?v=20260521b"></script>
         <script src="../shared/tpos-sidebar.js?v=20260522f"></script>
         <script src="../shared/web2-sse-bridge.js?v=20260526sse2"></script>
-        <script src="js/purchase-refund-app.js?v=20260521b"></script>
+        <script src="../products/js/web2-products-api.js?v=20260530a"></script>
+        <script src="../shared/web2-products-cache.js?v=20260530a"></script>
+        <script src="js/purchase-refund-app.js?v=20260530a"></script>
     </body>
 </html>

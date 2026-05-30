@@ -380,3 +380,221 @@ body {
     padding-top: 12px;
     border-top: 1px solid #e2e8f0;
 }
+
+/* P1 2026-05-30: Product Picker — chọn SP từ Kho group by NCC
+ * User ask "nhận hàng -> purchase-refund sẽ có danh sách để trả hàng cho NCC".
+ * Picker modal overlay, filterable + multi-select + qty editor.
+ */
+.pr-picker {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.pr-picker[hidden] {
+    display: none;
+}
+.pr-picker-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(3px);
+}
+.pr-picker-content {
+    position: relative;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 32px 64px rgba(15, 23, 42, 0.3);
+    width: min(960px, 95vw);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    animation: prPickerPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes prPickerPop {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+.pr-picker-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    background: linear-gradient(180deg, #f0f9ff 0%, #fff 100%);
+    border-radius: 14px 14px 0 0;
+}
+.pr-picker-head h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 17px;
+    color: #0f172a;
+}
+.pr-picker-head h2 i {
+    color: #0284c7;
+    width: 22px;
+    height: 22px;
+}
+.pr-picker-close {
+    background: none;
+    border: none;
+    font-size: 26px;
+    cursor: pointer;
+    color: #64748b;
+    padding: 0 8px;
+    line-height: 1;
+}
+.pr-picker-close:hover {
+    color: #0f172a;
+}
+.pr-picker-filters {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+.pr-picker-filters input[type='text'],
+.pr-picker-filters select {
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 13px;
+    background: #fff;
+}
+.pr-picker-filters input[type='text'] {
+    flex: 1;
+    min-width: 200px;
+}
+.pr-picker-filters select {
+    min-width: 180px;
+}
+.pr-picker-stockfilter {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #475569;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.pr-picker-stockfilter input {
+    width: 16px;
+    height: 16px;
+    accent-color: #2563eb;
+    cursor: pointer;
+}
+.pr-picker-list {
+    flex: 1;
+    overflow: auto;
+    padding: 16px 20px;
+}
+.pr-picker-empty {
+    text-align: center;
+    color: #94a3b8;
+    padding: 40px 20px;
+    font-size: 14px;
+}
+.pr-picker-group {
+    margin-bottom: 18px;
+}
+.pr-picker-group h4 {
+    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e3a8a;
+    padding: 6px 10px;
+    background: #dbeafe;
+    border-radius: 6px;
+    border-left: 3px solid #2563eb;
+}
+.pr-picker-group-count {
+    color: #64748b;
+    font-weight: 500;
+    font-size: 12px;
+}
+.pr-picker-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.pr-picker-table th {
+    text-align: left;
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.pr-picker-table th.num,
+.pr-picker-table td.num {
+    text-align: right;
+}
+.pr-picker-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.pr-picker-table tr.is-picked td {
+    background: #eff6ff;
+}
+.pr-picker-table tr:hover td {
+    background: #f8fafc;
+}
+.pr-picker-table tr.is-picked:hover td {
+    background: #dbeafe;
+}
+.pr-picker-table .pr-pick-cb {
+    width: 16px;
+    height: 16px;
+    accent-color: #2563eb;
+    cursor: pointer;
+}
+.pr-picker-table .pr-pick-qty {
+    padding: 4px 6px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 13px;
+}
+.pr-picker-table code {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #0f172a;
+}
+.pr-picker-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    border-top: 1px solid #e2e8f0;
+    background: #fafbfc;
+    border-radius: 0 0 14px 14px;
+}
+.pr-picker-count {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e3a8a;
+}
+.pr-picker-actions {
+    display: flex;
+    gap: 8px;
+}
