@@ -148,7 +148,9 @@
             name: p.name || '',
             code: p.code || '',
             variant: p.variant || '',
-            quantity: 1,
+            // P1 2026-05-30: caller có thể preset qty (vd so-order pass qtyReceived
+            // → in đúng số lượng nhận hàng). Default = 1.
+            quantity: Math.max(1, Math.round(Number(p.quantity) || 1)),
             qtyActual: Math.max(0, Math.round(p.stock || 0)), // for "Gán tồn"
             price: Number(p.price) || 0,
             selected: true,

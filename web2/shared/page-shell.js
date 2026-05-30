@@ -58,6 +58,10 @@
         // page-builder gọi attachToPayload trong /create + /update.
         '../../web2/shared/web2-user-info.js?v=20260530a',
         '../../web2/shared/web2-history-timeline.js?v=20260530a',
+        // P1 2026-05-30: DB badge ("DB Render 2.0" / "Firebase 2.0" / "Web 2.0")
+        // kế bên h1. Pages khai báo qua bootstrap({dbBadge:'render'|'firebase'|'both'})
+        // hoặc <meta name="web2-db" content="..."> (legacy).
+        '../../web2/shared/web2-db-badge.js?v=20260530a',
     ];
 
     // Scripts mount sidebar + SSE bridge + api + page-builder.
@@ -151,6 +155,17 @@
             throw new Error('page-shell: slug + title required');
         }
 
+        // P1 2026-05-30: dbBadge — inject meta tag để web2-db-badge.js auto-render.
+        // Default 'render' vì page-shell pages chỉ dùng /api/web2/<slug>/* (Render PG).
+        // Pages override qua bootstrap({dbBadge:'firebase'|'both'|'render'}).
+        const dbBadge = config.dbBadge || 'render';
+        if (dbBadge && !document.head.querySelector('meta[name="web2-db"]')) {
+            const m = document.createElement('meta');
+            m.setAttribute('name', 'web2-db');
+            m.setAttribute('content', dbBadge);
+            document.head.appendChild(m);
+        }
+
         // 1. CSS first (head must be ready)
         injectFontPreconnect();
         injectCss();
@@ -180,12 +195,23 @@
             }
         }
 
-        // 7. Mount page-builder
+        // 7. Mount page-builder (renders breadcrumb với title — anchor cho DB badge)
         if (window.Web2Page) {
             try {
                 Web2Page.mount('#pageRoot', config);
             } catch (e) {
                 console.error('[page-shell] page-builder mount failed', e);
+            }
+        }
+
+        // 7b. Mount DB badge SAU page-builder để breadcrumb-current đã tồn tại
+        // trong DOM. Auto-mount của web2-db-badge.js chạy quá sớm (DOMContentLoaded),
+        // explicit re-mount đảm bảo pick up breadcrumb/h1.
+        if (window.Web2DbBadge?.mount) {
+            try {
+                window.Web2DbBadge.mount();
+            } catch (e) {
+                console.warn('[page-shell] DB badge mount failed', e);
             }
         }
 
