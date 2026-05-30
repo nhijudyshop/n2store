@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `dd01104` — auto: session update
-**Last updated**: 2026-05-30 19:41:52 +07
-**Latest session**: [`RESUME:20260530-194152-dd01104`](../20260530-194152-dd01104.md)
+**Latest commit**: `766afa3` — auto: session update
+**Last updated**: 2026-05-30 19:44:04 +07
+**Latest session**: [`RESUME:20260530-194404-766afa3`](../20260530-194404-766afa3.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`so-order/`](./so-order.md) — 4 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -50,13 +50,13 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-30 19:41
+- [`render.com/`](./render.com.md) — updated 2026-05-30 19:44
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-29 18:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-29 15:42
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
-- [`so-order/`](./so-order.md) — updated 2026-05-30 19:41
+- [`so-order/`](./so-order.md) — updated 2026-05-30 19:44
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
