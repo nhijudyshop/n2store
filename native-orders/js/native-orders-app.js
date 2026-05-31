@@ -202,6 +202,117 @@
         return '';
     }
 
+    // ---------- Livestream snapshot per product line ----------
+    // SP có fbCommentId (kéo từ TPOS-Pancake) → fetch thumbnail snapshot từ
+    // livestream tại đúng moment comment. Cache module-wide để khỏi re-fetch.
+    // 3 trạng thái cache: undefined (chưa fetch), null (đã fetch nhưng không
+    // có thumbnail bytea), object (có thumbnail self-served).
+    const RENDER_API = 'https://n2store-fallback.onrender.com';
+    const _snapCache = new Map(); // commentId → snap | null
+    const _snapPendingFetch = new Set(); // commentIds đang/đã queue fetch
+    let _snapFetchTimer = null;
+
+    function _queueSnapFetch(commentId, onDone) {
+        if (!commentId) return;
+        if (_snapCache.has(commentId)) {
+            onDone?.();
+            return;
+        }
+        _snapPendingFetch.add(commentId);
+        if (_snapFetchTimer) return;
+        _snapFetchTimer = setTimeout(() => _flushSnapFetch(onDone), 150);
+    }
+
+    async function _flushSnapFetch(onDone) {
+        _snapFetchTimer = null;
+        const ids = Array.from(_snapPendingFetch);
+        _snapPendingFetch.clear();
+        if (!ids.length) return;
+        try {
+            const r = await fetch(
+                `${RENDER_API}/api/livestream/snapshots/by-comment-ids?commentIds=${encodeURIComponent(ids.join(','))}`,
+                { credentials: 'omit' }
+            );
+            const d = await r.json();
+            const map = (d && d.byCommentId) || {};
+            for (const id of ids) {
+                const snap = map[id];
+                if (
+                    snap &&
+                    typeof snap.thumbnailUrl === 'string' &&
+                    snap.thumbnailUrl.includes('/api/livestream/snapshot/')
+                ) {
+                    _snapCache.set(id, snap);
+                } else {
+                    _snapCache.set(id, null);
+                }
+            }
+        } catch (e) {
+            console.warn('[native-orders] fetch snapshots fail:', e.message);
+            for (const id of ids) {
+                if (!_snapCache.has(id)) _snapCache.set(id, null);
+            }
+        }
+        onDone?.();
+    }
+
+    function _renderLineSnapThumb(commentId) {
+        if (!commentId) return '';
+        const snap = _snapCache.get(commentId);
+        if (!snap) return '';
+        const url = snap.thumbnailUrl;
+        const offsetText =
+            Number.isFinite(snap.offsetSeconds) && snap.offsetSeconds >= 0
+                ? `${Math.floor(snap.offsetSeconds / 60)}m${snap.offsetSeconds % 60}s`
+                : '';
+        const liveUrl = snap.livestreamUrl || '';
+        const tipParts = ['Thumbnail từ livestream'];
+        if (offsetText) tipParts.push(`@ ${offsetText}`);
+        tipParts.push('Click để xem lớn');
+        return `<img src="${escapeHtml(url)}"
+                     alt=""
+                     loading="lazy"
+                     class="line-snap-thumb"
+                     data-snap-url="${escapeHtml(url)}"
+                     data-snap-live-url="${escapeHtml(liveUrl)}"
+                     data-snap-offset="${offsetText}"
+                     title="${escapeHtml(tipParts.join(' · '))}"
+                     onclick="NativeOrdersApp.openSnapLightbox(this)" />`;
+    }
+
+    // Lightbox đơn giản cho snapshot — full-screen overlay click-to-close.
+    function openSnapLightbox(imgEl) {
+        if (!imgEl?.dataset) return;
+        const url = imgEl.dataset.snapUrl;
+        if (!url) return;
+        const liveUrl = imgEl.dataset.snapLiveUrl || '';
+        const offset = imgEl.dataset.snapOffset || '';
+        const existing = document.querySelector('.native-snap-lightbox');
+        if (existing) existing.remove();
+        const lb = document.createElement('div');
+        lb.className = 'native-snap-lightbox';
+        lb.style.cssText =
+            'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;cursor:zoom-out;';
+        lb.innerHTML = `
+            <img src="${escapeHtml(url)}" alt=""
+                 style="max-width:92vw;max-height:78vh;object-fit:contain;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.6);cursor:default;background:#111;" />
+            <div style="margin-top:14px;display:flex;align-items:center;gap:12px;color:#fff;font-size:13px;">
+                ${offset ? `<span style="background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:6px;">@ ${escapeHtml(offset)}</span>` : ''}
+                ${liveUrl ? `<a href="${escapeHtml(liveUrl)}" target="_blank" rel="noopener" style="background:#3b82f6;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none;font-weight:600;">▶ Xem live tại giây này</a>` : ''}
+                <button type="button" class="snap-lb-close" style="background:#475569;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer;">Đóng</button>
+            </div>
+        `;
+        const close = () => lb.remove();
+        lb.addEventListener('click', (e) => {
+            if (e.target === lb || e.target.classList?.contains('snap-lb-close')) close();
+        });
+        document.body.appendChild(lb);
+        // Stop click bubbling on inner controls
+        lb.querySelectorAll('img, a').forEach((el) => {
+            el.addEventListener('click', (e) => e.stopPropagation());
+        });
+    }
+
     function formatTimeSplit(ms) {
         if (!ms) return { date: '', hour: '' };
         const d = new Date(Number(ms));
@@ -1370,6 +1481,13 @@
             return;
         }
 
+        // Queue fetch snapshot cho mọi line có fbCommentId chưa cache.
+        // Khi fetch xong → re-render để hiện thumbnail.
+        const needsSnap = EDIT_LINES.filter((l) => l.fbCommentId && !_snapCache.has(l.fbCommentId));
+        if (needsSnap.length) {
+            needsSnap.forEach((l) => _queueSnapFetch(l.fbCommentId, () => renderOrderLines()));
+        }
+
         let totalQty = 0,
             totalAmount = 0;
         tb.innerHTML = EDIT_LINES.map((l, i) => {
@@ -1378,10 +1496,11 @@
             const amount = qty * price;
             totalQty += qty;
             totalAmount += amount;
+            const snapThumb = _renderLineSnapThumb(l.fbCommentId);
             const img = l.imageUrl
                 ? `<img src="${escapeHtml(l.imageUrl)}" class="line-img" onerror="this.style.display='none';this.nextElementSibling.style.setProperty('display','inline-flex');">
-                   <span class="line-img-ph" style="display:none;"><i data-lucide="image"></i></span>`
-                : `<span class="line-img-ph"><i data-lucide="image"></i></span>`;
+                   <span class="line-img-ph" style="display:none;"><i data-lucide="image"></i></span>${snapThumb}`
+                : `<span class="line-img-ph"><i data-lucide="image"></i></span>${snapThumb}`;
             // Locked → disable qty buttons + remove button, hiển thị read-only.
             const qtyCell = isLocked
                 ? `<div class="qty-ctl" style="opacity:0.6;pointer-events:none;">
@@ -6744,6 +6863,8 @@
         changeLineQty,
         setLineQty,
         removeLine,
+        // Livestream snapshot per-line — click thumbnail mở lightbox
+        openSnapLightbox,
         // Debug surface — inspect realtime + chat state from devtools.
         // Verify realtime is WS-driven (not polling): open chat then run
         // `NativeOrdersApp._debug.injectFakeMessage('hello')` — bubble
@@ -6773,6 +6894,18 @@
                     },
                 });
                 return { ok: true, convId: _chatState.convId };
+            },
+            // Inspect livestream snapshot cache (per-line thumbnails từ TPOS-Pancake).
+            get snapCache() {
+                return Object.fromEntries(_snapCache);
+            },
+            // Simulate khi EDIT_LINES có fbCommentId — inject vào current modal +
+            // re-render. Test wiring không cần thật sự kéo SP từ TPOS.
+            simulateLineCommentId(idx, commentId) {
+                if (!EDIT_LINES[idx]) return { err: 'no line at idx ' + idx };
+                EDIT_LINES[idx].fbCommentId = commentId;
+                renderOrderLines();
+                return { ok: true, line: EDIT_LINES[idx] };
             },
         },
     };

@@ -1623,6 +1623,32 @@ body {
     height: 16px;
 }
 
+/* Livestream snapshot thumbnail per product line (SP kéo từ TPOS-Pancake).
+ * Hiển thị cạnh ảnh SP, hover scale + ring để nhấn mạnh là frame từ live. */
+.line-snap-thumb {
+    display: block;
+    width: 40px;
+    height: 24px;
+    margin-top: 4px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #fde68a;
+    background: #fef3c7;
+    cursor: zoom-in;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    transition:
+        transform 0.12s ease,
+        box-shadow 0.12s ease;
+}
+.line-snap-thumb:hover {
+    transform: scale(1.6);
+    transform-origin: left center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    border-color: #f59e0b;
+    position: relative;
+    z-index: 5;
+}
+
 .line-name {
     font-weight: 600;
     color: var(--gray-900);

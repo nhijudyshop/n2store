@@ -25,6 +25,48 @@
 
 ## 2026-05-31
 
+### [tpos-pancake][native-orders][render] Per-comment thumbnail + native-orders product lines ✅
+
+**Yêu cầu user**: 1/ tpos-pancake — comment chưa có thumbnail → nút lấy thumbnail riêng cho comment đó (bên cạnh chức năng Force extract toàn bộ). 2/ native-orders — đơn hiển thị thumbnail trong phần sản phẩm theo comment.
+
+**Files**:
+
+- `tpos-pancake/js/tpos/tpos-livestream-snap.js` — Thay button `tpos-snap-capture-btn` (display:none, mở FB tab + share screen) bằng `tpos-snap-extract-one-btn` "📸 Lấy thumbnail" visible. Click → backend-only flow (`_createMetadataSnap` + `extract-frame` cho 1 snap). SSE `extract-done` auto refresh thumbnail. Loading state trên button.
+- `render.com/routes/v2/cart.js` — `_buildProduct(input, qty, user, fbCommentId)` thêm 5th param. POST /cart/:commentId/add pass `b.fbContext.fbCommentId` xuống. Merge branch (idx >= 0) cũng cập nhật fbCommentId. GET /:commentId trả `fb_comment_id` cho consistency.
+- `native-orders/js/native-orders-app.js` — `_snapCache` module-wide + `_queueSnapFetch` debounce 150ms batch fetch `/api/livestream/snapshots/by-comment-ids`. `_renderLineSnapThumb(commentId)` trả `<img class="line-snap-thumb">` cho line có fbCommentId + snap với bytea. `openSnapLightbox` modal click-to-zoom + nút "Xem live tại giây này". Save edit cycle giữ fbCommentId.
+- `native-orders/css/native-orders.css` — `.line-snap-thumb` 40x24 dưới line-img, hover scale(1.6) + ring vàng.
+
+**Flow đầy đủ**:
+
+1. User kéo SP từ TPOS-Pancake inventory panel vào comment row (đã có sẵn từ trước).
+2. POST `/api/v2/cart/:customerId/add` với `fbContext.fbCommentId` = comment ID đích.
+3. Backend ghi `fbCommentId` vào `native_orders.products[].fbCommentId` qua `_buildProduct`.
+4. Khi user mở modal sửa đơn ở native-orders → `renderOrderLines` quét EDIT_LINES, line nào có `fbCommentId` chưa cache → queue fetch.
+5. `_flushSnapFetch` batch GET `/api/livestream/snapshots/by-comment-ids?commentIds=ID1,ID2,...` direct tới Render (Cloudflare worker không route `/api/livestream/`).
+6. Response có thumbnail self-served (`/api/livestream/snapshot/:id/image`) → cache + re-render line → `<img class="line-snap-thumb">` xuất hiện dưới SP image. Hover zoom 1.6×, click mở lightbox full-screen.
+
+**Nếu comment chưa có snap** (`data === null`):
+
+- Old: button "📸 Chụp" hidden, không thấy được.
+- New: button "📸 Lấy thumbnail" visible cạnh row comment trong tpos-pancake. Click → `_extractThumbnailForComment(commentId, btn)`:
+    - Resolve campaign + page + offset (qua `_resolveCampaignForComment` + `_fetchLiveVideoInfo`).
+    - `_createMetadataSnap` tạo snap row trong DB (idempotent).
+    - POST `/api/livestream/extract-frame` queue backend yt-dlp+ffmpeg cho 1 snap (~5-15s).
+    - Button hiển thị "⏳ Đang lấy..." disabled.
+    - SSE `extract-done` topic `web2:livestream-snapshots` notify → handler đã có sẵn (line 3041) invalidate cache + `_queueSnapByComment` → re-render thumbnail thật.
+- Failure paths: missing campaign / no broadcastStart / backend 503 → toast error + restore button text.
+- Không fallback Path C (mở FB tab + share screen) như `_captureAtCommentTime` — keep simple.
+
+**Verified end-to-end qua persistent browser session**:
+
+- TPOS new button render OK (visible, đúng class, đúng text) trên synthetic row.
+- Native-orders fetch + render OK với real commentId `4603354969950658_1436947585200423` (snap id 2916, offset 105m18s, thumbnail self-served). Lightbox mở đúng với src + livestreamUrl tới fb-video-player.html.
+- Backward compat: SP cũ (chưa có `fbCommentId`) render bình thường, no thumb (cache không hit, render placeholder).
+
+**Status**: ✅ Done
+
+---
+
 ### [kpi][render][native-orders] Sprint 3 KPI — Visibility filter (scope middleware) ✅
 
 **Plan**: [docs/plans/kpi-attribution-system.md](plans/kpi-attribution-system.md) Sprint 3
