@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `42a1982` — docs(plans): KPI attribution system — detailed plan v1
-**Last updated**: 2026-05-31 13:53:15 +07
-**Latest session**: [`RESUME:20260531-135315-42a1982`](../20260531-135315-42a1982.md)
-**Summary**: docs(plans): KPI attribution system — detailed plan v1
+**Latest commit**: `83f9046` — docs(plans): KPI plan v2 — campaign-scoped + beneficiary-based + STT visibility
+**Last updated**: 2026-05-31 14:12:34 +07
+**Latest session**: [`RESUME:20260531-141234-83f9046`](../20260531-141234-83f9046.md)
+**Summary**: docs(plans): KPI plan v2 — campaign-scoped + beneficiary-based + STT visibility
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 2 file(s)
 - [`inventory-tracking/`](./inventory-tracking.md) — 5 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-05-31 13:53
+- [`docs/`](./docs.md) — updated 2026-05-31 14:12
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -35,7 +35,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-31 13:53
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-31 14:12
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
@@ -53,7 +53,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-05-31 13:53
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-29 18:18
+- [`scripts/`](./scripts.md) — updated 2026-05-31 14:12
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-05-29 15:42
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
