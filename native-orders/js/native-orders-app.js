@@ -1486,6 +1486,8 @@
             addedAt: l.addedAt || Date.now(),
             // Giữ nguồn (vd 'livestream' khi SP đã được kéo từ TPOS-Pancake) qua edit cycle.
             source: l.source || undefined,
+            // Giữ fbCommentId để thumbnail livestream vẫn match qua edit cycle.
+            fbCommentId: l.fbCommentId || undefined,
             // KPI Sprint 0: preserve user attribution qua PATCH cycle
             addedBy: l.addedBy || undefined,
             addedById: l.addedById || undefined,

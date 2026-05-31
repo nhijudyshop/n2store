@@ -2318,29 +2318,99 @@ Throttle 30s/KH.`;
             }
             return;
         }
-        // Không có bytea → button "📸 Chụp" ẨN visually (display:none) nhưng giữ
-        // chức năng. Auto-snap qua extension/share đã fill ảnh tự động → manual
-        // capture hiếm khi cần. Bằng cách này nếu user muốn revive UI sau này
-        // chỉ cần đổi 1 CSS rule.
+        // Không có bytea → button "📸 Lấy thumbnail" cho riêng comment này.
+        // Chạy backend-only (yt-dlp+ffmpeg) — không mở FB tab, không xin share screen.
+        // Thay thế chức năng "Force extract" trên TOÀN BỘ snaps bằng action cho 1 comment.
+        // SSE 'extract-done' sẽ refresh thumbnail tự động khi backend xong.
         strip.innerHTML = `
             <button type="button"
-                    class="tpos-snap-capture-btn"
+                    class="tpos-snap-extract-one-btn"
                     data-comment-id="${_esc(commentId)}"
-                    title="Mở tab FB tại đúng giây comment + share để chụp frame thật"
-                    style="display:none;align-items:center;gap:4px;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;line-height:1;height:28px;">
-                📸 <span>Chụp</span>
+                    title="Lấy thumbnail từ frame live tại đúng giây comment này (backend yt-dlp + ffmpeg, ~5-15s)"
+                    style="display:inline-flex;align-items:center;gap:4px;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;line-height:1;height:28px;white-space:nowrap;">
+                📸 <span>Lấy thumbnail</span>
             </button>
         `;
         const btn = strip.querySelector('button');
         if (btn) {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                _captureAtCommentTime(commentId).catch((err) => {
-                    console.warn('[snap-capture] fail:', err.message);
-                    _toast('Lỗi chụp: ' + err.message, 'err');
+                e.preventDefault();
+                _extractThumbnailForComment(commentId, btn).catch((err) => {
+                    console.warn('[snap-extract-one] fail:', err.message);
+                    _toast('Lỗi lấy thumbnail: ' + err.message, 'err');
+                    btn.disabled = false;
+                    btn.innerHTML = '📸 <span>Lấy thumbnail</span>';
                 });
             });
         }
+    }
+
+    // Per-comment thumbnail extract — backend-only (no FB tab share).
+    // Flow: resolve campaign + offset → ensure snap row (offline-batch idempotent)
+    //       → extract-frame → SSE 'extract-done' auto-refresh thumb.
+    // Khác _captureAtCommentTime: không fallback Path C (mở FB tab), chỉ Path B.
+    async function _extractThumbnailForComment(commentId, btn) {
+        const st = global.TposState;
+        const c = st?.comments?.find((x) => x.id === commentId);
+        if (!c?.from?.id) throw new Error('comment không có trong state');
+        const rawT = c.created_time || c.createdTime || c.inserted_at || c.created_at;
+        const commentTimeMs = rawT ? new Date(rawT).getTime() : NaN;
+        if (!Number.isFinite(commentTimeMs)) throw new Error('comment thiếu thời gian');
+        const camp = _resolveCampaignForComment(c);
+        if (!camp?.Facebook_LiveId) throw new Error('không tìm được campaign cho comment');
+        const pageObj = st.allPages?.find((p) => p.Facebook_PageId === camp.Facebook_UserId);
+        if (!pageObj) throw new Error('không tìm được page');
+        const videoInfo = await _fetchLiveVideoInfo(pageObj.Facebook_PageId, camp.Facebook_LiveId);
+        if (!videoInfo?.broadcastStartMs) throw new Error('không lấy được broadcastStart');
+        const offsetSec = Math.max(
+            0,
+            Math.floor((commentTimeMs - videoInfo.broadcastStartMs) / 1000)
+        );
+
+        if (btn) {
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+            btn.innerHTML = '⏳ <span>Đang lấy...</span>';
+        }
+
+        const snapId = await _createMetadataSnap({
+            commentId,
+            customerFbUserId: c.from.id,
+            customerName: c.from.name || '?',
+            commentTimeMs,
+            offsetSec,
+            pageObj,
+            camp,
+            videoInfo,
+            message: c.message,
+        });
+        if (!snapId) throw new Error('tạo metadata snap thất bại');
+
+        const r = await fetch(API + '/api/livestream/extract-frame', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'omit',
+            body: JSON.stringify({ snapshotIds: [snapId] }),
+        });
+        const d = await r.json();
+        if (!d.success) {
+            if (r.status === 503) {
+                throw new Error('backend extract chưa sẵn sàng');
+            }
+            throw new Error(d.error || 'extract-frame failed');
+        }
+        if (d.queued === 0) {
+            // Snap đã có bytea sẵn → refresh strip ngay.
+            STATE.snapByComment.delete(commentId);
+            _queueSnapByComment(commentId);
+            _toast('✅ Thumbnail đã sẵn — đang refresh', 'ok');
+            return;
+        }
+        _toast('⏳ Backend extract frame (5-15s) — sẽ tự refresh', 'ok');
+        // SSE 'extract-done' sẽ invalidate cache + re-render strip. Nếu user
+        // ở tab khác lúc done, _refreshThumbStripsForCustomer hoặc reconnect
+        // sẽ catch up — không cần spinner timeout ở đây.
     }
 
     // Chụp frame của FB live tại đúng moment 1 comment.

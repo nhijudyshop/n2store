@@ -182,7 +182,9 @@ function _totalsOf(products) {
 // khớp legacy PBH/sync code (qty). Khi đọc luôn dùng _qtyOf().
 // Ghi CẢ `code` lẫn `productCode` để products /usage SQL + saveEdit modal khớp
 // (modal trước viết `productCode`, cart cũ viết `code`).
-function _buildProduct(input, qty, user) {
+// fbCommentId: comment_id thật của row vừa drop — native-orders dùng để fetch
+// livestream snapshot thumbnail per-line trong modal sửa đơn.
+function _buildProduct(input, qty, user, fbCommentId) {
     return {
         code: input.code,
         productCode: input.code, // alias cho native-orders modal compat
@@ -193,6 +195,7 @@ function _buildProduct(input, qty, user) {
         qty: qty,
         addedAt: Date.now(),
         addedBy: user?.name || null,
+        fbCommentId: fbCommentId || null,
         // Nguồn thêm: 'livestream' = drag từ TPOS-Pancake panel (chốt live).
         // SP thêm trực tiếp từ native-orders modal sẽ không có field này → coi như direct.
         source: 'livestream',
@@ -270,6 +273,7 @@ router.get('/:commentId', async (req, res) => {
             qty: _qtyOf(p),
             added_by_name: p.addedBy || null,
             added_at: p.addedAt ? new Date(p.addedAt).toISOString() : null,
+            fb_comment_id: p.fbCommentId || null,
             native_order_code: draft.code,
         }));
         res.json({ success: true, items, native_order_code: draft.code });
@@ -351,6 +355,7 @@ router.post('/:commentId/add', async (req, res) => {
         const idx = products.findIndex((x) => codeOf(x) === p.code);
         let qtyBefore = 0;
         let qtyAfter;
+        const fbCommentIdMeta = b.fbContext?.fbCommentId || null;
         if (idx >= 0) {
             qtyBefore = _qtyOf(products[idx]);
             qtyAfter = qtyBefore + qtyAdd;
@@ -365,12 +370,14 @@ router.post('/:commentId/add', async (req, res) => {
                 qty: qtyAfter,
                 addedAt: Date.now(),
                 addedBy: user.name || products[idx].addedBy,
+                // Cập nhật fbCommentId nếu re-add từ comment mới (hoặc giữ cũ).
+                fbCommentId: fbCommentIdMeta || products[idx].fbCommentId || null,
                 // Re-add qua cart drag → đánh dấu (hoặc nâng cấp) thành livestream.
                 source: products[idx].source || 'livestream',
             };
         } else {
             qtyAfter = qtyAdd;
-            products.push(_buildProduct(p, qtyAdd, user));
+            products.push(_buildProduct(p, qtyAdd, user, fbCommentIdMeta));
         }
         const t = _totalsOf(products);
 
