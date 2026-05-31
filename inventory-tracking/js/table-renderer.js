@@ -522,39 +522,32 @@ function renderShipments(shipments) {
         s._effectiveTiGia = parseFloat(s.tiGia) || fallbackTiGia;
     });
 
-    // Compute per-row balance, GROUPED BY đợt, sorted date-ASC:
+    // Compute per-row balance, GROUPED BY đợt (dotSo), sorted date-ASC:
     //   Số dư_i = (i==0 ? 0 : Còn dư_{i-1}) + payments_in_window
-    //     - payments first filtered to the đợt window [ngayBatDau, ngayKetThuc]
-    //       (paymentsInDotWindow) so CK dated outside the đợt don't leak in.
+    //     - payments = TOÀN BỘ thanhToanCK của đợt (tách theo dotSo, KHÔNG lọc ngày).
     //     - first row: payments with ngayTT <= ngayDiHang_0 (catch-up trước shipment đầu)
     //     - row i>0: payments with ngayDiHang_{i-1} < ngayTT <= ngayDiHang_i
-    //     - LAST row: upper bound = +∞ so in-window CK dated after the last delivery
-    //       are still captured (else they'd vanish from the running balance).
+    //     - LAST row: upper bound = +∞ → gom hết CK còn lại (kể cả dated sau ngày giao
+    //       cuối) vào số dư, để Còn dư ngày cuối = tổng TT đợt − HĐ − CP.
     //   Còn dư_i = Số dư_i - HD_i - CP_i
-    // → last row Còn dư = Σ TT_in_window - Σ HD - Σ CP (match modal CÒN LẠI per-đợt)
     const byDot = new Map();
     shipments.forEach((s) => {
         const k = s.dotSo || 0;
         if (!byDot.has(k)) byDot.set(k, []);
         byDot.get(k).push(s);
     });
-    const _windowFilter =
-        typeof paymentsInDotWindow === 'function'
-            ? paymentsInDotWindow
-            : (p) => (Array.isArray(p) ? p : []);
     byDot.forEach((arr) => {
         arr.sort(
             (a, b) => new Date(a.ngayDiHang || 0).getTime() - new Date(b.ngayDiHang || 0).getTime()
         );
         const head = arr[0] || {};
-        const paymentsByDate = _windowFilter(head.thanhToanCK, head.ngayBatDau, head.ngayKetThuc);
+        const paymentsByDate = Array.isArray(head.thanhToanCK) ? head.thanhToanCK : [];
         let conDuPrev = 0;
         let prevDateMs = -Infinity;
         const lastIdx = arr.length - 1;
         arr.forEach((s, i) => {
             const curDateMs = s.ngayDiHang ? new Date(s.ngayDiHang).getTime() : 0;
-            // Window upper bound: last row catches everything remaining (in-window) so
-            // CK dated after the final delivery still land in the running balance.
+            // Dòng cuối gom hết CK còn lại (upper = +∞) để khớp tổng TT đợt.
             const upper = i === lastIdx ? Infinity : curDateMs;
             // Sum payments in window (prevDateMs, upper]. First row: window is (-∞, upper].
             const windowTT = paymentsByDate.reduce((sum, p) => {
@@ -648,11 +641,7 @@ function updateInventoryStatsBar() {
         const dotEntries = getAllDotsAggregated();
         const scoped = hasDotFilter ? dotEntries.filter((e) => e.dotSo === activeDot) : dotEntries;
         scoped.forEach((e) => {
-            const allPayments = Array.isArray(e.thanhToanCK) ? e.thanhToanCK : [];
-            const payments =
-                typeof paymentsInDotWindow === 'function'
-                    ? paymentsInDotWindow(allPayments, e.ngayBatDau, e.ngayKetThuc)
-                    : allPayments;
+            const payments = Array.isArray(e.thanhToanCK) ? e.thanhToanCK : [];
             const tg = parseFloat(e.tiGia) || 0;
             const tt = payments.reduce((sum, p) => sum + (parseFloat(p.soTienTT) || 0), 0);
             tongTT += tt;
@@ -2921,12 +2910,10 @@ function _aggregateDotEntry(dotSo) {
         const found = getAllDotsAggregated().find((e) => e.dotSo === ds);
         if (found) return found;
     }
-    // Fallback: đợt chưa có shipment nào (mới tạo) → giữ tiGia/CK/window từ dots.
+    // Fallback: đợt chưa có shipment nào (mới tạo) → giữ tiGia/CK từ dots.
     const dots = _findDotsByDotSo(ds);
     let thanhToanCK = [];
     let tiGia = 0;
-    let ngayBatDau = null;
-    let ngayKetThuc = null;
     dots.forEach((d) => {
         if (
             (!thanhToanCK || thanhToanCK.length === 0) &&
@@ -2936,8 +2923,6 @@ function _aggregateDotEntry(dotSo) {
             thanhToanCK = d.thanhToanCK;
         }
         if (!tiGia && d.tiGia) tiGia = parseFloat(d.tiGia) || 0;
-        if (!ngayBatDau && d.ngayBatDau) ngayBatDau = d.ngayBatDau;
-        if (!ngayKetThuc && d.ngayKetThuc) ngayKetThuc = d.ngayKetThuc;
     });
     return {
         dotSo: ds,
@@ -2946,8 +2931,6 @@ function _aggregateDotEntry(dotSo) {
         tongChiPhi: 0,
         thanhToanCK,
         tiGia,
-        ngayBatDau,
-        ngayKetThuc,
         hdByDate: {},
         cpByDate: {},
     };
@@ -2956,12 +2939,8 @@ function _aggregateDotEntry(dotSo) {
 function _calcPaymentTotals(entry) {
     // All amounts are in the SAME foreign currency unit (e.g. CNY).
     // VND is display-only (via tỉ giá) and must NOT enter CÒN LẠI math.
-    // Only CK within the đợt window [ngayBatDau, ngayKetThuc] count toward totals.
-    const allPayments = Array.isArray(entry.thanhToanCK) ? entry.thanhToanCK : [];
-    const payments =
-        typeof paymentsInDotWindow === 'function'
-            ? paymentsInDotWindow(allPayments, entry.ngayBatDau, entry.ngayKetThuc)
-            : allPayments;
+    // TT = toàn bộ thanhToanCK của đợt (tách theo dotSo, không lọc ngày).
+    const payments = Array.isArray(entry.thanhToanCK) ? entry.thanhToanCK : [];
     const tiGia = parseFloat(entry.tiGia) || 0;
     const tongTT = payments.reduce((s, p) => s + (parseFloat(p.soTienTT) || 0), 0);
     const tongTTVND = tongTT * tiGia; // display note only
@@ -3029,29 +3008,16 @@ function _formatNgayList(list) {
 }
 
 function _renderDotSectionBodyHtml(entry) {
-    // Chỉ hiện CK trong khoảng ngày của đợt — CK ngoài khoảng (thuộc đợt khác) ẩn hẳn.
-    const allPayments = Array.isArray(entry.thanhToanCK) ? entry.thanhToanCK : [];
-    const payments =
-        typeof paymentsInDotWindow === 'function'
-            ? paymentsInDotWindow(allPayments, entry.ngayBatDau, entry.ngayKetThuc)
-            : allPayments;
+    // Hiện TOÀN BỘ thanhToanCK của đợt (tách theo dotSo, không lọc ngày).
+    const payments = Array.isArray(entry.thanhToanCK) ? entry.thanhToanCK : [];
     const totals = _calcPaymentTotals(entry);
     const dotAttr = entry.dotSo;
     const rows = payments.map((p) => _renderPaymentRow(dotAttr, totals.tiGia, p)).join('');
     const hdBreakdown = _renderBreakdownRows(entry.hdByDate || {}, totals.tiGia);
     const cpBreakdown = _renderBreakdownRows(entry.cpByDate || {}, totals.tiGia);
-    const tuNgay = entry.ngayBatDau ? formatDateDisplay(entry.ngayBatDau) : '—';
-    const denNgay = entry.ngayKetThuc ? formatDateDisplay(entry.ngayKetThuc) : '—';
 
-    // Tỉ giá and CÒN LẠI now live in the dot head (sticky at top). Body starts with
-    // the CK date-window row (chỉ TT trong khoảng này mới được tính), then totals.
+    // Tỉ giá and CÒN LẠI live in the dot head (sticky at top). Body = totals + list.
     return `
-        <div class="pp-date-range" title="Chỉ thanh toán CK có ngày trong khoảng này mới tính vào đợt">
-            <span class="pp-dr-label">Từ ngày:</span>
-            <span class="pp-date editable-cell" data-dot-so="${dotAttr}" ondblclick="startInlineEditNgayBatDau(this)" title="Nhấp đúp để sửa">${tuNgay}</span>
-            <span class="pp-dr-label">Đến ngày:</span>
-            <span class="pp-date editable-cell" data-dot-so="${dotAttr}" ondblclick="startInlineEditNgayKetThuc(this)" title="Nhấp đúp để sửa">${denNgay}</span>
-        </div>
         <div class="payment-panel-totals">
             <div class="pp-line"><span class="pp-label">Tổng TT</span><strong class="pp-value pp-total-tt">${formatNumber(totals.tongTT)}${_vndSuffixHtml(totals.tongTT, totals.tiGia)}</strong></div>
             <div class="pp-group">
@@ -3225,16 +3191,6 @@ async function _persistPaymentByDot(dotSo, patch) {
             d.tiGia = patch.tiGia;
         });
     }
-    if (patch.ngayBatDau !== undefined) {
-        dots.forEach((d) => {
-            d.ngayBatDau = patch.ngayBatDau;
-        });
-    }
-    if (patch.ngayKetThuc !== undefined) {
-        dots.forEach((d) => {
-            d.ngayKetThuc = patch.ngayKetThuc;
-        });
-    }
     await shipmentsApi.updatePaymentByDot(ds, patch);
     flattenNCCData();
     _refreshPaymentDotSectionUI(ds);
@@ -3256,22 +3212,6 @@ function _getTiGiaForDot(dotSo) {
         if (d.tiGia) return parseFloat(d.tiGia) || 0;
     }
     return 0;
-}
-
-function _getNgayBatDauForDot(dotSo) {
-    const dots = _findDotsByDotSo(dotSo);
-    for (const d of dots) {
-        if (d.ngayBatDau) return d.ngayBatDau;
-    }
-    return '';
-}
-
-function _getNgayKetThucForDot(dotSo) {
-    const dots = _findDotsByDotSo(dotSo);
-    for (const d of dots) {
-        if (d.ngayKetThuc) return d.ngayKetThuc;
-    }
-    return '';
 }
 
 // ---------- Tỉ giá inline edit ----------
@@ -3326,83 +3266,6 @@ function startInlineEditTiGia(el) {
             restore();
         }
     });
-}
-
-// ---------- Đợt CK date-window inline edit (ngày bắt đầu / kết thúc) ----------
-
-function _startInlineEditDotDate(el, field) {
-    if (!permissionHelper?.can('view_thanhToanCK')) return;
-    if (el.querySelector('input')) return;
-
-    const dotSo = parseInt(el.dataset.dotSo, 10) || 1;
-    const oldVal =
-        field === 'ngayBatDau' ? _getNgayBatDauForDot(dotSo) : _getNgayKetThucForDot(dotSo);
-
-    const input = document.createElement('input');
-    input.type = 'date';
-    input.className = 'inline-edit-input payment-date-input';
-    input.value = oldVal || '';
-    el.innerHTML = '';
-    el.appendChild(input);
-    input.focus();
-
-    const restore = () => {
-        el.textContent = oldVal ? formatDateDisplay(oldVal) : '—';
-    };
-    const commit = async () => {
-        const newVal = (input.value || '').trim();
-        if (newVal === (oldVal || '')) {
-            restore();
-            return;
-        }
-        if (!newVal) {
-            // v1 chưa hỗ trợ xoá ngày về rỗng (PATCH dùng COALESCE) → coi như huỷ.
-            restore();
-            return;
-        }
-        // Ràng buộc ngày bắt đầu ≤ ngày kết thúc.
-        const other =
-            field === 'ngayBatDau' ? _getNgayKetThucForDot(dotSo) : _getNgayBatDauForDot(dotSo);
-        if (other) {
-            const start = field === 'ngayBatDau' ? newVal : other;
-            const end = field === 'ngayBatDau' ? other : newVal;
-            if (new Date(start).getTime() > new Date(end).getTime()) {
-                window.notificationManager?.error('Ngày bắt đầu phải ≤ ngày kết thúc');
-                restore();
-                return;
-            }
-        }
-        el.textContent = formatDateDisplay(newVal);
-        try {
-            await _persistPaymentByDot(dotSo, { [field]: newVal });
-            window.notificationManager?.success('Đã cập nhật khoảng ngày đợt');
-        } catch (error) {
-            console.error('[PAYMENT] Dot date update error:', error);
-            restore();
-            window.notificationManager?.error('Không thể cập nhật: ' + error.message);
-        }
-    };
-
-    input.addEventListener('blur', commit);
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            input.removeEventListener('blur', commit);
-            commit();
-        }
-        if (e.key === 'Escape') {
-            input.removeEventListener('blur', commit);
-            restore();
-        }
-    });
-}
-
-function startInlineEditNgayBatDau(el) {
-    _startInlineEditDotDate(el, 'ngayBatDau');
-}
-
-function startInlineEditNgayKetThuc(el) {
-    _startInlineEditDotDate(el, 'ngayKetThuc');
 }
 
 // ---------- Payment row inline edits ----------
@@ -3647,8 +3510,6 @@ window.startInlineEditCostNote = startInlineEditCostNote;
 window.addTableImage = addTableImage;
 window.removeTableImage = removeTableImage;
 window.startInlineEditTiGia = startInlineEditTiGia;
-window.startInlineEditNgayBatDau = startInlineEditNgayBatDau;
-window.startInlineEditNgayKetThuc = startInlineEditNgayKetThuc;
 window.startInlineEditPaymentNgay = startInlineEditPaymentNgay;
 window.startInlineEditPaymentSoTien = startInlineEditPaymentSoTien;
 window.startInlineEditPaymentNote = startInlineEditPaymentNote;

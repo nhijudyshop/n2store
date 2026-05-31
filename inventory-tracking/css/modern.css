@@ -5400,45 +5400,6 @@ textarea.inline-edit-input {
     background: #fef3c7;
 }
 
-/* Đợt CK date window — 1 row: Từ ngày … Đến ngày … (below the Đợt|Tỉ giá head) */
-.pp-date-range {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    padding: 8px 12px;
-    margin-bottom: 12px;
-    border-radius: 10px;
-    background: #f8fafc;
-    border: 1px dashed #cbd5e1;
-}
-.pp-dr-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--gray-500, #64748b);
-}
-.pp-date {
-    min-width: 104px;
-    padding: 5px 10px;
-    border-radius: 6px;
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    font-weight: 700;
-    font-size: 14px;
-    text-align: center;
-    cursor: text;
-    color: #1e293b;
-}
-.pp-date:hover {
-    border-color: #6366f1;
-    background: #eef2ff;
-}
-.pp-date-range .inline-edit-input.payment-date-input {
-    min-width: 130px;
-    font-size: 14px;
-    padding: 4px 8px;
-}
-
 /* Big accounting numbers — maximize readability, fill available space */
 .payment-panel-totals {
     background: #fff;

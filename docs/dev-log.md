@@ -25,6 +25,23 @@
 
 ## 2026-05-31
 
+### [inventory-tracking] BỎ chia theo ngày — tách đợt thuần dotSo + dọn data trùng ✅
+
+**Quyết định user**: chia đợt theo khoảng ngày KHÔNG hợp lý (1 TT đợt 2 có thể trùng ngày giao đợt 1 → trùng lặp). Quay về logic gốc: **đợt tách biệt hoàn toàn theo `dotSo`** — đơn nhập ở đợt nào → HĐ/CP đợt đó; TT thêm ở modal đợt nào → chỉ thuộc đợt đó. Không lọc ngày.
+
+**Phát hiện trùng lặp THẬT**: mảng `thanhToanCK` đợt 2 chứa nguyên 9 khoản của đợt 1 (CÙNG id) + 2 khoản riêng → đợt1=9(420.969), đợt2=11(520.969).
+
+**Code (revert date-window, GIỮ fix C de-dup CP)**:
+- `filters.js` — bỏ filter `dateInDotWindow` (và filter 30 ngày cũ) → list = dotSo + NCC + search.
+- `data-loader.js` — bỏ helper `paymentsInDotWindow`/`dateInDotWindow`; `getAllDotsAggregated` build từ `getAllDotHangAsShipments` (CP de-dup) nhưng KHÔNG window — sum toàn đợt theo dotSo.
+- `table-renderer.js` — `_calcPaymentTotals`/`updateInventoryStatsBar`/chuỗi số dư dùng full `thanhToanCK` (giữ last-row absorb); bỏ UI ngày bắt đầu/kết thúc + handlers/getters/broadcast/globals; `_renderDotSectionBodyHtml` hiện full mảng (bỏ ẩn/gạch).
+- `css/modern.css` — bỏ `.pp-date-range`/`.payment-row-out`. `index.html` bump `?v=20260531d`.
+- Backend giữ nguyên (cột `ngay_bat_dau/ngay_ket_thuc` inert, không dùng).
+
+**Dọn data** (script tự verify trước khi ghi, có backup `135303` để rollback): PATCH theo mốc 18/5 → Đợt1 = 7 khoản ≤13/5 (220.969), Đợt2 = 4 khoản ≥18/5 (300.000). Đúng 2 ảnh user.
+
+**Verify (data sạch)**: Đợt1 HĐ 202.854/CP 15.757/TT 220.969/**CÒN LẠI 2.358**. Đợt2 HĐ 239.520/CP 14.785/TT 300.000/**CÒN LẠI 45.695**. Bar = modal = thẻ ngày.
+
 ### [inventory-tracking] Khoảng ngày đợt = bộ lọc DUY NHẤT + sửa CP đếm trùng (B & C) ✅
 
 **Vấn đề user phát hiện**: (B) "Còn lại" Đợt 1 bảng chính (184.823) ≠ modal CK (1.678); (C) CP ngày 19/5 Đợt 2 modal hiện **95.715** trong khi thẻ ngày là 10.635.
