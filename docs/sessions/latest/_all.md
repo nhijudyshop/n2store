@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `38ee7cf` — feat(kpi): Sprint 1 — wire ledger write path (forecast + actual + revoked)
-**Last updated**: 2026-05-31 15:42:07 +07
-**Latest session**: [`RESUME:20260531-154207-38ee7cf`](../20260531-154207-38ee7cf.md)
-**Summary**: feat(kpi): Sprint 1 — wire ledger write path (forecast + actual + revoked)
+**Latest commit**: `46ab67c` — fix(web2-balance-history): modal Sửa KH cho phép cập nhật tên khi giữ nguyên SĐT
+**Last updated**: 2026-05-31 15:44:56 +07
+**Latest session**: [`RESUME:20260531-154456-46ab67c`](../20260531-154456-46ab67c.md)
+**Summary**: fix(web2-balance-history): modal Sửa KH cho phép cập nhật tên khi giữ nguyên SĐT
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-05-31 15:42
+- [`docs/`](./docs.md) — updated 2026-05-31 15:44
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -69,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-05-31 15:36
+- [`web2/`](./web2.md) — updated 2026-05-31 15:44
