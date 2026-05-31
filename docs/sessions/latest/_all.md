@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `83f9046` — docs(plans): KPI plan v2 — campaign-scoped + beneficiary-based + STT visibility
-**Last updated**: 2026-05-31 14:12:34 +07
-**Latest session**: [`RESUME:20260531-141234-83f9046`](../20260531-141234-83f9046.md)
-**Summary**: docs(plans): KPI plan v2 — campaign-scoped + beneficiary-based + STT visibility
+**Latest commit**: `8818152` — docs(plans): resolve Q9 — actor irrelevant, beneficiary owns KPI
+**Last updated**: 2026-05-31 14:30:33 +07
+**Latest session**: [`RESUME:20260531-143033-8818152`](../20260531-143033-8818152.md)
+**Summary**: docs(plans): resolve Q9 — actor irrelevant, beneficiary owns KPI
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`inventory-tracking/`](./inventory-tracking.md) — 5 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-05-31 14:12
+- [`docs/`](./docs.md) — updated 2026-05-31 14:30
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
