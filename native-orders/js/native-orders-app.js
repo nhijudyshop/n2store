@@ -188,6 +188,20 @@
         return div.innerHTML;
     }
 
+    // Badge nhỏ inline cạnh product code — phân biệt nguồn add SP:
+    //   'livestream' — drag từ TPOS-Pancake inventory panel (chốt live).
+    //   'native'     — add trực tiếp từ picker trong modal sửa đơn.
+    //   undefined    — SP cũ (trước migration), không hiển thị badge.
+    function _renderSourceBadge(source) {
+        if (source === 'livestream') {
+            return `<span class="product-source-badge src-live" title="SP được kéo từ TPOS-Pancake (livestream)"><i data-lucide="radio"></i>Livestream</span>`;
+        }
+        if (source === 'native') {
+            return `<span class="product-source-badge src-native" title="SP thêm trực tiếp từ modal sửa đơn"><i data-lucide="hand"></i>Trực tiếp</span>`;
+        }
+        return '';
+    }
+
     function formatTimeSplit(ms) {
         if (!ms) return { date: '', hour: '' };
         const d = new Date(Number(ms));
@@ -339,17 +353,14 @@
                     ? `<img src="${escapeHtml(l.imageUrl)}" class="expand-img" onerror="this.style.display='none';this.nextElementSibling.style.setProperty('display','inline-flex');">
                    <span class="expand-img-ph" style="display:none;"><i data-lucide="image"></i></span>`
                     : `<span class="expand-img-ph"><i data-lucide="image"></i></span>`;
-                const liveBadge =
-                    l.source === 'livestream'
-                        ? `<span class="product-source-badge src-live" title="SP được kéo từ TPOS-Pancake (livestream)"><i data-lucide="radio"></i>Livestream</span>`
-                        : '';
+                const sourceBadge = _renderSourceBadge(l.source);
                 return `
                 <tr>
                     <td>${i + 1}</td>
                     <td>${img}</td>
                     <td>
                         <div class="expand-name">${escapeHtml(l.name || '—')}</div>
-                        <div class="expand-code">${escapeHtml(l.productCode || '')}${liveBadge}</div>
+                        <div class="expand-code">${escapeHtml(l.productCode || '')}${sourceBadge}</div>
                     </td>
                     <td class="expand-qty">${qty}</td>
                     <td class="expand-price">${price.toLocaleString('vi-VN')}đ</td>
@@ -1314,6 +1325,8 @@
                 note: '',
                 total: price,
                 addedAt: Date.now(),
+                // Nguồn: 'native' = SP add trực tiếp từ picker trong modal sửa đơn.
+                source: 'native',
             });
         }
         renderOrderLines();
@@ -1386,17 +1399,14 @@
                         style="width:100%;padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#475569;background:#f8fafc;"
                     />
                 </div>`;
-            const liveBadge =
-                l.source === 'livestream'
-                    ? `<span class="product-source-badge src-live" title="SP được kéo từ TPOS-Pancake (livestream)"><i data-lucide="radio"></i>Livestream</span>`
-                    : '';
+            const sourceBadge = _renderSourceBadge(l.source);
             return `
                 <tr data-idx="${i}">
                     <td>${i + 1}</td>
                     <td>${img}</td>
                     <td>
                         <div class="line-name">${escapeHtml(l.name || '—')}</div>
-                        <div class="line-code">${escapeHtml(l.productCode || '')}${liveBadge}</div>
+                        <div class="line-code">${escapeHtml(l.productCode || '')}${sourceBadge}</div>
                         ${noteCell}
                     </td>
                     <td>${qtyCell}</td>

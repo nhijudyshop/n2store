@@ -62,6 +62,27 @@
 
 ## 2026-05-30
 
+### [native-orders] Badge "Trực tiếp" cho SP add từ picker (cùng cặp với Livestream) ✅
+
+**User feedback**: "sản phẩm thêm trực tiếp từ native orders có badge riêng"
+
+**Decision**: Cặp đôi với badge Livestream — picker trong modal `addPicked` set `source: 'native'`. Hiển thị badge xanh dương "Trực tiếp" + icon `hand`. SP cũ (trước migration) không có `source` → vẫn không badge.
+
+**Files**:
+
+- `native-orders/js/native-orders-app.js` — gom logic vào `_renderSourceBadge(source)` thay vì if-else inline; `addPicked` push `source: 'native'`; cả expand row + edit modal đều gọi helper.
+- `native-orders/css/native-orders.css` — `.product-source-badge.src-native` (xanh dương pastel), unify `i` size cross-variants.
+
+**Truth table**:
+
+| source         | Badge         | Khi nào                        |
+| -------------- | ------------- | ------------------------------ |
+| `'livestream'` | 🔴 Livestream | Drag từ TPOS-Pancake inventory |
+| `'native'`     | 🔵 Trực tiếp  | Picker trong modal sửa đơn     |
+| `undefined`    | —             | SP cũ trước migration          |
+
+---
+
 ### [native-orders][render] Badge "Livestream" cho SP kéo từ TPOS-Pancake ✅
 
 **User feedback**: "tpos-pancake -> sản phẩm được kéo vào đơn để tạo ra bên native orders -> bên native orders sẽ có badge là livestream (để phân biệt với sản phẩm thêm trực tiếp từ native hoặc thêm từ livestream tpos-pancake)"
