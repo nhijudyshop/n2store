@@ -25,6 +25,22 @@
 
 ## 2026-05-31
 
+### [delivery-report] Ẩn cột CK theo tab + Duyệt không zero TỔNG CÒN LẠI ✅
+
+**Yêu cầu (user)**: (1) TOMATO/NAP ẩn cột **ATRƯỜNG NHẬN CK**; THÀNH PHỐ ẩn cả **ATRƯỜNG NHẬN CK** lẫn **CK TRƯỚC**. (2) Bấm **DUYỆT** không được tự động trừ "TỔNG CÒN LẠI" về 0 — giữ nguyên giá trị, dòng chỉ mờ đi.
+
+**Giải pháp**:
+- **Ẩn cột theo tab (CSS, không xoá data)**: `updateTabClasses()` set `data-tab` lên `<table#drReportTable>`. CSS `nth-child(9)` (ATRƯỜNG NHẬN CK) ẩn ở **mọi** tab; `nth-child(10)` (CK TRƯỚC) ẩn thêm khi `data-tab="city"`. Mọi data row + thead + tfoot đều có đúng 13 cell cùng thứ tự nên nth-child khớp ổn định; row colspan (expand/empty) chỉ 1 cell nên không bị chạm. Dữ liệu `atruongCK`/`ckTruoc` **vẫn tính ngầm** vào TỔNG CÒN LẠI (không phá số liệu cũ).
+- **Duyệt giữ giá trị**: bỏ toàn bộ nhánh `approved ? 0 : totalLeftRaw` (single/merge/shift-aggregate row + `computeTotalLeftForTab` + tab totals + TỔNG chân bảng). Theo chọn của user, dòng đã duyệt **vẫn cộng** vào TỔNG (khớp giá trị ô hiển thị). Dòng vẫn mờ qua class `.is-approved` (opacity 0.45) sẵn có.
+
+**Files**:
+- `delivery-report/js/report.js` — `updateTabClasses()` set `table.dataset.tab`; gỡ zero-on-approve ở `renderSingleRow`/`renderMergeRow`/`renderShiftAggregateRow` + `computeTotalLeftForTab` (3 nhánh); cập nhật tooltip header DUYỆT + comment.
+- `delivery-report/css/delivery-report.css` — thêm rule ẩn cột `nth-child(9)` (mọi tab) + `nth-child(10)` (city); cập nhật comment `.is-approved`.
+
+**Verify**: harness HTML cô lập + Playwright đọc `getComputedStyle().display` cho từng `data-tab` → tomato/nap chỉ ẩn ATRƯỜNG; city ẩn cả ATRƯỜNG + CK TRƯỚC; th/td ẩn đồng bộ. `node --check` pass.
+
+**Status**: ✅ Done.
+
 ### [inventory-tracking] Khoảng ngày (ngày bắt đầu/kết thúc) cho từng Đợt → bound thanh toán CK ✅
 
 **Vấn đề (user báo)**: "Còn lại" trên thẻ tổng đợt và Còn dư từng ngày lệch nhau (đợt 1: tổng `384.823` vs ngày cuối `184.823`, lệch `200.000`). Gốc rễ: mỗi đợt **không có ngày bắt đầu/kết thúc**, nên `Tổng TT` cộng **toàn bộ** `thanhToanCK` của đợt bất kể ngày → khoản CK dated sau ngày giao cuối (thường là tiền của đợt sau) bị tính nhầm vào đợt; còn chuỗi số dư từng ngày lại **rớt** các khoản trễ đó.

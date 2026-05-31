@@ -199,8 +199,9 @@
         }
     }
     // Note: KHÔNG còn dùng effectiveApproved() — đã đơn giản hoá:
-    // - Approved rows: admin thấy mờ (totalLeft=0), non-admin bị ẩn HẲN trong render loop
-    // - Tab totals: approved → 0 contribution cho cả 2 (consistent)
+    // - Approved rows: admin thấy mờ (dòng opacity 0.45). TỔNG CÒN LẠI GIỮ NGUYÊN
+    //   giá trị (KHÔNG về 0 nữa — đổi 2026-05-31); non-admin bị ẩn HẲN render loop
+    // - Tab totals + TỔNG chân bảng: VẪN cộng dòng đã duyệt (khớp giá trị ô hiển thị)
     // - Approve cell HTML: dùng _isAdmin() trực tiếp (checkbox vs lock placeholder)
     // Debug helper — gõ vào DevTools: window.__DR_authDebug() để xem chi tiết
     // lý do bị/không bị detect là Admin.
@@ -842,7 +843,7 @@
                   <th class="num input-col">CK TRƯỚC</th>
                   <th class="num">TỔNG CÒN LẠI</th>
                   <th>GHI CHÚ</th>
-                  <th class="dr-report-th-approve" title="Đánh dấu đã duyệt — TỔNG CÒN LẠI về 0đ, dòng mờ đi">DUYỆT</th>
+                  <th class="dr-report-th-approve" title="Đánh dấu đã duyệt — dòng mờ đi, TỔNG CÒN LẠI vẫn giữ nguyên giá trị">DUYỆT</th>
                 </tr></thead>
                 <tbody id="drReportTbody"></tbody>
                 <tfoot id="drReportTfoot"></tfoot>
@@ -1011,6 +1012,11 @@
         for (let i = 0; i < tabs.length; i++) {
             tabs[i].classList.toggle('active', tabs[i].dataset.tab === state.activeTab);
         }
+        // Đánh dấu tab hiện tại lên <table> → CSS ẩn cột theo tab:
+        //   ATRƯỜNG NHẬN CK (cột 9): ẩn ở MỌI tab.
+        //   CK TRƯỚC (cột 10): ẩn thêm ở THÀNH PHỐ (city).
+        const table = document.getElementById('drReportTable');
+        if (table) table.dataset.tab = state.activeTab;
     }
 
     function render() {
@@ -1165,7 +1171,8 @@
                 }
                 const totalAll = sumMoney - sumShipFee - sumSlShip * getShipFee(tab) + sumThuVe;
                 const totalLeftRaw = totalAll - sumBoCK - sumAtruongCK - sumCkTruoc;
-                total += anyApproved ? 0 : totalLeftRaw;
+                // Duyệt vẫn cộng vào tổng (2026-05-31) — khớp giá trị ô đang hiển thị
+                total += totalLeftRaw;
                 continue;
             }
             // Shifted out of filter → 0 contribution
@@ -1214,7 +1221,7 @@
                 const ckTruoc = useMerge(merge.ckTruoc) ? Number(merge.ckTruoc) : sumCkTruoc;
                 const totalAll = sumMoney - sumShipFee - slShip * getShipFee(tab) + thuVe;
                 const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
-                total += !!merge.approved ? 0 : totalLeftRaw;
+                total += totalLeftRaw;
                 continue;
             }
             // Single row
@@ -1229,7 +1236,7 @@
             const ckTruoc = Number(ov.ckTruoc) || 0;
             const totalAll = sys.money - shipFee - slShip * getShipFee(tab) + thuVe;
             const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
-            total += !!ov.approved ? 0 : totalLeftRaw;
+            total += totalLeftRaw;
         }
         return total;
     }
@@ -1299,7 +1306,9 @@
             const ckTruoc = Number(ov.ckTruoc) || 0;
             const approved = !!ov.approved;
             const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
-            const totalLeftDisplay = approved ? 0 : totalLeftRaw;
+            // Duyệt KHÔNG zero TỔNG CÒN LẠI nữa (2026-05-31) — giữ nguyên giá trị,
+            // dòng chỉ mờ đi qua class .is-approved. Totals cũng cộng bình thường.
+            const totalLeftDisplay = totalLeftRaw;
             const note = ov.note || '';
             if (!isChild) {
                 // Child rows skip cộng totals — đã cộng vào merge row parent
@@ -1312,7 +1321,7 @@
                 totals.boCK += boCK;
                 totals.atruongCK += atruongCK;
                 totals.ckTruoc += ckTruoc;
-                totals.totalLeft += approved ? 0 : totalLeftRaw;
+                totals.totalLeft += totalLeftRaw;
             }
             const hasImg = hasImageFlag(d, state.activeTab);
             const selected = state.selectedDates.has(d);
@@ -1397,7 +1406,9 @@
             const approved = !!merge.approved;
             const expanded = !!merge.expanded;
             const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
-            const totalLeftDisplay = approved ? 0 : totalLeftRaw;
+            // Duyệt KHÔNG zero TỔNG CÒN LẠI nữa (2026-05-31) — giữ nguyên giá trị,
+            // dòng chỉ mờ đi qua class .is-approved. Totals cũng cộng bình thường.
+            const totalLeftDisplay = totalLeftRaw;
             totals.slDon += sumSlDon;
             totals.money += sumMoney;
             totals.shipFee += sumShipFee;
@@ -1407,7 +1418,7 @@
             totals.boCK += boCK;
             totals.atruongCK += atruongCK;
             totals.ckTruoc += ckTruoc;
-            totals.totalLeft += approved ? 0 : totalLeftRaw;
+            totals.totalLeft += totalLeftRaw;
             const rangeLabel = `${formatDDMMYYYY(realToEntry(merge.fromDate))} → ${formatDDMMYYYY(realToEntry(merge.toDate))}`;
             const daysInRange = childDates.length;
             const totalDays =
@@ -1540,7 +1551,9 @@
             }
             const totalAll = sumMoney - sumShipFee - sumSlShip * getShipFee(tab) + sumThuVe;
             const totalLeftRaw = totalAll - sumBoCK - sumAtruongCK - sumCkTruoc;
-            const totalLeftDisplay = anyApproved ? 0 : totalLeftRaw;
+            // Duyệt KHÔNG zero TỔNG CÒN LẠI nữa (2026-05-31) — giữ nguyên giá trị,
+            // dòng chỉ mờ đi qua class .is-approved. Totals cũng cộng bình thường.
+            const totalLeftDisplay = totalLeftRaw;
             // Tổng row tally
             totals.slDon += sumSlDon;
             totals.money += sumMoney;
@@ -1551,7 +1564,7 @@
             totals.boCK += sumBoCK;
             totals.atruongCK += sumAtruongCK;
             totals.ckTruoc += sumCkTruoc;
-            totals.totalLeft += anyApproved ? 0 : totalLeftRaw;
+            totals.totalLeft += totalLeftRaw;
             const sourceLabels = sourceDates.map((s) => formatDDMMYYYY(realToEntry(s))).join(', ');
             const sourceTitle = `Dồn từ ${sourceDates.length} ngày: ${sourceLabels} → hiển thị tại ${formatDDMMYYYY(realToEntry(displayDate))}`;
             const cls = ['dr-shift-agg-row', anyApproved ? 'is-approved' : '']
