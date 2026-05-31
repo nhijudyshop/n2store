@@ -14,6 +14,7 @@
     const STATUS_FILTERS = [
         { key: 'all', label: 'Tất cả' },
         { key: 'MANUAL', label: 'Nạp/Rút tay', cls: 'chip-manual' },
+        { key: 'MANUAL_ALL', label: 'Lịch sử thủ công', cls: 'chip-manual-all' },
         { key: 'AUTO_APPROVED', label: 'Tự động', cls: 'chip-auto' },
         { key: 'PENDING_MATCH', label: 'Trùng SĐT — cần chọn', cls: 'chip-pending' },
         { key: 'NO_PHONE', label: 'Chưa gán KH', cls: 'chip-no-phone' },
@@ -318,13 +319,29 @@
             method === 'manual_resolve' ||
             method === 'manual_reassign';
         const assignedBy = _extractUserFromRow(r);
+        const ACTION_LABELS = {
+            manual_deposit: 'Nạp tay',
+            manual_withdraw: 'Rút tay',
+            manual_link: 'Gán KH',
+            manual_resolve: 'Chọn KH (multi)',
+            manual_reassign: 'Đổi KH',
+        };
+        const actionLabel = ACTION_LABELS[method] || '';
+        const verifiedAtText = r.verified_at ? fmtTime(r.verified_at) : '';
         const userBadge =
             isManualByUser && assignedBy
-                ? `<span class="w2bh-user-badge" title="Người thực hiện thao tác thủ công">
+                ? `<span class="w2bh-user-badge" title="${escapeHtml(actionLabel)}${verifiedAtText ? ' lúc ' + verifiedAtText : ''}">
                        <i data-lucide="user-check" style="width:10px;height:10px"></i>
+                       ${actionLabel ? `<b class="w2bh-user-action">${escapeHtml(actionLabel)}</b>` : ''}
                        ${escapeHtml(assignedBy)}
                    </span>`
-                : '';
+                : isManualByUser
+                  ? `<span class="w2bh-user-badge w2bh-user-badge-unknown" title="${escapeHtml(actionLabel)} — không xác định user">
+                       <i data-lucide="user" style="width:10px;height:10px"></i>
+                       ${actionLabel ? `<b class="w2bh-user-action">${escapeHtml(actionLabel)}</b>` : ''}
+                       (—)
+                   </span>`
+                  : '';
         // Manual NCC: có display_name nhưng KHÔNG có phone (Firestore-based).
         //   Không show "+ Gán KH" / "Không có thông tin" như rows webhook unmatched.
         const isManualNcc = isManual && !phone && name;

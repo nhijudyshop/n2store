@@ -25,6 +25,27 @@
 
 ## 2026-05-31
 
+### [web2-balance-history] Tab "Lịch sử thủ công" — audit log mọi action manual ✅
+
+**User feedback**: "tab để coi lịch sử user gán tay, nạp rút tay, chọn khách hàng".
+
+**Fix**:
+
+- Backend (`routes/v2/web2-balance-history.js`):
+    - Add status filter `MANUAL_ALL` → `match_method IN ('manual_link', 'manual_resolve', 'manual_reassign', 'manual_deposit', 'manual_withdraw')`.
+    - Sort: `ORDER BY COALESCE(verified_at, transaction_date) DESC` (thứ tự thao tác user, mới nhất ở trên) khi status=MANUAL_ALL.
+    - Stats endpoint thêm count `manual_all`.
+- Frontend (`web2-balance-history-app.js`):
+    - Thêm chip "Lịch sử thủ công" (purple `chip-manual-all`) vào STATUS_FILTERS.
+    - `userBadge` thêm action label trước user name: "Nạp tay", "Rút tay", "Gán KH", "Chọn KH (multi)", "Đổi KH" → hiển thị bold purple, e.g. `Nạp tay e2e-test`.
+    - Tooltip hover badge hiện "Action lúc HH:MM DD/MM/YYYY" từ `verified_at`.
+    - Fallback badge `(—)` (italic muted) cho legacy rows manual\_\* không có user info.
+- CSS `web2-balance-history.css`: `.chip-manual-all` purple bg, `.w2bh-user-action` bold purple với separator border, `.w2bh-user-badge-unknown` italic muted.
+
+**Test live**: chip xuất hiện, click load 50 rows (filter backend chưa deploy), 3 badges hiện "Nạp tay e2e-test", "Rút tay e2e-test" với action label tách rõ. Sau Render redeploy → filter chỉ hiện manual rows + sort theo verified_at.
+
+**Status**: ✅ Code pushed. Render auto-deploy sẽ enable filter MANUAL_ALL.
+
 ### [web2-balance-history] Admin reassign KH + user attribution (verified_by) ✅
 
 **User feedback (3 yêu cầu liên quan)**:

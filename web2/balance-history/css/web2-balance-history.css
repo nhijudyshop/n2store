@@ -241,6 +241,22 @@
     background: #fee2e2;
     color: #991b1b;
 }
+.w2bh-chip.chip-manual-all {
+    background: #ede9fe;
+    color: #5b21b6;
+}
+.w2bh-user-action {
+    color: #5b21b6;
+    font-weight: 700;
+    padding-right: 4px;
+    border-right: 1px solid #c4b5fd;
+    margin-right: 4px;
+}
+.w2bh-user-badge-unknown {
+    background: #fafafa !important;
+    color: #94a3b8 !important;
+    font-style: italic;
+}
 
 /* Table */
 .w2bh-table-wrap {

@@ -52,6 +52,11 @@ router.get('/', async (req, res) => {
             where.push(`match_method = 'pending_match'`);
         } else if (status === 'MANUAL') {
             where.push(`match_method IN ('manual_deposit', 'manual_withdraw')`);
+        } else if (status === 'MANUAL_ALL') {
+            // Audit view: mọi action thủ công (gán/chọn KH + nạp/rút tay + reassign)
+            where.push(
+                `match_method IN ('manual_link', 'manual_resolve', 'manual_reassign', 'manual_deposit', 'manual_withdraw')`
+            );
         }
         if (search) {
             params.push(`%${search}%`);
@@ -72,10 +77,16 @@ router.get('/', async (req, res) => {
         }
         const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
 
+        // MANUAL_ALL view sort theo `verified_at DESC` (thứ tự thao tác user,
+        // mới nhất ở trên) thay vì `transaction_date` (thứ tự bank).
+        const orderSql =
+            status === 'MANUAL_ALL'
+                ? `ORDER BY COALESCE(verified_at, transaction_date) DESC NULLS LAST, id DESC`
+                : `ORDER BY transaction_date DESC NULLS LAST, id DESC`;
         const list = await db.query(
             `SELECT * FROM web2_balance_history
              ${whereSql}
-             ORDER BY transaction_date DESC NULLS LAST, id DESC
+             ${orderSql}
              LIMIT ${limit} OFFSET ${offset}`,
             params
         );
@@ -126,6 +137,7 @@ router.get('/stats', async (req, res) => {
                 COUNT(*) FILTER (WHERE linked_customer_phone IS NULL) AS no_phone,
                 COUNT(*) FILTER (WHERE match_method = 'pending_match') AS pending_match,
                 COUNT(*) FILTER (WHERE match_method IN ('manual_deposit', 'manual_withdraw')) AS manual,
+                COUNT(*) FILTER (WHERE match_method IN ('manual_link', 'manual_resolve', 'manual_reassign', 'manual_deposit', 'manual_withdraw')) AS manual_all,
                 COALESCE(SUM(CASE WHEN transfer_type = 'in' THEN transfer_amount ELSE 0 END), 0) AS total_in,
                 COALESCE(SUM(CASE WHEN transfer_type = 'out' THEN transfer_amount ELSE 0 END), 0) AS total_out
              FROM web2_balance_history`
