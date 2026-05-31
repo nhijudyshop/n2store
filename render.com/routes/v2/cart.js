@@ -22,9 +22,59 @@
 const express = require('express');
 const router = express.Router();
 
+// KPI helpers (Sprint 1) — emit forecast events khi cart mutates.
+// Sai sót ở KPI = không-blocking → wrap try/catch.
+const kpiModule = require('./kpi');
+
 let _notifyClients = null;
 function initializeNotifiers(notifyClients) {
     _notifyClients = notifyClients;
+}
+
+// Fire-and-forget emit. Resolve beneficiary by campaign_name + campaign_stt từ
+// native_orders row. Lookup tại emit time (immutable post-emit).
+async function _emitCartKpi(pool, draft, body, evType, qtyDelta, product) {
+    try {
+        const fullRow = draft.live_campaign_name
+            ? draft
+            : (
+                  await pool.query(
+                      'SELECT live_campaign_name, live_campaign_id, campaign_stt FROM native_orders WHERE code = $1',
+                      [draft.code]
+                  )
+              ).rows[0] || {};
+        const campaignName = fullRow.live_campaign_name || draft.live_campaign_name || null;
+        const campaignId =
+            fullRow.live_campaign_id || draft.live_campaign_id || kpiModule.SYNTHETIC_NO_CAMPAIGN;
+        const campaignStt = fullRow.campaign_stt ?? draft.campaign_stt ?? null;
+        const user = body.user || {};
+        const actorId = Number(user.id);
+        if (!Number.isFinite(actorId)) return; // skip nếu actor không có numeric id
+        const beneficiary = await kpiModule.resolveBeneficiary(pool, {
+            campaign_name: campaignName,
+            campaign_stt: campaignStt,
+            actor_user_id: actorId,
+            actor_name: user.name || null,
+        });
+        await kpiModule.emitKpiEvent(pool, {
+            event_type: evType,
+            actor_user_id: actorId,
+            actor_name: user.name || null,
+            ...beneficiary,
+            order_code: draft.code,
+            order_campaign_stt: campaignStt,
+            customer_id: draft.fb_user_id || draft.fbUserId || '',
+            product_code: product.code || product.productCode || '',
+            qty_delta: qtyDelta,
+            source: 'livestream',
+            campaign_id: campaignId,
+            source_page: 'tpos-pancake',
+            client_event_id: body.clientEventId || null,
+            raw_payload: { product_name: product.name },
+        });
+    } catch (e) {
+        console.warn('[web2-cart] KPI emit failed:', e.message);
+    }
 }
 
 let _migrationDone = false;
@@ -350,6 +400,9 @@ router.post('/:commentId/add', async (req, res) => {
 
         _notifyCart(customerId);
         _notifyNativeOrders('update', draft.code);
+        // Sprint 1: KPI forecast emit (livestream source). qtyDelta = qtyAdd
+        // (sự kiện logic: NV add qtyAdd units, dù có merge với line cũ hay không).
+        _emitCartKpi(pool, draft, b, 'forecast_add', qtyAdd, p);
         res.json({
             success: true,
             qty: qtyAfter,
@@ -412,6 +465,12 @@ router.post('/:commentId/:productCode/remove', async (req, res) => {
             user_name: user.name,
         });
         _notifyCart(customerId);
+        // Sprint 1: KPI forecast emit — qty_delta negative
+        const removedQty = _qtyOf(removed);
+        _emitCartKpi(pool, draft, req.body || {}, 'forecast_remove', -removedQty, {
+            code: productCode,
+            name: removed.name,
+        });
         res.json({
             success: true,
             native_order_code: nativeOrderCode,
