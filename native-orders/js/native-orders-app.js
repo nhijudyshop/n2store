@@ -2543,8 +2543,44 @@
     }
 
     // ---------- Init ----------
+    async function _loadAndRenderScopeBanner() {
+        try {
+            const data = await window.NativeOrdersApi.getKpiScope();
+            if (!data?.success) return;
+            // Admin / no assignments → no banner (sees all)
+            if (data.access !== 'restricted' || !Array.isArray(data.scope) || !data.scope.length) {
+                return;
+            }
+            // Render banner trên đầu page (sau header)
+            const banner = document.createElement('div');
+            banner.id = 'kpiScopeBanner';
+            banner.style.cssText =
+                'background:#dbeafe;color:#1e40af;padding:8px 16px;border-bottom:1px solid #93c5fd;' +
+                'font-size:13px;display:flex;align-items:center;gap:8px;';
+            const summary = data.scope
+                .map(
+                    (s) =>
+                        `<strong>${escapeHtml(s.campaign_name)}</strong> STT ${s.fromSTT}-${s.toSTT}`
+                )
+                .join(' · ');
+            banner.innerHTML = `<i data-lucide="filter" style="width:14px;height:14px;"></i>
+                <span>Bạn chỉ thấy đơn trong khoảng được phân công: ${summary}</span>`;
+            const tabNav = document.querySelector('.tab-navigation, .web2-page-tabs');
+            if (tabNav?.parentElement) {
+                tabNav.parentElement.insertBefore(banner, tabNav.nextSibling);
+            } else {
+                document.body.insertBefore(banner, document.body.firstChild);
+            }
+            if (window.lucide) lucide.createIcons();
+        } catch (e) {
+            console.warn('[native-orders] scope banner load fail:', e.message);
+        }
+    }
+
     function init() {
         if (window.lucide) lucide.createIcons();
+        // Sprint 3 KPI: load + render scope banner (NV được phân khoảng → hiển thị)
+        _loadAndRenderScopeBanner();
         // Phase 14: hydrate customerId filter from URL
         const urlParams = new URLSearchParams(location.search);
         const urlCid = parseInt(urlParams.get('customerId'), 10);

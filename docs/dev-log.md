@@ -25,6 +25,41 @@
 
 ## 2026-05-31
 
+### [kpi][render][native-orders] Sprint 3 KPI — Visibility filter (scope middleware) ✅
+
+**Plan**: [docs/plans/kpi-attribution-system.md](plans/kpi-attribution-system.md) Sprint 3
+
+**Backend middleware** (`render.com/routes/v2/kpi.js`):
+
+- `applyKpiScope(req, res, next)` — đọc `x-web2-token` header, lookup user qua `web2_user_sessions`, query `campaign_employee_ranges` JSONB tìm ranges có userId match → attach `req.kpiScope = [{campaign_name, fromSTT, toSTT}, ...]`. Admin role → null = see all. Cache 5min per token.
+- `buildScopeWhere(kpiScope, paramOffset)` → SQL `(live_campaign_name=$X AND campaign_stt BETWEEN $Y AND $Z) OR ...` + params.
+- `buildScopeWhereWithAlias` cho JOIN scenarios.
+- `invalidateScopeCache(userId?)` gọi từ campaigns.js PUT khi assignments change.
+- `GET /api/v2/kpi/scope` — debug endpoint trả scope của caller.
+
+**Applied to routes**:
+
+- `native-orders.js GET /load` — main list, scope filter via `_kpiModule.applyKpiScope` middleware
+- `native-orders.js GET /campaigns` — chỉ trả campaigns user được assigned
+- `fast-sale-orders.js GET /load` — scope filter via `source_code IN (SELECT code FROM native_orders WHERE scope)` (PBH không có direct columns)
+
+**Frontend**:
+
+- `native-orders-api.js`:
+    - `_authHeaders()` đọc Web2Auth token → inject `x-web2-token` vào mọi request
+    - `getKpiScope()` query `/api/v2/kpi/scope`
+- `native-orders-app.js init()`:
+    - `_loadAndRenderScopeBanner()` show banner xanh "Bạn chỉ thấy đơn trong khoảng…" cho NV restricted
+    - Admin/no-scope → no banner
+
+**Cache invalidation hook**: `campaigns.js PUT /employee-ranges/:name` gọi `kpi.invalidateScopeCache()` sau khi save → user reload page sẽ thấy scope mới.
+
+**Security**: Backend enforce scope từ token verified server-side; client-sent user ID không trust được.
+
+**Next** — Sprint 4 (3 days): Dashboard recalc cron + Backlog Review queue + SSE realtime push.
+
+---
+
 ### [kpi][web2] Sprint 2 KPI — Assignment UI + Dashboard pages ✅
 
 **Plan**: [docs/plans/kpi-attribution-system.md](plans/kpi-attribution-system.md) Sprint 2

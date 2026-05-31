@@ -11,10 +11,24 @@
     const BASE = `${WORKER_URL}/api/native-orders`;
     const PRODUCTS_BASE = `${WORKER_URL}/api/web2-products`;
 
+    // Sprint 3 KPI: extract Web2Auth token để backend resolve visibility scope.
+    // Header `x-web2-token` được kpi.js middleware đọc.
+    function _authHeaders() {
+        try {
+            const stored = global.Web2Auth?.getStored?.();
+            if (stored?.token) return { 'x-web2-token': stored.token };
+        } catch {}
+        return {};
+    }
+
     async function _fetchJson(url, options = {}) {
         const res = await fetch(url, {
             ...options,
-            headers: { Accept: 'application/json', ...(options.headers || {}) },
+            headers: {
+                Accept: 'application/json',
+                ..._authHeaders(),
+                ...(options.headers || {}),
+            },
         });
         let data = null;
         try {
@@ -96,6 +110,14 @@
 
         async remove(code) {
             return _fetchJson(`${BASE}/${encodeURIComponent(code)}`, { method: 'DELETE' });
+        },
+
+        /**
+         * Sprint 3 KPI: lấy visibility scope của user hiện tại.
+         * @returns {Promise<{success, user, scope, access:'all'|'restricted'}>}
+         */
+        async getKpiScope() {
+            return _fetchJson(`${WORKER_URL}/api/v2/kpi/scope`);
         },
 
         // ===== Product picker helper (hits web2-products API) =====

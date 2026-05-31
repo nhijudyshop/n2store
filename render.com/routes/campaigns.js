@@ -308,6 +308,11 @@ router.put('/employee-ranges/:campaignName', async (req, res) => {
             );
         }
 
+        // Sprint 3 KPI: invalidate scope cache cho mọi user (ranges change affects access)
+        try {
+            require('./v2/kpi').invalidateScopeCache();
+        } catch {}
+
         res.json({ success: true });
     } catch (error) {
         console.error('[CAMPAIGNS] PUT /employee-ranges/:campaignName error:', error);

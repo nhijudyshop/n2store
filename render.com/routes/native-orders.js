@@ -912,21 +912,38 @@ router.get('/by-user/:fbUserId', async (req, res) => {
 // Distinct list of campaigns currently used by native orders, with row count.
 // Frontend dùng để render chip filter "Chiến Dịch".
 // -----------------------------------------------------
-router.get('/campaigns', async (req, res) => {
+router.get('/campaigns', async (req, res, next) => {
+    // Lazy apply scope — call middleware as fn
+    return require('./v2/kpi').applyKpiScope(req, res, () => _campaignsHandler(req, res));
+});
+
+async function _campaignsHandler(req, res) {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
-        const r = await pool.query(`
+        // Sprint 3: nếu user có scope → chỉ trả campaigns mà user được assigned.
+        let scopeFilter = '';
+        const params = [];
+        if (req.kpiScope && req.kpiScope.length) {
+            const names = [...new Set(req.kpiScope.map((s) => s.campaign_name))];
+            params.push(names);
+            scopeFilter = `WHERE live_campaign_name = ANY($1::text[])`;
+        }
+        const r = await pool.query(
+            `
             SELECT
                 COALESCE(NULLIF(live_campaign_id, ''), '__no_campaign__') AS id,
                 MAX(NULLIF(live_campaign_name, '')) AS name,
                 COUNT(*)::int AS count,
                 MAX(created_at)::text AS last_order_at
             FROM native_orders
+            ${scopeFilter}
             GROUP BY COALESCE(NULLIF(live_campaign_id, ''), '__no_campaign__')
             ORDER BY MAX(created_at) DESC NULLS LAST
-        `);
+        `,
+            params
+        );
         res.json({
             success: true,
             campaigns: r.rows.map((row) => ({
@@ -935,11 +952,12 @@ router.get('/campaigns', async (req, res) => {
                 count: row.count,
                 lastOrderAt: row.last_order_at,
             })),
+            scoped: !!(req.kpiScope && req.kpiScope.length),
         });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
-});
+}
 
 // -----------------------------------------------------
 // GET /export — CSV download cho Đơn Web
@@ -1063,7 +1081,8 @@ router.get('/export', async (req, res) => {
     }
 });
 
-router.get('/load', async (req, res) => {
+const _kpiModule = require('./v2/kpi');
+router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -1126,6 +1145,13 @@ router.get('/load', async (req, res) => {
                 }
                 if (orParts.length) conds.push(`(${orParts.join(' OR ')})`);
             }
+        }
+        // Sprint 3 KPI: apply visibility scope. NV được assigned khoảng → chỉ thấy
+        // đơn (live_campaign_name + campaign_stt) trong khoảng đó. Admin/no-scope → all.
+        if (req.kpiScope && req.kpiScope.length) {
+            const scopeFrag = _kpiModule.buildScopeWhere(req.kpiScope, params.length + 1);
+            conds.push(scopeFrag.clause);
+            params.push(...scopeFrag.params);
         }
         const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
 

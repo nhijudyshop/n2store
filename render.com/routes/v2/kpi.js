@@ -262,6 +262,174 @@ async function emitKpiEvent(pool, ev) {
 }
 
 // =====================================================
+// Sprint 3 — Visibility scope middleware + WHERE helper
+// =====================================================
+
+// Cache scope per token (5min TTL) — avoid querying assignments on every request.
+const _scopeCache = new Map(); // token → { scope, fetchedAt }
+const SCOPE_TTL_MS = 5 * 60 * 1000;
+
+// Lookup user qua web2_user_sessions token. Returns { id, role, displayName } or null.
+async function _resolveUserFromToken(pool, token) {
+    if (!token) return null;
+    try {
+        const r = await pool.query(
+            `SELECT u.id, u.role, u.display_name, u.username
+             FROM web2_user_sessions s
+             JOIN web2_users u ON u.id = s.user_id
+             WHERE s.token = $1 AND s.expires_at > $2 AND u.is_active = TRUE
+             LIMIT 1`,
+            [token, Date.now()]
+        );
+        if (!r.rows.length) return null;
+        return {
+            id: r.rows[0].id,
+            role: r.rows[0].role,
+            displayName: r.rows[0].display_name || r.rows[0].username,
+        };
+    } catch (e) {
+        console.warn('[web2-kpi] resolveUser fail:', e.message);
+        return null;
+    }
+}
+
+// Load all assignments cho user X → mảng { campaign_name, fromSTT, toSTT }.
+// Query campaign_employee_ranges, parse JSONB, filter ranges có userId match.
+async function _loadUserAssignments(pool, userId) {
+    try {
+        const r = await pool.query(
+            `SELECT campaign_name, employee_ranges FROM campaign_employee_ranges`
+        );
+        const result = [];
+        for (const row of r.rows) {
+            const ranges = Array.isArray(row.employee_ranges) ? row.employee_ranges : [];
+            for (const rg of ranges) {
+                const uid = rg.userId ?? rg.id;
+                if (String(uid) !== String(userId)) continue;
+                const from = Number(rg.fromSTT ?? rg.from ?? rg.start ?? 0);
+                const to = Number(rg.toSTT ?? rg.to ?? rg.end ?? 0);
+                if (from > 0 && to >= from) {
+                    result.push({
+                        campaign_name: row.campaign_name,
+                        fromSTT: from,
+                        toSTT: to,
+                    });
+                }
+            }
+        }
+        return result;
+    } catch (e) {
+        console.warn('[web2-kpi] loadUserAssignments fail:', e.message);
+        return [];
+    }
+}
+
+// Express middleware — attach req.kpiScope = [{campaign_name, fromSTT, toSTT}, ...]
+// • Admin → null (= see all, no filter)
+// • Token invalid hoặc no assignments → null (= see all — default open access)
+// • Has assignments → array of scopes
+//
+// Usage: app.use('/api/native-orders', applyKpiScope, nativeOrdersRoutes)
+//   hoặc per-route: router.get('/load', applyKpiScope, handler)
+async function applyKpiScope(req, res, next) {
+    req.kpiScope = null; // default: no filter
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return next();
+        const token =
+            req.headers['x-web2-token'] || req.headers['x-user-token'] || req.query.token || null;
+        if (!token) return next();
+
+        // Cache check
+        const cached = _scopeCache.get(token);
+        if (cached && Date.now() - cached.fetchedAt < SCOPE_TTL_MS) {
+            req.kpiScope = cached.scope;
+            req.kpiUser = cached.user;
+            return next();
+        }
+
+        const user = await _resolveUserFromToken(pool, token);
+        if (!user) return next();
+        req.kpiUser = user;
+
+        // Admin sees everything
+        if (user.role === 'admin') {
+            _scopeCache.set(token, { scope: null, user, fetchedAt: Date.now() });
+            return next();
+        }
+
+        const assignments = await _loadUserAssignments(pool, user.id);
+        const scope = assignments.length > 0 ? assignments : null;
+        req.kpiScope = scope;
+        _scopeCache.set(token, { scope, user, fetchedAt: Date.now() });
+        return next();
+    } catch (e) {
+        console.warn('[web2-kpi] applyKpiScope error:', e.message);
+        return next();
+    }
+}
+
+// Build SQL WHERE clause + params for kpiScope. Returns { clause, params }.
+// paramOffset = next $N placeholder index.
+// kpiScope=null → empty (no filter applied).
+//
+// Generated SQL pattern (assuming kpiScope = [{campaign_name:'A', fromSTT:1, toSTT:100}, ...]):
+//   ((live_campaign_name = $1 AND campaign_stt BETWEEN $2 AND $3)
+//    OR (live_campaign_name = $4 AND campaign_stt BETWEEN $5 AND $6))
+function buildScopeWhere(kpiScope, paramOffset = 1) {
+    if (!kpiScope || !kpiScope.length) return { clause: '', params: [] };
+    const conds = [];
+    const params = [];
+    let i = paramOffset;
+    for (const s of kpiScope) {
+        conds.push(`(live_campaign_name = $${i} AND campaign_stt BETWEEN $${i + 1} AND $${i + 2})`);
+        params.push(s.campaign_name, s.fromSTT, s.toSTT);
+        i += 3;
+    }
+    return { clause: '(' + conds.join(' OR ') + ')', params };
+}
+
+// Same pattern but for table prefix scenarios (vd JOIN aliased "n.")
+function buildScopeWhereWithAlias(kpiScope, alias, paramOffset = 1) {
+    if (!kpiScope || !kpiScope.length) return { clause: '', params: [] };
+    const conds = [];
+    const params = [];
+    let i = paramOffset;
+    const p = alias ? alias + '.' : '';
+    for (const s of kpiScope) {
+        conds.push(
+            `(${p}live_campaign_name = $${i} AND ${p}campaign_stt BETWEEN $${i + 1} AND $${i + 2})`
+        );
+        params.push(s.campaign_name, s.fromSTT, s.toSTT);
+        i += 3;
+    }
+    return { clause: '(' + conds.join(' OR ') + ')', params };
+}
+
+// Invalidate scope cache when assignments change (called by campaigns.js PUT).
+function invalidateScopeCache(userId) {
+    if (userId == null) {
+        _scopeCache.clear();
+        return;
+    }
+    // Selective: drop entries where user matches
+    for (const [tok, e] of _scopeCache) {
+        if (e.user && String(e.user.id) === String(userId)) _scopeCache.delete(tok);
+    }
+}
+
+// GET /scope — debug endpoint: trả scope của user gọi.
+router.get('/scope', applyKpiScope, (req, res) => {
+    res.json({
+        success: true,
+        user: req.kpiUser || null,
+        scope: req.kpiScope,
+        scope_count: req.kpiScope ? req.kpiScope.length : 0,
+        access: req.kpiScope ? 'restricted' : 'all',
+    });
+});
+
+// =====================================================
 // READ endpoints — bootstrap stubs (Sprint 4 sẽ build dashboard đầy đủ)
 // =====================================================
 
@@ -420,5 +588,9 @@ module.exports.initializeNotifiers = initializeNotifiers;
 module.exports.emitKpiEvent = emitKpiEvent;
 module.exports.resolveBeneficiary = resolveBeneficiary;
 module.exports.sanitizeCampaignName = sanitizeCampaignName;
+module.exports.applyKpiScope = applyKpiScope;
+module.exports.buildScopeWhere = buildScopeWhere;
+module.exports.buildScopeWhereWithAlias = buildScopeWhereWithAlias;
+module.exports.invalidateScopeCache = invalidateScopeCache;
 module.exports.RATE_PER_SP = RATE_PER_SP;
 module.exports.SYNTHETIC_NO_CAMPAIGN = SYNTHETIC_NO_CAMPAIGN;

@@ -829,7 +829,8 @@ router.post('/merge', async (req, res) => {
 // -----------------------------------------------------
 // GET /load — list with filter + paging
 // -----------------------------------------------------
-router.get('/load', async (req, res) => {
+const _kpiModuleFS = require('./v2/kpi');
+router.get('/load', _kpiModuleFS.applyKpiScope, async (req, res) => {
     const pool = req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -859,6 +860,17 @@ router.get('/load', async (req, res) => {
                 params.push(cid);
                 conds.push(`customer_id = $${params.length}`);
             }
+        }
+        // Sprint 3 KPI: scope filter via source_code IN (native_orders matching range).
+        // PBH không có campaign_stt trực tiếp → match qua source_code → native_orders row.
+        // Merged PBH có source_code = "A+B+C" — chấp nhận miss; cleanest fix là store
+        // campaign_stt array nhưng overkill cho giai đoạn này.
+        if (req.kpiScope && req.kpiScope.length) {
+            const scopeFrag = _kpiModuleFS.buildScopeWhere(req.kpiScope, params.length + 1);
+            params.push(...scopeFrag.params);
+            conds.push(`source_code IN (
+                SELECT code FROM native_orders WHERE ${scopeFrag.clause}
+            )`);
         }
         const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
 
