@@ -971,12 +971,30 @@
         });
     }
 
+    function _defaultDateRangeThisMonth() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
+        return {
+            from: `${y}-${m}-01`,
+            to: `${y}-${m}-${String(lastDay).padStart(2, '0')}`,
+        };
+    }
+
     function init() {
         cacheDom();
         if (!dom.root) {
             console.warn('[Web2BalanceHistory] container #web2BhApp not found');
             return;
         }
+        // 2026-05-31: mặc định lọc tháng hiện tại (user feedback "mặc định
+        // chọn tháng này"). User vẫn xoá filter bằng nút × để xem all.
+        const { from, to } = _defaultDateRangeThisMonth();
+        state.dateFrom = from;
+        state.dateTo = to;
+        if (dom.dateFrom) dom.dateFrom.value = from;
+        if (dom.dateTo) dom.dateTo.value = to;
         renderChips();
         bindEvents();
         load();
