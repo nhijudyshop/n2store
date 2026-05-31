@@ -215,6 +215,15 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS split_index INTEGER NOT NULL DEFAULT 0;
             CREATE INDEX IF NOT EXISTS idx_native_orders_split_lookup
                 ON native_orders(display_stt, split_index);
+
+            -- Migration 080: per-campaign STT (KPI attribution scope).
+            -- display_stt là global sequence; admin cần khoảng STT riêng cho từng
+            -- campaign để chia cho NV. campaign_stt = 1..N reset theo
+            -- live_campaign_id. Đơn không có campaign rơi vào 'NO_CAMPAIGN' synthetic.
+            ALTER TABLE native_orders
+                ADD COLUMN IF NOT EXISTS campaign_stt INTEGER;
+            CREATE INDEX IF NOT EXISTS idx_native_orders_campaign_stt
+                ON native_orders(live_campaign_id, campaign_stt);
         `);
 
         // Backfill existing rows with display_stt (one-shot, ordered by created_at ASC)
@@ -301,10 +310,42 @@ async function ensureTables(pool) {
                 END IF;
             END $$;
         `);
+        // Migration 080: backfill campaign_stt for existing rows.
+        // Per campaign, ORDER BY created_at ASC, assign 1..N. NULL campaign →
+        // 'NO_CAMPAIGN' synthetic group. Self-gated qua native_orders_migrations.
+        await pool.query(`
+            DO $$
+            DECLARE r RECORD; current_campaign TEXT; counter INTEGER;
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM native_orders_migrations
+                    WHERE name = '080_backfill_campaign_stt'
+                ) THEN
+                    current_campaign := NULL;
+                    counter := 0;
+                    FOR r IN
+                        SELECT id, COALESCE(live_campaign_id, 'NO_CAMPAIGN') AS cid
+                        FROM native_orders
+                        WHERE campaign_stt IS NULL
+                        ORDER BY COALESCE(live_campaign_id, 'NO_CAMPAIGN'), created_at ASC
+                    LOOP
+                        IF current_campaign IS DISTINCT FROM r.cid THEN
+                            current_campaign := r.cid;
+                            SELECT COALESCE(MAX(campaign_stt), 0) + 1 INTO counter
+                            FROM native_orders
+                            WHERE COALESCE(live_campaign_id, 'NO_CAMPAIGN') = r.cid;
+                        ELSE
+                            counter := counter + 1;
+                        END IF;
+                        UPDATE native_orders SET campaign_stt = counter WHERE id = r.id;
+                    END LOOP;
+                    INSERT INTO native_orders_migrations(name) VALUES ('080_backfill_campaign_stt');
+                END IF;
+            END $$;
+        `);
+
         _tablesCreated = true;
-        console.log(
-            '[NATIVE-ORDERS] Tables created/verified (migration 068: display_stt sequence)'
-        );
+        console.log('[NATIVE-ORDERS] Tables created/verified (migration 080: campaign_stt)');
     } catch (error) {
         console.error('[NATIVE-ORDERS] Table creation error:', error.message);
     }
@@ -319,6 +360,7 @@ function mapRowToOrder(row) {
         id: row.id,
         code: row.code,
         displayStt: row.display_stt,
+        campaignStt: row.campaign_stt,
         mergedDisplayStt: row.merged_display_stt || null,
         mergedCodes: row.merged_codes || null,
         splitIndex: Number(row.split_index) || 0,
@@ -642,9 +684,12 @@ router.post('/from-comment', async (req, res) => {
         // Phase 12: link to Customer 360 by phone (no auto-create)
         const customerId = b.phone ? await lookupCustomerIdByPhone(pool, b.phone) : null;
 
+        // Per-campaign STT: subquery MAX+1 scoped by live_campaign_id (NO_CAMPAIGN
+        // synthetic group cho null campaign). Race window mỏng — chấp nhận; nếu
+        // production scale lên cần advisory_lock(hashtext(campaign_id)).
         const insert = await pool.query(
             `INSERT INTO native_orders (
-                code, session_index, display_stt, source,
+                code, session_index, display_stt, campaign_stt, source,
                 customer_name, phone, address, note,
                 fb_user_id, fb_user_name, fb_page_id, fb_post_id, fb_comment_id, crm_team_id,
                 products, total_quantity, total_amount,
@@ -653,7 +698,11 @@ router.post('/from-comment', async (req, res) => {
                 customer_id,
                 created_by, created_by_name, created_at, updated_at
             ) VALUES (
-                $1, $2, nextval('native_orders_display_stt_seq'), 'NATIVE_WEB',
+                $1, $2, nextval('native_orders_display_stt_seq'),
+                (SELECT COALESCE(MAX(campaign_stt), 0) + 1
+                 FROM native_orders
+                 WHERE COALESCE(live_campaign_id, 'NO_CAMPAIGN') = COALESCE($13, 'NO_CAMPAIGN')),
+                'NATIVE_WEB',
                 $3, $4, $5, $6,
                 $7, $8, $9, $10, $11, $12,
                 '[]'::jsonb, 0, 0,
@@ -1478,10 +1527,11 @@ router.post('/:code/split-order', async (req, res) => {
         const now = Date.now();
 
         // INSERT new order: same customer/contact info, EMPTY products, split_index = newIndex,
-        // display_stt = source's display_stt (cùng STT — chỉ khác hậu tố split_index)
+        // display_stt = source's display_stt (cùng STT — chỉ khác hậu tố split_index).
+        // campaign_stt: inherit parent (split là copy, KPI tính chung beneficiary parent).
         const insQ = await client.query(
             `INSERT INTO native_orders (
-                code, session_index, display_stt, split_index, source,
+                code, session_index, display_stt, campaign_stt, split_index, source,
                 customer_name, phone, address, note,
                 fb_user_id, fb_user_name, fb_page_id, fb_post_id, crm_team_id,
                 products, total_quantity, total_amount,
@@ -1490,7 +1540,7 @@ router.post('/:code/split-order', async (req, res) => {
                 customer_id,
                 created_by, created_by_name, created_at, updated_at
             ) VALUES (
-                $1, $2, $3, $4, $5,
+                $1, $2, $3, $21, $4, $5,
                 $6, $7, $8, $9,
                 $10, $11, $12, $13, $14,
                 '[]'::jsonb, 0, 0,
@@ -1520,6 +1570,7 @@ router.post('/:code/split-order', async (req, res) => {
                 src.created_by,
                 src.created_by_name,
                 now,
+                src.campaign_stt || null, // $21 — inherit parent
             ]
         );
 
@@ -1628,9 +1679,10 @@ router.post('/merge', async (req, res) => {
         const newCode = `NW-${ymd}-${nextSeq}`;
         const now = Date.now();
 
+        // Merge tạo đơn mới → cấp campaign_stt mới scope theo base.live_campaign_id.
         const ins = await client.query(
             `INSERT INTO native_orders (
-                code, display_stt, source,
+                code, display_stt, campaign_stt, source,
                 customer_name, phone, address, note,
                 fb_user_id, fb_user_name, fb_page_id, fb_post_id,
                 crm_team_id, products, total_quantity, total_amount,
@@ -1639,7 +1691,11 @@ router.post('/merge', async (req, res) => {
                 merged_display_stt, merged_codes,
                 created_by, created_by_name, created_at, updated_at
             ) VALUES (
-                $1, nextval('native_orders_display_stt_seq'), 'NATIVE_WEB',
+                $1, nextval('native_orders_display_stt_seq'),
+                (SELECT COALESCE(MAX(campaign_stt), 0) + 1
+                 FROM native_orders
+                 WHERE COALESCE(live_campaign_id, 'NO_CAMPAIGN') = COALESCE($14, 'NO_CAMPAIGN')),
+                'NATIVE_WEB',
                 $2, $3, $4, $5,
                 $6, $7, $8, $9,
                 $10, $11, $12, $13,

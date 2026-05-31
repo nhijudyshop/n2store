@@ -1316,6 +1316,9 @@
             existing.quantity = (Number(existing.quantity) || 0) + 1;
             existing.total = existing.quantity * existing.price;
         } else {
+            // KPI Sprint 0: capture WHO added cho audit + ledger event emit.
+            // userInfo từ Web2UserInfo (server-validated Web2Auth token).
+            const userInfo = window.Web2UserInfo?.get('native-orders') || {};
             EDIT_LINES.push({
                 productCode: code,
                 name,
@@ -1327,6 +1330,10 @@
                 addedAt: Date.now(),
                 // Nguồn: 'native' = SP add trực tiếp từ picker trong modal sửa đơn.
                 source: 'native',
+                addedBy: userInfo.userName || null,
+                addedById: userInfo.userId || null,
+                // Idempotency UUID — server emit KPI event với key unique theo cái này
+                clientEventId: 'evt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10),
             });
         }
         renderOrderLines();
@@ -1479,7 +1486,18 @@
             addedAt: l.addedAt || Date.now(),
             // Giữ nguồn (vd 'livestream' khi SP đã được kéo từ TPOS-Pancake) qua edit cycle.
             source: l.source || undefined,
+            // KPI Sprint 0: preserve user attribution qua PATCH cycle
+            addedBy: l.addedBy || undefined,
+            addedById: l.addedById || undefined,
+            clientEventId: l.clientEventId || undefined,
         }));
+        // KPI Sprint 0: capture editor info cho audit + diff backend
+        const editorInfo = window.Web2UserInfo?.get('native-orders') || {};
+        fields._editor = {
+            userId: editorInfo.userId || null,
+            userName: editorInfo.userName || null,
+            sourcePage: editorInfo.sourcePage || 'native-orders',
+        };
         try {
             const resp = await window.NativeOrdersApi.update(STATE.editingCode, fields);
             const idx = STATE.orders.findIndex((x) => x.code === STATE.editingCode);

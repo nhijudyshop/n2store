@@ -573,6 +573,8 @@ const web2Supplier360Routes = require('./routes/v2/supplier-360');
 app.use('/api/v2/supplier-360', web2Supplier360Routes); // WEB2.0 NCC 360 (F07)
 const web2CartRoutes = require('./routes/v2/cart');
 app.use('/api/v2/cart', web2CartRoutes); // WEB2.0 Pancake comment cart (drag-drop SP)
+const web2KpiRoutes = require('./routes/v2/kpi');
+app.use('/api/v2/kpi', web2KpiRoutes); // WEB2.0 KPI attribution (forecast + actual + ledger)
 // WEB 2.0 — Wallet + Balance History độc lập (NO virtual, NO accountant approval).
 // Tách hoàn toàn khỏi /api/v2/wallets + /api/v2/balance-history (Web 1.0 v2 API).
 const web2WalletsRoutes = require('./routes/v2/web2-wallets');
@@ -662,6 +664,9 @@ if (web2NotificationsRoutes.initializeNotifiers) {
 }
 if (web2DashboardRoutes.initializeNotifiers) {
     web2DashboardRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
+if (web2KpiRoutes.initializeNotifiers) {
+    web2KpiRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
 if (web2CartRoutes.initializeNotifiers) {
     web2CartRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);

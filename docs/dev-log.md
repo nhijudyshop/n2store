@@ -25,6 +25,23 @@
 
 ## 2026-05-31
 
+### [kpi][render][native-orders] Sprint 0 KPI Attribution System — schema + audit gaps ✅
+
+**Plan**: [docs/plans/kpi-attribution-system.md](plans/kpi-attribution-system.md) v2 — APPROVED (Q8/Q10 → DEFAULT)
+
+**Sprint 0 deliverables**:
+
+1. **`web2_kpi_events` ledger** (append-only, idempotent qua sha1 key) + `web2_kpi_forecast` + `web2_kpi_actual` projection tables — `render.com/routes/v2/kpi.js` mới.
+2. **`native_orders.campaign_stt`** per-campaign sequence column + backfill migration 080. INSERT sites updated: create, merge (new STT), split (inherit parent).
+3. **REUSED** existing `campaign_employee_ranges` (Web 1.0 tab1 KPI legacy) thay vì tạo `web2_kpi_assignments` mới — discovery sau khi research live-campaign page. Key by `campaign_name` (sanitized).
+4. **`resolveBeneficiary()`** helper query JSONB `employee_ranges` → fallback actor nếu không match range.
+5. **Audit gap fix**: `addLineFromPicker` set `addedBy`, `addedById`, `clientEventId` (UUID idempotency); `saveEdit` preserve qua PATCH cycle + send `_editor` metadata. Loaded `web2-user-info.js` script vào native-orders page.
+6. **Route wired** ở `server.js`: `/api/v2/kpi/*` (events, assignments proxy, forecast, actual) + SSE notifier `web2:kpi:<userId>`.
+
+**Next** — Sprint 1: emit `forecast_*` events từ cart.js + native-orders PATCH; `actual_confirmed/revoked` từ fast-sale-orders.
+
+---
+
 ### [inventory-tracking] BỎ chia theo ngày — tách đợt thuần dotSo + dọn data trùng ✅
 
 **Quyết định user**: chia đợt theo khoảng ngày KHÔNG hợp lý (1 TT đợt 2 có thể trùng ngày giao đợt 1 → trùng lặp). Quay về logic gốc: **đợt tách biệt hoàn toàn theo `dotSo`** — đơn nhập ở đợt nào → HĐ/CP đợt đó; TT thêm ở modal đợt nào → chỉ thuộc đợt đó. Không lọc ngày.
@@ -32,6 +49,7 @@
 **Phát hiện trùng lặp THẬT**: mảng `thanhToanCK` đợt 2 chứa nguyên 9 khoản của đợt 1 (CÙNG id) + 2 khoản riêng → đợt1=9(420.969), đợt2=11(520.969).
 
 **Code (revert date-window, GIỮ fix C de-dup CP)**:
+
 - `filters.js` — bỏ filter `dateInDotWindow` (và filter 30 ngày cũ) → list = dotSo + NCC + search.
 - `data-loader.js` — bỏ helper `paymentsInDotWindow`/`dateInDotWindow`; `getAllDotsAggregated` build từ `getAllDotHangAsShipments` (CP de-dup) nhưng KHÔNG window — sum toàn đợt theo dotSo.
 - `table-renderer.js` — `_calcPaymentTotals`/`updateInventoryStatsBar`/chuỗi số dư dùng full `thanhToanCK` (giữ last-row absorb); bỏ UI ngày bắt đầu/kết thúc + handlers/getters/broadcast/globals; `_renderDotSectionBodyHtml` hiện full mảng (bỏ ẩn/gạch).
@@ -47,6 +65,7 @@
 **Vấn đề user phát hiện**: (B) "Còn lại" Đợt 1 bảng chính (184.823) ≠ modal CK (1.678); (C) CP ngày 19/5 Đợt 2 modal hiện **95.715** trong khi thẻ ngày là 10.635.
 
 **Gốc rễ** (verify bằng dữ liệu thật):
+
 - **B**: bảng chính trộn phạm vi — `TỔNG TT` lấy toàn đợt, nhưng `TỔNG HĐ/CP` bị **bộ lọc ngày mặc định 30 ngày** (main.js:246; UI `.filters-navigation` đang `display:none` nên user không thấy) cắt còn 3 ngày T5. Đợt 1 thật có 11 ngày (9/4–17/5).
 - **C**: `chi_phi_hang_ve` lưu **nhân bản trên mọi dòng NCC** của 1 ngày; modal cộng `tong_chi_phi` mọi dòng → ×N (19/5 có 9 NCC → 9×10.635=95.715). Thẻ ngày/bảng chính lấy first-non-empty nên đúng.
 
@@ -63,10 +82,12 @@
 > Lần 1 làm CSS `nth-child` ẩn cột nhưng user yêu cầu **xóa hẳn khỏi DOM** → đổi sang render cột động.
 
 **Giải pháp**:
+
 - **Cột động theo tab (xóa hẳn, không CSS)**: thead chuyển thành `<tr id="drReportHeadRow">` rỗng + `paintThead()` build động. Helper `showCkTruocFor(tab)` (true trừ city) + `currentColCount()` (12 hoặc 11). ATRƯỜNG NHẬN CK **bỏ hoàn toàn** (markup + biến `atruongCK`/`sumAtruongCK` + công thức + totals) ở mọi tab. CK TRƯỚC bọc `${showCk ? '<td>…</td>' : ''}` ở thead/4 row renderer/tfoot → không tồn tại trong DOM khi city. `totalLeftRaw = totalAll − boCK − (showCk ? ckTruoc : 0)` (không còn trừ atruongCK). colspan expand/empty/loading dùng `currentColCount()`.
 - **Duyệt giữ giá trị**: bỏ toàn bộ nhánh `approved ? 0 : totalLeftRaw` (single/merge/shift-aggregate + `computeTotalLeftForTab` + tab totals + TỔNG chân bảng). Dòng đã duyệt **vẫn cộng** vào TỔNG (khớp giá trị ô), chỉ mờ qua class `.is-approved` (opacity 0.45) sẵn có.
 
 **Files**:
+
 - `delivery-report/js/report.js` — thead động (`paintThead`), `showCkTruocFor`/`currentColCount`; xóa hẳn atruongCK + CK TRƯỚC-điều-kiện ở `renderSingleRow`/`renderMergeRow`/`renderShiftedOutRow`/`renderShiftAggregateRow`/tfoot/`computeTotalLeftForTab`; colspan động; gỡ zero-on-approve; tooltip + comment.
 - `delivery-report/css/delivery-report.css` — chỉ cập nhật comment `.is-approved` (đã revert rule CSS-hide của lần 1).
 
@@ -81,6 +102,7 @@
 **Giải pháp**: thêm 2 cột `ngay_bat_dau` / `ngay_ket_thuc` per-đợt (1 đợt = 1 dot_so). Một khoản CK chỉ tính cho đợt nếu `ngayBatDau ≤ ngayTT ≤ ngayKetThuc` (open-ended khi thiếu → giữ hành vi cũ). UI: 2 ô ngày trên 1 dòng, ngay dưới dòng "Đợt N | Tỉ giá" trong modal "Thanh Toán CK Theo Đợt". CK ngoài khoảng vẫn hiện trong danh sách nhưng tô mờ + gạch, không cộng vào tổng. Chuỗi số dư: dòng cuối gom luôn khoản in-window dated sau ngày giao cuối ⇒ Còn dư ngày cuối **luôn khớp** CÒN LẠI tổng đợt.
 
 **Files**:
+
 - `render.com/migrations/072_add_dot_date_range_to_inventory_shipments.sql` (mới) — `ADD COLUMN IF NOT EXISTS ngay_bat_dau/ngay_ket_thuc DATE`.
 - `render.com/routes/v2/inventory-tracking.js` — `ensureShipmentDateRangeSchema(db)` (self-migration idempotent, mẫu `ensureHiddenNccsSchema`) gọi ở `GET /shipments` + `PATCH /shipments/payment-by-dot`; PATCH nhận + lưu 2 cột ngày (COALESCE).
 - `inventory-tracking/js/api-client.js` — `pgToShipment` map `ngayBatDau/ngayKetThuc`; `updatePaymentByDot` gửi `ngay_bat_dau/ngay_ket_thuc`.

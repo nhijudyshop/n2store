@@ -1,6 +1,6 @@
 # KPI Attribution System — Detailed Plan v2
 
-> **Trạng thái:** DRAFT v2 (chờ user duyệt before Sprint 0)
+> **Trạng thái:** ✅ APPROVED — Sprint 0 IN PROGRESS (2026-05-31)
 > **v1 → v2 changes:** Campaign-scoped (not day-scoped); Forecast vs Actual split; Beneficiary-based attribution (assignee not actor); STT range visibility filter
 > **Created:** 2026-05-31
 > **Stakeholder:** Shop manager + nhân viên team chốt đơn
@@ -183,47 +183,47 @@ CREATE INDEX idx_native_orders_campaign_stt
 -- Done once in boot migration block.
 ```
 
-### 4.2 `web2_kpi_assignments` (new)
+### 4.2 Assignment tables — REUSED `campaign_employee_ranges` (existing)
+
+**Discovery (Sprint 0):** Table `campaign_employee_ranges` đã exist từ Web 1.0 (tab1 KPI legacy) — `render.com/routes/campaigns.js:50-67`. **KHÔNG TẠO TABLE MỚI.**
 
 ```sql
-CREATE TABLE web2_kpi_assignments (
-    id              BIGSERIAL PRIMARY KEY,
-    campaign_id     VARCHAR(100) NOT NULL,
-    campaign_name   VARCHAR(255),                     -- denormalized for UI
-    user_id         INTEGER NOT NULL REFERENCES web2_users(id) ON DELETE CASCADE,
-    user_name       VARCHAR(120),                     -- denormalized
-    stt_from        INTEGER NOT NULL,
-    stt_to          INTEGER NOT NULL,
-    is_active       BOOLEAN NOT NULL DEFAULT TRUE,
-    created_by      VARCHAR(120),
-    created_at      BIGINT NOT NULL,
-    updated_at      BIGINT NOT NULL,
-    CONSTRAINT range_valid CHECK (stt_from <= stt_to),
-    CONSTRAINT range_unique UNIQUE (campaign_id, user_id, stt_from, stt_to)
+-- ĐÃ EXIST — chỉ reuse:
+CREATE TABLE campaign_employee_ranges (
+    id SERIAL PRIMARY KEY,
+    campaign_name VARCHAR(255) NOT NULL UNIQUE,  -- sanitized name (Vietnamese OK)
+    employee_ranges JSONB DEFAULT '[]',           -- [{userId, userName, fromSTT, toSTT}, ...]
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX idx_kpi_assign_campaign_user ON web2_kpi_assignments(campaign_id, user_id) WHERE is_active;
-CREATE INDEX idx_kpi_assign_lookup ON web2_kpi_assignments(campaign_id, stt_from, stt_to) WHERE is_active;
+
+CREATE TABLE campaign_employee_ranges_history (
+    id BIGSERIAL PRIMARY KEY,
+    campaign_key VARCHAR(255) NOT NULL,
+    campaign_label VARCHAR(255),
+    action VARCHAR(20) NOT NULL DEFAULT 'update',
+    user_id VARCHAR(255),
+    user_name VARCHAR(255),
+    ranges_before JSONB,
+    ranges_after JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 ```
 
-**Overlap policy (admin error guard):** Application-level check before INSERT — query existing ranges for campaign, reject if `[new.stt_from, new.stt_to]` overlap any active range of OTHER user. Allow same-user multi-range (vd `A.1-50, A.150-200`).
+**Existing endpoints to reuse** (`render.com/routes/campaigns.js`):
 
-### 4.3 `web2_kpi_assignment_history` (new — audit)
+- `GET /api/campaigns/employee-ranges/:campaignName` — read ranges
+- `PUT /api/campaigns/employee-ranges/:campaignName` — save + overlap validation + audit history
+- `GET /api/campaigns/employee-ranges/:campaignName/history` — change log
 
-```sql
-CREATE TABLE web2_kpi_assignment_history (
-    id              BIGSERIAL PRIMARY KEY,
-    assignment_id   BIGINT,           -- nullable for delete events
-    campaign_id     VARCHAR(100) NOT NULL,
-    user_id         INTEGER,
-    action          VARCHAR(20) NOT NULL,  -- 'create' | 'update' | 'delete' | 'deactivate'
-    before_jsonb    JSONB,
-    after_jsonb     JSONB,
-    changed_by      VARCHAR(120),
-    changed_at      BIGINT NOT NULL,
-    note            TEXT
-);
-CREATE INDEX idx_assign_hist_campaign ON web2_kpi_assignment_history(campaign_id, changed_at DESC);
+**Key by `campaign_name`** (Vietnamese label, sanitized) — convention từ Web 1.0. `web2/kpi/assignments.html` page mới sẽ wrap existing UI. `resolveBeneficiary()` query JSONB `employee_ranges` field, loop tìm range chứa `campaign_stt`.
+
+Format range item (consistent với existing):
+
+```json
+{ "userId": "<web2_users.id hoặc firebase uid>", "userName": "Hoa", "fromSTT": 1, "toSTT": 100 }
 ```
+
+**No separate assignment_history table needed** — reuse `campaign_employee_ranges_history`.
 
 ### 4.4 `web2_kpi_events` (new — append-only ledger)
 
@@ -776,9 +776,9 @@ Từ audit của agent 4, đây là full list:
 | R5  | Nhân viên Hoa thao tác trên đơn của KH X campaign Y nhưng X chưa nằm trong campaign Y nào (assignment chưa tạo) | M           | Fallback to actor → Hoa nhận. Admin tạo assignment sau → events cũ giữ beneficiary cũ (Hoa), events mới chuyển sang assignee mới.                                                                                                                                                                                                                                              |
 | R6  | Đơn STT bị split (split_index=2) → STT bị duplicate                                                             | M           | Index khoảng STT: query bằng cả `campaign_stt` AND `split_index = 0` (chỉ original count). Hoặc: split_index > 0 inherit beneficiary của parent. **Quyết định:** inherit parent (split là copy, không phải đơn mới).                                                                                                                                                           |
 | R7  | Performance: query forecast/actual real-time scan 100K events                                                   | L           | Cache trong `web2_kpi_forecast/actual` tables, recalc cron + on-demand. SSE notify khi event mới.                                                                                                                                                                                                                                                                              |
-| Q8  | Backlog event có nên ảnh hưởng Actual không (vd PBH với SP backlog → KPI thực có count?)                        | **❓**      | Cần user confirm. Đề xuất: **không count** (cả forecast lẫn actual filter source='native' only)                                                                                                                                                                                                                                                                                |
+| Q8  | Backlog event có nên ảnh hưởng Actual không?                                                                    | ✅ RESOLVED | **KHÔNG count** cho cả Forecast lẫn Actual. Filter `source='native'` only. Backlog ghi nhận trong ledger để admin review queue nhưng không vào KPI bất kể PBH có tạo hay không.                                                                                                                                                                                                |
 | Q9  | Nhân viên xóa SP của nhân viên khác — KPI của ai giảm?                                                          | ✅ RESOLVED | **KPI vẫn tính cho beneficiary (NV được assigned range)**, không phụ thuộc actor. Remove/add bởi bất kỳ ai đều resolve về cùng beneficiary qua assignment lookup. **Đối soát ở PBH creation step**: nếu nhân viên xóa nhầm gây thiếu SP, manager review lúc tạo PBH sẽ catch (trang fastsaleorder-invoice là ground truth checkpoint). KPI = trust final state at PBH confirm. |
-| Q10 | Forecast lifetime — campaign closed có lock không?                                                              | **❓**      | Đề xuất: lock khi `campaigns.custom_end_date < now`. Sau lock, ledger events vẫn cho phép (audit, backlog review), nhưng projection numbers không thay đổi unless admin manual recalc.                                                                                                                                                                                         |
+| Q10 | Forecast lifetime — campaign closed có lock không?                                                              | ✅ RESOLVED | **CÓ lock** khi `campaigns.custom_end_date < now()`. Sau lock: ledger events vẫn append được (audit, backlog review); projection numbers freeze; admin có thể `POST /api/v2/kpi/recalc?campaign_id=X&force=true` để rebuild khi cần dispute.                                                                                                                                   |
 
 ---
 
