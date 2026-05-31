@@ -99,6 +99,8 @@
 
     let _modal = null;
     let _pendingList = [];
+    let _searchQuery = '';
+    let _searchDebounceTimer = null;
 
     function ensureModalDom() {
         if (_modal) return _modal;
@@ -114,6 +116,16 @@
                     <button type="button" class="w2pm-close" aria-label="Đóng">&times;</button>
                 </header>
                 <p class="w2pm-info">SePay match đa SĐT cùng đuôi — chọn đúng KH để cộng tiền vào ví Web 2.0.</p>
+                <div class="w2pm-search-wrap">
+                    <input
+                        type="search"
+                        id="web2PendingSearch"
+                        class="w2pm-search"
+                        placeholder="Tìm SĐT / tên KH / nội dung CK / số tiền…"
+                        autocomplete="off"
+                    />
+                    <span class="w2pm-search-count" id="web2PendingSearchCount"></span>
+                </div>
                 <div class="w2pm-body" id="web2PendingBody"></div>
                 <footer class="w2pm-foot">
                     <button type="button" class="w2pm-refresh">Tải lại</button>
@@ -124,9 +136,58 @@
         div.querySelector('.w2pm-backdrop').addEventListener('click', closeModal);
         div.querySelector('.w2pm-close').addEventListener('click', closeModal);
         div.querySelector('.w2pm-refresh').addEventListener('click', refreshModal);
+        const searchInput = div.querySelector('#web2PendingSearch');
+        searchInput.addEventListener('input', onSearchInput);
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && searchInput.value) {
+                e.preventDefault();
+                e.stopPropagation();
+                searchInput.value = '';
+                _searchQuery = '';
+                renderModalBody();
+            }
+        });
         _modal = div;
         ensureStyles();
         return div;
+    }
+
+    function _normalize(s) {
+        return String(s || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '')
+            .replace(/đ/g, 'd')
+            .trim();
+    }
+
+    function onSearchInput(e) {
+        const raw = e.currentTarget.value || '';
+        if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
+        _searchDebounceTimer = setTimeout(() => {
+            _searchQuery = raw;
+            renderModalBody();
+        }, 120);
+    }
+
+    function _filterPendingList() {
+        const q = _normalize(_searchQuery);
+        if (!q) return _pendingList;
+        // Multi-token AND: tokens cách nhau space, mỗi token đều phải match.
+        const tokens = q.split(/\s+/).filter(Boolean);
+        if (!tokens.length) return _pendingList;
+        return _pendingList.filter((item) => {
+            const choiceText = (Array.isArray(item.matched_customers) ? item.matched_customers : [])
+                .flatMap((m) =>
+                    (m.customers || []).map((c) => `${m.phone || c.phone || ''} ${c.name || ''}`)
+                )
+                .join(' ');
+            const amountText = String(item.transfer_amount || '');
+            const haystack = _normalize(
+                [item.content || '', item.sepay_id || '', amountText, choiceText].join(' ')
+            );
+            return tokens.every((t) => haystack.includes(t));
+        });
     }
 
     function ensureStyles() {
@@ -142,6 +203,11 @@
             .w2pm-head h3 { margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; }
             .w2pm-close { background: transparent; border: none; font-size: 22px; color: #475569; cursor: pointer; line-height: 1; padding: 4px 8px; }
             .w2pm-info { margin: 10px 18px 0; font-size: 12px; color: #475569; padding: 8px 12px; background: #eff6ff; border-radius: 6px; border: 1px solid #bfdbfe; }
+            .w2pm-search-wrap { padding: 10px 18px 0; display: flex; align-items: center; gap: 10px; }
+            .w2pm-search { flex: 1; height: 36px; padding: 0 12px; border: 1px solid #d1d5db; border-radius: 8px; font: 400 14px Inter, sans-serif; color: #0f172a; outline: none; transition: border-color .12s, box-shadow .12s; }
+            .w2pm-search::-webkit-search-cancel-button { cursor: pointer; }
+            .w2pm-search:focus { border-color: #0891b2; box-shadow: 0 0 0 3px rgba(8,145,178,.15); }
+            .w2pm-search-count { font-size: 12px; color: #64748b; min-width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
             .w2pm-body { padding: 12px 18px; overflow-y: auto; flex: 1; }
             .w2pm-foot { padding: 10px 18px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 8px; background: #f9fafb; }
             .w2pm-refresh { background: #fff; border: 1px solid #d1d5db; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
@@ -158,6 +224,24 @@
             .w2pm-choice-phone { font-weight: 600; color: #1d4ed8; min-width: 110px; }
             .w2pm-choice-name { flex: 1; color: #0f172a; font-size: 13px; }
             .w2pm-choice-btn { background: #0891b2; color: #fff; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+            .w2pm-custom { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1; }
+            .w2pm-custom-label { font-size: 12px; color: #475569; margin-bottom: 6px; font-weight: 600; }
+            .w2pm-custom-row { display: flex; gap: 6px; align-items: center; }
+            .w2pm-custom-search-wrap { position: relative; flex: 1; min-width: 0; }
+            .w2pm-custom-search, .w2pm-custom-name { height: 32px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 6px; font: 400 13px Inter, sans-serif; color: #0f172a; outline: none; }
+            .w2pm-custom-search { width: 100%; box-sizing: border-box; }
+            .w2pm-custom-name { width: 140px; flex-shrink: 0; }
+            .w2pm-custom-search:focus, .w2pm-custom-name:focus { border-color: #0891b2; box-shadow: 0 0 0 2px rgba(8,145,178,.18); }
+            .w2pm-custom-btn { background: #047857; color: #fff; border: none; padding: 0 14px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+            .w2pm-custom-btn:hover { background: #065f46; }
+            .w2pm-custom-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+            .w2pm-custom-hint { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+            .w2pm-custom-dropdown { position: absolute; top: 100%; left: 0; right: 0; z-index: 20; margin-top: 2px; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 10px 24px rgba(15,23,42,.14); max-height: 220px; overflow-y: auto; padding: 4px; min-width: 220px; }
+            .w2pm-custom-item { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: none; background: transparent; border-radius: 4px; text-align: left; cursor: pointer; width: 100%; font-size: 12px; }
+            .w2pm-custom-item:hover { background: #ecfdf5; }
+            .w2pm-custom-item-phone { font-weight: 600; color: #047857; min-width: 110px; }
+            .w2pm-custom-item-name { flex: 1; color: #0f172a; }
+            .w2pm-custom-loading { padding: 10px; text-align: center; color: #94a3b8; font-size: 12px; font-style: italic; }
             .w2pm-badge-trigger { display: inline-flex; align-items: center; gap: 4px; background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 999px; font-size: 12px; cursor: pointer; font-weight: 600; border: 1px solid #fde68a; }
             .w2pm-badge-trigger:hover { background: #fde68a; }
             .w2pm-badge-trigger[hidden] { display: none !important; }
@@ -168,14 +252,185 @@
     function renderModalBody() {
         const body = document.getElementById('web2PendingBody');
         if (!body) return;
+        const countEl = document.getElementById('web2PendingSearchCount');
         if (!_pendingList.length) {
             body.innerHTML = '<div class="w2pm-empty">Không có giao dịch nào chờ chọn KH 🎉</div>';
+            if (countEl) countEl.textContent = '';
             return;
         }
-        body.innerHTML = _pendingList.map(renderItem).join('');
+        const filtered = _filterPendingList();
+        if (countEl) {
+            countEl.textContent = _searchQuery
+                ? `${filtered.length}/${_pendingList.length}`
+                : `${_pendingList.length}`;
+        }
+        if (!filtered.length) {
+            const q = escapeHtml(_searchQuery);
+            body.innerHTML = `<div class="w2pm-empty">Không tìm thấy giao dịch nào khớp "${q}".</div>`;
+            return;
+        }
+        body.innerHTML = filtered.map(renderItem).join('');
         body.querySelectorAll('[data-w2pm-resolve]').forEach((btn) => {
             btn.addEventListener('click', onResolveClick);
         });
+        body.querySelectorAll('[data-w2pm-search]').forEach((input) => {
+            input.addEventListener('input', onCustomSearchInput);
+            input.addEventListener('focus', onCustomSearchInput);
+            input.addEventListener('blur', () => {
+                const id = input.dataset.w2pmSearch;
+                setTimeout(() => {
+                    const dd = body.querySelector(`[data-w2pm-dropdown="${CSS.escape(id)}"]`);
+                    if (dd) dd.hidden = true;
+                }, 150);
+            });
+        });
+        body.querySelectorAll('[data-w2pm-custom-resolve]').forEach((btn) => {
+            btn.addEventListener('click', onCustomResolveClick);
+        });
+    }
+
+    // ---- Custom KH picker per item ----
+    const _customSearchDebounceTimers = new Map();
+    const _customSearchCache = new Map();
+    const CUSTOMER_SEARCH_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/customers';
+    const CUSTOMER_SEARCH_FALLBACK = 'https://n2store-fallback.onrender.com/api/v2/customers';
+
+    async function _searchCustomers(query) {
+        const q = String(query || '').trim();
+        if (q.length < 2) return [];
+        if (_customSearchCache.has(q)) return _customSearchCache.get(q);
+        const url = (base) =>
+            `${base}?search=${encodeURIComponent(q)}&limit=8&sort=last_order_date&order=desc`;
+        const tryFetch = async (base) => {
+            const r = await fetch(url(base));
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            const arr = Array.isArray(data?.customers)
+                ? data.customers
+                : Array.isArray(data?.data)
+                  ? data.data
+                  : Array.isArray(data)
+                    ? data
+                    : [];
+            return arr
+                .map((c) => ({
+                    phone: c.phone || '',
+                    name: c.name || c.full_name || '',
+                    id: c.id || c.customer_id || null,
+                }))
+                .filter((c) => c.phone);
+        };
+        try {
+            const out = await tryFetch(CUSTOMER_SEARCH_BASE);
+            _customSearchCache.set(q, out);
+            return out;
+        } catch {
+            try {
+                const out = await tryFetch(CUSTOMER_SEARCH_FALLBACK);
+                _customSearchCache.set(q, out);
+                return out;
+            } catch (e) {
+                console.warn('[Web2PendingMatch] custom search fail:', e.message);
+                return [];
+            }
+        }
+    }
+
+    function onCustomSearchInput(e) {
+        const input = e.currentTarget;
+        const id = input.dataset.w2pmSearch;
+        const q = input.value || '';
+        const prev = _customSearchDebounceTimers.get(id);
+        if (prev) clearTimeout(prev);
+        const timer = setTimeout(async () => {
+            const dd = document.querySelector(`[data-w2pm-dropdown="${CSS.escape(id)}"]`);
+            if (!dd) return;
+            if (q.trim().length < 2) {
+                dd.hidden = true;
+                dd.innerHTML = '';
+                return;
+            }
+            dd.innerHTML = '<div class="w2pm-custom-loading">Đang tìm…</div>';
+            dd.hidden = false;
+            const results = await _searchCustomers(q);
+            if (!results.length) {
+                dd.innerHTML =
+                    '<div class="w2pm-custom-loading">Không tìm thấy KH. Có thể gõ thẳng SĐT rồi bấm "Chọn KH này".</div>';
+                return;
+            }
+            dd.innerHTML = results
+                .map(
+                    (c) => `<button type="button" class="w2pm-custom-item"
+                        data-w2pm-pick-phone="${escapeHtml(c.phone)}"
+                        data-w2pm-pick-name="${escapeHtml(c.name || '')}"
+                        data-w2pm-pick-id="${escapeHtml(String(id))}">
+                        <span class="w2pm-custom-item-phone">${escapeHtml(c.phone)}</span>
+                        <span class="w2pm-custom-item-name">${escapeHtml(c.name || '(không tên)')}</span>
+                    </button>`
+                )
+                .join('');
+            dd.querySelectorAll('.w2pm-custom-item').forEach((btn) => {
+                btn.addEventListener('mousedown', (ev) => ev.preventDefault());
+                btn.addEventListener('click', () => {
+                    const pid = btn.dataset.w2pmPickId;
+                    const phone = btn.dataset.w2pmPickPhone;
+                    const name = btn.dataset.w2pmPickName || '';
+                    const root = document.querySelector(`[data-w2pm-custom="${CSS.escape(pid)}"]`);
+                    if (root) {
+                        const sInput = root.querySelector(
+                            `[data-w2pm-search="${CSS.escape(pid)}"]`
+                        );
+                        const nInput = root.querySelector(
+                            `[data-w2pm-custom-name="${CSS.escape(pid)}"]`
+                        );
+                        if (sInput) sInput.value = phone;
+                        if (nInput) nInput.value = name;
+                    }
+                    dd.hidden = true;
+                });
+            });
+        }, 240);
+        _customSearchDebounceTimers.set(id, timer);
+    }
+
+    function _normalizePhoneInput(raw) {
+        let s = String(raw || '').replace(/[^0-9]/g, '');
+        if (s.startsWith('84') && s.length >= 11) s = '0' + s.slice(2);
+        return s;
+    }
+
+    async function onCustomResolveClick(e) {
+        const btn = e.currentTarget;
+        const id = btn.dataset.w2pmCustomResolve;
+        const root = document.querySelector(`[data-w2pm-custom="${CSS.escape(id)}"]`);
+        const sInput = root?.querySelector(`[data-w2pm-search="${CSS.escape(id)}"]`);
+        const nInput = root?.querySelector(`[data-w2pm-custom-name="${CSS.escape(id)}"]`);
+        const rawPhone = sInput?.value || '';
+        const phone = _normalizePhoneInput(rawPhone);
+        const name = (nInput?.value || '').trim();
+        if (!phone || phone.length < 9 || phone.length > 11) {
+            notify('SĐT phải có 9-11 số. Vui lòng kiểm tra lại.', 'warning');
+            sInput?.focus();
+            return;
+        }
+        btn.disabled = true;
+        const oldText = btn.textContent;
+        btn.textContent = 'Đang xử lý…';
+        try {
+            const result = await resolvePending(id, phone, name, 'web2-balance-history-custom');
+            const amt = result?.data?.amount || 0;
+            notify(`✅ Đã cộng ${fmtVnd(amt)} vào ví Web 2.0 của ${name || phone}`, 'success');
+            _pendingList = _pendingList.filter((it) => String(it.id) !== String(id));
+            renderModalBody();
+            updateBadge();
+            if (!_pendingList.length) {
+                setTimeout(closeModal, 1500);
+            }
+        } catch (err) {
+            notify('Lỗi: ' + err.message, 'error');
+            btn.disabled = false;
+            btn.textContent = oldText;
+        }
     }
 
     function renderItem(item) {
@@ -190,7 +445,7 @@
             )
             .filter((c) => c.phone);
         return `
-            <div class="w2pm-item">
+            <div class="w2pm-item" data-pending-id="${escapeHtml(String(item.id))}">
                 <div class="w2pm-item-head">
                     <span class="w2pm-item-amount">+${fmtVnd(item.transfer_amount)}</span>
                     <span class="w2pm-item-time">${escapeHtml(fmtTime(item.transaction_date))} · ${escapeHtml(item.sepay_id || '')}</span>
@@ -213,6 +468,32 @@
                     `
                         )
                         .join('')}
+                </div>
+                <div class="w2pm-custom" data-w2pm-custom="${escapeHtml(String(item.id))}">
+                    <div class="w2pm-custom-label">
+                        <span>Không có KH đúng? Tự chọn KH khác:</span>
+                    </div>
+                    <div class="w2pm-custom-row">
+                        <div class="w2pm-custom-search-wrap">
+                            <input type="search"
+                                class="w2pm-custom-search"
+                                data-w2pm-search="${escapeHtml(String(item.id))}"
+                                placeholder="Gõ SĐT / tên KH (tối thiểu 2 ký tự)…"
+                                autocomplete="off" />
+                            <div class="w2pm-custom-dropdown" data-w2pm-dropdown="${escapeHtml(String(item.id))}" hidden></div>
+                        </div>
+                        <input type="text"
+                            class="w2pm-custom-name"
+                            data-w2pm-custom-name="${escapeHtml(String(item.id))}"
+                            placeholder="Tên (tuỳ chọn)" />
+                        <button class="w2pm-custom-btn" type="button"
+                            data-w2pm-custom-resolve="${escapeHtml(String(item.id))}">
+                            Chọn KH này
+                        </button>
+                    </div>
+                    <div class="w2pm-custom-hint">
+                        Gõ SĐT 9-10 số rồi bấm <strong>Chọn KH này</strong>. Hoặc gõ tên/SĐT để chọn từ DB.
+                    </div>
                 </div>
             </div>
         `;
@@ -259,6 +540,11 @@
         _modal.hidden = false;
         renderModalBody();
         refreshModal();
+        // Auto-focus search input để user gõ ngay không cần click.
+        setTimeout(() => {
+            const search = document.getElementById('web2PendingSearch');
+            if (search) search.focus();
+        }, 60);
     }
 
     function closeModal() {

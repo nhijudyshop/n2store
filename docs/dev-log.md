@@ -25,6 +25,33 @@
 
 ## 2026-05-31
 
+### [web2-balance-history] Pending modal — top-level filter + per-item custom KH picker ✅
+
+**User feedback** (2 yêu cầu):
+
+1. "cho chức năng tìm khách hàng để chọn" — modal Trùng SĐT có nhiều items, cần search nhanh.
+2. "giao dịch này chỉ cho chọn 2 người nhưng có trường hợp phải cần tùy biến" — nếu cả 2 SĐT gợi ý đều sai, user phải tự chọn KH khác.
+
+**Fix** (`web2/balance-history/js/web2-pending-match.js`):
+
+1. **Top-level item filter**: input `#web2PendingSearch` ở head modal, auto-focus khi mở. Debounce 120ms. Multi-token AND (cách nhau space). Match diacritics-insensitive (`đ→d`, NFD strip combining marks) vs `item.content`, `sepay_id`, `transfer_amount`, candidate phones/names. Hiển thị `8/28` count.
+
+2. **Per-item custom KH picker**: mỗi `w2pm-item` thêm section `Không có KH đúng? Tự chọn KH khác` gồm:
+    - Search input + dropdown autocomplete (gõ ≥2 ký tự → `GET /api/v2/customers?search=…&limit=8`)
+    - Cache per-query để tránh re-fetch
+    - Click dropdown item → fill phone + name
+    - Manual fallback: gõ trực tiếp SĐT (9-11 số) → click "Chọn KH này" → resolve với SĐT đó
+    - `_normalizePhoneInput` strip non-digits + handle `84` prefix
+    - Validate length 9-11 trước khi resolve
+
+**Test live**:
+
+- Top filter: gõ "ngoc" → 8/28; "100000" → 17/28; "ngoc 0969" → 0/28 (AND) ✓
+- Custom picker: gõ "truong" → dropdown 8 KH match từ DB (Truong Thảo, Kim Sa Truong, …) ✓
+- Resolve flow đã verified ở fix `manual_resolve` constraint trước đó.
+
+**Status**: ✅ Done.
+
 ### [tpos-pancake] Tạo đơn native cho comment — defer cross-item refresh (anti-freeze) ✅
 
 **User feedback**: "lúc đang livestream → bấm tạo đơn native-order cho comment sẽ bị đứng 1 chút → background mấy hàm xử lý, để mượt UI lỗi thì back lại hoặc bạn cải thiện chỗ này".
