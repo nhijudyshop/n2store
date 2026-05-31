@@ -1,0 +1,107 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Phân công KPI — WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260521b" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260521b" />
+        <link rel="stylesheet" href="../shared/web2-tpos-theme.css?v=20260522d" />
+        <link rel="stylesheet" href="css/kpi.css?v=20260531a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <script src="../../shared/js/notification-system.js?v=20260521b"></script>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content kpi-main">
+                <header class="kpi-page-head">
+                    <div class="kpi-page-title">
+                        <i data-lucide="user-cog"></i>
+                        <h1>Phân công KPI — khoảng STT đơn theo chiến dịch</h1>
+                    </div>
+                    <div class="kpi-page-actions">
+                        <a class="btn btn-secondary" href="index.html">
+                            <i data-lucide="arrow-left"></i> Về Dashboard
+                        </a>
+                    </div>
+                </header>
+
+                <section class="kpi-toolbar">
+                    <label class="kpi-field">
+                        <span>Chiến dịch livestream</span>
+                        <select id="caCampaignSelect" class="kpi-select">
+                            <option value="">— Chọn chiến dịch —</option>
+                        </select>
+                    </label>
+                    <div class="kpi-stats" id="caStats"></div>
+                </section>
+
+                <section class="kpi-assignments-section" id="caSection" hidden>
+                    <div class="kpi-table-wrap">
+                        <table class="kpi-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Nhân viên</th>
+                                    <th>STT từ</th>
+                                    <th>STT đến</th>
+                                    <th>Số đơn</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="caRangesBody">
+                                <tr class="kpi-empty-row">
+                                    <td colspan="6">Chưa có phân công.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="kpi-add-row">
+                        <button class="btn btn-secondary" id="caAddBtn" type="button">
+                            <i data-lucide="plus"></i> Thêm nhân viên vào khoảng
+                        </button>
+                        <button class="btn btn-primary" id="caSaveBtn" type="button">
+                            <i data-lucide="save"></i> Lưu phân công
+                        </button>
+                    </div>
+
+                    <div class="kpi-warning-banner" id="caWarning" hidden></div>
+
+                    <section class="kpi-history-section">
+                        <h3><i data-lucide="history"></i> Lịch sử thay đổi</h3>
+                        <div class="kpi-history-list" id="caHistoryList">
+                            <div class="kpi-empty">Chưa có thay đổi nào.</div>
+                        </div>
+                    </section>
+                </section>
+            </main>
+        </div>
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../../shared/js/firebase-config.js?v=20260521c"></script>
+        <script src="../../shared/js/shared-auth-manager.js?v=20260521c"></script>
+        <script src="../shared/web2-auth.js?v=20260521c"></script>
+        <script src="../shared/web2-user-info.js?v=20260531kpi"></script>
+        <script src="../shared/tpos-sidebar.js?v=20260522f"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => Web2Sidebar.mount('#web2Aside'));
+        </script>
+        <script src="js/kpi-assignments.js?v=20260531a"></script>
+    </body>
+</html>

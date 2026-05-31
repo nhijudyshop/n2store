@@ -135,6 +135,9 @@
                         <button class="u-icon-btn" type="button" title="Phân quyền" data-act="perms" data-id="${u.id}">
                             <i data-lucide="shield-check"></i>
                         </button>
+                        <button class="u-icon-btn" type="button" title="Phân công KPI (khoảng STT đơn theo chiến dịch)" data-act="kpi" data-id="${u.id}">
+                            <i data-lucide="trophy"></i>
+                        </button>
                         <button class="u-icon-btn u-icon-btn-danger" type="button" title="${u.isActive ? 'Vô hiệu' : 'Đã vô hiệu'}" data-act="delete" data-id="${u.id}" ${u.isActive ? '' : 'disabled'}>
                             <i data-lucide="trash-2"></i>
                         </button>
@@ -157,7 +160,15 @@
         if (act === 'edit') openUserModal(user);
         else if (act === 'pwd') openPasswordModal(user);
         else if (act === 'perms') openPermsModal(user);
+        else if (act === 'kpi') openKpiAssignments(user);
         else if (act === 'delete') deactivateUser(user);
+    }
+
+    // Mở page Phân công KPI ở tab mới (Sprint 2). User pick campaign rồi
+    // chia khoảng STT — page tự load existing ranges qua /api/campaigns/employee-ranges.
+    function openKpiAssignments(user) {
+        const url = '../kpi/assignments.html';
+        window.open(url, '_blank');
     }
 
     // ---------- user modal (create + edit) ----------

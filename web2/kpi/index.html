@@ -1,0 +1,82 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>KPI Dashboard — WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260521b" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260521b" />
+        <link rel="stylesheet" href="../shared/web2-tpos-theme.css?v=20260522d" />
+        <link rel="stylesheet" href="css/kpi.css?v=20260531a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <script src="../../shared/js/notification-system.js?v=20260521b"></script>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content kpi-main">
+                <header class="kpi-page-head">
+                    <div class="kpi-page-title">
+                        <i data-lucide="trophy"></i>
+                        <h1>KPI Dashboard</h1>
+                    </div>
+                    <div class="kpi-page-actions">
+                        <select id="kpiCampaignFilter" class="kpi-select">
+                            <option value="">— Chọn chiến dịch —</option>
+                        </select>
+                        <button class="btn btn-secondary" id="kpiRefreshBtn" type="button">
+                            <i data-lucide="refresh-cw"></i>
+                        </button>
+                        <a class="btn btn-primary" href="assignments.html">
+                            <i data-lucide="user-cog"></i> Phân công khoảng STT
+                        </a>
+                    </div>
+                </header>
+
+                <section class="kpi-tabs">
+                    <button class="kpi-tab active" data-view="forecast" type="button">
+                        <i data-lucide="trending-up"></i> Dự báo
+                    </button>
+                    <button class="kpi-tab" data-view="actual" type="button">
+                        <i data-lucide="check-circle"></i> Thực tế
+                    </button>
+                    <button class="kpi-tab" data-view="audit" type="button">
+                        <i data-lucide="history"></i> Audit log
+                    </button>
+                </section>
+
+                <div class="kpi-content" id="kpiContent">
+                    <div class="kpi-empty">
+                        <i data-lucide="trophy"></i>
+                        <p>Chọn chiến dịch để xem KPI nhân viên.</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../../shared/js/firebase-config.js?v=20260521c"></script>
+        <script src="../../shared/js/shared-auth-manager.js?v=20260521c"></script>
+        <script src="../shared/web2-auth.js?v=20260521c"></script>
+        <script src="../shared/web2-user-info.js?v=20260531kpi"></script>
+        <script src="../shared/tpos-sidebar.js?v=20260522f"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => Web2Sidebar.mount('#web2Aside'));
+        </script>
+        <script src="js/kpi-dashboard.js?v=20260531a"></script>
+    </body>
+</html>

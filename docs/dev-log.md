@@ -25,6 +25,41 @@
 
 ## 2026-05-31
 
+### [kpi][web2] Sprint 2 KPI — Assignment UI + Dashboard pages ✅
+
+**Plan**: [docs/plans/kpi-attribution-system.md](plans/kpi-attribution-system.md) Sprint 2
+
+**New pages**:
+
+- `/web2/kpi/index.html` — KPI Dashboard với 3 tabs: Forecast / Actual / Audit log
+- `/web2/kpi/assignments.html` — Admin chia khoảng STT đơn cho NV theo campaign
+
+**Assignment UI flow**:
+
+1. Select campaign từ dropdown (load qua `/api/native-orders/campaigns`)
+2. Auto-load existing ranges qua `GET /api/campaigns/employee-ranges/:name` (REUSED Web 1.0)
+3. Table editable: select NV (từ `/api/web2-users/list`) + STT từ/đến + auto count
+4. Client-side validation overlap (sorted scan) + backend re-validate on PUT
+5. Save → `PUT /api/campaigns/employee-ranges/:name` (existing endpoint, đã có history audit)
+6. History panel hiển thị 20 changes gần nhất
+
+**Dashboard tabs**:
+
+- **Forecast** — leaderboard `GET /api/v2/kpi/forecast?campaign_id=` → SL SP + tiền (5,000đ×qty)
+- **Actual** — leaderboard `GET /api/v2/kpi/actual` + cột "SP bị revoke" info
+- **Audit log** — 100 events gần nhất với event_type / actor / beneficiary / Δqty / source badges
+- Top 3 nhân viên có rank gold/silver/bronze
+
+**Integration**:
+
+- `/web2/users/` row actions: thêm icon `trophy` "Phân công KPI" → mở `assignments.html` tab mới
+- Sidebar "Tính năng mới" thêm entry "KPI Nhân viên"
+- Reuse `Web2UserInfo` cho editor info trong PUT request
+
+**Next** — Sprint 3 (2 days): Visibility filter (middleware `applyKpiScope` + 11 routes). Sprint 4: backlog review queue.
+
+---
+
 ### [web2-balance-history] Modal "Sửa KH" cho phép cập nhật tên khi giữ nguyên SĐT ✅
 
 **Files**: `web2/balance-history/js/web2-balance-history-app.js`

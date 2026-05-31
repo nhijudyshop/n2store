@@ -73,6 +73,7 @@
             icon: 'sparkles',
             children: [
                 { label: 'Dashboard KPI', our: '../web2/dashboard/index.html', tpos: '' },
+                { label: 'KPI Nhân viên', our: '../web2/kpi/index.html', tpos: '' },
                 { label: 'Thông báo', our: '../web2/notifications/index.html', tpos: '' },
                 { label: 'Lịch sử thao tác', our: '../web2/audit-log/index.html', tpos: '' },
                 { label: 'Aging công nợ NCC', our: '../web2/supplier-aging/index.html', tpos: '' },

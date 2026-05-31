@@ -1,0 +1,382 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
+//
+// KPI Assignments — admin chia khoảng STT đơn cho NV theo chiến dịch.
+// API: REUSE /api/campaigns/employee-ranges/:campaignName (PUT/GET/history).
+// Range item: { userId, userName, fromSTT, toSTT }
+// Lookup at emit time → web2_kpi_events.beneficiary_user_id.
+
+(function () {
+    'use strict';
+
+    const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const USERS_API = `${WORKER}/api/web2-users`;
+    const CAMPAIGNS_API = `${WORKER}/api/campaigns`;
+    const NATIVE_CAMPAIGNS_API = `${WORKER}/api/native-orders/campaigns`;
+
+    const STATE = {
+        users: [], // [{id, username, displayName, role, isActive}]
+        campaigns: [], // [{name, count, lastOrderAt}]
+        currentCampaign: null, // selected campaign name
+        ranges: [], // [{userId, userName, fromSTT, toSTT}]
+        totalOrders: 0,
+        history: [],
+    };
+
+    // ─────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────
+    function $(sel) {
+        return document.querySelector(sel);
+    }
+    function escapeHtml(s) {
+        if (s == null) return '';
+        const d = document.createElement('div');
+        d.textContent = String(s);
+        return d.innerHTML;
+    }
+    function fmtDate(ts) {
+        if (!ts) return '';
+        const d = ts instanceof Date ? ts : new Date(ts);
+        return d.toLocaleString('vi-VN');
+    }
+    function notify(msg, kind) {
+        if (window.notificationManager?.show) {
+            window.notificationManager.show(msg, kind || 'info');
+        } else {
+            console.log('[KPI]', kind, msg);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Load data
+    // ─────────────────────────────────────────────────────────
+    async function loadUsers() {
+        try {
+            const r = await fetch(`${USERS_API}/list?limit=500&includeInactive=0`);
+            const d = await r.json();
+            STATE.users = (d.users || []).map((u) => ({
+                id: u.id,
+                username: u.username,
+                displayName: u.display_name || u.displayName || u.username,
+                role: u.role,
+                isActive: u.is_active !== false,
+            }));
+        } catch (e) {
+            console.warn('[kpi-assign] load users fail:', e.message);
+            STATE.users = [];
+        }
+    }
+
+    async function loadCampaigns() {
+        try {
+            const r = await fetch(NATIVE_CAMPAIGNS_API);
+            const d = await r.json();
+            // Response shape: { success, campaigns: [{id, name, count, lastOrderAt}] }
+            STATE.campaigns = d.campaigns || [];
+        } catch (e) {
+            console.warn('[kpi-assign] load campaigns fail:', e.message);
+            STATE.campaigns = [];
+        }
+    }
+
+    async function loadRanges(campaignName) {
+        try {
+            const r = await fetch(
+                `${CAMPAIGNS_API}/employee-ranges/${encodeURIComponent(campaignName)}`
+            );
+            if (r.status === 404) {
+                STATE.ranges = [];
+                return;
+            }
+            const d = await r.json();
+            STATE.ranges = (d.employeeRanges || d.employee_ranges || []).map((rg) => ({
+                userId: rg.userId ?? rg.id ?? '',
+                userName: rg.userName || rg.name || '',
+                fromSTT: Number(rg.fromSTT ?? rg.from ?? rg.start) || 0,
+                toSTT: Number(rg.toSTT ?? rg.to ?? rg.end) || 0,
+            }));
+        } catch (e) {
+            console.warn('[kpi-assign] load ranges fail:', e.message);
+            STATE.ranges = [];
+        }
+    }
+
+    async function loadHistory(campaignName) {
+        try {
+            const r = await fetch(
+                `${CAMPAIGNS_API}/employee-ranges/${encodeURIComponent(campaignName)}/history`
+            );
+            const d = await r.json();
+            STATE.history = d.history || [];
+        } catch (e) {
+            console.warn('[kpi-assign] load history fail:', e.message);
+            STATE.history = [];
+        }
+    }
+
+    async function loadTotalOrders(campaignName) {
+        // Get campaign count from cached list
+        const c = STATE.campaigns.find((x) => (x.name || x.label) === campaignName);
+        STATE.totalOrders = c ? Number(c.count) || 0 : 0;
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Render
+    // ─────────────────────────────────────────────────────────
+    function renderCampaignDropdown() {
+        const sel = $('#caCampaignSelect');
+        const opts = ['<option value="">— Chọn chiến dịch —</option>'];
+        for (const c of STATE.campaigns) {
+            const name = c.name || c.label || c.id;
+            if (!name) continue;
+            opts.push(
+                `<option value="${escapeHtml(name)}">${escapeHtml(name)} (${c.count || 0} đơn)</option>`
+            );
+        }
+        sel.innerHTML = opts.join('');
+    }
+
+    function renderRangesTable() {
+        const tb = $('#caRangesBody');
+        if (!STATE.ranges.length) {
+            tb.innerHTML = `<tr class="kpi-empty-row"><td colspan="6">Chưa có phân công. Click "Thêm" để bắt đầu.</td></tr>`;
+            return;
+        }
+        const html = STATE.ranges.map((r, i) => {
+            const from = r.fromSTT || 0;
+            const to = r.toSTT || 0;
+            const count = Math.max(0, to - from + 1);
+            const userOpts = STATE.users
+                .map(
+                    (u) =>
+                        `<option value="${u.id}" ${String(u.id) === String(r.userId) ? 'selected' : ''}>${escapeHtml(u.displayName)} (${escapeHtml(u.username)})</option>`
+                )
+                .join('');
+            return `<tr data-idx="${i}">
+                <td>${i + 1}</td>
+                <td>
+                    <select class="ca-user-select" data-field="user">
+                        <option value="">— Chọn nhân viên —</option>
+                        ${userOpts}
+                    </select>
+                </td>
+                <td><input type="number" min="1" value="${from}" data-field="from" /></td>
+                <td><input type="number" min="1" value="${to}" data-field="to" /></td>
+                <td class="kpi-row-count">${count}</td>
+                <td>
+                    <button class="kpi-row-delete" data-action="delete" title="Xóa">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+        tb.innerHTML = html.join('');
+        if (window.lucide) lucide.createIcons();
+        wireRowEvents();
+    }
+
+    function wireRowEvents() {
+        $('#caRangesBody')
+            .querySelectorAll('select.ca-user-select')
+            .forEach((sel) => {
+                sel.addEventListener('change', (e) => {
+                    const tr = e.target.closest('tr');
+                    const idx = Number(tr.dataset.idx);
+                    const uid = e.target.value;
+                    const u = STATE.users.find((x) => String(x.id) === String(uid));
+                    STATE.ranges[idx].userId = uid;
+                    STATE.ranges[idx].userName = u?.displayName || '';
+                    validateRanges();
+                });
+            });
+        $('#caRangesBody')
+            .querySelectorAll('input[type=number]')
+            .forEach((inp) => {
+                inp.addEventListener('input', (e) => {
+                    const tr = e.target.closest('tr');
+                    const idx = Number(tr.dataset.idx);
+                    const field = e.target.dataset.field;
+                    const v = Math.max(0, parseInt(e.target.value, 10) || 0);
+                    if (field === 'from') STATE.ranges[idx].fromSTT = v;
+                    if (field === 'to') STATE.ranges[idx].toSTT = v;
+                    // Update count cell
+                    const countCell = tr.querySelector('.kpi-row-count');
+                    const f = STATE.ranges[idx].fromSTT;
+                    const t = STATE.ranges[idx].toSTT;
+                    countCell.textContent = t >= f ? t - f + 1 : 0;
+                    validateRanges();
+                });
+            });
+        $('#caRangesBody')
+            .querySelectorAll('[data-action=delete]')
+            .forEach((btn) => {
+                btn.addEventListener('click', (e) => {
+                    const tr = e.target.closest('tr');
+                    const idx = Number(tr.dataset.idx);
+                    STATE.ranges.splice(idx, 1);
+                    renderRangesTable();
+                    renderStats();
+                    validateRanges();
+                });
+            });
+    }
+
+    function renderStats() {
+        const total = STATE.totalOrders;
+        const assigned = STATE.ranges.reduce(
+            (s, r) => s + Math.max(0, (r.toSTT || 0) - (r.fromSTT || 0) + 1),
+            0
+        );
+        $('#caStats').innerHTML =
+            `Tổng đơn campaign: <strong>${total}</strong> · Đã phân công: <strong>${assigned}</strong>`;
+    }
+
+    function renderHistory() {
+        const root = $('#caHistoryList');
+        if (!STATE.history.length) {
+            root.innerHTML = `<div class="kpi-empty">Chưa có thay đổi nào.</div>`;
+            return;
+        }
+        const html = STATE.history.slice(0, 20).map((h) => {
+            const before = Array.isArray(h.ranges_before) ? h.ranges_before.length : 0;
+            const after = Array.isArray(h.ranges_after) ? h.ranges_after.length : 0;
+            return `<div class="kpi-history-item">
+                <div class="kpi-history-item-head">
+                    <span class="kpi-history-item-user">${escapeHtml(h.user_name || h.userName || '(ẩn danh)')}</span>
+                    <span>${fmtDate(h.created_at || h.createdAt)}</span>
+                </div>
+                <div>${escapeHtml(h.action || 'update')}: ${before} → ${after} ranges</div>
+            </div>`;
+        });
+        root.innerHTML = html.join('');
+    }
+
+    function validateRanges() {
+        const warn = $('#caWarning');
+        const errors = [];
+
+        // Sort copy by fromSTT for overlap check
+        const sorted = STATE.ranges
+            .filter((r) => r.userId && r.fromSTT > 0 && r.toSTT >= r.fromSTT)
+            .map((r) => ({ ...r }))
+            .sort((a, b) => a.fromSTT - b.fromSTT);
+
+        for (let i = 1; i < sorted.length; i++) {
+            const prev = sorted[i - 1];
+            const cur = sorted[i];
+            if (cur.fromSTT <= prev.toSTT && prev.userId !== cur.userId) {
+                errors.push(
+                    `Trùng STT giữa ${prev.userName} (${prev.fromSTT}-${prev.toSTT}) và ${cur.userName} (${cur.fromSTT}-${cur.toSTT})`
+                );
+            }
+        }
+
+        for (const r of STATE.ranges) {
+            if (r.userId && r.fromSTT > r.toSTT && r.toSTT > 0) {
+                errors.push(`${r.userName}: STT từ (${r.fromSTT}) > đến (${r.toSTT})`);
+            }
+        }
+
+        if (errors.length) {
+            warn.hidden = false;
+            warn.className = 'kpi-warning-banner error';
+            warn.innerHTML = '<strong>Sai sót:</strong><br>' + errors.map(escapeHtml).join('<br>');
+            return false;
+        }
+        warn.hidden = true;
+        warn.className = 'kpi-warning-banner';
+        warn.innerHTML = '';
+        return true;
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Actions
+    // ─────────────────────────────────────────────────────────
+    async function onCampaignChange(name) {
+        STATE.currentCampaign = name;
+        if (!name) {
+            $('#caSection').hidden = true;
+            return;
+        }
+        $('#caSection').hidden = false;
+        await Promise.all([loadRanges(name), loadHistory(name)]);
+        loadTotalOrders(name);
+        renderRangesTable();
+        renderStats();
+        renderHistory();
+    }
+
+    function onAddRow() {
+        STATE.ranges.push({
+            userId: '',
+            userName: '',
+            fromSTT: 0,
+            toSTT: 0,
+        });
+        renderRangesTable();
+        renderStats();
+    }
+
+    async function onSave() {
+        if (!STATE.currentCampaign) {
+            notify('Chưa chọn chiến dịch', 'error');
+            return;
+        }
+        if (!validateRanges()) {
+            notify('Có lỗi trong khoảng STT — xem cảnh báo bên dưới', 'error');
+            return;
+        }
+        const valid = STATE.ranges.filter((r) => r.userId && r.fromSTT > 0 && r.toSTT >= r.fromSTT);
+        const editor = window.Web2UserInfo?.get('web2-kpi-assignments') || {};
+        try {
+            const r = await fetch(
+                `${CAMPAIGNS_API}/employee-ranges/${encodeURIComponent(STATE.currentCampaign)}`,
+                {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        employeeRanges: valid,
+                        userId: editor.userId,
+                        userName: editor.userName,
+                        campaignLabel: STATE.currentCampaign,
+                    }),
+                }
+            );
+            const d = await r.json();
+            if (!r.ok) {
+                throw new Error(d.error || d.message || 'Lỗi không xác định');
+            }
+            const warn = $('#caWarning');
+            warn.hidden = false;
+            warn.className = 'kpi-warning-banner success';
+            warn.innerHTML = '<strong>✓ Đã lưu</strong> ' + valid.length + ' khoảng STT.';
+            notify('Đã lưu phân công', 'success');
+            // Reload history to show this change
+            await loadHistory(STATE.currentCampaign);
+            renderHistory();
+        } catch (e) {
+            notify('Lỗi lưu: ' + e.message, 'error');
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Init
+    // ─────────────────────────────────────────────────────────
+    async function init() {
+        await Promise.all([loadUsers(), loadCampaigns()]);
+        renderCampaignDropdown();
+        $('#caCampaignSelect').addEventListener('change', (e) => onCampaignChange(e.target.value));
+        $('#caAddBtn').addEventListener('click', onAddRow);
+        $('#caSaveBtn').addEventListener('click', onSave);
+
+        // Auto-select first campaign if URL has ?campaign=
+        const urlParam = new URLSearchParams(location.search).get('campaign');
+        if (urlParam) {
+            const sel = $('#caCampaignSelect');
+            sel.value = urlParam;
+            onCampaignChange(urlParam);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+})();
