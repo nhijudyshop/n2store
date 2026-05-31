@@ -3,18 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1a51d7b` — feat(native-orders): badge 'Trực tiếp' cho SP add từ picker
-**Last updated**: 2026-05-31 13:29:57 +07
-**Latest session**: [`RESUME:20260531-132957-1a51d7b`](../20260531-132957-1a51d7b.md)
-**Summary**: feat(native-orders): badge 'Trực tiếp' cho SP add từ picker
+**Latest commit**: `42a1982` — docs(plans): KPI attribution system — detailed plan v1
+**Last updated**: 2026-05-31 13:53:15 +07
+**Latest session**: [`RESUME:20260531-135315-42a1982`](../20260531-135315-42a1982.md)
+**Summary**: docs(plans): KPI attribution system — detailed plan v1
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
 - [`inventory-tracking/`](./inventory-tracking.md) — 5 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-05-31 13:29
+- [`docs/`](./docs.md) — updated 2026-05-31 13:53
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -37,7 +35,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-31 13:29
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-31 13:53
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
@@ -53,7 +51,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-31 13:29
+- [`render.com/`](./render.com.md) — updated 2026-05-31 13:53
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-29 18:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
