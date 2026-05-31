@@ -3006,22 +3006,15 @@ function _renderBreakdownRows(breakdownObj, tiGia) {
         .join('');
 }
 
-function _renderPaymentRow(dotSo, tiGia, p, ngayBatDau, ngayKetThuc) {
+function _renderPaymentRow(dotSo, tiGia, p) {
     const soTienTT = parseFloat(p.soTienTT) || 0;
     const soTienDisplay =
         soTienTT > 0 ? `${formatNumber(soTienTT)}${_vndSuffixHtml(soTienTT, tiGia)}` : '—';
     const dataAttrs = `data-payment-id="${_escAttr(p.id)}" data-dot-so="${dotSo}"`;
     const ghiChu = p.ghiChu || '';
     const ghiChuTooltip = ghiChu ? _escAttr(ghiChu) : 'Nhấp đúp để sửa';
-    // Fade rows whose ngayTT falls outside the đợt window — shown but NOT counted.
-    const inWindow =
-        typeof paymentsInDotWindow === 'function'
-            ? paymentsInDotWindow([p], ngayBatDau, ngayKetThuc).length > 0
-            : true;
-    const outCls = inWindow ? '' : ' payment-row-out';
-    const outTip = inWindow ? '' : ' title="Ngoài khoảng đợt — không tính vào tổng"';
     return `
-        <li class="payment-row${outCls}" ${dataAttrs}${outTip}>
+        <li class="payment-row" ${dataAttrs}>
             <span class="payment-cell payment-ngay-tt editable-cell" ${dataAttrs} data-field="ngayTT" ondblclick="startInlineEditPaymentNgay(this)" title="Nhấp đúp để sửa">${formatDateDisplay(p.ngayTT) || '—'}</span>
             <span class="payment-cell payment-so-tien-tt editable-cell" ${dataAttrs} data-field="soTienTT" ondblclick="startInlineEditPaymentSoTien(this)" title="Nhấp đúp để sửa">${soTienDisplay}</span>
             <span class="payment-cell payment-ghi-chu editable-cell" ${dataAttrs} data-field="ghiChu" ondblclick="startInlineEditPaymentNote(this)" title="${ghiChuTooltip}">${_escAttr(ghiChu)}</span>
@@ -3036,12 +3029,15 @@ function _formatNgayList(list) {
 }
 
 function _renderDotSectionBodyHtml(entry) {
-    const payments = Array.isArray(entry.thanhToanCK) ? entry.thanhToanCK : [];
+    // Chỉ hiện CK trong khoảng ngày của đợt — CK ngoài khoảng (thuộc đợt khác) ẩn hẳn.
+    const allPayments = Array.isArray(entry.thanhToanCK) ? entry.thanhToanCK : [];
+    const payments =
+        typeof paymentsInDotWindow === 'function'
+            ? paymentsInDotWindow(allPayments, entry.ngayBatDau, entry.ngayKetThuc)
+            : allPayments;
     const totals = _calcPaymentTotals(entry);
     const dotAttr = entry.dotSo;
-    const rows = payments
-        .map((p) => _renderPaymentRow(dotAttr, totals.tiGia, p, entry.ngayBatDau, entry.ngayKetThuc))
-        .join('');
+    const rows = payments.map((p) => _renderPaymentRow(dotAttr, totals.tiGia, p)).join('');
     const hdBreakdown = _renderBreakdownRows(entry.hdByDate || {}, totals.tiGia);
     const cpBreakdown = _renderBreakdownRows(entry.cpByDate || {}, totals.tiGia);
     const tuNgay = entry.ngayBatDau ? formatDateDisplay(entry.ngayBatDau) : '—';

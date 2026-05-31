@@ -5439,15 +5439,6 @@ textarea.inline-edit-input {
     padding: 4px 8px;
 }
 
-/* CK ngoài khoảng đợt — hiện nhưng không tính (mờ + gạch) */
-.payment-row.payment-row-out {
-    opacity: 0.45;
-    filter: grayscale(0.5);
-}
-.payment-row.payment-row-out .payment-so-tien-tt {
-    text-decoration: line-through;
-}
-
 /* Big accounting numbers — maximize readability, fill available space */
 .payment-panel-totals {
     background: #fff;
