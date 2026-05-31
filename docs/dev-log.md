@@ -23,6 +23,16 @@
 
 ---
 
+## 2026-06-01
+
+### [inventory-tracking] Xoá hẳn cột ngay_bat_dau/ngay_ket_thuc (DB + code dư) ✅
+
+Sau khi bỏ chia-theo-ngày, 2 cột `ngay_bat_dau`/`ngay_ket_thuc` thành dead. Xoá hẳn cho gọn:
+- `render.com/routes/v2/inventory-tracking.js` — gỡ `ensureShipmentDateRangeSchema` + 3 call (GET/POST/PATCH shipments); POST bỏ kế thừa 2 cột (về lại chỉ thanh_toan_ck/ti_gia); PATCH payment-by-dot bỏ 2 cột khỏi UPDATE/RETURNING/params.
+- `inventory-tracking/js/api-client.js` — `pgToShipment` bỏ map ngayBatDau/ngayKetThuc; `updatePaymentByDot` bỏ 2 field body.
+- `render.com/migrations/073_drop_dot_date_range_from_inventory_shipments.sql` (mới) — `DROP COLUMN IF EXISTS` 2 cột (revert 072). Đã chạy DROP trên prod sau khi code sạch deploy.
+- `node --check` OK; grep xác nhận 0 reference còn lại.
+
 ## 2026-05-31
 
 ### [tpos-pancake][native-orders][render] Per-comment thumbnail + native-orders product lines ✅

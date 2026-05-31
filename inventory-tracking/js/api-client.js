@@ -248,8 +248,6 @@ const shipmentsApi = {
         const body = { dot_so: dotSo };
         if (patch.thanhToanCK !== undefined) body.thanh_toan_ck = patch.thanhToanCK;
         if (patch.tiGia !== undefined) body.ti_gia = patch.tiGia;
-        if (patch.ngayBatDau !== undefined) body.ngay_bat_dau = patch.ngayBatDau;
-        if (patch.ngayKetThuc !== undefined) body.ngay_ket_thuc = patch.ngayKetThuc;
         const result = await apiFetch('/shipments/payment-by-dot', {
             method: 'PATCH',
             body: JSON.stringify(body),
@@ -423,8 +421,6 @@ function pgToShipment(row) {
         nccDocId: `ncc_${row.stt_ncc}`,
         ngayDiHang: row.ngay_di_hang ? row.ngay_di_hang.split('T')[0] : row.ngay_di_hang,
         dotSo: row.dot_so || 1,
-        ngayBatDau: row.ngay_bat_dau ? row.ngay_bat_dau.split('T')[0] : null,
-        ngayKetThuc: row.ngay_ket_thuc ? row.ngay_ket_thuc.split('T')[0] : null,
         tenNCC: row.ten_ncc,
         kienHang:
             typeof row.kien_hang === 'string' ? JSON.parse(row.kien_hang) : row.kien_hang || [],

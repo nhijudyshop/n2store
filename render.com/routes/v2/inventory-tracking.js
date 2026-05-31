@@ -77,25 +77,6 @@ function notify(topic, action, extra) {
 // changes JSON readable on the UI.
 const HIST_SKIP_FIELDS = new Set(['id', 'created_at', 'updated_at', 'created_by', 'updated_by']);
 
-// Idempotent bootstrap (once per process) — adds the per-đợt CK date-window
-// columns. Mirrors ensureHiddenNccsSchema so the feature works even if migration
-// 072 hasn't been run manually. Called before GET /shipments + PATCH payment-by-dot.
-let _shipmentDateRangeSchemaReady = null;
-async function ensureShipmentDateRangeSchema(db) {
-    if (_shipmentDateRangeSchemaReady) return _shipmentDateRangeSchemaReady;
-    _shipmentDateRangeSchemaReady = (async () => {
-        await db.query(`
-            ALTER TABLE inventory_shipments
-                ADD COLUMN IF NOT EXISTS ngay_bat_dau  DATE,
-                ADD COLUMN IF NOT EXISTS ngay_ket_thuc DATE;
-        `);
-    })().catch((e) => {
-        _shipmentDateRangeSchemaReady = null;
-        throw e;
-    });
-    return _shipmentDateRangeSchemaReady;
-}
-
 function _diffShipment(oldRow, newRow) {
     if (!oldRow || !newRow) return [];
     const changes = [];
@@ -541,7 +522,6 @@ router.delete('/order-bookings/:id', async (req, res) => {
 router.get('/shipments', async (req, res) => {
     try {
         const db = getDb(req);
-        await ensureShipmentDateRangeSchema(db);
         const { date_from, date_to, stt_ncc, search, limit = 200, offset = 0 } = req.query;
 
         const conditions = [];
@@ -637,7 +617,6 @@ router.get('/shipments/:id', async (req, res) => {
 router.post('/shipments', async (req, res) => {
     try {
         const db = getDb(req);
-        await ensureShipmentDateRangeSchema(db);
         const user = getUserFromHeaders(req);
         const {
             id,
@@ -774,22 +753,11 @@ router.post('/shipments', async (req, res) => {
         // Inherit payment data from existing rows of the SAME dot_so (logical đợt spans multiple dates).
         // So a newly added shipment/NCC under the same đợt immediately sees the shared payment/tỉ giá.
         // Client-provided values take precedence when non-empty.
-        // Per-đợt window (ngay_bat_dau/ngay_ket_thuc) cũng kế thừa như tỉ giá: shipment
-        // mới của đợt đã cài khoảng ngày sẽ tự mang theo → list/tổng nhất quán.
-        const { ngay_bat_dau = null, ngay_ket_thuc = null } = req.body;
         let effThanhToanCK = thanh_toan_ck;
         let effTiGia = ti_gia;
-        let effNgayBatDau = ngay_bat_dau || null;
-        let effNgayKetThuc = ngay_ket_thuc || null;
-        if (
-            !Array.isArray(thanh_toan_ck) ||
-            thanh_toan_ck.length === 0 ||
-            !ti_gia ||
-            !effNgayBatDau ||
-            !effNgayKetThuc
-        ) {
+        if (!Array.isArray(thanh_toan_ck) || thanh_toan_ck.length === 0 || !ti_gia) {
             const groupRes = await db.query(
-                `SELECT thanh_toan_ck, ti_gia, ngay_bat_dau, ngay_ket_thuc FROM inventory_shipments
+                `SELECT thanh_toan_ck, ti_gia FROM inventory_shipments
                  WHERE dot_so = $1
                  ORDER BY created_at ASC LIMIT 1`,
                 [resolvedDotSo]
@@ -805,8 +773,6 @@ router.post('/shipments', async (req, res) => {
                 if (!ti_gia) {
                     effTiGia = parseFloat(groupRes.rows[0].ti_gia) || 0;
                 }
-                if (!effNgayBatDau) effNgayBatDau = groupRes.rows[0].ngay_bat_dau || null;
-                if (!effNgayKetThuc) effNgayKetThuc = groupRes.rows[0].ngay_ket_thuc || null;
             }
         }
 
@@ -821,10 +787,9 @@ router.post('/shipments', async (req, res) => {
                 chi_phi_hang_ve, tong_chi_phi,
                 ghi_chu_admin,
                 thanh_toan_ck, ti_gia,
-                ngay_bat_dau, ngay_ket_thuc,
                 dot_so,
                 created_by, updated_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
             RETURNING *
         `,
             [
@@ -847,8 +812,6 @@ router.post('/shipments', async (req, res) => {
                 ghi_chu_admin,
                 JSON.stringify(effThanhToanCK),
                 effTiGia,
-                effNgayBatDau,
-                effNgayKetThuc,
                 resolvedDotSo,
                 user,
                 user,
@@ -972,9 +935,8 @@ router.put('/shipments/:id', async (req, res) => {
 router.patch('/shipments/payment-by-dot', async (req, res) => {
     try {
         const db = getDb(req);
-        await ensureShipmentDateRangeSchema(db);
         const user = getUserFromHeaders(req);
-        const { dot_so, thanh_toan_ck, ti_gia, ngay_bat_dau, ngay_ket_thuc } = req.body;
+        const { dot_so, thanh_toan_ck, ti_gia } = req.body;
 
         if (dot_so === undefined || dot_so === null) {
             return res.status(400).json({ success: false, error: 'dot_so required' });
@@ -985,20 +947,16 @@ router.patch('/shipments/payment-by-dot', async (req, res) => {
             UPDATE inventory_shipments SET
                 thanh_toan_ck = COALESCE($2, thanh_toan_ck),
                 ti_gia = COALESCE($3, ti_gia),
-                ngay_bat_dau = COALESCE($5, ngay_bat_dau),
-                ngay_ket_thuc = COALESCE($6, ngay_ket_thuc),
                 updated_by = $4,
                 updated_at = NOW()
             WHERE dot_so = $1
-            RETURNING id, ngay_di_hang, thanh_toan_ck, ti_gia, ngay_bat_dau, ngay_ket_thuc
+            RETURNING id, ngay_di_hang, thanh_toan_ck, ti_gia
         `,
             [
                 parseInt(dot_so, 10),
                 thanh_toan_ck !== undefined ? JSON.stringify(thanh_toan_ck) : null,
                 ti_gia !== undefined ? ti_gia : null,
                 user,
-                ngay_bat_dau !== undefined && ngay_bat_dau !== '' ? ngay_bat_dau : null,
-                ngay_ket_thuc !== undefined && ngay_ket_thuc !== '' ? ngay_ket_thuc : null,
             ]
         );
 
