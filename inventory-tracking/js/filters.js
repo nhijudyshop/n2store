@@ -384,13 +384,15 @@ function applyFiltersAndRender() {
 
     let filtered = [...shipments];
 
-    // Filter by date range
-    if (filters.dateFrom) {
-        filtered = filtered.filter((s) => s.ngayDiHang >= filters.dateFrom);
-    }
-    if (filters.dateTo) {
-        filtered = filtered.filter((s) => s.ngayDiHang <= filters.dateTo);
-    }
+    // Bộ lọc ngày 30-ngày CŨ ĐÃ BỎ (2026-05-31). Thay bằng KHOẢNG NGÀY CỦA ĐỢT
+    // (ngày bắt đầu/kết thúc cài trong modal CK) làm bộ lọc ngày DUY NHẤT: chỉ hiện
+    // shipment có ngày giao trong khoảng đợt của nó (open-ended khi đợt chưa cài).
+    // → list + tổng HĐ/CP + TT + Còn lại cùng 1 phạm vi, khớp modal CK.
+    filtered = filtered.filter((s) =>
+        typeof dateInDotWindow === 'function'
+            ? dateInDotWindow(s.ngayDiHang, s.ngayBatDau, s.ngayKetThuc)
+            : true
+    );
 
     // Filter by NCC (skip if "all" is selected). Khi NCC match → cũng lọc
     // hoaDon[] trong từng shipment để chỉ render đúng NCC đó (không lộ NCC

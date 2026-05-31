@@ -2911,26 +2911,23 @@ function _findDotsByDotSo(dotSo) {
     return out;
 }
 
+// Delegate sang getAllDotsAggregated (data-loader) để DÙNG CHUNG 1 nguồn:
+// CP đã khử trùng lặp NCC + áp khoảng ngày đợt → modal mở và modal refresh ra
+// CÙNG kết quả, khớp bảng chính. (Trước đây hàm này tự cộng tong_chi_phi mọi
+// dòng NCC → ×N do chi phí lưu nhân bản — đã bỏ.)
 function _aggregateDotEntry(dotSo) {
-    const dots = _findDotsByDotSo(dotSo);
-    const dateSet = new Set();
-    let tongTienHoaDon = 0;
-    let tongChiPhi = 0;
+    const ds = parseInt(dotSo, 10) || 1;
+    if (typeof getAllDotsAggregated === 'function') {
+        const found = getAllDotsAggregated().find((e) => e.dotSo === ds);
+        if (found) return found;
+    }
+    // Fallback: đợt chưa có shipment nào (mới tạo) → giữ tiGia/CK/window từ dots.
+    const dots = _findDotsByDotSo(ds);
     let thanhToanCK = [];
     let tiGia = 0;
     let ngayBatDau = null;
     let ngayKetThuc = null;
-    const hdByDate = {};
-    const cpByDate = {};
     dots.forEach((d) => {
-        const ngay = d.ngayDiHang;
-        if (ngay) dateSet.add(ngay);
-        const hd = parseFloat(d.tongTienHD) || 0;
-        const cp = parseFloat(d.tongChiPhi) || 0;
-        tongTienHoaDon += hd;
-        tongChiPhi += cp;
-        if (hd > 0 && ngay) hdByDate[ngay] = (hdByDate[ngay] || 0) + hd;
-        if (cp > 0 && ngay) cpByDate[ngay] = (cpByDate[ngay] || 0) + cp;
         if (
             (!thanhToanCK || thanhToanCK.length === 0) &&
             Array.isArray(d.thanhToanCK) &&
@@ -2943,16 +2940,16 @@ function _aggregateDotEntry(dotSo) {
         if (!ngayKetThuc && d.ngayKetThuc) ngayKetThuc = d.ngayKetThuc;
     });
     return {
-        dotSo: parseInt(dotSo, 10) || 1,
-        ngayDiHangList: [...dateSet].sort((a, b) => new Date(b) - new Date(a)),
-        tongTienHoaDon,
-        tongChiPhi,
+        dotSo: ds,
+        ngayDiHangList: [],
+        tongTienHoaDon: 0,
+        tongChiPhi: 0,
         thanhToanCK,
         tiGia,
         ngayBatDau,
         ngayKetThuc,
-        hdByDate,
-        cpByDate,
+        hdByDate: {},
+        cpByDate: {},
     };
 }
 

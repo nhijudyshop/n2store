@@ -25,6 +25,20 @@
 
 ## 2026-05-31
 
+### [inventory-tracking] Khoảng ngày đợt = bộ lọc DUY NHẤT + sửa CP đếm trùng (B & C) ✅
+
+**Vấn đề user phát hiện**: (B) "Còn lại" Đợt 1 bảng chính (184.823) ≠ modal CK (1.678); (C) CP ngày 19/5 Đợt 2 modal hiện **95.715** trong khi thẻ ngày là 10.635.
+
+**Gốc rễ** (verify bằng dữ liệu thật):
+- **B**: bảng chính trộn phạm vi — `TỔNG TT` lấy toàn đợt, nhưng `TỔNG HĐ/CP` bị **bộ lọc ngày mặc định 30 ngày** (main.js:246; UI `.filters-navigation` đang `display:none` nên user không thấy) cắt còn 3 ngày T5. Đợt 1 thật có 11 ngày (9/4–17/5).
+- **C**: `chi_phi_hang_ve` lưu **nhân bản trên mọi dòng NCC** của 1 ngày; modal cộng `tong_chi_phi` mọi dòng → ×N (19/5 có 9 NCC → 9×10.635=95.715). Thẻ ngày/bảng chính lấy first-non-empty nên đúng.
+
+**Giải pháp (theo chỉ định user)**: bỏ bộ lọc 30 ngày cũ, **dùng khoảng ngày cài trong đợt [bắt đầu, kết thúc] làm bộ lọc ngày DUY NHẤT** cho list + tổng HĐ/CP + TT; modal tính HĐ/CP từ nguồn đã khử trùng (`getAllDotHangAsShipments`) → hết C.
+
+**Files**: `inventory-tracking/js/filters.js` (bỏ filter 30 ngày, thêm `dateInDotWindow`), `data-loader.js` (helper `dateInDotWindow` + viết lại `getAllDotsAggregated` build từ shipments đã de-dup + window HĐ/CP), `table-renderer.js` (`_aggregateDotEntry` delegate sang `getAllDotsAggregated`), `render.com/routes/v2/inventory-tracking.js` (POST kế thừa `ngay_bat_dau/ngay_ket_thuc` như tỉ giá + ensure schema), `index.html` (bump `?v=20260531b`).
+
+**Verify (node, dữ liệu thật)**: Đợt 1 → HĐ 202.854 / CP 15.757 / TT 220.969 / **CÒN LẠI 2.358** (bar=modal=thẻ ngày). Đợt 2 → HĐ 239.520 / CP **14.785** (hết 109.705) / TT 300.000 / **CÒN LẠI 45.695** (hết âm). CP 19/5 = **10.635** (hết 95.715). `node --check` 4 file OK; INSERT 24 cột/24 param khớp.
+
 ### [delivery-report] XÓA HẲN cột CK theo tab + Duyệt không zero TỔNG CÒN LẠI ✅
 
 **Yêu cầu (user)**: (1) TOMATO/NAP **xóa hẳn** cột **ATRƯỜNG NHẬN CK**; THÀNH PHỐ xóa hẳn cả **ATRƯỜNG NHẬN CK** lẫn **CK TRƯỚC** — "loại bỏ hoàn toàn đừng ẩn" (không CSS hide). (2) Bấm **DUYỆT** không được tự động trừ "TỔNG CÒN LẠI" về 0 — giữ nguyên giá trị, dòng chỉ mờ đi.

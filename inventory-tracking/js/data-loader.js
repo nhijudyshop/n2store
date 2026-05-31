@@ -713,6 +713,23 @@ if (typeof window !== 'undefined') {
     window.paymentsInDotWindow = paymentsInDotWindow;
 }
 
+/**
+ * True nếu ngày (YYYY-MM-DD) nằm trong khoảng đợt [ngayBatDau, ngayKetThuc] (bao gồm 2 đầu).
+ * Open-ended khi thiếu 1/2 đầu. Đây là BỘ LỌC NGÀY DUY NHẤT của module (thay cho
+ * bộ lọc 30 ngày cũ đã bỏ) — dùng cho danh sách shipment + tổng HĐ/CP của đợt.
+ */
+function dateInDotWindow(dateStr, ngayBatDau, ngayKetThuc) {
+    const lo = ngayBatDau ? new Date(ngayBatDau).getTime() : -Infinity;
+    const hi = ngayKetThuc ? new Date(ngayKetThuc).getTime() : Infinity;
+    if (lo === -Infinity && hi === Infinity) return true;
+    const t = dateStr ? new Date(dateStr).getTime() : NaN;
+    if (!Number.isFinite(t)) return true; // không có ngày → không loại
+    return t >= lo && t <= hi;
+}
+if (typeof window !== 'undefined') {
+    window.dateInDotWindow = dateInDotWindow;
+}
+
 function getAllDotHangAsShipments() {
     const allDotHang = getAllDotHang();
 
@@ -854,74 +871,87 @@ function getAllDotHangAsShipments() {
  * Returns: [{ dotSo, ngayDiHangList[], tongTienHoaDon, tongChiPhi, thanhToanCK, tiGia }]
  */
 function getAllDotsAggregated() {
-    const allDotHang = getAllDotHang();
+    // Xây từ shipments ĐÃ GỘP theo (ngày, đợt): CP đã khử trùng lặp NCC
+    // (first-non-empty trong getAllDotHangAsShipments), HĐ đã recompute từ sản phẩm.
+    // → tránh bug cộng tong_chi_phi trên MỌI dòng NCC (chi phí lưu nhân bản → ×N).
+    // Mỗi shipment = 1 nhóm (ngày, đợt) nên HĐ/CP của ngày đó đã đúng, không cần
+    // cộng lại theo dòng. Sau đó áp khoảng ngày của đợt (bộ lọc DUY NHẤT) lên HĐ/CP.
+    const ships = getAllDotHangAsShipments();
     const byDot = {};
 
-    allDotHang.forEach((dot) => {
-        const dotSo = dot.dotSo || 1;
+    ships.forEach((sh) => {
+        const dotSo = sh.dotSo || 1;
         if (!byDot[dotSo]) {
             byDot[dotSo] = {
                 dotSo,
-                ngayDiHangSet: new Set(),
-                tongTienHoaDon: 0,
-                tongChiPhi: 0,
                 thanhToanCK: [],
                 tiGia: 0,
                 ngayBatDau: null,
                 ngayKetThuc: null,
                 _dotIds: [],
-                hdByDate: {},
-                cpByDate: {},
+                _hdByDate: {},
+                _cpByDate: {},
             };
         }
         const entry = byDot[dotSo];
-        const ngay = dot.ngayDiHang;
-        if (ngay) entry.ngayDiHangSet.add(ngay);
-        // Recompute từ sanPham nếu có để fix tongTienHD stale.
-        const products = dot.sanPham || [];
-        let hd;
-        if (products.length > 0) {
-            const _qtyOf =
-                window.getProductEffectiveQty || ((p) => p.tongSoLuong || p.soLuong || 0);
-            hd = products.reduce((s, p) => s + _qtyOf(p) * (parseFloat(p.giaDonVi) || 0), 0);
-        } else {
-            hd = parseFloat(dot.tongTienHD) || 0;
-        }
-        const cp = parseFloat(dot.tongChiPhi) || 0;
-        entry.tongTienHoaDon += hd;
-        entry.tongChiPhi += cp;
-        if (hd > 0 && ngay) entry.hdByDate[ngay] = (entry.hdByDate[ngay] || 0) + hd;
-        if (cp > 0 && ngay) entry.cpByDate[ngay] = (entry.cpByDate[ngay] || 0) + cp;
-        entry._dotIds.push(dot.id);
+        // Absorb per-đợt scalars (first non-empty).
         if (
             (!entry.thanhToanCK || entry.thanhToanCK.length === 0) &&
-            Array.isArray(dot.thanhToanCK) &&
-            dot.thanhToanCK.length > 0
+            Array.isArray(sh.thanhToanCK) &&
+            sh.thanhToanCK.length > 0
         ) {
-            entry.thanhToanCK = dot.thanhToanCK;
+            entry.thanhToanCK = sh.thanhToanCK;
         }
-        if (!entry.tiGia && dot.tiGia) {
-            entry.tiGia = parseFloat(dot.tiGia) || 0;
+        if (!entry.tiGia && sh.tiGia) entry.tiGia = parseFloat(sh.tiGia) || 0;
+        if (!entry.ngayBatDau && sh.ngayBatDau) entry.ngayBatDau = sh.ngayBatDau;
+        if (!entry.ngayKetThuc && sh.ngayKetThuc) entry.ngayKetThuc = sh.ngayKetThuc;
+        if (Array.isArray(sh._dotIds)) entry._dotIds.push(...sh._dotIds);
+        const ngay = sh.ngayDiHang;
+        if (ngay) {
+            entry._hdByDate[ngay] =
+                (entry._hdByDate[ngay] || 0) + (parseFloat(sh.tongTienHoaDon) || 0);
+            entry._cpByDate[ngay] =
+                (entry._cpByDate[ngay] || 0) + (parseFloat(sh.tongChiPhi) || 0);
         }
-        // CK date window — first non-empty wins (per-đợt, synced across rows).
-        if (!entry.ngayBatDau && dot.ngayBatDau) entry.ngayBatDau = dot.ngayBatDau;
-        if (!entry.ngayKetThuc && dot.ngayKetThuc) entry.ngayKetThuc = dot.ngayKetThuc;
     });
 
     return Object.values(byDot)
-        .map((entry) => ({
-            dotSo: entry.dotSo,
-            ngayDiHangList: [...entry.ngayDiHangSet].sort((a, b) => new Date(b) - new Date(a)),
-            tongTienHoaDon: entry.tongTienHoaDon,
-            tongChiPhi: entry.tongChiPhi,
-            thanhToanCK: entry.thanhToanCK,
-            tiGia: entry.tiGia,
-            ngayBatDau: entry.ngayBatDau,
-            ngayKetThuc: entry.ngayKetThuc,
-            _dotIds: entry._dotIds,
-            hdByDate: entry.hdByDate,
-            cpByDate: entry.cpByDate,
-        }))
+        .map((entry) => {
+            const inWin = (d) =>
+                typeof dateInDotWindow === 'function'
+                    ? dateInDotWindow(d, entry.ngayBatDau, entry.ngayKetThuc)
+                    : true;
+            const allDates = new Set([
+                ...Object.keys(entry._hdByDate),
+                ...Object.keys(entry._cpByDate),
+            ]);
+            const winDates = [...allDates].filter(inWin);
+            const hdByDate = {};
+            const cpByDate = {};
+            let tongTienHoaDon = 0;
+            let tongChiPhi = 0;
+            winDates.forEach((d) => {
+                const hd = entry._hdByDate[d] || 0;
+                const cp = entry._cpByDate[d] || 0;
+                tongTienHoaDon += hd;
+                tongChiPhi += cp;
+                if (hd > 0) hdByDate[d] = hd;
+                if (cp > 0) cpByDate[d] = cp;
+            });
+            return {
+                dotSo: entry.dotSo,
+                ngayDiHangList: winDates.sort((a, b) => new Date(b) - new Date(a)),
+                tongTienHoaDon,
+                tongChiPhi,
+                thanhToanCK: entry.thanhToanCK,
+                tiGia: entry.tiGia,
+                ngayBatDau: entry.ngayBatDau,
+                ngayKetThuc: entry.ngayKetThuc,
+                _dotIds: entry._dotIds,
+                hdByDate,
+                cpByDate,
+            };
+        })
         .sort((a, b) => a.dotSo - b.dotSo);
 }
 

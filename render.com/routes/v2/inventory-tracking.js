@@ -637,6 +637,7 @@ router.get('/shipments/:id', async (req, res) => {
 router.post('/shipments', async (req, res) => {
     try {
         const db = getDb(req);
+        await ensureShipmentDateRangeSchema(db);
         const user = getUserFromHeaders(req);
         const {
             id,
@@ -773,11 +774,22 @@ router.post('/shipments', async (req, res) => {
         // Inherit payment data from existing rows of the SAME dot_so (logical đợt spans multiple dates).
         // So a newly added shipment/NCC under the same đợt immediately sees the shared payment/tỉ giá.
         // Client-provided values take precedence when non-empty.
+        // Per-đợt window (ngay_bat_dau/ngay_ket_thuc) cũng kế thừa như tỉ giá: shipment
+        // mới của đợt đã cài khoảng ngày sẽ tự mang theo → list/tổng nhất quán.
+        const { ngay_bat_dau = null, ngay_ket_thuc = null } = req.body;
         let effThanhToanCK = thanh_toan_ck;
         let effTiGia = ti_gia;
-        if (!Array.isArray(thanh_toan_ck) || thanh_toan_ck.length === 0 || !ti_gia) {
+        let effNgayBatDau = ngay_bat_dau || null;
+        let effNgayKetThuc = ngay_ket_thuc || null;
+        if (
+            !Array.isArray(thanh_toan_ck) ||
+            thanh_toan_ck.length === 0 ||
+            !ti_gia ||
+            !effNgayBatDau ||
+            !effNgayKetThuc
+        ) {
             const groupRes = await db.query(
-                `SELECT thanh_toan_ck, ti_gia FROM inventory_shipments
+                `SELECT thanh_toan_ck, ti_gia, ngay_bat_dau, ngay_ket_thuc FROM inventory_shipments
                  WHERE dot_so = $1
                  ORDER BY created_at ASC LIMIT 1`,
                 [resolvedDotSo]
@@ -793,6 +805,8 @@ router.post('/shipments', async (req, res) => {
                 if (!ti_gia) {
                     effTiGia = parseFloat(groupRes.rows[0].ti_gia) || 0;
                 }
+                if (!effNgayBatDau) effNgayBatDau = groupRes.rows[0].ngay_bat_dau || null;
+                if (!effNgayKetThuc) effNgayKetThuc = groupRes.rows[0].ngay_ket_thuc || null;
             }
         }
 
@@ -807,9 +821,10 @@ router.post('/shipments', async (req, res) => {
                 chi_phi_hang_ve, tong_chi_phi,
                 ghi_chu_admin,
                 thanh_toan_ck, ti_gia,
+                ngay_bat_dau, ngay_ket_thuc,
                 dot_so,
                 created_by, updated_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
             RETURNING *
         `,
             [
@@ -832,6 +847,8 @@ router.post('/shipments', async (req, res) => {
                 ghi_chu_admin,
                 JSON.stringify(effThanhToanCK),
                 effTiGia,
+                effNgayBatDau,
+                effNgayKetThuc,
                 resolvedDotSo,
                 user,
                 user,
