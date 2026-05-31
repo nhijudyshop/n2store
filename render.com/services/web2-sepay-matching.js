@@ -71,6 +71,18 @@ async function ensureSchema(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_bh_debt_added ON web2_balance_history(debt_added) WHERE debt_added = FALSE;
         `);
 
+        // verified_by — user who manually linked/resolved (audit trail).
+        // Idempotent ALTER (skip nếu column đã tồn tại).
+        await pool.query(`
+            DO $$
+            BEGIN
+                ALTER TABLE web2_balance_history
+                    ADD COLUMN IF NOT EXISTS verified_by VARCHAR(100);
+            EXCEPTION WHEN OTHERS THEN
+                RAISE NOTICE 'verified_by column add skipped: %', SQLERRM;
+            END $$;
+        `);
+
         // Match-method CHECK constraint — Web 2.0 enumerated values.
         // 'manual_entry' giữ lại vì 1500+ row hiện có đã set value đó (read-only,
         // không tạo mới qua flow Web 2.0). Idempotent.
@@ -92,6 +104,7 @@ async function ensureSchema(pool) {
                         'manual_entry',
                         'manual_link',
                         'manual_resolve',  -- user pick KH cho pending multi-match (web2-pending-match.js)
+                        'manual_reassign', -- admin reassign 1 GD đã gán → KH khác (debit cũ + credit mới)
                         'prelink_credit',
                         'manual_deposit',  -- nạp tay (+) từ balance-history page
                         'manual_withdraw', -- rút tay (-) từ balance-history page
@@ -749,6 +762,10 @@ async function resolveWeb2PendingMatch(db, pendingId, selectedPhone, selectedNam
     // chạy idempotent ở Render startup) — distinguish "user pick từ multi-match"
     // vs 'manual_link' "user gán SDT cho row chưa có". Audit log giữ
     // extractedType='manual_resolve' để trace flow.
+    const verifiedByVal =
+        String(resolvedBy || '')
+            .trim()
+            .slice(0, 100) || null;
     await db.query(
         `UPDATE web2_balance_history
          SET debt_added = TRUE,
@@ -757,9 +774,10 @@ async function resolveWeb2PendingMatch(db, pendingId, selectedPhone, selectedNam
              verification_status = 'AUTO_APPROVED',
              match_method = 'manual_resolve',
              display_name = COALESCE(display_name, $3),
-             verified_at = NOW()
+             verified_at = NOW(),
+             verified_by = COALESCE($4, verified_by)
          WHERE id = $1`,
-        [pending.transaction_id, selectedPhone, selectedName || null]
+        [pending.transaction_id, selectedPhone, selectedName || null, verifiedByVal]
     );
 
     await db.query(

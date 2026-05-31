@@ -247,6 +247,15 @@
         dom.tbody.querySelectorAll('[data-action="auto-match"]').forEach((btn) => {
             btn.addEventListener('click', () => autoMatchSingle(btn.getAttribute('data-id')));
         });
+        dom.tbody.querySelectorAll('[data-action="reassign"]').forEach((btn) => {
+            btn.addEventListener('click', () =>
+                openReassignModal(
+                    btn.getAttribute('data-id'),
+                    btn.getAttribute('data-old-phone'),
+                    Number(btn.getAttribute('data-amount')) || 0
+                )
+            );
+        });
     }
 
     async function autoMatchSingle(id) {
@@ -276,6 +285,23 @@
         }
     }
 
+    function _extractUserFromRow(r) {
+        // Prefer verified_by (new column for manual_link/resolve/reassign).
+        // Fallback: parse raw_data JSONB cho manual_deposit/withdraw (userName).
+        if (r.verified_by) return String(r.verified_by);
+        const raw = r.raw_data || r.body;
+        if (raw && typeof raw === 'object') {
+            if (raw.userName) return String(raw.userName);
+        }
+        if (typeof raw === 'string') {
+            try {
+                const parsed = JSON.parse(raw);
+                if (parsed && parsed.userName) return String(parsed.userName);
+            } catch {}
+        }
+        return null;
+    }
+
     function renderRow(r) {
         const amount = Number(r.transfer_amount) || 0;
         const isIn = r.transfer_type === 'in';
@@ -285,6 +311,20 @@
         const name = r.display_name || '';
         const method = r.match_method || '';
         const isManual = method === 'manual_deposit' || method === 'manual_withdraw';
+        const isManualByUser =
+            method === 'manual_deposit' ||
+            method === 'manual_withdraw' ||
+            method === 'manual_link' ||
+            method === 'manual_resolve' ||
+            method === 'manual_reassign';
+        const assignedBy = _extractUserFromRow(r);
+        const userBadge =
+            isManualByUser && assignedBy
+                ? `<span class="w2bh-user-badge" title="Người thực hiện thao tác thủ công">
+                       <i data-lucide="user-check" style="width:10px;height:10px"></i>
+                       ${escapeHtml(assignedBy)}
+                   </span>`
+                : '';
         // Manual NCC: có display_name nhưng KHÔNG có phone (Firestore-based).
         //   Không show "+ Gán KH" / "Không có thông tin" như rows webhook unmatched.
         const isManualNcc = isManual && !phone && name;
@@ -364,12 +404,20 @@
                                 `<button type="button" class="w2bh-link-btn" data-action="link" data-id="${r.id}">+ Gán KH</button>`
                     }
                     ${verifBadge}
+                    ${userBadge}
                 </td>
                 <td class="w2bh-cell-actions">
                     ${
                         !phone && !isManualNcc
                             ? `<button type="button" class="w2bh-icon-btn" data-action="link" data-id="${r.id}" title="Gán SĐT thủ công (fallback khi extractor không tìm ra)">
                                 <i data-lucide="user-plus" style="width:14px;height:14px;"></i>
+                            </button>`
+                            : ''
+                    }
+                    ${
+                        phone && isIn && r.debt_added === true && amount > 0
+                            ? `<button type="button" class="w2bh-icon-btn w2bh-icon-reassign" data-action="reassign" data-id="${r.id}" data-old-phone="${escapeHtml(phone)}" data-amount="${amount}" title="Sửa KH (chuyển công nợ sang KH khác)">
+                                <i data-lucide="user-cog" style="width:14px;height:14px;"></i>
                             </button>`
                             : ''
                     }
@@ -438,17 +486,280 @@
         const name = prompt('Tên KH (tuỳ chọn):') || '';
         linkManual(id, phone.trim(), name.trim());
     }
+    function _currentUser() {
+        try {
+            const raw =
+                localStorage.getItem('loginindex_auth') ||
+                sessionStorage.getItem('loginindex_auth') ||
+                '{}';
+            const auth = JSON.parse(raw);
+            return auth.username || auth.userName || auth.email || 'admin';
+        } catch {
+            return 'admin';
+        }
+    }
+
     async function linkManual(id, phone, name) {
         try {
             await withFallback(`/${encodeURIComponent(id)}/link`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone, name: name || null }),
+                body: JSON.stringify({
+                    phone,
+                    name: name || null,
+                    verifiedBy: _currentUser(),
+                }),
             });
             notify(`Đã gán ${name || phone} + cộng ví Web 2.0`, 'success');
             await load();
         } catch (e) {
             notify('Lỗi gán: ' + e.message, 'error');
+        }
+    }
+
+    // ----- Reassign customer (admin) — chuyển công nợ KH cũ → KH mới -----
+    const CUSTOMER_SEARCH_BASE = BASE.replace(/\/api\/web2\/balance-history$/, '/api/v2/customers');
+    const CUSTOMER_SEARCH_FALLBACK = DIRECT_BASE.replace(
+        /\/api\/web2\/balance-history$/,
+        '/api/v2/customers'
+    );
+
+    async function searchCustomers(q) {
+        const query = String(q || '').trim();
+        if (query.length < 2) return [];
+        const url = (base) =>
+            `${base}?search=${encodeURIComponent(query)}&limit=8&sort=last_order_date&order=desc`;
+        const parse = async (base) => {
+            const r = await fetch(url(base));
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            const arr = Array.isArray(data?.customers)
+                ? data.customers
+                : Array.isArray(data?.data)
+                  ? data.data
+                  : [];
+            return arr
+                .map((c) => ({
+                    phone: c.phone || '',
+                    name: c.name || c.full_name || '',
+                }))
+                .filter((c) => c.phone);
+        };
+        try {
+            return await parse(CUSTOMER_SEARCH_BASE);
+        } catch {
+            try {
+                return await parse(CUSTOMER_SEARCH_FALLBACK);
+            } catch (e) {
+                console.warn('[balance-history] customer search fail:', e.message);
+                return [];
+            }
+        }
+    }
+
+    function ensureReassignModalDom() {
+        if (document.getElementById('w2bhReassignModal')) return;
+        const div = document.createElement('div');
+        div.id = 'w2bhReassignModal';
+        div.className = 'w2bh-reassign-modal';
+        div.hidden = true;
+        div.innerHTML = `
+            <div class="w2bh-reassign-backdrop" data-close></div>
+            <div class="w2bh-reassign-panel">
+                <header class="w2bh-reassign-head">
+                    <h3>Sửa khách hàng — Chuyển công nợ</h3>
+                    <button type="button" class="w2bh-reassign-close" data-close aria-label="Đóng">&times;</button>
+                </header>
+                <div class="w2bh-reassign-body">
+                    <div class="w2bh-reassign-info" id="w2bhReassignInfo"></div>
+                    <p class="w2bh-reassign-warn">
+                        ⚠️ Hành động này sẽ <strong>trừ ví KH cũ</strong> và <strong>cộng vào ví KH mới</strong>.
+                        Audit log đầy đủ.
+                    </p>
+                    <label class="w2bh-reassign-field">
+                        <span>Tìm KH mới (SĐT / tên):</span>
+                        <div class="w2bh-reassign-search-wrap">
+                            <input type="search" id="w2bhReassignSearch"
+                                placeholder="Gõ SĐT hoặc tên KH (tối thiểu 2 ký tự)…"
+                                autocomplete="off" />
+                            <div class="w2bh-reassign-dropdown" id="w2bhReassignDropdown" hidden></div>
+                        </div>
+                    </label>
+                    <label class="w2bh-reassign-field">
+                        <span>Tên KH (tự nhập):</span>
+                        <input type="text" id="w2bhReassignName" placeholder="Tên (tuỳ chọn)" />
+                    </label>
+                    <label class="w2bh-reassign-field">
+                        <span>Lý do (tuỳ chọn):</span>
+                        <input type="text" id="w2bhReassignReason" placeholder="VD: gán nhầm, KH báo CK hộ…" />
+                    </label>
+                </div>
+                <footer class="w2bh-reassign-foot">
+                    <button type="button" class="btn-secondary" data-close>Huỷ</button>
+                    <button type="button" class="btn-primary" id="w2bhReassignSubmit">Xác nhận chuyển</button>
+                </footer>
+            </div>
+        `;
+        document.body.appendChild(div);
+        div.querySelectorAll('[data-close]').forEach((el) =>
+            el.addEventListener('click', () => (div.hidden = true))
+        );
+        const search = div.querySelector('#w2bhReassignSearch');
+        const dd = div.querySelector('#w2bhReassignDropdown');
+        const nameInput = div.querySelector('#w2bhReassignName');
+        let debounceT = null;
+        search.addEventListener('input', () => {
+            if (debounceT) clearTimeout(debounceT);
+            const q = search.value || '';
+            debounceT = setTimeout(async () => {
+                if (q.trim().length < 2) {
+                    dd.hidden = true;
+                    dd.innerHTML = '';
+                    return;
+                }
+                dd.innerHTML = '<div class="w2bh-reassign-loading">Đang tìm…</div>';
+                dd.hidden = false;
+                const results = await searchCustomers(q);
+                if (!results.length) {
+                    dd.innerHTML =
+                        '<div class="w2bh-reassign-loading">Không tìm thấy. Có thể gõ thẳng SĐT rồi bấm Xác nhận.</div>';
+                    return;
+                }
+                dd.innerHTML = results
+                    .map(
+                        (c) => `<button type="button" class="w2bh-reassign-item"
+                            data-phone="${escapeHtml(c.phone)}"
+                            data-name="${escapeHtml(c.name || '')}">
+                            <span class="w2bh-reassign-item-phone">${escapeHtml(c.phone)}</span>
+                            <span class="w2bh-reassign-item-name">${escapeHtml(c.name || '(không tên)')}</span>
+                        </button>`
+                    )
+                    .join('');
+                dd.querySelectorAll('.w2bh-reassign-item').forEach((b) => {
+                    b.addEventListener('mousedown', (e) => e.preventDefault());
+                    b.addEventListener('click', () => {
+                        search.value = b.dataset.phone;
+                        nameInput.value = b.dataset.name || '';
+                        dd.hidden = true;
+                    });
+                });
+            }, 220);
+        });
+        search.addEventListener('blur', () => {
+            setTimeout(() => (dd.hidden = true), 150);
+        });
+        div.querySelector('#w2bhReassignSubmit').addEventListener('click', submitReassign);
+        ensureReassignStyles();
+    }
+
+    function ensureReassignStyles() {
+        if (document.getElementById('w2bhReassignStyles')) return;
+        const s = document.createElement('style');
+        s.id = 'w2bhReassignStyles';
+        s.textContent = `
+            .w2bh-reassign-modal { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; }
+            .w2bh-reassign-modal[hidden] { display: none; }
+            .w2bh-reassign-backdrop { position: absolute; inset: 0; background: rgba(15,23,42,.55); }
+            .w2bh-reassign-panel { position: relative; background: #fff; border-radius: 12px; width: min(560px, 92vw); max-height: 86vh; display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,0.25); overflow: hidden; }
+            .w2bh-reassign-head { padding: 14px 18px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+            .w2bh-reassign-head h3 { margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; }
+            .w2bh-reassign-close { background: transparent; border: none; font-size: 22px; color: #475569; cursor: pointer; padding: 4px 8px; }
+            .w2bh-reassign-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
+            .w2bh-reassign-info { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; color: #1e3a8a; }
+            .w2bh-reassign-info b { color: #0c4a6e; }
+            .w2bh-reassign-warn { margin: 0 0 14px; padding: 10px 12px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 6px; color: #78350f; font-size: 13px; line-height: 1.5; }
+            .w2bh-reassign-field { display: block; margin-bottom: 12px; }
+            .w2bh-reassign-field > span { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px; }
+            .w2bh-reassign-field input[type="text"], .w2bh-reassign-field input[type="search"] { width: 100%; height: 36px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; font: 400 14px Inter, sans-serif; color: #0f172a; outline: none; box-sizing: border-box; }
+            .w2bh-reassign-field input:focus { border-color: #0891b2; box-shadow: 0 0 0 2px rgba(8,145,178,.2); }
+            .w2bh-reassign-search-wrap { position: relative; }
+            .w2bh-reassign-dropdown { position: absolute; top: 100%; left: 0; right: 0; z-index: 30; margin-top: 4px; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 10px 24px rgba(15,23,42,.14); max-height: 220px; overflow-y: auto; padding: 4px; }
+            .w2bh-reassign-item { display: flex; gap: 10px; padding: 6px 10px; border: none; background: transparent; border-radius: 4px; text-align: left; cursor: pointer; width: 100%; font-size: 12px; }
+            .w2bh-reassign-item:hover { background: #ecfdf5; }
+            .w2bh-reassign-item-phone { font-weight: 600; color: #047857; min-width: 110px; }
+            .w2bh-reassign-item-name { flex: 1; color: #0f172a; }
+            .w2bh-reassign-loading { padding: 10px; text-align: center; color: #94a3b8; font-size: 12px; font-style: italic; }
+            .w2bh-reassign-foot { padding: 12px 18px; border-top: 1px solid #e5e7eb; background: #f9fafb; display: flex; justify-content: flex-end; gap: 8px; }
+            .w2bh-reassign-foot .btn-primary { background: #0891b2; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+            .w2bh-reassign-foot .btn-primary:hover { background: #0e7490; }
+            .w2bh-reassign-foot .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
+            .w2bh-reassign-foot .btn-secondary { background: #fff; color: #475569; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+            .w2bh-icon-reassign { color: #b45309; }
+            .w2bh-icon-reassign:hover { color: #92400e; background: #fef3c7; }
+            .w2bh-user-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; background: #f1f5f9; color: #475569; border-radius: 999px; font-size: 11px; font-weight: 500; margin-left: 4px; }
+        `;
+        document.head.appendChild(s);
+    }
+
+    let _reassignCtx = null;
+
+    function openReassignModal(id, oldPhone, amount) {
+        ensureReassignModalDom();
+        _reassignCtx = { id, oldPhone, amount };
+        const row = state.rows.find((x) => String(x.id) === String(id));
+        const oldName = row?.display_name || '(không tên)';
+        document.getElementById('w2bhReassignInfo').innerHTML = `
+            <div>GD: <b>+${fmtVnd(amount)}₫</b> · ${escapeHtml(row?.reference_code || row?.sepay_id || '')}</div>
+            <div>KH hiện tại: <b>${escapeHtml(oldName)}</b> — ${escapeHtml(oldPhone)}</div>
+        `;
+        document.getElementById('w2bhReassignSearch').value = '';
+        document.getElementById('w2bhReassignName').value = '';
+        document.getElementById('w2bhReassignReason').value = '';
+        const submit = document.getElementById('w2bhReassignSubmit');
+        submit.disabled = false;
+        submit.textContent = 'Xác nhận chuyển';
+        document.getElementById('w2bhReassignModal').hidden = false;
+        setTimeout(() => document.getElementById('w2bhReassignSearch').focus(), 60);
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function _normalizePhoneInput(raw) {
+        let s = String(raw || '').replace(/[^0-9]/g, '');
+        if (s.startsWith('84') && s.length >= 11) s = '0' + s.slice(2);
+        return s;
+    }
+
+    async function submitReassign() {
+        if (!_reassignCtx) return;
+        const { id, oldPhone, amount } = _reassignCtx;
+        const rawPhone = document.getElementById('w2bhReassignSearch').value || '';
+        const name = (document.getElementById('w2bhReassignName').value || '').trim();
+        const reason = (document.getElementById('w2bhReassignReason').value || '').trim();
+        const phone = _normalizePhoneInput(rawPhone);
+        if (!phone || phone.length < 9 || phone.length > 11) {
+            notify('SĐT mới phải có 9-11 số', 'warning');
+            return;
+        }
+        if (phone === _normalizePhoneInput(oldPhone)) {
+            notify('SĐT mới trùng SĐT cũ — không cần chuyển', 'warning');
+            return;
+        }
+        const submit = document.getElementById('w2bhReassignSubmit');
+        submit.disabled = true;
+        submit.textContent = 'Đang xử lý…';
+        try {
+            const r = await withFallback(`/${encodeURIComponent(id)}/reassign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone,
+                    name: name || null,
+                    verifiedBy: _currentUser(),
+                    reason: reason || null,
+                }),
+            });
+            const d = r?.data || {};
+            notify(
+                `✅ Đã chuyển ${fmtVnd(amount)}₫ từ ${d.oldPhone || oldPhone} → ${d.newPhone || phone}`,
+                'success'
+            );
+            document.getElementById('w2bhReassignModal').hidden = true;
+            _reassignCtx = null;
+            await load();
+        } catch (e) {
+            notify('Lỗi reassign: ' + e.message, 'error');
+            submit.disabled = false;
+            submit.textContent = 'Xác nhận chuyển';
         }
     }
 

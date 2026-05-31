@@ -97,6 +97,19 @@
         console.log(`[Web2Pending:${type || 'info'}]`, msg);
     }
 
+    function getCurrentUserName() {
+        try {
+            const authStr =
+                localStorage.getItem('loginindex_auth') ||
+                sessionStorage.getItem('loginindex_auth') ||
+                '{}';
+            const auth = JSON.parse(authStr);
+            return auth.username || auth.userName || auth.email || 'admin';
+        } catch {
+            return 'admin';
+        }
+    }
+
     let _modal = null;
     let _pendingList = [];
     let _searchQuery = '';
@@ -417,7 +430,7 @@
         const oldText = btn.textContent;
         btn.textContent = 'Đang xử lý…';
         try {
-            const result = await resolvePending(id, phone, name, 'web2-balance-history-custom');
+            const result = await resolvePending(id, phone, name, getCurrentUserName());
             const amt = result?.data?.amount || 0;
             notify(`✅ Đã cộng ${fmtVnd(amt)} vào ví Web 2.0 của ${name || phone}`, 'success');
             _pendingList = _pendingList.filter((it) => String(it.id) !== String(id));
@@ -507,7 +520,7 @@
         btn.disabled = true;
         btn.textContent = 'Đang xử lý…';
         try {
-            const result = await resolvePending(id, phone, name, 'web2-balance-history-ui');
+            const result = await resolvePending(id, phone, name, getCurrentUserName());
             const amt = result?.data?.amount || 0;
             notify(`✅ Đã cộng ${fmtVnd(amt)} vào ví Web 2.0 của ${name || phone}`, 'success');
             // Remove this item from list and re-render

@@ -25,6 +25,56 @@
 
 ## 2026-05-31
 
+### [web2-balance-history] Admin reassign KH + user attribution (verified_by) ✅
+
+**User feedback (3 yêu cầu liên quan)**:
+
+1. "thêm filter gán tay thông tin khách → user nào gán thì thêm vào"
+2. "filter nạp rút tay cũng cần biết user nào gán"
+3. "admin có quyền thay đổi khách hàng để phòng trường hợp gán sai hoặc bấm nhầm → nhớ làm cho đúng phần công nợ là chuyển từ khách cũ qua khách mới"
+
+**Backend** (`render.com/`):
+
+- `services/web2-sepay-matching.js`:
+    - `ensureSchema`: thêm column `verified_by VARCHAR(100)` qua `ADD COLUMN IF NOT EXISTS` (idempotent).
+    - CHECK constraint: thêm `manual_reassign` vào allowed methods.
+    - `resolveWeb2PendingMatch`: set `verified_by = resolvedBy` (từ frontend) trên `web2_balance_history`.
+- `routes/v2/web2-balance-history.js`:
+    - PATCH `/:id/link`: thêm `verifiedBy` body param → save to `verified_by`.
+    - **NEW** POST `/:id/reassign`: chuyển công nợ KH cũ → KH mới:
+        1. Validate row có `debt_added=true` + `linked_customer_phone` + `transfer_type='in'`
+        2. `processWithdraw(old_phone, amount, 'sepay', sepay_id)` — trừ ví cũ
+        3. `processDeposit(new_phone, amount, tx.id, ref='${sepay_id}:reassign:${newPhone}')` — cộng ví mới (ref tránh trùng sepay_id)
+        4. UPDATE `web2_balance_history`: linked_customer_phone, display_name, match_method='manual_reassign', verified_by, verified_at
+        5. Audit log `web2_match_audit_log` với candidates [old, new], chosenPhone=new, note
+        6. Rollback safety: nếu deposit mới fail → re-credit ví cũ + log error
+        7. Idempotent: cùng KH với hiện tại → no-op return.
+
+**Frontend** (`web2/balance-history/js/`):
+
+- `web2-pending-match.js`:
+    - `getCurrentUserName()` đọc `loginindex_auth` từ localStorage/session.
+    - `resolvePending` calls pass current user (replace hardcoded `'web2-balance-history-ui'`).
+- `web2-balance-history-app.js`:
+    - `_extractUserFromRow(r)`: lấy `verified_by` mới hoặc fallback parse `raw_data.userName` (cho legacy manual_deposit/withdraw).
+    - `userBadge` cho mọi method manual\_\* (deposit/withdraw/link/resolve/reassign): hiển thị `<span.w2bh-user-badge>icon {user}</span>`.
+    - Nút **"Sửa KH"** (icon `user-cog` cam) trên rows có `debt_added=true` + `transfer_type='in'` + amount > 0.
+    - Modal `#w2bhReassignModal`: info box hiển thị KH cũ + amount + ref; search autocomplete `/api/v2/customers?search=` (cache, debounce 220ms); name + reason fields; warning banner "trừ ví KH cũ + cộng ví mới".
+    - `submitReassign()` POST `/:id/reassign` với `phone, name, verifiedBy=_currentUser(), reason`. On success → toast + reload list.
+    - `_normalizePhoneInput` strip non-digits + 84→0 prefix.
+    - Validate phone 9-11 số; reject nếu trùng SĐT hiện tại.
+    - PATCH `/link` cũng pass `verifiedBy` từ giờ.
+
+**Test live**:
+
+- 48 reassign buttons hiển thị trên rows hợp lệ ✓
+- 3 user badges hiện sẵn từ raw_data.userName của manual_deposit cũ ✓
+- Modal mở: hiện info "GD +100.000đ · 6710, KH hiện tại: Thảo Thảo — 0946479179" ✓
+- Search "truong" → dropdown 8 KH match từ DB (Truong Thảo, Kim Sa Truong, …) ✓
+- Backend endpoint chưa deploy → verify sau redeploy.
+
+**Status**: ✅ Code pushed. Render auto-deploy sẽ apply migration `verified_by` column + thêm `manual_reassign` vào constraint + enable endpoint.
+
 ### [web2-balance-history] Pending modal — top-level filter + per-item custom KH picker ✅
 
 **User feedback** (2 yêu cầu):

@@ -192,10 +192,14 @@ router.patch('/:id/link', async (req, res) => {
     try {
         const db = req.app.locals.chatDb || req.app.locals.db;
         const id = parseInt(req.params.id);
-        const { phone, name } = req.body || {};
+        const { phone, name, verifiedBy } = req.body || {};
         if (!phone) {
             return res.status(400).json({ success: false, error: 'phone required' });
         }
+        const verifiedByVal =
+            String(verifiedBy || '')
+                .trim()
+                .slice(0, 100) || null;
 
         const r = await db.query(
             `SELECT id, sepay_id, transfer_amount, transfer_type, debt_added
@@ -218,9 +222,10 @@ router.patch('/:id/link', async (req, res) => {
                 `UPDATE web2_balance_history
                  SET linked_customer_phone = $2,
                      display_name = COALESCE(display_name, $3),
-                     match_method = 'manual_link'
+                     match_method = 'manual_link',
+                     verified_by = COALESCE($4, verified_by)
                  WHERE id = $1`,
-                [id, phone, name || null]
+                [id, phone, name || null, verifiedByVal]
             );
             return res.json({ success: true, data: { linked: true, credited: false } });
         }
@@ -243,9 +248,10 @@ router.patch('/:id/link', async (req, res) => {
                  verification_status = 'AUTO_APPROVED',
                  match_method = 'manual_link',
                  display_name = COALESCE(display_name, $3),
-                 verified_at = NOW()
+                 verified_at = NOW(),
+                 verified_by = COALESCE($4, verified_by)
              WHERE id = $1`,
-            [id, phone, name || null]
+            [id, phone, name || null, verifiedByVal]
         );
         res.json({
             success: true,
@@ -257,6 +263,203 @@ router.patch('/:id/link', async (req, res) => {
         });
     } catch (e) {
         handleError(res, e, 'Link');
+    }
+});
+
+// =====================================================
+// POST /api/web2/balance-history/:id/reassign
+// Body: { phone, name?, verifiedBy?, reason? }
+// Admin chuyển 1 giao dịch đã gán sang KH khác (gán nhầm / phòng cases sai):
+//   1. Validate row đã có debt_added=true + linked_customer_phone
+//   2. Withdraw ví KH cũ (số tiền = transfer_amount, idempotent ref qua sepay_id)
+//   3. Deposit ví KH mới (cùng số tiền, reference = sepay_id để giữ idempotency)
+//   4. UPDATE web2_balance_history: linked_customer_phone, display_name,
+//      match_method = 'manual_reassign', verified_by, verified_at
+//   5. Audit log
+// Idempotency: nếu reassign cùng KH với hiện tại → no-op return.
+// =====================================================
+router.post('/:id/reassign', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb || req.app.locals.db;
+        const id = parseInt(req.params.id);
+        const { phone, name, verifiedBy, reason } = req.body || {};
+        if (!phone) {
+            return res.status(400).json({ success: false, error: 'phone required' });
+        }
+        const verifiedByVal =
+            String(verifiedBy || '')
+                .trim()
+                .slice(0, 100) || null;
+        const reasonText =
+            String(reason || '')
+                .trim()
+                .slice(0, 500) || null;
+
+        const r = await db.query(
+            `SELECT id, sepay_id, transfer_amount, transfer_type, debt_added,
+                    linked_customer_phone, display_name, match_method
+             FROM web2_balance_history WHERE id = $1`,
+            [id]
+        );
+        if (r.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Not found' });
+        }
+        const tx = r.rows[0];
+        const oldPhone = tx.linked_customer_phone || null;
+        const amount = parseInt(tx.transfer_amount) || 0;
+
+        // Normalize phones (loose: strip non-digits, handle 84 prefix)
+        const normalize = (p) => {
+            let s = String(p || '').replace(/[^0-9]/g, '');
+            if (s.startsWith('84') && s.length >= 11) s = '0' + s.slice(2);
+            return s;
+        };
+        const newPhoneNorm = normalize(phone);
+        if (!newPhoneNorm || newPhoneNorm.length < 9 || newPhoneNorm.length > 11) {
+            return res.status(400).json({ success: false, error: 'SĐT không hợp lệ' });
+        }
+        const oldPhoneNorm = normalize(oldPhone || '');
+
+        // Idempotent: cùng KH → no-op (vẫn cho cập nhật name/verified_by để fix typo)
+        if (oldPhoneNorm && oldPhoneNorm === newPhoneNorm) {
+            await db.query(
+                `UPDATE web2_balance_history
+                 SET display_name = COALESCE($2, display_name),
+                     verified_by = COALESCE($3, verified_by)
+                 WHERE id = $1`,
+                [id, name || null, verifiedByVal]
+            );
+            return res.json({
+                success: true,
+                data: { reassigned: false, sameCustomer: true },
+            });
+        }
+
+        // Refuse nếu row chưa từng credit (chưa có gì để "chuyển")
+        if (!tx.debt_added || !oldPhoneNorm) {
+            return res.status(400).json({
+                success: false,
+                error: 'Giao dịch chưa được cộng vào ví nào — dùng "Gán KH" thay vì "Sửa KH".',
+            });
+        }
+
+        if (tx.transfer_type !== 'in' || amount <= 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Chỉ reassign được giao dịch tiền vào (+) với amount > 0',
+            });
+        }
+
+        // Step 1: withdraw từ ví cũ — reference giữ sepay_id để link audit
+        let withdrawResult = null;
+        try {
+            withdrawResult = await web2WalletService.processWithdraw(
+                db,
+                oldPhoneNorm,
+                amount,
+                'sepay',
+                tx.sepay_id,
+                `Reassign giao dịch ${tx.sepay_id} → ${newPhoneNorm}${reasonText ? ` (${reasonText})` : ''}${verifiedByVal ? ` bởi ${verifiedByVal}` : ''}`
+            );
+        } catch (e) {
+            return res.status(400).json({
+                success: false,
+                error: `Không thể trừ ví cũ (${oldPhoneNorm}): ${e.message}`,
+            });
+        }
+
+        // Step 2: deposit vào ví mới — KHÔNG dùng sepay_id (đã đc dùng ở row gốc) →
+        // dùng ref 'reassign' + sepayId variant để idempotent theo row+phone.
+        const reassignRef = `${tx.sepay_id}:reassign:${newPhoneNorm}`;
+        let depositResult = null;
+        try {
+            depositResult = await web2WalletService.processDeposit(
+                db,
+                newPhoneNorm,
+                amount,
+                tx.id,
+                `Reassign từ ${oldPhoneNorm} → bởi ${verifiedByVal || 'admin'}${reasonText ? ` (${reasonText})` : ''}`,
+                null,
+                null,
+                reassignRef
+            );
+        } catch (e) {
+            // Rollback withdraw — re-credit ví cũ để không mất tiền
+            try {
+                await web2WalletService.processDeposit(
+                    db,
+                    oldPhoneNorm,
+                    amount,
+                    tx.id,
+                    `Rollback reassign fail (deposit new ${newPhoneNorm} fail: ${e.message})`,
+                    null,
+                    null,
+                    `${tx.sepay_id}:rollback:${Date.now()}`
+                );
+            } catch (rbErr) {
+                console.error('[reassign] CRITICAL: rollback also failed:', rbErr.message);
+            }
+            return res.status(500).json({
+                success: false,
+                error: `Không thể cộng ví mới (${newPhoneNorm}): ${e.message}`,
+            });
+        }
+
+        // Step 3: update history row
+        await db.query(
+            `UPDATE web2_balance_history
+             SET linked_customer_phone = $2,
+                 display_name = COALESCE($3, display_name),
+                 match_method = 'manual_reassign',
+                 verified_by = COALESCE($4, verified_by),
+                 verified_at = NOW()
+             WHERE id = $1`,
+            [id, newPhoneNorm, name || null, verifiedByVal]
+        );
+
+        // Step 4: audit log
+        try {
+            await web2MatchAudit.log(db, {
+                transactionId: id,
+                sepayId: tx.sepay_id,
+                extractedValue: newPhoneNorm,
+                extractedType: 'manual_reassign',
+                candidates: [
+                    { phone: oldPhoneNorm, name: tx.display_name || '' },
+                    { phone: newPhoneNorm, name: name || '' },
+                ],
+                chosenPhone: newPhoneNorm,
+                chosenName: name || null,
+                decisionTier: 'manual_reassign',
+                confidenceScore: 100,
+                confidenceBreakdown: {
+                    reason: 'admin_reassign',
+                    oldPhone: oldPhoneNorm,
+                    newPhone: newPhoneNorm,
+                    note: reasonText,
+                },
+                amount,
+                decidedBy: verifiedByVal || 'admin',
+                walletTxId: depositResult.transaction?.id,
+                note: `Reassign: ${oldPhoneNorm} → ${newPhoneNorm}${reasonText ? ` (${reasonText})` : ''}`,
+            });
+        } catch (auditErr) {
+            console.warn('[reassign] audit log fail:', auditErr.message);
+        }
+
+        res.json({
+            success: true,
+            data: {
+                reassigned: true,
+                oldPhone: oldPhoneNorm,
+                newPhone: newPhoneNorm,
+                amount,
+                withdrawTxId: withdrawResult.transaction?.id,
+                depositTxId: depositResult.transaction?.id,
+            },
+        });
+    } catch (e) {
+        handleError(res, e, 'Reassign');
     }
 });
 
