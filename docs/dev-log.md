@@ -25,6 +25,23 @@
 
 ## 2026-05-31
 
+### [web2-balance-history] Modal "Sửa KH" cho phép cập nhật tên khi giữ nguyên SĐT ✅
+
+**Files**: `web2/balance-history/js/web2-balance-history-app.js`
+
+**Bug**: GD "(không tên) — 0906829977" có `debt_added=true` nhưng `display_name=null`. User mở modal "Sửa khách hàng", nhập SĐT cũ `0906829977` + tên "Anna Ngọc" → bị block với toast `"SĐT mới trùng SĐT cũ — không cần chuyển"`, không cho lưu tên.
+
+**Root cause**: client-side validation reject ngay khi `phone === oldPhone` mà không check user có nhập tên hay không. Trong khi server `POST /reassign` line 336-348 đã handle case này như no-op cho wallet + `UPDATE display_name = COALESCE($name, display_name)`.
+
+**Fix**:
+
+- `submitReassign()`: chỉ block nếu `samePhone && !name`; cho submit nếu có name → server tự cập nhật display_name (path `sameCustomer`)
+- `openReassignModal()`: nếu KH hiện tại `(không tên)` → đổi warning thành hint "💡 Nhập Tên KH để cập nhật tên", auto-fill SĐT cũ vào input, focus thẳng vào ô tên
+- Success toast phân biệt 2 case: `sameCustomer → "Đã cập nhật tên KH"` vs `reassigned → "Đã chuyển X₫ từ A → B"`
+- Submit button label động: "Đang cập nhật tên…" vs "Đang xử lý…"
+
+**Status**: ✅ Done
+
 ### [kpi][render] Sprint 1 KPI Attribution — wire ledger write path ✅
 
 **Plan**: [docs/plans/kpi-attribution-system.md](plans/kpi-attribution-system.md) Sprint 1

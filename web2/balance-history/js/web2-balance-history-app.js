@@ -589,7 +589,7 @@
                 </header>
                 <div class="w2bh-reassign-body">
                     <div class="w2bh-reassign-info" id="w2bhReassignInfo"></div>
-                    <p class="w2bh-reassign-warn">
+                    <p class="w2bh-reassign-warn" id="w2bhReassignWarn">
                         ⚠️ Hành động này sẽ <strong>trừ ví KH cũ</strong> và <strong>cộng vào ví KH mới</strong>.
                         Audit log đầy đủ.
                     </p>
@@ -714,19 +714,32 @@
         ensureReassignModalDom();
         _reassignCtx = { id, oldPhone, amount };
         const row = state.rows.find((x) => String(x.id) === String(id));
-        const oldName = row?.display_name || '(không tên)';
+        const rawName = row?.display_name || '';
+        const isUnnamed = !rawName.trim();
+        const oldName = rawName || '(không tên)';
         document.getElementById('w2bhReassignInfo').innerHTML = `
             <div>GD: <b>+${fmtVnd(amount)}₫</b> · ${escapeHtml(row?.reference_code || row?.sepay_id || '')}</div>
             <div>KH hiện tại: <b>${escapeHtml(oldName)}</b> — ${escapeHtml(oldPhone)}</div>
         `;
-        document.getElementById('w2bhReassignSearch').value = '';
+        const warn = document.getElementById('w2bhReassignWarn');
+        if (warn) {
+            warn.innerHTML = isUnnamed
+                ? `💡 KH hiện tại chưa có tên. Nhập <strong>"Tên KH"</strong> bên dưới + giữ nguyên SĐT để <strong>cập nhật tên</strong> (không đổi ví). Hoặc đổi SĐT để chuyển công nợ sang KH khác.`
+                : `⚠️ Hành động này sẽ <strong>trừ ví KH cũ</strong> và <strong>cộng vào ví KH mới</strong>. Audit log đầy đủ.`;
+        }
+        document.getElementById('w2bhReassignSearch').value = isUnnamed ? oldPhone || '' : '';
         document.getElementById('w2bhReassignName').value = '';
         document.getElementById('w2bhReassignReason').value = '';
         const submit = document.getElementById('w2bhReassignSubmit');
         submit.disabled = false;
         submit.textContent = 'Xác nhận chuyển';
         document.getElementById('w2bhReassignModal').hidden = false;
-        setTimeout(() => document.getElementById('w2bhReassignSearch').focus(), 60);
+        setTimeout(() => {
+            const target = isUnnamed
+                ? document.getElementById('w2bhReassignName')
+                : document.getElementById('w2bhReassignSearch');
+            target?.focus();
+        }, 60);
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
@@ -747,13 +760,17 @@
             notify('SĐT mới phải có 9-11 số', 'warning');
             return;
         }
-        if (phone === _normalizePhoneInput(oldPhone)) {
-            notify('SĐT mới trùng SĐT cũ — không cần chuyển', 'warning');
+        const samePhone = phone === _normalizePhoneInput(oldPhone);
+        if (samePhone && !name) {
+            notify(
+                'SĐT trùng SĐT cũ — nhập "Tên KH" để cập nhật tên, hoặc đổi SĐT để chuyển công nợ',
+                'warning'
+            );
             return;
         }
         const submit = document.getElementById('w2bhReassignSubmit');
         submit.disabled = true;
-        submit.textContent = 'Đang xử lý…';
+        submit.textContent = samePhone ? 'Đang cập nhật tên…' : 'Đang xử lý…';
         try {
             const r = await withFallback(`/${encodeURIComponent(id)}/reassign`, {
                 method: 'POST',
@@ -766,10 +783,14 @@
                 }),
             });
             const d = r?.data || {};
-            notify(
-                `✅ Đã chuyển ${fmtVnd(amount)}₫ từ ${d.oldPhone || oldPhone} → ${d.newPhone || phone}`,
-                'success'
-            );
+            if (d.sameCustomer) {
+                notify(`✅ Đã cập nhật tên KH cho SĐT ${phone}: ${name}`, 'success');
+            } else {
+                notify(
+                    `✅ Đã chuyển ${fmtVnd(amount)}₫ từ ${d.oldPhone || oldPhone} → ${d.newPhone || phone}`,
+                    'success'
+                );
+            }
             document.getElementById('w2bhReassignModal').hidden = true;
             _reassignCtx = null;
             await load();
