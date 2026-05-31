@@ -25,6 +25,34 @@
 
 ## 2026-05-31
 
+### [tpos-pancake] Tạo đơn native cho comment — defer cross-item refresh (anti-freeze) ✅
+
+**User feedback**: "lúc đang livestream → bấm tạo đơn native-order cho comment sẽ bị đứng 1 chút → background mấy hàm xử lý, để mượt UI lỗi thì back lại hoặc bạn cải thiện chỗ này".
+
+**Root cause** (`tpos-pancake/js/tpos/tpos-comment-list.js` `refreshCommentItem`):
+
+- Sau khi `createOrder` xong, `refreshCommentItem` re-render clicked item rồi LOOP TẤT CẢ comments cùng `fromId` → mỗi comment build HTML + replace DOM. Livestream có 100+ comments cùng KH → block main thread.
+- Cuối loop gọi `lucide.createIcons()` SCAN TOÀN DOC → 1 lần scan lớn.
+
+**Fix**:
+
+- Refresh clicked item: SYNC, instant (user thấy success icon ngay).
+- Cross-`fromId` refresh: defer qua `requestIdleCallback` + chunks of 10/tick (fallback `setTimeout 0`). UI trả về cho user ngay sau clicked item update; bulk update chạy trong idle time.
+- `lucide.createIcons()` chỉ fire 1 lần ở cuối cross-item batch.
+- Error handler trong `createOrder` đã sẵn restore button + show toast → "lỗi thì back lại" tự động.
+
+**Status**: ✅ Done.
+
+### [web2-balance-history] Fix "Chọn KH" CHECK constraint violation ✅
+
+**User bug**: bấm "Chọn" trong modal Trùng SĐT (pending multi-match) → 500 error `web2_balance_history_match_method_check`.
+
+**Root cause**: `resolveWeb2PendingMatch` UPDATE set `match_method='manual_resolve'` (distinguish "user pick từ multi-match" vs `manual_link`) — nhưng CHECK constraint chưa allow value đó → DB reject.
+
+**Fix** (`render.com/services/web2-sepay-matching.js` `ensureSchema`): thêm `'manual_resolve'` vào allowed list. ALTER chạy idempotent ở Render startup → sau redeploy "Chọn" hoạt động.
+
+**Status**: ✅ Code pushed. Render auto-deploy sẽ apply migration.
+
 ### [kpi][render][native-orders] Sprint 0 KPI Attribution System — schema + audit gaps ✅
 
 **Plan**: [docs/plans/kpi-attribution-system.md](plans/kpi-attribution-system.md) v2 — APPROVED (Q8/Q10 → DEFAULT)

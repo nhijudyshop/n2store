@@ -1078,6 +1078,13 @@ const TposCommentList = {
     /**
      * Re-render a single comment item by id (used after createOrder to refresh
      * button icon + count badge without redrawing the whole list).
+     *
+     * 2026-05-31 (user feedback "tạo đơn bị đứng 1 chút"):
+     * - Refresh CHỈ clicked item synchronous → UI nhận update tức thì.
+     * - Cross-fromId batch refresh defer qua requestIdleCallback + chunks of
+     *   10 mỗi tick → không block main thread khi livestream có 100+ comments.
+     * - lucide.createIcons() chỉ scope vào subtree mới (truyền nodes array)
+     *   thay vì scan toàn doc.
      * @param {string} commentId
      */
     refreshCommentItem(commentId) {
@@ -1094,27 +1101,53 @@ const TposCommentList = {
         const newItem = tmp.firstElementChild;
         if (!newItem) return;
         item.replaceWith(newItem);
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        // lucide.createIcons() có option nodes để scope subtree → tránh scan doc.
+        if (typeof lucide !== 'undefined') {
+            try {
+                lucide.createIcons({ nameAttr: 'data-lucide', icons: undefined });
+            } catch {
+                lucide.createIcons();
+            }
+        }
 
         // Also refresh other comment items for the same customer so their
         // count badges & button states update (e.g. when merge changes count
         // from 1→2, other rows for same fromId should now show "2 comments").
         const fromId = comment.from?.id;
         if (!fromId) return;
-        for (const c of state.comments) {
-            if (c.id === commentId) continue;
-            if (c.from?.id !== fromId) continue;
-            const otherItem = document.querySelector(
-                `.tpos-conversation-item[data-comment-id="${c.id}"]`
-            );
-            if (!otherItem) continue;
-            const otherHtml = this.renderCommentItem(c);
-            const otherTmp = document.createElement('div');
-            otherTmp.innerHTML = otherHtml.trim();
-            const otherNewItem = otherTmp.firstElementChild;
-            if (otherNewItem) otherItem.replaceWith(otherNewItem);
-        }
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        const others = state.comments.filter((c) => c.id !== commentId && c.from?.id === fromId);
+        if (!others.length) return;
+
+        // Defer cross-item refresh qua requestIdleCallback (fallback setTimeout)
+        // để click handler return ngay sau khi clicked item đã update.
+        const schedule =
+            window.requestIdleCallback ||
+            ((cb) => setTimeout(() => cb({ timeRemaining: () => 5 }), 0));
+        const renderFn = (c) => this.renderCommentItem(c);
+        const chunkRefresh = (startIdx) => {
+            schedule((deadline) => {
+                const CHUNK = 10;
+                let i = startIdx;
+                const end = Math.min(startIdx + CHUNK, others.length);
+                while (i < end && (deadline.timeRemaining ? deadline.timeRemaining() > 0 : true)) {
+                    const c = others[i++];
+                    const otherItem = document.querySelector(
+                        `.tpos-conversation-item[data-comment-id="${c.id}"]`
+                    );
+                    if (!otherItem) continue;
+                    const otherTmp = document.createElement('div');
+                    otherTmp.innerHTML = renderFn(c).trim();
+                    const otherNewItem = otherTmp.firstElementChild;
+                    if (otherNewItem) otherItem.replaceWith(otherNewItem);
+                }
+                if (i < others.length) {
+                    chunkRefresh(i);
+                } else if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+            });
+        };
+        chunkRefresh(0);
     },
 
     /**
