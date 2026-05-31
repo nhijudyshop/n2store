@@ -524,31 +524,43 @@ function renderShipments(shipments) {
 
     // Compute per-row balance, GROUPED BY đợt, sorted date-ASC:
     //   Số dư_i = (i==0 ? 0 : Còn dư_{i-1}) + payments_in_window
+    //     - payments first filtered to the đợt window [ngayBatDau, ngayKetThuc]
+    //       (paymentsInDotWindow) so CK dated outside the đợt don't leak in.
     //     - first row: payments with ngayTT <= ngayDiHang_0 (catch-up trước shipment đầu)
     //     - row i>0: payments with ngayDiHang_{i-1} < ngayTT <= ngayDiHang_i
+    //     - LAST row: upper bound = +∞ so in-window CK dated after the last delivery
+    //       are still captured (else they'd vanish from the running balance).
     //   Còn dư_i = Số dư_i - HD_i - CP_i
-    // → last row Còn dư = Σ TT_đợt - Σ HD - Σ CP (match modal CÒN LẠI per-đợt)
+    // → last row Còn dư = Σ TT_in_window - Σ HD - Σ CP (match modal CÒN LẠI per-đợt)
     const byDot = new Map();
     shipments.forEach((s) => {
         const k = s.dotSo || 0;
         if (!byDot.has(k)) byDot.set(k, []);
         byDot.get(k).push(s);
     });
+    const _windowFilter =
+        typeof paymentsInDotWindow === 'function'
+            ? paymentsInDotWindow
+            : (p) => (Array.isArray(p) ? p : []);
     byDot.forEach((arr) => {
         arr.sort(
             (a, b) => new Date(a.ngayDiHang || 0).getTime() - new Date(b.ngayDiHang || 0).getTime()
         );
-        const payments = (arr[0] && arr[0].thanhToanCK) || [];
-        const paymentsByDate = Array.isArray(payments) ? payments : [];
+        const head = arr[0] || {};
+        const paymentsByDate = _windowFilter(head.thanhToanCK, head.ngayBatDau, head.ngayKetThuc);
         let conDuPrev = 0;
         let prevDateMs = -Infinity;
+        const lastIdx = arr.length - 1;
         arr.forEach((s, i) => {
             const curDateMs = s.ngayDiHang ? new Date(s.ngayDiHang).getTime() : 0;
-            // Sum payments in window (prevDateMs, curDateMs]. First row: window is (-∞, curDateMs].
+            // Window upper bound: last row catches everything remaining (in-window) so
+            // CK dated after the final delivery still land in the running balance.
+            const upper = i === lastIdx ? Infinity : curDateMs;
+            // Sum payments in window (prevDateMs, upper]. First row: window is (-∞, upper].
             const windowTT = paymentsByDate.reduce((sum, p) => {
                 const t = p.ngayTT ? new Date(p.ngayTT).getTime() : 0;
                 if (!t) return sum;
-                if (t > prevDateMs && t <= curDateMs) {
+                if (t > prevDateMs && t <= upper) {
                     return sum + (parseFloat(p.soTienTT) || 0);
                 }
                 return sum;
@@ -636,7 +648,11 @@ function updateInventoryStatsBar() {
         const dotEntries = getAllDotsAggregated();
         const scoped = hasDotFilter ? dotEntries.filter((e) => e.dotSo === activeDot) : dotEntries;
         scoped.forEach((e) => {
-            const payments = Array.isArray(e.thanhToanCK) ? e.thanhToanCK : [];
+            const allPayments = Array.isArray(e.thanhToanCK) ? e.thanhToanCK : [];
+            const payments =
+                typeof paymentsInDotWindow === 'function'
+                    ? paymentsInDotWindow(allPayments, e.ngayBatDau, e.ngayKetThuc)
+                    : allPayments;
             const tg = parseFloat(e.tiGia) || 0;
             const tt = payments.reduce((sum, p) => sum + (parseFloat(p.soTienTT) || 0), 0);
             tongTT += tt;
@@ -2902,6 +2918,8 @@ function _aggregateDotEntry(dotSo) {
     let tongChiPhi = 0;
     let thanhToanCK = [];
     let tiGia = 0;
+    let ngayBatDau = null;
+    let ngayKetThuc = null;
     const hdByDate = {};
     const cpByDate = {};
     dots.forEach((d) => {
@@ -2921,6 +2939,8 @@ function _aggregateDotEntry(dotSo) {
             thanhToanCK = d.thanhToanCK;
         }
         if (!tiGia && d.tiGia) tiGia = parseFloat(d.tiGia) || 0;
+        if (!ngayBatDau && d.ngayBatDau) ngayBatDau = d.ngayBatDau;
+        if (!ngayKetThuc && d.ngayKetThuc) ngayKetThuc = d.ngayKetThuc;
     });
     return {
         dotSo: parseInt(dotSo, 10) || 1,
@@ -2929,6 +2949,8 @@ function _aggregateDotEntry(dotSo) {
         tongChiPhi,
         thanhToanCK,
         tiGia,
+        ngayBatDau,
+        ngayKetThuc,
         hdByDate,
         cpByDate,
     };
@@ -2937,7 +2959,12 @@ function _aggregateDotEntry(dotSo) {
 function _calcPaymentTotals(entry) {
     // All amounts are in the SAME foreign currency unit (e.g. CNY).
     // VND is display-only (via tỉ giá) and must NOT enter CÒN LẠI math.
-    const payments = Array.isArray(entry.thanhToanCK) ? entry.thanhToanCK : [];
+    // Only CK within the đợt window [ngayBatDau, ngayKetThuc] count toward totals.
+    const allPayments = Array.isArray(entry.thanhToanCK) ? entry.thanhToanCK : [];
+    const payments =
+        typeof paymentsInDotWindow === 'function'
+            ? paymentsInDotWindow(allPayments, entry.ngayBatDau, entry.ngayKetThuc)
+            : allPayments;
     const tiGia = parseFloat(entry.tiGia) || 0;
     const tongTT = payments.reduce((s, p) => s + (parseFloat(p.soTienTT) || 0), 0);
     const tongTTVND = tongTT * tiGia; // display note only
@@ -2982,15 +3009,22 @@ function _renderBreakdownRows(breakdownObj, tiGia) {
         .join('');
 }
 
-function _renderPaymentRow(dotSo, tiGia, p) {
+function _renderPaymentRow(dotSo, tiGia, p, ngayBatDau, ngayKetThuc) {
     const soTienTT = parseFloat(p.soTienTT) || 0;
     const soTienDisplay =
         soTienTT > 0 ? `${formatNumber(soTienTT)}${_vndSuffixHtml(soTienTT, tiGia)}` : '—';
     const dataAttrs = `data-payment-id="${_escAttr(p.id)}" data-dot-so="${dotSo}"`;
     const ghiChu = p.ghiChu || '';
     const ghiChuTooltip = ghiChu ? _escAttr(ghiChu) : 'Nhấp đúp để sửa';
+    // Fade rows whose ngayTT falls outside the đợt window — shown but NOT counted.
+    const inWindow =
+        typeof paymentsInDotWindow === 'function'
+            ? paymentsInDotWindow([p], ngayBatDau, ngayKetThuc).length > 0
+            : true;
+    const outCls = inWindow ? '' : ' payment-row-out';
+    const outTip = inWindow ? '' : ' title="Ngoài khoảng đợt — không tính vào tổng"';
     return `
-        <li class="payment-row" ${dataAttrs}>
+        <li class="payment-row${outCls}" ${dataAttrs}${outTip}>
             <span class="payment-cell payment-ngay-tt editable-cell" ${dataAttrs} data-field="ngayTT" ondblclick="startInlineEditPaymentNgay(this)" title="Nhấp đúp để sửa">${formatDateDisplay(p.ngayTT) || '—'}</span>
             <span class="payment-cell payment-so-tien-tt editable-cell" ${dataAttrs} data-field="soTienTT" ondblclick="startInlineEditPaymentSoTien(this)" title="Nhấp đúp để sửa">${soTienDisplay}</span>
             <span class="payment-cell payment-ghi-chu editable-cell" ${dataAttrs} data-field="ghiChu" ondblclick="startInlineEditPaymentNote(this)" title="${ghiChuTooltip}">${_escAttr(ghiChu)}</span>
@@ -3008,12 +3042,23 @@ function _renderDotSectionBodyHtml(entry) {
     const payments = Array.isArray(entry.thanhToanCK) ? entry.thanhToanCK : [];
     const totals = _calcPaymentTotals(entry);
     const dotAttr = entry.dotSo;
-    const rows = payments.map((p) => _renderPaymentRow(dotAttr, totals.tiGia, p)).join('');
+    const rows = payments
+        .map((p) => _renderPaymentRow(dotAttr, totals.tiGia, p, entry.ngayBatDau, entry.ngayKetThuc))
+        .join('');
     const hdBreakdown = _renderBreakdownRows(entry.hdByDate || {}, totals.tiGia);
     const cpBreakdown = _renderBreakdownRows(entry.cpByDate || {}, totals.tiGia);
+    const tuNgay = entry.ngayBatDau ? formatDateDisplay(entry.ngayBatDau) : '—';
+    const denNgay = entry.ngayKetThuc ? formatDateDisplay(entry.ngayKetThuc) : '—';
 
-    // Tỉ giá and CÒN LẠI now live in the dot head (sticky at top). Body starts with totals.
+    // Tỉ giá and CÒN LẠI now live in the dot head (sticky at top). Body starts with
+    // the CK date-window row (chỉ TT trong khoảng này mới được tính), then totals.
     return `
+        <div class="pp-date-range" title="Chỉ thanh toán CK có ngày trong khoảng này mới tính vào đợt">
+            <span class="pp-dr-label">Từ ngày:</span>
+            <span class="pp-date editable-cell" data-dot-so="${dotAttr}" ondblclick="startInlineEditNgayBatDau(this)" title="Nhấp đúp để sửa">${tuNgay}</span>
+            <span class="pp-dr-label">Đến ngày:</span>
+            <span class="pp-date editable-cell" data-dot-so="${dotAttr}" ondblclick="startInlineEditNgayKetThuc(this)" title="Nhấp đúp để sửa">${denNgay}</span>
+        </div>
         <div class="payment-panel-totals">
             <div class="pp-line"><span class="pp-label">Tổng TT</span><strong class="pp-value pp-total-tt">${formatNumber(totals.tongTT)}${_vndSuffixHtml(totals.tongTT, totals.tiGia)}</strong></div>
             <div class="pp-group">
@@ -3187,6 +3232,16 @@ async function _persistPaymentByDot(dotSo, patch) {
             d.tiGia = patch.tiGia;
         });
     }
+    if (patch.ngayBatDau !== undefined) {
+        dots.forEach((d) => {
+            d.ngayBatDau = patch.ngayBatDau;
+        });
+    }
+    if (patch.ngayKetThuc !== undefined) {
+        dots.forEach((d) => {
+            d.ngayKetThuc = patch.ngayKetThuc;
+        });
+    }
     await shipmentsApi.updatePaymentByDot(ds, patch);
     flattenNCCData();
     _refreshPaymentDotSectionUI(ds);
@@ -3208,6 +3263,22 @@ function _getTiGiaForDot(dotSo) {
         if (d.tiGia) return parseFloat(d.tiGia) || 0;
     }
     return 0;
+}
+
+function _getNgayBatDauForDot(dotSo) {
+    const dots = _findDotsByDotSo(dotSo);
+    for (const d of dots) {
+        if (d.ngayBatDau) return d.ngayBatDau;
+    }
+    return '';
+}
+
+function _getNgayKetThucForDot(dotSo) {
+    const dots = _findDotsByDotSo(dotSo);
+    for (const d of dots) {
+        if (d.ngayKetThuc) return d.ngayKetThuc;
+    }
+    return '';
 }
 
 // ---------- Tỉ giá inline edit ----------
@@ -3262,6 +3333,83 @@ function startInlineEditTiGia(el) {
             restore();
         }
     });
+}
+
+// ---------- Đợt CK date-window inline edit (ngày bắt đầu / kết thúc) ----------
+
+function _startInlineEditDotDate(el, field) {
+    if (!permissionHelper?.can('view_thanhToanCK')) return;
+    if (el.querySelector('input')) return;
+
+    const dotSo = parseInt(el.dataset.dotSo, 10) || 1;
+    const oldVal =
+        field === 'ngayBatDau' ? _getNgayBatDauForDot(dotSo) : _getNgayKetThucForDot(dotSo);
+
+    const input = document.createElement('input');
+    input.type = 'date';
+    input.className = 'inline-edit-input payment-date-input';
+    input.value = oldVal || '';
+    el.innerHTML = '';
+    el.appendChild(input);
+    input.focus();
+
+    const restore = () => {
+        el.textContent = oldVal ? formatDateDisplay(oldVal) : '—';
+    };
+    const commit = async () => {
+        const newVal = (input.value || '').trim();
+        if (newVal === (oldVal || '')) {
+            restore();
+            return;
+        }
+        if (!newVal) {
+            // v1 chưa hỗ trợ xoá ngày về rỗng (PATCH dùng COALESCE) → coi như huỷ.
+            restore();
+            return;
+        }
+        // Ràng buộc ngày bắt đầu ≤ ngày kết thúc.
+        const other =
+            field === 'ngayBatDau' ? _getNgayKetThucForDot(dotSo) : _getNgayBatDauForDot(dotSo);
+        if (other) {
+            const start = field === 'ngayBatDau' ? newVal : other;
+            const end = field === 'ngayBatDau' ? other : newVal;
+            if (new Date(start).getTime() > new Date(end).getTime()) {
+                window.notificationManager?.error('Ngày bắt đầu phải ≤ ngày kết thúc');
+                restore();
+                return;
+            }
+        }
+        el.textContent = formatDateDisplay(newVal);
+        try {
+            await _persistPaymentByDot(dotSo, { [field]: newVal });
+            window.notificationManager?.success('Đã cập nhật khoảng ngày đợt');
+        } catch (error) {
+            console.error('[PAYMENT] Dot date update error:', error);
+            restore();
+            window.notificationManager?.error('Không thể cập nhật: ' + error.message);
+        }
+    };
+
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.removeEventListener('blur', commit);
+            commit();
+        }
+        if (e.key === 'Escape') {
+            input.removeEventListener('blur', commit);
+            restore();
+        }
+    });
+}
+
+function startInlineEditNgayBatDau(el) {
+    _startInlineEditDotDate(el, 'ngayBatDau');
+}
+
+function startInlineEditNgayKetThuc(el) {
+    _startInlineEditDotDate(el, 'ngayKetThuc');
 }
 
 // ---------- Payment row inline edits ----------
@@ -3506,6 +3654,8 @@ window.startInlineEditCostNote = startInlineEditCostNote;
 window.addTableImage = addTableImage;
 window.removeTableImage = removeTableImage;
 window.startInlineEditTiGia = startInlineEditTiGia;
+window.startInlineEditNgayBatDau = startInlineEditNgayBatDau;
+window.startInlineEditNgayKetThuc = startInlineEditNgayKetThuc;
 window.startInlineEditPaymentNgay = startInlineEditPaymentNgay;
 window.startInlineEditPaymentSoTien = startInlineEditPaymentSoTien;
 window.startInlineEditPaymentNote = startInlineEditPaymentNote;

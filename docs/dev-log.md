@@ -23,6 +23,25 @@
 
 ---
 
+## 2026-05-31
+
+### [inventory-tracking] Khoảng ngày (ngày bắt đầu/kết thúc) cho từng Đợt → bound thanh toán CK ✅
+
+**Vấn đề (user báo)**: "Còn lại" trên thẻ tổng đợt và Còn dư từng ngày lệch nhau (đợt 1: tổng `384.823` vs ngày cuối `184.823`, lệch `200.000`). Gốc rễ: mỗi đợt **không có ngày bắt đầu/kết thúc**, nên `Tổng TT` cộng **toàn bộ** `thanhToanCK` của đợt bất kể ngày → khoản CK dated sau ngày giao cuối (thường là tiền của đợt sau) bị tính nhầm vào đợt; còn chuỗi số dư từng ngày lại **rớt** các khoản trễ đó.
+
+**Giải pháp**: thêm 2 cột `ngay_bat_dau` / `ngay_ket_thuc` per-đợt (1 đợt = 1 dot_so). Một khoản CK chỉ tính cho đợt nếu `ngayBatDau ≤ ngayTT ≤ ngayKetThuc` (open-ended khi thiếu → giữ hành vi cũ). UI: 2 ô ngày trên 1 dòng, ngay dưới dòng "Đợt N | Tỉ giá" trong modal "Thanh Toán CK Theo Đợt". CK ngoài khoảng vẫn hiện trong danh sách nhưng tô mờ + gạch, không cộng vào tổng. Chuỗi số dư: dòng cuối gom luôn khoản in-window dated sau ngày giao cuối ⇒ Còn dư ngày cuối **luôn khớp** CÒN LẠI tổng đợt.
+
+**Files**:
+- `render.com/migrations/072_add_dot_date_range_to_inventory_shipments.sql` (mới) — `ADD COLUMN IF NOT EXISTS ngay_bat_dau/ngay_ket_thuc DATE`.
+- `render.com/routes/v2/inventory-tracking.js` — `ensureShipmentDateRangeSchema(db)` (self-migration idempotent, mẫu `ensureHiddenNccsSchema`) gọi ở `GET /shipments` + `PATCH /shipments/payment-by-dot`; PATCH nhận + lưu 2 cột ngày (COALESCE).
+- `inventory-tracking/js/api-client.js` — `pgToShipment` map `ngayBatDau/ngayKetThuc`; `updatePaymentByDot` gửi `ngay_bat_dau/ngay_ket_thuc`.
+- `inventory-tracking/js/data-loader.js` — helper global `paymentsInDotWindow()`; absorb 2 field trong `getAllDotHangAsShipments` + `getAllDotsAggregated`.
+- `inventory-tracking/js/table-renderer.js` — áp window vào `_calcPaymentTotals` (modal Tổng TT/CÒN LẠI), `updateInventoryStatsBar` (thẻ tổng), chuỗi số dư từng ngày (dòng cuối upper=+∞); `_aggregateDotEntry` absorb; UI dòng ngày trong `_renderDotSectionBodyHtml` + handler `startInlineEditNgayBatDau/NgayKetThuc` + getter + broadcast trong `_persistPaymentByDot` + đăng ký global; `_renderPaymentRow` tô mờ row ngoài khoảng.
+- `inventory-tracking/css/modern.css` — `.pp-date-range` / `.pp-date` / `.payment-row-out`.
+- `inventory-tracking/index.html` — bump `?v=20260531a` cho api-client/data-loader/table-renderer.
+
+**Verify**: node calc test khớp số screenshot — không window: TT 420.969 / CÒN LẠI 384.823 / Còn dư ngày cuối 384.823 (khớp); ngày kết thúc=17/5: loại 200k trễ → 220.969 / 184.823 / 184.823 (khớp). `node --check` 4 file OK. **Status**: cần verify end-to-end sau khi Render redeploy (route self-migrate khi GET /shipments lần đầu). **Lưu ý**: COALESCE → v1 chưa xoá ngày về NULL qua UI (đặt ngày xa để "mở" lại).
+
 ## 2026-05-30
 
 ### [native-orders][render] Badge "Livestream" cho SP kéo từ TPOS-Pancake ✅

@@ -691,6 +691,28 @@ function normalizeProductData(product) {
  * Get all dotHang restructured as shipments (grouped by ngayDiHang + dotSo)
  * Each (date, dotSo) combination is a distinct shipment group
  */
+/**
+ * Filter CK payments to an đợt's date window [ngayBatDau, ngayKetThuc] (inclusive).
+ * Open-ended on either side when that bound is missing (null/empty) → keeps legacy
+ * "count all" behavior until the user sets dates. A payment with no/invalid ngayTT
+ * is kept (can't be excluded by date it doesn't have).
+ * Used by every per-đợt TT total + the per-day running balance chain.
+ */
+function paymentsInDotWindow(payments, ngayBatDau, ngayKetThuc) {
+    if (!Array.isArray(payments) || payments.length === 0) return [];
+    const lo = ngayBatDau ? new Date(ngayBatDau).getTime() : -Infinity;
+    const hi = ngayKetThuc ? new Date(ngayKetThuc).getTime() : Infinity;
+    if (lo === -Infinity && hi === Infinity) return payments;
+    return payments.filter((p) => {
+        const t = p && p.ngayTT ? new Date(p.ngayTT).getTime() : NaN;
+        if (!Number.isFinite(t)) return true; // no usable date → don't drop it
+        return t >= lo && t <= hi;
+    });
+}
+if (typeof window !== 'undefined') {
+    window.paymentsInDotWindow = paymentsInDotWindow;
+}
+
 function getAllDotHangAsShipments() {
     const allDotHang = getAllDotHang();
 
@@ -718,6 +740,8 @@ function getAllDotHangAsShipments() {
                 // Take the first non-empty value we encounter — backend keeps rows in sync.
                 thanhToanCK: [],
                 tiGia: 0,
+                ngayBatDau: null, // per-đợt CK window start (inclusive)
+                ngayKetThuc: null, // per-đợt CK window end (inclusive)
                 _dotIds: [], // all real DB row IDs for this đợt (used when writing, if ever needed)
             };
         }
@@ -767,6 +791,9 @@ function getAllDotHangAsShipments() {
         if (!byKey[key].tiGia && dot.tiGia) {
             byKey[key].tiGia = parseFloat(dot.tiGia) || 0;
         }
+        // CK date window — first non-empty wins (per-đợt, synced across rows).
+        if (!byKey[key].ngayBatDau && dot.ngayBatDau) byKey[key].ngayBatDau = dot.ngayBatDau;
+        if (!byKey[key].ngayKetThuc && dot.ngayKetThuc) byKey[key].ngayKetThuc = dot.ngayKetThuc;
     });
 
     // Helper fallback nếu table-renderer chưa load (bootstrap order an toàn).
@@ -840,6 +867,8 @@ function getAllDotsAggregated() {
                 tongChiPhi: 0,
                 thanhToanCK: [],
                 tiGia: 0,
+                ngayBatDau: null,
+                ngayKetThuc: null,
                 _dotIds: [],
                 hdByDate: {},
                 cpByDate: {},
@@ -874,6 +903,9 @@ function getAllDotsAggregated() {
         if (!entry.tiGia && dot.tiGia) {
             entry.tiGia = parseFloat(dot.tiGia) || 0;
         }
+        // CK date window — first non-empty wins (per-đợt, synced across rows).
+        if (!entry.ngayBatDau && dot.ngayBatDau) entry.ngayBatDau = dot.ngayBatDau;
+        if (!entry.ngayKetThuc && dot.ngayKetThuc) entry.ngayKetThuc = dot.ngayKetThuc;
     });
 
     return Object.values(byDot)
@@ -884,6 +916,8 @@ function getAllDotsAggregated() {
             tongChiPhi: entry.tongChiPhi,
             thanhToanCK: entry.thanhToanCK,
             tiGia: entry.tiGia,
+            ngayBatDau: entry.ngayBatDau,
+            ngayKetThuc: entry.ngayKetThuc,
             _dotIds: entry._dotIds,
             hdByDate: entry.hdByDate,
             cpByDate: entry.cpByDate,

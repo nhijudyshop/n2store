@@ -77,6 +77,25 @@ function notify(topic, action, extra) {
 // changes JSON readable on the UI.
 const HIST_SKIP_FIELDS = new Set(['id', 'created_at', 'updated_at', 'created_by', 'updated_by']);
 
+// Idempotent bootstrap (once per process) — adds the per-đợt CK date-window
+// columns. Mirrors ensureHiddenNccsSchema so the feature works even if migration
+// 072 hasn't been run manually. Called before GET /shipments + PATCH payment-by-dot.
+let _shipmentDateRangeSchemaReady = null;
+async function ensureShipmentDateRangeSchema(db) {
+    if (_shipmentDateRangeSchemaReady) return _shipmentDateRangeSchemaReady;
+    _shipmentDateRangeSchemaReady = (async () => {
+        await db.query(`
+            ALTER TABLE inventory_shipments
+                ADD COLUMN IF NOT EXISTS ngay_bat_dau  DATE,
+                ADD COLUMN IF NOT EXISTS ngay_ket_thuc DATE;
+        `);
+    })().catch((e) => {
+        _shipmentDateRangeSchemaReady = null;
+        throw e;
+    });
+    return _shipmentDateRangeSchemaReady;
+}
+
 function _diffShipment(oldRow, newRow) {
     if (!oldRow || !newRow) return [];
     const changes = [];
@@ -522,6 +541,7 @@ router.delete('/order-bookings/:id', async (req, res) => {
 router.get('/shipments', async (req, res) => {
     try {
         const db = getDb(req);
+        await ensureShipmentDateRangeSchema(db);
         const { date_from, date_to, stt_ncc, search, limit = 200, offset = 0 } = req.query;
 
         const conditions = [];
@@ -935,8 +955,9 @@ router.put('/shipments/:id', async (req, res) => {
 router.patch('/shipments/payment-by-dot', async (req, res) => {
     try {
         const db = getDb(req);
+        await ensureShipmentDateRangeSchema(db);
         const user = getUserFromHeaders(req);
-        const { dot_so, thanh_toan_ck, ti_gia } = req.body;
+        const { dot_so, thanh_toan_ck, ti_gia, ngay_bat_dau, ngay_ket_thuc } = req.body;
 
         if (dot_so === undefined || dot_so === null) {
             return res.status(400).json({ success: false, error: 'dot_so required' });
@@ -947,16 +968,20 @@ router.patch('/shipments/payment-by-dot', async (req, res) => {
             UPDATE inventory_shipments SET
                 thanh_toan_ck = COALESCE($2, thanh_toan_ck),
                 ti_gia = COALESCE($3, ti_gia),
+                ngay_bat_dau = COALESCE($5, ngay_bat_dau),
+                ngay_ket_thuc = COALESCE($6, ngay_ket_thuc),
                 updated_by = $4,
                 updated_at = NOW()
             WHERE dot_so = $1
-            RETURNING id, ngay_di_hang, thanh_toan_ck, ti_gia
+            RETURNING id, ngay_di_hang, thanh_toan_ck, ti_gia, ngay_bat_dau, ngay_ket_thuc
         `,
             [
                 parseInt(dot_so, 10),
                 thanh_toan_ck !== undefined ? JSON.stringify(thanh_toan_ck) : null,
                 ti_gia !== undefined ? ti_gia : null,
                 user,
+                ngay_bat_dau !== undefined && ngay_bat_dau !== '' ? ngay_bat_dau : null,
+                ngay_ket_thuc !== undefined && ngay_ket_thuc !== '' ? ngay_ket_thuc : null,
             ]
         );
 
