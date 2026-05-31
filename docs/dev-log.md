@@ -25,6 +25,51 @@
 
 ## 2026-05-31
 
+### [kpi][render] Sprint 1 KPI Attribution — wire ledger write path ✅
+
+**Plan**: [docs/plans/kpi-attribution-system.md](plans/kpi-attribution-system.md) Sprint 1
+
+**Events emit từ 4 chokepoints:**
+
+1. **Cart (livestream)** — `cart.js`:
+    - POST `/cart/:cid/add` → `forecast_add` (source=livestream, qty=qtyAdd)
+    - POST `/cart/:cid/:code/remove` → `forecast_remove` (qty=-removedQty)
+    - `_emitCartKpi` helper resolve beneficiary qua `campaign_employee_ranges` JSONB
+
+2. **Native PATCH (picker)** — `native-orders.js`:
+    - Snapshot products HIỆN TẠI trước UPDATE
+    - Sau UPDATE thành công, diff Old vs New by productCode:
+        - New-only → `forecast_add`
+        - Old-only → `forecast_remove`
+        - Qty changed → `forecast_qty_change`
+    - `_emitPatchKpiEvents` fire-and-forget; source = product.source (preserve)
+
+3. **PBH create** — `fast-sale-orders.js:/from-native-order`:
+    - Sau khi native status → confirmed + INSERT PBH success
+    - Loop products[] của native_order (có source), emit `actual_confirmed` per SP
+    - Deterministic `client_event_id = pbh_<number>_<sku>` → reissue dedup tự nhiên
+
+4. **Cancel (2 paths)**:
+    - `POST /api/native-orders/:code/cancel` → emit `actual_revoked` cho mọi `actual_confirmed` chưa bị revoke
+    - `POST /api/fast-sale-orders/:number/cancel` + `/by-source/:code/cancel` → cùng pattern
+    - `client_event_id = revoke_<id>` deterministic; `revokes_event_id` link back
+
+**Client-side**:
+
+- `tpos-pancake/inventory-panel.js` add/remove fetch body kèm `clientEventId` UUID
+- `native-orders-app.js addLineFromPicker` (Sprint 0) đã set `clientEventId` per line; saveEdit gửi `_editor` metadata
+
+**Idempotency contract** (sha1 key):
+
+- `actor|customer|sku|campaign_id|event_type|client_event_id`
+- Network retry → cùng key → INSERT ON CONFLICT DO NOTHING
+- User thao tác lại (delete-readd) → mỗi action UUID khác → events đều insert
+- PBH cancel/reissue → deterministic key → tự nhiên dedup
+
+**Next** — Sprint 2: Assignment UI (`/web2/kpi/assignments.html`) + tích hợp vào `/web2/users/` row actions.
+
+---
+
 ### [web2-balance-history] Tab "Lịch sử thủ công" — audit log mọi action manual ✅
 
 **User feedback**: "tab để coi lịch sử user gán tay, nạp rút tay, chọn khách hàng".
@@ -5176,107 +5221,6 @@ Notification cho end users: `n2store-extension/background/update-notifier.js` li
 **Math** (date ASC, sortedAsc): row[0] = HD − CP, row[i] = prev − HD − CP. Display vẫn DESC như cũ, attach `_runningBalance` vào shipment object để card render độc lập với order.
 
 **Status**: ✅ Done. Chưa live-test (browser session đã chết); logic markup + math thuần, an toàn.
-
----
-
-## 2026-05-23
-
-### [tpos-pancake][livestream-snapshots] Refactor default: lazy fetch tại view-time + 🔄 manual freeze
-
-**User insight**: "default mode chụp lưu snapshot time -> mai mốt vào xem thì fetch lấy hình lúc đó của video livestream".
-
-Trước đây default eager-fetch FB Graph thumb tại snap-time → save bytea → freeze. Vấn đề: FB CDN stale 5-30s → freeze sớm khoá frame xấu, mất cơ hội lấy thumb fresh sau khi live ends (FB Graph trả final thumb đẹp).
-
-**Strategy mới**:
-
-- **Default snap**: KHÔNG fetch ảnh server-side. Save metadata + `thumbnail_url` = FB Graph URL trực tiếp. Browser `<img>` lazy-resolve tại view-time → fresh FB CDN.
-- **Real-snap toggle** (getDisplayMedia): vẫn save bytea ngay (exact frame).
-- **Opt-in eager fetch**: POST body `fetchFbThumbnail: true` → backend fetch + freeze tại snap-time.
-- **Manual freeze**: POST `/api/livestream/snapshot/:id/refresh-thumbnail` → fetch FB Graph hiện tại → save bytea → update thumbnail_url. Hữu ích sau khi live ends hoặc lo FB xóa video.
-
-**Frontend**: popover row thêm nút 🔄 (giữa ▶ Xem và Xóa).
-
-**Smoke verified**: POST `/snapshot` không có imageBase64 → `thumbnailUrl: https://graph.facebook.com/.../picture` ✓ LAZY, no bytea storage.
-
-Cache bump `v=20260523c`.
-
----
-
-### [tpos-pancake][livestream-snapshots] Phase 3: server-side FB Graph freeze + optional getDisplayMedia
-
-**User hỏi** "có cách nào không cần bật tab FB livestream không?" → 2-path approach:
-
-**Default (no FB tab needed)**:
-
-- Backend khi nhận POST `/snapshot` → server-side fetch `https://graph.facebook.com/{liveVideoId}/picture?type=large&redirect=true` → download bytea → save `image_data`
-- thumbnail_url absolute = `${req.protocol}://${req.get('host')}/api/livestream/snapshot/:id/image`
-- Ảnh FROZEN trong DB, popover sau N giờ vẫn hiện đúng moment
-- Trade-off: ảnh lag 5-30s do FB CDN, ~640x360
-
-**Advanced toggle "🔴 Bật snap thật"**:
-
-- Frontend chip 2 trong header
-- Click → `getDisplayMedia({video:{cursor:'never',displaySurface:'browser',width:{ideal:1920}}})` picker
-- Stream + hidden `<video>` element; mỗi 📸 → canvas drawImage → JPEG base64 (0.72 quality, downscale 1280) → POST `imageBase64`
-- Listen track 'ended' → auto revert khi user "Stop sharing"
-- Trade-off: ảnh exact moment 1280x720, cần FB tab open
-
-**Schema** (idempotent):
-
-```sql
-ALTER TABLE livestream_snapshots ADD COLUMN IF NOT EXISTS image_data BYTEA;
-ALTER TABLE livestream_snapshots ADD COLUMN IF NOT EXISTS image_mime VARCHAR(50);
-ALTER TABLE livestream_snapshots ADD COLUMN IF NOT EXISTS image_size INTEGER;
-```
-
-**Endpoint mới**: `GET /api/livestream/snapshot/:id/image` — Cache-Control `immutable, max-age=31536000`.
-
-**Smoke verified** (commit `7e0a36292` + `<latest>`):
-
-- imageBase64 path: JPEG saved → GET trả image/jpeg 200 ✓
-- thumbnail_url absolute đúng origin Render ✓
-- Default FB Graph fetch: placeholder reject (size < 1024 bytes) → fallback URL ✓
-
-**Files**: `render.com/routes/livestream-snapshots.js`, `tpos-pancake/js/tpos/tpos-livestream-snap.js`, `tpos-pancake/css/tpos/tpos-comments.css`, `tpos-pancake/index.html` (v=20260523b)
-
----
-
-### [tpos-pancake][livestream-snapshots] feat: Livestream Snapshot per Customer (📸 button + popover)
-
-**Use case**: comment livestream nhiều quá user xử lý không kịp → cần freeze moment livestream lúc KH bình luận để review sau khi rảnh → xác định SP rồi drag vào cart.
-
-**Phase 1 + 2 shipped** (commit `e015ee36d`):
-
-**Backend** (`render.com/routes/livestream-snapshots.js` new):
-
-- Table `livestream_snapshots` (id, customer_fb_user_id, page_id, live_video_id, captured_at, offset_seconds, livestream_url, thumbnail_url, captured_by, ...)
-- Endpoints: POST `/api/livestream/snapshot`, GET `/snapshots?customerFbUserId=...`, GET `/snapshots/batch-counts`, DELETE `/snapshot/:id`
-- `livestream_url` = `https://fb.com/{pageId}/videos/{liveVideoId}/?t={offsetSec}` — FB deep-link replay
-- `thumbnail_url` = `https://graph.facebook.com/{liveVideoId}/picture?type=large` — FB public, không cần token
-- SSE topic `web2:livestream-snapshots`
-
-**Frontend** (`tpos-pancake/js/tpos/tpos-livestream-snap.js` new):
-
-- Header chip "📡 Snap live: Store ▼" — toggle Store/House, default Store, localStorage `tpos_snap_live_page`
-- Mỗi `.tpos-conversation-item` auto-inject 📸 button qua MutationObserver
-- Click 📸 → resolve liveCampaign từ `TposState.liveCampaigns` → POST snapshot, optimistic counter + toast confirm
-- Shift+click / right-click 📸 → popover list snapshots với thumbnail + thời gian + nút "▶ Xem" (FB deep-link new tab) + nút "Xóa"
-- Badge count đỏ trên button (📸³)
-- Snap-flash animation: scale(1.25) + glow vàng 400ms
-
-**Per-customer**: 1 KH có nhiều comment trong cùng live → share snap list theo `customer_fb_user_id`.
-
-**Backend smoke verified live**:
-
-- POST `/api/livestream/snapshot` → tạo OK, trả livestreamUrl + thumbnailUrl đúng format
-- GET list + batch-counts: OK
-- DELETE: OK
-
-**Phase 3** (real screenshot via getDisplayMedia) defer — chỉ làm nếu user cần snap chính xác moment thay vì FB Graph thumbnail.
-
-**Files**: `render.com/routes/livestream-snapshots.js`, `render.com/server.js`, `tpos-pancake/js/tpos/tpos-livestream-snap.js`, `tpos-pancake/index.html`, `tpos-pancake/css/tpos/tpos-comments.css`
-
-**Status**: ✅ Done
 
 ---
 

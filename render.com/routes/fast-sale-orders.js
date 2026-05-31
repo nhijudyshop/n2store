@@ -1312,6 +1312,52 @@ router.post('/from-native-order', async (req, res) => {
             }
         }
 
+        // Sprint 1 KPI: emit actual_confirmed cho từng product trong native order.
+        // Dùng products[] CỦA native_orders (có source field), không order_lines (đã strip).
+        // Fire-and-forget — KPI lỗi không chặn flow.
+        try {
+            const kpiModule = require('./v2/kpi');
+            const editor = (req.body && req.body._editor) || {};
+            const actorId = Number(editor.userId || src.created_by);
+            const pbhNumber = r.rows[0]?.number || r.rows[0]?.code;
+            if (Number.isFinite(actorId) && pbhNumber) {
+                const campaignName = src.live_campaign_name || null;
+                const campaignId = src.live_campaign_id || kpiModule.SYNTHETIC_NO_CAMPAIGN;
+                const campaignStt = src.campaign_stt ?? null;
+                const beneficiary = await kpiModule.resolveBeneficiary(pool, {
+                    campaign_name: campaignName,
+                    campaign_stt: campaignStt,
+                    actor_user_id: actorId,
+                    actor_name: editor.userName || src.created_by_name || null,
+                });
+                const nativeProducts = Array.isArray(src.products) ? src.products : [];
+                for (const p of nativeProducts) {
+                    const code = p.productCode || p.code;
+                    const qty = Number(p.quantity ?? p.qty) || 0;
+                    if (!code || qty <= 0) continue;
+                    // Deterministic client_event_id theo PBH number → revoke/reissue dedup tự nhiên
+                    await kpiModule.emitKpiEvent(pool, {
+                        event_type: 'actual_confirmed',
+                        actor_user_id: actorId,
+                        actor_name: editor.userName || src.created_by_name || null,
+                        ...beneficiary,
+                        order_code: src.code,
+                        order_campaign_stt: campaignStt,
+                        customer_id: src.fb_user_id || '',
+                        product_code: code,
+                        qty_delta: qty,
+                        source: p.source || 'native',
+                        campaign_id: campaignId,
+                        source_page: 'fastsaleorder-invoice',
+                        client_event_id: `pbh_${pbhNumber}_${code}`,
+                        raw_payload: { product_name: p.name, pbh_number: pbhNumber },
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn('[FAST-SALE-ORDERS] KPI emit (confirm) failed:', e.message);
+        }
+
         // Stock deduction — atomic across all lines. Clamp tại 0 nếu over-sell.
         // Idempotent: route đã return sớm ở line 687 nếu PBH đã tồn tại,
         // nên chỉ deduct 1 lần lúc tạo mới. Best-effort: lỗi không chặn flow.
@@ -1625,12 +1671,59 @@ router.post('/:number/cancel', async (req, res) => {
                 _extractPbhUser(req),
                 _extractPbhSourcePage(req) || 'fastsaleorder-invoice'
             );
+            // Sprint 1 KPI: emit actual_revoked cho mọi actual_confirmed events liên
+            // quan đến đơn này. Idempotent qua client_event_id='revoke_<id>'.
+            _emitRevokeKpi(pool, prevRow.source_code || null, req).catch((e) =>
+                console.warn('[FAST-SALE-ORDERS] KPI revoke emit failed:', e.message)
+            );
         }
         res.json({ success: true, order: o, restock: restockSummary, nativeSync });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
+
+// Sprint 1 helper — revoke KPI cho 1 order. Tìm mọi actual_confirmed events
+// chưa bị revoke, emit actual_revoked với cùng beneficiary + qty_delta âm.
+async function _emitRevokeKpi(pool, orderCode, req) {
+    if (!orderCode) return;
+    const kpiModule = require('./v2/kpi');
+    const editor = (req?.body && req.body._editor) || _extractPbhUser(req) || {};
+    const actorId = Number(editor.userId || editor.user_id) || Number(editor.id) || null;
+    const events = await pool.query(
+        `SELECT e.id, e.product_code, e.qty_delta, e.beneficiary_user_id, e.beneficiary_name,
+                e.customer_id, e.source, e.campaign_id, e.order_campaign_stt
+         FROM web2_kpi_events e
+         WHERE e.order_code = $1 AND e.event_type = 'actual_confirmed'
+           AND NOT EXISTS (
+               SELECT 1 FROM web2_kpi_events r
+               WHERE r.event_type = 'actual_revoked'
+                 AND r.revokes_event_id = e.id
+           )`,
+        [orderCode]
+    );
+    for (const ev of events.rows) {
+        await kpiModule.emitKpiEvent(pool, {
+            event_type: 'actual_revoked',
+            actor_user_id: actorId || ev.beneficiary_user_id,
+            actor_name: editor.userName || editor.user_name || null,
+            beneficiary_user_id: ev.beneficiary_user_id,
+            beneficiary_name: ev.beneficiary_name,
+            beneficiary_source: 'assignment',
+            order_code: orderCode,
+            order_campaign_stt: ev.order_campaign_stt,
+            customer_id: ev.customer_id,
+            product_code: ev.product_code,
+            qty_delta: -ev.qty_delta,
+            source: ev.source,
+            campaign_id: ev.campaign_id,
+            source_page: 'fastsaleorder-invoice',
+            client_event_id: `revoke_${ev.id}`,
+            revokes_event_id: ev.id,
+            raw_payload: { reason: req?.body?.reason || 'pbh-cancel' },
+        });
+    }
+}
 
 // POST /by-source/:nativeOrderCode/cancel
 // Tìm PBH có source_code = :nativeOrderCode (state != 'cancel') → cancel.
@@ -1705,6 +1798,11 @@ router.post('/by-source/:nativeOrderCode/cancel', async (req, res) => {
                 /* ignore */
             }
         }
+
+        // Sprint 1 KPI: revoke actual events for this native order
+        _emitRevokeKpi(pool, code, req).catch((e) =>
+            console.warn('[FAST-SALE-ORDERS] KPI revoke (by-source) failed:', e.message)
+        );
 
         res.json({ success: true, order: o, nativeOrderCode: code, restock: restockSummary });
     } catch (e) {

@@ -1169,6 +1169,22 @@ router.patch('/:code', async (req, res) => {
         await ensureTables(pool);
         const body = { ...req.body };
 
+        // Sprint 1 KPI: snapshot products HIỆN TẠI để diff với products MỚI sau update.
+        // Cần làm TRƯỚC khi UPDATE để có baseline.
+        let productsBefore = null;
+        let orderBefore = null;
+        if (Array.isArray(body.products)) {
+            const beforeQ = await pool.query(
+                `SELECT products, live_campaign_id, live_campaign_name, campaign_stt, fb_user_id
+                 FROM native_orders WHERE code = $1`,
+                [req.params.code]
+            );
+            if (beforeQ.rows.length) {
+                orderBefore = beforeQ.rows[0];
+                productsBefore = Array.isArray(orderBefore.products) ? orderBefore.products : [];
+            }
+        }
+
         // If client sends `products`, auto-recompute total_quantity + total_amount
         // (prevents mismatch between list + totals). Client MAY still override by
         // sending totalQuantity/totalAmount explicitly — respected below.
@@ -1277,11 +1293,91 @@ router.patch('/:code', async (req, res) => {
             });
         }
         _notify('update', order.code);
+
+        // Sprint 1 KPI: diff productsBefore vs productsNew → emit forecast events.
+        // Fire-and-forget — KPI lỗi không block response.
+        if (productsBefore !== null && Array.isArray(body.products)) {
+            _emitPatchKpiEvents(
+                pool,
+                orderBefore,
+                r.rows[0],
+                productsBefore,
+                body.products,
+                body._editor || {}
+            ).catch((e) => console.warn('[NATIVE-ORDERS] PATCH KPI emit failed:', e.message));
+        }
+
         res.json({ success: true, order, pbhSync });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
+
+// Helper Sprint 1 — diff products[] cũ vs mới, emit forecast events vào ledger.
+// Diff key = productCode. Compare quantity, emit add/remove/qty_change accordingly.
+async function _emitPatchKpiEvents(pool, orderBefore, orderAfter, before, after, editor) {
+    const kpiModule = require('./v2/kpi');
+    const beforeMap = new Map();
+    const codeOf = (p) => p.productCode || p.code;
+    for (const p of before) beforeMap.set(codeOf(p), p);
+    const afterMap = new Map();
+    for (const p of after) afterMap.set(codeOf(p), p);
+
+    const campaignName = orderAfter.live_campaign_name || orderBefore.live_campaign_name || null;
+    const campaignId =
+        orderAfter.live_campaign_id ||
+        orderBefore.live_campaign_id ||
+        kpiModule.SYNTHETIC_NO_CAMPAIGN;
+    const campaignStt = orderAfter.campaign_stt ?? orderBefore.campaign_stt ?? null;
+    const customerId = orderAfter.fb_user_id || orderBefore.fb_user_id || '';
+
+    const actorId = Number(editor.userId);
+    if (!Number.isFinite(actorId)) return; // skip — không có actor để attribute
+    const beneficiary = await kpiModule.resolveBeneficiary(pool, {
+        campaign_name: campaignName,
+        campaign_stt: campaignStt,
+        actor_user_id: actorId,
+        actor_name: editor.userName || null,
+    });
+
+    const _emit = async (eventType, productCode, qtyDelta, product) =>
+        kpiModule.emitKpiEvent(pool, {
+            event_type: eventType,
+            actor_user_id: actorId,
+            actor_name: editor.userName || null,
+            ...beneficiary,
+            order_code: orderAfter.code,
+            order_campaign_stt: campaignStt,
+            customer_id: customerId,
+            product_code: productCode,
+            qty_delta: qtyDelta,
+            source: product?.source || 'native',
+            campaign_id: campaignId,
+            source_page: editor.sourcePage || 'native-orders',
+            client_event_id: product?.clientEventId || null,
+            raw_payload: { product_name: product?.name },
+        });
+
+    // Items removed (in before, not in after)
+    for (const [code, oldP] of beforeMap) {
+        if (!afterMap.has(code)) {
+            const oldQty = Number(oldP.quantity ?? oldP.qty) || 0;
+            if (oldQty > 0) await _emit('forecast_remove', code, -oldQty, oldP);
+        }
+    }
+    // Items added or changed
+    for (const [code, newP] of afterMap) {
+        const oldP = beforeMap.get(code);
+        const newQty = Number(newP.quantity ?? newP.qty) || 0;
+        if (!oldP) {
+            if (newQty > 0) await _emit('forecast_add', code, newQty, newP);
+        } else {
+            const oldQty = Number(oldP.quantity ?? oldP.qty) || 0;
+            const delta = newQty - oldQty;
+            if (delta !== 0) await _emit('forecast_qty_change', code, delta, newP);
+        }
+    }
+}
 
 // -----------------------------------------------------
 // POST /api/native-orders/:code/confirm
@@ -1400,6 +1496,51 @@ router.post('/:code/cancel', async (req, res) => {
             });
         }
         _notify('cancel', code);
+
+        // Sprint 1 KPI: emit actual_revoked cho từng SP đã có actual_confirmed.
+        // Lookup events qua order_code; emit qua deterministic client_event_id.
+        try {
+            const kpiModule = require('./v2/kpi');
+            const editor = (req.body && req.body._editor) || {};
+            const actorId = Number(editor.userId) || null;
+            const events = await pool.query(
+                `SELECT e.id, e.product_code, e.qty_delta, e.beneficiary_user_id,
+                        e.beneficiary_name, e.customer_id, e.source,
+                        e.campaign_id, e.order_campaign_stt
+                 FROM web2_kpi_events e
+                 WHERE e.order_code = $1 AND e.event_type = 'actual_confirmed'
+                   AND NOT EXISTS (
+                       SELECT 1 FROM web2_kpi_events r
+                       WHERE r.event_type = 'actual_revoked'
+                         AND r.revokes_event_id = e.id
+                   )`,
+                [code]
+            );
+            for (const ev of events.rows) {
+                await kpiModule.emitKpiEvent(pool, {
+                    event_type: 'actual_revoked',
+                    actor_user_id: actorId || ev.beneficiary_user_id,
+                    actor_name: editor.userName || null,
+                    beneficiary_user_id: ev.beneficiary_user_id,
+                    beneficiary_name: ev.beneficiary_name,
+                    beneficiary_source: 'assignment',
+                    order_code: code,
+                    order_campaign_stt: ev.order_campaign_stt,
+                    customer_id: ev.customer_id,
+                    product_code: ev.product_code,
+                    qty_delta: -ev.qty_delta,
+                    source: ev.source,
+                    campaign_id: ev.campaign_id,
+                    source_page: 'native-orders',
+                    client_event_id: `revoke_${ev.id}`,
+                    revokes_event_id: ev.id,
+                    raw_payload: { reason: reason || 'native-cancel' },
+                });
+            }
+        } catch (e) {
+            console.warn('[NATIVE-ORDERS] KPI revoke emit failed:', e.message);
+        }
+
         res.json({ success: true, order, pbhSync });
     } catch (e) {
         console.error('[NATIVE-ORDERS] /cancel error:', e.message);

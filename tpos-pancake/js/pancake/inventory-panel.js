@@ -370,6 +370,9 @@
         const ctx = _resolveCommitContext(realCommentId, row, customer);
         ctx.fbCommentId = realCommentId;
 
+        // Sprint 1 KPI: generate unique client_event_id per user action (UUID-like).
+        // Server emits 1 ledger event per call; retry network failures dedup qua same key.
+        const clientEventId = 'evt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
         try {
             const r = await fetch(API + '/cart/' + encodeURIComponent(commentId) + '/add', {
                 method: 'POST',
@@ -380,6 +383,7 @@
                     customer,
                     user: _user(),
                     qty: 1,
+                    clientEventId,
                     fbContext: {
                         fbUserId: ctx.fbUserId,
                         fbUserName: ctx.fbUserName,
@@ -450,7 +454,11 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ user: _user() }),
+                    body: JSON.stringify({
+                        user: _user(),
+                        clientEventId:
+                            'evt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10),
+                    }),
                 }
             );
             // Sync hard
