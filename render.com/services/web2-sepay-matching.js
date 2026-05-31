@@ -91,6 +91,7 @@ async function ensureSchema(pool) {
                         'pending_low_confidence',
                         'manual_entry',
                         'manual_link',
+                        'manual_resolve',  -- user pick KH cho pending multi-match (web2-pending-match.js)
                         'prelink_credit',
                         'manual_deposit',  -- nạp tay (+) từ balance-history page
                         'manual_withdraw', -- rút tay (-) từ balance-history page
@@ -744,6 +745,10 @@ async function resolveWeb2PendingMatch(db, pendingId, selectedPhone, selectedNam
         tx.sepay_id
     );
 
+    // match_method: 'manual_resolve' đã thêm vào constraint (migration ALTER
+    // chạy idempotent ở Render startup) — distinguish "user pick từ multi-match"
+    // vs 'manual_link' "user gán SDT cho row chưa có". Audit log giữ
+    // extractedType='manual_resolve' để trace flow.
     await db.query(
         `UPDATE web2_balance_history
          SET debt_added = TRUE,
