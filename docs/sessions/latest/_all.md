@@ -3,16 +3,18 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b53b873` — feat(native-orders): badge Livestream cho SP kéo từ TPOS-Pancake
-**Last updated**: 2026-05-30 19:57:30 +07
-**Latest session**: [`RESUME:20260530-195730-b53b873`](../20260530-195730-b53b873.md)
-**Summary**: feat(native-orders): badge Livestream cho SP kéo từ TPOS-Pancake
+**Latest commit**: `1a51d7b` — feat(native-orders): badge 'Trực tiếp' cho SP add từ picker
+**Last updated**: 2026-05-31 13:29:57 +07
+**Latest session**: [`RESUME:20260531-132957-1a51d7b`](../20260531-132957-1a51d7b.md)
+**Summary**: feat(native-orders): badge 'Trực tiếp' cho SP add từ picker
 
 ## Folders affected in this commit
 
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 5 file(s)
 - [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,8 +27,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
-- [`delivery-report/`](./delivery-report.md) — updated 2026-05-26 18:35
-- [`docs/`](./docs.md) — updated 2026-05-30 19:57
+- [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
+- [`docs/`](./docs.md) — updated 2026-05-31 13:29
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -35,12 +37,12 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-30 15:47
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-05-31 13:29
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-30 11:05
-- [`native-orders/`](./native-orders.md) — updated 2026-05-30 19:57
+- [`native-orders/`](./native-orders.md) — updated 2026-05-31 13:29
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-05-25 14:08
@@ -51,7 +53,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-05-30 19:57
+- [`render.com/`](./render.com.md) — updated 2026-05-31 13:29
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-05-29 18:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
