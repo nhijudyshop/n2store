@@ -25,19 +25,21 @@
 
 ## 2026-05-31
 
-### [delivery-report] Ẩn cột CK theo tab + Duyệt không zero TỔNG CÒN LẠI ✅
+### [delivery-report] XÓA HẲN cột CK theo tab + Duyệt không zero TỔNG CÒN LẠI ✅
 
-**Yêu cầu (user)**: (1) TOMATO/NAP ẩn cột **ATRƯỜNG NHẬN CK**; THÀNH PHỐ ẩn cả **ATRƯỜNG NHẬN CK** lẫn **CK TRƯỚC**. (2) Bấm **DUYỆT** không được tự động trừ "TỔNG CÒN LẠI" về 0 — giữ nguyên giá trị, dòng chỉ mờ đi.
+**Yêu cầu (user)**: (1) TOMATO/NAP **xóa hẳn** cột **ATRƯỜNG NHẬN CK**; THÀNH PHỐ xóa hẳn cả **ATRƯỜNG NHẬN CK** lẫn **CK TRƯỚC** — "loại bỏ hoàn toàn đừng ẩn" (không CSS hide). (2) Bấm **DUYỆT** không được tự động trừ "TỔNG CÒN LẠI" về 0 — giữ nguyên giá trị, dòng chỉ mờ đi.
+
+> Lần 1 làm CSS `nth-child` ẩn cột nhưng user yêu cầu **xóa hẳn khỏi DOM** → đổi sang render cột động.
 
 **Giải pháp**:
-- **Ẩn cột theo tab (CSS, không xoá data)**: `updateTabClasses()` set `data-tab` lên `<table#drReportTable>`. CSS `nth-child(9)` (ATRƯỜNG NHẬN CK) ẩn ở **mọi** tab; `nth-child(10)` (CK TRƯỚC) ẩn thêm khi `data-tab="city"`. Mọi data row + thead + tfoot đều có đúng 13 cell cùng thứ tự nên nth-child khớp ổn định; row colspan (expand/empty) chỉ 1 cell nên không bị chạm. Dữ liệu `atruongCK`/`ckTruoc` **vẫn tính ngầm** vào TỔNG CÒN LẠI (không phá số liệu cũ).
-- **Duyệt giữ giá trị**: bỏ toàn bộ nhánh `approved ? 0 : totalLeftRaw` (single/merge/shift-aggregate row + `computeTotalLeftForTab` + tab totals + TỔNG chân bảng). Theo chọn của user, dòng đã duyệt **vẫn cộng** vào TỔNG (khớp giá trị ô hiển thị). Dòng vẫn mờ qua class `.is-approved` (opacity 0.45) sẵn có.
+- **Cột động theo tab (xóa hẳn, không CSS)**: thead chuyển thành `<tr id="drReportHeadRow">` rỗng + `paintThead()` build động. Helper `showCkTruocFor(tab)` (true trừ city) + `currentColCount()` (12 hoặc 11). ATRƯỜNG NHẬN CK **bỏ hoàn toàn** (markup + biến `atruongCK`/`sumAtruongCK` + công thức + totals) ở mọi tab. CK TRƯỚC bọc `${showCk ? '<td>…</td>' : ''}` ở thead/4 row renderer/tfoot → không tồn tại trong DOM khi city. `totalLeftRaw = totalAll − boCK − (showCk ? ckTruoc : 0)` (không còn trừ atruongCK). colspan expand/empty/loading dùng `currentColCount()`.
+- **Duyệt giữ giá trị**: bỏ toàn bộ nhánh `approved ? 0 : totalLeftRaw` (single/merge/shift-aggregate + `computeTotalLeftForTab` + tab totals + TỔNG chân bảng). Dòng đã duyệt **vẫn cộng** vào TỔNG (khớp giá trị ô), chỉ mờ qua class `.is-approved` (opacity 0.45) sẵn có.
 
 **Files**:
-- `delivery-report/js/report.js` — `updateTabClasses()` set `table.dataset.tab`; gỡ zero-on-approve ở `renderSingleRow`/`renderMergeRow`/`renderShiftAggregateRow` + `computeTotalLeftForTab` (3 nhánh); cập nhật tooltip header DUYỆT + comment.
-- `delivery-report/css/delivery-report.css` — thêm rule ẩn cột `nth-child(9)` (mọi tab) + `nth-child(10)` (city); cập nhật comment `.is-approved`.
+- `delivery-report/js/report.js` — thead động (`paintThead`), `showCkTruocFor`/`currentColCount`; xóa hẳn atruongCK + CK TRƯỚC-điều-kiện ở `renderSingleRow`/`renderMergeRow`/`renderShiftedOutRow`/`renderShiftAggregateRow`/tfoot/`computeTotalLeftForTab`; colspan động; gỡ zero-on-approve; tooltip + comment.
+- `delivery-report/css/delivery-report.css` — chỉ cập nhật comment `.is-approved` (đã revert rule CSS-hide của lần 1).
 
-**Verify**: harness HTML cô lập + Playwright đọc `getComputedStyle().display` cho từng `data-tab` → tomato/nap chỉ ẩn ATRƯỜNG; city ẩn cả ATRƯỜNG + CK TRƯỚC; th/td ẩn đồng bộ. `node --check` pass.
+**Verify**: harness cô lập + Playwright đếm cột → tomato/nap = 12 cột, city = 11 cột; thead/single/shifted-out/tfoot **khớp số cột** mọi tab; rendered city DOM head=body=foot=11. `node --check` pass.
 
 **Status**: ✅ Done.
 

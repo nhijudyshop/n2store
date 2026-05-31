@@ -830,21 +830,7 @@
 
             <div class="dr-report-table-wrap">
               <table class="dr-report-table" id="drReportTable">
-                <thead><tr>
-                  <th>NGÀY</th>
-                  <th class="num">SL ĐƠN</th>
-                  <th class="num">TIỀN</th>
-                  <th class="num">PHÍ SHIP</th>
-                  <th class="num input-col" title="Số đơn ship riêng, trừ khỏi TỔNG TẤT CẢ (SL × 23.000)">SL ĐƠN SHIP</th>
-                  <th class="num input-col" title="Tiền thu về, cộng thêm vào TỔNG TẤT CẢ">THU VỀ</th>
-                  <th class="num">TỔNG TẤT CẢ</th>
-                  <th class="num input-col">BO NHẬN CK</th>
-                  <th class="num input-col">ATRƯỜNG NHẬN CK</th>
-                  <th class="num input-col">CK TRƯỚC</th>
-                  <th class="num">TỔNG CÒN LẠI</th>
-                  <th>GHI CHÚ</th>
-                  <th class="dr-report-th-approve" title="Đánh dấu đã duyệt — dòng mờ đi, TỔNG CÒN LẠI vẫn giữ nguyên giá trị">DUYỆT</th>
-                </tr></thead>
+                <thead><tr id="drReportHeadRow"></tr></thead>
                 <tbody id="drReportTbody"></tbody>
                 <tfoot id="drReportTfoot"></tfoot>
               </table>
@@ -1012,16 +998,45 @@
         for (let i = 0; i < tabs.length; i++) {
             tabs[i].classList.toggle('active', tabs[i].dataset.tab === state.activeTab);
         }
-        // Đánh dấu tab hiện tại lên <table> → CSS ẩn cột theo tab:
-        //   ATRƯỜNG NHẬN CK (cột 9): ẩn ở MỌI tab.
-        //   CK TRƯỚC (cột 10): ẩn thêm ở THÀNH PHỐ (city).
-        const table = document.getElementById('drReportTable');
-        if (table) table.dataset.tab = state.activeTab;
+    }
+
+    // ── Cấu hình cột động theo tab (2026-05-31) ──
+    // ATRƯỜNG NHẬN CK: XÓA HẲN ở mọi tab (không render, không tính vào tổng).
+    // CK TRƯỚC: chỉ hiện ở TOMATO/NAP; XÓA HẲN ở THÀNH PHỐ (city).
+    // Không dùng CSS ẩn — cell không tồn tại trong DOM với tab tương ứng.
+    function showCkTruocFor(tab) {
+        return tab !== 'city';
+    }
+    // Số cột hiện tại (dùng cho colspan của expand/empty/loading rows).
+    // Base 13 − 1 (ATRƯỜNG luôn bỏ) − (1 nếu city bỏ CK TRƯỚC).
+    function currentColCount() {
+        return showCkTruocFor(state.activeTab) ? 12 : 11;
+    }
+
+    // Build header động theo tab — ATRƯỜNG NHẬN CK luôn bỏ, CK TRƯỚC bỏ ở city.
+    function paintThead() {
+        const row = document.getElementById('drReportHeadRow');
+        if (!row) return;
+        const showCk = showCkTruocFor(state.activeTab);
+        row.innerHTML =
+            '<th>NGÀY</th>' +
+            '<th class="num">SL ĐƠN</th>' +
+            '<th class="num">TIỀN</th>' +
+            '<th class="num">PHÍ SHIP</th>' +
+            '<th class="num input-col" title="Số đơn ship riêng, trừ khỏi TỔNG TẤT CẢ (SL × 23.000)">SL ĐƠN SHIP</th>' +
+            '<th class="num input-col" title="Tiền thu về, cộng thêm vào TỔNG TẤT CẢ">THU VỀ</th>' +
+            '<th class="num">TỔNG TẤT CẢ</th>' +
+            '<th class="num input-col">BO NHẬN CK</th>' +
+            (showCk ? '<th class="num input-col">CK TRƯỚC</th>' : '') +
+            '<th class="num">TỔNG CÒN LẠI</th>' +
+            '<th>GHI CHÚ</th>' +
+            '<th class="dr-report-th-approve" title="Đánh dấu đã duyệt — dòng mờ đi, TỔNG CÒN LẠI vẫn giữ nguyên giá trị">DUYỆT</th>';
     }
 
     function render() {
         // Cheap, sync UI updates first — never await for these
         updateTabClasses();
+        paintThead(); // header động theo tab (bỏ ATRƯỜNG, bỏ CK TRƯỚC ở city)
         // state.fromDate / state.toDate are ENTRY dates (what the user picks
         // and what the NGÀY column shows). Data fetched/aggregated by REAL
         // dates = entry − 1. Storage and overrides are unchanged.
@@ -1052,7 +1067,7 @@
 
         if (dates.length === 0) {
             document.getElementById('drReportTbody').innerHTML =
-                '<tr><td colspan="13" class="dr-report-empty">Chọn khoảng ngày để xem báo cáo</td></tr>';
+                `<tr><td colspan="${currentColCount()}" class="dr-report-empty">Chọn khoảng ngày để xem báo cáo</td></tr>`;
             document.getElementById('drReportTfoot').innerHTML = '';
             return;
         }
@@ -1088,7 +1103,7 @@
 
         // Cold cache → show loading + async fetch (extended range)
         document.getElementById('drReportTbody').innerHTML =
-            '<tr><td colspan="13" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>';
+            `<tr><td colspan="${currentColCount()}" class="dr-report-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu DB…</td></tr>`;
         document.getElementById('drReportTfoot').innerHTML = '';
         fetchRange(extFrom, extTo).then(({ byDateGroup }) => {
             const curRealFrom = entryToReal(state.fromDate);
@@ -1102,9 +1117,10 @@
     }
 
     // Compute tổng còn lại (totalLeft) cho 1 tab trong range hiện tại.
-    // Logic phải đồng bộ paintTable: child + merge (sum from children, override),
-    // approved → totalLeft = 0. Duplicated nhẹ để tránh refactor lớn paintTable;
-    // gọi 3 lần (1/tab) để hiển thị dưới mỗi tab button.
+    // Logic phải đồng bộ paintTable: child + merge (sum from children, override).
+    // Duyệt KHÔNG zero totalLeft (giữ giá trị, vẫn cộng). ATRƯỜNG NHẬN CK bỏ hẳn;
+    // CK TRƯỚC bỏ ở city. Duplicated nhẹ để tránh refactor lớn paintTable; gọi 3
+    // lần (1/tab) để hiển thị dưới mỗi tab button.
     function computeTotalLeftForTab(tab, dates) {
         // Logic phải match paintTable:
         // - Aggregate target ∈ filter: sum tất cả sources (kể cả nguồn ngoài filter)
@@ -1141,6 +1157,9 @@
         const map = aggregateByDay(tab, [...extDates]);
         const rendered = new Set();
         let total = 0;
+        // ATRƯỜNG NHẬN CK đã xóa hẳn (mọi tab) → không trừ. CK TRƯỚC chỉ trừ ở
+        // TOMATO/NAP; THÀNH PHỐ (city) đã xóa cột nên không trừ.
+        const showCk = showCkTruocFor(tab);
         const useMerge = (mv) => mv != null && mv !== '' && Number(mv) !== 0;
         for (const d of dates) {
             if (rendered.has(d)) continue;
@@ -1154,7 +1173,6 @@
                 let sumSlShip = 0,
                     sumThuVe = 0,
                     sumBoCK = 0,
-                    sumAtruongCK = 0,
                     sumCkTruoc = 0;
                 let anyApproved = false;
                 for (const s of sources) {
@@ -1165,12 +1183,11 @@
                     sumSlShip += Number(ov.slShip) || 0;
                     sumThuVe += Number(ov.thuVe) || 0;
                     sumBoCK += Number(ov.boCK) || 0;
-                    sumAtruongCK += Number(ov.atruongCK) || 0;
                     sumCkTruoc += Number(ov.ckTruoc) || 0;
                     if (ov.approved) anyApproved = true;
                 }
                 const totalAll = sumMoney - sumShipFee - sumSlShip * getShipFee(tab) + sumThuVe;
-                const totalLeftRaw = totalAll - sumBoCK - sumAtruongCK - sumCkTruoc;
+                const totalLeftRaw = totalAll - sumBoCK - (showCk ? sumCkTruoc : 0);
                 // Duyệt vẫn cộng vào tổng (2026-05-31) — khớp giá trị ô đang hiển thị
                 total += totalLeftRaw;
                 continue;
@@ -1199,7 +1216,6 @@
                 let sumSlShip = 0,
                     sumThuVe = 0,
                     sumBoCK = 0,
-                    sumAtruongCK = 0,
                     sumCkTruoc = 0;
                 for (const cd of childDates) {
                     const sys = map[cd] || { sysCount: 0, money: 0 };
@@ -1209,18 +1225,14 @@
                     sumSlShip += Number(ovc.slShip) || 0;
                     sumThuVe += Number(ovc.thuVe) || 0;
                     sumBoCK += Number(ovc.boCK) || 0;
-                    sumAtruongCK += Number(ovc.atruongCK) || 0;
                     sumCkTruoc += Number(ovc.ckTruoc) || 0;
                 }
                 const slShip = useMerge(merge.slShip) ? Number(merge.slShip) : sumSlShip;
                 const thuVe = useMerge(merge.thuVe) ? Number(merge.thuVe) : sumThuVe;
                 const boCK = useMerge(merge.boCK) ? Number(merge.boCK) : sumBoCK;
-                const atruongCK = useMerge(merge.atruongCK)
-                    ? Number(merge.atruongCK)
-                    : sumAtruongCK;
                 const ckTruoc = useMerge(merge.ckTruoc) ? Number(merge.ckTruoc) : sumCkTruoc;
                 const totalAll = sumMoney - sumShipFee - slShip * getShipFee(tab) + thuVe;
-                const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
+                const totalLeftRaw = totalAll - boCK - (showCk ? ckTruoc : 0);
                 total += totalLeftRaw;
                 continue;
             }
@@ -1232,10 +1244,9 @@
             const slShip = Number(ov.slShip) || 0;
             const thuVe = Number(ov.thuVe) || 0;
             const boCK = Number(ov.boCK) || 0;
-            const atruongCK = Number(ov.atruongCK) || 0;
             const ckTruoc = Number(ov.ckTruoc) || 0;
             const totalAll = sys.money - shipFee - slShip * getShipFee(tab) + thuVe;
-            const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
+            const totalLeftRaw = totalAll - boCK - (showCk ? ckTruoc : 0);
             total += totalLeftRaw;
         }
         return total;
@@ -1274,6 +1285,8 @@
             if (_filterSet.has(target)) _extDates.add(m[1]);
         }
         const map = aggregateByDay(state.activeTab, [..._extDates]);
+        // ATRƯỜNG NHẬN CK xóa hẳn (mọi tab); CK TRƯỚC xóa ở THÀNH PHỐ (city).
+        const showCk = showCkTruocFor(state.activeTab);
         let totals = {
             slDon: 0,
             money: 0,
@@ -1282,7 +1295,6 @@
             thuVe: 0,
             totalAll: 0,
             boCK: 0,
-            atruongCK: 0,
             ckTruoc: 0,
             totalLeft: 0,
         };
@@ -1302,10 +1314,10 @@
             const thuVe = Number(ov.thuVe) || 0;
             const totalAll = money - shipFee - slShip * getShipFee(state.activeTab) + thuVe;
             const boCK = Number(ov.boCK) || 0;
-            const atruongCK = Number(ov.atruongCK) || 0;
             const ckTruoc = Number(ov.ckTruoc) || 0;
             const approved = !!ov.approved;
-            const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
+            // ATRƯỜNG NHẬN CK xóa hẳn → không trừ. CK TRƯỚC chỉ trừ khi cột còn (showCk).
+            const totalLeftRaw = totalAll - boCK - (showCk ? ckTruoc : 0);
             // Duyệt KHÔNG zero TỔNG CÒN LẠI nữa (2026-05-31) — giữ nguyên giá trị,
             // dòng chỉ mờ đi qua class .is-approved. Totals cũng cộng bình thường.
             const totalLeftDisplay = totalLeftRaw;
@@ -1319,7 +1331,6 @@
                 totals.thuVe += thuVe;
                 totals.totalAll += totalAll;
                 totals.boCK += boCK;
-                totals.atruongCK += atruongCK;
                 totals.ckTruoc += ckTruoc;
                 totals.totalLeft += totalLeftRaw;
             }
@@ -1356,8 +1367,7 @@
                 <td class="num"><input type="text" data-field="thuVe" value="${thuVe ? formatMoney(thuVe) : ''}" placeholder="0" ${disabled} /></td>
                 <td class="num strong">${formatMoney(totalAll)}</td>
                 <td class="num"><input type="text" data-field="boCK" value="${boCK ? formatMoney(boCK) : ''}" placeholder="0" ${disabled} /></td>
-                <td class="num"><input type="text" data-field="atruongCK" value="${atruongCK ? formatMoney(atruongCK) : ''}" placeholder="0" ${disabled} /></td>
-                <td class="num"><input type="text" data-field="ckTruoc" value="${ckTruoc ? formatMoney(ckTruoc) : ''}" placeholder="0" ${disabled} /></td>
+                ${showCk ? `<td class="num"><input type="text" data-field="ckTruoc" value="${ckTruoc ? formatMoney(ckTruoc) : ''}" placeholder="0" ${disabled} /></td>` : ''}
                 <td class="num strong ${totalLeftDisplay < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeftDisplay)}</td>
                 <td class="note-cell" data-tooltip="${note ? escapeHtml(note) : ''}"><textarea data-field="note" rows="1" placeholder="Ghi chú…" ${disabled}>${escapeHtml(note)}</textarea></td>
                 <td class="dr-report-td-approve">${_isAdmin() ? `<label class="dr-approve-toggle"><input type="checkbox" data-field="approved" ${approved ? 'checked' : ''} ${disabled} /><span></span></label>` : '<span class="dr-approve-locked" title="Chỉ tài khoản Admin mới được duyệt"></span>'}</td>
@@ -1375,7 +1385,6 @@
                 sumSlShip = 0,
                 sumThuVe = 0,
                 sumBoCK = 0,
-                sumAtruongCK = 0,
                 sumCkTruoc = 0;
             const childNotes = [];
             for (const cd of childDates) {
@@ -1387,7 +1396,6 @@
                 sumSlShip += Number(ovChild.slShip) || 0;
                 sumThuVe += Number(ovChild.thuVe) || 0;
                 sumBoCK += Number(ovChild.boCK) || 0;
-                sumAtruongCK += Number(ovChild.atruongCK) || 0;
                 sumCkTruoc += Number(ovChild.ckTruoc) || 0;
                 if (ovChild.note && String(ovChild.note).trim()) {
                     childNotes.push(
@@ -1401,11 +1409,11 @@
             const thuVe = useMerge(merge.thuVe) ? Number(merge.thuVe) : sumThuVe;
             const totalAll = sumMoney - sumShipFee - slShip * getShipFee(state.activeTab) + thuVe;
             const boCK = useMerge(merge.boCK) ? Number(merge.boCK) : sumBoCK;
-            const atruongCK = useMerge(merge.atruongCK) ? Number(merge.atruongCK) : sumAtruongCK;
             const ckTruoc = useMerge(merge.ckTruoc) ? Number(merge.ckTruoc) : sumCkTruoc;
             const approved = !!merge.approved;
             const expanded = !!merge.expanded;
-            const totalLeftRaw = totalAll - boCK - atruongCK - ckTruoc;
+            // ATRƯỜNG NHẬN CK xóa hẳn → không trừ. CK TRƯỚC chỉ trừ khi cột còn (showCk).
+            const totalLeftRaw = totalAll - boCK - (showCk ? ckTruoc : 0);
             // Duyệt KHÔNG zero TỔNG CÒN LẠI nữa (2026-05-31) — giữ nguyên giá trị,
             // dòng chỉ mờ đi qua class .is-approved. Totals cũng cộng bình thường.
             const totalLeftDisplay = totalLeftRaw;
@@ -1416,7 +1424,6 @@
             totals.thuVe += thuVe;
             totals.totalAll += totalAll;
             totals.boCK += boCK;
-            totals.atruongCK += atruongCK;
             totals.ckTruoc += ckTruoc;
             totals.totalLeft += totalLeftRaw;
             const rangeLabel = `${formatDDMMYYYY(realToEntry(merge.fromDate))} → ${formatDDMMYYYY(realToEntry(merge.toDate))}`;
@@ -1484,8 +1491,7 @@
                 <td class="num"><input type="text" data-field="thuVe" value="${useMerge(merge.thuVe) ? formatMoney(merge.thuVe) : ''}" placeholder="${sumThuVe ? formatMoney(sumThuVe) : '0'}" title="${useMerge(merge.thuVe) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumThuVe) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
                 <td class="num strong">${formatMoney(totalAll)}</td>
                 <td class="num"><input type="text" data-field="boCK" value="${useMerge(merge.boCK) ? formatMoney(merge.boCK) : ''}" placeholder="${sumBoCK ? formatMoney(sumBoCK) : '0'}" title="${useMerge(merge.boCK) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumBoCK) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
-                <td class="num"><input type="text" data-field="atruongCK" value="${useMerge(merge.atruongCK) ? formatMoney(merge.atruongCK) : ''}" placeholder="${sumAtruongCK ? formatMoney(sumAtruongCK) : '0'}" title="${useMerge(merge.atruongCK) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumAtruongCK) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
-                <td class="num"><input type="text" data-field="ckTruoc" value="${useMerge(merge.ckTruoc) ? formatMoney(merge.ckTruoc) : ''}" placeholder="${sumCkTruoc ? formatMoney(sumCkTruoc) : '0'}" title="${useMerge(merge.ckTruoc) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumCkTruoc) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
+                ${showCk ? `<td class="num"><input type="text" data-field="ckTruoc" value="${useMerge(merge.ckTruoc) ? formatMoney(merge.ckTruoc) : ''}" placeholder="${sumCkTruoc ? formatMoney(sumCkTruoc) : '0'}" title="${useMerge(merge.ckTruoc) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumCkTruoc) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>` : ''}
                 <td class="num strong ${totalLeftDisplay < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeftDisplay)}</td>
                 <td class="note-cell" data-tooltip="${escapeHtml([merge.note ? `Ghi chú gộp:\n${merge.note}` : '', childNotes.length ? `Ghi chú các ngày:\n${childNotes.join('\n')}` : ''].filter(Boolean).join('\n\n'))}"><textarea data-field="note" rows="1" placeholder="${escapeHtml(childNotes.length ? childNotes.join(' | ') : 'Ghi chú…')}">${escapeHtml(merge.note || '')}</textarea></td>
                 <td class="dr-report-td-approve">${_isAdmin() ? `<label class="dr-approve-toggle"><input type="checkbox" data-field="approved" ${approved ? 'checked' : ''} /><span></span></label>` : '<span class="dr-approve-locked" title="Chỉ tài khoản Admin mới được duyệt"></span>'}</td>
@@ -1498,6 +1504,9 @@
             const target = getDisplayDate(d, tab);
             const editBtn = `<button class="dr-shift-edit" data-action="shift-edit" data-real="${d}" title="Chỉnh ngày hiển thị (dời sang ngày khác)"><i class="fas fa-pen-to-square"></i></button>`;
             const movedBadge = `<span class="dr-shift-moved-badge" title="Dữ liệu ngày này đã dời sang ${formatDDMMYYYY(realToEntry(target))} (không nằm trong filter hiện tại)"><i class="fas fa-arrow-right-from-bracket"></i> dời → ${formatDDMMYYYY(realToEntry(target))}</span>`;
+            // Cột: NGÀY, SL ĐƠN, TIỀN, PHÍ SHIP, SL ĐƠN SHIP, THU VỀ, TỔNG TẤT CẢ,
+            // BO NHẬN CK, [CK TRƯỚC nếu showCk], TỔNG CÒN LẠI, GHI CHÚ, DUYỆT.
+            // ATRƯỜNG NHẬN CK đã xóa hẳn.
             return `<tr data-date="${d}" class="is-shifted-out">
                 <td class="date" title="Ngày thật: ${formatDDMMYYYY(d)}">${formatDDMMYYYY(realToEntry(d))}${movedBadge}${editBtn}</td>
                 <td class="num strong muted">0</td>
@@ -1507,8 +1516,7 @@
                 <td class="num muted">$ 0</td>
                 <td class="num muted">$ 0</td>
                 <td class="num muted">$ 0</td>
-                <td class="num muted">$ 0</td>
-                <td class="num muted">$ 0</td>
+                ${showCk ? '<td class="num muted">$ 0</td>' : ''}
                 <td class="num muted">$ 0</td>
                 <td class="note-cell"></td>
                 <td class="dr-report-td-approve"></td>
@@ -1525,7 +1533,6 @@
             let sumSlShip = 0,
                 sumThuVe = 0,
                 sumBoCK = 0,
-                sumAtruongCK = 0,
                 sumCkTruoc = 0;
             const sourceNotes = [];
             let anyApproved = false;
@@ -1539,7 +1546,6 @@
                 sumSlShip += Number(ov.slShip) || 0;
                 sumThuVe += Number(ov.thuVe) || 0;
                 sumBoCK += Number(ov.boCK) || 0;
-                sumAtruongCK += Number(ov.atruongCK) || 0;
                 sumCkTruoc += Number(ov.ckTruoc) || 0;
                 if (ov.note && String(ov.note).trim()) {
                     sourceNotes.push(
@@ -1550,7 +1556,8 @@
                 else allApproved = false;
             }
             const totalAll = sumMoney - sumShipFee - sumSlShip * getShipFee(tab) + sumThuVe;
-            const totalLeftRaw = totalAll - sumBoCK - sumAtruongCK - sumCkTruoc;
+            // ATRƯỜNG NHẬN CK xóa hẳn → không trừ. CK TRƯỚC chỉ trừ khi cột còn (showCk).
+            const totalLeftRaw = totalAll - sumBoCK - (showCk ? sumCkTruoc : 0);
             // Duyệt KHÔNG zero TỔNG CÒN LẠI nữa (2026-05-31) — giữ nguyên giá trị,
             // dòng chỉ mờ đi qua class .is-approved. Totals cũng cộng bình thường.
             const totalLeftDisplay = totalLeftRaw;
@@ -1562,7 +1569,6 @@
             totals.thuVe += sumThuVe;
             totals.totalAll += totalAll;
             totals.boCK += sumBoCK;
-            totals.atruongCK += sumAtruongCK;
             totals.ckTruoc += sumCkTruoc;
             totals.totalLeft += totalLeftRaw;
             const sourceLabels = sourceDates.map((s) => formatDDMMYYYY(realToEntry(s))).join(', ');
@@ -1606,8 +1612,7 @@
                 <td class="num">${formatMoney(sumThuVe)}</td>
                 <td class="num strong">${formatMoney(totalAll)}</td>
                 <td class="num">${formatMoney(sumBoCK)}</td>
-                <td class="num">${formatMoney(sumAtruongCK)}</td>
-                <td class="num">${formatMoney(sumCkTruoc)}</td>
+                ${showCk ? `<td class="num">${formatMoney(sumCkTruoc)}</td>` : ''}
                 <td class="num strong ${totalLeftDisplay < 0 ? 'negative' : 'positive'}">${formatMoney(totalLeftDisplay)}</td>
                 <td class="note-cell" data-tooltip="${escapeHtml(sourceNotes.join('\n') || 'Không có ghi chú từ các ngày con')}">${sourceNotes.length ? '<i class="fas fa-comment-dots" title="Có ghi chú — hover xem"></i>' : ''}</td>
                 <td class="dr-report-td-approve">${approveCellHtml}</td>
@@ -1727,8 +1732,7 @@
             <th class="num">${formatMoney(totals.thuVe)}</th>
             <th class="num strong">${formatMoney(totals.totalAll)}</th>
             <th class="num">${formatMoney(totals.boCK)}</th>
-            <th class="num">${formatMoney(totals.atruongCK)}</th>
-            <th class="num">${formatMoney(totals.ckTruoc)}</th>
+            ${showCk ? `<th class="num">${formatMoney(totals.ckTruoc)}</th>` : ''}
             <th class="num strong ${totals.totalLeft < 0 ? 'negative' : 'positive'}">${formatMoney(totals.totalLeft)}</th>
             <th></th>
             <th></th>
@@ -2113,7 +2117,7 @@
 
         const date = row.dataset.date;
         const group = state.activeTab;
-        const colCount = 13; // số cột table — đồng bộ với colspan empty/loading state
+        const colCount = currentColCount(); // số cột động theo tab (bỏ ATRƯỜNG; bỏ CK TRƯỚC ở city)
 
         const loadingTr = document.createElement('tr');
         loadingTr.className = 'dr-expand-row';

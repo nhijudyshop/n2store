@@ -2400,20 +2400,6 @@ body.dr-mode-report #drTableWrapper {
 .dr-report-table th.input-col {
     color: #1d4ed8;
 }
-/* ── Ẩn cột theo tab (2026-05-31) ──────────────────────────────────────────
-   Cột 9 = ATRƯỜNG NHẬN CK: ẩn ở MỌI tab (TOMATO/NAP/THÀNH PHỐ).
-   Cột 10 = CK TRƯỚC: ẩn thêm ở THÀNH PHỐ (data-tab="city").
-   Mọi data row + thead + tfoot đều có đúng 13 cell cùng thứ tự nên nth-child
-   khớp ổn định. Row colspan (expand/empty) chỉ 1 cell → không bị nth-child(9/10)
-   chạm. Dữ liệu atruongCK/ckTruoc vẫn tính ngầm vào TỔNG CÒN LẠI (không xoá data). */
-.dr-report-table th:nth-child(9),
-.dr-report-table td:nth-child(9) {
-    display: none;
-}
-.dr-report-table[data-tab='city'] th:nth-child(10),
-.dr-report-table[data-tab='city'] td:nth-child(10) {
-    display: none;
-}
 .dr-report-table tbody td {
     padding: 8px;
     border-bottom: 1px solid #f3f4f6;
