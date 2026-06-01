@@ -25,11 +25,39 @@
 
 ## 2026-06-01
 
+### [tpos-pancake][cart][render][native-orders] Tạo đơn từ tpos-pancake → SĐT + địa chỉ KH từ TPOS partner cache + inline inputs ✅
+
+**Yêu cầu user**: "tạo đơn qua native-orders thì thêm vào sđt, địa chỉ cho khách"
+
+**Cách làm**:
+
+- **Frontend tpos-pancake** (`js/pancake/inventory-panel.js`): `_resolveTposCustomer(commentId, row)` giờ enrich SĐT + địa chỉ từ 3 nguồn ưu tiên giảm dần:
+    1. Inline input user vừa sửa thủ công (`#phone-{fromId}` / `#addr-{fromId}`)
+    2. TPOS partner cache (`state.partnerCache.get(fromId).Phone` / `.Street` + Ward/District/City)
+    3. Field `c.phone` / `c.address` trên comment object (hiếm)
+    - normalize phone digits-only last-10 (VN convention).
+- `_resolveCommitContext` thêm field `address`. Customer object passed xuống `addToCart` giờ có `{id, name, phone, address}`.
+- **Backend** (`render.com/routes/v2/cart.js`): `_createDraftViaFromComment` thay `address: ''` (hardcoded) → `customer?.address || ''`. Forward sang `/api/native-orders/from-comment` → backend đã có chain enrichment (local fb_id → TPOS Partner lookup) làm fallback.
+- **Fix nút "Lấy TPOS" trong native-orders**:
+    - Bỏ `successMsg: 'Đã lấy info KH từ TPOS'` (Web2Optimistic fire NGAY sau apply → premature notif gây hiểu lầm "thành công" dù backend lỗi). Notify thật trong `onSuccess` callback với chi tiết "Đã lấy tên + SĐT + địa chỉ từ TPOS".
+    - Fix `searchCustomerByFbUserId` (`render.com/services/tpos-customer-service.js`): TPOS endpoint `SaleOnline_Order/ODataService.GetViewV2` strict — phải URL-encode params đầy đủ qua `URLSearchParams`, thêm headers required: `Origin: tomato.tpos.vn`, `Referer`, `tposappversion: 6.1.8.1`, `x-requested-with: XMLHttpRequest`, `Content-Type: application/json;IEEE754Compatible=false`. Surface response body chi tiết khi 400 để debug dễ hơn.
+
+**Files**:
+
+- `tpos-pancake/js/pancake/inventory-panel.js`: enrich `_resolveTposCustomer` + `_resolveCommitContext.address`.
+- `tpos-pancake/index.html`: bump cache `inventory-panel.js?v=20260601b`.
+- `render.com/routes/v2/cart.js`: pass `customer?.address` thay hardcoded `''`.
+- `render.com/services/tpos-customer-service.js`: full TPOS headers + URLSearchParams + debug body trong error message.
+- `native-orders/js/native-orders-app.js`: bỏ `successMsg` premature, notify chi tiết trong `onSuccess`.
+
+**Status**: ✅ Code fix xong. Backend deploy auto khi Render pickup commit (~3-5 min). User test "Lấy TPOS" button sau deploy nên thấy phone+address fill vào row.
+
 ### [inventory-tracking] Financial row: label + tiền ngoại tệ màu đen size x2, (tiền việt) xám nhạt ✅
 
 **Yêu cầu user**: Trên card đợt hàng (Theo Dõi Đơn Hàng), dòng tài chính "Số dư / Tổng HĐ / Tổng CP / Còn dư" + phần tiền ngoại tệ (`$...`) → toàn bộ màu đen, size tăng x2. Phần tiền Việt quy đổi trong ngoặc `(...)` → màu xám nhạt, **giữ nguyên size gốc**.
 
 **Files**:
+
 - `inventory-tracking/css/modern.css` — 4 class container (`.ship-so-du`, `.ship-tong-hd`, `.ship-tong-cp`, `.ship-tong-running`) + các `-num`: `color:#111827`, `font-size:26px` (gốc 13px → x2). Override luôn `.ship-so-du.is-pos/.is-neg` + `.ship-tong-running.is-pos/.is-neg` về đen (bỏ xanh/đỏ theo dấu). `.ship-tong-hd-vnd` (class chung cho mọi `(VND)`) → `color:#9ca3af`, `font-weight:500`, `font-size:13px` (giữ size gốc).
 - `inventory-tracking/index.html` — bump `css/modern.css?v=20260601e`.
 
@@ -88,12 +116,14 @@
 **Root cause cụm 1 (write-race đè category):** Khách có ví → tạo PBH trừ ví → `_applyWalletAutoTags` toggle cờ `TRỪ CÔNG NỢ` qua `queueProcessingTagSave`, hàm này **snapshot cả blob (gồm `category`) tại lúc queue**, flush sau 500ms. Cùng lúc `onPtagBillCreated` flip `category → HOAN_TAT` + PUT ngay. Last-write-wins per-order doc → batch (snapshot CHỜ ĐI ĐƠN cũ) đè ngược flip ~50%. **KHÔNG phải do commit 150a4b2dd** (race này có trước).
 
 **Files:**
+
 - [`orders-report/js/tab1/tab1-processing-tags.js`](../orders-report/js/tab1/tab1-processing-tags.js) — Fix D (`queueProcessingTagSave`/`_flushBatchSave` serialize LIVE data tại flush), Fix B (`reconcileTagsWithInvoices` loại invoice `NotEnoughInventory` khỏi `hasActive`), Fix 4 (`onPtagBillCreated` thêm `opts.confirmedSuccess`)
 - [`orders-report/js/tab1/tab1-fast-sale-invoice-status.js`](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) — Fix A (`set()` thêm `opts.isError`/detect `NotEnoughInventory` → ép badge "Nháp"), wiring Fix 4 (truyền `confirmedSuccess: true`)
 - [`orders-report/js/tab1/tab1-fast-sale-workflow.js`](../orders-report/js/tab1/tab1-fast-sale-workflow.js) — Fix C (`addTagToOrder`/`removeTagFromOrder` gọi `updateOrderInTable` re-render cell TAG + surface lỗi gắn tag)
 - [`orders-report/js/tab1/tab1-sale.js`](../orders-report/js/tab1/tab1-sale.js) — wiring Fix 4 (single-sale `onPtagBillCreated` truyền `confirmedSuccess: true`)
 
 **Chi tiết:**
+
 - **Fix D (lỗi 50%):** `queueProcessingTagSave` chỉ lưu `orderCode`+metadata; `_flushBatchSave` đọc lại `getOrderData(orderCode)` tại lúc flush → batch luôn gửi `category` mới nhất, hết lost-update.
 - **Fix B:** invoice "Chờ nhập hàng" (`StateCode==='NotEnoughInventory'`) không tính là PBH active → reconcile không flip đơn fail. Guard `_ptagHasAmMaTag` giữ làm lớp 2.
 - **Fix A:** đơn fail ép `showState='Nháp'`/`state='draft'`, vẫn giữ row "Chờ nhập hàng".
@@ -109,6 +139,7 @@
 **Bối cảnh**: `expires_at` là `NOT NULL` không có DB default → ngày hết hạn luôn do code truyền lúc cấp (`issueVirtualCredit`: `expiresAt = now + expiresInDays`). Cron `expire_virtual_credits()` (chạy mỗi giờ) chỉ đổi `status='EXPIRED'` + trừ `virtual_balance`, KHÔNG xoá row. Đổi default code = chỉ ảnh hưởng phiếu cấp SAU khi deploy.
 
 **Files (7 chỗ, 15 → 30)**:
+
 - Luồng A (cấp tay – nút "Cấp công nợ ảo"): `customer-hub/js/modules/wallet-panel.js` (input `value="30"` + fallback `|| 30`); `render.com/routes/v2/wallets.js` (`POST /:customerId/credit` default `expiry_days = 30`)
 - Luồng B (tự động từ "Thu về" / RETURN_SHIPPER): `render.com/routes/v2/tickets.js` (ticket completion hardcode `30` + `POST /:id/resolve-credit` default `expires_in_days = 30`); `issue-tracking/js/script.js` (frontend gọi `resolveTicketCredit` truyền `expires_in_days: 30`)
 - Dùng chung: `shared/js/api-service.js` (`issueVirtualCredit` default `expiry_days || 30`)

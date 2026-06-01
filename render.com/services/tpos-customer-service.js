@@ -429,14 +429,29 @@ async function searchCustomerByFbUserId(fbUserId) {
     if (!fbUserId) return { success: false, error: 'fbUserId required' };
     try {
         const token = await tposTokenManager.getToken();
-        const tposUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetViewV2?$filter=Facebook_ASUserId eq '${encodeURIComponent(fbUserId)}'&$expand=Partner&$top=1&$orderby=DateCreated desc`;
+        // URL params phải encode đầy đủ (TPOS strict trên SaleOnline_Order endpoint,
+        // khác Partner endpoint). Headers Origin/Referer/tposappversion required —
+        // verified qua header-learner CF worker (xem cloudflare-worker/modules/utils/header-learner.js).
+        const fbIdEsc = String(fbUserId).replace(/'/g, "''");
+        const params = new URLSearchParams({
+            $filter: `Facebook_ASUserId eq '${fbIdEsc}'`,
+            $expand: 'Partner',
+            $top: '1',
+            $orderby: 'DateCreated desc',
+        });
+        const tposUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetViewV2?${params.toString()}`;
         const response = await fetchWithRetry(
             tposUrl,
             {
                 method: 'GET',
                 headers: {
                     Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
+                    Origin: 'https://tomato.tpos.vn',
+                    Referer: 'https://tomato.tpos.vn/',
+                    tposappversion: '6.1.8.1',
+                    'x-requested-with': 'XMLHttpRequest',
                 },
             },
             2,
@@ -444,7 +459,19 @@ async function searchCustomerByFbUserId(fbUserId) {
             15000
         );
         if (!response.ok) {
-            return { success: false, error: `TPOS API ${response.status}` };
+            // Surface body để debug 400 dễ hơn
+            let detail = '';
+            try {
+                const j = await response.json();
+                detail = j?.error?.message || JSON.stringify(j).slice(0, 200);
+            } catch {}
+            console.warn(
+                `[TPOS-CUSTOMER] searchCustomerByFbUserId(${fbUserId}) → ${response.status}${detail ? ': ' + detail : ''}`
+            );
+            return {
+                success: false,
+                error: `TPOS API ${response.status}${detail ? ': ' + detail : ''}`,
+            };
         }
         const data = await response.json();
         const order = (data.value || [])[0];

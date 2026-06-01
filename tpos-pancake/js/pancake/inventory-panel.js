@@ -325,8 +325,14 @@
         return m;
     }
 
+    // 2026-06-01: enrich SĐT + địa chỉ từ 3 nguồn (ưu tiên giảm dần):
+    // (1) Inline input user vừa sửa thủ công (#phone-{fromId} / #addr-{fromId})
+    // (2) Partner cache TPOS đã load (state.partnerCache.get(fromId).Phone / .Street)
+    // (3) Field cũ trên comment object (c.phone / c.address — hiếm)
+    // → đảm bảo native_order tạo từ drag-drop luôn có SĐT/địa chỉ nếu KH đã có data
+    // bên TPOS. Backend /from-comment vẫn fallback FB-ID chain lookup nếu vẫn rỗng.
     function _resolveTposCustomer(commentId, row) {
-        const cust = { id: null, name: null, phone: null };
+        const cust = { id: null, name: null, phone: null, address: null };
         try {
             const map = _getCmtMap();
             const c = map.get(commentId);
@@ -336,7 +342,31 @@
                     c.from?.name ||
                     row?.querySelector?.('.tpos-conv-name, .from-name')?.textContent?.trim() ||
                     null;
-                cust.phone = c.phone || c.customer_phone || null;
+                // Source 1: inline inputs (user just typed)
+                const inlinePhone = row?.querySelector?.(`input[id^="phone-"]`)?.value?.trim();
+                const inlineAddr = row?.querySelector?.(`input[id^="addr-"]`)?.value?.trim();
+                // Source 2: TPOS partner cache (loaded by loadPartnerInfoForComments)
+                const partner = cust.id ? global.TposState?.partnerCache?.get(cust.id) : null;
+                cust.phone =
+                    inlinePhone ||
+                    partner?.Phone ||
+                    partner?.Mobile ||
+                    c.phone ||
+                    c.customer_phone ||
+                    null;
+                cust.address =
+                    inlineAddr ||
+                    partner?.Street ||
+                    [partner?.Street, partner?.Ward, partner?.District, partner?.City]
+                        .filter(Boolean)
+                        .join(', ') ||
+                    c.address ||
+                    null;
+                // Normalize phone: digits-only, keep last 10 (VN convention)
+                if (cust.phone) {
+                    const digits = String(cust.phone).replace(/\D/g, '');
+                    cust.phone = digits.length >= 10 ? digits.slice(-10) : digits;
+                }
             }
         } catch {}
         return cust;
@@ -357,6 +387,7 @@
             fbUserId: customer?.id || null,
             fbUserName: customer?.name || null,
             phone: customer?.phone || '',
+            address: customer?.address || '',
             fbPageId: null,
             fbPageName: null,
             fbPostId: null,

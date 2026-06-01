@@ -790,11 +790,22 @@
         const onSuccess = (result) => {
             if (result?.noop) {
                 notify('TPOS không có info mới — đơn đã đủ data', 'info');
+                renderRows(); // re-enable button
                 return;
             }
             if (result?.patchedOrder) {
                 const idx = STATE.orders.findIndex((x) => x.code === code);
                 if (idx !== -1) STATE.orders[idx] = result.patchedOrder;
+                const filled = [];
+                if (result.tposCust?.name && !order.customerName) filled.push('tên');
+                if (result.tposCust?.phone && !order.phone) filled.push('SĐT');
+                if (result.tposCust?.address && !order.address) filled.push('địa chỉ');
+                notify(
+                    filled.length ? `Đã lấy ${filled.join(' + ')} từ TPOS` : 'Đã sync với TPOS',
+                    'success'
+                );
+            } else {
+                notify('TPOS trả về rỗng', 'warning');
             }
             renderRows();
             // Invalidate panel cache cho fbUserId này để hover tiếp sau hiện data mới
@@ -806,14 +817,15 @@
             renderRows();
         };
 
+        // KHÔNG dùng successMsg — Web2Optimistic fire nó NGAY sau apply() (trước backend).
+        // Lấy TPOS cần notify thực sự khi backend confirm có data → notify trong onSuccess.
         if (window.Web2Optimistic?.run) {
             Web2Optimistic.run({
-                snapshot: () => null, // Không cần snapshot — rollback chỉ cần re-render
+                snapshot: () => null,
                 apply,
                 run,
                 onSuccess,
                 rollback,
-                successMsg: 'Đã lấy info KH từ TPOS',
                 errLabel: `lấy TPOS cho ${code}`,
             });
         } else {
@@ -821,7 +833,6 @@
             try {
                 const result = await run();
                 onSuccess(result);
-                notify('Đã lấy info KH từ TPOS', 'success');
             } catch (e) {
                 rollback();
                 notify('Lỗi lấy TPOS: ' + e.message, 'error');
