@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `cbc4e8c` — fix(native-orders): customer hover popover overlap bug + TPOS-live address
-**Last updated**: 2026-06-01 13:58:50 +07
-**Latest session**: [`RESUME:20260601-135850-cbc4e8c`](../20260601-135850-cbc4e8c.md)
-**Summary**: fix(native-orders): customer hover popover overlap bug + TPOS-live address
+**Latest commit**: `5964e7c` — refactor(native-orders): xóa sạch customer hover popover (per user "xóa đi làm lại")
+**Last updated**: 2026-06-01 14:06:14 +07
+**Latest session**: [`RESUME:20260601-140614-5964e7c`](../20260601-140614-5964e7c.md)
+**Summary**: refactor(native-orders): xóa sạch customer hover popover (per user "xóa đi làm lại")
 
 ## Folders affected in this commit
 
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 2 file(s)
+- [`orders-report/`](./orders-report.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-01 12:13
+- [`docs/`](./docs.md) — updated 2026-06-01 14:06
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -39,10 +40,10 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-30 11:05
-- [`native-orders/`](./native-orders.md) — updated 2026-06-01 13:58
+- [`native-orders/`](./native-orders.md) — updated 2026-06-01 14:06
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-01 10:47
+- [`orders-report/`](./orders-report.md) — updated 2026-06-01 14:06
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 15:44
