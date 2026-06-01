@@ -1,6 +1,6 @@
 # KPI Attribution System — Detailed Plan v2
 
-> **Trạng thái:** ✅ APPROVED — Sprint 0 IN PROGRESS (2026-05-31)
+> **Trạng thái:** ✅ IMPLEMENTED (Sprints 0-5 done, 2026-05-31 → 2026-06-01). User guide: [docs/web2/KPI-USER-GUIDE.md](../web2/KPI-USER-GUIDE.md)
 > **v1 → v2 changes:** Campaign-scoped (not day-scoped); Forecast vs Actual split; Beneficiary-based attribution (assignee not actor); STT range visibility filter
 > **Created:** 2026-05-31
 > **Stakeholder:** Shop manager + nhân viên team chốt đơn

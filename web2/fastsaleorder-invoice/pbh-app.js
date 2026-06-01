@@ -6,6 +6,25 @@
     'use strict';
 
     const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const KPI_API = `${WORKER}/api/v2/kpi`;
+
+    // Sprint 5 KPI: inject Web2Auth token vào mọi request để backend apply scope.
+    function _authHeaders() {
+        try {
+            const stored = window.Web2Auth?.getStored?.();
+            if (stored?.token) return { 'x-web2-token': stored.token };
+        } catch {}
+        return {};
+    }
+
+    // Wrap fetch để auto-inject auth header (chỉ khi GET /load + scope endpoints).
+    async function _fetch(url, opts = {}) {
+        return fetch(url, {
+            ...opts,
+            headers: { ..._authHeaders(), ...(opts.headers || {}) },
+        });
+    }
+
     const STATE = {
         orders: [],
         total: 0,
@@ -77,7 +96,8 @@
         params.set('page', STATE.page);
         params.set('limit', STATE.limit);
         try {
-            const r = await fetch(`${WORKER}/api/fast-sale-orders/load?${params}`);
+            // Sprint 5 KPI: scope auto-applied backend nếu user có x-web2-token + assignments.
+            const r = await _fetch(`${WORKER}/api/fast-sale-orders/load?${params}`);
             const data = await r.json();
             if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
             STATE.orders = data.orders || [];
@@ -661,8 +681,40 @@
         load();
     }
 
+    // Sprint 5 KPI: hiển thị banner cho NV restricted scope (giống native-orders pattern)
+    async function _loadAndRenderScopeBanner() {
+        try {
+            const r = await _fetch(`${KPI_API}/scope`);
+            const data = await r.json();
+            if (!data?.success) return;
+            if (data.access !== 'restricted' || !Array.isArray(data.scope) || !data.scope.length) {
+                return;
+            }
+            const banner = document.createElement('div');
+            banner.id = 'kpiScopeBannerPbh';
+            banner.style.cssText =
+                'background:#dbeafe;color:#1e40af;padding:8px 16px;border-bottom:1px solid #93c5fd;' +
+                'font-size:13px;display:flex;align-items:center;gap:8px;';
+            const summary = data.scope
+                .map(
+                    (s) =>
+                        `<strong>${(s.campaign_name || '').replace(/[<>&]/g, '')}</strong> STT ${s.fromSTT}-${s.toSTT}`
+                )
+                .join(' · ');
+            banner.innerHTML = `<i data-lucide="filter" style="width:14px;height:14px;"></i>
+                <span>Bạn chỉ thấy PBH có nguồn từ đơn STT trong khoảng phân công: ${summary}</span>`;
+            const main = document.querySelector('main, .main-content, body');
+            if (main?.firstChild) main.insertBefore(banner, main.firstChild);
+            if (window.lucide) lucide.createIcons();
+        } catch (e) {
+            console.warn('[pbh] scope banner load fail:', e.message);
+        }
+    }
+
     function init() {
         if (window.lucide) lucide.createIcons();
+        // Sprint 5 KPI: render scope banner cho NV restricted
+        _loadAndRenderScopeBanner();
         // Phase 14: read customerId from URL search params on load
         const urlParams = new URLSearchParams(location.search);
         const urlCid = parseInt(urlParams.get('customerId'), 10);

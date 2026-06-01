@@ -25,6 +25,49 @@
 
 ## 2026-06-01
 
+### [kpi][web2] Sprint 5 KPI — fastsaleorder-invoice integration + user docs (FINAL) ✅
+
+**Plan**: [docs/plans/kpi-attribution-system.md](plans/kpi-attribution-system.md) Sprint 5 (final). User guide: [docs/web2/KPI-USER-GUIDE.md](web2/KPI-USER-GUIDE.md).
+
+**fastsaleorder-invoice integration** (`web2/fastsaleorder-invoice/pbh-app.js`):
+
+- `_authHeaders()` đọc Web2Auth token → inject `x-web2-token`
+- `_fetch()` wrapper auto-inject auth header
+- GET `/load` switch sang `_fetch()` → backend apply scope (PBH inherit từ source_code → native_orders campaign+STT)
+- `_loadAndRenderScopeBanner()` init → banner xanh "Bạn chỉ thấy PBH có nguồn từ đơn STT trong khoảng…" cho NV restricted
+
+**User docs** (`docs/web2/KPI-USER-GUIDE.md`):
+
+- Quick start cho Admin (4 bước phân công) + Nhân viên (login, scope banner, badge native/livestream/backlog)
+- KPI Dashboard tabs (Forecast / Actual / Audit + CSV export)
+- Backlog Review workflow (admin queue + 2 decisions)
+- Formula KPI + idempotency contract
+- Edge cases (delete-readd, cross-user, cancel, reissue, no-campaign)
+- Troubleshooting + permissions matrix
+- Sprint history table
+
+**Plan status**: IMPLEMENTED. 6 sprints done trong 2 ngày (5-6 days estimate beaten 3x do reuse `campaign_employee_ranges` từ Web 1.0).
+
+**Final architecture**:
+
+```
+Cart drag-drop → forecast_add (livestream, không KPI)
+Native picker  → forecast_add (native, count KPI) OR forecast_add (backlog, admin review)
+PBH create     → actual_confirmed (promote forecast → actual)
+PBH/native cancel → actual_revoked (revoke actual, forecast giữ)
+
+Beneficiary = lookup campaign_employee_ranges JSONB at emit time
+Scope filter = same lookup at request time → req.kpiScope WHERE clause
+```
+
+**Tables**: 3 new (`web2_kpi_events` ledger, `web2_kpi_forecast`, `web2_kpi_actual`) + 1 column (`native_orders.campaign_stt`) + 2 reused (`campaign_employee_ranges` + history).
+
+**Pages**: 3 new (`/web2/kpi/index.html`, `assignments.html`, `backlog-review.html`).
+
+**Routes updated**: 11 (native-orders.js: load/campaigns/PATCH/cancel; fast-sale-orders.js: load/from-native-order/cancel/by-source-cancel; cart.js: add/remove).
+
+---
+
 ### [kpi][render][web2] Sprint 4 KPI — Backlog Review + Recalc + SSE realtime + CSV export ✅
 
 **Plan**: [docs/plans/kpi-attribution-system.md](plans/kpi-attribution-system.md) Sprint 4
