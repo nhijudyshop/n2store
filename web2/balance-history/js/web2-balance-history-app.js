@@ -126,6 +126,7 @@
         dom.dateFrom = document.getElementById('w2bhDateFrom');
         dom.dateTo = document.getElementById('w2bhDateTo');
         dom.dateClear = document.getElementById('w2bhDateClear');
+        dom.datePresets = document.getElementById('w2bhDatePresets');
         dom.csvBtn = document.getElementById('w2bhCsvBtn');
     }
 
@@ -959,6 +960,7 @@
             dom.dateFrom.addEventListener('change', () => {
                 state.dateFrom = dom.dateFrom.value || '';
                 state.page = 1;
+                _updateDatePresetActive();
                 load();
             });
         }
@@ -966,6 +968,7 @@
             dom.dateTo.addEventListener('change', () => {
                 state.dateTo = dom.dateTo.value || '';
                 state.page = 1;
+                _updateDatePresetActive();
                 load();
             });
         }
@@ -976,7 +979,28 @@
                 if (dom.dateFrom) dom.dateFrom.value = '';
                 if (dom.dateTo) dom.dateTo.value = '';
                 state.page = 1;
+                _updateDatePresetActive();
                 load();
+            });
+        }
+        if (dom.datePresets) {
+            dom.datePresets.addEventListener('click', (e) => {
+                const btn = e.target.closest('.w2bh-date-preset');
+                if (!btn) return;
+                const key = btn.dataset.preset;
+                if (!key) return;
+                // Toggle: bấm preset đang active → xoá filter (xem tất cả)
+                if (btn.classList.contains('is-active')) {
+                    state.dateFrom = '';
+                    state.dateTo = '';
+                    if (dom.dateFrom) dom.dateFrom.value = '';
+                    if (dom.dateTo) dom.dateTo.value = '';
+                    state.page = 1;
+                    _updateDatePresetActive();
+                    load();
+                    return;
+                }
+                _applyDatePreset(key);
             });
         }
         if (dom.csvBtn) {
@@ -992,15 +1016,84 @@
         });
     }
 
-    function _defaultDateRangeThisMonth() {
+    function _toISODate(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dd}`;
+    }
+
+    // Tuần bắt đầu Thứ Hai (VN). Date.getDay() trả 0=CN..6=T7 → map Sun→7.
+    function _datePresetRange(key, now = new Date()) {
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if (key === 'today') {
+            return { from: _toISODate(today), to: _toISODate(today) };
+        }
+        if (key === 'yesterday') {
+            const y = new Date(today);
+            y.setDate(today.getDate() - 1);
+            return { from: _toISODate(y), to: _toISODate(y) };
+        }
+        const dowMon = ((today.getDay() + 6) % 7) + 1; // T2=1..CN=7
+        if (key === 'thisWeek') {
+            const mon = new Date(today);
+            mon.setDate(today.getDate() - (dowMon - 1));
+            const sun = new Date(mon);
+            sun.setDate(mon.getDate() + 6);
+            return { from: _toISODate(mon), to: _toISODate(sun) };
+        }
+        if (key === 'lastWeek') {
+            const monThis = new Date(today);
+            monThis.setDate(today.getDate() - (dowMon - 1));
+            const monLast = new Date(monThis);
+            monLast.setDate(monThis.getDate() - 7);
+            const sunLast = new Date(monLast);
+            sunLast.setDate(monLast.getDate() + 6);
+            return { from: _toISODate(monLast), to: _toISODate(sunLast) };
+        }
+        if (key === 'thisMonth') {
+            const start = new Date(today.getFullYear(), today.getMonth(), 1);
+            const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            return { from: _toISODate(start), to: _toISODate(end) };
+        }
+        if (key === 'lastMonth') {
+            const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const end = new Date(today.getFullYear(), today.getMonth(), 0);
+            return { from: _toISODate(start), to: _toISODate(end) };
+        }
+        return null;
+    }
+
+    const _PRESET_KEYS = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'lastMonth'];
+
+    function _currentPresetKey(from, to) {
+        if (!from || !to) return null;
         const now = new Date();
-        const y = now.getFullYear();
-        const m = String(now.getMonth() + 1).padStart(2, '0');
-        const lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
-        return {
-            from: `${y}-${m}-01`,
-            to: `${y}-${m}-${String(lastDay).padStart(2, '0')}`,
-        };
+        for (const key of _PRESET_KEYS) {
+            const r = _datePresetRange(key, now);
+            if (r && r.from === from && r.to === to) return key;
+        }
+        return null;
+    }
+
+    function _updateDatePresetActive() {
+        if (!dom.datePresets) return;
+        const active = _currentPresetKey(state.dateFrom, state.dateTo);
+        dom.datePresets.querySelectorAll('.w2bh-date-preset').forEach((btn) => {
+            btn.classList.toggle('is-active', btn.dataset.preset === active);
+        });
+    }
+
+    function _applyDatePreset(key) {
+        const r = _datePresetRange(key);
+        if (!r) return;
+        state.dateFrom = r.from;
+        state.dateTo = r.to;
+        if (dom.dateFrom) dom.dateFrom.value = r.from;
+        if (dom.dateTo) dom.dateTo.value = r.to;
+        state.page = 1;
+        _updateDatePresetActive();
+        load();
     }
 
     function init() {
@@ -1011,11 +1104,12 @@
         }
         // 2026-05-31: mặc định lọc tháng hiện tại (user feedback "mặc định
         // chọn tháng này"). User vẫn xoá filter bằng nút × để xem all.
-        const { from, to } = _defaultDateRangeThisMonth();
+        const { from, to } = _datePresetRange('thisMonth');
         state.dateFrom = from;
         state.dateTo = to;
         if (dom.dateFrom) dom.dateFrom.value = from;
         if (dom.dateTo) dom.dateTo.value = to;
+        _updateDatePresetActive();
         renderChips();
         bindEvents();
         load();

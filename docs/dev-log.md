@@ -25,6 +25,34 @@
 
 ## 2026-06-01
 
+### [web2-balance-history] Filter nhanh: Hôm nay / Hôm qua / Tuần này / Tuần trước / Tháng này / Tháng trước ✅
+
+**Files**:
+
+- `web2/balance-history/index.html` — hàng chips presets ngay sau toolbar
+- `web2/balance-history/css/web2-balance-history.css` — `.w2bh-date-presets` flex-wrap + `.w2bh-date-preset` pill, active = cyan (#0891b2)
+- `web2/balance-history/js/web2-balance-history-app.js` — thêm `_toISODate`, `_datePresetRange(key)`, `_currentPresetKey(from,to)`, `_updateDatePresetActive()`, `_applyDatePreset(key)`. Bind click delegated trên `dom.datePresets`. Auto-highlight chip khi user gõ tay vào input date. Thay `_defaultDateRangeThisMonth()` bằng `_datePresetRange('thisMonth')`.
+
+**UX**:
+
+- Tuần bắt đầu Thứ Hai (VN), kết thúc Chủ Nhật
+- Click chip đang active → xoá filter (toggle off, xem tất cả)
+- User gõ tay vào input date → chip match auto sáng, không match thì tắt hết
+- Default mở trang vẫn là "Tháng này"
+
+**Verified qua persistent browser session** (today = 2026-06-01, Thứ 2):
+
+```
+today      → 2026-06-01 → 2026-06-01
+yesterday  → 2026-05-31 → 2026-05-31
+thisWeek   → 2026-06-01 → 2026-06-07
+lastWeek   → 2026-05-25 → 2026-05-31
+thisMonth  → 2026-06-01 → 2026-06-30
+lastMonth  → 2026-05-01 → 2026-05-31
+```
+
+**Status**: ✅ Done
+
 ### [tpos-pancake][render] Anti-lag khi kéo SP vào comment / thêm SP vào đơn ✅
 
 **User báo**: kéo sản phẩm vào comment tạo đơn HOẶC thêm SP mới vào đơn có sẵn bị **lag** bên tpos-pancake.

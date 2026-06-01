@@ -166,6 +166,44 @@
     color: #b91c1c;
 }
 
+/* Quick date presets */
+.w2bh-date-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: -4px 0 12px;
+}
+.w2bh-date-preset {
+    background: #fff;
+    border: 1px solid #d1d5db;
+    color: #4b5563;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    line-height: 1.5;
+    transition:
+        background 120ms,
+        border-color 120ms,
+        color 120ms;
+}
+.w2bh-date-preset:hover {
+    background: #f0f9ff;
+    border-color: #67e8f9;
+    color: #0891b2;
+}
+.w2bh-date-preset.is-active {
+    background: #0891b2;
+    border-color: #0891b2;
+    color: #fff;
+}
+.w2bh-date-preset.is-active:hover {
+    background: #0e7490;
+    border-color: #0e7490;
+    color: #fff;
+}
+
 /* Stats bar */
 .w2bh-stats {
     display: flex;
