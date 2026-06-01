@@ -25,6 +25,18 @@
 
 ## 2026-06-01
 
+### [inventory-tracking] Financial row: label + tiền ngoại tệ màu đen size x2, (tiền việt) xám nhạt ✅
+
+**Yêu cầu user**: Trên card đợt hàng (Theo Dõi Đơn Hàng), dòng tài chính "Số dư / Tổng HĐ / Tổng CP / Còn dư" + phần tiền ngoại tệ (`$...`) → toàn bộ màu đen, size tăng x2. Phần tiền Việt quy đổi trong ngoặc `(...)` → màu xám nhạt, **giữ nguyên size gốc**.
+
+**Files**:
+- `inventory-tracking/css/modern.css` — 4 class container (`.ship-so-du`, `.ship-tong-hd`, `.ship-tong-cp`, `.ship-tong-running`) + các `-num`: `color:#111827`, `font-size:26px` (gốc 13px → x2). Override luôn `.ship-so-du.is-pos/.is-neg` + `.ship-tong-running.is-pos/.is-neg` về đen (bỏ xanh/đỏ theo dấu). `.ship-tong-hd-vnd` (class chung cho mọi `(VND)`) → `color:#9ca3af`, `font-weight:500`, `font-size:13px` (giữ size gốc).
+- `inventory-tracking/index.html` — bump `css/modern.css?v=20260601e`.
+
+**Chi tiết**: tất cả `(VND)` của 4 mục dùng chung 1 class `.ship-tong-hd-vnd` (sinh từ `vndSuffix()` trong table-renderer.js) → chỉ cần 1 rule. Container đặt 26px, con `-vnd` ép lại 13px nên ngoặc giữ size gốc dù nằm trong parent 26px. Separator `|` không đụng.
+
+**Status**: ✅ CSS-only, không động JS/data.
+
 ### [native-orders][render] Khách lạ + nút "Lấy TPOS" — chain lookup FB ID khi đơn từ tpos-pancake rỗng phone ✅
 
 **Yêu cầu user**: (1) Tpos-pancake tạo đơn qua native-orders sao không lấy địa chỉ và sđt của khách bên tpos? (2) Native-orders nếu bên tpos-pancake tạo đơn qua bị rỗng sđt và địa chỉ → lần đầu sẽ lấy từ tpos → nếu không có cột tên sẽ ghi "Khách lạ" kế bên trạng thái khách hàng và có nút "Lấy TPOS" để làm thủ công.

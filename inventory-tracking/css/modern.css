@@ -924,51 +924,62 @@ body {
     opacity: 0.6;
 }
 
+/* Financial row: labels + foreign currency ($) → black, size x2 (13px → 26px).
+   VND quy đổi trong ngoặc (.ship-tong-hd-vnd) → xám nhạt, giữ nguyên size gốc. */
 .ship-tong-hd {
     color: #111827;
     font-weight: 700;
+    font-size: 26px;
 }
 .ship-tong-hd-num {
     color: #111827;
     font-weight: 700;
 }
 .ship-tong-hd-vnd {
-    color: #059669;
-    font-weight: 700;
+    color: #9ca3af;
+    font-weight: 500;
+    font-size: 13px;
 }
 
 .ship-so-du {
+    color: #111827;
     font-weight: 700;
+    font-size: 26px;
 }
 .ship-so-du.is-pos {
-    color: #1d4ed8;
+    color: #111827;
 }
 .ship-so-du.is-neg {
-    color: #b91c1c;
+    color: #111827;
 }
 .ship-so-du-num {
+    color: #111827;
     font-weight: 700;
 }
 
 .ship-tong-cp {
-    color: #92400e;
+    color: #111827;
     font-weight: 700;
+    font-size: 26px;
 }
 .ship-tong-cp-num {
-    color: #92400e;
+    color: #111827;
     font-weight: 700;
 }
 
 .ship-tong-running {
+    color: #111827;
     font-weight: 700;
+    font-size: 26px;
 }
 .ship-tong-running.is-pos {
-    color: #047857;
+    color: #111827;
 }
 .ship-tong-running.is-neg {
-    color: #b91c1c;
+    color: #111827;
 }
 .ship-tong-running-num {
+    color: #111827;
     font-weight: 700;
 }
 
