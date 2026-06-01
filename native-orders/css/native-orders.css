@@ -669,13 +669,13 @@ body {
 .col-address {
     min-width: 220px;
 }
-.col-note {
+.col-note,
+.col-customerComment,
+.col-userNote {
     min-width: 180px;
     max-width: 280px;
 }
-.col-status {
-    width: 140px;
-}
+/* col-status removed 2026-06-01: trạng thái moved into col-check (under STT) */
 .col-time {
     width: 130px;
 }
@@ -803,6 +803,27 @@ body {
     font-size: 13px;
     position: relative;
     overflow: hidden;
+}
+
+/* Native-orders Tên column: avatar (trái) + name (phải).
+ * Hover avatar → popover Pancake customer detail. */
+.cust-with-avatar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.cust-with-avatar .tpos-customer-avatar-wrap {
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+.cust-with-avatar .tpos-customer-avatar-wrap:hover {
+    transform: scale(1.08);
+}
+.cust-with-avatar .tpos-customer-cell {
+    flex: 1;
+    min-width: 0;
 }
 .cust-avatar-initial {
     position: absolute;

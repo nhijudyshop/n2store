@@ -24,7 +24,12 @@
         { key: 'status', label: 'Trạng thái' },
         { key: 'message', label: 'Tin nhắn' },
         { key: 'comment', label: 'Bình luận' },
-        { key: 'note', label: 'Ghi chú' },
+        // 2026-06-01: Tách cột "Ghi chú" thành 2:
+        //   - customerComment (cũ note): auto-captured comment từ FB tpos-pancake, read-only
+        //   - userNote: ghi chú NV tự ghi (size, đóng gói, etc) qua modal sửa đơn
+        // Default both ẨN — user toggle qua "Hiện/ẩn cột" nếu cần.
+        { key: 'customerComment', label: 'Khách comment' },
+        { key: 'userNote', label: 'Ghi chú đơn' },
         { key: 'employee', label: 'Nhân viên' },
         { key: 'time', label: 'Ngày tạo' },
     ];
@@ -41,7 +46,8 @@
         status: true,
         message: true,
         comment: true,
-        note: true,
+        customerComment: false, // (cũ 'note') auto FB comment — mặc định ẨN
+        userNote: false, // ghi chú NV — mặc định ẨN
         employee: false,
         time: false,
         // Merge flags
@@ -439,6 +445,194 @@
         else if (type === 'error' && window.Popup) window.Popup.error(msg);
         else console.log(`[${type}]`, msg);
     }
+
+    // ====================================================================
+    // Customer hover popover — show Pancake KH detail khi hover avatar.
+    // Fetch lazy (300ms hover delay), cache per fbUserId (15min TTL).
+    // ====================================================================
+    const _custHoverCache = new Map(); // fbUserId → { data, ts }
+    const _CUST_HOVER_TTL = 15 * 60 * 1000;
+    let _custHoverEl = null;
+    let _custHoverDelayTimer = null;
+    let _custHoverFetchAbort = null;
+
+    function _ensureCustHoverEl() {
+        if (_custHoverEl) return _custHoverEl;
+        _custHoverEl = document.createElement('div');
+        _custHoverEl.className = 'native-orders-cust-hover';
+        _custHoverEl.style.cssText =
+            'position:fixed;z-index:9998;min-width:280px;max-width:340px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);padding:12px 14px;font-size:13px;color:#374151;display:none;pointer-events:none;';
+        document.body.appendChild(_custHoverEl);
+        return _custHoverEl;
+    }
+
+    function _positionCustHoverPopover(target) {
+        const el = _ensureCustHoverEl();
+        const rect = target.getBoundingClientRect();
+        const popRect = el.getBoundingClientRect();
+        // Mặc định bên phải avatar; nếu tràn viewport → ép sang trái
+        let left = rect.right + 8;
+        if (left + popRect.width > window.innerWidth - 8) {
+            left = Math.max(8, rect.left - popRect.width - 8);
+        }
+        let top = rect.top;
+        if (top + popRect.height > window.innerHeight - 8) {
+            top = Math.max(8, window.innerHeight - popRect.height - 8);
+        }
+        el.style.left = left + 'px';
+        el.style.top = top + 'px';
+    }
+
+    function _renderCustHoverContent({ loading, data, error, fallback }) {
+        const el = _ensureCustHoverEl();
+        if (loading) {
+            el.innerHTML = `<div style="color:#9ca3af;font-style:italic;">Đang tải thông tin khách…</div>`;
+            return;
+        }
+        if (error) {
+            el.innerHTML = `<div style="color:#dc2626;">Lỗi tải: ${escapeHtml(error)}</div><div style="margin-top:6px;color:#6b7280;font-size:12px;">${escapeHtml(fallback?.name || '—')} · ${escapeHtml(fallback?.phone || '')}</div>`;
+            return;
+        }
+        const d = data || {};
+        const name = d.name || d.from?.name || fallback?.name || '—';
+        const phone = d.recent_phone_numbers?.[0]?.phone_number || d.phone || fallback?.phone || '';
+        const avatar = d.avatar || d.from?.avatar_url || null;
+        const tags = Array.isArray(d.tags) ? d.tags : [];
+        const lastInteraction = d.last_interaction_at || d.last_customer_interactive_at || null;
+        const messageCount = d.message_count ?? null;
+        const successOrders = d.success_order_count ?? null;
+        const orderCount = d.order_count ?? null;
+        const lastSent = d.last_sent_by?.name || null;
+        const note = d.note || d.extra_info?.note || null;
+        const formatTime = (t) => {
+            if (!t) return '';
+            const dt = new Date(t);
+            return Number.isFinite(dt.getTime()) ? dt.toLocaleString('vi-VN') : '';
+        };
+        el.innerHTML = `
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+                ${avatar ? `<img src="${escapeHtml(avatar)}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none'">` : `<div style="width:48px;height:48px;border-radius:50%;background:#e5e7eb;display:flex;align-items:center;justify-content:center;font-weight:600;color:#9ca3af;flex-shrink:0;">${escapeHtml((name || '?').charAt(0).toUpperCase())}</div>`}
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;color:#111827;font-size:14px;line-height:1.3;">${escapeHtml(name)}</div>
+                    ${phone ? `<div style="color:#374151;font-size:12px;margin-top:2px;"><i data-lucide="phone" style="width:11px;height:11px;vertical-align:-1px;"></i> ${escapeHtml(phone)}</div>` : ''}
+                </div>
+            </div>
+            ${
+                tags.length
+                    ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;">${tags
+                          .slice(0, 6)
+                          .map(
+                              (t) =>
+                                  `<span style="background:#ede9fe;color:#6d28d9;padding:2px 6px;border-radius:10px;font-size:11px;font-weight:600;">${escapeHtml(t.text || t.name || t)}</span>`
+                          )
+                          .join('')}</div>`
+                    : ''
+            }
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid #f3f4f6;display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-size:12px;color:#6b7280;">
+                ${messageCount !== null ? `<div><strong style="color:#374151;">${messageCount}</strong> tin nhắn</div>` : ''}
+                ${orderCount !== null ? `<div><strong style="color:#374151;">${orderCount}</strong> đơn</div>` : ''}
+                ${successOrders !== null ? `<div><strong style="color:#16a34a;">${successOrders}</strong> đơn thành công</div>` : ''}
+                ${lastSent ? `<div>Người gửi cuối: <strong style="color:#374151;">${escapeHtml(lastSent)}</strong></div>` : ''}
+            </div>
+            ${lastInteraction ? `<div style="margin-top:8px;color:#9ca3af;font-size:11px;">⏱️ Tương tác cuối: ${escapeHtml(formatTime(lastInteraction))}</div>` : ''}
+            ${note ? `<div style="margin-top:6px;padding:6px 8px;background:#fffbeb;border-left:3px solid #f59e0b;color:#78350f;font-size:12px;border-radius:3px;">${escapeHtml(note)}</div>` : ''}
+            <div style="margin-top:10px;color:#9ca3af;font-size:10.5px;font-style:italic;">Nguồn: Pancake (sync 2 chiều với TPOS)</div>
+        `;
+        if (window.lucide?.createIcons) {
+            try {
+                window.lucide.createIcons();
+            } catch {}
+        }
+    }
+
+    async function _fetchPancakeCustomer(fbUserId, fbPageId) {
+        const cached = _custHoverCache.get(fbUserId);
+        if (cached && Date.now() - cached.ts < _CUST_HOVER_TTL) return cached.data;
+        if (_custHoverFetchAbort) _custHoverFetchAbort.abort();
+        _custHoverFetchAbort = new AbortController();
+        try {
+            // Pancake conversation list filter by from_psid (fbUserId).
+            // 1-element response → customer + conversation context.
+            const url = `${WORKER_URL}/api/pancake/conversations?pages[${encodeURIComponent(fbPageId)}]=0&from_psid=${encodeURIComponent(fbUserId)}&limit=1&mode=OR&unread_first=false`;
+            const r = await fetch(url, {
+                credentials: 'include',
+                signal: _custHoverFetchAbort.signal,
+            });
+            const d = await r.json();
+            const conv = (d?.conversations || [])[0];
+            if (!conv) {
+                _custHoverCache.set(fbUserId, { data: null, ts: Date.now() });
+                return null;
+            }
+            const cust = (conv.customers || [])[0] || conv.from || {};
+            const enriched = {
+                name: cust.name || conv.from?.name,
+                phone: conv.recent_phone_numbers?.[0]?.phone_number,
+                recent_phone_numbers: conv.recent_phone_numbers,
+                avatar: cust.avatar_url || cust.avatar,
+                tags: conv.tags || [],
+                last_interaction_at: conv.last_customer_interactive_at || conv.updated_at,
+                message_count: conv.message_count,
+                last_sent_by: conv.last_sent_by,
+                success_order_count: cust.success_order_count,
+                order_count: cust.order_count,
+                note: conv.extra_info?.note,
+                has_livestream_order: conv.has_livestream_order,
+                _raw: conv,
+            };
+            _custHoverCache.set(fbUserId, { data: enriched, ts: Date.now() });
+            return enriched;
+        } catch (e) {
+            if (e.name === 'AbortError') return null;
+            throw e;
+        }
+    }
+
+    function showCustomerHoverPopover(target) {
+        const fbUserId = target.dataset.fbUserId;
+        const fbPageId = target.dataset.fbPageId;
+        const fallback = {
+            name: target.dataset.customerName,
+            phone: target.dataset.customerPhone,
+        };
+        if (!fbUserId) return;
+        clearTimeout(_custHoverDelayTimer);
+        _custHoverDelayTimer = setTimeout(async () => {
+            const el = _ensureCustHoverEl();
+            el.style.display = 'block';
+            _positionCustHoverPopover(target);
+            // Cache hit → render ngay
+            const cached = _custHoverCache.get(fbUserId);
+            if (cached && Date.now() - cached.ts < _CUST_HOVER_TTL) {
+                _renderCustHoverContent({ data: cached.data, fallback });
+                _positionCustHoverPopover(target);
+                return;
+            }
+            _renderCustHoverContent({ loading: true });
+            _positionCustHoverPopover(target);
+            try {
+                const data = await _fetchPancakeCustomer(fbUserId, fbPageId);
+                // Có thể user đã rời chuột — chỉ render nếu popover còn visible
+                if (_custHoverEl?.style.display !== 'none') {
+                    _renderCustHoverContent({ data, fallback });
+                    _positionCustHoverPopover(target);
+                }
+            } catch (e) {
+                _renderCustHoverContent({ error: e.message, fallback });
+            }
+        }, 300);
+    }
+
+    function hideCustomerHoverPopover() {
+        clearTimeout(_custHoverDelayTimer);
+        if (_custHoverEl) _custHoverEl.style.display = 'none';
+        if (_custHoverFetchAbort) {
+            try {
+                _custHoverFetchAbort.abort();
+            } catch {}
+            _custHoverFetchAbort = null;
+        }
+    }
     // Hiển thị modal hướng dẫn user đăng nhập Facebook (business.facebook.com)
     // liên kết với Pancake — gọi khi gửi tin nhắn lỗi 24h hoặc extension chưa
     // ready. Một lần per page-load (flag tránh spam).
@@ -660,6 +854,8 @@
                         <div class="tpos-check-stt">
                             <input type="checkbox" class="row-check" value="${escapeHtml(o.code)}">
                             <span class="tpos-row-stt">${sttValue}</span>
+                            <!-- 2026-06-01: trạng thái đơn moved into STT cell (per user) -->
+                            <div class="tpos-row-status-inline">${tposStatusText(o.status)}</div>
                         </div>
                     </td>
                     <td class="col-actions" onclick="event.stopPropagation();">
@@ -739,12 +935,24 @@
                         </div>
                     </td>
                     <td class="col-customer">
-                        <div class="tpos-customer-cell">
-                            <div class="tpos-customer-name-row">
-                                <span class="tpos-customer-name">${escapeHtml(o.customerName || '—')}</span>
-                                ${statusPill}
+                        <div class="cust-with-avatar">
+                            <div class="tpos-customer-avatar-wrap"
+                                 data-fb-user-id="${escapeHtml(o.fbUserId || '')}"
+                                 data-fb-page-id="${escapeHtml(o.fbPageId || '')}"
+                                 data-fb-post-id="${escapeHtml(o.fbPostId || '')}"
+                                 data-customer-name="${escapeHtml(o.customerName || '')}"
+                                 data-customer-phone="${escapeHtml(o.phone || '')}"
+                                 onmouseenter="NativeOrdersApp.showCustomerHoverPopover(this)"
+                                 onmouseleave="NativeOrdersApp.hideCustomerHoverPopover(this)">
+                                ${renderAvatar(o)}
                             </div>
-                            ${mergedPhoneHtml}
+                            <div class="tpos-customer-cell" style="flex:1;min-width:0;">
+                                <div class="tpos-customer-name-row">
+                                    <span class="tpos-customer-name">${escapeHtml(o.customerName || '—')}</span>
+                                    ${statusPill}
+                                </div>
+                                ${mergedPhoneHtml}
+                            </div>
                         </div>
                     </td>
                     <td class="col-phone tpos-cell-center" onclick="event.stopPropagation();">
@@ -762,7 +970,6 @@
                     <td class="col-address">${escapeHtml(o.address || '')}</td>
                     <td class="col-money tpos-cell-money">${total}${mergedQtyHtml}</td>
                     <td class="col-qty tpos-cell-center">${qty || ''}</td>
-                    <td class="col-status">${tposStatusText(o.status)}</td>
                     <td class="col-message tpos-cell-center" onclick="event.stopPropagation();NativeOrdersApp.openInteractions('${escapeHtml(o.code)}','messages')">
                         <span class="tpos-count-pill tpos-count-msg ${Number(o.messageCount) > 0 ? '' : 'is-empty'}" title="Mở tin nhắn">
                             <i data-lucide="message-circle" style="width:11px;height:11px;"></i>
@@ -775,9 +982,14 @@
                             ${o.commentCount || 0}
                         </span>
                     </td>
-                    <td class="col-note">${
+                    <td class="col-customerComment">${
                         o.note
                             ? `<div class="tpos-note-cell" title="${escapeHtml(o.note)}">${escapeHtml(o.note)}</div>`
+                            : '<span class="tpos-count-empty">—</span>'
+                    }</td>
+                    <td class="col-userNote">${
+                        o.userNote
+                            ? `<div class="tpos-note-cell" title="${escapeHtml(o.userNote)}">${escapeHtml(o.userNote)}</div>`
                             : '<span class="tpos-count-empty">—</span>'
                     }</td>
                     <td class="col-employee">${escapeHtml(o.assignedEmployeeName || o.createdByName || '—')}</td>
@@ -6997,6 +7209,9 @@
         removeLine,
         // Livestream snapshot per-line — click thumbnail mở lightbox
         openSnapLightbox,
+        // Customer hover popover (Pancake info)
+        showCustomerHoverPopover,
+        hideCustomerHoverPopover,
         // Debug surface — inspect realtime + chat state from devtools.
         // Verify realtime is WS-driven (not polling): open chat then run
         // `NativeOrdersApp._debug.injectFakeMessage('hello')` — bubble
