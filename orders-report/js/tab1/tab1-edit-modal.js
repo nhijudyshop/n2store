@@ -925,15 +925,36 @@ function renderAuditLogTimeline(auditLogs) {
 function formatAuditDescription(description) {
     if (!description) return '';
 
-    // Try to decode encoded strings first
+    // Two-pass decode: handle Full Note wrapper ["..."] first, then standalone Base64URL strings.
+    // Same DecodingUtility as user-management /index.html decoder tool.
     if (window.DecodingUtility) {
-        // Find potential encoded strings (long, no spaces, Base64URL chars)
+        const escapeHtml = (text) => {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        };
+
+        const renderDecodedNoteBox = (decodedText) =>
+            `<span class="audit-decoded-note" style="display:inline-block;vertical-align:top;background:#f8fafc;border:1px solid #e2e8f0;border-left:3px solid #3b82f6;padding:6px 10px;border-radius:4px;margin:4px 0;font-size:13px;line-height:1.5;color:#334155;max-width:100%;"><span style="font-weight:600;color:#3b82f6;font-size:10px;text-transform:uppercase;display:block;margin-bottom:2px;letter-spacing:0.5px;"><i class="fas fa-unlock-alt"></i> Đã giải mã</span>${escapeHtml(decodedText).replace(/\n/g, '<br>')}</span>`;
+
+        // Pass 1: Full Note wrapper format ["encoded"] (matches format shown in note field)
+        description = description.replace(/\["([A-Za-z0-9\-_=]+)"\]/g, (fullMatch) => {
+            const decoded = window.DecodingUtility.decodeFullNote(fullMatch);
+            if (decoded && /[\x20-\x7E\s -￿]{3,}/.test(decoded)) {
+                return renderDecodedNoteBox(decoded);
+            }
+            return fullMatch;
+        });
+
+        // Pass 2: standalone long Base64URL strings (try product line first, then full note)
         description = description.replace(/\b([A-Za-z0-9\-_=]{20,})\b/g, (match) => {
-            // Check if it can be decoded
-            const decoded = window.DecodingUtility.decodeProductLine(match);
-            if (decoded) {
-                // Use the utility to format it
+            const decodedProduct = window.DecodingUtility.decodeProductLine(match);
+            if (decodedProduct) {
                 return window.DecodingUtility.formatNoteWithDecodedData(match);
+            }
+            const decodedNote = window.DecodingUtility.decodeFullNote(match);
+            if (decodedNote && /[\x20-\x7E\s -￿]{3,}/.test(decodedNote)) {
+                return renderDecodedNoteBox(decodedNote);
             }
             return match;
         });
