@@ -281,7 +281,7 @@
                 _lastHoverRow = null;
             }
         });
-        document.addEventListener('drop', async (e) => {
+        document.addEventListener('drop', (e) => {
             const row = e.target.closest('.tpos-conversation-item');
             if (!row) return;
             row.classList.remove('inv-drop-hover');
@@ -301,7 +301,8 @@
             // Cart gắn theo CUSTOMER (fbUserId), không phải comment_id.
             // 1 khách có nhiều comment → share 1 cart. Fallback commentId nếu thiếu.
             const groupKey = customer.id || commentId;
-            await addToCart(groupKey, product, customer, commentId);
+            // UI-first: addToCart sync return ngay, backend chạy background.
+            addToCart(groupKey, product, customer, commentId);
         });
     }
 
@@ -475,82 +476,109 @@
         })();
     }
 
-    async function removeFromCart(commentId, productCode, opts) {
+    function removeFromCart(commentId, productCode, opts) {
         opts = opts || {};
-        // Optimistic: giảm badge ngay
+        // Step 1 — Optimistic UI INSTANT: giảm badge + xóa row khỏi popover
         const prev = STATE.cartCounts[commentId] || { items: 0, qty: 0 };
         const newQty = Math.max(0, prev.qty - 1);
         const newItems = Math.max(0, prev.items - 1);
         STATE.cartCounts[commentId] =
             newQty > 0 ? { items: newItems, qty: newQty } : { items: 0, qty: 0 };
         _renderBadgeFor(commentId);
-        // Re-render popover nếu đang mở
         const openPop = document.querySelector(
             `.inv-cart-popover[data-cmt="${CSS.escape(commentId)}"]`
         );
+        let removedItemRow = null;
+        let removedItemNext = null;
         if (openPop) {
-            const itemRow = openPop.querySelector(
+            removedItemRow = openPop.querySelector(
                 `.inv-cart-item[data-code="${CSS.escape(productCode)}"]`
             );
-            if (itemRow) itemRow.remove();
+            if (removedItemRow) {
+                removedItemNext = removedItemRow.nextSibling;
+                removedItemRow.remove();
+            }
         }
+        if (!opts.silent) _showToast(`✓ Đã xóa "${productCode}"`, 'ok');
 
-        try {
-            await fetch(
-                API +
-                    '/cart/' +
-                    encodeURIComponent(commentId) +
-                    '/' +
-                    encodeURIComponent(productCode) +
-                    '/remove',
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        user: _user(),
-                        clientEventId:
-                            'evt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10),
-                    }),
+        // Step 2 — Backend background. Rollback nếu lỗi.
+        (async () => {
+            try {
+                const r = await fetch(
+                    API +
+                        '/cart/' +
+                        encodeURIComponent(commentId) +
+                        '/' +
+                        encodeURIComponent(productCode) +
+                        '/remove',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            user: _user(),
+                            clientEventId:
+                                'evt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10),
+                        }),
+                    }
+                );
+                const d = await r.json().catch(() => ({}));
+                if (r.ok && d?.success === false) throw new Error(d.error || 'remove failed');
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            } catch (e) {
+                STATE.cartCounts[commentId] = prev;
+                _renderBadgeFor(commentId);
+                // Restore popover row nếu còn mở
+                if (openPop && removedItemRow && openPop.isConnected) {
+                    if (removedItemNext && removedItemNext.parentNode === openPop) {
+                        openPop.insertBefore(removedItemRow, removedItemNext);
+                    } else {
+                        openPop.appendChild(removedItemRow);
+                    }
                 }
-            );
-            // Anti-lag: bỏ refreshCartCounts ngay sau remove — SSE web2:cart
-            // (debounced 200ms) sẽ catch-up; optimistic update đã accurate.
-            if (!opts.silent) _showToast(`Đã xóa "${productCode}"`, 'ok');
-        } catch (e) {
-            STATE.cartCounts[commentId] = prev; // rollback
-            _renderBadgeFor(commentId);
-            _showToast(`✗ Lỗi xóa: ${e.message}`, 'err');
-        }
+                _showToast(`✗ Lỗi xóa "${productCode}": ${e.message}`, 'err');
+            }
+        })();
     }
 
-    // Xóa toàn bộ đơn (clear order) — có confirm
-    async function clearOrder(commentId) {
-        // Optimistic
+    // Xóa toàn bộ đơn (clear order) — caller đã confirm trước khi gọi.
+    function clearOrder(commentId) {
+        // Step 1 — Optimistic UI INSTANT
         const prev = STATE.cartCounts[commentId];
         STATE.cartCounts[commentId] = { items: 0, qty: 0 };
         _renderBadgeFor(commentId);
         const openPop = document.querySelector(
             `.inv-cart-popover[data-cmt="${CSS.escape(commentId)}"]`
         );
+        const popHtml = openPop ? openPop.outerHTML : null;
+        const popParent = openPop ? openPop.parentNode : null;
         if (openPop) openPop.remove();
+        _showToast('✓ Đang xóa đơn...', 'ok');
 
-        try {
-            const r = await fetch(API + '/cart/' + encodeURIComponent(commentId) + '/clear', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ user: _user() }),
-            });
-            const d = await r.json();
-            if (!d.success) throw new Error(d.error || 'clear failed');
-            _showToast(`✓ Đã xóa đơn (${d.removed} SP)`, 'ok');
-            // Anti-lag: bỏ refreshCartCounts — SSE web2:cart sẽ catch-up.
-        } catch (e) {
-            STATE.cartCounts[commentId] = prev;
-            _renderBadgeFor(commentId);
-            _showToast(`✗ Lỗi xóa đơn: ${e.message}`, 'err');
-        }
+        // Step 2 — Backend background
+        (async () => {
+            try {
+                const r = await fetch(API + '/cart/' + encodeURIComponent(commentId) + '/clear', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ user: _user() }),
+                });
+                const d = await r.json();
+                if (!d.success) throw new Error(d.error || 'clear failed');
+                _showToast(`✓ Đã xóa đơn (${d.removed} SP)`, 'ok');
+            } catch (e) {
+                STATE.cartCounts[commentId] = prev;
+                _renderBadgeFor(commentId);
+                // Restore popover nếu cần
+                if (popHtml && popParent && popParent.isConnected) {
+                    const tmp = document.createElement('div');
+                    tmp.innerHTML = popHtml;
+                    if (tmp.firstChild) popParent.appendChild(tmp.firstChild);
+                }
+                _showToast(`✗ Lỗi xóa đơn: ${e.message}`, 'err');
+            }
+        })();
     }
 
     async function refreshCartCounts(commentIds) {
