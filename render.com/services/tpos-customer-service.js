@@ -432,10 +432,13 @@ async function searchCustomerByFbUserId(fbUserId) {
         // URL params phải encode đầy đủ (TPOS strict trên SaleOnline_Order endpoint,
         // khác Partner endpoint). Headers Origin/Referer/tposappversion required —
         // verified qua header-learner CF worker (xem cloudflare-worker/modules/utils/header-learner.js).
+        // View_SaleOnline_OrdersViewModel KHÔNG có navigation 'Partner' để $expand
+        // (test 2026-06-01 → 400 "Could not find a property named 'Partner'").
+        // Thay vào, view đã flatten các field cần: Telephone, Address, Facebook_UserName,
+        // Facebook_ASUserId, PartnerId. Lấy trực tiếp từ row, không cần $expand.
         const fbIdEsc = String(fbUserId).replace(/'/g, "''");
         const params = new URLSearchParams({
             $filter: `Facebook_ASUserId eq '${fbIdEsc}'`,
-            $expand: 'Partner',
             $top: '1',
             $orderby: 'DateCreated desc',
         });
@@ -478,21 +481,28 @@ async function searchCustomerByFbUserId(fbUserId) {
         if (!order) {
             return { success: true, customer: null };
         }
-        const partner = order.Partner || {};
-        const phone = order.Telephone || partner.Phone || null;
-        const address = order.ShipAddress || partner.FullAddress || partner.Street || null;
+        // View fields (flatten — không có Partner navigation):
+        // - Telephone, Address (raw string), Facebook_UserName, Facebook_ASUserId
+        // - PartnerId (FK), PartnerName, PartnerDisplayName, PartnerStatus
+        const phone = order.Telephone || order.PartnerPhone || null;
+        const address = order.Address || order.ShipAddress || null;
         const customer = {
-            id: partner.Id || null,
-            name: order.Facebook_UserName || partner.Name || partner.DisplayName || null,
+            id: order.PartnerId || null,
+            name:
+                order.Facebook_UserName ||
+                order.PartnerDisplayName ||
+                order.PartnerName ||
+                order.Name ||
+                null,
             phone: phone ? String(phone).replace(/\D/g, '').slice(-10) : null,
             address,
             fbUserId,
-            tposPartner: partner,
+            tposPartnerId: order.PartnerId || null,
             sourceOrderId: order.Id,
             sourceOrderDate: order.DateCreated,
         };
         console.log(
-            `[TPOS-CUSTOMER] FB ID ${fbUserId} → Partner ${partner.Id} (${customer.name}, ${customer.phone || 'no phone'})`
+            `[TPOS-CUSTOMER] FB ID ${fbUserId} → PartnerId ${order.PartnerId} (${customer.name}, ${customer.phone || 'no phone'})`
         );
         return { success: true, customer };
     } catch (e) {
