@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `470a0ad` — fix(tpos-customer-service): searchCustomerByFbUserId — bỏ $expand=Partner (view không hỗ trợ)
-**Last updated**: 2026-06-01 19:04:55 +07
-**Latest session**: [`RESUME:20260601-190455-470a0ad`](../20260601-190455-470a0ad.md)
-**Summary**: fix(tpos-customer-service): searchCustomerByFbUserId — bỏ $expand=Partner (view không hỗ trợ)
+**Latest commit**: `526848e` — fix(tpos-customer-service): chuyển searchCustomerByFbUserId sang chatomni/info endpoint
+**Last updated**: 2026-06-01 19:17:04 +07
+**Latest session**: [`RESUME:20260601-191704-526848e`](../20260601-191704-526848e.md)
+**Summary**: fix(tpos-customer-service): chuyển searchCustomerByFbUserId sang chatomni/info endpoint
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -38,7 +39,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-01 18:45
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-30 11:05
-- [`native-orders/`](./native-orders.md) — updated 2026-06-01 18:59
+- [`native-orders/`](./native-orders.md) — updated 2026-06-01 19:17
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-01 18:45
@@ -49,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-01 19:04
+- [`render.com/`](./render.com.md) — updated 2026-06-01 19:17
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-01 10:27
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
