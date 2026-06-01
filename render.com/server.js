@@ -585,6 +585,15 @@ const web2MonitoringRoutes = require('./routes/v2/web2-monitoring');
 app.use('/api/web2/monitoring', web2MonitoringRoutes);
 const web2CustomerWalletRoutes = require('./routes/v2/web2-customer-wallet');
 app.use('/api/web2/customer-wallet', web2CustomerWalletRoutes);
+// 2026-06-01 (per user spec): Web 2.0 customer orders aggregate endpoint —
+// trả native_orders + fast_sale_orders + refunds cho 1 KH theo phone.
+// Replace pattern cũ /api/v2/customers/:id/orders (Web 1.0, chỉ TPOS data).
+const web2CustomerOrdersRoutes = require('./routes/v2/web2-customer-orders');
+app.use('/api/web2/customer-orders', web2CustomerOrdersRoutes);
+// 2026-06-01: Web 2.0 supplier debt — compute từ inventory_shipments thay
+// vì gọi TPOS PartnerDebtReport (decouple per user spec).
+const web2SupplierDebtRoutes = require('./routes/v2/web2-supplier-debt');
+app.use('/api/web2/supplier-debt', web2SupplierDebtRoutes);
 const livestreamSnapshotsRoutes = require('./routes/livestream-snapshots');
 app.use('/api/livestream', livestreamSnapshotsRoutes); // WEB2.0 livestream snapshot per customer
 app.use('/api/attendance', attendanceRoutes);

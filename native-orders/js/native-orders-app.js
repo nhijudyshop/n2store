@@ -3014,7 +3014,8 @@
         body.innerHTML = '<div style="color:#6b7280;">Đang tải aggregation…</div>';
         const money = (n) => Number(n || 0).toLocaleString('vi-VN') + 'đ';
         try {
-            const r = await fetch(`${WORKER_URL}/api/v2/customers/${customerId}/orders?limit=20`);
+            // 2026-06-01: Web 2.0 aggregate (native + PBH + refunds) thay legacy
+            const r = await fetch(`${WORKER_URL}/api/web2/customer-orders/${customerId}?limit=20`);
             const data = await r.json();
             if (!data?.success) throw new Error(data?.error || `HTTP ${r.status}`);
             const { native, pbh, summary } = data;

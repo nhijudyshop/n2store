@@ -12,6 +12,15 @@
 const express = require('express');
 const router = express.Router();
 const { lookupCustomerIdByPhone } = require('../utils/customer-helpers');
+// 2026-06-01: Web 2.0 ↔ TPOS customer 2-way sync (per user spec).
+// Chỉ sync name/phone/address; KHÔNG sync đơn/sản phẩm (đó là native-orders own).
+//   - getOrCreateCustomerFromTPOS — TPOS → Web 2.0 (pull on create)
+//   - pushCustomerToTPOS — Web 2.0 → TPOS (push on user edit)
+const {
+    getOrCreateCustomerFromTPOS,
+    updateCustomerFromTPOS,
+} = require('../services/customer-creation-service');
+const { pushCustomerToTPOS } = require('../services/tpos-customer-service');
 
 // =====================================================
 // 2-way state sync: native-orders ↔ fast_sale_orders (PBH).
@@ -619,12 +628,20 @@ router.post('/from-comment', async (req, res) => {
                 const appendedNote = b.message
                     ? `${src.note || ''}${src.note ? '\n---\n' : ''}[${new Date().toLocaleString('vi-VN')}] ${pageTag}${b.message}`
                     : src.note;
-                // Phase 12: if this merge brings a phone the order didn't have before,
-                // attempt to link customer_id (lookup-only)
+                // 2026-06-01 Web 2.0 ↔ TPOS sync: merge brings phone → upsert
+                // customer (auto-pull TPOS data). Same logic as fresh create above.
                 const mergedPhone = b.phone || src.phone;
                 let mergedCustomerId = src.customer_id;
                 if (mergedPhone && !mergedCustomerId) {
-                    mergedCustomerId = await lookupCustomerIdByPhone(pool, mergedPhone);
+                    try {
+                        const created = await getOrCreateCustomerFromTPOS(pool, mergedPhone, null);
+                        mergedCustomerId = created?.customerId || null;
+                    } catch (e) {
+                        console.warn('[native-orders] merge customer sync failed:', e.message);
+                        mergedCustomerId = await lookupCustomerIdByPhone(pool, mergedPhone).catch(
+                            () => null
+                        );
+                    }
                 }
                 // Self-heal FB context: nếu draft cũ thiếu fb_page_id/fb_post_id
                 // (vd đơn tạo từ drag SP trước fix 6b05bc3cb có ctx NULL), điền
@@ -689,8 +706,32 @@ router.post('/from-comment', async (req, res) => {
               ? `[${new Date().toLocaleString('vi-VN')}] ${pageTag}${String(b.message).slice(0, 500)}`
               : null;
 
-        // Phase 12: link to Customer 360 by phone (no auto-create)
-        const customerId = b.phone ? await lookupCustomerIdByPhone(pool, b.phone) : null;
+        // 2026-06-01 Web 2.0 ↔ TPOS customer 2-way sync (user spec):
+        // Khi tạo native_order với phone → ENSURE customer exists trong customers
+        // table. Helper auto-pulls TPOS data + INSERT/UPDATE name/address.
+        // KHÔNG sync đơn/SP (đó là của riêng native-orders).
+        let customerId = null;
+        if (b.phone) {
+            try {
+                const created = await getOrCreateCustomerFromTPOS(pool, b.phone, null);
+                customerId = created?.customerId || null;
+                // Update tên/địa chỉ nếu native-orders có info mới hơn TPOS chưa có
+                if (customerId && (b.fbUserName || b.address)) {
+                    await pool.query(
+                        `UPDATE customers
+                         SET name = COALESCE(NULLIF($2, ''), name),
+                             address = COALESCE(NULLIF($3, ''), address),
+                             updated_at = CURRENT_TIMESTAMP
+                         WHERE id = $1`,
+                        [customerId, b.fbUserName || null, b.address || null]
+                    );
+                }
+            } catch (custErr) {
+                console.warn('[native-orders] customer sync failed (continuing):', custErr.message);
+                // Fallback to lookup-only if upsert fails (don't block order creation)
+                customerId = await lookupCustomerIdByPhone(pool, b.phone).catch(() => null);
+            }
+        }
 
         // Per-campaign STT: subquery MAX+1 scoped by live_campaign_id (NO_CAMPAIGN
         // synthetic group cho null campaign). Race window mỏng — chấp nhận; nếu
@@ -1283,11 +1324,54 @@ router.patch('/:code', async (req, res) => {
             sets.push(`${col} = $${params.length}`);
         }
         if (sets.length === 0) return res.status(400).json({ error: 'No update fields' });
-        // Phase 12: when phone is updated, re-link customer_id (lookup-only, no auto-create)
+        // 2026-06-01 Web 2.0 ↔ TPOS sync trên PATCH: phone change → upsert customer
+        // (auto-pull TPOS data nếu tồn tại). Sync customerName + address sang
+        // customers table để 2 chiều consistent (chỉ KH info, KHÔNG đơn/SP).
         if (body.phone !== undefined) {
-            const cid = body.phone ? await lookupCustomerIdByPhone(pool, body.phone) : null;
+            let cid = null;
+            if (body.phone) {
+                try {
+                    const created = await getOrCreateCustomerFromTPOS(pool, body.phone, null);
+                    cid = created?.customerId || null;
+                } catch (e) {
+                    console.warn('[native-orders] PATCH phone customer sync failed:', e.message);
+                    cid = await lookupCustomerIdByPhone(pool, body.phone).catch(() => null);
+                }
+            }
             params.push(cid);
             sets.push(`customer_id = $${params.length}`);
+        }
+        // 2026-06-01: Sync 2 chiều KH info (tên/SĐT/địa chỉ) per user spec.
+        // Step 1: Update local customers table (Web 2.0 side).
+        // Step 2: Fire-and-forget push lên TPOS (Web 2.0 → TPOS).
+        const hasCustomerInfoUpdate = body.customerName !== undefined || body.address !== undefined;
+        if (hasCustomerInfoUpdate) {
+            const phoneForLookup = body.phone || null;
+            if (phoneForLookup) {
+                // Step 1: local customers table
+                try {
+                    await pool.query(
+                        `UPDATE customers
+                         SET name = COALESCE(NULLIF($2, ''), name),
+                             address = COALESCE(NULLIF($3, ''), address),
+                             updated_at = CURRENT_TIMESTAMP
+                         WHERE phone = $1`,
+                        [phoneForLookup, body.customerName || null, body.address || null]
+                    );
+                } catch (e) {
+                    console.warn(
+                        '[native-orders] push customer info to customers table failed:',
+                        e.message
+                    );
+                }
+                // Step 2: TPOS push (background, KHÔNG block response)
+                pushCustomerToTPOS(phoneForLookup, {
+                    name: body.customerName || undefined,
+                    address: body.address || undefined,
+                }).catch((e) => {
+                    console.warn('[native-orders] TPOS push (fire-and-forget) failed:', e.message);
+                });
+            }
         }
         params.push(Date.now());
         sets.push(`updated_at = $${params.length}`);

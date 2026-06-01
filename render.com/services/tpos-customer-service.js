@@ -61,7 +61,7 @@ async function searchCustomerByPhone(phone) {
             success: false,
             error: 'Invalid phone number',
             customer: null,
-            totalResults: 0
+            totalResults: 0,
         };
     }
 
@@ -74,13 +74,19 @@ async function searchCustomerByPhone(phone) {
         // Call TPOS Partner API with full phone
         const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${fullPhone}&$top=10&$orderby=DateCreated+desc&$count=true`;
 
-        const response = await fetchWithRetry(tposUrl, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        }, 2, 1000, 15000);
+        const response = await fetchWithRetry(
+            tposUrl,
+            {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            },
+            2,
+            1000,
+            15000
+        );
 
         if (!response.ok) {
             throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
@@ -95,7 +101,7 @@ async function searchCustomerByPhone(phone) {
             return {
                 success: true,
                 customer: null,
-                totalResults: 0
+                totalResults: 0,
             };
         }
 
@@ -105,7 +111,9 @@ async function searchCustomerByPhone(phone) {
 
             // Check for exact match
             if (customerPhone === fullPhone) {
-                console.log(`[TPOS-CUSTOMER] ✅ Found exact match: ${customer.Name || customer.DisplayName}`);
+                console.log(
+                    `[TPOS-CUSTOMER] ✅ Found exact match: ${customer.Name || customer.DisplayName}`
+                );
                 return {
                     success: true,
                     customer: {
@@ -115,23 +123,25 @@ async function searchCustomerByPhone(phone) {
                         email: customer.Email,
                         address: customer.FullAddress || customer.Street,
                         network: customer.NameNetwork,
-                        status: customer.StatusText,  // Use StatusText, not Status
+                        status: customer.StatusText, // Use StatusText, not Status
                         dateCreated: customer.DateCreated,
                         // Raw data for backup
                         raw: {
                             DateCreated: customer.DateCreated,
                             DateModified: customer.DateModified,
-                            Active: customer.Active
-                        }
+                            Active: customer.Active,
+                        },
                     },
-                    totalResults
+                    totalResults,
                 };
             }
         }
 
         // No exact match found, return first result as best match
         const firstCustomer = data.value[0];
-        console.log(`[TPOS-CUSTOMER] No exact match, using first result: ${firstCustomer.Name || firstCustomer.DisplayName}`);
+        console.log(
+            `[TPOS-CUSTOMER] No exact match, using first result: ${firstCustomer.Name || firstCustomer.DisplayName}`
+        );
 
         return {
             success: true,
@@ -142,25 +152,24 @@ async function searchCustomerByPhone(phone) {
                 email: firstCustomer.Email,
                 address: firstCustomer.FullAddress || firstCustomer.Street,
                 network: firstCustomer.NameNetwork,
-                status: firstCustomer.StatusText,  // Use StatusText, not Status
+                status: firstCustomer.StatusText, // Use StatusText, not Status
                 dateCreated: firstCustomer.DateCreated,
                 raw: {
                     DateCreated: firstCustomer.DateCreated,
                     DateModified: firstCustomer.DateModified,
-                    Active: firstCustomer.Active
-                }
+                    Active: firstCustomer.Active,
+                },
             },
             totalResults,
-            exactMatch: false
+            exactMatch: false,
         };
-
     } catch (error) {
         console.error('[TPOS-CUSTOMER] Error:', error);
         return {
             success: false,
             error: error.message,
             customer: null,
-            totalResults: 0
+            totalResults: 0,
         };
     }
 }
@@ -175,7 +184,7 @@ async function getCustomerById(tposId) {
         return {
             success: false,
             error: 'TPOS ID is required',
-            customer: null
+            customer: null,
         };
     }
 
@@ -188,13 +197,19 @@ async function getCustomerById(tposId) {
         // Call TPOS Partner API with ID filter
         const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&$filter=Id eq ${tposId}`;
 
-        const response = await fetchWithRetry(tposUrl, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        }, 2, 1000, 15000);
+        const response = await fetchWithRetry(
+            tposUrl,
+            {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            },
+            2,
+            1000,
+            15000
+        );
 
         if (!response.ok) {
             throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
@@ -206,7 +221,7 @@ async function getCustomerById(tposId) {
             console.log(`[TPOS-CUSTOMER] Customer not found with ID: ${tposId}`);
             return {
                 success: true,
-                customer: null
+                customer: null,
             };
         }
 
@@ -222,22 +237,21 @@ async function getCustomerById(tposId) {
                 email: customer.Email,
                 address: customer.FullAddress || customer.Street,
                 network: customer.NameNetwork,
-                status: customer.StatusText,  // Use StatusText, not Status
+                status: customer.StatusText, // Use StatusText, not Status
                 dateCreated: customer.DateCreated,
                 raw: {
                     DateCreated: customer.DateCreated,
                     DateModified: customer.DateModified,
-                    Active: customer.Active
-                }
-            }
+                    Active: customer.Active,
+                },
+            },
         };
-
     } catch (error) {
         console.error('[TPOS-CUSTOMER] Error:', error);
         return {
             success: false,
             error: error.message,
-            customer: null
+            customer: null,
         };
     }
 }
@@ -255,7 +269,7 @@ async function searchAllCustomersByPhone(phone) {
             success: false,
             error: 'Invalid phone number',
             customers: [],
-            totalResults: 0
+            totalResults: 0,
         };
     }
 
@@ -266,13 +280,19 @@ async function searchAllCustomersByPhone(phone) {
 
         const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${fullPhone}&$top=50&$orderby=DateCreated+desc&$count=true`;
 
-        const response = await fetchWithRetry(tposUrl, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        }, 2, 1000, 15000);
+        const response = await fetchWithRetry(
+            tposUrl,
+            {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            },
+            2,
+            1000,
+            15000
+        );
 
         if (!response.ok) {
             throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
@@ -285,19 +305,19 @@ async function searchAllCustomersByPhone(phone) {
             return {
                 success: true,
                 customers: [],
-                totalResults: 0
+                totalResults: 0,
             };
         }
 
-        const customers = data.value.map(customer => ({
+        const customers = data.value.map((customer) => ({
             id: customer.Id,
             name: customer.Name || customer.DisplayName,
             phone: customer.Phone?.replace(/\D/g, '').slice(-10),
             email: customer.Email,
             address: customer.FullAddress || customer.Street,
             network: customer.NameNetwork,
-            status: customer.StatusText,  // Use StatusText, not Status
-            dateCreated: customer.DateCreated
+            status: customer.StatusText, // Use StatusText, not Status
+            dateCreated: customer.DateCreated,
         }));
 
         console.log(`[TPOS-CUSTOMER] Found ${customers.length} customers for ${fullPhone}`);
@@ -305,17 +325,91 @@ async function searchAllCustomersByPhone(phone) {
         return {
             success: true,
             customers,
-            totalResults
+            totalResults,
         };
-
     } catch (error) {
         console.error('[TPOS-CUSTOMER] Error:', error);
         return {
             success: false,
             error: error.message,
             customers: [],
-            totalResults: 0
+            totalResults: 0,
         };
+    }
+}
+
+/**
+ * Push customer info (name, phone, address) lên TPOS Partner — for 2-way sync.
+ *
+ * Per user spec 2026-06-01: tên/SĐT/địa chỉ sync 2 chiều giữa Web 2.0 và TPOS.
+ * Native-orders gọi hàm này khi user PATCH customer info → đẩy lên TPOS.
+ *
+ * @param {string} phone — phone normalized
+ * @param {object} fields — { name?, address?, tposId? } — phải có ít nhất name HOẶC address
+ * @returns {Promise<{success, tposId?, error?}>}
+ *
+ * Strategy:
+ *   1. Nếu fields.tposId có sẵn → call UpdatePartner trực tiếp
+ *   2. Else → lookup TPOS by phone trước; nếu match thì UpdatePartner, không thì CreatePartner
+ *
+ * Fire-and-forget OK: caller không cần await response để continue. Errors logged.
+ */
+async function pushCustomerToTPOS(phone, fields = {}) {
+    const normalized = normalizePhone(phone);
+    if (!normalized) return { success: false, error: 'Invalid phone' };
+    const { name, address } = fields;
+    if (!name && !address) return { success: false, error: 'name or address required' };
+
+    try {
+        const token = await tposTokenManager.getToken();
+        let tposId = fields.tposId || null;
+
+        // Lookup existing TPOS partner nếu chưa biết tposId
+        if (!tposId) {
+            try {
+                const lookup = await searchCustomerByPhone(normalized);
+                if (lookup.success && lookup.customer?.id) {
+                    tposId = lookup.customer.id;
+                }
+            } catch (e) {
+                console.warn(`[TPOS-PUSH] lookup fail for ${normalized}: ${e.message}`);
+            }
+        }
+
+        // Build CreateUpdatePartner payload — minimal fields chỉ KH info
+        const payload = {
+            model: {
+                Id: tposId || null,
+                Name: name || undefined,
+                Phone: normalized,
+                Street: address || undefined,
+                CustomerTypeId: 1, // Customer (not Vendor)
+                IsCustomer: true,
+            },
+        };
+        const url =
+            'https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.CreateUpdatePartner';
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json;charset=UTF-8',
+            },
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+            const txt = await response.text().catch(() => '');
+            throw new Error(`HTTP ${response.status} ${txt.slice(0, 200)}`);
+        }
+        const result = await response.json().catch(() => ({}));
+        const updatedId = result?.Id || result?.value?.Id || tposId;
+        console.log(
+            `[TPOS-PUSH] ${tposId ? 'Updated' : 'Created'} partner ${normalized} → tposId=${updatedId}`
+        );
+        return { success: true, tposId: updatedId };
+    } catch (e) {
+        console.warn(`[TPOS-PUSH] failed for ${normalized}: ${e.message}`);
+        return { success: false, error: e.message };
     }
 }
 
@@ -323,5 +417,6 @@ module.exports = {
     searchCustomerByPhone,
     getCustomerById,
     searchAllCustomersByPhone,
-    normalizePhone
+    normalizePhone,
+    pushCustomerToTPOS,
 };

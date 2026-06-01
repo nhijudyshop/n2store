@@ -458,7 +458,9 @@
         title.textContent = `Khách hàng #${customerId} — Đơn web + PBH`;
         body.innerHTML = '<div style="color:#6b7280;">Đang tải aggregation…</div>';
         try {
-            const r = await fetch(`${WORKER}/api/v2/customers/${customerId}/orders?limit=20`);
+            // 2026-06-01: Web 2.0 aggregate endpoint (native + PBH + refunds) thay cho
+            // legacy /api/v2/customers/:id/orders (chỉ native + PBH, không refund).
+            const r = await fetch(`${WORKER}/api/web2/customer-orders/${customerId}?limit=20`);
             const data = await r.json();
             if (!data?.success) throw new Error(data?.error || `HTTP ${r.status}`);
             const { native, pbh, summary } = data;

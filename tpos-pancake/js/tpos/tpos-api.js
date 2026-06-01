@@ -384,6 +384,16 @@ const TposApi = {
 
     /**
      * Update partner status via proxy (for inline list status updates)
+     *
+     * ⚠ INTENTIONAL CROSS-LAYER WRITE (Web 2.0 → TPOS):
+     * Per user spec 2026-06-01, tpos-pancake là module DUY NHẤT trong Web 2.0
+     * được phép WRITE sang TPOS Partner DB. Mục đích: 2-way sync KH info
+     * (status, name, address) giữa Web 2.0 và TPOS — vì TPOS là kho data KH
+     * chính của shop. Native-orders cũng có sync 1 chiều (read TPOS qua
+     * getOrCreateCustomerFromTPOS) nhưng KHÔNG write TPOS.
+     *
+     * KHÔNG dùng cho đơn hàng / sản phẩm — chỉ KH info (status + identity).
+     *
      * @param {number} partnerId
      * @param {string} statusValue
      * @returns {Promise<boolean>}

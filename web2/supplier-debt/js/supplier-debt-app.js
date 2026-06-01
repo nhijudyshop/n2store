@@ -340,6 +340,40 @@
             params.set('$top', '1000');
             params.set('$count', 'true');
             params.set('$orderby', 'Code asc');
+            // 2026-06-01 (per user decouple spec): Try Web 2.0 endpoint FIRST,
+            // fallback to TPOS PartnerDebtReport nếu Web 2.0 fail/empty.
+            // Lý do giữ TPOS fallback: historical debt data trước Web 2.0 chỉ
+            // có ở TPOS, Web 2.0 store mới cover từ shipments inventory_shipments.
+            let web2Used = false;
+            try {
+                const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                const w2 = await fetch(`${WORKER}/api/web2/supplier-debt/aggregate?limit=500`);
+                const w2json = await w2.json();
+                if (
+                    w2json?.success &&
+                    Array.isArray(w2json.suppliers) &&
+                    w2json.suppliers.length > 0
+                ) {
+                    // Adapt Web 2.0 shape → TPOS-like shape cho aggregate() reuse
+                    STATE.tposData = w2json.suppliers.map((s) => ({
+                        PartnerId: s.sttNcc,
+                        Name: s.tenNcc,
+                        Code: String(s.sttNcc),
+                        Debit: s.totalOwed,
+                        Credit: s.totalPaid,
+                        Balance: s.debt,
+                        _web2Source: true,
+                    }));
+                    web2Used = true;
+                }
+            } catch (w2Err) {
+                console.warn(
+                    '[supplier-debt] Web 2.0 endpoint fail, fallback TPOS:',
+                    w2Err.message
+                );
+            }
+            if (web2Used) return;
+
             const url = `${TPOS_API_BASE}/Report/PartnerDebtReport?${params.toString()}`;
             const res = await window.tokenManager.authenticatedFetch(url, {
                 headers: { 'Content-Type': 'application/json', tposappversion: '6.2.6.1' },
