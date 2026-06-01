@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `206b628` — feat(web2): decouple Web 2.0 ↔ Web 1.0/TPOS per user decisions (Phase 11 follow-up)
-**Last updated**: 2026-06-01 13:23:53 +07
-**Latest session**: [`RESUME:20260601-132353-206b628`](../20260601-132353-206b628.md)
-**Summary**: feat(web2): decouple Web 2.0 ↔ Web 1.0/TPOS per user decisions (Phase 11 follow-up)
+**Latest commit**: `407a3ad` — fix(native-orders): customer hover popover bug — bỏ avatar zoom, dời popover xuống dưới row, enrich với TPOS data
+**Last updated**: 2026-06-01 13:48:37 +07
+**Latest session**: [`RESUME:20260601-134837-407a3ad`](../20260601-134837-407a3ad.md)
+**Summary**: fix(native-orders): customer hover popover bug — bỏ avatar zoom, dời popover xuống dưới row, enrich với ...
 
 ## Folders affected in this commit
 
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 5 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`native-orders/`](./native-orders.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -41,7 +38,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-05-26 11:04
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-30 11:05
-- [`native-orders/`](./native-orders.md) — updated 2026-06-01 13:23
+- [`native-orders/`](./native-orders.md) — updated 2026-06-01 13:48
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-01 10:47
