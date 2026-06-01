@@ -25,6 +25,56 @@
 
 ## 2026-06-01
 
+### [orders] Celebration Config — admin tự custom ảnh/text/hiệu ứng pháo hoa per nhân viên ✅
+
+**Yêu cầu user**: trang `orders-report/main.html` cài đặt admin pháo hoa: thêm UI cho admin chỉnh ảnh nhân viên, text, hiệu ứng (chỉ admin thấy).
+
+**New file**: `orders-report/js/celebration-config.js` — `window.CelebrationConfig` (load/save/getEmployee/listEmployees/getColors/openModal). Persist localStorage `celebrationConfig_v1` (employees + effects). Modal UI:
+
+- **Nhân viên** (CRUD): mỗi card có avatar 88px + button camera upload (compress 480px, JPEG quality auto-fit ≤220KB), 4 input (tên hiển thị, tiêu đề, mẫu câu với `{name}`, KPI mặc định), button preview 🎆, button xóa 🗑️ (trừ Hạnh mặc định). Button "+ Thêm nhân viên" (prompt name → slugify key).
+- **Hiệu ứng**: dropdown màu (🌈 rainbow / 🔥 warm / ❄️ cool / ✨ gold), mật độ (low 0.5x / normal 1x / high 1.5x), thời gian (5/8/10/15/20 giây).
+- Footer: Khôi phục mặc định / Hủy / Lưu thay đổi.
+
+**Modified `orders-report/js/celebration.js`**:
+
+- `EMPLOYEES` hardcoded → fallback only, đọc qua `CelebrationConfig.getEmployee()`.
+- `celebrate(key, detail, employeeOverride, effectsOverride)` — nhận override để client phụ render đúng config admin.
+- `triggerCelebration` đưa `employeeData` + `effects` vào SSE payload → mọi tab/máy hiển thị giống nhau theo config admin (không cần Firestore sync).
+- SSE handler: `celebrate(employee, detail, employeeData, effects)`.
+- Particle waves dùng `currentColors` + `currentIntensity` từ config.
+- Render text qua `escapeHtml` + `renderName()` (template `{name}` placeholder).
+- `init()` thêm dropdown chọn nhân viên + button mở config modal.
+- `window.CelebrationManager` exposed cho modal preview.
+
+**Modified `orders-report/main.html`**:
+
+- Admin panel: thêm `<select id="celebrationEmpSelect">` + button "🎨 Cài đặt Pháo Hoa" (orange/red gradient, mở modal config).
+- Load `celebration-config.js` TRƯỚC `celebration.js`. Cache-bust `?v=20260601a`.
+
+**Modified `orders-report/css/celebration.css`**:
+
+- `.admin-select` dropdown style trong panel.
+- Block `.cel-cfg-*` cho modal: overlay dark, dialog 720px gradient bg, grid employee card 88px avatar + 2-col fields + actions, responsive < 640px stack 1-col.
+- Toast `.cel-cfg-toast` green pill bottom-center cho save confirm.
+
+**Cross-device sync**: Admin click "Bắn pháo hoa" → POST `/api/realtime/celebration` với payload `{employee, detail, employeeData (full config), effects}` → SSE broadcast tới mọi tab/máy → render đúng ảnh + text + theme admin đã cấu hình. Không cần sync localStorage.
+
+**Test live** (`http://localhost:8080/orders-report/main.html` qua persistent browser session):
+
+- ✅ Modal mở: 1 employee Hạnh, 4 text input, 4 theme option, photo upload + preview button.
+- ✅ Edit name + save → `localStorage.celebrationConfig_v1.employees.hanh.name === "Hạnh (test)"`, theme/intensity persist.
+- ✅ Thêm employee "Tú" → dropdown panel cập nhật `[Hạnh, Tú]`.
+- ✅ `celebrate('tu', 'KPI cao!')` → overlay render name "Nhân viên Tú đã đạt KPI" (template `{name}` đúng), photo fallback SVG khi rỗng.
+- ✅ Screenshot modal + admin panel xác nhận visual khớp design (orange gradient cfg button, green save, ghost cancel).
+
+**Lưu ý cho user**: Hạnh mặc định vẫn dùng ảnh cũ `assets/employees/hanh.jpg`. Để đổi sang ảnh mới, mở "🎨 Cài đặt Pháo Hoa" → click 📷 trên avatar Hạnh → chọn file ảnh → "Lưu thay đổi". Ảnh được compress + lưu base64 trong localStorage (≤220KB).
+
+**Files**: `orders-report/js/celebration-config.js` (new), `orders-report/js/celebration.js`, `orders-report/main.html`, `orders-report/css/celebration.css`.
+
+Status: ✅ Done.
+
+---
+
 ### [web2/shared][native-orders] Web2Optimistic helper — pattern UI-first cho toàn bộ Web 2.0 ✅
 
 **Yêu cầu user**: "tất cả các trang trong menu → thao tác UI trước, chạy hàm background → lỗi thì back lại → mục đích tăng tương tác user".
