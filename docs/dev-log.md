@@ -25,6 +25,61 @@
 
 ## 2026-06-01
 
+### [web2/shared][native-orders] Web2Optimistic helper — pattern UI-first cho toàn bộ Web 2.0 ✅
+
+**Yêu cầu user**: "tất cả các trang trong menu → thao tác UI trước, chạy hàm background → lỗi thì back lại → mục đích tăng tương tác user".
+
+Pattern proven trên tpos-pancake cart ops (commit `77aec531a`). Codify thành shared helper để mọi page Web 2.0 áp dụng dễ dàng.
+
+**New file**: `web2/shared/web2-optimistic.js` — `Web2Optimistic.run({ snapshot, apply, run, onSuccess, rollback, errLabel, successMsg })`. Encapsulates 4-step flow:
+
+1. `snapshot()` lưu state cũ (sync, optional)
+2. `apply()` update UI optimistic (sync, mandatory)
+3. `successMsg` toast NGAY qua notificationManager (optional)
+4. Fire-and-forget IIFE: `await run()` → success → `onSuccess(data)`; fail → `rollback(prev)` + show `"✗ Lỗi <errLabel>: <message>"` toast.
+
+Returns **undefined sync** — caller không await. Backend chạy hoàn toàn background.
+
+**Wired vào page-shell preload** (`web2/shared/page-shell.js`):
+
+- Thêm vào `SCRIPTS_PRELOAD` sau `web2-db-badge.js`. Mọi page dùng `Web2Shell.bootstrap({...})` đều có `window.Web2Optimistic` available out-of-the-box (không cần import thủ công).
+
+**Pages dùng page-shell** (auto-có Web2Optimistic, không cần thêm script tag): 87 TPOS-clone pages + dashboard + audit-log + smart-match + supplier-aging + supplier-360 + notifications + KPI + …
+
+**Pages legacy (KHÔNG dùng page-shell)** — cần thêm `<script src="../web2/shared/web2-optimistic.js?v=20260601a"></script>` thủ công. Đã thêm vào:
+
+- `native-orders/index.html` (Đơn Web)
+
+**Refactored**: `native-orders/js/native-orders-app.js`:
+
+- `saveEdit()` — bỏ `async`, sync return. Modal đóng + danh sách re-render NGAY (~11ms). PATCH `/api/native-orders/:code` chạy IIFE background. Snapshot order cũ để rollback nếu lỗi. `onSuccess(resp)` sync silent với response authoritative.
+- `quickStatus(code, status)` — bỏ `async`, sync return. Badge status đổi NGAY. PATCH background. Rollback restore prevStatus nếu lỗi.
+- Fallback path nếu `Web2Optimistic` chưa load (defensive) — giữ behavior cũ với `await + try/catch`.
+
+**Verified qua persistent browser session**:
+
+- `Web2Optimistic` available trên native-orders: `{ run: function }` ✓
+- `saveEdit` returns sync trong **11.4ms** (vs trước: 200-500ms chờ PATCH); modal closes immediately; PATCH fires exactly 1 lần in background.
+
+**Migration path cho các page còn lại** (làm dần khi đụng tới):
+
+1. Nếu page dùng `Web2Shell.bootstrap()` → `Web2Optimistic` đã có sẵn, chỉ cần refactor handler.
+2. Nếu page legacy (chưa dùng page-shell): thêm `<script src="../web2/shared/web2-optimistic.js?v=20260601a"></script>` trước script chính.
+3. Tìm các handler `async function ... { await fetch(...) ... renderRow(...) ... }` → wrap qua `Web2Optimistic.run({apply, run, rollback, errLabel})`.
+4. Special case money/wallet ops: SHOULD VẪN await + show loading state (vì rollback gây confuse cho user khi liên quan tiền). Đánh dấu rõ trong code.
+
+**Pages priority migration sau** (theo độ frequent của thao tác user):
+
+- so-order/ (Sổ Order) — qty edits, status changes
+- fastsaleorder-invoice/ (Bán hàng HĐ) — print, cancel, modify
+- web2/products/ + web2/variants/ — create/edit/delete
+- web2/notifications/ — mark read/dismiss
+- partner-customer/ — edit/QR/wallet link
+
+**Status**: ✅ Done (helper + 1 page POC); migration tiếp theo theo yêu cầu.
+
+---
+
 ### [web2] Xóa trang `sale-online-facebook` + dừng cron sync 15min — UI sai mục đích ✅
 
 **Phát hiện**: trang `web2/sale-online-facebook/` UI render columns kiểu "ID Page / Tên page / Token / Ghi chú" (như quản lý FB page token), nhưng DB slug `saleonline-facebook` thực tế chứa **10058 đơn hàng online** sync từ TPOS `/odata/SaleOnline_Order/ODataService.GetView` (49 fields gồm Facebook_UserId/PostId/CommentId/Telephone/Address/TotalAmount/…). UI không khớp data → cột Token/Ghi chú luôn trống, cột "ID Page" thực ra là mã đơn, cột "Tên page" là tên KH. Đơn FB đã có chỗ xem đúng: [native-orders/](../native-orders/), [tpos-pancake/](../tpos-pancake/).
