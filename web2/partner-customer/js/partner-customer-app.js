@@ -673,23 +673,52 @@
     function _outsideStatusClick(e) {
         if (_statusPopover && !_statusPopover.contains(e.target)) closeStatusPopover();
     }
-    async function changeStatus(id, newStatus) {
+    // UI-first: badge status đổi NGAY + render table, PATCH background.
+    // Rollback nếu lỗi.
+    function changeStatus(id, newStatus) {
         const row = state.rows.find((r) => String(r.Id) === String(id));
-        try {
-            await Api.updateStatus(id, newStatus);
-            notify(`Đã chuyển sang "${Api.STATUS_TEXT[newStatus]}"`, 'success');
-            // Optimistic local update + refresh stats
-            if (row) {
-                row.Status = newStatus;
-                row.StatusText = Api.STATUS_TEXT[newStatus];
-                renderTable();
-            }
-            try {
-                state.stats = await Api.getStats(state.search);
-                renderStats();
-            } catch (_) {}
-        } catch (e) {
-            notify('Lỗi đổi trạng thái: ' + (e.message || e), 'error');
+        if (!row) return;
+        const prevStatus = row.Status;
+        const prevText = row.StatusText;
+        if (window.Web2Optimistic?.run) {
+            Web2Optimistic.run({
+                snapshot: () => ({ status: prevStatus, text: prevText }),
+                apply: () => {
+                    row.Status = newStatus;
+                    row.StatusText = Api.STATUS_TEXT[newStatus];
+                    renderTable();
+                },
+                run: () => Api.updateStatus(id, newStatus),
+                onSuccess: async () => {
+                    try {
+                        state.stats = await Api.getStats(state.search);
+                        renderStats();
+                    } catch (_) {}
+                },
+                rollback: (snap) => {
+                    row.Status = snap.status;
+                    row.StatusText = snap.text;
+                    renderTable();
+                },
+                successMsg: `Đã chuyển sang "${Api.STATUS_TEXT[newStatus]}"`,
+                errLabel: 'đổi trạng thái KH',
+            });
+        } else {
+            (async () => {
+                try {
+                    await Api.updateStatus(id, newStatus);
+                    notify(`Đã chuyển sang "${Api.STATUS_TEXT[newStatus]}"`, 'success');
+                    row.Status = newStatus;
+                    row.StatusText = Api.STATUS_TEXT[newStatus];
+                    renderTable();
+                    try {
+                        state.stats = await Api.getStats(state.search);
+                        renderStats();
+                    } catch (_) {}
+                } catch (e) {
+                    notify('Lỗi đổi trạng thái: ' + (e.message || e), 'error');
+                }
+            })();
         }
     }
     window.addEventListener('scroll', closeStatusPopover, true);

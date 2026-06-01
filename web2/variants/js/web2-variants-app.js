@@ -233,16 +233,48 @@
         }
     }
 
-    async function toggleActive(id, newState) {
-        try {
-            const resp = await window.Web2VariantsApi.update(id, { isActive: newState });
-            const idx = STATE.variants.findIndex((x) => x.id === Number(id));
-            if (idx !== -1 && resp.variant) STATE.variants[idx] = resp.variant;
-            renderRows();
-            notify(newState ? 'Đã bật dùng lại' : 'Đã ẩn biến thể', 'success');
-            window.Web2VariantsCache?.pushTickle?.({ action: 'update', id });
-        } catch (e) {
-            notify('Lỗi: ' + e.message, 'error');
+    // UI-first: badge isActive đổi NGAY, PATCH background. Rollback nếu lỗi.
+    function toggleActive(id, newState) {
+        const numId = Number(id);
+        const idx = STATE.variants.findIndex((x) => x.id === numId);
+        if (idx === -1) return;
+        const prev = STATE.variants[idx];
+        if (window.Web2Optimistic?.run) {
+            Web2Optimistic.run({
+                snapshot: () => ({ ...prev }),
+                apply: () => {
+                    STATE.variants[idx] = { ...prev, isActive: newState };
+                    renderRows();
+                },
+                run: async () => {
+                    return await window.Web2VariantsApi.update(numId, { isActive: newState });
+                },
+                onSuccess: (resp) => {
+                    if (resp.variant) {
+                        STATE.variants[idx] = resp.variant;
+                        renderRows();
+                    }
+                    window.Web2VariantsCache?.pushTickle?.({ action: 'update', id: numId });
+                },
+                rollback: (snap) => {
+                    STATE.variants[idx] = snap;
+                    renderRows();
+                },
+                successMsg: newState ? 'Đã bật dùng lại' : 'Đã ẩn biến thể',
+                errLabel: `toggle biến thể ${numId}`,
+            });
+        } else {
+            (async () => {
+                try {
+                    const resp = await window.Web2VariantsApi.update(numId, { isActive: newState });
+                    if (idx !== -1 && resp.variant) STATE.variants[idx] = resp.variant;
+                    renderRows();
+                    notify(newState ? 'Đã bật dùng lại' : 'Đã ẩn biến thể', 'success');
+                    window.Web2VariantsCache?.pushTickle?.({ action: 'update', id: numId });
+                } catch (e) {
+                    notify('Lỗi: ' + e.message, 'error');
+                }
+            })();
         }
     }
 

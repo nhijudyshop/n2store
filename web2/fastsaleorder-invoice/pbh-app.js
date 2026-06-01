@@ -288,16 +288,54 @@
         }
     }
 
+    // UI-first: confirm/cancel PBH — disable row + show pending state NGAY,
+    // POST background. Lỗi → restore + notify. SSE web2:fast-sale-orders sẽ
+    // catch-up nếu state thay đổi từ tab khác.
+    function _findPbhRow(number) {
+        return document.querySelector(`tr[data-pbh-number="${CSS.escape(String(number))}"]`);
+    }
     async function confirmOrder(number) {
         if (!(await w2pConfirm(`Xác nhận PBH ${number}?`, { okText: 'Xác nhận' }))) return;
-        const r = await fetch(
-            `${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}/confirm`,
-            { method: 'POST' }
-        );
-        const data = await r.json();
-        if (!r.ok || !data.success) return notify('Lỗi: ' + (data.error || r.status), 'error');
-        notify('Đã xác nhận ' + number, 'success');
-        load();
+        const row = _findPbhRow(number);
+        const prevOpacity = row?.style.opacity;
+        if (window.Web2Optimistic?.run) {
+            Web2Optimistic.run({
+                snapshot: () => prevOpacity,
+                apply: () => {
+                    if (row) {
+                        row.style.opacity = '0.6';
+                        row.style.pointerEvents = 'none';
+                    }
+                },
+                run: async () => {
+                    const r = await fetch(
+                        `${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}/confirm`,
+                        { method: 'POST' }
+                    );
+                    const data = await r.json();
+                    if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
+                    return data;
+                },
+                onSuccess: () => load(),
+                rollback: (prev) => {
+                    if (row) {
+                        row.style.opacity = prev || '';
+                        row.style.pointerEvents = '';
+                    }
+                },
+                successMsg: 'Đã xác nhận ' + number,
+                errLabel: `xác nhận PBH ${number}`,
+            });
+        } else {
+            const r = await fetch(
+                `${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}/confirm`,
+                { method: 'POST' }
+            );
+            const data = await r.json();
+            if (!r.ok || !data.success) return notify('Lỗi: ' + (data.error || r.status), 'error');
+            notify('Đã xác nhận ' + number, 'success');
+            load();
+        }
     }
     async function cancelOrder(number) {
         if (
@@ -308,14 +346,48 @@
             }))
         )
             return;
-        const r = await fetch(
-            `${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}/cancel`,
-            { method: 'POST' }
-        );
-        const data = await r.json();
-        if (!r.ok || !data.success) return notify('Lỗi: ' + (data.error || r.status), 'error');
-        notify('Đã hủy ' + number, 'success');
-        load();
+        const row = _findPbhRow(number);
+        const prevOpacity = row?.style.opacity;
+        if (window.Web2Optimistic?.run) {
+            Web2Optimistic.run({
+                snapshot: () => prevOpacity,
+                apply: () => {
+                    if (row) {
+                        row.style.opacity = '0.4';
+                        row.style.textDecoration = 'line-through';
+                        row.style.pointerEvents = 'none';
+                    }
+                },
+                run: async () => {
+                    const r = await fetch(
+                        `${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}/cancel`,
+                        { method: 'POST' }
+                    );
+                    const data = await r.json();
+                    if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
+                    return data;
+                },
+                onSuccess: () => load(),
+                rollback: (prev) => {
+                    if (row) {
+                        row.style.opacity = prev || '';
+                        row.style.textDecoration = '';
+                        row.style.pointerEvents = '';
+                    }
+                },
+                successMsg: 'Đã hủy ' + number,
+                errLabel: `hủy PBH ${number}`,
+            });
+        } else {
+            const r = await fetch(
+                `${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}/cancel`,
+                { method: 'POST' }
+            );
+            const data = await r.json();
+            if (!r.ok || !data.success) return notify('Lỗi: ' + (data.error || r.status), 'error');
+            notify('Đã hủy ' + number, 'success');
+            load();
+        }
     }
     function printOrder(number) {
         // Open print page in popup; page tự fetch detail + auto-call /print API

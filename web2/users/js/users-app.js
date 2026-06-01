@@ -279,15 +279,40 @@
     }
 
     // ---------- delete (deactivate) ----------
-    async function deactivateUser(user) {
+    // UI-first: mark user disabled NGAY, DELETE background. Rollback nếu lỗi.
+    function deactivateUser(user) {
         if (!confirm(`Vô hiệu user "${user.username}"? Các session sẽ bị logout.`)) return;
-        try {
-            await api('DELETE', `/${user.id}`);
-            notify(`Đã vô hiệu ${user.username}`, 'success');
-            await loadAll();
-            renderList();
-        } catch (e) {
-            notify(e.message || 'Lỗi vô hiệu', 'error');
+        const prevActive = user.isActive;
+        if (window.Web2Optimistic?.run) {
+            Web2Optimistic.run({
+                snapshot: () => prevActive,
+                apply: () => {
+                    user.isActive = false;
+                    renderList();
+                },
+                run: () => api('DELETE', `/${user.id}`),
+                onSuccess: async () => {
+                    await loadAll();
+                    renderList();
+                },
+                rollback: (prev) => {
+                    user.isActive = prev;
+                    renderList();
+                },
+                successMsg: `Đã vô hiệu ${user.username}`,
+                errLabel: `vô hiệu ${user.username}`,
+            });
+        } else {
+            (async () => {
+                try {
+                    await api('DELETE', `/${user.id}`);
+                    notify(`Đã vô hiệu ${user.username}`, 'success');
+                    await loadAll();
+                    renderList();
+                } catch (e) {
+                    notify(e.message || 'Lỗi vô hiệu', 'error');
+                }
+            })();
         }
     }
 

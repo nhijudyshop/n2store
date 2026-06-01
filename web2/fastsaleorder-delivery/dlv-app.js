@@ -146,18 +146,54 @@
             }))
         )
             return;
-        const r = await fetch(
-            `${WORKER}/api/delivery-invoices/${encodeURIComponent(number)}/${path}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({}),
-            }
-        );
-        const d = await r.json();
-        if (!d.success) return notify('Lỗi: ' + d.error, 'error');
-        notify(label + ' ' + number, 'success');
-        load();
+        const row = document.querySelector(`tr[data-dlv-number="${CSS.escape(String(number))}"]`);
+        const prevOpacity = row?.style.opacity;
+        if (window.Web2Optimistic?.run) {
+            Web2Optimistic.run({
+                snapshot: () => prevOpacity,
+                apply: () => {
+                    if (row) {
+                        row.style.opacity = '0.6';
+                        row.style.pointerEvents = 'none';
+                    }
+                },
+                run: async () => {
+                    const r = await fetch(
+                        `${WORKER}/api/delivery-invoices/${encodeURIComponent(number)}/${path}`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({}),
+                        }
+                    );
+                    const d = await r.json();
+                    if (!d.success) throw new Error(d.error || `HTTP ${r.status}`);
+                    return d;
+                },
+                onSuccess: () => load(),
+                rollback: (prev) => {
+                    if (row) {
+                        row.style.opacity = prev || '';
+                        row.style.pointerEvents = '';
+                    }
+                },
+                successMsg: label + ' ' + number,
+                errLabel: `${label} ${number}`,
+            });
+        } else {
+            const r = await fetch(
+                `${WORKER}/api/delivery-invoices/${encodeURIComponent(number)}/${path}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({}),
+                }
+            );
+            const d = await r.json();
+            if (!d.success) return notify('Lỗi: ' + d.error, 'error');
+            notify(label + ' ' + number, 'success');
+            load();
+        }
     }
 
     function applyFilters() {

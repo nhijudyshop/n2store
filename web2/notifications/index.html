@@ -115,6 +115,7 @@
         <script src="../shared/web2-db-badge.js?v=20260530a"></script>
         <script src="../shared/web2-sse-topics.js?v=20260522a"></script>
         <script src="../shared/web2-sse-bridge.js?v=20260526sse2"></script>
+        <script src="../shared/web2-optimistic.js?v=20260601a"></script>
         <script src="../shared/tpos-sidebar.js?v=20260522f"></script>
         <script>
             (function () {
@@ -150,10 +151,31 @@
                     list.querySelectorAll('.noti-row').forEach((el) => {
                         el.onclick = () => {
                             const id = el.getAttribute('data-id');
-                            fetch(API + '/' + id + '/read', {
-                                method: 'POST',
-                                credentials: 'include',
-                            });
+                            // UI-first: mark read style NGAY, POST background
+                            const prevClass = el.className;
+                            if (window.Web2Optimistic?.run) {
+                                Web2Optimistic.run({
+                                    snapshot: () => prevClass,
+                                    apply: () => {
+                                        el.classList.remove('unread');
+                                        el.classList.add('read');
+                                    },
+                                    run: () =>
+                                        fetch(API + '/' + id + '/read', {
+                                            method: 'POST',
+                                            credentials: 'include',
+                                        }),
+                                    rollback: (cls) => {
+                                        el.className = cls;
+                                    },
+                                    errLabel: 'mark đã đọc',
+                                });
+                            } else {
+                                fetch(API + '/' + id + '/read', {
+                                    method: 'POST',
+                                    credentials: 'include',
+                                });
+                            }
                         };
                     });
                 }
@@ -161,9 +183,44 @@
                     unreadOnly = e.target.value === '1';
                     load();
                 };
-                document.getElementById('btnMarkAll').onclick = async () => {
-                    await fetch(API + '/mark-all-read', { method: 'POST', credentials: 'include' });
-                    load();
+                document.getElementById('btnMarkAll').onclick = () => {
+                    // UI-first: tất cả rows mark read style NGAY, reload sau background
+                    const rows = document.querySelectorAll('.noti-row.unread');
+                    const prevCount = rows.length;
+                    if (window.Web2Optimistic?.run && prevCount > 0) {
+                        Web2Optimistic.run({
+                            apply: () => {
+                                rows.forEach((r) => {
+                                    r.classList.remove('unread');
+                                    r.classList.add('read');
+                                });
+                            },
+                            run: async () => {
+                                const r = await fetch(API + '/mark-all-read', {
+                                    method: 'POST',
+                                    credentials: 'include',
+                                });
+                                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                            },
+                            onSuccess: () => load(),
+                            rollback: () => {
+                                rows.forEach((r) => {
+                                    r.classList.add('unread');
+                                    r.classList.remove('read');
+                                });
+                            },
+                            successMsg: `Đã đánh dấu đọc ${prevCount} thông báo`,
+                            errLabel: 'mark all read',
+                        });
+                    } else {
+                        (async () => {
+                            await fetch(API + '/mark-all-read', {
+                                method: 'POST',
+                                credentials: 'include',
+                            });
+                            load();
+                        })();
+                    }
                 };
                 document.getElementById('btnScan').onclick = async () => {
                     const btn = document.getElementById('btnScan');

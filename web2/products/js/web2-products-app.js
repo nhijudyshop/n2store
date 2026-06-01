@@ -938,24 +938,60 @@
         }
     }
 
-    async function toggleActive(code, newState) {
-        try {
-            const u = window.AuthManager?.getCurrentUser?.() || {};
-            const resp = await window.Web2ProductsApi.update(code, {
-                isActive: newState,
-                userId: u.uid || u.email || null,
-                userName: u.displayName || u.email || null,
-                sourcePage: 'products',
+    // UI-first: badge toggle NGAY, PATCH background. Lỗi → rollback isActive.
+    function toggleActive(code, newState) {
+        const product = STATE.products.find((p) => p.code === code);
+        const prevState = product?.isActive;
+        const u = window.AuthManager?.getCurrentUser?.() || {};
+        if (window.Web2Optimistic?.run && product) {
+            Web2Optimistic.run({
+                snapshot: () => prevState,
+                apply: () => {
+                    product.isActive = newState;
+                    const ok = _updateRowInPlace(code, product);
+                    if (!ok) renderRows();
+                },
+                run: async () => {
+                    return await window.Web2ProductsApi.update(code, {
+                        isActive: newState,
+                        userId: u.uid || u.email || null,
+                        userName: u.displayName || u.email || null,
+                        sourcePage: 'products',
+                    });
+                },
+                onSuccess: (resp) => {
+                    if (resp.product) {
+                        Object.assign(product, resp.product);
+                        const ok = _updateRowInPlace(code, resp.product);
+                        if (!ok) renderRows();
+                    }
+                },
+                rollback: (prev) => {
+                    if (product) product.isActive = prev;
+                    const ok = _updateRowInPlace(code, product);
+                    if (!ok) renderRows();
+                },
+                successMsg: newState ? 'Đã bật bán' : 'Đã tạm dừng',
+                errLabel: `toggle ${code}`,
             });
-            if (resp.product) {
-                const ok = _updateRowInPlace(code, resp.product);
-                if (!ok) renderRows();
-            }
-            notify(newState ? 'Đã bật bán' : 'Đã tạm dừng', 'success');
-            // KHÔNG pushTickle — tránh _scheduleRefresh → emit 'refresh' → full load.
-            // SSE notify cross-tab đã tự handle in-place qua _setupSse handler.
-        } catch (e) {
-            notify('Lỗi: ' + e.message, 'error');
+        } else {
+            (async () => {
+                try {
+                    const resp = await window.Web2ProductsApi.update(code, {
+                        isActive: newState,
+                        userId: u.uid || u.email || null,
+                        userName: u.displayName || u.email || null,
+                        sourcePage: 'products',
+                    });
+                    if (resp.product) {
+                        const ok = _updateRowInPlace(code, resp.product);
+                        if (!ok) renderRows();
+                    }
+                    notify(newState ? 'Đã bật bán' : 'Đã tạm dừng', 'success');
+                } catch (e) {
+                    notify('Lỗi: ' + e.message, 'error');
+                }
+            })();
         }
     }
 
