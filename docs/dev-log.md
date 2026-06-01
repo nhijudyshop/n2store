@@ -25,6 +25,57 @@
 
 ## 2026-06-01
 
+### [orders][render] Celebration Config — sync cross-machine qua SSE (fix "máy khác không cập nhật hình") ✅
+
+**Bug user báo**: admin upload ảnh trên máy A, máy B vẫn hiển thị ảnh cũ khi bắn pháo hoa.
+
+**Root cause**:
+
+1. Render endpoint `POST /api/realtime/celebration` chỉ destructure `{employee, detail}`, drop `employeeData` + `effects` → SSE broadcast về clients chỉ có key + detail, render fallback defaults.
+2. Config persist localStorage máy admin only — nếu admin save trên máy A nhưng bắn từ máy B, broadcast vẫn lấy config cũ từ localStorage máy B.
+
+**Fix Phase 1 — Forward full payload tại fire time**:
+
+`render.com/routes/realtime-sse.js`:
+
+- `POST /celebration` body: thêm `employeeData` + `effects` vào destructure + payload `notifyClients()`.
+- Log payload size (KB), warn nếu > 400KB.
+
+**Fix Phase 2 — Sync config khi save (mọi máy admin)**:
+
+`render.com/routes/realtime-sse.js`:
+
+- New route `POST /api/realtime/celebration-config` body `{config}` → broadcast topic `celebration_config` → mọi client cập nhật localStorage.
+
+`orders-report/js/celebration-config.js`:
+
+- New `broadcastConfig(cfg)` — POST `/api/realtime/celebration-config` sau khi save thành công.
+- New `connectSSE()` — EventSource subscribe `celebration_config` topic, listener gọi `applyRemoteConfig(cfg, publishedAt)`.
+- `applyRemoteConfig`: skip nếu giống local (chống render churn), skip nếu là echo broadcast của chính mình (suppressBroadcastUntil = now + 2000ms), apply → localStorage + refresh `CelebrationManager.refreshEmpSelect()` + re-render modal nếu đang mở + toast "Config sync từ máy khác 🔄".
+- Save handler: set suppressBroadcastUntil + gọi broadcastConfig + toast "Đã lưu + sync sang máy khác 🎉".
+- SSE auto-connect on DOMContentLoaded — apply cho cả non-admin clients vì broadcast cũng tới họ (họ chỉ cần localStorage đúng để render khi celebration fire).
+
+`orders-report/main.html`: cache-bust `?v=20260601b`.
+
+**Flow cross-machine sau fix**:
+
+1. Admin Máy A: upload ảnh Hạnh → click "Lưu thay đổi" → save localStorage A + POST `/celebration-config` → SSE broadcast topic `celebration_config`.
+2. Mọi máy (B/C/...): EventSource nhận event → `applyRemoteConfig` → save localStorage máy đó → modal tự refresh nếu mở.
+3. Admin Máy B: mở "🎨 Cài đặt Pháo Hoa" → thấy ảnh mới (vì localStorage B đã được sync) → bấm "Bắn Pháo Hoa" → broadcast `{employee, detail, employeeData (= ảnh mới), effects}` → mọi tab render đúng.
+
+**Test live (lần verify đầu)**:
+
+- ✅ `Object.keys(window.CelebrationConfig)` có `broadcastConfig`, `listEmployees` mới.
+- (Test sâu hơn bị chặn vì browser session bị navigate qua trang khác do user.)
+
+**Deploy Render**: code change only → push GitHub → Render auto-deploy. Không cần env var.
+
+**Files**: `render.com/routes/realtime-sse.js`, `orders-report/js/celebration-config.js`, `orders-report/main.html`.
+
+Status: ✅ Done (chờ Render deploy ~2-3 min sau push để live verify cross-machine).
+
+---
+
 ### [orders] Celebration Config — admin tự custom ảnh/text/hiệu ứng pháo hoa per nhân viên ✅
 
 **Yêu cầu user**: trang `orders-report/main.html` cài đặt admin pháo hoa: thêm UI cho admin chỉnh ảnh nhân viên, text, hiệu ứng (chỉ admin thấy).

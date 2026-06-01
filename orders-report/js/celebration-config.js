@@ -11,6 +11,7 @@
     const CONFIG_KEY = 'celebrationConfig_v1';
     const MAX_PHOTO_DIM = 480;
     const MAX_PHOTO_BYTES = 220 * 1024;
+    const API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime';
     const COLOR_THEMES = {
         rainbow: ['#ffd700', '#ff6b35', '#ff1493', '#8b5cf6', '#00d4ff', '#10b981', '#fff'],
         warm: ['#ffd700', '#ff6b35', '#ff1493', '#ff4500', '#ffaa00', '#fff'],
@@ -59,6 +60,86 @@
         } catch (e) {
             console.warn('[CelebrationConfig] save failed:', e);
             return false;
+        }
+    }
+
+    // Broadcast config to all other clients via SSE.
+    // Called after admin saves changes locally.
+    async function broadcastConfig(cfg) {
+        try {
+            const res = await fetch(`${API_URL}/celebration-config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ config: cfg }),
+            });
+            const data = await res.json();
+            console.log(
+                `[CelebrationConfig] 🎨 Broadcast sent (${data.payloadBytes || '?'}B), ${data.clientsNotified || 0} clients notified`
+            );
+            return true;
+        } catch (e) {
+            console.warn('[CelebrationConfig] Broadcast failed:', e);
+            return false;
+        }
+    }
+
+    // Apply config received from another admin device. Skip if it matches what we
+    // already have to avoid render churn.
+    let suppressBroadcastUntil = 0;
+    function applyRemoteConfig(cfg, publishedAt) {
+        if (!cfg) return;
+        const current = JSON.stringify(load());
+        const incoming = JSON.stringify(cfg);
+        if (current === incoming) return;
+        // Skip if this is the echo of our own recent broadcast
+        if (publishedAt && publishedAt < suppressBroadcastUntil) return;
+        try {
+            localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+            console.log('[CelebrationConfig] 🔄 Applied config from another device');
+            // Refresh employee dropdown if visible
+            window.CelebrationManager?.refreshEmpSelect?.();
+            // If modal is open, re-render it with fresh state
+            const m = document.getElementById('celebrationConfigModal');
+            if (m && m.classList.contains('open')) {
+                renderEmpListLatest(m);
+                m.querySelector('#celCfgTheme').value = cfg.effects?.colorTheme || 'rainbow';
+                m.querySelector('#celCfgIntensity').value = cfg.effects?.intensity || 'normal';
+                m.querySelector('#celCfgDuration').value = String(cfg.effects?.durationMs || 10000);
+                toast('Config sync từ máy khác 🔄');
+            }
+        } catch (e) {
+            console.warn('[CelebrationConfig] applyRemoteConfig failed:', e);
+        }
+    }
+
+    function renderEmpListLatest(modal) {
+        renderEmpList(modal, load());
+    }
+
+    // SSE listener — all clients subscribe to celebration_config topic so config
+    // changes from any admin device propagate everywhere immediately.
+    let sseEs = null;
+    function connectSSE() {
+        if (sseEs) return;
+        try {
+            sseEs = new EventSource(`${API_URL}/sse?keys=celebration_config`);
+            sseEs.addEventListener('celebration_config', (e) => {
+                try {
+                    const msg = JSON.parse(e.data);
+                    const { config, publishedAt } = msg.data || {};
+                    applyRemoteConfig(config, publishedAt);
+                } catch (err) {
+                    console.warn('[CelebrationConfig] SSE parse error:', err);
+                }
+            });
+            sseEs.addEventListener('connected', () => {
+                console.log('[CelebrationConfig] SSE connected, listening for config updates');
+            });
+            sseEs.onerror = () => {
+                // EventSource auto-reconnects
+            };
+        } catch (e) {
+            console.warn('[CelebrationConfig] SSE connection failed:', e);
         }
     }
 
@@ -286,7 +367,10 @@
                     10
                 );
                 if (save(workingCfg)) {
-                    toast('Đã lưu cài đặt 🎉');
+                    // Suppress echo from our own broadcast for 2s
+                    suppressBroadcastUntil = Date.now() + 2000;
+                    broadcastConfig(workingCfg);
+                    toast('Đã lưu + sync sang máy khác 🎉');
                     closeModal();
                 } else {
                     toast('Không lưu được, ảnh có thể quá lớn');
@@ -412,6 +496,14 @@
         if (m && m.classList.contains('open')) closeModal();
     });
 
+    // Auto-connect SSE for config sync — applies to all clients, not just admin,
+    // so when admin updates from another device, this client picks it up.
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', connectSSE);
+    } else {
+        connectSSE();
+    }
+
     window.CelebrationConfig = {
         load,
         save,
@@ -420,6 +512,7 @@
         getColors,
         openModal,
         closeModal,
+        broadcastConfig,
         DEFAULTS,
     };
 })();

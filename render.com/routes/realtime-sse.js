@@ -340,33 +340,79 @@ router.post('/sse/test', (req, res) => {
 
 /**
  * POST /api/realtime/celebration
- * Body: { employee: "hanh", detail: "Hoàn thành 100% KPI!" }
- * Requires admin-authenticated userType
+ * Body: { employee: "hanh", detail?, employeeData?, effects? }
+ *   - employeeData: full employee config from admin (name, photo, titleText,
+ *     nameTemplate, defaultDetail). When present, other clients render with
+ *     admin's config without needing their own copy. Photo may be base64 dataURL.
+ *   - effects: { colorTheme, intensity, durationMs } from admin's config.
+ * Requires admin-authenticated userType.
  */
 router.post('/celebration', (req, res) => {
-    const { employee, detail } = req.body;
+    const { employee, detail, employeeData, effects } = req.body;
 
     if (!employee) {
         return res.status(400).json({ error: 'Missing employee parameter' });
     }
 
-    const count = notifyClients(
-        'celebration',
-        {
-            employee,
-            detail: detail || '',
-            triggeredAt: Date.now(),
-        },
-        'celebration'
-    );
+    // Soft cap on payload size: very large base64 photos may stress SSE clients.
+    const payload = {
+        employee,
+        detail: detail || '',
+        employeeData: employeeData || null,
+        effects: effects || null,
+        triggeredAt: Date.now(),
+    };
+    const approxBytes = JSON.stringify(payload).length;
+    if (approxBytes > 400 * 1024) {
+        console.warn(
+            `[SSE] ⚠️ Celebration payload large (${(approxBytes / 1024).toFixed(0)}KB) — consider smaller photo`
+        );
+    }
 
-    console.log(`[SSE] 🎉 Celebration triggered for "${employee}", notified ${count} clients`);
+    const count = notifyClients('celebration', payload, 'celebration');
+
+    console.log(
+        `[SSE] 🎉 Celebration triggered for "${employee}" (${(approxBytes / 1024).toFixed(1)}KB payload), notified ${count} clients`
+    );
 
     res.json({
         success: true,
         employee,
         clientsNotified: count,
+        payloadBytes: approxBytes,
     });
+});
+
+/**
+ * POST /api/realtime/celebration-config
+ * Body: { config: {version, employees, effects} }
+ * Broadcast admin's celebration config to all clients so they cache the latest
+ * version locally. Each client updates localStorage and refreshes any open UI.
+ * Topic: 'celebration_config'.
+ */
+router.post('/celebration-config', (req, res) => {
+    const { config } = req.body;
+    if (!config || typeof config !== 'object') {
+        return res.status(400).json({ error: 'Missing config object' });
+    }
+
+    const payload = {
+        config,
+        publishedAt: Date.now(),
+    };
+    const approxBytes = JSON.stringify(payload).length;
+    if (approxBytes > 600 * 1024) {
+        console.warn(
+            `[SSE] ⚠️ Celebration-config payload large (${(approxBytes / 1024).toFixed(0)}KB)`
+        );
+    }
+
+    const count = notifyClients('celebration_config', payload, 'celebration_config');
+    console.log(
+        `[SSE] 🎨 Celebration config broadcast (${(approxBytes / 1024).toFixed(1)}KB), notified ${count} clients`
+    );
+
+    res.json({ success: true, clientsNotified: count, payloadBytes: approxBytes });
 });
 
 // =====================================================
