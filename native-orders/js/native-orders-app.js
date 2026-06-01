@@ -762,7 +762,11 @@
         };
 
         const run = async () => {
-            const lookupUrl = `${WORKER_URL}/api/web2/customer-tpos/by-fb-id/${encodeURIComponent(fbUserId)}`;
+            // Pass crmTeamId từ order — backend cần để query chatomni/info/{crmTeamId}_{fbUserId}
+            const crmTeamId = order?.crmTeamId || '';
+            const lookupUrl =
+                `${WORKER_URL}/api/web2/customer-tpos/by-fb-id/${encodeURIComponent(fbUserId)}` +
+                (crmTeamId ? `?crmTeamId=${encodeURIComponent(crmTeamId)}` : '');
             const r = await fetch(lookupUrl, { credentials: 'include' });
             const data = await r.json().catch(() => ({}));
             if (!r.ok || data.success === false) {

@@ -765,7 +765,7 @@ router.post('/from-comment', async (req, res) => {
             // đầu trong Web 2.0 nhưng đã có order trên TPOS).
             if (!enrichedPhone) {
                 try {
-                    const tposResult = await searchCustomerByFbUserId(b.fbUserId);
+                    const tposResult = await searchCustomerByFbUserId(b.fbUserId, b.crmTeamId);
                     if (tposResult.success && tposResult.customer) {
                         const tc = tposResult.customer;
                         if (!enrichedPhone) enrichedPhone = tc.phone || null;

@@ -55,7 +55,9 @@ router.get('/by-fb-id/:fbUserId', async (req, res) => {
         if (!fbUserId) {
             return res.status(400).json({ success: false, error: 'fbUserId required' });
         }
-        const result = await searchCustomerByFbUserId(fbUserId);
+        // crmTeamId optional — chatomni/info endpoint cần để biết Pancake page nào tra cứu KH
+        const crmTeamId = req.query.crmTeamId ? String(req.query.crmTeamId).trim() : undefined;
+        const result = await searchCustomerByFbUserId(fbUserId, crmTeamId);
         if (!result?.success) {
             return res.status(502).json({
                 success: false,

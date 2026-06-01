@@ -425,24 +425,22 @@ async function pushCustomerToTPOS(phone, fields = {}) {
  * @param {string} fbUserId — Facebook_ASUserId
  * @returns {Promise<{success, customer?: {id, name, phone, address, fbUserId}, error?}>}
  */
-async function searchCustomerByFbUserId(fbUserId) {
+async function searchCustomerByFbUserId(fbUserId, crmTeamId) {
     if (!fbUserId) return { success: false, error: 'fbUserId required' };
     try {
         const token = await tposTokenManager.getToken();
-        // URL params phải encode đầy đủ (TPOS strict trên SaleOnline_Order endpoint,
-        // khác Partner endpoint). Headers Origin/Referer/tposappversion required —
-        // verified qua header-learner CF worker (xem cloudflare-worker/modules/utils/header-learner.js).
-        // View_SaleOnline_OrdersViewModel KHÔNG có navigation 'Partner' để $expand
-        // (test 2026-06-01 → 400 "Could not find a property named 'Partner'").
-        // Thay vào, view đã flatten các field cần: Telephone, Address, Facebook_UserName,
-        // Facebook_ASUserId, PartnerId. Lấy trực tiếp từ row, không cần $expand.
-        const fbIdEsc = String(fbUserId).replace(/'/g, "''");
-        const params = new URLSearchParams({
-            $filter: `Facebook_ASUserId eq '${fbIdEsc}'`,
-            $top: '1',
-            $orderby: 'DateCreated desc',
-        });
-        const tposUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetViewV2?${params.toString()}`;
+        // TPOS có endpoint chuyên dụng: `/rest/v2.0/chatomni/info/{crmTeamId}_{fbUserId}`
+        // trả về Partner đầy đủ (Name, Phone, Street, FullAddress). Đây là endpoint
+        // tpos-pancake browser dùng để load partner cache → proven works.
+        //
+        // SaleOnline_Order GetViewV2 với $filter=Facebook_ASUserId KHÔNG hoạt động:
+        // - $expand=Partner → 400 "Could not find a property named 'Partner'"
+        // - bỏ $expand → 500 "Lỗi hệ thống cơ sở dữ liệu" (TPOS DB error)
+        // → fallback dùng chatomni/info.
+        //
+        // crmTeamId fallback: nếu không truyền, dùng env var (mặc định Pancake page chính).
+        const teamId = crmTeamId || process.env.TPOS_DEFAULT_CRM_TEAM_ID || '10037'; // 10037 = Nhi Judy House
+        const tposUrl = `https://tomato.tpos.vn/rest/v2.0/chatomni/info/${encodeURIComponent(teamId)}_${encodeURIComponent(String(fbUserId))}`;
         const response = await fetchWithRetry(
             tposUrl,
             {
@@ -450,11 +448,6 @@ async function searchCustomerByFbUserId(fbUserId) {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     Accept: 'application/json',
-                    'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
-                    Origin: 'https://tomato.tpos.vn',
-                    Referer: 'https://tomato.tpos.vn/',
-                    tposappversion: '6.1.8.1',
-                    'x-requested-with': 'XMLHttpRequest',
                 },
             },
             2,
@@ -462,14 +455,13 @@ async function searchCustomerByFbUserId(fbUserId) {
             15000
         );
         if (!response.ok) {
-            // Surface body để debug 400 dễ hơn
             let detail = '';
             try {
                 const j = await response.json();
                 detail = j?.error?.message || JSON.stringify(j).slice(0, 200);
             } catch {}
             console.warn(
-                `[TPOS-CUSTOMER] searchCustomerByFbUserId(${fbUserId}) → ${response.status}${detail ? ': ' + detail : ''}`
+                `[TPOS-CUSTOMER] searchCustomerByFbUserId(${fbUserId}, team=${teamId}) → ${response.status}${detail ? ': ' + detail : ''}`
             );
             return {
                 success: false,
@@ -477,32 +469,29 @@ async function searchCustomerByFbUserId(fbUserId) {
             };
         }
         const data = await response.json();
-        const order = (data.value || [])[0];
-        if (!order) {
+        const partner = data?.Partner || data?.partner || null;
+        if (!partner) {
             return { success: true, customer: null };
         }
-        // View fields (flatten — không có Partner navigation):
-        // - Telephone, Address (raw string), Facebook_UserName, Facebook_ASUserId
-        // - PartnerId (FK), PartnerName, PartnerDisplayName, PartnerStatus
-        const phone = order.Telephone || order.PartnerPhone || null;
-        const address = order.Address || order.ShipAddress || null;
+        const phone = partner.Phone || partner.Mobile || null;
+        const address =
+            partner.FullAddress ||
+            partner.Street ||
+            [partner.Street, partner.Ward, partner.District, partner.City]
+                .filter(Boolean)
+                .join(', ') ||
+            null;
         const customer = {
-            id: order.PartnerId || null,
-            name:
-                order.Facebook_UserName ||
-                order.PartnerDisplayName ||
-                order.PartnerName ||
-                order.Name ||
-                null,
+            id: partner.Id || null,
+            name: partner.Name || partner.DisplayName || null,
             phone: phone ? String(phone).replace(/\D/g, '').slice(-10) : null,
             address,
             fbUserId,
-            tposPartnerId: order.PartnerId || null,
-            sourceOrderId: order.Id,
-            sourceOrderDate: order.DateCreated,
+            tposPartnerId: partner.Id || null,
+            tposPartner: partner,
         };
         console.log(
-            `[TPOS-CUSTOMER] FB ID ${fbUserId} → PartnerId ${order.PartnerId} (${customer.name}, ${customer.phone || 'no phone'})`
+            `[TPOS-CUSTOMER] FB ID ${fbUserId} (team ${teamId}) → PartnerId ${partner.Id} (${customer.name}, ${customer.phone || 'no phone'})`
         );
         return { success: true, customer };
     } catch (e) {
