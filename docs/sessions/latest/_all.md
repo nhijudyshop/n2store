@@ -3,15 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6b63bcd` — fix(docs): restore dev-log entries deleted in previous commit + re-add UI-first entry
-**Last updated**: 2026-06-01 09:59:59 +07
-**Latest session**: [`RESUME:20260601-095959-6b63bcd`](../20260601-095959-6b63bcd.md)
-**Summary**: fix(docs): restore dev-log entries deleted in previous commit + re-add UI-first entry
+**Latest commit**: `a92e02d` — chore(web2): xóa 57 trang TPOS-clone stub không dùng + dọn sidebar/nav
+**Last updated**: 2026-06-01 10:16:02 +07
+**Latest session**: [`RESUME:20260601-101602-a92e02d`](../20260601-101602-a92e02d.md)
+**Summary**: chore(web2): xóa 57 trang TPOS-clone stub không dùng + dọn sidebar/nav
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 2 file(s)
+- [`shared/`](./shared.md) — 1 file(s)
+- [`web2/`](./web2.md) — 59 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-01 10:00
+- [`docs/`](./docs.md) — updated 2026-06-01 10:16
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -52,9 +54,9 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-06-01 09:48
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-05-31 14:12
+- [`scripts/`](./scripts.md) — updated 2026-06-01 10:16
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
-- [`shared/`](./shared.md) — updated 2026-05-29 15:42
+- [`shared/`](./shared.md) — updated 2026-06-01 10:16
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-05-30 19:44
 - [`soluong-live/`](./soluong-live.md) — updated 2026-05-21 15:39
@@ -68,4 +70,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-01 09:52
+- [`web2/`](./web2.md) — updated 2026-06-01 10:16
