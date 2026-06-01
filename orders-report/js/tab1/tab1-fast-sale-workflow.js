@@ -752,9 +752,13 @@
      * @param {string} tagNamePattern - Tag name pattern to remove (e.g., "OK " to remove "OK Hạnh")
      */
     async function removeTagFromOrder(orderId, tagNamePattern) {
-        // Get current order tags from OrderStore or displayedData
+        // Get current order tags from OrderStore or displayedData.
+        // Fallback dùng so sánh String để tránh miss khi Id là number vs string.
         const order =
-            window.OrderStore?.get(orderId) || window.displayedData?.find((o) => o.Id === orderId);
+            window.OrderStore?.get(orderId) ||
+            window.displayedData?.find(
+                (o) => o.Id === orderId || String(o.Id) === String(orderId)
+            );
         if (!order) {
             console.error(`[WORKFLOW] Order not found: ${orderId}`);
             return false;
@@ -779,7 +783,16 @@
         });
 
         // Assign new tags (without the removed one)
-        return await assignTagsToOrder(orderId, newTags);
+        const ok = await assignTagsToOrder(orderId, newTags);
+        if (ok) {
+            // Sync local order.Tags + re-render cell TAG ngay (vd gỡ ÂM MÃ khi ra đơn
+            // thành công) — không phải đợi refetch.
+            order.Tags = JSON.stringify(newTags);
+            if (typeof window.updateOrderInTable === 'function') {
+                window.updateOrderInTable(orderId, { Tags: order.Tags });
+            }
+        }
+        return ok;
     }
 
     /**
@@ -788,9 +801,13 @@
      * @param {object} tagToAdd - Tag to add {Id, Name, Color}
      */
     async function addTagToOrder(orderId, tagToAdd) {
-        // Get current order tags
+        // Get current order tags. Fallback dùng so sánh String để tránh miss khi Id là
+        // number vs string (vd guard ÂM MÃ tìm thấy qua String fallback nhưng đây strict ===).
         const order =
-            window.OrderStore?.get(orderId) || window.displayedData?.find((o) => o.Id === orderId);
+            window.OrderStore?.get(orderId) ||
+            window.displayedData?.find(
+                (o) => o.Id === orderId || String(o.Id) === String(orderId)
+            );
         if (!order) {
             console.error(`[WORKFLOW] Order not found: ${orderId}`);
             return false;
@@ -819,6 +836,15 @@
         // onPtagBillCreated thấy ngay tag mới mà không phải đợi refetch.
         if (ok) {
             order.Tags = JSON.stringify(newTags);
+            // Re-render cell TAG ngay để tag mới (vd ÂM MÃ) hiện không cần F5.
+            if (typeof window.updateOrderInTable === 'function') {
+                window.updateOrderInTable(orderId, { Tags: order.Tags });
+            }
+        } else {
+            // Không nuốt lỗi im lặng — báo để biết tag (vd ÂM MÃ) chưa gắn được.
+            window.notificationManager?.error(
+                `Gắn tag "${tagToAdd?.Name || ''}" thất bại cho đơn ${orderId}`
+            );
         }
         return ok;
     }
@@ -897,6 +923,11 @@
 
         if (successCount > 0) {
             window.notificationManager?.info(`Đã gắn tag "Âm Mã" cho ${successCount} đơn thất bại`);
+        }
+        if (failCount > 0) {
+            window.notificationManager?.warning(
+                `${failCount} đơn thiếu hàng CHƯA gắn được tag "Âm Mã" — kiểm tra lại`
+            );
         }
     }
 

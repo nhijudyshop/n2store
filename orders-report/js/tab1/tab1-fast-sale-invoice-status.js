@@ -422,7 +422,7 @@
          * @param {Object} invoiceData - FastSaleOrder data
          * @param {Object} originalOrder - Optional: SaleOnlineOrder data for enrichment
          */
-        set(saleOnlineId, invoiceData, originalOrder = null) {
+        set(saleOnlineId, invoiceData, originalOrder = null, opts = {}) {
             if (!saleOnlineId) return;
 
             // Get original order from store if not provided
@@ -462,17 +462,28 @@
                 rawShowState === 'Hủy bỏ' ||
                 invoiceData.IsMergeCancel === true ||
                 invoiceData.StateCode === 'cancel';
-            const isFullyPaid = !isCancelled && cashOnDelivery === 0 && paymentAmount > 0;
+            // Đơn thiếu hàng (ÂM MÃ): TPOS tạo FSO (quirk) + auto set state, nhưng đây KHÔNG
+            // phải PBH ra thành công → ép badge "Nháp" (vẫn giữ note "Chờ nhập hàng" ở row
+            // StateCode). isError do storeFromApiResult truyền từ nhánh OrdersError, hoặc
+            // detect trực tiếp StateCode 'NotEnoughInventory'.
+            const isFailedOrder =
+                opts.isError === true || invoiceData.StateCode === 'NotEnoughInventory';
+            const isFullyPaid =
+                !isCancelled && !isFailedOrder && cashOnDelivery === 0 && paymentAmount > 0;
             const showState = isCancelled
                 ? rawShowState || 'Huỷ bỏ'
-                : isFullyPaid
-                  ? 'Đã thanh toán'
-                  : rawShowState || 'Nháp';
+                : isFailedOrder
+                  ? 'Nháp'
+                  : isFullyPaid
+                    ? 'Đã thanh toán'
+                    : rawShowState || 'Nháp';
             const state = isCancelled
                 ? rawState || 'cancel'
-                : isFullyPaid
-                  ? 'paid'
-                  : rawState || 'draft';
+                : isFailedOrder
+                  ? 'draft'
+                  : isFullyPaid
+                    ? 'paid'
+                    : rawState || 'draft';
 
             const soId = String(saleOnlineId);
             const tposId = invoiceData.Id; // FastSaleOrder ID from TPOS
@@ -876,7 +887,9 @@
                             // Auto-tag ĐÃ RA ĐƠN — chỉ chạy khi user tạo PBH thành công.
                             // Truyền `source` để mode 'single' / 'bulk' filter đúng nguồn.
                             if (typeof window.onPtagBillCreated === 'function') {
-                                window.onPtagBillCreated(soId, source);
+                                window.onPtagBillCreated(soId, source, {
+                                    confirmedSuccess: true,
+                                });
                             }
                         });
                     }
@@ -912,7 +925,8 @@
                                 order.Address = fastSaleData.ReceiverAddress;
                             }
 
-                            this.set(soId, order, originalOrder);
+                            // isError: true → ép badge "Nháp" (đơn thiếu hàng, chưa ra đơn)
+                            this.set(soId, order, originalOrder, { isError: true });
                             // Save NJD mapping to DB (even for failed orders — invoice was created)
                             _saveNjdToDb(soId, order.Reference, order);
                             // Do NOT auto-transition processing tag for failed orders

@@ -1334,7 +1334,7 @@ async function confirmAndPrintSale() {
                     console.log('[SALE-CONFIRM] Stored invoice for social order:', socialId);
                     // Auto-tag ĐÃ RA ĐƠN — single sale (social order path)
                     if (typeof window.onPtagBillCreated === 'function') {
-                        window.onPtagBillCreated(socialId, 'single');
+                        window.onPtagBillCreated(socialId, 'single', { confirmedSuccess: true });
                     }
                 }
             }
@@ -1536,7 +1536,7 @@ async function confirmAndPrintSale() {
                 );
                 // Auto-tag ĐÃ RA ĐƠN — single sale (social order path)
                 if (typeof window.onPtagBillCreated === 'function') {
-                    window.onPtagBillCreated(socialOrderId, 'single');
+                    window.onPtagBillCreated(socialOrderId, 'single', { confirmedSuccess: true });
                 }
             }
 

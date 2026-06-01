@@ -739,12 +739,16 @@
 
     function queueProcessingTagSave(orderCode, data, options = {}) {
         const userName = options.updatedBy || window.authManager?.getAuthState()?.username || '';
-        const dataWithHistory = { ...data, history: ProcessingTagState.getHistory(orderCode) };
-        _batchSaveQueue.set(orderCode, {
-            orderCode,
-            data: dataWithHistory,
+        // CHỈ lưu orderCode + metadata — KHÔNG snapshot blob `data` (gồm `category`).
+        // Lý do (fix race ~50% mất auto-flip ĐÃ RA ĐƠN): snapshot tại lúc queue rồi
+        // flush sau 500ms debounce sẽ ghi đè field mà flow khác vừa mutate trong khoảng
+        // chờ — điển hình `onPtagBillCreated` flip category → HOAN_TAT bị batch-save
+        // (snapshot category=CHO_DI_DON cũ) đè ngược. `_flushBatchSave` đọc LẠI live data
+        // tại lúc flush nên luôn gửi state mới nhất.
+        _batchSaveQueue.set(String(orderCode), {
+            orderCode: String(orderCode),
             updatedBy: userName,
-            campaignId: data.campaignId || null,
+            campaignId: data?.campaignId || null,
         });
 
         if (!_batchSaveTimer) {
@@ -756,8 +760,33 @@
         _batchSaveTimer = null;
         if (_batchSaveQueue.size === 0) return;
 
-        const items = [..._batchSaveQueue.values()];
+        const queued = [..._batchSaveQueue.values()];
         _batchSaveQueue.clear();
+
+        // Serialize LIVE data tại thời điểm flush (KHÔNG dùng snapshot lúc queue) —
+        // tránh đè field mà flow khác vừa mutate trong lúc chờ debounce (vd category flip).
+        const items = queued
+            .map((q) => {
+                const live = ProcessingTagState.getOrderData(q.orderCode);
+                if (!live) return null;
+                const data = { ...live, history: ProcessingTagState.getHistory(q.orderCode) };
+                return {
+                    orderCode: q.orderCode,
+                    data,
+                    updatedBy: q.updatedBy,
+                    campaignId: data.campaignId || q.campaignId || null,
+                };
+            })
+            .filter(Boolean);
+
+        const droppedCount = queued.length - items.length;
+        if (droppedCount > 0) {
+            console.warn(
+                `${PTAG_LOG} _flushBatchSave: bỏ qua ${droppedCount} item không còn live data lúc flush`
+            );
+        }
+
+        if (items.length === 0) return;
 
         // Chunk into BATCH_SAVE_CHUNK-sized requests
         for (let i = 0; i < items.length; i += BATCH_SAVE_CHUNK) {
@@ -1479,16 +1508,36 @@
     // Auto transition: bill created → ĐÃ RA ĐƠN
     // saleOnlineId = orderId từ TPOS, cần resolve sang orderCode
     // source = 'single' | 'bulk' (logging only — luôn auto-tag, không gate)
-    async function onPtagBillCreated(saleOnlineId, source) {
+    async function onPtagBillCreated(saleOnlineId, source, opts = {}) {
         const orderCode = _ptagResolveCode(saleOnlineId) || saleOnlineId;
+        // confirmedSuccess = true → caller chắc chắn PBH ra THÀNH CÔNG (OrdersSucessed /
+        // single-sale success). false/undefined → nhánh suy-đoán (reconcile) cần guard.
+        const confirmedSuccess = !!opts.confirmedSuccess;
+        const hasAmMa = _ptagHasAmMaTag(saleOnlineId) || _ptagHasAmMaTag(orderCode);
 
-        // Guard ÂM MÃ: đơn FAIL bulk PBH (đã reset status về Nháp + gắn tag ÂM MÃ)
-        // không phải đơn ra thành công → KHÔNG chuyển XL sang ĐÃ RA ĐƠN.
-        if (_ptagHasAmMaTag(saleOnlineId) || _ptagHasAmMaTag(orderCode)) {
-            console.log(
-                `${PTAG_LOG} onPtagBillCreated(${orderCode}) — skip: order có tag ÂM MÃ (đơn FAIL về Nháp)`
-            );
-            return;
+        // Guard ÂM MÃ: đơn FAIL bulk PBH (đã reset status về Nháp + gắn tag ÂM MÃ) có FSO
+        // active trên TPOS nhưng KHÔNG phải đơn ra thành công.
+        // - Nhánh suy-đoán (reconcile): skip, KHÔNG flip.
+        // - Nhánh success-tường-minh: đơn từng âm mã nay nhập hàng + tạo lại THÀNH CÔNG →
+        //   gỡ tag ÂM MÃ cũ (TPOS + local + re-render) rồi VẪN flip ĐÃ RA ĐƠN.
+        if (hasAmMa) {
+            if (!confirmedSuccess) {
+                console.log(
+                    `${PTAG_LOG} onPtagBillCreated(${orderCode}) — skip: order có tag ÂM MÃ (đơn FAIL về Nháp)`
+                );
+                return;
+            }
+            if (typeof window.removeTagFromOrder === 'function') {
+                Promise.resolve(window.removeTagFromOrder(saleOnlineId, 'ÂM MÃ')).catch((e) =>
+                    console.warn(
+                        `${PTAG_LOG} gỡ tag ÂM MÃ khi ra đơn thành công thất bại:`,
+                        e?.message || e
+                    )
+                );
+                console.log(
+                    `${PTAG_LOG} onPtagBillCreated(${orderCode}) — confirmedSuccess: gỡ tag ÂM MÃ cũ + flip ĐÃ RA ĐƠN`
+                );
+            }
         }
 
         let data =
@@ -1730,7 +1779,10 @@
                     !inv.IsMergeCancel &&
                     st !== 'cancel' &&
                     sc !== 'cancel' &&
-                    sc !== 'IsMergeCancel'
+                    sc !== 'IsMergeCancel' &&
+                    // Invoice "Chờ nhập hàng" (đơn thiếu hàng / ÂM MÃ) KHÔNG phải PBH ra
+                    // thành công → không được tính là active để auto-flip ĐÃ RA ĐƠN.
+                    sc !== 'NotEnoughInventory'
                 );
             });
             if (hasActive) candidates.push({ orderId, orderCode });

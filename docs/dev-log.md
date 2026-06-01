@@ -50,6 +50,27 @@
 
 **Status**: ✅ Done — đơn từ tpos-pancake giờ tự enrich khi KH đã có đơn TPOS trước (auto), còn lại có nút thủ công với UI-first feedback.
 
+### [orders] Fix XL auto-flip "ĐÃ RA ĐƠN" mất ~50% + đơn ÂM MÃ (thiếu món) hiển thị sai ✅
+
+**Why:** 2 cụm lỗi. (1) Đơn ra THÀNH CÔNG nhưng XL không tự flip sang ĐÃ RA ĐƠN, ~50% đơn (chỉ khách có ví/công nợ) — phải gắn tay. (2) Đơn thiếu hàng (ÂM MÃ) hiển thị sai: PBH "Đã thanh toán" thay vì "Nháp", XL flip sai sang ĐÃ RA ĐƠN, tag ÂM MÃ không hiện ở cột TAG.
+
+**Root cause cụm 1 (write-race đè category):** Khách có ví → tạo PBH trừ ví → `_applyWalletAutoTags` toggle cờ `TRỪ CÔNG NỢ` qua `queueProcessingTagSave`, hàm này **snapshot cả blob (gồm `category`) tại lúc queue**, flush sau 500ms. Cùng lúc `onPtagBillCreated` flip `category → HOAN_TAT` + PUT ngay. Last-write-wins per-order doc → batch (snapshot CHỜ ĐI ĐƠN cũ) đè ngược flip ~50%. **KHÔNG phải do commit 150a4b2dd** (race này có trước).
+
+**Files:**
+- [`orders-report/js/tab1/tab1-processing-tags.js`](../orders-report/js/tab1/tab1-processing-tags.js) — Fix D (`queueProcessingTagSave`/`_flushBatchSave` serialize LIVE data tại flush), Fix B (`reconcileTagsWithInvoices` loại invoice `NotEnoughInventory` khỏi `hasActive`), Fix 4 (`onPtagBillCreated` thêm `opts.confirmedSuccess`)
+- [`orders-report/js/tab1/tab1-fast-sale-invoice-status.js`](../orders-report/js/tab1/tab1-fast-sale-invoice-status.js) — Fix A (`set()` thêm `opts.isError`/detect `NotEnoughInventory` → ép badge "Nháp"), wiring Fix 4 (truyền `confirmedSuccess: true`)
+- [`orders-report/js/tab1/tab1-fast-sale-workflow.js`](../orders-report/js/tab1/tab1-fast-sale-workflow.js) — Fix C (`addTagToOrder`/`removeTagFromOrder` gọi `updateOrderInTable` re-render cell TAG + surface lỗi gắn tag)
+- [`orders-report/js/tab1/tab1-sale.js`](../orders-report/js/tab1/tab1-sale.js) — wiring Fix 4 (single-sale `onPtagBillCreated` truyền `confirmedSuccess: true`)
+
+**Chi tiết:**
+- **Fix D (lỗi 50%):** `queueProcessingTagSave` chỉ lưu `orderCode`+metadata; `_flushBatchSave` đọc lại `getOrderData(orderCode)` tại lúc flush → batch luôn gửi `category` mới nhất, hết lost-update.
+- **Fix B:** invoice "Chờ nhập hàng" (`StateCode==='NotEnoughInventory'`) không tính là PBH active → reconcile không flip đơn fail. Guard `_ptagHasAmMaTag` giữ làm lớp 2.
+- **Fix A:** đơn fail ép `showState='Nháp'`/`state='draft'`, vẫn giữ row "Chờ nhập hàng".
+- **Fix C:** sau khi gắn/gỡ tag thành công → `updateOrderInTable(orderId,{Tags})` (route `updateRowTagsOnly`, không reset scroll); báo notification khi gắn fail.
+- **Fix 4 (user chốt: GỠ ÂM MÃ):** nhánh success-tường-minh (`confirmedSuccess`) bỏ qua guard ÂM MÃ; nếu đơn còn tag ÂM MÃ cũ (retry sau khi nhập hàng) → `removeTagFromOrder(id,'ÂM MÃ')` rồi flip ĐÃ RA ĐƠN. Nhánh reconcile vẫn giữ guard.
+
+**Status:** DONE (code). Verify Playwright localhost pending.
+
 ### [render][customer-hub][issue-tracking] Đổi hạn cấp công nợ ảo 15 → 30 ngày (chỉ phiếu mới) ✅
 
 **Yêu cầu user**: Công nợ ảo cấp mới có thời hạn **30 ngày** thay vì 15. KHÔNG đụng phiếu cũ (chỉ đổi default trong code, các row `virtual_credits` đã có giữ nguyên `expires_at`). Áp dụng **cả 2 luồng** cấp (xác nhận qua AskUserQuestion).
@@ -82,7 +103,9 @@
 
 **Không regression**: đơn không giảm / giảm chỉ mức order (không note per-line) → helper trả về `PriceUnit` gốc → y như cũ (2 phía vẫn khớp). Đối xứng với `getEffectivePriceForLine`.
 
-**Files**: `shared/js/api-service.js` (2 helper + sửa khối lọc partial refund `processRefund`), `issue-tracking/index.html` (bump api-service `?v=20260601a`). `node --check api-service.js` OK. Caller duy nhất = `script.js:1900` → khoanh vùng.
+**Consistency guard (money path — phát hiện qua adversarial review trước khi push)**: PUT payload (`_prepareRefundUpdatePayload`) gửi CẢ `OrderLines` (PriceUnit mới đã hạ) LẪN `DecreaseAmount` order-level cũ → nếu để nguyên, TPOS recompute `Σ(350k) − 100k = 250k` (double-discount → refund order ghi SAI). Fix: thêm cờ `anyDiscountBaked`; khi có line bị giảm → ZERO `DecreaseAmount/Discount/DiscountAmount/AmountTax` để PUT NHẤT QUÁN (`Σ PriceUnit×qty − 0 = AmountTotal = 350k`), đúng dù TPOS trust `AmountTotal` hay recompute. Đơn KHÔNG giảm → cờ false → giữ nguyên hành vi cũ (zero regression). Lưu ý: ví khách cộng theo `ticket.money` (resolveTicket `compensation_amount`), KHÔNG theo `refundAmountFromJson` — nên rủi ro chỉ ở sổ sách TPOS, không over-credit ví.
+
+**Files**: `shared/js/api-service.js` (2 helper + khối lọc partial refund + consistency guard trong `processRefund`), `issue-tracking/index.html` (bump api-service `?v=20260601a`). `node --check api-service.js` OK. Caller duy nhất = `script.js:1900` → khoanh vùng.
 
 ---
 
