@@ -62,6 +62,11 @@
         // kế bên h1. Pages khai báo qua bootstrap({dbBadge:'render'|'firebase'|'both'})
         // hoặc <meta name="web2-db" content="..."> (legacy).
         '../../web2/shared/web2-db-badge.js?v=20260530a',
+        // 2026-06-01: Web2Optimistic.run({apply, rollback, run, ...}) helper
+        // codifies UI-first pattern (apply optimistic → backend background →
+        // rollback + notify nếu fail). Mục đích: mọi page Web 2.0 tương tác
+        // tức thì, không chờ network. Pages dùng pattern này → import Web2Optimistic.
+        '../../web2/shared/web2-optimistic.js?v=20260601a',
     ];
 
     // Scripts mount sidebar + SSE bridge + api + page-builder.

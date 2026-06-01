@@ -1633,12 +1633,13 @@
         line.note = val || null;
     }
 
-    async function saveEdit() {
+    // UI-first: modal đóng + danh sách update NGAY, PATCH chạy background.
+    // Lỗi → rollback order về snapshot cũ + re-render + show error toast.
+    function saveEdit() {
         if (!STATE.editingCode) return;
-        const editingOrder = STATE.orders.find((x) => x.code === STATE.editingCode);
-        const isLocked = editingOrder?.status === 'confirmed';
-        // `note` field readonly — chứa auto-captured FB comment. Không gửi lên
-        // PATCH (tránh override). Ghi chú nội bộ NV ghi vào `userNote`.
+        const code = STATE.editingCode;
+        const editingOrder = STATE.orders.find((x) => x.code === code);
+        if (!editingOrder) return;
         const fields = {
             customerName: $('#editCustomerName').value.trim(),
             phone: $('#editPhone').value.trim(),
@@ -1646,10 +1647,6 @@
             userNote: $('#editUserNote')?.value?.trim() || '',
             status: $('#editStatus').value,
         };
-        // Locked → vẫn cho gửi products để LƯU GHI CHÚ TỪNG SP (note inline).
-        // Frontend chỉ enable note input khi locked (qty/code/price không sửa được
-        // qua UI), nên EDIT_LINES giữ nguyên qty/price gốc; chỉ note có thể đổi.
-        // Backend trust frontend — PATCH /:code ghi đè products.
         fields.products = EDIT_LINES.map((l) => ({
             productCode: l.productCode,
             name: l.name,
@@ -1659,43 +1656,121 @@
             note: l.note || null,
             total: (Number(l.price) || 0) * (Number(l.quantity) || 0),
             addedAt: l.addedAt || Date.now(),
-            // Giữ nguồn (vd 'livestream' khi SP đã được kéo từ TPOS-Pancake) qua edit cycle.
             source: l.source || undefined,
-            // Giữ fbCommentId để thumbnail livestream vẫn match qua edit cycle.
             fbCommentId: l.fbCommentId || undefined,
-            // KPI Sprint 0: preserve user attribution qua PATCH cycle
             addedBy: l.addedBy || undefined,
             addedById: l.addedById || undefined,
             clientEventId: l.clientEventId || undefined,
         }));
-        // KPI Sprint 0: capture editor info cho audit + diff backend
         const editorInfo = window.Web2UserInfo?.get('native-orders') || {};
         fields._editor = {
             userId: editorInfo.userId || null,
             userName: editorInfo.userName || null,
             sourcePage: editorInfo.sourcePage || 'native-orders',
         };
-        try {
-            const resp = await window.NativeOrdersApi.update(STATE.editingCode, fields);
-            const idx = STATE.orders.findIndex((x) => x.code === STATE.editingCode);
-            if (idx !== -1 && resp.order) STATE.orders[idx] = resp.order;
-            renderRows();
-            notify('Đã lưu', 'success');
-            closeEdit();
-        } catch (e) {
-            notify('Lỗi lưu: ' + e.message, 'error');
+
+        // Optimistic order shape: merge fields vào order cũ.
+        const optimisticOrder = {
+            ...editingOrder,
+            customerName: fields.customerName,
+            phone: fields.phone,
+            address: fields.address,
+            userNote: fields.userNote,
+            status: fields.status,
+            products: fields.products,
+            totalQuantity: fields.products.reduce((s, p) => s + (Number(p.quantity) || 0), 0),
+            totalAmount: fields.products.reduce(
+                (s, p) => s + (Number(p.quantity) || 0) * (Number(p.price) || 0),
+                0
+            ),
+        };
+
+        if (window.Web2Optimistic?.run) {
+            Web2Optimistic.run({
+                snapshot: () => ({ ...editingOrder, products: [...(editingOrder.products || [])] }),
+                apply: () => {
+                    const idx = STATE.orders.findIndex((x) => x.code === code);
+                    if (idx !== -1) STATE.orders[idx] = optimisticOrder;
+                    renderRows();
+                    closeEdit();
+                },
+                run: async () => {
+                    return await window.NativeOrdersApi.update(code, fields);
+                },
+                onSuccess: (resp) => {
+                    if (resp?.order) {
+                        const idx = STATE.orders.findIndex((x) => x.code === code);
+                        if (idx !== -1) STATE.orders[idx] = resp.order;
+                        renderRows();
+                    }
+                },
+                rollback: (prev) => {
+                    if (!prev) return;
+                    const idx = STATE.orders.findIndex((x) => x.code === code);
+                    if (idx !== -1) STATE.orders[idx] = prev;
+                    renderRows();
+                },
+                successMsg: 'Đã lưu',
+                errLabel: `lưu đơn ${code}`,
+            });
+        } else {
+            // Fallback nếu helper chưa load — keep old behavior.
+            (async () => {
+                try {
+                    const resp = await window.NativeOrdersApi.update(code, fields);
+                    const idx = STATE.orders.findIndex((x) => x.code === code);
+                    if (idx !== -1 && resp.order) STATE.orders[idx] = resp.order;
+                    renderRows();
+                    notify('Đã lưu', 'success');
+                    closeEdit();
+                } catch (e) {
+                    notify('Lỗi lưu: ' + e.message, 'error');
+                }
+            })();
         }
     }
 
-    async function quickStatus(code, status) {
-        try {
-            const resp = await window.NativeOrdersApi.update(code, { status });
-            const idx = STATE.orders.findIndex((x) => x.code === code);
-            if (idx !== -1 && resp.order) STATE.orders[idx] = resp.order;
-            renderRows();
-            notify(`Đã chuyển "${STATUS_META[status]?.label || status}"`, 'success');
-        } catch (e) {
-            notify('Lỗi: ' + e.message, 'error');
+    // UI-first: badge status đổi NGAY, PATCH chạy background. Lỗi → rollback.
+    function quickStatus(code, status) {
+        const order = STATE.orders.find((x) => x.code === code);
+        if (!order) return;
+        const prevStatus = order.status;
+        if (window.Web2Optimistic?.run) {
+            Web2Optimistic.run({
+                snapshot: () => prevStatus,
+                apply: () => {
+                    order.status = status;
+                    renderRows();
+                },
+                run: async () => {
+                    return await window.NativeOrdersApi.update(code, { status });
+                },
+                onSuccess: (resp) => {
+                    if (resp?.order) {
+                        const idx = STATE.orders.findIndex((x) => x.code === code);
+                        if (idx !== -1) STATE.orders[idx] = resp.order;
+                        renderRows();
+                    }
+                },
+                rollback: (prev) => {
+                    order.status = prev;
+                    renderRows();
+                },
+                successMsg: `Đã chuyển "${STATUS_META[status]?.label || status}"`,
+                errLabel: `chuyển trạng thái ${code}`,
+            });
+        } else {
+            (async () => {
+                try {
+                    const resp = await window.NativeOrdersApi.update(code, { status });
+                    const idx = STATE.orders.findIndex((x) => x.code === code);
+                    if (idx !== -1 && resp.order) STATE.orders[idx] = resp.order;
+                    renderRows();
+                    notify(`Đã chuyển "${STATUS_META[status]?.label || status}"`, 'success');
+                } catch (e) {
+                    notify('Lỗi: ' + e.message, 'error');
+                }
+            })();
         }
     }
 

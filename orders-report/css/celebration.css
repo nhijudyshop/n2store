@@ -13,7 +13,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(ellipse at 50% 40%, rgba(25, 15, 55, 0.93) 0%, rgba(5, 2, 15, 0.98) 100%);
+    background: radial-gradient(
+        ellipse at 50% 40%,
+        rgba(25, 15, 55, 0.93) 0%,
+        rgba(5, 2, 15, 0.98) 100%
+    );
     opacity: 0;
     pointer-events: none;
     cursor: pointer;
@@ -60,7 +64,13 @@
     padding: 4px;
     background: conic-gradient(
         from 0deg,
-        #ffd700, #ff6b35, #ff1493, #8b5cf6, #00d4ff, #10b981, #ffd700
+        #ffd700,
+        #ff6b35,
+        #ff1493,
+        #8b5cf6,
+        #00d4ff,
+        #10b981,
+        #ffd700
     );
     box-shadow:
         0 0 30px rgba(255, 215, 0, 0.35),
@@ -84,8 +94,11 @@
     border-radius: 50%;
     background: conic-gradient(
         from 90deg,
-        transparent 0%, rgba(255, 215, 0, 0.12) 25%, transparent 50%,
-        rgba(139, 92, 246, 0.12) 75%, transparent 100%
+        transparent 0%,
+        rgba(255, 215, 0, 0.12) 25%,
+        transparent 50%,
+        rgba(139, 92, 246, 0.12) 75%,
+        transparent 100%
     );
     filter: blur(12px);
     pointer-events: none;
@@ -246,7 +259,7 @@
     position: relative;
 }
 
-.admin-settings-row input[type="checkbox"] {
+.admin-settings-row input[type='checkbox'] {
     display: none;
 }
 
@@ -321,5 +334,373 @@
 
     .celebration-photo-glow {
         inset: -12px;
+    }
+}
+
+/* ============================================
+   🎨 Admin select inside admin panel
+   ============================================ */
+
+.admin-select {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(20, 16, 40, 0.6);
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    outline: none;
+}
+
+.admin-select:focus {
+    border-color: rgba(139, 92, 246, 0.7);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.admin-select option {
+    background: #1a1330;
+    color: #fff;
+}
+
+/* ============================================
+   🎨 Celebration Config Modal
+   ============================================ */
+
+.cel-cfg-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    background: rgba(8, 5, 22, 0.78);
+    padding: 32px 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.cel-cfg-overlay.open {
+    display: flex;
+}
+
+.cel-cfg-dialog {
+    width: min(720px, 100%);
+    background: linear-gradient(170deg, #1e1640 0%, #0c0820 100%);
+    border: 1px solid rgba(255, 215, 0, 0.18);
+    border-radius: 20px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+    color: #f3f0ff;
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+    margin: auto;
+    contain: layout style paint;
+}
+
+.cel-cfg-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(239, 68, 68, 0.12));
+}
+
+.cel-cfg-head h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cel-cfg-x {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.cel-cfg-x:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.cel-cfg-section {
+    padding: 18px 22px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cel-cfg-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: rgba(255, 215, 0, 0.8);
+    margin-bottom: 12px;
+}
+
+.cel-cfg-empty {
+    padding: 18px;
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+}
+
+.cel-cfg-emp-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.cel-cfg-emp {
+    display: grid;
+    grid-template-columns: 88px 1fr auto;
+    gap: 14px;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    align-items: start;
+}
+
+.cel-cfg-emp-photo-wrap {
+    position: relative;
+    width: 88px;
+    height: 88px;
+}
+
+.cel-cfg-emp-photo {
+    width: 88px;
+    height: 88px;
+    object-fit: cover;
+    border-radius: 14px;
+    border: 2px solid rgba(255, 215, 0, 0.3);
+    background: #1a1330;
+}
+
+.cel-cfg-emp-photo-edit {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid #0c0820;
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s;
+}
+
+.cel-cfg-emp-photo-edit:hover {
+    transform: scale(1.1);
+}
+
+.cel-cfg-emp-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.cel-cfg-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+}
+
+.cel-cfg-field-wide {
+    grid-column: span 2;
+}
+
+.cel-cfg-field > span {
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 500;
+    font-size: 11px;
+}
+
+.cel-cfg-field > span > code {
+    background: rgba(255, 215, 0, 0.18);
+    color: #ffd700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 10px;
+}
+
+.cel-cfg-field input,
+.cel-cfg-field select {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.cel-cfg-field input:focus,
+.cel-cfg-field select:focus {
+    border-color: rgba(139, 92, 246, 0.7);
+}
+
+.cel-cfg-field select option {
+    background: #1a1330;
+}
+
+.cel-cfg-emp-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+}
+
+.cel-cfg-icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        transform 0.15s,
+        filter 0.15s;
+}
+
+.cel-cfg-fire {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff;
+}
+
+.cel-cfg-del {
+    background: rgba(239, 68, 68, 0.18);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.cel-cfg-icon-btn:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.1);
+}
+
+.cel-cfg-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.cel-cfg-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 22px;
+    background: rgba(0, 0, 0, 0.25);
+    gap: 10px;
+}
+
+.cel-cfg-foot-right {
+    display: flex;
+    gap: 8px;
+}
+
+.cel-cfg-btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        filter 0.15s,
+        transform 0.15s;
+}
+
+.cel-cfg-btn-primary {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+}
+
+.cel-cfg-btn-secondary {
+    background: rgba(139, 92, 246, 0.18);
+    border: 1px solid rgba(139, 92, 246, 0.35);
+    color: #c4b5fd;
+    width: 100%;
+}
+
+.cel-cfg-btn-ghost {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.cel-cfg-btn:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+
+.cel-cfg-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(16, 185, 129, 0.95);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    transition:
+        opacity 0.25s,
+        transform 0.25s;
+    z-index: 100001;
+    pointer-events: none;
+}
+
+.cel-cfg-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+@media (max-width: 640px) {
+    .cel-cfg-emp {
+        grid-template-columns: 80px 1fr;
+    }
+    .cel-cfg-emp-actions {
+        grid-column: span 2;
+        flex-direction: row;
+        justify-content: flex-end;
+    }
+    .cel-cfg-emp-fields {
+        grid-template-columns: 1fr;
+    }
+    .cel-cfg-field-wide {
+        grid-column: span 1;
+    }
+    .cel-cfg-grid {
+        grid-template-columns: 1fr;
     }
 }

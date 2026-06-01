@@ -6,9 +6,31 @@
  */
 
 const CelebrationManager = (() => {
-    const EMPLOYEES = {
-        hanh: { name: 'Hạnh', photo: 'assets/employees/hanh.jpg' },
+    // Fallback defaults — overridden by CelebrationConfig if present.
+    const FALLBACK_EMPLOYEES = {
+        hanh: {
+            key: 'hanh',
+            name: 'Hạnh',
+            photo: 'assets/employees/hanh.jpg',
+            titleText: 'CHÚC MỪNG!',
+            nameTemplate: 'Nhân viên {name} đã đạt KPI',
+            defaultDetail: 'Hoàn thành 100% KPI tháng này!',
+        },
     };
+    const FALLBACK_EFFECTS = {
+        colorTheme: 'rainbow',
+        intensity: 'normal',
+        durationMs: 10000,
+    };
+    const RAINBOW_COLORS = [
+        '#ffd700',
+        '#ff6b35',
+        '#ff1493',
+        '#8b5cf6',
+        '#00d4ff',
+        '#10b981',
+        '#fff',
+    ];
 
     const MOTION_CDN = 'https://cdn.jsdelivr.net/npm/motion@12.38.0/dist/motion.js';
     const API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime';
@@ -16,6 +38,63 @@ const CelebrationManager = (() => {
     let overlay = null;
     let cleanups = [];
     let sseConnected = false;
+    let currentColors = RAINBOW_COLORS;
+    let currentIntensity = 1; // multiplier for particle count
+
+    function getEmployee(key) {
+        if (window.CelebrationConfig?.getEmployee) {
+            const e = window.CelebrationConfig.getEmployee(key);
+            if (e) return e;
+        }
+        return FALLBACK_EMPLOYEES[key] || null;
+    }
+
+    function getEffects() {
+        if (window.CelebrationConfig?.load) {
+            return window.CelebrationConfig.load().effects || FALLBACK_EFFECTS;
+        }
+        return FALLBACK_EFFECTS;
+    }
+
+    function applyEffects(effects) {
+        const eff = effects || getEffects();
+        if (window.CelebrationConfig?.getColors) {
+            currentColors = window.CelebrationConfig.getColors(eff.colorTheme);
+        } else {
+            currentColors = RAINBOW_COLORS;
+        }
+        currentIntensity = eff.intensity === 'low' ? 0.5 : eff.intensity === 'high' ? 1.5 : 1;
+        return eff;
+    }
+
+    function renderName(emp) {
+        const tpl = emp.nameTemplate || 'Nhân viên {name} đã đạt KPI';
+        const parts = tpl.split('{name}');
+        if (parts.length === 1) return escapeHtml(tpl);
+        return parts
+            .map(
+                (p, i) =>
+                    escapeHtml(p) +
+                    (i < parts.length - 1
+                        ? `<span class="highlight">${escapeHtml(emp.name)}</span>`
+                        : '')
+            )
+            .join('');
+    }
+
+    function escapeHtml(s) {
+        return String(s || '').replace(
+            /[&<>"']/g,
+            (c) =>
+                ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;',
+                })[c]
+        );
+    }
 
     // --- Get Motion.dev (preloaded in <head>) ---
     function loadMotion() {
@@ -49,6 +128,8 @@ const CelebrationManager = (() => {
         el.id = 'celebrationOverlay';
         el.className = 'celebration-overlay';
 
+        const titleText = employee.titleText || 'CHÚC MỪNG!';
+        const photoSrc = employee.photo || '';
         el.innerHTML = `
             <div class="celebration-card">
                 <div class="celebration-trophy">🏆</div>
@@ -56,20 +137,20 @@ const CelebrationManager = (() => {
                     <div class="celebration-photo-glow"></div>
                     <div class="celebration-photo-ring">
                         <img class="celebration-photo"
-                             src="${employee.photo}" alt="${employee.name}"
+                             src="${escapeHtml(photoSrc)}" alt="${escapeHtml(employee.name)}"
                              onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%236366f1%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2258%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2240%22>🌟</text></svg>'" />
                     </div>
                 </div>
-                <div class="celebration-title">CHÚC MỪNG!</div>
+                <div class="celebration-title">${escapeHtml(titleText)}</div>
                 <div class="celebration-name">
-                    Nhân viên <span class="highlight">${employee.name}</span> đã đạt KPI
+                    ${renderName(employee)}
                 </div>
                 ${
                     kpiDetail
                         ? `
                 <div class="celebration-detail">
                     <span class="celebration-detail-icon">💰</span>
-                    <span class="celebration-detail-text">${kpiDetail}</span>
+                    <span class="celebration-detail-text">${escapeHtml(kpiDetail)}</span>
                 </div>`
                         : ''
                 }
@@ -89,10 +170,15 @@ const CelebrationManager = (() => {
         if (!hasMotion()) return; // Skip particles if Motion unavailable
         const { animate } = await loadMotion();
         const container = overlay.querySelector('.celebration-particles');
-        const colors = ['#ffd700', '#ff6b35', '#ff1493', '#8b5cf6', '#00d4ff', '#10b981', '#fff'];
+        const colors = currentColors;
+        const W1 = Math.round(40 * currentIntensity);
+        const W2 = Math.round(20 * currentIntensity);
+        const W3 = Math.round(20 * currentIntensity);
+        const W4 = Math.round(25 * currentIntensity);
+        const W5 = Math.round(15 * currentIntensity);
 
-        // Wave 1: big burst from center (40 particles)
-        for (let i = 0; i < 40; i++) {
+        // Wave 1: big burst from center
+        for (let i = 0; i < W1; i++) {
             later(
                 () =>
                     spawnParticle(animate, container, colors, {
@@ -107,9 +193,9 @@ const CelebrationManager = (() => {
             );
         }
 
-        // Wave 2: left cannon (20 particles)
+        // Wave 2: left cannon
         later(() => {
-            for (let i = 0; i < 20; i++) {
+            for (let i = 0; i < W2; i++) {
                 later(
                     () =>
                         spawnParticle(animate, container, colors, {
@@ -125,9 +211,9 @@ const CelebrationManager = (() => {
             }
         }, 400);
 
-        // Wave 3: right cannon (20 particles)
+        // Wave 3: right cannon
         later(() => {
-            for (let i = 0; i < 20; i++) {
+            for (let i = 0; i < W3; i++) {
                 later(
                     () =>
                         spawnParticle(animate, container, colors, {
@@ -145,7 +231,7 @@ const CelebrationManager = (() => {
 
         // Wave 4: gentle rain (scattered, slower)
         later(() => {
-            for (let i = 0; i < 25; i++) {
+            for (let i = 0; i < W4; i++) {
                 later(
                     () =>
                         spawnParticle(animate, container, colors, {
@@ -167,7 +253,7 @@ const CelebrationManager = (() => {
             for (let b = 0; b < 3; b++) {
                 const cx = 20 + b * 30;
                 later(() => {
-                    for (let i = 0; i < 15; i++) {
+                    for (let i = 0; i < W5; i++) {
                         spawnParticle(animate, container, colors, {
                             startX: cx,
                             startY: 40,
@@ -322,18 +408,20 @@ const CelebrationManager = (() => {
     }
 
     // --- Main ---
-    async function celebrate(employeeKey, kpiDetail) {
-        const employee = EMPLOYEES[employeeKey];
+    async function celebrate(employeeKey, kpiDetail, employeeOverride, effectsOverride) {
+        const employee = employeeOverride || getEmployee(employeeKey);
         if (!employee) {
             console.warn(`[Celebration] "${employeeKey}" not found`);
             return;
         }
 
+        const effects = applyEffects(effectsOverride);
+
         createOverlay(employee, kpiDetail || null);
         animateEntrance();
         launchParticles();
 
-        later(() => dismiss(), 10000);
+        later(() => dismiss(), effects.durationMs || 10000);
     }
 
     // --- Dismiss ---
@@ -381,21 +469,29 @@ const CelebrationManager = (() => {
 
     // --- Broadcast celebration to all clients via Render SSE ---
     async function triggerCelebration(employeeKey, detail) {
+        const employee = getEmployee(employeeKey);
+        const effects = getEffects();
+        const payload = {
+            employee: employeeKey,
+            detail,
+            employeeData: employee || null,
+            effects,
+        };
         try {
             const res = await fetch(`${API_URL}/celebration`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ employee: employeeKey, detail }),
+                body: JSON.stringify(payload),
             });
             const data = await res.json();
             console.log(
                 `[Celebration] 🎉 Broadcast sent, ${data.clientsNotified} clients notified`
             );
             // Also show locally in case SSE hasn't connected yet
-            celebrate(employeeKey, detail);
+            celebrate(employeeKey, detail, employee, effects);
         } catch (e) {
             console.warn('[Celebration] Broadcast failed, showing locally:', e);
-            celebrate(employeeKey, detail);
+            celebrate(employeeKey, detail, employee, effects);
         }
     }
 
@@ -409,10 +505,10 @@ const CelebrationManager = (() => {
             es.addEventListener('celebration', (e) => {
                 try {
                     const msg = JSON.parse(e.data);
-                    const { employee, detail } = msg.data || {};
+                    const { employee, detail, employeeData, effects } = msg.data || {};
                     if (employee) {
                         console.log(`[Celebration] 🎉 Received broadcast for "${employee}"`);
-                        celebrate(employee, detail);
+                        celebrate(employee, detail, employeeData || null, effects || null);
                     }
                 } catch (err) {
                     console.warn('[Celebration] SSE parse error:', err);
@@ -433,6 +529,17 @@ const CelebrationManager = (() => {
         }
     }
 
+    // --- Refresh employee selector inside admin panel ---
+    function refreshEmpSelect() {
+        const sel = document.getElementById('celebrationEmpSelect');
+        if (!sel) return;
+        const list =
+            window.CelebrationConfig?.listEmployees?.() || Object.values(FALLBACK_EMPLOYEES);
+        const current = sel.value;
+        sel.innerHTML = list.map((e) => `<option value="${e.key}">${e.name}</option>`).join('');
+        if (current && list.some((e) => e.key === current)) sel.value = current;
+    }
+
     // --- Init ---
     function init() {
         const widget = document.getElementById('adminSettingsWidget');
@@ -441,6 +548,8 @@ const CelebrationManager = (() => {
         const toggle = document.getElementById('toggleCelebrationBtn');
         const btnWrap = document.getElementById('celebrationTestBtnWrap');
         const btn = document.getElementById('celebrationTestBtn');
+        const empSelect = document.getElementById('celebrationEmpSelect');
+        const cfgBtn = document.getElementById('openCelebrationConfigBtn');
 
         // Show widget only for admin
         if (widget && isAdmin()) {
@@ -452,8 +561,8 @@ const CelebrationManager = (() => {
             gear.addEventListener('click', (e) => {
                 e.stopPropagation();
                 panel.classList.toggle('open');
+                if (panel.classList.contains('open')) refreshEmpSelect();
             });
-            // Close panel on outside click
             document.addEventListener('click', (e) => {
                 if (widget && !widget.contains(e.target)) {
                     panel.classList.remove('open');
@@ -465,6 +574,7 @@ const CelebrationManager = (() => {
         if (toggle && btnWrap) {
             toggle.addEventListener('change', () => {
                 btnWrap.style.display = toggle.checked ? 'block' : 'none';
+                if (toggle.checked) refreshEmpSelect();
             });
         }
 
@@ -472,7 +582,19 @@ const CelebrationManager = (() => {
         if (btn) {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                triggerCelebration('hanh', 'Hoàn thành 100% KPI tháng này!');
+                const key = empSelect?.value || 'hanh';
+                const emp = getEmployee(key);
+                const detail = emp?.defaultDetail || 'Hoàn thành 100% KPI tháng này!';
+                triggerCelebration(key, detail);
+                panel.classList.remove('open');
+            });
+        }
+
+        // Config button → open admin modal
+        if (cfgBtn) {
+            cfgBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.CelebrationConfig?.openModal?.();
                 panel.classList.remove('open');
             });
         }
@@ -487,5 +609,13 @@ const CelebrationManager = (() => {
         init();
     }
 
-    return { celebrate, triggerCelebration, dismiss, isAdmin, EMPLOYEES };
+    return {
+        celebrate,
+        triggerCelebration,
+        dismiss,
+        isAdmin,
+        getEmployee,
+        refreshEmpSelect,
+    };
 })();
+window.CelebrationManager = CelebrationManager;
