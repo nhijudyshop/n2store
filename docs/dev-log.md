@@ -25,6 +25,31 @@
 
 ## 2026-06-01
 
+### [native-orders][render] Khách lạ + nút "Lấy TPOS" — chain lookup FB ID khi đơn từ tpos-pancake rỗng phone ✅
+
+**Yêu cầu user**: (1) Tpos-pancake tạo đơn qua native-orders sao không lấy địa chỉ và sđt của khách bên tpos? (2) Native-orders nếu bên tpos-pancake tạo đơn qua bị rỗng sđt và địa chỉ → lần đầu sẽ lấy từ tpos → nếu không có cột tên sẽ ghi "Khách lạ" kế bên trạng thái khách hàng và có nút "Lấy TPOS" để làm thủ công.
+
+**Cách làm**:
+
+- **Backend tự động** (route `/api/native-orders/from-comment`): khi tpos-pancake gửi `phone` rỗng, chain lookup theo `fbUserId`: (1) local `customers.fb_id` trước (nhanh), (2) nếu vẫn không có phone → gọi TPOS `SaleOnline_Order/ODataService.GetViewV2?$filter=Facebook_ASUserId eq '<id>'&$expand=Partner&$top=1&$orderby=DateCreated desc` → lấy `Telephone`/`ShipAddress` + Partner info → upsert vào local `customers` table + link `fb_id` để future fast lookup. INSERT native_order dùng `enrichedPhone/Name/Address`.
+- **Endpoint mới** `GET /api/web2/customer-tpos/by-fb-id/:fbUserId` (`render.com/routes/v2/web2-customer-tpos.js`): cho frontend gọi thủ công, cũng tự upsert customers + link fb_id.
+- **Service mới** `searchCustomerByFbUserId(fbUserId)` trong `render.com/services/tpos-customer-service.js` — query TPOS với `Facebook_ASUserId` + `$expand=Partner`, normalize phone (digits-only, last 10).
+- **Frontend** (`native-orders/js/native-orders-app.js`):
+    - Cột Tên: khi `o.customerName` rỗng → label `Khách lạ` (italic gray) thay vì để trống.
+    - Nút `Lấy TPOS` (small primary outline indigo) hiện cạnh status pill khi đơn thiếu name/phone/address VÀ có `fbUserId`. Click → `fetchCustomerFromTpos(code, fbUserId)`.
+    - Function `fetchCustomerFromTpos`: UI-first qua `Web2Optimistic.run` — disable button + spinner ngay, gọi endpoint `by-fb-id`, nếu có data thì PATCH native_order (chỉ fill field còn rỗng, không ghi đè user edit), rollback re-render khi lỗi, invalidate panel cache để hover sau hiện data mới.
+- **CSS** (`native-orders/css/native-orders.css`): `.tpos-customer-name-row` (flex wrap), `.tpos-customer-stranger` (italic gray-400), `.tpos-fetch-tpos-btn` (indigo subtle với hover/focus/disabled).
+
+**Files**:
+
+- `render.com/services/tpos-customer-service.js`: thêm `searchCustomerByFbUserId` + export.
+- `render.com/routes/native-orders.js`: chain lookup local fb_id → TPOS Partner trong `/from-comment` khi phone rỗng.
+- `render.com/routes/v2/web2-customer-tpos.js`: endpoint `GET /by-fb-id/:fbUserId` với auto-upsert.
+- `native-orders/js/native-orders-app.js`: render "Khách lạ" + nút "Lấy TPOS", function `fetchCustomerFromTpos` qua `Web2Optimistic`, export trên `window.NativeOrdersApp`.
+- `native-orders/css/native-orders.css`: styling cho name-row + stranger + fetch button.
+
+**Status**: ✅ Done — đơn từ tpos-pancake giờ tự enrich khi KH đã có đơn TPOS trước (auto), còn lại có nút thủ công với UI-first feedback.
+
 ### [orders] Modal Thêm hóa đơn nhanh — cho tạo phiếu tiếp với đơn "đã có phiếu" ✅
 
 **Yêu cầu user**: Đơn đã có phiếu "Đã xác nhận"/"Đã thanh toán" bị lọc bỏ khi tạo hóa đơn hàng loạt → modal khoá cứng (nhất là khi TẤT CẢ đơn đã chọn đều có phiếu → body trống, `return` sớm). Cần nút trong modal để hiển thị các đơn đó và cho tạo phiếu tiếp.

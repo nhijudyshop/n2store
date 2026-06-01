@@ -42,4 +42,64 @@ router.get('/:phone', async (req, res) => {
     }
 });
 
+// 2026-06-01: Lookup TPOS customer by FB User ID (Facebook_ASUserId).
+// Used khi tpos-pancake tạo native_order với phone trống — frontend gọi
+// endpoint này để user trigger thủ công "Lấy info TPOS".
+// Backend tự upsert customers table + link fb_id cho lần sau (cached).
+const { searchCustomerByFbUserId } = require('../../services/tpos-customer-service');
+const { getOrCreateCustomerFromTPOS } = require('../../services/customer-creation-service');
+
+router.get('/by-fb-id/:fbUserId', async (req, res) => {
+    try {
+        const fbUserId = String(req.params.fbUserId || '').trim();
+        if (!fbUserId) {
+            return res.status(400).json({ success: false, error: 'fbUserId required' });
+        }
+        const result = await searchCustomerByFbUserId(fbUserId);
+        if (!result?.success) {
+            return res.status(502).json({
+                success: false,
+                error: result?.error || 'TPOS lookup failed',
+            });
+        }
+        if (!result.customer) {
+            return res.json({ success: true, customer: null, source: 'tpos-not-found' });
+        }
+        // Upsert customers table + link fb_id để future lookup nhanh
+        const pool = req.app.locals.chatDb;
+        if (pool && result.customer.phone) {
+            try {
+                const created = await getOrCreateCustomerFromTPOS(
+                    pool,
+                    result.customer.phone,
+                    null
+                );
+                if (created?.customerId) {
+                    await pool.query(
+                        `UPDATE customers
+                         SET fb_id = COALESCE(NULLIF(fb_id, ''), $2),
+                             name = COALESCE(NULLIF($3, ''), name),
+                             address = COALESCE(NULLIF($4, ''), address),
+                             updated_at = CURRENT_TIMESTAMP
+                         WHERE id = $1`,
+                        [
+                            created.customerId,
+                            fbUserId,
+                            result.customer.name,
+                            result.customer.address,
+                        ]
+                    );
+                    result.customer.localCustomerId = created.customerId;
+                }
+            } catch (e) {
+                console.warn('[web2-customer-tpos] upsert after fb lookup failed:', e.message);
+            }
+        }
+        res.json({ success: true, customer: result.customer, source: 'tpos-live' });
+    } catch (e) {
+        console.error('[web2-customer-tpos] fb-id error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 module.exports = router;

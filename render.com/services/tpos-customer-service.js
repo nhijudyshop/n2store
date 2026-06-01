@@ -413,8 +413,70 @@ async function pushCustomerToTPOS(phone, fields = {}) {
     }
 }
 
+/**
+ * Lookup TPOS customer info qua FB User ID (Facebook_ASUserId field trên
+ * SaleOnline_Order). Trả về Partner expand từ order mới nhất → có name,
+ * phone, address.
+ *
+ * Per user 2026-06-01: tpos-pancake tạo đơn từ comment → cần lấy phone +
+ * address của KH từ TPOS. FB comments không có phone/address; phải lookup
+ * qua SaleOnline_Order existed của KH (lastest order's Partner).
+ *
+ * @param {string} fbUserId — Facebook_ASUserId
+ * @returns {Promise<{success, customer?: {id, name, phone, address, fbUserId}, error?}>}
+ */
+async function searchCustomerByFbUserId(fbUserId) {
+    if (!fbUserId) return { success: false, error: 'fbUserId required' };
+    try {
+        const token = await tposTokenManager.getToken();
+        const tposUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetViewV2?$filter=Facebook_ASUserId eq '${encodeURIComponent(fbUserId)}'&$expand=Partner&$top=1&$orderby=DateCreated desc`;
+        const response = await fetchWithRetry(
+            tposUrl,
+            {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            },
+            2,
+            1000,
+            15000
+        );
+        if (!response.ok) {
+            return { success: false, error: `TPOS API ${response.status}` };
+        }
+        const data = await response.json();
+        const order = (data.value || [])[0];
+        if (!order) {
+            return { success: true, customer: null };
+        }
+        const partner = order.Partner || {};
+        const phone = order.Telephone || partner.Phone || null;
+        const address = order.ShipAddress || partner.FullAddress || partner.Street || null;
+        const customer = {
+            id: partner.Id || null,
+            name: order.Facebook_UserName || partner.Name || partner.DisplayName || null,
+            phone: phone ? String(phone).replace(/\D/g, '').slice(-10) : null,
+            address,
+            fbUserId,
+            tposPartner: partner,
+            sourceOrderId: order.Id,
+            sourceOrderDate: order.DateCreated,
+        };
+        console.log(
+            `[TPOS-CUSTOMER] FB ID ${fbUserId} → Partner ${partner.Id} (${customer.name}, ${customer.phone || 'no phone'})`
+        );
+        return { success: true, customer };
+    } catch (e) {
+        console.error('[TPOS-CUSTOMER] searchCustomerByFbUserId error:', e.message);
+        return { success: false, error: e.message };
+    }
+}
+
 module.exports = {
     searchCustomerByPhone,
+    searchCustomerByFbUserId,
     getCustomerById,
     searchAllCustomersByPhone,
     normalizePhone,

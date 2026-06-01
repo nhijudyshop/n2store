@@ -20,7 +20,10 @@ const {
     getOrCreateCustomerFromTPOS,
     updateCustomerFromTPOS,
 } = require('../services/customer-creation-service');
-const { pushCustomerToTPOS } = require('../services/tpos-customer-service');
+const {
+    pushCustomerToTPOS,
+    searchCustomerByFbUserId,
+} = require('../services/tpos-customer-service');
 
 // =====================================================
 // 2-way state sync: native-orders ↔ fast_sale_orders (PBH).
@@ -706,16 +709,25 @@ router.post('/from-comment', async (req, res) => {
               ? `[${new Date().toLocaleString('vi-VN')}] ${pageTag}${String(b.message).slice(0, 500)}`
               : null;
 
-        // 2026-06-01 Web 2.0 ↔ TPOS customer 2-way sync (user spec):
-        // Khi tạo native_order với phone → ENSURE customer exists trong customers
-        // table. Helper auto-pulls TPOS data + INSERT/UPDATE name/address.
-        // KHÔNG sync đơn/SP (đó là của riêng native-orders).
+        // 2026-06-01 Web 2.0 ↔ TPOS customer 2-way sync.
+        // Resolve phone + address:
+        //   1. Nếu b.phone có → upsert customer từ TPOS phone (existing flow).
+        //   2. Nếu b.phone trống nhưng có b.fbUserId → lookup customers.fb_id.
+        //      Tìm thấy → ENRICH phone + name + address từ customer record vào
+        //      native_order (per user 2026-06-01: "tpos-pancake tạo đơn sao
+        //      không lấy địa chỉ và sđt của khách bên tpos?").
+        //   3. Nếu không tìm thấy local fb_id → leave empty, native-orders UI
+        //      sẽ hiện "Khách lạ" + button "Lấy info TPOS" để user trigger thủ
+        //      công.
         let customerId = null;
+        let enrichedPhone = b.phone || null;
+        let enrichedName = b.fbUserName || null;
+        let enrichedAddress = b.address || null;
+
         if (b.phone) {
             try {
                 const created = await getOrCreateCustomerFromTPOS(pool, b.phone, null);
                 customerId = created?.customerId || null;
-                // Update tên/địa chỉ nếu native-orders có info mới hơn TPOS chưa có
                 if (customerId && (b.fbUserName || b.address)) {
                     await pool.query(
                         `UPDATE customers
@@ -728,8 +740,64 @@ router.post('/from-comment', async (req, res) => {
                 }
             } catch (custErr) {
                 console.warn('[native-orders] customer sync failed (continuing):', custErr.message);
-                // Fallback to lookup-only if upsert fails (don't block order creation)
                 customerId = await lookupCustomerIdByPhone(pool, b.phone).catch(() => null);
+            }
+        } else if (b.fbUserId) {
+            // Phone empty: step 1 lookup local customers.fb_id (fast).
+            // Step 2 nếu local miss → TPOS SaleOnline_Order GetViewV2 lookup
+            // theo Facebook_ASUserId (slower ~500ms) → enrich phone +
+            // address từ latest order's Partner.
+            try {
+                const r = await pool.query(
+                    'SELECT id, name, phone, address FROM customers WHERE fb_id = $1 LIMIT 1',
+                    [b.fbUserId]
+                );
+                if (r.rows[0]) {
+                    customerId = r.rows[0].id;
+                    if (!enrichedPhone) enrichedPhone = r.rows[0].phone || null;
+                    if (!enrichedName) enrichedName = r.rows[0].name || null;
+                    if (!enrichedAddress) enrichedAddress = r.rows[0].address || null;
+                }
+            } catch (e) {
+                console.warn('[native-orders] fb_id local lookup failed:', e.message);
+            }
+            // Step 2 — TPOS Partner lookup nếu vẫn chưa có phone (KH lần
+            // đầu trong Web 2.0 nhưng đã có order trên TPOS).
+            if (!enrichedPhone) {
+                try {
+                    const tposResult = await searchCustomerByFbUserId(b.fbUserId);
+                    if (tposResult.success && tposResult.customer) {
+                        const tc = tposResult.customer;
+                        if (!enrichedPhone) enrichedPhone = tc.phone || null;
+                        if (!enrichedName) enrichedName = tc.name || null;
+                        if (!enrichedAddress) enrichedAddress = tc.address || null;
+                        // Upsert vào customers table cho lần sau (fast path)
+                        if (enrichedPhone && !customerId) {
+                            try {
+                                const created = await getOrCreateCustomerFromTPOS(
+                                    pool,
+                                    enrichedPhone,
+                                    null
+                                );
+                                customerId = created?.customerId || null;
+                                // Link fb_id để lần sau lookup fast
+                                if (customerId) {
+                                    await pool.query(
+                                        "UPDATE customers SET fb_id = $2 WHERE id = $1 AND (fb_id IS NULL OR fb_id = '')",
+                                        [customerId, b.fbUserId]
+                                    );
+                                }
+                            } catch (cce) {
+                                console.warn(
+                                    '[native-orders] TPOS upsert after fb lookup failed:',
+                                    cce.message
+                                );
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[native-orders] TPOS fb_user_id lookup failed:', e.message);
+                }
             }
         }
 
@@ -763,12 +831,13 @@ router.post('/from-comment', async (req, res) => {
             [
                 code,
                 sessionIndex,
-                b.customerName || b.fbUserName || null,
-                b.phone || null,
-                b.address || null,
+                // Use enriched values (from fb_id lookup) nếu body không có
+                b.customerName || enrichedName || null,
+                enrichedPhone,
+                enrichedAddress,
                 note,
                 b.fbUserId,
-                b.fbUserName || null,
+                b.fbUserName || enrichedName || null,
                 b.fbPageId || null,
                 b.fbPostId || null,
                 b.fbCommentId || null,

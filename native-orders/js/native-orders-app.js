@@ -734,6 +734,101 @@
         _scheduleCustPanelHide(250);
     }
 
+    // 2026-06-01: Thủ công lấy info KH từ TPOS qua Facebook_ASUserId
+    // (cho đơn từ tpos-pancake có FB ID nhưng rỗng phone/address/name).
+    // Endpoint backend (web2-customer-tpos.js) tự upsert customers table + link
+    // fb_id, sau đó PATCH native_order với name/phone/address để row cập nhật.
+    // UI-first: badge "Đang lấy..." optimistic, lỗi → rollback, success → render.
+    async function fetchCustomerFromTpos(code, fbUserId) {
+        if (!fbUserId) {
+            notify('Đơn này chưa có FB ID — không lookup được', 'warning');
+            return;
+        }
+        const order = STATE.orders.find((x) => x.code === code);
+        if (!order) {
+            notify(`Không tìm thấy đơn ${code}`, 'error');
+            return;
+        }
+
+        const apply = () => {
+            // Mark đang loading bằng cách disable button (render attribute)
+            const btn = document.querySelector(`button.tpos-fetch-tpos-btn[onclick*="'${code}'"]`);
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML =
+                    '<i data-lucide="loader-2" style="width:11px;height:11px;animation:spin 1s linear infinite;"></i> Đang lấy...';
+                if (window.lucide?.createIcons) window.lucide.createIcons();
+            }
+        };
+
+        const run = async () => {
+            const lookupUrl = `${WORKER_URL}/api/web2/customer-tpos/by-fb-id/${encodeURIComponent(fbUserId)}`;
+            const r = await fetch(lookupUrl, { credentials: 'include' });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok || data.success === false) {
+                throw new Error(data.error || `Lookup TPOS lỗi ${r.status}`);
+            }
+            const tposCust = data.customer;
+            if (!tposCust) {
+                throw new Error(
+                    'TPOS không có đơn nào với FB ID này — KH chưa từng order qua TPOS'
+                );
+            }
+            // PATCH native_order với info mới (chỉ fill field còn rỗng,
+            // không ghi đè data user đã sửa thủ công).
+            const patchFields = {};
+            if (!order.customerName && tposCust.name) patchFields.customerName = tposCust.name;
+            if (!order.phone && tposCust.phone) patchFields.phone = tposCust.phone;
+            if (!order.address && tposCust.address) patchFields.address = tposCust.address;
+            if (Object.keys(patchFields).length === 0) {
+                return { tposCust, patchedOrder: order, noop: true };
+            }
+            const resp = await window.NativeOrdersApi.update(code, patchFields);
+            return { tposCust, patchedOrder: resp?.order || null };
+        };
+
+        const onSuccess = (result) => {
+            if (result?.noop) {
+                notify('TPOS không có info mới — đơn đã đủ data', 'info');
+                return;
+            }
+            if (result?.patchedOrder) {
+                const idx = STATE.orders.findIndex((x) => x.code === code);
+                if (idx !== -1) STATE.orders[idx] = result.patchedOrder;
+            }
+            renderRows();
+            // Invalidate panel cache cho fbUserId này để hover tiếp sau hiện data mới
+            if (_custPanelCache?.has(fbUserId)) _custPanelCache.delete(fbUserId);
+        };
+
+        const rollback = () => {
+            // Re-render để khôi phục button (apply() đã tạm disable button DOM)
+            renderRows();
+        };
+
+        if (window.Web2Optimistic?.run) {
+            Web2Optimistic.run({
+                snapshot: () => null, // Không cần snapshot — rollback chỉ cần re-render
+                apply,
+                run,
+                onSuccess,
+                rollback,
+                successMsg: 'Đã lấy info KH từ TPOS',
+                errLabel: `lấy TPOS cho ${code}`,
+            });
+        } else {
+            apply();
+            try {
+                const result = await run();
+                onSuccess(result);
+                notify('Đã lấy info KH từ TPOS', 'success');
+            } catch (e) {
+                rollback();
+                notify('Lỗi lấy TPOS: ' + e.message, 'error');
+            }
+        }
+    }
+
     // Hiển thị modal hướng dẫn user đăng nhập Facebook (business.facebook.com)
     // liên kết với Pancake — gọi khi gửi tin nhắn lỗi 24h hoặc extension chưa
     // ready. Một lần per page-load (flag tránh spam).
@@ -1048,8 +1143,21 @@
                             </div>
                             <div class="tpos-customer-cell" style="flex:1;min-width:0;">
                                 <div class="tpos-customer-name-row">
-                                    <span class="tpos-customer-name">${escapeHtml(o.customerName || '—')}</span>
+                                    ${
+                                        o.customerName
+                                            ? `<span class="tpos-customer-name">${escapeHtml(o.customerName)}</span>`
+                                            : `<span class="tpos-customer-name tpos-customer-stranger" title="Đơn chưa có tên KH — hover avatar hoặc bấm nút TPOS bên dưới">Khách lạ</span>`
+                                    }
                                     ${statusPill}
+                                    ${
+                                        (!o.customerName || !o.phone || !o.address) && o.fbUserId
+                                            ? `<button class="tpos-fetch-tpos-btn"
+                                                onclick="event.stopPropagation();NativeOrdersApp.fetchCustomerFromTpos('${escapeHtml(o.code)}', '${escapeHtml(o.fbUserId)}')"
+                                                title="Lấy SĐT + địa chỉ + tên từ TPOS (search theo FB ID)">
+                                            <i data-lucide="download-cloud" style="width:11px;height:11px;"></i> Lấy TPOS
+                                        </button>`
+                                            : ''
+                                    }
                                 </div>
                                 ${mergedPhoneHtml}
                             </div>
@@ -7312,6 +7420,8 @@
         // Customer side-panel (slide-in từ phải khi hover avatar 500ms)
         onCustAvatarEnter: _onCustAvatarEnter,
         onCustAvatarLeave: _onCustAvatarLeave,
+        // 2026-06-01: nút "Lấy TPOS" thủ công khi đơn từ tpos-pancake rỗng phone/address
+        fetchCustomerFromTpos,
         // Debug surface — inspect realtime + chat state from devtools.
         // Verify realtime is WS-driven (not polling): open chat then run
         // `NativeOrdersApp._debug.injectFakeMessage('hello')` — bubble
