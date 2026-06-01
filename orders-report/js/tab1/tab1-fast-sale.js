@@ -295,6 +295,43 @@ async function getBillAuthHeader() {
 /**
  * Show Fast Sale Modal and fetch data for selected orders
  */
+/**
+ * Kiểm tra một FastSaleOrder đã có phiếu "Đã xác nhận" / "Đã thanh toán" chưa.
+ * Tách từ block filter inline cũ để dùng cho cả 2 mục đích:
+ *  - Normal mode: filter loại đơn đã có phiếu (tránh tạo trùng).
+ *  - Bypass mode: tag `_alreadyInvoiced` để render nhãn cảnh báo (không loại).
+ * @param {Object} order - FastSaleOrder data
+ * @returns {boolean} true nếu đơn đã có phiếu xác nhận/thanh toán
+ */
+function fastSaleOrderHasConfirmedInvoice(order) {
+    // Check 1: FastSaleOrder has confirmed/paid status from API
+    if (
+        order.ShowState === 'Đã xác nhận' ||
+        order.ShowState === 'Đã thanh toán' ||
+        order.State === 'open' ||
+        order.StatusText === 'Đơn hàng' ||
+        order.Status === 'Đơn hàng'
+    ) {
+        return true;
+    }
+
+    // Check 2: InvoiceStatusStore has confirmed/paid invoice for this SaleOnlineId
+    const saleOnlineId = order.SaleOnlineIds?.[0];
+    if (saleOnlineId && window.InvoiceStatusStore) {
+        const invoiceData = window.InvoiceStatusStore.get(saleOnlineId);
+        if (
+            invoiceData &&
+            (invoiceData.ShowState === 'Đã xác nhận' ||
+                invoiceData.ShowState === 'Đã thanh toán' ||
+                invoiceData.State === 'open')
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 async function showFastSaleModal() {
     const modal = document.getElementById('fastSaleModal');
     const modalBody = document.getElementById('fastSaleModalBody');
@@ -315,6 +352,13 @@ async function showFastSaleModal() {
     const confirmBtn = document.getElementById('confirmAndCheckFastSaleBtn');
     if (saveBtn) saveBtn.disabled = false;
     if (confirmBtn) confirmBtn.disabled = false;
+
+    // Reset "đơn đã có phiếu" state — reset chính thống chống "N" rò rỉ giữa các lần mở.
+    const skippedBtn = document.getElementById('fastSaleShowSkippedBtn');
+    if (skippedBtn) skippedBtn.style.display = 'none';
+    window._fastSaleSkippedConfirmed = [];
+    window._fastSaleBypassActive = false;
+    window._fastSaleHasBlockingStatus = false;
     modalBody.innerHTML = `
         <div class="merge-loading">
             <i class="fas fa-spinner fa-spin"></i>
@@ -424,51 +468,32 @@ async function showFastSaleModal() {
         const forceBypass = window._forceCreatePBHBypass === true;
         if (forceBypass) {
             window._forceCreatePBHBypass = false;
-            console.log('[FAST-SALE] Force bypass: skipping duplicate invoice check');
+            console.log('[FAST-SALE] Force bypass: showing already-invoiced orders');
         }
 
-        const confirmedOrderCodes = [];
+        const confirmedOrderCodes = []; // drive subtitle (504-510) + toast cảnh báo
+        const skippedConfirmedOrders = []; // object đơn bị bỏ trong normal mode → nút "N đơn"
         fastSaleOrdersData = fetchedOrders.filter((order) => {
-            if (forceBypass) return true; // Bypass all checks
+            delete order._alreadyInvoiced; // defensive (fetch object mới mỗi lần nên thường vô hại)
 
-            // Check 1: FastSaleOrder has confirmed/paid status from API
-            if (
-                order.ShowState === 'Đã xác nhận' ||
-                order.ShowState === 'Đã thanh toán' ||
-                order.State === 'open' ||
-                order.StatusText === 'Đơn hàng' ||
-                order.Status === 'Đơn hàng'
-            ) {
+            if (fastSaleOrderHasConfirmedInvoice(order)) {
                 const code = order.Reference || order.SaleOnlineIds?.[0] || order.Id;
-                confirmedOrderCodes.push(code);
-                console.log(
-                    `[FAST-SALE] Skipping confirmed/paid order: ${code} (ShowState: ${order.ShowState}, State: ${order.State})`
-                );
-                return false;
-            }
-
-            // Check 2: InvoiceStatusStore has confirmed/paid invoice for this SaleOnlineId
-            const saleOnlineId = order.SaleOnlineIds?.[0];
-            if (saleOnlineId && window.InvoiceStatusStore) {
-                const invoiceData = window.InvoiceStatusStore.get(saleOnlineId);
-                if (
-                    invoiceData &&
-                    (invoiceData.ShowState === 'Đã xác nhận' ||
-                        invoiceData.ShowState === 'Đã thanh toán' ||
-                        invoiceData.State === 'open')
-                ) {
-                    const code = order.Reference || saleOnlineId;
-                    confirmedOrderCodes.push(code);
-                    console.log(
-                        `[FAST-SALE] Skipping order with confirmed/paid invoice in store: ${code}`
-                    );
-                    return false;
+                if (forceBypass) {
+                    // Bypass: giữ đơn + tag để render nhãn cảnh báo "Đã có phiếu"
+                    order._alreadyInvoiced = true;
+                    return true;
                 }
+                confirmedOrderCodes.push(code);
+                skippedConfirmedOrders.push(order);
+                console.log(`[FAST-SALE] Skipping confirmed/paid order: ${code}`);
+                return false;
             }
 
             return true; // Keep order for processing
         });
         window.fastSaleOrdersData = fastSaleOrdersData;
+        window._fastSaleSkippedConfirmed = skippedConfirmedOrders;
+        window._fastSaleBypassActive = forceBypass;
 
         // Show warning if some orders were filtered out due to confirmed/paid status
         if (confirmedOrderCodes.length > 0) {
@@ -490,13 +515,24 @@ async function showFastSaleModal() {
                 'Tất cả đơn đã có phiếu "Đã xác nhận" hoặc "Đã thanh toán"',
                 'warning'
             );
+            const skippedN = (window._fastSaleSkippedConfirmed || []).length;
             modalBody.innerHTML = `
                 <div class="merge-no-duplicates">
                     <i class="fas fa-exclamation-circle"></i>
                     <p>Tất cả đơn hàng đã chọn đều đã có phiếu "Đã xác nhận" hoặc "Đã thanh toán".</p>
                     <p style="font-size: 12px; color: #6b7280;">Không thể tạo phiếu mới cho các đơn đã xử lý.</p>
+                    ${
+                        skippedN > 0
+                            ? `<button class="merge-btn-confirm" style="margin-top:12px;background:#f59e0b;" onclick="showSkippedConfirmedOrders()">
+                                <i class="fas fa-eye"></i> Hiển thị & tạo tiếp ${skippedN} đơn đã có phiếu
+                               </button>`
+                            : ''
+                    }
                 </div>
             `;
+            // Footer button ẩn ở state này — đã có nút reveal ngay trong body.
+            const emptyStateSkippedBtn = document.getElementById('fastSaleShowSkippedBtn');
+            if (emptyStateSkippedBtn) emptyStateSkippedBtn.style.display = 'none';
             return;
         }
 
@@ -531,6 +567,9 @@ async function showFastSaleModal() {
             const saleOnlineId = order.SaleOnlineIds?.[0];
             return saleOnlineId && window.WalletAdjustmentStore?.isPending(saleOnlineId);
         });
+        // Banner chờ điều chỉnh công nợ ưu tiên hơn banner bypass — đánh dấu để
+        // renderFastSaleModalBody không đè lên.
+        window._fastSaleHasBlockingStatus = pendingAdjOrders.length > 0;
         if (pendingAdjOrders.length > 0) {
             const adjDetails = pendingAdjOrders
                 .map((o) => {
@@ -558,6 +597,9 @@ async function showFastSaleModal() {
             }
         }
 
+        // Hiện nút footer "đơn đã có phiếu" khi có đơn bị bỏ (case lẫn lộn)
+        updateFastSaleSkippedFooterButton();
+
         // Render modal body
         renderFastSaleModalBody();
     } catch (error) {
@@ -584,6 +626,37 @@ function closeFastSaleModal() {
     window.fastSaleOrdersData = fastSaleOrdersData;
     clearFastSaleStatus(); // Clear status message when closing modal
 }
+
+/**
+ * Mở lại modal Thêm hóa đơn nhanh ở chế độ BYPASS — hiển thị cả các đơn đã có
+ * phiếu "Đã xác nhận"/"Đã thanh toán" để user tạo phiếu tiếp (tránh khoá cứng).
+ * Tái sử dụng cơ chế `_forceCreatePBHBypass` (giống nút "+ PBH" đơn lẻ): cờ bị
+ * consume ngay tại showFastSaleModal nên set rồi gọi lại là race-free.
+ */
+function showSkippedConfirmedOrders() {
+    window._forceCreatePBHBypass = true;
+    showFastSaleModal();
+}
+window.showSkippedConfirmedOrders = showSkippedConfirmedOrders;
+
+/**
+ * Cập nhật hiển thị nút footer "Hiển thị đơn đã có phiếu".
+ * Hiện khi có đơn bị bỏ (skipped > 0) và KHÔNG đang ở chế độ bypass; ngược lại ẩn.
+ */
+function updateFastSaleSkippedFooterButton() {
+    const btn = document.getElementById('fastSaleShowSkippedBtn');
+    if (!btn) return;
+    const skipped = (window._fastSaleSkippedConfirmed || []).length;
+    const bypass = window._fastSaleBypassActive === true;
+    if (skipped > 0 && !bypass) {
+        const txt = document.getElementById('fastSaleShowSkippedBtnText');
+        if (txt) txt.textContent = `Hiển thị & tạo tiếp ${skipped} đơn đã có phiếu`;
+        btn.style.display = '';
+    } else {
+        btn.style.display = 'none';
+    }
+}
+window.updateFastSaleSkippedFooterButton = updateFastSaleSkippedFooterButton;
 
 /**
  * Save current form values from DOM back into fastSaleOrdersData.
@@ -866,6 +939,15 @@ async function renderFastSaleModalBody() {
     `;
 
     modalBody.innerHTML = html;
+
+    // Banner cảnh báo khi đang hiển thị cả đơn đã có phiếu (bypass). Không đè lên
+    // banner blocking (chờ điều chỉnh công nợ ví) — banner đó quan trọng hơn.
+    if (window._fastSaleBypassActive === true && !window._fastSaleHasBlockingStatus) {
+        showFastSaleStatus(
+            'Đang hiển thị cả đơn đã có phiếu — kiểm tra kỹ tránh tạo phiếu trùng',
+            'warning'
+        );
+    }
 
     // Auto-select carriers for each order based on address
     // Skip rows where user has already selected a carrier (_userCarrierId)
@@ -1214,9 +1296,10 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                                     title="Bỏ chọn đơn hàng này">
                                 <i class="fas fa-times" style="font-size: 10px;"></i>
                             </button>
-                            <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                 <span style="font-weight: 600;">${customerName}</span>
                                 ${partnerStatusText ? `<span class="badge" style="background: ${partnerStatusColor}; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;">${partnerStatusText}</span>` : ''}
+                                ${order._alreadyInvoiced ? `<span class="badge" style="background: #f59e0b; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;" title="Đơn này đã có phiếu xác nhận/thanh toán — kiểm tra kỹ tránh tạo phiếu trùng"><i class="fas fa-exclamation-triangle"></i> Đã có phiếu</span>` : ''}
                             </div>
                             <div style="font-size: 12px; color: #6b7280;">${customerCode}</div>
                             <div style="display: flex; align-items: center; gap: 4px;">

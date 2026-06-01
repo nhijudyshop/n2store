@@ -25,6 +25,25 @@
 
 ## 2026-06-01
 
+### [orders] Modal Thêm hóa đơn nhanh — cho tạo phiếu tiếp với đơn "đã có phiếu" ✅
+
+**Yêu cầu user**: Đơn đã có phiếu "Đã xác nhận"/"Đã thanh toán" bị lọc bỏ khi tạo hóa đơn hàng loạt → modal khoá cứng (nhất là khi TẤT CẢ đơn đã chọn đều có phiếu → body trống, `return` sớm). Cần nút trong modal để hiển thị các đơn đó và cho tạo phiếu tiếp.
+
+**Cách làm**: tái sử dụng cờ bypass có sẵn `window._forceCreatePBHBypass` (đang dùng cho nút "+ PBH" đơn lẻ) — set cờ rồi gọi lại `showFastSaleModal()`. Theo lựa chọn user: hiện TẤT CẢ đơn (hợp lệ + đã có phiếu, đơn sau gắn nhãn vàng "Đã có phiếu"); chỉ CẢNH BÁO không chặn (nhãn + banner vàng), "Lưu xác nhận" là bước xác nhận cuối.
+
+**Files**:
+
+- `orders-report/js/tab1/tab1-fast-sale.js`:
+    - Tách helper `fastSaleOrderHasConfirmedInvoice(order)` (Check1 ShowState/State/StatusText + Check2 InvoiceStatusStore) — dùng chung cho filter (normal) và tag (bypass).
+    - Filter confirmed/paid: normal mode push `confirmedOrderCodes` + `skippedConfirmedOrders` rồi loại; bypass mode giữ đơn + `order._alreadyInvoiced = true`. Set `window._fastSaleSkippedConfirmed` + `window._fastSaleBypassActive`.
+    - Hàm mới `showSkippedConfirmedOrders()` (set bypass + reopen) + `updateFastSaleSkippedFooterButton()` (toggle nút footer khi skipped>0 && !bypass). Export `window.*`.
+    - Empty-state "tất cả đã có phiếu" + footer: thêm nút vàng "Hiển thị & tạo tiếp N đơn đã có phiếu".
+    - Badge vàng "Đã có phiếu" trong `renderFastSaleOrderRow` (gated `order._alreadyInvoiced`). Banner cảnh báo bypass cuối `renderFastSaleModalBody` (có guard `_fastSaleHasBlockingStatus` để không đè banner chờ điều chỉnh công nợ ví). Reset toàn bộ state mỗi lần mở modal.
+- `orders-report/tab1-orders.html` — nút footer tĩnh `#fastSaleShowSkippedBtn` (display:none, vàng) giữa "Đóng" và "Lưu xác nhận".
+- `node --check orders-report/js/tab1/tab1-fast-sale.js` OK. Cờ bypass bị consume ngay tại showFastSaleModal nên không rò sang lần mở normal sau.
+
+---
+
 ### [orders][render] Celebration Config — sync cross-machine qua SSE (fix "máy khác không cập nhật hình") ✅
 
 **Bug user báo**: admin upload ảnh trên máy A, máy B vẫn hiển thị ảnh cũ khi bắn pháo hoa.
