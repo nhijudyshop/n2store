@@ -15,11 +15,4 @@ window.WEB2_MODULES_MANIFEST = [
         category: 'Sản phẩm',
         icon: 'box',
     },
-    {
-        dir: 'sale-online-facebook',
-        title: 'Facebook (Sale Online)',
-        slug: 'saleonline-facebook',
-        category: 'Sale Online',
-        icon: 'circle',
-    },
 ];

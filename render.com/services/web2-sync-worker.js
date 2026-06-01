@@ -46,7 +46,7 @@ const TIERS = {
         'accountjournal',
     ],
     master: ['partner-customer', 'partner-supplier', 'producttemplate', 'product'],
-    hot: ['fastsaleorder-invoice', 'saleonline-facebook', 'livecampaign'],
+    hot: ['fastsaleorder-invoice', 'livecampaign'],
 };
 
 let runningTier = null;

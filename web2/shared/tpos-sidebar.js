@@ -140,11 +140,6 @@
                     our: '../so-order/index.html',
                 },
                 { label: 'TPOS × Pancake', our: '../tpos-pancake/index.html' },
-                {
-                    label: 'Facebook',
-                    tpos: '#/app/saleOnline/facebook',
-                    our: '../web2/sale-online-facebook/index.html',
-                },
             ],
         },
         {

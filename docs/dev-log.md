@@ -25,6 +25,27 @@
 
 ## 2026-06-01
 
+### [web2] Xóa trang `sale-online-facebook` + dừng cron sync 15min — UI sai mục đích ✅
+
+**Phát hiện**: trang `web2/sale-online-facebook/` UI render columns kiểu "ID Page / Tên page / Token / Ghi chú" (như quản lý FB page token), nhưng DB slug `saleonline-facebook` thực tế chứa **10058 đơn hàng online** sync từ TPOS `/odata/SaleOnline_Order/ODataService.GetView` (49 fields gồm Facebook_UserId/PostId/CommentId/Telephone/Address/TotalAmount/…). UI không khớp data → cột Token/Ghi chú luôn trống, cột "ID Page" thực ra là mã đơn, cột "Tên page" là tên KH. Đơn FB đã có chỗ xem đúng: [native-orders/](../native-orders/), [tpos-pancake/](../tpos-pancake/).
+
+**Việc đã làm**:
+
+1. `rm -rf web2/sale-online-facebook/`
+2. [render.com/services/web2-sync-worker.js:49](../render.com/services/web2-sync-worker.js#L49): bỏ `'saleonline-facebook'` khỏi tier `hot` → cron `*/15 * * * *` còn lại `fastsaleorder-invoice` + `livecampaign`. Dừng burn quota Neon ghi 10k rows/15min.
+3. [scripts/web2-seed-from-tpos.js:577-627](../scripts/web2-seed-from-tpos.js#L577): xóa entry mapper 51 dòng (slug/tposPath/mapper với 39 picked fields).
+4. [web2/shared/tpos-sidebar.js](../web2/shared/tpos-sidebar.js): xóa entry "Facebook" trong nhóm "Sale Online" → còn 3 child (Chiến dịch Live, Đơn Web, Sổ Order, TPOS × Pancake).
+5. [scripts/n2store-smoke-all-pages.js:115-200](../scripts/n2store-smoke-all-pages.js#L115): rebuild `WEB2_PAGES` array từ 82 slug stale (chứa cả slug đã xóa từ commit trước + slug không có folder thật) → 33 slug actual existing.
+6. Rebuild manifest+nav: `node scripts/web2-build-manifest.js` (3 → 2 modules), `node scripts/web2-build-nav.js` (regen WEB2_NAV_ITEMS).
+
+**Verify**: 4 file JS syntax OK, 36 sidebar links → 0 missing, 0 orphan ref cho `saleonline-facebook|sale-online-facebook` trên `.html|.js|.json`.
+
+**Còn lại**: 10058 records trong DB Neon vẫn còn — chưa xóa, chờ user confirm gọi `DELETE /api/web2/saleonline-facebook/delete-all` để cleanup.
+
+**Status**: ✅ Done (trừ DB cleanup)
+
+---
+
 ### [web2] Xóa 57 trang TPOS-clone stub không dùng — sidebar còn 9 nhóm gọn ✅
 
 **Yêu cầu user**: kiểm tra 27 URL + 3 hình menu (Kế toán/Báo cáo/Cấu hình), trang TPOS-clone không dùng thì xóa, "mai mốt cần thì code lại".

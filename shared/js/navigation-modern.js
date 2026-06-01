@@ -370,15 +370,6 @@ const MENU_CONFIG = [
         permissionRequired: 'web2-launcher',
         publicAccess: true,
     },
-    {
-        href: '../web2/sale-online-facebook/index.html',
-        icon: 'circle',
-        text: '[V2] Facebook (Sale Online)',
-        shortText: 'Facebook (Sale Onl…',
-        pageIdentifier: 'web2-sale-online-facebook',
-        permissionRequired: 'web2-launcher',
-        publicAccess: true,
-    },
     // -- WEB2_NAV_ITEMS_END --
 ];
 
@@ -591,7 +582,6 @@ const DEFAULT_GROUPS_CONFIG = [
             'native-orders',
             'web2-products',
             'web2-launcher',
-            'web2-sale-online-facebook',
             'web2-product-category',
             'web2-balance-history',
         ],
