@@ -594,6 +594,11 @@ app.use('/api/web2/customer-orders', web2CustomerOrdersRoutes);
 // vì gọi TPOS PartnerDebtReport (decouple per user spec).
 const web2SupplierDebtRoutes = require('./routes/v2/web2-supplier-debt');
 app.use('/api/web2/supplier-debt', web2SupplierDebtRoutes);
+// 2026-06-01: TPOS Partner live fetch cho KH — address lấy FRESH từ TPOS
+// (không qua customers table cache). Per user: "địa chỉ khách hàng lấy theo
+// TPOS khách hàng".
+const web2CustomerTposRoutes = require('./routes/v2/web2-customer-tpos');
+app.use('/api/web2/customer-tpos', web2CustomerTposRoutes);
 const livestreamSnapshotsRoutes = require('./routes/livestream-snapshots');
 app.use('/api/livestream', livestreamSnapshotsRoutes); // WEB2.0 livestream snapshot per customer
 app.use('/api/attendance', attendanceRoutes);

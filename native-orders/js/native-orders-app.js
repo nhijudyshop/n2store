@@ -460,8 +460,10 @@
         if (_custHoverEl) return _custHoverEl;
         _custHoverEl = document.createElement('div');
         _custHoverEl.className = 'native-orders-cust-hover';
+        // z-index 99999 (above modal z-index 9999) + opaque background + isolation
+        // để tránh stacking context bleed-through từ avatar img bên dưới popover.
         _custHoverEl.style.cssText =
-            'position:fixed;z-index:9998;min-width:280px;max-width:340px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);padding:12px 14px;font-size:13px;color:#374151;display:none;pointer-events:none;';
+            'position:fixed;z-index:99999;min-width:280px;max-width:340px;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);padding:12px 14px;font-size:13px;color:#374151;display:none;pointer-events:none;isolation:isolate;overflow:hidden;';
         document.body.appendChild(_custHoverEl);
         return _custHoverEl;
     }
@@ -561,12 +563,19 @@
         _custHoverFetchAbort = new AbortController();
         const signal = _custHoverFetchAbort.signal;
         try {
-            // Parallel: Pancake conversation (real-time) + customers table (TPOS-synced address/history)
+            // 3-source parallel fetch:
+            //   1. Pancake conversation (live) — tags, message_count, last_interaction
+            //   2. customers table — returned_orders, total_spent stats
+            //   3. TPOS Partner LIVE — fresh address (per user 2026-06-01:
+            //      "địa chỉ khách hàng lấy theo TPOS khách hàng")
             const pancakeUrl = `${WORKER_URL}/api/pancake/conversations?pages[${encodeURIComponent(fbPageId)}]=0&from_psid=${encodeURIComponent(fbUserId)}&limit=1&mode=OR&unread_first=false`;
             const customerUrl = phone
                 ? `${WORKER_URL}/api/v2/customers?search=${encodeURIComponent(phone)}&limit=1`
                 : null;
-            const [pancakeD, customerD] = await Promise.all([
+            const tposLiveUrl = phone
+                ? `${WORKER_URL}/api/web2/customer-tpos/${encodeURIComponent(phone)}`
+                : null;
+            const [pancakeD, customerD, tposLiveD] = await Promise.all([
                 fetch(pancakeUrl, { credentials: 'include', signal })
                     .then((r) => r.json())
                     .catch(() => null),
@@ -575,17 +584,27 @@
                           .then((r) => r.json())
                           .catch(() => null)
                     : Promise.resolve(null),
+                tposLiveUrl
+                    ? fetch(tposLiveUrl, { credentials: 'include', signal })
+                          .then((r) => r.json())
+                          .catch(() => null)
+                    : Promise.resolve(null),
             ]);
             const conv = (pancakeD?.conversations || [])[0] || null;
             const tposCust = (customerD?.customers || customerD?.data || [])[0] || null;
-            if (!conv && !tposCust) {
+            const tposLive = tposLiveD?.customer || null;
+            if (!conv && !tposCust && !tposLive) {
                 _custHoverCache.set(fbUserId, { data: null, ts: Date.now() });
                 return null;
             }
             const cust = conv ? (conv.customers || [])[0] || conv.from || {} : {};
             const enriched = {
-                name: cust.name || conv?.from?.name || tposCust?.name,
-                phone: conv?.recent_phone_numbers?.[0]?.phone_number || tposCust?.phone || phone,
+                name: tposLive?.name || cust.name || conv?.from?.name || tposCust?.name,
+                phone:
+                    conv?.recent_phone_numbers?.[0]?.phone_number ||
+                    tposLive?.phone ||
+                    tposCust?.phone ||
+                    phone,
                 recent_phone_numbers: conv?.recent_phone_numbers,
                 avatar: cust.avatar_url || cust.avatar,
                 tags: conv?.tags || [],
@@ -596,13 +615,19 @@
                 order_count: cust.order_count,
                 note: conv?.extra_info?.note,
                 has_livestream_order: conv?.has_livestream_order,
-                // TPOS-synced (customers table)
-                tposAddress: tposCust?.address,
-                tposCustomerId: tposCust?.id,
-                tposStatus: tposCust?.status,
+                // TPOS — Địa chỉ LIVE từ TPOS Partner (priority); fallback
+                // customers table cache nếu TPOS API fail/slow.
+                tposAddress: tposLive?.address || tposCust?.address,
+                tposAddressSource: tposLive?.address
+                    ? 'tpos-live'
+                    : tposCust?.address
+                      ? 'cache'
+                      : null,
+                tposCustomerId: tposLive?.id || tposCust?.id,
+                tposStatus: tposLive?.status || tposCust?.status,
                 tposReturnedOrders: tposCust?.returned_orders,
                 tposTotalSpent: tposCust?.total_spent,
-                _raw: { conv, tposCust },
+                _raw: { conv, tposCust, tposLive },
             };
             _custHoverCache.set(fbUserId, { data: enriched, ts: Date.now() });
             return enriched;
@@ -612,6 +637,11 @@
         }
     }
 
+    // Token tracking — async fetch race protection. Mỗi lần show mới tăng token,
+    // pending render với token cũ bị bỏ qua → không có 2 popover overlap.
+    let _custHoverToken = 0;
+    let _custHoverActiveTarget = null;
+
     function showCustomerHoverPopover(target) {
         const fbUserId = target.dataset.fbUserId;
         const fbPageId = target.dataset.fbPageId;
@@ -620,11 +650,27 @@
             phone: target.dataset.customerPhone,
         };
         if (!fbUserId) return;
+        // Bug fix 2026-06-01: clear popover NGAY khi hover sang avatar khác —
+        // tránh stale content của popover cũ visible trong lúc fetch popover mới.
         clearTimeout(_custHoverDelayTimer);
+        const token = ++_custHoverToken;
+        _custHoverActiveTarget = target;
+        // Reset popover state: hide + clear content để tránh "ghost" overlay
+        if (_custHoverEl) {
+            _custHoverEl.style.display = 'none';
+            _custHoverEl.innerHTML = '';
+        }
+        // Abort any pending fetch ngay lập tức
+        if (_custHoverFetchAbort) {
+            try {
+                _custHoverFetchAbort.abort();
+            } catch {}
+            _custHoverFetchAbort = null;
+        }
         _custHoverDelayTimer = setTimeout(async () => {
+            if (token !== _custHoverToken) return; // stale fire
             const el = _ensureCustHoverEl();
             el.style.display = 'block';
-            _positionCustHoverPopover(target);
             // Cache hit → render ngay
             const cached = _custHoverCache.get(fbUserId);
             if (cached && Date.now() - cached.ts < _CUST_HOVER_TTL) {
@@ -636,12 +682,15 @@
             _positionCustHoverPopover(target);
             try {
                 const data = await _fetchPancakeCustomer(fbUserId, fbPageId, fallback.phone);
-                // Có thể user đã rời chuột — chỉ render nếu popover còn visible
+                // Stale check: nếu user đã hover sang avatar khác (token đã tăng),
+                // bỏ qua render — tránh popover hiển thị data của KH cũ.
+                if (token !== _custHoverToken) return;
                 if (_custHoverEl?.style.display !== 'none') {
                     _renderCustHoverContent({ data, fallback });
                     _positionCustHoverPopover(target);
                 }
             } catch (e) {
+                if (token !== _custHoverToken) return;
                 _renderCustHoverContent({ error: e.message, fallback });
             }
         }, 300);
@@ -649,7 +698,12 @@
 
     function hideCustomerHoverPopover() {
         clearTimeout(_custHoverDelayTimer);
-        if (_custHoverEl) _custHoverEl.style.display = 'none';
+        _custHoverToken++; // invalidate any in-flight render
+        _custHoverActiveTarget = null;
+        if (_custHoverEl) {
+            _custHoverEl.style.display = 'none';
+            _custHoverEl.innerHTML = ''; // clear content tránh ghost flash khi hover lại
+        }
         if (_custHoverFetchAbort) {
             try {
                 _custHoverFetchAbort.abort();
