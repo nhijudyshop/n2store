@@ -1005,6 +1005,9 @@ const ApiService = {
                 });
             });
 
+            // Cờ: có ít nhất 1 line bị giảm giá per-line (PriceUnit hạ xuống giá Note) →
+            // dùng để quyết định có ZERO các field giảm giá order-level hay không (xem dưới).
+            let anyDiscountBaked = false;
             const linesToRemove = [];
             const filteredOrderLines = originalOrderLines.filter((line) => {
                 const productMatch = productsToRefund.find((p) => {
@@ -1035,15 +1038,19 @@ const ApiService = {
                     // Giảm giá PER-LINE: đọc giá sau giảm từ Note ("350k") để refund order TPOS
                     // khớp ticket.money → tự cộng ví. Ưu tiên note của ticket (nguồn đã sinh ra
                     // số tiền hoàn lúc tạo ticket), fallback Note của line refund order TPOS.
+                    // "Bake" giá sau giảm vào PriceUnit (thay vì giữ giá gốc + DecreaseAmount) →
+                    // để PUT NHẤT QUÁN, ZERO field giảm giá order-level ở dưới (tránh double-discount).
+                    const origUnit = parseFloat(line.PriceUnit) || 0;
                     const effPrice = _effectiveUnitPrice(
                         productMatch.note != null ? productMatch.note : line.Note,
-                        line.PriceUnit
+                        origUnit
                     );
+                    if (effPrice < origUnit) anyDiscountBaked = true;
                     line.PriceUnit = effPrice;
                     line.PriceTotal = effPrice * line.ProductUOMQty;
                     line.PriceSubTotal = line.PriceTotal;
                     console.log(
-                        `[API] Effective price line ${line.ProductBarcode}: ${effPrice} x ${line.ProductUOMQty} = ${line.PriceTotal}`
+                        `[API] Effective price line ${line.ProductBarcode}: ${origUnit} -> ${effPrice} x ${line.ProductUOMQty} = ${line.PriceTotal}`
                     );
                     return true;
                 }
@@ -1158,11 +1165,35 @@ const ApiService = {
             refundDetails.AmountUntaxed = newAmountTotal;
             refundDetails.AmountTotalSigned = -newAmountTotal;
 
+            // QUAN TRỌNG (money path): giảm giá đã "bake" vào PriceUnit (line.PriceUnit = giá sau
+            // giảm). Refund order do ActionRefund copy vẫn mang DecreaseAmount/Discount order-level
+            // của đơn gốc; nếu PUT để nguyên thì payload MÂU THUẪN:
+            //   Σ(PriceUnit×qty)=350k, DecreaseAmount=100k → TPOS recompute = 350k − 100k = 250k
+            //   (double-discount → refund order ghi SAI). _prepareRefundUpdatePayload có gửi cả
+            //   OrderLines (PriceUnit mới) LẪN DecreaseAmount.
+            // Fix: ZERO field giảm giá order-level để Σ(PriceUnit×qty) − 0 = AmountTotal = 350k —
+            // NHẤT QUÁN dù TPOS trust AmountTotal hay recompute từ lines. AmountTax=0 vì
+            // AmountUntaxed đã = AmountTotal (đơn bán lẻ không VAT — như code cũ vẫn giả định).
+            // Chỉ áp dụng khi THỰC SỰ có line bị giảm → đơn không giảm giữ nguyên hành vi cũ.
+            // Chỉ ZERO các field GIẢM GIÁ order-level (ảnh hưởng TỔNG đơn) — KHÔNG đụng
+            // PaymentAmount/Residual/ToPay (field trạng-thái-thanh-toán, TPOS tự recompute khi
+            // ActionInvoiceOpenV2 confirm; code cũ để nguyên vẫn chạy đúng). Ví khách cộng qua
+            // resolveTicket(ticket.money), độc lập hoàn toàn các field này.
+            if (anyDiscountBaked) {
+                refundDetails.DecreaseAmount = 0;
+                refundDetails.Discount = 0;
+                refundDetails.DiscountAmount = 0;
+                refundDetails.DiscountLoyaltyTotal = 0;
+                refundDetails.AmountTax = 0;
+            }
+
             console.log(
                 '[API] Recalculated totals - Qty:',
                 newTotalQuantity,
                 'Amount:',
-                newAmountTotal
+                newAmountTotal,
+                'discountBaked:',
+                anyDiscountBaked
             );
         }
 
