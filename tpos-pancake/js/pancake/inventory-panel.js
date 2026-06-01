@@ -391,84 +391,88 @@
     //
     // SAU REFACTOR 2026-05-22: backend /add ghi thẳng vào native_orders.products
     // ngay → không còn commit timer. 5s undo chỉ là UX window — undo = call /remove.
-    async function addToCart(groupKey, product, customer, commentIdMeta) {
+    // Pattern UI-first: optimistic badge + toast NGAY → backend chạy background.
+    // Backend lỗi → rollback badge + remove toast optimistic + show error toast.
+    // KHÔNG async/await ở caller path (drop event handler) — return ngay tức thì.
+    function addToCart(groupKey, product, customer, commentIdMeta) {
         const commentId = groupKey;
-        // Optimistic: tăng badge ngay (rollback nếu API fail)
         const wasEmpty = !(STATE.cartCounts[commentId]?.qty > 0);
         const prev = STATE.cartCounts[commentId] || { items: 0, qty: 0 };
+        // Step 1 — Optimistic UI INSTANT
         STATE.cartCounts[commentId] = {
             items: prev.items + 1,
             qty: prev.qty + 1,
         };
         _renderBadgeFor(commentId);
+        const toast = _showUndoToast({
+            title: wasEmpty
+                ? `✓ Tạo đơn mới + thêm "${product.code}"`
+                : `✓ Thêm "${product.code}" vào đơn`,
+            onUndo: () => {
+                // Undo có thể fire trước khi /add response về. removeFromCart
+                // gửi POST /remove độc lập — backend xử lý nếu product đã tồn
+                // tại, no-op nếu chưa. Idempotent qua productCode merge.
+                removeFromCart(commentId, product.code, { silent: true });
+                _showToast('↶ Đã hoàn tác', 'ok');
+            },
+        });
 
-        // Resolve FB context để backend tạo native_order nếu chưa có (lần drag đầu cho KH).
+        // Step 2 — Backend background. KHÔNG return promise lên caller.
         const realCommentId = commentIdMeta || commentId;
         const row = document.querySelector(
             `.tpos-conversation-item[data-comment-id="${CSS.escape(realCommentId)}"]`
         );
         const ctx = _resolveCommitContext(realCommentId, row, customer);
         ctx.fbCommentId = realCommentId;
-
-        // Sprint 1 KPI: generate unique client_event_id per user action (UUID-like).
-        // Server emits 1 ledger event per call; retry network failures dedup qua same key.
         const clientEventId = 'evt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
-        try {
-            const r = await fetch(API + '/cart/' + encodeURIComponent(commentId) + '/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                    product,
-                    customer,
-                    user: _user(),
-                    qty: 1,
-                    clientEventId,
-                    fbContext: {
-                        fbUserId: ctx.fbUserId,
-                        fbUserName: ctx.fbUserName,
-                        fbPageId: ctx.fbPageId,
-                        fbPageName: ctx.fbPageName,
-                        fbPostId: ctx.fbPostId,
-                        fbCommentId: ctx.fbCommentId,
-                        crmTeamId: ctx.crmTeamId,
-                        liveCampaignId: ctx.liveCampaignId,
-                        liveCampaignName: ctx.liveCampaignName,
-                        message: ctx.message,
-                    },
-                }),
-            });
-            const d = await r.json();
-            if (!d.success) throw new Error(d.error || 'unknown');
 
-            // Anti-lag: use authoritative qty từ response thay vì gọi thêm 1
-            // GET /batch/counts (cắt 1 network roundtrip). SSE web2:cart sẽ
-            // catch-up nếu có drift (debounced 200ms).
-            if (Number.isFinite(d.qty)) {
-                STATE.cartCounts[commentId] = {
-                    items: STATE.cartCounts[commentId]?.items || 1,
-                    qty: d.qty,
-                };
+        (async () => {
+            try {
+                const r = await fetch(API + '/cart/' + encodeURIComponent(commentId) + '/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        product,
+                        customer,
+                        user: _user(),
+                        qty: 1,
+                        clientEventId,
+                        fbContext: {
+                            fbUserId: ctx.fbUserId,
+                            fbUserName: ctx.fbUserName,
+                            fbPageId: ctx.fbPageId,
+                            fbPageName: ctx.fbPageName,
+                            fbPostId: ctx.fbPostId,
+                            fbCommentId: ctx.fbCommentId,
+                            crmTeamId: ctx.crmTeamId,
+                            liveCampaignId: ctx.liveCampaignId,
+                            liveCampaignName: ctx.liveCampaignName,
+                            message: ctx.message,
+                        },
+                    }),
+                });
+                const d = await r.json();
+                if (!d.success) throw new Error(d.error || 'unknown');
+                // Sync silent: dùng qty authoritative từ response, không show toast lại.
+                if (Number.isFinite(d.qty)) {
+                    STATE.cartCounts[commentId] = {
+                        items: STATE.cartCounts[commentId]?.items || 1,
+                        qty: d.qty,
+                    };
+                    _renderBadgeFor(commentId);
+                }
+            } catch (e) {
+                // Rollback optimistic + remove success toast + show error
+                STATE.cartCounts[commentId] = prev;
                 _renderBadgeFor(commentId);
+                if (toast) {
+                    toast._snapTickerCancel?.();
+                    if (toast.parentNode) toast.remove();
+                }
+                _showToast(`✗ Lỗi thêm "${product.code}": ${e.message}`, 'err');
             }
-
-            // Show toast với Undo (5s) — undo = POST /remove → backend xóa khỏi
-            // products array (DELETE đơn nếu products rỗng).
-            _showUndoToast({
-                title: wasEmpty
-                    ? `✓ Tạo đơn mới + thêm "${product.code}"`
-                    : `✓ Thêm "${product.code}" vào đơn`,
-                onUndo: async () => {
-                    await removeFromCart(commentId, product.code, { silent: true });
-                    _showToast('↶ Đã hoàn tác', 'ok');
-                },
-            });
-        } catch (e) {
-            // Rollback optimistic
-            STATE.cartCounts[commentId] = prev;
-            _renderBadgeFor(commentId);
-            _showToast(`✗ Lỗi: ${e.message}`, 'err');
-        }
+        })();
     }
 
     async function removeFromCart(commentId, productCode, opts) {
@@ -801,6 +805,10 @@
                 console.warn(e);
             }
         };
+        // Trả về element + ticker để caller có thể remove khi backend lỗi
+        // (clear interval để tránh leak khi UI-first rollback).
+        t._snapTickerCancel = () => clearInterval(tick);
+        return t;
     }
 
     async function openCartHistory(commentId) {
