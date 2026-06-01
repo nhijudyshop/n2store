@@ -609,7 +609,7 @@ router.post('/:customerId/deposit', async (req, res) => {
 router.post('/:customerId/credit', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { customerId } = req.params;
-    const { amount, source_type, source_id, expiry_days = 15, note, created_by } = req.body;
+    const { amount, source_type, source_id, expiry_days = 30, note, created_by } = req.body;
 
     if (!amount || amount <= 0) {
         return res.status(400).json({ success: false, error: 'Invalid amount' });

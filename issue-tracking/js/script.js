@@ -2204,7 +2204,7 @@ async function handleConfirmAction() {
                 amount: money,
                 ticket_code: ticketCode,
                 note: walletNote,
-                expires_in_days: 15,
+                expires_in_days: 30,
                 created_by:
                     window.authManager?.getUserInfo()?.username ||
                     window.authManager?.getAuthState()?.email ||

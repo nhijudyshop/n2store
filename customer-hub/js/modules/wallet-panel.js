@@ -610,7 +610,7 @@ export class WalletPanelModule {
                         cfg.showExpiry
                             ? `
                         <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Số ngày hiệu lực</label>
-                        <input type="number" name="expiry" class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white mb-4" value="15" min="1" max="365">
+                        <input type="number" name="expiry" class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white mb-4" value="30" min="1" max="365">
                     `
                             : ''
                     }
@@ -709,7 +709,7 @@ export class WalletPanelModule {
 
             const amount = parseFloat(modal.querySelector('[name="amount"]').value);
             let note = modal.querySelector('[name="note"]').value.trim();
-            const expiry = parseInt(modal.querySelector('[name="expiry"]')?.value) || 15;
+            const expiry = parseInt(modal.querySelector('[name="expiry"]')?.value) || 30;
 
             if (!amount || amount < 1000) {
                 errorDiv.textContent = 'Số tiền phải >= 1,000 VNĐ';

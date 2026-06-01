@@ -50,6 +50,42 @@
 
 **Status**: ✅ Done — đơn từ tpos-pancake giờ tự enrich khi KH đã có đơn TPOS trước (auto), còn lại có nút thủ công với UI-first feedback.
 
+### [render][customer-hub][issue-tracking] Đổi hạn cấp công nợ ảo 15 → 30 ngày (chỉ phiếu mới) ✅
+
+**Yêu cầu user**: Công nợ ảo cấp mới có thời hạn **30 ngày** thay vì 15. KHÔNG đụng phiếu cũ (chỉ đổi default trong code, các row `virtual_credits` đã có giữ nguyên `expires_at`). Áp dụng **cả 2 luồng** cấp (xác nhận qua AskUserQuestion).
+
+**Bối cảnh**: `expires_at` là `NOT NULL` không có DB default → ngày hết hạn luôn do code truyền lúc cấp (`issueVirtualCredit`: `expiresAt = now + expiresInDays`). Cron `expire_virtual_credits()` (chạy mỗi giờ) chỉ đổi `status='EXPIRED'` + trừ `virtual_balance`, KHÔNG xoá row. Đổi default code = chỉ ảnh hưởng phiếu cấp SAU khi deploy.
+
+**Files (7 chỗ, 15 → 30)**:
+- Luồng A (cấp tay – nút "Cấp công nợ ảo"): `customer-hub/js/modules/wallet-panel.js` (input `value="30"` + fallback `|| 30`); `render.com/routes/v2/wallets.js` (`POST /:customerId/credit` default `expiry_days = 30`)
+- Luồng B (tự động từ "Thu về" / RETURN_SHIPPER): `render.com/routes/v2/tickets.js` (ticket completion hardcode `30` + `POST /:id/resolve-credit` default `expires_in_days = 30`); `issue-tracking/js/script.js` (frontend gọi `resolveTicketCredit` truyền `expires_in_days: 30`)
+- Dùng chung: `shared/js/api-service.js` (`issueVirtualCredit` default `expiry_days || 30`)
+- Không đổi: `render.com/services/wallet-event-processor.js` (function-level default `expiresInDays = 30` vốn đã đúng)
+
+**Trạng thái DB lúc đổi**: 161 virtual_credits (127 USED, 15 EXPIRED, 14 CANCELLED, 5 ACTIVE), không có row quá hạn tồn đọng. Tất cả 15 EXPIRED giữ nguyên (đúng yêu cầu "không thay phiếu cũ").
+
+**Status**: DONE — đã syntax-check 5 file JS (node --check OK).
+
+### [issue-tracking] Phiếu hoàn TPOS honor giảm giá per-line → hết lỗi "Số tiền không khớp", tự cộng ví ✅
+
+**Bug user báo**: Tạo ticket hoàn hàng cho đơn có giảm giá per-line (vd `NJD/2026/68518`: SP 450k, note "350k", giảm 100k) báo popup **"⚠️ KHÔNG cộng ví tự động — Số tiền không khớp! Ticket: 350.000đ vs TPOS: 450.000đ"** → bắt cộng ví tay.
+
+**Root cause**: Phía ticket (`ticket.money`) tính tiền hoàn theo **giá sau giảm** (đọc Note "350k" qua `getEffectivePriceForLine`/`parseDiscountedPriceFromNote` trong `issue-tracking/js/script.js`) = 350k. Nhưng `ApiService.processRefund` (`shared/js/api-service.js`) tính refund order TPOS theo **`PriceUnit` gốc** (`Σ PriceUnit × qty` = 450k) vì 2 helper parse Note **chỉ có trong script.js**, không có trong api-service.js. → so sánh `script.js:1971-1973` luôn lệch với mọi đơn giảm giá per-line + refund order TPOS ghi dư.
+
+**Cách làm** (chỉ sửa `shared/js/api-service.js`, không đụng script.js vì `ticket.money` đã đúng):
+
+- Thêm 2 helper module-scope `_parseDiscountedPriceFromNote` + `_effectiveUnitPrice` (mirror y nguyên logic script.js — note 2 bản phải giữ đồng bộ).
+- Trong `processRefund` vòng lọc OrderLines: mỗi line giữ lại → `effPrice = _effectiveUnitPrice(productMatch.note ?? line.Note, line.PriceUnit)`; set `line.PriceUnit = effPrice`, `PriceTotal = effPrice × qty`, `PriceSubTotal`. (Ưu tiên note ticket, fallback note refund order TPOS.)
+- `newAmountTotal = Σ(line.PriceTotal)` (đã = giá sau giảm × qty) → `refundDetails.AmountTotal/AmountUntaxed/AmountTotalSigned` + `refundAmountFromJson` = 350k = `ticket.money` → `amountMatches=true` → resolveTicket atomic cộng ví. Refund order TPOS cũng ghi đúng 350k.
+
+**Quy tắc**: SP có note "x"k → hoàn = (số trong note) × số lượng trả; SP không note → `PriceUnit` gốc × qty; tính độc lập từng dòng. Phải `× qty` cả 2 phía để luôn bằng nhau.
+
+**Không regression**: đơn không giảm / giảm chỉ mức order (không note per-line) → helper trả về `PriceUnit` gốc → y như cũ (2 phía vẫn khớp). Đối xứng với `getEffectivePriceForLine`.
+
+**Files**: `shared/js/api-service.js` (2 helper + sửa khối lọc partial refund `processRefund`), `issue-tracking/index.html` (bump api-service `?v=20260601a`). `node --check api-service.js` OK. Caller duy nhất = `script.js:1900` → khoanh vùng.
+
+---
+
 ### [orders] Modal Thêm hóa đơn nhanh — cho tạo phiếu tiếp với đơn "đã có phiếu" ✅
 
 **Yêu cầu user**: Đơn đã có phiếu "Đã xác nhận"/"Đã thanh toán" bị lọc bỏ khi tạo hóa đơn hàng loạt → modal khoá cứng (nhất là khi TẤT CẢ đơn đã chọn đều có phiếu → body trống, `return` sớm). Cần nút trong modal để hiển thị các đơn đó và cho tạo phiếu tiếp.

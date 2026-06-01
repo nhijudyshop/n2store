@@ -11,6 +11,35 @@
 // Consolidation date: 2026-02-11
 // =====================================================
 
+// =====================================================
+// REFUND DISCOUNT HELPERS
+// Mirror parseDiscountedPriceFromNote + getEffectivePriceForLine ở
+// issue-tracking/js/script.js — TPOS lưu giảm giá PER-LINE trong Note OrderLine
+// ("350k" = SP còn 350K). Phía ticket (ticket.money) đã tính theo giá sau giảm; ở
+// đây processRefund PHẢI tính cùng cơ sở để refund order TPOS khớp ticket → tự cộng ví.
+// LƯU Ý: 2 bản copy phải giữ ĐỒNG BỘ (lý tưởng sau này tách ra shared util dùng chung).
+// =====================================================
+function _parseDiscountedPriceFromNote(note) {
+    if (!note || typeof note !== 'string') return 0;
+    const s = note.trim().toLowerCase();
+    if (!s) return 0;
+    const k = s.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*k(?:\s|$|\(|\))/i);
+    if (k) return Math.round(parseFloat(k[1].replace(',', '.')) * 1000);
+    const p = s.match(/^(\d{1,3}(?:[.,]\d{3})*|\d+)$/);
+    if (p) {
+        const n = parseInt(p[1].replace(/[.,]/g, ''), 10);
+        if (n >= 1000) return n;
+        if (n > 0) return n * 1000;
+    }
+    return 0;
+}
+// Giá đơn vị thật sau giảm cho 1 line: ưu tiên giá trong Note, fallback PriceUnit gốc.
+function _effectiveUnitPrice(note, priceUnit) {
+    const base = parseFloat(priceUnit) || 0;
+    const d = _parseDiscountedPriceFromNote(note);
+    return d > 0 && d < base ? d : base;
+}
+
 const ApiService = {
     // API mode: 'FIREBASE' (legacy) or 'POSTGRESQL' (new Customer 360°)
     mode: 'POSTGRESQL', // Changed to use PostgreSQL by default
@@ -1002,9 +1031,20 @@ const ApiService = {
                             `[API] Updating line ${line.ProductBarcode}: qty ${line.ProductUOMQty} -> ${productMatch.returnQuantity}`
                         );
                         line.ProductUOMQty = productMatch.returnQuantity;
-                        line.PriceTotal = line.PriceUnit * line.ProductUOMQty;
-                        line.PriceSubTotal = line.PriceTotal;
                     }
+                    // Giảm giá PER-LINE: đọc giá sau giảm từ Note ("350k") để refund order TPOS
+                    // khớp ticket.money → tự cộng ví. Ưu tiên note của ticket (nguồn đã sinh ra
+                    // số tiền hoàn lúc tạo ticket), fallback Note của line refund order TPOS.
+                    const effPrice = _effectiveUnitPrice(
+                        productMatch.note != null ? productMatch.note : line.Note,
+                        line.PriceUnit
+                    );
+                    line.PriceUnit = effPrice;
+                    line.PriceTotal = effPrice * line.ProductUOMQty;
+                    line.PriceSubTotal = line.PriceTotal;
+                    console.log(
+                        `[API] Effective price line ${line.ProductBarcode}: ${effPrice} x ${line.ProductUOMQty} = ${line.PriceTotal}`
+                    );
                     return true;
                 }
                 console.log(
@@ -1107,8 +1147,9 @@ const ApiService = {
                 (sum, line) => sum + line.ProductUOMQty,
                 0
             );
+            // PriceTotal đã = giá sau giảm × qty (set ở vòng lọc trên) → tổng khớp ticket.money.
             const newAmountTotal = filteredOrderLines.reduce(
-                (sum, line) => sum + line.PriceUnit * line.ProductUOMQty,
+                (sum, line) => sum + (line.PriceTotal || 0),
                 0
             );
 
@@ -1698,7 +1739,7 @@ const ApiService = {
                     amount,
                     source_type: options.source_type || 'RETURN_SHIPPER',
                     source_id: options.source_id,
-                    expiry_days: options.expiry_days || 15,
+                    expiry_days: options.expiry_days || 30,
                     note: options.note,
                     created_by: options.created_by || 'system',
                 }),

@@ -490,7 +490,7 @@ router.post('/:id/resolve', async (req, res) => {
                             compensation_amount,
                             ticket.ticket_code,
                             walletNoteForVC,
-                            15,
+                            30,
                             performed_by || null
                         );
                         updates.virtual_credit_amount = compensation_amount;
@@ -965,7 +965,7 @@ router.delete('/:id', async (req, res) => {
 router.post('/:id/resolve-credit', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
-    const { phone, amount, ticket_code, note, expires_in_days = 15, created_by } = req.body;
+    const { phone, amount, ticket_code, note, expires_in_days = 30, created_by } = req.body;
 
     console.log(`[Tickets V2] resolve-credit called: id=${id}, phone=${phone}, amount=${amount}, ticket_code=${ticket_code}`);
     console.log(`[Tickets V2] db available:`, !!db);
