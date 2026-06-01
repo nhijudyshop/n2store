@@ -31,7 +31,10 @@ const TposState = {
     sessionIndexMap: new Map(),
 
     // Partner cache (TTL + LRU via SharedCache)
-    partnerCache: new SharedCache({ maxSize: 200, ttl: 10 * 60 * 1000, name: 'TposPartner' }),
+    // maxSize=2000: live campaign 1 bài có thể có 500-1500+ unique customers, cap 200 cũ
+    // gây LRU evict → row trống SĐT/địa chỉ dù partner đã load (xác nhận 2026-06-01:
+    // bài thật 461 unique users → 200 cap → 261 row mãi mãi trống).
+    partnerCache: new SharedCache({ maxSize: 2000, ttl: 10 * 60 * 1000, name: 'TposPartner' }),
     partnerFetchPromises: new Map(),
 
     // Debt display settings

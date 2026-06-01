@@ -37,6 +37,25 @@
 
 **Status**: ✅ CSS-only, không động JS/data.
 
+### [tpos-pancake] Fix bug không hiện SĐT/địa chỉ KH — bump partnerCache maxSize 200→2000 ✅
+
+**Bug user**: tpos-pancake không hiện SĐT, địa chỉ của KH trên các comment row.
+
+**Root cause** (verified qua browser test với 720 comments / 461 unique users):
+
+- `state.partnerCache = new SharedCache({ maxSize: 200, ... })` — hard cap 200 entries với LRU eviction 20%.
+- `loadPartnerInfoForComments()` fetch tuần tự batch 5 cho TẤT CẢ unique users qua `getPartnerInfo(crmTeamId, userId)` → endpoint `/rest/v2.0/chatomni/info/{crmTeamId}_{userId}`.
+- Live campaign thực tế có 461 users → cache bị evict liên tục → chỉ ~200 entries giữ lại tại 1 thời điểm → renderRow → 461 - 200 = **~261 rows mãi mãi trống** (98% trống ngay sau LRU).
+- Before-fix snapshot: 720 rows, only 12 có phone (1.7%).
+
+**Fix**: bump `maxSize: 200 → 2000` trong `tpos-pancake/js/tpos/tpos-state.js`. Reload + verify cùng campaign: 524/556 = 94% rows có phone, 511/556 = 92% có address (32 rows blank còn lại là KH chưa có Partner record bên TPOS, expected).
+
+**Files**:
+
+- `tpos-pancake/js/tpos/tpos-state.js`: `maxSize: 200 → 2000` + comment giải thích.
+
+**Status**: ✅ Done. Verified với browser test trên live data.
+
 ### [native-orders][render] Khách lạ + nút "Lấy TPOS" — chain lookup FB ID khi đơn từ tpos-pancake rỗng phone ✅
 
 **Yêu cầu user**: (1) Tpos-pancake tạo đơn qua native-orders sao không lấy địa chỉ và sđt của khách bên tpos? (2) Native-orders nếu bên tpos-pancake tạo đơn qua bị rỗng sđt và địa chỉ → lần đầu sẽ lấy từ tpos → nếu không có cột tên sẽ ghi "Khách lạ" kế bên trạng thái khách hàng và có nút "Lấy TPOS" để làm thủ công.
