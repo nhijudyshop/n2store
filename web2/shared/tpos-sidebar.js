@@ -148,17 +148,6 @@
             ],
         },
         {
-            label: 'Kênh bán',
-            icon: 'layers',
-            children: [
-                {
-                    label: 'Danh sách kênh',
-                    tpos: '#/app/salechannel/list',
-                    our: '../web2/sales-channel/index.html',
-                },
-            ],
-        },
-        {
             label: 'Mua hàng',
             icon: 'shopping-cart',
             children: [
@@ -181,71 +170,9 @@
             ],
         },
         {
-            label: 'Kho hàng',
-            icon: 'box',
-            children: [
-                {
-                    label: 'Tất cả hoạt động',
-                    tpos: '#/app/stockpickingtype/overview',
-                    our: '../web2/stock-picking-type/index.html',
-                },
-                { label: 'Vị trí kho', our: '../web2/stock-location/index.html' },
-                {
-                    label: 'Điều chỉnh tồn kho',
-                    tpos: '#/app/stockinventory/list',
-                    our: '../web2/stock-inventory/index.html',
-                },
-                {
-                    label: 'Dịch chuyển kho',
-                    tpos: '#/app/stockmove/list',
-                    our: '../web2/stock-move/index.html',
-                },
-                {
-                    label: 'Cấu hình SP kho',
-                    tpos: '#/app/stockwarehouseproduct/form',
-                    our: '../web2/stock-warehouse-product/index.html',
-                },
-                {
-                    label: 'Điều chỉnh giá vốn',
-                    tpos: '#/app/stockmove/fifovacuum',
-                    our: '../web2/stock-fifo-vacuum/index.html',
-                },
-            ],
-        },
-        {
             label: 'Tài chính',
             icon: 'dollar-sign',
             children: [
-                {
-                    label: 'Thanh toán bán hàng',
-                    tpos: '#/app/accountpayment/list',
-                    our: '../web2/account-payment-list/index.html',
-                },
-                {
-                    label: 'Tiền thối POS',
-                    tpos: '#/app/accountpayment/changelist',
-                    our: '../web2/account-payment-change/index.html',
-                },
-                {
-                    label: 'Điều chỉnh công nợ',
-                    tpos: '#/app/accountinventory/list',
-                    our: '../web2/account-inventory/index.html',
-                },
-                {
-                    label: 'Ký quỹ',
-                    tpos: '#/app/accountdeposit/list',
-                    our: '../web2/account-deposit/index.html',
-                },
-                {
-                    label: 'Phiếu thu',
-                    tpos: '#/app/accountpayment/thulist',
-                    our: '../web2/account-payment-thu/index.html',
-                },
-                {
-                    label: 'Phiếu chi',
-                    tpos: '#/app/accountpayment/chilist',
-                    our: '../web2/account-payment-chi/index.html',
-                },
                 {
                     label: 'Lịch sử biến động số dư (SePay)',
                     our: '../web2/balance-history/index.html',
@@ -278,94 +205,6 @@
                     tpos: '#/app/productcategory/list',
                     our: '../web2/product-category/index.html',
                 },
-                {
-                    label: 'In mã vạch',
-                    tpos: '#/app/barcodeproductlabel/printbarcode',
-                    our: '../web2/barcode-product-label/index.html',
-                },
-                {
-                    label: 'Thuộc tính',
-                    tpos: '#/app/productattribute/list',
-                    our: '../web2/product-attribute/index.html',
-                },
-                {
-                    label: 'Giá trị thuộc tính',
-                    tpos: '#/app/productattributevalue/list',
-                    our: '../web2/product-attribute-value/index.html',
-                },
-                {
-                    label: 'Nhóm đơn vị tính',
-                    tpos: '#/app/productuomcateg/list',
-                    our: '../web2/product-uom-categ/index.html',
-                },
-                {
-                    label: 'Đơn vị tính',
-                    tpos: '#/app/productuom/list',
-                    our: '../web2/product-uom/index.html',
-                },
-                {
-                    label: 'Danh mục khác',
-                    tpos: '#/app/category_ext/distributor/list',
-                    our: '../web2/category-distributor/index.html',
-                },
-            ],
-        },
-        {
-            label: 'Khuyến mãi',
-            icon: 'gift',
-            children: [
-                {
-                    label: 'Chương trình khuyến mãi',
-                    tpos: '#/app/promotionprogram/list',
-                    our: '../web2/promotion-program/index.html',
-                },
-                {
-                    label: 'Coupon',
-                    tpos: '#/app/couponprogram/list',
-                    our: '../web2/coupon-program/index.html',
-                },
-                {
-                    label: 'Tích điểm',
-                    tpos: '#/app/loyaltyprogram/list',
-                    our: '../web2/loyalty-program/index.html',
-                },
-                {
-                    label: 'Ưu đãi',
-                    tpos: '#/app/offerprogram/list',
-                    our: '../web2/offer-program/index.html',
-                },
-            ],
-        },
-        {
-            label: 'Kế toán',
-            icon: 'book',
-            children: [
-                {
-                    label: 'Loại thu',
-                    tpos: '#/app/accountaccount/thulist',
-                    our: '../web2/account-thu/index.html',
-                },
-                {
-                    label: 'Loại chi',
-                    tpos: '#/app/accountaccount/chilist',
-                    our: '../web2/account-chi/index.html',
-                },
-                {
-                    label: 'Tài khoản kế toán',
-                    tpos: '#/app/accountaccount/list',
-                    our: '../web2/account-list/index.html',
-                },
-                {
-                    label: 'Sổ nhật ký',
-                    tpos: '#/app/accountjournal/list',
-                    our: '../web2/account-journal/index.html',
-                },
-                { label: 'Nhãn', tpos: '#/app/tag/list', our: '../web2/tag/index.html' },
-                {
-                    label: 'Tác vụ xuất',
-                    tpos: '#/app/exportfile/list',
-                    our: '../web2/export-file/index.html',
-                },
             ],
         },
         {
@@ -373,94 +212,14 @@
             icon: 'bar-chart-3',
             children: [
                 {
-                    label: 'Giá trị tồn kho',
-                    tpos: '#/app/product/inventoryvaluation',
-                    our: '../web2/inventory-valuation/index.html',
-                },
-                {
-                    label: 'Nhập-Xuất-Tồn',
-                    tpos: '#/app/stockreport/xuatnhapton',
-                    our: '../web2/xuat-nhap-ton/index.html',
-                },
-                {
-                    label: 'Thống kê nhập kho',
-                    tpos: '#/app/report/reportImported',
-                    our: '../web2/report-imported/index.html',
-                },
-                {
-                    label: 'Thống kê xuất kho',
-                    tpos: '#/app/report/reportExported',
-                    our: '../web2/report-exported/index.html',
-                },
-                {
-                    label: 'Thống kê hóa đơn',
-                    tpos: '#/app/report/reportOrder/index',
-                    our: '../web2/report-order/index.html',
-                },
-                {
-                    label: 'Thống kê trả hàng',
-                    tpos: '#/app/report/reportRefund/index',
-                    our: '../web2/report-refund/index.html',
-                },
-                {
-                    label: 'Thống kê mua hàng',
-                    tpos: '#/app/report/reportPurchase/index',
-                    our: '../web2/report-purchase/index.html',
-                },
-                {
                     label: 'Thống kê doanh thu',
                     tpos: '#/app/report/reportRevenue/index',
                     our: '../web2/report-revenue/index.html',
                 },
                 {
-                    label: 'Kết quả kinh doanh',
-                    tpos: '#/app/report/businessResults/index',
-                    our: '../web2/report-business-results/index.html',
-                },
-                {
                     label: 'Thống kê giao hàng',
                     tpos: '#/app/fastsaleorder/deliveryreport/index',
                     our: '../web2/report-delivery/index.html',
-                },
-                {
-                    label: 'Công nợ NCC',
-                    tpos: '#/app/report/supplierDept/index',
-                    our: '../web2/report-supplier-debt/index.html',
-                },
-                {
-                    label: 'Công nợ KH',
-                    tpos: '#/app/report/customerDept/index',
-                    our: '../web2/report-customer-debt/index.html',
-                },
-                {
-                    label: 'KH chưa phát sinh HĐ',
-                    tpos: '#/app/report/accountnotinvoice',
-                    our: '../web2/report-not-invoice/index.html',
-                },
-                {
-                    label: 'Audit log PBH',
-                    tpos: '#/app/report/auditlogfastsaleorder',
-                    our: '../web2/report-audit-fastsale/index.html',
-                },
-                {
-                    label: 'Nguồn tạo KH',
-                    tpos: '#/app/report/partnerCreate',
-                    our: '../web2/report-partner-create/index.html',
-                },
-                {
-                    label: 'Sổ tiền mặt',
-                    tpos: '#/app/accountcashprintjournal/report',
-                    our: '../web2/report-cash-journal/index.html',
-                },
-                {
-                    label: 'Tỷ lệ lên đơn SO',
-                    tpos: '#/app/report/rateinvoicefromsaleonline',
-                    our: '../web2/report-rate-saleonline/index.html',
-                },
-                {
-                    label: 'SP HĐ nháp/xác nhận',
-                    tpos: '#/app/report/productinvoice',
-                    our: '../web2/report-product-invoice/index.html',
                 },
             ],
         },
@@ -469,64 +228,8 @@
             icon: 'settings',
             children: [
                 {
-                    label: 'Cấu hình',
-                    tpos: '#/app/configs/general/index',
-                    our: '../web2/configs-general/index.html',
-                },
-                { label: 'Công ty', tpos: '#/app/company/list', our: '../web2/company/index.html' },
-                {
-                    label: 'Máy in',
-                    tpos: '#/app/configs/printer/config',
-                    our: '../web2/configs-printer/index.html',
-                },
-                {
-                    label: 'Giấy in mã vạch',
-                    tpos: '#/app/productlabelpaper/list',
-                    our: '../web2/product-label-paper/index.html',
-                },
-                {
                     label: 'Người dùng (Web 2.0)',
                     our: '../web2/users/index.html',
-                },
-                {
-                    label: 'Người dùng (TPOS-clone)',
-                    tpos: '#/app/applicationuser/list',
-                    our: '../web2/application-user/index.html',
-                },
-                {
-                    label: 'Phân quyền',
-                    tpos: '#/app/configs/roles',
-                    our: '../web2/configs-roles/index.html',
-                },
-                {
-                    label: 'Xác thực 2FA',
-                    tpos: '#/app/configs/twofa',
-                    our: '../web2/configs-twofa/index.html',
-                },
-                {
-                    label: 'Đơn vị tiền tệ',
-                    tpos: '#/app/rescurrency/list',
-                    our: '../web2/res-currency/index.html',
-                },
-                {
-                    label: 'Cấu hình Mail',
-                    tpos: '#/app/irmailserver/list',
-                    our: '../web2/ir-mailserver/index.html',
-                },
-                {
-                    label: 'Mail template',
-                    tpos: '#/app/mailtemplate/list',
-                    our: '../web2/mail-template/index.html',
-                },
-                {
-                    label: 'Nâng cao',
-                    tpos: '#/app/configs/advanced',
-                    our: '../web2/configs-advanced/index.html',
-                },
-                {
-                    label: 'Tích hợp',
-                    tpos: '#/app/callcenter/config',
-                    our: '../web2/callcenter-config/index.html',
                 },
                 {
                     label: 'Pancake (Token)',
