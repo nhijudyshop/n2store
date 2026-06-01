@@ -446,6 +446,294 @@
         else console.log(`[${type}]`, msg);
     }
 
+    // ====================================================================
+    // Customer side-panel — slide-in từ phải viewport. Hover avatar 500ms
+    // → fetch + slide-in. Mouse rời avatar VÀ panel → 250ms delay → ẩn.
+    // KHÔNG overlap row content (panel ở right edge, fixed position).
+    // 3-source data: Pancake conversation + customers table + TPOS Partner live.
+    // ====================================================================
+    const _custPanelCache = new Map(); // fbUserId → { data, ts }
+    const _CUST_PANEL_TTL = 15 * 60 * 1000;
+    let _custPanelEl = null;
+    let _custPanelShowTimer = null;
+    let _custPanelHideTimer = null;
+    let _custPanelAbort = null;
+    let _custPanelToken = 0;
+    let _custPanelActiveFbId = null;
+
+    function _ensureCustPanelEl() {
+        if (_custPanelEl) return _custPanelEl;
+        const el = document.createElement('aside');
+        el.id = 'nativeCustSidePanel';
+        el.className = 'native-cust-panel';
+        el.setAttribute('aria-hidden', 'true');
+        // Hover panel → keep visible
+        el.addEventListener('mouseenter', () => {
+            clearTimeout(_custPanelHideTimer);
+        });
+        el.addEventListener('mouseleave', () => {
+            _scheduleCustPanelHide(250);
+        });
+        document.body.appendChild(el);
+        _custPanelEl = el;
+        return el;
+    }
+
+    function _showCustPanel() {
+        const el = _ensureCustPanelEl();
+        el.classList.add('is-open');
+        el.setAttribute('aria-hidden', 'false');
+    }
+
+    function _hideCustPanel() {
+        if (!_custPanelEl) return;
+        _custPanelEl.classList.remove('is-open');
+        _custPanelEl.setAttribute('aria-hidden', 'true');
+        _custPanelActiveFbId = null;
+    }
+
+    function _scheduleCustPanelHide(delay = 250) {
+        clearTimeout(_custPanelHideTimer);
+        _custPanelHideTimer = setTimeout(_hideCustPanel, delay);
+    }
+
+    function _renderCustPanelContent({ loading, data, error, fallback }) {
+        const el = _ensureCustPanelEl();
+        if (loading) {
+            el.innerHTML = `
+                <header class="ncp-head">
+                    <div class="ncp-skeleton-avatar"></div>
+                    <div style="flex:1;">
+                        <div class="ncp-skeleton-line" style="width:60%;"></div>
+                        <div class="ncp-skeleton-line" style="width:40%;margin-top:6px;height:10px;"></div>
+                    </div>
+                    <button class="ncp-close" type="button" aria-label="Đóng">×</button>
+                </header>
+                <div class="ncp-body">
+                    <div class="ncp-skeleton-block"></div>
+                    <div class="ncp-skeleton-block" style="margin-top:8px;height:60px;"></div>
+                </div>
+            `;
+            el.querySelector('.ncp-close')?.addEventListener('click', _hideCustPanel);
+            return;
+        }
+        if (error) {
+            el.innerHTML = `
+                <header class="ncp-head">
+                    <div style="flex:1;font-weight:600;color:#dc2626;">Lỗi tải dữ liệu</div>
+                    <button class="ncp-close" type="button" aria-label="Đóng">×</button>
+                </header>
+                <div class="ncp-body">
+                    <div style="color:#dc2626;font-size:13px;">${escapeHtml(error)}</div>
+                    <div style="margin-top:10px;color:#6b7280;font-size:12.5px;">${escapeHtml(fallback?.name || '—')} · ${escapeHtml(fallback?.phone || '')}</div>
+                </div>
+            `;
+            el.querySelector('.ncp-close')?.addEventListener('click', _hideCustPanel);
+            return;
+        }
+        const d = data || {};
+        const name = d.name || fallback?.name || '—';
+        const phone = d.phone || fallback?.phone || '';
+        const avatar = d.avatar || null;
+        const tags = Array.isArray(d.tags) ? d.tags : [];
+        const tposAddress = d.tposAddress;
+        const tposStatus = d.tposStatus;
+        const tposTotalSpent = d.tposTotalSpent != null ? Number(d.tposTotalSpent) : null;
+        const tposReturned = d.tposReturnedOrders;
+        const messageCount = d.message_count ?? null;
+        const orderCount = d.order_count ?? null;
+        const successOrders = d.success_order_count ?? null;
+        const lastInteraction = d.last_interaction_at;
+        const lastSent = d.last_sent_by?.name || null;
+        const note = d.note;
+        const formatTime = (t) => {
+            if (!t) return '';
+            const dt = new Date(t);
+            return Number.isFinite(dt.getTime()) ? dt.toLocaleString('vi-VN') : '';
+        };
+        const initial = (name || '?').charAt(0).toUpperCase();
+        el.innerHTML = `
+            <header class="ncp-head">
+                ${avatar ? `<img class="ncp-avatar" src="${escapeHtml(avatar)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'ncp-avatar ncp-avatar-fallback',textContent:'${escapeHtml(initial)}'}))">` : `<div class="ncp-avatar ncp-avatar-fallback">${escapeHtml(initial)}</div>`}
+                <div style="flex:1;min-width:0;">
+                    <div class="ncp-name">${escapeHtml(name)}</div>
+                    ${phone ? `<div class="ncp-phone">📞 ${escapeHtml(phone)}</div>` : ''}
+                    ${tposStatus && tposStatus !== 'Bình thường' ? `<div style="margin-top:4px;"><span class="ncp-status-bad">${escapeHtml(tposStatus)}</span></div>` : ''}
+                </div>
+                <button class="ncp-close" type="button" aria-label="Đóng">×</button>
+            </header>
+            <div class="ncp-body">
+                ${
+                    tposAddress
+                        ? `<section class="ncp-section">
+                    <div class="ncp-section-label">📍 Địa chỉ (TPOS)</div>
+                    <div class="ncp-section-value">${escapeHtml(tposAddress)}</div>
+                </section>`
+                        : ''
+                }
+                ${
+                    tags.length
+                        ? `<section class="ncp-section">
+                    <div class="ncp-section-label">🏷️ Tags</div>
+                    <div class="ncp-tags">${tags
+                        .slice(0, 10)
+                        .map(
+                            (t) =>
+                                `<span class="ncp-tag">${escapeHtml(t.text || t.name || t)}</span>`
+                        )
+                        .join('')}</div>
+                </section>`
+                        : ''
+                }
+                <section class="ncp-section">
+                    <div class="ncp-section-label">📊 Hoạt động</div>
+                    <div class="ncp-stats">
+                        ${messageCount !== null ? `<div class="ncp-stat"><span class="ncp-stat-num">${messageCount}</span><span class="ncp-stat-lbl">tin nhắn</span></div>` : ''}
+                        ${orderCount !== null ? `<div class="ncp-stat"><span class="ncp-stat-num">${orderCount}</span><span class="ncp-stat-lbl">đơn (Pancake)</span></div>` : ''}
+                        ${successOrders !== null ? `<div class="ncp-stat"><span class="ncp-stat-num" style="color:#16a34a;">${successOrders}</span><span class="ncp-stat-lbl">chốt thành công</span></div>` : ''}
+                        ${tposReturned != null && tposReturned > 0 ? `<div class="ncp-stat"><span class="ncp-stat-num" style="color:#dc2626;">${tposReturned}</span><span class="ncp-stat-lbl">đơn trả</span></div>` : ''}
+                    </div>
+                    ${tposTotalSpent && tposTotalSpent > 0 ? `<div style="margin-top:8px;padding:6px 8px;background:#f0fdf4;border-radius:5px;color:#166534;font-size:12.5px;">💰 Tổng đã chi: <strong>${tposTotalSpent.toLocaleString('vi-VN')}đ</strong></div>` : ''}
+                </section>
+                ${
+                    lastInteraction
+                        ? `<section class="ncp-section">
+                    <div class="ncp-section-label">⏱️ Tương tác cuối</div>
+                    <div class="ncp-section-value">${escapeHtml(formatTime(lastInteraction))}${lastSent ? ` <span style="color:#9ca3af;">· NV: ${escapeHtml(lastSent)}</span>` : ''}</div>
+                </section>`
+                        : ''
+                }
+                ${
+                    note
+                        ? `<section class="ncp-section ncp-section-note">
+                    <div class="ncp-section-label">📝 Ghi chú Pancake</div>
+                    <div class="ncp-section-value">${escapeHtml(note)}</div>
+                </section>`
+                        : ''
+                }
+                <footer class="ncp-foot">
+                    Nguồn: Pancake (live) + TPOS Partner (địa chỉ live) + Customer 360 (lịch sử)
+                </footer>
+            </div>
+        `;
+        el.querySelector('.ncp-close')?.addEventListener('click', _hideCustPanel);
+    }
+
+    async function _fetchCustomerPanelData(fbUserId, fbPageId, phone, token) {
+        const cached = _custPanelCache.get(fbUserId);
+        if (cached && Date.now() - cached.ts < _CUST_PANEL_TTL) return cached.data;
+        if (_custPanelAbort) {
+            try {
+                _custPanelAbort.abort();
+            } catch {}
+        }
+        _custPanelAbort = new AbortController();
+        const signal = _custPanelAbort.signal;
+        try {
+            const pancakeUrl = `${WORKER_URL}/api/pancake/conversations?pages[${encodeURIComponent(fbPageId)}]=0&from_psid=${encodeURIComponent(fbUserId)}&limit=1&mode=OR&unread_first=false`;
+            const customerUrl = phone
+                ? `${WORKER_URL}/api/v2/customers?search=${encodeURIComponent(phone)}&limit=1`
+                : null;
+            const tposLiveUrl = phone
+                ? `${WORKER_URL}/api/web2/customer-tpos/${encodeURIComponent(phone)}`
+                : null;
+            const [pancakeD, customerD, tposLiveD] = await Promise.all([
+                fetch(pancakeUrl, { credentials: 'include', signal })
+                    .then((r) => r.json())
+                    .catch(() => null),
+                customerUrl
+                    ? fetch(customerUrl, { credentials: 'include', signal })
+                          .then((r) => r.json())
+                          .catch(() => null)
+                    : Promise.resolve(null),
+                tposLiveUrl
+                    ? fetch(tposLiveUrl, { credentials: 'include', signal })
+                          .then((r) => r.json())
+                          .catch(() => null)
+                    : Promise.resolve(null),
+            ]);
+            if (token !== _custPanelToken) return null;
+            const conv = (pancakeD?.conversations || [])[0] || null;
+            const tposCust = (customerD?.customers || customerD?.data || [])[0] || null;
+            const tposLive = tposLiveD?.customer || null;
+            const cust = conv ? (conv.customers || [])[0] || conv.from || {} : {};
+            const enriched = {
+                name: tposLive?.name || cust.name || conv?.from?.name || tposCust?.name,
+                phone:
+                    conv?.recent_phone_numbers?.[0]?.phone_number ||
+                    tposLive?.phone ||
+                    tposCust?.phone ||
+                    phone,
+                avatar: cust.avatar_url || cust.avatar,
+                tags: conv?.tags || [],
+                last_interaction_at: conv?.last_customer_interactive_at || conv?.updated_at,
+                message_count: conv?.message_count,
+                last_sent_by: conv?.last_sent_by,
+                success_order_count: cust.success_order_count,
+                order_count: cust.order_count,
+                note: conv?.extra_info?.note,
+                tposAddress: tposLive?.address || tposCust?.address,
+                tposCustomerId: tposLive?.id || tposCust?.id,
+                tposStatus: tposLive?.status || tposCust?.status,
+                tposReturnedOrders: tposCust?.returned_orders,
+                tposTotalSpent: tposCust?.total_spent,
+            };
+            _custPanelCache.set(fbUserId, { data: enriched, ts: Date.now() });
+            return enriched;
+        } catch (e) {
+            if (e.name === 'AbortError') return null;
+            throw e;
+        }
+    }
+
+    function _onCustAvatarEnter(target) {
+        const fbUserId = target.dataset.fbUserId;
+        const fbPageId = target.dataset.fbPageId;
+        const fallback = {
+            name: target.dataset.customerName,
+            phone: target.dataset.customerPhone,
+        };
+        if (!fbUserId) return;
+        clearTimeout(_custPanelHideTimer);
+        // Nếu panel đang mở với CÙNG KH → no-op
+        if (_custPanelActiveFbId === fbUserId && _custPanelEl?.classList.contains('is-open')) {
+            return;
+        }
+        clearTimeout(_custPanelShowTimer);
+        // 500ms hover delay — buộc user phải có intent rõ ràng
+        _custPanelShowTimer = setTimeout(async () => {
+            const token = ++_custPanelToken;
+            _custPanelActiveFbId = fbUserId;
+            _showCustPanel();
+            const cached = _custPanelCache.get(fbUserId);
+            if (cached && Date.now() - cached.ts < _CUST_PANEL_TTL) {
+                _renderCustPanelContent({ data: cached.data, fallback });
+                return;
+            }
+            _renderCustPanelContent({ loading: true });
+            try {
+                const data = await _fetchCustomerPanelData(
+                    fbUserId,
+                    fbPageId,
+                    fallback.phone,
+                    token
+                );
+                if (token !== _custPanelToken) return;
+                _renderCustPanelContent({ data, fallback });
+            } catch (e) {
+                if (token !== _custPanelToken) return;
+                _renderCustPanelContent({ error: e.message, fallback });
+            }
+        }, 500);
+    }
+
+    function _onCustAvatarLeave() {
+        clearTimeout(_custPanelShowTimer);
+        // 250ms grace period — cho user di chuột vào panel.
+        // Mouseenter trên panel → cancel timer (panel listener handle).
+        _scheduleCustPanelHide(250);
+    }
+
     // Hiển thị modal hướng dẫn user đăng nhập Facebook (business.facebook.com)
     // liên kết với Pancake — gọi khi gửi tin nhắn lỗi 24h hoặc extension chưa
     // ready. Một lần per page-load (flag tránh spam).
@@ -749,7 +1037,13 @@
                     </td>
                     <td class="col-customer">
                         <div class="cust-with-avatar">
-                            <div class="tpos-customer-avatar-wrap">
+                            <div class="tpos-customer-avatar-wrap"
+                                 data-fb-user-id="${escapeHtml(o.fbUserId || '')}"
+                                 data-fb-page-id="${escapeHtml(o.fbPageId || '')}"
+                                 data-customer-name="${escapeHtml(o.customerName || '')}"
+                                 data-customer-phone="${escapeHtml(o.phone || '')}"
+                                 onmouseenter="NativeOrdersApp.onCustAvatarEnter(this)"
+                                 onmouseleave="NativeOrdersApp.onCustAvatarLeave(this)">
                                 ${renderAvatar(o)}
                             </div>
                             <div class="tpos-customer-cell" style="flex:1;min-width:0;">
@@ -7015,6 +7309,9 @@
         removeLine,
         // Livestream snapshot per-line — click thumbnail mở lightbox
         openSnapLightbox,
+        // Customer side-panel (slide-in từ phải khi hover avatar 500ms)
+        onCustAvatarEnter: _onCustAvatarEnter,
+        onCustAvatarLeave: _onCustAvatarLeave,
         // Debug surface — inspect realtime + chat state from devtools.
         // Verify realtime is WS-driven (not polling): open chat then run
         // `NativeOrdersApp._debug.injectFakeMessage('hello')` — bubble
