@@ -805,8 +805,7 @@ body {
     overflow: hidden;
 }
 
-/* Native-orders Tên column: avatar (trái) + name (phải).
- * Hover avatar → popover Pancake customer detail. */
+/* Native-orders Tên column: avatar (trái) + name (phải). */
 .cust-with-avatar {
     display: flex;
     align-items: center;
@@ -815,9 +814,7 @@ body {
 }
 .cust-with-avatar .tpos-customer-avatar-wrap {
     flex-shrink: 0;
-    cursor: pointer;
 }
-/* Bỏ scale hover (gây che popover) — popover đã có avatar lớn trong header. */
 .cust-with-avatar .tpos-customer-cell {
     flex: 1;
     min-width: 0;
