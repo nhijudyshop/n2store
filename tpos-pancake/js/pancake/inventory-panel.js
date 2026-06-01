@@ -248,21 +248,44 @@
     // Pancake conv rows KHÔNG nhận drop (user explicit request).
     // ─────────────────────────────────────────────────────────
     function attachDropTargets() {
+        // Anti-lag: dragover fires ~60×/s while dragging. Skip redundant work
+        // khi hover stay trên cùng row (chỉ touch DOM khi đổi row).
+        let _lastHoverRow = null;
         document.addEventListener('dragover', (e) => {
             const row = e.target.closest('.tpos-conversation-item');
-            if (!row) return;
+            if (!row) {
+                if (_lastHoverRow) {
+                    _lastHoverRow.classList.remove('inv-drop-hover');
+                    _lastHoverRow = null;
+                }
+                return;
+            }
             e.preventDefault();
             e.dataTransfer.dropEffect = 'copy';
-            row.classList.add('inv-drop-hover');
+            if (_lastHoverRow !== row) {
+                if (_lastHoverRow) _lastHoverRow.classList.remove('inv-drop-hover');
+                row.classList.add('inv-drop-hover');
+                _lastHoverRow = row;
+            }
         });
         document.addEventListener('dragleave', (e) => {
             const row = e.target.closest('.tpos-conversation-item');
-            if (row) row.classList.remove('inv-drop-hover');
+            if (row && row === _lastHoverRow && !row.contains(e.relatedTarget)) {
+                row.classList.remove('inv-drop-hover');
+                _lastHoverRow = null;
+            }
+        });
+        document.addEventListener('dragend', () => {
+            if (_lastHoverRow) {
+                _lastHoverRow.classList.remove('inv-drop-hover');
+                _lastHoverRow = null;
+            }
         });
         document.addEventListener('drop', async (e) => {
             const row = e.target.closest('.tpos-conversation-item');
             if (!row) return;
             row.classList.remove('inv-drop-hover');
+            if (_lastHoverRow === row) _lastHoverRow = null;
             e.preventDefault();
             const json = e.dataTransfer.getData('application/x-web2-product');
             if (!json) return;
@@ -282,20 +305,37 @@
         });
     }
 
+    // Anti-lag cache: O(1) lookup commentId → comment thay vì find() O(N).
+    // Rebuild khi TposState.comments thay đổi (track qua length + first/last id).
+    const _cmtIndex = { sig: null, map: null };
+    function _getCmtMap() {
+        const st = global.TposState;
+        const comments = st && Array.isArray(st.comments) ? st.comments : [];
+        const sig = comments.length
+            ? `${comments.length}:${comments[0]?.id || ''}:${comments[comments.length - 1]?.id || ''}`
+            : '0';
+        if (_cmtIndex.sig === sig && _cmtIndex.map) return _cmtIndex.map;
+        const m = new Map();
+        for (const c of comments) {
+            if (c?.id) m.set(c.id, c);
+        }
+        _cmtIndex.sig = sig;
+        _cmtIndex.map = m;
+        return m;
+    }
+
     function _resolveTposCustomer(commentId, row) {
         const cust = { id: null, name: null, phone: null };
         try {
-            const st = global.TposState;
-            if (st && Array.isArray(st.comments)) {
-                const c = st.comments.find((x) => x.id === commentId);
-                if (c) {
-                    cust.id = c.from?.id || null;
-                    cust.name =
-                        c.from?.name ||
-                        row.querySelector('.tpos-conv-name, .from-name')?.textContent?.trim() ||
-                        null;
-                    cust.phone = c.phone || c.customer_phone || null;
-                }
+            const map = _getCmtMap();
+            const c = map.get(commentId);
+            if (c) {
+                cust.id = c.from?.id || null;
+                cust.name =
+                    c.from?.name ||
+                    row?.querySelector?.('.tpos-conv-name, .from-name')?.textContent?.trim() ||
+                    null;
+                cust.phone = c.phone || c.customer_phone || null;
             }
         } catch {}
         return cust;
@@ -360,7 +400,7 @@
             items: prev.items + 1,
             qty: prev.qty + 1,
         };
-        renderBadges();
+        _renderBadgeFor(commentId);
 
         // Resolve FB context để backend tạo native_order nếu chưa có (lần drag đầu cho KH).
         const realCommentId = commentIdMeta || commentId;
@@ -401,6 +441,17 @@
             const d = await r.json();
             if (!d.success) throw new Error(d.error || 'unknown');
 
+            // Anti-lag: use authoritative qty từ response thay vì gọi thêm 1
+            // GET /batch/counts (cắt 1 network roundtrip). SSE web2:cart sẽ
+            // catch-up nếu có drift (debounced 200ms).
+            if (Number.isFinite(d.qty)) {
+                STATE.cartCounts[commentId] = {
+                    items: STATE.cartCounts[commentId]?.items || 1,
+                    qty: d.qty,
+                };
+                _renderBadgeFor(commentId);
+            }
+
             // Show toast với Undo (5s) — undo = POST /remove → backend xóa khỏi
             // products array (DELETE đơn nếu products rỗng).
             _showUndoToast({
@@ -412,12 +463,10 @@
                     _showToast('↶ Đã hoàn tác', 'ok');
                 },
             });
-            // Sync server real state
-            refreshCartCounts([commentId]);
         } catch (e) {
             // Rollback optimistic
             STATE.cartCounts[commentId] = prev;
-            renderBadges();
+            _renderBadgeFor(commentId);
             _showToast(`✗ Lỗi: ${e.message}`, 'err');
         }
     }
@@ -430,7 +479,7 @@
         const newItems = Math.max(0, prev.items - 1);
         STATE.cartCounts[commentId] =
             newQty > 0 ? { items: newItems, qty: newQty } : { items: 0, qty: 0 };
-        renderBadges();
+        _renderBadgeFor(commentId);
         // Re-render popover nếu đang mở
         const openPop = document.querySelector(
             `.inv-cart-popover[data-cmt="${CSS.escape(commentId)}"]`
@@ -461,12 +510,12 @@
                     }),
                 }
             );
-            // Sync hard
-            refreshCartCounts([commentId]);
+            // Anti-lag: bỏ refreshCartCounts ngay sau remove — SSE web2:cart
+            // (debounced 200ms) sẽ catch-up; optimistic update đã accurate.
             if (!opts.silent) _showToast(`Đã xóa "${productCode}"`, 'ok');
         } catch (e) {
             STATE.cartCounts[commentId] = prev; // rollback
-            renderBadges();
+            _renderBadgeFor(commentId);
             _showToast(`✗ Lỗi xóa: ${e.message}`, 'err');
         }
     }
@@ -476,7 +525,7 @@
         // Optimistic
         const prev = STATE.cartCounts[commentId];
         STATE.cartCounts[commentId] = { items: 0, qty: 0 };
-        renderBadges();
+        _renderBadgeFor(commentId);
         const openPop = document.querySelector(
             `.inv-cart-popover[data-cmt="${CSS.escape(commentId)}"]`
         );
@@ -492,10 +541,10 @@
             const d = await r.json();
             if (!d.success) throw new Error(d.error || 'clear failed');
             _showToast(`✓ Đã xóa đơn (${d.removed} SP)`, 'ok');
-            refreshCartCounts([commentId]);
+            // Anti-lag: bỏ refreshCartCounts — SSE web2:cart sẽ catch-up.
         } catch (e) {
             STATE.cartCounts[commentId] = prev;
-            renderBadges();
+            _renderBadgeFor(commentId);
             _showToast(`✗ Lỗi xóa đơn: ${e.message}`, 'err');
         }
     }
@@ -542,37 +591,63 @@
     // Mark TPOS comment rows = drop target. Tất cả TPOS rows đều mặc định
     // được drop (TPOS chỉ show comment đã link session/order).
     function _markHasOrderRows() {
-        document.querySelectorAll('.tpos-conversation-item').forEach((row) => {
+        // Anti-lag: skip nếu row đã được mark (idempotent + tránh attribute
+        // mutation writes spam khi MutationObserver fire dồn dập).
+        document.querySelectorAll('.tpos-conversation-item:not(.inv-has-order)').forEach((row) => {
             row.classList.add('inv-has-order');
             row.dataset.orderReason = 'tpos-comment';
         });
     }
 
+    // Build/update badge cho 1 row (anti-lag: dùng khi optimistic update sau
+    // drop thay vì renderBadges toàn list). Cũng dùng nội bộ trong renderBadges.
+    function _renderBadgeForRow(row, cmtMap) {
+        const commentId = row.dataset.commentId;
+        if (!commentId) return;
+        const c = (cmtMap || _getCmtMap()).get(commentId);
+        const cid = c?.from?.id || commentId;
+        const cnt = STATE.cartCounts[cid];
+        let badge = row.querySelector('.inv-cart-badge');
+        if (cnt && cnt.qty > 0) {
+            if (!badge) {
+                badge = document.createElement('button');
+                badge.className = 'inv-cart-badge';
+                badge.title = 'Click xem giỏ';
+                badge.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    togglePopover(cid, row);
+                });
+                const slot = row.querySelector('.tpos-conv-header-info') || row;
+                slot.appendChild(badge);
+            }
+            badge.textContent = '🛒 ' + cnt.qty;
+        } else if (badge) {
+            badge.remove();
+        }
+    }
+
+    // Update badge cho all rows thuộc 1 customer (anti-lag optimistic). Khách
+    // có thể có N comments → cần render badge cho tất cả row cùng customerId.
+    function _renderBadgeFor(customerOrCommentId) {
+        const cmtMap = _getCmtMap();
+        const rows = document.querySelectorAll('.tpos-conversation-item');
+        for (const row of rows) {
+            const cid = row.dataset.commentId;
+            if (!cid) continue;
+            const c = cmtMap.get(cid);
+            const matchId = c?.from?.id || cid;
+            if (matchId === customerOrCommentId) {
+                _renderBadgeForRow(row, cmtMap);
+            }
+        }
+    }
+
     function renderBadges() {
         // Badge resolve theo CUSTOMER (fbUserId). 1 khách có N comments → mọi row hiện badge.
+        // Build cmt map 1 lần thay vì N lần (O(N) thay vì O(N²)).
+        const cmtMap = _getCmtMap();
         document.querySelectorAll('.tpos-conversation-item').forEach((row) => {
-            const commentId = row.dataset.commentId;
-            if (!commentId) return;
-            const customer = _resolveTposCustomer(commentId, row);
-            const cid = customer.id || commentId; // fallback
-            const cnt = STATE.cartCounts[cid];
-            let badge = row.querySelector('.inv-cart-badge');
-            if (cnt && cnt.qty > 0) {
-                if (!badge) {
-                    badge = document.createElement('button');
-                    badge.className = 'inv-cart-badge';
-                    badge.title = 'Click xem giỏ';
-                    badge.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        togglePopover(cid, row);
-                    });
-                    const slot = row.querySelector('.tpos-conv-header-info') || row;
-                    slot.appendChild(badge);
-                }
-                badge.textContent = '🛒 ' + cnt.qty;
-            } else if (badge) {
-                badge.remove();
-            }
+            _renderBadgeForRow(row, cmtMap);
         });
     }
 
@@ -806,17 +881,26 @@
     // ─────────────────────────────────────────────────────────
     function _subscribeSSE() {
         if (!global.Web2SSE?.subscribe) return;
+        // Anti-lag: debounce 200ms + gom commentIds qua Set. Burst events từ
+        // backend (vd drop + native-orders update fire cùng lúc) → 1 refresh.
         global.Web2SSE.subscribe('web2:cart', (msg) => {
             const cid = msg?.data?.commentId;
-            if (cid) refreshCartCounts([cid]);
-            else refreshCartCounts();
+            _subscribeSSE._cartIds = _subscribeSSE._cartIds || new Set();
+            if (cid) _subscribeSSE._cartIds.add(cid);
+            clearTimeout(_subscribeSSE._cartTimer);
+            _subscribeSSE._cartTimer = setTimeout(() => {
+                const ids = Array.from(_subscribeSSE._cartIds);
+                _subscribeSSE._cartIds = new Set();
+                if (ids.length) refreshCartCounts(ids);
+                else refreshCartCounts();
+            }, 200);
         });
         // Sau refactor 1-nguồn: native_orders.products là source. Khi modal
         // Đơn Web edit/delete/PATCH products → backend fire web2:native-orders →
         // TPOS panel cart badge phải re-fetch counts để đồng bộ.
         global.Web2SSE.subscribe('web2:native-orders', () => {
             clearTimeout(_subscribeSSE._noTimer);
-            _subscribeSSE._noTimer = setTimeout(() => refreshCartCounts(), 200);
+            _subscribeSSE._noTimer = setTimeout(() => refreshCartCounts(), 400);
         });
         // SP update → reload list
         global.Web2SSE.subscribe('web2:products', () => {

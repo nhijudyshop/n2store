@@ -391,7 +391,9 @@ router.post('/:commentId/add', async (req, res) => {
             [JSON.stringify(products), t.qty, t.amt, Date.now(), draft.code]
         );
 
-        await _logHistory(pool, {
+        // Anti-lag: history log + KPI emit fire-and-forget (audit-only, errors
+        // swallowed inside). Cắt 20-50ms khỏi response → drop UX mượt hơn.
+        _logHistory(pool, {
             comment_id: customerId,
             customer_name: cust.name,
             customer_phone: cust.phone,
@@ -458,7 +460,7 @@ router.post('/:commentId/:productCode/remove', async (req, res) => {
             _notifyNativeOrders('update', draft.code);
         }
 
-        await _logHistory(pool, {
+        _logHistory(pool, {
             comment_id: customerId,
             customer_name: draft.customer_name,
             customer_phone: draft.phone,
@@ -504,8 +506,9 @@ router.post('/:commentId/clear', async (req, res) => {
         await pool.query(`DELETE FROM native_orders WHERE code = $1`, [draft.code]);
         _notifyNativeOrders('delete', draft.code);
 
+        // Fire-and-forget history logs (anti-lag)
         for (const p of products) {
-            await _logHistory(pool, {
+            _logHistory(pool, {
                 comment_id: customerId,
                 customer_name: draft.customer_name,
                 customer_phone: draft.phone,
@@ -564,7 +567,7 @@ router.patch('/:commentId/:productCode', async (req, res) => {
             [JSON.stringify(products), t.qty, t.amt, Date.now(), draft.code]
         );
 
-        await _logHistory(pool, {
+        _logHistory(pool, {
             comment_id: customerId,
             customer_name: draft.customer_name,
             customer_phone: draft.phone,
