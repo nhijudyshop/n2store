@@ -256,6 +256,59 @@
         onDone?.();
     }
 
+    // Render block "BÌNH LUẬN" read-only cho modal sửa đơn. Hiển thị `o.note`
+    // (auto-captured FB comment với format `[time] [Page] message`) cạnh
+    // thumbnail snapshot (nếu có) từ `o.fbCommentId`. Trả '' nếu không có
+    // note (đơn tạo manual không qua FB).
+    function _renderCommentReadonlyBlock(o) {
+        const noteText = (o.note || '').trim();
+        const cid = o.fbCommentId || null;
+        if (!noteText && !cid) return '';
+        // Queue fetch snap nếu có commentId → re-render modal khi xong (giống
+        // line thumbnail flow). Find modal node sau khi flush + re-render block.
+        if (cid && !_snapCache.has(cid)) {
+            _queueSnapFetch(cid, () => {
+                const slot = document.querySelector('#commentReadonlyBlock');
+                if (!slot) return;
+                const snap = _snapCache.get(cid);
+                const thumb = snap ? _renderCommentThumbHtml(snap) : '';
+                const thumbSlot = slot.querySelector('.comment-thumb-slot');
+                if (thumbSlot) thumbSlot.innerHTML = thumb;
+            });
+        }
+        const snap = cid ? _snapCache.get(cid) : null;
+        const thumbHtml = snap ? _renderCommentThumbHtml(snap) : '';
+        const labelText = noteText ? 'Bình luận khách' : 'Bình luận khách (chưa có)';
+        return `
+            <div class="field-row" id="commentReadonlyBlock">
+                <label>${labelText}</label>
+                <div class="comment-readonly-wrap">
+                    <div class="comment-thumb-slot">${thumbHtml}</div>
+                    <div class="comment-readonly-text" title="Nội dung comment auto-lưu từ FB — read-only">${escapeHtml(noteText) || '<em style="color:#94a3b8;">(không có nội dung)</em>'}</div>
+                </div>
+            </div>`;
+    }
+
+    function _renderCommentThumbHtml(snap) {
+        if (!snap?.thumbnailUrl) return '';
+        const url = snap.thumbnailUrl;
+        const offsetText =
+            Number.isFinite(snap.offsetSeconds) && snap.offsetSeconds >= 0
+                ? `${Math.floor(snap.offsetSeconds / 60)}m${snap.offsetSeconds % 60}s`
+                : '';
+        const liveUrl = snap.livestreamUrl || '';
+        const tip = `Thumbnail livestream${offsetText ? ' @ ' + offsetText : ''} · Click để xem lớn`;
+        return `<img src="${escapeHtml(url)}"
+                     alt=""
+                     loading="lazy"
+                     class="comment-snap-thumb"
+                     data-snap-url="${escapeHtml(url)}"
+                     data-snap-live-url="${escapeHtml(liveUrl)}"
+                     data-snap-offset="${offsetText}"
+                     title="${escapeHtml(tip)}"
+                     onclick="NativeOrdersApp.openSnapLightbox(this)" />`;
+    }
+
     function _renderLineSnapThumb(commentId) {
         if (!commentId) return '';
         const snap = _snapCache.get(commentId);
@@ -1218,9 +1271,10 @@
                 <label>Địa chỉ</label>
                 <input id="editAddress" value="${escapeHtml(o.address || '')}" placeholder="Địa chỉ giao hàng">
             </div>
+            ${_renderCommentReadonlyBlock(o)}
             <div class="field-row">
                 <label>Ghi chú</label>
-                <textarea id="editNote" placeholder="Nội dung comment / ghi chú">${escapeHtml(o.note || '')}</textarea>
+                <textarea id="editUserNote" placeholder="Ghi chú nội bộ (size, màu, yêu cầu KH…)">${escapeHtml(o.userNote || '')}</textarea>
             </div>
             <div class="field-row">
                 <label>Trạng thái</label>
@@ -1583,11 +1637,13 @@
         if (!STATE.editingCode) return;
         const editingOrder = STATE.orders.find((x) => x.code === STATE.editingCode);
         const isLocked = editingOrder?.status === 'confirmed';
+        // `note` field readonly — chứa auto-captured FB comment. Không gửi lên
+        // PATCH (tránh override). Ghi chú nội bộ NV ghi vào `userNote`.
         const fields = {
             customerName: $('#editCustomerName').value.trim(),
             phone: $('#editPhone').value.trim(),
             address: $('#editAddress').value.trim(),
-            note: $('#editNote').value.trim(),
+            userNote: $('#editUserNote')?.value?.trim() || '',
             status: $('#editStatus').value,
         };
         // Locked → vẫn cho gửi products để LƯU GHI CHÚ TỪNG SP (note inline).

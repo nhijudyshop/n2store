@@ -224,6 +224,13 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS campaign_stt INTEGER;
             CREATE INDEX IF NOT EXISTS idx_native_orders_campaign_stt
                 ON native_orders(live_campaign_id, campaign_stt);
+
+            -- Migration 081: tach comment khoi user note. note (legacy) chua
+            -- comment auto-captured tu FB (format [time] [Page] message), gio
+            -- treat as readonly. user_note la field moi NV tu ghi (size, mau,
+            -- yeu cau KH ...). Save modal ghi vao user_note, KHONG dung note.
+            ALTER TABLE native_orders
+                ADD COLUMN IF NOT EXISTS user_note TEXT;
         `);
 
         // Backfill existing rows with display_stt (one-shot, ordered by created_at ASC)
@@ -370,6 +377,7 @@ function mapRowToOrder(row) {
         phone: row.phone,
         address: row.address,
         note: row.note,
+        userNote: row.user_note,
         fbUserId: row.fb_user_id,
         fbUserName: row.fb_user_name,
         fbPageId: row.fb_page_id,
@@ -983,7 +991,7 @@ router.get('/export', async (req, res) => {
             params.push(`%${search}%`);
             const i = params.length;
             conds.push(
-                `(customer_name ILIKE $${i} OR phone ILIKE $${i} OR code ILIKE $${i} OR note ILIKE $${i})`
+                `(customer_name ILIKE $${i} OR phone ILIKE $${i} OR code ILIKE $${i} OR note ILIKE $${i} OR user_note ILIKE $${i})`
             );
         }
         if (campaignIds) {
@@ -1114,7 +1122,7 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
             params.push(`%${search}%`);
             const i = params.length;
             conds.push(
-                `(customer_name ILIKE $${i} OR phone ILIKE $${i} OR code ILIKE $${i} OR note ILIKE $${i})`
+                `(customer_name ILIKE $${i} OR phone ILIKE $${i} OR code ILIKE $${i} OR note ILIKE $${i} OR user_note ILIKE $${i})`
             );
         }
         // Phase 14: filter by customer_id (link to Customer 360)
@@ -1234,6 +1242,7 @@ router.patch('/:code', async (req, res) => {
             phone: 'phone',
             address: 'address',
             note: 'note',
+            userNote: 'user_note',
             products: 'products',
             totalQuantity: 'total_quantity',
             totalAmount: 'total_amount',

@@ -1111,6 +1111,55 @@ body {
     resize: vertical;
 }
 
+/* Read-only "Bình luận" block — auto-captured FB comment, có thumbnail
+ * livestream kế bên (nếu fbCommentId match snapshot). Phân biệt visually
+ * với editable textarea bằng background ngả vàng + border dashed. */
+.comment-readonly-wrap {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    background: #fffbeb; /* amber-50 — gợi context "đã có sẵn từ FB" */
+    border: 1px dashed #fcd34d; /* amber-300 */
+    border-radius: 6px;
+    min-height: 56px;
+}
+.comment-readonly-wrap .comment-thumb-slot {
+    flex-shrink: 0;
+    min-width: 80px;
+}
+.comment-readonly-wrap .comment-readonly-text {
+    flex: 1;
+    font-size: 13px;
+    color: var(--gray-700);
+    line-height: 1.5;
+    white-space: pre-wrap; /* giữ \n giữa các comment merged */
+    word-break: break-word;
+    user-select: text;
+}
+.comment-snap-thumb {
+    display: block;
+    width: 80px;
+    height: 45px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #fcd34d;
+    background: #fef3c7;
+    cursor: zoom-in;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition:
+        transform 0.12s ease,
+        box-shadow 0.12s ease;
+}
+.comment-snap-thumb:hover {
+    transform: scale(1.4);
+    transform-origin: left top;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    border-color: #f59e0b;
+    position: relative;
+    z-index: 5;
+}
+
 .fb-context {
     margin-top: 14px;
     padding: 10px 12px;
