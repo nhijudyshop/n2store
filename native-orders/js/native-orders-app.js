@@ -470,15 +470,17 @@
         const el = _ensureCustHoverEl();
         const rect = target.getBoundingClientRect();
         const popRect = el.getBoundingClientRect();
-        // Mặc định bên phải avatar; nếu tràn viewport → ép sang trái
-        let left = rect.right + 8;
+        // Position BELOW row (avoid che avatar). Fallback ABOVE nếu thiếu chỗ.
+        let left = rect.left;
         if (left + popRect.width > window.innerWidth - 8) {
-            left = Math.max(8, rect.left - popRect.width - 8);
+            left = Math.max(8, window.innerWidth - popRect.width - 8);
         }
-        let top = rect.top;
-        if (top + popRect.height > window.innerHeight - 8) {
-            top = Math.max(8, window.innerHeight - popRect.height - 8);
-        }
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const top =
+            spaceBelow >= popRect.height + 12 || spaceBelow >= spaceAbove
+                ? rect.bottom + 12
+                : Math.max(8, rect.top - popRect.height - 12);
         el.style.left = left + 'px';
         el.style.top = top + 'px';
     }
@@ -509,14 +511,20 @@
             const dt = new Date(t);
             return Number.isFinite(dt.getTime()) ? dt.toLocaleString('vi-VN') : '';
         };
+        const tposAddress = d.tposAddress;
+        const tposStatus = d.tposStatus;
+        const tposTotalSpent = d.tposTotalSpent != null ? Number(d.tposTotalSpent) : null;
+        const tposReturned = d.tposReturnedOrders;
         el.innerHTML = `
-            <div style="display:flex;gap:10px;align-items:flex-start;">
-                ${avatar ? `<img src="${escapeHtml(avatar)}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none'">` : `<div style="width:48px;height:48px;border-radius:50%;background:#e5e7eb;display:flex;align-items:center;justify-content:center;font-weight:600;color:#9ca3af;flex-shrink:0;">${escapeHtml((name || '?').charAt(0).toUpperCase())}</div>`}
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+                ${avatar ? `<img src="${escapeHtml(avatar)}" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid #e5e7eb;" onerror="this.style.display='none'">` : `<div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#6366f1);display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:22px;flex-shrink:0;">${escapeHtml((name || '?').charAt(0).toUpperCase())}</div>`}
                 <div style="flex:1;min-width:0;">
-                    <div style="font-weight:600;color:#111827;font-size:14px;line-height:1.3;">${escapeHtml(name)}</div>
-                    ${phone ? `<div style="color:#374151;font-size:12px;margin-top:2px;"><i data-lucide="phone" style="width:11px;height:11px;vertical-align:-1px;"></i> ${escapeHtml(phone)}</div>` : ''}
+                    <div style="font-weight:700;color:#111827;font-size:15px;line-height:1.3;">${escapeHtml(name)}</div>
+                    ${phone ? `<div style="color:#374151;font-size:12.5px;margin-top:3px;font-family:'JetBrains Mono',monospace;">📞 ${escapeHtml(phone)}</div>` : ''}
+                    ${tposStatus && tposStatus !== 'Bình thường' ? `<div style="margin-top:4px;"><span style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:8px;font-size:10.5px;font-weight:600;">${escapeHtml(tposStatus)}</span></div>` : ''}
                 </div>
             </div>
+            ${tposAddress ? `<div style="margin-top:10px;padding:8px 10px;background:#f9fafb;border-radius:5px;color:#374151;font-size:12px;line-height:1.4;"><strong style="color:#6b7280;font-size:10.5px;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:2px;">📍 Địa chỉ</strong>${escapeHtml(tposAddress)}</div>` : ''}
             ${
                 tags.length
                     ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;">${tags
@@ -528,15 +536,16 @@
                           .join('')}</div>`
                     : ''
             }
-            <div style="margin-top:10px;padding-top:10px;border-top:1px solid #f3f4f6;display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-size:12px;color:#6b7280;">
-                ${messageCount !== null ? `<div><strong style="color:#374151;">${messageCount}</strong> tin nhắn</div>` : ''}
-                ${orderCount !== null ? `<div><strong style="color:#374151;">${orderCount}</strong> đơn</div>` : ''}
-                ${successOrders !== null ? `<div><strong style="color:#16a34a;">${successOrders}</strong> đơn thành công</div>` : ''}
-                ${lastSent ? `<div>Người gửi cuối: <strong style="color:#374151;">${escapeHtml(lastSent)}</strong></div>` : ''}
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid #f3f4f6;display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;font-size:12px;color:#6b7280;">
+                ${messageCount !== null ? `<div>💬 <strong style="color:#374151;">${messageCount}</strong> tin nhắn</div>` : ''}
+                ${orderCount !== null ? `<div>📦 <strong style="color:#374151;">${orderCount}</strong> đơn (Pancake)</div>` : ''}
+                ${successOrders !== null && successOrders > 0 ? `<div>✓ <strong style="color:#16a34a;">${successOrders}</strong> chốt thành công</div>` : ''}
+                ${tposReturned != null && tposReturned > 0 ? `<div>↩️ <strong style="color:#dc2626;">${tposReturned}</strong> đơn trả</div>` : ''}
+                ${tposTotalSpent && tposTotalSpent > 0 ? `<div style="grid-column:1/-1;">💰 Tổng chi: <strong style="color:#374151;">${tposTotalSpent.toLocaleString('vi-VN')}đ</strong></div>` : ''}
             </div>
-            ${lastInteraction ? `<div style="margin-top:8px;color:#9ca3af;font-size:11px;">⏱️ Tương tác cuối: ${escapeHtml(formatTime(lastInteraction))}</div>` : ''}
-            ${note ? `<div style="margin-top:6px;padding:6px 8px;background:#fffbeb;border-left:3px solid #f59e0b;color:#78350f;font-size:12px;border-radius:3px;">${escapeHtml(note)}</div>` : ''}
-            <div style="margin-top:10px;color:#9ca3af;font-size:10.5px;font-style:italic;">Nguồn: Pancake (sync 2 chiều với TPOS)</div>
+            ${lastInteraction ? `<div style="margin-top:8px;color:#9ca3af;font-size:11px;">⏱️ Tương tác cuối: ${escapeHtml(formatTime(lastInteraction))}${lastSent ? ` (NV: ${escapeHtml(lastSent)})` : ''}</div>` : ''}
+            ${note ? `<div style="margin-top:6px;padding:6px 8px;background:#fffbeb;border-left:3px solid #f59e0b;color:#78350f;font-size:12px;border-radius:3px;">📝 ${escapeHtml(note)}</div>` : ''}
+            <div style="margin-top:10px;color:#9ca3af;font-size:10.5px;font-style:italic;">Nguồn: Pancake (live) + TPOS (lịch sử) — sync 2 chiều</div>
         `;
         if (window.lucide?.createIcons) {
             try {
@@ -545,40 +554,55 @@
         }
     }
 
-    async function _fetchPancakeCustomer(fbUserId, fbPageId) {
+    async function _fetchPancakeCustomer(fbUserId, fbPageId, phone) {
         const cached = _custHoverCache.get(fbUserId);
         if (cached && Date.now() - cached.ts < _CUST_HOVER_TTL) return cached.data;
         if (_custHoverFetchAbort) _custHoverFetchAbort.abort();
         _custHoverFetchAbort = new AbortController();
+        const signal = _custHoverFetchAbort.signal;
         try {
-            // Pancake conversation list filter by from_psid (fbUserId).
-            // 1-element response → customer + conversation context.
-            const url = `${WORKER_URL}/api/pancake/conversations?pages[${encodeURIComponent(fbPageId)}]=0&from_psid=${encodeURIComponent(fbUserId)}&limit=1&mode=OR&unread_first=false`;
-            const r = await fetch(url, {
-                credentials: 'include',
-                signal: _custHoverFetchAbort.signal,
-            });
-            const d = await r.json();
-            const conv = (d?.conversations || [])[0];
-            if (!conv) {
+            // Parallel: Pancake conversation (real-time) + customers table (TPOS-synced address/history)
+            const pancakeUrl = `${WORKER_URL}/api/pancake/conversations?pages[${encodeURIComponent(fbPageId)}]=0&from_psid=${encodeURIComponent(fbUserId)}&limit=1&mode=OR&unread_first=false`;
+            const customerUrl = phone
+                ? `${WORKER_URL}/api/v2/customers?search=${encodeURIComponent(phone)}&limit=1`
+                : null;
+            const [pancakeD, customerD] = await Promise.all([
+                fetch(pancakeUrl, { credentials: 'include', signal })
+                    .then((r) => r.json())
+                    .catch(() => null),
+                customerUrl
+                    ? fetch(customerUrl, { credentials: 'include', signal })
+                          .then((r) => r.json())
+                          .catch(() => null)
+                    : Promise.resolve(null),
+            ]);
+            const conv = (pancakeD?.conversations || [])[0] || null;
+            const tposCust = (customerD?.customers || customerD?.data || [])[0] || null;
+            if (!conv && !tposCust) {
                 _custHoverCache.set(fbUserId, { data: null, ts: Date.now() });
                 return null;
             }
-            const cust = (conv.customers || [])[0] || conv.from || {};
+            const cust = conv ? (conv.customers || [])[0] || conv.from || {} : {};
             const enriched = {
-                name: cust.name || conv.from?.name,
-                phone: conv.recent_phone_numbers?.[0]?.phone_number,
-                recent_phone_numbers: conv.recent_phone_numbers,
+                name: cust.name || conv?.from?.name || tposCust?.name,
+                phone: conv?.recent_phone_numbers?.[0]?.phone_number || tposCust?.phone || phone,
+                recent_phone_numbers: conv?.recent_phone_numbers,
                 avatar: cust.avatar_url || cust.avatar,
-                tags: conv.tags || [],
-                last_interaction_at: conv.last_customer_interactive_at || conv.updated_at,
-                message_count: conv.message_count,
-                last_sent_by: conv.last_sent_by,
+                tags: conv?.tags || [],
+                last_interaction_at: conv?.last_customer_interactive_at || conv?.updated_at,
+                message_count: conv?.message_count,
+                last_sent_by: conv?.last_sent_by,
                 success_order_count: cust.success_order_count,
                 order_count: cust.order_count,
-                note: conv.extra_info?.note,
-                has_livestream_order: conv.has_livestream_order,
-                _raw: conv,
+                note: conv?.extra_info?.note,
+                has_livestream_order: conv?.has_livestream_order,
+                // TPOS-synced (customers table)
+                tposAddress: tposCust?.address,
+                tposCustomerId: tposCust?.id,
+                tposStatus: tposCust?.status,
+                tposReturnedOrders: tposCust?.returned_orders,
+                tposTotalSpent: tposCust?.total_spent,
+                _raw: { conv, tposCust },
             };
             _custHoverCache.set(fbUserId, { data: enriched, ts: Date.now() });
             return enriched;
@@ -611,7 +635,7 @@
             _renderCustHoverContent({ loading: true });
             _positionCustHoverPopover(target);
             try {
-                const data = await _fetchPancakeCustomer(fbUserId, fbPageId);
+                const data = await _fetchPancakeCustomer(fbUserId, fbPageId, fallback.phone);
                 // Có thể user đã rời chuột — chỉ render nếu popover còn visible
                 if (_custHoverEl?.style.display !== 'none') {
                     _renderCustHoverContent({ data, fallback });

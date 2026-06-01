@@ -816,11 +816,8 @@ body {
 .cust-with-avatar .tpos-customer-avatar-wrap {
     flex-shrink: 0;
     cursor: pointer;
-    transition: transform 0.15s ease;
 }
-.cust-with-avatar .tpos-customer-avatar-wrap:hover {
-    transform: scale(1.08);
-}
+/* Bỏ scale hover (gây che popover) — popover đã có avatar lớn trong header. */
 .cust-with-avatar .tpos-customer-cell {
     flex: 1;
     min-width: 0;
