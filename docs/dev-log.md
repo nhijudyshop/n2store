@@ -25,6 +25,35 @@
 
 ## 2026-06-01
 
+### [kpi][render][web2] Sprint 4 KPI — Backlog Review + Recalc + SSE realtime + CSV export ✅
+
+**Plan**: [docs/plans/kpi-attribution-system.md](plans/kpi-attribution-system.md) Sprint 4
+
+**Backend** (`render.com/routes/v2/kpi.js`):
+
+- `GET /api/v2/kpi/backlog?campaign_id=` — list `forecast_add source='backlog'` chưa admin review (NOT EXISTS reclassify_backlog compensating event)
+- `POST /api/v2/kpi/backlog/:id/reclassify` body `{decision, reviewerUserId, reviewerName, note}`:
+    - `approve_backlog` → emit `reclassify_backlog` info event (qty_delta=0, marks reviewed) — KPI không count (đúng spec)
+    - `reclassify_native` → emit reclassify + emit `forecast_add source='native'` → KPI cộng cho beneficiary
+- `POST /api/v2/kpi/recalc?campaign_id=` — rebuild `web2_kpi_forecast` + `web2_kpi_actual` cache (idempotent)
+- Export `recalcProjections(pool, campaignId)` helper cho cron job future
+
+**Frontend** (`web2/kpi/`):
+
+- **backlog-review.html** + js: admin queue, filter by campaign, table backlog events, click "Review" → modal full details + note → 2 actions
+- **kpi-dashboard.js**:
+    - SSE subscribe `web2:kpi:<userId>` → `debouncedRefresh` (600ms) khi event push
+    - Audit log tab: "Export CSV" button → dump events thành file `kpi-events-<campaign>-<ts>.csv`
+- **kpi/index.html** — load `web2-sse-bridge.js`
+
+**Sidebar**: thêm "KPI Backlog Review" (adminOnly:true)
+
+**Compensating event pattern**: `reclassify_backlog` event với `revokes_event_id = original.id` → backend query `WHERE NOT EXISTS` tự loại reviewed items → idempotent + auditable.
+
+**Next** — Sprint 5: fastsaleorder-invoice STT column + polish.
+
+---
+
 ### [native-orders][render] Tách "Bình luận khách" (read-only + thumbnail) khỏi "Ghi chú" (editable) ✅
 
 **Yêu cầu user**: modal sửa đơn hiện đang trộn 2 thứ vào field "Ghi chú": (a) comment auto-captured từ FB (vd `[14:45:09 31/5/2026] [Nhi Judy House] Xét đen *********`), (b) ghi chú user tự ghi. Tách ra: phần "Bình luận khách" read-only + thumbnail cạnh bên, phần "Ghi chú" thành field riêng để user gõ.
@@ -51,6 +80,15 @@
 **Status**: ✅ Done
 
 ---
+
+### [inventory-tracking] Xoá hẳn cột ngay_bat_dau/ngay_ket_thuc (DB + code dư) ✅
+
+Sau khi bỏ chia-theo-ngày, 2 cột `ngay_bat_dau`/`ngay_ket_thuc` thành dead. Xoá hẳn cho gọn:
+
+- `render.com/routes/v2/inventory-tracking.js` — gỡ `ensureShipmentDateRangeSchema` + 3 call (GET/POST/PATCH shipments); POST bỏ kế thừa 2 cột (về lại chỉ thanh_toan_ck/ti_gia); PATCH payment-by-dot bỏ 2 cột khỏi UPDATE/RETURNING/params.
+- `inventory-tracking/js/api-client.js` — `pgToShipment` bỏ map ngayBatDau/ngayKetThuc; `updatePaymentByDot` bỏ 2 field body.
+- `render.com/migrations/073_drop_dot_date_range_from_inventory_shipments.sql` (mới) — `DROP COLUMN IF EXISTS` 2 cột (revert 072). Đã chạy DROP trên prod sau khi code sạch deploy.
+- `node --check` OK; grep xác nhận 0 reference còn lại.
 
 ## 2026-05-31
 
