@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `29c2ab3` — auto: session update
-**Last updated**: 2026-06-01 10:55:00 +07
-**Latest session**: [`RESUME:20260601-105500-29c2ab3`](../20260601-105500-29c2ab3.md)
-**Summary**: auto: session update
+**Latest commit**: `2cc5468` — docs(web2): E2E test report + Decouple audit (2026-06-01)
+**Last updated**: 2026-06-01 12:13:55 +07
+**Latest session**: [`RESUME:20260601-121355-2cc5468`](../20260601-121355-2cc5468.md)
+**Summary**: docs(web2): E2E test report + Decouple audit (2026-06-01)
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-05-21 15:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-01 10:55
+- [`docs/`](./docs.md) — updated 2026-06-01 12:13
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
