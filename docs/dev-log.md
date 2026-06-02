@@ -23,6 +23,34 @@
 
 ---
 
+## 2026-06-02
+
+### [native-orders] Bỏ nút Reset STT + group STORE/HOUSE thành 1 campaign cho STT ✅
+
+**Yêu cầu user**: (1) Xóa hết dữ liệu đơn hàng cũ. (2) Bỏ nút Reset STT — STT auto chạy 1→n theo campaign, campaign khác reset 1→n. 2 page STORE + HOUSE coi như 1 campaign.
+
+**Cách làm**:
+
+- Bulk DELETE 13 đơn test cũ qua `NativeOrdersApi.remove` loop + reset `display_stt` sequence về 1.
+- Xóa button `#btnResetStt` trong [`native-orders/index.html:188-198`](native-orders/index.html#L188-L198) + function `resetStt()` trong [`native-orders-app.js`](native-orders/js/native-orders-app.js) (~30 dòng) + event listener.
+- Update SQL trong `INSERT` của `/api/native-orders/from-comment` ([`render.com/routes/native-orders.js:811-833`](render.com/routes/native-orders.js#L811)): scope `MAX(campaign_stt) + 1` theo **normalized campaign group key** thay vì `live_campaign_id`. Group key = `live_campaign_name` sau khi strip prefix `^(STORE|HOUSE)\s+` (case-insensitive). Fallback: `live_campaign_id` → `'NO_CAMPAIGN'`.
+
+**Kết quả**:
+
+- `STORE 29/05/2026` + `HOUSE 29/05/2026` → cùng key `29/05/2026` → STT chung 1..n.
+- `STORE 22/05/2026` + `HOUSE 22/05/2026` → cùng key `22/05/2026` → STT riêng 1..n.
+- `(no campaign name)` → fallback `live_campaign_id` hoặc `NO_CAMPAIGN`.
+- Endpoint `/reset-stt` giữ lại (defensive — internal dùng cho sequence reset, không user-facing).
+
+**Files**:
+
+- `native-orders/index.html` (xóa button)
+- `native-orders/js/native-orders-app.js` (xóa function + listener)
+- `render.com/routes/native-orders.js` (normalize campaign group key trong INSERT SQL)
+- `docs/dev-log.md`
+
+**Status**: ✅ Frontend xóa data + button live ngay; backend SQL chờ Render redeploy (~3-5 min) để new orders dùng grouped STT.
+
 ## 2026-06-01
 
 ### [tpos-pancake][cart][render][native-orders] Tạo đơn từ tpos-pancake → SĐT + địa chỉ KH từ TPOS partner cache + inline inputs ✅

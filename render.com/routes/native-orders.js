@@ -801,9 +801,13 @@ router.post('/from-comment', async (req, res) => {
             }
         }
 
-        // Per-campaign STT: subquery MAX+1 scoped by live_campaign_id (NO_CAMPAIGN
-        // synthetic group cho null campaign). Race window mỏng — chấp nhận; nếu
-        // production scale lên cần advisory_lock(hashtext(campaign_id)).
+        // Per-campaign STT: subquery MAX+1 scoped theo "campaign group key" — gộp
+        // các campaign cùng tên sau khi bỏ prefix STORE/HOUSE (case-insensitive).
+        // Vd "STORE 29/05/2026" + "HOUSE 29/05/2026" → cùng group key "29/05/2026"
+        // → STT 1..n chung cho cả 2 page (user spec 2026-06-02).
+        // Fallback: nếu live_campaign_name rỗng dùng live_campaign_id; nếu cả 2
+        // rỗng dùng 'NO_CAMPAIGN' synthetic group.
+        // Race window mỏng — chấp nhận; production scale cần advisory_lock(hashtext(key)).
         const insert = await pool.query(
             `INSERT INTO native_orders (
                 code, session_index, display_stt, campaign_stt, source,
@@ -818,7 +822,15 @@ router.post('/from-comment', async (req, res) => {
                 $1, $2, nextval('native_orders_display_stt_seq'),
                 (SELECT COALESCE(MAX(campaign_stt), 0) + 1
                  FROM native_orders
-                 WHERE COALESCE(live_campaign_id, 'NO_CAMPAIGN') = COALESCE($13, 'NO_CAMPAIGN')),
+                 WHERE COALESCE(
+                     NULLIF(TRIM(REGEXP_REPLACE(COALESCE(live_campaign_name, ''), '^(STORE|HOUSE)\\s+', '', 'i')), ''),
+                     live_campaign_id,
+                     'NO_CAMPAIGN'
+                 ) = COALESCE(
+                     NULLIF(TRIM(REGEXP_REPLACE(COALESCE($14::text, ''), '^(STORE|HOUSE)\\s+', '', 'i')), ''),
+                     $13,
+                     'NO_CAMPAIGN'
+                 )),
                 'NATIVE_WEB',
                 $3, $4, $5, $6,
                 $7, $8, $9, $10, $11, $12,

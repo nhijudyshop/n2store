@@ -1508,37 +1508,6 @@
         load();
     }
 
-    async function resetStt() {
-        const renumber = await w2pConfirm(
-            'Đồng ý để RENUMBER toàn bộ đơn hiện có (1, 2, 3...) theo thứ tự ngày tạo.\n' +
-                'Huỷ để chỉ reset bộ đếm — đơn cũ giữ STT, đơn MỚI tiếp theo bắt đầu từ 1.',
-            {
-                title: 'Reset STT',
-                type: 'warning',
-                okText: 'Renumber tất cả',
-                cancelText: 'Chỉ reset bộ đếm',
-            }
-        );
-        try {
-            const r = await fetch(`${WORKER_URL}/api/native-orders/reset-stt`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ renumber }),
-            });
-            const data = await r.json();
-            if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
-            const msg =
-                data.mode === 'renumber'
-                    ? `Đã renumber ${data.renumbered} đơn — STT 1..${data.renumbered}`
-                    : 'Đã reset bộ đếm — đơn mới sẽ có STT từ 1';
-            await w2pAlert(msg, { type: 'success' });
-            load();
-        } catch (err) {
-            console.error('[NativeOrders] resetStt error:', err);
-            await w2pAlert('Lỗi reset STT: ' + err.message, { type: 'error' });
-        }
-    }
-
     // ---------- Campaign filter ----------
     const CAMPAIGN_STORAGE_KEY = 'native_orders_selected_campaigns';
     const TPOS_PANCAKE_KEY = 'tpos_selected_campaigns';
@@ -3284,7 +3253,8 @@
 
         // Apply/Clear/Refresh/Export buttons removed in single-row layout —
         // filters now auto-apply on change (debounced for search input).
-        $('#btnResetStt')?.addEventListener('click', resetStt);
+        // Reset STT button removed 2026-06-02 — STT giờ auto reset theo campaign
+        // (logic backend MAX+1 scoped by campaign group), không cần thao tác thủ công.
         let searchDebounce = null;
         $('#filterSearch')?.addEventListener('input', () => {
             clearTimeout(searchDebounce);
