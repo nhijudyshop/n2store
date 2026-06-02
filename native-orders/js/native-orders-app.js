@@ -1165,6 +1165,7 @@
                                             : `<span class="tpos-customer-name tpos-customer-stranger" title="Đơn chưa có tên KH — hover avatar hoặc bấm nút TPOS bên dưới">Khách lạ</span>`
                                     }
                                     ${statusPill}
+                                    <span class="no-wallet-pill" data-w2wallet-phone="${escapeHtml(o.phone || '')}"></span>
                                     ${
                                         (!o.customerName || !o.phone || !o.address) && o.fbUserId
                                             ? `<button class="tpos-fetch-tpos-btn"
@@ -1312,6 +1313,8 @@
         // Reused rows already have <svg> rendered → no work; new rows get icons created.
         if (window.lucide) lucide.createIcons();
         if (window.Web2NewMsgBadge?.reapply) window.Web2NewMsgBadge.reapply();
+        // Số dư ví KH cho row có SĐT (chỉ hiện khi > 0).
+        window.Web2WalletBalance?.attachBalances?.(tb);
     }
 
     function toggleExpand(code) {

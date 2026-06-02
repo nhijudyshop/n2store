@@ -258,6 +258,8 @@
                 )
             );
         });
+        // Số dư ví KH cho các row có SĐT (chỉ hiện khi > 0).
+        window.Web2WalletBalance?.attachBalances?.(dom.tbody);
     }
 
     async function autoMatchSingle(id) {
@@ -412,6 +414,7 @@
                             ? `<div class="w2bh-customer">
                                   <span class="w2bh-customer-name">${escapeHtml(name || '(không tên)')}</span>
                                   <span class="w2bh-customer-phone">${escapeHtml(phone)}</span>
+                                  <span class="w2bh-wallet-pill" data-w2wallet-phone="${escapeHtml(phone)}"></span>
                                </div>`
                             : isManualNcc
                               ? `<div class="w2bh-customer">
@@ -650,9 +653,11 @@
                             data-name="${escapeHtml(c.name || '')}">
                             <span class="w2bh-reassign-item-phone">${escapeHtml(c.phone)}</span>
                             <span class="w2bh-reassign-item-name">${escapeHtml(c.name || '(không tên)')}</span>
+                            <span class="w2bh-reassign-item-bal" data-w2wallet-phone="${escapeHtml(c.phone)}"></span>
                         </button>`
                     )
                     .join('');
+                window.Web2WalletBalance?.attachBalances?.(dd);
                 dd.querySelectorAll('.w2bh-reassign-item').forEach((b) => {
                     b.addEventListener('mousedown', (e) => e.preventDefault());
                     b.addEventListener('click', () => {

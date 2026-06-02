@@ -164,6 +164,8 @@
         const html = state.rows.map((p) => renderRow(p)).join('');
         dom.tableBody.innerHTML = html;
         if (window.lucide) window.lucide.createIcons();
+        // Số dư ví Web 2.0 cạnh SĐT (chỉ hiện khi > 0).
+        window.Web2WalletBalance?.attachBalances?.(dom.tableBody);
     }
 
     function renderRow(p) {
@@ -189,7 +191,7 @@
                     </div>
                 </td>
                 <td class="pc-col-phone">
-                    ${phone ? `<div class="pc-cell-phone"><span class="pc-phone">${escapeHtml(phone)}</span>${carrier ? `<span class="pc-carrier">${escapeHtml(carrier)}</span>` : ''}</div>` : ''}
+                    ${phone ? `<div class="pc-cell-phone"><span class="pc-phone">${escapeHtml(phone)}</span>${carrier ? `<span class="pc-carrier">${escapeHtml(carrier)}</span>` : ''}<span class="pc-wallet-pill" data-w2wallet-phone="${escapeHtml(phone)}"></span></div>` : ''}
                 </td>
                 <td class="pc-col-email" data-col="email">${escapeHtml(p.Email || '')}</td>
                 <td class="pc-col-address" data-col="address">${escapeHtml(address)}</td>

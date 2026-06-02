@@ -182,6 +182,7 @@
                 return;
             }
             body.innerHTML = items.map(renderRow).join('');
+            window.Web2WalletBalance?.attachBalances?.(body);
             body.querySelectorAll('[data-pick]').forEach((btn) => {
                 btn.addEventListener('click', () => {
                     const phone = btn.getAttribute('data-phone');
@@ -219,7 +220,7 @@
         return `
             <div class="w2lcm-row">
                 <div class="w2lcm-row-info">
-                    <div class="w2lcm-row-name">${escapeHtml(p.Name || '(không tên)')} ${statusBadge(p)}</div>
+                    <div class="w2lcm-row-name">${escapeHtml(p.Name || '(không tên)')} ${statusBadge(p)} <span class="w2lcm-row-bal" data-w2wallet-phone="${escapeHtml(phone)}"></span></div>
                     <div class="w2lcm-row-phone">${escapeHtml(phone || '(no phone)')}</div>
                     ${addr ? `<div class="w2lcm-row-meta"><span title="Địa chỉ">📍 ${escapeHtml(addr.slice(0, 80))}</span></div>` : ''}
                     ${credit ? `<div class="w2lcm-row-meta"><span>Nợ TPOS: ${fmtVnd(credit)}</span></div>` : ''}

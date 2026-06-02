@@ -140,7 +140,7 @@ const TposCustomerPanel = {
                 </div>
                 <div class="customer-field">
                     <label>Điện thoại:</label>
-                    <span>${partner.Phone || conversation.Phone || '-'}</span>
+                    <span>${partner.Phone || conversation.Phone || '-'} <span class="w2wb-slot" data-w2wallet-phone="${SharedUtils.escapeHtml(partner.Phone || conversation.Phone || '')}"></span></span>
                 </div>
                 <div class="customer-field">
                     <label>Email:</label>
@@ -252,6 +252,8 @@ const TposCustomerPanel = {
         `;
 
         if (window.lucide) lucide.createIcons();
+        // Số dư ví Web 2.0 cạnh SĐT (chỉ hiện khi > 0).
+        window.Web2WalletBalance?.attachBalances?.(bodyEl);
     },
 
     /**

@@ -1,0 +1,174 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — shared helper hiển thị số dư ví KH.
+// =====================================================================
+// Web2WalletBalance — lấy số dư ví Web 2.0 theo SĐT + render "pill" số dư.
+// Dùng chung mọi nơi có hiển thị tên/SĐT khách (balance-history bảng,
+// modal chọn KH multi-match, modal gán KH, dropdown tìm KH, …).
+// =====================================================================
+//   • GET /api/web2/wallets/by-phone/:phone → { data: { balance, ... } }
+//   • Cache theo SĐT (TTL 60s) + batch concurrency để không spam request.
+//   • attachBalances(root): quét [data-w2wallet-phone] → inject pill số dư.
+//   • SSE web2:wallet:* → invalidate cache để lần sau lấy số mới.
+// =====================================================================
+
+(function (global) {
+    'use strict';
+
+    const BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/wallets';
+    const DIRECT_BASE = 'https://n2store-fallback.onrender.com/api/web2/wallets';
+    const TTL_MS = 60000; // số dư ví đổi chậm — cache 60s là đủ tươi
+    const _cache = new Map(); // phone -> { balance:number, ts:number }
+    const _inflight = new Map(); // phone -> Promise<number>
+
+    function normPhone(p) {
+        let s = String(p || '').replace(/\D/g, '');
+        if (!s) return '';
+        if (s.startsWith('84') && s.length >= 11) s = '0' + s.slice(2);
+        return s;
+    }
+
+    function fmtVnd(n) {
+        return Math.round(Number(n) || 0).toLocaleString('vi-VN') + '₫';
+    }
+
+    async function _fetchBalance(phone) {
+        const tryFetch = async (base) => {
+            const r = await fetch(`${base}/by-phone/${encodeURIComponent(phone)}`);
+            if (r.status === 404) return 0; // chưa có ví → số dư 0
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const body = await r.json();
+            return Number(body?.data?.balance) || 0;
+        };
+        try {
+            return await tryFetch(BASE);
+        } catch {
+            try {
+                return await tryFetch(DIRECT_BASE);
+            } catch (e) {
+                console.warn('[Web2WalletBalance] fetch fail', phone, e.message);
+                return null; // null = không xác định (khác 0 = đã biết = 0)
+            }
+        }
+    }
+
+    async function getBalance(phoneRaw) {
+        const phone = normPhone(phoneRaw);
+        if (!phone || phone.length < 9) return null;
+        const hit = _cache.get(phone);
+        if (hit && Date.now() - hit.ts < TTL_MS) return hit.balance;
+        if (_inflight.has(phone)) return _inflight.get(phone);
+        const p = (async () => {
+            const balance = await _fetchBalance(phone);
+            if (balance !== null) _cache.set(phone, { balance, ts: Date.now() });
+            _inflight.delete(phone);
+            return balance;
+        })();
+        _inflight.set(phone, p);
+        return p;
+    }
+
+    async function getBalances(phones, opts) {
+        const conc = (opts && opts.concurrency) || 6;
+        const list = Array.from(
+            new Set((phones || []).map(normPhone).filter((p) => p && p.length >= 9))
+        );
+        const out = new Map();
+        const queue = [...list];
+        const workers = [];
+        const n = Math.min(conc, queue.length);
+        for (let i = 0; i < n; i++) {
+            workers.push(
+                (async () => {
+                    while (queue.length) {
+                        const phone = queue.shift();
+                        out.set(phone, await getBalance(phone));
+                    }
+                })()
+            );
+        }
+        await Promise.all(workers);
+        return out;
+    }
+
+    // Markup 1 pill số dư ví. balance: number|null
+    // Quy ước: chỉ hiện khi số dư > 0. 0đ hoặc chưa xác định → không hiện gì.
+    function pillHtml(balance) {
+        if (!(Number(balance) > 0)) return '';
+        return `<span class="w2wb-pill w2wb-has" title="Số dư ví Web 2.0">Ví: ${fmtVnd(balance)}</span>`;
+    }
+
+    function ensureStyles() {
+        if (document.getElementById('w2wb-styles')) return;
+        const s = document.createElement('style');
+        s.id = 'w2wb-styles';
+        s.textContent = `
+            .w2wb-pill { display: inline-flex; align-items: center; gap: 3px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.5; white-space: nowrap; font-variant-numeric: tabular-nums; }
+            .w2wb-pill.w2wb-has { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        `;
+        document.head.appendChild(s);
+    }
+
+    // Quét root tìm [data-w2wallet-phone] chưa render → fetch batch → inject pill.
+    async function attachBalances(root) {
+        if (!root) return;
+        ensureStyles();
+        const els = Array.from(root.querySelectorAll('[data-w2wallet-phone]')).filter(
+            (el) => !el.dataset.w2wbDone
+        );
+        if (!els.length) return;
+        // Collect phones (pill ẩn khi loading/0 — không set placeholder)
+        const phones = [];
+        els.forEach((el) => {
+            const phone = normPhone(el.getAttribute('data-w2wallet-phone'));
+            if (!phone || phone.length < 9) {
+                el.dataset.w2wbDone = '1';
+                return;
+            }
+            el.dataset.w2wbPhone = phone;
+            phones.push(phone);
+        });
+        if (!phones.length) return;
+        const map = await getBalances(phones);
+        els.forEach((el) => {
+            if (el.dataset.w2wbDone) return;
+            const phone = el.dataset.w2wbPhone;
+            if (!phone) return;
+            el.innerHTML = pillHtml(map.has(phone) ? map.get(phone) : null);
+            el.dataset.w2wbDone = '1';
+        });
+    }
+
+    function invalidate(phoneRaw) {
+        if (!phoneRaw) {
+            _cache.clear();
+            return;
+        }
+        _cache.delete(normPhone(phoneRaw));
+    }
+
+    // SSE: ví đổi → xoá cache để lần render sau lấy số mới.
+    function _wireSse() {
+        if (!global.Web2SSE?.subscribe) return;
+        try {
+            global.Web2SSE.subscribe('web2:wallet:*', (evt) => {
+                const phone = evt?.data?.phone;
+                invalidate(phone || null);
+            });
+            global.Web2SSE.subscribe('web2:customer-wallet', () => invalidate(null));
+        } catch {}
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _wireSse);
+    } else {
+        _wireSse();
+    }
+
+    global.Web2WalletBalance = {
+        normPhone,
+        fmtVnd,
+        getBalance,
+        getBalances,
+        pillHtml,
+        attachBalances,
+        invalidate,
+    };
+})(window);

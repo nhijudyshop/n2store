@@ -25,6 +25,25 @@
 
 ## 2026-06-02
 
+### [balance-history][native-orders] Tìm 5-10 số đuôi SĐT + hiển thị số dư ví KH khắp nơi + ẩn "Tổng tiền vào" ✅
+
+**User yêu cầu** (balance-history Web 2.0):
+
+1. Hình 1 (modal chọn KH multi-match): cho tìm 5-10 số đuôi SĐT.
+2. Hình 2 (tab "Trùng SĐT — cần chọn"): nhập 5-10 số → hiện danh sách KH để gán; **ẩn card "Tổng tiền vào"** (mọi tab).
+3. Mọi nơi có tên/SĐT khách (native-orders + các trang khác) → **hiện số dư ví Web 2.0** (≤ 0 thì KHÔNG hiện).
+
+**Làm**:
+
+- **Shared helper mới** [`web2/shared/web2-wallet-balance.js`](../web2/shared/web2-wallet-balance.js): `Web2WalletBalance.attachBalances(root)` quét `[data-w2wallet-phone]` → batch `GET /api/web2/wallets/by-phone/:phone` (cache 60s + concurrency 6, fallback direct Render) → inject pill `Ví: X₫`. **Chỉ hiện khi balance > 0** (0/null/loading → rỗng). SSE `web2:wallet:*` invalidate cache. Drop-in: thêm `<span data-w2wallet-phone="...">` + 1 lần `attachBalances` + load script.
+- **balance-history**: ẩn `.w2bh-stat-card.stat-in` (`display:none`, giữ DOM để JS set value không lỗi). Pill số dư ở: bảng (ô KH), modal pending candidates + dropdown "Tự chọn KH khác", modal "+ Gán KH" (TPOS OData), modal "Đổi KH" (reassign). Placeholder/hint custom search đổi "5-10 số đuôi SĐT".
+- **native-orders**: pill số dư cạnh tên KH trong list đơn (`renderRows`).
+- **tpos-pancake**: pill cạnh SĐT trong panel thông tin KH (`tpos-customer-panel.js`).
+- **partner-customer**: pill cạnh SĐT trong bảng KH.
+- Backend `/api/v2/customers?search=` đã sẵn `phone ILIKE %q%` (substring) → gõ 5-10 số đuôi match được; KHÔNG cần sửa backend.
+
+**Verify live (localhost:8080)**: balance-history `stat-in display:none` + 25 pill/50 row; modal pending 82 candidate (3 pill) placeholder "5-10 số"; gõ "616043" → dropdown 1 KH (0706616043) + pill 935.000₫; native-orders + partner-customer (46 slot/11 pill) render OK.
+
 ### [native-orders] Thêm Pancake upload fallback cho ảnh → gửi ảnh được cả khi KHÔNG có extension ✅
 
 **User hỏi**: "native-orders không upload pancake thì đâu có gửi ảnh được?".

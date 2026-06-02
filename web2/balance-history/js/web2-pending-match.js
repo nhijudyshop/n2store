@@ -300,6 +300,8 @@
         body.querySelectorAll('[data-w2pm-custom-resolve]').forEach((btn) => {
             btn.addEventListener('click', onCustomResolveClick);
         });
+        // Số dư ví cho các SĐT ứng viên (chỉ hiện khi > 0).
+        window.Web2WalletBalance?.attachBalances?.(body);
     }
 
     // ---- Custom KH picker per item ----
@@ -379,9 +381,11 @@
                         data-w2pm-pick-id="${escapeHtml(String(id))}">
                         <span class="w2pm-custom-item-phone">${escapeHtml(c.phone)}</span>
                         <span class="w2pm-custom-item-name">${escapeHtml(c.name || '(không tên)')}</span>
+                        <span class="w2pm-custom-item-bal" data-w2wallet-phone="${escapeHtml(c.phone)}"></span>
                     </button>`
                 )
                 .join('');
+            window.Web2WalletBalance?.attachBalances?.(dd);
             dd.querySelectorAll('.w2pm-custom-item').forEach((btn) => {
                 btn.addEventListener('mousedown', (ev) => ev.preventDefault());
                 btn.addEventListener('click', () => {
@@ -471,6 +475,7 @@
                         <div class="w2pm-choice">
                             <span class="w2pm-choice-phone">${escapeHtml(c.phone)}</span>
                             <span class="w2pm-choice-name">${escapeHtml(c.name || '(không tên)')}</span>
+                            <span class="w2pm-choice-bal" data-w2wallet-phone="${escapeHtml(c.phone)}"></span>
                             <button class="w2pm-choice-btn" type="button"
                                 data-w2pm-resolve="${item.id}"
                                 data-phone="${escapeHtml(c.phone)}"
@@ -491,7 +496,7 @@
                             <input type="search"
                                 class="w2pm-custom-search"
                                 data-w2pm-search="${escapeHtml(String(item.id))}"
-                                placeholder="Gõ SĐT / tên KH (tối thiểu 2 ký tự)…"
+                                placeholder="Gõ 5-10 số đuôi SĐT / tên KH…"
                                 autocomplete="off" />
                             <div class="w2pm-custom-dropdown" data-w2pm-dropdown="${escapeHtml(String(item.id))}" hidden></div>
                         </div>
@@ -505,7 +510,7 @@
                         </button>
                     </div>
                     <div class="w2pm-custom-hint">
-                        Gõ SĐT 9-10 số rồi bấm <strong>Chọn KH này</strong>. Hoặc gõ tên/SĐT để chọn từ DB.
+                        Gõ 5-10 số đuôi SĐT để hiện danh sách KH khớp, hoặc gõ đủ 9-10 số rồi bấm <strong>Chọn KH này</strong>.
                     </div>
                 </div>
             </div>
