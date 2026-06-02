@@ -25,6 +25,24 @@
 
 ## 2026-06-02
 
+### [tpos-pancake] Gửi tin UI-first: hiện ngay → chạy nền → lỗi thì bật lại text + thông báo ✅
+
+**Yêu cầu user**: "Dùng pancake api trước → bị lỗi thì qua extension → nhắn tin hiển thị lên UI lập tức rồi chạy nền background → nếu lỗi thì thông báo và bật lại đoạn chat".
+
+**Cách làm** — refactor `sendMessage` sang **UI-first** qua `Web2Optimistic.run` (helper mandate CLAUDE.md #8, đã load sẵn tpos-pancake):
+
+- **apply** (sync, NGAY): clear ô nhập + clear preview ảnh + push bong bóng tạm (`_temp`) + render + update snippet. UI phản hồi tức thì.
+- **run** (nền, không block): `_performSend()` (helper mới, DRY) → upload ảnh (nếu có) → **Pancake API** → throw thì **fallback N2 Extension** (chỉ TEXT) → trả `{via, sent}`.
+- **onSuccess**: thay bong bóng tạm bằng tin thật (guard `activeConversation.id === convId` tránh ghi nhầm khi đã đổi hội thoại); via extension → toast "Đã gửi qua N2 Extension (bypass 24h)".
+- **rollback** (lỗi cả 2 route): gỡ bong bóng tạm + **bật lại text vào ô chat** (chỉ khi ô trống → không đè tin mới) + focus + khôi phục preview ảnh; `Web2Optimistic` tự toast "✗ Lỗi gửi tin nhắn: <msg>".
+- Bỏ disable/spinner nút gửi (UI-first không block). Fallback legacy `await` nếu `Web2Optimistic` chưa load.
+
+**Khác lần trước**: trước `await` tuần tự (block + spinner), lỗi chỉ popup và **mất text đã gõ**. Giờ: hiện ngay + nền + lỗi giữ lại text để gửi lại.
+
+**Verify**: `node --check` OK. ⚠ Live chưa chạy lại (cửa sổ browser đóng) — dựng trên `Web2Optimistic.run` (proven, live 41 pages); nền tảng đã verify ở bước trước cùng phiên. Cần test browser thật (có N2 extension) cho nhánh bypass.
+
+**Files**: `tpos-pancake/js/pancake/pancake-chat-window.js`, `tpos-pancake/index.html`. Status: ✅ Done (code).
+
 ### [render] Lá chắn cứng chống cộng-trùng tiền bank Web 2.0 (race webhook/cron/reload) ✅
 
 **Vấn đề**: cron reprocess vừa thêm là tác nhân thứ 3 (cùng webhook + reload trang) có thể xử lý 1 GD đồng thời. `processWeb2Match` check `debt_added` + `processDeposit` check dup theo `(reference_type='sepay',reference_id)` đều là **đọc-rồi-ghi** ở READ COMMITTED, không lock theo sepayId → 2 path cùng qua check trước khi 1 bên COMMIT → **cộng tiền 2 lần**. Legacy có partial-unique trên cột `sepay_id` (migration 064) nhưng web2 không ghi cột đó → vô hiệu. Không có migration UNIQUE nào cho `web2_wallet_transactions`.
