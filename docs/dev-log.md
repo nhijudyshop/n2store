@@ -25,6 +25,22 @@
 
 ## 2026-06-02
 
+### [soluong-live] "Sản phẩm đã ẩn" sắp xếp món mới ẩn lên đầu (mới → cũ) ✅
+
+**Yêu cầu user**: Danh sách "Sản phẩm đã ẩn" đang sắp lộn xộn (chỉ `.reverse()` thứ tự key Firebase). Muốn món vừa ẩn nổi lên đầu.
+
+**Gốc vấn đề**: sản phẩm không có field nào ghi thời điểm ẩn — chỉ có boolean `isHidden`. Timestamp duy nhất là `addedAt` (lúc thêm, khác lúc ẩn).
+
+**Giải pháp**: thêm field `hiddenAt` ghi lúc ẩn (`Date.now()`), sort danh sách ẩn theo `hiddenAt || addedAt` giảm dần. 239 món cũ không có `hiddenAt` → fallback `addedAt` (backfill gần đúng lúc render, không ghi migration hàng loạt).
+
+**Files**:
+- `soluong-live/firebase-helpers.js` — `updateProductVisibility()`: khi ẩn → set `product.hiddenAt = Date.now()` + ghi node (đổi `.set(isHidden)` → `.update({isHidden, hiddenAt})`). Giữ `hiddenAt` qua `addProductToFirebase`/`addProductsToFirebase` (mirror `addedAt`).
+- `soluong-live/js/soluong-list.js` — `hideProducts()` batch: stamp `hiddenAt = now` cho local + `updates[...]/hiddenAt`.
+- `soluong-live/js/main.js` — `updateHiddenProductListPreview()` (panel index.html): thay `.reverse()` bằng sort `hideKey = hiddenAt||addedAt` desc. Thêm `hiddenAt` vào whitelist `cleanProductForFirebase()`.
+- `soluong-live/js/hidden-soluong.js` — trang ẩn riêng: sort `hiddenProducts` theo `hideKey` desc + merge-mode (`mergeProductsByTemplate`) dùng `hiddenAt||addedAt`.
+
+**Status**: ✅ Realtime cross-tab qua Firebase RTDB listener sẵn có (module legacy, không SSE). Single hide route qua `updateProductVisibility`; batch hide & merge view đã cover.
+
 ### [tpos-pancake] Đổi thứ tự gửi: Extension TRƯỚC → Pancake API (đồng bộ native-orders) ✅
 
 **Yêu cầu user**: "chỉnh tpos-pancake qua extension trước → pancake api" (trước đó tpos-pancake là Pancake-trước). Giờ cả 2 trang cùng thứ tự **extension-first**.

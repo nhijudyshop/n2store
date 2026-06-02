@@ -1094,12 +1094,14 @@ function hideProducts(productIds) {
     const count = productIds.length;
     if (!confirm(`Bạn có chắc muốn ẩn tất cả ${count} biến thể?`)) return;
 
+    const now = Date.now();
     let hiddenCount = 0;
     productIds.forEach((productId) => {
         const productKey = `product_${productId}`;
         const product = soluongProducts[productKey];
         if (product) {
             product.isHidden = true;
+            product.hiddenAt = now; // Stamp hide time for "most recently hidden first" sort
             hiddenCount++;
         }
     });
@@ -1111,6 +1113,7 @@ function hideProducts(productIds) {
             const productKey = `product_${productId}`;
             if (soluongProducts[productKey]) {
                 updates[`soluongProducts/${productKey}/isHidden`] = true;
+                updates[`soluongProducts/${productKey}/hiddenAt`] = now;
             }
         });
         database

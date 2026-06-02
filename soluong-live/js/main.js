@@ -127,6 +127,7 @@ function cleanProductForFirebase(product) {
         PriceVariant: Number(product.PriceVariant) || 0, // Variant price for display
         addedAt: product.addedAt || Date.now(), // Timestamp for auto-cleanup
         isHidden: product.isHidden || false, // Hidden status
+        hiddenAt: product.hiddenAt || null, // Timestamp when hidden (sort order in hidden list)
         lastRefreshed: product.lastRefreshed || null, // Timestamp for image cache-busting
     };
     return cleanProduct;
@@ -1081,7 +1082,10 @@ function updateHiddenProductListPreview() {
         ? `${productsToDisplay.length}/${hiddenProducts.length}`
         : hiddenProducts.length;
 
-    const recentProducts = [...productsToDisplay].reverse();
+    // Sort "most recently hidden first". Fallback to addedAt for legacy products
+    // hidden before hiddenAt existed (approximate backfill, no bulk migration needed).
+    const hideKey = (p) => p.hiddenAt || p.addedAt || 0;
+    const recentProducts = [...productsToDisplay].sort((a, b) => hideKey(b) - hideKey(a));
 
     hiddenProductListPreview.innerHTML = recentProducts
         .map((product) => {

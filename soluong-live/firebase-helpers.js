@@ -26,6 +26,7 @@ async function addProductToFirebase(database, product, localProductsObject) {
             soldQty: soldQty, // Keep existing soldQty
             remainingQty: product.QtyAvailable - soldQty,
             addedAt: existingProduct.addedAt || product.addedAt, // Keep original addedAt
+            hiddenAt: existingProduct.hiddenAt || product.hiddenAt, // Keep hide timestamp
             lastRefreshed: Date.now()
         };
 
@@ -92,6 +93,7 @@ async function addProductsToFirebase(database, products, localProductsObject) {
                 soldQty: soldQty,
                 remainingQty: product.QtyAvailable - soldQty,
                 addedAt: existingProduct.addedAt || product.addedAt,
+                hiddenAt: existingProduct.hiddenAt || product.hiddenAt,
                 lastRefreshed: Date.now()
             };
             updates[`soluongProducts/${productKey}`] = updatedProduct;
@@ -222,8 +224,17 @@ async function updateProductVisibility(database, productId, isHidden, localProdu
     // Update local
     product.isHidden = isHidden;
 
-    // Sync to Firebase
-    await database.ref(`soluongProducts/${productKey}/isHidden`).set(isHidden);
+    // Stamp hide time so the hidden list can sort "most recently hidden first".
+    // Only set on hide; on unhide we keep the old value (next hide overwrites it).
+    const updates = { isHidden };
+    if (isHidden) {
+        const hiddenAt = Date.now();
+        product.hiddenAt = hiddenAt;
+        updates.hiddenAt = hiddenAt;
+    }
+
+    // Sync to Firebase (single node update keeps isHidden + hiddenAt atomic)
+    await database.ref(`soluongProducts/${productKey}`).update(updates);
 }
 
 /**

@@ -414,6 +414,9 @@ function mergeProductsByTemplate(products) {
             }));
 
             const mostRecentAddedAt = Math.max(...variants.map((v) => v.addedAt || 0));
+            const mostRecentHiddenAt = Math.max(
+                ...variants.map((v) => v.hiddenAt || v.addedAt || 0)
+            );
 
             const mergedProduct = {
                 ...firstVariant,
@@ -424,6 +427,7 @@ function mergeProductsByTemplate(products) {
                 soldQtyList: soldQtyList,
                 remainingQtyList: remainingQtyList,
                 addedAt: mostRecentAddedAt,
+                hiddenAt: mostRecentHiddenAt,
                 isMerged: true,
                 variantCount: variants.length,
                 variants: variants,
@@ -434,8 +438,9 @@ function mergeProductsByTemplate(products) {
     });
 
     mergedProducts.sort((a, b) => {
-        const timeA = a.addedAt || 0;
-        const timeB = b.addedAt || 0;
+        // Sort merged groups "most recently hidden first" (fallback addedAt for legacy)
+        const timeA = a.hiddenAt || a.addedAt || 0;
+        const timeB = b.hiddenAt || b.addedAt || 0;
         return timeB - timeA;
     });
 
@@ -452,7 +457,11 @@ function updateProductGrid() {
     btnNext.style.display = 'block';
     pageInfo.style.display = 'block';
 
-    const hiddenProducts = Object.values(soluongProducts).filter((p) => p.isHidden === true);
+    // Sort "most recently hidden first" (fallback addedAt for legacy items without hiddenAt)
+    const hideKey = (p) => p.hiddenAt || p.addedAt || 0;
+    const hiddenProducts = Object.values(soluongProducts)
+        .filter((p) => p.isHidden === true)
+        .sort((a, b) => hideKey(b) - hideKey(a));
 
     let baseProducts = searchKeyword
         ? filteredProducts.filter((p) => p.isHidden === true)
