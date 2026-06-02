@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b04db9b` — fix(web2-wallet): lá chắn unique chống cộng-trùng tiền bank (race webhook/cron/reload)
-**Last updated**: 2026-06-02 15:46:53 +07
-**Latest session**: [`RESUME:20260602-154653-b04db9b`](../20260602-154653-b04db9b.md)
-**Summary**: fix(web2-wallet): lá chắn unique chống cộng-trùng tiền bank (race webhook/cron/reload)
+**Latest commit**: `070beb4` — docs(dev-log): tpos-pancake gửi tin UI-first + fallback extension
+**Last updated**: 2026-06-02 16:05:37 +07
+**Latest session**: [`RESUME:20260602-160537-070beb4`](../20260602-160537-070beb4.md)
+**Summary**: docs(dev-log): tpos-pancake gửi tin UI-first + fallback extension
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-02 15:46
+- [`docs/`](./docs.md) — updated 2026-06-02 16:05
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -63,7 +62,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-25 19:26
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-02 15:34
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-02 16:05
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
