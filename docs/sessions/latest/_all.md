@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `070beb4` — docs(dev-log): tpos-pancake gửi tin UI-first + fallback extension
-**Last updated**: 2026-06-02 16:05:37 +07
-**Latest session**: [`RESUME:20260602-160537-070beb4`](../20260602-160537-070beb4.md)
-**Summary**: docs(dev-log): tpos-pancake gửi tin UI-first + fallback extension
+**Latest commit**: `6c30ffc` — fix(native-orders): customer 360 modal — đọc đúng shape từ /api/web2/customer-orders
+**Last updated**: 2026-06-02 16:13:08 +07
+**Latest session**: [`RESUME:20260602-161308-6c30ffc`](../20260602-161308-6c30ffc.md)
+**Summary**: fix(native-orders): customer 360 modal — đọc đúng shape từ /api/web2/customer-orders
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`native-orders/`](./native-orders.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -39,7 +38,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:43
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-30 11:05
-- [`native-orders/`](./native-orders.md) — updated 2026-06-02 15:46
+- [`native-orders/`](./native-orders.md) — updated 2026-06-02 16:13
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-01 18:45
