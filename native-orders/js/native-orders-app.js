@@ -3745,6 +3745,21 @@
                     ta.focus();
                     ta.setSelectionRange(ta.value.length, ta.value.length);
                 });
+            // Đính kèm tệp / hình ảnh (gửi qua extension UPLOAD_INBOX_PHOTO → REPLY)
+            const fileInput = modal.querySelector('#msgFileInput');
+            const imageInput = modal.querySelector('#msgImageInput');
+            modal
+                .querySelector('[data-action="attach-file"]')
+                ?.addEventListener('click', () => fileInput?.click());
+            modal
+                .querySelector('[data-action="attach-image"]')
+                ?.addEventListener('click', () => imageInput?.click());
+            fileInput?.addEventListener('change', (e) => {
+                if (e.target.files[0]) _setPendingAttachment(e.target.files[0]);
+            });
+            imageInput?.addEventListener('change', (e) => {
+                if (e.target.files[0]) _setPendingAttachment(e.target.files[0]);
+            });
             // Delegate "↩ trả lời" button on bubbles (rendered dynamically)
             modal.addEventListener('click', (e) => {
                 const replyBtn = e.target.closest('[data-action="reply-to"]');
@@ -5189,11 +5204,20 @@
                         <button type="button" class="w2-chat-tool" data-action="insert-signature" title="Chèn chữ ký nhân viên">
                             <i data-lucide="user-check" style="width:14px;height:14px;"></i>
                         </button>
+                        <button type="button" class="w2-chat-tool" data-action="attach-file" title="Đính kèm tệp / âm thanh">
+                            <i data-lucide="paperclip" style="width:14px;height:14px;"></i>
+                        </button>
+                        <button type="button" class="w2-chat-tool" data-action="attach-image" title="Đính kèm hình ảnh">
+                            <i data-lucide="image" style="width:14px;height:14px;"></i>
+                        </button>
+                        <input type="file" id="msgFileInput" style="display:none;">
+                        <input type="file" id="msgImageInput" accept="image/*" style="display:none;">
                         <div style="flex:1;"></div>
                         <small style="color:#94a3b8;font-size:11px;">
                             ${_hasExtension() ? `🚀 <strong style="color:#7c3aed;">N2 Extension v${_extensionVersion}</strong> (bypass 24h)` : 'Gửi qua Pancake API'}
                         </small>
                     </div>
+                    <div id="msgAttachPreview" style="display:none;align-items:center;margin-bottom:8px;"></div>
                     <div style="display:flex;gap:8px;align-items:flex-end;">
                         <textarea id="msgInput" rows="2" placeholder="Nhập tin nhắn gửi cho khách… (Enter để gửi, /shortcut để chèn mẫu)" style="flex:1;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;resize:none;min-height:42px;max-height:180px;line-height:1.45;"></textarea>
                         <button class="tpos-btn tpos-btn-primary" data-action="send-message" title="Gửi tin nhắn (Enter)" style="height:42px;padding:0 18px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">
@@ -5210,6 +5234,83 @@
     // -----------------------------------------------------
 
     let _chatState = null; // { order, pageId, convId, customerId, msgIds:Set, msgs:[], cursor, loadingOlder, hasMore, wsSub, missedSince, replyTo }
+
+    // Attachment đang chọn để gửi (ảnh/âm thanh/video/tệp) — gửi qua extension
+    // (UPLOAD_INBOX_PHOTO → REPLY_INBOX_PHOTO). Đồng bộ với tpos-pancake.
+    let _pendingAttachment = null; // { file, kind } với kind ∈ PHOTO|AUDIO|VIDEO|FILE
+
+    function _attachmentKind(file) {
+        const t = (file && file.type) || '';
+        if (t.startsWith('image/')) return 'PHOTO';
+        if (t.startsWith('audio/')) return 'AUDIO';
+        if (t.startsWith('video/')) return 'VIDEO';
+        return 'FILE';
+    }
+
+    function _fileToDataUrl(file) {
+        return new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result);
+            r.onerror = () => reject(new Error('Đọc tệp thất bại'));
+            r.readAsDataURL(file);
+        });
+    }
+
+    function _attachLabel(kind) {
+        return kind === 'AUDIO'
+            ? '[Âm thanh]'
+            : kind === 'VIDEO'
+              ? '[Video]'
+              : kind === 'FILE'
+                ? '[Tệp]'
+                : '[Hình ảnh]';
+    }
+
+    function _setPendingAttachment(file) {
+        if (!file) return;
+        _pendingAttachment = { file, kind: _attachmentKind(file) };
+        const wrap = document.getElementById('msgAttachPreview');
+        if (!wrap) return;
+        if (_pendingAttachment.kind === 'PHOTO') {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                wrap.innerHTML = `<img src="${e.target.result}" style="max-width:90px;max-height:70px;border-radius:6px;object-fit:cover;"><button type="button" id="msgAttachRemove" style="margin-left:8px;border:none;background:#ef4444;color:#fff;border-radius:50%;width:20px;height:20px;cursor:pointer;line-height:1;">×</button>`;
+                wrap.style.display = 'flex';
+                wrap.querySelector('#msgAttachRemove')?.addEventListener(
+                    'click',
+                    _clearPendingAttachment
+                );
+            };
+            reader.readAsDataURL(file);
+        } else {
+            const icon =
+                _pendingAttachment.kind === 'AUDIO'
+                    ? '🎵'
+                    : _pendingAttachment.kind === 'VIDEO'
+                      ? '🎬'
+                      : '📎';
+            const kb = Math.max(1, Math.round((file.size || 0) / 1024));
+            wrap.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;max-width:240px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${icon} ${escapeHtml(file.name || 'tệp')} <small style="color:#94a3b8;">(${kb} KB)</small></span><button type="button" id="msgAttachRemove" style="margin-left:8px;border:none;background:#ef4444;color:#fff;border-radius:50%;width:20px;height:20px;cursor:pointer;line-height:1;">×</button>`;
+            wrap.style.display = 'flex';
+            wrap.querySelector('#msgAttachRemove')?.addEventListener(
+                'click',
+                _clearPendingAttachment
+            );
+        }
+    }
+
+    function _clearPendingAttachment() {
+        _pendingAttachment = null;
+        const wrap = document.getElementById('msgAttachPreview');
+        if (wrap) {
+            wrap.style.display = 'none';
+            wrap.innerHTML = '';
+        }
+        const fi = document.getElementById('msgFileInput');
+        const ii = document.getElementById('msgImageInput');
+        if (fi) fi.value = '';
+        if (ii) ii.value = '';
+    }
 
     /**
      * Set the "replying to" target. Pass null to clear.
@@ -6916,7 +7017,8 @@
         const input = document.getElementById('msgInput');
         if (!input) return;
         const text = input.value.trim();
-        if (!text) {
+        const att = _pendingAttachment; // { file, kind } | null
+        if (!text && !att) {
             notify('Vui lòng nhập tin nhắn', 'warning');
             return;
         }
@@ -6926,15 +7028,17 @@
         // UI-FIRST: hiện bong bóng + clear ô nhập NGAY (trước mọi await) → gửi chạy
         // nền. Không disable input (gõ tiếp được). Lỗi cả 2 route → _restore() gỡ
         // bong bóng + bật lại text vào ô để gửi lại.
-        const fakeId = _appendOutgoing(text);
+        const fakeId = _appendOutgoing(text || _attachLabel(att?.kind));
         input.value = '';
         _setReplyTarget(null);
+        _clearPendingAttachment();
         const _restore = () => {
             _removeOutgoing(fakeId);
             if (input && !input.value.trim()) {
                 input.value = text;
                 input.focus();
             }
+            if (att) _setPendingAttachment(att.file);
         };
 
         // Try extension bridge first (bypasses Pancake 24h rule via FB Business)
@@ -7036,6 +7140,35 @@
                 const swConvId = input.dataset.threadId
                     ? 't_' + input.dataset.threadId
                     : input.dataset.conversationId || '';
+                // Upload attachment lên FB (qua extension) → fbId, rồi gửi kèm. Extension
+                // hỗ trợ PHOTO/AUDIO/VIDEO/FILE; data-URL để SW fetch được mọi context.
+                let files = [];
+                let attachmentType = 'SEND_TEXT_ONLY';
+                if (att && att.file) {
+                    const dataUrl = await _fileToDataUrl(att.file);
+                    const up = await _extensionRequest(
+                        'UPLOAD_INBOX_PHOTO',
+                        {
+                            pageId: order.fbPageId,
+                            photoUrl: dataUrl,
+                            name: att.file.name || 'attachment',
+                        },
+                        60000
+                    );
+                    const fbId = up?.data?.fbId;
+                    if (!up.ok || !fbId) {
+                        // Upload thất bại → KHÔNG fallback Pancake (native-orders không có
+                        // Pancake upload) → restore + báo.
+                        _restore();
+                        notify(
+                            'Gửi tệp thất bại (extension upload): ' + (up?.error || 'unknown'),
+                            'error'
+                        );
+                        return;
+                    }
+                    files = [fbId];
+                    attachmentType = att.kind || 'FILE';
+                }
                 const r = await _extensionRequest('REPLY_INBOX_PHOTO', {
                     pageId: order.fbPageId,
                     globalUserId: globalUserId || order.fbUserId,
@@ -7046,7 +7179,8 @@
                         ? new Date(order.updatedAt).getTime()
                         : Date.now(),
                     message: text,
-                    attachmentType: 'SEND_TEXT_ONLY',
+                    attachmentType,
+                    files,
                     platform: 'facebook',
                     isBusiness: true,
                     repliedMessageId: replyToId,
@@ -7063,6 +7197,17 @@
             } catch (e) {
                 console.warn('[NativeOrders] Extension bridge error, fallback Pancake:', e.message);
             }
+        }
+
+        // Attachment chỉ gửi được qua extension (Pancake Public API ở native-orders
+        // không có bước upload). Extension fail + có attachment → báo, không fallback.
+        if (att) {
+            _restore();
+            notify(
+                'Gửi tệp cần N2 Extension (đăng nhập FB Business). Hiện không gửi được.',
+                'error'
+            );
+            return;
         }
 
         // Fallback: Web2Chat client (Pancake Public API, subject to 24h rule)

@@ -25,6 +25,23 @@
 
 ## 2026-06-02
 
+### [native-orders] Đồng bộ gửi attachment (ảnh/âm thanh/video/tệp) qua extension — parity với tpos-pancake ✅
+
+**Yêu cầu user**: "đồng bộ 2 bên đi — chức năng giống nhau mà". → port tính năng gửi attachment qua extension từ tpos-pancake sang native-orders (trước giờ native-orders chat chỉ gửi TEXT).
+
+**Cách làm** (`native-orders/js/native-orders-app.js`, dùng `_extensionRequest` inline sẵn có — cùng protocol extension):
+
+- Thêm `_pendingAttachment {file,kind}` + helpers `_attachmentKind`, `_fileToDataUrl`, `_attachLabel`, `_setPendingAttachment` (preview ảnh thumb / chip file), `_clearPendingAttachment`.
+- Composer: thêm nút 📎 (attach-file mọi loại) + 🖼 (attach-image) + 2 input ẩn + `#msgAttachPreview`. Wire trong binding modal.
+- `_handleSendMessage`: guard cho phép gửi attachment-only; UI-first `_appendOutgoing(text||label)` + clear attachment; `_restore` khôi phục cả text + attachment. Extension block: nếu có attachment → `UPLOAD_INBOX_PHOTO` (data-URL) → `fbId` → `REPLY_INBOX_PHOTO` `attachmentType=kind, files=[fbId]`; lỗi upload → restore + báo (KHÔNG fallback Pancake vì native-orders không có Pancake upload). Pancake fallback: nếu có attachment → restore + báo "cần extension".
+- Giữ thứ tự extension-first của native-orders.
+
+**Khác tpos-pancake**: tpos-pancake có Pancake fallback cho ảnh (uploadMedia→content_ids); native-orders attachment CHỈ qua extension (không có Pancake upload path). Text vẫn fallback Pancake như cũ ở cả 2.
+
+**Verify**: `node --check` OK; reload native-orders sạch (no app error). UI nút đính kèm render trong modal chat (mở theo đơn). Extension upload đã validate thật ở tpos-pancake (fbId thật) — cùng `_extensionRequest`/`UPLOAD_INBOX_PHOTO` nên native-orders tương đương. ⚠ E2E gửi thật cần browser có FB Business + hội thoại thật.
+
+**Files**: `native-orders/js/native-orders-app.js`, `native-orders/index.html`. Status: ✅ Done — 2 trang giờ parity chức năng gửi attachment qua extension.
+
 ### [tpos-pancake] LIVE-validate gửi attachment qua extension (real FB) ✅
 
 Test thật với extension load sẵn (`scripts/n2store-browser-session.js --ext n2store-extension --http-port 9997`) + login FB Business trong cửa sổ:
