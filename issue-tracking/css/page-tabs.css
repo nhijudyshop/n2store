@@ -1017,6 +1017,30 @@ body.pt-embed-active {
     color: #fff;
 }
 
+/* Người bán dưới tên khách */
+.tpos-fso-seller {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6d28d9;
+    background: #f5f3ff;
+    border: 1px solid #ddd6fe;
+    border-radius: 5px;
+    padding: 1px 6px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tpos-fso-seller i {
+    width: 11px;
+    height: 11px;
+    flex-shrink: 0;
+}
+
 /* "Đã hủy" + ai đã hủy */
 .tpos-state-wrap {
     display: flex;

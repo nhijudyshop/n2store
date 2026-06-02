@@ -126,6 +126,17 @@
 
 **Cleanup**: 5 test orders deleted, KPI ranges reset, PBH cancelled.
 
+### [issue-tracking] BÁN HÀNG: hiện Người bán (NV) dưới tên khách ✅
+
+**Yêu cầu user**: Hiện tên người bán (data trong PBH TPOS, như dòng "Người bán: MY CSKH (LIVE)" trên phiếu in) kế bên tên khách để biết NV nào đã bán.
+
+**Files**:
+
+- `issue-tracking/js/tpos-fastsale-tab.js` — `sellerLine(row)` render `<div.tpos-fso-seller>` (icon user-round + tên) từ field `row.UserName` (fallback `CreateByName`) — **đã có sẵn trong GetView, không cần fetch thêm**. Chèn dưới `.tpos-fso-customer` cho invoice + refund row. Bump `?v=20260602h`.
+- `issue-tracking/css/page-tabs.css` — `.tpos-fso-seller` (badge tím nhạt, ellipsis).
+
+**Verify local**: 8/8 row hiện NV đúng — NJD/2026/70243 → "MY CSKH (LIVE)" (khớp phiếu in), 70242 → "Giang Giang", 70241 → "nvkt". 0 lỗi. Status: ✅ Done.
+
 ### [issue-tracking] BÁN HÀNG: resolve "ai hủy" từ TPOS AuditLog cho MỌI đơn (kể cả hủy bên TPOS) ✅
 
 **Yêu cầu user**: Không chỉ đơn hủy qua trang này — lấy luôn người hủy từ TPOS AuditLog cho mọi đơn đã hủy (kể cả hủy trực tiếp bên TPOS).

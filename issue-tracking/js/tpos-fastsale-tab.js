@@ -156,6 +156,13 @@
         }
     }
 
+    // Người bán (PBH TPOS field UserName) → sub-line dưới tên khách để biết NV nào đã bán.
+    function sellerLine(row) {
+        const seller = row.UserName || row.CreateByName || '';
+        if (!seller) return '';
+        return `<div class="tpos-fso-seller" title="Người bán: ${escapeHtml(seller)}"><i data-lucide="user-round"></i>${escapeHtml(seller)}</div>`;
+    }
+
     // Badge phụ "· Hủy bởi <user>" cạnh "Đã hủy" cho row đã hủy có log.
     function cancelByBadge(row) {
         if (row.State !== 'cancel') return '';
@@ -428,7 +435,7 @@
             ${expandCell()}
             <td style="text-align:center;color:#94a3b8;font-variant-numeric:tabular-nums;">${idx}</td>
             <td><span class="tpos-fso-num mono" data-action="open" data-id="${row.Id || ''}" data-num="${escapeHtml(row.Number || '')}">${escapeHtml(row.Number || '—')}</span></td>
-            <td><div class="tpos-fso-customer">${escapeHtml(customer)}</div></td>
+            <td><div class="tpos-fso-customer">${escapeHtml(customer)}</div>${sellerLine(row)}</td>
             <td><span class="tpos-fso-phone">${escapeHtml(phone || '—')}</span></td>
             <td><div class="tpos-fso-address" title="${escapeHtml(address)}">${escapeHtml(address || '—')}</div></td>
             <td class="num">${total}</td>
@@ -452,7 +459,7 @@
             <td style="text-align:center;color:#94a3b8;font-variant-numeric:tabular-nums;">${idx}</td>
             <td><span class="tpos-fso-num mono" data-action="open" data-id="${row.Id || ''}" data-num="${escapeHtml(row.Number || '')}">${escapeHtml(row.Number || '—')}</span></td>
             <td data-col="refundOf"><span class="mono" style="color:#475569;">${escapeHtml(refundOf || '—')}</span></td>
-            <td><div class="tpos-fso-customer">${escapeHtml(customer)}</div></td>
+            <td><div class="tpos-fso-customer">${escapeHtml(customer)}</div>${sellerLine(row)}</td>
             <td><span class="tpos-fso-phone">${escapeHtml(phone || '—')}</span></td>
             <td class="num" style="color:#dc2626;">${total}</td>
             <td><div class="tpos-state-wrap">${stateBadge(row.State, STATE_META, true)}${cancelByBadge(row)}</div></td>
