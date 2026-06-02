@@ -25,6 +25,24 @@
 
 ## 2026-06-02
 
+### [render] Lá chắn cứng chống cộng-trùng tiền bank Web 2.0 (race webhook/cron/reload) ✅
+
+**Vấn đề**: cron reprocess vừa thêm là tác nhân thứ 3 (cùng webhook + reload trang) có thể xử lý 1 GD đồng thời. `processWeb2Match` check `debt_added` + `processDeposit` check dup theo `(reference_type='sepay',reference_id)` đều là **đọc-rồi-ghi** ở READ COMMITTED, không lock theo sepayId → 2 path cùng qua check trước khi 1 bên COMMIT → **cộng tiền 2 lần**. Legacy có partial-unique trên cột `sepay_id` (migration 064) nhưng web2 không ghi cột đó → vô hiệu. Không có migration UNIQUE nào cho `web2_wallet_transactions`.
+
+**Fix A — DB last-line-of-defense** (`render.com/services/web2-wallet-isolation.js`):
+
+- Thêm partial UNIQUE `idx_web2_wallet_tx_unique_sepay ON web2_wallet_transactions(reference_id) WHERE reference_type='sepay'` trong `ensureSchema` (idempotent, chạy lúc boot).
+- Chỉ ràng buộc deposit sepay → KHÔNG đụng withdraw/order/manual (tránh lỗi "quá rộng" của legacy 063 từng làm 500 toàn bộ withdraw).
+- Phòng thủ: phát hiện dup sẵn trước khi CREATE; nếu có → log nhóm dup + skip (không làm chết boot). Toàn bộ bọc try/catch riêng.
+
+**Fix B — App recover** (`render.com/services/web2-wallet-service.js`):
+
+- `processDeposit` wrap `_runDeposit()` trong try/catch: thua race (`code 23505`) → re-query tx đã có → trả `alreadyProcessed:true` thay vì throw/500. Chỉ recover khi `db` là Pool (client trong tx caller đã abort không re-query được).
+
+**Test** (local DB riêng `n2store_dedup_test`, pattern test-migration → DROP sau): 5/5 pass — chặn sepay trùng (23505), race 2-connection đúng 1 win/1 dup, order/withdraw/manual vẫn cho trùng. Không đụng prod.
+
+**Kết quả**: dù webhook + cron + reload đập cùng lúc, DB chỉ cho 1 dòng sepay tồn tại → bất khả cộng trùng.
+
 ### [tpos-pancake] Gửi tin: fallback N2 Extension bypass-24h khi Pancake API lỗi (giống native-orders) ✅
 
 **Yêu cầu user**: "xử lý lỗi như bên native-orders → lỗi thì qua extension bypass". Khi gửi qua Pancake API thất bại (24h policy / token 105 / ...), tự động gửi lại qua N2 Extension (FB Business Suite GraphQL, bypass 24h) như native-orders.

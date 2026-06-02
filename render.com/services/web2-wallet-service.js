@@ -137,51 +137,52 @@ async function processDeposit(db, phone, amount, sourceId, note, customerId, txD
         throw new Error('Amount phải > 0');
     }
 
-    return runWithTx(db, async (client) => {
-        // 1. Idempotency: skip nếu sepayId đã có tx
-        if (sepayId) {
-            const dup = await client.query(
-                `SELECT id, phone, amount FROM web2_wallet_transactions
+    const _runDeposit = () =>
+        runWithTx(db, async (client) => {
+            // 1. Idempotency: skip nếu sepayId đã có tx
+            if (sepayId) {
+                const dup = await client.query(
+                    `SELECT id, phone, amount FROM web2_wallet_transactions
                  WHERE reference_type = 'sepay' AND reference_id = $1
                  LIMIT 1`,
-                [String(sepayId)]
-            );
-            if (dup.rows.length > 0) {
-                const wallet = await client.query(
-                    `SELECT * FROM web2_customer_wallets WHERE phone = $1`,
-                    [normPhone]
+                    [String(sepayId)]
                 );
-                return {
-                    wallet: wallet.rows[0],
-                    transaction: dup.rows[0],
-                    alreadyProcessed: true,
-                };
+                if (dup.rows.length > 0) {
+                    const wallet = await client.query(
+                        `SELECT * FROM web2_customer_wallets WHERE phone = $1`,
+                        [normPhone]
+                    );
+                    return {
+                        wallet: wallet.rows[0],
+                        transaction: dup.rows[0],
+                        alreadyProcessed: true,
+                    };
+                }
             }
-        }
 
-        // 2. Get-or-create wallet + LOCK row
-        await getOrCreateWallet(client, normPhone, customerId);
-        const lockResult = await client.query(
-            `SELECT id, phone, customer_id, balance, virtual_balance,
+            // 2. Get-or-create wallet + LOCK row
+            await getOrCreateWallet(client, normPhone, customerId);
+            const lockResult = await client.query(
+                `SELECT id, phone, customer_id, balance, virtual_balance,
                     total_deposited, total_withdrawn
              FROM web2_customer_wallets
              WHERE phone = $1
              FOR UPDATE`,
-            [normPhone]
-        );
-        if (lockResult.rows.length === 0) {
-            throw new Error(`Wallet for ${normPhone} disappeared`);
-        }
-        const wallet = lockResult.rows[0];
+                [normPhone]
+            );
+            if (lockResult.rows.length === 0) {
+                throw new Error(`Wallet for ${normPhone} disappeared`);
+            }
+            const wallet = lockResult.rows[0];
 
-        // 3. Compute new balance
-        const balanceBefore = parseFloat(wallet.balance) || 0;
-        const balanceAfter = balanceBefore + amt;
-        const totalDeposited = (parseFloat(wallet.total_deposited) || 0) + amt;
+            // 3. Compute new balance
+            const balanceBefore = parseFloat(wallet.balance) || 0;
+            const balanceAfter = balanceBefore + amt;
+            const totalDeposited = (parseFloat(wallet.total_deposited) || 0) + amt;
 
-        // 4. INSERT transaction
-        const txInsert = await client.query(
-            `INSERT INTO web2_wallet_transactions (
+            // 4. INSERT transaction
+            const txInsert = await client.query(
+                `INSERT INTO web2_wallet_transactions (
                 phone, customer_id, type, amount,
                 balance_before, balance_after,
                 virtual_balance_before, virtual_balance_after,
@@ -189,55 +190,87 @@ async function processDeposit(db, phone, amount, sourceId, note, customerId, txD
              )
              VALUES ($1, $2, $3, $4, $5, $6, 0, 0, $7, $8, $9, $10, COALESCE($11, NOW()))
              RETURNING *`,
-            [
-                normPhone,
-                wallet.customer_id || customerId,
-                WEB2_TX_TYPES.DEPOSIT,
-                amt,
-                balanceBefore,
-                balanceAfter,
-                sepayId ? WEB2_SOURCES.BANK_TRANSFER : WEB2_SOURCES.MANUAL_ADJUSTMENT,
-                sepayId ? 'sepay' : sourceId ? 'balance_history' : 'manual',
-                sepayId ? String(sepayId) : sourceId ? String(sourceId) : null,
-                note || null,
-                txDate || null,
-            ]
-        );
+                [
+                    normPhone,
+                    wallet.customer_id || customerId,
+                    WEB2_TX_TYPES.DEPOSIT,
+                    amt,
+                    balanceBefore,
+                    balanceAfter,
+                    sepayId ? WEB2_SOURCES.BANK_TRANSFER : WEB2_SOURCES.MANUAL_ADJUSTMENT,
+                    sepayId ? 'sepay' : sourceId ? 'balance_history' : 'manual',
+                    sepayId ? String(sepayId) : sourceId ? String(sourceId) : null,
+                    note || null,
+                    txDate || null,
+                ]
+            );
 
-        // 5. UPDATE wallet balance
-        const walletUpdate = await client.query(
-            `UPDATE web2_customer_wallets
+            // 5. UPDATE wallet balance
+            const walletUpdate = await client.query(
+                `UPDATE web2_customer_wallets
              SET balance = $1, total_deposited = $2, updated_at = NOW()
              WHERE id = $3
              RETURNING *`,
-            [balanceAfter, totalDeposited, wallet.id]
-        );
+                [balanceAfter, totalDeposited, wallet.id]
+            );
 
-        const result = {
-            wallet: walletUpdate.rows[0],
-            transaction: txInsert.rows[0],
-            alreadyProcessed: false,
-        };
+            const result = {
+                wallet: walletUpdate.rows[0],
+                transaction: txInsert.rows[0],
+                alreadyProcessed: false,
+            };
 
-        // 6. Emit event AFTER commit (caller may be inside outer txn)
-        process.nextTick(() => {
-            try {
-                const payload = {
-                    phone: normPhone,
-                    wallet: result.wallet,
-                    transaction: result.transaction,
-                    type: 'deposit',
-                    ts: Date.now(),
-                };
-                web2WalletEvents.emit('web2:wallet:update', payload);
-                web2WalletEvents.emit(`web2:wallet:${normPhone}`, payload);
-            } catch (e) {
-                console.warn('[Web2WalletService] emit failed:', e.message);
-            }
+            // 6. Emit event AFTER commit (caller may be inside outer txn)
+            process.nextTick(() => {
+                try {
+                    const payload = {
+                        phone: normPhone,
+                        wallet: result.wallet,
+                        transaction: result.transaction,
+                        type: 'deposit',
+                        ts: Date.now(),
+                    };
+                    web2WalletEvents.emit('web2:wallet:update', payload);
+                    web2WalletEvents.emit(`web2:wallet:${normPhone}`, payload);
+                } catch (e) {
+                    console.warn('[Web2WalletService] emit failed:', e.message);
+                }
+            });
+
+            return result;
         });
 
-        return result;
-    });
+    try {
+        return await _runDeposit();
+    } catch (e) {
+        // Thua race trên idx_web2_wallet_tx_unique_sepay → path khác (webhook/
+        // cron/reload) đã cộng đúng GD bank này rồi. Re-query & trả
+        // alreadyProcessed thay vì cộng trùng. Chỉ recover khi db là Pool —
+        // nếu là client trong tx của caller, tx đã abort, không re-query được.
+        const isClient = !!(db && typeof db.release === 'function');
+        if (sepayId && !isClient && e && e.code === '23505') {
+            const dupTx = await db.query(
+                `SELECT id, phone, amount FROM web2_wallet_transactions
+                 WHERE reference_type = 'sepay' AND reference_id = $1
+                 LIMIT 1`,
+                [String(sepayId)]
+            );
+            if (dupTx.rows.length > 0) {
+                const w = await db.query(`SELECT * FROM web2_customer_wallets WHERE phone = $1`, [
+                    normPhone,
+                ]);
+                console.warn(
+                    `[Web2WalletService] tránh double-credit (race) sepay_id=${sepayId} — đã có tx #${dupTx.rows[0].id}`
+                );
+                return {
+                    wallet: w.rows[0],
+                    transaction: dupTx.rows[0],
+                    alreadyProcessed: true,
+                };
+            }
+        }
+        throw e;
+    }
 }
 
 /**
