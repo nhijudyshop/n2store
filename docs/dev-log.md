@@ -25,6 +25,32 @@
 
 ## 2026-06-02
 
+### [tpos-pancake] Silent snap toasts — bỏ thông báo khi snap/chụp hình ✅
+
+**Yêu cầu user**: "tpos-pancake → không cần thông báo khi snap shot và chụp hình".
+
+**Cách làm**: Update `_toast()` trong [`tpos-pancake/js/tpos/tpos-livestream-snap.js:396`](tpos-pancake/js/tpos/tpos-livestream-snap.js#L396) — chỉ show notification khi `type === 'err'`. Success/ok/info → console.log only (giữ debug trace). 59 toast call sites đều route qua `_toast()` nên fix 1 chỗ ăn toàn module.
+
+**Files**: `tpos-pancake/js/tpos/tpos-livestream-snap.js`, `tpos-pancake/index.html` (cache bump v20260602a).
+
+### [test] E2E livestream verify — tpos-pancake → native-orders → PBH → KPI → cancel + SSE realtime ✅
+
+**Yêu cầu user**: browser test toàn bộ Web 2.0 — cart từ tpos-pancake, add/remove products, PBH, chia KPI range, hủy PBH, inventory, all menu pages, realtime sync.
+
+**Test scope** (sau khi xóa hết 13 đơn cũ + reset STT seq):
+
+- **Phase B** (cart create): 5 đơn — 3 HOUSE 02/06/2026 (NW-0001/0002/0003) + 2 STORE 02/06/2026 (NW-0004/0005). 1 đơn có 2 SP.
+- **Phase C** (STT grouping): `campaignStt = displayStt = 1..5` chia chung cho STORE+HOUSE 02/06/2026 ✅ (normalized key "02/06/2026" hoạt động đúng).
+- **Phase D** (add/remove): `NativeOrdersApi.update(code, {products: [...]})` → add 1 SP → remove 1 SP → state correct.
+- **Phase E** (PBH + KPI): `POST /api/fast-sale-orders/from-native-order {force:true}` → HD-20260602-0001. KPI ranges PUT saved 2 employees STT 1-3 + STT 4-5, history persisted.
+- **Phase F** (cancel PBH): state="cancel" ✅.
+- **Phase G** (inventory): SKIPPED — fake KHO-TEST-\* products không có stock rows.
+- **Phase H** (smoke menu): 26 pages HTTP 200, 0 5xx errors.
+- **Phase I** (SSE realtime): `Web2SSE.subscribe('web2:native-orders', cb)` → mutate via API → event nhận **~200ms** với payload `{action:'update', code:'NW-...', ts}`.
+- **Phase J** (UI-first): 10/18 main `*app.js` files dùng `Web2Optimistic.run`.
+
+**Cleanup**: 5 test orders deleted, KPI ranges reset, PBH cancelled.
+
 ### [issue-tracking] BÁN HÀNG: nút Hủy phiếu (ActionCancel) + Lịch sử (AuditLog) như TPOS ✅
 
 **Yêu cầu user**: Trang `issue-tracking/index.html#ban-hang` cho **hủy phiếu bán hàng** (không phải xóa) + xem **Lịch sử** như tab "Lịch sử" của TPOS. Hủy thử đơn test `NJD/2026/70234` (Huỳnh Thành Đạt).

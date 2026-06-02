@@ -393,12 +393,20 @@
         return { id: u.uid || u.email || null, name: u.displayName || u.email || null };
     }
 
+    // 2026-06-02: silent mode cho snap success toasts (user spec: "không cần
+    // thông báo khi snap shot và chụp hình"). Chỉ ẩn 'ok'/'success' của snap
+    // module — error vẫn show để user biết khi fail. Log console giữ debug trace.
     function _toast(msg, type = 'ok') {
-        if (global.notificationManager?.show) {
-            global.notificationManager.show(msg, type === 'err' ? 'error' : 'success');
-        } else {
-            console.log('[snap-toast]', type, msg);
+        if (type === 'err' || type === 'error') {
+            if (global.notificationManager?.show) {
+                global.notificationManager.show(msg, 'error');
+            } else {
+                console.log('[snap-toast]', type, msg);
+            }
+            return;
         }
+        // Success/ok/info: console-only, no UI notification.
+        console.log('[snap-toast]', type, msg);
     }
 
     // Format offset seconds → human-readable: "+1h23m45s" / "+5m12s" / "+45s".
