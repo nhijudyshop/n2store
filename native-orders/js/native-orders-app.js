@@ -3422,12 +3422,25 @@
         body.innerHTML = '<div style="color:#6b7280;">Đang tải aggregation…</div>';
         const money = (n) => Number(n || 0).toLocaleString('vi-VN') + 'đ';
         try {
-            // 2026-06-01: Web 2.0 aggregate (native + PBH + refunds) thay legacy
+            // 2026-06-01: Web 2.0 aggregate (native + PBH + refunds) thay legacy.
+            // Backend shape: {success, native:[], pbh:[], refund:[],
+            //   totals:{native:{count,amount}, pbh:{count,amount}, refund:{count,amount}, net},
+            //   summary:{totalNative, totalNativeAmount, totalPbh, totalPbhAmount, ...},
+            //   orders:[{source,number,date,state,totalAmount,itemCount}]}.
+            // Items trong native[]/pbh[] có shape: {source, number, date, state,
+            //   totalAmount, itemCount} — KHÔNG có .code (PBH dùng .number, đơn web cũng dùng .number).
+            // 2026-06-02 fix: cũ đọc summary.native.count → undefined → "Cannot read
+            // properties of undefined" — chuyển sang totals.native.count + tổng item shape.
             const r = await fetch(`${WORKER_URL}/api/web2/customer-orders/${customerId}?limit=20`);
             const data = await r.json();
             if (!data?.success) throw new Error(data?.error || `HTTP ${r.status}`);
-            const { native, pbh, summary } = data;
-            const renderRow = (label, items, codeKey, totalKey, stateKey) => `
+            const native = Array.isArray(data.native) ? data.native : [];
+            const pbh = Array.isArray(data.pbh) ? data.pbh : [];
+            const totals = data.totals || {};
+            const nativeTotal = totals.native || { count: native.length, amount: 0 };
+            const pbhTotal = totals.pbh || { count: pbh.length, amount: 0 };
+            const refundTotal = totals.refund || { count: 0, amount: 0 };
+            const renderRow = (label, items) => `
                 <div style="margin-bottom:14px;">
                     <div style="font-weight:600;margin-bottom:6px;color:#111827;">${label} (${items.length})</div>
                     ${
@@ -3436,21 +3449,21 @@
                             : `<table style="width:100%;border-collapse:collapse;font-size:12px;">
                                 <thead><tr style="background:#f9fafb;text-align:left;">
                                     <th style="padding:6px 8px;">Mã</th>
-                                    <th style="padding:6px 8px;">SL</th>
+                                    <th style="padding:6px 8px;">SL SP</th>
                                     <th style="padding:6px 8px;text-align:right;">Tổng</th>
                                     <th style="padding:6px 8px;">Trạng thái</th>
-                                    <th style="padding:6px 8px;">Chiến dịch</th>
+                                    <th style="padding:6px 8px;">Ngày</th>
                                 </tr></thead>
                                 <tbody>
                                 ${items
                                     .slice(0, 10)
                                     .map(
                                         (it) => `<tr style="border-top:1px solid #e5e7eb;">
-                                            <td style="padding:6px 8px;font-weight:600;">${escapeHtml(it[codeKey])}</td>
-                                            <td style="padding:6px 8px;">${it.totalQuantity ?? '—'}</td>
-                                            <td style="padding:6px 8px;text-align:right;">${money(it[totalKey])}</td>
-                                            <td style="padding:6px 8px;">${escapeHtml(it[stateKey] || '—')}</td>
-                                            <td style="padding:6px 8px;color:#6b7280;">${escapeHtml(it.liveCampaign?.name || '—')}</td>
+                                            <td style="padding:6px 8px;font-weight:600;">${escapeHtml(it.number || it.code || '—')}</td>
+                                            <td style="padding:6px 8px;">${it.itemCount ?? it.totalQuantity ?? '—'}</td>
+                                            <td style="padding:6px 8px;text-align:right;">${money(it.totalAmount ?? it.amountTotal ?? 0)}</td>
+                                            <td style="padding:6px 8px;">${escapeHtml(it.state || it.status || '—')}</td>
+                                            <td style="padding:6px 8px;color:#6b7280;">${it.date ? new Date(it.date).toLocaleDateString('vi-VN') : '—'}</td>
                                         </tr>`
                                     )
                                     .join('')}
@@ -3458,21 +3471,30 @@
                             </table>`
                     }
                 </div>`;
+            const refundBlock =
+                refundTotal.count > 0
+                    ? `<div style="background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:8px;flex:1;min-width:140px;">
+                       <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Trả hàng</div>
+                       <div style="font-size:18px;font-weight:700;">${refundTotal.count}</div>
+                       <div style="font-size:11px;">${money(refundTotal.amount)}</div>
+                   </div>`
+                    : '';
             body.innerHTML = `
                 <div style="display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap;">
                     <div style="background:#ede9fe;color:#5b21b6;padding:10px 14px;border-radius:8px;flex:1;min-width:140px;">
                         <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Đơn web (NW)</div>
-                        <div style="font-size:18px;font-weight:700;">${summary.native.count}</div>
-                        <div style="font-size:11px;">${money(summary.native.totalAmount)}</div>
+                        <div style="font-size:18px;font-weight:700;">${nativeTotal.count}</div>
+                        <div style="font-size:11px;">${money(nativeTotal.amount)}</div>
                     </div>
                     <div style="background:#dbeafe;color:#1e40af;padding:10px 14px;border-radius:8px;flex:1;min-width:140px;">
                         <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Phiếu bán hàng (HD)</div>
-                        <div style="font-size:18px;font-weight:700;">${summary.pbh.count}</div>
-                        <div style="font-size:11px;">${money(summary.pbh.totalAmount)}</div>
+                        <div style="font-size:18px;font-weight:700;">${pbhTotal.count}</div>
+                        <div style="font-size:11px;">${money(pbhTotal.amount)}</div>
                     </div>
+                    ${refundBlock}
                 </div>
-                ${renderRow('Đơn web', native, 'code', 'totalAmount', 'status')}
-                ${renderRow('PBH', pbh, 'number', 'amountTotal', 'state')}
+                ${renderRow('Đơn web', native)}
+                ${renderRow('PBH', pbh)}
             `;
         } catch (e) {
             body.innerHTML = `<div style="color:#dc2626;">Lỗi tải dữ liệu: ${escapeHtml(e.message)}</div>`;
@@ -6660,7 +6682,7 @@
      * later carries the same content, the id-dedup map prevents double-render.
      */
     function _appendOutgoing(text) {
-        if (!_chatState) return;
+        if (!_chatState) return null;
         const fake = {
             id: 'local_' + Date.now(),
             from: { id: _chatState.pageId, name: 'You' },
@@ -6675,6 +6697,22 @@
         _appendBubbleDom(fake);
         const t = document.getElementById('msgThread');
         if (t) t.scrollTop = t.scrollHeight;
+        return fake.id; // caller giữ id để rollback (gỡ bong bóng nếu gửi thất bại)
+    }
+
+    /**
+     * Gỡ 1 bong bóng outgoing tạm (UI-first rollback) — xoá khỏi _chatState.msgs,
+     * msgIds và DOM. Dùng khi gửi thất bại cả 2 route để khôi phục trạng thái.
+     */
+    function _removeOutgoing(localId) {
+        if (!localId || !_chatState) return;
+        const idx = _chatState.msgs.findIndex((m) => m.id === localId);
+        if (idx >= 0) _chatState.msgs.splice(idx, 1);
+        _chatState.msgIds?.delete?.(localId);
+        const row = document.querySelector(
+            `.w2-chat-row[data-msg-id="${CSS.escape(String(localId))}"]`
+        );
+        if (row) row.remove();
     }
 
     function _onIncomingWsMessage(payload) {
@@ -6884,7 +6922,22 @@
             notify('Vui lòng nhập tin nhắn', 'warning');
             return;
         }
-        input.disabled = true;
+        // Capture trước khi _setReplyTarget(null) xoá — gửi nền vẫn cần reply target.
+        const replyToId = _chatState?.replyTo?.id || undefined;
+
+        // UI-FIRST: hiện bong bóng + clear ô nhập NGAY (trước mọi await) → gửi chạy
+        // nền. Không disable input (gõ tiếp được). Lỗi cả 2 route → _restore() gỡ
+        // bong bóng + bật lại text vào ô để gửi lại.
+        const fakeId = _appendOutgoing(text);
+        input.value = '';
+        _setReplyTarget(null);
+        const _restore = () => {
+            _removeOutgoing(fakeId);
+            if (input && !input.value.trim()) {
+                input.value = text;
+                input.focus();
+            }
+        };
 
         // Try extension bridge first (bypasses Pancake 24h rule via FB Business)
         if (_hasExtension()) {
