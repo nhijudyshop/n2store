@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `27edc93` — docs(dev-log): live-validate tpos-pancake attachment qua extension (UPLOAD_INBOX_PHOTO tra fbId that, v1.0.25)
-**Last updated**: 2026-06-02 18:12:11 +07
-**Latest session**: [`RESUME:20260602-181211-27edc93`](../20260602-181211-27edc93.md)
-**Summary**: docs(dev-log): live-validate tpos-pancake attachment qua extension (UPLOAD_INBOX_PHOTO tra fbId that, v1.0.25)
+**Latest commit**: `6089734` — feat(native-orders): dong bo gui attachment (anh/audio/video/tep) qua extension — parity tpos-pancake
+**Last updated**: 2026-06-02 18:34:47 +07
+**Latest session**: [`RESUME:20260602-183447-6089734`](../20260602-183447-6089734.md)
+**Summary**: feat(native-orders): dong bo gui attachment (anh/audio/video/tep) qua extension — parity tpos-pancake
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-02 18:12
+- [`docs/`](./docs.md) — updated 2026-06-02 18:34
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -38,7 +39,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:43
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-30 11:05
-- [`native-orders/`](./native-orders.md) — updated 2026-06-02 16:16
+- [`native-orders/`](./native-orders.md) — updated 2026-06-02 18:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-01 18:45
