@@ -327,19 +327,35 @@ const PancakeChatWindow = {
     },
 
     /**
-     * Thực thi gửi tin (chạy nền): upload ảnh (nếu có) → Pancake API → nếu lỗi thì
-     * fallback N2 Extension (chỉ TEXT — extension không gửi kèm ảnh).
-     * @returns {Promise<{via:'pancake'|'extension', sent:object}>} hoặc throw nếu cả 2 fail.
+     * Thực thi gửi tin (chạy nền) — thứ tự giống native-orders: thử N2 Extension
+     * TRƯỚC (bypass 24h, chỉ TEXT vì extension không gửi kèm ảnh), nếu lỗi/không có
+     * extension thì Pancake API. Tin có ẢNH luôn đi Pancake (upload + content_ids).
+     * @returns {Promise<{via:'extension'|'pancake', sent:object}>} hoặc throw nếu fail hết.
      */
     async _performSend(conv, convId, text, hasImage, imageFile) {
         const state = window.PancakeState;
         const pageId = conv.page_id;
         const customerId = conv.customers?.[0]?.id || null;
         const action = conv.type === 'COMMENT' ? 'reply_comment' : 'reply_inbox';
+
+        // ROUTE 1: Extension TRƯỚC (chỉ TEXT). Không có extension → trả false ngay
+        // (không trễ) → rơi xuống Pancake.
+        if (!hasImage && text && (await this._trySendViaExtension(conv, text))) {
+            return {
+                via: 'extension',
+                sent: {
+                    id: 'ext_' + Date.now(),
+                    message: text,
+                    from: { id: pageId, name: 'You' },
+                    inserted_at: new Date().toISOString(),
+                },
+            };
+        }
+
+        // ROUTE 2: Pancake API (upload ảnh nếu có). Throw nếu lỗi → Web2Optimistic rollback.
         let contentIds = [];
         let attachmentId = null;
         let attachmentType = null;
-
         if (hasImage && imageFile) {
             if (state.serverMode === 'n2store') {
                 const up = await window.PancakeAPI.uploadMediaN2Store(pageId, imageFile);
@@ -356,42 +372,26 @@ const PancakeChatWindow = {
             }
         }
 
-        try {
-            let sent;
-            if (state.serverMode === 'n2store') {
-                sent = await window.PancakeAPI.sendMessageN2Store(
-                    pageId,
-                    convId,
-                    text,
-                    action,
-                    attachmentId,
-                    attachmentType
-                );
-            } else {
-                sent = await window.PancakeAPI.sendMessage(pageId, convId, {
-                    text,
-                    action,
-                    customerId,
-                    content_ids: contentIds,
-                    attachment_type: attachmentType,
-                });
-            }
-            return { via: 'pancake', sent };
-        } catch (apiErr) {
-            // Pancake fail (24h/token/...) → fallback extension cho TEXT.
-            if (!hasImage && text && (await this._trySendViaExtension(conv, text))) {
-                return {
-                    via: 'extension',
-                    sent: {
-                        id: 'ext_' + Date.now(),
-                        message: text,
-                        from: { id: pageId, name: 'You' },
-                        inserted_at: new Date().toISOString(),
-                    },
-                };
-            }
-            throw apiErr;
+        let sent;
+        if (state.serverMode === 'n2store') {
+            sent = await window.PancakeAPI.sendMessageN2Store(
+                pageId,
+                convId,
+                text,
+                action,
+                attachmentId,
+                attachmentType
+            );
+        } else {
+            sent = await window.PancakeAPI.sendMessage(pageId, convId, {
+                text,
+                action,
+                customerId,
+                content_ids: contentIds,
+                attachment_type: attachmentType,
+            });
         }
+        return { via: 'pancake', sent };
     },
 
     /**

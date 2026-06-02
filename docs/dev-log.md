@@ -25,6 +25,14 @@
 
 ## 2026-06-02
 
+### [tpos-pancake] Đổi thứ tự gửi: Extension TRƯỚC → Pancake API (đồng bộ native-orders) ✅
+
+**Yêu cầu user**: "chỉnh tpos-pancake qua extension trước → pancake api" (trước đó tpos-pancake là Pancake-trước). Giờ cả 2 trang cùng thứ tự **extension-first**.
+
+**Cách làm** (`tpos-pancake/js/pancake/pancake-chat-window.js` `_performSend`): đảo thứ tự — **ROUTE 1** thử `_trySendViaExtension` TRƯỚC (chỉ TEXT, bypass 24h; không có extension → trả false ngay, không trễ → rơi xuống Pancake); **ROUTE 2** Pancake API (upload ảnh nếu có → `sendMessage`). Tin có ẢNH luôn đi Pancake (extension chỉ `SEND_TEXT_ONLY`). Cấu trúc UI-first (Web2Optimistic.run: apply/run/onSuccess/rollback) giữ nguyên — chỉ đổi nội dung `run`.
+
+**Verify**: `node --check` OK. Cả tpos-pancake + native-orders giờ đồng nhất: UI-first + extension-trước → Pancake sau. ⚠ Nhánh extension cần browser thật có N2 extension để test bypass. Status: ✅ Done.
+
 ### [native-orders] Gửi tin UI-first: hiện ngay → chạy nền → lỗi thì bật lại text (giữ extension-trước) ✅
 
 **Yêu cầu user**: native-orders cũng UI-first như tpos-pancake — hiện tin lên UI lập tức + gửi chạy nền + lỗi thì thông báo và bật lại text. **Quyết định**: GIỮ thứ tự gửi cũ (Extension TRƯỚC → Pancake API sau — tối ưu cho nhắn KH ngoài 24h, không thêm độ trễ), chỉ thêm phần UI-first.
