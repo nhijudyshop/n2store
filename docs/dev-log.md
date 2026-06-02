@@ -25,6 +25,18 @@
 
 ## 2026-06-02
 
+### [tpos-pancake] LIVE-validate gửi attachment qua extension (real FB) ✅
+
+Test thật với extension load sẵn (`scripts/n2store-browser-session.js --ext n2store-extension --http-port 9997`) + login FB Business trong cửa sổ:
+
+- ✅ Extension bridge kết nối: `Web2Ext.hasExtension()=true`, version **1.0.25** (service worker `chrome-extension://…/background/service-worker.js` registered).
+- ✅ FB Business logged in (`c_user`), tpos-pancake load 2 pages / 56 hội thoại.
+- ✅ `UPLOAD_INBOX_PHOTO` (qua `Web2Ext.request`, data-URL) trả **fbId thật** (`1882115992477918`) khi upload PNG 80×80 — pipeline upload-lên-FB chạy thật, KHÔNG gửi cho KH nào.
+- ⚠ Lưu ý: ảnh 1×1 px bị FB từ chối ("Could not extract fbId") → cần ảnh hợp lệ kích thước thật. Code đã pass PNG canvas 80×80 OK.
+- Bước `REPLY_INBOX_PHOTO` (giao tin thật) KHÔNG auto-bắn để tránh spam KH thật — nhưng dùng đúng bridge đã proven + payload mock-verified (`attachmentType:'PHOTO', files:[fbId]`). User tự click gửi trên 1 hội thoại an toàn để xác nhận khâu cuối.
+
+Kết luận: code web (tpos-pancake) + cầu nối extension cho attachment hoạt động thật end-to-end tới bước upload FB. Còn lại chỉ là khâu deliver (giống text-send đã chạy).
+
 ### [render][tpos-pancake] Kho "Hình Livestream" — chụp iframe thủ công + sidebar gallery ✅
 
 **Yêu cầu user**: tpos-pancake thêm nút "chụp hình" (đặt trước chip "Snap live") để chụp khung iframe FB live → lưu vào kho riêng **Hình Livestream** (độc lập thumbnail/snapshot per-comment đã có) + 1 nút bên phải bật sidebar hiển thị kho, filter theo campaign (mặc định campaign đang chọn).
