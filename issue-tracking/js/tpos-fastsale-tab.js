@@ -51,6 +51,72 @@
         },
     };
 
+    // Lưu "ai đã hủy phiếu" → hiện kế bên badge "Đã hủy". Firestore cross-device (legacy layer).
+    // Doc: fast_sale_cancel_v2/main, field data = { <orderId>: {number, user, ts} }.
+    const CancelLogStore = {
+        _data: new Map(),
+        _ready: false,
+        _hasFs() {
+            return typeof firebase !== 'undefined' && typeof firebase.firestore === 'function';
+        },
+        _doc() {
+            return firebase.firestore().collection('fast_sale_cancel_v2').doc('main');
+        },
+        async init() {
+            if (this._ready || !this._hasFs()) return;
+            this._ready = true;
+            try {
+                const snap = await this._doc().get();
+                this._data = new Map(Object.entries((snap.exists && snap.data()?.data) || {}));
+            } catch (e) {
+                console.warn('[tpos-fastsale] cancel-log load failed:', e.message);
+            }
+            // Realtime listener → mọi máy luôn mới + re-render (light, không fetch lại TPOS)
+            try {
+                this._doc().onSnapshot((snap) => {
+                    this._data = new Map(Object.entries((snap.exists && snap.data()?.data) || {}));
+                    SaleOrderSync.subscribers.forEach((inst) => {
+                        if (inst.loaded) inst.render();
+                    });
+                });
+            } catch (_) {}
+        },
+        get(orderId) {
+            return this._data.get(String(orderId)) || null;
+        },
+        async record(orderId, number, user) {
+            const entry = { number: number || '', user: user || 'unknown', ts: Date.now() };
+            this._data.set(String(orderId), entry);
+            if (!this._hasFs()) return;
+            try {
+                await this._doc().set(
+                    { data: { [String(orderId)]: entry }, lastUpdated: Date.now() },
+                    { merge: true }
+                );
+            } catch (e) {
+                console.warn('[tpos-fastsale] cancel-log save failed:', e.message);
+            }
+        },
+    };
+
+    function currentUserName() {
+        try {
+            const u = window.authManager?.getCurrentUser?.();
+            return u?.username || u?.displayName || u?.email || 'unknown';
+        } catch (_) {
+            return 'unknown';
+        }
+    }
+
+    // Badge phụ "· Hủy bởi <user>" cạnh "Đã hủy" cho row đã hủy có log.
+    function cancelByBadge(row) {
+        if (row.State !== 'cancel') return '';
+        const info = CancelLogStore.get(row.Id);
+        if (!info || !info.user) return '';
+        const tip = `Hủy bởi ${info.user}${info.ts ? ' · ' + fmtDate(info.ts) : ''}`;
+        return `<span class="tpos-cancel-by" title="${escapeHtml(tip)}"><i data-lucide="user-x"></i>${escapeHtml(info.user)}</span>`;
+    }
+
     const TYPE_CFG = {
         invoice: {
             entity: 'FastSaleOrder',
@@ -319,7 +385,7 @@
             <td><div class="tpos-fso-address" title="${escapeHtml(address)}">${escapeHtml(address || '—')}</div></td>
             <td class="num">${total}</td>
             <td class="num" style="color:#475569;">${cod}</td>
-            <td>${stateBadge(row.State, STATE_META, true)}</td>
+            <td><div class="tpos-state-wrap">${stateBadge(row.State, STATE_META, true)}${cancelByBadge(row)}</div></td>
             <td data-col="channel"><span style="color:#475569;font-size:12px;">${escapeHtml(channel)}</span></td>
             <td><span class="mono" style="color:#64748b;">${date}</span></td>
             ${saleActionsCell(row.Id, row.State)}
@@ -341,7 +407,7 @@
             <td><div class="tpos-fso-customer">${escapeHtml(customer)}</div></td>
             <td><span class="tpos-fso-phone">${escapeHtml(phone || '—')}</span></td>
             <td class="num" style="color:#dc2626;">${total}</td>
-            <td>${stateBadge(row.State, STATE_META, true)}</td>
+            <td><div class="tpos-state-wrap">${stateBadge(row.State, STATE_META, true)}${cancelByBadge(row)}</div></td>
             <td data-col="channel"><span style="color:#475569;font-size:12px;">${escapeHtml(channel)}</span></td>
             <td><span class="mono" style="color:#64748b;">${date}</span></td>
             ${saleActionsCell(row.Id, row.State)}
@@ -1336,6 +1402,9 @@
                 toast('ID phiếu không hợp lệ.', 'error');
                 return;
             }
+            const cancelRow = this.getRowById(id);
+            const cancelNumber = cancelRow?.Number || '';
+            const cancelUser = currentUserName();
             const modal = document.getElementById('tpos-cancel-modal');
             const btn = modal?.querySelector('[data-bind="confirmCancel"]');
             if (btn) {
