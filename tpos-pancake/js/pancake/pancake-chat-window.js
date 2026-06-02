@@ -245,57 +245,118 @@ const PancakeChatWindow = {
         const hasImage = !!this.selectedImage;
         if (!text && !hasImage) return;
 
-        chatInput.value = '';
-        chatInput.style.height = 'auto';
-        const sendBtn = document.getElementById('pkSendBtn');
-        if (sendBtn) {
-            sendBtn.disabled = true;
-            sendBtn.innerHTML = '<i data-lucide="loader" class="pk-spin"></i>';
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+        const conv = state.activeConversation;
+        const convId = conv.id;
+        const imageFile = this.selectedImage;
+        const tempId = 'temp_' + Date.now();
+        const self = this;
+
+        // UI-FIRST: hiện bong bóng + clear ô nhập NGAY, gửi chạy nền background.
+        const apply = () => {
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            if (hasImage) self._clearImagePreview();
+            state.messages.push({
+                id: tempId,
+                message: text || '[Hình ảnh]',
+                from: { id: conv.page_id, name: 'You' },
+                inserted_at: new Date().toISOString(),
+                _temp: true,
+            });
+            state.isScrolledToBottom = true;
+            self.renderMessages();
+            self.scrollToBottom();
+            if (state.activeConversation?.id === convId) {
+                conv.snippet = text || '[Hình ảnh]';
+                conv.updated_at = new Date().toISOString();
+                window.PancakeConversationList.renderConversationList();
+            }
+        };
+
+        // Backend OK → thay bong bóng tạm bằng tin thật (chỉ khi vẫn ở đúng hội thoại).
+        const onSuccess = (res) => {
+            if (state.activeConversation?.id !== convId) return;
+            state.messages = state.messages.filter((m) => m.id !== tempId);
+            if (res?.sent) state.messages.push(res.sent);
+            state.isScrolledToBottom = true;
+            self.renderMessages();
+            self.scrollToBottom();
+            if (res?.via === 'extension' && window.notificationManager?.show) {
+                window.notificationManager.show('Đã gửi qua N2 Extension (bypass 24h)', 'success');
+            }
+        };
+
+        // Lỗi → gỡ bong bóng tạm + BẬT LẠI nội dung vào ô chat để gửi lại + (ảnh) khôi
+        // phục preview. Web2Optimistic.run tự show toast lỗi qua errLabel.
+        const rollback = () => {
+            if (state.activeConversation?.id !== convId) return;
+            state.messages = state.messages.filter((m) => m.id !== tempId);
+            self.renderMessages();
+            const inp = document.getElementById('pkChatInput');
+            if (inp && !inp.value.trim() && text) {
+                inp.value = text;
+                inp.style.height = 'auto';
+                inp.style.height = Math.min(inp.scrollHeight, 100) + 'px';
+                inp.focus();
+            }
+            if (hasImage && imageFile) self.handleImageUpload(imageFile);
+        };
+
+        if (window.Web2Optimistic?.run) {
+            window.Web2Optimistic.run({
+                apply,
+                run: () => self._performSend(conv, convId, text, hasImage, imageFile),
+                onSuccess,
+                rollback,
+                errLabel: 'gửi tin nhắn',
+            });
+            return;
         }
 
-        const tempMsg = {
-            id: 'temp_' + Date.now(),
-            message: text || '[Hình ảnh]',
-            from: { id: state.activeConversation.page_id, name: 'You' },
-            inserted_at: new Date().toISOString(),
-            _temp: true,
-        };
-        state.messages.push(tempMsg);
-        state.isScrolledToBottom = true;
-        this.renderMessages();
-        this.scrollToBottom();
+        // Fallback nếu Web2Optimistic chưa load: await + rollback thủ công.
+        apply();
+        try {
+            onSuccess(await self._performSend(conv, convId, text, hasImage, imageFile));
+        } catch (e) {
+            rollback();
+            const errMsg = `Lỗi gửi tin nhắn: ${e?.message || 'Vui lòng thử lại'}`;
+            if (window.Popup) window.Popup.error(errMsg);
+            else if (window.notificationManager?.show)
+                window.notificationManager.show(errMsg, 'error');
+        }
+    },
+
+    /**
+     * Thực thi gửi tin (chạy nền): upload ảnh (nếu có) → Pancake API → nếu lỗi thì
+     * fallback N2 Extension (chỉ TEXT — extension không gửi kèm ảnh).
+     * @returns {Promise<{via:'pancake'|'extension', sent:object}>} hoặc throw nếu cả 2 fail.
+     */
+    async _performSend(conv, convId, text, hasImage, imageFile) {
+        const state = window.PancakeState;
+        const pageId = conv.page_id;
+        const customerId = conv.customers?.[0]?.id || null;
+        const action = conv.type === 'COMMENT' ? 'reply_comment' : 'reply_inbox';
+        let contentIds = [];
+        let attachmentId = null;
+        let attachmentType = null;
+
+        if (hasImage && imageFile) {
+            if (state.serverMode === 'n2store') {
+                const up = await window.PancakeAPI.uploadMediaN2Store(pageId, imageFile);
+                if (up.success && up.attachment_id) {
+                    attachmentId = up.attachment_id;
+                    attachmentType = up.attachment_type;
+                } else throw new Error('Upload ảnh thất bại');
+            } else {
+                const up = await window.PancakeAPI.uploadMedia(pageId, imageFile);
+                if (up.success && up.id) {
+                    contentIds = [up.id];
+                    attachmentType = up.attachment_type;
+                } else throw new Error('Upload ảnh thất bại');
+            }
+        }
 
         try {
-            const pageId = state.activeConversation.page_id;
-            const convId = state.activeConversation.id;
-            const customerId = state.activeConversation.customers?.[0]?.id || null;
-            const action =
-                state.activeConversation.type === 'COMMENT' ? 'reply_comment' : 'reply_inbox';
-            let contentIds = [];
-            let attachmentId = null;
-            let attachmentType = null;
-
-            if (hasImage) {
-                if (state.serverMode === 'n2store') {
-                    const up = await window.PancakeAPI.uploadMediaN2Store(
-                        pageId,
-                        this.selectedImage
-                    );
-                    if (up.success && up.attachment_id) {
-                        attachmentId = up.attachment_id;
-                        attachmentType = up.attachment_type;
-                    } else throw new Error('Upload ảnh thất bại');
-                } else {
-                    const up = await window.PancakeAPI.uploadMedia(pageId, this.selectedImage);
-                    if (up.success && up.id) {
-                        contentIds = [up.id];
-                        attachmentType = up.attachment_type;
-                    } else throw new Error('Upload ảnh thất bại');
-                }
-                this._clearImagePreview();
-            }
-
             let sent;
             if (state.serverMode === 'n2store') {
                 sent = await window.PancakeAPI.sendMessageN2Store(
@@ -315,61 +376,21 @@ const PancakeChatWindow = {
                     attachment_type: attachmentType,
                 });
             }
-
-            state.messages = state.messages.filter((m) => m.id !== tempMsg.id);
-            if (sent) state.messages.push(sent);
-            state.isScrolledToBottom = true;
-            this.renderMessages();
-            this.scrollToBottom();
-
-            if (state.activeConversation) {
-                state.activeConversation.snippet = text || '[Hình ảnh]';
-                state.activeConversation.updated_at = new Date().toISOString();
-                window.PancakeConversationList.renderConversationList();
+            return { via: 'pancake', sent };
+        } catch (apiErr) {
+            // Pancake fail (24h/token/...) → fallback extension cho TEXT.
+            if (!hasImage && text && (await this._trySendViaExtension(conv, text))) {
+                return {
+                    via: 'extension',
+                    sent: {
+                        id: 'ext_' + Date.now(),
+                        message: text,
+                        from: { id: pageId, name: 'You' },
+                        inserted_at: new Date().toISOString(),
+                    },
+                };
             }
-        } catch (error) {
-            // Pancake API thất bại (24h policy e_code:10/2018278, token 105, ...).
-            // Giống native-orders: fallback gửi qua N2 Extension (FB Business GraphQL,
-            // bypass 24h). Chỉ áp dụng cho TEXT (extension không gửi kèm ảnh).
-            if (
-                !hasImage &&
-                text &&
-                (await this._trySendViaExtension(state.activeConversation, text))
-            ) {
-                state.messages = state.messages.filter((m) => m.id !== tempMsg.id);
-                state.messages.push({
-                    id: 'ext_' + Date.now(),
-                    message: text,
-                    from: { id: state.activeConversation.page_id, name: 'You' },
-                    inserted_at: new Date().toISOString(),
-                });
-                state.isScrolledToBottom = true;
-                this.renderMessages();
-                this.scrollToBottom();
-                if (state.activeConversation) {
-                    state.activeConversation.snippet = text;
-                    state.activeConversation.updated_at = new Date().toISOString();
-                    window.PancakeConversationList.renderConversationList();
-                }
-                if (window.notificationManager?.show) {
-                    window.notificationManager.show(
-                        'Đã gửi qua N2 Extension (bypass 24h)',
-                        'success'
-                    );
-                }
-                return;
-            }
-            state.messages = state.messages.filter((m) => m.id !== tempMsg.id);
-            this.renderMessages();
-            const errMsg = `Lỗi gửi tin nhắn: ${error.message || 'Vui lòng thử lại'}`;
-            if (window.Popup) window.Popup.error(errMsg);
-            else alert(errMsg);
-        } finally {
-            if (sendBtn) {
-                sendBtn.disabled = false;
-                sendBtn.innerHTML = '<i data-lucide="send"></i>';
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-            }
+            throw apiErr;
         }
     },
 
