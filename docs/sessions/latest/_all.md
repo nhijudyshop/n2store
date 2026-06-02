@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b85fc91` — feat(tpos-pancake): kho Hình Livestream — chụp iframe thủ công + sidebar gallery filter campaign
-**Last updated**: 2026-06-02 16:52:07 +07
-**Latest session**: [`RESUME:20260602-165207-b85fc91`](../20260602-165207-b85fc91.md)
-**Summary**: feat(tpos-pancake): kho Hình Livestream — chụp iframe thủ công + sidebar gallery filter campaign
+**Latest commit**: `27edc93` — docs(dev-log): live-validate tpos-pancake attachment qua extension (UPLOAD_INBOX_PHOTO tra fbId that, v1.0.25)
+**Last updated**: 2026-06-02 18:12:11 +07
+**Latest session**: [`RESUME:20260602-181211-27edc93`](../20260602-181211-27edc93.md)
+**Summary**: docs(dev-log): live-validate tpos-pancake attachment qua extension (UPLOAD_INBOX_PHOTO tra fbId that, v1.0.25)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-02 16:52
+- [`docs/`](./docs.md) — updated 2026-06-02 18:12
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
