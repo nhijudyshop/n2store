@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f5a7c31` — feat(native-orders): bỏ nút Reset STT + group STORE/HOUSE thành 1 campaign cho STT
-**Last updated**: 2026-06-02 14:36:25 +07
-**Latest session**: [`RESUME:20260602-143625-f5a7c31`](../20260602-143625-f5a7c31.md)
-**Summary**: feat(native-orders): bỏ nút Reset STT + group STORE/HOUSE thành 1 campaign cho STT
+**Latest commit**: `87156f5` — feat(issue-tracking): BÁN HÀNG — nút Hủy phiếu (ActionCancel) + Lịch sử (AuditLog) như TPOS
+**Last updated**: 2026-06-02 14:47:36 +07
+**Latest session**: [`RESUME:20260602-144736-87156f5`](../20260602-144736-87156f5.md)
+**Summary**: feat(issue-tracking): BÁN HÀNG — nút Hủy phiếu (ActionCancel) + Lịch sử (AuditLog) như TPOS
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`issue-tracking/`](./issue-tracking.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-02 14:36
+- [`docs/`](./docs.md) — updated 2026-06-02 14:47
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -37,7 +36,7 @@
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-01 18:45
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-01 18:45
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 14:47
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-30 11:05
 - [`native-orders/`](./native-orders.md) — updated 2026-06-02 14:36
