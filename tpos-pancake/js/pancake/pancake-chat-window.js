@@ -19,6 +19,10 @@ const PancakeChatWindow = {
         const avatar = this._getChatAvatarHtml(conv);
         const location = conv.customers?.[0]?.address?.province || '';
         const isComment = conv.type === 'COMMENT' || /^\d+_\d+$/.test(conv.id);
+        const pageName =
+            (state.pages || []).find((p) => p.id === conv.page_id || p.page_id === conv.page_id)
+                ?.name || 'shop';
+        const hasExt = !!window.Web2Ext?.hasExtension?.();
 
         chatWindow.innerHTML = `
             <div class="pk-chat-header">
@@ -54,7 +58,10 @@ const PancakeChatWindow = {
                 <span class="pk-new-msg-badge" id="pkNewMsgBadge">0</span>
             </button>
             <div class="pk-quick-reply-bar" id="pkQuickReplyBar">${this.renderQuickReplies()}</div>
-            <div class="pk-reply-from"><i data-lucide="reply"></i><span>Trả lời từ <strong>NhiJudy Store</strong></span></div>
+            <div class="pk-reply-from">
+                <i data-lucide="reply"></i><span>Trả lời từ <strong>${escapeHtml(pageName)}</strong></span>
+                <span class="pk-send-via">${hasExt ? '🚀 N2 Extension (bypass 24h)' : 'Gửi qua Pancake API'}</span>
+            </div>
             <div class="pk-chat-input-container">
                 <div class="pk-input-actions">
                     <button class="pk-input-btn" title="Đính kèm"><i data-lucide="paperclip"></i></button>

@@ -1155,6 +1155,15 @@
     color: var(--pk-primary);
 }
 
+/* Chỉ báo kênh gửi (N2 Extension bypass 24h / Pancake API) — đẩy về phải */
+.pk-send-via {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 600;
+    color: #7c3aed;
+    white-space: nowrap;
+}
+
 /* Customer Stats Bar - Like Pancake.vn */
 .pk-customer-stats-bar {
     display: flex;
