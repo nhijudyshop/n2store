@@ -25,6 +25,26 @@
 
 ## 2026-06-02
 
+### [render][tpos-pancake] Kho "Hình Livestream" — chụp iframe thủ công + sidebar gallery ✅
+
+**Yêu cầu user**: tpos-pancake thêm nút "chụp hình" (đặt trước chip "Snap live") để chụp khung iframe FB live → lưu vào kho riêng **Hình Livestream** (độc lập thumbnail/snapshot per-comment đã có) + 1 nút bên phải bật sidebar hiển thị kho, filter theo campaign (mặc định campaign đang chọn).
+
+**Files**:
+
+- `render.com/routes/livestream-images.js` (NEW) — bảng `livestream_images` (Postgres bytea, chatDb). Endpoints: `POST /` (lưu ảnh hoặc metadata-only fallback), `GET /image/:id`, `GET /` (list + filter `liveCampaignId`), `GET /campaigns`, `DELETE /:id`, `POST /:id/extract` (fallback yt-dlp+ffmpeg). SSE topic `web2:livestream-images`. Auto-cleanup > 60d.
+- `render.com/routes/livestream-snapshots.js` — export `_extractHelpers` (ensureExtractDeps/resolveM3u8Url/extractFrameJpeg) để images route reuse (DRY).
+- `render.com/server.js` — mount `/api/livestream-images` + wire `initializeNotifiers(web2RealtimeSse)`.
+- `tpos-pancake/js/tpos/tpos-livestream-snap.js` — expose `captureCurrentFrame()`, `getCurrentCampaignContext()`, `getCurrentOffsetSeconds()` qua `TposLivestreamSnap`.
+- `tpos-pancake/js/tpos/tpos-livestream-gallery.js` (NEW) — 2 chip (📷 Chụp Live trước "Snap live" + 🖼 Kho Hình bên phải) + right-drawer sidebar (filter campaign, grid tiles, delete, extract ⚡, zoom→VOD). UI-first qua Web2Optimistic. SSE subscribe `web2:livestream-images`.
+- `tpos-pancake/css/tpos-livestream-gallery.css` (NEW) — chip + sidebar drawer (compositor transitions, content-visibility, reduced-motion).
+- `tpos-pancake/index.html` — load `web2-sse-bridge.js` (multi-tab sync, trước đây thiếu) + gallery css/js; bump snap script v.
+
+**Capture path**: stream getDisplayMedia → extension captureVisibleTab crop → frame buffer mới nhất. Không có frame → fallback lưu metadata + offset (extract sau qua ⚡).
+
+**Test local** (browser session): chip mount đúng (capture TRƯỚC snap-chip ✓), sidebar open/close ✓, empty state ✓, capture khi chưa có live → toast "Chưa nhận diện được live đang chạy" (không kẹt busy) ✓. E2E persistence cần deploy Render + live thật.
+
+**Status**: ✅ Done (cần deploy Render để backend route live).
+
 ### [soluong-live] "Sản phẩm đã ẩn" sắp xếp món mới ẩn lên đầu (mới → cũ) ✅
 
 **Yêu cầu user**: Danh sách "Sản phẩm đã ẩn" đang sắp lộn xộn (chỉ `.reverse()` thứ tự key Firebase). Muốn món vừa ẩn nổi lên đầu.
@@ -34,12 +54,14 @@
 **Giải pháp**: thêm field `hiddenAt` ghi lúc ẩn (`Date.now()`), sort danh sách ẩn theo `hiddenAt || addedAt` giảm dần. 239 món cũ không có `hiddenAt` → fallback `addedAt` (backfill gần đúng lúc render, không ghi migration hàng loạt).
 
 **Files**:
+
 - `soluong-live/firebase-helpers.js` — `updateProductVisibility()`: khi ẩn → set `product.hiddenAt = Date.now()` + ghi node (đổi `.set(isHidden)` → `.update({isHidden, hiddenAt})`). Giữ `hiddenAt` qua `addProductToFirebase`/`addProductsToFirebase` (mirror `addedAt`).
 - `soluong-live/js/soluong-list.js` — `hideProducts()` batch: stamp `hiddenAt = now` cho local + `updates[...]/hiddenAt`.
 - `soluong-live/js/main.js` — `updateHiddenProductListPreview()` (panel index.html): thay `.reverse()` bằng sort `hideKey = hiddenAt||addedAt` desc. Thêm `hiddenAt` vào whitelist `cleanProductForFirebase()`.
 - `soluong-live/js/hidden-soluong.js` — trang ẩn riêng: sort `hiddenProducts` theo `hideKey` desc + merge-mode (`mergeProductsByTemplate`) dùng `hiddenAt||addedAt`.
 
 **Status**: ✅ Realtime cross-tab qua Firebase RTDB listener sẵn có (module legacy, không SSE). Single hide route qua `updateProductVisibility`; batch hide & merge view đã cover.
+
 ### [tpos-pancake] Gửi attachment đầy đủ (ảnh/âm thanh/video/tệp) qua extension → fallback Pancake ✅
 
 **Yêu cầu user**: extension hỗ trợ gửi hình/audio/file đầy đủ — đừng ép ảnh đi Pancake. → wire composer tpos-pancake gửi mọi attachment qua extension (bypass 24h), fallback Pancake.
