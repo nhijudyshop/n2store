@@ -25,6 +25,21 @@
 
 ## 2026-06-02
 
+### [tpos-pancake] Gửi tin: fallback N2 Extension bypass-24h khi Pancake API lỗi (giống native-orders) ✅
+
+**Yêu cầu user**: "xử lý lỗi như bên native-orders → lỗi thì qua extension bypass". Khi gửi qua Pancake API thất bại (24h policy / token 105 / ...), tự động gửi lại qua N2 Extension (FB Business Suite GraphQL, bypass 24h) như native-orders.
+
+**Cách làm**:
+
+1. **Tách bridge dùng chung** [`web2/shared/web2-extension-bridge.js`](../web2/shared/web2-extension-bridge.js) (MỚI) — mirror `_extensionRequest` inline của native-orders: lắng nghe `EXTENSION_LOADED`/`EXTENSION_VERSION`, `request(type,data,ms)` qua `window.postMessage` + match `taskId` + `_SUCCESS`/`_FAILURE` + timeout. Expose `window.Web2Ext = {hasExtension, version, request}` + alias `window._w2ExtensionRequest`. Idempotent. Load trên tpos-pancake.
+2. **Fallback trong send** [`pancake-chat-window.js`](../tpos-pancake/js/pancake/pancake-chat-window.js): `PancakeAPI.sendMessage` đã throw khi `success:false` → trong `catch`, nếu gửi TEXT (không kèm ảnh) + có extension → gọi `_trySendViaExtension(conv, text)`. OK → giữ message + toast "Đã gửi qua N2 Extension (bypass 24h)"; fail/không ext → hiện lỗi như cũ (không regression).
+3. **`_trySendViaExtension`** (port từ native-orders `_handleSendMessage`): resolve **FB Global ID** (BẮT BUỘC — gửi PSID bị FB silent-reject 1545012) ưu tiên Pancake API (`Web2Chat.fetchMessages` → `customers[].global_id`), fallback extension `GET_GLOBAL_ID_FOR_CONV`; rồi `REPLY_INBOX_PHOTO` `{pageId, globalUserId, threadId, convId:'t_'+threadId, message, attachmentType:'SEND_TEXT_ONLY', isBusiness:true}`. Ảnh KHÔNG gửi qua extension (giống native-orders).
+4. **Chỉ báo kênh gửi honest** `.pk-reply-from`: "🚀 N2 Extension (bypass 24h)" khi ext ready, ngược lại "Gửi qua Pancake API" + tên page thật (derive từ `state.pages` theo `conv.page_id`). CSS `.pk-send-via`.
+
+**Verify**: `node --check` OK cả 2 file. ⚠ Live re-verify chưa chạy được vì cửa sổ browser session đóng giữa chừng — code syntax-check + port nguyên pattern proven của native-orders. Headless không có extension → fallback trả false → vẫn hiện lỗi (không regression); chỉ browser thật có N2 extension mới bypass được.
+
+**Files**: `web2/shared/web2-extension-bridge.js` (mới), `tpos-pancake/js/pancake/pancake-chat-window.js`, `tpos-pancake/css/pancake-chat.css`, `tpos-pancake/index.html`. Status: ✅ Done (code), ⚠ cần test trên browser thật có extension.
+
 ### [render] Cron server re-khớp GD "chưa gán KH" định kỳ (không cần mở trang) ✅
 
 **Vấn đề user**: balance-history reprocess GD "chưa gán" CHỈ chạy khi mở trang (`autoReprocessOnLoad` client-side). Cả ngày không ai mở → GD về mà SĐT chưa có trong DB lúc webhook fire sẽ kẹt "chưa gán" mãi. Auto-credit lúc tiền vào vẫn server-side OK; chỉ thiếu phần **retry khớp** server-side.
