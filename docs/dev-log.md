@@ -79,6 +79,17 @@
 
 **Cleanup**: 5 test orders deleted, KPI ranges reset, PBH cancelled.
 
+### [issue-tracking] BÁN HÀNG: lưu "ai đã hủy" + hiện cạnh badge "Đã hủy" ✅
+
+**Yêu cầu user**: Khi hủy phiếu → lưu số HĐ + tên user hủy → hiện lên bảng kế bên chữ "Đã hủy".
+
+**Files**:
+
+- `issue-tracking/js/tpos-fastsale-tab.js` — `CancelLogStore` (Firestore doc `fast_sale_cancel_v2/main`, field `data` = `{<orderId>:{number,user,ts}}`, cross-device, có `onSnapshot` listener → re-render light các tab loaded). `executeCancelSale` capture `Number` + `currentUserName()` (từ `window.authManager.getCurrentUser().username`) trước reload → `CancelLogStore.record()`. `cancelByBadge(row)` render `<span.tpos-cancel-by>` (icon user-x + tên) cạnh badge khi `State==='cancel'` & có log. Status cell invoice+refund bọc `.tpos-state-wrap` (stack dọc). Bump asset `?v=20260602c`.
+- `issue-tracking/css/page-tabs.css` — `.tpos-state-wrap` (flex column) + `.tpos-cancel-by` (badge đỏ nhạt, ellipsis 130px).
+
+**Verify local**: Playwright — Firestore write → onSnapshot fire → re-render → badge "admin-test" hiện cạnh "Đã hủy" trên row NJD/2026/70234, tooltip "Hủy bởi admin-test · 02/06/2026 15:20". 0 lỗi. Note: legacy layer (Web 1.0) nên dùng Firestore listener là chuẩn (như InvoiceStatusStore). Status: ✅ Done.
+
 ### [issue-tracking][render] BÁN HÀNG: realtime sync hủy phiếu cross-tab/máy (SSE) ✅
 
 **Yêu cầu user**: Hủy phiếu ở máy/tab này → máy/tab khác đang mở danh sách tự cập nhật, không cần F5.

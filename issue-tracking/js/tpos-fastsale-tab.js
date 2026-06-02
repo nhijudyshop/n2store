@@ -1436,7 +1436,9 @@
                 }
                 if (modal) modal.classList.remove('show');
                 if (this.detailCache) this.detailCache.delete(String(id));
-                toast(`Đã hủy phiếu ${id}.`, 'success');
+                // Lưu "ai đã hủy" (số HĐ + user) → hiện cạnh badge "Đã hủy" (cross-device Firestore).
+                await CancelLogStore.record(id, cancelNumber, cancelUser);
+                toast(`Đã hủy phiếu ${cancelNumber || id}.`, 'success');
                 await this.load();
                 // Broadcast so other tabs/machines viewing the list auto-reload (no F5).
                 SaleOrderSync.notify('cancel', id);
@@ -1452,8 +1454,11 @@
         }
 
         async activate() {
-            // Subscribe to cross-tab sync for FastSaleOrder lists (idempotent).
-            if (this.cfg.entity === 'FastSaleOrder') SaleOrderSync.subscribe(this);
+            // Subscribe to cross-tab sync + cancel-log for FastSaleOrder lists (idempotent).
+            if (this.cfg.entity === 'FastSaleOrder') {
+                SaleOrderSync.subscribe(this);
+                CancelLogStore.init();
+            }
             if (this.loaded) return;
             this.loaded = true;
             await this.load();
