@@ -364,7 +364,7 @@ const PancakeAPI = {
     // =====================================================
 
     async sendMessage(pageId, convId, messageData) {
-        const pageAccessToken = await this.getPageAccessToken(pageId);
+        let pageAccessToken = await this.getPageAccessToken(pageId);
         if (!pageAccessToken) throw new Error('No page_access_token');
         const {
             text,
@@ -380,17 +380,58 @@ const PancakeAPI = {
             payload.content_ids = attachments.map((a) => a.content_id || a.id).filter(Boolean);
         if (customerId) payload.customer_id = customerId;
 
-        const url = window.API_CONFIG.buildUrl.pancakeOfficial(
-            `pages/${pageId}/conversations/${convId}/messages`,
-            pageAccessToken
-        );
-        const response = await API_CONFIG.smartFetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-        if (!response.ok) throw new Error(`Send failed: ${response.status}`);
-        const data = await response.json();
+        const doPost = async (token) => {
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/conversations/${convId}/messages`,
+                token
+            );
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) throw new Error(`Send failed: ${response.status}`);
+            return response.json();
+        };
+
+        let data = await doPost(pageAccessToken);
+
+        // Pancake returns HTTP 200 with success:false for app-level errors.
+        // error_code 105 = "access_token renewed please use new access_token" →
+        // mint a fresh page token via Web2Chat and retry ONCE, but only if the new
+        // token actually differs (avoids duplicate sends when it's unchanged).
+        if (
+            data &&
+            data.success === false &&
+            data.error_code === 105 &&
+            window.Web2Chat &&
+            typeof window.Web2Chat.generatePageAccessToken === 'function'
+        ) {
+            try {
+                const gen = await window.Web2Chat.generatePageAccessToken(pageId);
+                if (gen && gen.ok && gen.token && gen.token !== pageAccessToken) {
+                    pageAccessToken = gen.token;
+                    if (window.pancakeTokenManager?.savePageAccessToken) {
+                        await window.pancakeTokenManager.savePageAccessToken(pageId, gen.token);
+                    }
+                    data = await doPost(pageAccessToken);
+                }
+            } catch (e) {
+                console.warn('[PK-API] page token renew on 105 failed:', e.message);
+            }
+        }
+
+        // Surface app-level failures instead of silently returning the error
+        // object as if the message was sent (the chat window then shows a toast
+        // and removes the optimistic bubble).
+        if (data && data.success === false) {
+            const reason =
+                data.message ||
+                (data.error_code != null
+                    ? `Pancake error #${data.error_code}`
+                    : 'Gửi tin nhắn thất bại');
+            throw new Error(reason);
+        }
         return data.message || data;
     },
 

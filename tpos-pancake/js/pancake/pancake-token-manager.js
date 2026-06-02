@@ -673,6 +673,16 @@ class PancakeTokenManager {
             return localToken.token;
         }
 
+        // Priority 2.5: Sync from Render DB via Web2Chat (same source native-orders
+        // uses). Web2Chat writes a fresh JWT into the SAME localStorage key
+        // (pancake_jwt_token), so after sync we just re-read localStorage. This lets
+        // tpos-pancake show conversations without a manual Pancake.vn login.
+        const web2Token = await this.getTokenFromWeb2Chat();
+        if (web2Token) {
+            console.log('[PANCAKE-TOKEN] Using token from Web2Chat (Render DB sync)');
+            return web2Token;
+        }
+
         // Priority 3: Check Firebase (network required)
         const firebaseToken = await this.getTokenFromFirestore();
         if (firebaseToken) {
@@ -698,6 +708,45 @@ class PancakeTokenManager {
             '[PANCAKE-TOKEN] No valid token found. Please login to Pancake.vn or set token manually.'
         );
         return null;
+    }
+
+    /**
+     * Sync the pancake JWT + page access tokens from the Render DB via the shared
+     * Web2Chat client (the exact mechanism native-orders uses). Web2Chat writes the
+     * JWT into localStorage under the SAME key this manager reads
+     * (`pancake_jwt_token`), so on success we just re-read localStorage.
+     * @returns {Promise<string|null>}
+     */
+    async getTokenFromWeb2Chat() {
+        try {
+            if (!window.Web2Chat || typeof window.Web2Chat.syncFromRenderDB !== 'function') {
+                return null;
+            }
+            const res = await window.Web2Chat.syncFromRenderDB({ force: true });
+            if (!res || !res.ok) return null;
+
+            const localToken = this.getTokenFromLocalStorage();
+            if (localToken) {
+                this.currentToken = localToken.token;
+                this.currentTokenExpiry = localToken.expiry;
+            }
+
+            // Web2Chat also refreshes page access tokens — merge them in so message
+            // fetch/send can use page_access_token without another round-trip.
+            const web2PageTokens =
+                typeof window.Web2Chat.getAllPageAccessTokens === 'function'
+                    ? window.Web2Chat.getAllPageAccessTokens()
+                    : null;
+            if (web2PageTokens && Object.keys(web2PageTokens).length > 0) {
+                this.pageAccessTokens = { ...(this.pageAccessTokens || {}), ...web2PageTokens };
+                this.savePageAccessTokensToLocalStorage();
+            }
+
+            return localToken ? localToken.token : null;
+        } catch (error) {
+            console.warn('[PANCAKE-TOKEN] Web2Chat sync failed:', error.message);
+            return null;
+        }
     }
 
     /**
