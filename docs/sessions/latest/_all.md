@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6fd4847` — auto: session update
-**Last updated**: 2026-06-02 15:21:11 +07
-**Latest session**: [`RESUME:20260602-152111-6fd4847`](../20260602-152111-6fd4847.md)
+**Latest commit**: `fb97c40` — auto: session update
+**Last updated**: 2026-06-02 15:28:53 +07
+**Latest session**: [`RESUME:20260602-152853-fb97c40`](../20260602-152853-fb97c40.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`issue-tracking/`](./issue-tracking.md) — 3 file(s)
+- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-02 15:21
+- [`docs/`](./docs.md) — updated 2026-06-02 15:28
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -36,7 +37,7 @@
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-01 18:45
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:21
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-30 11:05
 - [`native-orders/`](./native-orders.md) — updated 2026-06-02 14:36
@@ -62,7 +63,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-25 19:26
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-02 15:15
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-02 15:28
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
