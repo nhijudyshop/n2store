@@ -321,6 +321,37 @@ const PancakeChatWindow = {
                 window.PancakeConversationList.renderConversationList();
             }
         } catch (error) {
+            // Pancake API thất bại (24h policy e_code:10/2018278, token 105, ...).
+            // Giống native-orders: fallback gửi qua N2 Extension (FB Business GraphQL,
+            // bypass 24h). Chỉ áp dụng cho TEXT (extension không gửi kèm ảnh).
+            if (
+                !hasImage &&
+                text &&
+                (await this._trySendViaExtension(state.activeConversation, text))
+            ) {
+                state.messages = state.messages.filter((m) => m.id !== tempMsg.id);
+                state.messages.push({
+                    id: 'ext_' + Date.now(),
+                    message: text,
+                    from: { id: state.activeConversation.page_id, name: 'You' },
+                    inserted_at: new Date().toISOString(),
+                });
+                state.isScrolledToBottom = true;
+                this.renderMessages();
+                this.scrollToBottom();
+                if (state.activeConversation) {
+                    state.activeConversation.snippet = text;
+                    state.activeConversation.updated_at = new Date().toISOString();
+                    window.PancakeConversationList.renderConversationList();
+                }
+                if (window.notificationManager?.show) {
+                    window.notificationManager.show(
+                        'Đã gửi qua N2 Extension (bypass 24h)',
+                        'success'
+                    );
+                }
+                return;
+            }
             state.messages = state.messages.filter((m) => m.id !== tempMsg.id);
             this.renderMessages();
             const errMsg = `Lỗi gửi tin nhắn: ${error.message || 'Vui lòng thử lại'}`;
@@ -332,6 +363,93 @@ const PancakeChatWindow = {
                 sendBtn.innerHTML = '<i data-lucide="send"></i>';
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             }
+        }
+    },
+
+    /**
+     * Fallback gửi tin qua N2 Extension (bypass quy tắc 24h của Pancake bằng FB
+     * Business Suite GraphQL) — giống native-orders `_handleSendMessage`.
+     * Trả về true nếu extension gửi thành công.
+     *
+     * FB messaging/send/ cần OTHER_USER_FBID là FB Global ID (vd 100001957832900),
+     * KHÔNG phải PSID (page-scoped). Gửi PSID → FB silent-reject 1545012. Nên phải
+     * resolve global_id trước: ưu tiên Pancake API (customers[].global_id), fallback
+     * extension GET_GLOBAL_ID_FOR_CONV.
+     * @returns {Promise<boolean>}
+     */
+    async _trySendViaExtension(conv, text) {
+        if (!conv || !text) return false;
+        if (!window.Web2Ext?.hasExtension?.()) return false;
+        try {
+            const pageId = conv.page_id;
+            const customerId = conv.customers?.[0]?.id || null;
+            const psid = conv.from?.id || conv.from_psid || conv.customers?.[0]?.fb_id || '';
+            const threadId =
+                conv.thread_id ||
+                (String(conv.id).includes('_') ? String(conv.id).split('_')[1] : conv.id);
+            const custName = conv.from?.name || conv.customers?.[0]?.name || '';
+
+            // ROUTE 1: global_id qua Pancake API (Web2Chat.fetchMessages → customers[].global_id)
+            let globalUserId = conv._fbGlobalUserId || null;
+            if (!globalUserId && window.Web2Chat?.fetchMessages) {
+                try {
+                    const mr = await window.Web2Chat.fetchMessages(pageId, conv.id, customerId);
+                    if (mr?.ok) {
+                        const cust = mr.customers?.find?.((c) => c?.global_id) || mr.customers?.[0];
+                        const gid =
+                            cust?.global_id || mr.conversation?.page_customer?.global_id || null;
+                        if (gid && String(gid) !== String(psid)) {
+                            globalUserId = String(gid);
+                            conv._fbGlobalUserId = globalUserId;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[PK-CHAT] Pancake API global_id fetch failed:', e.message);
+                }
+            }
+            // ROUTE 2: extension GET_GLOBAL_ID_FOR_CONV (chậm hơn)
+            if (!globalUserId && pageId && (threadId || custName)) {
+                try {
+                    const g = await window.Web2Ext.request(
+                        'GET_GLOBAL_ID_FOR_CONV',
+                        {
+                            pageId,
+                            threadId: threadId || '',
+                            customerName: custName,
+                            isBusiness: true,
+                        },
+                        30000
+                    );
+                    globalUserId =
+                        g?.data?.globalId ||
+                        g?.data?.globalUserId ||
+                        g?.data?.payload?.globalUserId ||
+                        null;
+                    if (globalUserId) conv._fbGlobalUserId = globalUserId;
+                } catch (e) {
+                    console.warn('[PK-CHAT] GET_GLOBAL_ID_FOR_CONV threw:', e.message);
+                }
+            }
+
+            const swConvId = threadId ? 't_' + threadId : String(conv.id);
+            const r = await window.Web2Ext.request('REPLY_INBOX_PHOTO', {
+                pageId,
+                globalUserId: globalUserId || psid,
+                threadId: threadId || '',
+                convId: swConvId,
+                customerName: custName,
+                conversationUpdatedTime: conv.updated_at
+                    ? new Date(conv.updated_at).getTime()
+                    : Date.now(),
+                message: text,
+                attachmentType: 'SEND_TEXT_ONLY',
+                platform: 'facebook',
+                isBusiness: true,
+            });
+            return !!r.ok;
+        } catch (e) {
+            console.warn('[PK-CHAT] extension send failed:', e.message);
+            return false;
         }
     },
 

@@ -1261,12 +1261,19 @@
 
         async _fetchCancelBy(id, number) {
             try {
+                if (!window.tokenManager?.authenticatedFetch) {
+                    CancelByResolver._attempted.delete(id); // chưa có token → cho retry render sau
+                    return;
+                }
                 const url = `${WORKER_URL}/api/odata/AuditLog/ODataService.GetAuditLogEntity?entityName=${encodeURIComponent(this.cfg.entity)}&entityId=${encodeURIComponent(id)}&skip=0&take=15`;
                 const resp = await window.tokenManager.authenticatedFetch(url, {
                     method: 'GET',
                     headers: { Accept: 'application/json' },
                 });
-                if (!resp.ok) return;
+                if (!resp.ok) {
+                    CancelByResolver._attempted.delete(id); // lỗi tạm thời → cho retry
+                    return;
+                }
                 const data = await resp.json();
                 const hit = parseCancelFromAudit(Array.isArray(data.value) ? data.value : []);
                 if (!hit) return;
@@ -1282,7 +1289,9 @@
                     );
                     if (window.lucide) window.lucide.createIcons();
                 }
-            } catch (_) {}
+            } catch (_) {
+                CancelByResolver._attempted.delete(id); // exception → cho retry
+            }
         }
 
         // --------------- MOCK CRUD ---------------
