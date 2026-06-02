@@ -3,13 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6c30ffc` — fix(native-orders): customer 360 modal — đọc đúng shape từ /api/web2/customer-orders
-**Last updated**: 2026-06-02 16:13:08 +07
-**Latest session**: [`RESUME:20260602-161308-6c30ffc`](../20260602-161308-6c30ffc.md)
-**Summary**: fix(native-orders): customer 360 modal — đọc đúng shape từ /api/web2/customer-orders
+**Latest commit**: `79f3710` — feat(native-orders): gửi tin UI-first — hiện ngay, chạy nền, lỗi thì bật lại text (giữ extension-trước)
+**Last updated**: 2026-06-02 16:16:22 +07
+**Latest session**: [`RESUME:20260602-161622-79f3710`](../20260602-161622-79f3710.md)
+**Summary**: feat(native-orders): gửi tin UI-first — hiện ngay, chạy nền, lỗi thì bật lại text (giữ extension-t...
 
 ## Folders affected in this commit
 
+- [`docs/`](./docs.md) — 1 file(s)
 - [`native-orders/`](./native-orders.md) — 2 file(s)
 
 ## All folder snapshots
@@ -24,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-02 16:05
+- [`docs/`](./docs.md) — updated 2026-06-02 16:16
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -38,7 +39,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:43
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-30 11:05
-- [`native-orders/`](./native-orders.md) — updated 2026-06-02 16:13
+- [`native-orders/`](./native-orders.md) — updated 2026-06-02 16:16
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-01 18:45
