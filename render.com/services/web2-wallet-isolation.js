@@ -152,6 +152,48 @@ async function ensureSchema(pool) {
             );
         }
 
+        // ============================================================
+        // 7. Lá chắn cứng chống cộng-trùng tiền bank (Web 2.0).
+        //    Race: 2 path (webhook + cron reprocess + reload trang) cùng xử lý
+        //    1 GD trong cửa sổ READ COMMITTED → cả 2 qua dup-check → cộng 2 lần.
+        //    Partial UNIQUE chỉ ràng buộc deposit sepay (reference_type='sepay'),
+        //    KHÔNG đụng withdraw/order/manual (tránh lỗi "quá rộng" như legacy 063).
+        //    processDeposit bắt 23505 → trả alreadyProcessed (xem web2-wallet-service).
+        //    Idempotent: chỉ tạo khi chưa có dup sẵn, nếu có dup → log để admin dọn.
+        // ============================================================
+        try {
+            const dup = await pool.query(
+                `SELECT reference_id, COUNT(*) AS cnt
+                 FROM web2_wallet_transactions
+                 WHERE reference_type = 'sepay' AND reference_id IS NOT NULL
+                 GROUP BY reference_id
+                 HAVING COUNT(*) > 1
+                 ORDER BY cnt DESC
+                 LIMIT 20`
+            );
+            if (dup.rows.length > 0) {
+                const sample = dup.rows.map((r) => `${r.reference_id}×${r.cnt}`).join(', ');
+                console.warn(
+                    `[web2-wallet-isolation] ⚠ DUP sepay deposits tồn tại — KHÔNG tạo unique index. ` +
+                        `Dọn dup trước (${dup.rows.length} nhóm): ${sample}`
+                );
+            } else {
+                await pool.query(
+                    `CREATE UNIQUE INDEX IF NOT EXISTS idx_web2_wallet_tx_unique_sepay
+                     ON web2_wallet_transactions (reference_id)
+                     WHERE reference_type = 'sepay'`
+                );
+                console.log(
+                    '[web2-wallet-isolation] unique index idx_web2_wallet_tx_unique_sepay ready (anti double-credit)'
+                );
+            }
+        } catch (e) {
+            console.error(
+                '[web2-wallet-isolation] anti-dup index step failed (boot tiếp tục):',
+                e.message
+            );
+        }
+
         _ready = true;
         console.log('[web2-wallet-isolation] schema ready — TRUE ISOLATION mode (no triggers)');
     } catch (e) {

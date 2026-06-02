@@ -1037,6 +1037,9 @@
                 ? `<div style="font-size:11px;color:#6b7280;font-weight:500;">SL: ${qty}</div>`
                 : '';
         // Hiển thị STT:
+        //   - 2026-06-02 (user spec): ưu tiên campaignStt (per-campaign 1..n, reset
+        //     theo campaign group key) thay vì displayStt (global sequence không bao
+        //     giờ reset → "1 đơn STT 7" sau khi xóa data cũ → confusing).
         //   - "1 + 2" nếu là đơn gộp (mergedDisplayStt array length > 1)
         //   - "31-2" nếu là đơn tách (splitIndex > 0) — chia sẻ STT với các đơn cùng split family
         //   - "31" cho đơn thường
@@ -1048,7 +1051,7 @@
                     .sort((a, b) => a - b)
                     .join(' + ');
             }
-            const base = o.displayStt ?? o.sessionIndex ?? '';
+            const base = o.campaignStt ?? o.displayStt ?? o.sessionIndex ?? '';
             return o.splitIndex && o.splitIndex > 0 ? `${base}-${o.splitIndex}` : base;
         })();
         // is-split-family: visually nhóm các đơn cùng display_stt với split_index > 0.
@@ -2264,7 +2267,7 @@
             <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;color:#334155;">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;background:#f8fafc;border-radius:8px;padding:12px;">
                     <div><strong>Đơn nguồn:</strong> ${escapeHtml(src.code)}</div>
-                    <div><strong>STT:</strong> ${src.displayStt ?? '—'}</div>
+                    <div><strong>STT:</strong> ${src.campaignStt ?? src.displayStt ?? '—'}</div>
                     <div><strong>Khách:</strong> ${escapeHtml(src.customerName || '—')}</div>
                     <div><strong>SĐT:</strong> ${escapeHtml(src.phone || '—')}</div>
                     <div style="grid-column:1/-1;"><strong>Địa chỉ:</strong> ${escapeHtml(src.address || '—')}</div>
