@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `95a53db` — auto: session update
-**Last updated**: 2026-06-02 15:18:25 +07
-**Latest session**: [`RESUME:20260602-151825-95a53db`](../20260602-151825-95a53db.md)
+**Latest commit**: `6fd4847` — auto: session update
+**Last updated**: 2026-06-02 15:21:11 +07
+**Latest session**: [`RESUME:20260602-152111-6fd4847`](../20260602-152111-6fd4847.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
+- [`issue-tracking/`](./issue-tracking.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-02 15:18
+- [`docs/`](./docs.md) — updated 2026-06-02 15:21
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -36,7 +36,7 @@
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-01 18:45
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:18
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-30 11:05
 - [`native-orders/`](./native-orders.md) — updated 2026-06-02 14:36
