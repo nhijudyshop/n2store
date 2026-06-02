@@ -1229,3 +1229,10 @@ router.get('/stream-url', async (req, res) => {
 })();
 module.exports = router;
 module.exports.initializeNotifiers = initializeNotifiers;
+// Reuse extraction pipeline (yt-dlp + ffmpeg) cho route khác (livestream-images
+// fallback). DRY — tránh duplicate FB VOD frame extraction logic.
+module.exports._extractHelpers = {
+    ensureExtractDeps: _ensureExtractDeps,
+    resolveM3u8Url: _resolveM3u8Url,
+    extractFrameJpeg: _extractFrameJpeg,
+};

@@ -621,6 +621,8 @@ const web2CustomerTposRoutes = require('./routes/v2/web2-customer-tpos');
 app.use('/api/web2/customer-tpos', web2CustomerTposRoutes);
 const livestreamSnapshotsRoutes = require('./routes/livestream-snapshots');
 app.use('/api/livestream', livestreamSnapshotsRoutes); // WEB2.0 livestream snapshot per customer
+const livestreamImagesRoutes = require('./routes/livestream-images');
+app.use('/api/livestream-images', livestreamImagesRoutes); // WEB2.0 — kho "Hình Livestream" (manual iframe capture)
 app.use('/api/attendance', attendanceRoutes);
 // ADMS: ZKTeco machine pushes attendance data directly (no PC needed)
 app.use(
@@ -707,6 +709,9 @@ if (web2CartRoutes.initializeNotifiers) {
 }
 if (livestreamSnapshotsRoutes.initializeNotifiers) {
     livestreamSnapshotsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
+if (livestreamImagesRoutes.initializeNotifiers) {
+    livestreamImagesRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
 
 // Initialize SSE notifiers in order-notes routes

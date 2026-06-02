@@ -3227,6 +3227,73 @@ Throttle 30s/KH.`;
         init();
     }
 
+    // -----------------------------------------------------
+    // Public capture API cho kho "Hình Livestream" (tpos-livestream-gallery.js)
+    // -----------------------------------------------------
+    // Lấy 1 frame từ khung iframe FB live đang nhúng. Priority:
+    //   1. captureStream (getDisplayMedia) → frame chính xác, tab inactive OK
+    //   2. extension captureVisibleTab → crop iframe (tab focused only)
+    //   3. frame buffered mới nhất (lag vài giây nhưng luôn có khi đang capture)
+    // Returns { jpegBase64, capturedAt } | null nếu không có nguồn frame nào.
+    async function captureCurrentFrame() {
+        if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
+            try {
+                const jpegBase64 = await _captureFrameJpeg(0.8, 1280);
+                if (jpegBase64) return { jpegBase64, capturedAt: Date.now() };
+            } catch (e) {
+                console.warn('[gallery-capture] stream frame fail:', e.message);
+            }
+        }
+        if (STATE.extReady) {
+            try {
+                const jpegBase64 = await _captureExtensionFrame(85);
+                if (jpegBase64) return { jpegBase64, capturedAt: Date.now() };
+            } catch (e) {
+                console.warn('[gallery-capture] ext frame fail:', e.message);
+            }
+        }
+        const latest = STATE.frameBuffer?.[STATE.frameBuffer.length - 1];
+        if (latest?.jpegBase64) {
+            return { jpegBase64: latest.jpegBase64, capturedAt: latest.capturedAt };
+        }
+        return null;
+    }
+
+    // Resolve campaign context hiện tại (theo Snap page pref → active campaign).
+    // Returns { pageId, pageName, liveCampaignId, liveCampaignName, liveVideoId } | null
+    function getCurrentCampaignContext() {
+        const st = global.TposState;
+        const pageObj = _resolvePageObj();
+        const camp = (pageObj && _resolveActiveCampaign(pageObj)) || _findActiveLiveCampaign();
+        if (!camp) return null;
+        const resolvedPage =
+            pageObj ||
+            st?.allPages?.find((p) => p.Facebook_PageId === camp.Facebook_UserId) ||
+            st?.selectedPage;
+        return {
+            pageId: resolvedPage?.Facebook_PageId || camp.Facebook_UserId || null,
+            pageName: resolvedPage?.Name || null,
+            pageUsername: resolvedPage ? _resolvePageVanity(resolvedPage) : null,
+            liveCampaignId: camp.Id ? String(camp.Id) : null,
+            liveCampaignName: camp.Name || null,
+            liveVideoId: camp.Facebook_LiveId || null,
+        };
+    }
+
+    // Offset (giây) từ broadcast start tới NOW — cho fallback metadata-only.
+    // Returns number | null.
+    async function getCurrentOffsetSeconds(ctx) {
+        try {
+            if (!ctx?.pageId || !ctx?.liveVideoId) return null;
+            const info = await _fetchLiveVideoInfo(ctx.pageId, ctx.liveVideoId);
+            if (!info?.broadcastStartMs) return null;
+            const sec = Math.floor((Date.now() - info.broadcastStartMs) / 1000);
+            return sec > 0 ? sec : null;
+        } catch {
+            return null;
+        }
+    }
+
     global.TposLivestreamSnap = {
         snap,
         togglePopover,
@@ -3236,6 +3303,10 @@ Throttle 30s/KH.`;
         _setSnapPagePref,
         _setInlineThumb,
         _isInlineThumbOn,
+        // Public API cho kho Hình Livestream
+        captureCurrentFrame,
+        getCurrentCampaignContext,
+        getCurrentOffsetSeconds,
         // Debug accessors cho test scripts
         _getStreamActive: () => !!STATE.captureStream,
         _getBufferCount: () => STATE.frameBuffer?.length || 0,
