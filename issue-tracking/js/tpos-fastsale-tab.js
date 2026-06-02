@@ -71,21 +71,32 @@
             } catch (e) {
                 console.warn('[tpos-fastsale] cancel-log load failed:', e.message);
             }
-            // Realtime listener → mọi máy luôn mới + re-render (light, không fetch lại TPOS)
+            // Realtime listener → mọi máy luôn mới + re-render (debounce gom burst khi resolve hàng loạt)
             try {
                 this._doc().onSnapshot((snap) => {
                     this._data = new Map(Object.entries((snap.exists && snap.data()?.data) || {}));
-                    SaleOrderSync.subscribers.forEach((inst) => {
-                        if (inst.loaded) inst.render();
-                    });
+                    this._scheduleRerender();
                 });
             } catch (_) {}
+        },
+        _scheduleRerender() {
+            clearTimeout(this._rerenderTimer);
+            this._rerenderTimer = setTimeout(() => {
+                SaleOrderSync.subscribers.forEach((inst) => {
+                    if (inst.loaded) inst.render();
+                });
+            }, 400);
         },
         get(orderId) {
             return this._data.get(String(orderId)) || null;
         },
-        async record(orderId, number, user) {
-            const entry = { number: number || '', user: user || 'unknown', ts: Date.now() };
+        async record(orderId, number, user, ts, source) {
+            const entry = {
+                number: number || '',
+                user: user || 'unknown',
+                ts: ts || Date.now(),
+                source: source || 'ui',
+            };
             this._data.set(String(orderId), entry);
             if (!this._hasFs()) return;
             try {
@@ -98,6 +109,43 @@
             }
         },
     };
+
+    // Phân giải "ai hủy" từ TPOS AuditLog cho đơn đã hủy (kể cả hủy bên TPOS).
+    // TPOS ghi cancel là entry UPDATE, Description "- Trạng thái: ... => Hủy bỏ.", UserName = người hủy.
+    const CancelByResolver = {
+        _attempted: new Set(),
+        _active: 0,
+        _queue: [],
+        MAX: 4,
+        enqueue(task) {
+            this._queue.push(task);
+            this._pump();
+        },
+        _pump() {
+            while (this._active < this.MAX && this._queue.length) {
+                const t = this._queue.shift();
+                this._active++;
+                Promise.resolve()
+                    .then(t)
+                    .finally(() => {
+                        this._active--;
+                        this._pump();
+                    });
+            }
+        },
+    };
+
+    function parseCancelFromAudit(entries) {
+        // entries sorted desc (mới nhất trước) → lấy lần đổi trạng thái sang "Hủy bỏ" gần nhất
+        for (const e of entries) {
+            const d = e.Description || '';
+            if (/Tr[ạa]ng th[áa]i/i.test(d) && /(H[uủ]y b[ỏo]|Đã h[uủ]y)/i.test(d)) {
+                const ts = new Date(e.DateCreated).getTime();
+                return { user: e.UserName || 'unknown', ts: Number.isFinite(ts) ? ts : Date.now() };
+            }
+        }
+        return null;
+    }
 
     function currentUserName() {
         try {
@@ -1192,6 +1240,49 @@
             if (this.$.page) this.$.page.value = this.state.page;
             if (this.$.prev) this.$.prev.disabled = this.state.page <= 1;
             if (this.$.next) this.$.next.disabled = this.state.page >= this.totalPages();
+
+            // Sau render: phân giải "ai hủy" từ TPOS AuditLog cho đơn đã hủy chưa có log.
+            this.resolveCancelledBadges();
+        }
+
+        // Với mỗi row đã hủy chưa có CancelLogStore entry → fetch AuditLog (throttled) lấy người hủy.
+        resolveCancelledBadges() {
+            if (this.cfg.entity !== 'FastSaleOrder') return;
+            for (const row of this.state.rows) {
+                if (!row || row.State !== 'cancel') continue;
+                const id = String(row.Id);
+                if (!id || CancelLogStore.get(id)) continue;
+                if (CancelByResolver._attempted.has(id)) continue;
+                CancelByResolver._attempted.add(id);
+                const number = row.Number || '';
+                CancelByResolver.enqueue(() => this._fetchCancelBy(id, number));
+            }
+        }
+
+        async _fetchCancelBy(id, number) {
+            try {
+                const url = `${WORKER_URL}/api/odata/AuditLog/ODataService.GetAuditLogEntity?entityName=${encodeURIComponent(this.cfg.entity)}&entityId=${encodeURIComponent(id)}&skip=0&take=15`;
+                const resp = await window.tokenManager.authenticatedFetch(url, {
+                    method: 'GET',
+                    headers: { Accept: 'application/json' },
+                });
+                if (!resp.ok) return;
+                const data = await resp.json();
+                const hit = parseCancelFromAudit(Array.isArray(data.value) ? data.value : []);
+                if (!hit) return;
+                // Persist (Firestore) để máy khác khỏi fetch lại + onSnapshot re-render.
+                await CancelLogStore.record(id, number, hit.user, hit.ts, 'tpos');
+                // Inject ngay vào cell tương ứng (khỏi chờ re-render).
+                const tr = this.$.tbody?.querySelector(`tr[data-tpos-id="${id}"]`);
+                const wrap = tr?.querySelector('.tpos-state-wrap');
+                if (wrap && !wrap.querySelector('.tpos-cancel-by')) {
+                    wrap.insertAdjacentHTML(
+                        'beforeend',
+                        cancelByBadge({ Id: id, State: 'cancel' })
+                    );
+                    if (window.lucide) window.lucide.createIcons();
+                }
+            } catch (_) {}
         }
 
         // --------------- MOCK CRUD ---------------
