@@ -25,6 +25,34 @@
 
 ## 2026-06-02
 
+### [tpos-pancake] Fix panel Chat Pancake không hiện hội thoại (0 pages) — sync JWT từ Render DB như native-orders ✅
+
+**Bug user báo**: Panel "Chat Pancake" bên phải tpos-pancake hiển thị "Tất cả Pages / **0 pages**" và chỉ vài hội thoại (hoặc rỗng). Yêu cầu: hiện tất cả hội thoại + test tìm kiếm/inbox/gửi hình/voice, hoạt động giống native-orders.
+
+**Root cause** (debug qua persistent browser session, console-first):
+
+- Console: `[PANCAKE-TOKEN] No valid token found. Please login to Pancake.vn`, `[PK-RT] start-multi failed: no_accounts`, `no_token_or_uid`.
+- tpos-pancake's `pancakeTokenManager` đọc JWT từ localStorage key `pancake_jwt_token` + Firestore — nhưng **không có token nào** (không ai login Pancake.vn). → `pageIds: []` → `fetchConversations` return `[]` (guard `if pageIds.length===0`).
+- native-orders hoạt động vì gọi `Web2Chat.syncFromRenderDB()` → kéo JWT (+ page tokens) từ **Render DB** (`/api/pancake-accounts` + `/api/pancake-page-tokens`) ghi vào **CÙNG key** `pancake_jwt_token`. tpos-pancake chưa từng load Web2Chat / gọi sync.
+
+**Fix** (contained, low-risk — không rewrite stack Pancake):
+
+1. [`tpos-pancake/index.html`](../tpos-pancake/index.html) — load `../web2/shared/web2-chat-client.js` TRƯỚC `pancake-token-manager.js`.
+2. [`pancake-token-manager.js`](../tpos-pancake/js/pancake/pancake-token-manager.js) — `getToken()` thêm **Priority 2.5**: khi localStorage miss → `getTokenFromWeb2Chat()` gọi `Web2Chat.syncFromRenderDB({force:true})` (ghi JWT vào cùng key) + merge page access tokens, rồi re-read localStorage. Self-heal giống native-orders.
+3. [`pancake-api.js`](../tpos-pancake/js/pancake/pancake-api.js) `sendMessage()` — fix **silent-failure bug**: trước đây HTTP 200 với body `success:false` (error 105/100) bị trả về như "đã gửi" → push object lỗi vào thread. Giờ: detect `success:false` → throw reason thật (chat-window show Popup.error + remove temp bubble). Thêm: error 105 "access_token renewed" → mint page token mới qua `Web2Chat.generatePageAccessToken` + retry 1 lần (chỉ khi token đổi → tránh double-send).
+
+**Verify live** (persistent browser session, localhost:8080):
+
+- ✅ Sau fix: page selector "0 pages" → **2 pages** (Nhi Judy House + NhiJudy Store, unread 1064); conversations **0 → 52** rows render.
+- ✅ Search: gõ "Trang" → filter đúng 3 KH (Trang Thùy, Trang Lê).
+- ✅ Tab Inbox: click → `activeFilter:inbox`, đúng 9 hội thoại (9 INBOX / 50 COMMENT).
+- ✅ Mở hội thoại: fetch 25 messages qua `/api/pancake-direct/.../messages` (200), mark-read 200.
+- ⚠ Send (text/hình): wired đúng (`{action:reply_inbox, message, conversation_id, customer_id}`), nhưng môi trường test fail với error 105/100 (page access token stale + không có N2 extension). Đây là **giới hạn chung với native-orders** — send tin cậy đi qua extension (`REPLY_INBOX_PHOTO`, bypass 24h + token). Trên browser thật có extension + token tươi thì gửi được. KHÔNG gửi tin thật cho KH thật khi test (DB-safety rule).
+- ℹ Voice: **không hỗ trợ GỬI** ở cả tpos-pancake LẪN native-orders (chỉ render audio nhận được). Không có sẵn để "giống native-orders".
+- KH test "Huỳnh Thành Đạt — 0123456788": là test customer DB-only (orders/PBH), **không có hội thoại Pancake** → test bằng hội thoại thật (read-only) + send chặn an toàn.
+
+**Files**: `tpos-pancake/index.html`, `tpos-pancake/js/pancake/pancake-token-manager.js`, `tpos-pancake/js/pancake/pancake-api.js`. Status: ✅ Done (conversation loading), ⚠ send phụ thuộc extension/token tươi (như native-orders).
+
 ### [tpos-pancake] Silent snap toasts — bỏ thông báo khi snap/chụp hình ✅
 
 **Yêu cầu user**: "tpos-pancake → không cần thông báo khi snap shot và chụp hình".
