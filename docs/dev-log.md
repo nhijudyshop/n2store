@@ -25,6 +25,20 @@
 
 ## 2026-06-02
 
+### [native-orders] Gửi tin UI-first: hiện ngay → chạy nền → lỗi thì bật lại text (giữ extension-trước) ✅
+
+**Yêu cầu user**: native-orders cũng UI-first như tpos-pancake — hiện tin lên UI lập tức + gửi chạy nền + lỗi thì thông báo và bật lại text. **Quyết định**: GIỮ thứ tự gửi cũ (Extension TRƯỚC → Pancake API sau — tối ưu cho nhắn KH ngoài 24h, không thêm độ trễ), chỉ thêm phần UI-first.
+
+**Cách làm** (`native-orders/js/native-orders-app.js`):
+
+- `_appendOutgoing(text)` → **return `fake.id`** (id bong bóng tạm) để rollback.
+- Thêm `_removeOutgoing(localId)`: xoá bong bóng khỏi `_chatState.msgs`/`msgIds`/DOM (`.w2-chat-row[data-msg-id]`).
+- `_handleSendMessage` refactor **UI-first**: chuyển `_appendOutgoing` + clear input + `_setReplyTarget(null)` lên **TRƯỚC mọi `await`** → bong bóng hiện tức thì, các `await` chạy nền sau. Bỏ `input.disabled` (gõ tiếp được). Capture `replyToId` trước khi null reply target (2 chỗ send dùng `replyToId`). Mọi nhánh **lỗi cả 2 route** gọi `_restore()` = gỡ bong bóng + bật lại text vào ô (chỉ khi ô trống) + focus; giữ nguyên prompt FB Business cho lỗi 24h/extension-missing. Bọc `try/catch` quanh `fetchConversations` + `sendMessage` để lỗi throw cũng rollback sạch.
+
+**Khác trước**: trước `_appendOutgoing` chỉ chạy SAU khi gửi thành công (UI đợi); giờ hiện ngay, gửi nền, lỗi mới gỡ + trả lại text.
+
+**Verify**: `node --check` OK; reload native-orders sạch (no app error, Web2Optimistic loaded, orders render). ⚠ Full send-flow (bong bóng→restore) nên test trên browser thật có N2 extension. Status: ✅ Done (code).
+
 ### [tpos-pancake] Gửi tin UI-first: hiện ngay → chạy nền → lỗi thì bật lại text + thông báo ✅
 
 **Yêu cầu user**: "Dùng pancake api trước → bị lỗi thì qua extension → nhắn tin hiển thị lên UI lập tức rồi chạy nền background → nếu lỗi thì thông báo và bật lại đoạn chat".

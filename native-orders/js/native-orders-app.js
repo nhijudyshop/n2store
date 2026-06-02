@@ -1087,7 +1087,9 @@
                                 //     cancelPbh chỉ huỷ PBH giữ đơn web — UX confusing, user yêu cầu
                                 //     gom về 1 nút huỷ duy nhất (cancelOrder).
                                 //     Muốn thêm PBH ở confirmed → "Tách đơn" tạo native-order con.
-                                //   - draft: confirmDraft + createPbh
+                                //   - draft: chỉ createPbh (user spec 2026-06-02: bỏ nút
+                                //     "Xác nhận đơn" — workflow gom lại 1 bước, click Tạo
+                                //     PBH = vừa confirm vừa tạo PBH luôn + deduct stock).
                                 if (o.status === 'cancelled') {
                                     return `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH mới (đơn đã huỷ — sẽ tạo PBH mới với số HĐ mới, KHÔNG đụng PBH cũ)"
                                 onclick="event.stopPropagation();NativeOrdersApp.createPbh('${escapeHtml(o.code)}')">
@@ -1099,11 +1101,7 @@
                                     return `<span class="tpos-action-placeholder"></span>`;
                                 }
                                 // draft (default)
-                                return `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Xác nhận đơn (chưa tạo PBH)" style="color:#3b82f6;"
-                                onclick="event.stopPropagation();NativeOrdersApp.confirmDraft('${escapeHtml(o.code)}')">
-                                <i data-lucide="check-circle" style="width:12px;height:12px;"></i>
-                            </button>
-                            <button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH"
+                                return `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH"
                                 onclick="event.stopPropagation();NativeOrdersApp.createPbh('${escapeHtml(o.code)}')">
                                 <i data-lucide="receipt" style="width:12px;height:12px;"></i>
                             </button>`;
@@ -7051,18 +7049,14 @@
                     attachmentType: 'SEND_TEXT_ONLY',
                     platform: 'facebook',
                     isBusiness: true,
-                    repliedMessageId: _chatState?.replyTo?.id || undefined,
+                    repliedMessageId: replyToId,
                 });
                 if (r.ok) {
-                    _appendOutgoing(text);
-                    input.value = '';
-                    _setReplyTarget(null);
+                    // Bong bóng đã hiện ở apply (UI-first) → chỉ cần báo.
                     notify('Đã gửi qua N2 Extension (bypass 24h)', 'success');
                     if (window.Web2NewMsgBadge?.clearPendingForCustomer) {
                         window.Web2NewMsgBadge.clearPendingForCustomer(order.fbUserId);
                     }
-                    input.disabled = false;
-                    input.focus();
                     return;
                 }
                 console.warn('[NativeOrders] Extension send failed, fallback Pancake:', r.error);
@@ -7073,14 +7067,19 @@
 
         // Fallback: Web2Chat client (Pancake Public API, subject to 24h rule)
         if (!_hasChatClient() || !window.Web2Chat.hasTokensFor(order.fbPageId)) {
-            input.disabled = false;
+            _restore();
             notify('Chưa có Extension và chưa cấu hình token Pancake cho page này.', 'error');
             return;
         }
         let conversationId = input.dataset.conversationId;
         let customerId = input.dataset.customerId || null;
         if (!conversationId) {
-            const r = await window.Web2Chat.fetchConversations(order.fbPageId, order.fbUserId);
+            let r = { conversations: [] };
+            try {
+                r = await window.Web2Chat.fetchConversations(order.fbPageId, order.fbUserId);
+            } catch (e) {
+                console.warn('[NativeOrders] fetchConversations failed:', e?.message || e);
+            }
             const list = r.conversations || [];
             if (list[0]) {
                 conversationId = list[0].id;
@@ -7088,42 +7087,43 @@
             }
         }
         if (!conversationId) {
-            input.disabled = false;
+            _restore();
             notify('Chưa tìm thấy hội thoại với khách.', 'error');
             return;
         }
-        const sendRes = await window.Web2Chat.sendMessage(order.fbPageId, conversationId, {
-            text,
-            action: 'reply_inbox',
-            customerId,
-            repliedMessageId: _chatState?.replyTo?.id || undefined,
-        });
+        let sendRes;
+        try {
+            sendRes = await window.Web2Chat.sendMessage(order.fbPageId, conversationId, {
+                text,
+                action: 'reply_inbox',
+                customerId,
+                repliedMessageId: replyToId,
+            });
+        } catch (e) {
+            sendRes = { ok: false, reason: e?.message || 'send threw' };
+        }
         if (sendRes.ok) {
-            _appendOutgoing(text);
-            input.value = '';
-            _setReplyTarget(null);
+            // Bong bóng đã hiện ở apply (UI-first) → chỉ cần báo.
             notify('Đã gửi tin nhắn', 'success');
             if (window.Web2NewMsgBadge?.clearPendingForCustomer) {
                 window.Web2NewMsgBadge.clearPendingForCustomer(order.fbUserId);
             }
-        } else {
-            // Detect 24h policy fail từ Pancake (e_code:10, e_subcode:2018278) hoặc
-            // extension-not-ready → show modal hướng dẫn login FB Business.
-            const reason = String(sendRes.reason || 'unknown');
-            const is24h = /e_?code.*10|2018278|24h|ngoài khoảng thời gian/i.test(reason);
-            const extMissing = /extension.*not|chưa kết nối|not.*connected/i.test(reason);
-            if (is24h || extMissing) {
-                _showFbBusinessLoginPrompt(
-                    is24h
-                        ? 'Quá 24h và extension chưa lấy được session FB Business. Đăng nhập Facebook (business.facebook.com) liên kết với Pancake để extension scrape được session, rồi thử lại.'
-                        : 'Extension chưa kết nối. Đăng nhập Facebook (business.facebook.com) liên kết với Pancake để extension hoạt động.'
-                );
-            } else {
-                notify('Lỗi gửi tin nhắn: ' + reason, 'error');
-            }
+            return;
         }
-        input.disabled = false;
-        input.focus();
+        // Lỗi cả 2 route → gỡ bong bóng tạm + bật lại text + báo / prompt FB Business.
+        _restore();
+        const reason = String(sendRes.reason || 'unknown');
+        const is24h = /e_?code.*10|2018278|24h|ngoài khoảng thời gian/i.test(reason);
+        const extMissing = /extension.*not|chưa kết nối|not.*connected/i.test(reason);
+        if (is24h || extMissing) {
+            _showFbBusinessLoginPrompt(
+                is24h
+                    ? 'Quá 24h và extension chưa lấy được session FB Business. Đăng nhập Facebook (business.facebook.com) liên kết với Pancake để extension scrape được session, rồi thử lại.'
+                    : 'Extension chưa kết nối. Đăng nhập Facebook (business.facebook.com) liên kết với Pancake để extension hoạt động.'
+            );
+        } else {
+            notify('Lỗi gửi tin nhắn: ' + reason, 'error');
+        }
     }
 
     async function _handleReplyComment(order, commentId, inputId, mode) {
@@ -7276,46 +7276,8 @@
         _renderInteractionsModal(STATE.orders[idx] || updatedOrder, _interactionsState.tab);
     }
 
-    // Xác nhận đơn web (draft → confirmed) KHÔNG tạo PBH. UX: user xem
-    // xong đơn, thấy info đúng, chốt đơn để chuẩn bị đóng gói, PBH tạo sau.
-    async function confirmDraft(code) {
-        if (!code) return;
-        const src = STATE.orders.find((o) => o.code === code);
-        if (!src) return notify('Không tìm thấy đơn ' + code, 'error');
-        if (src.status !== 'draft') {
-            return notify(`Đơn ${code} không phải draft (hiện: ${src.status})`, 'warning');
-        }
-        const ok = await w2pConfirm(
-            `Xác nhận đơn ${code}? Đơn sẽ chuyển trạng thái 'confirmed' (PBH tạo sau khi đóng gói).`,
-            { confirmText: 'Xác nhận', cancelText: 'Hủy' }
-        );
-        if (!ok) return;
-        try {
-            const r = await fetch(
-                `${window.NativeOrdersApi._getBaseUrl()}/${encodeURIComponent(code)}/confirm`,
-                { method: 'POST', headers: { 'Content-Type': 'application/json' } }
-            );
-            const data = await r.json();
-            if (!r.ok || !data.success) {
-                throw new Error(data.error || `HTTP ${r.status}`);
-            }
-            notify(
-                data.idempotent
-                    ? `Đơn ${code} đã ở trạng thái ${data.order.status} (không đổi)`
-                    : `✓ Đơn ${code} đã xác nhận`,
-                'success'
-            );
-            // SSE sẽ tự reload list, nhưng update local cache cho responsive UX
-            if (data.order) {
-                const i = STATE.orders.findIndex((o) => o.code === code);
-                if (i >= 0) STATE.orders[i] = data.order;
-                renderOrders();
-            }
-        } catch (e) {
-            console.error('[confirmDraft] error', e);
-            notify(`Xác nhận thất bại: ${e.message}`, 'error');
-        }
-    }
+    // confirmDraft() đã xóa 2026-06-02 (user spec): workflow gom 1 bước, chỉ
+    // dùng nút "Tạo PBH" (vừa confirm vừa tạo PBH luôn + deduct stock).
 
     // Tạo PBH bổ sung (tách đơn) — call /from-native-order với split=true.
     // Backend tự tăng split_index → PBH thứ 2 hiển thị STT '24-2', thứ 3 '24-3'.
@@ -7429,7 +7391,6 @@
         cancelPbh,
         cancelPbhFromEdit,
         setLineNote,
-        confirmDraft,
         cancelOrder,
         splitPbh,
         splitOrder,
