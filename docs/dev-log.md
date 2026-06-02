@@ -111,6 +111,19 @@
 
 **Cleanup**: 5 test orders deleted, KPI ranges reset, PBH cancelled.
 
+### [issue-tracking] BÁN HÀNG: resolve "ai hủy" từ TPOS AuditLog cho MỌI đơn (kể cả hủy bên TPOS) ✅
+
+**Yêu cầu user**: Không chỉ đơn hủy qua trang này — lấy luôn người hủy từ TPOS AuditLog cho mọi đơn đã hủy (kể cả hủy trực tiếp bên TPOS).
+
+**Files**: `issue-tracking/js/tpos-fastsale-tab.js`
+
+- `CancelByResolver` — queue throttle (MAX 4 concurrent) fetch AuditLog cho đơn `State==='cancel'` chưa có CancelLogStore entry. `_attempted` Set chống refetch; **xóa khỏi `_attempted` khi token chưa sẵn / lỗi / exception** → cho retry render sau (fix: trước đó fail 1 lần là không bao giờ resolve).
+- `parseCancelFromAudit(entries)` — TPOS ghi cancel là entry `UPDATE`, Description `"- Trạng thái: ... => Hủy bỏ."`, `UserName` = người hủy. Regex `/Trạng thái/ && /(Hủy bỏ|Đã hủy)/`, lấy entry mới nhất → `{user, ts: DateCreated}`.
+- `render()` cuối gọi `resolveCancelledBadges()`. `_fetchCancelBy` → `CancelLogStore.record(id,number,user,ts,'tpos')` (persist Firestore cross-device → máy khác khỏi fetch lại) + inject badge ngay vào cell.
+- `CancelLogStore`: thêm param `ts`+`source`, `onSnapshot` re-render **debounce 400ms** (gom burst khi resolve hàng loạt). Bump asset `?v=20260602f`.
+
+**Verify local**: Clear Firestore → fresh load (không trigger tay) → 2/2 đơn đã hủy auto-resolve: NJD/2026/70234 → `nvktlive1 · 02/06/2026 14:46`, NJD/2026/70144 → `nvktlive1 · 12:03`. 0 lỗi. Status: ✅ Done.
+
 ### [issue-tracking] BÁN HÀNG: lưu "ai đã hủy" + hiện cạnh badge "Đã hủy" ✅
 
 **Yêu cầu user**: Khi hủy phiếu → lưu số HĐ + tên user hủy → hiện lên bảng kế bên chữ "Đã hủy".
