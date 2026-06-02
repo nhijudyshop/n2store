@@ -504,65 +504,10 @@ router.post('/reprocess-unmatched', async (req, res) => {
     try {
         const db = req.app.locals.chatDb || req.app.locals.db;
         const limit = Math.min(parseInt(req.body?.limit) || 200, 500);
-        const dryRun = req.body?.dryRun === true;
         const { fetchWithTimeout } = require('../../../shared/node/fetch-utils.cjs');
 
-        const rows = await db.query(
-            `SELECT id, sepay_id, content, transfer_amount, linked_customer_phone
-             FROM web2_balance_history
-             WHERE transfer_type = 'in'
-               AND debt_added = FALSE
-               AND COALESCE(match_method, '') NOT IN ('pending_match', 'pending_low_confidence')
-             ORDER BY transaction_date DESC NULLS LAST
-             LIMIT $1`,
-            [limit]
-        );
-
-        if (rows.rows.length === 0) {
-            return res.json({
-                success: true,
-                data: { picked: 0, matched: 0, pending: 0, no_match: 0, errors: 0 },
-            });
-        }
-
-        const stats = { picked: rows.rows.length, matched: 0, pending: 0, no_match: 0, errors: 0 };
-        const results = [];
-
-        for (const row of rows.rows) {
-            try {
-                const r = await web2SepayMatching.processWeb2Match(db, row.id, fetchWithTimeout);
-                const r2 = {
-                    id: row.id,
-                    sepay: row.sepay_id,
-                    amount: row.transfer_amount,
-                    method: r?.method || null,
-                    phone: r?.phone || null,
-                    name: r?.customerName || null,
-                    confidence: r?.confidenceScore || null,
-                };
-                if (
-                    r?.success &&
-                    (r.method === 'exact_phone' ||
-                        r.method === 'single_match' ||
-                        r.method === 'qr_code' ||
-                        r.method === 'legacy_credited')
-                ) {
-                    stats.matched++;
-                } else if (
-                    r?.method === 'pending_match_created' ||
-                    r?.method === 'pending_low_confidence'
-                ) {
-                    stats.pending++;
-                } else {
-                    stats.no_match++;
-                }
-                if (results.length < 50) results.push(r2);
-            } catch (e) {
-                stats.errors++;
-                console.warn(`[reprocess] row ${row.id} fail:`, e.message);
-            }
-        }
-        res.json({ success: true, data: { ...stats, sample: results } });
+        const data = await web2SepayMatching.reprocessUnmatched(db, fetchWithTimeout, { limit });
+        res.json({ success: true, data });
     } catch (e) {
         handleError(res, e, 'Reprocess unmatched');
     }

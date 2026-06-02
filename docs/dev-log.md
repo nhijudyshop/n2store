@@ -25,6 +25,21 @@
 
 ## 2026-06-02
 
+### [render] Cron server re-khớp GD "chưa gán KH" định kỳ (không cần mở trang) ✅
+
+**Vấn đề user**: balance-history reprocess GD "chưa gán" CHỈ chạy khi mở trang (`autoReprocessOnLoad` client-side). Cả ngày không ai mở → GD về mà SĐT chưa có trong DB lúc webhook fire sẽ kẹt "chưa gán" mãi. Auto-credit lúc tiền vào vẫn server-side OK; chỉ thiếu phần **retry khớp** server-side.
+
+**Files**:
+
+- `render.com/services/web2-sepay-matching.js` — thêm export `reprocessUnmatched(db, fetchWithTimeout, {limit, sampleLimit})`: tách query + loop processWeb2Match ra hàm dùng chung (DRY).
+- `render.com/routes/v2/web2-balance-history.js` — route `POST /reprocess-unmatched` refactor gọi hàm chung (giảm ~55 dòng, cùng hành vi).
+- `render.com/services/web2-reprocess-cron.js` (MỚI) — `startCron(db, reprocessFn, {intervalMs, limit})`, guard `_running` tránh chồng tick, chỉ log khi có match/pending.
+- `render.com/server.js` — wire cron sau retry cron (delay 8s), interval 10 phút, limit 200, `sampleLimit:0`.
+
+**Khác web2-webhook-retry**: retry queue chỉ re-run webhook bị crash/exception; cron này nhắm GD đã insert OK nhưng auto chưa khớp được KH (debt_added=false, chưa pending). Không đụng row `pending_match`/`pending_low_confidence` (chờ user pick).
+
+**Verify**: `node --check` 4 file OK. Cron tick log `[web2-reprocess-cron]` trên Render khi có GD khớp được.
+
 ### [tpos-pancake] Restyle quick-reply panel chat giống native-orders (tag chip màu + /shortcut autocomplete) ✅
 
 **Yêu cầu user**: "giao diện panel chat pancake giống native-orders" (kèm screenshot chat native-orders: thanh tag chip màu, ô soạn /shortcut). Chọn scope: **restyle panel hiện tại** (giữ cột chat pk-\*, data flow vừa fix — không port full sang shared/modal).

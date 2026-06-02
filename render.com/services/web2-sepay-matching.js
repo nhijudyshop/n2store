@@ -814,9 +814,82 @@ async function resolveWeb2PendingMatch(db, pendingId, selectedPhone, selectedNam
     };
 }
 
+/**
+ * Bulk re-run processWeb2Match cho mọi GD 'in' chưa cộng ví:
+ *   - debt_added = FALSE, VÀ
+ *   - match_method NOT IN ('pending_match','pending_low_confidence')
+ *     (những row đang chờ user pick KH thì KHÔNG đụng — auto không quyết được).
+ *
+ * Dùng chung bởi:
+ *   - Route POST /reprocess-unmatched (client bấm / auto on-load)
+ *   - Cron server (web2-reprocess-cron) — chạy định kỳ KHÔNG cần mở trang.
+ *
+ * @param {object} db - Postgres pool (chatDb)
+ * @param {Function} fetchWithTimeout
+ * @param {{ limit?: number, sampleLimit?: number }} [opts]
+ * @returns {Promise<{picked:number,matched:number,pending:number,no_match:number,errors:number,sample:object[]}>}
+ */
+async function reprocessUnmatched(db, fetchWithTimeout, opts = {}) {
+    const limit = Math.min(parseInt(opts.limit) || 200, 500);
+    const sampleLimit = Number.isFinite(opts.sampleLimit) ? opts.sampleLimit : 50;
+
+    const rows = await db.query(
+        `SELECT id, sepay_id, content, transfer_amount, linked_customer_phone
+         FROM web2_balance_history
+         WHERE transfer_type = 'in'
+           AND debt_added = FALSE
+           AND COALESCE(match_method, '') NOT IN ('pending_match', 'pending_low_confidence')
+         ORDER BY transaction_date DESC NULLS LAST
+         LIMIT $1`,
+        [limit]
+    );
+
+    const stats = { picked: rows.rows.length, matched: 0, pending: 0, no_match: 0, errors: 0 };
+    const sample = [];
+    if (rows.rows.length === 0) return { ...stats, sample };
+
+    for (const row of rows.rows) {
+        try {
+            const r = await processWeb2Match(db, row.id, fetchWithTimeout);
+            if (
+                r?.success &&
+                (r.method === 'exact_phone' ||
+                    r.method === 'single_match' ||
+                    r.method === 'qr_code' ||
+                    r.method === 'legacy_credited')
+            ) {
+                stats.matched++;
+            } else if (
+                r?.method === 'pending_match_created' ||
+                r?.method === 'pending_low_confidence'
+            ) {
+                stats.pending++;
+            } else {
+                stats.no_match++;
+            }
+            if (sample.length < sampleLimit) {
+                sample.push({
+                    id: row.id,
+                    sepay: row.sepay_id,
+                    amount: row.transfer_amount,
+                    method: r?.method || null,
+                    phone: r?.phone || null,
+                    name: r?.customerName || null,
+                    confidence: r?.confidenceScore || null,
+                });
+            }
+        } catch (e) {
+            stats.errors++;
+            console.warn(`[reprocess] row ${row.id} fail:`, e.message);
+        }
+    }
+    return { ...stats, sample };
+}
+
 module.exports = {
     ensureSchema,
     insertWeb2BalanceHistory,
     processWeb2Match,
     resolveWeb2PendingMatch,
+    reprocessUnmatched,
 };

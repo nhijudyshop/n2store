@@ -194,6 +194,26 @@ chatDbPool
                     console.warn('[web2-webhook-retry] cron start fail:', e.message);
                 }
             }, 5000);
+            // Start reprocess cron — re-khớp các GD "chưa gán KH" định kỳ
+            // (server-side, KHÔNG cần ai mở trang balance-history).
+            setTimeout(() => {
+                try {
+                    const reprocessCron = require('./services/web2-reprocess-cron');
+                    const sepayMatching = require('./services/web2-sepay-matching');
+                    const { fetchWithTimeout } = require('../shared/node/fetch-utils.cjs');
+                    reprocessCron.startCron(
+                        chatDbPool,
+                        (db, limit) =>
+                            sepayMatching.reprocessUnmatched(db, fetchWithTimeout, {
+                                limit,
+                                sampleLimit: 0,
+                            }),
+                        { intervalMs: 10 * 60 * 1000, limit: 200 }
+                    );
+                } catch (e) {
+                    console.warn('[web2-reprocess-cron] cron start fail:', e.message);
+                }
+            }, 8000);
         } catch (e) {
             console.warn('[web2 phase-5] init failed:', e.message);
         }
