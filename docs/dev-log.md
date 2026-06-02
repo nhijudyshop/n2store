@@ -51,6 +51,17 @@
 
 **Cleanup**: 5 test orders deleted, KPI ranges reset, PBH cancelled.
 
+### [issue-tracking][render] BÁN HÀNG: realtime sync hủy phiếu cross-tab/máy (SSE) ✅
+
+**Yêu cầu user**: Hủy phiếu ở máy/tab này → máy/tab khác đang mở danh sách tự cập nhật, không cần F5.
+
+**Files**:
+
+- `render.com/routes/realtime-sse.js` — thêm `POST /api/realtime/sse/fast-sale-orders` publish topic `fast_sale_orders` (eventType `update`, payload `{action,id,ts}` không PII). Hub Web 1.0, bare snake_case topic.
+- `issue-tracking/js/tpos-fastsale-tab.js` — `SaleOrderSync` singleton: subscribe `EventSource(/api/realtime/sse?keys=fast_sale_orders)` (chỉ tab entity FastSaleOrder), `update` → debounce 600ms → reload tab đã `loaded`; `executeCancelSale` sau khi hủy thành công gọi `SaleOrderSync.notify('cancel', id)` (POST keepalive). Bump asset `?v=20260602b`.
+
+**Verify local**: SSE connect log `[tpos-fastsale] SSE connected: fast_sale_orders`, 100 rows, không lỗi. Cross-machine e2e cần Render deploy xong. Status: ✅ Done.
+
 ### [issue-tracking] BÁN HÀNG: nút Hủy phiếu (ActionCancel) + Lịch sử (AuditLog) như TPOS ✅
 
 **Yêu cầu user**: Trang `issue-tracking/index.html#ban-hang` cho **hủy phiếu bán hàng** (không phải xóa) + xem **Lịch sử** như tab "Lịch sử" của TPOS. Hủy thử đơn test `NJD/2026/70234` (Huỳnh Thành Đạt).

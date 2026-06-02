@@ -4,6 +4,52 @@
     'use strict';
 
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const REALTIME_URL = `${WORKER_URL}/api/realtime`;
+
+    // Cross-tab / cross-machine sync for FastSaleOrder lists (BÁN HÀNG + TRẢ HÀNG).
+    // Hủy phiếu ở máy A → publish SSE topic `fast_sale_orders` → các tab khác auto reload (không F5).
+    const SaleOrderSync = {
+        es: null,
+        subscribers: new Set(),
+        _timer: null,
+        subscribe(inst) {
+            this.subscribers.add(inst);
+            this._connect();
+        },
+        _connect() {
+            if (this.es || typeof EventSource === 'undefined') return;
+            try {
+                const es = new EventSource(`${REALTIME_URL}/sse?keys=fast_sale_orders`);
+                es.addEventListener('update', () => this._onUpdate());
+                es.addEventListener('connected', () =>
+                    console.log('[tpos-fastsale] SSE connected: fast_sale_orders')
+                );
+                es.onerror = () => {}; // EventSource auto-reconnects
+                this.es = es;
+            } catch (e) {
+                console.warn('[tpos-fastsale] SSE connect failed:', e);
+            }
+        },
+        _onUpdate() {
+            clearTimeout(this._timer);
+            this._timer = setTimeout(() => {
+                this.subscribers.forEach((inst) => {
+                    // Only reload tabs already loaded (avoid eager TPOS fetch for unopened tabs)
+                    if (inst.loaded) inst.load();
+                });
+            }, 600);
+        },
+        notify(action, id) {
+            try {
+                fetch(`${REALTIME_URL}/sse/fast-sale-orders`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, id }),
+                    keepalive: true,
+                }).catch(() => {});
+            } catch (_) {}
+        },
+    };
 
     const TYPE_CFG = {
         invoice: {
@@ -1323,6 +1369,8 @@
                 if (this.detailCache) this.detailCache.delete(String(id));
                 toast(`Đã hủy phiếu ${id}.`, 'success');
                 await this.load();
+                // Broadcast so other tabs/machines viewing the list auto-reload (no F5).
+                SaleOrderSync.notify('cancel', id);
             } catch (e) {
                 console.error(`[tpos-fastsale:${this.type}] cancel failed:`, e);
                 toast(`Lỗi hủy phiếu: ${e.message}`, 'error');
@@ -1335,6 +1383,8 @@
         }
 
         async activate() {
+            // Subscribe to cross-tab sync for FastSaleOrder lists (idempotent).
+            if (this.cfg.entity === 'FastSaleOrder') SaleOrderSync.subscribe(this);
             if (this.loaded) return;
             this.loaded = true;
             await this.load();

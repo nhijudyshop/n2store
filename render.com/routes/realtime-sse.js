@@ -333,6 +333,23 @@ router.post('/sse/test', (req, res) => {
     });
 });
 
+/**
+ * POST /api/realtime/sse/fast-sale-orders
+ * Broadcast a "FastSaleOrder changed" signal so other tabs/machines viewing the
+ * BÁN HÀNG / TRẢ HÀNG list (issue-tracking page) reload without F5.
+ * Body: { action?, id?, ts? } — no PII, clients just re-fetch from TPOS on receipt.
+ * Topic: bare snake_case "fast_sale_orders" (Web 1.0 convention).
+ */
+router.post('/sse/fast-sale-orders', (req, res) => {
+    const { action, id } = req.body || {};
+    const count = notifyClients(
+        'fast_sale_orders',
+        { action: action || 'change', id: id != null ? String(id) : null, ts: Date.now() },
+        'update'
+    );
+    res.json({ success: true, key: 'fast_sale_orders', clientsNotified: count });
+});
+
 // =====================================================
 // CELEBRATION BROADCAST
 // Admin triggers → all clients watching "celebration" key see fireworks
