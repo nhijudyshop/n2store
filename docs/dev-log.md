@@ -25,6 +25,23 @@
 
 ## 2026-06-02
 
+### [issue-tracking] BÁN HÀNG: nút Hủy phiếu (ActionCancel) + Lịch sử (AuditLog) như TPOS ✅
+
+**Yêu cầu user**: Trang `issue-tracking/index.html#ban-hang` cho **hủy phiếu bán hàng** (không phải xóa) + xem **Lịch sử** như tab "Lịch sử" của TPOS. Hủy thử đơn test `NJD/2026/70234` (Huỳnh Thành Đạt).
+
+**Files**:
+
+- `issue-tracking/js/tpos-fastsale-tab.js` — thêm `saleActionsCell(id,state)` (In bill · Lịch sử · Hủy phiếu) thay `printCell` cho invoice + refund row; handlers `data-action="history"|"cancel"`; methods `openHistory()` (fetch AuditLog), `openCancelConfirm()` + `executeCancelSale()` (POST ActionCancel, await+loading vì là state mutation); singleton modals `ensureHistoryModal()` + `ensureCancelModal()`.
+- `issue-tracking/css/page-tabs.css` — `.tpos-fso-row-history` (tím), `.tpos-fso-row-cancel` (cam), full style 2 modal (history feed + cancel confirm).
+- `issue-tracking/index.html` — header cột "In bill" → "Thao tác" (width 120) cho 2 bảng invoice+refund; bump asset `?v=20260602a`.
+
+**Endpoints TPOS** (discover qua Playwright login + capture network):
+
+- Lịch sử: `GET /api/odata/AuditLog/ODataService.GetAuditLogEntity?entityName=FastSaleOrder&entityId={id}&skip=0&take=50` → `value[]{Action,DateCreated,UserName,Description}`. Action `INSERT`→"Thêm mới", `UPDATE`→"Cập nhật", `CANCEL/DELETE`→"Hủy/Xóa".
+- Hủy: `POST /api/odata/FastSaleOrder/ODataService.ActionCancel` body `{ids:[<int>]}` → 204.
+
+**Verify**: Playwright localhost — 100 rows, 100 nút Lịch sử, 97 nút Hủy (3 phiếu đã hủy ẩn nút). History modal "NJD/2026/70234" hiện đúng 2 entry Cập nhật/Thêm mới. Đã **thực sự hủy** đơn test 438499 qua API → State `open`→`cancel`, AuditLog log thêm entry "Trạng thái". Status: ✅ Done.
+
 ### [native-orders] Bỏ nút Reset STT + group STORE/HOUSE thành 1 campaign cho STT ✅
 
 **Yêu cầu user**: (1) Xóa hết dữ liệu đơn hàng cũ. (2) Bỏ nút Reset STT — STT auto chạy 1→n theo campaign, campaign khác reset 1→n. 2 page STORE + HOUSE coi như 1 campaign.

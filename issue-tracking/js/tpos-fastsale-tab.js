@@ -128,6 +128,26 @@
         </td>`;
     }
 
+    // Action cell for real FastSaleOrder rows (BÁN HÀNG + TRẢ HÀNG):
+    // In bill · Lịch sử (audit log) · Hủy phiếu (ActionCancel). Single <td> keeps colCount stable.
+    function saleActionsCell(id, state) {
+        const canCancel = state !== 'cancel';
+        return `<td class="tpos-fso-actions-cell">
+            <button type="button" class="tpos-fso-row-btn tpos-fso-row-print" data-action="print" data-id="${id || ''}" title="In bill"><i data-lucide="printer"></i></button>
+            <button type="button" class="tpos-fso-row-btn tpos-fso-row-history" data-action="history" data-id="${id || ''}" title="Lịch sử"><i data-lucide="history"></i></button>
+            ${canCancel ? `<button type="button" class="tpos-fso-row-btn tpos-fso-row-cancel" data-action="cancel" data-id="${id || ''}" title="Hủy phiếu bán hàng"><i data-lucide="ban"></i></button>` : ''}
+        </td>`;
+    }
+
+    // TPOS AuditLog Action → Vietnamese label (matches TPOS "Lịch sử" tab).
+    const AUDIT_ACTION_LABEL = {
+        INSERT: 'Thêm mới',
+        CREATE: 'Thêm mới',
+        UPDATE: 'Cập nhật',
+        DELETE: 'Xóa',
+        CANCEL: 'Hủy phiếu',
+    };
+
     async function printBill(id) {
         if (!id) return;
         const toastMsg = (msg, level = 'info') => {
@@ -256,7 +276,7 @@
             <td>${stateBadge(row.State, STATE_META, true)}</td>
             <td data-col="channel"><span style="color:#475569;font-size:12px;">${escapeHtml(channel)}</span></td>
             <td><span class="mono" style="color:#64748b;">${date}</span></td>
-            ${printCell(row.Id)}
+            ${saleActionsCell(row.Id, row.State)}
         </tr>`;
     }
 
@@ -278,7 +298,7 @@
             <td>${stateBadge(row.State, STATE_META, true)}</td>
             <td data-col="channel"><span style="color:#475569;font-size:12px;">${escapeHtml(channel)}</span></td>
             <td><span class="mono" style="color:#64748b;">${date}</span></td>
-            ${printCell(row.Id)}
+            ${saleActionsCell(row.Id, row.State)}
         </tr>`;
     }
 
@@ -593,6 +613,18 @@
                     if (printBtn) {
                         e.stopPropagation();
                         printBill(printBtn.dataset.id);
+                        return;
+                    }
+                    const historyBtn = e.target.closest('[data-action="history"]');
+                    if (historyBtn) {
+                        e.stopPropagation();
+                        this.openHistory(historyBtn.dataset.id);
+                        return;
+                    }
+                    const cancelBtn = e.target.closest('[data-action="cancel"]');
+                    if (cancelBtn) {
+                        e.stopPropagation();
+                        this.openCancelConfirm(cancelBtn.dataset.id);
                         return;
                     }
                     const expandBtn = e.target.closest('[data-action="expand"]');
@@ -1197,11 +1229,219 @@
             this.render();
         }
 
+        // --------------- LỊCH SỬ (TPOS AuditLog) ---------------
+        async openHistory(id) {
+            if (!id) return;
+            const row = this.getRowById(id);
+            const title = row ? row.Number || id : id;
+            const subtitle = row ? row.PartnerDisplayName || row.PartnerName || '' : '';
+            const modal = ensureHistoryModal();
+            modal.querySelector('[data-bind="histTitle"]').textContent = title;
+            modal.querySelector('[data-bind="histSub"]').textContent = subtitle;
+            const body = modal.querySelector('[data-bind="histBody"]');
+            body.innerHTML = `<div class="tpos-hist-loading"><div class="sp"></div>Đang tải lịch sử…</div>`;
+            modal.classList.add('show');
+
+            try {
+                const url = `${WORKER_URL}/api/odata/AuditLog/ODataService.GetAuditLogEntity?entityName=${encodeURIComponent(this.cfg.entity)}&entityId=${encodeURIComponent(id)}&skip=0&take=50`;
+                const resp = await window.tokenManager.authenticatedFetch(url, {
+                    method: 'GET',
+                    headers: { Accept: 'application/json' },
+                });
+                if (!resp.ok) {
+                    const t = await resp.text().catch(() => '');
+                    throw new Error(`HTTP ${resp.status} ${t.slice(0, 120)}`);
+                }
+                const data = await resp.json();
+                const entries = Array.isArray(data.value) ? data.value : [];
+                body.innerHTML = renderHistoryFeed(entries);
+                if (window.lucide) window.lucide.createIcons();
+            } catch (e) {
+                console.error(`[tpos-fastsale:${this.type}] history fetch failed:`, e);
+                body.innerHTML = `<div class="tpos-hist-error"><i data-lucide="alert-triangle"></i> Lỗi tải lịch sử: ${escapeHtml(e.message)}</div>`;
+                if (window.lucide) window.lucide.createIcons();
+            }
+        }
+
+        // --------------- HỦY PHIẾU BÁN HÀNG (TPOS ActionCancel) ---------------
+        openCancelConfirm(id) {
+            const row = this.getRowById(id);
+            if (!row) return;
+            if (row.State === 'cancel') {
+                toast('Phiếu này đã hủy.', 'info');
+                return;
+            }
+            const modal = ensureCancelModal();
+            modal.dataset.activeNs = this.ns;
+            modal.dataset.activeId = String(id);
+            modal.querySelector('[data-bind="cancelTarget"]').textContent =
+                `${row.Number || id} — ${row.PartnerDisplayName || row.PartnerName || ''}`;
+            const btn = modal.querySelector('[data-bind="confirmCancel"]');
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="ban"></i> Hủy phiếu';
+            modal.classList.add('show');
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        // Money/state mutation → keep await + loading state (UI-FIRST exception).
+        async executeCancelSale(id) {
+            const numId = parseInt(id, 10);
+            if (!numId || isNaN(numId)) {
+                toast('ID phiếu không hợp lệ.', 'error');
+                return;
+            }
+            const modal = document.getElementById('tpos-cancel-modal');
+            const btn = modal?.querySelector('[data-bind="confirmCancel"]');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="tpos-btn-spin"></span> Đang hủy…';
+            }
+            try {
+                const resp = await window.tokenManager.authenticatedFetch(
+                    `${WORKER_URL}/api/odata/FastSaleOrder/ODataService.ActionCancel`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            accept: 'application/json',
+                            'content-type': 'application/json',
+                        },
+                        body: JSON.stringify({ ids: [numId] }),
+                    }
+                );
+                if (!resp.ok) {
+                    const t = await resp.text().catch(() => '');
+                    let msg = `HTTP ${resp.status}`;
+                    try {
+                        const j = JSON.parse(t);
+                        msg = j?.error?.message || j?.message || msg;
+                    } catch (_) {
+                        if (t) msg += ` ${t.slice(0, 160)}`;
+                    }
+                    throw new Error(msg);
+                }
+                if (modal) modal.classList.remove('show');
+                if (this.detailCache) this.detailCache.delete(String(id));
+                toast(`Đã hủy phiếu ${id}.`, 'success');
+                await this.load();
+            } catch (e) {
+                console.error(`[tpos-fastsale:${this.type}] cancel failed:`, e);
+                toast(`Lỗi hủy phiếu: ${e.message}`, 'error');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i data-lucide="ban"></i> Hủy phiếu';
+                    if (window.lucide) window.lucide.createIcons();
+                }
+            }
+        }
+
         async activate() {
             if (this.loaded) return;
             this.loaded = true;
             await this.load();
         }
+    }
+
+    // ============================================================
+    // Shared singleton modals (history feed + cancel confirm)
+    // ============================================================
+    function fmtAuditDate(s) {
+        if (!s) return '';
+        const d = new Date(s);
+        if (isNaN(d)) return escapeHtml(String(s));
+        const pad = (x) => String(x).padStart(2, '0');
+        return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function renderHistoryFeed(entries) {
+        if (!entries.length) {
+            return `<div class="tpos-hist-empty"><i data-lucide="inbox"></i><div>Chưa có lịch sử</div></div>`;
+        }
+        return entries
+            .map((e) => {
+                const actionRaw = (e.Action || '').toUpperCase();
+                const action = AUDIT_ACTION_LABEL[actionRaw] || e.Action || '—';
+                const actCls =
+                    actionRaw === 'INSERT' || actionRaw === 'CREATE'
+                        ? 'is-insert'
+                        : actionRaw === 'CANCEL' || actionRaw === 'DELETE'
+                          ? 'is-cancel'
+                          : 'is-update';
+                const desc = escapeHtml(e.Description || '').replace(/\r\n|\r|\n/g, '<br>');
+                return `<div class="tpos-hist-item">
+                    <div class="tpos-hist-head">
+                        <span class="tpos-hist-user">${escapeHtml(e.UserName || '—')}</span>
+                        <span class="tpos-hist-time">${fmtAuditDate(e.DateCreated)}</span>
+                    </div>
+                    <div class="tpos-hist-action ${actCls}">${escapeHtml(action)}</div>
+                    ${desc ? `<div class="tpos-hist-desc">${desc}</div>` : ''}
+                </div>`;
+            })
+            .join('');
+    }
+
+    function ensureHistoryModal() {
+        let modal = document.getElementById('tpos-history-modal');
+        if (modal) return modal;
+        modal = document.createElement('div');
+        modal.id = 'tpos-history-modal';
+        modal.className = 'tpos-fso-modal';
+        modal.innerHTML = `<div class="tpos-fso-modal-box tpos-hist-box">
+            <header class="tpos-fso-modal-head">
+                <div>
+                    <div class="tpos-fso-modal-title"><i data-lucide="history"></i> Lịch sử <span data-bind="histTitle" class="mono"></span></div>
+                    <div class="tpos-fso-modal-subtitle" data-bind="histSub"></div>
+                </div>
+                <button type="button" class="tpos-fso-modal-close" data-bind="close"><i data-lucide="x"></i></button>
+            </header>
+            <div class="tpos-fso-modal-body" data-bind="histBody"></div>
+        </div>`;
+        document.body.appendChild(modal);
+        const close = () => modal.classList.remove('show');
+        modal.querySelector('[data-bind="close"]').addEventListener('click', close);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) close();
+        });
+        if (window.lucide) window.lucide.createIcons();
+        return modal;
+    }
+
+    function ensureCancelModal() {
+        let modal = document.getElementById('tpos-cancel-modal');
+        if (modal) return modal;
+        modal = document.createElement('div');
+        modal.id = 'tpos-cancel-modal';
+        modal.className = 'tpos-fso-modal';
+        modal.innerHTML = `<div class="tpos-fso-modal-box tpos-cancel-box">
+            <header class="tpos-fso-modal-head">
+                <div class="tpos-fso-modal-title tpos-cancel-title"><i data-lucide="ban"></i> Hủy phiếu bán hàng</div>
+                <button type="button" class="tpos-fso-modal-close" data-bind="close"><i data-lucide="x"></i></button>
+            </header>
+            <div class="tpos-fso-modal-body">
+                <p class="tpos-cancel-q">Bạn chắc chắn muốn <strong>hủy</strong> phiếu này trên TPOS?</p>
+                <div class="tpos-cancel-target" data-bind="cancelTarget"></div>
+                <p class="tpos-cancel-warn"><i data-lucide="alert-triangle"></i> Thao tác này gọi trực tiếp TPOS (ActionCancel) — phiếu sẽ chuyển sang trạng thái <strong>Đã hủy</strong>.</p>
+            </div>
+            <footer class="tpos-fso-modal-foot">
+                <button type="button" class="tpos-modal-btn tpos-modal-btn-ghost" data-bind="close">Đóng</button>
+                <button type="button" class="tpos-modal-btn tpos-modal-btn-danger" data-bind="confirmCancel"><i data-lucide="ban"></i> Hủy phiếu</button>
+            </footer>
+        </div>`;
+        document.body.appendChild(modal);
+        const close = () => modal.classList.remove('show');
+        modal
+            .querySelectorAll('[data-bind="close"]')
+            .forEach((el) => el.addEventListener('click', close));
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) close();
+        });
+        modal.querySelector('[data-bind="confirmCancel"]').addEventListener('click', () => {
+            const ns = modal.dataset.activeNs;
+            const id = modal.dataset.activeId;
+            const inst = Object.values(REGISTRY).find((i) => i.ns === ns);
+            if (inst && id) inst.executeCancelSale(id);
+        });
+        if (window.lucide) window.lucide.createIcons();
+        return modal;
     }
 
     // Lightweight toast that prefers notificationManager when available.

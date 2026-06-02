@@ -1012,6 +1012,262 @@ body.pt-embed-active {
     background: #3b82f6;
     color: #fff;
 }
+.tpos-fso-row-history {
+    background: #8b5cf6;
+    color: #fff;
+}
+.tpos-fso-row-cancel {
+    background: #f97316;
+    color: #fff;
+}
+
+/* ============================================================
+   Shared TPOS modals — Lịch sử (audit feed) + Hủy phiếu confirm
+   ============================================================ */
+.tpos-fso-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.55);
+}
+.tpos-fso-modal.show {
+    display: flex;
+}
+.tpos-fso-modal-box {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+    width: 100%;
+    max-width: 560px;
+    max-height: 86vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    contain: layout style;
+}
+.tpos-hist-box {
+    max-width: 640px;
+}
+.tpos-cancel-box {
+    max-width: 460px;
+}
+.tpos-fso-modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #eef2f7;
+}
+.tpos-fso-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+}
+.tpos-fso-modal-title i {
+    width: 18px;
+    height: 18px;
+    color: #8b5cf6;
+}
+.tpos-cancel-title i {
+    color: #f97316;
+}
+.tpos-fso-modal-subtitle {
+    margin-top: 3px;
+    font-size: 13px;
+    color: #64748b;
+}
+.tpos-fso-modal-close {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: #f1f5f9;
+    color: #475569;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 150ms;
+}
+.tpos-fso-modal-close:hover {
+    background: #e2e8f0;
+}
+.tpos-fso-modal-close i {
+    width: 16px;
+    height: 16px;
+}
+.tpos-fso-modal-body {
+    padding: 16px 20px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+.tpos-fso-modal-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid #eef2f7;
+}
+.tpos-modal-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 16px;
+    border-radius: 9px;
+    border: 1px solid transparent;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 150ms;
+}
+.tpos-modal-btn i {
+    width: 15px;
+    height: 15px;
+}
+.tpos-modal-btn-ghost {
+    background: #f1f5f9;
+    color: #334155;
+}
+.tpos-modal-btn-ghost:hover {
+    background: #e2e8f0;
+}
+.tpos-modal-btn-danger {
+    background: #ef4444;
+    color: #fff;
+}
+.tpos-modal-btn-danger:hover {
+    filter: brightness(1.08);
+}
+.tpos-modal-btn-danger:disabled {
+    opacity: 0.7;
+    cursor: progress;
+}
+
+/* History feed items */
+.tpos-hist-item {
+    padding: 12px 14px;
+    border: 1px solid #eef2f7;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    background: #fafbfc;
+}
+.tpos-hist-item:last-child {
+    margin-bottom: 0;
+}
+.tpos-hist-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+.tpos-hist-user {
+    font-weight: 700;
+    color: #2563eb;
+    font-size: 13px;
+}
+.tpos-hist-time {
+    font-size: 12px;
+    color: #94a3b8;
+    font-variant-numeric: tabular-nums;
+}
+.tpos-hist-action {
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 5px;
+}
+.tpos-hist-action.is-insert {
+    color: #059669;
+}
+.tpos-hist-action.is-update {
+    color: #334155;
+}
+.tpos-hist-action.is-cancel {
+    color: #dc2626;
+}
+.tpos-hist-desc {
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.55;
+    white-space: normal;
+}
+.tpos-hist-loading,
+.tpos-hist-error,
+.tpos-hist-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 32px 16px;
+    color: #94a3b8;
+    font-size: 14px;
+}
+.tpos-hist-error {
+    color: #ef4444;
+}
+.tpos-hist-loading .sp {
+    width: 22px;
+    height: 22px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #8b5cf6;
+    border-radius: 50%;
+    animation: tpos-spin 0.7s linear infinite;
+}
+@keyframes tpos-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Cancel confirm body */
+.tpos-cancel-q {
+    margin: 0 0 12px;
+    font-size: 15px;
+    color: #0f172a;
+}
+.tpos-cancel-target {
+    padding: 10px 14px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 9px;
+    font-weight: 600;
+    color: #9a3412;
+    font-size: 14px;
+}
+.tpos-cancel-warn {
+    margin: 12px 0 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    font-size: 12.5px;
+    color: #b45309;
+    line-height: 1.5;
+}
+.tpos-cancel-warn i {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.tpos-btn-spin {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-top-color: #fff;
+    border-radius: 50%;
+    display: inline-block;
+    animation: tpos-spin 0.7s linear infinite;
+}
 
 /* ============================================================
    Column toggle (Ẩn hiện cột) — selectable column dropdown + hide rules
