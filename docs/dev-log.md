@@ -25,6 +25,23 @@
 
 ## 2026-06-02
 
+### [tpos-pancake] Restyle quick-reply panel chat giống native-orders (tag chip màu + /shortcut autocomplete) ✅
+
+**Yêu cầu user**: "giao diện panel chat pancake giống native-orders" (kèm screenshot chat native-orders: thanh tag chip màu, ô soạn /shortcut). Chọn scope: **restyle panel hiện tại** (giữ cột chat pk-\*, data flow vừa fix — không port full sang shared/modal).
+
+**Cách làm** (đối chiếu native-orders `W2_DEFAULT_QUICK_TAGS` + `.w2-quick-tag`):
+
+1. [`pancake-state.js`](../tpos-pancake/js/pancake/pancake-state.js) `quickReplies`: đổi 14 tag từ nhãn không dấu + color-class → **nhãn có dấu** ("NV My KH đặt", "NHẮC KHÁCH", "XIN ĐỊA CHỈ", "NV. Hạnh 🌷"...) + **template thật** (4 tag có nội dung) + **màu rgba(...,0.4)** y hệt native-orders.
+2. [`pancake-chat-window.js`](../tpos-pancake/js/pancake/pancake-chat-window.js) `renderQuickReplies()`: 2 hàng cố định 7 nút → **1 hàng chip wrap**, nền inline `style="background:<rgba>"`.
+3. [`pancake-chat.css`](../tpos-pancake/css/pancake-chat.css): `.pk-quick-reply-bar`/`-row`/`-btn` restyle khớp `.w2-quick-tag` (chip nhỏ 10px, chữ trắng + text-shadow, radius 3px, padding 3px 9px, wrap gap 3px, nền trắng). Bỏ color-class cũ + rule "Second row" thừa.
+4. Composer: placeholder → "Nhập tin nhắn gửi cho khách… (Enter để gửi, /shortcut để chèn mẫu)"; chip click → paste template **+ chữ ký NV** (`Web2QuickReply.signature()`); load [`web2/shared/web2-quick-reply.js`](../web2/shared/web2-quick-reply.js) + `attachAutocomplete(#pkChatInput)` cho `/shortcut` (module dùng chung native-orders).
+
+**KHÔNG làm** (có lý do): chỉ báo "🚀 N2 Extension bypass 24h" — tpos-pancake gửi qua Pancake official API, KHÔNG qua extension → thêm sẽ sai/lừa người dùng. Icon header thừa (person/box) — không có handler, tránh nút chết.
+
+**Verify live**: reload → mở hội thoại → 14 chip màu render đúng (nhãn có dấu "NV My KH đặt", bg rgba(33,68,247,.4), template "Dạ shop xác nhận đơn..."); placeholder mới; `Web2QuickReply` loaded. Screenshot `downloads/n2store-session/pk-restyled-chips.png`.
+
+**Files**: `tpos-pancake/js/pancake/pancake-state.js`, `pancake-chat-window.js`, `tpos-pancake/css/pancake-chat.css`, `tpos-pancake/index.html`. Status: ✅ Done.
+
 ### [tpos-pancake] Fix panel Chat Pancake không hiện hội thoại (0 pages) — sync JWT từ Render DB như native-orders ✅
 
 **Bug user báo**: Panel "Chat Pancake" bên phải tpos-pancake hiển thị "Tất cả Pages / **0 pages**" và chỉ vài hội thoại (hoặc rỗng). Yêu cầu: hiện tất cả hội thoại + test tìm kiếm/inbox/gửi hình/voice, hoạt động giống native-orders.

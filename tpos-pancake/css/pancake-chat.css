@@ -19,7 +19,6 @@
     overflow: hidden;
 }
 
-
 /* =====================================================
    CSS VARIABLES
    ===================================================== */
@@ -197,7 +196,6 @@
 }
 
 @keyframes pk-pulse {
-
     0%,
     100% {
         opacity: 1;
@@ -229,7 +227,6 @@
     display: flex;
     flex-direction: column;
 }
-
 
 .pk-conversations-layout {
     display: flex;
@@ -282,7 +279,6 @@
     flex-shrink: 0;
     overflow: hidden;
 }
-
 
 /* Search Header */
 .pk-search-header {
@@ -663,7 +659,6 @@
     background: #fed7aa;
 }
 
-
 /* =====================================================
    CHAT WINDOW (RIGHT PANEL)
    ===================================================== */
@@ -677,7 +672,6 @@
     background: var(--pk-chat-bg);
     overflow: hidden;
 }
-
 
 /* Chat Header */
 .pk-chat-header {
@@ -974,7 +968,6 @@
     background: rgba(0, 0, 0, 0.08);
 }
 
-
 .pk-message-meta {
     display: flex;
     align-items: center;
@@ -1008,80 +1001,37 @@
 /* =====================================================
    QUICK REPLY BAR
    ===================================================== */
+/* Quick-reply tag chips — đồng bộ look với native-orders .w2-quick-tag:
+   chip nhỏ, nền rgba translucent (inline), chữ trắng + text-shadow, wrap nhiều dòng. */
 .pk-quick-reply-bar {
+    background: #fff;
+    border-top: 1px solid #f1f5f9;
+    flex-shrink: 0;
+}
+
+.pk-quick-reply-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 0;
-    background: var(--pk-header-bg);
-    border-top: 1px solid var(--pk-border);
-    flex-shrink: 0;
-    overflow-x: auto;
-}
-
-.pk-quick-reply-bar::-webkit-scrollbar {
-    height: 3px;
-}
-
-.pk-quick-reply-bar::-webkit-scrollbar-thumb {
-    background: #ccc;
-    border-radius: 2px;
+    gap: 3px;
+    padding: 6px 10px;
 }
 
 .pk-quick-reply-btn {
-    flex: 1;
-    min-width: fit-content;
-    padding: 8px 12px;
-    border: none;
-    font-size: 12px;
-    font-weight: 500;
-    color: white;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border: 0;
+    border-radius: 3px;
     cursor: pointer;
-    transition: all 0.15s ease;
     white-space: nowrap;
-    text-align: center;
+    line-height: 1.2;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
+    transition: filter 0.15s ease;
 }
 
 .pk-quick-reply-btn:hover {
-    filter: brightness(1.1);
-}
-
-.pk-quick-reply-btn.blue {
-    background: var(--pk-qr-blue);
-}
-
-.pk-quick-reply-btn.orange {
-    background: var(--pk-qr-orange);
-}
-
-.pk-quick-reply-btn.red {
-    background: var(--pk-qr-red);
-}
-
-.pk-quick-reply-btn.purple {
-    background: var(--pk-qr-purple);
-}
-
-.pk-quick-reply-btn.green {
-    background: var(--pk-qr-green);
-}
-
-.pk-quick-reply-btn.teal {
-    background: var(--pk-qr-teal);
-}
-
-.pk-quick-reply-btn.pink {
-    background: var(--pk-qr-pink);
-}
-
-.pk-quick-reply-btn.yellow {
-    background: var(--pk-qr-yellow);
-    color: #78350f;
-}
-
-/* Second row of quick replies */
-.pk-quick-reply-row {
-    display: flex;
-    width: 100%;
+    filter: brightness(0.92);
 }
 
 /* =====================================================
@@ -2056,7 +2006,9 @@
 
 /* Smooth transition for moving conversations */
 .pk-conversation-item {
-    transition: transform 0.3s ease, background-color 0.3s ease;
+    transition:
+        transform 0.3s ease,
+        background-color 0.3s ease;
 }
 
 /* =====================================================
@@ -2187,7 +2139,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.15s, transform 0.15s;
+    transition:
+        background 0.15s,
+        transform 0.15s;
 }
 
 .pk-emoji-item:hover {
@@ -2228,7 +2182,6 @@
 }
 
 @keyframes pk-typing-bounce {
-
     0%,
     60%,
     100% {
@@ -2483,8 +2436,12 @@
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 /* Modal */

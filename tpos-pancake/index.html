@@ -14,7 +14,7 @@
         <link rel="stylesheet" href="css/layout.css?v=20260602b" />
         <link rel="stylesheet" href="css/components.css?v=20260602b" />
         <!-- Old CSS (base styles still needed by Pancake pk-* classes) -->
-        <link rel="stylesheet" href="css/pancake-chat.css?v=20260602b" />
+        <link rel="stylesheet" href="css/pancake-chat.css?v=20260602c" />
         <!-- New CSS (overrides old styles with modern design) -->
         <link rel="stylesheet" href="css/tpos/tpos-comments.css?v=20260602b" />
         <link rel="stylesheet" href="css/pancake/pancake-chat-window.css?v=20260602b" />
@@ -702,14 +702,16 @@
              (same source native-orders uses). Must load BEFORE pancake-token-manager
              so getToken() can self-heal via Web2Chat.syncFromRenderDB(). -->
         <script src="../web2/shared/web2-chat-client.js?v=20260602b"></script>
+        <!-- Quick-reply: /shortcut autocomplete + chữ ký NV (dùng chung native-orders) -->
+        <script src="../web2/shared/web2-quick-reply.js?v=20260602b"></script>
 
         <!-- Pancake modules (NEW modular) -->
         <script src="js/pancake/pancake-token-manager.js?v=20260602b"></script>
-        <script src="js/pancake/pancake-state.js?v=20260602b"></script>
+        <script src="js/pancake/pancake-state.js?v=20260602c"></script>
         <script src="js/pancake/pancake-api.js?v=20260602b"></script>
         <script src="js/pancake/pancake-page-selector.js?v=20260602b"></script>
         <script src="js/pancake/pancake-conversation-list.js?v=20260602b"></script>
-        <script src="js/pancake/pancake-chat-window.js?v=20260602b"></script>
+        <script src="js/pancake/pancake-chat-window.js?v=20260602c"></script>
         <script src="js/pancake/pancake-context-menu.js?v=20260602b"></script>
         <script src="js/pancake/pancake-realtime.js?v=20260602b"></script>
         <script src="js/pancake/pancake-init.js?v=20260602b"></script>

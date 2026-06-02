@@ -78,7 +78,7 @@ const PancakeChatWindow = {
                     <div id="pkImagePreview" class="pk-image-preview" style="display:none;">
                         <img id="pkPreviewImg" src=""><button class="pk-preview-remove" id="pkRemovePreview">×</button>
                     </div>
-                    <textarea id="pkChatInput" class="pk-chat-input" placeholder="Nhập tin nhắn..." rows="1"></textarea>
+                    <textarea id="pkChatInput" class="pk-chat-input" placeholder="Nhập tin nhắn gửi cho khách… (Enter để gửi, /shortcut để chèn mẫu)" rows="1"></textarea>
                 </div>
                 <button class="pk-send-btn" id="pkSendBtn" title="Gửi"><i data-lucide="send"></i></button>
             </div>`;
@@ -215,11 +215,14 @@ const PancakeChatWindow = {
     renderQuickReplies() {
         const qr = window.PancakeState.quickReplies;
         const { escapeHtml } = window.SharedUtils;
-        const row1 = qr.slice(0, 7);
-        const row2 = qr.slice(7);
-        return `
-            <div class="pk-quick-reply-row">${row1.map((q) => `<button class="pk-quick-reply-btn ${q.color}" data-template="${escapeHtml(q.template)}">${escapeHtml(q.label)}</button>`).join('')}</div>
-            <div class="pk-quick-reply-row">${row2.map((q) => `<button class="pk-quick-reply-btn ${q.color}" data-template="${escapeHtml(q.template)}">${escapeHtml(q.label)}</button>`).join('')}</div>`;
+        // Single wrapping row of colorful chips (giống native-orders w2-quick-tag):
+        // nền rgba inline, chữ trắng + text-shadow.
+        return `<div class="pk-quick-reply-row">${qr
+            .map(
+                (q) =>
+                    `<button class="pk-quick-reply-btn" data-template="${escapeHtml(q.template || '')}" style="background:${q.color}">${escapeHtml(q.label)}</button>`
+            )
+            .join('')}</div>`;
     },
 
     // =====================================================
@@ -711,11 +714,26 @@ const PancakeChatWindow = {
         if (qrBar)
             qrBar.addEventListener('click', (e) => {
                 const btn = e.target.closest('.pk-quick-reply-btn');
-                if (btn?.dataset.template && chatInput) {
-                    chatInput.value = btn.dataset.template;
-                    chatInput.focus();
-                }
+                if (!btn || !chatInput) return;
+                const tpl = btn.dataset.template || '';
+                // Paste template + chữ ký nhân viên (giống native-orders w2-quick-tag).
+                const sig = window.Web2QuickReply?.signature?.() || '';
+                chatInput.value = (tpl + (!sig || tpl.endsWith(sig) ? '' : '\n' + sig)).trim();
+                chatInput.style.height = 'auto';
+                chatInput.style.height = Math.min(chatInput.scrollHeight, 100) + 'px';
+                chatInput.focus();
+                chatInput.selectionStart = chatInput.selectionEnd = chatInput.value.length;
             });
+
+        // /shortcut autocomplete (gõ "/tu-khoa" để chèn mẫu trả lời) — module
+        // dùng chung với native-orders. Bỏ qua nếu chưa load.
+        if (chatInput && window.Web2QuickReply?.attachAutocomplete) {
+            try {
+                window.Web2QuickReply.attachAutocomplete(chatInput);
+            } catch (e) {
+                console.warn('[PK-CHAT] attachAutocomplete failed:', e.message);
+            }
+        }
 
         // Phone/ad badge copy
         const statsBar = document.querySelector('.pk-customer-stats-bar');
