@@ -3,15 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6089734` — feat(native-orders): dong bo gui attachment (anh/audio/video/tep) qua extension — parity tpos-pancake
-**Last updated**: 2026-06-02 18:34:47 +07
-**Latest session**: [`RESUME:20260602-183447-6089734`](../20260602-183447-6089734.md)
-**Summary**: feat(native-orders): dong bo gui attachment (anh/audio/video/tep) qua extension — parity tpos-pancake
+**Latest commit**: `e28a6a3` — feat(native-orders): Pancake upload fallback cho anh — gui anh duoc ca khi khong co extension
+**Last updated**: 2026-06-02 18:45:32 +07
+**Latest session**: [`RESUME:20260602-184532-e28a6a3`](../20260602-184532-e28a6a3.md)
+**Summary**: feat(native-orders): Pancake upload fallback cho anh — gui anh duoc ca khi khong co extension
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
 - [`native-orders/`](./native-orders.md) — 2 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-02 18:34
+- [`docs/`](./docs.md) — updated 2026-06-02 18:45
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -39,7 +41,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:43
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-30 11:05
-- [`native-orders/`](./native-orders.md) — updated 2026-06-02 18:34
+- [`native-orders/`](./native-orders.md) — updated 2026-06-02 18:45
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-01 18:45
@@ -62,10 +64,10 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-05-25 19:26
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-02 16:52
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-02 18:45
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-02 15:37
+- [`web2/`](./web2.md) — updated 2026-06-02 18:45
