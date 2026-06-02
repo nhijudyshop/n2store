@@ -482,6 +482,34 @@
     }
 
     // =====================================================
+    // Upload media (ảnh/tệp) lên Pancake → trả content_id để gửi kèm sendMessage.
+    // POST /api/pancake-official/pages/:pageId/upload_contents?page_access_token=<pat>
+    //   FormData: file → { id, attachment_type }
+    // Dùng cho fallback Pancake khi extension không có (cùng endpoint tpos-pancake
+    // PancakeAPI.uploadMedia). Trả { ok, id, attachment_type, reason? }.
+    // =====================================================
+    async function uploadMedia(pageId, file) {
+        if (!pageId || !file) return { ok: false, reason: 'missing_args' };
+        const pat = getPageAccessToken(pageId);
+        if (!pat) return { ok: false, reason: 'no_page_access_token' };
+        try {
+            const url = `${WORKER_URL}/api/pancake-official/pages/${encodeURIComponent(pageId)}/upload_contents?page_access_token=${encodeURIComponent(pat)}`;
+            const fd = new FormData();
+            fd.append('file', file);
+            const resp = await fetch(url, { method: 'POST', body: fd });
+            if (!resp.ok) return { ok: false, reason: `HTTP ${resp.status}` };
+            const data = await resp.json().catch(() => null);
+            if (!data || data.success === false || !data.id) {
+                return { ok: false, reason: (data && data.message) || 'no_content_id' };
+            }
+            return { ok: true, id: data.id, attachment_type: data.attachment_type || 'PHOTO' };
+        } catch (e) {
+            console.warn('[Web2Chat] uploadMedia failed:', e.message);
+            return { ok: false, reason: e.message };
+        }
+    }
+
+    // =====================================================
     // Reply to a comment (public or private reply via DM)
     // =====================================================
     // POST /api/pancake-official/pages/:pageId/comments/:commentId/replies
@@ -791,6 +819,7 @@
         fetchMessages,
         fetchPageSettings,
         sendMessage,
+        uploadMedia,
         replyComment,
         getJwt,
         getPageAccessToken,

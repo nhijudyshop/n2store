@@ -7199,18 +7199,8 @@
             }
         }
 
-        // Attachment chỉ gửi được qua extension (Pancake Public API ở native-orders
-        // không có bước upload). Extension fail + có attachment → báo, không fallback.
-        if (att) {
-            _restore();
-            notify(
-                'Gửi tệp cần N2 Extension (đăng nhập FB Business). Hiện không gửi được.',
-                'error'
-            );
-            return;
-        }
-
-        // Fallback: Web2Chat client (Pancake Public API, subject to 24h rule)
+        // Fallback: Web2Chat client (Pancake Public API, subject to 24h rule).
+        // Attachment cũng gửi được qua đây: upload_contents → content_id → sendMessage.
         if (!_hasChatClient() || !window.Web2Chat.hasTokensFor(order.fbPageId)) {
             _restore();
             notify('Chưa có Extension và chưa cấu hình token Pancake cho page này.', 'error');
@@ -7236,6 +7226,20 @@
             notify('Chưa tìm thấy hội thoại với khách.', 'error');
             return;
         }
+        // Upload attachment lên Pancake (nếu có) → content_id để gửi kèm.
+        let pancakeAttachments;
+        if (att && att.file) {
+            const up =
+                typeof window.Web2Chat.uploadMedia === 'function'
+                    ? await window.Web2Chat.uploadMedia(order.fbPageId, att.file)
+                    : { ok: false, reason: 'uploadMedia unavailable' };
+            if (!up.ok || !up.id) {
+                _restore();
+                notify('Upload tệp lên Pancake thất bại: ' + (up.reason || 'unknown'), 'error');
+                return;
+            }
+            pancakeAttachments = [{ content_id: up.id }];
+        }
         let sendRes;
         try {
             sendRes = await window.Web2Chat.sendMessage(order.fbPageId, conversationId, {
@@ -7243,6 +7247,7 @@
                 action: 'reply_inbox',
                 customerId,
                 repliedMessageId: replyToId,
+                attachments: pancakeAttachments,
             });
         } catch (e) {
             sendRes = { ok: false, reason: e?.message || 'send threw' };

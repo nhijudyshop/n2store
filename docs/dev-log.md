@@ -25,6 +25,23 @@
 
 ## 2026-06-02
 
+### [native-orders] Thêm Pancake upload fallback cho ảnh → gửi ảnh được cả khi KHÔNG có extension ✅
+
+**User hỏi**: "native-orders không upload pancake thì đâu có gửi ảnh được?".
+
+**Làm rõ**: gửi ảnh qua extension là upload thẳng lên **Facebook** (`UPLOAD_INBOX_PHOTO` → FB upload endpoint → `fbId`), KHÔNG qua Pancake → nên native-orders **vẫn gửi ảnh được qua extension** (đã validate `fbId` thật). "Không upload Pancake" chỉ ảnh hưởng nhánh fallback KHI KHÔNG có extension.
+
+**Gap thật đã fix**: trước đó nếu extension fail/không có → native-orders không gửi được ảnh (Web2Chat thiếu hàm upload). Giờ thêm fallback Pancake:
+
+- [`web2/shared/web2-chat-client.js`](../web2/shared/web2-chat-client.js): thêm `Web2Chat.uploadMedia(pageId, file)` → POST `/api/pancake-official/pages/:id/upload_contents?page_access_token` (FormData file) → `{ ok, id, attachment_type }`. Cùng endpoint tpos-pancake `PancakeAPI.uploadMedia`. Export ra public API (dùng chung được cả 2 trang).
+- [`native-orders-app.js`](../native-orders/js/native-orders-app.js) `_handleSendMessage` fallback: bỏ chặn "attachment không gửi được"; thay bằng `Web2Chat.uploadMedia` → `content_id` → `sendMessage({attachments:[{content_id}]})`. Lỗi upload → restore + báo.
+
+**Giờ parity đầy đủ**: cả tpos-pancake + native-orders: **Extension TRƯỚC** (upload FB, bypass 24h) → **fallback Pancake** (upload_contents → content_id, trong 24h). Ảnh gửi được dù có hay không extension.
+
+**Verify**: `node --check` OK (2 file); reload native-orders sạch; `Web2Chat.uploadMedia` = function (live). ⚠ Pancake send vẫn dính giới hạn 24h + token; extension là path chính.
+
+**Files**: `web2/shared/web2-chat-client.js`, `native-orders/js/native-orders-app.js`, `native-orders/index.html` + `tpos-pancake/index.html` (bump web2-chat-client v). Status: ✅ Done.
+
 ### [native-orders] Đồng bộ gửi attachment (ảnh/âm thanh/video/tệp) qua extension — parity với tpos-pancake ✅
 
 **Yêu cầu user**: "đồng bộ 2 bên đi — chức năng giống nhau mà". → port tính năng gửi attachment qua extension từ tpos-pancake sang native-orders (trước giờ native-orders chat chỉ gửi TEXT).
