@@ -40,6 +40,24 @@
 - `soluong-live/js/hidden-soluong.js` — trang ẩn riêng: sort `hiddenProducts` theo `hideKey` desc + merge-mode (`mergeProductsByTemplate`) dùng `hiddenAt||addedAt`.
 
 **Status**: ✅ Realtime cross-tab qua Firebase RTDB listener sẵn có (module legacy, không SSE). Single hide route qua `updateProductVisibility`; batch hide & merge view đã cover.
+### [tpos-pancake] Gửi attachment đầy đủ (ảnh/âm thanh/video/tệp) qua extension → fallback Pancake ✅
+
+**Yêu cầu user**: extension hỗ trợ gửi hình/audio/file đầy đủ — đừng ép ảnh đi Pancake. → wire composer tpos-pancake gửi mọi attachment qua extension (bypass 24h), fallback Pancake.
+
+**Phát hiện**: extension `n2store-extension` HỖ TRỢ `attachmentType` PHOTO/VIDEO/FILE/AUDIO/STICKER qua 2 bước: `UPLOAD_INBOX_PHOTO` (`{pageId, photoUrl, name}` → trả `fbId`) rồi `REPLY_INBOX_PHOTO` (`attachmentType` + `files:[fbId]` → map `image_ids`/`audio_ids`/`file_ids`/`video_ids`). Trước giờ cả native-orders lẫn tpos-pancake chỉ gửi `SEND_TEXT_ONLY` — chưa wire upload bao giờ (comment "extension text-only" là về WIRING, không phải capability).
+
+**Cách làm** (`tpos-pancake/js/pancake/pancake-chat-window.js` + `css`):
+
+- State `selectedImage` → `selectedAttachment {file, kind}`; helpers `_attachmentKind` (MIME→PHOTO/AUDIO/VIDEO/FILE), `_fileToDataUrl` (data-URL để SW fetch được).
+- Composer: nút 📎 (paperclip) → `#pkFileInput` (mọi loại file); nút 🖼 ảnh giữ nguyên. Preview tổng quát: ảnh → thumb, khác → chip `📎/🎵/🎬 tên (KB)`.
+- `_trySendViaExtension(conv, text, att)`: nếu có att → `UPLOAD_INBOX_PHOTO` (data-URL) → `fbId` → `REPLY_INBOX_PHOTO` với `attachmentType=att.kind`, `files=[fbId]`. Text-only vẫn `SEND_TEXT_ONLY`.
+- `_performSend(conv, convId, text, att)`: extension TRƯỚC (cả text + attachment) → fallback Pancake (ảnh chắc OK; audio/file tuỳ Pancake, lỗi thì rollback). UI-first + bật-lại-text/preview giữ nguyên.
+
+**Verify**: `node --check` OK; reload sạch (nút 📎+🖼, preview, helpers đều có). Mock `Web2Ext` để test payload: gửi PHOTO + text → `UPLOAD_INBOX_PHOTO{photoUrl:data:image/png;base64…, name}` → `REPLY_INBOX_PHOTO{attachmentType:'PHOTO', files:['FBID123'], message, globalUserId}` ✓, input+attachment clear ✓.
+
+⚠ **Chưa E2E thật được**: (1) browser test KHÔNG có FB Business session (cookie c_user/xs) → extension send thật sẽ fail ở bước session; (2) KH test "Huỳnh Thành Đạt 0123456788" là DB-only, KHÔNG có hội thoại Pancake → không mở chat thật để gửi. Cần browser thật đã đăng nhập FB Business + hội thoại thật. native-orders chat chưa có UI attachment (task riêng nếu cần).
+
+**Files**: `tpos-pancake/js/pancake/pancake-chat-window.js`, `tpos-pancake/css/pancake-chat.css`, `tpos-pancake/index.html`. Status: ✅ Done (code + mock-verified).
 
 ### [tpos-pancake] Đổi thứ tự gửi: Extension TRƯỚC → Pancake API (đồng bộ native-orders) ✅
 

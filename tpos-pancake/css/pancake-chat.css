@@ -1457,7 +1457,8 @@
 /* =====================================================
    IMAGE PREVIEW
    ===================================================== */
-.pk-image-preview {
+.pk-image-preview,
+.pk-attach-preview {
     display: flex;
     align-items: center;
     padding: 8px;
@@ -1467,11 +1468,33 @@
     position: relative;
 }
 
-.pk-image-preview img {
+.pk-image-preview img,
+.pk-attach-thumb {
     max-width: 100px;
     max-height: 80px;
     border-radius: 6px;
     object-fit: cover;
+}
+
+/* Chip cho attachment không phải ảnh (âm thanh / video / tệp) */
+.pk-attach-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 260px;
+    padding: 6px 10px;
+    background: #fff;
+    border: 1px solid var(--pk-border);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--pk-text-primary);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.pk-attach-chip small {
+    color: var(--pk-text-tertiary);
 }
 
 .pk-preview-remove {

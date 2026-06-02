@@ -4,7 +4,8 @@
 // =====================================================
 
 const PancakeChatWindow = {
-    selectedImage: null,
+    // Attachment đang chọn để gửi: { file, kind } với kind ∈ PHOTO|AUDIO|VIDEO|FILE.
+    selectedAttachment: null,
 
     /**
      * Render chat window for a conversation
@@ -64,7 +65,8 @@ const PancakeChatWindow = {
             </div>
             <div class="pk-chat-input-container">
                 <div class="pk-input-actions">
-                    <button class="pk-input-btn" title="Đính kèm"><i data-lucide="paperclip"></i></button>
+                    <button class="pk-input-btn" id="pkFileBtn" title="Đính kèm tệp / âm thanh"><i data-lucide="paperclip"></i></button>
+                    <input type="file" id="pkFileInput" style="display:none;">
                     <button class="pk-input-btn" id="pkImageBtn" title="Hình ảnh"><i data-lucide="image"></i></button>
                     <input type="file" id="pkImageInput" accept="image/*" style="display:none;">
                     <button class="pk-input-btn" id="pkEmojiBtn" title="Emoji"><i data-lucide="smile"></i></button>
@@ -82,8 +84,9 @@ const PancakeChatWindow = {
                     <div class="pk-emoji-grid" id="pkEmojiGrid"></div>
                 </div>
                 <div class="pk-chat-input-wrapper">
-                    <div id="pkImagePreview" class="pk-image-preview" style="display:none;">
-                        <img id="pkPreviewImg" src=""><button class="pk-preview-remove" id="pkRemovePreview">×</button>
+                    <div id="pkAttachPreview" class="pk-attach-preview" style="display:none;">
+                        <span id="pkAttachBody"></span>
+                        <button class="pk-preview-remove" id="pkRemovePreview">×</button>
                     </div>
                     <textarea id="pkChatInput" class="pk-chat-input" placeholder="Nhập tin nhắn gửi cho khách… (Enter để gửi, /shortcut để chèn mẫu)" rows="1"></textarea>
                 </div>
@@ -242,23 +245,32 @@ const PancakeChatWindow = {
         if (!chatInput || !state.activeConversation) return;
 
         const text = chatInput.value.trim();
-        const hasImage = !!this.selectedImage;
-        if (!text && !hasImage) return;
+        const att = this.selectedAttachment; // { file, kind } | null
+        const hasAttachment = !!att;
+        if (!text && !hasAttachment) return;
 
         const conv = state.activeConversation;
         const convId = conv.id;
-        const imageFile = this.selectedImage;
         const tempId = 'temp_' + Date.now();
         const self = this;
+        const attLabel = !hasAttachment
+            ? ''
+            : att.kind === 'AUDIO'
+              ? '[Âm thanh]'
+              : att.kind === 'VIDEO'
+                ? '[Video]'
+                : att.kind === 'FILE'
+                  ? '[Tệp]'
+                  : '[Hình ảnh]';
 
         // UI-FIRST: hiện bong bóng + clear ô nhập NGAY, gửi chạy nền background.
         const apply = () => {
             chatInput.value = '';
             chatInput.style.height = 'auto';
-            if (hasImage) self._clearImagePreview();
+            if (hasAttachment) self._clearAttachPreview();
             state.messages.push({
                 id: tempId,
-                message: text || '[Hình ảnh]',
+                message: text || attLabel,
                 from: { id: conv.page_id, name: 'You' },
                 inserted_at: new Date().toISOString(),
                 _temp: true,
@@ -267,7 +279,7 @@ const PancakeChatWindow = {
             self.renderMessages();
             self.scrollToBottom();
             if (state.activeConversation?.id === convId) {
-                conv.snippet = text || '[Hình ảnh]';
+                conv.snippet = text || attLabel;
                 conv.updated_at = new Date().toISOString();
                 window.PancakeConversationList.renderConversationList();
             }
@@ -299,13 +311,13 @@ const PancakeChatWindow = {
                 inp.style.height = Math.min(inp.scrollHeight, 100) + 'px';
                 inp.focus();
             }
-            if (hasImage && imageFile) self.handleImageUpload(imageFile);
+            if (hasAttachment) self.handleAttachment(att.file);
         };
 
         if (window.Web2Optimistic?.run) {
             window.Web2Optimistic.run({
                 apply,
-                run: () => self._performSend(conv, convId, text, hasImage, imageFile),
+                run: () => self._performSend(conv, convId, text, att),
                 onSuccess,
                 rollback,
                 errLabel: 'gửi tin nhắn',
@@ -316,7 +328,7 @@ const PancakeChatWindow = {
         // Fallback nếu Web2Optimistic chưa load: await + rollback thủ công.
         apply();
         try {
-            onSuccess(await self._performSend(conv, convId, text, hasImage, imageFile));
+            onSuccess(await self._performSend(conv, convId, text, att));
         } catch (e) {
             rollback();
             const errMsg = `Lỗi gửi tin nhắn: ${e?.message || 'Vui lòng thử lại'}`;
@@ -328,47 +340,52 @@ const PancakeChatWindow = {
 
     /**
      * Thực thi gửi tin (chạy nền) — thứ tự giống native-orders: thử N2 Extension
-     * TRƯỚC (bypass 24h, chỉ TEXT vì extension không gửi kèm ảnh), nếu lỗi/không có
-     * extension thì Pancake API. Tin có ẢNH luôn đi Pancake (upload + content_ids).
+     * TRƯỚC (bypass 24h; gửi được cả ẢNH/ÂM THANH/VIDEO/TỆP qua UPLOAD_INBOX_PHOTO +
+     * REPLY_INBOX_PHOTO), nếu lỗi/không có extension thì fallback Pancake API.
+     * @param {object} conv
+     * @param {string} convId
+     * @param {string} text
+     * @param {{file:File, kind:string}|null} att  attachment đang chọn (nếu có)
      * @returns {Promise<{via:'extension'|'pancake', sent:object}>} hoặc throw nếu fail hết.
      */
-    async _performSend(conv, convId, text, hasImage, imageFile) {
+    async _performSend(conv, convId, text, att) {
         const state = window.PancakeState;
         const pageId = conv.page_id;
         const customerId = conv.customers?.[0]?.id || null;
         const action = conv.type === 'COMMENT' ? 'reply_comment' : 'reply_inbox';
 
-        // ROUTE 1: Extension TRƯỚC (chỉ TEXT). Không có extension → trả false ngay
-        // (không trễ) → rơi xuống Pancake.
-        if (!hasImage && text && (await this._trySendViaExtension(conv, text))) {
+        // ROUTE 1: Extension TRƯỚC (text + attachment). Không có extension → trả false
+        // ngay (không trễ) → rơi xuống Pancake.
+        if ((text || att) && (await this._trySendViaExtension(conv, text, att))) {
             return {
                 via: 'extension',
                 sent: {
                     id: 'ext_' + Date.now(),
-                    message: text,
+                    message: text || (att ? '[Tệp đính kèm]' : ''),
                     from: { id: pageId, name: 'You' },
                     inserted_at: new Date().toISOString(),
                 },
             };
         }
 
-        // ROUTE 2: Pancake API (upload ảnh nếu có). Throw nếu lỗi → Web2Optimistic rollback.
+        // ROUTE 2: Pancake API. Upload attachment nếu có (ảnh chắc chắn OK; audio/file
+        // tuỳ Pancake hỗ trợ — lỗi thì throw → Web2Optimistic rollback + bật lại).
         let contentIds = [];
         let attachmentId = null;
         let attachmentType = null;
-        if (hasImage && imageFile) {
+        if (att && att.file) {
             if (state.serverMode === 'n2store') {
-                const up = await window.PancakeAPI.uploadMediaN2Store(pageId, imageFile);
+                const up = await window.PancakeAPI.uploadMediaN2Store(pageId, att.file);
                 if (up.success && up.attachment_id) {
                     attachmentId = up.attachment_id;
                     attachmentType = up.attachment_type;
-                } else throw new Error('Upload ảnh thất bại');
+                } else throw new Error('Upload tệp thất bại (Pancake)');
             } else {
-                const up = await window.PancakeAPI.uploadMedia(pageId, imageFile);
+                const up = await window.PancakeAPI.uploadMedia(pageId, att.file);
                 if (up.success && up.id) {
                     contentIds = [up.id];
                     attachmentType = up.attachment_type;
-                } else throw new Error('Upload ảnh thất bại');
+                } else throw new Error('Upload tệp thất bại (Pancake)');
             }
         }
 
@@ -405,8 +422,8 @@ const PancakeChatWindow = {
      * extension GET_GLOBAL_ID_FOR_CONV.
      * @returns {Promise<boolean>}
      */
-    async _trySendViaExtension(conv, text) {
-        if (!conv || !text) return false;
+    async _trySendViaExtension(conv, text, att) {
+        if (!conv || (!text && !att)) return false;
         if (!window.Web2Ext?.hasExtension?.()) return false;
         try {
             const pageId = conv.page_id;
@@ -459,21 +476,46 @@ const PancakeChatWindow = {
                 }
             }
 
+            // Upload attachment lên FB (qua extension) → fbId, rồi gửi kèm. Extension
+            // hỗ trợ PHOTO/AUDIO/VIDEO/FILE; payload data-URL để SW fetch được.
+            let files = [];
+            let attachmentType = 'SEND_TEXT_ONLY';
+            if (att && att.file) {
+                const dataUrl = await this._fileToDataUrl(att.file);
+                const up = await window.Web2Ext.request(
+                    'UPLOAD_INBOX_PHOTO',
+                    { pageId, photoUrl: dataUrl, name: att.file.name || 'attachment' },
+                    60000
+                );
+                const fbId = up?.data?.fbId;
+                if (!up.ok || !fbId) {
+                    console.warn('[PK-CHAT] extension upload failed:', up?.error);
+                    return false; // → fallback Pancake
+                }
+                files = [fbId];
+                attachmentType = att.kind || 'FILE';
+            }
+
             const swConvId = threadId ? 't_' + threadId : String(conv.id);
-            const r = await window.Web2Ext.request('REPLY_INBOX_PHOTO', {
-                pageId,
-                globalUserId: globalUserId || psid,
-                threadId: threadId || '',
-                convId: swConvId,
-                customerName: custName,
-                conversationUpdatedTime: conv.updated_at
-                    ? new Date(conv.updated_at).getTime()
-                    : Date.now(),
-                message: text,
-                attachmentType: 'SEND_TEXT_ONLY',
-                platform: 'facebook',
-                isBusiness: true,
-            });
+            const r = await window.Web2Ext.request(
+                'REPLY_INBOX_PHOTO',
+                {
+                    pageId,
+                    globalUserId: globalUserId || psid,
+                    threadId: threadId || '',
+                    convId: swConvId,
+                    customerName: custName,
+                    conversationUpdatedTime: conv.updated_at
+                        ? new Date(conv.updated_at).getTime()
+                        : Date.now(),
+                    message: text || '',
+                    attachmentType,
+                    files,
+                    platform: 'facebook',
+                    isBusiness: true,
+                },
+                60000
+            );
             return !!r.ok;
         } catch (e) {
             console.warn('[PK-CHAT] extension send failed:', e.message);
@@ -485,29 +527,65 @@ const PancakeChatWindow = {
     // IMAGE UPLOAD
     // =====================================================
 
-    handleImageUpload(file) {
-        if (!file?.type.startsWith('image/')) return;
-        this.selectedImage = file;
-        const preview = document.getElementById('pkImagePreview');
-        const previewImg = document.getElementById('pkPreviewImg');
-        if (preview && previewImg) {
+    // Suy ra attachmentType của extension từ MIME file.
+    _attachmentKind(file) {
+        const t = (file && file.type) || '';
+        if (t.startsWith('image/')) return 'PHOTO';
+        if (t.startsWith('audio/')) return 'AUDIO';
+        if (t.startsWith('video/')) return 'VIDEO';
+        return 'FILE';
+    },
+
+    // File → data URL (base64) để truyền cho extension UPLOAD_INBOX_PHOTO (SW fetch
+    // được data: URL ở mọi context; blob: URL của page thì không).
+    _fileToDataUrl(file) {
+        return new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result);
+            r.onerror = () => reject(new Error('Đọc tệp thất bại'));
+            r.readAsDataURL(file);
+        });
+    },
+
+    // Chọn 1 attachment (ảnh / âm thanh / video / tệp) → set state + preview.
+    handleAttachment(file) {
+        if (!file) return;
+        const kind = this._attachmentKind(file);
+        this.selectedAttachment = { file, kind };
+        const wrap = document.getElementById('pkAttachPreview');
+        const body = document.getElementById('pkAttachBody');
+        if (!wrap || !body) return;
+        const { escapeHtml } = window.SharedUtils;
+        if (kind === 'PHOTO') {
             const reader = new FileReader();
             reader.onload = (e) => {
-                previewImg.src = e.target.result;
-                preview.style.display = 'block';
+                body.innerHTML = `<img class="pk-attach-thumb" src="${e.target.result}">`;
+                wrap.style.display = 'flex';
             };
             reader.readAsDataURL(file);
+        } else {
+            const icon = kind === 'AUDIO' ? '🎵' : kind === 'VIDEO' ? '🎬' : '📎';
+            const kb = Math.max(1, Math.round((file.size || 0) / 1024));
+            body.innerHTML = `<span class="pk-attach-chip">${icon} ${escapeHtml(file.name || 'tệp')} <small>(${kb} KB)</small></span>`;
+            wrap.style.display = 'flex';
         }
     },
 
-    _clearImagePreview() {
-        this.selectedImage = null;
-        const preview = document.getElementById('pkImagePreview');
-        const previewImg = document.getElementById('pkPreviewImg');
-        const input = document.getElementById('pkImageInput');
-        if (preview) preview.style.display = 'none';
-        if (previewImg) previewImg.src = '';
-        if (input) input.value = '';
+    // Backward-compat alias (vài chỗ còn gọi tên cũ).
+    handleImageUpload(file) {
+        this.handleAttachment(file);
+    },
+
+    _clearAttachPreview() {
+        this.selectedAttachment = null;
+        const wrap = document.getElementById('pkAttachPreview');
+        const body = document.getElementById('pkAttachBody');
+        if (wrap) wrap.style.display = 'none';
+        if (body) body.innerHTML = '';
+        const fi = document.getElementById('pkFileInput');
+        const ii = document.getElementById('pkImageInput');
+        if (fi) fi.value = '';
+        if (ii) ii.value = '';
     },
 
     // =====================================================
@@ -907,11 +985,21 @@ const PancakeChatWindow = {
         if (imageBtn && imageInput) {
             imageBtn.addEventListener('click', () => imageInput.click());
             imageInput.addEventListener('change', (e) => {
-                if (e.target.files[0]) this.handleImageUpload(e.target.files[0]);
+                if (e.target.files[0]) this.handleAttachment(e.target.files[0]);
+            });
+        }
+        // Đính kèm tệp / âm thanh / video (nút paperclip) — chấp nhận mọi loại file.
+        const fileBtn = document.getElementById('pkFileBtn');
+        const fileInput = document.getElementById('pkFileInput');
+        if (fileBtn && fileInput) {
+            fileBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files[0]) this.handleAttachment(e.target.files[0]);
             });
         }
         const removePreview = document.getElementById('pkRemovePreview');
-        if (removePreview) removePreview.addEventListener('click', () => this._clearImagePreview());
+        if (removePreview)
+            removePreview.addEventListener('click', () => this._clearAttachPreview());
 
         this.bindEmojiPicker();
 

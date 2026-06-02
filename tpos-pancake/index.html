@@ -14,7 +14,7 @@
         <link rel="stylesheet" href="css/layout.css?v=20260602e" />
         <link rel="stylesheet" href="css/components.css?v=20260602e" />
         <!-- Old CSS (base styles still needed by Pancake pk-* classes) -->
-        <link rel="stylesheet" href="css/pancake-chat.css?v=20260602e" />
+        <link rel="stylesheet" href="css/pancake-chat.css?v=20260602h" />
         <!-- New CSS (overrides old styles with modern design) -->
         <link rel="stylesheet" href="css/tpos/tpos-comments.css?v=20260602e" />
         <link rel="stylesheet" href="css/pancake/pancake-chat-window.css?v=20260602e" />
@@ -121,6 +121,7 @@
         </style>
         <link rel="stylesheet" href="../web2/shared/web2-tpos-theme.css?v=20260602e" />
         <link rel="stylesheet" href="css/inventory-panel.css?v=20260602e" />
+        <link rel="stylesheet" href="css/tpos-livestream-gallery.css?v=20260602f" />
     </head>
 
     <body class="tpos-theme">
@@ -695,8 +696,12 @@
         <script src="../shared/js/token-manager.js?v=20260602e"></script>
         <script src="../web2/partner-customer/js/partner-customer-api.js?v=20260602e"></script>
         <script src="js/tpos/tpos-partner-fallback.js?v=20260602e"></script>
+        <!-- Web 2.0 SSE bridge — multi-tab/-máy realtime (livestream snapshots + images) -->
+        <script src="../web2/shared/web2-sse-bridge.js?v=20260602f"></script>
         <!-- Livestream Snapshot per customer (📸 button + popover) -->
-        <script src="js/tpos/tpos-livestream-snap.js?v=20260602e"></script>
+        <script src="js/tpos/tpos-livestream-snap.js?v=20260602f"></script>
+        <!-- Kho "Hình Livestream" — chụp iframe thủ công + sidebar gallery -->
+        <script src="js/tpos/tpos-livestream-gallery.js?v=20260602f"></script>
 
         <!-- Web2Chat client — syncs pancake JWT + page tokens from Render DB
              (same source native-orders uses). Must load BEFORE pancake-token-manager
@@ -713,7 +718,7 @@
         <script src="js/pancake/pancake-api.js?v=20260602e"></script>
         <script src="js/pancake/pancake-page-selector.js?v=20260602e"></script>
         <script src="js/pancake/pancake-conversation-list.js?v=20260602e"></script>
-        <script src="js/pancake/pancake-chat-window.js?v=20260602g"></script>
+        <script src="js/pancake/pancake-chat-window.js?v=20260602h"></script>
         <script src="js/pancake/pancake-context-menu.js?v=20260602e"></script>
         <script src="js/pancake/pancake-realtime.js?v=20260602e"></script>
         <script src="js/pancake/pancake-init.js?v=20260602e"></script>
