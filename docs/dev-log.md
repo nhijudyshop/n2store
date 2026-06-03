@@ -83,6 +83,17 @@ Trang dùng chủ yếu trên điện thoại → cải thiện UX quyền camer
 
 **Files**: `web2/photo-studio/{index.html,photo-studio.js}` (v=20260603d).
 
+### [web2] Studio chụp tách nền — v5 hiện rõ prompt/lỗi quyền camera ✅
+
+User: "bấm Bật camera sẽ hỏi quyền nếu chưa có". Verify đúng luồng + fix gap thông báo:
+
+- **Verify** (Playwright iPhone13, KHÔNG cấp quyền, spy getUserMedia): state `prompt` → lúc load **không** gọi gUM (chờ user, không tự prompt) ✓; bấm "Bật camera" → gUM gọi 1 lần = trình duyệt hiện popup xin quyền ✓.
+- **Gap phát hiện**: trang standalone KHÔNG load `notification-system.js` → mọi toast (gồm hướng dẫn khi từ chối quyền) chỉ vào console, user mobile không thấy. → **Thêm `../../shared/js/notification-system.js`** vào page.
+- **Lỗi quyền hiện NGAY trong khung** (`showStageError`): camera fail → khung preview hiện icon `camera-off` + thông báo (vd "Bạn chưa cho phép quyền camera. Bấm 🔒…") + nút **Thử lại** (gọi lại `startCamera`). Không chỉ dựa toast.
+- **Test** (deny giả lập): `notificationManager` loaded ✓, sau deny gUM=1 + khung hiện errText + nút Thử lại ✓, 0 error.
+
+**Files**: `web2/photo-studio/{index.html,photo-studio.js,photo-studio.css}` (v=20260603e).
+
 ### [web2] Kho KH thống nhất + Overview "Kho dữ liệu dùng chung" ✅
 
 **Sửa KH 1 nguồn → sync TPOS 2 chiều**: endpoint mới `PATCH /api/web2/customers/:id` (id=TPOS Partner Id) — sửa tên/SĐT/địa chỉ → push TPOS by tposId (đổi SĐT vẫn update đúng partner, không tạo dup) + update cache `web2_customers`. ĐÂY LÀ NƠI DUY NHẤT sửa KH. native-orders order-edit cũng sync (đã thêm phone vào trigger). partner-customer vẫn edit thẳng TPOS (full PUT). customer-wallet chỉ link TPOS (không sửa inline).

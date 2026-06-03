@@ -304,8 +304,24 @@
         } catch (e) {
             hideLoading();
             console.error('[photo-studio] getUserMedia', e);
-            if (!opts.silent) notify(cameraErrorMsg(e), 'error');
+            if (!opts.silent) {
+                const msg = cameraErrorMsg(e);
+                showStageError(msg); // hiện rõ trong khung (mobile không có notif)
+                notify(msg, 'error');
+            }
         }
+    }
+
+    // Hiện thông báo lỗi camera ngay trong khung xem trước (mobile-friendly,
+    // không phụ thuộc toast). Tự khôi phục khi camera/ảnh mở thành công.
+    function showStageError(msg) {
+        el.stageEmpty.innerHTML =
+            `<i data-lucide="camera-off"></i><p class="ps-stage-err">${msg}</p>` +
+            `<button class="ps-btn ps-btn-sm ps-btn-primary" id="psRetryCam">` +
+            `<i data-lucide="rotate-cw"></i> Thử lại</button>`;
+        el.stageEmpty.hidden = false;
+        document.getElementById('psRetryCam')?.addEventListener('click', () => startCamera());
+        relucide();
     }
 
     function cameraErrorMsg(e) {
