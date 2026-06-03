@@ -957,10 +957,11 @@ permission_templates    (role: admin/manager/staff)</pre
                 <section class="ov-section" id="database">
                     <h2 class="section-title">Cơ sở dữ liệu &amp; Router Web 2.0</h2>
                     <p class="ov-lead">
-                        Web 2.0 đang tách triệt để khỏi Web 1.0: <strong>Postgres riêng</strong>
+                        Web 2.0 đã tách hoàn toàn khỏi Web 1.0: <strong>Postgres riêng</strong>
                         <code>n2store-web2-db</code>, <strong>API namespace riêng</strong>
                         <code>/api/web2/*</code>, và Firebase collection prefix <code>web2_</code>.
-                        Cập nhật 2026-06-03 (đang migrate — xem trạng thái từng phần bên dưới).
+                        <strong>✅ Cutover xong 2026-06-03</strong> — 26 route web2 + webhook +
+                        crons đọc/ghi web2Db; Web 1.0 (<code>n2store_chat</code>) KHÔNG bị đụng.
                     </p>
 
                     <!-- DB instances -->
@@ -979,8 +980,9 @@ permission_templates    (role: admin/manager/staff)</pre
                                     store ✅
                                 </li>
                                 <li>
-                                    <em>Đang migrate sang đây:</em> <code>web2_products</code> ·
-                                    <code>web2_variants</code> · <code>web2_balance_history</code> ·
+                                    <em>✅ Đã ở web2Db (cutover xong):</em>
+                                    <code>web2_products</code> · <code>web2_variants</code> ·
+                                    <code>web2_balance_history</code> ·
                                     <code>web2_customer_wallets</code> ·
                                     <code>web2_wallet_transactions</code> ·
                                     <code>web2_pending_matches</code> ·

@@ -25,6 +25,10 @@
 
 ## 2026-06-03
 
+### [web2] Phase 6 CUTOVER — VERIFIED LIVE ✅
+
+Smoke sau deploy 826c87c70: mọi web2 endpoint **200 trên web2Db** — balance-history (id 4902), stats (4894), web2-products/list (37 SP), native-orders/load, fast-sale-orders/load, dashboard-kpi (đọc balance_history copy OK), kpi, cart, notifications, customers/by-phone/orders. Web 1.0 `/api/v2/customers` + `/api/v2/balance-history` vẫn 200 trên chatDb — **KHÔNG bị web2 đụng**. → Tách DB Web 2.0 HOÀN TẤT.
+
 ### [web2] Phase 6 CUTOVER — flip toàn bộ route web2 sang web2Db ✅
 
 Sau khi mirror 33 bảng + copy data (data web2 disposable, Web 1.0 KHÔNG đụng), **cutover pool**:
