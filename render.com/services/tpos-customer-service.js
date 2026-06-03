@@ -500,11 +500,55 @@ async function searchCustomerByFbUserId(fbUserId, crmTeamId) {
     }
 }
 
+/**
+ * Search KH theo TEXT tự do (tên HOẶC SĐT) — TPOS GetViewV2 &search=.
+ * Dùng cho web2_customers self-populate + fallback live khi local trống.
+ * @param {string} text
+ * @param {number} top
+ * @returns {Promise<{success, customers:[{id,name,phone,email,address,status,dateCreated}], totalResults}>}
+ */
+async function searchCustomersByText(text, top = 20) {
+    const q = String(text || '').trim();
+    if (q.length < 2) return { success: true, customers: [], totalResults: 0 };
+    try {
+        const token = await tposTokenManager.getToken();
+        const tposUrl =
+            `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true` +
+            `&search=${encodeURIComponent(q)}&$top=${top}&$orderby=DateCreated+desc&$count=true`;
+        const response = await fetchWithRetry(
+            tposUrl,
+            {
+                method: 'GET',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            },
+            2,
+            1000,
+            15000
+        );
+        if (!response.ok) throw new Error(`TPOS API error: ${response.status}`);
+        const data = await response.json();
+        const customers = (data.value || []).map((c) => ({
+            id: c.Id,
+            name: c.Name || c.DisplayName,
+            phone: c.Phone?.replace(/\D/g, '').slice(-10),
+            email: c.Email,
+            address: c.FullAddress || c.Street,
+            status: c.StatusText,
+            dateCreated: c.DateCreated,
+        }));
+        return { success: true, customers, totalResults: data['@odata.count'] || customers.length };
+    } catch (error) {
+        console.error('[TPOS-CUSTOMER] searchCustomersByText error:', error.message);
+        return { success: false, error: error.message, customers: [], totalResults: 0 };
+    }
+}
+
 module.exports = {
     searchCustomerByPhone,
     searchCustomerByFbUserId,
     getCustomerById,
     searchAllCustomersByPhone,
+    searchCustomersByText,
     normalizePhone,
     pushCustomerToTPOS,
 };

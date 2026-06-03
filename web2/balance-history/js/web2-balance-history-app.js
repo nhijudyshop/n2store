@@ -539,10 +539,14 @@
     }
 
     // ----- Reassign customer (admin) — chuyển công nợ KH cũ → KH mới -----
-    const CUSTOMER_SEARCH_BASE = BASE.replace(/\/api\/web2\/balance-history$/, '/api/v2/customers');
+    // 2026-06-03: kho KH riêng Web 2.0 (web2_customers @ web2Db) — bỏ /api/v2/customers Web 1.0
+    const CUSTOMER_SEARCH_BASE = BASE.replace(
+        /\/api\/web2\/balance-history$/,
+        '/api/web2/customers/search'
+    );
     const CUSTOMER_SEARCH_FALLBACK = DIRECT_BASE.replace(
         /\/api\/web2\/balance-history$/,
-        '/api/v2/customers'
+        '/api/web2/customers/search'
     );
 
     async function searchCustomers(q) {

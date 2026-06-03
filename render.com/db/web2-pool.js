@@ -1,12 +1,13 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
- * Web 2.0 PostgreSQL Pool — Neon (separate DB từ v1).
+ * Web 2.0 PostgreSQL Pool — Render PG `n2store-web2-db` (dpg-d8d7be).
  *
- * Tách khỏi `db/pool.js` để v2 data (web2_records) không tốn dung lượng
- * trên Render Postgres v1. Read connection string từ env `WEB2_DATABASE_URL`.
+ * 2026-06-03: kho RIÊNG cho toàn bộ data Web 2.0 (đang migrate tách hoàn toàn
+ * khỏi Web 1.0 `n2store_chat`). Read connection string từ env `WEB2_DATABASE_URL`.
+ * (Lịch sử: từng là Neon free tier — đã chuyển sang Render PG cùng provider.)
  *
  * Nếu env unset → return null. `app.locals.web2Db` sẽ fallback sang `chatDb`
- * trong web2-generic.js để giữ backward compat (KHÔNG break route hiện tại).
+ * để giữ backward compat (KHÔNG break route hiện tại trong lúc migrate).
  *
  * Singleton. Imported ở server.js.
  */

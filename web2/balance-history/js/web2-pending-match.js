@@ -307,8 +307,11 @@
     // ---- Custom KH picker per item ----
     const _customSearchDebounceTimers = new Map();
     const _customSearchCache = new Map();
-    const CUSTOMER_SEARCH_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/customers';
-    const CUSTOMER_SEARCH_FALLBACK = 'https://n2store-fallback.onrender.com/api/v2/customers';
+    // 2026-06-03: kho KH riêng Web 2.0 (web2_customers @ web2Db) — bỏ /api/v2/customers Web 1.0
+    const CUSTOMER_SEARCH_BASE =
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customers/search';
+    const CUSTOMER_SEARCH_FALLBACK =
+        'https://n2store-fallback.onrender.com/api/web2/customers/search';
 
     async function _searchCustomers(query) {
         const q = String(query || '').trim();

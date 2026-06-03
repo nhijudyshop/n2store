@@ -25,6 +25,18 @@
 
 ## 2026-06-03
 
+### [render][web2] Tách DB Web 2.0 — Phase 1: web2_customers (kho KH riêng) thay /api/v2/customers 🔄
+
+**User quyết định**: tách HẾT data Web 2.0 sang kho riêng `n2store-web2-db` (Render PG, dpg-d8d7be) + Firebase web2, độc lập hoàn toàn Web 1.0. Làm một mạch. Plan: [docs/web2/DB-SEPARATION-PLAN.md](web2/DB-SEPARATION-PLAN.md).
+
+**Facts (Render API)**: 2 Postgres — `n2store-chat-db`/`n2store_chat` (chính, chứa toàn bộ web2\_\* + legacy) và `n2store-web2-db`/`n2store_web2` (web2 riêng, hiện chỉ `web2_records`). ~25 bảng + ~24 route đang ở chatDb. KHÔNG có JOIN runtime web2↔legacy → tách khả thi.
+
+**Phase 1 done (tested local DB)**: `web2_customers` table (id=TPOS Partner Id, phone, name, address, tpos_raw) trong **web2Db** ([web2-customers-schema.js](../render.com/db/web2-customers-schema.js), trigram index name). `searchCustomersByText()` thêm vào [tpos-customer-service.js](../render.com/services/tpos-customer-service.js). Route [web2-customers.js](../render.com/routes/v2/web2-customers.js) `GET /api/web2/customers/search` (local + TPOS fallback + self-populate). Frontend `web2-balance-history-app.js` + `web2-pending-match.js` đổi `/api/v2/customers` → `/api/web2/customers/search`. Test local: search tên (trigram) + đuôi SĐT + upsert idempotent ✓.
+
+**Next**: Phase 2 schema mirror toàn bộ web2 tables sang web2Db; Phase 3 data copy; Phase 4 switch 24 routes; Phase 5 verify.
+
+Files: `render.com/db/web2-customers-schema.js`, `render.com/db/web2-pool.js`, `render.com/routes/v2/web2-customers.js`, `render.com/services/tpos-customer-service.js`, `render.com/server.js`, `web2/balance-history/js/web2-balance-history-app.js`, `web2/balance-history/js/web2-pending-match.js`
+
 ### [inventory-tracking] Cây bút chỉnh sửa cho cột Đơn giá ✅
 
 **User ask**: "cho cây bút chỉnh sửa ở Đơn giá".

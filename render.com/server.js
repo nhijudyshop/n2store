@@ -138,6 +138,16 @@ chatDbPool
         if (typeof ensurePhoneManagementTables === 'function') {
             ensurePhoneManagementTables(chatDbPool).catch(() => {});
         }
+        // WEB 2.0 — kho KH riêng (web2_customers) trong web2Db (n2store-web2-db).
+        // Thay phụ thuộc bảng `customers` Web 1.0. Fallback chatDb nếu web2Db unset.
+        try {
+            const { ensureWeb2CustomersSchema } = require('./db/web2-customers-schema');
+            ensureWeb2CustomersSchema(web2Pool || chatDbPool).catch((e) =>
+                console.warn('[web2-customers-schema] init warn:', e.message)
+            );
+        } catch (e) {
+            console.warn('[web2-customers-schema] require failed:', e.message);
+        }
         // WEB 2.0 — wallet isolation (TRUE isolation từ 2026-05-25):
         // tạo web2_customer_wallets/transactions/adjustments + sequence riêng.
         // DROP triggers cũ (legacy → web2 sync) — Web 2.0 service tự ghi web2_*.
@@ -619,6 +629,9 @@ app.use('/api/web2/supplier-debt', web2SupplierDebtRoutes);
 // TPOS khách hàng".
 const web2CustomerTposRoutes = require('./routes/v2/web2-customer-tpos');
 app.use('/api/web2/customer-tpos', web2CustomerTposRoutes);
+// 2026-06-03: kho KH riêng Web 2.0 (web2_customers @ web2Db) — thay /api/v2/customers Web 1.0
+const web2CustomersRoutes = require('./routes/v2/web2-customers');
+app.use('/api/web2/customers', web2CustomersRoutes);
 const livestreamSnapshotsRoutes = require('./routes/livestream-snapshots');
 app.use('/api/livestream', livestreamSnapshotsRoutes); // WEB2.0 livestream snapshot per customer
 const livestreamImagesRoutes = require('./routes/livestream-images');
