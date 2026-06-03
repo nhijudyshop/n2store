@@ -92,44 +92,126 @@ window.HistoryTab = (function () {
 
     // ===== RENDER =====
 
-    function _codesOf(arr) {
-        if (!Array.isArray(arr)) return [];
-        return arr.map((p) => (p && typeof p === 'object' ? p.maSP || '' : String(p)));
+    // Compact color breakdown: "Trắng (10), Đen (5)" or "N màu" or "—".
+    function _fmtColors(p) {
+        if (!p || typeof p !== 'object') return '';
+        if (Array.isArray(p.mauSac) && p.mauSac.length > 0) {
+            return p.mauSac.map((c) => `${c.mau || '?'} (${c.soLuong ?? 0})`).join(', ');
+        }
+        if (p.soMau) return `${p.soMau} màu`;
+        return '';
     }
 
-    // Per-item maSP diff so the user can read/recover product names.
+    function _qtyOf(p) {
+        if (!p || typeof p !== 'object') return null;
+        return p.tongSoLuong ?? p.soLuong ?? null;
+    }
+
+    // Build the comparable signature of one product across ALL meaningful
+    // attributes — NOT just maSP. A history entry can change colors / qty /
+    // price while the code stays the same (common when editing màu inline),
+    // so a maSP-only diff misleadingly reads "0 thay đổi".
+    function _prodSig(p) {
+        return JSON.stringify({
+            maSP: (p && p.maSP) || '',
+            colors: _fmtColors(p),
+            qty: _qtyOf(p),
+            gia: (p && p.giaDonVi) || 0,
+        });
+    }
+
+    function _prodCellHtml(p) {
+        if (p === undefined) return '<em class="hist-null">∅</em>';
+        const maSP = (p && p.maSP) || '';
+        const colors = _fmtColors(p);
+        const qty = _qtyOf(p);
+        const gia = (p && p.giaDonVi) || 0;
+        const meta = [];
+        if (colors) meta.push(_esc(colors));
+        if (qty != null) meta.push(`SL ${_esc(String(qty))}`);
+        if (gia) meta.push(`${_esc(String(gia))}đ`);
+        return (
+            `<span class="hist-prod-masp">${_esc(maSP) || '<em class="hist-null">∅</em>'}</span>` +
+            (meta.length ? `<span class="hist-prod-attr">${meta.join(' · ')}</span>` : '')
+        );
+    }
+
+    // Per-item full diff (maSP + màu + SL + giá) so colour/qty edits are visible.
     function _renderProductDiff(oldVal, newVal) {
-        const oldC = _codesOf(oldVal);
-        const newC = _codesOf(newVal);
-        const n = Math.max(oldC.length, newC.length);
+        const oldA = Array.isArray(oldVal) ? oldVal : [];
+        const newA = Array.isArray(newVal) ? newVal : [];
+        const n = Math.max(oldA.length, newA.length);
+        let changedCount = 0;
         const lines = [];
         for (let i = 0; i < n; i++) {
-            const o = oldC[i] ?? '';
-            const nw = newC[i] ?? '';
-            const changed = o !== nw;
+            const o = oldA[i];
+            const nw = newA[i];
+            const changed = _prodSig(o || {}) !== _prodSig(nw || {});
+            if (changed) changedCount++;
             lines.push(`
                 <div class="hist-prod-line${changed ? ' changed' : ''}">
                     <span class="hist-prod-idx">${i + 1}</span>
-                    <span class="hist-prod-old">${_esc(o) || '<em class="hist-null">∅</em>'}</span>
+                    <span class="hist-prod-old">${_prodCellHtml(o)}</span>
                     <i data-lucide="arrow-right" class="hist-prod-arrow"></i>
-                    <span class="hist-prod-new">${_esc(nw) || '<em class="hist-null">∅</em>'}</span>
+                    <span class="hist-prod-new">${_prodCellHtml(nw)}</span>
                 </div>`);
         }
-        const changedCount = lines.filter((l) => l.includes(' changed')).length;
         return `
             <div class="hist-prod-diff">
-                <div class="hist-prod-diff-head">${changedCount}/${n} mã hàng thay đổi (cũ → mới)</div>
+                <div class="hist-prod-diff-head">${changedCount}/${n} sản phẩm thay đổi — mã / màu / SL / giá (cũ → mới)</div>
                 ${lines.join('')}
             </div>`;
     }
 
-    function _fmtScalar(v) {
+    // Readable rendering for EVERY field type (not just scalars) so the whole
+    // table row is auditable: kiện hàng, chi phí, thanh toán, ảnh, ngày, …
+    function _fmtFieldValue(field, v) {
         if (v === null || v === undefined || v === '') return '<em class="hist-null">∅</em>';
+
+        if (field === 'kien_hang' && Array.isArray(v)) {
+            if (v.length === 0) return '<em class="hist-null">0 kiện</em>';
+            return _esc(
+                v
+                    .map((k) => `Kiện ${k.stt ?? '?'}: ${k.soKg ?? 0}kg${k.daNhan ? ' ✓' : ''}`)
+                    .join(', ')
+            );
+        }
+        if ((field === 'chi_phi_hang_ve' || field === 'thanh_toan_ck') && Array.isArray(v)) {
+            if (v.length === 0) return '<em class="hist-null">∅</em>';
+            // Ignore volatile `id` — compare/show meaningful content only.
+            return _esc(
+                v
+                    .map(
+                        (c) =>
+                            `${c.loai || c.ghiChu || c.ngay || '—'}: ${c.soTien ?? c.amount ?? 0}`
+                    )
+                    .join(', ')
+            );
+        }
+        if (field === 'anh_hoa_don' && Array.isArray(v)) {
+            return v.length ? `${v.length} ảnh` : '<em class="hist-null">∅</em>';
+        }
+        if (field === 'ngay_di_hang') return _esc(_fmtDate(v));
+
         if (typeof v === 'object') {
             if (Array.isArray(v)) return `<em>${v.length} item</em>`;
             return `<em>${Object.keys(v).length} field</em>`;
         }
         return _esc(String(v));
+    }
+
+    // Strip volatile id keys so id-only regenerations don't read as changes.
+    function _stripIds(v) {
+        if (Array.isArray(v)) return v.map(_stripIds);
+        if (v && typeof v === 'object') {
+            const out = {};
+            Object.keys(v).forEach((k) => {
+                if (k === 'id') return;
+                out[k] = _stripIds(v[k]);
+            });
+            return out;
+        }
+        return v;
     }
 
     function _renderChange(c) {
@@ -141,13 +223,52 @@ window.HistoryTab = (function () {
                     ${_renderProductDiff(c.oldValue, c.newValue)}
                 </div>`;
         }
+        // Mark id-only / no-op array changes so the user isn't confused by a
+        // logged entry whose visible content is identical.
+        const noop =
+            JSON.stringify(_stripIds(c.oldValue)) === JSON.stringify(_stripIds(c.newValue));
         return `
-            <div class="hist-change">
-                <span class="hist-change-field">${_esc(label)}</span>
-                <span class="hist-change-old">${_fmtScalar(c.oldValue)}</span>
+            <div class="hist-change${noop ? ' hist-change-noop' : ''}">
+                <span class="hist-change-field">${_esc(label)}${noop ? ' <em class="hist-noop-tag">(không đổi nội dung)</em>' : ''}</span>
+                <span class="hist-change-old">${_fmtFieldValue(c.field, c.oldValue)}</span>
                 <i data-lucide="arrow-right" class="hist-change-arrow"></i>
-                <span class="hist-change-new">${_fmtScalar(c.newValue)}</span>
+                <span class="hist-change-new">${_fmtFieldValue(c.field, c.newValue)}</span>
             </div>`;
+    }
+
+    // Render a full snapshot (create/delete) as a readable field list.
+    function _renderSnapshot(data, kind) {
+        if (!data || typeof data !== 'object') return '';
+        const rows = [];
+        const push = (label, html) =>
+            rows.push(`
+            <div class="hist-snap-row"><span class="hist-snap-label">${_esc(label)}</span><span class="hist-snap-val">${html}</span></div>`);
+
+        if (data.ngayDiHang || data.ngay_di_hang)
+            push('Ngày giao', _esc(_fmtDate(data.ngayDiHang || data.ngay_di_hang)));
+        if (data.dotSo || data.dot_so) push('Đợt', _esc(String(data.dotSo || data.dot_so)));
+
+        const hoaDon = data.hoaDon || (data.sttNCC != null ? [data] : []);
+        hoaDon.forEach((hd) => {
+            const ncc = hd.tenNCC ? `NCC ${hd.sttNCC} — ${hd.tenNCC}` : `NCC ${hd.sttNCC}`;
+            const prods = (hd.sanPham || [])
+                .map((p) => p.maSP || '')
+                .filter(Boolean)
+                .join(', ');
+            push(
+                ncc,
+                `${(hd.sanPham || []).length} SP${prods ? ': ' + _esc(prods) : ''} · ` +
+                    `tổng món ${_esc(String(hd.tongMon ?? 0))} · ${_esc(String(hd.tongTienHD ?? 0))}`
+            );
+        });
+        if (data.kienHang && data.kienHang.length)
+            push('Kiện hàng', _fmtFieldValue('kien_hang', data.kienHang));
+        if (data.chiPhiHangVe && data.chiPhiHangVe.length)
+            push('Chi phí', _fmtFieldValue('chi_phi_hang_ve', data.chiPhiHangVe));
+        if (data.ghiChuAdmin) push('Ghi chú admin', _esc(data.ghiChuAdmin));
+
+        if (!rows.length) return '';
+        return `<div class="hist-snapshot hist-snapshot-${kind}">${rows.join('')}</div>`;
     }
 
     function _renderEntry(row, idx) {
@@ -163,15 +284,28 @@ window.HistoryTab = (function () {
         if (payload.ten_ncc) meta.push(payload.ten_ncc);
         if (row.stt_ncc) meta.push(`NCC ${row.stt_ncc}`);
 
+        // Create/delete carry a full snapshot (newData/oldData) instead of a
+        // changes[] list — render it so "tạo mới đơn / NCC / SP" is auditable.
+        const snapshotData =
+            action.cls === 'create'
+                ? payload.newData
+                : action.cls === 'delete'
+                  ? payload.oldData
+                  : null;
+        const snapshotHtml = snapshotData ? _renderSnapshot(snapshotData, action.cls) : '';
+
         const fieldsSummary = changes.length
             ? changes.map((c) => FIELD_LABELS[c.field] || c.field).join(', ')
             : action.cls === 'create'
-              ? 'Tạo mới'
+              ? 'Tạo mới đơn hàng'
               : action.cls === 'delete'
                 ? 'Đã xóa'
                 : '—';
 
-        const hasProductChange = changes.some((c) => c.field === 'san_pham');
+        const hasProductChange =
+            changes.some((c) => c.field === 'san_pham') ||
+            (snapshotData &&
+                (snapshotData.hoaDon || [snapshotData]).some((h) => (h?.sanPham || []).length));
 
         return `
             <div class="hist-entry hist-entry-collapsible" data-idx="${idx}">
@@ -191,7 +325,11 @@ window.HistoryTab = (function () {
                 ${meta.length ? `<div class="hist-meta">${meta.map(_esc).join(' • ')}</div>` : ''}
                 <div class="hist-entry-summary">${_esc(fieldsSummary)}</div>
                 <div class="hist-changes hist-changes-detail" hidden>
-                    ${changes.map(_renderChange).join('') || '<div class="hist-meta">Không có chi tiết diff.</div>'}
+                    ${
+                        changes.length
+                            ? changes.map(_renderChange).join('')
+                            : snapshotHtml || '<div class="hist-meta">Không có chi tiết diff.</div>'
+                    }
                 </div>
             </div>`;
     }

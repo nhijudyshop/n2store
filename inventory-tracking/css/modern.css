@@ -6268,15 +6268,76 @@ textarea.inline-edit-input {
 .hist-prod-old {
     color: #b91c1c;
     word-break: break-word;
-}
-.hist-prod-line.changed .hist-prod-old {
-    text-decoration: line-through;
-    text-decoration-color: rgba(185, 28, 28, 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
 }
 .hist-prod-new {
     color: #166534;
     font-weight: 500;
     word-break: break-word;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.hist-prod-masp {
+    word-break: break-word;
+}
+.hist-prod-line.changed .hist-prod-old .hist-prod-masp {
+    text-decoration: line-through;
+    text-decoration-color: rgba(185, 28, 28, 0.35);
+}
+.hist-prod-attr {
+    font-size: 11px;
+    font-weight: 400;
+    opacity: 0.8;
+}
+
+/* No-op (id-only) change marker */
+.hist-change-noop {
+    opacity: 0.6;
+}
+.hist-noop-tag {
+    font-weight: 400;
+    font-size: 10.5px;
+    color: var(--gray-400, #9ca3af);
+}
+
+/* Create/Delete snapshot */
+.hist-snapshot {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border-left: 3px solid var(--gray-300, #d1d5db);
+    padding-left: 10px;
+}
+.hist-snapshot-create {
+    border-left-color: #16a34a;
+}
+.hist-snapshot-delete {
+    border-left-color: #dc2626;
+}
+.hist-snap-row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 8px;
+    font-size: 12.5px;
+    align-items: baseline;
+}
+.hist-snap-label {
+    font-weight: 600;
+    color: var(--gray-700, #374151);
+    word-break: break-word;
+}
+.hist-snap-val {
+    color: var(--gray-600, #4b5563);
+    word-break: break-word;
+}
+@media (max-width: 640px) {
+    .hist-snap-row {
+        grid-template-columns: 1fr;
+        gap: 1px;
+    }
 }
 .hist-prod-arrow {
     width: 14px;
