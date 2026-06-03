@@ -3,20 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `af4767e` — feat(web2): Phase 3 namespace — dual-mount /api/web2/<entity> + frontend đổi /api/v2/_ piggyback → /api/web2/_ (notifications,audit-log,kpi,dashboard,smart-match,supplier-360,supplier-aging,inventory-forecast,cart)
-**Last updated**: 2026-06-03 16:52:00 +07
-**Latest session**: [`RESUME:20260603-165200-af4767e`](../20260603-165200-af4767e.md)
-**Summary**: feat(web2): Phase 3 namespace — dual-mount /api/web2/<entity> + frontend đổi /api/v2/_ piggyback → /api/web2/_...
+**Latest commit**: `c02afa9` — docs(web2): dev-log Phase 3 + overview verified LIVE
+**Last updated**: 2026-06-03 17:00:12 +07
+**Latest session**: [`RESUME:20260603-170012-c02afa9`](../20260603-170012-c02afa9.md)
+**Summary**: docs(web2): dev-log Phase 3 + overview verified LIVE
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`don-inbox/`](./don-inbox.md) — 2 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`orders-report/`](./orders-report.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
-- [`web2/`](./web2.md) — 25 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -30,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-03 16:52
+- [`docs/`](./docs.md) — updated 2026-06-03 17:00
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-03 16:52
 - [`downloads/`](./downloads.md) — updated 2026-06-03 16:18
@@ -73,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-03 16:52
+- [`web2/`](./web2.md) — updated 2026-06-03 17:00
