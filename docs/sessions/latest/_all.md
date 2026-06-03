@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f319322` — feat(web2): photo-studio — chụp camera tách nền (AI + chroma key) ghép phông màu/ảnh/trong suốt
-**Last updated**: 2026-06-03 19:24:02 +07
-**Latest session**: [`RESUME:20260603-192402-f319322`](../20260603-192402-f319322.md)
-**Summary**: feat(web2): photo-studio — chụp camera tách nền (AI + chroma key) ghép phông màu/ảnh/trong suốt
+**Latest commit**: `fb2a1c6` — feat(web2): photo-studio v2 — fix loading overlay + tỉ lệ khung, spill, mờ nền, chụp full-res, PNG/JPG
+**Last updated**: 2026-06-03 19:38:15 +07
+**Latest session**: [`RESUME:20260603-193815-fb2a1c6`](../20260603-193815-fb2a1c6.md)
+**Summary**: feat(web2): photo-studio v2 — fix loading overlay + tỉ lệ khung, spill, mờ nền, chụp full-res, PNG/JPG
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`web2/`](./web2.md) — 8 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-03 19:24
+- [`docs/`](./docs.md) — updated 2026-06-03 19:38
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-03 16:52
 - [`downloads/`](./downloads.md) — updated 2026-06-03 18:34
@@ -68,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-03 19:24
+- [`web2/`](./web2.md) — updated 2026-06-03 19:38
