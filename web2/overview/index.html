@@ -71,7 +71,7 @@
                             </ol>
                         </li>
                         <li><a href="#dataflow">Bản đồ data flow</a></li>
-                        <li><a href="#database">Cơ sở dữ liệu</a></li>
+                        <li><a href="#database">Cơ sở dữ liệu &amp; Router Web 2.0</a></li>
                         <li><a href="#future">Gợi ý phát triển</a></li>
                     </ol>
                 </nav>
@@ -955,96 +955,165 @@ permission_templates    (role: admin/manager/staff)</pre
 
                 <!-- ===== DATABASE ===== -->
                 <section class="ov-section" id="database">
-                    <h2 class="section-title">Cơ sở dữ liệu</h2>
+                    <h2 class="section-title">Cơ sở dữ liệu &amp; Router Web 2.0</h2>
                     <p class="ov-lead">
-                        Web 2.0 dùng chung Postgres instance với Web 1 nhưng tách bảng riêng để
-                        không đụng dữ liệu legacy. Một số entity dùng Firestore (so-order,
-                        supplier-wallet) cho local-first sync.
+                        Web 2.0 đang tách triệt để khỏi Web 1.0: <strong>Postgres riêng</strong>
+                        <code>n2store-web2-db</code>, <strong>API namespace riêng</strong>
+                        <code>/api/web2/*</code>, và Firebase collection prefix <code>web2_</code>.
+                        Cập nhật 2026-06-03 (đang migrate — xem trạng thái từng phần bên dưới).
                     </p>
 
+                    <!-- DB instances -->
                     <div class="ov-db-grid">
                         <div class="ov-db-card ov-db-primary">
-                            <h3>Postgres prefix <code>web2_*</code></h3>
+                            <h3>🟢 Postgres Web 2.0 — <code>n2store-web2-db</code></h3>
+                            <p class="ov-db-note">
+                                Render PG riêng (Singapore, <code>dpg-d8d7be…</code>, db
+                                <code>n2store_web2</code>) — pool <code>web2Db</code> ←
+                                <code>WEB2_DATABASE_URL</code>. Đích cuối của mọi bảng Web 2.0.
+                            </p>
                             <ul>
+                                <li><code>web2_customers</code> — kho KH riêng (sync TPOS) ✅</li>
                                 <li>
-                                    <code>web2_products</code> — kho SP (code, name, stock,
-                                    price_buy, price_sell, category, barcode, image_url, active)
-                                </li>
-                                <li><code>web2_product_history</code> — audit log thay đổi SP</li>
-                                <li>
-                                    <code>web2_variants</code> — biến thể (size, màu, short_code,
-                                    group, sort_order)
+                                    <code>web2_records</code> · <code>web2_entities</code> — generic
+                                    store ✅
                                 </li>
                                 <li>
-                                    <code>web2_records</code> — generic entity store (entity_slug +
-                                    code + name + data JSONB)
-                                </li>
-                                <li>
-                                    <code>web2_entities</code> — schema metadata cho web2_records
-                                </li>
-                                <li>
-                                    <code>web2_balance_history</code> — SePay webhook log riêng cho
-                                    Web 2.0 (dual-write)
+                                    <em>Đang migrate sang đây:</em> <code>web2_products</code> ·
+                                    <code>web2_variants</code> · <code>web2_balance_history</code> ·
+                                    <code>web2_customer_wallets</code> ·
+                                    <code>web2_wallet_transactions</code> ·
+                                    <code>web2_pending_matches</code> ·
+                                    <code>web2_payment_qr_codes</code> ·
+                                    <code>web2_match_audit</code> ·
+                                    <code>web2_notifications</code> · <code>web2_users</code> ·
+                                    <code>web2_kpi_*</code> · <code>native_orders</code> ·
+                                    <code>fast_sale_orders</code>
                                 </li>
                             </ul>
                         </div>
 
                         <div class="ov-db-card ov-db-info">
-                            <h3>Legacy nhưng thuộc Web 2.0</h3>
+                            <h3>⚪ Postgres Web 1.0 — <code>n2store-chat-db</code></h3>
+                            <p class="ov-db-note">
+                                Render PG (<code>dpg-d4kr80…</code>, db <code>n2store_chat</code>) —
+                                pool <code>chatDb</code> ← <code>DATABASE_URL</code>. Chứa data Web
+                                1.0; bảng <code>web2_*</code> tạm còn ở đây trong lúc migrate.
+                            </p>
                             <ul>
                                 <li>
-                                    <code>native_orders</code> +
-                                    <code>native_orders_migrations</code>
-                                    — đơn web entry point
-                                </li>
-                                <li><code>fast_sale_orders</code> — PBH output</li>
-                                <li><code>fast_sale_order_history</code> — audit PBH</li>
-                                <li><code>pbh_fulfillment_logs</code> — log workflow đóng gói</li>
-                                <li>
-                                    <code>balance_history</code> ·
-                                    <code>balance_customer_info</code>
-                                    — SePay log legacy (vẫn dùng cho web 1)
+                                    Web 1.0: <code>customers</code> ·
+                                    <code>customer_wallets</code> · <code>balance_history</code> ·
+                                    <code>app_users</code> …
                                 </li>
                                 <li>
-                                    <code>customer_wallets</code> ·
-                                    <code>wallet_transactions</code> ·
-                                    <code>wallet_adjustments</code> ·
-                                    <code>pending_wallet_withdrawals</code> ·
-                                    <code>pending_customer_matches</code>
-                                </li>
-                                <li>
-                                    <code>purchase_orders</code> ·
-                                    <code>purchase_order_images</code>
-                                    (BYTEA, không dùng CDN Bunny)
-                                </li>
-                                <li>
-                                    <code>app_users</code> · <code>permission_templates</code> ·
-                                    <code>app_settings</code>
-                                </li>
-                                <li>
-                                    <code>tpos_saved_customers</code>
+                                    Web 2.0 KHÔNG còn gọi: <code>/api/v2/customers</code> →
+                                    <code>/api/web2/customers</code> (kho riêng).
                                 </li>
                             </ul>
                         </div>
 
                         <div class="ov-db-card ov-db-success">
-                            <h3>Firestore collections</h3>
+                            <h3>🔥 Firestore — prefix <code>web2_</code></h3>
                             <ul>
                                 <li>
                                     <code>web2_so_order/main</code> — Sổ Order (local-first sync)
                                 </li>
                                 <li><code>web2_supplier_wallet/main</code> — Ví NCC</li>
+                                <li><code>web2_suppliers/main</code> — danh sách NCC</li>
                                 <li><code>web2_customer_wallet/main</code> — UI mirror ví KH</li>
-                                <li>
-                                    <code>pancake_tokens</code> · <code>tokens</code> — JWT
-                                    Pancake/TPOS
-                                </li>
                             </ul>
                             <p class="ov-db-note">
-                                <strong>Lưu ý:</strong> Web 2.0 không dùng Firestore listener cho
-                                realtime nữa — đã chuyển sang SSE pub/sub trên Render (topic
+                                <strong>Realtime:</strong> KHÔNG dùng Firestore listener — dùng SSE
+                                pub/sub trên Render, hub riêng Web 2.0
+                                (<code>/api/realtime/web2/sse</code>, topic
                                 <code>web2:&lt;entity&gt;</code>).
                             </p>
+                        </div>
+                    </div>
+
+                    <!-- Router / API namespace -->
+                    <h3 class="ov-subsection-title" style="margin-top: 28px">
+                        Router / API namespace Web 2.0
+                    </h3>
+                    <p class="ov-lead">
+                        Mọi route Web 2.0 dùng prefix <code>/api/web2/*</code> hoặc
+                        <code>/api/web2-*</code> (proxy qua Cloudflare Worker →
+                        <code>n2store-fallback.onrender.com</code>). Các route piggyback cũ
+                        <code>/api/v2/*</code> đã đổi sang <code>/api/web2/*</code> (alias cũ giữ
+                        tạm).
+                    </p>
+                    <div class="ov-db-grid">
+                        <div class="ov-db-card ov-db-primary">
+                            <h3>Tài chính / Ví / KH</h3>
+                            <ul>
+                                <li>
+                                    <code>/api/web2/balance-history</code> — GD SePay
+                                    (web2_balance_history)
+                                </li>
+                                <li>
+                                    <code>/api/web2/customers</code> — kho KH (search,
+                                    by-phone/orders)
+                                </li>
+                                <li>
+                                    <code>/api/web2/wallets</code> ·
+                                    <code>/api/web2/customer-wallet</code> — ví KH
+                                </li>
+                                <li>
+                                    <code>/api/web2/customer-tpos</code> ·
+                                    <code>/api/web2/customer-orders</code>
+                                </li>
+                                <li><code>/api/wallet-deposits</code> — ví NCC (no-prefix web2)</li>
+                            </ul>
+                        </div>
+                        <div class="ov-db-card ov-db-info">
+                            <h3>Bán hàng / Mua hàng / SP</h3>
+                            <ul>
+                                <li>
+                                    <code>/api/native-orders</code> ·
+                                    <code>/api/fast-sale-orders</code> — Đơn web / PBH
+                                </li>
+                                <li>
+                                    <code>/api/reconcile</code> · <code>/api/refunds</code> ·
+                                    <code>/api/delivery-invoices</code>
+                                </li>
+                                <li>
+                                    <code>/api/web2-products</code> ·
+                                    <code>/api/web2-variants</code> ·
+                                    <code>/api/web2/productcategory</code>
+                                </li>
+                                <li>
+                                    <code>/api/web2/purchase-refund</code> ·
+                                    <code>/api/web2/supplier-debt</code>
+                                </li>
+                                <li><code>/api/pbh-reports</code> — báo cáo doanh thu/giao hàng</li>
+                            </ul>
+                        </div>
+                        <div class="ov-db-card ov-db-success">
+                            <h3>Tính năng mới / Hệ thống</h3>
+                            <ul>
+                                <li>
+                                    <code>/api/web2/notifications</code> ·
+                                    <code>/api/web2/audit-log</code>
+                                </li>
+                                <li>
+                                    <code>/api/web2/dashboard-kpi</code> ·
+                                    <code>/api/web2/kpi</code>
+                                </li>
+                                <li>
+                                    <code>/api/web2/smart-match</code> ·
+                                    <code>/api/web2/supplier-360</code>
+                                </li>
+                                <li>
+                                    <code>/api/web2/supplier-aging</code> ·
+                                    <code>/api/web2/inventory-forecast</code> ·
+                                    <code>/api/web2/cart</code>
+                                </li>
+                                <li>
+                                    <code>/api/web2-users</code> — user + phân quyền ·
+                                    <code>/api/realtime/web2/sse</code>
+                                </li>
+                            </ul>
                         </div>
                     </div>
                 </section>
