@@ -25,6 +25,14 @@
 
 ## 2026-06-03
 
+### [web2] Phase 3 namespace + overview DB/router (verified LIVE) ✅
+
+**Phase 3**: dual-mount mọi route Web 2.0 ở `/api/web2/<entity>` (giữ `/api/v2/*` alias) trong server.js + đổi 11 frontend file sang `/api/web2/*`. Verify LIVE: `/api/web2/kpi/scope`→200, `/api/web2/dashboard-kpi`→200, `/api/web2/notifications/unread-count`→200, `/api/web2/customers/by-phone/:phone/orders`→200 (Phase 2b). 404 ở root chỉ là route không có handler `/` (giống alias cũ, không regression).
+
+**Overview** section `#database` viết lại: 2 Postgres instance (`n2store-web2-db` riêng vs `n2store-chat-db`), router namespace `/api/web2/*` đầy đủ, Firebase `web2_` collections + trạng thái migrate.
+
+**Còn lại (cần monitored execution)**: Phase 4 mirror ~25 bảng schema sang web2Db; Phase 5-6 copy data + cutover route ví/tiền (verify SUM balance). Plan: [WEB2-TOTAL-SEPARATION-PLAN.md](web2/WEB2-TOTAL-SEPARATION-PLAN.md).
+
 ### [web2] Cleanup dead code Web 1.0 (15 file) ✅
 
 Xóa file copy từ trang Web 1.0 cũ KHÔNG được index.html load (verify 0 reference + 0 path-ref trước khi xóa):
@@ -147,11 +155,13 @@ Files: `render.com/routes/v2/web2-balance-history.js`
 **Gốc vấn đề**: Cell "Phiếu bán hàng" của don-inbox render bằng `renderSocialInvoiceCell` (social order, key bằng `.id` lowercase, vd `SO-...`). Nút refresh gọi `window.refreshPBHForOrder(order.Id)` — hàm này (tab1) chỉ tìm đơn trong `allData`/`window.displayedData` (mảng của tab1 orders-report), KHÔNG chứa social order → luôn báo "Không tìm thấy thông tin đơn để refresh". Ngoài ra `renderSocialInvoiceCell` hiện tại còn **không có** nút refresh (screenshot user thấy là bản cache cũ `?v=20260521b` ~2 tuần).
 
 **Dữ liệu liên quan**:
+
 - Social order sống trên Render (id `SO-...`), không có SaleOnline trên TPOS. Khi tạo PBH, FastSaleOrder lấy `Reference = String(social order id)` (`tab1-sale.js:1712`).
 - Invoice social lưu trong `InvoiceStatusStore` key = social order id (patch `storeFromApiResult` ở `tab-social-invoice.js`).
 - `window.SocialOrderState` expose trên window (`tab-social-core.js:444`).
 
 **Giải pháp**:
+
 - `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` — `refreshPBHForOrder`: `const`→`let order` + fallback tra `window.SocialOrderState.orders` theo `.id`, dựng orderShim `{Id, Code: existingInvoiceReference || orderId, Name/Telephone/Address, __isSocial}`. Query TPOS `Reference eq '<social id>'` (đúng pattern tab1) → bao cả phiếu mới tạo lẫn vừa hủy. Re-render: nếu `__isSocial` + có `window.refreshSocialInvoiceCell` → gọi nó (giữ đúng UI/handlers social), else `renderInvoiceStatusCell` như cũ. Tab1 order: hành vi y nguyên (optional-chain `SocialOrderState` an toàn khi undefined).
 - `don-inbox/js/tab-social-invoice.js` — `renderSocialInvoiceCell`: thêm nút refresh (`class="invoice-refresh-btn"`, onclick `refreshPBHForOrder(order.id)`) ở cả cell rỗng lẫn cell có phiếu (cạnh StateCode label).
 - `don-inbox/index.html` — bump cache `v=20260521b`→`v=20260603a` (52 chỗ) để user nhận code mới ngay.
