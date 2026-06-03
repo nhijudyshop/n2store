@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0291022` — feat(web2): photo-studio v3 — thêm engine 'AI nét' (@imgly/background-removal) + 3 mode cached
-**Last updated**: 2026-06-03 19:48:43 +07
-**Latest session**: [`RESUME:20260603-194843-0291022`](../20260603-194843-0291022.md)
-**Summary**: feat(web2): photo-studio v3 — thêm engine 'AI nét' (@imgly/background-removal) + 3 mode cached
+**Latest commit**: `3bd99a8` — feat(web2): photo-studio v4 — camera mobile-first (auto-start nếu đã cấp quyền, camera sau mặc định, báo lỗi quyền rõ)
+**Last updated**: 2026-06-03 19:54:50 +07
+**Latest session**: [`RESUME:20260603-195450-3bd99a8`](../20260603-195450-3bd99a8.md)
+**Summary**: feat(web2): photo-studio v4 — camera mobile-first (auto-start nếu đã cấp quyền, camera sau mặc định, b...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-03 19:48
+- [`docs/`](./docs.md) — updated 2026-06-03 19:54
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-03 16:52
 - [`downloads/`](./downloads.md) — updated 2026-06-03 18:34
@@ -67,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-03 19:47
+- [`web2/`](./web2.md) — updated 2026-06-03 19:54
