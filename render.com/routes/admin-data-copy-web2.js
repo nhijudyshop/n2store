@@ -13,7 +13,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { copyTableData, verifyMoneySum } = require('../db/web2-data-copy');
+const { copyTableData, verifyMoneySum, bumpSequences } = require('../db/web2-data-copy');
 const { WEB2_TABLES } = require('../db/web2-schema-mirror');
 
 const ADMIN_SECRET = process.env.CLEANUP_SECRET || '';
@@ -86,6 +86,28 @@ router.get('/data-copy-web2/verify', async (req, res) => {
             allMatch: out.every((o) => o.match && (!o.money || o.money.match)),
             tables: out,
         });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /api/admin/data-copy-web2/bump-sequences { confirm:'YES-BUMP', delta? }
+// Bump sequence web2Db +delta TRƯỚC cutover (chống collision gap rows).
+router.post('/data-copy-web2/bump-sequences', async (req, res) => {
+    if (!authOk(req)) return res.status(403).json({ error: 'forbidden' });
+    const body = req.body || {};
+    if (body.confirm !== 'YES-BUMP') {
+        return res.status(400).json({ error: "cần confirm:'YES-BUMP'" });
+    }
+    const { target } = getPools(req);
+    const source = req.app.locals.chatDb;
+    if (!target || !source || source === target) {
+        return res.status(400).json({ error: 'web2Db không tách' });
+    }
+    const delta = Math.min(parseInt(body.delta, 10) || 10000, 1000000);
+    try {
+        const result = await bumpSequences(target, WEB2_TABLES, delta);
+        res.json({ success: true, delta, result });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

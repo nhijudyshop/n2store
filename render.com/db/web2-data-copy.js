@@ -162,4 +162,49 @@ async function verifyMoneySum(sourcePool, targetPool, table) {
     return { table, col, srcSum, tgtSum, match: srcSum === tgtSum };
 }
 
-module.exports = { copyTableData, verifyMoneySum, getColumnNames, getPkColumn, MONEY_SUM };
+// Bump sequence của các bảng (target) lên +delta để insert post-cutover KHÔNG
+// đụng id với "gap rows" còn ở source (sẽ delta-sync sau). Chạy TRƯỚC cutover.
+async function bumpSequences(targetPool, tables, delta = 10000) {
+    const out = [];
+    for (const table of tables) {
+        try {
+            const pk = await getPkColumn(targetPool, table);
+            if (!pk) {
+                out.push({ table, skipped: 'no single PK' });
+                continue;
+            }
+            const defRow = await targetPool.query(
+                `SELECT pg_get_expr(d.adbin, d.adrelid) AS def
+                 FROM pg_attribute a
+                 LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+                 WHERE a.attrelid=$1::regclass AND a.attname=$2`,
+                [table, pk]
+            );
+            const m = (defRow.rows[0]?.def || '').match(/nextval\('([^']+?)'(?:::regclass)?\)/);
+            const seq = m ? m[1].replace(/^[^.]+\./, '') : null;
+            if (!seq) {
+                out.push({ table, skipped: 'no sequence' });
+                continue;
+            }
+            const r = await targetPool.query(
+                `SELECT setval($1, GREATEST(
+                    (SELECT COALESCE(MAX(${quoteIdent(pk)}),0) FROM ${quoteIdent(table)}), 1
+                 ) + $2) AS newval`,
+                [seq, delta]
+            );
+            out.push({ table, seq, newval: r.rows[0].newval });
+        } catch (e) {
+            out.push({ table, error: e.message });
+        }
+    }
+    return out;
+}
+
+module.exports = {
+    copyTableData,
+    verifyMoneySum,
+    bumpSequences,
+    getColumnNames,
+    getPkColumn,
+    MONEY_SUM,
+};
