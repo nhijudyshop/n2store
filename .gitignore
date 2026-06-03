@@ -123,3 +123,6 @@ downloads/n2store-session/tpos-session-*.json
 downloads/n2store-session/tpos-storage.json
 downloads/n2store-session/tpos-newpage-*.html
 downloads/n2store-session/tpos-download-*
+
+# Refund excel mẫu cho dev đối soát KPI — chứa PII khách thật, KHÔNG commit
+docs/orders-report/*.xlsx

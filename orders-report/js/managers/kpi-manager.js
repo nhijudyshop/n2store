@@ -1088,6 +1088,9 @@
             actualNet: null,
             actualPerUser: {},
             actualPerUserNames: {},
+            // Per-product KPI breakdown { [productId]: {code, name, net, ...} }.
+            // Dùng cho đối soát theo MÓN (so khớp với refund excel ExportFileDetail).
+            details: {},
             discrepancies: [],
         };
         if (!orderId) return result;
@@ -1116,6 +1119,8 @@
             result.actualNet = kpiResult.netProducts;
             result.actualPerUser = kpiResult.perUserKPI || {};
             result.actualPerUserNames = kpiResult.perUserNames || {};
+            // Expose per-product breakdown để đối soát refund theo MÓN ở tab KPI.
+            result.details = kpiResult.details || {};
 
             // Try to get current products from TPOS for cross-check
             const currentProducts = await fetchProductsFromTPOS(orderId);

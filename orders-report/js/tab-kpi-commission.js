@@ -2260,7 +2260,8 @@ const KPICommission = {
             // Đơn cancelled đã filter ở applyFilters → mọi order ở đây
             // đều còn hiệu lực. isRefunded chỉ còn refund excel.
             const recon = this._reconByOrder?.get(order.orderId);
-            const isRefunded = !!recon?.isRefunded;
+            const refLoss = recon?.refundedKpiAmount || 0; // KPI bị loại theo MÓN
+            const isRefunded = refLoss > 0;
             // Simple mode: ẩn đơn 0 KPI — NHƯNG luôn hiện refunded để user thấy
             // lý do "đã hoàn — không tính KPI" dù KPI=0.
             if (simpleMode && !isRefunded && (order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0)
@@ -2275,7 +2276,7 @@ const KPICommission = {
             kpiGross += order.kpi || 0;
             if (isRefunded) {
                 refundOrders++;
-                kpiLost += order.kpi || 0;
+                kpiLost += refLoss;
             } else {
                 okOrders++;
             }
@@ -2391,7 +2392,9 @@ const KPICommission = {
     // ========================================
 
     _L1_RECON_CACHE_TTL_MS: 7 * 24 * 60 * 60 * 1000, // 7 ngày
-    _L1_RECON_CACHE_PREFIX: 'kpi_recon_l1_v1__',
+    // v2: record có refundedKpiAmount (đối soát theo MÓN). Bump để vô hiệu cache v1
+    // (order-level isRefunded — thiếu refundedKpiAmount sẽ tính loss = 0).
+    _L1_RECON_CACHE_PREFIX: 'kpi_recon_l1_v2__',
 
     _getL1ReconCacheKey(userId) {
         return `${this._L1_RECON_CACHE_PREFIX}${userId}`;
@@ -2461,8 +2464,9 @@ const KPICommission = {
             let refundCount = 0;
             for (const order of emp?.orders || []) {
                 const r = this._reconByOrder.get(order.orderId);
-                if (r?.isRefunded) {
-                    lossSum += order.kpi || 0;
+                const refLoss = r?.refundedKpiAmount || 0;
+                if (refLoss > 0) {
+                    lossSum += refLoss;
                     refundCount++;
                 }
             }
@@ -2508,8 +2512,9 @@ const KPICommission = {
         }
         for (const order of orders) {
             const r = this._reconByOrder.get(order.orderId);
-            if (r?.isRefunded) {
-                lossSum += order.kpi || 0;
+            const refLoss = r?.refundedKpiAmount || 0;
+            if (refLoss > 0) {
+                lossSum += refLoss;
                 refundCount++;
             }
         }
@@ -2549,18 +2554,18 @@ const KPICommission = {
         if (lbl) lbl.textContent = 'Đang đối soát...';
 
         try {
-            // Step 1: đảm bảo invoice cache + refund excel
+            // Step 1: đảm bảo invoice cache + refund excel CHI TIẾT
             const [, refundInfoRaw] = await Promise.all([
                 this.loadInvoiceStatusData().catch((e) => {
                     console.warn('[KPI L1] Load invoice cache failed:', e?.message);
                 }),
-                this.fetchRefundedOrderCodes(3).catch((e) => {
-                    console.warn('[KPI L1] Fetch refund excel failed:', e?.message);
-                    return { codes: new Set(), totalRows: 0 };
+                this.fetchRefundDetailByInvoice(3).catch((e) => {
+                    console.warn('[KPI L1] Fetch refund detail excel failed:', e?.message);
+                    return { refundByInvoice: new Map(), codes: new Set(), totalRows: 0 };
                 }),
             ]);
-            const refundInfo = refundInfoRaw || { codes: new Set() };
-            const refundedInvoiceNumbers = refundInfo.codes || new Set();
+            const refundInfo = refundInfoRaw || { refundByInvoice: new Map(), codes: new Set() };
+            const refundByInvoice = refundInfo.refundByInvoice || new Map();
 
             // Step 2: reconcile từng đơn — worker pool concurrency 6
             const CONCURRENCY = Math.min(6, orders.length);
@@ -2572,18 +2577,22 @@ const KPICommission = {
                 const order = orders[idx];
                 const invoice = this._invoiceCache?.get(order.orderId) || null;
                 const invNumber = invoice?.Number || '';
-                const isRefunded = !!(invNumber && refundedInvoiceNumbers.has(invNumber));
                 const baseFields = {
                     orderId: order.orderId,
                     orderCode: order.orderCode || '',
-                    invoiceNumber: invoice?.Number || '',
+                    invoiceNumber: invNumber,
                     invoiceState: invoice?.ShowState || '',
                     kpiAmount: order.kpi || 0,
                     stt: order.stt,
                     expectedNet: order.netProducts || 0,
                 };
                 try {
-                    let result = { hasDiscrepancy: false, discrepancies: [], actualNet: null };
+                    let result = {
+                        hasDiscrepancy: false,
+                        discrepancies: [],
+                        actualNet: null,
+                        details: {},
+                    };
                     if (window.kpiManager?.reconcileKPI) {
                         result = await window.kpiManager.reconcileKPI(
                             order.orderId,
@@ -2591,11 +2600,20 @@ const KPICommission = {
                             order.orderCode
                         );
                     }
+                    // So khớp món hoàn theo SẢN PHẨM (chỉ trừ KPI món code khớp).
+                    const refund = this._matchRefundForOrder(
+                        invNumber,
+                        result.details,
+                        refundByInvoice
+                    );
+                    const isRefunded = refund.refundedKpiAmount > 0;
                     const refundDiscrepancy = isRefunded
                         ? [
                               {
                                   type: 'refunded',
-                                  message: 'Đơn đã có trong refund excel — không tính KPI',
+                                  message: `Hoàn ${refund.refundedProducts.length} món KPI (${refund.refundedProducts
+                                      .map((p) => p.code)
+                                      .join(', ')}) — loại ${this.formatCurrency(refund.refundedKpiAmount)}`,
                               },
                           ]
                         : [];
@@ -2605,6 +2623,9 @@ const KPICommission = {
                             result.actualNet != null ? result.actualNet : order.netProducts || 0,
                         hasDiscrepancy: isRefunded || result.hasDiscrepancy,
                         isRefunded,
+                        refundedKpiAmount: refund.refundedKpiAmount,
+                        refundedProducts: refund.refundedProducts,
+                        hasRefundRow: refund.hasRefundRow,
                         discrepancies: [...refundDiscrepancy, ...(result.discrepancies || [])],
                     };
                 } catch (e) {
@@ -2613,11 +2634,11 @@ const KPICommission = {
                         ...baseFields,
                         actualNet: 'Lỗi',
                         hasDiscrepancy: true,
-                        isRefunded,
-                        discrepancies: [
-                            ...(isRefunded ? [{ type: 'refunded', message: 'Đơn đã hoàn' }] : []),
-                            { type: 'error', message: e?.message || 'lỗi' },
-                        ],
+                        isRefunded: false,
+                        refundedKpiAmount: 0,
+                        refundedProducts: [],
+                        hasRefundRow: refundByInvoice.has(invNumber),
+                        discrepancies: [{ type: 'error', message: e?.message || 'lỗi' }],
                     };
                 }
             };
@@ -3538,7 +3559,7 @@ const KPICommission = {
     /**
      * Lấy auth header TPOS — dùng chung cho mọi gọi OData từ KPI iframe.
      * Ưu tiên tokenManager nếu có; fallback POST /api/token với cred từ
-     * KPI manager (đã có sẵn trong fetchRefundedOrderCodes).
+     * KPI manager (đã có sẵn trong fetchRefundDetailByInvoice).
      */
     async _getKpiTposAuthHeader() {
         if (this._kpiTposAuth?.expiresAt > Date.now()) return this._kpiTposAuth.header;
@@ -3820,14 +3841,40 @@ const KPICommission = {
     // ========================================
 
     /**
-     * Fetch + parse refund excel 3 tháng gần nhất, return Set<orderCode> đã hoàn.
-     * Refund excel có cột "Tham chiếu" = mã đơn gốc (vd "NJD/2026/62621").
-     *
-     * Endpoint: POST /api/FastSaleOrder/ExportFileRefund?TagIds=
-     * Body: { data: JSON.stringify({Filter:{...}}), ids: [] }
-     * Response: XLSX binary, sheet "Trả hàng", header row 3 (range:2 in JSON parse).
+     * Parse cột "Chi tiết" của refund excel → list { code, qty } các MÓN được hoàn.
+     * Format mỗi cell: "<SL> x [<CODE>] <tên>... (đvt) (...)" — nhiều món cách nhau " ; ".
+     * VD: "1 x [B1924A36] ... ; 2 x [B1926A36] ..." → [{code:'B1924A36',qty:1},{code:'B1926A36',qty:2}]
+     * Code normalize: trim + uppercase (khớp với productCode trong KPI details).
      */
-    async fetchRefundedOrderCodes(monthsBack = 3) {
+    _parseRefundChiTiet(chiTiet) {
+        const items = [];
+        if (!chiTiet) return items;
+        const re = /(\d+)\s*x\s*\[([^\]]+)\]/g;
+        let m;
+        while ((m = re.exec(String(chiTiet))) !== null) {
+            const qty = parseInt(m[1], 10) || 0;
+            const code = (m[2] || '').trim().toUpperCase();
+            if (code && qty > 0) items.push({ code, qty });
+        }
+        return items;
+    },
+
+    /**
+     * Fetch + parse refund excel CHI TIẾT 3 tháng gần nhất.
+     * Trả map theo từng đơn (key = "Tham chiếu" = số phiếu gốc, vd "NJD/2026/62621")
+     * → Map<productCode, qtyHoàn> các MÓN được hoàn trong đơn đó.
+     *
+     * Endpoint MỚI: POST /api/FastSaleOrder/ExportFileDetail?TagIds=&type=refund
+     *   (khác ExportFileRefund cũ ở chỗ có thêm cột "Chi tiết" liệt kê từng món hoàn)
+     * Body: { data: JSON.stringify({Filter:{...}}), ids: [] }
+     * Response: XLSX binary, header row 3 (range:2 in JSON parse).
+     *
+     * @returns {{ refundByInvoice: Map<string, Map<string, number>>, codes: Set<string>,
+     *             totalRows: number, startISO: string, endISO: string }}
+     *   - refundByInvoice: số phiếu gốc → (productCode → tổng SL hoàn)
+     *   - codes: Set số phiếu gốc đã hoàn (giữ tương thích chỗ chỉ cần biết "đơn có hoàn")
+     */
+    async fetchRefundDetailByInvoice(monthsBack = 3) {
         if (typeof XLSX === 'undefined') {
             await new Promise((resolve, reject) => {
                 const s = document.createElement('script');
@@ -3898,30 +3945,79 @@ const KPICommission = {
                 ],
             },
         };
-        const res = await fetch(`${WORKER}/api/FastSaleOrder/ExportFileRefund?TagIds=`, {
-            method: 'POST',
-            headers: {
-                ...headers,
-                Accept: '*/*',
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ data: JSON.stringify(filter), ids: [] }),
-        });
-        if (!res.ok) throw new Error(`ExportFileRefund HTTP ${res.status}`);
+        const res = await fetch(
+            `${WORKER}/api/FastSaleOrder/ExportFileDetail?TagIds=&type=refund`,
+            {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    Accept: '*/*',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ data: JSON.stringify(filter), ids: [] }),
+            }
+        );
+        if (!res.ok) throw new Error(`ExportFileDetail HTTP ${res.status}`);
         const buf = await res.arrayBuffer();
         const wb = XLSX.read(buf, { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
-        // range:2 = skip 2 title rows, header is row 3 ("STT", "Khách hàng", ..., "Tham chiếu", ...)
+        // range:2 = skip 2 title rows, header is row 3 ("STT", ..., "Tham chiếu", ..., "Chi tiết", ...)
         const rows = XLSX.utils.sheet_to_json(sheet, { range: 2, defval: null });
+        const refundByInvoice = new Map(); // số phiếu gốc → Map<productCode, qtyHoàn>
         const codes = new Set();
         for (const row of rows) {
             const ref = String(row['Tham chiếu'] || '').trim();
-            if (ref) codes.add(ref);
+            if (!ref) continue;
+            codes.add(ref);
+            const items = this._parseRefundChiTiet(row['Chi tiết']);
+            if (items.length === 0) continue;
+            let codeMap = refundByInvoice.get(ref);
+            if (!codeMap) {
+                codeMap = new Map();
+                refundByInvoice.set(ref, codeMap);
+            }
+            // Aggregate SL theo code (1 phiếu nhiều dòng / 1 dòng nhiều món)
+            for (const it of items) {
+                codeMap.set(it.code, (codeMap.get(it.code) || 0) + it.qty);
+            }
         }
         console.log(
-            `[KPI Tab] Refund excel ${monthsBack} tháng: ${rows.length} dòng, ${codes.size} mã đơn unique`
+            `[KPI Tab] Refund detail excel ${monthsBack} tháng: ${rows.length} dòng, ` +
+                `${codes.size} phiếu unique, ${refundByInvoice.size} phiếu có chi tiết món`
         );
-        return { codes, totalRows: rows.length, startISO, endISO };
+        return { refundByInvoice, codes, totalRows: rows.length, startISO, endISO };
+    },
+
+    /**
+     * So khớp món hoàn (refund excel CHI TIẾT) với món tính KPI của 1 đơn.
+     * Chỉ món có code khớp giữa KPI details và refund "Chi tiết" mới bị loại KPI,
+     * trừ theo SL = min(SL hoàn, SL net KPI) × KPI_PER_PRODUCT (owner chốt: chính xác theo SL).
+     *
+     * @param {string} invNumber - số phiếu TPOS của đơn (invoice.Number)
+     * @param {object} details - KPI per-product { [pid]: {code, name, net, ...} } (từ reconcileKPI)
+     * @param {Map<string, Map<string, number>>} refundByInvoice - từ fetchRefundDetailByInvoice
+     * @returns {{ refundedKpiAmount:number, refundedProducts:Array<{code,name,qty}>, hasRefundRow:boolean }}
+     */
+    _matchRefundForOrder(invNumber, details, refundByInvoice) {
+        const refundItems = invNumber ? refundByInvoice?.get(invNumber) : null;
+        const out = {
+            refundedKpiAmount: 0,
+            refundedProducts: [],
+            hasRefundRow: !!refundItems,
+        };
+        if (!refundItems || !details) return out;
+        for (const d of Object.values(details)) {
+            const net = d?.net || 0;
+            if (net <= 0) continue;
+            const code = (d.code || '').trim().toUpperCase();
+            if (!code) continue;
+            const refQty = refundItems.get(code) || 0;
+            if (refQty <= 0) continue;
+            const lostQty = Math.min(refQty, net);
+            out.refundedKpiAmount += lostQty * (this.KPI_PER_PRODUCT || 5000);
+            out.refundedProducts.push({ code: d.code, name: d.name || '', qty: lostQty });
+        }
+        return out;
     },
 
     // ========================================
@@ -4096,17 +4192,23 @@ const KPICommission = {
                 'Expected',
                 'Actual',
                 'Delta',
+                'KPI bị loại',
+                'Món hoàn',
                 'Trạng thái',
                 'Ghi chú',
             ],
         ];
         for (const r of this._reconResults) {
-            const status = r.isRefunded
-                ? 'Đã hoàn (loại KPI)'
-                : r.hasDiscrepancy
-                  ? 'Sai lệch'
-                  : 'OK';
+            const status =
+                r.refundedKpiAmount > 0
+                    ? 'Đã hoàn (loại KPI)'
+                    : r.hasDiscrepancy
+                      ? 'Sai lệch'
+                      : 'OK';
             const note = (r.discrepancies || []).map((d) => `[${d.type}] ${d.message}`).join(' | ');
+            const refundedProductsStr = (r.refundedProducts || [])
+                .map((p) => `${p.qty} x [${p.code}]`)
+                .join(', ');
             rows.push([
                 r.orderCode,
                 r.invoiceNumber || '',
@@ -4114,6 +4216,8 @@ const KPICommission = {
                 r.expectedNet,
                 typeof r.actualNet === 'number' ? r.actualNet : r.actualNet,
                 typeof r.actualNet === 'number' ? r.actualNet - r.expectedNet : '',
+                r.refundedKpiAmount || 0,
+                refundedProductsStr,
                 status,
                 note,
             ]);
@@ -4126,6 +4230,8 @@ const KPICommission = {
             { wch: 12 },
             { wch: 12 },
             { wch: 10 },
+            { wch: 12 },
+            { wch: 30 },
             { wch: 22 },
             { wch: 60 },
         ];
@@ -4186,36 +4292,37 @@ const KPICommission = {
                 this.loadInvoiceStatusData().catch((e) => {
                     console.warn('[KPI Tab] Load invoice cache failed:', e?.message);
                 }),
-                this.fetchRefundedOrderCodes(3).catch((e) => {
-                    console.warn('[KPI Tab] Fetch refund excel failed:', e?.message);
+                this.fetchRefundDetailByInvoice(3).catch((e) => {
+                    console.warn('[KPI Tab] Fetch refund detail excel failed:', e?.message);
                     if (window.notificationManager?.warning) {
                         window.notificationManager.warning(
                             'Không tải được refund excel — đối soát chỉ check trạng thái đơn',
                             2500
                         );
                     }
-                    return { codes: new Set(), totalRows: 0 };
+                    return { refundByInvoice: new Map(), codes: new Set(), totalRows: 0 };
                 }),
             ]);
-            const refundInfo = refundResult || { codes: new Set(), totalRows: 0 };
-            const refundedInvoiceNumbers = refundInfo.codes;
+            const refundInfo = refundResult || {
+                refundByInvoice: new Map(),
+                codes: new Set(),
+                totalRows: 0,
+            };
+            const refundByInvoice = refundInfo.refundByInvoice || new Map();
             console.log(
                 `[KPI Tab] Step 1 (parallel) hoàn tất trong ${Math.round(performance.now() - t1)}ms`
             );
 
-            // Step 1c: Map orderId → invoiceNumber, check refunded
-            const orderIdToRefunded = new Map();
+            // Step 1c: Map orderId → invoice. Số đơn có món hoàn (candidate) chỉ để
+            // hiển thị progress — KPI loss thực tính per-product trong reconcileOne.
             const orderIdToInvoice = new Map();
+            let refundCandidateCount = 0;
             for (const order of allOrders) {
                 const inv = this._invoiceCache.get(order.orderId);
                 const invNumber = inv?.Number || '';
                 orderIdToInvoice.set(order.orderId, inv || null);
-                orderIdToRefunded.set(
-                    order.orderId,
-                    invNumber && refundedInvoiceNumbers.has(invNumber)
-                );
+                if (invNumber && refundByInvoice.has(invNumber)) refundCandidateCount++;
             }
-            const refundedKpiCount = [...orderIdToRefunded.values()].filter(Boolean).length;
 
             // Step 2: Reconcile từng đơn — WORKER POOL CONCURRENCY 8 (song song)
             // Trước: 134 sequential awaits ~30-60s. Sau: 8 workers parallel ~5-10s.
@@ -4224,7 +4331,7 @@ const KPICommission = {
             setLoadingMsg(
                 `Kiểm tra audit log song song ${CONCURRENCY} workers (0/${total})`,
                 25,
-                `${refundedKpiCount} đơn đã được mark hoàn từ refund excel`
+                `${refundCandidateCount} đơn có món hoàn — so khớp theo món`
             );
             const results = new Array(total); // preserve order via index
             let processed = 0;
@@ -4233,8 +4340,8 @@ const KPICommission = {
 
             const reconcileOne = async (idx) => {
                 const order = allOrders[idx];
-                const isRefunded = orderIdToRefunded.get(order.orderId) || false;
                 const invoice = orderIdToInvoice.get(order.orderId);
+                const invNumber = invoice?.Number || '';
                 let result;
                 try {
                     if (window.kpiManager && window.kpiManager.reconcileKPI) {
@@ -4247,23 +4354,31 @@ const KPICommission = {
                         result = {
                             orderId: order.orderId,
                             hasDiscrepancy: false,
-                            expected: {},
-                            actual: {},
+                            details: {},
                             discrepancies: [],
                         };
                     }
+                    // So khớp món hoàn theo SẢN PHẨM (chỉ trừ KPI món code khớp).
+                    const refund = this._matchRefundForOrder(
+                        invNumber,
+                        result.details,
+                        refundByInvoice
+                    );
+                    const isRefunded = refund.refundedKpiAmount > 0;
                     const refundDiscrepancy = isRefunded
                         ? [
                               {
                                   type: 'refunded',
-                                  message: `Đơn đã có trong refund excel — không tính KPI`,
+                                  message: `Hoàn ${refund.refundedProducts.length} món KPI (${refund.refundedProducts
+                                      .map((p) => p.code)
+                                      .join(', ')}) — loại ${this.formatCurrency(refund.refundedKpiAmount)}`,
                               },
                           ]
                         : [];
                     results[idx] = {
                         orderId: order.orderId,
                         orderCode: order.orderCode || '',
-                        invoiceNumber: invoice?.Number || '',
+                        invoiceNumber: invNumber,
                         invoiceState: invoice?.ShowState || '',
                         kpiAmount: order.kpi || 0,
                         stt: order.stt,
@@ -4272,6 +4387,9 @@ const KPICommission = {
                             result.actualNet != null ? result.actualNet : order.netProducts || 0,
                         hasDiscrepancy: isRefunded || result.hasDiscrepancy,
                         isRefunded,
+                        refundedKpiAmount: refund.refundedKpiAmount,
+                        refundedProducts: refund.refundedProducts,
+                        hasRefundRow: refund.hasRefundRow,
                         discrepancies: [...refundDiscrepancy, ...(result.discrepancies || [])],
                     };
                 } catch (e) {
@@ -4279,18 +4397,18 @@ const KPICommission = {
                     results[idx] = {
                         orderCode: order.orderCode || '',
                         orderId: order.orderId,
-                        invoiceNumber: invoice?.Number || '',
+                        invoiceNumber: invNumber,
                         invoiceState: invoice?.ShowState || '',
                         kpiAmount: order.kpi || 0,
                         stt: order.stt,
                         expectedNet: order.netProducts || 0,
                         actualNet: 'Lỗi',
                         hasDiscrepancy: true,
-                        isRefunded,
-                        discrepancies: [
-                            ...(isRefunded ? [{ type: 'refunded', message: 'Đơn đã hoàn' }] : []),
-                            { type: 'error', message: e.message },
-                        ],
+                        isRefunded: false,
+                        refundedKpiAmount: 0,
+                        refundedProducts: [],
+                        hasRefundRow: refundByInvoice.has(invNumber),
+                        discrepancies: [{ type: 'error', message: e.message }],
                     };
                 }
             };
@@ -4303,10 +4421,11 @@ const KPICommission = {
                 if (!force && now - lastProgressUpdate < 200) return;
                 lastProgressUpdate = now;
                 const pct = 25 + Math.round((processed / total) * 70);
+                const refundedSoFar = results.filter((r) => r?.refundedKpiAmount > 0).length;
                 setLoadingMsg(
                     `Kiểm tra song song ${CONCURRENCY} workers (${processed}/${total})`,
                     pct,
-                    `${refundedKpiCount} đã hoàn · ${results.filter((r) => r?.hasDiscrepancy && !r?.isRefunded).length} sai lệch khác phát hiện`
+                    `${refundedSoFar} đơn có món KPI hoàn · ${results.filter((r) => r?.hasDiscrepancy && !r?.isRefunded).length} sai lệch khác`
                 );
             };
 
@@ -4362,15 +4481,16 @@ const KPICommission = {
         for (const r of results) {
             this._reconByOrder.set(r.orderId, r);
         }
-        // Aggregate KPI loss per user. Cancelled đã filter ở applyFilters
-        // nên emp.orders không có. Chỉ còn refund excel cần đối soát.
-        const refundedSet = new Set(results.filter((r) => r.isRefunded).map((r) => r.orderId));
+        // Aggregate KPI loss per user — PER-PRODUCT: chỉ cộng phần KPI của món
+        // thực sự bị hoàn (refundedKpiAmount), KHÔNG loại cả đơn.
         for (const emp of this.state.filteredData || []) {
             let lossSum = 0;
             let refundCount = 0;
             for (const order of emp.orders || []) {
-                if (refundedSet.has(order.orderId)) {
-                    lossSum += order.kpi || 0;
+                const r = this._reconByOrder.get(order.orderId);
+                const refLoss = r?.refundedKpiAmount || 0;
+                if (refLoss > 0) {
+                    lossSum += refLoss;
                     refundCount++;
                 }
             }
@@ -4567,9 +4687,9 @@ const KPICommission = {
         const otherDiscrepancies = results.filter((r) => r.hasDiscrepancy && !r.isRefunded).length;
         const okCount = results.length - refundedCount - otherDiscrepancies;
 
-        const refundedKpiAmount = results
-            .filter((r) => r.isRefunded)
-            .reduce((sum, r) => sum + (r.kpiAmount || 0), 0);
+        // PER-PRODUCT: tổng KPI bị loại = Σ refundedKpiAmount (chỉ phần món hoàn),
+        // KHÔNG phải kpiAmount cả đơn.
+        const refundedKpiAmount = results.reduce((sum, r) => sum + (r.refundedKpiAmount || 0), 0);
 
         // Show stats cards + animate count
         const statsEl = document.getElementById('reconStatsCards');

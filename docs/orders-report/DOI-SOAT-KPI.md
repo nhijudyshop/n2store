@@ -4,23 +4,27 @@
 
 > Tài liệu cho khối **"Đối soát KPI"** trong tab **KPI - HOA HỒNG** (`orders-report/main.html` → iframe `tab-kpi-commission.html`).
 > Phụ đề trên UI: *"So sánh KPI với refund excel 3 tháng từ TPOS"*.
+>
+> **Cập nhật 2026-06-03**: đối soát chuyển từ **theo ĐƠN** sang **theo MÓN** — chỉ loại KPI của đúng món bị hoàn (xem [dev-log](../dev-log.md)).
 
 ---
 
 ## 1. Tóm tắt nhanh (TL;DR)
 
-Đối soát KPI trả lời 1 câu hỏi: **"Trong số đơn đã tính hoa hồng (KPI) cho nhân viên, đơn nào thực ra đã bị trả hàng (refund) trên TPOS, hoặc dữ liệu bị lệch — để KHÔNG trả hoa hồng oan?"**
+Đối soát KPI trả lời 1 câu hỏi: **"Trong số đơn đã tính hoa hồng (KPI) cho nhân viên, MÓN nào thực ra đã bị trả hàng (refund) trên TPOS, hoặc dữ liệu bị lệch — để KHÔNG trả hoa hồng oan?"**
 
 Khi bấm nút **Chạy đối soát**, hệ thống:
 
 1. Gom tất cả đơn **đang hiển thị sau bộ lọc** (campaign / nhân viên / khoảng ngày).
-2. Tải song song: (a) cache trạng thái phiếu TPOS, (b) **file refund Excel 3 tháng gần nhất** xuất từ TPOS.
-3. Với mỗi đơn, đánh giá 3 khả năng → gắn nhãn **OK ✅** / **Đã hoàn ↩** / **Sai lệch ⚠**.
-4. Cộng dồn KPI bị loại do refund ("loss") theo từng nhân viên, rồi cập nhật bảng xếp hạng + bảng kết quả.
+2. Tải song song: (a) cache trạng thái phiếu TPOS, (b) **file refund Excel CHI TIẾT 3 tháng gần nhất** xuất từ TPOS (có cột "Chi tiết" liệt kê từng món hoàn).
+3. Với mỗi đơn, **so khớp món tính KPI với món được hoàn** → gắn nhãn **OK ✅** / **Đã hoàn ↩** / **Sai lệch ⚠**.
+4. Cộng dồn KPI bị loại **theo từng món hoàn** (không loại cả đơn), gộp theo nhân viên, rồi cập nhật bảng xếp hạng + bảng kết quả.
 
 Hai nguồn dữ liệu cốt lõi:
-- **Refund Excel từ TPOS** → biết đơn nào đã trả hàng.
-- **BASE snapshot + audit log nội bộ** → biết danh sách sản phẩm tính KPI có khớp TPOS hiện tại không.
+- **Refund Excel CHI TIẾT từ TPOS** → biết đơn nào hoàn **và hoàn những món nào, số lượng bao nhiêu**.
+- **BASE snapshot + audit log nội bộ** → biết **danh sách món tính KPI** của đơn (code + SL net) để so khớp.
+
+> 🔑 **Nguyên tắc cốt lõi**: chỉ món có **code khớp** giữa KPI của đơn và cột "Chi tiết" của refund mới bị loại KPI. Trừ theo số lượng = `min(SL hoàn, SL net KPI) × 5.000đ`. Hoàn 1 trong 5 món → chỉ mất KPI của 1 món đó, 4 món còn lại vẫn được tính.
 
 ---
 
@@ -36,9 +40,11 @@ Hai nguồn dữ liệu cốt lõi:
 
 | Nhãn | Khi nào | Ý nghĩa kinh doanh |
 |---|---|---|
-| **✅ OK** | Không refund, không lệch dữ liệu | Đơn hợp lệ, **được tính KPI** đầy đủ |
-| **↩ Đã hoàn (loại KPI)** | Mã đơn nằm trong refund Excel TPOS | Khách đã trả hàng → **KPI bị loại** ("loss") |
+| **✅ OK** | Không có món KPI nào bị hoàn, không lệch dữ liệu | Đơn hợp lệ, **được tính KPI** đầy đủ |
+| **↩ Đã hoàn (loại KPI)** | Có **ít nhất 1 món tính KPI** của đơn nằm trong cột "Chi tiết" của refund | **Phần KPI của các món đó bị loại** ("loss") — các món KPI khác trong đơn vẫn giữ |
 | **⚠ Sai lệch** | `reconcileKPI` phát hiện dữ liệu không khớp | Cần kiểm tra tay (xem mục 2.3) |
+
+> Đơn có refund nhưng **món hoàn KHÔNG phải món tính KPI** (vd hoàn món có sẵn trong BASE) → vẫn là **OK** (KPI không bị ảnh hưởng).
 
 ### 2.3. "Sai lệch" cụ thể là gì
 
@@ -52,10 +58,10 @@ Hai nguồn dữ liệu cốt lõi:
 
 Trên mỗi dòng nhân viên ở leaderboard:
 
-- **"không có loss"** → nhân viên không có đơn nào bị refund. Giữ nguyên toàn bộ KPI.
-- **"gross 220.000đ − 20.000đ hoàn"** → KPI gốc 220k, bị loại 20k do refund → **KPI thực = 200k**.
-- Thanh "KPI thực" có 2 màu: **xanh** = KPI thực (net), **đỏ** = phần loss bị refund.
-- Badge **"X hoàn"** = số đơn của nhân viên đó nằm trong refund Excel.
+- **"không có loss"** → nhân viên không có món KPI nào bị hoàn. Giữ nguyên toàn bộ KPI.
+- **"gross 220.000đ − 20.000đ hoàn"** → KPI gốc 220k, bị loại 20k do **các món hoàn** → **KPI thực = 200k**. (20k = tổng `min(SL hoàn, net) × 5.000đ` của các món trúng, **không** phải KPI cả đơn.)
+- Thanh "KPI thực" có 2 màu: **xanh** = KPI thực (net), **đỏ** = phần loss bị hoàn.
+- Badge **"X hoàn"** = số **đơn** có ít nhất 1 món KPI bị hoàn.
 
 > ⚠ **Lưu ý quan trọng về %**: phần trăm trên thanh "KPI thực" là **tương đối so với người dẫn đầu**, *không phải* % của một chỉ tiêu KPI tuyệt đối.
 > Công thức: `% = round(kpiNet_của_NV / kpiNet_của_người_cao_nhất × 100)`.
@@ -83,9 +89,9 @@ Trên mỗi dòng nhân viên ở leaderboard:
 |---|---|---|
 | **B0** | 2% | Disable nút, ẩn UI cũ (empty/results/stats/control), set progress *"Đang khởi tạo…"* |
 | **B1** | — | Gom `allOrders` từ `state.filteredData` (lồng `emp.orders`). **Rỗng → hiện empty state + return** |
-| **B2** | 8% | `Promise.all([loadInvoiceStatusData(), fetchRefundedOrderCodes(3)])` chạy **song song** |
-| **B3** | — | Map `orderId → invoiceNumber` (qua `_invoiceCache`); đánh dấu `isRefunded` nếu `invoiceNumber ∈ refundSet` |
-| **B4** | 25→95% | **Worker pool CONCURRENCY = 8**: mỗi đơn gọi `kpiManager.reconcileKPI()` + ghép nhãn refund |
+| **B2** | 8% | `Promise.all([loadInvoiceStatusData(), fetchRefundDetailByInvoice(3)])` chạy **song song** |
+| **B3** | — | Map `orderId → invoice` (qua `_invoiceCache`); đếm `refundCandidateCount` = số đơn có `invoice.Number ∈ refundByInvoice` (chỉ để hiển thị) |
+| **B4** | 25→95% | **Worker pool CONCURRENCY = 8**: mỗi đơn gọi `kpiManager.reconcileKPI()` → `_matchRefundForOrder()` so khớp món hoàn → `refundedKpiAmount` |
 | **B5** | 98%→ẩn | `_indexReconResults()` → `_renderReconciliationUI()` → re-render bảng KPI chính → ẩn progress |
 
 ### Sơ đồ luồng dữ liệu
@@ -95,23 +101,25 @@ Trên mỗi dòng nhân viên ở leaderboard:
    └── bấm "Chạy đối soát" → runReconciliation()
          │
          ├─ B2 song song ──────────────────────────────────────────┐
-         │   loadInvoiceStatusData()        fetchRefundedOrderCodes(3)
+         │   loadInvoiceStatusData()        fetchRefundDetailByInvoice(3)
          │   (cache phiếu TPOS)                    │
          │                                         ▼
          │                            OData filter (Type=refund, 3 tháng)
          │                                         ▼
          │                            Cloudflare Worker (chatomni-proxy)
          │                                         ▼
-         │                            TPOS /api/FastSaleOrder/ExportFileRefund
+         │            TPOS /api/FastSaleOrder/ExportFileDetail?TagIds=&type=refund
          │                                         ▼
-         │                            XLSX binary → SheetJS → cột "Tham chiếu"
+         │                XLSX binary → SheetJS → cột "Tham chiếu" + "Chi tiết"
          │                                         ▼
-         │                            Set<orderCode> đã hoàn
+         │            Map<invoiceNumber, Map<productCode, qtyHoàn>>
          │                                         │
-         ├─ B3 map orderId → invoiceNumber → isRefunded ◄───────────┘
+         ├─ B3 map orderId → invoice (đếm candidate) ◄──────────────┘
          │
-         ├─ B4 worker pool x8 → mỗi đơn: kpiManager.reconcileKPI()
-         │       (BASE snapshot ↔ TPOS hiện tại ↔ audit log)
+         ├─ B4 worker pool x8 → mỗi đơn:
+         │       kpiManager.reconcileKPI() → result.details {pid:{code,net}}
+         │       _matchRefundForOrder(invNumber, details, refundByInvoice)
+         │         → refundedKpiAmount = Σ min(SL hoàn, net) × 5.000đ
          │
          └─ B5 index + render: stats cards, chips, bảng kết quả, leaderboard
 ```
@@ -134,19 +142,22 @@ const workers = Array.from({ length: Math.min(CONCURRENCY, total) }, async () =>
 await Promise.all(workers);
 ```
 
-`reconcileOne(idx)` gọi `window.kpiManager.reconcileKPI(orderId, campaignName, orderCode)`, sau đó:
-- Nếu `isRefunded` → thêm discrepancy `{ type: 'refunded', message: 'Đơn đã có trong refund excel — không tính KPI' }`.
+`reconcileOne(idx)` gọi `window.kpiManager.reconcileKPI(orderId, campaignName, orderCode)` (trả thêm `result.details` = món KPI), rồi gọi `_matchRefundForOrder(invNumber, result.details, refundByInvoice)`:
+- `refundedKpiAmount > 0` → `isRefunded = true`, thêm discrepancy `{ type: 'refunded', message: 'Hoàn N món KPI (<codes>) — loại <amount>đ' }`.
 - `hasDiscrepancy = isRefunded || result.hasDiscrepancy`.
+- Record lưu thêm: `refundedKpiAmount`, `refundedProducts[]`, `hasRefundRow`.
 
 ---
 
-## 4. Lấy refund Excel từ TPOS — `fetchRefundedOrderCodes(monthsBack = 3)`
+## 4. Lấy refund Excel CHI TIẾT từ TPOS — `fetchRefundDetailByInvoice(monthsBack = 3)`
 
-**File**: [`orders-report/js/tab-kpi-commission.js`](../../orders-report/js/tab-kpi-commission.js) (L3830–3925).
+**File**: [`orders-report/js/tab-kpi-commission.js`](../../orders-report/js/tab-kpi-commission.js).
 
-- **Endpoint**: `POST /api/FastSaleOrder/ExportFileRefund?TagIds=` qua proxy `https://chatomni-proxy.nhijudyshop.workers.dev` (bắt buộc đi proxy để vượt CORS).
+- **Endpoint**: `POST /api/FastSaleOrder/ExportFileDetail?TagIds=&type=refund` qua proxy `https://chatomni-proxy.nhijudyshop.workers.dev` (bắt buộc đi proxy để vượt CORS).
+  - Khác `ExportFileRefund` cũ ở chỗ file detail có thêm cột **"Chi tiết"** liệt kê từng món hoàn.
+  - Proxy forward generic `/api/*` → `https://tomato.tpos.vn/${path}${search}` (giữ nguyên query `&type=refund`).
 - **Auth**: dùng `window.tokenManager.getAuthHeader()` nếu có; iframe KPI thường không có → fallback gọi `/api/token` với credential theo `CompanyId` (1 = NJD Live / 2 = NJD Shop).
-- **OData filter** (gửi trong body `{ data: JSON.stringify(filter), ids: [] }`):
+- **OData filter** (gửi trong body `{ data: JSON.stringify(filter), ids: [] }`) — **giữ nguyên như cũ**:
   ```js
   Filter.filters = [
     { field: 'Type',        operator: 'eq',  value: 'refund' },
@@ -156,12 +167,29 @@ await Promise.all(workers);
   ]
   ```
   `startISO/endISO` đã trừ **7 giờ** để khớp múi giờ VN (UTC+7).
-- **Parse**: response là **XLSX binary**. Load **SheetJS** từ CDN nếu `XLSX` chưa có. `XLSX.utils.sheet_to_json(sheet, { range: 2 })` — **bỏ 2 dòng tiêu đề**, header thật ở dòng 3.
-- **Trích xuất**: cột **`"Tham chiếu"`** = mã đơn gốc (vd `NJD/2026/62621`) → gom vào `Set`.
-- **Trả về**: `{ codes: Set<orderCode>, totalRows, startISO, endISO }`.
-- **KHÔNG cache** — fetch tươi mỗi lần chạy đối soát. Lỗi → fallback `{ codes: new Set(), totalRows: 0 }` + cảnh báo *"Không tải được refund excel — đối soát chỉ check trạng thái đơn"*.
+- **Parse**: response là **XLSX binary**. Load **SheetJS** từ CDN nếu `XLSX` chưa có. `XLSX.utils.sheet_to_json(sheet, { range: 2 })` — **bỏ 2 dòng tiêu đề** (title ở dòng 1-2), header thật ở dòng 3 (table ref `A3:AG…`).
+- **Trích xuất theo từng đơn**:
+  - `"Tham chiếu"` = số phiếu gốc (vd `NJD/2026/62621`) = **join key** với `invoice.Number` của đơn KPI.
+  - `"Chi tiết"` = text liệt kê món hoàn, nhiều món cách nhau ` ; `, mỗi món `<SL> x [<CODE>] <tên>…`. Parser `_parseRefundChiTiet()` dùng regex `/(\d+)\s*x\s*\[([^\]]+)\]/g` → `[{code, qty}]`. Code normalize trim + UPPERCASE.
+- **Trả về**: `{ refundByInvoice: Map<invoiceNumber, Map<productCode, qtyHoàn>>, codes: Set<invoiceNumber>, totalRows, startISO, endISO }`. Aggregate SL khi 1 phiếu có nhiều dòng / 1 dòng nhiều món.
+- **KHÔNG cache** — fetch tươi mỗi lần chạy đối soát. Lỗi → fallback `{ refundByInvoice: new Map(), codes: new Set(), totalRows: 0 }` + cảnh báo *"Không tải được refund excel — đối soát chỉ check trạng thái đơn"*.
 
 > Cố định **3 tháng**, **không** theo khoảng ngày của bộ lọc tab (refund có thể xảy ra sau ngày bán nên cần quét rộng hơn).
+
+### 4b. So khớp món hoàn — `_matchRefundForOrder(invNumber, details, refundByInvoice)`
+
+```js
+refundItems = refundByInvoice.get(invNumber)        // Map<code, qtyHoàn> | undefined
+for (const d of Object.values(details)) {           // details = món KPI {code, net, ...}
+    if (d.net <= 0) continue;
+    const refQty = refundItems.get(d.code.trim().toUpperCase()) || 0;
+    if (refQty <= 0) continue;
+    refundedKpiAmount += Math.min(refQty, d.net) * 5000;   // trừ theo SL hoàn
+    refundedProducts.push({ code: d.code, name: d.name, qty: Math.min(refQty, d.net) });
+}
+```
+
+Trả `{ refundedKpiAmount, refundedProducts[], hasRefundRow }`. `hasRefundRow` = invoice có dòng refund (kể cả khi không trúng món KPI).
 
 ---
 
@@ -181,24 +209,31 @@ Trình tự:
    - SP trên TPOS (không thuộc BASE) nhưng thiếu trong audit → **`missing_audit`**.
    - SP trong audit (có net > 0) nhưng đã xoá khỏi TPOS → **`removed_from_tpos`**.
 
-Trả về: `{ orderId, hasDiscrepancy, actualNet, actualPerUser, actualPerUserNames, discrepancies[] }`.
+Trả về: `{ orderId, hasDiscrepancy, actualNet, actualPerUser, actualPerUserNames, details, discrepancies[] }`.
+
+> **`details`** (thêm 2026-06-03) = `{ [productId]: { code, name, net, ... } }` — danh sách **món tính KPI** của đơn (code + SL net). Đây là input cho `_matchRefundForOrder()` để so khớp với món hoàn. Trước đây `reconcileKPI` không trả field này.
 
 ---
 
 ## 6. Tính "loss" & gộp theo nhân viên — `_indexReconResults()`
 
-**File**: [`orders-report/js/tab-kpi-commission.js`](../../orders-report/js/tab-kpi-commission.js) (L4359–4382).
+**File**: [`orders-report/js/tab-kpi-commission.js`](../../orders-report/js/tab-kpi-commission.js).
+
+**Loss giờ là PER-PRODUCT** — cộng `refundedKpiAmount` (chỉ phần món hoàn), KHÔNG loại cả đơn:
 
 ```js
-const refundedSet = new Set(results.filter(r => r.isRefunded).map(r => r.orderId));
 for (const emp of state.filteredData) {
     let lossSum = 0, refundCount = 0;
     for (const order of emp.orders) {
-        if (refundedSet.has(order.orderId)) { lossSum += order.kpi || 0; refundCount++; }
+        const r = _reconByOrder.get(order.orderId);
+        const refLoss = r?.refundedKpiAmount || 0;
+        if (refLoss > 0) { lossSum += refLoss; refundCount++; }
     }
     _reconKpiLossByUser.set(emp.userId, { kpiLost: lossSum, refundCount });
 }
 ```
+
+> Cùng pattern lặp ở `_hydrateL1ReconCachesForEmployees()` và `_applyL1ReconCache()` (đều dùng `refundedKpiAmount`).
 
 Leaderboard (L1870–1936) đọc map này:
 - `kpiNet = emp.totalKPI − lossInfo.kpiLost` → số tiền hiển thị to (xanh).
@@ -218,21 +253,26 @@ Các Map dùng chung (để bảng KPI chính + modal đọc nhanh):
 {
   orderId,                // SaleOnlineId
   orderCode,              // Mã ĐH (vd NJD/2026/62621)
-  invoiceNumber,          // Số phiếu TPOS (từ _invoiceCache)
+  invoiceNumber,          // Số phiếu TPOS (từ _invoiceCache) — join key với "Tham chiếu"
   invoiceState,           // ShowState (vd "Đã thanh toán")
-  kpiAmount,              // KPI của đơn = netProducts × 5.000
+  kpiAmount,              // KPI gốc của đơn = netProducts × 5.000
   stt,                    // SessionIndex
   expectedNet,            // netProducts kỳ vọng
   actualNet,              // net thực từ audit (hoặc "Lỗi")
-  isRefunded,             // có trong refund Excel?
+  isRefunded,             // = refundedKpiAmount > 0 (có món KPI bị hoàn)
+  refundedKpiAmount,      // ⭐ KPI bị loại do hoàn = Σ min(SL hoàn, net) × 5.000 (PER-PRODUCT)
+  refundedProducts,       // ⭐ [{ code, name, qty }] các món KPI bị hoàn
+  hasRefundRow,           // ⭐ invoice có dòng refund (kể cả không trúng món KPI)
   hasDiscrepancy,         // isRefunded || lệch dữ liệu
   discrepancies: [ { type, message }, ... ]   // refunded | no_base | missing_audit | removed_from_tpos | error
 }
 ```
 
-Bảng kết quả (L4641–4717) hiển thị: **Mã ĐH · Số phiếu (TPOS) · STT · Expected · Actual · Delta · Trạng thái**. Badge: `✅ OK` / `↩ Đã hoàn (loại KPI)` / `⚠ Sai lệch`. Hàng con (mở bằng ▸) liệt kê chi tiết `discrepancies`.
+Bảng kết quả (`renderReconciliationResults`) hiển thị: **Mã ĐH · Số phiếu (TPOS) · STT · Expected · Actual · Delta · Trạng thái**. Badge: `✅ OK` / `↩ Đã hoàn (loại KPI)` / `⚠ Sai lệch`. Hàng con (mở bằng ▸) liệt kê `discrepancies` — gồm dòng `Hoàn N món KPI (<codes>) — loại <amount>đ`.
 
-Thẻ thống kê (`_renderReconciliationUI`, L4565–4639): Tổng đơn, OK, Đã hoàn (+ `Loại bỏ KPI: <VNĐ>`), Sai lệch khác. Meta: `Refund excel: N dòng · M mã đơn unique · check 3 tháng`.
+Thẻ thống kê (`_renderReconciliationUI`): Tổng đơn, OK, Đã hoàn (+ `Loại bỏ KPI: <VNĐ>` = Σ `refundedKpiAmount`), Sai lệch khác.
+
+Export Excel (`exportReconciliationExcel`) thêm 2 cột: **"KPI bị loại"** + **"Món hoàn"** (`<qty> x [code]`).
 
 ---
 
@@ -257,23 +297,28 @@ Chi tiết refund 1 phiếu (món trả + lý do) lấy on-demand qua `_fetchRef
 3. **Refund Excel không cache** — mỗi lần chạy là 1 lần tải file từ TPOS (có thể chậm vài giây).
 4. **KPI_PER_PRODUCT = 5.000đ** / SP NET (hằng số cứng, `tab-kpi-commission.js` L54).
 5. Đối soát **không ghi DB** — chỉ đọc TPOS + tính trong bộ nhớ; kết quả lưu tạm trong các Map `_recon*` (mất khi reload, trừ cache modal L1 7 ngày trong localStorage).
+6. **Cache modal L1 đã bump v1 → v2** (`_L1_RECON_CACHE_PREFIX = 'kpi_recon_l1_v2__'`): record v1 chỉ có `isRefunded` boolean (thiếu `refundedKpiAmount`) nên bị vô hiệu để tránh tính loss sai = 0.
+7. **So khớp code biến thể**: code trong `[CODE]` của "Chi tiết" (vd `B1924A36` gồm size) khớp y `productCode` trong audit/KPI (so sánh trim + UPPERCASE). Đổi biến thể đã được `calculateNetKPI` lọc khỏi KPI từ trước nên không lọt vào `details`.
 
 ---
 
 ## 10. Bảng tra cứu nhanh file/hàm
 
-| Thành phần | File | Vị trí |
+| Thành phần | File | Hàm |
 |---|---|---|
-| Markup khối Đối soát | `orders-report/tab-kpi-commission.html` | L327–495 |
-| Orchestrator | `orders-report/js/tab-kpi-commission.js` | `runReconciliation()` L4141–4351 |
-| Fetch refund Excel | `orders-report/js/tab-kpi-commission.js` | `fetchRefundedOrderCodes()` L3830–3925 |
-| Progress bar | `orders-report/js/tab-kpi-commission.js` | `_setReconProgress()` L3931 / `_hideReconProgress()` L3945 |
-| Index + gộp loss | `orders-report/js/tab-kpi-commission.js` | `_indexReconResults()` L4359–4382 |
-| Render kết quả | `orders-report/js/tab-kpi-commission.js` | `_renderReconciliationUI()` L4565 / `renderReconciliationResults()` L4641 |
-| Lõi "Sai lệch" | `orders-report/js/managers/kpi-manager.js` | `reconcileKPI()` L1084–1180 |
-| Nguồn số liệu KPI | `orders-report/js/tab-kpi-commission.js` | `loadAllStatistics()` L901–957 |
-| Leaderboard + loss | `orders-report/js/tab-kpi-commission.js` | L1870–1936 |
-| Modal L1 per-NV | `orders-report/js/tab-kpi-commission.js` | `runEmployeeReconciliation()` L2528–2665 |
-| Refund detail on-demand | `orders-report/js/tab-kpi-commission.js` | `_fetchRefundDetailForInvoice()` L4388+ |
+| Markup khối Đối soát | `orders-report/tab-kpi-commission.html` | `#reconciliationSection` (~L327–495) |
+| Orchestrator | `orders-report/js/tab-kpi-commission.js` | `runReconciliation()` |
+| **Fetch refund detail** | `orders-report/js/tab-kpi-commission.js` | `fetchRefundDetailByInvoice()` |
+| **Parser cột "Chi tiết"** | `orders-report/js/tab-kpi-commission.js` | `_parseRefundChiTiet()` |
+| **So khớp món hoàn** | `orders-report/js/tab-kpi-commission.js` | `_matchRefundForOrder()` |
+| Progress bar | `orders-report/js/tab-kpi-commission.js` | `_setReconProgress()` / `_hideReconProgress()` |
+| Index + gộp loss (per-product) | `orders-report/js/tab-kpi-commission.js` | `_indexReconResults()` |
+| Render kết quả | `orders-report/js/tab-kpi-commission.js` | `_renderReconciliationUI()` / `renderReconciliationResults()` |
+| Export Excel | `orders-report/js/tab-kpi-commission.js` | `exportReconciliationExcel()` |
+| Lõi "Sai lệch" + `details` | `orders-report/js/managers/kpi-manager.js` | `reconcileKPI()` |
+| Nguồn số liệu KPI | `orders-report/js/tab-kpi-commission.js` | `loadAllStatistics()` |
+| Leaderboard + loss | `orders-report/js/tab-kpi-commission.js` | `renderLeaderboard()` (~L1870–1936) |
+| Modal L1 per-NV | `orders-report/js/tab-kpi-commission.js` | `runEmployeeReconciliation()` / cache `_L1_RECON_CACHE_PREFIX` (v2) |
+| Refund detail on-demand (modal click) | `orders-report/js/tab-kpi-commission.js` | `_fetchRefundDetailForInvoice()` |
 
-> Các số dòng chụp tại thời điểm 2026-06-03; nếu file thay đổi nhiều, tìm theo **tên hàm** thay vì số dòng.
+> Số dòng bỏ bớt vì sẽ trôi sau mỗi sửa — tìm theo **tên hàm**.

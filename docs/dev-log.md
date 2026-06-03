@@ -53,6 +53,23 @@ Files: 26 route + server.js + sepay-webhook-core.js + db/web2-schema-mirror.js +
 
 Files: `render.com/db/web2-schema-mirror.js`, `render.com/db/web2-data-copy.js`, `render.com/routes/admin-schema-mirror-web2.js`, `render.com/routes/admin-data-copy-web2.js`, `render.com/server.js`
 
+### [orders] Đối soát KPI: đổi sang ExportFileDetail + so khớp refund theo MÓN ✅
+
+**User ask**: (1) đổi link tải refund excel `ExportFileRefund` → `ExportFileDetail?TagIds=&type=refund` (file có cột "Chi tiết" liệt kê từng món hoàn); (2) thực tế chỉ hoàn một số món trong đơn → so sánh **món tính KPI** với **món hoàn**, chỉ trúng món mới loại KPL (trừ theo SL hoàn).
+
+**Logic mới (per-product)**: trước đây đơn nằm trong refund → loại TOÀN BỘ KPI đơn. Giờ: chỉ loại `Σ min(SL hoàn, SL net KPI) × 5.000đ` của các món có code khớp giữa KPI `details` và cột "Chi tiết". Hoàn 1/5 món → chỉ mất KPI 1 món.
+
+**Thay đổi**:
+- `kpi-manager.js`: `reconcileKPI()` trả thêm `result.details` (món KPI: code+net).
+- `tab-kpi-commission.js`: `fetchRefundedOrderCodes` → **`fetchRefundDetailByInvoice`** (endpoint ExportFileDetail, parse cột "Chi tiết" qua `_parseRefundChiTiet` regex `/(\d+)\s*x\s*\[([^\]]+)\]/g` → `Map<invoiceNumber, Map<code,qty>>`). Helper mới **`_matchRefundForOrder`**. Record thêm `refundedKpiAmount`/`refundedProducts`/`hasRefundRow`. Loss aggregation (`_indexReconResults`, `_hydrateL1ReconCachesForEmployees`, `_applyL1ReconCache`, `renderEmployeeOrdersTable`) đổi sang `refundedKpiAmount`. Stats card + export Excel (+2 cột "KPI bị loại"/"Món hoàn") cập nhật. Bump cache L1 `kpi_recon_l1_v1__` → `v2__`.
+- Join key giữ nguyên: `invoice.Number` ↔ cột "Tham chiếu". Worker proxy forward generic `/api/*` giữ query `&type=refund` (verified).
+
+**Files**: `orders-report/js/managers/kpi-manager.js`, `orders-report/js/tab-kpi-commission.js`, `docs/orders-report/DOI-SOAT-KPI.md` (cập nhật theo logic mới).
+
+**Verify**: node --check 2 file OK; parser khớp file mẫu `docs/orders-report/tra-hang-chi-tiet.xlsx` (cột "Chi tiết", multi-món tách ` ; `). Read-only (chỉ fetch TPOS + tính in-memory, không ghi DB).
+
+**Status**: ✅ Done.
+
 ### [web2] Phase 3 namespace + overview DB/router (verified LIVE) ✅
 
 **Phase 3**: dual-mount mọi route Web 2.0 ở `/api/web2/<entity>` (giữ `/api/v2/*` alias) trong server.js + đổi 11 frontend file sang `/api/web2/*`. Verify LIVE: `/api/web2/kpi/scope`→200, `/api/web2/dashboard-kpi`→200, `/api/web2/notifications/unread-count`→200, `/api/web2/customers/by-phone/:phone/orders`→200 (Phase 2b). 404 ở root chỉ là route không có handler `/` (giống alias cũ, không regression).
