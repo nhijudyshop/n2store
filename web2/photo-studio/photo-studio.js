@@ -50,12 +50,18 @@
         _sourceImg: null,
         _fpsT: 0,
         _fpsN: 0,
+        _hqBusy: false,
     };
 
     const el = {};
     let work, workCtx; // offscreen for chroma processing (preview res)
     let maskC, maskCtx; // latest AI mask snapshot
     let octx; // output ctx
+    let imglyMod = null; // lazy-loaded @imgly/background-removal module (AI nét)
+
+    // @imgly/background-removal (IS-Net / U²-Net, on-device, free). ESM qua esm.sh
+    // để tự gói dependency (onnxruntime-web). Lazy import lần đầu dùng "AI nét".
+    const IMGLY_URL = 'https://esm.sh/@imgly/background-removal@1.5.5';
 
     // ---- Init -----------------------------------------------------------
     function init() {
@@ -391,8 +397,12 @@
                         state.busy = false;
                     });
             }
-        } else {
+        } else if (state.mode === 'chroma') {
             renderChroma(octx, state.W, state.H, currentSourceEl(), state.crop);
+            tickFps();
+        } else {
+            // 'hq' — không tách realtime (model nặng), chỉ show khung hình để canh.
+            renderPassthrough(octx, state.W, state.H, currentSourceEl(), state.crop);
             tickFps();
         }
         state.rafId = requestAnimationFrame(frame);
@@ -427,6 +437,17 @@
         drawBg(ctx, W, H, frameEl, crop);
         ctx.restore();
         ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // ---- Passthrough (hq preview) --------------------------------------
+    function renderPassthrough(ctx, W, H, src, crop) {
+        if (!W || !H || !src) return;
+        try {
+            ctx.clearRect(0, 0, W, H);
+            ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, W, H);
+        } catch {
+            /* frame not ready */
+        }
     }
 
     // ---- Chroma key -----------------------------------------------------
@@ -524,10 +545,12 @@
     // ---- Capture (high-res one-shot) ------------------------------------
     function capture() {
         if (!state.srcNatW) return;
+        if (state.mode === 'hq') {
+            captureHQ();
+            return;
+        }
         const crop = cropRect(state.srcNatW, state.srcNatH);
-        const scale = Math.min(1, CAPTURE_MAX_LONG / Math.max(crop.sw, crop.sh));
-        const W = Math.round(crop.sw * scale);
-        const H = Math.round(crop.sh * scale);
+        const { W, H } = captureSize(crop);
         const src = currentSourceEl();
 
         const comp = document.createElement('canvas');
@@ -543,7 +566,16 @@
             notify('Mô hình AI chưa sẵn sàng — đợi vài giây rồi chụp lại.', 'warning');
             return;
         }
+        finalizeCapture(comp, W, H);
+    }
 
+    function captureSize(crop) {
+        const scale = Math.min(1, CAPTURE_MAX_LONG / Math.max(crop.sw, crop.sh));
+        return { W: Math.round(crop.sw * scale), H: Math.round(crop.sh * scale) };
+    }
+
+    /** Bake mirror + format + push to results gallery. */
+    function finalizeCapture(comp, W, H) {
         const jpg = state.format === 'jpg';
         const out = document.createElement('canvas');
         out.width = W;
@@ -558,12 +590,80 @@
             octx2.scale(-1, 1);
         }
         octx2.drawImage(comp, 0, 0);
-
         out.toBlob(
             (blob) => blob && addResult(blob, W, H, jpg ? 'jpg' : 'png'),
             jpg ? 'image/jpeg' : 'image/png',
             0.92
         );
+    }
+
+    // ---- AI nét (@imgly/background-removal, on-device) ------------------
+    async function loadImgly() {
+        if (imglyMod) return imglyMod;
+        imglyMod = await import(/* @vite-ignore */ IMGLY_URL);
+        return imglyMod;
+    }
+
+    async function captureHQ() {
+        if (state._hqBusy || !state.srcNatW) return;
+        state._hqBusy = true;
+        el.capture.disabled = true;
+        showLoading(
+            imglyMod ? 'Đang tách nền…' : 'Đang tải mô hình AI nét (lần đầu ~vài chục MB)…'
+        );
+        try {
+            const crop = cropRect(state.srcNatW, state.srcNatH);
+            const { W, H } = captureSize(crop);
+            // 1) khung hình gốc (đã crop) ở độ phân giải capture
+            const tmp = document.createElement('canvas');
+            tmp.width = W;
+            tmp.height = H;
+            tmp.getContext('2d').drawImage(
+                currentSourceEl(),
+                crop.sx,
+                crop.sy,
+                crop.sw,
+                crop.sh,
+                0,
+                0,
+                W,
+                H
+            );
+            const inputBlob = await canvasToBlob(tmp, 'image/png');
+            // 2) tách nền on-device
+            const mod = await loadImgly();
+            showLoading('Đang tách nền…');
+            const cutBlob = await mod.removeBackground(inputBlob);
+            const cutImg = await blobToImage(cutBlob);
+            // 3) ghép nền mới (full crop coords)
+            const comp = document.createElement('canvas');
+            comp.width = W;
+            comp.height = H;
+            const cctx = comp.getContext('2d');
+            drawBg(cctx, W, H, tmp, { sx: 0, sy: 0, sw: W, sh: H });
+            cctx.drawImage(cutImg, 0, 0, W, H);
+            URL.revokeObjectURL(cutImg.src);
+            finalizeCapture(comp, W, H);
+        } catch (e) {
+            console.error('[photo-studio] AI nét', e);
+            notify('Tách nền nét thất bại: ' + (e?.message || e), 'error');
+        } finally {
+            hideLoading();
+            state._hqBusy = false;
+            el.capture.disabled = false;
+        }
+    }
+
+    function canvasToBlob(canvas, type, q) {
+        return new Promise((res) => canvas.toBlob(res, type, q));
+    }
+    function blobToImage(blob) {
+        return new Promise((res, rej) => {
+            const img = new Image();
+            img.onload = () => res(img);
+            img.onerror = rej;
+            img.src = URL.createObjectURL(blob);
+        });
     }
 
     function renderChromaHiRes(ctx, W, H, src, crop) {
@@ -639,26 +739,38 @@
     }
 
     // ---- UI switching ---------------------------------------------------
+    const MODE_NOTE = {
+        ai: 'AI nhận diện chủ thể realtime, không cần phông. Tốt cho người & sản phẩm.',
+        hq: 'AI nét (IS-Net) — viền sắc cho sản phẩm/vật thể. Bấm Chụp để xử lý (lần đầu tải mô hình ~vài chục MB, sau đó cache nhanh).',
+        chroma: 'Chụp trên phông đơn sắc đủ sáng. Bấm vào vùng phông để lấy đúng màu.',
+    };
+
     function setMode(mode) {
         state.mode = mode;
         activate(document.querySelectorAll('.ps-seg-btn[data-mode]'), null);
         document.querySelector(`.ps-seg-btn[data-mode="${mode}"]`)?.classList.add('is-active');
         const isChroma = mode === 'chroma';
+        const isAi = mode === 'ai';
+        // Engines cached: chuyển qua lại tức thì sau lần đầu (state.seg + imglyMod giữ nguyên).
         el.chromaCard.hidden = !isChroma;
-        el.aiCard.hidden = isChroma;
+        el.aiCard.hidden = !isAi; // slider feather chỉ áp cho AI realtime
         el.sampleHint.hidden = !isChroma;
         el.output.classList.toggle('ps-pickable', isChroma);
-        el.modeNote.textContent = isChroma
-            ? 'Chụp trên phông đơn sắc đủ sáng. Bấm vào vùng phông để lấy đúng màu.'
-            : 'AI nhận diện chủ thể, không cần phông. Tốt cho người & sản phẩm.';
-        // "Mờ nền" chỉ hợp lý ở chế độ AI (chroma đã xóa phông)
+        el.modeNote.textContent = MODE_NOTE[mode] || MODE_NOTE.ai;
+        // "Mờ nền" chỉ hợp lý khi còn frame gốc (AI nhanh / AI nét); chroma đã xóa phông
         el.bgBlurBtn.disabled = isChroma;
         if (isChroma && state.bgType === 'blur') setBgType('transparent');
-        if (mode === 'ai' && !state.segReady) {
+        if (isAi && !state.segReady) {
             notify('Mô hình AI chưa sẵn sàng — kiểm tra mạng rồi thử lại.', 'warning');
         }
-        if (mode === 'ai' && !state.modelLoaded && state.running) {
+        if (isAi && !state.modelLoaded && state.running) {
             showLoading('Đang tải mô hình AI…');
+        } else if (mode !== 'ai') {
+            hideLoading();
+        }
+        // hq mode: preload engine ngầm để lần Chụp đầu nhanh hơn (cache).
+        if (mode === 'hq' && !imglyMod) {
+            loadImgly().catch((e) => console.warn('[photo-studio] preload imgly', e));
         }
     }
 
