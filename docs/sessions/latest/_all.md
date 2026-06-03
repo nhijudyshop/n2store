@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5cb0809` — fix(web2): Phase 5 data-copy — JSON.stringify cột json/jsonb (array bị gửi thành PG array → invalid json)
-**Last updated**: 2026-06-03 17:21:10 +07
-**Latest session**: [`RESUME:20260603-172110-5cb0809`](../20260603-172110-5cb0809.md)
-**Summary**: fix(web2): Phase 5 data-copy — JSON.stringify cột json/jsonb (array bị gửi thành PG array → invalid json)
+**Latest commit**: `b9a62af` — docs(web2): dev-log Phase 4+5 DONE (schema mirror + data copy verified allMatch)
+**Last updated**: 2026-06-03 17:25:11 +07
+**Latest session**: [`RESUME:20260603-172511-b9a62af`](../20260603-172511-b9a62af.md)
+**Summary**: docs(web2): dev-log Phase 4+5 DONE (schema mirror + data copy verified allMatch)
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-03 17:07
+- [`docs/`](./docs.md) — updated 2026-06-03 17:25
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-03 16:52
 - [`downloads/`](./downloads.md) — updated 2026-06-03 16:18
