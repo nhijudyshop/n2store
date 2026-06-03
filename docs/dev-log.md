@@ -25,6 +25,22 @@
 
 ## 2026-06-03
 
+### [inventory-tracking] Cây bút chỉnh sửa cho cột Đơn giá ✅
+
+**User ask**: "cho cây bút chỉnh sửa ở Đơn giá".
+
+**File**: [inventory-tracking/js/table-renderer.js](../inventory-tracking/js/table-renderer.js) line 1260.
+
+**Change**: thêm `<button class="btn-edit-cell btn-edit-price">` với `<i data-lucide="pencil">` vào `<td class="col-price">` — giống pattern đã có cho col-sku/col-colors/col-qty. Onclick `event.stopPropagation(); startInlineEdit(this.closest('td'))` mở inline edit cho `giaDonVi`. Title "Sửa Đơn giá".
+
+**CSS**: `.btn-edit-cell` generic class ở `inventory-tracking/css/modern.css` line 1674 đã có sẵn — show on hover, pencil icon size, position. Không cần thêm rule riêng.
+
+**Verify**: syntax `node --check` pass. Pattern y nguyên 3 sibling columns đã chạy production. Bump `table-renderer.js?v=20260603a`.
+
+**Status**: ✅ Done.
+
+---
+
 ### [so-order][products] Mã SP theo rule + hiển thị mã/SL + nút nhận hàng theo NCC + NCC=KHO ✅
 
 **Files**: [so-order/js/so-order-app.js](../so-order/js/so-order-app.js), [so-order/index.html](../so-order/index.html), [so-order/css/so-order.css](../so-order/css/so-order.css), [web2/products/js/web2-products-app.js](../web2/products/js/web2-products-app.js), [web2/products/index.html](../web2/products/index.html)
