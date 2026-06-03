@@ -102,9 +102,13 @@
             if (!navigator.permissions?.query) return;
             const st = await navigator.permissions.query({ name: 'camera' });
             if (st.state === 'granted') startCamera({ silent: true });
+            else if (st.state === 'denied') {
+                // Đã bị chặn từ trước → Chrome sẽ KHÔNG hỏi lại. Báo + hướng dẫn ngay.
+                showPermissionHelp('Quyền camera đang bị chặn cho trang này.');
+            }
             st.onchange = () => {
-                if (st.state === 'granted' && !state.stream && state.source !== 'image') {
-                    startCamera({ silent: true });
+                if (st.state === 'granted' && state.source !== 'image') {
+                    if (!state.stream) startCamera({ silent: true });
                 }
             };
         } catch {
@@ -305,15 +309,15 @@
             hideLoading();
             console.error('[photo-studio] getUserMedia', e);
             if (!opts.silent) {
-                const msg = cameraErrorMsg(e);
-                showStageError(msg); // hiện rõ trong khung (mobile không có notif)
-                notify(msg, 'error');
+                const denied = e?.name === 'NotAllowedError' || e?.name === 'SecurityError';
+                if (denied) showPermissionHelp('Quyền camera đang bị chặn cho trang này.');
+                else showStageError(cameraErrorMsg(e));
+                notify(cameraErrorMsg(e), 'error');
             }
         }
     }
 
-    // Hiện thông báo lỗi camera ngay trong khung xem trước (mobile-friendly,
-    // không phụ thuộc toast). Tự khôi phục khi camera/ảnh mở thành công.
+    // Thông báo lỗi đơn giản trong khung (không phải lỗi quyền).
     function showStageError(msg) {
         el.stageEmpty.innerHTML =
             `<i data-lucide="camera-off"></i><p class="ps-stage-err">${msg}</p>` +
@@ -324,11 +328,64 @@
         relucide();
     }
 
+    // Hướng dẫn cấp quyền camera từng bước (Chrome Android chỉ hỏi 1 lần; bị
+    // chặn rồi phải bật tay trong cài đặt site). Tùy nền tảng.
+    function showPermissionHelp(reason) {
+        el.stageEmpty.innerHTML =
+            `<i data-lucide="camera-off"></i>` +
+            `<p class="ps-stage-err">${reason}</p>` +
+            `<div class="ps-help">${permissionStepsHTML()}</div>` +
+            `<button class="ps-btn ps-btn-sm ps-btn-primary" id="psRetryCam">` +
+            `<i data-lucide="rotate-cw"></i> Đã cấp quyền — Thử lại</button>`;
+        el.stageEmpty.hidden = false;
+        document.getElementById('psRetryCam')?.addEventListener('click', () => startCamera());
+        relucide();
+    }
+
+    function permissionStepsHTML() {
+        if (isIOS()) {
+            return (
+                `<div class="ps-help-title">Bật quyền Camera trên iPhone:</div>` +
+                `<ol>` +
+                `<li>Mở <b>Cài đặt</b> điện thoại → cuộn tìm <b>${browserName()}</b></li>` +
+                `<li>Bật <b>Camera</b></li>` +
+                `<li>Quay lại trang này, nhấn <b>Thử lại</b></li>` +
+                `</ol>` +
+                `<div class="ps-help-alt">Safari: nhấn <b>aA</b> bên trái thanh địa chỉ → <b>Cài đặt trang web</b> → <b>Camera</b> → <b>Cho phép</b>.</div>`
+            );
+        }
+        // Android Chrome & các trình duyệt khác
+        return (
+            `<div class="ps-help-title">Bật quyền Camera trên Chrome điện thoại:</div>` +
+            `<ol>` +
+            `<li>Nhấn biểu tượng <b>🔒</b> (hoặc <b>⊟ / ⓘ</b>) ngay bên trái địa chỉ web phía trên</li>` +
+            `<li>Chọn <b>Quyền</b> (Permissions) → <b>Máy ảnh</b> (Camera)</li>` +
+            `<li>Chọn <b>Cho phép</b> (Allow)</li>` +
+            `<li>Nhấn <b>Thử lại</b> bên dưới (hoặc tải lại trang)</li>` +
+            `</ol>` +
+            `<div class="ps-help-alt">Hoặc: menu <b>⋮</b> (góc trên phải) → <b>Cài đặt</b> → <b>Cài đặt trang web</b> → <b>Máy ảnh</b> → tìm trang này → <b>Cho phép</b>.</div>`
+        );
+    }
+
+    function isIOS() {
+        return (
+            /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+        );
+    }
+    function browserName() {
+        const ua = navigator.userAgent;
+        if (/CriOS/i.test(ua)) return 'Chrome';
+        if (/FxiOS/i.test(ua)) return 'Firefox';
+        if (/EdgiOS/i.test(ua)) return 'Edge';
+        return 'Safari';
+    }
+
     function cameraErrorMsg(e) {
         switch (e?.name) {
             case 'NotAllowedError':
             case 'SecurityError':
-                return 'Bạn chưa cho phép quyền camera. Bấm biểu tượng 🔒 trên thanh địa chỉ → cho phép Camera → bấm "Bật camera" lại.';
+                return 'Quyền camera đang bị chặn. Xem hướng dẫn cấp quyền trong khung.';
             case 'NotFoundError':
             case 'OverconstrainedError':
                 return 'Không tìm thấy camera phù hợp trên thiết bị.';

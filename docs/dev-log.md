@@ -83,6 +83,17 @@ Trang dùng chủ yếu trên điện thoại → cải thiện UX quyền camer
 
 **Files**: `web2/photo-studio/{index.html,photo-studio.js}` (v=20260603d).
 
+### [web2] Studio chụp tách nền — v6 hướng dẫn cấp quyền camera từng bước ✅
+
+User: Chrome điện thoại không hiện popup + không biết chỗ cấp quyền. Nguyên nhân: Chrome Android chỉ hỏi 1 lần; bị chặn/embargo rồi thì gUM reject `NotAllowedError` ngay, không prompt lại → phải bật tay trong site settings.
+
+- **Phát hiện chặn từ đầu**: `autoStartIfAllowed` thêm nhánh `state==='denied'` → gọi `showPermissionHelp()` ngay khi tải (báo trước, không đợi user bấm rồi mới biết).
+- **Hướng dẫn từng bước tùy nền tảng** (`permissionStepsHTML` + `isIOS`/`browserName`): Android Chrome → "nhấn 🔒/⊟ bên trái địa chỉ → Quyền → Máy ảnh → Cho phép" + fallback "⋮ → Cài đặt → Cài đặt trang web → Máy ảnh"; iOS → "Cài đặt → <trình duyệt> → Camera" + mẹo Safari "aA → Cài đặt trang web". Nút "Đã cấp quyền — Thử lại".
+- `cameraErrorMsg` rút gọn cho toast; chi tiết nằm ở panel `.ps-help` trong khung preview.
+- **Test** (Playwright, UA Pixel 7 Android Chrome): denied-on-load → help 4 bước + tiêu đề Chrome + retry ✓; prompt→click→deny → help 4 bước, gUM gọi 1 lần ✓.
+
+**Files**: `web2/photo-studio/{index.html,photo-studio.js,photo-studio.css}` (v=20260603f).
+
 ### [web2] Studio chụp tách nền — v5 hiện rõ prompt/lỗi quyền camera ✅
 
 User: "bấm Bật camera sẽ hỏi quyền nếu chưa có". Verify đúng luồng + fix gap thông báo:
