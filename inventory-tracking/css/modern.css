@@ -6144,3 +6144,157 @@ textarea.inline-edit-input {
         display: none;
     }
 }
+
+/* =====================================================
+ * EDIT HISTORY TAB (Lịch Sử) — toolbar + expandable product diff
+ * ===================================================== */
+.hist-tab-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 4px 14px;
+}
+.hist-tab-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+}
+.hist-flt {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 12px;
+    color: var(--gray-600, #4b5563);
+}
+.hist-flt .form-input {
+    min-width: 150px;
+}
+.hist-tab-body {
+    padding: 0 4px 24px;
+}
+.hist-tab-count {
+    font-size: 12px;
+    color: var(--gray-500, #6b7280);
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+.hist-loading,
+.hist-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--gray-500, #6b7280);
+}
+.hist-loading i {
+    animation: spin 1s linear infinite;
+    vertical-align: middle;
+}
+
+/* Collapsible entry */
+.hist-entry-collapsible .hist-entry-head {
+    cursor: pointer;
+    user-select: none;
+}
+.hist-expand-chevron {
+    width: 15px;
+    height: 15px;
+    color: var(--gray-400, #9ca3af);
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+}
+.hist-entry-summary {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--gray-500, #6b7280);
+    padding-left: 23px;
+}
+.hist-entry-collapsible.expanded .hist-entry-summary {
+    display: none;
+}
+.hist-prod-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: #fef3c7;
+    color: #92400e;
+}
+.hist-prod-badge i {
+    width: 12px;
+    height: 12px;
+}
+
+/* Product (san_pham) per-item diff */
+.hist-change-block {
+    display: block;
+}
+.hist-change-block .hist-change-field {
+    display: block;
+    margin-bottom: 6px;
+}
+.hist-prod-diff {
+    border: 1px solid var(--gray-200, #e5e7eb);
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+}
+.hist-prod-diff-head {
+    background: var(--gray-100, #f3f4f6);
+    padding: 5px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--gray-700, #374151);
+}
+.hist-prod-line {
+    display: grid;
+    grid-template-columns: 28px 1fr 16px 1fr;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    font-size: 12.5px;
+    border-top: 1px solid var(--gray-100, #f3f4f6);
+}
+.hist-prod-line.changed {
+    background: #fffbeb;
+}
+.hist-prod-idx {
+    color: var(--gray-400, #9ca3af);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+.hist-prod-old {
+    color: #b91c1c;
+    word-break: break-word;
+}
+.hist-prod-line.changed .hist-prod-old {
+    text-decoration: line-through;
+    text-decoration-color: rgba(185, 28, 28, 0.35);
+}
+.hist-prod-new {
+    color: #166534;
+    font-weight: 500;
+    word-break: break-word;
+}
+.hist-prod-arrow {
+    width: 14px;
+    height: 14px;
+    color: var(--gray-400, #9ca3af);
+}
+
+@media (max-width: 640px) {
+    .hist-flt .form-input {
+        min-width: 120px;
+    }
+    .hist-prod-line {
+        grid-template-columns: 20px 1fr;
+    }
+    .hist-prod-arrow {
+        display: none;
+    }
+    .hist-prod-new {
+        grid-column: 2;
+    }
+}

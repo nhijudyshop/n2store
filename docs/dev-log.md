@@ -25,6 +25,20 @@
 
 ## 2026-06-03
 
+### [inventory-tracking] Fix bug modal-shipment ghi đè mã hàng/màu + tab Lịch Sử + khôi phục data ✅
+
+**Sự cố (data-loss thật, không phải ẩn/realtime):** User sửa inline tên mã hàng (`maSP`) + chi tiết màu (`mauSac`) trực tiếp trên bảng. Sau đó mở modal sửa kiện/ghi-chú-admin của đợt rồi Lưu → `saveShipment()` **re-parse lại textarea sản phẩm** (textarea đổ từ `rawText`, không phải maSP/mauSac đã sửa) cho **MỌI NCC trong đợt** → maSP rớt về mã trần, mauSac về "1 màu". 1 lần lưu ghi chú lúc 13:37:44 wipe 4 NCC (stt 24, 24-TOA, 67, 40) cùng lúc. Chẩn đoán bằng edit-history: đúng 5 PUT `san_pham` cùng user "Lài" cách nhau ~0.1s.
+
+**Files:**
+
+- `js/modal-shipment.js` — `saveShipment()`: chỉ re-parse khi textarea **thực sự bị sửa**; nếu `productText === origProductText` (dựng lại từ `existingInvoice.sanPham`) thì **giữ nguyên sanPham cũ** (bảo toàn maSP/moTa/mauSac inline-edited). Chặn tái diễn.
+- `js/history-tab.js` (mới) + `index.html` (tab button + panel + script) + `js/main.js` (switch case `history`) + `css/modern.css` (toolbar + product diff): **tab "Lịch Sử"** query toàn bộ audit trail 30 ngày, filter ngày/NCC/loại, **mở rộng diff `san_pham` hiện maSP cũ→mới từng dòng** (modal cũ chỉ ghi "N item" — không recover được).
+- Bump `?v`: modal-shipment 20260603b, main 20260603b, history-tab 20260603a, modern.css 20260603b.
+
+**Khôi phục data:** Lấy old value từ edit-history 13:37:44, **merge theo từng SP** (chỉ khôi phục SP còn hỏng + maSP khớp old = chưa bị user gõ lại) → khôi phục 15 tên + 14 màu (stt 24), 5 tên + 4 màu (24-TOA) qua API PUT. Tổng tiền/món giữ nguyên. KHÔNG đè phần user đang gõ dở.
+
+**Verified:** Playwright smoke localhost — tab load 500 entries, 439 badge "Mã hàng", expand diff OK, filter san_pham 439. `node --check` 3 file pass.
+
 ### [render][overview] Đổi tên kho KH đơn hàng web2Db: `customers` → `web2_order_customers` ✅
 
 Web 2.0 có 2 kho KH gây nhầm tên với Web 1.0. Tách rõ + đổi tên theo convention `web2_`:
