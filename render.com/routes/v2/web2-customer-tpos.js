@@ -67,8 +67,9 @@ router.get('/by-fb-id/:fbUserId', async (req, res) => {
         if (!result.customer) {
             return res.json({ success: true, customer: null, source: 'tpos-not-found' });
         }
-        // Upsert customers table + link fb_id để future lookup nhanh
-        const pool = req.app.locals.chatDb;
+        // Upsert customers table + link fb_id để future lookup nhanh.
+        // Phase 6: web2Db (bản customers riêng) — KHÔNG ghi Web 1.0 chatDb.
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         if (pool && result.customer.phone) {
             try {
                 const created = await getOrCreateCustomerFromTPOS(

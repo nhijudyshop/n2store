@@ -120,8 +120,9 @@
         <script>
             (function () {
                 const API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/smart-match';
+                // Phase 6: web2 balance-history (web2Db) — KHÔNG đụng /api/v2 Web 1.0
                 const BHAPI =
-                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/balance-history';
+                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/balance-history';
                 function esc(s) {
                     const d = document.createElement('div');
                     d.textContent = String(s ?? '');
@@ -182,14 +183,15 @@
                             const pbh = btn.dataset.pbh;
                             if (!phone) return alert('Đơn không có SĐT');
                             if (!confirm('Link GD #' + id + ' tới PBH ' + pbh + '?')) return;
+                            // web2 endpoint: PATCH /:id/link {phone} (gán SĐT + cộng ví web2Db)
                             const r = await fetch(BHAPI + '/' + id + '/link', {
-                                method: 'POST',
+                                method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
                                 credentials: 'include',
                                 body: JSON.stringify({
-                                    customer_phone: phone,
+                                    phone: phone,
                                     pbh_number: pbh,
-                                    source: 'smart-match',
+                                    verifiedBy: 'smart-match',
                                 }),
                             });
                             const d = await r.json();
