@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4ed5ff3` — auto: session update
-**Last updated**: 2026-06-03 16:07:55 +07
-**Latest session**: [`RESUME:20260603-160755-4ed5ff3`](../20260603-160755-4ed5ff3.md)
-**Summary**: auto: session update
+**Latest commit**: `3e40337` — feat(inventory-tracking): cây bút chỉnh sửa cho cột Đơn giá
+**Last updated**: 2026-06-03 16:18:07 +07
+**Latest session**: [`RESUME:20260603-161807-3e40337`](../20260603-161807-3e40337.md)
+**Summary**: feat(inventory-tracking): cây bút chỉnh sửa cho cột Đơn giá
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 3 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`downloads/`](./downloads.md) — 1 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -26,16 +26,16 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-03 16:07
+- [`docs/`](./docs.md) — updated 2026-06-03 16:18
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
-- [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
+- [`downloads/`](./downloads.md) — updated 2026-06-03 16:18
 - [`facebook-services/`](./facebook-services.md) — updated 2026-05-21 15:39
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-01 18:45
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-03 16:18
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:43
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
