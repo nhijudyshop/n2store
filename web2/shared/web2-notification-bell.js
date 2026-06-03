@@ -11,7 +11,7 @@
 
     async function _fetchUnreadCount() {
         try {
-            const r = await fetch(API_BASE + '/api/v2/notifications/unread-count', {
+            const r = await fetch(API_BASE + '/api/web2/notifications/unread-count', {
                 credentials: 'include',
             });
             const d = await r.json();
@@ -20,7 +20,7 @@
     }
     async function _fetchList() {
         try {
-            const r = await fetch(API_BASE + '/api/v2/notifications/list?limit=20', {
+            const r = await fetch(API_BASE + '/api/web2/notifications/list?limit=20', {
                 credentials: 'include',
             });
             const d = await r.json();
@@ -29,7 +29,7 @@
     }
     async function _markRead(id) {
         try {
-            await fetch(API_BASE + '/api/v2/notifications/' + id + '/read', {
+            await fetch(API_BASE + '/api/web2/notifications/' + id + '/read', {
                 method: 'POST',
                 credentials: 'include',
             });
@@ -37,7 +37,7 @@
     }
     async function _markAllRead() {
         try {
-            await fetch(API_BASE + '/api/v2/notifications/mark-all-read', {
+            await fetch(API_BASE + '/api/web2/notifications/mark-all-read', {
                 method: 'POST',
                 credentials: 'include',
             });

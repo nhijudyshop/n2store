@@ -6,7 +6,7 @@
 //   - Search: tokenize input, AND-match qua code/name/variant (ASCII normalize).
 //   - Drag source: mỗi card SP có draggable=true; setData('application/x-web2-product', JSON).
 //   - Drop target: comment rows đã có đơn (data-conv-id) ở .pk-conversation-list.
-//   - Cart: POST /api/v2/cart/:commentId/add — sync qua SSE 'web2:cart' multi-tab.
+//   - Cart: POST /api/web2/cart/:commentId/add — sync qua SSE 'web2:cart' multi-tab.
 //
 // State khi switch tab Chat↔Kho lưu localStorage 'tpos_pancake_active_tab' (default 'kho').
 

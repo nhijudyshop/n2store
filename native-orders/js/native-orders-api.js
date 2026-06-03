@@ -117,7 +117,7 @@
          * @returns {Promise<{success, user, scope, access:'all'|'restricted'}>}
          */
         async getKpiScope() {
-            return _fetchJson(`${WORKER_URL}/api/v2/kpi/scope`);
+            return _fetchJson(`${WORKER_URL}/api/web2/kpi/scope`);
         },
 
         // ===== Product picker helper (hits web2-products API) =====

@@ -1,13 +1,13 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 //
 // KPI Dashboard — Forecast vs Actual per beneficiary per campaign.
-// API: /api/v2/kpi/forecast?campaign_id= và /actual?campaign_id= và /events?...
+// API: /api/web2/kpi/forecast?campaign_id= và /actual?campaign_id= và /events?...
 
 (function () {
     'use strict';
 
     const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const KPI_API = `${WORKER}/api/v2/kpi`;
+    const KPI_API = `${WORKER}/api/web2/kpi`;
     const NATIVE_CAMPAIGNS_API = `${WORKER}/api/native-orders/campaigns`;
 
     const STATE = {
