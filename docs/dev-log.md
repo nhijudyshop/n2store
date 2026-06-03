@@ -60,6 +60,16 @@ Files: `web2/balance-history/index.html`, `web2/balance-history/js/web2-balance-
 - **FPS badge** góc stage. Preview cap nâng 960→1080.
 - **Test** (Playwright): loading ẩn lúc init ✓, aspect 300×400→300×300 ✓, chroma center đỏ giữ/góc xanh xóa ✓, capture PNG+JPG (2 cards, filename đúng đuôi, meta WxH·KB) ✓, blur disabled in chroma ✓, 0 error.
 
+### [web2] Studio chụp tách nền — v3 thêm engine "AI nét" (@imgly/background-removal) ✅
+
+- **3 chế độ chuyển qua lại tự do (cached)**: `ai` (MediaPipe realtime) / `hq` (AI nét) / `chroma`. Engine giữ trong RAM (`state.seg`, `imglyMod`) + model file cache HTTP → đổi mode sau lần đầu là tức thì.
+- **AI nét** = `@imgly/background-removal@1.5.5` (IS-Net/U²-Net, ONNX runtime-web, **on-device, free**) — lazy `import()` từ `esm.sh` (tự gói dependency). Viền nét hơn MediaPipe cho **sản phẩm/vật thể bất kỳ**, KHÔNG cần phông xanh.
+- Không realtime (model nặng): mode `hq` preview = `renderPassthrough` (chỉ show khung canh), tách nền chạy khi bấm **Chụp** → `removeBackground(blob)` → ghép nền (màu/ảnh/mờ/trong suốt) ở độ phân giải gốc. Loading overlay trong lúc xử lý; preload ngầm engine khi chọn mode để lần Chụp đầu nhanh.
+- Refactor: tách `finalizeCapture()` + `captureSize()` dùng chung cho cả 3 mode.
+- **Test** (Playwright): 3 mode ["ai","hq","chroma"] ✓, switch hq→ai→chroma→hq cached active ✓, esm.sh import `removeBackground=function` ✓, **end-to-end AI nét: upload ảnh → Chụp → ra card transparent 240×320 trong 20s (gồm tải model lần đầu), loading ẩn sau xử lý** ✓, 0 error.
+
+**Files**: `web2/photo-studio/{index.html,photo-studio.js,photo-studio.css}` (v=20260603c).
+
 ### [web2] Kho KH thống nhất + Overview "Kho dữ liệu dùng chung" ✅
 
 **Sửa KH 1 nguồn → sync TPOS 2 chiều**: endpoint mới `PATCH /api/web2/customers/:id` (id=TPOS Partner Id) — sửa tên/SĐT/địa chỉ → push TPOS by tposId (đổi SĐT vẫn update đúng partner, không tạo dup) + update cache `web2_customers`. ĐÂY LÀ NƠI DUY NHẤT sửa KH. native-orders order-edit cũng sync (đã thêm phone vào trigger). partner-customer vẫn edit thẳng TPOS (full PUT). customer-wallet chỉ link TPOS (không sửa inline).
