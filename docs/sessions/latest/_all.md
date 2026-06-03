@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8c6859b` — feat(web2): đổi tên kho KH đơn hàng customers → web2_order_customers (web2Db)
-**Last updated**: 2026-06-03 20:48:20 +07
-**Latest session**: [`RESUME:20260603-204820-8c6859b`](../20260603-204820-8c6859b.md)
-**Summary**: feat(web2): đổi tên kho KH đơn hàng customers → web2_order_customers (web2Db)
+**Latest commit**: `7033a0e` — auto: session update
+**Last updated**: 2026-06-03 21:02:06 +07
+**Latest session**: [`RESUME:20260603-210206-7033a0e`](../20260603-210206-7033a0e.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 9 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -35,7 +33,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-03 16:26
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-03 21:02
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:43
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
