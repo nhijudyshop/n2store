@@ -85,6 +85,75 @@ router.get('/search', async (req, res) => {
     }
 });
 
+// GET /by-phone/:phone/orders — lịch sử đơn (Đơn Web + PBH) theo SĐT.
+// Thay /api/v2/customers/by-phone/:phone/orders (Web 1.0) — KHÔNG qua bảng
+// `customers`, query thẳng native_orders + fast_sale_orders theo phone.
+// native_orders/fast_sale_orders hiện ở chatDb (Phase 6 sẽ chuyển web2Db).
+router.get('/by-phone/:phone/orders', async (req, res) => {
+    const db = req.app.locals.chatDb || req.app.locals.web2Db;
+    let phone = String(req.params.phone || '').replace(/\D/g, '');
+    if (phone && !phone.startsWith('0')) phone = '0' + phone.slice(-9);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+    if (!phone) return res.status(400).json({ success: false, error: 'phone required' });
+    try {
+        const [nwRes, pbhRes] = await Promise.all([
+            db.query(
+                `SELECT code, display_stt, status, customer_name, phone, total_amount,
+                        total_quantity, live_campaign_id, live_campaign_name, created_at, updated_at
+                 FROM native_orders
+                 WHERE phone = $1
+                 ORDER BY created_at DESC LIMIT $2`,
+                [phone, limit]
+            ),
+            db.query(
+                `SELECT number, display_stt, state, partner_name, partner_phone, amount_total,
+                        total_quantity, live_campaign_id, live_campaign_name,
+                        date_invoice, date_created, date_updated
+                 FROM fast_sale_orders
+                 WHERE partner_phone = $1
+                 ORDER BY date_created DESC LIMIT $2`,
+                [phone, limit]
+            ),
+        ]);
+        const native = nwRes.rows.map((r) => ({
+            code: r.code,
+            displayStt: r.display_stt,
+            status: r.status,
+            customerName: r.customer_name,
+            phone: r.phone,
+            totalAmount: Number(r.total_amount || 0),
+            totalQuantity: r.total_quantity,
+            liveCampaign: { id: r.live_campaign_id, name: r.live_campaign_name },
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+        }));
+        const pbh = pbhRes.rows.map((r) => ({
+            number: r.number,
+            displayStt: r.display_stt,
+            state: r.state,
+            partnerName: r.partner_name,
+            partnerPhone: r.partner_phone,
+            amountTotal: Number(r.amount_total || 0),
+            totalQuantity: r.total_quantity,
+            liveCampaign: { id: r.live_campaign_id, name: r.live_campaign_name },
+            dateInvoice: r.date_invoice,
+            dateCreated: r.date_created,
+            dateUpdated: r.date_updated,
+        }));
+        res.json({
+            success: true,
+            data: {
+                native,
+                pbh,
+                summary: { nativeCount: native.length, pbhCount: pbh.length },
+            },
+        });
+    } catch (e) {
+        console.error('[web2-customers] by-phone orders error:', e.message);
+        res.status(500).json({ success: false, error: e.message, data: { native: [], pbh: [] } });
+    }
+});
+
 // GET /:phone — 1 KH theo SĐT (local trước, fallback TPOS + upsert)
 router.get('/:phone', async (req, res) => {
     const db = req.app.locals.web2Db || req.app.locals.chatDb;

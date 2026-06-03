@@ -174,17 +174,18 @@
 
     // ─── PBH-detail fetch (called only when opening a customer detail) ──
     async function fetchPbhListForPhone(phone) {
-        // Sử dụng /api/customers/<phone>/orders cho detail view.
+        // 2026-06-03: dùng kho KH riêng Web 2.0 — /api/web2/customers/by-phone/<phone>/orders
+        // (query thẳng native_orders + fast_sale_orders, bỏ /api/v2/customers Web 1.0).
         // Trả về { native:[], pbh:[] }.
         try {
             const data = await jsonFetch(
-                `${PROXY}/api/v2/customers/by-phone/${encodeURIComponent(phone)}/orders?limit=100`
+                `${PROXY}/api/web2/customers/by-phone/${encodeURIComponent(phone)}/orders?limit=100`
             );
             return data?.data || data || { native: [], pbh: [] };
         } catch (e) {
             try {
                 const data = await jsonFetch(
-                    `${FALLBACK}/api/v2/customers/by-phone/${encodeURIComponent(phone)}/orders?limit=100`
+                    `${FALLBACK}/api/web2/customers/by-phone/${encodeURIComponent(phone)}/orders?limit=100`
                 );
                 return data?.data || data || { native: [], pbh: [] };
             } catch (_) {
