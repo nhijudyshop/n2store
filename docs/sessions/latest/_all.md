@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1a4fb73` — auto: session update
-**Last updated**: 2026-06-03 19:47:51 +07
-**Latest session**: [`RESUME:20260603-194751-1a4fb73`](../20260603-194751-1a4fb73.md)
-**Summary**: auto: session update
+**Latest commit**: `0291022` — feat(web2): photo-studio v3 — thêm engine 'AI nét' (@imgly/background-removal) + 3 mode cached
+**Last updated**: 2026-06-03 19:48:43 +07
+**Latest session**: [`RESUME:20260603-194843-0291022`](../20260603-194843-0291022.md)
+**Summary**: feat(web2): photo-studio v3 — thêm engine 'AI nét' (@imgly/background-removal) + 3 mode cached
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-03 19:38
+- [`docs/`](./docs.md) — updated 2026-06-03 19:48
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-03 16:52
 - [`downloads/`](./downloads.md) — updated 2026-06-03 18:34
