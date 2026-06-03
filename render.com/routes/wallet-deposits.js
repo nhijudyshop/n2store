@@ -1,7 +1,8 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 // =====================================================
 // WALLET DEPOSITS — query SePay bank transfers cho 2 ví (NCC + KH)
-// Tận dụng table `balance_history` đã có (SePay webhook ghi vào).
+// 2026-06-03: đọc `web2_balance_history` (web2Db) — cùng 1 nguồn SePay Web 2.0
+// với balance-history/ví KH. KHÔNG đọc Web 1.0 `balance_history` (chatDb) nữa.
 //
 // Endpoint:
 //   GET /api/wallet-deposits/load?since=<unix_ms>&limit=200
@@ -14,7 +15,7 @@ const express = require('express');
 const router = express.Router();
 
 router.get('/load', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const since = Number(req.query.since) || 0;
     const limit = Math.min(Number(req.query.limit) || 200, 500);
@@ -25,7 +26,7 @@ router.get('/load', async (req, res) => {
                       content, reference_code, description,
                       linked_customer_phone,
                       EXTRACT(EPOCH FROM transaction_date) * 1000 AS ts_ms
-               FROM balance_history
+               FROM web2_balance_history
                WHERE transfer_type = 'in'
                  AND transaction_date >= $1
                ORDER BY transaction_date DESC
@@ -34,7 +35,7 @@ router.get('/load', async (req, res) => {
                       content, reference_code, description,
                       linked_customer_phone,
                       EXTRACT(EPOCH FROM transaction_date) * 1000 AS ts_ms
-               FROM balance_history
+               FROM web2_balance_history
                WHERE transfer_type = 'in'
                ORDER BY transaction_date DESC
                LIMIT $1`;
