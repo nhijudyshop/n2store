@@ -96,11 +96,15 @@
             const usageClass = pct >= 80 ? 'danger' : pct >= 60 ? 'warn' : '';
             const planClass = poolKey === 'web2Db' ? 'sd-plan-free' : '';
             const planLabel = 'Basic 1GB';
-            const provider = poolKey === 'chatDb' ? 'Render PG (chính)' : 'Render PG (Web 2.0)';
+            const provider =
+                poolKey === 'chatDb'
+                    ? 'Render PG — n2store-chat-db'
+                    : 'Render PG — n2store-web2-db';
+            // 2026-06-03: Web 2.0 ĐÃ tách DB hoàn toàn (cutover 26 route + webhook).
             const purpose =
                 poolKey === 'chatDb'
-                    ? 'DB chính Web 1.0 — web2_products, native_orders, fast_sale_orders, customers, ...'
-                    : 'DB Web 2.0 generic — web2_records (78+ entities, JSONB). TÁCH RIÊNG khỏi chatDb (beta isolation).';
+                    ? 'DB Web 1.0 (n2store_chat) — customers, balance_history, customer_wallets, app_users… Web 2.0 KHÔNG còn ở đây.'
+                    : 'DB Web 2.0 (n2store_web2) — TOÀN BỘ data Web 2.0: web2_*, native_orders, fast_sale_orders, web2_customers, web2_balance_history, ví KH/transactions… (cutover xong 2026-06-03).';
 
             const tablesHtml = (stats.tables || [])
                 .slice(0, 8)
