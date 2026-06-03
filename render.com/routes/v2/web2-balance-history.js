@@ -18,7 +18,14 @@ const router = express.Router();
 const web2SepayMatching = require('../../services/web2-sepay-matching');
 const web2WalletService = require('../../services/web2-wallet-service');
 const web2ContentParser = require('../../services/web2-content-parser');
-const { extractPhoneFromContent } = require('../sepay-transaction-matching');
+// Preview extractor cho UI — DÙNG web2-content-parser (KHÔNG import legacy
+// sepay-transaction-matching nữa) để preview khớp đúng logic matcher Web 2.0.
+function web2ExtractionPreview(content) {
+    const cands = web2ContentParser.extractPhoneCandidates(content || '');
+    if (!cands.length) return { type: 'none', value: null, note: 'NO_MATCH' };
+    const top = cands[0]; // đã sort priority: qr_code → exact_phone → partial_phone
+    return { type: top.type, value: top.value, note: top.source };
+}
 
 function handleError(res, err, msg = 'Internal error') {
     console.error(`[Web2BalanceHistory] ${msg}:`, err.message);
@@ -103,7 +110,7 @@ router.get('/', async (req, res) => {
         const rows = list.rows.map((r) => {
             if (!r.linked_customer_phone && r.content) {
                 try {
-                    const ext = extractPhoneFromContent(r.content);
+                    const ext = web2ExtractionPreview(r.content);
                     r.extraction_preview = {
                         type: ext.type,
                         value: ext.value,

@@ -41,6 +41,22 @@
 
 Files: `render.com/routes/v2/web2-balance-history.js`, `render.com/services/web2-sepay-matching.js`, `render.com/scripts/audit-prelink-credit-risk.js`
 
+### [render][balance-history] Audit coupling Web 1.0 — bỏ legacy `extractPhoneFromContent` ✅
+
+**User yêu cầu**: rà toàn bộ balance-history/wallet/sepay Web 2.0 xem còn dính Web 1.0 không.
+
+**Kết quả audit** (toàn module):
+
+- ✅ **Frontend** `web2/balance-history/`: sạch — KHÔNG gọi API legacy (`/api/sepay`, `/api/v2/balance-history`, `/api/v2/wallets`), KHÔNG firebase listener.
+- ✅ **Webhook**: fan-out 2 path độc lập ([sepay-webhook-core.js:519](../render.com/routes/sepay-webhook-core.js#L519)). Web 2.0 `insertWeb2BalanceHistory` INSERT trực tiếp từ payload — KHÔNG mirror/copy từ legacy `balance_history`. FULL ISOLATION.
+- ✅ **Wallet isolation** ([web2-wallet-isolation.js](../render.com/services/web2-wallet-isolation.js)): triggers legacy→web2 đã DROP (2026-05-25). Backfill `INSERT…SELECT FROM customer_wallets` có guard `if count===0` → chỉ chạy 1 lần lúc cutover, web2 đã có data nên KHÔNG re-run, KHÔNG rò data Web 1.0.
+- ✅ **SSE**: web2 wallet dùng đúng hub web2 (`web2RealtimeSseNotify` + topic `web2:wallet:*` + `web2WalletEvents`).
+- 🔧 **Coupling code DUY NHẤT — đã fix**: [web2-balance-history.js](../render.com/routes/v2/web2-balance-history.js) import `extractPhoneFromContent` từ legacy `sepay-transaction-matching` để render badge `extraction_preview`. Thay bằng adapter `web2ExtractionPreview()` dùng `web2-content-parser.extractPhoneCandidates` → vừa bỏ coupling, vừa khớp ĐÚNG logic matcher Web 2.0 (trước đây preview legacy có thể lệch với matcher thật).
+- ⚠ **Data coupling còn lại**: rows `prelink_credit` = link kế thừa từ clone Web 1.0 (vấn đề Trang Đài). Đã có audit log + script rà soát (entry trên). Chờ chạy `audit-prelink-credit-risk.js` để định lượng.
+- ℹ Minor (không sửa): `web2-wallet-isolation.js:81` đọc `MAX(id) FROM customer_wallets` mỗi boot để set sequence — harmless read, có try/catch, không đụng nếu legacy table còn tồn tại.
+
+Files: `render.com/routes/v2/web2-balance-history.js`
+
 ---
 
 ## 2026-06-02
