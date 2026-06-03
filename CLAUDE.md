@@ -416,8 +416,16 @@ curl -X POST "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2/s
 
 ### Index quick-lookup
 
+- **[`web2/overview/index.html`](web2/overview/index.html) section `#conventions` — QUY ƯỚC WEB 2.0 canonical (ĐỌC TRƯỚC KHI CODE trang/feature Web 2.0 mới)**: DB/pool (`web2Db || chatDb`, KHÔNG ghi Web 1.0), naming (table `web2_`, route `/api/web2/`, service `web2-*.js`), realtime SSE `web2:<entity>`, server wiring, migration infra, checklist. Live tại https://nhijudy.store/web2/overview/index.html
 - [`docs/web2/WEB2-INDEX.md`](docs/web2/WEB2-INDEX.md) — folder, route, table, Firestore collection của Web 2.0
 - [`docs/web2/SSE-REALTIME.md`](docs/web2/SSE-REALTIME.md) — **SSE realtime pattern** (BẮT BUỘC đọc khi code realtime/sync)
+
+### Tách DB Web 2.0 (2026-06-03) — BẮT BUỘC nhớ khi code Render route Web 2.0
+
+- Web 2.0 đã tách DB hoàn toàn: data ở **`n2store-web2-db`** (pool `web2Db`), KHÔNG còn ở `n2store_chat` (Web 1.0).
+- Route/service Web 2.0 LẤY POOL: `const db = req.app.locals.web2Db || req.app.locals.chatDb;` — **KHÔNG dùng `chatDb` trần**.
+- TUYỆT ĐỐI không INSERT/UPDATE/DELETE bảng Web 1.0 (`customers`, `balance_history`, `customer_wallets`…) từ code Web 2.0. web2Db có bản copy riêng các bảng này.
+- Webhook/cron web2 truyền `web2Pool || chatDbPool`. Chi tiết quy ước: overview `#conventions`.
 
 ## #Note Header Convention
 

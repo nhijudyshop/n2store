@@ -72,6 +72,9 @@
                         </li>
                         <li><a href="#dataflow">Bản đồ data flow</a></li>
                         <li><a href="#database">Cơ sở dữ liệu &amp; Router Web 2.0</a></li>
+                        <li>
+                            <a href="#conventions">📐 Quy ước Web 2.0 (đọc trước khi code)</a>
+                        </li>
                         <li><a href="#future">Gợi ý phát triển</a></li>
                     </ol>
                 </nav>
@@ -1114,6 +1117,198 @@ permission_templates    (role: admin/manager/staff)</pre
                                 <li>
                                     <code>/api/web2-users</code> — user + phân quyền ·
                                     <code>/api/realtime/web2/sse</code>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== CONVENTIONS (canonical ref cho code mới) ===== -->
+                <section class="ov-section" id="conventions">
+                    <h2 class="section-title">📐 Quy ước Web 2.0 — ĐỌC TRƯỚC KHI CODE</h2>
+                    <p class="ov-lead">
+                        <strong>Bất kỳ code mới nào (trang web mới hoặc tính năng Web 2.0)</strong>
+                        phải theo các quy ước dưới đây để giữ Web 2.0 độc lập hoàn toàn với Web 1.0.
+                        Đây là nguồn tham chiếu chuẩn — cập nhật khi kiến trúc đổi.
+                    </p>
+
+                    <div class="ov-db-grid">
+                        <!-- DB & Pool -->
+                        <div class="ov-db-card ov-db-primary">
+                            <h3>🗄️ Database &amp; Pool</h3>
+                            <ul>
+                                <li>
+                                    <strong>2 Postgres tách biệt</strong>:
+                                    <code>n2store-web2-db</code> (Web 2.0, pool
+                                    <code>web2Db</code> ← env <code>WEB2_DATABASE_URL</code>) vs
+                                    <code>n2store-chat-db</code> (Web 1.0, pool
+                                    <code>chatDb</code> ← <code>DATABASE_URL</code>).
+                                </li>
+                                <li>
+                                    Route/service Web 2.0 LUÔN lấy pool:
+                                    <code
+                                        >const db = req.app.locals.web2Db ||
+                                        req.app.locals.chatDb;</code
+                                    >
+                                    (web2Db chính, chatDb fallback khi env unset/dev).
+                                </li>
+                                <li>
+                                    <strong>TUYỆT ĐỐI KHÔNG</strong> ghi (INSERT/UPDATE/DELETE) vào
+                                    bảng Web 1.0 từ code Web 2.0. Bảng dùng chung tên (vd
+                                    <code>customers</code>) → web2Db giữ bản copy riêng.
+                                </li>
+                                <li>
+                                    Firestore: collection Web 2.0 prefix
+                                    <code>web2_&lt;entity&gt;/main</code> (vd
+                                    <code>web2_so_order</code>, <code>web2_supplier_wallet</code>).
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Naming -->
+                        <div class="ov-db-card ov-db-info">
+                            <h3>🏷️ Đặt tên</h3>
+                            <ul>
+                                <li>
+                                    <strong>Bảng Postgres</strong>: prefix
+                                    <code>web2_&lt;entity&gt;</code> (vd <code>web2_products</code>,
+                                    <code>web2_balance_history</code>).
+                                </li>
+                                <li>
+                                    <strong>Router/API</strong>:
+                                    <code>/api/web2/&lt;entity&gt;</code> (mount dưới
+                                    <code>/api/web2/*</code>) hoặc
+                                    <code>/api/web2-&lt;entity&gt;</code>. KHÔNG dùng
+                                    <code>/api/v2/*</code> (namespace cũ — Web 1.0/mixed).
+                                </li>
+                                <li>
+                                    <strong>Service file</strong>:
+                                    <code>web2-&lt;name&gt;.js</code>; hàm nhận
+                                    <code>db</code> (pool) làm tham số đầu, KHÔNG hardcode pool.
+                                </li>
+                                <li>
+                                    <strong>Hàm</strong>: camelCase, prefix domain rõ (vd
+                                    <code>insertWeb2BalanceHistory</code>,
+                                    <code>processWeb2Match</code>, <code>upsertWeb2Customer</code>).
+                                </li>
+                                <li>
+                                    <strong>File mới</strong>: thêm marker
+                                    <code>| WEB2.0 module.</code> vào header
+                                    <code>#Note</code> (HTML/JS dòng 1).
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Realtime + Patterns -->
+                        <div class="ov-db-card ov-db-success">
+                            <h3>⚡ Realtime &amp; Patterns</h3>
+                            <ul>
+                                <li>
+                                    <strong>Realtime</strong>: KHÔNG Firestore listener. Dùng SSE
+                                    hub Web 2.0 <code>/api/realtime/web2/sse</code>, topic
+                                    <code>web2:&lt;entity&gt;</code>. Server gọi
+                                    <code>web2RealtimeSseRoutes.notifyClients(topic, data)</code>
+                                    sau commit; client
+                                    <code>Web2SSE.subscribe('web2:&lt;entity&gt;', cb)</code>.
+                                </li>
+                                <li>
+                                    <strong>Mutation UI-first</strong>: dùng
+                                    <code>Web2Optimistic.run({...})</code> (UI sync ngay, backend
+                                    nền, rollback nếu lỗi). Ngoại lệ giữ await: thao tác tiền.
+                                </li>
+                                <li>
+                                    <strong>Modal</strong>: class <code>modal-content</code> +
+                                    <code>modal-body</code> (auto anti-lag). KHÔNG
+                                    <code>backdrop-filter: blur()</code>.
+                                </li>
+                                <li>
+                                    <strong>Sidebar/shell</strong>: dùng
+                                    <code>web2/shared/tpos-sidebar.js</code> +
+                                    <code>web2-tpos-theme.css</code>. KHÔNG import code từ Web 1.0
+                                    (orders-report, inbox…).
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3 class="ov-subsection-title" style="margin-top: 28px">
+                        Server wiring &amp; Migration infra
+                    </h3>
+                    <div class="ov-db-grid">
+                        <div class="ov-db-card ov-db-primary">
+                            <h3>🔌 Wiring (server.js)</h3>
+                            <ul>
+                                <li>
+                                    Mount:
+                                    <code
+                                        >app.use('/api/web2/&lt;entity&gt;',
+                                        require('./routes/...'))</code
+                                    >.
+                                </li>
+                                <li>
+                                    SSE notifier:
+                                    <code
+                                        >&lt;module&gt;.initializeNotifiers(web2RealtimeSseRoutes.notifyClients)</code
+                                    >.
+                                </li>
+                                <li>
+                                    Webhook/cron Web 2.0 truyền
+                                    <code>web2Pool || chatDbPool</code> (KHÔNG
+                                    <code>chatDbPool</code> trần) cho bảng web2.
+                                </li>
+                                <li>
+                                    Schema bảng web2 mới: tạo trên web2Db (qua admin schema-mirror,
+                                    hoặc <code>ensureSchema</code> trỏ <code>web2Pool</code>).
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="ov-db-card ov-db-info">
+                            <h3>🛠️ Migration infra (admin)</h3>
+                            <ul>
+                                <li>
+                                    <code>db/web2-schema-mirror.js</code> — introspect schema thật
+                                    (pg_attribute + format_type) → DDL tường minh (gồm sequence,
+                                    constraint, partial index, generated column).
+                                </li>
+                                <li>
+                                    <code>db/web2-data-copy.js</code> — copy data idempotent +
+                                    sequence sync + JSON.stringify cột jsonb.
+                                </li>
+                                <li>
+                                    Endpoint (gate <code>x-admin-secret</code>):
+                                    <code>POST /api/admin/schema-mirror-web2</code>,
+                                    <code>POST /api/admin/data-copy-web2</code>,
+                                    <code>.../bump-sequences</code>, <code>.../verify</code>.
+                                </li>
+                                <li>
+                                    Test schema/migration trên <strong>local DB</strong> trước
+                                    (CREATE → DDL → INSERT fake → verify → DROP).
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="ov-db-card ov-db-success">
+                            <h3>✅ Checklist trang/feature MỚI</h3>
+                            <ul>
+                                <li>
+                                    Pool <code>web2Db || chatDb</code> · bảng <code>web2_</code> ·
+                                    route <code>/api/web2/</code>.
+                                </li>
+                                <li>
+                                    KHÔNG ghi bảng Web 1.0. KHÔNG <code>/api/v2/*</code> non-web2,
+                                    <code>/api/sepay/*</code>.
+                                </li>
+                                <li>
+                                    Realtime qua SSE <code>web2:&lt;entity&gt;</code>. Mutation qua
+                                    <code>Web2Optimistic</code>.
+                                </li>
+                                <li>Firestore (nếu cần) prefix <code>web2_</code>.</li>
+                                <li>
+                                    Header <code>#Note … | WEB2.0 module.</code> · cập nhật
+                                    <code>docs/dev-log.md</code>.
+                                </li>
+                                <li>
+                                    TPOS/Pancake (master dùng chung) đọc qua
+                                    <code>/api/odata/*</code> — OK, KHÔNG phải Web 1.0.
                                 </li>
                             </ul>
                         </div>
