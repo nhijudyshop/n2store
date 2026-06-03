@@ -148,6 +148,61 @@ router.get('/revenue', async (req, res) => {
     }
 });
 
+// GET /delivery?from=YYYY-MM-DD&to=YYYY-MM-DD
+// Thống kê giao hàng Web 2.0 — tổng hợp từ fast_sale_orders (web2Db), group theo
+// shipper (carrier_name). Thay /api/v2/delivery-assignments (Web 1.0) cho trang
+// report-delivery → tách hoàn toàn, KHÔNG đọc data Web 1.0.
+router.get('/delivery', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    try {
+        const re = /^\d{4}-\d{2}-\d{2}$/;
+        const today = new Date().toISOString().slice(0, 10);
+        const from = re.test(req.query.from) ? req.query.from : today;
+        const to = re.test(req.query.to) ? req.query.to : today;
+        // Group theo cột bất kỳ. amount/COD bỏ đơn huỷ. "Đã giao"=shipped, "Huỷ"=cancel.
+        const aggSql = (groupExpr) => `
+            SELECT
+                ${groupExpr} AS group_name,
+                COUNT(*)::int AS order_count,
+                COALESCE(SUM(amount_total) FILTER (WHERE state <> 'cancel'), 0)::numeric AS amount_total,
+                COALESCE(SUM(cash_on_delivery) FILTER (WHERE state <> 'cancel'), 0)::numeric AS cod_total,
+                COUNT(*) FILTER (WHERE shipped = true)::int AS shipped_count,
+                COUNT(*) FILTER (WHERE state = 'cancel')::int AS cancel_count
+            FROM fast_sale_orders
+            WHERE date_invoice::date BETWEEN $1::date AND $2::date
+            GROUP BY 1
+            ORDER BY order_count DESC`;
+        const mapRows = (rows) =>
+            rows.map((x) => ({
+                groupName: x.group_name,
+                orderCount: x.order_count,
+                amountTotal: num(x.amount_total),
+                codTotal: num(x.cod_total),
+                scannedCount: x.shipped_count, // "Đã giao" (web2: shipped)
+                hiddenCount: x.cancel_count, // "Huỷ" (web2: state=cancel)
+            }));
+        const [gRes, cRes] = await Promise.all([
+            pool.query(aggSql(`COALESCE(NULLIF("group", ''), 'Chưa phân nhóm')`), [from, to]),
+            pool.query(aggSql(`COALESCE(NULLIF(carrier_name, ''), 'Chưa gán NVC')`), [from, to]),
+        ]);
+        const byGroup = mapRows(gRes.rows);
+        const byCarrier = mapRows(cRes.rows);
+        const totals = byCarrier.reduce(
+            (a, g) => ({
+                orderCount: a.orderCount + g.orderCount,
+                amountTotal: a.amountTotal + g.amountTotal,
+                codTotal: a.codTotal + g.codTotal,
+                scannedCount: a.scannedCount + g.scannedCount,
+                hiddenCount: a.hiddenCount + g.hiddenCount,
+            }),
+            { orderCount: 0, amountTotal: 0, codTotal: 0, scannedCount: 0, hiddenCount: 0 }
+        );
+        res.json({ success: true, range: { from, to }, totals, byGroup, byCarrier });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // GET /top-customers?days=30&limit=10
 router.get('/top-customers', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;

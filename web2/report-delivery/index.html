@@ -217,7 +217,8 @@
             (function () {
                 'use strict';
                 const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-                const API = `${WORKER}/api/v2/delivery-assignments/stats`;
+                // 2026-06-03: web2 — tổng hợp từ fast_sale_orders (web2Db), bỏ /api/v2 Web 1.0
+                const API = `${WORKER}/api/pbh-reports/delivery`;
 
                 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN');
                 const todayLocal = () => {
@@ -246,12 +247,12 @@
                             <div class="rd-kpi-value">${fmt(totals.codTotal)}đ</div>
                         </div>
                         <div class="rd-kpi">
-                            <div class="rd-kpi-label">Đã quét</div>
+                            <div class="rd-kpi-label">Đã giao</div>
                             <div class="rd-kpi-value">${fmt(totals.scannedCount)}</div>
                             <div class="rd-kpi-sub">/ ${fmt(totals.orderCount)}</div>
                         </div>
                         <div class="rd-kpi">
-                            <div class="rd-kpi-label">Ẩn</div>
+                            <div class="rd-kpi-label">Huỷ</div>
                             <div class="rd-kpi-value">${fmt(totals.hiddenCount)}</div>
                         </div>
                     `;
@@ -270,8 +271,8 @@
                                 <th class="num">Số đơn</th>
                                 <th class="num">Tổng tiền</th>
                                 <th class="num">COD</th>
-                                <th class="num">Đã quét</th>
-                                <th class="num">Ẩn</th>
+                                <th class="num">Đã giao</th>
+                                <th class="num">Huỷ</th>
                             </tr></thead>
                             <tbody>
                                 ${rows
