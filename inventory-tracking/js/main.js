@@ -180,6 +180,9 @@ class InventoryTrackingApp {
                     case 'finance':
                         targetContentId = 'tabContentFinance';
                         break;
+                    case 'history':
+                        targetContentId = 'tabContentHistory';
+                        break;
                     default:
                         targetContentId = 'tabContentBooking';
                 }
@@ -207,6 +210,8 @@ class InventoryTrackingApp {
                     }
                 } else if (tabId === 'finance' && typeof loadFinanceData === 'function') {
                     loadFinanceData();
+                } else if (tabId === 'history' && window.HistoryTab?.load) {
+                    window.HistoryTab.load();
                 }
             });
         });

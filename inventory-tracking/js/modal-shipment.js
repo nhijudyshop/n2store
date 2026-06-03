@@ -712,15 +712,39 @@ async function saveShipment() {
                 tenNCC = rawNCC;
             }
 
-            // Parse products
-            const products = productText ? parseMultipleProducts(productText) : [];
-            const validProducts = products.filter((p) => p.isValid);
+            // Get existing invoice data if editing
+            const existingInvoice = currentShipmentData?.hoaDon?.[invoiceIndex];
+
+            // Parse products — BUT only if the textarea was actually edited.
+            //
+            // The textarea is pre-filled from each product's `rawText` (see
+            // renderInvoiceForm), NOT from `maSP`/`moTa`. Those can be edited
+            // inline in the table without touching `rawText`. If we always
+            // re-parse here, saving the modal for any reason (kiện, chi phí,
+            // ghi chú admin) silently overwrites maSP/moTa of EVERY NCC in the
+            // đợt back to the bare parsed code — wiping inline-edited names.
+            // (Data-loss incident 2026-06-03: 1 ghi-chú save wiped 4 NCC rows.)
+            //
+            // So: if the user did not change this NCC's product textarea since
+            // it was pre-filled, preserve the existing products verbatim.
+            const origProductText = (existingInvoice?.sanPham || [])
+                .map((p) => p.rawText || `MA ${p.maSP} ${p.soMau} MAU ${p.soLuong}X${p.giaDonVi}`)
+                .join('\n')
+                .trim();
+
+            let validProducts;
+            if (existingInvoice && productText === origProductText) {
+                // Untouched → keep DB products (incl. inline-edited maSP/moTa).
+                validProducts = (existingInvoice.sanPham || []).filter(
+                    (p) => p.isValid === undefined || p.isValid
+                );
+            } else {
+                const products = productText ? parseMultipleProducts(productText) : [];
+                validProducts = products.filter((p) => p.isValid);
+            }
 
             // Calculate totals
             const totals = calculateProductTotals(validProducts);
-
-            // Get existing invoice data if editing
-            const existingInvoice = currentShipmentData?.hoaDon?.[invoiceIndex];
 
             // Get all image URLs from upload area (includes existing + newly uploaded)
             const anhHoaDon = getInvoiceImageUrls(form);

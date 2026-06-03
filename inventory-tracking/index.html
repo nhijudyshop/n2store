@@ -13,27 +13,27 @@
         <title>Theo Dõi Nhập Hàng SL</title>
 
         <!-- Styles -->
-        <link rel="stylesheet" href="../shared/css/modern.css?v=20260530d" />
-        <link rel="stylesheet" href="css/modern.css?v=20260603b" />
-        <link rel="stylesheet" href="css/modal-convert-po.css?v=20260530d" />
-        <link rel="stylesheet" href="css/dot-tabs.css?v=20260530d" />
+        <link rel="stylesheet" href="../shared/css/modern.css?v=20260603c" />
+        <link rel="stylesheet" href="css/modern.css?v=20260603c" />
+        <link rel="stylesheet" href="css/modal-convert-po.css?v=20260603c" />
+        <link rel="stylesheet" href="css/dot-tabs.css?v=20260603c" />
 
         <!-- Navigation Manager -->
         <!-- ES Module: Shared utilities -->
-        <script type="module" src="../shared/esm/compat.js?v=20260530d"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260603c"></script>
         <!-- Fallback for file:// protocol -->
         <script>
             if (window.location.protocol === 'file:') {
                 document.write(
-                    '<script src="../shared/js/shared-auth-manager.js?v=20260530d"><\/script>'
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260603c"><\/script>'
                 );
                 document.write(
                     '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
                 );
             }
         </script>
-        <script defer src="../shared/js/navigation-modern.js?v=20260530d"></script>
-        <script defer src="../shared/js/token-manager.js?v=20260530d"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260603c"></script>
+        <script defer src="../shared/js/token-manager.js?v=20260603c"></script>
 
         <!-- Lucide Icons CDN -->
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
@@ -41,7 +41,7 @@
         <!-- Firebase removed — all data flows via Render REST API (inventory-tracking is Firebase-free) -->
 
         <!-- Realtime Client (SSE) for cross-device sync -->
-        <script src="../shared/js/realtime-client.js?v=20260530d"></script>
+        <script src="../shared/js/realtime-client.js?v=20260603c"></script>
 
         <!-- XLSX for Export -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -51,7 +51,7 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="../shared/css/typography.css?v=20260530d" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260603c" />
         <!-- typography:shared -->
     </head>
     <body>
@@ -122,6 +122,10 @@
                         <span class="tab-lock" id="financeLock">
                             <i data-lucide="lock"></i>
                         </span>
+                    </button>
+                    <button class="tab-btn" data-tab="history" id="tabHistory">
+                        <i data-lucide="history"></i>
+                        <span>Lịch Sử</span>
                     </button>
                 </div>
             </div>
@@ -524,6 +528,53 @@
                         </div>
                     </div>
                 </section>
+            </div>
+
+            <!-- Tab: Lịch Sử Chỉnh Sửa (audit trail, query 30 ngày gần nhất) -->
+            <div class="tab-content" id="tabContentHistory">
+                <div class="hist-tab-toolbar">
+                    <div class="hist-tab-filters">
+                        <label class="hist-flt">
+                            <span>Từ ngày</span>
+                            <input type="date" id="histFltFrom" class="form-input" />
+                        </label>
+                        <label class="hist-flt">
+                            <span>Đến ngày</span>
+                            <input type="date" id="histFltTo" class="form-input" />
+                        </label>
+                        <label class="hist-flt">
+                            <span>NCC (STT / tên)</span>
+                            <input
+                                type="text"
+                                id="histFltNcc"
+                                class="form-input"
+                                placeholder="vd 24 hoặc TOA THÊM"
+                            />
+                        </label>
+                        <label class="hist-flt">
+                            <span>Loại thay đổi</span>
+                            <select id="histFltField" class="form-input">
+                                <option value="">Tất cả</option>
+                                <option value="san_pham">Mã hàng / Sản phẩm</option>
+                                <option value="kien_hang">Kiện hàng</option>
+                                <option value="chi_phi_hang_ve">Chi phí hàng về</option>
+                                <option value="ghi_chu_admin">Ghi chú admin</option>
+                                <option value="ten_ncc">Tên NCC</option>
+                            </select>
+                        </label>
+                        <button class="btn btn-primary" id="histFltApply">
+                            <i data-lucide="search"></i> Lọc
+                        </button>
+                        <button class="btn btn-outline" id="histFltReset">
+                            <i data-lucide="rotate-ccw"></i> Đặt lại
+                        </button>
+                    </div>
+                    <span class="hist-retention-hint">
+                        <i data-lucide="info"></i> Lưu tối đa 30 ngày gần nhất — mở từng dòng để xem
+                        & khôi phục mã hàng cũ
+                    </span>
+                </div>
+                <div id="histTabBody" class="hist-tab-body"></div>
             </div>
         </main>
 
@@ -1048,55 +1099,56 @@
         <div class="toast-container" id="toastContainer"></div>
 
         <!-- Scripts -->
-        <script src="js/config.js?v=20260530d"></script>
-        <script src="js/ui-state.js?v=20260530d"></script>
-        <script src="js/dot-tabs.js?v=20260530d"></script>
-        <script src="js/ncc-search.js?v=20260530d"></script>
-        <script src="js/column-toggle.js?v=20260530d"></script>
-        <script src="js/api-client.js?v=20260601a"></script>
-        <script src="js/permission-helper.js?v=20260530d"></script>
-        <script src="js/data-loader.js?v=20260531d"></script>
-        <script src="js/text-parser.js?v=20260530d"></script>
-        <script src="js/balance-calculator.js?v=20260530d"></script>
-        <script src="js/table-renderer.js?v=20260603a"></script>
-        <script src="js/table-touch-scroll.js?v=20260530d"></script>
-        <script src="js/modal-shipment.js?v=20260530d"></script>
-        <script src="js/modal-shortage.js?v=20260530d"></script>
-        <script src="js/modal-variant.js?v=20260530e"></script>
+        <script src="js/config.js?v=20260603c"></script>
+        <script src="js/ui-state.js?v=20260603c"></script>
+        <script src="js/dot-tabs.js?v=20260603c"></script>
+        <script src="js/ncc-search.js?v=20260603c"></script>
+        <script src="js/column-toggle.js?v=20260603c"></script>
+        <script src="js/api-client.js?v=20260603c"></script>
+        <script src="js/permission-helper.js?v=20260603c"></script>
+        <script src="js/data-loader.js?v=20260603c"></script>
+        <script src="js/text-parser.js?v=20260603c"></script>
+        <script src="js/balance-calculator.js?v=20260603c"></script>
+        <script src="js/table-renderer.js?v=20260603c"></script>
+        <script src="js/table-touch-scroll.js?v=20260603c"></script>
+        <script src="js/modal-shipment.js?v=20260603c"></script>
+        <script src="js/modal-shortage.js?v=20260603c"></script>
+        <script src="js/modal-variant.js?v=20260603c"></script>
         <!-- Product Code Generator (shared with purchase-orders) -->
         <!-- shop-config.js exports window.ShopConfig (used by tpos-search for CompanyId) -->
-        <script src="../purchase-orders/js/lib/shop-config.js?v=20260530d"></script>
-        <script src="../purchase-orders/js/lib/tpos-search.js?v=20260530d"></script>
-        <script src="../purchase-orders/js/lib/supplier-detector.js?v=20260530d"></script>
-        <script src="../purchase-orders/js/lib/product-code-generator.js?v=20260530d"></script>
-        <script src="../shared/js/warehouse-api.js?v=20260530d"></script>
-        <script src="../shared/js/image-cache.js?v=20260530d"></script>
-        <script src="js/po-source-tracker.js?v=20260530d"></script>
-        <script src="js/modal-convert-po.js?v=20260530d"></script>
-        <script src="js/modal-edit-ncc.js?v=20260530d"></script>
-        <script src="js/image-upload.js?v=20260530d"></script>
-        <script src="js/modal-image-manager.js?v=20260530d"></script>
-        <script src="js/note-manager.js?v=20260530d"></script>
-        <script src="js/crud-operations.js?v=20260530d"></script>
-        <script src="js/finance-manager.js?v=20260530d"></script>
-        <script src="js/modal-prepayment.js?v=20260530d"></script>
-        <script src="js/modal-other-expense.js?v=20260530d"></script>
-        <script src="js/modal-detail-invoice.js?v=20260530d"></script>
-        <script src="js/modal-detail-shipping.js?v=20260530d"></script>
-        <script src="js/filters.js?v=20260531d"></script>
-        <script src="js/search.js?v=20260530d"></script>
-        <script src="js/export.js?v=20260530d"></script>
-        <script src="js/edit-history.js?v=20260530d"></script>
-        <script src="js/order-booking-renderer.js?v=20260530d"></script>
-        <script src="js/order-booking-crud.js?v=20260530d"></script>
-        <script src="js/modal-order-booking.js?v=20260530d"></script>
-        <script src="js/modal-compare.js?v=20260530d"></script>
+        <script src="../purchase-orders/js/lib/shop-config.js?v=20260603c"></script>
+        <script src="../purchase-orders/js/lib/tpos-search.js?v=20260603c"></script>
+        <script src="../purchase-orders/js/lib/supplier-detector.js?v=20260603c"></script>
+        <script src="../purchase-orders/js/lib/product-code-generator.js?v=20260603c"></script>
+        <script src="../shared/js/warehouse-api.js?v=20260603c"></script>
+        <script src="../shared/js/image-cache.js?v=20260603c"></script>
+        <script src="js/po-source-tracker.js?v=20260603c"></script>
+        <script src="js/modal-convert-po.js?v=20260603c"></script>
+        <script src="js/modal-edit-ncc.js?v=20260603c"></script>
+        <script src="js/image-upload.js?v=20260603c"></script>
+        <script src="js/modal-image-manager.js?v=20260603c"></script>
+        <script src="js/note-manager.js?v=20260603c"></script>
+        <script src="js/crud-operations.js?v=20260603c"></script>
+        <script src="js/finance-manager.js?v=20260603c"></script>
+        <script src="js/modal-prepayment.js?v=20260603c"></script>
+        <script src="js/modal-other-expense.js?v=20260603c"></script>
+        <script src="js/modal-detail-invoice.js?v=20260603c"></script>
+        <script src="js/modal-detail-shipping.js?v=20260603c"></script>
+        <script src="js/filters.js?v=20260603c"></script>
+        <script src="js/search.js?v=20260603c"></script>
+        <script src="js/export.js?v=20260603c"></script>
+        <script src="js/edit-history.js?v=20260603c"></script>
+        <script src="js/history-tab.js?v=20260603c"></script>
+        <script src="js/order-booking-renderer.js?v=20260603c"></script>
+        <script src="js/order-booking-crud.js?v=20260603c"></script>
+        <script src="js/modal-order-booking.js?v=20260603c"></script>
+        <script src="js/modal-compare.js?v=20260603c"></script>
 
         <!-- AI Invoice Processing -->
-        <script src="js/ai-invoice-processor.js?v=20260530d"></script>
-        <script src="js/ai-queue-manager.js?v=20260530d"></script>
-        <script src="js/modal-ai-preview.js?v=20260530d"></script>
+        <script src="js/ai-invoice-processor.js?v=20260603c"></script>
+        <script src="js/ai-queue-manager.js?v=20260603c"></script>
+        <script src="js/modal-ai-preview.js?v=20260603c"></script>
 
-        <script src="js/main.js?v=20260530d"></script>
+        <script src="js/main.js?v=20260603c"></script>
     </body>
 </html>
