@@ -25,6 +25,18 @@
 
 ## 2026-06-03
 
+### [orders] Fix so-order: NCC đã nhận đủ đơn vẫn hiện nút "Nhận hàng" ✅
+
+**Sự cố:** Ô NCC trong bảng so-order render **theo group `supplier + invoiceGroup`** (mỗi đơn 1 ô), nhưng cờ `allRecv` (quyết định hiện "Đã nhận" disabled vs "Nhận hàng") lại quét **toàn bộ rows cùng NCC trong cả lô**. Nên 1 đơn của B4 đã nhận đủ (status `received`) vẫn hiện nút "Nhận hàng" chỉ vì 1 đơn B4 khác còn `NHÁP`.
+
+**Fix (`so-order/js/so-order-app.js`):**
+
+- `rowHtml()`: `allRecv` tính trên đúng group `rows.slice(idx, idx + nccMeta.span)` thay vì filter theo supplier toàn lô → đơn đã nhận đủ hiện "Đã nhận", đơn còn nháp hiện "Nhận hàng".
+- Nút "Nhận hàng" thêm `data-invoice-group` → click mở modal nhận hàng scope đúng đơn đó.
+- `openReceiveShipmentModal()`: `matchSupplier` thêm filter `opts.invoiceGroupId` (fallback theo `id`) để khớp scope cell.
+
+**Status:** ✅ Done — syntax verified (`node --check`).
+
 ### [inventory-tracking] Fix bug modal-shipment ghi đè mã hàng/màu + tab Lịch Sử + khôi phục data ✅
 
 **Sự cố (data-loss thật, không phải ẩn/realtime):** User sửa inline tên mã hàng (`maSP`) + chi tiết màu (`mauSac`) trực tiếp trên bảng. Sau đó mở modal sửa kiện/ghi-chú-admin của đợt rồi Lưu → `saveShipment()` **re-parse lại textarea sản phẩm** (textarea đổ từ `rawText`, không phải maSP/mauSac đã sửa) cho **MỌI NCC trong đợt** → maSP rớt về mã trần, mauSac về "1 màu". 1 lần lưu ghi chú lúc 13:37:44 wipe 4 NCC (stt 24, 24-TOA, 67, 40) cùng lúc. Chẩn đoán bằng edit-history: đúng 5 PUT `san_pham` cùng user "Lài" cách nhau ~0.1s.

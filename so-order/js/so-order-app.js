@@ -216,7 +216,10 @@
                 else if (action === 'add-row') openOrderModal(null, shId);
                 else if (action === 'receive') openReceiveShipmentModal(shId);
                 else if (action === 'receive-ncc')
-                    openReceiveShipmentModal(shId, { supplier: btn.dataset.supplier || '' });
+                    openReceiveShipmentModal(shId, {
+                        supplier: btn.dataset.supplier || '',
+                        invoiceGroupId: btn.dataset.invoiceGroup || '',
+                    });
             });
         });
         // Inline-edit pills in shipment header (date / batch / caseCount / weightKg)
@@ -794,17 +797,21 @@
         const nccName = (r.supplier || '').trim();
         let nccReceiveBtn = '';
         if (nccMeta.render && nccName && !edit) {
+            // Fix 2026-06-03: cell NCC render theo group (supplier + invoiceGroup)
+            // nên `allRecv` phải tính trên ĐÚNG group này (rows.slice(idx, idx+span)),
+            // KHÔNG phải toàn bộ rows cùng NCC trong lô. Trước đây 1 đơn đã nhận đủ
+            // vẫn hiện "Nhận hàng" vì 1 đơn khác cùng NCC còn nháp → sai trạng thái.
             const shp = tab?.shipments?.find((s) => s.id === shipmentId);
-            const nccRows = (shp?.rows || []).filter(
-                (x) =>
-                    (x.supplier || '').trim() === nccName &&
-                    (x.productName || '').trim() &&
-                    Number(x.qty) > 0
+            const groupSpan = nccMeta.span || 1;
+            const groupRows = (shp?.rows || []).slice(idx, idx + groupSpan);
+            const nccRows = groupRows.filter(
+                (x) => (x.productName || '').trim() && Number(x.qty) > 0
             );
             const allRecv = nccRows.length > 0 && nccRows.every((x) => x.status === 'received');
+            const groupId = r.invoiceGroupId || r.id;
             nccReceiveBtn = allRecv
-                ? `<button class="so-ncc-receive-btn is-done" type="button" disabled title="NCC này đã nhận đủ hàng trong lô"><i data-lucide="check-circle-2"></i> Đã nhận</button>`
-                : `<button class="so-ncc-receive-btn" type="button" data-shipment-action="receive-ncc" data-shipment-id="${sid}" data-supplier="${escapeHtml(nccName)}" title="Nhận toàn bộ hàng của NCC ${escapeHtml(nccName)} trong lô này"><i data-lucide="truck"></i> Nhận hàng</button>`;
+                ? `<button class="so-ncc-receive-btn is-done" type="button" disabled title="Đơn này của NCC đã nhận đủ hàng"><i data-lucide="check-circle-2"></i> Đã nhận</button>`
+                : `<button class="so-ncc-receive-btn" type="button" data-shipment-action="receive-ncc" data-shipment-id="${sid}" data-supplier="${escapeHtml(nccName)}" data-invoice-group="${escapeHtml(groupId)}" title="Nhận hàng của đơn NCC ${escapeHtml(nccName)} trong lô này"><i data-lucide="truck"></i> Nhận hàng</button>`;
         }
         const cells = {
             supplier: !nccMeta.render
@@ -1464,7 +1471,16 @@
         // Filter theo 1 NCC (khi bấm nút "Nhận hàng" ở ô NCC) — chỉ list SP của
         // NCC đó trong lô. Không truyền → nhận cả lô (nút cấp lô).
         const onlySupplier = (opts.supplier || '').trim();
-        const matchSupplier = (r) => !onlySupplier || (r.supplier || '').trim() === onlySupplier;
+        // Fix 2026-06-03: nút "Nhận hàng" ở ô NCC giờ scope theo ĐÚNG đơn
+        // (supplier + invoiceGroup) khớp với cell render, không nhận lẫn đơn
+        // khác cùng NCC. Fallback theo id giữ behavior cũ cho rows chưa có
+        // invoiceGroupId. Không truyền → nhận cả lô (nút cấp lô).
+        const onlyGroupId = (opts.invoiceGroupId || '').trim();
+        const matchSupplier = (r) => {
+            if (onlySupplier && (r.supplier || '').trim() !== onlySupplier) return false;
+            if (onlyGroupId && String(r.invoiceGroupId || r.id) !== onlyGroupId) return false;
+            return true;
+        };
 
         // P1 2026-05-30: Loại bỏ rows đã nhận đủ (status='received') khỏi panel.
         // User feedback: "Nhận hàng đủ với SL sản phẩm -> không cho nhận hàng
