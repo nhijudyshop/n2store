@@ -42,6 +42,20 @@ Xóa file copy từ trang Web 1.0 cũ KHÔNG được index.html load (verify 0 
 
 → Loại nguồn gây "COUPLED giả" trong audit + tránh nhầm khi đọc code.
 
+### [orders][docs] Tài liệu "Đối soát KPI" (KPI Reconciliation) ✅
+
+**User ask**: ghi chi tiết cách hoạt động của khối "Đối soát KPI" trong tab KPI - HOA HỒNG.
+
+**Done**: tạo [docs/orders-report/DOI-SOAT-KPI.md](orders-report/DOI-SOAT-KPI.md) — tài liệu cả nghiệp vụ + kỹ thuật:
+- Nghiệp vụ: ý nghĩa OK / Đã hoàn / Sai lệch / "loss"; làm rõ % leaderboard là **tương đối so với người dẫn đầu** (`kpiNet/maxNetKpi`), không phải % chỉ tiêu tuyệt đối.
+- Kỹ thuật: luồng `runReconciliation()` (worker pool CONCURRENCY=8), fetch refund Excel TPOS (`fetchRefundedOrderCodes`, endpoint `ExportFileRefund`, SheetJS cột "Tham chiếu"), lõi `kpiManager.reconcileKPI()` (BASE↔TPOS↔audit → `no_base`/`missing_audit`/`removed_from_tpos`), gộp loss `_indexReconResults()`, modal L1 cache 7 ngày, bảng tra cứu file/hàm + số dòng.
+
+**Quirk ghi nhận (không sửa)**: nhánh rỗng `allOrders.length===0` (tab-kpi-commission.js L4166–4175) không gọi `_hideReconProgress()` → progress kẹt "Đang khởi tạo… 2%" cạnh empty state (đúng như screenshot user gửi).
+
+**Files**: `docs/orders-report/DOI-SOAT-KPI.md` (mới). Chỉ tài liệu, không chạm code feature.
+
+**Status**: ✅ Done.
+
 ### [web2] Phase 2 tách DB — decouple Web 1.0 thật (an toàn) 🔄
 
 Master plan: [docs/web2/WEB2-TOTAL-SEPARATION-PLAN.md](web2/WEB2-TOTAL-SEPARATION-PLAN.md) (audit 33 trang).
