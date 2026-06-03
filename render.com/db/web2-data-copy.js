@@ -17,6 +17,28 @@ async function getColumnNames(pool, table) {
     return rows.map((r) => r.column_name);
 }
 
+// Cột + data_type (để biết cột nào json/jsonb cần stringify khi insert).
+async function getColumnsTyped(pool, table) {
+    const { rows } = await pool.query(
+        `SELECT column_name, data_type FROM information_schema.columns
+         WHERE table_schema='public' AND table_name=$1
+         ORDER BY ordinal_position`,
+        [table]
+    );
+    return rows; // [{column_name, data_type}]
+}
+
+// node-pg đọc jsonb → JS object/array. Insert lại vào cột json/jsonb: nếu để
+// nguyên JS array, driver gửi Postgres array literal `{..}` → "invalid input
+// syntax for type json". Phải JSON.stringify tường minh cho cột json/jsonb.
+function coerceValue(val, dataType) {
+    if (val === null || val === undefined) return val;
+    if ((dataType === 'json' || dataType === 'jsonb') && typeof val !== 'string') {
+        return JSON.stringify(val);
+    }
+    return val;
+}
+
 // PK column đơn (đa số bảng web2 PK 1 cột id/code). Trả null nếu không có/đa cột.
 async function getPkColumn(pool, table) {
     const { rows } = await pool.query(
@@ -36,8 +58,10 @@ function quoteIdent(n) {
 // Copy 1 bảng theo batch. opts: { batchSize=500, dryRun=false }
 async function copyTableData(sourcePool, targetPool, table, opts = {}) {
     const { batchSize = 500, dryRun = false } = opts;
-    const cols = await getColumnNames(sourcePool, table);
-    if (!cols.length) throw new Error(`${table}: không có cột (chưa mirror schema?)`);
+    const colsTyped = await getColumnsTyped(sourcePool, table);
+    if (!colsTyped.length) throw new Error(`${table}: không có cột (chưa mirror schema?)`);
+    const cols = colsTyped.map((c) => c.column_name);
+    const typeOf = Object.fromEntries(colsTyped.map((c) => [c.column_name, c.data_type]));
     const pk = await getPkColumn(sourcePool, table);
 
     const srcCount = Number(
@@ -68,7 +92,7 @@ async function copyTableData(sourcePool, targetPool, table, opts = {}) {
         const params = [];
         const tuples = batch.rows.map((row, ri) => {
             const ph = cols.map((c, ci) => {
-                params.push(row[c]);
+                params.push(coerceValue(row[c], typeOf[c]));
                 return `$${ri * cols.length + ci + 1}`;
             });
             return `(${ph.join(', ')})`;
