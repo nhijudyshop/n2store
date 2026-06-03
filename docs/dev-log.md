@@ -25,6 +25,16 @@
 
 ## 2026-06-03
 
+### [web2] Phase 4+5 tách DB — schema mirror + data copy chatDb→web2Db (verified) ✅
+
+**Phase 4 (DONE)**: mirror schema 20 bảng web2 chatDb→web2Db qua introspection (`pg_attribute`+`format_type`+`pg_get_constraintdef`+`pg_indexes`). Module [web2-schema-mirror.js](../render.com/db/web2-schema-mirror.js), endpoint `POST /api/admin/schema-mirror-web2` + `/status`. Giải quyết `CREATE TABLE (LIKE customer_wallets)` không chạy được ở web2Db. Dry-run 20/20 OK → run thật → 20/20 mirrored. chatDb KHÔNG đụng.
+
+**Phase 5 (DONE)**: copy data batched idempotent (ON CONFLICT DO NOTHING) + sequence sync (parse nextval từ default) + money SUM verify. Module [web2-data-copy.js](../render.com/db/web2-data-copy.js), endpoint `POST /api/admin/data-copy-web2` + `/verify`. Fix bug cột json/jsonb array → `JSON.stringify` tường minh. `/verify` **allMatch:true**: wallets 5321 (SUM✓), wallet_transactions 7503 (SUM✓), balance_history 4892, +17 bảng — count + SUM tiền khớp.
+
+**Phase 6 (chưa làm — cutover ví/tiền)**: bump web2Db sequence +10000 (chống collision gap rows) → final delta sync → switch ~24 route + webhook pool chatDb→web2Db → verify. Cửa sổ ít traffic. chatDb giữ làm backup (rollback = đổi pool về chatDb).
+
+Files: `render.com/db/web2-schema-mirror.js`, `render.com/db/web2-data-copy.js`, `render.com/routes/admin-schema-mirror-web2.js`, `render.com/routes/admin-data-copy-web2.js`, `render.com/server.js`
+
 ### [web2] Phase 3 namespace + overview DB/router (verified LIVE) ✅
 
 **Phase 3**: dual-mount mọi route Web 2.0 ở `/api/web2/<entity>` (giữ `/api/v2/*` alias) trong server.js + đổi 11 frontend file sang `/api/web2/*`. Verify LIVE: `/api/web2/kpi/scope`→200, `/api/web2/dashboard-kpi`→200, `/api/web2/notifications/unread-count`→200, `/api/web2/customers/by-phone/:phone/orders`→200 (Phase 2b). 404 ở root chỉ là route không có handler `/` (giống alias cũ, không regression).
@@ -47,6 +57,7 @@ Xóa file copy từ trang Web 1.0 cũ KHÔNG được index.html load (verify 0 
 **User ask**: ghi chi tiết cách hoạt động của khối "Đối soát KPI" trong tab KPI - HOA HỒNG.
 
 **Done**: tạo [docs/orders-report/DOI-SOAT-KPI.md](orders-report/DOI-SOAT-KPI.md) — tài liệu cả nghiệp vụ + kỹ thuật:
+
 - Nghiệp vụ: ý nghĩa OK / Đã hoàn / Sai lệch / "loss"; làm rõ % leaderboard là **tương đối so với người dẫn đầu** (`kpiNet/maxNetKpi`), không phải % chỉ tiêu tuyệt đối.
 - Kỹ thuật: luồng `runReconciliation()` (worker pool CONCURRENCY=8), fetch refund Excel TPOS (`fetchRefundedOrderCodes`, endpoint `ExportFileRefund`, SheetJS cột "Tham chiếu"), lõi `kpiManager.reconcileKPI()` (BASE↔TPOS↔audit → `no_base`/`missing_audit`/`removed_from_tpos`), gộp loss `_indexReconResults()`, modal L1 cache 7 ngày, bảng tra cứu file/hàm + số dòng.
 
