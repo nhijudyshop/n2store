@@ -127,7 +127,11 @@ async function mirrorTableSchema(sourcePool, targetPool, table, opts = {}) {
     };
 }
 
-// Danh sách bảng web2 cần mirror (thứ tự không quan trọng — FK đã bỏ).
+// Danh sách bảng web2 cần mirror sang web2Db (FK đã bỏ → thứ tự không quan trọng).
+// Web 2.0 đang TEST → data disposable. Mirror MỌI bảng web2 routes đụng, KỂ CẢ
+// bảng tên-Web1.0 (`customers`, `balance_history`, `campaigns`) — web2Db giữ
+// BẢN COPY RIÊNG, web2 routes ghi/đọc bản này, Web 1.0 (chatDb) KHÔNG bị đụng.
+// Bảng không tồn tại ở source → mirror/copy skip (caught per-table).
 const WEB2_TABLES = [
     // Money / SePay (critical)
     'web2_customer_wallets',
@@ -142,18 +146,34 @@ const WEB2_TABLES = [
     // Products / variants
     'web2_products',
     'web2_product_history',
+    'web2_product_velocity',
     'web2_variants',
-    // Generic / entities (đã có sẵn ở web2Db — idempotent skip)
+    // Generic / entities
     'web2_entities',
     // Orders
     'native_orders',
+    'native_orders_migrations',
     'fast_sale_orders',
     'fast_sale_order_history',
-    // Users / notifications / KPI
+    'fast_sale_order_lines',
+    'pbh_fulfillment_logs',
+    'inventory_shipments',
+    'social_orders',
+    // Users / notifications / cart
     'web2_users',
     'web2_user_sessions',
     'web2_notifications',
     'web2_cart_history',
+    // KPI
+    'web2_kpi_events',
+    'web2_kpi_actual',
+    'web2_kpi_forecast',
+    'web2_supplier_ratings',
+    'campaign_employee_ranges',
+    // Bảng tên-Web1.0 — web2Db giữ BẢN COPY RIÊNG (Web 1.0 chatDb KHÔNG đụng)
+    'customers',
+    'balance_history',
+    'campaigns',
 ];
 
 module.exports = { mirrorTableSchema, buildDDL, getColumns, WEB2_TABLES };
