@@ -3,14 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c1fa9ba` — feat(web2): Phase 6 prep — bump-sequences endpoint (+10000 chống collision gap rows khi cutover)
-**Last updated**: 2026-06-03 18:08:07 +07
-**Latest session**: [`RESUME:20260603-180807-c1fa9ba`](../20260603-180807-c1fa9ba.md)
-**Summary**: feat(web2): Phase 6 prep — bump-sequences endpoint (+10000 chống collision gap rows khi cutover)
+**Latest commit**: `826c87c` — feat(web2): Phase 6 CUTOVER — flip 26 route web2 + webhook + crons sang web2Db (Web 1.0 không đụng)
+**Last updated**: 2026-06-03 18:34:13 +07
+**Latest session**: [`RESUME:20260603-183413-826c87c`](../20260603-183413-826c87c.md)
+**Summary**: feat(web2): Phase 6 CUTOVER — flip 26 route web2 + webhook + crons sang web2Db (Web 1.0 không đụng)
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
+- [`downloads/`](./downloads.md) — 160 file(s)
+- [`render.com/`](./render.com.md) — 29 file(s)
+- [`scripts/`](./scripts.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -24,10 +27,10 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-03 17:25
+- [`docs/`](./docs.md) — updated 2026-06-03 18:34
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-03 16:52
-- [`downloads/`](./downloads.md) — updated 2026-06-03 16:18
+- [`downloads/`](./downloads.md) — updated 2026-06-03 18:34
 - [`facebook-services/`](./facebook-services.md) — updated 2026-05-21 15:39
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
@@ -49,9 +52,9 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-03 18:08
+- [`render.com/`](./render.com.md) — updated 2026-06-03 18:34
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-01 10:27
+- [`scripts/`](./scripts.md) — updated 2026-06-03 18:34
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-01 18:45
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
