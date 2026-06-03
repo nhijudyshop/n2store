@@ -191,13 +191,15 @@ chatDbPool
                 try {
                     const sepayMatching = require('./services/web2-sepay-matching');
                     const { fetchWithTimeout } = require('../shared/node/fetch-utils.cjs');
-                    retry.startCron(chatDbPool, async (webhookData) => {
+                    // Phase 6: web2 SePay data ở web2Db → retry cron đọc/ghi web2Pool.
+                    const w2 = web2Pool || chatDbPool;
+                    retry.startCron(w2, async (webhookData) => {
                         const { id, isDuplicate } = await sepayMatching.insertWeb2BalanceHistory(
-                            chatDbPool,
+                            w2,
                             webhookData
                         );
                         if (id && !isDuplicate && webhookData.transferType === 'in') {
-                            await sepayMatching.processWeb2Match(chatDbPool, id, fetchWithTimeout);
+                            await sepayMatching.processWeb2Match(w2, id, fetchWithTimeout);
                         }
                     });
                 } catch (e) {
@@ -211,8 +213,9 @@ chatDbPool
                     const reprocessCron = require('./services/web2-reprocess-cron');
                     const sepayMatching = require('./services/web2-sepay-matching');
                     const { fetchWithTimeout } = require('../shared/node/fetch-utils.cjs');
+                    // Phase 6: re-khớp GD web2 trên web2Db.
                     reprocessCron.startCron(
-                        chatDbPool,
+                        web2Pool || chatDbPool,
                         (db, limit) =>
                             sepayMatching.reprocessUnmatched(db, fetchWithTimeout, {
                                 limit,

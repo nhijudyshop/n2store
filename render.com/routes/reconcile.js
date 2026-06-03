@@ -186,7 +186,7 @@ async function getPbh(pool, number) {
 // GET /health
 // -----------------------------------------------------
 router.get('/health', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ ok: false, error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -211,7 +211,7 @@ router.get('/health', async (req, res) => {
 // Filter state PBH: chỉ những PBH state='confirmed' hoặc 'done' (đã xác nhận).
 // -----------------------------------------------------
 router.get('/list', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -262,7 +262,7 @@ router.get('/list', async (req, res) => {
 // GET /:number — detail
 // -----------------------------------------------------
 router.get('/:number', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -320,7 +320,7 @@ async function applyPick(pool, number, mutator) {
 // Body: { productCode }
 // -----------------------------------------------------
 router.post('/:number/scan', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const { number } = req.params;
     const productCode = String(req.body?.productCode || '').trim();
@@ -381,7 +381,7 @@ router.post('/:number/scan', async (req, res) => {
 // Body: { productCode, pickedQty }
 // -----------------------------------------------------
 router.post('/:number/manual-pick', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const { number } = req.params;
     const productCode = String(req.body?.productCode || '').trim();
@@ -430,7 +430,7 @@ router.post('/:number/manual-pick', async (req, res) => {
 // POST /:number/reset-pick — clear toàn bộ picked_lines, về pending
 // -----------------------------------------------------
 router.post('/:number/reset-pick', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const { number } = req.params;
     const user = userFromReq(req);
@@ -464,7 +464,7 @@ router.post('/:number/reset-pick', async (req, res) => {
 // Block nếu picked_qty < quantity (KHÔNG cho thiếu hàng).
 // -----------------------------------------------------
 router.post('/:number/pack', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const { number } = req.params;
     const user = userFromReq(req);
@@ -519,7 +519,7 @@ router.post('/:number/pack', async (req, res) => {
 // POST /:number/ship — chuyển → shipped
 // -----------------------------------------------------
 router.post('/:number/ship', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const { number } = req.params;
     const user = userFromReq(req);
@@ -554,7 +554,7 @@ router.post('/:number/ship', async (req, res) => {
 // POST /:number/deliver — chuyển → delivered
 // -----------------------------------------------------
 router.post('/:number/deliver', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const { number } = req.params;
     const user = userFromReq(req);
@@ -595,7 +595,7 @@ router.post('/:number/deliver', async (req, res) => {
 // Body (optional): { reason?: string }
 // -----------------------------------------------------
 router.post('/:number/return-failed', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const { number } = req.params;
     const reason = req.body?.reason || null;
@@ -666,7 +666,7 @@ router.post('/:number/return-failed', async (req, res) => {
 // GET /:number/logs — audit log
 // -----------------------------------------------------
 router.get('/:number/logs', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);

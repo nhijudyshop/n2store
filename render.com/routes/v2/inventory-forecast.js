@@ -20,7 +20,7 @@ async function ensureSchema(pool) {
 
 router.use(async (req, res, next) => {
     try {
-        await ensureSchema(req.app.locals.chatDb);
+        await ensureSchema(req.app.locals.web2Db || req.app.locals.chatDb);
         next();
     } catch (e) {
         res.status(500).json({ success: false, error: 'schema-init: ' + e.message });
@@ -31,7 +31,7 @@ router.use(async (req, res, next) => {
 // Best-effort: nếu schema không có line items thì tạo placeholder velocity=0.
 router.post('/recompute', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const days = Math.min(Number(req.body?.days) || 30, 90);
         // Probe schema for line items
         const hasLines = await pool
@@ -74,7 +74,7 @@ router.post('/recompute', async (req, res) => {
 // GET /list?days_left_max=14
 router.get('/list', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const maxDays = Math.min(Number(req.query.days_left_max) || 30, 365);
         const rs = await pool.query(
             `SELECT p.code, p.name, p.stock, COALESCE(v.daily_avg, 0)::float AS daily_avg,

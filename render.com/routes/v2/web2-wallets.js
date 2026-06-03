@@ -26,7 +26,7 @@ function handleError(res, err, msg = 'Internal error') {
 // =====================================================
 router.get('/', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const limit = Math.min(parseInt(req.query.limit) || 100, 1000);
         const offset = parseInt(req.query.offset) || 0;
         const { items, total } = await web2WalletService.listWallets(db, { limit, offset });
@@ -41,7 +41,7 @@ router.get('/', async (req, res) => {
 // =====================================================
 router.get('/by-phone/:phone', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const wallet = await web2WalletService.getWallet(db, req.params.phone);
         if (!wallet) {
             return res.status(404).json({ success: false, error: 'Wallet not found' });
@@ -57,7 +57,7 @@ router.get('/by-phone/:phone', async (req, res) => {
 // =====================================================
 router.get('/:phone/transactions', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const limit = parseInt(req.query.limit) || 200;
         const type = req.query.type || null;
         const txns = await web2WalletService.listTransactions(db, req.params.phone, {
@@ -76,7 +76,7 @@ router.get('/:phone/transactions', async (req, res) => {
 // =====================================================
 router.post('/:phone/withdraw', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const { amount, referenceType, referenceId, note } = req.body || {};
         if (!amount || Number(amount) <= 0) {
             return res.status(400).json({ success: false, error: 'amount > 0 required' });
@@ -105,7 +105,7 @@ router.post('/:phone/withdraw', async (req, res) => {
 // =====================================================
 router.post('/:phone/deposit', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const { amount, note, customerId } = req.body || {};
         if (!amount || Number(amount) <= 0) {
             return res.status(400).json({ success: false, error: 'amount > 0 required' });

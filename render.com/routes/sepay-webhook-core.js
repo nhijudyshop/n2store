@@ -519,7 +519,9 @@ function registerRoutes(router, deps) {
             // WEB 2.0 INDEPENDENT PATH: INSERT web2_balance_history + run matching
             // engine riêng (always auto, no virtual, no accountant approval).
             // Fire-and-forget — không chặn webhook response.
-            _processWeb2Path(db, webhookData).catch((e) =>
+            // 2026-06-03 Phase 6: web2 path ghi vào web2Db (n2store-web2-db), legacy
+            // path (db = chatDb) GIỮ NGUYÊN — Web 1.0 không bị đụng.
+            _processWeb2Path(req.app.locals.web2Db || db, webhookData).catch((e) =>
                 console.warn('[WEB2-SEPAY] background fail:', e.message)
             );
 

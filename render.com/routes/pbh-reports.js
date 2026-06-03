@@ -18,7 +18,7 @@ function num(v) {
 
 // GET /summary?days=30
 router.get('/summary', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         const days = Math.max(1, Math.min(365, parseInt(req.query.days, 10) || 30));
@@ -116,7 +116,7 @@ router.get('/summary', async (req, res) => {
 
 // GET /revenue?days=30 — daily revenue chart
 router.get('/revenue', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         const days = Math.max(1, Math.min(365, parseInt(req.query.days, 10) || 30));
         const r = await pool.query(
@@ -150,7 +150,7 @@ router.get('/revenue', async (req, res) => {
 
 // GET /top-customers?days=30&limit=10
 router.get('/top-customers', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         const days = Math.max(1, Math.min(365, parseInt(req.query.days, 10) || 30));
         const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 10));
@@ -189,7 +189,7 @@ router.get('/top-customers', async (req, res) => {
 
 // GET /by-campaign?days=30
 router.get('/by-campaign', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         const days = Math.max(1, Math.min(365, parseInt(req.query.days, 10) || 30));
         const r = await pool.query(
@@ -229,7 +229,7 @@ router.get('/by-campaign', async (req, res) => {
 // Falls back to bucket "(chưa liên kết)" for orders without customer_id.
 // =====================================================
 router.get('/top-customers-360', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         const days = Math.max(1, Math.min(365, parseInt(req.query.days, 10) || 30));
         const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 10));

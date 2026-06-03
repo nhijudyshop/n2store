@@ -108,7 +108,7 @@ async function ensureSchema(pool) {
 
 router.use(async (req, res, next) => {
     try {
-        await ensureSchema(req.app.locals.chatDb);
+        await ensureSchema(req.app.locals.web2Db || req.app.locals.chatDb);
         next();
     } catch (e) {
         res.status(500).json({ success: false, error: 'schema-init: ' + e.message });
@@ -256,7 +256,7 @@ async function _createDraftViaFromComment(req, customerId, customer, fbContext, 
 // GET /:commentId — list items trong cart (= products array của draft native_order)
 router.get('/:commentId', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const draft = await _findDraft(pool, req.params.commentId);
         if (!draft) return res.json({ success: true, items: [], native_order_code: null });
         const items = (draft.products || []).map((p) => ({
@@ -286,7 +286,7 @@ router.get('/:commentId', async (req, res) => {
 // Trả qty của draft order cho mỗi customer (fbUserId).
 router.get('/batch/counts', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const ids = String(req.query.commentIds || '')
             .split(',')
             .map((s) => s.trim())
@@ -320,7 +320,7 @@ router.get('/batch/counts', async (req, res) => {
 // Tạo draft order nếu chưa có + append SP vào products array.
 router.post('/:commentId/add', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const b = req.body || {};
         const p = b.product || {};
         if (!p.code)
@@ -427,7 +427,7 @@ router.post('/:commentId/add', async (req, res) => {
 // Xóa SP khỏi products. Nếu products còn lại = [] → DELETE native_order.
 router.post('/:commentId/:productCode/remove', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const customerId = req.params.commentId;
         const productCode = req.params.productCode;
         const user = (req.body && req.body.user) || {};
@@ -494,7 +494,7 @@ router.post('/:commentId/:productCode/remove', async (req, res) => {
 // Xóa hết SP của khách = DELETE draft native_order (tương đương xóa đơn).
 router.post('/:commentId/clear', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const customerId = req.params.commentId;
         const user = (req.body && req.body.user) || {};
         const reason = (req.body && req.body.reason) || 'clear-order';
@@ -537,7 +537,7 @@ router.post('/:commentId/clear', async (req, res) => {
 // PATCH /:commentId/:productCode  body: { qty, user }  — update qty cho 1 SP
 router.patch('/:commentId/:productCode', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const customerId = req.params.commentId;
         const productCode = req.params.productCode;
         const b = req.body || {};
@@ -593,7 +593,10 @@ router.patch('/:commentId/:productCode', async (req, res) => {
 // ghi thẳng vào native_orders nên không cần commit nữa. Vẫn return success cho
 // frontend cũ chưa update.
 router.post('/:commentId/commit', async (req, res) => {
-    const draft = await _findDraft(req.app.locals.chatDb, req.params.commentId);
+    const draft = await _findDraft(
+        req.app.locals.web2Db || req.app.locals.chatDb,
+        req.params.commentId
+    );
     res.json({
         success: true,
         deprecated: true,
@@ -609,7 +612,7 @@ router.post('/:commentId/commit', async (req, res) => {
 // GET /:commentId/history?limit=N
 router.get('/:commentId/history', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const limit = Math.min(Number(req.query.limit) || 200, 1000);
         const r = await pool.query(
             `SELECT id, customer_name, customer_phone, product_code, product_name,
@@ -629,7 +632,7 @@ router.get('/:commentId/history', async (req, res) => {
 // GET /history/all?limit=500 — toàn shop, dùng cho audit page
 router.get('/history/all', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const limit = Math.min(Number(req.query.limit) || 500, 5000);
         const r = await pool.query(
             `SELECT id, comment_id, customer_name, customer_phone, product_code, product_name,

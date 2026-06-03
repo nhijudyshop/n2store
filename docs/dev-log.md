@@ -25,6 +25,20 @@
 
 ## 2026-06-03
 
+### [web2] Phase 6 CUTOVER — flip toàn bộ route web2 sang web2Db ✅
+
+Sau khi mirror 33 bảng + copy data (data web2 disposable, Web 1.0 KHÔNG đụng), **cutover pool**:
+
+- **26 route web2** đổi `req.app.locals.chatDb` → `req.app.locals.web2Db || req.app.locals.chatDb` (web2-balance-history, web2-customer-wallet, web2-wallets, web2-customers, web2-customer-orders, web2-supplier-debt, web2-monitoring, web2-products, web2-variants, web2-users, native-orders, fast-sale-orders, reconcile, purchase-refund, notifications, audit-log, cart, kpi, dashboard-kpi, smart-match, supplier-360, inventory-forecast, delivery-invoices, refunds, pbh-reports).
+- **Webhook** `_processWeb2Path(req.app.locals.web2Db || db)` — web2 SePay path ghi web2Db; legacy path (`db`=chatDb) GIỮ NGUYÊN.
+- **Crons** retry + reprocess web2 → `web2Pool`.
+- SSE wallet listener event-based (không query pool) — OK. Anti-dup unique index `sepay_id` đã mirror sang web2Db.
+- Boot `ensureSchema` GIỮ chatDb (wallet-isolation có backfill legacy-specific) — chatDb copies thành unused, harmless.
+
+→ Web 2.0 giờ đọc/ghi hoàn toàn `n2store-web2-db`. Web 1.0 (`n2store_chat`) KHÔNG bị web2 đụng. Rollback: đổi `web2Db || chatDb` → `chatDb` (1 lệnh sed).
+
+Files: 26 route + server.js + sepay-webhook-core.js + db/web2-schema-mirror.js + db/web2-data-copy.js
+
 ### [web2] Phase 4+5 tách DB — schema mirror + data copy chatDb→web2Db (verified) ✅
 
 **Phase 4 (DONE)**: mirror schema 20 bảng web2 chatDb→web2Db qua introspection (`pg_attribute`+`format_type`+`pg_get_constraintdef`+`pg_indexes`). Module [web2-schema-mirror.js](../render.com/db/web2-schema-mirror.js), endpoint `POST /api/admin/schema-mirror-web2` + `/status`. Giải quyết `CREATE TABLE (LIKE customer_wallets)` không chạy được ở web2Db. Dry-run 20/20 OK → run thật → 20/20 mirrored. chatDb KHÔNG đụng.

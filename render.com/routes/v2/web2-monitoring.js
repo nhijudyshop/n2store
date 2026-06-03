@@ -24,7 +24,7 @@ function handleError(res, err, msg = 'Internal error') {
 }
 
 function getDb(req) {
-    return req.app.locals.chatDb || req.app.locals.db;
+    return req.app.locals.web2Db || req.app.locals.chatDb;
 }
 
 // =====================================================

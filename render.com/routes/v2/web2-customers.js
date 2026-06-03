@@ -90,7 +90,7 @@ router.get('/search', async (req, res) => {
 // `customers`, query thẳng native_orders + fast_sale_orders theo phone.
 // native_orders/fast_sale_orders hiện ở chatDb (Phase 6 sẽ chuyển web2Db).
 router.get('/by-phone/:phone/orders', async (req, res) => {
-    const db = req.app.locals.chatDb || req.app.locals.web2Db;
+    const db = req.app.locals.web2Db || req.app.locals.chatDb;
     let phone = String(req.params.phone || '').replace(/\D/g, '');
     if (phone && !phone.startsWith('0')) phone = '0' + phone.slice(-9);
     const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);

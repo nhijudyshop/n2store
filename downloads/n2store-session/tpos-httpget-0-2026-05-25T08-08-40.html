@@ -1,0 +1,355 @@
+<div class="modal-header">
+    <button
+        aria-hidden="true"
+        class="close"
+        data-dismiss="modal"
+        type="button"
+        ng-click="vm.cancel()"
+    >
+        ×
+    </button>
+    <h4 class="modal-title">
+        {{'print.barcode'|translate}}<span class="o_subtitle text-muted small"></span>
+    </h4>
+</div>
+
+<div class="modal-body o_act_window" kendo-validator="vm.validator">
+    <div class="o_view_manager_content">
+        <div class="o_form_view o_form_editable">
+            <div class="o_form_sheet_bg">
+                <div class="o_form_sheet">
+                    <div class="o_group">
+                        <table class="o_group o_inner_group o_group_col_6">
+                            <tbody>
+                                <tr>
+                                    <td colspan="1" class="o_td_label">
+                                        <label class="o_form_label">
+                                            {{'label.price_list'|translate}}
+                                        </label>
+                                    </td>
+                                    <td colspan="1" style="width: 100%">
+                                        <select
+                                            kendo-combo-box
+                                            class="o_form_required"
+                                            k-ng-model="vm.model.PriceList"
+                                            name="vm.model.PriceList"
+                                            k-data-text-field="'Name'"
+                                            k-data-value-field="'Id'"
+                                            k-filter="'contains'"
+                                            k-auto-bind="false"
+                                            k-min-length="1"
+                                            k-change="vm.changePriceList"
+                                            k-data-source="vm.priceListDataSource"
+                                            style="width: 100%"
+                                            required
+                                            validationMessage="{{'pricelist.select'|translate}}"
+                                        ></select>
+                                        <span
+                                            class="k-invalid-msg"
+                                            data-for="vm.model.PriceList"
+                                        ></span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="1" class="o_td_label">
+                                        <label class="o_form_label">
+                                            {{'print.paper'|translate}}
+                                        </label>
+                                    </td>
+                                    <td colspan="1" style="width: 100%">
+                                        <select
+                                            kendo-combo-box
+                                            class="o_form_required"
+                                            k-ng-model="vm.model.Paper"
+                                            name="vm.model.Paper"
+                                            k-data-text-field="'Name'"
+                                            k-data-value-field="'Id'"
+                                            k-filter="'contains'"
+                                            k-auto-bind="false"
+                                            k-change="vm.changePaper"
+                                            k-min-length="1"
+                                            k-data-source="vm.paperDataSource"
+                                            style="width: 100%"
+                                            required
+                                            validationMessage="{{'print.select_paper'|translate}}"
+                                        ></select>
+                                        <span
+                                            class="k-invalid-msg"
+                                            data-for="vm.model.Paper"
+                                        ></span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <table class="o_group o_inner_group o_group_col_6">
+                            <tbody>
+                                <tr ng-if="vm.lines.length > 0">
+                                    <td colspan="2" class="o_td_label">
+                                        <label
+                                            class="o_form_label btn btn-sm btn-success"
+                                            ng-click="vm.quickApplyQuantity()"
+                                        >
+                                            {{'label.quick_apply_quantity'|translate}}
+                                        </label>
+                                    </td>
+                                    <td colspan="1" style="width: 100%">
+                                        <input
+                                            focus-select-all-text
+                                            kendo-numeric-text-box
+                                            k-min="1"
+                                            k-decimals="0"
+                                            k-format="'n0'"
+                                            name="quickApplyQuantity"
+                                            k-ng-model="vm.applyQuantity"
+                                            style="width: 100%"
+                                        />
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <table class="o_group o_inner_group o_group_col_12">
+                            <tbody>
+                                <tr style="height: 41.5px">
+                                    <td class="o_td_label">
+                                        <div class="o_checkbox o_form_field_boolean o_form_field">
+                                            <label class="o_form_label m-r-10" for="showPrice">
+                                                {{'price.show'|translate}}
+                                            </label>
+                                            <input
+                                                type="checkbox"
+                                                id="showPrice"
+                                                ng-model="vm.model.ShowPrice"
+                                                ng-click="vm.barcodeSetting()"
+                                            />
+                                        </div>
+                                    </td>
+                                    <td class="o_td_label">
+                                        <div class="o_checkbox o_form_field_boolean o_form_field">
+                                            <label class="o_form_label m-r-10" for="showBold">
+                                                {{'label.bold'|translate}}
+                                            </label>
+                                            <input
+                                                type="checkbox"
+                                                id="showBold"
+                                                ng-model="vm.model.ShowBold"
+                                                ng-click="vm.barcodeSetting()"
+                                            />
+                                        </div>
+                                    </td>
+                                    <td class="o_td_label">
+                                        <div class="o_checkbox o_form_field_boolean o_form_field">
+                                            <label class="o_form_label m-r-10" for="showCurrency">
+                                                {{'currency.show_uint'|translate}}
+                                            </label>
+                                            <input
+                                                type="checkbox"
+                                                id="showCurrency"
+                                                ng-model="vm.model.ShowCurrency"
+                                                ng-click="vm.barcodeSetting()"
+                                            />
+                                        </div>
+                                    </td>
+                                    <td class="o_td_label">
+                                        <div class="o_checkbox o_form_field_boolean o_form_field">
+                                            <label
+                                                class="o_form_label m-r-10"
+                                                for="showProductName"
+                                            >
+                                                {{'label.display'|translate}}
+                                                {{'product.name'|translate}}
+                                            </label>
+                                            <input
+                                                type="checkbox"
+                                                id="showProductName"
+                                                ng-model="vm.model.ShowProductName"
+                                                ng-click="vm.barcodeSetting()"
+                                            />
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr style="height: 41.5px">
+                                    <td colspan="4" class="o_td_label">
+                                        <div class="o_checkbox o_form_field_boolean o_form_field">
+                                            <label class="o_form_label m-r-10" for="IsHideBarcode">
+                                                {{'label.hide_barcodes'|translate}}
+                                                ({{'label.recommended_for_default_print_type' |
+                                                translate}})
+                                            </label>
+                                            <input
+                                                type="checkbox"
+                                                id="IsHideBarcode"
+                                                ng-model="vm.model.IsHideBarcode"
+                                                ng-click="vm.barcodeSetting()"
+                                            />
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-warning-dk" ng-if="vm.lineErrors.length > 0">
+                        <span class="fa fa-warning"></span>
+                        {{'warning.product_without_barcode_will_not_be_print'|translate}}
+                        <span ng-if="vm.errorMsg"> : {{vm.errorMsg}} </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="o_view_manager_content">
+    <div class="o_form_view o_form_editable">
+        <div class="o_form_sheet_bg">
+            <div class="o_form_sheet">
+                <uib-tabset active="vm.orderTabIndex">
+                    <uib-tab heading="{{'label.products_have_barcode' | translate}}">
+                        <div
+                            class="o_field_one2many o_field_widget o_field_x2many o_field_x2many_list"
+                            kendo-validator="vm.validator2"
+                        >
+                            <div class="table-responsive">
+                                <table
+                                    class="o_list_view table table-condensed table-striped o_list_view_ungrouped"
+                                >
+                                    <thead>
+                                        <tr>
+                                            <th>{{'label.product'|translate}}</th>
+                                            <th>{{'label.quantity'|translate}}</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr ng-repeat="line in vm.lines">
+                                            <td>{{line.Product.NameGet}}</td>
+                                            <td>
+                                                <input
+                                                    focus-select-all-text
+                                                    kendo-numeric-text-box
+                                                    k-min="0"
+                                                    k-decimals="0"
+                                                    k-format="'n0'"
+                                                    name="vm.lines[{{$index}}].Quantity"
+                                                    k-ng-model="line.Quantity"
+                                                    style="width: 100%"
+                                                    required
+                                                    validationMessage="{{'label.import_qty'|translate}}"
+                                                />
+                                                <span
+                                                    class="k-invalid-msg"
+                                                    data-for="vm.lines[{{$index}}].Quantity"
+                                                ></span>
+                                            </td>
+                                            <td class="o_list_record_delete">
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-default"
+                                                    ng-click="vm.remove_line($index)"
+                                                >
+                                                    <span class="fa fa-trash-o"></span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td
+                                                colspan="3"
+                                                class="o_form_field_x2many_list_row_add"
+                                            >
+                                                <a ng-click="vm.add_line()"
+                                                    >{{'product.add'|translate}}</a
+                                                >
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td></td>
+                                            <td></td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </uib-tab>
+                    <uib-tab heading="{{'label.products_have_not_barcode' | translate}}">
+                        <div
+                            class="o_field_one2many o_field_widget o_field_x2many o_field_x2many_list"
+                            kendo-validator="vm.validator3"
+                        >
+                            <form method="post" action="#">
+                                <div class="table-responsive">
+                                    <table
+                                        class="o_list_view table table-condensed table-striped o_list_view_ungrouped"
+                                    >
+                                        <thead>
+                                            <tr>
+                                                <th>{{'label.product'|translate}}</th>
+                                                <th>{{'label.barcode'|translate}}</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr ng-repeat="line in vm.lineErrors">
+                                                <td>{{line.ProductName}}</td>
+                                                <td>
+                                                    <input
+                                                        class="form-control"
+                                                        id="{{vm.lineErrors[$index].Id}}"
+                                                        name="{{vm.lineErrors[$index].Id}}"
+                                                        ng-model="line.Barcode"
+                                                        style="width: 100%"
+                                                        required
+                                                        validationMessage="{{'error.please_enter_barcode'|translate}}"
+                                                    />
+                                                    <span
+                                                        class="k-invalid-msg"
+                                                        data-for="{{vm.lineErrors[$index].Id}}"
+                                                    ></span>
+                                                </td>
+                                                <td class="o_list_record_delete"></td>
+                                            </tr>
+                                            <tr>
+                                                <td
+                                                    colspan="3"
+                                                    class="o_form_field_x2many_list_row_add"
+                                                >
+                                                    <a ng-click="vm.updateBarcodes()"
+                                                        >{{'label.update_barcode'|translate}}</a
+                                                    >
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                        <tfoot>
+                                            <tr>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </form>
+                        </div>
+                    </uib-tab>
+                </uib-tabset>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal-footer">
+    <div>
+        <footer>
+            <button
+                type="button"
+                class="btn btn-sm btn-primary"
+                check-permission="App.Catalog.ProductTemplate.PrintBarcode"
+                ng-click="vm.savePdf()"
+            >
+                <span>{{'print.pdf'|translate}}</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-default" ng-click="vm.cancel()">
+                <span>{{'label.close'|translate}}</span>
+            </button>
+        </footer>
+    </div>
+</div>

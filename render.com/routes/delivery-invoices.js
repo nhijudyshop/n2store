@@ -140,7 +140,7 @@ async function nextNumber(pool) {
 
 // -----------------------------------------------------
 router.get('/health', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ ok: false, error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -152,7 +152,7 @@ router.get('/health', async (req, res) => {
 });
 
 router.get('/load', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
         const { state, search, limit, page, fsoNumber } = req.query;
@@ -203,7 +203,7 @@ router.get('/load', async (req, res) => {
 });
 
 router.get('/:number', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
         const r = await pool.query('SELECT * FROM delivery_invoices WHERE number = $1', [
@@ -220,7 +220,7 @@ router.get('/:number', async (req, res) => {
 // Body: { pbhNumber, dateDelivery?, carrierId?, carrierName?, trackingRef?,
 //   deliveryFee?, cashOnDelivery?, deliveryLines? (subset), note? }
 router.post('/from-pbh', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
         const b = req.body || {};
@@ -328,7 +328,7 @@ for (const [path, st] of [
     ['/:number/cancel', 'cancel'],
 ]) {
     router.post(path, async (req, res) => {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         try {
             await ensureTables(pool);
             const row = await _changeState(pool, req.params.number, st, req.body?.by);
@@ -345,7 +345,7 @@ for (const [path, st] of [
 }
 
 router.patch('/:number', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
         const b = req.body || {};
@@ -392,7 +392,7 @@ router.patch('/:number', async (req, res) => {
 });
 
 router.delete('/:number', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
         const force = req.query.force === '1';

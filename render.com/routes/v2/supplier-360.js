@@ -23,7 +23,7 @@ async function ensureSchema(pool) {
 
 router.use(async (req, res, next) => {
     try {
-        await ensureSchema(req.app.locals.chatDb);
+        await ensureSchema(req.app.locals.web2Db || req.app.locals.chatDb);
         next();
     } catch (e) {
         res.status(500).json({ success: false, error: 'schema-init: ' + e.message });
@@ -33,7 +33,7 @@ router.use(async (req, res, next) => {
 // GET /:code/summary
 router.get('/:code/summary', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const code = req.params.code;
 
         // Ratings
@@ -78,7 +78,7 @@ router.get('/:code/summary', async (req, res) => {
 // POST /:code/rating
 router.post('/:code/rating', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const { score, comment, user_id, user_name } = req.body || {};
         if (!score || score < 1 || score > 5) {
             return res.status(400).json({ success: false, error: 'score 1-5 bắt buộc' });

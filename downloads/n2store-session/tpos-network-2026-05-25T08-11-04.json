@@ -1,0 +1,1303 @@
+{
+    "networkLog": [
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/",
+            "at": 1779696667387
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/vendor.min.css",
+            "at": 1779696667442
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/app.min.css",
+            "at": 1779696667442
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/vendor.min.js",
+            "at": 1779696667444
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/customs.min.js",
+            "at": 1779696667444
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/app.min.js",
+            "at": 1779696667444
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/directives.min.js",
+            "at": 1779696667444
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/controllers.min.js",
+            "at": 1779696667445
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/services.min.js",
+            "at": 1779696667445
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/common/get_type_user_lang",
+            "at": 1779696668090
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/Content/themes/kendoui/messages/kendo.messages.vi-VN.js?_=1779696667756",
+            "at": 1779696668123
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/common/getlanguage_dicts?type=vi",
+            "at": 1779696668123
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/account/layout",
+            "at": 1779696668225
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/account/logged",
+            "at": 1779696668225
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/management/processupdate",
+            "at": 1779696668226
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/shared/app",
+            "at": 1779696668264
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/producttemplate/list",
+            "at": 1779696668264
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/common/get_type_user_lang",
+            "at": 1779696668331
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/totp/status",
+            "at": 1779696668332
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/common/getsaleconfig",
+            "at": 1779696668332
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ResCurrency?$select=Id,Name,Symbol",
+            "at": 1779696668332
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/common/getcompanycurrent",
+            "at": 1779696668332
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/rest/v1.0/producttemplate/getproducttax?companyId=1&lastId=0&top=200",
+            "at": 1779696668381
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/TransportConfigs",
+            "at": 1779696668381
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/DeliveryCarrier?$filter=Active%20eq%20true",
+            "at": 1779696668414
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ConfigShippingFee?$orderby=DateCreated%20desc&$filter=Active%20eq%20true",
+            "at": 1779696668449
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/rest/v1.0/common/tpos-feature",
+            "at": 1779696668494
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/common/getsaleconfig",
+            "at": 1779696668710
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/common/gettaxinvoice",
+            "at": 1779696668710
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ProductCategory?$orderby=ParentLeft",
+            "at": 1779696668710
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/Content/images/logo.png",
+            "at": 1779696668710
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/fonts/fontawesome-webfont.woff2?v=4.7.0",
+            "at": 1779696668711
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/fonts/Simple-Line-Icons.woff",
+            "at": 1779696668711
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/fonts/glyphs/WebComponentsIcons.ttf?gedxeo",
+            "at": 1779696668711
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ProductTemplate/ODataService.GetViewV2?Active=true&priceId=0&%24top=50&%24orderby=DateCreated+desc&%24filter=Active+eq+true&%24count=true",
+            "at": 1779696668711
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2.0/notification/not-read?type=info&limit=",
+            "at": 1779696668711
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ApplicationUser/ODataService.ChangeCurrentCompanyGet",
+            "at": 1779696668712
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/templatehtml/formsearch",
+            "at": 1779696668712
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/shared/nav",
+            "at": 1779696668712
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/Bootstrap/loading-image.gif",
+            "at": 1779696668712
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/Content/images/avatar-50x.png",
+            "at": 1779696668713
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/Content/themes/angulr/img/app-ico.svg",
+            "at": 1779696668713
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/Content/themes/angulr/img/tpos-icon.svg",
+            "at": 1779696668713
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/Content/themes/angulr/img/a0.jpg",
+            "at": 1779696668713
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs",
+            "at": 1779696668786
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/fonts/glyphicons-halflings-regular.woff2",
+            "at": 1779696668793
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/facebook-graph/user/info?pageId=138914192501678&facebook_type=User",
+            "at": 1779696668839
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/d_XY6jOCSQvEoZoPZonLg6JS3UUHckhgrt4gYpb7Pyg/rs::::1/g:no/plain/tpos/tenant/notification/tposhd.jpg",
+            "at": 1779696668841
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/NwHrXRXoQULcwT6yoOc9elrJRt3sfKiwwk-AyChRsyU/rs::::1/g:no/plain/tpos/tenant/notification/hddt.jpeg",
+            "at": 1779696668841
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/RVUGzvAYkJcSvQUoLas5XgelSe4cZIdS7uwoBCVImbs/rs::::1/g:no/plain/tpos/tenant/notification/588032580_1230591419090632_7645276309233492626_n.jpg",
+            "at": 1779696668841
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ProductTemplateUOMLine/ODataService.GetLastVersionV3?Version=-1&lastId=157484",
+            "at": 1779696668911
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://www.facebook.com/x/oauth/status?client_id=327268081110321&input_token&origin=1&redirect_uri=https%3A%2F%2Ftomato.tpos.vn%2F%23%2Fapp%2Fproducttemplate%2Flist&sdk=joey&wants_cookie_data=false",
+            "at": 1779696668948
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/d_XY6jOCSQvEoZoPZonLg6JS3UUHckhgrt4gYpb7Pyg/rs::::1/g:no/plain/tpos/tenant/notification/tposhd.jpg",
+            "at": 1779696668965
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/NwHrXRXoQULcwT6yoOc9elrJRt3sfKiwwk-AyChRsyU/rs::::1/g:no/plain/tpos/tenant/notification/hddt.jpeg",
+            "at": 1779696668966
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/RVUGzvAYkJcSvQUoLas5XgelSe4cZIdS7uwoBCVImbs/rs::::1/g:no/plain/tpos/tenant/notification/588032580_1230591419090632_7645276309233492626_n.jpg",
+            "at": 1779696668966
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/templatehtml/readMoreTemplate",
+            "at": 1779696669626
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119318&type=product_template&v=3772",
+            "at": 1779696669632
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119317&type=product_template&v=3772",
+            "at": 1779696669632
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119316&type=product_template&v=3772",
+            "at": 1779696669632
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119315&type=product_template&v=3772",
+            "at": 1779696669632
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119314&type=product_template&v=3772",
+            "at": 1779696669632
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/Content/images/placeholder.png",
+            "at": 1779696669632
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119312&type=product_template&v=3760",
+            "at": 1779696669632
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119311&type=product_template&v=3758",
+            "at": 1779696669632
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119310&type=product_template&v=3757",
+            "at": 1779696669632
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119309&type=product_template&v=3752",
+            "at": 1779696669632
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119308&type=product_template&v=3752",
+            "at": 1779696669632
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119307&type=product_template&v=3751",
+            "at": 1779696669632
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119306&type=product_template&v=3751",
+            "at": 1779696669632
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119305&type=product_template&v=3751",
+            "at": 1779696669633
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119304&type=product_template&v=3751",
+            "at": 1779696669633
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119303&type=product_template&v=3751",
+            "at": 1779696669633
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119302&type=product_template&v=3750",
+            "at": 1779696669633
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119301&type=product_template&v=3750",
+            "at": 1779696669633
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119300&type=product_template&v=3750",
+            "at": 1779696669633
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119299&type=product_template&v=3749",
+            "at": 1779696669633
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119298&type=product_template&v=3749",
+            "at": 1779696669633
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119297&type=product_template&v=3742",
+            "at": 1779696669633
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119296&type=product_template&v=3742",
+            "at": 1779696669633
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119294&type=product_template&v=3740",
+            "at": 1779696669633
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119293&type=product_template&v=3744",
+            "at": 1779696669633
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119292&type=product_template&v=3755",
+            "at": 1779696669633
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119291&type=product_template&v=3735",
+            "at": 1779696669634
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119290&type=product_template&v=3734",
+            "at": 1779696669634
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119289&type=product_template&v=3734",
+            "at": 1779696669634
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119288&type=product_template&v=3737",
+            "at": 1779696669634
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119287&type=product_template&v=3738",
+            "at": 1779696669634
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119286&type=product_template&v=3732",
+            "at": 1779696669634
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119285&type=product_template&v=3727",
+            "at": 1779696669634
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119284&type=product_template&v=3727",
+            "at": 1779696669634
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119283&type=product_template&v=3746",
+            "at": 1779696669634
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119282&type=product_template&v=3726",
+            "at": 1779696669634
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119281&type=product_template&v=3726",
+            "at": 1779696669634
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119280&type=product_template&v=3725",
+            "at": 1779696669634
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119279&type=product_template&v=3722",
+            "at": 1779696669634
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119278&type=product_template&v=3720",
+            "at": 1779696669635
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119277&type=product_template&v=3719",
+            "at": 1779696669635
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119276&type=product_template&v=3719",
+            "at": 1779696669635
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119275&type=product_template&v=3718",
+            "at": 1779696669635
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119274&type=product_template&v=3718",
+            "at": 1779696669635
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119273&type=product_template&v=3716",
+            "at": 1779696669635
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119272&type=product_template&v=3716",
+            "at": 1779696669635
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119271&type=product_template&v=3715",
+            "at": 1779696669635
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119270&type=product_template&v=3748",
+            "at": 1779696669635
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=119269&type=product_template&v=3710",
+            "at": 1779696669635
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/AoHcuQj7foeDowImcNzCA1IjtvshQtR20Z82FNElisQ/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_7bdc38f3-a349-46d3-8fa1-ff55b7316569.jpg",
+            "at": 1779696669650
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/inoXrV0wgIgiTx0mcouqEzGCP2HNcCjBTr9tueWWZ0I/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_8392b129-3a28-491f-810d-600c043baf9c.jpg",
+            "at": 1779696669651
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/5JkC_OaIKmWv7fp3M5lK_l0VgRVEFrAID1zjAIF0gOQ/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_feb68082-53a8-476a-9dfc-0bd7069479d4.jpg",
+            "at": 1779696669652
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/nFj0kv0ijF0KtPhbHRvg0J6OKxLvAbsww1mDUnp4Xa4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_119312_6ed5ab13-6fab-4a92-9a49-fc05b13dcc9e.jpg",
+            "at": 1779696669652
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/ShHwEuybvniLsvHolXqC93oN4QlnDho9nDT50ivT4mU/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_4bed9d23-c58d-452b-9eec-c7bf6f5ebdfd.jpg",
+            "at": 1779696669653
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/18T93GNsdc01XzZnZkrKznSOowujBcsamBtzmfhK6Vk/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_90b3436c-5e92-4f51-8f4f-a7097a62bd95.jpg",
+            "at": 1779696669657
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/49u1jJNNdwTp7gF2wRaAXnZzygJLlaAejgjpKz_L7d8/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_840da84d-bc8f-48b4-b953-96ab0720baee.jpg",
+            "at": 1779696669657
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/RrLZfsVvuQY0Gc3_c-g3w98HIQCz98cpUedTE-do9d4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_f0a8967b-a0cf-4159-80a2-1258198b03a8.jpg",
+            "at": 1779696669657
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/YC6194whUnTvuAapugi7YjQuxLJULmoY53qyzZrhWFg/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_3410ca1e-54cd-4a73-bf4a-a8c9e55cdd3a.jpg",
+            "at": 1779696669657
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/ixdDZa6coyE060tmhOl1hcCS_TutktuRFcPC6TMTCGw/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_f8bb5b38-218a-4207-b5ab-e1e364244699.jpg",
+            "at": 1779696669661
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/6J1KBuXaC4EZFt7h2xIjfpl3tc7ubXnQFVKY2U6eBEM/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_3c7d109d-6d66-4f5f-a0c9-d78d61bb744c.jpg",
+            "at": 1779696669662
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/J5dFvmbOM3rid_6lqQj-dtSkCzWuRbzXm0zfFAtEI4Q/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_b412aff3-a5c6-45ed-98cf-17d685e84271.jpg",
+            "at": 1779696669664
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/II-o-l1dL34wIuMupge3XMhoF8t5s78ZgTNTy8GqQkw/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_32e12ed3-6e91-46ac-9fb3-3adfe5030b7f.jpg",
+            "at": 1779696669664
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/hY6Vr7_ZqwyfPccTHVV35Th2lWpmjnpHyZKI7XUuhK4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_8e50c636-a8c1-44fa-bcc2-f52577b1d914.jpg",
+            "at": 1779696669665
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/gXexGYR9nYRQ7AoOJrn2YItOYSbEKcdxM8T2BTWrcYU/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_6d95071e-2f43-439d-86ec-3644fccb8104.jpg",
+            "at": 1779696669667
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/8siWw4mBc552eBrBUg-HRzyJO-0LV1GCfYmfSeR_ijU/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_ab4a27cb-6455-4f9f-8bfd-b4e9190adb8c.jpg",
+            "at": 1779696669667
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/wKoU892r-DrWjQiP2pe38o4FPzBTUAUuMTD3jmLpc2s/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_69c77c46-c3f5-451f-a29b-46a19801be6b.jpg",
+            "at": 1779696669667
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/g3cSJP3Z-lPj9yBpAI_4xUntf40Dz8SBhyisvCzKlRg/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_4ad6a06d-1f58-43e3-bd5a-9836b04c240c.jpg",
+            "at": 1779696669668
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/3I8rUAdcJKUDf1libzGzaskQiFqGIiaKnb6FkYHaLks/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_9e113226-9a4e-436a-9ae1-4e8372cc0578.jpg",
+            "at": 1779696669673
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/8qN9lJ2BjCGd9UJfp_rTQngSmBK4s7kDpxNgC_-1rl8/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_6eb8a2d8-3809-497a-8f23-40f35aabca94.jpg",
+            "at": 1779696669673
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/hDk_yq6Fy39aHOAlE_Y4U4QxJMBKskWwWBB2NwssCWM/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_f6e8265a-4f45-4f4d-ab4e-030db02dbe4b.jpg",
+            "at": 1779696669673
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/16QJ_LlcHqcH5urWQvtZWIyJBapJtjIDSR6y9Xf59ik/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_6436604e-bdf2-4d27-81f6-fc1c2dbb9d26.jpg",
+            "at": 1779696669673
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/h4LqCtmG6rx8XpqA6Oe2V-phaPrZQLSKiAry6D-xhpM/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_cbcfab09-8e3e-4607-890b-d4b171ff2c87.jpg",
+            "at": 1779696669674
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/NoeMlzebqInUCM6wIPwFhtnnOxVUs9VZKTyMO6Ps28U/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_1e356b71-913b-40cb-a3ab-6c1ad6747476.jpg",
+            "at": 1779696669674
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/unORChe6AkTV_5vwdRW2vPKuU4oa-iLLteL67YXWEeM/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_c1a5f1e4-becf-47fd-b69c-fe30b5fcd719.jpg",
+            "at": 1779696669675
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/oHP_hKa1J3QDLYieDaBjTynR0Ju-_IikKtLERdXJeL8/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_44919a79-0da6-4fa5-92a1-8769e4180f18.jpg",
+            "at": 1779696669675
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/WlXVGOd5WkuKmETC2kkYVlI-o1vkrxhzMrif4onWqb0/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_b9173ca2-1a58-4d02-bf42-3c2d5a32b9c9.jpg",
+            "at": 1779696669675
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/l3BgAwqgXLpuSkESw4CDxmyxvTYQ3h3hMYzZTH3r2Mg/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_2dd968b3-3f69-496c-8706-da28139e45ad.jpg",
+            "at": 1779696669676
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/NmGs0v4hGT9FzzY3-G1pCn2-2QuOk8dyhSxCnbkFyX0/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_8b5ddd00-f767-43f1-9a5e-12876df58d0f.jpg",
+            "at": 1779696669687
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/_Z3BR6BVPbeCvNA93GVdLepb_-oO4y-PK6lqkNn-qVw/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_83f81484-b65d-49e8-a544-5f8b59020967.jpg",
+            "at": 1779696669687
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/C54c2Xs0slee48Xab2l4dRsGQ0hSbxj_ZDo3SXGWczE/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_a43e62ba-0c52-4a57-87eb-cf8190d70480.jpg",
+            "at": 1779696669687
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/khRcvcYOF_yiBoZw3JTbUQKRTh8Cy1ntB-d5KzsIpfY/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_4353d24f-c60b-4c1a-b4ba-8d22ab21530d.jpg",
+            "at": 1779696669687
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/d26oTPqCgDIMePcJlYAfLVhDG_5YVlDvVLTpxymxQs8/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_83100225-8db1-45e3-8fc4-2ef50e8e4460.jpg",
+            "at": 1779696669687
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/FIPyUkbrhCoWU0fQub-ChXF7bN7kgrW-_wztPiwTlxQ/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_dd0f6257-4b89-49e8-aa36-8041c8e16c67.jpg",
+            "at": 1779696669688
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/FOn17bwW4-K73SDqvDZz1oIlOcyZUBn6FIbhn84AGYo/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_983d50d5-965e-4640-973b-335b91989463.jpg",
+            "at": 1779696669688
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/eF6heBi9SFc3dZMhjn6KxZIpzto0X9au_Fkkan-unKI/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_2e6ce177-dd82-4464-b493-60d6e477ae66.jpg",
+            "at": 1779696669688
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/0yRVhz1fQD7bErTj1fQBk5CmjtWsyeJ7TtnaBI6uuMk/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_bb880209-c050-4849-97c5-a94535f4f177.jpg",
+            "at": 1779696669688
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/toWl0NYyN2Y8tlQVnZNk2BcIEKRJNduX924NGyaVOiQ/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_86ceb544-f4ef-442f-8ba9-1718b749c1e1.jpg",
+            "at": 1779696669688
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/b6NoX_m_wH6ig0Ae7XcKMOhlXh9dbsXc6eBbUDb5MjY/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_519ed2f2-3d41-420f-811c-c438ef179459.jpg",
+            "at": 1779696669688
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/AoMtmleoM_Fe_RfugHLcddIIcchO1Eli8srSDOFErwk/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_04412f7d-ba55-492f-a00e-bbddeb660db9.jpg",
+            "at": 1779696669688
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/TY618rlxbLMBk2AqGzIHVUK9Hn83FmE-OwqlbXG-JRg/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_c2da947e-75b8-41b3-a5b2-a893a4a3971d.jpg",
+            "at": 1779696669688
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/82WeSY_lj_4h5UWj5UaLjvS1IG_htZrtSiwviacMvO4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_54689681-4140-478b-984e-edd0afc97c64.jpg",
+            "at": 1779696669689
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/9R49Aa3at1SCe8NuTlezsp9sAUgH7bn3X5G5yoqvCqE/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_1507b69e-eb5d-40df-979d-c133d1be628d.jpg",
+            "at": 1779696669689
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/9oneajh4bVqzR0lFl6NjPUJhP7dDY5opE-EcAyy8mbI/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_d8533b30-18b6-47ac-bad8-302fb063a604.jpg",
+            "at": 1779696669689
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/HHypsv3galLhL4SHU1aetTSDt_hB0RBXuDwxnc0TihM/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_3a0138fa-310f-4220-bc6a-8106c6506f21.jpg",
+            "at": 1779696669690
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/_2Nq6Tcup90Y2lgbrFIaajRYYcG-B2pzHuXhKbW2jqw/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_d2aece78-9242-4a5c-b596-530161dc5081.jpg",
+            "at": 1779696669690
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/H79igwgAQYHy3cpyboMSOIzKPue-lOCCx0ebQqVtzk4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_353641b2-1f34-4677-bdab-1c9e2d73e4ad.jpg",
+            "at": 1779696669692
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/9b8RwwFuOn91KgeP3bHB7hsKuxJwJ6jUshuh_bTdz3o/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_c2d48fae-cc56-4e31-b228-f66e02665b0a.jpg",
+            "at": 1779696669692
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/AoHcuQj7foeDowImcNzCA1IjtvshQtR20Z82FNElisQ/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_7bdc38f3-a349-46d3-8fa1-ff55b7316569.jpg",
+            "at": 1779696669692
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/inoXrV0wgIgiTx0mcouqEzGCP2HNcCjBTr9tueWWZ0I/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_8392b129-3a28-491f-810d-600c043baf9c.jpg",
+            "at": 1779696669694
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/5JkC_OaIKmWv7fp3M5lK_l0VgRVEFrAID1zjAIF0gOQ/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_feb68082-53a8-476a-9dfc-0bd7069479d4.jpg",
+            "at": 1779696669694
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/nFj0kv0ijF0KtPhbHRvg0J6OKxLvAbsww1mDUnp4Xa4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_119312_6ed5ab13-6fab-4a92-9a49-fc05b13dcc9e.jpg",
+            "at": 1779696669699
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/ShHwEuybvniLsvHolXqC93oN4QlnDho9nDT50ivT4mU/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_4bed9d23-c58d-452b-9eec-c7bf6f5ebdfd.jpg",
+            "at": 1779696669699
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/18T93GNsdc01XzZnZkrKznSOowujBcsamBtzmfhK6Vk/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_90b3436c-5e92-4f51-8f4f-a7097a62bd95.jpg",
+            "at": 1779696669699
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/49u1jJNNdwTp7gF2wRaAXnZzygJLlaAejgjpKz_L7d8/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_840da84d-bc8f-48b4-b953-96ab0720baee.jpg",
+            "at": 1779696669700
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/RrLZfsVvuQY0Gc3_c-g3w98HIQCz98cpUedTE-do9d4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_f0a8967b-a0cf-4159-80a2-1258198b03a8.jpg",
+            "at": 1779696669700
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/YC6194whUnTvuAapugi7YjQuxLJULmoY53qyzZrhWFg/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_3410ca1e-54cd-4a73-bf4a-a8c9e55cdd3a.jpg",
+            "at": 1779696669702
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/ixdDZa6coyE060tmhOl1hcCS_TutktuRFcPC6TMTCGw/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_f8bb5b38-218a-4207-b5ab-e1e364244699.jpg",
+            "at": 1779696669703
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/6J1KBuXaC4EZFt7h2xIjfpl3tc7ubXnQFVKY2U6eBEM/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_3c7d109d-6d66-4f5f-a0c9-d78d61bb744c.jpg",
+            "at": 1779696669715
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/J5dFvmbOM3rid_6lqQj-dtSkCzWuRbzXm0zfFAtEI4Q/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_b412aff3-a5c6-45ed-98cf-17d685e84271.jpg",
+            "at": 1779696669719
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/II-o-l1dL34wIuMupge3XMhoF8t5s78ZgTNTy8GqQkw/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_32e12ed3-6e91-46ac-9fb3-3adfe5030b7f.jpg",
+            "at": 1779696669719
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/hY6Vr7_ZqwyfPccTHVV35Th2lWpmjnpHyZKI7XUuhK4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_8e50c636-a8c1-44fa-bcc2-f52577b1d914.jpg",
+            "at": 1779696669719
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/8siWw4mBc552eBrBUg-HRzyJO-0LV1GCfYmfSeR_ijU/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_ab4a27cb-6455-4f9f-8bfd-b4e9190adb8c.jpg",
+            "at": 1779696669719
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/gXexGYR9nYRQ7AoOJrn2YItOYSbEKcdxM8T2BTWrcYU/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_6d95071e-2f43-439d-86ec-3644fccb8104.jpg",
+            "at": 1779696669719
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/wKoU892r-DrWjQiP2pe38o4FPzBTUAUuMTD3jmLpc2s/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_69c77c46-c3f5-451f-a29b-46a19801be6b.jpg",
+            "at": 1779696669757
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/h4LqCtmG6rx8XpqA6Oe2V-phaPrZQLSKiAry6D-xhpM/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_cbcfab09-8e3e-4607-890b-d4b171ff2c87.jpg",
+            "at": 1779696669760
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/3I8rUAdcJKUDf1libzGzaskQiFqGIiaKnb6FkYHaLks/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_9e113226-9a4e-436a-9ae1-4e8372cc0578.jpg",
+            "at": 1779696669760
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/8qN9lJ2BjCGd9UJfp_rTQngSmBK4s7kDpxNgC_-1rl8/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_6eb8a2d8-3809-497a-8f23-40f35aabca94.jpg",
+            "at": 1779696669760
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/NoeMlzebqInUCM6wIPwFhtnnOxVUs9VZKTyMO6Ps28U/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_1e356b71-913b-40cb-a3ab-6c1ad6747476.jpg",
+            "at": 1779696669761
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/g3cSJP3Z-lPj9yBpAI_4xUntf40Dz8SBhyisvCzKlRg/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_4ad6a06d-1f58-43e3-bd5a-9836b04c240c.jpg",
+            "at": 1779696669761
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/unORChe6AkTV_5vwdRW2vPKuU4oa-iLLteL67YXWEeM/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_c1a5f1e4-becf-47fd-b69c-fe30b5fcd719.jpg",
+            "at": 1779696669761
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/oHP_hKa1J3QDLYieDaBjTynR0Ju-_IikKtLERdXJeL8/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_44919a79-0da6-4fa5-92a1-8769e4180f18.jpg",
+            "at": 1779696669800
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/16QJ_LlcHqcH5urWQvtZWIyJBapJtjIDSR6y9Xf59ik/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_6436604e-bdf2-4d27-81f6-fc1c2dbb9d26.jpg",
+            "at": 1779696669800
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/hDk_yq6Fy39aHOAlE_Y4U4QxJMBKskWwWBB2NwssCWM/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_f6e8265a-4f45-4f4d-ab4e-030db02dbe4b.jpg",
+            "at": 1779696669800
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/0yRVhz1fQD7bErTj1fQBk5CmjtWsyeJ7TtnaBI6uuMk/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_bb880209-c050-4849-97c5-a94535f4f177.jpg",
+            "at": 1779696669801
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/NmGs0v4hGT9FzzY3-G1pCn2-2QuOk8dyhSxCnbkFyX0/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_8b5ddd00-f767-43f1-9a5e-12876df58d0f.jpg",
+            "at": 1779696669801
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/FOn17bwW4-K73SDqvDZz1oIlOcyZUBn6FIbhn84AGYo/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_983d50d5-965e-4640-973b-335b91989463.jpg",
+            "at": 1779696669801
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/l3BgAwqgXLpuSkESw4CDxmyxvTYQ3h3hMYzZTH3r2Mg/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_2dd968b3-3f69-496c-8706-da28139e45ad.jpg",
+            "at": 1779696669804
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/_Z3BR6BVPbeCvNA93GVdLepb_-oO4y-PK6lqkNn-qVw/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_83f81484-b65d-49e8-a544-5f8b59020967.jpg",
+            "at": 1779696669806
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/WlXVGOd5WkuKmETC2kkYVlI-o1vkrxhzMrif4onWqb0/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_b9173ca2-1a58-4d02-bf42-3c2d5a32b9c9.jpg",
+            "at": 1779696669806
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/C54c2Xs0slee48Xab2l4dRsGQ0hSbxj_ZDo3SXGWczE/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_a43e62ba-0c52-4a57-87eb-cf8190d70480.jpg",
+            "at": 1779696669806
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/khRcvcYOF_yiBoZw3JTbUQKRTh8Cy1ntB-d5KzsIpfY/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_4353d24f-c60b-4c1a-b4ba-8d22ab21530d.jpg",
+            "at": 1779696669806
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/d26oTPqCgDIMePcJlYAfLVhDG_5YVlDvVLTpxymxQs8/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_83100225-8db1-45e3-8fc4-2ef50e8e4460.jpg",
+            "at": 1779696669806
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/FIPyUkbrhCoWU0fQub-ChXF7bN7kgrW-_wztPiwTlxQ/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_dd0f6257-4b89-49e8-aa36-8041c8e16c67.jpg",
+            "at": 1779696669806
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/toWl0NYyN2Y8tlQVnZNk2BcIEKRJNduX924NGyaVOiQ/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_86ceb544-f4ef-442f-8ba9-1718b749c1e1.jpg",
+            "at": 1779696669807
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/eF6heBi9SFc3dZMhjn6KxZIpzto0X9au_Fkkan-unKI/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_2e6ce177-dd82-4464-b493-60d6e477ae66.jpg",
+            "at": 1779696669807
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/b6NoX_m_wH6ig0Ae7XcKMOhlXh9dbsXc6eBbUDb5MjY/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_519ed2f2-3d41-420f-811c-c438ef179459.jpg",
+            "at": 1779696669807
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/AoMtmleoM_Fe_RfugHLcddIIcchO1Eli8srSDOFErwk/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_04412f7d-ba55-492f-a00e-bbddeb660db9.jpg",
+            "at": 1779696669807
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/TY618rlxbLMBk2AqGzIHVUK9Hn83FmE-OwqlbXG-JRg/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_c2da947e-75b8-41b3-a5b2-a893a4a3971d.jpg",
+            "at": 1779696669809
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/82WeSY_lj_4h5UWj5UaLjvS1IG_htZrtSiwviacMvO4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_54689681-4140-478b-984e-edd0afc97c64.jpg",
+            "at": 1779696669809
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/9R49Aa3at1SCe8NuTlezsp9sAUgH7bn3X5G5yoqvCqE/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_1507b69e-eb5d-40df-979d-c133d1be628d.jpg",
+            "at": 1779696669809
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/9b8RwwFuOn91KgeP3bHB7hsKuxJwJ6jUshuh_bTdz3o/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_c2d48fae-cc56-4e31-b228-f66e02665b0a.jpg",
+            "at": 1779696669809
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/9oneajh4bVqzR0lFl6NjPUJhP7dDY5opE-EcAyy8mbI/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_d8533b30-18b6-47ac-bad8-302fb063a604.jpg",
+            "at": 1779696669809
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/HHypsv3galLhL4SHU1aetTSDt_hB0RBXuDwxnc0TihM/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_3a0138fa-310f-4220-bc6a-8106c6506f21.jpg",
+            "at": 1779696669809
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/_2Nq6Tcup90Y2lgbrFIaajRYYcG-B2pzHuXhKbW2jqw/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_d2aece78-9242-4a5c-b596-530161dc5081.jpg",
+            "at": 1779696669817
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/H79igwgAQYHy3cpyboMSOIzKPue-lOCCx0ebQqVtzk4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/22/product_0_353641b2-1f34-4677-bdab-1c9e2d73e4ad.jpg",
+            "at": 1779696669817
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/BarcodeProductLabel/FormModal",
+            "at": 1779696683753
+        },
+        {
+            "t": "req",
+            "m": "POST",
+            "url": "https://tomato.tpos.vn/odata/BarcodeProductLabel/ODataService.DefaultGet?$expand=Warehouse",
+            "at": 1779696683835
+        },
+        {
+            "t": "req",
+            "m": "POST",
+            "url": "https://tomato.tpos.vn/odata/BarcodeProductLabel/ODataService.DefaultLinesGet?$expand=Product",
+            "at": 1779696683836
+        },
+        {
+            "t": "resp",
+            "s": 200,
+            "url": "https://tomato.tpos.vn/BarcodeProductLabel/FormModal",
+            "ct": "text/html; charset=utf-8",
+            "at": 1779696683835,
+            "body": "\r\n<div class=\"modal-header\">\r\n    <button aria-hidden=\"true\" class=\"close\" data-dismiss=\"modal\" type=\"button\" ng-click=\"vm.cancel()\">×</button>\r\n    <h4 class=\"modal-title\">{{'print.barcode'|translate}}<span class=\"o_subtitle text-muted small\"></span></h4>\r\n</div>\r\n\r\n<div class=\"modal-body o_act_window\" kendo-validator=\"vm.validator\">\r\n    <div class=\"o_view_manager_content\">\r\n        <div class=\"o_form_view o_form_editable\">\r\n            <div class=\"o_form_sheet_bg\">\r\n                <div class=\"o_form_sheet\">\r\n                    <div class=\"o_group\">\r\n                        <table class=\"o_group o_inner_group o_group_col_6\">\r\n                            <tbody>\r\n                                <tr>\r\n                                    <td colspan=\"1\" class=\"o_td_label\">\r\n                                        <label class=\"o_form_label\">\r\n                                            {{'label.price_list'|translate}}\r\n                                        </label>\r\n                                    </td>\r\n                                    <td colspan=\"1\" style=\"width: 100%;\">\r\n                                        <select kendo-combo-box\r\n                                                class=\"o_form_required\"\r\n                                                k-ng-model=\"vm.model.PriceList\"\r\n                                                name=\"vm.model.PriceList\"\r\n                                                k-data-text-field=\"'Name'\"\r\n                                                k-data-value-field=\"'Id'\"\r\n                                                k-filter=\"'contains'\"\r\n                                                k-auto-bind=\"false\"\r\n                                                k-min-length=\"1\"\r\n                                                k-change=\"vm.changePriceList\"\r\n                                                k-data-source=\"vm.priceListDataSource\"\r\n                                                style=\"width: 100%\" required validationMessage=\"{{'pricelist.select'|translate}}\"></select>\r\n                                        <span class=\"k-invalid-msg\" data-for=\"vm.model.PriceList\"></span>\r\n                                    </td>\r\n                                </tr>\r\n                                <tr>\r\n                                    <td colspan=\"1\" class=\"o_td_label\">\r\n                                        <label class=\"o_form_label\">\r\n                                            {{'print.paper'|translate}}\r\n                                        </label>\r\n                                    </td>\r\n                                    <td colspan=\"1\" style=\"width: 100%;\">\r\n                                        <select kendo-combo-box\r\n                                                class=\"o_form_required\"\r\n                                                k-ng-model=\"vm.model.Paper\"\r\n                                                name=\"vm.model.Paper\"\r\n                                                k-data-text-field=\"'Name'\"\r\n                                                k-data-value-field=\"'Id'\"\r\n                                                k-filter=\"'contains'\"\r\n                                                k-auto-bind=\"false\"\r\n                                                k-change=\"vm.changePaper\"\r\n                                                k-min-length=\"1\"\r\n                                                k-data-source=\"vm.paperDataSource\"\r\n                                                style=\"width: 100%\" required validationMessage=\"{{'print.select_paper'|translate}}\"></select>\r\n                                        <span class=\"k-invalid-msg\" data-for=\"vm.model.Paper\"></span>\r\n                                    </td>\r\n                                </tr>\r\n                            </tbody>\r\n                        </table>\r\n                        <table class=\"o_group o_inner_group o_group_col_6\">\r\n                            <tbody>\r\n                                <tr ng-if=\"vm.lines.length > 0\">\r\n                                    <td colspan=\"2\" class=\"o_td_label\">\r\n                                        <label class=\"o_form_label btn btn-sm btn-success\" ng-click=\"vm.quickApplyQuantity()\">\r\n                                            {{'label.quick_apply_quantity'|translate}}\r\n                                        </label>\r\n                                    </td>\r\n                                    <td colspan=\"1\" style=\"width: 100%;\">\r\n                                        <input focus-select-all-text kendo-numeric-text-box k-min=\"1\" k-decimals=\"0\" k-format=\"'n0'\" name=\"quickApplyQuantity\" k-ng-model=\"vm.applyQuantity\" style=\"width: 100%;\" />\r\n                                    </td>\r\n                                </tr>\r\n                            </tbody>\r\n                        </table>\r\n                        <table class=\"o_group o_inner_group o_group_col_12\">\r\n                            <tbody>\r\n                                <tr style=\"height:41.5px\">\r\n                                    <td class=\"o_td_label\">\r\n                                        <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                                            <label class=\"o_form_label m-r-10\" for=\"showPrice\">\r\n                                                {{'price.show'|translate}}\r\n                                            </label>\r\n                                            <input type=\"checkbox\" id=\"showPrice\" ng-model=\"vm.model.ShowPrice\" ng-click=\"vm.barcodeSetting()\">\r\n                                        </div>\r\n                                    </td>\r\n                                    <td class=\"o_td_label\">\r\n                                        <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                                            <label class=\"o_form_label m-r-10\" for=\"showBold\">\r\n                                                {{'label.bold'|translate}}\r\n                                            </label>\r\n                                            <input type=\"checkbox\" id=\"showBold\" ng-model=\"vm.model.ShowBold\" ng-click=\"vm.barcodeSetting()\">\r\n                                        </div>\r\n                                    </td>\r\n                                    <td class=\"o_td_label\">\r\n                                        <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                                            <label class=\"o_form_label m-r-10\" for=\"showCurrency\">\r\n                                                {{'currency.show_uint'|translate}}\r\n                                            </label>\r\n                                            <input type=\"checkbox\" id=\"showCurrency\" ng-model=\"vm.model.ShowCurrency\" ng-click=\"vm.barcodeSetting()\">\r\n                                        </div>\r\n                                    </td>\r\n                                    <td class=\"o_td_label\">\r\n                                        <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                                            <label class=\"o_form_label m-r-10\" for=\"showProductName\">\r\n                                                {{'label.display'|translate}} {{'product.name'|translate}}\r\n                                            </label>\r\n                                            <input type=\"checkbox\" id=\"showProductName\" ng-model=\"vm.model.ShowProductName\" ng-click=\"vm.barcodeSetting()\">\r\n                                        </div>\r\n                                    </td>\r\n                                </tr>\r\n                                <tr style=\"height:41.5px\">\r\n                                    <td colspan=\"4\" class=\"o_td_label\">\r\n                                        <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                                            <label class=\"o_form_label m-r-10\" for=\"IsHideBarcode\">\r\n                                                {{'label.hide_barcodes'|translate}} ({{'label.recommended_for_default_print_type' | translate}})\r\n                                            </label>\r\n                                            <input type=\"checkbox\" id=\"IsHideBarcode\" ng-model=\"vm.model.IsHideBarcode\" ng-click=\"vm.barcodeSetting()\">\r\n                                        </div>\r\n                                    </td>\r\n                                </tr></tbody>\r\n                        </table>\r\n                    </div>\r\n                    <div class=\"text-warning-dk\" ng-if=\"vm.lineErrors.length > 0\">\r\n                        <span class=\"fa fa-warning\"></span>\r\n                        {{'warning.product_without_barcode_will_not_be_print'|translate}}\r\n                        <span ng-if=\"vm.errorMsg\">\r\n                            : {{vm.errorMsg}}\r\n                        </span>\r\n                    </div>\r\n                </div>\r\n            </div>\r\n        </div>\r\n    </div>\r\n</div>\r\n<div class=\"o_view_manager_content\">\r\n    <div class=\"o_form_view o_form_editable\">\r\n        <div class=\"o_form_sheet_bg\">\r\n            <div class=\"o_form_sheet\">\r\n                <uib-tabset active=\"vm.orderTabIndex\">\r\n                    <uib-tab heading=\"{{'label.products_have_barcode' | translate}}\">\r\n                        <div class=\"o_field_one2many o_field_widget o_field_x2many o_field_x2many_list\" kendo-validator=\"vm.validator2\">\r\n\r\n                            <div class=\"table-responsive\">\r\n                                <table class=\"o_list_view table table-condensed table-striped o_list_view_ungrouped\">\r\n                                    <thead>\r\n                                        <tr>\r\n                                            <th>{{'label.product'|translate}}</th>\r\n                                            <th>{{'label.quantity'|translate}}</th>\r\n                                            <th></th>\r\n                                        </tr>\r\n                                    </thead>\r\n                                    <tbody>\r\n                                        <tr ng-repeat=\"line in vm.lines\">\r\n                                            <td>{{line.Product.NameGet}}</td>\r\n                                            <td>\r\n                                                <input focus-select-all-text kendo-numeric-text-box k-min=\"0\" k-decimals=\"0\" k-format=\"'n0'\" name=\"vm.lines[{{$index}}].Quantity\" k-ng-model=\"line.Quantity\" style=\"width: 100%;\" required validationMessage=\"{{'label.import_qty'|translate}}\" />\r\n                                                <span class=\"k-invalid-msg\" data-for=\"vm.lines[{{$index}}].Quantity\"></span>\r\n                                            </td>\r\n                                            <td class=\"o_list_record_delete\">\r\n                                                <button type=\"button\" class=\"btn btn-sm btn-default\" ng-click=\"vm.remove_line($index)\">\r\n                                                    <span class=\"fa fa-trash-o\"></span>\r\n                                                </button>\r\n                                            </td>\r\n                                        </tr>\r\n                                        <tr>\r\n                                            <td colspan=\"3\" class=\"o_form_field_x2many_list_row_add\"><a ng-click=\"vm.add_line()\">{{'product.add'|translate}}</a></td>\r\n                                        </tr>\r\n                                    </tbody>\r\n                                    <tfoot>\r\n                                        <tr>\r\n                                            <td></td>\r\n                                            <td></td>\r\n                                            <td></td>\r\n                                        </tr>\r\n                                    </tfoot>\r\n                                </table>\r\n                            </div>\r\n                        </div>\r\n                    </uib-tab>\r\n                    <uib-tab heading=\"{{'label.products_have_not_barcode' | translate}}\">\r\n                        <div class=\"o_field_one2many o_field_widget o_field_x2many o_field_x2many_list\" kendo-validator=\"vm.validator3\">\r\n                            <form method=\"post\" action=\"#\">\r\n                                <div class=\"table-responsive\">\r\n                                    <table class=\"o_list_view table table-condensed table-striped o_list_view_ungrouped\">\r\n                                        <thead>\r\n                                            <tr>\r\n                                                <th>{{'label.product'|translate}}</th>\r\n                                                <th>{{'label.barcode'|translate}}</th>\r\n                                                <th></th>\r\n                                            </tr>\r\n                                        </thead>\r\n                                        <tbody>\r\n                                            <tr ng-repeat=\"line in vm.lineErrors\">\r\n                                                <td>{{line.ProductName}}</td>\r\n                                                <td>\r\n                                                    <input class=\"form-control\" id=\"{{vm.lineErrors[$index].Id}}\" name=\"{{vm.lineErrors[$index].Id}}\" ng-model=\"line.Barcode\" style=\"width: 100%;\" required validationMessage=\"{{'error.please_enter_barcode'|translate}}\" />\r\n                                                    <span class=\"k-invalid-msg\" data-for=\"{{vm.lineErrors[$index].Id}}\"></span>\r\n                                                </td>\r\n                                                <td class=\"o_list_record_delete\">\r\n                                                    \r\n                                                </td>\r\n                                            </tr>\r\n                                            <tr>\r\n                                                <td colspan=\"3\" class=\"o_form_field_x2many_list_row_add\"><a ng-click=\"vm.updateBarcodes()\">{{'label.update_barcode'|translate}}</a></td>\r\n                                            </tr>\r\n                                        </tbody>\r\n                                        <tfoot>\r\n                                            <tr>\r\n                                                <td></td>\r\n                                                <td></td>\r\n                                                <td></td>\r\n                                            </tr>\r\n                                        </tfoot>\r\n                                    </table>\r\n                                </div>\r\n                            </form>\r\n                        </div>\r\n                    </uib-tab>\r\n                </uib-tabset>\r\n            </div>\r\n        </div>\r\n    </div>\r\n</div>\r\n<div class=\"modal-footer\">\r\n    <div>\r\n        <footer>\r\n            <button type=\"button\" class=\"btn btn-sm btn-primary\" check-permission='App.Catalog.ProductTemplate.PrintBarcode' ng-click=\"vm.savePdf()\">\r\n                <span>{{'print.pdf'|translate}}</span>\r\n            </button>\r\n            <button type=\"button\" class=\"btn btn-sm btn-default\" ng-click=\"vm.cancel()\">\r\n                <span>{{'label.close'|translate}}</span>\r\n            </button>\r\n        </footer>\r\n    </div>\r\n</div>\r\n\r\n\r\n"
+        },
+        {
+            "t": "resp",
+            "s": 200,
+            "url": "https://tomato.tpos.vn/odata/BarcodeProductLabel/ODataService.DefaultGet?$expand=Warehouse",
+            "ct": "application/json; odata.metadata=minimal",
+            "at": 1779696683854,
+            "body": "{\"@odata.context\":\"http://tomato.tpos.vn/odata/$metadata#BarcodeProductLabel(Warehouse())/$entity\",\"Id\":0,\"PaperId\":0,\"PriceListId\":0,\"ShowCurrency\":false,\"ShowBold\":false,\"ShowPrice\":true,\"ShowProductName\":true,\"IsInventory\":null,\"ShowCompany\":null,\"BarcodeTemplateIds\":[119318],\"FastPurchaseOrderId\":null,\"IsHideBarcode\":null,\"ExtraProperty\":null,\"Warehouse\":{\"Id\":1,\"Code\":\"WH\",\"Name\":\"Nhi Judy Store\",\"CompanyId\":0,\"LocationId\":0,\"NameGet\":\"[WH] Nhi Judy Store\",\"CompanyName\":null,\"LocationActive\":true}}"
+        },
+        {
+            "t": "resp",
+            "s": 200,
+            "url": "https://tomato.tpos.vn/odata/BarcodeProductLabel/ODataService.DefaultLinesGet?$expand=Product",
+            "ct": "application/json; odata.metadata=minimal",
+            "at": 1779696683998,
+            "body": "{\"@odata.context\":\"http://tomato.tpos.vn/odata/$metadata#BarcodeProductLabelLine(Product())\",\"value\":[{\"Id\":0,\"ProductId\":157487,\"ProductTmplId\":0,\"Quantity\":0,\"Price\":0,\"Product\":{\"Id\":157487,\"EAN13\":null,\"DefaultCode\":\"Q384\",\"NameTemplate\":\"2505 Q24 \\u0110\\u1ea6M C\\u1ed4 Y\\u1ebeM PRD FULL \\u0110\\u00c1 \\u0110EN\",\"NameNoSign\":null,\"ProductTmplId\":119318,\"UOMId\":1,\"UOMName\":\"C\\u00e1i\",\"UOMPOId\":0,\"QtyAvailable\":0,\"VirtualAvailable\":0,\"OutgoingQty\":null,\"IncomingQty\":null,\"NameGet\":\"[Q384] 2505 Q24 \\u0110\\u1ea6M C\\u1ed4 Y\\u1ebeM PRD FULL \\u0110\\u00c1 \\u0110EN\",\"POSCategId\":null,\"Price\":null,\"Barcode\":\"Q384\",\"Image\":null,\"ImageUrl\":\"https://img1.tpos.vn/3VIV4JKeUekoVds6UvJgXdTE4Iiu_dFEsUG4MWSNEqc/rs::::1/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_7bdc38f3-a349-46d3-8fa1-ff55b7316569.jpg\",\"Thumbnails\":[],\"PriceVariant\":0.00,\"SaleOK\":true,\"PurchaseOK\":true,\"DisplayAttributeValues\":null,\"LstPrice\":0,\"Active\":true,\"ListPrice\":0,\"PurchasePrice\":null,\"DiscountSale\":null,\"DiscountPurchase\":null,\"StandardPrice\":391500,\"Weight\":0,\"Volume\":null,\"OldPrice\":null,\"IsDiscount\":false,\"ProductTmplEnableAll\":false,\"Version\":0,\"Description\":null,\"LastUpdated\":null,\"Type\":\"product\",\"CategId\":0,\"CostMethod\":null,\"InvoicePolicy\":\"order\",\"Variant_TeamId\":0,\"Name\":\"2505 Q24 \\u0110\\u1ea6M C\\u1ed4 Y\\u1ebeM PRD FULL \\u0110\\u00c1 \\u0110EN\",\"PropertyCostMethod\":null,\"PropertyValuation\":null,\"PurchaseMethod\":\"receive\",\"SaleDelay\":0.0,\"Tracking\":null,\"Valuation\":null,\"AvailableInPOS\":true,\"CompanyId\":null,\"IsCombo\":null,\"NameTemplateNoSign\":\"2505 Q24 DAM CO YEM PRD FULL DA DEN\",\"TaxesIds\":[],\"StockValue\":null,\"SaleValue\":null,\"PosSalesCount\":null,\"Factor\":null,\"CategName\":null,\"AmountTotal\":null,\"NameCombos\":[],\"RewardName\":null,\"Product_UOMId\":null,\"Tags\":null,\"DateCreated\":null,\"InitInventory\":null,\"OrderTag\":null,\"StringExtraProperties\":null,\"CreatedById\":null,\"TaxAmount\":null,\"YearOfManufacture\":null,\"Error\":null}}]}"
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ProductLabelPaper?%24format=json&%24count=true",
+            "at": 1779696698018
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/Product_PriceList?%24format=json&%24count=true",
+            "at": 1779696698067
+        }
+    ],
+    "capture": {
+        "opens": [],
+        "blobs": [],
+        "iframes": [],
+        "httpGets": [
+            {
+                "url": "/BarcodeProductLabel/FormModal",
+                "status": 200,
+                "ct": "text/html; charset=utf-8",
+                "bodyLen": 15392,
+                "body": "\r\n<div class=\"modal-header\">\r\n    <button aria-hidden=\"true\" class=\"close\" data-dismiss=\"modal\" type=\"button\" ng-click=\"vm.cancel()\">×</button>\r\n    <h4 class=\"modal-title\">{{'print.barcode'|translate}}<span class=\"o_subtitle text-muted small\"></span></h4>\r\n</div>\r\n\r\n<div class=\"modal-body o_act_window\" kendo-validator=\"vm.validator\">\r\n    <div class=\"o_view_manager_content\">\r\n        <div class=\"o_form_view o_form_editable\">\r\n            <div class=\"o_form_sheet_bg\">\r\n                <div class=\"o_form_sheet\">\r\n                    <div class=\"o_group\">\r\n                        <table class=\"o_group o_inner_group o_group_col_6\">\r\n                            <tbody>\r\n                                <tr>\r\n                                    <td colspan=\"1\" class=\"o_td_label\">\r\n                                        <label class=\"o_form_label\">\r\n                                            {{'label.price_list'|translate}}\r\n                                        </label>\r\n                                    </td>\r\n                                    <td colspan=\"1\" style=\"width: 100%;\">\r\n                                        <select kendo-combo-box\r\n                                                class=\"o_form_required\"\r\n                                                k-ng-model=\"vm.model.PriceList\"\r\n                                                name=\"vm.model.PriceList\"\r\n                                                k-data-text-field=\"'Name'\"\r\n                                                k-data-value-field=\"'Id'\"\r\n                                                k-filter=\"'contains'\"\r\n                                                k-auto-bind=\"false\"\r\n                                                k-min-length=\"1\"\r\n                                                k-change=\"vm.changePriceList\"\r\n                                                k-data-source=\"vm.priceListDataSource\"\r\n                                                style=\"width: 100%\" required validationMessage=\"{{'pricelist.select'|translate}}\"></select>\r\n                                        <span class=\"k-invalid-msg\" data-for=\"vm.model.PriceList\"></span>\r\n                                    </td>\r\n                                </tr>\r\n                                <tr>\r\n                                    <td colspan=\"1\" class=\"o_td_label\">\r\n                                        <label class=\"o_form_label\">\r\n                                            {{'print.paper'|translate}}\r\n                                        </label>\r\n                                    </td>\r\n                                    <td colspan=\"1\" style=\"width: 100%;\">\r\n                                        <select kendo-combo-box\r\n                                                class=\"o_form_required\"\r\n                                                k-ng-model=\"vm.model.Paper\"\r\n                                                name=\"vm.model.Paper\"\r\n                                                k-data-text-field=\"'Name'\"\r\n                                                k-data-value-field=\"'Id'\"\r\n                                                k-filter=\"'contains'\"\r\n                                                k-auto-bind=\"false\"\r\n                                                k-change=\"vm.changePaper\"\r\n                                                k-min-length=\"1\"\r\n                                                k-data-source=\"vm.paperDataSource\"\r\n                                                style=\"width: 100%\" required validationMessage=\"{{'print.select_paper'|translate}}\"></select>\r\n                                        <span class=\"k-invalid-msg\" data-for=\"vm.model.Paper\"></span>\r\n                                    </td>\r\n                                </tr>\r\n                            </tbody>\r\n                        </table>\r\n                        <table class=\"o_group o_inner_group o_group_col_6\">\r\n                            <tbody>\r\n                                <tr ng-if=\"vm.lines.length > 0\">\r\n                                    <td colspan=\"2\" class=\"o_td_label\">\r\n                                        <label class=\"o_form_label btn btn-sm btn-success\" ng-click=\"vm.quickApplyQuantity()\">\r\n                                            {{'label.quick_apply_quantity'|translate}}\r\n                                        </label>\r\n                                    </td>\r\n                                    <td colspan=\"1\" style=\"width: 100%;\">\r\n                                        <input focus-select-all-text kendo-numeric-text-box k-min=\"1\" k-decimals=\"0\" k-format=\"'n0'\" name=\"quickApplyQuantity\" k-ng-model=\"vm.applyQuantity\" style=\"width: 100%;\" />\r\n                                    </td>\r\n                                </tr>\r\n                            </tbody>\r\n                        </table>\r\n                        <table class=\"o_group o_inner_group o_group_col_12\">\r\n                            <tbody>\r\n                                <tr style=\"height:41.5px\">\r\n                                    <td class=\"o_td_label\">\r\n                                        <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                                            <label class=\"o_form_label m-r-10\" for=\"showPrice\">\r\n                                                {{'price.show'|translate}}\r\n                                            </label>\r\n                                            <input type=\"checkbox\" id=\"showPrice\" ng-model=\"vm.model.ShowPrice\" ng-click=\"vm.barcodeSetting()\">\r\n                                        </div>\r\n                                    </td>\r\n                                    <td class=\"o_td_label\">\r\n                                        <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                                            <label class=\"o_form_label m-r-10\" for=\"showBold\">\r\n                                                {{'label.bold'|translate}}\r\n                                            </label>\r\n                                            <input type=\"checkbox\" id=\"showBold\" ng-model=\"vm.model.ShowBold\" ng-click=\"vm.barcodeSetting()\">\r\n                                        </div>\r\n                                    </td>\r\n                                    <td class=\"o_td_label\">\r\n                                        <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                                            <label class=\"o_form_label m-r-10\" for=\"showCurrency\">\r\n                                                {{'currency.show_uint'|translate}}\r\n                                            </label>\r\n                                            <input type=\"checkbox\" id=\"showCurrency\" ng-model=\"vm.model.ShowCurrency\" ng-click=\"vm.barcodeSetting()\">\r\n                                        </div>\r\n                                    </td>\r\n                                    <td class=\"o_td_label\">\r\n                                        <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                                            <label class=\"o_form_label m-r-10\" for=\"showProductName\">\r\n                                                {{'label.display'|translate}} {{'product.name'|translate}}\r\n                                            </label>\r\n                                            <input type=\"checkbox\" id=\"showProductName\" ng-model=\"vm.model.ShowProductName\" ng-click=\"vm.barcodeSetting()\">\r\n                                        </div>\r\n                                    </td>\r\n                                </tr>\r\n                                <tr style=\"height:41.5px\">\r\n                                    <td colspan=\"4\" class=\"o_td_label\">\r\n                                        <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                                            <label class=\"o_form_label m-r-10\" for=\"IsHideBarcode\">\r\n                                                {{'label.hide_barcodes'|translate}} ({{'label.recommended_for_default_print_type' | translate}})\r\n                                            </label>\r\n                                            <input type=\"checkbox\" id=\"IsHideBarcode\" ng-model=\"vm.model.IsHideBarcode\" ng-click=\"vm.barcodeSetting()\">\r\n                                        </div>\r\n                                    </td>\r\n                                </tr></tbody>\r\n                        </table>\r\n                    </div>\r\n                    <div class=\"text-warning-dk\" ng-if=\"vm.lineErrors.length > 0\">\r\n                        <span class=\"fa fa-warning\"></span>\r\n                        {{'warning.product_without_barcode_will_not_be_print'|translate}}\r\n                        <span ng-if=\"vm.errorMsg\">\r\n                            : {{vm.errorMsg}}\r\n                        </span>\r\n                    </div>\r\n                </div>\r\n            </div>\r\n        </div>\r\n    </div>\r\n</div>\r\n<div class=\"o_view_manager_content\">\r\n    <div class=\"o_form_view o_form_editable\">\r\n        <div class=\"o_form_sheet_bg\">\r\n            <div class=\"o_form_sheet\">\r\n                <uib-tabset active=\"vm.orderTabIndex\">\r\n                    <uib-tab heading=\"{{'label.products_have_barcode' | translate}}\">\r\n                        <div class=\"o_field_one2many o_field_widget o_field_x2many o_field_x2many_list\" kendo-validator=\"vm.validator2\">\r\n\r\n                            <div class=\"table-responsive\">\r\n                                <table class=\"o_list_view table table-condensed table-striped o_list_view_ungrouped\">\r\n                                    <thead>\r\n                                        <tr>\r\n                                            <th>{{'label.product'|translate}}</th>\r\n                                            <th>{{'label.quantity'|translate}}</th>\r\n                                            <th></th>\r\n                                        </tr>\r\n                                    </thead>\r\n                                    <tbody>\r\n                                        <tr ng-repeat=\"line in vm.lines\">\r\n                                            <td>{{line.Product.NameGet}}</td>\r\n                                            <td>\r\n                                                <input focus-select-all-text kendo-numeric-text-box k-min=\"0\" k-decimals=\"0\" k-format=\"'n0'\" name=\"vm.lines[{{$index}}].Quantity\" k-ng-model=\"line.Quantity\" style=\"width: 100%;\" required validationMessage=\"{{'label.import_qty'|translate}}\" />\r\n                                                <span class=\"k-invalid-msg\" data-for=\"vm.lines[{{$index}}].Quantity\"></span>\r\n                                            </td>\r\n                                            <td class=\"o_list_record_delete\">\r\n                                                <button type=\"button\" class=\"btn btn-sm btn-default\" ng-click=\"vm.remove_line($index)\">\r\n                                                    <span class=\"fa fa-trash-o\"></span>\r\n                                                </button>\r\n                                            </td>\r\n                                        </tr>\r\n                                        <tr>\r\n                                            <td colspan=\"3\" class=\"o_form_field_x2many_list_row_add\"><a ng-click=\"vm.add_line()\">{{'product.add'|translate}}</a></td>\r\n                                        </tr>\r\n                                    </tbody>\r\n                                    <tfoot>\r\n                                        <tr>\r\n                                            <td></td>\r\n                                            <td></td>\r\n                                            <td></td>\r\n                                        </tr>\r\n                                    </tfoot>\r\n                                </table>\r\n                            </div>\r\n                        </div>\r\n                    </uib-tab>\r\n                    <uib-tab heading=\"{{'label.products_have_not_barcode' | translate}}\">\r\n                        <div class=\"o_field_one2many o_field_widget o_field_x2many o_field_x2many_list\" kendo-validator=\"vm.validator3\">\r\n                            <form method=\"post\" action=\"#\">\r\n                                <div class=\"table-responsive\">\r\n                                    <table class=\"o_list_view table table-condensed table-striped o_list_view_ungrouped\">\r\n                                        <thead>\r\n                                            <tr>\r\n                                                <th>{{'label.product'|translate}}</th>\r\n                                                <th>{{'label.barcode'|translate}}</th>\r\n                                                <th></th>\r\n                                            </tr>\r\n                                        </thead>\r\n                                        <tbody>\r\n                                            <tr ng-repeat=\"line in vm.lineErrors\">\r\n                                                <td>{{line.ProductName}}</td>\r\n                                                <td>\r\n                                                    <input class=\"form-control\" id=\"{{vm.lineErrors[$index].Id}}\" name=\"{{vm.lineErrors[$index].Id}}\" ng-model=\"line.Barcode\" style=\"width: 100%;\" required validationMessage=\"{{'error.please_enter_barcode'|translate}}\" />\r\n                                                    <span class=\"k-invalid-msg\" data-for=\"{{vm.lineErrors[$index].Id}}\"></span>\r\n                                                </td>\r\n                                                <td class=\"o_list_record_delete\">\r\n                                                    \r\n                                                </td>\r\n                                            </tr>\r\n                                            <tr>\r\n                                                <td colspan=\"3\" class=\"o_form_field_x2many_list_row_add\"><a ng-click=\"vm.updateBarcodes()\">{{'label.update_barcode'|translate}}</a></td>\r\n                                            </tr>\r\n                                        </tbody>\r\n                                        <tfoot>\r\n                                            <tr>\r\n                                                <td></td>\r\n                                                <td></td>\r\n                                                <td></td>\r\n                                            </tr>\r\n                                        </tfoot>\r\n                                    </table>\r\n                                </div>\r\n                            </form>\r\n                        </div>\r\n                    </uib-tab>\r\n                </uib-tabset>\r\n            </div>\r\n        </div>\r\n    </div>\r\n</div>\r\n<div class=\"modal-footer\">\r\n    <div>\r\n        <footer>\r\n            <button type=\"button\" class=\"btn btn-sm btn-primary\" check-permission='App.Catalog.ProductTemplate.PrintBarcode' ng-click=\"vm.savePdf()\">\r\n                <span>{{'print.pdf'|translate}}</span>\r\n            </button>\r\n            <button type=\"button\" class=\"btn btn-sm btn-default\" ng-click=\"vm.cancel()\">\r\n                <span>{{'label.close'|translate}}</span>\r\n            </button>\r\n        </footer>\r\n    </div>\r\n</div>\r\n\r\n\r\n"
+            }
+        ],
+        "httpPosts": [
+            {
+                "url": "/odata/BarcodeProductLabel/ODataService.DefaultGet?$expand=Warehouse",
+                "status": 200,
+                "ct": "application/json; odata.metadata=minimal",
+                "bodyLen": 508,
+                "body": "{\"@odata.context\":\"http://tomato.tpos.vn/odata/$metadata#BarcodeProductLabel(Warehouse())/$entity\",\"Id\":0,\"PaperId\":0,\"PriceListId\":0,\"ShowCurrency\":false,\"ShowBold\":false,\"ShowPrice\":true,\"ShowProductName\":true,\"IsInventory\":null,\"ShowCompany\":null,\"BarcodeTemplateIds\":[119318],\"FastPurchaseOrderId\":null,\"IsHideBarcode\":null,\"ExtraProperty\":null,\"Warehouse\":{\"Id\":1,\"Code\":\"WH\",\"Name\":\"Nhi Judy Store\",\"CompanyId\":0,\"LocationId\":0,\"NameGet\":\"[WH] Nhi Judy Store\",\"CompanyName\":null,\"LocationActive\":true}}"
+            },
+            {
+                "url": "/odata/BarcodeProductLabel/ODataService.DefaultLinesGet?$expand=Product",
+                "status": 200,
+                "ct": "application/json; odata.metadata=minimal",
+                "bodyLen": 1930,
+                "body": "{\"@odata.context\":\"http://tomato.tpos.vn/odata/$metadata#BarcodeProductLabelLine(Product())\",\"value\":[{\"Id\":0,\"ProductId\":157487,\"ProductTmplId\":0,\"Quantity\":0,\"Price\":0,\"Product\":{\"Id\":157487,\"EAN13\":null,\"DefaultCode\":\"Q384\",\"NameTemplate\":\"2505 Q24 \\u0110\\u1ea6M C\\u1ed4 Y\\u1ebeM PRD FULL \\u0110\\u00c1 \\u0110EN\",\"NameNoSign\":null,\"ProductTmplId\":119318,\"UOMId\":1,\"UOMName\":\"C\\u00e1i\",\"UOMPOId\":0,\"QtyAvailable\":0,\"VirtualAvailable\":0,\"OutgoingQty\":null,\"IncomingQty\":null,\"NameGet\":\"[Q384] 2505 Q24 \\u0110\\u1ea6M C\\u1ed4 Y\\u1ebeM PRD FULL \\u0110\\u00c1 \\u0110EN\",\"POSCategId\":null,\"Price\":null,\"Barcode\":\"Q384\",\"Image\":null,\"ImageUrl\":\"https://img1.tpos.vn/3VIV4JKeUekoVds6UvJgXdTE4Iiu_dFEsUG4MWSNEqc/rs::::1/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_7bdc38f3-a349-46d3-8fa1-ff55b7316569.jpg\",\"Thumbnails\":[],\"PriceVariant\":0.00,\"SaleOK\":true,\"PurchaseOK\":true,\"DisplayAttributeValues\":null,\"LstPrice\":0,\"Active\":true,\"ListPrice\":0,\"PurchasePrice\":null,\"DiscountSale\":null,\"DiscountPurchase\":null,\"StandardPrice\":391500,\"Weight\":0,\"Volume\":null,\"OldPrice\":null,\"IsDiscount\":false,\"ProductTmplEnableAll\":false,\"Version\":0,\"Description\":null,\"LastUpdated\":null,\"Type\":\"product\",\"CategId\":0,\"CostMethod\":null,\"InvoicePolicy\":\"order\",\"Variant_TeamId\":0,\"Name\":\"2505 Q24 \\u0110\\u1ea6M C\\u1ed4 Y\\u1ebeM PRD FULL \\u0110\\u00c1 \\u0110EN\",\"PropertyCostMethod\":null,\"PropertyValuation\":null,\"PurchaseMethod\":\"receive\",\"SaleDelay\":0.0,\"Tracking\":null,\"Valuation\":null,\"AvailableInPOS\":true,\"CompanyId\":null,\"IsCombo\":null,\"NameTemplateNoSign\":\"2505 Q24 DAM CO YEM PRD FULL DA DEN\",\"TaxesIds\":[],\"StockValue\":null,\"SaleValue\":null,\"PosSalesCount\":null,\"Factor\":null,\"CategName\":null,\"AmountTotal\":null,\"NameCombos\":[],\"RewardName\":null,\"Product_UOMId\":null,\"Tags\":null,\"DateCreated\":null,\"InitInventory\":null,\"OrderTag\":null,\"StringExtraProperties\":null,\"CreatedById\":null,\"TaxAmount\":null,\"YearOfManufacture\":null,\"Error\":null}}]}"
+            }
+        ],
+        "moInstalled": true
+    },
+    "productInfo": ["", "​", "", "", "Q384", "2505 Q24 ĐẦM CỔ YẾM PRD FULL ĐÁ ĐEN"],
+    "preClick": {
+        "url": "https://tomato.tpos.vn/#/app/producttemplate/list",
+        "linesLen": 1,
+        "paperName": "2 Tem",
+        "paperId": 7,
+        "hasPriceList": true
+    }
+}

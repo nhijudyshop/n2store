@@ -359,7 +359,7 @@ router.get('/role-defaults/:role', (req, res) => {
 
 // ── List ────────────────────────────────────────────────────────────
 router.get('/list', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -384,7 +384,7 @@ router.get('/list', async (req, res) => {
 });
 
 router.get('/:id(\\d+)', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -401,7 +401,7 @@ router.get('/:id(\\d+)', async (req, res) => {
 
 // ── Create ─────────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -446,7 +446,7 @@ router.post('/', async (req, res) => {
 
 // ── Update (không cho đổi password qua endpoint này) ───────────────
 router.patch('/:id(\\d+)', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -498,7 +498,7 @@ router.patch('/:id(\\d+)', async (req, res) => {
 // body: { permissions: { [slug]: [actions] } | null }
 //   null → revert to role defaults
 router.put('/:id(\\d+)/permissions', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -542,7 +542,7 @@ router.put('/:id(\\d+)/permissions', async (req, res) => {
 
 // ── Change password ────────────────────────────────────────────────
 router.post('/:id(\\d+)/password', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -566,7 +566,7 @@ router.post('/:id(\\d+)/password', async (req, res) => {
 
 // ── Soft delete (deactivate) ───────────────────────────────────────
 router.delete('/:id(\\d+)', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -599,7 +599,7 @@ router.delete('/:id(\\d+)', async (req, res) => {
 
 // ── Login: verify password → issue token ───────────────────────────
 router.post('/login', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -647,7 +647,7 @@ router.post('/login', async (req, res) => {
 
 // ── Me: resolve token → user ───────────────────────────────────────
 router.get('/me', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -669,7 +669,7 @@ router.get('/me', async (req, res) => {
 
 // ── Logout: invalidate token ───────────────────────────────────────
 router.post('/logout', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         const token = String((req.body || {}).token || req.headers['x-web2-token'] || '');

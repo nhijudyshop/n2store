@@ -164,7 +164,7 @@ async function restockStock(pool, lines) {
 router.post('/:code/approve', async (req, res) => {
     // P1 2026-05-30: 2 DB pools — records ở web2Db, products ở chatDb
     const recordsPool = req.app.locals.web2Db;
-    const productsPool = req.app.locals.chatDb;
+    const productsPool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!recordsPool || !productsPool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
     try {
@@ -231,7 +231,7 @@ router.post('/:code/approve', async (req, res) => {
 // -----------------------------------------------------
 router.post('/:code/cancel-approve', async (req, res) => {
     const recordsPool = req.app.locals.web2Db;
-    const productsPool = req.app.locals.chatDb;
+    const productsPool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!recordsPool || !productsPool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
     try {
@@ -322,7 +322,7 @@ router.post('/:code/refunded', async (req, res) => {
 // -----------------------------------------------------
 router.post('/:code/reject', async (req, res) => {
     const recordsPool = req.app.locals.web2Db;
-    const productsPool = req.app.locals.chatDb;
+    const productsPool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!recordsPool || !productsPool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
     try {

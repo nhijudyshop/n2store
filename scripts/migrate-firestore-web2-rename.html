@@ -1,0 +1,830 @@
+<!doctype html>
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 one-shot migration: backup OLD → delete OLD → seed fake data vào NEW (test env). -->
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Web 2.0 Firestore Migration — Backup / Delete / Seed</title>
+        <style>
+            body {
+                font-family:
+                    ui-sans-serif,
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: #fafafa;
+                color: #18181b;
+                padding: 24px;
+                max-width: 1100px;
+                margin: 0 auto;
+            }
+            h1 {
+                font-size: 22px;
+                margin: 0 0 8px;
+            }
+            .lead {
+                color: #71717a;
+                margin: 0 0 24px;
+                font-size: 14px;
+            }
+            .step {
+                background: #fff;
+                border: 1px solid #e4e4e7;
+                border-radius: 10px;
+                padding: 18px 20px;
+                margin: 14px 0;
+            }
+            .step h2 {
+                font-size: 16px;
+                margin: 0 0 8px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .step h2 .num {
+                background: #2563eb;
+                color: #fff;
+                width: 26px;
+                height: 26px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 13px;
+                font-weight: 700;
+            }
+            .step .desc {
+                font-size: 13px;
+                color: #52525b;
+                margin: 0 0 12px;
+            }
+            code {
+                background: #f4f4f5;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            button {
+                padding: 8px 14px;
+                border-radius: 6px;
+                border: 1px solid #d4d4d8;
+                background: #fff;
+                cursor: pointer;
+                font-size: 13px;
+                font-weight: 500;
+            }
+            button:hover {
+                background: #f4f4f5;
+            }
+            button.primary {
+                background: #2563eb;
+                color: #fff;
+                border-color: #1d4ed8;
+            }
+            button.primary:hover {
+                background: #1d4ed8;
+            }
+            button.danger {
+                background: #dc2626;
+                color: #fff;
+                border-color: #b91c1c;
+            }
+            button.danger:hover {
+                background: #b91c1c;
+            }
+            button[disabled] {
+                opacity: 0.45;
+                cursor: not-allowed;
+            }
+            .row {
+                display: grid;
+                grid-template-columns: 1.4fr 1.4fr 1fr;
+                gap: 12px;
+                padding: 8px 12px;
+                border-bottom: 1px solid #e4e4e7;
+                align-items: center;
+                font-size: 13px;
+            }
+            .row.head {
+                font-weight: 600;
+                background: #f4f4f5;
+            }
+            .status.ok {
+                color: #16a34a;
+            }
+            .status.warn {
+                color: #d97706;
+            }
+            .status.err {
+                color: #dc2626;
+            }
+            .status.idle {
+                color: #71717a;
+            }
+            pre.log {
+                background: #18181b;
+                color: #d4d4d8;
+                padding: 14px;
+                border-radius: 8px;
+                font-size: 12px;
+                line-height: 1.5;
+                max-height: 280px;
+                overflow: auto;
+                white-space: pre-wrap;
+                word-break: break-word;
+                margin: 0;
+            }
+            .note {
+                background: #fef9c3;
+                border-left: 4px solid #facc15;
+                padding: 10px 14px;
+                margin: 10px 0;
+                font-size: 12px;
+                border-radius: 4px;
+            }
+            .note.danger {
+                background: #fee2e2;
+                border-left-color: #dc2626;
+            }
+            .note.ok {
+                background: #dcfce7;
+                border-left-color: #16a34a;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Web 2.0 Firestore Migration</h1>
+        <p class="lead">
+            Quy trình 3 bước: <b>Backup OLD → Delete OLD → Seed fake data NEW</b>. Vì Web 2.0 đang ở
+            chế độ test, có thể xoá dữ liệu OLD và bơm dữ liệu giả vào NEW để demo / test.
+        </p>
+
+        <div class="note danger">
+            ⚠️ Script này XOÁ dữ liệu OLD vĩnh viễn sau khi backup. Chạy ĐÚNG THỨ TỰ: 1 → 2 → 3.
+        </div>
+
+        <!-- Mapping -->
+        <div class="step">
+            <h2>Mapping rename</h2>
+            <div class="row head">
+                <span>OLD collection</span>
+                <span>NEW collection</span>
+                <span>Status</span>
+            </div>
+            <div id="rows"></div>
+        </div>
+
+        <!-- Step 1: Backup -->
+        <div class="step">
+            <h2><span class="num">1</span> Backup OLD → JSON file</h2>
+            <p class="desc">
+                Đọc cả 4 OLD collection, gói thành 1 file JSON, tự download xuống máy. File này là
+                snapshot để khôi phục nếu cần.
+            </p>
+            <button class="primary" id="btn-backup">📥 Backup &amp; Download JSON</button>
+            <span
+                id="backup-info"
+                style="margin-left: 10px; font-size: 12px; color: #71717a"
+            ></span>
+        </div>
+
+        <!-- Step 2: Delete OLD -->
+        <div class="step">
+            <h2><span class="num">2</span> Delete OLD collections</h2>
+            <p class="desc">
+                Xoá doc <code>main</code> trong cả 4 OLD collection.
+                <b>Chỉ bấm sau khi Backup xong</b>.
+            </p>
+            <button class="danger" id="btn-delete" disabled>🗑️ Delete OLD (4 collections)</button>
+        </div>
+
+        <!-- Step 3: Seed -->
+        <div class="step">
+            <h2><span class="num">3</span> Seed fake data vào NEW</h2>
+            <p class="desc">
+                Bơm dữ liệu giả vào <code>web2_so_order</code>, <code>web2_supplier_wallet</code>,
+                <code>web2_customer_wallet</code>, <code>web2_suppliers</code> để test Web 2.0.
+                Dataset gồm: 3 tab NCC (VN, China, Korea), 5 NCC, 6 shipments với 18 line items, ví
+                NCC với payment history, ví KH với 4 khách + transactions, danh sách NCC với note.
+            </p>
+            <button class="primary" id="btn-seed">🎲 Generate &amp; Seed Fake Data</button>
+        </div>
+
+        <!-- Log -->
+        <div class="step">
+            <h2>Log</h2>
+            <pre class="log" id="log">[chờ thao tác]</pre>
+            <button id="btn-clear-log" style="margin-top: 10px">Clear log</button>
+        </div>
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../shared/js/firebase-config.js?v=20260525-migration"></script>
+        <script>
+            const COLLECTIONS = [
+                { old: 'customer_wallet_v1', new: 'web2_customer_wallet' },
+                { old: 'supplier_wallet_v1', new: 'web2_supplier_wallet' },
+                { old: 'suppliers_v1', new: 'web2_suppliers' },
+                { old: 'so_order_v2', new: 'web2_so_order' },
+            ];
+            const DOC = 'main';
+
+            const logEl = document.getElementById('log');
+            const rowsEl = document.getElementById('rows');
+            const btnBackup = document.getElementById('btn-backup');
+            const btnDelete = document.getElementById('btn-delete');
+            const btnSeed = document.getElementById('btn-seed');
+            const btnClearLog = document.getElementById('btn-clear-log');
+            const backupInfo = document.getElementById('backup-info');
+
+            function log(msg, level = 'info') {
+                const ts = new Date().toLocaleTimeString();
+                const prefix =
+                    level === 'err'
+                        ? '❌'
+                        : level === 'ok'
+                          ? '✅'
+                          : level === 'warn'
+                            ? '⚠️ '
+                            : '  ';
+                logEl.textContent += `\n[${ts}] ${prefix} ${msg}`;
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+
+            function setStatus(idx, text, level = 'idle') {
+                const el = document.querySelector(`#row-${idx} .status`);
+                if (el) {
+                    el.textContent = text;
+                    el.className = `status ${level}`;
+                }
+            }
+
+            function render() {
+                rowsEl.innerHTML = COLLECTIONS.map(
+                    (m, i) => `
+                    <div class="row" id="row-${i}">
+                        <span><code>${m.old}</code></span>
+                        <span><code>${m.new}</code></span>
+                        <span class="status idle">—</span>
+                    </div>
+                `
+                ).join('');
+            }
+            render();
+
+            async function waitFirebase() {
+                for (let i = 0; i < 50; i++) {
+                    if (typeof firebase !== 'undefined' && firebase.firestore) {
+                        try {
+                            return firebase.firestore();
+                        } catch (_) {}
+                    }
+                    await new Promise((r) => setTimeout(r, 100));
+                }
+                throw new Error('Firebase chưa init sau 5s');
+            }
+
+            // ─── STEP 1: BACKUP ────────────────────────────────────────────
+            btnBackup.addEventListener('click', async () => {
+                btnBackup.disabled = true;
+                log('=== STEP 1: BACKUP OLD ===');
+                try {
+                    const db = await waitFirebase();
+                    const backup = {
+                        timestamp: new Date().toISOString(),
+                        note: 'Web 2.0 Firestore backup before rename to web2_* convention',
+                        collections: {},
+                    };
+                    for (let i = 0; i < COLLECTIONS.length; i++) {
+                        const m = COLLECTIONS[i];
+                        setStatus(i, 'reading OLD...', 'warn');
+                        try {
+                            const snap = await db.collection(m.old).doc(DOC).get();
+                            if (snap.exists) {
+                                backup.collections[m.old] = snap.data();
+                                const size = JSON.stringify(snap.data()).length;
+                                setStatus(i, `✓ backed up (${size} bytes)`, 'ok');
+                                log(`${m.old}/${DOC} → backup (${size} bytes)`, 'ok');
+                            } else {
+                                backup.collections[m.old] = null;
+                                setStatus(i, '∅ OLD empty', 'warn');
+                                log(`${m.old}/${DOC} empty`, 'warn');
+                            }
+                        } catch (e) {
+                            setStatus(i, `ERR: ${e.message}`, 'err');
+                            log(`${m.old} backup FAIL: ${e.message}`, 'err');
+                        }
+                    }
+                    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+                        type: 'application/json',
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                    a.href = url;
+                    a.download = `web2-firestore-backup-${stamp}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    backupInfo.textContent = `Đã tải file ${a.download}`;
+                    log(`Backup file: ${a.download}`, 'ok');
+                    btnDelete.disabled = false;
+                } catch (e) {
+                    log(`Fatal: ${e.message}`, 'err');
+                } finally {
+                    btnBackup.disabled = false;
+                }
+            });
+
+            // ─── STEP 2: DELETE OLD ────────────────────────────────────────
+            btnDelete.addEventListener('click', async () => {
+                if (
+                    !confirm(
+                        'CHẮC CHẮN xoá 4 OLD collection (customer_wallet_v1, supplier_wallet_v1, suppliers_v1, so_order_v2)?\n\nĐã backup chưa?'
+                    )
+                )
+                    return;
+                btnDelete.disabled = true;
+                log('=== STEP 2: DELETE OLD ===');
+                try {
+                    const db = await waitFirebase();
+                    for (let i = 0; i < COLLECTIONS.length; i++) {
+                        const m = COLLECTIONS[i];
+                        setStatus(i, 'deleting OLD...', 'warn');
+                        try {
+                            await db.collection(m.old).doc(DOC).delete();
+                            setStatus(i, '✓ OLD deleted', 'ok');
+                            log(`Deleted ${m.old}/${DOC}`, 'ok');
+                        } catch (e) {
+                            setStatus(i, `ERR: ${e.message}`, 'err');
+                            log(`${m.old} delete FAIL: ${e.message}`, 'err');
+                        }
+                    }
+                    log('Delete xong. Bấm Step 3 để seed fake data.', 'ok');
+                } catch (e) {
+                    log(`Fatal: ${e.message}`, 'err');
+                } finally {
+                    btnDelete.disabled = false;
+                }
+            });
+
+            // ─── STEP 3: SEED FAKE DATA ────────────────────────────────────
+            function nowMs() {
+                return Date.now();
+            }
+            function daysAgo(n) {
+                return Date.now() - n * 86400000;
+            }
+            function dateStr(offsetDays) {
+                const d = new Date(daysAgo(offsetDays));
+                return d.toISOString().slice(0, 10);
+            }
+            function tsId(prefix, i) {
+                return `${prefix}-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 5)}`;
+            }
+
+            function buildSoOrder() {
+                return {
+                    data: {
+                        tabs: [
+                            {
+                                id: 'tab-vn',
+                                label: 'VN — Hà Nội',
+                                currency: 'VND',
+                                rate: 1,
+                                footer: { discount: 0, shipping: 200000 },
+                                columnVisibility: {
+                                    supplier: true,
+                                    stt: true,
+                                    code: true,
+                                    name: true,
+                                    qty: true,
+                                    cost: true,
+                                    total: true,
+                                },
+                                shipments: [
+                                    {
+                                        id: 'sh-vn-1',
+                                        date: dateStr(45),
+                                        rows: [
+                                            {
+                                                id: tsId('row', 1),
+                                                supplier: 'NCC A — Hà Nội',
+                                                code: 'AT001',
+                                                name: 'Áo thun trắng size M',
+                                                qty: 50,
+                                                costPrice: 85000,
+                                            },
+                                            {
+                                                id: tsId('row', 2),
+                                                supplier: 'NCC A — Hà Nội',
+                                                code: 'AT002',
+                                                name: 'Áo thun đen size L',
+                                                qty: 40,
+                                                costPrice: 90000,
+                                            },
+                                            {
+                                                id: tsId('row', 3),
+                                                supplier: 'NCC B — Đà Nẵng',
+                                                code: 'QJ010',
+                                                name: 'Quần jean nam 32',
+                                                qty: 30,
+                                                costPrice: 220000,
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        id: 'sh-vn-2',
+                                        date: dateStr(15),
+                                        rows: [
+                                            {
+                                                id: tsId('row', 4),
+                                                supplier: 'NCC A — Hà Nội',
+                                                code: 'AT003',
+                                                name: 'Áo thun navy size M',
+                                                qty: 60,
+                                                costPrice: 88000,
+                                            },
+                                            {
+                                                id: tsId('row', 5),
+                                                supplier: 'NCC B — Đà Nẵng',
+                                                code: 'QJ012',
+                                                name: 'Quần jean nữ 28',
+                                                qty: 25,
+                                                costPrice: 210000,
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
+                            {
+                                id: 'tab-cn',
+                                label: 'China — Quảng Châu',
+                                currency: 'CNY',
+                                rate: 3500,
+                                footer: { discount: 0, shipping: 350 },
+                                columnVisibility: {
+                                    supplier: true,
+                                    stt: true,
+                                    code: true,
+                                    name: true,
+                                    qty: true,
+                                    cost: true,
+                                    total: true,
+                                },
+                                shipments: [
+                                    {
+                                        id: 'sh-cn-1',
+                                        date: dateStr(60),
+                                        rows: [
+                                            {
+                                                id: tsId('row', 6),
+                                                supplier: 'GZ Supplier 张三',
+                                                code: 'CN-DR01',
+                                                name: 'Đầm hoa nhí',
+                                                qty: 100,
+                                                costPrice: 45,
+                                            },
+                                            {
+                                                id: tsId('row', 7),
+                                                supplier: 'GZ Supplier 张三',
+                                                code: 'CN-DR02',
+                                                name: 'Đầm voan trắng',
+                                                qty: 80,
+                                                costPrice: 52,
+                                            },
+                                            {
+                                                id: tsId('row', 8),
+                                                supplier: 'GZ Boutique 李四',
+                                                code: 'CN-CL05',
+                                                name: 'Chân váy chữ A',
+                                                qty: 70,
+                                                costPrice: 38,
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        id: 'sh-cn-2',
+                                        date: dateStr(25),
+                                        rows: [
+                                            {
+                                                id: tsId('row', 9),
+                                                supplier: 'GZ Supplier 张三',
+                                                code: 'CN-DR03',
+                                                name: 'Đầm tay phồng',
+                                                qty: 120,
+                                                costPrice: 48,
+                                            },
+                                            {
+                                                id: tsId('row', 10),
+                                                supplier: 'GZ Boutique 李四',
+                                                code: 'CN-CL06',
+                                                name: 'Chân váy plissé',
+                                                qty: 90,
+                                                costPrice: 42,
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
+                            {
+                                id: 'tab-kr',
+                                label: 'Korea — Dongdaemun',
+                                currency: 'KRW',
+                                rate: 18,
+                                footer: { discount: 0, shipping: 50000 },
+                                columnVisibility: {
+                                    supplier: true,
+                                    stt: true,
+                                    code: true,
+                                    name: true,
+                                    qty: true,
+                                    cost: true,
+                                    total: true,
+                                },
+                                shipments: [
+                                    {
+                                        id: 'sh-kr-1',
+                                        date: dateStr(30),
+                                        rows: [
+                                            {
+                                                id: tsId('row', 11),
+                                                supplier: 'KR — Seoul Style',
+                                                code: 'KR-TOP01',
+                                                name: 'Áo croptop Hàn',
+                                                qty: 80,
+                                                costPrice: 9500,
+                                            },
+                                            {
+                                                id: tsId('row', 12),
+                                                supplier: 'KR — Seoul Style',
+                                                code: 'KR-TOP02',
+                                                name: 'Áo blouse trắng',
+                                                qty: 60,
+                                                costPrice: 12500,
+                                            },
+                                            {
+                                                id: tsId('row', 13),
+                                                supplier: 'KR — Seoul Style',
+                                                code: 'KR-BAG01',
+                                                name: 'Túi tote canvas',
+                                                qty: 100,
+                                                costPrice: 5500,
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    lastUpdated: nowMs(),
+                };
+            }
+
+            function buildSupplierWallet() {
+                // Calculate purchased per supplier from buildSoOrder
+                const so = buildSoOrder().data;
+                const wallets = {};
+                for (const tab of so.tabs) {
+                    const rate = Number(tab.rate) || 1;
+                    for (const sh of tab.shipments) {
+                        for (const r of sh.rows) {
+                            const key = r.supplier;
+                            if (!wallets[key]) {
+                                wallets[key] = {
+                                    supplier: key,
+                                    totalPurchased: 0,
+                                    paidAmount: 0,
+                                    returnedAmount: 0,
+                                    balance: 0,
+                                    returnedRowIds: {},
+                                    transactions: [],
+                                };
+                            }
+                            wallets[key].totalPurchased += r.qty * r.costPrice * rate;
+                        }
+                    }
+                }
+                // Add some payments
+                const payments = [
+                    {
+                        supplier: 'NCC A — Hà Nội',
+                        amount: 5000000,
+                        ts: daysAgo(40),
+                        note: 'TT đợt 1 shipment 45 ngày',
+                        moveName: 'PAY/2026/0001',
+                    },
+                    {
+                        supplier: 'NCC A — Hà Nội',
+                        amount: 3000000,
+                        ts: daysAgo(20),
+                        note: 'TT bổ sung',
+                        moveName: 'PAY/2026/0002',
+                    },
+                    {
+                        supplier: 'NCC B — Đà Nẵng',
+                        amount: 4500000,
+                        ts: daysAgo(35),
+                        note: 'TT toàn bộ shipment 45 ngày',
+                        moveName: 'PAY/2026/0003',
+                    },
+                    {
+                        supplier: 'GZ Supplier 张三',
+                        amount: 8000,
+                        ts: daysAgo(50),
+                        note: 'Wire payment CNY',
+                        moveName: 'PAY/2026/0004',
+                    },
+                    {
+                        supplier: 'KR — Seoul Style',
+                        amount: 1800000,
+                        ts: daysAgo(10),
+                        note: 'TT shipment 30 ngày',
+                        moveName: 'PAY/2026/0005',
+                    },
+                ];
+                for (const p of payments) {
+                    const w = wallets[p.supplier];
+                    if (!w) continue;
+                    w.transactions.push({
+                        id: tsId('tx', payments.indexOf(p)),
+                        ts: p.ts,
+                        type: 'payment',
+                        amount: p.amount,
+                        note: p.note,
+                        moveName: p.moveName,
+                        ref: { source: 'seed' },
+                    });
+                    w.paidAmount += p.amount;
+                }
+                for (const key of Object.keys(wallets)) {
+                    const w = wallets[key];
+                    w.balance = w.totalPurchased - w.paidAmount - w.returnedAmount;
+                }
+                return { data: { wallets, lastUpdated: nowMs() }, lastUpdated: nowMs() };
+            }
+
+            function buildCustomerWallet() {
+                const mkTx = (i, type, amount, note, daysAgoN) => ({
+                    id: tsId('ctx', i),
+                    ts: daysAgo(daysAgoN),
+                    type,
+                    amount,
+                    note,
+                    ref: { source: 'seed' },
+                });
+                return {
+                    data: {
+                        wallets: {
+                            '0901111001': {
+                                phone: '0901111001',
+                                name: 'Nguyễn Thị Mai (test)',
+                                totalPurchased: 1200000,
+                                paidAmount: 1200000,
+                                returnedAmount: 350000,
+                                balance: -350000,
+                                returnedLineKeys: { 'PBH001-line1': { ts: daysAgo(5) } },
+                                transactions: [mkTx(1, 'return', 350000, 'Hoàn đầm hoa size M', 5)],
+                            },
+                            '0902222002': {
+                                phone: '0902222002',
+                                name: 'Trần Văn Hùng (test)',
+                                totalPurchased: 850000,
+                                paidAmount: 850000,
+                                returnedAmount: 0,
+                                balance: 0,
+                                returnedLineKeys: {},
+                                transactions: [],
+                            },
+                            '0903333003': {
+                                phone: '0903333003',
+                                name: 'Lê Thu Hà (test)',
+                                totalPurchased: 2500000,
+                                paidAmount: 2000000,
+                                returnedAmount: 280000,
+                                balance: 220000,
+                                returnedLineKeys: { 'PBH002-line3': { ts: daysAgo(8) } },
+                                transactions: [
+                                    mkTx(2, 'payment', 500000, 'SePay CK', 12),
+                                    mkTx(3, 'return', 280000, 'Hoàn áo croptop', 8),
+                                ],
+                            },
+                            '0904444004': {
+                                phone: '0904444004',
+                                name: 'Phạm Quang Anh (test)',
+                                totalPurchased: 0,
+                                paidAmount: 500000,
+                                returnedAmount: 0,
+                                balance: 500000,
+                                returnedLineKeys: {},
+                                transactions: [mkTx(4, 'payment', 500000, 'Nạp ví SePay', 3)],
+                            },
+                        },
+                        lastUpdated: nowMs(),
+                    },
+                    lastUpdated: nowMs(),
+                };
+            }
+
+            function buildSuppliers() {
+                return {
+                    data: {
+                        suppliers: [
+                            {
+                                id: 'sup-001',
+                                code: 'A1',
+                                name: 'NCC A — Hà Nội',
+                                note: 'NCC chủ lực mảng áo thun. Liên hệ chị Lan 09xx',
+                                createdAt: daysAgo(180),
+                                updatedAt: daysAgo(30),
+                            },
+                            {
+                                id: 'sup-002',
+                                code: 'B5',
+                                name: 'NCC B — Đà Nẵng',
+                                note: 'Quần jean — yêu cầu TT trước 50%',
+                                createdAt: daysAgo(120),
+                                updatedAt: daysAgo(45),
+                            },
+                            {
+                                id: 'sup-003',
+                                code: 'GZ',
+                                name: 'GZ Supplier 张三',
+                                note: 'Quảng Châu, đầm hoa nhí — đi tàu LCL',
+                                createdAt: daysAgo(200),
+                                updatedAt: daysAgo(15),
+                            },
+                            {
+                                id: 'sup-004',
+                                code: 'GZ2',
+                                name: 'GZ Boutique 李四',
+                                note: 'Chân váy + váy ngắn',
+                                createdAt: daysAgo(90),
+                                updatedAt: daysAgo(60),
+                            },
+                            {
+                                id: 'sup-005',
+                                code: 'KR',
+                                name: 'KR — Seoul Style',
+                                note: 'Hàn Quốc đi air, 5-7 ngày về',
+                                createdAt: daysAgo(60),
+                                updatedAt: daysAgo(20),
+                            },
+                        ],
+                    },
+                    lastUpdated: nowMs(),
+                };
+            }
+
+            btnSeed.addEventListener('click', async () => {
+                if (
+                    !confirm(
+                        'Bơm dữ liệu fake vào 4 NEW collection? Sẽ ghi đè data hiện có (nếu có).'
+                    )
+                )
+                    return;
+                btnSeed.disabled = true;
+                log('=== STEP 3: SEED FAKE DATA ===');
+                try {
+                    const db = await waitFirebase();
+                    const seeds = [
+                        {
+                            name: 'web2_so_order',
+                            data: buildSoOrder(),
+                            label: 'Sổ Order (3 tabs)',
+                        },
+                        {
+                            name: 'web2_supplier_wallet',
+                            data: buildSupplierWallet(),
+                            label: 'Ví NCC',
+                        },
+                        {
+                            name: 'web2_customer_wallet',
+                            data: buildCustomerWallet(),
+                            label: 'Ví KH',
+                        },
+                        { name: 'web2_suppliers', data: buildSuppliers(), label: 'DS NCC' },
+                    ];
+                    for (const s of seeds) {
+                        try {
+                            log(`Seeding ${s.name} (${s.label})...`);
+                            await db.collection(s.name).doc(DOC).set(s.data);
+                            log(`${s.name} OK`, 'ok');
+                        } catch (e) {
+                            log(`${s.name} FAIL: ${e.message}`, 'err');
+                        }
+                    }
+                    log('Seed xong. Mở Web 2.0 pages để verify.', 'ok');
+                } catch (e) {
+                    log(`Fatal: ${e.message}`, 'err');
+                } finally {
+                    btnSeed.disabled = false;
+                }
+            });
+
+            btnClearLog.addEventListener('click', () => {
+                logEl.textContent = '[log đã clear]';
+            });
+
+            log(`Migration tool sẵn sàng. ${COLLECTIONS.length} OLD collections.`);
+        </script>
+    </body>
+</html>

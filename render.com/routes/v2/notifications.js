@@ -41,7 +41,7 @@ async function ensureSchema(pool) {
 
 router.use(async (req, res, next) => {
     try {
-        await ensureSchema(req.app.locals.chatDb);
+        await ensureSchema(req.app.locals.web2Db || req.app.locals.chatDb);
         next();
     } catch (e) {
         res.status(500).json({ success: false, error: 'schema-init: ' + e.message });
@@ -51,7 +51,7 @@ router.use(async (req, res, next) => {
 // GET /list?unreadOnly=1&limit=50
 router.get('/list', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const limit = Math.min(Number(req.query.limit) || 50, 200);
         const unreadOnly = req.query.unreadOnly === '1' || req.query.unreadOnly === 'true';
         const where = unreadOnly ? 'WHERE read_at IS NULL' : '';
@@ -73,7 +73,7 @@ router.get('/list', async (req, res) => {
 // GET /unread-count
 router.get('/unread-count', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const rs = await pool.query(
             `SELECT COUNT(*)::int AS c FROM web2_notifications WHERE read_at IS NULL`
         );
@@ -86,7 +86,7 @@ router.get('/unread-count', async (req, res) => {
 // POST /:id/read
 router.post('/:id/read', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         await pool.query(
             `UPDATE web2_notifications SET read_at = NOW() WHERE id = $1 AND read_at IS NULL`,
             [req.params.id]
@@ -101,7 +101,7 @@ router.post('/:id/read', async (req, res) => {
 // POST /mark-all-read
 router.post('/mark-all-read', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         await pool.query(`UPDATE web2_notifications SET read_at = NOW() WHERE read_at IS NULL`);
         _notifyUpdate();
         res.json({ success: true });
@@ -114,7 +114,7 @@ router.post('/mark-all-read', async (req, res) => {
 // body: { type, title, body?, severity?, url?, entity_type?, entity_id?, dedupe_key? }
 router.post('/', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const b = req.body || {};
         if (!b.type || !b.title) {
             return res.status(400).json({ success: false, error: 'type và title bắt buộc' });
@@ -157,7 +157,7 @@ router.post('/', async (req, res) => {
 // DELETE /:id
 router.delete('/:id', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         await pool.query(`DELETE FROM web2_notifications WHERE id = $1`, [req.params.id]);
         _notifyUpdate();
         res.json({ success: true });
@@ -174,7 +174,7 @@ router.delete('/:id', async (req, res) => {
 //   5. balance_history pending > 1h
 router.get('/scan', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const created = [];
 
         // 1. PBH draft > 24h

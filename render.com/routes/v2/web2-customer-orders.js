@@ -41,7 +41,7 @@ const router = express.Router();
 //   }
 router.get('/:phoneOrId', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
 
         // Accept BOTH phone (vd "0123456788") AND customerId (vd "42") cho dễ

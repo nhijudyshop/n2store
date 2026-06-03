@@ -1,0 +1,820 @@
+{
+    "networkLog": [
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/",
+            "at": 1779696217647
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/vendor.min.css",
+            "at": 1779696217702
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/app.min.css",
+            "at": 1779696217703
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/vendor.min.js",
+            "at": 1779696217703
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/customs.min.js",
+            "at": 1779696217703
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/app.min.js",
+            "at": 1779696217704
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/directives.min.js",
+            "at": 1779696217704
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/controllers.min.js",
+            "at": 1779696217704
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/services.min.js",
+            "at": 1779696217705
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/common/get_type_user_lang",
+            "at": 1779696218275
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/Content/themes/kendoui/messages/kendo.messages.vi-VN.js?_=1779696218008",
+            "at": 1779696218305
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/common/getlanguage_dicts?type=vi",
+            "at": 1779696218305
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/account/layout",
+            "at": 1779696218411
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/account/logged",
+            "at": 1779696218411
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/management/processupdate",
+            "at": 1779696218412
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/shared/app",
+            "at": 1779696218450
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/product/list",
+            "at": 1779696218450
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/common/get_type_user_lang",
+            "at": 1779696218539
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/totp/status",
+            "at": 1779696218540
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/common/getsaleconfig",
+            "at": 1779696218540
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ResCurrency?$select=Id,Name,Symbol",
+            "at": 1779696218540
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/common/getcompanycurrent",
+            "at": 1779696218540
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/rest/v1.0/producttemplate/getproducttax?companyId=1&lastId=0&top=200",
+            "at": 1779696218592
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/TransportConfigs",
+            "at": 1779696218593
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/DeliveryCarrier?$filter=Active%20eq%20true",
+            "at": 1779696218621
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ConfigShippingFee?$orderby=DateCreated%20desc&$filter=Active%20eq%20true",
+            "at": 1779696218655
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/rest/v1.0/common/tpos-feature",
+            "at": 1779696218682
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/common/getsaleconfig",
+            "at": 1779696218871
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/common/gettaxinvoice",
+            "at": 1779696218871
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/Content/images/logo.png",
+            "at": 1779696218871
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/fonts/fontawesome-webfont.woff2?v=4.7.0",
+            "at": 1779696218872
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/fonts/Simple-Line-Icons.woff",
+            "at": 1779696218872
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/fonts/glyphs/WebComponentsIcons.ttf?gedxeo",
+            "at": 1779696218872
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/Product/ODataService.GetViewV2?Active=true&%24top=50&%24orderby=DateCreated+desc&%24filter=Active+eq+true&%24count=true",
+            "at": 1779696218872
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2.0/notification/not-read?type=info&limit=",
+            "at": 1779696218872
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ApplicationUser/ODataService.ChangeCurrentCompanyGet",
+            "at": 1779696218872
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/templatehtml/formsearch",
+            "at": 1779696218872
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/shared/nav",
+            "at": 1779696218872
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/6.5.14.1/Bootstrap/loading-image.gif",
+            "at": 1779696218872
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/Content/images/avatar-50x.png",
+            "at": 1779696218872
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/Content/themes/angulr/img/app-ico.svg",
+            "at": 1779696218872
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/Content/themes/angulr/img/tpos-icon.svg",
+            "at": 1779696218872
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/Content/themes/angulr/img/a0.jpg",
+            "at": 1779696218872
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs",
+            "at": 1779696218943
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://gc-statics.tpos.vn/resources/main/fonts/glyphicons-halflings-regular.woff2",
+            "at": 1779696218976
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ProductTemplateUOMLine/ODataService.GetLastVersionV3?Version=-1&lastId=157484",
+            "at": 1779696218982
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/facebook-graph/user/info?pageId=138914192501678&facebook_type=User",
+            "at": 1779696218985
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://www.facebook.com/x/oauth/status?client_id=327268081110321&input_token&origin=1&redirect_uri=https%3A%2F%2Ftomato.tpos.vn%2F%23%2Fapp%2Fproduct%2Flist&sdk=joey&wants_cookie_data=false",
+            "at": 1779696219046
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/d_XY6jOCSQvEoZoPZonLg6JS3UUHckhgrt4gYpb7Pyg/rs::::1/g:no/plain/tpos/tenant/notification/tposhd.jpg",
+            "at": 1779696219625
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/NwHrXRXoQULcwT6yoOc9elrJRt3sfKiwwk-AyChRsyU/rs::::1/g:no/plain/tpos/tenant/notification/hddt.jpeg",
+            "at": 1779696219625
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/RVUGzvAYkJcSvQUoLas5XgelSe4cZIdS7uwoBCVImbs/rs::::1/g:no/plain/tpos/tenant/notification/588032580_1230591419090632_7645276309233492626_n.jpg",
+            "at": 1779696219625
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/d_XY6jOCSQvEoZoPZonLg6JS3UUHckhgrt4gYpb7Pyg/rs::::1/g:no/plain/tpos/tenant/notification/tposhd.jpg",
+            "at": 1779696219749
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/NwHrXRXoQULcwT6yoOc9elrJRt3sfKiwwk-AyChRsyU/rs::::1/g:no/plain/tpos/tenant/notification/hddt.jpeg",
+            "at": 1779696219750
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/RVUGzvAYkJcSvQUoLas5XgelSe4cZIdS7uwoBCVImbs/rs::::1/g:no/plain/tpos/tenant/notification/588032580_1230591419090632_7645276309233492626_n.jpg",
+            "at": 1779696219750
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/Content/images/placeholder.png",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157479&type=product&v=3758",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157476&type=product&v=3752",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157475&type=product&v=3752",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157474&type=product&v=3751",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157473&type=product&v=3751",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157472&type=product&v=3751",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157471&type=product&v=3751",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157470&type=product&v=3751",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157457&type=product&v=3750",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157453&type=product&v=3749",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157451&type=product&v=3742",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157450&type=product&v=3742",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157448&type=product&v=3740",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157445&type=product&v=3744",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157442&type=product&v=3734",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157441&type=product&v=3734",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157438&type=product&v=3738",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/product/thumbnailv2?id=157437&type=product&v=3732",
+            "at": 1779696219887
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/AoMtmleoM_Fe_RfugHLcddIIcchO1Eli8srSDOFErwk/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_04412f7d-ba55-492f-a00e-bbddeb660db9.jpg",
+            "at": 1779696219912
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/YC6194whUnTvuAapugi7YjQuxLJULmoY53qyzZrhWFg/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_3410ca1e-54cd-4a73-bf4a-a8c9e55cdd3a.jpg",
+            "at": 1779696219913
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/g3cSJP3Z-lPj9yBpAI_4xUntf40Dz8SBhyisvCzKlRg/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_4ad6a06d-1f58-43e3-bd5a-9836b04c240c.jpg",
+            "at": 1779696219913
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/hY6Vr7_ZqwyfPccTHVV35Th2lWpmjnpHyZKI7XUuhK4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_8e50c636-a8c1-44fa-bcc2-f52577b1d914.jpg",
+            "at": 1779696219921
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/3I8rUAdcJKUDf1libzGzaskQiFqGIiaKnb6FkYHaLks/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_9e113226-9a4e-436a-9ae1-4e8372cc0578.jpg",
+            "at": 1779696219921
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/8siWw4mBc552eBrBUg-HRzyJO-0LV1GCfYmfSeR_ijU/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_ab4a27cb-6455-4f9f-8bfd-b4e9190adb8c.jpg",
+            "at": 1779696219921
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/49u1jJNNdwTp7gF2wRaAXnZzygJLlaAejgjpKz_L7d8/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_840da84d-bc8f-48b4-b953-96ab0720baee.jpg",
+            "at": 1779696219922
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/ShHwEuybvniLsvHolXqC93oN4QlnDho9nDT50ivT4mU/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_4bed9d23-c58d-452b-9eec-c7bf6f5ebdfd.jpg",
+            "at": 1779696219922
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/8qN9lJ2BjCGd9UJfp_rTQngSmBK4s7kDpxNgC_-1rl8/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_6eb8a2d8-3809-497a-8f23-40f35aabca94.jpg",
+            "at": 1779696219922
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/NoeMlzebqInUCM6wIPwFhtnnOxVUs9VZKTyMO6Ps28U/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_1e356b71-913b-40cb-a3ab-6c1ad6747476.jpg",
+            "at": 1779696219922
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/6J1KBuXaC4EZFt7h2xIjfpl3tc7ubXnQFVKY2U6eBEM/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_3c7d109d-6d66-4f5f-a0c9-d78d61bb744c.jpg",
+            "at": 1779696219923
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/WlXVGOd5WkuKmETC2kkYVlI-o1vkrxhzMrif4onWqb0/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_b9173ca2-1a58-4d02-bf42-3c2d5a32b9c9.jpg",
+            "at": 1779696219924
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/hDk_yq6Fy39aHOAlE_Y4U4QxJMBKskWwWBB2NwssCWM/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_f6e8265a-4f45-4f4d-ab4e-030db02dbe4b.jpg",
+            "at": 1779696219926
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/oHP_hKa1J3QDLYieDaBjTynR0Ju-_IikKtLERdXJeL8/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_44919a79-0da6-4fa5-92a1-8769e4180f18.jpg",
+            "at": 1779696219926
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/J5dFvmbOM3rid_6lqQj-dtSkCzWuRbzXm0zfFAtEI4Q/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_b412aff3-a5c6-45ed-98cf-17d685e84271.jpg",
+            "at": 1779696219927
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/FOn17bwW4-K73SDqvDZz1oIlOcyZUBn6FIbhn84AGYo/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_983d50d5-965e-4640-973b-335b91989463.jpg",
+            "at": 1779696219930
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/82WeSY_lj_4h5UWj5UaLjvS1IG_htZrtSiwviacMvO4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_54689681-4140-478b-984e-edd0afc97c64.jpg",
+            "at": 1779696219930
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://img1.tpos.vn/RrLZfsVvuQY0Gc3_c-g3w98HIQCz98cpUedTE-do9d4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_f0a8967b-a0cf-4159-80a2-1258198b03a8.jpg",
+            "at": 1779696219931
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/AoMtmleoM_Fe_RfugHLcddIIcchO1Eli8srSDOFErwk/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/25/product_0_04412f7d-ba55-492f-a00e-bbddeb660db9.jpg",
+            "at": 1779696219968
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/YC6194whUnTvuAapugi7YjQuxLJULmoY53qyzZrhWFg/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_3410ca1e-54cd-4a73-bf4a-a8c9e55cdd3a.jpg",
+            "at": 1779696219968
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/g3cSJP3Z-lPj9yBpAI_4xUntf40Dz8SBhyisvCzKlRg/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_4ad6a06d-1f58-43e3-bd5a-9836b04c240c.jpg",
+            "at": 1779696219968
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/hY6Vr7_ZqwyfPccTHVV35Th2lWpmjnpHyZKI7XUuhK4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_8e50c636-a8c1-44fa-bcc2-f52577b1d914.jpg",
+            "at": 1779696219969
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/3I8rUAdcJKUDf1libzGzaskQiFqGIiaKnb6FkYHaLks/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_9e113226-9a4e-436a-9ae1-4e8372cc0578.jpg",
+            "at": 1779696219969
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/8siWw4mBc552eBrBUg-HRzyJO-0LV1GCfYmfSeR_ijU/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_ab4a27cb-6455-4f9f-8bfd-b4e9190adb8c.jpg",
+            "at": 1779696219973
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/49u1jJNNdwTp7gF2wRaAXnZzygJLlaAejgjpKz_L7d8/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_840da84d-bc8f-48b4-b953-96ab0720baee.jpg",
+            "at": 1779696219973
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/ShHwEuybvniLsvHolXqC93oN4QlnDho9nDT50ivT4mU/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_4bed9d23-c58d-452b-9eec-c7bf6f5ebdfd.jpg",
+            "at": 1779696219974
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/8qN9lJ2BjCGd9UJfp_rTQngSmBK4s7kDpxNgC_-1rl8/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_6eb8a2d8-3809-497a-8f23-40f35aabca94.jpg",
+            "at": 1779696219974
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/NoeMlzebqInUCM6wIPwFhtnnOxVUs9VZKTyMO6Ps28U/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_1e356b71-913b-40cb-a3ab-6c1ad6747476.jpg",
+            "at": 1779696219974
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/6J1KBuXaC4EZFt7h2xIjfpl3tc7ubXnQFVKY2U6eBEM/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_3c7d109d-6d66-4f5f-a0c9-d78d61bb744c.jpg",
+            "at": 1779696219974
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/hDk_yq6Fy39aHOAlE_Y4U4QxJMBKskWwWBB2NwssCWM/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_f6e8265a-4f45-4f4d-ab4e-030db02dbe4b.jpg",
+            "at": 1779696219974
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/WlXVGOd5WkuKmETC2kkYVlI-o1vkrxhzMrif4onWqb0/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_b9173ca2-1a58-4d02-bf42-3c2d5a32b9c9.jpg",
+            "at": 1779696219975
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/oHP_hKa1J3QDLYieDaBjTynR0Ju-_IikKtLERdXJeL8/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_44919a79-0da6-4fa5-92a1-8769e4180f18.jpg",
+            "at": 1779696219975
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/J5dFvmbOM3rid_6lqQj-dtSkCzWuRbzXm0zfFAtEI4Q/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_b412aff3-a5c6-45ed-98cf-17d685e84271.jpg",
+            "at": 1779696219975
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/FOn17bwW4-K73SDqvDZz1oIlOcyZUBn6FIbhn84AGYo/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/23/product_0_983d50d5-965e-4640-973b-335b91989463.jpg",
+            "at": 1779696220014
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/82WeSY_lj_4h5UWj5UaLjvS1IG_htZrtSiwviacMvO4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_54689681-4140-478b-984e-edd0afc97c64.jpg",
+            "at": 1779696220014
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://vn.img1.tpos.vn/RrLZfsVvuQY0Gc3_c-g3w98HIQCz98cpUedTE-do9d4/rs::64:64:0/g:no/plain/tpos/tomato.tpos.vn/2026/05/24/product_0_f0a8967b-a0cf-4159-80a2-1258198b03a8.jpg",
+            "at": 1779696220015
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/barcodeproductlabel/printbarcode",
+            "at": 1779696231857
+        },
+        {
+            "t": "req",
+            "m": "POST",
+            "url": "https://tomato.tpos.vn/odata/BarcodeProductLabel/ODataService.DefaultGet?$expand=Warehouse",
+            "at": 1779696232056
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://statics.tpos.vn/Content/images/placeholder.png?width=36&height=36",
+            "at": 1779696232158
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ProductLabelPaper(7)",
+            "at": 1779696232160
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/warehouse/inventorywithlastid?WarehouseId=1&LastProductId=0",
+            "at": 1779696232160
+        },
+        {
+            "t": "resp",
+            "s": 200,
+            "url": "https://tomato.tpos.vn/barcodeproductlabel/printbarcode",
+            "ct": "text/html; charset=utf-8",
+            "at": 1779696232056,
+            "body": "<div class=\"o_control_panel o_breadcrumb_full\" ng-class=\"{'position-sticky': pinTaskbar}\">\r\n    <ol class=\"breadcrumb\">\r\n        <li class=\"active\">{{'print.barcode' |translate}}</li>\r\n    </ol>\r\n\r\n    <div class=\"form-horizontal m-t-xs\" kendo-validator=\"vm.validator\" style=\"width:100%;\">\r\n        <div class=\"col-flex\">\r\n            <div class=\"col-md-6 padding_left_0\">\r\n                <table class=\"o_group o_inner_group\" style=\"width:100%;\">\r\n                    <tbody>\r\n                        <tr>\r\n                            <td colspan=\"1\" class=\"o_td_label\" style=\"width:30%;\">\r\n                                <label class=\"o_form_label\">\r\n                                    {{'label.price_list' |translate}}\r\n                                </label>\r\n                            </td>\r\n                            <td colspan=\"1\" style=\"width: 70%; padding-bottom:10px;\">\r\n                                <select kendo-combo-box\r\n                                        class=\"o_form_required\"\r\n                                        k-ng-model=\"vm.model.PriceList\"\r\n                                        name=\"vm.model.PriceList\"\r\n                                        k-data-text-field=\"'Name'\"\r\n                                        k-data-value-field=\"'Id'\"\r\n                                        k-filter=\"'contains'\"\r\n                                        k-auto-bind=\"false\"\r\n                                        k-min-length=\"1\"\r\n                                        k-data-source=\"vm.priceListDataSource\"\r\n                                        k-placeholder=\"'{{'pricelist.select' |translate}}'\"\r\n                                        k-on-change=\"vm.changePriceList()\"\r\n                                        style=\"width: 100%\" required validationMessage=\"{{'pricelist.select' |translate}}\"></select>\r\n                                <span class=\"k-invalid-msg\" data-for=\"vm.model.PriceList\"></span>\r\n                            </td>\r\n                        </tr>\r\n                        <tr>\r\n                            <td colspan=\"1\" class=\"o_td_label\" style=\"width: 30%;\">\r\n                                <label class=\"o_form_label\">\r\n                                    {{'print.paper' |translate}}\r\n                                </label>\r\n                            </td>\r\n                            <td colspan=\"1\" style=\"width: 70%;\">\r\n                                <select kendo-combo-box\r\n                                        class=\"o_form_required\"\r\n                                        k-ng-model=\"vm.model.Paper\"\r\n                                        name=\"vm.model.Paper\"\r\n                                        k-data-text-field=\"'Name'\"\r\n                                        k-data-value-field=\"'Id'\"\r\n                                        k-filter=\"'contains'\"\r\n                                        k-auto-bind=\"false\"\r\n                                        k-min-length=\"1\"\r\n                                        k-data-source=\"vm.paperDataSource\"\r\n                                        k-placeholder=\"'{{'print.select_paper' |translate}}'\"\r\n                                        k-on-change=\"vm.changePaper()\"\r\n                                        style=\"width: 100%\" required validationMessage=\"{{'print.select_paper' |translate}}\"></select>\r\n                                <span class=\"k-invalid-msg\" data-for=\"vm.model.Paper\"></span>\r\n                            </td>\r\n                        </tr>\r\n                    </tbody>\r\n                </table>\r\n            </div>\r\n            <div class=\"col-md-6\" style=\"padding:10px;\">\r\n                <table class=\"o_group o_inner_group\" style=\"width:100%;\">\r\n                    <tbody>\r\n                        <tr ng-if=\"vm.tabActive == 0\">\r\n                            <td colspan=\"1\" class=\"o_td_label\" style=\"width: 30%;\">\r\n                                <label class=\"o_form_label\">\r\n                                    {{'label.warehouse' |translate}}\r\n                                </label>\r\n                            </td>\r\n                            <td colspan=\"1\" class=\"o_td_label\">\r\n                                <div>\r\n                                    <div>\r\n                                        <select kendo-combo-box\r\n                                                k-ng-model=\"vm.model.Warehouse\"\r\n                                                name=\"vm.model.Warehouse\"\r\n                                                focus-select-all-text-cbx\r\n                                                k-data-text-field=\"'NameGet'\"\r\n                                                k-data-value-field=\"'Id'\"\r\n                                                k-filter=\"'contains'\"\r\n                                                k-auto-bind=\"false\"\r\n                                                k-min-length=\"1\"\r\n                                                k-data-source=\"vm.warehouseDataSource\"\r\n                                                k-change=\"vm.changeWareHouse\"\r\n                                                style=\"width: 100%\"></select>\r\n                                    </div>\r\n\r\n                                </div>\r\n                            </td>\r\n                        </tr>\r\n                    </tbody>\r\n                </table>\r\n\r\n            </div>\r\n\r\n        </div>\r\n        <div class=\"row\">\r\n            <div class=\"col-md-3\">\r\n                <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                    <input type=\"checkbox\" id=\"showBold\" ng-model=\"vm.model.ShowPrice\" ng-click=\"vm.barcodeSetting()\">\r\n                    <span> {{'price.show' |translate}}</span>\r\n                </div>\r\n            </div>\r\n            <div class=\"col-md-3\">\r\n                <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                    <input type=\"checkbox\" id=\"showBold\" ng-model=\"vm.model.ShowBold\" ng-click=\"vm.barcodeSetting()\">\r\n                    <span> {{'label.bold' |translate}}</span>\r\n                </div>\r\n            </div>\r\n            <div class=\"col-md-3\">\r\n                <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                    <input type=\"checkbox\" id=\"showCurrency\" ng-model=\"vm.model.ShowCurrency\" ng-click=\"vm.barcodeSetting()\">\r\n                    <span> {{'currency.show_uint' |translate}}</span>\r\n                </div>\r\n            </div>\r\n            <div class=\"col-md-3\">\r\n                <div>\r\n                    <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                        <input type=\"checkbox\" ng-model=\"vm.model.ShowProductName\">\r\n                        <span> {{'label.display' |translate}}<span style=\"text-transform:lowercase\"> {{'product.name' |translate}}</span></span>\r\n                    </div>\r\n                </div>\r\n            </div>\r\n            <div class=\"col-md-3\" ng-if=\"vm.tabActive == 0\">\r\n                <div>\r\n                    <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                        <input type=\"checkbox\" ng-model=\"vm.model.IsInventory\">\r\n                        <span> {{'inventory.assign' |translate}}</span>\r\n                    </div>\r\n                </div>\r\n            </div>\r\n            <div class=\"col-md-3\">\r\n                <div>\r\n                    <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                        <input type=\"checkbox\" ng-model=\"vm.model.IsHideBarcode\">\r\n                        <span> {{'label.hide_barcodes' |translate}} ({{'label.recommended_for_default_print_type' | translate}})</span>\r\n                    </div>\r\n                </div>\r\n            </div>\r\n\r\n        </div>\r\n    </div>\r\n\r\n    <div style=\"padding-top: 20px;\">\r\n        <footer>\r\n           \r\n            <button type=\"button\" class=\"btn btn-sm btn-primary\" ng-click=\"vm.savePdf()\">\r\n                <span>{{'print.pdf' |translate}}</span>\r\n            </button>\r\n\r\n        </footer>\r\n    </div>\r\n</div>\r\n\r\n<div data-barcode-scanner=\"vm.barcodeScanner\" id=\"saleBar\"></div>\r\n<uib-tabset active=\"vm.tabActive\" class=\"tab-container m-b-xs\" ng-show=\"!vm.show_cs\">\r\n    <uib-tab index=\"0\" heading=\"{{'print.barcode' |translate}}\">\r\n        <div class=\"wrapper-sm\">\r\n            <div class=\"row\">\r\n                <div class=\"col-md-4\" style=\"padding-top:10px;\">\r\n                    <div class=\"form_cs form-horizontal m_r_search\">\r\n                        <div class=\"form-group m-b-xs \">\r\n                            <div class=\"padding_left_0 padding_right_0 \">\r\n                                <div class=\"col-md-8 padding_right_0\">\r\n                                    <input type=\"text\" id=\"searchString\" ng-model=\"vm.searchString\" autocomplete=\"off\" value=\"v\" focus-select-all-text ng-keypress=\"vm.keyEnter($event)\" ng-keyup=\"vm.searchChangeEvent($event)\" class=\"form-control input-medium ng-pristine ng-untouched ng-valid ng-empty\" placeholder=\"{{'product.search' | translate}}\">\r\n                                </div>\r\n                                <div class=\"col-md-4\">\r\n                                    <select class=\"form-control input-medium\" ng-options=\"item.field as item.title for item in vm.optionSearchs\" ng-change=\"vm.searchChangeEvent()\"\r\n                                            ng-model=\"vm.typeSearch\"></select>\r\n                                </div>\r\n\r\n                            </div>\r\n                            <div class=\"clearfix\"></div>\r\n                        </div>\r\n                    </div>\r\n                    <div class=\"table-responsive\">\r\n                        <form class=\"vbox form-validation pretty-split-pane-frame\">\r\n                            <div>\r\n                                <div data-width=\"30%\" style=\"height: 620px;\">\r\n                                    <perfect-scrollbar class=\"scroller\" id=\"myScroller\" event-scroll next-page=\"vm.nextPage($event)\" wheel-propagation=\"true\" min-scrollbar-length=\"30\" lazy-img-container>\r\n                                        <div class=\"pretty-split-pane-component-inner\">\r\n                                            <div class=\"table_select_cs table-responsive m-r-tb\">\r\n                                                <table class=\"o_list_view table table-bordered  table_cs table-hover\" id=\"tblProductBarcode\">\r\n                                                    <thead>\r\n                                                        <tr>\r\n                                                            <th class=\"text-center\">{{'label.image' |translate}}</th>\r\n                                                            <th>\r\n                                                                {{'product.name' |translate}}\r\n                                                            </th>\r\n                                                            <th class=\"text-center\">{{'inventory.qty' |translate}}</th>\r\n                                                            <th class=\"text-center\">{{'label.price' |translate}}</th>\r\n                                                        </tr>\r\n                                                    </thead>\r\n                                                    <tbody>\r\n                                                        <tr ng-repeat=\"item in vm.products\" ng-class=\"vm.indexProduct == $index ? 'row-active' : ''\" ng-click=\"vm.select(item, inventories[vm.model.Warehouse.Id][item.Id].QtyAvailable)\">\r\n                                                            <td class=\"text-center\">\r\n                                                                <img ng-if=\"item.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px;margin:auto;\" ng-src=\"/api/v2/product/thumbnailv2?id={{item.Id}}&type=product&v={{item.Version}}\">\r\n                                                                <img ng-if=\"!item.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px;margin:auto;\" ng-src=\"https://statics.tpos.vn/Content/images/placeholder.png?width=36&height=36\">\r\n                                                            </td>\r\n                                                            <td class=\"ng-binding middle_cs \">\r\n                                                                <i class=\"fa fa-check-circle-o ng-hide\" ng-show=\"item.Selected\" style=\"color: #53992F; float: right\"></i>{{item.NameGet}}\r\n\r\n                                                            </td>\r\n                                                            <td class=\"price ng-binding middle_cs center_cs\">{{inventories[vm.model.Warehouse.Id][item.Id].QtyAvailable | number}}</td>\r\n                                                            <td class=\"price ng-binding middle_cs center_cs \">{{item.Price| number:roundingPrice}}</td>\r\n                                                        </tr>\r\n                                                    </tbody>\r\n                                                </table>\r\n                                            </div>\r\n                                            <div ng-show='vm.busy'>Loading data...</div>\r\n                                        </div>\r\n                                    </perfect-scrollbar>\r\n                                </div>\r\n\r\n                            </div>\r\n\r\n                        </form>\r\n                    </div>\r\n\r\n                </div>\r\n                <div class=\"col-md-8\" style=\"padding-top:10px;\">\r\n                    <div class=\"row\" style=\"height:40px\">\r\n                        <div class=\"form-group m-b-xs \">\r\n                            <div class=\"padding_left_0 padding_right_0 \">\r\n                                <div class=\"col-md-2 padding_right_0\">\r\n                                    <label class=\"o_form_label btn btn-sm btn-success\" ng-click=\"vm.quickApplyQuantity('product')\">\r\n                                        {{'label.quick_apply_quantity'|translate}}\r\n                                    </label>\r\n                                </div>\r\n                                <div class=\"col-md-4 padding_right_0\">\r\n                                    <input focus-select-all-text kendo-numeric-text-box k-min=\"1\" k-decimals=\"0\" k-format=\"'n0'\" name=\"ApplyQuantity\" k-ng-model=\"vm.applyQuantity\" style=\"width: 100%;\" />\r\n                                </div>\r\n                            </div>\r\n                        </div>\r\n                    </div>\r\n                    <div id=\"productBarcode\" style=\"height: 620px; overflow-y: auto;\">\r\n                        <div class=\"table-responsive\">\r\n                            <table class=\"o_list_view table table-bordered  table_cs table-hover\" id=\"tblProductBarcode\">\r\n                                <thead>\r\n                                    <tr>\r\n                                        <th class=\"text-center\">{{'label.image' |translate}}</th>\r\n                                        <th>{{'product.name' |translate}}</th>\r\n                                        <th class=\"text-center\">{{'Price' |translate}}</th>\r\n                                        <th>{{'label.quantity' |translate}}</th>\r\n                                        <th style=\"text-align:center;\">\r\n                                            <button type=\"button\" class=\"btn btn-sm btn-danger\" ng-click=\"vm.remove_all()\">\r\n                                                <span class=\"fa fa-trash-o\"></span>\r\n                                            </button>\r\n                                        </th>\r\n                                    </tr>\r\n                                </thead>\r\n                                <tbody>\r\n                                    <tr ng-repeat=\"line in vm.lines\" ng-class=\"vm.indexProductLine == $index ? 'row-active' : ''\">\r\n                                        <td class=\"text-center\">\r\n                                            <img ng-if=\"line.Product.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px;margin:auto;\" ng-src=\"{{line.Product.ImageUrl}}?width=36&height=36\">\r\n                                            <img ng-if=\"!line.Product.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px;margin:auto;\" ng-src=\"https://statics.tpos.vn/Content/images/placeholder.png?width=36&height=36\">\r\n                                        </td>\r\n                                        <td>{{line.Product.NameGet}}</td>\r\n                                        <td class=\"price ng-binding middle_cs center_cs\">{{line.Product.Price | number:roundingPrice}}</td>\r\n                                        <td>\r\n                                            <input focus-select-all-text kendo-numeric-text-box k-min=\"0\" k-value=\"1\" k-decimals=\"0\" k-format=\"'n0'\" name=\"vm.lines[{{$index}}].Quantity\" tabindex=\"{{$index}}\" k-ng-model=\"line.Quantity\" style=\"width: 100%;\" required validationMessage=\"{{'label.import_qty'| translate}}\" />\r\n                                            <span class=\"k-invalid-msg\" data-for=\"vm.lines[{{$index}}].Quantity\"></span>\r\n                                        </td>\r\n                                        <td class=\"o_list_record_delete\" style=\"text-align:center;\">\r\n                                            <button type=\"button\" class=\"btn btn-sm btn-danger\" ng-click=\"vm.remove_line($index)\">\r\n                                                <span class=\"fa fa-trash-o\"></span>\r\n                                            </button>\r\n                                        </td>\r\n                                    </tr>\r\n                                </tbody>\r\n\r\n                            </table>\r\n                        </div>\r\n                    </div>\r\n\r\n\r\n\r\n                </div>\r\n            </div>\r\n\r\n        </div>\r\n\r\n    </uib-tab>\r\n\r\n    <uib-tab index=\"1\" heading=\"{{'print.barcode_product_code' |translate}}\">\r\n        <div class=\"wrapper-sm\">\r\n            <div class=\"row\">\r\n                <div class=\"col-md-4\" style=\"padding-top:10px;\">\r\n                    <div class=\"form_cs form-horizontal m_r_search\">\r\n                        <div class=\"form-group m-b-xs \">\r\n                            <div class=\"padding_left_0 padding_right_0 \">\r\n                                <div class=\"col-md-8 padding_right_0\">\r\n                                    <input type=\"text\" id=\"searchString2\" ng-model=\"vm.searchStringProduct2\" autocomplete=\"off\" value=\"\" focus-select-all-text ng-keypress=\"vm.keyEnter($event)\" ng-keyup=\"vm.searchChangeProduct2Event($event)\" class=\"form-control input-medium ng-pristine ng-untouched ng-valid ng-empty\" placeholder=\"{{'product.search' | translate}}\">\r\n                                </div>\r\n                                <div class=\"col-md-4\">\r\n                                    <select class=\"form-control input-medium\" ng-options=\"item.field as item.title for item in vm.optionSearchProduct2s\" ng-change=\"vm.searchChangeProduct2Event()\"\r\n                                            ng-model=\"vm.typeSearchProduct2\"></select>\r\n                                </div>\r\n                            </div>\r\n                            <div class=\"clearfix\"></div>\r\n                        </div>\r\n                    </div>\r\n                    <div class=\"table-responsive\">\r\n                        <form class=\"vbox form-validation pretty-split-pane-frame\">\r\n                            <div>\r\n                                <div data-width=\"30%\" style=\"height: 620px;\">\r\n                                    <perfect-scrollbar class=\"scroller\" id=\"myScroller\" event-scroll next-page=\"vm.nextPageProduct2($event)\" wheel-propagation=\"true\" min-scrollbar-length=\"30\" lazy-img-container>\r\n                                        <div class=\"pretty-split-pane-component-inner\">\r\n                                            <div class=\"table_select_cs table-responsive m-r-tb\">\r\n                                                <table class=\"o_list_view table table-bordered  table_cs table-hover\" id=\"tblProductBarcode\">\r\n                                                    <thead>\r\n                                                        <tr>\r\n                                                            <th class=\"text-center\">{{'label.image' |translate}}</th>\r\n                                                            <th>\r\n                                                                {{'product.name' |translate}}\r\n                                                            </th>\r\n                                                            <th class=\"text-center\">{{'label.price' |translate}}</th>\r\n                                                        </tr>\r\n                                                    </thead>\r\n                                                    <tbody>\r\n                                                        <tr ng-repeat=\"item in vm.product2s\" ng-class=\"vm.indexProduct2 == $index ? 'row-active' : ''\" ng-click=\"vm.selectProduct2(item)\">\r\n                                                            <td class=\"text-center\">\r\n                                                                <img ng-if=\"item.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px; margin:auto;\" ng-src=\"/api/v2/product/thumbnailv2?id={{item.Id}}&type=product&v={{item.Version}}\">\r\n                                                                <img ng-if=\"!item.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px;margin:auto;\" ng-src=\"https://statics.tpos.vn/Content/images/placeholder.png?width=36&height=36\">\r\n                                                            </td>\r\n                                                            <td class=\"ng-binding middle_cs \">\r\n                                                                <i class=\"fa fa-check-circle-o ng-hide\" ng-show=\"item.Selected\" style=\"color: #53992F; float: right\"></i>{{item.NameGet}}\r\n\r\n                                                            </td>\r\n                                                            \r\n                                                            <td class=\"price ng-binding middle_cs center_cs \">{{item.Price| number:roundingPrice}}</td>\r\n                                                        </tr>\r\n                                                    </tbody>\r\n                                                </table>\r\n                                            </div>\r\n                                            <div ng-show='vm.busy'>Loading data...</div>\r\n                                        </div>\r\n                                    </perfect-scrollbar>\r\n                                </div>\r\n\r\n                            </div>\r\n\r\n                        </form>\r\n                    </div>\r\n\r\n                </div>\r\n                <div class=\"col-md-8\" style=\"padding-top:10px;\">\r\n                    <div class=\"row\" style=\"height:40px\">\r\n                        <div class=\"form-group m-b-xs \">\r\n                            <div class=\"padding_left_0 padding_right_0 \">\r\n                                <div class=\"col-md-2 padding_right_0\">\r\n                                    <label class=\"o_form_label btn btn-sm btn-success\" ng-click=\"vm.quickApplyQuantity('product2')\">\r\n                                        {{'label.quick_apply_quantity'|translate}}\r\n                                    </label>\r\n                                </div>\r\n                                <div class=\"col-md-4 padding_right_0\">\r\n                                    <input focus-select-all-text kendo-numeric-text-box k-min=\"1\" k-decimals=\"0\" k-format=\"'n0'\" name=\"ApplyQuantity2\" k-ng-model=\"vm.applyQuantity2\" style=\"width: 100%;\" />\r\n                                </div>\r\n                            </div>\r\n                        </div>\r\n                    </div>\r\n                    <div id=\"product2Barcode\" style=\"height: 620px; overflow-y: auto;\">\r\n                        <div class=\"table-responsive\">\r\n                            <table class=\"o_list_view table table-bordered  table_cs table-hover  \" id=\"tblProduct2Barcode\">\r\n                                <thead>\r\n                                    <tr>\r\n                                        <th class=\"text-center\">{{'label.image' |translate}}</th>\r\n                                        <th>{{'product.name' |translate}}</th>\r\n                                        <th class=\"text-center\">{{'label.sales_price' |translate}}</th>\r\n                                        <th>{{'label.quantity' |translate}}</th>\r\n                                        <th style=\"text-align:center;\">\r\n                                            <button type=\"button\" class=\"btn btn-sm btn-danger\" ng-click=\"vm.remove_all_product2()\">\r\n                                                <span class=\"fa fa-trash-o\"></span>\r\n                                            </button>\r\n                                        </th>\r\n                                    </tr>\r\n                                </thead>\r\n                                <tbody>\r\n                                    <tr ng-repeat=\"line in vm.product2Lines\" ng-class=\"vm.indexProduct2Line == $index ? 'row-active' : ''\">\r\n                                        <td class=\"text-center\">\r\n                                            <img ng-if=\"line.Product.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px;margin:auto;\" ng-src=\"{{line.Product.ImageUrl}}?width=36&height=36\">\r\n                                            <img ng-if=\"!line.Product.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px;margin:auto;\" ng-src=\"https://statics.tpos.vn/Content/images/placeholder.png?width=36&height=36\">\r\n                                        </td>\r\n                                        <td>{{line.Product.NameGet}}</td>\r\n                                        <td class=\"price ng-binding middle_cs center_cs\">{{line.Product.Price | number:roundingPrice}}</td>\r\n                                        <td>\r\n                                            <input focus-select-all-text kendo-numeric-text-box k-min=\"0\" k-value=\"1\" k-decimals=\"0\" k-format=\"'n0'\" name=\"vm.product2Lines[{{$index}}].Quantity\" tabindex=\"{{$index}}\" k-ng-model=\"line.Quantity\" style=\"width: 100%;\" required validationMessage=\"{{'label.import_qty' |translate}}\" />\r\n                                            <span class=\"k-invalid-msg\" data-for=\"vm.product2Lines[{{$index}}].Quantity\"></span>\r\n                                        </td>\r\n                                        <td class=\"o_list_record_delete\" style=\"text-align:center;\">\r\n                                            <button type=\"button\" class=\"btn btn-sm btn-danger\" ng-click=\"vm.remove_line_product2($index)\">\r\n                                                <span class=\"fa fa-trash-o\"></span>\r\n                                            </button>\r\n                                        </td>\r\n                                    </tr>\r\n                                </tbody>\r\n\r\n                            </table>\r\n                        </div>\r\n                    </div>\r\n\r\n\r\n\r\n                </div>\r\n            </div>\r\n\r\n        </div>\r\n\r\n\r\n    </uib-tab>\r\n</uib-tabset>\r\n\r\n\r\n\r\n"
+        },
+        {
+            "t": "resp",
+            "s": 200,
+            "url": "https://tomato.tpos.vn/odata/BarcodeProductLabel/ODataService.DefaultGet?$expand=Warehouse",
+            "ct": "application/json; odata.metadata=minimal",
+            "at": 1779696232160,
+            "body": "{\"@odata.context\":\"http://tomato.tpos.vn/odata/$metadata#BarcodeProductLabel(Warehouse())/$entity\",\"Id\":0,\"PaperId\":0,\"PriceListId\":0,\"ShowCurrency\":false,\"ShowBold\":false,\"ShowPrice\":true,\"ShowProductName\":true,\"IsInventory\":null,\"ShowCompany\":null,\"BarcodeTemplateIds\":[],\"FastPurchaseOrderId\":null,\"IsHideBarcode\":null,\"ExtraProperty\":null,\"Warehouse\":{\"Id\":1,\"Code\":\"WH\",\"Name\":\"Nhi Judy Store\",\"CompanyId\":0,\"LocationId\":0,\"NameGet\":\"[WH] Nhi Judy Store\",\"CompanyName\":null,\"LocationActive\":true}}"
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/warehouse/inventorywithlastid?WarehouseId=1&LastProductId=157481",
+            "at": 1779696232301
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/rest/v1.0/producttemplate/getproducttaxbytemplateid?companyId=1&productTemplateId=119314&lastId=0&take=200",
+            "at": 1779696259447
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/rest/v1.0/producttemplate/getproducttaxbytemplateid?companyId=1&productTemplateId=119315&lastId=0&take=200",
+            "at": 1779696259450
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/rest/v1.0/producttemplate/getproducttaxbytemplateid?companyId=1&productTemplateId=119318&lastId=0&take=200",
+            "at": 1779696259641
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ProductTemplateUOMLine/ODataService.GetLastVersionV3?Version=3771&lastId=157482",
+            "at": 1779696259644
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ProductTemplateUOMLine/ODataService.GetLastVersionV3?Version=3771&lastId=157482",
+            "at": 1779696259647
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/warehouse/getinventorybyids?warehouseId=1&productIds=119314",
+            "at": 1779696259786
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/rest/v1.0/producttemplate/getproducttaxbytemplateid?companyId=1&productTemplateId=119316&lastId=0&take=200",
+            "at": 1779696259787
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ProductTemplateUOMLine/ODataService.GetLastVersionV3?Version=3772&lastId=157491",
+            "at": 1779696259844
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/rest/v1.0/producttemplate/getproducttaxbytemplateid?companyId=1&productTemplateId=119317&lastId=0&take=200",
+            "at": 1779696259931
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/warehouse/getinventorybyids?warehouseId=1&productIds=119318",
+            "at": 1779696259981
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ProductTemplateUOMLine/ODataService.GetLastVersionV3?Version=3772&lastId=157492",
+            "at": 1779696259990
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/odata/ProductTemplateUOMLine/ODataService.GetLastVersionV3?Version=3772&lastId=157487",
+            "at": 1779696260071
+        },
+        {
+            "t": "req",
+            "m": "GET",
+            "url": "https://tomato.tpos.vn/api/v2/warehouse/getinventorybyids?warehouseId=1&productIds=119317",
+            "at": 1779696260160
+        }
+    ],
+    "capture": {
+        "opens": [],
+        "blobs": [],
+        "iframes": [],
+        "httpGets": [
+            {
+                "url": "/barcodeproductlabel/printbarcode",
+                "status": 200,
+                "ct": "text/html; charset=utf-8",
+                "bodyLen": 27304,
+                "body": "<div class=\"o_control_panel o_breadcrumb_full\" ng-class=\"{'position-sticky': pinTaskbar}\">\r\n    <ol class=\"breadcrumb\">\r\n        <li class=\"active\">{{'print.barcode' |translate}}</li>\r\n    </ol>\r\n\r\n    <div class=\"form-horizontal m-t-xs\" kendo-validator=\"vm.validator\" style=\"width:100%;\">\r\n        <div class=\"col-flex\">\r\n            <div class=\"col-md-6 padding_left_0\">\r\n                <table class=\"o_group o_inner_group\" style=\"width:100%;\">\r\n                    <tbody>\r\n                        <tr>\r\n                            <td colspan=\"1\" class=\"o_td_label\" style=\"width:30%;\">\r\n                                <label class=\"o_form_label\">\r\n                                    {{'label.price_list' |translate}}\r\n                                </label>\r\n                            </td>\r\n                            <td colspan=\"1\" style=\"width: 70%; padding-bottom:10px;\">\r\n                                <select kendo-combo-box\r\n                                        class=\"o_form_required\"\r\n                                        k-ng-model=\"vm.model.PriceList\"\r\n                                        name=\"vm.model.PriceList\"\r\n                                        k-data-text-field=\"'Name'\"\r\n                                        k-data-value-field=\"'Id'\"\r\n                                        k-filter=\"'contains'\"\r\n                                        k-auto-bind=\"false\"\r\n                                        k-min-length=\"1\"\r\n                                        k-data-source=\"vm.priceListDataSource\"\r\n                                        k-placeholder=\"'{{'pricelist.select' |translate}}'\"\r\n                                        k-on-change=\"vm.changePriceList()\"\r\n                                        style=\"width: 100%\" required validationMessage=\"{{'pricelist.select' |translate}}\"></select>\r\n                                <span class=\"k-invalid-msg\" data-for=\"vm.model.PriceList\"></span>\r\n                            </td>\r\n                        </tr>\r\n                        <tr>\r\n                            <td colspan=\"1\" class=\"o_td_label\" style=\"width: 30%;\">\r\n                                <label class=\"o_form_label\">\r\n                                    {{'print.paper' |translate}}\r\n                                </label>\r\n                            </td>\r\n                            <td colspan=\"1\" style=\"width: 70%;\">\r\n                                <select kendo-combo-box\r\n                                        class=\"o_form_required\"\r\n                                        k-ng-model=\"vm.model.Paper\"\r\n                                        name=\"vm.model.Paper\"\r\n                                        k-data-text-field=\"'Name'\"\r\n                                        k-data-value-field=\"'Id'\"\r\n                                        k-filter=\"'contains'\"\r\n                                        k-auto-bind=\"false\"\r\n                                        k-min-length=\"1\"\r\n                                        k-data-source=\"vm.paperDataSource\"\r\n                                        k-placeholder=\"'{{'print.select_paper' |translate}}'\"\r\n                                        k-on-change=\"vm.changePaper()\"\r\n                                        style=\"width: 100%\" required validationMessage=\"{{'print.select_paper' |translate}}\"></select>\r\n                                <span class=\"k-invalid-msg\" data-for=\"vm.model.Paper\"></span>\r\n                            </td>\r\n                        </tr>\r\n                    </tbody>\r\n                </table>\r\n            </div>\r\n            <div class=\"col-md-6\" style=\"padding:10px;\">\r\n                <table class=\"o_group o_inner_group\" style=\"width:100%;\">\r\n                    <tbody>\r\n                        <tr ng-if=\"vm.tabActive == 0\">\r\n                            <td colspan=\"1\" class=\"o_td_label\" style=\"width: 30%;\">\r\n                                <label class=\"o_form_label\">\r\n                                    {{'label.warehouse' |translate}}\r\n                                </label>\r\n                            </td>\r\n                            <td colspan=\"1\" class=\"o_td_label\">\r\n                                <div>\r\n                                    <div>\r\n                                        <select kendo-combo-box\r\n                                                k-ng-model=\"vm.model.Warehouse\"\r\n                                                name=\"vm.model.Warehouse\"\r\n                                                focus-select-all-text-cbx\r\n                                                k-data-text-field=\"'NameGet'\"\r\n                                                k-data-value-field=\"'Id'\"\r\n                                                k-filter=\"'contains'\"\r\n                                                k-auto-bind=\"false\"\r\n                                                k-min-length=\"1\"\r\n                                                k-data-source=\"vm.warehouseDataSource\"\r\n                                                k-change=\"vm.changeWareHouse\"\r\n                                                style=\"width: 100%\"></select>\r\n                                    </div>\r\n\r\n                                </div>\r\n                            </td>\r\n                        </tr>\r\n                    </tbody>\r\n                </table>\r\n\r\n            </div>\r\n\r\n        </div>\r\n        <div class=\"row\">\r\n            <div class=\"col-md-3\">\r\n                <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                    <input type=\"checkbox\" id=\"showBold\" ng-model=\"vm.model.ShowPrice\" ng-click=\"vm.barcodeSetting()\">\r\n                    <span> {{'price.show' |translate}}</span>\r\n                </div>\r\n            </div>\r\n            <div class=\"col-md-3\">\r\n                <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                    <input type=\"checkbox\" id=\"showBold\" ng-model=\"vm.model.ShowBold\" ng-click=\"vm.barcodeSetting()\">\r\n                    <span> {{'label.bold' |translate}}</span>\r\n                </div>\r\n            </div>\r\n            <div class=\"col-md-3\">\r\n                <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                    <input type=\"checkbox\" id=\"showCurrency\" ng-model=\"vm.model.ShowCurrency\" ng-click=\"vm.barcodeSetting()\">\r\n                    <span> {{'currency.show_uint' |translate}}</span>\r\n                </div>\r\n            </div>\r\n            <div class=\"col-md-3\">\r\n                <div>\r\n                    <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                        <input type=\"checkbox\" ng-model=\"vm.model.ShowProductName\">\r\n                        <span> {{'label.display' |translate}}<span style=\"text-transform:lowercase\"> {{'product.name' |translate}}</span></span>\r\n                    </div>\r\n                </div>\r\n            </div>\r\n            <div class=\"col-md-3\" ng-if=\"vm.tabActive == 0\">\r\n                <div>\r\n                    <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                        <input type=\"checkbox\" ng-model=\"vm.model.IsInventory\">\r\n                        <span> {{'inventory.assign' |translate}}</span>\r\n                    </div>\r\n                </div>\r\n            </div>\r\n            <div class=\"col-md-3\">\r\n                <div>\r\n                    <div class=\"o_checkbox o_form_field_boolean o_form_field\">\r\n                        <input type=\"checkbox\" ng-model=\"vm.model.IsHideBarcode\">\r\n                        <span> {{'label.hide_barcodes' |translate}} ({{'label.recommended_for_default_print_type' | translate}})</span>\r\n                    </div>\r\n                </div>\r\n            </div>\r\n\r\n        </div>\r\n    </div>\r\n\r\n    <div style=\"padding-top: 20px;\">\r\n        <footer>\r\n           \r\n            <button type=\"button\" class=\"btn btn-sm btn-primary\" ng-click=\"vm.savePdf()\">\r\n                <span>{{'print.pdf' |translate}}</span>\r\n            </button>\r\n\r\n        </footer>\r\n    </div>\r\n</div>\r\n\r\n<div data-barcode-scanner=\"vm.barcodeScanner\" id=\"saleBar\"></div>\r\n<uib-tabset active=\"vm.tabActive\" class=\"tab-container m-b-xs\" ng-show=\"!vm.show_cs\">\r\n    <uib-tab index=\"0\" heading=\"{{'print.barcode' |translate}}\">\r\n        <div class=\"wrapper-sm\">\r\n            <div class=\"row\">\r\n                <div class=\"col-md-4\" style=\"padding-top:10px;\">\r\n                    <div class=\"form_cs form-horizontal m_r_search\">\r\n                        <div class=\"form-group m-b-xs \">\r\n                            <div class=\"padding_left_0 padding_right_0 \">\r\n                                <div class=\"col-md-8 padding_right_0\">\r\n                                    <input type=\"text\" id=\"searchString\" ng-model=\"vm.searchString\" autocomplete=\"off\" value=\"v\" focus-select-all-text ng-keypress=\"vm.keyEnter($event)\" ng-keyup=\"vm.searchChangeEvent($event)\" class=\"form-control input-medium ng-pristine ng-untouched ng-valid ng-empty\" placeholder=\"{{'product.search' | translate}}\">\r\n                                </div>\r\n                                <div class=\"col-md-4\">\r\n                                    <select class=\"form-control input-medium\" ng-options=\"item.field as item.title for item in vm.optionSearchs\" ng-change=\"vm.searchChangeEvent()\"\r\n                                            ng-model=\"vm.typeSearch\"></select>\r\n                                </div>\r\n\r\n                            </div>\r\n                            <div class=\"clearfix\"></div>\r\n                        </div>\r\n                    </div>\r\n                    <div class=\"table-responsive\">\r\n                        <form class=\"vbox form-validation pretty-split-pane-frame\">\r\n                            <div>\r\n                                <div data-width=\"30%\" style=\"height: 620px;\">\r\n                                    <perfect-scrollbar class=\"scroller\" id=\"myScroller\" event-scroll next-page=\"vm.nextPage($event)\" wheel-propagation=\"true\" min-scrollbar-length=\"30\" lazy-img-container>\r\n                                        <div class=\"pretty-split-pane-component-inner\">\r\n                                            <div class=\"table_select_cs table-responsive m-r-tb\">\r\n                                                <table class=\"o_list_view table table-bordered  table_cs table-hover\" id=\"tblProductBarcode\">\r\n                                                    <thead>\r\n                                                        <tr>\r\n                                                            <th class=\"text-center\">{{'label.image' |translate}}</th>\r\n                                                            <th>\r\n                                                                {{'product.name' |translate}}\r\n                                                            </th>\r\n                                                            <th class=\"text-center\">{{'inventory.qty' |translate}}</th>\r\n                                                            <th class=\"text-center\">{{'label.price' |translate}}</th>\r\n                                                        </tr>\r\n                                                    </thead>\r\n                                                    <tbody>\r\n                                                        <tr ng-repeat=\"item in vm.products\" ng-class=\"vm.indexProduct == $index ? 'row-active' : ''\" ng-click=\"vm.select(item, inventories[vm.model.Warehouse.Id][item.Id].QtyAvailable)\">\r\n                                                            <td class=\"text-center\">\r\n                                                                <img ng-if=\"item.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px;margin:auto;\" ng-src=\"/api/v2/product/thumbnailv2?id={{item.Id}}&type=product&v={{item.Version}}\">\r\n                                                                <img ng-if=\"!item.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px;margin:auto;\" ng-src=\"https://statics.tpos.vn/Content/images/placeholder.png?width=36&height=36\">\r\n                                                            </td>\r\n                                                            <td class=\"ng-binding middle_cs \">\r\n                                                                <i class=\"fa fa-check-circle-o ng-hide\" ng-show=\"item.Selected\" style=\"color: #53992F; float: right\"></i>{{item.NameGet}}\r\n\r\n                                                            </td>\r\n                                                            <td class=\"price ng-binding middle_cs center_cs\">{{inventories[vm.model.Warehouse.Id][item.Id].QtyAvailable | number}}</td>\r\n                                                            <td class=\"price ng-binding middle_cs center_cs \">{{item.Price| number:roundingPrice}}</td>\r\n                                                        </tr>\r\n                                                    </tbody>\r\n                                                </table>\r\n                                            </div>\r\n                                            <div ng-show='vm.busy'>Loading data...</div>\r\n                                        </div>\r\n                                    </perfect-scrollbar>\r\n                                </div>\r\n\r\n                            </div>\r\n\r\n                        </form>\r\n                    </div>\r\n\r\n                </div>\r\n                <div class=\"col-md-8\" style=\"padding-top:10px;\">\r\n                    <div class=\"row\" style=\"height:40px\">\r\n                        <div class=\"form-group m-b-xs \">\r\n                            <div class=\"padding_left_0 padding_right_0 \">\r\n                                <div class=\"col-md-2 padding_right_0\">\r\n                                    <label class=\"o_form_label btn btn-sm btn-success\" ng-click=\"vm.quickApplyQuantity('product')\">\r\n                                        {{'label.quick_apply_quantity'|translate}}\r\n                                    </label>\r\n                                </div>\r\n                                <div class=\"col-md-4 padding_right_0\">\r\n                                    <input focus-select-all-text kendo-numeric-text-box k-min=\"1\" k-decimals=\"0\" k-format=\"'n0'\" name=\"ApplyQuantity\" k-ng-model=\"vm.applyQuantity\" style=\"width: 100%;\" />\r\n                                </div>\r\n                            </div>\r\n                        </div>\r\n                    </div>\r\n                    <div id=\"productBarcode\" style=\"height: 620px; overflow-y: auto;\">\r\n                        <div class=\"table-responsive\">\r\n                            <table class=\"o_list_view table table-bordered  table_cs table-hover\" id=\"tblProductBarcode\">\r\n                                <thead>\r\n                                    <tr>\r\n                                        <th class=\"text-center\">{{'label.image' |translate}}</th>\r\n                                        <th>{{'product.name' |translate}}</th>\r\n                                        <th class=\"text-center\">{{'Price' |translate}}</th>\r\n                                        <th>{{'label.quantity' |translate}}</th>\r\n                                        <th style=\"text-align:center;\">\r\n                                            <button type=\"button\" class=\"btn btn-sm btn-danger\" ng-click=\"vm.remove_all()\">\r\n                                                <span class=\"fa fa-trash-o\"></span>\r\n                                            </button>\r\n                                        </th>\r\n                                    </tr>\r\n                                </thead>\r\n                                <tbody>\r\n                                    <tr ng-repeat=\"line in vm.lines\" ng-class=\"vm.indexProductLine == $index ? 'row-active' : ''\">\r\n                                        <td class=\"text-center\">\r\n                                            <img ng-if=\"line.Product.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px;margin:auto;\" ng-src=\"{{line.Product.ImageUrl}}?width=36&height=36\">\r\n                                            <img ng-if=\"!line.Product.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px;margin:auto;\" ng-src=\"https://statics.tpos.vn/Content/images/placeholder.png?width=36&height=36\">\r\n                                        </td>\r\n                                        <td>{{line.Product.NameGet}}</td>\r\n                                        <td class=\"price ng-binding middle_cs center_cs\">{{line.Product.Price | number:roundingPrice}}</td>\r\n                                        <td>\r\n                                            <input focus-select-all-text kendo-numeric-text-box k-min=\"0\" k-value=\"1\" k-decimals=\"0\" k-format=\"'n0'\" name=\"vm.lines[{{$index}}].Quantity\" tabindex=\"{{$index}}\" k-ng-model=\"line.Quantity\" style=\"width: 100%;\" required validationMessage=\"{{'label.import_qty'| translate}}\" />\r\n                                            <span class=\"k-invalid-msg\" data-for=\"vm.lines[{{$index}}].Quantity\"></span>\r\n                                        </td>\r\n                                        <td class=\"o_list_record_delete\" style=\"text-align:center;\">\r\n                                            <button type=\"button\" class=\"btn btn-sm btn-danger\" ng-click=\"vm.remove_line($index)\">\r\n                                                <span class=\"fa fa-trash-o\"></span>\r\n                                            </button>\r\n                                        </td>\r\n                                    </tr>\r\n                                </tbody>\r\n\r\n                            </table>\r\n                        </div>\r\n                    </div>\r\n\r\n\r\n\r\n                </div>\r\n            </div>\r\n\r\n        </div>\r\n\r\n    </uib-tab>\r\n\r\n    <uib-tab index=\"1\" heading=\"{{'print.barcode_product_code' |translate}}\">\r\n        <div class=\"wrapper-sm\">\r\n            <div class=\"row\">\r\n                <div class=\"col-md-4\" style=\"padding-top:10px;\">\r\n                    <div class=\"form_cs form-horizontal m_r_search\">\r\n                        <div class=\"form-group m-b-xs \">\r\n                            <div class=\"padding_left_0 padding_right_0 \">\r\n                                <div class=\"col-md-8 padding_right_0\">\r\n                                    <input type=\"text\" id=\"searchString2\" ng-model=\"vm.searchStringProduct2\" autocomplete=\"off\" value=\"\" focus-select-all-text ng-keypress=\"vm.keyEnter($event)\" ng-keyup=\"vm.searchChangeProduct2Event($event)\" class=\"form-control input-medium ng-pristine ng-untouched ng-valid ng-empty\" placeholder=\"{{'product.search' | translate}}\">\r\n                                </div>\r\n                                <div class=\"col-md-4\">\r\n                                    <select class=\"form-control input-medium\" ng-options=\"item.field as item.title for item in vm.optionSearchProduct2s\" ng-change=\"vm.searchChangeProduct2Event()\"\r\n                                            ng-model=\"vm.typeSearchProduct2\"></select>\r\n                                </div>\r\n                            </div>\r\n                            <div class=\"clearfix\"></div>\r\n                        </div>\r\n                    </div>\r\n                    <div class=\"table-responsive\">\r\n                        <form class=\"vbox form-validation pretty-split-pane-frame\">\r\n                            <div>\r\n                                <div data-width=\"30%\" style=\"height: 620px;\">\r\n                                    <perfect-scrollbar class=\"scroller\" id=\"myScroller\" event-scroll next-page=\"vm.nextPageProduct2($event)\" wheel-propagation=\"true\" min-scrollbar-length=\"30\" lazy-img-container>\r\n                                        <div class=\"pretty-split-pane-component-inner\">\r\n                                            <div class=\"table_select_cs table-responsive m-r-tb\">\r\n                                                <table class=\"o_list_view table table-bordered  table_cs table-hover\" id=\"tblProductBarcode\">\r\n                                                    <thead>\r\n                                                        <tr>\r\n                                                            <th class=\"text-center\">{{'label.image' |translate}}</th>\r\n                                                            <th>\r\n                                                                {{'product.name' |translate}}\r\n                                                            </th>\r\n                                                            <th class=\"text-center\">{{'label.price' |translate}}</th>\r\n                                                        </tr>\r\n                                                    </thead>\r\n                                                    <tbody>\r\n                                                        <tr ng-repeat=\"item in vm.product2s\" ng-class=\"vm.indexProduct2 == $index ? 'row-active' : ''\" ng-click=\"vm.selectProduct2(item)\">\r\n                                                            <td class=\"text-center\">\r\n                                                                <img ng-if=\"item.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px; margin:auto;\" ng-src=\"/api/v2/product/thumbnailv2?id={{item.Id}}&type=product&v={{item.Version}}\">\r\n                                                                <img ng-if=\"!item.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px;margin:auto;\" ng-src=\"https://statics.tpos.vn/Content/images/placeholder.png?width=36&height=36\">\r\n                                                            </td>\r\n                                                            <td class=\"ng-binding middle_cs \">\r\n                                                                <i class=\"fa fa-check-circle-o ng-hide\" ng-show=\"item.Selected\" style=\"color: #53992F; float: right\"></i>{{item.NameGet}}\r\n\r\n                                                            </td>\r\n                                                            \r\n                                                            <td class=\"price ng-binding middle_cs center_cs \">{{item.Price| number:roundingPrice}}</td>\r\n                                                        </tr>\r\n                                                    </tbody>\r\n                                                </table>\r\n                                            </div>\r\n                                            <div ng-show='vm.busy'>Loading data...</div>\r\n                                        </div>\r\n                                    </perfect-scrollbar>\r\n                                </div>\r\n\r\n                            </div>\r\n\r\n                        </form>\r\n                    </div>\r\n\r\n                </div>\r\n                <div class=\"col-md-8\" style=\"padding-top:10px;\">\r\n                    <div class=\"row\" style=\"height:40px\">\r\n                        <div class=\"form-group m-b-xs \">\r\n                            <div class=\"padding_left_0 padding_right_0 \">\r\n                                <div class=\"col-md-2 padding_right_0\">\r\n                                    <label class=\"o_form_label btn btn-sm btn-success\" ng-click=\"vm.quickApplyQuantity('product2')\">\r\n                                        {{'label.quick_apply_quantity'|translate}}\r\n                                    </label>\r\n                                </div>\r\n                                <div class=\"col-md-4 padding_right_0\">\r\n                                    <input focus-select-all-text kendo-numeric-text-box k-min=\"1\" k-decimals=\"0\" k-format=\"'n0'\" name=\"ApplyQuantity2\" k-ng-model=\"vm.applyQuantity2\" style=\"width: 100%;\" />\r\n                                </div>\r\n                            </div>\r\n                        </div>\r\n                    </div>\r\n                    <div id=\"product2Barcode\" style=\"height: 620px; overflow-y: auto;\">\r\n                        <div class=\"table-responsive\">\r\n                            <table class=\"o_list_view table table-bordered  table_cs table-hover  \" id=\"tblProduct2Barcode\">\r\n                                <thead>\r\n                                    <tr>\r\n                                        <th class=\"text-center\">{{'label.image' |translate}}</th>\r\n                                        <th>{{'product.name' |translate}}</th>\r\n                                        <th class=\"text-center\">{{'label.sales_price' |translate}}</th>\r\n                                        <th>{{'label.quantity' |translate}}</th>\r\n                                        <th style=\"text-align:center;\">\r\n                                            <button type=\"button\" class=\"btn btn-sm btn-danger\" ng-click=\"vm.remove_all_product2()\">\r\n                                                <span class=\"fa fa-trash-o\"></span>\r\n                                            </button>\r\n                                        </th>\r\n                                    </tr>\r\n                                </thead>\r\n                                <tbody>\r\n                                    <tr ng-repeat=\"line in vm.product2Lines\" ng-class=\"vm.indexProduct2Line == $index ? 'row-active' : ''\">\r\n                                        <td class=\"text-center\">\r\n                                            <img ng-if=\"line.Product.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px;margin:auto;\" ng-src=\"{{line.Product.ImageUrl}}?width=36&height=36\">\r\n                                            <img ng-if=\"!line.Product.ImageUrl\" class=\"img img-responsive\" style=\"width:36px; height:36px;margin:auto;\" ng-src=\"https://statics.tpos.vn/Content/images/placeholder.png?width=36&height=36\">\r\n                                        </td>\r\n                                        <td>{{line.Product.NameGet}}</td>\r\n                                        <td class=\"price ng-binding middle_cs center_cs\">{{line.Product.Price | number:roundingPrice}}</td>\r\n                                        <td>\r\n                                            <input focus-select-all-text kendo-numeric-text-box k-min=\"0\" k-value=\"1\" k-decimals=\"0\" k-format=\"'n0'\" name=\"vm.product2Lines[{{$index}}].Quantity\" tabindex=\"{{$index}}\" k-ng-model=\"line.Quantity\" style=\"width: 100%;\" required validationMessage=\"{{'label.import_qty' |translate}}\" />\r\n                                            <span class=\"k-invalid-msg\" data-for=\"vm.product2Lines[{{$index}}].Quantity\"></span>\r\n                                        </td>\r\n                                        <td class=\"o_list_record_delete\" style=\"text-align:center;\">\r\n                                            <button type=\"button\" class=\"btn btn-sm btn-danger\" ng-click=\"vm.remove_line_product2($index)\">\r\n                                                <span class=\"fa fa-trash-o\"></span>\r\n                                            </button>\r\n                                        </td>\r\n                                    </tr>\r\n                                </tbody>\r\n\r\n                            </table>\r\n                        </div>\r\n                    </div>\r\n\r\n\r\n\r\n                </div>\r\n            </div>\r\n\r\n        </div>\r\n\r\n\r\n    </uib-tab>\r\n</uib-tabset>\r\n\r\n\r\n\r\n"
+            }
+        ],
+        "httpPosts": [
+            {
+                "url": "/odata/BarcodeProductLabel/ODataService.DefaultGet?$expand=Warehouse",
+                "status": 200,
+                "ct": "application/json; odata.metadata=minimal",
+                "bodyLen": 502,
+                "body": "{\"@odata.context\":\"http://tomato.tpos.vn/odata/$metadata#BarcodeProductLabel(Warehouse())/$entity\",\"Id\":0,\"PaperId\":0,\"PriceListId\":0,\"ShowCurrency\":false,\"ShowBold\":false,\"ShowPrice\":true,\"ShowProductName\":true,\"IsInventory\":null,\"ShowCompany\":null,\"BarcodeTemplateIds\":[],\"FastPurchaseOrderId\":null,\"IsHideBarcode\":null,\"ExtraProperty\":null,\"Warehouse\":{\"Id\":1,\"Code\":\"WH\",\"Name\":\"Nhi Judy Store\",\"CompanyId\":0,\"LocationId\":0,\"NameGet\":\"[WH] Nhi Judy Store\",\"CompanyName\":null,\"LocationActive\":true}}"
+            }
+        ],
+        "moInstalled": true
+    },
+    "productInfo": ["​", "", "Q370X", "[Q370X] 1305 Q24 ĐẦM 2D DÀI SỌC M2 (Xanh)", "", "590.000"],
+    "preClick": {
+        "url": "https://tomato.tpos.vn/#/app/barcodeproductlabel/printbarcode",
+        "linesLen": 0,
+        "paperName": "2 Tem",
+        "paperId": 0,
+        "hasPriceList": false
+    }
+}

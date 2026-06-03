@@ -97,7 +97,7 @@ async function ensureSchema(pool) {
 
 router.use(async (req, res, next) => {
     try {
-        await ensureSchema(req.app.locals.chatDb);
+        await ensureSchema(req.app.locals.web2Db || req.app.locals.chatDb);
         next();
     } catch (e) {
         res.status(500).json({ success: false, error: 'kpi-schema-init: ' + e.message });
@@ -334,7 +334,7 @@ async function _loadUserAssignments(pool, userId) {
 async function applyKpiScope(req, res, next) {
     req.kpiScope = null; // default: no filter
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         if (!pool) return next();
         const token =
             req.headers['x-web2-token'] || req.headers['x-user-token'] || req.query.token || null;
@@ -436,7 +436,7 @@ router.get('/scope', applyKpiScope, (req, res) => {
 // GET /events?campaign_id=&beneficiary_id=&limit=50
 router.get('/events', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const limit = Math.min(Number(req.query.limit) || 50, 500);
         const conds = ['1=1'];
         const params = [];
@@ -473,7 +473,7 @@ router.get('/events', async (req, res) => {
 // nhưng route này cung cấp consistent /api/v2/kpi/* namespace.
 router.get('/assignments', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const name = sanitizeCampaignName(req.query.campaign_name);
         if (!name) {
             return res.json({ success: true, assignments: [] });
@@ -498,7 +498,7 @@ router.get('/assignments', async (req, res) => {
 // GET /forecast?campaign_id=&user_id=
 router.get('/forecast', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const conds = ['1=1'];
         const params = [];
         let i = 1;
@@ -538,7 +538,7 @@ router.get('/forecast', async (req, res) => {
 // GET /actual?campaign_id=&user_id=
 router.get('/actual', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const conds = ['1=1'];
         const params = [];
         let i = 1;

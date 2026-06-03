@@ -38,7 +38,7 @@ function handleError(res, err, msg = 'Internal error') {
 // =====================================================
 router.get('/', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const limit = Math.min(parseInt(req.query.limit) || 50, 500);
         const offset = parseInt(req.query.offset) || 0;
         const status = req.query.status || 'all';
@@ -139,7 +139,7 @@ router.get('/', async (req, res) => {
 // =====================================================
 router.get('/stats', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const r = await db.query(
             `SELECT
                 COUNT(*) AS total,
@@ -163,7 +163,7 @@ router.get('/stats', async (req, res) => {
 // =====================================================
 router.get('/pending', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const r = await db.query(
             `SELECT pm.id, pm.transaction_id, pm.extracted_phone, pm.matched_customers,
                     pm.created_at,
@@ -186,7 +186,7 @@ router.get('/pending', async (req, res) => {
 // =====================================================
 router.post('/pending/:id/resolve', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const id = parseInt(req.params.id);
         const { phone, name, resolvedBy } = req.body || {};
         if (!phone) {
@@ -212,7 +212,7 @@ router.post('/pending/:id/resolve', async (req, res) => {
 // =====================================================
 router.patch('/:id/link', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const id = parseInt(req.params.id);
         const { phone, name, verifiedBy } = req.body || {};
         if (!phone) {
@@ -302,7 +302,7 @@ router.patch('/:id/link', async (req, res) => {
 // =====================================================
 router.post('/:id/reassign', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const id = parseInt(req.params.id);
         const { phone, name, verifiedBy, reason } = req.body || {};
         if (!phone) {
@@ -491,7 +491,7 @@ router.post('/:id/reassign', async (req, res) => {
 // =====================================================
 router.post('/:id/auto-match', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const id = parseInt(req.params.id);
         const { fetchWithTimeout } = require('../../../shared/node/fetch-utils.cjs');
         const result = await web2SepayMatching.processWeb2Match(db, id, fetchWithTimeout);
@@ -512,7 +512,7 @@ router.post('/:id/auto-match', async (req, res) => {
 // =====================================================
 router.post('/reprocess-unmatched', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const limit = Math.min(parseInt(req.body?.limit) || 200, 500);
         const { fetchWithTimeout } = require('../../../shared/node/fetch-utils.cjs');
 
@@ -544,7 +544,7 @@ router.post('/reprocess-unmatched', async (req, res) => {
 // =====================================================
 router.post('/manual-deposit', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const body = req.body || {};
         const target = String(body.target || '').toUpperCase();
         const type = String(body.type || 'deposit').toLowerCase();
@@ -767,7 +767,7 @@ router.post('/manual-deposit', async (req, res) => {
 // =====================================================
 router.post('/cleanup-stale-pending', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const dryRun = req.body?.dryRun === true;
 
         // Detect stale: any candidate có customers=[] empty

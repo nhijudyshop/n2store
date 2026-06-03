@@ -454,7 +454,7 @@ function computeTotals(lines, deposit, deliveryPrice) {
 // Idempotent: only updates where customer_id IS NULL.
 // -----------------------------------------------------
 router.post('/backfill-customer-links', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -483,7 +483,7 @@ router.post('/backfill-customer-links', async (req, res) => {
 // GET /health
 // -----------------------------------------------------
 router.get('/health', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ ok: false, error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -498,7 +498,7 @@ router.get('/health', async (req, res) => {
 // GET /export — CSV download (Excel-compatible, UTF-8 BOM)
 // -----------------------------------------------------
 router.get('/export', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).send('DB unavailable');
     try {
         await ensureTables(pool);
@@ -624,7 +624,7 @@ router.get('/export', async (req, res) => {
 // Body: { numbers: ['HD-...', 'HD-...'] }
 // -----------------------------------------------------
 async function _bulkStateChange(req, res, newState) {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
         const numbers = Array.isArray(req.body?.numbers) ? req.body.numbers : [];
@@ -669,7 +669,7 @@ router.post('/bulk-cancel', (req, res) => _bulkStateChange(req, res, 'cancel'));
 //   - Notify SSE web2:fast-sale-orders + web2:customer-wallet (cross-bc B2)
 // -----------------------------------------------------
 router.post('/merge', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const numbers = Array.isArray(req.body?.numbers) ? req.body.numbers : null;
     if (!numbers || numbers.length < 2) {
@@ -831,7 +831,7 @@ router.post('/merge', async (req, res) => {
 // -----------------------------------------------------
 const _kpiModuleFS = require('./v2/kpi');
 router.get('/load', _kpiModuleFS.applyKpiScope, async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -907,7 +907,7 @@ router.get('/load', _kpiModuleFS.applyKpiScope, async (req, res) => {
 // Đặt TRƯỚC route /:number để Express không match nhầm.
 // =====================================================
 router.get('/:number/history', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -944,7 +944,7 @@ router.get('/:number/history', async (req, res) => {
 // GET /:number — single PBH
 // -----------------------------------------------------
 router.get('/:number', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -962,7 +962,7 @@ router.get('/:number', async (req, res) => {
 // POST / — manual create
 // -----------------------------------------------------
 router.post('/', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -1123,7 +1123,7 @@ router.post('/', async (req, res) => {
 // Body: { nativeOrderCode, dateInvoice?, deliveryPrice?, deposit?, ...overrides }
 // -----------------------------------------------------
 router.post('/from-native-order', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -1466,7 +1466,7 @@ router.post('/from-native-order', async (req, res) => {
 // PATCH /:number — update mutable fields
 // -----------------------------------------------------
 router.patch('/:number', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -1605,7 +1605,7 @@ function _wsEmit(req, type, order) {
     }
 }
 router.post('/:number/cancel', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
         // Lấy state cũ + lines + source_* TRƯỚC khi đổi state — quyết định có
@@ -1743,7 +1743,7 @@ async function _emitRevokeKpi(pool, orderCode, req) {
 // row bên native-orders quay lại trạng thái "có thể tạo PBH lại".
 // Dùng bởi nút "Huỷ PBH" trong native-orders.
 router.post('/by-source/:nativeOrderCode/cancel', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     const code = req.params.nativeOrderCode;
     if (!code) return res.status(400).json({ error: 'nativeOrderCode required' });
     try {
@@ -1823,7 +1823,7 @@ router.post('/by-source/:nativeOrderCode/cancel', async (req, res) => {
     }
 });
 router.post('/:number/confirm', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
         const r = await _stateChange(pool, req.params.number, 'done');
@@ -1853,7 +1853,7 @@ router.post('/:number/confirm', async (req, res) => {
     }
 });
 router.post('/:number/print', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
         const r = await pool.query(
@@ -1874,7 +1874,7 @@ router.post('/:number/print', async (req, res) => {
 // DELETE /:number — hard delete (draft only by default)
 // -----------------------------------------------------
 router.delete('/:number', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
         const force = req.query.force === '1';
@@ -1899,7 +1899,7 @@ router.delete('/:number', async (req, res) => {
 // POST /reset-stt — atomic seq restart
 // -----------------------------------------------------
 router.post('/reset-stt', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
         const renumber = req.body?.renumber === true;

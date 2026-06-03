@@ -126,7 +126,7 @@ function buildAggregateCte() {
 // =====================================================
 router.get('/aggregate', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const limit = Math.min(parseInt(req.query.limit) || 50, 500);
         const offset = Math.max(parseInt(req.query.offset) || 0, 0);
         const filter = String(req.query.filter || 'all').toLowerCase();
@@ -243,7 +243,7 @@ router.get('/stats', async (req, res) => {
         if (Date.now() - _statsCache.ts < STATS_TTL_MS && _statsCache.data) {
             return res.json({ success: true, data: _statsCache.data, cached: true });
         }
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const cte = buildAggregateCte();
         const r = await db.query(`
             ${cte}
@@ -283,7 +283,7 @@ router.get('/stats', async (req, res) => {
 // =====================================================
 router.get('/:phone/qr', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const phone = String(req.params.phone || '').replace(/\D/g, '');
         if (phone.length < 9) {
             return res.status(400).json({ success: false, error: 'Invalid phone' });
@@ -324,7 +324,7 @@ router.get('/:phone/qr', async (req, res) => {
 // =====================================================
 router.post('/:phone/qr', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const phone = String(req.params.phone || '').replace(/\D/g, '');
         if (phone.length < 9) {
             return res.status(400).json({ success: false, error: 'Invalid phone' });
@@ -404,7 +404,7 @@ router.post('/:phone/qr', async (req, res) => {
 // =====================================================
 router.post('/overlay-by-phones', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb || req.app.locals.db;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const phones = Array.isArray(req.body?.phones) ? req.body.phones : [];
         const normalized = Array.from(
             new Set(

@@ -1,0 +1,652 @@
+<div class="o_control_panel o_breadcrumb_full" ng-class="{'position-sticky': pinTaskbar}">
+    <ol class="breadcrumb">
+        <li class="active">{{'print.barcode' |translate}}</li>
+    </ol>
+
+    <div class="form-horizontal m-t-xs" kendo-validator="vm.validator" style="width: 100%">
+        <div class="col-flex">
+            <div class="col-md-6 padding_left_0">
+                <table class="o_group o_inner_group" style="width: 100%">
+                    <tbody>
+                        <tr>
+                            <td colspan="1" class="o_td_label" style="width: 30%">
+                                <label class="o_form_label">
+                                    {{'label.price_list' |translate}}
+                                </label>
+                            </td>
+                            <td colspan="1" style="width: 70%; padding-bottom: 10px">
+                                <select
+                                    kendo-combo-box
+                                    class="o_form_required"
+                                    k-ng-model="vm.model.PriceList"
+                                    name="vm.model.PriceList"
+                                    k-data-text-field="'Name'"
+                                    k-data-value-field="'Id'"
+                                    k-filter="'contains'"
+                                    k-auto-bind="false"
+                                    k-min-length="1"
+                                    k-data-source="vm.priceListDataSource"
+                                    k-placeholder="'{{'pricelist.select' |translate}}'"
+                                    k-on-change="vm.changePriceList()"
+                                    style="width: 100%"
+                                    required
+                                    validationMessage="{{'pricelist.select' |translate}}"
+                                ></select>
+                                <span class="k-invalid-msg" data-for="vm.model.PriceList"></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="1" class="o_td_label" style="width: 30%">
+                                <label class="o_form_label"> {{'print.paper' |translate}} </label>
+                            </td>
+                            <td colspan="1" style="width: 70%">
+                                <select
+                                    kendo-combo-box
+                                    class="o_form_required"
+                                    k-ng-model="vm.model.Paper"
+                                    name="vm.model.Paper"
+                                    k-data-text-field="'Name'"
+                                    k-data-value-field="'Id'"
+                                    k-filter="'contains'"
+                                    k-auto-bind="false"
+                                    k-min-length="1"
+                                    k-data-source="vm.paperDataSource"
+                                    k-placeholder="'{{'print.select_paper' |translate}}'"
+                                    k-on-change="vm.changePaper()"
+                                    style="width: 100%"
+                                    required
+                                    validationMessage="{{'print.select_paper' |translate}}"
+                                ></select>
+                                <span class="k-invalid-msg" data-for="vm.model.Paper"></span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-6" style="padding: 10px">
+                <table class="o_group o_inner_group" style="width: 100%">
+                    <tbody>
+                        <tr ng-if="vm.tabActive == 0">
+                            <td colspan="1" class="o_td_label" style="width: 30%">
+                                <label class="o_form_label">
+                                    {{'label.warehouse' |translate}}
+                                </label>
+                            </td>
+                            <td colspan="1" class="o_td_label">
+                                <div>
+                                    <div>
+                                        <select
+                                            kendo-combo-box
+                                            k-ng-model="vm.model.Warehouse"
+                                            name="vm.model.Warehouse"
+                                            focus-select-all-text-cbx
+                                            k-data-text-field="'NameGet'"
+                                            k-data-value-field="'Id'"
+                                            k-filter="'contains'"
+                                            k-auto-bind="false"
+                                            k-min-length="1"
+                                            k-data-source="vm.warehouseDataSource"
+                                            k-change="vm.changeWareHouse"
+                                            style="width: 100%"
+                                        ></select>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-3">
+                <div class="o_checkbox o_form_field_boolean o_form_field">
+                    <input
+                        type="checkbox"
+                        id="showBold"
+                        ng-model="vm.model.ShowPrice"
+                        ng-click="vm.barcodeSetting()"
+                    />
+                    <span> {{'price.show' |translate}}</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="o_checkbox o_form_field_boolean o_form_field">
+                    <input
+                        type="checkbox"
+                        id="showBold"
+                        ng-model="vm.model.ShowBold"
+                        ng-click="vm.barcodeSetting()"
+                    />
+                    <span> {{'label.bold' |translate}}</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="o_checkbox o_form_field_boolean o_form_field">
+                    <input
+                        type="checkbox"
+                        id="showCurrency"
+                        ng-model="vm.model.ShowCurrency"
+                        ng-click="vm.barcodeSetting()"
+                    />
+                    <span> {{'currency.show_uint' |translate}}</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div>
+                    <div class="o_checkbox o_form_field_boolean o_form_field">
+                        <input type="checkbox" ng-model="vm.model.ShowProductName" />
+                        <span>
+                            {{'label.display' |translate}}<span style="text-transform: lowercase">
+                                {{'product.name' |translate}}</span
+                            ></span
+                        >
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3" ng-if="vm.tabActive == 0">
+                <div>
+                    <div class="o_checkbox o_form_field_boolean o_form_field">
+                        <input type="checkbox" ng-model="vm.model.IsInventory" />
+                        <span> {{'inventory.assign' |translate}}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div>
+                    <div class="o_checkbox o_form_field_boolean o_form_field">
+                        <input type="checkbox" ng-model="vm.model.IsHideBarcode" />
+                        <span>
+                            {{'label.hide_barcodes' |translate}}
+                            ({{'label.recommended_for_default_print_type' | translate}})</span
+                        >
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="padding-top: 20px">
+        <footer>
+            <button type="button" class="btn btn-sm btn-primary" ng-click="vm.savePdf()">
+                <span>{{'print.pdf' |translate}}</span>
+            </button>
+        </footer>
+    </div>
+</div>
+
+<div data-barcode-scanner="vm.barcodeScanner" id="saleBar"></div>
+<uib-tabset active="vm.tabActive" class="tab-container m-b-xs" ng-show="!vm.show_cs">
+    <uib-tab index="0" heading="{{'print.barcode' |translate}}">
+        <div class="wrapper-sm">
+            <div class="row">
+                <div class="col-md-4" style="padding-top: 10px">
+                    <div class="form_cs form-horizontal m_r_search">
+                        <div class="form-group m-b-xs">
+                            <div class="padding_left_0 padding_right_0">
+                                <div class="col-md-8 padding_right_0">
+                                    <input
+                                        type="text"
+                                        id="searchString"
+                                        ng-model="vm.searchString"
+                                        autocomplete="off"
+                                        value="v"
+                                        focus-select-all-text
+                                        ng-keypress="vm.keyEnter($event)"
+                                        ng-keyup="vm.searchChangeEvent($event)"
+                                        class="form-control input-medium ng-pristine ng-untouched ng-valid ng-empty"
+                                        placeholder="{{'product.search' | translate}}"
+                                    />
+                                </div>
+                                <div class="col-md-4">
+                                    <select
+                                        class="form-control input-medium"
+                                        ng-options="item.field as item.title for item in vm.optionSearchs"
+                                        ng-change="vm.searchChangeEvent()"
+                                        ng-model="vm.typeSearch"
+                                    ></select>
+                                </div>
+                            </div>
+                            <div class="clearfix"></div>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <form class="vbox form-validation pretty-split-pane-frame">
+                            <div>
+                                <div data-width="30%" style="height: 620px">
+                                    <perfect-scrollbar
+                                        class="scroller"
+                                        id="myScroller"
+                                        event-scroll
+                                        next-page="vm.nextPage($event)"
+                                        wheel-propagation="true"
+                                        min-scrollbar-length="30"
+                                        lazy-img-container
+                                    >
+                                        <div class="pretty-split-pane-component-inner">
+                                            <div class="table_select_cs table-responsive m-r-tb">
+                                                <table
+                                                    class="o_list_view table table-bordered table_cs table-hover"
+                                                    id="tblProductBarcode"
+                                                >
+                                                    <thead>
+                                                        <tr>
+                                                            <th class="text-center">
+                                                                {{'label.image' |translate}}
+                                                            </th>
+                                                            <th>{{'product.name' |translate}}</th>
+                                                            <th class="text-center">
+                                                                {{'inventory.qty' |translate}}
+                                                            </th>
+                                                            <th class="text-center">
+                                                                {{'label.price' |translate}}
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr
+                                                            ng-repeat="item in vm.products"
+                                                            ng-class="vm.indexProduct == $index ? 'row-active' : ''"
+                                                            ng-click="vm.select(item, inventories[vm.model.Warehouse.Id][item.Id].QtyAvailable)"
+                                                        >
+                                                            <td class="text-center">
+                                                                <img
+                                                                    ng-if="item.ImageUrl"
+                                                                    class="img img-responsive"
+                                                                    style="
+                                                                        width: 36px;
+                                                                        height: 36px;
+                                                                        margin: auto;
+                                                                    "
+                                                                    ng-src="/api/v2/product/thumbnailv2?id={{item.Id}}&type=product&v={{item.Version}}"
+                                                                />
+                                                                <img
+                                                                    ng-if="!item.ImageUrl"
+                                                                    class="img img-responsive"
+                                                                    style="
+                                                                        width: 36px;
+                                                                        height: 36px;
+                                                                        margin: auto;
+                                                                    "
+                                                                    ng-src="https://statics.tpos.vn/Content/images/placeholder.png?width=36&height=36"
+                                                                />
+                                                            </td>
+                                                            <td class="ng-binding middle_cs">
+                                                                <i
+                                                                    class="fa fa-check-circle-o ng-hide"
+                                                                    ng-show="item.Selected"
+                                                                    style="
+                                                                        color: #53992f;
+                                                                        float: right;
+                                                                    "
+                                                                ></i
+                                                                >{{item.NameGet}}
+                                                            </td>
+                                                            <td
+                                                                class="price ng-binding middle_cs center_cs"
+                                                            >
+                                                                {{inventories[vm.model.Warehouse.Id][item.Id].QtyAvailable
+                                                                | number}}
+                                                            </td>
+                                                            <td
+                                                                class="price ng-binding middle_cs center_cs"
+                                                            >
+                                                                {{item.Price| number:roundingPrice}}
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div ng-show="vm.busy">Loading data...</div>
+                                        </div>
+                                    </perfect-scrollbar>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="col-md-8" style="padding-top: 10px">
+                    <div class="row" style="height: 40px">
+                        <div class="form-group m-b-xs">
+                            <div class="padding_left_0 padding_right_0">
+                                <div class="col-md-2 padding_right_0">
+                                    <label
+                                        class="o_form_label btn btn-sm btn-success"
+                                        ng-click="vm.quickApplyQuantity('product')"
+                                    >
+                                        {{'label.quick_apply_quantity'|translate}}
+                                    </label>
+                                </div>
+                                <div class="col-md-4 padding_right_0">
+                                    <input
+                                        focus-select-all-text
+                                        kendo-numeric-text-box
+                                        k-min="1"
+                                        k-decimals="0"
+                                        k-format="'n0'"
+                                        name="ApplyQuantity"
+                                        k-ng-model="vm.applyQuantity"
+                                        style="width: 100%"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="productBarcode" style="height: 620px; overflow-y: auto">
+                        <div class="table-responsive">
+                            <table
+                                class="o_list_view table table-bordered table_cs table-hover"
+                                id="tblProductBarcode"
+                            >
+                                <thead>
+                                    <tr>
+                                        <th class="text-center">{{'label.image' |translate}}</th>
+                                        <th>{{'product.name' |translate}}</th>
+                                        <th class="text-center">{{'Price' |translate}}</th>
+                                        <th>{{'label.quantity' |translate}}</th>
+                                        <th style="text-align: center">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-danger"
+                                                ng-click="vm.remove_all()"
+                                            >
+                                                <span class="fa fa-trash-o"></span>
+                                            </button>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr
+                                        ng-repeat="line in vm.lines"
+                                        ng-class="vm.indexProductLine == $index ? 'row-active' : ''"
+                                    >
+                                        <td class="text-center">
+                                            <img
+                                                ng-if="line.Product.ImageUrl"
+                                                class="img img-responsive"
+                                                style="width: 36px; height: 36px; margin: auto"
+                                                ng-src="{{line.Product.ImageUrl}}?width=36&height=36"
+                                            />
+                                            <img
+                                                ng-if="!line.Product.ImageUrl"
+                                                class="img img-responsive"
+                                                style="width: 36px; height: 36px; margin: auto"
+                                                ng-src="https://statics.tpos.vn/Content/images/placeholder.png?width=36&height=36"
+                                            />
+                                        </td>
+                                        <td>{{line.Product.NameGet}}</td>
+                                        <td class="price ng-binding middle_cs center_cs">
+                                            {{line.Product.Price | number:roundingPrice}}
+                                        </td>
+                                        <td>
+                                            <input
+                                                focus-select-all-text
+                                                kendo-numeric-text-box
+                                                k-min="0"
+                                                k-value="1"
+                                                k-decimals="0"
+                                                k-format="'n0'"
+                                                name="vm.lines[{{$index}}].Quantity"
+                                                tabindex="{{$index}}"
+                                                k-ng-model="line.Quantity"
+                                                style="width: 100%"
+                                                required
+                                                validationMessage="{{'label.import_qty'| translate}}"
+                                            />
+                                            <span
+                                                class="k-invalid-msg"
+                                                data-for="vm.lines[{{$index}}].Quantity"
+                                            ></span>
+                                        </td>
+                                        <td class="o_list_record_delete" style="text-align: center">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-danger"
+                                                ng-click="vm.remove_line($index)"
+                                            >
+                                                <span class="fa fa-trash-o"></span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </uib-tab>
+
+    <uib-tab index="1" heading="{{'print.barcode_product_code' |translate}}">
+        <div class="wrapper-sm">
+            <div class="row">
+                <div class="col-md-4" style="padding-top: 10px">
+                    <div class="form_cs form-horizontal m_r_search">
+                        <div class="form-group m-b-xs">
+                            <div class="padding_left_0 padding_right_0">
+                                <div class="col-md-8 padding_right_0">
+                                    <input
+                                        type="text"
+                                        id="searchString2"
+                                        ng-model="vm.searchStringProduct2"
+                                        autocomplete="off"
+                                        value=""
+                                        focus-select-all-text
+                                        ng-keypress="vm.keyEnter($event)"
+                                        ng-keyup="vm.searchChangeProduct2Event($event)"
+                                        class="form-control input-medium ng-pristine ng-untouched ng-valid ng-empty"
+                                        placeholder="{{'product.search' | translate}}"
+                                    />
+                                </div>
+                                <div class="col-md-4">
+                                    <select
+                                        class="form-control input-medium"
+                                        ng-options="item.field as item.title for item in vm.optionSearchProduct2s"
+                                        ng-change="vm.searchChangeProduct2Event()"
+                                        ng-model="vm.typeSearchProduct2"
+                                    ></select>
+                                </div>
+                            </div>
+                            <div class="clearfix"></div>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <form class="vbox form-validation pretty-split-pane-frame">
+                            <div>
+                                <div data-width="30%" style="height: 620px">
+                                    <perfect-scrollbar
+                                        class="scroller"
+                                        id="myScroller"
+                                        event-scroll
+                                        next-page="vm.nextPageProduct2($event)"
+                                        wheel-propagation="true"
+                                        min-scrollbar-length="30"
+                                        lazy-img-container
+                                    >
+                                        <div class="pretty-split-pane-component-inner">
+                                            <div class="table_select_cs table-responsive m-r-tb">
+                                                <table
+                                                    class="o_list_view table table-bordered table_cs table-hover"
+                                                    id="tblProductBarcode"
+                                                >
+                                                    <thead>
+                                                        <tr>
+                                                            <th class="text-center">
+                                                                {{'label.image' |translate}}
+                                                            </th>
+                                                            <th>{{'product.name' |translate}}</th>
+                                                            <th class="text-center">
+                                                                {{'label.price' |translate}}
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr
+                                                            ng-repeat="item in vm.product2s"
+                                                            ng-class="vm.indexProduct2 == $index ? 'row-active' : ''"
+                                                            ng-click="vm.selectProduct2(item)"
+                                                        >
+                                                            <td class="text-center">
+                                                                <img
+                                                                    ng-if="item.ImageUrl"
+                                                                    class="img img-responsive"
+                                                                    style="
+                                                                        width: 36px;
+                                                                        height: 36px;
+                                                                        margin: auto;
+                                                                    "
+                                                                    ng-src="/api/v2/product/thumbnailv2?id={{item.Id}}&type=product&v={{item.Version}}"
+                                                                />
+                                                                <img
+                                                                    ng-if="!item.ImageUrl"
+                                                                    class="img img-responsive"
+                                                                    style="
+                                                                        width: 36px;
+                                                                        height: 36px;
+                                                                        margin: auto;
+                                                                    "
+                                                                    ng-src="https://statics.tpos.vn/Content/images/placeholder.png?width=36&height=36"
+                                                                />
+                                                            </td>
+                                                            <td class="ng-binding middle_cs">
+                                                                <i
+                                                                    class="fa fa-check-circle-o ng-hide"
+                                                                    ng-show="item.Selected"
+                                                                    style="
+                                                                        color: #53992f;
+                                                                        float: right;
+                                                                    "
+                                                                ></i
+                                                                >{{item.NameGet}}
+                                                            </td>
+
+                                                            <td
+                                                                class="price ng-binding middle_cs center_cs"
+                                                            >
+                                                                {{item.Price| number:roundingPrice}}
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div ng-show="vm.busy">Loading data...</div>
+                                        </div>
+                                    </perfect-scrollbar>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="col-md-8" style="padding-top: 10px">
+                    <div class="row" style="height: 40px">
+                        <div class="form-group m-b-xs">
+                            <div class="padding_left_0 padding_right_0">
+                                <div class="col-md-2 padding_right_0">
+                                    <label
+                                        class="o_form_label btn btn-sm btn-success"
+                                        ng-click="vm.quickApplyQuantity('product2')"
+                                    >
+                                        {{'label.quick_apply_quantity'|translate}}
+                                    </label>
+                                </div>
+                                <div class="col-md-4 padding_right_0">
+                                    <input
+                                        focus-select-all-text
+                                        kendo-numeric-text-box
+                                        k-min="1"
+                                        k-decimals="0"
+                                        k-format="'n0'"
+                                        name="ApplyQuantity2"
+                                        k-ng-model="vm.applyQuantity2"
+                                        style="width: 100%"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="product2Barcode" style="height: 620px; overflow-y: auto">
+                        <div class="table-responsive">
+                            <table
+                                class="o_list_view table table-bordered table_cs table-hover"
+                                id="tblProduct2Barcode"
+                            >
+                                <thead>
+                                    <tr>
+                                        <th class="text-center">{{'label.image' |translate}}</th>
+                                        <th>{{'product.name' |translate}}</th>
+                                        <th class="text-center">
+                                            {{'label.sales_price' |translate}}
+                                        </th>
+                                        <th>{{'label.quantity' |translate}}</th>
+                                        <th style="text-align: center">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-danger"
+                                                ng-click="vm.remove_all_product2()"
+                                            >
+                                                <span class="fa fa-trash-o"></span>
+                                            </button>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr
+                                        ng-repeat="line in vm.product2Lines"
+                                        ng-class="vm.indexProduct2Line == $index ? 'row-active' : ''"
+                                    >
+                                        <td class="text-center">
+                                            <img
+                                                ng-if="line.Product.ImageUrl"
+                                                class="img img-responsive"
+                                                style="width: 36px; height: 36px; margin: auto"
+                                                ng-src="{{line.Product.ImageUrl}}?width=36&height=36"
+                                            />
+                                            <img
+                                                ng-if="!line.Product.ImageUrl"
+                                                class="img img-responsive"
+                                                style="width: 36px; height: 36px; margin: auto"
+                                                ng-src="https://statics.tpos.vn/Content/images/placeholder.png?width=36&height=36"
+                                            />
+                                        </td>
+                                        <td>{{line.Product.NameGet}}</td>
+                                        <td class="price ng-binding middle_cs center_cs">
+                                            {{line.Product.Price | number:roundingPrice}}
+                                        </td>
+                                        <td>
+                                            <input
+                                                focus-select-all-text
+                                                kendo-numeric-text-box
+                                                k-min="0"
+                                                k-value="1"
+                                                k-decimals="0"
+                                                k-format="'n0'"
+                                                name="vm.product2Lines[{{$index}}].Quantity"
+                                                tabindex="{{$index}}"
+                                                k-ng-model="line.Quantity"
+                                                style="width: 100%"
+                                                required
+                                                validationMessage="{{'label.import_qty' |translate}}"
+                                            />
+                                            <span
+                                                class="k-invalid-msg"
+                                                data-for="vm.product2Lines[{{$index}}].Quantity"
+                                            ></span>
+                                        </td>
+                                        <td class="o_list_record_delete" style="text-align: center">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-danger"
+                                                ng-click="vm.remove_line_product2($index)"
+                                            >
+                                                <span class="fa fa-trash-o"></span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </uib-tab>
+</uib-tabset>

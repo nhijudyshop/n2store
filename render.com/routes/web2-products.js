@@ -279,7 +279,7 @@ function mapRow(row) {
 // GET /api/web2/products/health
 // -----------------------------------------------------
 router.get('/health', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ ok: false, error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -295,7 +295,7 @@ router.get('/health', async (req, res) => {
 // Cho cả UI quản lý kho + UI picker khi tạo đơn
 // -----------------------------------------------------
 router.get('/list', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -349,7 +349,7 @@ router.get('/list', async (req, res) => {
 // NOTE: phải đặt trước /:code để không bị Express route catch /pending → code='pending'.
 // =====================================================
 router.get('/pending', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -382,7 +382,7 @@ router.get('/pending', async (req, res) => {
 // NOTE: phải đặt TRƯỚC /:code để không bị Express route catch /usage → code='usage'.
 // =====================================================
 router.get('/usage', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         const codesRaw = String(req.query.codes || '').trim();
@@ -458,7 +458,7 @@ router.get('/usage', async (req, res) => {
 // NOTE: phải đặt TRƯỚC route /:code để không match nhầm.
 // =====================================================
 router.get('/:code/history', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -496,7 +496,7 @@ router.get('/:code/history', async (req, res) => {
 // GET /api/web2/products/:code
 // -----------------------------------------------------
 router.get('/:code', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -515,7 +515,7 @@ router.get('/:code', async (req, res) => {
 // Body: { code, name, price?, imageUrl?, stock?, note?, tags?, createdBy? }
 // -----------------------------------------------------
 router.post('/', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -584,7 +584,7 @@ router.post('/', async (req, res) => {
 // PATCH /api/web2/products/:code — update mutable fields
 // -----------------------------------------------------
 router.patch('/:code', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -819,7 +819,7 @@ function pgString(s) {
 // Stock không bao giờ âm — clamp về 0 nếu tổng < 0 (warn).
 // -----------------------------------------------------
 router.post('/adjust-stock', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const adjustments = Array.isArray(req.body?.adjustments) ? req.body.adjustments : null;
     if (!adjustments || !adjustments.length) {
@@ -866,7 +866,7 @@ router.post('/adjust-stock', async (req, res) => {
 // Trả 409 nếu pending_qty > 0 và không force (để caller cảnh báo user).
 // -----------------------------------------------------
 router.delete('/:code', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -918,7 +918,7 @@ router.delete('/:code', async (req, res) => {
 // Atomic trong 1 transaction. Returns updated info per adjustment.
 // =====================================================
 router.post('/adjust-pending', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const adjustments = Array.isArray(req.body?.adjustments) ? req.body.adjustments : null;
     if (!adjustments || !adjustments.length) {
@@ -1032,7 +1032,7 @@ router.post('/adjust-pending', async (req, res) => {
 // Returns: { success, created, updated, items: [{code, name, action, status, pendingQty, stock}] }
 // =====================================================
 router.post('/upsert-pending', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -1158,7 +1158,7 @@ router.post('/upsert-pending', async (req, res) => {
 // Returns: { success, confirmed, items: [{code, name, stock, status}] }
 // =====================================================
 router.post('/confirm-purchase', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -1223,7 +1223,7 @@ router.post('/confirm-purchase', async (req, res) => {
 //       * pending == 0 && stock == 0 → DANG_BAN (edge case sau cleanup)
 // Returns: { success, processed, items: [{code, name, stock, pendingQty, status, qtyReceived}] }
 router.post('/confirm-purchase-partial', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -1316,7 +1316,7 @@ router.post('/confirm-purchase-partial', async (req, res) => {
 // Body: { prefixMap: { 'HN': 'HÀ NỘI', 'HC': 'HƯƠNG CHÂU', 'HC1': 'HẢI CHÂU', ... } }
 // Match longer prefix first (HC1 trước HC để tránh prefix collision).
 router.post('/backfill-supplier', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         const prefixMap = (req.body && req.body.prefixMap) || {};

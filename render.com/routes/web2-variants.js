@@ -182,7 +182,7 @@ async function _suggestShortCode(pool, value, groupName) {
 }
 
 router.get('/health', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ ok: false, error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -195,7 +195,7 @@ router.get('/health', async (req, res) => {
 
 // GET /list?search&group&activeOnly&page&limit
 router.get('/list', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -245,7 +245,7 @@ router.get('/list', async (req, res) => {
 // Trả về shortcode đề xuất + collision info (nếu có).
 // Đặt TRƯỚC /:id để route literal khớp trước (Express match-first-wins).
 router.get('/suggest-short-code', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -262,7 +262,7 @@ router.get('/suggest-short-code', async (req, res) => {
 // POST /backfill-short-codes — assign short_code cho tất cả variants chưa có.
 // Idempotent: chỉ touch row có short_code IS NULL.
 router.post('/backfill-short-codes', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -296,7 +296,7 @@ router.post('/backfill-short-codes', async (req, res) => {
 
 // GET /:id — fetch single variant by id. Đặt SAU các literal routes để tránh xung đột.
 router.get('/:id(\\d+)', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -311,7 +311,7 @@ router.get('/:id(\\d+)', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -374,7 +374,7 @@ router.post('/', async (req, res) => {
 });
 
 router.patch('/:id', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
@@ -428,7 +428,7 @@ router.patch('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-    const pool = req.app.locals.chatDb;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);

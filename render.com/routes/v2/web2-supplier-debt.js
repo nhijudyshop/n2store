@@ -19,7 +19,7 @@ const router = express.Router();
 // Query: ?limit=50&offset=0&search=<NCC name>&filter=debt|paid|all
 router.get('/aggregate', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         if (!db) return res.status(500).json({ success: false, error: 'DB unavailable' });
 
         const limit = Math.min(parseInt(req.query.limit) || 50, 500);
@@ -95,7 +95,7 @@ router.get('/aggregate', async (req, res) => {
 // GET /:sttNcc — chi tiết 1 NCC (shipments + payments)
 router.get('/:sttNcc', async (req, res) => {
     try {
-        const db = req.app.locals.chatDb;
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
         if (!db) return res.status(500).json({ success: false, error: 'DB unavailable' });
 
         const sttNcc = parseInt(req.params.sttNcc, 10);
