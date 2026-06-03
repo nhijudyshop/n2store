@@ -591,6 +591,7 @@ app.use('/api/services-overview', servicesOverviewRoutes); // WEB2.0 Services da
 app.use('/api/admin', adminMigrateWeb2Routes); // WEB2.0 One-shot Neon → Render PG migration (auth via x-admin-secret)
 app.use('/api/admin', require('./routes/admin-schema-mirror-web2')); // WEB2.0 Phase 4 — mirror schema chatDb→web2Db (auth via x-admin-secret)
 app.use('/api/admin', require('./routes/admin-data-copy-web2')); // WEB2.0 Phase 5 — copy data chatDb→web2Db (auth via x-admin-secret)
+app.use('/api/admin', require('./routes/admin-web2-wallet-reset')); // WEB2.0 backup+reset ví/matching web2Db (auth via x-admin-secret)
 app.use('/api/web2-users', require('./routes/web2-users')); // WEB2.0 user account system
 // 2026-06-03 Phase 3 tách Web 2.0: dual-mount mỗi route Web 2.0 ở CẢ
 // `/api/web2/<entity>` (mới — chuẩn đi tới) lẫn `/api/v2/<entity>` (alias cũ,
