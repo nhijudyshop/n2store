@@ -25,6 +25,24 @@
 
 ## 2026-06-03
 
+### [so-order][products] Mã SP theo rule + hiển thị mã/SL + nút nhận hàng theo NCC + NCC=KHO ✅
+
+**Files**: [so-order/js/so-order-app.js](../so-order/js/so-order-app.js), [so-order/index.html](../so-order/index.html), [so-order/css/so-order.css](../so-order/css/so-order.css), [web2/products/js/web2-products-app.js](../web2/products/js/web2-products-app.js), [web2/products/index.html](../web2/products/index.html)
+
+**A — Mã SP theo rule (bỏ KHO-rnd ngẫu nhiên)**:
+
+- so-order include `web2-product-code.js`. Helper `_assignKhoCodes(items)` sinh mã rule (`HNAODEN`…) từ `Web2ProductCode.suggest` (supplierPrefixMap từ Web2SuppliersCache, colorShortMap từ Web2VariantsCache, existingCodes từ Web2ProductsCache, push mã mới trong batch tránh trùng). Gọi trong `syncRowsToKho` + `confirmReceive` trước `upsertPending`. Server `web2-products.js` tôn trọng `it.code || generate` → chỉ áp khi INSERT SP mới. Fallback bỏ code nếu thiếu NCC.
+
+**B — Hiển thị so-order list**: `rowHtml` thêm `_lookupKhoCode(r)` (cache findByNameExact) → mã hiện dưới tên SP (`.so-cell-code`). SL gộp vào cột Biến thể (`variantCellInner`: `Xanh - L · SL 20`). Giữ cột SL (toggle qua cài đặt cột).
+
+**C — Nút nhận hàng theo NCC**: nút `.so-ncc-receive-btn` ở ô NCC (đầu nhóm rowspan, chế độ xem) → `openReceiveShipmentModal(shId, {supplier})` lọc rows đúng NCC đó. Disable khi NCC đã nhận đủ. Tái dùng `confirmReceive` (upsert-pending → confirm-purchase-partial → in tem).
+
+**Điểm 4 — NCC=KHO**: tạo SP trực tiếp ở web2/products → `#pmSupplier` mặc định "KHO" (option mới trong `populateSupplierDropdown`), `suggestProductCode` ép `prefixMap['KHO']='KHO'` → mã `KHOAODEN` (literal, không rút thành KH). `_assignKhoCodes` cũng ép tương tự.
+
+**Verify localhost**: so-order render 10 rows, 10 mã cell, 10 SL span, 8 nút NCC, `Web2ProductCode` loaded, không lỗi. Ảnh `downloads/n2store-session/so-order-code-sl-ncc.png`.
+
+**Còn lại (Part D — chưa làm)**: user yêu cầu tách `web2_products`/`native_orders`/`fast_sale_orders` từ `chatDb` (n2store-chat-db, chung Web 1.0) → `web2Db` (n2store-web2-db). Agent map ra **10 điểm JOIN cross-DB** (pbh-reports, web2-customer-wallet aggregate CTE, native-orders↔customers, customer-orders, notifications…) — migration ~16 file route, 4 chỗ phức tạp đụng ví KH/customer-360/PBH report. Cần xử lý cẩn thận (split dual-pool) + cân nhắc hệ quả "tạo mới rỗng" làm trống lịch sử mua feeding ví/360.
+
 ### [render][balance-history] Fix search 500 — `sepay_id INTEGER ILIKE text` (clone Web 1.0) + giải thích prelink_credit ✅
 
 **Bug**: Search ô tìm SĐT/sepay_id/nội dung ở [web2/balance-history](../web2/balance-history/index.html) trả HTTP 500 `operator does not exist: integer ~~* text`.
