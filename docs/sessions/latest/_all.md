@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f3f7741` — feat(web2): hiển thị số dư ví KH khắp nơi + tìm 5-10 số đuôi SĐT + ẩn Tổng tiền vào
-**Last updated**: 2026-06-02 19:00:46 +07
-**Latest session**: [`RESUME:20260602-190046-f3f7741`](../20260602-190046-f3f7741.md)
-**Summary**: feat(web2): hiển thị số dư ví KH khắp nơi + tìm 5-10 số đuôi SĐT + ẩn Tổng tiền vào
+**Latest commit**: `9f0e423` — auto: session update
+**Last updated**: 2026-06-03 14:52:37 +07
+**Latest session**: [`RESUME:20260603-145237-9f0e423`](../20260603-145237-9f0e423.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
-- [`web2/`](./web2.md) — 7 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-02 19:00
+- [`docs/`](./docs.md) — updated 2026-06-03 14:52
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
