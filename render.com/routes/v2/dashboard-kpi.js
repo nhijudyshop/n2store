@@ -107,7 +107,7 @@ router.get('/', async (req, res) => {
         // SePay pending verification
         try {
             const r = await pool.query(
-                `SELECT COUNT(*)::int AS c FROM balance_history
+                `SELECT COUNT(*)::int AS c FROM web2_balance_history
                  WHERE COALESCE(verification_status, 'pending') = 'pending'`
             );
             out.sepay_pending = Number(r.rows[0]?.c || 0);

@@ -60,7 +60,7 @@ router.get('/:txId', async (req, res) => {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const txRs = await pool.query(
             `SELECT id, transfer_amount AS amount, description, content, transaction_date
-             FROM balance_history WHERE id = $1`,
+             FROM web2_balance_history WHERE id = $1`,
             [req.params.txId]
         );
         if (!txRs.rowCount) {
