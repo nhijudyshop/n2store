@@ -17,15 +17,15 @@ async function getColumnNames(pool, table) {
     return rows.map((r) => r.column_name);
 }
 
-// Cột + data_type (để biết cột nào json/jsonb cần stringify khi insert).
+// Cột + data_type + is_generated (bỏ cột generated — không INSERT được).
 async function getColumnsTyped(pool, table) {
     const { rows } = await pool.query(
-        `SELECT column_name, data_type FROM information_schema.columns
+        `SELECT column_name, data_type, is_generated FROM information_schema.columns
          WHERE table_schema='public' AND table_name=$1
          ORDER BY ordinal_position`,
         [table]
     );
-    return rows; // [{column_name, data_type}]
+    return rows.filter((r) => r.is_generated !== 'ALWAYS'); // [{column_name, data_type}]
 }
 
 // node-pg đọc jsonb → JS object/array. Insert lại vào cột json/jsonb: nếu để

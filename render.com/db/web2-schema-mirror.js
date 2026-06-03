@@ -19,6 +19,7 @@ async function getColumns(pool, table) {
         `SELECT a.attname AS name,
                 format_type(a.atttypid, a.atttypmod) AS coltype,
                 a.attnotnull AS notnull,
+                a.attgenerated AS generated,
                 pg_get_expr(d.adbin, d.adrelid) AS coldefault
          FROM pg_attribute a
          LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
@@ -60,6 +61,8 @@ async function getIndexes(pool, table) {
 function extractSequences(columns) {
     const seqs = new Set();
     for (const c of columns) {
+        // Cột generated dùng coldefault làm generation expr, KHÔNG phải nextval.
+        if (c.generated === 's') continue;
         const m = (c.coldefault || '').match(/nextval\('([^']+?)'(?:::regclass)?\)/);
         if (m) seqs.add(m[1].replace(/^[^.]+\./, '')); // bỏ schema prefix nếu có
     }
@@ -86,8 +89,13 @@ async function buildDDL(sourcePool, table) {
     // 2. CREATE TABLE explicit
     const colDefs = columns.map((c) => {
         let def = `  ${quoteIdent(c.name)} ${c.coltype}`;
-        if (c.coldefault) def += ` DEFAULT ${c.coldefault}`;
-        if (c.notnull) def += ' NOT NULL';
+        if (c.generated === 's') {
+            // Cột GENERATED ALWAYS AS (...) STORED — coldefault chứa expr.
+            def += ` GENERATED ALWAYS AS (${c.coldefault}) STORED`;
+        } else {
+            if (c.coldefault) def += ` DEFAULT ${c.coldefault}`;
+            if (c.notnull) def += ' NOT NULL';
+        }
         return def;
     });
     // PK/UNIQUE/CHECK constraint inline
@@ -155,7 +163,6 @@ const WEB2_TABLES = [
     'native_orders_migrations',
     'fast_sale_orders',
     'fast_sale_order_history',
-    'fast_sale_order_lines',
     'pbh_fulfillment_logs',
     'inventory_shipments',
     'social_orders',
