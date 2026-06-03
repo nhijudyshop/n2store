@@ -215,6 +215,8 @@
                 else if (action === 'delete-shipment') deleteShipment(shId);
                 else if (action === 'add-row') openOrderModal(null, shId);
                 else if (action === 'receive') openReceiveShipmentModal(shId);
+                else if (action === 'receive-ncc')
+                    openReceiveShipmentModal(shId, { supplier: btn.dataset.supplier || '' });
             });
         });
         // Inline-edit pills in shipment header (date / batch / caseCount / weightKg)
@@ -750,31 +752,73 @@
     ]);
     const INLINE_IMAGE_FIELDS = new Set(['productImage', 'invoiceImage']);
 
+    // Lookup mã SP thật trong Kho theo tên (read-only, không đổi schema row).
+    // Trả null nếu SP chưa có ở kho (chưa Lưu Nháp / chưa sync).
+    function _lookupKhoCode(r) {
+        try {
+            const cache = window.Web2ProductsCache;
+            if (!cache?.findByNameExact) return null;
+            const p = cache.findByNameExact((r.productName || '').trim());
+            return p?.code || null;
+        } catch (_) {
+            return null;
+        }
+    }
+
     function rowHtml(r, idx, tab, shipmentId, meta) {
         const rid = escapeHtml(r.id);
         const sid = escapeHtml(shipmentId);
         // Row đã nhận hàng → ép read-only ngay cả khi bulk edit mode bật.
         // Khoá toàn bộ field, hiển thị visual `is-locked` để user biết.
         const edit = editTableMode && r.status !== 'received';
+        // Mã SP từ Kho (nếu đã sync) — hiện nhỏ dưới tên SP ở chế độ xem.
+        const khoCode = _lookupKhoCode(r);
+        const khoCodeHtml = khoCode
+            ? `<div class="so-cell-code" title="Mã SP trong Kho SP Web 2.0">${escapeHtml(khoCode)}</div>`
+            : '';
+        // SL gộp vào cột Biến thể (chế độ xem). Không variant → chỉ "SL N".
+        const variantView = (r.variant || '').trim();
+        const qtyNum = Number(r.qty) || 0;
+        const variantCellInner =
+            (variantView ? escapeHtml(variantView) : '') +
+            `<span class="so-cell-sl">${variantView ? ' · ' : ''}SL ${qtyNum}</span>`;
         // P1 2026-05-30: meta = { ncc: {render, span}, inv: {render, span} }.
         // Fallback nếu caller cũ chưa pass.
         const nccMeta = meta?.ncc || { render: true, span: 1 };
         const invMeta = meta?.inv || { render: true, span: 1 };
         const nccRowspanAttr = nccMeta.span > 1 ? ` rowspan="${nccMeta.span}"` : '';
         const invRowspanAttr = invMeta.span > 1 ? ` rowspan="${invMeta.span}"` : '';
+        // Nút "Nhận hàng" theo NCC — render 1 lần ở ô NCC (đầu nhóm rowspan),
+        // chế độ xem. Nhận toàn bộ hàng của NCC đó trong lô. Ẩn/disable nếu mọi
+        // SP của NCC này trong lô đã received.
+        const nccName = (r.supplier || '').trim();
+        let nccReceiveBtn = '';
+        if (nccMeta.render && nccName && !edit) {
+            const shp = tab?.shipments?.find((s) => s.id === shipmentId);
+            const nccRows = (shp?.rows || []).filter(
+                (x) =>
+                    (x.supplier || '').trim() === nccName &&
+                    (x.productName || '').trim() &&
+                    Number(x.qty) > 0
+            );
+            const allRecv = nccRows.length > 0 && nccRows.every((x) => x.status === 'received');
+            nccReceiveBtn = allRecv
+                ? `<button class="so-ncc-receive-btn is-done" type="button" disabled title="NCC này đã nhận đủ hàng trong lô"><i data-lucide="check-circle-2"></i> Đã nhận</button>`
+                : `<button class="so-ncc-receive-btn" type="button" data-shipment-action="receive-ncc" data-shipment-id="${sid}" data-supplier="${escapeHtml(nccName)}" title="Nhận toàn bộ hàng của NCC ${escapeHtml(nccName)} trong lô này"><i data-lucide="truck"></i> Nhận hàng</button>`;
+        }
         const cells = {
             supplier: !nccMeta.render
                 ? ''
                 : edit
                   ? editableCellHtml('supplier', r, rid, sid, nccRowspanAttr)
-                  : `<td class="so-cell-supplier${nccMeta.span > 1 ? ' so-cell-merged' : ''}" data-cell-field="supplier" data-row-id="${rid}" data-shipment-id="${sid}"${nccRowspanAttr}>${escapeHtml(r.supplier || '—')}</td>`,
+                  : `<td class="so-cell-supplier${nccMeta.span > 1 ? ' so-cell-merged' : ''}" data-cell-field="supplier" data-row-id="${rid}" data-shipment-id="${sid}"${nccRowspanAttr}><div class="so-cell-supplier-name">${escapeHtml(r.supplier || '—')}</div>${nccReceiveBtn}</td>`,
             stt: `<td class="so-cell-stt">${idx + 1}</td>`,
             productName: edit
                 ? editableCellHtml('productName', r, rid, sid)
-                : `<td class="so-cell-product" data-cell-field="productName" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.productName || '—')}</td>`,
+                : `<td class="so-cell-product" data-cell-field="productName" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.productName || '—')}${khoCodeHtml}</td>`,
             variant: edit
                 ? editableCellHtml('variant', r, rid, sid)
-                : `<td class="so-cell-variant" data-cell-field="variant" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.variant || '—')}</td>`,
+                : `<td class="so-cell-variant" data-cell-field="variant" data-row-id="${rid}" data-shipment-id="${sid}">${variantCellInner}</td>`,
             qty: edit
                 ? editableCellHtml('qty', r, rid, sid)
                 : `<td class="so-cell-qty" data-cell-field="qty" data-row-id="${rid}" data-shipment-id="${sid}">${Number(r.qty) || 0}</td>`,
@@ -1402,7 +1446,7 @@
         });
     }
 
-    function openReceiveShipmentModal(shId) {
+    function openReceiveShipmentModal(shId, opts = {}) {
         if (!window.Web2ProductsApi) {
             notify('Web2ProductsApi chưa load', 'error');
             return;
@@ -1417,6 +1461,11 @@
         const ccy = tab.currency || 'VND';
         const tabLabel = (tab.label || '').trim();
 
+        // Filter theo 1 NCC (khi bấm nút "Nhận hàng" ở ô NCC) — chỉ list SP của
+        // NCC đó trong lô. Không truyền → nhận cả lô (nút cấp lô).
+        const onlySupplier = (opts.supplier || '').trim();
+        const matchSupplier = (r) => !onlySupplier || (r.supplier || '').trim() === onlySupplier;
+
         // P1 2026-05-30: Loại bỏ rows đã nhận đủ (status='received') khỏi panel.
         // User feedback: "Nhận hàng đủ với SL sản phẩm -> không cho nhận hàng
         // sản phẩm đó nữa". Trước đây vẫn show row với input disabled "ĐÃ NHẬN
@@ -1426,12 +1475,17 @@
                 (r.productName || '').trim() &&
                 Number(r.qty) > 0 &&
                 (r.supplier || '').trim() &&
+                matchSupplier(r) &&
                 r.status !== 'received'
         );
 
         // Nếu shipment không còn row nào chưa nhận → báo notify + thoát.
         const totalRows = (sh.rows || []).filter(
-            (r) => (r.productName || '').trim() && Number(r.qty) > 0 && (r.supplier || '').trim()
+            (r) =>
+                (r.productName || '').trim() &&
+                Number(r.qty) > 0 &&
+                (r.supplier || '').trim() &&
+                matchSupplier(r)
         ).length;
         if (totalRows > 0 && eligibleRows.length === 0) {
             notify('Tất cả SP trong lô này đã nhận đủ', 'info');
@@ -1511,7 +1565,7 @@
                     <header class="so-receive-panel-head">
                         <div class="so-receive-panel-title">
                             <i data-lucide="truck" style="width:18px;height:18px;color:#16a34a;"></i>
-                            <strong>Nhận hàng — ${escapeHtml(shipLabel)}</strong>
+                            <strong>Nhận hàng — ${escapeHtml(shipLabel)}${onlySupplier ? ' · NCC ' + escapeHtml(onlySupplier) : ''}</strong>
                             <span style="font-size:11px;font-weight:500;color:#64748b;background:#fef3c7;padding:2px 8px;border-radius:4px;margin-left:8px;">
                                 <i data-lucide="eye-off" style="width:11px;height:11px;vertical-align:-1px;"></i>
                                 Các đợt khác tạm ẩn
@@ -1801,6 +1855,8 @@
                 imageUrl: it.imageUrl,
                 note: it.note,
             }));
+            // Mã SP theo rule cho SP mới (giống Lưu Nháp) — tránh KHO-rnd.
+            _assignKhoCodes(upsertPayload);
             const upsertRes = await window.Web2ProductsApi.upsertPending(upsertPayload);
             const upsertItems = (upsertRes && upsertRes.items) || [];
             const codeByKey = new Map();
@@ -2952,6 +3008,91 @@ window.addEventListener('load', () => {
      *   - SP chưa có → POST tạo mới với note = tab.label (HÀ NỘI / HƯƠNG CHÂU).
      * Best-effort: lỗi network không chặn flow chính, chỉ warn.
      */
+    // Sinh mã SP theo rule (Web2ProductCode) cho danh sách items sắp upsert vào
+    // Kho. Mỗi item cần {name, variant, supplier}. Gắn item.code = mã rule (vd
+    // HNAODEN, HC1QUANXDS5). Mã CHỈ áp dụng khi server INSERT SP mới — SP đã có
+    // (match name+variant) giữ mã cũ. Thiếu NCC / lỗi → bỏ code, server tự sinh.
+    // Mirror logic getColorShortMap + suggestProductCode của web2-products-app.js.
+    function _assignKhoCodes(items) {
+        if (!window.Web2ProductCode || !Array.isArray(items) || !items.length) return items;
+        // colorShortMap từ Kho Biến Thể (group "Màu" + shortCode locked)
+        const colorShortMap = {};
+        try {
+            const vc = window.Web2VariantsCache;
+            if (vc?.getAll) {
+                for (const v of vc.getAll()) {
+                    if (!/màu/i.test(v.groupName || '')) continue;
+                    if (!v.shortCode) continue;
+                    const stripped = String(v.value || '')
+                        .replace(/^\s*M[àáạăâ]u\s+/iu, '')
+                        .trim();
+                    const key = window.Web2ProductCode.toAsciiUpper(stripped);
+                    if (key) colorShortMap[key] = v.shortCode;
+                }
+            }
+        } catch (_) {
+            /* variants cache chưa sẵn — bỏ qua, suggest fallback extract từ tên */
+        }
+        // supplierPrefixMap từ list NCC + các NCC trong items
+        const supplierNames = new Set();
+        try {
+            (window.Web2SuppliersCache?.getNames?.() || []).forEach(
+                (n) => n && supplierNames.add(n)
+            );
+        } catch (_) {
+            /* suppliers cache chưa sẵn */
+        }
+        for (const it of items) if (it && it.supplier) supplierNames.add(it.supplier);
+        const supplierPrefixMap = window.Web2ProductCode.buildPrefixMap([...supplierNames]);
+        // NCC "KHO" (SP tạo trực tiếp tại Kho) → prefix literal "KHO".
+        supplierPrefixMap['KHO'] = 'KHO';
+        // existingCodes từ Kho — push mã mới sinh vào để counter không trùng trong batch
+        let existingCodes = [];
+        try {
+            existingCodes = (window.Web2ProductsCache?.getAll?.() || [])
+                .map((p) => p.code)
+                .filter(Boolean);
+        } catch (_) {
+            existingCodes = [];
+        }
+        for (const it of items) {
+            if (!it || !it.supplier || !it.name) continue;
+            // override màu/size từ biến thể đã chọn (priority hơn extract từ tên SP)
+            let overrideColorShort = null;
+            let overrideSizeShort = null;
+            if (it.variant && window.Web2VariantsCache?.findByValueExact) {
+                const v = window.Web2VariantsCache.findByValueExact(it.variant);
+                if (v && v.shortCode) {
+                    const grp = (v.groupName || '').toLowerCase();
+                    if (grp.includes('size') || grp.includes('cỡ') || grp.includes('co')) {
+                        overrideSizeShort = v.shortCode.toUpperCase();
+                    } else {
+                        overrideColorShort = v.shortCode.toUpperCase();
+                    }
+                }
+            }
+            try {
+                const result = window.Web2ProductCode.suggest({
+                    supplierName: it.supplier,
+                    productName: it.name,
+                    variant: it.variant || '',
+                    existingCodes,
+                    supplierPrefixMap,
+                    colorShortMap,
+                    overrideColorShort,
+                    overrideSizeShort,
+                });
+                if (result && result.code) {
+                    it.code = result.code;
+                    existingCodes.push(result.code);
+                }
+            } catch (_) {
+                /* thiếu NCC / lỗi sinh mã → để server tự sinh (giữ hành vi cũ) */
+            }
+        }
+        return items;
+    }
+
     async function syncRowsToKho(rows, tab) {
         if (!window.Web2ProductsApi || !window.Web2ProductsCache) return;
         const cache = window.Web2ProductsCache;
@@ -2982,6 +3123,9 @@ window.addEventListener('load', () => {
             })
             .filter(Boolean);
         if (!items.length) return;
+        // Sinh mã SP theo rule (Web2ProductCode) trước khi upsert — SP mới sẽ có
+        // mã dạng HNAODEN thay vì KHO-rnd ngẫu nhiên do server sinh.
+        _assignKhoCodes(items);
         try {
             const res = await window.Web2ProductsApi.upsertPending(items);
             const created = res?.created || 0;

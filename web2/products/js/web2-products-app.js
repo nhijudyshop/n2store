@@ -549,6 +549,10 @@
         const currentVal = sel.value;
         const suppliers = await loadSuppliersFromSoOrder();
         const opts = ['<option value="">— Chọn NCC từ Sổ Order —</option>'];
+        // SP tạo TRỰC TIẾP tại Kho (không qua Sổ Order) → NCC = "KHO", mã prefix KHO.
+        opts.push(
+            `<option value="KHO"${currentVal === 'KHO' ? ' selected' : ''}>KHO (tạo trực tiếp tại Kho)</option>`
+        );
         // Nếu SP đang edit có supplier không nằm trong list so-order (legacy) →
         // prepend làm option riêng để tránh mất giá trị khi save lại.
         if (currentVal && !suppliers.includes(currentVal)) {
@@ -643,6 +647,9 @@
         const prefixMap = window.Web2ProductCode.buildPrefixMap(
             suppliers.includes(supplierName) ? suppliers : [...suppliers, supplierName]
         );
+        // NCC "KHO" (SP tạo trực tiếp) → ép prefix literal "KHO" (vd KHOAODEN),
+        // không rút gọn 2 chữ thành "KH".
+        prefixMap['KHO'] = 'KHO';
         const existingCodes = STATE.products.map((p) => p.code).filter(Boolean);
         let result;
         try {
@@ -681,7 +688,8 @@
         $('#productModalTitle').innerHTML = `<i data-lucide="plus"></i><span>Thêm sản phẩm</span>`;
         $('#pmCode').value = '';
         $('#pmCode').disabled = false;
-        if ($('#pmSupplier')) $('#pmSupplier').value = '';
+        // Mặc định NCC = "KHO" cho SP tạo trực tiếp tại Kho (set sau populate).
+        if ($('#pmSupplier')) $('#pmSupplier').value = 'KHO';
         if ($('#pmCodeHint')) $('#pmCodeHint').textContent = '';
         $('#pmName').value = '';
         $('#pmVariant').value = '';
@@ -693,6 +701,7 @@
         $('#pmIsActive').value = 'true';
         updateImagePreview('');
         populateSupplierDropdown();
+        if ($('#pmSupplier')) $('#pmSupplier').value = 'KHO';
         modal().classList.add('active');
         if (window.lucide) lucide.createIcons();
         setTimeout(() => $('#pmSupplier')?.focus(), 50);
