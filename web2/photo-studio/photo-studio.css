@@ -115,6 +115,14 @@
     pointer-events: none;
 }
 
+/* CRITICAL: flex/absolute overlays must respect [hidden] (UA [hidden]{display:none}
+   loses to .class{display:flex}). Without this the loading/empty overlay never hides. */
+.ps-stage-empty[hidden],
+.ps-stage-loading[hidden],
+.ps-fps[hidden] {
+    display: none !important;
+}
+
 .ps-stage-empty {
     position: absolute;
     inset: 0;

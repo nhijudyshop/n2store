@@ -4,7 +4,8 @@
  *
  * Pure client-side: camera (getUserMedia) hoặc ảnh upload → tách nền realtime
  * bằng AI (MediaPipe Selfie Segmentation, on-device) hoặc chroma key (lọc màu
- * phông theo pixel) → ghép nền mới (trong suốt / màu / ảnh) → xuất PNG.
+ * phông theo pixel) → ghép nền mới (trong suốt / màu / ảnh / mờ nền) → xuất
+ * PNG/JPG. Hỗ trợ tỉ lệ khung, khử ám màu (spill), chụp ở độ phân giải gốc.
  *
  * Không có backend/DB/SSE: ảnh KHÔNG rời khỏi máy người dùng.
  */
@@ -12,7 +13,8 @@
     'use strict';
 
     // ---- Tunables -------------------------------------------------------
-    const PREVIEW_MAX_W = 960; // cap xử lý realtime để mượt trên mobile
+    const PREVIEW_MAX_W = 1080; // cap xử lý realtime để mượt trên mobile
+    const CAPTURE_MAX_LONG = 2400; // cap cạnh dài khi chụp (tránh tốn RAM)
     const MEDIAPIPE_BASE =
         'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747';
 
@@ -20,28 +22,39 @@
     const state = {
         mode: 'ai', // 'ai' | 'chroma'
         source: 'camera', // 'camera' | 'image'
-        bgType: 'transparent', // 'transparent' | 'color' | 'image'
+        bgType: 'transparent', // 'transparent' | 'color' | 'image' | 'blur'
         bgColor: '#ffffff',
-        bgImage: null, // HTMLImageElement
+        bgImage: null,
+        blurStrength: 12,
         key: { r: 0, g: 177, b: 64 },
         threshold: 0.45,
         smooth: 0.1,
         feather: 2,
+        spill: true,
         mirror: true,
+        format: 'png', // 'png' | 'jpg'
+        aspect: null, // null=gốc | number (w/h)
         facingMode: 'user',
+        srcNatW: 0,
+        srcNatH: 0,
+        crop: { sx: 0, sy: 0, sw: 0, sh: 0 },
         stream: null,
         running: false,
         busy: false,
         rafId: 0,
         seg: null,
         segReady: false,
+        modelLoaded: false,
         W: 0,
         H: 0,
+        _sourceImg: null,
+        _fpsT: 0,
+        _fpsN: 0,
     };
 
     const el = {};
-    let work; // offscreen canvas for chroma processing
-    let workCtx;
+    let work, workCtx; // offscreen for chroma processing (preview res)
+    let maskC, maskCtx; // latest AI mask snapshot
     let octx; // output ctx
 
     // ---- Init -----------------------------------------------------------
@@ -51,42 +64,58 @@
         octx = el.output.getContext('2d', { willReadFrequently: true });
         work = document.createElement('canvas');
         workCtx = work.getContext('2d', { willReadFrequently: true });
+        maskC = document.createElement('canvas');
+        maskCtx = maskC.getContext('2d');
         bind();
         initSegmentation();
     }
 
     function cache() {
         const id = (x) => document.getElementById(x);
-        el.stage = id('psStage');
-        el.output = id('psOutput');
-        el.video = id('psVideo');
-        el.stageEmpty = id('psStageEmpty');
-        el.stageLoading = id('psStageLoading');
-        el.loadingText = id('psLoadingText');
-        el.capture = id('psCapture');
-        el.startCam = id('psStartCam');
-        el.switchCam = id('psSwitchCam');
-        el.sourceFile = id('psSourceFile');
-        el.sampleHint = id('psSampleHint');
-        el.modeNote = id('psModeNote');
-        el.chromaCard = id('psChromaCard');
-        el.aiCard = id('psAiCard');
-        el.keyColor = id('psKeyColor');
-        el.threshold = id('psThreshold');
-        el.threshVal = id('psThreshVal');
-        el.smooth = id('psSmooth');
-        el.smoothVal = id('psSmoothVal');
-        el.feather = id('psFeather');
-        el.featherVal = id('psFeatherVal');
-        el.bgColorOpt = id('psBgColorOpt');
-        el.bgImageOpt = id('psBgImageOpt');
-        el.bgColor = id('psBgColor');
-        el.bgFile = id('psBgFile');
-        el.bgThumb = id('psBgThumb');
-        el.mirror = id('psMirror');
-        el.results = id('psResults');
-        el.resultsGrid = id('psResultsGrid');
-        el.clearResults = id('psClearResults');
+        [
+            'stage:psStage',
+            'output:psOutput',
+            'video:psVideo',
+            'stageEmpty:psStageEmpty',
+            'stageLoading:psStageLoading',
+            'loadingText:psLoadingText',
+            'fps:psFps',
+            'capture:psCapture',
+            'startCam:psStartCam',
+            'switchCam:psSwitchCam',
+            'sourceFile:psSourceFile',
+            'sampleHint:psSampleHint',
+            'modeNote:psModeNote',
+            'aspectRow:psAspectRow',
+            'chromaCard:psChromaCard',
+            'aiCard:psAiCard',
+            'keyColor:psKeyColor',
+            'threshold:psThreshold',
+            'threshVal:psThreshVal',
+            'smooth:psSmooth',
+            'smoothVal:psSmoothVal',
+            'spill:psSpill',
+            'feather:psFeather',
+            'featherVal:psFeatherVal',
+            'bgBlurBtn:psBgBlurBtn',
+            'bgColorOpt:psBgColorOpt',
+            'bgImageOpt:psBgImageOpt',
+            'bgBlurOpt:psBgBlurOpt',
+            'bgColor:psBgColor',
+            'bgFile:psBgFile',
+            'bgThumb:psBgThumb',
+            'blurStrength:psBlurStrength',
+            'blurVal:psBlurVal',
+            'mirror:psMirror',
+            'results:psResults',
+            'resultsGrid:psResultsGrid',
+            'resultsCount:psResultsCount',
+            'clearResults:psClearResults',
+            'downloadAll:psDownloadAll',
+        ].forEach((pair) => {
+            const [k, v] = pair.split(':');
+            el[k] = id(v);
+        });
     }
 
     function bind() {
@@ -96,58 +125,71 @@
         el.sourceFile.addEventListener('change', onSourceFile);
         el.bgFile.addEventListener('change', onBgFile);
         el.clearResults.addEventListener('click', clearResults);
+        el.downloadAll.addEventListener('click', downloadAll);
+        el.output.addEventListener('click', sampleKeyFromStage);
 
-        // Mode toggle
-        document.querySelectorAll('.ps-seg-btn[data-mode]').forEach((b) => {
-            b.addEventListener('click', () => setMode(b.dataset.mode));
-        });
-        // Background type toggle
-        document.querySelectorAll('.ps-bg-btn[data-bg]').forEach((b) => {
-            b.addEventListener('click', () => setBgType(b.dataset.bg));
-        });
-        // Chroma key swatches
-        el.chromaCard.querySelectorAll('.ps-swatch[data-key]').forEach((b) => {
+        document
+            .querySelectorAll('.ps-seg-btn[data-mode]')
+            .forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+        document
+            .querySelectorAll('.ps-bg-btn[data-bg]')
+            .forEach((b) => b.addEventListener('click', () => setBgType(b.dataset.bg)));
+        document.querySelectorAll('.ps-fmt-btn[data-fmt]').forEach((b) =>
+            b.addEventListener('click', () => {
+                state.format = b.dataset.fmt;
+                activate(document.querySelectorAll('.ps-fmt-btn'), b);
+            })
+        );
+        el.aspectRow.querySelectorAll('.ps-chip[data-ar]').forEach((b) =>
+            b.addEventListener('click', () => {
+                state.aspect = b.dataset.ar ? parseFloat(b.dataset.ar) : null;
+                activate(el.aspectRow.querySelectorAll('.ps-chip'), b);
+                recomputeSizes();
+            })
+        );
+
+        // chroma swatches
+        el.chromaCard.querySelectorAll('.ps-swatch[data-key]').forEach((b) =>
             b.addEventListener('click', () => {
                 const [r, g, bb] = b.dataset.key.split(',').map(Number);
                 state.key = { r, g, b: bb };
+                el.keyColor.value = rgbToHex(r, g, bb);
                 activate(el.chromaCard.querySelectorAll('.ps-swatch[data-key]'), b);
-            });
-        });
+            })
+        );
         el.keyColor.addEventListener('input', () => {
             state.key = hexToRgb(el.keyColor.value);
             activate(el.chromaCard.querySelectorAll('.ps-swatch[data-key]'), null);
         });
-        // Bg color swatches
-        el.bgColorOpt.querySelectorAll('.ps-swatch[data-color]').forEach((b) => {
+        el.bgColorOpt.querySelectorAll('.ps-swatch[data-color]').forEach((b) =>
             b.addEventListener('click', () => {
                 state.bgColor = b.dataset.color;
                 el.bgColor.value = b.dataset.color;
                 activate(el.bgColorOpt.querySelectorAll('.ps-swatch[data-color]'), b);
-            });
-        });
+            })
+        );
         el.bgColor.addEventListener('input', () => {
             state.bgColor = el.bgColor.value;
             activate(el.bgColorOpt.querySelectorAll('.ps-swatch[data-color]'), null);
         });
-        // Sliders
-        el.threshold.addEventListener('input', () => {
-            state.threshold = parseFloat(el.threshold.value);
-            el.threshVal.textContent = state.threshold.toFixed(2);
-        });
-        el.smooth.addEventListener('input', () => {
-            state.smooth = parseFloat(el.smooth.value);
-            el.smoothVal.textContent = state.smooth.toFixed(2);
-        });
-        el.feather.addEventListener('input', () => {
-            state.feather = parseInt(el.feather.value, 10);
-            el.featherVal.textContent = state.feather + 'px';
-        });
+
+        bindSlider(el.threshold, 'threshold', (v) => v.toFixed(2), el.threshVal);
+        bindSlider(el.smooth, 'smooth', (v) => v.toFixed(2), el.smoothVal);
+        bindSlider(el.feather, 'feather', (v) => v + 'px', el.featherVal, true);
+        bindSlider(el.blurStrength, 'blurStrength', (v) => v + 'px', el.blurVal, true);
+
+        el.spill.addEventListener('change', () => (state.spill = el.spill.checked));
         el.mirror.addEventListener('change', () => {
             state.mirror = el.mirror.checked;
             applyMirrorClass();
         });
-        // Click stage to sample key color (chroma mode)
-        el.output.addEventListener('click', sampleKeyFromStage);
+    }
+
+    function bindSlider(input, key, fmt, label, isInt) {
+        input.addEventListener('input', () => {
+            state[key] = isInt ? parseInt(input.value, 10) : parseFloat(input.value);
+            label.textContent = fmt(state[key]);
+        });
     }
 
     // ---- MediaPipe ------------------------------------------------------
@@ -174,7 +216,7 @@
         if (state.running && state.source === 'camera') {
             stopAll();
             el.startCam.innerHTML = '<i data-lucide="video"></i> Bật camera';
-            if (global.lucide) lucide.createIcons();
+            relucide();
             return;
         }
         await startCamera();
@@ -191,8 +233,8 @@
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: state.facingMode,
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 },
                 },
                 audio: false,
             });
@@ -201,14 +243,17 @@
             el.video.srcObject = stream;
             await el.video.play().catch(() => {});
             await waitForVideo();
-            setupSizes(el.video.videoWidth, el.video.videoHeight);
+            state.srcNatW = el.video.videoWidth;
+            state.srcNatH = el.video.videoHeight;
+            recomputeSizes();
             applyMirrorClass();
-            hideLoading();
             el.stageEmpty.hidden = true;
             el.switchCam.disabled = false;
             el.capture.disabled = false;
             el.startCam.innerHTML = '<i data-lucide="video-off"></i> Tắt camera';
-            if (global.lucide) lucide.createIcons();
+            relucide();
+            if (state.mode === 'ai' && !state.modelLoaded) showLoading('Đang tải mô hình AI…');
+            else hideLoading();
             startLoop();
         } catch (e) {
             hideLoading();
@@ -242,6 +287,7 @@
         state.running = false;
         octx && octx.clearRect(0, 0, el.output.width, el.output.height);
         el.stageEmpty.hidden = false;
+        el.fps.hidden = true;
         el.capture.disabled = true;
         el.switchCam.disabled = true;
     }
@@ -256,7 +302,9 @@
             stopLoop();
             state.source = 'image';
             state._sourceImg = img;
-            setupSizes(img.naturalWidth, img.naturalHeight);
+            state.srcNatW = img.naturalWidth;
+            state.srcNatH = img.naturalHeight;
+            recomputeSizes();
             state.mirror = false;
             el.mirror.checked = false;
             applyMirrorClass();
@@ -264,7 +312,8 @@
             el.capture.disabled = false;
             el.switchCam.disabled = true;
             el.startCam.innerHTML = '<i data-lucide="video"></i> Bật camera';
-            if (global.lucide) lucide.createIcons();
+            relucide();
+            if (state.mode === 'ai' && !state.modelLoaded) showLoading('Đang tải mô hình AI…');
             startLoop();
         };
         img.onerror = () => notify('Không đọc được ảnh.', 'error');
@@ -285,16 +334,34 @@
         e.target.value = '';
     }
 
-    // ---- Sizing ---------------------------------------------------------
-    function setupSizes(w, h) {
+    // ---- Sizing / crop --------------------------------------------------
+    function cropRect(natW, natH) {
+        if (!state.aspect) return { sx: 0, sy: 0, sw: natW, sh: natH };
+        const target = state.aspect;
+        const srcRatio = natW / natH;
+        let cw = natW;
+        let ch = natH;
+        if (srcRatio > target)
+            cw = natH * target; // too wide → crop sides
+        else ch = natW / target; // too tall → crop top/bottom
+        return { sx: (natW - cw) / 2, sy: (natH - ch) / 2, sw: cw, sh: ch };
+    }
+
+    function recomputeSizes() {
+        const { srcNatW: w, srcNatH: h } = state;
         if (!w || !h) return;
-        const scale = Math.min(1, PREVIEW_MAX_W / w);
-        state.W = Math.round(w * scale);
-        state.H = Math.round(h * scale);
-        el.output.width = state.W;
-        el.output.height = state.H;
-        work.width = state.W;
-        work.height = state.H;
+        state.crop = cropRect(w, h);
+        const { sw, sh } = state.crop;
+        const scale = Math.min(1, PREVIEW_MAX_W / sw);
+        state.W = Math.round(sw * scale);
+        state.H = Math.round(sh * scale);
+        sizeCanvas(el.output, state.W, state.H);
+        sizeCanvas(work, state.W, state.H);
+    }
+
+    function sizeCanvas(c, w, h) {
+        if (c.width !== w) c.width = w;
+        if (c.height !== h) c.height = h;
     }
 
     function currentSourceEl() {
@@ -317,76 +384,87 @@
         if (state.mode === 'ai' && state.segReady) {
             if (!state.busy) {
                 state.busy = true;
-                const src = currentSourceEl();
                 state.seg
-                    .send({ image: src })
+                    .send({ image: currentSourceEl() })
                     .catch((e) => console.warn('[photo-studio] seg.send', e))
                     .finally(() => {
                         state.busy = false;
                     });
             }
         } else {
-            // chroma (or AI unavailable fallback)
-            renderChroma();
+            renderChroma(octx, state.W, state.H, currentSourceEl(), state.crop);
+            tickFps();
         }
         state.rafId = requestAnimationFrame(frame);
     }
 
     // ---- AI compositing -------------------------------------------------
     function onSegResults(results) {
+        if (!state.modelLoaded) {
+            state.modelLoaded = true;
+            hideLoading();
+        }
         const { W, H } = state;
         if (!W || !H) return;
-        octx.save();
-        octx.clearRect(0, 0, W, H);
-        // 1) draw mask (optionally feathered) → alpha channel
-        if (state.feather > 0) octx.filter = `blur(${state.feather}px)`;
-        octx.drawImage(results.segmentationMask, 0, 0, W, H);
-        octx.filter = 'none';
-        // 2) keep only subject pixels from the frame
-        octx.globalCompositeOperation = 'source-in';
-        octx.drawImage(results.image, 0, 0, W, H);
-        // 3) put background behind subject
-        octx.globalCompositeOperation = 'destination-over';
-        drawBackground(octx, W, H);
-        octx.restore();
-        octx.globalCompositeOperation = 'source-over';
+        // snapshot mask (feathered) to maskC at preview res
+        sizeCanvas(maskC, W, H);
+        maskCtx.clearRect(0, 0, W, H);
+        if (state.feather > 0) maskCtx.filter = `blur(${state.feather}px)`;
+        const c = state.crop;
+        maskCtx.drawImage(results.segmentationMask, c.sx, c.sy, c.sw, c.sh, 0, 0, W, H);
+        maskCtx.filter = 'none';
+        composeAI(octx, W, H, results.image, maskC, c);
+        tickFps();
+    }
+
+    function composeAI(ctx, W, H, frameEl, maskCanvas, crop) {
+        ctx.save();
+        ctx.clearRect(0, 0, W, H);
+        ctx.drawImage(maskCanvas, 0, 0, W, H);
+        ctx.globalCompositeOperation = 'source-in';
+        ctx.drawImage(frameEl, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, W, H);
+        ctx.globalCompositeOperation = 'destination-over';
+        drawBg(ctx, W, H, frameEl, crop);
+        ctx.restore();
+        ctx.globalCompositeOperation = 'source-over';
     }
 
     // ---- Chroma key -----------------------------------------------------
-    function renderChroma() {
-        const { W, H } = state;
-        if (!W || !H) return;
-        const src = currentSourceEl();
-        if (!src) return;
+    function renderChroma(ctx, W, H, src, crop) {
+        if (!W || !H || !src) return;
+        sizeCanvas(work, W, H);
         try {
             workCtx.clearRect(0, 0, W, H);
-            workCtx.drawImage(src, 0, 0, W, H);
+            workCtx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, W, H);
         } catch {
-            return; // frame not ready
+            return;
         }
         const frameData = workCtx.getImageData(0, 0, W, H);
-        keyOut(frameData, state.key, state.threshold, state.smooth);
+        keyOut(frameData, state.key, state.threshold, state.smooth, state.spill);
         workCtx.putImageData(frameData, 0, 0);
-
-        octx.clearRect(0, 0, W, H);
-        drawBackground(octx, W, H);
-        octx.drawImage(work, 0, 0, W, H);
+        ctx.clearRect(0, 0, W, H);
+        drawBg(ctx, W, H, src, crop); // blur/image/color drawn behind
+        ctx.drawImage(work, 0, 0, W, H);
     }
 
     /**
-     * Per-pixel chroma key. Sets alpha based on color distance from key.
+     * Per-pixel chroma key + optional spill suppression.
      * @param {ImageData} img
-     * @param {{r:number,g:number,b:number}} key
-     * @param {number} threshold 0..1 — màu trong bán kính này bị xóa hẳn
+     * @param {{r,g,b}} key
+     * @param {number} threshold 0..1 — bán kính xóa hẳn
      * @param {number} smooth 0..0.4 — dải chuyển tiếp mềm viền
+     * @param {boolean} spill — khử ám màu key trên pixel giữ lại
      */
-    function keyOut(img, key, threshold, smooth) {
+    function keyOut(img, key, threshold, smooth, spill) {
         const d = img.data;
-        // max RGB distance ~441.67 (sqrt(3*255^2)); normalize to 0..1
-        const MAXD = 441.6729559;
+        const MAXD = 441.6729559; // sqrt(3*255^2)
         const lo = threshold * MAXD;
         const hi = (threshold + smooth) * MAXD;
         const span = Math.max(1, hi - lo);
+        // dominant channel of key → kênh cần khử spill
+        const dom = key.r >= key.g && key.r >= key.b ? 0 : key.g >= key.b ? 1 : 2;
+        const a = dom === 0 ? 1 : 0;
+        const b = dom === 2 ? 1 : 2;
         for (let i = 0; i < d.length; i += 4) {
             const dr = d[i] - key.r;
             const dg = d[i + 1] - key.g;
@@ -394,22 +472,43 @@
             const dist = Math.sqrt(dr * dr + dg * dg + db * db);
             if (dist <= lo) {
                 d[i + 3] = 0;
+                continue;
             } else if (dist < hi) {
                 d[i + 3] = Math.round(((dist - lo) / span) * d[i + 3]);
             }
-            // else keep original alpha
+            if (spill && d[i + 3] > 0) {
+                const cap = (d[i + a] + d[i + b]) / 2;
+                if (d[i + dom] > cap) d[i + dom] = cap;
+            }
         }
     }
 
     // ---- Background draw -------------------------------------------------
-    function drawBackground(ctx, W, H) {
+    function drawBg(ctx, W, H, frameEl, crop) {
         if (state.bgType === 'color') {
             ctx.fillStyle = state.bgColor;
             ctx.fillRect(0, 0, W, H);
         } else if (state.bgType === 'image' && state.bgImage) {
             drawCover(ctx, state.bgImage, W, H);
+        } else if (state.bgType === 'blur' && frameEl) {
+            ctx.save();
+            ctx.filter = `blur(${state.blurStrength}px)`;
+            // vẽ rộng hơn 1 chút để blur không lộ viền trong suốt ở mép
+            const pad = Math.ceil(state.blurStrength * 1.5);
+            ctx.drawImage(
+                frameEl,
+                crop.sx,
+                crop.sy,
+                crop.sw,
+                crop.sh,
+                -pad,
+                -pad,
+                W + pad * 2,
+                H + pad * 2
+            );
+            ctx.restore();
         }
-        // transparent → draw nothing
+        // transparent → nothing
     }
 
     function drawCover(ctx, img, W, H) {
@@ -422,28 +521,67 @@
         ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
     }
 
-    // ---- Capture --------------------------------------------------------
+    // ---- Capture (high-res one-shot) ------------------------------------
     function capture() {
-        const { W, H } = state;
-        if (!W || !H) return;
-        // Output canvas already holds composited frame (mirror applied via CSS,
-        // so bake mirror into the exported bitmap here).
+        if (!state.srcNatW) return;
+        const crop = cropRect(state.srcNatW, state.srcNatH);
+        const scale = Math.min(1, CAPTURE_MAX_LONG / Math.max(crop.sw, crop.sh));
+        const W = Math.round(crop.sw * scale);
+        const H = Math.round(crop.sh * scale);
+        const src = currentSourceEl();
+
+        const comp = document.createElement('canvas');
+        comp.width = W;
+        comp.height = H;
+        const cctx = comp.getContext('2d');
+
+        if (state.mode === 'ai' && state.modelLoaded) {
+            composeAI(cctx, W, H, src, maskC, crop); // maskC (preview res) tự upscale
+        } else if (state.mode === 'chroma') {
+            renderChromaHiRes(cctx, W, H, src, crop);
+        } else {
+            notify('Mô hình AI chưa sẵn sàng — đợi vài giây rồi chụp lại.', 'warning');
+            return;
+        }
+
+        const jpg = state.format === 'jpg';
         const out = document.createElement('canvas');
         out.width = W;
         out.height = H;
-        const c = out.getContext('2d');
-        if (state.mirror) {
-            c.translate(W, 0);
-            c.scale(-1, 1);
+        const octx2 = out.getContext('2d');
+        if (jpg) {
+            octx2.fillStyle = '#ffffff'; // JPG không có alpha → nền trắng
+            octx2.fillRect(0, 0, W, H);
         }
-        c.drawImage(el.output, 0, 0);
-        out.toBlob((blob) => {
-            if (!blob) return;
-            addResult(blob, W, H);
-        }, 'image/png');
+        if (state.mirror) {
+            octx2.translate(W, 0);
+            octx2.scale(-1, 1);
+        }
+        octx2.drawImage(comp, 0, 0);
+
+        out.toBlob(
+            (blob) => blob && addResult(blob, W, H, jpg ? 'jpg' : 'png'),
+            jpg ? 'image/jpeg' : 'image/png',
+            0.92
+        );
     }
 
-    function addResult(blob, w, h) {
+    function renderChromaHiRes(ctx, W, H, src, crop) {
+        const tmp = document.createElement('canvas');
+        tmp.width = W;
+        tmp.height = H;
+        const tctx = tmp.getContext('2d', { willReadFrequently: true });
+        tctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, W, H);
+        const data = tctx.getImageData(0, 0, W, H);
+        keyOut(data, state.key, state.threshold, state.smooth, state.spill);
+        tctx.putImageData(data, 0, 0);
+        ctx.clearRect(0, 0, W, H);
+        drawBg(ctx, W, H, src, crop);
+        ctx.drawImage(tmp, 0, 0);
+    }
+
+    // ---- Results --------------------------------------------------------
+    function addResult(blob, w, h, ext) {
         const url = URL.createObjectURL(blob);
         el.results.hidden = false;
         const stamp = resultStamp();
@@ -451,22 +589,36 @@
         card.className = 'ps-result-card';
         card.innerHTML = `
             <div class="ps-result-thumb" style="background-image:url(${url})"></div>
+            <div class="ps-result-meta">${w}×${h} · ${(blob.size / 1024).toFixed(0)} KB</div>
             <div class="ps-result-actions">
-                <a class="ps-btn ps-btn-sm ps-btn-primary" download="tach-nen-${stamp}.png" href="${url}">
+                <a class="ps-btn ps-btn-sm ps-btn-primary" download="tach-nen-${stamp}.${ext}" href="${url}">
                     <i data-lucide="download"></i> Tải
                 </a>
-                <button class="ps-btn ps-btn-sm ps-btn-ghost ps-result-del">
+                <button class="ps-btn ps-btn-sm ps-btn-ghost ps-result-del" title="Xóa">
                     <i data-lucide="x"></i>
                 </button>
             </div>`;
         card.querySelector('.ps-result-del').addEventListener('click', () => {
             URL.revokeObjectURL(url);
             card.remove();
-            if (!el.resultsGrid.children.length) el.results.hidden = true;
+            updateResultsCount();
         });
         el.resultsGrid.prepend(card);
-        if (global.lucide) lucide.createIcons();
+        updateResultsCount();
+        relucide();
         notify('Đã chụp ảnh.', 'success');
+    }
+
+    function updateResultsCount() {
+        const n = el.resultsGrid.children.length;
+        el.resultsCount.textContent = n;
+        el.results.hidden = n === 0;
+    }
+
+    function downloadAll() {
+        const links = el.resultsGrid.querySelectorAll('a[download]');
+        if (!links.length) return;
+        links.forEach((a, i) => setTimeout(() => a.click(), i * 250));
     }
 
     function resultStamp() {
@@ -478,11 +630,15 @@
     }
 
     function clearResults() {
+        el.resultsGrid.querySelectorAll('.ps-result-thumb').forEach((t) => {
+            const m = /url\("?(blob:[^")]+)"?\)/.exec(t.style.backgroundImage);
+            if (m) URL.revokeObjectURL(m[1]);
+        });
         el.resultsGrid.innerHTML = '';
-        el.results.hidden = true;
+        updateResultsCount();
     }
 
-    // ---- UI mode/bg switching ------------------------------------------
+    // ---- UI switching ---------------------------------------------------
     function setMode(mode) {
         state.mode = mode;
         activate(document.querySelectorAll('.ps-seg-btn[data-mode]'), null);
@@ -495,8 +651,14 @@
         el.modeNote.textContent = isChroma
             ? 'Chụp trên phông đơn sắc đủ sáng. Bấm vào vùng phông để lấy đúng màu.'
             : 'AI nhận diện chủ thể, không cần phông. Tốt cho người & sản phẩm.';
+        // "Mờ nền" chỉ hợp lý ở chế độ AI (chroma đã xóa phông)
+        el.bgBlurBtn.disabled = isChroma;
+        if (isChroma && state.bgType === 'blur') setBgType('transparent');
         if (mode === 'ai' && !state.segReady) {
             notify('Mô hình AI chưa sẵn sàng — kiểm tra mạng rồi thử lại.', 'warning');
+        }
+        if (mode === 'ai' && !state.modelLoaded && state.running) {
+            showLoading('Đang tải mô hình AI…');
         }
     }
 
@@ -506,6 +668,7 @@
         document.querySelector(`.ps-bg-btn[data-bg="${type}"]`)?.classList.add('is-active');
         el.bgColorOpt.hidden = type !== 'color';
         el.bgImageOpt.hidden = type !== 'image';
+        el.bgBlurOpt.hidden = type !== 'blur';
         el.stage.classList.toggle('ps-stage-transparent', type === 'transparent');
     }
 
@@ -522,7 +685,17 @@
         x = Math.max(0, Math.min(state.W - 1, Math.round(x)));
         const yy = Math.max(0, Math.min(state.H - 1, Math.round(y)));
         try {
-            workCtx.drawImage(currentSourceEl(), 0, 0, state.W, state.H);
+            workCtx.drawImage(
+                currentSourceEl(),
+                state.crop.sx,
+                state.crop.sy,
+                state.crop.sw,
+                state.crop.sh,
+                0,
+                0,
+                state.W,
+                state.H
+            );
             const p = workCtx.getImageData(x, yy, 1, 1).data;
             state.key = { r: p[0], g: p[1], b: p[2] };
             el.keyColor.value = rgbToHex(p[0], p[1], p[2]);
@@ -533,12 +706,23 @@
         }
     }
 
+    // ---- FPS ------------------------------------------------------------
+    function tickFps() {
+        const now = performance.now();
+        state._fpsN++;
+        if (now - state._fpsT >= 1000) {
+            el.fps.hidden = false;
+            el.fps.textContent = state._fpsN + ' FPS';
+            state._fpsN = 0;
+            state._fpsT = now;
+        }
+    }
+
     // ---- Utils ----------------------------------------------------------
     function activate(nodeList, active) {
         nodeList.forEach((n) => n.classList.remove('is-active'));
         if (active) active.classList.add('is-active');
     }
-
     function hexToRgb(hex) {
         const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
         return m
@@ -548,7 +732,13 @@
     function rgbToHex(r, g, b) {
         return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
     }
-
+    function relucide() {
+        if (global.lucide) {
+            try {
+                global.lucide.createIcons();
+            } catch {}
+        }
+    }
     function showLoading(text) {
         el.loadingText.textContent = text || 'Đang xử lý…';
         el.stageLoading.hidden = false;
@@ -556,13 +746,9 @@
     function hideLoading() {
         el.stageLoading.hidden = true;
     }
-
     function notify(msg, type) {
-        if (global.notificationManager?.show) {
-            global.notificationManager.show(msg, type || 'info');
-        } else {
-            console.log('[photo-studio]', type || 'info', msg);
-        }
+        if (global.notificationManager?.show) global.notificationManager.show(msg, type || 'info');
+        else console.log('[photo-studio]', type || 'info', msg);
     }
 
     global.PhotoStudio = { init };
