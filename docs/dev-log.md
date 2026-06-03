@@ -25,6 +25,16 @@
 
 ## 2026-06-03
 
+### [web2] Kho KH thống nhất + Overview "Kho dữ liệu dùng chung" ✅
+
+**Sửa KH 1 nguồn → sync TPOS 2 chiều**: endpoint mới `PATCH /api/web2/customers/:id` (id=TPOS Partner Id) — sửa tên/SĐT/địa chỉ → push TPOS by tposId (đổi SĐT vẫn update đúng partner, không tạo dup) + update cache `web2_customers`. ĐÂY LÀ NƠI DUY NHẤT sửa KH. native-orders order-edit cũng sync (đã thêm phone vào trigger). partner-customer vẫn edit thẳng TPOS (full PUT). customer-wallet chỉ link TPOS (không sửa inline).
+
+**Overview** thêm section `#datastores` "🗂️ Kho dữ liệu dùng chung" — bảng registry mỗi domain (KH/SP/biến thể/PBH/đơn web/ví KH/balance/NCC/KPI): Nguồn-master, ĐỌC endpoint, SỬA endpoint, bảng/collection. Quy tắc BẮT BUỘC code mới: dùng đúng 1 nguồn, không tạo kho song song, KH luôn qua `/api/web2/customers/*`.
+
+**report-delivery tách Web 1.0**: `/api/pbh-reports/delivery` tổng hợp giao hàng từ `fast_sale_orders` (web2Db) group theo carrier_name, Đã giao=`fulfillment_shipped_at/delivered_at`, Huỷ=`state=cancel`. Bỏ `/api/v2/delivery-assignments`.
+
+Files: `render.com/routes/v2/web2-customers.js`, `render.com/routes/native-orders.js`, `render.com/routes/pbh-reports.js`, `web2/report-delivery/index.html`, `web2/overview/index.html`, `web2/overview/overview.css`
+
 ### [web2] Phase 6 CUTOVER — VERIFIED LIVE ✅
 
 Smoke sau deploy 826c87c70: mọi web2 endpoint **200 trên web2Db** — balance-history (id 4902), stats (4894), web2-products/list (37 SP), native-orders/load, fast-sale-orders/load, dashboard-kpi (đọc balance_history copy OK), kpi, cart, notifications, customers/by-phone/orders. Web 1.0 `/api/v2/customers` + `/api/v2/balance-history` vẫn 200 trên chatDb — **KHÔNG bị web2 đụng**. → Tách DB Web 2.0 HOÀN TẤT.
@@ -60,13 +70,14 @@ Files: `render.com/db/web2-schema-mirror.js`, `render.com/db/web2-data-copy.js`,
 **Logic mới (per-product)**: trước đây đơn nằm trong refund → loại TOÀN BỘ KPI đơn. Giờ: chỉ loại `Σ min(SL hoàn, SL net KPI) × 5.000đ` của các món có code khớp giữa KPI `details` và cột "Chi tiết". Hoàn 1/5 món → chỉ mất KPI 1 món.
 
 **Thay đổi**:
+
 - `kpi-manager.js`: `reconcileKPI()` trả thêm `result.details` (món KPI: code+net).
 - `tab-kpi-commission.js`: `fetchRefundedOrderCodes` → **`fetchRefundDetailByInvoice`** (endpoint ExportFileDetail, parse cột "Chi tiết" qua `_parseRefundChiTiet` regex `/(\d+)\s*x\s*\[([^\]]+)\]/g` → `Map<invoiceNumber, Map<code,qty>>`). Helper mới **`_matchRefundForOrder`**. Record thêm `refundedKpiAmount`/`refundedProducts`/`hasRefundRow`. Loss aggregation (`_indexReconResults`, `_hydrateL1ReconCachesForEmployees`, `_applyL1ReconCache`, `renderEmployeeOrdersTable`) đổi sang `refundedKpiAmount`. Stats card + export Excel (+2 cột "KPI bị loại"/"Món hoàn") cập nhật. Bump cache L1 `kpi_recon_l1_v1__` → `v2__`.
 - Join key giữ nguyên: `invoice.Number` ↔ cột "Tham chiếu". Worker proxy forward generic `/api/*` giữ query `&type=refund` (verified).
 
 **Files**: `orders-report/js/managers/kpi-manager.js`, `orders-report/js/tab-kpi-commission.js`, `docs/orders-report/DOI-SOAT-KPI.md` (cập nhật theo logic mới).
 
-**Verify**: node --check 2 file OK; parser khớp file mẫu `docs/orders-report/tra-hang-chi-tiet.xlsx` (cột "Chi tiết", multi-món tách ` ; `). Read-only (chỉ fetch TPOS + tính in-memory, không ghi DB).
+**Verify**: node --check 2 file OK; parser khớp file mẫu `docs/orders-report/tra-hang-chi-tiet.xlsx` (cột "Chi tiết", multi-món tách `;`). Read-only (chỉ fetch TPOS + tính in-memory, không ghi DB).
 
 **Status**: ✅ Done.
 

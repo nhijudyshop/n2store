@@ -75,6 +75,9 @@
                         <li>
                             <a href="#conventions">📐 Quy ước Web 2.0 (đọc trước khi code)</a>
                         </li>
+                        <li>
+                            <a href="#datastores">🗂️ Kho dữ liệu dùng chung (1 nguồn)</a>
+                        </li>
                         <li><a href="#future">Gợi ý phát triển</a></li>
                     </ol>
                 </nav>
@@ -1313,6 +1316,165 @@ permission_templates    (role: admin/manager/staff)</pre
                             </ul>
                         </div>
                     </div>
+                </section>
+
+                <!-- ===== DATA STORES (kho dùng chung) ===== -->
+                <section class="ov-section" id="datastores">
+                    <h2 class="section-title">🗂️ Kho dữ liệu dùng chung — DÙNG CHUNG 1 NGUỒN</h2>
+                    <p class="ov-lead">
+                        Mỗi loại dữ liệu (KH, sản phẩm, PBH, ví…) có
+                        <strong>MỘT nguồn canonical</strong>. Trang/feature mới PHẢI đọc &amp; ghi
+                        qua đúng endpoint dưới đây — KHÔNG tự tạo kho riêng, KHÔNG query trực tiếp
+                        bảng từ frontend. Sửa KH (tên/SĐT/địa chỉ) chỉ qua 1 endpoint duy nhất → tự
+                        đồng bộ TPOS (2 chiều).
+                    </p>
+
+                    <div class="ov-store-table">
+                        <table class="ov-table">
+                            <thead>
+                                <tr>
+                                    <th>Kho</th>
+                                    <th>Nguồn / Master</th>
+                                    <th>ĐỌC (endpoint)</th>
+                                    <th>SỬA / GHI (endpoint)</th>
+                                    <th>Bảng / Collection</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>👤 Khách hàng</strong></td>
+                                    <td>TPOS Partner (master) · cache web2Db</td>
+                                    <td>
+                                        <code>GET /api/web2/customers/search?search=</code><br />
+                                        <code>GET /api/web2/customers/:phone</code><br />
+                                        <code>GET /api/web2/customers/by-phone/:phone/orders</code>
+                                    </td>
+                                    <td>
+                                        <code>PATCH /api/web2/customers/:id</code><br />
+                                        <em
+                                            >(id = TPOS Partner Id; tên/SĐT/địa chỉ → đẩy TPOS by
+                                            tposId + update cache. ĐÂY LÀ NƠI DUY NHẤT SỬA KH)</em
+                                        >
+                                    </td>
+                                    <td><code>web2_customers</code> (web2Db)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>📦 Sản phẩm</strong></td>
+                                    <td>web2Db (master riêng Web 2.0)</td>
+                                    <td>
+                                        <code>GET /api/web2-products/list</code> ·
+                                        <code>/pending</code>
+                                    </td>
+                                    <td>
+                                        <code>POST/PATCH/DELETE /api/web2-products/*</code>
+                                    </td>
+                                    <td>
+                                        <code>web2_products</code> ·
+                                        <code>web2_product_history</code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>🎨 Biến thể</strong></td>
+                                    <td>web2Db</td>
+                                    <td><code>GET /api/web2-variants/list</code></td>
+                                    <td><code>POST/PATCH/DELETE /api/web2-variants/*</code></td>
+                                    <td><code>web2_variants</code></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>🧾 Phiếu bán hàng (PBH)</strong></td>
+                                    <td>web2Db (sync từ TPOS FastSaleOrder)</td>
+                                    <td>
+                                        <code>GET /api/fast-sale-orders/load</code><br />
+                                        Báo cáo:
+                                        <code>/api/pbh-reports/{revenue,delivery,summary}</code>
+                                    </td>
+                                    <td><code>PATCH /api/fast-sale-orders/:id</code></td>
+                                    <td>
+                                        <code>fast_sale_orders</code> ·
+                                        <code>fast_sale_order_history</code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>🛒 Đơn Web</strong></td>
+                                    <td>web2Db (source-of-truth, đẩy ngược PBH)</td>
+                                    <td><code>GET /api/native-orders/load</code></td>
+                                    <td>
+                                        <code>PATCH /api/native-orders/:code</code>
+                                        <em>(sửa KH info → tự sync TPOS)</em>
+                                    </td>
+                                    <td><code>native_orders</code></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>💰 Ví Khách Hàng</strong></td>
+                                    <td>web2Db (SePay auto-credit)</td>
+                                    <td>
+                                        <code>GET /api/web2/wallets/by-phone/:phone</code><br />
+                                        <code>GET /api/web2/customer-wallet</code>
+                                    </td>
+                                    <td>
+                                        <code>POST /api/web2/customer-wallet</code> (nạp/rút tay)
+                                    </td>
+                                    <td>
+                                        <code>web2_customer_wallets</code> ·
+                                        <code>web2_wallet_transactions</code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>🏦 Lịch sử số dư (SePay)</strong></td>
+                                    <td>web2Db (webhook SePay fan-out)</td>
+                                    <td>
+                                        <code>GET /api/web2/balance-history</code> ·
+                                        <code>/stats</code>
+                                    </td>
+                                    <td>
+                                        <code>PATCH /api/web2/balance-history/:id/link</code>
+                                        (gán KH)
+                                    </td>
+                                    <td>
+                                        <code>web2_balance_history</code> ·
+                                        <code>web2_pending_matches</code> ·
+                                        <code>web2_match_audit</code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>🚚 Ví NCC / Sổ Order / NCC</strong></td>
+                                    <td>Firestore Web 2.0 (local-first sync)</td>
+                                    <td>Firestore doc · <code>/api/wallet-deposits/load</code></td>
+                                    <td>Firestore set/merge · <code>/api/wallet-deposits</code></td>
+                                    <td>
+                                        <code>web2_supplier_wallet/main</code> ·
+                                        <code>web2_so_order/main</code> ·
+                                        <code>web2_suppliers/main</code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>📊 KPI / Thông báo / Audit / Cart</strong></td>
+                                    <td>web2Db</td>
+                                    <td>
+                                        <code
+                                            >/api/web2/{kpi,dashboard-kpi,notifications,audit-log,cart}</code
+                                        >
+                                    </td>
+                                    <td>cùng prefix (POST/PATCH)</td>
+                                    <td>
+                                        <code>web2_kpi_*</code> · <code>web2_notifications</code> ·
+                                        <code>web2_cart_history</code>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p class="ov-db-note" style="margin-top: 16px">
+                        <strong>Quy tắc DÙNG CHUNG (BẮT BUỘC code mới):</strong>
+                        ① KH → luôn dùng <code>/api/web2/customers/*</code> (đọc) +
+                        <code>PATCH /:id</code> (sửa, tự sync TPOS). KHÔNG gọi
+                        <code>/api/v2/customers</code> Web 1.0, KHÔNG query bảng
+                        <code>customers</code> trực tiếp. ② Sản phẩm/PBH/Đơn/Ví → dùng đúng endpoint
+                        bảng trên, KHÔNG tạo kho song song. ③ TPOS/Pancake là master ngoài — đọc qua
+                        <code>/api/odata/*</code>. ④ Cần kho mới → thêm 1 dòng vào bảng này trước
+                        khi code.
+                    </p>
                 </section>
 
                 <!-- ===== FUTURE ===== -->
