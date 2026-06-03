@@ -25,6 +25,22 @@
 
 ## 2026-06-03
 
+### [inventory-tracking] iPad: nút STT/NCC luôn hiện (bỏ phụ thuộc :hover) ✅
+
+**User ask**: trên iPad muốn hiện nút như cột STT 8 phải bấm tay vào chữ (vì không hover). Bấm vào lại bị scroll xuống vị trí khác.
+
+**Root cause**: `.btn-del-stt / .btn-add-stt / .btn-copy-stt / .btn-del-ncc / .btn-edit-ncc / .btn-hist-ncc / .btn-convert-po` đang `display: none` mặc định, chỉ hiện qua `:hover` của td. iPad không có hover thật → tap fake-hover làm các nút inline-block xuất hiện → layout shift → scroll vị trí thay đổi.
+
+**Fix**: trong `@media (pointer: coarse)` (line ~1996 inventory-tracking/css/modern.css), thêm rule luôn `display: inline-block` cho 7 nút trên + bump `.drag-stt` opacity 0.32 → 0.85. Layout cố định → tap = bấm nút thật, không gây reflow scroll.
+
+**Files**: `inventory-tracking/css/modern.css` line ~2002 (touch device action buttons always visible block), `inventory-tracking/index.html` bump `css/modern.css?v=20260603b`.
+
+**Verify**: pattern y nguyên `.btn-edit-cell` block đã có `@media (hover: none) and (pointer: coarse)` auto-show từ trước.
+
+**Status**: ✅ Done.
+
+---
+
 ### [render][web2] Tách DB Web 2.0 — Phase 1: web2_customers (kho KH riêng) thay /api/v2/customers 🔄
 
 **User quyết định**: tách HẾT data Web 2.0 sang kho riêng `n2store-web2-db` (Render PG, dpg-d8d7be) + Firebase web2, độc lập hoàn toàn Web 1.0. Làm một mạch. Plan: [docs/web2/DB-SEPARATION-PLAN.md](web2/DB-SEPARATION-PLAN.md).

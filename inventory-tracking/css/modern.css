@@ -1998,6 +1998,22 @@ textarea.inline-edit-input {
         padding: 6px 12px !important;
         font-size: 13px !important;
     }
+
+    /* iPad/touch: bỏ phụ thuộc :hover. Các nút hành động trong cột STT &
+       NCC luôn hiện để user không phải tap fake-hover (gây layout shift +
+       scroll jump). Drag handle full opacity (vs 0.32 desktop default). */
+    .invoice-table td.col-stt .btn-del-stt,
+    .invoice-table td.col-stt .btn-add-stt,
+    .invoice-table td.col-stt .btn-copy-stt,
+    .invoice-table td.col-ncc .btn-del-ncc,
+    .invoice-table td.col-ncc .btn-edit-ncc,
+    .invoice-table td.col-ncc .btn-hist-ncc,
+    .invoice-table td.col-ncc .btn-convert-po {
+        display: inline-block;
+    }
+    .invoice-table .drag-stt {
+        opacity: 0.85;
+    }
 }
 
 /* Admin Note */
