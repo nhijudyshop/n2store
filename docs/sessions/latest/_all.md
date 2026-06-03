@@ -3,21 +3,22 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9fbe914` — docs(web2): Phase 6 cutover VERIFIED — overview + dev-log (web2 trên web2Db, Web 1.0 untouched)
-**Last updated**: 2026-06-03 18:37:58 +07
-**Latest session**: [`RESUME:20260603-183758-9fbe914`](../20260603-183758-9fbe914.md)
-**Summary**: docs(web2): Phase 6 cutover VERIFIED — overview + dev-log (web2 trên web2Db, Web 1.0 untouched)
+**Latest commit**: `8701861` — docs(web2): overview thêm section #conventions (quy ước Web 2.0 canonical cho code mới) + CLAUDE.md pointer
+**Last updated**: 2026-06-03 18:48:33 +07
+**Latest session**: [`RESUME:20260603-184833-8701861`](../20260603-184833-8701861.md)
+**Summary**: docs(web2): overview thêm section #conventions (quy ước Web 2.0 canonical cho code mới) + CLAUDE.md pointer
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-05-24 13:33
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-06-01 10:55
+- [`_root/`](./_root.md) — updated 2026-06-03 18:48
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-05-22 12:35
@@ -50,7 +51,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-03 18:34
+- [`render.com/`](./render.com.md) — updated 2026-06-03 18:48
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-03 18:34
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -68,4 +69,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-03 18:37
+- [`web2/`](./web2.md) — updated 2026-06-03 18:48
