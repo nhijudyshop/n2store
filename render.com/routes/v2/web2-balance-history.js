@@ -61,7 +61,10 @@ router.get('/', async (req, res) => {
         if (search) {
             params.push(`%${search}%`);
             where.push(
-                `(content ILIKE $${params.length} OR linked_customer_phone ILIKE $${params.length} OR sepay_id ILIKE $${params.length})`
+                // sepay_id là INTEGER (clone từ Web 1.0) → phải cast ::text mới
+                // dùng được ILIKE, nếu không Postgres throw "operator does not
+                // exist: integer ~~* text" → search 500.
+                `(content ILIKE $${params.length} OR linked_customer_phone ILIKE $${params.length} OR sepay_id::text ILIKE $${params.length})`
             );
         }
         // Date range filter (YYYY-MM-DD inclusive)

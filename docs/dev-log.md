@@ -23,6 +23,24 @@
 
 ---
 
+## 2026-06-03
+
+### [render][balance-history] Fix search 500 — `sepay_id INTEGER ILIKE text` (clone Web 1.0) + giải thích prelink_credit ✅
+
+**Bug**: Search ô tìm SĐT/sepay_id/nội dung ở [web2/balance-history](../web2/balance-history/index.html) trả HTTP 500 `operator does not exist: integer ~~* text`.
+
+**Nguyên nhân**: Cột `web2_balance_history.sepay_id` là `INTEGER` (clone từ Web 1.0), nhưng WHERE clause dùng `sepay_id ILIKE $1` (text pattern). Postgres không có operator ILIKE cho integer.
+
+**Fix**: cast `sepay_id::text ILIKE $N` trong [render.com/routes/v2/web2-balance-history.js](../render.com/routes/v2/web2-balance-history.js) (chỉ 1 chỗ, handler GET `/`).
+
+**Câu hỏi user "sao xác định được Trang Đài khi kho KH có nhiều Trang Đài"**: Web 2.0 matcher **KHÔNG match theo tên** — chỉ QR → exact phone → partial phone (digit-run) trong content. Content `NGUYEN TRANG DAI Chuyen tien GD 6154... 030626-11:31:07` sau `stripBankNoise` không còn SĐT/QR nào → matcher không tự xác định được ai. GD này có `match_method = prelink_credit` (verify DB sepay_id=61646875): row đã có sẵn `linked_customer_phone = 0919561765` từ **clone Web 1.0** → nhánh prelink ([web2-sepay-matching.js:278](../render.com/services/web2-sepay-matching.js#L278)) credit thẳng + set AUTO_APPROVED, **không re-validate, không ghi audit log**. Tức Web 2.0 tin tưởng hoàn toàn link cũ của Web 1.0 — nếu Web 1.0 chọn nhầm Trang Đài thì Web 2.0 kế thừa sai + đã cộng ví.
+
+**Còn cần xem (chưa làm)**: prelink_credit không gọi `web2MatchAudit.log` → không có dấu vết vì sao chọn phone đó. Cân nhắc thêm audit cho prelink để debug được.
+
+Files: `render.com/routes/v2/web2-balance-history.js`
+
+---
+
 ## 2026-06-02
 
 ### [balance-history][native-orders] Tìm 5-10 số đuôi SĐT + hiển thị số dư ví KH khắp nơi + ẩn "Tổng tiền vào" ✅
