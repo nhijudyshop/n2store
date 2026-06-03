@@ -148,6 +148,17 @@ chatDbPool
         } catch (e) {
             console.warn('[web2-customers-schema] require failed:', e.message);
         }
+        // WEB 2.0 — rename kho KH đơn hàng: customers → web2_order_customers (web2Db).
+        // ⚠ Truyền RAW web2Pool (KHÔNG fallback chatDb) — rename trên chatDb sẽ phá
+        // bảng customers Web 1.0. Migration tự skip nếu web2Pool null.
+        try {
+            const { ensureWeb2OrderCustomersRename } = require('./db/web2-order-customers-migrate');
+            ensureWeb2OrderCustomersRename(web2Pool).catch((e) =>
+                console.warn('[web2-order-customers-migrate] init warn:', e.message)
+            );
+        } catch (e) {
+            console.warn('[web2-order-customers-migrate] require failed:', e.message);
+        }
         // WEB 2.0 — wallet isolation (TRUE isolation từ 2026-05-25):
         // tạo web2_customer_wallets/transactions/adjustments + sequence riêng.
         // DROP triggers cũ (legacy → web2 sync) — Web 2.0 service tự ghi web2_*.

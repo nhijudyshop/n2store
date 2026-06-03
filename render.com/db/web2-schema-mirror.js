@@ -178,7 +178,8 @@ const WEB2_TABLES = [
     'web2_supplier_ratings',
     'campaign_employee_ranges',
     // Bảng tên-Web1.0 — web2Db giữ BẢN COPY RIÊNG (Web 1.0 chatDb KHÔNG đụng)
-    'customers',
+    // 2026-06-03: `customers` đã RENAME → web2_order_customers (kho KH đơn hàng
+    // Web 2.0). KHÔNG mirror `customers` nữa (tránh tái tạo gây nhầm tên).
     'balance_history',
     'campaigns',
 ];

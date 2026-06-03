@@ -25,6 +25,15 @@
 
 ## 2026-06-03
 
+### [render][overview] Làm rõ 2 bảng KH trong web2Db + fix backtick vỡ template literal ✅
+
+Khi gộp kho KH (`customers` → `web2_customers`), phát hiện native-orders KHÔNG dùng copy stale mà duy trì **kho KH đơn hàng riêng** `customers` (web2Db) schema giàu (phone UNIQUE/name/address/email/fb_id/**pancake_data/status/tier**), nguồn Pancake/FB qua `upsertCustomerFromOrder()` — khác hẳn `web2_customers` (TPOS-synced). Migrate nửa vời sẽ vỡ order-flow LIVE → **revert native-orders**, giữ lại nền tảng (web2_customers thêm `fb_id` + helpers `getOrCreateWeb2Customer/findWeb2CustomerByFbId/linkWeb2CustomerFbId/lookupWeb2CustomerIdByPhone`).
+
+- **Bug nghiêm trọng đã fix**: comment SQL trong `ensureWeb2CustomersSchema` chứa backtick `` `customers` `` → đóng template literal JS sớm → `node --check` fail → Render redeploy sẽ throw lúc `require('./db/web2-customers-schema')`. Đổi sang nháy kép.
+- **Overview #datastores**: dòng "Đơn Web" thêm `customers` (web2Db)<sup>⚠</sup>; thêm note vàng giải thích 2 bảng KH (canonical `web2_customers` vs order-store `customers`), cảnh báo trùng tên với Web 1.0 (nhưng nằm web2Db, là kho riêng Web 2.0), dự kiến đổi tên `web2_order_customers` (chưa làm — đụng ~10 query LIVE).
+
+Files: `render.com/db/web2-customers-schema.js` (fb_id + helpers + fix backtick), `web2/overview/index.html` (#datastores note). `render.com/routes/native-orders.js` reverted (giữ nguyên `customers` web2Db).
+
 ### [balance-history] Bỏ cột Mã tham chiếu + nút ↗ + modal chi tiết KH ✅
 
 User yêu cầu 3 việc trên trang balance-history:

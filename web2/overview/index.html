@@ -1402,7 +1402,10 @@ permission_templates    (role: admin/manager/staff)</pre
                                         <code>PATCH /api/native-orders/:code</code>
                                         <em>(sửa KH info → tự sync TPOS)</em>
                                     </td>
-                                    <td><code>native_orders</code></td>
+                                    <td>
+                                        <code>native_orders</code> ·
+                                        <code>web2_order_customers</code> (web2Db)
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td><strong>💰 Ví Khách Hàng</strong></td>
@@ -1474,6 +1477,44 @@ permission_templates    (role: admin/manager/staff)</pre
                         bảng trên, KHÔNG tạo kho song song. ③ TPOS/Pancake là master ngoài — đọc qua
                         <code>/api/odata/*</code>. ④ Cần kho mới → thêm 1 dòng vào bảng này trước
                         khi code.
+                    </p>
+
+                    <p
+                        class="ov-db-note"
+                        style="
+                            margin-top: 12px;
+                            border-left: 4px solid #f59e0b;
+                            background: #fffbeb;
+                        "
+                    >
+                        <strong>⚠ web2Db có 2 bảng KH — KHÔNG nhầm:</strong>
+                        <br />
+                        <strong>(1) <code>web2_customers</code></strong> — CANONICAL. Nguồn TPOS
+                        Partner (id = TPOS Partner Id), dùng cho
+                        <em>tìm/sửa/đồng bộ 2 chiều</em> qua <code>/api/web2/customers/*</code>. Đây
+                        là kho mọi trang nên đọc/ghi.
+                        <br />
+                        <strong>(2) <code>web2_order_customers</code> (web2Db)</strong> — kho KH
+                        <em>đơn hàng riêng của native-orders</em> (Đơn Web).
+                        <strong>Đổi tên từ <code>customers</code> ngày 2026-06-03</strong> để hết
+                        trùng tên với Web 1.0. Schema giàu: <code>phone</code> (UNIQUE) ·
+                        <code>name</code> · <code>address</code> · <code>email</code> ·
+                        <code>fb_id</code> · <code>pancake_data</code> · <code>status</code> ·
+                        <code>tier</code> · <code>tpos_id</code> · <code>tpos_data</code> ·
+                        <code>aliases</code>. Nguồn dữ liệu là
+                        <strong>Pancake/Facebook</strong> (webhook đơn), KHÔNG phải TPOS.
+                        <code>native_orders.customer_id</code> ref bảng này. Code dùng service riêng
+                        <code>services/web2-order-customer-service.js</code> (KHÔNG dùng
+                        <code>customer-creation-service</code> / <code>customer-helpers</code> của
+                        Web 1.0). Consumer: native-orders, fast-sale-orders, pbh-reports,
+                        web2-customer-orders, web2-customer-tpos.
+                        <br />
+                        <strong>Vì sao 2 kho tách:</strong>
+                        <code>web2_customers</code> = nguồn TPOS (search/sửa, id = TPOS Partner Id);
+                        <code>web2_order_customers</code> = nguồn Pancake/FB (đơn hàng, id tự tăng,
+                        phone UNIQUE). Khác master + khác schema → giữ tách theo vai trò. Khi cần
+                        thông tin KH chuẩn để sửa/đồng bộ TPOS → luôn dùng
+                        <code>web2_customers</code>.
                     </p>
                 </section>
 

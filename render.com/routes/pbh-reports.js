@@ -334,7 +334,7 @@ router.get('/top-customers-360', async (req, res) => {
                 COALESCE(nw.phone_hint, pbh.phone_hint) AS phone_hint
             FROM nw
             FULL OUTER JOIN pbh ON nw.customer_id = pbh.customer_id
-            LEFT JOIN customers c ON c.id = COALESCE(nw.customer_id, pbh.customer_id)
+            LEFT JOIN web2_order_customers c ON c.id = COALESCE(nw.customer_id, pbh.customer_id)
             ORDER BY combined_total DESC
             LIMIT $2
             `,
