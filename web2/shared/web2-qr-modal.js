@@ -124,7 +124,7 @@
                                 <div id="w2qrBank">—</div>
                             </div>
                             <div class="w2qr-field">
-                                <label>TPOS Partner Id</label>
+                                <label>Partner Id</label>
                                 <div id="w2qrPartnerId">—</div>
                             </div>
                             <div class="w2qr-field w2qr-stats">
