@@ -3,22 +3,22 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8701861` — docs(web2): overview thêm section #conventions (quy ước Web 2.0 canonical cho code mới) + CLAUDE.md pointer
-**Last updated**: 2026-06-03 18:48:33 +07
-**Latest session**: [`RESUME:20260603-184833-8701861`](../20260603-184833-8701861.md)
-**Summary**: docs(web2): overview thêm section #conventions (quy ước Web 2.0 canonical cho code mới) + CLAUDE.md pointer
+**Latest commit**: `a3e3aca` — feat(orders-report): đối soát KPI theo MÓN + đổi sang ExportFileDetail
+**Last updated**: 2026-06-03 18:57:17 +07
+**Latest session**: [`RESUME:20260603-185717-a3e3aca`](../20260603-185717-a3e3aca.md)
+**Summary**: feat(orders-report): đối soát KPI theo MÓN + đổi sang ExportFileDetail
 
 ## Folders affected in this commit
 
 - [`_root/`](./_root.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
+- [`orders-report/`](./orders-report.md) — 2 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-05-24 13:33
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-06-03 18:48
+- [`_root/`](./_root.md) — updated 2026-06-03 18:57
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-05-22 12:35
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-03 18:37
+- [`docs/`](./docs.md) — updated 2026-06-03 18:57
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-03 16:52
 - [`downloads/`](./downloads.md) — updated 2026-06-03 18:34
@@ -43,7 +43,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-03 16:52
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-03 16:52
+- [`orders-report/`](./orders-report.md) — updated 2026-06-03 18:57
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-05-26 15:44

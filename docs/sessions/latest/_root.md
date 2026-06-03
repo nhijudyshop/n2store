@@ -3,23 +3,23 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260603-184833-8701861`
-**Session file**: [`./20260603-184833-8701861.md`](../20260603-184833-8701861.md)
-**Commit**: `8701861` — docs(web2): overview thêm section #conventions (quy ước Web 2.0 canonical cho code mới) + CLAUDE.md pointer
-**Last updated**: 2026-06-03 18:48:33 +07
-**Summary**: docs(web2): overview thêm section #conventions (quy ước Web 2.0 canonical cho code mới) + CLAUDE.md pointer
+**Latest session**: `RESUME:20260603-185717-a3e3aca`
+**Session file**: [`./20260603-185717-a3e3aca.md`](../20260603-185717-a3e3aca.md)
+**Commit**: `a3e3aca` — feat(orders-report): đối soát KPI theo MÓN + đổi sang ExportFileDetail
+**Last updated**: 2026-06-03 18:57:17 +07
+**Summary**: feat(orders-report): đối soát KPI theo MÓN + đổi sang ExportFileDetail
 
 ## Files changed in this commit (`_root/`)
 
-- `CLAUDE.md`
+- `.gitignore`
 
 ## Last 5 commits touching `_root/`
 
-- `87018611e` docs(web2): overview thêm section #conventions (quy ước Web 2.0 canonical cho code mới) + CLAUDE.md pointer _(2026-06-03)_
-- `d882ce45f` docs(web2): rule #8 — UI-first cho mọi mutation handler (BẮT BUỘC) _(2026-06-01)_
-- `3b539bf87` docs(web2): modal anti-lag playbook + CLAUDE rule #7 _(2026-05-30)_
-- `17d2791a6` docs(api): document /api/v2/\* namespace is mixed Web 1.0 + Web 2.0 _(2026-05-26)_
-- `2f73eaaf1` auto: session update _(2026-05-26)_
+- `a3e3aca2c` feat(orders-report): đối soát KPI theo MÓN + đổi sang ExportFileDetail _(2026-06-03)_
+- `37f2713eb` chore: gitignore TPOS test captures (chứa auth tokens) _(2026-05-25)_
+- `0d625dacf` auto: session update _(2026-05-25)_
+- `e35d9bcf8` auto: session update _(2026-05-24)_
+- `bdf9cdef6` auto: session update _(2026-05-22)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260603-184833-8701861` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260603-185717-a3e3aca` cho Claude walk chain theo CLAUDE.md protocol.
