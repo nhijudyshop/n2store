@@ -18,17 +18,39 @@
             return '<span style="color: #9ca3af;">—</span>';
         }
 
+        // Refresh button — fetch fresh PBH state từ TPOS cho social order này.
+        // Hiển thị cả khi cell rỗng để user check phiếu vừa tạo / vừa hủy trên TPOS
+        // mà SSE polling chưa kịp cập nhật. window.refreshPBHForOrder (tab1) đã có nhánh
+        // fallback xử lý social order (query TPOS theo Reference = social order id).
+        const orderIdEsc = String(order.id).replace(/'/g, "\\'");
+        const refreshBtnHtml = `<button type="button" class="invoice-refresh-btn" onclick="window.refreshPBHForOrder('${orderIdEsc}'); event.stopPropagation();" title="Làm mới trạng thái phiếu từ TPOS" style="background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc;border-radius:3px;padding:1px 5px;cursor:pointer;font-size:11px;font-weight:600;line-height:1;display:inline-flex;align-items:center;gap:2px;">↻</button>`;
+        const emptyCellHtml = `<div style="display:inline-flex;align-items:center;gap:4px;"><span style="color: #9ca3af;">—</span>${refreshBtnHtml}</div>`;
+
         // Use social order ID as key in InvoiceStatusStore
         const invoiceData = window.InvoiceStatusStore?.get(order.id);
 
         if (!invoiceData) {
-            return '<span style="color: #9ca3af;">—</span>';
+            return emptyCellHtml;
         }
 
         const showState = invoiceData.ShowState || '';
         const showStateConfig = window.getShowStateConfig ? window.getShowStateConfig(showState) : { color: '#6c757d', bgColor: '#f3f4f6', borderColor: '#d1d5db' };
         const stateCode = invoiceData.StateCode || 'None';
         const isMergeCancel = invoiceData.IsMergeCancel === true;
+
+        // Phiếu đã huỷ → ẩn khỏi cột PHIẾU BÁN HÀNG (mirror tab1 renderInvoiceStatusCell),
+        // chỉ chừa nút refresh để user check phiếu mới trên TPOS. Bao phủ case refresh
+        // bắt được phiếu vừa bị huỷ trực tiếp trên TPOS (chưa polling tới).
+        const isCancelled =
+            invoiceData.State === 'cancel' ||
+            stateCode === 'cancel' ||
+            isMergeCancel ||
+            showState === 'Huỷ bỏ' ||
+            showState === 'Hủy bỏ';
+        if (isCancelled) {
+            return emptyCellHtml;
+        }
+
         const stateCodeConfig = window.getStateCodeConfig ? window.getStateCodeConfig(stateCode, isMergeCancel) : { color: '#9ca3af', label: '' };
         const stateCodeStyle = stateCodeConfig.style || '';
 
@@ -93,10 +115,13 @@
         }
         html += `</div>`;
 
-        // Row 2: StateCode text
+        // Row 2: StateCode text + nút làm mới trạng thái phiếu từ TPOS
+        html += `<div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">`;
         if (stateCodeConfig.label) {
-            html += `<div style="font-size: 11px; color: ${stateCodeConfig.color}; ${stateCodeStyle}">${stateCodeConfig.label}</div>`;
+            html += `<span style="font-size: 11px; color: ${stateCodeConfig.color}; ${stateCodeStyle}">${stateCodeConfig.label}</span>`;
         }
+        html += refreshBtnHtml;
+        html += `</div>`;
 
         html += `</div>`;
         return html;

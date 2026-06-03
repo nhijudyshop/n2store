@@ -4197,10 +4197,30 @@
          */
         window.refreshPBHForOrder = async function (orderId) {
             if (!orderId) return;
-            const order =
+            let order =
                 (typeof allData !== 'undefined' && allData.find((o) => o.Id === orderId)) ||
                 (typeof window.displayedData !== 'undefined' &&
                     window.displayedData.find((o) => o.Id === orderId));
+            // Fallback Đơn Inbox (social order): không nằm trong allData/displayedData.
+            // Social order sống trên Render (id "SO-..."); khi tạo PBH, FastSaleOrder lấy
+            // Reference = chính social order id (xem tab1-sale.js: Reference cho _isSocialOrder).
+            // → query TPOS theo Reference eq orderId là đủ cho cả phiếu mới tạo lẫn phiếu vừa hủy.
+            if (!order) {
+                const socialOrder = window.SocialOrderState?.orders?.find((o) => o.id === orderId);
+                if (socialOrder) {
+                    // Ưu tiên Reference thật của phiếu đang có trong store (ground truth từ TPOS);
+                    // fallback social order id cho case cell rỗng (phiếu mới tạo chưa polling tới).
+                    const existingRef = window.InvoiceStatusStore?.get(orderId)?.Reference;
+                    order = {
+                        Id: orderId,
+                        Code: existingRef || orderId,
+                        Name: socialOrder.customerName || '',
+                        Telephone: socialOrder.phone || '',
+                        Address: socialOrder.address || '',
+                        __isSocial: true,
+                    };
+                }
+            }
             if (!order || !order.Code) {
                 window.notificationManager?.error('Không tìm thấy thông tin đơn để refresh');
                 return;
@@ -4272,10 +4292,15 @@
                     InvoiceStatusStore.set(orderId, inv, orderShim);
                 }
 
-                // Re-render cell
+                // Re-render cell — social order (Đơn Inbox) dùng social renderer để giữ
+                // đúng UI/handlers; tab1 order dùng renderInvoiceStatusCell như cũ.
                 if (row) {
                     const cell = row.querySelector('td[data-column="invoice-status"]');
-                    if (cell) cell.innerHTML = renderInvoiceStatusCell(order);
+                    if (order.__isSocial && typeof window.refreshSocialInvoiceCell === 'function') {
+                        window.refreshSocialInvoiceCell(orderId);
+                    } else if (cell) {
+                        cell.innerHTML = renderInvoiceStatusCell(order);
+                    }
                 }
 
                 const activeCount = invoices.filter(

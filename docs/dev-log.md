@@ -131,6 +131,26 @@ Files: `render.com/routes/v2/web2-balance-history.js`
 
 ---
 
+### [inbox] Fix nút "Làm mới trạng thái phiếu từ TPOS" ở Đơn Inbox (don-inbox) ✅
+
+**Yêu cầu user**: Nút làm mới trạng thái phiếu từ TPOS ở trang `don-inbox` bị lỗi — bấm hiện toast `Lỗi: Không tìm thấy thông tin đơn để refresh`.
+
+**Gốc vấn đề**: Cell "Phiếu bán hàng" của don-inbox render bằng `renderSocialInvoiceCell` (social order, key bằng `.id` lowercase, vd `SO-...`). Nút refresh gọi `window.refreshPBHForOrder(order.Id)` — hàm này (tab1) chỉ tìm đơn trong `allData`/`window.displayedData` (mảng của tab1 orders-report), KHÔNG chứa social order → luôn báo "Không tìm thấy thông tin đơn để refresh". Ngoài ra `renderSocialInvoiceCell` hiện tại còn **không có** nút refresh (screenshot user thấy là bản cache cũ `?v=20260521b` ~2 tuần).
+
+**Dữ liệu liên quan**:
+- Social order sống trên Render (id `SO-...`), không có SaleOnline trên TPOS. Khi tạo PBH, FastSaleOrder lấy `Reference = String(social order id)` (`tab1-sale.js:1712`).
+- Invoice social lưu trong `InvoiceStatusStore` key = social order id (patch `storeFromApiResult` ở `tab-social-invoice.js`).
+- `window.SocialOrderState` expose trên window (`tab-social-core.js:444`).
+
+**Giải pháp**:
+- `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` — `refreshPBHForOrder`: `const`→`let order` + fallback tra `window.SocialOrderState.orders` theo `.id`, dựng orderShim `{Id, Code: existingInvoiceReference || orderId, Name/Telephone/Address, __isSocial}`. Query TPOS `Reference eq '<social id>'` (đúng pattern tab1) → bao cả phiếu mới tạo lẫn vừa hủy. Re-render: nếu `__isSocial` + có `window.refreshSocialInvoiceCell` → gọi nó (giữ đúng UI/handlers social), else `renderInvoiceStatusCell` như cũ. Tab1 order: hành vi y nguyên (optional-chain `SocialOrderState` an toàn khi undefined).
+- `don-inbox/js/tab-social-invoice.js` — `renderSocialInvoiceCell`: thêm nút refresh (`class="invoice-refresh-btn"`, onclick `refreshPBHForOrder(order.id)`) ở cả cell rỗng lẫn cell có phiếu (cạnh StateCode label).
+- `don-inbox/index.html` — bump cache `v=20260521b`→`v=20260603a` (52 chỗ) để user nhận code mới ngay.
+
+**Status**: ✅ Done — `node --check` pass 3 file.
+
+---
+
 ## 2026-06-02
 
 ### [balance-history][native-orders] Tìm 5-10 số đuôi SĐT + hiển thị số dư ví KH khắp nơi + ẩn "Tổng tiền vào" ✅
