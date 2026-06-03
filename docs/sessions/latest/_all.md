@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `3bd99a8` — feat(web2): photo-studio v4 — camera mobile-first (auto-start nếu đã cấp quyền, camera sau mặc định, báo lỗi quyền rõ)
-**Last updated**: 2026-06-03 19:54:50 +07
-**Latest session**: [`RESUME:20260603-195450-3bd99a8`](../20260603-195450-3bd99a8.md)
-**Summary**: feat(web2): photo-studio v4 — camera mobile-first (auto-start nếu đã cấp quyền, camera sau mặc định, b...
+**Latest commit**: `cdfe1e0` — auto: session update
+**Last updated**: 2026-06-03 19:56:15 +07
+**Latest session**: [`RESUME:20260603-195615-cdfe1e0`](../20260603-195615-cdfe1e0.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -50,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-03 19:47
+- [`render.com/`](./render.com.md) — updated 2026-06-03 19:56
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-03 18:34
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -68,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-03 19:54
+- [`web2/`](./web2.md) — updated 2026-06-03 19:56
