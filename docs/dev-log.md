@@ -25,6 +25,16 @@
 
 ## 2026-06-03
 
+### [balance-history] Bỏ cột Mã tham chiếu + nút ↗ + modal chi tiết KH ✅
+
+User yêu cầu 3 việc trên trang balance-history:
+
+1. **Bỏ cột "Mã tham chiếu"** — xóa `<th>` + `<td class="w2bh-cell-ref">` + colspan 6→5.
+2. **Bỏ nút ↗ "Mở thẻ KH"** — `tpos-partner-enricher.js` không inject `linkHtml` nữa (giữ status pill TPOS).
+3. **Click tên KH → modal chi tiết** — file mới `js/web2-customer-detail-modal.js` (`Web2CustomerDetailModal.open(phone,name)`), 3 tab: **Thông tin** (tên/SĐT/địa chỉ + sửa → `PATCH /api/web2/customers/:id` đồng bộ TPOS + danh sách KH trùng SĐT), **Lịch sử ví** (nạp/dùng từ `/wallets/:phone/transactions`), **Đơn hàng** (Đơn Web + PBH từ `/customers/by-phone/:phone/orders` + đếm PBH thành công). Đọc 100% kho KH dùng chung Web 2.0.
+
+Files: `web2/balance-history/index.html`, `web2/balance-history/js/web2-balance-history-app.js`, `web2/balance-history/js/tpos-partner-enricher.js`, `web2/balance-history/js/web2-customer-detail-modal.js` (mới)
+
 ### [web2] Studio chụp tách nền (camera → xóa/ghép phông) ✅
 
 **Trang mới** `web2/photo-studio/` (index.html + photo-studio.js + photo-studio.css) — feature client-side thuần, **không backend/DB/SSE**, ảnh không rời máy user.

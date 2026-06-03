@@ -73,7 +73,8 @@
         }
         const wrap = document.createElement('span');
         wrap.className = 'bh-tpos-enrich';
-        wrap.innerHTML = `${statusPillHtml(partner)} ${linkHtml(partner)}`;
+        // 2026-06-03: bỏ nút "Mở thẻ KH" (↗) — click tên KH mở modal chi tiết thay thế.
+        wrap.innerHTML = statusPillHtml(partner);
         cell.appendChild(wrap);
         row.__tposEnriched = true;
         if (window.lucide?.createIcons) window.lucide.createIcons();

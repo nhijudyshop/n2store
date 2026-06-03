@@ -235,14 +235,25 @@
 
     function renderTable() {
         if (state.loading) {
-            dom.tbody.innerHTML = `<tr><td colspan="6" class="w2bh-loading">Đang tải…</td></tr>`;
+            dom.tbody.innerHTML = `<tr><td colspan="5" class="w2bh-loading">Đang tải…</td></tr>`;
             return;
         }
         if (!state.rows.length) {
-            dom.tbody.innerHTML = `<tr><td colspan="6" class="w2bh-empty">Không có giao dịch phù hợp</td></tr>`;
+            dom.tbody.innerHTML = `<tr><td colspan="5" class="w2bh-empty">Không có giao dịch phù hợp</td></tr>`;
             return;
         }
         dom.tbody.innerHTML = state.rows.map(renderRow).join('');
+        // Click tên KH → modal chi tiết (kho KH dùng chung)
+        dom.tbody.querySelectorAll('[data-action="customer-detail"]').forEach((el) => {
+            el.addEventListener('click', () => {
+                if (window.Web2CustomerDetailModal?.open) {
+                    window.Web2CustomerDetailModal.open(
+                        el.getAttribute('data-phone'),
+                        el.getAttribute('data-name')
+                    );
+                }
+            });
+        });
         dom.tbody.querySelectorAll('[data-action="link"]').forEach((btn) => {
             btn.addEventListener('click', () => openLinkPrompt(btn.getAttribute('data-id')));
         });
@@ -407,12 +418,11 @@
                 <td class="w2bh-cell-time">${escapeHtml(fmtTime(r.transaction_date))}</td>
                 <td class="w2bh-cell-amount ${cls}">${sign}${fmtVnd(amount)}₫</td>
                 <td class="w2bh-cell-content">${escapeHtml(r.content || '')}</td>
-                <td class="w2bh-cell-ref">${escapeHtml(r.reference_code || r.sepay_id || '')}</td>
                 <td class="w2bh-cell-customer" data-tpos-customer-cell="1">
                     ${
                         phone
                             ? `<div class="w2bh-customer">
-                                  <span class="w2bh-customer-name">${escapeHtml(name || '(không tên)')}</span>
+                                  <span class="w2bh-customer-name w2bh-customer-name-link" data-action="customer-detail" data-phone="${escapeHtml(phone)}" data-name="${escapeHtml(name || '')}" title="Xem chi tiết khách hàng">${escapeHtml(name || '(không tên)')}</span>
                                   <span class="w2bh-customer-phone">${escapeHtml(phone)}</span>
                                   <span class="w2bh-wallet-pill" data-w2wallet-phone="${escapeHtml(phone)}"></span>
                                </div>`
@@ -843,7 +853,7 @@
             if (my !== _seq) return;
             state.loading = false;
             state.rows = [];
-            dom.tbody.innerHTML = `<tr><td colspan="6" class="w2bh-error">Lỗi tải: ${escapeHtml(e.message)}</td></tr>`;
+            dom.tbody.innerHTML = `<tr><td colspan="5" class="w2bh-error">Lỗi tải: ${escapeHtml(e.message)}</td></tr>`;
         }
     }
 
