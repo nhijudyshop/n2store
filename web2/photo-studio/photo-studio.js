@@ -163,6 +163,12 @@
             'optionsToggle:psOptionsToggle',
             'sheetClose:psSheetClose',
             'sheetBackdrop:psSheetBackdrop',
+            'preview:psPreview',
+            'previewImg:psPreviewImg',
+            'previewMeta:psPreviewMeta',
+            'previewClose:psPreviewClose',
+            'previewRetake:psPreviewRetake',
+            'previewSave:psPreviewSave',
         ].forEach((pair) => {
             const [k, v] = pair.split(':');
             el[k] = v.startsWith('.') ? document.querySelector(v) : id(v);
@@ -183,6 +189,11 @@
         el.optionsToggle.addEventListener('click', openSheet);
         el.sheetClose.addEventListener('click', closeSheet);
         el.sheetBackdrop.addEventListener('click', closeSheet);
+
+        // Preview ảnh vừa chụp
+        el.previewClose.addEventListener('click', closePreview);
+        el.previewRetake.addEventListener('click', closePreview);
+        el.previewSave.addEventListener('click', savePreview);
 
         document
             .querySelectorAll('.ps-seg-btn[data-mode]')
@@ -736,10 +747,15 @@
         }
         octx2.drawImage(comp, 0, 0);
         out.toBlob(
-            (blob) => blob && addResult(blob, W, H, jpg ? 'jpg' : 'png'),
+            (blob) => blob && handleCaptured(blob, W, H, jpg ? 'jpg' : 'png'),
             jpg ? 'image/jpeg' : 'image/png',
             0.92
         );
+    }
+
+    function handleCaptured(blob, w, h, ext) {
+        addResult(blob, w, h, ext); // lưu vào gallery (lịch sử)
+        openPreview(blob, w, h, ext); // hiện ngay màn xem ảnh + nút Lưu
     }
 
     // ---- AI nét (@imgly/background-removal, on-device) ------------------
@@ -825,24 +841,50 @@
         ctx.drawImage(tmp, 0, 0);
     }
 
+    // ---- Lưu ảnh: Web Share API (lưu vào Ảnh điện thoại) → fallback tải ----
+    async function saveBlob(blob, filename) {
+        const type = blob.type || 'image/png';
+        try {
+            const file = new File([blob], filename, { type });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file], title: filename });
+                return;
+            }
+        } catch (e) {
+            if (e?.name === 'AbortError') return; // user huỷ share sheet
+            console.warn('[photo-studio] share fail, fallback download', e);
+        }
+        // Fallback: tải về (desktop / trình duyệt không hỗ trợ share file)
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+    }
+
     // ---- Results --------------------------------------------------------
     function addResult(blob, w, h, ext) {
         const url = URL.createObjectURL(blob);
         el.results.hidden = false;
         const stamp = resultStamp();
+        const name = `tach-nen-${stamp}.${ext}`;
         const card = document.createElement('div');
         card.className = 'ps-result-card';
         card.innerHTML = `
             <div class="ps-result-thumb" style="background-image:url(${url})"></div>
             <div class="ps-result-meta">${w}×${h} · ${(blob.size / 1024).toFixed(0)} KB</div>
             <div class="ps-result-actions">
-                <a class="ps-btn ps-btn-sm ps-btn-primary" download="tach-nen-${stamp}.${ext}" href="${url}">
-                    <i data-lucide="download"></i> Tải
-                </a>
+                <button class="ps-btn ps-btn-sm ps-btn-primary ps-result-save">
+                    <i data-lucide="download"></i> Lưu
+                </button>
                 <button class="ps-btn ps-btn-sm ps-btn-ghost ps-result-del" title="Xóa">
                     <i data-lucide="x"></i>
                 </button>
             </div>`;
+        card.querySelector('.ps-result-save').addEventListener('click', () => saveBlob(blob, name));
         card.querySelector('.ps-result-del').addEventListener('click', () => {
             URL.revokeObjectURL(url);
             card.remove();
@@ -851,7 +893,23 @@
         el.resultsGrid.prepend(card);
         updateResultsCount();
         relucide();
-        notify('Đã chụp ảnh.', 'success');
+    }
+
+    // ---- Preview ảnh vừa chụp (hiện ngay, full màn) --------------------
+    function openPreview(blob, w, h, ext) {
+        if (state._previewUrl) URL.revokeObjectURL(state._previewUrl);
+        state._previewUrl = URL.createObjectURL(blob);
+        state._previewBlob = blob;
+        state._previewName = `tach-nen-${resultStamp()}.${ext}`;
+        el.previewImg.src = state._previewUrl;
+        el.previewMeta.textContent = `${w}×${h} · ${(blob.size / 1024).toFixed(0)} KB`;
+        el.preview.hidden = false;
+    }
+    function closePreview() {
+        el.preview.hidden = true;
+    }
+    function savePreview() {
+        if (state._previewBlob) saveBlob(state._previewBlob, state._previewName);
     }
 
     function updateResultsCount() {
@@ -861,9 +919,9 @@
     }
 
     function downloadAll() {
-        const links = el.resultsGrid.querySelectorAll('a[download]');
-        if (!links.length) return;
-        links.forEach((a, i) => setTimeout(() => a.click(), i * 250));
+        const btns = el.resultsGrid.querySelectorAll('.ps-result-save');
+        if (!btns.length) return;
+        btns.forEach((b, i) => setTimeout(() => b.click(), i * 400));
     }
 
     function resultStamp() {

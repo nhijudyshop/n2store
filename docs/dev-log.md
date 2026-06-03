@@ -83,6 +83,17 @@ Trang dùng chủ yếu trên điện thoại → cải thiện UX quyền camer
 
 **Files**: `web2/photo-studio/{index.html,photo-studio.js}` (v=20260603d).
 
+### [web2] Studio chụp tách nền — v8 xem & lưu ảnh sau khi chụp (fix mobile) ✅
+
+User: ảnh chụp không thấy trên điện thoại + khó dùng. Nguyên nhân: gallery "Ảnh đã chụp" nằm tít dưới đáy (dưới sticky bar) + nút `<a download>` KHÔNG lưu được trên mobile (mở tab thay vì tải). Research Google/GitHub (PhotoRoom/remove.bg/imgly, Web Share API) → áp dụng flow chuẩn **chụp → xem → lưu/chụp lại**:
+
+- **Màn xem ảnh ngay sau khi chụp** (`#psPreview`, full-screen, z-200): ảnh hiển thị bằng `<img>` thật trên nền caro (thấy vùng trong suốt) + kích thước + nút **Lưu ảnh** / **Chụp lại** + mẹo "nhấn giữ ảnh → Lưu vào Ảnh" (fallback iOS). Áp dụng cho cả 3 mode (qua `handleCaptured` = addResult + openPreview).
+- **Lưu ảnh đúng cách mobile** (`saveBlob`): ưu tiên **Web Share API** `navigator.share({files})` (mở share sheet → "Lưu vào Ảnh" trên iOS/Android) → fallback `<a download>` (desktop). Giữ ảnh là `<img>` thật để long-press lưu được (safety net iOS).
+- Gallery: nút "Tải" `<a download>` → nút **Lưu** gọi `saveBlob` (giữ blob trong closure). `downloadAll` click các nút Lưu.
+- **Test** (Playwright iPhone13): chụp → preview hiện (img src + meta "240×320 · 3 KB" + hint + Save) ✓, Chụp lại đóng ✓, gallery có nút Lưu (không còn `a[download]`) ✓, 0 error.
+
+**Files**: `web2/photo-studio/{index.html,photo-studio.js,photo-studio.css}` (v=20260603h). Tham khảo: imgly/background-removal-js, do-me/js-camera-capture, MDN Web Share API.
+
 ### [web2] Studio chụp tách nền — v7 giao diện mobile (camera-app + bottom sheet) ✅
 
 Trang chủ yếu dùng trên điện thoại → làm lại layout responsive kiểu app camera:

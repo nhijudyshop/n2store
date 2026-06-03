@@ -651,6 +651,119 @@
 }
 
 /* =====================================================================
+   RESULT PREVIEW — màn xem ảnh vừa chụp (full-screen, mobile + desktop)
+   ===================================================================== */
+.ps-preview[hidden] {
+    display: none !important;
+}
+.ps-preview {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    background: #0b1220;
+    animation: ps-fade 0.18s ease;
+}
+@keyframes ps-fade {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+.ps-preview-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    color: #fff;
+}
+.ps-preview-title {
+    font-size: 15px;
+    font-weight: 700;
+}
+.ps-preview-x {
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    cursor: pointer;
+}
+.ps-preview-x i {
+    width: 20px;
+    height: 20px;
+}
+.ps-preview-stage {
+    flex: 1;
+    min-height: 0;
+    margin: 0 14px;
+    border-radius: 14px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* checkerboard cho ảnh trong suốt */
+    background-color: #1a2332;
+    background-image:
+        linear-gradient(45deg, #232f42 25%, transparent 25%),
+        linear-gradient(-45deg, #232f42 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #232f42 75%),
+        linear-gradient(-45deg, transparent 75%, #232f42 75%);
+    background-size: 22px 22px;
+    background-position:
+        0 0,
+        0 11px,
+        11px -11px,
+        -11px 0;
+}
+.ps-preview-stage img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+.ps-preview-meta {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 12px;
+    padding: 10px 0 2px;
+    font-variant-numeric: tabular-nums;
+}
+.ps-preview-actions {
+    display: flex;
+    gap: 12px;
+    padding: 8px 16px;
+}
+.ps-preview-actions .ps-btn {
+    flex: 1;
+    justify-content: center;
+    height: 54px;
+    font-size: 16px;
+}
+.ps-preview-actions .ps-btn:not(.ps-btn-primary) {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #fff;
+}
+.ps-preview-hint {
+    text-align: center;
+    color: #64748b;
+    font-size: 12px;
+    margin: 4px 16px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+}
+.ps-preview-hint b {
+    color: #cbd5e1;
+}
+
+/* =====================================================================
    MOBILE — bố cục kiểu app camera: khung lớn + nút Chụp to + bottom sheet
    ===================================================================== */
 @media (max-width: 860px) {
