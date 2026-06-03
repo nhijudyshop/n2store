@@ -476,3 +476,124 @@
     flex: 1;
     justify-content: center;
 }
+.ps-result-meta {
+    font-size: 11px;
+    color: var(--ps-muted);
+    padding: 6px 8px 0;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ===== FPS badge ===== */
+.ps-fps {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(15, 23, 42, 0.55);
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+}
+
+/* ===== Aspect chips ===== */
+.ps-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+.ps-chip {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ps-muted);
+    background: #f1f5f9;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition:
+        background 0.14s ease,
+        color 0.14s ease,
+        border-color 0.14s ease;
+}
+.ps-chip:hover {
+    background: #e6ebf1;
+}
+.ps-chip.is-active {
+    background: #fff;
+    color: var(--ps-accent);
+    border-color: var(--ps-accent);
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.1);
+}
+
+/* ===== 4-up segmented (background) ===== */
+.ps-seg-4 {
+    grid-template-columns: 1fr 1fr;
+}
+
+/* ===== Format buttons ===== */
+.ps-fmt-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ps-muted);
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 6px;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+.ps-fmt-btn small {
+    font-size: 10px;
+    font-weight: 500;
+    opacity: 0.8;
+}
+.ps-fmt-btn.is-active {
+    background: #fff;
+    color: var(--ps-accent);
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12);
+}
+
+/* ===== Checkbox variants + disabled bg btn ===== */
+.ps-check-sm {
+    margin-top: 12px;
+    font-size: 12.5px;
+}
+.ps-card .ps-check + .ps-fmt,
+.ps-seg + .ps-check {
+    margin-top: 12px;
+}
+.ps-bg-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ===== Results header tools ===== */
+.ps-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    margin-left: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ps-accent);
+    background: #e8f0fe;
+    border-radius: 999px;
+    vertical-align: middle;
+}
+.ps-results-tools {
+    display: flex;
+    gap: 8px;
+}

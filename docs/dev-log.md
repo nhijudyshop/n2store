@@ -48,6 +48,18 @@ Files: `web2/balance-history/index.html`, `web2/balance-history/js/web2-balance-
 
 **Files**: `web2/photo-studio/{index.html,photo-studio.js,photo-studio.css}`, `web2/shared/tpos-sidebar.js`.
 
+### [web2] Studio chụp tách nền — v2 cải tiến chuyên nghiệp 🔄→✅
+
+- **🐛 FIX chí mạng**: overlay "Đang tải mô hình AI…" kẹt vĩnh viễn — `.ps-stage-loading{display:flex}` đè UA `[hidden]{display:none}`. Thêm `.ps-stage-empty[hidden],.ps-stage-loading[hidden],.ps-fps[hidden]{display:none!important}`.
+- **Trạng thái tải model AI thật**: hiện "Đang tải mô hình AI…" tới khi `onSegResults` đầu tiên fire (`state.modelLoaded`), không hide sớm như trước.
+- **Tỉ lệ khung**: Gốc/1:1/4:5/3:4/9:16/16:9 — crop center qua `cropRect()`, áp cho cả AI (drawImage source-rect) + chroma + capture. Ảnh sản phẩm sàn TMĐT.
+- **Khử ám màu spill (chroma)**: clamp kênh trội của key về trung bình 2 kênh còn lại trên pixel giữ lại → hết viền ám xanh.
+- **Mờ nền (portrait)**: bgType `blur` — vẽ frame gốc blur làm nền sau chủ thể (chỉ AI; disable nút khi chroma). Slider độ mờ 2-30px.
+- **Chụp độ phân giải GỐC**: capture pass riêng từ source native (cap cạnh dài 2400px) thay vì từ preview 1080 — mask AI upscale, chroma re-key ở native.
+- **Xuất PNG/JPG**: JPG fill nền trắng (no alpha) + nhẹ hơn. Card kết quả hiện `WxH · KB`, nút "Tải tất cả" + đếm số ảnh.
+- **FPS badge** góc stage. Preview cap nâng 960→1080.
+- **Test** (Playwright): loading ẩn lúc init ✓, aspect 300×400→300×300 ✓, chroma center đỏ giữ/góc xanh xóa ✓, capture PNG+JPG (2 cards, filename đúng đuôi, meta WxH·KB) ✓, blur disabled in chroma ✓, 0 error.
+
 ### [web2] Kho KH thống nhất + Overview "Kho dữ liệu dùng chung" ✅
 
 **Sửa KH 1 nguồn → sync TPOS 2 chiều**: endpoint mới `PATCH /api/web2/customers/:id` (id=TPOS Partner Id) — sửa tên/SĐT/địa chỉ → push TPOS by tposId (đổi SĐT vẫn update đúng partner, không tạo dup) + update cache `web2_customers`. ĐÂY LÀ NƠI DUY NHẤT sửa KH. native-orders order-edit cũng sync (đã thêm phone vào trigger). partner-customer vẫn edit thẳng TPOS (full PUT). customer-wallet chỉ link TPOS (không sửa inline).
