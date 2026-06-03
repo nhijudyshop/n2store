@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b9a62af` — docs(web2): dev-log Phase 4+5 DONE (schema mirror + data copy verified allMatch)
-**Last updated**: 2026-06-03 17:25:11 +07
-**Latest session**: [`RESUME:20260603-172511-b9a62af`](../20260603-172511-b9a62af.md)
-**Summary**: docs(web2): dev-log Phase 4+5 DONE (schema mirror + data copy verified allMatch)
+**Latest commit**: `c1fa9ba` — feat(web2): Phase 6 prep — bump-sequences endpoint (+10000 chống collision gap rows khi cutover)
+**Last updated**: 2026-06-03 18:08:07 +07
+**Latest session**: [`RESUME:20260603-180807-c1fa9ba`](../20260603-180807-c1fa9ba.md)
+**Summary**: feat(web2): Phase 6 prep — bump-sequences endpoint (+10000 chống collision gap rows khi cutover)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -49,7 +49,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-03 17:21
+- [`render.com/`](./render.com.md) — updated 2026-06-03 18:08
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-01 10:27
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
