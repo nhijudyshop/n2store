@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `3f2264a` — refactor(balance-history): bỏ coupling Web 1.0 — dùng web2-content-parser cho extraction_preview thay legacy extractPhoneFromContent
-**Last updated**: 2026-06-03 15:24:43 +07
-**Latest session**: [`RESUME:20260603-152443-3f2264a`](../20260603-152443-3f2264a.md)
-**Summary**: refactor(balance-history): bỏ coupling Web 1.0 — dùng web2-content-parser cho extraction_preview thay legacy ext...
+**Latest commit**: `4ed5ff3` — auto: session update
+**Last updated**: 2026-06-03 16:07:55 +07
+**Latest session**: [`RESUME:20260603-160755-4ed5ff3`](../20260603-160755-4ed5ff3.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 3 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-03 15:24
+- [`docs/`](./docs.md) — updated 2026-06-03 16:07
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -56,7 +57,7 @@
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-01 18:45
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
-- [`so-order/`](./so-order.md) — updated 2026-06-01 10:47
+- [`so-order/`](./so-order.md) — updated 2026-06-03 16:07
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-02 16:51
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
@@ -68,4 +69,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-02 19:00
+- [`web2/`](./web2.md) — updated 2026-06-03 16:07
