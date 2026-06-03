@@ -1425,7 +1425,11 @@ router.patch('/:code', async (req, res) => {
         // 2026-06-01: Sync 2 chiều KH info (tên/SĐT/địa chỉ) per user spec.
         // Step 1: Update local customers table (Web 2.0 side).
         // Step 2: Fire-and-forget push lên TPOS (Web 2.0 → TPOS).
-        const hasCustomerInfoUpdate = body.customerName !== undefined || body.address !== undefined;
+        // 2026-06-03: thêm `phone` vào trigger — sửa MỖI SĐT cũng sync TPOS.
+        const hasCustomerInfoUpdate =
+            body.customerName !== undefined ||
+            body.address !== undefined ||
+            body.phone !== undefined;
         if (hasCustomerInfoUpdate) {
             const phoneForLookup = body.phone || null;
             if (phoneForLookup) {

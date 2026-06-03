@@ -166,7 +166,7 @@ router.get('/delivery', async (req, res) => {
                 COUNT(*)::int AS order_count,
                 COALESCE(SUM(amount_total) FILTER (WHERE state <> 'cancel'), 0)::numeric AS amount_total,
                 COALESCE(SUM(cash_on_delivery) FILTER (WHERE state <> 'cancel'), 0)::numeric AS cod_total,
-                COUNT(*) FILTER (WHERE shipped = true)::int AS shipped_count,
+                COUNT(*) FILTER (WHERE fulfillment_shipped_at IS NOT NULL OR fulfillment_delivered_at IS NOT NULL)::int AS shipped_count,
                 COUNT(*) FILTER (WHERE state = 'cancel')::int AS cancel_count
             FROM fast_sale_orders
             WHERE date_invoice::date BETWEEN $1::date AND $2::date

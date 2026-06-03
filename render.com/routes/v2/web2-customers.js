@@ -15,6 +15,7 @@ const { upsertWeb2Customer } = require('../../db/web2-customers-schema');
 const {
     searchCustomersByText,
     searchAllCustomersByPhone,
+    pushCustomerToTPOS,
 } = require('../../services/tpos-customer-service');
 
 // Số kết quả local tối thiểu để KHÔNG cần hỏi TPOS (tránh spam API).
@@ -192,6 +193,63 @@ router.get('/:phone', async (req, res) => {
         res.json({ success: true, customer: null });
     } catch (e) {
         console.error('[web2-customers] get error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// PATCH /:id — SỬA THỐNG NHẤT thông tin KH (tên/SĐT/địa chỉ) cho MỌI trang Web 2.0.
+// :id = TPOS Partner Id (web2_customers.id). Ghi 2 chiều:
+//   1. Push lên TPOS (CreateUpdatePartner by Id — đổi cả SĐT cũng update đúng partner).
+//   2. Update cache web2_customers.
+// Đây là NGUỒN DUY NHẤT để sửa KH — mọi trang gọi endpoint này.
+router.patch('/:id', async (req, res) => {
+    const db = req.app.locals.web2Db || req.app.locals.chatDb;
+    const tposId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(tposId)) {
+        return res.status(400).json({ success: false, error: 'id (TPOS Partner Id) không hợp lệ' });
+    }
+    const body = req.body || {};
+    const name = body.name !== undefined ? String(body.name).trim() : undefined;
+    const address = body.address !== undefined ? String(body.address).trim() : undefined;
+    let phone = body.phone !== undefined ? String(body.phone).replace(/\D/g, '') : undefined;
+    if (phone && !phone.startsWith('0')) phone = '0' + phone.slice(-9);
+    if (name === undefined && address === undefined && phone === undefined) {
+        return res
+            .status(400)
+            .json({ success: false, error: 'cần ít nhất 1 field: name/phone/address' });
+    }
+    try {
+        // Lấy phone hiện tại nếu request không đổi phone (pushCustomerToTPOS cần phone)
+        let effectivePhone = phone;
+        if (!effectivePhone) {
+            const cur = await db.query('SELECT phone FROM web2_customers WHERE id = $1', [tposId]);
+            effectivePhone = cur.rows[0]?.phone || null;
+        }
+        if (!effectivePhone) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'thiếu phone (không có trong cache, phải truyền)' });
+        }
+        // 1. Push TPOS (master) — by tposId nên đổi SĐT vẫn update đúng partner
+        const tpos = await pushCustomerToTPOS(effectivePhone, { name, address, tposId });
+        // 2. Update cache web2_customers (chỉ field gửi lên)
+        await db.query(
+            `UPDATE web2_customers
+             SET name = COALESCE(NULLIF($2,''), name),
+                 phone = COALESCE($3, phone),
+                 address = COALESCE(NULLIF($4,''), address),
+                 synced_at = NOW()
+             WHERE id = $1`,
+            [tposId, name ?? null, phone ?? null, address ?? null]
+        );
+        res.json({
+            success: tpos?.success !== false,
+            tposId: tpos?.tposId || tposId,
+            tposSynced: tpos?.success === true,
+            tposError: tpos?.success === false ? tpos.error : undefined,
+        });
+    } catch (e) {
+        console.error('[web2-customers] patch error:', e.message);
         res.status(500).json({ success: false, error: e.message });
     }
 });
