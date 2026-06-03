@@ -83,6 +83,17 @@ Trang dùng chủ yếu trên điện thoại → cải thiện UX quyền camer
 
 **Files**: `web2/photo-studio/{index.html,photo-studio.js}` (v=20260603d).
 
+### [web2] Studio chụp tách nền — v7 giao diện mobile (camera-app + bottom sheet) ✅
+
+Trang chủ yếu dùng trên điện thoại → làm lại layout responsive kiểu app camera:
+
+- **Desktop giữ nguyên** 2 cột (stage + panel 340px). **Mobile (≤860px)**: khung camera lớn (output max-height 58vh), nút **Chụp** to full-width nổi bật, các nút phụ (Bật camera/đổi cam/tải ảnh/tùy chọn) hàng dưới, stage-bar sticky đáy.
+- **Bottom sheet**: toàn bộ thẻ tùy chọn (kỹ thuật tách nền, tỉ lệ khung, chroma/AI, nền, xuất) gom vào bảng trượt từ dưới lên, mở bằng nút **Tùy chọn**, đóng bằng nút **Xong** / chạm nền mờ (backdrop). Có grabber + sticky head. `overscroll-behavior: contain`, khoá scroll nền (`.ps-sheet-open`).
+- JS: `openSheet`/`closeSheet` toggle class `is-open` trên `#psPanel` + `#psSheetBackdrop`; cache hỗ trợ selector class (`.ps-main`). Hero gọn lại trên mobile (clamp 2 dòng).
+- **Test** (Playwright): mobile iPhone13 — toggle hiện, panel off-screen lúc đầu → mở (on-screen + backdrop) → đóng (off-screen) ✓, shutter full-width ✓; desktop 1440 — toggle/sheet-head ẩn, panel static, grid 2 cột ✓; 0 error.
+
+**Files**: `web2/photo-studio/{index.html,photo-studio.js,photo-studio.css}` (v=20260603g).
+
 ### [web2] Studio chụp tách nền — v6 hướng dẫn cấp quyền camera từng bước ✅
 
 User: Chrome điện thoại không hiện popup + không biết chỗ cấp quyền. Nguyên nhân: Chrome Android chỉ hỏi 1 lần; bị chặn/embargo rồi thì gUM reject `NotAllowedError` ngay, không prompt lại → phải bật tay trong site settings.

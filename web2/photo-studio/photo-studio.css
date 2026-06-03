@@ -642,3 +642,176 @@
     display: flex;
     gap: 8px;
 }
+
+/* ===== Sheet chrome — ẩn trên desktop ===== */
+.ps-options-toggle,
+.ps-sheet-head,
+.ps-sheet-backdrop {
+    display: none;
+}
+
+/* =====================================================================
+   MOBILE — bố cục kiểu app camera: khung lớn + nút Chụp to + bottom sheet
+   ===================================================================== */
+@media (max-width: 860px) {
+    .ps-main {
+        padding-bottom: 0;
+    }
+
+    /* Hero gọn lại */
+    .ps-hero {
+        padding: 14px 16px 16px;
+    }
+    .ps-hero h1 {
+        font-size: 20px;
+    }
+    .ps-sub {
+        font-size: 12px;
+        line-height: 1.5;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .ps-grid {
+        display: block;
+        padding: 12px 12px 0;
+    }
+
+    /* Khung camera chiếm phần lớn màn hình */
+    .ps-stage {
+        min-height: 300px;
+    }
+    .ps-output {
+        max-height: 58vh;
+    }
+
+    /* Thanh điều khiển kiểu camera: Chụp to ở trên, nút phụ ở dưới */
+    .ps-stage-bar {
+        flex-wrap: wrap;
+        gap: 8px;
+        position: sticky;
+        bottom: 0;
+        background: #eef2f6;
+        padding: 8px 0 10px;
+        z-index: 5;
+    }
+    .ps-stage-bar #psCapture {
+        flex: 1 0 100%;
+        height: 54px;
+        font-size: 16px;
+        border-radius: 14px;
+        order: -1;
+    }
+    .ps-stage-bar #psCapture i {
+        width: 20px;
+        height: 20px;
+    }
+    .ps-stage-bar .ps-btn:not(#psCapture),
+    .ps-stage-bar .ps-btn-file {
+        flex: 1 1 0;
+        justify-content: center;
+        height: 46px;
+        padding: 0 8px;
+        font-size: 12.5px;
+    }
+    /* nút đổi camera chỉ cần icon */
+    #psSwitchCam {
+        flex: 0 0 46px !important;
+    }
+    .ps-hint {
+        flex: 1 0 100%;
+        margin-left: 0;
+        justify-content: center;
+    }
+    .ps-options-toggle {
+        display: inline-flex;
+    }
+
+    /* ----- Bottom sheet ----- */
+    .ps-panel {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 60;
+        max-height: 84vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        background: #f4f6f9;
+        border-radius: 20px 20px 0 0;
+        padding: 0 14px 24px;
+        gap: 12px;
+        transform: translateY(103%);
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 -10px 34px rgba(15, 23, 42, 0.22);
+    }
+    .ps-panel.is-open {
+        transform: none;
+    }
+    .ps-sheet-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        position: sticky;
+        top: 0;
+        background: #f4f6f9;
+        padding: 10px 0 8px;
+        margin: 0 0 2px;
+        z-index: 2;
+    }
+    .ps-sheet-grabber {
+        position: absolute;
+        top: 7px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40px;
+        height: 4px;
+        border-radius: 99px;
+        background: #cbd5e1;
+    }
+    .ps-sheet-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--ps-ink);
+        margin-top: 6px;
+    }
+    .ps-sheet-close {
+        margin-left: auto;
+        margin-top: 6px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--ps-accent);
+        background: #e8f0fe;
+        border: none;
+        border-radius: 9px;
+        padding: 7px 14px;
+        cursor: pointer;
+    }
+    .ps-sheet-close i {
+        width: 15px;
+        height: 15px;
+    }
+    .ps-sheet-backdrop.is-open {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 59;
+        background: rgba(15, 23, 42, 0.45);
+    }
+    .ps-main.ps-sheet-open {
+        overflow: hidden;
+    }
+
+    .ps-results {
+        padding: 16px 12px 0;
+    }
+    .ps-results-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    }
+}

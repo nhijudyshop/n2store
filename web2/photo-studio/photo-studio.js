@@ -158,9 +158,14 @@
             'resultsCount:psResultsCount',
             'clearResults:psClearResults',
             'downloadAll:psDownloadAll',
+            'main:.ps-main',
+            'panel:psPanel',
+            'optionsToggle:psOptionsToggle',
+            'sheetClose:psSheetClose',
+            'sheetBackdrop:psSheetBackdrop',
         ].forEach((pair) => {
             const [k, v] = pair.split(':');
-            el[k] = id(v);
+            el[k] = v.startsWith('.') ? document.querySelector(v) : id(v);
         });
     }
 
@@ -173,6 +178,11 @@
         el.clearResults.addEventListener('click', clearResults);
         el.downloadAll.addEventListener('click', downloadAll);
         el.output.addEventListener('click', sampleKeyFromStage);
+
+        // Bottom sheet (mobile) — mở/đóng bảng tùy chọn
+        el.optionsToggle.addEventListener('click', openSheet);
+        el.sheetClose.addEventListener('click', closeSheet);
+        el.sheetBackdrop.addEventListener('click', closeSheet);
 
         document
             .querySelectorAll('.ps-seg-btn[data-mode]')
@@ -921,6 +931,17 @@
 
     function applyMirrorClass() {
         el.output.classList.toggle('ps-mirror', state.mirror && state.source === 'camera');
+    }
+
+    function openSheet() {
+        el.panel.classList.add('is-open');
+        el.sheetBackdrop.classList.add('is-open');
+        el.main?.classList.add('ps-sheet-open');
+    }
+    function closeSheet() {
+        el.panel.classList.remove('is-open');
+        el.sheetBackdrop.classList.remove('is-open');
+        el.main?.classList.remove('ps-sheet-open');
     }
 
     function sampleKeyFromStage(e) {
