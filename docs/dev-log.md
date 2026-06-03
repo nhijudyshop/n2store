@@ -70,6 +70,19 @@ Files: `web2/balance-history/index.html`, `web2/balance-history/js/web2-balance-
 
 **Files**: `web2/photo-studio/{index.html,photo-studio.js,photo-studio.css}` (v=20260603c).
 
+### [web2] Studio chụp tách nền — v4 tối ưu camera mobile-first ✅
+
+Trang dùng chủ yếu trên điện thoại → cải thiện UX quyền camera:
+
+- **Mặc định camera SAU trên mobile** (`isMobile()` → `facingMode='environment'`, mirror off) — hợp chụp sản phẩm. Desktop giữ camera trước.
+- **Tự mở camera nếu đã cấp quyền**: `autoStartIfAllowed()` dùng Permissions API `query({name:'camera'})` — `granted` → `startCamera({silent:true})` không cần bấm, không prompt. `onchange` listener tự mở khi user vừa cấp. Bọc try (Safari/Firefox không hỗ trợ 'camera' → fallback nút thủ công im lặng).
+- **Lỗi quyền rõ ràng** (`cameraErrorMsg`): `NotAllowedError`→hướng dẫn bấm 🔒 cho phép Camera; `NotReadableError`→camera bận; `NotFoundError`→không có camera; check `isSecureContext` trước.
+- **Lật gương theo camera** (`syncMirrorToFacing`): trước→lật, sau→không, tự cập nhật checkbox khi mở/đổi camera.
+- Constraint `facingMode: { ideal }` (mềm, không fail trên máy 1 camera). Empty-state nhắc "cho phép quyền truy cập".
+- **Test** (Playwright fake-camera + iPhone 13 emulation + permission granted): camera auto-start (capture/switch enabled, empty hidden, startBtn="Tắt camera") ✓, mirror off (rear default) ✓, output 1080×608 ✓, chụp ra 1 card ✓, 0 error.
+
+**Files**: `web2/photo-studio/{index.html,photo-studio.js}` (v=20260603d).
+
 ### [web2] Kho KH thống nhất + Overview "Kho dữ liệu dùng chung" ✅
 
 **Sửa KH 1 nguồn → sync TPOS 2 chiều**: endpoint mới `PATCH /api/web2/customers/:id` (id=TPOS Partner Id) — sửa tên/SĐT/địa chỉ → push TPOS by tposId (đổi SĐT vẫn update đúng partner, không tạo dup) + update cache `web2_customers`. ĐÂY LÀ NƠI DUY NHẤT sửa KH. native-orders order-edit cũng sync (đã thêm phone vào trigger). partner-customer vẫn edit thẳng TPOS (full PUT). customer-wallet chỉ link TPOS (không sửa inline).

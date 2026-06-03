@@ -74,6 +74,42 @@
         maskCtx = maskC.getContext('2d');
         bind();
         initSegmentation();
+        applyMobileDefaults();
+        autoStartIfAllowed();
+    }
+
+    function isMobile() {
+        return (
+            /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+            (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches)
+        );
+    }
+
+    // Trang dùng chủ yếu trên điện thoại → mặc định camera SAU (chụp sản phẩm),
+    // tắt lật gương (chỉ camera trước mới cần).
+    function applyMobileDefaults() {
+        if (!isMobile()) return;
+        state.facingMode = 'environment';
+        state.mirror = false;
+        el.mirror.checked = false;
+    }
+
+    // Nếu user đã cấp quyền camera trước đó → tự mở lại (không cần bấm), không
+    // prompt. Permissions API không hỗ trợ 'camera' trên vài trình duyệt (Safari/
+    // Firefox) → bọc try, fallback im lặng về nút "Bật camera".
+    async function autoStartIfAllowed() {
+        try {
+            if (!navigator.permissions?.query) return;
+            const st = await navigator.permissions.query({ name: 'camera' });
+            if (st.state === 'granted') startCamera({ silent: true });
+            st.onchange = () => {
+                if (st.state === 'granted' && !state.stream && state.source !== 'image') {
+                    startCamera({ silent: true });
+                }
+            };
+        } catch {
+            /* Permissions API không hỗ trợ 'camera' — bỏ qua, dùng nút thủ công */
+        }
     }
 
     function cache() {
@@ -228,9 +264,13 @@
         await startCamera();
     }
 
-    async function startCamera() {
+    async function startCamera(opts = {}) {
+        if (!isSecureContext) {
+            notify('Camera cần HTTPS. Mở trang qua https:// rồi thử lại.', 'error');
+            return;
+        }
         if (!navigator.mediaDevices?.getUserMedia) {
-            notify('Trình duyệt không hỗ trợ camera (cần HTTPS).', 'error');
+            notify('Trình duyệt không hỗ trợ camera.', 'error');
             return;
         }
         stopStream();
@@ -238,7 +278,7 @@
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {
-                    facingMode: state.facingMode,
+                    facingMode: { ideal: state.facingMode },
                     width: { ideal: 1920 },
                     height: { ideal: 1080 },
                 },
@@ -252,7 +292,7 @@
             state.srcNatW = el.video.videoWidth;
             state.srcNatH = el.video.videoHeight;
             recomputeSizes();
-            applyMirrorClass();
+            syncMirrorToFacing();
             el.stageEmpty.hidden = true;
             el.switchCam.disabled = false;
             el.capture.disabled = false;
@@ -264,8 +304,30 @@
         } catch (e) {
             hideLoading();
             console.error('[photo-studio] getUserMedia', e);
-            notify('Không mở được camera: ' + (e?.message || e), 'error');
+            if (!opts.silent) notify(cameraErrorMsg(e), 'error');
         }
+    }
+
+    function cameraErrorMsg(e) {
+        switch (e?.name) {
+            case 'NotAllowedError':
+            case 'SecurityError':
+                return 'Bạn chưa cho phép quyền camera. Bấm biểu tượng 🔒 trên thanh địa chỉ → cho phép Camera → bấm "Bật camera" lại.';
+            case 'NotFoundError':
+            case 'OverconstrainedError':
+                return 'Không tìm thấy camera phù hợp trên thiết bị.';
+            case 'NotReadableError':
+                return 'Camera đang được ứng dụng khác sử dụng. Đóng app đó rồi thử lại.';
+            default:
+                return 'Không mở được camera: ' + (e?.message || e);
+        }
+    }
+
+    // Camera trước → lật gương; camera sau → không lật.
+    function syncMirrorToFacing() {
+        state.mirror = state.facingMode === 'user';
+        el.mirror.checked = state.mirror;
+        applyMirrorClass();
     }
 
     function waitForVideo() {
