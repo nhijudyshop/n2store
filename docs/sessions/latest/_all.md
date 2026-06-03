@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fb2a1c6` — feat(web2): photo-studio v2 — fix loading overlay + tỉ lệ khung, spill, mờ nền, chụp full-res, PNG/JPG
-**Last updated**: 2026-06-03 19:38:15 +07
-**Latest session**: [`RESUME:20260603-193815-fb2a1c6`](../20260603-193815-fb2a1c6.md)
-**Summary**: feat(web2): photo-studio v2 — fix loading overlay + tỉ lệ khung, spill, mờ nền, chụp full-res, PNG/JPG
+**Latest commit**: `1a4fb73` — auto: session update
+**Last updated**: 2026-06-03 19:47:51 +07
+**Latest session**: [`RESUME:20260603-194751-1a4fb73`](../20260603-194751-1a4fb73.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 8 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -50,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-03 19:21
+- [`render.com/`](./render.com.md) — updated 2026-06-03 19:47
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-03 18:34
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -68,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-03 19:38
+- [`web2/`](./web2.md) — updated 2026-06-03 19:47
