@@ -3,14 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `66adab2` — feat(web2): Phase 4 — schema-mirror chatDb→web2Db (introspection DDL, tested local) + admin endpoint dry-run/run
-**Last updated**: 2026-06-03 17:07:57 +07
-**Latest session**: [`RESUME:20260603-170757-66adab2`](../20260603-170757-66adab2.md)
-**Summary**: feat(web2): Phase 4 — schema-mirror chatDb→web2Db (introspection DDL, tested local) + admin endpoint dry-run/run
+**Latest commit**: `2b9bf3c` — feat(web2): Phase 5 — data-copy chatDb→web2Db (batched idempotent, sequence sync, money SUM verify; tested local)
+**Last updated**: 2026-06-03 17:15:27 +07
+**Latest session**: [`RESUME:20260603-171527-2b9bf3c`](../20260603-171527-2b9bf3c.md)
+**Summary**: feat(web2): Phase 5 — data-copy chatDb→web2Db (batched idempotent, sequence sync, money SUM verify; tested local)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
 - [`render.com/`](./render.com.md) — 3 file(s)
 
 ## All folder snapshots
@@ -50,7 +49,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-03 17:07
+- [`render.com/`](./render.com.md) — updated 2026-06-03 17:15
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-01 10:27
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
