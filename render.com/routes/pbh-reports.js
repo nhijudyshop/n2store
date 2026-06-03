@@ -181,12 +181,14 @@ router.get('/delivery', async (req, res) => {
                 scannedCount: x.shipped_count, // "Đã giao" (web2: shipped)
                 hiddenCount: x.cancel_count, // "Huỷ" (web2: state=cancel)
             }));
-        const [gRes, cRes] = await Promise.all([
-            pool.query(aggSql(`COALESCE(NULLIF("group", ''), 'Chưa phân nhóm')`), [from, to]),
-            pool.query(aggSql(`COALESCE(NULLIF(carrier_name, ''), 'Chưa gán NVC')`), [from, to]),
-        ]);
-        const byGroup = mapRows(gRes.rows);
+        // fast_sale_orders (web2Db) chỉ có carrier_name làm shipper → group cả 2
+        // bảng theo carrier_name (byGroup == byCarrier cho web2).
+        const cRes = await pool.query(
+            aggSql(`COALESCE(NULLIF(carrier_name, ''), 'Chưa gán NVC')`),
+            [from, to]
+        );
         const byCarrier = mapRows(cRes.rows);
+        const byGroup = byCarrier;
         const totals = byCarrier.reduce(
             (a, g) => ({
                 orderCount: a.orderCount + g.orderCount,
