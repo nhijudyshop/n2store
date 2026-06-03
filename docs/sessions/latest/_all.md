@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2e63190` — feat(balance-history): audit log cho prelink_credit + script rà soát rủi ro gán nhầm KH (clone Web 1.0)
-**Last updated**: 2026-06-03 15:20:19 +07
-**Latest session**: [`RESUME:20260603-152019-2e63190`](../20260603-152019-2e63190.md)
-**Summary**: feat(balance-history): audit log cho prelink_credit + script rà soát rủi ro gán nhầm KH (clone Web 1.0)
+**Latest commit**: `3f2264a` — refactor(balance-history): bỏ coupling Web 1.0 — dùng web2-content-parser cho extraction_preview thay legacy extractPhoneFromContent
+**Last updated**: 2026-06-03 15:24:43 +07
+**Latest session**: [`RESUME:20260603-152443-3f2264a`](../20260603-152443-3f2264a.md)
+**Summary**: refactor(balance-history): bỏ coupling Web 1.0 — dùng web2-content-parser cho extraction_preview thay legacy ext...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-03 15:20
+- [`docs/`](./docs.md) — updated 2026-06-03 15:24
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-05-21 15:39
 - [`downloads/`](./downloads.md) — updated 2026-05-25 09:51
@@ -50,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-03 15:20
+- [`render.com/`](./render.com.md) — updated 2026-06-03 15:24
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-01 10:27
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
