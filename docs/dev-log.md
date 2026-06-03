@@ -25,14 +25,17 @@
 
 ## 2026-06-03
 
-### [render][overview] Làm rõ 2 bảng KH trong web2Db + fix backtick vỡ template literal ✅
+### [render][overview] Đổi tên kho KH đơn hàng web2Db: `customers` → `web2_order_customers` ✅
 
-Khi gộp kho KH (`customers` → `web2_customers`), phát hiện native-orders KHÔNG dùng copy stale mà duy trì **kho KH đơn hàng riêng** `customers` (web2Db) schema giàu (phone UNIQUE/name/address/email/fb_id/**pancake_data/status/tier**), nguồn Pancake/FB qua `upsertCustomerFromOrder()` — khác hẳn `web2_customers` (TPOS-synced). Migrate nửa vời sẽ vỡ order-flow LIVE → **revert native-orders**, giữ lại nền tảng (web2_customers thêm `fb_id` + helpers `getOrCreateWeb2Customer/findWeb2CustomerByFbId/linkWeb2CustomerFbId/lookupWeb2CustomerIdByPhone`).
+Web 2.0 có 2 kho KH gây nhầm tên với Web 1.0. Tách rõ + đổi tên theo convention `web2_`:
 
-- **Bug nghiêm trọng đã fix**: comment SQL trong `ensureWeb2CustomersSchema` chứa backtick `` `customers` `` → đóng template literal JS sớm → `node --check` fail → Render redeploy sẽ throw lúc `require('./db/web2-customers-schema')`. Đổi sang nháy kép.
-- **Overview #datastores**: dòng "Đơn Web" thêm `customers` (web2Db)<sup>⚠</sup>; thêm note vàng giải thích 2 bảng KH (canonical `web2_customers` vs order-store `customers`), cảnh báo trùng tên với Web 1.0 (nhưng nằm web2Db, là kho riêng Web 2.0), dự kiến đổi tên `web2_order_customers` (chưa làm — đụng ~10 query LIVE).
+- **2 kho KH (web2Db)**: ① `web2_customers` — nguồn TPOS (search/sửa, id=TPOS Partner Id). ② `web2_order_customers` (đổi tên từ `customers`) — kho KH đơn hàng nguồn **Pancake/FB**, schema giàu (phone UNIQUE/name/address/email/fb_id/pancake_data/status/tier/tpos_id/tpos_data/aliases). native-orders duy trì kho này qua `upsertCustomerFromOrder()`. Khác master + schema → giữ tách theo vai trò.
+- **Service mới** `services/web2-order-customer-service.js` (getOrCreateCustomerFromTPOS/updateCustomerFromTPOS/lookupCustomerIdByPhone → target `web2_order_customers`). 5 route web2 (native-orders, fast-sale-orders, pbh-reports, web2-customer-orders, web2-customer-tpos) tách khỏi `customer-creation-service`/`customer-helpers` (Web 1.0) — đúng rule no cross-import.
+- **Migration** `db/web2-order-customers-migrate.js`: `ALTER TABLE customers RENAME TO web2_order_customers` chạy boot, **guard tuyệt đối** (raw web2Pool only + WEB2_DATABASE_URL set + idempotent) — KHÔNG bao giờ đụng `customers` Web 1.0 (chatDb). Gỡ `customers` khỏi `web2-schema-mirror` WEB2_TABLES (tránh tái tạo).
+- **Bug nghiêm trọng đã fix trước đó**: comment SQL trong `web2-customers-schema.js` chứa backtick `` `customers` `` → vỡ template literal → Render require throw. Đổi nháy kép.
+- **Verify**: scan toàn render.com — mọi `FROM/INTO/UPDATE/JOIN customers` còn lại đều Web 1.0 chatDb (v2/customers, sepay-webhook-core legacy path `balance_history`, sepay-wallet-operations, pancake-alert qua v2/customers). 5 file web2 = 100% web2Db access đã chuyển.
 
-Files: `render.com/db/web2-customers-schema.js` (fb_id + helpers + fix backtick), `web2/overview/index.html` (#datastores note). `render.com/routes/native-orders.js` reverted (giữ nguyên `customers` web2Db).
+Files: `render.com/services/web2-order-customer-service.js` (mới), `db/web2-order-customers-migrate.js` (mới), `server.js` (wire boot), `db/web2-schema-mirror.js`, `routes/native-orders.js`, `routes/fast-sale-orders.js`, `routes/pbh-reports.js`, `routes/v2/web2-customer-orders.js`, `routes/v2/web2-customer-tpos.js`, `db/web2-customers-schema.js` (fix backtick), `web2/overview/index.html` (#datastores).
 
 ### [balance-history] Bỏ cột Mã tham chiếu + nút ↗ + modal chi tiết KH ✅
 
