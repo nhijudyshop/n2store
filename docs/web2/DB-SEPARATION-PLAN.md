@@ -2,8 +2,15 @@
 
 # Kế hoạch tách DB Web 2.0 hoàn toàn khỏi Web 1.0
 
-> Trạng thái: **DRAFT — chờ user duyệt phasing**. Lập 2026-06-03.
+> Trạng thái: **APPROVED — đang thực thi**. Lập 2026-06-03, user duyệt cùng ngày.
 > Mục tiêu user: mọi data Web 2.0 nằm ở **Render PG `n2store-web2-db`** + **Firebase Web 2.0**, độc lập hoàn toàn data cũ. Bỏ mọi coupling Web 1.0 (gồm `/api/v2/customers`).
+>
+> **QUYẾT ĐỊNH USER (2026-06-03)**:
+>
+> 1. ✅ Làm **triệt để** — chuyển toàn bộ data Web 2.0 sang web2Db.
+> 2. ✅ **Được phép XÓA data** (Web 2.0 đang test) → **BỎ Phase 3 (copy data)**. Tạo bảng rỗng trên web2Db (ensureTables auto-create khi route trỏ pool mới). KHÔNG cần verify balance/row-count.
+> 3. ✅ Firebase: giữ prefix `web2_` chung project (không tách project riêng).
+>    Hệ quả: migration = **mirror schema rỗng + cutover pool toàn bộ route web2 + đổi `customers`→`web2_customers`**. Các JOIN nội-bộ web2 (orders⋈ví) giữ nguyên vì mọi bảng web2 cùng sang web2Db. JOIN ngoài duy nhất = legacy `customers` → thay `web2_customers`.
 
 ## 1. Hiện trạng (facts, verified qua Render API + code)
 
@@ -83,8 +90,35 @@
 - Phase 3: data ở web2Db là copy, chatDb còn nguyên → xoá web2Db data + chạy lại.
 - Phase 4: đổi pool về `chatDb` (1 dòng/route) → tức thì về cũ.
 
-## 7. Quyết định cần user chốt
+## 7. Quyết định cần user chốt → ĐÃ CHỐT (2026-06-03)
 
-1. Xác nhận tách dù **2× phí DB** (mâu thuẫn 30/5)?
-2. Bắt đầu từ **Phase 1** (web2_customers, an toàn) hay muốn làm full một mạch?
-3. Money tables (wallets): chấp nhận cutover trong cửa sổ ít traffic + freeze ngắn để copy chính xác?
+1. ✅ Tách dù 2× phí DB — đồng ý.
+2. ✅ Làm full triệt để.
+3. ✅ Money tables: **xóa data, tạo rỗng** (không copy/freeze) — Web 2.0 đang test.
+
+## 8. Tiến độ thực thi (cập nhật 2026-06-03)
+
+- ✅ **Hạ tầng**: `web2Db` pool (`db/web2-pool.js`, env `WEB2_DATABASE_URL`, fallback chatDb), wired `app.locals.web2Db` (server.js:129).
+- ✅ **Phase 1 backend XONG**: `web2_customers` schema (`db/web2-customers-schema.js`, auto-create boot server.js:144), route `/api/web2/customers/search` + `/:phone` (`routes/v2/web2-customers.js`, đọc web2Db, TPOS self-populate), mounted server.js:634.
+- ✅ **Phase 1 frontend (1 phần)**: balance-history-app.js + pending-match.js đã dùng `/api/web2/customers/search`.
+- 🔄 **Phase 1 frontend còn lại**: customer-wallet (by-phone/orders), balance-verification (quick-view), pbh-app (orders agg), native-orders search-by-phone, tpos-comment-list — vẫn gọi `/api/v2/customers` (vài endpoint mới chưa có: by-phone/orders, quick-view, by-fb-id → cần thêm route web2 tương ứng hoặc giữ tạm).
+- ⬜ **Phase 2+4 (gộp vì wipe OK)**: cutover pool + mirror schema rỗng cho các route web2 còn ở chatDb.
+- ⬜ **Phase 3**: BỎ (wipe OK).
+- ⬜ **Phase 5**: verify.
+
+## 9. Inventory route web2 cần cutover chatDb → web2Db (Phase 2+4)
+
+> Chỉ đổi route **Web 2.0**. Route Web 1.0 (realtime-db, users, campaigns, social-orders, oncall-sip, v2/customers, v2/wallets, v2/balance-history, sepay-_ Web1.0, invoice-_, livestream-\* nếu Web1) **GIỮ chatDb**.
+
+**Nhóm SP + Đơn** (move cùng — JOIN nội bộ): `web2-products.js` (15), `native-orders.js` (15), `fast-sale-orders.js` (17), `reconcile.js` (11), `v2/cart.js` (10), `v2/inventory-forecast.js`, `v2/dashboard-kpi.js`, `v2/notifications.js`, `delivery-invoices.js`, `refunds.js`, `pbh-reports.js`, `v2/web2-customer-orders.js`.
+Bảng: `web2_products, web2_product_history, web2_product_velocity, native_orders, native_orders_migrations, fast_sale_orders, fast_sale_order_history, fast_sale_order_lines, pbh_fulfillment_logs`.
+
+**Nhóm Ví + Balance** (move cùng): `v2/web2-customer-wallet.js`, `v2/web2-wallets.js`, `v2/web2-balance-history.js`, `sepay-*` (web2 path), services `web2-wallet-isolation.js` / `web2-sepay-matching.js`.
+Bảng: `web2_customer_wallets, web2_wallet_transactions, web2_wallet_adjustments, web2_balance_history, web2_pending_matches, web2_payment_qr_codes, web2_match_audit, web2_extraction_blacklist, web2_webhook_retry_queue`.
+
+**Nhóm khác**: `web2-variants.js` (8), `web2-users.js` (10), `v2/supplier-aging`, `v2/supplier-360`, `v2/audit-log`, `v2/smart-match`, kpi web2.
+Bảng: `web2_variants, web2_users, web2_user_sessions, web2_notifications, web2_cart_history, web2_kpi_*, web2_supplier_ratings, web2_entities`.
+
+**Coupling `customers` cần đổi `web2_customers`** (JOIN ngoài): `pbh-reports.js:246` (FULL OUTER JOIN customers), `native-orders.js:752/930/963` (lookup customers), `v2/web2-customer-orders.js:56/73` (customers). → đổi `FROM customers` → `FROM web2_customers` (rỗng lúc đầu, self-populate dần).
+
+**Cách cutover an toàn (wipe OK)**: mỗi route đổi `req.app.locals.chatDb` → `req.app.locals.web2Db`. ensureTables tự tạo bảng rỗng trên web2Db lần query đầu. Test DDL trên local DB `n2store_web2_migration_test` trước (pattern `test-migration-*.js`). Deploy theo nhóm → smoke test → nhóm tiếp.
