@@ -33,7 +33,7 @@ async function ensureWeb2CustomersSchema(pool) {
                 created_at   TIMESTAMP DEFAULT NOW()
             );
             -- 2026-06-03: gộp kho KH — thêm fb_id để 5 route đơn hàng dùng chung
-            -- web2_customers thay bảng `customers` copy.
+            -- web2_customers thay bang "customers" copy.
             ALTER TABLE web2_customers ADD COLUMN IF NOT EXISTS fb_id VARCHAR(50);
             -- Search index: phone exact/suffix + fb_id.
             CREATE INDEX IF NOT EXISTS idx_web2_customers_phone ON web2_customers(phone);
