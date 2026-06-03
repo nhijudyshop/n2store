@@ -66,11 +66,9 @@ router.post('/web2-wallet-reset', async (req, res) => {
     const chatDb = req.app.locals.chatDb;
     if (!db) return res.status(500).json({ error: 'web2Db unavailable' });
     if (db === chatDb) {
-        return res
-            .status(400)
-            .json({
-                error: 'web2Db === chatDb (WEB2_DATABASE_URL unset) — TỪ CHỐI để không đụng Web 1.0',
-            });
+        return res.status(400).json({
+            error: 'web2Db === chatDb (WEB2_DATABASE_URL unset) — TỪ CHỐI để không đụng Web 1.0',
+        });
     }
 
     const tag = tsTag();
@@ -136,6 +134,58 @@ router.post('/web2-wallet-reset', async (req, res) => {
     } catch (e) {
         console.error('[web2-wallet-reset] error:', e.message);
         res.status(500).json({ success: false, error: e.message, steps });
+    }
+});
+
+// POST /web2-rematch-all — re-match TOÀN BỘ balance_history 'in' theo keyset id
+// (mỗi row xử lý 1 lần — KHÔNG bị re-pick như reprocess-unmatched). Gọi nhiều
+// lần với afterId tăng dần đến done=true.
+//   Body: { afterId?: number, batch?: number }
+router.post('/web2-rematch-all', async (req, res) => {
+    if (!authOk(req)) return res.status(403).json({ error: 'forbidden' });
+    const db = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (db === req.app.locals.chatDb) {
+        return res.status(400).json({ error: 'web2Db === chatDb — từ chối' });
+    }
+    const body = req.body || {};
+    const afterId = parseInt(body.afterId, 10) || 0;
+    const batch = Math.min(parseInt(body.batch, 10) || 300, 500);
+    try {
+        const sepayMatching = require('../services/web2-sepay-matching');
+        const { fetchWithTimeout } = require('../../shared/node/fetch-utils.cjs');
+        const rows = (
+            await db.query(
+                `SELECT id FROM web2_balance_history
+                 WHERE transfer_type = 'in' AND id > $1
+                 ORDER BY id ASC LIMIT $2`,
+                [afterId, batch]
+            )
+        ).rows;
+        let processed = 0;
+        let matched = 0;
+        let lastId = afterId;
+        for (const r of rows) {
+            lastId = r.id;
+            processed++;
+            try {
+                const out = await sepayMatching.processWeb2Match(db, r.id, fetchWithTimeout);
+                if (out && out.success && out.method && out.method !== 'pending_match_created') {
+                    matched++;
+                }
+            } catch (e) {
+                // skip lỗi từng row
+            }
+        }
+        res.json({
+            success: true,
+            processed,
+            matched,
+            lastId,
+            done: rows.length < batch,
+        });
+    } catch (e) {
+        console.error('[web2-rematch-all] error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
