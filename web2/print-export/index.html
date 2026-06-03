@@ -209,14 +209,15 @@
                         const f = document.getElementById('seFrom').value;
                         const t = document.getElementById('seTo').value;
                         const q = new URLSearchParams();
-                        if (f) q.set('from', f);
-                        if (t) q.set('to', t);
+                        if (f) q.set('since', f);
+                        if (t) q.set('until', t);
                         q.set('limit', '5000');
-                        const r = await fetch(PROXY + '/api/v2/balance-history/?' + q, {
+                        // Web 2.0: kho riêng web2_balance_history (web2Db), bỏ /api/v2 Web 1.0
+                        const r = await fetch(PROXY + '/api/web2/balance-history/?' + q, {
                             credentials: 'include',
                         });
                         const d = await r.json();
-                        const items = d.items || d.transactions || [];
+                        const items = d.data || d.items || d.transactions || [];
                         await Web2Export.toExcel(items, {
                             filename: 'sepay-' + (f || 'all') + '.xlsx',
                             sheetName: 'SePay',

@@ -25,6 +25,16 @@
 
 ## 2026-06-03
 
+### [web2] Phase 2 tách DB — decouple Web 1.0 thật (an toàn) 🔄
+
+Master plan: [docs/web2/WEB2-TOTAL-SEPARATION-PLAN.md](web2/WEB2-TOTAL-SEPARATION-PLAN.md) (audit 33 trang).
+
+**Đã swap an toàn (verified tương thích)**: `native-orders-app.js:635` `/api/v2/customers?search=` → `/api/web2/customers/search` (consumer đọc `.data[0]` ✓); `print-export/index.html:215` `/api/v2/balance-history?from/to` → `/api/web2/balance-history?since/until` + parse `d.data`.
+
+**Phase 2b — KHÔNG swap mù (cần endpoint web2 mới / xử lý semantic)**: smart-match `POST /:id/link`{customer_phone,pbh_number} ≠ web2 `PATCH /:id/link`{phone}; customer-wallet `/api/v2/customers/by-phone/:phone/orders` cần endpoint web2 order-history by phone; dead-code deletion balance-history (~13 file) hoãn vì tên generic trùng trang khác, phải verify từng file.
+
+Files: `native-orders/js/native-orders-app.js`, `web2/print-export/index.html`
+
 ### [inventory-tracking] iPad: nút STT/NCC luôn hiện (bỏ phụ thuộc :hover) ✅
 
 **User ask**: trên iPad muốn hiện nút như cột STT 8 phải bấm tay vào chữ (vì không hover). Bấm vào lại bị scroll xuống vị trí khác.

@@ -632,7 +632,7 @@
         try {
             const pancakeUrl = `${WORKER_URL}/api/pancake/conversations?pages[${encodeURIComponent(fbPageId)}]=0&from_psid=${encodeURIComponent(fbUserId)}&limit=1&mode=OR&unread_first=false`;
             const customerUrl = phone
-                ? `${WORKER_URL}/api/v2/customers?search=${encodeURIComponent(phone)}&limit=1`
+                ? `${WORKER_URL}/api/web2/customers/search?search=${encodeURIComponent(phone)}&limit=1`
                 : null;
             const tposLiveUrl = phone
                 ? `${WORKER_URL}/api/web2/customer-tpos/${encodeURIComponent(phone)}`
