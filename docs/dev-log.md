@@ -25,6 +25,15 @@
 
 ## 2026-06-03
 
+### [web2] Cleanup dead code Web 1.0 (15 file) ✅
+
+Xóa file copy từ trang Web 1.0 cũ KHÔNG được index.html load (verify 0 reference + 0 path-ref trước khi xóa):
+
+- `balance-history/js/` (13 file): accountant, accountant-history, verification, balance-verification, live-mode, customer-info, balance-core, balance-table, balance-filters, transfer-stats, config, qr-generator, main — chứa `/api/v2/balance-history`, `/api/sepay/*`, Firestore `customers` legacy. Còn lại 5 file thực sự loaded (web2-\*, tpos-partner-enricher).
+- `customer-wallet/`: `index.legacy.html` (bản Firestore cũ, không ai link) + `customer-wallet-storage.js` (chỉ legacy dùng).
+
+→ Loại nguồn gây "COUPLED giả" trong audit + tránh nhầm khi đọc code.
+
 ### [web2] Phase 2 tách DB — decouple Web 1.0 thật (an toàn) 🔄
 
 Master plan: [docs/web2/WEB2-TOTAL-SEPARATION-PLAN.md](web2/WEB2-TOTAL-SEPARATION-PLAN.md) (audit 33 trang).
