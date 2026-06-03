@@ -25,6 +25,19 @@
 
 ## 2026-06-03
 
+### [web2] Studio chụp tách nền (camera → xóa/ghép phông) ✅
+
+**Trang mới** `web2/photo-studio/` (index.html + photo-studio.js + photo-studio.css) — feature client-side thuần, **không backend/DB/SSE**, ảnh không rời máy user.
+
+- **2 chế độ tách nền**: (1) **AI** — MediaPipe Selfie Segmentation on-device (CDN `@mediapipe/selfie_segmentation@0.1.1675465747`), không cần phông xanh, slider làm mịn viền (blur mask 0-8px); (2) **Chroma key** — lọc pixel theo màu phông (euclidean RGB distance), swatch xanh lá/xanh dương/custom + **click vào stage để lấy đúng màu phông** (eyedropper), slider ngưỡng + độ mịn viền.
+- **Nguồn**: camera (`getUserMedia`, switch trước/sau qua `facingMode`) hoặc upload ảnh có sẵn.
+- **Nền thay thế**: trong suốt (PNG, stage hiện checkerboard) / màu đơn sắc (swatch + color picker) / ảnh upload (cover-fit). Compositing: AI dùng `source-in` + `destination-over`; chroma vẽ bg trước rồi foreground đã key alpha lên trên.
+- **Chụp** → bake mirror vào bitmap → `toBlob` PNG → card kết quả có nút Tải + xóa. Xử lý cap 960px ngang cho mượt mobile, `willReadFrequently` cho canvas chroma.
+- **Sidebar**: thêm "Studio chụp tách nền" vào nhóm "Tính năng mới" (`tpos-sidebar.js`) + vào `WEB2_PAGES` (có badge WEB 2.0).
+- **Test** (Playwright headless): UI mount + MediaPipe load + toggle mode/bg OK, 0 console error. Pipeline chroma verify: ảnh synthetic phông xanh + ô đỏ → center đỏ giữ `[220,40,40,255]`, góc xanh xóa `[0,0,0,0]`, capture ra 1 card.
+
+**Files**: `web2/photo-studio/{index.html,photo-studio.js,photo-studio.css}`, `web2/shared/tpos-sidebar.js`.
+
 ### [web2] Kho KH thống nhất + Overview "Kho dữ liệu dùng chung" ✅
 
 **Sửa KH 1 nguồn → sync TPOS 2 chiều**: endpoint mới `PATCH /api/web2/customers/:id` (id=TPOS Partner Id) — sửa tên/SĐT/địa chỉ → push TPOS by tposId (đổi SĐT vẫn update đúng partner, không tạo dup) + update cache `web2_customers`. ĐÂY LÀ NƠI DUY NHẤT sửa KH. native-orders order-edit cũng sync (đã thêm phone vào trigger). partner-customer vẫn edit thẳng TPOS (full PUT). customer-wallet chỉ link TPOS (không sửa inline).
