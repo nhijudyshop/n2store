@@ -35,9 +35,11 @@
 
 **Câu hỏi user "sao xác định được Trang Đài khi kho KH có nhiều Trang Đài"**: Web 2.0 matcher **KHÔNG match theo tên** — chỉ QR → exact phone → partial phone (digit-run) trong content. Content `NGUYEN TRANG DAI Chuyen tien GD 6154... 030626-11:31:07` sau `stripBankNoise` không còn SĐT/QR nào → matcher không tự xác định được ai. GD này có `match_method = prelink_credit` (verify DB sepay_id=61646875): row đã có sẵn `linked_customer_phone = 0919561765` từ **clone Web 1.0** → nhánh prelink ([web2-sepay-matching.js:278](../render.com/services/web2-sepay-matching.js#L278)) credit thẳng + set AUTO_APPROVED, **không re-validate, không ghi audit log**. Tức Web 2.0 tin tưởng hoàn toàn link cũ của Web 1.0 — nếu Web 1.0 chọn nhầm Trang Đài thì Web 2.0 kế thừa sai + đã cộng ví.
 
-**Còn cần xem (chưa làm)**: prelink_credit không gọi `web2MatchAudit.log` → không có dấu vết vì sao chọn phone đó. Cân nhắc thêm audit cho prelink để debug được.
+**(a) Thêm audit cho prelink_credit** ✅: nhánh prelink trong [web2-sepay-matching.js](../render.com/services/web2-sepay-matching.js#L313) giờ gọi `web2MatchAudit.log` với `decisionTier='prelink_inherited'`, `extractedType='prelink'`, note rõ "phone đã có sẵn từ clone Web 1.0, không re-extract" → từ nay mọi prelink có dấu vết trong `web2_match_audit`.
 
-Files: `render.com/routes/v2/web2-balance-history.js`
+**(b) Script rà soát rủi ro** ✅: [render.com/scripts/audit-prelink-credit-risk.js](../render.com/scripts/audit-prelink-credit-risk.js) — READ-ONLY, soi toàn bộ `prelink_credit`, đối chiếu content với phone đã gán. Phân tier: `CORROBORATED_QR/PHONE` (an tâm), `CONFLICT` (content có SĐT khác phone gán — rủi ro cao), `PARTIAL`, `NO_EVIDENCE` (link thuần kế thừa). Tín hiệu tên mơ hồ: gom theo tên chuẩn hoá → tên nào gán cho ≥2 SĐT khác nhau = ưu tiên review (đúng kiểu "nhiều Trang Đài"). Output `downloads/n2store-session/prelink-credit-risk-report.md`. Chạy: `export DATABASE_URL=... && node render.com/scripts/audit-prelink-credit-risk.js`. KHÔNG hardcode credential.
+
+Files: `render.com/routes/v2/web2-balance-history.js`, `render.com/services/web2-sepay-matching.js`, `render.com/scripts/audit-prelink-credit-risk.js`
 
 ---
 

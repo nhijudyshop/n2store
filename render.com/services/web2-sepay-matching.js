@@ -321,6 +321,29 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
                  WHERE id = $1`,
                 [tx.id, prelinkName]
             );
+            // Audit: prelink phone đến từ clone Web 1.0 (KHÔNG do matcher Web 2.0
+            // chọn). Ghi lại để truy được nguồn — nếu link cũ sai (vd trùng tên
+            // nhiều KH) thì có dấu vết review. decisionTier='prelink_inherited'.
+            await web2MatchAudit.log(db, {
+                transactionId: web2BhId,
+                sepayId: tx.sepay_id,
+                extractedValue: null,
+                extractedType: 'prelink',
+                candidates: [{ phone: tx.linked_customer_phone, name: prelinkName }],
+                chosenPhone: tx.linked_customer_phone,
+                chosenName: prelinkName,
+                decisionTier: 'prelink_inherited',
+                confidenceScore: null,
+                confidenceBreakdown: {
+                    reason: 'linked_customer_phone_present_before_match',
+                    source: 'web1_clone_or_external',
+                    note: 'KHÔNG re-validate content — tin link sẵn có',
+                },
+                amount,
+                decidedBy: 'auto',
+                walletTxId: walletResult?.transaction?.id,
+                note: 'Prelink credit — phone đã có sẵn trên row (clone Web 1.0), matcher không re-extract',
+            });
             return {
                 success: true,
                 method: 'prelink_credit',
