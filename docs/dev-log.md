@@ -25,6 +25,16 @@
 
 ## 2026-06-04
 
+### [orders] soluong-live realtime TPOS — tên/hình/số lượng cập nhật liền (giữ logic biến thể) ✅
+
+TPOS đổi tên/hình/số lượng SP → trang `soluong-live/index.html` + `soluong-list.html` cập nhật liền không cần refresh. Tận dụng pipeline có sẵn: TPOS Socket.IO listener (Render `services/tpos-socket-listener.js`) đã sync `web_warehouse` + broadcast SSE topic `web_warehouse` (`sync_complete` + `templateIds`, `image_update`, `deactivated`). Trước đây soluong-list chỉ **toast** khi `sync_complete` (không refresh data); main.js (index) không nghe SSE.
+
+- **Mới**: `soluong-live/js/warehouse-realtime.js` — module dùng chung (`window.SoluongWarehouseSync.start({database,getProducts,isSyncing,onUpdated,toast})`). Nhận SSE `web_warehouse`, gom theo template (1 fetch/template), re-fetch `WarehouseAPI.getProductAsTpos()` lấy data tươi + tất cả biến thể anh em, map theo variant `Id`, cập nhật `NameGet/imageUrl/QtyAvailable` → ghi Firebase RTDB → mọi tab/máy tự update. **Logic biến thể: GIỮ NGUYÊN `soldQty`, recompute `remainingQty = QtyAvailable - soldQty`** (clamp sold nếu vượt tồn mới). Debounce 1.5s, throttle refresh-all 8s khi sync lớn (incremental/full không kèm templateIds).
+- **soluong-list.js**: thay `setupImageSSE` (cũ chỉ refresh ảnh) → delegate sang shared module; xoá `refreshProductImages` cũ.
+- **main.js**: thêm `setupWarehouseSSE()` (trước đây index không có SSE) + cleanup `beforeunload`; thêm cache-bust ảnh `?v=lastRefreshed` cho preview-image (trước chỉ soluong-list bust).
+- **HTML**: load `js/warehouse-realtime.js?v=20260604a` sau `warehouse-api.js` ở cả 2 trang.
+- **Verify**: cả 2 trang `syncLoaded:true` + log `[WarehouseSync] Listening web_warehouse SSE`; SSE hub stats `web_warehouse` 18 clients (topic proven); API `/product/154875` trả product + 3 biến thể đủ field (name_get/image_url/tpos_qty_available). KHÔNG ghi data giả vào prod (chỉ re-fetch truth).
+
 ### [web2] Studio chụp tách nền — engine fal.ai BiRefNet (HD, không watermark) ✅🔄
 
 Research Google/GitHub cách lấy ảnh SẠCH (KHÔNG làm chức năng xóa watermark — lách phí, từ chối). Kết quả: **fal.ai BiRefNet** (model MIT state-of-the-art) free/pay-per-use, không watermark, full HD, **shop đã có FAL_KEY sẵn** (dùng cho AI KOL).

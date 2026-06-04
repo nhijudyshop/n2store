@@ -16,19 +16,20 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
         <!-- Firebase Configuration (SHARED) -->
-        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
+        <script src="../shared/js/firebase-config.js?v=20260604b"></script>
 
         <!-- Warehouse API (Render DB) — replaces TPOS Excel/OData direct calls -->
-        <script src="../shared/js/warehouse-api.js?v=20260521b"></script>
+        <script src="../shared/js/warehouse-api.js?v=20260604b"></script>
+        <script src="js/warehouse-realtime.js?v=20260604b"></script>
 
         <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
-        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260604b"></script>
 
         <!-- Fallback for file:// protocol (ES modules don't work locally) -->
         <script>
             if (window.location.protocol === 'file:') {
                 document.write(
-                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260604b"><\/script>'
                 );
                 document.write(
                     '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
@@ -37,7 +38,7 @@
         </script>
 
         <!-- Storage Migration -->
-        <script src="../shared/js/storage-migration.js?v=20260521b"></script>
+        <script src="../shared/js/storage-migration.js?v=20260604b"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 if (window.StorageMigration) {
@@ -47,10 +48,10 @@
         </script>
 
         <!-- Navigation (deferred) -->
-        <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260604b"></script>
 
         <!-- Main Application Module -->
-        <script type="module" src="js/main.js?v=20260521b"></script>
+        <script type="module" src="js/main.js?v=20260604b"></script>
 
         <style>
             * {
@@ -2073,7 +2074,7 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260604b" />
         <!-- typography:shared -->
     </head>
     <body>
@@ -3023,6 +3024,6 @@
         </div>
 
         <!-- Permission-based redirect script -->
-        <script type="module" src="js/index-main.js?v=20260521b"></script>
+        <script type="module" src="js/index-main.js?v=20260604b"></script>
     </body>
 </html>

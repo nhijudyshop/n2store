@@ -43,6 +43,35 @@ const database = firebase.database();
 
 let isSyncingFromFirebase = false;
 let firebaseDetachFn = null; // Store detach function for cleanup on page unload
+let warehouseSyncHandle = null; // SoluongWarehouseSync handle (realtime TPOS sync)
+
+// Cache-bust ảnh SP (ảnh TPOS proxy URL không đổi nhưng bytes đổi sau khi sync)
+function soluongImgSrc(product) {
+    const url = product && product.imageUrl;
+    if (!url || url.startsWith('data:')) return url || '';
+    const v = product.lastRefreshed || product.addedAt || product.Id || '';
+    if (!v) return url;
+    return `${url}${url.includes('?') ? '&' : '?'}v=${v}`;
+}
+
+// Realtime TPOS sync: TPOS đổi tên/hình/số lượng → cập nhật cart + Firebase liền (giữ logic biến thể)
+function setupWarehouseSSE() {
+    if (!window.SoluongWarehouseSync) {
+        console.warn('[SSE] SoluongWarehouseSync chưa load — bỏ qua realtime TPOS');
+        return;
+    }
+    warehouseSyncHandle = window.SoluongWarehouseSync.start({
+        database,
+        getProducts: () => soluongProducts,
+        isSyncing: () => isSyncingFromFirebase,
+        toast: (msg, level) => {
+            try {
+                showNotificationMessage(msg);
+            } catch (_) {}
+        },
+        onUpdated: () => updateProductListPreview(),
+    });
+}
 
 function checkSyncMode() {
     const hash = window.location.hash.substring(1);
@@ -1029,7 +1058,7 @@ function updateProductListPreview() {
     productListPreview.innerHTML = recentProducts
         .map((product) => {
             const imageHtml = product.imageUrl
-                ? `<img src="${product.imageUrl}" class="preview-image" alt="${product.NameGet}">`
+                ? `<img src="${soluongImgSrc(product)}" class="preview-image" alt="${product.NameGet}">`
                 : `<div class="preview-image no-image">📦</div>`;
 
             return `
@@ -1090,7 +1119,7 @@ function updateHiddenProductListPreview() {
     hiddenProductListPreview.innerHTML = recentProducts
         .map((product) => {
             const imageHtml = product.imageUrl
-                ? `<img src="${product.imageUrl}" class="preview-image" alt="${product.NameGet}">`
+                ? `<img src="${soluongImgSrc(product)}" class="preview-image" alt="${product.NameGet}">`
                 : `<div class="preview-image no-image">📦</div>`;
 
             return `
@@ -2147,6 +2176,9 @@ window.addEventListener('load', async () => {
         // THEN setup Firebase listeners for realtime sync
         setupFirebaseListeners();
 
+        // Realtime TPOS sync (tên / hình / số lượng) — cập nhật liền khi TPOS đổi
+        setupWarehouseSSE();
+
         // Cleanup products older than 7 days
         cleanupOldProductsLocal();
 
@@ -2371,6 +2403,12 @@ window.addEventListener('beforeunload', () => {
     // Cleanup product listeners
     if (firebaseDetachFn) {
         firebaseDetachFn.detach();
+    }
+
+    // Cleanup realtime TPOS sync
+    if (warehouseSyncHandle) {
+        warehouseSyncHandle.stop();
+        warehouseSyncHandle = null;
     }
 
     // Cleanup settings listener

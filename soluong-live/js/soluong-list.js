@@ -1825,10 +1825,9 @@ window.addEventListener('load', async () => {
 });
 
 // =====================================================
-// SSE — Real-time image updates from product-warehouse
+// SSE — Realtime TPOS sync (tên / hình / số lượng) qua shared module
 // =====================================================
-let _sseSource = null;
-let _sseImageTimer = null;
+let _sseSync = null; // handle từ SoluongWarehouseSync.start()
 let _sseToastAt = 0;
 
 function _tposToast(message, level = 'info') {
@@ -1844,125 +1843,35 @@ function _tposToast(message, level = 'info') {
 }
 
 function setupImageSSE() {
-    const SSE_URL =
-        'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/sse?keys=web_warehouse';
-    try {
-        _sseSource = new EventSource(SSE_URL);
-
-        _sseSource.addEventListener('update', (e) => {
-            try {
-                const payload = JSON.parse(e.data);
-                const action = payload?.data?.action;
-
-                // User-visible notification for TPOS sync events
-                if (action === 'sync_complete') {
-                    const stats = payload.data.stats || {};
-                    const changed = (stats.inserted || 0) + (stats.updated || 0);
-                    if (changed > 0 || stats.deactivated) {
-                        const parts = [];
-                        if (stats.inserted) parts.push(`+${stats.inserted} mới`);
-                        if (stats.updated) parts.push(`${stats.updated} cập nhật`);
-                        if (stats.deactivated) parts.push(`${stats.deactivated} ngừng`);
-                        _tposToast(`TPOS đồng bộ: ${parts.join(', ')}`, 'success');
-                    }
-                    return;
-                }
-                if (action === 'deactivated') {
-                    _tposToast(
-                        `TPOS xóa sản phẩm (${payload.data.count || 1} biến thể)`,
-                        'warning'
-                    );
-                    return;
-                }
-
-                if (action !== 'image_update') return;
-
-                const tposProductId = payload.data.tposProductId;
-                const tposTemplateId = payload.data.tposTemplateId;
-                const timestamp = payload.data.timestamp || Date.now();
-
-                console.log('[SSE] Image update received:', { tposProductId, tposTemplateId });
-                _tposToast('TPOS cập nhật ảnh sản phẩm', 'info');
-
-                // Debounce — avoid rapid re-fetches
-                if (_sseImageTimer) clearTimeout(_sseImageTimer);
-                _sseImageTimer = setTimeout(() => {
-                    refreshProductImages(tposProductId, tposTemplateId, timestamp);
-                }, 2000);
-            } catch (_) {
-                /* ignore parse errors */
-            }
-        });
-
-        _sseSource.onerror = () => {
-            console.warn('[SSE-Image] Disconnected, auto-reconnect...');
-        };
-
-        console.log('[SSE-Image] Listening for image updates');
-    } catch (err) {
-        console.warn('[SSE-Image] Setup failed:', err);
+    if (!window.SoluongWarehouseSync) {
+        console.warn('[SSE] SoluongWarehouseSync chưa load — bỏ qua realtime TPOS');
+        return;
     }
-}
-
-/**
- * Refresh image for products matching the updated template/product ID.
- * Re-fetches from Render DB and updates Firebase RTDB + local state.
- */
-async function refreshProductImages(tposProductId, tposTemplateId, timestamp) {
-    const matchingKeys = Object.keys(soluongProducts).filter((key) => {
-        const p = soluongProducts[key];
-        return p.Id == tposProductId || p.Id == tposTemplateId || p.ProductTmplId == tposTemplateId;
+    _sseSync = window.SoluongWarehouseSync.start({
+        database,
+        getProducts: () => soluongProducts,
+        isSyncing: () => isSyncingFromFirebase,
+        toast: _tposToast,
+        onUpdated: () => {
+            // Re-render grid sau khi tên/hình/số lượng được cập nhật từ TPOS
+            if (searchKeyword) {
+                performSearch(searchKeyword, false);
+            } else {
+                updateProductGrid();
+            }
+        },
     });
-
-    if (matchingKeys.length === 0) return;
-
-    console.log(`[SSE-Image] Refreshing images for ${matchingKeys.length} product(s)`);
-
-    for (const productKey of matchingKeys) {
-        const product = soluongProducts[productKey];
-        try {
-            const result = await WarehouseAPI.getProductAsTpos(product.Id);
-            if (!result || !result.product) continue;
-
-            const newImageUrl = result.product.imageUrl || result.product.ImageUrl || '';
-            if (newImageUrl) {
-                product.imageUrl = newImageUrl;
-            }
-            product.lastRefreshed = timestamp;
-
-            // Sync to Firebase RTDB
-            if (!isSyncingFromFirebase) {
-                database
-                    .ref(`soluongProducts/${productKey}`)
-                    .update({
-                        imageUrl: product.imageUrl,
-                        lastRefreshed: product.lastRefreshed,
-                    })
-                    .catch((err) => console.error('[SSE-Image] Firebase sync error:', err));
-            }
-        } catch (err) {
-            console.warn('[SSE-Image] Refresh error for', productKey, err);
-        }
-    }
-
-    // Re-render grid
-    if (searchKeyword) {
-        performSearch(searchKeyword, false);
-    } else {
-        updateProductGrid();
-    }
 }
 
 // Cleanup Firebase listeners when leaving page
 window.addEventListener('beforeunload', () => {
     console.log('🧹 Cleaning up Firebase listeners...');
 
-    // Cleanup SSE
-    if (_sseSource) {
-        _sseSource.close();
-        _sseSource = null;
+    // Cleanup SSE realtime sync
+    if (_sseSync) {
+        _sseSync.stop();
+        _sseSync = null;
     }
-    if (_sseImageTimer) clearTimeout(_sseImageTimer);
 
     // Cleanup product listeners
     if (firebaseDetachFn) {
