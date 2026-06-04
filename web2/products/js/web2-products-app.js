@@ -1084,6 +1084,11 @@
         const sizeEl = $('#pmVariantSize');
         if (colorEl) colorEl.value = '';
         if (sizeEl) sizeEl.value = '';
+        // Đóng cả 2 dropdown khi mở modal — tránh "tự mở" do state cũ.
+        const cd = $('#pmVariantColorSuggest');
+        const sd = $('#pmVariantSizeSuggest');
+        if (cd) cd.hidden = true;
+        if (sd) sd.hidden = true;
         if (!variantStr) return;
         const parts = String(variantStr)
             .split(',')
@@ -1129,10 +1134,8 @@
             const cache = window.Web2VariantsCache;
             if (!cache) {
                 dropdown.hidden = true;
-                dropdown.style.display = 'none';
                 return;
             }
-            dropdown.style.display = '';
             const q = (query || '').trim().toLowerCase();
             const wantSize = kind === 'size';
             const items = cache
@@ -1157,7 +1160,6 @@
                 btn.addEventListener('click', () => {
                     input.value = btn.dataset.val;
                     dropdown.hidden = true;
-                    dropdown.style.display = 'none';
                     input.blur();
                     input.dispatchEvent(new Event('change', { bubbles: true }));
                     _renderCombinedHint();

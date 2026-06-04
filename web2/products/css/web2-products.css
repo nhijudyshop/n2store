@@ -110,6 +110,11 @@
     flex-direction: column;
     gap: 2px;
 }
+/* `display:flex` ở trên đè UA [hidden]{display:none} → phải ép lại, nếu không
+   dropdown LUÔN hiện (kể cả khi hidden=true) → tự mở khi mở modal. */
+.variant-suggest-dropdown[hidden] {
+    display: none !important;
+}
 .variant-suggest-item {
     display: flex;
     align-items: center;
