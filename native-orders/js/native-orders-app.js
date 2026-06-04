@@ -1097,9 +1097,12 @@
                             </button>`;
                                 }
                                 if (o.status === 'confirmed') {
-                                    // 2026-06-04: bỏ nút In PBH per-row — trùng "In bill" (bulk).
-                                    // PBH & bill là 1 (PBH number = mã đơn NJ). Dùng "In bill" để in.
-                                    return `<span class="tpos-action-placeholder"></span>`;
+                                    // 2026-06-04: slot 2 cho đơn confirmed = nút Huỷ đơn (X) — dời
+                                    // lên đây theo yêu cầu (bỏ In PBH per-row vì trùng "In bill").
+                                    return `<button class="tpos-btn tpos-btn-warning tpos-btn-xs" title="Huỷ đơn (PBH liên kết tự cancel + restock)"
+                                onclick="event.stopPropagation();NativeOrdersApp.cancelOrder('${escapeHtml(o.code)}')">
+                                <i data-lucide="x-octagon" style="width:12px;height:12px;"></i>
+                            </button>`;
                                 }
                                 // draft (default)
                                 return `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH"
@@ -1123,14 +1126,7 @@
                             </button>`
                                     : ''
                             }
-                            ${
-                                o.status === 'confirmed'
-                                    ? `<button class="tpos-btn tpos-btn-warning tpos-btn-xs" title="Huỷ đơn (PBH liên kết tự cancel + restock)"
-                                onclick="event.stopPropagation();NativeOrdersApp.cancelOrder('${escapeHtml(o.code)}')">
-                                <i data-lucide="x-octagon" style="width:12px;height:12px;"></i>
-                            </button>`
-                                    : ''
-                            }
+                            ${/* 2026-06-04: nút Huỷ đơn (X) đã dời lên slot 2 cho confirmed. */ ''}
                         </div>
                     </td>
                     <td class="col-stt tpos-cell-center"><strong>${sttValue}</strong></td>
