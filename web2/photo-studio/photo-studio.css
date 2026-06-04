@@ -1,92 +1,128 @@
 /* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. */
+/* Studio chụp tách nền — giao diện camera-app mobile-first. */
 
-.ps-main {
+.ps-app {
     --ps-accent: #2563eb;
     --ps-accent-d: #1d4ed8;
-    --ps-ink: #1f2933;
-    --ps-muted: #6b7280;
-    --ps-line: #e5e7eb;
-    --ps-surface: #ffffff;
-    --ps-radius: 14px;
-    --ps-shadow: 0 1px 3px rgba(16, 24, 40, 0.08), 0 6px 16px rgba(16, 24, 40, 0.06);
-    background: #eef2f6;
-    padding: 0 0 40px;
-    overflow-y: auto;
+    --ps-bg: #0b1220;
+    --ps-bg2: #111a2b;
+    --ps-line: rgba(255, 255, 255, 0.1);
+    --ps-text: #e7ecf3;
+    --ps-muted: #93a1b5;
+    position: relative;
     height: 100vh;
+    height: 100dvh;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    background: var(--ps-bg);
+    color: var(--ps-text);
+    overflow: hidden;
+    font-family:
+        Inter,
+        system-ui,
+        -apple-system,
+        'Segoe UI',
+        sans-serif;
 }
-
-/* ===== Hero ===== */
-.ps-hero {
-    background: linear-gradient(135deg, #1e293b 0%, #2563eb 130%);
-    color: #fff;
-    padding: 26px 28px 30px;
+/* Bỏ padding mặc định của web2-main (mobile theme) để full-bleed */
+main.web2-main.ps-app {
+    padding: 0 !important;
 }
-.ps-badge {
-    display: inline-block;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    background: rgba(255, 255, 255, 0.16);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    padding: 3px 10px;
-    border-radius: 999px;
-    margin-bottom: 10px;
-}
-.ps-hero h1 {
-    margin: 0 0 6px;
-    font-family: Manrope, Inter, sans-serif;
-    font-size: 28px;
-    font-weight: 800;
-    letter-spacing: -0.01em;
-}
-.ps-sub {
-    margin: 0;
-    max-width: 640px;
-    font-size: 14px;
-    line-height: 1.6;
-    color: rgba(255, 255, 255, 0.82);
-}
-
-/* ===== Layout grid ===== */
-.ps-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 340px;
-    gap: 18px;
-    padding: 18px 22px 0;
-    align-items: start;
-}
+/* Mobile: web2-shell mặc định grid 260px+1fr; mobile theme chỉ đổi flex-direction
+   (no-op trên grid) → cột sidebar 260px vẫn chiếm chỗ, main bị hẹp. Ép 1 cột cho
+   trang này (aside vẫn là drawer fixed). */
 @media (max-width: 900px) {
-    .ps-grid {
-        grid-template-columns: 1fr;
-        padding: 14px;
+    .web2-shell:has(.ps-app) {
+        grid-template-columns: 1fr !important;
+        display: block !important;
+    }
+}
+@media (min-width: 901px) {
+    .ps-app {
+        height: 100vh;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
     }
 }
 
-/* ===== Stage ===== */
-.ps-stage-wrap {
+/* ===== Screens ===== */
+.ps-screen {
+    position: absolute;
+    inset: 0;
     display: flex;
     flex-direction: column;
-    gap: 12px;
 }
+.ps-screen[hidden] {
+    display: none !important;
+}
+
+/* ===== Top bar ===== */
+.ps-topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: max(10px, env(safe-area-inset-top)) 14px 10px;
+    padding-left: 56px; /* chừa chỗ nút hamburger sidebar */
+    flex-shrink: 0;
+}
+.ps-app-title {
+    flex: 1;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+.ps-topbar-spacer {
+    width: 40px;
+}
+.ps-review-meta {
+    width: 56px;
+    text-align: right;
+    font-size: 11px;
+    color: var(--ps-muted);
+    font-variant-numeric: tabular-nums;
+}
+.ps-icon-btn {
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--ps-text);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+.ps-icon-btn:active {
+    background: rgba(255, 255, 255, 0.18);
+}
+.ps-icon-btn i {
+    width: 20px;
+    height: 20px;
+}
+
+/* ===== Stage (camera) ===== */
 .ps-stage {
+    flex: 1;
+    min-height: 0;
     position: relative;
-    border-radius: var(--ps-radius);
+    margin: 0 12px;
+    border-radius: 18px;
     overflow: hidden;
-    background: #0f172a;
-    box-shadow: var(--ps-shadow);
-    min-height: 360px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
-.ps-stage.ps-stage-transparent {
-    /* checkerboard so transparency is visible */
-    background-color: #fff;
+.ps-checker {
+    background-color: #0e1726;
     background-image:
-        linear-gradient(45deg, #d7dde5 25%, transparent 25%),
-        linear-gradient(-45deg, #d7dde5 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, #d7dde5 75%),
-        linear-gradient(-45deg, transparent 75%, #d7dde5 75%);
+        linear-gradient(45deg, #1b2740 25%, transparent 25%),
+        linear-gradient(-45deg, #1b2740 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1b2740 75%),
+        linear-gradient(-45deg, transparent 75%, #1b2740 75%);
     background-size: 22px 22px;
     background-position:
         0 0,
@@ -97,7 +133,7 @@
 .ps-output {
     display: block;
     max-width: 100%;
-    max-height: 68vh;
+    max-height: 100%;
     width: auto;
     height: auto;
 }
@@ -115,14 +151,13 @@
     pointer-events: none;
 }
 
-/* CRITICAL: flex/absolute overlays must respect [hidden] (UA [hidden]{display:none}
-   loses to .class{display:flex}). Without this the loading/empty overlay never hides. */
 .ps-stage-empty[hidden],
 .ps-stage-loading[hidden],
-.ps-fps[hidden] {
+.ps-hq-hint[hidden],
+.ps-fps[hidden],
+.ps-sample-hint[hidden] {
     display: none !important;
 }
-
 .ps-stage-empty {
     position: absolute;
     inset: 0;
@@ -130,38 +165,41 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    color: #94a3b8;
+    gap: 14px;
+    padding: 24px;
+    text-align: center;
+    color: var(--ps-muted);
 }
 .ps-stage-empty i {
-    width: 46px;
-    height: 46px;
+    width: 44px;
+    height: 44px;
     stroke-width: 1.4;
 }
 .ps-stage-empty p {
     margin: 0;
     font-size: 14px;
+    line-height: 1.6;
 }
-.ps-stage-empty .ps-stage-err {
-    max-width: 360px;
-    line-height: 1.55;
-    color: #fca5a5;
-    padding: 0 16px;
+.ps-stage-empty b {
+    color: var(--ps-text);
+}
+.ps-stage-err {
+    color: #fca5a5 !important;
     font-weight: 600;
+    max-width: 320px;
 }
 .ps-help {
     text-align: left;
-    max-width: 400px;
-    margin: 0 16px;
+    max-width: 360px;
     background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 10px;
-    padding: 11px 14px;
+    border: 1px solid var(--ps-line);
+    border-radius: 12px;
+    padding: 12px 14px;
 }
 .ps-help-title {
     font-size: 12.5px;
     font-weight: 700;
-    color: #e2e8f0;
+    color: var(--ps-text);
     margin-bottom: 6px;
 }
 .ps-help ol {
@@ -171,7 +209,7 @@
 .ps-help li {
     font-size: 12.5px;
     line-height: 1.7;
-    color: #cbd5e1;
+    color: #c7d2e0;
 }
 .ps-help li b {
     color: #fff;
@@ -179,13 +217,10 @@
 .ps-help-alt {
     margin-top: 9px;
     padding-top: 9px;
-    border-top: 1px dashed rgba(255, 255, 255, 0.14);
+    border-top: 1px dashed var(--ps-line);
     font-size: 11.5px;
     line-height: 1.6;
-    color: #94a3b8;
-}
-.ps-help-alt b {
-    color: #cbd5e1;
+    color: var(--ps-muted);
 }
 
 .ps-stage-loading {
@@ -196,13 +231,16 @@
     gap: 14px;
     align-items: center;
     justify-content: center;
-    background: rgba(15, 23, 42, 0.7);
+    background: rgba(11, 18, 32, 0.78);
+    backdrop-filter: blur(1px);
     color: #fff;
     font-size: 13px;
+    text-align: center;
+    padding: 24px;
 }
 .ps-spinner {
-    width: 34px;
-    height: 34px;
+    width: 38px;
+    height: 38px;
     border: 3px solid rgba(255, 255, 255, 0.25);
     border-top-color: #fff;
     border-radius: 50%;
@@ -213,195 +251,496 @@
         transform: rotate(360deg);
     }
 }
+.ps-hq-hint {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 999px;
+    pointer-events: none;
+}
+.ps-fps {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.45);
+    padding: 3px 8px;
+    border-radius: 999px;
+    pointer-events: none;
+}
 
-/* ===== Stage bar ===== */
-.ps-stage-bar {
+/* ===== Mode pills ===== */
+.ps-mode-pills {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
-    flex-wrap: wrap;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(8px);
+    border-radius: 999px;
+    padding: 4px;
+}
+.ps-mode-pills button {
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        color 0.15s;
+    white-space: nowrap;
+}
+.ps-mode-pills button.is-active {
+    background: #fff;
+    color: #111;
+}
+
+/* ===== Camera bar (shutter) ===== */
+.ps-cam-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 36px calc(10px + env(safe-area-inset-bottom));
+    flex-shrink: 0;
+}
+.ps-round-btn {
+    width: 52px;
+    height: 52px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        transform 0.1s;
+}
+.ps-round-btn:active {
+    transform: scale(0.94);
+}
+.ps-round-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+.ps-round-btn i {
+    width: 22px;
+    height: 22px;
+}
+.ps-upload {
+    position: relative;
+}
+.ps-shutter {
+    width: 74px;
+    height: 74px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+.ps-shutter-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 4px solid rgba(255, 255, 255, 0.9);
+}
+.ps-shutter-core {
+    position: absolute;
+    inset: 7px;
+    border-radius: 50%;
+    background: #fff;
+    transition:
+        transform 0.1s ease,
+        background 0.1s;
+}
+.ps-shutter:not(:disabled):active .ps-shutter-core {
+    transform: scale(0.86);
+    background: #e2e8f0;
+}
+.ps-shutter:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.ps-start-cta {
+    position: absolute;
+    bottom: calc(110px + env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    display: inline-flex;
     align-items: center;
     gap: 8px;
+    background: var(--ps-accent);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
 }
-.ps-hint {
+.ps-start-cta[hidden] {
+    display: none !important;
+}
+.ps-start-cta i {
+    width: 18px;
+    height: 18px;
+}
+.ps-sample-hint {
+    position: absolute;
+    bottom: calc(96px + env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
     display: inline-flex;
     align-items: center;
     gap: 5px;
     font-size: 12px;
-    color: var(--ps-muted);
-    margin-left: auto;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 6px 12px;
+    border-radius: 999px;
 }
-.ps-hint i {
+.ps-sample-hint i {
     width: 14px;
     height: 14px;
 }
 
-/* ===== Buttons ===== */
-.ps-btn {
-    display: inline-flex;
+/* ===== Review screen ===== */
+.ps-review-stage {
+    flex: 1;
+    min-height: 0;
+    margin: 0 12px;
+    border-radius: 18px;
+    overflow: hidden;
+    display: flex;
     align-items: center;
-    gap: 7px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--ps-ink);
-    background: var(--ps-surface);
-    border: 1px solid var(--ps-line);
-    border-radius: 10px;
-    padding: 9px 14px;
-    cursor: pointer;
-    transition:
-        transform 0.12s ease,
-        box-shadow 0.12s ease,
-        background 0.12s ease,
-        border-color 0.12s ease;
-    text-decoration: none;
-}
-.ps-btn i {
-    width: 16px;
-    height: 16px;
-}
-.ps-btn:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 2px 8px rgba(16, 24, 40, 0.08);
-    transform: translateY(-1px);
-}
-.ps-btn:active {
-    transform: translateY(0);
-}
-.ps-btn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
-.ps-btn-primary {
-    background: var(--ps-accent);
-    border-color: var(--ps-accent);
-    color: #fff;
-}
-.ps-btn-primary:hover {
-    background: var(--ps-accent-d);
-    border-color: var(--ps-accent-d);
-}
-.ps-btn-lg {
-    padding: 11px 22px;
-    font-size: 14px;
-}
-.ps-btn-sm {
-    padding: 6px 10px;
-    font-size: 12px;
-    border-radius: 8px;
-}
-.ps-btn-ghost {
-    background: transparent;
-    border-color: transparent;
-    color: var(--ps-muted);
-}
-.ps-btn-ghost:hover {
-    background: #f1f5f9;
-    box-shadow: none;
-}
-.ps-btn-file {
-    position: relative;
-}
-.ps-btn-block {
-    width: 100%;
     justify-content: center;
 }
+.ps-review-stage canvas {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    display: block;
+}
+.ps-review-stage canvas.ps-mirror {
+    transform: scaleX(-1);
+}
 
-/* ===== Panel / cards ===== */
-.ps-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+.ps-bg-strip {
+    flex-shrink: 0;
+    padding: 12px 12px 4px;
 }
-.ps-card {
-    background: var(--ps-surface);
-    border: 1px solid var(--ps-line);
-    border-radius: var(--ps-radius);
-    padding: 14px 15px;
-    box-shadow: var(--ps-shadow);
-}
-.ps-card-title {
-    font-size: 12px;
+.ps-bg-strip-label {
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--ps-muted);
-    margin-bottom: 11px;
+    margin-bottom: 8px;
+    padding-left: 2px;
 }
-.ps-note {
-    margin: 10px 0 0;
-    font-size: 12px;
-    line-height: 1.55;
-    color: var(--ps-muted);
+.ps-bg-row {
+    display: flex;
+    gap: 9px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+}
+.ps-bg-row::-webkit-scrollbar {
+    display: none;
+}
+.ps-bg-chip {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 0;
+    overflow: hidden;
+}
+.ps-bg-chip i {
+    width: 18px;
+    height: 18px;
+}
+.ps-bg-chip.is-active {
+    border-color: #fff;
+    box-shadow: 0 0 0 2px var(--ps-accent);
+}
+.ps-chip-checker {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(45deg, #cbd5e1 25%, #fff 25%),
+        linear-gradient(-45deg, #cbd5e1 25%, #fff 25%),
+        linear-gradient(45deg, #fff 75%, #cbd5e1 75%),
+        linear-gradient(-45deg, #fff 75%, #cbd5e1 75%);
+    background-size: 14px 14px;
+    background-position:
+        0 0,
+        0 7px,
+        7px -7px,
+        -7px 0;
+}
+.ps-bg-pick input[type='color'],
+.ps-bg-img input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    border: none;
 }
 
-/* ===== Segmented control ===== */
+.ps-review-actions {
+    display: flex;
+    gap: 12px;
+    padding: 8px 14px calc(6px + env(safe-area-inset-bottom));
+    flex-shrink: 0;
+}
+.ps-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    height: 54px;
+}
+.ps-btn i {
+    width: 19px;
+    height: 19px;
+}
+.ps-btn-ghost-lg {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+.ps-btn-save {
+    flex: 1.4;
+    background: var(--ps-accent);
+    color: #fff;
+}
+.ps-btn-save:active {
+    background: var(--ps-accent-d);
+}
+.ps-save-hint {
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--ps-muted);
+    margin: 0 16px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+}
+.ps-save-hint b {
+    color: #cbd5e1;
+}
+
+/* ===== Options sheet ===== */
+.ps-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 120;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+}
+.ps-sheet-backdrop.is-open {
+    opacity: 1;
+    pointer-events: auto;
+}
+.ps-sheet {
+    position: fixed;
+    left: 50%;
+    bottom: 0;
+    transform: translate(-50%, 103%);
+    width: 100%;
+    max-width: 480px;
+    max-height: 86vh;
+    z-index: 130;
+    background: #f4f6f9;
+    color: #1f2933;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -10px 34px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.ps-sheet.is-open {
+    transform: translate(-50%, 0);
+}
+.ps-sheet-head {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 16px 14px 10px;
+    flex-shrink: 0;
+}
+.ps-sheet-grabber {
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    border-radius: 99px;
+    background: #cbd5e1;
+}
+.ps-sheet-title {
+    font-size: 15px;
+    font-weight: 700;
+}
+.ps-sheet-close {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ps-accent);
+    background: #e8f0fe;
+    border: none;
+    border-radius: 9px;
+    padding: 7px 14px;
+    cursor: pointer;
+}
+.ps-sheet-close i {
+    width: 15px;
+    height: 15px;
+}
+.ps-sheet-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px 16px calc(20px + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.ps-group-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin-bottom: 9px;
+}
+.ps-group[hidden] {
+    display: none !important;
+}
+.ps-group-note {
+    margin: 9px 0 0;
+    font-size: 12px;
+    line-height: 1.55;
+    color: #6b7280;
+}
+
+/* chips / seg / swatch / slider / check (light, in sheet) */
+.ps-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+.ps-chip {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+    background: #e9edf2;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    padding: 8px 14px;
+    cursor: pointer;
+}
+.ps-chip.is-active {
+    background: #fff;
+    color: var(--ps-accent);
+    border-color: var(--ps-accent);
+}
 .ps-seg {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 6px;
-    background: #f1f5f9;
+    background: #e9edf2;
     padding: 4px;
-    border-radius: 11px;
+    border-radius: 12px;
 }
-.ps-seg-3 {
-    grid-template-columns: repeat(3, 1fr);
-}
-.ps-seg-btn,
-.ps-bg-btn,
-.ps-hqeng-btn {
+.ps-eng-btn,
+.ps-fmt-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--ps-muted);
+    flex-direction: column;
+    font-size: 13px;
+    font-weight: 700;
+    color: #6b7280;
     background: transparent;
     border: none;
-    border-radius: 8px;
-    padding: 8px 6px;
+    border-radius: 9px;
+    padding: 9px 6px;
     cursor: pointer;
-    transition:
-        background 0.15s ease,
-        color 0.15s ease,
-        box-shadow 0.15s ease;
 }
-.ps-seg-btn i,
-.ps-bg-btn i,
-.ps-hqeng-btn i {
-    width: 15px;
-    height: 15px;
+.ps-eng-btn {
+    flex-direction: row;
 }
-.ps-seg-btn.is-active,
-.ps-bg-btn.is-active,
-.ps-hqeng-btn.is-active {
+.ps-eng-btn i,
+.ps-fmt-btn i {
+    width: 16px;
+    height: 16px;
+}
+.ps-fmt-btn small {
+    font-size: 10px;
+    font-weight: 500;
+    opacity: 0.75;
+}
+.ps-eng-btn.is-active,
+.ps-fmt-btn.is-active {
     background: #fff;
     color: var(--ps-accent);
     box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12);
 }
-
-/* ===== Swatches ===== */
 .ps-swatch-row {
     display: flex;
     gap: 8px;
-    flex-wrap: wrap;
     align-items: center;
+    margin-bottom: 4px;
 }
 .ps-swatch {
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     border-radius: 9px;
     border: 2px solid transparent;
     cursor: pointer;
-    padding: 0;
     position: relative;
-    transition:
-        transform 0.12s ease,
-        border-color 0.12s ease;
-}
-.ps-swatch:hover {
-    transform: scale(1.06);
 }
 .ps-swatch.is-active {
     border-color: var(--ps-accent);
@@ -411,33 +750,31 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: #f8fafc;
+    background: #f1f5f9;
     border: 2px dashed #cbd5e1;
-    color: var(--ps-muted);
+    color: #6b7280;
     overflow: hidden;
 }
 .ps-swatch-pick i {
-    width: 16px;
-    height: 16px;
+    width: 15px;
+    height: 15px;
 }
-.ps-swatch-pick input[type='color'] {
+.ps-swatch-pick input {
     position: absolute;
     inset: 0;
     opacity: 0;
     cursor: pointer;
     border: none;
 }
-
-/* ===== Sliders ===== */
 .ps-slider {
     display: block;
-    margin-top: 12px;
+    margin-top: 11px;
 }
 .ps-slider span {
     display: flex;
     justify-content: space-between;
     font-size: 12.5px;
-    color: var(--ps-ink);
+    color: #1f2933;
     margin-bottom: 6px;
 }
 .ps-slider b {
@@ -448,486 +785,17 @@
     width: 100%;
     accent-color: var(--ps-accent);
 }
-
-/* ===== Bg options ===== */
-.ps-bg-opt {
-    margin-top: 12px;
-}
-.ps-bg-thumb {
-    margin-top: 10px;
-    height: 80px;
-    border-radius: 10px;
-    background-size: cover;
-    background-position: center;
-    border: 1px solid var(--ps-line);
-}
-
-/* ===== Checkbox ===== */
 .ps-check {
     display: flex;
     align-items: center;
     gap: 9px;
     font-size: 13px;
-    color: var(--ps-ink);
+    color: #1f2933;
     cursor: pointer;
+    margin-top: 12px;
 }
 .ps-check input {
     width: 17px;
     height: 17px;
     accent-color: var(--ps-accent);
-}
-
-/* ===== Results ===== */
-.ps-results {
-    padding: 22px 22px 0;
-}
-.ps-results-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-}
-.ps-results-head h2 {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--ps-ink);
-}
-.ps-results-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 14px;
-}
-.ps-result-card {
-    background: var(--ps-surface);
-    border: 1px solid var(--ps-line);
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: var(--ps-shadow);
-}
-.ps-result-thumb {
-    height: 150px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    /* light checkerboard tile so transparent PNGs read as transparent */
-    background-color: #fff;
-    box-shadow: inset 0 0 0 100px transparent;
-}
-.ps-result-actions {
-    display: flex;
-    gap: 6px;
-    padding: 8px;
-    border-top: 1px solid var(--ps-line);
-}
-.ps-result-actions .ps-btn-primary {
-    flex: 1;
-    justify-content: center;
-}
-.ps-result-meta {
-    font-size: 11px;
-    color: var(--ps-muted);
-    padding: 6px 8px 0;
-    font-variant-numeric: tabular-nums;
-}
-
-/* ===== FPS badge ===== */
-.ps-fps {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #fff;
-    background: rgba(15, 23, 42, 0.55);
-    padding: 3px 8px;
-    border-radius: 999px;
-    font-variant-numeric: tabular-nums;
-    pointer-events: none;
-}
-
-/* ===== Aspect chips ===== */
-.ps-chip-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px;
-}
-.ps-chip {
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--ps-muted);
-    background: #f1f5f9;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    padding: 7px 12px;
-    cursor: pointer;
-    transition:
-        background 0.14s ease,
-        color 0.14s ease,
-        border-color 0.14s ease;
-}
-.ps-chip:hover {
-    background: #e6ebf1;
-}
-.ps-chip.is-active {
-    background: #fff;
-    color: var(--ps-accent);
-    border-color: var(--ps-accent);
-    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.1);
-}
-
-/* ===== 4-up segmented (background) ===== */
-.ps-seg-4 {
-    grid-template-columns: 1fr 1fr;
-}
-
-/* ===== Format buttons ===== */
-.ps-fmt-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1px;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--ps-muted);
-    background: transparent;
-    border: none;
-    border-radius: 8px;
-    padding: 7px 6px;
-    cursor: pointer;
-    transition:
-        background 0.15s ease,
-        color 0.15s ease,
-        box-shadow 0.15s ease;
-}
-.ps-fmt-btn small {
-    font-size: 10px;
-    font-weight: 500;
-    opacity: 0.8;
-}
-.ps-fmt-btn.is-active {
-    background: #fff;
-    color: var(--ps-accent);
-    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12);
-}
-
-/* ===== Checkbox variants + disabled bg btn ===== */
-.ps-check-sm {
-    margin-top: 12px;
-    font-size: 12.5px;
-}
-.ps-card .ps-check + .ps-fmt,
-.ps-seg + .ps-check {
-    margin-top: 12px;
-}
-.ps-bg-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-/* ===== Results header tools ===== */
-.ps-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 22px;
-    height: 22px;
-    padding: 0 7px;
-    margin-left: 6px;
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--ps-accent);
-    background: #e8f0fe;
-    border-radius: 999px;
-    vertical-align: middle;
-}
-.ps-results-tools {
-    display: flex;
-    gap: 8px;
-}
-
-/* ===== Sheet chrome — ẩn trên desktop ===== */
-.ps-options-toggle,
-.ps-sheet-head,
-.ps-sheet-backdrop {
-    display: none;
-}
-
-/* =====================================================================
-   RESULT PREVIEW — màn xem ảnh vừa chụp (full-screen, mobile + desktop)
-   ===================================================================== */
-.ps-preview[hidden] {
-    display: none !important;
-}
-.ps-preview {
-    position: fixed;
-    inset: 0;
-    z-index: 200;
-    display: flex;
-    flex-direction: column;
-    background: #0b1220;
-    animation: ps-fade 0.18s ease;
-}
-@keyframes ps-fade {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-.ps-preview-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 16px;
-    color: #fff;
-}
-.ps-preview-title {
-    font-size: 15px;
-    font-weight: 700;
-}
-.ps-preview-x {
-    width: 40px;
-    height: 40px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
-    cursor: pointer;
-}
-.ps-preview-x i {
-    width: 20px;
-    height: 20px;
-}
-.ps-preview-stage {
-    flex: 1;
-    min-height: 0;
-    margin: 0 14px;
-    border-radius: 14px;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    /* checkerboard cho ảnh trong suốt */
-    background-color: #1a2332;
-    background-image:
-        linear-gradient(45deg, #232f42 25%, transparent 25%),
-        linear-gradient(-45deg, #232f42 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, #232f42 75%),
-        linear-gradient(-45deg, transparent 75%, #232f42 75%);
-    background-size: 22px 22px;
-    background-position:
-        0 0,
-        0 11px,
-        11px -11px,
-        -11px 0;
-}
-.ps-preview-stage img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    display: block;
-}
-.ps-preview-meta {
-    text-align: center;
-    color: #94a3b8;
-    font-size: 12px;
-    padding: 10px 0 2px;
-    font-variant-numeric: tabular-nums;
-}
-.ps-preview-actions {
-    display: flex;
-    gap: 12px;
-    padding: 8px 16px;
-}
-.ps-preview-actions .ps-btn {
-    flex: 1;
-    justify-content: center;
-    height: 54px;
-    font-size: 16px;
-}
-.ps-preview-actions .ps-btn:not(.ps-btn-primary) {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.18);
-    color: #fff;
-}
-.ps-preview-hint {
-    text-align: center;
-    color: #64748b;
-    font-size: 12px;
-    margin: 4px 16px;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-}
-.ps-preview-hint b {
-    color: #cbd5e1;
-}
-
-/* =====================================================================
-   MOBILE — bố cục kiểu app camera: khung lớn + nút Chụp to + bottom sheet
-   ===================================================================== */
-@media (max-width: 860px) {
-    .ps-main {
-        padding-bottom: 0;
-    }
-
-    /* Hero gọn lại */
-    .ps-hero {
-        padding: 14px 16px 16px;
-    }
-    .ps-hero h1 {
-        font-size: 20px;
-    }
-    .ps-sub {
-        font-size: 12px;
-        line-height: 1.5;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-
-    .ps-grid {
-        display: block;
-        padding: 12px 12px 0;
-    }
-
-    /* Khung camera chiếm phần lớn màn hình */
-    .ps-stage {
-        min-height: 300px;
-    }
-    .ps-output {
-        max-height: 58vh;
-    }
-
-    /* Thanh điều khiển kiểu camera: Chụp to ở trên, nút phụ ở dưới */
-    .ps-stage-bar {
-        flex-wrap: wrap;
-        gap: 8px;
-        position: sticky;
-        bottom: 0;
-        background: #eef2f6;
-        padding: 8px 0 10px;
-        z-index: 5;
-    }
-    .ps-stage-bar #psCapture {
-        flex: 1 0 100%;
-        height: 54px;
-        font-size: 16px;
-        border-radius: 14px;
-        order: -1;
-    }
-    .ps-stage-bar #psCapture i {
-        width: 20px;
-        height: 20px;
-    }
-    .ps-stage-bar .ps-btn:not(#psCapture),
-    .ps-stage-bar .ps-btn-file {
-        flex: 1 1 0;
-        justify-content: center;
-        height: 46px;
-        padding: 0 8px;
-        font-size: 12.5px;
-    }
-    /* nút đổi camera chỉ cần icon */
-    #psSwitchCam {
-        flex: 0 0 46px !important;
-    }
-    .ps-hint {
-        flex: 1 0 100%;
-        margin-left: 0;
-        justify-content: center;
-    }
-    .ps-options-toggle {
-        display: inline-flex;
-    }
-
-    /* ----- Bottom sheet ----- */
-    .ps-panel {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 60;
-        max-height: 84vh;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain;
-        background: #f4f6f9;
-        border-radius: 20px 20px 0 0;
-        padding: 0 14px 24px;
-        gap: 12px;
-        transform: translateY(103%);
-        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        box-shadow: 0 -10px 34px rgba(15, 23, 42, 0.22);
-    }
-    .ps-panel.is-open {
-        transform: none;
-    }
-    .ps-sheet-head {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        position: sticky;
-        top: 0;
-        background: #f4f6f9;
-        padding: 10px 0 8px;
-        margin: 0 0 2px;
-        z-index: 2;
-    }
-    .ps-sheet-grabber {
-        position: absolute;
-        top: 7px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 40px;
-        height: 4px;
-        border-radius: 99px;
-        background: #cbd5e1;
-    }
-    .ps-sheet-title {
-        font-size: 15px;
-        font-weight: 700;
-        color: var(--ps-ink);
-        margin-top: 6px;
-    }
-    .ps-sheet-close {
-        margin-left: auto;
-        margin-top: 6px;
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        font-size: 13px;
-        font-weight: 700;
-        color: var(--ps-accent);
-        background: #e8f0fe;
-        border: none;
-        border-radius: 9px;
-        padding: 7px 14px;
-        cursor: pointer;
-    }
-    .ps-sheet-close i {
-        width: 15px;
-        height: 15px;
-    }
-    .ps-sheet-backdrop.is-open {
-        display: block;
-        position: fixed;
-        inset: 0;
-        z-index: 59;
-        background: rgba(15, 23, 42, 0.45);
-    }
-    .ps-main.ps-sheet-open {
-        overflow: hidden;
-    }
-
-    .ps-results {
-        padding: 16px 12px 0;
-    }
-    .ps-results-grid {
-        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    }
 }

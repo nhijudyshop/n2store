@@ -1,29 +1,34 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. | WEB2.0 module.
 /**
- * Studio chụp tách nền — Web 2.0
+ * Studio chụp tách nền — giao diện camera-app mobile-first.
  *
- * Pure client-side: camera (getUserMedia) hoặc ảnh upload → tách nền realtime
- * bằng AI (MediaPipe Selfie Segmentation, on-device) hoặc chroma key (lọc màu
- * phông theo pixel) → ghép nền mới (trong suốt / màu / ảnh / mờ nền) → xuất
- * PNG/JPG. Hỗ trợ tỉ lệ khung, khử ám màu (spill), chụp ở độ phân giải gốc.
+ * Luồng: Camera (live) → Chụp → Xem (review) → chọn nền + Lưu ảnh.
+ *  - Mode "AI nét" (mặc định): tách nền chất lượng cao. Engine 'auto' = PhotoRoom
+ *    cloud, tự fallback @imgly on-device nếu lỗi/mất mạng. 'local' = luôn @imgly.
+ *  - Mode "AI nhanh": MediaPipe realtime (xem trước trực tiếp).
+ *  - Mode "Phông xanh": chroma key.
  *
- * Không có backend/DB/SSE: ảnh KHÔNG rời khỏi máy người dùng.
+ * Tách nền tạo ra "cutout" (chủ thể nền trong suốt). Màn Xem ghép cutout với nền
+ * (trong suốt/màu/ảnh/mờ) theo thời gian thực — đổi nền không cần tách lại.
+ * Lưu ảnh qua Web Share API (vào Ảnh điện thoại) → fallback tải về.
+ *
+ * Không backend cho on-device; cloud chỉ proxy PhotoRoom. Ảnh không lưu ở server.
  */
 (function (global) {
     'use strict';
 
-    // ---- Tunables -------------------------------------------------------
-    const PREVIEW_MAX_W = 1080; // cap xử lý realtime để mượt trên mobile
-    const CAPTURE_MAX_LONG = 2400; // cap cạnh dài khi chụp (tránh tốn RAM)
+    const PREVIEW_MAX_W = 1080;
+    const CAPTURE_MAX_LONG = 2400;
     const MEDIAPIPE_BASE =
         'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747';
+    const IMGLY_URL = 'https://esm.sh/@imgly/background-removal@1.5.5';
+    const CUTOUT_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/cutout';
 
-    // ---- State ----------------------------------------------------------
     const state = {
-        mode: 'ai', // 'ai' | 'hq' | 'chroma'
-        hqEngine: 'local', // 'local' (@imgly) | 'photoroom' (cloud)
+        mode: 'hq', // 'hq' | 'ai' | 'chroma'
+        hqEngine: 'auto', // 'auto' (cloud→fallback) | 'local'
         source: 'camera', // 'camera' | 'image'
-        bgType: 'transparent', // 'transparent' | 'color' | 'image' | 'blur'
+        bgType: 'transparent',
         bgColor: '#ffffff',
         bgImage: null,
         blurStrength: 12,
@@ -33,8 +38,8 @@
         feather: 2,
         spill: true,
         mirror: true,
-        format: 'png', // 'png' | 'jpg'
-        aspect: null, // null=gốc | number (w/h)
+        format: 'png',
+        aspect: null,
         facingMode: 'user',
         srcNatW: 0,
         srcNatH: 0,
@@ -51,27 +56,27 @@
         _sourceImg: null,
         _fpsT: 0,
         _fpsN: 0,
-        _hqBusy: false,
+        _capBusy: false,
+        // review state
+        _cutout: null, // canvas: chủ thể nền trong suốt (capture res, chưa mirror)
+        _capFrame: null, // canvas: khung hình gốc đã crop (cho nền mờ)
+        _capW: 0,
+        _capH: 0,
     };
 
     const el = {};
-    let work, workCtx; // offscreen for chroma processing (preview res)
-    let maskC, maskCtx; // latest AI mask snapshot
-    let octx; // output ctx
-    let imglyMod = null; // lazy-loaded @imgly/background-removal module (AI nét)
-
-    // @imgly/background-removal (IS-Net / U²-Net, on-device, free). ESM qua esm.sh
-    // để tự gói dependency (onnxruntime-web). Lazy import lần đầu dùng "AI nét".
-    const IMGLY_URL = 'https://esm.sh/@imgly/background-removal@1.5.5';
-
-    // Backend cutout (PhotoRoom) qua CF worker → Render /api/web2/cutout.
-    const CUTOUT_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/cutout';
+    let work, workCtx; // chroma realtime
+    let maskC, maskCtx; // latest AI mask
+    let octx; // live output ctx
+    let rctx; // review ctx
+    let imglyMod = null;
 
     // ---- Init -----------------------------------------------------------
     function init() {
         cache();
         if (!el.output) return;
         octx = el.output.getContext('2d', { willReadFrequently: true });
+        rctx = el.reviewCanvas.getContext('2d');
         work = document.createElement('canvas');
         workCtx = work.getContext('2d', { willReadFrequently: true });
         maskC = document.createElement('canvas');
@@ -79,66 +84,46 @@
         bind();
         initSegmentation();
         applyMobileDefaults();
+        setMode('hq');
         autoStartIfAllowed();
-    }
-
-    function isMobile() {
-        return (
-            /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
-            (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches)
-        );
-    }
-
-    // Trang dùng chủ yếu trên điện thoại → mặc định camera SAU (chụp sản phẩm),
-    // tắt lật gương (chỉ camera trước mới cần).
-    function applyMobileDefaults() {
-        if (!isMobile()) return;
-        state.facingMode = 'environment';
-        state.mirror = false;
-        el.mirror.checked = false;
-    }
-
-    // Nếu user đã cấp quyền camera trước đó → tự mở lại (không cần bấm), không
-    // prompt. Permissions API không hỗ trợ 'camera' trên vài trình duyệt (Safari/
-    // Firefox) → bọc try, fallback im lặng về nút "Bật camera".
-    async function autoStartIfAllowed() {
-        try {
-            if (!navigator.permissions?.query) return;
-            const st = await navigator.permissions.query({ name: 'camera' });
-            if (st.state === 'granted') startCamera({ silent: true });
-            else if (st.state === 'denied') {
-                // Đã bị chặn từ trước → Chrome sẽ KHÔNG hỏi lại. Báo + hướng dẫn ngay.
-                showPermissionHelp('Quyền camera đang bị chặn cho trang này.');
-            }
-            st.onchange = () => {
-                if (st.state === 'granted' && state.source !== 'image') {
-                    if (!state.stream) startCamera({ silent: true });
-                }
-            };
-        } catch {
-            /* Permissions API không hỗ trợ 'camera' — bỏ qua, dùng nút thủ công */
-        }
     }
 
     function cache() {
         const id = (x) => document.getElementById(x);
         [
+            'camera:psCamera',
+            'review:psReview',
+            'sheet:psSheet',
+            'sheetBackdrop:psSheetBackdrop',
             'stage:psStage',
             'output:psOutput',
             'video:psVideo',
             'stageEmpty:psStageEmpty',
             'stageLoading:psStageLoading',
             'loadingText:psLoadingText',
+            'hqHint:psHqHint',
             'fps:psFps',
-            'capture:psCapture',
+            'modePills:psModePills',
             'startCam:psStartCam',
+            'capture:psCapture',
             'switchCam:psSwitchCam',
             'sourceFile:psSourceFile',
             'sampleHint:psSampleHint',
-            'modeNote:psModeNote',
+            'optionsToggle:psOptionsToggle',
+            'sheetClose:psSheetClose',
+            'reviewBack:psReviewBack',
+            'reviewMeta:psReviewMeta',
+            'reviewStage:psReviewStage',
+            'reviewCanvas:psReviewCanvas',
+            'bgRow:psBgRow',
+            'bgColor:psBgColor',
+            'bgFile:psBgFile',
+            'retake:psRetake',
+            'save:psSave',
             'aspectRow:psAspectRow',
-            'chromaCard:psChromaCard',
-            'aiCard:psAiCard',
+            'engineGroup:psEngineGroup',
+            'chromaGroup:psChromaGroup',
+            'aiGroup:psAiGroup',
             'keyColor:psKeyColor',
             'threshold:psThreshold',
             'threshVal:psThreshVal',
@@ -147,37 +132,12 @@
             'spill:psSpill',
             'feather:psFeather',
             'featherVal:psFeatherVal',
-            'bgBlurBtn:psBgBlurBtn',
-            'bgColorOpt:psBgColorOpt',
-            'bgImageOpt:psBgImageOpt',
-            'bgBlurOpt:psBgBlurOpt',
-            'bgColor:psBgColor',
-            'bgFile:psBgFile',
-            'bgThumb:psBgThumb',
             'blurStrength:psBlurStrength',
             'blurVal:psBlurVal',
             'mirror:psMirror',
-            'results:psResults',
-            'resultsGrid:psResultsGrid',
-            'resultsCount:psResultsCount',
-            'clearResults:psClearResults',
-            'downloadAll:psDownloadAll',
-            'main:.ps-main',
-            'panel:psPanel',
-            'optionsToggle:psOptionsToggle',
-            'sheetClose:psSheetClose',
-            'sheetBackdrop:psSheetBackdrop',
-            'preview:psPreview',
-            'previewImg:psPreviewImg',
-            'previewMeta:psPreviewMeta',
-            'previewClose:psPreviewClose',
-            'previewRetake:psPreviewRetake',
-            'previewSave:psPreviewSave',
-            'hqEngineCard:psHqEngineCard',
-            'hqEngineNote:psHqEngineNote',
-        ].forEach((pair) => {
-            const [k, v] = pair.split(':');
-            el[k] = v.startsWith('.') ? document.querySelector(v) : id(v);
+        ].forEach((p) => {
+            const [k, v] = p.split(':');
+            el[k] = id(v);
         });
     }
 
@@ -186,35 +146,33 @@
         el.switchCam.addEventListener('click', switchCamera);
         el.capture.addEventListener('click', capture);
         el.sourceFile.addEventListener('change', onSourceFile);
-        el.bgFile.addEventListener('change', onBgFile);
-        el.clearResults.addEventListener('click', clearResults);
-        el.downloadAll.addEventListener('click', downloadAll);
-        el.output.addEventListener('click', sampleKeyFromStage);
-
-        // Bottom sheet (mobile) — mở/đóng bảng tùy chọn
         el.optionsToggle.addEventListener('click', openSheet);
         el.sheetClose.addEventListener('click', closeSheet);
         el.sheetBackdrop.addEventListener('click', closeSheet);
+        el.output.addEventListener('click', sampleKeyFromStage);
+        el.reviewBack.addEventListener('click', backToCamera);
+        el.retake.addEventListener('click', backToCamera);
+        el.save.addEventListener('click', saveReview);
+        el.bgFile.addEventListener('change', onBgFile);
 
-        // Preview ảnh vừa chụp
-        el.previewClose.addEventListener('click', closePreview);
-        el.previewRetake.addEventListener('click', closePreview);
-        el.previewSave.addEventListener('click', savePreview);
-
-        // Engine cho "AI nét"
-        document.querySelectorAll('.ps-hqeng-btn[data-hqeng]').forEach((b) =>
+        el.modePills
+            .querySelectorAll('button[data-mode]')
+            .forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+        el.bgRow
+            .querySelectorAll('[data-bg]')
+            .forEach((b) => b.addEventListener('click', () => pickBg(b)));
+        el.bgColor.addEventListener('input', () => {
+            state.bgType = 'color';
+            state.bgColor = el.bgColor.value;
+            activate(el.bgRow.querySelectorAll('[data-bg]'), el.bgColor.closest('[data-bg]'));
+            renderReview();
+        });
+        document.querySelectorAll('.ps-eng-btn[data-hqeng]').forEach((b) =>
             b.addEventListener('click', () => {
                 state.hqEngine = b.dataset.hqeng;
-                activate(document.querySelectorAll('.ps-hqeng-btn'), b);
+                activate(document.querySelectorAll('.ps-eng-btn'), b);
             })
         );
-
-        document
-            .querySelectorAll('.ps-seg-btn[data-mode]')
-            .forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
-        document
-            .querySelectorAll('.ps-bg-btn[data-bg]')
-            .forEach((b) => b.addEventListener('click', () => setBgType(b.dataset.bg)));
         document.querySelectorAll('.ps-fmt-btn[data-fmt]').forEach((b) =>
             b.addEventListener('click', () => {
                 state.format = b.dataset.fmt;
@@ -228,57 +186,61 @@
                 recomputeSizes();
             })
         );
-
-        // chroma swatches
-        el.chromaCard.querySelectorAll('.ps-swatch[data-key]').forEach((b) =>
+        el.chromaGroup.querySelectorAll('.ps-swatch[data-key]').forEach((b) =>
             b.addEventListener('click', () => {
                 const [r, g, bb] = b.dataset.key.split(',').map(Number);
                 state.key = { r, g, b: bb };
                 el.keyColor.value = rgbToHex(r, g, bb);
-                activate(el.chromaCard.querySelectorAll('.ps-swatch[data-key]'), b);
+                activate(el.chromaGroup.querySelectorAll('.ps-swatch[data-key]'), b);
             })
         );
         el.keyColor.addEventListener('input', () => {
             state.key = hexToRgb(el.keyColor.value);
-            activate(el.chromaCard.querySelectorAll('.ps-swatch[data-key]'), null);
+            activate(el.chromaGroup.querySelectorAll('.ps-swatch[data-key]'), null);
         });
-        el.bgColorOpt.querySelectorAll('.ps-swatch[data-color]').forEach((b) =>
-            b.addEventListener('click', () => {
-                state.bgColor = b.dataset.color;
-                el.bgColor.value = b.dataset.color;
-                activate(el.bgColorOpt.querySelectorAll('.ps-swatch[data-color]'), b);
-            })
-        );
-        el.bgColor.addEventListener('input', () => {
-            state.bgColor = el.bgColor.value;
-            activate(el.bgColorOpt.querySelectorAll('.ps-swatch[data-color]'), null);
-        });
-
         bindSlider(el.threshold, 'threshold', (v) => v.toFixed(2), el.threshVal);
         bindSlider(el.smooth, 'smooth', (v) => v.toFixed(2), el.smoothVal);
         bindSlider(el.feather, 'feather', (v) => v + 'px', el.featherVal, true);
-        bindSlider(el.blurStrength, 'blurStrength', (v) => v + 'px', el.blurVal, true);
-
+        bindSlider(
+            el.blurStrength,
+            'blurStrength',
+            (v) => v + 'px',
+            el.blurVal,
+            true,
+            renderReview
+        );
         el.spill.addEventListener('change', () => (state.spill = el.spill.checked));
         el.mirror.addEventListener('change', () => {
             state.mirror = el.mirror.checked;
             applyMirrorClass();
+            renderReview();
         });
     }
 
-    function bindSlider(input, key, fmt, label, isInt) {
+    function bindSlider(input, key, fmt, label, isInt, after) {
         input.addEventListener('input', () => {
             state[key] = isInt ? parseInt(input.value, 10) : parseFloat(input.value);
             label.textContent = fmt(state[key]);
+            if (after) after();
         });
+    }
+
+    function isMobile() {
+        return (
+            /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+            (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches)
+        );
+    }
+    function applyMobileDefaults() {
+        if (!isMobile()) return;
+        state.facingMode = 'environment';
+        state.mirror = false;
+        el.mirror.checked = false;
     }
 
     // ---- MediaPipe ------------------------------------------------------
     function initSegmentation() {
-        if (!global.SelfieSegmentation) {
-            console.warn('[photo-studio] SelfieSegmentation chưa load — chỉ dùng được Chroma key');
-            return;
-        }
+        if (!global.SelfieSegmentation) return;
         try {
             const seg = new global.SelfieSegmentation({
                 locateFile: (f) => `${MEDIAPIPE_BASE}/${f}`,
@@ -288,7 +250,7 @@
             state.seg = seg;
             state.segReady = true;
         } catch (e) {
-            console.error('[photo-studio] init segmentation failed', e);
+            console.error('[photo-studio] seg init', e);
         }
     }
 
@@ -296,22 +258,31 @@
     async function toggleCamera() {
         if (state.running && state.source === 'camera') {
             stopAll();
-            el.startCam.innerHTML = '<i data-lucide="video"></i> Bật camera';
-            relucide();
             return;
         }
         await startCamera();
     }
 
+    async function autoStartIfAllowed() {
+        try {
+            if (!navigator.permissions?.query) return;
+            const st = await navigator.permissions.query({ name: 'camera' });
+            if (st.state === 'granted') startCamera({ silent: true });
+            else if (st.state === 'denied')
+                showPermissionHelp('Quyền camera đang bị chặn cho trang này.');
+            st.onchange = () => {
+                if (st.state === 'granted' && state.source !== 'image' && !state.stream)
+                    startCamera({ silent: true });
+            };
+        } catch {
+            /* Permissions API không hỗ trợ 'camera' */
+        }
+    }
+
     async function startCamera(opts = {}) {
-        if (!isSecureContext) {
-            notify('Camera cần HTTPS. Mở trang qua https:// rồi thử lại.', 'error');
-            return;
-        }
-        if (!navigator.mediaDevices?.getUserMedia) {
-            notify('Trình duyệt không hỗ trợ camera.', 'error');
-            return;
-        }
+        if (!isSecureContext) return notify('Camera cần HTTPS.', 'error');
+        if (!navigator.mediaDevices?.getUserMedia)
+            return notify('Trình duyệt không hỗ trợ camera.', 'error');
         stopStream();
         showLoading('Đang mở camera…');
         try {
@@ -333,12 +304,11 @@
             recomputeSizes();
             syncMirrorToFacing();
             el.stageEmpty.hidden = true;
+            el.startCam.hidden = true;
             el.switchCam.disabled = false;
             el.capture.disabled = false;
-            el.startCam.innerHTML = '<i data-lucide="video-off"></i> Tắt camera';
-            relucide();
-            if (state.mode === 'ai' && !state.modelLoaded) showLoading('Đang tải mô hình AI…');
-            else hideLoading();
+            updateHqHint();
+            hideLoading();
             startLoop();
         } catch (e) {
             hideLoading();
@@ -352,25 +322,36 @@
         }
     }
 
-    // Thông báo lỗi đơn giản trong khung (không phải lỗi quyền).
+    function cameraErrorMsg(e) {
+        switch (e?.name) {
+            case 'NotAllowedError':
+            case 'SecurityError':
+                return 'Quyền camera bị chặn. Xem hướng dẫn cấp quyền trong khung.';
+            case 'NotFoundError':
+            case 'OverconstrainedError':
+                return 'Không tìm thấy camera phù hợp.';
+            case 'NotReadableError':
+                return 'Camera đang được app khác dùng. Đóng app đó rồi thử lại.';
+            default:
+                return 'Không mở được camera: ' + (e?.message || e);
+        }
+    }
+
     function showStageError(msg) {
         el.stageEmpty.innerHTML =
             `<i data-lucide="camera-off"></i><p class="ps-stage-err">${msg}</p>` +
-            `<button class="ps-btn ps-btn-sm ps-btn-primary" id="psRetryCam">` +
+            `<button class="ps-start-cta" id="psRetryCam" style="position:static;transform:none">` +
             `<i data-lucide="rotate-cw"></i> Thử lại</button>`;
         el.stageEmpty.hidden = false;
         document.getElementById('psRetryCam')?.addEventListener('click', () => startCamera());
         relucide();
     }
 
-    // Hướng dẫn cấp quyền camera từng bước (Chrome Android chỉ hỏi 1 lần; bị
-    // chặn rồi phải bật tay trong cài đặt site). Tùy nền tảng.
     function showPermissionHelp(reason) {
         el.stageEmpty.innerHTML =
-            `<i data-lucide="camera-off"></i>` +
-            `<p class="ps-stage-err">${reason}</p>` +
+            `<i data-lucide="camera-off"></i><p class="ps-stage-err">${reason}</p>` +
             `<div class="ps-help">${permissionStepsHTML()}</div>` +
-            `<button class="ps-btn ps-btn-sm ps-btn-primary" id="psRetryCam">` +
+            `<button class="ps-start-cta" id="psRetryCam" style="position:static;transform:none">` +
             `<i data-lucide="rotate-cw"></i> Đã cấp quyền — Thử lại</button>`;
         el.stageEmpty.hidden = false;
         document.getElementById('psRetryCam')?.addEventListener('click', () => startCamera());
@@ -380,28 +361,19 @@
     function permissionStepsHTML() {
         if (isIOS()) {
             return (
-                `<div class="ps-help-title">Bật quyền Camera trên iPhone:</div>` +
-                `<ol>` +
-                `<li>Mở <b>Cài đặt</b> điện thoại → cuộn tìm <b>${browserName()}</b></li>` +
-                `<li>Bật <b>Camera</b></li>` +
-                `<li>Quay lại trang này, nhấn <b>Thử lại</b></li>` +
-                `</ol>` +
-                `<div class="ps-help-alt">Safari: nhấn <b>aA</b> bên trái thanh địa chỉ → <b>Cài đặt trang web</b> → <b>Camera</b> → <b>Cho phép</b>.</div>`
+                `<div class="ps-help-title">Bật quyền Camera trên iPhone:</div><ol>` +
+                `<li>Mở <b>Cài đặt</b> → cuộn tìm <b>${browserName()}</b></li>` +
+                `<li>Bật <b>Camera</b></li><li>Quay lại, nhấn <b>Thử lại</b></li></ol>` +
+                `<div class="ps-help-alt">Safari: nhấn <b>aA</b> bên trái địa chỉ → <b>Cài đặt trang web</b> → <b>Camera</b> → <b>Cho phép</b>.</div>`
             );
         }
-        // Android Chrome & các trình duyệt khác
         return (
-            `<div class="ps-help-title">Bật quyền Camera trên Chrome điện thoại:</div>` +
-            `<ol>` +
-            `<li>Nhấn biểu tượng <b>🔒</b> (hoặc <b>⊟ / ⓘ</b>) ngay bên trái địa chỉ web phía trên</li>` +
-            `<li>Chọn <b>Quyền</b> (Permissions) → <b>Máy ảnh</b> (Camera)</li>` +
-            `<li>Chọn <b>Cho phép</b> (Allow)</li>` +
-            `<li>Nhấn <b>Thử lại</b> bên dưới (hoặc tải lại trang)</li>` +
-            `</ol>` +
-            `<div class="ps-help-alt">Hoặc: menu <b>⋮</b> (góc trên phải) → <b>Cài đặt</b> → <b>Cài đặt trang web</b> → <b>Máy ảnh</b> → tìm trang này → <b>Cho phép</b>.</div>`
+            `<div class="ps-help-title">Bật quyền Camera trên Chrome điện thoại:</div><ol>` +
+            `<li>Nhấn <b>🔒</b> (hoặc <b>⊟/ⓘ</b>) bên trái địa chỉ web</li>` +
+            `<li><b>Quyền</b> → <b>Máy ảnh</b></li><li><b>Cho phép</b>, rồi nhấn <b>Thử lại</b></li></ol>` +
+            `<div class="ps-help-alt">Hoặc: menu <b>⋮</b> → <b>Cài đặt</b> → <b>Cài đặt trang web</b> → <b>Máy ảnh</b> → trang này → <b>Cho phép</b>.</div>`
         );
     }
-
     function isIOS() {
         return (
             /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
@@ -415,55 +387,36 @@
         if (/EdgiOS/i.test(ua)) return 'Edge';
         return 'Safari';
     }
-
-    function cameraErrorMsg(e) {
-        switch (e?.name) {
-            case 'NotAllowedError':
-            case 'SecurityError':
-                return 'Quyền camera đang bị chặn. Xem hướng dẫn cấp quyền trong khung.';
-            case 'NotFoundError':
-            case 'OverconstrainedError':
-                return 'Không tìm thấy camera phù hợp trên thiết bị.';
-            case 'NotReadableError':
-                return 'Camera đang được ứng dụng khác sử dụng. Đóng app đó rồi thử lại.';
-            default:
-                return 'Không mở được camera: ' + (e?.message || e);
-        }
-    }
-
-    // Camera trước → lật gương; camera sau → không lật.
     function syncMirrorToFacing() {
         state.mirror = state.facingMode === 'user';
         el.mirror.checked = state.mirror;
         applyMirrorClass();
     }
-
     function waitForVideo() {
         return new Promise((res) => {
             if (el.video.readyState >= 2 && el.video.videoWidth) return res();
             el.video.addEventListener('loadeddata', () => res(), { once: true });
         });
     }
-
     async function switchCamera() {
         state.facingMode = state.facingMode === 'user' ? 'environment' : 'user';
         await startCamera();
     }
-
     function stopStream() {
         if (state.stream) {
             state.stream.getTracks().forEach((t) => t.stop());
             state.stream = null;
         }
     }
-
     function stopAll() {
         stopLoop();
         stopStream();
         state.running = false;
         octx && octx.clearRect(0, 0, el.output.width, el.output.height);
         el.stageEmpty.hidden = false;
+        el.startCam.hidden = false;
         el.fps.hidden = true;
+        el.hqHint.hidden = true;
         el.capture.disabled = true;
         el.switchCam.disabled = true;
     }
@@ -485,11 +438,10 @@
             el.mirror.checked = false;
             applyMirrorClass();
             el.stageEmpty.hidden = true;
+            el.startCam.hidden = true;
             el.capture.disabled = false;
             el.switchCam.disabled = true;
-            el.startCam.innerHTML = '<i data-lucide="video"></i> Bật camera';
-            relucide();
-            if (state.mode === 'ai' && !state.modelLoaded) showLoading('Đang tải mô hình AI…');
+            updateHqHint();
             startLoop();
         };
         img.onerror = () => notify('Không đọc được ảnh.', 'error');
@@ -503,8 +455,9 @@
         const img = new Image();
         img.onload = () => {
             state.bgImage = img;
-            el.bgThumb.hidden = false;
-            el.bgThumb.style.backgroundImage = `url(${img.src})`;
+            state.bgType = 'image';
+            activate(el.bgRow.querySelectorAll('[data-bg]'), el.bgFile.closest('[data-bg]'));
+            renderReview();
         };
         img.src = URL.createObjectURL(file);
         e.target.value = '';
@@ -514,15 +467,13 @@
     function cropRect(natW, natH) {
         if (!state.aspect) return { sx: 0, sy: 0, sw: natW, sh: natH };
         const target = state.aspect;
-        const srcRatio = natW / natH;
-        let cw = natW;
-        let ch = natH;
-        if (srcRatio > target)
-            cw = natH * target; // too wide → crop sides
-        else ch = natW / target; // too tall → crop top/bottom
+        const r = natW / natH;
+        let cw = natW,
+            ch = natH;
+        if (r > target) cw = natH * target;
+        else ch = natW / target;
         return { sx: (natW - cw) / 2, sy: (natH - ch) / 2, sw: cw, sh: ch };
     }
-
     function recomputeSizes() {
         const { srcNatW: w, srcNatH: h } = state;
         if (!w || !h) return;
@@ -534,19 +485,23 @@
         sizeCanvas(el.output, state.W, state.H);
         sizeCanvas(work, state.W, state.H);
     }
-
     function sizeCanvas(c, w, h) {
         if (c.width !== w) c.width = w;
         if (c.height !== h) c.height = h;
     }
-
     function currentSourceEl() {
         return state.source === 'image' ? state._sourceImg : el.video;
     }
+    function captureSize(crop) {
+        const scale = Math.min(1, CAPTURE_MAX_LONG / Math.max(crop.sw, crop.sh));
+        return { W: Math.round(crop.sw * scale), H: Math.round(crop.sh * scale) };
+    }
 
-    // ---- Render loop ----------------------------------------------------
+    // ---- Live render loop ----------------------------------------------
     function startLoop() {
         state.running = true;
+        updateHqHint();
+        el.sampleHint.hidden = !(state.mode === 'chroma');
         cancelAnimationFrame(state.rafId);
         frame();
     }
@@ -554,7 +509,6 @@
         state.running = false;
         cancelAnimationFrame(state.rafId);
     }
-
     function frame() {
         if (!state.running) return;
         if (state.mode === 'ai' && state.segReady) {
@@ -562,23 +516,19 @@
                 state.busy = true;
                 state.seg
                     .send({ image: currentSourceEl() })
-                    .catch((e) => console.warn('[photo-studio] seg.send', e))
-                    .finally(() => {
-                        state.busy = false;
-                    });
+                    .catch(() => {})
+                    .finally(() => (state.busy = false));
             }
         } else if (state.mode === 'chroma') {
-            renderChroma(octx, state.W, state.H, currentSourceEl(), state.crop);
+            renderChroma(octx, state.W, state.H, currentSourceEl(), state.crop, true);
             tickFps();
         } else {
-            // 'hq' — không tách realtime (model nặng), chỉ show khung hình để canh.
             renderPassthrough(octx, state.W, state.H, currentSourceEl(), state.crop);
             tickFps();
         }
         state.rafId = requestAnimationFrame(frame);
     }
 
-    // ---- AI compositing -------------------------------------------------
     function onSegResults(results) {
         if (!state.modelLoaded) {
             state.modelLoaded = true;
@@ -586,42 +536,40 @@
         }
         const { W, H } = state;
         if (!W || !H) return;
-        // snapshot mask (feathered) to maskC at preview res
         sizeCanvas(maskC, W, H);
         maskCtx.clearRect(0, 0, W, H);
         if (state.feather > 0) maskCtx.filter = `blur(${state.feather}px)`;
         const c = state.crop;
         maskCtx.drawImage(results.segmentationMask, c.sx, c.sy, c.sw, c.sh, 0, 0, W, H);
         maskCtx.filter = 'none';
-        composeAI(octx, W, H, results.image, maskC, c);
+        // live preview: composite subject over current bg
+        composeAI(octx, W, H, results.image, maskC, c, true);
         tickFps();
     }
 
-    function composeAI(ctx, W, H, frameEl, maskCanvas, crop) {
+    function composeAI(ctx, W, H, frameEl, maskCanvas, crop, withBg) {
         ctx.save();
         ctx.clearRect(0, 0, W, H);
         ctx.drawImage(maskCanvas, 0, 0, W, H);
         ctx.globalCompositeOperation = 'source-in';
         ctx.drawImage(frameEl, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, W, H);
-        ctx.globalCompositeOperation = 'destination-over';
-        drawBg(ctx, W, H, frameEl, crop);
+        if (withBg) {
+            ctx.globalCompositeOperation = 'destination-over';
+            drawBg(ctx, W, H, frameEl, crop);
+        }
         ctx.restore();
         ctx.globalCompositeOperation = 'source-over';
     }
 
-    // ---- Passthrough (hq preview) --------------------------------------
     function renderPassthrough(ctx, W, H, src, crop) {
         if (!W || !H || !src) return;
         try {
             ctx.clearRect(0, 0, W, H);
             ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, W, H);
-        } catch {
-            /* frame not ready */
-        }
+        } catch {}
     }
 
-    // ---- Chroma key -----------------------------------------------------
-    function renderChroma(ctx, W, H, src, crop) {
+    function renderChroma(ctx, W, H, src, crop, withBg) {
         if (!W || !H || !src) return;
         sizeCanvas(work, W, H);
         try {
@@ -630,36 +578,27 @@
         } catch {
             return;
         }
-        const frameData = workCtx.getImageData(0, 0, W, H);
-        keyOut(frameData, state.key, state.threshold, state.smooth, state.spill);
-        workCtx.putImageData(frameData, 0, 0);
+        const d = workCtx.getImageData(0, 0, W, H);
+        keyOut(d, state.key, state.threshold, state.smooth, state.spill);
+        workCtx.putImageData(d, 0, 0);
         ctx.clearRect(0, 0, W, H);
-        drawBg(ctx, W, H, src, crop); // blur/image/color drawn behind
+        if (withBg) drawBg(ctx, W, H, src, crop);
         ctx.drawImage(work, 0, 0, W, H);
     }
 
-    /**
-     * Per-pixel chroma key + optional spill suppression.
-     * @param {ImageData} img
-     * @param {{r,g,b}} key
-     * @param {number} threshold 0..1 — bán kính xóa hẳn
-     * @param {number} smooth 0..0.4 — dải chuyển tiếp mềm viền
-     * @param {boolean} spill — khử ám màu key trên pixel giữ lại
-     */
     function keyOut(img, key, threshold, smooth, spill) {
         const d = img.data;
-        const MAXD = 441.6729559; // sqrt(3*255^2)
+        const MAXD = 441.6729559;
         const lo = threshold * MAXD;
         const hi = (threshold + smooth) * MAXD;
         const span = Math.max(1, hi - lo);
-        // dominant channel of key → kênh cần khử spill
         const dom = key.r >= key.g && key.r >= key.b ? 0 : key.g >= key.b ? 1 : 2;
         const a = dom === 0 ? 1 : 0;
         const b = dom === 2 ? 1 : 2;
         for (let i = 0; i < d.length; i += 4) {
-            const dr = d[i] - key.r;
-            const dg = d[i + 1] - key.g;
-            const db = d[i + 2] - key.b;
+            const dr = d[i] - key.r,
+                dg = d[i + 1] - key.g,
+                db = d[i + 2] - key.b;
             const dist = Math.sqrt(dr * dr + dg * dg + db * db);
             if (dist <= lo) {
                 d[i + 3] = 0;
@@ -684,7 +623,6 @@
         } else if (state.bgType === 'blur' && frameEl) {
             ctx.save();
             ctx.filter = `blur(${state.blurStrength}px)`;
-            // vẽ rộng hơn 1 chút để blur không lộ viền trong suốt ở mép
             const pad = Math.ceil(state.blurStrength * 1.5);
             ctx.drawImage(
                 frameEl,
@@ -699,146 +637,105 @@
             );
             ctx.restore();
         }
-        // transparent → nothing
     }
-
     function drawCover(ctx, img, W, H) {
-        const iw = img.naturalWidth || img.width;
-        const ih = img.naturalHeight || img.height;
+        const iw = img.naturalWidth || img.width,
+            ih = img.naturalHeight || img.height;
         if (!iw || !ih) return;
         const scale = Math.max(W / iw, H / ih);
-        const dw = iw * scale;
-        const dh = ih * scale;
-        ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+        ctx.drawImage(img, (W - iw * scale) / 2, (H - ih * scale) / 2, iw * scale, ih * scale);
     }
 
-    // ---- Capture (high-res one-shot) ------------------------------------
-    function capture() {
-        if (!state.srcNatW) return;
-        if (state.mode === 'hq') {
-            captureHQ();
-            return;
+    // ---- Capture → cutout → review -------------------------------------
+    async function capture() {
+        if (state._capBusy || !state.srcNatW) return;
+        state._capBusy = true;
+        el.capture.disabled = true;
+        try {
+            const crop = cropRect(state.srcNatW, state.srcNatH);
+            const { W, H } = captureSize(crop);
+            const frameCv = document.createElement('canvas');
+            frameCv.width = W;
+            frameCv.height = H;
+            frameCv
+                .getContext('2d')
+                .drawImage(currentSourceEl(), crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, W, H);
+            const cutout = await makeCutout(frameCv, W, H);
+            state._cutout = cutout;
+            state._capFrame = frameCv;
+            state._capW = W;
+            state._capH = H;
+            sizeCanvas(el.reviewCanvas, W, H);
+            renderReview();
+            showReview();
+        } catch (e) {
+            console.error('[photo-studio] capture', e);
+            notify('Tách nền thất bại: ' + (e?.message || e), 'error');
+        } finally {
+            state._capBusy = false;
+            el.capture.disabled = false;
+            hideLoading();
         }
-        const crop = cropRect(state.srcNatW, state.srcNatH);
-        const { W, H } = captureSize(crop);
-        const src = currentSourceEl();
+    }
 
-        const comp = document.createElement('canvas');
-        comp.width = W;
-        comp.height = H;
-        const cctx = comp.getContext('2d');
-
-        if (state.mode === 'ai' && state.modelLoaded) {
-            composeAI(cctx, W, H, src, maskC, crop); // maskC (preview res) tự upscale
-        } else if (state.mode === 'chroma') {
-            renderChromaHiRes(cctx, W, H, src, crop);
-        } else {
-            notify('Mô hình AI chưa sẵn sàng — đợi vài giây rồi chụp lại.', 'warning');
-            return;
+    /** Tạo cutout (chủ thể nền trong suốt) theo mode hiện tại. Trả canvas WxH. */
+    async function makeCutout(frameCv, W, H) {
+        if (state.mode === 'chroma') {
+            const cv = document.createElement('canvas');
+            cv.width = W;
+            cv.height = H;
+            const c = cv.getContext('2d', { willReadFrequently: true });
+            c.drawImage(frameCv, 0, 0);
+            const d = c.getImageData(0, 0, W, H);
+            keyOut(d, state.key, state.threshold, state.smooth, state.spill);
+            c.putImageData(d, 0, 0);
+            return cv;
         }
-        finalizeCapture(comp, W, H);
-    }
-
-    function captureSize(crop) {
-        const scale = Math.min(1, CAPTURE_MAX_LONG / Math.max(crop.sw, crop.sh));
-        return { W: Math.round(crop.sw * scale), H: Math.round(crop.sh * scale) };
-    }
-
-    /** Bake mirror + format + push to results gallery. */
-    function finalizeCapture(comp, W, H) {
-        const jpg = state.format === 'jpg';
-        const out = document.createElement('canvas');
-        out.width = W;
-        out.height = H;
-        const octx2 = out.getContext('2d');
-        if (jpg) {
-            octx2.fillStyle = '#ffffff'; // JPG không có alpha → nền trắng
-            octx2.fillRect(0, 0, W, H);
+        if (state.mode === 'ai') {
+            if (!state.modelLoaded) throw new Error('AI nhanh chưa sẵn sàng, đợi chút');
+            const cv = document.createElement('canvas');
+            cv.width = W;
+            cv.height = H;
+            const c = cv.getContext('2d');
+            c.drawImage(maskC, 0, 0, W, H); // latest realtime mask (scaled)
+            c.globalCompositeOperation = 'source-in';
+            c.drawImage(frameCv, 0, 0);
+            return cv;
         }
-        if (state.mirror) {
-            octx2.translate(W, 0);
-            octx2.scale(-1, 1);
+        // hq: cloud (auto) → fallback local; hoặc local
+        const cloud = state.hqEngine === 'auto';
+        if (cloud) {
+            showLoading('Đang tách nền chất lượng cao…');
+            try {
+                return await imgToCanvas(await cloudCutout(frameCv), W, H);
+            } catch (e) {
+                console.warn('[photo-studio] cloud fail → local', e?.message);
+                notify('Mất kết nối cloud — dùng tách nền trên máy.', 'warning');
+            }
         }
-        octx2.drawImage(comp, 0, 0);
-        out.toBlob(
-            (blob) => blob && handleCaptured(blob, W, H, jpg ? 'jpg' : 'png'),
-            jpg ? 'image/jpeg' : 'image/png',
-            0.92
-        );
+        showLoading(imglyMod ? 'Đang tách nền…' : 'Đang tải mô hình AI (lần đầu ~vài chục MB)…');
+        return imgToCanvas(await localCutout(frameCv), W, H);
     }
 
-    function handleCaptured(blob, w, h, ext) {
-        addResult(blob, w, h, ext); // lưu vào gallery (lịch sử)
-        openPreview(blob, w, h, ext); // hiện ngay màn xem ảnh + nút Lưu
+    function imgToCanvas(img, W, H) {
+        const cv = document.createElement('canvas');
+        cv.width = W;
+        cv.height = H;
+        cv.getContext('2d').drawImage(img, 0, 0, W, H);
+        if (img.src?.startsWith('blob:')) URL.revokeObjectURL(img.src);
+        return cv;
     }
 
-    // ---- AI nét (@imgly/background-removal, on-device) ------------------
     async function loadImgly() {
         if (imglyMod) return imglyMod;
         imglyMod = await import(/* @vite-ignore */ IMGLY_URL);
         return imglyMod;
     }
-
-    async function captureHQ() {
-        if (state._hqBusy || !state.srcNatW) return;
-        const cloud = state.hqEngine === 'photoroom';
-        state._hqBusy = true;
-        el.capture.disabled = true;
-        showLoading(
-            cloud
-                ? 'Đang tách nền chất lượng cao (cloud)…'
-                : imglyMod
-                  ? 'Đang tách nền…'
-                  : 'Đang tải mô hình AI nét (lần đầu ~vài chục MB)…'
-        );
-        try {
-            const crop = cropRect(state.srcNatW, state.srcNatH);
-            const { W, H } = captureSize(crop);
-            // 1) khung hình gốc (đã crop) ở độ phân giải capture
-            const tmp = document.createElement('canvas');
-            tmp.width = W;
-            tmp.height = H;
-            tmp.getContext('2d').drawImage(
-                currentSourceEl(),
-                crop.sx,
-                crop.sy,
-                crop.sw,
-                crop.sh,
-                0,
-                0,
-                W,
-                H
-            );
-            // 2) tách nền → ảnh chủ thể nền trong suốt (local @imgly hoặc cloud PhotoRoom)
-            const cutImg = cloud ? await cloudCutout(tmp) : await localCutout(tmp);
-            // 3) ghép nền mới (full crop coords)
-            const comp = document.createElement('canvas');
-            comp.width = W;
-            comp.height = H;
-            const cctx = comp.getContext('2d');
-            drawBg(cctx, W, H, tmp, { sx: 0, sy: 0, sw: W, sh: H });
-            cctx.drawImage(cutImg, 0, 0, W, H);
-            if (cutImg.src?.startsWith('blob:')) URL.revokeObjectURL(cutImg.src);
-            finalizeCapture(comp, W, H);
-        } catch (e) {
-            console.error('[photo-studio] AI nét', e);
-            notify('Tách nền nét thất bại: ' + (e?.message || e), 'error');
-        } finally {
-            hideLoading();
-            state._hqBusy = false;
-            el.capture.disabled = false;
-        }
-    }
-
-    /** Tách nền on-device bằng @imgly → trả HTMLImageElement (nền trong suốt). */
     async function localCutout(canvas) {
-        const inputBlob = await canvasToBlob(canvas, 'image/png');
+        const blob = await canvasToBlob(canvas, 'image/png');
         const mod = await loadImgly();
-        const cutBlob = await mod.removeBackground(inputBlob);
-        return blobToImage(cutBlob);
+        return blobToImage(await mod.removeBackground(blob));
     }
-
-    /** Tách nền qua backend PhotoRoom (chất lượng cao, cần mạng). */
     async function cloudCutout(canvas) {
         const dataUrl = canvas.toDataURL('image/png');
         const res = await fetch(`${CUTOUT_API}/photoroom`, {
@@ -850,23 +747,19 @@
         try {
             j = await res.json();
         } catch {
-            throw new Error('Server trả về không hợp lệ (' + res.status + ')');
+            throw new Error('Server lỗi (' + res.status + ')');
         }
-        if (!res.ok || !j.success) {
-            throw new Error(j?.error || 'Cutout cloud lỗi (' + res.status + ')');
-        }
+        if (!res.ok || !j.success) throw new Error(j?.error || 'Cloud lỗi (' + res.status + ')');
         return loadImageSrc(j.image);
     }
-
     function loadImageSrc(src) {
-        return new Promise((resolve, reject) => {
+        return new Promise((res, rej) => {
             const img = new Image();
-            img.onload = () => resolve(img);
-            img.onerror = () => reject(new Error('Không tải được ảnh kết quả'));
+            img.onload = () => res(img);
+            img.onerror = () => rej(new Error('Không tải được ảnh kết quả'));
             img.src = src;
         });
     }
-
     function canvasToBlob(canvas, type, q) {
         return new Promise((res) => canvas.toBlob(res, type, q));
     }
@@ -879,21 +772,68 @@
         });
     }
 
-    function renderChromaHiRes(ctx, W, H, src, crop) {
-        const tmp = document.createElement('canvas');
-        tmp.width = W;
-        tmp.height = H;
-        const tctx = tmp.getContext('2d', { willReadFrequently: true });
-        tctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, W, H);
-        const data = tctx.getImageData(0, 0, W, H);
-        keyOut(data, state.key, state.threshold, state.smooth, state.spill);
-        tctx.putImageData(data, 0, 0);
-        ctx.clearRect(0, 0, W, H);
-        drawBg(ctx, W, H, src, crop);
-        ctx.drawImage(tmp, 0, 0);
+    // ---- Review ---------------------------------------------------------
+    function renderReview() {
+        const W = state._capW,
+            H = state._capH;
+        if (!W || !state._cutout) return;
+        rctx.clearRect(0, 0, W, H);
+        drawBg(rctx, W, H, state._capFrame, { sx: 0, sy: 0, sw: W, sh: H });
+        rctx.drawImage(state._cutout, 0, 0);
+        el.reviewCanvas.classList.toggle('ps-mirror', state.mirror && state.source === 'camera');
+        el.reviewStage.classList.toggle('ps-checker', state.bgType === 'transparent');
+        el.reviewMeta.textContent = `${W}×${H}`;
     }
 
-    // ---- Lưu ảnh: Web Share API (lưu vào Ảnh điện thoại) → fallback tải ----
+    function pickBg(btn) {
+        const type = btn.dataset.bg;
+        if (type === 'color') {
+            state.bgType = 'color';
+            state.bgColor = btn.dataset.color;
+            el.bgColor.value = btn.dataset.color;
+        } else if (type === 'image') {
+            return; // label opens file dialog; onBgFile handles
+        } else {
+            state.bgType = type; // transparent | blur
+        }
+        activate(el.bgRow.querySelectorAll('[data-bg]'), btn);
+        renderReview();
+    }
+
+    function showReview() {
+        el.camera.hidden = true;
+        el.review.hidden = false;
+    }
+    function backToCamera() {
+        el.review.hidden = true;
+        el.camera.hidden = false;
+    }
+
+    function saveReview() {
+        const W = state._capW,
+            H = state._capH;
+        if (!W) return;
+        const jpg = state.format === 'jpg';
+        const out = document.createElement('canvas');
+        out.width = W;
+        out.height = H;
+        const c = out.getContext('2d');
+        if (jpg) {
+            c.fillStyle = '#ffffff';
+            c.fillRect(0, 0, W, H);
+        }
+        if (state.mirror && state.source === 'camera') {
+            c.translate(W, 0);
+            c.scale(-1, 1);
+        }
+        c.drawImage(el.reviewCanvas, 0, 0);
+        out.toBlob(
+            (blob) => blob && saveBlob(blob, `tach-nen-${stamp()}.${jpg ? 'jpg' : 'png'}`),
+            jpg ? 'image/jpeg' : 'image/png',
+            0.92
+        );
+    }
+
     async function saveBlob(blob, filename) {
         const type = blob.type || 'image/png';
         try {
@@ -903,10 +843,9 @@
                 return;
             }
         } catch (e) {
-            if (e?.name === 'AbortError') return; // user huỷ share sheet
-            console.warn('[photo-studio] share fail, fallback download', e);
+            if (e?.name === 'AbortError') return;
+            console.warn('[photo-studio] share fail', e);
         }
-        // Fallback: tải về (desktop / trình duyệt không hỗ trợ share file)
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -915,130 +854,32 @@
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 4000);
+        notify('Đã tải ảnh về máy.', 'success');
+    }
+    function stamp() {
+        const d = new Date(),
+            p = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
     }
 
-    // ---- Results --------------------------------------------------------
-    function addResult(blob, w, h, ext) {
-        const url = URL.createObjectURL(blob);
-        el.results.hidden = false;
-        const stamp = resultStamp();
-        const name = `tach-nen-${stamp}.${ext}`;
-        const card = document.createElement('div');
-        card.className = 'ps-result-card';
-        card.innerHTML = `
-            <div class="ps-result-thumb" style="background-image:url(${url})"></div>
-            <div class="ps-result-meta">${w}×${h} · ${(blob.size / 1024).toFixed(0)} KB</div>
-            <div class="ps-result-actions">
-                <button class="ps-btn ps-btn-sm ps-btn-primary ps-result-save">
-                    <i data-lucide="download"></i> Lưu
-                </button>
-                <button class="ps-btn ps-btn-sm ps-btn-ghost ps-result-del" title="Xóa">
-                    <i data-lucide="x"></i>
-                </button>
-            </div>`;
-        card.querySelector('.ps-result-save').addEventListener('click', () => saveBlob(blob, name));
-        card.querySelector('.ps-result-del').addEventListener('click', () => {
-            URL.revokeObjectURL(url);
-            card.remove();
-            updateResultsCount();
-        });
-        el.resultsGrid.prepend(card);
-        updateResultsCount();
-        relucide();
-    }
-
-    // ---- Preview ảnh vừa chụp (hiện ngay, full màn) --------------------
-    function openPreview(blob, w, h, ext) {
-        if (state._previewUrl) URL.revokeObjectURL(state._previewUrl);
-        state._previewUrl = URL.createObjectURL(blob);
-        state._previewBlob = blob;
-        state._previewName = `tach-nen-${resultStamp()}.${ext}`;
-        el.previewImg.src = state._previewUrl;
-        el.previewMeta.textContent = `${w}×${h} · ${(blob.size / 1024).toFixed(0)} KB`;
-        el.preview.hidden = false;
-    }
-    function closePreview() {
-        el.preview.hidden = true;
-    }
-    function savePreview() {
-        if (state._previewBlob) saveBlob(state._previewBlob, state._previewName);
-    }
-
-    function updateResultsCount() {
-        const n = el.resultsGrid.children.length;
-        el.resultsCount.textContent = n;
-        el.results.hidden = n === 0;
-    }
-
-    function downloadAll() {
-        const btns = el.resultsGrid.querySelectorAll('.ps-result-save');
-        if (!btns.length) return;
-        btns.forEach((b, i) => setTimeout(() => b.click(), i * 400));
-    }
-
-    function resultStamp() {
-        const d = new Date();
-        const p = (n) => String(n).padStart(2, '0');
-        return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(
-            d.getMinutes()
-        )}${p(d.getSeconds())}`;
-    }
-
-    function clearResults() {
-        el.resultsGrid.querySelectorAll('.ps-result-thumb').forEach((t) => {
-            const m = /url\("?(blob:[^")]+)"?\)/.exec(t.style.backgroundImage);
-            if (m) URL.revokeObjectURL(m[1]);
-        });
-        el.resultsGrid.innerHTML = '';
-        updateResultsCount();
-    }
-
-    // ---- UI switching ---------------------------------------------------
-    const MODE_NOTE = {
-        ai: 'AI nhận diện chủ thể realtime, không cần phông. Tốt cho người & sản phẩm.',
-        hq: 'AI nét (IS-Net) — viền sắc cho sản phẩm/vật thể. Bấm Chụp để xử lý (lần đầu tải mô hình ~vài chục MB, sau đó cache nhanh).',
-        chroma: 'Chụp trên phông đơn sắc đủ sáng. Bấm vào vùng phông để lấy đúng màu.',
-    };
-
+    // ---- Mode / UI ------------------------------------------------------
     function setMode(mode) {
         state.mode = mode;
-        activate(document.querySelectorAll('.ps-seg-btn[data-mode]'), null);
-        document.querySelector(`.ps-seg-btn[data-mode="${mode}"]`)?.classList.add('is-active');
+        activate(el.modePills.querySelectorAll('button[data-mode]'), null);
+        el.modePills.querySelector(`button[data-mode="${mode}"]`)?.classList.add('is-active');
         const isChroma = mode === 'chroma';
         const isAi = mode === 'ai';
         const isHq = mode === 'hq';
-        // Engines cached: chuyển qua lại tức thì sau lần đầu (state.seg + imglyMod giữ nguyên).
-        el.chromaCard.hidden = !isChroma;
-        el.aiCard.hidden = !isAi; // slider feather chỉ áp cho AI realtime
-        el.hqEngineCard.hidden = !isHq; // chọn engine local/cloud cho AI nét
-        el.sampleHint.hidden = !isChroma;
+        el.chromaGroup.hidden = !isChroma;
+        el.aiGroup.hidden = !isAi;
+        el.engineGroup.hidden = !isHq;
+        el.sampleHint.hidden = !(isChroma && state.running);
         el.output.classList.toggle('ps-pickable', isChroma);
-        el.modeNote.textContent = MODE_NOTE[mode] || MODE_NOTE.ai;
-        // "Mờ nền" chỉ hợp lý khi còn frame gốc (AI nhanh / AI nét); chroma đã xóa phông
-        el.bgBlurBtn.disabled = isChroma;
-        if (isChroma && state.bgType === 'blur') setBgType('transparent');
-        if (isAi && !state.segReady) {
-            notify('Mô hình AI chưa sẵn sàng — kiểm tra mạng rồi thử lại.', 'warning');
-        }
-        if (isAi && !state.modelLoaded && state.running) {
-            showLoading('Đang tải mô hình AI…');
-        } else if (mode !== 'ai') {
-            hideLoading();
-        }
-        // hq mode: preload engine ngầm để lần Chụp đầu nhanh hơn (cache).
-        if (mode === 'hq' && !imglyMod) {
-            loadImgly().catch((e) => console.warn('[photo-studio] preload imgly', e));
-        }
+        updateHqHint();
+        if (isAi && !state.segReady) notify('Mô hình AI nhanh chưa sẵn sàng.', 'warning');
     }
-
-    function setBgType(type) {
-        state.bgType = type;
-        activate(document.querySelectorAll('.ps-bg-btn[data-bg]'), null);
-        document.querySelector(`.ps-bg-btn[data-bg="${type}"]`)?.classList.add('is-active');
-        el.bgColorOpt.hidden = type !== 'color';
-        el.bgImageOpt.hidden = type !== 'image';
-        el.bgBlurOpt.hidden = type !== 'blur';
-        el.stage.classList.toggle('ps-stage-transparent', type === 'transparent');
+    function updateHqHint() {
+        el.hqHint.hidden = !(state.mode === 'hq' && state.running);
     }
 
     function applyMirrorClass() {
@@ -1046,14 +887,12 @@
     }
 
     function openSheet() {
-        el.panel.classList.add('is-open');
+        el.sheet.classList.add('is-open');
         el.sheetBackdrop.classList.add('is-open');
-        el.main?.classList.add('ps-sheet-open');
     }
     function closeSheet() {
-        el.panel.classList.remove('is-open');
+        el.sheet.classList.remove('is-open');
         el.sheetBackdrop.classList.remove('is-open');
-        el.main?.classList.remove('ps-sheet-open');
     }
 
     function sampleKeyFromStage(e) {
@@ -1079,14 +918,11 @@
             const p = workCtx.getImageData(x, yy, 1, 1).data;
             state.key = { r: p[0], g: p[1], b: p[2] };
             el.keyColor.value = rgbToHex(p[0], p[1], p[2]);
-            activate(el.chromaCard.querySelectorAll('.ps-swatch[data-key]'), null);
+            activate(el.chromaGroup.querySelectorAll('.ps-swatch[data-key]'), null);
             notify(`Đã lấy màu phông rgb(${p[0]}, ${p[1]}, ${p[2]})`, 'info');
-        } catch {
-            /* ignore */
-        }
+        } catch {}
     }
 
-    // ---- FPS ------------------------------------------------------------
     function tickFps() {
         const now = performance.now();
         state._fpsN++;
@@ -1099,8 +935,8 @@
     }
 
     // ---- Utils ----------------------------------------------------------
-    function activate(nodeList, active) {
-        nodeList.forEach((n) => n.classList.remove('is-active'));
+    function activate(list, active) {
+        list.forEach((n) => n.classList.remove('is-active'));
         if (active) active.classList.add('is-active');
     }
     function hexToRgb(hex) {
@@ -1119,8 +955,8 @@
             } catch {}
         }
     }
-    function showLoading(text) {
-        el.loadingText.textContent = text || 'Đang xử lý…';
+    function showLoading(t) {
+        el.loadingText.textContent = t || 'Đang xử lý…';
         el.stageLoading.hidden = false;
     }
     function hideLoading() {

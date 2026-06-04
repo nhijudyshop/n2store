@@ -25,6 +25,19 @@
 
 ## 2026-06-04
 
+### [web2] Studio chụp tách nền — v10 REBUILD giao diện camera-app mobile-first ✅
+
+User: giao diện cũ khó dùng → xóa làm lại toàn bộ tối ưu điện thoại + mặc định PhotoRoom fallback @imgly. Rebuild hoàn toàn 3 file (index.html/js/css) theo pattern app camera (PhotoRoom/Camera native).
+
+- **Luồng mới**: Camera (live) → **nút Chụp tròn** → **màn Xem (review)** → chọn nền (swatch live: trong suốt/màu/ảnh/mờ) → **Lưu ảnh** (Web Share → Ảnh điện thoại) / Chụp lại. Mode pills overlay trên khung: AI nét (mặc định) · AI nhanh · Phông xanh. Tùy chọn gom vào bottom sheet (⚙).
+- **Engine mặc định = 'auto'**: AI nét thử **PhotoRoom cloud** trước, **tự fallback @imgly on-device** nếu lỗi/mất mạng (`makeCutout`). Option 'Trên máy' = luôn @imgly offline.
+- **Kiến trúc cutout dùng chung**: chụp → tạo "cutout" (chủ thể nền trong suốt) 1 lần → màn Xem ghép với nền theo realtime (đổi nền KHÔNG tách lại). Chụp ở độ phân giải gốc (1920×1080 / cap 2400).
+- **Fix layout**: web2-shell grid 260px+1fr, mobile theme chỉ đổi `flex-direction` (no-op trên grid) → sidebar chiếm chỗ, main hẹp. Ép `.web2-shell:has(.ps-app){grid-template-columns:1fr}` ≤900px → full width. Sidebar vẫn là hamburger drawer.
+- Giữ nguyên: quyền camera (auto-start nếu granted, hướng dẫn cấp quyền Chrome/iOS), camera sau mặc định mobile, lật gương theo facing, tỉ lệ khung, spill, FPS badge.
+- **Test** (Playwright Pixel7 + fake cam + mock cloud): auto-start ✓, default hq/auto ✓, capture hq(cloud)→review 1920×1080 ✓, đổi nền trắng (pixel opaque) + mờ ✓, sheet ✓, chroma capture→review ✓, full width (396/412) ✓, 0 error. Screenshot camera + review xác nhận UI camera-app sạch.
+
+**Files**: `web2/photo-studio/{index.html,photo-studio.js,photo-studio.css}` (v=20260604a).
+
 ### [render][web2] Bỏ Neon hoàn toàn — Web 2.0 = Render PG + Firebase only, xoá deadcode ✅
 
 **Bối cảnh:** User thấy "Neon" trong secret file + hỏi "sao lại có Neon?". Yêu cầu: Web 2.0 CHỈ dùng Render + Firebase, xoá Neon + deadcode tất cả dấu vết.
