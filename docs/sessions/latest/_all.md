@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a3e1452` — auto: session update
-**Last updated**: 2026-06-04 09:49:47 +07
-**Latest session**: [`RESUME:20260604-094947-a3e1452`](../20260604-094947-a3e1452.md)
-**Summary**: auto: session update
+**Latest commit**: `7183331` — feat(web2): photo-studio v9 — engine cloud PhotoRoom cho 'AI nét' chất lượng cao
+**Last updated**: 2026-06-04 09:50:20 +07
+**Latest session**: [`RESUME:20260604-095020-7183331`](../20260604-095020-7183331.md)
+**Summary**: feat(web2): photo-studio v9 — engine cloud PhotoRoom cho 'AI nét' chất lượng cao
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`inventory-tracking/`](./inventory-tracking.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
-- [`web2/`](./web2.md) — 6 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -53,7 +49,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-04 09:49
+- [`render.com/`](./render.com.md) — updated 2026-06-04 09:50
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-04 09:49
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
