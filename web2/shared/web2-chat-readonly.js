@@ -1,15 +1,17 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — modal xem hội thoại FB read-only (reuse Web2Chat).
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — modal xem hội thoại FB read-only + panel tìm KH (reuse Web2Chat).
 // =====================================================================
-// Web2ChatReadonly — popup CHỈ XEM đoạn hội thoại Facebook của 1 KH.
-// Dùng chung Web2Chat client (web2-chat-client.js) để fetch conversation +
-// messages, render bubble read-only (không có ô gửi tin). Tách riêng để mọi
-// trang Web 2.0 mở chat KH chỉ cần load file này + gọi:
-//     Web2ChatReadonly.open({ pageId, psid, name })
-// pageId có thể null → tự thử qua các page token có sẵn (Web2Chat all-pages).
+// Web2ChatReadonly — popup CHỈ XEM hội thoại Facebook của KH, 2 pane:
+//   • Trái: ô tìm KH (tên / SĐT / nội dung) → list hội thoại (mọi page).
+//   • Phải: thread tin nhắn read-only của hội thoại đang chọn.
+// Dùng chung Web2Chat client. KHÔNG có ô gửi tin (gửi ở Đơn web / Inbox).
+//   Web2ChatReadonly.open({ pageId, psid, name })  — mở sẵn 1 thread.
+//   Web2ChatReadonly.openSearch({ query })          — mở chế độ tìm (linh hoạt).
 // =====================================================================
 (function (global) {
     const Web2ChatReadonly = {};
     let _el = null;
+    let _searchTimer = null;
+    let _searchSeq = 0;
 
     function esc(s) {
         const d = document.createElement('div');
@@ -18,8 +20,7 @@
     }
 
     // Pancake message text đến dạng HTML một phần (<div>...</div>, <br>). Strip
-    // tag → plain text, giữ xuống dòng (giống native-orders _msgPlain). Trả
-    // PLAIN text; caller phải esc() lại trước khi nhúng vào innerHTML.
+    // tag → plain text, giữ xuống dòng. Trả PLAIN; caller esc() trước khi nhúng.
     function msgPlain(raw) {
         if (!raw) return '';
         const normalized = String(raw)
@@ -42,19 +43,43 @@
         .w2cro-overlay { position: fixed; inset: 0; z-index: 10050; background: rgba(15,23,42,.5);
             display: flex; align-items: center; justify-content: center; padding: 16px; }
         .w2cro-overlay[hidden] { display: none; }
-        .w2cro-modal { background: #f0f2f5; border-radius: 12px; width: min(560px, 96vw);
+        .w2cro-modal { background: #fff; border-radius: 12px; width: min(940px, 96vw);
             height: min(760px, 90vh); display: flex; flex-direction: column; overflow: hidden;
             box-shadow: 0 24px 80px rgba(15,23,42,.32); }
         .w2cro-head { display: flex; align-items: center; justify-content: space-between;
-            padding: 12px 16px; background: #fff; border-bottom: 1px solid #e5e7eb; }
+            padding: 11px 16px; background: #fff; border-bottom: 1px solid #e5e7eb; flex: 0 0 auto; }
         .w2cro-title { font-weight: 700; font-size: 15px; color: #0f172a; }
         .w2cro-close { border: none; background: transparent; font-size: 24px; line-height: 1;
             color: #6b7280; cursor: pointer; padding: 0 4px; }
         .w2cro-close:hover { color: #b91c1c; }
+        .w2cro-grid { flex: 1; display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
+        .w2cro-side { border-right: 1px solid #e5e7eb; display: flex; flex-direction: column;
+            min-height: 0; background: #f8fafc; }
+        .w2cro-search { padding: 10px; flex: 0 0 auto; border-bottom: 1px solid #e5e7eb; }
+        .w2cro-search input { width: 100%; box-sizing: border-box; border: 1px solid #d1d5db;
+            border-radius: 8px; padding: 8px 11px; font-size: 13px; outline: none; }
+        .w2cro-search input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+        .w2cro-list { flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+        .w2cro-conv { display: flex; gap: 9px; padding: 9px 11px; cursor: pointer;
+            border-bottom: 1px solid #eef2f7; align-items: flex-start; }
+        .w2cro-conv:hover { background: #eef2ff; }
+        .w2cro-conv.is-active { background: #dbeafe; }
+        .w2cro-conv-av { width: 34px; height: 34px; border-radius: 50%; flex: 0 0 auto;
+            background: #c7d2fe; color: #3730a3; display: flex; align-items: center;
+            justify-content: center; font-weight: 700; font-size: 13px; overflow: hidden; }
+        .w2cro-conv-av img { width: 100%; height: 100%; object-fit: cover; }
+        .w2cro-conv-main { min-width: 0; flex: 1; }
+        .w2cro-conv-name { font-weight: 600; font-size: 13px; color: #0f172a;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .w2cro-conv-sub { font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden;
+            text-overflow: ellipsis; }
+        .w2cro-side-hint, .w2cro-side-empty { padding: 18px 12px; text-align: center;
+            color: #94a3b8; font-size: 12px; }
+        .w2cro-main { display: flex; flex-direction: column; min-height: 0; background: #f0f2f5; }
         .w2cro-body { flex: 1; overflow-y: auto; padding: 14px 14px 4px; display: flex;
             flex-direction: column; gap: 2px; overscroll-behavior: contain; }
-        .w2cro-foot { padding: 8px 16px; background: #fff; border-top: 1px solid #e5e7eb;
-            text-align: center; }
+        .w2cro-foot { padding: 7px 16px; background: #fff; border-top: 1px solid #e5e7eb;
+            text-align: center; flex: 0 0 auto; }
         .w2cro-readonly-tag { font-size: 11px; color: #6b7280; }
         .w2cro-loading, .w2cro-empty { text-align: center; color: #6b7280; font-size: 13px;
             padding: 32px 12px; }
@@ -67,10 +92,15 @@
             box-shadow: 0 1px 1px rgba(0,0,0,.06); }
         .w2cro-row.is-out .w2cro-bubble { background: #dcf8c6; color: #0f172a; border-bottom-right-radius: 4px; }
         .w2cro-txt { white-space: pre-wrap; }
-        .w2cro-img { max-width: 220px; max-height: 280px; border-radius: 10px; display: block;
-            margin-top: 3px; }
+        .w2cro-img { max-width: 220px; max-height: 280px; border-radius: 10px; display: block; margin-top: 3px; }
         .w2cro-file { display: inline-block; margin-top: 4px; font-size: 12px; color: #1d4ed8; }
         .w2cro-time { font-size: 10px; color: #9ca3af; margin: 1px 4px 4px; }
+        @media (max-width: 680px) {
+            .w2cro-grid { grid-template-columns: 1fr; }
+            .w2cro-side { display: none; }
+            .w2cro-modal.is-search .w2cro-side { display: flex; }
+            .w2cro-modal.is-search .w2cro-main { display: none; }
+        }
         `;
         document.head.appendChild(s);
     }
@@ -84,15 +114,44 @@
         ov.innerHTML = `
             <div class="w2cro-modal" role="dialog" aria-modal="true">
                 <header class="w2cro-head">
-                    <span class="w2cro-title" id="w2croTitle">Hội thoại</span>
+                    <span class="w2cro-title" id="w2croTitle">Hội thoại khách hàng</span>
                     <button type="button" class="w2cro-close" data-close aria-label="Đóng">&times;</button>
                 </header>
-                <div class="w2cro-body" id="w2croBody"></div>
-                <div class="w2cro-foot"><span class="w2cro-readonly-tag">🔒 Chỉ xem — gửi tin ở trang Đơn web / Inbox</span></div>
+                <div class="w2cro-grid">
+                    <aside class="w2cro-side">
+                        <div class="w2cro-search">
+                            <input id="w2croSearch" type="search" placeholder="Tìm KH: tên / SĐT / nội dung…" autocomplete="off" />
+                        </div>
+                        <div class="w2cro-list" id="w2croList">
+                            <div class="w2cro-side-hint">Gõ ≥ 2 ký tự để tìm hội thoại.</div>
+                        </div>
+                    </aside>
+                    <section class="w2cro-main">
+                        <div class="w2cro-body" id="w2croBody"><div class="w2cro-empty">Chọn 1 hội thoại bên trái để xem.</div></div>
+                        <div class="w2cro-foot"><span class="w2cro-readonly-tag">🔒 Chỉ xem — gửi tin ở trang Đơn web / Inbox</span></div>
+                    </section>
+                </div>
             </div>`;
         document.body.appendChild(ov);
         ov.addEventListener('click', (e) => {
-            if (e.target === ov || e.target.closest('[data-close]')) close();
+            if (e.target === ov || e.target.closest('[data-close]')) return close();
+            const conv = e.target.closest('.w2cro-conv');
+            if (conv) {
+                ov.querySelectorAll('.w2cro-conv').forEach((c) => c.classList.remove('is-active'));
+                conv.classList.add('is-active');
+                loadThread({
+                    pageId: conv.getAttribute('data-page'),
+                    convId: conv.getAttribute('data-conv'),
+                    customerUuid: conv.getAttribute('data-cust') || null,
+                    name: conv.getAttribute('data-name') || '',
+                });
+            }
+        });
+        const inp = ov.querySelector('#w2croSearch');
+        inp.addEventListener('input', () => {
+            clearTimeout(_searchTimer);
+            const q = inp.value.trim();
+            _searchTimer = setTimeout(() => doSearch(q), 350);
         });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && _el && !_el.hidden) close();
@@ -103,6 +162,101 @@
 
     function close() {
         if (_el) _el.hidden = true;
+    }
+
+    function setBody(html) {
+        const b = _el && _el.querySelector('#w2croBody');
+        if (b) b.innerHTML = html;
+    }
+    function setList(html) {
+        const l = _el && _el.querySelector('#w2croList');
+        if (l) l.innerHTML = html;
+    }
+
+    function pagesAvailable() {
+        const Web2Chat = global.Web2Chat;
+        const map =
+            (Web2Chat && Web2Chat.getAllPageAccessTokens && Web2Chat.getAllPageAccessTokens()) ||
+            {};
+        return Object.keys(map);
+    }
+
+    async function ensureTokens() {
+        const Web2Chat = global.Web2Chat;
+        try {
+            if (Web2Chat && Web2Chat.syncFromRenderDB)
+                await Web2Chat.syncFromRenderDB().catch(() => {});
+        } catch (_) {}
+    }
+
+    // ---- Tìm hội thoại (mọi page) theo query ----
+    async function doSearch(query) {
+        const seq = ++_searchSeq;
+        if (!query || query.length < 2) {
+            setList('<div class="w2cro-side-hint">Gõ ≥ 2 ký tự để tìm hội thoại.</div>');
+            return;
+        }
+        const Web2Chat = global.Web2Chat;
+        if (!Web2Chat || !Web2Chat.searchConversations) {
+            setList('<div class="w2cro-side-empty">⚠ Web2Chat chưa load.</div>');
+            return;
+        }
+        setList('<div class="w2cro-side-hint">Đang tìm…</div>');
+        await ensureTokens();
+        const pages = pagesAvailable();
+        if (!pages.length) {
+            setList(
+                '<div class="w2cro-side-empty">⚠ Chưa đăng nhập Pancake (không có page token).</div>'
+            );
+            return;
+        }
+        const seen = new Set();
+        const all = [];
+        await Promise.all(
+            pages.map(async (pg) => {
+                try {
+                    const r = await Web2Chat.searchConversations(pg, query);
+                    if (r && r.ok && Array.isArray(r.conversations)) {
+                        for (const c of r.conversations) {
+                            const key = c.id || (c.from && c.from.id);
+                            if (!key || seen.has(key)) continue;
+                            seen.add(key);
+                            all.push({ pageId: pg, conv: c });
+                        }
+                    }
+                } catch (_) {}
+            })
+        );
+        if (seq !== _searchSeq) return; // query đổi → bỏ kết quả cũ
+        if (!all.length) {
+            setList(
+                `<div class="w2cro-side-empty">Không tìm thấy hội thoại khớp "${esc(query)}".</div>`
+            );
+            return;
+        }
+        setList(all.map(convRowHtml).join(''));
+    }
+
+    function convRowHtml({ pageId, conv }) {
+        const cust = (conv.customers && conv.customers[0]) || {};
+        const name = cust.name || cust.display_name || conv.name || '(không tên)';
+        const phone = cust.phone || cust.phone_number || '';
+        const snippet = msgPlain(
+            conv.snippet ||
+                (conv.last_message && (conv.last_message.message || conv.last_message.text)) ||
+                ''
+        ).slice(0, 48);
+        const sub = phone ? `${esc(phone)}${snippet ? ' · ' + esc(snippet) : ''}` : esc(snippet);
+        const initial = esc((name || '?').trim().charAt(0).toUpperCase() || '?');
+        const av = cust.avatar || cust.photo_url || '';
+        const avHtml = av ? `<img src="${esc(av)}" loading="lazy" />` : initial;
+        return `<div class="w2cro-conv" data-page="${esc(pageId)}" data-conv="${esc(conv.id || '')}" data-cust="${esc(cust.id || '')}" data-name="${esc(name)}">
+            <div class="w2cro-conv-av">${avHtml}</div>
+            <div class="w2cro-conv-main">
+                <div class="w2cro-conv-name">${esc(name)}</div>
+                <div class="w2cro-conv-sub">${sub || '&nbsp;'}</div>
+            </div>
+        </div>`;
     }
 
     function renderBubble(m, pageId) {
@@ -159,52 +313,71 @@
         return `<div class="w2cro-row ${isOut ? 'is-out' : 'is-in'}"><div class="w2cro-bubble">${body}${media}</div><div class="w2cro-time">${esc(t)}</div></div>`;
     }
 
-    function setBody(html) {
-        const b = _el && _el.querySelector('#w2croBody');
-        if (b) b.innerHTML = html;
+    // ---- Tải + render thread 1 hội thoại ----
+    async function loadThread({ pageId, convId, customerUuid, name }) {
+        if (_el) _el.querySelector('.w2cro-modal')?.classList.remove('is-search');
+        const title = _el && _el.querySelector('#w2croTitle');
+        if (title) title.textContent = name ? `Hội thoại — ${name}` : 'Hội thoại khách hàng';
+        setBody('<div class="w2cro-loading">Đang tải hội thoại…</div>');
+        const Web2Chat = global.Web2Chat;
+        if (!Web2Chat || !Web2Chat.fetchMessages || !pageId || !convId) {
+            setBody('<div class="w2cro-empty">Thiếu thông tin hội thoại.</div>');
+            return;
+        }
+        let msgs = [];
+        try {
+            const mr = await Web2Chat.fetchMessages(pageId, convId, customerUuid);
+            if (mr && mr.ok) msgs = mr.messages || [];
+        } catch (_) {}
+        if (!msgs.length) {
+            setBody('<div class="w2cro-empty">Hội thoại trống.</div>');
+            return;
+        }
+        const ordered = msgs.slice().reverse(); // Pancake mới→cũ ⇒ render cũ→mới
+        const html = ordered
+            .map((m) => renderBubble(m, pageId))
+            .filter(Boolean)
+            .join('');
+        setBody(html || '<div class="w2cro-empty">Hội thoại trống.</div>');
+        const b = _el.querySelector('#w2croBody');
+        if (b) b.scrollTop = b.scrollHeight;
     }
 
+    // ---- Mở modal: preload 1 thread theo (pageId, psid) ----
     async function open(opts) {
         opts = opts || {};
         const ov = ensureEl();
         ov.hidden = false;
-        const title = ov.querySelector('#w2croTitle');
-        title.textContent = opts.name ? `Hội thoại — ${opts.name}` : 'Hội thoại';
-        setBody('<div class="w2cro-loading">Đang tải hội thoại…</div>');
-
+        ov.querySelector('.w2cro-modal')?.classList.remove('is-search');
         const Web2Chat = global.Web2Chat;
         if (!Web2Chat || !Web2Chat.fetchConversations) {
             setBody('<div class="w2cro-empty">⚠ Web2Chat chưa load trên trang này.</div>');
             return;
         }
-        try {
-            if (Web2Chat.syncFromRenderDB) await Web2Chat.syncFromRenderDB().catch(() => {});
-        } catch (_) {}
-
-        const psid = opts.psid;
-        if (!psid) {
-            setBody('<div class="w2cro-empty">KH chưa có ID Facebook để mở hội thoại.</div>');
-            return;
-        }
-        // pageId có → dùng thẳng; không có → thử tất cả page token đang đăng nhập.
-        let pages = opts.pageId
-            ? [opts.pageId]
-            : Object.keys(
-                  (Web2Chat.getAllPageAccessTokens && Web2Chat.getAllPageAccessTokens()) || {}
-              );
-        if (!pages.length) {
+        const title = ov.querySelector('#w2croTitle');
+        if (title)
+            title.textContent = opts.name ? `Hội thoại — ${opts.name}` : 'Hội thoại khách hàng';
+        if (!opts.psid) {
             setBody(
-                '<div class="w2cro-empty">⚠ Chưa đăng nhập Pancake (không có page token). Vào trang Inbox/Đơn web để đăng nhập trước.</div>'
+                '<div class="w2cro-empty">KH chưa có ID Facebook. Dùng ô tìm bên trái để chọn hội thoại.</div>'
             );
             return;
         }
-
+        setBody('<div class="w2cro-loading">Đang tải hội thoại…</div>');
+        await ensureTokens();
+        const pages = opts.pageId ? [opts.pageId] : pagesAvailable();
+        if (!pages.length) {
+            setBody(
+                '<div class="w2cro-empty">⚠ Chưa đăng nhập Pancake. Vào trang Inbox/Đơn web để đăng nhập trước.</div>'
+            );
+            return;
+        }
         let conv = null,
             usedPage = null,
             custUuid = null;
         for (const pg of pages) {
             try {
-                const r = await Web2Chat.fetchConversations(pg, psid);
+                const r = await Web2Chat.fetchConversations(pg, opts.psid);
                 if (r && r.ok && r.conversations && r.conversations.length) {
                     conv =
                         r.conversations.find((c) => (c.type || '').toUpperCase() === 'INBOX') ||
@@ -216,31 +389,38 @@
             } catch (_) {}
         }
         if (!conv) {
-            setBody('<div class="w2cro-empty">Không tìm thấy hội thoại Facebook cho KH này.</div>');
+            setBody(
+                '<div class="w2cro-empty">Không tìm thấy hội thoại FB cho KH này. Dùng ô tìm bên trái.</div>'
+            );
             return;
         }
+        await loadThread({
+            pageId: usedPage,
+            convId: conv.id,
+            customerUuid: custUuid,
+            name: opts.name,
+        });
+    }
 
-        let msgs = [];
-        try {
-            const mr = await Web2Chat.fetchMessages(usedPage, conv.id, custUuid);
-            if (mr && mr.ok) msgs = mr.messages || [];
-        } catch (_) {}
-        if (!msgs.length) {
-            setBody('<div class="w2cro-empty">Hội thoại trống.</div>');
-            return;
-        }
-        // Pancake trả mới→cũ; render cũ→mới (đọc tự nhiên, scroll xuống cuối).
-        const ordered = msgs.slice().reverse();
-        const html = ordered
-            .map((m) => renderBubble(m, usedPage))
-            .filter(Boolean)
-            .join('');
-        setBody(html || '<div class="w2cro-empty">Hội thoại trống.</div>');
-        const b = _el.querySelector('#w2croBody');
-        if (b) b.scrollTop = b.scrollHeight;
+    // ---- Mở modal ở chế độ TÌM (linh hoạt, không preselect) ----
+    function openSearch(opts) {
+        opts = opts || {};
+        const ov = ensureEl();
+        ov.hidden = false;
+        ov.querySelector('.w2cro-modal')?.classList.add('is-search');
+        const title = ov.querySelector('#w2croTitle');
+        if (title) title.textContent = 'Tìm hội thoại khách hàng';
+        setBody('<div class="w2cro-empty">Tìm KH bên trái rồi chọn hội thoại để xem.</div>');
+        const inp = ov.querySelector('#w2croSearch');
+        const q = String(opts.query || '').trim();
+        inp.value = q;
+        inp.focus();
+        if (q.length >= 2) doSearch(q);
+        else setList('<div class="w2cro-side-hint">Gõ ≥ 2 ký tự để tìm hội thoại.</div>');
     }
 
     Web2ChatReadonly.open = open;
+    Web2ChatReadonly.openSearch = openSearch;
     Web2ChatReadonly.close = close;
     global.Web2ChatReadonly = Web2ChatReadonly;
 })(window);

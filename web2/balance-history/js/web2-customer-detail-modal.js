@@ -127,18 +127,22 @@
             const r = await getJSON(
                 `/api/web2/customers/${encodeURIComponent(phone)}/fb-conversation`
             );
-            if (!r || !r.found) {
-                _notify('KH chưa có hội thoại Facebook (chưa từng có đơn/chat FB)', 'info');
+            if (!global.Web2ChatReadonly) {
+                _notify('Module chat chưa load (web2-chat-readonly.js)', 'error');
                 return;
             }
-            if (!global.Web2ChatReadonly?.open) {
-                _notify('Module chat chưa load (web2-chat-readonly.js)', 'error');
+            const custName = _data.name || _data.customer?.name || '';
+            if (!r || !r.found) {
+                // Chưa resolve được FB → mở chế độ TÌM, seed tên/SĐT để user tự
+                // chọn hội thoại (linh hoạt, không bí).
+                _notify('Chưa có hội thoại FB gán sẵn — tìm thủ công bên trái', 'info');
+                global.Web2ChatReadonly.openSearch({ query: custName || phone });
                 return;
             }
             global.Web2ChatReadonly.open({
                 pageId: r.pageId || null,
                 psid: r.psid,
-                name: r.name || _data.name || _data.customer?.name || '',
+                name: r.name || custName,
             });
         } catch (e) {
             _notify('Lỗi mở chat: ' + (e?.message || e), 'error');
