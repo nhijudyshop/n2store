@@ -121,7 +121,10 @@ async function logShipmentHistory(db, action, row, opts = {}) {
 }
 
 function getDb(req) {
-    return req.app.locals.chatDb;
+    // 2026-06-04: chuyển sang web2Db (Render n2store-web2-db) cho nhất quán với
+    // supplier-debt/aging/360 (Web 2.0 đều đọc web2Db). Trước đây ghi chatDb gây
+    // lệch DB — supplier-debt đọc bản copy stale. Fallback chatDb nếu env unset.
+    return req.app.locals.web2Db || req.app.locals.chatDb;
 }
 
 function generateId(prefix = 'id') {
