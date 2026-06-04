@@ -25,6 +25,16 @@
 
 ## 2026-06-04
 
+### [web2] Chat read-only: panel tìm hội thoại KH (tên/SĐT/nội dung) — như native-orders ✅
+
+User: cho panel tìm KH theo tên/SĐT/nội dung → chọn hội thoại → như native-orders, linh hoạt.
+
+- **`web2/shared/web2-chat-readonly.js`** rewrite thành 2-pane: trái = ô tìm (debounce 350ms) + list hội thoại (search across MỌI page qua `Web2Chat.searchConversations`, dedup); phải = thread read-only. Click conv → `loadThread` (fetchMessages). Responsive (mobile: list/thread toggle).
+- **API mới**: `Web2ChatReadonly.openSearch({query})` mở chế độ tìm; `open({pageId,psid,name})` preload 1 thread.
+- **Entry points**: nút "💬 Hội thoại" trên header balance-history (mở search mode); nút "Mở chat" trong modal chi tiết KH — khi KH chưa resolve được FB → mở search seed tên/SĐT (không bí).
+- **Browser test**: gõ "Nguyen" → 89 hội thoại; click "Hà Nguyễn" → thread load OK.
+- **Files:** `web2/shared/web2-chat-readonly.js` (v=20260604d), `web2/balance-history/js/web2-customer-detail-modal.js` (v=b), `web2-balance-history-app.js` (v=b), `index.html`
+
 ### [web2 printer] Lưu máy in lên server + nút tắt/gỡ bridge + in đậm hơn ✅
 
 User: máy in lưu server cho mọi user chọn; thêm file tắt/xóa bridge; in đậm hơn (chữ mỏng bị mờ mực).

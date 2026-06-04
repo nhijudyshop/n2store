@@ -977,6 +977,13 @@
         if (dom.refreshBtn) {
             dom.refreshBtn.addEventListener('click', () => load());
         }
+        const chatBtn = document.getElementById('w2bhChatBtn');
+        if (chatBtn) {
+            chatBtn.addEventListener('click', () => {
+                if (window.Web2ChatReadonly?.openSearch) window.Web2ChatReadonly.openSearch({});
+                else notify('Module hội thoại chưa load', 'warning');
+            });
+        }
         if (dom.reprocessBtn) {
             dom.reprocessBtn.addEventListener('click', () => reprocessUnmatched());
         }
