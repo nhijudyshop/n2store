@@ -28,14 +28,10 @@
         THB: 720,
     };
 
-    const TPOS_API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
-
     const STATE = {
         soOrderData: null,
         walletData: null,
         suppliersList: [], // [{ id, code, name, createdAt }] from Firestore web2_suppliers
-        tposData: [], // raw TPOS supplier rows (from Report/PartnerDebtReport)
-        tposCongNo: new Map(), // partnerId → congNo rows (lazy fetched on expand)
         rows: [], // aggregated supplier rows after filter
         sortField: 'code',
         sortDir: 'asc',
@@ -47,7 +43,6 @@
             search: '',
             display: 'all', // 'all' | 'endnonzero'
             sourceWeb2: true,
-            sourceTpos: false,
         },
         expanded: new Set(), // expanded supplier names
         detailTabs: new Map(), // supplier → active tab name (default 'congno')
@@ -115,7 +110,6 @@
     async function loadAll() {
         const tasks = [];
         if (STATE.filters.sourceWeb2) tasks.push(loadWeb2());
-        if (STATE.filters.sourceTpos) tasks.push(loadTpos());
         await Promise.all(tasks);
     }
 
@@ -298,14 +292,14 @@
 
     // Lookup code for a supplier name string.
     // Match rules (in order):
-    //   1. supplierKey starts with "<code> " (legacy/TPOS data: "B5 CHIẾN NGỌC ...")
+    //   1. supplierKey starts with "<code> " (legacy data: "B5 CHIẾN NGỌC ...")
     //   2. supplierKey ends with " name" exactly (created via "Tạo NCC" + linked to existing row)
     //   3. supplierKey === name
     function resolveCodeForSupplier(supplierKey) {
         const list = STATE.suppliersList || [];
         if (!list.length) return null;
         const lower = String(supplierKey).toLowerCase();
-        // Prefer code prefix match (legacy/TPOS format)
+        // Prefer code prefix match (legacy format)
         for (const s of list) {
             const prefix = String(s.code).toLowerCase() + ' ';
             if (lower.startsWith(prefix)) return s;
@@ -315,104 +309,6 @@
             if (lower === String(s.name).toLowerCase()) return s;
         }
         return null;
-    }
-
-    function isoTpos(date, endOfDay) {
-        if (!date) return '';
-        // yyyy-mm-dd → ISO with TZ for TPOS
-        const d = new Date(date + 'T' + (endOfDay ? '23:59:59' : '00:00:00') + '+07:00');
-        return d.toISOString();
-    }
-
-    async function loadTpos() {
-        try {
-            if (!window.tokenManager?.authenticatedFetch) {
-                notify('TokenManager chưa load — refresh trang', 'warning');
-                return;
-            }
-            const params = new URLSearchParams();
-            params.set('Display', 'all');
-            const from = STATE.filters.from || '2020-01-01';
-            const to = STATE.filters.to || new Date().toISOString().slice(0, 10);
-            params.set('DateFrom', isoTpos(from, false));
-            params.set('DateTo', isoTpos(to, true));
-            params.set('ResultSelection', 'supplier');
-            params.set('$top', '1000');
-            params.set('$count', 'true');
-            params.set('$orderby', 'Code asc');
-            // 2026-06-01 (per user decouple spec): Try Web 2.0 endpoint FIRST,
-            // fallback to TPOS PartnerDebtReport nếu Web 2.0 fail/empty.
-            // Lý do giữ TPOS fallback: historical debt data trước Web 2.0 chỉ
-            // có ở TPOS, Web 2.0 store mới cover từ shipments inventory_shipments.
-            let web2Used = false;
-            try {
-                const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-                const w2 = await fetch(`${WORKER}/api/web2/supplier-debt/aggregate?limit=500`);
-                const w2json = await w2.json();
-                if (
-                    w2json?.success &&
-                    Array.isArray(w2json.suppliers) &&
-                    w2json.suppliers.length > 0
-                ) {
-                    // Adapt Web 2.0 shape → TPOS-like shape cho aggregate() reuse
-                    STATE.tposData = w2json.suppliers.map((s) => ({
-                        PartnerId: s.sttNcc,
-                        Name: s.tenNcc,
-                        Code: String(s.sttNcc),
-                        Debit: s.totalOwed,
-                        Credit: s.totalPaid,
-                        Balance: s.debt,
-                        _web2Source: true,
-                    }));
-                    web2Used = true;
-                }
-            } catch (w2Err) {
-                console.warn(
-                    '[supplier-debt] Web 2.0 endpoint fail, fallback TPOS:',
-                    w2Err.message
-                );
-            }
-            if (web2Used) return;
-
-            const url = `${TPOS_API_BASE}/Report/PartnerDebtReport?${params.toString()}`;
-            const res = await window.tokenManager.authenticatedFetch(url, {
-                headers: { 'Content-Type': 'application/json', tposappversion: '6.2.6.1' },
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const json = await res.json();
-            STATE.tposData = Array.isArray(json.value) ? json.value : [];
-        } catch (e) {
-            console.warn('[supplier-debt] load TPOS fail:', e.message);
-            notify('Lỗi tải TPOS: ' + e.message, 'error');
-            STATE.tposData = [];
-        }
-    }
-
-    async function loadTposCongNo(partnerId) {
-        try {
-            if (!window.tokenManager?.authenticatedFetch) return [];
-            const params = new URLSearchParams();
-            params.set('ResultSelection', 'supplier');
-            params.set('PartnerId', String(partnerId));
-            const from = STATE.filters.from || '2020-01-01';
-            const to = STATE.filters.to || new Date().toISOString().slice(0, 10);
-            params.set('DateFrom', isoTpos(from, false));
-            params.set('DateTo', isoTpos(to, true));
-            params.set('CompanyId', '');
-            params.set('$format', 'json');
-            params.set('$top', '200');
-            params.set('$orderby', 'Date asc');
-            const url = `${TPOS_API_BASE}/Report/PartnerDebtReportDetail?${params.toString()}`;
-            const res = await window.tokenManager.authenticatedFetch(url, {
-                headers: { 'Content-Type': 'application/json', tposappversion: '6.2.6.1' },
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const json = await res.json();
-            return Array.isArray(json.value) ? json.value : [];
-        } catch (e) {
-            console.warn('[supplier-debt] load TPOS congno fail:', e.message);
-            return [];
-        }
     }
 
     // ---------- aggregate ----------
@@ -537,34 +433,6 @@
             };
         }
 
-        // Merge TPOS rows (server-provided Debit/Credit/End; opening derived).
-        // Key by "[code] name" so a Web 2.0 supplier matching TPOS code doesn't collide.
-        for (const t of STATE.tposData || []) {
-            const code = t.Code || '';
-            const name = t.PartnerName || '';
-            const key = code ? `[${code}] ${name}` : name;
-            if (!key) continue;
-            const debit = Number(t.Debit) || 0;
-            const credit = Number(t.Credit) || 0;
-            const ending = Number(t.End) || 0;
-            const opening = ending - debit + credit;
-            // TPOS row replaces existing key only if Web 2.0 doesn't already have data.
-            if (result[key]) continue;
-            result[key] = {
-                supplier: key,
-                opening,
-                debit,
-                credit,
-                ending,
-                _purchasesBefore: 0,
-                _txBefore: 0,
-                purchasesInPeriod: [],
-                txInPeriod: [],
-                source: 'tpos',
-                code,
-                partnerId: t.PartnerId || null,
-            };
-        }
         return result;
     }
 
@@ -579,7 +447,7 @@
             _txBefore: 0,
             purchasesInPeriod: [],
             txInPeriod: [],
-            source: opts?.source || 'web2', // 'web2' | 'tpos'
+            source: opts?.source || 'web2',
             code: opts?.code || '',
             partnerId: opts?.partnerId || null,
         };
@@ -652,13 +520,10 @@
                 const isExpanded = STATE.expanded.has(r.supplier);
                 const arrow = isExpanded ? '▼' : '▶';
                 const detailContent = isExpanded ? detailPanelHtml(r) : '';
-                const sourceBadge =
-                    r.source === 'tpos'
-                        ? `<span class="sd-source-badge is-tpos" title="Dữ liệu từ TPOS (legacy)">TPOS</span>`
-                        : `<span class="sd-source-badge is-web2" title="Dữ liệu từ Web 2.0 (so-order + ví NCC)">WEB 2.0</span>`;
+                const sourceBadge = `<span class="sd-source-badge is-web2" title="Dữ liệu từ Web 2.0 (so-order + ví NCC)">WEB 2.0</span>`;
                 // Display format: [code] code name (if code), else just name.
                 // For created suppliers, r.supplier === `${code} ${name}` already.
-                // For matched legacy/TPOS rows, r.supplier already includes code prefix.
+                // For matched legacy rows, r.supplier already includes code prefix.
                 const codeBadge = r.code
                     ? `<span class="sd-code-pill">${escapeHtml(r.code)}</span>`
                     : '<span class="sd-code-pill is-empty">—</span>';
@@ -811,7 +676,6 @@
             const moveName = await recordPayment(supplier, amount, date, note);
             notify(`Đã ghi ${moveName}: ${fmtVnd(amount)} cho ${supplier}`, 'success');
             modal.hidden = true;
-            STATE.tposCongNo.clear();
             applyFilterAndRender();
         } catch (e) {
             notify(e.message || 'Lỗi ghi thanh toán', 'error');
@@ -1013,37 +877,8 @@
         return entries;
     }
 
-    // Build entries from TPOS PartnerDebtReportDetail rows. Each row has
-    // { Date, Name (diễn giải), Ref (note), MoveName (bút toán), Debit, Credit }.
-    function buildTposCongNoEntries(tposRows) {
-        return tposRows.map((r) => ({
-            sortKey: String(r.Date || '') + ' ' + String(r.MoveName || ''),
-            date: r.Date ? String(r.Date).slice(0, 10) : '',
-            desc: r.Name || r.Ref || '',
-            moveName: r.MoveName || '',
-            debit: Number(r.Debit) || 0,
-            credit: Number(r.Credit) || 0,
-        }));
-    }
-
     function congnoTableHtml(row) {
-        // TPOS source → entries come from `STATE.tposCongNo.get(partnerId)`,
-        // fetched lazily on first expand. Show loading placeholder while pending.
-        let entries;
-        if (row.source === 'tpos' && row.partnerId) {
-            const tposRows = STATE.tposCongNo.get(row.partnerId);
-            if (tposRows === undefined) {
-                // trigger lazy load
-                loadTposCongNo(row.partnerId).then((rows) => {
-                    STATE.tposCongNo.set(row.partnerId, rows);
-                    updateDetailPanel(row.supplier);
-                });
-                return `<div class="sd-detail-empty"><i data-lucide="loader-2" style="width:18px;height:18px;"></i> Đang tải bút toán TPOS…</div>`;
-            }
-            entries = buildTposCongNoEntries(tposRows);
-        } else {
-            entries = buildCongNoEntries(row);
-        }
+        const entries = buildCongNoEntries(row);
         if (!entries.length) {
             return `<div class="sd-detail-empty">Không có bút toán trong kỳ.</div>`;
         }
@@ -1180,27 +1015,14 @@
             readFilters();
             STATE.page = 1;
             await loadAll();
-            STATE.tposCongNo.clear(); // invalidate cached TPOS detail
             applyFilterAndRender();
         });
         const sourceWeb2 = document.getElementById('sdSourceWeb2');
-        const sourceTpos = document.getElementById('sdSourceTpos');
         if (sourceWeb2) {
             sourceWeb2.addEventListener('change', async (e) => {
                 STATE.filters.sourceWeb2 = e.target.checked;
                 await loadAll();
                 applyFilterAndRender();
-            });
-        }
-        if (sourceTpos) {
-            sourceTpos.addEventListener('change', async (e) => {
-                STATE.filters.sourceTpos = e.target.checked;
-                if (e.target.checked) notify('Đang tải dữ liệu TPOS…', 'info');
-                await loadAll();
-                applyFilterAndRender();
-                if (e.target.checked) {
-                    notify(`Đã tải ${STATE.tposData.length} NCC từ TPOS`, 'success');
-                }
             });
         }
         document.getElementById('sdResetBtn').addEventListener('click', async () => {
@@ -1213,7 +1035,6 @@
                 .forEach((r) => (r.checked = r.value === 'all'));
             readFilters();
             STATE.page = 1;
-            STATE.tposCongNo.clear(); // period changed → invalidate cache
             await loadAll();
             applyFilterAndRender();
         });
@@ -1316,7 +1137,6 @@
         const chosen = document.querySelector('input[name="sdDisplay"]:checked');
         STATE.filters.display = chosen ? chosen.value : 'all';
         STATE.filters.sourceWeb2 = document.getElementById('sdSourceWeb2')?.checked ?? true;
-        STATE.filters.sourceTpos = document.getElementById('sdSourceTpos')?.checked ?? false;
     }
 
     // Default period = current month (1 → last day of month, local TZ).

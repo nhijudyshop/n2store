@@ -1,0 +1,1885 @@
+[
+    {
+        "urlPath": "/web2/overview/index.html",
+        "navErr": null,
+        "apis": [],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/dashboard/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/web2/dashboard-kpi/",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/kpi/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/native-orders/campaigns",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/notifications/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/web2/notifications/list?limit=100&unreadOnly=0",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": 5
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/audit-log/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/web2/audit-log/list?limit=200",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": 61
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/supplier-aging/index.html",
+        "navErr": null,
+        "apis": [],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/supplier-360/index.html",
+        "navErr": null,
+        "apis": [],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/inventory-forecast/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/web2/inventory-forecast/list?days_left_max=14",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": 20
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/bulk-import/index.html",
+        "navErr": null,
+        "apis": [],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/print-export/index.html",
+        "navErr": null,
+        "apis": [],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/smart-match/index.html",
+        "navErr": null,
+        "apis": [],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/photo-studio/index.html",
+        "navErr": null,
+        "apis": [],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/users-permissions/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/web2-users/list",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/admin-sse-monitor/index.html",
+        "navErr": null,
+        "apis": [],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/services-dashboard/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/services-overview",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/fastsaleorder-invoice/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/web2/kpi/scope",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/fast-sale-orders/load?page=1&limit=200",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/reconcile/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/reconcile/list?state=active",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": 0
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/fastsaleorder-refund/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/refunds/load?page=1&limit=200",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/fastsaleorder-delivery/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/delivery-invoices/load?page=1&limit=200",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/live-campaign/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/odata/SaleOnline_LiveCampaign?%24top=20&%24skip=0&%24orderby=DateCreated+desc&%24count=true",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/native-orders/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/quick-replies",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/kpi/scope",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/realtime/pending-customers?limit=500",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/native-orders/campaigns",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/native-orders/load?page=1&limit=200",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/so-order/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/web2-variants/list?page=1&limit=2000",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2-products/list?page=1&limit=1000",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/tpos-pancake/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/quick-replies",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2-products/list?limit=2000",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/pancake-accounts?active=true",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/pancake-page-tokens",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/pancake/pages/unread_conv_pages_count?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJhZDk3ZmUwNy1kZDlhLTQ4OTQtYTIzZi03ODQyN2ZiYTNiNGEiLCJpYXQiOjE3Nzg0OTg1NzQsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.Uwid5cz87Ray6CbhkyegeUYoG7noud_ttQ3ea7DsFAo",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": 3
+            },
+            {
+                "url": "/api/pancake/pages?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJhZDk3ZmUwNy1kZDlhLTQ4OTQtYTIzZi03ODQyN2ZiYTNiNGEiLCJpYXQiOjE3Nzg0OTg1NzQsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.Uwid5cz87Ray6CbhkyegeUYoG7noud_ttQ3ea7DsFAo",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/pancake/conversations?pages[117267091364524]=0&pages[270136663390370]=0&unread_first=true&mode=OR&tags=%22ALL%22&except_tags=[]&access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJhZDk3ZmUwNy1kZDlhLTQ4OTQtYTIzZi03ODQyN2ZiYTNiNGEiLCJpYXQiOjE3Nzg0OTg1NzQsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.Uwid5cz87Ray6CbhkyegeUYoG7noud_ttQ3ea7DsFAo&cursor_mode=true&from_platform=web",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/v2/wallets/batch-summary",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=8454438347960768&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=7601212073277483&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=26603494645982627&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=2115949245109495&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=25573020238984294&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=961772293695087&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=9187305794669857&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=29237180649258943&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=26745251998446571&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=8967774213351307&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=6512606138760604&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=24552257947753020&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=26687269597559186&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=5923968417680281&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=33423309213984059&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=3307327932613252&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=30316314438012223&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=24239086035757259&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=8267231576688519&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=5389129744436767&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=7323068344467428&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=8831961890227524&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=25151577961149866&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=9422815154482744&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=5662944807139933&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=732433199945640&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=26766718722968056&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=9109515899149881&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=9484319011642026&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=25089078634125604&page=117267091364524",
+                "status": 502,
+                "ok": false,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=26814469371579546&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=690512137479276&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=27034715406178764&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=9603375526350344&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=5114910811872384&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=9634326163310096&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=36269027676021590&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=33247111681600852&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=6377539988987778&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=28562793980035979&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=2455136744569255&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=2927360140714871&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=6291373894274103&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=24244531241812825&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=4214293978585587&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=2363769470336000&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=7160680030642567&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=2756956977735880&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=6566829683406353&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=25653245667612929&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=2325007157537938&page=270136663390370",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=1034649193064101&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/fb-avatar?id=34841670905480707&page=117267091364524",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            }
+        ],
+        "failed": [
+            {
+                "url": "/api/fb-avatar?id=25089078634125604&page=117267091364524",
+                "status": 502,
+                "ok": false,
+                "success": null,
+                "count": null
+            }
+        ],
+        "consoleErrs": [
+            "[pageerror] Identifier 'TokenManager' has already been declared",
+            "[PANCAKE-TOKEN] Cannot activate expired account",
+            "[PANCAKE-TOKEN] Cannot activate expired account",
+            "[PK-RT] All server-mode starts failed: no_token_or_uid",
+            "[PK-RT] All server-mode starts failed: no_token_or_uid"
+        ]
+    },
+    {
+        "urlPath": "/web2/purchase-refund/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/web2/purchase-refund/list?limit=200",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": 0
+            },
+            {
+                "url": "/api/web2-products/list?page=1&limit=1000",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/supplier-debt/index.html",
+        "navErr": null,
+        "apis": [],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/supplier-wallet/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/web2-products/list?page=1&limit=1000",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/wallet-deposits/load?since=0&limit=200",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/balance-history/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/web2/balance-history/stats",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/balance-history?limit=50&offset=0&since=2026-06-01&until=2026-06-30",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": 50
+            },
+            {
+                "url": "/api/web2/balance-history/pending",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": 200
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0846047782",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0836882255",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0343599199",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0985011042",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0901464698",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0939188906",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0905168933",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0784957286",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0909549977",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0968080832",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=5&%24count=false&Type=Customer&Active=true&Phone=0343599199&%24orderby=DateCreated+desc",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=5&%24count=false&Type=Customer&Active=true&Phone=0901464698&%24orderby=DateCreated+desc",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=5&%24count=false&Type=Customer&Active=true&Phone=0836882255&%24orderby=DateCreated+desc",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=5&%24count=false&Type=Customer&Active=true&Phone=0846047782&%24orderby=DateCreated+desc",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=5&%24count=false&Type=Customer&Active=true&Phone=0939188906&%24orderby=DateCreated+desc",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=5&%24count=false&Type=Customer&Active=true&Phone=0905168933&%24orderby=DateCreated+desc",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=5&%24count=false&Type=Customer&Active=true&Phone=0909549977&%24orderby=DateCreated+desc",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=5&%24count=false&Type=Customer&Active=true&Phone=0784957286&%24orderby=DateCreated+desc",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=5&%24count=false&Type=Customer&Active=true&Phone=0985011042&%24orderby=DateCreated+desc",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=5&%24count=false&Type=Customer&Active=true&Phone=0968080832&%24orderby=DateCreated+desc",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/web2/balance-history/reprocess-unmatched",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/partner-customer/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/odata/PartnerCategory?$top=200&$orderby=Name+asc&$filter=Active+eq+true",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=50&%24skip=0&%24orderby=DateCreated+desc&%24count=true&Type=Customer&Active=true&%24filter=Type+eq+%27Customer%27",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0938233737",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0906882031",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0936767150",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0817024283",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0919908680",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0949312805",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=1&%24count=true&Type=Customer&Active=true&%24filter=Type+eq+%27Customer%27+and+Status+eq+%27Normal%27",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=1&%24count=true&Type=Customer&Active=true&%24filter=Type+eq+%27Customer%27",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=1&%24count=true&Type=Customer&Active=true&%24filter=Type+eq+%27Customer%27+and+Status+eq+%27Warning%27",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=1&%24count=true&Type=Customer&Active=true&%24filter=Type+eq+%27Customer%27+and+Status+eq+%27Danger%27",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0826495555",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0846614739",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0974414886",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0966339472",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0969389797",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0908889500",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0343599199",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0903339588",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0974509050",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0975849919",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0967728930",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0964563982",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0989393994",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0836971999",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0785684939",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0917321777",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0949107949",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0943238586",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0949311920",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0836882255",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0773007789",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0901464698",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0327270589",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0908725261",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0916821078",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0937966113",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0828136678",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0905288519",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0947578228",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0964528828",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0988883063",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0855721398",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0975733084",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0899172455",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0946647778",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0905258462",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0939458362",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0945732052",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0336319250",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0964041460",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0377542023",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0918385579",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=1&%24count=true&Type=Customer&Active=true&%24filter=Type+eq+%27Customer%27+and+Status+eq+%27BomHang%27",
+                "status": 500,
+                "ok": false,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=1&%24count=true&Type=Customer&Active=true&%24filter=Type+eq+%27Customer%27+and+Status+eq+%27VIP%27",
+                "status": 500,
+                "ok": false,
+                "success": null,
+                "count": null
+            }
+        ],
+        "failed": [
+            {
+                "url": "/api/web2/wallets/by-phone/0938233737",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0906882031",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0936767150",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0817024283",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0919908680",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0949312805",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0826495555",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0846614739",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0974414886",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0966339472",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0969389797",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0908889500",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0903339588",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0974509050",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0975849919",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0967728930",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0964563982",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0836971999",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0785684939",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0917321777",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0949107949",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0943238586",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0327270589",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0908725261",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0916821078",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0937966113",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0828136678",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0905288519",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0947578228",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0964528828",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0988883063",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0855721398",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0975733084",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0899172455",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0946647778",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0905258462",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0939458362",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0945732052",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0336319250",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0964041460",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0377542023",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/web2/wallets/by-phone/0918385579",
+                "status": 404,
+                "ok": false,
+                "success": false,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=1&%24count=true&Type=Customer&Active=true&%24filter=Type+eq+%27Customer%27+and+Status+eq+%27BomHang%27",
+                "status": 500,
+                "ok": false,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=1&%24count=true&Type=Customer&Active=true&%24filter=Type+eq+%27Customer%27+and+Status+eq+%27VIP%27",
+                "status": 500,
+                "ok": false,
+                "success": null,
+                "count": null
+            }
+        ],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/customer-wallet/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/odata/Partner/ODataService.GetViewV2?%24top=50&%24skip=0&%24orderby=DateCreated+desc&%24count=true&Type=Customer&Active=true&%24filter=Type+eq+%27Customer%27",
+                "status": 200,
+                "ok": true,
+                "success": null,
+                "count": null
+            },
+            {
+                "url": "/api/web2/customer-wallet/overlay-by-phones",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": 48
+            },
+            {
+                "url": "/api/web2/customer-wallet/stats",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/products/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/web2-variants/list?page=1&limit=2000",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2-products/list?page=1&limit=200",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2-products/list?page=1&limit=1000",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2-products/usage?codes=B4AO2NAU%2CB4QUANXAMS28%2CB4DAMVANG%2CB4AOBE%2CADQUANDENM%2CADAODO%2CADMMTRANGS40%2CQCMMDENS39%2CQCAOXD%2CQCQUANDENS29%2CQCDAMXL%2CHCAO2TRANG%2CHCGUOCNAUS38%2CHCDAMDO%2CHCAOXAM%2CHNDAMHONG%2CHNQUAN2DENS32%2CHNQUANXDS30%2CHNAO2TRANG%2CHNAODEN",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/variants/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/web2-variants/list?page=1&limit=2000",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/product-category/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/web2/productcategory/list?page=1&limit=200",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": 21
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/report-revenue/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/pbh-reports/top-customers?days=30&limit=10",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/pbh-reports/summary?days=30",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/pbh-reports/top-customers-360?days=30&limit=15",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/pbh-reports/revenue?days=30",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/pbh-reports/by-campaign?days=30",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/report-delivery/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/pbh-reports/delivery?from=2026-06-04&to=2026-06-04",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/users/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/web2-users/pages",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            },
+            {
+                "url": "/api/web2-users/list?limit=200&includeInactive=0",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    },
+    {
+        "urlPath": "/web2/pancake-settings/index.html",
+        "navErr": null,
+        "apis": [
+            {
+                "url": "/api/pancake/pages?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4NjI3NDU3NCwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJhZDk3ZmUwNy1kZDlhLTQ4OTQtYTIzZi03ODQyN2ZiYTNiNGEiLCJpYXQiOjE3Nzg0OTg1NzQsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.Uwid5cz87Ray6CbhkyegeUYoG7noud_ttQ3ea7DsFAo",
+                "status": 200,
+                "ok": true,
+                "success": true,
+                "count": null
+            }
+        ],
+        "failed": [],
+        "consoleErrs": []
+    }
+]

@@ -25,6 +25,20 @@
 
 ## 2026-06-04
 
+### [web2] supplier-debt — cắt sạch coupling TPOS/inventory_shipments (Web 1.0) ✅
+
+**Vấn đề**: trang Web 2.0 supplier-debt còn 2 sợi bám Web 1.0: (1) route `/api/web2/supplier-debt/aggregate` đọc bảng `inventory_shipments` (Web 1.0) → trả 5 NCC GIẢ (rác seed `web2-seed-supplier-debt-from-soorder.js`); (2) frontend fallback gọi TPOS `PartnerDebtReport`. Phần lõi trang đã độc lập sẵn (tính client-side từ Firestore `web2_so_order` + `web2_supplier_wallet`), 2 coupling kia chỉ lòi ra khi bật toggle "TPOS". User quyết: **bỏ sạch TPOS**.
+
+**Đã làm**:
+
+- Frontend `web2/supplier-debt/js/supplier-debt-app.js`: gỡ `TPOS_API_BASE`, `tposData`, `tposCongNo`, `sourceTpos`, `loadTpos()`, `loadTposCongNo()`, `isoTpos()`, `buildTposCongNoEntries()`, block merge TPOS trong `aggregate()`, badge TPOS, nhánh detail TPOS, toggle handler. `node -c` OK, grep tpos sạch (chỉ còn tên CSS theme `tpos-theme` — UI, không phải data).
+- `web2/supplier-debt/index.html`: xóa filter group "Nguồn" (checkbox sdSourceWeb2 + sdSourceTpos). Web 2.0 là nguồn duy nhất, luôn load (JS fallback `?? true`).
+- Backend: xóa route `render.com/routes/v2/web2-supplier-debt.js` + unmount trong `server.js` (`node -c` OK).
+- Xóa 2 script cầu nối: `scripts/web2-seed-supplier-debt-from-soorder.js`, `scripts/web2-seed-inventory-shipments.js`.
+  → supplier-debt giờ 100% Web 2.0: chỉ `web2_so_order` + `web2_supplier_wallet`. 0 coupling Web 1.0.
+
+**Còn tồn (flag user)**: (a) bảng `inventory_*` copy orphan trên web2Db (vô hại, có thể DROP cho sạch — destructive nên chờ user); (b) `render.com/routes/v2/customers.js` (Web 1.0) còn đọc data `web2_*` → vi phạm chiều ngược lại, cần xử riêng.
+
 ### [render] FIX mất data inventory-tracking — revert pool web2Db → chatDb (Web 1.0 ⊥ Web 2.0) ✅
 
 **Triệu chứng**: `http://localhost:8080/inventory-tracking/index.html` mất sạch dữ liệu (NCC, đặt hàng, nhập hàng, công nợ).

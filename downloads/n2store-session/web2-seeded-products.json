@@ -1,0 +1,102 @@
+[
+    {
+        "code": "HNAODEN",
+        "name": "ÁO THUN ĐEN",
+        "supplier": "HÀ NỘI"
+    },
+    {
+        "code": "HNAO2TRANG",
+        "name": "ÁO SƠ MI TRẮNG",
+        "supplier": "HÀ NỘI"
+    },
+    {
+        "code": "HNQUANXDS30",
+        "name": "QUẦN JEAN XANH DƯƠNG SIZE 30",
+        "supplier": "HÀ NỘI"
+    },
+    {
+        "code": "HNQUAN2DENS32",
+        "name": "QUẦN JEAN ĐEN SIZE 32",
+        "supplier": "HÀ NỘI"
+    },
+    {
+        "code": "HNDAMHONG",
+        "name": "ĐẦM HỒNG",
+        "supplier": "HÀ NỘI"
+    },
+    {
+        "code": "HCAOXAM",
+        "name": "ÁO KHOÁC XÁM",
+        "supplier": "HƯƠNG CHÂU"
+    },
+    {
+        "code": "HCDAMDO",
+        "name": "ĐẦM ĐỎ",
+        "supplier": "HƯƠNG CHÂU"
+    },
+    {
+        "code": "HCGUOCNAUS38",
+        "name": "GUỐC NÂU SIZE 38",
+        "supplier": "HƯƠNG CHÂU"
+    },
+    {
+        "code": "HCAO2TRANG",
+        "name": "ÁO THUN TRẮNG",
+        "supplier": "HƯƠNG CHÂU"
+    },
+    {
+        "code": "QCDAMXL",
+        "name": "ĐẦM XANH LÁ",
+        "supplier": "QUẢNG CHÂU"
+    },
+    {
+        "code": "QCQUANDENS29",
+        "name": "QUẦN TÂY ĐEN SIZE 29",
+        "supplier": "QUẢNG CHÂU"
+    },
+    {
+        "code": "QCAOXD",
+        "name": "ÁO SƠ MI XANH DƯƠNG",
+        "supplier": "QUẢNG CHÂU"
+    },
+    {
+        "code": "QCMMDENS39",
+        "name": "GIÀY ĐEN SIZE 39",
+        "supplier": "QUẢNG CHÂU"
+    },
+    {
+        "code": "ADMMTRANGS40",
+        "name": "GIÀY TRẮNG SIZE 40",
+        "supplier": "ADIDAS"
+    },
+    {
+        "code": "ADAODO",
+        "name": "ÁO THUN ĐỎ",
+        "supplier": "ADIDAS"
+    },
+    {
+        "code": "ADQUANDENM",
+        "name": "QUẦN SHORT ĐEN SIZE M",
+        "supplier": "ADIDAS"
+    },
+    {
+        "code": "B4AOBE",
+        "name": "ÁO LEN BE",
+        "supplier": "B4"
+    },
+    {
+        "code": "B4DAMVANG",
+        "name": "ĐẦM VÀNG",
+        "supplier": "B4"
+    },
+    {
+        "code": "B4QUANXAMS28",
+        "name": "QUẦN JEAN XÁM SIZE 28",
+        "supplier": "B4"
+    },
+    {
+        "code": "B4AO2NAU",
+        "name": "ÁO KHOÁC NÂU",
+        "supplier": "B4"
+    }
+]

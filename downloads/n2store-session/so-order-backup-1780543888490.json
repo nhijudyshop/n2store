@@ -1,0 +1,686 @@
+{
+    "data": {
+        "trash": [],
+        "tabs": [
+            {
+                "id": "tab-vn",
+                "footer": {
+                    "shipping": 200000,
+                    "discount": 0
+                },
+                "currency": "VND",
+                "uiInitialized": true,
+                "label": "VN — Hà Nội",
+                "shipments": [
+                    {
+                        "contractCurrency": "VND",
+                        "date": "2026-04-10",
+                        "collapsed": true,
+                        "rows": [
+                            {
+                                "invoiceGroupId": "mprzftbt4lnd22",
+                                "code": "AT001",
+                                "id": "row-1779699816183-1-an6",
+                                "supplier": "NCC A — Hà Nội",
+                                "name": "Áo thun trắng size M",
+                                "costPrice": 85000,
+                                "qty": 50
+                            },
+                            {
+                                "costPrice": 90000,
+                                "qty": 40,
+                                "invoiceGroupId": "mprzftbt4lnd22",
+                                "name": "Áo thun đen size L",
+                                "id": "row-1779699816183-2-o9e",
+                                "code": "AT002",
+                                "supplier": "NCC A — Hà Nội"
+                            },
+                            {
+                                "qty": 30,
+                                "costPrice": 220000,
+                                "name": "Quần jean nam 32",
+                                "code": "QJ010",
+                                "id": "row-1779699816183-3-fft",
+                                "supplier": "NCC B — Đà Nẵng",
+                                "invoiceGroupId": "mprzftbti9mfgg"
+                            }
+                        ],
+                        "id": "sh-vn-1"
+                    },
+                    {
+                        "date": "2026-05-10",
+                        "contractCurrency": "VND",
+                        "id": "sh-vn-2",
+                        "collapsed": true,
+                        "rows": [
+                            {
+                                "qty": 60,
+                                "costPrice": 88000,
+                                "supplier": "NCC A — Hà Nội",
+                                "id": "row-1779699816183-4-0m7",
+                                "code": "AT003",
+                                "name": "Áo thun navy size M",
+                                "invoiceGroupId": "mprzftbttykha8"
+                            },
+                            {
+                                "supplier": "NCC B — Đà Nẵng",
+                                "name": "Quần jean nữ 28",
+                                "code": "QJ012",
+                                "id": "row-1779699816183-5-ab7",
+                                "invoiceGroupId": "mprzftbtbr9aos",
+                                "qty": 25,
+                                "costPrice": 210000
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-05-30",
+                        "contractAmount": 0,
+                        "batch": "",
+                        "collapsed": false,
+                        "rows": [
+                            {
+                                "status": "received",
+                                "id": "mps5wldr0h5nkg",
+                                "createdAt": 1780134140223,
+                                "note": "",
+                                "costPrice": 0,
+                                "productName": "TEST-SP-AutoSupplier",
+                                "variant": "",
+                                "sellPrice": 0,
+                                "updatedAt": 1780143356094,
+                                "productImage": "",
+                                "costNote": "",
+                                "invoiceGroupId": "inv-mps5wldr-idecs",
+                                "supplier": "TEST-NCC-Submit-140210",
+                                "invoiceImage": "",
+                                "qty": 1
+                            },
+                            {
+                                "productName": "b",
+                                "variant": "Màu Beo",
+                                "sellPrice": 250000,
+                                "updatedAt": 1780143221094,
+                                "invoiceImage": "",
+                                "qty": 1,
+                                "productImage": "data:image/jpeg;base64,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",
+                                "costNote": "",
+                                "invoiceGroupId": "inv-mps6fkfu-exllg",
+                                "supplier": "B4",
+                                "createdAt": 1780135025466,
+                                "status": "received",
+                                "id": "mps6fkfu3tsqqu",
+                                "costPrice": 150000,
+                                "note": ""
+                            },
+                            {
+                                "sellPrice": 200000,
+                                "variant": "Màu Bạc",
+                                "updatedAt": 1780143221094,
+                                "productName": "2",
+                                "qty": 1,
+                                "invoiceImage": "",
+                                "invoiceGroupId": "inv-mps6gai9-smhx8",
+                                "supplier": "B4",
+                                "productImage": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAC/AK8DASIAAhEBAxEB/8QAHAABAQADAQEBAQAAAAAAAAAAAAQCAwcGBQEI/8QAPRAAAAUBBQYCBggGAwAAAAAAAAECAwQRBRIUktIGEyExU1RBkxUiMlJzlAc0NUJRYbKzIzNxgZGhcrHB/8QAFwEBAQEBAAAAAAAAAAAAAAAAAAECBP/EACERAQEBAAIBBAMBAAAAAAAAAAARAQISkQQUMVIhQnHw/9oADAMBAAIRAxEAPwD+ywGizSeKzoxSf5+6TvP+VCr/ALG8AE7n2mx8Fz9SBQJ3PtNj4Ln6kAKBPL+sQ/jH+2sUCeX9Yh/GP9tYCgAAAAAAAAAAAAAHxbG2t2Wtq1ZNlWRtFZVoT4td/GjS0OON0Oh1SR14HwP8D4DLbkpx7FW4VmX8d6Ofw9z2t5u1XafnWg5ywuyHGfofLZ5UU1kurRMGVSilCcJ7l929uyOv3qV4jWZU3XXgABlQTxPrEz4xftoFAnifWJnxi/bQAoE7f2m/8Fv9SxQJ2/tN/wCC3+pYCgBPjWfck/LOaQxrPuSflnNIQUCdz7TY+C5+pAYxrwbkmf4YdZf9kDCHFvHJdTcM03UI8UlzOv5nw/wKKBPL+sQ/jH+2sUDVKaU62VwyS4hRKQZ8ql+P+y/uINoCYpZJKjrEhCvEiaUsv8pIyH7jWfck/LOaQgoAT41n3JPyzmkMaz7kn5ZzSEFACfGs+5J+Wc0hjWfck/LOaQgoAT41n3JPyzmkMaz7kn5ZzSEFA+RZGzGzVkWnKtOydn7KgTpdTkyY0Ntt16p1O8pJEauPHj4i/Gs+5J+Wc0hjWfck/LOaRfyKAE+NZ9yT8s5pDGs+5J+Wc0iQUCeJ9YmfGL9tA/DlkoqNMSFq8CNpSC/yoiIbIrSmmzvmSnFqNSzLlU/w/wBF/YBtE7f2m/8ABb/UsUCeQh1LxSGUktV26pBnS8Xhx/L/ANMBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJ7k7uI3kK1hcndxG8hWsBQAnuTu4jeQrWFyd3EbyFawFACe5O7iN5CtYXJ3cRvIVrAUAJ7k7uI3kK1hcndxG8hWsBQAnuTu4jeQrWFyd3EbyFawFACe5O7iN5CtYXJ3cRvIVrAUAJ7k7uI3kK1hcndxG8hWsBQAnuTu4jeQrWFyd3EbyFawFACe5O7iN5CtYXJ3cRvIVrAUAJ7k7uI3kK1hcndxG8hWsBQAnuTu4jeQrWFyd3EbyFawFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACfDvd/Jyt6Qw73fycrekUAAnw73fycrekMO938nK3pFAAJ8O938nK3pDDvd/Jyt6RQACfDvd/Jyt6Qw73fycrekUAAnw73fycrekMO938nK3pFAAJ8O938nK3pDDvd/Jyt6RQACfDvd/Jyt6Qw73fycrekUAAnw73fycrekMO938nK3pFAAJ8O938nK3pDDvd/Jyt6RQACfDvd/Jyt6Qw73fycrekUAAnw73fycrekMO938nK3pFAANWIj9drOQYiP12s5DABYlZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFAABUAAAABz36abAsO0YNlTZ9kQJUn0vBj755hK17pUhJKRUyrdMjOpcuI81aE+fsbtZtnP2fi2UzZtmtWYTsRbCivNGm7cbuKIm6EZnUyUXhTxGs41K7OA5Q7tjKb+kcnocOI/DlnKs8pOHNpV+O2py6Z78zcuqIyqbSSK8dFcePwtqNstorW+jqWxbTdlG3bWyjtpMlEacQplSbhKQo1LVeI75GRkRU5ceYddK7oA8bsLbdsP2/aOztslAWuFDiyWHYja0Fu3SUVxRKUqqiNHtFSteRDxRWvbzc6027YmRrUjltoxCaZNt5s2UmlKvVo97NKUQZGVbxnWtCnUrs4Dg2y9v2nZVj2ptbZGycWFBVZcl2O47IvXDZ/ltKLFLW4kqGVN21u+JEREZjpGxe0Vtzdpp1iW2VnKW3AjT2XIbS0ESXTWRoVeUq8ZGj2ipWvIhd4wzXsQABlQAAAABwa35Fvo2I+k9mJZVnvWaq1Ju+kuT1Nuo9VFbrRNGSqcPvlX8hcym7HeQHI2dqLUs6050Sx4VlsvyNoIdnGt1DqkqJyKlRuKSSyK/WnEqVIirx4iRdt7RW7tns3cXZTNsQJlrwVPGw4cdRtoT65N373EjLhf4H4i9Urs41RJMaZHTIiSGpDKq3XGlkpJ0Oh0MuHMh46Btm7I+imNtZJJiLLeaSm6llTre+NzdkRJvJMyNXIjUXPiZcx5CwNs9oYMGNY8OzLMjS/T0qC/vyWZHRhUg10S85RZqM6/wARZf05FOuldlAAEUAAAaZcSLMQhuXGZkIQ4lxKXUEokrSdUqKvIyMiMj8DGiTZFkyTlHIsuE9jCQUneR0q35J9kl1L1qeFeQtAB8tOzuz6bQctFNhWWU1xRqckFEb3ilGk0mZqpUzumZf0MyGTlgWC5HbjuWJZq2W45xW21RUGlLJ0q2RUoSDoXq8uBD6QBROzBhMy3JbMOO3JcQltbqWyJakJrdSauZkVToXhUxM5YNhuT12g5YtnLmOLQ4uQqKg3FLR7CjVSpmnwPw8B9EAHyS2Z2bJ+ZILZ+ySenJNEtwobd6Qk+ZOHSqiPxI6i5mDBZlKlsw47chTSWVOoaSSzQmt1BmRVulU6FyKpigAAAAAAAABGqybKVFlxVWZCVHmKUuU0bCTQ+pXtGsqUUZ0KpnWosABD6Gsfe730TA3m/TIv4dFd6lN1Llae0RcCVzIuANWPZDMlMpqy4Lb6XHHUupjoJZLc4LVWlaqoVT8acRcACI7Isk7JOyDsuF6OUk0nE3CdyaTOplcpdpXjyGmLs9YEVLaI1h2YwlpzeNk3EQkkLuXLxULgdz1a/hw5D6YAM8PH6DWQgw8foNZCG0Blpqw8foNZCDDx+g1kIbQAasPH6DWQgw8foNZCG0AGrDx+g1kIMPH6DWQhtABqw8foNZCDDx+g1kIbQAasPH6DWQgw8foNZCG0AGrDx+g1kIMPH6DWQhtEVqTTioSlBEbiuVeRDXHjvLZhmKMPH6DWQgw8foNZCHlClbTzrOjTrOiMEb15RtzJxsmlH3VFu0OEdS404U4eNSKpxraIpkpLZxlRktGcZxU1wluOUKiVp3ZkhNa+sSlHwL1eNC6d9LufPLPON9HocPH6DWQgw8foNZCHmko2ouQjUiES1rMphFaDhk0m8VDbPdfxDu1Oh3OPCp8wUjai5NNKIRrQsihkdoOETqbx1Nw91/DO7Q6Ff48KlzD2u/bPOfz/AHn4Oj0uHj9BrIQYeP0GshDzzbW0Zy46XMKmOpkjfcTOcNaHKHVKU7siUmtCvGpJ0qd3hQ9F3a3AJXubPxm9obXpN3dk3T2r+5rer927Txr4B7XftnnDo9Rh4/QayEGHj9BrIQ8841tGUqUlGFVHS2ZxlqnOEtxdColad2ZITWvEjUfAuHHhpdTtaUaOppmz1vqJWIQq03UpbOvq3VbkzXUudSTT8wz0u7+2ecOj/9k=",
+                                "costNote": "",
+                                "createdAt": 1780135059249,
+                                "id": "mps6gai9ajbqfn",
+                                "status": "received",
+                                "costPrice": 100000,
+                                "note": ""
+                            },
+                            {
+                                "note": "",
+                                "costPrice": 90,
+                                "status": "received",
+                                "id": "mps6gai9saqbyq",
+                                "createdAt": 1780135059249,
+                                "costNote": "",
+                                "productImage": "",
+                                "supplier": "B4",
+                                "invoiceGroupId": "inv-mps6gai9-smhx8",
+                                "invoiceImage": "",
+                                "qty": 1,
+                                "productName": "b",
+                                "updatedAt": 1780143221094,
+                                "variant": "",
+                                "sellPrice": 180
+                            },
+                            {
+                                "status": "draft",
+                                "id": "mpsbnvq422ian3",
+                                "createdAt": 1780143811420,
+                                "note": "",
+                                "costPrice": 150000,
+                                "sellPrice": 250000,
+                                "variant": "Màu Beo",
+                                "updatedAt": 1780143811420,
+                                "productName": "b",
+                                "invoiceGroupId": "inv-mpsbnvq4-cjud7",
+                                "supplier": "B4",
+                                "productImage": "data:image/jpeg;base64,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",
+                                "costNote": "",
+                                "qty": 1,
+                                "invoiceImage": ""
+                            },
+                            {
+                                "invoiceImage": "",
+                                "qty": 1,
+                                "productImage": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAC/AK8DASIAAhEBAxEB/8QAHAABAQADAQEBAQAAAAAAAAAAAAQCAwcGBQEI/8QAPRAAAAUBBQYCBggGAwAAAAAAAAECAwQRBRIUktIGEyExU1RBkxUiMlJzlAc0NUJRYbKzIzNxgZGhcrHB/8QAFwEBAQEBAAAAAAAAAAAAAAAAAAECBP/EACERAQEBAAIBBAMBAAAAAAAAAAARAQISkQQUMVIhQnHw/9oADAMBAAIRAxEAPwD+ywGizSeKzoxSf5+6TvP+VCr/ALG8AE7n2mx8Fz9SBQJ3PtNj4Ln6kAKBPL+sQ/jH+2sUCeX9Yh/GP9tYCgAAAAAAAAAAAAAHxbG2t2Wtq1ZNlWRtFZVoT4td/GjS0OON0Oh1SR14HwP8D4DLbkpx7FW4VmX8d6Ofw9z2t5u1XafnWg5ywuyHGfofLZ5UU1kurRMGVSilCcJ7l929uyOv3qV4jWZU3XXgABlQTxPrEz4xftoFAnifWJnxi/bQAoE7f2m/8Fv9SxQJ2/tN/wCC3+pYCgBPjWfck/LOaQxrPuSflnNIQUCdz7TY+C5+pAYxrwbkmf4YdZf9kDCHFvHJdTcM03UI8UlzOv5nw/wKKBPL+sQ/jH+2sUDVKaU62VwyS4hRKQZ8ql+P+y/uINoCYpZJKjrEhCvEiaUsv8pIyH7jWfck/LOaQgoAT41n3JPyzmkMaz7kn5ZzSEFACfGs+5J+Wc0hjWfck/LOaQgoAT41n3JPyzmkMaz7kn5ZzSEFA+RZGzGzVkWnKtOydn7KgTpdTkyY0Ntt16p1O8pJEauPHj4i/Gs+5J+Wc0hjWfck/LOaRfyKAE+NZ9yT8s5pDGs+5J+Wc0iQUCeJ9YmfGL9tA/DlkoqNMSFq8CNpSC/yoiIbIrSmmzvmSnFqNSzLlU/w/wBF/YBtE7f2m/8ABb/UsUCeQh1LxSGUktV26pBnS8Xhx/L/ANMBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJ7k7uI3kK1hcndxG8hWsBQAnuTu4jeQrWFyd3EbyFawFACe5O7iN5CtYXJ3cRvIVrAUAJ7k7uI3kK1hcndxG8hWsBQAnuTu4jeQrWFyd3EbyFawFACe5O7iN5CtYXJ3cRvIVrAUAJ7k7uI3kK1hcndxG8hWsBQAnuTu4jeQrWFyd3EbyFawFACe5O7iN5CtYXJ3cRvIVrAUAJ7k7uI3kK1hcndxG8hWsBQAnuTu4jeQrWFyd3EbyFawFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACfDvd/Jyt6Qw73fycrekUAAnw73fycrekMO938nK3pFAAJ8O938nK3pDDvd/Jyt6RQACfDvd/Jyt6Qw73fycrekUAAnw73fycrekMO938nK3pFAAJ8O938nK3pDDvd/Jyt6RQACfDvd/Jyt6Qw73fycrekUAAnw73fycrekMO938nK3pFAAJ8O938nK3pDDvd/Jyt6RQACfDvd/Jyt6Qw73fycrekUAAnw73fycrekMO938nK3pFAANWIj9drOQYiP12s5DABYlZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFZ4iP12s5BiI/XazkMACFAABUAAAABz36abAsO0YNlTZ9kQJUn0vBj755hK17pUhJKRUyrdMjOpcuI81aE+fsbtZtnP2fi2UzZtmtWYTsRbCivNGm7cbuKIm6EZnUyUXhTxGs41K7OA5Q7tjKb+kcnocOI/DlnKs8pOHNpV+O2py6Z78zcuqIyqbSSK8dFcePwtqNstorW+jqWxbTdlG3bWyjtpMlEacQplSbhKQo1LVeI75GRkRU5ceYddK7oA8bsLbdsP2/aOztslAWuFDiyWHYja0Fu3SUVxRKUqqiNHtFSteRDxRWvbzc6027YmRrUjltoxCaZNt5s2UmlKvVo97NKUQZGVbxnWtCnUrs4Dg2y9v2nZVj2ptbZGycWFBVZcl2O47IvXDZ/ltKLFLW4kqGVN21u+JEREZjpGxe0Vtzdpp1iW2VnKW3AjT2XIbS0ESXTWRoVeUq8ZGj2ipWvIhd4wzXsQABlQAAAABwa35Fvo2I+k9mJZVnvWaq1Ju+kuT1Nuo9VFbrRNGSqcPvlX8hcym7HeQHI2dqLUs6050Sx4VlsvyNoIdnGt1DqkqJyKlRuKSSyK/WnEqVIirx4iRdt7RW7tns3cXZTNsQJlrwVPGw4cdRtoT65N373EjLhf4H4i9Urs41RJMaZHTIiSGpDKq3XGlkpJ0Oh0MuHMh46Btm7I+imNtZJJiLLeaSm6llTre+NzdkRJvJMyNXIjUXPiZcx5CwNs9oYMGNY8OzLMjS/T0qC/vyWZHRhUg10S85RZqM6/wARZf05FOuldlAAEUAAAaZcSLMQhuXGZkIQ4lxKXUEokrSdUqKvIyMiMj8DGiTZFkyTlHIsuE9jCQUneR0q35J9kl1L1qeFeQtAB8tOzuz6bQctFNhWWU1xRqckFEb3ilGk0mZqpUzumZf0MyGTlgWC5HbjuWJZq2W45xW21RUGlLJ0q2RUoSDoXq8uBD6QBROzBhMy3JbMOO3JcQltbqWyJakJrdSauZkVToXhUxM5YNhuT12g5YtnLmOLQ4uQqKg3FLR7CjVSpmnwPw8B9EAHyS2Z2bJ+ZILZ+ySenJNEtwobd6Qk+ZOHSqiPxI6i5mDBZlKlsw47chTSWVOoaSSzQmt1BmRVulU6FyKpigAAAAAAAABGqybKVFlxVWZCVHmKUuU0bCTQ+pXtGsqUUZ0KpnWosABD6Gsfe730TA3m/TIv4dFd6lN1Llae0RcCVzIuANWPZDMlMpqy4Lb6XHHUupjoJZLc4LVWlaqoVT8acRcACI7Isk7JOyDsuF6OUk0nE3CdyaTOplcpdpXjyGmLs9YEVLaI1h2YwlpzeNk3EQkkLuXLxULgdz1a/hw5D6YAM8PH6DWQgw8foNZCG0Blpqw8foNZCDDx+g1kIbQAasPH6DWQgw8foNZCG0AGrDx+g1kIMPH6DWQhtABqw8foNZCDDx+g1kIbQAasPH6DWQgw8foNZCG0AGrDx+g1kIMPH6DWQhtEVqTTioSlBEbiuVeRDXHjvLZhmKMPH6DWQgw8foNZCHlClbTzrOjTrOiMEb15RtzJxsmlH3VFu0OEdS404U4eNSKpxraIpkpLZxlRktGcZxU1wluOUKiVp3ZkhNa+sSlHwL1eNC6d9LufPLPON9HocPH6DWQgw8foNZCHmko2ouQjUiES1rMphFaDhk0m8VDbPdfxDu1Oh3OPCp8wUjai5NNKIRrQsihkdoOETqbx1Nw91/DO7Q6Ff48KlzD2u/bPOfz/AHn4Oj0uHj9BrIQYeP0GshDzzbW0Zy46XMKmOpkjfcTOcNaHKHVKU7siUmtCvGpJ0qd3hQ9F3a3AJXubPxm9obXpN3dk3T2r+5rer927Txr4B7XftnnDo9Rh4/QayEGHj9BrIQ8841tGUqUlGFVHS2ZxlqnOEtxdColad2ZITWvEjUfAuHHhpdTtaUaOppmz1vqJWIQq03UpbOvq3VbkzXUudSTT8wz0u7+2ecOj/9k=",
+                                "costNote": "",
+                                "invoiceGroupId": "inv-mpsbs0p6-hrwk8",
+                                "supplier": "TEST-B4-REPRO",
+                                "productName": "2000 QUAN test nhap b4",
+                                "variant": "Màu Beo",
+                                "sellPrice": 250000,
+                                "updatedAt": 1780144004490,
+                                "costPrice": 150000,
+                                "note": "",
+                                "createdAt": 1780144004490,
+                                "status": "draft",
+                                "id": "mpsbs0p6oyb4ck"
+                            },
+                            {
+                                "createdAt": 1780144303626,
+                                "id": "mpsbyfii4hfh0i",
+                                "status": "draft",
+                                "costPrice": 150000,
+                                "note": "",
+                                "productName": "2000 QUAN test nhap b4",
+                                "variant": "Màu Beo",
+                                "sellPrice": 250000,
+                                "updatedAt": 1780144303626,
+                                "invoiceImage": "",
+                                "qty": 1,
+                                "productImage": "data:image/jpeg;base64,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",
+                                "costNote": "",
+                                "invoiceGroupId": "inv-mpsbyfii-3wknd",
+                                "supplier": "TEST-REPRO-B"
+                            }
+                        ],
+                        "expectedDeliveryDate": null,
+                        "caseCount": 0,
+                        "weightKg": 0,
+                        "contractCurrency": "VND",
+                        "id": "mps5wldr2e58xb"
+                    },
+                    {
+                        "id": "mpwmusr2pn9g97",
+                        "contractCurrency": "VND",
+                        "weightKg": 0,
+                        "caseCount": 0,
+                        "batch": "",
+                        "contractAmount": 0,
+                        "collapsed": true,
+                        "rows": [
+                            {
+                                "note": "",
+                                "costPrice": 100000,
+                                "status": "received",
+                                "id": "mpwmusr2ex2ggo",
+                                "createdAt": 1780404474638,
+                                "costNote": "",
+                                "productImage": "data:image/jpeg;base64,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",
+                                "supplier": "b8",
+                                "invoiceGroupId": "inv-mpwmusr2-8jgs7",
+                                "invoiceImage": "",
+                                "qty": 1,
+                                "productName": "2003 Ao",
+                                "updatedAt": 1780404840383,
+                                "variant": "Màu Beo",
+                                "sellPrice": 200000
+                            },
+                            {
+                                "note": "",
+                                "costPrice": 50000,
+                                "id": "mpwmusr2dzjx7n",
+                                "status": "received",
+                                "createdAt": 1780404474638,
+                                "invoiceGroupId": "inv-mpwmusr2-8jgs7",
+                                "supplier": "b8",
+                                "productImage": "",
+                                "costNote": "",
+                                "qty": 1,
+                                "invoiceImage": "",
+                                "variant": "Màu Sọc Xanh",
+                                "sellPrice": 100000,
+                                "updatedAt": 1780404840384,
+                                "productName": "1000 Quan Xanh 222"
+                            },
+                            {
+                                "productName": "SET AO DEN 1000",
+                                "updatedAt": 1780404840384,
+                                "variant": "Size XXXL",
+                                "sellPrice": 300000,
+                                "invoiceImage": "",
+                                "qty": 1,
+                                "costNote": "",
+                                "productImage": "data:image/jpeg;base64,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",
+                                "supplier": "b8",
+                                "invoiceGroupId": "inv-mpwmzzt2-30xho",
+                                "createdAt": 1780404717062,
+                                "status": "received",
+                                "id": "mpwmzzt2bxy1i5",
+                                "costPrice": 100000,
+                                "note": ""
+                            }
+                        ],
+                        "expectedDeliveryDate": null,
+                        "date": "2026-06-02"
+                    }
+                ],
+                "columnVisibility": {
+                    "supplier": true,
+                    "stt": true,
+                    "productName": true,
+                    "variant": true,
+                    "qty": true,
+                    "sellPrice": true,
+                    "costPrice": true,
+                    "productImage": true,
+                    "invoiceImage": true,
+                    "note": false,
+                    "costNote": false,
+                    "status": true,
+                    "actions": true,
+                    "code": true,
+                    "cost": true,
+                    "name": true,
+                    "total": true
+                },
+                "rate": 1
+            },
+            {
+                "uiInitialized": true,
+                "columnVisibility": {
+                    "supplier": true,
+                    "stt": true,
+                    "productName": true,
+                    "variant": true,
+                    "qty": true,
+                    "sellPrice": true,
+                    "costPrice": true,
+                    "productImage": true,
+                    "invoiceImage": true,
+                    "note": true,
+                    "costNote": true,
+                    "status": true,
+                    "actions": true,
+                    "name": true,
+                    "total": true,
+                    "code": true,
+                    "cost": true
+                },
+                "rate": 3500,
+                "label": "China — Quảng Châu",
+                "shipments": [
+                    {
+                        "date": "2026-03-26",
+                        "contractCurrency": "CNY",
+                        "id": "sh-cn-1",
+                        "collapsed": true,
+                        "rows": [
+                            {
+                                "costPrice": 45,
+                                "qty": 100,
+                                "invoiceGroupId": "mprzftbte8ldny",
+                                "id": "row-1779699816183-6-8m8",
+                                "name": "Đầm hoa nhí",
+                                "code": "CN-DR01",
+                                "supplier": "GZ Supplier 张三"
+                            },
+                            {
+                                "qty": 80,
+                                "costPrice": 52,
+                                "supplier": "GZ Supplier 张三",
+                                "id": "row-1779699816183-7-ext",
+                                "code": "CN-DR02",
+                                "name": "Đầm voan trắng",
+                                "invoiceGroupId": "mprzftbte8ldny"
+                            },
+                            {
+                                "costPrice": 38,
+                                "qty": 70,
+                                "invoiceGroupId": "mprzftbtctsr1l",
+                                "code": "CN-CL05",
+                                "supplier": "GZ Boutique 李四",
+                                "id": "row-1779699816183-8-0hb",
+                                "name": "Chân váy chữ A"
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-04-30",
+                        "contractCurrency": "CNY",
+                        "id": "sh-cn-2",
+                        "collapsed": true,
+                        "rows": [
+                            {
+                                "id": "row-1779699816183-9-qcj",
+                                "name": "Đầm tay phồng",
+                                "code": "CN-DR03",
+                                "supplier": "GZ Supplier 张三",
+                                "invoiceGroupId": "mprzftbtc91a3h",
+                                "qty": 120,
+                                "costPrice": 48
+                            },
+                            {
+                                "qty": 90,
+                                "costPrice": 42,
+                                "supplier": "GZ Boutique 李四",
+                                "name": "Chân váy plissé",
+                                "id": "row-1779699816183-10-6k2",
+                                "code": "CN-CL06",
+                                "invoiceGroupId": "mprzftbteij282"
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-05-29",
+                        "caseCount": 25,
+                        "rows": [
+                            {
+                                "productName": "TEST-DAM-LEN-DAI",
+                                "updatedAt": 1780042882100,
+                                "sellPrice": 450000,
+                                "variant": "Hồng - Free size",
+                                "invoiceImage": "https://picsum.photos/seed/cn1/600/200",
+                                "qty": 40,
+                                "costNote": "NCC: TEST-NCC-GUANGZHOU-A",
+                                "productImage": "https://picsum.photos/seed/cn1/300/300",
+                                "supplier": "TEST-NCC-GUANGZHOU-A",
+                                "invoiceGroupId": "mprzftbtso9hsz",
+                                "createdAt": 1780042882100,
+                                "id": "mpqnkm5wsck4vb",
+                                "status": "draft",
+                                "costPrice": 280000,
+                                "note": "Auto-test data — claude code 2026-05-29"
+                            },
+                            {
+                                "updatedAt": 1780042882101,
+                                "sellPrice": 450000,
+                                "variant": "Trắng - Free size",
+                                "productName": "TEST-DAM-LEN-DAI",
+                                "supplier": "TEST-NCC-GUANGZHOU-A",
+                                "invoiceGroupId": "mprzftbtso9hsz",
+                                "costNote": "NCC: TEST-NCC-GUANGZHOU-A",
+                                "productImage": "https://picsum.photos/seed/cn2/300/300",
+                                "qty": 35,
+                                "invoiceImage": "https://picsum.photos/seed/cn2/600/200",
+                                "status": "draft",
+                                "id": "mpqnkm5x7pi2jh",
+                                "createdAt": 1780042882101,
+                                "note": "Auto-test data — claude code 2026-05-29",
+                                "costPrice": 280000
+                            },
+                            {
+                                "note": "Auto-test data — claude code 2026-05-29",
+                                "costPrice": 200000,
+                                "status": "draft",
+                                "id": "mpqnkm5xkyheb0",
+                                "createdAt": 1780042882101,
+                                "invoiceGroupId": "mprzftbtso9hsz",
+                                "supplier": "TEST-NCC-GUANGZHOU-A",
+                                "productImage": "https://picsum.photos/seed/cn3/300/300",
+                                "costNote": "NCC: TEST-NCC-GUANGZHOU-A",
+                                "qty": 30,
+                                "invoiceImage": "https://picsum.photos/seed/cn3/600/200",
+                                "variant": "Đen - M",
+                                "sellPrice": 320000,
+                                "updatedAt": 1780042882101,
+                                "productName": "TEST-CHAN-VAY-XOE"
+                            },
+                            {
+                                "updatedAt": 1780042882101,
+                                "variant": "Be - L",
+                                "sellPrice": 320000,
+                                "productName": "TEST-CHAN-VAY-XOE",
+                                "supplier": "TEST-NCC-GUANGZHOU-A",
+                                "invoiceGroupId": "mprzftbtso9hsz",
+                                "costNote": "NCC: TEST-NCC-GUANGZHOU-A",
+                                "productImage": "https://picsum.photos/seed/cn4/300/300",
+                                "qty": 28,
+                                "invoiceImage": "https://picsum.photos/seed/cn4/600/200",
+                                "status": "draft",
+                                "id": "mpqnkm5xokm6yh",
+                                "createdAt": 1780042882101,
+                                "note": "Auto-test data — claude code 2026-05-29",
+                                "costPrice": 200000
+                            },
+                            {
+                                "supplier": "TEST-NCC-SHENZHEN-B",
+                                "invoiceGroupId": "mprzftbtv3gvs0",
+                                "costNote": "NCC: TEST-NCC-SHENZHEN-B",
+                                "productImage": "https://picsum.photos/seed/cn5/300/300",
+                                "qty": 50,
+                                "invoiceImage": "https://picsum.photos/seed/cn5/600/200",
+                                "updatedAt": 1780042882101,
+                                "variant": "Đen",
+                                "sellPrice": 520000,
+                                "productName": "TEST-TUI-XACH-NU",
+                                "note": "Auto-test data — claude code 2026-05-29",
+                                "costPrice": 320000,
+                                "status": "draft",
+                                "id": "mpqnkm5xve03q6",
+                                "createdAt": 1780042882101
+                            },
+                            {
+                                "productName": "TEST-TUI-XACH-NU",
+                                "sellPrice": 520000,
+                                "variant": "Trắng",
+                                "updatedAt": 1780042882101,
+                                "productImage": "https://picsum.photos/seed/cn6/300/300",
+                                "costNote": "NCC: TEST-NCC-SHENZHEN-B",
+                                "invoiceGroupId": "mprzftbtv3gvs0",
+                                "supplier": "TEST-NCC-SHENZHEN-B",
+                                "invoiceImage": "https://picsum.photos/seed/cn6/600/200",
+                                "qty": 45,
+                                "id": "mpqnkm5x49xwfo",
+                                "status": "draft",
+                                "createdAt": 1780042882101,
+                                "note": "Auto-test data — claude code 2026-05-29",
+                                "costPrice": 320000
+                            },
+                            {
+                                "note": "Auto-test data — claude code 2026-05-29",
+                                "costPrice": 420000,
+                                "id": "mpqnkm5xtpz7jv",
+                                "status": "draft",
+                                "createdAt": 1780042882101,
+                                "costNote": "NCC: TEST-NCC-SHENZHEN-B",
+                                "productImage": "https://picsum.photos/seed/cn7/300/300",
+                                "supplier": "TEST-NCC-SHENZHEN-B",
+                                "invoiceGroupId": "mprzftbtv3gvs0",
+                                "invoiceImage": "https://picsum.photos/seed/cn7/600/200",
+                                "qty": 20,
+                                "productName": "TEST-GIAY-SNEAKER",
+                                "updatedAt": 1780042882101,
+                                "variant": "38",
+                                "sellPrice": 680000
+                            },
+                            {
+                                "costPrice": 420000,
+                                "note": "Auto-test data — claude code 2026-05-29",
+                                "createdAt": 1780042882101,
+                                "status": "draft",
+                                "id": "mpqnkm5xd0pwve",
+                                "qty": 25,
+                                "invoiceImage": "https://picsum.photos/seed/cn8/600/200",
+                                "invoiceGroupId": "mprzftbtv3gvs0",
+                                "supplier": "TEST-NCC-SHENZHEN-B",
+                                "productImage": "https://picsum.photos/seed/cn8/300/300",
+                                "costNote": "NCC: TEST-NCC-SHENZHEN-B",
+                                "variant": "39",
+                                "sellPrice": 680000,
+                                "updatedAt": 1780042882101,
+                                "productName": "TEST-GIAY-SNEAKER"
+                            }
+                        ],
+                        "collapsed": false,
+                        "contractAmount": 45000,
+                        "batch": "TEST-BATCH-CN-001",
+                        "contractCurrency": "CNY",
+                        "weightKg": 180,
+                        "id": "mpqnkm5w2r57gj"
+                    }
+                ],
+                "id": "tab-cn",
+                "currency": "CNY",
+                "footer": {
+                    "shipping": 350,
+                    "discount": 0
+                }
+            },
+            {
+                "rate": 18,
+                "columnVisibility": {
+                    "supplier": true,
+                    "stt": true,
+                    "productName": true,
+                    "variant": true,
+                    "qty": true,
+                    "sellPrice": true,
+                    "costPrice": true,
+                    "productImage": true,
+                    "invoiceImage": true,
+                    "note": true,
+                    "costNote": true,
+                    "status": true,
+                    "actions": true,
+                    "code": true,
+                    "cost": true,
+                    "name": true,
+                    "total": true
+                },
+                "shipments": [
+                    {
+                        "id": "sh-kr-1",
+                        "collapsed": false,
+                        "rows": [
+                            {
+                                "qty": 80,
+                                "costPrice": 9500,
+                                "code": "KR-TOP01",
+                                "name": "Áo croptop Hàn",
+                                "supplier": "KR — Seoul Style",
+                                "id": "row-1779699816183-11-but",
+                                "invoiceGroupId": "mprzftbt2gq73h"
+                            },
+                            {
+                                "id": "row-1779699816183-12-fmv",
+                                "code": "KR-TOP02",
+                                "name": "Áo blouse trắng",
+                                "supplier": "KR — Seoul Style",
+                                "invoiceGroupId": "mprzftbt2gq73h",
+                                "qty": 60,
+                                "costPrice": 12500
+                            },
+                            {
+                                "code": "KR-BAG01",
+                                "id": "row-1779699816183-13-kr8",
+                                "name": "Túi tote canvas",
+                                "supplier": "KR — Seoul Style",
+                                "invoiceGroupId": "mprzftbt2gq73h",
+                                "qty": 100,
+                                "costPrice": 5500
+                            }
+                        ],
+                        "contractCurrency": "KRW",
+                        "date": "2026-04-25"
+                    },
+                    {
+                        "contractCurrency": "KRW",
+                        "weightKg": 40,
+                        "id": "mpqnkm5xnu8d4m",
+                        "date": "2026-05-29",
+                        "caseCount": 8,
+                        "contractAmount": 2800000,
+                        "batch": "TEST-BATCH-KR-001",
+                        "rows": [
+                            {
+                                "costPrice": 480000,
+                                "note": "Auto-test data — claude code 2026-05-29",
+                                "createdAt": 1780042882101,
+                                "status": "draft",
+                                "id": "mpqnkm5x24zwt3",
+                                "qty": 15,
+                                "invoiceImage": "https://picsum.photos/seed/kr1/600/200",
+                                "supplier": "TEST-NCC-DONGDAEMUN-K",
+                                "invoiceGroupId": "mprzftbt74smzu",
+                                "costNote": "NCC: TEST-NCC-DONGDAEMUN-K",
+                                "productImage": "https://picsum.photos/seed/kr1/300/300",
+                                "updatedAt": 1780042882101,
+                                "sellPrice": 720000,
+                                "variant": "Trắng - S",
+                                "productName": "TEST-AO-LEN-COLAU"
+                            },
+                            {
+                                "id": "mpqnkm5xll2c0l",
+                                "status": "draft",
+                                "createdAt": 1780042882101,
+                                "note": "Auto-test data — claude code 2026-05-29",
+                                "costPrice": 480000,
+                                "sellPrice": 720000,
+                                "variant": "Kem - M",
+                                "updatedAt": 1780042882101,
+                                "productName": "TEST-AO-LEN-COLAU",
+                                "invoiceGroupId": "mprzftbt74smzu",
+                                "supplier": "TEST-NCC-DONGDAEMUN-K",
+                                "productImage": "https://picsum.photos/seed/kr2/300/300",
+                                "costNote": "NCC: TEST-NCC-DONGDAEMUN-K",
+                                "qty": 18,
+                                "invoiceImage": "https://picsum.photos/seed/kr2/600/200"
+                            },
+                            {
+                                "status": "draft",
+                                "id": "mpqnkm5y3ck5q2",
+                                "createdAt": 1780042882102,
+                                "note": "Auto-test data — claude code 2026-05-29",
+                                "costPrice": 560000,
+                                "variant": "Đen - Free",
+                                "sellPrice": 850000,
+                                "updatedAt": 1780042882102,
+                                "productName": "TEST-VAY-XOA-KOREA",
+                                "invoiceGroupId": "mprzftbt74smzu",
+                                "supplier": "TEST-NCC-DONGDAEMUN-K",
+                                "productImage": "https://picsum.photos/seed/kr3/300/300",
+                                "costNote": "NCC: TEST-NCC-DONGDAEMUN-K",
+                                "qty": 12,
+                                "invoiceImage": "https://picsum.photos/seed/kr3/600/200"
+                            },
+                            {
+                                "id": "mpqnkm5yq526fe",
+                                "status": "draft",
+                                "createdAt": 1780042882102,
+                                "note": "Auto-test data — claude code 2026-05-29",
+                                "costPrice": 560000,
+                                "updatedAt": 1780042882102,
+                                "sellPrice": 850000,
+                                "variant": "Hồng - Free",
+                                "productName": "TEST-VAY-XOA-KOREA",
+                                "supplier": "TEST-NCC-DONGDAEMUN-K",
+                                "invoiceGroupId": "mprzftbt74smzu",
+                                "costNote": "NCC: TEST-NCC-DONGDAEMUN-K",
+                                "productImage": "https://picsum.photos/seed/kr4/300/300",
+                                "qty": 14,
+                                "invoiceImage": "https://picsum.photos/seed/kr4/600/200"
+                            }
+                        ],
+                        "collapsed": false
+                    }
+                ],
+                "label": "Korea — Dongdaemun",
+                "uiInitialized": true,
+                "currency": "KRW",
+                "footer": {
+                    "discount": 0,
+                    "shipping": 50000
+                },
+                "id": "tab-kr"
+            }
+        ],
+        "activeTabId": "tab-vn"
+    },
+    "lastUpdated": 1780542658810
+}

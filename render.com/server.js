@@ -653,10 +653,9 @@ app.use('/api/web2/customer-wallet', web2CustomerWalletRoutes);
 // Replace pattern cũ /api/v2/customers/:id/orders (Web 1.0, chỉ TPOS data).
 const web2CustomerOrdersRoutes = require('./routes/v2/web2-customer-orders');
 app.use('/api/web2/customer-orders', web2CustomerOrdersRoutes);
-// 2026-06-01: Web 2.0 supplier debt — compute từ inventory_shipments thay
-// vì gọi TPOS PartnerDebtReport (decouple per user spec).
-const web2SupplierDebtRoutes = require('./routes/v2/web2-supplier-debt');
-app.use('/api/web2/supplier-debt', web2SupplierDebtRoutes);
+// 2026-06-04: GỠ route /api/web2/supplier-debt — nó đọc bảng inventory_shipments
+// (Web 1.0) → vi phạm quy ước Web 1.0 ⊥ Web 2.0. Trang supplier-debt giờ tính
+// 100% client-side từ Firestore web2_so_order + web2_supplier_wallet (Web 2.0).
 // 2026-06-01: TPOS Partner live fetch cho KH — address lấy FRESH từ TPOS
 // (không qua customers table cache). Per user: "địa chỉ khách hàng lấy theo
 // TPOS khách hàng".

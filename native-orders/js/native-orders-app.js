@@ -2241,13 +2241,26 @@
         // if API fails — both pick() + getOptionsAsync() handle this safely.
         const DMP = window.DeliveryMethodPicker;
         const deliveryOpts = DMP ? await DMP.getOptionsAsync() : [];
-        const picked = DMP ? DMP.pick(src.address || '', deliveryOpts) : null;
+        // 2026-06-04: auto-detect 2 method (offline fuzzy + Goong) cross-validate.
+        const picked = DMP
+            ? DMP.pickRobust
+                ? await DMP.pickRobust(src.address || '', deliveryOpts)
+                : DMP.pick(src.address || '', deliveryOpts)
+            : null;
         const pickedValue = picked?.option?.value || '';
-        const pickedHint = picked
-            ? picked.hits > 0
-                ? `🎯 Tự chọn theo địa chỉ — khớp khu vực: <strong>${escapeHtml(picked.matched.slice(0, 4).join(', '))}</strong>`
-                : `📦 Không khớp khu vực HCM — mặc định <strong>SHIP TỈNH</strong>`
-            : '';
+        const pickedHint = (() => {
+            if (!picked) return '';
+            const opt = picked.option?.label ? escapeHtml(picked.option.label) : '';
+            const g = picked.methods?.goong;
+            if (picked.confidence === 'conflict') {
+                return `⚠️ <strong>CẦN KIỂM TRA</strong> — 2 nguồn lệch: offline → <strong>${escapeHtml(picked.methods?.offline?.label || opt)}</strong>; Goong (${escapeHtml(g?.district || '')}, ${escapeHtml(g?.province || '')}) → <strong>${escapeHtml(g?.zone || '?')}</strong>`;
+            }
+            if (picked.confidence === 'high') {
+                const src2 = picked.source === 'both' ? '✅ 2 nguồn khớp' : '🎯 khớp khu vực';
+                return `${src2} — <strong>${escapeHtml(picked.matched?.slice(0, 4).join(', ') || opt)}</strong>`;
+            }
+            return `📦 ${escapeHtml(picked.note || 'Độ tin cậy thấp — kiểm tra lại')}`;
+        })();
         const deliveryDropdownHtml = DMP
             ? `<label style="display:flex;flex-direction:column;gap:4px;font-weight:600;grid-column:1/-1;">
                 Phương thức giao hàng
@@ -2809,7 +2822,9 @@
         // Compute per-row validation + auto-picked delivery option
         const rows = orders.map((o) => {
             const v = validateOrderForPbh(o);
-            const pick = DMP ? DMP.pick(o.address || '', deliveryOpts) : null;
+            // Bulk: dùng pickOffline (fuzzy + province) — KHÔNG gọi Goong per-row
+            // để tránh đốt quota; cross-check Goong chỉ ở tạo PBH đơn lẻ.
+            const pick = DMP ? (DMP.pickOffline || DMP.pick)(o.address || '', deliveryOpts) : null;
             const totalQty = (o.products || []).reduce((s, p) => s + (Number(p.quantity) || 0), 0);
             const totalAmt = (o.products || []).reduce(
                 (s, p) => s + (Number(p.quantity) || 0) * (Number(p.price) || 0),
