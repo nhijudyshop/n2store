@@ -25,6 +25,14 @@
 
 ## 2026-06-04
 
+### [web2-bill] Bố cục lại bill + chữ đậm hơn (chống đứt/mờ khi in) ✅
+
+User: bố cục lại đẹp + chữ in bị đứt/mờ → chỉnh đậm.
+
+- **Bố cục mới** (`_buildReceiptDoc`): phân cấp rõ shop → COD (to nhất) → tên phiếu + barcode → Ngày/STT (2 cột) → Khách (nhãn đậm) → Sản phẩm (header `SẢN PHẨM|THÀNH TIỀN`, item: tên đậm + `qty × giá | tổng`) → Tổng (2 cột phải) → Ghi chú → footer. Kẻ ngang + dòng trống tách section.
+- **Đậm hơn**: CSS SVG `text/tspan { font-weight:700; stroke:#000; stroke-width:.6px (print .8); paint-order:stroke fill }` — viền glyph làm béo nét, đầu in nhiệt ăn mực rõ, hết đứt/mờ.
+- Fix "PBH SHOP" wrap (bỏ double-width). Verified screenshot: sạch, đậm, phân cấp đẹp.
+
 ### [web2-bill] Bỏ nền đen (invert) trên bill — máy in trắng đen ✅
 
 User: đừng cho nền đen sau chữ — máy in trắng đen nên nền đen in ra thành khối đen che chữ.

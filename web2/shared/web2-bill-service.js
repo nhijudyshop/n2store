@@ -151,7 +151,7 @@
 
         // ── HEADER: tên shop to nhất ──
         L.push('^^^' + _rlEsc(d.shop.name));
-        if (d.isShop) L.push('^"PBH SHOP - BÁN TẠI SHOP"');
+        if (d.isShop) L.push('"PBH SHOP - BÁN TẠI SHOP"');
         else if (d.carrierName) L.push('"' + _rlEsc(d.carrierName) + '"');
         if (d.hasVirtualDebt) L.push('^^"CÓ ĐƠN THU VỀ"');
 
