@@ -30,6 +30,9 @@ function cors(res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    // Private Network Access: trang HTTPS gọi http://127.0.0.1 (mạng nội bộ)
+    // bị Chrome chặn ở preflight nếu THIẾU header này → "bridge chưa chạy".
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
 }
 function json(res, code, obj) {
     cors(res);
