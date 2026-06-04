@@ -25,6 +25,18 @@
 
 ## 2026-06-04
 
+### [web2] Photo-studio — Đợt 4: brush sửa viền (xóa/khôi phục) ✅
+
+Sửa chỗ AI tách sai (tóc/mesh/đồ phản chiếu). Nút "Sửa viền" → thanh công cụ (Xóa / Khôi phục + slider cỡ cọ + Xong) + con trỏ vòng tròn.
+
+- `paintBrush`: map screen→canvas (rect ratio) → **đảo transform chủ thể** (tx/ty/scale) → toạ độ trong `_cutout`. Xóa = `destination-out` arc; Khôi phục = clip arc + drawImage `_capFrame`. `finishBrush` rebuild silhouette (bóng). Cọ tích hợp vào pointer handlers (brushMode chặn move/scale).
+- setBrushMode ẩn compare/căn-giữa/hint, hiện thanh brush; reset khi chụp/quay lại.
+- **Fix `[hidden]` bug**: `.ps-brush-bar{display:flex}` đè `[hidden]` → thanh brush che nút toggle (elementFromPoint = psBrushBar). Thêm `.ps-brush-bar[hidden],.ps-brush-cursor[hidden]{display:none!important}`.
+- **Test** (Playwright): xóa tại (200,250) đỏ→242 (nền) ✓, khôi phục →đỏ lại ✓, Done ẩn bar ✓, 0 error.
+- **Còn lại (cuối)**: xử lý hàng loạt, AI upscale.
+
+**Files**: `web2/photo-studio/{index.html(v=20260604n),photo-studio.js,photo-studio.css}`.
+
 ### [inventory-tracking] Fix NCC ẩn không thực sự ẩn hàng (badge đếm đúng nhưng rows vẫn hiện) ✅
 
 **Bug:** Tick ẩn NCC → badge "N NCC ẩn" hiện đúng, nhưng các **hàng SP của NCC đó vẫn hiển thị** đầy đủ. Nguyên nhân: class `ncc-row-hidden` (CSS `display:none`) chỉ do `applyHiddenNccsToDom()` gắn, mà hàm này CHỈ chạy từ SSE handler + toggle — **KHÔNG chạy sau `renderShipments()` lẫn khi expand card**. Card body dựng lazy lúc expand → hàng mới không có class ẩn. Thêm nữa `applyHiddenNccsToDom` đếm badge theo checkbox → card collapsed (chưa có checkbox) bị reset badge về 0.

@@ -509,6 +509,10 @@ main.web2-main.ps-app {
 }
 
 /* Brush toolbar + cursor */
+.ps-brush-bar[hidden],
+.ps-brush-cursor[hidden] {
+    display: none !important;
+}
 .ps-brush-bar {
     position: absolute;
     left: 50%;
