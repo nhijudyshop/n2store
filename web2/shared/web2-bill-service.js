@@ -34,12 +34,20 @@
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         try {
             if (typeof global.JsBarcode !== 'function') return '';
+            // Style chuẩn JsBarcode (lindell/JsBarcode — lib barcode phổ biến nhất
+            // trên GitHub): value render thẳng DƯỚI vạch bằng monospace đậm, căn
+            // giữa — look retail nhận diện ngay, quét máy chuẩn CODE128.
             global.JsBarcode(svg, value, {
                 format: 'CODE128',
                 width: 2,
-                height: 60,
-                displayValue: false,
-                margin: 0,
+                height: 80,
+                displayValue: true,
+                font: 'monospace',
+                fontOptions: 'bold',
+                fontSize: 18,
+                textAlign: 'center',
+                textMargin: 2,
+                margin: 8,
                 background: '#ffffff',
                 lineColor: '#000000',
             });
@@ -261,11 +269,8 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
     border: 1.5px solid #000; border-radius: 4px;
 }
 .barcode-box .barcode-svg {
-    width: 95%; height: 70px; display: block; margin: 0 auto;
-}
-.barcode-box .barcode-number {
-    font-family: 'Courier New', monospace; font-size: 14px;
-    font-weight: bold; letter-spacing: 1px; margin-top: 4px;
+    /* height:auto giữ tỉ lệ — value monospace dưới vạch không bị cắt/bóp */
+    width: 92%; height: auto; max-height: 120px; display: block; margin: 0 auto;
 }
 .barcode-box .barcode-hint {
     font-size: 10px; color: #555; margin-top: 1px;
@@ -375,7 +380,6 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
         billNumber
             ? `<div class="barcode-box">
                   ${barcodeSvg}
-                  <div class="barcode-number">${_esc(billNumber)}</div>
                </div>`
             : ''
     }
