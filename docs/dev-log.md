@@ -35,6 +35,15 @@ User: thêm avatar vào (list hội thoại đang là chữ-cái).
 - Browser-tested: 89 hội thoại có avatar ảnh, thread "Ngân Nguyen" avatar incoming OK.
 - **Files:** `web2/shared/web2-chat-readonly.js` (v=20260604e), `index.html`
 
+### [web2] In bill: STT lên cạnh tên phiếu + fix cắt chữ SẢN PHẨM/THÀNH TIỀN/TỔNG TIỀN ✅
+
+User: (1) STT ghi số ngay cạnh chữ "Phiếu Bán Hàng" (khỏi chữ "STT"); (2) các chữ "SẢN PHẨM THÀNH TIỀN", "TỔNG TIỀN" bị **thiếu/cắt** do to quá → đẩy xuống dòng lệch.
+
+- **Nguyên nhân #2**: dùng `^` (ReceiptLine `wh=1`) = **double-WIDTH** (rộng gấp đôi, cao bình thường). Ở hàng 2 cột `^SẢN PHẨM|^THÀNH TIỀN`, mỗi bên rộng ×2 → tổng vượt `cpl:32` → lib cắt/wrap lệch chữ. Verified tại `receiptline.js:838` `w = measureText * (wh<2 ? wh+1 : wh-1)` → wh=1 nhân ×2 width.
+- **Fix #2**: đổi `^` → `^^` (`wh=2`) = **double-HEIGHT** (cao gấp đôi, rộng BÌNH THƯỜNG) cho `^^SẢN PHẨM|^^THÀNH TIỀN` + `^^TỔNG TIỀN|^^...đ`. Vẫn nổi bật (cao gấp đôi) nhưng KHÔNG tràn cpl → đủ chữ. Đồng bộ với `^^CÒN THU (COD)` đã có sẵn.
+- **Fix #1**: STT ghi thẳng số sau tên phiếu: `^^Phiếu Bán Hàng - 313` (merged → `- 84 + 313`). Bỏ STT khỏi dòng "Khách:". `sttDisplay` từ `getMergedSttDisplay()` → support cả single lẫn merged.
+- **Files:** `web2/shared/web2-bill-service.js` (v=nj11) + 3 trang load (native-orders, fastsaleorder-invoice, printer-settings)
+
 ### [web2] In bill: dấu tiếng Việt rõ hơn — bỏ emphasis + chữ to + supersample raster ✅
 
 User: "các chữ tiếng Việt có dấu in ra bill sẽ có xu hướng bị mờ" + "nhìn bill ở máy tính vậy thôi chứ in ra nó khác". Màn hình ≠ máy in nhiệt 203 DPI: dấu sắc/huyền/ngã/hỏi/nặng + đ/ơ/ư nhỏ → mất nét khi rasterize 1-bit.
