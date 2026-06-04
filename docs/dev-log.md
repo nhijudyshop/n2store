@@ -64,6 +64,8 @@ User: giao diện cũ khó dùng → xóa làm lại toàn bộ tối ưu điệ
 
 **Files**: `web2/photo-studio/{index.html,photo-studio.js,photo-studio.css}` (v=20260604a).
 
+- **Fix watermark (v=20260604c)**: AI nét cloud (PhotoRoom) bằng key **sandbox** luôn có watermark → đổi mặc định engine sang **`local` (@imgly, free, KHÔNG watermark)**. Cloud (HD) thành tùy chọn, note rõ cần key trả phí để bỏ watermark. Mặc định 4:5.
+
 ### [render][web2] Bỏ Neon hoàn toàn — Web 2.0 = Render PG + Firebase only, xoá deadcode ✅
 
 **Bối cảnh:** User thấy "Neon" trong secret file + hỏi "sao lại có Neon?". Yêu cầu: Web 2.0 CHỈ dùng Render + Firebase, xoá Neon + deadcode tất cả dấu vết.

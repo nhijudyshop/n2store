@@ -26,7 +26,7 @@
 
     const state = {
         mode: 'hq', // 'hq' | 'ai' | 'chroma'
-        hqEngine: 'auto', // 'auto' (cloud→fallback) | 'local'
+        hqEngine: 'local', // 'local' (@imgly, free, không watermark) | 'auto' (PhotoRoom cloud)
         source: 'camera', // 'camera' | 'image'
         bgType: 'transparent',
         bgColor: '#ffffff',
