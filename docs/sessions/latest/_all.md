@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0fe3ca5` — docs(dev-log): backfill 220 SP + reconcile-on-load cho soluong-live
-**Last updated**: 2026-06-04 11:56:59 +07
-**Latest session**: [`RESUME:20260604-115659-0fe3ca5`](../20260604-115659-0fe3ca5.md)
-**Summary**: docs(dev-log): backfill 220 SP + reconcile-on-load cho soluong-live
+**Latest commit**: `bbea5fb` — fix(soluong-live): biến thể không có ảnh riêng lấy ảnh sản phẩm (template)
+**Last updated**: 2026-06-04 12:04:43 +07
+**Latest session**: [`RESUME:20260604-120443-bbea5fb`](../20260604-120443-bbea5fb.md)
+**Summary**: fix(soluong-live): biến thể không có ảnh riêng lấy ảnh sản phẩm (template)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`soluong-live/`](./soluong-live.md) — 2 file(s)
+- [`soluong-live/`](./soluong-live.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-04 11:56
+- [`docs/`](./docs.md) — updated 2026-06-04 12:04
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-03 16:52
 - [`downloads/`](./downloads.md) — updated 2026-06-03 18:34
@@ -57,7 +57,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-01 18:45
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-06-03 21:15
-- [`soluong-live/`](./soluong-live.md) — updated 2026-06-04 11:56
+- [`soluong-live/`](./soluong-live.md) — updated 2026-06-04 12:04
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
