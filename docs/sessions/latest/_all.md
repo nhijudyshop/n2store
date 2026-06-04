@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6687ad8` — feat(web2): photo-studio — engine fal.ai BiRefNet (HD, không watermark) cho Cloud HD
-**Last updated**: 2026-06-04 10:57:42 +07
-**Latest session**: [`RESUME:20260604-105742-6687ad8`](../20260604-105742-6687ad8.md)
-**Summary**: feat(web2): photo-studio — engine fal.ai BiRefNet (HD, không watermark) cho Cloud HD
+**Latest commit**: `954852a` — feat(soluong-live): realtime TPOS sync tên/hình/số lượng (giữ logic biến thể)
+**Last updated**: 2026-06-04 11:19:03 +07
+**Latest session**: [`RESUME:20260604-111903-954852a`](../20260604-111903-954852a.md)
+**Summary**: feat(soluong-live): realtime TPOS sync tên/hình/số lượng (giữ logic biến thể)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`soluong-live/`](./soluong-live.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-04 10:57
+- [`docs/`](./docs.md) — updated 2026-06-04 11:19
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-03 16:52
 - [`downloads/`](./downloads.md) — updated 2026-06-03 18:34
@@ -50,14 +51,14 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-04 10:56
+- [`render.com/`](./render.com.md) — updated 2026-06-04 11:19
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-04 10:56
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-01 18:45
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-06-03 21:15
-- [`soluong-live/`](./soluong-live.md) — updated 2026-06-02 16:51
+- [`soluong-live/`](./soluong-live.md) — updated 2026-06-04 11:19
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
