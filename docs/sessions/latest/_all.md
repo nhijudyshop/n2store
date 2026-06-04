@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d7a7e19` — feat(web2): photo-studio — mặc định AI nét = Cloud HD (withoutbg, 11 key xoay tua)
-**Last updated**: 2026-06-04 15:32:28 +07
-**Latest session**: [`RESUME:20260604-153228-d7a7e19`](../20260604-153228-d7a7e19.md)
-**Summary**: feat(web2): photo-studio — mặc định AI nét = Cloud HD (withoutbg, 11 key xoay tua)
+**Latest commit**: `1ff12a8` — chore(web2): photo-studio bump asset v=20260604i (cache-bust Cloud HD default)
+**Last updated**: 2026-06-04 15:33:19 +07
+**Latest session**: [`RESUME:20260604-153319-1ff12a8`](../20260604-153319-1ff12a8.md)
+**Summary**: chore(web2): photo-studio bump asset v=20260604i (cache-bust Cloud HD default)
 
 ## Folders affected in this commit
 
@@ -67,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-04 15:32
+- [`web2/`](./web2.md) — updated 2026-06-04 15:33
