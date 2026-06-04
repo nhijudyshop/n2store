@@ -25,6 +25,14 @@
 
 ## 2026-06-04
 
+### [web2 printer] Lưu máy in lên server + nút tắt/gỡ bridge + in đậm hơn ✅
+
+User: máy in lưu server cho mọi user chọn; thêm file tắt/xóa bridge; in đậm hơn (chữ mỏng bị mờ mực).
+
+- **Máy in lên SERVER**: `web2-printer.js` đổi từ localStorage-only → entity generic `printer` trên server (`/api/web2/printer/*`). Cache localStorage + in-memory cho `getPrinters()` đồng bộ; `loadPrinters/upsertPrinter/removePrinter` async; SSE `web2:printer` sync đa user; migrate list local cũ → server 1 lần. **Gán role (PBH/tem) vẫn LOCAL** (mỗi POS tự chọn từ danh sách chung). Config page async + render lại. Verified: lưu→server→xoá cache→load lại vẫn thấy (mọi máy thấy chung).
+- **Nút "Tải file tắt & gỡ (.bat)"**: `tat-print-bridge.bat` — kill tiến trình powershell/wscript chạy print-bridge + xoá `Startup\\N2StorePrintBridge.vbs` + xoá thư mục cài.
+- **In đậm hơn**: (1) raster `_canvasToEscpos` nâng ngưỡng 150→176 (bắt pixel xám) + **dilation 1px** (phải+dưới) → mọi nét dày thêm, hết mờ — áp cho cả bill lẫn tem qua bridge. (2) bill SVG `font-weight 700→900` + `stroke 0.45→0.9px` (print 1.1px). Verified screenshot: bill đậm rõ, barcode vẫn nét.
+
 ### [web2] Làm giàu kho KH tự động khi bật chat Pancake (mọi trang) ✅
 
 User: bật chat Pancake với KH → nếu fb_id chưa có trong kho thì lưu; áp dụng mọi nơi mở Pancake; mục đích kho đa dạng + load nhanh (biết id/fb/tên/sđt).
