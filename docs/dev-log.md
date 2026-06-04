@@ -25,6 +25,22 @@
 
 ## 2026-06-04
 
+### [render] FIX mất data inventory-tracking — revert pool web2Db → chatDb (Web 1.0 ⊥ Web 2.0) ✅
+
+**Triệu chứng**: `http://localhost:8080/inventory-tracking/index.html` mất sạch dữ liệu (NCC, đặt hàng, nhập hàng, công nợ).
+
+**Nguyên nhân**: commit `dcf4ac261` đổi `render.com/routes/v2/inventory-tracking.js` `getDb()` từ `chatDb` → `web2Db || chatDb` cho "nhất quán với supplier-debt/aging/360 (Web 2.0 đọc web2Db)". Nhưng **inventory-tracking là module Web 1.0** (page không prefix web2; nằm trong `/api/v2/*` core Unified Customer 360) → data thật ở `chatDb`. Đổi pool làm route đọc bản copy seed thiếu/stale trên web2Db → "mất" data (data chatDb chưa hề bị xóa; `admin-web2-data-reset.js` có guard từ chối nếu `db===chatDb`).
+
+**Fix**:
+
+- `getDb()` → `return req.app.locals.chatDb;` (thuần, KHÔNG fallback web2Db).
+- Sửa 3 comment gây hiểu lầm (router.use ensureInventorySchema + ensureInventorySchema) khớp chatDb. `ensureInventorySchema` chạy trên chatDb = no-op vô hại (bảng/cột đã có sẵn) — giữ làm safety net.
+- `node -c` OK.
+
+**Quy ước ghi vào CLAUDE.md (rule 5b) + MEMORY (reference_db_pools.md)**: tên có `web2`/`web 2.0` → Web 2.0 (web2Db); tên KHÔNG có → Web 1.0 (chatDb thuần). **Web 1.0 ⊥ Web 2.0: KHÔNG share DB/pool/table/state/collection/topic bất cứ gì.** KHÔNG đổi pool module Web 1.0 sang web2Db để "đồng bộ" với Web 2.0.
+
+**Cross-dependency còn tồn (chờ user quyết)**: `web2-supplier-debt.js` (Web 2.0) đọc trực tiếp `inventory_shipments`/`inventory_suppliers` (bảng Web 1.0) từ web2Db copy → sau revert sẽ stale dần. Đúng quy ước: supplier-debt nên lấy qua API Web 1.0 hoặc build pipeline Web 2.0 riêng.
+
 ### [web2] Photo-studio — withoutbg xoay tua 11 key (free ~550 ảnh/tháng) ✅
 
 User bỏ 11 key withoutbg → làm rotation. `web2-cutout-service.js`: đọc `WITHOUTBG_API_KEYS` (phẩy ngăn, fallback `WITHOUTBG_API_KEY`), `withoutbgCutout` xoay tua failover — dùng key sticky hiện tại; gặp 401/402/403/429 (hết quota) → thử key kế trong cùng request; bám key chạy được cho lần sau; hết sạch → dịch base + throw (frontend tự fallback @imgly). `/status` thêm `withoutbgKeys` (số key).

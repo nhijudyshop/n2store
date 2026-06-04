@@ -43,8 +43,9 @@
 const express = require('express');
 const router = express.Router();
 
-// 2026-06-04: ensure schema inventory_* tồn tại trên web2Db trước mọi handler
-// (web2Db chỉ có bản copy inventory_shipments — thiếu suppliers/related tables).
+// Ensure schema inventory_* tồn tại trên chatDb (Web 1.0) trước mọi handler.
+// Trên chatDb các bảng đã tồn tại sẵn với data thật → block này là no-op vô hại
+// (CREATE TABLE / ADD COLUMN IF NOT EXISTS), giữ làm safety net cho cold start.
 // ensureInventorySchema hoisted + cached _invSchemaReady → chỉ chạy DDL 1 lần.
 router.use(async (req, res, next) => {
     try {
@@ -133,10 +134,12 @@ async function logShipmentHistory(db, action, row, opts = {}) {
 }
 
 function getDb(req) {
-    // 2026-06-04: chuyển sang web2Db (Render n2store-web2-db) cho nhất quán với
-    // supplier-debt/aging/360 (Web 2.0 đều đọc web2Db). Trước đây ghi chatDb gây
-    // lệch DB — supplier-debt đọc bản copy stale. Fallback chatDb nếu env unset.
-    return req.app.locals.web2Db || req.app.locals.chatDb;
+    // 2026-06-04 (REVERT): inventory-tracking là module WEB 1.0 → data thật nằm ở
+    // chatDb (n2store_chat). Commit dcf4ac261 đổi sang web2Db cho "nhất quán với
+    // supplier-debt" làm route đọc bản copy thiếu/stale trên web2Db → user mất data.
+    // QUY ƯỚC: Web 1.0 và Web 2.0 KHÔNG share DB/pool. inventory-tracking dùng chatDb,
+    // KHÔNG fallback web2Db (tránh ghi lệch pool nếu chatDb tạm unset).
+    return req.app.locals.chatDb;
 }
 
 function generateId(prefix = 'id') {
@@ -145,9 +148,9 @@ function generateId(prefix = 'id') {
     return `${prefix}_${timestamp}_${random}`;
 }
 
-// 2026-06-04: self-heal schema khi chuyển web2Db. web2Db chỉ có bản copy
-// inventory_shipments (CREATE TABLE AS — không kèm suppliers/FK/related tables).
-// Tạo IF NOT EXISTS toàn bộ bảng inventory_* + cột post-047 để module chạy đủ.
+// Self-heal schema (idempotent). Trên chatDb (Web 1.0) bảng đã có sẵn → no-op.
+// Tạo IF NOT EXISTS toàn bộ bảng inventory_* + cột post-047 để module chạy đủ
+// kể cả khi deploy lên môi trường mới.
 let _invSchemaReady = false;
 async function ensureInventorySchema(db) {
     if (_invSchemaReady || !db) return;
