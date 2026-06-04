@@ -25,6 +25,15 @@
 
 ## 2026-06-04
 
+### [web2-bill] Chuyển bill sang ReceiptLine SVG (in sắc nét, hết mờ nhiệt) ✅
+
+User: tìm lib GitHub làm bill → dùng. Chọn ReceiptLine (receiptline/receiptline, 740★, Apache-2.0) — render SVG vector nên in KHÔNG mờ.
+
+- Vendor `web2/shared/receiptline.js` (browser-ready, window.receiptline.transform). Verified VN đầy đủ (đ ễ ử ờ Đắk Nông), barcode CODE128 = vector path + HRI.
+- `web2-bill-service.js`: `generateHTML` giờ build ReceiptLine markup (`_buildReceiptDoc` + `_rlEsc`) → `transform(doc,{cpl:42})` → SVG, wrap trong HTML 80mm scale `width:100%`. Canh lề: bare=giữa, `|x`=trái, `x|`=phải, `A|B`=2 cột; ô COD/PBH SHOP dùng invert (nền đen). Giữ nguyên public API (openPrint/openCombinedPrint/generateImage). Fallback `<pre>` nếu chưa load lib.
+- Load `receiptline.js` trước `web2-bill-service.js` trên native-orders + fastsaleorder-invoice. Bump bill-service v=20260604nj3.
+- Verified browser: SVG render đủ header/COD box/barcode HRI/sản phẩm/tổng/ghi chú, VN sắc nét.
+
 ### [render] Trích xuất SĐT từ content SePay — gộp 1 nguồn (badge = matcher) ✅
 
 User: hình 1 (`coc shop nhi judy-GD-387721-...`) badge hiện "Đuôi SĐT: 387721" nhưng "Chưa gán" không ra KH; hình 2 ra list KH. Lý do: badge và matcher dùng **2 extractor khác nhau** → lệch.
