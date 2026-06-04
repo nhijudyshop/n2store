@@ -58,6 +58,10 @@
         logoOn: false,
         logoPos: 'br', // br|bl|tr|tl
         _sil: null, // silhouette đen của cutout (cache cho bóng đổ)
+        // transform chủ thể trên nền (di chuyển/phóng to)
+        tx: 0,
+        ty: 0,
+        scale: 1,
         aspect: 0.8, // mặc định 4:5 (chuẩn ảnh sản phẩm)
         facingMode: 'user',
         srcNatW: 0,
@@ -142,6 +146,7 @@
             'sheetClose:psSheetClose',
             'reviewBack:psReviewBack',
             'reviewOptions:psReviewOptions',
+            'resetTransform:psResetTransform',
             'reviewMeta:psReviewMeta',
             'reviewStage:psReviewStage',
             'reviewCanvas:psReviewCanvas',
@@ -198,6 +203,13 @@
         el.retake.addEventListener('click', backToCamera);
         el.save.addEventListener('click', saveReview);
         el.bgFile.addEventListener('change', onBgFile);
+        el.resetTransform.addEventListener('click', () => {
+            state.tx = 0;
+            state.ty = 0;
+            state.scale = 1;
+            renderReview();
+        });
+        bindReviewGestures();
 
         el.modePills
             .querySelectorAll('button[data-mode]')
@@ -1150,6 +1162,9 @@
             state._capFrame = frameCv;
             state._capW = W;
             state._capH = H;
+            state.tx = 0;
+            state.ty = 0;
+            state.scale = 1; // reset transform mỗi lần chụp
             sizeCanvas(el.reviewCanvas, W, H);
             renderReview();
             showReview();
@@ -1313,14 +1328,18 @@
         if (!W || !state._cutout) return;
         rctx.clearRect(0, 0, W, H);
         const transparent = state.bgType === 'transparent';
-        drawBg(rctx, W, H, state._capFrame, { sx: 0, sy: 0, sw: W, sh: H });
-        // bóng đổ: chỉ khi có nền (đổ trên nền trong suốt vô nghĩa)
+        drawBg(rctx, W, H, state._capFrame, { sx: 0, sy: 0, sw: W, sh: H }); // nền cố định
+        // nhóm chủ thể (bóng + cutout) — áp transform di chuyển/phóng to
+        rctx.save();
+        rctx.translate(W / 2 + state.tx, H / 2 + state.ty);
+        rctx.scale(state.scale, state.scale);
+        rctx.translate(-W / 2, -H / 2);
         if (state.shadow && !transparent) drawShadow(rctx, W, H);
-        // chủ thể (tự động đẹp)
         if (state.enhance) rctx.filter = 'brightness(1.06) contrast(1.08) saturate(1.14)';
         rctx.drawImage(state._cutout, 0, 0);
         rctx.filter = 'none';
-        // logo/watermark
+        rctx.restore();
+        // logo/watermark cố định
         if (state.logoOn && state.logoImg) drawLogo(rctx, W, H);
         el.reviewCanvas.classList.toggle('ps-mirror', state.mirror && state.source === 'camera');
         el.reviewStage.classList.toggle('ps-checker', transparent);

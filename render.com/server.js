@@ -167,7 +167,9 @@ chatDbPool
             const {
                 ensureSchema: ensureWalletIsolation,
             } = require('./services/web2-wallet-isolation');
-            ensureWalletIsolation(chatDbPool).catch((e) =>
+            // Schema web2_* PHẢI tạo trên web2Db (tên web2_ = Web 2.0). Trước
+            // đây dùng chatDbPool → tạo bảng leftover trên Web 1.0 DB.
+            ensureWalletIsolation(web2Pool || chatDbPool).catch((e) =>
                 console.warn('[web2-wallet-isolation] init warn:', e.message)
             );
         } catch (e) {
@@ -177,7 +179,7 @@ chatDbPool
         // web2_pending_matches để Web 2.0 webhook fan-out có chỗ ghi.
         try {
             const { ensureSchema: ensureSepayMatching } = require('./services/web2-sepay-matching');
-            ensureSepayMatching(chatDbPool).catch((e) =>
+            ensureSepayMatching(web2Pool || chatDbPool).catch((e) =>
                 console.warn('[web2-sepay-matching] init warn:', e.message)
             );
         } catch (e) {

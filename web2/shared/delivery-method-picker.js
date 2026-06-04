@@ -394,16 +394,33 @@
         const tokens = norm ? norm.split(' ') : [];
         const fallback = opts.find((o) => o.isFallback) || null;
 
-        // Zone keyword match (fuzzy) — chọn option nhiều hit nhất.
+        // Zone keyword match — EXACT thắng FUZZY (score = exact×2 + fuzzy×1).
+        // Tránh "binh thanh" (Q.Bình Thạnh, exact của tp-trung-tam) thua fuzzy
+        // "binh chanh" (tp-bien) do thanh↔chanh edit-distance 1.
         let best = null,
+            bestScore = 0,
             bestHits = 0,
             bestMatched = [];
         for (const opt of opts) {
             if (opt.manual || opt.isFallback || !Array.isArray(opt.keywords)) continue;
-            const matched = opt.keywords.filter((k) => _hasFuzzy(tokens, normalize(k)));
-            if (matched.length > bestHits) {
+            let exact = 0,
+                fuzzy = 0;
+            const matched = [];
+            for (const k of opt.keywords) {
+                const nk = normalize(k);
+                if (hasKeyword(tokens, nk)) {
+                    exact++;
+                    matched.push(k);
+                } else if (_hasFuzzy(tokens, nk)) {
+                    fuzzy++;
+                    matched.push(k);
+                }
+            }
+            const score = exact * 2 + fuzzy;
+            if (score > bestScore) {
                 best = opt;
-                bestHits = matched.length;
+                bestScore = score;
+                bestHits = exact + fuzzy;
                 bestMatched = matched;
             }
         }
