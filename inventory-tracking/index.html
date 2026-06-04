@@ -533,14 +533,30 @@
             <!-- Tab: Lịch Sử Chỉnh Sửa (audit trail, query 30 ngày gần nhất) -->
             <div class="tab-content" id="tabContentHistory">
                 <div class="hist-tab-toolbar">
+                    <div class="hist-search-row">
+                        <i data-lucide="search" class="hist-search-icon"></i>
+                        <input
+                            type="text"
+                            id="histFltSearch"
+                            class="form-input hist-search-input"
+                            placeholder="Tìm mọi thông tin: mã hàng, tên SP, màu, ghi chú, người sửa, chi phí…"
+                        />
+                    </div>
                     <div class="hist-tab-filters">
                         <label class="hist-flt">
-                            <span>Từ ngày</span>
-                            <input type="date" id="histFltFrom" class="form-input" />
+                            <span>Ngày giao</span>
+                            <input type="date" id="histFltNgayGiao" class="form-input" />
                         </label>
                         <label class="hist-flt">
-                            <span>Đến ngày</span>
-                            <input type="date" id="histFltTo" class="form-input" />
+                            <span>Đợt</span>
+                            <input
+                                type="number"
+                                id="histFltDot"
+                                class="form-input"
+                                min="1"
+                                placeholder="vd 2"
+                                style="width: 80px"
+                            />
                         </label>
                         <label class="hist-flt">
                             <span>NCC (STT / tên)</span>
@@ -561,6 +577,14 @@
                                 <option value="ghi_chu_admin">Ghi chú admin</option>
                                 <option value="ten_ncc">Tên NCC</option>
                             </select>
+                        </label>
+                        <label class="hist-flt">
+                            <span>Ngày sửa (từ)</span>
+                            <input type="date" id="histFltFrom" class="form-input" />
+                        </label>
+                        <label class="hist-flt">
+                            <span>Ngày sửa (đến)</span>
+                            <input type="date" id="histFltTo" class="form-input" />
                         </label>
                         <button class="btn btn-primary" id="histFltApply">
                             <i data-lucide="search"></i> Lọc

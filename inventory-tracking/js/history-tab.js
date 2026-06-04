@@ -61,11 +61,35 @@ window.HistoryTab = (function () {
 
     // ===== FILTERING =====
 
+    // Build one lowercased haystack covering everything searchable in an entry:
+    // action, user, NCC, đợt, ngày, field labels, maSP/màu/ghi chú/chi phí, …
+    function _haystack(row, payload) {
+        const parts = [
+            row.action || '',
+            row.user_name || payload.user || '',
+            String(row.stt_ncc || ''),
+            payload.ten_ncc || '',
+            String(payload.dot_so || ''),
+            payload.ngay_di_hang || '',
+        ];
+        (payload.changes || []).forEach((c) => {
+            parts.push(FIELD_LABELS[c.field] || c.field || '');
+            parts.push(JSON.stringify(c.oldValue ?? ''));
+            parts.push(JSON.stringify(c.newValue ?? ''));
+        });
+        if (payload.newData) parts.push(JSON.stringify(payload.newData));
+        if (payload.oldData) parts.push(JSON.stringify(payload.oldData));
+        return parts.join(' ').toLowerCase();
+    }
+
     function _applyFilters(rows) {
         const from = document.getElementById('histFltFrom')?.value || '';
         const to = document.getElementById('histFltTo')?.value || '';
         const nccQ = (document.getElementById('histFltNcc')?.value || '').trim().toLowerCase();
         const field = document.getElementById('histFltField')?.value || '';
+        const dotQ = (document.getElementById('histFltDot')?.value || '').trim();
+        const ngayGiao = document.getElementById('histFltNgayGiao')?.value || '';
+        const search = (document.getElementById('histFltSearch')?.value || '').trim().toLowerCase();
 
         const fromTs = from ? new Date(from + 'T00:00:00').getTime() : null;
         const toTs = to ? new Date(to + 'T23:59:59').getTime() : null;
@@ -80,12 +104,22 @@ window.HistoryTab = (function () {
 
             if (field && !changes.some((c) => c.field === field)) return false;
 
+            if (dotQ && String(payload.dot_so || '') !== dotQ) return false;
+
+            if (ngayGiao) {
+                const d = (payload.ngay_di_hang || '').slice(0, 10);
+                if (d !== ngayGiao) return false;
+            }
+
             if (nccQ) {
                 const hay = [String(row.stt_ncc || ''), String(payload.ten_ncc || '')]
                     .join(' ')
                     .toLowerCase();
                 if (!hay.includes(nccQ)) return false;
             }
+
+            if (search && !_haystack(row, payload).includes(search)) return false;
+
             return true;
         });
     }
@@ -354,11 +388,18 @@ window.HistoryTab = (function () {
         if (_wired) return;
         _wired = true;
 
-        document.getElementById('histFltApply')?.addEventListener('click', () => {
-            _render(_applyFilters(_rows));
-        });
+        const apply = () => _render(_applyFilters(_rows));
+
+        document.getElementById('histFltApply')?.addEventListener('click', apply);
         document.getElementById('histFltReset')?.addEventListener('click', () => {
-            ['histFltFrom', 'histFltTo', 'histFltNcc'].forEach((id) => {
+            [
+                'histFltFrom',
+                'histFltTo',
+                'histFltNcc',
+                'histFltDot',
+                'histFltNgayGiao',
+                'histFltSearch',
+            ].forEach((id) => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
@@ -366,8 +407,19 @@ window.HistoryTab = (function () {
             if (sel) sel.value = '';
             _render(_rows);
         });
-        document.getElementById('histFltNcc')?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') _render(_applyFilters(_rows));
+        // Enter triggers filter on text inputs; live search debounced as-you-type.
+        ['histFltNcc', 'histFltDot'].forEach((id) => {
+            document.getElementById(id)?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') apply();
+            });
+        });
+        ['histFltNgayGiao', 'histFltField'].forEach((id) => {
+            document.getElementById(id)?.addEventListener('change', apply);
+        });
+        let _searchTimer = null;
+        document.getElementById('histFltSearch')?.addEventListener('input', () => {
+            if (_searchTimer) clearTimeout(_searchTimer);
+            _searchTimer = setTimeout(apply, 250);
         });
 
         // Expand/collapse via delegation on the body.

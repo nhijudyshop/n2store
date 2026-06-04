@@ -51,6 +51,13 @@
 
 **Verified:** Playwright smoke localhost — tab load 500 entries, 439 badge "Mã hàng", expand diff OK, filter san_pham 439. `node --check` 3 file pass.
 
+**Nâng cấp tab Lịch Sử (cùng ngày, theo phản hồi user):**
+
+- **Diff san_pham đầy đủ**: so cả `maSP + mauSac (màu) + SL + giá`, không chỉ mã. Trước đó user thấy "0/3 mã hàng thay đổi" nhưng entry vẫn log → vì user sửa MÀU (mauSac), mã không đổi. Nay hiện rõ `1 màu → Trắng (3), Đen (7), Nude (5)`.
+- **Diff mọi field bảng**: `_fmtFieldValue` render đọc được kiện hàng (`Kiện 1: 58kg ✓`), chi phí/thanh toán (`TIỀN XE: 60, …`), ảnh (`N ảnh`), ngày, NCC, STT. Create/Delete hiện **snapshot** (newData/oldData) → "Tạo mới đơn hàng" liệt kê đợt + từng NCC + SP. Thay đổi id-only (vd `chi_phi_hang_ve` regenerate id) đánh dấu `(không đổi nội dung)` qua `_stripIds`.
+- **Filter mở rộng**: ô **tìm kiếm tự do** (`_haystack`: maSP/màu/ghi chú/người sửa/chi phí, debounce 250ms) + **Đợt** + **Ngày giao** + giữ NCC/loại/ngày sửa. Verified: Đợt=2→494, search "VIỀN"→152, ngày giao 24/05→138.
+- Bump `?v`: history-tab 20260603e, modern.css 20260603e (shared css giữ nguyên 20260530d — không đụng).
+
 ### [render][overview] Đổi tên kho KH đơn hàng web2Db: `customers` → `web2_order_customers` ✅
 
 Web 2.0 có 2 kho KH gây nhầm tên với Web 1.0. Tách rõ + đổi tên theo convention `web2_`:
