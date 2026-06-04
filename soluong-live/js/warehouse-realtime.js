@@ -40,6 +40,17 @@
         return Number.isFinite(n) ? n : 0;
     }
 
+    // Version token theo nội dung URL ảnh (raw) — dùng cache-bust ảnh TPOS-direct.
+    function verOf(url) {
+        if (window.WarehouseAPI && typeof window.WarehouseAPI.imageVersion === 'function') {
+            return window.WarehouseAPI.imageVersion({ image_url: url });
+        }
+        if (!url) return '';
+        let h = 5381;
+        for (let i = 0; i < url.length; i++) h = ((h << 5) + h + url.charCodeAt(i)) | 0;
+        return (h >>> 0).toString(36);
+    }
+
     // Cache ảnh template lấy TPOS-direct (per session) để khỏi gọi lặp.
     const tposTemplateImgCache = new Map(); // templateId(Number) -> imageUrl|''
     const TPOS_PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
@@ -187,17 +198,27 @@
                 collect(result.product);
                 (result.variants || []).forEach(collect);
 
-                // Ảnh sản phẩm (template): biến thể KHÔNG có ảnh riêng sẽ lấy ảnh này.
-                let templateImg =
-                    (result.product && (result.product.imageUrl || result.product.ImageUrl)) ||
-                    (result.variants || [])
-                        .map((v) => v && (v.imageUrl || v.ImageUrl))
-                        .find(Boolean) ||
-                    '';
+                // Ảnh sản phẩm (template) + version: biến thể KHÔNG có ảnh riêng lấy ảnh này.
+                let templateImg = '';
+                let templateImgVer = '';
+                if (result.product && (result.product.imageUrl || result.product.ImageUrl)) {
+                    templateImg = result.product.imageUrl || result.product.ImageUrl;
+                    templateImgVer = result.product.imageVersion || '';
+                }
+                if (!templateImg) {
+                    const sib = (result.variants || []).find(
+                        (v) => v && (v.imageUrl || v.ImageUrl)
+                    );
+                    if (sib) {
+                        templateImg = sib.imageUrl || sib.ImageUrl;
+                        templateImgVer = sib.imageVersion || '';
+                    }
+                }
                 // Fallback TPOS-direct (giống product-warehouse): template chưa có ảnh trong
                 // web_warehouse (vd SP mới) → lấy ImageUrl template trực tiếp từ TPOS.
                 if (!templateImg) {
                     templateImg = await getTposTemplateImage(Number(gk));
+                    templateImgVer = templateImg ? verOf(templateImg) : '';
                 }
 
                 for (const key of group.keys) {
@@ -208,18 +229,27 @@
 
                     const newName = fresh.NameGet || p.NameGet;
                     // Biến thể không có ảnh riêng → fallback ảnh sản phẩm (template)
-                    const newImg = fresh.imageUrl || fresh.ImageUrl || templateImg || '';
+                    const hasOwnImg = !!(fresh.imageUrl || fresh.ImageUrl);
+                    const newImg =
+                        (hasOwnImg ? fresh.imageUrl || fresh.ImageUrl : templateImg) || '';
+                    const newImgVer = (hasOwnImg ? fresh.imageVersion || '' : templateImgVer) || '';
                     const newQty = num(fresh.QtyAvailable);
 
                     const nameChanged = newName !== p.NameGet;
-                    const imgChanged = !!newImg && newImg !== p.imageUrl;
+                    // Phát hiện ảnh đổi: URL proxy hằng số nên so cả imageVersion (theo nội dung).
+                    const imgChanged =
+                        (!!newImg && newImg !== p.imageUrl) ||
+                        (!!newImgVer && newImgVer !== (p.imageVersion || ''));
                     const qtyChanged = newQty !== num(p.QtyAvailable);
 
                     if (!nameChanged && !imgChanged && !qtyChanged && !forceImageBust) continue;
 
                     // Áp dụng — GIỮ soldQty, recompute remainingQty
                     if (nameChanged) p.NameGet = newName;
-                    if (imgChanged) p.imageUrl = newImg;
+                    if (imgChanged) {
+                        if (newImg) p.imageUrl = newImg;
+                        p.imageVersion = newImgVer;
+                    }
                     if (qtyChanged) p.QtyAvailable = newQty;
 
                     let soldQty = num(p.soldQty);
@@ -228,7 +258,7 @@
                         p.soldQty = soldQty;
                     }
                     p.remainingQty = num(p.QtyAvailable) - soldQty;
-                    p.lastRefreshed = ts; // bust cache ảnh (?v=lastRefreshed)
+                    p.lastRefreshed = ts; // bust cache ảnh (?v=)
 
                     changedKeys.push(key);
 
@@ -238,6 +268,7 @@
                             .update({
                                 NameGet: p.NameGet,
                                 imageUrl: p.imageUrl || null,
+                                imageVersion: p.imageVersion || null,
                                 QtyAvailable: num(p.QtyAvailable),
                                 soldQty: num(p.soldQty),
                                 remainingQty: num(p.remainingQty),

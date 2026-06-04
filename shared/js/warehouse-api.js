@@ -24,6 +24,23 @@
     }
 
     /**
+     * Token ngắn đại diện cho nội dung ảnh, suy từ RAW image_url của TPOS.
+     * Proxy URL `/image/:id` là HẰNG SỐ nên khi TPOS đổi ảnh, URL proxy không đổi
+     * → browser cache 7 ngày serve ảnh cũ. Raw image_url (chứa signature + uuid +
+     * ngày upload) ĐỔI mỗi lần upload ảnh mới → hash của nó là cache-bust chuẩn.
+     * Dùng làm `?v=` và để phát hiện ảnh đổi dù URL proxy giữ nguyên.
+     */
+    function imageVersion(row) {
+        const raw = row && row.image_url;
+        if (!raw) return '';
+        let h = 5381;
+        for (let i = 0; i < raw.length; i++) {
+            h = ((h << 5) + h + raw.charCodeAt(i)) | 0; // djb2
+        }
+        return (h >>> 0).toString(36);
+    }
+
+    /**
      * Map a web_warehouse DB row to a TPOS-compatible product object.
      * This keeps downstream code (Firebase cart, UI rendering) working
      * without changes — they still expect TPOS field names.
@@ -42,6 +59,7 @@
             StandardPrice: parseFloat(row.standard_price) || 0,
             imageUrl: img,
             ImageUrl: img,
+            imageVersion: imageVersion(row), // cache-bust theo nội dung ảnh (raw url đổi)
             ProductTmplId: row.tpos_template_id,
             Active: row.active !== false,
             Barcode: row.barcode || '',
@@ -72,6 +90,7 @@
     const WarehouseAPI = {
         BASE_URL,
         proxyImageUrl,
+        imageVersion,
         toProductObject,
         toSearchSuggestion,
 

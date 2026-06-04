@@ -45,11 +45,12 @@ let isSyncingFromFirebase = false;
 let firebaseDetachFn = null; // Store detach function for cleanup on page unload
 let warehouseSyncHandle = null; // SoluongWarehouseSync handle (realtime TPOS sync)
 
-// Cache-bust ảnh SP (ảnh TPOS proxy URL không đổi nhưng bytes đổi sau khi sync)
+// Cache-bust ảnh SP. URL proxy /image/:id là hằng số nên phải bust theo imageVersion
+// (suy từ raw image_url TPOS) — không thì browser cache 7 ngày serve ảnh cũ.
 function soluongImgSrc(product) {
     const url = product && product.imageUrl;
     if (!url || url.startsWith('data:')) return url || '';
-    const v = product.lastRefreshed || product.addedAt || product.Id || '';
+    const v = product.imageVersion || product.lastRefreshed || product.addedAt || product.Id || '';
     if (!v) return url;
     return `${url}${url.includes('?') ? '&' : '?'}v=${v}`;
 }
@@ -148,6 +149,7 @@ function cleanProductForFirebase(product) {
         soldQty: Number(product.soldQty) || 0,
         remainingQty: Number(product.remainingQty) || 0,
         imageUrl: product.imageUrl ? String(product.imageUrl) : null,
+        imageVersion: product.imageVersion ? String(product.imageVersion) : null, // cache-bust theo nội dung ảnh
         ProductTmplId:
             typeof product.ProductTmplId === 'object'
                 ? product.ProductTmplId?.Id
@@ -849,11 +851,16 @@ async function loadProductDetails(productId) {
         }
 
         const productData = result.product;
-        // Ảnh sản phẩm (template): biến thể không có ảnh riêng sẽ fallback ảnh này.
+        // Ảnh sản phẩm (template) + version: biến thể không có ảnh riêng sẽ fallback ảnh này.
+        const _imgSibling = (result.variants || []).find((v) => v && (v.imageUrl || v.ImageUrl));
         const imageUrl =
             productData.imageUrl ||
             productData.ImageUrl ||
-            (result.variants || []).map((v) => v && (v.imageUrl || v.ImageUrl)).find(Boolean) ||
+            (_imgSibling && (_imgSibling.imageUrl || _imgSibling.ImageUrl)) ||
+            '';
+        const imageVersion =
+            (productData.imageUrl && productData.imageVersion) ||
+            (_imgSibling && _imgSibling.imageVersion) ||
             '';
 
         // Check if auto-add variants is enabled and variants exist
@@ -877,6 +884,7 @@ async function loadProductDetails(productId) {
                         ListPrice: productData.ListPrice || 0,
                         PriceVariant: productData.PriceVariant || 0,
                         imageUrl: imageUrl,
+                        imageVersion: imageVersion,
                         soldQty: 0,
                         remainingQty: qtyAvailable,
                     },
@@ -892,7 +900,9 @@ async function loadProductDetails(productId) {
             // Prepare all variants for batch add
             const variantsToAdd = sortedVariants.map((variant) => {
                 const qtyAvailable = variant.QtyAvailable || 0;
-                const variantImageUrl = variant.imageUrl || variant.ImageUrl || imageUrl;
+                const hasOwnImg = !!(variant.imageUrl || variant.ImageUrl);
+                const variantImageUrl = hasOwnImg ? variant.imageUrl || variant.ImageUrl : imageUrl;
+                const variantImageVersion = hasOwnImg ? variant.imageVersion || '' : imageVersion;
 
                 return cleanProductForFirebase({
                     Id: variant.Id,
@@ -902,6 +912,7 @@ async function loadProductDetails(productId) {
                     ListPrice: variant.ListPrice || 0,
                     PriceVariant: variant.PriceVariant || 0,
                     imageUrl: variantImageUrl,
+                    imageVersion: variantImageVersion,
                     soldQty: 0,
                     remainingQty: qtyAvailable,
                     isHidden: false,
@@ -950,6 +961,7 @@ async function loadProductDetails(productId) {
                     ListPrice: productData.ListPrice || 0,
                     PriceVariant: productData.PriceVariant || 0,
                     imageUrl: imageUrl,
+                    imageVersion: imageVersion,
                     soldQty: 0,
                     remainingQty: qtyAvailable,
                 },

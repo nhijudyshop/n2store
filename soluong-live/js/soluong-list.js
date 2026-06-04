@@ -560,8 +560,10 @@ function updateProductGrid() {
     productGrid.innerHTML = currentProducts
         .map((product) => {
             // Add cache-busting version to image URL (only for HTTP URLs, not base64)
-            // Use lastRefreshed (if exists) or addedAt (fallback) or Id (final fallback)
-            const cacheVersion = product.lastRefreshed || product.addedAt || product.Id;
+            // imageVersion (theo nội dung ảnh TPOS) ưu tiên — URL proxy hằng số nên phải
+            // bust theo version, không thì browser cache 7 ngày serve ảnh cũ.
+            const cacheVersion =
+                product.imageVersion || product.lastRefreshed || product.addedAt || product.Id;
             let imageUrlWithVersion = product.imageUrl;
 
             // Only add cache-busting parameter for HTTP URLs, not base64 data URIs
