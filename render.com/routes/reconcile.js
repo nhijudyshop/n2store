@@ -133,15 +133,20 @@ function mapPbh(row) {
     for (const p of picked) {
         if (p && p.productCode) pickedByCode.set(p.productCode, Number(p.picked_qty) || 0);
     }
-    // Mỗi line + picked_qty
-    const mergedLines = lines.map((l) => ({
-        productCode: l.productCode || l.code || null,
-        productName: l.productName || l.name || l.productCode || '',
-        quantity: Number(l.quantity) || 0,
-        priceUnit: Number(l.priceUnit ?? l.price ?? 0),
-        imageUrl: l.imageUrl || l.image_url || null, // 2026-06-04: hiện ảnh SP ở reconcile
-        picked_qty: pickedByCode.get(l.productCode) || 0,
-    }));
+    // Mỗi line + picked_qty. 2026-06-04: imageUrl ƯU TIÊN ảnh kho hiện tại
+    // (row._productImages — tham chiếu web2_products) thay vì snapshot order_lines cũ.
+    const imgMap = row._productImages || {};
+    const mergedLines = lines.map((l) => {
+        const code = l.productCode || l.code || null;
+        return {
+            productCode: code,
+            productName: l.productName || l.name || l.productCode || '',
+            quantity: Number(l.quantity) || 0,
+            priceUnit: Number(l.priceUnit ?? l.price ?? 0),
+            imageUrl: imgMap[code] || l.imageUrl || l.image_url || null,
+            picked_qty: pickedByCode.get(code) || 0,
+        };
+    });
     const totalQty = mergedLines.reduce((s, l) => s + l.quantity, 0);
     const totalPicked = mergedLines.reduce((s, l) => s + l.picked_qty, 0);
     return {
@@ -180,7 +185,31 @@ async function getPbh(pool, number) {
          FROM fast_sale_orders WHERE number = $1`,
         [number]
     );
-    return r.rows[0] || null;
+    const row = r.rows[0] || null;
+    // 2026-06-04: lấy ảnh SP HIỆN TẠI từ kho (web2_products) theo productCode →
+    // reconcile luôn hiện ảnh kho mới nhất (không phụ thuộc snapshot order_lines).
+    if (row) {
+        const codes = [
+            ...new Set(
+                (Array.isArray(row.order_lines) ? row.order_lines : [])
+                    .map((l) => l.productCode || l.code)
+                    .filter(Boolean)
+            ),
+        ];
+        if (codes.length) {
+            try {
+                const pr = await pool.query(
+                    `SELECT code, image_url FROM web2_products WHERE code = ANY($1)`,
+                    [codes]
+                );
+                row._productImages = {};
+                for (const p of pr.rows) row._productImages[p.code] = p.image_url;
+            } catch (e) {
+                /* web2_products có thể chưa tồn tại — bỏ qua, fallback snapshot */
+            }
+        }
+    }
+    return row;
 }
 
 // -----------------------------------------------------
