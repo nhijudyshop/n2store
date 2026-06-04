@@ -165,4 +165,118 @@ router.post('/web2-data-reset', async (req, res) => {
     }
 });
 
+// =====================================================================
+// POST /web2-rename-to-nj — sửa data hiện tại cho khớp NJ (one-off).
+// - Xoá order test (fb_user_id LIKE 'TEST-NJ-%').
+// - native_orders.code: NW-... → NJ-... (skip nếu NJ-... đã tồn tại).
+// - fast_sale_orders: number = mã đơn web mới (NJ, = source); split → -N. source_code NW→NJ.
+// - pbh_fulfillment_logs.pbh_number map theo PBH number mới.
+//   Body: { dryRun? }  Header x-admin-secret = CLEANUP_SECRET
+// =====================================================================
+router.post('/web2-rename-to-nj', async (req, res) => {
+    if (!authOk(req)) return res.status(403).json({ error: 'forbidden' });
+    const db = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!db) return res.status(500).json({ error: 'web2Db unavailable' });
+    if (db === req.app.locals.chatDb) {
+        return res.status(400).json({ error: 'web2Db === chatDb — từ chối (tránh Web 1.0)' });
+    }
+    const dryRun = req.body?.dryRun === true;
+    const client = await db.connect();
+    const steps = [];
+    try {
+        await client.query('BEGIN');
+
+        // 0. Xoá order test NJ verification
+        const delPbh = await client.query(
+            `DELETE FROM fast_sale_orders
+             WHERE source_code IN (SELECT code FROM native_orders WHERE fb_user_id LIKE 'TEST-NJ-%')
+             RETURNING number`
+        );
+        const delNat = await client.query(
+            `DELETE FROM native_orders WHERE fb_user_id LIKE 'TEST-NJ-%' RETURNING code`
+        );
+        steps.push({
+            step: 'delete-test',
+            pbh: delPbh.rows.map((r) => r.number),
+            native: delNat.rows.map((r) => r.code),
+        });
+
+        // 1. native code map NW-X → NJ-X (skip nếu target tồn tại)
+        const nat = (
+            await client.query(
+                `SELECT code FROM native_orders WHERE code LIKE 'NW-%' ORDER BY code`
+            )
+        ).rows;
+        const natMap = {};
+        for (const r of nat) {
+            const nc = r.code.replace(/^NW-/, 'NJ-');
+            const exists = (await client.query(`SELECT 1 FROM native_orders WHERE code = $1`, [nc]))
+                .rows.length;
+            if (exists) {
+                steps.push({ skipNative: r.code, reason: `${nc} đã tồn tại` });
+                continue;
+            }
+            natMap[r.code] = nc;
+        }
+
+        // 2. PBH number map: number = source mới (NJ), split → -N
+        const fso = (
+            await client.query(
+                `SELECT number, source_code, split_index FROM fast_sale_orders
+                 WHERE number LIKE 'HD-%' OR source_code LIKE '%NW-%'
+                 ORDER BY split_index ASC NULLS FIRST, date_created ASC`
+            )
+        ).rows;
+        const pbhMap = {};
+        const srcSeen = {};
+        for (const r of fso) {
+            let newSrc = r.source_code || '';
+            for (const [o, n] of Object.entries(natMap)) newSrc = newSrc.split(o).join(n);
+            const base = newSrc.replace(/^NW-/, 'NJ-');
+            srcSeen[base] = (srcSeen[base] || 0) + 1;
+            const newNum = srcSeen[base] === 1 ? base : `${base}-${srcSeen[base]}`;
+            pbhMap[r.number] = { newNum, newSrc };
+        }
+
+        if (dryRun) {
+            await client.query('ROLLBACK');
+            return res.json({ success: true, dryRun: true, natMap, pbhMap, steps });
+        }
+
+        // 3. Apply — logs trước (ref số PBH cũ), rồi FSO, rồi native.
+        for (const [oldNum, m] of Object.entries(pbhMap)) {
+            await client
+                .query(`UPDATE pbh_fulfillment_logs SET pbh_number = $1 WHERE pbh_number = $2`, [
+                    m.newNum,
+                    oldNum,
+                ])
+                .catch(() => {});
+            await client.query(
+                `UPDATE fast_sale_orders SET number = $1, source_code = $2 WHERE number = $3`,
+                [m.newNum, m.newSrc, oldNum]
+            );
+        }
+        for (const [oldCode, newCode] of Object.entries(natMap)) {
+            // FSO source_code chứa native code cũ nhưng number không HD (đã xử lý trên) — update source.
+            await client.query(
+                `UPDATE fast_sale_orders SET source_code = REPLACE(source_code, $1, $2)
+                 WHERE source_code LIKE '%' || $1 || '%'`,
+                [oldCode, newCode]
+            );
+            await client.query(`UPDATE native_orders SET code = $1 WHERE code = $2`, [
+                newCode,
+                oldCode,
+            ]);
+        }
+        await client.query('COMMIT');
+        res.json({ success: true, natMap, pbhMap, steps });
+    } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('[web2-rename-to-nj] error:', e.message);
+        res.status(500).json({ success: false, error: e.message, steps });
+    } finally {
+        client.release();
+    }
+});
+
 module.exports = router;
