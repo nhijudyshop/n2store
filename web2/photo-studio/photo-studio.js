@@ -39,7 +39,7 @@
         spill: true,
         mirror: true,
         format: 'png',
-        aspect: null,
+        aspect: 0.8, // mặc định 4:5 (chuẩn ảnh sản phẩm)
         facingMode: 'user',
         srcNatW: 0,
         srcNatH: 0,
