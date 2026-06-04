@@ -1884,8 +1884,17 @@ permission_templates    (role: admin/manager/staff)</pre
                             <h3>📏 Luật trích xuất</h3>
                             <ul>
                                 <li>
-                                    <strong>Mọi dãy 5–10 chữ số</strong> trong content đều lấy làm
-                                    <em>phone-tail candidate</em> để tìm KH (đuôi SĐT).
+                                    <strong>Chỉ dãy số dài 5–10</strong> mới lấy làm
+                                    <em>đuôi SĐT candidate</em> để tìm KH.
+                                </li>
+                                <li>
+                                    <strong>Dãy &gt; 10 số = KHÔNG phải SĐT → bỏ qua hẳn</strong>
+                                    (KHÔNG cắt 10 số cuối). Vd <code>0111000157612</code> (13),
+                                    <code>14472716252</code> (11) = số tài khoản → skip.
+                                </li>
+                                <li>
+                                    Khớp KH theo <strong>ĐUÔI</strong> (<code>phone.endsWith</code>
+                                    — "từ sau ra trước"), KHÔNG khớp đầu dãy.
                                 </li>
                                 <li>
                                     <strong>Dash-GD = đuôi SĐT khách tự gõ</strong>:

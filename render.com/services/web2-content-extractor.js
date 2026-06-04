@@ -149,13 +149,19 @@ function extractIdentifier(content) {
         };
     }
 
-    // Step 6: Phone candidates — extract ALL 5–10 digit numbers, blacklist
-    // filtered, sorted by priority. Matcher search từng candidate qua TPOS
-    // rồi aggregate unique phones (dedup), 1 → auto credit, >1 → pending.
+    // Step 6: Phone candidates — LUẬT (user chốt 2026-06-04):
+    //   • Chỉ lấy dãy số độ dài 5–10 làm đuôi SĐT candidate.
+    //   • Dãy > 10 số = KHÔNG phải SĐT → BỎ QUA hẳn (không cắt 10 số cuối).
+    //     vd '0111000157612'(13), '14472716252'(11) = số tài khoản → skip.
+    //   • Khớp KH theo ĐUÔI (searchTposByPhone dùng phone.endsWith) → "từ sau
+    //     ra trước". Blacklist (STK shop) + test phone filtered.
+    // Matcher search từng candidate qua TPOS, aggregate unique phones (dedup),
+    // 1 → auto credit, >1 → pending, 0 → no_match.
     const allNumbers = textToParse.match(/\d{5,}/g);
     let phoneCandidates = [];
     if (allNumbers && allNumbers.length > 0) {
         const phoneLikeNumbers = allNumbers.filter((num) => {
+            // Dãy > 10 số: không phải SĐT, loại (KHÔNG slice last-10).
             const validLen = num.length >= 5 && num.length <= 10;
             const blacklisted = PHONE_EXTRACTION_BLACKLIST.includes(num);
             const testPattern = num.length === 10 && isObviousTestPhone(num);
