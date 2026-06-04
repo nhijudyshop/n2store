@@ -53,6 +53,15 @@ User: tối ưu full chức năng `web2/pancake-settings` — gần hết hạn 
 - **`pancake-settings`**: sửa hướng dẫn cookie sai (`token`→`jwt` + 1-dòng console `copy(document.cookie.match(/(?:^|; )jwt=([^;]+)/)[1])`); thêm nút "Lấy tự động", ext-status pill, banner soon/critical, **modal cảnh báo** (auto-fetch ngầm khi load nếu sắp hết hạn → thành công thì không hiện modal; fail mới hiện modal kèm lý do + manual paste). Thêm `@keyframes spin` (vốn thiếu — loader cũ không quay).
 - Verified Playwright 5 scenario: none→modal, critical→modal+banner, soon→banner-only, paste→apply+close, **extension giả lập→auto-refresh ngầm critical→ok không modal**. 0 console error.
 
+### [web2 pancake-settings] Polish giao diện ✅
+
+User: chỉnh lại giao diện cho đẹp hơn.
+
+- CSS refresh (design tokens + depth): header Manrope 800 + icon-chip nền tím soft, card radius 16px + shadow lớp, button gradient tím (primary) + hover lift/shadow + focus ring 3px, input soft→trắng khi focus.
+- Page item: card trắng radius 13px + hover translateY/shadow, avatar bo góc 13px (fallback gradient tím), **platform chip** (facebook xanh / instagram hồng-tím), **token chip** monospace, status pill có chấm màu.
+- Help box gradient xanh, **danger zone** tách màu đỏ riêng (`.ps-card.danger`). `renderPageList` đổi markup sang chip (bump `?v=20260604b`).
+- Verified screenshot 1440/1280: has/no state, danger zone — đúng ý.
+
 User: tiếp tục — in mã SP cần máy tem riêng (khác máy in PBH).
 
 - `web2-printer.js`: tách `_canvasToEscpos` dùng chung; thêm `escposRasterFromHtml` (render HTML trong iframe ẩn rộng đúng số chấm → html2canvas load on-demand → 1-bit → ESC/POS) + `printHtml(html, role)` + `roleIsBridge(role)`. Tiếng Việt OK vì in ẢNH.
