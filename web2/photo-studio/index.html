@@ -116,13 +116,40 @@
 
                     <div class="ps-review-stage ps-checker" id="psReviewStage">
                         <canvas id="psReviewCanvas"></canvas>
-                        <div class="ps-move-hint">Kéo để di chuyển · chụm 2 ngón để phóng to</div>
+                        <div class="ps-move-hint" id="psMoveHint">
+                            Kéo để di chuyển · chụm 2 ngón để phóng to
+                        </div>
                         <button class="ps-compare-btn" id="psCompare">
                             <i data-lucide="eye"></i> Giữ xem gốc
                         </button>
                         <button class="ps-reset-btn" id="psResetTransform">
                             <i data-lucide="maximize-2"></i> Căn giữa
                         </button>
+                        <button class="ps-brush-toggle" id="psBrushToggle">
+                            <i data-lucide="brush"></i> Sửa viền
+                        </button>
+
+                        <!-- thanh công cụ brush (ẩn) -->
+                        <div class="ps-brush-bar" id="psBrushBar" hidden>
+                            <div class="ps-seg ps-brush-seg">
+                                <button class="ps-brush-tool is-active" data-tool="erase">
+                                    <i data-lucide="eraser"></i> Xóa
+                                </button>
+                                <button class="ps-brush-tool" data-tool="restore">
+                                    <i data-lucide="undo-2"></i> Khôi phục
+                                </button>
+                            </div>
+                            <input
+                                type="range"
+                                id="psBrushSize"
+                                min="10"
+                                max="120"
+                                step="2"
+                                value="40"
+                            />
+                            <button class="ps-brush-done" id="psBrushDone">Xong</button>
+                        </div>
+                        <span class="ps-brush-cursor" id="psBrushCursor" hidden></span>
                     </div>
 
                     <!-- background picker (live, JS-rendered) -->

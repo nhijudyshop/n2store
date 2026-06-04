@@ -580,6 +580,15 @@ function renderShipments(shipments) {
         lucide.createIcons();
     }
 
+    // Apply hidden-NCC state to the freshly-built rows. Cards are rendered
+    // WITHOUT the `ncc-row-hidden` class (only the badge count is computed
+    // inline), so without this the hidden NCCs stay fully visible on first
+    // load / every re-render until an SSE event or toggle fires. Reapplying
+    // here makes hidden NCCs vanish by default; the badge reveals them.
+    if (typeof applyHiddenNccsToDom === 'function') {
+        applyHiddenNccsToDom();
+    }
+
     // Apply persisted details columns visibility to all tables
     if (window.UIState && window.UIState.isDetailsVisible()) {
         _applyDetailColsVisibility(true);

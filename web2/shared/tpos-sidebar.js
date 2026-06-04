@@ -53,7 +53,7 @@
             }
         };
         if (!global.Popup) inject('popup.js', '20260514');
-        if (!global.DeliveryMethodPicker) inject('delivery-method-picker.js', '20260604nj2');
+        if (!global.DeliveryMethodPicker) inject('delivery-method-picker.js', '20260604nj3');
         if (!global.Web2Auth) inject('web2-auth.js', '20260518a');
     })();
 
@@ -233,6 +233,12 @@
                     our: '../web2/pancake-settings/index.html',
                     // Web 2.0-only page — no TPOS counterpart.
                 },
+                {
+                    label: 'Phương thức giao hàng',
+                    icon: 'truck',
+                    our: '../web2/delivery-zone/index.html',
+                    // Web 2.0-only — quản lý vùng giao + phí + từ khoá auto-detect.
+                },
             ],
         },
     ];
@@ -290,6 +296,7 @@
         'web2/products/index.html',
         'web2/variants/index.html',
         'web2/product-category/index.html',
+        'web2/delivery-zone/index.html',
         'web2/users/index.html',
         'web2/customer-wallet/index.html',
         'web2/partner-customer/index.html',

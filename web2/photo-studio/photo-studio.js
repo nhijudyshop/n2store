@@ -62,6 +62,9 @@
         tx: 0,
         ty: 0,
         scale: 1,
+        brushMode: false, // sửa viền
+        brushTool: 'erase', // 'erase' | 'restore'
+        brushSize: 40, // px màn hình
         aspect: 0.8, // mặc định 4:5 (chuẩn ảnh sản phẩm)
         facingMode: 'user',
         srcNatW: 0,
@@ -148,6 +151,12 @@
             'reviewOptions:psReviewOptions',
             'resetTransform:psResetTransform',
             'compare:psCompare',
+            'brushToggle:psBrushToggle',
+            'brushBar:psBrushBar',
+            'brushDone:psBrushDone',
+            'brushSize:psBrushSize',
+            'brushCursor:psBrushCursor',
+            'moveHint:psMoveHint',
             'reviewMeta:psReviewMeta',
             'reviewStage:psReviewStage',
             'reviewCanvas:psReviewCanvas',
