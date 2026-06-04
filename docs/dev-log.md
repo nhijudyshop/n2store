@@ -25,6 +25,21 @@
 
 ## 2026-06-04
 
+### [web2] Photo-studio — Đợt 6: "Chọn đúng món" (tap-to-pick chủ thể bằng MobileSAM) ✅
+
+Khi AI tách nhầm chủ thể (giữ nhầm người/vật phản chiếu/nhiều món), user **chạm 1 phát vào món muốn giữ** → AI cắt chính xác viền món đó, thay cho phần tách sai. Mạnh hơn brush thủ công vì hiểu vật thể.
+
+**Files:** `web2/photo-studio/index.html`, `photo-studio.js`, `photo-studio.css` (v=20260604p), `sw.js` (cache v2)
+
+- **Engine:** Hugging Face **Transformers.js v3** (`@huggingface/transformers@3.7.1`, jsdelivr ESM) + model **SlimSAM/MobileSAM** `Xenova/slimsam-77-uniform` (~14MB q8). Chạy in-browser, không server.
+- **Tốc độ:** probe `navigator.gpu.requestAdapter()` thật → WebGPU fp32 nếu có (nhanh), fallback **WASM q8** (chạy mọi máy, kể cả mobile không WebGPU). Encode khung gốc 1 lần (`get_image_embeddings`) → cache → mỗi cú chạm chỉ decode (nhanh).
+- **UX:** nút "Chọn đúng món" trên màn Xem → hiện khung gốc + thanh công cụ [Thêm / Bỏ vùng] + Hoàn tác + Huỷ/Dùng. Chạm = điểm giữ (xanh) / bỏ (đỏ); mask tô xanh preview realtime. "Dùng" → cutout mới = frame ∩ mask (feather theo `state.feather`), cập nhật cả bóng đổ.
+- Toạ độ chạm đảo mirror khi selfie. post_process_masks upscale mask về đúng res khung gốc; chọn mask iou cao nhất trong 3 đề xuất.
+- SW cache thêm `huggingface.co` + `cdn-lfs` → model tải 1 lần, lần sau offline.
+- **Test Playwright (WASM):** chạm vào ô vuông 150×150 (13.9% khung) → mask 13.5% (cắt gần khớp), apply OK, 0 lỗi.
+
+**Status:** ✅ Done.
+
 ### [web2] Audit realtime toàn bộ trang menu + phủ SSE còn thiếu + doc overview ✅
 
 User: kiểm tất cả trang menu xem đã có realtime + chức năng chưa, áp dụng cập nhật UI, dùng chung 1 nguồn dữ liệu, thêm vào overview để code mới biết dùng SSE.
