@@ -128,31 +128,11 @@
         return p.paper === '58' ? 384 : 576;
     }
 
-    // SVG (chuỗi/markup) → Uint8Array lệnh ESC/POS in raster ảnh 1-bit.
-    async function escposRasterFromSvg(svgString, opts = {}) {
-        const W = opts.dots || 576;
-        const svg = /^<svg/.test(svgString)
-            ? svgString
-            : (String(svgString).match(/<svg[\s\S]*?<\/svg>/) || [''])[0];
-        if (!svg) throw new Error('Không tìm thấy SVG để in');
-        const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
-        const img = await new Promise((res, rej) => {
-            const i = new Image();
-            i.onload = () => res(i);
-            i.onerror = () => rej(new Error('Lỗi nạp SVG vào ảnh'));
-            i.src = url;
-        });
-        const ratio = img.height / img.width || 2;
-        const H = Math.max(1, Math.round(W * ratio));
-        const canvas = document.createElement('canvas');
-        canvas.width = W;
-        canvas.height = H;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, W, H);
-        ctx.drawImage(img, 0, 0, W, H);
-        URL.revokeObjectURL(url);
-        const data = ctx.getImageData(0, 0, W, H).data;
+    // Canvas (đã vẽ nội dung đen/trắng) → Uint8Array lệnh ESC/POS in raster 1-bit.
+    function _canvasToEscpos(canvas) {
+        const W = canvas.width;
+        const H = canvas.height;
+        const data = canvas.getContext('2d').getImageData(0, 0, W, H).data;
         const bytesPerRow = Math.ceil(W / 8);
         const raster = new Uint8Array(bytesPerRow * H);
         for (let y = 0; y < H; y++) {
@@ -194,6 +174,86 @@
         return out;
     }
 
+    // SVG (chuỗi/markup) → ESC/POS raster (dùng cho bill — vector sắc nét).
+    async function escposRasterFromSvg(svgString, opts = {}) {
+        const W = opts.dots || 576;
+        const svg = /^<svg/.test(svgString)
+            ? svgString
+            : (String(svgString).match(/<svg[\s\S]*?<\/svg>/) || [''])[0];
+        if (!svg) throw new Error('Không tìm thấy SVG để in');
+        const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+        const img = await new Promise((res, rej) => {
+            const i = new Image();
+            i.onload = () => res(i);
+            i.onerror = () => rej(new Error('Lỗi nạp SVG vào ảnh'));
+            i.src = url;
+        });
+        const ratio = img.height / img.width || 2;
+        const H = Math.max(1, Math.round(W * ratio));
+        const canvas = document.createElement('canvas');
+        canvas.width = W;
+        canvas.height = H;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, W, H);
+        ctx.drawImage(img, 0, 0, W, H);
+        URL.revokeObjectURL(url);
+        return _canvasToEscpos(canvas);
+    }
+
+    function _loadScript(src) {
+        return new Promise((res, rej) => {
+            if ([...document.scripts].some((s) => s.src === src)) return res();
+            const s = document.createElement('script');
+            s.src = src;
+            s.onload = res;
+            s.onerror = () => rej(new Error('Không tải được ' + src));
+            document.head.appendChild(s);
+        });
+    }
+
+    // HTML (vd tem mã SP) → ESC/POS raster. Render HTML trong iframe ẩn rộng
+    // đúng số chấm máy in rồi html2canvas → 1-bit. Tiếng Việt OK (ảnh).
+    async function escposRasterFromHtml(html, opts = {}) {
+        const W = opts.dots || 576;
+        if (!global.html2canvas) {
+            await _loadScript(
+                'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
+            );
+        }
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${W}px;border:0;background:#fff`;
+        document.body.appendChild(iframe);
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        doc.open();
+        doc.write(html);
+        doc.close();
+        await new Promise((r) => setTimeout(r, 120)); // chờ layout + barcode SVG
+        try {
+            const body = doc.body;
+            const H = Math.max(1, body.scrollHeight);
+            const rendered = await global.html2canvas(body, {
+                backgroundColor: '#ffffff',
+                width: W,
+                height: H,
+                windowWidth: W,
+                scale: 1,
+                logging: false,
+            });
+            // Chuẩn hoá về đúng W (html2canvas có thể trả khác scale)
+            const canvas = document.createElement('canvas');
+            canvas.width = W;
+            canvas.height = Math.round((rendered.height / rendered.width) * W) || rendered.height;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(rendered, 0, 0, canvas.width, canvas.height);
+            return _canvasToEscpos(canvas);
+        } finally {
+            iframe.remove();
+        }
+    }
+
     function _b64(bytes) {
         let bin = '';
         const CH = 0x8000;
@@ -224,6 +284,18 @@
         if (!printer) throw new Error('Chưa có máy in nào — vào Cấu hình > Máy in');
         const bytes = await escposRasterFromSvg(svgString, { dots: dotsWidth(printer) });
         return printEscpos(bytes, printer);
+    }
+    // In 1 HTML (vd tem mã SP) theo CHỨC NĂNG (role).
+    async function printHtml(html, roleKey, printerOverride) {
+        const printer = printerOverride || getPrinterFor(roleKey);
+        if (!printer) throw new Error('Chưa có máy in nào — vào Cấu hình > Máy in');
+        const bytes = await escposRasterFromHtml(html, { dots: dotsWidth(printer) });
+        return printEscpos(bytes, printer);
+    }
+    // Máy in đã gán cho role có in THẲNG (bridge) không?
+    function roleIsBridge(roleKey) {
+        const p = getPrinterFor(roleKey);
+        return !!(p && p.method === 'bridge' && p.ip);
     }
 
     async function bridgeAlive(printer) {
@@ -261,9 +333,12 @@
         setRole,
         getPrinterFor,
         dotsWidth,
+        roleIsBridge,
         escposRasterFromSvg,
+        escposRasterFromHtml,
         printEscpos,
         printSvg,
+        printHtml,
         bridgeAlive,
         testConnection,
     };

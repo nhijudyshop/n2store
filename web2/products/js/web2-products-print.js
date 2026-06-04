@@ -568,6 +568,31 @@
             }
         }
         const html = buildLabelHTML(labels, paper, printType, opts);
+        // 2026-06-04: nếu chức năng 'label' (tem mã SP) đã gán máy in IP (bridge)
+        // → in THẲNG ra máy tem, không hộp thoại. Lỗi/bridge tắt → fallback overlay.
+        const P = window.Web2Printer;
+        if (P && P.roleIsBridge && P.roleIsBridge('label')) {
+            P.bridgeAlive(P.getPrinterFor('label'))
+                .then((alive) => {
+                    if (!alive) return showPrintOverlay(html);
+                    P.printHtml(html, 'label')
+                        .then(() => {
+                            if (window.notificationManager)
+                                window.notificationManager.show('Đã in tem mã SP', 'success');
+                        })
+                        .catch((e) => {
+                            console.warn('[products-print] in thẳng lỗi → overlay:', e.message);
+                            if (window.notificationManager)
+                                window.notificationManager.show(
+                                    'Máy tem lỗi (' + e.message + ') — mở hộp thoại',
+                                    'warning'
+                                );
+                            showPrintOverlay(html);
+                        });
+                })
+                .catch(() => showPrintOverlay(html));
+            return;
+        }
         showPrintOverlay(html);
     }
 
