@@ -1,0 +1,174 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Cấu hình phương thức giao hàng (vùng + giá + từ khoá auto-detect). -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Phương thức giao hàng - WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260521b" />
+        <link rel="stylesheet" href="../../native-orders/css/native-orders.css?v=20260521b" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260521b" />
+        <link rel="stylesheet" href="../../web2/shared/page-builder-tpos.css?v=20260521b" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+        <script src="../../shared/js/firebase-config.js?v=20260521b"></script>
+        <script src="../../shared/js/shared-auth-manager.js?v=20260521b"></script>
+        <script src="../../shared/js/notification-system.js?v=20260521b"></script>
+
+        <style>
+            body {
+                margin: 0;
+                font-family: Inter, system-ui, sans-serif;
+                background: #ecf0f5;
+            }
+            .web2-shell {
+                display: flex;
+                min-height: 100vh;
+            }
+            .web2-aside {
+                flex-shrink: 0;
+            }
+            .main-content {
+                flex: 1;
+                overflow: auto;
+                height: 100vh;
+            }
+            #pageRoot {
+                padding: 12px 16px 32px;
+            }
+            /* Banner giải thích cách hoạt động auto-detect */
+            .dz-hint {
+                margin: 12px 16px 0;
+                padding: 10px 14px;
+                background: #eef2ff;
+                border: 1px solid #c7d2fe;
+                border-radius: 10px;
+                font-size: 13px;
+                color: #3730a3;
+                line-height: 1.5;
+            }
+            .dz-hint strong {
+                color: #1e1b4b;
+            }
+            .dz-hint code {
+                background: #fff;
+                border: 1px solid #c7d2fe;
+                border-radius: 4px;
+                padding: 0 4px;
+                font-size: 12px;
+            }
+        </style>
+        <link rel="stylesheet" href="../../web2/shared/web2-tpos-theme.css?v=20260522d" />
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content">
+                <div class="dz-hint">
+                    ⚙️ <strong>Phương thức giao hàng</strong> dùng cho auto-detect ở
+                    <strong>Đơn Web (native-orders)</strong>. Mỗi vùng có <strong>Phí</strong> +
+                    <strong>Từ khoá</strong> (tên quận/huyện, cách nhau bằng dấu phẩy) để nhận diện
+                    địa chỉ. Bật <code>manual</code> = chỉ chọn tay (không auto-match). Bật
+                    <code>fallback</code> = mặc định khi không khớp vùng nào (chỉ nên 1 dòng —
+                    <strong>SHIP TỈNH</strong>). Sửa ở đây ăn ngay vào auto-detect; giữ nguyên cột
+                    <strong>Mã</strong> vì đơn đã lưu tham chiếu theo mã.
+                </div>
+                <div id="pageRoot"></div>
+            </main>
+        </div>
+
+        <script src="../../web2/shared/web2-auth.js?v=20260521b"></script>
+        <script src="../shared/web2-user-info.js?v=20260530a"></script>
+        <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
+        <script src="../shared/web2-db-badge.js?v=20260530a"></script>
+        <script src="../shared/web2-optimistic.js?v=20260601a"></script>
+        <script src="../../web2/shared/tpos-sidebar.js?v=20260604nj2"></script>
+        <script src="../../web2/shared/web2-api.js?v=20260521b"></script>
+        <script src="../../web2/shared/page-builder.js?v=20260521b"></script>
+        <script>
+            if (window.Web2Sidebar) {
+                Web2Sidebar.mount('#web2Aside', { activeRoute: 'deliveryzone' });
+            }
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.lucide) lucide.createIcons();
+            });
+
+            // Generic CRUD trên entity `deliveryzone`. DeliveryMethodPicker đọc
+            // entity này (fetchFromBackend) làm source of truth — sửa ở đây ăn
+            // ngay vào auto-detect của Đơn Web.
+            Web2Page.mount('#pageRoot', {
+                slug: 'deliveryzone',
+                title: 'Phương thức giao hàng',
+                breadcrumb: ['Cấu hình', 'Giao hàng'],
+                columns: [
+                    { key: 'code', label: 'Mã', width: 150, align: 'left' },
+                    { key: 'name', label: 'Tên hiển thị', align: 'left' },
+                    { key: 'data.short', label: 'Nhãn ngắn', width: 150, align: 'left' },
+                    { key: 'data.fee', label: 'Phí (đ)', width: 100, align: 'right' },
+                    { key: 'data.keywords', label: 'Từ khoá nhận diện', align: 'left' },
+                    { key: 'data.manual', label: 'Chọn tay', width: 80, align: 'center' },
+                    { key: 'data.isFallback', label: 'Mặc định', width: 80, align: 'center' },
+                ],
+                fields: [
+                    {
+                        key: 'code',
+                        label: 'Mã (không đổi sau khi tạo)',
+                        type: 'text',
+                        required: true,
+                        placeholder: 'VD: tp-trung-tam',
+                    },
+                    {
+                        key: 'name',
+                        label: 'Tên hiển thị đầy đủ',
+                        type: 'text',
+                        required: true,
+                        placeholder: 'VD: THÀNH PHỐ (Q1, Q3, Bình Thạnh...)',
+                    },
+                    {
+                        key: 'data.short',
+                        label: 'Nhãn ngắn (badge ở đơn)',
+                        type: 'text',
+                        placeholder: 'VD: TP·Trung tâm (20k)',
+                    },
+                    {
+                        key: 'data.fee',
+                        label: 'Phí giao hàng (đồng)',
+                        type: 'number',
+                        placeholder: '20000',
+                    },
+                    {
+                        key: 'data.keywords',
+                        label: 'Từ khoá nhận diện (cách nhau bằng dấu phẩy)',
+                        type: 'textarea',
+                        placeholder: 'binh thanh, go vap, quan 1, quan 3, phu nhuan',
+                    },
+                    {
+                        key: 'data.manual',
+                        label: 'Chỉ chọn tay (không auto-match địa chỉ)',
+                        type: 'checkbox',
+                    },
+                    {
+                        key: 'data.isFallback',
+                        label: 'Mặc định khi không khớp vùng nào (chỉ 1 dòng)',
+                        type: 'checkbox',
+                    },
+                ],
+            });
+        </script>
+    </body>
+</html>

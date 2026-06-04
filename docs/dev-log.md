@@ -25,6 +25,17 @@
 
 ## 2026-06-04
 
+### [web2] Trang cấu hình Phương thức giao hàng (entity `deliveryzone`) + menu Cấu hình ✅
+
+User: "phần cài đặt phương thức giao hàng đâu? được thì cho vào cấu hình ở menu". Trước đó chỉ có OPTIONS hardcoded trong picker, không có trang quản lý.
+
+- **Entity riêng `deliveryzone`** (KHÔNG dùng `deliverycarrier` — entity đó bị TPOS sync ghi đè 7 record `tpos-N` không có keyword/fee). Seed 7 vùng mặc định từ chính `DeliveryMethodPicker.OPTIONS` qua `scripts/web2-seed-delivery-zone.js` (idempotent: create/update). Code = value (`tp-trung-tam`…) khớp giá trị đơn đã lưu.
+- **Picker đọc backend**: `fetchFromBackend` đổi URL `deliverycarrier`→`deliveryzone`; `_normalizeFromRecord` thêm `short` + `_parseKeywords` (nhận array HOẶC chuỗi `,`/xuống dòng từ textarea). Verified: getOptionsAsync trả 7 record backend, Bình Thạnh→TP·Trung tâm, Hốc Môn→TP·Ven.
+- **Trang cấu hình** `web2/delivery-zone/index.html` (generic CRUD `Web2Page.mount` slug `deliveryzone`): cột Mã/Tên/Nhãn ngắn/Phí/Từ khoá/Chọn tay/Mặc định; form thêm/sửa/xoá đủ field (fee number, keywords textarea, manual+isFallback checkbox) + banner hướng dẫn. Sửa ở đây ăn ngay vào auto-detect Đơn Web.
+- **Menu**: thêm "Phương thức giao hàng" (icon truck) vào nhóm **Cấu hình** sidebar + đăng ký WEB2_PAGES.
+
+→ Trả lời user: dropdown TPOS (ảnh) và menu badge của tôi là **cùng 1 danh sách**, chỉ khác `short` label hiển thị gọn.
+
 ### [web2] Photo-studio — Đợt 3: before/after + PWA (cài + offline + cache model) ✅
 
 - **Before/after**: nút "Giữ xem gốc" (#psCompare) — pointerdown vẽ `_capFrame` (ảnh gốc) lên reviewCanvas, thả → renderReview (kết quả). Loại trừ khỏi gesture (không cướp drag). Test: composite trắng → giữ = xanh gốc → thả = trắng ✓.
