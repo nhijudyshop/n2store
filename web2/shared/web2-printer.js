@@ -27,22 +27,29 @@
     'use strict';
     if (global.Web2Printer) return;
 
-    const LS_PRINTERS = 'web2_printers';
+    // DANH SÁCH máy in lưu TRÊN SERVER (entity generic 'printer') → mọi user/máy
+    // POS thấy chung. Cache localStorage để dùng offline + sync nhanh (getPrinters
+    // đồng bộ). GÁN role (máy nào cho PBH/tem) lưu LOCAL theo máy — mỗi POS tự chọn
+    // từ danh sách chung.
     const LS_ROLES = 'web2_printer_roles';
-    const LS_LEGACY = 'web2_printer_config'; // cấu hình đơn cũ → migrate
+    const LS_CACHE = 'web2_printers_cache';
+    const LS_LEGACY_LIST = 'web2_printers'; // danh sách local cũ → đẩy lên server
+    const LS_LEGACY = 'web2_printer_config'; // cấu hình đơn rất cũ
+    const API_BASE =
+        (global.API_CONFIG && global.API_CONFIG.WORKER_URL
+            ? global.API_CONFIG.WORKER_URL
+            : 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/web2/printer';
 
-    // Các chức năng in trong Web 2.0 (mở rộng dần).
     const ROLES = [
         { key: 'pbh', label: 'In Phiếu Bán Hàng (bill 80mm)' },
         { key: 'label', label: 'In tem / mã sản phẩm (máy tem)' },
     ];
-
     const PRINTER_DEFAULTS = {
         name: '',
         ip: '',
         port: 9100,
-        paper: '80', // '80'→576 chấm, '58'→384 chấm, 'label'→ (tem) dùng width riêng
-        method: 'bridge', // 'bridge' (in thẳng IP) | 'dialog' (hộp thoại)
+        paper: '80',
+        method: 'bridge',
         bridgeUrl: 'http://127.0.0.1:17777',
     };
 
@@ -60,38 +67,96 @@
         }
     }
 
-    // Migrate cấu hình đơn cũ (web2_printer_config) → 1 máy trong danh sách.
-    function _migrate() {
-        if (localStorage.getItem(LS_PRINTERS)) return;
-        const legacy = _read(LS_LEGACY, null);
-        if (legacy && (legacy.ip || legacy.name)) {
-            const p = Object.assign({ id: _genId() }, PRINTER_DEFAULTS, legacy);
-            localStorage.setItem(LS_PRINTERS, JSON.stringify([p]));
-            localStorage.setItem(LS_ROLES, JSON.stringify({ pbh: p.id, label: p.id }));
-        }
+    // Cache đồng bộ — seed từ localStorage để getPrinters() có data ngay khi load.
+    let _printers = (() => {
+        const a = _read(LS_CACHE, null);
+        return Array.isArray(a) ? a : [];
+    })();
+    const _listeners = [];
+    function onPrintersChanged(cb) {
+        if (typeof cb === 'function') _listeners.push(cb);
+    }
+    function _fire() {
+        _listeners.forEach((cb) => {
+            try {
+                cb(getPrinters());
+            } catch {}
+        });
+    }
+    function _recToPrinter(r) {
+        return Object.assign({}, PRINTER_DEFAULTS, r.data || {}, {
+            id: r.code,
+            name: r.name || '',
+        });
     }
 
-    function getPrinters() {
-        _migrate();
-        const arr = _read(LS_PRINTERS, []);
-        return Array.isArray(arr) ? arr.map((p) => Object.assign({}, PRINTER_DEFAULTS, p)) : [];
-    }
-    function setPrinters(arr) {
-        localStorage.setItem(LS_PRINTERS, JSON.stringify(Array.isArray(arr) ? arr : []));
+    // Tải danh sách máy in từ SERVER → cache + localStorage + fire listeners.
+    async function loadPrinters() {
+        try {
+            const res = await fetch(API_BASE + '/list?limit=200', { credentials: 'omit' });
+            const j = await res.json();
+            if (j && Array.isArray(j.records)) {
+                _printers = j.records.map(_recToPrinter);
+                localStorage.setItem(LS_CACHE, JSON.stringify(_printers));
+                _fire();
+            }
+        } catch (e) {
+            /* offline → giữ cache cũ */
+        }
         return getPrinters();
     }
-    function upsertPrinter(p) {
-        const list = getPrinters();
-        if (!p.id) p.id = _genId();
-        const i = list.findIndex((x) => x.id === p.id);
-        const merged = Object.assign({}, PRINTER_DEFAULTS, p);
-        if (i >= 0) list[i] = merged;
-        else list.push(merged);
-        setPrinters(list);
-        return merged;
+    function getPrinters() {
+        return _printers.map((p) => Object.assign({}, PRINTER_DEFAULTS, p));
     }
-    function removePrinter(id) {
-        setPrinters(getPrinters().filter((p) => p.id !== id));
+    function getPrinter(id) {
+        const p = _printers.find((x) => x.id === id);
+        return p ? Object.assign({}, PRINTER_DEFAULTS, p) : null;
+    }
+
+    // Thêm/sửa máy in → LÊN SERVER (mọi user thấy). Trả printer sau khi reload.
+    async function upsertPrinter(p) {
+        if (!p.id) p.id = _genId();
+        const exists = _printers.some((x) => x.id === p.id);
+        const data = {
+            ip: p.ip || '',
+            port: Number(p.port) || 9100,
+            paper: p.paper || '80',
+            method: p.method || 'bridge',
+            bridgeUrl: p.bridgeUrl || PRINTER_DEFAULTS.bridgeUrl,
+        };
+        const url = exists
+            ? API_BASE + '/update/' + encodeURIComponent(p.id)
+            : API_BASE + '/create';
+        const body = exists
+            ? { name: p.name || 'Máy in', data, isActive: true }
+            : {
+                  code: p.id,
+                  name: p.name || 'Máy in',
+                  data,
+                  isActive: true,
+                  sourcePage: 'printer-settings',
+              };
+        const res = await fetch(url, {
+            method: exists ? 'PATCH' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+            const t = await res.text().catch(() => '');
+            throw new Error('Lưu máy in lỗi (HTTP ' + res.status + ') ' + t.slice(0, 80));
+        }
+        await loadPrinters();
+        return getPrinter(p.id) || Object.assign({ id: p.id }, PRINTER_DEFAULTS, p);
+    }
+    // Xoá máy in trên server + dọn role local trỏ tới nó.
+    async function removePrinter(id) {
+        let ok = false;
+        try {
+            const res = await fetch(API_BASE + '/delete/' + encodeURIComponent(id), {
+                method: 'DELETE',
+            });
+            ok = res.ok;
+        } catch {}
         const roles = getRoles();
         let changed = false;
         for (const k of Object.keys(roles))
@@ -100,13 +165,11 @@
                 changed = true;
             }
         if (changed) localStorage.setItem(LS_ROLES, JSON.stringify(roles));
-    }
-    function getPrinter(id) {
-        return getPrinters().find((p) => p.id === id) || null;
+        await loadPrinters();
+        return ok;
     }
 
     function getRoles() {
-        _migrate();
         return _read(LS_ROLES, {}) || {};
     }
     function setRole(roleKey, printerId) {
@@ -120,6 +183,30 @@
     function getPrinterFor(roleKey) {
         const id = getRoles()[roleKey];
         return getPrinter(id) || getPrinters()[0] || null;
+    }
+
+    // Migrate danh sách/cấu hình LOCAL cũ → đẩy LÊN SERVER 1 lần (chỉ khi server rỗng).
+    async function _migrateToServer() {
+        const FLAG = 'web2_printers_migrated';
+        try {
+            if (localStorage.getItem(FLAG)) return;
+            await loadPrinters();
+            if (_printers.length) {
+                localStorage.setItem(FLAG, '1');
+                return;
+            }
+            let locals = _read(LS_LEGACY_LIST, []);
+            if (!Array.isArray(locals)) locals = [];
+            const legacy = _read(LS_LEGACY, null);
+            if (legacy && (legacy.ip || legacy.name))
+                locals.push(Object.assign({ id: _genId() }, legacy));
+            for (const lp of locals) {
+                try {
+                    await upsertPrinter(lp);
+                } catch {}
+            }
+            localStorage.setItem(FLAG, '1');
+        } catch {}
     }
 
     function dotsWidth(printer) {
@@ -324,11 +411,12 @@
     global.Web2Printer = {
         ROLES,
         PRINTER_DEFAULTS,
+        loadPrinters,
         getPrinters,
-        setPrinters,
+        getPrinter,
         upsertPrinter,
         removePrinter,
-        getPrinter,
+        onPrintersChanged,
         getRoles,
         setRole,
         getPrinterFor,
@@ -342,4 +430,12 @@
         bridgeAlive,
         testConnection,
     };
+
+    // Auto: nạp danh sách máy in từ server + migrate local cũ + SSE sync đa user.
+    _migrateToServer();
+    if (global.Web2SSE && typeof global.Web2SSE.subscribe === 'function') {
+        try {
+            global.Web2SSE.subscribe('web2:printer', () => loadPrinters());
+        } catch {}
+    }
 })(typeof window !== 'undefined' ? window : globalThis);

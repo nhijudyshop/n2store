@@ -438,7 +438,9 @@
         <script src="../../web2/shared/jsbarcode-code128.min.js?v=20260604b"></script>
         <script src="../../web2/shared/receiptline.js?v=20260604nj"></script>
         <script src="../../web2/shared/web2-bill-service.js?v=20260604nj7"></script>
-        <script src="../../web2/shared/web2-printer.js?v=20260604b"></script>
+        <!-- SSE để đồng bộ danh sách máy in realtime giữa các user/máy -->
+        <script src="../../web2/shared/web2-sse-bridge.js?v=20260526sse2"></script>
+        <script src="../../web2/shared/web2-printer.js?v=20260604c"></script>
         <script>
             if (window.Web2Sidebar)
                 Web2Sidebar.mount('#web2Aside', { activeRoute: 'printer-settings' });
@@ -541,7 +543,7 @@
             $('pmOverlay').addEventListener('click', (e) => {
                 if (e.target === $('pmOverlay')) closeModal();
             });
-            $('pmSave').addEventListener('click', () => {
+            $('pmSave').addEventListener('click', async () => {
                 const p = {
                     id: $('pm_id').value || undefined,
                     name: $('pm_name').value.trim() || 'Máy in',
@@ -552,11 +554,15 @@
                     bridgeUrl: $('pm_bridge').value.trim() || 'http://127.0.0.1:17777',
                 };
                 if (p.method === 'bridge' && !p.ip) return toast('Nhập IP máy in', 'error');
-                P.upsertPrinter(p);
-                closeModal();
-                renderPrinters();
-                renderRoles();
-                toast('Đã lưu máy in', 'success');
+                try {
+                    await P.upsertPrinter(p);
+                    closeModal();
+                    renderPrinters();
+                    renderRoles();
+                    toast('Đã lưu máy in (server)', 'success');
+                } catch (err) {
+                    toast('✗ Lưu lỗi: ' + err.message, 'error');
+                }
             });
 
             // ── Card actions ──
@@ -567,8 +573,12 @@
                 if (!p) return;
                 if (btn.dataset.act === 'edit') return openModal(p);
                 if (btn.dataset.act === 'del') {
-                    if (confirm(`Xóa máy in "${p.name}"?`)) {
-                        P.removePrinter(p.id);
+                    if (confirm(`Xóa máy in "${p.name}"? (xóa khỏi server — mọi user)`)) {
+                        try {
+                            await P.removePrinter(p.id);
+                        } catch (err) {
+                            toast('Xóa lỗi: ' + err.message, 'error');
+                        }
                         renderPrinters();
                         renderRoles();
                     }
@@ -682,14 +692,21 @@
                 }
             });
 
-            // Cảnh báo bridge nếu có máy bridge mà bridge chưa chạy
+            // Render ngay từ cache rồi tải mới từ SERVER → render lại. Đồng bộ
+            // realtime đa user qua SSE web2:printer (module tự subscribe).
+            renderPrinters();
+            renderRoles();
+            P.onPrintersChanged(() => {
+                renderPrinters();
+                renderRoles();
+            });
             (async () => {
+                await P.loadPrinters();
+                renderPrinters();
+                renderRoles();
                 const hasBridge = P.getPrinters().some((p) => p.method === 'bridge');
                 if (hasBridge && !(await P.bridgeAlive())) $('bridgeWarn').style.display = 'block';
             })();
-
-            renderPrinters();
-            renderRoles();
         </script>
     </body>
 </html>
