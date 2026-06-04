@@ -32,7 +32,7 @@
 
     const state = {
         mode: 'ai', // mặc định AI nhanh (tức thì). 'hq' AI nét chậm hơn nhưng sắc | 'chroma'
-        hqEngine: 'local', // 'local' (@imgly, free, không watermark) | 'auto' (PhotoRoom cloud)
+        hqEngine: 'auto', // mặc định Cloud HD (withoutbg, HD, no watermark) → fallback @imgly. 'local' = luôn @imgly
         source: 'camera', // 'camera' | 'image'
         bgType: 'transparent', // 'transparent'|'color'|'image'|'blur'|'preset'
         bgColor: '#ffffff',
