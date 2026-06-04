@@ -21,6 +21,12 @@
     const CAPTURE_MAX_LONG = 2400;
     const MEDIAPIPE_BASE =
         'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747';
+    // Engine "AI nhanh" mới: MediaPipe Tasks Vision ImageSegmenter (GPU delegate,
+    // nhanh hơn nhiều bản Solution cũ). Legacy giữ làm fallback.
+    const TASKS_VISION = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18';
+    const SELFIE_MODEL =
+        'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
+    const SEG_INPUT_W = 256; // downscale khung gửi model → nhanh + loop mask nhỏ
     const IMGLY_URL = 'https://esm.sh/@imgly/background-removal@1.5.5';
     const CUTOUT_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/cutout';
 
@@ -69,7 +75,9 @@
 
     const el = {};
     let work, workCtx; // chroma realtime
-    let maskC, maskCtx; // latest AI mask
+    let maskC, maskCtx; // mask đã crop ở preview res (dùng chung 2 engine)
+    let segInput, segInputCtx; // khung downscale gửi segmenter
+    let maskRaw, maskRawCtx; // mask thô từ tasks-vision (alpha)
     let octx; // live output ctx
     let rctx; // review ctx
     let imglyMod = null;
@@ -84,6 +92,10 @@
         workCtx = work.getContext('2d', { willReadFrequently: true });
         maskC = document.createElement('canvas');
         maskCtx = maskC.getContext('2d');
+        segInput = document.createElement('canvas');
+        segInputCtx = segInput.getContext('2d');
+        maskRaw = document.createElement('canvas');
+        maskRawCtx = maskRaw.getContext('2d');
         bind();
         initSegmentation();
         applyMobileDefaults();
@@ -250,7 +262,26 @@
     }
 
     // ---- MediaPipe ------------------------------------------------------
-    function initSegmentation() {
+    async function initSegmentation() {
+        // Ưu tiên Tasks Vision ImageSegmenter (GPU delegate, nhanh). Lỗi → legacy.
+        try {
+            const mod = await import(/* @vite-ignore */ `${TASKS_VISION}/vision_bundle.mjs`);
+            const vision = await mod.FilesetResolver.forVisionTasks(`${TASKS_VISION}/wasm`);
+            state._segmenter = await mod.ImageSegmenter.createFromOptions(vision, {
+                baseOptions: { modelAssetPath: SELFIE_MODEL, delegate: isIOS() ? 'CPU' : 'GPU' },
+                runningMode: 'VIDEO',
+                outputConfidenceMasks: true,
+                outputCategoryMask: false,
+            });
+            state._aiEngine = 'tasks';
+            state.segReady = true;
+        } catch (e) {
+            console.warn('[photo-studio] tasks-vision init failed → legacy', e?.message || e);
+            initLegacySeg();
+        }
+    }
+
+    function initLegacySeg() {
         if (!global.SelfieSegmentation) return;
         try {
             const seg = new global.SelfieSegmentation({
@@ -259,10 +290,63 @@
             seg.setOptions({ modelSelection: 1, selfieMode: false });
             seg.onResults(onSegResults);
             state.seg = seg;
+            state._aiEngine = 'legacy';
             state.segReady = true;
         } catch (e) {
-            console.error('[photo-studio] seg init', e);
+            console.error('[photo-studio] legacy seg init', e);
         }
+    }
+
+    /** Khung downscale (≤256px) gửi segmenter → nhanh + mask nhỏ (loop rẻ). */
+    function segInputFrame() {
+        const src = currentSourceEl();
+        if (!src || !state.srcNatW) return null;
+        const scale = Math.min(1, SEG_INPUT_W / state.srcNatW);
+        const w = Math.max(1, Math.round(state.srcNatW * scale));
+        const h = Math.max(1, Math.round(state.srcNatH * scale));
+        sizeCanvas(segInput, w, h);
+        try {
+            segInputCtx.drawImage(src, 0, 0, w, h);
+        } catch {
+            return null;
+        }
+        return segInput;
+    }
+
+    /** Tasks Vision callback: confidence mask (0..1) → alpha → maskC + composite. */
+    function onTasksResult(result) {
+        if (!state.modelLoaded) {
+            state.modelLoaded = true;
+            hideLoading();
+        }
+        const m = result.confidenceMasks && result.confidenceMasks[0];
+        if (!m) return;
+        const mw = m.width,
+            mh = m.height;
+        const f = m.getAsFloat32Array();
+        sizeCanvas(maskRaw, mw, mh);
+        const id = maskRawCtx.createImageData(mw, mh);
+        const px = id.data;
+        for (let i = 0; i < f.length; i++) px[i * 4 + 3] = (f[i] * 255) | 0;
+        maskRawCtx.putImageData(id, 0, 0);
+        if (m.close) m.close();
+        populateMaskC(maskRaw, mw, mh);
+        composeAI(octx, state.W, state.H, currentSourceEl(), maskC, state.crop, true);
+        tickFps();
+    }
+
+    /** Vẽ mask (đã crop) vào maskC ở preview res, có feather. Dùng chung 2 engine. */
+    function populateMaskC(srcMask, mw, mh) {
+        const { W, H } = state;
+        if (!W || !H || !state.srcNatW) return;
+        sizeCanvas(maskC, W, H);
+        maskCtx.clearRect(0, 0, W, H);
+        if (state.feather > 0) maskCtx.filter = `blur(${state.feather}px)`;
+        const rx = mw / state.srcNatW,
+            ry = mh / state.srcNatH,
+            c = state.crop;
+        maskCtx.drawImage(srcMask, c.sx * rx, c.sy * ry, c.sw * rx, c.sh * ry, 0, 0, W, H);
+        maskCtx.filter = 'none';
     }
 
     // ---- Camera ---------------------------------------------------------
@@ -722,7 +806,16 @@
     function frame() {
         if (!state.running) return;
         if (state.mode === 'ai' && state.segReady) {
-            if (!state.busy) {
+            if (state._aiEngine === 'tasks') {
+                // segmentForVideo (VIDEO mode) chạy đồng bộ → không cần busy gate
+                try {
+                    const inp = segInputFrame();
+                    if (inp)
+                        state._segmenter.segmentForVideo(inp, performance.now(), onTasksResult);
+                } catch (e) {
+                    /* bỏ qua frame lỗi */
+                }
+            } else if (!state.busy) {
                 state.busy = true;
                 state.seg
                     .send({ image: currentSourceEl() })
@@ -744,16 +837,10 @@
             state.modelLoaded = true;
             hideLoading();
         }
-        const { W, H } = state;
-        if (!W || !H) return;
-        sizeCanvas(maskC, W, H);
-        maskCtx.clearRect(0, 0, W, H);
-        if (state.feather > 0) maskCtx.filter = `blur(${state.feather}px)`;
-        const c = state.crop;
-        maskCtx.drawImage(results.segmentationMask, c.sx, c.sy, c.sw, c.sh, 0, 0, W, H);
-        maskCtx.filter = 'none';
-        // live preview: composite subject over current bg
-        composeAI(octx, W, H, results.image, maskC, c, true);
+        if (!state.W || !state.H) return;
+        // legacy mask ở native res → rx=1
+        populateMaskC(results.segmentationMask, state.srcNatW, state.srcNatH);
+        composeAI(octx, state.W, state.H, results.image, maskC, state.crop, true);
         tickFps();
     }
 
