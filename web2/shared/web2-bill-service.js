@@ -342,16 +342,16 @@ html, body { margin: 0; padding: 0; background: #fff; }
    in nhiệt ăn mực rõ. Áp cho mọi text/tspan trong SVG. */
 .receipt-wrap svg text,
 .receipt-wrap svg tspan {
-    font-weight: 700 !important;
+    font-weight: 900 !important;
     stroke: #000;
-    stroke-width: 0.45px;
+    stroke-width: 0.9px;
     paint-order: stroke fill;
 }
 .page-break { display: block; page-break-before: always; }
 @media print {
     html, body { width: 80mm; }
     .receipt-wrap { width: 80mm; }
-    .receipt-wrap svg text, .receipt-wrap svg tspan { stroke-width: 0.55px; }
+    .receipt-wrap svg text, .receipt-wrap svg tspan { stroke-width: 1.1px; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
 </style></head>

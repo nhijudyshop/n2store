@@ -359,6 +359,10 @@
                                 <i data-lucide="file-code" style="width: 16px; height: 16px"></i>
                                 Tải print-bridge.ps1 (thủ công)
                             </button>
+                            <button class="ps-btn ps-btn-danger" id="btnUninstallBat">
+                                <i data-lucide="power-off" style="width: 16px; height: 16px"></i>
+                                Tải file tắt &amp; gỡ (.bat)
+                            </button>
                         </div>
                         <ol class="ps-install-steps">
                             <li>Bấm <strong>Tải file cài đặt (.bat)</strong> → lưu về máy POS.</li>
@@ -437,10 +441,10 @@
         <script src="../../web2/shared/tpos-sidebar.js?v=20260604nj4"></script>
         <script src="../../web2/shared/jsbarcode-code128.min.js?v=20260604b"></script>
         <script src="../../web2/shared/receiptline.js?v=20260604nj"></script>
-        <script src="../../web2/shared/web2-bill-service.js?v=20260604nj7"></script>
+        <script src="../../web2/shared/web2-bill-service.js?v=20260604nj8"></script>
         <!-- SSE để đồng bộ danh sách máy in realtime giữa các user/máy -->
         <script src="../../web2/shared/web2-sse-bridge.js?v=20260526sse2"></script>
-        <script src="../../web2/shared/web2-printer.js?v=20260604c"></script>
+        <script src="../../web2/shared/web2-printer.js?v=20260604d"></script>
         <script>
             if (window.Web2Sidebar)
                 Web2Sidebar.mount('#web2Aside', { activeRoute: 'printer-settings' });
@@ -690,6 +694,32 @@
                 } catch (e) {
                     toast('Không tải được print-bridge.ps1: ' + e.message, 'error');
                 }
+            });
+            function uninstallBatContent() {
+                // .bat: tắt tiến trình bridge đang chạy + xoá autostart + xoá thư mục.
+                return [
+                    '@echo off',
+                    'chcp 65001 >nul',
+                    'set "DIR=%LOCALAPPDATA%\\N2StorePrintBridge"',
+                    'set "STARTUP=%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"',
+                    'echo Dang tat va go N2Store Print Bridge ...',
+                    'REM Xoa autostart (khong tu bat nua)',
+                    'del /f /q "%STARTUP%\\N2StorePrintBridge.vbs" 2>nul',
+                    'REM Tat tien trinh powershell dang chay print-bridge.ps1',
+                    'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name=\'powershell.exe\'\\" | Where-Object { $_.CommandLine -like \'*print-bridge.ps1*\' } | ForEach-Object { try{ Stop-Process -Id $_.ProcessId -Force }catch{} }" 2>nul',
+                    'REM Tat tien trinh wscript launcher (neu con)',
+                    'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name=\'wscript.exe\'\\" | Where-Object { $_.CommandLine -like \'*N2StorePrintBridge*\' } | ForEach-Object { try{ Stop-Process -Id $_.ProcessId -Force }catch{} }" 2>nul',
+                    'REM Xoa thu muc cai dat',
+                    'rmdir /s /q "%DIR%" 2>nul',
+                    'echo.',
+                    'echo  [OK] Da tat + go Print Bridge. Khong con tu bat khi mo may.',
+                    'echo.',
+                    'pause',
+                ].join('\r\n');
+            }
+            $('btnUninstallBat').addEventListener('click', () => {
+                _download('tat-print-bridge.bat', uninstallBatContent());
+                toast('Đã tải file tắt & gỡ — bấm đúp để chạy', 'success');
             });
 
             // Render ngay từ cache rồi tải mới từ SERVER → render lại. Đồng bộ

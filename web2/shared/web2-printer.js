@@ -215,21 +215,49 @@
         return p.paper === '58' ? 384 : 576;
     }
 
-    // Canvas (đã vẽ nội dung đen/trắng) → Uint8Array lệnh ESC/POS in raster 1-bit.
-    function _canvasToEscpos(canvas) {
+    // Canvas → ESC/POS raster 1-bit. ĐẬM HƠN cho máy in nhiệt (chữ mỏng hay mờ
+    // mực): (1) ngưỡng cao (176) bắt cả pixel xám antialias → nét đầy hơn;
+    // (2) DÃN nở (dilation) 1 chấm phải+dưới → mọi nét dày thêm 1px, không mất
+    // nét mảnh khi in. Barcode module rộng ≥3px nên vẫn quét tốt.
+    function _canvasToEscpos(canvas, opts = {}) {
         const W = canvas.width;
         const H = canvas.height;
+        const threshold = opts.threshold != null ? opts.threshold : 176;
+        const dilate = opts.dilate !== false; // mặc định BẬT dãn nở cho đậm
         const data = canvas.getContext('2d').getImageData(0, 0, W, H).data;
-        const bytesPerRow = Math.ceil(W / 8);
-        const raster = new Uint8Array(bytesPerRow * H);
+        // 1) ma trận đen/trắng theo ngưỡng
+        const dark = new Uint8Array(W * H);
         for (let y = 0; y < H; y++) {
-            const row = y * bytesPerRow;
             for (let x = 0; x < W; x++) {
                 const i = (y * W + x) * 4;
                 const a = data[i + 3];
                 const lum =
                     a === 0 ? 255 : 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-                if (lum < 150) raster[row + (x >> 3)] |= 0x80 >> (x & 7);
+                if (lum < threshold) dark[y * W + x] = 1;
+            }
+        }
+        // 2) dãn nở 1px (phải + dưới) → nét dày hơn, đậm hơn
+        let fin = dark;
+        if (dilate) {
+            fin = new Uint8Array(W * H);
+            for (let y = 0; y < H; y++) {
+                for (let x = 0; x < W; x++) {
+                    if (
+                        dark[y * W + x] ||
+                        (x > 0 && dark[y * W + x - 1]) ||
+                        (y > 0 && dark[(y - 1) * W + x])
+                    )
+                        fin[y * W + x] = 1;
+                }
+            }
+        }
+        // 3) pack
+        const bytesPerRow = Math.ceil(W / 8);
+        const raster = new Uint8Array(bytesPerRow * H);
+        for (let y = 0; y < H; y++) {
+            const row = y * bytesPerRow;
+            for (let x = 0; x < W; x++) {
+                if (fin[y * W + x]) raster[row + (x >> 3)] |= 0x80 >> (x & 7);
             }
         }
         const init = [0x1b, 0x40];
