@@ -201,6 +201,24 @@ chatDbPool
             blacklist
                 .ensureSchema(w2SchemaPool)
                 .catch((e) => console.warn('[web2-blacklist] init warn:', e.message));
+            // 2026-06-04: DROP orphan inventory_* trên web2Db. inventory-tracking
+            // là module Web 1.0 (data ở chatDb); các bảng inventory_* trên web2Db
+            // là leftover từ đợt seed supplier-debt (route web2-supplier-debt đã gỡ).
+            // GUARD CHẶT: chỉ chạy khi web2Pool là DB RIÊNG (≠ chatDb) → KHÔNG bao
+            // giờ drop nhầm data thật trên Web 1.0. Idempotent (IF EXISTS).
+            if (web2Pool && web2Pool !== chatDbPool) {
+                web2Pool
+                    .query(
+                        `DROP TABLE IF EXISTS
+                            inventory_shipments, inventory_order_bookings,
+                            inventory_prepayments, inventory_other_expenses,
+                            inventory_edit_history, inventory_suppliers CASCADE`
+                    )
+                    .then(() => console.log('[web2-cleanup] dropped orphan inventory_* on web2Db'))
+                    .catch((e) =>
+                        console.warn('[web2-cleanup] drop orphan inventory warn:', e.message)
+                    );
+            }
             // Start retry cron — re-runs failed Web 2.0 webhook payloads.
             // Delay 5s để schema tables tạo xong.
             setTimeout(() => {
