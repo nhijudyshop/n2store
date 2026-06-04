@@ -141,6 +141,7 @@
             'optionsToggle:psOptionsToggle',
             'sheetClose:psSheetClose',
             'reviewBack:psReviewBack',
+            'reviewOptions:psReviewOptions',
             'reviewMeta:psReviewMeta',
             'reviewStage:psReviewStage',
             'reviewCanvas:psReviewCanvas',
@@ -189,6 +190,7 @@
         el.capture.addEventListener('click', capture);
         el.sourceFile.addEventListener('change', onSourceFile);
         el.optionsToggle.addEventListener('click', openSheet);
+        el.reviewOptions.addEventListener('click', openSheet);
         el.sheetClose.addEventListener('click', closeSheet);
         el.sheetBackdrop.addEventListener('click', closeSheet);
         el.output.addEventListener('click', sampleKeyFromStage);

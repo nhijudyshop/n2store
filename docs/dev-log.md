@@ -25,6 +25,22 @@
 
 ## 2026-06-04
 
+### [web2] Photo-studio — Đợt 1 nâng cấp pro: bóng đổ + khổ sàn + auto-đẹp + WEBP + logo ✅
+
+User "làm tất cả" backlog → wave 1 (5 tính năng canvas, low-risk):
+
+1. **Bóng đổ tự nhiên** dưới sản phẩm: silhouette đen của cutout (`buildSilhouette`) vẽ blur+offset dưới chủ thể (`drawShadow`), toggle + slider độ mềm. Chỉ khi nền không trong suốt.
+2. **Khổ chuẩn sàn TMĐT** (Shopee 1:1 1000px, TikTok 3:4 1200, Lazada 1:1 1200, FB 4:5 1080): set aspect + `exportPx`; saveReview scale cạnh dài về exportPx.
+3. **Tự động đẹp** (1 chạm): `ctx.filter brightness(1.06) contrast(1.08) saturate(1.14)` lên chủ thể.
+4. **Xuất WEBP** + thanh chất lượng (PNG/JPG/WEBP, quality slider; PNG ẩn slider).
+5. **Logo/watermark shop**: upload (lưu localStorage `ps_logo`) + toggle + 4 vị trí góc, vẽ ở review/export.
+
+- Thêm nút ⚙ vào topbar màn Xem (mở sheet để chỉnh shadow/format/logo khi review). renderReview là nơi ghép: nền → bóng → chủ thể(enhance) → logo; saveReview lo scale khổ + format/quality.
+- **Test** (Playwright): shadow minR 196(on)/255(off) ✓, enhance đỏ 221→255 ✓, market meta "→1000px" ✓, WEBP ok ✓, 0 error.
+- **Còn lại (đợt sau)**: di chuyển/phóng/xoay chủ thể trên nền, brush sửa viền, undo/redo, gallery, PWA offline, xử lý hàng loạt, AI upscale.
+
+**Files**: `web2/photo-studio/{index.html(v=20260604k),photo-studio.js,photo-studio.css}`.
+
 ### [native-orders] Phương thức giao hàng auto-detect 2 lớp + lưu lại + chỉnh tay ✅
 
 User: địa chỉ TPOS nhập nhiều dạng không cố định → auto-detect hay sai. Cần bên thứ 3 (Goong) cross-validate 2 nguồn để tăng tỉ lệ đúng + hiện phương thức giao ở cột địa chỉ, lưu lại, đổi theo địa chỉ hoặc chỉnh tay.
