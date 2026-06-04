@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `be9ccff` — perf(web2): photo-studio — AI nhanh nâng cấp MediaPipe Tasks Vision ImageSegmenter (GPU, nhanh hơn nhiều)
-**Last updated**: 2026-06-04 13:41:16 +07
-**Latest session**: [`RESUME:20260604-134116-be9ccff`](../20260604-134116-be9ccff.md)
-**Summary**: perf(web2): photo-studio — AI nhanh nâng cấp MediaPipe Tasks Vision ImageSegmenter (GPU, nhanh hơn nhiều)
+**Latest commit**: `1394393` — fix(web2-reconcile): hien anh SP theo kho hien tai (web2_products) thay snapshot
+**Last updated**: 2026-06-04 13:46:18 +07
+**Latest session**: [`RESUME:20260604-134618-1394393`](../20260604-134618-1394393.md)
+**Summary**: fix(web2-reconcile): hien anh SP theo kho hien tai (web2_products) thay snapshot
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 - [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
@@ -50,9 +51,9 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-04 13:36
+- [`render.com/`](./render.com.md) — updated 2026-06-04 13:46
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-04 12:10
+- [`scripts/`](./scripts.md) — updated 2026-06-04 13:46
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-04 12:44
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
@@ -68,4 +69,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-04 13:41
+- [`web2/`](./web2.md) — updated 2026-06-04 13:46
