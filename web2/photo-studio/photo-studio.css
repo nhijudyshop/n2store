@@ -517,11 +517,15 @@ main.web2-main.ps-app {
     cursor: pointer;
     border: none;
 }
-/* saved background chips (ảnh nền user đã lưu) */
-.ps-bg-saved {
+/* saved + scene background chips (ảnh nền) */
+.ps-bg-saved,
+.ps-bg-scene {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
+}
+.ps-bg-scene {
+    background-color: #1b2740; /* nền chờ khi thumb chưa tải */
 }
 .ps-bg-del {
     position: absolute;

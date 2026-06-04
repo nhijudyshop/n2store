@@ -645,6 +645,36 @@
         { c: '#ffffff', name: 'Trắng' },
         { c: '#000000', name: 'Đen' },
     ];
+    // Nền cảnh có sẵn (Unsplash CDN, CORS * → vẽ canvas + export OK với crossOrigin).
+    const SCENES = [
+        { id: 'bien-nhiet-doi', name: 'Biển nhiệt đới', u: 'photo-1507525428034-b723cf961d3e' },
+        {
+            id: 'chan-troi-dai-duong',
+            name: 'Chân trời đại dương',
+            u: 'photo-1505228395891-9a51e7e86bf6',
+        },
+        {
+            id: 'thanh-pho-tren-cao',
+            name: 'Toàn cảnh thành phố',
+            u: 'photo-1480714378408-67cf0d13bc1b',
+        },
+        { id: 'pho-dem', name: 'Phố đêm bokeh', u: 'photo-1449824913935-59a10b8d2000' },
+        { id: 'ruong-lua', name: 'Ruộng lúa', u: 'photo-1500382017468-9049fed747ef' },
+        { id: 'doi-xanh', name: 'Đồi xanh quê', u: 'photo-1470071459604-3b5ec3a7fe05' },
+        { id: 'rung-xanh', name: 'Rừng xanh', u: 'photo-1441974231531-c6227db76b6e' },
+        { id: 'thac-nuoc', name: 'Thác nước', u: 'photo-1432405972618-c60b0225b8f9' },
+        { id: 'nui-cao', name: 'Núi cao', u: 'photo-1506905925346-21bda4d32df4' },
+        { id: 'hoang-hon', name: 'Hoàng hôn', u: 'photo-1495616811223-4d98c6e9c869' },
+        { id: 'den-bokeh', name: 'Ánh đèn bokeh', u: 'photo-1492684223066-81342ee5ff30' },
+        { id: 'tuong-hoa', name: 'Tường hoa hồng', u: 'photo-1530103862676-de8c9debad1d' },
+        { id: 'quan-cafe', name: 'Quán cafe ấm cúng', u: 'photo-1554118811-1e0d58224f24' },
+        { id: 'phong-trang', name: 'Phòng trắng tối giản', u: 'photo-1497366216548-37526070297c' },
+        { id: 'vuon-cay', name: 'Vườn cây xanh', u: 'photo-1416879595882-3373a0480b5b' },
+        { id: 'san-thuong', name: 'Sân thượng thành phố', u: 'photo-1542353436-312f0e1f67ff' },
+    ];
+    const sceneFull = (u) => `https://images.unsplash.com/${u}?auto=format&fit=crop&w=1280&q=80`;
+    const sceneThumb = (u) => `https://images.unsplash.com/${u}?w=96&h=96&fit=crop&q=60`;
+    const sceneCache = {}; // id → HTMLImageElement đã load (crossOrigin)
     const SAVED_KEY = 'ps_saved_bgs';
     const SAVED_MAX = 8;
 
@@ -685,6 +715,8 @@
         for (const p of PRESETS)
             h += `<button class="ps-bg-chip" data-bg="preset" data-preset="${p.id}" title="${p.name}" style="background:${p.css}"></button>`;
         h += `<button class="ps-bg-chip ps-bg-blur" data-bg="blur" title="Mờ nền"><i data-lucide="aperture"></i></button>`;
+        for (const sc of SCENES)
+            h += `<span class="ps-bg-chip ps-bg-scene" data-bg="scene" data-id="${sc.id}" title="${sc.name}" style="background-image:url(${sceneThumb(sc.u)})"></span>`;
         for (const b of state.savedBgs)
             h += `<span class="ps-bg-chip ps-bg-saved" data-bg="saved" data-id="${b.id}" title="Nền đã lưu" style="background-image:url(${b.url})"><button class="ps-bg-del" data-del="${b.id}" aria-label="Xóa">×</button></span>`;
         h += `<button class="ps-bg-chip ps-bg-pick" data-bg="pick" title="Màu khác"><i data-lucide="pipette"></i></button>`;
@@ -714,6 +746,7 @@
         if (t === 'color') return 'color:' + chip.dataset.color;
         if (t === 'preset') return 'preset:' + chip.dataset.preset;
         if (t === 'saved') return 'saved:' + chip.dataset.id;
+        if (t === 'scene') return 'scene:' + chip.dataset.id;
         return t; // transparent | blur
     }
 
@@ -751,6 +784,34 @@
                     renderReview();
                 };
                 img.src = rec.url;
+            }
+        } else if (key.startsWith('scene:')) {
+            const id = key.slice(6);
+            const sc = SCENES.find((s) => s.id === id);
+            if (sc) {
+                if (sceneCache[id]) {
+                    state.bgImage = sceneCache[id];
+                    state.bgType = 'image';
+                } else {
+                    showLoading('Đang tải nền…');
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous'; // BẮT BUỘC để export canvas (Unsplash CORS *)
+                    img.onload = () => {
+                        sceneCache[id] = img;
+                        hideLoading();
+                        if (state.bgKey === key) {
+                            state.bgImage = img;
+                            state.bgType = 'image';
+                            renderReview();
+                        }
+                    };
+                    img.onerror = () => {
+                        hideLoading();
+                        notify('Không tải được nền (mạng?). Thử nền khác.', 'error');
+                    };
+                    img.src = sceneFull(sc.u);
+                    state.bgType = 'image'; // đặt trước, ảnh set khi load xong
+                }
             }
         }
         applyActiveBg();

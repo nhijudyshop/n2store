@@ -25,6 +25,17 @@
 
 ## 2026-06-04
 
+### [web2] Photo-studio — 16 nền cảnh có sẵn (biển/thành phố/quê/thiên nhiên/selfie) ✅
+
+User: thêm nền cảnh đẹp + nền selfie để chọn. Thêm `SCENES` (16 ảnh Unsplash CDN — Biển ×2, Thành phố ×2, Nông thôn ×2, Thiên nhiên ×2, Núi, Hoàng hôn, + Selfie ×6: bokeh/tường hoa/cafe/phòng trắng/vườn/sân thượng).
+
+- **CORS-safe**: ảnh từ `images.unsplash.com` (ACAO `*`); load `img.crossOrigin='anonymous'` → vẽ canvas + **export KHÔNG bị taint** (verified). Thiếu cái này thì toBlob/lưu ảnh sẽ fail.
+- Chip nền dạng `data-bg="scene"` (thumb 96² q60), chọn → load full 1280px (cache `sceneCache`), set `bgType:'image'` + `bgImage`. Loading overlay khi tải; lỗi mạng → notify, không kẹt.
+- Hiện ở cả 2 hàng nền (camera + review), đồng bộ active.
+- **Test** (Playwright): 16 scene chip ✓, chọn → corner pixel opaque (nền vẽ) ✓, **exportOk=true tainted=false** ✓, scene active ✓, 0 error.
+
+**Files**: `web2/photo-studio/{index.html(v=20260604j),photo-studio.js,photo-studio.css}`. (Cần mạng để tải nền cảnh — như cloud cutout; cache sau lần đầu.)
+
 ### [web2] supplier-debt — cắt sạch coupling TPOS/inventory_shipments (Web 1.0) ✅
 
 **Vấn đề**: trang Web 2.0 supplier-debt còn 2 sợi bám Web 1.0: (1) route `/api/web2/supplier-debt/aggregate` đọc bảng `inventory_shipments` (Web 1.0) → trả 5 NCC GIẢ (rác seed `web2-seed-supplier-debt-from-soorder.js`); (2) frontend fallback gọi TPOS `PartnerDebtReport`. Phần lõi trang đã độc lập sẵn (tính client-side từ Firestore `web2_so_order` + `web2_supplier_wallet`), 2 coupling kia chỉ lòi ra khi bật toggle "TPOS". User quyết: **bỏ sạch TPOS**.
