@@ -25,19 +25,27 @@
 
 ## 2026-06-04
 
-### [orders] product-warehouse: tìm kiếm theo MÃ + TÊN, đổ thẳng vào bảng (bỏ dropdown) ✅
+### [orders] product-warehouse: tìm kiếm theo MÃ + TÊN, đổ thẳng vào bảng — fix triệt để (bỏ dropdown) ✅
 
-**Files:** `product-warehouse/js/main.js`, `product-warehouse/index.html` (bump `main.js?v=20260604f`)
+**Files:** `product-warehouse/js/main.js`, `product-warehouse/index.html` (bump `main.js?v=20260604g`)
 
-**Yêu cầu user:** ô tìm kiếm SP "đang tìm theo tên" → thêm tìm theo mã + tên, kết quả hiện thẳng lên bảng, không cần dropdown gợi ý.
+**Yêu cầu user:** ô tìm kiếm SP "đang tìm theo tên" → thêm tìm theo mã + tên, kết quả hiện thẳng lên bảng, không cần dropdown. Bug user báo: gõ `B2694` bảng vẫn hiện TẤT CẢ sản phẩm.
 
-**Thay đổi:**
+**Root cause:** TPOS `GetViewV2` **âm thầm bỏ qua `$filter`** (verified 2026-05-26). MỌI handler (gõ, Enter, nút, phân trang, sort, filter) đều gọi `fetchProducts` → TPOS → search server-side trả về full set. Path lọc đúng duy nhất là client-side cache (`_allTemplatesCache`) — mà cache warm ~10s, nên gõ trong vài giây đầu = bảng không lọc.
 
-- Gỡ dropdown gợi ý (droplist): bỏ `searchProductsSuggestion()` + `displaySuggestions()` + `_suggestionTimer`; handler `input` chỉ còn `hideSuggestions()` (no-op an toàn) + lọc bảng live.
-- Search theo MÃ + TÊN + barcode: `applyClientFilters` đã match `Name`/`DefaultCode`/`Barcode` (fast path qua `_allTemplatesCache`), server `/search` match `product_code`/`product_name`/`name_get`/`barcode`.
-- **Fix root cause:** slow path (cache chưa warm) trước đây gọi `fetchProducts` → dựa vào TPOS `GetViewV2 $filter` mà TPOS **bỏ qua** → bảng không lọc theo mã. Đổi: tab "Sản phẩm" warm `fetchAllTemplatesRaw()` (1 lần) rồi `renderFromCacheBySearch()` lọc client-side → search theo mã/tên luôn đúng ngay cả gõ sớm. Tab variant giữ server fetch.
+**Fix triệt để (3 lớp):**
 
-**Verify (Playwright, localhost):** CODE `B2708` → 1 row; NAME `B36 SET` → 45 row đều khớp; gõ ngay khi load → sau settle vẫn về đúng 1 row; dropdown không bao giờ hiện.
+1. **Centralize routing trong `fetchProducts`:** khi có search term + tab template/variant → KHÔNG đụng TPOS nữa. Cache warm → `renderFromCacheBySearch()` (lọc in-memory tức thì). Chưa warm → `fetchProductsFromRender()`. Mọi caller (phân trang/sort/Enter/nút/filter) tự động đúng.
+2. **`fetchProductsFromRender()` mới:** dùng Render DB list endpoint `GET /api/v2/web-warehouse?search=...&viewType=...` — Postgres ILIKE indexed theo `product_name/product_code/parent_product_code/variant/name_get/barcode` + aggregate template + pagination. Nhanh (<500ms), đúng. Tab template auto `active=true` (mirror "Sản phẩm").
+3. **Warm cache nhanh + sớm:** `fetchAllTemplatesRaw()` fetch các trang PARALLEL (Promise.all) → ~4000 row về trong ~2-3s thay vì ~10s sequential; thêm in-flight de-dupe; prefetch fire sớm (idle timeout 6s→1.5s). Sau ~2-3s mọi keystroke là 0-latency client-side.
+
+- Gỡ dropdown gợi ý: bỏ `searchProductsSuggestion()` + `displaySuggestions()` + `_suggestionTimer`; `input` chỉ còn `hideSuggestions()` + lọc bảng live.
+
+**Verify (Playwright, localhost, login thật):**
+
+- Gõ `B2694` NGAY khi load (cache cold) → 1.2s ra đúng 1 row (Render fallback, 1 network call).
+- Sau warm: `B2700` → 1 row, KHÔNG thêm network (instant cache); `SET ÁO` → 612 SP.
+- Clear → 4041 SP active. Dropdown không bao giờ hiện.
 
 ### [inbox] KPI Đơn Inbox — gate phiếu đã chốt + đối soát trừ hàng trả ✅
 
