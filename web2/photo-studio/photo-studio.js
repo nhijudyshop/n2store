@@ -233,6 +233,18 @@
         ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) =>
             el.compare.addEventListener(ev, () => renderReview())
         );
+        // Brush sửa viền
+        el.brushToggle.addEventListener('click', () => setBrushMode(true));
+        el.brushDone.addEventListener('click', () => setBrushMode(false));
+        el.brushBar.querySelectorAll('.ps-brush-tool[data-tool]').forEach((b) =>
+            b.addEventListener('click', () => {
+                state.brushTool = b.dataset.tool;
+                activate(el.brushBar.querySelectorAll('.ps-brush-tool'), b);
+            })
+        );
+        el.brushSize.addEventListener('input', () => {
+            state.brushSize = parseInt(el.brushSize.value, 10);
+        });
 
         el.modePills
             .querySelectorAll('button[data-mode]')
@@ -1188,6 +1200,7 @@
             state.tx = 0;
             state.ty = 0;
             state.scale = 1; // reset transform mỗi lần chụp
+            setBrushMode(false);
             sizeCanvas(el.reviewCanvas, W, H);
             renderReview();
             showReview();
@@ -1387,9 +1400,19 @@
                     renderReview();
                 });
         };
+        let painting = false;
         stage.addEventListener('pointerdown', (e) => {
             if (el.review.hidden) return;
-            if (e.target.closest('button')) return; // không cướp click nút (Căn giữa)
+            if (e.target.closest('button, input, .ps-brush-bar')) return; // không cướp click nút
+            if (state.brushMode) {
+                try {
+                    stage.setPointerCapture(e.pointerId);
+                } catch {}
+                painting = true;
+                paintBrush(e);
+                moveCursor(e);
+                return;
+            }
             try {
                 stage.setPointerCapture(e.pointerId);
             } catch {}
@@ -1402,6 +1425,11 @@
             }
         });
         stage.addEventListener('pointermove', (e) => {
+            if (state.brushMode) {
+                moveCursor(e);
+                if (painting) paintBrush(e);
+                return;
+            }
             const prev = pointers.get(e.pointerId);
             if (!prev) return;
             const cur = { x: e.clientX, y: e.clientY };
@@ -1426,6 +1454,11 @@
             }
         });
         const up = (e) => {
+            if (state.brushMode && painting) {
+                painting = false;
+                finishBrush();
+                return;
+            }
             pointers.delete(e.pointerId);
             if (pointers.size < 2) lastDist = 0;
         };
@@ -1436,11 +1469,66 @@
         return Math.max(a, Math.min(b, v));
     }
 
+    // ---- Brush sửa viền ------------------------------------------------
+    /** Sơn cọ lên cutout: xóa (destination-out) hoặc khôi phục (từ _capFrame). */
+    function paintBrush(e) {
+        const r = el.reviewCanvas.getBoundingClientRect();
+        if (!r.width || !state._cutout) return;
+        const W = state._capW,
+            H = state._capH;
+        const sx = W / r.width; // px màn hình → px canvas
+        const cx = (e.clientX - r.left) * sx;
+        const cy = (e.clientY - r.top) * (H / r.height);
+        // đảo transform chủ thể (di chuyển/phóng) → toạ độ trong cutout
+        const lx = (cx - W / 2 - state.tx) / state.scale + W / 2;
+        const ly = (cy - H / 2 - state.ty) / state.scale + H / 2;
+        const rad = (state.brushSize * sx) / state.scale;
+        const c = state._cutout.getContext('2d');
+        c.save();
+        if (state.brushTool === 'erase') {
+            c.globalCompositeOperation = 'destination-out';
+            c.beginPath();
+            c.arc(lx, ly, rad, 0, 7);
+            c.fill();
+        } else {
+            c.beginPath();
+            c.arc(lx, ly, rad, 0, 7);
+            c.clip();
+            c.globalCompositeOperation = 'source-over';
+            c.drawImage(state._capFrame, 0, 0);
+        }
+        c.restore();
+        renderReview();
+    }
+    function finishBrush() {
+        state._sil = buildSilhouette(state._cutout, state._capW, state._capH); // cập nhật bóng
+        renderReview();
+    }
+    function moveCursor(e) {
+        const r = el.reviewStage.getBoundingClientRect();
+        const d = state.brushSize * 2;
+        el.brushCursor.style.width = d + 'px';
+        el.brushCursor.style.height = d + 'px';
+        el.brushCursor.style.left = e.clientX - r.left + 'px';
+        el.brushCursor.style.top = e.clientY - r.top + 'px';
+    }
+    function setBrushMode(on) {
+        state.brushMode = on;
+        el.brushBar.hidden = !on;
+        el.brushCursor.hidden = !on;
+        el.brushToggle.style.display = on ? 'none' : '';
+        el.compare.style.display = on ? 'none' : '';
+        el.resetTransform.style.display = on ? 'none' : '';
+        el.moveHint.style.display = on ? 'none' : '';
+        el.reviewStage.classList.toggle('ps-brushing', on);
+    }
+
     function showReview() {
         el.camera.hidden = true;
         el.review.hidden = false;
     }
     function backToCamera() {
+        setBrushMode(false);
         el.review.hidden = true;
         el.camera.hidden = false;
     }
