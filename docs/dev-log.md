@@ -38,6 +38,10 @@
 
 **Files:** `scripts/web2-seed-fake-data.js`, `scripts/web2-wipe-so-order.js`, `scripts/web2-verify-data-load.js` (mới). **Status:** ✅ Done.
 
+### [web2-products][so-order] Thêm ảnh SP (placeholder color-coded) ✅
+
+`scripts/web2-add-product-images.js`: gán `imageUrl` placehold.co cho 20 SP kho — màu nền theo màu SP (ĐEN→#1f2937, ĐỎ→#dc2626, XANH→#2563eb...), text = mã SP. PATCH `/api/web2-products/:code`. Sau đó chạy lại `web2-seed-so-order.js` để so-order pick up `productImage`. Verify: kho 20/20 ảnh, so-order render ảnh trong shipment expanded.
+
 ### [so-order] Xoá data cũ + tạo lại Sổ Order ảo theo kho SP ✅
 
 **Yêu cầu:** Wipe so-order + tạo data ảo tham chiếu kho sản phẩm.
