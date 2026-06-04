@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c694d7a` — feat(web2): photo-studio v10 — REBUILD giao diện camera-app mobile-first
-**Last updated**: 2026-06-04 10:33:53 +07
-**Latest session**: [`RESUME:20260604-103353-c694d7a`](../20260604-103353-c694d7a.md)
-**Summary**: feat(web2): photo-studio v10 — REBUILD giao diện camera-app mobile-first
+**Latest commit**: `9fe1e71` — feat(web2): photo-studio — mặc định tỉ lệ khung 4:5 (chuẩn ảnh sản phẩm)
+**Last updated**: 2026-06-04 10:35:07 +07
+**Latest session**: [`RESUME:20260604-103507-9fe1e71`](../20260604-103507-9fe1e71.md)
+**Summary**: feat(web2): photo-studio — mặc định tỉ lệ khung 4:5 (chuẩn ảnh sản phẩm)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 6 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -68,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-04 10:33
+- [`web2/`](./web2.md) — updated 2026-06-04 10:35
