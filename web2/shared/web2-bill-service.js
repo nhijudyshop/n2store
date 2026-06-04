@@ -144,32 +144,49 @@
         const m = _fmtMoney;
         const L = [];
         const left = (s) => L.push('|' + s); // canh trái
-        // Header shop (giữa, to). KHÔNG dùng invert (nền đen) — máy in nhiệt
-        // trắng đen, nền đen in ra thành khối đen che chữ → chỉ dùng to + đậm.
+        const gap = () => L.push(' '); // dòng trống tạo khoảng thở
+        const rule = () => L.push('-'); // kẻ ngang
+        // Bố cục 80mm — phân cấp rõ: shop → COD → phiếu+barcode → khách → SP →
+        // tổng → ghi chú → footer. KHÔNG invert (máy in trắng đen) — dùng cỡ + đậm.
+
+        // ── HEADER: tên shop to nhất ──
         L.push('^^^' + _rlEsc(d.shop.name));
-        if (d.isShop) L.push('^^"PBH SHOP - BÁN TẠI SHOP"');
-        else if (d.carrierName) L.push(_rlEsc(d.carrierName));
+        if (d.isShop) L.push('^"PBH SHOP - BÁN TẠI SHOP"');
+        else if (d.carrierName) L.push('"' + _rlEsc(d.carrierName) + '"');
         if (d.hasVirtualDebt) L.push('^^"CÓ ĐƠN THU VỀ"');
-        // Ô COD nổi bật bằng KÍCH THƯỚC + ĐẬM + đường kẻ khung (không nền đen).
-        L.push('-');
-        L.push('"TIỀN THU HỘ (COD)"');
+
+        // ── COD: con số quan trọng nhất, to nhất trong phiếu ──
+        rule();
+        L.push('Tiền thu hộ (COD)');
         L.push('^^^' + m(d.cod) + ' đ');
-        L.push('-');
-        L.push('^Phiếu Bán Hàng' + (d.isShop ? ' (SHOP)' : ''));
-        if (d.billNumber) L.push('{code:' + d.billNumber + ';option:code128,3,72,hri}');
-        L.push('Ngày:|' + _rlEsc(d.dateStr));
-        L.push('-');
-        // Khách (canh trái)
-        left('Khách: ' + _rlEsc(d.recName) + (d.recPhone ? ' - ' + _rlEsc(d.recPhone) : ''));
+        rule();
+
+        // ── TÊN PHIẾU + MÃ VẠCH ──
+        L.push('^^"Phiếu Bán Hàng' + (d.isShop ? ' (SHOP)' : '') + '"');
+        if (d.billNumber) {
+            gap();
+            L.push('{code:' + d.billNumber + ';option:code128,3,80,hri}');
+        }
+        rule();
+
+        // ── META: ngày + STT (2 cột, giá trị canh phải) ──
+        L.push('Ngày|' + _rlEsc(d.dateStr));
+        if (d.sttDisplay) L.push('STT|^"' + _rlEsc(d.sttDisplay) + '"');
+        rule();
+
+        // ── KHÁCH HÀNG (canh trái, nhãn đậm) ──
+        left('"Khách:" ' + _rlEsc(d.recName));
+        if (d.recPhone) left('"SĐT:" ' + _rlEsc(d.recPhone));
         if (d.recAddr)
             String(d.recAddr)
                 .split('\n')
-                .forEach((ln, i) => left((i ? '' : 'Địa chỉ: ') + _rlEsc(ln)));
-        if (d.sellerName) left('Người bán: ' + _rlEsc(d.sellerName));
-        if (d.sttDisplay) L.push('^STT: ' + _rlEsc(d.sttDisplay) + '|');
-        L.push('-');
-        // Sản phẩm
-        L.push('^Sản phẩm|^Thành tiền');
+                .forEach((ln, i) => left((i ? '   ' : '"Đ/c:" ') + _rlEsc(ln)));
+        if (d.sellerName) left('"NV bán:" ' + _rlEsc(d.sellerName));
+        rule();
+
+        // ── SẢN PHẨM ──
+        L.push('^"SẢN PHẨM"|^"THÀNH TIỀN"');
+        gap();
         let totalQty = 0;
         for (const it of d.lines) {
             const qty = Number(it.quantity || it.Quantity || 0);
@@ -179,42 +196,44 @@
             const uom = it.uomName || it.ProductUOMName || 'Cái';
             const note = it.note || it.Note || '';
             totalQty += qty;
-            left('^' + _rlEsc(name));
-            if (note) left('  ↳ ' + _rlEsc(note));
-            L.push(qty + ' ' + _rlEsc(uom) + ' x ' + m(price) + '|' + m(total));
+            left('"' + _rlEsc(name) + '"');
+            if (note) left('   ↳ ' + _rlEsc(note));
+            L.push('   ' + qty + ' ' + _rlEsc(uom) + ' x ' + m(price) + '|' + m(total));
         }
-        L.push('-');
-        // Tổng
-        L.push('Tổng SL:|' + totalQty);
-        L.push('Tạm tính:|' + m(d.subtotal));
-        if (d.discount > 0) L.push('Giảm giá:|-' + m(d.discount));
-        L.push('Phí ship:|' + m(d.shipping));
-        L.push('^^TỔNG TIỀN:|^^' + m(d.finalTotal) + ' đ');
+        rule();
+
+        // ── TỔNG TIỀN (2 cột) ──
+        L.push('Tổng số lượng|' + totalQty + ' sp');
+        L.push('Tạm tính|' + m(d.subtotal));
+        if (d.discount > 0) L.push('Giảm giá|-' + m(d.discount));
+        L.push('Phí ship|' + m(d.shipping));
+        L.push('^"TỔNG TIỀN"|^"' + m(d.finalTotal) + ' đ"');
         if (d.prepaid > 0) {
-            L.push('Đã trả trước:|-' + m(d.prepaid));
-            L.push('^"Còn lại (COD):"|^"' + m(d.cod) + ' đ"');
+            L.push('Đã trả trước|-' + m(d.prepaid));
+            L.push('^^"CÒN THU (COD)"|^^"' + m(d.cod) + '"');
         }
-        L.push('=');
-        // Ghi chú
+        rule();
+
+        // ── GHI CHÚ ──
         if (d.orderComment) {
-            left('Ghi chú đơn:');
-            String(d.orderComment)
-                .split('\n')
-                .forEach((ln) => left(_rlEsc(ln)));
-            L.push('-');
+            left('"Ghi chú đơn:" ' + _rlEsc(String(d.orderComment).replace(/\n+/g, ' ')));
+            gap();
         }
-        left('Ghi chú giao hàng:');
+        left('"Giao hàng:"');
         String(d.shopDeliveryNote)
             .split('\n')
-            .forEach((ln) => left(_rlEsc(ln)));
-        L.push('-');
-        left('Thông tin chuyển khoản:');
+            .forEach((ln) => ln.trim() && left(_rlEsc(ln)));
+        gap();
+        left('"Chuyển khoản:"');
         String(d.shopComment)
             .split('\n')
-            .forEach((ln) => left(_rlEsc(ln)));
-        L.push('-');
-        L.push('Cảm ơn quý khách!');
-        L.push('^' + _rlEsc(d.shop.name));
+            .forEach((ln) => ln.trim() && left(_rlEsc(ln)));
+        rule();
+
+        // ── FOOTER ──
+        L.push('Cảm ơn Quý khách!');
+        L.push('^"' + _rlEsc(d.shop.name) + '"');
+        gap();
         return L.join('\n');
     }
 
@@ -315,10 +334,21 @@
 html, body { margin: 0; padding: 0; background: #fff; }
 .receipt-wrap { width: 80mm; margin: 0 auto; padding: 2mm 0; }
 .receipt-wrap svg { display: block; width: 100%; height: auto; }
+/* ĐẬM HƠN cho máy in nhiệt: chữ ReceiptLine mặc định mảnh → in bị đứt/mờ.
+   font-weight bold + viền stroke quanh glyph (paint-order) để "béo" nét, đầu
+   in nhiệt ăn mực rõ. Áp cho mọi text/tspan trong SVG. */
+.receipt-wrap svg text,
+.receipt-wrap svg tspan {
+    font-weight: 700 !important;
+    stroke: #000;
+    stroke-width: 0.6px;
+    paint-order: stroke fill;
+}
 .page-break { display: block; page-break-before: always; }
 @media print {
     html, body { width: 80mm; }
     .receipt-wrap { width: 80mm; }
+    .receipt-wrap svg text, .receipt-wrap svg tspan { stroke-width: 0.8px; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
 </style></head>
