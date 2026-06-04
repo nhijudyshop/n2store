@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1c5ce79` — fix(inventory-tracking): revert pool web2Db -> chatDb (Web 1.0, khoi phuc data)
-**Last updated**: 2026-06-04 15:21:32 +07
-**Latest session**: [`RESUME:20260604-152132-1c5ce79`](../20260604-152132-1c5ce79.md)
-**Summary**: fix(inventory-tracking): revert pool web2Db -> chatDb (Web 1.0, khoi phuc data)
+**Latest commit**: `3c82de5` — auto: session update
+**Last updated**: 2026-06-04 15:28:46 +07
+**Latest session**: [`RESUME:20260604-152846-3c82de5`](../20260604-152846-3c82de5.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -69,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-04 14:11
+- [`web2/`](./web2.md) — updated 2026-06-04 15:28
