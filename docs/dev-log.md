@@ -25,6 +25,18 @@
 
 ## 2026-06-04
 
+### [web2] In bill: dấu tiếng Việt rõ hơn — bỏ emphasis + chữ to + supersample raster ✅
+
+User: "các chữ tiếng Việt có dấu in ra bill sẽ có xu hướng bị mờ" + "nhìn bill ở máy tính vậy thôi chứ in ra nó khác". Màn hình ≠ máy in nhiệt 203 DPI: dấu sắc/huyền/ngã/hỏi/nặng + đ/ơ/ư nhỏ → mất nét khi rasterize 1-bit.
+
+- **Bỏ emphasis ReceiptLine (`"`)** trong `_buildReceiptDoc` — emphasis cộng thêm 1 lớp đậm CHỒNG lên CSS `font-weight:900` → chữ dày nhòe mực. Giờ TẤT CẢ cùng độ đậm như "NHI JUDY" ở đầu bill, phân cấp CHỈ bằng kích thước (`^`, `^^`, `^^^`).
+- **Chữ to hơn**: `transform(doc, {cpl:32})` (từ 42) → mỗi ký tự rộng hơn → dấu phụ có nhiều pixel hơn để giữ nét.
+- **Supersampling raster 2×** trong `web2-printer.js`: render SVG/HTML ở `dots*2` (1152px cho 80mm 576-dot) rồi downsample mỗi block 2×2 → đen nếu ≥1 sub-pixel có mực (`need=max(1,round(0.2*ss*ss))`, `inkLum=165`). Giữ được nét mảnh của dấu tiếng Việt thay vì bỏ qua như render thẳng 1×. Bỏ dilation cũ (supersample thay thế).
+- **Stroke nhẹ hơn**: CSS `stroke-width 0.5px` (print 0.6px) thay vì 0.6/0.8 — đủ đậm, không bệt.
+- Verified output raster: 576 dots wide (bytesPerRow=72), GS v 0 (29,118,48), height 1779 dots, 128KB.
+- **Files:** `web2/shared/web2-bill-service.js` (v=nj10), `web2/shared/web2-printer.js` (v=20260604e)
+- **Lưu ý**: nếu in thật vẫn mờ → giải pháp tối thượng là TEXT-mode codepage tiếng Việt (CP1258) trong bridge thay vì raster ảnh (xem research GitHub bên dưới). Cần máy in hỗ trợ codepage VN.
+
 ### [web2] Balance-history: nút 💬 mở chat ngay trên row + bỏ icon link/reassign ✅
 
 User: cho nút mở chat ra ngoài row (cạnh ví); bỏ 2 icon (user-plus "link" + user-cog "reassign") vì "+ Gán KH" đã lo.
