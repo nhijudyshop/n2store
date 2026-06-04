@@ -25,6 +25,15 @@
 
 ## 2026-06-04
 
+### [web2] In tem 2-con: raster theo kích thước vật lý + research giao thức máy in tem ✅
+
+User hỏi setting cho "máy in 2 tem" (in tem mã SP ở web2/products). Khổ tem (2 Tem 66×21mm) chọn ngay trong dialog "In mã vạch" → "Giấy in", KHÔNG phải "Khổ giấy 80/58" của Cấu hình máy in (đó là khổ bill).
+
+- **Vấn đề**: `printHtml('label')` raster theo `dotsWidth` = 576/384 (khổ bill) → tem 66mm bị co nhỏ + dồn trái → in sai. **Fix**: thêm `escposRasterFromHtmlPhysical()` raster theo **kích thước VẬT LÝ** (đo `.barcode-sheet` width mm → ×8 chấm/mm @203DPI). Tem in đúng khổ thật, tự co theo preset tem. printHtml → dùng path này.
+- Thêm option **"Tem nhãn (tự co theo khổ tem)"** vào dropdown Khổ giấy (Cấu hình máy in). Files: `web2-printer.js` (v=20260604f), `printer-settings/index.html`.
+- **⚠ RESEARCH GitHub/web (quan trọng)**: máy in **receipt** (bill 80mm) nói **ESC/POS** (GS v 0 raster — path hiện tại OK). Máy in **tem chuyên dụng** (Xprinter XP-420B class, Godex, TSC, Zebra) nói **TSPL/EPL/ZPL**, KHÔNG nói ESC/POS → raster GS v 0 **có thể KHÔNG in được** trên máy tem chuyên dụng. Giải pháp đúng nếu máy tem là TSPL: sinh lệnh TSPL trong bridge (`SIZE 66 mm,21 mm` + `GAP 2 mm,0` + `BITMAP` từ canvas + `PRINT 1`) — handle gap sensor + sizing native. Barcode cần ≥7 mils × scale ≥2 cho 203DPI để quét rõ.
+- **Next**: user test ESC/POS raster trước. Nếu tem ra trắng/lỗi → máy tem là TSPL → implement TSPL bitmap path trong print-bridge.
+
 ### [web2] Chat read-only: hover avatar → phóng to (popup zoom) ✅
 
 User: hover vào avatar phóng to.
