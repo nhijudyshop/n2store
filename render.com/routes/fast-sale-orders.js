@@ -326,7 +326,7 @@ async function nextNumber(pool) {
     const now = new Date();
     const vn = new Date(now.getTime() + 7 * 3600 * 1000);
     const datePart = `${vn.getUTCFullYear()}${pad(vn.getUTCMonth() + 1, 2)}${pad(vn.getUTCDate(), 2)}`;
-    const prefix = `HD-${datePart}-`;
+    const prefix = `NJ-${datePart}-`;
     const r = await pool.query(
         `SELECT number FROM fast_sale_orders WHERE number LIKE $1 ORDER BY number DESC LIMIT 1`,
         [prefix + '%']
@@ -741,10 +741,10 @@ router.post('/merge', async (req, res) => {
         const ymd = `${today.getFullYear()}${pad(today.getMonth() + 1, 2)}${pad(today.getDate(), 2)}`;
         const todayCountQ = await client.query(
             `SELECT COUNT(*)::int AS n FROM fast_sale_orders WHERE number LIKE $1`,
-            [`HD-${ymd}-%`]
+            [`NJ-${ymd}-%`]
         );
         const nextSeq = pad(todayCountQ.rows[0].n + 1, 4);
-        const newNumber = `HD-${ymd}-${nextSeq}`;
+        const newNumber = `NJ-${ymd}-${nextSeq}`;
 
         const ins = await client.query(
             `INSERT INTO fast_sale_orders (
@@ -1166,7 +1166,10 @@ router.post('/from-native-order', async (req, res) => {
         }
         const splitIndex = existingPbhs.length + 1; // 1 = PBH đầu, ≥2 = tách đơn.
 
-        const number = await nextNumber(pool);
+        // 2026-06-04: HỢP NHẤT 1 mã NJ/đơn — PBH number = mã đơn web (NJ-...) thay vì
+        // counter HD riêng. Bill barcode = số PBH = mã đơn web → reconcile quét 1 mã ăn hết.
+        // PBH đầu (splitIndex 1) = src.code; tách/re-issue (≥2) = src.code-N giữ unique.
+        const number = splitIndex === 1 ? src.code : `${src.code}-${splitIndex}`;
         // Lines: ưu tiên b.orderLines nếu client truyền (tách đơn chỉ subset SP);
         // fallback toàn bộ products của native-order.
         const sourceLines =

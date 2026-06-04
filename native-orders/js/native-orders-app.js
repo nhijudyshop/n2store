@@ -1097,8 +1097,12 @@
                             </button>`;
                                 }
                                 if (o.status === 'confirmed') {
-                                    // Empty slot placeholder để grid layout không lệch.
-                                    return `<span class="tpos-action-placeholder"></span>`;
+                                    // 2026-06-04: đơn đã ra đơn hàng → nút IN PBH (barcode NJ
+                                    // = mã đơn → quét ở Đối soát đóng gói).
+                                    return `<button class="tpos-btn tpos-btn-primary tpos-btn-xs" title="In PBH (mã vạch NJ để quét đối soát đóng gói)"
+                                onclick="event.stopPropagation();NativeOrdersApp.printPbh('${escapeHtml(o.code)}')">
+                                <i data-lucide="printer" style="width:12px;height:12px;"></i>
+                            </button>`;
                                 }
                                 // draft (default)
                                 return `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH"
@@ -2538,6 +2542,63 @@
 
     // In bill thermal 80mm cho các đơn được chọn (tạo PBH-shape object trong RAM,
     // không lưu DB — dùng Web2Bill template). Hữu ích preview trước khi tạo PBH.
+    // 2026-06-04: In PBH cho đơn đã ra đơn hàng (confirmed). Fetch PBH THẬT theo
+    // source_code (số HĐ + deposit/delivery/payment thật) rồi in qua Web2Bill.
+    // Fallback dùng dữ liệu đơn web nếu chưa tìm thấy PBH.
+    async function printPbh(code) {
+        if (!window.Web2Bill) {
+            notify('Web2Bill chưa load — kiểm tra script', 'error');
+            return;
+        }
+        notify('Đang lấy PBH...', 'info');
+        let pbh = null;
+        try {
+            const r = await fetch(
+                `${WORKER_URL}/api/fast-sale-orders/load?search=${encodeURIComponent(code)}&limit=30`,
+                { credentials: 'include' }
+            );
+            const j = await r.json();
+            const rows = (j.orders || j.data || []).filter(
+                (p) => (p.sourceLink?.code || '') === code
+            );
+            pbh = rows.find((p) => p.state !== 'cancel') || rows[0] || null;
+        } catch (e) {
+            console.error('[printPbh] fetch failed:', e);
+        }
+        if (pbh) {
+            window.Web2Bill.openPrint(pbh);
+            notify(`Đang in PBH ${pbh.number}...`, 'info');
+            return;
+        }
+        // Fallback: dùng dữ liệu đơn web (số HĐ = mã đơn web)
+        const o = STATE.orders.find((x) => x.code === code);
+        if (!o) {
+            notify('Không tìm thấy đơn', 'error');
+            return;
+        }
+        const lines = (o.products || []).map((p) => ({
+            productName: p.name || p.productName || '',
+            quantity: Number(p.quantity) || 0,
+            priceUnit: Number(p.price) || 0,
+            uomName: p.uomName || 'Cái',
+            note: p.note || '',
+        }));
+        const totalAmount = lines.reduce((s, l) => s + l.quantity * l.priceUnit, 0);
+        window.Web2Bill.openPrint({
+            number: o.code,
+            displayStt: o.displayStt,
+            mergedDisplayStt: o.mergedDisplayStt || null,
+            partner: { name: o.customerName || '', phone: o.phone || '', address: o.address || '' },
+            orderLines: lines,
+            totals: { untaxed: totalAmount, total: totalAmount },
+            payment: { amount: 0, residual: totalAmount },
+            delivery: { price: 0, carrierName: '' },
+            comment: o.note || '',
+            dateInvoice: o.createdAt || new Date().toISOString(),
+        });
+        notify('In bill (chưa tìm thấy PBH — dùng dữ liệu đơn web)', 'warning');
+    }
+
     async function bulkPrintBills() {
         const codes = getSelectedCodes();
         if (!codes.length) {
@@ -7541,6 +7602,7 @@
         openEdit,
         quickStatus,
         createPbh,
+        printPbh,
         cancelPbh,
         cancelPbhFromEdit,
         setLineNote,

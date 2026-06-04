@@ -71,16 +71,20 @@
             /* ignore */
         }
     }
-    function feedback(msg, isError) {
+    function feedback(msg, isError, isComplete) {
         const div = document.createElement('div');
-        div.className = 'rc-scan-feedback ' + (isError ? 'is-error' : 'is-success');
+        div.className =
+            'rc-scan-feedback ' +
+            (isError ? 'is-error' : isComplete ? 'is-complete' : 'is-success');
         div.textContent = msg;
         document.body.appendChild(div);
+        // Complete (đã check xong) giữ lâu hơn cho dễ thấy.
+        const hold = isComplete ? 2600 : 1500;
         setTimeout(() => {
             div.style.opacity = '0';
             div.style.transition = 'opacity 200ms';
             setTimeout(() => div.remove(), 200);
-        }, 1500);
+        }, hold);
     }
     async function api(method, path, body) {
         const opts = { method, headers: { 'Content-Type': 'application/json' } };
@@ -247,11 +251,7 @@
             </div>
         `;
 
-        // Bind manual pick inputs
-        contentEl.querySelectorAll('input[data-pcode]').forEach((inp) => {
-            inp.addEventListener('change', onManualPickChange);
-            inp.addEventListener('focus', (e) => e.target.select());
-        });
+        // 2026-06-04: bỏ manual pick input — workflow scanner-only (quét barcode SP → +1).
 
         // Bind action buttons
         const b = (id, fn) => {
@@ -267,24 +267,34 @@
         if (window.lucide) window.lucide.createIcons();
     }
 
+    // 2026-06-04: scanner-only — bỏ input chỉnh SL. Quét barcode SP → +1 (server).
+    // Hiển thị got/need read-only + ✓ khi đủ. KHÔNG cho sửa tay.
     function renderLine(l) {
         const need = l.quantity;
         const got = l.picked_qty || 0;
-        const pct = need ? Math.round((got / need) * 100) : 0;
-        const cls = got >= need ? 'is-complete' : got > 0 ? 'is-partial' : '';
-        const fState = STATE.currentPbh?.fulfillmentState || 'pending';
-        const readonly = ['packed', 'shipped', 'delivered'].includes(fState) ? 'readonly' : '';
+        const pct = need ? Math.min(100, Math.round((got / need) * 100)) : 0;
+        const done = got >= need;
+        const cls = done ? 'is-complete' : got > 0 ? 'is-partial' : '';
+        const img = l.imageUrl
+            ? `<img class="rc-line-img" src="${escapeHtml(l.imageUrl)}" alt="" loading="lazy"
+                   onerror="this.style.visibility='hidden'" />`
+            : `<span class="rc-line-img rc-line-img-empty"><i data-lucide="image"></i></span>`;
         return `
             <tr class="rc-line-row ${cls}">
                 <td class="rc-line-product">
-                    ${escapeHtml(l.productName)}
-                    <div class="rc-line-bar"><div class="rc-line-bar-fill" style="width:${pct}%"></div></div>
+                    <div class="rc-line-product-cell">
+                        ${img}
+                        <div class="rc-line-product-info">
+                            ${escapeHtml(l.productName)}
+                            <div class="rc-line-bar"><div class="rc-line-bar-fill" style="width:${pct}%"></div></div>
+                        </div>
+                    </div>
                 </td>
-                <td class="rc-line-code">${escapeHtml(l.productCode || '')}</td>
+                <td class="rc-line-code"><strong>${escapeHtml(l.productCode || '')}</strong></td>
                 <td class="rc-line-qty">${need}</td>
                 <td class="rc-line-picked">
-                    <input type="number" min="0" max="${need}" value="${got}"
-                           data-pcode="${escapeHtml(l.productCode || '')}" ${readonly} />
+                    <span class="rc-picked-count ${done ? 'is-done' : got > 0 ? 'is-partial' : ''}">${got}/${need}</span>
+                    ${done ? '<i data-lucide="check" class="rc-picked-check"></i>' : ''}
                 </td>
             </tr>
         `;
@@ -441,9 +451,10 @@
     }
 
     // ---------- scanner ----------
-    // PBH number pattern: HD-YYYYMMDD-NNNN. Quét barcode trên bill ngoài bọc
-    // sẽ ra chuỗi này → tự switch sang PBH đó (không treat as product code).
-    const PBH_NUMBER_RE = /^HD-\d{8}-\d{3,5}$/;
+    // PBH number pattern (2026-06-04 đổi HD→NJ, hợp nhất 1 mã/đơn): NJ-YYYYMMDD-NNNN
+    // hoặc NJ-YYYYMMDD-NNNN-N (tách đơn). Quét barcode bill → switch PBH đó.
+    // Vẫn nhận HD-... cũ cho data legacy.
+    const PBH_NUMBER_RE = /^(NJ|HD)-\d{8}-\d{3,5}(-\d+)?$/;
 
     async function onScannerSubmit(value) {
         value = (value || '').trim();
@@ -471,7 +482,18 @@
             });
             STATE.currentPbh = res.pbh;
             renderDetail();
-            feedback(`✓ ${value}`);
+            const t = res.pbh?.totals || {};
+            if (t.isComplete) {
+                // Đủ hết SP trong đơn → server tự set fulfillment_state='picked' → ĐÃ CHECK XONG.
+                feedback(
+                    `✓✓ ĐỦ HÀNG — ĐÃ CHECK XONG ${STATE.selectedNumber}. Quét bill kế tiếp →`,
+                    false,
+                    true
+                );
+                loadList();
+            } else {
+                feedback(`✓ ${value} (${t.picked}/${t.quantity})`);
+            }
         } catch (e) {
             feedback('✗ ' + e.message, true);
         }

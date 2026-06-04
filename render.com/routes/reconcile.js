@@ -139,6 +139,7 @@ function mapPbh(row) {
         productName: l.productName || l.name || l.productCode || '',
         quantity: Number(l.quantity) || 0,
         priceUnit: Number(l.priceUnit ?? l.price ?? 0),
+        imageUrl: l.imageUrl || l.image_url || null, // 2026-06-04: hiện ảnh SP ở reconcile
         picked_qty: pickedByCode.get(l.productCode) || 0,
     }));
     const totalQty = mergedLines.reduce((s, l) => s + l.quantity, 0);

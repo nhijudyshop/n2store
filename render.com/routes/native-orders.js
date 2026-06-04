@@ -449,7 +449,7 @@ async function nextDailyCode(pool) {
     const now = new Date();
     const vn = new Date(now.getTime() + 7 * 3600 * 1000);
     const datePart = `${vn.getUTCFullYear()}${pad(vn.getUTCMonth() + 1, 2)}${pad(vn.getUTCDate(), 2)}`;
-    const prefix = `NW-${datePart}-`;
+    const prefix = `NJ-${datePart}-`;
 
     const r = await pool.query(
         `SELECT code FROM native_orders
@@ -1866,10 +1866,10 @@ router.post('/:code/split-order', async (req, res) => {
         const ymd = `${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}`;
         const countQ = await client.query(
             `SELECT COUNT(*)::int AS n FROM native_orders WHERE code LIKE $1`,
-            [`NW-${ymd}-%`]
+            [`NJ-${ymd}-%`]
         );
         const nextSeq = pad(countQ.rows[0].n + 1, 4);
-        const newCode = `NW-${ymd}-${nextSeq}`;
+        const newCode = `NJ-${ymd}-${nextSeq}`;
         const now = Date.now();
 
         // INSERT new order: same customer/contact info, EMPTY products, split_index = newIndex,
@@ -2019,10 +2019,10 @@ router.post('/merge', async (req, res) => {
         const ymd = `${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}`;
         const todayCountQ = await client.query(
             `SELECT COUNT(*)::int AS n FROM native_orders WHERE code LIKE $1`,
-            [`NW-${ymd}-%`]
+            [`NJ-${ymd}-%`]
         );
         const nextSeq = pad(todayCountQ.rows[0].n + 1, 4);
-        const newCode = `NW-${ymd}-${nextSeq}`;
+        const newCode = `NJ-${ymd}-${nextSeq}`;
         const now = Date.now();
 
         // Merge tạo đơn mới → cấp campaign_stt mới scope theo base.live_campaign_id.
@@ -2169,10 +2169,10 @@ router.post('/merge-to-pbh', async (req, res) => {
         const ymd = `${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}`;
         const todayCountQ = await client.query(
             `SELECT COUNT(*)::int AS n FROM fast_sale_orders WHERE number LIKE $1`,
-            [`HD-${ymd}-%`]
+            [`NJ-${ymd}-%`]
         );
         const nextSeq = pad(todayCountQ.rows[0].n + 1, 4);
-        const newNumber = `HD-${ymd}-${nextSeq}`;
+        const newNumber = `NJ-${ymd}-${nextSeq}`;
 
         // INSERT new PBH (fast_sale_orders)
         const ins = await client.query(
