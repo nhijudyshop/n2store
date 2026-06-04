@@ -54,7 +54,7 @@ async function ensureSchema(pool) {
                 sub_account VARCHAR(100),
                 reference_code VARCHAR(100),
                 description TEXT,
-                body JSONB,
+                raw_data JSONB,
                 linked_customer_phone VARCHAR(20),
                 display_name VARCHAR(255),
                 debt_added BOOLEAN DEFAULT FALSE,
@@ -202,7 +202,7 @@ async function insertWeb2BalanceHistory(db, webhookData) {
             `INSERT INTO web2_balance_history (
                 sepay_id, gateway, transaction_date, account_number, code,
                 content, transfer_type, transfer_amount, accumulated,
-                sub_account, reference_code, description, body
+                sub_account, reference_code, description, raw_data
              )
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
              ON CONFLICT (sepay_id) DO NOTHING

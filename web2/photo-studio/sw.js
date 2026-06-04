@@ -9,7 +9,7 @@
  */
 'use strict';
 
-const CACHE = 'ps-cache-v1';
+const CACHE = 'ps-cache-v2';
 const CDN_RE = [
     /cdn\.jsdelivr\.net/,
     /esm\.sh/,
@@ -17,6 +17,8 @@ const CDN_RE = [
     /images\.unsplash\.com/,
     /unpkg\.com/,
     /staticimgly\.com/,
+    /huggingface\.co/, // SlimSAM model weights (chọn đúng món)
+    /cdn-lfs/,
 ];
 
 self.addEventListener('install', () => self.skipWaiting());

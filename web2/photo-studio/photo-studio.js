@@ -66,6 +66,8 @@
         brushMode: false, // sửa viền
         brushTool: 'erase', // 'erase' | 'restore'
         brushSize: 40, // px màn hình
+        pickMode: false, // chọn đúng món (MobileSAM)
+        pickTool: 'add', // 'add' (điểm giữ) | 'remove' (điểm bỏ)
         aspect: 0.8, // mặc định 4:5 (chuẩn ảnh sản phẩm)
         facingMode: 'user',
         srcNatW: 0,
@@ -157,6 +159,12 @@
             'brushDone:psBrushDone',
             'brushSize:psBrushSize',
             'brushCursor:psBrushCursor',
+            'pickToggle:psPickToggle',
+            'pickBar:psPickBar',
+            'pickUndo:psPickUndo',
+            'pickCancel:psPickCancel',
+            'pickApply:psPickApply',
+            'pickHint:psPickHint',
             'moveHint:psMoveHint',
             'reviewMeta:psReviewMeta',
             'reviewStage:psReviewStage',
@@ -254,6 +262,17 @@
         el.brushSize.addEventListener('input', () => {
             state.brushSize = parseInt(el.brushSize.value, 10);
         });
+        // Chọn đúng món (MobileSAM)
+        el.pickToggle.addEventListener('click', () => enterPickMode());
+        el.pickCancel.addEventListener('click', () => exitPickMode(false));
+        el.pickApply.addEventListener('click', () => exitPickMode(true));
+        el.pickUndo.addEventListener('click', undoPickPoint);
+        el.pickBar.querySelectorAll('.ps-pick-tool[data-ptool]').forEach((b) =>
+            b.addEventListener('click', () => {
+                state.pickTool = b.dataset.ptool;
+                activate(el.pickBar.querySelectorAll('.ps-pick-tool'), b);
+            })
+        );
         // Xử lý hàng loạt
         el.batchFile.addEventListener('change', onBatchFiles);
         el.batchClose.addEventListener('click', () => (el.batch.hidden = true));
@@ -1217,6 +1236,9 @@
             state.ty = 0;
             state.scale = 1; // reset transform mỗi lần chụp
             setBrushMode(false);
+            if (state.pickMode) setPickUI(false);
+            samPoints = [];
+            state._samAlpha = null;
             sizeCanvas(el.reviewCanvas, W, H);
             renderReview();
             showReview();
@@ -1500,7 +1522,11 @@
         let painting = false;
         stage.addEventListener('pointerdown', (e) => {
             if (el.review.hidden) return;
-            if (e.target.closest('button, input, .ps-brush-bar')) return; // không cướp click nút
+            if (e.target.closest('button, input, .ps-brush-bar, .ps-pick-bar')) return; // không cướp click nút
+            if (state.pickMode) {
+                addPickPoint(e);
+                return;
+            }
             if (state.brushMode) {
                 try {
                     stage.setPointerCapture(e.pointerId);
@@ -1614,10 +1640,274 @@
         el.brushBar.hidden = !on;
         el.brushCursor.hidden = !on;
         el.brushToggle.style.display = on ? 'none' : '';
+        el.pickToggle.style.display = on ? 'none' : '';
         el.compare.style.display = on ? 'none' : '';
         el.resetTransform.style.display = on ? 'none' : '';
         el.moveHint.style.display = on ? 'none' : '';
         el.reviewStage.classList.toggle('ps-brushing', on);
+    }
+
+    // ---- Chọn đúng món (MobileSAM / SlimSAM trong trình duyệt) ----------
+    let _sam = null,
+        _samBusy = false,
+        _samPending = false,
+        samPoints = [];
+    const SAM_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.1';
+    const SAM_MODEL = 'Xenova/slimsam-77-uniform';
+
+    async function getSam() {
+        if (_sam) return _sam;
+        const t = await import(/* @vite-ignore */ SAM_URL);
+        // Probe adapter thật (navigator.gpu có thể tồn tại nhưng không lấy được adapter).
+        let hasGPU = false;
+        try {
+            hasGPU = !!(navigator.gpu && (await navigator.gpu.requestAdapter()));
+        } catch {
+            hasGPU = false;
+        }
+        // Thử cấu hình nhẹ→an toàn; fallback dần xuống WASM q8 (chạy mọi nơi).
+        const attempts = [];
+        if (hasGPU) attempts.push({ device: 'webgpu', dtype: 'fp32' });
+        attempts.push({ device: 'wasm', dtype: 'q8' });
+        let model = null,
+            lastErr;
+        for (const cfg of attempts) {
+            try {
+                model = await t.SamModel.from_pretrained(SAM_MODEL, cfg);
+                break;
+            } catch (e) {
+                lastErr = e;
+                console.warn('[photo-studio] SAM cfg fail', cfg, e?.message);
+            }
+        }
+        if (!model) throw lastErr || new Error('Không khởi tạo được SAM');
+        const processor = await t.AutoProcessor.from_pretrained(SAM_MODEL);
+        _sam = { t, model, processor };
+        return _sam;
+    }
+
+    /** Encode khung gốc 1 lần (vision encoder) → cache cho mọi cú chạm. */
+    async function samEmbed() {
+        const { t, model, processor } = await getSam();
+        if (state._samFrame === state._capFrame && state._samEmb) return;
+        const image = t.RawImage.fromCanvas(state._capFrame);
+        const inputs = await processor(image);
+        state._samEmb = await model.get_image_embeddings(inputs);
+        state._samImage = image;
+        state._samInputs = inputs;
+        state._samFrame = state._capFrame;
+    }
+
+    function setPickUI(on) {
+        state.pickMode = on;
+        el.pickBar.hidden = !on;
+        el.pickHint.hidden = !on;
+        el.pickToggle.style.display = on ? 'none' : '';
+        el.brushToggle.style.display = on ? 'none' : '';
+        el.compare.style.display = on ? 'none' : '';
+        el.resetTransform.style.display = on ? 'none' : '';
+        el.moveHint.style.display = on ? 'none' : '';
+        el.reviewStage.classList.toggle('ps-picking', on);
+        if (on) {
+            state.pickTool = 'add';
+            activate(
+                el.pickBar.querySelectorAll('.ps-pick-tool'),
+                el.pickBar.querySelector('[data-ptool="add"]')
+            );
+            el.pickHint.textContent = 'Chạm vào món muốn giữ';
+        }
+    }
+
+    async function enterPickMode() {
+        if (!state._capFrame) return;
+        setPickUI(true);
+        samPoints = [];
+        state._samAlpha = null;
+        renderPick();
+        try {
+            el.pickHint.textContent = 'Đang tải AI chọn vật (lần đầu ~15MB)…';
+            await samEmbed();
+            el.pickHint.textContent = 'Chạm vào món muốn giữ';
+        } catch (e) {
+            console.error('[photo-studio] SAM load', e);
+            notify('Không tải được AI chọn vật: ' + (e?.message || e), 'error');
+            exitPickMode(false);
+        }
+    }
+
+    function exitPickMode(apply) {
+        if (apply && applyPickMask()) notify('Đã cập nhật chủ thể.', 'success');
+        setPickUI(false);
+        samPoints = [];
+        state._samAlpha = null;
+        renderReview();
+    }
+
+    /** Toạ độ chạm (màn hình) → pixel trong khung gốc (đảo mirror nếu selfie). */
+    function pickPointFromEvent(e) {
+        const r = el.reviewCanvas.getBoundingClientRect();
+        if (!r.width) return null;
+        let x = (e.clientX - r.left) * (state._capW / r.width);
+        let y = (e.clientY - r.top) * (state._capH / r.height);
+        if (state.mirror && state.source === 'camera') x = state._capW - x;
+        return {
+            x: clamp(Math.round(x), 0, state._capW - 1),
+            y: clamp(Math.round(y), 0, state._capH - 1),
+        };
+    }
+
+    function addPickPoint(e) {
+        if (!state._samEmb) {
+            notify('Đang tải AI, đợi chút…', 'warning');
+            return;
+        }
+        const p = pickPointFromEvent(e);
+        if (!p) return;
+        samPoints.push({ x: p.x, y: p.y, label: state.pickTool === 'add' ? 1 : 0 });
+        runSamDecode();
+    }
+
+    function undoPickPoint() {
+        samPoints.pop();
+        if (samPoints.length) runSamDecode();
+        else {
+            state._samAlpha = null;
+            renderPick();
+        }
+    }
+
+    async function runSamDecode() {
+        if (_samBusy) {
+            _samPending = true;
+            return;
+        }
+        _samBusy = true;
+        _samPending = false;
+        el.pickHint.textContent = 'Đang nhận diện…';
+        try {
+            const { model, processor } = await getSam();
+            const pts = samPoints.map((p) => [p.x, p.y]);
+            const labels = samPoints.map((p) => p.label);
+            const proc = await processor(state._samImage, {
+                input_points: [pts],
+                input_labels: [labels],
+            });
+            const out = await model({
+                ...state._samEmb,
+                input_points: proc.input_points,
+                input_labels: proc.input_labels,
+            });
+            const masks = await processor.post_process_masks(
+                out.pred_masks,
+                state._samInputs.original_sizes,
+                state._samInputs.reshaped_input_sizes
+            );
+            state._samAlpha = maskToAlpha(masks[0], out.iou_scores, state._capW, state._capH);
+            let onPx = 0;
+            for (let i = 0; i < state._samAlpha.length; i++) if (state._samAlpha[i]) onPx++;
+            global.__psSam = { pts: samPoints.length, onPx, total: state._capW * state._capH };
+            renderPick();
+        } catch (e) {
+            console.error('[photo-studio] SAM decode', e);
+            notify('Nhận diện lỗi: ' + (e?.message || e), 'error');
+        } finally {
+            _samBusy = false;
+            el.pickHint.textContent = samPoints.length
+                ? 'Chạm thêm để chỉnh · bấm Dùng'
+                : 'Chạm vào món muốn giữ';
+            if (_samPending) runSamDecode();
+        }
+    }
+
+    /** Tensor mask (3 đề xuất) → Uint8 alpha WxH; chọn mask iou cao nhất. */
+    function maskToAlpha(maskTensor, iouScores, W, H) {
+        const dims = maskTensor.dims;
+        const mh = dims.at(-2),
+            mw = dims.at(-1);
+        const num = dims.length >= 3 ? dims.at(-3) : 1;
+        const scores = iouScores.data;
+        let best = 0;
+        for (let i = 1; i < num && i < scores.length; i++) if (scores[i] > scores[best]) best = i;
+        const plane = maskTensor.data;
+        const off = best * mh * mw;
+        const alpha = new Uint8Array(W * H);
+        if (mw === W && mh === H) {
+            for (let i = 0; i < W * H; i++) alpha[i] = Number(plane[off + i]) > 0 ? 255 : 0;
+        } else {
+            for (let y = 0; y < H; y++)
+                for (let x = 0; x < W; x++) {
+                    const sx = Math.floor((x * mw) / W),
+                        sy = Math.floor((y * mh) / H);
+                    alpha[y * W + x] = Number(plane[off + sy * mw + sx]) > 0 ? 255 : 0;
+                }
+        }
+        return alpha;
+    }
+
+    /** Vẽ khung gốc + tô vùng mask + chấm điểm (preview khi đang chọn). */
+    function renderPick() {
+        const W = state._capW,
+            H = state._capH;
+        if (!W) return;
+        rctx.clearRect(0, 0, W, H);
+        rctx.drawImage(state._capFrame, 0, 0);
+        if (state._samAlpha) {
+            const t = document.createElement('canvas');
+            t.width = W;
+            t.height = H;
+            const id = t.getContext('2d').createImageData(W, H);
+            const a = state._samAlpha;
+            for (let i = 0; i < W * H; i++)
+                if (a[i]) {
+                    id.data[i * 4] = 0;
+                    id.data[i * 4 + 1] = 180;
+                    id.data[i * 4 + 2] = 255;
+                    id.data[i * 4 + 3] = 110;
+                }
+            t.getContext('2d').putImageData(id, 0, 0);
+            rctx.drawImage(t, 0, 0);
+        }
+        const rad = Math.max(6, W * 0.012);
+        for (const p of samPoints) {
+            rctx.beginPath();
+            rctx.arc(p.x, p.y, rad, 0, 7);
+            rctx.fillStyle = p.label ? '#22c55e' : '#ef4444';
+            rctx.fill();
+            rctx.lineWidth = Math.max(2, W * 0.004);
+            rctx.strokeStyle = '#fff';
+            rctx.stroke();
+        }
+        el.reviewCanvas.classList.toggle('ps-mirror', state.mirror && state.source === 'camera');
+    }
+
+    /** Áp mask SAM thành cutout mới (frame ∩ mask, có feather). */
+    function applyPickMask() {
+        if (!state._samAlpha) return false;
+        const W = state._capW,
+            H = state._capH;
+        const m = document.createElement('canvas');
+        m.width = W;
+        m.height = H;
+        const mc = m.getContext('2d');
+        const id = mc.createImageData(W, H);
+        const a = state._samAlpha;
+        for (let i = 0; i < W * H; i++) {
+            id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = 255;
+            id.data[i * 4 + 3] = a[i];
+        }
+        mc.putImageData(id, 0, 0);
+        const cut = document.createElement('canvas');
+        cut.width = W;
+        cut.height = H;
+        const cc = cut.getContext('2d');
+        if (state.feather > 0) cc.filter = `blur(${state.feather}px)`;
+        cc.drawImage(m, 0, 0);
+        cc.filter = 'none';
+        cc.globalCompositeOperation = 'source-in';
+        cc.drawImage(state._capFrame, 0, 0);
+        state._cutout = cut;
+        state._sil = buildSilhouette(cut, W, H);
+        return true;
     }
 
     function showReview() {
@@ -1626,6 +1916,7 @@
     }
     function backToCamera() {
         setBrushMode(false);
+        if (state.pickMode) setPickUI(false);
         el.review.hidden = true;
         el.camera.hidden = false;
     }
