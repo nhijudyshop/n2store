@@ -60,6 +60,8 @@
         'OPEN_PHONE',
         // Livestream Snapshot capture (no popup)
         'N2_CAPTURE_VISIBLE_TAB',
+        // Web 2.0 — đọc cookie jwt của pancake.vn (auto-refresh token, không cần mở tab)
+        'GET_PANCAKE_TOKEN',
     ]);
 
     // Message types to forward from service worker → page
@@ -132,6 +134,9 @@
         // Livestream Snapshot capture responses
         'N2_CAPTURE_VISIBLE_TAB_SUCCESS',
         'N2_CAPTURE_VISIBLE_TAB_FAILURE',
+        // Web 2.0 — pancake jwt cookie relay responses
+        'GET_PANCAKE_TOKEN_SUCCESS',
+        'GET_PANCAKE_TOKEN_FAILURE',
     ]);
 
     // === PORT CONNECTION ===

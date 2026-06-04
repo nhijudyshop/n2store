@@ -500,6 +500,49 @@ async function handleMessage(msg, tabId, port, asyncSendResponse) {
             break;
         }
 
+        // === Web 2.0 — Pancake token auto-refresh ===
+        // Page (web2/pancake-settings, …) requests the current pancake.vn JWT.
+        // We have `cookies` permission + pancake.vn host access, so the
+        // background can read the `jwt` cookie directly from the browser cookie
+        // store — no pancake.vn tab needs to be open, no user click. The page
+        // calls this silently when its saved token is near expiry.
+        case 'GET_PANCAKE_TOKEN': {
+            try {
+                // `jwt` cookie is set on domain `.pancake.vn`, not HttpOnly.
+                const cookies = await chrome.cookies.getAll({
+                    domain: 'pancake.vn',
+                    name: 'jwt',
+                });
+                // Prefer the longest value (most complete JWT) if duplicates exist.
+                const token =
+                    (cookies || [])
+                        .map((c) => c.value)
+                        .filter(Boolean)
+                        .sort((a, b) => b.length - a.length)[0] || null;
+                if (!token) {
+                    sendResponse({
+                        type: 'GET_PANCAKE_TOKEN_FAILURE',
+                        requestId: msg.requestId,
+                        reason: 'not_logged_in',
+                    });
+                    break;
+                }
+                sendResponse({
+                    type: 'GET_PANCAKE_TOKEN_SUCCESS',
+                    requestId: msg.requestId,
+                    token,
+                });
+            } catch (err) {
+                log.warn(MODULE, 'GET_PANCAKE_TOKEN failed:', err.message);
+                sendResponse({
+                    type: 'GET_PANCAKE_TOKEN_FAILURE',
+                    requestId: msg.requestId,
+                    reason: err.message || 'cookie_read_error',
+                });
+            }
+            break;
+        }
+
         // === TPOS Interceptor Events ===
         case 'tpos:tag-assigned':
             log.info(

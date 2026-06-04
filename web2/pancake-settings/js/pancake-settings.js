@@ -237,6 +237,253 @@
         $('pagesBadge').className = 'badge warn';
     }
 
+    // =====================================================
+    // Token expiry monitor + auto-refresh qua extension
+    // =====================================================
+
+    const REASON_MSG = {
+        no_extension: 'Chưa phát hiện extension N2Store trong trình duyệt này',
+        timeout: 'Extension không phản hồi (thử lại hoặc mở pancake.vn)',
+        not_logged_in: 'Chưa đăng nhập pancake.vn trong trình duyệt này',
+        apply_decode: 'Token lấy về không hợp lệ',
+        apply_expired: 'Token trên pancake.vn cũng đã hết hạn — đăng nhập lại pancake.vn',
+    };
+
+    function _setBtnLoading(btn, label) {
+        if (!btn) return;
+        btn.dataset._html = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<i data-lucide="loader" style="width:14px;height:14px;animation:spin 1s linear infinite;"></i> ${escapeHtml(label)}`;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+    function _restoreBtn(btn) {
+        if (!btn || !btn.dataset._html) return;
+        btn.disabled = false;
+        btn.innerHTML = btn.dataset._html;
+        delete btn.dataset._html;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function renderExtStatus() {
+        const el = $('extStatus');
+        if (!el || !window.Web2PancakeToken) return;
+        const on = window.Web2PancakeToken.isExtensionPresent();
+        el.innerHTML = on
+            ? `<span class="ext-pill on"><i data-lucide="plug" style="width:12px;height:12px;"></i> Extension đã kết nối — lấy token tự động được</span>`
+            : `<span class="ext-pill off"><i data-lucide="plug-zap" style="width:12px;height:12px;"></i> Chưa thấy extension — chỉ lấy token thủ công</span>`;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function renderBanner() {
+        const el = $('expiryBanner');
+        if (!el || !window.Web2PancakeToken) return;
+        const st = window.Web2PancakeToken.getStatus();
+        if (st.state === 'ok' || st.state === 'none') {
+            // 'none' đã được modal xử lý; banner chỉ cho soon/critical/expired
+            el.style.display = 'none';
+            return;
+        }
+        let cls, msg;
+        if (st.state === 'soon') {
+            cls = 'soon';
+            const days = Math.max(0, Math.floor(st.daysLeft));
+            msg = `Token Pancake còn <strong>${days} ngày</strong> là hết hạn. Nên gia hạn sớm để không gián đoạn gửi tin/chốt đơn.`;
+        } else if (st.state === 'critical') {
+            cls = 'critical';
+            const hrs = Math.max(0, Math.floor(st.secondsLeft / 3600));
+            msg = `⚠ Token Pancake sắp hết hạn (còn ~${hrs} giờ). Gia hạn ngay.`;
+        } else {
+            cls = 'critical';
+            msg = `⚠ Token Pancake <strong>đã hết hạn</strong>. Gửi tin/chốt đơn sẽ lỗi cho tới khi gia hạn.`;
+        }
+        el.className = 'ps-banner ' + cls;
+        el.style.display = 'flex';
+        el.innerHTML = `
+            <i data-lucide="alert-triangle" style="width:18px;height:18px;flex-shrink:0;"></i>
+            <span class="ps-banner-msg">${msg}</span>
+            <button class="ps-btn" id="bannerRenew"><i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Gia hạn ngay</button>`;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+        const b = $('bannerRenew');
+        if (b)
+            b.addEventListener('click', () => openExpiryModal(window.Web2PancakeToken.getStatus()));
+    }
+
+    // ---- Auto-fetch dùng chung cho nút card + nút modal ----
+    async function doAutoFetch(btn) {
+        const PK = window.Web2PancakeToken;
+        if (!PK) {
+            notify('Module token chưa load — refresh trang', 'error');
+            return { ok: false, reason: 'no_module' };
+        }
+        if (!PK.isExtensionPresent()) {
+            notify(REASON_MSG.no_extension, 'warning');
+            return { ok: false, reason: 'no_extension' };
+        }
+        _setBtnLoading(btn, 'Đang lấy…');
+        const res = await PK.ensureFresh({ force: true });
+        _restoreBtn(btn);
+        if (res.refreshed) {
+            notify('Đã lấy token Pancake mới', 'success');
+            renderJwtInfo();
+            renderBanner();
+            loadPages();
+            return res;
+        }
+        notify('Không lấy được token: ' + (REASON_MSG[res.reason] || res.reason || 'lỗi'), 'error');
+        return res;
+    }
+
+    // ---- Modal ----
+    function openExpiryModal(status, autoFailReason) {
+        const overlay = $('expiryModal');
+        if (!overlay) return;
+        const st = status || window.Web2PancakeToken.getStatus();
+        const icon = $('expiryModalIcon');
+        const title = $('expiryModalTitle');
+        const desc = $('expiryModalDesc');
+
+        let iconCls = '',
+            iconName = 'key-round',
+            titleTxt = 'Token Pancake sắp hết hạn',
+            descTxt = '';
+        if (st.state === 'none') {
+            iconCls = 'none';
+            iconName = 'key-round';
+            titleTxt = 'Chưa cấu hình token Pancake';
+            descTxt =
+                'Web 2.0 cần token Pancake để gửi tin nhắn / comment. Lấy token ngay bên dưới.';
+        } else if (st.state === 'expired') {
+            iconCls = 'critical';
+            iconName = 'alert-octagon';
+            titleTxt = 'Token Pancake đã hết hạn';
+            descTxt = 'Token đã hết hạn — gửi tin và chốt đơn sẽ lỗi. Lấy token mới để tiếp tục.';
+        } else {
+            // critical
+            iconCls = 'critical';
+            iconName = 'alert-triangle';
+            const hrs = Math.max(0, Math.floor(st.secondsLeft / 3600));
+            titleTxt = 'Token Pancake sắp hết hạn';
+            descTxt = `Chỉ còn ~${hrs} giờ nữa là hết hạn. Gia hạn ngay để không gián đoạn.`;
+        }
+        icon.className = 'ps-modal-icon ' + iconCls;
+        icon.innerHTML = `<i data-lucide="${iconName}" style="width:26px;height:26px;"></i>`;
+        title.textContent = titleTxt;
+        desc.textContent = descTxt;
+
+        // Nếu auto đã fail (silent) → mở sẵn phần thủ công + nói lý do
+        const manual = $('expiryManual');
+        if (autoFailReason) {
+            if (manual) manual.open = true;
+            const hint = $('expiryAutoHint');
+            if (hint)
+                hint.innerHTML =
+                    'Tự động không lấy được: <strong>' +
+                    escapeHtml(REASON_MSG[autoFailReason] || autoFailReason) +
+                    '</strong>. Thử lại hoặc dùng cách thủ công.';
+        } else if (manual) {
+            manual.open = false;
+        }
+
+        overlay.hidden = false;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+    function closeExpiryModal() {
+        const overlay = $('expiryModal');
+        if (overlay) overlay.hidden = true;
+    }
+
+    function wireModal() {
+        const closeBtn = $('expiryModalClose');
+        const dismiss = $('expiryDismiss');
+        const autoBtn = $('expiryAutoBtn');
+        const copyBtn = $('btnCopySnippet');
+        const pasteSave = $('expiryPasteSave');
+        const overlay = $('expiryModal');
+
+        if (closeBtn) closeBtn.addEventListener('click', closeExpiryModal);
+        if (dismiss) dismiss.addEventListener('click', closeExpiryModal);
+        if (overlay)
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) closeExpiryModal();
+            });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && overlay && !overlay.hidden) closeExpiryModal();
+        });
+
+        if (autoBtn)
+            autoBtn.addEventListener('click', async () => {
+                const res = await doAutoFetch(autoBtn);
+                if (res.refreshed) {
+                    closeExpiryModal();
+                } else {
+                    // mở phần thủ công để user tự xử lý
+                    const manual = $('expiryManual');
+                    if (manual) manual.open = true;
+                }
+            });
+
+        if (copyBtn)
+            copyBtn.addEventListener('click', async () => {
+                const snippet = $('consoleSnippet')?.textContent || '';
+                try {
+                    await navigator.clipboard.writeText(snippet);
+                    notify('Đã copy đoạn console', 'success');
+                } catch {
+                    notify('Không copy được — bôi đen copy tay', 'warning');
+                }
+            });
+
+        if (pasteSave)
+            pasteSave.addEventListener('click', () => {
+                const txt = $('expiryPasteInput')?.value || '';
+                const r = window.Web2PancakeToken.applyToken(txt);
+                if (!r.ok) {
+                    notify(
+                        'Token không hợp lệ: ' + (REASON_MSG['apply_' + r.reason] || r.reason),
+                        'error'
+                    );
+                    return;
+                }
+                notify('Đã lưu token Pancake', 'success');
+                $('expiryPasteInput').value = '';
+                closeExpiryModal();
+                renderJwtInfo();
+                renderBanner();
+                loadPages();
+            });
+    }
+
+    // Chạy khi load: thử auto-refresh ngầm nếu token critical/expired/none.
+    async function runMonitor() {
+        const PK = window.Web2PancakeToken;
+        if (!PK) return;
+        renderExtStatus();
+        const st = PK.getStatus();
+        const needs = st.state === 'none' || st.state === 'expired' || st.state === 'critical';
+        if (!needs) {
+            renderBanner();
+            return;
+        }
+        // Thử lấy token mới ngầm (không UI) nếu có extension
+        if (PK.isExtensionPresent()) {
+            const res = await PK.ensureFresh({});
+            if (res.refreshed) {
+                notify('Đã tự động cập nhật token Pancake mới', 'success');
+                renderJwtInfo();
+                renderBanner();
+                loadPages();
+                return;
+            }
+            // ngầm fail → hiện modal kèm lý do
+            openExpiryModal(PK.getStatus(), res.reason);
+            renderBanner();
+            return;
+        }
+        // không có extension → hiện modal hướng dẫn thủ công
+        openExpiryModal(st);
+        renderBanner();
+    }
+
     function init() {
         if (!window.Web2Chat) {
             notify('Web2Chat không load — refresh trang', 'error');
@@ -250,12 +497,21 @@
         $('btnClearPageTokens').addEventListener('click', clearPageTokens);
         $('btnNuke').addEventListener('click', nuke);
 
+        const autoBtn = $('btnAutoJwt');
+        if (autoBtn) autoBtn.addEventListener('click', () => doAutoFetch(autoBtn));
+
+        wireModal();
+
         renderJwtInfo();
+        renderExtStatus();
         if (window.Web2Chat.getJwt()) {
             // auto-load if JWT already present
             loadPages();
         }
         if (window.lucide?.createIcons) window.lucide.createIcons();
+
+        // Theo dõi expiry + auto-refresh (chạy sau cùng, không chặn render)
+        setTimeout(runMonitor, 350);
     }
 
     if (document.readyState === 'loading') {

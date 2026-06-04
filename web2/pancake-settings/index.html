@@ -248,6 +248,227 @@
                 padding: 10px;
                 text-align: center;
             }
+
+            /* Banner nhắc nhở (state soon / critical) */
+            .ps-banner {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 11px 16px;
+                border-radius: 8px;
+                font-size: 13px;
+                margin-bottom: 16px;
+                border: 1px solid transparent;
+            }
+            .ps-banner.soon {
+                background: #fffbeb;
+                border-color: #fde68a;
+                color: #92400e;
+            }
+            .ps-banner.critical {
+                background: #fef2f2;
+                border-color: #fecaca;
+                color: #991b1b;
+            }
+            .ps-banner .ps-banner-msg {
+                flex: 1;
+                line-height: 1.5;
+            }
+            .ps-banner .ps-btn {
+                padding: 5px 11px;
+                font-size: 12px;
+            }
+
+            /* Ext status pill */
+            .ext-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                padding: 2px 8px;
+                border-radius: 999px;
+                font-weight: 600;
+            }
+            .ext-pill.on {
+                background: #dcfce7;
+                color: #15803d;
+            }
+            .ext-pill.off {
+                background: #f1f5f9;
+                color: #64748b;
+            }
+
+            /* Code-copy block */
+            .ps-code-copy {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                background: #0f172a;
+                border-radius: 6px;
+                padding: 8px 10px;
+            }
+            .ps-code-copy code {
+                flex: 1;
+                color: #a5f3fc;
+                font-family: ui-monospace, monospace;
+                font-size: 11px;
+                word-break: break-all;
+                line-height: 1.4;
+            }
+            .ps-code-copy .ps-btn {
+                flex-shrink: 0;
+                padding: 5px 10px;
+                font-size: 12px;
+            }
+
+            /* Modal */
+            .ps-modal-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(15, 23, 42, 0.55);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+                padding: 20px;
+                animation: psFade 0.18s ease-out;
+            }
+            .ps-modal-overlay[hidden] {
+                display: none;
+            }
+            @keyframes psFade {
+                from {
+                    opacity: 0;
+                }
+                to {
+                    opacity: 1;
+                }
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+            .ps-modal {
+                background: #fff;
+                border-radius: 14px;
+                width: 100%;
+                max-width: 460px;
+                padding: 28px 26px 20px;
+                position: relative;
+                box-shadow: 0 16px 48px rgba(15, 23, 42, 0.24);
+                text-align: center;
+                animation: psPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            @keyframes psPop {
+                from {
+                    transform: translateY(8px) scale(0.98);
+                    opacity: 0;
+                }
+                to {
+                    transform: none;
+                    opacity: 1;
+                }
+            }
+            .ps-modal-x {
+                position: absolute;
+                top: 14px;
+                right: 14px;
+                border: none;
+                background: transparent;
+                color: #94a3b8;
+                cursor: pointer;
+                padding: 4px;
+                border-radius: 6px;
+                display: inline-flex;
+            }
+            .ps-modal-x:hover {
+                background: #f1f5f9;
+                color: #0f172a;
+            }
+            .ps-modal-icon {
+                width: 56px;
+                height: 56px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 14px;
+                background: #fef3c7;
+                color: #b45309;
+            }
+            .ps-modal-icon.critical {
+                background: #fee2e2;
+                color: #dc2626;
+            }
+            .ps-modal-icon.none {
+                background: #ede9fe;
+                color: #7c3aed;
+            }
+            .ps-modal-title {
+                font-size: 18px;
+                font-weight: 700;
+                color: #0f172a;
+                margin: 0 0 8px;
+            }
+            .ps-modal-desc {
+                font-size: 13px;
+                color: #64748b;
+                line-height: 1.6;
+                margin: 0 0 18px;
+            }
+            .ps-modal-cta {
+                width: 100%;
+                justify-content: center;
+                padding: 11px;
+                font-size: 14px;
+            }
+            .ps-modal-hint {
+                font-size: 11px;
+                color: #94a3b8;
+                margin-top: 8px;
+                line-height: 1.5;
+            }
+            .ps-modal-manual {
+                margin-top: 16px;
+                text-align: left;
+                border-top: 1px solid #f1f5f9;
+                padding-top: 14px;
+            }
+            .ps-modal-manual summary {
+                cursor: pointer;
+                font-size: 13px;
+                font-weight: 600;
+                color: #475569;
+                list-style: none;
+                user-select: none;
+            }
+            .ps-modal-manual summary::-webkit-details-marker {
+                display: none;
+            }
+            .ps-modal-manual summary::before {
+                content: '▸ ';
+                color: #94a3b8;
+            }
+            .ps-modal-manual[open] summary::before {
+                content: '▾ ';
+            }
+            .ps-modal-manual-body {
+                font-size: 12.5px;
+                color: #475569;
+            }
+            .ps-modal-dismiss {
+                display: block;
+                margin: 16px auto 0;
+                border: none;
+                background: transparent;
+                color: #94a3b8;
+                font-size: 12px;
+                cursor: pointer;
+            }
+            .ps-modal-dismiss:hover {
+                color: #64748b;
+                text-decoration: underline;
+            }
         </style>
 
         <div class="web2-shell">
@@ -265,6 +486,9 @@
                     <code>tpos-pancake/</code> cũ. Token lưu localStorage, không gửi lên server.
                 </p>
 
+                <!-- Banner nhắc nhở khi token sắp hết hạn (≤ 3 ngày) -->
+                <div id="expiryBanner" class="ps-banner" style="display: none"></div>
+
                 <!-- JWT Token Card -->
                 <div class="ps-card">
                     <h2>
@@ -273,7 +497,10 @@
                         <span id="jwtBadge" class="badge err">Chưa có</span>
                     </h2>
                     <div class="ps-help">
-                        Vào
+                        <strong>Tự động (khuyên dùng):</strong> bấm <strong>Lấy tự động</strong> —
+                        extension sẽ đọc cookie <code>jwt</code> từ pancake.vn (cần đang đăng nhập
+                        pancake.vn trong trình duyệt này). Không cần mở tab, không cần copy tay.<br />
+                        <strong>Thủ công:</strong> mở
                         <a
                             href="https://pancake.vn"
                             target="_blank"
@@ -281,9 +508,20 @@
                             style="color: #0369a1; font-weight: 600"
                             >pancake.vn</a
                         >
-                        đăng nhập → F12 → Application → Cookies → copy giá trị cookie
-                        <code>token</code> → dán vào ô bên dưới.
+                        → F12 → Console → dán
+                        <code>copy(document.cookie.match(/(?:^|; )jwt=([^;]+)/)[1])</code> → Enter
+                        (token đã vào clipboard) → quay lại đây dán vào ô bên dưới.
                     </div>
+                    <div
+                        id="extStatus"
+                        style="
+                            font-size: 11px;
+                            margin-bottom: 10px;
+                            display: flex;
+                            align-items: center;
+                            gap: 6px;
+                        "
+                    ></div>
                     <div id="jwtInfo">
                         <div class="ps-row">
                             <span class="label">Trạng thái</span
@@ -298,7 +536,11 @@
                         ></textarea>
                     </div>
                     <div class="ps-actions">
-                        <button class="ps-btn primary" id="btnSaveJwt">
+                        <button class="ps-btn primary" id="btnAutoJwt">
+                            <i data-lucide="wand-2" style="width: 14px; height: 14px"></i> Lấy tự
+                            động
+                        </button>
+                        <button class="ps-btn" id="btnSaveJwt">
                             <i data-lucide="save" style="width: 14px; height: 14px"></i> Lưu token
                         </button>
                         <button class="ps-btn" id="btnTestJwt">
@@ -365,6 +607,72 @@
             </main>
         </div>
 
+        <!-- Modal cảnh báo token sắp / đã hết hạn -->
+        <div class="ps-modal-overlay" id="expiryModal" hidden>
+            <div
+                class="ps-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="expiryModalTitle"
+            >
+                <button class="ps-modal-x" id="expiryModalClose" aria-label="Đóng">
+                    <i data-lucide="x" style="width: 18px; height: 18px"></i>
+                </button>
+                <div class="ps-modal-icon" id="expiryModalIcon">
+                    <i data-lucide="key-round" style="width: 26px; height: 26px"></i>
+                </div>
+                <h2 class="ps-modal-title" id="expiryModalTitle">Token Pancake sắp hết hạn</h2>
+                <p class="ps-modal-desc" id="expiryModalDesc"></p>
+
+                <!-- Auto path -->
+                <button class="ps-btn primary ps-modal-cta" id="expiryAutoBtn">
+                    <i data-lucide="wand-2" style="width: 15px; height: 15px"></i>
+                    Lấy token mới tự động
+                </button>
+                <div class="ps-modal-hint" id="expiryAutoHint">
+                    Extension đọc cookie từ pancake.vn — cần đang đăng nhập pancake.vn trong trình
+                    duyệt này.
+                </div>
+
+                <!-- Manual fallback (ẩn cho tới khi auto fail / user mở) -->
+                <details class="ps-modal-manual" id="expiryManual">
+                    <summary>Hoặc lấy thủ công</summary>
+                    <div class="ps-modal-manual-body">
+                        <ol style="margin: 8px 0 10px; padding-left: 18px; line-height: 1.7">
+                            <li>
+                                Mở
+                                <a href="https://pancake.vn" target="_blank" rel="noopener"
+                                    >pancake.vn</a
+                                >
+                                và đăng nhập.
+                            </li>
+                            <li>F12 → tab <strong>Console</strong>.</li>
+                            <li>Dán đoạn dưới, Enter (token vào clipboard):</li>
+                        </ol>
+                        <div class="ps-code-copy">
+                            <code id="consoleSnippet"
+                                >copy(document.cookie.match(/(?:^|; )jwt=([^;]+)/)[1])</code
+                            >
+                            <button class="ps-btn" id="btnCopySnippet" type="button">
+                                <i data-lucide="copy" style="width: 13px; height: 13px"></i> Copy
+                            </button>
+                        </div>
+                        <textarea
+                            class="ps-textarea"
+                            id="expiryPasteInput"
+                            placeholder="Dán token vừa copy vào đây…"
+                            style="margin-top: 10px"
+                        ></textarea>
+                        <button class="ps-btn primary" id="expiryPasteSave" style="margin-top: 8px">
+                            <i data-lucide="save" style="width: 14px; height: 14px"></i> Lưu token
+                        </button>
+                    </div>
+                </details>
+
+                <button class="ps-modal-dismiss" id="expiryDismiss">Để sau</button>
+            </div>
+        </div>
+
         <script src="../../web2/shared/web2-auth.js?v=20260521b"></script>
         <script src="../shared/web2-user-info.js?v=20260530a"></script>
         <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
@@ -372,6 +680,7 @@
         <script src="../shared/web2-optimistic.js?v=20260601a"></script>
         <script src="../../web2/shared/tpos-sidebar.js?v=20260522f"></script>
         <script src="../../web2/shared/web2-chat-client.js?v=20260521b"></script>
-        <script src="js/pancake-settings.js?v=20260521b"></script>
+        <script src="../shared/web2-pancake-token.js?v=20260604a"></script>
+        <script src="js/pancake-settings.js?v=20260604a"></script>
     </body>
 </html>
