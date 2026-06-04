@@ -36,6 +36,7 @@
         running: false,
         lastResult: null, // { totalGross, totalLoss, totalNet, orderCount, refundCount, bySeller:Map, refundFailed, ranAt }
         byOrder: new Map(), // orderId → { grossKpi, refundedKpiAmount, netKpi, refundedProducts[], sellerName, invoiceNumber }
+        lastRefundFile: null, // { buffer: ArrayBuffer, filename } — file refund excel gốc TPOS để tải về kiểm tra chéo
     };
 
     // ===== TIỆN ÍCH =====
@@ -255,7 +256,10 @@
             `[SOCIAL-KPI] Refund detail ${monthsBack} tháng: ${rows.length} dòng, ` +
                 `${codes.size} phiếu unique, ${refundByInvoice.size} phiếu có chi tiết món`
         );
-        return { refundByInvoice, codes, totalRows: rows.length };
+        // Giữ buffer XLSX gốc để user tải về kiểm tra chéo (file y nguyên TPOS trả về).
+        const todayName = new Date().toISOString().slice(0, 10);
+        const filename = `mon-tra-tpos_${monthsBack}thang_${todayName}.xlsx`;
+        return { refundByInvoice, codes, totalRows: rows.length, buffer: buf, filename, startISO, endISO };
     }
 
     /**
@@ -337,6 +341,11 @@
             ]);
             const refundByInvoice = refund?.refundByInvoice || new Map();
             const refundFailed = !refund;
+            // Lưu file refund gốc để user tải về kiểm tra chéo (chỉ khi fetch thành công)
+            if (refund?.buffer) {
+                state.lastRefundFile = { buffer: refund.buffer, filename: refund.filename };
+            }
+            updateDownloadBtn();
 
             // 3) Tính per-order + gộp theo nhân viên
             state.byOrder.clear();
@@ -523,6 +532,35 @@
         return `<span style="color:#059669;font-weight:600;font-size:12px;" title="Gross ${gq} món × 5.000đ (chưa đối soát — bấm 'Chạy đối soát KPI' để trừ hàng trả)">${escHtml(formatVnd(g))}</span>`;
     }
 
+    // ===== TẢI FILE REFUND GỐC (kiểm tra chéo) =====
+    function updateDownloadBtn() {
+        const btn = document.getElementById('btnSocialKpiDownloadRefund');
+        if (!btn) return;
+        btn.style.display = state.lastRefundFile?.buffer ? 'inline-flex' : 'none';
+        if (state.lastRefundFile?.filename) {
+            btn.title = `Tải file refund gốc TPOS để kiểm tra chéo (${state.lastRefundFile.filename})`;
+        }
+    }
+
+    function downloadRefundExcel() {
+        const f = state.lastRefundFile;
+        if (!f || !f.buffer) {
+            notify('Chưa có file refund — hãy bấm "Chạy đối soát KPI" trước', 'warning');
+            return;
+        }
+        const blob = new Blob([f.buffer], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = f.filename || 'mon-tra-tpos.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
     // ===== EXPORT =====
     window.SocialKpiReconcile = {
         run,
@@ -531,6 +569,7 @@
         grossQtyFromCache,
         getOrderKpiCell,
         renderSellerBreakdown,
+        downloadRefundExcel,
         isInvoiceCancelled,
         KPI_PER_UNIT,
         CHOT_STATES,

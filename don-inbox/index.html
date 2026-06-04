@@ -328,6 +328,27 @@
                                 <i class="fas fa-balance-scale"></i> Chạy đối soát KPI
                             </button>
 
+                            <!-- Tải file refund gốc TPOS (hiện sau khi chạy đối soát) -->
+                            <button
+                                class="filter-item"
+                                id="btnSocialKpiDownloadRefund"
+                                onclick="window.SocialKpiReconcile && window.SocialKpiReconcile.downloadRefundExcel()"
+                                title="Tải file refund gốc TPOS để kiểm tra chéo"
+                                style="
+                                    display: none;
+                                    cursor: pointer;
+                                    border: 1px solid #6ee7b7;
+                                    background: #d1fae5;
+                                    color: #047857;
+                                    font-weight: 600;
+                                    font-size: 13px;
+                                    align-items: center;
+                                    gap: 6px;
+                                "
+                            >
+                                <i class="fas fa-file-excel"></i> Tải file Excel
+                            </button>
+
                             <!-- Spacer -->
                             <div style="flex: 1"></div>
 
@@ -2363,7 +2384,7 @@ HẾT HÀNG</textarea
         <script src="js/tab-social-invoice.js?v=20260603a"></script>
 
         <!-- KPI Reconcile Engine (gate phiếu đã chốt + đối soát trừ hàng trả) -->
-        <script src="js/tab-social-kpi-reconcile.js?v=20260604a"></script>
+        <script src="js/tab-social-kpi-reconcile.js?v=20260604b"></script>
 
         <!-- Status Filter Tabs: sync clicks → hidden #statusFilter + performTableSearch -->
         <script>
