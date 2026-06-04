@@ -25,6 +25,22 @@
 
 ## 2026-06-04
 
+### [render] Tách Web 1.0 ⊥ Web 2.0 — customers orders + SePay + drop orphan ✅
+
+3 việc hoàn tất separation 2 chiều (nối tiếp inventory-tracking + supplier-debt):
+
+**1. customers.js `/:id/orders` (Web 1.0)**: đọc `native_orders`/`fast_sale_orders` (bảng Web 2.0) trên chatDb → bản leftover rỗng → tab đơn KH luôn trống. Fix: query trên **web2Db match theo phone** (customer_id chatDb khác id-space web2Db). Lookup khách vẫn trên chatDb.
+
+**2. SePay tách Web 2.0 độc lập**:
+
+- `sepay-wallet-operations.js` (Web 1.0): gỡ HẾT mirror ghi `web2_balance_history` (hàm `_syncWeb2BalanceHistory` + 2 call ở transaction phone/hidden + inline `/customer-info`). File giờ chỉ đụng bảng Web 1.0.
+- `server.js`: ensureSchema các service web2-_ (wallet-isolation, sepay-matching, match-audit, webhook-retry, blacklist) đổi `chatDbPool` → `web2Pool` (bảng web2\__ tạo trên web2Db, hết tạo leftover trên Web 1.0).
+- Web 2.0 SePay vẫn độc lập qua `sepay-webhook-core._processWeb2Path → web2Db` (đã isolated sẵn). `wallet-deposits.js` (WEB2.0) đọc web2Db đúng.
+
+**3. Drop orphan**: boot cleanup DROP IF EXISTS 6 bảng `inventory_*` trên web2Db (leftover từ seed supplier-debt). Guard chặt `web2Pool !== chatDbPool` → không drop nhầm Web 1.0.
+
+> Bối cảnh: user yêu cầu Web 1.0 ⊥ Web 2.0 tuyệt đối (không share/đụng gì 2 chiều). Data Web 2.0 đang giai đoạn thử nghiệm → thoải mái, ưu tiên code đúng kiến trúc. Quy ước tên: có "web2" = Web 2.0 (web2Db), không có = Web 1.0 (chatDb).
+
 ### [web2] Photo-studio — Đợt 2: di chuyển / phóng to chủ thể trên nền ✅
 
 - State transform `{tx,ty,scale}`; renderReview vẽ nhóm chủ thể (bóng+cutout) trong `save/translate/scale/translate` (nền + logo cố định). Reset mỗi lần chụp.
