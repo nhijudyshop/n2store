@@ -60,6 +60,13 @@ TPOS đổi tên/hình/số lượng SP → trang `soluong-live/index.html` + `s
 - **HTML**: load `js/warehouse-realtime.js?v=20260604a` sau `warehouse-api.js` ở cả 2 trang.
 - **Verify**: cả 2 trang `syncLoaded:true` + log `[WarehouseSync] Listening web_warehouse SSE`; SSE hub stats `web_warehouse` 18 clients (topic proven); API `/product/154875` trả product + 3 biến thể đủ field (name_get/image_url/tpos_qty_available). KHÔNG ghi data giả vào prod (chỉ re-fetch truth).
 
+#### Backfill data cũ + reconcile-on-load (follow-up cùng ngày)
+
+Cart hiện có **331 SP / 142 template** được thêm TRƯỚC khi có SSE → snapshot Firebase cũ, không khớp TPOS mới. SSE chỉ bắt thay đổi đi tới, không tự sửa data cũ.
+
+- **Backfill 1 lần** (qua browser session, ghi truth — không phải data giả): re-fetch 142/142 template (0 missing), dedupe theo template, **220/331 SP bị lệch đã sửa**, 1318 field ghi 1 batch `ref().update()`. Verify: 4 SP mẫu khớp TPOS (qty/name), `soldQty` giữ nguyên (vd 156024 sold=1 qty=5 rem=4), `remainingQty = qty − sold` đúng.
+- **Reconcile-on-load** (durable, thêm vào `warehouse-realtime.js`): khi load trang, sau 3s đối chiếu toàn bộ cart với TPOS truth — bắt thay đổi xảy ra khi KHÔNG tab nào mở (vd qua đêm). Throttle qua localStorage `soluongWhReconcileAt` (tối đa 1 lần/10 phút/trình duyệt, chung index + list). Thêm `handle.refreshAll()` + `window.__soluongWhSync` để gọi tay từ console. Bump module `?v=20260604b`.
+
 ### [web2] Studio chụp tách nền — engine fal.ai BiRefNet (HD, không watermark) ✅🔄
 
 Research Google/GitHub cách lấy ảnh SẠCH (KHÔNG làm chức năng xóa watermark — lách phí, từ chối). Kết quả: **fal.ai BiRefNet** (model MIT state-of-the-art) free/pay-per-use, không watermark, full HD, **shop đã có FAL_KEY sẵn** (dùng cho AI KOL).
