@@ -25,6 +25,16 @@
 
 ## 2026-06-04
 
+### [tpos-pancake] Tối ưu kéo-thả SP → đơn (fix feedback CSS + delegation + debounce) ✅
+
+User: kéo SP vào tạo/thêm đơn ở tpos-pancake "không mượt". Root cause tìm ra:
+
+- **Bug chính**: CSS drop-feedback (`inv-drop-hover`/`inv-has-order`/`inv-drop-deny`) chỉ nhắm `.pk-conversation-item` nhưng drop target THỰC TẾ là `.tpos-conversation-item` (TPOS comment list) → **kéo qua row KHÔNG hiện gì** (rename pk→tpos quên update CSS). Fix: thêm selector `.tpos-conversation-item` + pill "➕ Thả vào đây" rõ ràng, bỏ `transform: scale` (repaint subtree row).
+- **Delegation**: `attachDragSources` trước attach ~400 listener (2/card × 200) + re-attach mỗi filter render → đổi 1 listener delegation trên `#invList` (idempotent).
+- **Debounce**: search input filter 2000 SP + rebuild 200 card mỗi keystroke → debounce 150ms.
+
+**Test pipeline drop→đơn→tính năng** (mô phỏng cart/add như khi thả SP, test customer 0123456788): DROP tạo draft `NJ-...`→ thêm 2 SP (200k) → PBH SHOP trừ ví 187.999 (partial), COD=12.001, carrier='PBH SHOP', badge shop=true/paid=false ✅. Cleanup sạch. Xác nhận đơn tạo từ kéo-thả tpos-pancake chạy đúng mọi tính năng vừa làm (thu hộ ví, PBH SHOP, badge).
+
 ### [native-orders] Thu hộ ví khi tạo PBH + badge Đã thanh toán/Đã đối soát + nút PBH SHOP ✅
 
 User: 1/nút PBH SHOP (bán tại shop), 2/đơn được trừ ví → "đã thanh toán" + COD = còn thiếu, 3/đơn đã đối soát → badge "đã đối soát". Quyết định: trừ ví THẬT khi tạo PBH (hủy→hoàn), trừ phần có nếu ví thiếu, đối soát = fulfillment packed+.
