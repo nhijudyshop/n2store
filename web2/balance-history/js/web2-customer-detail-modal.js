@@ -69,7 +69,10 @@
             <div class="modal-content w2cd-panel" role="dialog" aria-modal="true">
                 <header class="w2cd-head">
                     <div class="w2cd-title" id="w2cdTitle">Khách hàng</div>
-                    <button type="button" class="w2cd-close" data-close aria-label="Đóng">&times;</button>
+                    <div class="w2cd-head-actions">
+                        <button type="button" class="w2cd-chat-btn" id="w2cdChat" title="Xem đoạn hội thoại Facebook của khách">💬 Mở chat</button>
+                        <button type="button" class="w2cd-close" data-close aria-label="Đóng">&times;</button>
+                    </div>
                 </header>
                 <nav class="w2cd-tabs">
                     <button class="w2cd-tab is-active" data-tab="info">Thông tin</button>
@@ -81,6 +84,10 @@
         document.body.appendChild(_el);
         _el.addEventListener('click', (e) => {
             if (e.target.closest('[data-close]')) close();
+            if (e.target.closest('#w2cdChat')) {
+                openChat();
+                return;
+            }
             const tab = e.target.closest('.w2cd-tab');
             if (tab) switchTab(tab.getAttribute('data-tab'));
         });
@@ -95,6 +102,52 @@
     function close() {
         if (_el) _el.hidden = true;
         document.body.style.overflow = '';
+    }
+
+    function _notify(msg, type) {
+        if (global.notificationManager?.show) global.notificationManager.show(msg, type || 'info');
+        else console.log('[chat]', msg);
+    }
+
+    // Mở popup xem hội thoại FB read-only của KH. Resolve SĐT → pageId+psid qua
+    // /api/web2/customers/:phone/fb-conversation, rồi Web2ChatReadonly.open.
+    async function openChat() {
+        const phone = _data.phone || _data.customer?.phone;
+        if (!phone) {
+            _notify('Thiếu SĐT khách', 'warning');
+            return;
+        }
+        const btn = _el.querySelector('#w2cdChat');
+        const old = btn ? btn.textContent : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = '⏳ Đang mở…';
+        }
+        try {
+            const r = await getJSON(
+                `/api/web2/customers/${encodeURIComponent(phone)}/fb-conversation`
+            );
+            if (!r || !r.found) {
+                _notify('KH chưa có hội thoại Facebook (chưa từng có đơn/chat FB)', 'info');
+                return;
+            }
+            if (!global.Web2ChatReadonly?.open) {
+                _notify('Module chat chưa load (web2-chat-readonly.js)', 'error');
+                return;
+            }
+            global.Web2ChatReadonly.open({
+                pageId: r.pageId || null,
+                psid: r.psid,
+                name: r.name || _data.name || _data.customer?.name || '',
+            });
+        } catch (e) {
+            _notify('Lỗi mở chat: ' + (e?.message || e), 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = old || '💬 Mở chat';
+            }
+        }
     }
 
     function switchTab(tab) {
@@ -286,6 +339,10 @@
         .w2cd-panel{position:relative;background:#fff;width:min(680px,94vw);max-height:88vh;border-radius:14px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.2);}
         .w2cd-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e2e8f0;}
         .w2cd-title{font-weight:700;font-size:16px;color:#0f172a;}
+        .w2cd-head-actions{display:flex;align-items:center;gap:10px;}
+        .w2cd-chat-btn{border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;font-size:13px;font-weight:600;padding:5px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s;}
+        .w2cd-chat-btn:hover{background:#dbeafe;border-color:#93c5fd;}
+        .w2cd-chat-btn:disabled{opacity:.6;cursor:default;}
         .w2cd-close{border:0;background:none;font-size:26px;line-height:1;cursor:pointer;color:#64748b;}
         .w2cd-tabs{display:flex;gap:4px;padding:8px 14px 0;border-bottom:1px solid #e2e8f0;}
         .w2cd-tab{border:0;background:none;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:#64748b;border-bottom:2px solid transparent;}
