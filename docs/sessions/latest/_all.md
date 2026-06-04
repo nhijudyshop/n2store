@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4d47e00` — perf(web2-bill): in qua iframe an tai su dung thay popup window (het 'in bill lau') + giam stroke
-**Last updated**: 2026-06-04 19:41:24 +07
-**Latest session**: [`RESUME:20260604-194124-4d47e00`](../20260604-194124-4d47e00.md)
-**Summary**: perf(web2-bill): in qua iframe an tai su dung thay popup window (het 'in bill lau') + giam stroke
+**Latest commit**: `6c943de` — fix(web2-balance): modal Gan KH seed bang extraction_preview (bo FT/GD ref >10 so)
+**Last updated**: 2026-06-04 19:45:58 +07
+**Latest session**: [`RESUME:20260604-194558-6c943de`](../20260604-194558-6c943de.md)
+**Summary**: fix(web2-balance): modal Gan KH seed bang extraction_preview (bo FT/GD ref >10 so)
 
 ## Folders affected in this commit
 
-- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 - [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-04 19:34
+- [`docs/`](./docs.md) — updated 2026-06-04 19:45
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-04 13:36
 - [`downloads/`](./downloads.md) — updated 2026-06-04 15:58
@@ -68,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-04 19:41
+- [`web2/`](./web2.md) — updated 2026-06-04 19:45
