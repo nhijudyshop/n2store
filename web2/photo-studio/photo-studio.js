@@ -162,6 +162,7 @@
             'pickToggle:psPickToggle',
             'pickBar:psPickBar',
             'pickUndo:psPickUndo',
+            'pickExtract:psPickExtract',
             'pickCancel:psPickCancel',
             'pickApply:psPickApply',
             'pickHint:psPickHint',
@@ -267,6 +268,7 @@
         el.pickCancel.addEventListener('click', () => exitPickMode(false));
         el.pickApply.addEventListener('click', () => exitPickMode(true));
         el.pickUndo.addEventListener('click', undoPickPoint);
+        el.pickExtract.addEventListener('click', extractPickedObject);
         el.pickBar.querySelectorAll('.ps-pick-tool[data-ptool]').forEach((b) =>
             b.addEventListener('click', () => {
                 state.pickTool = b.dataset.ptool;
@@ -1813,7 +1815,7 @@
         } finally {
             _samBusy = false;
             el.pickHint.textContent = samPoints.length
-                ? 'Chạm thêm để chỉnh · bấm Dùng'
+                ? 'Chạm thêm để chỉnh · Dùng / ✂ tách riêng'
                 : 'Chạm vào món muốn giữ';
             if (_samPending) runSamDecode();
         }
@@ -1908,6 +1910,97 @@
         state._cutout = cut;
         state._sil = buildSilhouette(cut, W, H);
         return true;
+    }
+
+    /** Tách món vừa chọn (SAM) thành 1 ảnh PNG nền trong suốt, cắt sát viền + lưu. */
+    async function extractPickedObject() {
+        if (!state._samAlpha) {
+            notify('Chạm chọn món trước đã.', 'warning');
+            return;
+        }
+        const W = state._capW,
+            H = state._capH,
+            a = state._samAlpha;
+        // bounding box vùng chọn
+        let minX = W,
+            minY = H,
+            maxX = -1,
+            maxY = -1;
+        for (let y = 0; y < H; y++)
+            for (let x = 0; x < W; x++)
+                if (a[y * W + x]) {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+        if (maxX < 0) {
+            notify('Vùng chọn trống.', 'warning');
+            return;
+        }
+        const pad = Math.round(Math.max(W, H) * 0.02);
+        minX = clamp(minX - pad, 0, W - 1);
+        minY = clamp(minY - pad, 0, H - 1);
+        maxX = clamp(maxX + pad, 0, W - 1);
+        maxY = clamp(maxY + pad, 0, H - 1);
+        const ow = maxX - minX + 1,
+            oh = maxY - minY + 1;
+        // cutout full-res = frame ∩ mask (feather)
+        const m = document.createElement('canvas');
+        m.width = W;
+        m.height = H;
+        const mc = m.getContext('2d');
+        const id = mc.createImageData(W, H);
+        for (let i = 0; i < W * H; i++) {
+            id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = 255;
+            id.data[i * 4 + 3] = a[i];
+        }
+        mc.putImageData(id, 0, 0);
+        const cut = document.createElement('canvas');
+        cut.width = W;
+        cut.height = H;
+        const cc = cut.getContext('2d');
+        if (state.feather > 0) cc.filter = `blur(${state.feather}px)`;
+        cc.drawImage(m, 0, 0);
+        cc.filter = 'none';
+        cc.globalCompositeOperation = 'source-in';
+        cc.drawImage(state._capFrame, 0, 0);
+        // crop sát viền
+        let out = document.createElement('canvas');
+        out.width = ow;
+        out.height = oh;
+        out.getContext('2d').drawImage(cut, minX, minY, ow, oh, 0, 0, ow, oh);
+        // lật gương cho khớp ảnh selfie đang xem
+        if (state.mirror && state.source === 'camera') {
+            const f = document.createElement('canvas');
+            f.width = ow;
+            f.height = oh;
+            const fc = f.getContext('2d');
+            fc.translate(ow, 0);
+            fc.scale(-1, 1);
+            fc.drawImage(out, 0, 0);
+            out = f;
+        }
+        if (state.upscale) {
+            el.pickHint.textContent = 'Đang làm nét…';
+            try {
+                out = await upscaleCanvas(out);
+            } catch (e) {
+                console.warn('[photo-studio] extract upscale', e?.message);
+            }
+        }
+        try {
+            const blob = await canvasToBlob(out, 'image/png');
+            if (blob) {
+                await saveBlob(blob, `mon-${stamp()}.png`);
+                notify('Đã tách món ra ảnh PNG trong suốt.', 'success');
+            }
+        } catch (e) {
+            notify('Lưu ảnh lỗi: ' + (e?.message || e), 'error');
+        }
+        el.pickHint.textContent = samPoints.length
+            ? 'Chạm thêm để chỉnh · Dùng / ✂ tách riêng'
+            : 'Chạm vào món muốn giữ';
     }
 
     function showReview() {

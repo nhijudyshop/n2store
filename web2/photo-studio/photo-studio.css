@@ -662,6 +662,19 @@ main.web2-main.ps-app {
     width: 16px;
     height: 16px;
 }
+.ps-pick-extract {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    padding: 7px 9px;
+    cursor: pointer;
+    display: inline-flex;
+}
+.ps-pick-extract i {
+    width: 16px;
+    height: 16px;
+}
 .ps-pick-cancel {
     background: transparent;
     color: rgba(255, 255, 255, 0.8);
