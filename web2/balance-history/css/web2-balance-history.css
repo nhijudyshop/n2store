@@ -490,6 +490,13 @@
 .w2bh-icon-btn.auto-match:hover {
     background: linear-gradient(135deg, #d97706, #b45309);
 }
+/* Nút mở hội thoại FB ngay trên row */
+.w2bh-icon-chat {
+    background: #2563eb;
+}
+.w2bh-icon-chat:hover {
+    background: #1d4ed8;
+}
 
 /* Extraction hint badge (for NO_PHONE rows) */
 .w2bh-extract-hint {

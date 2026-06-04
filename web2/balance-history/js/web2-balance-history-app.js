@@ -269,6 +269,11 @@
                 )
             );
         });
+        dom.tbody.querySelectorAll('[data-action="chat"]').forEach((btn) => {
+            btn.addEventListener('click', () =>
+                openChatForPhone(btn.getAttribute('data-phone'), btn.getAttribute('data-name'))
+            );
+        });
         // Số dư ví KH cho các row có SĐT (chỉ hiện khi > 0).
         window.Web2WalletBalance?.attachBalances?.(dom.tbody);
     }
@@ -439,16 +444,9 @@
                 </td>
                 <td class="w2bh-cell-actions">
                     ${
-                        !phone && !isManualNcc
-                            ? `<button type="button" class="w2bh-icon-btn" data-action="link" data-id="${r.id}" title="Gán SĐT thủ công (fallback khi extractor không tìm ra)">
-                                <i data-lucide="user-plus" style="width:14px;height:14px;"></i>
-                            </button>`
-                            : ''
-                    }
-                    ${
-                        phone && isIn && r.debt_added === true && amount > 0
-                            ? `<button type="button" class="w2bh-icon-btn w2bh-icon-reassign" data-action="reassign" data-id="${r.id}" data-old-phone="${escapeHtml(phone)}" data-amount="${amount}" title="Sửa KH (chuyển công nợ sang KH khác)">
-                                <i data-lucide="user-cog" style="width:14px;height:14px;"></i>
+                        phone
+                            ? `<button type="button" class="w2bh-icon-btn w2bh-icon-chat" data-action="chat" data-phone="${escapeHtml(phone)}" data-name="${escapeHtml(name || '')}" title="Mở hội thoại Facebook của khách">
+                                <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
                             </button>`
                             : ''
                     }
@@ -563,6 +561,41 @@
         /\/api\/web2\/balance-history$/,
         '/api/web2/customers/search'
     );
+
+    // ----- Mở hội thoại FB của KH ngay từ row (nút 💬) -----
+    const FB_CONV_BASE = BASE.replace(/\/api\/web2\/balance-history$/, '/api/web2/customers');
+    const FB_CONV_FALLBACK = DIRECT_BASE.replace(
+        /\/api\/web2\/balance-history$/,
+        '/api/web2/customers'
+    );
+    async function fbConversation(phone) {
+        const path = `/${encodeURIComponent(phone)}/fb-conversation`;
+        for (const base of [FB_CONV_BASE, FB_CONV_FALLBACK]) {
+            try {
+                const r = await fetch(base + path);
+                if (r.ok) return await r.json();
+            } catch {}
+        }
+        return null;
+    }
+    async function openChatForPhone(phone, name) {
+        if (!phone) return;
+        if (!window.Web2ChatReadonly) {
+            notify('Module hội thoại chưa load', 'warning');
+            return;
+        }
+        const r = await fbConversation(phone);
+        if (r && r.found) {
+            window.Web2ChatReadonly.open({
+                pageId: r.pageId || null,
+                psid: r.psid,
+                name: r.name || name || '',
+            });
+        } else {
+            // Chưa resolve được FB → mở chế độ tìm seed tên/SĐT (linh hoạt).
+            window.Web2ChatReadonly.openSearch({ query: name || phone });
+        }
+    }
 
     async function searchCustomers(q) {
         const query = String(q || '').trim();

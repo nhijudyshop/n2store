@@ -25,6 +25,15 @@
 
 ## 2026-06-04
 
+### [web2] Balance-history: nút 💬 mở chat ngay trên row + bỏ icon link/reassign ✅
+
+User: cho nút mở chat ra ngoài row (cạnh ví); bỏ 2 icon (user-plus "link" + user-cog "reassign") vì "+ Gán KH" đã lo.
+
+- **Nút 💬 trên row** (ô actions, KH đã gán): `data-action="chat"` → `openChatForPhone(phone,name)` → resolve `/fb-conversation`; có FB → `Web2ChatReadonly.open`, không → `openSearch` seed tên/SĐT (linh hoạt). Browser-tested: click "Trần Hường" → 21 hội thoại để chọn.
+- **Bỏ** icon `data-action="link"` (user-plus) + `data-action="reassign"` (user-cog) khỏi ô actions — "+ Gán KH" (text) vẫn lo gán cho row chưa gán. Verified: 0 leftover.
+- **Avatar**: list hội thoại dùng avatar chữ-cái (Pancake search KHÔNG trả URL ảnh — custKeys chỉ `fb_id/id/name`).
+- **Files:** `web2/balance-history/js/web2-balance-history-app.js` (v=c), `css/web2-balance-history.css` (v=c), `index.html`
+
 ### [web2] Chat read-only: panel tìm hội thoại KH (tên/SĐT/nội dung) — như native-orders ✅
 
 User: cho panel tìm KH theo tên/SĐT/nội dung → chọn hội thoại → như native-orders, linh hoạt.
