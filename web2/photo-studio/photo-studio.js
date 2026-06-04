@@ -20,7 +20,8 @@
 
     // ---- State ----------------------------------------------------------
     const state = {
-        mode: 'ai', // 'ai' | 'chroma'
+        mode: 'ai', // 'ai' | 'hq' | 'chroma'
+        hqEngine: 'local', // 'local' (@imgly) | 'photoroom' (cloud)
         source: 'camera', // 'camera' | 'image'
         bgType: 'transparent', // 'transparent' | 'color' | 'image' | 'blur'
         bgColor: '#ffffff',
@@ -62,6 +63,9 @@
     // @imgly/background-removal (IS-Net / U²-Net, on-device, free). ESM qua esm.sh
     // để tự gói dependency (onnxruntime-web). Lazy import lần đầu dùng "AI nét".
     const IMGLY_URL = 'https://esm.sh/@imgly/background-removal@1.5.5';
+
+    // Backend cutout (PhotoRoom) qua CF worker → Render /api/web2/cutout.
+    const CUTOUT_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/cutout';
 
     // ---- Init -----------------------------------------------------------
     function init() {
@@ -169,6 +173,8 @@
             'previewClose:psPreviewClose',
             'previewRetake:psPreviewRetake',
             'previewSave:psPreviewSave',
+            'hqEngineCard:psHqEngineCard',
+            'hqEngineNote:psHqEngineNote',
         ].forEach((pair) => {
             const [k, v] = pair.split(':');
             el[k] = v.startsWith('.') ? document.querySelector(v) : id(v);
@@ -194,6 +200,14 @@
         el.previewClose.addEventListener('click', closePreview);
         el.previewRetake.addEventListener('click', closePreview);
         el.previewSave.addEventListener('click', savePreview);
+
+        // Engine cho "AI nét"
+        document.querySelectorAll('.ps-hqeng-btn[data-hqeng]').forEach((b) =>
+            b.addEventListener('click', () => {
+                state.hqEngine = b.dataset.hqeng;
+                activate(document.querySelectorAll('.ps-hqeng-btn'), b);
+            })
+        );
 
         document
             .querySelectorAll('.ps-seg-btn[data-mode]')
@@ -767,10 +781,15 @@
 
     async function captureHQ() {
         if (state._hqBusy || !state.srcNatW) return;
+        const cloud = state.hqEngine === 'photoroom';
         state._hqBusy = true;
         el.capture.disabled = true;
         showLoading(
-            imglyMod ? 'Đang tách nền…' : 'Đang tải mô hình AI nét (lần đầu ~vài chục MB)…'
+            cloud
+                ? 'Đang tách nền chất lượng cao (cloud)…'
+                : imglyMod
+                  ? 'Đang tách nền…'
+                  : 'Đang tải mô hình AI nét (lần đầu ~vài chục MB)…'
         );
         try {
             const crop = cropRect(state.srcNatW, state.srcNatH);
@@ -790,12 +809,8 @@
                 W,
                 H
             );
-            const inputBlob = await canvasToBlob(tmp, 'image/png');
-            // 2) tách nền on-device
-            const mod = await loadImgly();
-            showLoading('Đang tách nền…');
-            const cutBlob = await mod.removeBackground(inputBlob);
-            const cutImg = await blobToImage(cutBlob);
+            // 2) tách nền → ảnh chủ thể nền trong suốt (local @imgly hoặc cloud PhotoRoom)
+            const cutImg = cloud ? await cloudCutout(tmp) : await localCutout(tmp);
             // 3) ghép nền mới (full crop coords)
             const comp = document.createElement('canvas');
             comp.width = W;
@@ -803,7 +818,7 @@
             const cctx = comp.getContext('2d');
             drawBg(cctx, W, H, tmp, { sx: 0, sy: 0, sw: W, sh: H });
             cctx.drawImage(cutImg, 0, 0, W, H);
-            URL.revokeObjectURL(cutImg.src);
+            if (cutImg.src?.startsWith('blob:')) URL.revokeObjectURL(cutImg.src);
             finalizeCapture(comp, W, H);
         } catch (e) {
             console.error('[photo-studio] AI nét', e);
@@ -813,6 +828,43 @@
             state._hqBusy = false;
             el.capture.disabled = false;
         }
+    }
+
+    /** Tách nền on-device bằng @imgly → trả HTMLImageElement (nền trong suốt). */
+    async function localCutout(canvas) {
+        const inputBlob = await canvasToBlob(canvas, 'image/png');
+        const mod = await loadImgly();
+        const cutBlob = await mod.removeBackground(inputBlob);
+        return blobToImage(cutBlob);
+    }
+
+    /** Tách nền qua backend PhotoRoom (chất lượng cao, cần mạng). */
+    async function cloudCutout(canvas) {
+        const dataUrl = canvas.toDataURL('image/png');
+        const res = await fetch(`${CUTOUT_API}/photoroom`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: dataUrl }),
+        });
+        let j;
+        try {
+            j = await res.json();
+        } catch {
+            throw new Error('Server trả về không hợp lệ (' + res.status + ')');
+        }
+        if (!res.ok || !j.success) {
+            throw new Error(j?.error || 'Cutout cloud lỗi (' + res.status + ')');
+        }
+        return loadImageSrc(j.image);
+    }
+
+    function loadImageSrc(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('Không tải được ảnh kết quả'));
+            img.src = src;
+        });
     }
 
     function canvasToBlob(canvas, type, q) {
@@ -954,9 +1006,11 @@
         document.querySelector(`.ps-seg-btn[data-mode="${mode}"]`)?.classList.add('is-active');
         const isChroma = mode === 'chroma';
         const isAi = mode === 'ai';
+        const isHq = mode === 'hq';
         // Engines cached: chuyển qua lại tức thì sau lần đầu (state.seg + imglyMod giữ nguyên).
         el.chromaCard.hidden = !isChroma;
         el.aiCard.hidden = !isAi; // slider feather chỉ áp cho AI realtime
+        el.hqEngineCard.hidden = !isHq; // chọn engine local/cloud cho AI nét
         el.sampleHint.hidden = !isChroma;
         el.output.classList.toggle('ps-pickable', isChroma);
         el.modeNote.textContent = MODE_NOTE[mode] || MODE_NOTE.ai;

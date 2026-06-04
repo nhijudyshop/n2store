@@ -156,6 +156,18 @@ Trang dùng chủ yếu trên điện thoại → cải thiện UX quyền camer
 
 **Files**: `web2/photo-studio/{index.html,photo-studio.js}` (v=20260603d).
 
+### [web2] Studio chụp tách nền — v9 engine cloud PhotoRoom (AI nét chất lượng cao) 🔄
+
+Research Google/GitHub các giải pháp tách nền mạnh hơn (BiRefNet MIT, RMBG non-commercial, remove.bg, PhotoRoom, Pixian…). Kết luận: free on-device @imgly đủ cho ảnh thường; nâng cấp cho ảnh khó (tóc/lông/thủy tinh) = BiRefNet self-host (free, heavy infra) hoặc PhotoRoom API (clean, sandbox 1000 ảnh/tháng free → paid + scene/bóng đổ studio). Chọn **PhotoRoom** làm engine cloud.
+
+- **Backend** (Render): `services/web2-cutout-service.js` (PhotoRoom v1 `/segment`, key `PHOTOROOM_API_KEY`/`PHOTOROOM_SANDBOX_KEY` từ env, trả Buffer PNG) + route `routes/web2-cutout.js` (`POST /api/web2/cutout/photoroom` nhận `{image:dataURL}` → `{image:dataURL PNG}`, `GET /status`). Mount `server.js` TRƯỚC `/api/web2` generic. CF worker `WEB2_GENERIC` forward sẵn `/api/web2/*`.
+- **Frontend**: mode "AI nét" thêm card "Engine AI nét" — **Trên máy** (@imgly, free, offline) ↔ **Studio cloud** (PhotoRoom). `captureHQ` branch `cloudCutout()` vs `localCutout()`. Kết quả vào màn preview + Lưu như cũ.
+- **Test**: backend route (mock PhotoRoom) — `/status` engines.photoroom, valid→PNG dataURL, thiếu ảnh→reject, no-key→503 ✓. Frontend (mock backend) — engine card hiện trong hq, chọn cloud, chụp→preview composited ✓, 0 error.
+- **⚠ CẦN USER**: (1) key free sandbox tại photoroom.com/api → `serect_dont_push.txt` block PhotoRoom; (2) Render env `PHOTOROOM_API_KEY`; (3) deploy Render. Chưa có key → nút "Studio cloud" báo 503 (vẫn dùng "Trên máy" free OK).
+- BiRefNet free-unlimited: follow-up (cần Python service riêng trên Render).
+
+**Files**: `web2/photo-studio/{index.html,photo-studio.js,photo-studio.css}` (v=20260603i), `render.com/{services/web2-cutout-service.js,routes/web2-cutout.js,server.js}`.
+
 ### [web2] Studio chụp tách nền — v8 xem & lưu ảnh sau khi chụp (fix mobile) ✅
 
 User: ảnh chụp không thấy trên điện thoại + khó dùng. Nguyên nhân: gallery "Ảnh đã chụp" nằm tít dưới đáy (dưới sticky bar) + nút `<a download>` KHÔNG lưu được trên mobile (mở tab thay vì tải). Research Google/GitHub (PhotoRoom/remove.bg/imgly, Web Share API) → áp dụng flow chuẩn **chụp → xem → lưu/chụp lại**:
