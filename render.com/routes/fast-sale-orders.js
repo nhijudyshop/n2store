@@ -20,6 +20,34 @@
 
 const express = require('express');
 const router = express.Router();
+const web2WalletService = require('../services/web2-wallet-service');
+
+// 2026-06-04: trừ ví khách khi tạo PBH (thu hộ). Trừ min(số dư ví, COD còn lại),
+// ghi wallet_deducted để hoàn khi huỷ. Best-effort: lỗi ví KHÔNG chặn tạo PBH.
+// Trả { deducted, residualAfter } để cập nhật PBH + native order.
+async function _applyWalletToPbh(pool, phone, pbhRow) {
+    const out = { deducted: 0, residualAfter: Number(pbhRow.residual || 0) };
+    if (!phone || out.residualAfter <= 0) return out;
+    try {
+        const wallet = await web2WalletService.getWallet(pool, phone);
+        const balance = wallet ? Number(wallet.balance) || 0 : 0;
+        const deduct = Math.min(balance, out.residualAfter);
+        if (deduct <= 0) return out;
+        await web2WalletService.processWithdraw(
+            pool,
+            phone,
+            deduct,
+            'native-order-pbh',
+            pbhRow.number,
+            `Thu hộ PBH ${pbhRow.number}`
+        );
+        out.deducted = deduct;
+        out.residualAfter = out.residualAfter - deduct;
+    } catch (e) {
+        console.warn('[FAST-SALE-ORDERS] wallet deduct skip:', e.message);
+    }
+    return out;
+}
 
 // -----------------------------------------------------
 // SSE notifier — broadcast topic 'web2:fast-sale-orders' sau mỗi DB mutation.
@@ -193,6 +221,10 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS fulfillment_shipped_at BIGINT;
             ALTER TABLE fast_sale_orders
                 ADD COLUMN IF NOT EXISTS fulfillment_delivered_at BIGINT;
+            -- 2026-06-04: số tiền đã trừ từ VÍ khách khi tạo PBH (thu hộ). Lưu lại
+            -- để HOÀN khi huỷ đơn (refund vào ví, idempotent: set lại 0 sau hoàn).
+            ALTER TABLE fast_sale_orders
+                ADD COLUMN IF NOT EXISTS wallet_deducted NUMERIC(15,2) NOT NULL DEFAULT 0;
             CREATE INDEX IF NOT EXISTS idx_fso_fulfillment_state ON fast_sale_orders(fulfillment_state);
 
             CREATE INDEX IF NOT EXISTS idx_fso_date_invoice ON fast_sale_orders(date_invoice DESC);
@@ -279,6 +311,7 @@ function mapRow(row) {
             amount: Number(row.payment_amount || 0),
             deposit: Number(row.deposit || 0),
             residual: Number(row.residual || 0),
+            walletDeducted: Number(row.wallet_deducted || 0),
         },
         delivery: {
             price: Number(row.delivery_price || 0),
@@ -1401,6 +1434,34 @@ router.post('/from-native-order', async (req, res) => {
                     'update'
                 );
             } catch {}
+        }
+
+        // 2026-06-04: THU HỘ — trừ ví khách (nếu có số dư) cho phần COD còn lại.
+        // Trừ thật khỏi ví (idempotent theo PBH number), giảm residual = COD còn lại.
+        // Ví đủ trả hết → native order coi như "đã thanh toán" (residual=0).
+        const wlt = await _applyWalletToPbh(pool, src.phone, r.rows[0]);
+        if (wlt.deducted > 0) {
+            const upd = await pool.query(
+                `UPDATE fast_sale_orders
+                 SET payment_amount = COALESCE(payment_amount,0) + $1,
+                     residual = $2,
+                     cash_on_delivery = $2,
+                     wallet_deducted = $1,
+                     date_updated = NOW()
+                 WHERE id = $3 RETURNING *`,
+                [wlt.deducted, wlt.residualAfter, r.rows[0].id]
+            );
+            if (upd.rows[0]) r.rows[0] = upd.rows[0];
+            // SSE ví → pill số dư + ví KH refresh
+            if (_notifyClients) {
+                try {
+                    _notifyClients(
+                        `web2:wallet:${String(src.phone).replace(/\D/g, '')}`,
+                        { action: 'pbh-deduct', phone: src.phone, ts: Date.now() },
+                        'update'
+                    );
+                } catch {}
+            }
         }
 
         const o = mapRow(r.rows[0]);

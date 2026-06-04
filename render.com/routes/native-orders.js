@@ -24,6 +24,42 @@ const {
     pushCustomerToTPOS,
     searchCustomerByFbUserId,
 } = require('../services/tpos-customer-service');
+const web2WalletService = require('../services/web2-wallet-service');
+
+// 2026-06-04: HOÀN ví khi huỷ đơn — refund số tiền đã trừ ví (wallet_deducted)
+// của các PBH liên kết, rồi zero-out để không hoàn lặp (idempotent). Trả tổng đã hoàn.
+async function _refundWalletForNativeOrder(pool, code, phone) {
+    let refunded = 0;
+    if (!phone) return refunded;
+    try {
+        const q = await pool.query(
+            `SELECT id, number, wallet_deducted FROM fast_sale_orders
+             WHERE source_type='native_order' AND source_code = $1 AND wallet_deducted > 0`,
+            [code]
+        );
+        for (const row of q.rows) {
+            const amt = Number(row.wallet_deducted) || 0;
+            if (amt <= 0) continue;
+            await web2WalletService.processDeposit(
+                pool,
+                phone,
+                amt,
+                null,
+                `Hoàn ví huỷ PBH ${row.number}`,
+                null,
+                null,
+                null
+            );
+            await pool.query(`UPDATE fast_sale_orders SET wallet_deducted = 0 WHERE id = $1`, [
+                row.id,
+            ]);
+            refunded += amt;
+        }
+    } catch (e) {
+        console.warn('[native-orders] wallet refund on cancel failed:', e.message);
+    }
+    return refunded;
+}
 
 // =====================================================
 // 2-way state sync: native-orders ↔ fast_sale_orders (PBH).
@@ -1393,9 +1429,38 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
             listParams
         );
 
+        const orders = listR.rows.map(mapRowToOrder);
+        // 2026-06-04: enrich badge "Đã thanh toán" (PBH residual=0) + "Đã đối soát"
+        // (fulfillment packed+). Lấy PBH ĐẦU (split_index 1) per source_code, bỏ PBH huỷ.
+        const codes = orders.map((o) => o.code).filter(Boolean);
+        if (codes.length) {
+            try {
+                const pbhQ = await pool.query(
+                    `SELECT DISTINCT ON (source_code) source_code, amount_total, residual,
+                            payment_amount, wallet_deducted, fulfillment_state
+                     FROM fast_sale_orders
+                     WHERE source_type='native_order' AND source_code = ANY($1) AND state <> 'cancel'
+                     ORDER BY source_code, split_index ASC, date_created ASC`,
+                    [codes]
+                );
+                const byCode = new Map(pbhQ.rows.map((p) => [p.source_code, p]));
+                for (const o of orders) {
+                    const p = byCode.get(o.code);
+                    if (!p) continue;
+                    o.pbhTotal = Number(p.amount_total || 0);
+                    o.pbhResidual = Number(p.residual || 0);
+                    o.pbhPaymentAmount = Number(p.payment_amount || 0);
+                    o.pbhWalletDeducted = Number(p.wallet_deducted || 0);
+                    o.pbhFulfillmentState = p.fulfillment_state || null;
+                }
+            } catch (e) {
+                console.warn('[native-orders] enrich PBH badge failed:', e.message);
+            }
+        }
+
         res.json({
             success: true,
-            orders: listR.rows.map(mapRowToOrder),
+            orders,
             total,
             page: pageNum,
             limit: limitNum,
@@ -1777,6 +1842,17 @@ router.post('/:code/cancel', async (req, res) => {
         // đổi state PBH qua syncPbhStateFromNativeOrder (đơn giản). Nếu cần
         // restock chính xác, gọi /by-source/cancel của fast-sale-orders.
         const pbhSync = await syncPbhStateFromNativeOrder(pool, code, 'cancelled');
+        // 2026-06-04: hoàn ví số tiền đã thu hộ (nếu có) khi huỷ đơn.
+        const refunded = await _refundWalletForNativeOrder(pool, code, r.rows[0].phone);
+        if (refunded > 0 && req.app.locals.web2RealtimeSseNotify) {
+            try {
+                req.app.locals.web2RealtimeSseNotify(
+                    `web2:wallet:${String(r.rows[0].phone).replace(/\D/g, '')}`,
+                    { action: 'pbh-refund', phone: r.rows[0].phone, ts: Date.now() },
+                    'update'
+                );
+            } catch {}
+        }
         if (pbhSync.synced > 0 && req.app.locals.web2RealtimeSseNotify) {
             try {
                 req.app.locals.web2RealtimeSseNotify(
