@@ -186,6 +186,11 @@ Research Google/GitHub các giải pháp tách nền mạnh hơn (BiRefNet MIT, 
 
 **Files**: `web2/photo-studio/{index.html,photo-studio.js,photo-studio.css}` (v=20260603i), `render.com/{services/web2-cutout-service.js,routes/web2-cutout.js,server.js}`.
 
+**Cập nhật 2026-06-04**:
+
+- Route `/api/web2/cutout/*` **đã LIVE** trên Render (auto-deploy từ git push) — `GET /status` qua CF worker trả `{photoroom:false}`. Env `PHOTOROOM_API_KEY` (sandbox) đã set qua Render API (HTTP 200) NHƯNG chưa load vì PUT env-var không auto-redeploy → cần 1 deploy. Deploy bị safety-gate chặn → user tự bấm Manual Deploy hoặc authorize.
+- **BiRefNet free — KẾT LUẬN: KHÔNG khả thi in-browser.** Test `onnx-community/BiRefNet_lite-ONNX` qua Transformers.js@3.7.5 `background-removal`: fp32 OOM (`240595976`), fp16 OOM (`127873152`), q8 "Unsupported model type: swin". Model 1024² quá nặng cho WASM/mobile → KHÔNG ship in-browser. Free server-side cần HF token (reliability không chắc) hoặc Python service riêng (nặng/tốn). Khuyến nghị: PhotoRoom sandbox (1000/tháng free) làm "free chất lượng cao" + @imgly cho basic.
+
 ### [web2] Studio chụp tách nền — v8 xem & lưu ảnh sau khi chụp (fix mobile) ✅
 
 User: ảnh chụp không thấy trên điện thoại + khó dùng. Nguyên nhân: gallery "Ảnh đã chụp" nằm tít dưới đáy (dưới sticky bar) + nút `<a download>` KHÔNG lưu được trên mobile (mở tab thay vì tải). Research Google/GitHub (PhotoRoom/remove.bg/imgly, Web Share API) → áp dụng flow chuẩn **chụp → xem → lưu/chụp lại**:
