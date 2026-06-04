@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `16efac2` — auto: session update
-**Last updated**: 2026-06-04 13:51:45 +07
-**Latest session**: [`RESUME:20260604-135145-16efac2`](../20260604-135145-16efac2.md)
-**Summary**: auto: session update
+**Latest commit**: `4065fa9` — feat(native-orders web2): tab Livestream va Inbox + nut them don inbox
+**Last updated**: 2026-06-04 13:56:06 +07
+**Latest session**: [`RESUME:20260604-135606-4065fa9`](../20260604-135606-4065fa9.md)
+**Summary**: feat(native-orders web2): tab Livestream va Inbox + nut them don inbox
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
 - [`native-orders/`](./native-orders.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -41,7 +38,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:43
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-05-30 11:05
-- [`native-orders/`](./native-orders.md) — updated 2026-06-04 13:51
+- [`native-orders/`](./native-orders.md) — updated 2026-06-04 13:56
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-03 18:57
