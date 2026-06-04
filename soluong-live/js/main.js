@@ -849,7 +849,12 @@ async function loadProductDetails(productId) {
         }
 
         const productData = result.product;
-        const imageUrl = productData.imageUrl || productData.ImageUrl || '';
+        // Ảnh sản phẩm (template): biến thể không có ảnh riêng sẽ fallback ảnh này.
+        const imageUrl =
+            productData.imageUrl ||
+            productData.ImageUrl ||
+            (result.variants || []).map((v) => v && (v.imageUrl || v.ImageUrl)).find(Boolean) ||
+            '';
 
         // Check if auto-add variants is enabled and variants exist
         if (autoAddVariants && result.variants && result.variants.length > 0) {

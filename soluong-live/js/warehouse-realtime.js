@@ -151,6 +151,14 @@
                 collect(result.product);
                 (result.variants || []).forEach(collect);
 
+                // Ảnh sản phẩm (template): biến thể KHÔNG có ảnh riêng sẽ lấy ảnh này.
+                const templateImg =
+                    (result.product && (result.product.imageUrl || result.product.ImageUrl)) ||
+                    (result.variants || [])
+                        .map((v) => v && (v.imageUrl || v.ImageUrl))
+                        .find(Boolean) ||
+                    '';
+
                 for (const key of group.keys) {
                     const p = products[key];
                     if (!p) continue;
@@ -158,7 +166,8 @@
                     if (!fresh) continue; // biến thể bị xoá/ngừng — giữ nguyên, không phá cart
 
                     const newName = fresh.NameGet || p.NameGet;
-                    const newImg = fresh.imageUrl || fresh.ImageUrl || '';
+                    // Biến thể không có ảnh riêng → fallback ảnh sản phẩm (template)
+                    const newImg = fresh.imageUrl || fresh.ImageUrl || templateImg || '';
                     const newQty = num(fresh.QtyAvailable);
 
                     const nameChanged = newName !== p.NameGet;

@@ -65,6 +65,7 @@ TPOS đổi tên/hình/số lượng SP → trang `soluong-live/index.html` + `s
 Cart hiện có **331 SP / 142 template** được thêm TRƯỚC khi có SSE → snapshot Firebase cũ, không khớp TPOS mới. SSE chỉ bắt thay đổi đi tới, không tự sửa data cũ.
 
 - **Backfill 1 lần** (qua browser session, ghi truth — không phải data giả): re-fetch 142/142 template (0 missing), dedupe theo template, **220/331 SP bị lệch đã sửa**, 1318 field ghi 1 batch `ref().update()`. Verify: 4 SP mẫu khớp TPOS (qty/name), `soldQty` giữ nguyên (vd 156024 sold=1 qty=5 rem=4), `remainingQty = qty − sold` đúng.
+- **Ảnh biến thể fallback ảnh sản phẩm** (): biến thể KHÔNG có ảnh riêng (vd [Q686T] Trắng) giờ lấy ảnh template (sibling đầu tiên có ảnh, vd [Q686D]). Áp ở cả add-flow (main.js) lẫn refresh (warehouse-realtime.js). Audit cart: 0 biến thể còn trống ảnh khi template có ảnh; 4 SP trống do TPOS không có ảnh nào (placeholder hợp lệ).
 - **Reconcile-on-load** (durable, thêm vào `warehouse-realtime.js`): khi load trang, sau 3s đối chiếu toàn bộ cart với TPOS truth — bắt thay đổi xảy ra khi KHÔNG tab nào mở (vd qua đêm). Throttle qua localStorage `soluongWhReconcileAt` (tối đa 1 lần/10 phút/trình duyệt, chung index + list). Thêm `handle.refreshAll()` + `window.__soluongWhSync` để gọi tay từ console. Bump module `?v=20260604b`.
 
 ### [web2] Studio chụp tách nền — engine fal.ai BiRefNet (HD, không watermark) ✅🔄
