@@ -43,6 +43,18 @@
 const express = require('express');
 const router = express.Router();
 
+// 2026-06-04: ensure schema inventory_* tồn tại trên web2Db trước mọi handler
+// (web2Db chỉ có bản copy inventory_shipments — thiếu suppliers/related tables).
+// ensureInventorySchema hoisted + cached _invSchemaReady → chỉ chạy DDL 1 lần.
+router.use(async (req, res, next) => {
+    try {
+        await ensureInventorySchema(getDb(req));
+    } catch (e) {
+        console.error('[inventory] ensureInventorySchema failed:', e.message);
+    }
+    next();
+});
+
 // SSE notifier for realtime sync (Web 1.0 hub — bare snake_case topics).
 // Topics:
 //   inventory_suppliers         — supplier list changed
@@ -131,6 +143,105 @@ function generateId(prefix = 'id') {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
     return `${prefix}_${timestamp}_${random}`;
+}
+
+// 2026-06-04: self-heal schema khi chuyển web2Db. web2Db chỉ có bản copy
+// inventory_shipments (CREATE TABLE AS — không kèm suppliers/FK/related tables).
+// Tạo IF NOT EXISTS toàn bộ bảng inventory_* + cột post-047 để module chạy đủ.
+let _invSchemaReady = false;
+async function ensureInventorySchema(db) {
+    if (_invSchemaReady || !db) return;
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS inventory_suppliers (
+            id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            stt_ncc INTEGER UNIQUE NOT NULL,
+            ten_ncc TEXT,
+            firestore_doc_id TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_inv_suppliers_stt ON inventory_suppliers(stt_ncc);
+
+        CREATE TABLE IF NOT EXISTS inventory_order_bookings (
+            id TEXT PRIMARY KEY,
+            stt_ncc INTEGER NOT NULL,
+            ngay_dat_hang DATE NOT NULL,
+            ten_ncc TEXT,
+            trang_thai VARCHAR(20) NOT NULL DEFAULT 'pending',
+            san_pham JSONB NOT NULL DEFAULT '[]'::jsonb,
+            tong_tien_hd NUMERIC(15,2) DEFAULT 0,
+            tong_mon INTEGER DEFAULT 0,
+            anh_hoa_don TEXT[] DEFAULT '{}',
+            ghi_chu TEXT DEFAULT '',
+            linked_dot_hang_id TEXT,
+            created_by TEXT, updated_by TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_inv_ob_stt_ncc ON inventory_order_bookings(stt_ncc);
+
+        CREATE TABLE IF NOT EXISTS inventory_shipments (
+            id TEXT PRIMARY KEY,
+            stt_ncc INTEGER NOT NULL,
+            ngay_di_hang DATE NOT NULL,
+            ten_ncc TEXT,
+            kien_hang JSONB NOT NULL DEFAULT '[]'::jsonb,
+            tong_kien INTEGER DEFAULT 0,
+            tong_kg NUMERIC(10,2) DEFAULT 0,
+            san_pham JSONB NOT NULL DEFAULT '[]'::jsonb,
+            tong_tien_hd NUMERIC(15,2) DEFAULT 0,
+            tong_mon INTEGER DEFAULT 0,
+            so_mon_thieu INTEGER DEFAULT 0,
+            ghi_chu_thieu TEXT DEFAULT '',
+            anh_hoa_don TEXT[] DEFAULT '{}',
+            ghi_chu TEXT DEFAULT '',
+            chi_phi_hang_ve JSONB NOT NULL DEFAULT '[]'::jsonb,
+            tong_chi_phi NUMERIC(15,2) DEFAULT 0,
+            created_by TEXT, updated_by TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_inv_ship_stt_ncc ON inventory_shipments(stt_ncc);
+        ALTER TABLE inventory_shipments
+            ADD COLUMN IF NOT EXISTS dot_so INTEGER,
+            ADD COLUMN IF NOT EXISTS thanh_toan_ck JSONB NOT NULL DEFAULT '[]'::jsonb,
+            ADD COLUMN IF NOT EXISTS ti_gia NUMERIC(10,4) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS anh_san_pham JSONB NOT NULL DEFAULT '{}'::jsonb,
+            ADD COLUMN IF NOT EXISTS ghi_chu_admin TEXT DEFAULT '';
+
+        CREATE TABLE IF NOT EXISTS inventory_prepayments (
+            id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            ngay DATE NOT NULL,
+            so_tien NUMERIC(15,2) NOT NULL DEFAULT 0,
+            ghi_chu TEXT DEFAULT '', created_by TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS inventory_other_expenses (
+            id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            ngay DATE NOT NULL,
+            loai_chi TEXT DEFAULT '',
+            so_tien NUMERIC(15,2) NOT NULL DEFAULT 0,
+            ghi_chu TEXT DEFAULT '', created_by TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS inventory_edit_history (
+            id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            action VARCHAR(20) NOT NULL,
+            entity_type VARCHAR(50) NOT NULL,
+            entity_id TEXT NOT NULL,
+            stt_ncc INTEGER,
+            changes JSONB DEFAULT '{}'::jsonb,
+            user_name TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS inventory_hidden_nccs (
+            stt_ncc INTEGER PRIMARY KEY,
+            hidden_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+    `);
+    _invSchemaReady = true;
 }
 
 function getUserFromHeaders(req) {
