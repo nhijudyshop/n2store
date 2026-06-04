@@ -3,19 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6de7c3c` — auto: session update
-**Last updated**: 2026-06-04 15:58:46 +07
-**Latest session**: [`RESUME:20260604-155846-6de7c3c`](../20260604-155846-6de7c3c.md)
-**Summary**: auto: session update
+**Latest commit**: `30685bf` — feat(web2): photo-studio — 16 nền cảnh có sẵn (biển/thành phố/quê/thiên nhiên + selfie) qua Unsplash CORS
+**Last updated**: 2026-06-04 16:03:13 +07
+**Latest session**: [`RESUME:20260604-160313-30685bf`](../20260604-160313-30685bf.md)
+**Summary**: feat(web2): photo-studio — 16 nền cảnh có sẵn (biển/thành phố/quê/thiên nhiên + selfie) qua Unsplash...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`downloads/`](./downloads.md) — 14 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
-- [`scripts/`](./scripts.md) — 2 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-04 15:58
+- [`docs/`](./docs.md) — updated 2026-06-04 16:03
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-04 13:36
 - [`downloads/`](./downloads.md) — updated 2026-06-04 15:58
@@ -72,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-04 15:58
+- [`web2/`](./web2.md) — updated 2026-06-04 16:03
