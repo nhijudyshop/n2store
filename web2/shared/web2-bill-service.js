@@ -217,15 +217,32 @@
 html, body {
     width: 80mm; margin: auto; color: #000 !important; font-size: 13px;
     font-family: Arial, Helvetica, sans-serif; line-height: 1.35;
+    /* In nhiệt 80mm hay bị MỜ/NHẠT — giải pháp phổ biến nhất (GitHub receipt
+       projects + SO): font đậm hơn + ép màu in chính xác (browser tự làm nhạt
+       để tiết kiệm mực) + tắt anti-alias cho cạnh chữ sắc, đầu in render rõ. */
+    font-weight: 500;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    -webkit-font-smoothing: none;
+    text-rendering: geometricPrecision;
 }
 *, *:before, *:after { box-sizing: border-box; }
+/* Mọi phần tử cũng ép in chính xác (không nhạt nền/chữ) */
+* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 .container { padding: 0 8px; margin: auto; }
 .text-center { text-align: center; }
 .text-right  { text-align: right; }
 .text-left   { text-align: left; }
 .word-break  { word-break: break-word; }
 .font-bold   { font-weight: bold; }
-.muted       { color: #444; }
+.muted       { color: #1f1f1f; }
+
+/* Khi IN THẬT: đẩy đậm thêm 1 nấc + ép mọi chữ về đen tuyền (chống mờ). */
+@media print {
+    html, body { font-weight: 600; }
+    .muted, .sep-dotted { color: #000 !important; }
+    .totals-table .total-label, .totals-table .total-value { font-weight: 700 !important; }
+}
 table { width: 100%; max-width: 100%; border-collapse: collapse; }
 
 /* ─── Section separators (dashed) ─────────────────────── */
@@ -273,7 +290,7 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
     width: 92%; height: auto; max-height: 120px; display: block; margin: 0 auto;
 }
 .barcode-box .barcode-hint {
-    font-size: 10px; color: #555; margin-top: 1px;
+    font-size: 10px; color: #2a2a2a; margin-top: 1px;
 }
 
 /* ─── Meta info (số phiếu, ngày, KH) ─────────────────── */
@@ -304,7 +321,7 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
     font-size: 12.5px;
 }
 .products-table .product-note {
-    font-size: 11.5px; font-style: italic; color: #333;
+    font-size: 11.5px; font-style: italic; color: #1f1f1f;
     padding-left: 4px;
 }
 
@@ -343,7 +360,7 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
 .shop-footer {
     margin-top: 8px; padding-top: 6px;
     border-top: 1px dashed #000; text-align: center;
-    font-size: 11px; color: #555;
+    font-size: 11px; color: #2a2a2a;
 }
 .virtual-debt-banner {
     background: #000; color: #fff; padding: 4px 6px;

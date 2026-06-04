@@ -25,6 +25,20 @@
 
 ## 2026-06-04
 
+### [web2-bill] Chữ bill đậm/rõ hơn — chống mờ khi in nhiệt ✅
+
+User: bill in ra bị mờ, cho chữ đậm hơn (giải pháp GitHub phổ biến nhất cho in nhiệt).
+
+- `print-color-adjust: exact` + `-webkit-print-color-adjust: exact` (html,body + `*`) — ép browser in màu chính xác, không tự làm nhạt để tiết kiệm mực (fix #1 cho in nhiệt faint).
+- `font-weight: 500` base → `@media print` đẩy lên 600, totals 700.
+- `-webkit-font-smoothing: none` + `text-rendering: geometricPrecision` — cạnh chữ sắc, đầu in nhiệt render rõ.
+- Darken xám faint: `.muted` #444→#1f1f1f, #555→#2a2a2a, #333→#1f1f1f; @media print ép .muted về #000.
+- Verified: bill HTML có đủ print-color-adjust/font-weight/@media print/dark grays.
+
+### [web2-products] Fix dropdown biến thể tự mở khi mở modal ✅
+
+`.variant-suggest-dropdown` có `display:flex` đè UA `[hidden]{display:none}` → dropdown LUÔN hiện (kể cả hidden=true) → tự bung khi mở modal. Fix: thêm `.variant-suggest-dropdown[hidden]{display:none !important}` + JS bỏ inline display dùng 1 nguồn hidden attr + reset 2 dropdown hidden khi mở modal. Verified: mở modal cả 2 ẩn, focus ô nào mở ô đó.
+
 ### [web2-products] Biến thể chọn Màu + Size cùng lúc ✅
 
 User: trang Kho SP cho chọn 2 biến thể (màu + size) cùng lúc thay vì 1 ô.
