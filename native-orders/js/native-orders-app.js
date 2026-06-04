@@ -968,8 +968,8 @@
     function tposStatusText(s) {
         const map = {
             draft: { label: 'Nháp', cls: '' },
-            confirmed: { label: 'Đơn hàng', cls: 'confirmed' },
-            cancelled: { label: 'Huỷ bỏ', cls: 'cancelled' },
+            confirmed: { label: 'Đã xác nhận', cls: 'confirmed' },
+            cancelled: { label: 'Đã hủy', cls: 'cancelled' },
             delivered: { label: 'Đã giao', cls: 'delivered' },
         };
         const m = map[s] || { label: s || '—', cls: '' };
