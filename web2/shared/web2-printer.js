@@ -215,43 +215,47 @@
         return p.paper === '58' ? 384 : 576;
     }
 
-    // Canvas → ESC/POS raster 1-bit. ĐẬM HƠN cho máy in nhiệt (chữ mỏng hay mờ
-    // mực): (1) ngưỡng cao (176) bắt cả pixel xám antialias → nét đầy hơn;
-    // (2) DÃN nở (dilation) 1 chấm phải+dưới → mọi nét dày thêm 1px, không mất
-    // nét mảnh khi in. Barcode module rộng ≥3px nên vẫn quét tốt.
+    // Canvas (vẽ ở SS× độ phân giải đích) → ESC/POS raster 1-bit, downsample
+    // SUPERSAMPLE để dấu tiếng Việt (sắc/huyền/ngã/hỏi/nặng, ơ/ư/đ) RÕ khi in:
+    // render SVG ở 2× số chấm máy in (nét nhiều pixel hơn) rồi gộp mỗi ô ss×ss →
+    // đen nếu có ≥1 sub-pixel mực (giữ nét mảnh, không mất dấu). Không dãn nở
+    // thêm (supersample đã đủ đậm + giữ nét).
     function _canvasToEscpos(canvas, opts = {}) {
-        const W = canvas.width;
-        const H = canvas.height;
-        const threshold = opts.threshold != null ? opts.threshold : 176;
-        const dilate = opts.dilate !== false; // mặc định BẬT dãn nở cho đậm
-        const data = canvas.getContext('2d').getImageData(0, 0, W, H).data;
-        // 1) ma trận đen/trắng theo ngưỡng
+        const ss = opts.ss && opts.ss > 1 ? Math.round(opts.ss) : 1;
+        const srcW = canvas.width;
+        const srcH = canvas.height;
+        const W = Math.floor(srcW / ss);
+        const H = Math.floor(srcH / ss);
+        const inkLum = opts.inkLum != null ? opts.inkLum : 165; // sub-pixel coi là mực
+        // coverage: cần bao nhiêu sub-pixel mực trong ô ss×ss để ra chấm đen.
+        // thấp (1) → giữ nét mảnh tối đa (dấu rõ); cao → mảnh hơn.
+        const need = Math.max(
+            1,
+            Math.round((opts.coverage != null ? opts.coverage : 0.2) * ss * ss)
+        );
+        const data = canvas.getContext('2d').getImageData(0, 0, srcW, srcH).data;
         const dark = new Uint8Array(W * H);
         for (let y = 0; y < H; y++) {
             for (let x = 0; x < W; x++) {
-                const i = (y * W + x) * 4;
-                const a = data[i + 3];
-                const lum =
-                    a === 0 ? 255 : 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-                if (lum < threshold) dark[y * W + x] = 1;
-            }
-        }
-        // 2) dãn nở 1px (phải + dưới) → nét dày hơn, đậm hơn
-        let fin = dark;
-        if (dilate) {
-            fin = new Uint8Array(W * H);
-            for (let y = 0; y < H; y++) {
-                for (let x = 0; x < W; x++) {
-                    if (
-                        dark[y * W + x] ||
-                        (x > 0 && dark[y * W + x - 1]) ||
-                        (y > 0 && dark[(y - 1) * W + x])
-                    )
-                        fin[y * W + x] = 1;
+                let ink = 0;
+                for (let dy = 0; dy < ss; dy++) {
+                    const sy = y * ss + dy;
+                    for (let dx = 0; dx < ss; dx++) {
+                        const sx = x * ss + dx;
+                        const i = (sy * srcW + sx) * 4;
+                        const a = data[i + 3];
+                        const lum =
+                            a === 0
+                                ? 255
+                                : 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                        if (lum < inkLum) ink++;
+                    }
                 }
+                if (ink >= need) dark[y * W + x] = 1;
             }
         }
-        // 3) pack
+        const fin = dark;
+        // pack
         const bytesPerRow = Math.ceil(W / 8);
         const raster = new Uint8Array(bytesPerRow * H);
         for (let y = 0; y < H; y++) {
@@ -289,9 +293,12 @@
         return out;
     }
 
-    // SVG (chuỗi/markup) → ESC/POS raster (dùng cho bill — vector sắc nét).
+    // SVG → ESC/POS raster. Render ở 2× số chấm (SVG vector → sắc nét) rồi
+    // supersample downsample → dấu tiếng Việt rõ, không mờ khi in.
     async function escposRasterFromSvg(svgString, opts = {}) {
-        const W = opts.dots || 576;
+        const dots = opts.dots || 576;
+        const SS = opts.ss || 2;
+        const W = dots * SS;
         const svg = /^<svg/.test(svgString)
             ? svgString
             : (String(svgString).match(/<svg[\s\S]*?<\/svg>/) || [''])[0];
@@ -304,7 +311,7 @@
             i.src = url;
         });
         const ratio = img.height / img.width || 2;
-        const H = Math.max(1, Math.round(W * ratio));
+        const H = Math.max(SS, Math.round(W * ratio));
         const canvas = document.createElement('canvas');
         canvas.width = W;
         canvas.height = H;
@@ -313,7 +320,7 @@
         ctx.fillRect(0, 0, W, H);
         ctx.drawImage(img, 0, 0, W, H);
         URL.revokeObjectURL(url);
-        return _canvasToEscpos(canvas);
+        return _canvasToEscpos(canvas, { ss: SS });
     }
 
     function _loadScript(src) {
@@ -330,7 +337,9 @@
     // HTML (vd tem mã SP) → ESC/POS raster. Render HTML trong iframe ẩn rộng
     // đúng số chấm máy in rồi html2canvas → 1-bit. Tiếng Việt OK (ảnh).
     async function escposRasterFromHtml(html, opts = {}) {
-        const W = opts.dots || 576;
+        const dots = opts.dots || 576;
+        const SS = opts.ss || 2;
+        const W = dots; // iframe rộng theo dots; html2canvas scale=SS để render 2×
         if (!global.html2canvas) {
             await _loadScript(
                 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
@@ -352,18 +361,19 @@
                 width: W,
                 height: H,
                 windowWidth: W,
-                scale: 1,
+                scale: SS, // render 2× → supersample cho dấu tiếng Việt rõ
                 logging: false,
             });
-            // Chuẩn hoá về đúng W (html2canvas có thể trả khác scale)
+            // canvas đích = SS × dots (để _canvasToEscpos downsample về dots)
             const canvas = document.createElement('canvas');
-            canvas.width = W;
-            canvas.height = Math.round((rendered.height / rendered.width) * W) || rendered.height;
+            canvas.width = dots * SS;
+            canvas.height =
+                Math.round((rendered.height / rendered.width) * dots * SS) || rendered.height;
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = '#fff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(rendered, 0, 0, canvas.width, canvas.height);
-            return _canvasToEscpos(canvas);
+            return _canvasToEscpos(canvas, { ss: SS });
         } finally {
             iframe.remove();
         }

@@ -149,11 +149,15 @@
         // Bố cục 80mm — phân cấp rõ: shop → COD → phiếu+barcode → khách → SP →
         // tổng → ghi chú → footer. KHÔNG invert (máy in trắng đen) — dùng cỡ + đậm.
 
+        // KHÔNG dùng emphasis ReceiptLine (") — nó cộng thêm 1 lớp đậm khiến chữ
+        // BỊ NHÒE. Tất cả dùng CÙNG độ đậm như "NHI JUDY" (CSS font-weight 900 +
+        // stroke), phân cấp CHỈ bằng KÍCH THƯỚC (^, ^^, ^^^).
+
         // ── HEADER: tên shop to nhất ──
         L.push('^^^' + _rlEsc(d.shop.name));
-        if (d.isShop) L.push('"PBH SHOP - BÁN TẠI SHOP"');
-        else if (d.carrierName) L.push('"' + _rlEsc(d.carrierName) + '"');
-        if (d.hasVirtualDebt) L.push('^^"CÓ ĐƠN THU VỀ"');
+        if (d.isShop) L.push('PBH SHOP - BÁN TẠI SHOP');
+        else if (d.carrierName) L.push(_rlEsc(d.carrierName));
+        if (d.hasVirtualDebt) L.push('^^CÓ ĐƠN THU VỀ');
 
         // ── COD: con số quan trọng nhất, to nhất trong phiếu ──
         rule();
@@ -162,7 +166,7 @@
         rule();
 
         // ── TÊN PHIẾU + MÃ VẠCH ──
-        L.push('^^"Phiếu Bán Hàng' + (d.isShop ? ' (SHOP)' : '') + '"');
+        L.push('^^Phiếu Bán Hàng' + (d.isShop ? ' (SHOP)' : ''));
         if (d.billNumber) {
             gap();
             L.push('{code:' + d.billNumber + ';option:code128,3,80,hri}');
@@ -173,20 +177,19 @@
         L.push('Ngày|' + _rlEsc(d.dateStr));
         rule();
 
-        // ── KHÁCH HÀNG — STT đứng cạnh tên khách (canh phải, đậm) ──
-        if (d.sttDisplay)
-            L.push('"Khách:" ' + _rlEsc(d.recName) + '|^"STT ' + _rlEsc(d.sttDisplay) + '"');
-        else left('"Khách:" ' + _rlEsc(d.recName));
-        if (d.recPhone) left('"SĐT:" ' + _rlEsc(d.recPhone));
+        // ── KHÁCH HÀNG — STT đứng cạnh tên khách (canh phải) ──
+        if (d.sttDisplay) L.push('Khách: ' + _rlEsc(d.recName) + '|^STT ' + _rlEsc(d.sttDisplay));
+        else left('Khách: ' + _rlEsc(d.recName));
+        if (d.recPhone) left('SĐT: ' + _rlEsc(d.recPhone));
         if (d.recAddr)
             String(d.recAddr)
                 .split('\n')
-                .forEach((ln, i) => left((i ? '   ' : '"Đ/c:" ') + _rlEsc(ln)));
-        if (d.sellerName) left('"NV bán:" ' + _rlEsc(d.sellerName));
+                .forEach((ln, i) => left((i ? '   ' : 'Đ/c: ') + _rlEsc(ln)));
+        if (d.sellerName) left('NV bán: ' + _rlEsc(d.sellerName));
         rule();
 
         // ── SẢN PHẨM — đánh số thứ tự cho dễ đếm khi nhiều SP ──
-        L.push('^"SẢN PHẨM"|^"THÀNH TIỀN"');
+        L.push('^SẢN PHẨM|^THÀNH TIỀN');
         gap();
         let totalQty = 0;
         d.lines.forEach((it, idx) => {
@@ -197,37 +200,37 @@
             const uom = it.uomName || it.ProductUOMName || 'Cái';
             const note = it.note || it.Note || '';
             totalQty += qty;
-            // Tên SP: "N. <tên>" đậm; dòng kế: SL × đơn giá (trái) | thành tiền (phải)
-            left('"' + (idx + 1) + '. ' + _rlEsc(name) + '"');
+            // Tên SP: "N. <tên>"; dòng kế: SL × đơn giá (trái) | thành tiền (phải)
+            left(idx + 1 + '. ' + _rlEsc(name));
             if (note) left('   ↳ ' + _rlEsc(note));
             L.push('   ' + qty + ' ' + _rlEsc(uom) + ' x ' + m(price) + '|' + m(total));
             if (idx < d.lines.length - 1) gap(); // cách giữa các SP cho dễ đọc
         });
         rule();
 
-        // ── TỔNG TIỀN (2 cột) ──
+        // ── TỔNG TIỀN (2 cột) — phân cấp bằng KÍCH THƯỚC, không emphasis ──
         L.push('Tổng số lượng|' + totalQty + ' sp');
         L.push('Tạm tính|' + m(d.subtotal));
         if (d.discount > 0) L.push('Giảm giá|-' + m(d.discount));
         L.push('Phí ship|' + m(d.shipping));
-        L.push('^"TỔNG TIỀN"|^"' + m(d.finalTotal) + ' đ"');
+        L.push('^TỔNG TIỀN|^' + m(d.finalTotal) + ' đ');
         if (d.prepaid > 0) {
             L.push('Đã trả trước|-' + m(d.prepaid));
-            L.push('^^"CÒN THU (COD)"|^^"' + m(d.cod) + '"');
+            L.push('^^CÒN THU (COD)|^^' + m(d.cod));
         }
         rule();
 
         // ── GHI CHÚ ──
         if (d.orderComment) {
-            left('"Ghi chú đơn:" ' + _rlEsc(String(d.orderComment).replace(/\n+/g, ' ')));
+            left('Ghi chú đơn: ' + _rlEsc(String(d.orderComment).replace(/\n+/g, ' ')));
             gap();
         }
-        left('"Giao hàng:"');
+        left('Giao hàng:');
         String(d.shopDeliveryNote)
             .split('\n')
             .forEach((ln) => ln.trim() && left(_rlEsc(ln)));
         gap();
-        left('"Chuyển khoản:"');
+        left('Chuyển khoản:');
         String(d.shopComment)
             .split('\n')
             .forEach((ln) => ln.trim() && left(_rlEsc(ln)));
@@ -235,7 +238,7 @@
 
         // ── FOOTER ──
         L.push('Cảm ơn Quý khách!');
-        L.push('^"' + _rlEsc(d.shop.name) + '"');
+        L.push('^' + _rlEsc(d.shop.name));
         gap();
         return L.join('\n');
     }
@@ -314,7 +317,9 @@
         let svg = '';
         try {
             if (global.receiptline && typeof global.receiptline.transform === 'function') {
-                svg = global.receiptline.transform(doc, { cpl: 42 });
+                // cpl 32 (thay 42): ít ký tự/dòng → chữ TO hơn → dấu tiếng Việt
+                // (sắc/huyền/ngã/hỏi/nặng + ơ/ư/đ) nhiều chấm hơn, rõ, không mờ.
+                svg = global.receiptline.transform(doc, { cpl: 32 });
             }
         } catch (e) {
             console.warn('[Web2Bill] receiptline transform failed:', e.message);
@@ -342,16 +347,18 @@ html, body { margin: 0; padding: 0; background: #fff; }
    in nhiệt ăn mực rõ. Áp cho mọi text/tspan trong SVG. */
 .receipt-wrap svg text,
 .receipt-wrap svg tspan {
+    /* Đậm bằng WEIGHT (như NHI JUDY), stroke NHẸ thôi để dấu tiếng Việt không
+       bị dính/nhập vào chữ → vẫn rõ dấu. Chữ to (cpl 32) đã giúp dấu rõ sẵn. */
     font-weight: 900 !important;
     stroke: #000;
-    stroke-width: 0.9px;
+    stroke-width: 0.5px;
     paint-order: stroke fill;
 }
 .page-break { display: block; page-break-before: always; }
 @media print {
     html, body { width: 80mm; }
     .receipt-wrap { width: 80mm; }
-    .receipt-wrap svg text, .receipt-wrap svg tspan { stroke-width: 1.1px; }
+    .receipt-wrap svg text, .receipt-wrap svg tspan { stroke-width: 0.6px; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
 </style></head>
