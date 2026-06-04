@@ -2,12 +2,12 @@
 /**
  * Web 2.0 PostgreSQL Pool — Render PG `n2store-web2-db` (dpg-d8d7be).
  *
- * 2026-06-03: kho RIÊNG cho toàn bộ data Web 2.0 (đang migrate tách hoàn toàn
- * khỏi Web 1.0 `n2store_chat`). Read connection string từ env `WEB2_DATABASE_URL`.
- * (Lịch sử: từng là Neon free tier — đã chuyển sang Render PG cùng provider.)
+ * Kho RIÊNG cho toàn bộ data Web 2.0, tách hoàn toàn khỏi Web 1.0 `n2store_chat`.
+ * Read connection string từ env `WEB2_DATABASE_URL` (trỏ Render PG n2store-web2-db).
+ * Web 2.0 CHỈ dùng Render + Firebase — KHÔNG Neon, KHÔNG provider ngoài nào khác.
  *
  * Nếu env unset → return null. `app.locals.web2Db` sẽ fallback sang `chatDb`
- * để giữ backward compat (KHÔNG break route hiện tại trong lúc migrate).
+ * để giữ backward compat.
  *
  * Singleton. Imported ở server.js.
  */
@@ -27,19 +27,18 @@ function getWeb2Pool() {
     }
     pool = new Pool({
         connectionString: process.env.WEB2_DATABASE_URL,
-        // Neon requires SSL — auto enabled khi connection string có sslmode=require.
-        // rejectUnauthorized:false để chấp nhận Neon's self-signed chain.
+        // Render PG yêu cầu SSL. rejectUnauthorized:false chấp nhận managed chain.
         ssl: { rejectUnauthorized: false },
-        max: 10, // Neon free tier có quota connections — giữ nhỏ
+        max: 10,
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 15000, // Neon auto-suspend → first req cần ~3-5s wake-up
+        connectionTimeoutMillis: 15000,
         statement_timeout: 30000,
         idle_in_transaction_session_timeout: 60000,
     });
     pool.on('error', (err) => {
         console.error('[WEB2 POOL] Unexpected error:', err.message);
     });
-    console.log('[WEB2 POOL] Neon pool initialized');
+    console.log('[WEB2 POOL] Render n2store-web2-db pool initialized');
     return pool;
 }
 

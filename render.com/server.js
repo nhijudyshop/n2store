@@ -121,7 +121,8 @@ app.use((req, res, next) => {
 // crash the process.
 const chatDbPool = require('./db/pool');
 
-// Web 2.0 isolated DB (Neon free tier). Falls back to chatDb when env unset.
+// Web 2.0 isolated DB — dedicated Render Postgres `n2store-web2-db` (WEB2_DATABASE_URL).
+// Falls back to chatDb khi env unset. KHÔNG dùng Neon nữa (đã migrate sang Render).
 const web2Pool = require('./db/web2-pool');
 
 // Make pool available to routes via app.locals
@@ -470,7 +471,6 @@ const reconcileRoutes = require('./routes/reconcile'); // WEB2.0 — PBH đối 
 const walletDepositsRoutes = require('./routes/wallet-deposits'); // WEB2.0
 const purchaseRefundRoutes = require('./routes/purchase-refund'); // WEB2.0 — Trả hàng NCC state machine
 const servicesOverviewRoutes = require('./routes/services-overview'); // WEB2.0 — Services dashboard (DB stats + cost)
-const adminMigrateWeb2Routes = require('./routes/admin-migrate-web2'); // WEB2.0 — One-shot Neon → Render PG migration
 const deliveryInvoicesRoutes = require('./routes/delivery-invoices');
 const refundsRoutes = require('./routes/refunds');
 const pbhReportsRoutes = require('./routes/pbh-reports');
@@ -604,9 +604,6 @@ app.use('/api/web2/cutout', require('./routes/web2-cutout')); // WEB2.0 photo-st
 app.use('/api/wallet-deposits', walletDepositsRoutes); // WEB2.0 SePay deposits for ví NCC/KH
 app.use('/api/purchase-refund', purchaseRefundRoutes); // WEB2.0 Trả hàng NCC state machine + stock
 app.use('/api/services-overview', servicesOverviewRoutes); // WEB2.0 Services dashboard (DB stats + cost)
-app.use('/api/admin', adminMigrateWeb2Routes); // WEB2.0 One-shot Neon → Render PG migration (auth via x-admin-secret)
-app.use('/api/admin', require('./routes/admin-schema-mirror-web2')); // WEB2.0 Phase 4 — mirror schema chatDb→web2Db (auth via x-admin-secret)
-app.use('/api/admin', require('./routes/admin-data-copy-web2')); // WEB2.0 Phase 5 — copy data chatDb→web2Db (auth via x-admin-secret)
 app.use('/api/admin', require('./routes/admin-web2-wallet-reset')); // WEB2.0 backup+reset ví/matching web2Db (auth via x-admin-secret)
 app.use('/api/web2-users', require('./routes/web2-users')); // WEB2.0 user account system
 // 2026-06-03 Phase 3 tách Web 2.0: dual-mount mỗi route Web 2.0 ở CẢ

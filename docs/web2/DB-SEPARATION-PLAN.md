@@ -2,7 +2,11 @@
 
 # Kế hoạch tách DB Web 2.0 hoàn toàn khỏi Web 1.0
 
-> Trạng thái: **APPROVED — đang thực thi**. Lập 2026-06-03, user duyệt cùng ngày.
+> ✅ **HOÀN TẤT 2026-06-04** — Web 2.0 chạy 100% trên Render PG `n2store-web2-db` (web2Db) + Firebase.
+> **KHÔNG dùng Neon** (mọi mention "Neon" bên dưới là lịch sử). Deadcode migration Neon→Render
+> (admin-migrate-web2, admin-schema-mirror-web2, admin-data-copy-web2, web2-schema-mirror, web2-data-copy) đã xoá.
+>
+> Trạng thái gốc: **APPROVED — đang thực thi**. Lập 2026-06-03, user duyệt cùng ngày.
 > Mục tiêu user: mọi data Web 2.0 nằm ở **Render PG `n2store-web2-db`** + **Firebase Web 2.0**, độc lập hoàn toàn data cũ. Bỏ mọi coupling Web 1.0 (gồm `/api/v2/customers`).
 >
 > **QUYẾT ĐỊNH USER (2026-06-03)**:

@@ -23,6 +23,24 @@
 
 ---
 
+## 2026-06-04
+
+### [render][web2] Bỏ Neon hoàn toàn — Web 2.0 = Render PG + Firebase only, xoá deadcode ✅
+
+**Bối cảnh:** User thấy "Neon" trong secret file + hỏi "sao lại có Neon?". Yêu cầu: Web 2.0 CHỈ dùng Render + Firebase, xoá Neon + deadcode tất cả dấu vết.
+
+**Điều tra (authoritative qua `GET /api/services-overview`):** `web2Db` = Render PG **`n2store_web2`** (n2store-web2-db, 261 MB, có đủ data + `_bak_` backups). Neon DB (`neondb`) **rỗng** mọi bảng web2 (`relation does not exist`). → Web 2.0 **đã** chạy 100% trên Render từ trước; "Neon" chỉ là **stale reference** trong secret file + comment. KHÔNG cần repoint/migrate data.
+
+**Dọn dẹp:**
+
+- Xoá 5 file deadcode migration Neon→Render: `routes/admin-migrate-web2.js`, `routes/admin-schema-mirror-web2.js`, `routes/admin-data-copy-web2.js`, `db/web2-schema-mirror.js`, `db/web2-data-copy.js` + 4 mount/require trong `server.js`.
+- `server.js` + `db/web2-pool.js`: bỏ mọi comment "Neon", ghi rõ pool = Render `n2store-web2-db`, log `Render n2store-web2-db pool initialized`.
+- `serect_dont_push.txt`: xoá Neon connection string (line 37), thay bằng note "removed — Render only".
+- `MEMORY reference_db_pools.md` + `MEMORY.md`: cập nhật web2Db = Render giữ TOÀN BỘ data web2 (cũ ghi sai "Neon Free / chỉ web2_records").
+- `docs/web2/DB-SEPARATION-PLAN.md`: header ✅ HOÀN TẤT, Neon = lịch sử.
+
+**Verify:** `node --check server.js` OK, không còn require gãy. **Status:** ✅ Done — cần redeploy.
+
 ## 2026-06-03
 
 ### [render][web2] Fix data KHÔNG load 3 trang sau tách DB — generic route shadow dedicated ✅
