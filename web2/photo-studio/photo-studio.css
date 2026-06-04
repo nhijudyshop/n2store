@@ -458,6 +458,28 @@ main.web2-main.ps-app {
     pointer-events: none;
     white-space: nowrap;
 }
+.ps-compare-btn {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 12px;
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+}
+.ps-compare-btn i {
+    width: 14px;
+    height: 14px;
+}
 .ps-reset-btn {
     position: absolute;
     bottom: 10px;

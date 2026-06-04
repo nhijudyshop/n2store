@@ -147,6 +147,7 @@
             'reviewBack:psReviewBack',
             'reviewOptions:psReviewOptions',
             'resetTransform:psResetTransform',
+            'compare:psCompare',
             'reviewMeta:psReviewMeta',
             'reviewStage:psReviewStage',
             'reviewCanvas:psReviewCanvas',
@@ -210,6 +211,19 @@
             renderReview();
         });
         bindReviewGestures();
+        // Before/after: giữ nút để xem ảnh gốc
+        const showOriginal = () => {
+            if (!state._capFrame) return;
+            rctx.clearRect(0, 0, state._capW, state._capH);
+            rctx.drawImage(state._capFrame, 0, 0);
+        };
+        el.compare.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            showOriginal();
+        });
+        ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) =>
+            el.compare.addEventListener(ev, () => renderReview())
+        );
 
         el.modePills
             .querySelectorAll('button[data-mode]')

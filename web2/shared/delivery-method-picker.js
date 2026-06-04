@@ -167,18 +167,32 @@
     }
 
     // Backend-loaded options (replaces hardcoded OPTIONS when fetch succeeds).
-    // Single source of truth = /api/web2/deliverycarrier/list, so admin can
-    // manage zones + prices + keywords from web2/delivery-carrier/ UI.
+    // Single source of truth = /api/web2/deliveryzone/list — entity RIÊNG cho
+    // vùng giao hàng (KHÔNG dùng `deliverycarrier` vì entity đó bị TPOS sync
+    // ghi đè record không có keyword/fee). Admin quản lý ở web2/delivery-zone/.
+    const BACKEND_ENTITY = 'deliveryzone';
     let _liveOptions = null; // set on successful fetch
     let _liveOptionsPromise = null;
 
+    // keywords có thể là array (seed) hoặc chuỗi phân tách , / xuống dòng / ;
+    // (nhập từ textarea ở trang cấu hình) → luôn chuẩn hoá về array.
+    function _parseKeywords(k) {
+        if (Array.isArray(k)) return k.map((s) => String(s).trim()).filter(Boolean);
+        if (typeof k === 'string')
+            return k
+                .split(/[,\n;]+/)
+                .map((s) => s.trim())
+                .filter(Boolean);
+        return [];
+    }
     function _normalizeFromRecord(rec) {
         const d = rec.data || {};
         return {
             value: rec.code,
             label: rec.name || d.Name || rec.code,
+            short: d.short || '',
             price: Number(d.fee || 0),
-            keywords: Array.isArray(d.keywords) ? d.keywords : [],
+            keywords: _parseKeywords(d.keywords),
             manual: !!d.manual,
             isFallback: !!d.isFallback,
         };
@@ -194,7 +208,7 @@
         _liveOptionsPromise = (async () => {
             try {
                 const r = await fetch(
-                    `${base}/api/web2/deliverycarrier/list?limit=100&activeOnly=true`
+                    `${base}/api/web2/${BACKEND_ENTITY}/list?limit=100&activeOnly=true`
                 );
                 const data = await r.json();
                 if (!data?.success || !Array.isArray(data.records)) return null;
