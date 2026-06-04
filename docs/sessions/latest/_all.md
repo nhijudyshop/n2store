@@ -3,17 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `93886e4` — auto: session update
-**Last updated**: 2026-06-04 10:56:35 +07
-**Latest session**: [`RESUME:20260604-105635-93886e4`](../20260604-105635-93886e4.md)
-**Summary**: auto: session update
+**Latest commit**: `6687ad8` — feat(web2): photo-studio — engine fal.ai BiRefNet (HD, không watermark) cho Cloud HD
+**Last updated**: 2026-06-04 10:57:42 +07
+**Latest session**: [`RESUME:20260604-105742-6687ad8`](../20260604-105742-6687ad8.md)
+**Summary**: feat(web2): photo-studio — engine fal.ai BiRefNet (HD, không watermark) cho Cloud HD
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-04 10:56
+- [`docs/`](./docs.md) — updated 2026-06-04 10:57
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-03 16:52
 - [`downloads/`](./downloads.md) — updated 2026-06-03 18:34
@@ -70,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-04 10:56
+- [`web2/`](./web2.md) — updated 2026-06-04 10:57
