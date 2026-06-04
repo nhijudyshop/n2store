@@ -19,6 +19,37 @@
         return d.innerHTML;
     }
 
+    // Worker proxy avatar FB (token xử lý server-side — an toàn, KHÔNG lộ token
+    // ra client). Giống native-orders /api/fb-avatar?id=<psid>&page=<pageId>.
+    function workerUrl() {
+        return (
+            (global.Web2Chat &&
+                global.Web2Chat._internal &&
+                global.Web2Chat._internal.WORKER_URL) ||
+            (global.API_CONFIG && global.API_CONFIG.WORKER_URL) ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev'
+        );
+    }
+    function avatarUrl(psid, pageId) {
+        if (!psid) return '';
+        return `${workerUrl()}/api/fb-avatar?id=${encodeURIComponent(psid)}${pageId ? '&page=' + encodeURIComponent(pageId) : ''}`;
+    }
+    // div tròn chữ-cái + <img> avatar phủ lên; lỗi tải → img tự remove → còn chữ.
+    function avatarHtml(name, psid, pageId, cls) {
+        const initial = esc(
+            (
+                String(name || '?')
+                    .trim()
+                    .charAt(0) || '?'
+            ).toUpperCase()
+        );
+        const url = avatarUrl(psid, pageId);
+        const img = url
+            ? `<img class="w2cro-av-img" src="${esc(url)}" alt="" loading="lazy" onerror="this.remove()" />`
+            : '';
+        return `<div class="${cls}"><span class="w2cro-av-ini">${initial}</span>${img}</div>`;
+    }
+
     // Pancake message text đến dạng HTML một phần (<div>...</div>, <br>). Strip
     // tag → plain text, giữ xuống dòng. Trả PLAIN; caller esc() trước khi nhúng.
     function msgPlain(raw) {
@@ -64,10 +95,13 @@
             border-bottom: 1px solid #eef2f7; align-items: flex-start; }
         .w2cro-conv:hover { background: #eef2ff; }
         .w2cro-conv.is-active { background: #dbeafe; }
-        .w2cro-conv-av { width: 34px; height: 34px; border-radius: 50%; flex: 0 0 auto;
-            background: #c7d2fe; color: #3730a3; display: flex; align-items: center;
-            justify-content: center; font-weight: 700; font-size: 13px; overflow: hidden; }
-        .w2cro-conv-av img { width: 100%; height: 100%; object-fit: cover; }
+        .w2cro-conv-av { width: 34px; height: 34px; flex: 0 0 auto; }
+        /* avatar: nền chữ-cái + img phủ lên (img lỗi → tự remove → còn chữ) */
+        .w2cro-conv-av, .w2cro-bub-av { position: relative; border-radius: 50%; overflow: hidden;
+            background: #c7d2fe; }
+        .w2cro-av-ini { position: absolute; inset: 0; display: flex; align-items: center;
+            justify-content: center; color: #3730a3; font-weight: 700; font-size: 13px; }
+        .w2cro-av-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
         .w2cro-conv-main { min-width: 0; flex: 1; }
         .w2cro-conv-name { font-weight: 600; font-size: 13px; color: #0f172a;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -91,6 +125,11 @@
         .w2cro-row.is-in .w2cro-bubble { background: #fff; color: #0f172a; border-bottom-left-radius: 4px;
             box-shadow: 0 1px 1px rgba(0,0,0,.06); }
         .w2cro-row.is-out .w2cro-bubble { background: #dcf8c6; color: #0f172a; border-bottom-right-radius: 4px; }
+        .w2cro-in-line { display: flex; align-items: flex-end; gap: 6px; }
+        .w2cro-bub-av { width: 26px; height: 26px; flex: 0 0 auto; }
+        .w2cro-bub-av .w2cro-av-ini { font-size: 11px; }
+        .w2cro-bub-spacer { background: transparent; }
+        .w2cro-row.is-in .w2cro-time { margin-left: 32px; }
         .w2cro-txt { white-space: pre-wrap; }
         .w2cro-img { max-width: 220px; max-height: 280px; border-radius: 10px; display: block; margin-top: 3px; }
         .w2cro-file { display: inline-block; margin-top: 4px; font-size: 12px; color: #1d4ed8; }
@@ -144,6 +183,7 @@
                     convId: conv.getAttribute('data-conv'),
                     customerUuid: conv.getAttribute('data-cust') || null,
                     name: conv.getAttribute('data-name') || '',
+                    psid: conv.getAttribute('data-psid') || '',
                 });
             }
         });
@@ -247,11 +287,9 @@
                 ''
         ).slice(0, 48);
         const sub = phone ? `${esc(phone)}${snippet ? ' · ' + esc(snippet) : ''}` : esc(snippet);
-        const initial = esc((name || '?').trim().charAt(0).toUpperCase() || '?');
-        const av = cust.avatar || cust.photo_url || '';
-        const avHtml = av ? `<img src="${esc(av)}" loading="lazy" />` : initial;
-        return `<div class="w2cro-conv" data-page="${esc(pageId)}" data-conv="${esc(conv.id || '')}" data-cust="${esc(cust.id || '')}" data-name="${esc(name)}">
-            <div class="w2cro-conv-av">${avHtml}</div>
+        const psid = cust.fb_id || (conv.from && conv.from.id) || conv.from_psid || '';
+        return `<div class="w2cro-conv" data-page="${esc(pageId)}" data-conv="${esc(conv.id || '')}" data-cust="${esc(cust.id || '')}" data-name="${esc(name)}" data-psid="${esc(psid)}">
+            ${avatarHtml(name, psid, pageId, 'w2cro-conv-av')}
             <div class="w2cro-conv-main">
                 <div class="w2cro-conv-name">${esc(name)}</div>
                 <div class="w2cro-conv-sub">${sub || '&nbsp;'}</div>
@@ -259,7 +297,7 @@
         </div>`;
     }
 
-    function renderBubble(m, pageId) {
+    function renderBubble(m, pageId, inAvatar) {
         const isOut = (m.from && m.from.id === pageId) || m.from_admin || m.is_admin;
         const txt = msgPlain(m.message || m.text || m.content || '');
         const atts = Array.isArray(m.attachments) ? m.attachments : [];
@@ -310,11 +348,17 @@
                     month: '2-digit',
                 });
         }
-        return `<div class="w2cro-row ${isOut ? 'is-out' : 'is-in'}"><div class="w2cro-bubble">${body}${media}</div><div class="w2cro-time">${esc(t)}</div></div>`;
+        if (isOut) {
+            return `<div class="w2cro-row is-out"><div class="w2cro-bubble">${body}${media}</div><div class="w2cro-time">${esc(t)}</div></div>`;
+        }
+        // Incoming (KH): avatar trái + bubble. inAvatar='' (không phải đầu nhóm)
+        // → spacer giữ canh lề. is_removed cũng đi nhánh này.
+        const av = inAvatar || '<div class="w2cro-bub-av w2cro-bub-spacer"></div>';
+        return `<div class="w2cro-row is-in"><div class="w2cro-in-line">${av}<div class="w2cro-bubble">${body}${media}</div></div><div class="w2cro-time">${esc(t)}</div></div>`;
     }
 
     // ---- Tải + render thread 1 hội thoại ----
-    async function loadThread({ pageId, convId, customerUuid, name }) {
+    async function loadThread({ pageId, convId, customerUuid, name, psid }) {
         if (_el) _el.querySelector('.w2cro-modal')?.classList.remove('is-search');
         const title = _el && _el.querySelector('#w2croTitle');
         if (title) title.textContent = name ? `Hội thoại — ${name}` : 'Hội thoại khách hàng';
@@ -333,9 +377,17 @@
             setBody('<div class="w2cro-empty">Hội thoại trống.</div>');
             return;
         }
+        // Avatar KH (incoming) — render 1 lần ở đầu mỗi nhóm tin đến cho gọn.
+        const custAv = avatarHtml(name, psid, pageId, 'w2cro-bub-av');
         const ordered = msgs.slice().reverse(); // Pancake mới→cũ ⇒ render cũ→mới
+        let prevOut = true;
         const html = ordered
-            .map((m) => renderBubble(m, pageId))
+            .map((m) => {
+                const isOut = (m.from && m.from.id === pageId) || m.from_admin || m.is_admin;
+                const showAv = !isOut && prevOut; // tin đầu của nhóm KH
+                prevOut = isOut;
+                return renderBubble(m, pageId, showAv ? custAv : '');
+            })
             .filter(Boolean)
             .join('');
         setBody(html || '<div class="w2cro-empty">Hội thoại trống.</div>');
@@ -399,6 +451,7 @@
             convId: conv.id,
             customerUuid: custUuid,
             name: opts.name,
+            psid: opts.psid,
         });
     }
 

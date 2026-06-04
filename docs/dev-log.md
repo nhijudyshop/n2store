@@ -25,6 +25,16 @@
 
 ## 2026-06-04
 
+### [web2] Chat read-only: avatar thật FB (list + thread) ✅
+
+User: thêm avatar vào (list hội thoại đang là chữ-cái).
+
+- Pancake search KHÔNG trả URL ảnh → dùng **Worker proxy** `/api/fb-avatar?id=<psid>&page=<pageId>` (token server-side, an toàn — giống native-orders). Verified proxy trả image/jpeg 200.
+- `avatarHtml(name,psid,pageId,cls)`: div chữ-cái nền + `<img onerror="this.remove()">` phủ lên → ảnh thật, lỗi thì còn chữ. psid lấy từ `cust.fb_id || conv.from.id`.
+- **List**: mỗi hội thoại có avatar ảnh thật. **Thread**: avatar KH ở đầu mỗi nhóm tin đến (incoming), spacer canh lề các tin sau.
+- Browser-tested: 89 hội thoại có avatar ảnh, thread "Ngân Nguyen" avatar incoming OK.
+- **Files:** `web2/shared/web2-chat-readonly.js` (v=20260604e), `index.html`
+
 ### [web2] In bill: dấu tiếng Việt rõ hơn — bỏ emphasis + chữ to + supersample raster ✅
 
 User: "các chữ tiếng Việt có dấu in ra bill sẽ có xu hướng bị mờ" + "nhìn bill ở máy tính vậy thôi chứ in ra nó khác". Màn hình ≠ máy in nhiệt 203 DPI: dấu sắc/huyền/ngã/hỏi/nặng + đ/ơ/ư nhỏ → mất nét khi rasterize 1-bit.
