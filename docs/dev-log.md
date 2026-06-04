@@ -25,6 +25,16 @@
 
 ## 2026-06-04
 
+### [web2] Photo-studio — withoutbg xoay tua 11 key (free ~550 ảnh/tháng) ✅
+
+User bỏ 11 key withoutbg → làm rotation. `web2-cutout-service.js`: đọc `WITHOUTBG_API_KEYS` (phẩy ngăn, fallback `WITHOUTBG_API_KEY`), `withoutbgCutout` xoay tua failover — dùng key sticky hiện tại; gặp 401/402/403/429 (hết quota) → thử key kế trong cùng request; bám key chạy được cho lần sau; hết sạch → dịch base + throw (frontend tự fallback @imgly). `/status` thêm `withoutbgKeys` (số key).
+
+- 11 key × 50/tháng = **~550 ảnh/tháng free**, full HD, no watermark.
+- **Verified**: rotation mock (keyA 402→keyB ok, không skip, sticky) ✓; **1 key thật LIVE → HTTP 200, trả cutout 9580 ký tự base64** ✓ (xác nhận key `sk-...` hợp lệ + endpoint base64 đúng).
+- Render env `WITHOUTBG_API_KEYS` đã set (11 key, PUT 200). Secrets file gộp 11 dòng bare → 1 dòng `WITHOUTBG_API_KEYS=`.
+
+**Files**: `render.com/services/web2-cutout-service.js`.
+
 ### [web2] Photo-studio — Cloud HD chuyển sang withoutbg (free 50/tháng, no watermark) ✅🔄
 
 Research phổ biến + free tier: **withoutbg.com** thắng — free 50 ảnh/tháng (rolling), **full HD, KHÔNG watermark**, Apache-2.0 (self-host được sau). Hơn hẳn remove.bg free (0.25MP preview), PhotoRoom sandbox (watermark), fal (hết balance). rembg vẫn là self-host phổ biến nhất (~23k★) nhưng cần Python infra.

@@ -21,7 +21,13 @@ const PHOTOROOM_KEY = process.env.PHOTOROOM_API_KEY || process.env.PHOTOROOM_SAN
 const PHOTOROOM_SEGMENT_URL = 'https://sdk.photoroom.com/v1/segment';
 const FAL_KEY = process.env.FAL_KEY || '';
 const FAL_BIREFNET_URL = 'https://fal.run/fal-ai/birefnet/v2';
-const WITHOUTBG_KEY = process.env.WITHOUTBG_API_KEY || '';
+// Nhiều key withoutbg → xoay tua (mỗi key free 50/tháng). WITHOUTBG_API_KEYS phẩy
+// ngăn cách (ưu tiên), fallback WITHOUTBG_API_KEY đơn.
+const WITHOUTBG_KEYS = (process.env.WITHOUTBG_API_KEYS || process.env.WITHOUTBG_API_KEY || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+let withoutbgIdx = 0; // key đang dùng (in-memory, sticky)
 const WITHOUTBG_URL = 'https://api.withoutbg.com/v1.0/image-without-background-base64';
 const MAX_BYTES = 12 * 1024 * 1024; // 12MB ảnh input
 
@@ -32,31 +38,59 @@ function falConfigured() {
     return Boolean(FAL_KEY);
 }
 function withoutbgConfigured() {
-    return Boolean(WITHOUTBG_KEY);
+    return WITHOUTBG_KEYS.length > 0;
 }
 
+// Status code coi là "key hết quota / không hợp lệ" → xoay sang key kế.
+const WB_ROTATE_STATUS = new Set([401, 402, 403, 429]);
+
 /**
- * Tách nền bằng withoutbg.com (free 50/tháng, full HD, no watermark, Apache OSS).
+ * Tách nền bằng withoutbg.com (free 50/tháng/key, full HD, no watermark).
+ * Xoay tua nhiều key: dùng key hiện tại; nếu hết quota (402/429…) → key kế.
  * @param {Buffer} imageBuffer
  * @returns {Promise<Buffer>} PNG cutout (nền trong suốt)
  */
 async function withoutbgCutout(imageBuffer) {
-    if (!WITHOUTBG_KEY) throw new Error('WITHOUTBG_API_KEY chưa cấu hình trên server');
+    if (!WITHOUTBG_KEYS.length) throw new Error('WITHOUTBG_API_KEY(S) chưa cấu hình trên server');
     if (!imageBuffer?.length) throw new Error('Ảnh rỗng');
     if (imageBuffer.length > MAX_BYTES) throw new Error('Ảnh quá lớn (>12MB)');
-    const res = await fetch(WITHOUTBG_URL, {
-        method: 'POST',
-        headers: { 'X-API-Key': WITHOUTBG_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_base64: imageBuffer.toString('base64') }),
-    });
-    if (!res.ok) {
+    const body = JSON.stringify({ image_base64: imageBuffer.toString('base64') });
+    const n = WITHOUTBG_KEYS.length;
+    const start = withoutbgIdx; // bắt đầu từ key sticky hiện tại
+    let lastErr = null;
+
+    for (let attempt = 0; attempt < n; attempt++) {
+        const idx = (start + attempt) % n;
+        let res;
+        try {
+            res = await fetch(WITHOUTBG_URL, {
+                method: 'POST',
+                headers: { 'X-API-Key': WITHOUTBG_KEYS[idx], 'Content-Type': 'application/json' },
+                body,
+            });
+        } catch (e) {
+            lastErr = e; // lỗi mạng → thử key kế
+            continue;
+        }
+        if (res.ok) {
+            withoutbgIdx = idx; // bám key đang chạy được cho lần sau
+            const j = await res.json();
+            const b64 = j.img_without_background_base64 || j.image_base64;
+            if (!b64) throw new Error('withoutbg không trả ảnh');
+            return Buffer.from(b64, 'base64');
+        }
+        if (WB_ROTATE_STATUS.has(res.status)) {
+            console.warn(`[web2-cutout] withoutbg key#${idx} ${res.status} → xoay key kế`);
+            lastErr = new Error(`key#${idx} ${res.status}`);
+            continue; // thử key kế (KHÔNG đổi sticky giữa vòng — tránh nhảy cóc)
+        }
+        // lỗi thật (400 ảnh sai, 5xx) → không xoay, báo luôn
         const detail = await res.text().catch(() => '');
-        throw new Error(`withoutbg ${res.status}: ${detail.slice(0, 300)}`);
+        throw new Error(`withoutbg ${res.status}: ${detail.slice(0, 200)}`);
     }
-    const j = await res.json();
-    const b64 = j.img_without_background_base64 || j.image_base64;
-    if (!b64) throw new Error('withoutbg không trả ảnh');
-    return Buffer.from(b64, 'base64');
+    // tất cả hết quota → dịch sticky để lần sau bắt đầu key khác
+    withoutbgIdx = (start + 1) % n;
+    throw new Error('Tất cả key withoutbg đã hết quota / lỗi. ' + (lastErr?.message || ''));
 }
 
 /**
@@ -138,6 +172,7 @@ module.exports = {
     decodeImage,
     engines: () => ({
         withoutbg: withoutbgConfigured(),
+        withoutbgKeys: WITHOUTBG_KEYS.length,
         birefnet: falConfigured(),
         photoroom: photoroomConfigured(),
     }),
