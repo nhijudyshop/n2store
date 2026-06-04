@@ -49,6 +49,28 @@
                     </div>
                 </header>
 
+                <!-- 2026-06-04: Tab kênh đơn — Livestream vs Inbox -->
+                <div class="no-channel-tabs" id="channelTabs">
+                    <button
+                        class="no-channel-tab is-active"
+                        type="button"
+                        data-channel="livestream"
+                    >
+                        <i data-lucide="radio"></i> Đơn Livestream
+                    </button>
+                    <button class="no-channel-tab" type="button" data-channel="inbox">
+                        <i data-lucide="inbox"></i> Đơn Inbox
+                    </button>
+                    <button
+                        class="no-add-order-btn"
+                        type="button"
+                        id="btnAddInboxOrder"
+                        style="display: none"
+                    >
+                        <i data-lucide="plus"></i> Thêm đơn
+                    </button>
+                </div>
+
                 <!-- Filter Section (always visible — toggle button removed) -->
                 <section class="search-section" id="controlBar">
                     <div class="filter-row">

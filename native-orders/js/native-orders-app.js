@@ -1459,6 +1459,7 @@
         try {
             const resp = await window.NativeOrdersApi.list({
                 status: STATE.status,
+                channel: STATE.channel || undefined,
                 search: STATE.search || undefined,
                 page: STATE.page,
                 limit: STATE.limit,
@@ -2537,6 +2538,119 @@
 
     // In bill thermal 80mm cho các đơn được chọn (tạo PBH-shape object trong RAM,
     // không lưu DB — dùng Web2Bill template). Hữu ích preview trước khi tạo PBH.
+    // 2026-06-04: Thêm đơn Inbox — nhập KH (tìm từ kho web2 → autofill tên/SĐT/địa
+    // chỉ), tạo đơn channel='inbox' rồi mở modal sửa để thêm SP (tái dùng openEdit).
+    async function openAddInboxOrder() {
+        const overlay = document.createElement('div');
+        overlay.className = 'no-add-modal-overlay';
+        overlay.innerHTML = `
+          <div class="no-add-modal">
+            <div class="no-add-modal-head">
+              <strong><i data-lucide="inbox"></i> Thêm đơn Inbox</strong>
+              <button class="no-add-close" type="button" aria-label="Đóng">✕</button>
+            </div>
+            <div class="no-add-modal-body">
+              <label>Khách hàng (gõ tên / SĐT — lấy từ kho KH)</label>
+              <div class="no-add-search-wrap">
+                <input type="text" id="noAddCustSearch" placeholder="Gõ tên hoặc SĐT để tìm khách..." autocomplete="off" />
+                <div class="no-add-suggest" id="noAddSuggest" hidden></div>
+              </div>
+              <div class="no-add-row">
+                <div><label>Tên</label><input type="text" id="noAddName" /></div>
+                <div><label>SĐT</label><input type="text" id="noAddPhone" /></div>
+              </div>
+              <label>Địa chỉ</label>
+              <input type="text" id="noAddAddress" />
+            </div>
+            <div class="no-add-modal-foot">
+              <button class="no-add-cancel" type="button">Huỷ</button>
+              <button class="no-add-create" type="button"><i data-lucide="check"></i> Tạo đơn + thêm SP</button>
+            </div>
+          </div>`;
+        document.body.appendChild(overlay);
+        if (window.lucide) lucide.createIcons();
+        let selectedCustomerId = null;
+        const close = () => overlay.remove();
+        overlay.querySelector('.no-add-close').onclick = close;
+        overlay.querySelector('.no-add-cancel').onclick = close;
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) close();
+        });
+
+        const searchInp = overlay.querySelector('#noAddCustSearch');
+        const suggest = overlay.querySelector('#noAddSuggest');
+        let timer = null;
+        searchInp.addEventListener('input', () => {
+            clearTimeout(timer);
+            const q = searchInp.value.trim();
+            if (q.length < 2) {
+                suggest.hidden = true;
+                return;
+            }
+            timer = setTimeout(async () => {
+                try {
+                    const r = await fetch(
+                        `${WORKER_URL}/api/web2/customers/search?search=${encodeURIComponent(q)}&limit=8`,
+                        { credentials: 'include' }
+                    );
+                    const j = await r.json();
+                    const rows = j.data || [];
+                    if (!rows.length) {
+                        suggest.innerHTML =
+                            '<div class="no-add-suggest-empty">Không tìm thấy — nhập tay bên dưới</div>';
+                        suggest.hidden = false;
+                        return;
+                    }
+                    suggest.innerHTML = rows
+                        .map(
+                            (c) =>
+                                `<button type="button" class="no-add-suggest-item" data-id="${c.id || ''}" data-name="${escapeHtml(c.name || '')}" data-phone="${escapeHtml(c.phone || '')}" data-address="${escapeHtml(c.address || '')}"><strong>${escapeHtml(c.name || '—')}</strong> · ${escapeHtml(c.phone || '')}<div class="no-add-suggest-addr">${escapeHtml(c.address || '')}</div></button>`
+                        )
+                        .join('');
+                    suggest.hidden = false;
+                } catch (e) {
+                    suggest.hidden = true;
+                }
+            }, 280);
+        });
+        suggest.addEventListener('click', (e) => {
+            const item = e.target.closest('.no-add-suggest-item');
+            if (!item) return;
+            overlay.querySelector('#noAddName').value = item.dataset.name || '';
+            overlay.querySelector('#noAddPhone').value = item.dataset.phone || '';
+            overlay.querySelector('#noAddAddress').value = item.dataset.address || '';
+            selectedCustomerId = item.dataset.id || null;
+            suggest.hidden = true;
+            searchInp.value = item.dataset.name || item.dataset.phone || '';
+        });
+
+        overlay.querySelector('.no-add-create').onclick = async () => {
+            const name = overlay.querySelector('#noAddName').value.trim();
+            const phone = overlay.querySelector('#noAddPhone').value.trim();
+            const address = overlay.querySelector('#noAddAddress').value.trim();
+            if (!name && !phone) {
+                notify('Cần tên hoặc SĐT khách', 'warning');
+                return;
+            }
+            try {
+                const resp = await window.NativeOrdersApi.createManual({
+                    customerName: name,
+                    phone,
+                    address,
+                    customerId: selectedCustomerId,
+                });
+                const code = resp.order?.code;
+                notify(`Đã tạo đơn inbox ${code}`, 'success');
+                close();
+                await load();
+                if (code) openEdit(code); // mở modal sửa → thêm SP
+            } catch (e) {
+                notify('Lỗi tạo đơn: ' + e.message, 'error');
+            }
+        };
+        setTimeout(() => searchInp.focus(), 50);
+    }
+
     async function bulkPrintBills() {
         const codes = getSelectedCodes();
         if (!codes.length) {
@@ -3272,6 +3386,21 @@
         // Auto-apply when Status / Limit dropdowns change
         $('#filterStatus')?.addEventListener('change', applyFilters);
         $('#filterLimit')?.addEventListener('change', applyFilters);
+        // 2026-06-04: tab kênh đơn (Livestream / Inbox) + nút Thêm đơn inbox.
+        $('#channelTabs')?.addEventListener('click', (e) => {
+            const tab = e.target.closest('.no-channel-tab');
+            if (!tab) return;
+            $('#channelTabs')
+                .querySelectorAll('.no-channel-tab')
+                .forEach((t) => t.classList.remove('is-active'));
+            tab.classList.add('is-active');
+            STATE.channel = tab.dataset.channel;
+            const addBtn = $('#btnAddInboxOrder');
+            if (addBtn) addBtn.style.display = STATE.channel === 'inbox' ? '' : 'none';
+            STATE.page = 1;
+            load();
+        });
+        $('#btnAddInboxOrder')?.addEventListener('click', openAddInboxOrder);
         $('#filterSearchClear')?.addEventListener('click', () => {
             const el = $('#filterSearch');
             if (el) {

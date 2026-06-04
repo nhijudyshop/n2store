@@ -2046,3 +2046,205 @@ body {
     grid-template-columns: 1fr 1fr;
     gap: 12px;
 }
+
+/* ===== 2026-06-04: Tab kênh đơn (Livestream/Inbox) + Thêm đơn Inbox ===== */
+.no-channel-tabs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0 4px;
+}
+.no-channel-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 130ms;
+}
+.no-channel-tab i {
+    width: 16px;
+    height: 16px;
+}
+.no-channel-tab:hover {
+    border-color: #a78bfa;
+    color: #6d28d9;
+}
+.no-channel-tab.is-active {
+    background: #7c3aed;
+    border-color: #7c3aed;
+    color: #fff;
+}
+.no-add-order-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    padding: 8px 16px;
+    border: 0;
+    border-radius: 8px;
+    background: #16a34a;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 130ms;
+}
+.no-add-order-btn:hover {
+    background: #15803d;
+}
+.no-add-order-btn i {
+    width: 16px;
+    height: 16px;
+}
+.no-add-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 9999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 8vh;
+}
+.no-add-modal {
+    width: 480px;
+    max-width: 92vw;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+}
+.no-add-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #faf5ff;
+}
+.no-add-modal-head strong {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #6d28d9;
+    font-size: 1rem;
+}
+.no-add-modal-head i {
+    width: 18px;
+    height: 18px;
+}
+.no-add-close {
+    border: 0;
+    background: transparent;
+    font-size: 1.1rem;
+    color: #94a3b8;
+    cursor: pointer;
+}
+.no-add-modal-body {
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.no-add-modal-body label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #64748b;
+}
+.no-add-modal-body input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+.no-add-modal-body input:focus {
+    outline: none;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+}
+.no-add-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.no-add-search-wrap {
+    position: relative;
+}
+.no-add-suggest {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+    max-height: 260px;
+    overflow-y: auto;
+    z-index: 5;
+}
+.no-add-suggest-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 9px 12px;
+    border: 0;
+    border-bottom: 1px solid #f1f5f9;
+    background: #fff;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: #334155;
+}
+.no-add-suggest-item:hover {
+    background: #faf5ff;
+}
+.no-add-suggest-addr {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+.no-add-suggest-empty {
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+.no-add-modal-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 18px;
+    border-top: 1px solid #f1f5f9;
+}
+.no-add-cancel {
+    padding: 9px 16px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    border-radius: 8px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+}
+.no-add-create {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border: 0;
+    border-radius: 8px;
+    background: #16a34a;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+}
+.no-add-create i {
+    width: 16px;
+    height: 16px;
+}
