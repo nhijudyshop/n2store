@@ -25,6 +25,16 @@
 
 ## 2026-06-04
 
+### [render] Trích xuất SĐT từ content SePay — gộp 1 nguồn (badge = matcher) ✅
+
+User: hình 1 (`coc shop nhi judy-GD-387721-...`) badge hiện "Đuôi SĐT: 387721" nhưng "Chưa gán" không ra KH; hình 2 ra list KH. Lý do: badge và matcher dùng **2 extractor khác nhau** → lệch.
+
+- **Root cause divergence**: badge dùng `web2-content-parser.extractPhoneCandidates` (GIỮ dash-GD `-GD-387721`), matcher dùng `web2-content-extractor.extractIdentifier` (line 95 STRIP dash-GD → mất candidate → không tìm KH). User rule: **mọi dãy 5–10 digit đều lấy parse tìm KH**, dash-GD chính là đuôi SĐT khách tự gõ.
+- **Fix 1** `web2-content-extractor.js`: bỏ strip `-GD-<digits>` (line 95). Giờ `387721`/`936769` được giữ làm candidate, dashGd prioritization (Step 6) đẩy lên đầu.
+- **Fix 2 — 1 NGUỒN**: badge route `web2-balance-history.web2ExtractionPreview` chuyển sang gọi ĐÚNG `extractIdentifier` (hàm matcher dùng) thay vì `extractPhoneCandidates` riêng → badge luôn = matcher. Verified: badge==matcher trên 387721/779981/098183.
+- **Docs**: ghi quy ước canonical vào `web2/overview/index.html` #conventions (subsection "Trích xuất SĐT — 1 NGUỒN DUY NHẤT": nguồn duy nhất, luật trích xuất, matcher quyết định).
+- **Files:** `render.com/services/web2-content-extractor.js`, `render.com/routes/v2/web2-balance-history.js`, `web2/overview/index.html`
+
 ### [web2-bill] Chữ bill đậm/rõ hơn — chống mờ khi in nhiệt ✅
 
 User: bill in ra bị mờ, cho chữ đậm hơn (giải pháp GitHub phổ biến nhất cho in nhiệt).

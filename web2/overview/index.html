@@ -1845,6 +1845,103 @@ permission_templates    (role: admin/manager/staff)</pre
                     </div>
 
                     <h3 class="ov-subsection-title" style="margin-top: 28px">
+                        Trích xuất SĐT từ nội dung CK SePay — 1 NGUỒN DUY NHẤT
+                    </h3>
+                    <div class="ov-db-grid">
+                        <div class="ov-db-card ov-db-primary">
+                            <h3>🔑 Nguồn duy nhất</h3>
+                            <ul>
+                                <li>
+                                    <strong
+                                        ><code>render.com/services/web2-content-extractor.js</code>
+                                        → <code>extractIdentifier(content)</code></strong
+                                    >
+                                    là nguồn DUY NHẤT trích xuất SĐT/QR từ nội dung chuyển khoản.
+                                </li>
+                                <li>
+                                    <strong>CẢ matcher LẪN badge</strong> dùng chung hàm này:
+                                    <br />• Matcher
+                                    (<code>web2-sepay-matching.processWeb2Match</code>) → tìm KH
+                                    cộng ví. <br />• Badge "Đuôi SĐT" trên trang
+                                    <em>Lịch sử biến động số dư</em>
+                                    (<code>web2-balance-history.web2ExtractionPreview</code>) → hiển
+                                    thị candidate.
+                                </li>
+                                <li>
+                                    ⚠ KHÔNG tạo extractor thứ 2. Nếu badge ≠ matcher ⇒ user thấy
+                                    đuôi SĐT nhưng bấm "+ Gán KH" lại không ra KH (bug 2026-06-04,
+                                    đã gộp).
+                                </li>
+                                <li>
+                                    <code>web2-content-parser.extractPhoneCandidates</code> CHỈ phục
+                                    vụ confidence-scoring + audit script — KHÔNG dùng cho
+                                    badge/matcher.
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="ov-db-card ov-db-info">
+                            <h3>📏 Luật trích xuất</h3>
+                            <ul>
+                                <li>
+                                    <strong>Mọi dãy 5–10 chữ số</strong> trong content đều lấy làm
+                                    <em>phone-tail candidate</em> để tìm KH (đuôi SĐT).
+                                </li>
+                                <li>
+                                    <strong>Dash-GD = đuôi SĐT khách tự gõ</strong>:
+                                    <code>...-GD-&lt;digits&gt;-...</code> (vd
+                                    <code>coc shop nhi judy-GD-387721</code> → <code>387721</code>)
+                                    → GIỮ + ưu tiên cao nhất. KHÔNG strip.
+                                </li>
+                                <li>
+                                    Chỉ strip <strong>noise thật</strong>: datetime
+                                    <code>DDMMYY-HH:MM:SS</code>,
+                                    <code>FT&lt;digits&gt;</code> (bank tx id),
+                                    <code>GD &lt;digits&gt;&lt;CHỮ&gt;</code> (bank ref có chữ, vd
+                                    <code>GD 6151IBT1kCV8PCIK</code>).
+                                </li>
+                                <li>
+                                    Phone đầy đủ <code>0xxxxxxxxx</code> → ưu tiên cao nhất. VCB
+                                    <code>MBVCB.x.x.&lt;phone&gt;.CT</code> → lấy phone trực tiếp.
+                                </li>
+                                <li>
+                                    Lọc blacklist (STK shop <code>75918</code>, SĐT test) +
+                                    <code>isObviousTestPhone()</code>.
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="ov-db-card ov-db-success">
+                            <h3>🎯 Matcher quyết định</h3>
+                            <ul>
+                                <li>
+                                    Mỗi candidate → search TPOS Partner (endsWith đuôi) → gom unique
+                                    phone (dedup).
+                                </li>
+                                <li>
+                                    <strong>1 unique phone</strong> → auto credit ví (
+                                    <code>exact_phone</code>/<code>single_match</code>).
+                                </li>
+                                <li>
+                                    <strong>&gt;1 unique phone</strong> →
+                                    <code>pending_match</code> → modal "Chọn khách hàng cho giao
+                                    dịch" để user chọn đúng KH.
+                                </li>
+                                <li>
+                                    <strong>0 match</strong> → giữ "Chưa gán", badge hiện đuôi để
+                                    gán tay.
+                                </li>
+                                <li>
+                                    QR riêng: <code>qrCandidates</code> (format
+                                    <code>&lt;slug&gt;&lt;partner_id&gt;</code> + legacy
+                                    <code>N2+16</code>) → lookup
+                                    <code>web2_payment_qr_codes</code> trước phone path.
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3 class="ov-subsection-title" style="margin-top: 28px">
                         Server wiring &amp; Migration infra
                     </h3>
                     <div class="ov-db-grid">
