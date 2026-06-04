@@ -1437,7 +1437,7 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
             try {
                 const pbhQ = await pool.query(
                     `SELECT DISTINCT ON (source_code) source_code, amount_total, residual,
-                            payment_amount, wallet_deducted, fulfillment_state
+                            payment_amount, wallet_deducted, fulfillment_state, carrier_name
                      FROM fast_sale_orders
                      WHERE source_type='native_order' AND source_code = ANY($1) AND state <> 'cancel'
                      ORDER BY source_code, split_index ASC, date_created ASC`,
@@ -1452,6 +1452,7 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
                     o.pbhPaymentAmount = Number(p.payment_amount || 0);
                     o.pbhWalletDeducted = Number(p.wallet_deducted || 0);
                     o.pbhFulfillmentState = p.fulfillment_state || null;
+                    o.pbhCarrierName = p.carrier_name || null;
                 }
             } catch (e) {
                 console.warn('[native-orders] enrich PBH badge failed:', e.message);

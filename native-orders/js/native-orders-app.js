@@ -978,6 +978,29 @@
         return `<span class="tpos-status-text ${m.cls}">${m.label}</span>`;
     }
 
+    // 2026-06-04: badge phái sinh từ PBH liên kết (server /load gắn pbh* fields):
+    //   - "Đã thanh toán" khi COD còn lại = 0 (ví đủ trả hết / đã thanh toán).
+    //   - "Đã đối soát" khi PBH đã đóng gói xong (fulfillment ∈ packed/shipped/delivered).
+    const RECONCILED_STATES = new Set(['packed', 'shipped', 'delivered']);
+    function orderDerivedBadges(o) {
+        const out = [];
+        if (/pbh\s*shop|shop/i.test(o.pbhCarrierName || '')) {
+            out.push(`<span class="no-shop-badge" title="Bán tại shop">🏪 PBH SHOP</span>`);
+        }
+        const paid = Number(o.pbhTotal) > 0 && Number(o.pbhResidual) <= 0;
+        if (paid) {
+            out.push(
+                `<span class="no-paid-badge" title="Ví đủ trả / đã thanh toán — COD còn lại 0₫">✓ Đã thanh toán</span>`
+            );
+        }
+        if (RECONCILED_STATES.has(o.pbhFulfillmentState)) {
+            out.push(
+                `<span class="no-reconciled-badge" title="Đã đối soát đóng gói (${escapeHtml(o.pbhFulfillmentState)})">📦 Đã đối soát</span>`
+            );
+        }
+        return out.length ? `<div class="no-derived-badges">${out.join('')}</div>` : '';
+    }
+
     // VN phone carrier prefix → label
     const CARRIER_PREFIXES = {
         Viettel: /^(086|096|097|098|032|033|034|035|036|037|038|039)/,
@@ -1145,6 +1168,7 @@
                             <span class="tpos-row-stt">${sttValue}</span>
                             <!-- 2026-06-01: trạng thái đơn moved into STT cell (per user) -->
                             <div class="tpos-row-status-inline">${tposStatusText(o.status)}</div>
+                            ${orderDerivedBadges(o)}
                         </div>
                     </td>
                     <td class="col-actions" onclick="event.stopPropagation();">
@@ -1330,6 +1354,10 @@
             JSON.stringify(o.tags || []),
             o.deliveryMethod || '',
             o.deliveryMethodManual ? '1' : '0',
+            o.pbhResidual ?? '',
+            o.pbhTotal ?? '',
+            o.pbhFulfillmentState || '',
+            o.pbhCarrierName || '',
             expanded,
             products,
             o.updatedAt || 0,
@@ -3356,6 +3384,61 @@
         }
     }
 
+    // 2026-06-04: PBH SHOP — bán tại shop. Tạo PBH cho các đơn đã chọn với
+    // ship = 0, phương thức "PBH SHOP" (in lên phiếu + badge). Logic thu hộ
+    // (trừ ví) giống PBH thường — server tự trừ ví khi tạo. Không cần địa chỉ.
+    async function bulkCreatePbhShop() {
+        const codes = getSelectedCodes();
+        if (!codes.length) {
+            notify('Chưa chọn đơn nào', 'warning');
+            return;
+        }
+        // Chỉ cần có sản phẩm (bán tại shop không bắt buộc địa chỉ).
+        const valid = codes.filter((code) => {
+            const o = STATE.orders.find((x) => x.code === code);
+            const qty = (o?.products || []).reduce((s, p) => s + (Number(p.quantity) || 0), 0);
+            return o && (o.products || []).length > 0 && qty > 0;
+        });
+        if (!valid.length) {
+            notify('Đơn đã chọn chưa có sản phẩm', 'warning');
+            return;
+        }
+        const ok = await w2pConfirm(
+            `Tạo PBH SHOP (bán tại shop) cho ${valid.length} đơn?\nPhí ship = 0, phương thức = "PBH SHOP". Khách có ví sẽ tự trừ thu hộ.`,
+            { title: 'PBH SHOP', okText: 'Tạo PBH SHOP', cancelText: 'Đóng', type: 'info' }
+        );
+        if (!ok) return;
+        const isoDate = new Date().toISOString();
+        let done = 0,
+            fail = 0;
+        for (const code of valid) {
+            try {
+                const r = await fetch(`${WORKER_URL}/api/fast-sale-orders/from-native-order`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nativeOrderCode: code,
+                        deliveryPrice: 0,
+                        carrierName: 'PBH SHOP',
+                        dateInvoice: isoDate,
+                    }),
+                });
+                const data = await r.json();
+                if (!r.ok || !data.success) throw new Error(data.message || data.error || 'lỗi');
+                done++;
+            } catch (e) {
+                fail++;
+                console.warn('[bulkCreatePbhShop]', code, e.message);
+            }
+        }
+        notify(
+            `PBH SHOP: tạo ${done}/${valid.length} đơn${fail ? `, lỗi ${fail}` : ''}`,
+            fail ? 'warning' : 'success'
+        );
+        unselectAllOrders();
+        await load();
+    }
+
     async function removeOrder(code) {
         if (
             !(await w2pConfirm(`Hành động không thể hoàn tác.`, {
@@ -3707,6 +3790,7 @@
             if (e.target?.classList?.contains('row-check')) updateBulkBar();
         });
         $('#ordersBulkPbh')?.addEventListener('click', bulkCreatePbh);
+        $('#ordersBulkPbhShop')?.addEventListener('click', bulkCreatePbhShop);
         $('#ordersBulkMerge')?.addEventListener('click', bulkMergeOrders);
         $('#ordersBulkPrintBill')?.addEventListener('click', bulkPrintBills);
         $('#ordersBulkSendMessage')?.addEventListener('click', bulkSendMessage);

@@ -152,6 +152,8 @@
 
         // Carrier
         const carrierName = delivery.carrierName || pbh.carrierName || '';
+        // 2026-06-04: bán tại shop → tiêu đề + nhãn "PBH SHOP" rõ ràng trên phiếu.
+        const isShop = /pbh\s*shop|shop/i.test(carrierName);
 
         // Has virtual debt (return ticket consumed)
         const hasVirtualDebt = !!(opts.hasVirtualDebt || pbh.hasVirtualDebt);
@@ -351,7 +353,13 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
 
     <!-- ═══════════ SHOP HEADER ═══════════ -->
     <div class="text-center shop-name">${_esc(shop.name)}</div>
-    ${carrierName ? `<div class="text-center muted" style="font-size:12px;">📦 ${_esc(carrierName)}</div>` : ''}
+    ${
+        isShop
+            ? `<div class="text-center" style="font-size:13px;font-weight:bold;border:1.5px solid #000;border-radius:4px;padding:2px 0;margin:4px 0;">🏪 PBH SHOP — BÁN TẠI SHOP</div>`
+            : carrierName
+              ? `<div class="text-center muted" style="font-size:12px;">📦 ${_esc(carrierName)}</div>`
+              : ''
+    }
     ${hasVirtualDebt ? `<div class="virtual-debt-banner">⚠ CÓ ĐƠN THU VỀ ⚠</div>` : ''}
 
     <!-- ═══════════ COD HIGHLIGHT ═══════════ -->
@@ -362,7 +370,7 @@ table { width: 100%; max-width: 100%; border-collapse: collapse; }
 
     <!-- ═══════════ BILL TITLE + BARCODE ═══════════ -->
     <hr class="sep-double" />
-    <div class="bill-title">Phiếu bán hàng</div>
+    <div class="bill-title">Phiếu bán hàng${isShop ? ' (SHOP)' : ''}</div>
     ${
         billNumber
             ? `<div class="barcode-box">

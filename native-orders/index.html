@@ -16,7 +16,7 @@
 
         <link rel="stylesheet" href="../web2/shared/tpos-sidebar.css?v=20260604b" />
         <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260604b" />
-        <link rel="stylesheet" href="css/native-orders.css?v=20260604nj" />
+        <link rel="stylesheet" href="css/native-orders.css?v=20260604nj2" />
         <link rel="stylesheet" href="css/tpos-theme.css?v=20260604b" />
 
         <!-- Lucide icons -->
@@ -274,6 +274,14 @@
                         Tạo PBH hàng loạt
                     </button>
                     <button
+                        class="tpos-btn tpos-btn-warning tpos-btn-sm"
+                        id="ordersBulkPbhShop"
+                        title="Bán tại shop: tạo PBH ship 0, phương thức 'PBH SHOP' (vẫn thu hộ qua ví)"
+                    >
+                        <i data-lucide="store" style="width: 12px; height: 12px"></i>
+                        PBH SHOP
+                    </button>
+                    <button
                         class="tpos-btn tpos-btn-default tpos-btn-sm"
                         id="ordersBulkPrintBill"
                         title="In bill thermal 80mm cho các đơn (preview — không lưu DB)"
@@ -414,7 +422,7 @@
         <script src="../web2/shared/jsbarcode-code128.min.js?v=20260604b"></script>
         <script src="../web2/shared/web2-bill-service.js?v=20260604b"></script>
         <script src="js/native-orders-api.js?v=20260604b"></script>
-        <script src="js/native-orders-app.js?v=20260604nj"></script>
+        <script src="js/native-orders-app.js?v=20260604nj2"></script>
         <script>
             window.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2NewMsgBadge) window.Web2NewMsgBadge.init();
