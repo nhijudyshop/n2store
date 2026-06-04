@@ -25,6 +25,15 @@
 
 ## 2026-06-04
 
+### [native-orders] Thu hộ ví khi tạo PBH + badge Đã thanh toán/Đã đối soát + nút PBH SHOP ✅
+
+User: 1/nút PBH SHOP (bán tại shop), 2/đơn được trừ ví → "đã thanh toán" + COD = còn thiếu, 3/đơn đã đối soát → badge "đã đối soát". Quyết định: trừ ví THẬT khi tạo PBH (hủy→hoàn), trừ phần có nếu ví thiếu, đối soát = fulfillment packed+.
+
+- **Thu hộ ví (server-side, atomic)**: `from-native-order` trừ `min(số dư ví, residual)` thật khỏi ví (`web2-wallet-service.processWithdraw`, idempotent theo PBH number), `residual`=COD còn lại, `payment_amount`+=đã trừ. Cột mới `fast_sale_orders.wallet_deducted` để hoàn. Hủy đơn (`/:code/cancel`) → `processDeposit` hoàn lại + zero-out (idempotent). Bill COD tự đúng (đọc `payment.residual`).
+- **Badge phái sinh** (KHÔNG thêm status enum — tránh xung đột mutation): `/load` LEFT JOIN PBH đầu (split 1, state≠cancel) → expose `pbhTotal/pbhResidual/pbhFulfillmentState/pbhCarrierName`. Frontend `orderDerivedBadges`: "✓ Đã thanh toán" (residual≤0), "📦 Đã đối soát" (fulfillment ∈ packed/shipped/delivered), "🏪 PBH SHOP" (carrier).
+- **PBH SHOP**: nút toolbar (vàng) → `bulkCreatePbhShop` tạo PBH ship=0, carrier="PBH SHOP", vẫn thu hộ ví. Bill: tiêu đề "(SHOP)" + nhãn "🏪 PBH SHOP — BÁN TẠI SHOP". Fix: `from-native-order` INSERT thiếu `carrier_name` → đã thêm `$44` (carrierName từ body giờ mới lưu).
+- **Test E2E** (`scripts/test-pbh-wallet-cod.js`, test customer 0123456788): full coverage trừ 150k→COD 0→paid badge→hủy hoàn 150k ✅; partial trừ hết ví→COD còn thiếu→paid=false ✅; SHOP carrier+ship0 ✅. Cleanup sạch (0 đơn test, ví nguyên).
+
 ### [web2] Photo-studio — Đợt 5: xử lý hàng loạt + AI upscale ×2 ✅
 
 Hai nâng cấp cuối trong backlog "làm tất cả".
