@@ -1295,6 +1295,29 @@
     let _allTemplatesCache = null; // { data: rawRows[], fetchedAt: ts, totalCount }
     const ALL_TEMPLATES_TTL = 60_000;
 
+    // Fetch one page of the full ProductTemplate list from TPOS GetViewV2.
+    async function _fetchTemplatePage(skip, top) {
+        const qp = new URLSearchParams();
+        qp.set('$top', String(top));
+        qp.set('$skip', String(skip));
+        qp.set('$count', 'true');
+        qp.set('$orderby', 'DateCreated desc');
+        const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.GetViewV2?${qp.toString()}`;
+        const resp = await window.tokenManager.authenticatedFetch(url, {
+            headers: { Accept: 'application/json' },
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const json = await resp.json();
+        return { rows: json.value || [], total: parseInt(json['@odata.count']) || 0 };
+    }
+
+    // De-dupe concurrent warm-ups: many keystrokes / handlers can all request the
+    // cache before it finishes loading. Share a single in-flight promise.
+    let _allTemplatesInflight = null;
+
+    // Warm the full template list. Pages after the first are fetched in PARALLEL so
+    // ~4000 rows arrive in ~2-3s instead of ~10s sequential — that's the window
+    // during which search must fall back to the Render DB endpoint, so keep it short.
     async function fetchAllTemplatesRaw(forceRefresh = false) {
         const now = Date.now();
         if (
@@ -1304,32 +1327,37 @@
         ) {
             return _allTemplatesCache.data;
         }
-        const all = [];
-        const PAGE = 1000;
-        let skip = 0;
-        let total = 0;
-        // Cap at 50k templates as a defensive guard against runaway loops.
-        for (let i = 0; i < 50; i++) {
-            const qp = new URLSearchParams();
-            qp.set('$top', String(PAGE));
-            qp.set('$skip', String(skip));
-            qp.set('$count', 'true');
-            qp.set('$orderby', 'DateCreated desc');
-            const url = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.GetViewV2?${qp.toString()}`;
-            const resp = await window.tokenManager.authenticatedFetch(url, {
-                headers: { Accept: 'application/json' },
-            });
-            if (!resp.ok) break;
-            const json = await resp.json();
-            total = parseInt(json['@odata.count']) || 0;
-            const rows = json.value || [];
-            if (rows.length === 0) break;
-            all.push(...rows);
-            skip += rows.length;
-            if (skip >= total) break;
+        if (_allTemplatesInflight) return _allTemplatesInflight;
+
+        _allTemplatesInflight = (async () => {
+            const PAGE = 1000;
+            const first = await _fetchTemplatePage(0, PAGE);
+            const total = first.total || first.rows.length;
+            const all = [...first.rows];
+            // Remaining pages in parallel (cap 50 pages as a runaway guard).
+            const skips = [];
+            for (let skip = PAGE; skip < total && skips.length < 49; skip += PAGE) {
+                skips.push(skip);
+            }
+            if (skips.length) {
+                const pages = await Promise.all(
+                    skips.map((skip) =>
+                        _fetchTemplatePage(skip, PAGE)
+                            .then((r) => r.rows)
+                            .catch(() => [])
+                    )
+                );
+                pages.forEach((rows) => all.push(...rows));
+            }
+            _allTemplatesCache = { data: all, fetchedAt: Date.now(), totalCount: total };
+            return all;
+        })();
+
+        try {
+            return await _allTemplatesInflight;
+        } finally {
+            _allTemplatesInflight = null;
         }
-        _allTemplatesCache = { data: all, fetchedAt: now, totalCount: total };
-        return all;
     }
 
     // Client-side filter pipeline — used whenever TPOS server-side filtering can't
@@ -1493,8 +1521,67 @@
         templateTotalCount = activeOnly.length;
     }
 
+    // Server-side search via the Render DB list endpoint. Render Postgres does a
+    // correct, indexed code+name+barcode ILIKE search with template aggregation and
+    // pagination — fast (<500ms) and reliable, unlike TPOS GetViewV2 whose $filter
+    // is silently ignored. Used as the search source until the full-template cache
+    // (fetchAllTemplatesRaw) finishes warming, after which the in-memory client
+    // filter takes over (instant, no network).
+    async function fetchProductsFromRender(silent = false) {
+        isLoading = true;
+        if (!silent) showLoading(true);
+        try {
+            const params = await buildRenderParams();
+            // Template tab mirrors TPOS "Sản phẩm" (active only) unless the user
+            // explicitly picked a Hiệu lực filter that already set `active`.
+            if (viewType === 'template' && !params.has('active')) {
+                params.set('active', 'true');
+            }
+            const resp = await fetch(`${RENDER_API}?${params.toString()}`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const json = await resp.json();
+            const rows = json.data || [];
+            pageProducts = rows.map(mapProduct);
+            totalCount = Number(json.pagination?.total) || rows.length;
+            if (viewType === 'template') templateTotalCount = totalCount;
+            else if (viewType === 'variant') variantTotalCount = totalCount;
+            updateTabBadges();
+            fetchOtherTabCount();
+        } catch (error) {
+            console.error('[Warehouse] Render search error:', error);
+            pageProducts = [];
+            totalCount = 0;
+            showToast('Lỗi tìm kiếm sản phẩm: ' + error.message, 'error');
+        } finally {
+            isLoading = false;
+            if (!silent) showLoading(false);
+            render();
+            lazyLoadImages();
+        }
+    }
+
     async function fetchProducts(silent = false) {
         if (isLoading) return;
+
+        // ── Search routing ───────────────────────────────────────────────
+        // TPOS GetViewV2 silently ignores $filter (verified 2026-05-26), so a
+        // search term sent server-side returns the full set. When searching,
+        // route to a source that actually filters by MÃ + TÊN + barcode:
+        //   • warm template cache  → instant in-memory filter (no network)
+        //   • otherwise            → Render DB list endpoint (indexed ILIKE)
+        // This covers ALL callers (typing, Enter, button, pagination, sort,
+        // filters) so search stays correct everywhere. Inactive tab keeps its
+        // own client-side partition path below.
+        const hasSearch = ($('#searchInput')?.value || '').trim() !== '';
+        if (hasSearch && viewType === 'template' && _allTemplatesCache) {
+            renderFromCacheBySearch();
+            return;
+        }
+        if (hasSearch && (viewType === 'template' || viewType === 'variant')) {
+            await fetchProductsFromRender(silent);
+            return;
+        }
+
         isLoading = true;
         if (!silent) showLoading(true);
 
@@ -2095,39 +2182,22 @@
                 // đổ thẳng vào bảng live khi gõ (2026-06-04 theo yêu cầu user).
                 hideSuggestions();
 
-                // Cancel any pending server-side search
                 if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
 
-                // FAST PATH: cache is warm → render INSTANTLY client-side.
-                // No debounce needed because the work is just an in-memory filter +
-                // template re-render (~5-20ms on 3700 rows).
+                // FAST PATH: cache warm → instant in-memory filter (~5-20ms), no
+                // debounce needed and no network.
                 if (_allTemplatesCache && viewType === 'template') {
                     currentPage = 1;
                     renderFromCacheBySearch();
                     return;
                 }
 
-                // SLOW PATH (cache not yet warm): debounced.
-                // TPOS GetViewV2 silently ignores $filter, nên KHÔNG thể tìm theo
-                // mã/tên server-side. Với tab "Sản phẩm", warm cache (1 lần) rồi lọc
-                // client-side để search theo MÃ + TÊN + barcode luôn đúng ngay từ
-                // ký tự đầu. Tab variant vẫn dùng server fetch như cũ.
-                _searchDebounceTimer = setTimeout(async () => {
+                // Cache chưa warm: debounce rồi để fetchProducts tự route sang Render
+                // DB search (server-side ILIKE theo MÃ + TÊN + barcode — đúng & nhanh).
+                // Khi cache warm xong (~2-3s) các phím tiếp theo nhảy vào fast path.
+                _searchDebounceTimer = setTimeout(() => {
                     if (searchInput.value.trim() !== searchText) return;
                     currentPage = 1;
-                    if (viewType === 'template') {
-                        try {
-                            await fetchAllTemplatesRaw();
-                        } catch (err) {
-                            console.warn('[Warehouse] search cache warm failed:', err);
-                        }
-                        // Người dùng có thể đã gõ tiếp / xoá trong lúc chờ cache.
-                        if (searchInput.value.trim() !== searchText) return;
-                        if (_allTemplatesCache) {
-                            renderFromCacheBySearch();
-                            return;
-                        }
-                    }
                     fetchProducts(true);
                 }, 250);
             });
@@ -2761,12 +2831,14 @@
                     );
                 });
         };
+        // Warm ASAP after first paint so the instant client-side search path takes
+        // over within ~2-3s. Until then, search falls back to the Render DB endpoint
+        // (correct + fast), so there is no broken window — but the sooner the cache
+        // is hot, the sooner keystrokes become zero-latency.
         if (typeof window.requestIdleCallback === 'function') {
-            // Lower priority than dropdown prefetch (timeout 6s vs 3s) so it kicks
-            // in after the more user-visible modal data is ready.
-            window.requestIdleCallback(fire, { timeout: 6000 });
+            window.requestIdleCallback(fire, { timeout: 1500 });
         } else {
-            setTimeout(fire, 3000);
+            setTimeout(fire, 800);
         }
     }
 
