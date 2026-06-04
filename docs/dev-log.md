@@ -25,6 +25,14 @@
 
 ## 2026-06-04
 
+### [web2] Photo-studio — Đợt 3: before/after + PWA (cài + offline + cache model) ✅
+
+- **Before/after**: nút "Giữ xem gốc" (#psCompare) — pointerdown vẽ `_capFrame` (ảnh gốc) lên reviewCanvas, thả → renderReview (kết quả). Loại trừ khỏi gesture (không cướp drag). Test: composite trắng → giữ = xanh gốc → thả = trắng ✓.
+- **PWA**: `manifest.webmanifest` (standalone, portrait, icon logo-emblem, theme #0b1220) + meta apple/theme-color + `sw.js` **scope chỉ /web2/photo-studio/** (KHÔNG đụng site khác). SW: CDN model/lib/scene (mediapipe/esm.sh/googleapis/unsplash/unpkg/staticimgly) **cache-first** (offline + tải 1 lần); app shell same-origin **network-first** (luôn mới). Register trong init. Test: manifest 2 icons ✓, sw.js 200 ✓, SW registered scope đúng + active ✓, 0 error.
+- **Còn lại (đợt cuối)**: brush sửa viền, xử lý hàng loạt, AI upscale.
+
+**Files**: `web2/photo-studio/{index.html(v=20260604m),photo-studio.js,photo-studio.css,manifest.webmanifest,sw.js}`.
+
 ### [render] Tách Web 1.0 ⊥ Web 2.0 — customers orders + SePay + drop orphan ✅
 
 3 việc hoàn tất separation 2 chiều (nối tiếp inventory-tracking + supplier-debt):
@@ -34,7 +42,7 @@
 **2. SePay tách Web 2.0 độc lập**:
 
 - `sepay-wallet-operations.js` (Web 1.0): gỡ HẾT mirror ghi `web2_balance_history` (hàm `_syncWeb2BalanceHistory` + 2 call ở transaction phone/hidden + inline `/customer-info`). File giờ chỉ đụng bảng Web 1.0.
-- `server.js`: ensureSchema các service web2-_ (wallet-isolation, sepay-matching, match-audit, webhook-retry, blacklist) đổi `chatDbPool` → `web2Pool` (bảng web2\__ tạo trên web2Db, hết tạo leftover trên Web 1.0).
+- `server.js`: ensureSchema các service web2-\_ (wallet-isolation, sepay-matching, match-audit, webhook-retry, blacklist) đổi `chatDbPool` → `web2Pool` (bảng web2\_\_ tạo trên web2Db, hết tạo leftover trên Web 1.0).
 - Web 2.0 SePay vẫn độc lập qua `sepay-webhook-core._processWeb2Path → web2Db` (đã isolated sẵn). `wallet-deposits.js` (WEB2.0) đọc web2Db đúng.
 
 **3. Drop orphan**: boot cleanup DROP IF EXISTS 6 bảng `inventory_*` trên web2Db (leftover từ seed supplier-debt). Guard chặt `web2Pool !== chatDbPool` → không drop nhầm Web 1.0.
