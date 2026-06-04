@@ -1185,7 +1185,8 @@
         el.sampleHint.hidden = !(isChroma && state.running);
         el.output.classList.toggle('ps-pickable', isChroma);
         updateHqHint();
-        if (isAi && !state.segReady) notify('Mô hình AI nhanh chưa sẵn sàng.', 'warning');
+        // AI nhanh: nếu model chưa tải xong + đang chạy → hiện loading (preview vẫn show raw)
+        if (isAi && state.running && !state.modelLoaded) showLoading('Đang tải mô hình AI nhanh…');
     }
     function updateHqHint() {
         el.hqHint.hidden = !(state.mode === 'hq' && state.running);

@@ -25,6 +25,17 @@
 
 ## 2026-06-04
 
+### [web2] Photo-studio — "AI nhanh" nâng cấp MediaPipe Tasks Vision ImageSegmenter ✅
+
+Research GitHub/docs: bản `@mediapipe/selfie_segmentation` cũ đã deprecated. Thay bằng **Tasks Vision `ImageSegmenter`** (GPU delegate WebGL2, sub-3ms vs ~100ms CPU).
+
+- **Engine mới** (`initSegmentation` async): import `@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs` từ jsDelivr + `FilesetResolver.forVisionTasks(.../wasm)` + `ImageSegmenter.createFromOptions({baseOptions:{modelAssetPath: selfie_segmenter float16, delegate: iOS?'CPU':'GPU'}, runningMode:'VIDEO', outputConfidenceMasks:true})`. iOS Safari dùng CPU delegate (bug GPU #6142). **Legacy giữ làm auto-fallback** (`initLegacySeg`).
+- **Tối ưu perf**: gửi khung **downscale ≤256px** (`segInputFrame`) cho segmenter → nhanh + mask nhỏ (loop alpha rẻ). Dùng **confidence mask** (0..1) → alpha mềm viền đẹp hơn category mask. BỎ `getImageData` readback mỗi frame ở mode AI (build mask qua `createImageData/putImageData`). `mask.close()` mỗi frame tránh leak.
+- **Hợp nhất** qua `populateMaskC(srcMask, mw, mh)` (crop+scale+feather vào `maskC` preview-res) — composeAI/makeCutout giữ nguyên, dùng chung 2 engine. `segmentForVideo(input, performance.now(), cb)` sync VIDEO mode (không cần busy gate).
+- **Test** (Playwright fake-cam + swiftshader): engine tasks load OK, chạy 8 FPS (software GL headless; máy thật GPU ~30-60fps), model loaded (loading ẩn), capture AI nhanh→review OK, 0 error.
+
+**Files**: `web2/photo-studio/{index.html(v=20260604g),photo-studio.js}`.
+
 ### [orders] product-warehouse: tìm kiếm theo MÃ + TÊN, đổ thẳng vào bảng — fix triệt để (bỏ dropdown) ✅
 
 **Files:** `product-warehouse/js/main.js`, `product-warehouse/index.html` (bump `main.js?v=20260604g`)
