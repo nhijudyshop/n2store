@@ -53,7 +53,7 @@
             }
         };
         if (!global.Popup) inject('popup.js', '20260514');
-        if (!global.DeliveryMethodPicker) inject('delivery-method-picker.js', '20260514b');
+        if (!global.DeliveryMethodPicker) inject('delivery-method-picker.js', '20260604nj');
         if (!global.Web2Auth) inject('web2-auth.js', '20260518a');
     })();
 
