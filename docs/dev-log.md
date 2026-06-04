@@ -25,6 +25,16 @@
 
 ## 2026-06-04
 
+### [web2] Balance-history: nút "💬 Mở chat" xem hội thoại FB của KH đã gán ✅
+
+User: thêm nút mở đoạn chat KH đã gán (học native-orders), dùng kho KH (sđt/tên/fb_id). Chọn hướng **read-only** (chỉ xem).
+
+- **Backend** `GET /api/web2/customers/:phone/fb-conversation` (`web2-customers.js`): resolve SĐT → `{pageId, psid, name}`. Nguồn: `native_orders` mới nhất có `fb_page_id`+`fb_user_id` (đáng tin nhất), fallback `web2_customers.fb_id`. `found:false` nếu KH chưa có hội thoại FB.
+- **Module read-only** `web2/shared/web2-chat-readonly.js`: `Web2ChatReadonly.open({pageId,psid,name})` reuse `Web2Chat`, render bubble (text/ảnh/video/file, in/out theo `from.id===pageId`), tự chứa CSS, KHÔNG ô gửi tin.
+- **Nút** "💬 Mở chat" trong header modal chi tiết KH (`web2-customer-detail-modal.js`).
+- ⚠️ Giới hạn: chỉ KH từng có đơn/chat FB mới mở được.
+- **Files:** `render.com/routes/v2/web2-customers.js`, `web2/shared/web2-chat-readonly.js`, `web2/balance-history/js/web2-customer-detail-modal.js` (v=20260604a), `index.html`
+
 ### [web2 extension] Pancake token auto-refresh + cảnh báo sắp hết hạn ✅
 
 User: tối ưu full chức năng `web2/pancake-settings` — gần hết hạn token (≤1 ngày) thì hiện bảng mở pancake lấy token, hoặc lấy bằng extension. User chọn "thêm handler vào extension (auto thật)" + "không cần bấm nút extension".
