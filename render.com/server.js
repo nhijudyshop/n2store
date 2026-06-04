@@ -605,6 +605,7 @@ app.use('/api/wallet-deposits', walletDepositsRoutes); // WEB2.0 SePay deposits 
 app.use('/api/purchase-refund', purchaseRefundRoutes); // WEB2.0 Trả hàng NCC state machine + stock
 app.use('/api/services-overview', servicesOverviewRoutes); // WEB2.0 Services dashboard (DB stats + cost)
 app.use('/api/admin', require('./routes/admin-web2-wallet-reset')); // WEB2.0 backup+reset ví/matching web2Db (auth via x-admin-secret)
+app.use('/api/admin', require('./routes/admin-web2-data-reset')); // WEB2.0 backup+wipe SP/đơn/PBH/cart (giữ KH) → tạo lại data ảo (auth via x-admin-secret)
 app.use('/api/web2-users', require('./routes/web2-users')); // WEB2.0 user account system
 // 2026-06-03 Phase 3 tách Web 2.0: dual-mount mỗi route Web 2.0 ở CẢ
 // `/api/web2/<entity>` (mới — chuẩn đi tới) lẫn `/api/v2/<entity>` (alias cũ,
