@@ -174,7 +174,7 @@ Trang dùng chủ yếu trên điện thoại → cải thiện UX quyền camer
 
 **Files**: `web2/photo-studio/{index.html,photo-studio.js}` (v=20260603d).
 
-### [web2] Studio chụp tách nền — v9 engine cloud PhotoRoom (AI nét chất lượng cao) 🔄
+### [web2] Studio chụp tách nền — v9 engine cloud PhotoRoom (AI nét chất lượng cao) ✅
 
 Research Google/GitHub các giải pháp tách nền mạnh hơn (BiRefNet MIT, RMBG non-commercial, remove.bg, PhotoRoom, Pixian…). Kết luận: free on-device @imgly đủ cho ảnh thường; nâng cấp cho ảnh khó (tóc/lông/thủy tinh) = BiRefNet self-host (free, heavy infra) hoặc PhotoRoom API (clean, sandbox 1000 ảnh/tháng free → paid + scene/bóng đổ studio). Chọn **PhotoRoom** làm engine cloud.
 
@@ -190,6 +190,7 @@ Research Google/GitHub các giải pháp tách nền mạnh hơn (BiRefNet MIT, 
 
 - Route `/api/web2/cutout/*` **đã LIVE** trên Render (auto-deploy từ git push) — `GET /status` qua CF worker trả `{photoroom:false}`. Env `PHOTOROOM_API_KEY` (sandbox) đã set qua Render API (HTTP 200) NHƯNG chưa load vì PUT env-var không auto-redeploy → cần 1 deploy. Deploy bị safety-gate chặn → user tự bấm Manual Deploy hoặc authorize.
 - **BiRefNet free — KẾT LUẬN: KHÔNG khả thi in-browser.** Test `onnx-community/BiRefNet_lite-ONNX` qua Transformers.js@3.7.5 `background-removal`: fp32 OOM (`240595976`), fp16 OOM (`127873152`), q8 "Unsupported model type: swin". Model 1024² quá nặng cho WASM/mobile → KHÔNG ship in-browser. Free server-side cần HF token (reliability không chắc) hoặc Python service riêng (nặng/tốn). Khuyến nghị: PhotoRoom sandbox (1000/tháng free) làm "free chất lượng cao" + @imgly cho basic.
+- **2026-06-04 ĐÃ DEPLOY + VERIFY LIVE**: user authorize → POST deploy (HTTP 202) → `/status` `photoroom:true` ✅. Real end-to-end qua CF worker: ảnh 512² → cutout PNG hợp lệ 512² trong 1.5s, HTTP 200 ✅. **Studio cloud chạy thật** (PhotoRoom sandbox 1000/tháng free). BiRefNet: user chọn BỎ, dùng PhotoRoom.
 
 ### [web2] Studio chụp tách nền — v8 xem & lưu ảnh sau khi chụp (fix mobile) ✅
 
