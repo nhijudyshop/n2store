@@ -1264,7 +1264,7 @@ router.post('/from-native-order', async (req, res) => {
                 warehouse_id, warehouse_name, company_id, company_name,
                 crm_team_id, assigned_user_id, assigned_user_name,
                 comment, tags, created_by, created_by_name,
-                customer_id, split_index
+                customer_id, split_index, carrier_name
             ) VALUES (
                 -- PBH display_stt = native_order.display_stt (giữ đồng bộ với
                 -- bên native-orders). Hiển thị "{native.stt}-{split_index}"
@@ -1284,7 +1284,7 @@ router.post('/from-native-order', async (req, res) => {
                 $30, $31, $32, $33,
                 $34, $35, $36,
                 $37, $38::jsonb, $39, $40,
-                $41, $42
+                $41, $42, $44
             ) RETURNING *`,
             [
                 number,
@@ -1330,6 +1330,7 @@ router.post('/from-native-order', async (req, res) => {
                 customerId,
                 splitIndex,
                 src.display_stt || null, // $43 — sync STT từ native-order
+                b.carrierName || null, // $44 — phương thức giao (vd "PBH SHOP") → bill + badge
             ]
         );
 
