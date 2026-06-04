@@ -18,13 +18,20 @@ const router = express.Router();
 const web2SepayMatching = require('../../services/web2-sepay-matching');
 const web2WalletService = require('../../services/web2-wallet-service');
 const web2ContentParser = require('../../services/web2-content-parser');
-// Preview extractor cho UI — DÙNG web2-content-parser (KHÔNG import legacy
-// sepay-transaction-matching nữa) để preview khớp đúng logic matcher Web 2.0.
+// SINGLE SOURCE: badge "Đuôi SĐT" trên UI DÙNG ĐÚNG hàm matcher dùng để khớp
+// (web2-content-extractor.extractIdentifier) → badge luôn phản ánh chính xác
+// phone candidate mà matcher sẽ tìm KH. Trước đây badge dùng
+// extractPhoneCandidates riêng → lệch matcher (vd dash-GD `-GD-387721`). Quy
+// ước trích xuất canonical: xem web2/overview #conventions.
+const {
+    extractIdentifier: web2ExtractIdentifier,
+} = require('../../services/web2-content-extractor');
 function web2ExtractionPreview(content) {
-    const cands = web2ContentParser.extractPhoneCandidates(content || '');
-    if (!cands.length) return { type: 'none', value: null, note: 'NO_MATCH' };
-    const top = cands[0]; // đã sort priority: qr_code → exact_phone → partial_phone
-    return { type: top.type, value: top.value, note: top.source };
+    const ext = web2ExtractIdentifier(content || '');
+    if (!ext.phoneCandidates || ext.phoneCandidates.length === 0) {
+        return { type: 'none', value: null, note: ext.note || 'NO_MATCH' };
+    }
+    return { type: ext.type, value: ext.value, note: ext.note };
 }
 
 function handleError(res, err, msg = 'Internal error') {

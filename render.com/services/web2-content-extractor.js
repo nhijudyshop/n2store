@@ -86,13 +86,18 @@ function extractIdentifier(content) {
     // Step 1: Strip noise tokens trước khi parse number.
     // Date-time DDMMYY-HH:MM:SS — giữ colon để tránh over-match 6-6 digit
     // pattern (vd 936769-250526 — common trong content). FT/GD bank refs.
+    // Chỉ strip GD bank ref dạng có CHỮ (`GD <digits><letters>`, vd
+    // 'GD 6151IBT1kCV8PCIK') — đó mới là mã giao dịch ngân hàng.
     textToParse = textToParse
         .replace(/\b\d{6}-\d{2}:\d{2}:\d{2}\b/g, ' ')
         .replace(/\bFT\d{8,}\b/gi, ' ')
-        .replace(/\bGD\s+\d+[A-Z]{2,}[A-Z0-9]+\b/gi, ' ')
-        // E (2026-05-30): ACB bank ref dash form `-GD-<digits>(-|$)` — vd
-        // 'MeiguiHuang47908-GD-936769-250526' bị lầm 936769 là phone.
-        .replace(/[\s\-]GD-\d{4,8}(?=[\s\-]|$)/gi, ' ');
+        .replace(/\bGD\s+\d+[A-Z]{2,}[A-Z0-9]+\b/gi, ' ');
+    // 2026-06-04: KHÔNG strip dash-GD pure-digit (`-GD-<digits>-`) nữa.
+    // Trong data shop, dãy số đó CHÍNH LÀ đuôi SĐT khách tự gõ (vd
+    // 'coc shop nhi judy-GD-387721-...' → 387721 = đuôi SĐT). User rule:
+    // mọi dãy 5–10 digit đều lấy làm phone candidate để tìm KH. Đồng bộ với
+    // web2-content-parser.findDashGdPhones (badge đã boost dash-GD). dashGd
+    // prioritization ở Step 6 (dashGdRe) sẽ đẩy các số này lên đầu candidate.
 
     // Step 2: Momo pattern — {12d}-{10d sender}-{customer content}
     // Extract phần customer content (bỏ sender phone).
