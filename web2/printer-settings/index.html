@@ -295,9 +295,12 @@
 
                 <div class="ps-section">
                     <div class="ps-bridge-warn" id="bridgeWarn" style="display: none">
-                        ⚠️ <strong>Print Bridge chưa chạy.</strong> Để in thẳng ra máy in mạng, mở
+                        ⚠️ <strong>Print Bridge chưa chạy (hoặc bị trình duyệt chặn).</strong> Mở
                         terminal trên máy POS chạy: <code>node scripts/print-bridge.js</code> (giữ
-                        cửa sổ mở). Không cần nếu chỉ dùng "Hộp thoại trình duyệt".
+                        cửa sổ mở). Nếu web chạy bản HTTPS mà vẫn báo chưa chạy →
+                        <strong>khởi động lại bridge bản mới</strong> (đã thêm hỗ trợ Private
+                        Network Access). "Test kết nối" lỗi <code>EHOSTUNREACH</code> = bridge OK
+                        nhưng máy in chưa bật / khác mạng / sai IP.
                     </div>
 
                     <div class="ps-section-title"><i data-lucide="list"></i> Danh sách máy in</div>
