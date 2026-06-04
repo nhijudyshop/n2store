@@ -497,12 +497,17 @@
     // Dùng Web2LinkCustomerModal (tìm KH qua TPOS Partner OData fast search).
     // Fallback prompt nếu modal chưa load.
     function openLinkPrompt(id) {
-        // Tự suy đoán default search từ content của row (extract digits)
+        // Seed search bằng extraction_preview (NGUỒN CANONICAL backend — web2-
+        // content-extractor.extractIdentifier: chỉ đuôi SĐT 5–10 số, bỏ dãy >10
+        // như FT/GD bank ref). KHÔNG grab raw \d{5,} vì vớ phải bank ref dài
+        // (vd 'FT26155100277410' → 26155100277410 = 14 số → search vô nghĩa).
+        // Không có đuôi hợp lệ → để trống, user tự gõ.
         const row = state.rows.find((x) => String(x.id) === String(id));
         let defaultSearch = '';
-        if (row?.content) {
-            const m = String(row.content).match(/\d{5,}/);
-            if (m) defaultSearch = m[0];
+        const ev = row?.extraction_preview;
+        if (ev && ev.value && ev.type && ev.type !== 'none') {
+            const digits = String(ev.value).replace(/\D/g, '');
+            if (digits.length >= 5 && digits.length <= 10) defaultSearch = digits;
         }
         if (window.Web2LinkCustomerModal?.openModal) {
             window.Web2LinkCustomerModal.openModal(id, defaultSearch);

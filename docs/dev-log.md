@@ -25,6 +25,15 @@
 
 ## 2026-06-04
 
+### [web2] FIX modal Gán KH seed sai = FT/GD bank ref (>10 số) ✅
+
+Bug user: row `VU THI HUONG ... FT26155100277410 GD 6155IBT1kCM75CHV` → bấm "+ Gán KH" → ô search tự điền `26155100277410` (14 số = mã FT) → "Không có KH nào khớp".
+
+- **Root cause**: `openLinkPrompt` (frontend) seed search bằng `content.match(/\d{5,}/)` → vớ dãy đầu tiên ≥5 số = FT ref 14 số. KHÔNG theo luật canonical (>10 số = không phải SĐT).
+- **Fix**: seed bằng `row.extraction_preview` (nguồn canonical backend `extractIdentifier` — chỉ đuôi 5–10 số, đã bỏ FT/GD ref). Không có đuôi hợp lệ → để trống, user gõ tay.
+- **Browser test (Playwright)**: FT row → seed `""` (trống ✅); dash-GD row → seed `681703` (đuôi đúng ✅). 0 console error.
+- **Files:** `web2/balance-history/js/web2-balance-history-app.js`, `index.html` (v=20260604a)
+
 ### [web2-bill] Đánh số SP (nhiều SP dễ đếm) + STT cạnh tên khách ✅
 
 User: nhiều SP thì danh sách ra sao + STT lên cạnh tên khách.
