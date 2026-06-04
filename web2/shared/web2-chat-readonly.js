@@ -98,7 +98,13 @@
         .w2cro-conv-av { width: 34px; height: 34px; flex: 0 0 auto; }
         /* avatar: nền chữ-cái + img phủ lên (img lỗi → tự remove → còn chữ) */
         .w2cro-conv-av, .w2cro-bub-av { position: relative; border-radius: 50%; overflow: hidden;
-            background: #c7d2fe; }
+            background: #c7d2fe; cursor: zoom-in; transition: transform .12s ease; }
+        .w2cro-conv-av:hover, .w2cro-bub-av:hover { transform: scale(1.12); z-index: 2; }
+        .w2cro-av-zoom { position: fixed; z-index: 10060; width: 220px; height: 220px;
+            border-radius: 12px; overflow: hidden; border: 3px solid #fff; background: #f0f2f5;
+            box-shadow: 0 16px 50px rgba(0,0,0,.45); pointer-events: none; }
+        .w2cro-av-zoom[hidden] { display: none; }
+        .w2cro-av-zoom img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .w2cro-av-ini { position: absolute; inset: 0; display: flex; align-items: center;
             justify-content: center; color: #3730a3; font-weight: 700; font-size: 13px; }
         .w2cro-av-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -187,6 +193,15 @@
                 });
             }
         });
+        // Hover avatar → phóng to ảnh (popup). Bỏ qua nếu avatar chỉ có chữ.
+        ov.addEventListener('mouseover', (e) => {
+            const av = e.target.closest('.w2cro-conv-av, .w2cro-bub-av');
+            if (av) showZoom(av);
+        });
+        ov.addEventListener('mouseout', (e) => {
+            const av = e.target.closest('.w2cro-conv-av, .w2cro-bub-av');
+            if (av && !av.contains(e.relatedTarget)) hideZoom();
+        });
         const inp = ov.querySelector('#w2croSearch');
         inp.addEventListener('input', () => {
             clearTimeout(_searchTimer);
@@ -202,6 +217,41 @@
 
     function close() {
         if (_el) _el.hidden = true;
+        hideZoom();
+    }
+
+    // ---- Hover zoom avatar ----
+    let _zoom = null;
+    function ensureZoom() {
+        if (_zoom) return _zoom;
+        _zoom = document.createElement('div');
+        _zoom.className = 'w2cro-av-zoom';
+        _zoom.hidden = true;
+        _zoom.innerHTML = '<img alt="" />';
+        document.body.appendChild(_zoom);
+        return _zoom;
+    }
+    function showZoom(avEl) {
+        const img = avEl.querySelector('.w2cro-av-img');
+        const src = img && img.getAttribute('src');
+        if (!src) return; // avatar chỉ có chữ → không zoom
+        const z = ensureZoom();
+        z.querySelector('img').src = src;
+        const r = avEl.getBoundingClientRect();
+        const SIZE = 220;
+        const GAP = 12;
+        // Mặc định bên phải avatar; nếu tràn phải → bên trái.
+        let left = r.right + GAP;
+        if (left + SIZE > window.innerWidth - 8) left = r.left - GAP - SIZE;
+        if (left < 8) left = 8;
+        let top = r.top + r.height / 2 - SIZE / 2;
+        top = Math.max(8, Math.min(top, window.innerHeight - SIZE - 8));
+        z.style.left = left + 'px';
+        z.style.top = top + 'px';
+        z.hidden = false;
+    }
+    function hideZoom() {
+        if (_zoom) _zoom.hidden = true;
     }
 
     function setBody(html) {
