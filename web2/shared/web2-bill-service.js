@@ -344,46 +344,73 @@ html, body { margin: 0; padding: 0; background: #fff; }
 .receipt-wrap svg tspan {
     font-weight: 700 !important;
     stroke: #000;
-    stroke-width: 0.6px;
+    stroke-width: 0.45px;
     paint-order: stroke fill;
 }
 .page-break { display: block; page-break-before: always; }
 @media print {
     html, body { width: 80mm; }
     .receipt-wrap { width: 80mm; }
-    .receipt-wrap svg text, .receipt-wrap svg tspan { stroke-width: 0.8px; }
+    .receipt-wrap svg text, .receipt-wrap svg tspan { stroke-width: 0.55px; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
 </style></head>
 <body><div class="receipt-wrap">${svg}</div></body></html>`;
     }
 
-    function openPrint(pbh, opts = {}) {
-        const html = generateHTML(pbh, opts);
-        const w = global.open('', '_blank', 'width=800,height=600,scrollbars=yes');
-        if (!w) {
-            console.warn('[Web2Bill] popup blocked');
-            return null;
+    // In qua IFRAME ẩn TÁI SỬ DỤNG — KHÔNG mở popup window mỗi lần (popup tạo
+    // cửa sổ mới rất chậm + dễ bị chặn). Iframe tạo 1 lần, các lần in sau chỉ
+    // ghi lại nội dung → in bật ngay. Đây là nguyên nhân chính "in bill lâu".
+    let _printFrame = null;
+    function _printViaIframe(html) {
+        let f = _printFrame;
+        if (!f || !f.isConnected) {
+            f = document.createElement('iframe');
+            f.setAttribute('aria-hidden', 'true');
+            f.style.cssText =
+                'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+            document.body.appendChild(f);
+            _printFrame = f;
         }
+        const win = f.contentWindow;
         let printed = false;
-        const trigger = () => {
-            if (printed || !w || w.closed) return;
+        const go = () => {
+            if (printed) return;
             printed = true;
-            w.focus();
-            w.print();
+            try {
+                win.focus();
+                win.print();
+            } catch (e) {
+                // Fallback popup nếu iframe print bị chặn (hiếm).
+                console.warn('[Web2Bill] iframe print lỗi, fallback popup:', e.message);
+                const w = global.open('', '_blank');
+                if (w) {
+                    w.document.write(html);
+                    w.document.close();
+                    w.onload = () => {
+                        w.focus();
+                        w.print();
+                    };
+                }
+            }
         };
-        // Gán handler TRƯỚC document.write — nếu gán sau, load event có thể đã fire mất.
-        w.onafterprint = () => w.close();
-        w.onload = trigger;
-        w.document.write(html);
-        w.document.close();
-        // Bill HTML thuần static (barcode SVG inline) → ready ngay khi parse xong.
-        // 2 rAF (~32ms) đủ cho layout pass; fallback 80ms cho browser quirks.
-        if (typeof w.requestAnimationFrame === 'function') {
-            w.requestAnimationFrame(() => w.requestAnimationFrame(trigger));
+        win.onload = go;
+        const doc = win.document;
+        doc.open();
+        doc.write(html);
+        doc.close();
+        // document.write không phải lúc nào cũng fire onload → 2 rAF làm fallback
+        // nhanh (in ngay khi layout xong, không chờ timeout cố định dài).
+        if (typeof win.requestAnimationFrame === 'function') {
+            win.requestAnimationFrame(() => win.requestAnimationFrame(go));
+        } else {
+            setTimeout(go, 50);
         }
-        setTimeout(trigger, 80);
-        return w;
+        return f;
+    }
+
+    function openPrint(pbh, opts = {}) {
+        return _printViaIframe(generateHTML(pbh, opts));
     }
 
     function openCombinedPrint(pbhs, opts = {}) {
@@ -395,38 +422,15 @@ html, body { margin: 0; padding: 0; background: #fff; }
             const html = generateHTML(pbh, opts);
             const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
             const body = bodyMatch ? bodyMatch[1] : html;
-            const pageBreak =
-                idx < pbhs.length - 1
-                    ? '<div style="page-break-after:always;border-top:2px dashed #999;margin:20px 0"></div>'
-                    : '';
-            return `<div class="bill-container" data-bill-index="${idx}">${body}</div>${pageBreak}`;
+            const pageBreak = idx < pbhs.length - 1 ? '<div class="page-break"></div>' : '';
+            return `<div class="bill-container">${body}</div>${pageBreak}`;
         });
         const combined = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>In ${pbhs.length} phiếu bán hàng</title>
 <style>${styles}
-.bill-container { margin-bottom: 20px; }
-@media print { .bill-container { page-break-inside: avoid; } }
+.bill-container { page-break-inside: avoid; }
 </style></head><body>${bodies.join('\n')}</body></html>`;
-
-        const w = global.open('', '_blank', 'width=800,height=800,scrollbars=yes');
-        if (!w) return null;
-        let printed = false;
-        const trigger = () => {
-            if (printed || !w || w.closed) return;
-            printed = true;
-            w.focus();
-            w.print();
-        };
-        w.onafterprint = () => w.close();
-        w.onload = trigger;
-        w.document.write(combined);
-        w.document.close();
-        // Bill HTML thuần static — 2 rAF + fallback 120ms (combined có thể nhiều bills)
-        if (typeof w.requestAnimationFrame === 'function') {
-            w.requestAnimationFrame(() => w.requestAnimationFrame(trigger));
-        }
-        setTimeout(trigger, 120);
-        return w;
+        return _printViaIframe(combined);
     }
 
     async function generateImage(pbh, opts = {}) {
