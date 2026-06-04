@@ -345,8 +345,11 @@
     function _hasFuzzy(tokens, needleNorm) {
         if (hasKeyword(tokens, needleNorm)) return true; // exact trước
         const parts = needleNorm.split(' ');
-        if (parts.length === 1 && parts[0].length >= 4) {
-            return tokens.some((t) => t.length >= 4 && _lev(t, parts[0]) <= 1);
+        // Fuzzy chỉ cho từ ≥5 ký tự. Từ 4 ký tự (binh/vinh/ninh/dinh/minh/hoa…)
+        // collide nặng trong tiếng Việt → CHỈ exact, tránh false-positive
+        // (vd "Bình Thạnh" HCM bị nhận nhầm tỉnh "Vinh").
+        if (parts.length === 1 && parts[0].length >= 5) {
+            return tokens.some((t) => t.length >= 5 && _lev(t, parts[0]) <= 1);
         }
         // multi-word: mỗi part khớp (exact hoặc fuzzy) trong cửa sổ liên tiếp
         for (let i = 0; i <= tokens.length - parts.length; i++) {
@@ -355,7 +358,7 @@
                 const t = tokens[i + j],
                     p = parts[j];
                 if (t === p) continue;
-                if (p.length >= 4 && t.length >= 4 && _lev(t, p) <= 1) continue;
+                if (p.length >= 5 && t.length >= 5 && _lev(t, p) <= 1) continue;
                 ok = false;
                 break;
             }
@@ -400,15 +403,17 @@
         const hcmc = _isHcmc(tokens);
 
         if (best) {
-            // Có district HCMC. Nếu lại có tỉnh ngoài + không thấy "HCM" → mâu thuẫn.
+            // Có district HCMC NHƯNG cũng có tên tỉnh ngoài rõ ràng + không thấy "HCM".
+            // Tên tỉnh tường minh là tín hiệu mạnh hơn 1 keyword quận (có thể trùng
+            // mờ, vd "An Bình" ~ "Bình Chánh") → ưu tiên SHIP TỈNH, cờ low để soát.
             if (province && !hcmc) {
                 return {
-                    option: best,
-                    hits: bestHits,
-                    matched: bestMatched,
+                    option: fallback,
+                    hits: 0,
+                    matched: [province],
                     confidence: 'low',
                     province,
-                    note: `Khớp khu vực HCM (${bestMatched[0]}) nhưng địa chỉ có tỉnh "${province}" — cần kiểm tra`,
+                    note: `Có tỉnh "${province}" (kèm từ khoá HCM "${bestMatched[0]}") → ưu tiên SHIP TỈNH, cần kiểm tra`,
                 };
             }
             return {
