@@ -407,8 +407,13 @@
                     <div class="pf">
                         <label>Khổ giấy</label>
                         <select id="pm_paper">
-                            <option value="80">80mm (576 chấm)</option>
-                            <option value="58">58mm (384 chấm)</option>
+                            <optgroup label="Máy in bill (PBH)">
+                                <option value="80">80mm (576 chấm)</option>
+                                <option value="58">58mm (384 chấm)</option>
+                            </optgroup>
+                            <optgroup label="Máy in tem nhãn">
+                                <option value="label">Tem nhãn (tự co theo khổ tem)</option>
+                            </optgroup>
                         </select>
                     </div>
                 </div>
@@ -444,7 +449,7 @@
         <script src="../../web2/shared/web2-bill-service.js?v=20260604nj11"></script>
         <!-- SSE để đồng bộ danh sách máy in realtime giữa các user/máy -->
         <script src="../../web2/shared/web2-sse-bridge.js?v=20260526sse2"></script>
-        <script src="../../web2/shared/web2-printer.js?v=20260604e"></script>
+        <script src="../../web2/shared/web2-printer.js?v=20260604f"></script>
         <script>
             if (window.Web2Sidebar)
                 Web2Sidebar.mount('#web2Aside', { activeRoute: 'printer-settings' });
@@ -483,7 +488,7 @@
                             <div class="prn-icon"><i data-lucide="printer"></i></div>
                             <div class="prn-info">
                                 <div class="prn-name">${esc(p.name || 'Máy in')}${badge}</div>
-                                <div class="prn-meta">${conn} · khổ ${esc(p.paper)}mm</div>
+                                <div class="prn-meta">${conn} · ${p.paper === 'label' ? 'tem nhãn' : 'khổ ' + esc(p.paper) + 'mm'}</div>
                             </div>
                             <div class="prn-actions">
                                 <button class="ps-btn ps-btn-ghost" data-act="test" data-id="${p.id}"><i data-lucide="plug"></i> Test</button>

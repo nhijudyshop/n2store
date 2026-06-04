@@ -212,7 +212,9 @@
     function dotsWidth(printer) {
         const p = printer || {};
         if (p.dots) return Number(p.dots);
-        return p.paper === '58' ? 384 : 576;
+        if (p.paper === '58') return 384;
+        if (p.paper === 'label') return 528; // ~66mm tem 2-con; thực tế printHtml tự co theo mm
+        return 576;
     }
 
     // Canvas (vẽ ở SS× độ phân giải đích) → ESC/POS raster 1-bit, downsample
@@ -410,11 +412,60 @@
         const bytes = await escposRasterFromSvg(svgString, { dots: dotsWidth(printer) });
         return printEscpos(bytes, printer);
     }
-    // In 1 HTML (vd tem mã SP) theo CHỨC NĂNG (role).
+    // In tem nhãn: raster theo KÍCH THƯỚC VẬT LÝ (mm → 8 chấm/mm @203DPI).
+    // Tem có .barcode-sheet width:Xmm cố định (vd 66mm 2-con) → in ĐÚNG khổ tem,
+    // KHÔNG bị co nhỏ + dồn về trái như khi ép theo khổ bill 80/58 (576/384 chấm).
+    // Khổ tem lấy từ dialog "In mã vạch" → "Giấy in" (sheetW mm) → tự co theo.
+    async function escposRasterFromHtmlPhysical(html, opts = {}) {
+        const SS = opts.ss || 2;
+        const DPMM = opts.dpmm || 8; // 203 DPI ≈ 8 chấm/mm
+        const PX_PER_MM = 96 / 25.4; // CSS px/mm ≈ 3.7795
+        if (!global.html2canvas) {
+            await _loadScript(
+                'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
+            );
+        }
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText =
+            'position:fixed;left:-9999px;top:0;width:800px;border:0;background:#fff';
+        document.body.appendChild(iframe);
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        doc.open();
+        doc.write(html);
+        doc.close();
+        await new Promise((r) => setTimeout(r, 160)); // chờ layout + JsBarcode render SVG
+        try {
+            const body = doc.body;
+            // Đo bề rộng THẬT của tem (sheet width:Xmm) → suy ra số chấm máy in.
+            let cw = 0;
+            body.querySelectorAll('.barcode-sheet').forEach((s) => {
+                cw = Math.max(cw, s.getBoundingClientRect().width);
+            });
+            if (!cw) cw = body.scrollWidth || 300;
+            cw = Math.ceil(cw);
+            const H = Math.max(1, body.scrollHeight);
+            const scale = (DPMM / PX_PER_MM) * SS; // px CSS → chấm máy in (×SS supersample)
+            const rendered = await global.html2canvas(body, {
+                backgroundColor: '#ffffff',
+                width: cw,
+                height: H,
+                windowWidth: cw,
+                scale,
+                logging: false,
+            });
+            // rendered.width = cw*scale = dots*SS → _canvasToEscpos downsample về dots.
+            return _canvasToEscpos(rendered, { ss: SS });
+        } finally {
+            iframe.remove();
+        }
+    }
+
+    // In 1 HTML (tem mã SP) theo CHỨC NĂNG (role). Dùng raster vật-lý-mm để tem
+    // in đúng khổ (66mm 2-con, …) thay vì ép khổ bill.
     async function printHtml(html, roleKey, printerOverride) {
         const printer = printerOverride || getPrinterFor(roleKey);
         if (!printer) throw new Error('Chưa có máy in nào — vào Cấu hình > Máy in');
-        const bytes = await escposRasterFromHtml(html, { dots: dotsWidth(printer) });
+        const bytes = await escposRasterFromHtmlPhysical(html, { ss: 2 });
         return printEscpos(bytes, printer);
     }
     // Máy in đã gán cho role có in THẲNG (bridge) không?
@@ -462,6 +513,7 @@
         roleIsBridge,
         escposRasterFromSvg,
         escposRasterFromHtml,
+        escposRasterFromHtmlPhysical,
         printEscpos,
         printSvg,
         printHtml,
