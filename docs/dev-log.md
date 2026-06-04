@@ -25,6 +25,19 @@
 
 ## 2026-06-04
 
+### [render] FIX webhook SePay Web 2.0 không nhận giao dịch (cột `body` → `raw_data`) ✅
+
+**Triệu chứng:** Trang `web2/balance-history` mất giao dịch SePay sau ~06-03. Web 1.0 (`balance_history` trên chatDb) vẫn nhận; Web 2.0 (`web2_balance_history` trên web2Db) đứng yên.
+
+**Root cause:** Phase 6 cutover DB (06-03 19:49) flip web2 SePay path sang **web2Db**. Bảng `web2_balance_history` trên web2Db dùng cột `raw_data` (canonical — route đã `ADD COLUMN IF NOT EXISTS raw_data`), nhưng `insertWeb2BalanceHistory` lại INSERT vào cột `body` (cũ, chỉ tồn tại trên bản chatDb leftover). → mọi INSERT ném `column "body" of relation "web2_balance_history" does not exist`, bị `_processWeb2Path` nuốt qua retry-queue; webhook handler trả 200 (legacy OK) nên SePay không gửi lại. **276 GD** rớt vào retry queue (268 permanent_failure + 8 pending).
+
+**Files:**
+
+- `render.com/services/web2-sepay-matching.js` — INSERT + ensureSchema `body` → `raw_data`
+- `render.com/routes/v2/web2-monitoring.js` — thêm `POST /api/web2/monitoring/retry-queue/replay` reset permanent_failure/pending → pending cho cron replay GD đã rớt
+
+**Recovery sau deploy:** `POST /api/web2/monitoring/retry-queue/replay` → cron `web2-webhook-retry` (mỗi 2 phút) re-insert 276 GD với cột đúng.
+
 ### [web2] Photo-studio — Đợt 6: "Chọn đúng món" (tap-to-pick chủ thể bằng MobileSAM) ✅
 
 Khi AI tách nhầm chủ thể (giữ nhầm người/vật phản chiếu/nhiều món), user **chạm 1 phát vào món muốn giữ** → AI cắt chính xác viền món đó, thay cho phần tách sai. Mạnh hơn brush thủ công vì hiểu vật thể.

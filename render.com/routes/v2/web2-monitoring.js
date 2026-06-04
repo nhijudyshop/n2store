@@ -182,6 +182,36 @@ router.get('/retry-queue', async (req, res) => {
 });
 
 // =====================================================
+// POST /api/web2/monitoring/retry-queue/replay
+// Reset 'permanent_failure' (và 'pending' đã quá hạn) về pending để cron
+// retry chạy lại — dùng sau khi fix bug khiến GD fail hàng loạt (vd lỗi
+// cột "body" sau cutover DB 2026-06-03). Idempotent, an toàn gọi nhiều lần.
+// Body (optional): { status: 'permanent_failure' | 'all' } — mặc định cả 2.
+// =====================================================
+router.post('/retry-queue/replay', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const scope = String(req.body?.status || 'all').toLowerCase();
+        const statuses =
+            scope === 'permanent_failure'
+                ? ['permanent_failure']
+                : ['permanent_failure', 'pending'];
+        const r = await db.query(
+            `UPDATE web2_webhook_retry_queue
+                SET status = 'pending', retry_count = 0,
+                    next_retry_at = NOW(), last_error = NULL
+              WHERE status = ANY($1::text[])
+              RETURNING id`,
+            [statuses]
+        );
+        console.log(`[web2-webhook-retry] replay reset ${r.rowCount} rows (scope=${scope})`);
+        res.json({ success: true, requeued: r.rowCount });
+    } catch (e) {
+        handleError(res, e, 'Retry queue replay');
+    }
+});
+
+// =====================================================
 // GET /api/web2/monitoring/blacklist
 // =====================================================
 router.get('/blacklist', async (req, res) => {
