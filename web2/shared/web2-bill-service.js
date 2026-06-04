@@ -144,14 +144,16 @@
         const m = _fmtMoney;
         const L = [];
         const left = (s) => L.push('|' + s); // canh trái
-        // Header shop (giữa, to)
+        // Header shop (giữa, to). KHÔNG dùng invert (nền đen) — máy in nhiệt
+        // trắng đen, nền đen in ra thành khối đen che chữ → chỉ dùng to + đậm.
         L.push('^^^' + _rlEsc(d.shop.name));
-        if (d.isShop) L.push('`^PBH SHOP - BÁN TẠI SHOP`');
+        if (d.isShop) L.push('^^"PBH SHOP - BÁN TẠI SHOP"');
         else if (d.carrierName) L.push(_rlEsc(d.carrierName));
-        if (d.hasVirtualDebt) L.push('`^CÓ ĐƠN THU VỀ`');
-        // Ô COD nổi bật (invert nền đen, giữa)
-        L.push('`^TIỀN THU HỘ (COD)`');
-        L.push('`^^^' + m(d.cod) + ' đ`');
+        if (d.hasVirtualDebt) L.push('^^"CÓ ĐƠN THU VỀ"');
+        // Ô COD nổi bật bằng KÍCH THƯỚC + ĐẬM + đường kẻ khung (không nền đen).
+        L.push('-');
+        L.push('"TIỀN THU HỘ (COD)"');
+        L.push('^^^' + m(d.cod) + ' đ');
         L.push('-');
         L.push('^Phiếu Bán Hàng' + (d.isShop ? ' (SHOP)' : ''));
         if (d.billNumber) L.push('{code:' + d.billNumber + ';option:code128,3,72,hri}');
@@ -190,7 +192,7 @@
         L.push('^^TỔNG TIỀN:|^^' + m(d.finalTotal) + ' đ');
         if (d.prepaid > 0) {
             L.push('Đã trả trước:|-' + m(d.prepaid));
-            L.push('`^Còn lại (COD):|^' + m(d.cod) + ' đ`');
+            L.push('^"Còn lại (COD):"|^"' + m(d.cod) + ' đ"');
         }
         L.push('=');
         // Ghi chú

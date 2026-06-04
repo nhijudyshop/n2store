@@ -25,6 +25,12 @@
 
 ## 2026-06-04
 
+### [web2-bill] Bỏ nền đen (invert) trên bill — máy in trắng đen ✅
+
+User: đừng cho nền đen sau chữ — máy in trắng đen nên nền đen in ra thành khối đen che chữ.
+
+- Bỏ hết markup invert ReceiptLine (backtick `) ở ô COD / PBH SHOP / CÓ ĐƠN THU VỀ / Còn lại COD. Thay bằng **kích thước lớn (^^^) + đậm ("...")** + đường kẻ khung (-) → vẫn nổi bật mà toàn chữ đen trên nền trắng. Verified screenshot: hết khối đen, COD 180.000 đ vẫn to rõ.
+
 ### [web2-bill] Chuyển bill sang ReceiptLine SVG (in sắc nét, hết mờ nhiệt) ✅
 
 User: tìm lib GitHub làm bill → dùng. Chọn ReceiptLine (receiptline/receiptline, 740★, Apache-2.0) — render SVG vector nên in KHÔNG mờ.
