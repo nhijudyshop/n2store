@@ -24,7 +24,7 @@ function authOk(req) {
 }
 
 // Bảng data SP/đơn/PBH/cart cần wipe khi tạo lại data ảo. KHÔNG gồm bảng KH/ví.
-const TARGET_TABLES = [
+const PRODUCT_TABLES = [
     'web2_products',
     'web2_variants',
     'web2_product_history',
@@ -33,6 +33,23 @@ const TARGET_TABLES = [
     'fast_sale_orders',
     'refunds',
 ];
+
+// Module Theo dõi nhập hàng (supplier-debt/aging/360). FK: shipments+order_bookings
+// → suppliers. TRUNCATE cần CASCADE. Liệt kê children trước cho rõ.
+const INVENTORY_TABLES = [
+    'inventory_shipments',
+    'inventory_order_bookings',
+    'inventory_prepayments',
+    'inventory_other_expenses',
+    'inventory_edit_history',
+    'inventory_suppliers',
+];
+
+function pickTables(target) {
+    return target === 'inventory' ? INVENTORY_TABLES : PRODUCT_TABLES;
+}
+// Backward-compat: GET /status vẫn report product tables.
+const TARGET_TABLES = PRODUCT_TABLES;
 
 function tsTag() {
     const d = new Date();
@@ -54,8 +71,9 @@ router.get('/web2-data-reset/status', async (req, res) => {
     const db = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!db) return res.status(500).json({ error: 'web2Db unavailable' });
     try {
+        const tables = pickTables(req.query.target);
         const out = [];
-        for (const t of TARGET_TABLES) {
+        for (const t of tables) {
             if (!(await tableExists(db, t))) {
                 out.push({ table: t, exists: false });
                 continue;
@@ -63,7 +81,7 @@ router.get('/web2-data-reset/status', async (req, res) => {
             const n = Number((await db.query(`SELECT COUNT(*)::bigint n FROM "${t}"`)).rows[0].n);
             out.push({ table: t, exists: true, rows: n });
         }
-        res.json({ success: true, tables: out });
+        res.json({ success: true, target: req.query.target || 'products', tables: out });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
@@ -89,12 +107,14 @@ router.post('/web2-data-reset', async (req, res) => {
         });
     }
 
+    const target = body.target === 'inventory' ? 'inventory' : 'products';
+    const tables = pickTables(target);
     const tag = tsTag();
     const steps = [];
     try {
         // 1. BACKUP
         const backups = [];
-        for (const t of TARGET_TABLES) {
+        for (const t of tables) {
             if (!(await tableExists(db, t))) {
                 backups.push({ table: t, skipped: 'không tồn tại' });
                 continue;
@@ -107,29 +127,37 @@ router.post('/web2-data-reset', async (req, res) => {
             }
             backups.push({ table: t, rows: cnt, backupTable: bak, done: !dryRun });
         }
-        steps.push({ step: 'backup', backups });
+        steps.push({ step: 'backup', target, backups });
 
         if (mode === 'backup') {
-            return res.json({ success: true, mode, dryRun, tag, steps });
+            return res.json({ success: true, mode, target, dryRun, tag, steps });
         }
 
-        // 2. WIPE (TRUNCATE) — RESTART IDENTITY reset BIGSERIAL về 1
+        // 2. WIPE (TRUNCATE) — RESTART IDENTITY reset serial về 1.
+        // Inventory có FK (shipments+order_bookings → suppliers) → CASCADE.
         if (!dryRun) {
-            for (const t of TARGET_TABLES) {
-                if (await tableExists(db, t)) {
-                    await db.query(`TRUNCATE TABLE "${t}" RESTART IDENTITY`);
-                }
+            const existing = [];
+            for (const t of tables) {
+                if (await tableExists(db, t)) existing.push(`"${t}"`);
+            }
+            if (existing.length) {
+                const cascade = target === 'inventory' ? ' CASCADE' : '';
+                await db.query(`TRUNCATE TABLE ${existing.join(', ')} RESTART IDENTITY${cascade}`);
             }
         }
-        steps.push({ step: 'truncate', tables: TARGET_TABLES, done: !dryRun });
+        steps.push({ step: 'truncate', target, tables, done: !dryRun });
 
         res.json({
             success: true,
             mode,
+            target,
             dryRun,
             tag,
             steps,
-            next: 'Seed data ảo mới qua POST /api/web2-variants + /api/web2-products (mã SP gen bằng Web2ProductCode).',
+            next:
+                target === 'inventory'
+                    ? 'Seed lại qua POST /api/web2/inventory-tracking/shipments (auto-create supplier).'
+                    : 'Seed data ảo mới qua POST /api/web2-variants + /api/web2-products.',
         });
     } catch (e) {
         console.error('[web2-data-reset] error:', e.message);
