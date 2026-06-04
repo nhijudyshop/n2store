@@ -233,18 +233,20 @@ const KPI_PER_UNIT_INBOX = 5000;
 /**
  * Cập nhật stat card KPI ở filter row — chạy mỗi lần performTableSearch.
  * KPI CHỈ thay đổi theo bộ lọc NGÀY, bỏ qua status/source/tag/search.
- * Lý do: stat card phản ánh tổng KPI thực tế bán được trong khoảng ngày,
- * không phụ thuộc subset đang xem trong bảng.
  *
- * Source orders: toàn bộ `SocialOrderState.orders`. Filter:
- *   - status === 'order' (chỉ đơn được tính KPI)
- *   - createdAt nằm trong dateRange của `currentDateFilter`
- * KPI = sum(totalQuantity) × 5.000đ.
+ * Gate (đồng bộ SocialKpiReconcile.qualify — 1 nguồn sự thật):
+ *   - status === 'order' AND có phiếu bán hàng TPOS ĐÃ CHỐT (ShowState ∈
+ *     {Đã xác nhận, Đã thanh toán, Hoàn thành}) và KHÔNG bị hủy.
+ *   - createdAt nằm trong dateRange của `currentDateFilter`.
+ * KPI gross/đơn = Σ (Quantity line item phiếu) × 5.000đ (fallback totalQuantity).
+ * Nếu đã chạy đối soát (SocialKpiReconcile.byOrder có record) → dùng KPI net (đã trừ
+ * món hoàn) cho đơn đó; đơn chưa đối soát → net = gross.
  */
 function updateInboxKpiStatCard() {
     const card = document.getElementById('inboxKpiStatCard');
     if (!card) return;
     const all = window.SocialOrderState?.orders || [];
+    const R = window.SocialKpiReconcile;
 
     const filterKey =
         typeof currentDateFilter !== 'undefined' ? currentDateFilter : 'all';
@@ -254,8 +256,39 @@ function updateInboxKpiStatCard() {
             ? getDateRange(filterKey)
             : { from: null, to: null };
 
-    const kpiOrders = all.filter((o) => {
+    // Gate: ưu tiên module; fallback inline nếu module chưa load.
+    const qualifies = (o) => {
+        if (R?.qualify) return R.qualify(o);
         if (!o || o.status !== 'order') return false;
+        const inv = window.InvoiceStatusStore?.get(o.id);
+        if (!inv) return false;
+        const cancelled =
+            inv.State === 'cancel' ||
+            inv.StateCode === 'cancel' ||
+            inv.IsMergeCancel === true ||
+            inv.ShowState === 'Huỷ bỏ' ||
+            inv.ShowState === 'Hủy bỏ';
+        if (cancelled) return false;
+        return ['Đã xác nhận', 'Đã thanh toán', 'Hoàn thành'].includes(
+            inv.ShowState || ''
+        );
+    };
+    const grossQty = (o) => {
+        const inv = window.InvoiceStatusStore?.get(o.id);
+        if (R?.grossQtyFromCache) return R.grossQtyFromCache(o, inv);
+        const lines = inv?.OrderLines;
+        if (Array.isArray(lines) && lines.length) {
+            const sum = lines.reduce(
+                (s, l) => s + (Number(l.ProductUOMQty) || Number(l.Quantity) || 0),
+                0
+            );
+            if (sum > 0) return sum;
+        }
+        return Number(o.totalQuantity) || 0;
+    };
+
+    const kpiOrders = all.filter((o) => {
+        if (!qualifies(o)) return false;
         if (range.from || range.to) {
             const ts = new Date(o.createdAt);
             if (range.from && ts < range.from) return false;
@@ -263,11 +296,27 @@ function updateInboxKpiStatCard() {
         }
         return true;
     });
-    const totalQty = kpiOrders.reduce(
-        (s, o) => s + (Number(o.totalQuantity) || 0),
-        0
-    );
-    const totalKpi = totalQty * KPI_PER_UNIT_INBOX;
+
+    let totalQty = 0;
+    let totalGross = 0;
+    let totalNet = 0;
+    let totalLoss = 0;
+    let anyRecon = false;
+    for (const o of kpiOrders) {
+        const q = grossQty(o);
+        const g = q * KPI_PER_UNIT_INBOX;
+        totalQty += q;
+        totalGross += g;
+        const rec = R?.byOrder?.get(o.id);
+        if (rec) {
+            anyRecon = true;
+            totalNet += rec.netKpi;
+            totalLoss += rec.refundedKpiAmount;
+        } else {
+            totalNet += g; // chưa đối soát đơn này → net = gross
+        }
+    }
+    const displayKpi = anyRecon ? totalNet : totalGross;
 
     const labelMap = {
         all: 'KPI tất cả',
@@ -285,7 +334,22 @@ function updateInboxKpiStatCard() {
     if (qtyEl) qtyEl.textContent = totalQty.toLocaleString('vi-VN');
 
     const amtEl = document.getElementById('inboxKpiAmount');
-    if (amtEl) amtEl.textContent = formatVndInbox(totalKpi);
+    if (amtEl) amtEl.textContent = formatVndInbox(displayKpi);
+
+    // Dòng phụ: loss (đã đối soát) hoặc hint chưa trừ hàng trả.
+    const lossEl = document.getElementById('inboxKpiLoss');
+    if (lossEl) {
+        if (anyRecon && totalLoss > 0) {
+            lossEl.innerHTML = `<span style="color:#dc2626;">(−${formatVndInbox(totalLoss)} hoàn)</span>`;
+        } else if (anyRecon) {
+            lossEl.innerHTML = `<span style="color:#059669;">(đã đối soát)</span>`;
+        } else {
+            lossEl.innerHTML = `<span style="color:#9ca3af;">· chưa trừ hàng trả</span>`;
+        }
+    }
+    card.title = anyRecon
+        ? `KPI net các đơn 'Đơn hàng' có phiếu đã chốt (gross ${formatVndInbox(totalGross)} − ${formatVndInbox(totalLoss)} hoàn)`
+        : "Tổng KPI gross các đơn 'Đơn hàng' có phiếu TPOS đã chốt (5.000đ/món). Bấm 'Chạy đối soát KPI' để trừ hàng trả.";
 }
 
 function formatVndInbox(n) {

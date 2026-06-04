@@ -336,6 +336,9 @@ function renderTableRow(order, index) {
             <td data-column="invoice-status" style="min-width: 160px;">
                 ${typeof window.renderSocialInvoiceCell === 'function' ? window.renderSocialInvoiceCell(order) : '<span style="color: #9ca3af;">—</span>'}
             </td>
+            <td data-column="kpi" style="text-align: right; min-width: 90px;">
+                ${typeof window.SocialKpiReconcile?.getOrderKpiCell === 'function' ? window.SocialKpiReconcile.getOrderKpiCell(order) : '<span style="color: #9ca3af;">—</span>'}
+            </td>
             <td data-column="status" style="text-align: center;">
                 ${renderStatusCell(order, statusConfig)}
             </td>

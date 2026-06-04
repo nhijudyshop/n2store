@@ -25,6 +25,31 @@
 
 ## 2026-06-04
 
+### [inbox] KPI Đơn Inbox — gate phiếu đã chốt + đối soát trừ hàng trả ✅
+
+KPI page Đơn Inbox tính lại đúng nghiệp vụ (trước đây chỉ `Σ totalQuantity đơn status='order' × 5.000đ`, bỏ qua phiếu thật + không trừ refund).
+
+**Nghiệp vụ mới** (chốt với owner):
+
+- **Gate**: đơn tính KPI khi VỪA `status='order'` VỪA có phiếu bán hàng TPOS **đã chốt** (`ShowState ∈ {Đã xác nhận, Đã thanh toán, Hoàn thành}`) và **chưa hủy** (loại `cancel`/`IsMergeCancel`/`Huỷ bỏ`).
+- **KPI gross** = Σ (Quantity line item thực trên phiếu TPOS) × 5.000đ.
+- **Đối soát**: nút "Chạy đối soát KPI" → lấy Excel món trả 3 tháng (TPOS `ExportFileDetail?type=refund`) → loại KPI **per-MÓN** đã bị trả (trừ `min(SL hoàn, SL phiếu) × 5.000đ`, khớp theo code). KPI net = gross − loss.
+- **Hiển thị**: thẻ KPI tổng (gross→net + dòng loss), breakdown theo nhân viên (người tạo phiếu `UserName`), cột "KPI" từng dòng (gross preview → net + badge `−Xđ ↩` sau đối soát).
+
+**Engine** mirror "Đối soát KPI" của orders-report (xem [docs/orders-report/DOI-SOAT-KPI.md](orders-report/DOI-SOAT-KPI.md)) nhưng nguồn MÓN = OrderLines phiếu (bulk `GetListOrderIds?$expand=OrderLines`, lấy code+qty fresh vì cache `order_lines` đã drop ProductCode). 3 helper refund (`fetchRefundDetailByInvoice`/`parseRefundChiTiet`/`matchRefundForOrder`) port từ tab-kpi-commission.js. Token TPOS dùng `window.tokenManager` (đã có trên trang inbox), **không hardcode creds**. CHỈ ĐỌC TPOS, không ghi DB (tuân MEMORY `feedback_api_scope`). Module ISOLATED — không sửa tab-kpi-commission.js.
+
+**Files**:
+
+- NEW `don-inbox/js/tab-social-kpi-reconcile.js` — `window.SocialKpiReconcile` (run, qualify, getQualifyingInvoice, grossQtyFromCache, getOrderKpiCell, renderSellerBreakdown) + `window.socialKpiQualify`.
+- `don-inbox/js/tab-social-core.js` — `updateInboxKpiStatCard()` gate mới + gross-from-cache + net từ reconcile + dòng `#inboxKpiLoss`.
+- `don-inbox/index.html` — nút `#btnSocialKpiReconcile`, `#socialKpiSellerBreakdown`, `#inboxKpiLoss`, cột `th[data-column="kpi"]` + checkbox modal, script include.
+- `don-inbox/js/tab-social-table.js` — ô cột KPI mỗi row (`getOrderKpiCell`).
+- `don-inbox/js/tab-social-column-visibility.js` — đăng ký cột `kpi: true`.
+
+**Verify**: `node --check` 4 file pass; VM unit test (mock `window`+store) logic case pass (gate Nháp/hủy/draft-status loại đúng, gross từ line items + fallback totalQuantity, cell gross preview, post-đối-soát net + badge loss + tooltip món hoàn). Live test (browser session + refund TPOS thật) cần môi trường auth của owner.
+
+Status: DONE (chờ live-verify trên prod sau deploy).
+
 ### [orders][render] soluong-live: tối ưu ảnh (resize proxy) + đổi ảnh đẩy lên TPOS ✅
 
 **Tối ưu tốc độ load ảnh:** proxy `/image/:id` trước stream ảnh gốc TPOS ~1-2MB → load hàng loạt rất chậm. Thêm `?w=<width>` → sharp resize + WebP q78 (~20-80KB, nhanh ~20×), cache 7 ngày immutable (URL có ?v= version). soluong-live render thumbnail: index preview `w=400`, grid list `w=700` + `loading=lazy` + `decoding=async`. Ảnh gốc giữ nguyên khi không có ?w. (render.com/routes/v2/web-warehouse.js — cần deploy Render.)

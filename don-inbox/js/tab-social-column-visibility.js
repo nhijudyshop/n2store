@@ -22,6 +22,7 @@ const DEFAULT_SOCIAL_COLUMN_VISIBILITY = {
     total: true,
     'created-date': true,
     'invoice-status': true,
+    kpi: true,
     status: true,
 };
 

@@ -286,7 +286,7 @@
                             <div
                                 class="filter-item inbox-kpi-stat"
                                 id="inboxKpiStatCard"
-                                title="Tổng KPI của các đơn 'Đơn hàng' theo bộ lọc ngày (5.000đ / món)"
+                                title="Tổng KPI của các đơn 'Đơn hàng' có phiếu TPOS đã chốt (5.000đ / món). Bấm 'Chạy đối soát KPI' để trừ hàng trả."
                             >
                                 <i class="fas fa-trophy inbox-kpi-stat-icon"></i>
                                 <div class="inbox-kpi-stat-body">
@@ -299,9 +299,34 @@
                                         <span class="inbox-kpi-stat-amount" id="inboxKpiAmount"
                                             >0đ</span
                                         >
+                                        <span
+                                            id="inboxKpiLoss"
+                                            style="font-size: 11px; margin-left: 4px"
+                                        ></span>
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Nút chạy đối soát KPI (lấy excel món trả → trừ KPI món bị hoàn) -->
+                            <button
+                                class="filter-item"
+                                id="btnSocialKpiReconcile"
+                                onclick="window.SocialKpiReconcile && window.SocialKpiReconcile.run()"
+                                title="Lấy excel món trả 3 tháng từ TPOS, loại KPI các món đã bị trả (per-món)"
+                                style="
+                                    cursor: pointer;
+                                    border: 1px solid #c7d2fe;
+                                    background: #eef2ff;
+                                    color: #4338ca;
+                                    font-weight: 600;
+                                    font-size: 13px;
+                                    display: inline-flex;
+                                    align-items: center;
+                                    gap: 6px;
+                                "
+                            >
+                                <i class="fas fa-balance-scale"></i> Chạy đối soát KPI
+                            </button>
 
                             <!-- Spacer -->
                             <div style="flex: 1"></div>
@@ -334,6 +359,20 @@
                         ></div>
                     </div>
 
+                    <!-- KPI breakdown theo nhân viên (hiện sau khi Chạy đối soát) -->
+                    <div
+                        id="socialKpiSellerBreakdown"
+                        style="
+                            display: none;
+                            margin: 0 24px 12px;
+                            padding: 14px 16px;
+                            background: #fff;
+                            border: 1px solid #e5e7eb;
+                            border-radius: 10px;
+                            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+                        "
+                    ></div>
+
                     <!-- Table Container -->
                     <div class="table-container" id="tableContainer">
                         <div class="table-wrapper" id="tableWrapper">
@@ -360,12 +399,13 @@
                                         <th data-column="total">Tổng</th>
                                         <th data-column="created-date">Ngày tạo</th>
                                         <th data-column="invoice-status">Phiếu bán hàng</th>
+                                        <th data-column="kpi">KPI</th>
                                         <th data-column="status">Trạng thái</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tableBody">
                                     <tr>
-                                        <td colspan="16" style="text-align: center; padding: 40px">
+                                        <td colspan="17" style="text-align: center; padding: 40px">
                                             <i class="fas fa-spinner fa-spin"></i> Đang tải...
                                         </td>
                                     </tr>
@@ -1296,6 +1336,10 @@ HẾT HÀNG</textarea
                         <label class="column-setting-item">
                             <input type="checkbox" data-column="invoice-status" checked />
                             <span>Phiếu bán hàng</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="kpi" checked />
+                            <span>KPI</span>
                         </label>
                         <label class="column-setting-item">
                             <input type="checkbox" data-column="status" checked />
@@ -2317,6 +2361,9 @@ HẾT HÀNG</textarea
 
         <!-- Social Invoice Adapter (bridges social orders with Tab 1 functions) -->
         <script src="js/tab-social-invoice.js?v=20260603a"></script>
+
+        <!-- KPI Reconcile Engine (gate phiếu đã chốt + đối soát trừ hàng trả) -->
+        <script src="js/tab-social-kpi-reconcile.js?v=20260604a"></script>
 
         <!-- Status Filter Tabs: sync clicks → hidden #statusFilter + performTableSearch -->
         <script>
