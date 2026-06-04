@@ -18,35 +18,41 @@ function ascii(s) {
         .toUpperCase();
 }
 
-// Màu (ASCII keyword) → { bg, fg } hex (không # cho placehold.co)
-const COLOR_HEX = [
-    ['XANH DUONG', '2563eb', 'ffffff'],
-    ['XANH LA', '16a34a', 'ffffff'],
-    ['XANH', '2563eb', 'ffffff'],
-    ['DEN', '1f2937', 'ffffff'],
-    ['TRANG', 'f3f4f6', '111827'],
-    ['DO', 'dc2626', 'ffffff'],
-    ['XAM', '6b7280', 'ffffff'],
-    ['BE', 'e7d3b3', '4b2e05'],
-    ['HONG', 'ec4899', 'ffffff'],
-    ['VANG', 'f59e0b', '1f2937'],
-    ['NAU', '78350f', 'ffffff'],
-    ['BAC', 'cbd5e1', '1f2937'],
+// Loại SP (ASCII keyword trong tên) → keyword ảnh quần áo thật (loremflickr).
+// Match theo thứ tự — cụm dài trước (AO KHOAC trước AO).
+const TYPE_KEYWORD = [
+    ['AO THUN', 'tshirt'],
+    ['AO SO MI', 'shirt'],
+    ['AO KHOAC', 'jacket'],
+    ['AO LEN', 'sweater'],
+    ['QUAN JEAN', 'jeans'],
+    ['QUAN SHORT', 'shorts'],
+    ['QUAN TAY', 'trousers'],
+    ['DAM', 'dress'],
+    ['GIAY', 'shoes'],
+    ['GUOC', 'sandals'],
+    ['QUAN', 'trousers'],
+    ['AO', 'shirt'],
 ];
+
+// lock số ổn định từ mã SP → mỗi SP 1 ảnh cố định (không đổi mỗi lần load).
+function lockFrom(code) {
+    let h = 0;
+    for (const c of ascii(code)) h = (h * 31 + c.charCodeAt(0)) % 100000;
+    return h;
+}
 
 function imageFor(p) {
     const nameA = ascii(p.name);
-    let bg = '9ca3af';
-    let fg = 'ffffff';
-    for (const [kw, b, f] of COLOR_HEX) {
-        if (nameA.includes(kw)) {
-            bg = b;
-            fg = f;
+    let kw = 'fashion';
+    for (const [t, k] of TYPE_KEYWORD) {
+        if (nameA.includes(t)) {
+            kw = k;
             break;
         }
     }
-    const text = encodeURIComponent(ascii(p.code));
-    return `https://placehold.co/400x400/${bg}/${fg}/png?text=${text}`;
+    // Ảnh quần áo thật theo loại SP, deterministic qua lock.
+    return `https://loremflickr.com/400/400/${kw}?lock=${lockFrom(p.code)}`;
 }
 
 async function main() {
