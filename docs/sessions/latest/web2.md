@@ -3,23 +3,27 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260604-160521-3ac96d2`
-**Session file**: [`./20260604-160521-3ac96d2.md`](../20260604-160521-3ac96d2.md)
-**Commit**: `3ac96d2` — auto: session update
-**Last updated**: 2026-06-04 16:05:21 +07
-**Summary**: auto: session update
+**Latest session**: `RESUME:20260604-162055-a3617be`
+**Session file**: [`./20260604-162055-a3617be.md`](../20260604-162055-a3617be.md)
+**Commit**: `a3617be` — chore(web2): drop orphan inventory*\* tables tren web2Db (guarded)
+**Last updated**: 2026-06-04 16:20:55 +07
+**Summary**: chore(web2): drop orphan inventory*\* tables tren web2Db (guarded)
 
 ## Files changed in this commit (`web2/`)
 
+- `web2/photo-studio/index.html`
+- `web2/photo-studio/photo-studio.css`
+- `web2/photo-studio/photo-studio.js`
 - `web2/shared/delivery-method-picker.js`
+- `web2/shared/tpos-sidebar.js`
 
 ## Last 5 commits touching `web2/`
 
+- `eeaed921b` feat(web2): photo-studio đợt 2 — di chuyển/phóng to chủ thể trên nền (kéo + chụm 2 ngón + căn giữa) _(2026-06-04)_
+- `fc8656d74` fix(delivery-picker): exact keyword thang fuzzy -> Binh Thanh = TP Trung tam _(2026-06-04)_
+- `6a53072fc` feat(web2): photo-studio đợt 1 — bóng đổ + khổ sàn TMĐT + auto-đẹp + WEBP/quality + logo watermark _(2026-06-04)_
+- `5877b88ca` feat(native-orders): badge phuong thuc giao o cot dia chi + luu lai + chinh tay _(2026-06-04)_
 - `3ac96d297` auto: session update _(2026-06-04)_
-- `30685bf9c` feat(web2): photo-studio — 16 nền cảnh có sẵn (biển/thành phố/quê/thiên nhiên + selfie) qua Unsplash CORS _(2026-06-04)_
-- `6de7c3cc7` auto: session update _(2026-06-04)_
-- `d1982a67b` refactor(web2 supplier-debt): cat sach coupling TPOS/inventory*shipments (Web 1.0) *(2026-06-04)\_
-- `3807c609f` feat(web2): auto-detect dia chi 2-method (offline fuzzy + Goong) cross-validate _(2026-06-04)_
 
 ---
 
@@ -27,4 +31,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260604-160521-3ac96d2` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260604-162055-a3617be` cho Claude walk chain theo CLAUDE.md protocol.
