@@ -482,6 +482,10 @@ function _renderCardBody(card) {
         NoteManager.onTableRendered();
     }
     if (window.ColumnToggle?.refresh) window.ColumnToggle.refresh();
+
+    // Body (and its NCC checkboxes/rows) was just built — apply hidden-NCC
+    // state so hidden NCCs vanish on expand instead of flashing in fully.
+    if (typeof applyHiddenNccsToDom === 'function') applyHiddenNccsToDom();
 }
 
 /**
@@ -1918,15 +1922,24 @@ function applyHiddenNccsToDom() {
         const shipmentId = card.dataset.id;
         const reveal = _isShowHiddenFor(shipmentId);
         card.classList.toggle('shipment-reveal-hidden', reveal);
-        let hiddenCount = 0;
+
+        // Badge count comes from the MAP (authoritative, works even when the
+        // card body is collapsed/lazy and has no checkboxes yet). Counting
+        // checkboxes here would wrongly reset the badge to 0 on collapsed cards.
+        const prefix = `${shipmentId}_`;
+        const hiddenCount = Object.keys(map).filter((k) => k.startsWith(prefix)).length;
+
+        // Hide/show the actual rows for whatever checkboxes are currently in
+        // the DOM (i.e. expanded cards). Collapsed cards have none — they get
+        // hidden when expanded via _renderCardBody → applyHiddenNccsToDom.
         const cells = card.querySelectorAll('.ncc-done-check');
         cells.forEach((cb) => {
             const nccKey = cb.dataset.nccKey;
             const isHidden = !!map[`${shipmentId}_${nccKey}`];
-            if (isHidden) hiddenCount++;
             cb.checked = isHidden;
             _setRowsHiddenForCell(cb.closest('.col-ncc'), isHidden);
         });
+
         const badge = card.querySelector('.shipment-hidden-badge');
         if (badge) {
             badge.dataset.count = String(hiddenCount);

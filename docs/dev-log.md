@@ -25,6 +25,18 @@
 
 ## 2026-06-04
 
+### [inventory-tracking] Fix NCC ẩn không thực sự ẩn hàng (badge đếm đúng nhưng rows vẫn hiện) ✅
+
+**Bug:** Tick ẩn NCC → badge "N NCC ẩn" hiện đúng, nhưng các **hàng SP của NCC đó vẫn hiển thị** đầy đủ. Nguyên nhân: class `ncc-row-hidden` (CSS `display:none`) chỉ do `applyHiddenNccsToDom()` gắn, mà hàm này CHỈ chạy từ SSE handler + toggle — **KHÔNG chạy sau `renderShipments()` lẫn khi expand card**. Card body dựng lazy lúc expand → hàng mới không có class ẩn. Thêm nữa `applyHiddenNccsToDom` đếm badge theo checkbox → card collapsed (chưa có checkbox) bị reset badge về 0.
+
+**Files** (`js/table-renderer.js`, bump `?v=20260604b`):
+
+- `applyHiddenNccsToDom()`: đếm badge từ **map** (`Object.keys(map).startsWith(shipmentId+'_')`) thay vì từ checkbox → đúng cả khi card collapsed; vẫn ẩn/hiện rows cho checkbox đang có (card expanded).
+- `_renderCardBody()` (lazy expand): gọi `applyHiddenNccsToDom()` sau khi dựng bảng → NCC ẩn biến mất ngay khi expand.
+- `renderShipments()`: gọi `applyHiddenNccsToDom()` cuối hàm → áp ẩn cho card mở sẵn + mọi lần re-render (filter/SSE).
+
+**Verified** Playwright (ship_2026-05-25_d2, 4 NCC ẩn): collapsed badge "4 NCC ẩn" ✓; expand → 25 hàng SP ẩn hết (`stillVisible:0`), 2 NCC còn lại hiện ✓; bấm badge → reveal 25 hàng (mờ/sọc) + badge "Đang hiện 4 NCC ẩn" ✓.
+
 ### [web2] Trang cấu hình Phương thức giao hàng (entity `deliveryzone`) + menu Cấu hình ✅
 
 User: "phần cài đặt phương thức giao hàng đâu? được thì cho vào cấu hình ở menu". Trước đó chỉ có OPTIONS hardcoded trong picker, không có trang quản lý.
