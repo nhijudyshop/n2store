@@ -547,6 +547,22 @@
     object-fit: cover;
     border: 1px solid #e2e8f0;
     background: #f8fafc;
+    cursor: zoom-in;
+    transition:
+        transform 160ms ease,
+        box-shadow 160ms ease;
+}
+/* Hover → zoom ảnh SP lên (anchor góc trái, overlay lên trên). */
+.rc-line-img:hover {
+    transform: scale(4);
+    transform-origin: left center;
+    position: relative;
+    z-index: 60;
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.35);
+    border-color: #0d9488;
+}
+.rc-line-product-cell {
+    position: relative;
 }
 .rc-line-img-empty {
     display: inline-flex;
