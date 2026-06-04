@@ -25,6 +25,15 @@
 
 ## 2026-06-04
 
+### [web2] Audit realtime toàn bộ trang menu + phủ SSE còn thiếu + doc overview ✅
+
+User: kiểm tất cả trang menu xem đã có realtime + chức năng chưa, áp dụng cập nhật UI, dùng chung 1 nguồn dữ liệu, thêm vào overview để code mới biết dùng SSE.
+
+- **Audit 38 trang** (5 agent song song): **TẤT CẢ đã REAL** (không trang nào stub). Map realtime: ✅SSE / 🔸legacy(Firestore/WS) / ⚪N-A(report/config/one-shot).
+- **Phủ SSE còn thiếu**: product-category + delivery-zone (thêm bridge → page-builder subscribe `web2:<slug>` auto); variants (thêm `Web2SSE.subscribe('web2:variants')`); refund + delivery (backend `refunds.js`/`delivery-invoices.js` thêm `web2RealtimeSseNotify('web2:refunds'|'web2:delivery')` + page bridge+subscribe). Verified live server subscriber: `web2:refunds=1, web2:delivery=1, web2:deliveryzone=1`.
+- **Overview** ([web2/overview #realtime]): bảng phủ sóng realtime toàn bộ trang + topic + nguồn 1 nguồn; recipe SSE 2 bước; bản đồ liên kết domain (đơn/NCC/KH/SP). TOC thêm #realtime.
+- **Còn migrate SSE**: Sổ Order + Công nợ/Aging NCC (Firestore), Thống kê doanh thu (WS), Chiến dịch Live (TPOS 2-way), Khách hàng (chưa emit).
+
 ### [tpos-pancake] Tối ưu kéo-thả SP → đơn (fix feedback CSS + delegation + debounce) ✅
 
 User: kéo SP vào tạo/thêm đơn ở tpos-pancake "không mượt". Root cause tìm ra:
