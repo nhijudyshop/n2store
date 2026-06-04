@@ -61,6 +61,8 @@
         page: 1,
         limit: 200,
         status: 'all',
+        // 2026-06-04: tab kênh đơn — 'livestream' (mặc định) | 'inbox'.
+        channel: 'livestream',
         search: '',
         editingCode: null,
         loading: false,

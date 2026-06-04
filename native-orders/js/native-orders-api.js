@@ -65,6 +65,7 @@
             fbPostId,
             campaignIds,
             customerId,
+            channel,
             page = 1,
             limit = 200,
         } = {}) {
@@ -76,9 +77,22 @@
                 qs.set('campaignIds', campaignIds.join(','));
             }
             if (customerId) qs.set('customerId', String(customerId));
+            if (channel && channel !== 'all') qs.set('channel', channel); // 2026-06-04 tab kênh
             qs.set('page', String(page));
             qs.set('limit', String(limit));
             return _fetchJson(`${BASE}/load?${qs}`);
+        },
+
+        /**
+         * POST /api/native-orders/create-manual — tạo đơn inbox tay (channel='inbox').
+         * @param {{customerName,phone,address?,customerId?,products?,note?}} fields
+         */
+        async createManual(fields) {
+            return _fetchJson(`${BASE}/create-manual`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(fields || {}),
+            });
         },
 
         /**
