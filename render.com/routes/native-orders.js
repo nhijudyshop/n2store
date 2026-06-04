@@ -165,7 +165,11 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS partner_status         VARCHAR(50),
                 ADD COLUMN IF NOT EXISTS warehouse_id           INTEGER,
                 ADD COLUMN IF NOT EXISTS reversed_code          VARCHAR(40),
-                ADD COLUMN IF NOT EXISTS print_count            INTEGER NOT NULL DEFAULT 0;
+                ADD COLUMN IF NOT EXISTS print_count            INTEGER NOT NULL DEFAULT 0,
+                -- 2026-06-04: kênh đơn — 'livestream' (drag từ TPOS-Pancake/comment) vs
+                -- 'inbox' (tạo tay từ tab Đơn Inbox). Default livestream cho đơn cũ + from-comment.
+                ADD COLUMN IF NOT EXISTS channel                VARCHAR(20) NOT NULL DEFAULT 'livestream';
+            CREATE INDEX IF NOT EXISTS idx_native_orders_channel ON native_orders(channel);
 
             CREATE INDEX IF NOT EXISTS idx_native_orders_live_campaign
                 ON native_orders(live_campaign_id);
@@ -416,6 +420,7 @@ function mapRowToOrder(row) {
         warehouseName: row.warehouse_name,
         reversedCode: row.reversed_code,
         printCount: Number(row.print_count || 0),
+        channel: row.channel || 'livestream', // 2026-06-04: kênh đơn (livestream/inbox)
         // Migration 069 — TPOS SaleOnline_Order mirror fields
         cityCode: row.city_code,
         cityName: row.city_name,
@@ -907,6 +912,75 @@ router.post('/from-comment', async (req, res) => {
     }
 });
 
+// -----------------------------------------------------
+// POST /create-manual — tạo đơn TAY từ tab Đơn Inbox (2026-06-04).
+// KHÔNG cần fbUserId. channel='inbox'. Body:
+//   { customerName, phone, address, products?, note?, createdBy?, createdByName? }
+// Gen code NJ-... như đơn livestream. status='draft' → user thêm SP qua modal sửa.
+// -----------------------------------------------------
+router.post('/create-manual', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const b = req.body || {};
+        const customerName = (b.customerName || '').trim();
+        const phone = (b.phone || '').trim();
+        if (!customerName && !phone) {
+            return res.status(400).json({ error: 'Cần tên hoặc SĐT khách hàng' });
+        }
+        const code = await nextDailyCode(pool);
+        const now = Date.now();
+        const products = Array.isArray(b.products) ? b.products : [];
+        const totalQty = products.reduce((s, p) => s + (Number(p.quantity || p.qty) || 0), 0);
+        const totalAmt = products.reduce(
+            (s, p) =>
+                s + (Number(p.quantity || p.qty) || 0) * (Number(p.price ?? p.priceUnit) || 0),
+            0
+        );
+        // customer_id do frontend truyền (từ /api/web2/customers/search — Web 2.0,
+        // KHÔNG đụng customers Web 1.0). Không có → null.
+        const customerId = b.customerId ? parseInt(b.customerId, 10) || null : null;
+        const insert = await pool.query(
+            `INSERT INTO native_orders (
+                code, session_index, display_stt, campaign_stt, source, channel,
+                customer_name, phone, address, note,
+                products, total_quantity, total_amount,
+                status, tags, customer_id,
+                created_by, created_by_name, created_at, updated_at
+            ) VALUES (
+                $1, 0, nextval('native_orders_display_stt_seq'),
+                (SELECT COALESCE(MAX(campaign_stt), 0) + 1 FROM native_orders WHERE channel = 'inbox'),
+                'NATIVE_WEB', 'inbox',
+                $2, $3, $4, $5,
+                $6::jsonb, $7, $8,
+                'draft', '[]'::jsonb, $9,
+                $10, $11, $12, $12
+            ) RETURNING *`,
+            [
+                code,
+                customerName || null,
+                phone || null,
+                (b.address || '').trim() || null,
+                (b.note || '').trim() || null,
+                JSON.stringify(products),
+                totalQty,
+                totalAmt,
+                customerId,
+                b.createdBy || null,
+                b.createdByName || null,
+                now,
+            ]
+        );
+        const order = mapRowToOrder(insert.rows[0]);
+        _notify('create-manual', order.code);
+        res.json({ success: true, order });
+    } catch (error) {
+        console.error('[NATIVE-ORDERS] POST /create-manual error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 /**
  * Phase 17: upsert a customer record with Facebook data.
  * - If phone matches an existing customer: fill in missing fb_id / name / address
@@ -1226,6 +1300,7 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
             fbPostId,
             campaignIds,
             customerId,
+            channel,
         } = req.query;
         const pageNum = Math.max(1, parseInt(page));
         const limitNum = Math.min(1000, Math.max(1, parseInt(limit)));
@@ -1236,6 +1311,11 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
         if (status && status !== 'all') {
             params.push(status);
             conds.push(`status = $${params.length}`);
+        }
+        // 2026-06-04: filter kênh đơn (tab Đơn Livestream vs Đơn Inbox).
+        if (channel && channel !== 'all') {
+            params.push(channel);
+            conds.push(`channel = $${params.length}`);
         }
         if (fbPostId) {
             params.push(fbPostId);
