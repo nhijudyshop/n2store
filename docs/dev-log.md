@@ -25,6 +25,18 @@
 
 ## 2026-06-04
 
+### [web2] Studio chụp tách nền — engine fal.ai BiRefNet (HD, không watermark) ✅🔄
+
+Research Google/GitHub cách lấy ảnh SẠCH (KHÔNG làm chức năng xóa watermark — lách phí, từ chối). Kết quả: **fal.ai BiRefNet** (model MIT state-of-the-art) free/pay-per-use, không watermark, full HD, **shop đã có FAL_KEY sẵn** (dùng cho AI KOL).
+
+- **Backend**: thêm engine `birefnet` vào `services/web2-cutout-service.js` (fal.ai sync `https://fal.run/fal-ai/birefnet/v2`, `Authorization: Key FAL_KEY`, trả `image.url` → fetch về Buffer PNG) + route `POST /api/web2/cutout/birefnet`. `/status` thêm `birefnet`.
+- **Frontend**: engine "Cloud HD" giờ gọi `/birefnet` (BiRefNet) thay PhotoRoom. **Mặc định vẫn 'local' (@imgly, free, không watermark, chạy được ngay)**; "Cloud HD" auto-fallback @imgly nếu lỗi/hết số dư fal.
+- **Test**: route /birefnet (mock fal.run→CDN) trả PNG dataURL ✓, /status engines.birefnet ✓, syntax OK.
+- **⚠ fal.ai account HẾT SỐ DƯ**: live test `birefnetCutout` → `fal 403: User is locked. Exhausted balance` (FAL_KEY hợp lệ nhưng balance dùng hết bởi AI KOL). → "Cloud HD" hiện auto-fallback về @imgly. Muốn dùng BiRefNet HD: **top up fal.ai/dashboard/billing** (pay-per-use ~cents/ảnh) → tự hoạt động, không sửa code.
+- PhotoRoom: route giữ lại (sandbox watermark / production trả phí) nhưng bỏ khỏi UI mặc định.
+
+**Files**: `web2/photo-studio/{index.html(v=20260604d),photo-studio.js}`, `render.com/{services/web2-cutout-service.js,routes/web2-cutout.js}`. FAL_KEY đã có trong Render env (aikol) → push auto-deploy là route live.
+
 ### [web2][render] Wipe + reseed data ảo với mã SP đúng logic Web2ProductCode ✅
 
 **Yêu cầu:** Mã SP trong kho lộn xộn (KHO-random, DEMO-, sp, SP001). User chọn: wipe sạch products/orders/PBH/cart + tạo lại data ảo mã đúng. Giữ data khách.
