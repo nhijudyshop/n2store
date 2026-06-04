@@ -1252,6 +1252,9 @@ router.get('/:id/rfm', async (req, res) => {
  */
 router.get('/:id/orders', async (req, res) => {
     const db = req.app.locals.chatDb;
+    // native_orders + fast_sale_orders là bảng Web 2.0 → sống ở web2Db (n2store-web2-db).
+    // KHÔNG đọc trên chatDb (chỉ còn bản leftover rỗng → đơn KH luôn trống).
+    const web2Db = req.app.locals.web2Db || req.app.locals.chatDb;
     const { id } = req.params;
     const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
 
@@ -1274,29 +1277,33 @@ router.get('/:id/orders', async (req, res) => {
             phone = r.rows[0].phone;
         }
 
-        // Query both tables — join by customer_id OR by phone (for orders not yet backfilled)
-        const [nwRes, pbhRes] = await Promise.all([
-            db.query(
-                `SELECT code, display_stt, status, customer_name, phone, total_amount,
-                        total_quantity, live_campaign_id, live_campaign_name,
-                        created_at, updated_at
-                 FROM native_orders
-                 WHERE customer_id = $1 OR (phone IS NOT NULL AND phone = $2)
-                 ORDER BY created_at DESC
-                 LIMIT $3`,
-                [customerId, phone, limit]
-            ),
-            db.query(
-                `SELECT number, display_stt, state, partner_name, partner_phone, amount_total,
-                        total_quantity, live_campaign_id, live_campaign_name,
-                        date_invoice, date_created, date_updated
-                 FROM fast_sale_orders
-                 WHERE customer_id = $1 OR (partner_phone IS NOT NULL AND partner_phone = $2)
-                 ORDER BY date_created DESC
-                 LIMIT $3`,
-                [customerId, phone, limit]
-            ),
-        ]);
+        // Đơn Web 2.0 (native_orders/fast_sale_orders) match theo PHONE — customer_id
+        // của chatDb (Web 1.0) khác id-space với web2Db nên không join chéo được.
+        // Query trên web2Db. Không có phone → trả rỗng (khỏi quét toàn bảng).
+        const [nwRes, pbhRes] = phone
+            ? await Promise.all([
+                  web2Db.query(
+                      `SELECT code, display_stt, status, customer_name, phone, total_amount,
+                              total_quantity, live_campaign_id, live_campaign_name,
+                              created_at, updated_at
+                       FROM native_orders
+                       WHERE phone = $1
+                       ORDER BY created_at DESC
+                       LIMIT $2`,
+                      [phone, limit]
+                  ),
+                  web2Db.query(
+                      `SELECT number, display_stt, state, partner_name, partner_phone, amount_total,
+                              total_quantity, live_campaign_id, live_campaign_name,
+                              date_invoice, date_created, date_updated
+                       FROM fast_sale_orders
+                       WHERE partner_phone = $1
+                       ORDER BY date_created DESC
+                       LIMIT $2`,
+                      [phone, limit]
+                  ),
+              ])
+            : [{ rows: [] }, { rows: [] }];
 
         const native = nwRes.rows.map((r) => ({
             code: r.code,

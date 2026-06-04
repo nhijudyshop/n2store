@@ -25,6 +25,18 @@
 
 ## 2026-06-04
 
+### [native-orders] Phương thức giao hàng auto-detect 2 lớp + lưu lại + chỉnh tay ✅
+
+User: địa chỉ TPOS nhập nhiều dạng không cố định → auto-detect hay sai. Cần bên thứ 3 (Goong) cross-validate 2 nguồn để tăng tỉ lệ đúng + hiện phương thức giao ở cột địa chỉ, lưu lại, đổi theo địa chỉ hoặc chỉnh tay.
+
+**Method B (Goong proxy)** — `render.com/routes/v2/web2-geocode.js` (mới): `GET /api/web2/geocode?address=` → Goong forward geocode (ẩn `GOONG_API_KEY`), cache in-mem 7d, trả `{province,district,ward,formatted}`. Mount ở `server.js` trước generic `/api/web2`. `GOONG_API_KEY` đã set trên Render.
+
+**Picker nâng cấp** — `web2/shared/delivery-method-picker.js`: thêm `pickOffline` (fuzzy Levenshtein + nhận diện tỉnh/HCM, trả confidence), `geocodeGoong`, `pickRobust` (A+B cross-validate → high khi 2 nguồn khớp, conflict khi lệch). Thêm `short` label cho badge.
+
+- **Fix false-positive**: fuzzy chỉ cho từ ≥5 ký tự (4 ký tự binh/vinh/ninh/dinh collide nặng — vd "Bình Thạnh" HCM bị nhận nhầm tỉnh "Vinh"). Tỉnh tường minh ưu tiên hơn keyword quận mờ → "Đồng Nai" ra SHIP TỈNH thay vì zone HCM.
+
+**UI cột địa chỉ** — `native-orders/js/native-orders-app.js`: badge phương thức giao dưới địa chỉ (màu theo confidence: saved/auto-ok/auto-low/manual). Click → popover chọn tay (manual=true, lưu PATCH) hoặc "↻ Tự nhận lại". Đổi địa chỉ trong sửa đơn → tự detect lại (trừ khi đã manual). Hiển thị detect on-the-fly, KHÔNG tự PATCH lúc render (tránh SSE storm). DB: `native_orders` thêm `delivery_method`/`delivery_method_label`/`delivery_method_manual`; PATCH `/:code` nhận 3 field; `mapRowToOrder` expose. Bulk PBH dùng `pickOffline` (không đốt quota Goong).
+
 ### [web2] Photo-studio — 16 nền cảnh có sẵn (biển/thành phố/quê/thiên nhiên/selfie) ✅
 
 User: thêm nền cảnh đẹp + nền selfie để chọn. Thêm `SCENES` (16 ảnh Unsplash CDN — Biển ×2, Thành phố ×2, Nông thôn ×2, Thiên nhiên ×2, Núi, Hoàng hôn, + Selfie ×6: bokeh/tường hoa/cafe/phòng trắng/vườn/sân thượng).

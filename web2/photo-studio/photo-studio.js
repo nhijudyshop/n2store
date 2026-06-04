@@ -47,7 +47,17 @@
         feather: 2,
         spill: true,
         mirror: true,
-        format: 'png',
+        format: 'png', // 'png' | 'jpg' | 'webp'
+        quality: 0.92, // chất lượng jpg/webp
+        shadow: true, // bóng đổ dưới chủ thể (khi nền không trong suốt)
+        shadowSoft: 20, // độ mềm bóng (blur px)
+        enhance: false, // tự động đẹp (sáng/tương phản/rực)
+        exportPx: 0, // khổ xuất cạnh dài (0 = giữ gốc) — preset sàn TMĐT
+        market: '', // id preset sàn đang chọn
+        logoImg: null, // ảnh logo (Image)
+        logoOn: false,
+        logoPos: 'br', // br|bl|tr|tl
+        _sil: null, // silhouette đen của cutout (cache cho bóng đổ)
         aspect: 0.8, // mặc định 4:5 (chuẩn ảnh sản phẩm)
         facingMode: 'user',
         srcNatW: 0,
@@ -101,6 +111,8 @@
         applyMobileDefaults();
         loadSavedBgs();
         renderBgRows();
+        loadLogo();
+        el.qualityWrap.style.display = 'none'; // PNG mặc định → ẩn thanh chất lượng
         setMode('ai');
         autoStartIfAllowed();
     }
@@ -153,6 +165,18 @@
             'blurStrength:psBlurStrength',
             'blurVal:psBlurVal',
             'mirror:psMirror',
+            'shadow:psShadow',
+            'shadowSoft:psShadowSoft',
+            'shadowVal:psShadowVal',
+            'enhance:psEnhance',
+            'marketRow:psMarketRow',
+            'quality:psQuality',
+            'qualityVal:psQualityVal',
+            'qualityWrap:psQualityWrap',
+            'logoFile:psLogoFile',
+            'logoOn:psLogoOn',
+            'logoPosRow:psLogoPosRow',
+            'logoThumb:psLogoThumb',
         ].forEach((p) => {
             const [k, v] = p.split(':');
             el[k] = id(v);
@@ -200,6 +224,45 @@
             b.addEventListener('click', () => {
                 state.format = b.dataset.fmt;
                 activate(document.querySelectorAll('.ps-fmt-btn'), b);
+                el.qualityWrap.style.display = state.format === 'png' ? 'none' : '';
+            })
+        );
+        // Khổ sàn TMĐT: đặt aspect + kích thước xuất
+        el.marketRow.querySelectorAll('.ps-chip[data-mk]').forEach((b) =>
+            b.addEventListener('click', () => {
+                state.market = b.dataset.mk;
+                state.aspect = parseFloat(b.dataset.ar);
+                state.exportPx = parseInt(b.dataset.px, 10);
+                activate(el.marketRow.querySelectorAll('.ps-chip'), b);
+                activate(el.aspectRow.querySelectorAll('.ps-chip'), null); // bỏ chọn tỉ lệ thủ công
+                recomputeSizes();
+                renderReview();
+                notify('Khổ ' + b.textContent.trim() + ' — chụp lại để áp tỉ lệ.', 'info');
+            })
+        );
+        // Bóng đổ / tự động đẹp
+        el.shadow.addEventListener('change', () => {
+            state.shadow = el.shadow.checked;
+            renderReview();
+        });
+        bindSlider(el.shadowSoft, 'shadowSoft', (v) => v + 'px', el.shadowVal, true, renderReview);
+        el.enhance.addEventListener('change', () => {
+            state.enhance = el.enhance.checked;
+            renderReview();
+        });
+        // Chất lượng xuất
+        bindSlider(el.quality, 'quality', (v) => Math.round(v * 100) + '%', el.qualityVal);
+        // Logo / watermark
+        el.logoFile.addEventListener('change', onLogoFile);
+        el.logoOn.addEventListener('change', () => {
+            state.logoOn = el.logoOn.checked;
+            renderReview();
+        });
+        el.logoPosRow.querySelectorAll('.ps-chip[data-pos]').forEach((b) =>
+            b.addEventListener('click', () => {
+                state.logoPos = b.dataset.pos;
+                activate(el.logoPosRow.querySelectorAll('.ps-chip'), b);
+                renderReview();
             })
         );
         el.aspectRow.querySelectorAll('.ps-chip[data-ar]').forEach((b) =>
@@ -554,6 +617,43 @@
             const id = saveSavedBg(url); // lưu lại để dùng lại
             renderBgRows();
             selectBg('saved:' + id);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // ===== Logo / watermark =============================================
+    const LOGO_KEY = 'ps_logo';
+    function applyLogoDataUrl(url) {
+        const img = new Image();
+        img.onload = () => {
+            state.logoImg = img;
+            el.logoThumb.hidden = false;
+            el.logoThumb.style.backgroundImage = `url(${url})`;
+            renderReview();
+        };
+        img.src = url;
+    }
+    function loadLogo() {
+        try {
+            const url = localStorage.getItem(LOGO_KEY);
+            if (url) applyLogoDataUrl(url);
+        } catch {}
+    }
+    function onLogoFile(e) {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const url = String(reader.result);
+            try {
+                localStorage.setItem(LOGO_KEY, url);
+            } catch {}
+            applyLogoDataUrl(url);
+            state.logoOn = true;
+            el.logoOn.checked = true;
+            renderReview();
+            notify('Đã lưu logo. Bật/tắt ở "Hiện logo".', 'success');
         };
         reader.readAsDataURL(file);
     }
@@ -1044,6 +1144,7 @@
                 .drawImage(currentSourceEl(), crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, W, H);
             const cutout = await makeCutout(frameCv, W, H);
             state._cutout = cutout;
+            state._sil = buildSilhouette(cutout, W, H); // bóng đổ
             state._capFrame = frameCv;
             state._capW = W;
             state._capH = H;
@@ -1158,16 +1259,72 @@
     }
 
     // ---- Review ---------------------------------------------------------
+    /** Silhouette đen của cutout (cho bóng đổ). */
+    function buildSilhouette(cutout, W, H) {
+        const c = document.createElement('canvas');
+        c.width = W;
+        c.height = H;
+        const x = c.getContext('2d');
+        x.drawImage(cutout, 0, 0);
+        x.globalCompositeOperation = 'source-in';
+        x.fillStyle = '#000';
+        x.fillRect(0, 0, W, H);
+        return c;
+    }
+
+    function drawShadow(ctx, W, H) {
+        if (!state._sil) return;
+        const soft = state.shadowSoft;
+        const dy = Math.round(soft * 0.55 + H * 0.012); // bóng đổ xuống dưới
+        ctx.save();
+        ctx.globalAlpha = 0.32;
+        ctx.filter = `blur(${soft}px)`;
+        ctx.drawImage(state._sil, 0, dy, W, H);
+        ctx.restore();
+        ctx.filter = 'none';
+        ctx.globalAlpha = 1;
+    }
+
+    function drawLogo(ctx, W, H) {
+        const img = state.logoImg;
+        if (!img) return;
+        const lw = Math.round(W * 0.2);
+        const lh = Math.round(lw * (img.naturalHeight / img.naturalWidth || 1));
+        const m = Math.round(W * 0.03);
+        let x = W - lw - m,
+            y = H - lh - m; // br
+        if (state.logoPos === 'bl') x = m;
+        else if (state.logoPos === 'tr') y = m;
+        else if (state.logoPos === 'tl') {
+            x = m;
+            y = m;
+        }
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.drawImage(img, x, y, lw, lh);
+        ctx.restore();
+    }
+
     function renderReview() {
         const W = state._capW,
             H = state._capH;
         if (!W || !state._cutout) return;
         rctx.clearRect(0, 0, W, H);
+        const transparent = state.bgType === 'transparent';
         drawBg(rctx, W, H, state._capFrame, { sx: 0, sy: 0, sw: W, sh: H });
+        // bóng đổ: chỉ khi có nền (đổ trên nền trong suốt vô nghĩa)
+        if (state.shadow && !transparent) drawShadow(rctx, W, H);
+        // chủ thể (tự động đẹp)
+        if (state.enhance) rctx.filter = 'brightness(1.06) contrast(1.08) saturate(1.14)';
         rctx.drawImage(state._cutout, 0, 0);
+        rctx.filter = 'none';
+        // logo/watermark
+        if (state.logoOn && state.logoImg) drawLogo(rctx, W, H);
         el.reviewCanvas.classList.toggle('ps-mirror', state.mirror && state.source === 'camera');
-        el.reviewStage.classList.toggle('ps-checker', state.bgType === 'transparent');
-        el.reviewMeta.textContent = `${W}×${H}`;
+        el.reviewStage.classList.toggle('ps-checker', transparent);
+        el.reviewMeta.textContent = state.exportPx
+            ? `${W}×${H} → ${state.exportPx}px`
+            : `${W}×${H}`;
     }
 
     function showReview() {
@@ -1180,27 +1337,36 @@
     }
 
     function saveReview() {
-        const W = state._capW,
-            H = state._capH;
-        if (!W) return;
-        const jpg = state.format === 'jpg';
+        const srcW = state._capW,
+            srcH = state._capH;
+        if (!srcW) return;
+        // khổ xuất: scale cạnh dài về exportPx (preset sàn), nếu 0 thì giữ gốc
+        let W = srcW,
+            H = srcH;
+        if (state.exportPx) {
+            const s = state.exportPx / Math.max(srcW, srcH);
+            W = Math.round(srcW * s);
+            H = Math.round(srcH * s);
+        }
+        const fmt = state.format; // png | jpg | webp
+        const mime = fmt === 'jpg' ? 'image/jpeg' : fmt === 'webp' ? 'image/webp' : 'image/png';
         const out = document.createElement('canvas');
         out.width = W;
         out.height = H;
         const c = out.getContext('2d');
-        if (jpg) {
-            c.fillStyle = '#ffffff';
+        if (fmt === 'jpg') {
+            c.fillStyle = '#ffffff'; // JPG không alpha → nền trắng
             c.fillRect(0, 0, W, H);
         }
         if (state.mirror && state.source === 'camera') {
             c.translate(W, 0);
             c.scale(-1, 1);
         }
-        c.drawImage(el.reviewCanvas, 0, 0);
+        c.drawImage(el.reviewCanvas, 0, 0, W, H); // scale review (đã ghép shadow/enhance/logo)
         out.toBlob(
-            (blob) => blob && saveBlob(blob, `tach-nen-${stamp()}.${jpg ? 'jpg' : 'png'}`),
-            jpg ? 'image/jpeg' : 'image/png',
-            0.92
+            (blob) => blob && saveBlob(blob, `tach-nen-${stamp()}.${fmt}`),
+            mime,
+            fmt === 'png' ? undefined : state.quality
         );
     }
 

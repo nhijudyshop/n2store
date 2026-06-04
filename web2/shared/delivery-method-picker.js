@@ -31,12 +31,13 @@
     // Admin/UI can override by passing a custom `options` array to pick().
     // Order matters when keyword counts tie: earlier wins.
     const OPTIONS = [
-        { value: 'thanh-pho-gop', label: 'THÀNH PHỐ GỘP', manual: true, price: 0 },
-        { value: 'tinh-gop', label: 'TỈNH GỘP', manual: true, price: 0 },
-        { value: 'ban-hang-shop', label: 'BÁN HÀNG SHOP', manual: true, price: 0 },
+        { value: 'thanh-pho-gop', label: 'THÀNH PHỐ GỘP', short: 'TP Gộp', manual: true, price: 0 },
+        { value: 'tinh-gop', label: 'TỈNH GỘP', short: 'Tỉnh Gộp', manual: true, price: 0 },
+        { value: 'ban-hang-shop', label: 'BÁN HÀNG SHOP', short: 'Shop', manual: true, price: 0 },
         {
             value: 'tp-bien',
             label: 'THÀNH PHỐ (Bình Chánh- Q9, Nhà Bè, Hốc Môn)',
+            short: 'TP·Ven (35k)',
             price: 35000,
             // Outer districts of HCMC
             keywords: ['binh chanh', 'q9', 'quan 9', 'nha be', 'hoc mon'],
@@ -44,12 +45,14 @@
         {
             value: 'tp-q2-12-bt-tdu',
             label: 'THÀNH PHỐ (Q2-12-Bình Tân-Thủ Đức)',
+            short: 'TP·Q2-12-BT-TĐ (30k)',
             price: 30000,
             keywords: ['q2', 'quan 2', 'q12', 'quan 12', 'binh tan', 'thu duc'],
         },
         {
             value: 'tp-trung-tam',
             label: 'THÀNH PHỐ (1 3 4 5 6 7 8 10 11 Phú Nhuận, Bình Thạnh, Tân Phú, Tân Bình, Gò Vấp)',
+            short: 'TP·Trung tâm (20k)',
             price: 20000,
             // Inner districts of HCMC
             keywords: [
@@ -79,7 +82,13 @@
             ],
         },
         // Fallback when no district keyword matches — out-of-HCMC shipments.
-        { value: 'ship-tinh', label: 'SHIP TỈNH', price: 35000, isFallback: true },
+        {
+            value: 'ship-tinh',
+            label: 'SHIP TỈNH',
+            short: 'Ship Tỉnh (35k)',
+            price: 35000,
+            isFallback: true,
+        },
     ];
 
     // Strip Vietnamese diacritics + lowercase + collapse whitespace + normalize

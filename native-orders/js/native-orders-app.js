@@ -995,6 +995,79 @@
         return '';
     }
 
+    // ============================================================
+    // Phương thức giao hàng — auto-detect (offline) + lưu lại + chỉnh tay
+    // Hiện badge ở cột Địa chỉ; click để đổi tay; đổi địa chỉ → tự nhận lại
+    // (trừ khi đã chỉnh tay). value/label lưu vào native_orders qua PATCH.
+    // ============================================================
+    let _deliveryOptsCache = null;
+    function _deliveryOpts() {
+        const DMP = window.DeliveryMethodPicker;
+        if (!DMP) return [];
+        if (_deliveryOptsCache) return _deliveryOptsCache;
+        // OPTIONS hardcoded sẵn (đồng bộ với dropdown tạo PBH). Nạp async để
+        // đồng bộ option backend nếu admin có override.
+        _deliveryOptsCache = DMP.OPTIONS || [];
+        if (DMP.getOptionsAsync) {
+            DMP.getOptionsAsync()
+                .then((opts) => {
+                    if (Array.isArray(opts) && opts.length) _deliveryOptsCache = opts;
+                })
+                .catch(() => {});
+        }
+        return _deliveryOptsCache;
+    }
+    // Nhận diện offline (sync) — { value, label, short, confidence, note } | null
+    function _detectDelivery(address) {
+        const DMP = window.DeliveryMethodPicker;
+        if (!DMP || !DMP.pickOffline) return null;
+        const r = DMP.pickOffline(address || '', _deliveryOpts());
+        if (!r || !r.option) return null;
+        return {
+            value: r.option.value,
+            label: r.option.label,
+            short: r.option.short || r.option.label,
+            confidence: r.confidence,
+            note: r.note || '',
+        };
+    }
+    function _deliveryShort(value, label) {
+        const opt = _deliveryOpts().find((o) => o.value === value);
+        return (opt && (opt.short || opt.label)) || label || value || '';
+    }
+    // Codes đã chốt giá trị (đã lưu/đã chọn) — không lazy-persist nữa.
+    const _deliveryPersisted = new Set();
+    // Build badge HTML cho cột địa chỉ. Ưu tiên giá trị đã lưu; nếu chưa có →
+    // detect offline để HIỂN THỊ (không tự PATCH, tránh SSE storm cross-tab —
+    // chỉ lưu khi user chọn tay hoặc đổi địa chỉ). Click badge → menu đổi tay.
+    function _deliveryBadgeHtml(o) {
+        if (!window.DeliveryMethodPicker) return '';
+        let value = o.deliveryMethod || null;
+        let label = o.deliveryMethodLabel || null;
+        const manual = o.deliveryMethodManual === true;
+        let cls = 'is-saved';
+        let title = 'Phương thức giao hàng đã lưu — bấm để đổi';
+        if (!value) {
+            const det = _detectDelivery(o.address || '');
+            if (det) {
+                value = det.value;
+                label = det.label;
+                cls = det.confidence === 'high' ? 'is-auto-ok' : 'is-auto-low';
+                title = 'Tự nhận diện: ' + (det.note || det.label) + ' — bấm để đổi tay (sẽ lưu)';
+            }
+        } else if (manual) {
+            cls = 'is-manual';
+            title = 'Đã chọn tay — bấm để đổi';
+        }
+        if (!value) return '';
+        const short = escapeHtml(_deliveryShort(value, label));
+        const icon = manual ? 'hand' : 'truck';
+        return `<span class="no-delivery-badge ${cls}" title="${escapeHtml(title)}"
+            onclick="event.stopPropagation();NativeOrdersApp.openDeliveryMenu('${escapeHtml(o.code)}', this)">
+            <i data-lucide="${icon}" style="width:10px;height:10px;"></i>${short}${manual ? ' ✎' : ''}
+        </span>`;
+    }
+
     // Build HTML cho 1 order — return string: main row + (optional) expand row.
     // Tách ra để renderRows có thể diff per-code và chỉ thay row thay đổi.
     function _buildOrderHtml(o) {
@@ -1191,7 +1264,10 @@
                                 : '—'
                         }
                     </td>
-                    <td class="col-address">${escapeHtml(o.address || '')}</td>
+                    <td class="col-address">
+                        <div class="no-addr-text">${escapeHtml(o.address || '')}</div>
+                        ${_deliveryBadgeHtml(o)}
+                    </td>
                     <td class="col-money tpos-cell-money">${total}${mergedQtyHtml}</td>
                     <td class="col-qty tpos-cell-center">${qty || ''}</td>
                     <td class="col-message tpos-cell-center" onclick="event.stopPropagation();NativeOrdersApp.openInteractions('${escapeHtml(o.code)}','messages')">
@@ -1252,6 +1328,8 @@
             o.partnerStatus || '',
             o.customerId || '',
             JSON.stringify(o.tags || []),
+            o.deliveryMethod || '',
+            o.deliveryMethodManual ? '1' : '0',
             expanded,
             products,
             o.updatedAt || 0,
@@ -2077,6 +2155,18 @@
             sourcePage: editorInfo.sourcePage || 'native-orders',
         };
 
+        // Đổi địa chỉ → tự nhận lại phương thức giao hàng (trừ khi đã chỉnh tay).
+        const addrChanged = (editingOrder.address || '') !== fields.address;
+        let reDetected = null;
+        if (addrChanged && !editingOrder.deliveryMethodManual) {
+            reDetected = _detectDelivery(fields.address);
+            if (reDetected) {
+                fields.deliveryMethod = reDetected.value;
+                fields.deliveryMethodLabel = reDetected.label;
+                fields.deliveryMethodManual = false;
+            }
+        }
+
         // Optimistic order shape: merge fields vào order cũ.
         const optimisticOrder = {
             ...editingOrder,
@@ -2085,6 +2175,13 @@
             address: fields.address,
             userNote: fields.userNote,
             status: fields.status,
+            ...(reDetected
+                ? {
+                      deliveryMethod: reDetected.value,
+                      deliveryMethodLabel: reDetected.label,
+                      deliveryMethodManual: false,
+                  }
+                : {}),
             products: fields.products,
             totalQuantity: fields.products.reduce((s, p) => s + (Number(p.quantity) || 0), 0),
             totalAmount: fields.products.reduce(
@@ -2179,6 +2276,119 @@
                     notify('Lỗi: ' + e.message, 'error');
                 }
             })();
+        }
+    }
+
+    // ── Phương thức giao hàng: menu chọn tay ──────────────────────────
+    // Mở popover ngay cạnh badge với danh sách option. Chọn → setDeliveryMethod.
+    let _deliveryMenuEl = null;
+    function _closeDeliveryMenu() {
+        if (_deliveryMenuEl) {
+            _deliveryMenuEl.remove();
+            _deliveryMenuEl = null;
+            document.removeEventListener('click', _closeDeliveryMenu, true);
+        }
+    }
+    function openDeliveryMenu(code, anchorEl) {
+        _closeDeliveryMenu();
+        const order = STATE.orders.find((x) => x.code === code);
+        if (!order) return;
+        const opts = _deliveryOpts();
+        if (!opts.length) return;
+        const cur = order.deliveryMethod || _detectDelivery(order.address || '')?.value || '';
+        const menu = document.createElement('div');
+        menu.className = 'no-delivery-menu';
+        menu.innerHTML =
+            `<div class="no-delivery-menu-head">Phương thức giao hàng</div>` +
+            opts
+                .map(
+                    (o) =>
+                        `<button type="button" class="no-delivery-menu-item${o.value === cur ? ' is-current' : ''}"
+                        onclick="event.stopPropagation();NativeOrdersApp.setDeliveryMethod('${escapeHtml(code)}','${escapeHtml(o.value)}')">
+                        ${escapeHtml(o.short || o.label)}${o.value === cur ? ' ✓' : ''}
+                    </button>`
+                )
+                .join('') +
+            `<button type="button" class="no-delivery-menu-item no-delivery-menu-redetect"
+                onclick="event.stopPropagation();NativeOrdersApp.setDeliveryMethod('${escapeHtml(code)}','__auto__')">
+                ↻ Tự nhận lại theo địa chỉ</button>`;
+        document.body.appendChild(menu);
+        const rect = anchorEl.getBoundingClientRect();
+        menu.style.top = `${rect.bottom + window.scrollY + 4}px`;
+        menu.style.left = `${Math.min(rect.left + window.scrollX, window.innerWidth - 240)}px`;
+        _deliveryMenuEl = menu;
+        // Đóng khi click ngoài (capture, ở tick sau để né click hiện tại)
+        setTimeout(() => document.addEventListener('click', _closeDeliveryMenu, true), 0);
+    }
+    // Chọn tay (manual=true) hoặc '__auto__' để re-detect offline (manual=false).
+    function setDeliveryMethod(code, value) {
+        _closeDeliveryMenu();
+        const order = STATE.orders.find((x) => x.code === code);
+        if (!order) return;
+        const isAuto = value === '__auto__';
+        let nextVal, nextLabel, nextManual;
+        if (isAuto) {
+            const det = _detectDelivery(order.address || '');
+            if (!det) {
+                notify('Không nhận diện được khu vực từ địa chỉ', 'warning');
+                return;
+            }
+            nextVal = det.value;
+            nextLabel = det.label;
+            nextManual = false;
+        } else {
+            const opt = _deliveryOpts().find((o) => o.value === value);
+            if (!opt) return;
+            nextVal = opt.value;
+            nextLabel = opt.label;
+            nextManual = true;
+        }
+        const prev = {
+            deliveryMethod: order.deliveryMethod,
+            deliveryMethodLabel: order.deliveryMethodLabel,
+            deliveryMethodManual: order.deliveryMethodManual,
+        };
+        const apply = () => {
+            order.deliveryMethod = nextVal;
+            order.deliveryMethodLabel = nextLabel;
+            order.deliveryMethodManual = nextManual;
+            _deliveryPersisted.add(code); // đã có giá trị → không lazy-persist nữa
+            renderRows();
+        };
+        const payload = {
+            deliveryMethod: nextVal,
+            deliveryMethodLabel: nextLabel,
+            deliveryMethodManual: nextManual,
+        };
+        const successMsg = isAuto
+            ? 'Đã tự nhận lại phương thức'
+            : `Đã chọn ${_deliveryShort(nextVal, nextLabel)}`;
+        if (window.Web2Optimistic?.run) {
+            Web2Optimistic.run({
+                snapshot: () => prev,
+                apply,
+                run: async () => window.NativeOrdersApi.update(code, payload),
+                onSuccess: (resp) => {
+                    if (resp?.order) {
+                        const idx = STATE.orders.findIndex((x) => x.code === code);
+                        if (idx !== -1) STATE.orders[idx] = resp.order;
+                        renderRows();
+                    }
+                },
+                rollback: (p) => {
+                    order.deliveryMethod = p.deliveryMethod;
+                    order.deliveryMethodLabel = p.deliveryMethodLabel;
+                    order.deliveryMethodManual = p.deliveryMethodManual;
+                    renderRows();
+                },
+                successMsg,
+                errLabel: `lưu phương thức giao ${code}`,
+            });
+        } else {
+            apply();
+            window.NativeOrdersApi.update(code, payload)
+                .then(() => notify(successMsg, 'success'))
+                .catch((e) => notify('Lỗi: ' + e.message, 'error'));
         }
     }
 
@@ -7683,6 +7893,8 @@
     window.NativeOrdersApp = {
         openEdit,
         quickStatus,
+        openDeliveryMenu,
+        setDeliveryMethod,
         createPbh,
         cancelPbh,
         cancelPbhFromEdit,

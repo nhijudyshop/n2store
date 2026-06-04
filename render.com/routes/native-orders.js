@@ -168,7 +168,13 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS print_count            INTEGER NOT NULL DEFAULT 0,
                 -- 2026-06-04: kênh đơn — 'livestream' (drag từ TPOS-Pancake/comment) vs
                 -- 'inbox' (tạo tay từ tab Đơn Inbox). Default livestream cho đơn cũ + from-comment.
-                ADD COLUMN IF NOT EXISTS channel                VARCHAR(20) NOT NULL DEFAULT 'livestream';
+                ADD COLUMN IF NOT EXISTS channel                VARCHAR(20) NOT NULL DEFAULT 'livestream',
+                -- 2026-06-04: phương thức giao hàng auto-detect (lưu lại để hiện ở cột địa chỉ).
+                -- value/label từ DeliveryMethodPicker; manual=true khi user chỉnh tay
+                -- → không bị auto-detect ghi đè khi địa chỉ đổi.
+                ADD COLUMN IF NOT EXISTS delivery_method        VARCHAR(60),
+                ADD COLUMN IF NOT EXISTS delivery_method_label  VARCHAR(255),
+                ADD COLUMN IF NOT EXISTS delivery_method_manual BOOLEAN NOT NULL DEFAULT false;
             CREATE INDEX IF NOT EXISTS idx_native_orders_channel ON native_orders(channel);
 
             CREATE INDEX IF NOT EXISTS idx_native_orders_live_campaign
@@ -421,6 +427,10 @@ function mapRowToOrder(row) {
         reversedCode: row.reversed_code,
         printCount: Number(row.print_count || 0),
         channel: row.channel || 'livestream', // 2026-06-04: kênh đơn (livestream/inbox)
+        // 2026-06-04: phương thức giao hàng auto-detect (hiện ở cột địa chỉ)
+        deliveryMethod: row.delivery_method || null,
+        deliveryMethodLabel: row.delivery_method_label || null,
+        deliveryMethodManual: row.delivery_method_manual === true,
         // Migration 069 — TPOS SaleOnline_Order mirror fields
         cityCode: row.city_code,
         cityName: row.city_name,
@@ -1477,6 +1487,10 @@ router.patch('/:code', async (req, res) => {
             warehouseName: 'warehouse_name',
             messageCount: 'message_count',
             tposIndex: 'tpos_index',
+            // 2026-06-04: phương thức giao hàng (auto-detect lưu lại / chỉnh tay)
+            deliveryMethod: 'delivery_method',
+            deliveryMethodLabel: 'delivery_method_label',
+            deliveryMethodManual: 'delivery_method_manual',
         };
         const sets = [];
         const params = [];

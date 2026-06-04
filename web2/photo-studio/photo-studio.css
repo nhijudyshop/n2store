@@ -843,3 +843,41 @@ main.web2-main.ps-app {
     height: 17px;
     accent-color: var(--ps-accent);
 }
+.ps-check-inline {
+    margin-top: 0;
+}
+
+/* Logo / watermark controls */
+.ps-logo-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 10px;
+}
+.ps-btn-mini {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ps-accent);
+    background: #e8f0fe;
+    border: none;
+    border-radius: 9px;
+    padding: 8px 14px;
+    cursor: pointer;
+}
+.ps-btn-mini i {
+    width: 15px;
+    height: 15px;
+}
+.ps-logo-thumb {
+    margin-top: 10px;
+    height: 60px;
+    border-radius: 10px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: left center;
+    background-color: #fff;
+    border: 1px solid #e5e7eb;
+}
