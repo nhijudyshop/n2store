@@ -25,6 +25,18 @@
 
 ## 2026-06-04
 
+### [web2] Photo-studio — Cloud HD chuyển sang withoutbg (free 50/tháng, no watermark) ✅🔄
+
+Research phổ biến + free tier: **withoutbg.com** thắng — free 50 ảnh/tháng (rolling), **full HD, KHÔNG watermark**, Apache-2.0 (self-host được sau). Hơn hẳn remove.bg free (0.25MP preview), PhotoRoom sandbox (watermark), fal (hết balance). rembg vẫn là self-host phổ biến nhất (~23k★) nhưng cần Python infra.
+
+- **Backend**: thêm engine `withoutbg` vào `web2-cutout-service.js` (`POST api.withoutbg.com/v1.0/image-without-background-base64`, header `X-API-Key`, JSON in/out base64, key `WITHOUTBG_API_KEY`) + route `POST /api/web2/cutout/withoutbg`. `/status` thêm `withoutbg`.
+- **Frontend**: engine "Cloud HD" giờ gọi `/withoutbg` (thay /birefnet fal hết balance); auto-fallback @imgly khi lỗi/hết quota. Note cập nhật "free 50 ảnh/tháng".
+- **Test** (mock): /status engines.withoutbg ✓, /withoutbg trả PNG dataURL ✓, syntax OK.
+- **⚠ CẦN USER**: lấy key free tại https://withoutbg.com → `serect_dont_push.txt` block withoutbg + Render env `WITHOUTBG_API_KEY` + deploy. Chưa key → Cloud HD 503 → fallback @imgly (vẫn chạy free).
+- Routes photoroom/birefnet vẫn giữ (fallback/tương lai).
+
+**Files**: `web2/photo-studio/{index.html(v=20260604h),photo-studio.js}`, `render.com/{services/web2-cutout-service.js,routes/web2-cutout.js}`.
+
 ### [web2] Photo-studio — "AI nhanh" nâng cấp MediaPipe Tasks Vision ImageSegmenter ✅
 
 Research GitHub/docs: bản `@mediapipe/selfie_segmentation` cũ đã deprecated. Thay bằng **Tasks Vision `ImageSegmenter`** (GPU delegate WebGL2, sub-3ms vs ~100ms CPU).

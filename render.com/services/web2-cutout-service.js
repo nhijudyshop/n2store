@@ -21,6 +21,8 @@ const PHOTOROOM_KEY = process.env.PHOTOROOM_API_KEY || process.env.PHOTOROOM_SAN
 const PHOTOROOM_SEGMENT_URL = 'https://sdk.photoroom.com/v1/segment';
 const FAL_KEY = process.env.FAL_KEY || '';
 const FAL_BIREFNET_URL = 'https://fal.run/fal-ai/birefnet/v2';
+const WITHOUTBG_KEY = process.env.WITHOUTBG_API_KEY || '';
+const WITHOUTBG_URL = 'https://api.withoutbg.com/v1.0/image-without-background-base64';
 const MAX_BYTES = 12 * 1024 * 1024; // 12MB ảnh input
 
 function photoroomConfigured() {
@@ -28,6 +30,33 @@ function photoroomConfigured() {
 }
 function falConfigured() {
     return Boolean(FAL_KEY);
+}
+function withoutbgConfigured() {
+    return Boolean(WITHOUTBG_KEY);
+}
+
+/**
+ * Tách nền bằng withoutbg.com (free 50/tháng, full HD, no watermark, Apache OSS).
+ * @param {Buffer} imageBuffer
+ * @returns {Promise<Buffer>} PNG cutout (nền trong suốt)
+ */
+async function withoutbgCutout(imageBuffer) {
+    if (!WITHOUTBG_KEY) throw new Error('WITHOUTBG_API_KEY chưa cấu hình trên server');
+    if (!imageBuffer?.length) throw new Error('Ảnh rỗng');
+    if (imageBuffer.length > MAX_BYTES) throw new Error('Ảnh quá lớn (>12MB)');
+    const res = await fetch(WITHOUTBG_URL, {
+        method: 'POST',
+        headers: { 'X-API-Key': WITHOUTBG_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_base64: imageBuffer.toString('base64') }),
+    });
+    if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        throw new Error(`withoutbg ${res.status}: ${detail.slice(0, 300)}`);
+    }
+    const j = await res.json();
+    const b64 = j.img_without_background_base64 || j.image_base64;
+    if (!b64) throw new Error('withoutbg không trả ảnh');
+    return Buffer.from(b64, 'base64');
 }
 
 /**
@@ -104,6 +133,12 @@ module.exports = {
     photoroomCutout,
     falConfigured,
     birefnetCutout,
+    withoutbgConfigured,
+    withoutbgCutout,
     decodeImage,
-    engines: () => ({ birefnet: falConfigured(), photoroom: photoroomConfigured() }),
+    engines: () => ({
+        withoutbg: withoutbgConfigured(),
+        birefnet: falConfigured(),
+        photoroom: photoroomConfigured(),
+    }),
 };
