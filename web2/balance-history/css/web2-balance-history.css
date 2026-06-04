@@ -375,6 +375,36 @@
     font-weight: 500;
     color: #0f172a;
 }
+/* Tên KH click được → mở modal chi tiết. Affordance rõ: màu xanh + gạch chân
+   chấm + con trỏ pointer; hover đậm lên. */
+.w2bh-customer-name-link {
+    color: #1d4ed8;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: #93c5fd;
+    text-underline-offset: 2px;
+    transition:
+        color 0.12s ease,
+        text-decoration-color 0.12s ease;
+}
+.w2bh-customer-name-link::after {
+    content: '›';
+    margin-left: 3px;
+    font-size: 11px;
+    color: #93c5fd;
+    transition: transform 0.12s ease;
+    display: inline-block;
+}
+.w2bh-customer-name-link:hover {
+    color: #1e40af;
+    text-decoration-style: solid;
+    text-decoration-color: #1d4ed8;
+}
+.w2bh-customer-name-link:hover::after {
+    color: #1d4ed8;
+    transform: translateX(2px);
+}
 .w2bh-customer-phone {
     font-size: 11px;
     color: #2563eb;

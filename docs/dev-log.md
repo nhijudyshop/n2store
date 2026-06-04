@@ -25,6 +25,13 @@
 
 ## 2026-06-04
 
+### [web2] Balance-history: tên KH hiện rõ "click được" (affordance) ✅
+
+User: tên KH click vào xem chi tiết được nhưng không có dấu hiệu trực quan → user không biết click được.
+
+- `.w2bh-customer-name-link`: thêm màu xanh `#1d4ed8` + gạch chân chấm + mũi tên `›` (::after) + cursor pointer + hover đậm. Browser-tested OK.
+- **Files:** `web2/balance-history/css/web2-balance-history.css`, `index.html` (css v=20260604b)
+
 ### [web2] Quản lý máy in + in thẳng IP:port (không hộp thoại) + gán theo chức năng ✅
 
 User: in qua IP:port máy in mạng + cấu hình ở menu + danh sách nhiều máy in, gán máy khác nhau cho từng chức năng (PBH / tem SP).
