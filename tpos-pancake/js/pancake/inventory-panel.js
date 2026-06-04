@@ -154,9 +154,12 @@
                 </div>
             </div>
         `;
+        // Debounce 150ms: tránh filter 2000 SP + rebuild 200 card mỗi keystroke.
+        let _searchTimer = null;
         document.getElementById('invSearch').addEventListener('input', (e) => {
             STATE.searchQuery = e.target.value || '';
-            applyFilter();
+            clearTimeout(_searchTimer);
+            _searchTimer = setTimeout(applyFilter, 150);
         });
         document.getElementById('invRefresh').addEventListener('click', refresh);
     }
@@ -231,15 +234,25 @@
     // ─────────────────────────────────────────────────────────
     // Drag source
     // ─────────────────────────────────────────────────────────
+    // Event delegation: 1 listener trên #invList thay vì N listener/card +
+    // re-attach mỗi lần filter render (trước đây ~400 listener churn). dragstart
+    // bubble; `.inv-card *` có pointer-events:none nên e.target = card.
+    let _dragDelegated = false;
     function attachDragSources() {
-        document.querySelectorAll('.inv-card').forEach((card) => {
-            card.addEventListener('dragstart', (e) => {
-                const json = card.getAttribute('data-product');
-                e.dataTransfer.setData('application/x-web2-product', json);
-                e.dataTransfer.effectAllowed = 'copy';
-                card.classList.add('dragging');
-            });
-            card.addEventListener('dragend', () => card.classList.remove('dragging'));
+        if (_dragDelegated) return;
+        const root = document.getElementById('invList');
+        if (!root) return;
+        _dragDelegated = true;
+        root.addEventListener('dragstart', (e) => {
+            const card = e.target.closest('.inv-card');
+            if (!card) return;
+            e.dataTransfer.setData('application/x-web2-product', card.getAttribute('data-product'));
+            e.dataTransfer.effectAllowed = 'copy';
+            card.classList.add('dragging');
+        });
+        root.addEventListener('dragend', (e) => {
+            const card = e.target.closest('.inv-card');
+            if (card) card.classList.remove('dragging');
         });
     }
 
