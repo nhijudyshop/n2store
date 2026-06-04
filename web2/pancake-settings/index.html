@@ -23,9 +23,31 @@
     </head>
     <body class="tpos-theme">
         <style>
+            :root {
+                --ps-accent: #7c3aed;
+                --ps-accent-strong: #6d28d9;
+                --ps-accent-soft: #f5f3ff;
+                --ps-bg: #eef1f7;
+                --ps-surface: #ffffff;
+                --ps-border: #e7ebf2;
+                --ps-text: #0f172a;
+                --ps-muted: #64748b;
+                --ps-faint: #94a3b8;
+                --ps-radius: 16px;
+                --ps-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.04);
+                --ps-shadow-md: 0 6px 22px rgba(15, 23, 42, 0.09);
+                --ps-ease: cubic-bezier(0.16, 1, 0.3, 1);
+            }
             body {
                 font-family: 'Inter', system-ui, sans-serif;
-                background: #f5f7fb;
+                background:
+                    radial-gradient(
+                        1100px 420px at 100% -8%,
+                        rgba(124, 58, 237, 0.07),
+                        transparent 60%
+                    ),
+                    var(--ps-bg);
+                color: var(--ps-text);
             }
             .web2-shell {
                 display: flex;
@@ -39,47 +61,66 @@
                 flex: 1;
                 overflow: auto;
                 height: 100vh;
-                padding: 24px 32px;
+                padding: 30px 38px;
+            }
+            .main-content > * {
+                max-width: 940px;
             }
             .ps-h1 {
-                font-size: 22px;
-                font-weight: 700;
-                color: #0f172a;
-                margin: 0 0 6px;
+                font-family: 'Manrope', 'Inter', sans-serif;
+                font-size: 27px;
+                font-weight: 800;
+                letter-spacing: -0.025em;
+                color: var(--ps-text);
+                margin: 0 0 7px;
                 display: flex;
                 align-items: center;
-                gap: 10px;
+                gap: 12px;
             }
             .ps-sub {
-                color: #64748b;
-                font-size: 13px;
+                color: var(--ps-muted);
+                font-size: 13.5px;
+                line-height: 1.6;
                 margin-bottom: 24px;
+                max-width: 700px;
             }
             .ps-card {
-                background: #fff;
-                border: 1px solid #e2e8f0;
-                border-radius: 10px;
-                padding: 18px 20px;
-                margin-bottom: 16px;
-                box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+                background: var(--ps-surface);
+                border: 1px solid var(--ps-border);
+                border-radius: var(--ps-radius);
+                padding: 22px 24px;
+                margin-bottom: 18px;
+                box-shadow: var(--ps-shadow-sm);
             }
             .ps-card h2 {
-                font-size: 14px;
-                font-weight: 600;
-                color: #0f172a;
-                margin: 0 0 12px;
+                font-family: 'Manrope', 'Inter', sans-serif;
+                font-size: 15.5px;
+                font-weight: 700;
+                letter-spacing: -0.01em;
+                color: var(--ps-text);
+                margin: 0 0 16px;
                 display: flex;
                 align-items: center;
-                gap: 8px;
-                padding-bottom: 10px;
-                border-bottom: 1px solid #f1f5f9;
+                gap: 11px;
+                padding-bottom: 14px;
+                border-bottom: 1px solid #eef1f6;
+            }
+            .ps-card h2 > svg {
+                padding: 6px;
+                width: 30px !important;
+                height: 30px !important;
+                border-radius: 9px;
+                background: var(--ps-accent-soft);
+                color: var(--ps-accent);
+                box-sizing: border-box;
             }
             .ps-card h2 .badge {
                 margin-left: auto;
                 font-size: 11px;
-                padding: 2px 8px;
+                padding: 4px 11px;
                 border-radius: 999px;
-                font-weight: 600;
+                font-weight: 700;
+                letter-spacing: 0.01em;
             }
             .ps-card h2 .badge.ok {
                 background: #dcfce7;
@@ -97,156 +138,263 @@
                 display: grid;
                 grid-template-columns: 140px 1fr;
                 gap: 8px;
-                padding: 6px 0;
+                padding: 7px 0;
                 font-size: 13px;
+                border-bottom: 1px dashed #f1f5f9;
+            }
+            .ps-row:last-child {
+                border-bottom: none;
             }
             .ps-row .label {
-                color: #64748b;
+                color: var(--ps-muted);
             }
             .ps-row .val {
-                color: #0f172a;
+                color: var(--ps-text);
                 font-family: ui-monospace, monospace;
                 word-break: break-all;
             }
             .ps-row .val.muted {
-                color: #94a3b8;
+                color: var(--ps-faint);
                 font-style: italic;
             }
             .ps-actions {
                 display: flex;
-                gap: 8px;
-                margin-top: 14px;
+                gap: 9px;
+                margin-top: 16px;
                 flex-wrap: wrap;
             }
             .ps-btn {
-                padding: 7px 14px;
+                padding: 8px 15px;
                 font-size: 13px;
-                font-weight: 500;
-                border: 1px solid #e2e8f0;
+                font-weight: 600;
+                border: 1px solid var(--ps-border);
                 background: #fff;
-                color: #0f172a;
-                border-radius: 6px;
+                color: #1e293b;
+                border-radius: 10px;
                 cursor: pointer;
                 display: inline-flex;
                 align-items: center;
-                gap: 6px;
+                gap: 7px;
+                box-shadow: 0 1px 1.5px rgba(15, 23, 42, 0.04);
+                transition:
+                    transform 0.16s var(--ps-ease),
+                    box-shadow 0.16s var(--ps-ease),
+                    background 0.16s var(--ps-ease),
+                    border-color 0.16s var(--ps-ease);
             }
             .ps-btn:hover {
                 background: #f8fafc;
+                border-color: #d6dce6;
+                transform: translateY(-1px);
+                box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
+            }
+            .ps-btn:active {
+                transform: translateY(0);
             }
             .ps-btn.primary {
-                background: #7c3aed;
+                background: linear-gradient(135deg, #8b5cf6, var(--ps-accent));
                 color: #fff;
-                border-color: #7c3aed;
+                border-color: transparent;
+                box-shadow: 0 2px 8px rgba(124, 58, 237, 0.32);
             }
             .ps-btn.primary:hover {
-                background: #6d28d9;
+                background: linear-gradient(135deg, #7c4ef0, var(--ps-accent-strong));
+                box-shadow: 0 5px 16px rgba(124, 58, 237, 0.4);
             }
             .ps-btn.danger {
                 background: #fff;
-                color: #b91c1c;
-                border-color: #fecaca;
+                color: #dc2626;
+                border-color: #fbd2d2;
             }
             .ps-btn.danger:hover {
                 background: #fef2f2;
+                border-color: #f7b6b6;
             }
             .ps-btn[disabled] {
-                opacity: 0.5;
+                opacity: 0.45;
                 cursor: not-allowed;
+                transform: none !important;
+                box-shadow: none !important;
             }
             .ps-input,
             .ps-textarea {
                 width: 100%;
-                padding: 8px 10px;
+                padding: 10px 12px;
                 font-size: 13px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
+                border: 1px solid #dde3ec;
+                border-radius: 10px;
                 font-family: ui-monospace, monospace;
                 box-sizing: border-box;
+                background: #fbfcfe;
+                transition:
+                    border-color 0.16s var(--ps-ease),
+                    box-shadow 0.16s var(--ps-ease);
             }
             .ps-input:focus,
             .ps-textarea:focus {
                 outline: none;
-                border-color: #7c3aed;
-                box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.15);
+                background: #fff;
+                border-color: var(--ps-accent);
+                box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.14);
             }
             .ps-textarea {
-                min-height: 76px;
+                min-height: 78px;
                 resize: vertical;
                 word-break: break-all;
+                line-height: 1.5;
             }
             .ps-page-list {
                 display: flex;
                 flex-direction: column;
-                gap: 8px;
+                gap: 10px;
             }
             .ps-page-item {
                 display: flex;
                 align-items: center;
-                gap: 12px;
-                padding: 10px 12px;
-                background: #f8fafc;
-                border: 1px solid #e2e8f0;
-                border-radius: 8px;
+                gap: 14px;
+                padding: 13px 15px;
+                background: #fff;
+                border: 1px solid var(--ps-border);
+                border-radius: 13px;
+                transition:
+                    transform 0.18s var(--ps-ease),
+                    box-shadow 0.18s var(--ps-ease),
+                    border-color 0.18s var(--ps-ease);
+            }
+            .ps-page-item:hover {
+                transform: translateY(-1px);
+                border-color: #dcd3f7;
+                box-shadow: 0 6px 18px rgba(15, 23, 42, 0.07);
             }
             .ps-page-item img {
-                width: 40px;
-                height: 40px;
-                border-radius: 50%;
+                width: 46px;
+                height: 46px;
+                border-radius: 13px;
                 background: #e2e8f0;
                 flex-shrink: 0;
+                object-fit: cover;
+                box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06);
+            }
+            .ps-page-item .pg-avatar-fallback {
+                width: 46px;
+                height: 46px;
+                border-radius: 13px;
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #fff;
+                font-size: 19px;
+                font-weight: 700;
+                background: linear-gradient(135deg, #a78bfa, #7c3aed);
             }
             .ps-page-item .info {
                 flex: 1;
                 min-width: 0;
             }
             .ps-page-item .info .name {
-                font-weight: 600;
-                color: #0f172a;
-                font-size: 13px;
+                font-weight: 700;
+                color: var(--ps-text);
+                font-size: 14px;
+                letter-spacing: -0.01em;
             }
             .ps-page-item .info .meta {
-                font-size: 11px;
-                color: #64748b;
-                margin-top: 2px;
+                font-size: 11.5px;
+                color: var(--ps-muted);
+                margin-top: 4px;
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                flex-wrap: wrap;
+            }
+            .ps-page-item .info .meta .mid {
+                color: var(--ps-faint);
+            }
+            .plat-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 10.5px;
+                font-weight: 700;
+                padding: 2px 8px;
+                border-radius: 999px;
+                text-transform: lowercase;
+                letter-spacing: 0.01em;
+            }
+            .plat-chip.facebook {
+                background: #e7f0ff;
+                color: #1d4ed8;
+            }
+            .plat-chip.instagram {
+                background: linear-gradient(120deg, #fde6f3, #f3e8ff);
+                color: #be1d8e;
+            }
+            .tok-chip {
+                font-family: ui-monospace, monospace;
+                font-size: 10.5px;
+                color: #475569;
+                background: #f1f5f9;
+                border: 1px solid #e6eaf1;
+                padding: 1px 7px;
+                border-radius: 6px;
             }
             .ps-page-item .status {
                 font-size: 11px;
-                padding: 3px 8px;
+                padding: 5px 11px;
                 border-radius: 999px;
-                font-weight: 600;
+                font-weight: 700;
                 white-space: nowrap;
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+            }
+            .ps-page-item .status::before {
+                content: '';
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: currentColor;
             }
             .ps-page-item .status.has {
-                background: #dcfce7;
+                background: #e8f8ef;
                 color: #15803d;
             }
             .ps-page-item .status.no {
-                background: #fee2e2;
-                color: #b91c1c;
+                background: #fdeaea;
+                color: #c2410c;
             }
             .ps-help {
-                background: #f0f9ff;
+                background: linear-gradient(180deg, #f4faff, #eef7ff);
+                border: 1px solid #d8ecfb;
                 border-left: 3px solid #0ea5e9;
-                padding: 10px 14px;
-                font-size: 12px;
+                padding: 12px 16px;
+                font-size: 12.5px;
                 color: #075985;
-                border-radius: 4px;
-                margin-bottom: 12px;
-                line-height: 1.55;
+                border-radius: 10px;
+                margin-bottom: 14px;
+                line-height: 1.6;
             }
             .ps-help code {
                 background: rgba(7, 89, 133, 0.1);
-                padding: 1px 5px;
-                border-radius: 3px;
+                padding: 1.5px 6px;
+                border-radius: 5px;
                 font-size: 11px;
             }
             .ps-loading {
-                color: #64748b;
+                color: var(--ps-muted);
                 font-style: italic;
-                font-size: 12px;
-                padding: 10px;
+                font-size: 12.5px;
+                padding: 16px;
                 text-align: center;
+            }
+            /* Danger-zone card variant */
+            .ps-card.danger {
+                border-color: #f6d4d4;
+                background: linear-gradient(180deg, #fffafa, #fff);
+            }
+            .ps-card.danger h2 > svg {
+                background: #fdecec;
+                color: #dc2626;
             }
 
             /* Banner nhắc nhở (state soon / critical) */
@@ -585,12 +733,9 @@
                 </div>
 
                 <!-- Danger zone -->
-                <div class="ps-card">
+                <div class="ps-card danger">
                     <h2>
-                        <i
-                            data-lucide="alert-triangle"
-                            style="width: 16px; height: 16px; color: #dc2626"
-                        ></i>
+                        <i data-lucide="alert-triangle" style="width: 16px; height: 16px"></i>
                         Vùng nguy hiểm
                     </h2>
                     <p style="font-size: 12px; color: #64748b; margin: 0 0 10px">
@@ -681,6 +826,6 @@
         <script src="../../web2/shared/tpos-sidebar.js?v=20260522f"></script>
         <script src="../../web2/shared/web2-chat-client.js?v=20260521b"></script>
         <script src="../shared/web2-pancake-token.js?v=20260604a"></script>
-        <script src="js/pancake-settings.js?v=20260604a"></script>
+        <script src="js/pancake-settings.js?v=20260604b"></script>
     </body>
 </html>

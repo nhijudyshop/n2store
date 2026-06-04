@@ -17,6 +17,23 @@
         return d.innerHTML;
     }
 
+    // Pancake message text đến dạng HTML một phần (<div>...</div>, <br>). Strip
+    // tag → plain text, giữ xuống dòng (giống native-orders _msgPlain). Trả
+    // PLAIN text; caller phải esc() lại trước khi nhúng vào innerHTML.
+    function msgPlain(raw) {
+        if (!raw) return '';
+        const normalized = String(raw)
+            .replace(/\r\n?/g, '\n')
+            .replace(/[\u2028\u2029]/g, '\n')
+            .replace(/<br\b[^>]*>/gi, '\n')
+            .replace(/<\/(p|div|li|h[1-6])\s*>/gi, '\n')
+            .replace(/<(p|div|li|h[1-6])(\s[^>]*)?>/gi, '\n');
+        const tmp = document.createElement('div');
+        tmp.innerHTML = normalized;
+        const text = tmp.textContent || tmp.innerText || '';
+        return text.replace(/\n{3,}/g, '\n\n').trim();
+    }
+
     function injectCss() {
         if (document.getElementById('w2cro-css')) return;
         const s = document.createElement('style');
@@ -90,7 +107,7 @@
 
     function renderBubble(m, pageId) {
         const isOut = (m.from && m.from.id === pageId) || m.from_admin || m.is_admin;
-        const txt = m.message || m.text || m.content || '';
+        const txt = msgPlain(m.message || m.text || m.content || '');
         const atts = Array.isArray(m.attachments) ? m.attachments : [];
         const media = atts
             .map((a) => {

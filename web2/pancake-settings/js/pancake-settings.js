@@ -98,17 +98,19 @@
                 const platform =
                     p.platform || (p.id?.startsWith('igo_') ? 'instagram' : 'facebook');
                 const isIG = platform === 'instagram' || p.id?.startsWith('igo_');
+                const platClass = isIG ? 'instagram' : 'facebook';
                 return `
                 <div class="ps-page-item" data-page-id="${escapeHtml(p.id)}">
-                    ${img ? `<img src="${escapeHtml(img)}" alt="" />` : `<div style="width:40px;height:40px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:18px;font-weight:600;flex-shrink:0;">${escapeHtml((p.name || '?').charAt(0))}</div>`}
+                    ${img ? `<img src="${escapeHtml(img)}" alt="" />` : `<div class="pg-avatar-fallback">${escapeHtml((p.name || '?').charAt(0).toUpperCase())}</div>`}
                     <div class="info">
                         <div class="name">${escapeHtml(p.name || '(no name)')}</div>
                         <div class="meta">
-                            ${escapeHtml(p.username || p.id)} · ${escapeHtml(platform)}
-                            ${has ? ' · Token: ' + escapeHtml(shortToken(stored[p.id].token)) : ''}
+                            <span class="mid">${escapeHtml(p.username || p.id)}</span>
+                            <span class="plat-chip ${platClass}">${escapeHtml(platform)}</span>
+                            ${has ? `<span class="tok-chip">${escapeHtml(shortToken(stored[p.id].token))}</span>` : ''}
                         </div>
                     </div>
-                    <span class="status ${has ? 'has' : 'no'}">${has ? '✓ Có token' : 'Chưa có'}</span>
+                    <span class="status ${has ? 'has' : 'no'}">${has ? 'Có token' : 'Chưa có'}</span>
                     <button class="ps-btn ${has ? '' : 'primary'}" data-act="gen" data-page-id="${escapeHtml(p.id)}" ${isIG ? 'disabled title="Instagram chưa hỗ trợ"' : ''}>
                         <i data-lucide="${has ? 'refresh-cw' : 'key'}" style="width:13px;height:13px;"></i>
                         ${has ? 'Refresh' : 'Generate'}
