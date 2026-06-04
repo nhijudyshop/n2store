@@ -25,6 +25,14 @@
 
 ## 2026-06-04
 
+### [web2] Chat read-only: hover avatar → phóng to (popup zoom) ✅
+
+User: hover vào avatar phóng to.
+
+- Hover `.w2cro-conv-av`/`.w2cro-bub-av` (có ảnh) → popup `.w2cro-av-zoom` 220px hiện ảnh phóng to bên cạnh avatar, tự clamp trong viewport (phải→trái nếu tràn). Avatar hover scale 1.12 + cursor zoom-in. Avatar chỉ có chữ (ảnh lỗi) → không zoom.
+- Delegation mouseover/mouseout trên overlay (list cuộn vẫn chạy). Browser-tested: hover → zoom visible, đúng src.
+- **Files:** `web2/shared/web2-chat-readonly.js` (v=20260604f), `index.html`
+
 ### [web2] Chat read-only: avatar thật FB (list + thread) ✅
 
 User: thêm avatar vào (list hội thoại đang là chữ-cái).
