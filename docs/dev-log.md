@@ -25,6 +25,23 @@
 
 ## 2026-06-04
 
+### [web2][render] Wipe + reseed data ảo với mã SP đúng logic Web2ProductCode ✅
+
+**Yêu cầu:** Mã SP trong kho lộn xộn (KHO-random, DEMO-, sp, SP001). User chọn: wipe sạch products/orders/PBH/cart + tạo lại data ảo mã đúng. Giữ data khách.
+
+**Thực thi:**
+
+- **Wipe** qua `POST /api/admin/web2-data-reset {mode:wipe}` (Render direct URL — `/api/admin/*` không qua worker): backup `_bak_20260604_1027` (37 SP, 108 BT, 1 đơn, 10 PBH, 49 cart) → TRUNCATE 7 bảng.
+- **Seed** `scripts/web2-seed-fake-data.js` (node fetch, POST web2-variants/products KHÔNG cần auth): 20 màu/size + **20 SP mã đúng** Web2ProductCode (`HNAODEN`, `HNQUAN2DENS32`, `HCGUOCNAUS38`, `B4QUANXAMS28`, `QCMMDENS39`...). 0 mã junk còn lại.
+- **so-order Firestore** (`scripts/web2-wipe-so-order.js`): doc `web2_so_order/main` đã rỗng sẵn (tabs=0) — backup, không cần wipe.
+- **Verify** 36 trang: notifications(5)/audit-log(61)/inventory-forecast(20) giờ load data thật (fix generic-route shadow đã deploy). Products page: 20 SP mã sạch + badge tồn gộp cột biến thể. tpos-pancake/partner-customer còn ❌ = pre-existing (token Pancake hết hạn / KH chưa ví), không phải regression.
+
+**Files:** `scripts/web2-seed-fake-data.js`, `scripts/web2-wipe-so-order.js`, `scripts/web2-verify-data-load.js` (mới). **Status:** ✅ Done.
+
+### [web2-products] Gộp tồn kho vào chung cột Biến thể ✅
+
+Bỏ cột TỒN KHO riêng → header "BIẾN THỂ / TỒN KHO". Variant cell: pill biến thể + badge `Tồn: N` (xanh/amber/đỏ theo mức) xếp dọc. colspan 13→12. Verified browser. Files: `web2/products/{index.html,js/web2-products-app.js,css/web2-products.css}`.
+
 ### [web2] Studio chụp tách nền — v10 REBUILD giao diện camera-app mobile-first ✅
 
 User: giao diện cũ khó dùng → xóa làm lại toàn bộ tối ưu điện thoại + mặc định PhotoRoom fallback @imgly. Rebuild hoàn toàn 3 file (index.html/js/css) theo pattern app camera (PhotoRoom/Camera native).
