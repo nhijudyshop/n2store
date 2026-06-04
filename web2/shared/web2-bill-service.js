@@ -132,6 +132,90 @@
         return String(pbh.displayStt || pbh.display_stt || '');
     }
 
+    // ── ReceiptLine (lib bill phổ biến nhất GitHub, 740★) → SVG vector ──────
+    // In ra SẮC NÉT tuyệt đối (vector, không rasterize) — fix triệt để mờ nhiệt.
+    // Escape ký tự đặc biệt ReceiptLine trong text động.
+    function _rlEsc(s) {
+        return String(s == null ? '' : s).replace(/([\\|{}~_"`^])/g, '\\$1');
+    }
+    // Dựng ReceiptLine markup từ data PBH. Quy ước canh lề: bare=giữa, `|x`=trái,
+    // `x|`=phải, `A|B`=2 cột (trái|phải). `…` = invert (nền đen) cho ô COD.
+    function _buildReceiptDoc(d) {
+        const m = _fmtMoney;
+        const L = [];
+        const left = (s) => L.push('|' + s); // canh trái
+        // Header shop (giữa, to)
+        L.push('^^^' + _rlEsc(d.shop.name));
+        if (d.isShop) L.push('`^PBH SHOP - BÁN TẠI SHOP`');
+        else if (d.carrierName) L.push(_rlEsc(d.carrierName));
+        if (d.hasVirtualDebt) L.push('`^CÓ ĐƠN THU VỀ`');
+        // Ô COD nổi bật (invert nền đen, giữa)
+        L.push('`^TIỀN THU HỘ (COD)`');
+        L.push('`^^^' + m(d.cod) + ' đ`');
+        L.push('-');
+        L.push('^Phiếu Bán Hàng' + (d.isShop ? ' (SHOP)' : ''));
+        if (d.billNumber) L.push('{code:' + d.billNumber + ';option:code128,3,72,hri}');
+        L.push('Ngày:|' + _rlEsc(d.dateStr));
+        L.push('-');
+        // Khách (canh trái)
+        left('Khách: ' + _rlEsc(d.recName) + (d.recPhone ? ' - ' + _rlEsc(d.recPhone) : ''));
+        if (d.recAddr)
+            String(d.recAddr)
+                .split('\n')
+                .forEach((ln, i) => left((i ? '' : 'Địa chỉ: ') + _rlEsc(ln)));
+        if (d.sellerName) left('Người bán: ' + _rlEsc(d.sellerName));
+        if (d.sttDisplay) L.push('^STT: ' + _rlEsc(d.sttDisplay) + '|');
+        L.push('-');
+        // Sản phẩm
+        L.push('^Sản phẩm|^Thành tiền');
+        let totalQty = 0;
+        for (const it of d.lines) {
+            const qty = Number(it.quantity || it.Quantity || 0);
+            const price = Number(it.priceUnit || it.PriceUnit || 0);
+            const total = qty * price;
+            const name = it.productName || it.ProductName || '';
+            const uom = it.uomName || it.ProductUOMName || 'Cái';
+            const note = it.note || it.Note || '';
+            totalQty += qty;
+            left('^' + _rlEsc(name));
+            if (note) left('  ↳ ' + _rlEsc(note));
+            L.push(qty + ' ' + _rlEsc(uom) + ' x ' + m(price) + '|' + m(total));
+        }
+        L.push('-');
+        // Tổng
+        L.push('Tổng SL:|' + totalQty);
+        L.push('Tạm tính:|' + m(d.subtotal));
+        if (d.discount > 0) L.push('Giảm giá:|-' + m(d.discount));
+        L.push('Phí ship:|' + m(d.shipping));
+        L.push('^^TỔNG TIỀN:|^^' + m(d.finalTotal) + ' đ');
+        if (d.prepaid > 0) {
+            L.push('Đã trả trước:|-' + m(d.prepaid));
+            L.push('`^Còn lại (COD):|^' + m(d.cod) + ' đ`');
+        }
+        L.push('=');
+        // Ghi chú
+        if (d.orderComment) {
+            left('Ghi chú đơn:');
+            String(d.orderComment)
+                .split('\n')
+                .forEach((ln) => left(_rlEsc(ln)));
+            L.push('-');
+        }
+        left('Ghi chú giao hàng:');
+        String(d.shopDeliveryNote)
+            .split('\n')
+            .forEach((ln) => left(_rlEsc(ln)));
+        L.push('-');
+        left('Thông tin chuyển khoản:');
+        String(d.shopComment)
+            .split('\n')
+            .forEach((ln) => left(_rlEsc(ln)));
+        L.push('-');
+        L.push('Cảm ơn quý khách!');
+        L.push('^' + _rlEsc(d.shop.name));
+        return L.join('\n');
+    }
+
     function generateHTML(pbh, opts = {}) {
         if (!pbh) return '';
         const shop = _shop();
@@ -170,10 +254,6 @@
         const billDate = pbh.dateInvoice || pbh.dateCreated || new Date().toISOString();
         const dateStr = _fmtDate(billDate);
 
-        // Pre-render barcode SVG ngay tại đây — embed inline trong HTML (no async).
-        const billNumber = pbh.number || '';
-        const barcodeSvg = _renderBarcodeSvg(billNumber);
-
         // Comment + delivery note
         const orderComment = pbh.comment || '';
         let shopDeliveryNote = shop.deliveryNote;
@@ -182,30 +262,46 @@
         }
         const shopComment = shop.comment;
 
-        // Products HTML
-        let totalQty = 0;
-        const productsHTML = lines
-            .map((it) => {
-                const qty = Number(it.quantity || it.Quantity || 0);
-                const price = Number(it.priceUnit || it.PriceUnit || 0);
-                const total = qty * price;
-                const name = it.productName || it.ProductName || '';
-                const uom = it.uomName || it.ProductUOMName || 'Cái';
-                const note = it.note || it.Note || '';
-                totalQty += qty;
-                return `<tr>
-    <td class="product-name word-break" colspan="3">
-        ${_esc(name)}
-        ${note ? `<div class="product-note">↳ ${_esc(note)}</div>` : ''}
-    </td>
-</tr>
-<tr>
-    <td class="product-qty"><span style="font-weight:bold;">${qty}</span> ${_esc(uom)}</td>
-    <td class="product-price text-right">${_fmtMoney(price)}</td>
-    <td class="product-total text-right"><strong>${_fmtMoney(total)}</strong></td>
-</tr>`;
-            })
-            .join('\n');
+        // ── Dựng ReceiptLine markup → SVG vector (in sắc nét, hết mờ nhiệt) ──
+        const billNumber = pbh.number || '';
+        const doc = _buildReceiptDoc({
+            shop,
+            isShop,
+            carrierName,
+            hasVirtualDebt,
+            cod,
+            billNumber,
+            dateStr,
+            recName,
+            recPhone,
+            recAddr,
+            sellerName,
+            sttDisplay,
+            lines,
+            subtotal,
+            discount,
+            shipping,
+            finalTotal,
+            prepaid,
+            orderComment,
+            shopDeliveryNote,
+            shopComment,
+        });
+        let svg = '';
+        try {
+            if (global.receiptline && typeof global.receiptline.transform === 'function') {
+                svg = global.receiptline.transform(doc, { cpl: 42 });
+            }
+        } catch (e) {
+            console.warn('[Web2Bill] receiptline transform failed:', e.message);
+        }
+        if (!svg) {
+            // Fallback nếu chưa load receiptline.js — vẫn ra text đọc được.
+            svg =
+                '<pre style="font-family:monospace;white-space:pre-wrap;font-size:12px;line-height:1.4;margin:0;">' +
+                _esc(doc) +
+                '</pre>';
+        }
 
         return `<!DOCTYPE html>
 <html><head>
@@ -213,270 +309,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Phiếu bán hàng ${_esc(billNumber)} - ${_esc(shop.name)}</title>
 <style>
-@page { margin: 1mm 0; }
-html, body {
-    width: 80mm; margin: auto; color: #000 !important; font-size: 13px;
-    font-family: Arial, Helvetica, sans-serif; line-height: 1.35;
-    /* In nhiệt 80mm hay bị MỜ/NHẠT — giải pháp phổ biến nhất (GitHub receipt
-       projects + SO): font đậm hơn + ép màu in chính xác (browser tự làm nhạt
-       để tiết kiệm mực) + tắt anti-alias cho cạnh chữ sắc, đầu in render rõ. */
-    font-weight: 500;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-    -webkit-font-smoothing: none;
-    text-rendering: geometricPrecision;
-}
-*, *:before, *:after { box-sizing: border-box; }
-/* Mọi phần tử cũng ép in chính xác (không nhạt nền/chữ) */
-* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-.container { padding: 0 8px; margin: auto; }
-.text-center { text-align: center; }
-.text-right  { text-align: right; }
-.text-left   { text-align: left; }
-.word-break  { word-break: break-word; }
-.font-bold   { font-weight: bold; }
-.muted       { color: #1f1f1f; }
-
-/* Khi IN THẬT: đẩy đậm thêm 1 nấc + ép mọi chữ về đen tuyền (chống mờ). */
+@page { margin: 0; }
+html, body { margin: 0; padding: 0; background: #fff; }
+.receipt-wrap { width: 80mm; margin: 0 auto; padding: 2mm 0; }
+.receipt-wrap svg { display: block; width: 100%; height: auto; }
+.page-break { display: block; page-break-before: always; }
 @media print {
-    html, body { font-weight: 600; }
-    .muted, .sep-dotted { color: #000 !important; }
-    .totals-table .total-label, .totals-table .total-value { font-weight: 700 !important; }
+    html, body { width: 80mm; }
+    .receipt-wrap { width: 80mm; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
-table { width: 100%; max-width: 100%; border-collapse: collapse; }
-
-/* ─── Section separators (dashed) ─────────────────────── */
-.sep-dashed {
-    border: 0; border-top: 1px dashed #000;
-    margin: 6px 0; height: 0;
-}
-.sep-double {
-    border: 0; border-top: 2px solid #000;
-    margin: 6px 0; height: 0;
-}
-.sep-dotted {
-    border: 0; border-top: 1px dotted #555;
-    margin: 4px 0; height: 0;
-}
-
-/* ─── Shop header ────────────────────────────────────── */
-.shop-name {
-    font-size: 18px; font-weight: bold; letter-spacing: 0.5px;
-    text-transform: uppercase;
-}
-
-/* ─── COD highlight box ──────────────────────────────── */
-.cod-box {
-    border: 2px solid #000; padding: 6px 8px;
-    margin: 6px 0; text-align: center;
-    background: #f0f0f0;
-}
-.cod-box .cod-label { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
-.cod-box .cod-amount { font-size: 20px; font-weight: bold; margin-top: 2px; }
-
-/* ─── Title ──────────────────────────────────────────── */
-.bill-title {
-    font-size: 16px; font-weight: bold; text-transform: uppercase;
-    letter-spacing: 1.5px; text-align: center; margin: 4px 0;
-}
-
-/* ─── Barcode box (scan đối soát) ────────────────────── */
-.barcode-box {
-    text-align: center; margin: 6px 0; padding: 6px 4px;
-    border: 1.5px solid #000; border-radius: 4px;
-}
-.barcode-box .barcode-svg {
-    /* height:auto giữ tỉ lệ — value monospace dưới vạch không bị cắt/bóp */
-    width: 92%; height: auto; max-height: 120px; display: block; margin: 0 auto;
-}
-.barcode-box .barcode-hint {
-    font-size: 10px; color: #2a2a2a; margin-top: 1px;
-}
-
-/* ─── Meta info (số phiếu, ngày, KH) ─────────────────── */
-.meta-row { display: flex; justify-content: space-between; padding: 1px 0; }
-.meta-row .meta-label { font-weight: bold; min-width: 70px; }
-.meta-row .meta-value { text-align: right; flex: 1; }
-.customer-block { padding: 2px 0; }
-.customer-block .cb-row { padding: 1px 0; }
-.customer-block .cb-row strong { display: inline-block; min-width: 72px; }
-
-/* ─── Products table ─────────────────────────────────── */
-.products-table thead th {
-    padding: 4px 2px; font-size: 12px; font-weight: bold;
-    text-transform: uppercase; letter-spacing: 0.5px;
-    border-top: 1.5px solid #000; border-bottom: 1.5px solid #000;
-}
-.products-table tbody td.product-name {
-    padding: 4px 2px 1px 2px;
-    border-bottom: none !important;
-    font-weight: bold;
-}
-.products-table tbody td.product-qty,
-.products-table tbody td.product-price,
-.products-table tbody td.product-total {
-    padding: 0 2px 4px 2px;
-    border-top: none !important;
-    border-bottom: 1px dotted #999;
-    font-size: 12.5px;
-}
-.products-table .product-note {
-    font-size: 11.5px; font-style: italic; color: #1f1f1f;
-    padding-left: 4px;
-}
-
-/* ─── Totals ─────────────────────────────────────────── */
-.totals-table { margin-top: 4px; }
-.totals-table td { padding: 2px 2px; }
-.totals-table .total-label { font-weight: 600; }
-.totals-table .total-value { text-align: right; font-weight: 600; }
-.totals-table .total-final td {
-    border-top: 1.5px solid #000;
-    border-bottom: 1.5px solid #000;
-    padding-top: 4px; padding-bottom: 4px;
-}
-.totals-table .total-final .total-label,
-.totals-table .total-final .total-value {
-    font-weight: bold; font-size: 14px;
-}
-.totals-table .total-cod .total-value {
-    font-weight: bold; font-size: 15px;
-}
-
-/* ─── Notes ──────────────────────────────────────────── */
-.note-block {
-    margin-top: 6px; padding: 4px 6px;
-    border-left: 3px solid #000;
-    background: #f8f8f8;
-}
-.note-block .note-label {
-    font-weight: bold; font-size: 11px; text-transform: uppercase;
-    letter-spacing: 0.5px; display: block; margin-bottom: 2px;
-}
-.note-block .note-content {
-    white-space: pre-wrap; word-break: break-word;
-    font-size: 12.5px;
-}
-.shop-footer {
-    margin-top: 8px; padding-top: 6px;
-    border-top: 1px dashed #000; text-align: center;
-    font-size: 11px; color: #2a2a2a;
-}
-.virtual-debt-banner {
-    background: #000; color: #fff; padding: 4px 6px;
-    text-align: center; font-weight: bold;
-    margin: 4px 0; font-size: 12px;
-    letter-spacing: 1px;
-}
-.page-break { display: block; height: 0; page-break-before: always; }
 </style></head>
-<body>
-<div class="container">
-
-    <!-- ═══════════ SHOP HEADER ═══════════ -->
-    <div class="text-center shop-name">${_esc(shop.name)}</div>
-    ${
-        isShop
-            ? `<div class="text-center" style="font-size:13px;font-weight:bold;border:1.5px solid #000;border-radius:4px;padding:2px 0;margin:4px 0;">🏪 PBH SHOP — BÁN TẠI SHOP</div>`
-            : carrierName
-              ? `<div class="text-center muted" style="font-size:12px;">📦 ${_esc(carrierName)}</div>`
-              : ''
-    }
-    ${hasVirtualDebt ? `<div class="virtual-debt-banner">⚠ CÓ ĐƠN THU VỀ ⚠</div>` : ''}
-
-    <!-- ═══════════ COD HIGHLIGHT ═══════════ -->
-    <div class="cod-box">
-        <div class="cod-label">Tiền thu hộ (COD)</div>
-        <div class="cod-amount">${_fmtMoney(cod)} đ</div>
-    </div>
-
-    <!-- ═══════════ BILL TITLE + BARCODE ═══════════ -->
-    <hr class="sep-double" />
-    <div class="bill-title">Phiếu bán hàng${isShop ? ' (SHOP)' : ''}</div>
-    ${
-        billNumber
-            ? `<div class="barcode-box">
-                  ${barcodeSvg}
-               </div>`
-            : ''
-    }
-    <div class="meta-row"><span class="meta-label">Ngày:</span><span class="meta-value">${_esc(dateStr)}</span></div>
-
-    <!-- ═══════════ CUSTOMER ═══════════ -->
-    <hr class="sep-dashed" />
-    <div class="customer-block">
-        <div class="cb-row"><strong>Khách:</strong> ${_esc(recName)}${recPhone ? ` - ${_esc(recPhone)}` : ''}</div>
-        ${recAddr ? `<div class="cb-row"><strong>Địa chỉ:</strong> ${_esc(recAddr)}</div>` : ''}
-        ${sellerName ? `<div class="cb-row"><strong>Người bán:</strong> ${_esc(sellerName)}</div>` : ''}
-        ${sttDisplay ? `<div class="cb-row"><strong>STT:</strong> <span style="font-weight:bold;font-size:14px;">${_esc(sttDisplay)}</span></div>` : ''}
-    </div>
-
-    <!-- ═══════════ PRODUCTS ═══════════ -->
-    <hr class="sep-dashed" />
-    <table class="products-table">
-        <thead><tr>
-            <th style="text-align:left;">Sản phẩm</th>
-            <th class="text-right" style="width:60px;">Giá</th>
-            <th class="text-right" style="width:70px;">Tổng</th>
-        </tr></thead>
-        <tbody>${productsHTML}</tbody>
-    </table>
-
-    <!-- ═══════════ TOTALS ═══════════ -->
-    <table class="totals-table">
-        <tr>
-            <td class="total-label">Tổng SL:</td>
-            <td class="total-value">${totalQty}</td>
-        </tr>
-        <tr>
-            <td class="total-label">Tạm tính:</td>
-            <td class="total-value">${_fmtMoney(subtotal)}</td>
-        </tr>
-        ${discount > 0 ? `<tr><td class="total-label">Giảm giá:</td><td class="total-value">- ${_fmtMoney(discount)}</td></tr>` : ''}
-        <tr>
-            <td class="total-label">Phí ship:</td>
-            <td class="total-value">${_fmtMoney(shipping)}</td>
-        </tr>
-        <tr class="total-final">
-            <td class="total-label">TỔNG TIỀN:</td>
-            <td class="total-value">${_fmtMoney(finalTotal)} đ</td>
-        </tr>
-        ${
-            prepaid > 0
-                ? `
-        <tr><td class="total-label">Đã trả trước:</td><td class="total-value">- ${_fmtMoney(prepaid)}</td></tr>
-        <tr class="total-cod"><td class="total-label">Còn lại (COD):</td><td class="total-value">${_fmtMoney(cod)} đ</td></tr>
-        `
-                : ''
-        }
-    </table>
-
-    <!-- ═══════════ NOTES ═══════════ -->
-    ${
-        orderComment
-            ? `<div class="note-block">
-        <span class="note-label">📝 Ghi chú đơn</span>
-        <div class="note-content">${_esc(orderComment)}</div>
-    </div>`
-            : ''
-    }
-
-    <div class="note-block">
-        <span class="note-label">🚚 Ghi chú giao hàng</span>
-        <div class="note-content">${_esc(shopDeliveryNote)}</div>
-    </div>
-
-    <div class="note-block">
-        <span class="note-label">🏦 Thông tin chuyển khoản</span>
-        <div class="note-content">${_esc(shopComment)}</div>
-    </div>
-
-    <div class="shop-footer">
-        ━━━ Cảm ơn quý khách! ━━━<br/>
-        ${_esc(shop.name)}
-    </div>
-</div>
-</body></html>`;
+<body><div class="receipt-wrap">${svg}</div></body></html>`;
     }
 
     function openPrint(pbh, opts = {}) {
