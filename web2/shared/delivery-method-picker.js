@@ -391,8 +391,20 @@
     }
 
     function _detectProvince(tokens) {
+        // 1) Khớp theo từ (exact + fuzzy) như cũ.
         for (const prov of PROVINCES_NON_HCM) {
             if (_hasFuzzy(tokens, normalize(prov))) return prov;
+        }
+        // 2) Địa chỉ viết DÍNH liền không dấu cách (vd "Đắk Mil.Đắk Nông" gõ
+        //    "dakmil.daknong" → token "daknong"). So khớp dạng bỏ hết khoảng
+        //    trắng: tên tỉnh ≥6 ký tự (sau bỏ space) làm substring của chuỗi
+        //    địa chỉ đã nối liền. Ngưỡng 6 để tránh false-positive substring ngắn.
+        const joined = tokens.join('');
+        if (joined.length >= 6) {
+            for (const prov of PROVINCES_NON_HCM) {
+                const pj = normalize(prov).replace(/\s+/g, '');
+                if (pj.length >= 6 && joined.includes(pj)) return prov;
+            }
         }
         return null;
     }
@@ -487,6 +499,18 @@
 
     // METHOD B: Goong geocode qua backend proxy (ẩn key). Cache theo norm address.
     const _geoCache = new Map();
+    // Làm sạch chuỗi địa chỉ TRƯỚC khi gửi Goong: đổi dấu phân tách dính
+    // (. ; |) → ", " để geocoder tách token đúng (vd "son.xa duc manh.daknong"
+    // → "son, xa duc manh, daknong"). GIỮ "/" vì là số nhà (21/4). Gộp phẩy lặp.
+    function _cleanAddress(s) {
+        return String(s || '')
+            .replace(/\s*[.;|]+\s*/g, ', ')
+            .replace(/(,\s*){2,}/g, ', ')
+            .replace(/\s+/g, ' ')
+            .replace(/^[\s,]+|[\s,]+$/g, '')
+            .trim();
+    }
+
     async function geocodeGoong(address) {
         const key = normalize(address);
         if (!key) return null;
@@ -494,8 +518,9 @@
         const base =
             window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         try {
+            const cleaned = _cleanAddress(address) || address;
             const r = await fetch(
-                `${base}/api/web2/geocode?address=${encodeURIComponent(address)}`,
+                `${base}/api/web2/geocode?address=${encodeURIComponent(cleaned)}`,
                 {
                     credentials: 'include',
                 }
