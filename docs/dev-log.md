@@ -25,6 +25,17 @@
 
 ## 2026-06-04
 
+### [web2] Photo-studio — tăng tốc: mặc định AI nhanh + AI nét model nén quint8 ✅
+
+User hỏi tốc độ → benchmark (Playwright, headless WASM = worst-case không GPU):
+
+- Phông xanh: ~0,4s | Đổi nền (review): 41ms | AI nhanh: ~3,5s WASM (≈tức thì khi có GPU) | AI nét @imgly cũ: 17s cached.
+- Tối ưu: (1) **mặc định mode 'ai' (AI nhanh)** thay 'hq' — chụp ≈ tức thì trên máy có GPU; (2) `localCutout` dùng `{model:'isnet_quint8'}` (model nén nhỏ/nhanh) → tải nhẹ hơn + nhanh hơn (~17s→14s WASM cached; máy GPU nhanh hơn nhiều).
+- Đo lại: default mode = ai ✓; AI nhanh 3,4/3,6s WASM; AI nét quint8 18,6s(1st gồm tải)/14s cached WASM; 0 error.
+- Lưu ý device: số trên là WASM (không GPU). Máy/điện thoại đời mới có WebGPU: AI nhanh realtime mượt + chụp tức thì, AI nét ~2-4s.
+
+**Files**: `web2/photo-studio/{index.html(v=20260604f),photo-studio.js}`.
+
 ### [orders][warehouse] soluong-live khớp ảnh product-warehouse + khôi phục dropdown tìm kiếm ✅
 
 **1/ soluong-live tham chiếu product-warehouse (đồng bộ tên/ảnh/SL):** cùng nguồn web_warehouse + SSE realtime TPOS (đã làm trước). Bổ sung **fallback ảnh TPOS-direct giống product-warehouse**: khi web_warehouse chưa có ảnh nào cho template (vd SP mới), `warehouse-realtime.js` gọi `ProductTemplate(id)?$expand=ProductVariants` qua `window.tokenManager` lấy `ImageUrl` template (cache/session, graceful nếu không token). Chuỗi ảnh giờ khớp product-warehouse 100%: ảnh biến thể → ảnh sibling → ảnh template TPOS-direct → placeholder. Thêm `token-manager.js` vào 2 trang soluong-live. Bump module `?v=20260604d`.
