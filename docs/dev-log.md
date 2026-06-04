@@ -25,6 +25,13 @@
 
 ## 2026-06-04
 
+### [web2-bill] Đánh số SP (nhiều SP dễ đếm) + STT cạnh tên khách ✅
+
+User: nhiều SP thì danh sách ra sao + STT lên cạnh tên khách.
+
+- **Sản phẩm đánh số** `1. 2. 3.…` (tên đậm) + dòng `SL × đơn giá | thành tiền`, có dòng trống giữa các SP → nhiều SP vẫn dễ đếm/đọc. Verified 8 SP: danh sách sạch, scannable.
+- **STT cạnh tên khách**: bỏ STT khỏi block META (chỉ còn Ngày), đưa STT lên cùng dòng `"Khách:" <tên> | ^"STT <n>"` (canh phải, đậm).
+
 ### [web2-bill] Bố cục lại bill + chữ đậm hơn (chống đứt/mờ khi in) ✅
 
 User: bố cục lại đẹp + chữ in bị đứt/mờ → chỉnh đậm.
