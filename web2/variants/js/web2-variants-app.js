@@ -348,6 +348,17 @@
                 });
             });
         }
+
+        // 2026-06-04: SSE canonical (web2:variants) — backend web2-variants.js
+        // _notify mọi CRUD. Đồng bộ cross-tab/cross-máy không cần refresh. Debounce
+        // 600ms gom burst. (Cache Firestore tickler ở trên là legacy, giữ tạm.)
+        if (window.Web2SSE?.subscribe) {
+            let _sseT = null;
+            window.Web2SSE.subscribe('web2:variants', () => {
+                clearTimeout(_sseT);
+                _sseT = setTimeout(load, 600);
+            });
+        }
     }
 
     window.Web2VariantsApp = { openEdit, toggleActive, remove };

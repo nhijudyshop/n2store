@@ -248,6 +248,15 @@
             load();
         });
         load();
+        // 2026-06-04: SSE realtime web2:delivery — backend delivery-invoices.js
+        // _notify create/ship/deliver/return/cancel → tự refresh đa tab/máy.
+        if (window.Web2SSE?.subscribe) {
+            let _t = null;
+            window.Web2SSE.subscribe('web2:delivery', () => {
+                clearTimeout(_t);
+                _t = setTimeout(load, 600);
+            });
+        }
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();

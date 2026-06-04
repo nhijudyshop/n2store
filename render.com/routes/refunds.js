@@ -270,6 +270,15 @@ router.post('/from-pbh', async (req, res) => {
                 pbhNumber: fso.number,
             });
         }
+        if (req.app.locals.web2RealtimeSseNotify) {
+            try {
+                req.app.locals.web2RealtimeSseNotify(
+                    'web2:refunds',
+                    { action: 'created', number: o.number, ts: Date.now() },
+                    'update'
+                );
+            } catch {}
+        }
         res.json({ success: true, order: o });
     } catch (e) {
         console.error('[REFUNDS] from-pbh error:', e.message);
@@ -304,6 +313,16 @@ for (const [path, st] of [
             const o = mapRow(row);
             if (req.app.locals.broadcastToClients) {
                 req.app.locals.broadcastToClients({ type: `refund:${st}`, order: o });
+            }
+            // 2026-06-04: SSE web2:refunds → trang Trả hàng tự refresh (realtime).
+            if (req.app.locals.web2RealtimeSseNotify) {
+                try {
+                    req.app.locals.web2RealtimeSseNotify(
+                        'web2:refunds',
+                        { action: st, number: req.params.number, ts: Date.now() },
+                        'update'
+                    );
+                } catch {}
             }
             res.json({ success: true, order: o });
         } catch (e) {

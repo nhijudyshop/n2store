@@ -240,6 +240,15 @@
             load();
         });
         load();
+        // 2026-06-04: SSE realtime web2:refunds — backend refunds.js _notify mọi
+        // create/approve/complete/cancel → tự refresh không cần F5 (đồng bộ đa tab/máy).
+        if (window.Web2SSE?.subscribe) {
+            let _t = null;
+            window.Web2SSE.subscribe('web2:refunds', () => {
+                clearTimeout(_t);
+                _t = setTimeout(load, 600);
+            });
+        }
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
