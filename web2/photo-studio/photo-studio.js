@@ -28,9 +28,12 @@
         mode: 'hq', // 'hq' | 'ai' | 'chroma'
         hqEngine: 'local', // 'local' (@imgly, free, không watermark) | 'auto' (PhotoRoom cloud)
         source: 'camera', // 'camera' | 'image'
-        bgType: 'transparent',
+        bgType: 'transparent', // 'transparent'|'color'|'image'|'blur'|'preset'
         bgColor: '#ffffff',
         bgImage: null,
+        bgPreset: null, // id preset gradient đang chọn
+        bgKey: 'transparent', // key chip đang active (đồng bộ 2 hàng)
+        savedBgs: [], // [{id,url}] nền ảnh user đã lưu (localStorage)
         blurStrength: 12,
         key: { r: 0, g: 177, b: 64 },
         threshold: 0.45,
@@ -84,6 +87,8 @@
         bind();
         initSegmentation();
         applyMobileDefaults();
+        loadSavedBgs();
+        renderBgRows();
         setMode('hq');
         autoStartIfAllowed();
     }
@@ -115,7 +120,8 @@
             'reviewMeta:psReviewMeta',
             'reviewStage:psReviewStage',
             'reviewCanvas:psReviewCanvas',
-            'bgRow:psBgRow',
+            'bgRowCam:psBgRowCam',
+            'bgRowReview:psBgRowReview',
             'bgColor:psBgColor',
             'bgFile:psBgFile',
             'retake:psRetake',
@@ -158,15 +164,20 @@
         el.modePills
             .querySelectorAll('button[data-mode]')
             .forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
-        el.bgRow
-            .querySelectorAll('[data-bg]')
-            .forEach((b) => b.addEventListener('click', () => pickBg(b)));
-        el.bgColor.addEventListener('input', () => {
-            state.bgType = 'color';
-            state.bgColor = el.bgColor.value;
-            activate(el.bgRow.querySelectorAll('[data-bg]'), el.bgColor.closest('[data-bg]'));
-            renderReview();
-        });
+        // Hàng chọn nền (cả 2 màn) — delegated click
+        [el.bgRowCam, el.bgRowReview].forEach((row) =>
+            row.addEventListener('click', (e) => {
+                const delBtn = e.target.closest('[data-del]');
+                if (delBtn) {
+                    e.stopPropagation();
+                    deleteSavedBg(delBtn.dataset.del);
+                    return;
+                }
+                const chip = e.target.closest('[data-bg]');
+                if (chip) onBgChip(chip);
+            })
+        );
+        el.bgColor.addEventListener('input', () => selectBg('color:' + el.bgColor.value));
         document.querySelectorAll('.ps-eng-btn[data-hqeng]').forEach((b) =>
             b.addEventListener('click', () => {
                 state.hqEngine = b.dataset.hqeng;
@@ -451,16 +462,215 @@
 
     function onBgFile(e) {
         const file = e.target.files?.[0];
-        if (!file) return;
-        const img = new Image();
-        img.onload = () => {
-            state.bgImage = img;
-            state.bgType = 'image';
-            activate(el.bgRow.querySelectorAll('[data-bg]'), el.bgFile.closest('[data-bg]'));
-            renderReview();
-        };
-        img.src = URL.createObjectURL(file);
         e.target.value = '';
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const url = String(reader.result);
+            const id = saveSavedBg(url); // lưu lại để dùng lại
+            renderBgRows();
+            selectBg('saved:' + id);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // ===== Backgrounds: presets + saved + render 2 hàng =================
+    const PRESETS = [
+        {
+            id: 'studio-white',
+            name: 'Studio trắng',
+            kind: 'linear',
+            css: 'linear-gradient(180deg,#ffffff,#e3e9f0)',
+            stops: [
+                [0, '#ffffff'],
+                [1, '#e3e9f0'],
+            ],
+        },
+        {
+            id: 'studio-grey',
+            name: 'Xám studio',
+            kind: 'radial',
+            css: 'radial-gradient(circle at 50% 38%,#fbfcfd,#c4ccd6)',
+            stops: [
+                [0, '#fbfcfd'],
+                [1, '#c4ccd6'],
+            ],
+        },
+        {
+            id: 'warm-beige',
+            name: 'Kem ấm',
+            kind: 'linear',
+            css: 'linear-gradient(180deg,#fdf6ec,#e7d6bf)',
+            stops: [
+                [0, '#fdf6ec'],
+                [1, '#e7d6bf'],
+            ],
+        },
+        {
+            id: 'soft-pink',
+            name: 'Hồng',
+            kind: 'radial',
+            css: 'radial-gradient(circle at 50% 38%,#fff0f3,#f4c4d2)',
+            stops: [
+                [0, '#fff0f3'],
+                [1, '#f4c4d2'],
+            ],
+        },
+        {
+            id: 'soft-blue',
+            name: 'Xanh dịu',
+            kind: 'radial',
+            css: 'radial-gradient(circle at 50% 38%,#eef5ff,#bcd4f0)',
+            stops: [
+                [0, '#eef5ff'],
+                [1, '#bcd4f0'],
+            ],
+        },
+        {
+            id: 'mint',
+            name: 'Bạc hà',
+            kind: 'linear',
+            css: 'linear-gradient(180deg,#eefaf3,#bfe6d2)',
+            stops: [
+                [0, '#eefaf3'],
+                [1, '#bfe6d2'],
+            ],
+        },
+        {
+            id: 'sunset',
+            name: 'Nắng',
+            kind: 'radial',
+            css: 'radial-gradient(circle at 50% 35%,#fff3da,#f6c89a)',
+            stops: [
+                [0, '#fff3da'],
+                [1, '#f6c89a'],
+            ],
+        },
+        {
+            id: 'dark-lux',
+            name: 'Tối sang',
+            kind: 'radial',
+            css: 'radial-gradient(circle at 50% 38%,#3a4658,#11161f)',
+            stops: [
+                [0, '#3a4658'],
+                [1, '#11161f'],
+            ],
+        },
+    ];
+    const SOLIDS = [
+        { c: '#ffffff', name: 'Trắng' },
+        { c: '#000000', name: 'Đen' },
+    ];
+    const SAVED_KEY = 'ps_saved_bgs';
+    const SAVED_MAX = 8;
+
+    function loadSavedBgs() {
+        try {
+            state.savedBgs = JSON.parse(localStorage.getItem(SAVED_KEY) || '[]').slice(
+                0,
+                SAVED_MAX
+            );
+        } catch {
+            state.savedBgs = [];
+        }
+    }
+    function persistSavedBgs() {
+        try {
+            localStorage.setItem(SAVED_KEY, JSON.stringify(state.savedBgs.slice(0, SAVED_MAX)));
+        } catch {}
+    }
+    function saveSavedBg(url) {
+        const id = 'b' + Date.now().toString(36) + Math.floor(Math.random() * 1000);
+        state.savedBgs.unshift({ id, url });
+        state.savedBgs = state.savedBgs.slice(0, SAVED_MAX);
+        persistSavedBgs();
+        return id;
+    }
+    function deleteSavedBg(id) {
+        state.savedBgs = state.savedBgs.filter((b) => b.id !== id);
+        persistSavedBgs();
+        if (state.bgKey === 'saved:' + id) selectBg('transparent');
+        renderBgRows();
+    }
+
+    function bgRowHTML() {
+        let h = '';
+        h += `<button class="ps-bg-chip" data-bg="transparent" title="Trong suốt"><span class="ps-chip-checker"></span></button>`;
+        for (const s of SOLIDS)
+            h += `<button class="ps-bg-chip" data-bg="color" data-color="${s.c}" title="${s.name}" style="background:${s.c}${s.c === '#ffffff' ? ';border:1px solid #d6dde6' : ''}"></button>`;
+        for (const p of PRESETS)
+            h += `<button class="ps-bg-chip" data-bg="preset" data-preset="${p.id}" title="${p.name}" style="background:${p.css}"></button>`;
+        h += `<button class="ps-bg-chip ps-bg-blur" data-bg="blur" title="Mờ nền"><i data-lucide="aperture"></i></button>`;
+        for (const b of state.savedBgs)
+            h += `<span class="ps-bg-chip ps-bg-saved" data-bg="saved" data-id="${b.id}" title="Nền đã lưu" style="background-image:url(${b.url})"><button class="ps-bg-del" data-del="${b.id}" aria-label="Xóa">×</button></span>`;
+        h += `<button class="ps-bg-chip ps-bg-pick" data-bg="pick" title="Màu khác"><i data-lucide="pipette"></i></button>`;
+        h += `<button class="ps-bg-chip ps-bg-add" data-bg="upload" title="Thêm ảnh nền"><i data-lucide="image-plus"></i></button>`;
+        return h;
+    }
+
+    function renderBgRows() {
+        const html = bgRowHTML();
+        [el.bgRowCam, el.bgRowReview].forEach((row) => {
+            if (row) row.innerHTML = html;
+        });
+        applyActiveBg();
+        relucide();
+    }
+
+    function applyActiveBg() {
+        [el.bgRowCam, el.bgRowReview].forEach((row) => {
+            if (!row) return;
+            row.querySelectorAll('[data-bg]').forEach((c) =>
+                c.classList.toggle('is-active', chipKey(c) === state.bgKey)
+            );
+        });
+    }
+    function chipKey(chip) {
+        const t = chip.dataset.bg;
+        if (t === 'color') return 'color:' + chip.dataset.color;
+        if (t === 'preset') return 'preset:' + chip.dataset.preset;
+        if (t === 'saved') return 'saved:' + chip.dataset.id;
+        return t; // transparent | blur
+    }
+
+    function onBgChip(chip) {
+        const t = chip.dataset.bg;
+        if (t === 'pick') {
+            el.bgColor.click();
+            return;
+        }
+        if (t === 'upload') {
+            el.bgFile.click();
+            return;
+        }
+        selectBg(chipKey(chip));
+    }
+
+    /** Chọn nền theo key: transparent | blur | color:#hex | preset:id | saved:id */
+    function selectBg(key) {
+        state.bgKey = key;
+        if (key === 'transparent') state.bgType = 'transparent';
+        else if (key === 'blur') state.bgType = 'blur';
+        else if (key.startsWith('color:')) {
+            state.bgType = 'color';
+            state.bgColor = key.slice(6);
+        } else if (key.startsWith('preset:')) {
+            state.bgType = 'preset';
+            state.bgPreset = key.slice(7);
+        } else if (key.startsWith('saved:')) {
+            const rec = state.savedBgs.find((b) => b.id === key.slice(6));
+            if (rec) {
+                const img = new Image();
+                img.onload = () => {
+                    state.bgImage = img;
+                    state.bgType = 'image';
+                    renderReview();
+                };
+                img.src = rec.url;
+            }
+        }
+        applyActiveBg();
+        renderReview();
     }
 
     // ---- Sizing / crop --------------------------------------------------
@@ -636,8 +846,32 @@
                 H + pad * 2
             );
             ctx.restore();
+        } else if (state.bgType === 'preset') {
+            drawPreset(ctx, W, H, state.bgPreset);
         }
     }
+
+    function drawPreset(ctx, W, H, id) {
+        const p = PRESETS.find((x) => x.id === id);
+        if (!p) return;
+        let g;
+        if (p.kind === 'radial') {
+            g = ctx.createRadialGradient(
+                W / 2,
+                H * 0.42,
+                0,
+                W / 2,
+                H * 0.42,
+                Math.hypot(W, H) * 0.62
+            );
+        } else {
+            g = ctx.createLinearGradient(0, 0, 0, H);
+        }
+        p.stops.forEach(([o, c]) => g.addColorStop(o, c));
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+    }
+
     function drawCover(ctx, img, W, H) {
         const iw = img.naturalWidth || img.width,
             ih = img.naturalHeight || img.height;
@@ -784,21 +1018,6 @@
         el.reviewCanvas.classList.toggle('ps-mirror', state.mirror && state.source === 'camera');
         el.reviewStage.classList.toggle('ps-checker', state.bgType === 'transparent');
         el.reviewMeta.textContent = `${W}×${H}`;
-    }
-
-    function pickBg(btn) {
-        const type = btn.dataset.bg;
-        if (type === 'color') {
-            state.bgType = 'color';
-            state.bgColor = btn.dataset.color;
-            el.bgColor.value = btn.dataset.color;
-        } else if (type === 'image') {
-            return; // label opens file dialog; onBgFile handles
-        } else {
-            state.bgType = type; // transparent | blur
-        }
-        activate(el.bgRow.querySelectorAll('[data-bg]'), btn);
-        renderReview();
     }
 
     function showReview() {

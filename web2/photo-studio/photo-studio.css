@@ -517,6 +517,46 @@ main.web2-main.ps-app {
     cursor: pointer;
     border: none;
 }
+/* saved background chips (ảnh nền user đã lưu) */
+.ps-bg-saved {
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+.ps-bg-del {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.78);
+    color: #fff;
+    border: none;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ps-bg-add,
+.ps-bg-pick {
+    border: 1px dashed rgba(255, 255, 255, 0.3) !important;
+}
+/* camera-screen background strip (gọn, không nhãn) */
+.ps-cam-bg-strip {
+    padding: 6px 12px 0;
+    flex-shrink: 0;
+}
+.ps-cam-bg-strip .ps-bg-row {
+    padding-bottom: 2px;
+}
+.ps-cam-bg-strip .ps-bg-chip {
+    width: 36px;
+    height: 36px;
+}
 
 .ps-review-actions {
     display: flex;
