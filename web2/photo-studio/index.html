@@ -58,6 +58,11 @@
                         </div>
                     </div>
 
+                    <!-- chọn nền (xem live ở chế độ AI nhanh / Phông xanh) -->
+                    <div class="ps-bg-strip ps-cam-bg-strip">
+                        <div class="ps-bg-row" id="psBgRowCam"></div>
+                    </div>
+
                     <div class="ps-cam-bar">
                         <label class="ps-round-btn ps-upload" aria-label="Tải ảnh">
                             <i data-lucide="image"></i>
@@ -101,65 +106,14 @@
                         <canvas id="psReviewCanvas"></canvas>
                     </div>
 
-                    <!-- background picker (live) -->
+                    <!-- background picker (live, JS-rendered) -->
                     <div class="ps-bg-strip">
                         <div class="ps-bg-strip-label">Nền</div>
-                        <div class="ps-bg-row" id="psBgRow">
-                            <button
-                                class="ps-bg-chip is-active"
-                                data-bg="transparent"
-                                title="Trong suốt"
-                            >
-                                <span class="ps-chip-checker"></span>
-                            </button>
-                            <button
-                                class="ps-bg-chip"
-                                data-bg="color"
-                                data-color="#ffffff"
-                                style="background: #fff; border: 1px solid #ddd"
-                                title="Trắng"
-                            ></button>
-                            <button
-                                class="ps-bg-chip"
-                                data-bg="color"
-                                data-color="#000000"
-                                style="background: #000"
-                                title="Đen"
-                            ></button>
-                            <button
-                                class="ps-bg-chip"
-                                data-bg="color"
-                                data-color="#f1f5f9"
-                                style="background: #f1f5f9"
-                                title="Xám nhạt"
-                            ></button>
-                            <button
-                                class="ps-bg-chip"
-                                data-bg="color"
-                                data-color="#fde2e4"
-                                style="background: #fde2e4"
-                                title="Hồng"
-                            ></button>
-                            <button
-                                class="ps-bg-chip"
-                                data-bg="color"
-                                data-color="#dbeafe"
-                                style="background: #dbeafe"
-                                title="Xanh"
-                            ></button>
-                            <button class="ps-bg-chip ps-bg-blur" data-bg="blur" title="Mờ nền">
-                                <i data-lucide="aperture"></i>
-                            </button>
-                            <label class="ps-bg-chip ps-bg-pick" title="Màu khác">
-                                <i data-lucide="pipette"></i>
-                                <input type="color" id="psBgColor" value="#ffffff" />
-                            </label>
-                            <label class="ps-bg-chip ps-bg-img" title="Ảnh nền">
-                                <i data-lucide="image-plus"></i>
-                                <input type="file" id="psBgFile" accept="image/*" hidden />
-                            </label>
-                        </div>
+                        <div class="ps-bg-row" id="psBgRowReview"></div>
                     </div>
+                    <!-- shared hidden inputs cho chip "màu khác" + "ảnh nền" -->
+                    <input type="color" id="psBgColor" value="#ffffff" hidden />
+                    <input type="file" id="psBgFile" accept="image/*" hidden />
 
                     <div class="ps-review-actions">
                         <button class="ps-btn ps-btn-ghost-lg" id="psRetake">
