@@ -165,8 +165,14 @@
         L.push('^^^' + m(d.cod) + ' đ');
         rule();
 
-        // ── TÊN PHIẾU + MÃ VẠCH ──
-        L.push('^^Phiếu Bán Hàng' + (d.isShop ? ' (SHOP)' : ''));
+        // ── TÊN PHIẾU + STT (số ngay cạnh) + MÃ VẠCH ──
+        // STT ghi thẳng số sau "Phiếu Bán Hàng - 313" (khỏi chữ "STT"). Dùng ^^
+        // (double-HEIGHT, rộng bình thường) → KHÔNG tràn cpl, không lệch chữ.
+        L.push(
+            '^^Phiếu Bán Hàng' +
+                (d.isShop ? ' (SHOP)' : '') +
+                (d.sttDisplay ? ' - ' + _rlEsc(d.sttDisplay) : '')
+        );
         if (d.billNumber) {
             gap();
             L.push('{code:' + d.billNumber + ';option:code128,3,80,hri}');
@@ -177,9 +183,8 @@
         L.push('Ngày|' + _rlEsc(d.dateStr));
         rule();
 
-        // ── KHÁCH HÀNG — STT đứng cạnh tên khách (canh phải) ──
-        if (d.sttDisplay) L.push('Khách: ' + _rlEsc(d.recName) + '|^STT ' + _rlEsc(d.sttDisplay));
-        else left('Khách: ' + _rlEsc(d.recName));
+        // ── KHÁCH HÀNG (STT đã chuyển lên cạnh "Phiếu Bán Hàng") ──
+        left('Khách: ' + _rlEsc(d.recName));
         if (d.recPhone) left('SĐT: ' + _rlEsc(d.recPhone));
         if (d.recAddr)
             String(d.recAddr)
@@ -189,7 +194,9 @@
         rule();
 
         // ── SẢN PHẨM — đánh số thứ tự cho dễ đếm khi nhiều SP ──
-        L.push('^SẢN PHẨM|^THÀNH TIỀN');
+        // ^^ = double-HEIGHT (rộng bình thường) → 2 cột vừa cpl, KHÔNG bị
+        // double-WIDTH (^) làm tràn → cắt chữ "SẢN PHẨM"/"THÀNH TIỀN".
+        L.push('^^SẢN PHẨM|^^THÀNH TIỀN');
         gap();
         let totalQty = 0;
         d.lines.forEach((it, idx) => {
@@ -213,7 +220,7 @@
         L.push('Tạm tính|' + m(d.subtotal));
         if (d.discount > 0) L.push('Giảm giá|-' + m(d.discount));
         L.push('Phí ship|' + m(d.shipping));
-        L.push('^TỔNG TIỀN|^' + m(d.finalTotal) + ' đ');
+        L.push('^^TỔNG TIỀN|^^' + m(d.finalTotal) + ' đ');
         if (d.prepaid > 0) {
             L.push('Đã trả trước|-' + m(d.prepaid));
             L.push('^^CÒN THU (COD)|^^' + m(d.cod));
