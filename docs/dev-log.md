@@ -25,6 +25,19 @@
 
 ## 2026-06-04
 
+### [render][web2] inventory-tracking → web2Db + reseed supplier-debt theo kho ✅
+
+**Audit chatDb (user yêu cầu "search chatDb"):** Mọi route Web 2.0 "thuần" đã dùng đúng `web2Db || chatDb`. Chỉ `inventory-tracking.js` còn bare `chatDb` → lệch DB: nó ghi chatDb, nhưng supplier-debt/aging/360 (Web 2.0) đọc **web2Db** (bản copy stale từ Phase 5) → supplier-debt luôn show data cũ. (`purchase-orders`, `delivery-assignments` = Web 1.0, chatDb đúng. `sepay-wallet-operations` = cầu nối Web1→2 có chủ đích.)
+
+**Fix (user chọn "chuyển inventory-tracking sang web2Db"):**
+
+- `inventory-tracking.js`: `getDb` chatDb → `web2Db || chatDb`. Cả module nhập hàng + supplier-debt/aging/360 cùng web2Db.
+- Thêm `ensureInventorySchema` (router.use, cached): web2Db chỉ có bản copy `inventory_shipments` (CREATE TABLE AS — thiếu `inventory_suppliers`/related/FK) → self-heal CREATE TABLE IF NOT EXISTS toàn bộ `inventory_*` + cột post-047 (dot_so/thanh_toan_ck/ti_gia/anh_san_pham/ghi_chu_admin).
+- `admin-web2-data-reset`: thêm `target=inventory` (TRUNCATE CASCADE 6 bảng inventory*\*, backup \_bak*).
+- `scripts/web2-seed-inventory-shipments.js`: wipe + seed 5 NCC shipment theo kho SP (san_pham từ web2_products, thanh_toán 1 phần → debt scenario). ⚠ **dot_so RIÊNG mỗi NCC** vì POST inherit `thanh_toan_ck` theo `WHERE dot_so=$1` (không theo ngày/NCC) → dùng chung dot_so lẫn payment.
+
+**Verify:** supplier-debt + supplier-aging show đúng 5 NCC (ADIDAS nợ 3.82M chưa trả, HƯƠNG CHÂU nợ 0 trả đủ, HÀ NỘI/QUẢNG CHÂU/B4 trả 1 phần). inventory-tracking page đọc web2Db (data có, hiện theo đợt/ngày). **Status:** ✅ Done.
+
 ### [web2] Photo-studio — chèn nền: preset studio + nền đã lưu + chọn nền trên camera ✅
 
 User: "không phải tách nền mà chụp chèn nền khác vào" → tối ưu phần thay nền (chọn 1,3,4).
