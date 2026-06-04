@@ -25,6 +25,10 @@
 
 ## 2026-06-04
 
+### [so-order][web2] supplier-debt reseed KHỚP Sổ Order ✅
+
+User: "xóa supplier-debt cho chuẩn với so-order mới tạo". `scripts/web2-seed-supplier-debt-from-soorder.js`: đọc Firestore `web2_so_order/main` → gom rows theo NCC → `tong_tien_hd = Σ(costPrice × qty)`. Wipe inventory_shipments + seed 1 shipment/NCC khớp **chính xác** Sổ Order (paid=0 vì so-order không có thanh toán → debt = full owed). Verify supplier-debt = ADIDAS 2.61M, HƯƠNG CHÂU 2.35M, B4 2.34M, QUẢNG CHÂU 2.27M, HÀ NỘI 1.89M — đúng tổng cost từng NCC trong Sổ Order.
+
 ### [render][web2] inventory-tracking → web2Db + reseed supplier-debt theo kho ✅
 
 **Audit chatDb (user yêu cầu "search chatDb"):** Mọi route Web 2.0 "thuần" đã dùng đúng `web2Db || chatDb`. Chỉ `inventory-tracking.js` còn bare `chatDb` → lệch DB: nó ghi chatDb, nhưng supplier-debt/aging/360 (Web 2.0) đọc **web2Db** (bản copy stale từ Phase 5) → supplier-debt luôn show data cũ. (`purchase-orders`, `delivery-assignments` = Web 1.0, chatDb đúng. `sepay-wallet-operations` = cầu nối Web1→2 có chủ đích.)
