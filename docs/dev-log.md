@@ -42,7 +42,9 @@
 
 Khi AI tách nhầm chủ thể (giữ nhầm người/vật phản chiếu/nhiều món), user **chạm 1 phát vào món muốn giữ** → AI cắt chính xác viền món đó, thay cho phần tách sai. Mạnh hơn brush thủ công vì hiểu vật thể.
 
-**Files:** `web2/photo-studio/index.html`, `photo-studio.js`, `photo-studio.css` (v=20260604p), `sw.js` (cache v2)
+**Files:** `web2/photo-studio/index.html`, `photo-studio.js`, `photo-studio.css` (v=20260604q), `sw.js` (cache v2)
+
+**Bổ sung (v=20260604q):** nút ✂ **"Tách ra ảnh riêng"** trong thanh chọn món → sau khi chạm chọn, lưu luôn món đó thành PNG nền trong suốt, **cắt sát viền** (bbox + pad 2%), feather theo `state.feather`, honor mirror selfie + AI upscale nếu bật. Pick bar **không đóng** → tách nhiều món liên tiếp. Test: chạm ô 150×150 → file `mon-….png` 168×167, 24016px đục + 4040px trong suốt, 0 lỗi.
 
 - **Engine:** Hugging Face **Transformers.js v3** (`@huggingface/transformers@3.7.1`, jsdelivr ESM) + model **SlimSAM/MobileSAM** `Xenova/slimsam-77-uniform` (~14MB q8). Chạy in-browser, không server.
 - **Tốc độ:** probe `navigator.gpu.requestAdapter()` thật → WebGPU fp32 nếu có (nhanh), fallback **WASM q8** (chạy mọi máy, kể cả mobile không WebGPU). Encode khung gốc 1 lần (`get_image_embeddings`) → cache → mỗi cú chạm chỉ decode (nhanh).
