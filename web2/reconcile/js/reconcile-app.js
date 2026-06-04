@@ -484,9 +484,10 @@
             renderDetail();
             const t = res.pbh?.totals || {};
             if (t.isComplete) {
-                // Đủ hết SP trong đơn → server tự set fulfillment_state='picked' → ĐÃ CHECK XONG.
+                // Đủ hết SP → server tự set 'packed' (đã đối soát + đóng gói luôn,
+                // không cần bấm nút Đóng gói).
                 feedback(
-                    `✓✓ ĐỦ HÀNG — ĐÃ CHECK XONG ${STATE.selectedNumber}. Quét bill kế tiếp →`,
+                    `✓✓ ĐỦ HÀNG — ĐÃ ĐỐI SOÁT XONG ${STATE.selectedNumber} (tự đóng gói). Quét bill kế tiếp →`,
                     false,
                     true
                 );

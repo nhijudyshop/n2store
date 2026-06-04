@@ -307,7 +307,7 @@ router.get('/:number', async (req, res) => {
 // -----------------------------------------------------
 // Internal helper: apply pick mutation atomically
 // -----------------------------------------------------
-async function applyPick(pool, number, mutator) {
+async function applyPick(pool, number, mutator, opts = {}) {
     const r = await pool.query(`SELECT * FROM fast_sale_orders WHERE number = $1 FOR UPDATE`, [
         number,
     ]);
@@ -330,18 +330,39 @@ async function applyPick(pool, number, mutator) {
     const totalQty = lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0);
     const totalPicked = updated.reduce((s, p) => s + (Number(p.picked_qty) || 0), 0);
     let newState;
+    let setPackedAt = false;
     if (totalPicked === 0) newState = 'pending';
-    else if (totalPicked >= totalQty) newState = 'picked';
-    else newState = 'picking';
+    else if (totalPicked >= totalQty) {
+        // 2026-06-04: quét ĐỦ SL → tự chuyển 'packed' (đã đối soát đủ → đóng gói luôn,
+        // KHÔNG cần bấm nút Đóng gói). Chỉ khi opts.autoPack (từ /scan) + chưa packed.
+        if (opts.autoPack) {
+            newState = 'packed';
+            setPackedAt = true;
+        } else {
+            newState = 'picked';
+        }
+    } else newState = 'picking';
 
-    await pool.query(
-        `UPDATE fast_sale_orders
-         SET fulfillment_picked_lines = $1::jsonb,
-             fulfillment_state = $2,
-             date_updated = NOW()
-         WHERE number = $3`,
-        [JSON.stringify(updated), newState, number]
-    );
+    if (setPackedAt) {
+        await pool.query(
+            `UPDATE fast_sale_orders
+             SET fulfillment_picked_lines = $1::jsonb,
+                 fulfillment_state = $2,
+                 fulfillment_packed_at = $4,
+                 date_updated = NOW()
+             WHERE number = $3`,
+            [JSON.stringify(updated), newState, number, Date.now()]
+        );
+    } else {
+        await pool.query(
+            `UPDATE fast_sale_orders
+             SET fulfillment_picked_lines = $1::jsonb,
+                 fulfillment_state = $2,
+                 date_updated = NOW()
+             WHERE number = $3`,
+            [JSON.stringify(updated), newState, number]
+        );
+    }
     return { stateBefore, stateAfter: newState, picked: updated, lines };
 }
 
@@ -361,27 +382,32 @@ router.post('/:number/scan', async (req, res) => {
     try {
         await ensureTables(pool);
         await client.query('BEGIN');
-        const result = await applyPick(client, number, ({ lines, picked }) => {
-            const line = lines.find((l) => (l.productCode || l.code) === productCode);
-            if (!line) {
-                throw new Error(`SP ${productCode} không có trong PBH này`);
-            }
-            const existing = picked.find((p) => p.productCode === productCode);
-            const maxQty = Number(line.quantity) || 0;
-            if (existing) {
-                if (existing.picked_qty >= maxQty) {
-                    throw new Error(
-                        `SP ${productCode} đã đủ (${existing.picked_qty}/${maxQty}). Không thể scan thêm.`
+        const result = await applyPick(
+            client,
+            number,
+            ({ lines, picked }) => {
+                const line = lines.find((l) => (l.productCode || l.code) === productCode);
+                if (!line) {
+                    throw new Error(`SP ${productCode} không có trong PBH này`);
+                }
+                const existing = picked.find((p) => p.productCode === productCode);
+                const maxQty = Number(line.quantity) || 0;
+                if (existing) {
+                    if (existing.picked_qty >= maxQty) {
+                        throw new Error(
+                            `SP ${productCode} đã đủ (${existing.picked_qty}/${maxQty}). Không thể scan thêm.`
+                        );
+                    }
+                    return picked.map((p) =>
+                        p.productCode === productCode
+                            ? { ...p, picked_qty: p.picked_qty + 1, last_scan_at: Date.now() }
+                            : p
                     );
                 }
-                return picked.map((p) =>
-                    p.productCode === productCode
-                        ? { ...p, picked_qty: p.picked_qty + 1, last_scan_at: Date.now() }
-                        : p
-                );
-            }
-            return [...picked, { productCode, picked_qty: 1, last_scan_at: Date.now() }];
-        });
+                return [...picked, { productCode, picked_qty: 1, last_scan_at: Date.now() }];
+            },
+            { autoPack: true }
+        );
         await client.query('COMMIT');
 
         await logAction(
