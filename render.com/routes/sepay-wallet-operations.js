@@ -10,57 +10,14 @@ const { getOrCreateCustomerFromTPOS } = require('../services/customer-creation-s
 const { processDeposit } = require('../services/wallet-event-processor');
 
 // =====================================================
-// WEB 2.0 SYNC HELPER
-// Sau khi Live Mode UPDATE balance_history (Web 1 legacy), mirror các editable
-// columns sang web2_balance_history (Web 2.0 isolated table) qua sepay_id.
-// Vì các endpoint Web 2.0 (`/api/v2/balance-history/verification-queue`,
-// `accountant/stats`, …) đọc/UPDATE từ web2_balance_history → nếu không sync,
-// KT mở tab "Chờ Duyệt" sẽ KHÔNG thấy GD vừa được NV xác nhận ở Live Mode
-// (mặc dù balance_history đã có verification_status = 'PENDING_VERIFICATION').
+// WEB 1.0 ONLY. File này (tên KHÔNG có "web2") thuộc Web 1.0 → CHỈ đụng bảng
+// Web 1.0 (balance_history, customers, balance_customer_info…). KHÔNG ghi
+// web2_balance_history hay bất kỳ bảng web2_* nào.
 //
-// Best-effort: lỗi "does not exist" (web2 bảng chưa tạo) được swallow im lặng.
+// Web 2.0 SePay hoàn toàn độc lập: webhook path riêng (sepay-webhook-core.js
+// _processWeb2Path → web2Db) tự INSERT web2_balance_history + tự match (auto,
+// no accountant). Mirror Web1→Web2 cũ đã GỠ (tách độc lập theo yêu cầu user).
 // =====================================================
-async function _syncWeb2BalanceHistory(db, balanceHistoryId) {
-    if (!db || !balanceHistoryId) return;
-    try {
-        const result = await db.query(
-            `UPDATE web2_balance_history w2
-             SET linked_customer_phone   = src.linked_customer_phone,
-                 customer_id             = src.customer_id,
-                 customer_name           = src.customer_name,
-                 display_name            = src.display_name,
-                 match_method            = src.match_method,
-                 verification_status     = src.verification_status,
-                 verification_note       = src.verification_note,
-                 verification_image_url  = src.verification_image_url,
-                 verified_by             = src.verified_by,
-                 verified_at             = src.verified_at,
-                 wallet_processed        = src.wallet_processed,
-                 is_hidden               = src.is_hidden,
-                 staff_note              = src.staff_note,
-                 debt_added              = src.debt_added,
-                 updated_at              = NOW()
-             FROM balance_history src
-             WHERE src.id = $1 AND w2.sepay_id = src.sepay_id`,
-            [balanceHistoryId]
-        );
-
-        // Nếu row chưa tồn tại trong web2 (mirror INSERT khi webhook fail) →
-        // fallback INSERT để self-heal.
-        if (result.rowCount === 0) {
-            await db.query(
-                `INSERT INTO web2_balance_history
-                 SELECT * FROM balance_history WHERE id = $1
-                 ON CONFLICT (sepay_id) DO NOTHING`,
-                [balanceHistoryId]
-            );
-        }
-    } catch (e) {
-        if (!String(e.message).includes('does not exist')) {
-            console.warn('[SYNC-W2-BH] mirror update failed:', e.message);
-        }
-    }
-}
 
 /**
  * Register wallet operation routes on the given router
@@ -206,35 +163,8 @@ function registerRoutes(router, helpers) {
                                 'balance_history records to customer'
                             );
                         }
-
-                        // Cùng update web2_balance_history (Web 2.0 isolated table)
-                        // để 2 layer đồng bộ customer link. Best-effort — fail không chặn.
-                        try {
-                            const w2Update = await db.query(
-                                `
-                                UPDATE web2_balance_history
-                                SET customer_id = $1,
-                                    linked_customer_phone = $2,
-                                    match_method = COALESCE(match_method, 'qr_code'),
-                                    display_name = COALESCE(display_name, $4),
-                                    updated_at = CURRENT_TIMESTAMP
-                                WHERE (content LIKE '%' || $3 || '%' OR reference_code = $3)
-                                  AND customer_id IS NULL
-                            `,
-                                [customerId, customerPhone, uniqueCode, customerName || null]
-                            );
-                            if (w2Update.rowCount > 0) {
-                                console.log(
-                                    '[CUSTOMER-INFO] Mirrored',
-                                    w2Update.rowCount,
-                                    'web2_balance_history records'
-                                );
-                            }
-                        } catch (w2Err) {
-                            if (!String(w2Err.message).includes('does not exist')) {
-                                console.warn('[CUSTOMER-INFO] web2 mirror failed:', w2Err.message);
-                            }
-                        }
+                        // (Web1⊥Web2) KHÔNG mirror sang web2_balance_history nữa — Web 2.0
+                        // SePay độc lập, tự xử lý customer link qua webhook path riêng.
                     } else {
                         console.log(
                             '[CUSTOMER-INFO] uniqueCode is phone-based, skipping balance_history update'
@@ -734,9 +664,7 @@ function registerRoutes(router, helpers) {
                 `[TRANSACTION-PHONE-UPDATE] Transaction #${id}: ${oldPhone || 'NULL'} -> ${newPhone} (manual_entry=${is_manual_entry})`
             );
 
-            // Mirror sang web2_balance_history để KT thấy GD ở tab Chờ Duyệt
-            // (verification-queue endpoint đọc web2 table, không phải legacy).
-            await _syncWeb2BalanceHistory(db, id);
+            // (Web1⊥Web2) KHÔNG mirror sang web2_balance_history — Web 2.0 độc lập.
 
             // Clear any pending_customer_matches for this transaction
             const deletePendingResult = await db.query(
@@ -946,9 +874,9 @@ function registerRoutes(router, helpers) {
             const downgradeToPending = pending_verification === true && hidden === true;
             if (downgradeToPending) {
                 sets.push(
-                    "verification_status = CASE " +
-                    "WHEN verification_status IN ('APPROVED', 'REJECTED') THEN verification_status " +
-                    "ELSE 'PENDING_VERIFICATION' END"
+                    'verification_status = CASE ' +
+                        "WHEN verification_status IN ('APPROVED', 'REJECTED') THEN verification_status " +
+                        "ELSE 'PENDING_VERIFICATION' END"
                 );
             }
 
@@ -964,9 +892,7 @@ function registerRoutes(router, helpers) {
                 });
             }
 
-            // Mirror sang web2_balance_history để KT thấy GD vừa "Xác nhận"
-            // ở tab Chờ Duyệt (verification-queue endpoint đọc web2 table).
-            await _syncWeb2BalanceHistory(db, id);
+            // (Web1⊥Web2) KHÔNG mirror sang web2_balance_history — Web 2.0 độc lập.
 
             console.log(
                 `[TRANSACTION-HIDDEN] Transaction #${id}: is_hidden=${hidden}${staff_note ? `, staff_note="${staff_note}"` : ''}${downgradeToPending ? `, verification_status=${updateResult.rows[0].verification_status} (->Chờ Duyệt)` : ''}`

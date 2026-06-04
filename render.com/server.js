@@ -187,17 +187,19 @@ chatDbPool
         }
         // WEB 2.0 Phase 5/6: match audit log + retry queue + blacklist tables
         try {
+            // Tables web2_* (audit/retry/blacklist) tạo trên web2Db — tên web2_ = Web 2.0.
+            const w2SchemaPool = web2Pool || chatDbPool;
             const matchAudit = require('./services/web2-match-audit');
             matchAudit
-                .ensureSchema(chatDbPool)
+                .ensureSchema(w2SchemaPool)
                 .catch((e) => console.warn('[web2-match-audit] init warn:', e.message));
             const retry = require('./services/web2-webhook-retry');
             retry
-                .ensureSchema(chatDbPool)
+                .ensureSchema(w2SchemaPool)
                 .catch((e) => console.warn('[web2-webhook-retry] init warn:', e.message));
             const blacklist = require('./services/web2-blacklist');
             blacklist
-                .ensureSchema(chatDbPool)
+                .ensureSchema(w2SchemaPool)
                 .catch((e) => console.warn('[web2-blacklist] init warn:', e.message));
             // Start retry cron — re-runs failed Web 2.0 webhook payloads.
             // Delay 5s để schema tables tạo xong.
