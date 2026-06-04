@@ -45,7 +45,9 @@
 - `server.js`: ensureSchema các service web2-\_ (wallet-isolation, sepay-matching, match-audit, webhook-retry, blacklist) đổi `chatDbPool` → `web2Pool` (bảng web2\_\_ tạo trên web2Db, hết tạo leftover trên Web 1.0).
 - Web 2.0 SePay vẫn độc lập qua `sepay-webhook-core._processWeb2Path → web2Db` (đã isolated sẵn). `wallet-deposits.js` (WEB2.0) đọc web2Db đúng.
 
-**3. Drop orphan**: boot cleanup DROP IF EXISTS 6 bảng `inventory_*` trên web2Db (leftover từ seed supplier-debt). Guard chặt `web2Pool !== chatDbPool` → không drop nhầm Web 1.0.
+**3. Drop orphan**: boot cleanup DROP IF EXISTS 6 bảng `inventory_*` trên web2Db (leftover từ seed supplier-debt). Guard chặt `web2Pool !== chatDbPool` → không drop nhầm Web 1.0. **Verified**: `services-overview` → web2Db `inventory_* = NONE` ✓; chatDb giữ `inventory_product_images` (Web 1.0 thật, đúng).
+
+> **NOTE (để sau)**: chatDb (Web 1.0) còn bảng Web2-domain leftover — đáng chú ý `web2_balance_history` **~4909 rows** (data thật), + native*orders/fast_sale_orders/web2*\* copies. **CỐ Ý ĐỂ NGUYÊN** (user quyết 2026-06-04): vô hại (không code nào đọc/ghi nữa, Web 2.0 đã sang web2Db), KHÔNG auto-drop vì chatDb là prod + web2_balance_history có data thật. Dọn an toàn nếu cần sau: endpoint admin liệt kê rowCount từng bảng → user confirm → drop có kiểm soát. Chi tiết: MEMORY `reference_chatdb_web2_leftovers.md`.
 
 > Bối cảnh: user yêu cầu Web 1.0 ⊥ Web 2.0 tuyệt đối (không share/đụng gì 2 chiều). Data Web 2.0 đang giai đoạn thử nghiệm → thoải mái, ưu tiên code đúng kiến trúc. Quy ước tên: có "web2" = Web 2.0 (web2Db), không có = Web 1.0 (chatDb).
 
