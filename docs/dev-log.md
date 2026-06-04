@@ -25,7 +25,15 @@
 
 ## 2026-06-04
 
-### [web2 printer] In tem mã SP thẳng ra máy tem (role 'label') ✅
+### [web2 extension] Pancake token auto-refresh + cảnh báo sắp hết hạn ✅
+
+User: tối ưu full chức năng `web2/pancake-settings` — gần hết hạn token (≤1 ngày) thì hiện bảng mở pancake lấy token, hoặc lấy bằng extension. User chọn "thêm handler vào extension (auto thật)" + "không cần bấm nút extension".
+
+- **Browser-test xác minh** (cookie pancake từ secrets): JWT pancake ở **cookie `jwt`** (KHÔNG phải `token` như page ghi sai), **không HttpOnly**, KHÔNG ở localStorage. Dùng được `?access_token=` trên `pages.fm/api/v1/pages` (3 pages).
+- **Extension** (user duyệt sửa, bump 1.0.25→1.0.26 → auto-republish CWS): `contentscript.js` thêm INBOUND `GET_PANCAKE_TOKEN` + OUTBOUND `GET_PANCAKE_TOKEN_SUCCESS/FAILURE`. `service-worker.js` thêm case `GET_PANCAKE_TOKEN` → `chrome.cookies.getAll({domain:'pancake.vn',name:'jwt'})` → trả token. Đọc cookie nền, **không cần mở tab pancake, không cần bấm nút** — chỉ cần đang đăng nhập pancake.vn.
+- **`web2/shared/web2-pancake-token.js`** (mới): `Web2PancakeToken` — `getStatus()` (state none/expired/critical≤1d/soon≤3d/ok), `isExtensionPresent()` (marker `data-n2store-extension`), `fetchFromExtension()` (postMessage bridge + timeout 4.5s), `applyToken()`, `ensureFresh()` (auto lấy token mới khi critical/expired/none).
+- **`pancake-settings`**: sửa hướng dẫn cookie sai (`token`→`jwt` + 1-dòng console `copy(document.cookie.match(/(?:^|; )jwt=([^;]+)/)[1])`); thêm nút "Lấy tự động", ext-status pill, banner soon/critical, **modal cảnh báo** (auto-fetch ngầm khi load nếu sắp hết hạn → thành công thì không hiện modal; fail mới hiện modal kèm lý do + manual paste). Thêm `@keyframes spin` (vốn thiếu — loader cũ không quay).
+- Verified Playwright 5 scenario: none→modal, critical→modal+banner, soon→banner-only, paste→apply+close, **extension giả lập→auto-refresh ngầm critical→ok không modal**. 0 console error.
 
 User: tiếp tục — in mã SP cần máy tem riêng (khác máy in PBH).
 
