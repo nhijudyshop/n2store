@@ -169,6 +169,42 @@
     color: var(--danger);
 }
 
+/* Tồn kho gộp chung cột Biến thể (2026-06-04) — pill biến thể + badge tồn xếp dọc */
+.variant-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+}
+.stock-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.3;
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+    white-space: nowrap;
+}
+.stock-badge i {
+    width: 12px;
+    height: 12px;
+}
+.stock-badge.low {
+    background: #fffbeb;
+    color: #b45309;
+    border-color: #fde68a;
+}
+.stock-badge.zero {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+}
+
 .active-badge {
     display: inline-flex;
     align-items: center;

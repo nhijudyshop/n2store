@@ -64,14 +64,15 @@
                     <td>${imgHtml}</td>
                     <td><span class="code-badge code-product" onclick="Web2ProductsApp.copyCode('${escapeHtml(p.code)}')"><i data-lucide="tag"></i>${escapeHtml(p.code)}</span></td>
                     <td><div style="font-weight:600;">${escapeHtml(p.name)}</div></td>
-                    <td class="variant-cell">${
-                        variantText
-                            ? `<span class="variant-pill">${escapeHtml(variantText)}</span>`
-                            : '<span class="variant-empty">—</span>'
-                    }</td>
+                    <td class="variant-cell">
+                        <div class="variant-stack">${
+                            variantText
+                                ? `<span class="variant-pill">${escapeHtml(variantText)}</span>`
+                                : '<span class="variant-empty">—</span>'
+                        }<span class="stock-badge ${stockClass}" title="Tồn kho"><i data-lucide="package"></i>Tồn: ${p.stock ?? 0}</span></div>
+                    </td>
                     <td class="price-cell price-buy">${fmtPrice(priceBuy)}</td>
                     <td class="price-cell price-sell">${fmtPrice(priceSell)}</td>
-                    <td class="stock-cell ${stockClass}">${p.stock ?? 0}</td>
                     <td class="usage-cell">${renderUsageBadge(p.code)}</td>
                     <td class="note-cell" title="${escapeHtml(p.note || '')}">${escapeHtml(p.note || '—')}</td>
                     <td>
@@ -112,7 +113,7 @@
     function renderRows() {
         const items = STATE.products;
         if (!items.length) {
-            tbody().innerHTML = `<tr><td colspan="13" class="empty-row">
+            tbody().innerHTML = `<tr><td colspan="12" class="empty-row">
                 Chưa có sản phẩm — bấm "Thêm SP" để tạo
             </td></tr>`;
             _updateSelectAllState();
@@ -444,7 +445,7 @@
     async function load() {
         if (STATE.loading) return;
         STATE.loading = true;
-        tbody().innerHTML = `<tr><td colspan="13" class="loading-row">
+        tbody().innerHTML = `<tr><td colspan="12" class="loading-row">
             <div class="spinner"></div>Đang tải dữ liệu...
         </td></tr>`;
         try {
@@ -464,7 +465,7 @@
             _loadUsageForCurrentPage();
         } catch (e) {
             console.error(e);
-            tbody().innerHTML = `<tr><td colspan="13" class="empty-row" style="color:#ef4444;">
+            tbody().innerHTML = `<tr><td colspan="12" class="empty-row" style="color:#ef4444;">
                 Lỗi tải: ${escapeHtml(e.message)}
             </td></tr>`;
             notify('Lỗi tải dữ liệu: ' + e.message, 'error');
