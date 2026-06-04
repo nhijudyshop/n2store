@@ -665,6 +665,8 @@ app.use('/api/web2/customer-tpos', web2CustomerTposRoutes);
 // 2026-06-03: kho KH riêng Web 2.0 (web2_customers @ web2Db) — thay /api/v2/customers Web 1.0
 const web2CustomersRoutes = require('./routes/v2/web2-customers');
 app.use('/api/web2/customers', web2CustomersRoutes);
+// 2026-06-04: Goong geocode proxy (auto-detect địa chỉ giao hàng — Method B).
+app.use('/api/web2/geocode', require('./routes/v2/web2-geocode'));
 // 2026-06-03: generic catch-all `/api/web2/:entity` — MOUNT CUỐI CÙNG sau mọi
 // dedicated route ở trên để không shadow chúng. Entity nào không có dedicated
 // route sẽ rơi xuống đây (78 generic web2 entities, CRUD bảng web2_records).

@@ -228,14 +228,319 @@
         return backend && backend.length ? backend : OPTIONS;
     }
 
+    // =====================================================================
+    // 2026-06-04: AUTO-DETECT ĐỊA CHỈ MẠNH HƠN — 2 method cross-validate.
+    //   Method A (offline): keyword zone + province VN + fuzzy (typo tolerant).
+    //   Method B (online):  Goong geocode qua backend proxy /api/web2/geocode
+    //                       (deprecated_compound.district + compound.province).
+    //   A === B → confidence 'high'; lệch → 'conflict' (cờ cần kiểm tra).
+    // Địa chỉ VN nhập tự do nhiều format → 2 nguồn khớp = tỉ lệ đúng cao.
+    // =====================================================================
+
+    // HCMC aliases (địa chỉ thuộc TP.HCM).
+    const HCMC_ALIASES = [
+        'ho chi minh',
+        'tphcm',
+        'tp hcm',
+        'hcm',
+        'sai gon',
+        'saigon',
+        'tphochiminh',
+    ];
+
+    // Tỉnh/thành VN (KHÔNG gồm HCMC) — normalized. Gồm 62 tỉnh cũ + tên gộp
+    // 2025 phổ biến → phát hiện "đơn ngoài HCMC" dù địa chỉ thiếu/khác format.
+    const PROVINCES_NON_HCM = [
+        'ha noi',
+        'hai phong',
+        'da nang',
+        'can tho',
+        'hue',
+        'thua thien hue',
+        'an giang',
+        'ba ria vung tau',
+        'vung tau',
+        'bac giang',
+        'bac kan',
+        'bac lieu',
+        'bac ninh',
+        'ben tre',
+        'binh dinh',
+        'binh duong',
+        'binh phuoc',
+        'binh thuan',
+        'ca mau',
+        'cao bang',
+        'dak lak',
+        'dak nong',
+        'dien bien',
+        'dong nai',
+        'dong thap',
+        'gia lai',
+        'ha giang',
+        'ha nam',
+        'ha tinh',
+        'hai duong',
+        'hau giang',
+        'hoa binh',
+        'hung yen',
+        'khanh hoa',
+        'nha trang',
+        'kien giang',
+        'kon tum',
+        'lai chau',
+        'lam dong',
+        'da lat',
+        'lang son',
+        'lao cai',
+        'long an',
+        'nam dinh',
+        'nghe an',
+        'vinh',
+        'ninh binh',
+        'ninh thuan',
+        'phan rang',
+        'phu tho',
+        'phu yen',
+        'tuy hoa',
+        'quang binh',
+        'quang nam',
+        'quang ngai',
+        'quang ninh',
+        'ha long',
+        'quang tri',
+        'soc trang',
+        'son la',
+        'tay ninh',
+        'thai binh',
+        'thai nguyen',
+        'thanh hoa',
+        'tien giang',
+        'my tho',
+        'tra vinh',
+        'tuyen quang',
+        'vinh long',
+        'vinh phuc',
+        'yen bai',
+    ];
+
+    // Levenshtein (typo tolerance) — chỉ dùng cho token ngắn (tên quận/tỉnh).
+    function _lev(a, b) {
+        const m = a.length,
+            n = b.length;
+        if (Math.abs(m - n) > 2) return 3;
+        const dp = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+        for (let j = 0; j <= n; j++) dp[0][j] = j;
+        for (let i = 1; i <= m; i++)
+            for (let j = 1; j <= n; j++)
+                dp[i][j] = Math.min(
+                    dp[i - 1][j] + 1,
+                    dp[i][j - 1] + 1,
+                    dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+                );
+        return dp[m][n];
+    }
+
+    // Tìm tên (multi-word) trong tokens với fuzzy (edit distance ≤1 cho từ ≥4 ký tự).
+    function _hasFuzzy(tokens, needleNorm) {
+        if (hasKeyword(tokens, needleNorm)) return true; // exact trước
+        const parts = needleNorm.split(' ');
+        if (parts.length === 1 && parts[0].length >= 4) {
+            return tokens.some((t) => t.length >= 4 && _lev(t, parts[0]) <= 1);
+        }
+        // multi-word: mỗi part khớp (exact hoặc fuzzy) trong cửa sổ liên tiếp
+        for (let i = 0; i <= tokens.length - parts.length; i++) {
+            let ok = true;
+            for (let j = 0; j < parts.length; j++) {
+                const t = tokens[i + j],
+                    p = parts[j];
+                if (t === p) continue;
+                if (p.length >= 4 && t.length >= 4 && _lev(t, p) <= 1) continue;
+                ok = false;
+                break;
+            }
+            if (ok) return true;
+        }
+        return false;
+    }
+
+    function _detectProvince(tokens) {
+        for (const prov of PROVINCES_NON_HCM) {
+            if (_hasFuzzy(tokens, normalize(prov))) return prov;
+        }
+        return null;
+    }
+    function _isHcmc(tokens) {
+        return HCMC_ALIASES.some((a) => hasKeyword(tokens, normalize(a)));
+    }
+
+    // METHOD A nâng cấp: keyword zone + province awareness + fuzzy.
+    // Trả { option, hits, matched, confidence, note, province }.
+    function pickOffline(address, options) {
+        const opts = options || OPTIONS;
+        const norm = normalize(address);
+        const tokens = norm ? norm.split(' ') : [];
+        const fallback = opts.find((o) => o.isFallback) || null;
+
+        // Zone keyword match (fuzzy) — chọn option nhiều hit nhất.
+        let best = null,
+            bestHits = 0,
+            bestMatched = [];
+        for (const opt of opts) {
+            if (opt.manual || opt.isFallback || !Array.isArray(opt.keywords)) continue;
+            const matched = opt.keywords.filter((k) => _hasFuzzy(tokens, normalize(k)));
+            if (matched.length > bestHits) {
+                best = opt;
+                bestHits = matched.length;
+                bestMatched = matched;
+            }
+        }
+
+        const province = _detectProvince(tokens);
+        const hcmc = _isHcmc(tokens);
+
+        if (best) {
+            // Có district HCMC. Nếu lại có tỉnh ngoài + không thấy "HCM" → mâu thuẫn.
+            if (province && !hcmc) {
+                return {
+                    option: best,
+                    hits: bestHits,
+                    matched: bestMatched,
+                    confidence: 'low',
+                    province,
+                    note: `Khớp khu vực HCM (${bestMatched[0]}) nhưng địa chỉ có tỉnh "${province}" — cần kiểm tra`,
+                };
+            }
+            return {
+                option: best,
+                hits: bestHits,
+                matched: bestMatched,
+                confidence: 'high',
+                province: null,
+            };
+        }
+        // Không có district HCMC.
+        if (province) {
+            return {
+                option: fallback,
+                hits: 0,
+                matched: [province],
+                confidence: 'high',
+                province,
+                note: `Tỉnh "${province}" → SHIP TỈNH`,
+            };
+        }
+        return {
+            option: fallback,
+            hits: 0,
+            matched: [],
+            confidence: 'low',
+            province: null,
+            note: 'Không nhận diện được khu vực — mặc định SHIP TỈNH',
+        };
+    }
+
+    // METHOD B: Goong geocode qua backend proxy (ẩn key). Cache theo norm address.
+    const _geoCache = new Map();
+    async function geocodeGoong(address) {
+        const key = normalize(address);
+        if (!key) return null;
+        if (_geoCache.has(key)) return _geoCache.get(key);
+        const base =
+            window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        try {
+            const r = await fetch(
+                `${base}/api/web2/geocode?address=${encodeURIComponent(address)}`,
+                {
+                    credentials: 'include',
+                }
+            );
+            const j = await r.json();
+            const out =
+                j && j.success
+                    ? { province: j.province || '', district: j.district || '', ward: j.ward || '' }
+                    : null;
+            _geoCache.set(key, out);
+            return out;
+        } catch (e) {
+            console.warn('[DeliveryMethodPicker] Goong geocode failed:', e.message);
+            return null;
+        }
+    }
+
+    // Map kết quả Goong (district + province) → option zone.
+    function _goongToOption(geo, options) {
+        const opts = options || OPTIONS;
+        const fallback = opts.find((o) => o.isFallback) || null;
+        if (!geo) return null;
+        const provNorm = normalize(geo.province || '');
+        const isHcm =
+            HCMC_ALIASES.some((a) => provNorm.includes(a)) || provNorm.includes('ho chi minh');
+        if (!isHcm && geo.province) return { option: fallback, matched: [geo.province] }; // tỉnh khác → SHIP TỈNH
+        // HCMC → match district vào keyword zone
+        const r = pickOffline(geo.district || geo.province || '', opts);
+        return { option: r.option, matched: r.matched };
+    }
+
+    // PICK ROBUST: chạy A + B, cross-validate.
+    async function pickRobust(address, options) {
+        const opts = options || (await getOptionsAsync());
+        const a = pickOffline(address, opts);
+        let b = null,
+            bOpt = null;
+        try {
+            b = await geocodeGoong(address);
+            bOpt = _goongToOption(b, opts);
+        } catch (_) {}
+
+        let confidence = a.confidence;
+        let conflict = false;
+        let source = 'offline';
+        if (bOpt && bOpt.option) {
+            source = 'both';
+            if (a.option && bOpt.option.value === a.option.value) {
+                confidence = 'high'; // 2 bên khớp → tỉ lệ đúng cao
+            } else if (a.option) {
+                conflict = true;
+                confidence = 'conflict';
+            }
+        }
+        return {
+            option: a.option,
+            hits: a.hits,
+            matched: a.matched,
+            confidence,
+            conflict,
+            source,
+            note: a.note || '',
+            methods: {
+                offline: a.option
+                    ? { value: a.option.value, label: a.option.label, matched: a.matched }
+                    : null,
+                goong: b
+                    ? {
+                          province: b.province,
+                          district: b.district,
+                          zone: bOpt?.option?.label || null,
+                      }
+                    : null,
+            },
+        };
+    }
+
     window.DeliveryMethodPicker = {
         OPTIONS,
         pick,
+        pickOffline,
         normalize,
         // Phase 17: backend-driven options (fetches from
         // /api/web2/deliverycarrier/list — single source of truth)
         fetchFromBackend,
         pickAsync,
         getOptionsAsync,
+        // 2026-06-04: 2-method robust auto-detect (offline + Goong cross-validate)
+        geocodeGoong,
+        pickRobust,
+        PROVINCES_NON_HCM,
     };
 })();
