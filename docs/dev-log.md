@@ -38,6 +38,15 @@
 
 **Files:** `scripts/web2-seed-fake-data.js`, `scripts/web2-wipe-so-order.js`, `scripts/web2-verify-data-load.js` (mới). **Status:** ✅ Done.
 
+### [so-order] Xoá data cũ + tạo lại Sổ Order ảo theo kho SP ✅
+
+**Yêu cầu:** Wipe so-order + tạo data ảo tham chiếu kho sản phẩm.
+
+- `scripts/web2-seed-so-order.js`: fetch 20 SP từ kho (`/api/web2-products`), build **2 tabs (HÀ NỘI, QUẢNG CHÂU) / 5 shipments / 20 rows** — mỗi row `productName` = tên SP kho exact → so-order tự resolve mã SP (`Web2ProductsCache.findByNameExact`). Status mix received/draft. Ghi Firestore `web2_so_order/main`.
+- **Gotcha quan trọng:** doc Firestore so-order có shape `{ data: <state>, lastUpdated }` — state (`{trash,tabs,activeTabId}`) **nested dưới `data`**, KHÔNG phải top-level (xem `SoOrderStorage.Sync._loadFromFirestore`). Lần đầu ghi sai (top-level) → page không đọc được. Đã fix wrap `{ data: state, lastUpdated }`.
+- Backup doc cũ trước khi ghi (`downloads/n2store-session/so-order-backup-*.json` — data gốc 3 tabs/9 shipments/35 rows).
+- **Verify browser:** 2 tabs render, codes resolve 100% (B4AO2NAU, B4QUANXAMS28... 0 no-match), shipment newest expanded / older auto-collapse.
+
 ### [web2-products] Gộp tồn kho vào chung cột Biến thể ✅
 
 Bỏ cột TỒN KHO riêng → header "BIẾN THỂ / TỒN KHO". Variant cell: pill biến thể + badge `Tồn: N` (xanh/amber/đỏ theo mức) xếp dọc. colspan 13→12. Verified browser. Files: `web2/products/{index.html,js/web2-products-app.js,css/web2-products.css}`.
