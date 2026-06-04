@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f27b575` — chore(web2): scripts wipe+reseed data ảo (mã SP đúng Web2ProductCode) + verify
-**Last updated**: 2026-06-04 10:37:22 +07
-**Latest session**: [`RESUME:20260604-103722-f27b575`](../20260604-103722-f27b575.md)
-**Summary**: chore(web2): scripts wipe+reseed data ảo (mã SP đúng Web2ProductCode) + verify
+**Latest commit**: `3af9039` — feat(so-order): seed Sổ Order ảo theo kho SP (Firestore web2_so_order)
+**Last updated**: 2026-06-04 10:45:00 +07
+**Latest session**: [`RESUME:20260604-104500-3af9039`](../20260604-104500-3af9039.md)
+**Summary**: feat(so-order): seed Sổ Order ảo theo kho SP (Firestore web2_so_order)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 2 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-04 10:37
+- [`docs/`](./docs.md) — updated 2026-06-04 10:45
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-03 16:52
 - [`downloads/`](./downloads.md) — updated 2026-06-03 18:34
@@ -52,7 +52,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-06-04 10:15
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-04 10:37
+- [`scripts/`](./scripts.md) — updated 2026-06-04 10:45
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-01 18:45
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
