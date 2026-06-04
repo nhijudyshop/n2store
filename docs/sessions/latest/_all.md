@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7183331` — feat(web2): photo-studio v9 — engine cloud PhotoRoom cho 'AI nét' chất lượng cao
-**Last updated**: 2026-06-04 09:50:20 +07
-**Latest session**: [`RESUME:20260604-095020-7183331`](../20260604-095020-7183331.md)
-**Summary**: feat(web2): photo-studio v9 — engine cloud PhotoRoom cho 'AI nét' chất lượng cao
+**Latest commit**: `94dd763` — docs(web2): photo-studio v9 ✅ — PhotoRoom Studio cloud deploy + verify live (cutout 512² 1.5s OK)
+**Last updated**: 2026-06-04 10:15:40 +07
+**Latest session**: [`RESUME:20260604-101540-94dd763`](../20260604-101540-94dd763.md)
+**Summary**: docs(web2): photo-studio v9 ✅ — PhotoRoom Studio cloud deploy + verify live (cutout 512² 1.5s OK)
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 8 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-04 09:49
+- [`docs/`](./docs.md) — updated 2026-06-04 10:15
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-03 16:52
 - [`downloads/`](./downloads.md) — updated 2026-06-03 18:34
@@ -49,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-04 09:50
+- [`render.com/`](./render.com.md) — updated 2026-06-04 10:15
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-04 09:49
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
