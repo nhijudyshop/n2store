@@ -193,6 +193,32 @@
             .ps-add {
                 margin-top: 12px;
             }
+            .ps-install {
+                background: #fff;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 16px 18px;
+            }
+            .ps-install-lead {
+                font-size: 13px;
+                color: #475569;
+                line-height: 1.55;
+                margin: 0 0 12px;
+            }
+            .ps-install-lead code,
+            .ps-install-steps code {
+                background: #eef2ff;
+                border-radius: 4px;
+                padding: 1px 5px;
+                font-size: 12px;
+            }
+            .ps-install-steps {
+                margin: 14px 0 0;
+                padding-left: 20px;
+                font-size: 13px;
+                color: #334155;
+                line-height: 1.7;
+            }
             .role-row {
                 display: flex;
                 align-items: center;
@@ -313,6 +339,46 @@
                         <i data-lucide="git-branch"></i> Gán máy in cho chức năng
                     </div>
                     <div id="roleList"></div>
+
+                    <div class="ps-section-title">
+                        <i data-lucide="download"></i> Cài Print Bridge (Windows — 1 click)
+                    </div>
+                    <div class="ps-install">
+                        <p class="ps-install-lead">
+                            Print Bridge giúp in <strong>thẳng ra máy in mạng (IP)</strong> không
+                            cần hộp thoại. Bản PowerShell <strong>KHÔNG cần cài Node</strong> — tải
+                            file <code>.bat</code> bên dưới, bấm đúp 1 lần: nó tự cài,
+                            <strong>chạy nền</strong> và <strong>tự bật mỗi khi mở máy</strong>.
+                        </p>
+                        <div class="ps-actions">
+                            <button class="ps-btn ps-btn-primary" id="btnDownloadBat">
+                                <i data-lucide="download" style="width: 16px; height: 16px"></i>
+                                Tải file cài đặt (.bat)
+                            </button>
+                            <button class="ps-btn ps-btn-ghost" id="btnDownloadPs1">
+                                <i data-lucide="file-code" style="width: 16px; height: 16px"></i>
+                                Tải print-bridge.ps1 (thủ công)
+                            </button>
+                        </div>
+                        <ol class="ps-install-steps">
+                            <li>Bấm <strong>Tải file cài đặt (.bat)</strong> → lưu về máy POS.</li>
+                            <li>
+                                Bấm đúp file <code>cai-print-bridge.bat</code> (nếu Windows hỏi
+                                SmartScreen → "More info" → "Run anyway").
+                            </li>
+                            <li>
+                                Xong! Bridge chạy nền + tự bật khi khởi động. Quay lại đây bấm
+                                <strong>Test kết nối</strong> ở máy in.
+                            </li>
+                            <li style="color: #94a3b8">
+                                Gỡ: xóa file
+                                <code
+                                    >%APPDATA%\Microsoft\Windows\Start
+                                    Menu\Programs\Startup\N2StorePrintBridge.vbs</code
+                                >
+                            </li>
+                        </ol>
+                    </div>
                 </div>
             </main>
         </div>
@@ -556,6 +622,63 @@
                         toast('✗ ' + err.message, 'error');
                     }
                     return;
+                }
+            });
+
+            // ── Tải file cài đặt 1-click + print-bridge.ps1 ──
+            function _download(filename, content, type) {
+                const blob = new Blob([content], { type: type || 'text/plain;charset=utf-8' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    URL.revokeObjectURL(a.href);
+                    a.remove();
+                }, 200);
+            }
+            function batContent() {
+                const url = location.origin + '/scripts/print-bridge.ps1';
+                // .bat: tải .ps1 → tạo launcher chạy ẩn → bỏ vào Startup → chạy ngay.
+                return [
+                    '@echo off',
+                    'chcp 65001 >nul',
+                    'setlocal',
+                    'set "DIR=%LOCALAPPDATA%\\N2StorePrintBridge"',
+                    'set "STARTUP=%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"',
+                    'set "URL=' + url + '"',
+                    'echo ============================================',
+                    'echo   Cai N2Store Print Bridge (tu chay nen)',
+                    'echo ============================================',
+                    'if not exist "%DIR%" mkdir "%DIR%"',
+                    'echo Dang tai print-bridge.ps1 ...',
+                    "powershell -NoProfile -Command \"try{ Invoke-WebRequest -Uri '%URL%' -OutFile '%DIR%\\print-bridge.ps1' -UseBasicParsing; exit 0 }catch{ Write-Host $_.Exception.Message; exit 1 }\"",
+                    'if not exist "%DIR%\\print-bridge.ps1" ( echo [LOI] Khong tai duoc tu %URL% & pause & exit /b 1 )',
+                    'REM Launcher chay an khong cua so',
+                    '> "%DIR%\\run-hidden.vbs" echo CreateObject("WScript.Shell").Run "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""%DIR%\\print-bridge.ps1""", 0, False',
+                    'REM Tu bat khi dang nhap Windows',
+                    'copy /Y "%DIR%\\run-hidden.vbs" "%STARTUP%\\N2StorePrintBridge.vbs" >nul',
+                    'REM Chay ngay',
+                    'wscript "%DIR%\\run-hidden.vbs"',
+                    'echo.',
+                    'echo  [OK] Da cai xong. Print Bridge dang chay nen tai http://127.0.0.1:17777',
+                    'echo  No se TU BAT moi khi mo may.',
+                    'echo.',
+                    'pause',
+                ].join('\r\n');
+            }
+            $('btnDownloadBat').addEventListener('click', () => {
+                _download('cai-print-bridge.bat', batContent());
+                toast('Đã tải file cài đặt — bấm đúp để chạy', 'success');
+            });
+            $('btnDownloadPs1').addEventListener('click', async () => {
+                try {
+                    const r = await fetch(location.origin + '/scripts/print-bridge.ps1');
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    _download('print-bridge.ps1', await r.text());
+                } catch (e) {
+                    toast('Không tải được print-bridge.ps1: ' + e.message, 'error');
                 }
             });
 
