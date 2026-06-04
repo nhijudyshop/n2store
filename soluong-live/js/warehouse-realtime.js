@@ -29,6 +29,12 @@
     const EVENT_DEBOUNCE_MS = 1500; // gom nhiều event TPOS bắn liên tiếp
     const FULL_REFRESH_THROTTLE_MS = 8000; // tránh refresh-all dồn dập khi sync lớn
 
+    // Reconcile-on-load: bắt thay đổi TPOS xảy ra khi KHÔNG tab nào mở (vd qua đêm).
+    // Throttle qua localStorage (chung index + list cùng origin) để không hammer mỗi lần load.
+    const RECONCILE_AT_KEY = 'soluongWhReconcileAt';
+    const RECONCILE_MIN_INTERVAL_MS = 10 * 60 * 1000; // tối đa 1 lần / 10 phút / trình duyệt
+    const RECONCILE_START_DELAY_MS = 3000; // chờ Firebase load cart xong
+
     function num(v) {
         const n = Number(v);
         return Number.isFinite(n) ? n : 0;
@@ -264,10 +270,33 @@
             console.warn('[WarehouseSync] EventSource setup failed:', err);
         }
 
-        return {
+        // Reconcile-on-load: đối chiếu cart hiện tại với TPOS (bắt thay đổi khi không tab nào mở).
+        let reconcileTimer = setTimeout(() => {
+            reconcileTimer = null;
+            let last = 0;
+            try {
+                last = Number(localStorage.getItem(RECONCILE_AT_KEY)) || 0;
+            } catch (_) {}
+            if (Date.now() - last < RECONCILE_MIN_INTERVAL_MS) return;
+            try {
+                localStorage.setItem(RECONCILE_AT_KEY, String(Date.now()));
+            } catch (_) {}
+            console.log('[WarehouseSync] Reconcile-on-load: đối chiếu cart với TPOS…');
+            refresh(null, Date.now(), false).catch((e) =>
+                console.warn('[WarehouseSync] reconcile error:', e)
+            );
+        }, RECONCILE_START_DELAY_MS);
+
+        const handle = {
+            // Đối chiếu thủ công toàn bộ cart với TPOS (bỏ qua throttle).
+            refreshAll() {
+                return refresh(null, Date.now(), false);
+            },
             stop() {
                 if (debounceTimer) clearTimeout(debounceTimer);
+                if (reconcileTimer) clearTimeout(reconcileTimer);
                 debounceTimer = null;
+                reconcileTimer = null;
                 if (source) {
                     try {
                         source.close();
@@ -276,6 +305,10 @@
                 }
             },
         };
+        try {
+            window.__soluongWhSync = handle; // cho phép gọi tay từ console: __soluongWhSync.refreshAll()
+        } catch (_) {}
+        return handle;
     }
 
     window.SoluongWarehouseSync = { start };
