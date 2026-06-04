@@ -25,7 +25,7 @@
     const CUTOUT_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/cutout';
 
     const state = {
-        mode: 'hq', // 'hq' | 'ai' | 'chroma'
+        mode: 'ai', // mặc định AI nhanh (tức thì). 'hq' AI nét chậm hơn nhưng sắc | 'chroma'
         hqEngine: 'local', // 'local' (@imgly, free, không watermark) | 'auto' (PhotoRoom cloud)
         source: 'camera', // 'camera' | 'image'
         bgType: 'transparent', // 'transparent'|'color'|'image'|'blur'|'preset'
@@ -89,7 +89,7 @@
         applyMobileDefaults();
         loadSavedBgs();
         renderBgRows();
-        setMode('hq');
+        setMode('ai');
         autoStartIfAllowed();
     }
 
@@ -968,7 +968,9 @@
     async function localCutout(canvas) {
         const blob = await canvasToBlob(canvas, 'image/png');
         const mod = await loadImgly();
-        return blobToImage(await mod.removeBackground(blob));
+        // isnet_quint8: model nén nhỏ/nhanh nhất (tải nhẹ + xử lý nhanh ~2-3×),
+        // viền giảm chất lượng nhẹ — đổi lấy tốc độ trên điện thoại.
+        return blobToImage(await mod.removeBackground(blob, { model: 'isnet_quint8' }));
     }
     async function cloudCutout(canvas) {
         const dataUrl = canvas.toDataURL('image/png');
