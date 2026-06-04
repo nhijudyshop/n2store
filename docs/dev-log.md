@@ -25,6 +25,16 @@
 
 ## 2026-06-04
 
+### [web2] Photo-studio — Đợt 2: di chuyển / phóng to chủ thể trên nền ✅
+
+- State transform `{tx,ty,scale}`; renderReview vẽ nhóm chủ thể (bóng+cutout) trong `save/translate/scale/translate` (nền + logo cố định). Reset mỗi lần chụp.
+- **Cử chỉ** (`bindReviewGestures`, Pointer Events trên `#psReviewStage`, `touch-action:none`): 1 ngón kéo → di chuyển (px CSS → px canvas theo ratio); 2 ngón chụm → scale (clamp 0.3–5) + pan theo tâm; throttle rAF. Loại trừ click nút (không cướp click "Căn giữa").
+- Nút **Căn giữa** reset transform + hint "Kéo để di chuyển · chụm 2 ngón để phóng to". Thêm nút ⚙ vào màn Xem (mở sheet) + metabar.
+- **Test** (Playwright mobile): kéo → chủ thể rời tâm (đỏ→trắng) ✓, Căn giữa → về tâm (trắng→đỏ) ✓, 0 error. Fix pointer-capture nuốt click nút.
+- **Còn lại (đợt sau)**: undo/redo + before/after, gallery lịch sử, PWA offline + cache model, brush sửa viền, xử lý hàng loạt, AI upscale.
+
+**Files**: `web2/photo-studio/{index.html(v=20260604l),photo-studio.js,photo-studio.css}`.
+
 ### [web2] Photo-studio — Đợt 1 nâng cấp pro: bóng đổ + khổ sàn + auto-đẹp + WEBP + logo ✅
 
 User "làm tất cả" backlog → wave 1 (5 tính năng canvas, low-risk):

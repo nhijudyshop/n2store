@@ -1348,6 +1348,71 @@
             : `${W}×${H}`;
     }
 
+    // ---- Cử chỉ di chuyển / phóng to chủ thể trên màn Xem --------------
+    function bindReviewGestures() {
+        const stage = el.reviewStage;
+        const pointers = new Map();
+        let lastDist = 0,
+            lastCx = 0,
+            lastCy = 0,
+            raf = 0;
+        const ratio = () => state._capW / (el.reviewCanvas.getBoundingClientRect().width || 1);
+        const schedule = () => {
+            if (!raf)
+                raf = requestAnimationFrame(() => {
+                    raf = 0;
+                    renderReview();
+                });
+        };
+        stage.addEventListener('pointerdown', (e) => {
+            if (el.review.hidden) return;
+            if (e.target.closest('button')) return; // không cướp click nút (Căn giữa)
+            try {
+                stage.setPointerCapture(e.pointerId);
+            } catch {}
+            pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (pointers.size === 2) {
+                const [a, b] = [...pointers.values()];
+                lastDist = Math.hypot(a.x - b.x, a.y - b.y);
+                lastCx = (a.x + b.x) / 2;
+                lastCy = (a.y + b.y) / 2;
+            }
+        });
+        stage.addEventListener('pointermove', (e) => {
+            const prev = pointers.get(e.pointerId);
+            if (!prev) return;
+            const cur = { x: e.clientX, y: e.clientY };
+            pointers.set(e.pointerId, cur);
+            const r = ratio();
+            if (pointers.size === 1) {
+                state.tx += (cur.x - prev.x) * r;
+                state.ty += (cur.y - prev.y) * r;
+                schedule();
+            } else if (pointers.size === 2) {
+                const [a, b] = [...pointers.values()];
+                const dist = Math.hypot(a.x - b.x, a.y - b.y);
+                if (lastDist > 0) state.scale = clamp(state.scale * (dist / lastDist), 0.3, 5);
+                lastDist = dist;
+                const cx = (a.x + b.x) / 2,
+                    cy = (a.y + b.y) / 2;
+                state.tx += (cx - lastCx) * r;
+                state.ty += (cy - lastCy) * r;
+                lastCx = cx;
+                lastCy = cy;
+                schedule();
+            }
+        });
+        const up = (e) => {
+            pointers.delete(e.pointerId);
+            if (pointers.size < 2) lastDist = 0;
+        };
+        stage.addEventListener('pointerup', up);
+        stage.addEventListener('pointercancel', up);
+    }
+    function clamp(v, a, b) {
+        return Math.max(a, Math.min(b, v));
+    }
+
     function showReview() {
         el.camera.hidden = true;
         el.review.hidden = false;
