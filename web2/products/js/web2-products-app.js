@@ -615,26 +615,25 @@
         }
         const supplierName = ($('#pmSupplier')?.value || '').trim();
         const productName = ($('#pmName')?.value || '').trim();
-        const variantText = ($('#pmVariant')?.value || '').trim();
         if (!productName) {
             if (!silent) notify('Cần điền Tên sản phẩm trước', 'warning');
             return;
         }
-        // Lookup variant shortCode từ Kho Biến Thể.
-        // Biến thể group "Màu" → override color; group "Size/Cỡ" → override size.
-        // Priority cao hơn extract từ tên SP (vd "QUẦN ĐEN" + variant "Màu Beo" → QUAN + BEO).
+        // Lookup shortCode TỪ CẢ 2 ô Màu + Size → override color + size cùng lúc.
+        // Mã SP gồm cả 2 phần (vd KHOAODEN + màu ĐO + size L).
         let overrideColorShort = null;
         let overrideSizeShort = null;
-        if (variantText && window.Web2VariantsCache?.findByValueExact) {
-            const v = window.Web2VariantsCache.findByValueExact(variantText);
-            if (v && v.shortCode) {
-                const grp = (v.groupName || '').toLowerCase();
-                if (grp.includes('size') || grp.includes('cỡ') || grp.includes('co')) {
-                    overrideSizeShort = v.shortCode.toUpperCase();
-                } else {
-                    // Default: treat as màu (Màu, Color, hoặc group khác)
-                    overrideColorShort = v.shortCode.toUpperCase();
-                }
+        const cacheV = window.Web2VariantsCache;
+        if (cacheV?.findByValueExact) {
+            const colorText = ($('#pmVariantColor')?.value || '').trim();
+            const sizeText = ($('#pmVariantSize')?.value || '').trim();
+            if (colorText) {
+                const cv = cacheV.findByValueExact(colorText);
+                if (cv?.shortCode) overrideColorShort = cv.shortCode.toUpperCase();
+            }
+            if (sizeText) {
+                const sv = cacheV.findByValueExact(sizeText);
+                if (sv?.shortCode) overrideSizeShort = sv.shortCode.toUpperCase();
             }
         }
         if (!supplierName) {
@@ -693,7 +692,7 @@
         if ($('#pmSupplier')) $('#pmSupplier').value = 'KHO';
         if ($('#pmCodeHint')) $('#pmCodeHint').textContent = '';
         $('#pmName').value = '';
-        $('#pmVariant').value = '';
+        _setVariantPickers('');
         $('#pmPriceBuy').value = 0;
         $('#pmPriceSell').value = 0;
         $('#pmStock').value = 0;
@@ -718,7 +717,7 @@
         if ($('#pmSupplier')) $('#pmSupplier').value = p.supplier || '';
         if ($('#pmCodeHint')) $('#pmCodeHint').textContent = '';
         $('#pmName').value = p.name || '';
-        $('#pmVariant').value = p.variant || '';
+        _setVariantPickers(p.variant || '');
         $('#pmPriceBuy').value = p.originalPrice || 0;
         $('#pmPriceSell').value = p.price || 0;
         $('#pmStock').value = p.stock ?? 0;
@@ -877,7 +876,7 @@
             code: $('#pmCode').value.trim(),
             name: $('#pmName').value.trim(),
             supplier: supplierInput || null,
-            variant: $('#pmVariant').value.trim() || null,
+            variant: _combinedVariant() || null,
             price: Number($('#pmPriceSell').value) || 0,
             originalPrice: Number($('#pmPriceBuy').value) || 0,
             stock: Number($('#pmStock').value) || 0,
@@ -1060,88 +1059,122 @@
         load();
     }
 
-    // Variant picker: dropdown từ Web2VariantsCache. Khóa free-text — phải
-    // pick từ kho, muốn thêm phải vào trang Kho Biến Thể.
-    function _wireVariantPicker() {
-        const input = $('#pmVariant');
-        const dropdown = $('#pmVariantSuggest');
-        const hint = $('#pmVariantHint');
-        if (!input || !dropdown) return;
-
-        function _renderHintFor(value) {
-            if (!hint) return;
-            const cache = window.Web2VariantsCache;
-            const trimmed = (value || '').trim();
-            if (!trimmed) {
-                hint.className = 'variant-picker-hint';
-                hint.textContent = 'Bỏ trống nếu SP không có biến thể.';
-                return;
-            }
-            if (cache?.findByValueExact?.(trimmed)) {
-                hint.className = 'variant-picker-hint is-ok';
-                hint.textContent = '✓ Đã chọn từ Kho Biến Thể';
-            } else {
-                hint.className = 'variant-picker-hint is-error';
-                hint.innerHTML =
-                    'Giá trị này chưa có trong kho — bạn cần ' +
-                    '<a href="../variants/index.html" target="_blank">thêm tại Kho Biến Thể</a> trước.';
-            }
+    // ─── Variant picker: 2 ô Màu + Size cùng lúc ─────────────────────────
+    // Mỗi ô khoá free-text (phải pick từ Kho Biến Thể). Lưu DB dạng "Màu, Size".
+    function _isSizeGroup(groupName) {
+        const g = (groupName || '').toLowerCase();
+        return g.includes('size') || g.includes('cỡ') || g.includes('co');
+    }
+    // Phân loại 1 giá trị biến thể → 'color' | 'size' | null (theo nhóm trong kho).
+    function _variantKind(value) {
+        const v = window.Web2VariantsCache?.findByValueExact?.((value || '').trim());
+        if (!v) return null;
+        return _isSizeGroup(v.groupName) ? 'size' : 'color';
+    }
+    // Ghép 2 ô thành chuỗi variant lưu DB ("Đỏ, L").
+    function _combinedVariant() {
+        const c = ($('#pmVariantColor')?.value || '').trim();
+        const s = ($('#pmVariantSize')?.value || '').trim();
+        return [c, s].filter(Boolean).join(', ');
+    }
+    // Đổ chuỗi variant đã lưu vào 2 ô (split ',' + phân loại theo nhóm; phần
+    // không rõ nhóm → ưu tiên ô Màu rồi ô Size).
+    function _setVariantPickers(variantStr) {
+        const colorEl = $('#pmVariantColor');
+        const sizeEl = $('#pmVariantSize');
+        if (colorEl) colorEl.value = '';
+        if (sizeEl) sizeEl.value = '';
+        if (!variantStr) return;
+        const parts = String(variantStr)
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+        for (const part of parts) {
+            const kind = _variantKind(part);
+            if (kind === 'size' && sizeEl && !sizeEl.value) sizeEl.value = part;
+            else if (colorEl && !colorEl.value) colorEl.value = part;
+            else if (sizeEl && !sizeEl.value) sizeEl.value = part;
         }
-
-        function _showDropdown(query) {
+    }
+    // Hint chung: cả 2 ô phải pick từ kho mới hợp lệ.
+    function _renderCombinedHint() {
+        const hint = $('#pmVariantHint');
+        if (!hint) return;
+        const cache = window.Web2VariantsCache;
+        const c = ($('#pmVariantColor')?.value || '').trim();
+        const s = ($('#pmVariantSize')?.value || '').trim();
+        if (!c && !s) {
+            hint.className = 'variant-picker-hint';
+            hint.textContent = 'Bỏ trống nếu SP không có biến thể. Chọn được CẢ Màu lẫn Size.';
+            return;
+        }
+        const bad = [];
+        if (c && !cache?.findByValueExact?.(c)) bad.push('Màu');
+        if (s && !cache?.findByValueExact?.(s)) bad.push('Size');
+        if (bad.length) {
+            hint.className = 'variant-picker-hint is-error';
+            hint.innerHTML = `${bad.join(' + ')} chưa có trong kho — <a href="../variants/index.html" target="_blank">thêm tại Kho Biến Thể</a> trước.`;
+        } else {
+            hint.className = 'variant-picker-hint is-ok';
+            hint.textContent =
+                '✓ ' + [c && `Màu: ${c}`, s && `Size: ${s}`].filter(Boolean).join(' · ');
+        }
+    }
+    // Wire 1 ô (kind='color'|'size') — dropdown CHỈ show biến thể đúng nhóm.
+    function _wireVariantPickerFor(inputId, dropdownId, kind) {
+        const input = document.getElementById(inputId);
+        const dropdown = document.getElementById(dropdownId);
+        if (!input || !dropdown) return;
+        function _show(query) {
             const cache = window.Web2VariantsCache;
             if (!cache) {
                 dropdown.hidden = true;
                 dropdown.style.display = 'none';
                 return;
             }
-            dropdown.style.display = ''; // reset (clear hard-force từ click handler)
-            const items = cache.findByValue(query || '', 10);
+            dropdown.style.display = '';
+            const q = (query || '').trim().toLowerCase();
+            const wantSize = kind === 'size';
+            const items = cache
+                .getAll()
+                .filter((v) => _isSizeGroup(v.groupName) === wantSize)
+                .filter((v) => !q || (v.value || '').toLowerCase().includes(q))
+                .slice(0, 12);
             if (!items.length) {
-                dropdown.innerHTML = `<div class="variant-suggest-empty">
-                    Không tìm thấy biến thể nào.
-                    <a href="../variants/index.html" target="_blank">Thêm mới ở Kho Biến Thể →</a>
-                </div>`;
+                dropdown.innerHTML = `<div class="variant-suggest-empty">Không có biến thể ${wantSize ? 'Size' : 'Màu'} nào. <a href="../variants/index.html" target="_blank">Thêm ở Kho Biến Thể →</a></div>`;
                 dropdown.hidden = false;
                 return;
             }
             dropdown.innerHTML = items
-                .map((v) => {
-                    const grp = v.groupName
-                        ? `<span class="variant-suggest-group">${escapeHtml(v.groupName)}</span>`
-                        : '';
-                    return `<button type="button" class="variant-suggest-item" data-val="${escapeHtml(v.value)}">
-                        <span class="variant-suggest-value">${escapeHtml(v.value)}</span>
-                        ${grp}
-                    </button>`;
-                })
+                .map(
+                    (v) =>
+                        `<button type="button" class="variant-suggest-item" data-val="${escapeHtml(v.value)}"><span class="variant-suggest-value">${escapeHtml(v.value)}</span>${v.groupName ? `<span class="variant-suggest-group">${escapeHtml(v.groupName)}</span>` : ''}</button>`
+                )
                 .join('');
             dropdown.hidden = false;
             dropdown.querySelectorAll('.variant-suggest-item').forEach((btn) => {
                 btn.addEventListener('mousedown', (e) => e.preventDefault());
                 btn.addEventListener('click', () => {
                     input.value = btn.dataset.val;
-                    _renderHintFor(input.value);
                     dropdown.hidden = true;
-                    dropdown.style.display = 'none'; // hard force
-                    input.blur(); // bỏ focus khỏi input
-                    // Fire 'change' để autoRegen mã (programmatic value set không tự fire)
+                    dropdown.style.display = 'none';
+                    input.blur();
                     input.dispatchEvent(new Event('change', { bubbles: true }));
+                    _renderCombinedHint();
                 });
             });
         }
-
-        input.addEventListener('focus', () => _showDropdown(input.value));
+        input.addEventListener('focus', () => _show(input.value));
         input.addEventListener('input', () => {
-            _renderHintFor(input.value);
-            _showDropdown(input.value);
+            _show(input.value);
+            _renderCombinedHint();
         });
-        input.addEventListener('blur', () => {
-            setTimeout(() => {
-                dropdown.hidden = true;
-            }, 180);
-        });
-        _renderHintFor('');
+        input.addEventListener('blur', () => setTimeout(() => (dropdown.hidden = true), 180));
+    }
+    function _wireVariantPicker() {
+        _wireVariantPickerFor('pmVariantColor', 'pmVariantColorSuggest', 'color');
+        _wireVariantPickerFor('pmVariantSize', 'pmVariantSizeSuggest', 'size');
+        _renderCombinedHint();
     }
 
     // ---------- Init ----------
@@ -1261,14 +1294,8 @@
         if (window.Web2VariantsCache) {
             window.Web2VariantsCache.init().then(() => {
                 _wireVariantPicker();
-                // Re-render hint khi cache cập nhật từ Kho Biến Thể
-                window.Web2VariantsCache.subscribe(() => {
-                    const inp = $('#pmVariant');
-                    if (inp) {
-                        const ev = new Event('input', { bubbles: true });
-                        inp.dispatchEvent(ev);
-                    }
-                });
+                // Re-render hint khi kho biến thể cập nhật
+                window.Web2VariantsCache.subscribe(() => _renderCombinedHint());
             });
         }
         $('#filterSearch')?.addEventListener('keydown', (e) => {
@@ -1303,8 +1330,10 @@
         };
         $('#pmSupplier')?.addEventListener('change', autoRegen);
         $('#pmName')?.addEventListener('input', autoRegen);
-        $('#pmVariant')?.addEventListener('input', autoRegen);
-        $('#pmVariant')?.addEventListener('change', autoRegen);
+        $('#pmVariantColor')?.addEventListener('input', autoRegen);
+        $('#pmVariantColor')?.addEventListener('change', autoRegen);
+        $('#pmVariantSize')?.addEventListener('input', autoRegen);
+        $('#pmVariantSize')?.addEventListener('change', autoRegen);
         // Intentionally NOT closing on overlay click — protect in-progress data.
         // Only X button / Hủy button / ESC close the modal.
         document.addEventListener('keydown', (e) => {

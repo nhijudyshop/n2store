@@ -25,6 +25,15 @@
 
 ## 2026-06-04
 
+### [web2-products] Biến thể chọn Màu + Size cùng lúc ✅
+
+User: trang Kho SP cho chọn 2 biến thể (màu + size) cùng lúc thay vì 1 ô.
+
+- Modal: thay 1 ô `#pmVariant` bằng 2 ô `#pmVariantColor` (🎨 Màu) + `#pmVariantSize` (📏 Size), grid 2 cột. Mỗi dropdown CHỈ show biến thể đúng nhóm (lọc theo groupName: size/cỡ vs màu/color/khác).
+- Mã SP gồm CẢ 2: `suggestProductCode` đọc cả 2 ô → overrideColorShort + overrideSizeShort (vd Đỏ+28 → KHOAODO28). Code builder đã hỗ trợ sẵn 2 override.
+- Lưu DB `variant` = "Màu, Size" (vd "Đỏ, 28"). Edit: `_setVariantPickers` split ',' + phân loại nhóm → đổ về đúng ô. autoRegen + hint lắng nghe cả 2 ô.
+- Verified browser: 2 picker lọc đúng nhóm, code KHOAODO28 (màu=DO size=28), variant "Đỏ, 28".
+
 ### [render] FIX webhook SePay Web 2.0 không nhận giao dịch (cột `body` → `raw_data`) ✅
 
 **Triệu chứng:** Trang `web2/balance-history` mất giao dịch SePay sau ~06-03. Web 1.0 (`balance_history` trên chatDb) vẫn nhận; Web 2.0 (`web2_balance_history` trên web2Db) đứng yên.

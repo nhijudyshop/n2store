@@ -243,6 +243,9 @@
 .field-row-grid-3 {
     grid-template-columns: 1fr 1fr 1fr;
 }
+.field-row-grid-2 {
+    grid-template-columns: 1fr 1fr;
+}
 
 /* Page-head primary action — "+ Thêm SP" moved into header */
 .page-head-action {
