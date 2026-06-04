@@ -25,6 +25,18 @@
 
 ## 2026-06-04
 
+### [web2] Photo-studio — chèn nền: preset studio + nền đã lưu + chọn nền trên camera ✅
+
+User: "không phải tách nền mà chụp chèn nền khác vào" → tối ưu phần thay nền (chọn 1,3,4).
+
+- **Nền preset studio (8 gradient)**: studio trắng/xám radial/kem ấm/hồng/xanh dịu/bạc hà/nắng/tối sang. Vẽ procedural (linear+radial gradient) qua `drawPreset`, chip preview = CSS gradient. `bgType:'preset'` + `state.bgPreset`. Bấm 1 cái ra ảnh SP đẹp, không cần tải ảnh.
+- **Chọn nền TRÊN màn camera** (`#psBgRowCam`) + màn Xem (`#psBgRowReview`) — JS render chung `bgRowHTML()`, đồng bộ active 2 hàng qua `state.bgKey`. Ở mode AI nhanh/Phông xanh, nền hiện **live** ngay khi chụp; AI nét hiện ở màn Xem.
+- **Lưu nền riêng dùng lại**: upload ảnh nền → `FileReader` → lưu `localStorage ps_saved_bgs` (cap 8) → chip có nút xóa (×). Dùng lại các lần sau. Auto-select sau khi upload.
+- Refactor: bỏ chips hardcode + `pickBg`, thay bằng `renderBgRows`/`onBgChip`/`selectBg(key)` (key: transparent|blur|color:#hex|preset:id|saved:id). Input color/file dùng chung (hidden, chip gọi `.click()`).
+- **Test** (Playwright Pixel7 + fake cam): 2 hàng render 14 chip (8 preset) ✓, chọn preset camera→đồng bộ review ✓, capture chroma→review vẽ gradient (pixel góc [211,217,224]) ✓, saved bg seed→render 2 hàng + xóa cập nhật localStorage ✓, 0 error. Screenshot xác nhận hàng nền trên camera đẹp.
+
+**Files**: `web2/photo-studio/{index.html(v=20260604e),photo-studio.js,photo-studio.css}`.
+
 ### [orders] soluong-live realtime TPOS — tên/hình/số lượng cập nhật liền (giữ logic biến thể) ✅
 
 TPOS đổi tên/hình/số lượng SP → trang `soluong-live/index.html` + `soluong-list.html` cập nhật liền không cần refresh. Tận dụng pipeline có sẵn: TPOS Socket.IO listener (Render `services/tpos-socket-listener.js`) đã sync `web_warehouse` + broadcast SSE topic `web_warehouse` (`sync_complete` + `templateIds`, `image_update`, `deactivated`). Trước đây soluong-list chỉ **toast** khi `sync_complete` (không refresh data); main.js (index) không nghe SSE.
