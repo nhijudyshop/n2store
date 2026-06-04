@@ -73,6 +73,9 @@
                         <li><a href="#dataflow">Bản đồ data flow</a></li>
                         <li><a href="#database">Cơ sở dữ liệu &amp; Router Web 2.0</a></li>
                         <li>
+                            <a href="#realtime">📡 Realtime SSE (phủ sóng + recipe)</a>
+                        </li>
+                        <li>
                             <a href="#conventions">📐 Quy ước Web 2.0 (đọc trước khi code)</a>
                         </li>
                         <li>
@@ -1127,6 +1130,613 @@ permission_templates    (role: admin/manager/staff)</pre
                 </section>
 
                 <!-- ===== CONVENTIONS (canonical ref cho code mới) ===== -->
+                <section class="ov-section" id="realtime">
+                    <h2 class="section-title">
+                        📡 Realtime SSE — phủ sóng tất cả trang &amp; cách dùng (ĐỌC KHI CODE TRANG
+                        MỚI)
+                    </h2>
+                    <p class="ov-lead">
+                        Web 2.0 dùng <strong>1 server SSE chung trên Render</strong>
+                        (<code>render.com/routes/realtime-sse-web2.js</code>, endpoint
+                        <code>/api/realtime/web2/sse</code>) cho mọi cập nhật UI realtime — KHÔNG
+                        Firestore listener, KHÔNG polling. Mỗi mutation backend gọi
+                        <code>_notify('web2:&lt;entity&gt;', …)</code> sau khi COMMIT; client
+                        <code>Web2SSE.subscribe('web2:&lt;entity&gt;', cb)</code> + debounce →
+                        reload. Debug live tại
+                        <a href="../admin-sse-monitor/index.html">SSE Monitor (Admin)</a>. Chi tiết:
+                        <code>docs/web2/SSE-REALTIME.md</code>.
+                    </p>
+
+                    <h3 style="margin: 18px 0 8px">
+                        ✅ Bảng phủ sóng realtime — toàn bộ trang trên menu (audit 2026-06-04)
+                    </h3>
+                    <p style="font-size: 13px; color: #64748b; margin: 0 0 10px">
+                        <strong>Tất cả trang đều ĐÃ triển khai (REAL)</strong> — không trang nào là
+                        stub. Cột Realtime: <code>✅ SSE</code> = realtime qua SSE chuẩn;
+                        <code>🔸 legacy</code> = realtime qua Firestore/WebSocket cũ (nên migrate
+                        SSE); <code>⚪ N/A</code> = không cần realtime (báo cáo tính toán / cấu hình
+                        / export 1 lần / on-demand).
+                    </p>
+                    <div style="overflow-x: auto">
+                        <table
+                            style="
+                                width: 100%;
+                                border-collapse: collapse;
+                                font-size: 12.5px;
+                                background: #fff;
+                            "
+                        >
+                            <thead>
+                                <tr style="background: #f1f5f9; text-align: left">
+                                    <th style="padding: 6px 9px; border: 1px solid #e2e8f0">
+                                        Trang (menu)
+                                    </th>
+                                    <th style="padding: 6px 9px; border: 1px solid #e2e8f0">
+                                        Realtime
+                                    </th>
+                                    <th style="padding: 6px 9px; border: 1px solid #e2e8f0">
+                                        SSE topic
+                                    </th>
+                                    <th style="padding: 6px 9px; border: 1px solid #e2e8f0">
+                                        Nguồn dữ liệu (1 nguồn chuẩn)
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- prettier-ignore -->
+                                <tr><td style="padding:5px 9px;border:1px solid #e2e8f0">Dashboard KPI</td><td style="padding:5px 9px;border:1px solid #e2e8f0">✅ SSE</td><td style="padding:5px 9px;border:1px solid #e2e8f0"><code>web2:kpi-dashboard</code></td><td style="padding:5px 9px;border:1px solid #e2e8f0">/api/web2/dashboard-kpi</td></tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        KPI Nhân viên
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ N/A (tính toán)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/kpi/*
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Thông báo
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:notifications</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/notifications
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Lịch sử thao tác
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ N/A (log viewer)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/audit-log
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Aging công nợ NCC
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        🔸 Firestore (nút Tính)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        FS web2_so_order + web2_supplier_wallet
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        NCC 360°
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ on-demand
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/supplier-360
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Dự báo tồn kho
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ N/A (recompute)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/inventory-forecast
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Bulk Import Excel
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ N/A (import 1 lần)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2-products,variants,…/bulk-create
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Print / Export
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ N/A (export 1 lần)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        products + fast-sale-orders + balance-history
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Smart Match SePay
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ on-demand
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/smart-match + balance-history
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Studio tách nền
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ N/A (local tool)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        local + Bunny CDN
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Phân quyền
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ N/A (config)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2-users
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Bảng dịch vụ &amp; chi phí
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ poll 60s
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/services-overview
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Bán hàng (HĐ/PBH)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:fast-sale-orders</code>,
+                                        <code>web2:native-orders</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/fast-sale-orders
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Đối soát đóng gói
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:reconcile</code>,
+                                        <code>web2:fast-sale-orders</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/reconcile
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Trả hàng (PBH)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE <em>(thêm 6/4)</em>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:refunds</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/refunds
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Phiếu giao hàng
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE <em>(thêm 6/4)</em>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:delivery</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/delivery-invoices
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Chiến dịch Live
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        🔸 TPOS 2-way
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        TPOS OData SaleOnline_LiveCampaign
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Đơn Web
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:native-orders</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/native-orders
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Sổ Order (NCC)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        🔸 Firestore
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        FS web2_so_order/main
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        TPOS × Pancake
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:cart</code>, <code>web2:products</code>,
+                                        <code>web2:native-orders</code>,
+                                        <code>web2:livestream-*</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/v2/cart + TPOS/Pancake
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Trả hàng NCC
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:purchase-refund</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/purchase-refund
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Công nợ NCC
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        🔸 Firestore (report)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        FS web2_so_order + web2_supplier_wallet
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Ví NCC
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>wallet:all</code>, <code>web2:products</code>,
+                                        <code>web2:so-order</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        FS web2_supplier_wallet/main
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Số dư SePay
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:wallet:*</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/balance-history
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Khách hàng
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ NONE (TPOS 2-way)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/partner/customer
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Ví Khách Hàng
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:wallet:*</code>,
+                                        <code>web2:fast-sale-orders</code>,
+                                        <code>web2:native-orders</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/wallets
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Kho SP Web 2.0
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:products</code>,
+                                        <code>web2:fast-sale-orders</code>,
+                                        <code>web2:native-orders</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2-products
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Kho Biến Thể
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE <em>(thêm 6/4)</em>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:variants</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2-variants
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Nhóm sản phẩm
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE <em>(thêm 6/4)</em>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:productcategory</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/productcategory
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Thống kê doanh thu
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        🔸 WS pbh-realtime
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        pbh:created/confirmed/cancelled
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/pbh-reports
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Thống kê giao hàng
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ N/A (report)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/pbh-reports/delivery
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Người dùng
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:users</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2-users
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Pancake (Token)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ N/A (localStorage)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        localStorage + Pancake API
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Phương thức giao hàng
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE <em>(thêm 6/4)</em>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:deliveryzone</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/deliveryzone
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3 style="margin: 20px 0 8px">🛠️ Recipe SSE cho trang/feature MỚI (2 bước)</h3>
+                    <div class="ov-db-grid">
+                        <div class="ov-db-card ov-db-primary">
+                            <h3>① Server (route mutation)</h3>
+                            <ul>
+                                <li>
+                                    Sau khi DB COMMIT, TRƯỚC <code>res.json</code>, gọi:
+                                    <code
+                                        >req.app.locals.web2RealtimeSseNotify('web2:&lt;entity&gt;',
+                                        {action, code, ts: Date.now()}, 'update')</code
+                                    >
+                                    (dùng trực tiếp app.locals — không cần wire server.js).
+                                </li>
+                                <li>
+                                    HOẶC pattern <code>initializeNotifiers</code> +
+                                    <code>_notify()</code> (xem
+                                    <code>web2-generic.js</code>/<code>native-orders.js</code>).
+                                </li>
+                                <li>
+                                    Generic CRUD (<code>web2_records</code>) đã auto-notify
+                                    <code>web2:&lt;slug&gt;</code> — KHÔNG cần thêm gì.
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="ov-db-card ov-db-info">
+                            <h3>② Client (HTML + page JS)</h3>
+                            <ul>
+                                <li>
+                                    HTML: load <code>web2-sse-bridge.js</code> TRƯỚC script app
+                                    (trang page-shell/page-builder đã có sẵn).
+                                </li>
+                                <li>
+                                    Page JS trong <code>init()</code>:
+                                    <code
+                                        >window.Web2SSE?.subscribe('web2:&lt;entity&gt;', () =&gt;
+                                        debounce(reload, 600))</code
+                                    >.
+                                </li>
+                                <li>
+                                    Verify ngay qua
+                                    <a href="../admin-sse-monitor/index.html">SSE Monitor</a>: mở
+                                    Monitor + trang → mutate → thấy log
+                                    <code>Notified N clients for key: web2:&lt;entity&gt;</code>.
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3 style="margin: 20px 0 8px">
+                        🔗 Liên kết trang theo domain (dùng CHUNG 1 nguồn — đừng copy state)
+                    </h3>
+                    <div class="ov-db-grid">
+                        <div class="ov-db-card">
+                            <h3>📦 Đơn hàng</h3>
+                            <p style="font-size: 13px">
+                                Đơn Web (<code>/api/native-orders</code>) → PBH
+                                (<code>/api/fast-sale-orders</code>) → Đối soát
+                                (<code>/api/reconcile</code>) → Phiếu giao
+                                (<code>/api/delivery-invoices</code>) / Trả hàng
+                                (<code>/api/refunds</code>). Mọi trang đọc cùng PBH/đơn — KHÔNG giữ
+                                bản sao.
+                            </p>
+                        </div>
+                        <div class="ov-db-card">
+                            <h3>🏭 Nhà cung cấp</h3>
+                            <p style="font-size: 13px">
+                                Sổ Order + Ví NCC (Firestore <code>web2_so_order</code> +
+                                <code>web2_supplier_wallet</code>) là nguồn chuẩn cho: Công nợ NCC,
+                                Aging, NCC 360°, Ví NCC, Trả hàng NCC. Tất cả tính từ 2 doc này.
+                            </p>
+                        </div>
+                        <div class="ov-db-card">
+                            <h3>👤 Khách hàng</h3>
+                            <p style="font-size: 13px">
+                                Khách hàng (<code>/api/partner/customer</code>) → Ví KH
+                                (<code>/api/web2/wallets</code>) → Số dư SePay
+                                (<code>/api/web2/balance-history</code>). Pill số dư ví dùng chung
+                                <code>web2-wallet-balance.js</code> khắp trang.
+                            </p>
+                        </div>
+                        <div class="ov-db-card">
+                            <h3>🛍️ Sản phẩm</h3>
+                            <p style="font-size: 13px">
+                                Kho SP (<code>/api/web2-products</code>) là nguồn chuẩn; Biến Thể +
+                                Nhóm SP bổ trợ. Bulk Import / Print-Export / Dự báo tồn / Dashboard
+                                / cart tpos-pancake đều tham chiếu Kho SP — không tự lưu SP.
+                            </p>
+                        </div>
+                    </div>
+                    <p style="font-size: 13px; color: #64748b; margin-top: 12px">
+                        ⏭️ <strong>Còn nên migrate sang SSE</strong> (đang dùng legacy): Sổ Order +
+                        Công nợ/Aging NCC (Firestore listener), Thống kê doanh thu (WebSocket
+                        pbh-realtime), Chiến dịch Live (TPOS 2-way). Khách hàng nên thêm
+                        <code>web2:customers</code> khi backend partner emit.
+                    </p>
+                </section>
+
                 <section class="ov-section" id="conventions">
                     <h2 class="section-title">📐 Quy ước Web 2.0 — ĐỌC TRƯỚC KHI CODE</h2>
                     <p class="ov-lead">
