@@ -197,6 +197,64 @@ router.get('/:phone', async (req, res) => {
     }
 });
 
+// GET /:phone/fb-conversation — resolve SĐT → ngữ cảnh hội thoại FB (pageId +
+// psid) để mở chat read-only trên balance-history. Nguồn tin cậy nhất:
+// native_orders mới nhất có fb_page_id + fb_user_id (đơn FB đã link sẵn 2 id
+// đi cùng nhau). Fallback web2_customers.fb_id (chỉ psid, thiếu page →
+// frontend tự thử all-pages qua Web2Chat). found=false nếu KH chưa từng có
+// hội thoại/đơn FB → UI báo "chưa có hội thoại FB".
+router.get('/:phone/fb-conversation', async (req, res) => {
+    const db = req.app.locals.web2Db || req.app.locals.chatDb;
+    const phone = String(req.params.phone || '')
+        .replace(/\D/g, '')
+        .slice(-10);
+    if (!phone) return res.json({ success: true, found: false, reason: 'invalid_phone' });
+    try {
+        // 1) native_orders — fb_page_id + fb_user_id đi cùng nhau (đáng tin nhất)
+        const no = await db.query(
+            `SELECT fb_page_id, fb_user_id, fb_user_name
+               FROM native_orders
+              WHERE (phone = $1 OR phone LIKE '%' || $1)
+                AND fb_user_id IS NOT NULL AND fb_page_id IS NOT NULL
+              ORDER BY id DESC
+              LIMIT 1`,
+            [phone]
+        );
+        if (no.rows.length) {
+            const r = no.rows[0];
+            return res.json({
+                success: true,
+                found: true,
+                source: 'native_orders',
+                pageId: r.fb_page_id,
+                psid: r.fb_user_id,
+                name: r.fb_user_name || null,
+            });
+        }
+        // 2) web2_customers.fb_id (psid) — thiếu page_id, trả psid để frontend
+        //    thử qua các page token có sẵn (Web2Chat all-pages fallback).
+        const wc = await db.query(
+            `SELECT fb_id, name FROM web2_customers
+              WHERE phone = $1 AND fb_id IS NOT NULL AND fb_id <> '' LIMIT 1`,
+            [phone]
+        );
+        if (wc.rows.length) {
+            return res.json({
+                success: true,
+                found: true,
+                source: 'web2_customers',
+                pageId: null,
+                psid: wc.rows[0].fb_id,
+                name: wc.rows[0].name || null,
+            });
+        }
+        res.json({ success: true, found: false, reason: 'no_fb_link' });
+    } catch (e) {
+        console.error('[web2-customers] fb-conversation:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // PATCH /:id — SỬA THỐNG NHẤT thông tin KH (tên/SĐT/địa chỉ) cho MỌI trang Web 2.0.
 // :id = TPOS Partner Id (web2_customers.id). Ghi 2 chiều:
 //   1. Push lên TPOS (CreateUpdatePartner by Id — đổi cả SĐT cũng update đúng partner).
