@@ -25,6 +25,14 @@
 
 ## 2026-06-04
 
+### [web2 printer] In tem mã SP thẳng ra máy tem (role 'label') ✅
+
+User: tiếp tục — in mã SP cần máy tem riêng (khác máy in PBH).
+
+- `web2-printer.js`: tách `_canvasToEscpos` dùng chung; thêm `escposRasterFromHtml` (render HTML trong iframe ẩn rộng đúng số chấm → html2canvas load on-demand → 1-bit → ESC/POS) + `printHtml(html, role)` + `roleIsBridge(role)`. Tiếng Việt OK vì in ẢNH.
+- `web2-products-print.js` `generateAndPrint`: nếu role 'label' đã gán máy IP (bridge) + bridge sống → `printHtml(labelHTML, 'label')` in thẳng máy tem; lỗi/tắt → fallback overlay cũ. Load `web2-printer.js` trên trang products.
+- Verified E2E: HTML→ESC/POS raster 7.2KB, role 'label'→máy tem (dots 384/58mm), browser→bridge→TCP IP:9100 (fail vì IP test ảo). PBH dùng role 'pbh', tem dùng 'label' → 2 máy riêng đúng ý user.
+
 ### [web2] Balance-history: tên KH hiện rõ "click được" (affordance) ✅
 
 User: tên KH click vào xem chi tiết được nhưng không có dấu hiệu trực quan → user không biết click được.
