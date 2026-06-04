@@ -1246,7 +1246,7 @@ router.get('/:id/rfm', async (req, res) => {
  */
 /**
  * GET /api/v2/customers/:id/orders
- * Phase 12: aggregate Native Web orders (NW-...) + PBH (HD-...) for a customer.
+ * Phase 12: aggregate Native Web orders + PBH (đều mã NJ-... sau hợp nhất 2026-06-04) for a customer.
  * Customer is identified by numeric id OR phone (auto-detected).
  * Returns: { native: [...], pbh: [...], summary: { ... } }
  */

@@ -8,7 +8,7 @@
 // Endpoints:
 //   GET    /api/fast-sale-orders/health
 //   GET    /api/fast-sale-orders/load          — list with filter + paging
-//   GET    /api/fast-sale-orders/:number       — get by Number (HD-...)
+//   GET    /api/fast-sale-orders/:number       — get by Number (NJ-...)
 //   POST   /api/fast-sale-orders               — create (manual)
 //   POST   /api/fast-sale-orders/from-native-order  — convert NativeOrder → PBH
 //   PATCH  /api/fast-sale-orders/:number       — update mutable fields
@@ -76,7 +76,7 @@ async function ensureTables(pool) {
             -- Migration 070: FastSaleOrder (PBH) schema
             CREATE TABLE IF NOT EXISTS fast_sale_orders (
                 id              BIGSERIAL PRIMARY KEY,
-                number          VARCHAR(50)  UNIQUE NOT NULL,    -- HD-YYYYMMDD-XXXX
+                number          VARCHAR(50)  UNIQUE NOT NULL,    -- NJ-YYYYMMDD-XXXX
                 display_stt     INTEGER,
                 source          VARCHAR(30)  NOT NULL DEFAULT 'NATIVE_WEB',
 
@@ -322,7 +322,7 @@ function mapRow(row) {
 }
 
 async function nextNumber(pool) {
-    // HD-YYYYMMDD-XXXX (VN timezone)
+    // NJ-YYYYMMDD-XXXX (VN timezone)
     const now = new Date();
     const vn = new Date(now.getTime() + 7 * 3600 * 1000);
     const datePart = `${vn.getUTCFullYear()}${pad(vn.getUTCMonth() + 1, 2)}${pad(vn.getUTCDate(), 2)}`;
@@ -621,7 +621,7 @@ router.get('/export', async (req, res) => {
 
 // -----------------------------------------------------
 // POST /bulk-confirm + /bulk-cancel — batch state change
-// Body: { numbers: ['HD-...', 'HD-...'] }
+// Body: { numbers: ['NJ-...', 'NJ-...'] }
 // -----------------------------------------------------
 async function _bulkStateChange(req, res, newState) {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
@@ -658,12 +658,12 @@ router.post('/bulk-cancel', (req, res) => _bulkStateChange(req, res, 'cancel'));
 
 // -----------------------------------------------------
 // POST /merge — gộp 2+ PBH draft cùng KH thành 1 PBH mới
-// Body: { numbers: ['HD-...', 'HD-...'] }
+// Body: { numbers: ['NJ-...', 'NJ-...'] }
 // Logic:
 //   - Validate: ≥2 numbers, tất cả tồn tại, tất cả state=draft, cùng partner_phone
 //   - Combine order_lines (concat), sum total_quantity + amount_*
 //   - INSERT PBH mới với:
-//       source_code = "HD-A+HD-B" (join '+')
+//       source_code = "NJ-A+NJ-B" (join '+')
 //       merged_display_stt = [stt_a, stt_b] (lưu để client hiển thị "1 + 2")
 //   - DELETE PBHs gốc
 //   - Notify SSE web2:fast-sale-orders + web2:customer-wallet (cross-bc B2)
@@ -1577,7 +1577,7 @@ async function syncNativeOrderStatusFromPbh(pool, pbhRow, newState) {
     if (!native || !pbhRow?.source_code || pbhRow.source_type !== 'native_order') {
         return { synced: 0 };
     }
-    // source_code có thể là 'NW-A' hoặc 'NW-A+NW-B+...' khi merged.
+    // source_code có thể là 'NJ-A' hoặc 'NJ-A+NJ-B+...' khi merged.
     const codes = String(pbhRow.source_code)
         .split('+')
         .map((s) => s.trim())

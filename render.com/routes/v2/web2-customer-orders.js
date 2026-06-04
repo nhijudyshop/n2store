@@ -26,7 +26,7 @@ const router = express.Router();
 //     customer: { name, address, customerId },
 //     orders: [{
 //       source: 'native' | 'pbh' | 'refund',
-//       number: 'NW-...' | 'HD-...' | 'RF-...',
+//       number: 'NJ-...' | 'NJ-...' | 'RF-...',
 //       date: ISO string,
 //       state: 'draft'|'confirmed'|'cancelled'|'done',
 //       totalAmount: number,

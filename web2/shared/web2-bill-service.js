@@ -102,7 +102,7 @@
             const codes = String(src.code)
                 .split('+')
                 .map((c) => c.trim());
-            // Extract number tail (vd "NW-20260513-0084" → "0084" → 84)
+            // Extract number tail (vd "NJ-20260513-0084" → "0084" → 84)
             const stts = codes
                 .map((c) => {
                     const m = c.match(/(\d+)$/);

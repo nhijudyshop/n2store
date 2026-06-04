@@ -30,7 +30,7 @@ const {
 // =====================================================
 // User yêu cầu: PBH state mirror native-order status. Khi native-order
 // đổi status (draft/confirmed/cancelled) → tự đẩy state mới sang PBH liên kết.
-// Hỗ trợ cả merged PBH (source_code = 'NW-A+NW-B' join '+').
+// Hỗ trợ cả merged PBH (source_code = 'NJ-A+NJ-B' join '+').
 //
 // Map: draft→draft, confirmed→confirmed, cancelled→cancel.
 // (Không dùng 'done' để giữ user-facing 'confirmed' label = "Đã XN")
@@ -50,7 +50,7 @@ async function syncPbhStateFromNativeOrder(pool, nativeOrderCode, newNativeStatu
     if (!pbhState || !nativeOrderCode) return { synced: 0 };
     try {
         // Match: source_code = code (single) HOẶC chứa code giữa các dấu '+' (merged).
-        // Patterns: 'NW-A', 'NW-A+%', '%+NW-A+%', '%+NW-A'.
+        // Patterns: 'NJ-A', 'NJ-A+%', '%+NJ-A+%', '%+NJ-A'.
         const r = await pool.query(
             `UPDATE fast_sale_orders
              SET state = $1, date_updated = NOW()
@@ -293,7 +293,7 @@ async function ensureTables(pool) {
             END $$;
         `);
 
-        // Migration 077: với merged orders (gộp đơn), inner segment '[NW-X-Y] CONTENT'
+        // Migration 077: với merged orders (gộp đơn), inner segment '[NJ-X-Y] CONTENT'
         // nếu CONTENT không bắt đầu bằng '[' → chèn '[time] ' từ created_at của merged
         // order. Lý do: source orders đã bị xóa khi merge → không khôi phục đúng time
         // gốc; dùng merged.created_at làm fallback (off vài phút, nhưng có time tốt
@@ -309,7 +309,7 @@ async function ensureTables(pool) {
                     FOR r IN
                         SELECT id, note, created_at FROM native_orders
                         WHERE merged_codes IS NOT NULL
-                          AND note ~ '\\[NW-[0-9]+-[0-9]+\\] [^\\[]'
+                          AND note ~ '\\[N[WJ]-[0-9]+-[0-9]+\\] [^\\[]'
                     LOOP
                         ts_local := (to_timestamp(r.created_at / 1000.0)
                                      AT TIME ZONE 'Asia/Ho_Chi_Minh');
@@ -319,7 +319,7 @@ async function ensureTables(pool) {
                         UPDATE native_orders
                         SET note = regexp_replace(
                             note,
-                            '(\\[NW-[0-9]+-[0-9]+\\] )([^\\[])',
+                            '(\\[N[WJ]-[0-9]+-[0-9]+\\] )([^\\[])',
                             '\\1' || prefix_inner || '\\2',
                             'g'
                         )
@@ -445,7 +445,7 @@ function pad(n, width) {
 }
 
 async function nextDailyCode(pool) {
-    // NW-YYYYMMDD-XXXX (VN timezone)
+    // NJ-YYYYMMDD-XXXX (VN timezone)
     const now = new Date();
     const vn = new Date(now.getTime() + 7 * 3600 * 1000);
     const datePart = `${vn.getUTCFullYear()}${pad(vn.getUTCMonth() + 1, 2)}${pad(vn.getUTCDate(), 2)}`;
@@ -1781,12 +1781,12 @@ router.delete('/:code', async (req, res) => {
 
 // -----------------------------------------------------
 // POST /api/native-orders/merge-to-pbh
-// Body: { codes: ['NW-...', 'NW-...'] } (≥2 codes)
+// Body: { codes: ['NJ-...', 'NJ-...'] } (≥2 codes)
 // Logic:
 //   - Validate: ≥2 codes, tất cả tồn tại, cùng phone
 //   - Combine products (concat), sum totalQty + totalAmount
 //   - INSERT vào fast_sale_orders (PBH mới) với:
-//       source_code = "NW-A+NW-B" (join '+')
+//       source_code = "NJ-A+NJ-B" (join '+')
 //       merged_display_stt = [stt_a, stt_b] (lưu để client hiển thị "1 + 2")
 //       source_type = 'native_order'
 //       state = 'draft'
@@ -1796,13 +1796,13 @@ router.delete('/:code', async (req, res) => {
 
 // -----------------------------------------------------
 // POST /api/native-orders/merge
-// Body: { codes: ['NW-...', 'NW-...'] } (≥2 codes)
+// Body: { codes: ['NJ-...', 'NJ-...'] } (≥2 codes)
 // Gộp 2+ Đơn Web cùng SĐT thành 1 Đơn Web mới (KHÔNG tạo PBH).
 // Logic:
 //   - Validate: ≥2 codes, tất cả tồn tại, cùng phone
 //   - Combine products (concat), sum total_qty + total_amount
 //   - INSERT native_order mới:
-//       code = "NW-YYYYMMDD-XXXX" (sequence mới)
+//       code = "NJ-YYYYMMDD-XXXX" (sequence mới)
 //       display_stt = nextval
 //       merged_display_stt = [stt_a, stt_b] (lưu để client hiển thị "1 + 2")
 //       merged_codes = [code_a, code_b]
@@ -1860,7 +1860,7 @@ router.post('/:code/split-order', async (req, res) => {
         }
         const newIndex = Math.max(currentMax, 1) + 1;
 
-        // Generate new code (NW-YYYYMMDD-XXXX) — tách dùng sequence theo ngày
+        // Generate new code (NJ-YYYYMMDD-XXXX) — tách dùng sequence theo ngày
         const today = new Date();
         const pad = (n, w = 2) => String(n).padStart(w, '0');
         const ymd = `${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}`;
