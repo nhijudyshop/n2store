@@ -47,6 +47,7 @@
         feather: 2,
         spill: true,
         mirror: true,
+        upscale: false, // AI upscale ×2 khi xuất
         format: 'png', // 'png' | 'jpg' | 'webp'
         quality: 0.92, // chất lượng jpg/webp
         shadow: true, // bóng đổ dưới chủ thể (khi nền không trong suốt)
@@ -181,6 +182,7 @@
             'blurStrength:psBlurStrength',
             'blurVal:psBlurVal',
             'mirror:psMirror',
+            'upscale:psUpscale',
             'shadow:psShadow',
             'shadowSoft:psShadowSoft',
             'shadowVal:psShadowVal',
@@ -193,6 +195,13 @@
             'logoOn:psLogoOn',
             'logoPosRow:psLogoPosRow',
             'logoThumb:psLogoThumb',
+            'batchFile:psBatchFile',
+            'batch:psBatch',
+            'batchGrid:psBatchGrid',
+            'batchCount:psBatchCount',
+            'batchClose:psBatchClose',
+            'batchClose2:psBatchClose2',
+            'batchZip:psBatchZip',
         ].forEach((p) => {
             const [k, v] = p.split(':');
             el[k] = id(v);
@@ -245,6 +254,11 @@
         el.brushSize.addEventListener('input', () => {
             state.brushSize = parseInt(el.brushSize.value, 10);
         });
+        // Xử lý hàng loạt
+        el.batchFile.addEventListener('change', onBatchFiles);
+        el.batchClose.addEventListener('click', () => (el.batch.hidden = true));
+        el.batchClose2.addEventListener('click', () => (el.batch.hidden = true));
+        el.batchZip.addEventListener('click', downloadBatchZip);
 
         el.modePills
             .querySelectorAll('button[data-mode]')
@@ -350,6 +364,8 @@
             applyMirrorClass();
             renderReview();
         });
+        if (el.upscale)
+            el.upscale.addEventListener('change', () => (state.upscale = el.upscale.checked));
     }
 
     function bindSlider(input, key, fmt, label, isInt, after) {
@@ -1302,6 +1318,87 @@
     function canvasToBlob(canvas, type, q) {
         return new Promise((res) => canvas.toBlob(res, type, q));
     }
+
+    // ---- AI upscale ×2 (UpscalerJS / ESRGAN, fallback Lanczos) -----------
+    let _upscaler = null;
+    const UPSCALE_MAX_IN = 1400; // chặn OOM mobile: chỉ chạy AI khi cạnh dài ≤ giá trị này
+    // UMD build: tf + upscaler + model (weights nhúng sẵn → không fetch thêm, chạy offline)
+    const UP_TF = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js';
+    const UP_LIB = 'https://cdn.jsdelivr.net/npm/upscaler@1.0.0/dist/browser/umd/upscaler.min.js';
+    const UP_MODEL =
+        'https://cdn.jsdelivr.net/npm/@upscalerjs/esrgan-slim@1.0.0/dist/umd/models/esrgan-slim/src/x2/index.min.js';
+    function loadScript(src) {
+        return new Promise((res, rej) => {
+            const s = document.createElement('script');
+            s.src = src;
+            s.crossOrigin = 'anonymous';
+            s.onload = res;
+            s.onerror = () => rej(new Error('load ' + src));
+            document.head.appendChild(s);
+        });
+    }
+    async function getUpscaler() {
+        if (_upscaler !== null) return _upscaler;
+        try {
+            await loadScript(UP_TF);
+            await loadScript(UP_LIB);
+            await loadScript(UP_MODEL);
+            const Upscaler = window.Upscaler?.default || window.Upscaler;
+            const model = window.ESRGANSlim2x?.default || window.ESRGANSlim2x;
+            if (!Upscaler || !model) throw new Error('UMD global thiếu');
+            _upscaler = new Upscaler({ model });
+        } catch (e) {
+            console.warn('[photo-studio] UpscalerJS load fail → Lanczos', e?.message);
+            _upscaler = false; // đánh dấu không khả dụng → dùng fallback
+        }
+        return _upscaler;
+    }
+
+    /** Trả về canvas đã phóng to (AI nếu được, không thì Lanczos x2). */
+    async function upscaleCanvas(src) {
+        const long = Math.max(src.width, src.height);
+        if (long <= UPSCALE_MAX_IN) {
+            const up = await getUpscaler();
+            if (up) {
+                try {
+                    const dataUrl = await up.upscale(src, {
+                        output: 'base64',
+                        patchSize: 64,
+                        padding: 2,
+                    });
+                    const img = await new Promise((res, rej) => {
+                        const i = new Image();
+                        i.onload = () => res(i);
+                        i.onerror = rej;
+                        i.src = dataUrl;
+                    });
+                    const cv = document.createElement('canvas');
+                    cv.width = img.naturalWidth;
+                    cv.height = img.naturalHeight;
+                    cv.getContext('2d').drawImage(img, 0, 0);
+                    window.__psUpscaleAI = true;
+                    return cv;
+                } catch (e) {
+                    console.warn('[photo-studio] AI upscale fail → Lanczos', e?.message);
+                }
+            }
+        }
+        return lanczos2x(src);
+    }
+
+    /** Phóng to ×2 chất lượng cao bằng resample 2 bước (fallback khi không có AI). */
+    function lanczos2x(src) {
+        const w = src.width * 2,
+            h = src.height * 2;
+        const cv = document.createElement('canvas');
+        cv.width = w;
+        cv.height = h;
+        const c = cv.getContext('2d');
+        c.imageSmoothingEnabled = true;
+        c.imageSmoothingQuality = 'high';
+        c.drawImage(src, 0, 0, w, h);
+        return cv;
+    }
     function blobToImage(blob) {
         return new Promise((res, rej) => {
             const img = new Image();
@@ -1533,7 +1630,7 @@
         el.camera.hidden = false;
     }
 
-    function saveReview() {
+    async function saveReview() {
         const srcW = state._capW,
             srcH = state._capH;
         if (!srcW) return;
@@ -1560,11 +1657,161 @@
             c.scale(-1, 1);
         }
         c.drawImage(el.reviewCanvas, 0, 0, W, H); // scale review (đã ghép shadow/enhance/logo)
-        out.toBlob(
-            (blob) => blob && saveBlob(blob, `tach-nen-${stamp()}.${fmt}`),
-            mime,
-            fmt === 'png' ? undefined : state.quality
-        );
+        let finalCv = out;
+        if (state.upscale) {
+            showLoading('Đang làm nét (AI ×2)…');
+            try {
+                finalCv = await upscaleCanvas(out);
+            } catch (e) {
+                console.warn('[photo-studio] upscale', e?.message);
+            }
+            hideLoading();
+        }
+        const blob = await canvasToBlob(finalCv, mime, fmt === 'png' ? undefined : state.quality);
+        if (blob) saveBlob(blob, `tach-nen-${stamp()}.${fmt}`);
+    }
+
+    // ---- Xử lý hàng loạt ------------------------------------------------
+    let batchBlobs = []; // [{name, blob}]
+    async function onBatchFiles(e) {
+        const files = [...(e.target.files || [])];
+        e.target.value = '';
+        if (!files.length) return;
+        batchBlobs = [];
+        el.batchGrid.innerHTML = '';
+        el.batchZip.disabled = true;
+        el.batch.hidden = false;
+        let done = 0;
+        el.batchCount.textContent = `0/${files.length}`;
+        for (const file of files) {
+            const cell = document.createElement('div');
+            cell.className = 'ps-batch-cell ps-batch-loading';
+            cell.innerHTML = '<div class="ps-spinner"></div>';
+            el.batchGrid.appendChild(cell);
+            try {
+                const img = await fileToImage(file);
+                const { blob, url } = await processOne(img);
+                const name = `tach-nen-${stamp()}-${done + 1}.${state.format}`;
+                batchBlobs.push({ name, blob });
+                cell.className = 'ps-batch-cell';
+                cell.innerHTML = `<div class="ps-batch-thumb" style="background-image:url(${url})"></div>`;
+            } catch (err) {
+                console.warn('[photo-studio] batch item', err?.message);
+                cell.className = 'ps-batch-cell ps-batch-err';
+                cell.textContent = '⚠';
+            }
+            done++;
+            el.batchCount.textContent = `${done}/${files.length}`;
+        }
+        el.batchZip.disabled = batchBlobs.length === 0;
+        notify(`Xong ${batchBlobs.length}/${files.length} ảnh.`, 'success');
+    }
+
+    function fileToImage(file) {
+        return new Promise((res, rej) => {
+            const img = new Image();
+            img.onload = () => res(img);
+            img.onerror = rej;
+            img.src = URL.createObjectURL(file);
+        });
+    }
+
+    /** Tách nền 1 ảnh (không dùng mask realtime). chroma→keyOut; còn lại→cloud/local. */
+    async function batchCutout(frameCv, W, H) {
+        if (state.mode === 'chroma') {
+            const cv = document.createElement('canvas');
+            cv.width = W;
+            cv.height = H;
+            const c = cv.getContext('2d', { willReadFrequently: true });
+            c.drawImage(frameCv, 0, 0);
+            const d = c.getImageData(0, 0, W, H);
+            keyOut(d, state.key, state.threshold, state.smooth, state.spill);
+            c.putImageData(d, 0, 0);
+            return cv;
+        }
+        if (state.hqEngine === 'auto') {
+            try {
+                return imgToCanvas(await cloudCutout(frameCv), W, H);
+            } catch (e) {
+                /* fallback local */
+            }
+        }
+        return imgToCanvas(await localCutout(frameCv), W, H);
+    }
+
+    /** Ghép nền + bóng + đẹp + logo (identity transform) → blob theo khổ/format. */
+    async function processOne(srcImg) {
+        const W0 = srcImg.naturalWidth,
+            H0 = srcImg.naturalHeight;
+        const crop = cropRect(W0, H0);
+        const { W, H } = captureSize(crop);
+        const frameCv = document.createElement('canvas');
+        frameCv.width = W;
+        frameCv.height = H;
+        frameCv.getContext('2d').drawImage(srcImg, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, W, H);
+        const cutout = await batchCutout(frameCv, W, H);
+        const transparent = state.bgType === 'transparent';
+        const comp = document.createElement('canvas');
+        comp.width = W;
+        comp.height = H;
+        const c = comp.getContext('2d');
+        if (!transparent) drawBg(c, W, H, frameCv, { sx: 0, sy: 0, sw: W, sh: H });
+        if (state.shadow && !transparent) {
+            const sil = buildSilhouette(cutout, W, H);
+            c.save();
+            c.globalAlpha = 0.32;
+            c.filter = `blur(${state.shadowSoft}px)`;
+            c.drawImage(sil, 0, Math.round(state.shadowSoft * 0.55 + H * 0.012), W, H);
+            c.restore();
+            c.filter = 'none';
+            c.globalAlpha = 1;
+        }
+        if (state.enhance) c.filter = 'brightness(1.06) contrast(1.08) saturate(1.14)';
+        c.drawImage(cutout, 0, 0);
+        c.filter = 'none';
+        if (state.logoOn && state.logoImg) drawLogo(c, W, H);
+        // khổ xuất + format
+        let oW = W,
+            oH = H;
+        if (state.exportPx) {
+            const s = state.exportPx / Math.max(W, H);
+            oW = Math.round(W * s);
+            oH = Math.round(H * s);
+        }
+        const fmt = state.format;
+        const mime = fmt === 'jpg' ? 'image/jpeg' : fmt === 'webp' ? 'image/webp' : 'image/png';
+        const out = document.createElement('canvas');
+        out.width = oW;
+        out.height = oH;
+        const oc = out.getContext('2d');
+        if (fmt === 'jpg') {
+            oc.fillStyle = '#fff';
+            oc.fillRect(0, 0, oW, oH);
+        }
+        oc.drawImage(comp, 0, 0, oW, oH);
+        const finalCv = state.upscale ? await upscaleCanvas(out) : out;
+        const blob = await canvasToBlob(finalCv, mime, fmt === 'png' ? undefined : state.quality);
+        return { blob, url: URL.createObjectURL(blob) };
+    }
+
+    async function downloadBatchZip() {
+        if (!batchBlobs.length) return;
+        el.batchZip.disabled = true;
+        try {
+            showLoading('Đang nén ZIP…');
+            const mod = await import(/* @vite-ignore */ 'https://esm.sh/jszip@3.10.1');
+            const JSZip = mod.default || mod;
+            const zip = new JSZip();
+            batchBlobs.forEach((b) => zip.file(b.name, b.blob));
+            const content = await zip.generateAsync({ type: 'blob' });
+            await saveBlob(content, `tach-nen-${stamp()}.zip`);
+        } catch (e) {
+            console.error('[photo-studio] zip', e);
+            notify('Nén ZIP lỗi: ' + (e?.message || e), 'error');
+        } finally {
+            hideLoading();
+            el.batchZip.disabled = false;
+        }
     }
 
     async function saveBlob(blob, filename) {

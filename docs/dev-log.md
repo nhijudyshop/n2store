@@ -25,6 +25,29 @@
 
 ## 2026-06-04
 
+### [web2] Photo-studio — Đợt 5: xử lý hàng loạt + AI upscale ×2 ✅
+
+Hai nâng cấp cuối trong backlog "làm tất cả".
+
+**Files:** `web2/photo-studio/index.html`, `photo-studio.js`, `photo-studio.css` (v=20260604o)
+
+**1. Xử lý hàng loạt (batch)** — nút `layers` ở topbar camera → chọn nhiều ảnh cùng lúc.
+
+- Overlay `#psBatch` lưới thumbnail, mỗi ảnh xử lý tuần tự qua `processOne()` (tách nền + ghép nền/bóng/đẹp/logo ở identity transform + áp khổ xuất & format hiện tại).
+- `batchCutout()`: chroma → `keyOut` (không cần mạng); AI → cloud auto → fallback local `@imgly` (KHÔNG dùng mask realtime vì mỗi ảnh khác nhau).
+- Nút "Tải ZIP" → lazy-import JSZip (esm.sh) → nén tất cả blob → lưu 1 file.
+- Test Playwright: 2 ảnh chroma → 2/2 ô có thumb, ZIP `tach-nen-….zip` tải về OK, 0 lỗi.
+
+**2. AI upscale ×2** — checkbox "Nét hơn ×2" trong nhóm Xuất ảnh (opt-in, mặc định tắt).
+
+- Engine: UpscalerJS UMD + model ESRGAN-slim x2 (`@upscalerjs/esrgan-slim@1.0.0/dist/umd/models/esrgan-slim/src/x2/index.min.js`, global `ESRGANSlim2x`) + tfjs UMD — weights nhúng UMD, không fetch thêm.
+- Chặn OOM: chỉ chạy AI khi cạnh dài ≤ 1400px; quá ngưỡng hoặc model lỗi → fallback Lanczos ×2 (resample high-quality 2 bước) nên luôn ra ảnh 2x.
+- Áp cho cả `saveReview` (1 ảnh) lẫn batch `processOne`.
+- Test: `ai:true`, ảnh 120×150 → 240×300; máy thật dùng backend webgl (headless = `cpu` nên chậm ~1 phút). 0 lỗi, 0 request 404.
+- jsdelivr UMD đã nằm trong SW cache-first (`/cdn\.jsdelivr\.net/`) → tải 1 lần.
+
+**Status:** ✅ Done — hết backlog photo-studio.
+
 ### [web2] Photo-studio — Đợt 4: brush sửa viền (xóa/khôi phục) ✅
 
 Sửa chỗ AI tách sai (tóc/mesh/đồ phản chiếu). Nút "Sửa viền" → thanh công cụ (Xóa / Khôi phục + slider cỡ cọ + Xong) + con trỏ vòng tròn.
