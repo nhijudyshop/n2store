@@ -37,6 +37,17 @@
 const express = require('express');
 const router = express.Router();
 
+// sharp (resize ảnh proxy). require lười + an toàn nếu môi trường thiếu native binary.
+let _sharp = null;
+try {
+    _sharp = require('sharp');
+} catch (e) {
+    console.warn(
+        '[WebWarehouse] sharp không load được — proxy ảnh sẽ stream nguyên bản:',
+        e.message
+    );
+}
+
 // =====================================================
 // SSE NOTIFICATION
 // =====================================================
@@ -1801,16 +1812,40 @@ router.get('/image/:tposProductId', async (req, res) => {
                 .json({ success: false, error: 'TPOS image fetch failed' });
         }
 
-        // Stream the image back with caching headers
-        const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+        const srcContentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+        const srcBuffer = Buffer.from(await imageResponse.arrayBuffer());
+
+        // Optional resize: ?w=<width> → thumbnail WebP (ảnh gốc TPOS ~1-2MB rất chậm khi load
+        // hàng loạt; thumbnail WebP ~20-80KB → nhanh hơn ~20×). Clamp 64..1600. Giữ tỉ lệ,
+        // không phóng to. Lỗi sharp → fallback stream ảnh gốc.
+        const wRaw = parseInt(req.query.w, 10);
+        const width = Number.isFinite(wRaw) ? Math.max(64, Math.min(1600, wRaw)) : 0;
+
+        if (width && _sharp) {
+            try {
+                const out = await _sharp(srcBuffer)
+                    .rotate()
+                    .resize({ width, withoutEnlargement: true })
+                    .webp({ quality: 78 })
+                    .toBuffer();
+                res.set({
+                    'Content-Type': 'image/webp',
+                    'Cache-Control': 'public, max-age=604800, immutable', // 7 ngày (URL có ?v= version)
+                    'Access-Control-Allow-Origin': '*',
+                });
+                return res.send(out);
+            } catch (e) {
+                console.warn('[WebWarehouse] resize failed, stream gốc:', e.message);
+            }
+        }
+
+        // Stream the image back with caching headers (no resize)
         res.set({
-            'Content-Type': contentType,
+            'Content-Type': srcContentType,
             'Cache-Control': 'public, max-age=604800', // 7 days
             'Access-Control-Allow-Origin': '*',
         });
-
-        const buffer = await imageResponse.arrayBuffer();
-        res.send(Buffer.from(buffer));
+        res.send(srcBuffer);
     } catch (error) {
         console.error('[WebWarehouse] Image proxy error:', error.message);
         res.status(500).json({ success: false, error: 'Image proxy failed' });

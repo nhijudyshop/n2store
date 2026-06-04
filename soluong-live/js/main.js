@@ -45,14 +45,18 @@ let isSyncingFromFirebase = false;
 let firebaseDetachFn = null; // Store detach function for cleanup on page unload
 let warehouseSyncHandle = null; // SoluongWarehouseSync handle (realtime TPOS sync)
 
-// Cache-bust ảnh SP. URL proxy /image/:id là hằng số nên phải bust theo imageVersion
-// (suy từ raw image_url TPOS) — không thì browser cache 7 ngày serve ảnh cũ.
-function soluongImgSrc(product) {
+// Cache-bust + resize ảnh SP. URL proxy /image/:id là hằng số nên bust theo imageVersion
+// (suy từ raw image_url TPOS). Thêm ?w= để proxy trả thumbnail WebP nhẹ (ảnh gốc ~1-2MB
+// load rất chậm). w chỉ áp cho URL proxy web-warehouse; data:/URL khác bỏ qua.
+function soluongImgSrc(product, w) {
     const url = product && product.imageUrl;
     if (!url || url.startsWith('data:')) return url || '';
     const v = product.imageVersion || product.lastRefreshed || product.addedAt || product.Id || '';
-    if (!v) return url;
-    return `${url}${url.includes('?') ? '&' : '?'}v=${v}`;
+    const params = [];
+    if (w && url.includes('/web-warehouse/image/')) params.push('w=' + w);
+    if (v) params.push('v=' + v);
+    if (!params.length) return url;
+    return `${url}${url.includes('?') ? '&' : '?'}${params.join('&')}`;
 }
 
 // Realtime TPOS sync: TPOS đổi tên/hình/số lượng → cập nhật cart + Firebase liền (giữ logic biến thể)
@@ -1075,7 +1079,7 @@ function updateProductListPreview() {
     productListPreview.innerHTML = recentProducts
         .map((product) => {
             const imageHtml = product.imageUrl
-                ? `<img src="${soluongImgSrc(product)}" class="preview-image" alt="${product.NameGet}">`
+                ? `<img src="${soluongImgSrc(product, 400)}" class="preview-image" alt="${product.NameGet}" loading="lazy" decoding="async">`
                 : `<div class="preview-image no-image">📦</div>`;
 
             return `
@@ -1136,7 +1140,7 @@ function updateHiddenProductListPreview() {
     hiddenProductListPreview.innerHTML = recentProducts
         .map((product) => {
             const imageHtml = product.imageUrl
-                ? `<img src="${soluongImgSrc(product)}" class="preview-image" alt="${product.NameGet}">`
+                ? `<img src="${soluongImgSrc(product, 400)}" class="preview-image" alt="${product.NameGet}" loading="lazy" decoding="async">`
                 : `<div class="preview-image no-image">📦</div>`;
 
             return `
@@ -1654,9 +1658,167 @@ function saveImageChange() {
             });
     }
 
+    // Đổi ảnh ở đây = đổi luôn trên TPOS (template-level → áp mọi biến thể).
+    // Chạy nền: TPOS UpdateV2 + báo Render re-sync → SSE image_update → cart tự lấy ảnh TPOS.
+    const templateId = product.ProductTmplId || product.Id;
+    pushImageToTpos(templateId, newImageUrl);
+
     // Update UI
     updateProductListPreview();
     updateHiddenProductListPreview();
+}
+
+// Lấy base64 (bỏ tiền tố data:) từ chuỗi ảnh; URL http → fetch về base64 (best-effort, có thể CORS).
+async function _toBase64(imgData) {
+    if (!imgData || typeof imgData !== 'string') return null;
+    if (imgData.startsWith('data:')) return imgData.split(',')[1] || null;
+    if (/^https?:/i.test(imgData)) {
+        const resp = await fetch(imgData);
+        const blob = await resp.blob();
+        const dataUrl = await new Promise((res, rej) => {
+            const fr = new FileReader();
+            fr.onload = () => res(fr.result);
+            fr.onerror = rej;
+            fr.readAsDataURL(blob);
+        });
+        return String(dataUrl).split(',')[1] || null;
+    }
+    return null;
+}
+
+// Đẩy ảnh lên TPOS (chạy nền + toast). Bỏ qua nếu không có template/token/ảnh.
+function pushImageToTpos(templateId, imgData) {
+    if (!templateId || !imgData) return;
+    if (!window.tokenManager || typeof window.tokenManager.authenticatedFetch !== 'function') {
+        showNotificationMessage('⚠️ Chưa có token TPOS — chỉ đổi ảnh local, chưa đẩy lên TPOS');
+        return;
+    }
+    showNotificationMessage('⏳ Đang đẩy ảnh lên TPOS...');
+    _toBase64(imgData)
+        .then((base64) => {
+            if (!base64) throw new Error('Không đọc được ảnh (URL ngoài có thể bị CORS)');
+            return updateTposTemplateImage(templateId, base64);
+        })
+        .then(() => showNotificationMessage('✅ Đã đổi ảnh trên TPOS (đang đồng bộ về các trang)'))
+        .catch((err) => {
+            console.error('❌ Đẩy ảnh TPOS lỗi:', err);
+            showNotificationMessage('⚠️ Đổi ảnh TPOS lỗi: ' + (err.message || err));
+        });
+}
+
+// Cập nhật ảnh ProductTemplate trên TPOS qua UpdateV2 (cùng cơ chế product-warehouse).
+// GET full template (giữ nguyên variants/attrs/uom/combo/supplier), chỉ set Image → UpdateV2.
+const _TPOS_PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+const _TPOS_EXPAND_STRIP = [
+    'UOM',
+    'UOMCateg',
+    'Categ',
+    'UOMPO',
+    'POSCateg',
+    'UOMView',
+    'Distributor',
+    'Importer',
+    'Producer',
+    'OriginCountry',
+    'Thumbnails',
+    'UOMViewI',
+    'Taxes',
+    'SupplierTaxes',
+    'Product_Teams',
+    'Images',
+];
+const _TPOS_VARIANT_NESTED_STRIP = ['UOM', 'Categ', 'UOMPO', 'POSCateg', 'OriginCountry'];
+const _TPOS_UOMLINE_FIELDS = [
+    'Id',
+    'ProductTmplId',
+    'UOMId',
+    'TemplateUOMFactor',
+    'ListPrice',
+    'Price',
+    'Barcode',
+    'Factor',
+];
+
+async function buildTposImagePayload(templateId) {
+    const expand =
+        'UOM,UOMCateg,Categ,UOMPO,POSCateg,UOMView,Distributor,Importer,Producer,OriginCountry,' +
+        'ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues),' +
+        'AttributeLines($expand=Attribute,Values),UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos';
+    const getResp = await window.tokenManager.authenticatedFetch(
+        `${_TPOS_PROXY}/api/odata/ProductTemplate(${templateId})?$expand=${encodeURIComponent(expand)}`,
+        { headers: { Accept: 'application/json' } }
+    );
+    if (!getResp.ok) throw new Error('GET template HTTP ' + getResp.status);
+    const data = await getResp.json();
+
+    const payload = { ...data };
+    delete payload['@odata.context'];
+    for (const k of _TPOS_EXPAND_STRIP) delete payload[k];
+
+    if (Array.isArray(data.AttributeLines)) {
+        payload.AttributeLines = data.AttributeLines.map((l) => ({ ...l }));
+        payload.IsProductVariant = data.AttributeLines.length > 0;
+    }
+    if (Array.isArray(data.ProductVariants)) {
+        payload.ProductVariants = data.ProductVariants.map((v) => {
+            const m = { ...v };
+            for (const k of _TPOS_VARIANT_NESTED_STRIP) delete m[k];
+            if (!m.Id) m.Id = 0;
+            if (!m.ProductTmplId) m.ProductTmplId = payload.Id || 0;
+            return m;
+        });
+        payload.ProductVariantCount = payload.ProductVariants.length;
+    }
+    if (Array.isArray(data.UOMLines)) {
+        payload.UOMLines = data.UOMLines.map((u) => {
+            const c = {};
+            for (const k of _TPOS_UOMLINE_FIELDS) if (u[k] !== undefined) c[k] = u[k];
+            if (c.Id == null) c.Id = 0;
+            return c;
+        });
+    }
+    if (Array.isArray(data.ComboProducts)) {
+        payload.ComboProducts = data.ComboProducts.map((c) => ({ ...c }));
+    }
+    if (Array.isArray(data.ProductSupplierInfos)) {
+        payload.ProductSupplierInfos = data.ProductSupplierInfos.map((s) => {
+            const m = { ...s };
+            delete m.Partner;
+            if (!m.Id) m.Id = 0;
+            return m;
+        });
+    }
+    // Tags rỗng → omit (mảng rỗng gây lỗi StartArray ở TPOS)
+    if (!Array.isArray(payload.Tags) || payload.Tags.length === 0) delete payload.Tags;
+
+    return payload;
+}
+
+async function updateTposTemplateImage(templateId, base64) {
+    const payload = await buildTposImagePayload(templateId);
+    payload.Image = base64;
+
+    const upResp = await window.tokenManager.authenticatedFetch(
+        `${_TPOS_PROXY}/api/odata/ProductTemplate/ODataService.UpdateV2`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify(payload),
+        }
+    );
+    if (!upResp.ok) {
+        const e = await upResp.json().catch(() => ({}));
+        throw new Error((e.error && e.error.message) || 'UpdateV2 HTTP ' + upResp.status);
+    }
+
+    // Báo Render re-sync web_warehouse + broadcast SSE image_update → mọi trang tự cập nhật
+    fetch(`${_TPOS_PROXY}/api/v2/web-warehouse/notify-image-update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tposProductId: templateId, tposTemplateId: templateId }),
+    }).catch(() => {});
+
+    return true;
 }
 
 function performListSearch(keyword) {

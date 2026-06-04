@@ -566,13 +566,19 @@ function updateProductGrid() {
                 product.imageVersion || product.lastRefreshed || product.addedAt || product.Id;
             let imageUrlWithVersion = product.imageUrl;
 
-            // Only add cache-busting parameter for HTTP URLs, not base64 data URIs
+            // Only add cache-busting parameter for HTTP URLs, not base64 data URIs.
+            // Thêm w=700 cho URL proxy → thumbnail WebP nhẹ (ảnh gốc ~1-2MB load rất chậm).
             if (imageUrlWithVersion && !imageUrlWithVersion.startsWith('data:')) {
-                imageUrlWithVersion = `${imageUrlWithVersion}${imageUrlWithVersion.includes('?') ? '&' : '?'}v=${cacheVersion}`;
+                const params = [];
+                if (imageUrlWithVersion.includes('/web-warehouse/image/')) params.push('w=700');
+                if (cacheVersion) params.push(`v=${cacheVersion}`);
+                if (params.length) {
+                    imageUrlWithVersion = `${imageUrlWithVersion}${imageUrlWithVersion.includes('?') ? '&' : '?'}${params.join('&')}`;
+                }
             }
 
             const imageHtml = imageUrlWithVersion
-                ? `<img src="${imageUrlWithVersion}" class="grid-item-image" alt="${product.NameGet}">`
+                ? `<img src="${imageUrlWithVersion}" class="grid-item-image" alt="${product.NameGet}" loading="lazy" decoding="async">`
                 : `<div class="grid-item-image no-image"><span class="icon-emoji">📦</span></div>`;
 
             // Disable edit buttons for merged products

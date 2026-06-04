@@ -25,6 +25,12 @@
 
 ## 2026-06-04
 
+### [orders][render] soluong-live: tối ưu ảnh (resize proxy) + đổi ảnh đẩy lên TPOS ✅
+
+**Tối ưu tốc độ load ảnh:** proxy `/image/:id` trước stream ảnh gốc TPOS ~1-2MB → load hàng loạt rất chậm. Thêm `?w=<width>` → sharp resize + WebP q78 (~20-80KB, nhanh ~20×), cache 7 ngày immutable (URL có ?v= version). soluong-live render thumbnail: index preview `w=400`, grid list `w=700` + `loading=lazy` + `decoding=async`. Ảnh gốc giữ nguyên khi không có ?w. (render.com/routes/v2/web-warehouse.js — cần deploy Render.)
+
+**Đổi ảnh ở soluong-live = đổi luôn trên TPOS:** `saveImageChange` ngoài cập nhật cart Firebase giờ đẩy ảnh lên TPOS template qua `ProductTemplate/ODataService.UpdateV2` (cùng cơ chế product-warehouse: GET full template + giữ nguyên variants/attrs/uom/combo/supplier, chỉ set `Image=base64`), rồi gọi `notify-image-update` để Render re-sync + SSE → mọi trang tự lấy ảnh mới. Base64 từ paste/upload/camera; URL ngoài fetch→base64 best-effort. Cần `tokenManager` (đã có). Dry-run payload template 119779: giữ 3 biến thể/1 attr/1 uom, strip hết object expand, 9KB — đúng shape UpdateV2.
+
 ### [web2] Photo-studio — tăng tốc: mặc định AI nhanh + AI nét model nén quint8 ✅
 
 User hỏi tốc độ → benchmark (Playwright, headless WASM = worst-case không GPU):
