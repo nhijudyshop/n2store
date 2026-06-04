@@ -25,6 +25,16 @@
 
 ## 2026-06-04
 
+### [web2] Làm giàu kho KH tự động khi bật chat Pancake (mọi trang) ✅
+
+User: bật chat Pancake với KH → nếu fb_id chưa có trong kho thì lưu; áp dụng mọi nơi mở Pancake; mục đích kho đa dạng + load nhanh (biết id/fb/tên/sđt).
+
+- **Shared hook (1 nguồn)** `web2/shared/web2-chat-client.js`: thêm `Web2Chat.enrichCustomer(fbId,{name,phone})` (fire-and-forget, dedup per-session) + hook sẵn trong `fetchConversations`. → MỌI trang load Web2Chat (native-orders, balance-history, tpos-pancake, pancake-settings) tự enrich, không code lại.
+- **Backend** `POST /api/web2/customers/enrich-fb`: (1) fb_id đã có → skip; (2) có phone → getOrCreate + linkFbId; (3) không phone → TPOS chatomni/info theo fb_id → upsert + link. Prospect chưa có TPOS → skip (kho key theo TPOS id).
+- Nuôi luôn coverage nút "💬 Mở chat" (resolve phone→pageId+psid).
+- **Docs**: overview #conventions subsection "Làm giàu kho KH khi bật chat Pancake".
+- **Files:** `web2/shared/web2-chat-client.js` (v=20260604c ×4 trang), `render.com/routes/v2/web2-customers.js`, `web2/overview/index.html`
+
 ### [web2 printer] Print Bridge 1-click + tự bật khi mở máy + bản PowerShell (không cần Node) ✅
 
 User: cấu hình máy in cho nút tải print-bridge chạy nền tự bật khi khởi động + 1 click file .bat.

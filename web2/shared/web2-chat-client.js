@@ -338,6 +338,23 @@
             }
             const result = { ok: true, conversations, customerUuid, raw: data };
             _convCache.set(cacheKey, { ts: Date.now(), result });
+            // Làm giàu kho KH: fbId (param) = psid của KH. Lấy thêm name/phone
+            // từ Pancake customer nếu có → backend lưu vào web2_customers.
+            try {
+                const cust =
+                    (conversations[0] &&
+                        conversations[0].customers &&
+                        conversations[0].customers[0]) ||
+                    {};
+                enrichCustomer(fbId, {
+                    name:
+                        cust.name ||
+                        cust.display_name ||
+                        (conversations[0] && conversations[0].name) ||
+                        '',
+                    phone: cust.phone || cust.phone_number || '',
+                });
+            } catch (_) {}
             return result;
         } catch (e) {
             console.warn('[Web2Chat] fetchConversations failed:', e.message);
@@ -811,9 +828,37 @@
         return p;
     }
 
+    // ============================================================
+    // LÀM GIÀU KHO KH (web2_customers): mỗi khi bật chat Pancake với 1 KH ở
+    // BẤT KỲ trang nào, gửi fb_id (+name/phone nếu có) lên backend để lưu vào
+    // kho nếu chưa có. Fire-and-forget, dedup per-session, KHÔNG chặn UX.
+    // Mục đích: kho biết đủ id/fb/tên/sđt → resolve + mở chat lần sau nhanh hơn.
+    // ============================================================
+    const _enrichedFbIds = new Set();
+    function enrichCustomer(fbId, opts) {
+        opts = opts || {};
+        const key = String(fbId || '').trim();
+        if (!key || _enrichedFbIds.has(key)) return;
+        _enrichedFbIds.add(key);
+        try {
+            fetch(`${WORKER_URL}/api/web2/customers/enrich-fb`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true,
+                body: JSON.stringify({
+                    fbId: key,
+                    name: opts.name || '',
+                    phone: opts.phone || '',
+                    crmTeamId: opts.crmTeamId || null,
+                }),
+            }).catch(() => {});
+        } catch (_) {}
+    }
+
     window.Web2Chat = {
         // Read
         fetchConversations,
+        enrichCustomer,
         fetchConversationsByPage,
         searchConversations,
         fetchMessages,

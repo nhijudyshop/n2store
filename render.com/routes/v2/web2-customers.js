@@ -11,11 +11,17 @@
 
 const express = require('express');
 const router = express.Router();
-const { upsertWeb2Customer } = require('../../db/web2-customers-schema');
+const {
+    upsertWeb2Customer,
+    findWeb2CustomerByFbId,
+    linkWeb2CustomerFbId,
+    getOrCreateWeb2Customer,
+} = require('../../db/web2-customers-schema');
 const {
     searchCustomersByText,
     searchAllCustomersByPhone,
     pushCustomerToTPOS,
+    searchCustomerByFbUserId,
 } = require('../../services/tpos-customer-service');
 
 // Số kết quả local tối thiểu để KHÔNG cần hỏi TPOS (tránh spam API).
@@ -193,6 +199,65 @@ router.get('/:phone', async (req, res) => {
         res.json({ success: true, customer: null });
     } catch (e) {
         console.error('[web2-customers] get error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /enrich-fb — LÀM GIÀU KHO KH: mỗi khi bật chat Pancake với 1 KH ở BẤT
+// KỲ trang nào (Web2Chat tự gọi), nếu fb_id chưa có trong kho → lưu lại. Mục
+// đích: kho KH biết đủ id/fb/tên/sđt → lần sau resolve/mở chat nhanh hơn +
+// tăng coverage nút "Mở chat". Body: { fbId(psid), name?, phone?, crmTeamId? }.
+// Idempotent, fire-and-forget từ client — KHÔNG chặn UX.
+router.post('/enrich-fb', async (req, res) => {
+    const db = req.app.locals.web2Db || req.app.locals.chatDb;
+    const fbId = String(req.body?.fbId || '').trim();
+    const name = String(req.body?.name || '').trim();
+    const phone = String(req.body?.phone || '')
+        .replace(/\D/g, '')
+        .slice(-10);
+    const crmTeamId = req.body?.crmTeamId || null;
+    if (!fbId) return res.json({ success: true, action: 'no_fbid' });
+    try {
+        // 1) Đã có fb_id trong kho → bỏ qua (nhanh, không gọi TPOS).
+        const existing = await findWeb2CustomerByFbId(db, fbId);
+        if (existing) return res.json({ success: true, action: 'exists', id: existing.id });
+
+        // 2) Có phone → đảm bảo KH tồn tại (TPOS theo phone) rồi link fb_id.
+        if (phone) {
+            const goc = await getOrCreateWeb2Customer(db, phone);
+            await linkWeb2CustomerFbId(db, phone, fbId);
+            return res.json({
+                success: true,
+                action: 'linked_by_phone',
+                id: goc.customerId || null,
+            });
+        }
+
+        // 3) Không phone → tra TPOS theo fb_id (chatomni/info) → upsert + link.
+        const tpos = await searchCustomerByFbUserId(fbId, crmTeamId);
+        if (tpos?.success && tpos.customer?.id) {
+            await upsertWeb2Customer(db, tpos.customer);
+            if (tpos.customer.phone) {
+                await linkWeb2CustomerFbId(db, tpos.customer.phone, fbId);
+            } else {
+                await db.query(
+                    `UPDATE web2_customers SET fb_id = $2
+                      WHERE id = $1 AND (fb_id IS NULL OR fb_id = '')`,
+                    [tpos.customer.id, fbId]
+                );
+            }
+            return res.json({
+                success: true,
+                action: 'tpos_resolved',
+                id: tpos.customer.id,
+                phone: tpos.customer.phone || null,
+            });
+        }
+        // 4) KH FB chưa có trong TPOS (prospect chưa mua) → chưa lưu được vào
+        //    web2_customers (key = TPOS id). Bỏ qua, không tạo rác.
+        res.json({ success: true, action: 'fb_only_unresolved' });
+    } catch (e) {
+        console.error('[web2-customers] enrich-fb:', e.message);
         res.status(500).json({ success: false, error: e.message });
     }
 });
