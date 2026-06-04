@@ -24,6 +24,24 @@ router.get('/status', (req, res) => {
     res.json({ success: true, engines: svc.engines() });
 });
 
+router.post('/birefnet', jsonLarge, async (req, res) => {
+    try {
+        const { image } = req.body || {};
+        if (!image) return res.status(400).json({ success: false, error: 'Thiếu ảnh (image)' });
+        if (!svc.falConfigured()) {
+            return res
+                .status(503)
+                .json({ success: false, error: 'FAL_KEY chưa cấu hình trên server' });
+        }
+        const buf = svc.decodeImage(image);
+        const out = await svc.birefnetCutout(buf);
+        res.json({ success: true, image: 'data:image/png;base64,' + out.toString('base64') });
+    } catch (e) {
+        console.error('[web2-cutout] birefnet', e.message);
+        res.status(500).json({ success: false, error: String(e.message || e) });
+    }
+});
+
 router.post('/photoroom', jsonLarge, async (req, res) => {
     try {
         const { image } = req.body || {};

@@ -3,24 +3,64 @@
  * Web 2.0 — Cutout service (tách nền chất lượng cao qua API thứ 3).
  *
  * Engine hỗ trợ:
- *   - photoroom: PhotoRoom API v1 /segment → trả PNG cutout (nền trong suốt).
- *                Sandbox 1000 ảnh/tháng free; production tính phí.
+ *   - birefnet (fal.ai): model BiRefNet (state-of-the-art, MIT) qua fal.ai sync.
+ *                **Hiện free, KHÔNG watermark**, full HD. Dùng FAL_KEY (đã có sẵn
+ *                cho AI KOL). → engine "Cloud (HD)" mặc định.
+ *   - photoroom: PhotoRoom API v1 /segment. Sandbox free CÓ watermark; production
+ *                tính phí (sạch). Giữ làm tùy chọn.
  *
  * Key đọc từ env (Render) — KHÔNG hardcode:
- *   PHOTOROOM_API_KEY   (production)  hoặc
- *   PHOTOROOM_SANDBOX_KEY (test, prefix sandbox_)
+ *   FAL_KEY               (fal.ai BiRefNet)
+ *   PHOTOROOM_API_KEY / PHOTOROOM_SANDBOX_KEY (PhotoRoom)
  *
- * Trả về Buffer PNG. Frontend tự ghép nền (màu/ảnh/mờ) để đồng nhất với các
- * engine on-device khác.
+ * Trả về Buffer PNG cutout (nền trong suốt). Frontend tự ghép nền.
  */
 'use strict';
 
 const PHOTOROOM_KEY = process.env.PHOTOROOM_API_KEY || process.env.PHOTOROOM_SANDBOX_KEY || '';
 const PHOTOROOM_SEGMENT_URL = 'https://sdk.photoroom.com/v1/segment';
+const FAL_KEY = process.env.FAL_KEY || '';
+const FAL_BIREFNET_URL = 'https://fal.run/fal-ai/birefnet/v2';
 const MAX_BYTES = 12 * 1024 * 1024; // 12MB ảnh input
 
 function photoroomConfigured() {
     return Boolean(PHOTOROOM_KEY);
+}
+function falConfigured() {
+    return Boolean(FAL_KEY);
+}
+
+/**
+ * Tách nền bằng fal.ai BiRefNet (free, no watermark, HD).
+ * @param {Buffer} imageBuffer
+ * @returns {Promise<Buffer>} PNG cutout (nền trong suốt)
+ */
+async function birefnetCutout(imageBuffer) {
+    if (!FAL_KEY) throw new Error('FAL_KEY chưa cấu hình trên server');
+    if (!imageBuffer?.length) throw new Error('Ảnh rỗng');
+    if (imageBuffer.length > MAX_BYTES) throw new Error('Ảnh quá lớn (>12MB)');
+
+    const dataUri = 'data:image/png;base64,' + imageBuffer.toString('base64');
+    const res = await fetch(FAL_BIREFNET_URL, {
+        method: 'POST',
+        headers: { Authorization: `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            image_url: dataUri,
+            output_format: 'png',
+            operating_resolution: '1024x1024',
+            refine_foreground: true,
+        }),
+    });
+    if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        throw new Error(`fal ${res.status}: ${detail.slice(0, 300)}`);
+    }
+    const j = await res.json();
+    const url = j?.image?.url || j?.images?.[0]?.url;
+    if (!url) throw new Error('fal không trả ảnh');
+    const imgRes = await fetch(url);
+    if (!imgRes.ok) throw new Error('Tải ảnh fal lỗi ' + imgRes.status);
+    return Buffer.from(await imgRes.arrayBuffer());
 }
 
 /**
@@ -62,6 +102,8 @@ function decodeImage(input) {
 module.exports = {
     photoroomConfigured,
     photoroomCutout,
+    falConfigured,
+    birefnetCutout,
     decodeImage,
-    engines: () => ({ photoroom: photoroomConfigured() }),
+    engines: () => ({ birefnet: falConfigured(), photoroom: photoroomConfigured() }),
 };

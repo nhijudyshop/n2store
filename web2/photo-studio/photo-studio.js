@@ -738,7 +738,8 @@
     }
     async function cloudCutout(canvas) {
         const dataUrl = canvas.toDataURL('image/png');
-        const res = await fetch(`${CUTOUT_API}/photoroom`, {
+        // BiRefNet qua fal.ai: HD, KHÔNG watermark (cần fal.ai còn số dư).
+        const res = await fetch(`${CUTOUT_API}/birefnet`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ image: dataUrl }),
