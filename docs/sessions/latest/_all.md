@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `65c8add` — auto: session update
-**Last updated**: 2026-06-04 18:43:54 +07
-**Latest session**: [`RESUME:20260604-184354-65c8add`](../20260604-184354-65c8add.md)
-**Summary**: auto: session update
+**Latest commit**: `5bcb0ae` — feat(web2): photo-studio — nút ✂ tách món vừa chọn (SAM) ra ảnh PNG riêng, cắt sát viền
+**Last updated**: 2026-06-04 18:44:36 +07
+**Latest session**: [`RESUME:20260604-184436-5bcb0ae`](../20260604-184436-5bcb0ae.md)
+**Summary**: feat(web2): photo-studio — nút ✂ tách món vừa chọn (SAM) ra ảnh PNG riêng, cắt sát viền
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-04 18:43
+- [`docs/`](./docs.md) — updated 2026-06-04 18:44
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-04 13:36
 - [`downloads/`](./downloads.md) — updated 2026-06-04 15:58
