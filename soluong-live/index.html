@@ -18,9 +18,12 @@
         <!-- Firebase Configuration (SHARED) -->
         <script src="../shared/js/firebase-config.js?v=20260604b"></script>
 
+        <!-- TPOS token (chia sẻ qua Firestore) — fallback ảnh template TPOS-direct -->
+        <script src="../shared/js/token-manager.js?v=20260604b"></script>
+
         <!-- Warehouse API (Render DB) — replaces TPOS Excel/OData direct calls -->
         <script src="../shared/js/warehouse-api.js?v=20260604b"></script>
-        <script src="js/warehouse-realtime.js?v=20260604c"></script>
+        <script src="js/warehouse-realtime.js?v=20260604d"></script>
 
         <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
         <script type="module" src="../shared/esm/compat.js?v=20260604b"></script>

@@ -25,6 +25,14 @@
 
 ## 2026-06-04
 
+### [orders][warehouse] soluong-live khớp ảnh product-warehouse + khôi phục dropdown tìm kiếm ✅
+
+**1/ soluong-live tham chiếu product-warehouse (đồng bộ tên/ảnh/SL):** cùng nguồn web_warehouse + SSE realtime TPOS (đã làm trước). Bổ sung **fallback ảnh TPOS-direct giống product-warehouse**: khi web_warehouse chưa có ảnh nào cho template (vd SP mới), `warehouse-realtime.js` gọi `ProductTemplate(id)?$expand=ProductVariants` qua `window.tokenManager` lấy `ImageUrl` template (cache/session, graceful nếu không token). Chuỗi ảnh giờ khớp product-warehouse 100%: ảnh biến thể → ảnh sibling → ảnh template TPOS-direct → placeholder. Thêm `token-manager.js` vào 2 trang soluong-live. Bump module `?v=20260604d`.
+
+- Verify: `tokenManager` load OK trên soluong-live (`hasAuthFetch:function`); 2 template còn trống ảnh (119491, 119624) → TPOS-direct trả '' (TPOS thật sự không có ảnh) → placeholder hợp lệ, giống product-warehouse.
+
+**2/ Khôi phục dropdown gợi ý product-warehouse:** commit 2026-05-26 (abb283641) đã gỡ dropdown (chỉ render bảng). User yêu cầu đưa lại. Khôi phục block gợi ý trong input handler (`searchProductsSuggestion` + `displaySuggestions`, debounce 200ms, chạy song song live-filter bảng) + revert CSS `.search-suggestions` (bỏ `display:none`). Bump `?v=20260604a`. Verify: gõ 'Q686' → dropdown hiện 3 item (Q686D/N/T) có ảnh.
+
 ### [so-order][web2] supplier-debt reseed KHỚP Sổ Order ✅
 
 User: "xóa supplier-debt cho chuẩn với so-order mới tạo". `scripts/web2-seed-supplier-debt-from-soorder.js`: đọc Firestore `web2_so_order/main` → gom rows theo NCC → `tong_tien_hd = Σ(costPrice × qty)`. Wipe inventory_shipments + seed 1 shipment/NCC khớp **chính xác** Sổ Order (paid=0 vì so-order không có thanh toán → debt = full owed). Verify supplier-debt = ADIDAS 2.61M, HƯƠNG CHÂU 2.35M, B4 2.34M, QUẢNG CHÂU 2.27M, HÀ NỘI 1.89M — đúng tổng cost từng NCC trong Sổ Order.

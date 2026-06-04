@@ -40,6 +40,42 @@
         return Number.isFinite(n) ? n : 0;
     }
 
+    // Cache ảnh template lấy TPOS-direct (per session) để khỏi gọi lặp.
+    const tposTemplateImgCache = new Map(); // templateId(Number) -> imageUrl|''
+    const TPOS_PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+    /**
+     * Lấy ImageUrl của template trực tiếp từ TPOS (giống product-warehouse loadVariantImages).
+     * Dùng khi web_warehouse chưa có ảnh nào cho template (vd SP mới chưa sync ảnh).
+     * Cần window.tokenManager (token TPOS chia sẻ qua Firestore). Lỗi/không token → ''.
+     */
+    async function getTposTemplateImage(templateId) {
+        if (!templateId) return '';
+        if (tposTemplateImgCache.has(templateId)) return tposTemplateImgCache.get(templateId);
+        let img = '';
+        try {
+            const tm = window.tokenManager;
+            if (tm && typeof tm.authenticatedFetch === 'function') {
+                const url = `${TPOS_PROXY}/api/odata/ProductTemplate(${templateId})?$expand=ProductVariants`;
+                const resp = await tm.authenticatedFetch(url, {
+                    headers: { Accept: 'application/json' },
+                });
+                if (resp && resp.ok) {
+                    const detail = await resp.json();
+                    img = detail.ImageUrl || '';
+                    if (!img && Array.isArray(detail.ProductVariants)) {
+                        const withImg = detail.ProductVariants.find((v) => v.ImageUrl);
+                        if (withImg) img = withImg.ImageUrl;
+                    }
+                }
+            }
+        } catch (_) {
+            /* không token / lỗi mạng → giữ placeholder */
+        }
+        tposTemplateImgCache.set(templateId, img);
+        return img;
+    }
+
     /**
      * @param {Object} opts
      * @param {Object} opts.database - firebase.database() instance
@@ -130,7 +166,7 @@
 
             const changedKeys = [];
 
-            for (const [, group] of groups) {
+            for (const [gk, group] of groups) {
                 // Lấy data tươi cho cả template (product + tất cả biến thể anh em đang active)
                 let result = null;
                 for (const repId of group.repIds) {
@@ -152,12 +188,17 @@
                 (result.variants || []).forEach(collect);
 
                 // Ảnh sản phẩm (template): biến thể KHÔNG có ảnh riêng sẽ lấy ảnh này.
-                const templateImg =
+                let templateImg =
                     (result.product && (result.product.imageUrl || result.product.ImageUrl)) ||
                     (result.variants || [])
                         .map((v) => v && (v.imageUrl || v.ImageUrl))
                         .find(Boolean) ||
                     '';
+                // Fallback TPOS-direct (giống product-warehouse): template chưa có ảnh trong
+                // web_warehouse (vd SP mới) → lấy ImageUrl template trực tiếp từ TPOS.
+                if (!templateImg) {
+                    templateImg = await getTposTemplateImage(Number(gk));
+                }
 
                 for (const key of group.keys) {
                     const p = products[key];
