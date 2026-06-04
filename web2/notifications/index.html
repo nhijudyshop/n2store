@@ -129,12 +129,16 @@
                         }
                     );
                     const d = await r.json();
+                    // Fix 2026-06-03: route generic /api/web2/:entity trả mảng ở field
+                    // `records`, route dedicated cũ trả `items`. Normalize cả 2 + `data`
+                    // để không crash `.length` khi shape đổi sau tách DB web2Db.
+                    const items = d.items || d.records || d.data || [];
                     const list = document.getElementById('notiList');
-                    if (!d.success || !d.items.length) {
+                    if (!d.success || !items.length) {
                         list.innerHTML = '<div class="noti-empty">Không có thông báo</div>';
                         return;
                     }
-                    list.innerHTML = d.items
+                    list.innerHTML = items
                         .map((it) => {
                             const cls = it.read_at ? 'read' : 'unread';
                             const meta = new Date(it.created_at).toLocaleString('vi-VN');

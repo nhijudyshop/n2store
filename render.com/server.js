@@ -595,7 +595,12 @@ app.use('/api/refunds', refundsRoutes);
 app.use('/api/pbh-reports', pbhReportsRoutes);
 app.use('/api/web2-products', web2ProductsRoutes);
 app.use('/api/web2-variants', web2VariantsRoutes);
-app.use('/api/web2', web2GenericRoutes);
+app.use('/api/web2/cutout', require('./routes/web2-cutout')); // WEB2.0 photo-studio cutout (PhotoRoom) — TRƯỚC generic
+// NOTE 2026-06-03: generic catch-all `/api/web2` (web2GenericRoutes) ĐÃ DỜI
+// xuống SAU tất cả route dedicated `/api/web2/<entity>` bên dưới (notifications,
+// audit-log, inventory-forecast, ...). Lý do: generic có route `/:entity/list`
+// → nếu mount TRƯỚC sẽ SHADOW dedicated route, trả `records:[]` rỗng thay vì data
+// thật. Express match theo thứ tự đăng ký → specific PHẢI trước catch-all.
 app.use('/api/wallet-deposits', walletDepositsRoutes); // WEB2.0 SePay deposits for ví NCC/KH
 app.use('/api/purchase-refund', purchaseRefundRoutes); // WEB2.0 Trả hàng NCC state machine + stock
 app.use('/api/services-overview', servicesOverviewRoutes); // WEB2.0 Services dashboard (DB stats + cost)
@@ -662,6 +667,10 @@ app.use('/api/web2/customer-tpos', web2CustomerTposRoutes);
 // 2026-06-03: kho KH riêng Web 2.0 (web2_customers @ web2Db) — thay /api/v2/customers Web 1.0
 const web2CustomersRoutes = require('./routes/v2/web2-customers');
 app.use('/api/web2/customers', web2CustomersRoutes);
+// 2026-06-03: generic catch-all `/api/web2/:entity` — MOUNT CUỐI CÙNG sau mọi
+// dedicated route ở trên để không shadow chúng. Entity nào không có dedicated
+// route sẽ rơi xuống đây (78 generic web2 entities, CRUD bảng web2_records).
+app.use('/api/web2', web2GenericRoutes);
 const livestreamSnapshotsRoutes = require('./routes/livestream-snapshots');
 app.use('/api/livestream', livestreamSnapshotsRoutes); // WEB2.0 livestream snapshot per customer
 const livestreamImagesRoutes = require('./routes/livestream-images');

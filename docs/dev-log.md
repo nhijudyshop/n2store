@@ -25,6 +25,28 @@
 
 ## 2026-06-03
 
+### [render][web2] Fix data KHÔNG load 3 trang sau tách DB — generic route shadow dedicated ✅
+
+**Bối cảnh:** User verify từng trang menu Web 2.0 sau khi tách DB `web2Db`. Script mới `scripts/web2-verify-data-load.js` quét 36 trang (nav + capture mọi API call + console error). Kết quả: 22 OK, 9 tĩnh, 5 lỗi.
+
+**Bug chính (DB-separation artifact):** 3 trang `notifications` (F06), `audit-log` (F05), `inventory-forecast` (F11) crash `Cannot read properties of undefined (reading 'length')` + hiện rỗng. Nguyên nhân:
+
+- `render.com/server.js`: generic catch-all `app.use('/api/web2', web2GenericRoutes)` mount **TRƯỚC** các dedicated route `/api/web2/<entity>`. Generic có route `/:entity/list` → **shadow** dedicated → `/api/web2/notifications/list` trả `{success, records:[]}` (web2_records rỗng) thay vì data thật. Data thật vẫn sống ở alias `/api/v2/notifications` (không bị generic catch).
+- Frontend 3 trang đọc `d.items.length` → `d.items` undefined (response field là `records`) → crash.
+
+**Fix:**
+
+- `render.com/server.js` — **dời generic `/api/web2` mount xuống CUỐI** sau mọi dedicated `/api/web2/<entity>`. Express match theo thứ tự → specific thắng catch-all. Fix systemic cho 17 dedicated route từng bị shadow. ⚠ **Cần Render redeploy** mới live.
+- `web2/notifications/index.html`, `web2/audit-log/index.html`, `web2/inventory-forecast/index.html` — normalize `const items = d.items || d.records || d.data || []` (defensive, không crash khi shape đổi).
+
+**Còn lại (KHÔNG phải bug):**
+
+- `partner-customer`: 44× `404 /api/web2/wallets/by-phone/X` = KH chưa có ví (đúng — ví vừa wipe/rebuild). Page xử lý graceful (pill ẩn). 2× OData 500 = TPOS token, không phải web2 DB.
+- `tpos-pancake`: `TokenManager already declared` + Pancake token hết hạn — pre-existing, không liên quan tách DB.
+- 9 trang ⚪ không gọi API = load thủ công (bulk-import, print-export, smart-match, photo-studio, ...).
+
+**Files:** `render.com/server.js`, 3× `web2/*/index.html`, `scripts/web2-verify-data-load.js` (mới), `docs/dev-log.md`. **Status:** ✅ frontend done · 🔄 server.js cần redeploy.
+
 ### [orders] Fix so-order: NCC đã nhận đủ đơn vẫn hiện nút "Nhận hàng" ✅
 
 **Sự cố:** Ô NCC trong bảng so-order render **theo group `supplier + invoiceGroup`** (mỗi đơn 1 ô), nhưng cờ `allRecv` (quyết định hiện "Đã nhận" disabled vs "Nhận hàng") lại quét **toàn bộ rows cùng NCC trong cả lô**. Nên 1 đơn của B4 đã nhận đủ (status `received`) vẫn hiện nút "Nhận hàng" chỉ vì 1 đơn B4 khác còn `NHÁP`.

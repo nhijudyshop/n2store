@@ -166,13 +166,16 @@
                         credentials: 'include',
                     });
                     const d = await r.json();
+                    // Fix 2026-06-03: generic /api/web2/:entity trả `records`, route cũ
+                    // trả `items`. Normalize để không crash `.length` sau tách DB web2Db.
+                    const items = d.items || d.records || d.data || [];
                     const body = document.getElementById('auditBody');
-                    if (!d.success || !d.items.length) {
+                    if (!d.success || !items.length) {
                         body.innerHTML =
                             '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #94a3b8">Không có data</td></tr>';
                         return;
                     }
-                    body.innerHTML = d.items
+                    body.innerHTML = items
                         .map(
                             (it) => `<tr>
                     <td>${esc(new Date(it.created_at).toLocaleString('vi-VN'))}</td>
