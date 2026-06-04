@@ -25,6 +25,14 @@
 
 ## 2026-06-04
 
+### [web2 printer] Print Bridge 1-click + tự bật khi mở máy + bản PowerShell (không cần Node) ✅
+
+User: cấu hình máy in cho nút tải print-bridge chạy nền tự bật khi khởi động + 1 click file .bat.
+
+- **`scripts/print-bridge.ps1`** — bản PowerShell (TcpListener HTTP→TCP, KHÔNG cần cài Node, dùng sẵn trên Windows). Cùng API /health /print /tcp-test + CORS + `Access-Control-Allow-Private-Network` (fix "bridge chưa chạy" trên HTTPS — Chrome PNA).
+- **Nút "Tải file cài đặt (.bat)"** ở trang Cấu hình › Máy in: sinh `cai-print-bridge.bat` (bake `location.origin/scripts/print-bridge.ps1`). Bấm đúp 1 lần → tải .ps1 về `%LOCALAPPDATA%`, tạo `run-hidden.vbs` (powershell -WindowStyle Hidden), copy vào **Startup folder** (tự bật khi đăng nhập, KHÔNG cần admin), chạy ngay. Thêm nút tải `.ps1` thủ công.
+- Verified: ps1 web-served 200, nút tải .bat hoạt động, không lỗi JS. (Chạy .bat/.ps1 cần Windows để test thật.)
+
 ### [web2] Balance-history: nút "💬 Mở chat" xem hội thoại FB của KH đã gán ✅
 
 User: thêm nút mở đoạn chat KH đã gán (học native-orders), dùng kho KH (sđt/tên/fb_id). Chọn hướng **read-only** (chỉ xem).
