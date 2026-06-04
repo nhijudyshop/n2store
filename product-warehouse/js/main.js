@@ -103,7 +103,6 @@
 
     // Search debounce
     let _searchDebounceTimer = null;
-    let _suggestionTimer = null;
 
     // Image cache: templateId → imageUrl
     let imageCache = {};
@@ -136,70 +135,11 @@
     const removeVietnameseTones = WS.removeVietnameseTones;
 
     // =====================================================
-    // SEARCH SUGGESTION SYSTEM (via Render DB)
+    // SEARCH (live → table, no dropdown)
     // =====================================================
-
-    /**
-     * Search products from Render DB for suggestions.
-     * Uses the /search endpoint with server-side unaccent.
-     */
-    async function searchProductsSuggestion(searchText) {
-        if (!searchText || searchText.length < 2) return [];
-        const rows = await WarehouseAPI.search(searchText, 10);
-        return rows.map((row) => ({
-            id: row.tpos_template_id || row.tpos_product_id,
-            name: row.name_get || row.product_name,
-            code: row.product_code,
-            image: WarehouseAPI.proxyImageUrl(row),
-            qty: parseFloat(row.tpos_qty_available) || 0,
-            price: parseFloat(row.selling_price) || 0,
-        }));
-    }
-
-    /**
-     * Display suggestion dropdown with product images.
-     */
-    function displaySuggestions(suggestions) {
-        const suggestionsDiv = $('#searchSuggestions');
-        if (!suggestionsDiv) return;
-
-        if (suggestions.length === 0) {
-            suggestionsDiv.classList.remove('show');
-            return;
-        }
-
-        suggestionsDiv.innerHTML = suggestions
-            .map((p) => {
-                const imgHtml = p.image
-                    ? `<img class="suggestion-img" src="${escapeHtml(p.image)}" alt="" loading="lazy">`
-                    : `<span class="suggestion-img suggestion-img-empty"></span>`;
-                const qtyClass = p.qty <= 0 ? ' suggestion-qty-zero' : '';
-                return `<div class="suggestion-item" data-code="${escapeHtml(p.code)}" data-name="${escapeHtml(p.name)}">
-                ${imgHtml}
-                <div class="suggestion-info">
-                    <div class="suggestion-name"><strong>${escapeHtml(p.code)}</strong> — ${escapeHtml(p.name)}</div>
-                    <div class="suggestion-meta">
-                        <span class="suggestion-price">${formatPrice(p.price)}</span>
-                        <span class="suggestion-qty${qtyClass}">Tồn: ${formatQty(p.qty)}</span>
-                    </div>
-                </div>
-            </div>`;
-            })
-            .join('');
-
-        suggestionsDiv.classList.add('show');
-
-        suggestionsDiv.querySelectorAll('.suggestion-item').forEach((item) => {
-            item.addEventListener('click', () => {
-                const code = item.dataset.code;
-                const searchInput = $('#searchInput');
-                if (searchInput) searchInput.value = code;
-                suggestionsDiv.classList.remove('show');
-                currentPage = 1;
-                fetchProducts();
-            });
-        });
-    }
+    // Dropdown gợi ý đã gỡ bỏ (2026-06-04): gõ vào ô tìm kiếm sẽ lọc thẳng
+    // bảng theo MÃ + TÊN + barcode (xem applyClientFilters). hideSuggestions()
+    // giữ lại như no-op an toàn cho mọi nơi còn gọi.
 
     function hideSuggestions() {
         $('#searchSuggestions')?.classList.remove('show');
@@ -2151,22 +2091,9 @@
             searchInput.addEventListener('input', (e) => {
                 const searchText = e.target.value.trim();
 
-                // Dropdown gợi ý (có ảnh) — khôi phục 2026-06-04 theo yêu cầu user.
-                // Chạy song song với live-filter bảng (decoupled).
-                if (searchText.length >= 2) {
-                    if (_suggestionTimer) clearTimeout(_suggestionTimer);
-                    _suggestionTimer = setTimeout(async () => {
-                        const results = await searchProductsSuggestion(searchText);
-                        if (
-                            document.activeElement === searchInput &&
-                            searchInput.value.trim() === searchText
-                        ) {
-                            displaySuggestions(results);
-                        }
-                    }, 200);
-                } else {
-                    hideSuggestions();
-                }
+                // Không hiện dropdown gợi ý nữa — kết quả tìm (theo MÃ + TÊN + barcode)
+                // đổ thẳng vào bảng live khi gõ (2026-06-04 theo yêu cầu user).
+                hideSuggestions();
 
                 // Cancel any pending server-side search
                 if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
@@ -2180,11 +2107,27 @@
                     return;
                 }
 
-                // SLOW PATH (cache not yet warm): debounced server fetch fallback.
-                // Once the prefetch finishes the next keystroke will hit the fast path.
-                _searchDebounceTimer = setTimeout(() => {
+                // SLOW PATH (cache not yet warm): debounced.
+                // TPOS GetViewV2 silently ignores $filter, nên KHÔNG thể tìm theo
+                // mã/tên server-side. Với tab "Sản phẩm", warm cache (1 lần) rồi lọc
+                // client-side để search theo MÃ + TÊN + barcode luôn đúng ngay từ
+                // ký tự đầu. Tab variant vẫn dùng server fetch như cũ.
+                _searchDebounceTimer = setTimeout(async () => {
                     if (searchInput.value.trim() !== searchText) return;
                     currentPage = 1;
+                    if (viewType === 'template') {
+                        try {
+                            await fetchAllTemplatesRaw();
+                        } catch (err) {
+                            console.warn('[Warehouse] search cache warm failed:', err);
+                        }
+                        // Người dùng có thể đã gõ tiếp / xoá trong lúc chờ cache.
+                        if (searchInput.value.trim() !== searchText) return;
+                        if (_allTemplatesCache) {
+                            renderFromCacheBySearch();
+                            return;
+                        }
+                    }
                     fetchProducts(true);
                 }, 250);
             });

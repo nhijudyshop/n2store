@@ -25,6 +25,20 @@
 
 ## 2026-06-04
 
+### [orders] product-warehouse: tìm kiếm theo MÃ + TÊN, đổ thẳng vào bảng (bỏ dropdown) ✅
+
+**Files:** `product-warehouse/js/main.js`, `product-warehouse/index.html` (bump `main.js?v=20260604f`)
+
+**Yêu cầu user:** ô tìm kiếm SP "đang tìm theo tên" → thêm tìm theo mã + tên, kết quả hiện thẳng lên bảng, không cần dropdown gợi ý.
+
+**Thay đổi:**
+
+- Gỡ dropdown gợi ý (droplist): bỏ `searchProductsSuggestion()` + `displaySuggestions()` + `_suggestionTimer`; handler `input` chỉ còn `hideSuggestions()` (no-op an toàn) + lọc bảng live.
+- Search theo MÃ + TÊN + barcode: `applyClientFilters` đã match `Name`/`DefaultCode`/`Barcode` (fast path qua `_allTemplatesCache`), server `/search` match `product_code`/`product_name`/`name_get`/`barcode`.
+- **Fix root cause:** slow path (cache chưa warm) trước đây gọi `fetchProducts` → dựa vào TPOS `GetViewV2 $filter` mà TPOS **bỏ qua** → bảng không lọc theo mã. Đổi: tab "Sản phẩm" warm `fetchAllTemplatesRaw()` (1 lần) rồi `renderFromCacheBySearch()` lọc client-side → search theo mã/tên luôn đúng ngay cả gõ sớm. Tab variant giữ server fetch.
+
+**Verify (Playwright, localhost):** CODE `B2708` → 1 row; NAME `B36 SET` → 45 row đều khớp; gõ ngay khi load → sau settle vẫn về đúng 1 row; dropdown không bao giờ hiện.
+
 ### [inbox] KPI Đơn Inbox — gate phiếu đã chốt + đối soát trừ hàng trả ✅
 
 KPI page Đơn Inbox tính lại đúng nghiệp vụ (trước đây chỉ `Σ totalQuantity đơn status='order' × 5.000đ`, bỏ qua phiếu thật + không trừ refund).
