@@ -3,14 +3,18 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fc90038` — perf(web2): photo-studio — mặc định AI nhanh (tức thì) + AI nét model nén isnet_quint8 (nhẹ+nhanh hơn)
-**Last updated**: 2026-06-04 12:17:38 +07
-**Latest session**: [`RESUME:20260604-121738-fc90038`](../20260604-121738-fc90038.md)
-**Summary**: perf(web2): photo-studio — mặc định AI nhanh (tức thì) + AI nét model nén isnet_quint8 (nhẹ+nhanh hơn)
+**Latest commit**: `7fc5c03` — feat(soluong-live): resize ảnh proxy (WebP thumbnail) + đổi ảnh đẩy lên TPOS
+**Last updated**: 2026-06-04 12:44:32 +07
+**Latest session**: [`RESUME:20260604-124432-7fc5c03`](../20260604-124432-7fc5c03.md)
+**Summary**: feat(soluong-live): resize ảnh proxy (WebP thumbnail) + đổi ảnh đẩy lên TPOS
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`shared/`](./shared.md) — 1 file(s)
+- [`soluong-live/`](./soluong-live.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-04 12:17
+- [`docs/`](./docs.md) — updated 2026-06-04 12:44
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-03 16:52
 - [`downloads/`](./downloads.md) — updated 2026-06-03 18:34
@@ -44,19 +48,19 @@
 - [`orders-report/`](./orders-report.md) — updated 2026-06-03 18:57
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 12:10
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 12:44
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-04 11:32
+- [`render.com/`](./render.com.md) — updated 2026-06-04 12:44
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-04 12:10
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
-- [`shared/`](./shared.md) — updated 2026-06-01 18:45
+- [`shared/`](./shared.md) — updated 2026-06-04 12:44
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-06-03 21:15
-- [`soluong-live/`](./soluong-live.md) — updated 2026-06-04 12:16
+- [`soluong-live/`](./soluong-live.md) — updated 2026-06-04 12:44
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
