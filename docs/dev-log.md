@@ -25,6 +25,15 @@
 
 ## 2026-06-04
 
+### [web2] Quản lý máy in + in thẳng IP:port (không hộp thoại) + gán theo chức năng ✅
+
+User: in qua IP:port máy in mạng + cấu hình ở menu + danh sách nhiều máy in, gán máy khác nhau cho từng chức năng (PBH / tem SP).
+
+- **Print Bridge** (Node, nghe 127.0.0.1:17777): trình duyệt KHÔNG mở TCP được → bridge relay ESC/POS qua HTTP → mở socket TCP tới máy in IP:9100. API /health /print /tcp-test. Chạy trên máy POS: .
+- **Web2Printer** : DANH SÁCH máy in (localStorage ) + gán chức năng (: pbh/label). (SVG→canvas→1-bit→GS v 0 raster — tiếng Việt OK vì in ẢNH). chọn đúng máy. Migrate cấu hình đơn cũ.
+- **Trang Cấu hình > Máy in** : list máy in (thêm/sửa/xoá/test/in thử) + gán máy cho PBH/tem. Sidebar + WEB2_PAGES.
+- **Tích hợp PBH**: tự in THẲNG nếu role pbh gán máy IP (bridge), lỗi → fallback hộp thoại. Verified E2E: raster 90KB (init+GS v 0), browser→bridge CORS OK, bridge→TCP IP:9100 (chỉ fail vì IP test ảo).
+
 ### [web2] FIX modal Gán KH seed sai = FT/GD bank ref (>10 số) ✅
 
 Bug user: row `VU THI HUONG ... FT26155100277410 GD 6155IBT1kCM75CHV` → bấm "+ Gán KH" → ô search tự điền `26155100277410` (14 số = mã FT) → "Không có KH nào khớp".

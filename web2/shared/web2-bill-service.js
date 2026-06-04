@@ -410,7 +410,31 @@ html, body { margin: 0; padding: 0; background: #fff; }
     }
 
     function openPrint(pbh, opts = {}) {
-        return _printViaIframe(generateHTML(pbh, opts));
+        const html = generateHTML(pbh, opts);
+        // Nếu đã gán máy in IP cho chức năng PBH → in THẲNG (không hộp thoại).
+        // Lỗi bridge/máy in → tự fallback về hộp thoại iframe.
+        const P = global.Web2Printer;
+        if (P && opts.method !== 'dialog') {
+            const printer = P.getPrinterFor('pbh');
+            if (printer && printer.method === 'bridge' && printer.ip) {
+                P.printSvg(html, 'pbh')
+                    .then(() => {
+                        if (global.notificationManager)
+                            global.notificationManager.show('Đã in bill', 'success');
+                    })
+                    .catch((e) => {
+                        console.warn('[Web2Bill] in thẳng lỗi → hộp thoại:', e.message);
+                        if (global.notificationManager)
+                            global.notificationManager.show(
+                                'Máy in IP lỗi (' + e.message + ') — mở hộp thoại',
+                                'warning'
+                            );
+                        _printViaIframe(html);
+                    });
+                return null;
+            }
+        }
+        return _printViaIframe(html);
     }
 
     function openCombinedPrint(pbhs, opts = {}) {

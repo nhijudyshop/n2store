@@ -1,0 +1,569 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — danh sách máy in + gán máy in theo chức năng (PBH / tem SP). -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Máy in - WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260521b" />
+        <link rel="stylesheet" href="../../native-orders/css/native-orders.css?v=20260521b" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260521b" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../../shared/js/firebase-config.js?v=20260521b"></script>
+        <script src="../../shared/js/shared-auth-manager.js?v=20260521b"></script>
+        <script src="../../shared/js/notification-system.js?v=20260521b"></script>
+        <link rel="stylesheet" href="../../web2/shared/web2-tpos-theme.css?v=20260522d" />
+        <style>
+            body {
+                margin: 0;
+                font-family: Inter, system-ui, sans-serif;
+                background: #ecf0f5;
+            }
+            .web2-shell {
+                display: flex;
+                min-height: 100vh;
+            }
+            .web2-aside {
+                flex-shrink: 0;
+            }
+            .main-content {
+                flex: 1;
+                overflow: auto;
+                height: 100vh;
+                padding: 18px 22px 60px;
+            }
+            .ps-head {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 4px;
+            }
+            .ps-head h1 {
+                font-size: 19px;
+                font-weight: 700;
+                color: #1e293b;
+                margin: 0;
+            }
+            .ps-sub {
+                font-size: 13px;
+                color: #64748b;
+                margin: 0 0 16px;
+            }
+            .ps-section {
+                max-width: 760px;
+            }
+            .ps-section-title {
+                font-size: 14px;
+                font-weight: 700;
+                color: #334155;
+                text-transform: uppercase;
+                letter-spacing: 0.03em;
+                margin: 22px 0 10px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .ps-bridge-warn {
+                font-size: 12.5px;
+                line-height: 1.5;
+                background: #fffbeb;
+                border: 1px solid #fde68a;
+                border-radius: 10px;
+                padding: 10px 13px;
+                color: #92400e;
+                margin-bottom: 14px;
+            }
+            .ps-bridge-warn code {
+                background: #fff;
+                border: 1px solid #fcd34d;
+                border-radius: 4px;
+                padding: 1px 5px;
+            }
+            .prn-list {
+                display: grid;
+                gap: 12px;
+            }
+            .prn-card {
+                background: #fff;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 14px 16px;
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                flex-wrap: wrap;
+            }
+            .prn-icon {
+                width: 40px;
+                height: 40px;
+                border-radius: 10px;
+                background: #eef2ff;
+                color: #5e51ac;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            }
+            .prn-info {
+                flex: 1;
+                min-width: 180px;
+            }
+            .prn-name {
+                font-weight: 700;
+                color: #1e293b;
+                font-size: 15px;
+            }
+            .prn-meta {
+                font-size: 12.5px;
+                color: #64748b;
+                margin-top: 2px;
+            }
+            .prn-badge {
+                display: inline-block;
+                font-size: 10.5px;
+                font-weight: 700;
+                padding: 1px 7px;
+                border-radius: 999px;
+                margin-left: 6px;
+            }
+            .prn-badge.bridge {
+                background: #ecfdf5;
+                color: #047857;
+                border: 1px solid #a7f3d0;
+            }
+            .prn-badge.dialog {
+                background: #f1f5f9;
+                color: #475569;
+                border: 1px solid #cbd5e1;
+            }
+            .prn-actions {
+                display: flex;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+            .ps-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                height: 36px;
+                padding: 0 13px;
+                border-radius: 8px;
+                font-size: 13px;
+                font-weight: 600;
+                cursor: pointer;
+                border: 1px solid transparent;
+            }
+            .ps-btn i {
+                width: 15px;
+                height: 15px;
+            }
+            .ps-btn-primary {
+                background: #7266ba;
+                color: #fff;
+            }
+            .ps-btn-primary:hover {
+                background: #5e51ac;
+            }
+            .ps-btn-ghost {
+                background: #fff;
+                color: #475569;
+                border-color: #cbd5e1;
+            }
+            .ps-btn-ghost:hover {
+                background: #f1f5f9;
+            }
+            .ps-btn-danger {
+                background: #fff;
+                color: #dc2626;
+                border-color: #fecaca;
+            }
+            .ps-btn-danger:hover {
+                background: #fef2f2;
+            }
+            .ps-add {
+                margin-top: 12px;
+            }
+            .role-row {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                background: #fff;
+                border: 1px solid #e2e8f0;
+                border-radius: 10px;
+                padding: 12px 14px;
+                margin-bottom: 8px;
+            }
+            .role-label {
+                flex: 1;
+                font-size: 14px;
+                font-weight: 600;
+                color: #334155;
+            }
+            .role-row select {
+                height: 38px;
+                min-width: 220px;
+                padding: 0 10px;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+                font-size: 13px;
+                background: #fff;
+            }
+            /* modal */
+            .pm-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(15, 23, 42, 0.42);
+                display: none;
+                align-items: center;
+                justify-content: center;
+                z-index: 9999;
+            }
+            .pm-overlay.active {
+                display: flex;
+            }
+            .pm-box {
+                background: #fff;
+                border-radius: 14px;
+                width: 460px;
+                max-width: 92vw;
+                padding: 20px 22px;
+                box-shadow: 0 20px 60px rgba(15, 23, 42, 0.3);
+            }
+            .pm-box h3 {
+                margin: 0 0 14px;
+                font-size: 17px;
+                color: #1e293b;
+            }
+            .pf {
+                margin-bottom: 13px;
+            }
+            .pf label {
+                display: block;
+                font-size: 12.5px;
+                font-weight: 600;
+                color: #334155;
+                margin-bottom: 4px;
+            }
+            .pf input,
+            .pf select {
+                width: 100%;
+                height: 40px;
+                padding: 0 11px;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+                font-size: 14px;
+                box-sizing: border-box;
+            }
+            .pf-row {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+            .pm-actions {
+                display: flex;
+                justify-content: flex-end;
+                gap: 9px;
+                margin-top: 8px;
+            }
+            #pmBridgeFields {
+                display: none;
+            }
+        </style>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content">
+                <div class="ps-head">
+                    <i data-lucide="printer"></i>
+                    <h1>Máy in</h1>
+                </div>
+                <p class="ps-sub">
+                    Quản lý nhiều máy in & gán máy cho từng chức năng (in PBH ra máy bill, in mã SP
+                    ra máy tem…). Lưu theo từng máy POS.
+                </p>
+
+                <div class="ps-section">
+                    <div class="ps-bridge-warn" id="bridgeWarn" style="display: none">
+                        ⚠️ <strong>Print Bridge chưa chạy.</strong> Để in thẳng ra máy in mạng, mở
+                        terminal trên máy POS chạy: <code>node scripts/print-bridge.js</code> (giữ
+                        cửa sổ mở). Không cần nếu chỉ dùng "Hộp thoại trình duyệt".
+                    </div>
+
+                    <div class="ps-section-title"><i data-lucide="list"></i> Danh sách máy in</div>
+                    <div class="prn-list" id="prnList"></div>
+                    <button class="ps-btn ps-btn-primary ps-add" id="btnAddPrinter">
+                        <i data-lucide="plus"></i> Thêm máy in
+                    </button>
+
+                    <div class="ps-section-title">
+                        <i data-lucide="git-branch"></i> Gán máy in cho chức năng
+                    </div>
+                    <div id="roleList"></div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Modal thêm/sửa máy in -->
+        <div class="pm-overlay" id="pmOverlay">
+            <div class="pm-box">
+                <h3 id="pmTitle">Thêm máy in</h3>
+                <input type="hidden" id="pm_id" />
+                <div class="pf">
+                    <label>Tên máy in</label>
+                    <input id="pm_name" placeholder="VD: Máy bill quầy 1 / Máy tem" />
+                </div>
+                <div class="pf-row">
+                    <div class="pf">
+                        <label>Phương thức in</label>
+                        <select id="pm_method">
+                            <option value="bridge">In thẳng IP:port (không hộp thoại)</option>
+                            <option value="dialog">Hộp thoại trình duyệt</option>
+                        </select>
+                    </div>
+                    <div class="pf">
+                        <label>Khổ giấy</label>
+                        <select id="pm_paper">
+                            <option value="80">80mm (576 chấm)</option>
+                            <option value="58">58mm (384 chấm)</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="pmBridgeFields">
+                    <div class="pf-row">
+                        <div class="pf">
+                            <label>IP máy in</label>
+                            <input id="pm_ip" placeholder="192.168.1.50" />
+                        </div>
+                        <div class="pf">
+                            <label>Port</label>
+                            <input id="pm_port" placeholder="9100" />
+                        </div>
+                    </div>
+                    <div class="pf">
+                        <label>Địa chỉ Print Bridge</label>
+                        <input id="pm_bridge" placeholder="http://127.0.0.1:17777" />
+                    </div>
+                </div>
+                <div class="pm-actions">
+                    <button class="ps-btn ps-btn-ghost" id="pmCancel">Hủy</button>
+                    <button class="ps-btn ps-btn-primary" id="pmSave">
+                        <i data-lucide="save"></i> Lưu
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script src="../../web2/shared/web2-auth.js?v=20260521b"></script>
+        <script src="../../web2/shared/tpos-sidebar.js?v=20260604nj4"></script>
+        <script src="../../web2/shared/jsbarcode-code128.min.js?v=20260604b"></script>
+        <script src="../../web2/shared/receiptline.js?v=20260604nj"></script>
+        <script src="../../web2/shared/web2-bill-service.js?v=20260604nj7"></script>
+        <script src="../../web2/shared/web2-printer.js?v=20260604b"></script>
+        <script>
+            if (window.Web2Sidebar)
+                Web2Sidebar.mount('#web2Aside', { activeRoute: 'printer-settings' });
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.lucide) lucide.createIcons();
+            });
+            const $ = (id) => document.getElementById(id);
+            const P = window.Web2Printer;
+            const esc = (s) =>
+                String(s == null ? '' : s).replace(
+                    /[&<>"]/g,
+                    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
+                );
+            const toast = (m, t) =>
+                window.notificationManager && notificationManager.show(m, t || 'info');
+
+            function renderPrinters() {
+                const list = P.getPrinters();
+                const root = $('prnList');
+                if (!list.length) {
+                    root.innerHTML =
+                        '<div style="color:#94a3b8;font-size:13.5px;padding:8px 2px;">Chưa có máy in nào. Bấm "Thêm máy in".</div>';
+                    return;
+                }
+                root.innerHTML = list
+                    .map((p) => {
+                        const conn =
+                            p.method === 'bridge'
+                                ? `${esc(p.ip || '—')}:${p.port || 9100}`
+                                : 'Hộp thoại';
+                        const badge =
+                            p.method === 'bridge'
+                                ? '<span class="prn-badge bridge">IP trực tiếp</span>'
+                                : '<span class="prn-badge dialog">Hộp thoại</span>';
+                        return `<div class="prn-card">
+                            <div class="prn-icon"><i data-lucide="printer"></i></div>
+                            <div class="prn-info">
+                                <div class="prn-name">${esc(p.name || 'Máy in')}${badge}</div>
+                                <div class="prn-meta">${conn} · khổ ${esc(p.paper)}mm</div>
+                            </div>
+                            <div class="prn-actions">
+                                <button class="ps-btn ps-btn-ghost" data-act="test" data-id="${p.id}"><i data-lucide="plug"></i> Test</button>
+                                <button class="ps-btn ps-btn-ghost" data-act="print" data-id="${p.id}"><i data-lucide="file-text"></i> In thử</button>
+                                <button class="ps-btn ps-btn-ghost" data-act="edit" data-id="${p.id}"><i data-lucide="pencil"></i></button>
+                                <button class="ps-btn ps-btn-danger" data-act="del" data-id="${p.id}"><i data-lucide="trash-2"></i></button>
+                            </div>
+                        </div>`;
+                    })
+                    .join('');
+                if (window.lucide) lucide.createIcons();
+            }
+
+            function renderRoles() {
+                const list = P.getPrinters();
+                const roles = P.getRoles();
+                $('roleList').innerHTML = P.ROLES.map((r) => {
+                    const opts = ['<option value="">— Chưa gán —</option>']
+                        .concat(
+                            list.map(
+                                (p) =>
+                                    `<option value="${p.id}" ${roles[r.key] === p.id ? 'selected' : ''}>${esc(p.name || p.ip)}</option>`
+                            )
+                        )
+                        .join('');
+                    return `<div class="role-row"><div class="role-label">${esc(r.label)}</div>
+                        <select data-role="${r.key}">${opts}</select></div>`;
+                }).join('');
+                $('roleList')
+                    .querySelectorAll('select[data-role]')
+                    .forEach((sel) =>
+                        sel.addEventListener('change', () => {
+                            P.setRole(sel.dataset.role, sel.value);
+                            toast('Đã gán máy in cho chức năng', 'success');
+                        })
+                    );
+            }
+
+            // ── Modal ──
+            function syncBridge() {
+                $('pmBridgeFields').style.display =
+                    $('pm_method').value === 'bridge' ? 'block' : 'none';
+            }
+            function openModal(p) {
+                $('pmTitle').textContent = p ? 'Sửa máy in' : 'Thêm máy in';
+                $('pm_id').value = p?.id || '';
+                $('pm_name').value = p?.name || '';
+                $('pm_method').value = p?.method || 'bridge';
+                $('pm_paper').value = p?.paper || '80';
+                $('pm_ip').value = p?.ip || '';
+                $('pm_port').value = p?.port || 9100;
+                $('pm_bridge').value = p?.bridgeUrl || 'http://127.0.0.1:17777';
+                syncBridge();
+                $('pmOverlay').classList.add('active');
+                if (window.lucide) lucide.createIcons();
+            }
+            const closeModal = () => $('pmOverlay').classList.remove('active');
+            $('pm_method').addEventListener('change', syncBridge);
+            $('btnAddPrinter').addEventListener('click', () => openModal(null));
+            $('pmCancel').addEventListener('click', closeModal);
+            $('pmOverlay').addEventListener('click', (e) => {
+                if (e.target === $('pmOverlay')) closeModal();
+            });
+            $('pmSave').addEventListener('click', () => {
+                const p = {
+                    id: $('pm_id').value || undefined,
+                    name: $('pm_name').value.trim() || 'Máy in',
+                    method: $('pm_method').value,
+                    paper: $('pm_paper').value,
+                    ip: $('pm_ip').value.trim(),
+                    port: Number($('pm_port').value) || 9100,
+                    bridgeUrl: $('pm_bridge').value.trim() || 'http://127.0.0.1:17777',
+                };
+                if (p.method === 'bridge' && !p.ip) return toast('Nhập IP máy in', 'error');
+                P.upsertPrinter(p);
+                closeModal();
+                renderPrinters();
+                renderRoles();
+                toast('Đã lưu máy in', 'success');
+            });
+
+            // ── Card actions ──
+            $('prnList').addEventListener('click', async (e) => {
+                const btn = e.target.closest('button[data-act]');
+                if (!btn) return;
+                const p = P.getPrinter(btn.dataset.id);
+                if (!p) return;
+                if (btn.dataset.act === 'edit') return openModal(p);
+                if (btn.dataset.act === 'del') {
+                    if (confirm(`Xóa máy in "${p.name}"?`)) {
+                        P.removePrinter(p.id);
+                        renderPrinters();
+                        renderRoles();
+                    }
+                    return;
+                }
+                if (btn.dataset.act === 'test') {
+                    if (p.method !== 'bridge')
+                        return toast('Máy này dùng hộp thoại, không cần test IP', 'info');
+                    try {
+                        if (!(await P.bridgeAlive(p)))
+                            return toast('Print Bridge chưa chạy', 'error');
+                        await P.testConnection(p);
+                        toast('✓ Kết nối máy in OK', 'success');
+                    } catch (err) {
+                        toast('✗ ' + err.message, 'error');
+                    }
+                    return;
+                }
+                if (btn.dataset.act === 'print') {
+                    const sample = {
+                        number: 'NJ-TEST-0001',
+                        partner: {
+                            name: 'Khách In Thử',
+                            phone: '0900000000',
+                            address: 'Test địa chỉ in bill',
+                        },
+                        orderLines: [
+                            { productName: 'SẢN PHẨM IN THỬ', quantity: 1, priceUnit: 100000 },
+                            {
+                                productName: 'TIẾNG VIỆT: đ ễ ử ờ Đắk Nông',
+                                quantity: 2,
+                                priceUnit: 50000,
+                            },
+                        ],
+                        totals: { total: 200000, untaxed: 200000 },
+                        payment: { residual: 200000 },
+                        delivery: { price: 0 },
+                        displayStt: 1,
+                    };
+                    try {
+                        const html = window.Web2Bill.generateHTML(sample);
+                        if (p.method === 'bridge') {
+                            if (!(await P.bridgeAlive(p)))
+                                return toast('Print Bridge chưa chạy', 'error');
+                            await P.printSvg(html, null, p);
+                            toast('✓ Đã gửi bill in thử', 'success');
+                        } else {
+                            window.Web2Bill.openPrint(sample);
+                        }
+                    } catch (err) {
+                        toast('✗ ' + err.message, 'error');
+                    }
+                    return;
+                }
+            });
+
+            // Cảnh báo bridge nếu có máy bridge mà bridge chưa chạy
+            (async () => {
+                const hasBridge = P.getPrinters().some((p) => p.method === 'bridge');
+                if (hasBridge && !(await P.bridgeAlive())) $('bridgeWarn').style.display = 'block';
+            })();
+
+            renderPrinters();
+            renderRoles();
+        </script>
+    </body>
+</html>

@@ -239,6 +239,12 @@
                     our: '../web2/delivery-zone/index.html',
                     // Web 2.0-only — quản lý vùng giao + phí + từ khoá auto-detect.
                 },
+                {
+                    label: 'Máy in',
+                    icon: 'printer',
+                    our: '../web2/printer-settings/index.html',
+                    // Web 2.0-only — danh sách máy in + gán theo chức năng (PBH/tem).
+                },
             ],
         },
     ];
@@ -297,6 +303,7 @@
         'web2/variants/index.html',
         'web2/product-category/index.html',
         'web2/delivery-zone/index.html',
+        'web2/printer-settings/index.html',
         'web2/users/index.html',
         'web2/customer-wallet/index.html',
         'web2/partner-customer/index.html',
