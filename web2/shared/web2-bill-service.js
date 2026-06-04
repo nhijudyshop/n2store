@@ -169,13 +169,14 @@
         }
         rule();
 
-        // ── META: ngày + STT (2 cột, giá trị canh phải) ──
+        // ── META: chỉ còn Ngày (STT chuyển lên cạnh tên khách) ──
         L.push('Ngày|' + _rlEsc(d.dateStr));
-        if (d.sttDisplay) L.push('STT|^"' + _rlEsc(d.sttDisplay) + '"');
         rule();
 
-        // ── KHÁCH HÀNG (canh trái, nhãn đậm) ──
-        left('"Khách:" ' + _rlEsc(d.recName));
+        // ── KHÁCH HÀNG — STT đứng cạnh tên khách (canh phải, đậm) ──
+        if (d.sttDisplay)
+            L.push('"Khách:" ' + _rlEsc(d.recName) + '|^"STT ' + _rlEsc(d.sttDisplay) + '"');
+        else left('"Khách:" ' + _rlEsc(d.recName));
         if (d.recPhone) left('"SĐT:" ' + _rlEsc(d.recPhone));
         if (d.recAddr)
             String(d.recAddr)
@@ -184,11 +185,11 @@
         if (d.sellerName) left('"NV bán:" ' + _rlEsc(d.sellerName));
         rule();
 
-        // ── SẢN PHẨM ──
+        // ── SẢN PHẨM — đánh số thứ tự cho dễ đếm khi nhiều SP ──
         L.push('^"SẢN PHẨM"|^"THÀNH TIỀN"');
         gap();
         let totalQty = 0;
-        for (const it of d.lines) {
+        d.lines.forEach((it, idx) => {
             const qty = Number(it.quantity || it.Quantity || 0);
             const price = Number(it.priceUnit || it.PriceUnit || 0);
             const total = qty * price;
@@ -196,10 +197,12 @@
             const uom = it.uomName || it.ProductUOMName || 'Cái';
             const note = it.note || it.Note || '';
             totalQty += qty;
-            left('"' + _rlEsc(name) + '"');
+            // Tên SP: "N. <tên>" đậm; dòng kế: SL × đơn giá (trái) | thành tiền (phải)
+            left('"' + (idx + 1) + '. ' + _rlEsc(name) + '"');
             if (note) left('   ↳ ' + _rlEsc(note));
             L.push('   ' + qty + ' ' + _rlEsc(uom) + ' x ' + m(price) + '|' + m(total));
-        }
+            if (idx < d.lines.length - 1) gap(); // cách giữa các SP cho dễ đọc
+        });
         rule();
 
         // ── TỔNG TIỀN (2 cột) ──
