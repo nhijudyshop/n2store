@@ -140,7 +140,10 @@ function _ensureModal() {
     if (document.getElementById('modalEditHistory')) return;
     const wrapper = document.createElement('div');
     wrapper.id = 'modalEditHistory';
-    wrapper.className = 'modal hidden';
+    // NOTE: do NOT add `hidden` here — `.hidden { display:none !important }`
+    // beats `.modal.active { display:flex }`, so the modal would never show.
+    // openModal/closeModal toggle `.active`; base `.modal` is already hidden.
+    wrapper.className = 'modal';
     wrapper.innerHTML = `
         <div class="modal-overlay" onclick="closeModal('modalEditHistory')"></div>
         <div class="modal-container hist-modal-container">
@@ -166,6 +169,12 @@ function _ensureModal() {
 // ===== RENDER =====
 
 function _renderHistoryList(rows) {
+    // Prefer the rich shared renderer (per-item product diff incl. màu/SL/giá,
+    // full field diff, create/delete snapshots) so the card 🕐 modal matches
+    // the Lịch Sử tab. Falls back to the local compact renderer if unavailable.
+    if (window.HistoryTab?.renderList) {
+        return window.HistoryTab.renderList(rows);
+    }
     if (!Array.isArray(rows) || rows.length === 0) {
         return '<p class="hist-empty">Chưa có thay đổi nào trong 30 ngày gần nhất.</p>';
     }

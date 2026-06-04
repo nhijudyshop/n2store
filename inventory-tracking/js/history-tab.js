@@ -422,10 +422,17 @@ window.HistoryTab = (function () {
             _searchTimer = setTimeout(apply, 250);
         });
 
-        // Expand/collapse via delegation on the body.
-        const body = document.getElementById('histTabBody');
-        body?.addEventListener('click', (e) => {
-            const head = e.target.closest('.hist-entry-head');
+        _ensureExpandDelegation();
+    }
+
+    // Document-level delegation so collapsible entries work both in the tab
+    // (#histTabBody) AND inside the per-đợt modal (#modalEditHistoryBody).
+    let _expandWired = false;
+    function _ensureExpandDelegation() {
+        if (_expandWired) return;
+        _expandWired = true;
+        document.addEventListener('click', (e) => {
+            const head = e.target.closest?.('.hist-entry-head');
             if (!head) return;
             const entry = head.closest('.hist-entry-collapsible');
             const detail = entry?.querySelector('.hist-changes-detail');
@@ -463,6 +470,18 @@ window.HistoryTab = (function () {
                 body.innerHTML = `<p class="hist-empty">Không thể tải lịch sử: ${_esc(e.message)}</p>`;
             }
         }
+    }
+
+    // Public: render a rows[] array to rich HTML (per-item product diff, full
+    // field diff, snapshots). Reused by the per-đợt modal in edit-history.js so
+    // the card 🕐 button gets the same quality as the tab. Caller injects the
+    // HTML and calls lucide.createIcons(); expand works via document delegation.
+    function renderList(rows) {
+        _ensureExpandDelegation();
+        if (!Array.isArray(rows) || rows.length === 0) {
+            return '<p class="hist-empty">Chưa có thay đổi nào trong 30 ngày gần nhất.</p>';
+        }
+        return `<div class="hist-list">${rows.map(_renderEntry).join('')}</div>`;
     }
 
     // ===== HELPERS =====
@@ -514,7 +533,7 @@ window.HistoryTab = (function () {
         }
     }
 
-    return { load };
+    return { load, renderList };
 })();
 
 console.log('[HISTORY-TAB] Loaded');

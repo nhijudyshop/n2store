@@ -80,6 +80,12 @@
 - **Filter mở rộng**: ô **tìm kiếm tự do** (`_haystack`: maSP/màu/ghi chú/người sửa/chi phí, debounce 250ms) + **Đợt** + **Ngày giao** + giữ NCC/loại/ngày sửa. Verified: Đợt=2→494, search "VIỀN"→152, ngày giao 24/05→138.
 - Bump `?v`: history-tab 20260603e, modern.css 20260603e (shared css giữ nguyên 20260530d — không đụng).
 
+**Lịch sử TỪNG ĐƠN (nút 🕐 trên mỗi card) — fix bug modal vô hình + dùng chung renderer giàu:**
+
+- **Bug có sẵn:** modal `#modalEditHistory` tạo bằng `class="modal hidden"`, mà `.hidden { display:none !important }` thắng `.modal.active { display:flex }` → bấm 🕐 trên card **không hiện gì** (modal luôn ẩn). Fix `edit-history.js _ensureModal`: bỏ class `hidden`, chỉ để `modal` (openModal toggle `.active`).
+- **Dùng chung renderer:** `history-tab.js` expose `renderList(rows)` + chuyển expand/collapse sang **delegation cấp document** (chạy cả trong tab lẫn modal). `edit-history.js _renderHistoryList` delegate sang `window.HistoryTab.renderList` → modal per-đợt/per-NCC giờ có **diff giàu y hệt tab** (mã/màu/SL/giá, snapshot, đánh dấu id-only). Fallback renderer cũ nếu HistoryTab chưa load.
+- Bump `?v`: edit-history 20260604a, history-tab 20260604a. Verified Playwright: card 🕐 → modal hiện (flex), 24 entries đúng đợt, expand diff OK.
+
 ### [render][overview] Đổi tên kho KH đơn hàng web2Db: `customers` → `web2_order_customers` ✅
 
 Web 2.0 có 2 kho KH gây nhầm tên với Web 1.0. Tách rõ + đổi tên theo convention `web2_`:
