@@ -108,17 +108,59 @@
         return Number(order?.totalQuantity) || 0;
     }
 
-    // Trích code SP từ 1 line phiếu (chuẩn hóa giống refund "Chi tiết" → trim+UPPERCASE).
+    // Trích code SP từ 1 OrderLine phiếu (chuẩn hóa giống refund "Chi tiết" → trim+UPPERCASE).
+    // ⚠ FastSaleOrderLine GỐC chỉ có ProductId — code nằm ở entity Product (cần $expand=Product).
+    // Đọc Product.DefaultCode/Barcode trước, rồi tới ProductCode/DefaultCode flat, cuối là [CODE] trong NameGet.
     function extractLineCode(line) {
         const raw =
+            line.Product?.DefaultCode ||
+            line.Product?.Barcode ||
             line.ProductCode ||
             line.DefaultCode ||
-            (line.ProductNameGet || '').match(/\[([^\]]+)\]/)?.[1] ||
+            (line.ProductNameGet || line.Product?.NameGet || '').match(/\[([^\]]+)\]/)?.[1] ||
             '';
         return String(raw).trim().toUpperCase();
     }
     function lineQty(line) {
-        return Number(line.ProductUOMQty) || Number(line.Quantity) || 0;
+        return Number(line.ProductUOMQty) || Number(line.ProductQty) || Number(line.Quantity) || 0;
+    }
+
+    // Mã SP của 1 product trong social order (đơn inbox) — đã verify khớp refund "Chi tiết" 100%.
+    function productCode(p) {
+        return String(p.productCode || p.ProductCode || '').trim().toUpperCase();
+    }
+
+    /**
+     * Nguồn MÓN để khớp refund của 1 đơn. Trả { details:{i:{code,name,net}}, grossQty, source }.
+     * Ưu tiên OrderLines phiếu (nếu fetch được code qua $expand=Product). Nếu OrderLines KHÔNG
+     * cho ra code nào (TPOS limit / fetch fail) → fallback products của ĐƠN (luôn có productCode).
+     * → matchRefundForOrder LUÔN có code để khớp, không còn ra hoàn 0đ vì thiếu code.
+     */
+    function buildMatchDetails(order, invoiceLines) {
+        const det = {};
+        let i = 0, grossQty = 0, codeCount = 0;
+        for (const l of invoiceLines || []) {
+            const q = lineQty(l);
+            if (q <= 0) continue;
+            const code = extractLineCode(l);
+            det[i++] = { code, name: l.ProductName || l.Product?.NameGet || l.ProductNameGet || '', net: q };
+            grossQty += q;
+            if (code) codeCount++;
+        }
+        // OrderLines phiếu không ra được code nào → dùng products của đơn (có code, đã verify).
+        if (codeCount === 0) {
+            const det2 = {};
+            let j = 0, g2 = 0;
+            for (const p of order.products || []) {
+                const q = Number(p.quantity) || 0;
+                if (q <= 0) continue;
+                det2[j++] = { code: productCode(p), name: p.productName || p.productNameGet || '', net: q };
+                g2 += q;
+            }
+            if (j > 0) return { details: det2, grossQty: g2, source: 'order-products' };
+        }
+        if (grossQty <= 0) return { details: det, grossQty: Number(order.totalQuantity) || 0, source: 'empty' };
+        return { details: det, grossQty, source: 'invoice-lines' };
     }
 
     // ===== TOKEN TPOS (reuse hạ tầng có sẵn trên trang inbox — KHÔNG hardcode creds) =====
@@ -137,14 +179,17 @@
         throw new Error('Token manager chưa sẵn sàng');
     }
 
-    // ===== BULK FETCH OrderLines phiếu (có ProductCode + Quantity) =====
-    // POST /api/odata/FastSaleOrder/ODataService.GetListOrderIds?$expand=OrderLines
+    // ===== BULK FETCH OrderLines phiếu (kèm Product để có code) =====
+    // POST /api/odata/FastSaleOrder/ODataService.GetListOrderIds?$expand=OrderLines($expand=Product)
+    // ⚠ PHẢI $expand=OrderLines($expand=Product) — bare $expand=OrderLines trả line KHÔNG có code
+    //   (FastSaleOrderLine gốc chỉ có ProductId) → đó là lý do đối soát cũ ra hoàn 0đ.
     // body { ids: [FastSaleOrder Id...] } — ids = invoice.Id (tpos_id) từ InvoiceStatusStore.
+    // Nếu fetch fail/không code → run() tự fallback sang products của đơn (buildMatchDetails).
     async function bulkFetchInvoiceLines(fsoIds) {
         const out = new Map(); // tpos_id → OrderLines[]
         if (!fsoIds || !fsoIds.length) return out;
         const headers = await getAuthHeader();
-        const url = `${WORKER()}/api/odata/FastSaleOrder/ODataService.GetListOrderIds?$expand=OrderLines`;
+        const url = `${WORKER()}/api/odata/FastSaleOrder/ODataService.GetListOrderIds?$expand=OrderLines($expand=Product)`;
         const batches = [];
         for (let i = 0; i < fsoIds.length; i += BULK_BATCH) {
             batches.push(fsoIds.slice(i, i + BULK_BATCH));
@@ -350,28 +395,17 @@
             // 3) Tính per-order + gộp theo nhân viên
             state.byOrder.clear();
             const bySeller = new Map();
+            const srcCount = { 'invoice-lines': 0, 'order-products': 0, empty: 0 };
             let totalGross = 0,
                 totalLoss = 0,
                 totalNet = 0,
                 refundCount = 0;
             for (const { order, inv } of qualifying) {
-                let lines = linesMap.get(inv.Id);
-                if (!Array.isArray(lines) || !lines.length) lines = inv.OrderLines || []; // fallback cache
-                const details = {};
-                let grossQty = 0;
-                lines.forEach((l, i) => {
-                    const q = lineQty(l);
-                    if (q <= 0) return;
-                    grossQty += q;
-                    details[i] = {
-                        code: extractLineCode(l),
-                        name: l.ProductName || l.ProductNameGet || '',
-                        net: q,
-                    };
-                });
-                if (grossQty <= 0) grossQty = grossQtyFromCache(order, inv); // last fallback
-                const grossKpi = grossQty * KPI_PER_UNIT;
-                const m = matchRefundForOrder(inv.Number, details, refundByInvoice);
+                const lines = linesMap.get(inv.Id) || inv.OrderLines || [];
+                const built = buildMatchDetails(order, lines);
+                srcCount[built.source] = (srcCount[built.source] || 0) + 1;
+                const grossKpi = built.grossQty * KPI_PER_UNIT;
+                const m = matchRefundForOrder(inv.Number, built.details, refundByInvoice);
                 const refundedKpiAmount = m.refundedKpiAmount;
                 const netKpi = Math.max(0, grossKpi - refundedKpiAmount);
                 if (refundedKpiAmount > 0) refundCount++;
@@ -403,6 +437,11 @@
                 if (refundedKpiAmount > 0) s.refundOrders++;
                 bySeller.set(sellerName, s);
             }
+            console.log(
+                `[SOCIAL-KPI] Nguồn món: invoice-lines=${srcCount['invoice-lines']}, ` +
+                    `order-products=${srcCount['order-products']}, empty=${srcCount.empty} | ` +
+                    `loại KPI hoàn = ${totalLoss}đ (${refundCount} đơn)`
+            );
 
             state.lastResult = {
                 totalGross,

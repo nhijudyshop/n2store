@@ -25,6 +25,24 @@
 
 ## 2026-06-04
 
+### [inbox] FIX đối soát KPI báo "hoàn 0đ" — OrderLines phiếu thiếu ProductCode ✅
+
+**Bug**: đối soát KPI Đơn Inbox luôn ra `hoàn 0đ` dù đơn có món bị trả. Root cause: fetch `GetListOrderIds?$expand=OrderLines` — `FastSaleOrderLine` GỐC chỉ có `ProductId/ProductQty/PriceUnit`, **KHÔNG có ProductCode** (xem TPOS docs OrderLine sample). `extractLineCode()` trả rỗng → `matchRefundForOrder` bỏ qua mọi món (skip khi code rỗng) → loại 0đ.
+
+**Verify bug** (offline, dùng data thật): đối chiếu 12 đơn KPI tháng 5 có refund → mã refund khớp `products[].productCode` của social order **100%** → đáng lẽ loại **80.000đ**, không phải 0đ.
+
+**Fix** ([don-inbox/js/tab-social-kpi-reconcile.js](../don-inbox/js/tab-social-kpi-reconcile.js)):
+
+- `$expand=OrderLines` → `$expand=OrderLines($expand=Product)` để OrderLines kèm entity Product (có DefaultCode).
+- `extractLineCode`: đọc `line.Product.DefaultCode/Barcode` trước, rồi flat fields, cuối `[CODE]` trong NameGet. `lineQty`: thêm `ProductQty`.
+- **`buildMatchDetails(order, lines)`** — HYBRID: ưu tiên OrderLines phiếu (nếu ra được code); nếu KHÔNG có code nào → fallback `order.products[].productCode` (LUÔN có code, đã verify khớp refund). → matching luôn có code, không còn 0đ.
+- `updateInboxKpiStatCard`: đơn đã đối soát dùng `rec.grossKpi` (đồng bộ gross/net 1 nguồn món).
+- Log `[SOCIAL-KPI] Nguồn món: invoice-lines=X, order-products=Y` để debug.
+
+**Test**: `node --check` pass; integration test chạy `run()` thật với file refund excel thật — Scenario A (OrderLines thiếu code → fallback products → loại 5.000đ ✓), B (OrderLines có Product.DefaultCode → dùng invoice-lines → 5.000đ ✓), C (không refund → 0đ ✓). 5/5 pass.
+
+→ Live page (May 13–31) sau fix: hoàn ≈ 20.000đ (4 đơn) thay vì 0đ. Bump `?v=20260604c`.
+
 ### [web2] In tem 2-con: raster theo kích thước vật lý + research giao thức máy in tem ✅
 
 User hỏi setting cho "máy in 2 tem" (in tem mã SP ở web2/products). Khổ tem (2 Tem 66×21mm) chọn ngay trong dialog "In mã vạch" → "Giấy in", KHÔNG phải "Khổ giấy 80/58" của Cấu hình máy in (đó là khổ bill).

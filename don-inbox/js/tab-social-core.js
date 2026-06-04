@@ -303,16 +303,19 @@ function updateInboxKpiStatCard() {
     let totalLoss = 0;
     let anyRecon = false;
     for (const o of kpiOrders) {
-        const q = grossQty(o);
-        const g = q * KPI_PER_UNIT_INBOX;
-        totalQty += q;
-        totalGross += g;
         const rec = R?.byOrder?.get(o.id);
         if (rec) {
+            // Đơn đã đối soát → dùng gross/net của đối soát (đồng bộ nguồn món).
             anyRecon = true;
+            totalQty += rec.grossKpi / KPI_PER_UNIT_INBOX;
+            totalGross += rec.grossKpi;
             totalNet += rec.netKpi;
             totalLoss += rec.refundedKpiAmount;
         } else {
+            const q = grossQty(o);
+            const g = q * KPI_PER_UNIT_INBOX;
+            totalQty += q;
+            totalGross += g;
             totalNet += g; // chưa đối soát đơn này → net = gross
         }
     }
