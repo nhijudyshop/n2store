@@ -30,7 +30,10 @@ function _score(sig, tx) {
     const content = String(tx.content || tx.description || '');
     const digits = content.replace(/\D/g, '');
     const p9 = _last9(sig.phone);
-    const phoneHit = !!p9 && digits.includes(p9);
+    // phoneHit: SĐT signal trong nội dung GD, HOẶC GD đã được auto-gán đúng SĐT
+    // signal (vd processWeb2Match khớp QR → linked_customer_phone).
+    const txLinked = _last9(tx.linked_customer_phone);
+    const phoneHit = !!p9 && (digits.includes(p9) || (!!txLinked && txLinked === p9));
     const expected = sig.order_total != null ? Number(sig.order_total) : null;
     const amount = Number(tx.transfer_amount) || 0;
     const amountHit = expected != null && expected > 0 && expected === amount;
@@ -80,9 +83,9 @@ async function onNewSepayTx(db, txId, deps = {}) {
         const conflict = txPhone && _last9(txPhone) !== _last9(sig.phone);
 
         if (best.sure && sig.phone && !conflict) {
-            // CHẮC → tự link + cộng ví.
+            // CHẮC → tự link + cộng ví (hoặc GD đã cộng đúng SĐT từ trước → đối soát).
             let credited = false;
-            let balance = null;
+            let reconciled = false;
             try {
                 const balanceHistory = require('../routes/v2/web2-balance-history');
                 const r = await balanceHistory.linkTransaction(db, {
@@ -92,7 +95,8 @@ async function onNewSepayTx(db, txId, deps = {}) {
                     verifiedBy: 'auto-watcher',
                 });
                 credited = !!r.credited;
-                balance = r.balance;
+                // alreadyProcessed + cùng SĐT (conflict đã loại) = đã cộng đúng người.
+                reconciled = !!r.alreadyProcessed;
             } catch (e) {
                 console.warn('[WEB2-CK-WATCHER] linkTransaction failed:', e.message);
             }
@@ -111,7 +115,7 @@ async function onNewSepayTx(db, txId, deps = {}) {
                             ts: now,
                             action: 'auto-link',
                             userName: '(watcher tự động)',
-                            note: `GD#${tx.id}${credited ? ' +ví' : ''}${best.phoneHit ? ' (SĐT)' : ' (đúng tiền)'}`,
+                            note: `GD#${tx.id}${credited ? ' +ví' : reconciled ? ' (đã cộng trước)' : ''}${best.phoneHit ? ' (SĐT)' : ' (đúng tiền)'}`,
                         },
                     ]),
                 ]
@@ -133,9 +137,9 @@ async function onNewSepayTx(db, txId, deps = {}) {
                     /* ignore */
                 }
             }
-            // Auto-reply (chỉ khi vừa cộng ví) — best-effort.
+            // Auto-reply khi cộng ví HOẶC GD đã cộng đúng SĐT (đối soát) — best-effort.
             if (
-                credited &&
+                (credited || reconciled) &&
                 typeof deps.sendMessage === 'function' &&
                 sig.page_id &&
                 sig.conversation_id

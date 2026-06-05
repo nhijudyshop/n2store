@@ -354,6 +354,7 @@ router.post('/:id/approve', async (req, res) => {
 
         // Link GD SePay (cộng ví) nếu có txId.
         let credited = false;
+        let reconciled = false; // GD đã cộng ví đúng SĐT từ trước (vd auto-match QR) → vẫn nối + gửi tin
         let ckAmount = null;
         if (txId) {
             const balanceHistory = require('./v2/web2-balance-history');
@@ -367,12 +368,27 @@ router.post('/:id/approve', async (req, res) => {
                 return res.status(404).json({ success: false, error: 'GD không tồn tại' });
             }
             if (r.alreadyProcessed) {
-                return res
-                    .status(400)
-                    .json({ success: false, error: 'GD đã được xử lý — không thể link lại' });
+                // GD đã được cộng ví trước (auto-match). Nếu cộng cho ĐÚNG SĐT đang
+                // duyệt → coi như hợp lệ: nối tín hiệu + gửi tin (KHÔNG cộng lại).
+                const ti = await pool.query(
+                    `SELECT linked_customer_phone, transfer_amount FROM web2_balance_history WHERE id = $1`,
+                    [txId]
+                );
+                const txPhone = String(ti.rows[0]?.linked_customer_phone || '').replace(/\D/g, '');
+                const want = String(phone).replace(/\D/g, '');
+                if (txPhone && want && txPhone.slice(-9) === want.slice(-9)) {
+                    reconciled = true;
+                    ckAmount = Number(ti.rows[0].transfer_amount) || null;
+                } else {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'GD đã xử lý cho SĐT khác — không thể link',
+                    });
+                }
+            } else {
+                credited = !!r.credited;
+                ckAmount = r.amount;
             }
-            credited = !!r.credited;
-            ckAmount = r.amount;
         }
 
         // Confirm signal + lưu phone/name (nếu trống) + matched_tx_id.
@@ -392,7 +408,9 @@ router.post('/:id/approve', async (req, res) => {
         await _appendHistory(pool, id, {
             action: 'approve',
             ...u,
-            note: txId ? `GD#${txId}${credited ? ' +ví' : ''}` : 'chờ tiền về (chưa cộng ví)',
+            note: txId
+                ? `GD#${txId}${credited ? ' +ví' : reconciled ? ' (đã cộng trước, đối soát)' : ''}`
+                : 'chờ tiền về (chưa cộng ví)',
         });
         _notify('approve', id);
         if (txId && _notifyClients) {
@@ -407,16 +425,21 @@ router.post('/:id/approve', async (req, res) => {
             }
         }
 
-        // Auto-reply + báo số dư — CHỈ khi cộng ví (tiền thật về) + user không tắt.
-        // Best-effort: lỗi gửi (24h/PAT) KHÔNG vỡ approve.
-        if (credited && b.notifyCustomer !== false && sig.page_id && sig.conversation_id) {
+        // Auto-reply + báo số tiền CK — khi cộng ví (credited) HOẶC GD đã cộng
+        // đúng SĐT từ trước (reconciled) + user không tắt. Best-effort.
+        if (
+            (credited || reconciled) &&
+            b.notifyCustomer !== false &&
+            sig.page_id &&
+            sig.conversation_id
+        ) {
             const msg = composeCkReplyMessage(ckAmount);
             sendCkReply(pool, id, sig, msg).catch((e) =>
                 console.warn('[WEB2-PAYSIG-API] auto-reply failed:', e.message)
             );
         }
 
-        res.json({ success: true, credited });
+        res.json({ success: true, credited, reconciled });
     } catch (e) {
         console.error('[WEB2-PAYSIG-API] approve failed:', e.message);
         res.status(500).json({ success: false, error: e.message });

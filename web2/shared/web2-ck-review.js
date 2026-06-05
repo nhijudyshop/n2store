@@ -45,6 +45,31 @@
         if (global.notificationManager?.show) global.notificationManager.show(msg, type || 'info');
         else console.log('[ck-review]', msg);
     }
+
+    // Lịch sử thao tác (audit: ai detect/duyệt/cộng ví/gửi tin — lúc nào).
+    const ACTION_VI = {
+        detect: 'Hệ thống nhận',
+        confirm: 'Xác nhận',
+        approve: 'Duyệt',
+        dismiss: 'Bỏ qua',
+        link: 'Gán đơn',
+        notify: 'Gửi tin báo KH',
+        'auto-link': 'Tự đối soát (watcher)',
+    };
+    function historyHtml(history) {
+        const h = Array.isArray(history) ? history : [];
+        if (!h.length) return '';
+        if (global.Web2HistoryTimeline?.render) {
+            return `<details class="w2ck-history"><summary>Lịch sử (${h.length})</summary>${global.Web2HistoryTimeline.render(h, { title: false })}</details>`;
+        }
+        const rows = h
+            .map(
+                (e) =>
+                    `<div class="w2ck-hist-row"><b>${esc(ACTION_VI[e.action] || e.action)}</b> · ${esc(e.userName || '(ẩn danh)')} · ${esc(fmtTime(e.ts))}${e.note ? ' · ' + esc(e.note) : ''}</div>`
+            )
+            .join('');
+        return `<details class="w2ck-history"><summary>Lịch sử (${h.length})</summary>${rows}</details>`;
+    }
     function userBody(extra) {
         const body = { ...(extra || {}) };
         if (global.Web2UserInfo?.attachToBody)
@@ -266,6 +291,7 @@
                         ? ` · Đơn ${esc(sig.orderCode)}${sig.order ? ' (' + fmtMoney(sig.order.total) + 'đ)' : ''}`
                         : ''
                 }</div>
+                ${historyHtml(sig.history)}
             </div>
             <div class="w2ck-fields">
                 <label>SĐT <input class="w2ck-phone" value="${esc(initPhone)}" placeholder="0901234567" /></label>
@@ -424,6 +450,10 @@
         .w2ck-btn-approve:disabled{opacity:.6;cursor:wait}
         .w2ck-notify{display:flex;align-items:center;gap:5px;font-size:12px;color:#64748b;cursor:pointer}
         .w2ck-notify input{margin:0}
+        .w2ck-history{margin-top:6px;font-size:12px}
+        .w2ck-history>summary{cursor:pointer;color:#64748b;font-weight:600;list-style:revert}
+        .w2ck-history>summary:hover{color:#5e51ac}
+        .w2ck-hist-row{color:#475569;padding:2px 0 2px 10px;border-left:2px solid #e5e7eb;margin:3px 0 0 2px}
         .w2ck-btn-ghost{background:#f1f5f9;color:#64748b}
         .w2ck-btn:hover:not(:disabled){filter:brightness(.95)}`;
         const el = document.createElement('style');
