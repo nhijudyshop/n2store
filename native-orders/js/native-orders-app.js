@@ -2439,7 +2439,10 @@
         return { ok: missing.length === 0, missing };
     }
 
-    async function createPbh(code) {
+    async function createPbh(code, opts = {}) {
+        // shopMode: mở modal PBH nhưng phương thức giao = "BÁN HÀNG SHOP" + DISABLE
+        // (không cho đổi), ship = 0. Dùng cho nút "PBH SHOP" (bán tại shop).
+        const shopMode = opts.shopMode === true;
         // Custom popup: show order summary + optional deposit/delivery overrides
         const src = STATE.orders.find((o) => o.code === code);
         if (!src) {
@@ -2564,11 +2567,11 @@
             </div>
         `;
         const submit = await openCustomFormPopup({
-            title: `Tạo PBH từ ${code}`,
+            title: shopMode ? `Tạo PBH SHOP từ ${code}` : `Tạo PBH từ ${code}`,
             iconType: 'info',
             iconName: 'receipt',
             html,
-            okText: 'Tạo PBH',
+            okText: shopMode ? 'Tạo PBH SHOP' : 'Tạo PBH',
             cancelText: 'Huỷ',
             // Wire dropdown change → auto-fill Phí giao hàng so user sees price react live.
             onMount: (root) => {
@@ -2580,6 +2583,26 @@
                         const price = Number(opt.dataset.price || 0);
                         priceInput.value = price;
                     });
+                }
+                // shopMode: ép "BÁN HÀNG SHOP" + disable dropdown + ship = 0.
+                if (shopMode && sel) {
+                    let shopOpt = Array.from(sel.options).find((o) =>
+                        /pbh\s*shop|bán\s*hàng\s*shop|shop/i.test(o.textContent || '')
+                    );
+                    if (!shopOpt) {
+                        shopOpt = document.createElement('option');
+                        shopOpt.value = 'PBH SHOP';
+                        shopOpt.textContent = 'BÁN HÀNG SHOP';
+                        shopOpt.dataset.price = '0';
+                        sel.insertBefore(shopOpt, sel.firstChild);
+                    }
+                    sel.value = shopOpt.value;
+                    sel.disabled = true;
+                    sel.style.background = '#f1f5f9';
+                    sel.style.cursor = 'not-allowed';
+                    if (priceInput) {
+                        priceInput.value = 0;
+                    }
                 }
             },
             collect: (root) => {
@@ -3414,6 +3437,11 @@
         if (!valid.length) {
             notify('Đơn đã chọn chưa có sản phẩm', 'warning');
             return;
+        }
+        // 1 đơn → mở MODAL "Tạo PBH SHOP" (giống Tạo PBH, phương thức = BÁN HÀNG
+        // SHOP disable, ship 0) để xem/chỉnh cọc/ngày trước khi tạo.
+        if (valid.length === 1) {
+            return createPbh(valid[0], { shopMode: true });
         }
         const ok = await w2pConfirm(
             `Tạo PBH SHOP (bán tại shop) cho ${valid.length} đơn?\nPhí ship = 0, phương thức = "PBH SHOP". Khách có ví sẽ tự trừ thu hộ.`,
