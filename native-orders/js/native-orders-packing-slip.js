@@ -10,7 +10,7 @@
 //   - Modal TỰ DỰNG động (không cần sửa index.html).
 //
 // Workflow: đơn NHÁP → "In bill" → modal Phiếu Soạn Hàng → tick "Chờ Hàng" +
-// ghi chú từng SP → in (iframe). Ghi chú in: SP tick Chờ Hàng → thêm "CH" đậm.
+// ghi chú từng SP → in (iframe). Ghi chú in: SP tick Chờ Hàng → thêm "CHỜ HÀNG" đậm.
 // =====================================================
 (function (global) {
     'use strict';
@@ -123,7 +123,7 @@
     }
 
     // ── Print HTML — khớp mẫu Phiếu Soạn Hàng (PHIẾU SOẠN HÀNG / STT / KH / NV /
-    //    bảng STT|Sản phẩm|SL|Giá|Ghi chú; SP chờ hàng → "CH" đậm). ──
+    //    bảng STT|Sản phẩm|SL|Giá|Ghi chú; SP chờ hàng → "CHỜ HÀNG" đậm). ──
     function _buildPrintHTML(waiting, notes) {
         const o = _order;
         const customerName = o.customerName || '';
@@ -149,7 +149,8 @@
                 totalAmount += qty * price;
                 const priceShort = Math.round(price / 1000);
                 let ghiChu = '';
-                if (isWaiting) ghiChu += '<b style="font-size:18px;">CH</b>';
+                if (isWaiting)
+                    ghiChu += '<b style="font-size:13px;white-space:nowrap;">CHỜ HÀNG</b>';
                 if (userNote)
                     ghiChu +=
                         (ghiChu ? ' ' : '') +
