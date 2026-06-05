@@ -2342,7 +2342,19 @@ const KPICommission = {
                 : hasDiscrepancy
                   ? 'is-discrepancy'
                   : '';
-            const isChecked = !!invNumber && this._orderCheckStore.isChecked(invNumber);
+            // Dual-key: record kiểm tra có thể lưu theo SỐ PHIẾU (đơn đã có phiếu lúc
+            // đánh dấu) HOẶC theo MÃ ĐH (đơn chưa có phiếu lúc đánh dấu → checkKey =
+            // orderCode). Tra cứu cả 2 để không mất dấu ✓ sau khi đơn được gán số phiếu.
+            const orderCheckCode = order.orderCode || '';
+            const isChecked =
+                (!!invNumber && this._orderCheckStore.isChecked(invNumber)) ||
+                (!!orderCheckCode && this._orderCheckStore.isChecked(orderCheckCode));
+            // Backfill: đơn được đánh dấu khi CHƯA có phiếu (record key = orderCode,
+            // number rỗng) → nay đã có số phiếu thì ghi bổ sung để Lịch sử kiểm tra
+            // hiển thị đúng số phiếu thay vì "—". Method tự guard tránh ghi lặp.
+            if (isChecked && invNumber && orderCheckCode) {
+                this._orderCheckStore.backfillNumber(orderCheckCode, invNumber);
+            }
             const rowClass = [baseClass, isChecked ? 'kpi-l1-row-checked' : '']
                 .filter(Boolean)
                 .join(' ');
@@ -2887,8 +2899,10 @@ const KPICommission = {
         tbody.querySelectorAll('tr[data-l1-order]').forEach((tr) => {
             const number = tr.getAttribute('data-l1-number') || '';
             const orderCode = tr.getAttribute('data-l1-order-code') || '';
-            const checkKey = number || orderCode;
-            const shouldBe = !!checkKey && this._orderCheckStore.isChecked(checkKey);
+            // Dual-key (xem renderEmployeeOrdersTable): tra cứu cả số phiếu lẫn Mã ĐH.
+            const shouldBe =
+                (!!number && this._orderCheckStore.isChecked(number)) ||
+                (!!orderCode && this._orderCheckStore.isChecked(orderCode));
             tr.classList.toggle('kpi-l1-row-checked', shouldBe);
         });
     },
@@ -2975,8 +2989,9 @@ const KPICommission = {
         );
     },
 
-    // Confirm dialog "Xác nhận kiểm tra đơn" — mirrored từ delivery-report
-    // để 2 báo cáo share cùng trạng thái kiểm tra qua Firestore.
+    // Confirm dialog "Xác nhận kiểm tra đơn" — UI mirror pattern từ delivery-report,
+    // NHƯNG check store RIÊNG: markChecked ghi vào kpi_commission/data/order_checks
+    // (xem comment _orderCheckStore bên dưới), KHÔNG share trạng thái với Thống Kê Giao Hàng.
     _ensureCheckConfirmModal() {
         let el = document.getElementById('kpi-check-confirm-modal');
         if (el) return el;
@@ -3098,6 +3113,27 @@ const KPICommission = {
 
         isChecked(checkKey) {
             return !!checkKey && this._data.has(checkKey);
+        },
+
+        // Ghi bổ sung số phiếu vào record được đánh dấu khi đơn CHƯA có phiếu
+        // (key = Mã ĐH, number rỗng). Idempotent: chỉ ghi khi record tồn tại, number
+        // còn rỗng, và chưa backfill trong session. Merge chỉ field 'number'.
+        backfillNumber(checkKey, number) {
+            if (!checkKey || !number) return;
+            const rec = this._data.get(checkKey);
+            if (!rec || rec.number) return; // không có record HOẶC đã có số phiếu → bỏ qua
+            if (!this._backfilled) this._backfilled = new Set();
+            if (this._backfilled.has(checkKey)) return; // tránh ghi lặp trong session
+            this._backfilled.add(checkKey);
+            this._data.set(checkKey, { ...rec, number });
+            const col = this._getCol();
+            if (!col) return;
+            col.doc(this._sanitizeDocId(checkKey))
+                .set({ number }, { merge: true })
+                .then(() => window.KPICommission?._renderCheckHistory?.())
+                .catch((e) =>
+                    console.warn('[KPI-ORDER-CHECK] backfill failed:', e?.message)
+                );
         },
 
         async markChecked(checkKey, meta) {

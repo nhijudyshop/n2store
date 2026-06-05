@@ -25,6 +25,23 @@
 
 ## 2026-06-05
 
+### [orders][kpi] Fix: Lịch sử kiểm tra mất dấu ✓ + Số phiếu "—" (key drift) & sửa text "share" sai ✅
+
+**Bối cảnh** (user hỏi): (1) "Lịch sử kiểm tra" có share dữ liệu với Thống Kê Giao Hàng / trang khác không? (2) Vì sao một số entry không có Số phiếu ("—"), và đúng các đơn đó lại không có dấu ✓ ở cột STT đơn của Chi tiết KPI?
+
+**Điều tra** (workflow 5 agent + 1 phản biện): KPI check store **RIÊNG hoàn toàn** — Firestore `kpi_commission/data/order_checks` (payload `source:'kpi-commission'`), KHÁC `delivery_report/data/order_checks` của delivery-report (`drOrderChecks_v1` + `source:'delivery-report'`). Quét toàn repo (frontend + Render + Worker + Firebase Functions + 2 SSE hub + scripts): **0 cross-write/sync**. Banner UI "share với Thống Kê Giao Hàng" là **text cũ bị bỏ sót**: feature ban đầu dùng chung (`3eb00a27c`), tách 7 phút sau (`c3afd14c7` "tách Firestore check store khỏi delivery-report") nhưng quên sửa 3 chuỗi text.
+
+**Bug ✓/"—"** (key drift): lúc đánh dấu, `checkKey = number || orderCode` → đơn CHƯA có số phiếu thì key = Mã ĐH, `number=''`. Khi render Chi tiết KPI lại `isChecked(invNumber)` (chỉ theo số phiếu) → sau khi đối soát gán số phiếu, lookup theo số phiếu không khớp record key=Mã ĐH → mất ✓; Lịch sử kiểm tra hiện `entry.number=''` → "—".
+
+**Fix** (chỉ frontend, không đụng endpoint/KPI API — tuân thủ `feedback_api_scope`):
+- `renderEmployeeOrdersTable` + `_applyL1CheckedStyles`: **dual-key lookup** `isChecked(số phiếu) || isChecked(Mã ĐH)` → ✓ hiện lại đúng.
+- Thêm `_orderCheckStore.backfillNumber(checkKey, number)`: khi đơn đã có số phiếu, ghi bổ sung field `number` (merge, idempotent, guard `_backfilled` Set) vào record cũ → Lịch sử kiểm tra hết "—".
+- Sửa 3 text sai → "lưu RIÊNG cho KPI, KHÔNG chia sẻ với Thống Kê Giao Hàng": banner [tab-kpi-commission.html](../orders-report/tab-kpi-commission.html) (subtab title + toolbar info) + comment confirm-dialog trong JS.
+
+**Files**: [tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js), [tab-kpi-commission.html](../orders-report/tab-kpi-commission.html).
+
+**Status**: ✅ Done (node --check OK). Lưu ý: backfill ghi field `number` vào Firestore records cũ lần đầu render mỗi đơn (idempotent).
+
 ### [orders][kpi] Fix: đánh KPI base sau gửi tin nhắn hàng loạt — chỉ ~nửa 600 đơn được đánh ✅
 
 **Bug**: gửi tin nhắn hàng loạt 600 đơn xong → KPI "base" chỉ đánh ~một nửa, "cái có cái không tùm lum".
