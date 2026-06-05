@@ -359,7 +359,15 @@ html, body { margin: 0; padding: 0; background: #fff; }
         const recName = partner.name || '';
         const recPhone = partner.phone || '';
         const recAddr = partner.address || '';
-        const sellerName = pbh.createdByName || pbh.assignedUser?.name || '';
+        // Người bán = USER ĐANG ĐĂNG NHẬP (Web2UserInfo) — ưu tiên; fallback tên
+        // NV gắn đơn (createdByName). Mọi loại bill đều hiện "NV bán: ...".
+        let sellerName = pbh.createdByName || pbh.assignedUser?.name || '';
+        try {
+            const u = global.Web2UserInfo && global.Web2UserInfo.get && global.Web2UserInfo.get();
+            if (u && u.userName && u.userName !== '(ẩn danh)') sellerName = u.userName;
+        } catch (e) {
+            /* Web2UserInfo chưa load → giữ fallback */
+        }
 
         // Money
         const subtotal = Number(totals.untaxed) || 0;

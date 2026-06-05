@@ -2983,6 +2983,9 @@
                 // displayStt (global, vd 14) → lệch với list (campaignStt 4).
                 displayStt: computeOrderStt(o),
                 mergedDisplayStt: null, // đã gộp sẵn vào displayStt string ở trên
+                // Tên người bán (NV) → bill hiện "NV bán: ...". Trước thiếu field
+                // này nên bill không in tên người bán.
+                createdByName: o.assignedEmployeeName || o.createdByName || '',
                 partner: {
                     name: o.customerName || '',
                     phone: o.phone || '',

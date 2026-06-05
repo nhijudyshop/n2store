@@ -32,6 +32,16 @@
         if (global.notificationManager?.show) global.notificationManager.show(msg, type || 'info');
         else console.log('[packing-slip][' + (type || 'info') + ']', msg);
     }
+    // Người bán = USER ĐANG ĐĂNG NHẬP (Web2UserInfo) — ưu tiên; fallback NV gắn đơn.
+    function _seller(o) {
+        try {
+            const u = global.Web2UserInfo && global.Web2UserInfo.get && global.Web2UserInfo.get();
+            if (u && u.userName && u.userName !== '(ẩn danh)') return u.userName;
+        } catch (e) {
+            /* chưa load */
+        }
+        return (o && (o.assignedEmployeeName || o.createdByName)) || '';
+    }
 
     // ── Modal (dựng 1 lần, tái sử dụng) ──
     let _modal = null;
@@ -129,7 +139,7 @@
         const customerName = o.customerName || '';
         const phone = o.phone || '';
         const address = o.address || '';
-        const staff = o.assignedEmployeeName || o.createdByName || '';
+        const staff = _seller(o);
         const now = new Date();
         const dateStr =
             `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ` +
@@ -267,7 +277,7 @@ th { border: 1px solid #000; padding: 4px 3px; text-align: center; background: #
         _products = Array.isArray(order.products) ? order.products.slice() : [];
         _stt = opts.sttDisplay != null ? String(opts.sttDisplay) : String(order.displayStt || '');
         _ensureModal();
-        const staff = order.assignedEmployeeName || order.createdByName || '';
+        const staff = _seller(order);
         _modal.querySelector('#noPsHeader').innerHTML = `
             <div style="display:flex;gap:8px 22px;flex-wrap:wrap;">
                 <div><b>Khách hàng:</b> ${_esc(order.customerName || '')}</div>
