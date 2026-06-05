@@ -2472,7 +2472,10 @@
         }
         // Đơn "Đơn hàng" (confirmed) đã có PBH → KHÔNG tạo PBH/PBH SHOP lại.
         if (src.status !== 'draft') {
-            notify('Đơn "Đơn hàng" đã có PBH — không tạo lại. Chỉ đơn Nháp tạo được PBH.', 'warning');
+            notify(
+                'Đơn "Đơn hàng" đã có PBH — không tạo lại. Chỉ đơn Nháp tạo được PBH.',
+                'warning'
+            );
             return;
         }
         // Phase 15: block creation when phone or address is missing — user must
