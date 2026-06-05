@@ -25,6 +25,15 @@
 
 ## 2026-06-05
 
+### [fast-sale-orders] Lưu channel vào PBH → bill in từ trang PBH cũng ghi "PBH INBOX" ✅
+
+Tiếp nối bill INBOX: trước chỉ "In bill từ native-orders" có channel. Giờ lưu channel vào `fast_sale_orders` để bill in từ trang PBH (fastsaleorder-invoice) cũng đúng.
+
+- `fast_sale_orders` thêm cột `channel VARCHAR(30)` (ensureTables). `from-native-order` INSERT copy `src.channel` ($45). `mapRow` expose `channel`. **Backfill** PBH cũ: `UPDATE fast_sale_orders SET channel = native_orders.channel WHERE source_code match AND channel IS NULL` (idempotent).
+- Frontend KHÔNG đổi: `pbh-app.js bulkPrint` fetch `GET /:number` (mapRow có channel) → `Web2Bill.openPrint` → bill-service đọc `pbh.channel` → "PBH INBOX".
+- **Deploy + verify**: Render auto-deploy ~2.5 phút. Curl `GET /api/fast-sale-orders/NJ-20260605-0001` → `channel='web2_inbox'` ✅ (backfill chạy đúng).
+- File: `render.com/routes/fast-sale-orders.js`.
+
 ### [web2] Balance-history: bỏ badge nổi "Cần chọn KH" → nút "⚠ Trùng SĐT" trên row ✅
 
 User: bỏ badge nổi (hình 2) → cho vào ô KH (hình 3) ghi "Trùng SĐT".
