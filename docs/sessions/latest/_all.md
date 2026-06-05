@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6502f39` — feat(tpos-pancake): enrich SĐT/địa chỉ comment từ kho khách hàng theo fb_id (TPOS trước, kho KH lấp chỗ trống, batch /customers/batch fb_ids)
-**Last updated**: 2026-06-05 12:01:52 +07
-**Latest session**: [`RESUME:20260605-120152-6502f39`](../20260605-120152-6502f39.md)
-**Summary**: feat(tpos-pancake): enrich SĐT/địa chỉ comment từ kho khách hàng theo fb_id (TPOS trước, kho KH lấp ch...
+**Latest commit**: `397deda` — feat(web2 bill): don ban tai shop ghi tieu de 'PBH SHOP' (thay 'Phieu Ban Hang (SHOP)') + sub 'BAN TAI SHOP'
+**Last updated**: 2026-06-05 12:07:24 +07
+**Latest session**: [`RESUME:20260605-120724-397deda`](../20260605-120724-397deda.md)
+**Summary**: feat(web2 bill): don ban tai shop ghi tieu de 'PBH SHOP' (thay 'Phieu Ban Hang (SHOP)') + sub 'BAN TAI SHOP'
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 4 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -40,7 +39,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:43
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-05 11:51
+- [`native-orders/`](./native-orders.md) — updated 2026-06-05 12:07
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-05 10:00
@@ -69,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-05 11:51
+- [`web2/`](./web2.md) — updated 2026-06-05 12:07
