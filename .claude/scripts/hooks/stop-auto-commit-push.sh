@@ -104,11 +104,6 @@ if [[ -n "$TOKEN" ]]; then
   # Hoặc { "additionalContext": "...", "suppressOutput": false }
   printf '{"systemMessage":"🔗 RESUME TOKEN: %s\\n📄 File: %s\\nCopy token này paste vào chat mới để Claude tiếp tục từ chỗ cũ."}\n' \
     "$TOKEN" "${SESSION_FILE:-}"
-
-  # 3) Copy to macOS clipboard if pbcopy available (convenience — auto sẵn sàng paste)
-  if command -v pbcopy >/dev/null 2>&1; then
-    echo -n "$TOKEN" | pbcopy 2>/dev/null && echo "📋 Token đã copy vào clipboard (Cmd+V để paste)"
-  fi
 fi
 
 exit 0
