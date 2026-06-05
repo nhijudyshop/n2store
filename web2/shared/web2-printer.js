@@ -440,9 +440,10 @@
         await new Promise((r) => setTimeout(r, 160)); // chờ layout + JsBarcode render SVG
         try {
             const body = doc.body;
-            // Đo bề rộng THẬT của tem (sheet width:Xmm) → suy ra số chấm máy in.
+            // Đo bề rộng THẬT của nội dung (tem .barcode-sheet hoặc bill .bill/
+            // .receipt-wrap, width:Xmm cố định) → suy ra số chấm máy in.
             let cw = 0;
-            body.querySelectorAll('.barcode-sheet').forEach((s) => {
+            body.querySelectorAll('.barcode-sheet, .bill, .receipt-wrap').forEach((s) => {
                 cw = Math.max(cw, s.getBoundingClientRect().width);
             });
             if (!cw) cw = body.scrollWidth || 300;
@@ -613,6 +614,14 @@
             : await escposRasterFromHtmlPhysical(html, { ss: 2 });
         return printEscpos(bytes, printer);
     }
+    // In BILL (HTML/CSS thiết kế: khung COD/mã vạch, đường trang trí) qua máy
+    // bill ESC/POS. Raster vật-lý-mm: bill width 72mm → đúng 576 chấm, fill khổ.
+    async function printBillHtml(html, roleKey, printerOverride) {
+        const printer = printerOverride || getPrinterFor(roleKey);
+        if (!printer) throw new Error('Chưa có máy in nào — vào Cấu hình > Máy in');
+        const bytes = await escposRasterFromHtmlPhysical(html, { ss: 2 });
+        return printEscpos(bytes, printer);
+    }
     // Máy in đã gán cho role có in THẲNG (bridge) không?
     function roleIsBridge(roleKey) {
         const p = getPrinterFor(roleKey);
@@ -660,6 +669,7 @@
         escposRasterFromHtml,
         escposRasterFromHtmlPhysical,
         tsplFromHtmlPhysical,
+        printBillHtml,
         printEscpos,
         printSvg,
         printHtml,
