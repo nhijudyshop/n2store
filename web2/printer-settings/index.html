@@ -433,6 +433,25 @@
                         <input id="pm_bridge" placeholder="http://127.0.0.1:17777" />
                     </div>
                 </div>
+                <!-- Chỉ máy in TEM (TSPL: XP-470B, TSC, Godex…): khoảng cách giữa 2 tem -->
+                <div id="pmLabelFields" style="display: none">
+                    <div class="pf">
+                        <label>Khoảng cách giữa 2 tem (gap, mm)</label>
+                        <input id="pm_gap" placeholder="2" inputmode="decimal" />
+                        <div
+                            style="
+                                font-size: 11.5px;
+                                color: #64748b;
+                                margin-top: 4px;
+                                line-height: 1.45;
+                            "
+                        >
+                            Máy tem XP-470B dùng lệnh <b>TSPL</b> (tự gửi qua bridge). Gap = khe
+                            trống giữa 2 con tem trên cuộn — thường <b>2–3mm</b>. Sai gap → in lệch
+                            / nhảy tem.
+                        </div>
+                    </div>
+                </div>
                 <div class="pm-actions">
                     <button class="ps-btn ps-btn-ghost" id="pmCancel">Hủy</button>
                     <button class="ps-btn ps-btn-primary" id="pmSave">
@@ -449,7 +468,7 @@
         <script src="../../web2/shared/web2-bill-service.js?v=20260604nj11"></script>
         <!-- SSE để đồng bộ danh sách máy in realtime giữa các user/máy -->
         <script src="../../web2/shared/web2-sse-bridge.js?v=20260526sse2"></script>
-        <script src="../../web2/shared/web2-printer.js?v=20260604f"></script>
+        <script src="../../web2/shared/web2-printer.js?v=20260604g"></script>
         <script>
             if (window.Web2Sidebar)
                 Web2Sidebar.mount('#web2Aside', { activeRoute: 'printer-settings' });
@@ -531,6 +550,9 @@
             function syncBridge() {
                 $('pmBridgeFields').style.display =
                     $('pm_method').value === 'bridge' ? 'block' : 'none';
+                // Field gap chỉ hiện cho máy TEM (khổ 'label' → TSPL)
+                $('pmLabelFields').style.display =
+                    $('pm_paper').value === 'label' ? 'block' : 'none';
             }
             function openModal(p) {
                 $('pmTitle').textContent = p ? 'Sửa máy in' : 'Thêm máy in';
@@ -541,12 +563,14 @@
                 $('pm_ip').value = p?.ip || '';
                 $('pm_port').value = p?.port || 9100;
                 $('pm_bridge').value = p?.bridgeUrl || 'http://127.0.0.1:17777';
+                $('pm_gap').value = p?.gapMm != null ? p.gapMm : 2;
                 syncBridge();
                 $('pmOverlay').classList.add('active');
                 if (window.lucide) lucide.createIcons();
             }
             const closeModal = () => $('pmOverlay').classList.remove('active');
             $('pm_method').addEventListener('change', syncBridge);
+            $('pm_paper').addEventListener('change', syncBridge);
             $('btnAddPrinter').addEventListener('click', () => openModal(null));
             $('pmCancel').addEventListener('click', closeModal);
             $('pmOverlay').addEventListener('click', (e) => {
@@ -561,6 +585,7 @@
                     ip: $('pm_ip').value.trim(),
                     port: Number($('pm_port').value) || 9100,
                     bridgeUrl: $('pm_bridge').value.trim() || 'http://127.0.0.1:17777',
+                    gapMm: Number($('pm_gap').value) || 2,
                 };
                 if (p.method === 'bridge' && !p.ip) return toast('Nhập IP máy in', 'error');
                 try {

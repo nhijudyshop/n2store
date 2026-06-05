@@ -51,6 +51,8 @@
         paper: '80',
         method: 'bridge',
         bridgeUrl: 'http://127.0.0.1:17777',
+        gapMm: 2, // khoảng cách giữa 2 tem (máy tem TSPL)
+        lang: '', // '' = auto (khổ 'label' → tspl), 'escpos' | 'tspl' override
     };
 
     function _genId() {
@@ -123,6 +125,8 @@
             paper: p.paper || '80',
             method: p.method || 'bridge',
             bridgeUrl: p.bridgeUrl || PRINTER_DEFAULTS.bridgeUrl,
+            gapMm: Number(p.gapMm) || 2,
+            lang: p.lang || '',
         };
         const url = exists
             ? API_BASE + '/update/' + encodeURIComponent(p.id)
@@ -460,12 +464,153 @@
         }
     }
 
-    // In 1 HTML (tem mã SP) theo CHỨC NĂNG (role). Dùng raster vật-lý-mm để tem
-    // in đúng khổ (66mm 2-con, …) thay vì ép khổ bill.
+    // ── TSPL (máy in TEM chuyên dụng: Xprinter XP-4xx, TSC, Godex, Zebra ZPL) ──
+    // Máy tem KHÔNG nói ESC/POS — nói TSPL/EPL/ZPL. Sinh lệnh TSPL gửi raw qua
+    // bridge (TCP relay thuần). TSPL handle gap-sensor + canh khổ NATIVE.
+    function _ascii(s) {
+        const a = new Uint8Array(s.length);
+        for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i) & 0xff;
+        return a;
+    }
+    // Canvas (supersampled) → TSPL BITMAP data. TSPL: bit 1 = TRẮNG (không in),
+    // bit 0 = ĐEN (in) — NGƯỢC với ESC/POS GS v 0. Cùng logic supersample/dấu.
+    function _canvasToTsplBitmap(canvas, opts = {}) {
+        const ss = opts.ss && opts.ss > 1 ? Math.round(opts.ss) : 1;
+        const srcW = canvas.width;
+        const srcH = canvas.height;
+        const W = Math.floor(srcW / ss);
+        const H = Math.floor(srcH / ss);
+        const inkLum = opts.inkLum != null ? opts.inkLum : 165;
+        const need = Math.max(
+            1,
+            Math.round((opts.coverage != null ? opts.coverage : 0.2) * ss * ss)
+        );
+        const data = canvas.getContext('2d').getImageData(0, 0, srcW, srcH).data;
+        const bytesPerRow = Math.ceil(W / 8);
+        const bytes = new Uint8Array(bytesPerRow * H).fill(0xff); // mặc định trắng (bit 1)
+        for (let y = 0; y < H; y++) {
+            const row = y * bytesPerRow;
+            for (let x = 0; x < W; x++) {
+                let ink = 0;
+                for (let dy = 0; dy < ss; dy++) {
+                    const sy = y * ss + dy;
+                    for (let dx = 0; dx < ss; dx++) {
+                        const sx = x * ss + dx;
+                        const i = (sy * srcW + sx) * 4;
+                        const a = data[i + 3];
+                        const lum =
+                            a === 0
+                                ? 255
+                                : 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                        if (lum < inkLum) ink++;
+                    }
+                }
+                if (ink >= need) bytes[row + (x >> 3)] &= ~(0x80 >> (x & 7)); // đen → clear bit
+            }
+        }
+        return { bytes, bytesPerRow, H };
+    }
+
+    // HTML tem → TSPL command stream. Mỗi .barcode-sheet = 1 nhãn vật lý
+    // (66×21mm chứa 2 con tem) → 1 lệnh CLS+BITMAP+PRINT. SIZE/GAP đặt 1 lần đầu.
+    async function tsplFromHtmlPhysical(html, opts = {}) {
+        const SS = opts.ss || 2;
+        const DPMM = opts.dpmm || 8; // 203 DPI
+        const PX_PER_MM = 96 / 25.4;
+        const gapMm = opts.gapMm != null ? opts.gapMm : 2;
+        if (!global.html2canvas) {
+            await _loadScript(
+                'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
+            );
+        }
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText =
+            'position:fixed;left:-9999px;top:0;width:800px;border:0;background:#fff';
+        document.body.appendChild(iframe);
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        doc.open();
+        doc.write(html);
+        doc.close();
+        await new Promise((r) => setTimeout(r, 160)); // chờ layout + JsBarcode SVG
+        try {
+            const body = doc.body;
+            let sheets = Array.from(body.querySelectorAll('.barcode-sheet'));
+            const scale = (DPMM / PX_PER_MM) * SS;
+            const bodyTop = body.getBoundingClientRect().top;
+            // Khổ nhãn (mm) từ sheet đầu; fallback toàn body nếu không có .barcode-sheet.
+            const r0 = (sheets[0] || body).getBoundingClientRect();
+            const widthMm = Math.max(1, Math.round(r0.width / PX_PER_MM));
+            const heightMm = Math.max(1, Math.round(r0.height / PX_PER_MM));
+            const fullW = Math.ceil(
+                sheets.length
+                    ? Math.max(...sheets.map((s) => s.getBoundingClientRect().width))
+                    : body.scrollWidth || r0.width
+            );
+            const fullH = Math.max(1, body.scrollHeight);
+            const rendered = await global.html2canvas(body, {
+                backgroundColor: '#ffffff',
+                width: fullW,
+                height: fullH,
+                windowWidth: fullW,
+                scale,
+                logging: false,
+            });
+            if (!sheets.length) sheets = [body]; // fallback: cả body = 1 nhãn
+            const parts = [
+                _ascii(
+                    `SIZE ${widthMm} mm,${heightMm} mm\r\n` +
+                        `GAP ${gapMm} mm,0 mm\r\n` +
+                        `DIRECTION 1\r\n` +
+                        `REFERENCE 0,0\r\n` +
+                        `DENSITY 10\r\n`
+                ),
+            ];
+            for (const sheet of sheets) {
+                const r = sheet.getBoundingClientRect();
+                const y0 = Math.max(0, Math.round((r.top - bodyTop) * scale));
+                const sw = Math.max(1, Math.round((r.width || fullW) * scale));
+                const sh = Math.max(1, Math.round((r.height || fullH) * scale));
+                const sub = document.createElement('canvas');
+                sub.width = sw;
+                sub.height = sh;
+                const sctx = sub.getContext('2d');
+                sctx.fillStyle = '#fff';
+                sctx.fillRect(0, 0, sw, sh);
+                sctx.drawImage(rendered, 0, y0, sw, sh, 0, 0, sw, sh);
+                const bmp = _canvasToTsplBitmap(sub, { ss: SS });
+                parts.push(_ascii(`CLS\r\nBITMAP 0,0,${bmp.bytesPerRow},${bmp.H},0,`));
+                parts.push(bmp.bytes);
+                parts.push(_ascii(`\r\nPRINT 1,1\r\n`));
+            }
+            const total = parts.reduce((n, p) => n + p.length, 0);
+            const out = new Uint8Array(total);
+            let p = 0;
+            for (const part of parts) {
+                out.set(part, p);
+                p += part.length;
+            }
+            return out;
+        } finally {
+            iframe.remove();
+        }
+    }
+
+    // Máy in dùng ngôn ngữ TEM (TSPL)? — khổ 'label' mặc định TSPL (máy tem
+    // chuyên dụng XP-470B class). Override qua printer.lang = 'escpos' | 'tspl'.
+    function _isLabelLang(p) {
+        if (!p) return false;
+        if (p.lang) return p.lang === 'tspl';
+        return p.paper === 'label';
+    }
+
+    // In 1 HTML (tem mã SP) theo CHỨC NĂNG (role). Máy tem TSPL → lệnh TSPL;
+    // máy bill/ESC-POS → raster vật-lý-mm (tem in đúng khổ thay vì ép khổ bill).
     async function printHtml(html, roleKey, printerOverride) {
         const printer = printerOverride || getPrinterFor(roleKey);
         if (!printer) throw new Error('Chưa có máy in nào — vào Cấu hình > Máy in');
-        const bytes = await escposRasterFromHtmlPhysical(html, { ss: 2 });
+        const bytes = _isLabelLang(printer)
+            ? await tsplFromHtmlPhysical(html, { ss: 2, gapMm: Number(printer.gapMm) || 2 })
+            : await escposRasterFromHtmlPhysical(html, { ss: 2 });
         return printEscpos(bytes, printer);
     }
     // Máy in đã gán cho role có in THẲNG (bridge) không?
@@ -514,6 +659,7 @@
         escposRasterFromSvg,
         escposRasterFromHtml,
         escposRasterFromHtmlPhysical,
+        tsplFromHtmlPhysical,
         printEscpos,
         printSvg,
         printHtml,
