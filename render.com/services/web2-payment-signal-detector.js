@@ -79,9 +79,14 @@ async function ensureSchema(pool) {
             status             VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending|confirmed|dismissed
             created_at         BIGINT NOT NULL,
             confirmed_at       BIGINT,
-            confirmed_by       TEXT
+            confirmed_by       TEXT,
+            history            JSONB NOT NULL DEFAULT '[]'::jsonb       -- timeline {ts,action,userId,userName,note}
         );
     `);
+    // Migration idempotent: bảng đã tồn tại trên prod trước khi có cột history.
+    await pool.query(
+        `ALTER TABLE web2_payment_signals ADD COLUMN IF NOT EXISTS history JSONB NOT NULL DEFAULT '[]'::jsonb;`
+    );
     await pool.query(
         `CREATE INDEX IF NOT EXISTS idx_w2paysig_status ON web2_payment_signals(status);`
     );
@@ -179,14 +184,25 @@ async function handleIncoming(pool, data, notify) {
     const phone = await _resolvePhone(pool, data.psid);
     const order = await _matchOrder(pool, phone);
 
+    // Seed history[0] = entry "detect" (hệ thống tự nhận, không phải user).
+    const seedHistory = [
+        {
+            ts: now,
+            action: 'detect',
+            userId: null,
+            userName: '(hệ thống tự nhận)',
+            note: keyword,
+        },
+    ];
+
     let signal = null;
     try {
         const { rows } = await pool.query(
             `INSERT INTO web2_payment_signals
                 (psid, page_id, conversation_id, customer_name, raw_message,
                  matched_keyword, phone, matched_order_type, matched_order_code,
-                 status, created_at)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',$10)
+                 status, created_at, history)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',$10,$11::jsonb)
              RETURNING *`,
             [
                 String(data.psid || ''),
@@ -199,6 +215,7 @@ async function handleIncoming(pool, data, notify) {
                 order?.type || null,
                 order?.code || null,
                 now,
+                JSON.stringify(seedHistory),
             ]
         );
         signal = rows[0];

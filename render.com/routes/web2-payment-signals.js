@@ -41,6 +41,32 @@ function _notify(action, id) {
     }
 }
 
+// ─── Append 1 entry vào history JSONB (timeline ai-làm-gì-lúc-nào) ─────
+async function _appendHistory(pool, id, entry) {
+    const e = {
+        ts: Date.now(),
+        action: entry.action,
+        userId: entry.userId || null,
+        userName: entry.userName || '(ẩn danh)',
+        note: entry.note || null,
+    };
+    await pool.query(
+        `UPDATE web2_payment_signals
+         SET history = COALESCE(history, '[]'::jsonb) || $2::jsonb
+         WHERE id = $1`,
+        [id, JSON.stringify([e])]
+    );
+}
+
+// User info từ body (frontend gửi qua Web2UserInfo.attachToBody).
+function _user(req) {
+    const b = req.body || {};
+    return {
+        userId: b.userId || null,
+        userName: b.userName || b.by || req.headers['x-user'] || '(ẩn danh)',
+    };
+}
+
 // ─── Map DB row → API shape ───────────────────────────────────────────
 function mapSignal(row) {
     return {
@@ -58,6 +84,7 @@ function mapSignal(row) {
         createdAt: row.created_at ? Number(row.created_at) : null,
         confirmedAt: row.confirmed_at ? Number(row.confirmed_at) : null,
         confirmedBy: row.confirmed_by,
+        history: Array.isArray(row.history) ? row.history : [],
         // enrich (LEFT JOIN — có thể null)
         order: row.o_code
             ? {
@@ -151,15 +178,16 @@ router.post('/:id/confirm', async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const id = Number(req.params.id);
-    const by = (req.body && req.body.by) || req.headers['x-user'] || null;
+    const u = _user(req);
     try {
         const { rows } = await pool.query(
             `UPDATE web2_payment_signals
              SET status = 'confirmed', confirmed_at = $2, confirmed_by = $3
              WHERE id = $1 RETURNING id`,
-            [id, Date.now(), by]
+            [id, Date.now(), u.userName]
         );
         if (!rows.length) return res.status(404).json({ success: false, error: 'not found' });
+        await _appendHistory(pool, id, { action: 'confirm', ...u });
         _notify('confirm', id);
         res.json({ success: true });
     } catch (e) {
@@ -172,12 +200,14 @@ router.post('/:id/dismiss', async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const id = Number(req.params.id);
+    const u = _user(req);
     try {
         const { rows } = await pool.query(
             `UPDATE web2_payment_signals SET status = 'dismissed' WHERE id = $1 RETURNING id`,
             [id]
         );
         if (!rows.length) return res.status(404).json({ success: false, error: 'not found' });
+        await _appendHistory(pool, id, { action: 'dismiss', ...u });
         _notify('dismiss', id);
         res.json({ success: true });
     } catch (e) {
@@ -204,6 +234,11 @@ router.post('/:id/link-order', async (req, res) => {
             [id, orderType, String(orderCode)]
         );
         if (!rows.length) return res.status(404).json({ success: false, error: 'not found' });
+        await _appendHistory(pool, id, {
+            action: 'link',
+            ..._user(req),
+            note: `${orderType}:${orderCode}`,
+        });
         _notify('link', id);
         res.json({ success: true });
     } catch (e) {
