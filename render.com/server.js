@@ -478,6 +478,9 @@ const aikolRoutes = require('./routes/aikol');
 // === FIREBASE REPLACEMENT ROUTES (SSE + PostgreSQL) ===
 const realtimeSseRoutes = require('./routes/realtime-sse'); // Web 1.0 SSE hub
 const web2RealtimeSseRoutes = require('./routes/realtime-sse-web2'); // WEB2.0 — SSE hub riêng, không chia chung với Web 1.0
+// WEB2.0 — detector keyword "CK XONG"/"ĐÃ CK" cho tin nhắn Pancake đến (hook trong
+// RealtimeClient.handleMessage). Ghi web2_payment_signals → SSE web2:payment-signals.
+const web2SignalDetector = require('./services/web2-payment-signal-detector');
 const realtimeDbRoutes = require('./routes/realtime-db');
 const adminMigrationRoutes = require('./routes/admin-migration');
 const adminDataRoutes = require('./routes/admin-data');
@@ -704,6 +707,16 @@ web2MsgSendRoutes
     .catch((e) => console.warn('[web2-msg-send] schema warn:', e.message));
 app.use('/api/web2/msg-send', web2MsgSendRoutes);
 
+// WEB2.0 — Payment Signals ("KH báo đã chuyển khoản"). Detector hook trong
+// RealtimeClient.handleMessage (pages:new_message) detect keyword "CK XONG"/"ĐÃ CK"
+// → ghi web2_payment_signals (web2Db). Mount TRƯỚC catch-all /api/web2.
+// SSE topic web2:payment-signals. Consumer: web2/payment-confirm/.
+const web2PaymentSignalsRoutes = require('./routes/web2-payment-signals');
+web2PaymentSignalsRoutes
+    .ensureSchema(web2Pool || chatDbPool)
+    .catch((e) => console.warn('[web2-payment-signals] schema warn:', e.message));
+app.use('/api/web2/payment-signals', web2PaymentSignalsRoutes);
+
 // 2026-06-03: generic catch-all `/api/web2/:entity` — MOUNT CUỐI CÙNG sau mọi
 // dedicated route ở trên để không shadow chúng. Entity nào không có dedicated
 // route sẽ rơi xuống đây (78 generic web2 entities, CRUD bảng web2_records).
@@ -750,6 +763,11 @@ app.use('/api/pancake-account-pages', pancakeAccountPagesRoutes);
 const pancakePageTokensRoutes = require('./routes/pancake-page-tokens');
 pancakePageTokensRoutes.init(chatDbPool);
 app.use('/api/pancake-page-tokens', pancakePageTokensRoutes);
+
+// SSE notifier cho web2-payment-signals (route đã mount ở trên).
+if (web2PaymentSignalsRoutes.initializeNotifiers) {
+    web2PaymentSignalsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
 
 // SSE notifier cho web2-msg-send (route đã mount ở trên, TRƯỚC catch-all /api/web2).
 if (web2MsgSendRoutes.initializeNotifiers) {
@@ -1186,6 +1204,29 @@ class RealtimeClient {
                     upsertPendingCustomer(this.db, updateData).catch((err) =>
                         console.error('[SERVER-WS] Failed to upsert from new_message:', err.message)
                     );
+
+                    // WEB2.0 — detect keyword "CK XONG"/"ĐÃ CK" (data Web 2.0 → web2Db).
+                    // Detector tự match keyword trước, chỉ ghi khi khớp → không đụng
+                    // luồng inbox. Best-effort, không block (catch nuốt mọi lỗi).
+                    const web2Db = app.locals.web2Db;
+                    const msgText = msg.message || msg.original_message || '';
+                    if (web2Db && msgText) {
+                        web2SignalDetector
+                            .handleIncoming(
+                                web2Db,
+                                {
+                                    message: msgText,
+                                    psid: fromPsid,
+                                    pageId: pageId,
+                                    conversationId: msg.conversation_id,
+                                    customerName: msg.from?.name,
+                                },
+                                web2RealtimeSseRoutes.notifyClients
+                            )
+                            .catch((err) =>
+                                console.error('[SERVER-WS] paysig detect failed:', err.message)
+                            );
+                    }
                 }
             }
         }

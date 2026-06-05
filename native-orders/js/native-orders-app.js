@@ -998,6 +998,14 @@
                 `<span class="no-reconciled-badge" title="Đã đối soát đóng gói (${escapeHtml(o.pbhFulfillmentState)})">📦 Đã đối soát</span>`
             );
         }
+        // 2026-06-05: cờ "KH báo đã CK" (web2_payment_signals). Soft marker — KH
+        // nhắn "CK XONG"/"ĐÃ CK" trong inbox Pancake, CHƯA phải xác nhận tiền thật.
+        if (o.ckSignal) {
+            const confirmed = o.ckSignal.status === 'confirmed';
+            out.push(
+                `<span class="no-ck-badge${confirmed ? ' ck-confirmed' : ''}" title="KH báo đã chuyển khoản (${escapeHtml(o.ckSignal.keyword || '')}${confirmed ? ' — đã xác nhận' : ' — chờ duyệt'}). Đối soát tiền vẫn qua SePay.">💸 KH báo đã CK</span>`
+            );
+        }
         return out.length ? `<div class="no-derived-badges">${out.join('')}</div>` : '';
     }
 

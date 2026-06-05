@@ -1457,6 +1457,35 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
             } catch (e) {
                 console.warn('[native-orders] enrich PBH badge failed:', e.message);
             }
+
+            // 2026-06-05: enrich cờ "KH báo đã CK" (web2_payment_signals, web2Db).
+            // Khách nhắn "CK XONG"/"ĐÃ CK" → detector khớp đơn theo phone → signal.
+            // Hiển thị badge soft (chưa phải xác nhận tiền). Defensive: bảng có thể
+            // chưa tồn tại ở môi trường cũ → warn, không vỡ list.
+            try {
+                const sigQ = await pool.query(
+                    `SELECT DISTINCT ON (matched_order_code)
+                            matched_order_code, status, matched_keyword, created_at
+                     FROM web2_payment_signals
+                     WHERE matched_order_type = 'native'
+                       AND matched_order_code = ANY($1)
+                       AND status IN ('pending','confirmed')
+                     ORDER BY matched_order_code, created_at DESC`,
+                    [codes]
+                );
+                const sigByCode = new Map(sigQ.rows.map((s) => [s.matched_order_code, s]));
+                for (const o of orders) {
+                    const s = sigByCode.get(o.code);
+                    if (!s) continue;
+                    o.ckSignal = {
+                        status: s.status,
+                        keyword: s.matched_keyword,
+                        at: s.created_at ? Number(s.created_at) : null,
+                    };
+                }
+            } catch (e) {
+                console.warn('[native-orders] enrich ckSignal failed:', e.message);
+            }
         }
 
         res.json({
