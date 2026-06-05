@@ -2955,6 +2955,16 @@
             notify('Không tìm thấy đơn', 'error');
             return;
         }
+        // Đơn NHÁP → PHIẾU SOẠN HÀNG (soạn/chuẩn bị hàng trước khi tạo PBH), 1 đơn/lần.
+        // Đơn đã xác nhận/có PBH → in bill PBH thường (bên dưới).
+        const drafts = orders.filter((o) => o.status === 'draft');
+        if (drafts.length === orders.length && window.NativeOrdersPackingSlip) {
+            if (orders.length > 1) notify('Phiếu Soạn Hàng in từng đơn — mở đơn đầu', 'info');
+            window.NativeOrdersPackingSlip.open(drafts[0], {
+                sttDisplay: computeOrderStt(drafts[0]),
+            });
+            return;
+        }
         // Convert native-order shape → PBH-shape cho Web2Bill template
         const pbhs = orders.map((o) => {
             const lines = (o.products || []).map((p) => ({
