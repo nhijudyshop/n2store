@@ -344,7 +344,21 @@
             );
             return;
         }
+        // Đẩy hội thoại HOẠT ĐỘNG MỚI NHẤT lên đầu (updated_at desc).
+        all.sort((a, b) => _convTs(b.conv) - _convTs(a.conv));
         setList(all.map(convRowHtml).join(''));
+    }
+
+    // Mốc thời gian hoạt động gần nhất của 1 hội thoại (để sort mới→cũ).
+    function _convTs(c) {
+        if (!c) return 0;
+        const t =
+            c.updated_at ||
+            c.last_customer_interactive_at ||
+            (c.last_message && (c.last_message.inserted_at || c.last_message.created_time)) ||
+            c.inserted_at;
+        const n = t ? Date.parse(t) : 0;
+        return isNaN(n) ? 0 : n;
     }
 
     function convRowHtml({ pageId, conv }) {

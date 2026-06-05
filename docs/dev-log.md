@@ -25,6 +25,14 @@
 
 ## 2026-06-05
 
+### [web2] Chat read-only: sort hội thoại mới nhất lên đầu (updated_at desc) ✅
+
+User: đoạn hội thoại đẩy danh sách hội thoại mới nhất lên đầu.
+
+- `doSearch` (web2-chat-readonly.js): sau khi merge kết quả mọi page, sort theo `_convTs(conv)` DESC trước render. `_convTs` = `updated_at || last_customer_interactive_at || last_message.inserted_at || inserted_at` (Date.parse).
+- Browser-tested: top5 updated_at giảm dần (12:09:54 → 12:00:36), descending=true.
+- **Files:** `web2/shared/web2-chat-readonly.js` (v=20260605b), `index.html`
+
 ### [web2] Fix in tem mã SP: tem bên phải canh giữa đúng tâm con tem (2-up) ✅
 
 User: in 2 tem, tem bên phải chưa canh giữa, tem trái đúng. Root cause (verified qua repro TSPL raster `tsplFromHtmlPhysical`): `.barcode-sheet` dùng `justify-content:space-evenly` → 3 gap ĐỀU nhau dồn cả 2 tem về tâm sheet, lệch khỏi tâm cột die-cut (raster centroid: trái +30px, phải −16px so target cột). Tem phải lệch vào trong = "chưa canh giữa".
