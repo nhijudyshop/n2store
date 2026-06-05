@@ -31,6 +31,19 @@ try {
     console.warn('[SEPAY-WEBHOOK] web2-sepay-matching not loaded:', e.message);
 }
 
+// WEB2.0 — CK watcher "chờ tiền về". Deps (notify/createNotification/sendMessage)
+// inject từ server.js qua initWeb2CkWatcher (tránh require cycle).
+let _web2CkWatcher = null;
+try {
+    _web2CkWatcher = require('../services/web2-ck-watcher');
+} catch (e) {
+    console.warn('[SEPAY-WEBHOOK] web2-ck-watcher not loaded:', e.message);
+}
+let _ckWatcherDeps = {};
+function initWeb2CkWatcher(deps) {
+    _ckWatcherDeps = deps || {};
+}
+
 async function _processWeb2Path(db, webhookData) {
     if (!_web2Sepay || !db) return;
     try {
@@ -46,6 +59,13 @@ async function _processWeb2Path(db, webhookData) {
                 console.log(
                     `[WEB2-SEPAY] tx ${id} not matched: ${result?.reason || 'unknown'} ${result?.partialPhone ? '(' + result.partialPhone + ')' : ''}`
                 );
+            }
+            // WEB2.0 — Watcher "chờ tiền về": GD mới khớp tín hiệu CK đã duyệt
+            // chưa có GD → tự link (chắc) / báo staff. Best-effort, sau matcher.
+            if (_web2CkWatcher) {
+                _web2CkWatcher
+                    .onNewSepayTx(db, id, _ckWatcherDeps)
+                    .catch((e) => console.warn('[WEB2-CK-WATCHER] hook failed:', e.message));
             }
         }
     } catch (e) {
@@ -1676,4 +1696,5 @@ module.exports = {
     logWebhook,
     saveToFailedQueue,
     registerRoutes,
+    initWeb2CkWatcher,
 };

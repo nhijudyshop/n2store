@@ -61,6 +61,39 @@ function detectPaymentKeyword(rawText) {
     return { matched: false, keyword: null };
 }
 
+// ─── Detect intent khác (huỷ đơn / đổi địa chỉ / xem đơn / hỏi ship) ──
+// CHỈ để FLAG cho staff — KHÔNG auto-execute. Trả { intent, label } | null.
+const INTENTS = [
+    {
+        intent: 'cancel_order',
+        label: 'Khách muốn huỷ đơn',
+        re: /(^|[^a-z])(huy|hủy|khong (lay|mua)|thoi khong|tra don)( | ?don| ?hang|$)/,
+    },
+    {
+        intent: 'change_address',
+        label: 'Khách muốn đổi địa chỉ',
+        re: /(doi|thay|sua|cap nhat|update).{0,12}(dia chi|address|noi nhan|cho nhan)|(dia chi).{0,8}(moi|khac)/,
+    },
+    {
+        intent: 'check_shipping',
+        label: 'Khách hỏi tình trạng ship',
+        re: /(ship|giao|van don|don hang).{0,16}(chua|den dau|toi dau|bao gio|khi nao|may ngay|dang o dau)/,
+    },
+    {
+        intent: 'view_order',
+        label: 'Khách muốn xem đơn',
+        re: /(cho (xem|coi|gui)|xem lai|kiem tra|check).{0,12}(don|order|hang da (mua|dat))/,
+    },
+];
+function detectIntent(rawText) {
+    const t = normalize(rawText);
+    if (!t) return null;
+    for (const it of INTENTS) {
+        if (it.re.test(t)) return { intent: it.intent, label: it.label };
+    }
+    return null;
+}
+
 // ─── Schema (idempotent, gọi lúc boot từ server.js) ───────────────────
 async function ensureSchema(pool) {
     if (!pool) return;
@@ -105,6 +138,30 @@ async function ensureSchema(pool) {
     );
     await pool.query(
         `CREATE INDEX IF NOT EXISTS idx_w2paysig_order ON web2_payment_signals(matched_order_code) WHERE matched_order_code IS NOT NULL;`
+    );
+
+    // Intent khác (flag-only) — web2_customer_intents.
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS web2_customer_intents (
+            id              BIGSERIAL PRIMARY KEY,
+            psid            TEXT,
+            page_id         TEXT,
+            conversation_id TEXT,
+            customer_name   TEXT,
+            intent          TEXT NOT NULL,
+            label           TEXT,
+            raw_message     TEXT,
+            status          VARCHAR(20) NOT NULL DEFAULT 'open', -- open | done
+            created_at      BIGINT NOT NULL,
+            done_at         BIGINT,
+            done_by         TEXT
+        );
+    `);
+    await pool.query(
+        `CREATE INDEX IF NOT EXISTS idx_w2intent_status ON web2_customer_intents(status, created_at DESC);`
+    );
+    await pool.query(
+        `CREATE INDEX IF NOT EXISTS idx_w2intent_psid ON web2_customer_intents(psid, intent);`
     );
     console.log('[WEB2-PAYSIG] schema ensured');
 }
@@ -249,11 +306,85 @@ async function handleIncoming(pool, data, notify) {
     return signal;
 }
 
+// ─── handleIntent — FLAG intent khác cho staff (notification, KHÔNG auto) ──
+// data = { message, psid, pageId, conversationId, customerName }
+// notify = (topic, payload, type) — SSE. createNotification = optional fn.
+async function handleIntent(pool, data, notify, createNotification) {
+    if (!pool || !data) return null;
+    const det = detectIntent(data.message);
+    if (!det) return null;
+    const now = Date.now();
+    // Dedup 6h theo psid+intent.
+    try {
+        const dup = await pool.query(
+            `SELECT 1 FROM web2_customer_intents
+             WHERE psid = $1 AND intent = $2 AND status='open' AND created_at > $3 LIMIT 1`,
+            [String(data.psid || ''), det.intent, now - DEDUP_WINDOW_MS]
+        );
+        if (dup.rows.length) return null;
+    } catch (e) {
+        return null; // bảng có thể chưa tồn tại
+    }
+
+    let row = null;
+    try {
+        const r = await pool.query(
+            `INSERT INTO web2_customer_intents
+                (psid, page_id, conversation_id, customer_name, intent, label, raw_message, status, created_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,'open',$8) RETURNING *`,
+            [
+                String(data.psid || ''),
+                String(data.pageId || ''),
+                data.conversationId || null,
+                data.customerName || null,
+                det.intent,
+                det.label,
+                String(data.message || '').slice(0, 500),
+                now,
+            ]
+        );
+        row = r.rows[0];
+    } catch (e) {
+        console.error('[WEB2-INTENT] insert failed:', e.message);
+        return null;
+    }
+
+    console.log(`[WEB2-INTENT] ${det.intent}: "${data.customerName || data.psid}"`);
+
+    // Notification cho staff (chuông web2).
+    if (typeof createNotification === 'function') {
+        createNotification({
+            type: 'customer_intent',
+            severity: 'warning',
+            title: det.label,
+            body: `${data.customerName || data.psid}: "${String(data.message || '').slice(0, 80)}"`,
+            url: '/web2/ck-dashboard/index.html',
+            entity_type: 'customer_intent',
+            entity_id: String(row.id),
+            dedupe_key: `intent:${data.psid}:${det.intent}`,
+        }).catch(() => {});
+    }
+    if (typeof notify === 'function') {
+        try {
+            notify(
+                'web2:customer-intents',
+                { action: 'new', id: Number(row.id), intent: det.intent, ts: now },
+                'update'
+            );
+        } catch (e) {
+            /* ignore */
+        }
+    }
+    return row;
+}
+
 module.exports = {
     normalize,
     detectPaymentKeyword,
+    detectIntent,
     ensureSchema,
     handleIncoming,
+    handleIntent,
     _resolvePhone,
     _matchOrder,
     DEDUP_WINDOW_MS,

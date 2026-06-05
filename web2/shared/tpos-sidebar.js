@@ -83,6 +83,7 @@
                 { label: 'Print / Export', our: '../web2/print-export/index.html', tpos: '' },
                 { label: 'Smart Match SePay', our: '../web2/smart-match/index.html', tpos: '' },
                 { label: 'Xác nhận CK', our: '../web2/payment-confirm/index.html', tpos: '' },
+                { label: 'Đối soát CK', our: '../web2/ck-dashboard/index.html', tpos: '' },
                 { label: 'Studio chụp tách nền', our: '../web2/photo-studio/index.html', tpos: '' },
                 { label: 'Phân quyền', our: '../web2/users-permissions/index.html', tpos: '' },
                 {

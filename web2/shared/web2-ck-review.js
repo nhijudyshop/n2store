@@ -275,6 +275,8 @@
             <div class="w2ck-txlist"></div>
             <div class="w2ck-tx-more"></div>
             <div class="w2ck-foot">
+                <label class="w2ck-notify"><input type="checkbox" class="w2ck-notify-cb" checked /> Gửi tin báo cho khách (khi cộng ví)</label>
+                <span style="flex:1"></span>
                 <button class="w2ck-btn w2ck-btn-ghost w2ck-dismiss">Bỏ qua (sai)</button>
                 <button class="w2ck-btn w2ck-btn-approve">Duyệt</button>
             </div>`;
@@ -312,7 +314,13 @@
             approveBtn.disabled = true;
             approveBtn.textContent = 'Đang duyệt…';
             try {
-                const body = userBody({ phone: ph, name: nm, txId: selectedTxId || undefined });
+                const notifyCustomer = !!ov.body.querySelector('.w2ck-notify-cb')?.checked;
+                const body = userBody({
+                    phone: ph,
+                    name: nm,
+                    txId: selectedTxId || undefined,
+                    notifyCustomer,
+                });
                 const r = await fetch(`${SIG_API}/${sig.id}/approve`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -414,6 +422,8 @@
         .w2ck-btn-primary{background:linear-gradient(135deg,#7266ba,#5e51ac);color:#fff}
         .w2ck-btn-approve{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff}
         .w2ck-btn-approve:disabled{opacity:.6;cursor:wait}
+        .w2ck-notify{display:flex;align-items:center;gap:5px;font-size:12px;color:#64748b;cursor:pointer}
+        .w2ck-notify input{margin:0}
         .w2ck-btn-ghost{background:#f1f5f9;color:#64748b}
         .w2ck-btn:hover:not(:disabled){filter:brightness(.95)}`;
         const el = document.createElement('style');

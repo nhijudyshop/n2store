@@ -729,6 +729,11 @@ web2UnreadRoutes
     .catch((e) => console.warn('[web2-unread] schema warn:', e.message));
 app.use('/api/web2/unread', web2UnreadRoutes);
 
+// WEB2.0 — Customer intents (FLAG-only: huỷ đơn/đổi địa chỉ/xem đơn/ship).
+// Schema do web2-payment-signals (detector) ensureSchema quản lý.
+const web2CustomerIntentsRoutes = require('./routes/web2-customer-intents');
+app.use('/api/web2/customer-intents', web2CustomerIntentsRoutes);
+
 // 2026-06-03: generic catch-all `/api/web2/:entity` — MOUNT CUỐI CÙNG sau mọi
 // dedicated route ở trên để không shadow chúng. Entity nào không có dedicated
 // route sẽ rơi xuống đây (78 generic web2 entities, CRUD bảng web2_records).
@@ -783,6 +788,30 @@ web2PancakeRefreshRoutes.init(chatDbPool);
 web2PancakeRefreshRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 app.use('/api/web2/pancake-refresh', web2PancakeRefreshRoutes);
 web2PancakeRefreshRoutes.startCron(chatDbPool); // quét mỗi 6h, refresh account auto ≤5 ngày HSD
+
+// SSE notifier cho web2-customer-intents.
+if (web2CustomerIntentsRoutes.initializeNotifiers) {
+    web2CustomerIntentsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
+
+// WEB2.0 — CK watcher "chờ tiền về": inject deps (SSE notify + notification +
+// auto-reply gửi tin) vào sepay-webhook-core. Best-effort.
+try {
+    require('./routes/sepay-webhook-core').initWeb2CkWatcher({
+        notify: web2RealtimeSseRoutes.notifyClients,
+        createNotification: (data) =>
+            web2NotificationsRoutes.createNotification(app.locals.web2Db, data),
+        sendMessage: (pageId, convId, custId, msg) =>
+            require('./services/web2-msg-send-worker').sendSingleMessage(
+                pageId,
+                convId,
+                custId,
+                msg
+            ),
+    });
+} catch (e) {
+    console.warn('[ck-watcher] init failed:', e.message);
+}
 
 // SSE notifier cho web2-payment-signals (route đã mount ở trên).
 if (web2PaymentSignalsRoutes.initializeNotifiers) {
@@ -1317,6 +1346,26 @@ class RealtimeClient {
                             .catch((err) =>
                                 console.error('[SERVER-WS] paysig detect failed:', err.message)
                             );
+
+                        // WEB2.0 — Intent khác (huỷ đơn/đổi địa chỉ/xem đơn/ship) →
+                        // FLAG cho staff (notification), KHÔNG auto-execute.
+                        web2SignalDetector
+                            .handleIntent(
+                                web2Db,
+                                {
+                                    message: msgText,
+                                    psid: fromPsid,
+                                    pageId: pageId,
+                                    conversationId: msg.conversation_id,
+                                    customerName: msg.from?.name,
+                                },
+                                web2RealtimeSseRoutes.notifyClients,
+                                (data) => web2NotificationsRoutes.createNotification(web2Db, data)
+                            )
+                            .catch((err) =>
+                                console.error('[SERVER-WS] intent detect failed:', err.message)
+                            );
+
                         // Tin chưa đọc KHÔNG xử lý ở new_message — đi hoàn toàn theo
                         // pages:update_conversation (authoritative unread_count) để
                         // không drift. new_message chỉ dùng cho keyword detector.

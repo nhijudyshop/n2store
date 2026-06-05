@@ -94,7 +94,12 @@ async function linkTransaction(db, { id, phone, name, verifiedBy }) {
          WHERE id = $1`,
         [id, phone, name || null, verifiedByVal]
     );
-    return { linked: true, credited: true, wallet_tx_id: walletResult.transaction?.id };
+    return {
+        linked: true,
+        credited: true,
+        wallet_tx_id: walletResult.transaction?.id,
+        balance: walletResult.wallet?.balance != null ? Number(walletResult.wallet.balance) : null,
+    };
 }
 
 // =====================================================

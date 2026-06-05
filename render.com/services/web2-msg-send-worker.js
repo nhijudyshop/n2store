@@ -398,4 +398,36 @@ function stop() {
     }
 }
 
-module.exports = { tick, start, stop };
+// ─── Gửi 1 tin nhắn lẻ (auto-reply CK, báo số dư) — best-effort ──────
+// Trả { ok, needsExtension?, error? }. KHÔNG throw (caller fire-and-forget).
+async function sendSingleMessage(pageId, convId, customerId, message) {
+    if (!pageId || !convId || !message) return { ok: false, error: 'missing-args' };
+    try {
+        let pat = await _getCachedPAT(pageId);
+        if (pat) {
+            const r = await _sendPancake(pageId, convId, customerId, message, pat);
+            if (r.ok) return { ok: true };
+            if (_is24hError(r.eCode, r.eSubcode)) return { ok: false, needsExtension: true };
+        }
+        // Account rotation: mint PAT mới từ account quản page.
+        const accounts = await _accountsForPage(pageId);
+        for (const acc of accounts) {
+            let fresh;
+            try {
+                fresh = await _mintPAT(pageId, acc.token);
+            } catch (e) {
+                continue;
+            }
+            if (!fresh || fresh === pat) continue;
+            pat = fresh;
+            const r = await _sendPancake(pageId, convId, customerId, message, pat);
+            if (r.ok) return { ok: true };
+            if (_is24hError(r.eCode, r.eSubcode)) return { ok: false, needsExtension: true };
+        }
+        return { ok: false, error: 'send-failed' };
+    } catch (e) {
+        return { ok: false, error: e.message };
+    }
+}
+
+module.exports = { tick, start, stop, sendSingleMessage };

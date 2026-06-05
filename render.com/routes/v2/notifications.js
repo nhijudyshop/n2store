@@ -256,5 +256,44 @@ function _notifyUpdate() {
     } catch (_) {}
 }
 
+// Tạo notification server-side (dùng chung — vd intent detector, watcher).
+// data = { type, title, body?, severity?, url?, entity_type?, entity_id?, dedupe_key?, user_id? }
+// Best-effort: trả id hoặc null, không throw.
+async function createNotification(pool, data) {
+    if (!pool || !data || !data.type || !data.title) return null;
+    try {
+        if (data.dedupe_key) {
+            const dup = await pool.query(
+                `SELECT id FROM web2_notifications
+                 WHERE dedupe_key = $1 AND created_at > NOW() - INTERVAL '1 hour' LIMIT 1`,
+                [data.dedupe_key]
+            );
+            if (dup.rowCount > 0) return dup.rows[0].id;
+        }
+        const rs = await pool.query(
+            `INSERT INTO web2_notifications
+             (user_id, type, entity_type, entity_id, title, body, severity, url, dedupe_key)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+            [
+                data.user_id || null,
+                data.type,
+                data.entity_type || null,
+                data.entity_id || null,
+                data.title,
+                data.body || null,
+                data.severity || 'info',
+                data.url || null,
+                data.dedupe_key || null,
+            ]
+        );
+        _notifyUpdate();
+        return rs.rows[0].id;
+    } catch (e) {
+        console.warn('[WEB2-NOTIF] createNotification failed:', e.message);
+        return null;
+    }
+}
+
 module.exports = router;
 module.exports.initializeNotifiers = initializeNotifiers;
+module.exports.createNotification = createNotification;
