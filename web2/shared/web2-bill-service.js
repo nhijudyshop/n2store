@@ -221,7 +221,7 @@ html, body { margin: 0; padding: 0; background: #fff; }
         // ── HEADER: tên shop ──
         rows.push(`<div class="b-shop">${_esc(d.shop.name)}</div>`);
         const subParts = [];
-        if (d.isShop) subParts.push('PBH SHOP · BÁN TẠI SHOP');
+        if (d.isShop) subParts.push('BÁN TẠI SHOP');
         else if (d.carrierName) subParts.push(_esc(d.carrierName));
         if (subParts.length) rows.push(`<div class="b-sub">${subParts.join(' · ')}</div>`);
         if (d.hasVirtualDebt)
@@ -235,9 +235,9 @@ html, body { margin: 0; padding: 0; background: #fff; }
                 `</div>`
         );
 
-        // ── TÊN PHIẾU + STT ──
+        // ── TÊN PHIẾU + STT — đơn bán tại shop ghi rõ "PBH SHOP" ──
         rows.push(
-            `<div class="b-title">Phiếu Bán Hàng${d.isShop ? ' (SHOP)' : ''}` +
+            `<div class="b-title">${d.isShop ? 'PBH SHOP' : 'Phiếu Bán Hàng'}` +
                 (d.sttDisplay ? ` <span class="b-stt">#${_esc(d.sttDisplay)}</span>` : '') +
                 `</div>`
         );
