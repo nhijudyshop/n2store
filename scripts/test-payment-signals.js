@@ -73,6 +73,33 @@ async function main() {
             'SSE notify web2:payment-signals'
         );
 
+        // 3b. History seed = entry "detect" (hệ thống tự nhận)
+        ok(
+            Array.isArray(sig.history) &&
+                sig.history.length === 1 &&
+                sig.history[0].action === 'detect',
+            'history seed entry "detect" lúc INSERT'
+        );
+
+        // 3c. Append history "confirm" với userName (giống route _appendHistory)
+        await db.query(
+            `UPDATE web2_payment_signals
+             SET history = COALESCE(history,'[]'::jsonb) || $2::jsonb
+             WHERE id = $1`,
+            [
+                sig.id,
+                JSON.stringify([
+                    { ts: Date.now(), action: 'confirm', userName: 'Nhân Viên A', note: null },
+                ]),
+            ]
+        );
+        const hq = await db.query(`SELECT history FROM web2_payment_signals WHERE id=$1`, [sig.id]);
+        const hist = hq.rows[0].history;
+        ok(
+            hist.length === 2 && hist[1].action === 'confirm' && hist[1].userName === 'Nhân Viên A',
+            'append history "confirm" lưu tên user xác nhận'
+        );
+
         // 4. Dedup: nhắn lại trong window → null
         const sig2 = await detector.handleIncoming(
             db,

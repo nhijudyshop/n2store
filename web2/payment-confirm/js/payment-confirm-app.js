@@ -51,6 +51,21 @@
         }
     }
 
+    // Body kèm user info (cho history "ai xác nhận"). Web2UserInfo.attachToBody
+    // thêm userId/userName; fallback đọc trực tiếp Web2UserInfo.get().
+    function userBody(extra) {
+        const body = { ...(extra || {}) };
+        if (window.Web2UserInfo?.attachToBody) {
+            return window.Web2UserInfo.attachToBody(body, 'web2-payment-confirm');
+        }
+        const u = window.Web2UserInfo?.get?.();
+        if (u) {
+            body.userId = u.userId || null;
+            body.userName = u.userName || null;
+        }
+        return body;
+    }
+
     // Port detector keyword (cho highlight tab unread) — đồng bộ với server.
     function normalize(text) {
         if (!text) return '';
@@ -98,6 +113,31 @@
         return `<div class="pc-order">${label}: <a href="${page}?code=${encodeURIComponent(sig.orderCode)}" target="_blank">${esc(sig.orderCode)}</a>${extra}</div>`;
     }
 
+    // Lịch sử thao tác (ai detect / xác nhận / bỏ qua / gán đơn, lúc nào).
+    const ACTION_VI = {
+        detect: 'Hệ thống nhận',
+        confirm: 'Xác nhận',
+        dismiss: 'Bỏ qua',
+        link: 'Gán đơn',
+    };
+    function historyHtml(sig) {
+        const h = Array.isArray(sig.history) ? sig.history : [];
+        if (!h.length) return '';
+        // Ưu tiên module timeline chung; fallback list gọn.
+        let inner;
+        if (window.Web2HistoryTimeline?.render) {
+            inner = window.Web2HistoryTimeline.render(h, { title: false });
+        } else {
+            inner = h
+                .map(
+                    (e) =>
+                        `<div class="pc-hist-row"><b>${esc(ACTION_VI[e.action] || e.action)}</b> · ${esc(e.userName || '(ẩn danh)')} · ${esc(fmtTime(e.ts))}${e.note ? ' · ' + esc(e.note) : ''}</div>`
+                )
+                .join('');
+        }
+        return `<details class="pc-history"><summary>Lịch sử (${h.length})</summary>${inner}</details>`;
+    }
+
     function renderSignals() {
         const root = document.getElementById('pcSignals');
         if (!state.signals.length) {
@@ -116,7 +156,8 @@
                         <button class="pc-btn pc-btn-link" data-act="link" data-id="${sig.id}">Gán đơn</button>
                         <button class="pc-btn pc-btn-dismiss" data-act="dismiss" data-id="${sig.id}">Bỏ qua</button>`;
                 } else if (sig.status === 'confirmed') {
-                    actions = `<span class="pc-badge-done">✅ Đã xác nhận</span>
+                    const byTxt = sig.confirmedBy ? ` · ${esc(sig.confirmedBy)}` : '';
+                    actions = `<span class="pc-badge-done">✅ Đã xác nhận${byTxt}</span>
                         <button class="pc-btn pc-btn-dismiss" data-act="dismiss" data-id="${sig.id}">Hủy cờ</button>`;
                 } else {
                     actions = `<span style="color:#94a3b8;font-size:12px">Đã bỏ qua</span>`;
@@ -129,6 +170,7 @@
                         <div class="pc-msg">"${esc(sig.rawMessage || '')}"</div>
                         <div class="pc-meta">${esc(fmtTime(sig.createdAt))}${sig.phone ? ' · ' + esc(sig.phone) : ''}</div>
                         ${orderLink(sig)}
+                        ${historyHtml(sig)}
                     </div>
                     <div class="pc-actions">${actions}</div>
                 </div>`;
@@ -201,7 +243,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ by: window.Web2UserInfo?.get?.()?.name || 'web' }),
+                body: JSON.stringify(userBody()),
             }).then((r) => r.json());
 
         const opts = {
@@ -242,7 +284,9 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ orderType: orderType.trim(), orderCode: orderCode.trim() }),
+            body: JSON.stringify(
+                userBody({ orderType: orderType.trim(), orderCode: orderCode.trim() })
+            ),
         })
             .then((r) => r.json())
             .then((d) => {
