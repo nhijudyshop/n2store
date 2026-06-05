@@ -25,6 +25,20 @@
 
 ## 2026-06-05
 
+### [render][web2] Detect "CK XONG"/"ĐÃ CK" từ inbox Pancake 24/7 → trang "Xác nhận CK" ✅
+
+User: khách nhắn "CK XONG" hoặc "ĐÃ CK" (không phân biệt hoa/thường, có/không dấu) → server nhận biết KH đã chuyển khoản → trang Web 2.0 mới quản lý + gắn cờ đơn.
+
+**Không build WS mới** — hook vào `RealtimeClient` Pancake WS đã chạy 24/7 trong [render.com/server.js](render.com/server.js) (`pages:new_message`). Tin Web 2.0 ghi sang **web2Db** (WS client dùng chatDb Web 1.0 → tách).
+
+- **Detector** [render.com/services/web2-payment-signal-detector.js](render.com/services/web2-payment-signal-detector.js): `normalize` (lowercase + bỏ dấu NFD + đ→d), `detectPaymentKeyword` (regex `ck ?xong` / `da ?ck`, loại câu hỏi "đã ck chưa?"), `handleIncoming` (dedup 10', resolve phone từ `web2_customers.fb_id`, khớp `native_orders`/`fast_sale_orders` theo phone, INSERT `web2_payment_signals`, SSE `web2:payment-signals`). Mặc định status `pending` (chờ duyệt, KHÔNG auto-gắn cờ — tránh false-positive).
+- **Route** [render.com/routes/web2-payment-signals.js](render.com/routes/web2-payment-signals.js) mount `/api/web2/payment-signals`: GET / (list + LEFT JOIN enrich đơn), GET /stats, POST /:id/confirm|dismiss|link-order. SSE wired `web2RealtimeSseRoutes.notifyClients`.
+- **server.js**: require detector, hook trong `pages:new_message` (sau `upsertPendingCustomer`, best-effort catch), mount route + ensureSchema + initializeNotifiers.
+- **Trang** [web2/payment-confirm/](web2/payment-confirm/index.html) (page-shell pattern, 3 file riêng): tab "KH báo đã CK" (card + pill ví `Web2WalletBalance`, Web2Optimistic confirm/dismiss/link, SSE realtime) + tab "Tin nhắn chưa đọc" (đọc Web 1.0 `/api/realtime/pending-customers` qua API — rule 5b, highlight snippet match keyword). Menu "Tính năng mới" → "Xác nhận CK".
+- **Gắn cờ đơn**: [native-orders.js](render.com/routes/native-orders.js) `/load` enrich `ckSignal` (LEFT JOIN `web2_payment_signals` theo code) → badge `💸 KH báo đã CK` (soft marker, chưa phải xác nhận tiền — đối soát vẫn qua SePay). **tpos-pancake defer** (render model là TPOS comments, không phải đơn có phone).
+- **Câu khuyến nghị gửi khách**: thêm `✅ Chuyển xong nhắn em "CK XONG" để hệ thống xác nhận & xử lý đơn nhanh hơn nha 💕`.
+- **Test** [scripts/test-payment-signals.js](scripts/test-payment-signals.js): local DB tạm → 11/11 pass (schema idempotent ×2, detect, resolve phone, khớp đơn, SSE notify, dedup, loại câu hỏi, JOIN enrich, confirm flip) → DROP DB. Detector unit 15/15. Frontend live smoke: trang render, 2 tab, sidebar mount, Web2SSE/Optimistic/Wallet load, tab switch OK.
+
 ### [native-orders] Nút "PBH SHOP" mở modal Tạo PBH (phương thức BÁN HÀNG SHOP disable) ✅
 
 User: bấm nút "PBH SHOP" → mở modal giống "Tạo PBH" nhưng phương thức giao hàng = "BÁN HÀNG SHOP" disable không cho chọn.
