@@ -202,16 +202,31 @@
     let _ctx = null; // { phone, opts }
 
     async function fetchOrCreate(phone, opts) {
+        // Có customerId (TPOS partner_id) → POST upsert theo customer_id → trả
+        // ĐÚNG QR của partner đó. Tránh GET-by-phone (LIMIT 1) trả nhầm partner
+        // khi nhiều TPOS partner gán chung 1 SĐT (vd test clone trùng SĐT).
+        if (opts?.customerId) {
+            const post = await qrRequest(`/${encodeURIComponent(phone)}/qr`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    customerId: opts.customerId,
+                    customerName: opts.customerName,
+                }),
+            });
+            if (post.status !== 200) {
+                throw new Error(post.body?.error || `HTTP ${post.status}`);
+            }
+            return post.body.data;
+        }
+        // Không có customerId → GET theo phone (backward compat)
         const get = await qrRequest(`/${encodeURIComponent(phone)}/qr`);
         if (get.status === 200) return get.body.data;
-        // 404 → auto UPSERT
+        // 404 → auto UPSERT (backend tự lookup TPOS partner theo phone)
         const post = await qrRequest(`/${encodeURIComponent(phone)}/qr`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                customerId: opts?.customerId,
-                customerName: opts?.customerName,
-            }),
+            body: JSON.stringify({ customerName: opts?.customerName }),
         });
         if (post.status !== 200) {
             throw new Error(post.body?.error || `HTTP ${post.status}`);
