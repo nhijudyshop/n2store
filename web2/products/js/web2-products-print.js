@@ -621,8 +621,9 @@
         //
         // Khi đổi paper → labelW thay đổi → tất cả scale theo.
         // 2026-06-05: user muốn mã in ra GẦN ĐẦY con tem cho đẹp → scale to hơn
-        // preset TPOS: font ×1.3, barcode cao 55% tem (thay 45%), content dàn đều
-        // full chiều cao (space-between) thay vì canh giữa để lấp hết khoảng trống.
+        // preset TPOS: font ×1.3, barcode cao 55% tem (thay 45%) + bars rộng gần
+        // full. Content CANH GIỮA dọc tem (justify-content:center) — khối nội dung
+        // to nhưng không sát mép trên/dưới.
         const fsBase = fontSize || Math.max(5, Math.round(labelW * 0.24));
         const fs = Math.round(fsBase * 1.3);
         const fsCode = Math.max(5, Math.round(fs * 0.9));
@@ -703,7 +704,7 @@
                     //   - P1 2026-05-30: justify-content center (was flex-start)
                     //     để content (title + barcode + code) canh GIỮA dọc tem
                     //     thay vì dồn lên top. User ask "canh giữa".
-                    const labelStyleFinal = labelStyle + 'justify-content:space-between;';
+                    const labelStyleFinal = labelStyle + 'justify-content:center;';
                     const tightFlex = 'flex:0 0 auto;';
                     const barcodeFlex = `flex:0 0 ${barcodeH}mm;height:${barcodeH}mm;display:flex;align-items:center;justify-content:center;min-height:0;`;
                     const codeStyle = `${tightFlex}font-size:${fsCode}px;line-height:${lineHCode}px;`;
