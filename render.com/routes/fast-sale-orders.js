@@ -227,6 +227,17 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS wallet_deducted NUMERIC(15,2) NOT NULL DEFAULT 0;
             CREATE INDEX IF NOT EXISTS idx_fso_fulfillment_state ON fast_sale_orders(fulfillment_state);
 
+            -- [2026-06-05] channel kênh đơn (web2_inbox/web2_livestream) copy từ
+            -- native_order khi tạo PBH → bill in từ trang PBH cũng ghi "PBH INBOX".
+            ALTER TABLE fast_sale_orders
+                ADD COLUMN IF NOT EXISTS channel VARCHAR(30);
+            -- Backfill PBH cũ (chưa có channel) từ native_orders theo source_code.
+            -- Idempotent: chỉ update row channel IS NULL.
+            UPDATE fast_sale_orders f SET channel = n.channel
+                FROM native_orders n
+                WHERE f.source_type = 'native_order' AND f.source_code = n.code
+                  AND f.channel IS NULL AND n.channel IS NOT NULL;
+
             CREATE INDEX IF NOT EXISTS idx_fso_date_invoice ON fast_sale_orders(date_invoice DESC);
             CREATE INDEX IF NOT EXISTS idx_fso_partner_phone ON fast_sale_orders(partner_phone);
             CREATE INDEX IF NOT EXISTS idx_fso_state ON fast_sale_orders(state);
@@ -336,6 +347,7 @@ function mapRow(row) {
         assignedUser: { id: row.assigned_user_id, name: row.assigned_user_name },
         comment: row.comment,
         tags: row.tags || [],
+        channel: row.channel || null, // [2026-06-05] kênh đơn → bill "PBH INBOX"
         printCount: row.print_count,
         createdBy: row.created_by,
         createdByName: row.created_by_name,
@@ -1264,7 +1276,7 @@ router.post('/from-native-order', async (req, res) => {
                 warehouse_id, warehouse_name, company_id, company_name,
                 crm_team_id, assigned_user_id, assigned_user_name,
                 comment, tags, created_by, created_by_name,
-                customer_id, split_index, carrier_name
+                customer_id, split_index, carrier_name, channel
             ) VALUES (
                 -- PBH display_stt = native_order.display_stt (giữ đồng bộ với
                 -- bên native-orders). Hiển thị "{native.stt}-{split_index}"
@@ -1284,7 +1296,7 @@ router.post('/from-native-order', async (req, res) => {
                 $30, $31, $32, $33,
                 $34, $35, $36,
                 $37, $38::jsonb, $39, $40,
-                $41, $42, $44
+                $41, $42, $44, $45
             ) RETURNING *`,
             [
                 number,
@@ -1331,6 +1343,7 @@ router.post('/from-native-order', async (req, res) => {
                 splitIndex,
                 src.display_stt || null, // $43 — sync STT từ native-order
                 b.carrierName || null, // $44 — phương thức giao (vd "PBH SHOP") → bill + badge
+                src.channel || null, // $45 — kênh đơn → bill "PBH INBOX" khi in từ trang PBH
             ]
         );
 
