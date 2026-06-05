@@ -25,6 +25,15 @@
 
 ## 2026-06-05
 
+### [native-orders] Nút "PBH SHOP" mở modal Tạo PBH (phương thức BÁN HÀNG SHOP disable) ✅
+
+User: bấm nút "PBH SHOP" → mở modal giống "Tạo PBH" nhưng phương thức giao hàng = "BÁN HÀNG SHOP" disable không cho chọn.
+
+- `createPbh(code, opts)` thêm `opts.shopMode`: onMount tìm option `/pbh\s*shop|bán\s*hàng\s*shop|shop/i` trong `#pbhDeliveryMethod` (có sẵn "BÁN HÀNG SHOP" trong carrier list) → select + `disabled` + nền xám + `pbhDeliveryPrice = 0`. Title "Tạo PBH SHOP từ {code}", nút "Tạo PBH SHOP". collect đọc carrierName="BÁN HÀNG SHOP" (regex shop match → bill/badge detect).
+- `bulkCreatePbhShop`: 1 đơn → `createPbh(code, {shopMode:true})` (mở modal); nhiều đơn → giữ bulk confirm cũ.
+- Verified Playwright: `createPbh('NJ-...-0005', {shopMode:true})` → modal mở, sel disabled=true, value="BÁN HÀNG SHOP", price=0.
+- File: `native-orders-app.js` (v=20260605c).
+
 ### [native-orders] Bill STT khớp list — đơn gộp ghi "STT1 + STT2" ✅
 
 User: đơn gộp thì bill ghi STT 1 + STT 2. Phát hiện thêm: bill dùng `displayStt` (global, vd 14) nhưng list dùng `campaignStt` (vd 4) → lệch STT cả đơn thường.
