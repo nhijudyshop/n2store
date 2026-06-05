@@ -60,6 +60,20 @@ User: đơn PBH SHOP trên bill ghi rõ là "PBH SHOP". `isShop` detect qua `car
 
 Files: `render.com/routes/v2/customers.js`, `tpos-pancake/js/tpos/{tpos-kho-enricher.js,tpos-state.js,tpos-comment-list.js}`, `tpos-pancake/index.html`. Status: ✅ code xong, chờ Render auto-deploy để fb_ids live (frontend handle 400 gracefully tới lúc đó).
 
+### [orders] KPI filter: nút "Tháng này" → dropdown chọn tháng cụ thể (5-2026, 6-2026, …)
+
+**Yêu cầu**: bộ lọc KPI (tab "KPI Đơn Hàng") chỗ nút "Tháng này" đổi thành dropdown cho chọn tháng cụ thể, vd 5-2026, 6-2026, 7-2026.
+
+**Files**:
+
+- `orders-report/tab-kpi-commission.html` — thay `<button data-preset="thismonth">Tháng này</button>` bằng `<select id="kpiFilterMonth" class="kpi-month-select">`.
+- `orders-report/js/tab-kpi-commission.js` — thêm `_populateMonthOptions()` (đổ options 3 tháng tới → 12 tháng trước, mới nhất ở trên, label `M-YYYY`, value `YYYY-MM`) + `_applyMonthRange(val)` (set range = ngày 1 → ngày cuối tháng). Wire trong `_bindFilterV2`: chọn tháng → bỏ active preset + `applyFilters()`; bấm preset → reset dropdown về "Chọn tháng…".
+- `orders-report/css/tab-kpi-commission.css` — `.kpi-month-select` style như preset button (trong pill group, có chevron, state `.is-active`).
+
+**Chi tiết**: dùng lại đường đọc `kpiFilterDateFrom`/`kpiFilterDateTo` của `applyFilters()` — chọn tháng chỉ set 2 input đó rồi gọi applyFilters, không đụng logic backend. Tab "KPI Đơn Inbox" vẫn giữ nút "Tháng này" cũ (chưa đổi).
+
+**Status**: DONE (chưa verify live).
+
 ### [inbox] FIX verify lưu thẳng Render (worker route nhầm sang TPOS) — VERIFIED LIVE ✅
 
 **Bug**: đánh dấu kiểm tra + lịch sử không lưu Render (Incognito/máy khác trống). `GET /api/social-kpi-verify/load` trả **trang 404 của TPOS.VN** → Cloudflare Worker route path mới **sang TPOS** vì chưa có trong allowlist Render (`cloudflare-worker/modules/config/routes.js` + `worker.js` dispatch chỉ route 1 danh sách `/api/*` cố định về Render).

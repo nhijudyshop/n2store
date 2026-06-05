@@ -1746,6 +1746,34 @@ const KPICommission = {
         }
     },
 
+    /** Đổ options cho dropdown chọn tháng: 3 tháng tới → 12 tháng trước (mới nhất ở trên). */
+    _populateMonthOptions(sel) {
+        const today = new Date();
+        const opts = ['<option value="">Chọn tháng…</option>'];
+        for (let i = 3; i >= -12; i--) {
+            const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+            const yy = d.getFullYear();
+            const mm = d.getMonth() + 1;
+            const val = `${yy}-${String(mm).padStart(2, '0')}`;
+            opts.push(`<option value="${val}">${mm}-${yy}</option>`);
+        }
+        sel.innerHTML = opts.join('');
+    },
+
+    /** Set khoảng ngày = ngày 1 → ngày cuối của tháng đã chọn (val = "YYYY-MM"). */
+    _applyMonthRange(val) {
+        const fromEl = document.getElementById('kpiFilterDateFrom');
+        const toEl = document.getElementById('kpiFilterDateTo');
+        const customWrap = document.getElementById('kpiDateCustom');
+        if (!fromEl || !toEl) return;
+        const [yy, mm] = val.split('-').map(Number);
+        const from = new Date(yy, mm - 1, 1);
+        const to = new Date(yy, mm, 0); // ngày cuối tháng
+        fromEl.value = this._formatDateForInput(from);
+        toEl.value = this._formatDateForInput(to);
+        if (customWrap) customWrap.style.display = 'none';
+    },
+
     _bindFilterV2() {
         if (this.__filterV2Bound) return;
         this.__filterV2Bound = true;
@@ -1756,6 +1784,12 @@ const KPICommission = {
                 document
                     .querySelectorAll('.kpi-preset-btn')
                     .forEach((b) => b.classList.toggle('is-active', b === btn));
+                // Bấm preset → bỏ chọn tháng cụ thể
+                const monthSel = document.getElementById('kpiFilterMonth');
+                if (monthSel) {
+                    monthSel.classList.remove('is-active');
+                    monthSel.value = '';
+                }
                 const preset = btn.dataset.preset;
                 this._applyDatePreset(preset);
                 if (preset !== 'custom') {
@@ -1763,6 +1797,26 @@ const KPICommission = {
                 }
             });
         });
+
+        // Month picker (thay cho nút "Tháng này" — chọn tháng cụ thể vd 5-2026)
+        const monthSel = document.getElementById('kpiFilterMonth');
+        if (monthSel) {
+            this._populateMonthOptions(monthSel);
+            monthSel.addEventListener('change', () => {
+                const val = monthSel.value;
+                if (!val) {
+                    monthSel.classList.remove('is-active');
+                    return;
+                }
+                // Chọn tháng cụ thể → bỏ active các preset button
+                document
+                    .querySelectorAll('.kpi-preset-btn')
+                    .forEach((b) => b.classList.remove('is-active'));
+                monthSel.classList.add('is-active');
+                this._applyMonthRange(val);
+                this.applyFilters();
+            });
+        }
 
         // Status chips
         document.querySelectorAll('.kpi-status-chips .kpi-chip').forEach((chip) => {
