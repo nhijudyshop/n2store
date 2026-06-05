@@ -3181,6 +3181,21 @@
         const drafts = orders.filter((o) => o.status === 'draft');
         const others = orders.filter((o) => o.status !== 'draft');
 
+        // Phí ship: tra giá theo phương thức giao của đơn (DeliveryMethodPicker,
+        // option.value === o.deliveryMethod). PBH SHOP/bán tại shop → 0. Fallback
+        // parse "(20k)" trong label. → bill cộng ship vào TỔNG + COD (giống PBH thật).
+        const DMP = window.DeliveryMethodPicker;
+        const deliveryOpts = DMP && DMP.getOptionsAsync ? await DMP.getOptionsAsync() : [];
+        const shipPriceOf = (o) => {
+            if (/pbh\s*shop|bán\s*hàng\s*shop|shop/i.test(o.pbhCarrierName || '')) return 0;
+            if (o.deliveryMethod && deliveryOpts.length) {
+                const opt = deliveryOpts.find((x) => x.value === o.deliveryMethod);
+                if (opt) return Number(opt.price) || 0;
+            }
+            const m = (o.deliveryMethodLabel || '').match(/\((\d+)\s*k\)/i);
+            return m ? parseInt(m[1], 10) * 1000 : 0;
+        };
+
         // Dựng PBH-shape cho Web2Bill từ native order.
         const buildPbhShape = (o) => {
             const lines = (o.products || []).map((p) => ({
@@ -3192,6 +3207,8 @@
             }));
             const totalQty = lines.reduce((s, l) => s + l.quantity, 0);
             const totalAmount = lines.reduce((s, l) => s + l.quantity * l.priceUnit, 0);
+            const ship = shipPriceOf(o);
+            const finalTotal = totalAmount + ship;
             return {
                 number: o.code,
                 displayStt: computeOrderStt(o), // STT khớp list (gộp "1 + 2", campaignStt)
@@ -3203,9 +3220,9 @@
                     address: o.address || '',
                 },
                 orderLines: lines,
-                totals: { quantity: totalQty, untaxed: totalAmount, total: totalAmount },
-                payment: { amount: 0, residual: totalAmount },
-                delivery: { price: 0, carrierName: o.pbhCarrierName || '' }, // detect PBH SHOP
+                totals: { quantity: totalQty, untaxed: totalAmount, total: finalTotal },
+                payment: { amount: 0, residual: finalTotal }, // COD = SP + ship
+                delivery: { price: ship, carrierName: o.pbhCarrierName || '' }, // ship + detect PBH SHOP
                 channel: o.channel || '', // 'web2_inbox' → bill ghi "PBH INBOX"
                 comment: o.note || '',
                 dateInvoice: o.createdAt || new Date().toISOString(),
