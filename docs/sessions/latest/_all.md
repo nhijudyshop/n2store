@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `528b07a` — feat(web2): unread DB riêng Web 2.0 + harden Pancake WS 24/7
-**Last updated**: 2026-06-05 14:43:41 +07
-**Latest session**: [`RESUME:20260605-144341-528b07a`](../20260605-144341-528b07a.md)
-**Summary**: feat(web2): unread DB riêng Web 2.0 + harden Pancake WS 24/7
+**Latest commit**: `0aeca65` — fix(native-orders): Phieu Soan Hang in 'CHO HANG' (full chu) thay 'CH' khi tick cho hang
+**Last updated**: 2026-06-05 14:45:00 +07
+**Latest session**: [`RESUME:20260605-144500-0aeca65`](../20260605-144500-0aeca65.md)
+**Summary**: fix(native-orders): Phieu Soan Hang in 'CHO HANG' (full chu) thay 'CH' khi tick cho hang
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -40,7 +38,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:43
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-05 14:40
+- [`native-orders/`](./native-orders.md) — updated 2026-06-05 14:45
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-05 14:23
