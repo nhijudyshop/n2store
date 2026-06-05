@@ -9,9 +9,9 @@
 // Mount: /api/web2/unread (CF worker forward /api/web2/* về Render).
 //   GET    /              → list tin chưa đọc (filter page_id, limit)
 //   GET    /stats         → tổng conversation + tổng message_count
-//   POST   /mark-seen     → { psid, pageId } xoá khỏi danh sách (đã đọc)
 //
-// SSE topic: web2:unread
+// CHỈ ĐỌC: danh sách auto-clear hoàn toàn theo Pancake (unread=0 / shop trả lời)
+// trong tracker — KHÔNG có mark-seen thủ công. SSE topic: web2:unread.
 
 'use strict';
 
@@ -22,11 +22,6 @@ const tracker = require('../services/web2-unread-tracker');
 
 function getPool(req) {
     return req.app.locals.web2Db || req.app.locals.chatDb;
-}
-
-let _notifyClients = null;
-function initializeNotifiers(notifyClients) {
-    _notifyClients = notifyClients;
 }
 
 // ─── GET / — list tin chưa đọc ────────────────────────────────────────
@@ -75,23 +70,6 @@ router.get('/stats', async (req, res) => {
     }
 });
 
-// ─── POST /mark-seen — xoá 1 conversation khỏi danh sách ──────────────
-router.post('/mark-seen', async (req, res) => {
-    const pool = getPool(req);
-    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
-    const { psid, pageId } = req.body || {};
-    if (!psid || !pageId) {
-        return res.status(400).json({ success: false, error: 'psid + pageId required' });
-    }
-    try {
-        const n = await tracker.markSeen(pool, psid, pageId, _notifyClients);
-        res.json({ success: true, cleared: n });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
 router.ensureSchema = tracker.ensureSchema;
-router.initializeNotifiers = initializeNotifiers;
 
 module.exports = router;

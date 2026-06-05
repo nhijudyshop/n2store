@@ -781,11 +781,6 @@ if (web2PaymentSignalsRoutes.initializeNotifiers) {
     web2PaymentSignalsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
 
-// SSE notifier cho web2-unread (route đã mount ở trên).
-if (web2UnreadRoutes.initializeNotifiers) {
-    web2UnreadRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
-}
-
 // SSE notifier cho web2-msg-send (route đã mount ở trên, TRƯỚC catch-all /api/web2).
 if (web2MsgSendRoutes.initializeNotifiers) {
     web2MsgSendRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
@@ -1218,18 +1213,20 @@ class RealtimeClient {
                         );
                     }
 
-                    // WEB2.0 — bản tin chưa đọc RIÊNG (web2_unread_messages, web2Db).
-                    // Cùng nguồn event nhưng ghi độc lập Web 1.0. Best-effort catch.
+                    // WEB2.0 — tin chưa đọc RIÊNG (web2_unread_messages, web2Db).
+                    // Logic Web 2.0 thuần: authoritative theo unread_count + shop
+                    // gửi cuối từ Pancake (KHÔNG bump, KHÔNG đọc Web 1.0). Auto-clear
+                    // khi unread=0 (đã đọc trên Pancake) / shop trả lời. Best-effort.
                     const web2Db = app.locals.web2Db;
                     if (web2Db) {
                         web2UnreadTracker
-                            .onConversationUpdate(
+                            .syncFromConversation(
                                 web2Db,
                                 { ...updateData, shopSentLast },
                                 web2RealtimeSseRoutes.notifyClients
                             )
                             .catch((err) =>
-                                console.error('[SERVER-WS] web2 unread upd failed:', err.message)
+                                console.error('[SERVER-WS] web2 unread sync failed:', err.message)
                             );
                     }
                 }
@@ -1286,13 +1283,9 @@ class RealtimeClient {
                             .catch((err) =>
                                 console.error('[SERVER-WS] paysig detect failed:', err.message)
                             );
-
-                        // WEB2.0 — bump tin chưa đọc RIÊNG (web2_unread_messages).
-                        web2UnreadTracker
-                            .onNewMessage(web2Db, updateData, web2RealtimeSseRoutes.notifyClients)
-                            .catch((err) =>
-                                console.error('[SERVER-WS] web2 unread new failed:', err.message)
-                            );
+                        // Tin chưa đọc KHÔNG xử lý ở new_message — đi hoàn toàn theo
+                        // pages:update_conversation (authoritative unread_count) để
+                        // không drift. new_message chỉ dùng cho keyword detector.
                     }
                 }
             }

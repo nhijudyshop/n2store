@@ -5021,6 +5021,16 @@
                 doSearch(input.value);
             }
         });
+
+        // Đơn inbox tay chưa bind hội thoại → tự điền ô tìm theo tên/SĐT khách
+        // để list lọc sẵn đúng hội thoại, user chỉ việc click chọn.
+        if (!order.fbPageId) {
+            const seed = (order.customerName || order.phone || '').trim();
+            if (seed) {
+                input.value = seed;
+                doSearch(seed);
+            }
+        }
     }
 
     // ---------- Sidebar filter (Lọc theo) ----------
