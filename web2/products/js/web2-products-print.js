@@ -620,12 +620,16 @@
         //   - padding ≈ labelW * 0.02 (~0.5mm cho 25mm — match TPOS paper 7)
         //
         // Khi đổi paper → labelW thay đổi → tất cả scale theo.
-        const fs = fontSize || Math.max(5, Math.round(labelW * 0.24));
-        const fsCode = Math.max(4, Math.round(fs * 0.9));
+        // 2026-06-05: user muốn mã in ra GẦN ĐẦY con tem cho đẹp → scale to hơn
+        // preset TPOS: font ×1.3, barcode cao 55% tem (thay 45%), content dàn đều
+        // full chiều cao (space-between) thay vì canh giữa để lấp hết khoảng trống.
+        const fsBase = fontSize || Math.max(5, Math.round(labelW * 0.24));
+        const fs = Math.round(fsBase * 1.3);
+        const fsCode = Math.max(5, Math.round(fs * 0.9));
         const lineH = fs + 1;
         const lineHCode = fsCode + 1;
         const padScaled = Math.round(labelW * 0.02 * 10) / 10; // mm — fallback nếu paper.*Margin null
-        const barcodeH = Math.round(labelH * 0.45 * 10) / 10; // mm
+        const barcodeH = Math.round(labelH * 0.55 * 10) / 10; // mm — barcode là hero, chiếm nhiều height
 
         // style_label() — only include props when not null (mirror TPOS controller).
         // Padding fallback từ padScaled nếu paper config null (Paper 8 "1 Tem" có
@@ -699,7 +703,7 @@
                     //   - P1 2026-05-30: justify-content center (was flex-start)
                     //     để content (title + barcode + code) canh GIỮA dọc tem
                     //     thay vì dồn lên top. User ask "canh giữa".
-                    const labelStyleFinal = labelStyle + 'justify-content:center;';
+                    const labelStyleFinal = labelStyle + 'justify-content:space-between;';
                     const tightFlex = 'flex:0 0 auto;';
                     const barcodeFlex = `flex:0 0 ${barcodeH}mm;height:${barcodeH}mm;display:flex;align-items:center;justify-content:center;min-height:0;`;
                     const codeStyle = `${tightFlex}font-size:${fsCode}px;line-height:${lineHCode}px;`;
@@ -862,9 +866,10 @@ ${SCRIPT_OPEN}>
                 });
                 const vb = (svg.getAttribute('viewBox') || '').split(' ');
                 const nativeW = parseFloat(vb[2]) || TARGET_W;
-                // Pass 2: re-render với marginLeft+marginRight only để total width
-                // = TARGET_W mà KHÔNG inflate height (giữ aspect 600×100).
-                const sideMargin = Math.max(0, Math.round((TARGET_W - nativeW) / 2));
+                // Pass 2: quiet-zone NHỎ (~6% mỗi bên) thay vì pad tới 600 → bars
+                // chiếm GẦN FULL width tem cho đẹp (user 2026-06-05), vẫn đủ vùng
+                // trắng tối thiểu để máy quét đọc Code128.
+                const sideMargin = Math.max(6, Math.round(nativeW * 0.06));
                 window.JsBarcode(svg, svg.dataset.code, {
                     format: 'CODE128', width: 2, height: 100,
                     displayValue: false,
