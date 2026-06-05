@@ -140,15 +140,12 @@ async function onNewSepayTx(db, txId, deps = {}) {
                 sig.page_id &&
                 sig.conversation_id
             ) {
-                const bal =
-                    balance != null
-                        ? `\nSố dư ví của mình hiện tại: ${Number(balance).toLocaleString('vi-VN')}₫.`
-                        : '';
+                const amt = `\nSố tiền chuyển khoản: ${Number(tx.transfer_amount).toLocaleString('vi-VN')}₫.`;
                 deps.sendMessage(
                     sig.page_id,
                     sig.conversation_id,
                     sig.psid || null,
-                    `Shop đã nhận được chuyển khoản của mình rồi nha 💕${bal}\nCảm ơn mình nhiều ạ!`
+                    `Shop đã nhận được chuyển khoản của mình rồi nha 💕${amt}\nCảm ơn mình nhiều ạ!`
                 ).catch(() => {});
             }
         } else {

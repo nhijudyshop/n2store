@@ -99,6 +99,7 @@ async function linkTransaction(db, { id, phone, name, verifiedBy }) {
         credited: true,
         wallet_tx_id: walletResult.transaction?.id,
         balance: walletResult.wallet?.balance != null ? Number(walletResult.wallet.balance) : null,
+        amount, // số tiền GD vừa cộng (= số tiền khách chuyển khoản)
     };
 }
 

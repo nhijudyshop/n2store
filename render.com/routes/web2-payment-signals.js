@@ -67,13 +67,13 @@ function _user(req) {
     };
 }
 
-// ─── Auto-reply: compose tin báo "đã nhận CK + số dư ví" (pure, testable) ──
-function composeCkReplyMessage(balance) {
-    const bal =
-        balance != null && Number.isFinite(Number(balance))
-            ? `\nSố dư ví của mình hiện tại: ${Number(balance).toLocaleString('vi-VN')}₫.`
+// ─── Auto-reply: compose tin báo "đã nhận CK + số tiền chuyển khoản" (pure) ──
+function composeCkReplyMessage(amount) {
+    const amt =
+        amount != null && Number.isFinite(Number(amount))
+            ? `\nSố tiền chuyển khoản: ${Number(amount).toLocaleString('vi-VN')}₫.`
             : '';
-    return `Shop đã nhận được chuyển khoản của mình rồi nha 💕${bal}\nCảm ơn mình nhiều ạ!`;
+    return `Shop đã nhận được chuyển khoản của mình rồi nha 💕${amt}\nCảm ơn mình nhiều ạ!`;
 }
 
 // Gửi auto-reply qua Pancake + append history. Best-effort (caller catch).
@@ -354,7 +354,7 @@ router.post('/:id/approve', async (req, res) => {
 
         // Link GD SePay (cộng ví) nếu có txId.
         let credited = false;
-        let newBalance = null;
+        let ckAmount = null;
         if (txId) {
             const balanceHistory = require('./v2/web2-balance-history');
             const r = await balanceHistory.linkTransaction(pool, {
@@ -372,7 +372,7 @@ router.post('/:id/approve', async (req, res) => {
                     .json({ success: false, error: 'GD đã được xử lý — không thể link lại' });
             }
             credited = !!r.credited;
-            newBalance = r.balance;
+            ckAmount = r.amount;
         }
 
         // Confirm signal + lưu phone/name (nếu trống) + matched_tx_id.
@@ -410,7 +410,7 @@ router.post('/:id/approve', async (req, res) => {
         // Auto-reply + báo số dư — CHỈ khi cộng ví (tiền thật về) + user không tắt.
         // Best-effort: lỗi gửi (24h/PAT) KHÔNG vỡ approve.
         if (credited && b.notifyCustomer !== false && sig.page_id && sig.conversation_id) {
-            const msg = composeCkReplyMessage(newBalance);
+            const msg = composeCkReplyMessage(ckAmount);
             sendCkReply(pool, id, sig, msg).catch((e) =>
                 console.warn('[WEB2-PAYSIG-API] auto-reply failed:', e.message)
             );
