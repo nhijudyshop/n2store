@@ -25,6 +25,14 @@
 
 ## 2026-06-05
 
+### [web2] Bill: SP hàng 1 = tên đầy đủ, hàng 2 = SL/ĐƠN GIÁ/T.TIỀN canh cột ✅
+
+User đổi ý layout SP: tên SP riêng **hàng 1** (đầy đủ, không chật), **hàng 2** = SL + đơn giá + thành tiền canh thẳng dưới header.
+
+- `.b-it-name` (full width) + `.b-it-nums` (flex justify-end, 3 cột `.c-qty`/`.c-price`/`.c-total` cùng width với header → số canh thẳng dưới `SL`/`ĐƠN GIÁ`/`T.TIỀN`). Cột số rộng hơn (price 64, total 70) vì tên không còn chiếm chỗ → giá triệu "1.550.000" thoải mái.
+- Verified Playwright: 72mm, tên dài "QUẦN SHORT ĐEN SIZE M" hiện trọn hàng 1, số canh cột hàng 2. Ảnh `downloads/n2store-session/bill-2row.png`.
+- File: `web2-bill-service.js` (v=20260605nj14).
+
 ### [inbox] Modal KPI: gồm theo NV + đánh dấu kiểm tra + lịch sử + refresh phiếu TPOS ✅
 
 Nâng cấp modal "Chi tiết KPI khoảng đã chọn" (click thẻ KPI) theo yêu cầu owner:
