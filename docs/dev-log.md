@@ -25,6 +25,25 @@
 
 ## 2026-06-05
 
+### [render][web2] Hardening Pancake WS 24/7 + DB tin nhắn chưa đọc RIÊNG Web 2.0 ✅
+
+User: (1) đảm bảo Pancake WebSocket client chạy đúng/liên tục không sập; (2) build DB tin chưa đọc riêng Web 2.0 (tuyệt đối không đọc Web 1.0).
+
+**Part 1 — Harden WS** [render.com/server.js](render.com/server.js) `RealtimeClient`:
+
+- **Bug "sập im" lớn nhất**: sau 10 lần reconnect fail → `Stopping reconnection` (chết vĩnh viễn đến khi restart). Sửa → retry chậm 60s/lần + reset counter, KHÔNG dừng hẳn.
+- **Watchdog zombie**: thêm `lastActivityAt` (refresh mỗi message kể cả phx_reply heartbeat). Heartbeat 30s check: không activity > 90s → `ws.terminate()` → fire close → reconnect (chống half-open TCP "connected nhưng câm").
+- Giữ nguyên: backoff 2s→60s, auto-connect khi restart (`realtime_credentials`).
+
+**Part 2 — Unread DB Web 2.0 thuần** (zero-touch Web 1.0):
+
+- **Service** [web2-unread-tracker.js](render.com/services/web2-unread-tracker.js): bảng `web2_unread_messages` (web2Db). `onConversationUpdate` (unread authoritative; unread=0/shopSentLast → delete; else upsert count=unread), `onNewMessage` (bump +1), `markSeen`. Mirror logic `upsertPendingCustomer` nhưng ghi web2Db độc lập. SSE `web2:unread`.
+- **Route** [web2-unread.js](render.com/routes/web2-unread.js) `/api/web2/unread`: GET / (list), GET /stats, POST /mark-seen.
+- **server.js**: hook `web2UnreadTracker.onConversationUpdate` trong `pages:update_conversation` (sau Web 1.0 upsert, best-effort) + `onNewMessage` trong `pages:new_message`. Mount route + ensureSchema + notifiers.
+- **Frontend** [payment-confirm-app.js](web2/payment-confirm/js/payment-confirm-app.js): tab "Tin nhắn chưa đọc" đổi `/api/realtime/pending-customers` (Web 1.0) → `/api/web2/unread` (Web 2.0). Thêm SSE `web2:unread` realtime + nút "Đã đọc" (UI-first mark-seen).
+- → Cả 2 tab giờ data Web 2.0 thuần, KHÔNG đọc Web 1.0. (Hook detect/unread vẫn dùng chung Pancake WS socket — socket DUY NHẤT nhận tin 24/7 — nhưng chỉ ĐỌC stream, GHI sang web2Db.)
+- **Test**: [scripts/test-web2-unread.js](scripts/test-web2-unread.js) 12/12 (schema idempotent, upsert authoritative, bump, drift-correct, delete shopSentLast/unread=0, markSeen, list) + payment-signals 11/11 regression OK + frontend smoke (2 tab, SSE, no page error).
+
 ### [native-orders] Phiếu Soạn Hàng cho đơn Nháp (Phần 1/2) ✅
 
 User: đơn trạng thái "Nháp" → "In bill" ra modal Phiếu Soạn Hàng (checkbox Chờ Hàng + ghi chú/SP) → in ra "CH" ở cột ghi chú. (Phần 2 print-count làm sau.)
