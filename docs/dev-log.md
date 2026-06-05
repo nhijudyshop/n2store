@@ -25,6 +25,22 @@
 
 ## 2026-06-05
 
+### [render][web2] Đối chiếu & duyệt CK xuyên 3 trang — component dùng chung ✅
+
+User: đưa xét duyệt tín hiệu CK vào balance-history + native-orders + tpos-pancake; duyệt linh hoạt (có GD SePay khớp → cộng ví; không → chờ tiền về); 1 nguồn dùng chung; lưu khách vào balance-history + payment-confirm.
+
+**Backend:**
+
+- [web2-balance-history.js](render.com/routes/v2/web2-balance-history.js): tách export `linkTransaction(db,{id,phone,name,verifiedBy})` (gán SĐT/tên + cộng ví atomic, idempotent) — PATCH `/:id/link` gọi lại helper (không đổi hành vi). **1 nguồn logic cộng ví**.
+- [web2-payment-signals.js](render.com/routes/web2-payment-signals.js): GET `/` thêm `offset` + `meta.hasMore` (tải thêm 10). `GET /:id` (1 signal enrich). `POST /:id/approve {phone,name,txId?,userId,userName}` — **duyệt linh hoạt**: có `txId` → `linkTransaction` (cộng ví) + set `matched_tx_id`; không → chỉ confirm + lưu phone/name. confirm + history `approve` + SSE `web2:payment-signals` (+ `web2:balance-history` nếu link). Money op.
+- [detector](render.com/services/web2-payment-signal-detector.js): ALTER idempotent `matched_tx_id`/`matched_tx_at`. [native-orders.js](render.com/routes/native-orders.js): ckSignal thêm `id`+`phone`.
+
+**Component dùng chung** [web2/shared/web2-ck-review.js](web2/shared/web2-ck-review.js) (`Web2CkReview`): `openSignalList()` (list 10 tín hiệu pending + tải thêm) + `openReview({signal|signalId,phone,name,onDone})` (đối chiếu GD SePay 10+tải thêm, **highlight GD khớp** port smart-match score amount/phone/name/time, chọn GD + input SĐT/tên + nút Duyệt loading/Bỏ qua). Self-inject CSS, SSE refresh, Web2UserInfo cho attribution.
+
+**Gắn 3 trang (mỗi trang vài dòng):** balance-history nút "Xét duyệt CK (N)" + badge count → openSignalList; native-orders badge `💸` clickable → openReview prefill từ đơn; tpos-pancake nút topbar → openSignalList.
+
+**Test** [scripts/test-ck-review.js](scripts/test-ck-review.js) 11/11 (linkTransaction cộng ví 250k + idempotent re-link chống cộng 2 lần, approve có/không txId, matched_tx_id, offset pagination không trùng) + payment-signals 14/14 regression + frontend smoke (modal/list/review/score-highlight/prefill, no error).
+
 ### [render][web2] Payment signals — lịch sử thao tác + tên user xác nhận ✅
 
 User: khi xác nhận lưu lại lịch sử cùng tên user xác nhận.
