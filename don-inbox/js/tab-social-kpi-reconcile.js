@@ -23,7 +23,6 @@
     // ===== HẰNG SỐ & CONFIG =====
     const KPI_PER_UNIT = 5000; // 5.000đ / món NET (đồng bộ KPI_PER_UNIT_INBOX của tab-social-core)
     const CHOT_STATES = new Set(['Đã xác nhận', 'Đã thanh toán', 'Hoàn thành']); // "đã chốt"
-    const BULK_BATCH = 200; // API GetListOrderIds limit 200 đơn / request
     const REFUND_MONTHS = 3; // refund quét cố định 3 tháng (giống orders-report)
 
     const WORKER = () =>
@@ -175,6 +174,7 @@
         current: new Map(), // orderId → { checked, verifiedBy, verifiedByName, verifiedAt }
         history: [], // [{ orderId, invoiceNumber, sellerName, customerName, action, verifiedBy, verifiedByName, verifiedAt }]
         loaded: false,
+        backendDown: false, // true sau khi endpoint 404/lỗi → chỉ dùng localStorage, ngừng spam request
     };
     const _verifyApi = () => `${WORKER()}/api/social-kpi-verify`;
 
@@ -202,6 +202,10 @@
     }
     async function loadVerifications() {
         _loadVerifyLocal(); // offline-first
+        if (verify.backendDown) {
+            verify.loaded = true;
+            return verify; // backend chưa deploy → dùng localStorage, không gọi lại
+        }
         try {
             const resp = await fetch(`${_verifyApi()}/load`);
             if (resp.ok) {
@@ -211,8 +215,12 @@
                     verify.current = new Map(Object.entries(d.current || {}));
                     _saveVerifyLocal();
                 }
+            } else if (resp.status === 404) {
+                verify.backendDown = true;
+                console.info('[SOCIAL-KPI] Backend kiểm-tra chưa deploy (404) → dùng localStorage tạm.');
             }
         } catch (e) {
+            verify.backendDown = true;
             console.warn('[SOCIAL-KPI] verify load (dùng local):', e.message);
         }
         verify.loaded = true;
@@ -236,14 +244,18 @@
         verify.current.set(entry.orderId, { checked, verifiedBy: u.id, verifiedByName: u.name, verifiedAt: entry.verifiedAt });
         verify.history.unshift(entry);
         _saveVerifyLocal();
-        try {
-            await fetch(`${_verifyApi()}/mark`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(entry),
-            });
-        } catch (e) {
-            console.warn('[SOCIAL-KPI] verify mark (chỉ lưu local):', e.message);
+        if (!verify.backendDown) {
+            try {
+                const resp = await fetch(`${_verifyApi()}/mark`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(entry),
+                });
+                if (resp.status === 404) verify.backendDown = true;
+            } catch (e) {
+                verify.backendDown = true;
+                console.warn('[SOCIAL-KPI] verify mark (chỉ lưu local):', e.message);
+            }
         }
         return entry;
     }
@@ -362,44 +374,9 @@
         throw new Error('Token manager chưa sẵn sàng');
     }
 
-    // ===== BULK FETCH OrderLines phiếu (kèm Product để có code) =====
-    // POST /api/odata/FastSaleOrder/ODataService.GetListOrderIds?$expand=OrderLines($expand=Product)
-    // ⚠ PHẢI $expand=OrderLines($expand=Product) — bare $expand=OrderLines trả line KHÔNG có code
-    //   (FastSaleOrderLine gốc chỉ có ProductId) → đó là lý do đối soát cũ ra hoàn 0đ.
-    // body { ids: [FastSaleOrder Id...] } — ids = invoice.Id (tpos_id) từ InvoiceStatusStore.
-    // Nếu fetch fail/không code → run() tự fallback sang products của đơn (buildMatchDetails).
-    async function bulkFetchInvoiceLines(fsoIds) {
-        const out = new Map(); // tpos_id → OrderLines[]
-        if (!fsoIds || !fsoIds.length) return out;
-        const headers = await getAuthHeader();
-        const url = `${WORKER()}/api/odata/FastSaleOrder/ODataService.GetListOrderIds?$expand=OrderLines($expand=Product)`;
-        const batches = [];
-        for (let i = 0; i < fsoIds.length; i += BULK_BATCH) {
-            batches.push(fsoIds.slice(i, i + BULK_BATCH));
-        }
-        const results = await Promise.all(
-            batches.map(async (ids) => {
-                const resp = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        ...headers,
-                        'Content-Type': 'application/json',
-                        accept: 'application/json',
-                    },
-                    body: JSON.stringify({ ids }),
-                });
-                if (!resp.ok) throw new Error(`GetListOrderIds HTTP ${resp.status}`);
-                const data = await resp.json();
-                return data.value || [];
-            })
-        );
-        for (const arr of results) {
-            for (const fso of arr) {
-                if (fso && fso.Id != null) out.set(fso.Id, fso.OrderLines || []);
-            }
-        }
-        return out;
-    }
+    // ⚠ ĐÃ BỎ bulkFetchInvoiceLines (GetListOrderIds): FastSaleOrderLine gốc chỉ có ProductId,
+    //   nested $expand=OrderLines($expand=Product) bị TPOS từ chối (HTTP 400). Nguồn MÓN khớp
+    //   refund dùng products của ĐƠN (luôn có productCode, verify khớp 100%) — buildMatchDetails.
 
     // ===== REFUND EXCEL (port từ tab-kpi-commission.js — DOI-SOAT-KPI §4) =====
 
@@ -571,18 +548,14 @@
                 return;
             }
 
-            // 2) Fetch song song: (a) OrderLines phiếu (có code), (b) refund excel 3 tháng
-            const fsoIds = [...new Set(qualifying.map((q) => q.inv.Id).filter((v) => v != null))];
-            const [linesMap, refund] = await Promise.all([
-                bulkFetchInvoiceLines(fsoIds).catch((e) => {
-                    console.error('[SOCIAL-KPI] bulk OrderLines fail:', e);
-                    return new Map();
-                }),
-                fetchRefundDetailByInvoice(REFUND_MONTHS).catch((e) => {
-                    console.error('[SOCIAL-KPI] refund fetch fail:', e);
-                    return null;
-                }),
-            ]);
+            // 2) Fetch refund excel 3 tháng. (Nguồn MÓN dùng products của đơn — luôn có
+            //    productCode, đã verify khớp refund 100%. KHÔNG fetch OrderLines phiếu nữa vì
+            //    GetListOrderIds không trả ProductCode mà nested $expand=Product lại bị 400.)
+            const linesMap = new Map();
+            const refund = await fetchRefundDetailByInvoice(REFUND_MONTHS).catch((e) => {
+                console.error('[SOCIAL-KPI] refund fetch fail:', e);
+                return null;
+            });
             const refundByInvoice = refund?.refundByInvoice || new Map();
             const refundFailed = !refund;
             // Lưu file refund gốc để user tải về kiểm tra chéo (chỉ khi fetch thành công)

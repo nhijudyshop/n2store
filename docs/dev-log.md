@@ -25,6 +25,15 @@
 
 ## 2026-06-05
 
+### [inbox] FIX log lỗi đối soát: bỏ GetListOrderIds (400) + im 404 verify ✅
+
+Console khi chạy đối soát có 2 lỗi (kết quả VẪN đúng nhờ fallback):
+
+- **400 `GetListOrderIds`**: nested `$expand=OrderLines($expand=Product)` bị TPOS từ chối. → **BỎ HẲN `bulkFetchInvoiceLines`** — nguồn món khớp refund dùng `order.products[].productCode` (verify 100%). Hết 400, nhanh hơn. Kết quả không đổi.
+- **404 `/social-kpi-verify/*`**: backend chưa deploy → cờ `verify.backendDown` (set sau 404 đầu) → chỉ dùng localStorage, ngừng spam. Sau deploy Render tự chia sẻ.
+
+Test 4/4. Bump `?v=20260605c`. ⚠ Vẫn cần deploy Render để verify chia sẻ cross-máy.
+
 ### [web2] Bill: SP hàng 1 = tên đầy đủ, hàng 2 = SL/ĐƠN GIÁ/T.TIỀN canh cột ✅
 
 User đổi ý layout SP: tên SP riêng **hàng 1** (đầy đủ, không chật), **hàng 2** = SL + đơn giá + thành tiền canh thẳng dưới header.
