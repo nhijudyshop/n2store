@@ -182,6 +182,67 @@
         }
     }
 
+    // =====================================================
+    // Auto-refresh (server-side login) — /api/web2/pancake-refresh
+    // =====================================================
+    const REFRESH_BASE = WORKER_URL + '/api/web2/pancake-refresh';
+
+    /** Trạng thái creds + auto_refresh từng account (KHÔNG có password). */
+    async function getRefreshStatus() {
+        try {
+            const d = await _json(REFRESH_BASE + '/status', { method: 'GET' });
+            const map = {};
+            for (const a of d?.accounts || []) map[a.account_id] = a;
+            return { ok: true, map, credsKeyConfigured: !!d?.credsKeyConfigured };
+        } catch (e) {
+            return { ok: false, reason: e.message, map: {} };
+        }
+    }
+
+    /** Lưu credentials (mã hoá ở server) + bật/tắt auto_refresh. */
+    async function saveCreds(accountId, identity, password, autoRefresh) {
+        if (!accountId || !identity || !password) return { ok: false, reason: 'missing' };
+        try {
+            await _json(REFRESH_BASE + '/' + encodeURIComponent(accountId) + '/credentials', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identity, password, auto_refresh: autoRefresh !== false }),
+            });
+            return { ok: true };
+        } catch (e) {
+            return { ok: false, reason: e.message };
+        }
+    }
+
+    async function deleteCreds(accountId) {
+        try {
+            await _json(REFRESH_BASE + '/' + encodeURIComponent(accountId) + '/credentials', {
+                method: 'DELETE',
+            });
+            return { ok: true };
+        } catch (e) {
+            return { ok: false, reason: e.message };
+        }
+    }
+
+    /**
+     * Gia hạn NGAY 1 account. Không có opts → dùng creds đã lưu. Có
+     * {identity,password} → login luôn (kèm save:true để lưu lại).
+     */
+    async function refreshNow(accountId, opts = {}) {
+        try {
+            const d = await _json(REFRESH_BASE + '/' + encodeURIComponent(accountId), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(opts),
+            });
+            return { ok: true, exp: d.exp, name: d.name, accountId: d.accountId };
+        } catch (e) {
+            // _json ném HTTP message; bóc reason nếu có
+            return { ok: false, reason: e.message };
+        }
+    }
+
     window.Web2PancakeAccounts = {
         WORKER_URL,
         list,
@@ -191,5 +252,9 @@
         getActiveId,
         setActiveLocal,
         isExpired,
+        getRefreshStatus,
+        saveCreds,
+        deleteCreds,
+        refreshNow,
     };
 })();

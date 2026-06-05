@@ -981,6 +981,99 @@
             </div>
         </div>
 
+        <!-- Modal lưu credentials để auto-refresh -->
+        <div class="ps-modal-overlay" id="credsModal" hidden>
+            <div class="ps-modal" role="dialog" aria-modal="true" aria-labelledby="credsModalTitle">
+                <button class="ps-modal-x" id="credsModalClose" aria-label="Đóng">
+                    <i data-lucide="x" style="width: 18px; height: 18px"></i>
+                </button>
+                <div class="ps-modal-icon none">
+                    <i data-lucide="lock" style="width: 26px; height: 26px"></i>
+                </div>
+                <h2 class="ps-modal-title" id="credsModalTitle">Tự động gia hạn tài khoản</h2>
+                <p class="ps-modal-desc" id="credsModalDesc">
+                    Lưu mật khẩu (mã hoá AES ở server) để server tự đăng nhập lại gia hạn token khi
+                    sắp hết hạn — không cần thao tác tay.
+                </p>
+                <div style="text-align: left">
+                    <label
+                        style="
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: #475569;
+                            display: block;
+                            margin-bottom: 4px;
+                        "
+                        >Email / SĐT / Tên đăng nhập</label
+                    >
+                    <input
+                        class="ps-input"
+                        id="credsIdentity"
+                        type="text"
+                        placeholder="Email / SĐT / Tên người dùng Pancake"
+                        autocomplete="off"
+                    />
+                    <label
+                        style="
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: #475569;
+                            display: block;
+                            margin: 12px 0 4px;
+                        "
+                        >Mật khẩu Pancake</label
+                    >
+                    <input
+                        class="ps-input"
+                        id="credsPassword"
+                        type="password"
+                        placeholder="Mật khẩu"
+                        autocomplete="new-password"
+                    />
+                    <label
+                        style="
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                            margin-top: 12px;
+                            font-size: 13px;
+                            color: #334155;
+                            cursor: pointer;
+                        "
+                    >
+                        <input type="checkbox" id="credsAuto" checked />
+                        Bật <strong>tự động gia hạn</strong> (cron quét mỗi 6h, gia hạn khi ≤5 ngày
+                        hết hạn)
+                    </label>
+                </div>
+                <div class="ps-actions" style="margin-top: 16px">
+                    <button class="ps-btn primary ps-modal-cta" id="credsSaveRefresh">
+                        <i data-lucide="zap" style="width: 15px; height: 15px"></i>
+                        Lưu &amp; gia hạn ngay
+                    </button>
+                </div>
+                <div class="ps-actions" style="margin-top: 8px">
+                    <button
+                        class="ps-btn"
+                        id="credsSaveOnly"
+                        style="flex: 1; justify-content: center"
+                    >
+                        Chỉ lưu (không gia hạn ngay)
+                    </button>
+                    <button
+                        class="ps-btn danger"
+                        id="credsDelete"
+                        style="flex: 1; justify-content: center"
+                    >
+                        Xoá mật khẩu đã lưu
+                    </button>
+                </div>
+                <div class="ps-modal-hint" id="credsKeyWarn" style="display: none; color: #b45309">
+                    ⚠ Server chưa cấu hình khoá mã hoá (PANCAKE_CREDS_KEY) — chưa lưu được.
+                </div>
+            </div>
+        </div>
+
         <script src="../../web2/shared/web2-auth.js?v=20260521b"></script>
         <script src="../shared/web2-user-info.js?v=20260530a"></script>
         <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
