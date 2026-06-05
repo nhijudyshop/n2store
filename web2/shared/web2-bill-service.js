@@ -235,9 +235,13 @@ html, body { margin: 0; padding: 0; background: #fff; }
                 `</div>`
         );
 
-        // ── TÊN PHIẾU + STT — đơn bán tại shop ghi rõ "PBH SHOP" ──
+        // ── TÊN PHIẾU + STT ──
+        //   shop  → "PBH SHOP" | "PBH SHOP INBOX"
+        //   thường → "Phiếu Bán Hàng" (livestream) | "PBH INBOX" (inbox)
+        const billBase = d.isShop ? 'PBH SHOP' : d.isInbox ? 'PBH' : 'Phiếu Bán Hàng';
+        const billTitle = billBase + (d.isInbox ? ' INBOX' : '');
         rows.push(
-            `<div class="b-title">${d.isShop ? 'PBH SHOP' : 'Phiếu Bán Hàng'}` +
+            `<div class="b-title">${billTitle}` +
                 (d.sttDisplay ? ` <span class="b-stt">#${_esc(d.sttDisplay)}</span>` : '') +
                 `</div>`
         );
@@ -384,6 +388,9 @@ html, body { margin: 0; padding: 0; background: #fff; }
         const carrierName = delivery.carrierName || pbh.carrierName || '';
         // 2026-06-04: bán tại shop → tiêu đề + nhãn "PBH SHOP" rõ ràng trên phiếu.
         const isShop = /pbh\s*shop|shop/i.test(carrierName);
+        // 2026-06-05: kênh INBOX → tiêu đề "PBH INBOX" / "PBH SHOP INBOX" (phân
+        // biệt với đơn Livestream). Channel native order: 'web2_inbox'/'web2_livestream'.
+        const isInbox = /inbox/i.test(pbh.channel || '') || opts.isInbox === true;
 
         // Has virtual debt (return ticket consumed)
         const hasVirtualDebt = !!(opts.hasVirtualDebt || pbh.hasVirtualDebt);
@@ -406,6 +413,7 @@ html, body { margin: 0; padding: 0; background: #fff; }
         const body = _buildBillBody({
             shop,
             isShop,
+            isInbox,
             carrierName,
             hasVirtualDebt,
             cod,

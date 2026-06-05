@@ -3201,6 +3201,7 @@
                 totals: { quantity: totalQty, untaxed: totalAmount, total: totalAmount },
                 payment: { amount: 0, residual: totalAmount },
                 delivery: { price: 0, carrierName: o.pbhCarrierName || '' }, // detect PBH SHOP
+                channel: o.channel || '', // 'web2_inbox' → bill ghi "PBH INBOX"
                 comment: o.note || '',
                 dateInvoice: o.createdAt || new Date().toISOString(),
             };
