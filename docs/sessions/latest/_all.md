@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `397deda` — feat(web2 bill): don ban tai shop ghi tieu de 'PBH SHOP' (thay 'Phieu Ban Hang (SHOP)') + sub 'BAN TAI SHOP'
-**Last updated**: 2026-06-05 12:07:24 +07
-**Latest session**: [`RESUME:20260605-120724-397deda`](../20260605-120724-397deda.md)
-**Summary**: feat(web2 bill): don ban tai shop ghi tieu de 'PBH SHOP' (thay 'Phieu Ban Hang (SHOP)') + sub 'BAN TAI SHOP'
+**Latest commit**: `26b928e` — docs(dev-log): bill PBH SHOP tieu de
+**Last updated**: 2026-06-05 12:08:11 +07
+**Latest session**: [`RESUME:20260605-120811-26b928e`](../20260605-120811-26b928e.md)
+**Summary**: docs(dev-log): bill PBH SHOP tieu de
 
 ## Folders affected in this commit
 
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-05 12:01
+- [`docs/`](./docs.md) — updated 2026-06-05 12:08
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 11:26
 - [`downloads/`](./downloads.md) — updated 2026-06-04 15:58
