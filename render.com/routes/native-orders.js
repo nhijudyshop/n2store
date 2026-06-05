@@ -1509,7 +1509,7 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
             try {
                 const sigQ = await pool.query(
                     `SELECT DISTINCT ON (matched_order_code)
-                            matched_order_code, status, matched_keyword, created_at
+                            id, matched_order_code, status, matched_keyword, phone, created_at
                      FROM web2_payment_signals
                      WHERE matched_order_type = 'native'
                        AND matched_order_code = ANY($1)
@@ -1522,8 +1522,10 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
                     const s = sigByCode.get(o.code);
                     if (!s) continue;
                     o.ckSignal = {
+                        id: Number(s.id), // cho web2-ck-review mở đúng signal
                         status: s.status,
                         keyword: s.matched_keyword,
+                        phone: s.phone || null,
                         at: s.created_at ? Number(s.created_at) : null,
                     };
                 }

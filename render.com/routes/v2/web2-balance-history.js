@@ -40,6 +40,64 @@ function handleError(res, err, msg = 'Internal error') {
 }
 
 // =====================================================
+// linkTransaction — gán SĐT/tên vào 1 GD SePay + cộng ví (atomic, idempotent).
+// SINGLE SOURCE: dùng chung cho PATCH /:id/link VÀ payment-signals approve
+// (đối chiếu CK). Trả { linked, credited, wallet_tx_id?, notFound?, alreadyProcessed? }.
+// =====================================================
+async function linkTransaction(db, { id, phone, name, verifiedBy }) {
+    const verifiedByVal =
+        String(verifiedBy || '')
+            .trim()
+            .slice(0, 100) || null;
+    const r = await db.query(
+        `SELECT id, sepay_id, transfer_amount, transfer_type, debt_added
+         FROM web2_balance_history WHERE id = $1`,
+        [id]
+    );
+    if (r.rows.length === 0) return { linked: false, notFound: true };
+    const tx = r.rows[0];
+    if (tx.debt_added === true) return { linked: false, alreadyProcessed: true };
+    const amount = parseInt(tx.transfer_amount) || 0;
+    if (tx.transfer_type !== 'in' || amount <= 0) {
+        // Non-deposit → chỉ gán phone, không cộng ví.
+        await db.query(
+            `UPDATE web2_balance_history
+             SET linked_customer_phone = $2,
+                 display_name = COALESCE(display_name, $3),
+                 match_method = 'manual_link',
+                 verified_by = COALESCE($4, verified_by)
+             WHERE id = $1`,
+            [id, phone, name || null, verifiedByVal]
+        );
+        return { linked: true, credited: false };
+    }
+    const walletResult = await web2WalletService.processDeposit(
+        db,
+        phone,
+        amount,
+        tx.id,
+        'Nap tu CK (manual link)',
+        null,
+        null,
+        tx.sepay_id
+    );
+    await db.query(
+        `UPDATE web2_balance_history
+         SET debt_added = TRUE,
+             linked_customer_phone = $2,
+             wallet_processed = TRUE,
+             verification_status = 'AUTO_APPROVED',
+             match_method = 'manual_link',
+             display_name = COALESCE(display_name, $3),
+             verified_at = NOW(),
+             verified_by = COALESCE($4, verified_by)
+         WHERE id = $1`,
+        [id, phone, name || null, verifiedByVal]
+    );
+    return { linked: true, credited: true, wallet_tx_id: walletResult.transaction?.id };
+}
+
+// =====================================================
 // GET /api/web2/balance-history
 // Query: ?limit=50&offset=0&status=AUTO_APPROVED|NO_PHONE|all&search=<phone|content>
 // =====================================================
@@ -225,71 +283,16 @@ router.patch('/:id/link', async (req, res) => {
         if (!phone) {
             return res.status(400).json({ success: false, error: 'phone required' });
         }
-        const verifiedByVal =
-            String(verifiedBy || '')
-                .trim()
-                .slice(0, 100) || null;
-
-        const r = await db.query(
-            `SELECT id, sepay_id, transfer_amount, transfer_type, debt_added
-             FROM web2_balance_history WHERE id = $1`,
-            [id]
-        );
-        if (r.rows.length === 0) {
+        const result = await linkTransaction(db, { id, phone, name, verifiedBy });
+        if (result.notFound) {
             return res.status(404).json({ success: false, error: 'Not found' });
         }
-        const tx = r.rows[0];
-        if (tx.debt_added === true) {
+        if (result.alreadyProcessed) {
             return res
                 .status(400)
                 .json({ success: false, error: 'Đã được xử lý — không thể link lại' });
         }
-        const amount = parseInt(tx.transfer_amount) || 0;
-        if (tx.transfer_type !== 'in' || amount <= 0) {
-            // Just link phone, don't credit
-            await db.query(
-                `UPDATE web2_balance_history
-                 SET linked_customer_phone = $2,
-                     display_name = COALESCE(display_name, $3),
-                     match_method = 'manual_link',
-                     verified_by = COALESCE($4, verified_by)
-                 WHERE id = $1`,
-                [id, phone, name || null, verifiedByVal]
-            );
-            return res.json({ success: true, data: { linked: true, credited: false } });
-        }
-
-        const walletResult = await web2WalletService.processDeposit(
-            db,
-            phone,
-            amount,
-            tx.id,
-            'Nap tu CK (manual link)',
-            null,
-            null,
-            tx.sepay_id
-        );
-        await db.query(
-            `UPDATE web2_balance_history
-             SET debt_added = TRUE,
-                 linked_customer_phone = $2,
-                 wallet_processed = TRUE,
-                 verification_status = 'AUTO_APPROVED',
-                 match_method = 'manual_link',
-                 display_name = COALESCE(display_name, $3),
-                 verified_at = NOW(),
-                 verified_by = COALESCE($4, verified_by)
-             WHERE id = $1`,
-            [id, phone, name || null, verifiedByVal]
-        );
-        res.json({
-            success: true,
-            data: {
-                linked: true,
-                credited: true,
-                wallet_tx_id: walletResult.transaction?.id,
-            },
-        });
+        res.json({ success: true, data: result });
     } catch (e) {
         handleError(res, e, 'Link');
     }
@@ -855,5 +858,8 @@ router.post('/cleanup-stale-pending', async (req, res) => {
         handleError(res, e, 'Cleanup stale pending');
     }
 });
+
+// Export helper để payment-signals approve dùng chung (1 nguồn logic cộng ví).
+router.linkTransaction = linkTransaction;
 
 module.exports = router;

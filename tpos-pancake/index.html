@@ -230,6 +230,30 @@
                         </button>
                         <button
                             class="btn-icon"
+                            id="btnCkReview"
+                            title="Xét duyệt tín hiệu CK (KH báo đã chuyển khoản)"
+                            style="width: 28px; height: 28px; position: relative"
+                        >
+                            <i data-lucide="badge-check" style="width: 14px; height: 14px"></i>
+                            <span
+                                id="ckReviewCount"
+                                hidden
+                                style="
+                                    position: absolute;
+                                    top: -4px;
+                                    right: -4px;
+                                    background: #ef4444;
+                                    color: #fff;
+                                    border-radius: 9px;
+                                    padding: 0 4px;
+                                    font-size: 9px;
+                                    font-weight: 700;
+                                    line-height: 14px;
+                                "
+                            ></span>
+                        </button>
+                        <button
+                            class="btn-icon"
                             id="btnRefresh"
                             title="Làm mới"
                             style="width: 28px; height: 28px"
@@ -735,6 +759,8 @@
         <!-- Web 2.0 sidebar mount -->
         <script src="../web2/shared/web2-auth.js?v=20260602i"></script>
         <script src="../web2/shared/web2-optimistic.js?v=20260602i"></script>
+        <script src="../web2/shared/web2-user-info.js?v=20260530a"></script>
+        <script src="../web2/shared/web2-ck-review.js?v=20260605a"></script>
         <script src="../web2/shared/tpos-sidebar.js?v=20260602i"></script>
         <script>
             if (window.Web2Sidebar) {
@@ -748,6 +774,31 @@
                         window.lucide.createIcons();
                     } catch {}
             }
+            // Xét duyệt CK: nút topbar mở danh sách tín hiệu chờ duyệt + badge số.
+            (function () {
+                const btn = document.getElementById('btnCkReview');
+                const cnt = document.getElementById('ckReviewCount');
+                const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                async function refreshCount() {
+                    try {
+                        const r = await fetch(PROXY + '/api/web2/payment-signals/stats', {
+                            credentials: 'include',
+                        });
+                        const d = await r.json();
+                        const n = d?.data?.pending || 0;
+                        cnt.textContent = n;
+                        cnt.hidden = n <= 0;
+                    } catch (e) {
+                        /* ignore */
+                    }
+                }
+                if (btn)
+                    btn.onclick = () =>
+                        window.Web2CkReview?.openSignalList({ onDone: refreshCount });
+                refreshCount();
+                if (window.Web2SSE?.subscribe)
+                    window.Web2SSE.subscribe('web2:payment-signals', refreshCount);
+            })();
         </script>
 
         <!-- Inline: Settings modal functions (backward compat) -->

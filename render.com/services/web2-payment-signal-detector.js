@@ -87,6 +87,13 @@ async function ensureSchema(pool) {
     await pool.query(
         `ALTER TABLE web2_payment_signals ADD COLUMN IF NOT EXISTS history JSONB NOT NULL DEFAULT '[]'::jsonb;`
     );
+    // matched_tx_id: GD SePay (web2_balance_history.id) đã link khi duyệt CK.
+    await pool.query(
+        `ALTER TABLE web2_payment_signals ADD COLUMN IF NOT EXISTS matched_tx_id BIGINT;`
+    );
+    await pool.query(
+        `ALTER TABLE web2_payment_signals ADD COLUMN IF NOT EXISTS matched_tx_at BIGINT;`
+    );
     await pool.query(
         `CREATE INDEX IF NOT EXISTS idx_w2paysig_status ON web2_payment_signals(status);`
     );

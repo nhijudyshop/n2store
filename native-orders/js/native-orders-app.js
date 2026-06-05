@@ -1004,8 +1004,13 @@
         // nhắn "CK XONG"/"ĐÃ CK" trong inbox Pancake, CHƯA phải xác nhận tiền thật.
         if (o.ckSignal) {
             const confirmed = o.ckSignal.status === 'confirmed';
+            // Click badge → mở web2-ck-review (đối chiếu GD SePay + duyệt). Prefill
+            // SĐT/tên từ đơn (data-ck-*). Pending mới clickable; confirmed chỉ xem.
+            const clickable = o.ckSignal.id
+                ? ` data-ck-review="${o.ckSignal.id}" data-ck-phone="${escapeHtml(o.phone || '')}" data-ck-name="${escapeHtml(o.customerName || '')}" style="cursor:pointer"`
+                : '';
             out.push(
-                `<span class="no-ck-badge${confirmed ? ' ck-confirmed' : ''}" title="KH báo đã chuyển khoản (${escapeHtml(o.ckSignal.keyword || '')}${confirmed ? ' — đã xác nhận' : ' — chờ duyệt'}). Đối soát tiền vẫn qua SePay.">💸 KH báo đã CK</span>`
+                `<span class="no-ck-badge${confirmed ? ' ck-confirmed' : ''}"${clickable} title="KH báo đã chuyển khoản (${escapeHtml(o.ckSignal.keyword || '')}${confirmed ? ' — đã xác nhận' : ' — bấm để đối chiếu & duyệt'}). Đối soát tiền vẫn qua SePay.">💸 KH báo đã CK</span>`
             );
         }
         // [2026-06-05] Số lần in bill — cảnh báo tránh in trùng (soạn hàng lặp).
@@ -4017,6 +4022,20 @@
         }
         rtConnect();
         _sseConnect();
+
+        // 2026-06-05: click badge "💸 KH báo đã CK" → web2-ck-review (đối chiếu GD
+        // SePay + duyệt). Delegated vì badge render động trong bảng.
+        document.addEventListener('click', (e) => {
+            const badge = e.target.closest?.('[data-ck-review]');
+            if (!badge || !window.Web2CkReview) return;
+            e.stopPropagation();
+            window.Web2CkReview.openReview({
+                signalId: Number(badge.dataset.ckReview),
+                phone: badge.dataset.ckPhone || '',
+                name: badge.dataset.ckName || '',
+                onDone: () => load(),
+            });
+        });
 
         // Apply/Clear/Refresh/Export buttons removed in single-row layout —
         // filters now auto-apply on change (debounced for search input).

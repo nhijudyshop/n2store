@@ -86,6 +86,15 @@
                         >
                             <i data-lucide="message-circle"></i> Hội thoại
                         </button>
+                        <button
+                            type="button"
+                            class="w2bh-btn w2bh-btn-primary"
+                            id="w2bhCkReviewBtn"
+                            title="Đối chiếu & duyệt tín hiệu KH báo đã chuyển khoản"
+                        >
+                            <i data-lucide="badge-check"></i> Xét duyệt CK
+                            <span id="w2bhCkCount" class="w2bh-ck-count" hidden></span>
+                        </button>
                         <button type="button" class="w2bh-btn" id="w2bhRefreshBtn" title="Tải lại">
                             <i data-lucide="refresh-cw"></i> Tải lại
                         </button>
@@ -379,10 +388,40 @@
         <script src="../shared/web2-chat-client.js?v=20260604c"></script>
         <script src="../shared/web2-chat-readonly.js?v=20260605a"></script>
         <script src="js/web2-customer-detail-modal.js?v=20260604b"></script>
+        <script src="../shared/web2-ck-review.js?v=20260605a"></script>
         <script src="js/web2-balance-history-app.js?v=20260605d"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
             if (window.lucide) window.lucide.createIcons();
+            // Xét duyệt CK: mở danh sách tín hiệu chờ duyệt + badge số lượng.
+            (function () {
+                const btn = document.getElementById('w2bhCkReviewBtn');
+                const cnt = document.getElementById('w2bhCkCount');
+                const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                async function refreshCount() {
+                    try {
+                        const r = await fetch(PROXY + '/api/web2/payment-signals/stats', {
+                            credentials: 'include',
+                        });
+                        const d = await r.json();
+                        const n = d?.data?.pending || 0;
+                        if (n > 0) {
+                            cnt.textContent = n;
+                            cnt.hidden = false;
+                        } else {
+                            cnt.hidden = true;
+                        }
+                    } catch (e) {
+                        /* ignore */
+                    }
+                }
+                if (btn)
+                    btn.onclick = () =>
+                        window.Web2CkReview?.openSignalList({ onDone: refreshCount });
+                refreshCount();
+                if (window.Web2SSE?.subscribe)
+                    window.Web2SSE.subscribe('web2:payment-signals', refreshCount);
+            })();
         </script>
     </body>
 </html>
