@@ -25,6 +25,16 @@
 
 ## 2026-06-05
 
+### [render][web2] Detect "KH báo đã CK" trên CẢ update_conversation (fix bỏ sót) ✅
+
+User test localhost: tab "Tin nhắn chưa đọc" detect "đã ck" (highlight) nhưng tab "KH báo đã CK" = 0 (detector không bắt).
+
+Nguyên nhân: detector chỉ chạy trên `pages:new_message` — event này đôi khi không fire / khác field → bỏ sót. Tab unread hoạt động vì dùng snippet từ `pages:update_conversation` (event tin cậy, luôn fire).
+
+Fix [server.js](render.com/server.js): chạy `web2SignalDetector.handleIncoming` **cả trên `pages:update_conversation`** (dùng `updateData.snippet`, chỉ khi `!shopSentLast` = tin cuối của KHÁCH) → cùng nguồn dữ liệu như tab unread → detect tin cậy ngang nhau. Giữ nhánh `new_message` (dedup chống trùng).
+
+[web2-payment-signal-detector.js](render.com/services/web2-payment-signal-detector.js): vì `update_conversation` re-fire nhiều lần cùng snippet (shop đọc/đổi hội thoại), đổi dedup `_hasRecentPending` → `_hasRecentSignal` (**BẤT KỲ status**, window 10' → **6h**) để signal đã dismiss/confirm KHÔNG bị tạo lại mỗi lần re-fire. Test [test-payment-signals.js](scripts/test-payment-signals.js) 12/12 (+ case "không tái tạo sau dismiss").
+
 ### [native-orders][web2-products][render] Print count (Phase 2) — ghi số lần in tránh in trùng ✅
 
 User: in bill → ghi số lần in vào đơn; in mã SP → ghi số lần in vào product. Mục đích: tránh in trùng gây soạn/chuẩn bị hàng lặp.

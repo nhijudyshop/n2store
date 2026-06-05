@@ -79,7 +79,18 @@ async function main() {
             { message: 'đã ck', psid: 'FBPSID1', pageId: 'PAGE1' },
             notify
         );
-        ok(sig2 === null, 'dedup: signal pending trùng < 10 phút → bỏ qua');
+        ok(sig2 === null, 'dedup: signal trùng psid+page trong window → bỏ qua');
+
+        // 4b. Sau khi DISMISS, update_conversation re-fire cùng snippet → KHÔNG tạo lại
+        await db.query(`UPDATE web2_payment_signals SET status='dismissed' WHERE id=$1`, [sig.id]);
+        const sigReappear = await detector.handleIncoming(
+            db,
+            { message: 'ck xong', psid: 'FBPSID1', pageId: 'PAGE1' },
+            notify
+        );
+        ok(sigReappear === null, 'không tái tạo signal sau dismiss (dedup ANY status)');
+        // Khôi phục pending cho các test JOIN/enrich phía dưới
+        await db.query(`UPDATE web2_payment_signals SET status='pending' WHERE id=$1`, [sig.id]);
 
         // 5. Không match → không ghi
         const sig3 = await detector.handleIncoming(

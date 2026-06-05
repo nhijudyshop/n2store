@@ -392,7 +392,7 @@
 
     const STATUS_META = {
         draft: { label: 'Nháp', icon: 'file' },
-        confirmed: { label: 'Đã xác nhận', icon: 'check' },
+        confirmed: { label: 'Đơn hàng', icon: 'check' },
         cancelled: { label: 'Đã hủy', icon: 'x' },
         delivered: { label: 'Đã giao', icon: 'truck' },
     };
@@ -972,7 +972,7 @@
     function tposStatusText(s) {
         const map = {
             draft: { label: 'Nháp', cls: '' },
-            confirmed: { label: 'Đã xác nhận', cls: 'confirmed' },
+            confirmed: { label: 'Đơn hàng', cls: 'confirmed' },
             cancelled: { label: 'Đã hủy', cls: 'cancelled' },
             delivered: { label: 'Đã giao', cls: 'delivered' },
         };
@@ -2470,6 +2470,11 @@
             notify('Không tìm thấy đơn ' + code, 'error');
             return;
         }
+        // Đơn "Đơn hàng" (confirmed) đã có PBH → KHÔNG tạo PBH/PBH SHOP lại.
+        if (src.status !== 'draft') {
+            notify('Đơn "Đơn hàng" đã có PBH — không tạo lại. Chỉ đơn Nháp tạo được PBH.', 'warning');
+            return;
+        }
         // Phase 15: block creation when phone or address is missing — user must
         // fill these via the Edit modal first.
         const v = validateOrderForPbh(src);
@@ -3164,7 +3169,7 @@
         }
         // MỖI đơn in ĐÚNG LOẠI theo trạng thái (chọn mix trạng thái được):
         //   - NHÁP (draft)     → PHIẾU SOẠN HÀNG (modal, mở TUẦN TỰ từng đơn)
-        //   - Đã xác nhận/PBH  → bill PBH (gộp 1 lần)
+        //   - Đơn hàng (confirmed)/PBH → bill PBH (gộp 1 lần)
         const drafts = orders.filter((o) => o.status === 'draft');
         const others = orders.filter((o) => o.status !== 'draft');
 
@@ -3348,11 +3353,24 @@
             notify('Chưa chọn đơn nào', 'warning');
             return;
         }
-        const orders = codes.map((c) => STATE.orders.find((o) => o.code === c)).filter(Boolean);
-        if (orders.length === 0) {
+        const allSel = codes.map((c) => STATE.orders.find((o) => o.code === c)).filter(Boolean);
+        if (allSel.length === 0) {
             notify('Không tìm thấy đơn', 'error');
             return;
         }
+        // Đơn "Đơn hàng" (status confirmed) ĐÃ CÓ PBH → KHÔNG tạo PBH lại. Chỉ
+        // đơn Nháp mới tạo được PBH.
+        const orders = allSel.filter((o) => o.status === 'draft');
+        const skipped = allSel.length - orders.length;
+        if (orders.length === 0) {
+            notify('Đơn "Đơn hàng" đã có PBH — không tạo PBH lại (chỉ đơn Nháp).', 'warning');
+            return;
+        }
+        if (skipped > 0)
+            notify(
+                `Bỏ qua ${skipped} đơn "Đơn hàng" (đã có PBH) — tạo PBH cho ${orders.length} đơn Nháp`,
+                'info'
+            );
         const DMP = window.DeliveryMethodPicker;
         // Phase 17: load backend options once for both per-row pick + dropdown
         const deliveryOpts = DMP ? await DMP.getOptionsAsync() : [];
@@ -3693,16 +3711,31 @@
             notify('Chưa chọn đơn nào', 'warning');
             return;
         }
-        // Chỉ cần có sản phẩm (bán tại shop không bắt buộc địa chỉ).
-        const valid = codes.filter((code) => {
-            const o = STATE.orders.find((x) => x.code === code);
-            const qty = (o?.products || []).reduce((s, p) => s + (Number(p.quantity) || 0), 0);
-            return o && (o.products || []).length > 0 && qty > 0;
-        });
+        // Đơn "Đơn hàng" (confirmed) ĐÃ CÓ PBH → KHÔNG tạo PBH SHOP lại. Chỉ đơn
+        // Nháp + có sản phẩm (bán tại shop không bắt buộc địa chỉ).
+        const selOrders = codes.map((c) => STATE.orders.find((x) => x.code === c)).filter(Boolean);
+        const confirmedCount = selOrders.filter((o) => o.status !== 'draft').length;
+        const valid = selOrders
+            .filter((o) => {
+                if (o.status !== 'draft') return false;
+                const qty = (o.products || []).reduce((s, p) => s + (Number(p.quantity) || 0), 0);
+                return (o.products || []).length > 0 && qty > 0;
+            })
+            .map((o) => o.code);
         if (!valid.length) {
-            notify('Đơn đã chọn chưa có sản phẩm', 'warning');
+            notify(
+                confirmedCount
+                    ? 'Đơn "Đơn hàng" đã có PBH — không tạo PBH SHOP lại (chỉ đơn Nháp).'
+                    : 'Đơn đã chọn chưa có sản phẩm',
+                'warning'
+            );
             return;
         }
+        if (confirmedCount)
+            notify(
+                `Bỏ qua ${confirmedCount} đơn "Đơn hàng" (đã có PBH) — PBH SHOP cho ${valid.length} đơn Nháp`,
+                'info'
+            );
         // 1 đơn → mở MODAL "Tạo PBH SHOP" (giống Tạo PBH, phương thức = BÁN HÀNG
         // SHOP disable, ship 0) để xem/chỉnh cọc/ngày trước khi tạo.
         if (valid.length === 1) {

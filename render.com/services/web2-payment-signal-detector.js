@@ -19,7 +19,12 @@
 
 'use strict';
 
-const DEDUP_WINDOW_MS = 10 * 60 * 1000; // 10 phút: bỏ qua signal pending trùng psid+page
+// Dedup window: bỏ qua nếu psid+page đã có signal (BẤT KỲ status) trong window.
+// Phải đủ dài vì detect chạy CẢ trên pages:update_conversation (re-fire nhiều
+// lần cùng 1 snippet khi shop đọc/đổi hội thoại) — nếu chỉ chặn status 'pending'
+// thì signal đã dismiss/confirm sẽ bị tạo lại mỗi lần re-fire. 6h: gom mọi
+// re-fire của cùng 1 lần KH báo, vẫn cho KH báo lại sau (đơn mới) qua ngày.
+const DEDUP_WINDOW_MS = 6 * 60 * 60 * 1000;
 
 // ─── Normalize: lowercase + bỏ dấu tiếng Việt + đ→d + collapse space ──
 function normalize(text) {
@@ -140,12 +145,14 @@ async function _matchOrder(pool, phone) {
     return null;
 }
 
-// ─── Có signal pending trùng psid+page trong window? (chống spam) ──────
-async function _hasRecentPending(pool, psid, pageId, now) {
+// ─── Có signal (BẤT KỲ status) trùng psid+page trong window? ──────────
+// ANY status (không chỉ pending) để signal đã dismiss/confirm KHÔNG bị tạo lại
+// khi update_conversation re-fire cùng snippet.
+async function _hasRecentSignal(pool, psid, pageId, now) {
     try {
         const { rows } = await pool.query(
             `SELECT 1 FROM web2_payment_signals
-             WHERE psid = $1 AND page_id = $2 AND status = 'pending'
+             WHERE psid = $1 AND page_id = $2
                AND created_at > $3 LIMIT 1`,
             [String(psid || ''), String(pageId || ''), now - DEDUP_WINDOW_MS]
         );
@@ -165,8 +172,8 @@ async function handleIncoming(pool, data, notify) {
     if (!matched) return null;
 
     const now = Date.now();
-    if (await _hasRecentPending(pool, data.psid, data.pageId, now)) {
-        return null; // đã ghi gần đây, bỏ qua trùng
+    if (await _hasRecentSignal(pool, data.psid, data.pageId, now)) {
+        return null; // đã ghi gần đây (bất kỳ status), bỏ qua trùng / chống tái tạo
     }
 
     const phone = await _resolvePhone(pool, data.psid);

@@ -1228,6 +1228,32 @@ class RealtimeClient {
                             .catch((err) =>
                                 console.error('[SERVER-WS] web2 unread sync failed:', err.message)
                             );
+
+                        // WEB2.0 — detect keyword "CK XONG"/"ĐÃ CK" TỪ snippet của
+                        // update_conversation (nguồn tin cậy như tab "Tin chưa đọc").
+                        // pages:new_message đôi khi không fire / khác field → bỏ sót.
+                        // CHỈ khi tin cuối là của KHÁCH (!shopSentLast). Dedup 10' trong
+                        // detector chống trùng với nhánh new_message bên dưới.
+                        if (!shopSentLast && updateData.snippet) {
+                            web2SignalDetector
+                                .handleIncoming(
+                                    web2Db,
+                                    {
+                                        message: updateData.snippet,
+                                        psid: updateData.psid,
+                                        pageId: updateData.pageId,
+                                        conversationId: updateData.conversationId,
+                                        customerName: updateData.customerName,
+                                    },
+                                    web2RealtimeSseRoutes.notifyClients
+                                )
+                                .catch((err) =>
+                                    console.error(
+                                        '[SERVER-WS] paysig detect (conv) failed:',
+                                        err.message
+                                    )
+                                );
+                        }
                     }
                 }
             }
