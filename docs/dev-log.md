@@ -25,6 +25,17 @@
 
 ## 2026-06-05
 
+### [native-orders] Phiếu Soạn Hàng cho đơn Nháp (Phần 1/2) ✅
+
+User: đơn trạng thái "Nháp" → "In bill" ra modal Phiếu Soạn Hàng (checkbox Chờ Hàng + ghi chú/SP) → in ra "CH" ở cột ghi chú. (Phần 2 print-count làm sau.)
+
+- Module mới `native-orders/js/native-orders-packing-slip.js` (port từ `don-inbox/js/tab-social-packing-slip.js`): nhận thẳng order object, data Web 2.0 (`products[].name/price/quantity/note`, `customerName/phone/address`, `assignedEmployeeName||createdByName`), STT = `computeOrderStt` (đơn gộp "243 + 678"). Modal tự dựng động (không sửa index.html nhiều). `window.NativeOrdersPackingSlip.open(order, {sttDisplay})`.
+- `bulkPrintBills`: nếu TẤT CẢ đơn chọn là `status==='draft'` → mở Phiếu Soạn Hàng (1 đơn/lần); đơn đã xác nhận/PBH → bill PBH thường.
+- Print: SP tick "Chờ Hàng" → cột Ghi chú in `CH` đậm (khớp mẫu hình 2). Bảng STT|Sản phẩm|SL|Giá|Ghi chú + Nhân viên trên header.
+- Verified Playwright screenshot `packing-slip-modal.png`: khớp mẫu hình 1.
+- File: `native-orders-packing-slip.js` (v=20260605a), wire `native-orders-app.js`.
+- **TODO Phần 2**: print-count — in bill → ghi số lần in vào đơn (native_orders.print_count, đã có cột); in mã SP → ghi số lần in vào product (web2_products cần thêm cột + endpoint + deploy Render). Mục đích: tránh in trùng gây soạn hàng lặp.
+
 ### [render][web2] Detect "CK XONG"/"ĐÃ CK" từ inbox Pancake 24/7 → trang "Xác nhận CK" ✅
 
 User: khách nhắn "CK XONG" hoặc "ĐÃ CK" (không phân biệt hoa/thường, có/không dấu) → server nhận biết KH đã chuyển khoản → trang Web 2.0 mới quản lý + gắn cờ đơn.
