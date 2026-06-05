@@ -126,3 +126,5 @@ downloads/n2store-session/tpos-download-*
 
 # Refund excel mẫu cho dev đối soát KPI — chứa PII khách thật, KHÔNG commit
 docs/orders-report/*.xlsx
+pancake-creds.local.txt
+downloads/n2store-session/pancake-login-capture.log
