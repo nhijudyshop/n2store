@@ -1846,6 +1846,19 @@ permission_templates    (role: admin/manager/staff)</pre
                                     <code>processWeb2Match</code>, <code>upsertWeb2Customer</code>).
                                 </li>
                                 <li>
+                                    <strong>Giá trị enum / string định danh</strong> (cột
+                                    <code>channel</code>, topic, key, filter type…): prefix
+                                    <code>web2_</code>
+                                    <em>KHI có nguy cơ nhầm</em> với trang / hàm / field khác / bên
+                                    thứ 3. Vd cột <code>channel</code> đơn web dùng
+                                    <code>web2_livestream</code> + <code>web2_inbox</code> vì
+                                    <code>'inbox'</code> trùng Pancake filterType + icon lucide
+                                    <code>inbox</code>, <code>'livestream'</code> trùng field
+                                    product-line <code>source</code>.
+                                    <strong>KHÔNG prefix tất cả</strong> — chỉ đổi cái thật sự dễ
+                                    nhầm (mai mốt đọc code thấy rủi ro nhầm thì đổi).
+                                </li>
+                                <li>
                                     <strong>File mới</strong>: thêm marker
                                     <code>| WEB2.0 module.</code> vào header
                                     <code>#Note</code> (HTML/JS dòng 1).

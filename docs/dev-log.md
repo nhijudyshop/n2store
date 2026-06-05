@@ -25,6 +25,32 @@
 
 ## 2026-06-05
 
+### [native-orders][web2-products][render] Print count (Phase 2) — ghi số lần in tránh in trùng ✅
+
+User: in bill → ghi số lần in vào đơn; in mã SP → ghi số lần in vào product. Mục đích: tránh in trùng gây soạn/chuẩn bị hàng lặp.
+
+- **Backend**: `POST /api/native-orders/mark-printed` {codes} + `POST /api/web2-products/mark-printed` {codes} → `UPDATE … print_count = print_count+1 WHERE code = ANY($codes)` → trả `counts`. `web2_products` thêm cột `print_count` (migration trong ensureTables) — `native_orders.print_count` đã có sẵn. mapRow expose `printCount`.
+- **Frontend native-orders**: `NativeOrdersApi.markPrinted/markProductsPrinted`. `bulkPrintBills` gọi `markPrinted(others)` sau in bill PBH + packing slip `onPrint` callback gọi `markPrinted([code])` khi in Phiếu Soạn Hàng. Badge `🖨 Đã in N×` (vàng) trên row đơn.
+- **Frontend products**: `web2-products-print.js generateAndPrint` → `_markProductsPrinted(items)` POST khi in tem. Badge `In: N×` cạnh badge Tồn trên list SP.
+- **⚠ CẦN DEPLOY RENDER**: endpoint mới + migration `web2_products.print_count`. Verified endpoint hiện 404 (chưa deploy). Sau deploy → mark-printed hoạt động + badge hiện.
+- Files: `native-orders.js`, `web2-products.js` (routes); `native-orders-api.js` (x2), `native-orders-app.js` (x2), `native-orders-packing-slip.js` (e), `web2-products-print.js` (h), `web2-products-app.js` (x2).
+
+### [native-orders][render] Đơn Inbox: avatar + hội thoại theo SĐT + rename channel `web2_inbox`/`web2_livestream` ✅
+
+**1. Avatar + mở hội thoại theo SĐT khi đơn inbox chưa có fb_id** (logic RIÊNG tab Inbox — KHÔNG đụng đơn livestream):
+
+- Helper `_resolveInboxConvByPhone(phone)`: search hội thoại Pancake theo SĐT qua tất cả page (`Web2Chat.searchConversations`), khớp SĐT chính xác → `{fbId, pageId, avatarUrl, conversationId}`. Cache theo phone (xoá khi miss để retry).
+- `_hydrateInboxAvatars()` (chạy nền sau render, chỉ tab `web2_inbox`): row có SĐT nhưng chưa fb_id → resolve → gắn `<img>` avatar + lưu fbUserId/fbPageId vào order in-memory (mở chat instant).
+- `_loadAndRenderThread` nhánh unbound: thử resolve theo SĐT → thấy thì bind psid+page + load thread thật; không thấy → prompt chọn hội thoại sidebar. Gate `!order.fbPageId` → đơn livestream không vào. **Verify Playwright**: row `0123456788` → psid `25717004554573583` (page 270136663390370), avatar `<img>` hiện, 0 error.
+
+**2. Rename channel `'inbox'`→`'web2_inbox'`, `'livestream'`→`'web2_livestream'`** (tên trần dễ nhầm Pancake filterType `'inbox'` + icon lucide `inbox` + field product-line `source` `'livestream'`):
+
+- Backend [native-orders.js](render.com/routes/native-orders.js): migration idempotent `ensureTables` (`ALTER COLUMN channel SET DEFAULT 'web2_livestream'` + 2 UPDATE rename + NULL→web2_livestream); INSERT create-manual `'web2_inbox'`; campaign_stt subquery; mapRowToOrder fallback. **Load filter backward-compat** (`channel IN ('web2_inbox','inbox')`, web2_livestream ôm `'livestream'`+NULL) → deploy frontend↔backend không cần đúng thứ tự.
+- Frontend [native-orders-app.js](native-orders/js/native-orders-app.js) + [index.html](native-orders/index.html): `data-channel`, `STATE.channel` default, 3 check `=== 'web2_inbox'`. **Giữ nguyên** product-line `source==='livestream'` + icon lucide `inbox`.
+- **Convention** (prefix `web2_` cho enum/string định danh CHỈ KHI dễ nhầm — không prefix tất cả): [CLAUDE.md](CLAUDE.md) §Quy tắc 2b, [web2/overview #conventions](web2/overview/index.html) card Đặt tên, MEMORY `feedback_web2_enum_naming`.
+
+⚠ **Cần deploy Render**: channel rename + accent local-match + fb binding là backend; frontend gửi `web2_*` chỉ khớp sau deploy (đã backward-compat nên an toàn thứ tự).
+
 ### [orders][kpi] Fix: Lịch sử kiểm tra mất dấu ✓ + Số phiếu "—" (key drift) & sửa text "share" sai ✅
 
 **Bối cảnh** (user hỏi): (1) "Lịch sử kiểm tra" có share dữ liệu với Thống Kê Giao Hàng / trang khác không? (2) Vì sao một số entry không có Số phiếu ("—"), và đúng các đơn đó lại không có dấu ✓ ở cột STT đơn của Chi tiết KPI?
@@ -34,6 +60,7 @@
 **Bug ✓/"—"** (key drift): lúc đánh dấu, `checkKey = number || orderCode` → đơn CHƯA có số phiếu thì key = Mã ĐH, `number=''`. Khi render Chi tiết KPI lại `isChecked(invNumber)` (chỉ theo số phiếu) → sau khi đối soát gán số phiếu, lookup theo số phiếu không khớp record key=Mã ĐH → mất ✓; Lịch sử kiểm tra hiện `entry.number=''` → "—".
 
 **Fix** (chỉ frontend, không đụng endpoint/KPI API — tuân thủ `feedback_api_scope`):
+
 - `renderEmployeeOrdersTable` + `_applyL1CheckedStyles`: **dual-key lookup** `isChecked(số phiếu) || isChecked(Mã ĐH)` → ✓ hiện lại đúng.
 - Thêm `_orderCheckStore.backfillNumber(checkKey, number)`: khi đơn đã có số phiếu, ghi bổ sung field `number` (merge, idempotent, guard `_backfilled` Set) vào record cũ → Lịch sử kiểm tra hết "—".
 - Sửa 3 text sai → "lưu RIÊNG cho KPI, KHÔNG chia sẻ với Thống Kê Giao Hàng": banner [tab-kpi-commission.html](../orders-report/tab-kpi-commission.html) (subtab title + toolbar info) + comment confirm-dialog trong JS.
@@ -49,6 +76,7 @@
 **Nguyên nhân** (trace `saveAutoBaseSnapshot` [kpi-manager.js:243] + `_saveCampaignResults` [message-template-manager.js:1849]): (1) chỉ đơn GỬI THÀNH CÔNG được truyền vào base; (2) lấy SP 3 tầng — Tầng 1 report map cần `campaignName` (mà `window.currentCampaignName` là `let` trong overview-core.js → undefined), Tầng 2 `order.Details` luôn rỗng (kết quả gửi không kèm SP), Tầng 3 `fetchProductsFromTPOS` gọi **TUẦN TỰ ~600 lần, lỗi nuốt im** → rate-limit/timeout giữa chừng → đơn trả `[]` → `continue` **bỏ qua âm thầm**; (3) `/kpi-base/batch` 1 request không verify; (4) kết quả nuốt lặng.
 
 **Fix (owner chốt: base cho MỌI đơn đã chọn, kể cả gửi lỗi + báo kết quả rõ)** — toàn bộ client-side, chỉ gọi lại endpoint KPI sẵn có (tuân thủ `feedback_api_scope`):
+
 - `kpi-manager.js`: `fetchProductsFromTPOS` **throw** khi lỗi HTTP (để retry phân biệt "rỗng thật" vs transient). `saveAutoBaseSnapshot` viết lại: chuẩn hoá id (`Id||id||orderId`), **Tầng 3 song song concurrency 8 + retry 3 lần/đơn** (không drop âm thầm; lỗi thật → `failed`, rỗng thật → `noProduct`, không đếm trùng), **lưu theo lô 100 + verify + retry lô lỗi**, trả `{saved,skipped,failed,noProduct,total}`.
 - `message-template-manager.js`: `_resolveOrderData` **cache writeback** `_orderDetailsCache` sau khi OData fetch (KPI tái dùng SP). `_saveCampaignResults`: gom **`[...successOrders, ...errorOrders]`** (tách base khỏi kết quả gửi), đính kèm `Details` từ cache, `campaignName` robust (campaignManager fallback), **toast kết quả** `KPI base: đã đánh X/Y (Z thiếu SP, W lỗi)`.
 - `tab1-kpi-base-button.js`: message kết quả dùng field `noProduct`/`failed` server trả.
