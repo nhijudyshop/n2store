@@ -25,6 +25,15 @@
 
 ## 2026-06-05
 
+### [web2] Pending-match: chọn KH từ list hội thoại FB (nút "Gán KH này") ✅
+
+User: hiện danh sách tên khách (hình 2 — list hội thoại khớp đuôi SĐT) ra để chọn luôn.
+
+- **Pick mode** trong `web2-chat-readonly.js`: `openSearch({query, onPick})` → mỗi hội thoại có nút xanh **"Gán KH này"**. Title đổi "Chọn KH từ hội thoại", class `has-pick`. SĐT lấy từ `recent_phone_numbers` (ưu tiên số khớp query) → `data-phone`. Click → `onPick({phone,name})` + đóng modal.
+- **Pending-match**: nút 💬 mỗi card truyền `onPick: (cust) => _resolveFromChat(pendingId, cust.phone, cust.name)` → resolve pending ngay bằng SĐT+tên từ chat FB (đúng người KH tự gõ trong chat).
+- Browser-tested: 💬 → 19 hội thoại đều có "Gán KH này", phone đúng (Vân Luu 0918779981, An Nguyễn 0942779981 = candidate gốc). KHÔNG bấm Gán (tránh ghi ví prod).
+- **Files:** `web2/shared/web2-chat-readonly.js` (v=20260605a), `web2/balance-history/js/web2-pending-match.js` (v=20260605b), `index.html`
+
 ### [web2] Redesign bill HTML/CSS (bỏ ReceiptLine) — khung COD + khung mã vạch + đường trang trí ✅
 
 User: (1) bill in ra to quá; (2) làm lại đẹp nhỏ gọn — đóng khung mã vạch, đóng khung tiền thu hộ, kẻ đường trang trí.

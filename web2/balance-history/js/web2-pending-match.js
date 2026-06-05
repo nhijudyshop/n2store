@@ -307,14 +307,22 @@
             btn.addEventListener('click', onCustomResolveClick);
         });
         // Nút 💬 Hội thoại mỗi giao dịch → mở chat read-only (tìm theo đuôi SĐT).
+        // Mỗi hội thoại có nút "Gán KH này" → resolve pending bằng SĐT+tên từ chat.
         body.querySelectorAll('[data-w2pm-chat]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const q = btn.getAttribute('data-w2pm-chat') || '';
-                if (window.Web2ChatReadonly?.openSearch) {
-                    window.Web2ChatReadonly.openSearch({ query: q });
-                } else {
+                const card = btn.closest('.w2pm-item');
+                const pendingId = card && card.getAttribute('data-pending-id');
+                if (!window.Web2ChatReadonly?.openSearch) {
                     notify('Module hội thoại chưa load', 'warning');
+                    return;
                 }
+                window.Web2ChatReadonly.openSearch({
+                    query: q,
+                    onPick: pendingId
+                        ? (cust) => _resolveFromChat(pendingId, cust.phone, cust.name)
+                        : undefined,
+                });
             });
         });
         // Số dư ví cho các SĐT ứng viên (chỉ hiện khi > 0).
@@ -622,6 +630,26 @@
             notify('Lỗi: ' + e.message, 'error');
             btn.disabled = false;
             btn.textContent = 'Chọn';
+        }
+    }
+
+    // Resolve pending bằng KH chọn từ list hội thoại FB (nút "Gán KH này").
+    async function _resolveFromChat(id, phone, name) {
+        const p = _normalizePhoneInput(phone);
+        if (!p || p.length < 9) {
+            notify('SĐT từ hội thoại không hợp lệ', 'warning');
+            return;
+        }
+        try {
+            const result = await resolvePending(id, p, name || '', getCurrentUserName());
+            const amt = result?.data?.amount || 0;
+            notify(`✅ Đã cộng ${fmtVnd(amt)} vào ví Web 2.0 của ${name || p}`, 'success');
+            _pendingList = _pendingList.filter((it) => String(it.id) !== String(id));
+            renderModalBody();
+            updateBadge();
+            if (!_pendingList.length) setTimeout(closeModal, 1200);
+        } catch (e) {
+            notify('Lỗi: ' + e.message, 'error');
         }
     }
 

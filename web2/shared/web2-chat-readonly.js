@@ -99,6 +99,10 @@
             border-bottom: 1px solid #eef2f7; align-items: flex-start; }
         .w2cro-conv:hover { background: #eef2ff; }
         .w2cro-conv.is-active { background: #dbeafe; }
+        .w2cro-pick-btn { flex: 0 0 auto; align-self: center; border: none; background: #16a34a;
+            color: #fff; font-size: 11px; font-weight: 700; padding: 5px 9px; border-radius: 6px;
+            cursor: pointer; white-space: nowrap; }
+        .w2cro-pick-btn:hover { background: #15803d; }
         .w2cro-conv-av { width: 34px; height: 34px; flex: 0 0 auto; }
         /* avatar: nền chữ-cái + img phủ lên (img lỗi → tự remove → còn chữ) */
         .w2cro-conv-av, .w2cro-bub-av { position: relative; border-radius: 50%; overflow: hidden;
@@ -297,6 +301,7 @@
     // ---- Tìm hội thoại (mọi page) theo query ----
     async function doSearch(query) {
         const seq = ++_searchSeq;
+        _lastQueryDigits = String(query || '').replace(/\D/g, '');
         if (!query || query.length < 2) {
             setList('<div class="w2cro-side-hint">Gõ ≥ 2 ký tự để tìm hội thoại.</div>');
             return;
@@ -479,6 +484,7 @@
     // ---- Mở modal: preload 1 thread theo (pageId, psid) ----
     async function open(opts) {
         opts = opts || {};
+        _onPick = null;
         const ov = ensureEl();
         ov.hidden = false;
         ov.querySelector('.w2cro-modal')?.classList.remove('is-search');
@@ -539,11 +545,14 @@
     // ---- Mở modal ở chế độ TÌM (linh hoạt, không preselect) ----
     function openSearch(opts) {
         opts = opts || {};
+        _onPick = typeof opts.onPick === 'function' ? opts.onPick : null;
         const ov = ensureEl();
         ov.hidden = false;
         ov.querySelector('.w2cro-modal')?.classList.add('is-search');
+        ov.querySelector('.w2cro-modal')?.classList.toggle('has-pick', !!_onPick);
         const title = ov.querySelector('#w2croTitle');
-        if (title) title.textContent = 'Tìm hội thoại khách hàng';
+        if (title)
+            title.textContent = _onPick ? 'Chọn KH từ hội thoại' : 'Tìm hội thoại khách hàng';
         setBody('<div class="w2cro-empty">Tìm KH bên trái rồi chọn hội thoại để xem.</div>');
         const inp = ov.querySelector('#w2croSearch');
         const q = String(opts.query || '').trim();
