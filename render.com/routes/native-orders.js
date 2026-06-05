@@ -202,9 +202,10 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS warehouse_id           INTEGER,
                 ADD COLUMN IF NOT EXISTS reversed_code          VARCHAR(40),
                 ADD COLUMN IF NOT EXISTS print_count            INTEGER NOT NULL DEFAULT 0,
-                -- 2026-06-04: kênh đơn — 'livestream' (drag từ TPOS-Pancake/comment) vs
-                -- 'inbox' (tạo tay từ tab Đơn Inbox). Default livestream cho đơn cũ + from-comment.
-                ADD COLUMN IF NOT EXISTS channel                VARCHAR(20) NOT NULL DEFAULT 'livestream',
+                -- 2026-06-04: kênh đơn — 'web2_livestream' (drag từ TPOS-Pancake/comment)
+                -- vs 'web2_inbox' (tạo tay từ tab Đơn Inbox). Default web2_livestream cho
+                -- đơn cũ + from-comment. (2026-06-05: prefix web2_ — xem migration dưới.)
+                ADD COLUMN IF NOT EXISTS channel                VARCHAR(20) NOT NULL DEFAULT 'web2_livestream',
                 -- 2026-06-04: phương thức giao hàng auto-detect (lưu lại để hiện ở cột địa chỉ).
                 -- value/label từ DeliveryMethodPicker; manual=true khi user chỉnh tay
                 -- → không bị auto-detect ghi đè khi địa chỉ đổi.
@@ -212,6 +213,17 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS delivery_method_label  VARCHAR(255),
                 ADD COLUMN IF NOT EXISTS delivery_method_manual BOOLEAN NOT NULL DEFAULT false;
             CREATE INDEX IF NOT EXISTS idx_native_orders_channel ON native_orders(channel);
+
+            -- 2026-06-05: prefix kênh đơn 'web2_'. Lý do: 'inbox'/'livestream'
+            -- trần dễ nhầm với Pancake filterType 'inbox', icon lucide 'inbox',
+            -- field product-line source 'livestream', hệ thứ 3,… Đổi cho rõ thuộc
+            -- Web 2.0. Idempotent (chạy 1 lần/cold start, sau đó WHERE khớp 0 row).
+            -- Cột channel đã tồn tại từ trước → ALTER default thủ công (ADD COLUMN
+            -- IF NOT EXISTS không đổi default của cột sẵn có).
+            ALTER TABLE native_orders ALTER COLUMN channel SET DEFAULT 'web2_livestream';
+            UPDATE native_orders SET channel = 'web2_inbox' WHERE channel = 'inbox';
+            UPDATE native_orders SET channel = 'web2_livestream'
+                WHERE channel = 'livestream' OR channel IS NULL;
 
             CREATE INDEX IF NOT EXISTS idx_native_orders_live_campaign
                 ON native_orders(live_campaign_id);
@@ -462,7 +474,7 @@ function mapRowToOrder(row) {
         warehouseName: row.warehouse_name,
         reversedCode: row.reversed_code,
         printCount: Number(row.print_count || 0),
-        channel: row.channel || 'livestream', // 2026-06-04: kênh đơn (livestream/inbox)
+        channel: row.channel || 'web2_livestream', // kênh đơn (web2_livestream/web2_inbox)
         // 2026-06-04: phương thức giao hàng auto-detect (hiện ở cột địa chỉ)
         deliveryMethod: row.delivery_method || null,
         deliveryMethodLabel: row.delivery_method_label || null,
@@ -960,7 +972,7 @@ router.post('/from-comment', async (req, res) => {
 
 // -----------------------------------------------------
 // POST /create-manual — tạo đơn TAY từ tab Đơn Inbox (2026-06-04).
-// KHÔNG cần fbUserId. channel='inbox'. Body:
+// KHÔNG cần fbUserId. channel='web2_inbox'. Body:
 //   { customerName, phone, address, products?, note?, createdBy?, createdByName? }
 // Gen code NJ-... như đơn livestream. status='draft' → user thêm SP qua modal sửa.
 // -----------------------------------------------------
@@ -1013,8 +1025,8 @@ router.post('/create-manual', async (req, res) => {
                 created_by, created_by_name, created_at, updated_at
             ) VALUES (
                 $1, 0, nextval('native_orders_display_stt_seq'),
-                (SELECT COALESCE(MAX(campaign_stt), 0) + 1 FROM native_orders WHERE channel = 'inbox'),
-                'NATIVE_WEB', 'inbox',
+                (SELECT COALESCE(MAX(campaign_stt), 0) + 1 FROM native_orders WHERE channel = 'web2_inbox'),
+                'NATIVE_WEB', 'web2_inbox',
                 $2, $3, $4, $5,
                 $6::jsonb, $7, $8,
                 'draft', '[]'::jsonb, $9, $10,
@@ -1377,9 +1389,23 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
             conds.push(`status = $${params.length}`);
         }
         // 2026-06-04: filter kênh đơn (tab Đơn Livestream vs Đơn Inbox).
+        // 2026-06-05: prefix web2_. Backward-compat — chấp nhận cả giá trị legacy
+        // ('livestream'/'inbox') để deploy frontend↔backend KHÔNG cần đúng thứ tự
+        // (frontend gửi web2_* vẫn khớp row cũ chưa migrate). web2_livestream còn
+        // ôm cả channel NULL (đơn rất cũ chưa set kênh).
         if (channel && channel !== 'all') {
-            params.push(channel);
-            conds.push(`channel = $${params.length}`);
+            if (channel === 'web2_inbox' || channel === 'inbox') {
+                params.push('web2_inbox', 'inbox');
+                conds.push(`channel IN ($${params.length - 1}, $${params.length})`);
+            } else if (channel === 'web2_livestream' || channel === 'livestream') {
+                params.push('web2_livestream', 'livestream');
+                conds.push(
+                    `(channel IN ($${params.length - 1}, $${params.length}) OR channel IS NULL)`
+                );
+            } else {
+                params.push(channel);
+                conds.push(`channel = $${params.length}`);
+            }
         }
         if (fbPostId) {
             params.push(fbPostId);
@@ -1845,6 +1871,36 @@ router.post('/:code/confirm', async (req, res) => {
         res.json({ success: true, order, pbhSync });
     } catch (e) {
         console.error('[NATIVE-ORDERS] /confirm error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// POST /api/native-orders/mark-printed   body: { codes: ["NJ-...", ...] }
+// Tăng print_count cho các đơn ĐÃ IN BILL (bill PBH hoặc Phiếu Soạn Hàng) →
+// biết bill in mấy lần, tránh in trùng gây soạn/chuẩn bị hàng lặp. Trả counts mới.
+// (Đặt TRƯỚC /:code/* — path 1 segment, không đụng /:code/confirm…)
+// -----------------------------------------------------
+router.post('/mark-printed', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const codes = Array.isArray(req.body && req.body.codes) ? req.body.codes.filter(Boolean) : [];
+    if (!codes.length) return res.status(400).json({ error: 'codes required' });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(
+            `UPDATE native_orders SET print_count = print_count + 1, updated_at = $1
+             WHERE code = ANY($2::text[]) RETURNING code, print_count`,
+            [Date.now(), codes]
+        );
+        const counts = {};
+        r.rows.forEach((row) => {
+            counts[row.code] = Number(row.print_count || 0);
+        });
+        _notify('print', codes.join(','));
+        res.json({ success: true, counts });
+    } catch (e) {
+        console.error('[NATIVE-ORDERS] /mark-printed error:', e.message);
         res.status(500).json({ error: e.message });
     }
 });

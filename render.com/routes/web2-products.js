@@ -151,6 +151,11 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS pending_qty  INTEGER NOT NULL DEFAULT 0,
                 ADD COLUMN IF NOT EXISTS supplier     VARCHAR(255);
 
+            -- [2026-06-05] print_count: số lần IN TEM mã vạch của SP → biết tem đã
+            -- in mấy lần, tránh in trùng gây soạn/chuẩn bị hàng lặp.
+            ALTER TABLE web2_products
+                ADD COLUMN IF NOT EXISTS print_count  INTEGER NOT NULL DEFAULT 0;
+
             CREATE INDEX IF NOT EXISTS idx_web2_products_status   ON web2_products(status);
             CREATE INDEX IF NOT EXISTS idx_web2_products_supplier ON web2_products(supplier);
 
@@ -272,6 +277,8 @@ function mapRow(row) {
         status: row.status || 'DANG_BAN',
         pendingQty: Number(row.pending_qty) || 0,
         supplier: row.supplier || null,
+        // [2026-06-05] số lần in tem mã vạch
+        printCount: Number(row.print_count) || 0,
     };
 }
 
@@ -857,6 +864,35 @@ router.post('/adjust-stock', async (req, res) => {
         res.status(500).json({ error: e.message });
     } finally {
         client.release();
+    }
+});
+
+// -----------------------------------------------------
+// POST /api/web2/products/mark-printed   body: { codes: ["KHO-...", ...] }
+// Tăng print_count khi IN TEM mã vạch SP → biết tem in mấy lần, tránh in trùng.
+// Trả counts mới { code: printCount }.
+// -----------------------------------------------------
+router.post('/mark-printed', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const codes = Array.isArray(req.body && req.body.codes) ? req.body.codes.filter(Boolean) : [];
+    if (!codes.length) return res.status(400).json({ error: 'codes required' });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(
+            `UPDATE web2_products SET print_count = print_count + 1, updated_at = $1
+             WHERE code = ANY($2::text[]) RETURNING code, print_count`,
+            [Date.now(), codes]
+        );
+        const counts = {};
+        r.rows.forEach((row) => {
+            counts[row.code] = Number(row.print_count || 0);
+        });
+        if (r.rows.length) _notify('mark-printed', null);
+        res.json({ success: true, counts });
+    } catch (e) {
+        console.error('[WEB2-PRODUCTS] /mark-printed error:', e.message);
+        res.status(500).json({ error: e.message });
     }
 });
 

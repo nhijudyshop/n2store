@@ -127,6 +127,32 @@
         },
 
         /**
+         * Tăng print_count (số lần in bill) cho các đơn → tránh in trùng.
+         * @param {string[]} codes
+         * @returns {Promise<{success, counts:{[code]:number}}>}
+         */
+        async markPrinted(codes) {
+            const arr = (Array.isArray(codes) ? codes : [codes]).filter(Boolean);
+            if (!arr.length) return { success: false };
+            return _fetchJson(`${BASE}/mark-printed`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codes: arr }),
+            });
+        },
+
+        /** Tăng print_count (số lần in tem) cho các SP → tránh in tem trùng. */
+        async markProductsPrinted(codes) {
+            const arr = (Array.isArray(codes) ? codes : [codes]).filter(Boolean);
+            if (!arr.length) return { success: false };
+            return _fetchJson(`${PRODUCTS_BASE}/mark-printed`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codes: arr }),
+            });
+        },
+
+        /**
          * Sprint 3 KPI: lấy visibility scope của user hiện tại.
          * @returns {Promise<{success, user, scope, access:'all'|'restricted'}>}
          */

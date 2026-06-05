@@ -61,8 +61,10 @@
         page: 1,
         limit: 200,
         status: 'all',
-        // 2026-06-04: tab kênh đơn — 'livestream' (mặc định) | 'inbox'.
-        channel: 'livestream',
+        // 2026-06-04: tab kênh đơn — 'web2_livestream' (mặc định) | 'web2_inbox'.
+        // (2026-06-05: prefix web2_ — 'inbox'/'livestream' trần dễ nhầm Pancake/
+        // icon/field source/hệ khác. Phải khớp data-channel ở index.html.)
+        channel: 'web2_livestream',
         search: '',
         editingCode: null,
         loading: false,
@@ -1006,6 +1008,13 @@
                 `<span class="no-ck-badge${confirmed ? ' ck-confirmed' : ''}" title="KH báo đã chuyển khoản (${escapeHtml(o.ckSignal.keyword || '')}${confirmed ? ' — đã xác nhận' : ' — chờ duyệt'}). Đối soát tiền vẫn qua SePay.">💸 KH báo đã CK</span>`
             );
         }
+        // [2026-06-05] Số lần in bill — cảnh báo tránh in trùng (soạn hàng lặp).
+        const pc = Number(o.printCount) || 0;
+        if (pc > 0) {
+            out.push(
+                `<span class="no-print-badge" title="Bill/Phiếu soạn hàng đã in ${pc} lần — tránh in lại gây soạn hàng trùng" style="display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">🖨 Đã in ${pc}×</span>`
+            );
+        }
         return out.length ? `<div class="no-derived-badges">${out.join('')}</div>` : '';
     }
 
@@ -1436,7 +1445,7 @@
         // Số dư ví KH cho row có SĐT (chỉ hiện khi > 0).
         window.Web2WalletBalance?.attachBalances?.(tb);
         // Tab Inbox: đơn chưa có fb_id → resolve avatar theo SĐT (chạy nền).
-        if (STATE.channel === 'inbox') {
+        if (STATE.channel === 'web2_inbox') {
             setTimeout(() => _hydrateInboxAvatars(), 0);
         }
     }
@@ -2832,7 +2841,7 @@
     // In bill thermal 80mm cho các đơn được chọn (tạo PBH-shape object trong RAM,
     // không lưu DB — dùng Web2Bill template). Hữu ích preview trước khi tạo PBH.
     // 2026-06-04: Thêm đơn Inbox — nhập KH (tìm từ kho web2 → autofill tên/SĐT/địa
-    // chỉ), tạo đơn channel='inbox'.
+    // chỉ), tạo đơn channel='web2_inbox'.
     // 2026-06-05: picker SP inline (giỏ ngay trong modal, KHÔNG bắt buộc) + bind
     // fbId từ KH để avatar/hội thoại Pancake hoạt động (xem create-manual backend).
     async function openAddInboxOrder() {
@@ -3190,11 +3199,30 @@
         };
 
         // In bill PBH cho đơn đã xác nhận (gộp 1 lần).
+        // Ghi số lần in (print_count) → tránh in trùng. Bump local + re-render
+        // badge. Lỗi mạng → bỏ qua (không chặn in).
+        const markPrinted = (codes) => {
+            const arr = (Array.isArray(codes) ? codes : [codes]).filter(Boolean);
+            if (!arr.length || !window.NativeOrdersApi?.markPrinted) return;
+            window.NativeOrdersApi.markPrinted(arr)
+                .then((r) => {
+                    const counts = (r && r.counts) || {};
+                    arr.forEach((c) => {
+                        const o = STATE.orders.find((x) => x.code === c);
+                        if (o)
+                            o.printCount = counts[c] != null ? counts[c] : (o.printCount || 0) + 1;
+                    });
+                    renderRows();
+                })
+                .catch(() => {});
+        };
+
         const printConfirmedBills = () => {
             if (!others.length) return;
             const pbhs = others.map(buildPbhShape);
             if (pbhs.length === 1) window.Web2Bill.openPrint(pbhs[0]);
             else window.Web2Bill.openCombinedPrint(pbhs);
+            markPrinted(others.map((o) => o.code));
             notify(`Đang in ${pbhs.length} bill PBH...`, 'info');
         };
 
@@ -3216,6 +3244,7 @@
                 window.NativeOrdersPackingSlip.open(o, {
                     sttDisplay: computeOrderStt(o),
                     onClose: openNext,
+                    onPrint: (od) => markPrinted([od.code]),
                 });
             };
             openNext();
@@ -3980,7 +4009,7 @@
             tab.classList.add('is-active');
             STATE.channel = tab.dataset.channel;
             const addBtn = $('#btnAddInboxOrder');
-            if (addBtn) addBtn.style.display = STATE.channel === 'inbox' ? '' : 'none';
+            if (addBtn) addBtn.style.display = STATE.channel === 'web2_inbox' ? '' : 'none';
             STATE.page = 1;
             load();
         });
@@ -4964,7 +4993,7 @@
     // mở chat tức thì. Chạy nền (không chặn render). Chỉ chạy ở tab Inbox.
     let _inboxAvatarHydrating = false;
     async function _hydrateInboxAvatars() {
-        if (STATE.channel !== 'inbox' || _inboxAvatarHydrating) return;
+        if (STATE.channel !== 'web2_inbox' || _inboxAvatarHydrating) return;
         const tb = tbody();
         if (!tb) return;
         const wraps = [...tb.querySelectorAll('.tpos-customer-avatar-wrap')].filter(

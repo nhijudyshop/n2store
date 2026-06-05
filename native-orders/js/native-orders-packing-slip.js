@@ -20,6 +20,7 @@
     let _products = [];
     let _stt = '';
     let _onClose = null;
+    let _onPrint = null;
 
     function _esc(s) {
         return String(s == null ? '' : s)
@@ -261,6 +262,14 @@ th { border: 1px solid #000; padding: 4px 3px; text-align: center; background: #
         if (typeof win.requestAnimationFrame === 'function')
             win.requestAnimationFrame(() => win.requestAnimationFrame(go));
         else setTimeout(go, 60);
+        // Ghi số lần in (onPrint) — đơn này đã in Phiếu Soạn Hàng.
+        if (_onPrint) {
+            try {
+                _onPrint(_order);
+            } catch (e) {
+                /* noop */
+            }
+        }
         close();
     }
 
@@ -280,6 +289,8 @@ th { border: 1px solid #000; padding: 4px 3px; text-align: center; background: #
         // onClose: fire 1 lần khi modal đóng (hủy/in xong) → dùng để xếp hàng in
         // nhiều đơn nháp tuần tự (chọn mix trạng thái).
         _onClose = typeof opts.onClose === 'function' ? opts.onClose : null;
+        // onPrint(order): fire khi bấm IN → ghi số lần in.
+        _onPrint = typeof opts.onPrint === 'function' ? opts.onPrint : null;
         _ensureModal();
         const staff = _seller(order);
         _modal.querySelector('#noPsHeader').innerHTML = `

@@ -556,7 +556,27 @@
     }
 
     // ---------- Label HTML generator — exact TPOS mirror ----------
+    // [2026-06-05] Ghi số lần in tem (print_count) cho SP → tránh in tem trùng.
+    // 1 lần in = +1 cho mỗi mã SP (unique), không tính theo số tem. Lỗi → bỏ qua.
+    function _markProductsPrinted(items) {
+        try {
+            const codes = [...new Set((items || []).map((it) => it.code).filter(Boolean))];
+            if (!codes.length) return;
+            const base =
+                (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+                'https://chatomni-proxy.nhijudyshop.workers.dev';
+            fetch(base + '/api/web2-products/mark-printed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codes }),
+            }).catch(() => {});
+        } catch (e) {
+            /* noop */
+        }
+    }
+
     function generateAndPrint(items, paper, printType, opts) {
+        _markProductsPrinted(items);
         const labels = [];
         for (const item of items) {
             for (let i = 0; i < item.quantity; i++) {
