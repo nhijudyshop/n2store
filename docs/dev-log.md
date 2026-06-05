@@ -25,6 +25,18 @@
 
 ## 2026-06-05
 
+### [web2] In tem TSPL cho máy in tem chuyên dụng (XP-470B) ✅
+
+User xác nhận máy 2 tem là **Xprinter XP-470B**. Research (web/GitHub) → máy tem chuyên dụng nói **TSPL/EPL/ZPL, KHÔNG nói ESC/POS** → path raster GS v 0 không in được. Thêm path TSPL.
+
+- **`tsplFromHtmlPhysical(html, {ss, gapMm})`** trong `web2-printer.js`: render HTML tem → canvas (vật-lý-mm 8 chấm/mm) → mỗi `.barcode-sheet` (66×21mm chứa 2 con tem) thành 1 lệnh `CLS + BITMAP + PRINT 1,1`. Header `SIZE 66 mm,21 mm` + `GAP <g> mm,0` + `DIRECTION 1` + `REFERENCE 0,0` + `DENSITY 10`. BITMAP 1bpp NGƯỢC ESC/POS (bit 1=trắng, 0=đen).
+- **`_canvasToTsplBitmap`**: cùng supersample logic (inkLum 165, coverage 0.2, giữ nét) nhưng pack inverted cho TSPL.
+- **Routing**: `printHtml('label')` → `_isLabelLang(printer)` (khổ 'label' → TSPL mặc định; override `printer.lang`) → TSPL; else raster vật-lý ESC/POS. Bridge là **TCP relay thuần** nên gửi raw TSPL bytes không cần sửa bridge.
+- **Cấu hình máy in**: thêm field **"Khoảng cách giữa 2 tem (gap mm)"** (chỉ hiện khi khổ = Tem nhãn), default 2mm. Lưu `gapMm` + `lang` vào printer data.
+- **Verified** (Playwright localhost): TSPL sinh đúng — `SIZE 66 mm,21 mm`, `GAP 2 mm,0 mm`, `BITMAP 0,0,66,168,0,...` (66 bytes/dòng = 528 chấm = 66mm, cao 168 chấm = 21mm), `PRINT 1,1`. totalLen 11199 bytes.
+- **Files**: `web2-printer.js` (v=20260604g), `printer-settings/index.html` + 3 trang bump version.
+- **Next**: user gán máy XP-470B cho role "In tem" + chạy bridge + in thử. Chỉnh gap nếu nhảy tem (2→3mm).
+
 ### [orders][chat] Fix: Gửi tin nhắn hàng loạt báo "(Chưa có sản phẩm)" cho đơn nhiều SP ✅
 
 **Bug**: Đơn khách nhiều sản phẩm, khi "Gửi tin nhắn hàng loạt" (template "Chốt đơn" có `{order.details}`) → tin nhắn ra **"(Chưa có sản phẩm)"** dù bảng vẫn hiện đủ SP.
@@ -32,6 +44,7 @@
 **Nguyên nhân** (trace `orders-report/js/chat/message-template-manager.js`): `_prefetchViaExcel` xuất 1 file Excel TPOS rồi regex tách SP từ cột "Sản phẩm". Đơn nào parse ra **rỗng** vẫn bị `_orderDetailsCache.set(orderId, {Details:[]})`. Sau đó `_processSingleOrder`/`_buildExtensionQueueForAll` chỉ gọi `window.getOrderDetails` (OData `$expand=Details` — nguồn chuẩn mà BẢNG đang tin) khi `!fullOrder`. Cache rỗng làm `fullOrder` truthy → **bỏ qua OData** → fallback OrderStore (list không có Details) → `products:[]` → "(Chưa có sản phẩm)".
 
 **Fix (Cách 1 — giữ Excel + self-heal)**:
+
 1. **Change1** `_prefetchViaExcel`: `if (!details.length) continue;` — KHÔNG cache đơn parse 0 SP → cache miss → để `getOrderDetails` xử lý.
 2. **Change2** Thêm helper dùng chung `_resolveOrderData(order)` (gộp 2 block lặp y hệt ở `_processSingleOrder` + `_buildExtensionQueueForAll`): đổi điều kiện từ `if (!fullOrder ...)` → `if ((!fullOrder || !fullOrder.Details?.length) ...)` để **luôn refetch OData khi cache không có Details dùng được**, + self-heal 1 lần nữa nếu `_convertOrderData` trả products rỗng.
 3. **Change3** `_convertOrderData`: giữ `.filter(!IsHeld)` (đúng thiết kế — hàng giữ không vào tin nhắn khách), thêm `console.warn` khi có Details nhưng tất cả IsHeld (soi edge-case hiếm).
