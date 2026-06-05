@@ -25,6 +25,15 @@
 
 ## 2026-06-05
 
+### [web2 bill] Đơn kênh INBOX → tiêu đề "PBH INBOX" / "PBH SHOP INBOX" ✅
+
+User: đơn Inbox → PBH/PBH SHOP thì bill ghi "PBH INBOX" / "PBH SHOP INBOX" (phân biệt Livestream).
+
+- `web2-bill-service.js generateHTML`: `isInbox = /inbox/i.test(pbh.channel)` (channel='web2_inbox'/'web2_livestream') | `opts.isInbox` → `_buildBillBody`.
+- Title: shop→"PBH SHOP"; thường→"Phiếu Bán Hàng" (live) / "PBH" (inbox); +" INBOX" nếu inbox → 4 combo: `Phiếu Bán Hàng` / `PBH SHOP` / `PBH INBOX` / `PBH SHOP INBOX`.
+- `bulkPrintBills` buildPbhShape thêm `channel: o.channel`. Verified Playwright 4 combo đúng.
+- Files: `web2-bill-service.js` (v=20260605u2), `native-orders-app.js` (v=20260605x4).
+
 ### [render][web2] Unread reconcile — fix row "chưa đọc" kẹt sau khi đã đọc trên Pancake ✅
 
 User: đọc tin Nguyễn Tâm trên Pancake nhưng tab "Tin nhắn chưa đọc" vẫn còn.
