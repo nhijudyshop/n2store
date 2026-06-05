@@ -25,6 +25,15 @@
 
 ## 2026-06-05
 
+### [web2] Balance-history: row CHƯA GÁN KH cũng có nút 💬 (mở tìm rỗng) ✅
+
+User: giao dịch chưa gán KH cũng hiện nút chat (hình 2) nhưng click không search sẵn.
+
+- Render nút `data-action="chat"` cho cả row chưa gán (no-phone, non-NCC) với `data-phone=""`.
+- `openChatForPhone`: không có phone → `Web2ChatReadonly.openSearch({})` mở chế độ tìm RỖNG (user tự gõ ≥2 ký tự).
+- Browser-tested: 34 nút chat empty-phone trên NO_PHONE filter; click → modal search rỗng (0 kết quả, hint).
+- **Files:** `web2/balance-history/js/web2-balance-history-app.js` (v=20260604d), `index.html`
+
 ### [web2] In tem TSPL cho máy in tem chuyên dụng (XP-470B) ✅
 
 User xác nhận máy 2 tem là **Xprinter XP-470B**. Research (web/GitHub) → máy tem chuyên dụng nói **TSPL/EPL/ZPL, KHÔNG nói ESC/POS** → path raster GS v 0 không in được. Thêm path TSPL.
