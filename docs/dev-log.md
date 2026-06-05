@@ -25,6 +25,18 @@
 
 ## 2026-06-05
 
+### [render][tpos-pancake] Enrich SĐT/địa chỉ comment TPOS từ kho khách hàng (theo fb_id)
+
+**Vấn đề**: Row 3 (SĐT/địa chỉ) ở mỗi dòng comment panel TPOS chỉ lấy từ **TPOS Partner cache** (`chatomni/info` → `partner.Phone`/`partner.Street`). Khách MỚI comment chưa là Partner CRM → row trống, dù khách đó có thể đã có sẵn trong **kho khách hàng** (Web 1.0 `customers`) từ đơn cũ/inbox. Fallback cũ (`tpos-partner-fallback.js`) chỉ chạy SAU khi staff tự gõ SĐT.
+
+**Giải pháp** (chốt với user: _TPOS trước, kho KH lấp chỗ trống_ + _batch endpoint_):
+
+- **Backend**: mở rộng `POST /api/v2/customers/batch` nhận thêm `fb_ids` (cạnh `phones`/`ids`) → 1 query `WHERE c.fb_id = ANY($1)`, map keyed theo fb_id (trả phone/address/status). Backward-compatible — nhánh phones/ids giữ nguyên. `render.com/routes/v2/customers.js`.
+- **Frontend**: `tpos-kho-enricher.js` (mới) — wrap `renderComments`, scan comment có fb_id mà partnerCache thiếu Phone + chưa hỏi kho → debounce 600ms → batch POST (cap 200) → fill `state.customerKhoCache` (Map riêng, KHÔNG đụng partnerCache nên không phá `savePartnerData`). `renderCommentItem` đọc fallback `partner.Phone || kho.phone`. `set` `attempted` chống loop khi miss.
+- Layering OK: gọi **API** Web 1.0 (không đọc DB trực tiếp) — đúng rule 5b; trang đã gọi `/api/v2/customers/*` sẵn.
+
+Files: `render.com/routes/v2/customers.js`, `tpos-pancake/js/tpos/{tpos-kho-enricher.js,tpos-state.js,tpos-comment-list.js}`, `tpos-pancake/index.html`. Status: ✅ code xong, chờ Render auto-deploy để fb_ids live (frontend handle 400 gracefully tới lúc đó).
+
 ### [inbox] FIX verify lưu thẳng Render (worker route nhầm sang TPOS) — VERIFIED LIVE ✅
 
 **Bug**: đánh dấu kiểm tra + lịch sử không lưu Render (Incognito/máy khác trống). `GET /api/social-kpi-verify/load` trả **trang 404 của TPOS.VN** → Cloudflare Worker route path mới **sang TPOS** vì chưa có trong allowlist Render (`cloudflare-worker/modules/config/routes.js` + `worker.js` dispatch chỉ route 1 danh sách `/api/*` cố định về Render).

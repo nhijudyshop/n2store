@@ -37,6 +37,11 @@ const TposState = {
     partnerCache: new SharedCache({ maxSize: 2000, ttl: 10 * 60 * 1000, name: 'TposPartner' }),
     partnerFetchPromises: new Map(),
 
+    // Kho khách hàng (Web 1.0 Render DB) enrich cache: FB user id -> { phone, address, name, status }.
+    // CHỈ dùng LẤP CHỖ TRỐNG khi partnerCache (TPOS) không có Phone/Street — không ghi đè TPOS.
+    // Tách riêng partnerCache để không phá luồng save (savePartnerData cần partner.Id của TPOS).
+    customerKhoCache: new Map(),
+
     // Debt display settings
     showDebt: true,
     showZeroDebt: false,

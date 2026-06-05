@@ -1551,14 +1551,23 @@ router.post('/', async (req, res) => {
  */
 router.post('/batch', async (req, res) => {
     const db = req.app.locals.chatDb;
-    const { phones, ids } = req.body;
+    const { phones, ids, fb_ids } = req.body;
 
-    if ((!phones || !Array.isArray(phones)) && (!ids || !Array.isArray(ids))) {
-        return res.status(400).json({ success: false, error: 'phones or ids array is required' });
+    if (
+        (!phones || !Array.isArray(phones)) &&
+        (!ids || !Array.isArray(ids)) &&
+        (!fb_ids || !Array.isArray(fb_ids))
+    ) {
+        return res
+            .status(400)
+            .json({ success: false, error: 'phones, ids or fb_ids array is required' });
     }
 
     try {
         let result;
+        // Match-by precedence: phones → ids → fb_ids. `keyField` controls how the
+        // response map is keyed so callers can index by what they queried with.
+        let keyField = 'phone';
         if (phones && phones.length > 0) {
             const normalizedPhones = phones.map(normalizePhone).filter(Boolean);
             result = await db.query(
@@ -1570,7 +1579,8 @@ router.post('/batch', async (req, res) => {
             `,
                 [normalizedPhones]
             );
-        } else {
+        } else if (ids && ids.length > 0) {
+            keyField = 'id';
             result = await db.query(
                 `
                 SELECT c.*, w.balance as wallet_balance, w.virtual_balance as wallet_virtual_balance
@@ -1580,11 +1590,26 @@ router.post('/batch', async (req, res) => {
             `,
                 [ids.map((id) => parseInt(id))]
             );
+        } else {
+            // fb_ids — used by tpos-pancake comment list to auto-fill phone/address
+            // from kho khách hàng (Web 1.0) when TPOS Partner has no contact info.
+            keyField = 'fb_id';
+            const cappedFbIds = fb_ids.map((x) => String(x || '').trim()).filter(Boolean);
+            result = await db.query(
+                `
+                SELECT c.*, w.balance as wallet_balance, w.virtual_balance as wallet_virtual_balance
+                FROM customers c
+                LEFT JOIN customer_wallets w ON c.id = w.customer_id
+                WHERE c.fb_id = ANY($1)
+            `,
+                [cappedFbIds]
+            );
         }
 
         const customerMap = {};
         result.rows.forEach((row) => {
-            const key = phones ? row.phone : row.id;
+            const key = row[keyField];
+            if (key === null || key === undefined) return;
             customerMap[key] = {
                 ...row,
                 wallet: {
@@ -1597,11 +1622,12 @@ router.post('/batch', async (req, res) => {
             };
         });
 
+        const total = phones ? phones.length : ids ? ids.length : fb_ids.length;
         res.json({
             success: true,
             data: customerMap,
             found: result.rows.length,
-            total: phones ? phones.length : ids.length,
+            total,
         });
     } catch (error) {
         handleError(res, error, 'Failed to batch lookup customers');

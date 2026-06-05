@@ -432,8 +432,11 @@ const TposCommentList = {
         const statusText = partner.StatusText || '';
         const statusColor = this.getStatusColor(statusText);
         const statusBg = statusColor ? `${statusColor}18` : '';
-        const phone = partner.Phone || '';
-        const address = partner.Street || '';
+        // SĐT/địa chỉ: TPOS Partner trước, lấp chỗ trống bằng kho khách hàng (Web 1.0)
+        // qua TposKhoEnricher (lookup theo fb_id). Không ghi đè data TPOS đã có.
+        const kho = state.customerKhoCache?.get(fromId);
+        const phone = partner.Phone || kho?.phone || '';
+        const address = partner.Street || kho?.address || '';
 
         // Debt via shared debt manager
         const debt = window.sharedDebtManager ? window.sharedDebtManager.getDebt(phone) : null;
