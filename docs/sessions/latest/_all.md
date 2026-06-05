@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4296bb2` — feat(web2-pending): nut chat moi card + goi y ten KH tu Pancake theo SDT
-**Last updated**: 2026-06-05 10:13:22 +07
-**Latest session**: [`RESUME:20260605-101322-4296bb2`](../20260605-101322-4296bb2.md)
-**Summary**: feat(web2-pending): nut chat moi card + goi y ten KH tu Pancake theo SDT
+**Latest commit**: `06a60d8` — docs(dev-log): redesign bill HTML/CSS
+**Last updated**: 2026-06-05 10:14:20 +07
+**Latest session**: [`RESUME:20260605-101420-06a60d8`](../20260605-101420-06a60d8.md)
+**Summary**: docs(dev-log): redesign bill HTML/CSS
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 7 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-05 10:13
+- [`docs/`](./docs.md) — updated 2026-06-05 10:14
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 10:00
 - [`downloads/`](./downloads.md) — updated 2026-06-04 15:58
