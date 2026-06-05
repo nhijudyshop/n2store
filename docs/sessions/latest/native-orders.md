@@ -3,10 +3,10 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260605-105818-b6c9360`
-**Session file**: [`./20260605-105818-b6c9360.md`](../20260605-105818-b6c9360.md)
-**Commit**: `b6c9360` — auto: session update
-**Last updated**: 2026-06-05 10:58:18 +07
+**Latest session**: `RESUME:20260605-115107-91e84e9`
+**Session file**: [`./20260605-115107-91e84e9.md`](../20260605-115107-91e84e9.md)
+**Commit**: `91e84e9` — auto: session update
+**Last updated**: 2026-06-05 11:51:07 +07
 **Summary**: auto: session update
 
 ## Files changed in this commit (`native-orders/`)
@@ -15,11 +15,11 @@
 
 ## Last 5 commits touching `native-orders/`
 
+- `e48a7e7cf` fix(web2-msg-send): mount /api/web2/msg-send (CF worker forward /api/web2/\*) thay /api/web2-msg-send (chua trong allowlist -> roi ve TPOS 404) _(2026-06-05)_
+- `a6f0e3e7d` feat(native-orders): gửi tin nhắn template qua JOB server-side đa-account Pancake + extension fallback (refresh-safe, SSE progress) _(2026-06-05)_
 - `b6c9360b3` auto: session update _(2026-06-05)_
 - `17f8f4cf0` feat(web2 bill): SP hang 1 = ten day du, hang 2 = SL/DON GIA/T.TIEN canh cot duoi header _(2026-06-05)_
 - `b0d10735f` auto: session update _(2026-06-05)_
-- `47c0d995f` feat(web2 bill): redesign bill HTML/CSS thay ReceiptLine - khung COD + khung ma vach + duong trang tri (dashed/solid/double) + gon dep, in qua raster vat-ly 72mm->576cham _(2026-06-05)_
-- `09393c923` feat(web2 print): TSPL cho may in tem chuyen dung (XP-470B/TSC/Godex) - sinh SIZE/GAP/BITMAP/PRINT tu canvas gui raw qua bridge + field gap mm trong cau hinh _(2026-06-05)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260605-105818-b6c9360` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260605-115107-91e84e9` cho Claude walk chain theo CLAUDE.md protocol.
