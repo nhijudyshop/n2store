@@ -2828,12 +2828,14 @@
     // In bill thermal 80mm cho các đơn được chọn (tạo PBH-shape object trong RAM,
     // không lưu DB — dùng Web2Bill template). Hữu ích preview trước khi tạo PBH.
     // 2026-06-04: Thêm đơn Inbox — nhập KH (tìm từ kho web2 → autofill tên/SĐT/địa
-    // chỉ), tạo đơn channel='inbox' rồi mở modal sửa để thêm SP (tái dùng openEdit).
+    // chỉ), tạo đơn channel='inbox'.
+    // 2026-06-05: picker SP inline (giỏ ngay trong modal, KHÔNG bắt buộc) + bind
+    // fbId từ KH để avatar/hội thoại Pancake hoạt động (xem create-manual backend).
     async function openAddInboxOrder() {
         const overlay = document.createElement('div');
         overlay.className = 'no-add-modal-overlay';
         overlay.innerHTML = `
-          <div class="no-add-modal">
+          <div class="no-add-modal no-add-modal--wide">
             <div class="no-add-modal-head">
               <strong><i data-lucide="inbox"></i> Thêm đơn Inbox</strong>
               <button class="no-add-close" type="button" aria-label="Đóng">✕</button>
@@ -2841,7 +2843,7 @@
             <div class="no-add-modal-body">
               <label>Khách hàng (gõ tên / SĐT — lấy từ kho KH)</label>
               <div class="no-add-search-wrap">
-                <input type="text" id="noAddCustSearch" placeholder="Gõ tên hoặc SĐT để tìm khách..." autocomplete="off" />
+                <input type="text" id="noAddCustSearch" placeholder="Gõ tên hoặc SĐT để tìm khách (không dấu vẫn nhận)..." autocomplete="off" />
                 <div class="no-add-suggest" id="noAddSuggest" hidden></div>
               </div>
               <div class="no-add-row">
@@ -2850,15 +2852,27 @@
               </div>
               <label>Địa chỉ</label>
               <input type="text" id="noAddAddress" />
+
+              <div class="no-add-prod-section">
+                <label>Sản phẩm vào giỏ <span class="no-add-prod-hint">(tuỳ chọn — tạo đơn trống cũng được)</span></label>
+                <div class="no-add-search-wrap">
+                  <input type="text" id="noAddProdSearch" placeholder="Tìm SP theo mã / tên để thêm vào giỏ..." autocomplete="off" />
+                  <div class="no-add-suggest" id="noAddProdSuggest" hidden></div>
+                </div>
+                <div class="no-add-cart" id="noAddCart"></div>
+              </div>
             </div>
             <div class="no-add-modal-foot">
+              <span class="no-add-cart-total" id="noAddCartTotal"></span>
               <button class="no-add-cancel" type="button">Huỷ</button>
-              <button class="no-add-create" type="button"><i data-lucide="check"></i> Tạo đơn + thêm SP</button>
+              <button class="no-add-create" type="button"><i data-lucide="check"></i> <span class="no-add-create-label">Tạo đơn</span></button>
             </div>
           </div>`;
         document.body.appendChild(overlay);
         if (window.lucide) lucide.createIcons();
         let selectedCustomerId = null;
+        let selectedFbId = null;
+        const cart = []; // [{productCode,name,price,quantity,total,imageUrl}]
         const close = () => overlay.remove();
         overlay.querySelector('.no-add-close').onclick = close;
         overlay.querySelector('.no-add-cancel').onclick = close;
@@ -2866,6 +2880,7 @@
             if (e.target === overlay) close();
         });
 
+        // ---- Customer search ----
         const searchInp = overlay.querySelector('#noAddCustSearch');
         const suggest = overlay.querySelector('#noAddSuggest');
         let timer = null;
@@ -2893,7 +2908,7 @@
                     suggest.innerHTML = rows
                         .map(
                             (c) =>
-                                `<button type="button" class="no-add-suggest-item" data-id="${c.id || ''}" data-name="${escapeHtml(c.name || '')}" data-phone="${escapeHtml(c.phone || '')}" data-address="${escapeHtml(c.address || '')}"><strong>${escapeHtml(c.name || '—')}</strong> · ${escapeHtml(c.phone || '')}<div class="no-add-suggest-addr">${escapeHtml(c.address || '')}</div></button>`
+                                `<button type="button" class="no-add-suggest-item" data-id="${c.id || ''}" data-fbid="${escapeHtml(c.fbId || '')}" data-name="${escapeHtml(c.name || '')}" data-phone="${escapeHtml(c.phone || '')}" data-address="${escapeHtml(c.address || '')}"><strong>${escapeHtml(c.name || '—')}</strong> · ${escapeHtml(c.phone || '')}<div class="no-add-suggest-addr">${escapeHtml(c.address || '')}</div></button>`
                         )
                         .join('');
                     suggest.hidden = false;
@@ -2909,8 +2924,167 @@
             overlay.querySelector('#noAddPhone').value = item.dataset.phone || '';
             overlay.querySelector('#noAddAddress').value = item.dataset.address || '';
             selectedCustomerId = item.dataset.id || null;
+            selectedFbId = item.dataset.fbid || null;
             suggest.hidden = true;
             searchInp.value = item.dataset.name || item.dataset.phone || '';
+        });
+
+        // ---- Product picker (inline cart) ----
+        const prodInp = overlay.querySelector('#noAddProdSearch');
+        const prodSuggest = overlay.querySelector('#noAddProdSuggest');
+        const cartEl = overlay.querySelector('#noAddCart');
+        const totalEl = overlay.querySelector('#noAddCartTotal');
+        const createLabel = overlay.querySelector('.no-add-create-label');
+        let prodCache = null; // lazy-loaded full product list
+
+        const renderCart = () => {
+            if (!cart.length) {
+                cartEl.innerHTML =
+                    '<div class="no-add-cart-empty">Chưa có SP — tạo đơn trống cũng được.</div>';
+            } else {
+                cartEl.innerHTML = cart
+                    .map(
+                        (l, i) => `
+                        <div class="no-add-cart-row" data-i="${i}">
+                            <div class="no-add-cart-info">
+                                <div class="no-add-cart-name">${escapeHtml(l.name)}</div>
+                                <div class="no-add-cart-code">${escapeHtml(l.productCode)} · ${(l.price || 0).toLocaleString('vi-VN')}đ</div>
+                            </div>
+                            <input type="number" class="no-add-cart-qty" min="1" value="${l.quantity}" data-i="${i}" />
+                            <div class="no-add-cart-line-total">${(l.total || 0).toLocaleString('vi-VN')}đ</div>
+                            <button type="button" class="no-add-cart-rm" data-i="${i}" title="Xoá">✕</button>
+                        </div>`
+                    )
+                    .join('');
+            }
+            const totalQty = cart.reduce((s, l) => s + (Number(l.quantity) || 0), 0);
+            const totalAmt = cart.reduce((s, l) => s + (Number(l.total) || 0), 0);
+            totalEl.textContent = cart.length
+                ? `${totalQty} SP · ${totalAmt.toLocaleString('vi-VN')}đ`
+                : '';
+            createLabel.textContent = cart.length ? `Tạo đơn (${totalQty} SP)` : 'Tạo đơn';
+        };
+        renderCart();
+
+        const addToCart = (p) => {
+            const existing = cart.find((l) => l.productCode === p.code);
+            if (existing) {
+                existing.quantity = (Number(existing.quantity) || 0) + 1;
+                existing.total = existing.quantity * existing.price;
+            } else {
+                const userInfo = window.Web2UserInfo?.get('native-orders') || {};
+                cart.push({
+                    productCode: p.code,
+                    name: p.name || p.code,
+                    price: Number(p.price) || 0,
+                    quantity: 1,
+                    total: Number(p.price) || 0,
+                    imageUrl: p.imageUrl || null,
+                    note: '',
+                    source: 'native',
+                    addedBy: userInfo.userName || null,
+                    addedById: userInfo.userId || null,
+                });
+            }
+            renderCart();
+        };
+
+        const renderProdResults = (q) => {
+            if (prodCache === null) {
+                prodSuggest.innerHTML = '<div class="no-add-suggest-empty">Đang tải kho SP…</div>';
+                prodSuggest.hidden = false;
+                return;
+            }
+            const qn = stripVi(q);
+            const filtered = qn
+                ? prodCache.filter(
+                      (p) => stripVi(p.code).includes(qn) || stripVi(p.name).includes(qn)
+                  )
+                : prodCache;
+            const items = filtered.slice(0, 12);
+            if (!items.length) {
+                prodSuggest.innerHTML =
+                    '<div class="no-add-suggest-empty">Không tìm thấy SP khớp.</div>';
+                prodSuggest.hidden = false;
+                return;
+            }
+            prodSuggest.innerHTML = items
+                .map(
+                    (p) =>
+                        `<button type="button" class="no-add-suggest-item no-add-prod-item" data-code="${escapeHtml(p.code)}"><strong>${escapeHtml(p.name || p.code)}</strong> · ${(p.price || 0).toLocaleString('vi-VN')}đ<div class="no-add-suggest-addr">Mã: ${escapeHtml(p.code)}</div></button>`
+                )
+                .join('');
+            prodSuggest.hidden = false;
+        };
+
+        const ensureProdCache = async () => {
+            if (prodCache !== null) return;
+            try {
+                const resp = await window.NativeOrdersApi.searchProducts({
+                    search: '',
+                    limit: 1000,
+                });
+                prodCache = resp.products || [];
+            } catch (e) {
+                console.warn('[inbox-add] product cache load failed:', e.message);
+                prodCache = [];
+            }
+        };
+
+        let prodTimer = null;
+        prodInp.addEventListener('focus', async () => {
+            await ensureProdCache();
+            if (prodInp.value.trim().length >= 1) renderProdResults(prodInp.value.trim());
+        });
+        prodInp.addEventListener('input', () => {
+            clearTimeout(prodTimer);
+            const q = prodInp.value.trim();
+            if (!q) {
+                prodSuggest.hidden = true;
+                return;
+            }
+            prodTimer = setTimeout(async () => {
+                await ensureProdCache();
+                renderProdResults(q);
+            }, 200);
+        });
+        prodSuggest.addEventListener('click', (e) => {
+            const item = e.target.closest('.no-add-prod-item');
+            if (!item) return;
+            const code = item.dataset.code;
+            const p = (prodCache || []).find((x) => x.code === code);
+            if (p) addToCart(p);
+            prodInp.value = '';
+            prodSuggest.hidden = true;
+            prodInp.focus();
+        });
+        // Cart row interactions (qty change + remove)
+        cartEl.addEventListener('input', (e) => {
+            const qtyInp = e.target.closest('.no-add-cart-qty');
+            if (!qtyInp) return;
+            const i = Number(qtyInp.dataset.i);
+            const line = cart[i];
+            if (!line) return;
+            const v = Math.max(1, parseInt(qtyInp.value, 10) || 1);
+            line.quantity = v;
+            line.total = v * line.price;
+            renderCart();
+        });
+        cartEl.addEventListener('click', (e) => {
+            const rm = e.target.closest('.no-add-cart-rm');
+            if (!rm) return;
+            const i = Number(rm.dataset.i);
+            cart.splice(i, 1);
+            renderCart();
+        });
+        // Đóng suggest khi click ngoài
+        overlay.addEventListener('click', (e) => {
+            if (!e.target.closest('#noAddProdSearch') && !e.target.closest('#noAddProdSuggest')) {
+                prodSuggest.hidden = true;
+            }
+            if (!e.target.closest('#noAddCustSearch') && !e.target.closest('#noAddSuggest')) {
+                suggest.hidden = true;
+            }
         });
 
         overlay.querySelector('.no-add-create').onclick = async () => {
@@ -2921,19 +3095,39 @@
                 notify('Cần tên hoặc SĐT khách', 'warning');
                 return;
             }
+            const btn = overlay.querySelector('.no-add-create');
+            btn.disabled = true;
             try {
                 const resp = await window.NativeOrdersApi.createManual({
                     customerName: name,
                     phone,
                     address,
                     customerId: selectedCustomerId,
+                    fbUserId: selectedFbId || undefined,
+                    products: cart.map((l) => ({
+                        productCode: l.productCode,
+                        name: l.name,
+                        price: l.price,
+                        quantity: l.quantity,
+                        total: l.total,
+                        imageUrl: l.imageUrl,
+                        note: l.note,
+                        source: l.source,
+                        addedBy: l.addedBy,
+                        addedById: l.addedById,
+                    })),
                 });
                 const code = resp.order?.code;
-                notify(`Đã tạo đơn inbox ${code}`, 'success');
+                notify(
+                    cart.length
+                        ? `Đã tạo đơn inbox ${code} (${cart.length} SP)`
+                        : `Đã tạo đơn inbox ${code}`,
+                    'success'
+                );
                 close();
                 await load();
-                if (code) openEdit(code); // mở modal sửa → thêm SP
             } catch (e) {
+                btn.disabled = false;
                 notify('Lỗi tạo đơn: ' + e.message, 'error');
             }
         };
@@ -4756,6 +4950,37 @@
                 _applySidebarFilter();
                 return;
             }
+            // Đơn inbox tay chưa bind page (order.fbPageId rỗng) → KHÔNG gọi
+            // server search (cần pageId). Lọc client-side trên baseline đa-page
+            // đã load để user tìm đúng hội thoại theo tên/SĐT.
+            if (!order.fbPageId) {
+                const qn = stripVi(query.trim());
+                const matched = baselineConvs.filter((c) => {
+                    const cust = c.customers?.[0] || c.from || {};
+                    const hay = stripVi(
+                        [
+                            cust.name,
+                            cust.full_name,
+                            cust.phone,
+                            c.snippet,
+                            c.last_message?.message,
+                            c.last_message_text,
+                        ]
+                            .filter(Boolean)
+                            .join(' ')
+                    );
+                    return hay.includes(qn);
+                });
+                if (!matched.length) {
+                    list.innerHTML = `<div class="w2-inbox-sb-empty" style="padding:24px;color:#94a3b8;font-size:12px;text-align:center;">Không có hội thoại khớp "${escapeHtml(query)}"<br><span style="font-size:11px;">Xoá ô tìm để xem tất cả hội thoại.</span></div>`;
+                    return;
+                }
+                list.innerHTML = matched.map((c) => _convRowHtml(c, order)).join('');
+                _bindConvRowClicks(list, order);
+                if (window.lucide?.createIcons) window.lucide.createIcons();
+                _applySidebarFilter();
+                return;
+            }
             _searchAbort = new AbortController();
             // Visual hint: dim the list while we wait
             list.style.opacity = '0.55';
@@ -5674,12 +5899,10 @@
     }
 
     function _renderMessagesPanel(order) {
-        if (!order.fbUserId || !order.fbPageId) {
-            return `<div style="color:#94a3b8;font-style:italic;padding:60px 24px;text-align:center;">
-                <i data-lucide="user-x" style="width:40px;height:40px;display:block;margin:0 auto 12px;color:#cbd5e1;"></i>
-                Đơn không có Facebook user ID hoặc page ID — không thể chat.
-            </div>`;
-        }
+        // Đơn inbox tạo tay có thể CHƯA bind fb context (khác đơn livestream).
+        // Vẫn render đầy đủ shell (msgThread + input) để user chọn hội thoại từ
+        // sidebar đa-page bên trái — _switchChatToCustomer sẽ bind page+psid khi
+        // click. _loadAndRenderThread hiển thị prompt "chọn hội thoại" khi unbound.
         return `
             <div style="display:flex;flex-direction:column;height:100%;position:relative;">
                 <div id="msgThread" class="w2p-scroll-area" style="position:relative;flex:1;min-height:0;background:#ebebeb;padding:14px 22px;display:flex;flex-direction:column;gap:4px;font-size:14px;color:#1d2939;font-family:Roboto,Helvetica,Arial,sans-serif;">
@@ -7390,6 +7613,19 @@
         if (!threadEl) return;
         if (!_hasChatClient()) {
             threadEl.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:14px;text-align:center;">Web2Chat client chưa load.</div>`;
+            return;
+        }
+        // Đơn inbox tay chưa bind fb page/user → chưa thể auto-load thread. Hiện
+        // prompt mời chọn hội thoại từ sidebar (đã tự search theo tên/SĐT khách).
+        // Khi user click 1 hội thoại → _switchChatToCustomer bind page+psid rồi
+        // gọi lại hàm này với synthetic order đầy đủ → thread load bình thường.
+        if (!order.fbPageId || !order.fbUserId) {
+            threadEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:40px 18px;text-align:center;line-height:1.6;">
+                <i data-lucide="mouse-pointer-click" style="width:30px;height:30px;display:block;margin:0 auto 10px;color:#cbd5e1;"></i>
+                Đơn inbox chưa gắn hội thoại Facebook.<br>
+                Chọn đúng hội thoại của khách ở <strong>danh sách bên trái</strong> để bắt đầu chat.
+            </div>`;
+            if (window.lucide?.createIcons) window.lucide.createIcons();
             return;
         }
         // Skeleton: show shimmering placeholder bubbles immediately so the

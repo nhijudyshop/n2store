@@ -2404,3 +2404,98 @@ body {
     width: 16px;
     height: 16px;
 }
+.no-add-create:disabled {
+    opacity: 0.6;
+    cursor: progress;
+}
+
+/* ---- Inline product cart (Thêm đơn Inbox) ---- */
+.no-add-modal--wide {
+    width: 560px;
+}
+.no-add-prod-section {
+    margin-top: 6px;
+    padding-top: 12px;
+    border-top: 1px dashed #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.no-add-prod-hint {
+    font-weight: 400;
+    color: #94a3b8;
+    font-size: 0.72rem;
+}
+.no-add-prod-item strong {
+    color: #334155;
+}
+.no-add-cart {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+.no-add-cart-empty {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    font-style: italic;
+    padding: 6px 2px;
+}
+.no-add-cart-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    background: #f8fafc;
+    border: 1px solid #eef2f7;
+    border-radius: 8px;
+}
+.no-add-cart-info {
+    flex: 1;
+    min-width: 0;
+}
+.no-add-cart-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #334155;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.no-add-cart-code {
+    font-size: 0.7rem;
+    color: #94a3b8;
+}
+.no-add-cart-qty {
+    width: 58px !important;
+    padding: 5px 6px !important;
+    text-align: center;
+    font-size: 0.8rem !important;
+}
+.no-add-cart-line-total {
+    width: 88px;
+    text-align: right;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #16a34a;
+}
+.no-add-cart-rm {
+    border: 0;
+    background: transparent;
+    color: #cbd5e1;
+    font-size: 0.95rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 4px;
+}
+.no-add-cart-rm:hover {
+    color: #ef4444;
+}
+.no-add-cart-total {
+    margin-right: auto;
+    align-self: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #16a34a;
+}

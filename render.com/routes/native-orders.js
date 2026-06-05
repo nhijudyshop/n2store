@@ -987,12 +987,29 @@ router.post('/create-manual', async (req, res) => {
         // customer_id do frontend truyền (từ /api/web2/customers/search — Web 2.0,
         // KHÔNG đụng customers Web 1.0). Không có → null.
         const customerId = b.customerId ? parseInt(b.customerId, 10) || null : null;
+        // fb_user_id: đơn inbox tay KHÔNG có fb context như đơn livestream. Nếu
+        // KH chọn từ kho có fb_id → bind để avatar + hội thoại Pancake hoạt động.
+        // Frontend truyền b.fbUserId (= customer.fbId); fallback lookup từ
+        // web2_customers nếu chỉ có customerId. fb_page_id để null (kho KH không
+        // lưu page) → UI fallback chọn hội thoại từ sidebar đa-page.
+        let fbUserId = (b.fbUserId || '').trim() || null;
+        if (!fbUserId && customerId) {
+            try {
+                const r = await pool.query(
+                    'SELECT fb_id FROM web2_customers WHERE id = $1 LIMIT 1',
+                    [customerId]
+                );
+                fbUserId = r.rows[0]?.fb_id || null;
+            } catch {
+                /* lookup best-effort — không chặn tạo đơn */
+            }
+        }
         const insert = await pool.query(
             `INSERT INTO native_orders (
                 code, session_index, display_stt, campaign_stt, source, channel,
                 customer_name, phone, address, note,
                 products, total_quantity, total_amount,
-                status, tags, customer_id,
+                status, tags, customer_id, fb_user_id,
                 created_by, created_by_name, created_at, updated_at
             ) VALUES (
                 $1, 0, nextval('native_orders_display_stt_seq'),
@@ -1000,8 +1017,8 @@ router.post('/create-manual', async (req, res) => {
                 'NATIVE_WEB', 'inbox',
                 $2, $3, $4, $5,
                 $6::jsonb, $7, $8,
-                'draft', '[]'::jsonb, $9,
-                $10, $11, $12, $12
+                'draft', '[]'::jsonb, $9, $10,
+                $11, $12, $13, $13
             ) RETURNING *`,
             [
                 code,
@@ -1013,6 +1030,7 @@ router.post('/create-manual', async (req, res) => {
                 totalQty,
                 totalAmt,
                 customerId,
+                fbUserId,
                 b.createdBy || null,
                 b.createdByName || null,
                 now,

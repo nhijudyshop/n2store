@@ -38,6 +38,9 @@ function rowToCustomer(r) {
         name: r.name || '',
         address: r.address || '',
         email: r.email || '',
+        // fbId: cho phép Đơn Web bind avatar + hội thoại Pancake khi tạo đơn
+        // inbox tay (đơn inbox khác đơn livestream — không có fb context sẵn).
+        fbId: r.fb_id || '',
     };
 }
 
@@ -49,16 +52,33 @@ router.get('/search', async (req, res) => {
     if (q.length < 2) return res.json({ success: true, data: [] });
 
     try {
-        // 1. Local web2_customers (name ILIKE OR phone ILIKE)
+        // 1. Local web2_customers — accent-insensitive name match (gõ "huynh
+        // thanh dat" không dấu vẫn khớp "Huỳnh Thành Đạt"). unaccent extension
+        // ensure ở web2-customers-schema.js. Phone match giữ ILIKE thường.
         const like = `%${q}%`;
-        const local = await db.query(
-            `SELECT id, phone, name, email, address
-             FROM web2_customers
-             WHERE name ILIKE $1 OR phone ILIKE $1
-             ORDER BY synced_at DESC
-             LIMIT $2`,
-            [like, limit]
-        );
+        let local;
+        try {
+            local = await db.query(
+                `SELECT id, phone, name, email, address, fb_id
+                 FROM web2_customers
+                 WHERE unaccent(name) ILIKE unaccent($1) OR phone ILIKE $1
+                 ORDER BY synced_at DESC
+                 LIMIT $2`,
+                [like, limit]
+            );
+        } catch (unaccentErr) {
+            // unaccent chưa cài (extension bị chặn) → fallback ILIKE thường để
+            // search vẫn chạy (chỉ mất tính năng không-dấu).
+            console.warn('[web2-customers] unaccent fallback:', unaccentErr.message);
+            local = await db.query(
+                `SELECT id, phone, name, email, address, fb_id
+                 FROM web2_customers
+                 WHERE name ILIKE $1 OR phone ILIKE $1
+                 ORDER BY synced_at DESC
+                 LIMIT $2`,
+                [like, limit]
+            );
+        }
         let results = local.rows.map(rowToCustomer);
 
         // 2. Fallback TPOS nếu local chưa đủ — self-populate web2_customers
@@ -80,6 +100,7 @@ router.get('/search', async (req, res) => {
                         name: c.name || '',
                         address: c.address || '',
                         email: c.email || '',
+                        fbId: c.fb_id || c.psid || '',
                     });
                 }
             }

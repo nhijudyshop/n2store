@@ -39,6 +39,13 @@ async function ensureWeb2CustomersSchema(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_customers_phone ON web2_customers(phone);
             CREATE INDEX IF NOT EXISTS idx_web2_customers_fb_id ON web2_customers(fb_id) WHERE fb_id IS NOT NULL;
         `);
+        // unaccent: tìm KH không dấu ("huynh thanh dat" khớp "Huỳnh Thành Đạt").
+        // Route /search dùng unaccent(name) ILIKE unaccent($1).
+        try {
+            await pool.query(`CREATE EXTENSION IF NOT EXISTS unaccent;`);
+        } catch (e) {
+            console.warn('[web2-customers-schema] unaccent extension skip:', e.message);
+        }
         // Trigram cho name ILIKE nhanh — bọc try riêng vì extension có thể bị chặn.
         try {
             await pool.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
