@@ -448,7 +448,11 @@
                             ? `<button type="button" class="w2bh-icon-btn w2bh-icon-chat" data-action="chat" data-phone="${escapeHtml(phone)}" data-name="${escapeHtml(name || '')}" title="Mở hội thoại Facebook của khách">
                                 <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
                             </button>`
-                            : ''
+                            : !isManualNcc
+                              ? `<button type="button" class="w2bh-icon-btn w2bh-icon-chat" data-action="chat" data-phone="" data-name="" title="Mở & tìm hội thoại Facebook">
+                                <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
+                            </button>`
+                              : ''
                     }
                 </td>
             </tr>
@@ -579,9 +583,13 @@
         return null;
     }
     async function openChatForPhone(phone, name) {
-        if (!phone) return;
         if (!window.Web2ChatReadonly) {
             notify('Module hội thoại chưa load', 'warning');
+            return;
+        }
+        // Row chưa gán KH (không có phone) → mở chế độ tìm RỖNG, user tự gõ.
+        if (!phone) {
+            window.Web2ChatReadonly.openSearch({});
             return;
         }
         const r = await fbConversation(phone);
