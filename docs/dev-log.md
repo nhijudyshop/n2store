@@ -25,6 +25,16 @@
 
 ## 2026-06-05
 
+### [web2] Bill: sản phẩm 1 hàng/SP — 4 cột (tên | SL | đơn giá | thành tiền) ✅
+
+User: phần sản phẩm gộp tên + số lượng + tiền + thành tiền cho **1 hàng** (trước đây 2 dòng/SP: tên ở trên, "SL × giá ... total" ở dưới).
+
+- Header `.b-ih` + row `.b-it-row` dùng 4 cột flex: `.c-name` (flex co giãn, wrap) + `.c-qty` (22px, giữa) + `.c-price` (54px, phải) + `.c-total` (60px, phải, đậm). Tên SP dài tự xuống dòng nhưng **số (SL/đơn giá/thành tiền) giữ nguyên hàng đầu đúng cột** (align-items baseline).
+- Bỏ uom "Cái" + "×" (header cột đã chú thích) → gọn. Mỗi SP tên ngắn = 1 dòng (trước 2 dòng) → nén bill.
+- Verified Playwright: 4 SP (gồm 1 tên dài wrap 3 dòng) = 72mm, cột thẳng. Ảnh `downloads/n2store-session/bill-1row.png`.
+- **Lưu ý khổ**: "80mm" là khổ GIẤY; vùng in 72mm = 576 chấm (chuẩn máy 80mm). Bill dùng đúng 72mm — ép 80mm sẽ cắt mép phải máy 576 chấm.
+- File: `web2-bill-service.js` (v=20260605nj13).
+
 ### [web2] Pending-match: chọn KH từ list hội thoại FB (nút "Gán KH này") ✅
 
 User: hiện danh sách tên khách (hình 2 — list hội thoại khớp đuôi SĐT) ra để chọn luôn.
