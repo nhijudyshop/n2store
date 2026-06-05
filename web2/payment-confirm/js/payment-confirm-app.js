@@ -3,11 +3,11 @@
 // Web 2.0 — Trang "Xác nhận Chuyển Khoản"
 // =====================================================
 //
-// 2 tab:
-//   • "KH báo đã CK" — web2_payment_signals (web2Db) qua /api/web2/payment-signals
-//   • "Tin nhắn chưa đọc" — pending_customers (Web 1.0 chatDb) qua /api/realtime/
-//     pending-customers (cross-layer READ qua API — KHÔNG query trực tiếp, theo
-//     CLAUDE.md rule 5b).
+// 2 tab (CẢ HAI đều data Web 2.0 thuần — web2Db, KHÔNG đọc Web 1.0):
+//   • "KH báo đã CK" — web2_payment_signals qua /api/web2/payment-signals
+//   • "Tin nhắn chưa đọc" — web2_unread_messages qua /api/web2/unread (bản RIÊNG
+//     của Web 2.0, populate từ Pancake WS hook trong server.js — độc lập
+//     pending_customers của Web 1.0).
 //
 // Realtime: Web2SSE.subscribe('web2:payment-signals') → debounce reload.
 // Mutation: Web2Optimistic.run (UI-first + rollback).
@@ -18,7 +18,9 @@
 
     const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const API = PROXY + '/api/web2/payment-signals';
-    const UNREAD_API = PROXY + '/api/realtime/pending-customers';
+    // Web 2.0 unread RIÊNG (web2_unread_messages, web2Db) — KHÔNG đọc Web 1.0
+    // pending_customers nữa. Populate từ Pancake WS hook trong server.js.
+    const UNREAD_API = PROXY + '/api/web2/unread';
 
     const state = {
         tab: 'signals', // signals | unread
@@ -159,11 +161,34 @@
                         <div class="pc-msg">"${esc(c.last_message_snippet || '')}"</div>
                         <div class="pc-meta">${esc(fmtTime(c.last_message_time))} · page ${esc(c.page_id || '')}</div>
                     </div>
-                    <div><span class="pc-unread-count">${esc(c.message_count || 0)} mới</span></div>
+                    <div class="pc-actions">
+                        <span class="pc-unread-count">${esc(c.message_count || 0)} mới</span>
+                        <button class="pc-btn pc-btn-dismiss" data-seen-psid="${esc(c.psid)}" data-seen-page="${esc(c.page_id)}">Đã đọc</button>
+                    </div>
                 </div>`;
                 })
                 .join('') +
             '</div>';
+
+        root.querySelectorAll('[data-seen-psid]').forEach((btn) => {
+            btn.onclick = () => markSeen(btn.dataset.seenPsid, btn.dataset.seenPage);
+        });
+    }
+
+    function markSeen(psid, pageId) {
+        if (!psid || !pageId) return;
+        // UI-first: bỏ row ngay, gọi backend nền.
+        state.unread = state.unread.filter((c) => !(c.psid === psid && c.page_id === pageId));
+        renderUnread();
+        fetch(UNREAD_API + '/mark-seen', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ psid, pageId }),
+        }).catch(() => {
+            toast('Lỗi đánh dấu đã đọc', 'error');
+            reloadUnread();
+        });
     }
 
     // ─── Mutations (UI-first qua Web2Optimistic) ──────────────────────
@@ -314,10 +339,13 @@
 
         reloadNow();
 
-        // SSE realtime — tin nhắn CK mới đẩy về tab A/B/C/D không cần refresh
+        // SSE realtime — không cần refresh, đồng bộ mọi tab/máy.
         if (window.Web2SSE?.subscribe) {
             window.Web2SSE.subscribe('web2:payment-signals', () => {
                 if (state.tab === 'signals') reload();
+            });
+            window.Web2SSE.subscribe('web2:unread', () => {
+                if (state.tab === 'unread') reloadUnread();
             });
         }
     }
