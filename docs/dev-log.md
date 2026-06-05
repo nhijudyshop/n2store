@@ -25,6 +25,16 @@
 
 ## 2026-06-05
 
+### [web2] Bill tiếng Việt: bớt nhòe/đứt khúc — raster 3× + coverage thấp + giảm font-weight ✅
+
+User: chữ in đậm trên bill bị nhòe hoặc đứt khúc. Research GitHub/web (DantSu#238, mike42#254, nguồn VN): CP1258 codepage không tin cậy → raster vẫn đúng nhất, nhưng phải render độ phân giải cao + chữ KHÔNG quá đậm + density máy đúng.
+
+- **Chống ĐỨT KHÚC**: `printBillHtml` raster **3× supersample** (thay 2×) → downsample mịn hơn, dấu mảnh không gãy. + `coverage: 0.14` → `need=1` (ô có ≥1 sub-pixel mực = chấm đen) giữ liền nét dấu. (`escposRasterFromHtmlPhysical` nhận thêm `opts.coverage`).
+- **Chống NHÒE (dồn mực)**: giảm font-weight chữ NHỎ trong `BILL_CSS`: `b/strong` 800→700, label (`.b-lbl`/`.b-cod-label`/`.b-sub`/`.b-it-name`) →600, header/title/STT/total →700. Chữ TO (shop 26px, COD 30px, TỔNG 17px) GIỮ 800 (nét xa nhau in vẫn sắc).
+- Verified raster vẫn ~576 chấm (584, lệch 8 chấm = lề phải trắng, máy 576 crop vô hại). Screenshot `bill-light.png`.
+- **Phần cứng (user chỉnh)**: nếu vẫn nhòe → giảm **DENSITY/nhiệt độ** máy in (nóng quá = mực lan); vẫn đứt → tăng density. Đây là nửa còn lại của fix mà code không làm được.
+- Files: `web2-bill-service.js` (v=20260605nj15), `web2-printer.js` (v=20260605i).
+
 ### [inbox] KPI verify: auto-sync localStorage → Render (không mất khi đổi máy/ẩn danh) ✅
 
 User: Incognito không thấy đơn đã kiểm + lịch sử → vì backend `/api/social-kpi-verify` **chưa deploy Render** nên đang lưu localStorage (riêng từng browser). Cần lưu trên Render để chia sẻ + không mất.
