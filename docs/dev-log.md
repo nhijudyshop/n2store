@@ -25,6 +25,15 @@
 
 ## 2026-06-05
 
+### [web2] Pending-match modal: nút 💬 hội thoại + gợi ý tên KH từ Pancake theo SĐT ✅
+
+User: (1) cho nút mở đoạn hội thoại trong modal "Chọn KH cho giao dịch"; (2) gõ SĐT → gợi ý tên KH tìm từ hội thoại Pancake.
+
+- **Nút 💬 Hội thoại mỗi card** (`w2pm-item-head`): `data-w2pm-chat=extracted_phone` → `Web2ChatReadonly.openSearch({query:đuôi})` → list hội thoại Pancake (avatar + tên FB) để xem quyết định. Modal z-10050 > pending z-9999.
+- **Gợi ý Pancake trong custom search** (`_searchPancakeByPhone`): gõ SĐT (≥4 số) → song song TPOS warehouse + Pancake `searchConversations` mọi page → mục "📘 Từ hội thoại Facebook" (tag FB), pick điền full phone (từ `recent_phone_numbers`) + tên FB. recent_phone_numbers = SĐT khách tự gõ trong chat → gán ví đúng người.
+- Browser-tested: 200 nút chat (seed đuôi), full phone "0903339588" → FB suggestion "Cherry Linh"; nút chat → 19 hội thoại (gồm đúng Vân Luu 0918779981).
+- **Files:** `web2/balance-history/js/web2-pending-match.js` (v=20260605a), `index.html`
+
 ### [web2] Balance-history: row CHƯA GÁN KH cũng có nút 💬 (mở tìm rỗng) ✅
 
 User: giao dịch chưa gán KH cũng hiện nút chat (hình 2) nhưng click không search sẵn.

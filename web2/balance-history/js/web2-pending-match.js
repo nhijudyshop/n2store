@@ -230,6 +230,12 @@
             .w2pm-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
             .w2pm-item-amount { font-size: 16px; font-weight: 700; color: #0891b2; }
             .w2pm-item-time { font-size: 11px; color: #94a3b8; }
+            .w2pm-item-headright { display: inline-flex; align-items: center; gap: 10px; }
+            .w2pm-chat-btn { border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 7px; cursor: pointer; white-space: nowrap; }
+            .w2pm-chat-btn:hover { background: #dbeafe; border-color: #93c5fd; }
+            .w2pm-custom-divider { font-size: 11px; font-weight: 600; color: #1d4ed8; padding: 6px 10px 3px; border-top: 1px dashed #dbeafe; margin-top: 3px; }
+            .w2pm-custom-item.is-fb:hover { background: #eff6ff; }
+            .w2pm-fb-tag { font-size: 9px; font-weight: 700; color: #fff; background: #2563eb; border-radius: 3px; padding: 1px 4px; letter-spacing: .03em; }
             .w2pm-item-content { font-size: 12px; color: #475569; background: #f8fafc; padding: 6px 8px; border-radius: 4px; margin-bottom: 8px; max-height: 60px; overflow: auto; }
             .w2pm-choices { display: flex; flex-direction: column; gap: 5px; }
             .w2pm-choice { display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: #f1f5f9; border-radius: 5px; cursor: pointer; transition: all .12s; }
@@ -300,6 +306,17 @@
         body.querySelectorAll('[data-w2pm-custom-resolve]').forEach((btn) => {
             btn.addEventListener('click', onCustomResolveClick);
         });
+        // Nút 💬 Hội thoại mỗi giao dịch → mở chat read-only (tìm theo đuôi SĐT).
+        body.querySelectorAll('[data-w2pm-chat]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const q = btn.getAttribute('data-w2pm-chat') || '';
+                if (window.Web2ChatReadonly?.openSearch) {
+                    window.Web2ChatReadonly.openSearch({ query: q });
+                } else {
+                    notify('Module hội thoại chưa load', 'warning');
+                }
+            });
+        });
         // Số dư ví cho các SĐT ứng viên (chỉ hiện khi > 0).
         window.Web2WalletBalance?.attachBalances?.(body);
     }
@@ -354,6 +371,67 @@
         }
     }
 
+    // Gợi ý tên KH từ HỘI THOẠI PANCAKE theo SĐT (recent_phone_numbers chính là
+    // SĐT khách tự gõ trong chat → đáng tin để gán ví đúng người).
+    const _pancakeSearchCache = new Map();
+    async function _searchPancakeByPhone(query) {
+        const digits = String(query || '').replace(/\D/g, '');
+        if (digits.length < 4) return []; // chỉ tìm Pancake khi giống SĐT
+        if (_pancakeSearchCache.has(digits)) return _pancakeSearchCache.get(digits);
+        const Web2Chat = window.Web2Chat;
+        if (!Web2Chat || !Web2Chat.searchConversations) return [];
+        try {
+            if (Web2Chat.syncFromRenderDB) await Web2Chat.syncFromRenderDB().catch(() => {});
+        } catch (_) {}
+        const pages = Object.keys(
+            (Web2Chat.getAllPageAccessTokens && Web2Chat.getAllPageAccessTokens()) || {}
+        );
+        if (!pages.length) return [];
+        const seen = new Set();
+        const out = [];
+        await Promise.all(
+            pages.map(async (pg) => {
+                try {
+                    const r = await Web2Chat.searchConversations(pg, digits);
+                    if (!r || !r.ok) return;
+                    for (const c of r.conversations || []) {
+                        const name =
+                            (c.customers && c.customers[0] && c.customers[0].name) ||
+                            (c.from && c.from.name) ||
+                            '';
+                        const phones = (c.recent_phone_numbers || [])
+                            .map((x) => x && x.phone_number)
+                            .filter(Boolean);
+                        const phone =
+                            phones.find((p) => String(p).replace(/\D/g, '').includes(digits)) ||
+                            phones[0] ||
+                            '';
+                        if (!phone || !name) continue; // cần cả SĐT + tên mới gợi ý
+                        const key = phone + '|' + name;
+                        if (seen.has(key)) continue;
+                        seen.add(key);
+                        out.push({ name, phone, source: 'fb' });
+                    }
+                } catch (_) {}
+            })
+        );
+        const res = out.slice(0, 8);
+        _pancakeSearchCache.set(digits, res);
+        return res;
+    }
+
+    function _renderCustomItem(c, id, isFb) {
+        return `<button type="button" class="w2pm-custom-item${isFb ? ' is-fb' : ''}"
+                        data-w2pm-pick-phone="${escapeHtml(c.phone)}"
+                        data-w2pm-pick-name="${escapeHtml(c.name || '')}"
+                        data-w2pm-pick-id="${escapeHtml(String(id))}">
+                        ${isFb ? '<span class="w2pm-fb-tag">FB</span>' : ''}
+                        <span class="w2pm-custom-item-phone">${escapeHtml(c.phone)}</span>
+                        <span class="w2pm-custom-item-name">${escapeHtml(c.name || '(không tên)')}</span>
+                        <span class="w2pm-custom-item-bal" data-w2wallet-phone="${escapeHtml(c.phone)}"></span>
+                    </button>`;
+    }
+
     function onCustomSearchInput(e) {
         const input = e.currentTarget;
         const id = input.dataset.w2pmSearch;
@@ -370,24 +448,23 @@
             }
             dd.innerHTML = '<div class="w2pm-custom-loading">Đang tìm…</div>';
             dd.hidden = false;
-            const results = await _searchCustomers(q);
-            if (!results.length) {
+            // TPOS/kho KH + Pancake song song. Pancake = gợi ý tên KH theo SĐT
+            // tìm trong hội thoại (ask user 2026-06-05).
+            const [results, fb] = await Promise.all([
+                _searchCustomers(q),
+                _searchPancakeByPhone(q),
+            ]);
+            if (!results.length && !fb.length) {
                 dd.innerHTML =
                     '<div class="w2pm-custom-loading">Không tìm thấy KH. Có thể gõ thẳng SĐT rồi bấm "Chọn KH này".</div>';
                 return;
             }
-            dd.innerHTML = results
-                .map(
-                    (c) => `<button type="button" class="w2pm-custom-item"
-                        data-w2pm-pick-phone="${escapeHtml(c.phone)}"
-                        data-w2pm-pick-name="${escapeHtml(c.name || '')}"
-                        data-w2pm-pick-id="${escapeHtml(String(id))}">
-                        <span class="w2pm-custom-item-phone">${escapeHtml(c.phone)}</span>
-                        <span class="w2pm-custom-item-name">${escapeHtml(c.name || '(không tên)')}</span>
-                        <span class="w2pm-custom-item-bal" data-w2wallet-phone="${escapeHtml(c.phone)}"></span>
-                    </button>`
-                )
-                .join('');
+            let html = results.map((c) => _renderCustomItem(c, id, false)).join('');
+            if (fb.length) {
+                html += '<div class="w2pm-custom-divider">📘 Từ hội thoại Facebook</div>';
+                html += fb.map((c) => _renderCustomItem(c, id, true)).join('');
+            }
+            dd.innerHTML = html;
             window.Web2WalletBalance?.attachBalances?.(dd);
             dd.querySelectorAll('.w2pm-custom-item').forEach((btn) => {
                 btn.addEventListener('mousedown', (ev) => ev.preventDefault());
@@ -468,7 +545,10 @@
             <div class="w2pm-item" data-pending-id="${escapeHtml(String(item.id))}">
                 <div class="w2pm-item-head">
                     <span class="w2pm-item-amount">+${fmtVnd(item.transfer_amount)}</span>
-                    <span class="w2pm-item-time">${escapeHtml(fmtTime(item.transaction_date))} · ${escapeHtml(item.sepay_id || '')}</span>
+                    <span class="w2pm-item-headright">
+                        <button type="button" class="w2pm-chat-btn" data-w2pm-chat="${escapeHtml(item.extracted_phone || '')}" title="Mở đoạn hội thoại Facebook (tìm theo đuôi SĐT của giao dịch)">💬 Hội thoại</button>
+                        <span class="w2pm-item-time">${escapeHtml(fmtTime(item.transaction_date))} · ${escapeHtml(item.sepay_id || '')}</span>
+                    </span>
                 </div>
                 <div class="w2pm-item-content">${escapeHtml(item.content || '')}</div>
                 <div class="w2pm-choices">
