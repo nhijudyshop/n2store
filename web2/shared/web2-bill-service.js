@@ -103,12 +103,18 @@ html, body { margin: 0; padding: 0; background: #fff; }
 /* ── Khách hàng ── */
 .b-cust { font-size: 12.5px; line-height: 1.45; }
 .b-lbl { font-weight: 700; }
-/* ── Sản phẩm ── */
-.b-ih { display: flex; justify-content: space-between; font-weight: 800; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #000; padding-bottom: 3px; margin-bottom: 2px; }
-.b-it { margin-top: 5px; }
-.b-it-name { font-weight: 700; font-size: 12.5px; line-height: 1.3; }
-.b-it-note { font-size: 11px; padding-left: 13px; }
-.b-it-line { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; padding-left: 13px; margin-top: 1px; }
+/* ── Sản phẩm: mỗi SP 1 hàng, 4 cột (tên co giãn + SL + đơn giá + thành tiền) ── */
+.b-ih, .b-it-row { display: flex; align-items: baseline; gap: 4px; }
+.b-ih { font-weight: 800; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 2px solid #000; padding-bottom: 3px; margin-bottom: 1px; }
+.b-it { margin-top: 4px; }
+.c-name { flex: 1; min-width: 0; }
+.c-qty { width: 22px; text-align: center; flex-shrink: 0; }
+.c-price { width: 54px; text-align: right; flex-shrink: 0; }
+.c-total { width: 60px; text-align: right; flex-shrink: 0; }
+.b-it .c-name { font-weight: 700; font-size: 12px; line-height: 1.25; }
+.b-it .c-qty, .b-it .c-price { font-size: 11px; }
+.b-it .c-total { font-size: 11px; font-weight: 800; }
+.b-it-note { font-size: 10.5px; padding-left: 13px; margin-top: 1px; }
 /* ── Tổng tiền ── */
 .b-tot { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; margin-top: 2px; }
 .b-tot-final { font-size: 17px; font-weight: 800; }
@@ -253,8 +259,15 @@ html, body { margin: 0; padding: 0; background: #fff; }
         cust.push('</div>');
         rows.push(cust.join(''));
 
-        // ── SẢN PHẨM ──
-        rows.push(`<div class="b-ih"><span>SẢN PHẨM</span><span>THÀNH TIỀN</span></div>`);
+        // ── SẢN PHẨM — mỗi SP 1 HÀNG: tên | SL | đơn giá | thành tiền (4 cột) ──
+        rows.push(
+            `<div class="b-ih">` +
+                `<span class="c-name">SẢN PHẨM</span>` +
+                `<span class="c-qty">SL</span>` +
+                `<span class="c-price">ĐƠN GIÁ</span>` +
+                `<span class="c-total">T.TIỀN</span>` +
+                `</div>`
+        );
         let totalQty = 0;
         const items = [];
         d.lines.forEach((it, idx) => {
@@ -262,15 +275,18 @@ html, body { margin: 0; padding: 0; background: #fff; }
             const price = Number(it.priceUnit || it.PriceUnit || 0);
             const total = qty * price;
             const name = it.productName || it.ProductName || '';
-            const uom = it.uomName || it.ProductUOMName || 'Cái';
             const note = it.note || it.Note || '';
             totalQty += qty;
             items.push(
                 `<div class="b-it">` +
-                    `<div class="b-it-name">${idx + 1}. ${_esc(name)}</div>` +
+                    `<div class="b-it-row">` +
+                    `<span class="c-name">${idx + 1}. ${_esc(name)}</span>` +
+                    `<span class="c-qty">${qty}</span>` +
+                    `<span class="c-price">${m(price)}</span>` +
+                    `<span class="c-total">${m(total)}</span>` +
+                    `</div>` +
                     (note ? `<div class="b-it-note">↳ ${_esc(note)}</div>` : '') +
-                    `<div class="b-it-line"><span>${qty} ${_esc(uom)} × ${m(price)}</span>` +
-                    `<b>${m(total)}</b></div></div>`
+                    `</div>`
             );
         });
         rows.push(items.join(''));
