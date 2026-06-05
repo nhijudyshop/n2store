@@ -53,6 +53,8 @@
 
     let _pagesCache = null;
     let _accountsCache = [];
+    let _refreshStatus = {}; // accountId → { has_creds, auto_refresh, login_identity, last_refresh_status }
+    let _credsKeyConfigured = false;
 
     function renderJwtInfo() {
         const token = window.Web2Chat.getJwt();
@@ -544,6 +546,13 @@
                 const isActive = id === activeId;
                 const name = a.name || a.fb_name || a.uid || id;
                 const disabled = a.is_active === false;
+                const st = _refreshStatus[id] || {};
+                const hasCreds = !!st.has_creds;
+                const autoOn = hasCreds && st.auto_refresh;
+                const lastFail =
+                    st.last_refresh_status && /^fail/.test(st.last_refresh_status)
+                        ? `<span class="exp-chip bad" title="${escapeHtml(st.last_refresh_status)}">gia hạn lỗi</span>`
+                        : '';
                 return `
                 <div class="ps-account-item ${isActive ? 'active' : ''}" data-acc-id="${escapeHtml(id)}">
                     <div class="acc-avatar">${escapeHtml((name || '?').charAt(0).toUpperCase())}</div>
@@ -551,15 +560,23 @@
                         <div class="name">
                             ${escapeHtml(name)}
                             ${isActive ? '<span class="acc-active-pill">Đang dùng</span>' : ''}
+                            ${autoOn ? '<span class="auto-pill" title="Tự động gia hạn khi sắp hết hạn">🔄 Tự động</span>' : ''}
                         </div>
                         <div class="meta">
                             <span class="mid">${escapeHtml(id)}</span>
                             ${a.fb_id ? `<span class="tok-chip">fb ${escapeHtml(a.fb_id)}</span>` : ''}
                             ${_expChip(a.token_exp)}
                             ${disabled ? '<span class="exp-chip bad">tắt sync</span>' : ''}
+                            ${lastFail}
                         </div>
                     </div>
                     <div class="acc-actions">
+                        <button class="ps-btn" data-act="renew" data-acc-id="${escapeHtml(id)}" title="${hasCreds ? 'Gia hạn ngay bằng mật khẩu đã lưu' : 'Cần lưu mật khẩu trước'}">
+                            <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Gia hạn
+                        </button>
+                        <button class="ps-btn" data-act="creds" data-acc-id="${escapeHtml(id)}" title="Lưu mật khẩu / bật tự động gia hạn">
+                            <i data-lucide="${hasCreds ? 'lock' : 'lock-open'}" style="width:13px;height:13px;"></i>
+                        </button>
                         ${
                             isActive
                                 ? ''
@@ -580,6 +597,8 @@
             btn.addEventListener('click', () => {
                 if (act === 'use') useAccount(id);
                 else if (act === 'del') deleteAccount(id);
+                else if (act === 'renew') renewAccount(id, btn);
+                else if (act === 'creds') openCredsModal(id);
             });
         });
     }
@@ -602,6 +621,130 @@
         }
         _accountsCache = r.accounts;
         renderAccountList(r.accounts);
+        // Lấy trạng thái auto-refresh (creds/auto) rồi render lại — không chặn.
+        PA.getRefreshStatus()
+            .then((s) => {
+                if (s.ok) {
+                    _refreshStatus = s.map;
+                    _credsKeyConfigured = s.credsKeyConfigured;
+                    renderAccountList(_accountsCache);
+                }
+            })
+            .catch(() => {});
+    }
+
+    // ---- Gia hạn ngay 1 account (dùng creds đã lưu) ----
+    async function renewAccount(id, btn) {
+        const PA = window.Web2PancakeAccounts;
+        const st = _refreshStatus[id] || {};
+        if (!st.has_creds) {
+            // chưa lưu mật khẩu → mở modal nhập
+            openCredsModal(id);
+            return;
+        }
+        _setBtnLoading(btn, 'Đang gia hạn…');
+        const r = await PA.refreshNow(id, {});
+        _restoreBtn(btn);
+        if (r.ok) {
+            notify(
+                `Đã gia hạn ${r.name || id} → ${r.exp ? new Date(r.exp * 1000).toLocaleDateString('vi-VN') : ''}`,
+                'success'
+            );
+            await loadAccounts();
+            renderJwtInfo();
+            renderBanner();
+        } else {
+            notify('Gia hạn lỗi: ' + (r.reason || 'unknown'), 'error');
+        }
+    }
+
+    // ---- Creds modal ----
+    let _credsAccountId = null;
+    function openCredsModal(id) {
+        _credsAccountId = id;
+        const acc = _accountsCache.find((a) => a.account_id === id);
+        const st = _refreshStatus[id] || {};
+        $('credsModalTitle').textContent = `Tự động gia hạn — ${acc?.name || id}`;
+        $('credsIdentity').value = st.login_identity || '';
+        $('credsPassword').value = '';
+        $('credsAuto').checked = st.auto_refresh !== false;
+        $('credsKeyWarn').style.display = _credsKeyConfigured ? 'none' : 'block';
+        $('credsDelete').style.display = st.has_creds ? '' : 'none';
+        $('credsModal').hidden = false;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+        setTimeout(() => $('credsIdentity').focus(), 50);
+    }
+    function closeCredsModal() {
+        $('credsModal').hidden = true;
+        _credsAccountId = null;
+    }
+
+    async function credsSave(alsoRefresh) {
+        const PA = window.Web2PancakeAccounts;
+        const id = _credsAccountId;
+        const identity = $('credsIdentity').value.trim();
+        const password = $('credsPassword').value;
+        const auto = $('credsAuto').checked;
+        if (!identity || !password) {
+            notify('Nhập đủ tài khoản + mật khẩu', 'warning');
+            return;
+        }
+        const btn = alsoRefresh ? $('credsSaveRefresh') : $('credsSaveOnly');
+        _setBtnLoading(btn, alsoRefresh ? 'Đang gia hạn…' : 'Đang lưu…');
+        if (alsoRefresh) {
+            // POST refresh kèm save (login luôn + lưu creds)
+            const r = await PA.refreshNow(id, {
+                identity,
+                password,
+                save: true,
+                auto_refresh: auto,
+            });
+            _restoreBtn(btn);
+            if (r.ok) {
+                notify(`Đã lưu + gia hạn ${r.name || id}`, 'success');
+                closeCredsModal();
+                await loadAccounts();
+                renderJwtInfo();
+                renderBanner();
+            } else {
+                notify('Lỗi: ' + (r.reason || 'unknown') + ' — mật khẩu đúng chưa?', 'error');
+            }
+        } else {
+            const r = await PA.saveCreds(id, identity, password, auto);
+            _restoreBtn(btn);
+            if (r.ok) {
+                notify('Đã lưu mật khẩu (mã hoá)', 'success');
+                closeCredsModal();
+                await loadAccounts();
+            } else {
+                notify('Lưu lỗi: ' + (r.reason || 'unknown'), 'error');
+            }
+        }
+    }
+
+    async function credsDelete() {
+        const PA = window.Web2PancakeAccounts;
+        const id = _credsAccountId;
+        if (!confirm('Xoá mật khẩu đã lưu? Sẽ tắt tự động gia hạn cho account này.')) return;
+        const r = await PA.deleteCreds(id);
+        if (r.ok) {
+            notify('Đã xoá mật khẩu', 'success');
+            closeCredsModal();
+            await loadAccounts();
+        } else {
+            notify('Xoá lỗi: ' + (r.reason || 'unknown'), 'error');
+        }
+    }
+
+    function wireCredsModal() {
+        $('credsModalClose')?.addEventListener('click', closeCredsModal);
+        $('credsSaveRefresh')?.addEventListener('click', () => credsSave(true));
+        $('credsSaveOnly')?.addEventListener('click', () => credsSave(false));
+        $('credsDelete')?.addEventListener('click', credsDelete);
+        const overlay = $('credsModal');
+        overlay?.addEventListener('click', (e) => {
+            if (e.target === overlay) closeCredsModal();
+        });
     }
 
     function useAccount(id) {
@@ -760,6 +903,7 @@
         $('btnAddAuto')?.addEventListener('click', addAccountAuto);
 
         wireModal();
+        wireCredsModal();
 
         renderJwtInfo();
         renderExtStatus();

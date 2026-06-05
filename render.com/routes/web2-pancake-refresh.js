@@ -115,7 +115,7 @@ router.get('/status', async (req, res) => {
     if (!dbPool) return res.status(503).json({ error: 'DB not available' });
     try {
         const r = await dbPool.query(
-            `SELECT account_id, name, fb_name, token_exp, auto_refresh,
+            `SELECT account_id, name, fb_name, token_exp, auto_refresh, login_identity,
                     (login_password_enc IS NOT NULL) AS has_creds,
                     last_refresh_at, last_refresh_status
              FROM pancake_accounts ORDER BY last_used_at DESC`
@@ -192,11 +192,9 @@ router.post('/:accountId', async (req, res) => {
             identity = row.rows[0].login_identity;
             const enc = row.rows[0].login_password_enc;
             if (!identity || !enc)
-                return res
-                    .status(400)
-                    .json({
-                        error: 'Chưa lưu credentials cho account này — gửi identity+password',
-                    });
+                return res.status(400).json({
+                    error: 'Chưa lưu credentials cho account này — gửi identity+password',
+                });
             password = creds.decrypt(enc);
             if (!password) return res.status(500).json({ error: 'decrypt_failed (sai key?)' });
         } else if (body.save) {
