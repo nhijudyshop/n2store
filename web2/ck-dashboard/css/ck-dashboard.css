@@ -1,0 +1,157 @@
+/* #Note: WEB2.0 module — Dashboard đối soát CK. */
+.ckd-main {
+    padding: 20px 28px;
+}
+.ckd-head {
+    margin: 0 0 4px;
+}
+.ckd-sub {
+    color: #58666e;
+    margin: 0 0 16px;
+    font-size: 13px;
+    max-width: 760px;
+}
+.ckd-stats {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+.ckd-stat {
+    background: #fff;
+    border-radius: 10px;
+    padding: 12px 18px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    border-left: 4px solid #5e51ac;
+    min-width: 140px;
+}
+.ckd-stat .n {
+    font-size: 24px;
+    font-weight: 800;
+    color: #1e293b;
+}
+.ckd-stat .l {
+    font-size: 12px;
+    color: #64748b;
+}
+.ckd-cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+.ckd-col {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 14px;
+}
+.ckd-col-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #334155;
+    margin: 0 0 12px;
+}
+.ckd-col-head i {
+    width: 16px;
+    height: 16px;
+}
+.ckd-count {
+    margin-left: auto;
+    background: #ede9fe;
+    color: #6d28d9;
+    border-radius: 10px;
+    padding: 1px 9px;
+    font-size: 12px;
+    font-weight: 700;
+}
+.ckd-list {
+    display: grid;
+    gap: 8px;
+}
+.ckd-card {
+    background: #fff;
+    border-radius: 9px;
+    padding: 10px 12px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    cursor: pointer;
+    border-left: 3px solid #14b8a6;
+    transition: box-shadow 150ms ease;
+}
+.ckd-card:hover {
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.1);
+}
+.ckd-card.aging {
+    border-left-color: #ef4444;
+}
+.ckd-card.intent {
+    border-left-color: #f59e0b;
+}
+.ckd-cust {
+    font-weight: 700;
+    color: #1e293b;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.ckd-kw {
+    background: #ede9fe;
+    color: #6d28d9;
+    border-radius: 5px;
+    padding: 0 6px;
+    font-size: 10px;
+    font-weight: 700;
+}
+.ckd-msg {
+    color: #475569;
+    font-size: 12px;
+    margin-top: 2px;
+}
+.ckd-meta {
+    color: #94a3b8;
+    font-size: 11px;
+    margin-top: 3px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.ckd-age {
+    color: #ef4444;
+    font-weight: 700;
+}
+.ckd-empty {
+    color: #94a3b8;
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+}
+.ckd-done-btn {
+    margin-top: 6px;
+    padding: 4px 10px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+}
+.ckd-done-btn:hover {
+    background: #f1f5f9;
+}
+.ckd-more {
+    margin-top: 8px;
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+}

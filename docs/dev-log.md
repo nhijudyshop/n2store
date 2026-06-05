@@ -25,6 +25,17 @@
 
 ## 2026-06-05
 
+### [render][web2] 5 tính năng tương tác khách: auto-reply + watcher + intent + dashboard ✅
+
+User chọn "tất cả" 5 ý tưởng phát triển. Quyết định: auto-reply chỉ khi cộng ví; watcher tự link khi chắc / báo khi không; intent chỉ FLAG.
+
+- **D1 Auto-reply + báo số dư**: export `sendSingleMessage()` [web2-msg-send-worker.js](render.com/services/web2-msg-send-worker.js) (PAT + `_sendPancake`, best-effort). `linkTransaction` trả thêm `balance`. Approve endpoint: sau cộng ví + `notifyCustomer!==false` → gửi "Shop đã nhận CK + số dư ví X₫" (fire-and-forget, history `notify`). Checkbox "Gửi tin báo cho khách" trong [web2-ck-review.js](web2/shared/web2-ck-review.js).
+- **D2 Watcher "chờ tiền về"** [web2-ck-watcher.js](render.com/services/web2-ck-watcher.js): hook `_processWeb2Path` ([sepay-webhook-core.js](render.com/routes/sepay-webhook-core.js)) sau `processWeb2Match`. GD SePay mới khớp signal confirmed chưa-có-GD (72h): **SĐT trong nội dung HOẶC đúng tiền ≤24h** → `linkTransaction` (cộng ví, idempotent chống cộng 2 lần) + `matched_tx_id` + auto-reply; **không chắc** → notification staff. Wire deps qua `initWeb2CkWatcher` (server.js).
+- **D3 Intent FLAG** [detector](render.com/services/web2-payment-signal-detector.js): `detectIntent()` (cancel_order/change_address/check_shipping/view_order) + `handleIntent()` → `web2_customer_intents` + notification (`createNotification` export [v2/notifications.js](render.com/routes/v2/notifications.js)) + SSE `web2:customer-intents`. KHÔNG auto-execute. Route [web2-customer-intents.js](render.com/routes/web2-customer-intents.js) (GET/stats/done). Hook server.js `pages:new_message`.
+- **D4 Dashboard** [web2/ck-dashboard/](web2/ck-dashboard/index.html): 3 cột (chờ duyệt / đã duyệt chờ tiền về [GET `?noTx=1`] / yêu cầu khác KH) + aging badge + click → openReview/done + SSE. Sidebar "Đối soát CK".
+- **Test** [scripts/test-ck-features.js](scripts/test-ck-features.js) 10/10 (intent 6 cases + dedup + watcher SĐT-khớp auto-link+cộng ví+auto-reply, đúng-tiền-không-SĐT notify, no-match no-op) + payment-signals 14/14 + ck-review 11/11 regression + dashboard frontend smoke.
+- **An toàn**: gửi tin/cộng tiền best-effort catch (không vỡ webhook/approve); intent flag-only; watcher chống double-credit.
+
 ### [native-orders] Fix: bill In bill thiếu phí ship (hardcode 0) ✅
 
 User: bill in ra chưa có phí ship. Root cause: `bulkPrintBills` dựng PBH-shape với `delivery.price = 0` + `totals.total = subtotal` (bỏ ship) → bill luôn "Phí ship 0". (PBH thật trong DB ĐÚNG — `computeTotals` cộng ship; verified PBH NJ-20260605-0001: delivery.price=20000, total=460000.)

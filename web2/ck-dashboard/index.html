@@ -1,0 +1,62 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Dashboard đối soát CK. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Đối soát CK - WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260522f" />
+        <link rel="stylesheet" href="../shared/web2-tpos-theme.css?v=20260522d" />
+        <link rel="stylesheet" href="css/ck-dashboard.css?v=20260605a" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main ckd-main">
+                <h1 class="ckd-head">Đối soát Chuyển Khoản</h1>
+                <p class="ckd-sub">
+                    Theo dõi tín hiệu CK chờ duyệt, đơn đã duyệt chờ tiền về, và yêu cầu khác của
+                    khách. Bấm vào từng mục để xử lý.
+                </p>
+
+                <div class="ckd-stats" id="ckdStats"></div>
+
+                <div class="ckd-cols">
+                    <section class="ckd-col">
+                        <h2 class="ckd-col-head">
+                            <i data-lucide="bell-ring"></i> Chờ duyệt
+                            <span class="ckd-count" id="ckdPendingCount">0</span>
+                        </h2>
+                        <div class="ckd-list" id="ckdPending"></div>
+                    </section>
+                    <section class="ckd-col">
+                        <h2 class="ckd-col-head">
+                            <i data-lucide="hourglass"></i> Đã duyệt · chờ tiền về
+                            <span class="ckd-count" id="ckdWaitCount">0</span>
+                        </h2>
+                        <div class="ckd-list" id="ckdWait"></div>
+                    </section>
+                    <section class="ckd-col">
+                        <h2 class="ckd-col-head">
+                            <i data-lucide="message-square-warning"></i> Yêu cầu khác của KH
+                            <span class="ckd-count" id="ckdIntentCount">0</span>
+                        </h2>
+                        <div class="ckd-list" id="ckdIntents"></div>
+                    </section>
+                </div>
+            </main>
+        </div>
+
+        <script src="../../shared/js/notification-system.js?v=20260526e"></script>
+        <script src="../shared/web2-auth.js?v=20260522f"></script>
+        <script src="../shared/web2-user-info.js?v=20260530a"></script>
+        <script src="../shared/web2-optimistic.js?v=20260601a"></script>
+        <script src="../shared/tpos-sidebar.js?v=20260522f"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260526sse2"></script>
+        <script src="../shared/web2-wallet-balance.js?v=20260602a"></script>
+        <script src="../shared/web2-ck-review.js?v=20260605a"></script>
+        <script src="js/ck-dashboard-app.js?v=20260605a"></script>
+    </body>
+</html>
