@@ -25,6 +25,16 @@
 
 ## 2026-06-05
 
+### [render][web2] Payment signals — lịch sử thao tác + tên user xác nhận ✅
+
+User: khi xác nhận lưu lại lịch sử cùng tên user xác nhận.
+
+- **Detector** [web2-payment-signal-detector.js](render.com/services/web2-payment-signal-detector.js): thêm cột `history JSONB` (ALTER idempotent cho bảng đã tồn tại trên prod) + seed `history[0]={action:'detect', userName:'(hệ thống tự nhận)', note:keyword}` lúc INSERT.
+- **Route** [web2-payment-signals.js](render.com/routes/web2-payment-signals.js): helper `_appendHistory(pool,id,{action,userId,userName,note})` (append vào JSONB qua `history || $::jsonb`) + `_user(req)` đọc userId/userName từ body. confirm/dismiss/link append entry. `confirmed_by` = userName. mapSignal trả `history`.
+- **Frontend** [payment-confirm-app.js](web2/payment-confirm/js/payment-confirm-app.js): `userBody()` gửi userId/userName qua `Web2UserInfo.attachToBody` (thay `by:name` cũ). `historyHtml(sig)` render `<details>Lịch sử</details>` dùng `Web2HistoryTimeline.render` (fallback list). Badge confirmed hiện "✅ Đã xác nhận · {tên}". Load `web2-history-timeline.js`.
+- History shape khớp convention web2 (`{ts,action,userId,userName,note}` — như web2-generic 78 entity). Action VI: detect/confirm/dismiss/link.
+- Test [test-payment-signals.js](scripts/test-payment-signals.js) 14/14 (+ seed detect + append confirm lưu tên user) + frontend smoke (Web2HistoryTimeline/UserInfo load, no error).
+
 ### [fast-sale-orders] Lưu channel vào PBH → bill in từ trang PBH cũng ghi "PBH INBOX" ✅
 
 Tiếp nối bill INBOX: trước chỉ "In bill từ native-orders" có channel. Giờ lưu channel vào `fast_sale_orders` để bill in từ trang PBH (fastsaleorder-invoice) cũng đúng.
