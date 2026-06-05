@@ -233,6 +233,20 @@
             .w2pm-item-headright { display: inline-flex; align-items: center; gap: 10px; }
             .w2pm-chat-btn { border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 7px; cursor: pointer; white-space: nowrap; }
             .w2pm-chat-btn:hover { background: #dbeafe; border-color: #93c5fd; }
+            .w2pm-fb { margin: 8px 0; border: 1px solid #dbeafe; border-radius: 8px; background: #f5f9ff; padding: 7px 9px; }
+            .w2pm-fb-head { font-size: 11px; font-weight: 600; color: #1d4ed8; margin-bottom: 5px; }
+            .w2pm-fb-rows { display: flex; flex-direction: column; gap: 4px; }
+            .w2pm-fb-loading, .w2pm-fb-empty { font-size: 12px; color: #94a3b8; font-style: italic; padding: 3px 2px; }
+            .w2pm-fb-row { display: flex; align-items: center; gap: 9px; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 5px 8px; }
+            .w2pm-fb-av { position: relative; width: 30px; height: 30px; flex: 0 0 auto; border-radius: 50%; overflow: hidden; background: #c7d2fe; }
+            .w2pm-fb-av .w2pm-fb-ini { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #3730a3; font-weight: 700; font-size: 12px; }
+            .w2pm-fb-av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+            .w2pm-fb-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+            .w2pm-fb-name { font-weight: 600; font-size: 13px; color: #0f172a; }
+            .w2pm-fb-phone { font-size: 11px; color: #2563eb; }
+            .w2pm-fb-bal { font-size: 11px; }
+            .w2pm-fb-pick { flex: 0 0 auto; border: none; background: #16a34a; color: #fff; font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+            .w2pm-fb-pick:hover { background: #15803d; }
             .w2pm-custom-divider { font-size: 11px; font-weight: 600; color: #1d4ed8; padding: 6px 10px 3px; border-top: 1px dashed #dbeafe; margin-top: 3px; }
             .w2pm-custom-item.is-fb:hover { background: #eff6ff; }
             .w2pm-fb-tag { font-size: 9px; font-weight: 700; color: #fff; background: #2563eb; border-radius: 3px; padding: 1px 4px; letter-spacing: .03em; }
@@ -327,6 +341,9 @@
         });
         // Số dư ví cho các SĐT ứng viên (chỉ hiện khi > 0).
         window.Web2WalletBalance?.attachBalances?.(body);
+        // Lazy-load list KH từ hội thoại FB cho từng card khi cuộn tới (tránh
+        // 200 card × search Pancake cùng lúc).
+        _setupFbObserver(body);
     }
 
     // ---- Custom KH picker per item ----

@@ -25,6 +25,15 @@
 
 ## 2026-06-05
 
+### [web2] Pending-match: hiện luôn list KH từ hội thoại FB INLINE trong card ✅
+
+User: hiện luôn ra hình 2 (list hội thoại) ngay trong card, không cần bấm 💬 mở modal.
+
+- Mỗi card pending có section **"📘 Khách từ hội thoại Facebook (khớp đuôi SĐT)"** với avatar + tên + SĐT (từ `recent_phone_numbers`) + nút xanh **"Gán KH này"** → resolve pending ngay.
+- **Lazy-load qua IntersectionObserver** (root=modal body, rootMargin 300px): chỉ search Pancake khi card cuộn tới → tránh 200 card × 3 page search cùng lúc. Cache theo đuôi (`_fbTailCache`), cap 6 dòng, ưu tiên SĐT endsWith đúng đuôi.
+- Giữ nút 💬 (mở modal full thread/tìm). Browser-tested: card đầu auto 5 dòng (Vân Luu 0918779981, An Nguyễn 0942779981), 5 nút Gán.
+- **Files:** `web2/balance-history/js/web2-pending-match.js` (v=20260605c), `index.html`
+
 ### [web2] Bill: sản phẩm 1 hàng/SP — 4 cột (tên | SL | đơn giá | thành tiền) ✅
 
 User: phần sản phẩm gộp tên + số lượng + tiền + thành tiền cho **1 hàng** (trước đây 2 dòng/SP: tên ở trên, "SL × giá ... total" ở dưới).
@@ -4469,51 +4478,6 @@ Status: ✅ Done — bobo verified `view_chiPhiHangVe=true, edit_chiPhiHangVe=tr
 **Next (P2)**: migrate 4 Firestore listeners → SSE.
 
 **Files**: web2/shared/page-shell.js + 72 web2/\*/index.html
-
----
-
-## 2026-05-28
-
-### [web2/live-campaign] Modal tạo campaign giống TPOS: page picker + live video cascade + Config dropdown ✅
-
-**User ask**: "browser test vào tomato.tpos.vn/.../liveCampaign/list tạo chiến dịch test để hiểu rõ và làm đúng web2/live-campaign/index.html"
-
-**Test trên TPOS** xác nhận schema `SaleOnline_LiveCampaign` cần các field:
-
-- `Name` (required, unique)
-- `Facebook_UserId` + `Facebook_UserName` (page TPOS đã liên kết qua CRMTeam)
-- `Facebook_LiveId` (optional, format `{pageId}_{videoId}` từ FB Graph live videos)
-- `Config` (`Draft` / `Active` / `Closed` — show as `Nháp` / `Đang chạy` / `Đã đóng`)
-- `IsActive` (toggle)
-- `Note`
-- `MinAmountDeposit`, `MaxAmountDepositRequired` (advanced — default 0)
-
-**Fix** — UI giờ matched TPOS web:
-
-1. **`LiveCampaignApi.loadPages()` mới**: fetch `/api/odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs`, flatten ra `[{pageId, pageName, teamId, teamName}]`. Cache 5min.
-
-2. **`LiveCampaignApi.loadLiveVideos(pageId)` mới**: fetch `/api/facebook-graph/livevideo?pageid=X&limit=20` (CF route FACEBOOK_LIVE). Cache 1min per page. Return `[{objectId, title, startMs, statusLive, countComment}]`.
-
-3. **Modal HTML refactor**:
-    - Field "Page Facebook" → `<select>` populated từ `loadPages()` (auto-fill Facebook_UserId + Facebook_UserName)
-    - Field "Bài Live" → `<select>` cascade khi page change (badge 🔴 cho live đang chạy + title + time + count comment)
-    - Field "Trạng thái cấu hình" mới (Config: Draft/Active/Closed)
-    - Auto-suggest Name: chọn page → fill `{LAST_WORD_UPPER} DD/MM/YYYY` (TPOS convention, vd "Nhi Judy House" → "HOUSE 28/05/2026"). Dirty flag không overwrite nếu user đã edit.
-
-4. **Create payload** giờ pass đầy đủ: `Facebook_UserId`, `Facebook_UserName`, `Config`, `MinAmountDeposit`, `MaxAmountDepositRequired`.
-
-5. **Edit pre-fill**: page select auto-match Facebook_UserId. Nếu page không còn trong CRMTeam → chèn option tạm "(không còn trong CRM)" để giữ data. Tương tự cho live video không có trong 20 lives gần nhất.
-
-**Verified qua browser test** (localhost:8080 + persistent Playwright session):
-
-- Open modal → 7 page options (1 placeholder + 6 pages thật)
-- Chọn "Nhi Judy House" → Name auto-fill "HOUSE 28/05/2026" + 10 live videos load
-- Create → row mới xuất hiện trong table với status "Nháp"
-- Open Edit cho campaign hiện có → pre-fill Name + page + live + Config đúng
-
-**Cache bust**: `?v=20260525d` → `?v=20260528a`
-
-**Files**: web2/live-campaign/{index.html, js/live-campaign-api.js, js/live-campaign-app.js}
 
 ---
 
