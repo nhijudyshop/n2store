@@ -29,7 +29,7 @@
 
 User: trang products → mã SP in ra cho gần đầy kích cỡ giấy tem cho đẹp.
 
-- `buildLabelHTML`: font ×1.3 (`fsBase*1.3`), barcode cao **55% tem** (thay 45%). Content `justify-content: center` (user chốt: canh giữa dọc tem — khối to nhưng không sát mép trên/dưới; bản space-between trước bị sát mép).
+- `buildLabelHTML`: font ×1.3 (`fsBase*1.3`), barcode cao **46% tem** (đã hạ từ 55%: tên 2-3 dòng không làm GIÁ bị cắt). Content `justify-content: center` (user chốt: canh giữa dọc tem — khối to nhưng không sát mép trên/dưới; bản space-between trước bị sát mép).
 - **Barcode rộng gần full**: bỏ pad quiet-zone tới TARGET_W=600 (làm bars chỉ ~50% width, chừa trắng 2 bên), đổi `sideMargin = max(6, nativeW*0.06)` → bars chiếm ~88% width tem, vẫn đủ vùng trắng tối thiểu quét Code128.
 - Verified Playwright (expose tạm `_buildLabelHTML`/`_PAPERS`, screenshot `label-fill2.png`, gỡ hook trước commit): 2 tem 66×21mm, mỗi tem 25mm content lấp đầy.
 - File: `web2-products-print.js` (v=20260605b). In tem qua máy XP-470B (TSPL) tự co theo `.barcode-sheet` 66mm.
