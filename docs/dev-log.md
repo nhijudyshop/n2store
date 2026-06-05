@@ -25,6 +25,24 @@
 
 ## 2026-06-05
 
+### [native-orders][render] Đơn Inbox — picker SP inline + search không dấu + avatar/hội thoại ✅
+
+User (3 yêu cầu cho modal "Thêm đơn Inbox" trang `native-orders`):
+
+1. **Thêm SP vào giỏ ngay trong modal, không bắt buộc** — picker SP inline + giỏ hàng trong modal `openAddInboxOrder`; tạo đơn được kể cả giỏ trống (bỏ auto-mở modal sửa). Button "Tạo đơn + thêm SP" → "Tạo đơn (N SP)".
+2. **Gõ không dấu vẫn nhận** — backend `/api/web2/customers/search` đổi `name ILIKE` → `unaccent(name) ILIKE unaccent($1)` ("huynh thanh dat" khớp "Huỳnh Thành Đạt"). Ensure `unaccent` extension trong `web2-customers-schema.js` + fallback ILIKE nếu extension bị chặn.
+3. **Avatar + mở hội thoại cho đơn inbox** (đơn inbox khác đơn livestream — không có fb context sẵn): **ưu tiên bind** `fb_id` từ kho KH khi tạo đơn (`create-manual` lookup `web2_customers.fb_id` → lưu `fb_user_id`); **fallback** modal chat render đầy đủ shell + auto-search sidebar theo tên/SĐT khách (client-side filter khi chưa có page) → user click hội thoại → `_switchChatToCustomer` bind page+psid → load thread.
+
+**Files**:
+
+- `native-orders/js/native-orders-app.js` — `openAddInboxOrder` (picker SP inline + cart), `_renderMessagesPanel` (bỏ dead-end, luôn render shell), `_loadAndRenderThread` (guard prompt "chọn hội thoại" khi unbound), `_wireSidebarSearch` (client-filter + auto-seed search khi `!order.fbPageId`)
+- `native-orders/css/native-orders.css` — `.no-add-modal--wide` + `.no-add-cart*` styles
+- `render.com/routes/v2/web2-customers.js` — unaccent search + trả `fbId` + fallback
+- `render.com/routes/native-orders.js` — `create-manual` nhận/lookup + lưu `fb_user_id`
+- `render.com/db/web2-customers-schema.js` — ensure `unaccent` extension
+
+**Verify (Playwright localhost)**: modal mở, picker load 12 SP khi gõ, click → cart 1 row + label "Tạo đơn (1 SP)", 0 console error. Đơn inbox cũ (unbound) mở chat → thread hiện prompt "chưa gắn hội thoại", sidebar auto-prefill tên KH + client-filter chạy, shell + input render, 0 error. ⚠ Backend (Task 2 + bind) cần deploy Render mới verify online.
+
 ### [render][web2] Unread Web 2.0 — logic authoritative thuần (bỏ mirror Web 1.0 + nút Đã đọc) ✅
 
 User: đừng học theo Web 1.0; chỉ lấy tin realtime từ server socket → xử lý logic Web 2.0; bỏ nút "Đã đọc", auto-clear theo dữ liệu Pancake.
