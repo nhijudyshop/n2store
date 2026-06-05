@@ -25,6 +25,16 @@
 
 ## 2026-06-05
 
+### [web2] Balance-history: bỏ badge nổi "Cần chọn KH" → nút "⚠ Trùng SĐT" trên row ✅
+
+User: bỏ badge nổi (hình 2) → cho vào ô KH (hình 3) ghi "Trùng SĐT".
+
+- **Bỏ badge nổi** `web2PendingBadge` ("Cần chọn KH (Web 2.0): N", fixed top-right): `ensureBadge` giờ tạo element detached (KHÔNG append DOM) → không hiện. `updateBadge` vẫn no-op an toàn.
+- **Nút "⚠ Trùng SĐT"** trên mỗi row `match_method='pending_match'` (thay "+ Gán KH", bỏ pill "Chờ chọn KH"): `data-action="dup-phone"` + `data-sepay` → `Web2PendingMatch.openModal(sepay_id)` mở modal **lọc đúng GD đó** (seed search = sepay_id).
+- `openModal(seedSearch?)`: set sẵn `_searchQuery` + ô tìm.
+- Browser-tested: badge gone (badgeInDom=false), 2 nút Trùng SĐT (sepay 61925057), click → modal 1 item đúng GD.
+- **Files:** `web2/balance-history/js/web2-balance-history-app.js` + `web2-pending-match.js` + `css/web2-balance-history.css` (v=20260605d), `index.html`
+
 ### [web2 bill] Đơn kênh INBOX → tiêu đề "PBH INBOX" / "PBH SHOP INBOX" ✅
 
 User: đơn Inbox → PBH/PBH SHOP thì bill ghi "PBH INBOX" / "PBH SHOP INBOX" (phân biệt Livestream).

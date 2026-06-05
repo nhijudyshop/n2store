@@ -274,6 +274,14 @@
                 openChatForPhone(btn.getAttribute('data-phone'), btn.getAttribute('data-name'))
             );
         });
+        // Row trùng SĐT (pending_match) → mở modal chọn KH, lọc đúng giao dịch này.
+        dom.tbody.querySelectorAll('[data-action="dup-phone"]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const seed = btn.getAttribute('data-sepay') || '';
+                if (window.Web2PendingMatch?.openModal) window.Web2PendingMatch.openModal(seed);
+                else notify('Module trùng SĐT chưa load', 'warning');
+            });
+        });
         // Số dư ví KH cho các row có SĐT (chỉ hiện khi > 0).
         window.Web2WalletBalance?.attachBalances?.(dom.tbody);
     }
@@ -371,7 +379,8 @@
         //   no phone + đã reprocess không ra → "Chưa gán" (đỏ, cần user gán hoặc bỏ qua)
         const verifBadge = (() => {
             if (method === 'pending_match') {
-                return '<span class="w2bh-pill pending">Chờ chọn KH</span>';
+                // Nút "Trùng SĐT" trong ô KH đã thể hiện trạng thái → bỏ pill.
+                return '';
             }
             if (method === 'pending_low_confidence') {
                 return '<span class="w2bh-pill pending">Chờ xác minh</span>';
@@ -437,7 +446,9 @@
                                     <span class="w2bh-customer-phone w2bh-ncc-tag">NCC</span>
                                  </div>`
                               : extractionBadge +
-                                `<button type="button" class="w2bh-link-btn" data-action="link" data-id="${r.id}">+ Gán KH</button>`
+                                (method === 'pending_match'
+                                    ? `<button type="button" class="w2bh-dup-btn" data-action="dup-phone" data-sepay="${escapeHtml(String(r.sepay_id || ''))}" title="Trùng SĐT nhiều KH cùng đuôi — bấm để chọn đúng KH">⚠ Trùng SĐT</button>`
+                                    : `<button type="button" class="w2bh-link-btn" data-action="link" data-id="${r.id}">+ Gán KH</button>`)
                     }
                     ${verifBadge}
                     ${userBadge}

@@ -813,15 +813,21 @@
         updateBadge();
     }
 
-    function openModal() {
+    // openModal(seedSearch?) — nếu truyền seed (vd sepay_id từ row "Trùng SĐT")
+    // thì set sẵn ô tìm để lọc đúng giao dịch đó.
+    function openModal(seedSearch) {
         ensureModalDom();
         _modal.hidden = false;
+        const seed = typeof seedSearch === 'string' ? seedSearch.trim() : '';
+        _searchQuery = seed;
         renderModalBody();
         refreshModal();
-        // Auto-focus search input để user gõ ngay không cần click.
         setTimeout(() => {
             const search = document.getElementById('web2PendingSearch');
-            if (search) search.focus();
+            if (search) {
+                search.value = seed;
+                search.focus();
+            }
         }, 60);
     }
 
@@ -831,28 +837,17 @@
 
     // Floating badge — show count of pending matches in toolbar
     let _badge = null;
+    // 2026-06-05: BỎ badge nổi "Cần chọn KH (Web 2.0): N" theo yêu cầu user.
+    // Thay bằng nút "⚠ Trùng SĐT" trên từng row pending_match (balance-history
+    // table) → mở modal lọc đúng giao dịch. Giữ element detached (KHÔNG append
+    // DOM) để updateBadge() không lỗi, nhưng badge không bao giờ hiện.
     function ensureBadge() {
         if (_badge) return _badge;
-        ensureStyles();
         const b = document.createElement('button');
-        b.type = 'button';
         b.id = 'web2PendingBadge';
-        b.className = 'w2pm-badge-trigger';
         b.hidden = true;
-        b.innerHTML = `🔍 Cần chọn KH (Web 2.0): <span id="web2PendingBadgeCount">0</span>`;
-        b.addEventListener('click', openModal);
-        // Insert at top of body or near filters
-        const filtersTop = document.querySelector('.verification-filters');
-        if (filtersTop && filtersTop.parentNode) {
-            filtersTop.parentNode.insertBefore(b, filtersTop);
-        } else {
-            document.body.appendChild(b);
-        }
-        b.style.position = 'fixed';
-        b.style.top = '12px';
-        b.style.right = '16px';
-        b.style.zIndex = '9000';
-        _badge = b;
+        b.innerHTML = `<span id="web2PendingBadgeCount">0</span>`;
+        _badge = b; // detached — không append vào DOM
         return b;
     }
 
