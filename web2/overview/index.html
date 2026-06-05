@@ -46,6 +46,47 @@
                     </div>
                 </header>
 
+                <!-- Hệ thống đăng nhập (web2/login) + quản lý user (web2/users):
+                     phân quyền + xác minh danh tính người thực hiện + lịch sử hành động. -->
+                <section
+                    id="ovAuthCard"
+                    style="
+                        display: flex;
+                        align-items: center;
+                        gap: 16px;
+                        flex-wrap: wrap;
+                        background: #fff;
+                        border: 1px solid #e2e8f0;
+                        border-left: 5px solid #7266ba;
+                        border-radius: 14px;
+                        padding: 16px 20px;
+                        margin: 0 0 20px;
+                        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                    "
+                >
+                    <div style="font-size: 30px; line-height: 1">🔐</div>
+                    <div style="flex: 1; min-width: 240px">
+                        <div
+                            id="ovAuthStatus"
+                            style="font-size: 15px; font-weight: 700; color: #1e293b"
+                        >
+                            Đang kiểm tra đăng nhập…
+                        </div>
+                        <div
+                            style="
+                                font-size: 12.5px;
+                                color: #64748b;
+                                margin-top: 4px;
+                                line-height: 1.55;
+                            "
+                        >
+                            Đăng nhập để <b>phân quyền</b>, <b>gắn danh tính</b> người thực hiện
+                            hành động (in bill, sửa đơn, …) và lưu <b>lịch sử hành động</b>.
+                        </div>
+                    </div>
+                    <div id="ovAuthActions" style="display: flex; gap: 8px; flex-wrap: wrap"></div>
+                </section>
+
                 <nav class="ov-toc" aria-label="Mục lục">
                     <div class="ov-toc-title">Mục lục</div>
                     <ol>
@@ -2423,7 +2464,61 @@ permission_templates    (role: admin/manager/staff)</pre
                     Web2Sidebar.mount('#web2Aside', { activeRoute: 'overview' });
                 }
                 if (window.lucide) lucide.createIcons();
+                renderOvAuth();
             });
+
+            // Card đăng nhập/danh tính trên overview — đọc Web2Auth (login system).
+            function renderOvAuth() {
+                const statusEl = document.getElementById('ovAuthStatus');
+                const actsEl = document.getElementById('ovAuthActions');
+                if (!statusEl || !actsEl) return;
+                const btn = (href, text, bg, color, border) =>
+                    `<a href="${href}" style="display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 16px;border-radius:9px;font-size:13.5px;font-weight:700;text-decoration:none;background:${bg};color:${color};border:1px solid ${border || bg};cursor:pointer;">${text}</a>`;
+                const usersLink = btn(
+                    '../users/index.html',
+                    '👥 Quản lý người dùng',
+                    '#fff',
+                    '#475569',
+                    '#cbd5e1'
+                );
+                let user = null;
+                try {
+                    user =
+                        window.Web2Auth && window.Web2Auth.getStored
+                            ? window.Web2Auth.getStored()?.user
+                            : null;
+                } catch (e) {}
+                if (user) {
+                    const name =
+                        user.displayName || user.username || user.email || user.name || 'User';
+                    const role = user.role ? ` · ${user.role}` : '';
+                    statusEl.innerHTML = `✅ Đang đăng nhập: <b style="color:#7266ba">${name}</b><span style="color:#64748b;font-weight:500">${role}</span>`;
+                    actsEl.innerHTML =
+                        usersLink +
+                        `<button id="ovAuthLogout" style="height:38px;padding:0 16px;border-radius:9px;font-size:13.5px;font-weight:700;background:#fff;color:#dc2626;border:1px solid #fecaca;cursor:pointer;">Đăng xuất</button>`;
+                    const lo = document.getElementById('ovAuthLogout');
+                    if (lo)
+                        lo.addEventListener('click', () => {
+                            if (window.Web2Auth?.logout) window.Web2Auth.logout({ redirect: true });
+                        });
+                } else {
+                    statusEl.innerHTML =
+                        '⚠️ <b>Chưa đăng nhập</b> — hành động trên web chưa gắn được danh tính (bill ghi "ẩn danh").';
+                    let loginUrl = '../login/index.html';
+                    try {
+                        if (window.Web2Auth?.loginUrl) loginUrl = window.Web2Auth.loginUrl();
+                    } catch (e) {}
+                    const next = encodeURIComponent(location.pathname + location.search);
+                    actsEl.innerHTML =
+                        btn(
+                            `${loginUrl}?next=${next}`,
+                            '→ Đăng nhập',
+                            '#7266ba',
+                            '#fff',
+                            '#7266ba'
+                        ) + usersLink;
+                }
+            }
         </script>
     </body>
 </html>
