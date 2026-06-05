@@ -127,6 +127,127 @@
         return true;
     }
 
+    // ===== LÀM MỚI TRẠNG THÁI PHIẾU TỪ TPOS (bước 0 của đối soát) =====
+    // Refresh trạng thái phiếu mới nhất cho TOÀN BỘ đơn 'Đơn hàng' trong khoảng, rồi reload
+    // InvoiceStatusStore → đối soát chạy trên trạng thái phiếu mới nhất. Chia 10 lệnh song song.
+    async function refreshInvoicesFromTPOS(orders, range, setBtn) {
+        const ids = orders
+            .filter((o) => o.status === 'order' && _inRange(o, range))
+            .map((o) => String(o.id));
+        if (!ids.length) return 0;
+        if (setBtn) setBtn(`<i class="fas fa-spinner fa-spin"></i> Làm mới phiếu TPOS (${ids.length})...`, true);
+        const GROUPS = 10;
+        const groups = Array.from({ length: GROUPS }, () => []);
+        ids.forEach((id, i) => groups[i % GROUPS].push(id));
+        let updated = 0;
+        await Promise.all(
+            groups
+                .filter((g) => g.length)
+                .map(async (g) => {
+                    try {
+                        const resp = await fetch(`${WORKER()}/api/invoice-status/refresh-from-tpos`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ saleOnlineIds: g }),
+                        });
+                        if (resp.ok) {
+                            const d = await resp.json();
+                            updated += d.updated || 0;
+                        }
+                    } catch (e) {
+                        console.warn('[SOCIAL-KPI] refresh phiếu group fail:', e.message);
+                    }
+                })
+        );
+        // Reload store để các bước sau đọc trạng thái phiếu mới nhất
+        try {
+            if (window.InvoiceStatusStore?.reload) await window.InvoiceStatusStore.reload();
+        } catch (e) {
+            console.warn('[SOCIAL-KPI] InvoiceStatusStore.reload fail:', e.message);
+        }
+        console.log(`[SOCIAL-KPI] Làm mới phiếu TPOS: ${updated} cập nhật / ${ids.length} đơn`);
+        return updated;
+    }
+
+    // ===== STORE "ĐÃ KIỂM TRA" (Render + localStorage fallback) =====
+    const VERIFY_LS_KEY = 'socialKpiVerify_v1';
+    const verify = {
+        current: new Map(), // orderId → { checked, verifiedBy, verifiedByName, verifiedAt }
+        history: [], // [{ orderId, invoiceNumber, sellerName, customerName, action, verifiedBy, verifiedByName, verifiedAt }]
+        loaded: false,
+    };
+    const _verifyApi = () => `${WORKER()}/api/social-kpi-verify`;
+
+    function _currentUser() {
+        const a = window.authManager?.getAuthState?.() || {};
+        return {
+            id: a.username || a.userType || 'unknown',
+            name: a.displayName || a.username || a.userType || 'Ẩn danh',
+        };
+    }
+    function _loadVerifyLocal() {
+        try {
+            const d = JSON.parse(localStorage.getItem(VERIFY_LS_KEY) || '{}');
+            verify.history = Array.isArray(d.history) ? d.history : [];
+            verify.current = new Map(Object.entries(d.current || {}));
+        } catch (_) {}
+    }
+    function _saveVerifyLocal() {
+        try {
+            localStorage.setItem(
+                VERIFY_LS_KEY,
+                JSON.stringify({ history: verify.history.slice(0, 2000), current: Object.fromEntries(verify.current) })
+            );
+        } catch (_) {}
+    }
+    async function loadVerifications() {
+        _loadVerifyLocal(); // offline-first
+        try {
+            const resp = await fetch(`${_verifyApi()}/load`);
+            if (resp.ok) {
+                const d = await resp.json();
+                if (d.success) {
+                    verify.history = d.history || [];
+                    verify.current = new Map(Object.entries(d.current || {}));
+                    _saveVerifyLocal();
+                }
+            }
+        } catch (e) {
+            console.warn('[SOCIAL-KPI] verify load (dùng local):', e.message);
+        }
+        verify.loaded = true;
+        return verify;
+    }
+    function isVerified(orderId) {
+        return verify.current.get(String(orderId))?.checked === true;
+    }
+    async function markVerified(rec, checked) {
+        const u = _currentUser();
+        const entry = {
+            orderId: String(rec.orderId),
+            invoiceNumber: rec.invoiceNumber || '',
+            sellerName: rec.sellerName || '',
+            customerName: rec.customerName || '',
+            action: checked ? 'check' : 'uncheck',
+            verifiedBy: u.id,
+            verifiedByName: u.name,
+            verifiedAt: Date.now(),
+        };
+        verify.current.set(entry.orderId, { checked, verifiedBy: u.id, verifiedByName: u.name, verifiedAt: entry.verifiedAt });
+        verify.history.unshift(entry);
+        _saveVerifyLocal();
+        try {
+            await fetch(`${_verifyApi()}/mark`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(entry),
+            });
+        } catch (e) {
+            console.warn('[SOCIAL-KPI] verify mark (chỉ lưu local):', e.message);
+        }
+        return entry;
+    }
+
     // ===== GATE: đơn có đủ điều kiện tính KPI không =====
     // Mirror _isInvoiceCancelled (tab1) — phiếu hủy bằng bất kỳ tín hiệu nào.
     function isInvoiceCancelled(inv) {
@@ -415,10 +536,21 @@
                 console.error('[SOCIAL-KPI] ensureRangeLoaded fail, fallback bảng:', e);
                 all = window.SocialOrderState?.orders || [];
             }
+            const range = getInboxDateRange();
+
+            // 0b) LÀM MỚI trạng thái phiếu từ TPOS cho toàn bộ đơn trong khoảng (chạy ĐẦU TIÊN,
+            //     10 lệnh song song) rồi reload store → đối soát dùng trạng thái phiếu mới nhất.
+            try {
+                await refreshInvoicesFromTPOS(all, range, setBtn);
+            } catch (e) {
+                console.warn('[SOCIAL-KPI] refresh phiếu TPOS lỗi (tiếp tục):', e.message);
+            }
+            // 0c) Nạp trạng thái "đã kiểm tra" (để modal tô xanh + lịch sử)
+            await loadVerifications().catch(() => {});
+
             setBtn('<i class="fas fa-spinner fa-spin"></i> Đang đối soát...', true);
 
             // 1) Gom đơn đủ điều kiện trong khoảng ngày của bộ lọc inbox
-            const range = getInboxDateRange();
             const qualifying = [];
             for (const o of all) {
                 const inv = getQualifyingInvoice(o);
@@ -494,8 +626,10 @@
                     monKpi,
                     refundedMon,
                     refundedProducts: m.refundedProducts,
+                    kpiProducts: Object.values(built.details).filter((d) => (d.net || 0) > 0), // [{code,name,net}] để expand món
                     sellerName,
                     invoiceNumber: inv.Number,
+                    invoiceState: inv.ShowState || '',
                     stt: order.stt,
                     customerName: order.customerName || '',
                 });
@@ -694,16 +828,17 @@
         modal = document.createElement('div');
         modal.id = 'socialKpiDetailModal';
         modal.style.cssText =
-            'display:none;position:fixed;inset:0;z-index:10000;background:rgba(17,24,39,.5);' +
-            'align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+            'display:none;position:fixed;inset:0;z-index:10000;background:rgba(17,24,39,.55);' +
+            'align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto;';
         modal.innerHTML = `
-            <div class="skpi-modal-content" style="background:#fff;border-radius:12px;max-width:1100px;width:100%;
-                box-shadow:0 20px 60px rgba(0,0,0,.25);display:flex;flex-direction:column;max-height:88vh;">
-                <div class="skpi-modal-head" style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;
+            <div class="skpi-modal-content" style="background:#fff;border-radius:14px;max-width:1400px;width:98%;
+                box-shadow:0 24px 70px rgba(0,0,0,.3);display:flex;flex-direction:column;max-height:94vh;">
+                <div class="skpi-modal-head" style="padding:14px 20px;border-bottom:1px solid #e5e7eb;display:flex;
                     align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;"></div>
+                <div class="skpi-modal-tabs" style="padding:0 20px;border-bottom:1px solid #e5e7eb;display:flex;gap:4px;"></div>
                 <div class="skpi-modal-tools" style="padding:10px 20px;border-bottom:1px solid #f3f4f6;display:flex;
                     gap:10px;align-items:center;flex-wrap:wrap;"></div>
-                <div class="skpi-modal-body" style="overflow:auto;padding:0 4px;"></div>
+                <div class="skpi-modal-body" style="overflow:auto;padding:0;"></div>
             </div>`;
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.style.display = 'none';
@@ -715,17 +850,51 @@
         return modal;
     }
 
+    function _showStateBadge(s) {
+        if (!s) return '<span style="color:#9ca3af;font-size:11px;">—</span>';
+        const cfg = window.getShowStateConfig ? window.getShowStateConfig(s) : null;
+        const bg = cfg?.bgColor || '#f3f4f6', col = cfg?.color || '#6b7280', bd = cfg?.borderColor || '#d1d5db';
+        return `<span style="background:${bg};color:${col};border:1px solid ${bd};font-size:11px;padding:1px 7px;border-radius:4px;white-space:nowrap;">${escHtml(s)}</span>`;
+    }
+
+    // HTML chi tiết món của 1 đơn: món nào +KPI, món nào hoàn (không +).
+    function _monDetailHtml(row) {
+        const refMap = new Map((row.refunded || []).map((p) => [String(p.code || '').toUpperCase(), Number(p.qty) || 0]));
+        const items =
+            row.kpiProducts && row.kpiProducts.length
+                ? row.kpiProducts
+                : (row.products || []).map((p) => ({ code: p.productCode, name: p.productName, net: Number(p.quantity) || 0 }));
+        if (!items.length)
+            return `<div style="padding:8px 16px 8px 46px;color:#9ca3af;font-size:12px;">Chưa có chi tiết món — bấm "Chạy đối soát KPI" để lấy.</div>`;
+        const lis = items
+            .map((it) => {
+                const qty = Number(it.net) || 0;
+                const ref = refMap.get(String(it.code || '').toUpperCase()) || 0;
+                const counted = Math.max(0, qty - ref);
+                if (ref > 0) {
+                    return `<li style="color:#dc2626;">[${escHtml(it.code)}] ${escHtml(it.name || '')} — SL ${qty}, hoàn ${ref} → <strong>KHÔNG +${escHtml(formatVnd(Math.min(ref, qty) * KPI_PER_UNIT))}</strong>${counted > 0 ? ` <span style="color:#059669;">(còn ${counted} → +${escHtml(formatVnd(counted * KPI_PER_UNIT))})</span>` : ''}</li>`;
+                }
+                return `<li style="color:#059669;">[${escHtml(it.code)}] ${escHtml(it.name || '')} — SL ${qty} → <strong>+${escHtml(formatVnd(qty * KPI_PER_UNIT))}</strong></li>`;
+            })
+            .join('');
+        return `<div style="padding:8px 16px 10px 46px;background:#fafafa;font-size:12.5px;">
+            <div style="color:#6b7280;margin-bottom:4px;">Chi tiết món phiếu <strong>${escHtml(row.number)}</strong> — KH ${escHtml(row.khach)}:</div>
+            <ul style="margin:0;padding-left:18px;line-height:1.7;">${lis}</ul></div>`;
+    }
+
     async function showDetailModal() {
         const modal = _ensureDetailModal();
         const headEl = modal.querySelector('.skpi-modal-head');
+        const tabsEl = modal.querySelector('.skpi-modal-tabs');
         const toolsEl = modal.querySelector('.skpi-modal-tools');
         const bodyEl = modal.querySelector('.skpi-modal-body');
         modal.style.display = 'flex';
-        headEl.innerHTML = `<div style="font-weight:700;font-size:15px;color:#111827;"><i class="fas fa-trophy" style="color:#f59e0b;"></i> Chi tiết KPI khoảng đã chọn</div>
-            <button id="skpiModalClose" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:20px;line-height:1;">×</button>`;
+        headEl.innerHTML = `<div style="font-weight:700;font-size:16px;color:#111827;"><i class="fas fa-trophy" style="color:#f59e0b;"></i> Chi tiết KPI khoảng đã chọn</div>
+            <button id="skpiModalClose" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:22px;line-height:1;">×</button>`;
         headEl.querySelector('#skpiModalClose').onclick = () => (modal.style.display = 'none');
+        tabsEl.innerHTML = '';
         toolsEl.innerHTML = '';
-        bodyEl.innerHTML = '<div style="padding:50px;text-align:center;color:#6b7280;"><i class="fas fa-spinner fa-spin"></i> Đang tải đủ đơn trong khoảng…</div>';
+        bodyEl.innerHTML = '<div style="padding:60px;text-align:center;color:#6b7280;"><i class="fas fa-spinner fa-spin"></i> Đang tải đủ đơn + trạng thái kiểm tra…</div>';
 
         let all;
         try {
@@ -733,6 +902,7 @@
         } catch (e) {
             all = window.SocialOrderState?.orders || [];
         }
+        if (!verify.loaded) await loadVerifications().catch(() => {});
         const range = getInboxDateRange();
         const reconRan = state.byOrder.size > 0;
 
@@ -742,23 +912,33 @@
             const inv = getQualifyingInvoice(o);
             if (!inv || !_inRange(o, range)) continue;
             const rec = state.byOrder.get(o.id);
+            const base = {
+                oid: String(o.id), stt: o.stt, number: inv.Number, khach: o.customerName || '',
+                stateStr: inv.ShowState || '', products: o.products || [],
+            };
             if (rec) {
                 rows.push({
-                    stt: o.stt, seller: rec.sellerName, number: rec.invoiceNumber, khach: rec.customerName,
-                    monKpi: rec.monKpi, gross: rec.grossKpi, monRefund: rec.refundedMon,
-                    loss: rec.refundedKpiAmount, net: rec.netKpi, refunded: rec.refundedProducts || [],
+                    ...base, seller: rec.sellerName, monKpi: rec.monKpi, gross: rec.grossKpi,
+                    monRefund: rec.refundedMon, loss: rec.refundedKpiAmount, net: rec.netKpi,
+                    refunded: rec.refundedProducts || [], kpiProducts: rec.kpiProducts || [],
                 });
             } else {
                 const gq = grossQtyFromCache(o, inv);
                 rows.push({
-                    stt: o.stt, seller: inv.UserName || 'Chưa rõ NV', number: inv.Number, khach: o.customerName || '',
-                    monKpi: gq, gross: gq * KPI_PER_UNIT, monRefund: 0, loss: 0, net: gq * KPI_PER_UNIT, refunded: [],
+                    ...base, seller: inv.UserName || 'Chưa rõ NV', monKpi: gq, gross: gq * KPI_PER_UNIT,
+                    monRefund: 0, loss: 0, net: gq * KPI_PER_UNIT, refunded: [], kpiProducts: [],
                 });
             }
         }
         rows.sort((a, b) => (a.seller || '').localeCompare(b.seller || '') || (a.stt || 0) - (b.stt || 0));
+        const rowByOid = new Map(rows.map((r) => [r.oid, r]));
 
         const sellers = [...new Set(rows.map((r) => r.seller))].sort();
+        let activeTab = 'detail';
+
+        tabsEl.innerHTML = `
+            <button data-tab="detail" class="skpi-tab" style="border:none;background:none;padding:10px 14px;cursor:pointer;font-weight:600;font-size:13px;border-bottom:2px solid transparent;">📋 Chi tiết KPI</button>
+            <button data-tab="history" class="skpi-tab" style="border:none;background:none;padding:10px 14px;cursor:pointer;font-weight:600;font-size:13px;border-bottom:2px solid transparent;">🕘 Lịch sử kiểm tra</button>`;
         toolsEl.innerHTML = `
             <select id="skpiFilterSeller" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
                 <option value="">Tất cả NV (${sellers.length})</option>
@@ -766,59 +946,170 @@
             </select>
             <input id="skpiFilterText" type="text" placeholder="Tìm mã phiếu / khách / STT…"
                 style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;flex:1;min-width:160px;" />
-            ${reconRan ? '' : '<span style="font-size:12px;color:#b45309;">⚠ Chưa chạy đối soát — cột Hoàn/Net = gross. Bấm "Chạy đối soát KPI" để trừ hàng trả.</span>'}`;
+            ${reconRan ? '' : '<span style="font-size:12px;color:#b45309;">⚠ Chưa đối soát — cột Hoàn/Net = gross. Bấm "Chạy đối soát KPI".</span>'}`;
 
-        const render = () => {
+        const renderDetail = () => {
             const fs = toolsEl.querySelector('#skpiFilterSeller').value;
             const ft = (toolsEl.querySelector('#skpiFilterText').value || '').trim().toLowerCase();
             const view = rows.filter((r) => {
                 if (fs && r.seller !== fs) return false;
-                if (ft && !(`${r.stt} ${r.number} ${r.khach}`.toLowerCase().includes(ft))) return false;
+                if (ft && !`${r.stt} ${r.number} ${r.khach}`.toLowerCase().includes(ft)) return false;
                 return true;
             });
-            let tGross = 0, tLoss = 0, tNet = 0, tMon = 0, tMonR = 0;
-            const trs = view
-                .map((r) => {
-                    tGross += r.gross; tLoss += r.loss; tNet += r.net; tMon += r.monKpi; tMonR += r.monRefund;
-                    const refTip = r.refunded.map((p) => `${p.qty} x [${p.code}]`).join(', ');
-                    const refCell = r.monRefund > 0
-                        ? `<span style="color:#dc2626;" title="${escHtml(refTip)}">${r.monRefund} món · −${escHtml(formatVnd(r.loss))}</span>`
-                        : '<span style="color:#9ca3af;">—</span>';
-                    return `<tr style="border-bottom:1px solid #f3f4f6;">
-                        <td style="padding:6px 8px;text-align:center;color:#6b7280;">${r.stt ?? ''}</td>
-                        <td style="padding:6px 8px;font-weight:600;color:#111827;">${escHtml(r.seller)}</td>
-                        <td style="padding:6px 8px;color:#4338ca;">${escHtml(r.number || '')}</td>
-                        <td style="padding:6px 8px;">${escHtml(r.khach)}</td>
-                        <td style="padding:6px 8px;text-align:center;">${r.monKpi}</td>
-                        <td style="padding:6px 8px;text-align:right;color:#6b7280;">${escHtml(formatVnd(r.gross))}</td>
-                        <td style="padding:6px 8px;text-align:right;">${refCell}</td>
-                        <td style="padding:6px 8px;text-align:right;font-weight:700;color:#059669;">${escHtml(formatVnd(r.net))}</td>
-                    </tr>`;
+            // Gộp theo NV
+            const groups = new Map();
+            for (const r of view) {
+                if (!groups.has(r.seller)) groups.set(r.seller, []);
+                groups.get(r.seller).push(r);
+            }
+            let tGross = 0, tLoss = 0, tNet = 0, tMon = 0, tMonR = 0, tVerified = 0;
+            const groupHtml = [...groups.entries()]
+                .map(([seller, list]) => {
+                    let gG = 0, gL = 0, gN = 0, gM = 0, gMR = 0, gV = 0;
+                    const ordRows = list
+                        .map((r) => {
+                            gG += r.gross; gL += r.loss; gN += r.net; gM += r.monKpi; gMR += r.monRefund;
+                            const checked = isVerified(r.oid);
+                            if (checked) gV++;
+                            const refCell = r.monRefund > 0
+                                ? `<span style="color:#dc2626;">${r.monRefund} món · −${escHtml(formatVnd(r.loss))}</span>`
+                                : '<span style="color:#9ca3af;">—</span>';
+                            const rowBg = checked ? 'background:#ecfdf5;' : '';
+                            return `<tr class="skpi-ord" data-seller="${escHtml(seller)}" data-oid="${escHtml(r.oid)}" style="border-bottom:1px solid #f3f4f6;display:none;${rowBg}">
+                                <td style="padding:6px 8px;text-align:center;"><input type="checkbox" class="skpi-check" data-oid="${escHtml(r.oid)}" ${checked ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;"></td>
+                                <td style="padding:6px 8px;text-align:center;color:#6b7280;">${r.stt ?? ''}</td>
+                                <td style="padding:6px 8px;"><span class="skpi-maphieu" data-oid="${escHtml(r.oid)}" style="color:#4338ca;cursor:pointer;text-decoration:underline;font-weight:600;" title="Bấm xem chi tiết món">${escHtml(r.number || '')}</span></td>
+                                <td style="padding:6px 8px;">${escHtml(r.khach)}</td>
+                                <td style="padding:6px 8px;">${_showStateBadge(r.stateStr)}</td>
+                                <td style="padding:6px 8px;text-align:center;">${r.monKpi}</td>
+                                <td style="padding:6px 8px;text-align:right;color:#6b7280;">${escHtml(formatVnd(r.gross))}</td>
+                                <td style="padding:6px 8px;text-align:right;">${refCell}</td>
+                                <td style="padding:6px 8px;text-align:right;font-weight:700;color:#059669;">${escHtml(formatVnd(r.net))}</td>
+                            </tr>
+                            <tr class="skpi-det" data-seller="${escHtml(seller)}" data-oid="${escHtml(r.oid)}" style="display:none;"><td colspan="9" style="padding:0;">${_monDetailHtml(r)}</td></tr>`;
+                        })
+                        .join('');
+                    tGross += gG; tLoss += gL; tNet += gN; tMon += gM; tMonR += gMR; tVerified += gV;
+                    return `<tr class="skpi-grp" data-seller="${escHtml(seller)}" style="background:#f9fafb;cursor:pointer;border-bottom:1px solid #e5e7eb;">
+                            <td style="padding:9px 8px;text-align:center;color:#6b7280;"><span class="skpi-caret" data-seller="${escHtml(seller)}">▸</span></td>
+                            <td colspan="3" style="padding:9px 8px;font-weight:700;color:#111827;">${escHtml(seller)} <span style="color:#6b7280;font-weight:400;font-size:12px;">· ${list.length} đơn · đã kiểm ${gV}/${list.length}</span></td>
+                            <td style="padding:9px 8px;color:#6b7280;font-size:12px;">${gM} món</td>
+                            <td style="padding:9px 8px;text-align:center;">${gM}</td>
+                            <td style="padding:9px 8px;text-align:right;color:#6b7280;">${escHtml(formatVnd(gG))}</td>
+                            <td style="padding:9px 8px;text-align:right;color:#dc2626;">${gMR ? '−' + escHtml(formatVnd(gL)) : '—'}</td>
+                            <td style="padding:9px 8px;text-align:right;font-weight:700;color:#059669;">${escHtml(formatVnd(gN))}</td>
+                        </tr>${ordRows}`;
                 })
                 .join('');
             bodyEl.innerHTML = `
-                <div style="padding:8px 16px;font-size:12px;color:#374151;background:#f9fafb;border-bottom:1px solid #e5e7eb;position:sticky;top:0;">
-                    <strong>${view.length}</strong> đơn · <strong>${tMon}</strong> món gross (${escHtml(formatVnd(tGross))})
-                    − <strong style="color:#dc2626;">${tMonR}</strong> món hoàn (${escHtml(formatVnd(tLoss))})
-                    = <strong style="color:#059669;">net ${escHtml(formatVnd(tNet))}</strong>
+                <div style="padding:9px 16px;font-size:12.5px;color:#374151;background:#eef2ff;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:2;">
+                    <strong>${view.length}</strong> đơn · đã kiểm <strong style="color:#059669;">${tVerified}/${view.length}</strong> ·
+                    <strong>${tMon}</strong> món gross (${escHtml(formatVnd(tGross))}) −
+                    <strong style="color:#dc2626;">${tMonR}</strong> món hoàn (${escHtml(formatVnd(tLoss))}) =
+                    <strong style="color:#059669;">net ${escHtml(formatVnd(tNet))}</strong>
                 </div>
                 <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                    <thead><tr style="background:#fff;position:sticky;top:33px;color:#6b7280;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e5e7eb;">
+                    <thead><tr style="background:#fff;position:sticky;top:35px;z-index:1;color:#6b7280;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e5e7eb;">
+                        <th style="padding:6px 8px;width:36px;">✓</th>
                         <th style="padding:6px 8px;text-align:center;">STT</th>
-                        <th style="padding:6px 8px;text-align:left;">Nhân viên</th>
                         <th style="padding:6px 8px;text-align:left;">Mã phiếu</th>
                         <th style="padding:6px 8px;text-align:left;">Khách</th>
+                        <th style="padding:6px 8px;text-align:left;">Trạng thái phiếu</th>
                         <th style="padding:6px 8px;text-align:center;">Món KPI</th>
                         <th style="padding:6px 8px;text-align:right;">Gross</th>
                         <th style="padding:6px 8px;text-align:right;">Hoàn (loại KPI)</th>
                         <th style="padding:6px 8px;text-align:right;">KPI net</th>
                     </tr></thead>
-                    <tbody>${trs || '<tr><td colspan="8" style="padding:30px;text-align:center;color:#9ca3af;">Không có đơn</td></tr>'}</tbody>
+                    <tbody>${groupHtml || '<tr><td colspan="9" style="padding:30px;text-align:center;color:#9ca3af;">Không có đơn</td></tr>'}</tbody>
                 </table>`;
         };
-        toolsEl.querySelector('#skpiFilterSeller').onchange = render;
-        toolsEl.querySelector('#skpiFilterText').oninput = render;
-        render();
+
+        const renderHistory = () => {
+            const h = verify.history || [];
+            const trs = h
+                .slice(0, 1000)
+                .map((e) => {
+                    const dt = new Date(e.verifiedAt || 0).toLocaleString('vi-VN');
+                    const act = e.action === 'uncheck'
+                        ? '<span style="color:#dc2626;">bỏ đánh dấu</span>'
+                        : '<span style="color:#059669;">đã kiểm tra</span>';
+                    return `<tr style="border-bottom:1px solid #f3f4f6;">
+                        <td style="padding:6px 10px;color:#6b7280;white-space:nowrap;">${escHtml(dt)}</td>
+                        <td style="padding:6px 10px;font-weight:600;">${escHtml(e.verifiedByName || e.verifiedBy || '')}</td>
+                        <td style="padding:6px 10px;">${act}</td>
+                        <td style="padding:6px 10px;color:#4338ca;">${escHtml(e.invoiceNumber || '')}</td>
+                        <td style="padding:6px 10px;">${escHtml(e.sellerName || '')}</td>
+                        <td style="padding:6px 10px;">${escHtml(e.customerName || '')}</td>
+                    </tr>`;
+                })
+                .join('');
+            bodyEl.innerHTML = `
+                <div style="padding:9px 16px;font-size:12.5px;color:#374151;background:#f9fafb;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:2;">
+                    Lịch sử kiểm tra — <strong>${h.length}</strong> lượt (ai · giờ · đơn · NV · khách)
+                </div>
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead><tr style="background:#fff;position:sticky;top:35px;z-index:1;color:#6b7280;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e5e7eb;">
+                        <th style="padding:6px 10px;text-align:left;">Thời gian</th>
+                        <th style="padding:6px 10px;text-align:left;">Người kiểm</th>
+                        <th style="padding:6px 10px;text-align:left;">Hành động</th>
+                        <th style="padding:6px 10px;text-align:left;">Mã phiếu</th>
+                        <th style="padding:6px 10px;text-align:left;">Nhân viên đơn</th>
+                        <th style="padding:6px 10px;text-align:left;">Khách</th>
+                    </tr></thead>
+                    <tbody>${trs || '<tr><td colspan="6" style="padding:30px;text-align:center;color:#9ca3af;">Chưa có lượt kiểm tra nào</td></tr>'}</tbody>
+                </table>`;
+        };
+
+        const setTab = (tab) => {
+            activeTab = tab;
+            tabsEl.querySelectorAll('.skpi-tab').forEach((b) => {
+                const on = b.dataset.tab === tab;
+                b.style.borderBottomColor = on ? '#4338ca' : 'transparent';
+                b.style.color = on ? '#4338ca' : '#6b7280';
+            });
+            toolsEl.style.display = tab === 'detail' ? 'flex' : 'none';
+            tab === 'detail' ? renderDetail() : renderHistory();
+        };
+        tabsEl.querySelectorAll('.skpi-tab').forEach((b) => (b.onclick = () => setTab(b.dataset.tab)));
+        toolsEl.querySelector('#skpiFilterSeller').onchange = renderDetail;
+        toolsEl.querySelector('#skpiFilterText').oninput = renderDetail;
+
+        // Event delegation cho body (group toggle, mã phiếu expand, checkbox)
+        bodyEl.onclick = (e) => {
+            const grp = e.target.closest('.skpi-grp');
+            if (grp) {
+                const seller = grp.dataset.seller;
+                const ords = bodyEl.querySelectorAll(`.skpi-ord[data-seller="${CSS.escape(seller)}"]`);
+                const open = ords.length && ords[0].style.display !== 'none';
+                ords.forEach((tr) => (tr.style.display = open ? 'none' : ''));
+                if (open) bodyEl.querySelectorAll(`.skpi-det[data-seller="${CSS.escape(seller)}"]`).forEach((tr) => (tr.style.display = 'none'));
+                const caret = grp.querySelector('.skpi-caret');
+                if (caret) caret.textContent = open ? '▸' : '▾';
+                return;
+            }
+            const mp = e.target.closest('.skpi-maphieu');
+            if (mp) {
+                const oid = mp.dataset.oid;
+                const det = bodyEl.querySelector(`.skpi-det[data-oid="${CSS.escape(oid)}"]`);
+                if (det) det.style.display = det.style.display === 'none' ? '' : 'none';
+            }
+        };
+        bodyEl.onchange = async (e) => {
+            const cb = e.target.closest('.skpi-check');
+            if (!cb) return;
+            const oid = cb.dataset.oid;
+            const row = rowByOid.get(oid);
+            if (!row) return;
+            const checked = cb.checked;
+            const ordTr = bodyEl.querySelector(`.skpi-ord[data-oid="${CSS.escape(oid)}"]`);
+            if (ordTr) ordTr.style.background = checked ? '#ecfdf5' : '';
+            await markVerified(
+                { orderId: oid, invoiceNumber: row.number, sellerName: row.seller, customerName: row.khach },
+                checked
+            );
+        };
+
+        setTab('detail');
     }
 
     // ===== EXPORT =====
@@ -834,9 +1125,16 @@
         ensureRangeLoaded,
         kpiOrderSet,
         isRangeLoaded,
+        refreshInvoicesFromTPOS,
+        loadVerifications,
+        isVerified,
+        markVerified,
         isInvoiceCancelled,
         KPI_PER_UNIT,
         CHOT_STATES,
+        get verifyHistory() {
+            return verify.history;
+        },
         get lastResult() {
             return state.lastResult;
         },

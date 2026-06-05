@@ -25,6 +25,25 @@
 
 ## 2026-06-05
 
+### [inbox] Modal KPI: gồm theo NV + đánh dấu kiểm tra + lịch sử + refresh phiếu TPOS ✅
+
+Nâng cấp modal "Chi tiết KPI khoảng đã chọn" (click thẻ KPI) theo yêu cầu owner:
+
+- **Phóng lớn** modal (max-width 1400, 94vh) + **2 tab**: "Chi tiết KPI" + "Lịch sử kiểm tra".
+- **Gồm đơn theo nhân viên** (collapsible như leaderboard): header NV (số đơn · đã kiểm X/N · món · gross · hoàn · net) → click mở/đóng danh sách đơn.
+- **Cột "Trạng thái phiếu"**: badge ShowState hiện tại của phiếu bán hàng (reuse `getShowStateConfig`).
+- **Click mã phiếu → expand chi tiết món**: món nào được tính KPI (+5.000×SL), món nào hoàn (in đỏ "KHÔNG +"). Nguồn: `byOrder.kpiProducts` (lưu thêm trong run()) + `refundedProducts`.
+- **Ô check "đã kiểm tra"** đầu mỗi đơn → đơn **tô xanh nhẹ** (`#ecfdf5`). Lưu ai/giờ/ngày.
+- **Tab "Lịch sử kiểm tra"**: thời gian · người kiểm · hành động · mã phiếu · NV đơn · khách.
+
+**Persistence** (feature mới, append-only — MEMORY feedback_api_scope): bảng + endpoint RIÊNG `social_kpi_verifications` / `POST /api/social-kpi-verify/mark` + `GET /load` (pool chatDb). Frontend `verify` store: **Render + fallback localStorage**. Identity = `authManager.getAuthState().displayName`.
+
+**Đối soát thêm BƯỚC 0 — làm mới phiếu TPOS**: `run()` trước tiên gọi `refreshInvoicesFromTPOS()` cho TOÀN BỘ đơn 'Đơn hàng' trong khoảng (**10 lệnh song song** → `POST /api/invoice-status/refresh-from-tpos`) rồi `InvoiceStatusStore.reload()` → đối soát chạy trên trạng thái phiếu mới nhất.
+
+**Files**: NEW [render.com/routes/social-kpi-verify.js](../render.com/routes/social-kpi-verify.js) + mount server.js; [tab-social-kpi-reconcile.js](../don-inbox/js/tab-social-kpi-reconcile.js); [index.html](../don-inbox/index.html) `?v=20260605b`.
+
+**Test**: 17/17 integration (3 file vm + refund excel thật): refresh-from-tpos, reload store, món-based, kpiProducts/invoiceState, markVerified→POST+isVerified+history, modal HTML (group NV/checkbox/status/mã phiếu click/món detail/tô xanh). ⚠ Backend cần deploy Render để chia sẻ cross-máy.
+
 ### [web2] Pending-match: hiện luôn list KH từ hội thoại FB INLINE trong card ✅
 
 User: hiện luôn ra hình 2 (list hội thoại) ngay trong card, không cần bấm 💬 mở modal.

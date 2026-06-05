@@ -487,6 +487,7 @@ const invoiceStatusRoutes = require('./routes/invoice-status');
 const invoiceMappingRoutes = require('./routes/invoice-mapping');
 const orderNotesRoutes = require('./routes/order-notes');
 const socialOrdersRoutes = require('./routes/social-orders');
+const socialKpiVerifyRoutes = require('./routes/social-kpi-verify');
 const nativeOrdersRoutes = require('./routes/native-orders');
 const fastSaleOrdersRoutes = require('./routes/fast-sale-orders');
 const reconcileRoutes = require('./routes/reconcile'); // WEB2.0 — PBH đối soát đóng gói
@@ -609,6 +610,7 @@ app.use('/api/invoice-status', invoiceStatusRoutes);
 app.use('/api/invoice-mapping', invoiceMappingRoutes);
 app.use('/api/order-notes', orderNotesRoutes);
 app.use('/api/social-orders', socialOrdersRoutes);
+app.use('/api/social-kpi-verify', socialKpiVerifyRoutes);
 app.use('/api/native-orders', nativeOrdersRoutes);
 app.use('/api/fast-sale-orders', fastSaleOrdersRoutes);
 app.use('/api/reconcile', reconcileRoutes); // WEB2.0 — PBH đối soát đóng gói
