@@ -25,6 +25,15 @@
 
 ## 2026-06-05
 
+### [web2 pancake] Auto-login refresh token Pancake — harvester + server-side request flow ✅
+
+User: gia hạn token hàng loạt cho account hết hạn. Mở browser test login, đọc request, build auto.
+
+- **Bắt login flow** (`scripts/pancake-login-capture.js`, headed, password REDACT): Pancake = OAuth "Pancake ID". Form `input[name=identity]`+`[name=password]` → POST `account.pancake.vn/page/login` → POST `oauth2/approve` (`approve=true`) → redirect `pancake.vn/.../pancake_id_login_success` → set cookie `jwt`. **Không có JSON login API** (đều 404). 2FA "bảo mật 2 lớp" có toggle ở `account.pancake.vn/profile` (mặc định TẮT). Login id/password **KHÔNG trigger OTP** (test thực tế OK).
+- **Harvester browser** (`scripts/pancake-token-harvester.js`): Playwright lái form login từng account → lấy `jwt` → upsert `/api/pancake-accounts/sync`. ⚠ Ant Design controlled input → phải `pressSequentially` (fill() để rỗng → "Email không được để trống"). Creds đọc từ `pancake-creds.local.txt` (GITIGNORED), không echo password/token.
+- **Server-side request flow** (proven, KHÔNG cần browser): 3 request thuần — GET authorize (parse `_csrf_token`/`device_info`/`_query_string`, HTML-decode) → POST login → POST approve(`approve=true`) → jwt cookie. Test thật 1 account (Kỹ Thuật NJD): token mới exp 2026-09-03, upsert DB OK (was 2026-08-09). → port được sang Render endpoint cho web gọi "bằng request".
+- TODO (chờ user quyết): web-integrated refresh (on-demand button vs cron auto + lưu creds mã hoá).
+
 ### [orders][kpi] Banner đơn hoàn: GHI RÕ từng món hoàn (mã + tên + lý do) để dễ so sánh
 
 User: đơn hoàn 0-KPI (`260502595`) banner chỉ ghi chung "các món hoàn không tính KPI" — không biết món NÀO hoàn. Cần ghi rõ món hoàn.
