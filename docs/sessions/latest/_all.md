@@ -3,17 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b6c9360` — auto: session update
-**Last updated**: 2026-06-05 10:58:18 +07
-**Latest session**: [`RESUME:20260605-105818-b6c9360`](../20260605-105818-b6c9360.md)
-**Summary**: auto: session update
+**Latest commit**: `02a5e2b` — docs(dev-log): bill tieng Viet bot nhoe/dut khuc
+**Last updated**: 2026-06-05 11:02:11 +07
+**Latest session**: [`RESUME:20260605-110211-02a5e2b`](../20260605-110211-02a5e2b.md)
+**Summary**: docs(dev-log): bill tieng Viet bot nhoe/dut khuc
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
 - [`don-inbox/`](./don-inbox.md) — 2 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 8 file(s)
 
 ## All folder snapshots
 
@@ -27,9 +25,9 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-05 10:58
+- [`docs/`](./docs.md) — updated 2026-06-05 11:02
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
-- [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 10:58
+- [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 11:02
 - [`downloads/`](./downloads.md) — updated 2026-06-04 15:58
 - [`facebook-services/`](./facebook-services.md) — updated 2026-05-21 15:39
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
