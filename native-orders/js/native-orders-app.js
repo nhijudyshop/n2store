@@ -2940,7 +2940,9 @@
                 orderLines: lines,
                 totals: { quantity: totalQty, untaxed: totalAmount, total: totalAmount },
                 payment: { amount: 0, residual: totalAmount },
-                delivery: { price: 0, carrierName: '' },
+                // carrierName từ PBH liên kết (pbhCarrierName) → bill detect "PBH SHOP".
+                // Trước đây hardcode '' → bill KHÔNG bao giờ thấy đơn bán tại shop.
+                delivery: { price: 0, carrierName: o.pbhCarrierName || '' },
                 comment: o.note || '',
                 dateInvoice: o.createdAt || new Date().toISOString(),
             };
