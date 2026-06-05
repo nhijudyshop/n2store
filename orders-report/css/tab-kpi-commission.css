@@ -1653,9 +1653,22 @@ body {
 }
 .order-refund-banner .orb-note {
     font-size: 12.5px;
+    margin-bottom: 6px;
+}
+.order-refund-banner .orb-muted {
+    color: #94a3b8;
+    font-size: 12px;
+}
+.order-refund-banner .orb-li-nokpi {
+    color: #64748b;
 }
 
 /* Cột "Hoàn" trong tab So sánh KPI */
+.kpi-refund-badge.kpi-refund-badge-nokpi {
+    background: #f1f5f9;
+    color: #64748b;
+    border-color: #e2e8f0;
+}
 .kpi-refund-badge {
     display: inline-flex;
     align-items: center;

@@ -25,6 +25,20 @@
 
 ## 2026-06-05
 
+### [orders][kpi] Banner đơn hoàn: GHI RÕ từng món hoàn (mã + tên + lý do) để dễ so sánh
+
+User: đơn hoàn 0-KPI (`260502595`) banner chỉ ghi chung "các món hoàn không tính KPI" — không biết món NÀO hoàn. Cần ghi rõ món hoàn.
+
+**Fix** (tiếp theo refund-aware, `orders-report/js/tab-kpi-commission.js`):
+
+- `_parseRefundChiTiet`: bắt thêm **tên món** (group3 sau `]`) → `{code, qty, name}`.
+- `fetchRefundDetailByInvoice`: value map đổi `qty` → `{qty, name}` (giữ tên món hoàn).
+- `_matchRefundForOrder`: duyệt **TẤT CẢ** món hoàn của phiếu (không chỉ món match KPI) → thêm `allRefundedProducts[]` (mỗi món: code, name, qty, kpiLost, `counted`, `reason`). Vẫn chỉ TRỪ KPI món được tính (counted). Tên fallback: details → refund excel → code.
+- 2 `reconcileOne` lưu `allRefundedProducts`. Banner `_renderOrderRefundBanner` + cột "Hoàn" + `_getRefundedProductMap` dùng `allRefundedProducts`: liệt kê từng món hoàn (counted → `−KPI`, không tính → `· lý do`). Badge cột Hoàn xám `0đ` cho món không tính.
+- Cache `v3→v4` (thêm field), cache-bust `?v=20260605refund2`.
+
+**Verify**: unit test 14/14 (case 260502595: món hoàn không thuộc SP KPI → loss 0 nhưng liệt kê đủ code+tên+lý do; mixed counted/excluded; partial; tên fallback). `node --check` OK. **Status**: DONE (logic verified, live chờ user chạy đối soát lại).
+
 ### [render][web2] Detect "KH báo đã CK" trên CẢ update_conversation (fix bỏ sót) ✅
 
 User test localhost: tab "Tin nhắn chưa đọc" detect "đã ck" (highlight) nhưng tab "KH báo đã CK" = 0 (detector không bắt).
