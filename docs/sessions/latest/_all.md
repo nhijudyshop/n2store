@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d6d6d20` — docs(dev-log): fix in bill mat dau PBH SHOP
-**Last updated**: 2026-06-05 13:40:45 +07
-**Latest session**: [`RESUME:20260605-134045-d6d6d20`](../20260605-134045-d6d6d20.md)
-**Summary**: docs(dev-log): fix in bill mat dau PBH SHOP
+**Latest commit**: `9a86a3f` — docs(dev-log): bill STT khop list don gop
+**Last updated**: 2026-06-05 13:54:09 +07
+**Latest session**: [`RESUME:20260605-135409-9a86a3f`](../20260605-135409-9a86a3f.md)
+**Summary**: docs(dev-log): bill STT khop list don gop
 
 ## Folders affected in this commit
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-05 13:40
+- [`docs/`](./docs.md) — updated 2026-06-05 13:54
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 11:26
 - [`downloads/`](./downloads.md) — updated 2026-06-04 15:58
@@ -39,7 +39,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:43
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-05 13:40
+- [`native-orders/`](./native-orders.md) — updated 2026-06-05 13:54
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-05 10:00
