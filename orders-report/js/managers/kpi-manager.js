@@ -212,29 +212,26 @@
     // ========================================
     // Fetch products from TPOS API (Tier 3 fallback)
     // ========================================
+    // Lấy SP 1 đơn từ TPOS OData ($expand=Details — nguồn chuẩn giống bảng).
+    // THROW khi lỗi HTTP/network (để caller retry phân biệt với "đơn thật sự rỗng SP" → trả []).
     async function fetchProductsFromTPOS(orderId) {
         if (!window.tokenManager || !window.tokenManager.getAuthHeader) return [];
-        try {
-            const headers = await window.tokenManager.getAuthHeader();
-            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details`;
-            const response = await fetch(apiUrl, {
-                headers: { ...headers, accept: 'application/json' },
-            });
-            if (!response.ok) return [];
-            const data = await response.json();
-            return (data.Details || [])
-                .map((d) => ({
-                    ProductId: d.ProductId || null,
-                    ProductCode: d.ProductCode || d.Code || d.DefaultCode || '',
-                    ProductName: d.ProductNameGet || d.ProductName || d.Name || '',
-                    Quantity: d.Quantity || 1,
-                    Price: d.Price || 0,
-                }))
-                .filter((p) => p.ProductCode);
-        } catch (e) {
-            console.error('[KPI] fetchProductsFromTPOS failed:', e);
-            return [];
-        }
+        const headers = await window.tokenManager.getAuthHeader();
+        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details`;
+        const response = await fetch(apiUrl, {
+            headers: { ...headers, accept: 'application/json' },
+        });
+        if (!response.ok) throw new Error(`TPOS ${response.status}`);
+        const data = await response.json();
+        return (data.Details || [])
+            .map((d) => ({
+                ProductId: d.ProductId || null,
+                ProductCode: d.ProductCode || d.Code || d.DefaultCode || '',
+                ProductName: d.ProductNameGet || d.ProductName || d.Name || '',
+                Quantity: d.Quantity || 1,
+                Price: d.Price || 0,
+            }))
+            .filter((p) => p.ProductCode);
     }
 
     // ========================================
@@ -281,28 +278,43 @@
             console.warn('[KPI] Could not load report_order_details:', e.message);
         }
 
-        // Build base entries
-        const orderCodes = [];
-        const basesToSave = [];
+        const total = successOrders.length;
 
+        // Map raw TPOS/report Details → shape KPI base (giữ nguyên hành vi cũ: KHÔNG lọc IsHeld)
+        const mapDetails = (arr) =>
+            (arr || [])
+                .map((d) => ({
+                    ProductId: d.ProductId || null,
+                    ProductCode: d.ProductCode || d.Code || d.DefaultCode || '',
+                    ProductName: d.ProductName || d.ProductNameGet || d.Name || '',
+                    Quantity: d.Quantity || 1,
+                    Price: d.Price || 0,
+                }))
+                .filter((p) => p.ProductCode);
+
+        // ---- Pass 1: dựng entry từ Tier 1 (report map) + Tier 2 (order.Details đính kèm) ----
+        let skippedNoId = 0;
+        let sttZero = 0;
+        const candidates = []; // { orderCode, orderId, stt, products, needFetch, fetchFailed }
         for (const order of successOrders) {
-            const orderId = String(order.Id || order.id || '');
-            if (!orderId) continue;
+            const orderId = String(order.Id || order.id || order.orderId || '');
+            if (!orderId) {
+                skippedNoId++;
+                continue;
+            }
 
             const reportOrder = reportOrdersMap[orderId];
-
-            // Get orderCode (primary key)
             const orderCode =
                 order.Code ||
                 order.code ||
                 (reportOrder && (reportOrder.Code || reportOrder.code)) ||
                 '';
-            if (!orderCode) continue;
+            if (!orderCode) {
+                skippedNoId++;
+                continue;
+            }
 
-            orderCodes.push(orderCode);
-
-            // Get STT - try multiple sources
-            // successOrders doesn't have STT, so fallback to reportOrder and OrderStore
+            // STT (successOrders không có STT → fallback reportOrder + OrderStore)
             const storeOrder = window.OrderStore ? window.OrderStore.get(orderId) : null;
             const stt =
                 parseInt(
@@ -314,78 +326,90 @@
                             (storeOrder.SessionIndex || storeOrder.STT || storeOrder.stt)) ||
                         0
                 ) || 0;
-            if (!stt) {
-                console.warn(`[KPI] STT=0 for order ${orderCode} (orderId=${orderId})`);
-                console.warn(
-                    '[KPI] Debug: reportOrder keys=',
-                    reportOrder ? Object.keys(reportOrder) : 'NULL'
-                );
-                console.warn(
-                    '[KPI] Debug: storeOrder keys=',
-                    storeOrder ? Object.keys(storeOrder).slice(0, 10) : 'NULL'
-                );
-                if (reportOrder)
-                    console.warn('[KPI] reportOrder STT fields:', {
-                        STT: reportOrder.STT,
-                        SessionIndex: reportOrder.SessionIndex,
-                        stt: reportOrder.stt,
-                    });
-                if (storeOrder)
-                    console.warn('[KPI] storeOrder STT fields:', {
-                        SessionIndex: storeOrder.SessionIndex,
-                        STT: storeOrder.STT,
-                        stt: storeOrder.stt,
-                    });
-            }
+            if (!stt) sttZero++;
 
-            // Get products (3-tier fallback)
+            // Tier 1 → Tier 2 (đồng bộ)
             let products = [];
-            if (reportOrder?.Details?.length > 0) {
-                products = reportOrder.Details.map((d) => ({
-                    ProductId: d.ProductId || null,
-                    ProductCode: d.ProductCode || d.Code || d.DefaultCode || '',
-                    ProductName: d.ProductName || d.Name || '',
-                    Quantity: d.Quantity || 1,
-                    Price: d.Price || 0,
-                })).filter((p) => p.ProductCode);
-            }
-
+            if (reportOrder?.Details?.length > 0) products = mapDetails(reportOrder.Details);
             if (products.length === 0) {
-                const local = order.Details || order.products || order.mainProducts || [];
-                products = local
-                    .map((p) => ({
-                        ProductId: p.ProductId || null,
-                        ProductCode: p.ProductCode || p.Code || p.DefaultCode || '',
-                        ProductName: p.ProductName || p.Name || '',
-                        Quantity: p.Quantity || 1,
-                        Price: p.Price || 0,
-                    }))
-                    .filter((p) => p.ProductCode);
+                products = mapDetails(order.Details || order.products || order.mainProducts || []);
             }
 
-            if (products.length === 0) {
-                try {
-                    products = await fetchProductsFromTPOS(orderId);
-                } catch (e) {}
-            }
-
-            if (products.length === 0) continue;
-
-            basesToSave.push({
+            candidates.push({
                 orderCode,
                 orderId,
+                stt,
+                products,
+                needFetch: products.length === 0,
+                fetchFailed: false,
+            });
+        }
+        if (sttZero > 0) console.warn(`[KPI] ${sttZero}/${candidates.length} đơn có STT=0`);
+
+        // ---- Pass 2: Tier 3 — fetch SP còn thiếu qua TPOS, SONG SONG (concurrency) + RETRY ----
+        const CONCURRENCY = 8;
+        const FETCH_RETRIES = 3;
+        const fetchWithRetry = async (orderId) => {
+            for (let attempt = 1; attempt <= FETCH_RETRIES; attempt++) {
+                try {
+                    return await fetchProductsFromTPOS(orderId); // [] = đơn thật sự rỗng SP
+                } catch (e) {
+                    if (attempt === FETCH_RETRIES) throw e; // lỗi transient sau N lần → báo fail thật
+                    await sleep(Math.pow(2, attempt - 1) * 500);
+                }
+            }
+            return [];
+        };
+
+        let fetchFailed = 0;
+        const needFetch = candidates.filter((c) => c.needFetch);
+        for (let i = 0; i < needFetch.length; i += CONCURRENCY) {
+            const chunk = needFetch.slice(i, i + CONCURRENCY);
+            const results = await Promise.allSettled(chunk.map((c) => fetchWithRetry(c.orderId)));
+            results.forEach((r, idx) => {
+                if (r.status === 'fulfilled') {
+                    chunk[idx].products = r.value || [];
+                } else {
+                    fetchFailed++; // KHÔNG drop âm thầm — đếm để báo cáo
+                    chunk[idx].fetchFailed = true; // đánh dấu để khỏi đếm trùng vào noProduct
+                    console.warn(
+                        `[KPI] fetch SP fail (${chunk[idx].orderCode}):`,
+                        r.reason?.message || r.reason
+                    );
+                }
+            });
+        }
+
+        // ---- Dựng basesToSave + đếm noProduct (đơn thật sự rỗng SP, không phải lỗi fetch) ----
+        let noProduct = 0;
+        const orderCodes = [];
+        const basesToSave = [];
+        for (const c of candidates) {
+            orderCodes.push(c.orderCode);
+            if (!c.products || c.products.length === 0) {
+                if (!c.fetchFailed) noProduct++;
+                continue;
+            }
+            basesToSave.push({
+                orderCode: c.orderCode,
+                orderId: c.orderId,
                 campaignId,
                 campaignName,
                 userId,
                 userName,
-                stt,
-                products,
+                stt: c.stt,
+                products: c.products,
             });
         }
 
-        if (basesToSave.length === 0) return { saved: 0, skipped: 0, failed: 0 };
+        if (basesToSave.length === 0) {
+            console.log(
+                `[KPI] saveAutoBaseSnapshot: 0 base (noProduct=${noProduct}, fetchFailed=${fetchFailed}, noId=${skippedNoId}, total=${total})`
+            );
+            return { saved: 0, skipped: 0, failed: fetchFailed, noProduct, total };
+        }
 
-        // Check existing
+        // ---- check-exists (đơn đã có base → skip, không ghi đè) ----
         let existingSet = new Set();
         try {
             const { existing } = await kpiAPI('POST', '/kpi-base/check-exists', { orderCodes });
@@ -393,27 +417,41 @@
         } catch (e) {
             console.warn('[KPI] check-exists failed:', e.message);
         }
-
         const newBases = basesToSave.filter((b) => !existingSet.has(b.orderCode));
-        if (newBases.length === 0) return { saved: 0, skipped: basesToSave.length, failed: 0 };
-
-        // Batch save with retry
-        let saved = 0,
-            failed = 0;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-                const result = await kpiAPI('POST', '/kpi-base/batch', { bases: newBases });
-                saved = result.saved || 0;
-                failed = 0;
-                break;
-            } catch (e) {
-                console.warn(`[KPI] saveAutoBaseSnapshot attempt ${attempt}/3 failed:`, e.message);
-                if (attempt < 3) await sleep(Math.pow(2, attempt - 1) * 1000);
-                else failed = newBases.length;
-            }
+        const skipped = basesToSave.length - newBases.length;
+        if (newBases.length === 0) {
+            return { saved: 0, skipped, failed: fetchFailed, noProduct, total };
         }
 
-        return { saved, skipped: existingSet.size, failed };
+        // ---- Lưu THEO LÔ (~100) + verify từng lô, retry lô lỗi (không kéo cả batch fail theo) ----
+        const SAVE_CHUNK = 100;
+        let saved = 0;
+        let batchFailed = 0;
+        for (let i = 0; i < newBases.length; i += SAVE_CHUNK) {
+            const slice = newBases.slice(i, i + SAVE_CHUNK);
+            let ok = false;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    const result = await kpiAPI('POST', '/kpi-base/batch', { bases: slice });
+                    saved += result.saved || 0;
+                    ok = true;
+                    break;
+                } catch (e) {
+                    console.warn(
+                        `[KPI] batch save lô ${Math.floor(i / SAVE_CHUNK) + 1} attempt ${attempt}/3:`,
+                        e.message
+                    );
+                    if (attempt < 3) await sleep(Math.pow(2, attempt - 1) * 1000);
+                }
+            }
+            if (!ok) batchFailed += slice.length;
+        }
+
+        const failed = fetchFailed + batchFailed;
+        console.log(
+            `[KPI] saveAutoBaseSnapshot: saved=${saved}, skipped=${skipped}, noProduct=${noProduct}, failed=${failed}, total=${total}`
+        );
+        return { saved, skipped, failed, noProduct, total };
     }
 
     // ========================================

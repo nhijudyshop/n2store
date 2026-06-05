@@ -826,7 +826,11 @@
             odataTried = true;
             try {
                 const fetched = await window.getOrderDetails(order.orderId);
-                if (fetched?.Details?.length) fullOrder = fetched;
+                if (fetched?.Details?.length) {
+                    fullOrder = fetched;
+                    // Cache lại để KPI base + lần gửi sau tái dùng SP, khỏi refetch TPOS.
+                    _orderDetailsCache.set(String(order.orderId), fetched);
+                }
             } catch (e) {
                 console.warn('[TemplateMgr] getOrderDetails failed:', e.message);
             }
@@ -854,7 +858,10 @@
         if (orderData.products.length === 0 && !odataTried && window.getOrderDetails) {
             try {
                 const fetched = await window.getOrderDetails(order.orderId);
-                if (fetched?.Details?.length) orderData = _convertOrderData(fetched);
+                if (fetched?.Details?.length) {
+                    _orderDetailsCache.set(String(order.orderId), fetched);
+                    orderData = _convertOrderData(fetched);
+                }
             } catch (e) {
                 /* giữ orderData hiện tại */
             }
@@ -1839,14 +1846,58 @@
             /* ignore */
         }
 
-        // 3. KPI integration
-        if (window.kpiManager?.saveAutoBaseSnapshot && successOrders.length > 0) {
+        // 3. KPI base — đánh cho MỌI đơn đã chọn (kể cả tin nhắn GỬI LỖI), tách khỏi kết quả gửi.
+        if (window.kpiManager?.saveAutoBaseSnapshot) {
             try {
-                const campaignName = window.currentCampaignName || '';
-                const userId = window.authManager?.getUserInfo()?.uid || '';
-                await window.kpiManager.saveAutoBaseSnapshot(successOrders, campaignName, userId);
+                // Gom tất cả đơn đã xử lý; chuẩn hoá id (success dùng `Id`, error dùng `orderId`)
+                // + đính kèm Details từ _orderDetailsCache (đã resolve sẵn lúc gửi) → KPI khỏi
+                // refetch TPOS từng đơn.
+                const seen = new Set();
+                const allBaseOrders = [];
+                for (const o of [...successOrders, ...errorOrders]) {
+                    const oid = String(o.Id || o.id || o.orderId || '');
+                    if (!oid || seen.has(oid)) continue;
+                    seen.add(oid);
+                    const cached = _orderDetailsCache.get(oid);
+                    allBaseOrders.push({
+                        Id: oid,
+                        Code: o.Code || o.code || '',
+                        Details: cached?.Details || [],
+                    });
+                }
+
+                if (allBaseOrders.length > 0) {
+                    const campaignName =
+                        window.currentCampaignName ||
+                        window.campaignManager?.activeCampaign?.name ||
+                        window.campaignManager?.activeCampaign?.displayName ||
+                        '';
+                    const userId = window.authManager?.getUserInfo()?.uid || '';
+                    const r = await window.kpiManager.saveAutoBaseSnapshot(
+                        allBaseOrders,
+                        campaignName,
+                        userId
+                    );
+
+                    // Báo kết quả rõ ràng (KHÔNG nuốt lặng như trước)
+                    if (r && window.notificationManager) {
+                        const total = r.total ?? allBaseOrders.length;
+                        let msg = `KPI base: đã đánh ${r.saved}/${total} đơn`;
+                        const extra = [];
+                        if (r.skipped) extra.push(`${r.skipped} đã có`);
+                        if (r.noProduct) extra.push(`${r.noProduct} thiếu SP`);
+                        if (r.failed) extra.push(`${r.failed} lỗi`);
+                        if (extra.length) msg += ` (${extra.join(', ')})`;
+                        const nm = window.notificationManager;
+                        const problem = (r.noProduct || 0) + (r.failed || 0) > 0;
+                        const notify = problem
+                            ? nm.warning || nm.info || nm.success
+                            : nm.success || nm.info;
+                        if (notify) notify.call(nm, msg, 6000);
+                    }
+                }
             } catch (e) {
-                /* ignore */
+                console.error('[TemplateMgr] KPI base error:', e);
             }
         }
     }

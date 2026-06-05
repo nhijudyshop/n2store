@@ -59,15 +59,18 @@
             const userId = window.authManager?.getUserInfo()?.uid || '';
             const result = await window.kpiManager.saveAutoBaseSnapshot(allOrders, campaignName, userId);
 
+            // saveAutoBaseSnapshot trả về { saved, skipped, failed, noProduct, total }
             const { saved = 0, skipped = 0, failed = 0 } = result || {};
+            const total = result?.total ?? totalOrders;
+            // noProduct: ưu tiên field server trả; fallback tính bù cho bản cũ
+            const noProduct = result?.noProduct ?? (total - saved - skipped - failed);
 
             let message = `Hoàn tất đánh KPI Base!\n\n`;
             message += `✓ Đã lưu: ${saved} đơn\n`;
             message += `→ Bỏ qua (đã có BASE): ${skipped} đơn\n`;
             if (failed > 0) {
-                message += `✗ Lỗi: ${failed} đơn\n`;
+                message += `✗ Lỗi (fetch/save): ${failed} đơn\n`;
             }
-            const noProduct = totalOrders - saved - skipped - failed;
             if (noProduct > 0) {
                 message += `⊘ Không có sản phẩm: ${noProduct} đơn`;
             }

@@ -25,6 +25,21 @@
 
 ## 2026-06-05
 
+### [orders][kpi] Fix: đánh KPI base sau gửi tin nhắn hàng loạt — chỉ ~nửa 600 đơn được đánh ✅
+
+**Bug**: gửi tin nhắn hàng loạt 600 đơn xong → KPI "base" chỉ đánh ~một nửa, "cái có cái không tùm lum".
+
+**Nguyên nhân** (trace `saveAutoBaseSnapshot` [kpi-manager.js:243] + `_saveCampaignResults` [message-template-manager.js:1849]): (1) chỉ đơn GỬI THÀNH CÔNG được truyền vào base; (2) lấy SP 3 tầng — Tầng 1 report map cần `campaignName` (mà `window.currentCampaignName` là `let` trong overview-core.js → undefined), Tầng 2 `order.Details` luôn rỗng (kết quả gửi không kèm SP), Tầng 3 `fetchProductsFromTPOS` gọi **TUẦN TỰ ~600 lần, lỗi nuốt im** → rate-limit/timeout giữa chừng → đơn trả `[]` → `continue` **bỏ qua âm thầm**; (3) `/kpi-base/batch` 1 request không verify; (4) kết quả nuốt lặng.
+
+**Fix (owner chốt: base cho MỌI đơn đã chọn, kể cả gửi lỗi + báo kết quả rõ)** — toàn bộ client-side, chỉ gọi lại endpoint KPI sẵn có (tuân thủ `feedback_api_scope`):
+- `kpi-manager.js`: `fetchProductsFromTPOS` **throw** khi lỗi HTTP (để retry phân biệt "rỗng thật" vs transient). `saveAutoBaseSnapshot` viết lại: chuẩn hoá id (`Id||id||orderId`), **Tầng 3 song song concurrency 8 + retry 3 lần/đơn** (không drop âm thầm; lỗi thật → `failed`, rỗng thật → `noProduct`, không đếm trùng), **lưu theo lô 100 + verify + retry lô lỗi**, trả `{saved,skipped,failed,noProduct,total}`.
+- `message-template-manager.js`: `_resolveOrderData` **cache writeback** `_orderDetailsCache` sau khi OData fetch (KPI tái dùng SP). `_saveCampaignResults`: gom **`[...successOrders, ...errorOrders]`** (tách base khỏi kết quả gửi), đính kèm `Details` từ cache, `campaignName` robust (campaignManager fallback), **toast kết quả** `KPI base: đã đánh X/Y (Z thiếu SP, W lỗi)`.
+- `tab1-kpi-base-button.js`: message kết quả dùng field `noProduct`/`failed` server trả.
+
+**Files**: [kpi-manager.js](../orders-report/js/managers/kpi-manager.js), [message-template-manager.js](../orders-report/js/chat/message-template-manager.js), [tab1-kpi-base-button.js](../orders-report/js/tab1/tab1-kpi-base-button.js).
+
+**Test**: Node harness — 600 đơn 30% transient×2 → **recover 100% (600 saved, 0 fail)**; 12 đơn fail vĩnh viễn → `failed=12, noProduct=0` (không đếm trùng, không drop âm thầm); 5 đơn rỗng thật → `noProduct=5`; chunk save lô lỗi 1 lần → recover đủ. **4/4 + dedup pass**, `node --check` 3 file OK.
+
 ### [worker] Fix: đăng nhập Web 2.0 lỗi CORS — allow header `X-Web2-Token` ✅
 
 User: đăng nhập admin → mọi API web2 fail (kpi/scope, native-orders/load, campaigns) lỗi `CORS: x-web2-token is not allowed by Access-Control-Allow-Headers in preflight`.
