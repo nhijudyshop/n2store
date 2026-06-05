@@ -25,6 +25,13 @@
 
 ## 2026-06-05
 
+### [native-orders] Fix: in bill mất dấu "PBH SHOP" — truyền pbhCarrierName ✅
+
+User: in bill đơn PBH SHOP (Hạnh Trần) không thấy đánh dấu shop. Root cause: `bulkPrintBills` dựng PBH-shape với `delivery: { carrierName: '' }` **hardcode rỗng** → bill `isShop = /pbh\s*shop|shop/i.test('')` = false → mất dấu.
+
+- Fix: `carrierName: o.pbhCarrierName || ''` (cùng field badge dùng ở line 987). Verified curl `/api/native-orders/load?search=0788881818` → đơn thật `NJ-20260604-0004` có `pbhCarrierName='PBH SHOP'` → giờ bill hiện "PBH SHOP" + "BÁN TẠI SHOP".
+- File: `native-orders-app.js` (v=20260605a).
+
 ### [web2] Bill: đơn bán tại shop ghi tiêu đề "PBH SHOP" ✅
 
 User: đơn PBH SHOP trên bill ghi rõ là "PBH SHOP". `isShop` detect qua `carrierName` = 'PBH SHOP' (native-orders tạo PBH SHOP set carrier này).
