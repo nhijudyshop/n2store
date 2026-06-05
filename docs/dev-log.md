@@ -25,6 +25,16 @@
 
 ## 2026-06-05
 
+### [web2] Redesign bill HTML/CSS (bỏ ReceiptLine) — khung COD + khung mã vạch + đường trang trí ✅
+
+User: (1) bill in ra to quá; (2) làm lại đẹp nhỏ gọn — đóng khung mã vạch, đóng khung tiền thu hộ, kẻ đường trang trí.
+
+- **Research** (web/GitHub): tham khảo `parzibyte/print-receipt-thermal-printer`, `cognitom/paper-css`, gist POS receipt → pattern: width 80mm, `<hr>` dashed/dotted, đường đôi `border-top:4px double`, framed box `border:Npx solid`, monospace cho mã, hierarchy cỡ chữ. KHÔNG màu/shadow (máy nhiệt B&W).
+- **Bỏ ReceiptLine** (không kẻ khung/box được) → `_buildBillBody(d)` dựng HTML thuần + `BILL_CSS` (thermal 72mm). Khung COD bo góc viền dày, số 30px; "#STT" đóng khung; **khung mã vạch** bo góc; đường `.b-div-dash`/`.b-div-solid`/`.b-div-double` trang trí; "Còn thu (COD)" khung viền đôi. Font Arial 13px gọn (nhỏ hơn cpl-32 cũ → hết "to quá").
+- **In path**: `escposRasterFromHtmlPhysical` đo `.bill` 72mm → đúng **576 chấm** (vật-lý-mm). `openPrint` bridge → `printBillHtml` (thay `printSvg` cũ chỉ trích SVG). Nút "In thử" printer-settings: máy bill → `printBillHtml`, máy tem → `printHtml`. Cùng 1 HTML cho bridge raster lẫn hộp thoại iframe.
+- **Verified** (Playwright screenshot localhost): bill 272px=72mm, dấu tiếng Việt sắc nét, đủ khung COD + khung mã vạch (bars + HRI) + 3 loại đường trang trí. Ảnh `downloads/n2store-session/bill-redesign.png`.
+- **Files**: `web2-bill-service.js` (v=20260605nj12), `web2-printer.js` (v=20260605h, thêm `printBillHtml` + selector `.bill`/`.receipt-wrap`), 4 trang bump version. ReceiptLine.js vẫn load nhưng bill không dùng nữa.
+
 ### [web2] Pending-match modal: nút 💬 hội thoại + gợi ý tên KH từ Pancake theo SĐT ✅
 
 User: (1) cho nút mở đoạn hội thoại trong modal "Chọn KH cho giao dịch"; (2) gõ SĐT → gợi ý tên KH tìm từ hội thoại Pancake.
