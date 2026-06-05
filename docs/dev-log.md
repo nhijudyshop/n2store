@@ -25,6 +25,22 @@
 
 ## 2026-06-05
 
+### [render][web2] Unread reconcile — fix row "chưa đọc" kẹt sau khi đã đọc trên Pancake ✅
+
+User: đọc tin Nguyễn Tâm trên Pancake nhưng tab "Tin nhắn chưa đọc" vẫn còn.
+
+Root cause: WS event ephemeral. Đọc trên Pancake lúc server restart (deploy 15:49, tin 15:40) → event "đã đọc" (unread=0) bị MISS, Pancake không replay → row kẹt vĩnh viễn (thuần socket không recover). Verify: `/api/web2/unread` thật sự còn row Nguyễn Tâm trong DB.
+
+Fix — lưới an toàn reconcile [web2-unread-reconcile.js](render.com/services/web2-unread-reconcile.js): định kỳ (boot 60s + mỗi 2') hỏi Pancake conversations THẬT (qua page_access_token `pancake_page_access_tokens` chatDb) → **replay `syncFromConversation`** trên truth Pancake:
+
+- conv unread=0 / shop gửi cuối → tracker xoá (đã đọc/đã xử lý)
+- conv còn unread của khách → tracker upsert (bắt cả event ADD bị miss)
+- Field names verify khớp inbox-data.js: `unread_count`, `last_sent_by.id !== page_id`, conv `id`="{page}\_{psid}", psid ưu tiên `customers[0].fb_id`.
+
+[server.js](render.com/server.js): `setTimeout 60s` (dọn row kẹt sau mỗi deploy) + `setInterval 2'`. Route [web2-unread.js](render.com/routes/web2-unread.js): thêm `POST /reconcile` (trigger thủ công dọn ngay). Reconcile chỉ ĐỌC PAT (Pancake infra chung như socket), GHI web2Db.
+
+→ Đọc trên Pancake → chậm nhất 2' row tự biến mất, **kể cả sau restart**. Test [test-web2-unread-reconcile.js](scripts/test-web2-unread-reconcile.js) 9/9 (giữ unread / xoá đã-đọc / xoá shop-trả-lời / thêm ADD bị miss) + regression unread 12/12 + paysig 12/12.
+
 ### [web2 pancake] Auto-login refresh token Pancake — harvester + server-side request flow ✅
 
 User: gia hạn token hàng loạt cho account hết hạn. Mở browser test login, đọc request, build auto.

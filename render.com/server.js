@@ -2516,6 +2516,25 @@ server.listen(PORT, () => {
     setTimeout(() => {
         autoConnectRealtimeClients(chatDbPool);
     }, 3000);
+
+    // WEB2.0 — Unread reconcile: lưới an toàn cho event "đã đọc" bị miss khi WS
+    // ngắt/restart. Chạy 1 lần lúc boot (delay 60s cho WS connect + token sẵn)
+    // → dọn row kẹt sau deploy; rồi định kỳ 2 phút.
+    try {
+        const web2UnreadReconcile = require('./services/web2-unread-reconcile');
+        const _runReconcile = () =>
+            web2UnreadReconcile
+                .reconcileAll(
+                    app.locals.web2Db || web2Pool,
+                    chatDbPool,
+                    web2RealtimeSseRoutes.notifyClients
+                )
+                .catch((e) => console.warn('[WEB2-UNREAD-RECONCILE] run error:', e.message));
+        setTimeout(_runReconcile, 60000); // boot (dọn row kẹt sau restart)
+        setInterval(_runReconcile, 2 * 60 * 1000); // định kỳ 2 phút
+    } catch (e) {
+        console.warn('[WEB2-UNREAD-RECONCILE] schedule failed:', e.message);
+    }
 });
 
 // Start cron jobs

@@ -70,6 +70,24 @@ router.get('/stats', async (req, res) => {
     }
 });
 
+// ─── POST /reconcile — trigger reconcile thủ công (dọn row kẹt ngay) ──
+// Hỏi Pancake trạng thái thật → xoá row đã đọc / thêm row unread bị miss.
+router.post('/reconcile', async (req, res) => {
+    const web2Db = req.app.locals.web2Db;
+    const chatDb = req.app.locals.chatDb;
+    if (!web2Db || !chatDb) {
+        return res.status(500).json({ success: false, error: 'DB unavailable' });
+    }
+    try {
+        const reconcile = require('../services/web2-unread-reconcile');
+        await reconcile.reconcileAll(web2Db, chatDb, req.app.locals.web2RealtimeSseNotify);
+        const { rows } = await web2Db.query(`SELECT COUNT(*)::int n FROM web2_unread_messages`);
+        res.json({ success: true, remaining: rows[0].n });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 router.ensureSchema = tracker.ensureSchema;
 
 module.exports = router;
