@@ -25,6 +25,13 @@
 
 ## 2026-06-05
 
+### [web2] Bill: đơn bán tại shop ghi tiêu đề "PBH SHOP" ✅
+
+User: đơn PBH SHOP trên bill ghi rõ là "PBH SHOP". `isShop` detect qua `carrierName` = 'PBH SHOP' (native-orders tạo PBH SHOP set carrier này).
+
+- `_buildBillBody`: tiêu đề `d.isShop ? 'PBH SHOP' : 'Phiếu Bán Hàng'` (thay "Phiếu Bán Hàng (SHOP)") + giữ STT `#4`. Sub bỏ trùng → chỉ "BÁN TẠI SHOP".
+- Verified screenshot `bill-pbhshop.png`: tiêu đề "PBH SHOP #4". File: `web2-bill-service.js` (v=20260605nj16).
+
 ### [render][tpos-pancake] Enrich SĐT/địa chỉ comment TPOS từ kho khách hàng (theo fb_id)
 
 **Vấn đề**: Row 3 (SĐT/địa chỉ) ở mỗi dòng comment panel TPOS chỉ lấy từ **TPOS Partner cache** (`chatomni/info` → `partner.Phone`/`partner.Street`). Khách MỚI comment chưa là Partner CRM → row trống, dù khách đó có thể đã có sẵn trong **kho khách hàng** (Web 1.0 `customers`) từ đơn cũ/inbox. Fallback cũ (`tpos-partner-fallback.js`) chỉ chạy SAU khi staff tự gõ SĐT.
