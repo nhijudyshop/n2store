@@ -12,6 +12,10 @@
     let _el = null;
     let _searchTimer = null;
     let _searchSeq = 0;
+    // Chế độ "pick": callback nhận {phone, name} khi user bấm "Gán KH này" trên
+    // 1 hội thoại (dùng cho pending-match — chọn KH từ list FB khớp đuôi SĐT).
+    let _onPick = null;
+    let _lastQueryDigits = '';
 
     function esc(s) {
         const d = document.createElement('div');
@@ -180,6 +184,17 @@
         document.body.appendChild(ov);
         ov.addEventListener('click', (e) => {
             if (e.target === ov || e.target.closest('[data-close]')) return close();
+            // Nút "Gán KH này" (pick mode) — chọn KH từ hội thoại để gán pending.
+            const pick = e.target.closest('[data-w2cro-pick]');
+            if (pick && _onPick) {
+                const cb = _onPick;
+                close();
+                cb({
+                    phone: pick.getAttribute('data-phone'),
+                    name: pick.getAttribute('data-name'),
+                });
+                return;
+            }
             const conv = e.target.closest('.w2cro-conv');
             if (conv) {
                 ov.querySelectorAll('.w2cro-conv').forEach((c) => c.classList.remove('is-active'));
@@ -330,7 +345,18 @@
     function convRowHtml({ pageId, conv }) {
         const cust = (conv.customers && conv.customers[0]) || {};
         const name = cust.name || cust.display_name || conv.name || '(không tên)';
-        const phone = cust.phone || cust.phone_number || '';
+        // SĐT từ recent_phone_numbers (KH tự gõ trong chat) — ưu tiên số khớp query.
+        const phones = (conv.recent_phone_numbers || [])
+            .map((x) => x && x.phone_number)
+            .filter(Boolean);
+        const phone =
+            phones.find(
+                (p) => _lastQueryDigits && String(p).replace(/\D/g, '').includes(_lastQueryDigits)
+            ) ||
+            phones[0] ||
+            cust.phone ||
+            cust.phone_number ||
+            '';
         const snippet = msgPlain(
             conv.snippet ||
                 (conv.last_message && (conv.last_message.message || conv.last_message.text)) ||
@@ -338,12 +364,17 @@
         ).slice(0, 48);
         const sub = phone ? `${esc(phone)}${snippet ? ' · ' + esc(snippet) : ''}` : esc(snippet);
         const psid = cust.fb_id || (conv.from && conv.from.id) || conv.from_psid || '';
-        return `<div class="w2cro-conv" data-page="${esc(pageId)}" data-conv="${esc(conv.id || '')}" data-cust="${esc(cust.id || '')}" data-name="${esc(name)}" data-psid="${esc(psid)}">
+        const pickBtn =
+            _onPick && phone
+                ? `<button type="button" class="w2cro-pick-btn" data-w2cro-pick="1" data-phone="${esc(phone)}" data-name="${esc(name)}">Gán KH này</button>`
+                : '';
+        return `<div class="w2cro-conv" data-page="${esc(pageId)}" data-conv="${esc(conv.id || '')}" data-cust="${esc(cust.id || '')}" data-name="${esc(name)}" data-psid="${esc(psid)}" data-phone="${esc(phone)}">
             ${avatarHtml(name, psid, pageId, 'w2cro-conv-av')}
             <div class="w2cro-conv-main">
                 <div class="w2cro-conv-name">${esc(name)}</div>
                 <div class="w2cro-conv-sub">${sub || '&nbsp;'}</div>
             </div>
+            ${pickBtn}
         </div>`;
     }
 
