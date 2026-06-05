@@ -3,24 +3,25 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260605-184120-1c7a720`
-**Session file**: [`./20260605-184120-1c7a720.md`](../20260605-184120-1c7a720.md)
-**Commit**: `1c7a720` — fix(web2): auto-reply báo 'số tiền chuyển khoản' thay vì 'số dư ví'
-**Last updated**: 2026-06-05 18:41:20 +07
-**Summary**: fix(web2): auto-reply báo 'số tiền chuyển khoản' thay vì 'số dư ví'
+**Latest session**: `RESUME:20260605-191233-d9fedb7`
+**Session file**: [`./20260605-191233-d9fedb7.md`](../20260605-191233-d9fedb7.md)
+**Commit**: `d9fedb7` — feat(web2-chat-readonly): sort hoi thoai moi nhat len dau (updated_at desc)
+**Last updated**: 2026-06-05 19:12:33 +07
+**Summary**: feat(web2-chat-readonly): sort hoi thoai moi nhat len dau (updated_at desc)
 
 ## Files changed in this commit (`web2/`)
 
-- `web2/products/index.html`
-- `web2/products/js/web2-products-print.js`
+- `web2/balance-history/index.html`
+- `web2/shared/web2-chat-readonly.js`
+- `web2/shared/web2-ck-review.js`
 
 ## Last 5 commits touching `web2/`
 
+- `d9fedb7cd` feat(web2-chat-readonly): sort hoi thoai moi nhat len dau (updated*at desc) *(2026-06-05)\_
+- `be3f3332a` feat(web2): CK approve/watcher xử lý GD đã cộng đúng SĐT (đối soát + gửi tin) + history timeline trong modal _(2026-06-05)_
 - `6d4de1344` fix(web2 products): tem mã SP 2-up canh giữa đúng tâm cột die-cut _(2026-06-05)_
 - `2b8a932e8` feat(web2): 5 tính năng tương tác khách — auto-reply + watcher + intent + dashboard _(2026-06-05)_
 - `2a444e6f6` auto: session update _(2026-06-05)_
-- `35deb9b4b` feat(web2): đối chiếu & duyệt CK xuyên 3 trang — component dùng chung web2-ck-review _(2026-06-05)_
-- `c70542eee` auto: session update _(2026-06-05)_
 
 ---
 
@@ -28,4 +29,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260605-184120-1c7a720` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260605-191233-d9fedb7` cho Claude walk chain theo CLAUDE.md protocol.
