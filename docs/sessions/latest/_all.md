@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `cf86ff6` — feat(native-orders): Đơn Inbox — picker SP inline + search KH không dấu + avatar/hội thoại
-**Last updated**: 2026-06-05 15:06:26 +07
-**Latest session**: [`RESUME:20260605-150626-cf86ff6`](../20260605-150626-cf86ff6.md)
-**Summary**: feat(native-orders): Đơn Inbox — picker SP inline + search KH không dấu + avatar/hội thoại
+**Latest commit**: `d59cf73` — fix(cloudflare CORS): allow header X-Web2-Token - sau khi dang nhap Web2.0 client gui x-web2-token bi CORS preflight chan -> moi API web2 fail. Them 1 header, khong dung logic trang khac
+**Last updated**: 2026-06-05 15:13:48 +07
+**Latest session**: [`RESUME:20260605-151348-d59cf73`](../20260605-151348-d59cf73.md)
+**Summary**: fix(cloudflare CORS): allow header X-Web2-Token - sau khi dang nhap Web2.0 client gui x-web2-token bi CORS preflight ...
 
 ## Folders affected in this commit
 
+- [`customer-hub/`](./customer-hub.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
+- [`shared/`](./shared.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -22,9 +24,9 @@
 - [`balance-history/`](./balance-history.md) — updated 2026-05-22 12:35
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
-- [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
+- [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-05 15:06
+- [`docs/`](./docs.md) — updated 2026-06-05 15:13
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 11:26
 - [`downloads/`](./downloads.md) — updated 2026-06-04 15:58
@@ -53,7 +55,7 @@
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-05 15:03
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
-- [`shared/`](./shared.md) — updated 2026-06-04 12:44
+- [`shared/`](./shared.md) — updated 2026-06-05 15:13
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-06-05 11:51
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-04 12:44
