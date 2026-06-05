@@ -103,17 +103,17 @@ html, body { margin: 0; padding: 0; background: #fff; }
 /* ── Khách hàng ── */
 .b-cust { font-size: 12.5px; line-height: 1.45; }
 .b-lbl { font-weight: 700; }
-/* ── Sản phẩm: mỗi SP 1 hàng, 4 cột (tên co giãn + SL + đơn giá + thành tiền) ── */
-.b-ih, .b-it-row { display: flex; align-items: baseline; gap: 4px; }
-.b-ih { font-weight: 800; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 2px solid #000; padding-bottom: 3px; margin-bottom: 1px; }
-.b-it { margin-top: 4px; }
+/* ── Sản phẩm: HÀNG 1 = tên (đầy đủ); HÀNG 2 = SL + đơn giá + thành tiền (cột
+   canh thẳng dưới header) ── */
+.b-ih { display: flex; align-items: baseline; gap: 4px; font-weight: 800; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 2px solid #000; padding-bottom: 3px; margin-bottom: 1px; }
 .c-name { flex: 1; min-width: 0; }
 .c-qty { width: 22px; text-align: center; flex-shrink: 0; }
-.c-price { width: 54px; text-align: right; flex-shrink: 0; }
-.c-total { width: 60px; text-align: right; flex-shrink: 0; }
-.b-it .c-name { font-weight: 700; font-size: 12px; line-height: 1.25; }
-.b-it .c-qty, .b-it .c-price { font-size: 11px; }
-.b-it .c-total { font-size: 11px; font-weight: 800; }
+.c-price { width: 64px; text-align: right; flex-shrink: 0; }
+.c-total { width: 70px; text-align: right; flex-shrink: 0; }
+.b-it { margin-top: 4px; }
+.b-it-name { font-weight: 700; font-size: 12.5px; line-height: 1.25; }
+.b-it-nums { display: flex; justify-content: flex-end; gap: 4px; margin-top: 1px; font-size: 11.5px; }
+.b-it-nums .c-total { font-weight: 800; }
 .b-it-note { font-size: 10.5px; padding-left: 13px; margin-top: 1px; }
 /* ── Tổng tiền ── */
 .b-tot { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; margin-top: 2px; }
@@ -279,8 +279,8 @@ html, body { margin: 0; padding: 0; background: #fff; }
             totalQty += qty;
             items.push(
                 `<div class="b-it">` +
-                    `<div class="b-it-row">` +
-                    `<span class="c-name">${idx + 1}. ${_esc(name)}</span>` +
+                    `<div class="b-it-name">${idx + 1}. ${_esc(name)}</div>` +
+                    `<div class="b-it-nums">` +
                     `<span class="c-qty">${qty}</span>` +
                     `<span class="c-price">${m(price)}</span>` +
                     `<span class="c-total">${m(total)}</span>` +
