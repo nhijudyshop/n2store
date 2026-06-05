@@ -57,6 +57,14 @@ Refactor [web2-unread-tracker.js](render.com/services/web2-unread-tracker.js): b
 [server.js](render.com/server.js): `pages:update_conversation` hook → `syncFromConversation`; bỏ hook `onNewMessage` + notifier wiring thừa. [web2-unread.js](render.com/routes/web2-unread.js): bỏ `POST /mark-seen` + `initializeNotifiers` (chỉ còn GET list + stats). Frontend [payment-confirm-app.js](web2/payment-confirm/js/payment-confirm-app.js): bỏ nút "Đã đọc" + `markSeen` — danh sách tự xoá hoàn toàn theo Pancake.
 
 → Unread Web 2.0 giờ là logic riêng, authoritative theo Pancake (không copy Web 1.0), auto-clear, không thao tác tay. Test [scripts/test-web2-unread.js](scripts/test-web2-unread.js) 12/12 (SET không bump, unread=0 tự xoá, shopSentLast tự xoá, lastMessageTime Pancake, API gọn) + frontend smoke (không còn nút Đã đọc, no page error).
+### [customer-hub] Ẩn nút "Cấp công nợ ảo" ở ví khách — chỉ giữ Nạp/Rút tiền ✅
+
+User: card Ví Khách Hàng chỉ để Nạp tiền + Rút tiền, ẩn nút "Cấp công nợ ảo".
+
+- Files: `customer-hub/js/modules/wallet-panel.js`
+- Xóa button `data-action="issue_vc"` (col-span-2) khỏi `grid grid-cols-2` action row → còn 2 nút Nạp/Rút gọn 1 hàng.
+- Handler `issue_vc` + config modal vẫn giữ (dead code, dễ bật lại sau) — chỉ ẩn UI trigger.
+- Status: DONE.
 
 ### [web2] Bill ghi tên người bán = user đăng nhập + card đăng nhập trên overview ✅
 
