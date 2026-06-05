@@ -39,8 +39,14 @@ export function buildCorsHeaders(request) {
         'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
         // Include Cache-Control / Pragma / If-* so clients sending cache-busting or conditional
         // headers don't trip the preflight (doi-soat search sends `cache-control: no-cache`).
+        // ⚠ [2026-06-05] THÊM `X-Web2-Token`: sau khi ĐĂNG NHẬP Web 2.0, client gửi
+        //   header `x-web2-token` (JWT — native-orders-api.js, kpi middleware đọc).
+        //   Thiếu trong list này → CORS preflight chặn "x-web2-token is not allowed"
+        //   → MỌI API web2 fail khi đã login (kpi/scope, native-orders/load, …).
+        //   CHỈ thêm 1 header — KHÔNG đụng logic trang nào khác. Sửa ở 2 chỗ (hàm
+        //   buildCorsHeaders + const CORS_HEADERS) cho đồng bộ.
         'Access-Control-Allow-Headers':
-            'Content-Type, Authorization, Accept, Cache-Control, Pragma, If-None-Match, If-Modified-Since, If-Match, If-Unmodified-Since, tposappversion, x-tpos-lang, feature-version, X-Page-Access-Token, X-Auth-Data, X-User-Id, X-Idempotency-Key',
+            'Content-Type, Authorization, Accept, Cache-Control, Pragma, If-None-Match, If-Modified-Since, If-Match, If-Unmodified-Since, tposappversion, x-tpos-lang, feature-version, X-Page-Access-Token, X-Auth-Data, X-User-Id, X-Idempotency-Key, X-Web2-Token',
         'Access-Control-Expose-Headers': 'X-Retry-Count',
         'Access-Control-Max-Age': '86400',
     };
@@ -53,8 +59,11 @@ export function buildCorsHeaders(request) {
 export const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+    // ⚠ [2026-06-05] `X-Web2-Token` thêm để fix CORS chặn header `x-web2-token`
+    //   khi đã ĐĂNG NHẬP Web 2.0 (xem comment ở hàm buildCorsHeaders bên trên).
+    //   Chỉ thêm header — không đổi logic. Phải khớp với buildCorsHeaders.
     'Access-Control-Allow-Headers':
-        'Content-Type, Authorization, Accept, Cache-Control, Pragma, If-None-Match, If-Modified-Since, If-Match, If-Unmodified-Since, tposappversion, x-tpos-lang, feature-version, X-Page-Access-Token, X-Auth-Data, X-User-Id, X-Idempotency-Key',
+        'Content-Type, Authorization, Accept, Cache-Control, Pragma, If-None-Match, If-Modified-Since, If-Match, If-Unmodified-Since, tposappversion, x-tpos-lang, feature-version, X-Page-Access-Token, X-Auth-Data, X-User-Id, X-Idempotency-Key, X-Web2-Token',
     'Access-Control-Expose-Headers': 'X-Retry-Count',
     'Access-Control-Max-Age': '86400',
 };
