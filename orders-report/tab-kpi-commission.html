@@ -30,7 +30,7 @@
         <!-- Lucide Icons -->
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
-        <link rel="stylesheet" href="css/tab-kpi-commission.css?v=20260521b" />
+        <link rel="stylesheet" href="css/tab-kpi-commission.css?v=20260605refund" />
 
         <!-- Inline overrides (if any) -->
         <style>
@@ -870,6 +870,12 @@
 
                 <!-- Modal L2 Tab Contents -->
                 <div class="modal-body">
+                    <!-- Banner: đơn có hoàn (refund-aware) — render bởi _renderOrderRefundBanner -->
+                    <div
+                        id="orderRefundBanner"
+                        class="order-refund-banner"
+                        style="display: none"
+                    ></div>
                     <!-- Tab: So sánh KPI (NET calculation) -->
                     <div class="order-tab-content active" id="tabKpiCompare">
                         <div id="kpiCompareLoading" class="loading-state" style="display: none">
@@ -890,6 +896,7 @@
                                         <th>Xóa</th>
                                         <th>NET Qty</th>
                                         <th>KPI (VNĐ)</th>
+                                        <th>Hoàn</th>
                                     </tr>
                                 </thead>
                                 <tbody id="kpiCompareBody">
@@ -1049,6 +1056,6 @@
         <script src="../shared/js/pancake-token-manager.js?v=20260521b"></script>
         <script src="js/managers/pancake-data-manager.js?v=20260521b"></script>
 
-        <script src="js/tab-kpi-commission.js?v=20260521b"></script>
+        <script src="js/tab-kpi-commission.js?v=20260605refund"></script>
     </body>
 </html>

@@ -61,6 +61,23 @@ User: in bill → ghi số lần in vào đơn; in mã SP → ghi số lần in 
 
 ⚠ **Cần deploy Render**: channel rename + accent local-match + fb binding là backend; frontend gửi `web2_*` chỉ khớp sau deploy (đã backward-compat nên an toàn thứ tự).
 
+### [orders][kpi] Refund: chỉ trừ KPI món ĐƯỢC TÍNH + hiển thị rõ món tính/món hoàn (modal refund-aware)
+
+**Bug** (user phát hiện ở đơn hoàn `260501589` / NJD/2026/67538): mở "Chi tiết đơn hàng" của đơn "↩ Đã hoàn" → mất hết KPI đã tính, hiện "NET = 0"; không ghi rõ món nào tính/món nào hoàn; nghi hoàn 1 món bị "trừ nguyên đơn".
+
+**Root cause**: `calculateNetKPI` set `data.net` (NET thực) cho **MỌI** món kể cả món **chưa sale-tick** (`excludedBySaleFlag`), nhưng `order.kpi` chỉ cộng món được tick. `_matchRefundForOrder` trừ KPI hoàn theo `d.net > 0` **không check `excludedBySaleFlag`** + dùng hằng cứng → hoàn 1 món **chưa từng được tính KPI** vẫn sinh loss, cap `Math.min(loss, order.kpi)` khiến loss "ảo" **ăn KPI món khác** cùng đơn (= trừ nhầm). Modal 2 tab So sánh KPI/Audit Log mù refund.
+
+**Fix** (chỉ frontend `orders-report/`, KHÔNG đụng `kpi-manager.js`):
+
+- **A** `_matchRefundForOrder`: `if (d?.excludedBySaleFlag === true) continue;` + dùng `d.unitKPI` + thêm `kpiLost` mỗi món → loss = Σ(món được-tính-KPI & hoàn). 1 hàm dùng chung 2 flow recon.
+- **A2** Tách "**có hoàn**" (`isRefunded = hasRefundRow || refLoss>0`) khỏi "**bị loại KPI**" (`refLoss>0`): đơn hoàn mà món hoàn không tính KPI → vẫn hiện "↩ Có hoàn · 0đ" (xám), KHÔNG trừ. Sửa 2 `reconcileOne` + 4 site cộng dồn (đếm vs loss) + pill/row L1 + recon tab + Excel.
+- **B** Modal refund-aware: **banner** đầu modal (món hoàn + Gross/Hoàn/Thực, hoặc "không trừ KPI"), **cột "Hoàn"** + footer KPI thực trong tab So sánh KPI, empty-state thông minh ("X món chưa tick" thay vì "NET=0"), Audit Log footer thêm dòng "Món chưa tick". Helper `_getRefundedProductMap` + `_renderOrderRefundBanner`.
+- **C** Bump cache recon `_L1_RECON_CACHE_PREFIX v2→v3` (bỏ cache lỗi, tự recon lại). Cache-bust HTML `?v=20260605refund`.
+
+**Files**: `orders-report/js/tab-kpi-commission.js`, `orders-report/tab-kpi-commission.html`, `orders-report/css/tab-kpi-commission.css`.
+
+**Verify**: unit test logic core `_matchRefundForOrder` 12/12 pass (món excluded→loss 0 nhưng vẫn có hoàn; MIX chỉ trừ món tick; partial cap; value-mode unitKPI; legacy no-op). `node --check` OK. UI banner/badge cần user chạy "Chạy đối soát" trên data thật (recon cần TPOS) để xác nhận live. **Status**: DONE (logic verified, live UI chờ user confirm).
+
 ### [orders][kpi] Fix: Lịch sử kiểm tra mất dấu ✓ + Số phiếu "—" (key drift) & sửa text "share" sai ✅
 
 **Bối cảnh** (user hỏi): (1) "Lịch sử kiểm tra" có share dữ liệu với Thống Kê Giao Hàng / trang khác không? (2) Vì sao một số entry không có Số phiếu ("—"), và đúng các đơn đó lại không có dấu ✓ ở cột STT đơn của Chi tiết KPI?

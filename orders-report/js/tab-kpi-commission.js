@@ -2314,8 +2314,11 @@ const KPICommission = {
             // Đơn cancelled đã filter ở applyFilters → mọi order ở đây
             // đều còn hiệu lực. isRefunded chỉ còn refund excel.
             const recon = this._reconByOrder?.get(order.orderId);
-            const refLoss = recon?.refundedKpiAmount || 0; // KPI bị loại theo MÓN
-            const isRefunded = refLoss > 0;
+            const refLoss = recon?.refundedKpiAmount || 0; // KPI bị loại (chỉ món được tính KPI)
+            const hasKpiLoss = refLoss > 0;
+            // "Có hoàn" (đơn có phiếu hoàn) TÁCH khỏi "bị loại KPI": đơn hoàn mà món
+            // hoàn không tính KPI vẫn hiện "có hoàn" nhưng loss = 0.
+            const isRefunded = !!recon?.isRefunded || hasKpiLoss;
             // Simple mode: ẩn đơn 0 KPI — NHƯNG luôn hiện refunded để user thấy
             // lý do "đã hoàn — không tính KPI" dù KPI=0.
             if (simpleMode && !isRefunded && (order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0)
@@ -2330,18 +2333,20 @@ const KPICommission = {
             kpiGross += order.kpi || 0;
             if (isRefunded) {
                 refundOrders++;
-                // Cap: 1 đơn KHÔNG bị loại KPI nhiều hơn KPI nó đã earn (order.kpi).
-                // Đơn gốc KPI=0 (chưa từng +KPI) → loại 0, tránh trừ nhầm.
+                // Chỉ trừ KPI khi món hoàn thực sự được tính KPI (refLoss>0).
+                // Cap theo order.kpi (defensive vì order.kpi có thể stale).
                 kpiLost += Math.min(refLoss, order.kpi || 0);
             } else {
                 okOrders++;
             }
 
-            const baseClass = isRefunded
+            const baseClass = hasKpiLoss
                 ? 'is-refunded'
-                : hasDiscrepancy
-                  ? 'is-discrepancy'
-                  : '';
+                : isRefunded
+                  ? 'is-refunded is-refunded-nokpi'
+                  : hasDiscrepancy
+                    ? 'is-discrepancy'
+                    : '';
             // Dual-key: record kiểm tra có thể lưu theo SỐ PHIẾU (đơn đã có phiếu lúc
             // đánh dấu) HOẶC theo MÃ ĐH (đơn chưa có phiếu lúc đánh dấu → checkKey =
             // orderCode). Tra cứu cả 2 để không mất dấu ✓ sau khi đơn được gán số phiếu.
@@ -2360,8 +2365,11 @@ const KPICommission = {
                 .join(' ');
 
             let statusPill;
-            if (isRefunded) {
+            if (hasKpiLoss) {
                 statusPill = '<span class="kpi-status-pill pill-refund">↩ Đã hoàn</span>';
+            } else if (isRefunded) {
+                statusPill =
+                    '<span class="kpi-status-pill pill-refund-nokpi" title="Đơn có phiếu hoàn nhưng món hoàn không nằm trong SP tính KPI → không trừ KPI">↩ Có hoàn · 0đ</span>';
             } else if (hasDiscrepancy) {
                 statusPill = '<span class="kpi-status-pill pill-discrepancy">⚠ Sai lệch</span>';
             } else if (reconRan) {
@@ -2460,9 +2468,10 @@ const KPICommission = {
     // ========================================
 
     _L1_RECON_CACHE_TTL_MS: 7 * 24 * 60 * 60 * 1000, // 7 ngày
-    // v2: record có refundedKpiAmount (đối soát theo MÓN). Bump để vô hiệu cache v1
-    // (order-level isRefunded — thiếu refundedKpiAmount sẽ tính loss = 0).
-    _L1_RECON_CACHE_PREFIX: 'kpi_recon_l1_v2__',
+    // v2: record có refundedKpiAmount (đối soát theo MÓN).
+    // v3: chỉ trừ KPI món được tính KPI (skip excludedBySaleFlag) + tách "có hoàn"
+    //     khỏi "bị loại KPI" + refundedProducts[].kpiLost. Bump để bỏ cache v2 lỗi.
+    _L1_RECON_CACHE_PREFIX: 'kpi_recon_l1_v3__',
 
     _getL1ReconCacheKey(userId) {
         return `${this._L1_RECON_CACHE_PREFIX}${userId}`;
@@ -2533,9 +2542,10 @@ const KPICommission = {
             for (const order of emp?.orders || []) {
                 const r = this._reconByOrder.get(order.orderId);
                 const refLoss = r?.refundedKpiAmount || 0;
-                if (refLoss > 0) {
-                    // Cap: không trừ quá KPI đơn đã earn (đơn gốc KPI=0 → loại 0).
-                    lossSum += Math.min(refLoss, order.kpi || 0);
+                // "Có hoàn" (kể cả loss=0) vẫn đếm refundCount; chỉ cộng loss khi
+                // món hoàn thực sự được tính KPI (refLoss>0), cap theo order.kpi.
+                if (r?.isRefunded || refLoss > 0) {
+                    if (refLoss > 0) lossSum += Math.min(refLoss, order.kpi || 0);
                     refundCount++;
                 }
             }
@@ -2582,9 +2592,10 @@ const KPICommission = {
         for (const order of orders) {
             const r = this._reconByOrder.get(order.orderId);
             const refLoss = r?.refundedKpiAmount || 0;
-            if (refLoss > 0) {
-                // Cap: không trừ quá KPI đơn đã earn (đơn gốc KPI=0 → loại 0).
-                lossSum += Math.min(refLoss, order.kpi || 0);
+            // "Có hoàn" (kể cả loss=0) vẫn đếm refundCount; chỉ cộng loss khi món
+            // hoàn thực sự được tính KPI (refLoss>0), cap theo order.kpi.
+            if (r?.isRefunded || refLoss > 0) {
+                if (refLoss > 0) lossSum += Math.min(refLoss, order.kpi || 0);
                 refundCount++;
             }
         }
@@ -2670,28 +2681,38 @@ const KPICommission = {
                             order.orderCode
                         );
                     }
-                    // So khớp món hoàn theo SẢN PHẨM (chỉ trừ KPI món code khớp).
+                    // So khớp món hoàn theo SẢN PHẨM (chỉ trừ KPI món được tính KPI).
                     const refund = this._matchRefundForOrder(
                         invNumber,
                         result.details,
                         refundByInvoice
                     );
-                    const isRefunded = refund.refundedKpiAmount > 0;
-                    const refundDiscrepancy = isRefunded
-                        ? [
-                              {
-                                  type: 'refunded',
-                                  message: `Hoàn ${refund.refundedProducts.length} món KPI (${refund.refundedProducts
-                                      .map((p) => p.code)
-                                      .join(', ')}) — loại ${this.formatCurrency(Math.min(refund.refundedKpiAmount, order.kpi || 0))}`,
-                              },
-                          ]
-                        : [];
+                    const kpiLost = Math.min(refund.refundedKpiAmount, order.kpi || 0);
+                    // "Có hoàn" (đơn có phiếu hoàn) TÁCH khỏi "bị loại KPI": đơn hoàn
+                    // mà món hoàn không tính KPI vẫn flag isRefunded nhưng loss=0.
+                    const isRefunded = refund.hasRefundRow || refund.refundedKpiAmount > 0;
+                    const refundDiscrepancy = !isRefunded
+                        ? []
+                        : refund.refundedKpiAmount > 0
+                          ? [
+                                {
+                                    type: 'refunded',
+                                    message: `Hoàn ${refund.refundedProducts.length} món KPI (${refund.refundedProducts
+                                        .map((p) => p.code)
+                                        .join(', ')}) — loại ${this.formatCurrency(kpiLost)}`,
+                                },
+                            ]
+                          : [
+                                {
+                                    type: 'refunded_no_kpi',
+                                    message: `Đơn có hoàn nhưng món hoàn không nằm trong SP tính KPI → không trừ KPI`,
+                                },
+                            ];
                     results[idx] = {
                         ...baseFields,
                         actualNet:
                             result.actualNet != null ? result.actualNet : order.netProducts || 0,
-                        hasDiscrepancy: isRefunded || result.hasDiscrepancy,
+                        hasDiscrepancy: refund.refundedKpiAmount > 0 || result.hasDiscrepancy,
                         isRefunded,
                         refundedKpiAmount: refund.refundedKpiAmount,
                         refundedProducts: refund.refundedProducts,
@@ -2769,6 +2790,9 @@ const KPICommission = {
             const order = this.state.currentEmployeeOrders.find((o) => o.orderId === orderId);
             orderIdEl.textContent = order?.orderCode || orderId;
         }
+
+        // Banner refund (hiển thị xuyên suốt các tab nếu đơn có hoàn)
+        this._renderOrderRefundBanner(orderId);
 
         // Reset to first tab
         this.switchOrderTab('kpi-compare');
@@ -3197,6 +3221,72 @@ const KPICommission = {
     },
 
     // ========================================
+    // REFUND-AWARE HELPERS (modal Chi tiết đơn hàng)
+    // ========================================
+
+    /**
+     * Map món hoàn của 1 đơn (từ recon cache _reconByOrder) keyed theo code UPPER.
+     * Chỉ chứa món THỰC SỰ được tính KPI & hoàn (sau FIX A: skip excludedBySaleFlag).
+     * @returns {Map<string, {qty:number, kpiLost:number, name:string}>}
+     */
+    _getRefundedProductMap(orderId) {
+        const map = new Map();
+        const recon = this._reconByOrder?.get(orderId);
+        for (const p of recon?.refundedProducts || []) {
+            const code = (p.code || '').trim().toUpperCase();
+            if (!code) continue;
+            const prev = map.get(code) || { qty: 0, kpiLost: 0, name: p.name || '' };
+            prev.qty += p.qty || 0;
+            prev.kpiLost += p.kpiLost || 0;
+            if (!prev.name && p.name) prev.name = p.name;
+            map.set(code, prev);
+        }
+        return map;
+    },
+
+    /**
+     * Banner đầu modal Chi tiết đơn hàng — chỉ hiện khi đơn CÓ HOÀN (recon.isRefunded).
+     * Ghi rõ món hoàn + KPI bị trừ THEO MÓN (không trừ nguyên đơn). Đơn có hoàn mà
+     * món hoàn không tính KPI → ghi rõ "không trừ KPI".
+     */
+    _renderOrderRefundBanner(orderId) {
+        const el = document.getElementById('orderRefundBanner');
+        if (!el) return;
+        const recon = this._reconByOrder?.get(orderId);
+        if (!recon || !recon.isRefunded) {
+            el.style.display = 'none';
+            el.innerHTML = '';
+            return;
+        }
+        const order = this.state.currentEmployeeOrders?.find((o) => o.orderId === orderId);
+        const gross = order?.kpi || recon.kpiAmount || 0;
+        const lost = Math.min(recon.refundedKpiAmount || 0, gross);
+        const net = Math.max(0, gross - lost);
+        const hasLoss = lost > 0;
+        const refunded = recon.refundedProducts || [];
+
+        const itemsHtml = refunded
+            .map(
+                (p) =>
+                    `<li><span class="orb-code">${this.escapeHtml(p.code || '')}</span> ${this.escapeHtml(p.name || '')} — hoàn ${p.qty || 0}${hasLoss ? ` → <span class="orb-minus">−${this.formatCurrency(p.kpiLost || 0)}</span>` : ''}</li>`
+            )
+            .join('');
+
+        el.className = 'order-refund-banner ' + (hasLoss ? 'orb-loss' : 'orb-nokpi');
+        el.style.display = '';
+        el.innerHTML = hasLoss
+            ? `<div class="orb-title">↩ Đơn có hoàn — trừ KPI theo MÓN</div>
+               <ul class="orb-list">${itemsHtml}</ul>
+               <div class="orb-totals">
+                   <span>KPI gross: <strong>${this.formatCurrency(gross)}</strong></span>
+                   <span>Hoàn (loại): <strong class="orb-minus">−${this.formatCurrency(lost)}</strong></span>
+                   <span>KPI thực: <strong class="orb-net">${this.formatCurrency(net)}</strong></span>
+               </div>`
+            : `<div class="orb-title">↩ Đơn có hoàn · không trừ KPI</div>
+               <div class="orb-note">Các món hoàn KHÔNG nằm trong SP tính KPI (chưa tick / đã loại) → <strong>không trừ KPI</strong>. KPI thực giữ nguyên <strong>${this.formatCurrency(gross)}</strong>.</div>`;
+    },
+
+    // ========================================
     // RENDER NET KPI TAB (12.10)
     // ========================================
     async renderNetKPITab(orderId) {
@@ -3265,6 +3355,16 @@ const KPICommission = {
             this.hideEl('kpiCompareLoading');
 
             if (products.length === 0) {
+                const emptyEl = document.getElementById('kpiCompareEmpty');
+                const excluded = kpiResult.excludedCount || 0;
+                if (emptyEl) {
+                    const pEl = emptyEl.querySelector('p');
+                    if (pEl)
+                        pEl.textContent =
+                            excluded > 0
+                                ? `Không có món nào được tính KPI (${excluded} món chưa tick / đã loại).`
+                                : 'Không có sản phẩm mới (NET = 0).';
+                }
                 this.showEl('kpiCompareEmpty');
                 return;
             }
@@ -3276,10 +3376,12 @@ const KPICommission = {
             const tfoot = document.getElementById('kpiCompareFoot');
             if (!tbody) return;
 
+            const refundMap = this._getRefundedProductMap(orderId);
             let totalAdded = 0,
                 totalRemoved = 0,
                 totalNet = 0,
-                totalKPI = 0;
+                totalKPI = 0,
+                totalRefunded = 0;
             let html = '';
 
             products.forEach((p, idx) => {
@@ -3288,9 +3390,16 @@ const KPICommission = {
                 totalNet += p.net;
                 totalKPI += p.kpi;
 
-                // Row tô xanh nhạt khi thực sự đóng góp KPI (p.kpi > 0).
-                // Đồng bộ visual với cột "KPI (VNĐ)": row có tiền → xanh; row 0đ → trắng.
-                const rowClass = p.kpi > 0 ? 'kpi-row-checked' : '';
+                const ref = refundMap.get((p.code || '').trim().toUpperCase());
+                if (ref) totalRefunded += ref.kpiLost || 0;
+                const refundCell = ref
+                    ? `<span class="kpi-refund-badge" title="Hoàn ${ref.qty} → trừ ${this.formatCurrency(ref.kpiLost || 0)}">↩ ${ref.qty} · −${this.formatCurrency(ref.kpiLost || 0)}</span>`
+                    : '<span class="kpi-refund-none">—</span>';
+
+                // Row tô xanh nhạt khi thực sự đóng góp KPI (p.kpi > 0); món hoàn → tô đỏ nhạt.
+                const rowClass = [p.kpi > 0 ? 'kpi-row-checked' : '', ref ? 'kpi-row-refunded' : '']
+                    .filter(Boolean)
+                    .join(' ');
 
                 html += `<tr class="${rowClass}">
                     <td>${idx + 1}</td>
@@ -3300,19 +3409,30 @@ const KPICommission = {
                     <td class="action-remove">-${p.removed}</td>
                     <td><strong>${p.net}</strong></td>
                     <td>${this.formatCurrency(p.kpi)}</td>
+                    <td>${refundCell}</td>
                 </tr>`;
             });
 
             tbody.innerHTML = html;
 
             if (tfoot) {
-                tfoot.innerHTML = `<tr>
+                const totalRefundedCapped = Math.min(totalRefunded, totalKPI);
+                const totalNetKpi = Math.max(0, totalKPI - totalRefundedCapped);
+                let footHtml = `<tr>
                     <td colspan="3"><strong>Tổng cộng</strong></td>
                     <td class="action-add"><strong>+${totalAdded}</strong></td>
                     <td class="action-remove"><strong>-${totalRemoved}</strong></td>
                     <td><strong>${totalNet}</strong></td>
                     <td><strong>${this.formatCurrency(totalKPI)}</strong></td>
+                    <td>${totalRefunded > 0 ? `<strong class="orb-minus">−${this.formatCurrency(totalRefundedCapped)}</strong>` : '—'}</td>
                 </tr>`;
+                if (totalRefunded > 0) {
+                    footHtml += `<tr class="kpi-foot-net">
+                        <td colspan="6" style="text-align:right;"><strong>KPI thực (gross − hoàn)</strong></td>
+                        <td colspan="2"><strong class="orb-net">${this.formatCurrency(totalNetKpi)}</strong></td>
+                    </tr>`;
+                }
+                tfoot.innerHTML = footHtml;
             }
 
             // Per-user attribution breakdown (audit-based, không phải chủ đơn)
@@ -3487,6 +3607,14 @@ const KPICommission = {
                         <span class="label">NET (SP mới):</span>
                         <span class="value">${totalNet}</span>
                     </div>
+                    ${
+                        (kpiResult.excludedCount || 0) > 0
+                            ? `<div class="audit-summary-row">
+                        <span class="label">Món chưa tick (không tính KPI):</span>
+                        <span class="value action-remove">${kpiResult.excludedCount}</span>
+                    </div>`
+                            : ''
+                    }
                     <div class="audit-summary-row total">
                         <span class="label">Tổng KPI:</span>
                         <span class="value">${this.formatCurrency(totalKPI)}</span>
@@ -4088,9 +4216,9 @@ const KPICommission = {
      * trừ theo SL = min(SL hoàn, SL net KPI) × KPI_PER_PRODUCT (owner chốt: chính xác theo SL).
      *
      * @param {string} invNumber - số phiếu TPOS của đơn (invoice.Number)
-     * @param {object} details - KPI per-product { [pid]: {code, name, net, ...} } (từ reconcileKPI)
+     * @param {object} details - KPI per-product { [pid]: {code, name, net, unitKPI, excludedBySaleFlag, ...} } (từ reconcileKPI)
      * @param {Map<string, Map<string, number>>} refundByInvoice - từ fetchRefundDetailByInvoice
-     * @returns {{ refundedKpiAmount:number, refundedProducts:Array<{code,name,qty}>, hasRefundRow:boolean }}
+     * @returns {{ refundedKpiAmount:number, refundedProducts:Array<{code,name,qty,kpiLost}>, hasRefundRow:boolean }}
      */
     _matchRefundForOrder(invNumber, details, refundByInvoice) {
         const refundItems = invNumber ? refundByInvoice?.get(invNumber) : null;
@@ -4101,6 +4229,10 @@ const KPICommission = {
         };
         if (!refundItems || !details) return out;
         for (const d of Object.values(details)) {
+            // CHỈ trừ KPI cho món THỰC SỰ được tính KPI: bỏ qua món chưa sale-tick
+            // (excludedBySaleFlag) — món đó đóng góp 0 KPI nên hoàn về cũng không trừ.
+            // (calculateNetKPI set data.net cho MỌI món kể cả món loại → phải check flag.)
+            if (d?.excludedBySaleFlag === true) continue;
             const net = d?.net || 0;
             if (net <= 0) continue;
             const code = (d.code || '').trim().toUpperCase();
@@ -4108,8 +4240,10 @@ const KPICommission = {
             const refQty = refundItems.get(code) || 0;
             if (refQty <= 0) continue;
             const lostQty = Math.min(refQty, net);
-            out.refundedKpiAmount += lostQty * (this.KPI_PER_PRODUCT || 5000);
-            out.refundedProducts.push({ code: d.code, name: d.name || '', qty: lostQty });
+            const unit = d.unitKPI || this.KPI_PER_PRODUCT || 5000;
+            const kpiLost = lostQty * unit;
+            out.refundedKpiAmount += kpiLost;
+            out.refundedProducts.push({ code: d.code, name: d.name || '', qty: lostQty, kpiLost });
         }
         return out;
     },
@@ -4296,9 +4430,11 @@ const KPICommission = {
             const status =
                 r.refundedKpiAmount > 0
                     ? 'Đã hoàn (loại KPI)'
-                    : r.hasDiscrepancy
-                      ? 'Sai lệch'
-                      : 'OK';
+                    : r.isRefunded
+                      ? 'Có hoàn (0đ KPI)'
+                      : r.hasDiscrepancy
+                        ? 'Sai lệch'
+                        : 'OK';
             const note = (r.discrepancies || []).map((d) => `[${d.type}] ${d.message}`).join(' | ');
             const refundedProductsStr = (r.refundedProducts || [])
                 .map((p) => `${p.qty} x [${p.code}]`)
@@ -4452,23 +4588,33 @@ const KPICommission = {
                             discrepancies: [],
                         };
                     }
-                    // So khớp món hoàn theo SẢN PHẨM (chỉ trừ KPI món code khớp).
+                    // So khớp món hoàn theo SẢN PHẨM (chỉ trừ KPI món được tính KPI).
                     const refund = this._matchRefundForOrder(
                         invNumber,
                         result.details,
                         refundByInvoice
                     );
-                    const isRefunded = refund.refundedKpiAmount > 0;
-                    const refundDiscrepancy = isRefunded
-                        ? [
-                              {
-                                  type: 'refunded',
-                                  message: `Hoàn ${refund.refundedProducts.length} món KPI (${refund.refundedProducts
-                                      .map((p) => p.code)
-                                      .join(', ')}) — loại ${this.formatCurrency(Math.min(refund.refundedKpiAmount, order.kpi || 0))}`,
-                              },
-                          ]
-                        : [];
+                    const kpiLost = Math.min(refund.refundedKpiAmount, order.kpi || 0);
+                    // "Có hoàn" TÁCH khỏi "bị loại KPI": đơn có phiếu hoàn mà món hoàn
+                    // không tính KPI vẫn flag isRefunded nhưng loss=0.
+                    const isRefunded = refund.hasRefundRow || refund.refundedKpiAmount > 0;
+                    const refundDiscrepancy = !isRefunded
+                        ? []
+                        : refund.refundedKpiAmount > 0
+                          ? [
+                                {
+                                    type: 'refunded',
+                                    message: `Hoàn ${refund.refundedProducts.length} món KPI (${refund.refundedProducts
+                                        .map((p) => p.code)
+                                        .join(', ')}) — loại ${this.formatCurrency(kpiLost)}`,
+                                },
+                            ]
+                          : [
+                                {
+                                    type: 'refunded_no_kpi',
+                                    message: `Đơn có hoàn nhưng món hoàn không nằm trong SP tính KPI → không trừ KPI`,
+                                },
+                            ];
                     results[idx] = {
                         orderId: order.orderId,
                         orderCode: order.orderCode || '',
@@ -4479,7 +4625,7 @@ const KPICommission = {
                         expectedNet: order.netProducts || 0,
                         actualNet:
                             result.actualNet != null ? result.actualNet : order.netProducts || 0,
-                        hasDiscrepancy: isRefunded || result.hasDiscrepancy,
+                        hasDiscrepancy: refund.refundedKpiAmount > 0 || result.hasDiscrepancy,
                         isRefunded,
                         refundedKpiAmount: refund.refundedKpiAmount,
                         refundedProducts: refund.refundedProducts,
@@ -4583,9 +4729,10 @@ const KPICommission = {
             for (const order of emp.orders || []) {
                 const r = this._reconByOrder.get(order.orderId);
                 const refLoss = r?.refundedKpiAmount || 0;
-                if (refLoss > 0) {
-                    // Cap: không trừ quá KPI đơn đã earn (đơn gốc KPI=0 → loại 0).
-                    lossSum += Math.min(refLoss, order.kpi || 0);
+                // "Có hoàn" (kể cả loss=0) vẫn đếm refundCount; chỉ cộng loss khi
+                // món hoàn thực sự được tính KPI (refLoss>0), cap theo order.kpi.
+                if (r?.isRefunded || refLoss > 0) {
+                    if (refLoss > 0) lossSum += Math.min(refLoss, order.kpi || 0);
                     refundCount++;
                 }
             }
@@ -4870,12 +5017,16 @@ const KPICommission = {
                 else if (deltaNum < 0) deltaClass = 'delta-negative';
             }
 
+            const hasKpiLoss = (r.refundedKpiAmount || 0) > 0;
             const status = r.isRefunded ? 'refunded' : r.hasDiscrepancy ? 'discrepancy' : 'ok';
 
             let statusHtml;
-            if (r.isRefunded) {
+            if (hasKpiLoss) {
                 statusHtml =
                     '<span class="status-badge status-refunded">↩ Đã hoàn (loại KPI)</span>';
+            } else if (r.isRefunded) {
+                statusHtml =
+                    '<span class="status-badge status-refunded-nokpi" title="Đơn có phiếu hoàn nhưng món hoàn không nằm trong SP tính KPI → không trừ KPI">↩ Có hoàn · 0đ</span>';
             } else if (r.hasDiscrepancy) {
                 statusHtml = '<span class="status-badge status-discrepancy">⚠ Sai lệch</span>';
             } else {
@@ -4892,7 +5043,11 @@ const KPICommission = {
                 ? `<button class="recon-toggle-btn" onclick="window.KPICommission._toggleReconDetail('${this.escapeHtml(r.orderId)}')" title="Xem chi tiết"><i data-lucide="chevron-right"></i></button>`
                 : '';
 
-            const refundedClass = r.isRefunded ? 'is-refunded' : '';
+            const refundedClass = hasKpiLoss
+                ? 'is-refunded'
+                : r.isRefunded
+                  ? 'is-refunded is-refunded-nokpi'
+                  : '';
             const animDelay = Math.min(idx * 12, 600); // stagger fade-in
 
             html += `<tr class="${refundedClass}" data-recon-row="1" data-recon-status="${status}" data-order-id="${this.escapeHtml(r.orderId)}" data-sort_orderCode="${this.escapeHtml(r.orderCode || '')}" data-sort_stt="${r.stt != null ? r.stt : ''}" data-sort_expectedNet="${r.expectedNet}" data-sort_actualNet="${typeof r.actualNet === 'number' ? r.actualNet : ''}" data-sort_delta="${deltaNum != null ? deltaNum : ''}" style="animation-delay:${animDelay}ms;">

@@ -1570,6 +1570,116 @@ body {
     color: #9ca3af;
     border: 1px solid #e5e7eb;
 }
+/* "Có hoàn · 0đ" — đơn có phiếu hoàn nhưng món hoàn không tính KPI (không trừ) */
+.kpi-status-pill.pill-refund-nokpi {
+    background: #f8fafc;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+
+/* Row "có hoàn 0đ" — nền xám nhạt, KHÔNG gạch ngang như đơn bị loại KPI */
+.modalL1-table tbody tr.is-refunded.is-refunded-nokpi {
+    background: #f8fafc;
+    color: #475569;
+}
+.modalL1-table tbody tr.is-refunded.is-refunded-nokpi:hover {
+    background: #f1f5f9;
+}
+.modalL1-table tbody tr.is-refunded.is-refunded-nokpi .order-link {
+    text-decoration: none;
+    color: #334155;
+}
+.recon-table tbody tr.is-refunded.is-refunded-nokpi {
+    background: #f8fafc;
+    color: #475569;
+}
+.recon-table tbody tr.is-refunded.is-refunded-nokpi .recon-cell-code {
+    text-decoration: none;
+}
+.recon-table .status-badge.status-refunded-nokpi {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    font-weight: 600;
+    padding: 3px 10px;
+}
+
+/* ===== Modal Chi tiết đơn hàng — REFUND-AWARE (banner + cột Hoàn) ===== */
+.order-refund-banner {
+    margin: 0 0 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.order-refund-banner.orb-loss {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #7f1d1d;
+}
+.order-refund-banner.orb-nokpi {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+}
+.order-refund-banner .orb-title {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+.order-refund-banner .orb-list {
+    margin: 4px 0 8px;
+    padding-left: 18px;
+}
+.order-refund-banner .orb-list li {
+    margin: 2px 0;
+}
+.order-refund-banner .orb-code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-weight: 700;
+}
+.order-refund-banner .orb-totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(127, 29, 29, 0.25);
+}
+.order-refund-banner .orb-minus {
+    color: #dc2626;
+}
+.order-refund-banner .orb-net {
+    color: #16a34a;
+}
+.order-refund-banner .orb-note {
+    font-size: 12.5px;
+}
+
+/* Cột "Hoàn" trong tab So sánh KPI */
+.kpi-refund-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.kpi-refund-none {
+    color: #cbd5e1;
+}
+.kpi-main-table tbody tr.kpi-row-refunded {
+    background: #fff5f5;
+}
+.kpi-main-table tbody tr.kpi-row-refunded:hover {
+    background: #fee2e2;
+}
+.kpi-main-table tfoot tr.kpi-foot-net td {
+    background: #ecfdf5;
+}
 
 /* Main KPI table — refund column + KPI thực highlight */
 .kpi-main-table .col-kpi-net {
