@@ -25,6 +25,15 @@
 
 ## 2026-06-05
 
+### [native-orders] Bill STT khớp list — đơn gộp ghi "STT1 + STT2" ✅
+
+User: đơn gộp thì bill ghi STT 1 + STT 2. Phát hiện thêm: bill dùng `displayStt` (global, vd 14) nhưng list dùng `campaignStt` (vd 4) → lệch STT cả đơn thường.
+
+- Tạo helper `computeOrderStt(o)` DÙNG CHUNG: gộp → `mergedDisplayStt` join "1 + 2"; tách → `campaignStt-splitIndex` ("31-2"); thường → `campaignStt`. List (`sttValue`) + `bulkPrintBills` (truyền vào `displayStt`) đều gọi helper này → STT bill = STT list 100%.
+- `mergedDisplayStt` truyền `null` (đã gộp sẵn vào string). Bill `getMergedSttDisplay` fallback `String(displayStt)` → "#4" / "#1 + 2".
+- Verified: single `displayStt='4'` → "PBH SHOP #4"; merged `displayStt='1 + 2'` → "Phiếu Bán Hàng #1 + 2". (Curl xác nhận đơn thật #4 có campaignStt=4 vs displayStt=14.)
+- File: `native-orders-app.js` (v=20260605b).
+
 ### [native-orders] Fix: in bill mất dấu "PBH SHOP" — truyền pbhCarrierName ✅
 
 User: in bill đơn PBH SHOP (Hạnh Trần) không thấy đánh dấu shop. Root cause: `bulkPrintBills` dựng PBH-shape với `delivery: { carrierName: '' }` **hardcode rỗng** → bill `isShop = /pbh\s*shop|shop/i.test('')` = false → mất dấu.
