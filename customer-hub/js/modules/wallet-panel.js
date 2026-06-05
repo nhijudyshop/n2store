@@ -213,9 +213,6 @@ export class WalletPanelModule {
                     <button data-action="withdraw" class="wallet-action-btn py-2 px-3 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all flex items-center justify-center gap-1">
                         <span class="material-symbols-outlined text-[16px]">remove</span> Rút tiền
                     </button>
-                    <button data-action="issue_vc" class="wallet-action-btn col-span-2 py-2 px-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 text-xs font-bold transition-all flex items-center justify-center gap-1">
-                        <span class="material-symbols-outlined text-[16px]">stars</span> Cấp công nợ ảo
-                    </button>
                 </div>
             `
                     : ''
