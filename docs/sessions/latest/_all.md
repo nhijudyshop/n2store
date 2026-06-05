@@ -3,14 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7f8f2f8` — auto: session update
-**Last updated**: 2026-06-05 16:06:51 +07
-**Latest session**: [`RESUME:20260605-160651-7f8f2f8`](../20260605-160651-7f8f2f8.md)
-**Summary**: auto: session update
+**Latest commit**: `af3db07` — feat(orders): banner don hoan ghi ro tung mon hoan (ma+ten+ly do) de de so sanh
+**Last updated**: 2026-06-05 16:12:44 +07
+**Latest session**: [`RESUME:20260605-161244-af3db07`](../20260605-161244-af3db07.md)
+**Summary**: feat(orders): banner don hoan ghi ro tung mon hoan (ma+ten+ly do) de de so sanh
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
 - [`orders-report/`](./orders-report.md) — 3 file(s)
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-05 16:06
+- [`docs/`](./docs.md) — updated 2026-06-05 16:12
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 11:26
 - [`downloads/`](./downloads.md) — updated 2026-06-04 15:58
@@ -43,7 +42,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-05 15:46
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-05 16:06
+- [`orders-report/`](./orders-report.md) — updated 2026-06-05 16:12
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
