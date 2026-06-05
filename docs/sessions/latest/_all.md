@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9f889cf` — docs(dev-log): tem ma SP canh giua doc
-**Last updated**: 2026-06-05 11:20:01 +07
-**Latest session**: [`RESUME:20260605-112001-9f889cf`](../20260605-112001-9f889cf.md)
-**Summary**: docs(dev-log): tem ma SP canh giua doc
+**Latest commit**: `1a6c8a4` — auto: session update
+**Last updated**: 2026-06-05 11:25:44 +07
+**Latest session**: [`RESUME:20260605-112544-1a6c8a4`](../20260605-112544-1a6c8a4.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`don-inbox/`](./don-inbox.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 - [`so-order/`](./so-order.md) — 1 file(s)
 - [`web2/`](./web2.md) — 2 file(s)
 
@@ -28,7 +29,7 @@
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
 - [`docs/`](./docs.md) — updated 2026-06-05 11:20
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
-- [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 11:02
+- [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 11:25
 - [`downloads/`](./downloads.md) — updated 2026-06-04 15:58
 - [`facebook-services/`](./facebook-services.md) — updated 2026-05-21 15:39
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
@@ -51,13 +52,13 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-05 10:42
+- [`render.com/`](./render.com.md) — updated 2026-06-05 11:25
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-04 20:17
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-04 12:44
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
-- [`so-order/`](./so-order.md) — updated 2026-06-05 11:20
+- [`so-order/`](./so-order.md) — updated 2026-06-05 11:25
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-04 12:44
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
@@ -69,4 +70,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-05 11:20
+- [`web2/`](./web2.md) — updated 2026-06-05 11:25
