@@ -15,7 +15,8 @@
 // Refresh-safe: job + items ở Postgres. Client reload → GET /active → reattach.
 // Progress: SSE topic `web2:bulk-send:<jobId>` (per-job) + `web2:bulk-send` (list).
 //
-// Routes (mount /api/web2-msg-send):
+// Routes (mount /api/web2/msg-send — CF worker forward /api/web2/* về Render;
+// PHẢI mount TRƯỚC catch-all /api/web2 generic router để không bị nuốt):
 //   POST   /                       → tạo job + items, trả { jobId, total }
 //   GET    /active                 → job đang chạy gần nhất (reattach sau refresh)
 //   GET    /:id                    → job + counters + items tóm tắt

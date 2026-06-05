@@ -31,7 +31,8 @@
     // Server-side job API (chạy nền ở Render, refresh-safe). Qua CF worker proxy.
     const WORKER_URL =
         window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const API_BASE = WORKER_URL + '/api/web2-msg-send';
+    // Mount dưới /api/web2/msg-send (CF worker forward /api/web2/* về Render).
+    const API_BASE = WORKER_URL + '/api/web2/msg-send';
 
     let _templates = [];
     let _filtered = [];

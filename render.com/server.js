@@ -693,6 +693,17 @@ const web2CustomersRoutes = require('./routes/v2/web2-customers');
 app.use('/api/web2/customers', web2CustomersRoutes);
 // 2026-06-04: Goong geocode proxy (auto-detect địa chỉ giao hàng — Method B).
 app.use('/api/web2/geocode', require('./routes/v2/web2-geocode'));
+// WEB2.0 — Bulk FB message send job (server-side, refresh-safe). Mount DƯỚI
+// /api/web2/msg-send (CF worker đã forward /api/web2/* về Render — không cần
+// allowlist riêng). PHẢI mount TRƯỚC catch-all /api/web2 bên dưới để không bị
+// generic router nuốt thành entity "msg-send". Job/items ở web2Db; worker đọc
+// pancake creds từ chatDb (shared). SSE topic web2:bulk-send.
+const web2MsgSendRoutes = require('./routes/web2-msg-send');
+web2MsgSendRoutes
+    .ensureSchema(web2Pool || chatDbPool)
+    .catch((e) => console.warn('[web2-msg-send] schema warn:', e.message));
+app.use('/api/web2/msg-send', web2MsgSendRoutes);
+
 // 2026-06-03: generic catch-all `/api/web2/:entity` — MOUNT CUỐI CÙNG sau mọi
 // dedicated route ở trên để không shadow chúng. Entity nào không có dedicated
 // route sẽ rơi xuống đây (78 generic web2 entities, CRUD bảng web2_records).
@@ -740,13 +751,7 @@ const pancakePageTokensRoutes = require('./routes/pancake-page-tokens');
 pancakePageTokensRoutes.init(chatDbPool);
 app.use('/api/pancake-page-tokens', pancakePageTokensRoutes);
 
-// WEB2.0 — Bulk FB message send job (server-side, refresh-safe). Job/items ở
-// web2Db; worker đọc pancake creds từ chatDb (shared). SSE topic web2:bulk-send.
-const web2MsgSendRoutes = require('./routes/web2-msg-send');
-web2MsgSendRoutes
-    .ensureSchema(web2Pool || chatDbPool)
-    .catch((e) => console.warn('[web2-msg-send] schema warn:', e.message));
-app.use('/api/web2-msg-send', web2MsgSendRoutes);
+// SSE notifier cho web2-msg-send (route đã mount ở trên, TRƯỚC catch-all /api/web2).
 if (web2MsgSendRoutes.initializeNotifiers) {
     web2MsgSendRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
