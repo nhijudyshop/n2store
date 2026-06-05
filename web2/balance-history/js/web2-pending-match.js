@@ -440,6 +440,134 @@
                     </button>`;
     }
 
+    // ---- Inline list KH từ hội thoại Facebook (hiện luôn trong card) ----
+    const _WORKER_AVATAR = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar';
+    const _fbTailCache = new Map();
+    let _fbObserver = null;
+
+    async function _fetchFbByTail(tail) {
+        const digits = String(tail || '').replace(/\D/g, '');
+        if (digits.length < 4) return [];
+        if (_fbTailCache.has(digits)) return _fbTailCache.get(digits);
+        const Web2Chat = window.Web2Chat;
+        if (!Web2Chat || !Web2Chat.searchConversations) return [];
+        try {
+            if (Web2Chat.syncFromRenderDB) await Web2Chat.syncFromRenderDB().catch(() => {});
+        } catch (_) {}
+        const pages = Object.keys(
+            (Web2Chat.getAllPageAccessTokens && Web2Chat.getAllPageAccessTokens()) || {}
+        );
+        if (!pages.length) return [];
+        const seen = new Set();
+        const out = [];
+        await Promise.all(
+            pages.map(async (pg) => {
+                try {
+                    const r = await Web2Chat.searchConversations(pg, digits);
+                    if (!r || !r.ok) return;
+                    for (const c of r.conversations || []) {
+                        const name =
+                            (c.customers && c.customers[0] && c.customers[0].name) ||
+                            (c.from && c.from.name) ||
+                            '';
+                        const phones = (c.recent_phone_numbers || [])
+                            .map((x) => x && x.phone_number)
+                            .filter(Boolean);
+                        const phone =
+                            phones.find((p) => String(p).replace(/\D/g, '').includes(digits)) ||
+                            phones[0] ||
+                            '';
+                        const psid =
+                            (c.from && c.from.id) ||
+                            (c.customers && c.customers[0] && c.customers[0].fb_id) ||
+                            '';
+                        if (!phone || !name) continue;
+                        const key = phone + '|' + name;
+                        if (seen.has(key)) continue;
+                        seen.add(key);
+                        out.push({ name, phone, psid, page: pg });
+                    }
+                } catch (_) {}
+            })
+        );
+        // ưu tiên SĐT KẾT THÚC đúng đuôi (đúng người) lên đầu.
+        out.sort((a, b) => {
+            const ea = a.phone.replace(/\D/g, '').endsWith(digits) ? 0 : 1;
+            const eb = b.phone.replace(/\D/g, '').endsWith(digits) ? 0 : 1;
+            return ea - eb;
+        });
+        const res = out.slice(0, 6);
+        _fbTailCache.set(digits, res);
+        return res;
+    }
+
+    function _fbRowHtml(c, pendingId) {
+        const ini = escapeHtml(
+            (
+                String(c.name || '?')
+                    .trim()
+                    .charAt(0) || '?'
+            ).toUpperCase()
+        );
+        const avUrl = c.psid
+            ? `${_WORKER_AVATAR}?id=${encodeURIComponent(c.psid)}&page=${encodeURIComponent(c.page)}`
+            : '';
+        const av = `<span class="w2pm-fb-av"><span class="w2pm-fb-ini">${ini}</span>${avUrl ? `<img src="${escapeHtml(avUrl)}" alt="" loading="lazy" onerror="this.remove()" />` : ''}</span>`;
+        return `<div class="w2pm-fb-row">
+            ${av}
+            <span class="w2pm-fb-info">
+                <span class="w2pm-fb-name">${escapeHtml(c.name)}</span>
+                <span class="w2pm-fb-phone">${escapeHtml(c.phone)}</span>
+            </span>
+            <span class="w2pm-fb-bal" data-w2wallet-phone="${escapeHtml(c.phone)}"></span>
+            <button type="button" class="w2pm-fb-pick" data-fb-pick-id="${escapeHtml(String(pendingId))}"
+                data-phone="${escapeHtml(c.phone)}" data-name="${escapeHtml(c.name)}">Gán KH này</button>
+        </div>`;
+    }
+
+    async function _fillFbList(el) {
+        const tail = el.getAttribute('data-w2pm-fb-tail');
+        const pendingId = el.getAttribute('data-w2pm-fb-id');
+        const rowsEl = el.querySelector('.w2pm-fb-rows');
+        if (!rowsEl) return;
+        if (!tail) {
+            el.hidden = true;
+            return;
+        }
+        const list = await _fetchFbByTail(tail);
+        if (!list.length) {
+            rowsEl.innerHTML =
+                '<div class="w2pm-fb-empty">Không có hội thoại Facebook khớp đuôi.</div>';
+            return;
+        }
+        rowsEl.innerHTML = list.map((c) => _fbRowHtml(c, pendingId)).join('');
+        window.Web2WalletBalance?.attachBalances?.(rowsEl);
+        rowsEl.querySelectorAll('.w2pm-fb-pick').forEach((btn) => {
+            btn.addEventListener('click', () =>
+                _resolveFromChat(
+                    btn.getAttribute('data-fb-pick-id'),
+                    btn.getAttribute('data-phone'),
+                    btn.getAttribute('data-name')
+                )
+            );
+        });
+    }
+
+    function _setupFbObserver(body) {
+        if (_fbObserver) _fbObserver.disconnect();
+        _fbObserver = new IntersectionObserver(
+            (entries) => {
+                for (const en of entries) {
+                    if (!en.isIntersecting) continue;
+                    _fbObserver.unobserve(en.target);
+                    _fillFbList(en.target);
+                }
+            },
+            { root: body, rootMargin: '300px' }
+        );
+        body.querySelectorAll('.w2pm-fb').forEach((el) => _fbObserver.observe(el));
+    }
+
     function onCustomSearchInput(e) {
         const input = e.currentTarget;
         const id = input.dataset.w2pmSearch;
@@ -577,6 +705,10 @@
                     `
                         )
                         .join('')}
+                </div>
+                <div class="w2pm-fb" data-w2pm-fb-tail="${escapeHtml(item.extracted_phone || '')}" data-w2pm-fb-id="${escapeHtml(String(item.id))}">
+                    <div class="w2pm-fb-head">📘 Khách từ hội thoại Facebook (khớp đuôi SĐT) — bấm để gán:</div>
+                    <div class="w2pm-fb-rows"><div class="w2pm-fb-loading">…</div></div>
                 </div>
                 <div class="w2pm-custom" data-w2pm-custom="${escapeHtml(String(item.id))}">
                     <div class="w2pm-custom-label">
