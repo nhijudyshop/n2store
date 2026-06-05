@@ -776,6 +776,14 @@ const pancakePageTokensRoutes = require('./routes/pancake-page-tokens');
 pancakePageTokensRoutes.init(chatDbPool);
 app.use('/api/pancake-page-tokens', pancakePageTokensRoutes);
 
+// WEB2.0 — Pancake auto-refresh token (server-side login). Lưu creds mã hoá +
+// cron tự gia hạn JWT sắp hết hạn. Bảng pancake_accounts (chatDb, shared store).
+const web2PancakeRefreshRoutes = require('./routes/web2-pancake-refresh');
+web2PancakeRefreshRoutes.init(chatDbPool);
+web2PancakeRefreshRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+app.use('/api/web2/pancake-refresh', web2PancakeRefreshRoutes);
+web2PancakeRefreshRoutes.startCron(chatDbPool); // quét mỗi 6h, refresh account auto ≤5 ngày HSD
+
 // SSE notifier cho web2-payment-signals (route đã mount ở trên).
 if (web2PaymentSignalsRoutes.initializeNotifiers) {
     web2PaymentSignalsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
