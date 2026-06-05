@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `39025e6` — feat(web2 pancake): server-side auto-refresh token — login service + creds encryption + cron
-**Last updated**: 2026-06-05 16:38:42 +07
-**Latest session**: [`RESUME:20260605-163842-39025e6`](../20260605-163842-39025e6.md)
-**Summary**: feat(web2 pancake): server-side auto-refresh token — login service + creds encryption + cron
+**Latest commit**: `793d048` — docs(dev-log): bill INBOX title
+**Last updated**: 2026-06-05 16:39:46 +07
+**Latest session**: [`RESUME:20260605-163946-793d048`](../20260605-163946-793d048.md)
+**Summary**: docs(dev-log): bill INBOX title
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 6 file(s)
-- [`scripts/`](./scripts.md) — 3 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-05 16:38
+- [`docs/`](./docs.md) — updated 2026-06-05 16:39
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 11:26
 - [`downloads/`](./downloads.md) — updated 2026-06-04 15:58
