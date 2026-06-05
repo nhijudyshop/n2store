@@ -1018,6 +1018,23 @@
         return '';
     }
 
+    // STT hiển thị CHUẨN (dùng chung list + in bill — phải khớp nhau):
+    //   - "1 + 2" nếu đơn GỘP (mergedDisplayStt array length > 1)
+    //   - "31-2" nếu đơn TÁCH (splitIndex > 0)
+    //   - campaignStt (per-campaign 1..n) cho đơn thường — KHÔNG dùng displayStt
+    //     (global sequence) vì list hiển thị campaignStt → bill phải giống.
+    function computeOrderStt(o) {
+        if (Array.isArray(o.mergedDisplayStt) && o.mergedDisplayStt.length > 1) {
+            return o.mergedDisplayStt
+                .map((n) => parseInt(n, 10))
+                .filter(Number.isFinite)
+                .sort((a, b) => a - b)
+                .join(' + ');
+        }
+        const base = o.campaignStt ?? o.displayStt ?? o.sessionIndex ?? '';
+        return o.splitIndex && o.splitIndex > 0 ? `${base}-${o.splitIndex}` : base;
+    }
+
     // ============================================================
     // Phương thức giao hàng — auto-detect (offline) + lưu lại + chỉnh tay
     // Hiện badge ở cột Địa chỉ; click để đổi tay; đổi địa chỉ → tự nhận lại
@@ -1141,17 +1158,7 @@
         //   - "1 + 2" nếu là đơn gộp (mergedDisplayStt array length > 1)
         //   - "31-2" nếu là đơn tách (splitIndex > 0) — chia sẻ STT với các đơn cùng split family
         //   - "31" cho đơn thường
-        const sttValue = (() => {
-            if (Array.isArray(o.mergedDisplayStt) && o.mergedDisplayStt.length > 1) {
-                return o.mergedDisplayStt
-                    .map((n) => parseInt(n, 10))
-                    .filter(Number.isFinite)
-                    .sort((a, b) => a - b)
-                    .join(' + ');
-            }
-            const base = o.campaignStt ?? o.displayStt ?? o.sessionIndex ?? '';
-            return o.splitIndex && o.splitIndex > 0 ? `${base}-${o.splitIndex}` : base;
-        })();
+        const sttValue = computeOrderStt(o);
         // is-split-family: visually nhóm các đơn cùng display_stt với split_index > 0.
         // splitTopcap / splitBotcap để border-radius hợp lý: 33-1 chỉ bo trên, 33-2 chỉ bo dưới.
         const splitClass = o.splitIndex && o.splitIndex > 0 ? ' is-split-family' : '';
@@ -2930,8 +2937,11 @@
             const totalAmount = lines.reduce((s, l) => s + l.quantity * l.priceUnit, 0);
             return {
                 number: o.code,
-                displayStt: o.displayStt,
-                mergedDisplayStt: o.mergedDisplayStt || null,
+                // STT trên bill = STT list (computeOrderStt): đơn gộp "1 + 2",
+                // đơn tách "31-2", đơn thường campaignStt. Trước đây truyền
+                // displayStt (global, vd 14) → lệch với list (campaignStt 4).
+                displayStt: computeOrderStt(o),
+                mergedDisplayStt: null, // đã gộp sẵn vào displayStt string ở trên
                 partner: {
                     name: o.customerName || '',
                     phone: o.phone || '',
