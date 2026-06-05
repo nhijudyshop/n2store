@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d59cf73` — fix(cloudflare CORS): allow header X-Web2-Token - sau khi dang nhap Web2.0 client gui x-web2-token bi CORS preflight chan -> moi API web2 fail. Them 1 header, khong dung logic trang khac
-**Last updated**: 2026-06-05 15:13:48 +07
-**Latest session**: [`RESUME:20260605-151348-d59cf73`](../20260605-151348-d59cf73.md)
-**Summary**: fix(cloudflare CORS): allow header X-Web2-Token - sau khi dang nhap Web2.0 client gui x-web2-token bi CORS preflight ...
+**Latest commit**: `a76f415` — docs(dev-log): fix CORS x-web2-token dang nhap web2
+**Last updated**: 2026-06-05 15:14:46 +07
+**Latest session**: [`RESUME:20260605-151446-a76f415`](../20260605-151446-a76f415.md)
+**Summary**: docs(dev-log): fix CORS x-web2-token dang nhap web2
 
 ## Folders affected in this commit
 
-- [`customer-hub/`](./customer-hub.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`shared/`](./shared.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-05 15:13
+- [`docs/`](./docs.md) — updated 2026-06-05 15:14
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 11:26
 - [`downloads/`](./downloads.md) — updated 2026-06-04 15:58
