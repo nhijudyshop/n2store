@@ -25,6 +25,15 @@
 
 ## 2026-06-05
 
+### [web2 products] Tem mã SP in gần đầy con tem (25×21mm) cho đẹp ✅
+
+User: trang products → mã SP in ra cho gần đầy kích cỡ giấy tem cho đẹp.
+
+- `buildLabelHTML`: font ×1.3 (`fsBase*1.3`), barcode cao **55% tem** (thay 45%), label content `justify-content: space-between` (thay center) → name top / barcode giữa / code+price bottom dàn đều full chiều cao 21mm.
+- **Barcode rộng gần full**: bỏ pad quiet-zone tới TARGET_W=600 (làm bars chỉ ~50% width, chừa trắng 2 bên), đổi `sideMargin = max(6, nativeW*0.06)` → bars chiếm ~88% width tem, vẫn đủ vùng trắng tối thiểu quét Code128.
+- Verified Playwright (expose tạm `_buildLabelHTML`/`_PAPERS`, screenshot `label-fill2.png`, gỡ hook trước commit): 2 tem 66×21mm, mỗi tem 25mm content lấp đầy.
+- File: `web2-products-print.js` (v=20260605b). In tem qua máy XP-470B (TSPL) tự co theo `.barcode-sheet` 66mm.
+
 ### [web2] Bill tiếng Việt: bớt nhòe/đứt khúc — raster 3× + coverage thấp + giảm font-weight ✅
 
 User: chữ in đậm trên bill bị nhòe hoặc đứt khúc. Research GitHub/web (DantSu#238, mike42#254, nguồn VN): CP1258 codepage không tin cậy → raster vẫn đúng nhất, nhưng phải render độ phân giải cao + chữ KHÔNG quá đậm + density máy đúng.
