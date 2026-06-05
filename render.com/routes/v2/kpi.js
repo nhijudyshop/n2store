@@ -583,6 +583,208 @@ router.get('/actual', async (req, res) => {
     }
 });
 
+// =====================================================
+// Sprint 4 — Backlog review queue + Recalc + Reclassify
+// =====================================================
+
+// GET /backlog?campaign_id= — list mọi events source='backlog' chưa được reviewed
+// (chưa có compensating reclassify event hoặc admin chưa flag là OK).
+router.get('/backlog', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const conds = [`source = 'backlog'`, `event_type = 'forecast_add'`];
+        const params = [];
+        let i = 1;
+        if (req.query.campaign_id) {
+            conds.push(`campaign_id = $${i++}`);
+            params.push(req.query.campaign_id);
+        }
+        // Exclude events that already have a reclassify compensating event
+        conds.push(`NOT EXISTS (
+            SELECT 1 FROM web2_kpi_events r
+            WHERE r.event_type = 'reclassify_backlog'
+              AND r.revokes_event_id = web2_kpi_events.id
+        )`);
+        const r = await pool.query(
+            `SELECT * FROM web2_kpi_events
+             WHERE ${conds.join(' AND ')}
+             ORDER BY event_time DESC
+             LIMIT 200`,
+            params
+        );
+        res.json({ success: true, items: r.rows });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /backlog/:id/reclassify
+// Body: { decision: 'approve_backlog' | 'reclassify_native', reviewerUserId, reviewerName, note }
+// approve_backlog → mark reviewed (emit compensating với qty_delta=0, type=reclassify_backlog approve)
+// reclassify_native → emit reclassify_backlog event (compensating) + forecast_add native (count KPI)
+router.post('/backlog/:id/reclassify', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const eventId = Number(req.params.id);
+        const { decision, reviewerUserId, reviewerName, note } = req.body || {};
+        if (!['approve_backlog', 'reclassify_native'].includes(decision)) {
+            return res.status(400).json({ success: false, error: 'Invalid decision' });
+        }
+        const reviewerId = Number(reviewerUserId);
+        if (!Number.isFinite(reviewerId)) {
+            return res.status(400).json({ success: false, error: 'reviewerUserId required' });
+        }
+
+        const origQ = await pool.query(`SELECT * FROM web2_kpi_events WHERE id = $1`, [eventId]);
+        if (!origQ.rows.length)
+            return res.status(404).json({ success: false, error: 'Event not found' });
+        const orig = origQ.rows[0];
+        if (orig.source !== 'backlog' || orig.event_type !== 'forecast_add') {
+            return res.status(400).json({ success: false, error: 'Event is not a backlog add' });
+        }
+
+        // Step 1: emit compensating "reclassify_backlog" — marks original as reviewed
+        await emitKpiEvent(pool, {
+            event_type: 'reclassify_backlog',
+            actor_user_id: reviewerId,
+            actor_name: reviewerName || null,
+            beneficiary_user_id: orig.beneficiary_user_id,
+            beneficiary_name: orig.beneficiary_name,
+            beneficiary_source: 'admin-review',
+            order_code: orig.order_code,
+            order_campaign_stt: orig.order_campaign_stt,
+            customer_id: orig.customer_id,
+            product_code: orig.product_code,
+            qty_delta: 0, // info-only, không ảnh hưởng forecast/actual
+            source: 'backlog',
+            campaign_id: orig.campaign_id,
+            source_page: 'web2-kpi-backlog-review',
+            client_event_id: `reclassify_${eventId}`,
+            revokes_event_id: eventId,
+            raw_payload: { decision, note: note || null },
+        });
+
+        // Step 2: nếu reclassify_native → emit forecast_add với source='native' (count KPI)
+        if (decision === 'reclassify_native') {
+            await emitKpiEvent(pool, {
+                event_type: 'forecast_add',
+                actor_user_id: reviewerId,
+                actor_name: reviewerName || null,
+                beneficiary_user_id: orig.beneficiary_user_id,
+                beneficiary_name: orig.beneficiary_name,
+                beneficiary_source: orig.beneficiary_source,
+                order_code: orig.order_code,
+                order_campaign_stt: orig.order_campaign_stt,
+                customer_id: orig.customer_id,
+                product_code: orig.product_code,
+                qty_delta: orig.qty_delta,
+                source: 'native',
+                campaign_id: orig.campaign_id,
+                source_page: 'web2-kpi-backlog-review',
+                client_event_id: `reclassify_native_${eventId}`,
+                raw_payload: { from_event_id: eventId, note: note || null },
+            });
+        }
+        res.json({ success: true, decision, original_event_id: eventId });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /recalc?campaign_id= — rebuild web2_kpi_forecast + web2_kpi_actual cho campaign.
+// Idempotent — chạy nhiều lần ra kết quả như nhau. Tự gọi qua cron 5min hoặc admin manual.
+router.post('/recalc', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const campaignId = req.query.campaign_id || req.body?.campaign_id;
+        const result = await recalcProjections(pool, campaignId || null);
+        res.json({ success: true, ...result });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// Pure function — can be called from cron job too.
+async function recalcProjections(pool, campaignId) {
+    const now = Date.now();
+    const where = campaignId ? `WHERE campaign_id = $1` : '';
+    const params = campaignId ? [campaignId] : [];
+
+    // Forecast: count NET native qty per (beneficiary, campaign)
+    const fcQ = await pool.query(
+        `
+        SELECT beneficiary_user_id, campaign_id,
+               GREATEST(0, COALESCE(SUM(qty_delta) FILTER (
+                   WHERE source = 'native'
+                     AND event_type IN ('forecast_add', 'forecast_qty_change', 'forecast_remove')
+               ), 0)) AS kpi_qty
+        FROM web2_kpi_events
+        ${where}
+        GROUP BY beneficiary_user_id, campaign_id`,
+        params
+    );
+    let forecastRows = 0;
+    for (const r of fcQ.rows) {
+        const qty = Number(r.kpi_qty) || 0;
+        await pool.query(
+            `INSERT INTO web2_kpi_forecast (beneficiary_user_id, campaign_id, kpi_qty, kpi_amount, last_recalc_at)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (beneficiary_user_id, campaign_id) DO UPDATE SET
+                 kpi_qty = EXCLUDED.kpi_qty,
+                 kpi_amount = EXCLUDED.kpi_amount,
+                 last_recalc_at = EXCLUDED.last_recalc_at`,
+            [r.beneficiary_user_id, r.campaign_id, qty, qty * RATE_PER_SP, now]
+        );
+        forecastRows++;
+    }
+
+    // Actual: confirmed - revoked
+    const acQ = await pool.query(
+        `
+        SELECT beneficiary_user_id, campaign_id,
+               GREATEST(0, COALESCE(SUM(qty_delta) FILTER (
+                   WHERE source = 'native'
+                     AND event_type IN ('actual_confirmed', 'actual_revoked')
+               ), 0)) AS kpi_qty,
+               COALESCE(SUM(-qty_delta) FILTER (
+                   WHERE source = 'native' AND event_type = 'actual_revoked'
+               ), 0) AS revoked_qty
+        FROM web2_kpi_events
+        ${where}
+        GROUP BY beneficiary_user_id, campaign_id`,
+        params
+    );
+    let actualRows = 0;
+    for (const r of acQ.rows) {
+        const qty = Number(r.kpi_qty) || 0;
+        await pool.query(
+            `INSERT INTO web2_kpi_actual (beneficiary_user_id, campaign_id, kpi_qty, kpi_amount, revoked_qty, last_recalc_at)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (beneficiary_user_id, campaign_id) DO UPDATE SET
+                 kpi_qty = EXCLUDED.kpi_qty,
+                 kpi_amount = EXCLUDED.kpi_amount,
+                 revoked_qty = EXCLUDED.revoked_qty,
+                 last_recalc_at = EXCLUDED.last_recalc_at`,
+            [
+                r.beneficiary_user_id,
+                r.campaign_id,
+                qty,
+                qty * RATE_PER_SP,
+                Number(r.revoked_qty) || 0,
+                now,
+            ]
+        );
+        actualRows++;
+    }
+
+    return {
+        campaign_id: campaignId,
+        forecast_rows_updated: forecastRows,
+        actual_rows_updated: actualRows,
+        recalc_at: now,
+    };
+}
+
 module.exports = router;
 module.exports.initializeNotifiers = initializeNotifiers;
 module.exports.emitKpiEvent = emitKpiEvent;
@@ -592,5 +794,6 @@ module.exports.applyKpiScope = applyKpiScope;
 module.exports.buildScopeWhere = buildScopeWhere;
 module.exports.buildScopeWhereWithAlias = buildScopeWhereWithAlias;
 module.exports.invalidateScopeCache = invalidateScopeCache;
+module.exports.recalcProjections = recalcProjections;
 module.exports.RATE_PER_SP = RATE_PER_SP;
 module.exports.SYNTHETIC_NO_CAMPAIGN = SYNTHETIC_NO_CAMPAIGN;
