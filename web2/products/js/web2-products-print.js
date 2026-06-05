@@ -660,9 +660,16 @@
         if (paper.hSpacing != null) labelStyleParts.push(`margin-right:${paper.hSpacing}mm`);
         if (paper.vSpacing != null) labelStyleParts.push(`margin-bottom:${paper.vSpacing}mm`);
 
-        // TPOS PDF: title WRAPS multi-line (không truncate). Bỏ max-height, dùng
-        // word-wrap. Tight line-height match TPOS PDF rendering.
-        const nameStyle = `word-wrap:break-word;overflow:hidden;margin-bottom:1px;line-height:${lineH}px;`;
+        // Tên SP TỐI ĐA 2 DÒNG (user 2026-06-05): block thuần + max-height = 2×lineH
+        // + overflow:hidden → cắt cứng từ dòng 3. KHÔNG dùng -webkit-box/line-clamp
+        // vì html2canvas (raster in TSPL) KHÔNG tôn trọng line-clamp → vẫn ra 3 dòng;
+        // max-height clip thì raster cắt đúng 2 dòng → barcode/giá luôn đủ chỗ.
+        // line-height name cao hơn lineH +2 cho dấu tiếng Việt 2 tầng (ậ, ọ, ộ…)
+        // không bị cắt ở đáy dòng 2. max-height = 2×nameLineH → clip đúng 2 dòng.
+        const nameLineH = lineH + 2;
+        const nameStyle =
+            `word-wrap:break-word;overflow:hidden;margin-bottom:1px;line-height:${nameLineH}px;` +
+            `max-height:${nameLineH * 2}px;`;
 
         // Group labels into sheets (cols labels per sheet)
         const sheets = [];
