@@ -25,6 +25,16 @@
 
 ## 2026-06-05
 
+### [web2] Bill ghi tên người bán = user đăng nhập + card đăng nhập trên overview ✅
+
+User: các loại bill thiếu tên người bán → lấy user đang đăng nhập (hệ thống user web2). Mục đích login: phân quyền + xác minh danh tính người thực hiện + lịch sử hành động.
+
+- **Bill PBH** (`web2-bill-service.js`): `sellerName` ưu tiên `Web2UserInfo.get().userName` (user đăng nhập), fallback `pbh.createdByName`. → mọi bill in "NV bán: <user>". `bulkPrintBills` cũng thêm `createdByName` từ `assignedEmployeeName` làm fallback.
+- **Phiếu Soạn Hàng** (`native-orders-packing-slip.js`): helper `_seller()` cùng logic → header + bản in "Nhân viên: <user đăng nhập>".
+- **Overview**: thêm card đăng nhập/danh tính (`#ovAuthCard`) đọc `Web2Auth.getStored()` → chưa login: "⚠️ Chưa đăng nhập" + nút "→ Đăng nhập" (web2/login) + "👥 Quản lý người dùng" (web2/users); đã login: tên + role + Đăng xuất. Giải thích mục đích phân quyền/danh tính/lịch sử.
+- Verified Playwright: card render đúng (chưa login → cảnh báo "bill ghi ẩn danh" + 2 nút).
+- Files: `web2-bill-service.js` (v=20260605u1), `native-orders-packing-slip.js` (v=20260605c), `web2/overview/index.html`.
+
 ### [render][web2] Hardening Pancake WS 24/7 + DB tin nhắn chưa đọc RIÊNG Web 2.0 ✅
 
 User: (1) đảm bảo Pancake WebSocket client chạy đúng/liên tục không sập; (2) build DB tin chưa đọc riêng Web 2.0 (tuyệt đối không đọc Web 1.0).
