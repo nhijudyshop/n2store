@@ -19,6 +19,7 @@
     let _order = null;
     let _products = [];
     let _stt = '';
+    let _onClose = null;
 
     function _esc(s) {
         return String(s == null ? '' : s)
@@ -276,6 +277,9 @@ th { border: 1px solid #000; padding: 4px 3px; text-align: center; background: #
         _order = order;
         _products = Array.isArray(order.products) ? order.products.slice() : [];
         _stt = opts.sttDisplay != null ? String(opts.sttDisplay) : String(order.displayStt || '');
+        // onClose: fire 1 lần khi modal đóng (hủy/in xong) → dùng để xếp hàng in
+        // nhiều đơn nháp tuần tự (chọn mix trạng thái).
+        _onClose = typeof opts.onClose === 'function' ? opts.onClose : null;
         _ensureModal();
         const staff = _seller(order);
         _modal.querySelector('#noPsHeader').innerHTML = `
@@ -291,6 +295,15 @@ th { border: 1px solid #000; padding: 4px 3px; text-align: center; background: #
     }
     function close() {
         if (_modal) _modal.style.display = 'none';
+        const cb = _onClose;
+        _onClose = null; // chỉ fire 1 lần
+        if (cb) {
+            try {
+                cb();
+            } catch (e) {
+                console.warn('[packing-slip] onClose error', e.message);
+            }
+        }
     }
 
     global.NativeOrdersPackingSlip = { open, close };

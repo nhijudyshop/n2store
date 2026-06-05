@@ -1435,6 +1435,10 @@
         if (window.Web2NewMsgBadge?.reapply) window.Web2NewMsgBadge.reapply();
         // Số dư ví KH cho row có SĐT (chỉ hiện khi > 0).
         window.Web2WalletBalance?.attachBalances?.(tb);
+        // Tab Inbox: đơn chưa có fb_id → resolve avatar theo SĐT (chạy nền).
+        if (STATE.channel === 'inbox') {
+            setTimeout(() => _hydrateInboxAvatars(), 0);
+        }
     }
 
     function toggleExpand(code) {
@@ -3149,18 +3153,14 @@
             notify('Không tìm thấy đơn', 'error');
             return;
         }
-        // Đơn NHÁP → PHIẾU SOẠN HÀNG (soạn/chuẩn bị hàng trước khi tạo PBH), 1 đơn/lần.
-        // Đơn đã xác nhận/có PBH → in bill PBH thường (bên dưới).
+        // MỖI đơn in ĐÚNG LOẠI theo trạng thái (chọn mix trạng thái được):
+        //   - NHÁP (draft)     → PHIẾU SOẠN HÀNG (modal, mở TUẦN TỰ từng đơn)
+        //   - Đã xác nhận/PBH  → bill PBH (gộp 1 lần)
         const drafts = orders.filter((o) => o.status === 'draft');
-        if (drafts.length === orders.length && window.NativeOrdersPackingSlip) {
-            if (orders.length > 1) notify('Phiếu Soạn Hàng in từng đơn — mở đơn đầu', 'info');
-            window.NativeOrdersPackingSlip.open(drafts[0], {
-                sttDisplay: computeOrderStt(drafts[0]),
-            });
-            return;
-        }
-        // Convert native-order shape → PBH-shape cho Web2Bill template
-        const pbhs = orders.map((o) => {
+        const others = orders.filter((o) => o.status !== 'draft');
+
+        // Dựng PBH-shape cho Web2Bill từ native order.
+        const buildPbhShape = (o) => {
             const lines = (o.products || []).map((p) => ({
                 productName: p.name || p.productName || '',
                 quantity: Number(p.quantity) || 0,
@@ -3172,14 +3172,9 @@
             const totalAmount = lines.reduce((s, l) => s + l.quantity * l.priceUnit, 0);
             return {
                 number: o.code,
-                // STT trên bill = STT list (computeOrderStt): đơn gộp "1 + 2",
-                // đơn tách "31-2", đơn thường campaignStt. Trước đây truyền
-                // displayStt (global, vd 14) → lệch với list (campaignStt 4).
-                displayStt: computeOrderStt(o),
-                mergedDisplayStt: null, // đã gộp sẵn vào displayStt string ở trên
-                // Tên người bán (NV) → bill hiện "NV bán: ...". Trước thiếu field
-                // này nên bill không in tên người bán.
-                createdByName: o.assignedEmployeeName || o.createdByName || '',
+                displayStt: computeOrderStt(o), // STT khớp list (gộp "1 + 2", campaignStt)
+                mergedDisplayStt: null,
+                createdByName: o.assignedEmployeeName || o.createdByName || '', // NV bán
                 partner: {
                     name: o.customerName || '',
                     phone: o.phone || '',
@@ -3188,19 +3183,45 @@
                 orderLines: lines,
                 totals: { quantity: totalQty, untaxed: totalAmount, total: totalAmount },
                 payment: { amount: 0, residual: totalAmount },
-                // carrierName từ PBH liên kết (pbhCarrierName) → bill detect "PBH SHOP".
-                // Trước đây hardcode '' → bill KHÔNG bao giờ thấy đơn bán tại shop.
-                delivery: { price: 0, carrierName: o.pbhCarrierName || '' },
+                delivery: { price: 0, carrierName: o.pbhCarrierName || '' }, // detect PBH SHOP
                 comment: o.note || '',
                 dateInvoice: o.createdAt || new Date().toISOString(),
             };
-        });
-        if (pbhs.length === 1) {
-            window.Web2Bill.openPrint(pbhs[0]);
+        };
+
+        // In bill PBH cho đơn đã xác nhận (gộp 1 lần).
+        const printConfirmedBills = () => {
+            if (!others.length) return;
+            const pbhs = others.map(buildPbhShape);
+            if (pbhs.length === 1) window.Web2Bill.openPrint(pbhs[0]);
+            else window.Web2Bill.openCombinedPrint(pbhs);
+            notify(`Đang in ${pbhs.length} bill PBH...`, 'info');
+        };
+
+        // Đơn nháp → mở Phiếu Soạn Hàng TUẦN TỰ (đóng đơn này mở đơn kế); xong
+        // hết mới in bill PBH cho đơn đã xác nhận. Không nháp → in bill ngay.
+        if (drafts.length && window.NativeOrdersPackingSlip) {
+            if (others.length)
+                notify(
+                    `${drafts.length} đơn nháp (soạn hàng) + ${others.length} đơn in bill PBH`,
+                    'info'
+                );
+            let i = 0;
+            const openNext = () => {
+                if (i >= drafts.length) {
+                    printConfirmedBills();
+                    return;
+                }
+                const o = drafts[i++];
+                window.NativeOrdersPackingSlip.open(o, {
+                    sttDisplay: computeOrderStt(o),
+                    onClose: openNext,
+                });
+            };
+            openNext();
         } else {
-            window.Web2Bill.openCombinedPrint(pbhs);
+            printConfirmedBills();
         }
-        notify(`Đang mở popup in ${pbhs.length} bill...`, 'info');
     }
 
     // Bulk send template message — port từ orders-report MessageTemplateManager.
@@ -4858,6 +4879,137 @@
         return { ok: true, conversations: merged.slice(0, 50) };
     }
 
+    // ============ INBOX-ONLY: resolve hội thoại Pancake theo SĐT ============
+    // Đơn inbox tay thường CHƯA có fb_id (khác đơn livestream — luôn có sẵn
+    // fbUserId/fbPageId). Khi chỉ có SĐT, search hội thoại Pancake theo SĐT để
+    // lấy psid + page + avatar → hiện avatar ở list + mở đúng đoạn hội thoại.
+    // KHÔNG đụng logic đơn livestream: các nhánh dùng helper này đều gate bằng
+    // "order thiếu fbPageId" (đơn livestream luôn có fbPageId → không bao giờ vào).
+    const _inboxPhoneCache = new Map(); // normPhone -> Promise|resolved|null
+
+    function _normPhone(p) {
+        let s = String(p || '').replace(/\D/g, '');
+        if (!s) return '';
+        if (s.length === 11 && s.startsWith('84')) s = '0' + s.slice(2);
+        else if (!s.startsWith('0') && s.length >= 9) s = '0' + s.slice(-9);
+        return s;
+    }
+
+    async function _resolveInboxConvByPhone(phone) {
+        const norm = _normPhone(phone);
+        if (!norm || norm.length < 8) return null;
+        const cached = _inboxPhoneCache.get(norm);
+        if (cached !== undefined) return cached; // promise hoặc value (kể cả null đã cache)
+        const job = (async () => {
+            if (!window.Web2Chat?.searchConversations) return null;
+            if (window.Web2Chat.syncFromRenderDB) {
+                try {
+                    await window.Web2Chat.syncFromRenderDB();
+                } catch {
+                    /* tolerate */
+                }
+            }
+            const pageIds = _getSidebarPageIds({});
+            if (!pageIds.length) return null;
+            const settled = await Promise.allSettled(
+                pageIds.map((pid) => window.Web2Chat.searchConversations(pid, norm))
+            );
+            let best = null;
+            const tail9 = norm.slice(-9);
+            for (let i = 0; i < settled.length; i++) {
+                const r = settled[i];
+                if (r.status !== 'fulfilled' || !r.value?.ok) continue;
+                const convs = r.value.conversations || [];
+                for (const c of convs) {
+                    const cust = c.customers?.[0] || c.from || {};
+                    const cphone = _normPhone(cust.phone || cust.phone_number || '');
+                    const phoneMatch = cphone && (cphone === norm || cphone.endsWith(tail9));
+                    // Nhiều kết quả mà SĐT không khớp → bỏ (tránh nhận nhầm khách khác).
+                    if (!phoneMatch && convs.length > 1) continue;
+                    const fbId = String(cust.fb_id || cust.id || c.from_customer_id || '');
+                    if (!fbId) continue;
+                    const isInbox = (c.type || '').toUpperCase() === 'INBOX';
+                    const cand = {
+                        fbId,
+                        pageId: String(c.page_id || c.fb_page_id || pageIds[i] || ''),
+                        conversationId: c.id || null,
+                        name: cust.name || cust.full_name || c.name || '',
+                        avatarUrl: c.from?.avatar_url || cust.avatar_url || '',
+                        phoneMatch: !!phoneMatch,
+                        isInbox,
+                    };
+                    // Ưu tiên: SĐT khớp > INBOX type > kết quả đầu.
+                    if (
+                        !best ||
+                        (cand.phoneMatch && !best.phoneMatch) ||
+                        (cand.phoneMatch === best.phoneMatch && cand.isInbox && !best.isInbox)
+                    ) {
+                        best = cand;
+                    }
+                }
+            }
+            return best;
+        })();
+        _inboxPhoneCache.set(norm, job);
+        const res = await job;
+        // Cache giá trị thật. Nếu KHÔNG tìm thấy → xoá khỏi cache để lần sau (vd
+        // sau khi token sẵn sàng / mở chat) có thể thử lại.
+        if (res) _inboxPhoneCache.set(norm, res);
+        else _inboxPhoneCache.delete(norm);
+        return res;
+    }
+
+    // Sau khi render danh sách đơn inbox: với các row có SĐT nhưng chưa có fb_id,
+    // resolve avatar theo SĐT rồi gắn ảnh + lưu fb context vào order in-memory để
+    // mở chat tức thì. Chạy nền (không chặn render). Chỉ chạy ở tab Inbox.
+    let _inboxAvatarHydrating = false;
+    async function _hydrateInboxAvatars() {
+        if (STATE.channel !== 'inbox' || _inboxAvatarHydrating) return;
+        const tb = tbody();
+        if (!tb) return;
+        const wraps = [...tb.querySelectorAll('.tpos-customer-avatar-wrap')].filter(
+            (w) =>
+                !w.dataset.fbUserId &&
+                (w.dataset.customerPhone || '').trim() &&
+                w.dataset.avatarHydrated !== '1'
+        );
+        if (!wraps.length) return;
+        _inboxAvatarHydrating = true;
+        try {
+            for (const wrap of wraps.slice(0, 40)) {
+                wrap.dataset.avatarHydrated = '1';
+                const phone = wrap.dataset.customerPhone;
+                const code = wrap.closest('tr')?.dataset?.code;
+                let r = null;
+                try {
+                    r = await _resolveInboxConvByPhone(phone);
+                } catch {
+                    /* tolerate */
+                }
+                if (!r || !r.fbId) continue;
+                const o = STATE.orders.find((x) => x.code === code);
+                if (o) {
+                    o.fbUserId = o.fbUserId || r.fbId;
+                    o.fbPageId = o.fbPageId || r.pageId;
+                }
+                wrap.dataset.fbUserId = r.fbId;
+                wrap.dataset.fbPageId = r.pageId;
+                const av = wrap.querySelector('.cust-avatar');
+                if (av && !av.querySelector('.cust-avatar-img')) {
+                    const url = r.avatarUrl || _avatarUrl(r.fbId, r.pageId);
+                    if (url) {
+                        const initial = av.textContent.trim();
+                        av.innerHTML =
+                            `<span class="cust-avatar-initial">${escapeHtml(initial)}</span>` +
+                            `<img class="cust-avatar-img" src="${escapeHtml(url)}" alt="" loading="lazy" onload="this.classList.add('loaded')" onerror="this.remove()">`;
+                    }
+                }
+            }
+        } finally {
+            _inboxAvatarHydrating = false;
+        }
+    }
+
     async function _loadInboxSidebar(order) {
         const list = document.getElementById('w2InboxConvList');
         if (!list) return;
@@ -5022,10 +5174,10 @@
             }
         });
 
-        // Đơn inbox tay chưa bind hội thoại → tự điền ô tìm theo tên/SĐT khách
-        // để list lọc sẵn đúng hội thoại, user chỉ việc click chọn.
+        // Đơn inbox tay chưa bind hội thoại → tự điền ô tìm (ưu tiên SĐT vì khớp
+        // chính xác hơn tên) để list lọc sẵn đúng hội thoại, user chỉ việc click.
         if (!order.fbPageId) {
-            const seed = (order.customerName || order.phone || '').trim();
+            const seed = (order.phone || order.customerName || '').trim();
             if (seed) {
                 input.value = seed;
                 doSearch(seed);
@@ -7625,14 +7777,37 @@
             threadEl.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:14px;text-align:center;">Web2Chat client chưa load.</div>`;
             return;
         }
-        // Đơn inbox tay chưa bind fb page/user → chưa thể auto-load thread. Hiện
-        // prompt mời chọn hội thoại từ sidebar (đã tự search theo tên/SĐT khách).
-        // Khi user click 1 hội thoại → _switchChatToCustomer bind page+psid rồi
-        // gọi lại hàm này với synthetic order đầy đủ → thread load bình thường.
+        // Đơn inbox tay chưa bind fb page/user. Thử resolve hội thoại theo SĐT
+        // (logic riêng tab Inbox) → nếu thấy thì bind psid+page rồi load thread
+        // bình thường. Không thấy → prompt mời chọn hội thoại từ sidebar (đã tự
+        // search theo tên/SĐT). Đơn livestream luôn có fbPageId nên không vào đây.
         if (!order.fbPageId || !order.fbUserId) {
+            if (order.phone) {
+                let r = null;
+                try {
+                    r = await _resolveInboxConvByPhone(order.phone);
+                } catch {
+                    /* tolerate → prompt bên dưới */
+                }
+                if (r && r.fbId && r.pageId) {
+                    const synthetic = {
+                        ...order,
+                        fbUserId: r.fbId,
+                        fbPageId: r.pageId,
+                        fbUserName: order.customerName || r.name || '',
+                    };
+                    const o = STATE.orders.find((x) => x.code === order.code);
+                    if (o) {
+                        o.fbUserId = o.fbUserId || r.fbId;
+                        o.fbPageId = o.fbPageId || r.pageId;
+                    }
+                    _applyChatHeaderForOrder(synthetic);
+                    return _loadAndRenderThread(synthetic); // load thread thật
+                }
+            }
             threadEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:40px 18px;text-align:center;line-height:1.6;">
                 <i data-lucide="mouse-pointer-click" style="width:30px;height:30px;display:block;margin:0 auto 10px;color:#cbd5e1;"></i>
-                Đơn inbox chưa gắn hội thoại Facebook.<br>
+                Không tìm thấy hội thoại Facebook theo SĐT.<br>
                 Chọn đúng hội thoại của khách ở <strong>danh sách bên trái</strong> để bắt đầu chat.
             </div>`;
             if (window.lucide?.createIcons) window.lucide.createIcons();
