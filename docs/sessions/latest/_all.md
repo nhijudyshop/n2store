@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d9fedb7` — feat(web2-chat-readonly): sort hoi thoai moi nhat len dau (updated_at desc)
-**Last updated**: 2026-06-05 19:12:33 +07
-**Latest session**: [`RESUME:20260605-191233-d9fedb7`](../20260605-191233-d9fedb7.md)
-**Summary**: feat(web2-chat-readonly): sort hoi thoai moi nhat len dau (updated_at desc)
+**Latest commit**: `812bfa2` — fix(web2): QR modal mở theo customer_id (partner_id) khi có — mỗi TPOS partner ra đúng QR riêng dù trùng SĐT
+**Last updated**: 2026-06-05 19:25:50 +07
+**Latest session**: [`RESUME:20260605-192549-812bfa2`](../20260605-192549-812bfa2.md)
+**Summary**: fix(web2): QR modal mở theo customer_id (partner_id) khi có — mỗi TPOS partner ra đúng QR riêng dù trùng ...
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -69,4 +67,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-05 19:12
+- [`web2/`](./web2.md) — updated 2026-06-05 19:25
