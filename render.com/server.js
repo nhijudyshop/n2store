@@ -609,8 +609,11 @@ app.use('/api/admin/render', adminRenderRoutes);
 app.use('/api/invoice-status', invoiceStatusRoutes);
 app.use('/api/invoice-mapping', invoiceMappingRoutes);
 app.use('/api/order-notes', orderNotesRoutes);
+// Mount KPI-verify DƯỚI prefix /api/social-orders/ (đã được Cloudflare Worker route sẵn về
+// Render) → tránh phải thêm route mới vào worker. PHẢI mount TRƯỚC socialOrdersRoutes để
+// /api/social-orders/kpi-verify/* khớp router này trước.
+app.use('/api/social-orders/kpi-verify', socialKpiVerifyRoutes);
 app.use('/api/social-orders', socialOrdersRoutes);
-app.use('/api/social-kpi-verify', socialKpiVerifyRoutes);
 app.use('/api/native-orders', nativeOrdersRoutes);
 app.use('/api/fast-sale-orders', fastSaleOrdersRoutes);
 app.use('/api/reconcile', reconcileRoutes); // WEB2.0 — PBH đối soát đóng gói

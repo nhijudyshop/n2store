@@ -176,7 +176,10 @@
         loaded: false,
         backendDown: false, // true sau khi endpoint 404/lỗi → chỉ dùng localStorage, ngừng spam request
     };
-    const _verifyApi = () => `${WORKER()}/api/social-kpi-verify`;
+    // Lưu THẲNG lên Render (không liên quan TPOS). Dùng prefix /api/social-orders/ vì Cloudflare
+    // Worker đã route prefix này về Render n2store-fallback (path /api/social-kpi-verify chưa có
+    // trong allowlist worker → bị đẩy nhầm sang TPOS → 404).
+    const _verifyApi = () => `${WORKER()}/api/social-orders/kpi-verify`;
 
     function _currentUser() {
         const a = window.authManager?.getAuthState?.() || {};
