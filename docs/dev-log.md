@@ -25,6 +25,17 @@
 
 ## 2026-06-05
 
+### [web2 pancake-settings] Quản lý nhiều tài khoản Pancake (DB-backed) ✅
+
+User: hiện tất cả account Pancake để quản lý, cho thêm/xoá, lưu ở DB. Kiểm tra firebase/render web2 đã quản lý account chưa.
+
+- **Kiểm tra**: DB-backed multi-account ĐÃ TỒN TẠI sẵn — Render Postgres bảng `pancake_accounts` (pool `chatDb`, **chia chung Web 1.0** — cùng store token, web1 tpos-pancake + web2 thấy nhau ngay), endpoint `/api/pancake-accounts` (GET / POST `/sync` / PUT / DELETE) proxy qua CF Worker. Hiện có **6 account thật**. Firebase `pancake_tokens` chỉ là backup legacy của web1. Web2 trước giờ CHỈ đọc (`web2-chat-client.syncFromRenderDB`) — **chưa có UI quản lý**.
+- **Mới `web2/shared/web2-pancake-accounts.js`**: `Web2PancakeAccounts` — `list()`, `addFromToken()` (account_id = JWT `uid`, KHỚP web1 tránh trùng row → POST `/sync`), `remove()` (DELETE + clear active local nếu trùng), `setEnabled()` (is_active sync on/off), `setActiveLocal()` (đặt JWT active per-device), `getActiveId()`.
+- **Card "Tài khoản Pancake"** (đầu trang): list tất cả account (avatar, tên, uid, fb_id, chip HSD còn/hết hạn, pill "Đang dùng"), nút **Dùng** (switch active local), **Xoá** (DELETE DB, optimistic qua `Web2Optimistic.run`), **Thêm tài khoản** (panel inline: paste JWT hoặc "Lấy tự động" qua extension → POST `/sync`).
+- Save/auto-fetch/paste JWT giờ đều `persistActiveToDb()` → upsert account vào DB + set active.
+- KHÔNG tạo bảng web2\_ riêng — dùng store chung sẵn có (đúng pattern shared pancake token).
+- Verified Playwright (mock network, không đụng prod DB): render 6/3 account, switch active, add→+1, delete→-1, 0 console error. Screenshot prod 6 account đúng layout.
+
 ### [inbox] FIX log lỗi đối soát: bỏ GetListOrderIds (400) + im 404 verify ✅
 
 Console khi chạy đối soát có 2 lỗi (kết quả VẪN đúng nhờ fallback):

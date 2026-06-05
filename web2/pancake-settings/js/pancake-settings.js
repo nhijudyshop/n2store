@@ -52,6 +52,7 @@
     }
 
     let _pagesCache = null;
+    let _accountsCache = [];
 
     function renderJwtInfo() {
         const token = window.Web2Chat.getJwt();
@@ -172,8 +173,31 @@
         $('jwtInput').value = '';
         notify('Đã lưu JWT token', 'success');
         renderJwtInfo();
+        // Lưu account vào DB (đồng bộ mọi máy) + đặt active trên máy này
+        await persistActiveToDb(cleaned, decoded);
         // auto-load pages after save
         loadPages();
+    }
+
+    /**
+     * Lưu token đang active vào DB pancake_accounts (account_id = uid) + set
+     * active local + refresh danh sách accounts. Không chặn flow nếu lỗi mạng.
+     */
+    async function persistActiveToDb(token, decoded) {
+        if (!window.Web2PancakeAccounts) return;
+        try {
+            const r = await window.Web2PancakeAccounts.addFromToken(token);
+            if (r.ok) {
+                window.Web2PancakeAccounts.setActiveLocal({
+                    account_id: r.accountId,
+                    token,
+                    exp: (decoded || r.decoded)?.exp,
+                });
+                await loadAccounts();
+            }
+        } catch {
+            /* DB offline — token vẫn lưu localStorage, không chặn */
+        }
     }
 
     async function testJwt() {
@@ -328,6 +352,7 @@
             notify('Đã lấy token Pancake mới', 'success');
             renderJwtInfo();
             renderBanner();
+            await persistActiveToDb(window.Web2Chat.getJwt(), res.decoded);
             loadPages();
             return res;
         }
@@ -436,7 +461,7 @@
             });
 
         if (pasteSave)
-            pasteSave.addEventListener('click', () => {
+            pasteSave.addEventListener('click', async () => {
                 const txt = $('expiryPasteInput')?.value || '';
                 const r = window.Web2PancakeToken.applyToken(txt);
                 if (!r.ok) {
@@ -451,6 +476,7 @@
                 closeExpiryModal();
                 renderJwtInfo();
                 renderBanner();
+                await persistActiveToDb(window.Web2Chat.getJwt(), r.decoded);
                 loadPages();
             });
     }
@@ -486,6 +512,230 @@
         renderBanner();
     }
 
+    // =====================================================
+    // Accounts (DB-backed multi-account management)
+    // =====================================================
+
+    function _expChip(exp) {
+        const PA = window.Web2PancakeAccounts;
+        if (!exp) return '<span class="exp-chip bad">không rõ HSD</span>';
+        if (PA.isExpired(exp)) return '<span class="exp-chip bad">Hết hạn</span>';
+        const days = Math.max(0, Math.floor((Number(exp) - Date.now() / 1000) / 86400));
+        const cls = days <= 3 ? 'bad' : 'good';
+        return `<span class="exp-chip ${cls}">còn ${days} ngày</span>`;
+    }
+
+    function renderAccountList(accounts) {
+        const list = $('accountList');
+        const badge = $('accountsBadge');
+        const PA = window.Web2PancakeAccounts;
+        const activeId = PA?.getActiveId();
+        if (!Array.isArray(accounts) || accounts.length === 0) {
+            list.innerHTML = `<div class="ps-loading">Chưa có tài khoản nào. Bấm "Thêm tài khoản" để lưu account đầu tiên.</div>`;
+            badge.textContent = '0 tài khoản';
+            badge.className = 'badge warn';
+            return;
+        }
+        badge.textContent = `${accounts.length} tài khoản`;
+        badge.className = 'badge ok';
+        list.innerHTML = accounts
+            .map((a) => {
+                const id = a.account_id;
+                const isActive = id === activeId;
+                const name = a.name || a.fb_name || a.uid || id;
+                const disabled = a.is_active === false;
+                return `
+                <div class="ps-account-item ${isActive ? 'active' : ''}" data-acc-id="${escapeHtml(id)}">
+                    <div class="acc-avatar">${escapeHtml((name || '?').charAt(0).toUpperCase())}</div>
+                    <div class="info">
+                        <div class="name">
+                            ${escapeHtml(name)}
+                            ${isActive ? '<span class="acc-active-pill">Đang dùng</span>' : ''}
+                        </div>
+                        <div class="meta">
+                            <span class="mid">${escapeHtml(id)}</span>
+                            ${a.fb_id ? `<span class="tok-chip">fb ${escapeHtml(a.fb_id)}</span>` : ''}
+                            ${_expChip(a.token_exp)}
+                            ${disabled ? '<span class="exp-chip bad">tắt sync</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="acc-actions">
+                        ${
+                            isActive
+                                ? ''
+                                : `<button class="ps-btn primary" data-act="use" data-acc-id="${escapeHtml(id)}"><i data-lucide="check-circle" style="width:13px;height:13px;"></i> Dùng</button>`
+                        }
+                        <button class="ps-btn danger" data-act="del" data-acc-id="${escapeHtml(id)}" title="Xoá khỏi DB">
+                            <i data-lucide="trash-2" style="width:13px;height:13px;"></i>
+                        </button>
+                    </div>
+                </div>`;
+            })
+            .join('');
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+
+        list.querySelectorAll('button[data-act]').forEach((btn) => {
+            const id = btn.dataset.accId;
+            const act = btn.dataset.act;
+            btn.addEventListener('click', () => {
+                if (act === 'use') useAccount(id);
+                else if (act === 'del') deleteAccount(id);
+            });
+        });
+    }
+
+    async function loadAccounts() {
+        const list = $('accountList');
+        const PA = window.Web2PancakeAccounts;
+        if (!PA) {
+            if (list) list.innerHTML = `<div class="ps-loading">Module accounts chưa load.</div>`;
+            return;
+        }
+        if (list) list.innerHTML = `<div class="ps-loading">Đang tải danh sách tài khoản…</div>`;
+        const r = await PA.list();
+        if (!r.ok) {
+            if (list)
+                list.innerHTML = `<div class="ps-loading" style="color:#b91c1c;">Lỗi tải tài khoản: ${escapeHtml(r.reason || 'unknown')}</div>`;
+            $('accountsBadge').textContent = 'lỗi';
+            $('accountsBadge').className = 'badge err';
+            return;
+        }
+        _accountsCache = r.accounts;
+        renderAccountList(r.accounts);
+    }
+
+    function useAccount(id) {
+        const acc = _accountsCache.find((a) => a.account_id === id);
+        if (!acc) return;
+        if (window.Web2PancakeAccounts.isExpired(acc.token_exp)) {
+            if (
+                !confirm(
+                    'Token của tài khoản này đã hết hạn — chọn dùng vẫn sẽ lỗi khi gửi tin. Tiếp tục?'
+                )
+            )
+                return;
+        }
+        const r = window.Web2PancakeAccounts.setActiveLocal(acc);
+        if (!r.ok) {
+            notify('Không đặt được active: ' + r.reason, 'error');
+            return;
+        }
+        notify(`Đang dùng tài khoản: ${acc.name || acc.account_id}`, 'success');
+        renderAccountList(_accountsCache);
+        renderJwtInfo();
+        renderBanner();
+        loadPages();
+    }
+
+    function deleteAccount(id) {
+        const acc = _accountsCache.find((a) => a.account_id === id);
+        const label = acc?.name || acc?.fb_name || id;
+        if (!confirm(`Xoá tài khoản "${label}" khỏi DB? Mọi máy sẽ không còn account này.`)) return;
+        const snapshot = _accountsCache;
+        const apply = () => {
+            _accountsCache = snapshot.filter((a) => a.account_id !== id);
+            renderAccountList(_accountsCache);
+        };
+        const run = async () => {
+            const r = await window.Web2PancakeAccounts.remove(id);
+            if (!r.ok) throw new Error(r.reason || 'delete_failed');
+        };
+        const rollback = () => {
+            _accountsCache = snapshot;
+            renderAccountList(snapshot);
+        };
+        const onSuccess = () => {
+            renderJwtInfo();
+            renderBanner();
+        };
+        if (window.Web2Optimistic?.run) {
+            window.Web2Optimistic.run({
+                snapshot,
+                apply,
+                run,
+                rollback,
+                onSuccess,
+                successMsg: 'Đã xoá tài khoản',
+                errLabel: 'Xoá tài khoản',
+            });
+        } else {
+            apply();
+            run()
+                .then(() => {
+                    notify('Đã xoá tài khoản', 'success');
+                    onSuccess();
+                })
+                .catch((e) => {
+                    rollback();
+                    notify('Lỗi xoá tài khoản: ' + e.message, 'error');
+                });
+        }
+    }
+
+    function toggleAddPanel(show) {
+        const panel = $('addAccountPanel');
+        if (!panel) return;
+        const willShow = show === undefined ? panel.hasAttribute('hidden') : show;
+        if (willShow) panel.removeAttribute('hidden');
+        else panel.setAttribute('hidden', '');
+        if (willShow) $('addAccountInput')?.focus();
+    }
+
+    async function addAccountFromInput() {
+        const PA = window.Web2PancakeAccounts;
+        const input = $('addAccountInput');
+        const txt = (input?.value || '').trim();
+        if (!txt) {
+            notify('Paste JWT token của account mới trước đã', 'warning');
+            return;
+        }
+        const btn = $('btnAddSave');
+        _setBtnLoading(btn, 'Đang thêm…');
+        const r = await PA.addFromToken(txt);
+        _restoreBtn(btn);
+        if (!r.ok) {
+            const map = {
+                empty: 'Token rỗng',
+                decode: 'Token không hợp lệ (không decode được)',
+                expired: 'Token đã hết hạn — đăng nhập lại pancake.vn',
+            };
+            notify('Không thêm được: ' + (map[r.reason] || r.reason), 'error');
+            return;
+        }
+        // account mới → đặt làm active luôn cho tiện
+        PA.setActiveLocal({
+            account_id: r.accountId,
+            token: txt.replace(/^(?:jwt|token)=/i, '').trim(),
+            exp: r.decoded?.exp,
+        });
+        notify('Đã thêm tài khoản vào DB', 'success');
+        input.value = '';
+        toggleAddPanel(false);
+        await loadAccounts();
+        renderJwtInfo();
+        renderBanner();
+        loadPages();
+    }
+
+    async function addAccountAuto() {
+        const PK = window.Web2PancakeToken;
+        const btn = $('btnAddAuto');
+        if (!PK || !PK.isExtensionPresent()) {
+            notify(REASON_MSG.no_extension, 'warning');
+            return;
+        }
+        _setBtnLoading(btn, 'Đang lấy…');
+        const res = await PK.fetchFromExtension();
+        _restoreBtn(btn);
+        if (!res.ok) {
+            notify('Không lấy được token: ' + (REASON_MSG[res.reason] || res.reason), 'error');
+            return;
+        }
+        const input = $('addAccountInput');
+        if (input) input.value = res.token;
+        notify('Đã lấy token — bấm "Thêm vào danh sách"', 'success');
+    }
+
     function init() {
         if (!window.Web2Chat) {
             notify('Web2Chat không load — refresh trang', 'error');
@@ -502,10 +752,18 @@
         const autoBtn = $('btnAutoJwt');
         if (autoBtn) autoBtn.addEventListener('click', () => doAutoFetch(autoBtn));
 
+        // Accounts card
+        $('btnAddAccount')?.addEventListener('click', () => toggleAddPanel());
+        $('btnAddCancel')?.addEventListener('click', () => toggleAddPanel(false));
+        $('btnReloadAccounts')?.addEventListener('click', loadAccounts);
+        $('btnAddSave')?.addEventListener('click', addAccountFromInput);
+        $('btnAddAuto')?.addEventListener('click', addAccountAuto);
+
         wireModal();
 
         renderJwtInfo();
         renderExtStatus();
+        loadAccounts();
         if (window.Web2Chat.getJwt()) {
             // auto-load if JWT already present
             loadPages();
