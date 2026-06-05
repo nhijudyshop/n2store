@@ -144,4 +144,23 @@ router.post('/mark', async (req, res) => {
     }
 });
 
+/**
+ * DELETE /api/social-orders/kpi-verify/:orderId
+ * Xóa toàn bộ lịch sử kiểm tra của 1 đơn (cleanup / xóa nhầm). Trả { success, deleted }.
+ */
+router.delete('/:orderId', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureTables(pool);
+        const orderId = String(req.params.orderId || '');
+        if (!orderId) return res.status(400).json({ error: 'orderId required' });
+        const r = await pool.query('DELETE FROM social_kpi_verifications WHERE order_id = $1', [orderId]);
+        res.json({ success: true, deleted: r.rowCount });
+    } catch (error) {
+        console.error('[SOCIAL-KPI-VERIFY] DELETE error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;
