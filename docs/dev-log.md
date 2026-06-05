@@ -88,6 +88,24 @@ User: bấm nút "PBH SHOP" → mở modal giống "Tạo PBH" nhưng phương t
 - Verified Playwright: `createPbh('NJ-...-0005', {shopMode:true})` → modal mở, sel disabled=true, value="BÁN HÀNG SHOP", price=0.
 - File: `native-orders-app.js` (v=20260605c).
 
+### [orders] FIX KPI THỰC trừ nhầm: đơn hoàn có KPI gốc = 0 vẫn bị loại KPI
+
+**Bug** (user phát hiện ở modal "Chi tiết KPI - Huyền"): TỔNG ĐƠN 11, OK 9, ĐƠN HOÀN 2, GROSS 55.000đ, **BỊ LOẠI 10.000đ → KPI THỰC 45.000đ**. Sai: 1 trong 2 đơn hoàn (đơn 504) có `order.kpi = 0đ` (SP NET=0, **chưa từng +KPI**) nhưng đối soát vẫn khớp món hoàn → trừ 5.000đ. KPI THỰC đúng phải là **50.000đ** (= 10 món OK × 5.000), BỊ LOẠI đúng = **5.000đ** (chỉ đơn 539 thực sự earn rồi hoàn).
+
+**Root cause**: KPI bị loại của 1 đơn lấy từ `refundedKpiAmount` (KPI món hoàn khớp từ file refund + reconcile tươi `result.details.net`) nhưng **không giới hạn bởi KPI đơn đó thực earn** (`order.kpi`). Khi reconcile tươi tìm thấy món net>0 mà campaign gốc tính 0 → trừ KPI chưa từng cộng → âm net đơn đó.
+
+**Fix**: cap `kpiLoss = min(refundedKpiAmount, order.kpi)` — 1 đơn không thể bị loại KPI nhiều hơn KPI nó đã earn. Áp tại **6 nơi cộng/hiển thị loss** (dùng `order.kpi`/`r.kpiAmount` sống → **hiệu lực ngay, không cần chạy lại đối soát**):
+
+- Modal summary `renderEmployeeOrdersTable` (KPI THỰC card)
+- `_hydrateL1ReconCachesForEmployees` + `_applyL1ReconCache` (loss bảng chính từ cache)
+- `_indexReconResults` (loss tab đối soát)
+- `_renderReconciliationUI` total "Loại bỏ KPI" + Excel export cột "KPI bị loại"
+- 2 message detail-row của 2 hàm reconcile (L1 + tab)
+
+Cờ "đơn hoàn" (`isRefunded = refundedKpiAmount > 0`) + count ĐƠN HOÀN giữ raw → vẫn = 2 (504 vẫn là đơn có hoàn). Chỉ số tiền loss bị cap.
+
+**Files**: `orders-report/js/tab-kpi-commission.js`. **Status**: DONE (chưa verify live — cần reload trang, không cần chạy lại đối soát).
+
 ### [native-orders] Bill STT khớp list — đơn gộp ghi "STT1 + STT2" ✅
 
 User: đơn gộp thì bill ghi STT 1 + STT 2. Phát hiện thêm: bill dùng `displayStt` (global, vd 14) nhưng list dùng `campaignStt` (vd 4) → lệch STT cả đơn thường.

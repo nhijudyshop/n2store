@@ -2330,7 +2330,9 @@ const KPICommission = {
             kpiGross += order.kpi || 0;
             if (isRefunded) {
                 refundOrders++;
-                kpiLost += refLoss;
+                // Cap: 1 đơn KHÔNG bị loại KPI nhiều hơn KPI nó đã earn (order.kpi).
+                // Đơn gốc KPI=0 (chưa từng +KPI) → loại 0, tránh trừ nhầm.
+                kpiLost += Math.min(refLoss, order.kpi || 0);
             } else {
                 okOrders++;
             }
@@ -2520,7 +2522,8 @@ const KPICommission = {
                 const r = this._reconByOrder.get(order.orderId);
                 const refLoss = r?.refundedKpiAmount || 0;
                 if (refLoss > 0) {
-                    lossSum += refLoss;
+                    // Cap: không trừ quá KPI đơn đã earn (đơn gốc KPI=0 → loại 0).
+                    lossSum += Math.min(refLoss, order.kpi || 0);
                     refundCount++;
                 }
             }
@@ -2568,7 +2571,8 @@ const KPICommission = {
             const r = this._reconByOrder.get(order.orderId);
             const refLoss = r?.refundedKpiAmount || 0;
             if (refLoss > 0) {
-                lossSum += refLoss;
+                // Cap: không trừ quá KPI đơn đã earn (đơn gốc KPI=0 → loại 0).
+                lossSum += Math.min(refLoss, order.kpi || 0);
                 refundCount++;
             }
         }
@@ -2667,7 +2671,7 @@ const KPICommission = {
                                   type: 'refunded',
                                   message: `Hoàn ${refund.refundedProducts.length} món KPI (${refund.refundedProducts
                                       .map((p) => p.code)
-                                      .join(', ')}) — loại ${this.formatCurrency(refund.refundedKpiAmount)}`,
+                                      .join(', ')}) — loại ${this.formatCurrency(Math.min(refund.refundedKpiAmount, order.kpi || 0))}`,
                               },
                           ]
                         : [];
@@ -4270,7 +4274,7 @@ const KPICommission = {
                 r.expectedNet,
                 typeof r.actualNet === 'number' ? r.actualNet : r.actualNet,
                 typeof r.actualNet === 'number' ? r.actualNet - r.expectedNet : '',
-                r.refundedKpiAmount || 0,
+                Math.min(r.refundedKpiAmount || 0, r.kpiAmount || 0),
                 refundedProductsStr,
                 status,
                 note,
@@ -4425,7 +4429,7 @@ const KPICommission = {
                                   type: 'refunded',
                                   message: `Hoàn ${refund.refundedProducts.length} món KPI (${refund.refundedProducts
                                       .map((p) => p.code)
-                                      .join(', ')}) — loại ${this.formatCurrency(refund.refundedKpiAmount)}`,
+                                      .join(', ')}) — loại ${this.formatCurrency(Math.min(refund.refundedKpiAmount, order.kpi || 0))}`,
                               },
                           ]
                         : [];
@@ -4544,7 +4548,8 @@ const KPICommission = {
                 const r = this._reconByOrder.get(order.orderId);
                 const refLoss = r?.refundedKpiAmount || 0;
                 if (refLoss > 0) {
-                    lossSum += refLoss;
+                    // Cap: không trừ quá KPI đơn đã earn (đơn gốc KPI=0 → loại 0).
+                    lossSum += Math.min(refLoss, order.kpi || 0);
                     refundCount++;
                 }
             }
@@ -4742,8 +4747,12 @@ const KPICommission = {
         const okCount = results.length - refundedCount - otherDiscrepancies;
 
         // PER-PRODUCT: tổng KPI bị loại = Σ refundedKpiAmount (chỉ phần món hoàn),
-        // KHÔNG phải kpiAmount cả đơn.
-        const refundedKpiAmount = results.reduce((sum, r) => sum + (r.refundedKpiAmount || 0), 0);
+        // KHÔNG phải kpiAmount cả đơn. Cap mỗi đơn ≤ KPI đã earn (r.kpiAmount):
+        // đơn gốc KPI=0 (chưa từng +KPI) → loại 0, tránh trừ nhầm.
+        const refundedKpiAmount = results.reduce(
+            (sum, r) => sum + Math.min(r.refundedKpiAmount || 0, r.kpiAmount || 0),
+            0
+        );
 
         // Show stats cards + animate count
         const statsEl = document.getElementById('reconStatsCards');
