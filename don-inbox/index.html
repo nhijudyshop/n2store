@@ -282,11 +282,13 @@
                                 </select>
                             </div>
 
-                            <!-- KPI Stat Card (đồng bộ với bộ lọc ngày) -->
+                            <!-- KPI Stat Card (đồng bộ với bộ lọc ngày) — click mở modal chi tiết -->
                             <div
                                 class="filter-item inbox-kpi-stat"
                                 id="inboxKpiStatCard"
-                                title="Tổng KPI của các đơn 'Đơn hàng' có phiếu TPOS đã chốt (5.000đ / món). Bấm 'Chạy đối soát KPI' để trừ hàng trả."
+                                style="cursor: pointer"
+                                onclick="window.SocialKpiReconcile && window.SocialKpiReconcile.showDetailModal()"
+                                title="Bấm để xem chi tiết KPI từng đơn (NV · STT · mã phiếu · món KPI · món hoàn). Chạy 'đối soát KPI' để trừ hàng trả."
                             >
                                 <i class="fas fa-trophy inbox-kpi-stat-icon"></i>
                                 <div class="inbox-kpi-stat-body">
@@ -2384,7 +2386,7 @@ HẾT HÀNG</textarea
         <script src="js/tab-social-invoice.js?v=20260603a"></script>
 
         <!-- KPI Reconcile Engine (gate phiếu đã chốt + đối soát trừ hàng trả) -->
-        <script src="js/tab-social-kpi-reconcile.js?v=20260604c"></script>
+        <script src="js/tab-social-kpi-reconcile.js?v=20260605a"></script>
 
         <!-- Status Filter Tabs: sync clicks → hidden #statusFilter + performTableSearch -->
         <script>

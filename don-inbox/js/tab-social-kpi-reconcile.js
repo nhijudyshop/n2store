@@ -34,9 +34,12 @@
     // ===== STATE =====
     const state = {
         running: false,
-        lastResult: null, // { totalGross, totalLoss, totalNet, orderCount, refundCount, bySeller:Map, refundFailed, ranAt }
-        byOrder: new Map(), // orderId → { grossKpi, refundedKpiAmount, netKpi, refundedProducts[], sellerName, invoiceNumber }
+        lastResult: null, // { totalGross, totalLoss, totalNet, totalMonKpi, totalMonRefund, orderCount, refundCount, bySeller:Map, refundFailed, ranAt }
+        byOrder: new Map(), // orderId → { grossKpi, refundedKpiAmount, netKpi, monKpi, refundedProducts[], refundedMon, sellerName, invoiceNumber, stt, customerName }
         lastRefundFile: null, // { buffer: ArrayBuffer, filename } — file refund excel gốc TPOS để tải về kiểm tra chéo
+        rangeOrders: null, // [orders] phủ ĐỦ khoảng ngày đang chọn (tách khỏi bảng — bảng vẫn 500 cho nhẹ)
+        rangeKey: null, // key của khoảng đã load (from_to)
+        rangeLoading: false, // đang phân trang load full range
     };
 
     // ===== TIỆN ÍCH =====
@@ -63,6 +66,65 @@
     function getInboxDateRange() {
         const key = typeof currentDateFilter !== 'undefined' ? currentDateFilter : 'all';
         return typeof getDateRange === 'function' ? getDateRange(key) : { from: null, to: null };
+    }
+
+    // ===== LOAD ĐỦ KHOẢNG NGÀY (vượt cap 500 của bảng) =====
+    // Bảng inbox chỉ load 500 đơn gần nhất (nhẹ). KPI/đối soát/modal cần ĐỦ đơn trong
+    // khoảng ngày đã chọn → phân trang /load (limit 1000) tới khi phủ range.from.
+    function _rangeKeyOf(range) {
+        return (range?.from ? range.from.getTime() : '') + '_' + (range?.to ? range.to.getTime() : '');
+    }
+
+    function isRangeLoaded() {
+        return state.rangeKey === _rangeKeyOf(getInboxDateRange()) && Array.isArray(state.rangeOrders);
+    }
+
+    // Tập đơn dùng cho KPI: ưu tiên rangeOrders (đủ khoảng) — fallback bảng (500).
+    function kpiOrderSet() {
+        if (isRangeLoaded()) return state.rangeOrders;
+        return window.SocialOrderState?.orders || [];
+    }
+
+    async function ensureRangeLoaded(force) {
+        const range = getInboxDateRange();
+        const key = _rangeKeyOf(range);
+        if (!force && state.rangeKey === key && Array.isArray(state.rangeOrders)) return state.rangeOrders;
+        const from = range.from ? range.from.getTime() : 0; // 'all' → 0 → load hết
+        state.rangeLoading = true;
+        try {
+            const byId = new Map();
+            let page = 1,
+                more = true;
+            while (more && page <= 12) {
+                const resp = await fetch(`${WORKER()}/api/social-orders/load?limit=1000&page=${page}`);
+                if (!resp.ok) throw new Error(`social-orders/load HTTP ${resp.status}`);
+                const d = await resp.json();
+                const os = d.orders || [];
+                for (const o of os) byId.set(String(o.id), o);
+                more = d.hasMore;
+                if (!os.length) break;
+                const minTs = os.reduce((m, o) => Math.min(m, Number(o.createdAt) || Infinity), Infinity);
+                if (from && minTs <= from) break; // đã chạm mốc đầu khoảng → đủ
+                page++;
+            }
+            state.rangeOrders = [...byId.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            state.rangeKey = key;
+            console.log(
+                `[SOCIAL-KPI] Range load: ${state.rangeOrders.length} đơn cho khoảng ${range.from ? new Date(range.from).toLocaleDateString('vi-VN') : 'tất cả'}–${range.to ? new Date(range.to).toLocaleDateString('vi-VN') : 'nay'} (${page} trang)`
+            );
+            return state.rangeOrders;
+        } finally {
+            state.rangeLoading = false;
+        }
+    }
+
+    // Lọc đơn trong khoảng ngày (theo createdAt) — dùng chung run() + modal.
+    function _inRange(order, range) {
+        if (!range || (!range.from && !range.to)) return true;
+        const ts = new Date(order.createdAt);
+        if (range.from && ts < range.from) return false;
+        if (range.to && ts > range.to) return false;
+        return true;
     }
 
     // ===== GATE: đơn có đủ điều kiện tính KPI không =====
@@ -343,20 +405,25 @@
                 btn.innerHTML = txt;
             }
         };
-        setBtn('<i class="fas fa-spinner fa-spin"></i> Đang đối soát...', true);
+        setBtn('<i class="fas fa-spinner fa-spin"></i> Đang tải đủ khoảng...', true);
         try {
+            // 0) Load ĐỦ đơn trong khoảng ngày (vượt cap 500 của bảng) → đối soát phủ trọn khoảng
+            let all;
+            try {
+                all = await ensureRangeLoaded(true);
+            } catch (e) {
+                console.error('[SOCIAL-KPI] ensureRangeLoaded fail, fallback bảng:', e);
+                all = window.SocialOrderState?.orders || [];
+            }
+            setBtn('<i class="fas fa-spinner fa-spin"></i> Đang đối soát...', true);
+
             // 1) Gom đơn đủ điều kiện trong khoảng ngày của bộ lọc inbox
-            const all = window.SocialOrderState?.orders || [];
             const range = getInboxDateRange();
             const qualifying = [];
             for (const o of all) {
                 const inv = getQualifyingInvoice(o);
                 if (!inv) continue;
-                if (range.from || range.to) {
-                    const ts = new Date(o.createdAt);
-                    if (range.from && ts < range.from) continue;
-                    if (range.to && ts > range.to) continue;
-                }
+                if (!_inRange(o, range)) continue;
                 qualifying.push({ order: o, inv });
             }
             if (!qualifying.length) {
@@ -392,35 +459,45 @@
             }
             updateDownloadBtn();
 
-            // 3) Tính per-order + gộp theo nhân viên
+            // 3) Tính per-order + gộp theo nhân viên (KPI tính theo TỔNG MÓN × 5.000đ)
             state.byOrder.clear();
             const bySeller = new Map();
             const srcCount = { 'invoice-lines': 0, 'order-products': 0, empty: 0 };
             let totalGross = 0,
                 totalLoss = 0,
                 totalNet = 0,
-                refundCount = 0;
+                totalMonKpi = 0, // tổng số MÓN tính KPI
+                totalMonRefund = 0, // tổng số MÓN bị hoàn (loại KPI)
+                refundCount = 0; // số ĐƠN có ≥1 món hoàn (chỉ để hiển thị, KHÔNG dùng tính tiền)
             for (const { order, inv } of qualifying) {
                 const lines = linesMap.get(inv.Id) || inv.OrderLines || [];
                 const built = buildMatchDetails(order, lines);
                 srcCount[built.source] = (srcCount[built.source] || 0) + 1;
-                const grossKpi = built.grossQty * KPI_PER_UNIT;
+                const monKpi = built.grossQty; // số món tính KPI của đơn
+                const grossKpi = monKpi * KPI_PER_UNIT;
                 const m = matchRefundForOrder(inv.Number, built.details, refundByInvoice);
                 const refundedKpiAmount = m.refundedKpiAmount;
+                const refundedMon = m.refundedProducts.reduce((s, p) => s + (Number(p.qty) || 0), 0); // tổng món hoàn
                 const netKpi = Math.max(0, grossKpi - refundedKpiAmount);
                 if (refundedKpiAmount > 0) refundCount++;
                 totalGross += grossKpi;
                 totalLoss += refundedKpiAmount;
                 totalNet += netKpi;
+                totalMonKpi += monKpi;
+                totalMonRefund += refundedMon;
 
                 const sellerName = inv.UserName || 'Chưa rõ NV';
                 state.byOrder.set(order.id, {
                     grossKpi,
                     refundedKpiAmount,
                     netKpi,
+                    monKpi,
+                    refundedMon,
                     refundedProducts: m.refundedProducts,
                     sellerName,
                     invoiceNumber: inv.Number,
+                    stt: order.stt,
+                    customerName: order.customerName || '',
                 });
                 const s = bySeller.get(sellerName) || {
                     sellerName,
@@ -429,24 +506,30 @@
                     net: 0,
                     orders: 0,
                     refundOrders: 0,
+                    monKpi: 0,
+                    monRefund: 0,
                 };
                 s.gross += grossKpi;
                 s.loss += refundedKpiAmount;
                 s.net += netKpi;
                 s.orders++;
+                s.monKpi += monKpi;
+                s.monRefund += refundedMon;
                 if (refundedKpiAmount > 0) s.refundOrders++;
                 bySeller.set(sellerName, s);
             }
             console.log(
                 `[SOCIAL-KPI] Nguồn món: invoice-lines=${srcCount['invoice-lines']}, ` +
                     `order-products=${srcCount['order-products']}, empty=${srcCount.empty} | ` +
-                    `loại KPI hoàn = ${totalLoss}đ (${refundCount} đơn)`
+                    `KPI: ${totalMonKpi} món gross − ${totalMonRefund} món hoàn = ${totalNet}đ (loại ${totalLoss}đ, ${refundCount} đơn có hoàn)`
             );
 
             state.lastResult = {
                 totalGross,
                 totalLoss,
                 totalNet,
+                totalMonKpi,
+                totalMonRefund,
                 orderCount: qualifying.length,
                 refundCount,
                 bySeller,
@@ -494,12 +577,12 @@
                 const pct = maxNet > 0 ? Math.round((s.net / maxNet) * 100) : 0;
                 const lossHtml =
                     s.loss > 0
-                        ? `<span style="color:#dc2626;font-size:11px;">−${escHtml(formatVnd(s.loss))}</span>`
+                        ? `<span style="color:#dc2626;font-size:11px;">−${escHtml(formatVnd(s.loss))} <span style="color:#9ca3af;">(${s.monRefund} món)</span></span>`
                         : `<span style="color:#9ca3af;font-size:11px;">—</span>`;
                 return `
                 <tr>
                     <td style="padding:6px 8px;font-weight:600;color:#111827;">${escHtml(s.sellerName)}</td>
-                    <td style="padding:6px 8px;text-align:right;color:#6b7280;font-size:12px;">${escHtml(formatVnd(s.gross))}</td>
+                    <td style="padding:6px 8px;text-align:right;color:#6b7280;font-size:12px;">${escHtml(formatVnd(s.gross))} <span style="color:#9ca3af;">(${s.monKpi} món)</span></td>
                     <td style="padding:6px 8px;text-align:right;">${lossHtml}</td>
                     <td style="padding:6px 8px;text-align:right;font-weight:700;color:#059669;">${escHtml(formatVnd(s.net))}</td>
                     <td style="padding:6px 8px;text-align:center;font-size:11px;color:#6b7280;">${s.orders} đơn${s.refundOrders ? ` · ${s.refundOrders} hoàn` : ''}</td>
@@ -517,17 +600,21 @@
             ? `<div style="color:#b45309;font-size:12px;margin-top:4px;">⚠ Không tải được refund — KPI chưa trừ hàng trả.</div>`
             : '';
         box.innerHTML = `
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
                 <div style="font-weight:700;color:#111827;font-size:14px;">
                     <i class="fas fa-trophy" style="color:#f59e0b;"></i>
                     KPI theo nhân viên (sau đối soát)
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;">
                     <span style="font-size:12px;color:#6b7280;">
-                        ${r.orderCount} đơn · gross ${escHtml(formatVnd(r.totalGross))} − hoàn ${escHtml(formatVnd(r.totalLoss))} =
+                        ${r.orderCount} đơn · gross ${escHtml(formatVnd(r.totalGross))} (${r.totalMonKpi} món) − hoàn ${escHtml(formatVnd(r.totalLoss))} (${r.totalMonRefund} món) =
                         <strong style="color:#059669;">net ${escHtml(formatVnd(r.totalNet))}</strong>
                         · lúc ${ranAt}
                     </span>
+                    <button onclick="window.SocialKpiReconcile && window.SocialKpiReconcile.showDetailModal()"
+                        style="background:#eef2ff;border:1px solid #c7d2fe;color:#4338ca;cursor:pointer;font-size:12px;font-weight:600;padding:3px 9px;border-radius:6px;">
+                        <i class="fas fa-list"></i> Xem chi tiết
+                    </button>
                     <button onclick="document.getElementById('socialKpiSellerBreakdown').style.display='none';"
                         style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:16px;line-height:1;" title="Đóng">×</button>
                 </div>
@@ -536,7 +623,7 @@
                 <thead>
                     <tr style="border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:11px;text-transform:uppercase;">
                         <th style="padding:4px 8px;text-align:left;">Nhân viên</th>
-                        <th style="padding:4px 8px;text-align:right;">Gross</th>
+                        <th style="padding:4px 8px;text-align:right;">Gross (món)</th>
                         <th style="padding:4px 8px;text-align:right;">Hoàn</th>
                         <th style="padding:4px 8px;text-align:right;">KPI net</th>
                         <th style="padding:4px 8px;text-align:center;">Đơn</th>
@@ -600,6 +687,140 @@
         setTimeout(() => URL.revokeObjectURL(url), 1500);
     }
 
+    // ===== MODAL CHI TIẾT (click thẻ "KPI khoảng đã chọn") =====
+    function _ensureDetailModal() {
+        let modal = document.getElementById('socialKpiDetailModal');
+        if (modal) return modal;
+        modal = document.createElement('div');
+        modal.id = 'socialKpiDetailModal';
+        modal.style.cssText =
+            'display:none;position:fixed;inset:0;z-index:10000;background:rgba(17,24,39,.5);' +
+            'align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+        modal.innerHTML = `
+            <div class="skpi-modal-content" style="background:#fff;border-radius:12px;max-width:1100px;width:100%;
+                box-shadow:0 20px 60px rgba(0,0,0,.25);display:flex;flex-direction:column;max-height:88vh;">
+                <div class="skpi-modal-head" style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;
+                    align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;"></div>
+                <div class="skpi-modal-tools" style="padding:10px 20px;border-bottom:1px solid #f3f4f6;display:flex;
+                    gap:10px;align-items:center;flex-wrap:wrap;"></div>
+                <div class="skpi-modal-body" style="overflow:auto;padding:0 4px;"></div>
+            </div>`;
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.style.display = 'none';
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.style.display === 'flex') modal.style.display = 'none';
+        });
+        document.body.appendChild(modal);
+        return modal;
+    }
+
+    async function showDetailModal() {
+        const modal = _ensureDetailModal();
+        const headEl = modal.querySelector('.skpi-modal-head');
+        const toolsEl = modal.querySelector('.skpi-modal-tools');
+        const bodyEl = modal.querySelector('.skpi-modal-body');
+        modal.style.display = 'flex';
+        headEl.innerHTML = `<div style="font-weight:700;font-size:15px;color:#111827;"><i class="fas fa-trophy" style="color:#f59e0b;"></i> Chi tiết KPI khoảng đã chọn</div>
+            <button id="skpiModalClose" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:20px;line-height:1;">×</button>`;
+        headEl.querySelector('#skpiModalClose').onclick = () => (modal.style.display = 'none');
+        toolsEl.innerHTML = '';
+        bodyEl.innerHTML = '<div style="padding:50px;text-align:center;color:#6b7280;"><i class="fas fa-spinner fa-spin"></i> Đang tải đủ đơn trong khoảng…</div>';
+
+        let all;
+        try {
+            all = await ensureRangeLoaded();
+        } catch (e) {
+            all = window.SocialOrderState?.orders || [];
+        }
+        const range = getInboxDateRange();
+        const reconRan = state.byOrder.size > 0;
+
+        // Build rows từ đơn đủ điều kiện trong khoảng
+        const rows = [];
+        for (const o of all) {
+            const inv = getQualifyingInvoice(o);
+            if (!inv || !_inRange(o, range)) continue;
+            const rec = state.byOrder.get(o.id);
+            if (rec) {
+                rows.push({
+                    stt: o.stt, seller: rec.sellerName, number: rec.invoiceNumber, khach: rec.customerName,
+                    monKpi: rec.monKpi, gross: rec.grossKpi, monRefund: rec.refundedMon,
+                    loss: rec.refundedKpiAmount, net: rec.netKpi, refunded: rec.refundedProducts || [],
+                });
+            } else {
+                const gq = grossQtyFromCache(o, inv);
+                rows.push({
+                    stt: o.stt, seller: inv.UserName || 'Chưa rõ NV', number: inv.Number, khach: o.customerName || '',
+                    monKpi: gq, gross: gq * KPI_PER_UNIT, monRefund: 0, loss: 0, net: gq * KPI_PER_UNIT, refunded: [],
+                });
+            }
+        }
+        rows.sort((a, b) => (a.seller || '').localeCompare(b.seller || '') || (a.stt || 0) - (b.stt || 0));
+
+        const sellers = [...new Set(rows.map((r) => r.seller))].sort();
+        toolsEl.innerHTML = `
+            <select id="skpiFilterSeller" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+                <option value="">Tất cả NV (${sellers.length})</option>
+                ${sellers.map((s) => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('')}
+            </select>
+            <input id="skpiFilterText" type="text" placeholder="Tìm mã phiếu / khách / STT…"
+                style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;flex:1;min-width:160px;" />
+            ${reconRan ? '' : '<span style="font-size:12px;color:#b45309;">⚠ Chưa chạy đối soát — cột Hoàn/Net = gross. Bấm "Chạy đối soát KPI" để trừ hàng trả.</span>'}`;
+
+        const render = () => {
+            const fs = toolsEl.querySelector('#skpiFilterSeller').value;
+            const ft = (toolsEl.querySelector('#skpiFilterText').value || '').trim().toLowerCase();
+            const view = rows.filter((r) => {
+                if (fs && r.seller !== fs) return false;
+                if (ft && !(`${r.stt} ${r.number} ${r.khach}`.toLowerCase().includes(ft))) return false;
+                return true;
+            });
+            let tGross = 0, tLoss = 0, tNet = 0, tMon = 0, tMonR = 0;
+            const trs = view
+                .map((r) => {
+                    tGross += r.gross; tLoss += r.loss; tNet += r.net; tMon += r.monKpi; tMonR += r.monRefund;
+                    const refTip = r.refunded.map((p) => `${p.qty} x [${p.code}]`).join(', ');
+                    const refCell = r.monRefund > 0
+                        ? `<span style="color:#dc2626;" title="${escHtml(refTip)}">${r.monRefund} món · −${escHtml(formatVnd(r.loss))}</span>`
+                        : '<span style="color:#9ca3af;">—</span>';
+                    return `<tr style="border-bottom:1px solid #f3f4f6;">
+                        <td style="padding:6px 8px;text-align:center;color:#6b7280;">${r.stt ?? ''}</td>
+                        <td style="padding:6px 8px;font-weight:600;color:#111827;">${escHtml(r.seller)}</td>
+                        <td style="padding:6px 8px;color:#4338ca;">${escHtml(r.number || '')}</td>
+                        <td style="padding:6px 8px;">${escHtml(r.khach)}</td>
+                        <td style="padding:6px 8px;text-align:center;">${r.monKpi}</td>
+                        <td style="padding:6px 8px;text-align:right;color:#6b7280;">${escHtml(formatVnd(r.gross))}</td>
+                        <td style="padding:6px 8px;text-align:right;">${refCell}</td>
+                        <td style="padding:6px 8px;text-align:right;font-weight:700;color:#059669;">${escHtml(formatVnd(r.net))}</td>
+                    </tr>`;
+                })
+                .join('');
+            bodyEl.innerHTML = `
+                <div style="padding:8px 16px;font-size:12px;color:#374151;background:#f9fafb;border-bottom:1px solid #e5e7eb;position:sticky;top:0;">
+                    <strong>${view.length}</strong> đơn · <strong>${tMon}</strong> món gross (${escHtml(formatVnd(tGross))})
+                    − <strong style="color:#dc2626;">${tMonR}</strong> món hoàn (${escHtml(formatVnd(tLoss))})
+                    = <strong style="color:#059669;">net ${escHtml(formatVnd(tNet))}</strong>
+                </div>
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead><tr style="background:#fff;position:sticky;top:33px;color:#6b7280;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e5e7eb;">
+                        <th style="padding:6px 8px;text-align:center;">STT</th>
+                        <th style="padding:6px 8px;text-align:left;">Nhân viên</th>
+                        <th style="padding:6px 8px;text-align:left;">Mã phiếu</th>
+                        <th style="padding:6px 8px;text-align:left;">Khách</th>
+                        <th style="padding:6px 8px;text-align:center;">Món KPI</th>
+                        <th style="padding:6px 8px;text-align:right;">Gross</th>
+                        <th style="padding:6px 8px;text-align:right;">Hoàn (loại KPI)</th>
+                        <th style="padding:6px 8px;text-align:right;">KPI net</th>
+                    </tr></thead>
+                    <tbody>${trs || '<tr><td colspan="8" style="padding:30px;text-align:center;color:#9ca3af;">Không có đơn</td></tr>'}</tbody>
+                </table>`;
+        };
+        toolsEl.querySelector('#skpiFilterSeller').onchange = render;
+        toolsEl.querySelector('#skpiFilterText').oninput = render;
+        render();
+    }
+
     // ===== EXPORT =====
     window.SocialKpiReconcile = {
         run,
@@ -609,6 +830,10 @@
         getOrderKpiCell,
         renderSellerBreakdown,
         downloadRefundExcel,
+        showDetailModal,
+        ensureRangeLoaded,
+        kpiOrderSet,
+        isRangeLoaded,
         isInvoiceCancelled,
         KPI_PER_UNIT,
         CHOT_STATES,
@@ -617,6 +842,9 @@
         },
         get byOrder() {
             return state.byOrder;
+        },
+        get rangeLoading() {
+            return state.rangeLoading;
         },
     };
     // Gate dùng chung cho thẻ KPI tổng + cột KPI + đối soát (1 nguồn sự thật)

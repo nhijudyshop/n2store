@@ -245,8 +245,16 @@ const KPI_PER_UNIT_INBOX = 5000;
 function updateInboxKpiStatCard() {
     const card = document.getElementById('inboxKpiStatCard');
     if (!card) return;
-    const all = window.SocialOrderState?.orders || [];
     const R = window.SocialKpiReconcile;
+    // Dùng tập đơn ĐỦ khoảng (nếu đã load) để KPI phủ trọn khoảng đã chọn — không bị cap 500 của bảng.
+    const all = R?.kpiOrderSet ? R.kpiOrderSet() : window.SocialOrderState?.orders || [];
+    const rangeLoaded = R?.isRangeLoaded ? R.isRangeLoaded() : true;
+    // Khoảng chưa load đủ → load nền 1 lần (cache theo range), xong tự cập nhật lại card.
+    if (R?.ensureRangeLoaded && !rangeLoaded && !R.rangeLoading) {
+        R.ensureRangeLoaded()
+            .then(() => updateInboxKpiStatCard())
+            .catch(() => {});
+    }
 
     const filterKey =
         typeof currentDateFilter !== 'undefined' ? currentDateFilter : 'all';
@@ -339,10 +347,12 @@ function updateInboxKpiStatCard() {
     const amtEl = document.getElementById('inboxKpiAmount');
     if (amtEl) amtEl.textContent = formatVndInbox(displayKpi);
 
-    // Dòng phụ: loss (đã đối soát) hoặc hint chưa trừ hàng trả.
+    // Dòng phụ: loss (đã đối soát) hoặc hint chưa trừ hàng trả / đang tải đủ khoảng.
     const lossEl = document.getElementById('inboxKpiLoss');
     if (lossEl) {
-        if (anyRecon && totalLoss > 0) {
+        if (R?.rangeLoading && !rangeLoaded) {
+            lossEl.innerHTML = `<span style="color:#6b7280;">· <i class="fas fa-spinner fa-spin"></i> đang tải đủ khoảng…</span>`;
+        } else if (anyRecon && totalLoss > 0) {
             lossEl.innerHTML = `<span style="color:#dc2626;">(−${formatVndInbox(totalLoss)} hoàn)</span>`;
         } else if (anyRecon) {
             lossEl.innerHTML = `<span style="color:#059669;">(đã đối soát)</span>`;

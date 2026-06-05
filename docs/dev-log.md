@@ -23,6 +23,24 @@
 
 ---
 
+## 2026-06-05
+
+### [inbox] KPI đối soát: load đủ khoảng ngày + trừ theo TỔNG MÓN + modal chi tiết ✅
+
+3 cải tiến theo yêu cầu owner (sau khi fix đối soát hoàn 0đ hôm qua):
+
+**1. Load ĐỦ khoảng ngày (bỏ cap 500)**: bảng inbox chỉ load 500 đơn gần nhất → đối soát May trước đây chỉ thấy 13–31/5 (4/12 đơn hoàn). Thêm `ensureRangeLoaded()` phân trang `/load?limit=1000&page=N` tới khi phủ `range.from` → đối soát/card/modal phủ **trọn khoảng** (12 đơn). Tách `rangeOrders` khỏi `SocialOrderState.orders` (bảng vẫn 500 cho nhẹ — 1 đơn ~12.5KB, 2730 đơn ~34MB). Card tự load nền khi đổi bộ lọc ngày (hint "đang tải đủ khoảng…").
+
+**2. Trừ KPI theo TỔNG MÓN hoàn × 5.000đ** (không phải đếm đơn): đã đúng per-món từ trước (`Σ min(SLhoàn, SLmón) × 5000`), bổ sung **đếm `totalMonRefund`/`totalMonKpi`** + hiển thị số món ở breakdown + summary ("17 món gross − 16 món hoàn"). `refundCount` (đơn có hoàn) chỉ để hiển thị, KHÔNG dùng tính tiền. VD tháng 5: 12 đơn có hoàn nhưng **16 món** → loại 80.000đ (đơn #7 hoàn 4 món, #8 hoàn 2 món).
+
+**3. Modal chi tiết** (click thẻ "KPI khoảng đã chọn"): `showDetailModal()` — bảng STT · Nhân viên · Mã phiếu · Khách · Món KPI · Gross · Hoàn (loại KPI) · KPI net, + filter theo NV + tìm mã/khách/STT, summary tổng. Chưa đối soát → cột hoàn/net = gross + cảnh báo.
+
+**Files**: [tab-social-kpi-reconcile.js](../don-inbox/js/tab-social-kpi-reconcile.js) (ensureRangeLoaded/kpiOrderSet/showDetailModal + món count), [tab-social-core.js](../don-inbox/js/tab-social-core.js) (card dùng kpiOrderSet + load nền), [index.html](../don-inbox/index.html) (card clickable). Bump `?v=20260605a`.
+
+**Test**: integration test chạy `run()` thật với refund excel thật + 12 đơn tháng 5 → orderCount=12, totalMonKpi=17, **totalMonRefund=16, totalLoss=80.000đ**, totalNet=5.000đ, refundCount=12, kpiOrderSet=12 (full range), modal không lỗi. **9/9 pass** (đơn #4 gross 2 món nhưng chỉ 1 món hoàn — chứng minh khớp per-món).
+
+---
+
 ## 2026-06-04
 
 ### [inbox] FIX đối soát KPI báo "hoàn 0đ" — OrderLines phiếu thiếu ProductCode ✅
