@@ -25,6 +25,20 @@
 
 ## 2026-06-05
 
+### [inbox] FIX verify lưu thẳng Render (worker route nhầm sang TPOS) — VERIFIED LIVE ✅
+
+**Bug**: đánh dấu kiểm tra + lịch sử không lưu Render (Incognito/máy khác trống). `GET /api/social-kpi-verify/load` trả **trang 404 của TPOS.VN** → Cloudflare Worker route path mới **sang TPOS** vì chưa có trong allowlist Render (`cloudflare-worker/modules/config/routes.js` + `worker.js` dispatch chỉ route 1 danh sách `/api/*` cố định về Render).
+
+**Fix (không cần deploy worker)**: mount router DƯỚI prefix đã-route-Render `/api/social-orders/kpi-verify` (TRƯỚC `socialOrdersRoutes`). Frontend `_verifyApi()` đổi theo. Thêm `DELETE /:orderId` (cleanup). Bump `?v=20260605e`.
+
+**VERIFIED LIVE trên production Render** (mình tự chạy):
+
+- Render **auto-deploy** sau git push (~2 phút). Endpoint `/api/social-orders/kpi-verify/load` → `{"success":true}` (Render, KHÔNG còn TPOS).
+- Round-trip test 5/5: POST /mark → GET /load (entry persisted + đúng người kiểm) → DELETE → GET (sạch, không pollution).
+- **Data thật của user ĐÃ tự sync lên Render**: GET /load = **17 lượt lịch sử + 10 đơn current** (vd NJD/2026/70417 · Pé Tiên · admin) — `_flushPending()` đẩy localStorage → Render khi user reload. → Incognito/máy khác giờ đọc chung từ Render.
+
+Files: `render.com/{server.js,routes/social-kpi-verify.js}`, `don-inbox/js/tab-social-kpi-reconcile.js`, `don-inbox/index.html`.
+
 ### [web2 products] Tem mã SP in gần đầy con tem (25×21mm) cho đẹp ✅
 
 User: trang products → mã SP in ra cho gần đầy kích cỡ giấy tem cho đẹp.
