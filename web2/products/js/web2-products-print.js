@@ -621,16 +621,19 @@
         //
         // Khi đổi paper → labelW thay đổi → tất cả scale theo.
         // 2026-06-05: user muốn mã in ra GẦN ĐẦY con tem cho đẹp → scale to hơn
-        // preset TPOS: font ×1.3, barcode cao 55% tem (thay 45%) + bars rộng gần
-        // full. Content CANH GIỮA dọc tem (justify-content:center) — khối nội dung
-        // to nhưng không sát mép trên/dưới.
+        // preset TPOS: font ×1.3, barcode cao 46% tem + bars rộng gần full. Content
+        // CANH GIỮA dọc tem (justify-content:center) — khối to nhưng không sát mép.
+        // Barcode 46% (không 55%) để tên 2 dòng vẫn đủ chỗ, GIÁ không bị cắt.
         const fsBase = fontSize || Math.max(5, Math.round(labelW * 0.24));
         const fs = Math.round(fsBase * 1.3);
         const fsCode = Math.max(5, Math.round(fs * 0.9));
         const lineH = fs + 1;
         const lineHCode = fsCode + 1;
         const padScaled = Math.round(labelW * 0.02 * 10) / 10; // mm — fallback nếu paper.*Margin null
-        const barcodeH = Math.round(labelH * 0.55 * 10) / 10; // mm — barcode là hero, chiếm nhiều height
+        // 0.46 (giảm từ 0.55): tên 2 dòng + barcode + code + giá phải vừa 21mm,
+        // barcode cao quá → đẩy GIÁ ra ngoài bị cắt (overflow:hidden). 0.46 chừa
+        // đủ chỗ cho tên 2 dòng mà giá không mất.
+        const barcodeH = Math.round(labelH * 0.46 * 10) / 10; // mm
 
         // style_label() — only include props when not null (mirror TPOS controller).
         // Padding fallback từ padScaled nếu paper config null (Paper 8 "1 Tem" có
