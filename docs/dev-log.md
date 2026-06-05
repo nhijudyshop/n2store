@@ -25,6 +25,14 @@
 
 ## 2026-06-05
 
+### [native-orders] Fix: bill In bill thiếu phí ship (hardcode 0) ✅
+
+User: bill in ra chưa có phí ship. Root cause: `bulkPrintBills` dựng PBH-shape với `delivery.price = 0` + `totals.total = subtotal` (bỏ ship) → bill luôn "Phí ship 0". (PBH thật trong DB ĐÚNG — `computeTotals` cộng ship; verified PBH NJ-20260605-0001: delivery.price=20000, total=460000.)
+
+- Fix: `shipPriceOf(o)` tra giá theo `o.deliveryMethod` trong `DeliveryMethodPicker.getOptionsAsync()` (option.value khớp), fallback parse "(20k)" trong label. PBH SHOP/bán tại shop → 0. `buildPbhShape`: `delivery.price=ship`, `totals.total=subtotal+ship`, `payment.residual=subtotal+ship` (COD = SP + ship).
+- Verified Playwright: bill ship 20.000, Tạm tính 440k, TỔNG TIỀN 460k, COD 460k.
+- File: `native-orders-app.js` (v=20260605ship).
+
 ### [render][web2] Đối chiếu & duyệt CK xuyên 3 trang — component dùng chung ✅
 
 User: đưa xét duyệt tín hiệu CK vào balance-history + native-orders + tpos-pancake; duyệt linh hoạt (có GD SePay khớp → cộng ví; không → chờ tiền về); 1 nguồn dùng chung; lưu khách vào balance-history + payment-confirm.
