@@ -3,19 +3,23 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e4da687` — feat(web2-pending): hien luon list KH tu hoi thoai FB inline trong card (lazy)
-**Last updated**: 2026-06-05 10:34:58 +07
-**Latest session**: [`RESUME:20260605-103458-e4da687`](../20260605-103458-e4da687.md)
-**Summary**: feat(web2-pending): hien luon list KH tu hoi thoai FB inline trong card (lazy)
+**Latest commit**: `a66d6b5` — docs(dev-log): bill SP ten hang 1, so hang 2
+**Last updated**: 2026-06-05 10:42:52 +07
+**Latest session**: [`RESUME:20260605-104252-a66d6b5`](../20260605-104252-a66d6b5.md)
+**Summary**: docs(dev-log): bill SP ten hang 1, so hang 2
 
 ## Folders affected in this commit
 
+- [`.claude/`](./.claude.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`don-inbox/`](./don-inbox.md) — 2 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
-- [`.claude/`](./.claude.md) — updated 2026-05-24 13:33
+- [`.claude/`](./.claude.md) — updated 2026-06-05 10:42
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
 - [`_root/`](./_root.md) — updated 2026-06-04 15:21
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
@@ -25,9 +29,9 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-01 18:45
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-05 10:34
+- [`docs/`](./docs.md) — updated 2026-06-05 10:42
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
-- [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 10:00
+- [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 10:42
 - [`downloads/`](./downloads.md) — updated 2026-06-04 15:58
 - [`facebook-services/`](./facebook-services.md) — updated 2026-05-21 15:39
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
@@ -39,7 +43,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:43
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-05 10:26
+- [`native-orders/`](./native-orders.md) — updated 2026-06-05 10:42
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-05 10:00
@@ -50,7 +54,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-04 20:28
+- [`render.com/`](./render.com.md) — updated 2026-06-05 10:42
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-04 20:17
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -68,4 +72,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-05 10:34
+- [`web2/`](./web2.md) — updated 2026-06-05 10:42
