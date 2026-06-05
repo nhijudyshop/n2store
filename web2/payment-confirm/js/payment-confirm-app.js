@@ -161,34 +161,14 @@
                         <div class="pc-msg">"${esc(c.last_message_snippet || '')}"</div>
                         <div class="pc-meta">${esc(fmtTime(c.last_message_time))} · page ${esc(c.page_id || '')}</div>
                     </div>
-                    <div class="pc-actions">
-                        <span class="pc-unread-count">${esc(c.message_count || 0)} mới</span>
-                        <button class="pc-btn pc-btn-dismiss" data-seen-psid="${esc(c.psid)}" data-seen-page="${esc(c.page_id)}">Đã đọc</button>
-                    </div>
+                    <div><span class="pc-unread-count">${esc(c.message_count || 0)} mới</span></div>
                 </div>`;
                 })
                 .join('') +
             '</div>';
-
-        root.querySelectorAll('[data-seen-psid]').forEach((btn) => {
-            btn.onclick = () => markSeen(btn.dataset.seenPsid, btn.dataset.seenPage);
-        });
-    }
-
-    function markSeen(psid, pageId) {
-        if (!psid || !pageId) return;
-        // UI-first: bỏ row ngay, gọi backend nền.
-        state.unread = state.unread.filter((c) => !(c.psid === psid && c.page_id === pageId));
-        renderUnread();
-        fetch(UNREAD_API + '/mark-seen', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ psid, pageId }),
-        }).catch(() => {
-            toast('Lỗi đánh dấu đã đọc', 'error');
-            reloadUnread();
-        });
+        // Không có nút "Đã đọc" — danh sách tự xoá theo Pancake (đọc trên Pancake
+        // → unread=0 / shop trả lời → event update_conversation → tracker xoá →
+        // SSE web2:unread → reload). Auto hoàn toàn.
     }
 
     // ─── Mutations (UI-first qua Web2Optimistic) ──────────────────────

@@ -25,6 +25,21 @@
 
 ## 2026-06-05
 
+### [render][web2] Unread Web 2.0 — logic authoritative thuần (bỏ mirror Web 1.0 + nút Đã đọc) ✅
+
+User: đừng học theo Web 1.0; chỉ lấy tin realtime từ server socket → xử lý logic Web 2.0; bỏ nút "Đã đọc", auto-clear theo dữ liệu Pancake.
+
+Refactor [web2-unread-tracker.js](render.com/services/web2-unread-tracker.js): bỏ `_upsert` bump +1, `onNewMessage`, `markSeen` (cách mirror `upsertPendingCustomer` Web 1.0). Còn DUY NHẤT `syncFromConversation(pool, data, notify)`:
+
+- Nguồn: chỉ event `pages:update_conversation` từ Pancake socket (mang `unread_count` authoritative + `last_sent_by`).
+- `unread_count = 0` (đã đọc trên Pancake) **HOẶC** shop gửi cuối → **tự XOÁ** (auto, không nút bấm) → SSE `web2:unread` clear → trang reload realtime.
+- Else → UPSERT `message_count = unread_count` (SET authoritative, **KHÔNG cộng dồn** → hết drift). Dùng `lastMessageTime` của Pancake nếu có.
+- Bỏ `new_message` khỏi unread (chỉ giữ cho keyword detector) vì `update_conversation` luôn bắn kèm count tổng → đếm bằng new_message sẽ drift.
+
+[server.js](render.com/server.js): `pages:update_conversation` hook → `syncFromConversation`; bỏ hook `onNewMessage` + notifier wiring thừa. [web2-unread.js](render.com/routes/web2-unread.js): bỏ `POST /mark-seen` + `initializeNotifiers` (chỉ còn GET list + stats). Frontend [payment-confirm-app.js](web2/payment-confirm/js/payment-confirm-app.js): bỏ nút "Đã đọc" + `markSeen` — danh sách tự xoá hoàn toàn theo Pancake.
+
+→ Unread Web 2.0 giờ là logic riêng, authoritative theo Pancake (không copy Web 1.0), auto-clear, không thao tác tay. Test [scripts/test-web2-unread.js](scripts/test-web2-unread.js) 12/12 (SET không bump, unread=0 tự xoá, shopSentLast tự xoá, lastMessageTime Pancake, API gọn) + frontend smoke (không còn nút Đã đọc, no page error).
+
 ### [web2] Bill ghi tên người bán = user đăng nhập + card đăng nhập trên overview ✅
 
 User: các loại bill thiếu tên người bán → lấy user đang đăng nhập (hệ thống user web2). Mục đích login: phân quyền + xác minh danh tính người thực hiện + lịch sử hành động.

@@ -1,4 +1,4 @@
-// #Note: Throwaway test — web2_unread_messages tracker (upsert/delete/bump/markSeen). Local DB → test → DROP. KHÔNG đụng prod.
+// #Note: Throwaway test — web2_unread_messages tracker (syncFromConversation authoritative). Local DB → test → DROP. KHÔNG đụng prod.
 'use strict';
 const { Client } = require('../render.com/node_modules/pg');
 const tracker = require('../render.com/services/web2-unread-tracker');
@@ -6,16 +6,16 @@ const tracker = require('../render.com/services/web2-unread-tracker');
 const ADMIN = { host: 'localhost', port: 5432, database: 'postgres', user: process.env.USER };
 const TESTDB = 'n2store_unread_test';
 
-async function count(db) {
-    const r = await db.query(`SELECT COUNT(*)::int n FROM web2_unread_messages`);
-    return r.rows[0].n;
-}
 async function row(db, psid, page) {
     const r = await db.query(`SELECT * FROM web2_unread_messages WHERE psid=$1 AND page_id=$2`, [
         psid,
         page,
     ]);
     return r.rows[0] || null;
+}
+async function count(db) {
+    const r = await db.query(`SELECT COUNT(*)::int n FROM web2_unread_messages`);
+    return r.rows[0].n;
 }
 
 async function main() {
@@ -31,7 +31,8 @@ async function main() {
         fail = 0;
     const ok = (c, m) => (c ? (pass++, console.log('✅', m)) : (fail++, console.log('❌', m)));
     let emitted = [];
-    const notify = (topic, payload) => emitted.push({ topic, action: payload.action });
+    const notify = (topic, p) => emitted.push({ topic, action: p.action });
+    const sync = (d) => tracker.syncFromConversation(db, d, notify);
 
     try {
         await tracker.ensureSchema(db);
@@ -41,93 +42,82 @@ async function main() {
         );
         ok(t.rows.length === 1, 'ensureSchema tạo bảng (idempotent ×2)');
 
-        // 1. update_conversation unread=2 → upsert count=2
-        await tracker.onConversationUpdate(
-            db,
-            {
-                psid: 'P1',
-                pageId: 'PG1',
-                unreadCount: 2,
-                snippet: 'tin 1',
-                customerName: 'KH A',
-                conversationId: 'C1',
-                shopSentLast: false,
-            },
-            notify
-        );
+        // 1. unread=2 → upsert count=2 (authoritative)
+        await sync({
+            psid: 'P1',
+            pageId: 'PG1',
+            unreadCount: 2,
+            snippet: 'tin 1',
+            customerName: 'KH A',
+            conversationId: 'C1',
+            shopSentLast: false,
+        });
         let r = await row(db, 'P1', 'PG1');
-        ok(r && r.message_count === 2, 'update_conversation unread=2 → count=2 (authoritative)');
+        ok(r && r.message_count === 2, 'unread=2 → count=2');
         ok(
             emitted.some((e) => e.topic === 'web2:unread' && e.action === 'upsert'),
-            'SSE web2:unread upsert'
+            'SSE upsert'
         );
 
-        // 2. new_message từ khách → bump +1 (3)
-        await tracker.onNewMessage(
-            db,
-            {
-                psid: 'P1',
-                pageId: 'PG1',
-                snippet: 'tin 2',
-                customerName: 'KH A',
-                conversationId: 'C1',
-            },
-            notify
-        );
+        // 2. unread=5 → SET=5 (KHÔNG bump — authoritative, chống drift)
+        await sync({
+            psid: 'P1',
+            pageId: 'PG1',
+            unreadCount: 5,
+            snippet: 'tin 2',
+            shopSentLast: false,
+        });
         r = await row(db, 'P1', 'PG1');
-        ok(r && r.message_count === 3, 'new_message bump +1 → count=3');
+        ok(r && r.message_count === 5, 'unread=5 → SET=5 (không cộng dồn thành 7)');
         ok(r && r.last_message_snippet === 'tin 2', 'snippet cập nhật');
 
-        // 3. update_conversation unread=5 → SET=5 (không bump)
-        await tracker.onConversationUpdate(
-            db,
-            { psid: 'P1', pageId: 'PG1', unreadCount: 5, snippet: 'tin 3', shopSentLast: false },
-            notify
-        );
-        r = await row(db, 'P1', 'PG1');
-        ok(r && r.message_count === 5, 'unread=5 authoritative SET=5 (chống drift)');
-
-        // 4. shopSentLast=true → delete (shop trả lời)
-        await tracker.onConversationUpdate(
-            db,
-            { psid: 'P1', pageId: 'PG1', unreadCount: 5, shopSentLast: true },
-            notify
-        );
-        ok((await row(db, 'P1', 'PG1')) === null, 'shopSentLast=true → xoá (shop gửi cuối)');
+        // 3. unread=0 (đã đọc trên Pancake) → auto xoá
+        await sync({ psid: 'P1', pageId: 'PG1', unreadCount: 0, shopSentLast: false });
+        ok((await row(db, 'P1', 'PG1')) === null, 'unread=0 → tự xoá (đã đọc trên Pancake)');
         ok(
             emitted.some((e) => e.action === 'clear'),
-            'SSE web2:unread clear'
+            'SSE clear'
         );
 
-        // 5. unread=0 → delete
-        await tracker.onConversationUpdate(
-            db,
-            { psid: 'P2', pageId: 'PG1', unreadCount: 3, snippet: 'x', shopSentLast: false },
-            notify
-        );
-        await tracker.onConversationUpdate(
-            db,
-            { psid: 'P2', pageId: 'PG1', unreadCount: 0, shopSentLast: false },
-            notify
-        );
-        ok((await row(db, 'P2', 'PG1')) === null, 'unread=0 → xoá (shop đã đọc)');
+        // 4. shopSentLast=true → auto xoá (shop trả lời, kể cả Pancake còn báo unread)
+        await sync({
+            psid: 'P2',
+            pageId: 'PG1',
+            unreadCount: 3,
+            snippet: 'x',
+            shopSentLast: false,
+        });
+        ok((await row(db, 'P2', 'PG1')) !== null, 'P2 unread=3 vào danh sách');
+        await sync({ psid: 'P2', pageId: 'PG1', unreadCount: 3, shopSentLast: true });
+        ok((await row(db, 'P2', 'PG1')) === null, 'shopSentLast=true → tự xoá (shop trả lời)');
 
-        // 6. markSeen
-        await tracker.onNewMessage(db, { psid: 'P3', pageId: 'PG1', snippet: 'hi' }, notify);
-        ok((await count(db)) === 1, 'còn 1 row (P3) trước markSeen');
-        const n = await tracker.markSeen(db, 'P3', 'PG1', notify);
-        ok(n === 1 && (await count(db)) === 0, 'markSeen xoá P3 → 0 row');
+        // 5. lastMessageTime từ Pancake được dùng nếu có
+        await sync({
+            psid: 'P3',
+            pageId: 'PG1',
+            unreadCount: 1,
+            snippet: 'm',
+            lastMessageTime: 1700000000000,
+        });
+        r = await row(db, 'P3', 'PG1');
+        ok(r && Number(r.last_message_time) === 1700000000000, 'dùng lastMessageTime của Pancake');
 
-        // 7. List query (route GET /)
-        await tracker.onNewMessage(
-            db,
-            { psid: 'P4', pageId: 'PG1', snippet: 'm', customerName: 'KH D' },
-            notify
-        );
+        // 6. List query (route GET /)
         const list = await db.query(
-            `SELECT psid, customer_name, message_count FROM web2_unread_messages ORDER BY last_message_time DESC LIMIT 500`
+            `SELECT psid, message_count FROM web2_unread_messages ORDER BY last_message_time DESC LIMIT 500`
         );
-        ok(list.rows.length === 1 && list.rows[0].psid === 'P4', 'list query trả P4');
+        ok(
+            list.rows.length === 1 && list.rows[0].psid === 'P3',
+            'list trả đúng (chỉ P3 còn unread)'
+        );
+
+        // 7. Không có hàm bump/onNewMessage/markSeen nữa (API gọn)
+        ok(
+            typeof tracker.syncFromConversation === 'function' &&
+                tracker.onNewMessage === undefined &&
+                tracker.markSeen === undefined,
+            'API chỉ còn ensureSchema + syncFromConversation (bỏ bump/markSeen)'
+        );
     } catch (e) {
         fail++;
         console.error('❌ EXCEPTION:', e.message);
