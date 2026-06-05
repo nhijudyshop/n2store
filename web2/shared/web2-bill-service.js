@@ -75,9 +75,11 @@ html, body { margin: 0; padding: 0; background: #fff; }
     font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: none;
 }
-.bill b, .bill strong { font-weight: 800; }
+/* Chữ NHỎ giảm độ đậm (700 thay 800, 600 cho label) → in nhiệt KHÔNG nhòe/dồn
+   mực. Chữ TO (shop/COD/tổng) giữ đậm vì nét xa nhau, in vẫn sắc. */
+.bill b, .bill strong { font-weight: 700; }
 .b-shop { text-align: center; font-size: 26px; font-weight: 800; letter-spacing: 1px; line-height: 1.1; }
-.b-sub { text-align: center; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 3px; }
+.b-sub { text-align: center; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 3px; }
 .b-flag { text-align: center; margin-top: 5px; }
 .b-flag::before { content: ''; }
 .b-flag { font-size: 11px; font-weight: 800; letter-spacing: 1px; border: 1.5px solid #000; border-radius: 4px; padding: 2px 8px; display: inline-block; }
@@ -85,13 +87,13 @@ html, body { margin: 0; padding: 0; background: #fff; }
 /* ── Khung COD: viền dày, số to nổi bật ── */
 .b-cod { border: 2.5px solid #000; border-radius: 9px; text-align: center; padding: 7px 6px 8px; margin: 10px 0; }
 .b-cod-due { border-style: double; border-width: 5px; margin: 6px 0 2px; }
-.b-cod-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; }
+.b-cod-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; }
 .b-cod-amount { font-size: 30px; font-weight: 800; line-height: 1.05; margin-top: 2px; }
 .b-cod-amount.sm { font-size: 23px; }
 .b-dvt { font-size: 0.5em; font-weight: 700; margin-left: 3px; }
 /* ── Tên phiếu + STT ── */
-.b-title { text-align: center; font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin: 6px 0 4px; }
-.b-stt { display: inline-block; border: 1.5px solid #000; border-radius: 4px; padding: 0 6px; margin-left: 2px; font-weight: 800; }
+.b-title { text-align: center; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin: 6px 0 4px; }
+.b-stt { display: inline-block; border: 1.5px solid #000; border-radius: 4px; padding: 0 6px; margin-left: 2px; font-weight: 700; }
 /* ── Khung mã vạch ── */
 .b-bc { border: 1.5px solid #000; border-radius: 6px; padding: 5px 6px 3px; text-align: center; margin: 4px 0 6px; }
 .b-bc svg { display: block; width: 100%; height: auto; max-height: 66px; margin: 0 auto; }
@@ -102,18 +104,18 @@ html, body { margin: 0; padding: 0; background: #fff; }
 .b-div-double { border-top: 4px double #000; margin: 7px 0; }
 /* ── Khách hàng ── */
 .b-cust { font-size: 12.5px; line-height: 1.45; }
-.b-lbl { font-weight: 700; }
+.b-lbl { font-weight: 600; }
 /* ── Sản phẩm: HÀNG 1 = tên (đầy đủ); HÀNG 2 = SL + đơn giá + thành tiền (cột
    canh thẳng dưới header) ── */
-.b-ih { display: flex; align-items: baseline; gap: 4px; font-weight: 800; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 2px solid #000; padding-bottom: 3px; margin-bottom: 1px; }
+.b-ih { display: flex; align-items: baseline; gap: 4px; font-weight: 700; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 2px solid #000; padding-bottom: 3px; margin-bottom: 1px; }
 .c-name { flex: 1; min-width: 0; }
 .c-qty { width: 22px; text-align: center; flex-shrink: 0; }
 .c-price { width: 64px; text-align: right; flex-shrink: 0; }
 .c-total { width: 70px; text-align: right; flex-shrink: 0; }
 .b-it { margin-top: 4px; }
-.b-it-name { font-weight: 700; font-size: 12.5px; line-height: 1.25; }
+.b-it-name { font-weight: 600; font-size: 12.5px; line-height: 1.25; }
 .b-it-nums { display: flex; justify-content: flex-end; gap: 4px; margin-top: 1px; font-size: 11.5px; }
-.b-it-nums .c-total { font-weight: 800; }
+.b-it-nums .c-total { font-weight: 700; }
 .b-it-note { font-size: 10.5px; padding-left: 13px; margin-top: 1px; }
 /* ── Tổng tiền ── */
 .b-tot { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; margin-top: 2px; }

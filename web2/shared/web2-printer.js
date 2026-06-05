@@ -459,7 +459,7 @@
                 logging: false,
             });
             // rendered.width = cw*scale = dots*SS → _canvasToEscpos downsample về dots.
-            return _canvasToEscpos(rendered, { ss: SS });
+            return _canvasToEscpos(rendered, { ss: SS, coverage: opts.coverage });
         } finally {
             iframe.remove();
         }
@@ -619,7 +619,11 @@
     async function printBillHtml(html, roleKey, printerOverride) {
         const printer = printerOverride || getPrinterFor(roleKey);
         if (!printer) throw new Error('Chưa có máy in nào — vào Cấu hình > Máy in');
-        const bytes = await escposRasterFromHtmlPhysical(html, { ss: 2 });
+        // Tiếng Việt sắc nét: render 3× (mịn hơn → dấu không đứt khúc) + coverage
+        // thấp (need=1: ô có ≥1 sub-pixel mực = chấm đen → giữ liền nét dấu mảnh,
+        // chống "đứt khúc"). Chống "nhòe": giảm font-weight trong CSS bill (không
+        // để chữ nhỏ quá đậm). Density máy in chỉnh ở phần cứng.
+        const bytes = await escposRasterFromHtmlPhysical(html, { ss: 3, coverage: 0.14 });
         return printEscpos(bytes, printer);
     }
     // Máy in đã gán cho role có in THẲNG (bridge) không?
