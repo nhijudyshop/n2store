@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0aeca65` — fix(native-orders): Phieu Soan Hang in 'CHO HANG' (full chu) thay 'CH' khi tick cho hang
-**Last updated**: 2026-06-05 14:45:00 +07
-**Latest session**: [`RESUME:20260605-144500-0aeca65`](../20260605-144500-0aeca65.md)
-**Summary**: fix(native-orders): Phieu Soan Hang in 'CHO HANG' (full chu) thay 'CH' khi tick cho hang
+**Latest commit**: `3de04fa` — auto: session update
+**Last updated**: 2026-06-05 14:55:43 +07
+**Latest session**: [`RESUME:20260605-145543-3de04fa`](../20260605-145543-3de04fa.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`native-orders/`](./native-orders.md) — 2 file(s)
+- [`native-orders/`](./native-orders.md) — 4 file(s)
+- [`render.com/`](./render.com.md) — 3 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -38,7 +40,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:43
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-05 14:45
+- [`native-orders/`](./native-orders.md) — updated 2026-06-05 14:55
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-05 14:23
@@ -49,7 +51,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-05 14:43
+- [`render.com/`](./render.com.md) — updated 2026-06-05 14:55
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-05 14:43
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -67,4 +69,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-05 14:40
+- [`web2/`](./web2.md) — updated 2026-06-05 14:55
