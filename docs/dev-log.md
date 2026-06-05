@@ -25,6 +25,14 @@
 
 ## 2026-06-05
 
+### [web2] Fix in tem mã SP: tem bên phải canh giữa đúng tâm con tem (2-up) ✅
+
+User: in 2 tem, tem bên phải chưa canh giữa, tem trái đúng. Root cause (verified qua repro TSPL raster `tsplFromHtmlPhysical`): `.barcode-sheet` dùng `justify-content:space-evenly` → 3 gap ĐỀU nhau dồn cả 2 tem về tâm sheet, lệch khỏi tâm cột die-cut (raster centroid: trái +30px, phải −16px so target cột). Tem phải lệch vào trong = "chưa canh giữa".
+
+- **Fix** [web2-products-print.js](web2/products/js/web2-products-print.js): mỗi tem bọc trong `.barcode-cell` rộng `sheetW/cols` (33mm cho 2-up 66mm) + `justify-content:center` → tem canh GIỮA trong cột vật lý. Sheet `space-evenly` → `flex-start` (cells xếp trái→phải không gap). Bỏ logic `singleGap`/`isPartial` (cột giữ thứ tự nên tem lẻ tự nằm đúng cột 1).
+- **Verify**: sau fix raster centroid trái/phải = +11/+11 (đối xứng, lệch đồng nhất <0.7mm thay vì lệch ngược chiều). Visual guide tâm cột 16.5/49.5mm: 2 tem trùng tâm. Screenshot `downloads/n2store-session/label-fix-verify.png`.
+- Cache-bust `?v=20260605i` ([products](web2/products/index.html), [so-order](so-order/index.html) — 2 consumer của module).
+
 ### [render][web2] 5 tính năng tương tác khách: auto-reply + watcher + intent + dashboard ✅
 
 User chọn "tất cả" 5 ý tưởng phát triển. Quyết định: auto-reply chỉ khi cộng ví; watcher tự link khi chắc / báo khi không; intent chỉ FLAG.

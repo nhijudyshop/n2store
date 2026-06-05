@@ -699,20 +699,17 @@
 
         const bTag = showBold ? 'strong' : 'span';
 
-        // P1 2026-05-30: sheet partial (số label < cols) → đẩy label về SLOT
-        // 1 BÊN TRÁI thay vì canh giữa sheet. Lý do: physical label roll có 2
-        // con tem cách nhau gap vật lý; với space-evenly + 1 label, label sẽ
-        // canh giữa sheet → in VÀO VÙNG GAP giữa 2 tem → in lệch. Phải align
-        // với slot 1 (offset = singleGap = (sheetW - cols×labelW)/(cols+1)).
-        const singleGap = Math.round(((sheetW - cols * labelW) / (cols + 1)) * 100) / 100;
+        // 2026-06-05: mỗi tem bọc trong 1 CỘT die-cut rộng sheetW/cols (vd 33mm
+        // cho 2-up 66mm) + canh giữa trong cột → tem ĐÚNG TÂM con tem vật lý.
+        // Thay space-evenly cũ (3 gap đều → dồn 2 tem về giữa sheet → lệch tâm
+        // cột, tem bên PHẢI in lệch vào trong — verified qua TSPL raster repro).
+        // Sheet thiếu label (partial) → ít cột hơn nhưng cột giữ thứ tự trái→phải
+        // (flex-start) nên tem lẻ nằm đúng cột 1 (không cần singleGap nữa).
+        const cellW = Math.round((sheetW / cols) * 100) / 100; // mm — bề rộng cột die-cut
         let sheetsHTML = '';
         for (const sheet of sheets) {
             // TPOS: ng-style="data.style_sheet()" → {width: SheetWidth+"mm", height: SheetHeight+"mm"}
-            const isPartial = sheet.length < cols;
-            const sheetExtraStyle = isPartial
-                ? `justify-content:flex-start;padding-left:${singleGap}mm;`
-                : '';
-            sheetsHTML += `<div class="barcode-sheet" style="width:${sheetW}mm;height:${sheetH}mm;${sheetExtraStyle}">`;
+            sheetsHTML += `<div class="barcode-sheet" style="width:${sheetW}mm;height:${sheetH}mm;">`;
             for (const label of sheet) {
                 const displayPrice = formatPrice(label.price);
                 const currencyStr = showCurrency ? ' đ' : '';
@@ -723,9 +720,12 @@
                 const barcodeImg = `<svg class="bcsvg" data-code="${escapeHtml(label.code)}" id="${barcodeId}"></svg>`;
                 const labelStyle = labelStyleParts.join(';') + ';';
 
+                // Mỗi tem build vào `labelInner` rồi bọc trong .barcode-cell rộng
+                // cellW (cột die-cut) → tem canh GIỮA trong cột vật lý của nó.
+                let labelInner = '';
                 if (printType === 'new') {
                     // PrintNew — 2-column table
-                    sheetsHTML += `<div class="barcode_label" style="${labelStyle}"><table border="0" style="width:100%;height:100%;"><tr><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-code">${escapeHtml(label.code)}</div>${showPrice ? `<div class="barcode-price">${displayPrice}${currencyStr}</div>` : ''}</td><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-image">${!hideBarcode ? barcodeImg : ''}</div></td></tr></table></div>`;
+                    labelInner = `<div class="barcode_label" style="${labelStyle}"><table border="0" style="width:100%;height:100%;"><tr><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-code">${escapeHtml(label.code)}</div>${showPrice ? `<div class="barcode-price">${displayPrice}${currencyStr}</div>` : ''}</td><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-image">${!hideBarcode ? barcodeImg : ''}</div></td></tr></table></div>`;
                 } else {
                     // Default vertical — proportional scaling theo label size:
                     //   - Title: word-wrap multi-line, font = paper.fontSize (TPOS)
@@ -738,19 +738,20 @@
                     const tightFlex = 'flex:0 0 auto;';
                     const barcodeFlex = `flex:0 0 ${barcodeH}mm;height:${barcodeH}mm;display:flex;align-items:center;justify-content:center;min-height:0;`;
                     const codeStyle = `${tightFlex}font-size:${fsCode}px;line-height:${lineHCode}px;`;
-                    sheetsHTML += `<div class="barcode_label" style="${labelStyleFinal}">`;
+                    labelInner += `<div class="barcode_label" style="${labelStyleFinal}">`;
                     if (showProductName) {
-                        sheetsHTML += `<div class="barcode-pname" style="${tightFlex}${nameStyle}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
+                        labelInner += `<div class="barcode-pname" style="${tightFlex}${nameStyle}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
                     }
                     if (!hideBarcode && label.code) {
-                        sheetsHTML += `<div class="barcode-image" style="${barcodeFlex}">${barcodeImg}</div>`;
+                        labelInner += `<div class="barcode-image" style="${barcodeFlex}">${barcodeImg}</div>`;
                     }
-                    sheetsHTML += `<div style="${codeStyle}"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
+                    labelInner += `<div style="${codeStyle}"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
                     if (showPrice) {
-                        sheetsHTML += `<div style="${codeStyle}"><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
+                        labelInner += `<div style="${codeStyle}"><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
                     }
-                    sheetsHTML += `</div>`;
+                    labelInner += `</div>`;
                 }
+                sheetsHTML += `<div class="barcode-cell" style="width:${cellW}mm;height:${labelH}mm;">${labelInner}</div>`;
             }
             sheetsHTML += '</div>';
         }
@@ -789,15 +790,23 @@ html, body {
 
 .barcode-sheet {
     page-break-after: always;
-    /* P1 2026-05-30: flex space-evenly — chia khoảng dư (sheetW - cols×labelW)
-     * thành 3 (cols+1) vùng ĐỀU NHAU. Vd Paper 7 (TPOS): sheet 66, 2 nhãn ×
-     * 25 = 50, dư 16mm → 3 vùng × ~5.3mm: |gap|tem1|gap|tem2|gap| →
-     * 2 tem canh giữa + chia đều. Trước đây float:left dồn nhãn về trái với
-     * gap dư bên phải, không đều. */
+    /* 2026-06-05: mỗi tem nằm trong 1 .barcode-cell rộng sheetW/cols (cột
+     * die-cut). cells xếp trái→phải, không gap → tem canh GIỮA trong cột vật
+     * lý của nó. Thay space-evenly cũ (3 gap đều → dồn 2 tem về tâm sheet →
+     * tem bên phải in lệch vào trong, verified qua TSPL raster repro). */
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: space-evenly;
+    justify-content: flex-start;
+}
+
+/* Cột die-cut — bọc 1 tem, canh giữa cả 2 trục trong cột. */
+.barcode-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    overflow: hidden;
 }
 
 .barcodeCustom-sheet {
