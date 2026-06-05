@@ -25,6 +25,15 @@
 
 ## 2026-06-05
 
+### [worker] Fix: đăng nhập Web 2.0 lỗi CORS — allow header `X-Web2-Token` ✅
+
+User: đăng nhập admin → mọi API web2 fail (kpi/scope, native-orders/load, campaigns) lỗi `CORS: x-web2-token is not allowed by Access-Control-Allow-Headers in preflight`.
+
+- Root cause: sau login, client gửi header `x-web2-token` (JWT — `native-orders-api.js`, kpi middleware đọc). `shared/universal/cors-headers.js` Allow-Headers **thiếu** header này → preflight chặn → blocked toàn bộ API web2 KHI ĐÃ login (chưa login không gửi header nên không thấy lỗi).
+- Fix: thêm `X-Web2-Token` vào Allow-Headers ở **2 chỗ** (`buildCorsHeaders()` + `const CORS_HEADERS`). Thêm comment `⚠ [2026-06-05]` giải thích lý do ngay tại chỗ (user yêu cầu — để phân biệt, tránh đụng nhầm trang khác). Chỉ thêm 1 header, không đổi logic.
+- **Auto-deploy**: CI `.github/workflows/deploy-cloudflare-worker.yml` trigger trên `shared/universal/**` → `wrangler deploy` tự chạy khi push. Verified curl OPTIONS preflight sau ~30s → Allow-Headers có `X-Web2-Token` ✅ LIVE.
+- File: `shared/universal/cors-headers.js`.
+
 ### [native-orders][render] Đơn Inbox — picker SP inline + search không dấu + avatar/hội thoại ✅
 
 User (3 yêu cầu cho modal "Thêm đơn Inbox" trang `native-orders`):
@@ -57,6 +66,7 @@ Refactor [web2-unread-tracker.js](render.com/services/web2-unread-tracker.js): b
 [server.js](render.com/server.js): `pages:update_conversation` hook → `syncFromConversation`; bỏ hook `onNewMessage` + notifier wiring thừa. [web2-unread.js](render.com/routes/web2-unread.js): bỏ `POST /mark-seen` + `initializeNotifiers` (chỉ còn GET list + stats). Frontend [payment-confirm-app.js](web2/payment-confirm/js/payment-confirm-app.js): bỏ nút "Đã đọc" + `markSeen` — danh sách tự xoá hoàn toàn theo Pancake.
 
 → Unread Web 2.0 giờ là logic riêng, authoritative theo Pancake (không copy Web 1.0), auto-clear, không thao tác tay. Test [scripts/test-web2-unread.js](scripts/test-web2-unread.js) 12/12 (SET không bump, unread=0 tự xoá, shopSentLast tự xoá, lastMessageTime Pancake, API gọn) + frontend smoke (không còn nút Đã đọc, no page error).
+
 ### [customer-hub] Ẩn nút "Cấp công nợ ảo" ở ví khách — chỉ giữ Nạp/Rút tiền ✅
 
 User: card Ví Khách Hàng chỉ để Nạp tiền + Rút tiền, ẩn nút "Cấp công nợ ảo".
