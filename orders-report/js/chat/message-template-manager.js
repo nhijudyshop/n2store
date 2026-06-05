@@ -503,8 +503,9 @@
 
     function _convertOrderData(fullOrderData) {
         if (!fullOrderData) return null;
-        const products = (fullOrderData.Details || [])
-            .filter((d) => !d.IsHeld)
+        const rawDetails = fullOrderData.Details || [];
+        const products = rawDetails
+            .filter((d) => !d.IsHeld) // hàng "giữ" (IsHeld) KHÔNG đưa vào tin nhắn khách — đúng thiết kế
             .map((d) => ({
                 name: d.ProductNameGet || d.ProductName || 'Sản phẩm',
                 quantity: d.Quantity || 1,
@@ -512,6 +513,12 @@
                 total: (d.Quantity || 1) * (d.Price || 0),
                 note: d.Note || '',
             }));
+        // Soi nhanh edge-case hiếm: đơn có Details nhưng TẤT CẢ là hàng giữ → tin nhắn rỗng SP
+        if (rawDetails.length > 0 && products.length === 0) {
+            console.warn(
+                `[TemplateMgr] Đơn ${fullOrderData.Code || fullOrderData.Id || '?'}: ${rawDetails.length} Details nhưng tất cả IsHeld → tin nhắn sẽ "(Chưa có sản phẩm)"`
+            );
+        }
         const calculatedTotal = products.reduce((sum, p) => sum + p.total, 0);
         return {
             code: fullOrderData.Code || '',
@@ -716,6 +723,11 @@
                 const productsText = String(row[colProducts] || '');
                 const details = _parseProductsText(productsText);
 
+                // BUG#1 fix: đừng cache đơn parse ra 0 SP — cache rỗng sẽ "che" mất
+                // đường lấy SP chuẩn (window.getOrderDetails / OData) ở bước gửi,
+                // khiến tin nhắn ra "(Chưa có sản phẩm)". Skip → để getOrderDetails xử lý.
+                if (!details.length) continue;
+
                 const orderData = {
                     Id: orderId,
                     Code: code,
@@ -776,6 +788,79 @@
                 };
             })
             .filter((d) => d.ProductName);
+    }
+
+    /**
+     * Resolve full order data (with products) for ONE order — dùng chung cho cả
+     * luồng Pancake API (_processSingleOrder) và luồng Extension (_buildExtensionQueueForAll).
+     *
+     * Thứ tự nguồn — bám đúng nguồn mà BẢNG đơn hàng đang tin (OData $expand=Details):
+     *   1. Excel pre-fetch cache (_orderDetailsCache) — chỉ dùng khi có Details thật
+     *   2. window.getOrderDetails(orderId) — OData $expand=Details,Partner,... (chuẩn, giống bảng)
+     *   3. OrderStore (list endpoint — thường KHÔNG có Details)
+     *
+     * Self-heal: 1 cache entry rỗng/không có Details KHÔNG còn "che" mất bước OData
+     * (chính là nguyên nhân "(Chưa có sản phẩm)" cho đơn nhiều SP).
+     */
+    async function _resolveOrderData(order) {
+        let fullOrder = _orderDetailsCache.get(String(order.orderId)) || null;
+        let odataTried = false;
+
+        // Cache từ Excel thiếu Note (giảm giá) → enrich từ OrderStore Details
+        if (fullOrder && fullOrder._fromExcel) {
+            const storeOrder = window.OrderStore?.get(order.orderId);
+            if (storeOrder?.Details?.length && fullOrder.Details?.length) {
+                for (const detail of fullOrder.Details) {
+                    const match = storeOrder.Details.find(
+                        (d) =>
+                            (d.ProductCode || d.DefaultCode) === detail.ProductCode ||
+                            (d.ProductNameGet || '').includes(detail.ProductCode)
+                    );
+                    if (match?.Note) detail.Note = match.Note;
+                }
+            }
+        }
+
+        // Không có cache HOẶC cache không có Details dùng được → lấy OData chuẩn (giống bảng)
+        if ((!fullOrder || !fullOrder.Details?.length) && window.getOrderDetails) {
+            odataTried = true;
+            try {
+                const fetched = await window.getOrderDetails(order.orderId);
+                if (fetched?.Details?.length) fullOrder = fetched;
+            } catch (e) {
+                console.warn('[TemplateMgr] getOrderDetails failed:', e.message);
+            }
+        }
+
+        // Fallback cuối: OrderStore (list endpoint — thường Details rỗng)
+        if (!fullOrder || !fullOrder.Details?.length) {
+            const storeOrder = window.OrderStore ? window.OrderStore.get(order.orderId) : null;
+            if (storeOrder?.Details?.length) fullOrder = storeOrder;
+        }
+
+        let orderData = fullOrder
+            ? _convertOrderData(fullOrder)
+            : {
+                  code: order.Code || '',
+                  customerName: order.customerName || '',
+                  phone: order.Phone || '',
+                  address: order.Address || '',
+                  totalAmount: order.AmountTotal || 0,
+                  products: [],
+              };
+
+        // Self-heal: products rỗng mà chưa từng thử OData (vd cache có Details nhưng
+        // ngẫu nhiên hỏng) → thử OData đúng 1 lần nữa, tránh gửi tin nhắn thiếu SP.
+        if (orderData.products.length === 0 && !odataTried && window.getOrderDetails) {
+            try {
+                const fetched = await window.getOrderDetails(order.orderId);
+                if (fetched?.Details?.length) orderData = _convertOrderData(fetched);
+            } catch (e) {
+                /* giữ orderData hiện tại */
+            }
+        }
+
+        return orderData;
     }
 
     function _replacePlaceholders(content, orderData) {
@@ -1027,49 +1112,9 @@
         let orderData;
         const templateContent = template.Content || template.BodyPlain || template.content || '';
         if (_needsFullData(templateContent)) {
-            // Use pre-fetched cache first (from _prefetchOrderDetails)
-            let fullOrder = _orderDetailsCache.get(String(order.orderId)) || null;
-
-            // If from Excel cache, Details may lack Note (discount info).
-            // Enrich with OrderStore data if available (OrderStore has Details with Note from TPOS list)
-            if (fullOrder && fullOrder._fromExcel) {
-                const storeOrder = window.OrderStore?.get(order.orderId);
-                if (storeOrder?.Details?.length && fullOrder.Details?.length) {
-                    // Merge Note from OrderStore into Excel-parsed Details
-                    for (const detail of fullOrder.Details) {
-                        const match = storeOrder.Details.find(
-                            (d) =>
-                                (d.ProductCode || d.DefaultCode) === detail.ProductCode ||
-                                (d.ProductNameGet || '').includes(detail.ProductCode)
-                        );
-                        if (match?.Note) detail.Note = match.Note;
-                    }
-                }
-            }
-
-            // Fallback: individual fetch if not in cache
-            if (!fullOrder && window.getOrderDetails) {
-                try {
-                    fullOrder = await window.getOrderDetails(order.orderId);
-                } catch (e) {
-                    console.warn('[TemplateMgr] getOrderDetails failed:', e.message);
-                }
-            }
-            // Fallback to OrderStore
-            if (!fullOrder || !fullOrder.Details?.length) {
-                const storeOrder = window.OrderStore ? window.OrderStore.get(order.orderId) : null;
-                if (storeOrder?.Details?.length) fullOrder = storeOrder;
-            }
-            orderData = fullOrder
-                ? _convertOrderData(fullOrder)
-                : {
-                      code: order.Code || '',
-                      customerName: order.customerName || '',
-                      phone: order.Phone || '',
-                      address: order.Address || '',
-                      totalAmount: order.AmountTotal || 0,
-                      products: [],
-                  };
+            // Resolve SP qua nguồn chuẩn (cache Excel → OData getOrderDetails → OrderStore),
+            // self-heal nếu rỗng. Xem _resolveOrderData.
+            orderData = await _resolveOrderData(order);
         } else {
             orderData = {
                 code: order.Code || '',
@@ -1528,39 +1573,8 @@
                 // 1. Build order data + replace placeholders
                 let orderData;
                 if (_needsFullData(templateContent)) {
-                    // Use pre-fetched cache first
-                    let fullOrder = _orderDetailsCache.get(String(order.orderId)) || null;
-                    // Enrich Excel data with Note from OrderStore (for discount info)
-                    if (fullOrder && fullOrder._fromExcel) {
-                        const storeOrder = window.OrderStore?.get(order.orderId);
-                        if (storeOrder?.Details?.length && fullOrder.Details?.length) {
-                            for (const detail of fullOrder.Details) {
-                                const match = storeOrder.Details.find(
-                                    (d) =>
-                                        (d.ProductCode || d.DefaultCode) === detail.ProductCode ||
-                                        (d.ProductNameGet || '').includes(detail.ProductCode)
-                                );
-                                if (match?.Note) detail.Note = match.Note;
-                            }
-                        }
-                    }
-                    if (!fullOrder && window.getOrderDetails) {
-                        fullOrder = await window.getOrderDetails(order.orderId).catch(() => null);
-                    }
-                    if (!fullOrder?.Details?.length) {
-                        const storeOrder = window.OrderStore?.get(order.orderId);
-                        if (storeOrder?.Details?.length) fullOrder = storeOrder;
-                    }
-                    orderData = fullOrder
-                        ? _convertOrderData(fullOrder)
-                        : {
-                              code: order.Code || '',
-                              customerName: order.customerName || '',
-                              phone: order.Phone || '',
-                              address: order.Address || '',
-                              totalAmount: order.AmountTotal || 0,
-                              products: [],
-                          };
+                    // Resolve SP qua nguồn chuẩn + self-heal (dùng chung). Xem _resolveOrderData.
+                    orderData = await _resolveOrderData(order);
                 } else {
                     orderData = {
                         code: order.Code || '',

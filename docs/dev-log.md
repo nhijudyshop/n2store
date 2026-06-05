@@ -25,6 +25,21 @@
 
 ## 2026-06-05
 
+### [orders][chat] Fix: Gửi tin nhắn hàng loạt báo "(Chưa có sản phẩm)" cho đơn nhiều SP ✅
+
+**Bug**: Đơn khách nhiều sản phẩm, khi "Gửi tin nhắn hàng loạt" (template "Chốt đơn" có `{order.details}`) → tin nhắn ra **"(Chưa có sản phẩm)"** dù bảng vẫn hiện đủ SP.
+
+**Nguyên nhân** (trace `orders-report/js/chat/message-template-manager.js`): `_prefetchViaExcel` xuất 1 file Excel TPOS rồi regex tách SP từ cột "Sản phẩm". Đơn nào parse ra **rỗng** vẫn bị `_orderDetailsCache.set(orderId, {Details:[]})`. Sau đó `_processSingleOrder`/`_buildExtensionQueueForAll` chỉ gọi `window.getOrderDetails` (OData `$expand=Details` — nguồn chuẩn mà BẢNG đang tin) khi `!fullOrder`. Cache rỗng làm `fullOrder` truthy → **bỏ qua OData** → fallback OrderStore (list không có Details) → `products:[]` → "(Chưa có sản phẩm)".
+
+**Fix (Cách 1 — giữ Excel + self-heal)**:
+1. **Change1** `_prefetchViaExcel`: `if (!details.length) continue;` — KHÔNG cache đơn parse 0 SP → cache miss → để `getOrderDetails` xử lý.
+2. **Change2** Thêm helper dùng chung `_resolveOrderData(order)` (gộp 2 block lặp y hệt ở `_processSingleOrder` + `_buildExtensionQueueForAll`): đổi điều kiện từ `if (!fullOrder ...)` → `if ((!fullOrder || !fullOrder.Details?.length) ...)` để **luôn refetch OData khi cache không có Details dùng được**, + self-heal 1 lần nữa nếu `_convertOrderData` trả products rỗng.
+3. **Change3** `_convertOrderData`: giữ `.filter(!IsHeld)` (đúng thiết kế — hàng giữ không vào tin nhắn khách), thêm `console.warn` khi có Details nhưng tất cả IsHeld (soi edge-case hiếm).
+
+**Files**: [message-template-manager.js](../orders-report/js/chat/message-template-manager.js) (`_prefetchViaExcel` ~717, `_resolveOrderData` mới ~781, `_processSingleOrder` ~1114, `_buildExtensionQueueForAll` ~1575, `_convertOrderData` ~504). Tái sử dụng `window.getOrderDetails` ([tab1-merge.js:30](../orders-report/js/tab1/tab1-merge.js#L30)).
+
+**Test**: Node logic harness (`_resolveOrderData` + `{order.details}` gate verbatim) — A) cache Excel rỗng (bug) → 5 SP, 1 OData call, hết "(Chưa có sản phẩm)"; B) cache miss → 5 SP; C) cache 1-SP hợp lệ → 1 SP, **0 OData call** (không regression/perf). **3/3 pass** + `node --check` OK.
+
 ### [inbox] KPI đối soát: load đủ khoảng ngày + trừ theo TỔNG MÓN + modal chi tiết ✅
 
 3 cải tiến theo yêu cầu owner (sau khi fix đối soát hoàn 0đ hôm qua):
