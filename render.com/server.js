@@ -740,6 +740,17 @@ const pancakePageTokensRoutes = require('./routes/pancake-page-tokens');
 pancakePageTokensRoutes.init(chatDbPool);
 app.use('/api/pancake-page-tokens', pancakePageTokensRoutes);
 
+// WEB2.0 — Bulk FB message send job (server-side, refresh-safe). Job/items ở
+// web2Db; worker đọc pancake creds từ chatDb (shared). SSE topic web2:bulk-send.
+const web2MsgSendRoutes = require('./routes/web2-msg-send');
+web2MsgSendRoutes
+    .ensureSchema(web2Pool || chatDbPool)
+    .catch((e) => console.warn('[web2-msg-send] schema warn:', e.message));
+app.use('/api/web2-msg-send', web2MsgSendRoutes);
+if (web2MsgSendRoutes.initializeNotifiers) {
+    web2MsgSendRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
+
 // Initialize SSE notifiers in realtime-db routes
 const { initializeNotifiers } = require('./routes/realtime-db');
 initializeNotifiers(realtimeSseRoutes.notifyClients, realtimeSseRoutes.notifyClientsWildcard);
@@ -2383,6 +2394,13 @@ try {
     require('./services/aikol-queue-worker').start();
 } catch (e) {
     console.warn('[server] aikol-queue-worker boot failed:', e.message);
+}
+
+// WEB2.0 — Bulk FB message send worker (Pancake API đa-account + 24h→extension)
+try {
+    require('./services/web2-msg-send-worker').start();
+} catch (e) {
+    console.warn('[server] web2-msg-send-worker boot failed:', e.message);
 }
 
 // Graceful shutdown — close HTTP + WS + DB pool before process exits.

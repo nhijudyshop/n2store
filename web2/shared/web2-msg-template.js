@@ -28,12 +28,24 @@
     const SENT_KEY = 'web2_sent_message_orders';
     const TTL_24H = 24 * 60 * 60 * 1000;
 
+    // Server-side job API (chạy nền ở Render, refresh-safe). Qua CF worker proxy.
+    const WORKER_URL =
+        window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const API_BASE = WORKER_URL + '/api/web2-msg-send';
+
     let _templates = [];
     let _filtered = [];
     let _selectedTemplateId = null;
     let _modalOrders = [];
     let _sentOrders = new Map(); // orderCode → { ts }
-    let _cancelRequested = false;
+
+    // ─── Active server job watch state (độc lập modal — refresh-safe) ──
+    let _activeJobId = null;
+    let _sseUnsub = null;
+    let _pollTimer = null;
+    let _draining = false;
+    let _drainStop = false;
+    let _watching = false;
 
     // ─── Persistence ─────────────────────────────────────────────
     function _loadSent() {
@@ -185,13 +197,24 @@
     // ─── Placeholder fill ─────────────────────────────────────────
     function _fillTemplate(text, order) {
         if (!text) return '';
-        return text
-            .replace(/\{partner\.name\}/g, order.customerName || order.fbUserName || 'bạn')
-            .replace(/\{partner\.address\}/g, order.address || '')
-            .replace(/\{partner\.phone\}/g, order.phone || '')
-            .replace(/\{order\.code\}/g, order.code || '')
-            .replace(/\{order\.total\}/g, _formatVnd(order.total))
-            .replace(/\{order\.details\}/g, order._detailsText || _formatLines(order.lines || []));
+        const total = _formatVnd(order.total);
+        const phone = order.phone || '';
+        return (
+            text
+                .replace(/\{partner\.name\}/g, order.customerName || order.fbUserName || 'bạn')
+                .replace(/\{partner\.address\}/g, order.address || '')
+                // phone: hỗ trợ cả {partner.phone} (cũ) lẫn {order.phone} (UI hint).
+                .replace(/\{partner\.phone\}/g, phone)
+                .replace(/\{order\.phone\}/g, phone)
+                .replace(/\{order\.code\}/g, order.code || '')
+                // total: hỗ trợ cả {order.total} lẫn {order.totalAmount} (UI hint).
+                .replace(/\{order\.total\}/g, total)
+                .replace(/\{order\.totalAmount\}/g, total)
+                .replace(
+                    /\{order\.details\}/g,
+                    order._detailsText || _formatLines(order.lines || [])
+                )
+        );
     }
 
     function _formatVnd(n) {
@@ -314,7 +337,7 @@
                     <label>Tên template</label>
                     <input type="text" id="w2tplEditName" placeholder="Vd: Chốt đơn" />
                     <label style="margin-top:10px;">Nội dung
-                      <span style="font-weight:400;color:#94a3b8;font-size:11px;margin-left:4px;">Hỗ trợ: {partner.name}, {partner.address}, {order.code}, {order.details}, {order.total}</span>
+                      <span style="font-weight:400;color:#94a3b8;font-size:11px;margin-left:4px;">Hỗ trợ: {partner.name}, {partner.address}, {order.phone}, {order.code}, {order.totalAmount}, {order.details}</span>
                     </label>
                     <textarea id="w2tplEditContent" placeholder="Dạ chào chị {partner.name},..."></textarea>
                     <div class="w2tpl-edit-actions">
@@ -330,8 +353,8 @@
         // Wire up
         document.getElementById('w2tplClose').onclick = _closeModal;
         document.getElementById('w2tplCancelBtn').onclick = () => {
-            if (_isSending) {
-                _cancelRequested = true;
+            if (_isSending && _activeJobId) {
+                _cancelActiveJob();
             } else {
                 _closeModal();
             }
@@ -355,10 +378,8 @@
     }
 
     function _closeModal() {
-        if (_isSending) {
-            if (!confirm('Đang gửi — đóng cũng sẽ dừng. Tiếp tục?')) return;
-            _cancelRequested = true;
-        }
+        // Job chạy ở SERVER — đóng modal KHÔNG dừng job (refresh-safe). Pill nổi
+        // vẫn theo dõi tiến độ; muốn dừng hẳn bấm "Dừng job" trên pill.
         document.getElementById('w2MsgTplModal').classList.remove('active');
     }
 
@@ -466,6 +487,9 @@
     // ─── Send loop ────────────────────────────────────────────────
     let _isSending = false;
 
+    // Tạo job server-side: server gửi Pancake API đa-account song song (nhanh,
+    // refresh-safe). Đơn lỗi 24h → server đánh dấu needs_extension → client drain
+    // qua extension (bypass). Xem render.com/routes/web2-msg-send.js + worker.
     async function _handleSend() {
         if (!_selectedTemplateId) {
             _toast('Chọn 1 template trước', 'warning');
@@ -480,96 +504,309 @@
             _toast('Không có đơn nào để gửi', 'warning');
             return;
         }
-        const delay = Math.max(0, parseInt(document.getElementById('w2tplDelay').value) || 1);
-        const concurrency = Math.max(
-            1,
-            Math.min(12, parseInt(document.getElementById('w2tplConcurrency').value) || 6)
-        );
-        const sendBtn = document.getElementById('w2tplSendBtn');
-        const cancelBtn = document.getElementById('w2tplCancelBtn');
-        const progEl = document.getElementById('w2tplProgress');
-        const fillEl = document.getElementById('w2tplProgressFill');
-        const textEl = document.getElementById('w2tplProgressText');
 
-        _isSending = true;
-        _cancelRequested = false;
-        sendBtn.disabled = true;
-        sendBtn.innerHTML =
-            '<i data-lucide="loader-2" style="width:14px;height:14px;animation:spin 1s linear infinite;"></i> Đang gửi...';
-        cancelBtn.textContent = 'Dừng';
-        progEl.classList.add('show');
+        // Fill template per đơn ở client → server chỉ việc gửi text đã sẵn.
+        const items = _modalOrders
+            .map((o) => ({
+                orderCode: o.code || null,
+                pageId: o.fbPageId || '',
+                convId: o.conversationId || '',
+                customerId: o.customerUuid || null,
+                customerName: o.customerName || o.fbUserName || '',
+                fbUserId: o.fbUserId || '',
+                globalId: o._fbGlobalUserId || '',
+                threadId: o.threadId || '',
+                message: _fillTemplate(tpl.Content, o),
+            }))
+            .filter((it) => it.message && it.pageId && it.convId);
 
-        // ─── Multi-worker parallel send engine ───────────────────
-        //
-        // Phân chia đơn theo PAGE (fbPageId): mỗi page có FB session/rate-limit
-        // riêng → có thể gửi cùng lúc các page khác nhau mà không ảnh hưởng.
-        // Trong 1 page, worker pool tối đa N concurrent (config từ UI).
-        //
-        // Pancake API path KHÔNG bị FB rate-limit (Pancake server tự handle),
-        // còn extension REPLY_INBOX_PHOTO post trực tiếp lên business.facebook.com
-        // → rate-limit per FB account. Mặc định 6 song song là an toàn cho 1 KH
-        // gửi từ Business Suite (Pancake V2 ext cũng dùng 3-6 per account).
-        const total = _modalOrders.length;
-        const counters = { sent: 0, failed: 0, errors: [], done: 0 };
-
-        // Group theo page (string key)
-        const byPage = new Map();
-        for (const o of _modalOrders) {
-            const k = String(o.fbPageId || '__noPage__');
-            if (!byPage.has(k)) byPage.set(k, []);
-            byPage.get(k).push(o);
+        if (!items.length) {
+            _toast('Không có đơn hợp lệ (thiếu page/conversation)', 'warning');
+            return;
         }
 
-        const updateProgress = () => {
-            const pct = Math.round((counters.done / total) * 100);
-            fillEl.style.width = pct + '%';
-            textEl.textContent = `${counters.sent}/${total} đã gửi · ${counters.failed} lỗi · ${counters.done - counters.sent - counters.failed} đang chạy`;
-        };
-        updateProgress();
-
-        const handleOne = async (order) => {
-            if (_cancelRequested) return;
-            try {
-                const text = _fillTemplate(tpl.Content, order);
-                await _sendOneOrder(order, text);
-                _markSent(order.code);
-                counters.sent++;
-            } catch (e) {
-                counters.failed++;
-                counters.errors.push({ code: order.code, err: e?.message || String(e) });
-                console.warn('[Web2MsgTemplate] send failed', order.code, e);
-            }
-            counters.done++;
-            updateProgress();
-        };
-
-        // 1 worker pool per page (concurrent limit = N from UI). Pages run in
-        // parallel — each page's queue drained by `concurrency` workers.
-        const pageWorkers = Array.from(byPage.values()).map((pageQueue) =>
-            (async () => {
-                const pool = new Set();
-                for (const order of pageQueue) {
-                    if (_cancelRequested) break;
-                    const task = handleOne(order);
-                    pool.add(task);
-                    task.finally(() => pool.delete(task));
-                    if (pool.size >= concurrency) {
-                        await Promise.race(pool);
-                        // Optional inter-batch delay (only when delay > 0)
-                        if (delay > 0 && !_cancelRequested) await _sleep(delay * 1000);
-                    }
-                }
-                await Promise.allSettled([...pool]);
-            })()
-        );
-
-        await Promise.all(pageWorkers);
-
-        _isSending = false;
-        cancelBtn.textContent = 'Đóng';
+        const sendBtn = document.getElementById('w2tplSendBtn');
+        sendBtn.disabled = true;
         sendBtn.innerHTML =
-            '<i data-lucide="send" style="width:14px;height:14px;"></i> Gửi tin nhắn';
-        sendBtn.disabled = false;
+            '<i data-lucide="loader-2" style="width:14px;height:14px;animation:spin 1s linear infinite;"></i> Đang tạo...';
+        _refreshIcons();
+
+        let createdBy = '';
+        try {
+            const u = window.Web2UserInfo?.get?.();
+            createdBy = u?.name || u?.username || u?.email || '';
+        } catch (_) {
+            /* ignore */
+        }
+
+        try {
+            const r = await fetch(API_BASE + '/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ createdBy, templateName: tpl.Name || '', items }),
+            });
+            const d = await r.json().catch(() => null);
+            if (!r.ok || !d?.success) throw new Error(d?.error || 'HTTP ' + r.status);
+            // Optimistic 24h-skip cho lần mở modal sau.
+            items.forEach((it) => it.orderCode && _markSent(it.orderCode));
+            _toast(`Đã tạo job gửi ${d.total} khách — đang chạy ở server`, 'success');
+            document.getElementById('w2tplProgress').classList.add('show');
+            _startWatch(d.jobId, {
+                total: d.total,
+                sent: 0,
+                failed: 0,
+                needsExt: 0,
+                active: d.total,
+            });
+        } catch (e) {
+            _toast('Tạo job thất bại: ' + (e?.message || e), 'error');
+            sendBtn.disabled = false;
+            sendBtn.innerHTML =
+                '<i data-lucide="send" style="width:14px;height:14px;"></i> Gửi tin nhắn';
+            _refreshIcons();
+        }
+    }
+
+    // ─── Job watch (SSE + poll + extension drain) — độc lập modal ──────
+    function _startWatch(jobId, seed) {
+        if (_watching && _activeJobId === jobId) {
+            if (seed) _onProgress(seed);
+            return;
+        }
+        _activeJobId = jobId;
+        _watching = true;
+        _isSending = true;
+        _drainStop = false;
+        _ensurePill();
+        if (seed) _onProgress(seed);
+
+        // Modal UI (nếu modal đang mở).
+        const sendBtn = document.getElementById('w2tplSendBtn');
+        const cancelBtn = document.getElementById('w2tplCancelBtn');
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.innerHTML =
+                '<i data-lucide="loader-2" style="width:14px;height:14px;animation:spin 1s linear infinite;"></i> Đang gửi ở server...';
+        }
+        if (cancelBtn) cancelBtn.textContent = 'Dừng';
+        _refreshIcons();
+
+        // SSE realtime.
+        if (window.Web2SSE?.subscribe) {
+            try {
+                _sseUnsub = window.Web2SSE.subscribe('web2:bulk-send:' + jobId, (msg) => {
+                    if (msg?.data) _onProgress(msg.data);
+                });
+            } catch (_) {
+                /* ignore */
+            }
+        }
+        // Poll fallback (SSE rớt) + nguồn chân lý cho state 'done'.
+        if (_pollTimer) clearInterval(_pollTimer);
+        _pollTimer = setInterval(() => _pollJob(jobId), 3000);
+        _pollJob(jobId);
+        // Extension drain cho đơn 24h.
+        _drainExtension(jobId);
+    }
+
+    function _stopWatch(finalJob) {
+        _watching = false;
+        _isSending = false;
+        _drainStop = true;
+        if (_pollTimer) {
+            clearInterval(_pollTimer);
+            _pollTimer = null;
+        }
+        if (_sseUnsub) {
+            try {
+                _sseUnsub();
+            } catch (_) {
+                /* */
+            }
+            _sseUnsub = null;
+        }
+        const sendBtn = document.getElementById('w2tplSendBtn');
+        const cancelBtn = document.getElementById('w2tplCancelBtn');
+        if (sendBtn) {
+            sendBtn.disabled = false;
+            sendBtn.innerHTML =
+                '<i data-lucide="send" style="width:14px;height:14px;"></i> Gửi tin nhắn';
+        }
+        if (cancelBtn) cancelBtn.textContent = 'Đóng';
+        _refreshIcons();
+        if (finalJob) {
+            const msg = `Hoàn thành. Gửi: ${finalJob.sent || 0}${finalJob.failed ? ' · Lỗi: ' + finalJob.failed : ''}`;
+            _toast(msg, finalJob.failed ? 'warning' : 'success');
+            _updatePill(finalJob, true);
+            setTimeout(_hidePill, 6000);
+        } else {
+            _hidePill();
+        }
+    }
+
+    async function _pollJob(jobId) {
+        try {
+            const r = await fetch(API_BASE + '/' + jobId);
+            const d = await r.json().catch(() => null);
+            if (d?.success && d.job) {
+                _onProgress(d.job);
+                if (d.job.state === 'done') _stopWatch(d.job);
+            }
+        } catch (_) {
+            /* ignore */
+        }
+    }
+
+    function _onProgress(p) {
+        // Modal progress bar (nếu mở).
+        const fillEl = document.getElementById('w2tplProgressFill');
+        const textEl = document.getElementById('w2tplProgressText');
+        const total =
+            p.total != null
+                ? p.total
+                : (p.sent || 0) + (p.failed || 0) + (p.needsExt || 0) + (p.active || 0);
+        const done = (p.sent || 0) + (p.failed || 0);
+        const pct = total ? Math.round((done / total) * 100) : 0;
+        const parts = [`${p.sent || 0}/${total} đã gửi`];
+        if (p.failed) parts.push(`${p.failed} lỗi`);
+        if (p.needsExt) parts.push(`${p.needsExt} chờ extension`);
+        if (p.active) parts.push(`${p.active} đang chạy`);
+        const txt = parts.join(' · ');
+        if (fillEl) fillEl.style.width = pct + '%';
+        if (textEl) textEl.textContent = txt;
+        _updatePill({ ...p, total, pct, txt }, false);
+    }
+
+    async function _fetchJob(jobId) {
+        try {
+            const r = await fetch(API_BASE + '/' + jobId);
+            const d = await r.json().catch(() => null);
+            return d?.success ? d.job : null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    // ─── Extension drain: đơn lỗi-24h → gửi qua extension (bypass) ─────
+    async function _drainExtension(jobId) {
+        if (_draining) return;
+        _draining = true;
+        const reqFn = window.NativeOrdersApp?._extensionRequest || window._w2ExtensionRequest;
+        try {
+            while (!_drainStop) {
+                let items = [];
+                try {
+                    const r = await fetch(API_BASE + '/' + jobId + '/extension-items?limit=10');
+                    const d = await r.json().catch(() => null);
+                    items = d?.items || [];
+                } catch (_) {
+                    items = [];
+                }
+                if (!items.length) {
+                    const st = await _fetchJob(jobId);
+                    if (!st || (st.active === 0 && st.needsExt === 0)) break;
+                    await _sleep(1500);
+                    continue;
+                }
+                if (!reqFn) {
+                    _toast(
+                        `${items.length}+ đơn quá 24h cần extension — mở tab có extension để tiếp tục`,
+                        'warning'
+                    );
+                    break; // tab này không có extension → để nguyên needs_extension
+                }
+                // Đa nhiệm theo KH (1 phiên FB) — pool nhỏ tránh spam rate-limit FB.
+                const conc = Math.max(
+                    1,
+                    Math.min(6, parseInt(document.getElementById('w2tplConcurrency')?.value) || 3)
+                );
+                for (let i = 0; i < items.length; i += conc) {
+                    if (_drainStop) break;
+                    await Promise.all(
+                        items
+                            .slice(i, i + conc)
+                            .map((it) => _sendItemViaExtension(jobId, it, reqFn))
+                    );
+                }
+                await _sleep(300);
+            }
+        } finally {
+            _draining = false;
+        }
+    }
+
+    async function _sendItemViaExtension(jobId, item, reqFn) {
+        // Claim chống double-send (server flip needs_extension → ext_inflight).
+        try {
+            const cr = await fetch(API_BASE + '/' + jobId + '/items/' + item.id + '/claim-ext', {
+                method: 'POST',
+            });
+            const cd = await cr.json().catch(() => null);
+            if (!cd?.claimed) return;
+        } catch (_) {
+            return;
+        }
+        let ok = false;
+        let err = null;
+        try {
+            await _extSendOne(item, reqFn);
+            ok = true;
+        } catch (e) {
+            err = e?.message || String(e);
+        }
+        try {
+            await fetch(API_BASE + '/' + jobId + '/items/' + item.id + '/result', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ok, via: 'extension', error: err }),
+            });
+        } catch (_) {
+            /* ignore */
+        }
+    }
+
+    // Gửi 1 item qua extension. Resolve global_id nếu thiếu (PSID ≠ global id).
+    async function _extSendOne(item, reqFn) {
+        let globalUserId = item.global_id || '';
+        if (!globalUserId && window.Web2Chat?.fetchMessages && item.page_id && item.conv_id) {
+            try {
+                const msgRes = await window.Web2Chat.fetchMessages(
+                    item.page_id,
+                    item.conv_id,
+                    item.customer_id || null
+                );
+                if (msgRes?.ok) {
+                    const cust =
+                        msgRes.customers?.find?.(
+                            (c) => c?.fb_id === item.fb_user_id || c?.global_id
+                        ) || msgRes.customers?.[0];
+                    const gid =
+                        cust?.global_id || msgRes.conversation?.page_customer?.global_id || null;
+                    if (gid) globalUserId = String(gid);
+                }
+            } catch (_) {
+                /* fall through */
+            }
+        }
+        const r = await reqFn(
+            'REPLY_INBOX_PHOTO',
+            {
+                pageId: item.page_id,
+                globalUserId: globalUserId || item.fb_user_id,
+                threadId: item.thread_id || '',
+                convId: item.thread_id ? 't_' + item.thread_id : item.conv_id || '',
+                customerName: item.customer_name || '',
+                message: item.message,
+                attachmentType: 'SEND_TEXT_ONLY',
+                platform: 'facebook',
+                isBusiness: true,
+            },
+            30000
+        );
+        if (!r?.ok) throw new Error(r?.error || r?.reason || 'extension fail');
+    }
+
+    function _refreshIcons() {
         if (window.lucide?.createIcons) {
             try {
                 window.lucide.createIcons();
@@ -577,84 +814,93 @@
                 /* */
             }
         }
-        const summary = _cancelRequested
-            ? `Đã dừng. Gửi: ${counters.sent} · Lỗi: ${counters.failed}`
-            : `Hoàn thành. Gửi: ${counters.sent} · Lỗi: ${counters.failed} · ${byPage.size} page × ${concurrency} worker`;
-        _toast(summary, counters.failed === 0 && !_cancelRequested ? 'success' : 'warning');
-        if (counters.errors.length) console.warn('[Web2MsgTemplate] errors:', counters.errors);
     }
 
-    async function _sendOneOrder(order, text) {
-        // ROUTE 1: extension bypass-24h (resolve global_id via Pancake API first)
-        if (window.Web2Chat && order.fbPageId && order.conversationId) {
-            try {
-                // Pre-fetch global_id via Pancake messages endpoint (same as native-orders)
-                let globalUserId = order._fbGlobalUserId;
-                if (!globalUserId) {
-                    try {
-                        const msgRes = await window.Web2Chat.fetchMessages(
-                            order.fbPageId,
-                            order.conversationId,
-                            order.customerUuid || null
-                        );
-                        if (msgRes?.ok) {
-                            const cust =
-                                msgRes.customers?.find?.(
-                                    (c) => c?.fb_id === order.fbUserId || c?.global_id
-                                ) || msgRes.customers?.[0];
-                            const gid =
-                                cust?.global_id ||
-                                msgRes.conversation?.page_customer?.global_id ||
-                                null;
-                            if (gid && String(gid) !== String(order.fbUserId)) {
-                                globalUserId = String(gid);
-                                order._fbGlobalUserId = globalUserId;
-                            }
-                        }
-                    } catch (_) {
-                        /* fall through */
-                    }
-                }
+    // ─── Floating pill: hiện job đang chạy ở server (refresh vẫn thấy) ─
+    function _ensurePill() {
+        if (document.getElementById('w2tplPill')) return;
+        const style = document.createElement('style');
+        style.textContent = `
+            #w2tplPill{position:fixed;right:18px;bottom:18px;z-index:9998;background:#fff;border:1px solid #e2e8f0;border-left:4px solid #7c3aed;border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.18);padding:11px 14px;min-width:230px;max-width:320px;font-size:12.5px;color:#0f172a;display:none;}
+            #w2tplPill.show{display:block;}
+            #w2tplPill .w2pill-top{display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:7px;}
+            #w2tplPill .w2pill-top .w2pill-x{margin-left:auto;cursor:pointer;color:#94a3b8;font-weight:400;font-size:13px;}
+            #w2tplPill .w2pill-bar{height:6px;background:#f1f5f9;border-radius:999px;overflow:hidden;margin-bottom:6px;}
+            #w2tplPill .w2pill-fill{height:100%;background:linear-gradient(90deg,#7c3aed,#a855f7);width:0;transition:width .3s;}
+            #w2tplPill .w2pill-txt{color:#475569;}
+            #w2tplPill .w2pill-stop{margin-top:7px;cursor:pointer;color:#dc2626;font-weight:600;font-size:11.5px;}
+        `;
+        document.head.appendChild(style);
+        const el = document.createElement('div');
+        el.id = 'w2tplPill';
+        el.innerHTML = `
+            <div class="w2pill-top"><i data-lucide="send" style="width:14px;height:14px;color:#7c3aed;"></i><span>Đang gửi tin nhắn</span><span class="w2pill-x" id="w2pillX">×</span></div>
+            <div class="w2pill-bar"><div class="w2pill-fill" id="w2pillFill"></div></div>
+            <div class="w2pill-txt" id="w2pillTxt">…</div>
+            <div class="w2pill-stop" id="w2pillStop">Dừng job</div>
+        `;
+        document.body.appendChild(el);
+        document.getElementById('w2pillX').onclick = _hidePill; // chỉ ẩn pill, job vẫn chạy
+        document.getElementById('w2pillStop').onclick = _cancelActiveJob;
+        _refreshIcons();
+    }
 
-                // Try extension if available
-                if (window.NativeOrdersApp?._extensionRequest || window._w2ExtensionRequest) {
-                    const reqFn =
-                        window.NativeOrdersApp?._extensionRequest || window._w2ExtensionRequest;
-                    const r = await reqFn(
-                        'REPLY_INBOX_PHOTO',
-                        {
-                            pageId: order.fbPageId,
-                            globalUserId: globalUserId || order.fbUserId,
-                            threadId: order.threadId || '',
-                            convId: order.threadId
-                                ? 't_' + order.threadId
-                                : order.conversationId || '',
-                            customerName: order.customerName || '',
-                            message: text,
-                            attachmentType: 'SEND_TEXT_ONLY',
-                            platform: 'facebook',
-                            isBusiness: true,
-                        },
-                        30000
-                    );
-                    if (r?.ok) return;
-                    // else fall through to Pancake API fallback
-                }
-            } catch (_) {
-                /* fall through */
-            }
+    function _updatePill(p, done) {
+        _ensurePill();
+        const pill = document.getElementById('w2tplPill');
+        const fill = document.getElementById('w2pillFill');
+        const txt = document.getElementById('w2pillTxt');
+        if (!pill) return;
+        pill.classList.add('show');
+        const total =
+            p.total != null
+                ? p.total
+                : (p.sent || 0) + (p.failed || 0) + (p.needsExt || 0) + (p.active || 0);
+        const pct =
+            p.pct != null
+                ? p.pct
+                : total
+                  ? Math.round((((p.sent || 0) + (p.failed || 0)) / total) * 100)
+                  : 0;
+        if (fill) fill.style.width = pct + '%';
+        if (txt)
+            txt.textContent =
+                p.txt ||
+                `${p.sent || 0}/${total} đã gửi${p.failed ? ' · ' + p.failed + ' lỗi' : ''}${p.needsExt ? ' · ' + p.needsExt + ' chờ ext' : ''}`;
+        const stop = document.getElementById('w2pillStop');
+        if (stop) stop.style.display = done ? 'none' : 'block';
+    }
+
+    function _hidePill() {
+        const pill = document.getElementById('w2tplPill');
+        if (pill) pill.classList.remove('show');
+    }
+
+    async function _cancelActiveJob() {
+        if (!_activeJobId) return;
+        if (!confirm('Dừng job? Các đơn chưa gửi sẽ bị huỷ (đơn đã gửi vẫn giữ).')) return;
+        try {
+            await fetch(API_BASE + '/' + _activeJobId + '/cancel', { method: 'POST' });
+        } catch (_) {
+            /* ignore */
         }
-        // ROUTE 2: Pancake API (subject to 24h policy)
-        if (!window.Web2Chat) throw new Error('Không có kênh gửi');
-        const convId = order.conversationId;
-        if (!convId) throw new Error('Thiếu conversationId');
-        const r = await window.Web2Chat.sendMessage(order.fbPageId, convId, {
-            text,
-            action: 'reply_inbox',
-            customerId: order.customerUuid || null,
-        });
-        if (!r?.ok) {
-            throw new Error(r?.reason || 'Pancake API fail');
+        const job = await _fetchJob(_activeJobId);
+        _stopWatch(job || { sent: 0, failed: 0 });
+    }
+
+    // Reattach job đang chạy khi mở modal / load trang (refresh-safe).
+    async function _maybeReattachActive() {
+        if (_watching) return;
+        try {
+            const r = await fetch(API_BASE + '/active');
+            const d = await r.json().catch(() => null);
+            const job = d?.success ? d.job : null;
+            if (job && (job.state === 'running' || job.state === 'awaiting_extension')) {
+                document.getElementById('w2tplProgress')?.classList.add('show');
+                _startWatch(job.id, job);
+            }
+        } catch (_) {
+            /* ignore */
         }
     }
 
@@ -702,6 +948,8 @@
         await _loadTemplates();
         _filtered = [..._templates];
         _renderCards();
+        // Nếu đã có job đang chạy (vừa tạo / sau refresh) → bám lại progress.
+        _maybeReattachActive();
     }
 
     window.Web2MsgTemplate = { open };
@@ -713,4 +961,14 @@
         s.textContent = '@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}';
         document.head.appendChild(s);
     }
+
+    // Boot: sau refresh, nếu còn job đang chạy ở server → tự bám lại (hiện pill
+    // tiến độ) + tiếp tục drain đơn 24h qua extension. Không cần mở modal.
+    setTimeout(() => {
+        try {
+            _maybeReattachActive();
+        } catch (_) {
+            /* ignore */
+        }
+    }, 2500);
 })();

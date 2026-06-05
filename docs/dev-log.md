@@ -39,6 +39,25 @@
 
 Files: `render.com/{server.js,routes/social-kpi-verify.js}`, `don-inbox/js/tab-social-kpi-reconcile.js`, `don-inbox/index.html`.
 
+### [render][native-orders] Gửi tin nhắn template — JOB SERVER-SIDE đa-account + extension fallback (refresh-safe) ✅
+
+User (native-orders): nút "Gửi tin nhắn" → template (đã có) → gửi bằng **tất cả account Pancake song song, chạy nền ở server, refresh không mất, hiện progress**. Lỗi 24h → fallback extension. Nghiên cứu: thay account Pancake cho extension bypass được không?
+
+**Kết quả nghiên cứu (quan trọng):** Extension bypass 24h = dùng **session FB trình duyệt** (cookie `c_user`/`xs` + `fb_dtsg`) POST `business.facebook.com/messaging/send/`, gửi AS page — KHÔNG phải qua account Pancake. → **Không thể thay account Pancake để bypass 24h server-side**; Pancake API (pages.fm) bị enforce 24h (`e_code 10/e_subcode 2018278`). Chốt: **hybrid** — server lo Pancake API đa-account; đơn 24h → extension drain ở tab mở (1 phiên FB, đa nhiệm theo KH).
+
+**Mới:**
+
+- `render.com/routes/web2-msg-send.js` — route `/api/web2-msg-send` + `ensureSchema` (web2Db: `web2_msg_send_jobs` + `web2_msg_send_items`). POST tạo job, GET `/active` (reattach sau refresh), `/:id`, `/:id/extension-items`, claim-ext, result, cancel. SSE topic `web2:bulk-send:<jobId>` + `web2:bulk-send`.
+- `render.com/services/web2-msg-send-worker.js` — worker nền (copy aikol-queue-worker): claim `FOR UPDATE SKIP LOCKED`, gửi Pancake API, **account rotation** (mint PAT từ từng account quản page khi token/permission lỗi), lỗi 24h → `needs_extension`. Job/items ở web2Db; pancake creds ở chatDb (cross-pool, đã research). Concurrency env `WEB2_MSG_WORKER_CONCURRENCY=8`.
+- `render.com/server.js` — mount route + `initializeNotifiers(web2RealtimeSse)` + `ensureSchema` + `.start()` worker.
+
+**Sửa:**
+
+- `web2/shared/web2-msg-template.js` — thay vòng lặp gửi client bằng: POST job → SSE progress + poll fallback → **pill nổi refresh-safe** (boot tự bám lại job đang chạy, tiếp tục drain) → **extension drainer** (claim chống double-send → `REPLY_INBOX_PHOTO` → report result). Placeholder thêm alias `{order.phone}`, `{order.totalAmount}`. Đóng modal KHÔNG dừng job (chạy server). Hint cập nhật.
+- `native-orders/index.html` — bump `web2-msg-template.js?v=20260605srv1`.
+
+**Verify:** local smoke native-orders OK (`Web2MsgTemplate` load, modal mở, orderCount đúng, hint có `order.totalAmount`, 0 console error). E2E gửi thật + extension drain phải test trên **Chrome thật của user** (Playwright harness không có extension; khách test Huỳnh Thành Đạt >24h → Pancake fail → extension). Server cần deploy Render mới live.
+
 ### [web2 products] Tem mã SP in gần đầy con tem (25×21mm) cho đẹp ✅
 
 User: trang products → mã SP in ra cho gần đầy kích cỡ giấy tem cho đẹp.
