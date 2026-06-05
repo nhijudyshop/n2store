@@ -25,6 +25,18 @@
 
 ## 2026-06-05
 
+### [inbox] KPI verify: auto-sync localStorage → Render (không mất khi đổi máy/ẩn danh) ✅
+
+User: Incognito không thấy đơn đã kiểm + lịch sử → vì backend `/api/social-kpi-verify` **chưa deploy Render** nên đang lưu localStorage (riêng từng browser). Cần lưu trên Render để chia sẻ + không mất.
+
+- Thêm field `synced`; `markVerified` POST Render → `synced=true`, lỗi/404 → `synced=false` (giữ local).
+- `_flushPending()`: lần `loadVerifications` kế (sau khi backend có) tự **đẩy mọi mark `synced=false` lên Render** → đơn đã đánh dấu lúc chưa deploy KHÔNG mất.
+- `loadVerifications`: flush trước → GET Render (nguồn chính) → merge local-chưa-sync → `_recomputeCurrent()`.
+
+→ **Sau khi deploy Render**: reload trang → mark local tự sync lên Render → hiện ở MỌI máy/ẩn danh. Bump `?v=20260605d`. Test 5/5.
+
+**⚠ CẦN: deploy/redeploy Render** (route `social-kpi-verify.js` + bảng đã có trong repo). Verify: `curl https://chatomni-proxy.nhijudyshop.workers.dev/api/social-kpi-verify/load` → `{"success":true}`.
+
 ### [web2 pancake-settings] Quản lý nhiều tài khoản Pancake (DB-backed) ✅
 
 User: hiện tất cả account Pancake để quản lý, cho thêm/xoá, lưu ở DB. Kiểm tra firebase/render web2 đã quản lý account chưa.

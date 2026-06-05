@@ -200,6 +200,52 @@
             );
         } catch (_) {}
     }
+    // Tính trạng thái hiện tại mỗi đơn = action MỚI NHẤT (verifiedAt lớn nhất).
+    function _recomputeCurrent() {
+        const m = new Map();
+        const sorted = [...verify.history].sort((a, b) => (b.verifiedAt || 0) - (a.verifiedAt || 0));
+        for (const h of sorted) {
+            if (m.has(h.orderId)) continue;
+            m.set(h.orderId, {
+                checked: h.action === 'check',
+                verifiedBy: h.verifiedBy,
+                verifiedByName: h.verifiedByName,
+                verifiedAt: h.verifiedAt,
+            });
+        }
+        verify.current = m;
+    }
+    async function _postMark(entry) {
+        const resp = await fetch(`${_verifyApi()}/mark`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(entry),
+        });
+        if (resp.status === 404) {
+            verify.backendDown = true;
+            return false;
+        }
+        return resp.ok;
+    }
+    // Đẩy các mark còn synced=false (đánh dấu lúc backend chưa deploy) lên Render → KHÔNG mất.
+    async function _flushPending() {
+        if (verify.backendDown) return 0;
+        let n = 0;
+        for (const h of verify.history) {
+            if (h.synced !== false) continue;
+            try {
+                if (await _postMark(h)) {
+                    h.synced = true;
+                    n++;
+                } else break; // backendDown
+            } catch (e) {
+                verify.backendDown = true;
+                break;
+            }
+        }
+        if (n) _saveVerifyLocal();
+        return n;
+    }
     async function loadVerifications() {
         _loadVerifyLocal(); // offline-first
         if (verify.backendDown) {
@@ -207,17 +253,22 @@
             return verify; // backend chưa deploy → dùng localStorage, không gọi lại
         }
         try {
+            const flushed = await _flushPending(); // sync mark local chưa đẩy lên Render TRƯỚC
+            if (flushed) console.info(`[SOCIAL-KPI] Đã đồng bộ ${flushed} đánh dấu local → Render.`);
             const resp = await fetch(`${_verifyApi()}/load`);
             if (resp.ok) {
                 const d = await resp.json();
                 if (d.success) {
-                    verify.history = d.history || [];
-                    verify.current = new Map(Object.entries(d.current || {}));
+                    // Render = nguồn chính (synced=true); giữ thêm mark local còn chưa sync (nếu có).
+                    const serverHist = (d.history || []).map((h) => ({ ...h, synced: true }));
+                    const localUnsynced = verify.history.filter((h) => h.synced === false);
+                    verify.history = [...localUnsynced, ...serverHist].sort((a, b) => (b.verifiedAt || 0) - (a.verifiedAt || 0));
+                    _recomputeCurrent();
                     _saveVerifyLocal();
                 }
             } else if (resp.status === 404) {
                 verify.backendDown = true;
-                console.info('[SOCIAL-KPI] Backend kiểm-tra chưa deploy (404) → dùng localStorage tạm.');
+                console.info('[SOCIAL-KPI] Backend kiểm-tra chưa deploy (404) → dùng localStorage tạm (sẽ tự sync khi deploy).');
             }
         } catch (e) {
             verify.backendDown = true;
@@ -240,21 +291,20 @@
             verifiedBy: u.id,
             verifiedByName: u.name,
             verifiedAt: Date.now(),
+            synced: false, // chưa lên Render
         };
         verify.current.set(entry.orderId, { checked, verifiedBy: u.id, verifiedByName: u.name, verifiedAt: entry.verifiedAt });
         verify.history.unshift(entry);
         _saveVerifyLocal();
         if (!verify.backendDown) {
             try {
-                const resp = await fetch(`${_verifyApi()}/mark`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(entry),
-                });
-                if (resp.status === 404) verify.backendDown = true;
+                if (await _postMark(entry)) {
+                    entry.synced = true; // đã lưu trên Render
+                    _saveVerifyLocal();
+                }
             } catch (e) {
                 verify.backendDown = true;
-                console.warn('[SOCIAL-KPI] verify mark (chỉ lưu local):', e.message);
+                console.warn('[SOCIAL-KPI] verify mark (chỉ lưu local, sẽ sync khi deploy):', e.message);
             }
         }
         return entry;
