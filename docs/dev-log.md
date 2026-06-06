@@ -25,6 +25,18 @@
 
 ## 2026-06-06
 
+### [web2/partner-customer] Bỏ cột "Nợ hiện tại" ✅
+
+**User:** bỏ cột nợ ở trang Khách hàng Web 2.0 (số dư ví đã hiện qua pill cạnh SĐT rồi).
+
+**Files:** `web2/partner-customer/{index.html, js/partner-customer-app.js, css/partner-customer.css}`
+
+- Bỏ `<th class="pc-col-credit">Nợ hiện tại</th>` + `<td class="pc-col-credit">` + toggle checkbox `data-col="credit"` + CSS `.pc-col-credit` + biến `credit`.
+- Bỏ luôn cột "Nợ hiện tại" trong export Excel (header + data `Number(p.Credit)` + `!cols` width + number-format loop c:7).
+- Số dư ví Web 2.0 vẫn hiện qua `pc-wallet-pill` (`data-w2wallet-phone`) cạnh SĐT.
+
+**Verify localhost:** headers còn `Tên/ĐT/Email/Địa chỉ/Nhãn/Hiệu lực`, 0 credit cell, 49 pill ví hiện. ✅
+
 ### [tpos-pancake] Comment row: bỏ "Nợ TPOS" → hiện số dư ví Web 2.0 ✅
 
 **User:** "Nợ 2.000.000đ" trên row comment là nợ TPOS (`sharedDebtManager.getDebt`) → đổi thành **số dư ví Web 2.0** của khách.
