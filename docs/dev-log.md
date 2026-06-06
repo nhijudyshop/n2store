@@ -25,6 +25,33 @@
 
 ## 2026-06-06
 
+### [render][web2] 🔴 FIX CRITICAL: cộng ví Web 2.0 fail toàn bộ + CK tự động hoàn toàn ✅
+
+**Triệu chứng (user):** "Nguyễn Tâm gửi đã ck → stuck 'Đang xử lý' và chưa gửi tin nhắn lại → tự động hoàn toàn phần này." GD SePay 2.222đ (id=155028) badge "Đang xử lý" (debt_added=false), signal id=2 confirmed nhưng phone=None/matchedTx=None.
+
+**Root cause (NGHIÊM TRỌNG):** Approve thử trên prod báo `column "performed_by" of relation "web2_wallet_transactions" does not exist`. → Từ khi deploy audit `performed_by`, `web2-wallet-isolation.ensureSchema` **abort giữa chừng**: bước 4 (DO block `SELECT MAX(id) FROM customer_wallets/wallet_transactions/...`) + bước 5 (`DROP TRIGGER ON <legacy>`) tham chiếu bảng **legacy KHÔNG tồn tại trên web2Db** (đã tách DB 2026-06-03) → throw → outer try (line 211) nuốt → **ALTER `performed_by` (đặt cuối) KHÔNG bao giờ chạy**. processDeposit/processWithdraw INSERT `performed_by` → fail → **MỌI lần cộng/trừ ví Web 2.0 fail** (SePay auto-credit, CK approve, nạp tay) → ví kẹt, GD kẹt "Đang xử lý". Self-reinforcing: ví rỗng → c.w=0 → backfill `FROM customer_wallets` lại throw.
+
+**Fix (`web2-wallet-isolation.js`):**
+
+- **ALTER `performed_by` chuyển lên SỚM** (bước 3b, ngay sau CREATE) + try riêng → cột LUÔN tồn tại bất kể bước legacy lỗi.
+- Bước 4 setval-from-legacy: bọc JS try/catch (guard to_regclass parse-time không đủ — plpgsql parse `FROM customer_wallets` vẫn fail → try/catch JS là lá chắn thật). ALTER COLUMN default tách riêng (không ref legacy → luôn chạy).
+- Bước 5 DROP TRIGGER: bọc `IF to_regclass(...) IS NOT NULL` (utility command trong IF không execute khi guard NULL).
+- Bước 6 backfill: guard `c.lw/lt/la` (to_regclass) + bọc try; transactions backfill dùng explicit columns (tránh mismatch `performed_by`).
+- Test `scripts/_tmp` (DB không legacy): 4/4 — performed_by thêm, anti-dup index tạo, ensureSchema chạy tới hết.
+
+### [render][web2] CK watcher TỰ ĐỘNG HOÀN TOÀN — xét pending + resolve SĐT/partner từ GD ✅
+
+**`web2-ck-watcher.js` (rewrite):** Trước chỉ match signal `status='confirmed'` → "đã ck" (pending) không bao giờ tự link/reply, phải duyệt tay. Giờ:
+
+- Xét CẢ `status IN ('pending','confirmed')` + `matched_tx_id IS NULL` 72h → khớp CHẮC thì **auto-confirm (pending→confirmed) + cộng ví + gửi reply**, không cần staff.
+- Resolve danh tính GD từ **QR registry** (`web2_payment_qr_codes` qua nội dung) → phone + customer_id + tên, kể cả GD đang ambiguous (PENDING) cũng giải quyết được (cộng cho đúng SĐT resolve).
+- 4 mức khớp ưu tiên: **phoneHit** > **partnerHit** (customer_id=partner_id TPOS) > **nameHit** (tên duy nhất) > **amountHit** (đúng tiền ≤24h, duy nhất). Trùng/xung đột → notify staff (KHÔNG tự cộng).
+- SĐT cộng ví = `sig.phone || SĐT resolve từ GD`. linkTransaction idempotent (debt_added) → không cộng 2 lần.
+
+**`web2-payment-signal-detector.js`:** thêm cột `customer_id BIGINT` (= web2_customers.id = TPOS Partner Id) + `_resolveCustomer()` lấy CẢ phone+customerId (partner_id có cả khi phone trống → partnerHit). Store customer_id khi tạo signal.
+
+**Test:** `scripts/test-ck-watcher-auto.js` 16/16 (pending auto-confirm, partnerHit resolve SĐT từ QR, nameHit duy nhất, tên trùng→notify, confirmed giữ behavior, conflict no-op, idempotent). `test-ck-features.js` 10/10 (thêm cột performed_by vào bảng test).
+
 ### [render][web2] Đối soát đóng gói — modal lịch sử toàn bộ + filter đối chiếu camera ✅
 
 **Yêu cầu (user):** "lịch sử cho tìm kiếm, filter chi tiết để có thể tìm nếu cần, chủ yếu là filter ra tích tay thời gian nào để đối chiếu camera."

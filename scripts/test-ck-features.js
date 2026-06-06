@@ -58,7 +58,7 @@ async function main() {
             `CREATE TABLE web2_customer_wallets (id SERIAL PRIMARY KEY, phone VARCHAR(20) UNIQUE, customer_id INTEGER, balance NUMERIC(14,2) DEFAULT 0, virtual_balance NUMERIC(14,2) DEFAULT 0, total_deposited NUMERIC(14,2) DEFAULT 0, total_withdrawn NUMERIC(14,2) DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW())`
         );
         await db.query(
-            `CREATE TABLE web2_wallet_transactions (id SERIAL PRIMARY KEY, phone VARCHAR(20), customer_id INTEGER, type TEXT, amount NUMERIC(14,2), balance_before NUMERIC(14,2), balance_after NUMERIC(14,2), virtual_balance_before NUMERIC(14,2), virtual_balance_after NUMERIC(14,2), source TEXT, reference_type TEXT, reference_id TEXT, note TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`
+            `CREATE TABLE web2_wallet_transactions (id SERIAL PRIMARY KEY, phone VARCHAR(20), customer_id INTEGER, type TEXT, amount NUMERIC(14,2), balance_before NUMERIC(14,2), balance_after NUMERIC(14,2), virtual_balance_before NUMERIC(14,2), virtual_balance_after NUMERIC(14,2), source TEXT, reference_type TEXT, reference_id TEXT, note TEXT, performed_by TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`
         );
         await db.query(
             `CREATE TABLE web2_balance_history (id SERIAL PRIMARY KEY, sepay_id BIGINT, transfer_amount BIGINT, transfer_type TEXT, debt_added BOOLEAN DEFAULT FALSE, wallet_processed BOOLEAN DEFAULT FALSE, linked_customer_phone VARCHAR(20), display_name TEXT, match_method TEXT, verification_status TEXT, verified_at TIMESTAMPTZ, verified_by TEXT, content TEXT, description TEXT, transaction_date TIMESTAMPTZ DEFAULT NOW())`

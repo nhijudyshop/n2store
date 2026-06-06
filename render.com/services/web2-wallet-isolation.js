@@ -59,6 +59,28 @@ async function ensureSchema(pool) {
         `);
 
         // ============================================================
+        // 3b. AUDIT: cột performed_by — ghi STAFF/ hệ thống thao tác ví.
+        //     ⚠ ĐẶT SỚM (ngay sau CREATE) + try riêng. Các bước 4/6 bên dưới
+        //     tham chiếu bảng LEGACY (customer_wallets/wallet_transactions/
+        //     wallet_adjustments) — sau tách DB 2026-06-03 các bảng này KHÔNG
+        //     tồn tại trên web2Db → throw → abort ensureSchema TRƯỚC khi tới
+        //     ALTER này (regression: processDeposit ghi performed_by mà cột chưa
+        //     có → MỌI lần cộng ví Web 2.0 fail → ví kẹt "Đang xử lý"). Tách ra
+        //     SỚM + độc lập để cột LUÔN tồn tại bất kể bước legacy lỗi.
+        //     Idempotent (ADD COLUMN IF NOT EXISTS).
+        // ============================================================
+        try {
+            await pool.query(
+                `ALTER TABLE web2_wallet_transactions ADD COLUMN IF NOT EXISTS performed_by TEXT;`
+            );
+            await pool.query(
+                `ALTER TABLE web2_wallet_adjustments ADD COLUMN IF NOT EXISTS performed_by TEXT;`
+            );
+        } catch (e) {
+            console.error('[web2-wallet-isolation] performed_by ALTER failed:', e.message);
+        }
+
+        // ============================================================
         // 4. Đảm bảo có SEQUENCE riêng cho Web 2.0 (id auto-increment).
         //    LIKE customer_wallets clone DEFAULT nextval của legacy sequence
         //    → Web 2.0 insert sẽ ăn id từ legacy sequence (xung đột với
@@ -70,32 +92,42 @@ async function ensureSchema(pool) {
             CREATE SEQUENCE IF NOT EXISTS web2_wallet_adjustments_id_seq;
         `);
 
-        // Initial value = max(legacy.id, web2.id) + 10000 để tránh conflict id range
-        // với data backfill từ legacy.
+        // Initial value = max(legacy.id, web2.id) + 10000 để tránh conflict id range.
+        // ⚠ to_regclass-guard: legacy table có thể KHÔNG tồn tại trên web2Db (đã
+        //   tách DB) → nếu ref trực tiếp sẽ throw, abort cả ensureSchema. Bọc try
+        //   + chỉ đọc MAX(id) legacy khi bảng tồn tại.
+        try {
+            await pool.query(`
+                DO $$
+                DECLARE
+                    max_id BIGINT;
+                    legacy_max BIGINT;
+                BEGIN
+                    legacy_max := CASE WHEN to_regclass('public.customer_wallets') IS NOT NULL
+                        THEN (SELECT COALESCE(MAX(id),0) FROM customer_wallets) ELSE 0 END;
+                    SELECT GREATEST(legacy_max,
+                        COALESCE((SELECT MAX(id) FROM web2_customer_wallets), 0)) + 10000 INTO max_id;
+                    PERFORM setval('web2_customer_wallets_id_seq', max_id, false);
+
+                    legacy_max := CASE WHEN to_regclass('public.wallet_transactions') IS NOT NULL
+                        THEN (SELECT COALESCE(MAX(id),0) FROM wallet_transactions) ELSE 0 END;
+                    SELECT GREATEST(legacy_max,
+                        COALESCE((SELECT MAX(id) FROM web2_wallet_transactions), 0)) + 10000 INTO max_id;
+                    PERFORM setval('web2_wallet_transactions_id_seq', max_id, false);
+
+                    legacy_max := CASE WHEN to_regclass('public.wallet_adjustments') IS NOT NULL
+                        THEN (SELECT COALESCE(MAX(id),0) FROM wallet_adjustments) ELSE 0 END;
+                    SELECT GREATEST(legacy_max,
+                        COALESCE((SELECT MAX(id) FROM web2_wallet_adjustments), 0)) + 10000 INTO max_id;
+                    PERFORM setval('web2_wallet_adjustments_id_seq', max_id, false);
+                END $$;
+            `);
+        } catch (e) {
+            console.warn('[web2-wallet-isolation] setval-from-legacy skipped:', e.message);
+        }
+
+        // ALTER COLUMN default → web2 sequence (KHÔNG ref legacy → luôn chạy).
         await pool.query(`
-            DO $$
-            DECLARE
-                max_id BIGINT;
-            BEGIN
-                SELECT GREATEST(
-                    COALESCE((SELECT MAX(id) FROM customer_wallets), 0),
-                    COALESCE((SELECT MAX(id) FROM web2_customer_wallets), 0)
-                ) + 10000 INTO max_id;
-                PERFORM setval('web2_customer_wallets_id_seq', max_id, false);
-
-                SELECT GREATEST(
-                    COALESCE((SELECT MAX(id) FROM wallet_transactions), 0),
-                    COALESCE((SELECT MAX(id) FROM web2_wallet_transactions), 0)
-                ) + 10000 INTO max_id;
-                PERFORM setval('web2_wallet_transactions_id_seq', max_id, false);
-
-                SELECT GREATEST(
-                    COALESCE((SELECT MAX(id) FROM wallet_adjustments), 0),
-                    COALESCE((SELECT MAX(id) FROM web2_wallet_adjustments), 0)
-                ) + 10000 INTO max_id;
-                PERFORM setval('web2_wallet_adjustments_id_seq', max_id, false);
-            END $$;
-
             ALTER TABLE web2_customer_wallets
                 ALTER COLUMN id SET DEFAULT nextval('web2_customer_wallets_id_seq');
             ALTER TABLE web2_wallet_transactions
@@ -107,62 +139,77 @@ async function ensureSchema(pool) {
         // ============================================================
         // 5. Drop legacy→web2 triggers (Web 2.0 độc lập từ 2026-05-25)
         //    KHÔNG re-create — Web 2.0 service tự ghi web2_* trực tiếp.
+        //    ⚠ DROP TRIGGER ... ON <legacy> vẫn throw nếu bảng legacy KHÔNG tồn
+        //    tại (IF EXISTS chỉ nuốt lỗi trigger thiếu, KHÔNG nuốt table thiếu)
+        //    → guard to_regclass; FUNCTION drop an toàn vô điều kiện.
         // ============================================================
         await pool.query(`
-            DROP TRIGGER IF EXISTS trg_web2_mirror_customer_wallet ON customer_wallets;
-            DROP TRIGGER IF EXISTS trg_web2_mirror_wallet_transaction ON wallet_transactions;
-            DROP TRIGGER IF EXISTS trg_web2_mirror_wallet_adjustment ON wallet_adjustments;
+            DO $$
+            BEGIN
+                IF to_regclass('public.customer_wallets') IS NOT NULL THEN
+                    DROP TRIGGER IF EXISTS trg_web2_mirror_customer_wallet ON customer_wallets;
+                END IF;
+                IF to_regclass('public.wallet_transactions') IS NOT NULL THEN
+                    DROP TRIGGER IF EXISTS trg_web2_mirror_wallet_transaction ON wallet_transactions;
+                END IF;
+                IF to_regclass('public.wallet_adjustments') IS NOT NULL THEN
+                    DROP TRIGGER IF EXISTS trg_web2_mirror_wallet_adjustment ON wallet_adjustments;
+                END IF;
+            END $$;
             DROP FUNCTION IF EXISTS web2_mirror_customer_wallet() CASCADE;
             DROP FUNCTION IF EXISTS web2_mirror_wallet_transaction() CASCADE;
             DROP FUNCTION IF EXISTS web2_mirror_wallet_adjustment() CASCADE;
         `);
 
         // ============================================================
-        // 6. Backfill 1 lần — chỉ chạy nếu web2_* còn rỗng.
-        //    Đảm bảo Web 2.0 có snapshot KH hiện tại lúc cutover.
+        // 6. Backfill 1 lần — chỉ chạy nếu web2_* còn rỗng VÀ bảng legacy tồn
+        //    tại (web2Db sau tách DB KHÔNG có legacy → bỏ qua, KHÔNG throw).
+        //    Bọc try riêng để 1 lỗi không abort các bước sau (anti-dup index).
+        //    performed_by đã ALTER ở bước 3b (sớm) → backfill SELECT * có thể
+        //    mismatch cột → bọc try nuốt; cutover thật đã xong từ lâu.
         // ============================================================
-        const cnt = await pool.query(
-            `SELECT (SELECT COUNT(*) FROM web2_customer_wallets) AS w,
-                    (SELECT COUNT(*) FROM web2_wallet_transactions) AS t,
-                    (SELECT COUNT(*) FROM web2_wallet_adjustments) AS a`
-        );
-        const c = cnt.rows[0];
-        if (Number(c.w) === 0) {
-            const r = await pool.query(
-                `INSERT INTO web2_customer_wallets SELECT * FROM customer_wallets ON CONFLICT (id) DO NOTHING`
+        try {
+            const cnt = await pool.query(
+                `SELECT (SELECT COUNT(*) FROM web2_customer_wallets) AS w,
+                        (SELECT COUNT(*) FROM web2_wallet_transactions) AS t,
+                        (SELECT COUNT(*) FROM web2_wallet_adjustments) AS a,
+                        to_regclass('public.customer_wallets')  AS lw,
+                        to_regclass('public.wallet_transactions') AS lt,
+                        to_regclass('public.wallet_adjustments')  AS la`
             );
-            console.log(
-                `[web2-wallet-isolation] backfilled customer_wallets → web2_customer_wallets: ${r.rowCount} rows`
+            const c = cnt.rows[0];
+            if (Number(c.w) === 0 && c.lw) {
+                const r = await pool.query(
+                    `INSERT INTO web2_customer_wallets SELECT * FROM customer_wallets ON CONFLICT (id) DO NOTHING`
+                );
+                console.log(
+                    `[web2-wallet-isolation] backfilled customer_wallets → web2_customer_wallets: ${r.rowCount} rows`
+                );
+            }
+            if (Number(c.t) === 0 && c.lt) {
+                const r = await pool.query(
+                    `INSERT INTO web2_wallet_transactions (id, phone, customer_id, type, amount, balance_before, balance_after, source, reference_type, reference_id, note, created_at)
+                     SELECT id, phone, customer_id, type, amount, balance_before, balance_after, source, reference_type, reference_id, note, created_at
+                     FROM wallet_transactions ON CONFLICT (id) DO NOTHING`
+                );
+                console.log(
+                    `[web2-wallet-isolation] backfilled wallet_transactions → web2_wallet_transactions: ${r.rowCount} rows`
+                );
+            }
+            if (Number(c.a) === 0 && c.la) {
+                const r = await pool.query(
+                    `INSERT INTO web2_wallet_adjustments SELECT * FROM wallet_adjustments ON CONFLICT (id) DO NOTHING`
+                );
+                console.log(
+                    `[web2-wallet-isolation] backfilled wallet_adjustments → web2_wallet_adjustments: ${r.rowCount} rows`
+                );
+            }
+        } catch (e) {
+            console.warn(
+                '[web2-wallet-isolation] backfill skipped (legacy vắng/cột lệch):',
+                e.message
             );
         }
-        if (Number(c.t) === 0) {
-            const r = await pool.query(
-                `INSERT INTO web2_wallet_transactions SELECT * FROM wallet_transactions ON CONFLICT (id) DO NOTHING`
-            );
-            console.log(
-                `[web2-wallet-isolation] backfilled wallet_transactions → web2_wallet_transactions: ${r.rowCount} rows`
-            );
-        }
-        if (Number(c.a) === 0) {
-            const r = await pool.query(
-                `INSERT INTO web2_wallet_adjustments SELECT * FROM wallet_adjustments ON CONFLICT (id) DO NOTHING`
-            );
-            console.log(
-                `[web2-wallet-isolation] backfilled wallet_adjustments → web2_wallet_adjustments: ${r.rowCount} rows`
-            );
-        }
-
-        // ============================================================
-        // 6b. AUDIT: cột performed_by — ghi STAFF/ hệ thống thao tác ví.
-        //     ALTER SAU backfill (backfill `INSERT SELECT *` cần khớp cột legacy).
-        //     Idempotent. Mọi cộng/trừ ví ghi ai làm → kiểm tra lại khi sai sót.
-        // ============================================================
-        await pool.query(
-            `ALTER TABLE web2_wallet_transactions ADD COLUMN IF NOT EXISTS performed_by TEXT;`
-        );
-        await pool.query(
-            `ALTER TABLE web2_wallet_adjustments ADD COLUMN IF NOT EXISTS performed_by TEXT;`
-        );
 
         // ============================================================
         // 7. Lá chắn cứng chống cộng-trùng tiền bank (Web 2.0).
