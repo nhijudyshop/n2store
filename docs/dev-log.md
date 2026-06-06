@@ -25,6 +25,15 @@
 
 ## 2026-06-06
 
+### [render][web2] Audit history — đơn có tiền (PBH trừ ví + hoàn ví huỷ đơn) ghi performed_by ✅
+
+Tiếp audit money ops: 2 chỗ đơn chạm ví chưa ghi ai làm.
+
+- [fast-sale-orders.js](render.com/routes/fast-sale-orders.js) `_applyWalletToPbh` (tạo PBH → trừ ví thu hộ): thêm param `performedBy` → `processWithdraw`. Caller truyền `req.body._editor.userName` (fallback '(tạo PBH)').
+- [native-orders.js](render.com/routes/native-orders.js) `_refundWalletForNativeOrder` (huỷ đơn → hoàn ví): thêm `performedBy` → `processDeposit`. Caller truyền `req.body.userName` (fallback '(huỷ đơn)').
+- Đơn tạo đã có sẵn `created_by`/`created_by_name`. → Mọi money op của đơn giờ truy được ai làm (qua cột `web2_wallet_transactions.performed_by` đã thêm hôm trước).
+- Regression test-wallet-audit 4/4.
+
 ### [web2] Chat read-only: scroll lên tải thêm tin cũ (infinite scroll) ✅
 
 User: scroll tải thêm tin nhắn.
