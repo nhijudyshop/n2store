@@ -148,6 +148,15 @@
         { id: 'new', name: '2 cột (ngang)' },
     ];
 
+    // 2026-06-06: loại mã. QR (2D) quét được MỌI độ dài mã trên tem 25mm/203DPI
+    // (đã test bằng decoder ZXing: QR 6-8mm đọc được cả mã 27 ký tự). Yêu cầu máy
+    // quét 2D (imager) — user XP-470B + máy quét 2D đã xác nhận. Code128 (1D) giữ
+    // cho mã ngắn / máy quét laser 1D. MẶC ĐỊNH QR vì giải quyết triệt để.
+    const SYMBOLOGIES = [
+        { id: 'qr', name: 'QR Code (2D) — quét mọi mã trên tem 25mm' },
+        { id: 'code128', name: 'Mã vạch 1D (Code128) — cần tem rộng cho mã dài' },
+    ];
+
     // JsBarcode CDN — Code 128 generator (chuẩn ISO/IEC 15417 identical TPOS visual).
     // Lazy load lần đầu mở print modal. Inline trong iframe print thay vì script
     // src CDN để tránh load latency lúc print (đã được pre-loaded trên parent page).
@@ -164,6 +173,43 @@
             document.head.appendChild(s);
         });
         return jsBarcodeLoadPromise;
+    }
+
+    // QR generator (davidshimjs/qrcodejs) — render QR ra canvas. Pre-render dataURL
+    // trên parent (KHÔNG cần CDN trong cửa sổ in → robust cho in nhiệt timing).
+    const QR_URL = 'https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@master/qrcode.min.js';
+    let qrLoadPromise = null;
+    function loadQrLib() {
+        if (window.QRCode && window.QRCode.CorrectLevel) return Promise.resolve();
+        if (qrLoadPromise) return qrLoadPromise;
+        qrLoadPromise = new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = QR_URL;
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error('QR lib load failed'));
+            document.head.appendChild(s);
+        });
+        return qrLoadPromise;
+    }
+    // Tạo dataURL PNG của QR cho 1 mã (canvas, correctLevel M).
+    function genQrDataUrl(code) {
+        try {
+            const tmp = document.createElement('div');
+            // eslint-disable-next-line no-new
+            new window.QRCode(tmp, {
+                text: String(code),
+                width: 320,
+                height: 320,
+                correctLevel: window.QRCode.CorrectLevel.M,
+            });
+            const c = tmp.querySelector('canvas');
+            if (c) return c.toDataURL('image/png');
+            const im = tmp.querySelector('img');
+            return im ? im.src : '';
+        } catch (e) {
+            console.warn('[w2p-print] QR gen fail', code, e.message);
+            return '';
+        }
     }
 
     let overlay = null;
@@ -222,6 +268,7 @@
 
         let selectedPaper = PAPERS[DEFAULT_PAPER_IDX];
         let selectedPrintType = PRINT_TYPES[0];
+        let selectedSymbology = SYMBOLOGIES[0];
         let showPrice = true;
         let showBold = true;
         let showProductName = true;
@@ -338,6 +385,14 @@
                             <div class="w2p-print-field-value">
                                 <select id="w2p-print-type">
                                     ${PRINT_TYPES.map((t, i) => `<option value="${i}" ${i === 0 ? 'selected' : ''}>${t.name}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="w2p-print-field-row">
+                            <span class="w2p-print-field-label">Loại mã</span>
+                            <div class="w2p-print-field-value">
+                                <select id="w2p-symbology">
+                                    ${SYMBOLOGIES.map((s, i) => `<option value="${i}" ${i === 0 ? 'selected' : ''}>${s.name}</option>`).join('')}
                                 </select>
                             </div>
                         </div>
@@ -528,6 +583,18 @@
             selectedPrintType = PRINT_TYPES[Number(e.target.value)] || PRINT_TYPES[0];
         });
 
+        $('#w2p-symbology').addEventListener('change', (e) => {
+            selectedSymbology = SYMBOLOGIES[Number(e.target.value)] || SYMBOLOGIES[0];
+            // Đổi loại mã → cập nhật cảnh báo mật độ (QR không bị giới hạn độ dài).
+            const warnEl = $('#w2p-density-warn');
+            if (warnEl) {
+                warnEl.innerHTML =
+                    selectedSymbology.id === 'qr'
+                        ? ''
+                        : densityWarnHTML(withBarcode, selectedPaper);
+            }
+        });
+
         // Option checkboxes
         $('#w2p-show-price').addEventListener('change', (e) => (showPrice = e.target.checked));
         $('#w2p-show-bold').addEventListener('change', (e) => (showBold = e.target.checked));
@@ -605,6 +672,7 @@
                 showProductName,
                 showCurrency,
                 hideBarcode,
+                symbology: selectedSymbology.id,
             });
         });
     }
@@ -636,7 +704,7 @@
         }
     }
 
-    function generateAndPrint(items, paper, printType, opts) {
+    async function generateAndPrint(items, paper, printType, opts) {
         _markProductsPrinted(items);
         const labels = [];
         for (const item of items) {
@@ -648,7 +716,21 @@
                 });
             }
         }
-        const html = buildLabelHTML(labels, paper, printType, opts);
+        // QR: pre-render dataURL trên parent (robust, không phụ thuộc CDN/timing
+        // trong cửa sổ in nhiệt). Mỗi mã unique render 1 lần.
+        let qrMap = null;
+        if (opts.symbology === 'qr' && !opts.hideBarcode) {
+            try {
+                await loadQrLib();
+                qrMap = {};
+                const uniq = [...new Set(labels.map((l) => l.code).filter(Boolean))];
+                for (const code of uniq) qrMap[code] = genQrDataUrl(code);
+            } catch (e) {
+                notify('Lỗi tạo QR, in tạm mã 1D: ' + e.message, 'warning');
+                opts = { ...opts, symbology: 'code128' };
+            }
+        }
+        const html = buildLabelHTML(labels, paper, printType, opts, qrMap);
         // 2026-06-04: nếu chức năng 'label' (tem mã SP) đã gán máy in IP (bridge)
         // → in THẲNG ra máy tem, không hộp thoại. Lỗi/bridge tắt → fallback overlay.
         const P = window.Web2Printer;

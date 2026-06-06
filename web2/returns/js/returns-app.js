@@ -36,8 +36,8 @@
     const STATE = {
         tab: 'create',
         customer: null, // {phone, name, customerId}
-        method: 'khach_gui',
-        subType: 'khong_nhan_hang',
+        method: 'shipper_gui',
+        subType: 'thu_ve_1_phan',
         reason: 'khach_boom',
         sourceOrder: null, // {code, type, totalAmount}
         partial: [], // [{productCode, productName, quantity, price}]
@@ -610,8 +610,8 @@
             console.warn('[returns] sidebar mount fail:', e);
         }
         bind();
-        onMethodChange('khach_gui');
-        onSubTypeChange('khong_nhan_hang');
+        onMethodChange('shipper_gui');
+        onSubTypeChange('thu_ve_1_phan');
         onReasonChange('khach_boom');
         renderPartial();
         setupSse();
