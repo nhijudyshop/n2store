@@ -5,6 +5,41 @@
  * Dependencies: TposState, TposApi, SharedUtils, sharedDebtManager, eventBus
  */
 
+// Inline SVG icons — KHÔNG dùng <i data-lucide> + lucide.createIcons() trong
+// list. createIcons() scan TOÀN BỘ DOM mỗi call; mỗi comment có ~7 icon nên
+// 100 rows = 700 icon scan / render → lag nặng. Inline SVG render 1 lần, 0 scan.
+// (Cùng pattern đã áp dụng trong tpos-livestream-snap.js.)
+const _TPOS_ICON_PATHS = {
+    facebook: '<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>',
+    save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
+    'shopping-cart':
+        '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+    'plus-square':
+        '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 12h8"/><path d="M12 8v8"/>',
+    'check-square':
+        '<path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+    user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    contact:
+        '<path d="M16 18a4 4 0 0 0-8 0"/><rect width="18" height="18" x="3" y="4" rx="2"/><circle cx="12" cy="10" r="2"/><line x1="8" x2="8" y1="2" y2="4"/><line x1="16" x2="16" y1="2" y2="4"/>',
+    reply: '<polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>',
+    eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    'eye-off':
+        '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/>',
+};
+
+/**
+ * Inline SVG icon string (lucide-compatible paths, no DOM scan).
+ * @param {string} name
+ * @param {number} [size=13]
+ * @param {string} [cls=''] extra class (vd 'channel-icon fb')
+ * @returns {string}
+ */
+function tposSvgIcon(name, size = 13, cls = '') {
+    const p = _TPOS_ICON_PATHS[name];
+    if (!p) return '';
+    return `<svg xmlns="http://www.w3.org/2000/svg"${cls ? ` class="${cls}"` : ''} width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;pointer-events:none;flex-shrink:0;">${p}</svg>`;
+}
+
 const TposCommentList = {
     /**
      * Render the main container structure
@@ -323,7 +358,8 @@ const TposCommentList = {
 
         listContainer.innerHTML = state.comments.map((c) => this.renderCommentItem(c)).join('');
         this.updateLoadMoreIndicator();
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        // Icon trong item là inline SVG (tposSvgIcon) → KHÔNG cần lucide.createIcons()
+        // quét toàn DOM. Đây là perf fix chính (700+ icon scan/render → 0).
     },
 
     /**
@@ -392,27 +428,21 @@ const TposCommentList = {
             : 'background:#dbeafe;color:#1e40af';
         const shortPageName = pageName.replace('NhiJudy ', '').replace('Nhi Judy ', '');
 
-        // SessionIndex badge + Order info
-        const sessionInfo = state.sessionIndexMap.get(fromId);
+        // SessionIndex badge + Order info — CHỈ lấy theo native-orders (Web 2.0).
+        // Bỏ hoàn toàn data đơn TPOS legacy (id/mã đơn TPOS, STT TPOS) theo yêu
+        // cầu: TPOS panel chỉ cần comment/SĐT/địa chỉ/KH/trạng thái + STT đơn web.
+        const sessionInfoRaw = state.sessionIndexMap.get(fromId);
+        const sessionInfo = sessionInfoRaw?.source === 'NATIVE_WEB' ? sessionInfoRaw : null;
         const sessionIndexBadge = sessionInfo
-            ? `<span class="session-index-badge" title="STT: ${sessionInfo.index}${sessionInfo.code ? ' | Mã: ' + sessionInfo.code : ''}">${sessionInfo.index}</span>`
+            ? `<span class="session-index-badge" title="STT đơn web: ${sessionInfo.index}${sessionInfo.code ? ' | Mã: ' + sessionInfo.code : ''}">${sessionInfo.index}</span>`
             : '';
-        // Comment-count badge — số comment đã gộp vào đơn (chỉ cho NATIVE_WEB)
-        const commentCount =
-            sessionInfo?.source === 'NATIVE_WEB' ? Number(sessionInfo.commentCount || 1) : 0;
-        const commentCountBadge =
-            commentCount > 1
-                ? `<span class="comment-count-badge" title="${commentCount} comments trong đơn này" style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:3px;">📝 ${commentCount}</span>`
-                : '';
         // Comment đã được merge vào đơn này chưa?
         const isCommentInOrder =
-            sessionInfo?.source === 'NATIVE_WEB' &&
+            sessionInfo &&
             Array.isArray(sessionInfo.commentIds) &&
             sessionInfo.commentIds.includes(id);
         const orderBadge = sessionInfo?.code
-            ? sessionInfo.source === 'NATIVE_WEB'
-                ? `<span class="order-code-badge" title="Đơn web ${sessionInfo.code}" style="background:#ede9fe;color:#6d28d9;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();TposCommentList.showOrderDetail('${fromId}')">${sessionInfo.code}</span>${commentCountBadge}`
-                : `<span class="order-code-badge" title="Đơn TPOS ${sessionInfo.code}" style="background:#dbeafe;color:#1d4ed8;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();TposCommentList.showOrderDetail('${fromId}')">${sessionInfo.code}</span>`
+            ? `<span class="order-code-badge" title="Đơn web ${sessionInfo.code}" style="background:#ede9fe;color:#6d28d9;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();TposCommentList.showOrderDetail('${fromId}')">${sessionInfo.code}</span>`
             : '';
 
         // Gradient placeholder
@@ -450,17 +480,8 @@ const TposCommentList = {
             state.savedToTposIds.has(fromId) ||
             window.pancakeChatManager?.tposSavedCustomerIds?.has(fromId);
 
-        // Status dropdown options
-        const statusOptions = this.getStatusOptions();
-        const statusDropdownHtml = statusOptions
-            .map(
-                (opt) =>
-                    `<div class="inline-status-option" style="padding:6px 10px;cursor:pointer;font-size:11px;color:${opt.color};font-weight:600;"
-                 onclick="event.stopPropagation(); TposCommentList.selectInlineStatus('${fromId}', '${opt.value}', '${opt.text}')">
-                ${opt.text}
-            </div>`
-            )
-            .join('');
+        // Status dropdown: render LAZY — chỉ build 8 options khi user click vào
+        // badge (toggleInlineStatusDropdown). Tránh tạo 8 × N node ẩn sẵn.
 
         // Status badge style
         const statusBadgeStyle = statusColor
@@ -477,12 +498,12 @@ const TposCommentList = {
                     <div class="tpos-conv-avatar">
                         ${
                             pictureUrl
-                                ? `<img src="${pictureUrl}" class="avatar-img" alt="${SharedUtils.escapeHtml(fromName)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                ? `<img src="${pictureUrl}" class="avatar-img" alt="${SharedUtils.escapeHtml(fromName)}" loading="lazy" decoding="async" width="40" height="40" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                <div class="avatar-placeholder" style="display:none;background:${gradientColor};">${initial}</div>`
                                 : `<div class="avatar-placeholder" style="background:${gradientColor};">${initial}</div>`
                         }
                         ${sessionIndexBadge}
-                        <span class="channel-badge"><i data-lucide="facebook" class="channel-icon fb"></i></span>
+                        <span class="channel-badge">${tposSvgIcon('facebook', 12, 'channel-icon fb')}</span>
                     </div>
                     <div class="tpos-conv-header-info">
                         <div class="tpos-conv-header">
@@ -497,9 +518,7 @@ const TposCommentList = {
                              onclick="TposCommentList.toggleInlineStatusDropdown('${fromId}')">
                             <span id="status-text-${fromId}">${statusText || 'Trạng thái'}</span>
                         </div>
-                        <div id="status-dropdown-${fromId}" class="tpos-status-dropdown" style="display:none;">
-                            ${statusDropdownHtml}
-                        </div>
+                        <div id="status-dropdown-${fromId}" class="tpos-status-dropdown" style="display:none;" data-loaded="0"></div>
                     </div>
                     <span class="tpos-conv-time">${timeStr}</span>
                 </div>
@@ -511,62 +530,55 @@ const TposCommentList = {
                 <div class="tpos-conv-info" onclick="event.stopPropagation();">
                     <input type="text" id="phone-${fromId}" value="${SharedUtils.escapeHtml(phone)}" placeholder="SĐT" style="width:100px;" onclick="event.stopPropagation();">
                     <button class="tpos-action-btn" style="width:22px;height:22px;" onclick="event.stopPropagation(); TposCommentList.saveInlinePhone('${fromId}', 'phone-${fromId}')" title="Lưu SĐT">
-                        <i data-lucide="save" style="width:11px;height:11px;"></i>
+                        ${tposSvgIcon('save', 11)}
                     </button>
                     ${hasDebt ? `<span class="debt-badge">Nợ: ${debtDisplay}</span>` : ''}
                     <input type="text" id="addr-${fromId}" value="${SharedUtils.escapeHtml(address)}" placeholder="Địa chỉ" style="flex:1;min-width:100px;" onclick="event.stopPropagation();">
                     <button class="tpos-action-btn" style="width:22px;height:22px;" onclick="event.stopPropagation(); TposCommentList.saveInlineAddress('${fromId}', 'addr-${fromId}')" title="Lưu địa chỉ">
-                        <i data-lucide="save" style="width:11px;height:11px;"></i>
+                        ${tposSvgIcon('save', 11)}
                     </button>
                 </div>
 
                 <!-- Actions — show on hover -->
                 <div class="tpos-conv-actions">
                     ${(() => {
-                        // Button title + icon depend on state of customer's existing order:
-                        //  - NO order yet → "Tạo đơn web" (shopping-cart)
-                        //  - HAS order, this comment NOT yet merged → "Thêm comment vào đơn" (plus-square)
-                        //  - HAS order, this comment ALREADY in it → "Comment đã có trong đơn" (check-square)
+                        // Button title + icon theo trạng thái đơn WEB (native-orders):
+                        //  - Chưa có đơn → "Tạo đơn web" (shopping-cart)
+                        //  - Có đơn, comment chưa gộp → "Thêm comment vào đơn" (plus-square)
+                        //  - Có đơn, comment đã gộp → "Đã thêm vào đơn" (check-square)
                         let btnTitle, btnIcon, btnColor;
                         if (!sessionInfo) {
                             btnTitle = 'Tạo đơn web';
                             btnIcon = 'shopping-cart';
                             btnColor = '#7c3aed';
-                        } else if (sessionInfo.source === 'NATIVE_WEB') {
-                            if (isCommentInOrder) {
-                                btnTitle = `Comment đã thêm vào đơn ${sessionInfo.code} (${commentCount} comments)`;
-                                btnIcon = 'check-square';
-                                btnColor = '#10b981';
-                            } else {
-                                btnTitle = `Thêm comment vào đơn ${sessionInfo.code} (${commentCount} comments)`;
-                                btnIcon = 'plus-square';
-                                btnColor = '#7c3aed';
-                            }
+                        } else if (isCommentInOrder) {
+                            btnTitle = `Comment đã thêm vào đơn ${sessionInfo.code}`;
+                            btnIcon = 'check-square';
+                            btnColor = '#10b981';
                         } else {
-                            // Has TPOS order (legacy)
-                            btnTitle = `Tạo đơn web (đã có đơn TPOS ${sessionInfo.code})`;
-                            btnIcon = 'shopping-cart';
+                            btnTitle = `Thêm comment vào đơn ${sessionInfo.code}`;
+                            btnIcon = 'plus-square';
                             btnColor = '#7c3aed';
                         }
                         return `<button class="tpos-action-btn" id="create-order-${fromId}-${id}" title="${btnTitle}" style="color:${btnColor};" onclick="event.stopPropagation(); TposCommentList.createOrder('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${id}')">
-                                   <i data-lucide="${btnIcon}" style="width:13px;height:13px;"></i>
-                               </button>${sessionInfo?.source !== 'NATIVE_WEB' && sessionInfo?.code ? `<span title="Đơn TPOS cũ: ${sessionInfo.code}" style="color:#10b981;padding:4px;"><i data-lucide="package-check" style="width:13px;height:13px;"></i></span>` : ''}`;
+                                   ${tposSvgIcon(btnIcon, 13)}
+                               </button>`;
                     })()}
                     <button class="tpos-action-btn" title="Xem info" onclick="event.stopPropagation(); TposCustomerPanel.showCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}')">
-                        <i data-lucide="user" style="width:13px;height:13px;"></i>
+                        ${tposSvgIcon('user', 13)}
                     </button>
                     ${
                         partner.Id
                             ? `<a class="tpos-action-btn" title="Mở thẻ KH Web 2.0" href="../web2/partner-customer/index.html?id=${encodeURIComponent(partner.Id)}" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="color:#0891b2;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">
-                        <i data-lucide="contact" style="width:13px;height:13px;"></i>
+                        ${tposSvgIcon('contact', 13)}
                     </a>`
                             : ''
                     }
                     <button class="tpos-action-btn" title="Trả lời" onclick="event.stopPropagation(); TposCommentList.showReplyInput('${id}', '${fromId}')">
-                        <i data-lucide="reply" style="width:13px;height:13px;"></i>
+                        ${tposSvgIcon('reply', 13)}
                     </button>
                     <button class="tpos-action-btn" title="${isHidden ? 'Hiện' : 'Ẩn'}" onclick="event.stopPropagation(); TposColumnManager.toggleHideComment('${id}', ${!isHidden})">
-                        <i data-lucide="${isHidden ? 'eye' : 'eye-off'}" style="width:13px;height:13px;"></i>
+                        ${tposSvgIcon(isHidden ? 'eye' : 'eye-off', 13)}
                     </button>
                 </div>
             </div>
@@ -627,9 +639,21 @@ const TposCommentList = {
      */
     toggleInlineStatusDropdown(userId) {
         const dropdown = document.getElementById(`status-dropdown-${userId}`);
-        if (dropdown) {
-            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        if (!dropdown) return;
+        // Lazy build options lần đầu mở (tránh render 8 × N node ẩn sẵn).
+        if (dropdown.dataset.loaded !== '1') {
+            dropdown.innerHTML = this.getStatusOptions()
+                .map(
+                    (opt) =>
+                        `<div class="inline-status-option" style="padding:6px 10px;cursor:pointer;font-size:11px;color:${opt.color};font-weight:600;"
+                 onclick="event.stopPropagation(); TposCommentList.selectInlineStatus('${userId}', '${opt.value}', '${opt.text}')">
+                ${opt.text}
+            </div>`
+                )
+                .join('');
+            dropdown.dataset.loaded = '1';
         }
+        dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
     },
 
     /**
@@ -1104,14 +1128,7 @@ const TposCommentList = {
         const newItem = tmp.firstElementChild;
         if (!newItem) return;
         item.replaceWith(newItem);
-        // lucide.createIcons() có option nodes để scope subtree → tránh scan doc.
-        if (typeof lucide !== 'undefined') {
-            try {
-                lucide.createIcons({ nameAttr: 'data-lucide', icons: undefined });
-            } catch {
-                lucide.createIcons();
-            }
-        }
+        // Icon item là inline SVG → không cần createIcons.
 
         // Also refresh other comment items for the same customer so their
         // count badges & button states update (e.g. when merge changes count
@@ -1145,8 +1162,6 @@ const TposCommentList = {
                 }
                 if (i < others.length) {
                     chunkRefresh(i);
-                } else if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
                 }
             });
         };

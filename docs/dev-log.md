@@ -25,6 +25,25 @@
 
 ## 2026-06-06
 
+### [tpos-pancake] Perf — render comment TPOS thông minh, hết lag ✅
+
+**Vấn đề (user):** TPOS panel render SĐT/địa chỉ/đơn… lag quá; không cần data đơn TPOS legacy (id/mã đơn TPOS), chỉ cần comment/SĐT/địa chỉ/KH/trạng thái/thumbnail.
+
+**Files:** `tpos-pancake/js/tpos/tpos-comment-list.js`
+
+**Thủ phạm lag #1:** `renderComments()` rebuild full `innerHTML` rồi gọi `lucide.createIcons()` **quét toàn bộ DOM** mỗi lần — mỗi comment ~9 icon `data-lucide`, 100 comment = ~900 icon scan/render. (Cùng vấn đề `tpos-livestream-snap.js:2948` đã ghi chú.)
+
+**Đã sửa:**
+
+- **Inline SVG icons** (`tposSvgIcon()` + map `_TPOS_ICON_PATHS`) thay toàn bộ `<i data-lucide>` trong item → bỏ `lucide.createIcons()` ở `renderComments()` + `refreshCommentItem()`. Verify: item render 7 `<svg>`, **0** `data-lucide`.
+- **Lazy status dropdown:** thay vì render 8 options ẩn × N item, chỉ build options khi user click badge (`toggleInlineStatusDropdown` lazy + `data-loaded`). Verify: 0→8 children khi click.
+- **STT/badge đơn chỉ lấy theo native-orders** (`source==='NATIVE_WEB'`): bỏ badge mã đơn TPOS legacy (xanh), bỏ icon `package-check`, bỏ badge comment-count (📝 N). Gate `sessionInfoRaw?.source==='NATIVE_WEB' ? … : null`.
+- **Avatar `loading="lazy" decoding="async"` + width/height** → smart load, tránh layout shift.
+
+**Giữ:** comment, SĐT, địa chỉ, tên KH, trạng thái, badge đơn web (tím) + nút tạo/thêm comment vào đơn, debt badge.
+
+**Status:** node --check OK; verify trên localhost (helper + renderCommentItem + lazy dropdown). ✅
+
 ### [render][web2] Audit history — đơn có tiền (PBH trừ ví + hoàn ví huỷ đơn) ghi performed_by ✅
 
 Tiếp audit money ops: 2 chỗ đơn chạm ví chưa ghi ai làm.
