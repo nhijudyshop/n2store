@@ -25,6 +25,19 @@
 
 ## 2026-06-06
 
+### [web2/products] In tem mã vạch — cảnh báo mã quá dài + thêm khổ tem rộng (fix "chỉ quét được áo len be") ✅
+
+**Root cause (xác định bằng mô hình mật độ vạch):** barcode in ĐÚNG giá trị (CODE128 mã hoá đúng `code`, chữ hiển thị cùng biến) — lỗi là **vật lý**: tem mặc định 25mm, Code128 ~`35 + 11·n` module. Vạch hẹp nhất (X-dim) = `labelW·0.88 / modules`. Ngưỡng quét ~0.2mm ⇒ tem 25mm chỉ đọc tốt mã **≤6 ký tự**. Khớp 100% triệu chứng đơn Hạnh Trần: `B4AOBE`(6)=0.218mm ✅, `HCDAMDO`(7)/`B4DAMVANG`(9)/`ADQUANDENM`(10)=0.15–0.2mm ❌.
+
+**Fix (`web2-products-print.js`):**
+
+- Thêm preset **"Tem rộng 50×30mm (mã dài)"** (1 con/khổ) → X-dim ~0.3mm, quét tốt mọi mã. (Tem 35mm cũng đủ: maxLen=10.)
+- **Cảnh báo mật độ** trong modal in: tính X-dim theo khổ tem đang chọn, liệt kê mã quá dài + maxLen + gợi ý "chọn tem rộng hơn hoặc rút gọn mã". Cập nhật realtime khi đổi khổ tem.
+- Helper `estCode128Modules` / `estXdimMm` / `maxScannableLen` / `densityWarnHTML`.
+
+**Files:** `web2/products/js/web2-products-print.js`.
+**Verify (localhost, mở modal với 4 mã đơn Hạnh Trần):** tem 25mm → cảnh báo đúng 3 mã `HCDAMDO, B4DAMVANG, ADQUANDENM` (≤6 ký tự); đổi sang 35mm/50mm → cảnh báo biến mất (tất cả quét được). Layout tem (tên 2 dòng → barcode → mã+giá) vốn đã có.
+
 ### [render][web2] Đối soát đóng gói — ẩn lịch sử mặc định + ưu tiên list SP + chẩn đoán scan lỗi ✅
 
 **Yêu cầu (user):** (1) ẩn lịch sử đi, cần mới mở; (2) quét bill PBH ưu tiên hiện toàn bộ danh sách SP để quét; (3) đơn Hạnh Trần chỉ quét được áo len be, 3 mã kia "không nhận".

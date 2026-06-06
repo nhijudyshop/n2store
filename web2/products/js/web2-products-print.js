@@ -83,7 +83,58 @@
             hSpacing: 0,
             vSpacing: 0,
         },
+        {
+            // 2026-06-06: tem RỘNG 1 con cho MÃ DÀI (≥7 ký tự). Trên tem 25mm,
+            // Code128 ~10 ký tự → vạch ~0.15mm (dưới ngưỡng quét ~0.2mm) → không
+            // quét được. Tem 50mm 1-con → vạch ~0.3mm → quét tốt mọi mã.
+            id: 10,
+            name: 'Tem rộng 50×30mm (mã dài)',
+            sheetW: 50,
+            sheetH: 30,
+            labelW: 50,
+            labelH: 30,
+            cols: 1,
+            fontSize: 9,
+            topMargin: 1,
+            leftMargin: 1,
+            bottomMargin: 1,
+            rightMargin: 1,
+            hSpacing: 0,
+            vSpacing: 0,
+        },
     ];
+
+    // 2026-06-06: ước lượng độ rộng vạch hẹp nhất (X-dimension) để cảnh báo mã
+    // quá dài cho khổ tem → vạch quá mảnh máy quét không đọc được (lý do đơn
+    // Hạnh Trần chỉ quét được B4AOBE 6 ký tự, còn B4DAMVANG/ADQUANDENM thì không).
+    const SCAN_XDIM_MIN_MM = 0.2; // ngưỡng quét tối thiểu (CCD/laser phổ thông)
+    function estCode128Modules(code) {
+        // Code128 subset B: start 11 + checksum 11 + stop 13 = 35, mỗi ký tự 11.
+        return 35 + 11 * String(code || '').length;
+    }
+    function estXdimMm(code, paper) {
+        const avail = paper.labelW * 0.88; // trừ quiet-zone/lề ~6% mỗi bên
+        return avail / estCode128Modules(code);
+    }
+    function maxScannableLen(paper) {
+        const avail = paper.labelW * 0.88;
+        return Math.max(1, Math.floor((avail / SCAN_XDIM_MIN_MM - 35) / 11));
+    }
+    function densityWarnHTML(items, paper) {
+        const tooLong = (items || []).filter(
+            (i) => i.code && estXdimMm(i.code, paper) < SCAN_XDIM_MIN_MM
+        );
+        if (!tooLong.length) return '';
+        const maxLen = maxScannableLen(paper);
+        const codes = tooLong.map((i) => escapeHtml(i.code)).join(', ');
+        return (
+            `<div class="w2p-print-warning"><span class="w2p-print-warn-icon">⚠</span> ` +
+            `Khổ tem ${paper.labelW}mm chỉ quét tốt mã ≤ ${maxLen} ký tự. ` +
+            `${tooLong.length} mã DÀI hơn (vạch < ${SCAN_XDIM_MIN_MM}mm → máy quét khó đọc): ` +
+            `<strong>${codes}</strong>. → Chọn khổ tem rộng hơn (vd "Tem rộng 50×30mm") ` +
+            `hoặc rút gọn mã sản phẩm.</div>`
+        );
+    }
 
     const PRINT_TYPES = [
         { id: 'default', name: 'Mặc định (dọc)' },
@@ -328,6 +379,7 @@
                     </div>
                 </div>
                 ${warningHTML}
+                <div id="w2p-density-warn">${densityWarnHTML(withBarcode, selectedPaper)}</div>
             </div>
         </div>
         <div style="padding:0;">
@@ -457,9 +509,11 @@
             renderTableRows();
         });
 
-        // Paper change
+        // Paper change → cập nhật cảnh báo mật độ vạch theo khổ tem mới
         $('#w2p-paper').addEventListener('change', (e) => {
             selectedPaper = PAPERS[Number(e.target.value)] || PAPERS[0];
+            const warnEl = $('#w2p-density-warn');
+            if (warnEl) warnEl.innerHTML = densityWarnHTML(withBarcode, selectedPaper);
         });
 
         // Print type change
