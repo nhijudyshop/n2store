@@ -25,6 +25,10 @@
 
 ## 2026-06-06
 
+### [web2/ck-dashboard] Thêm lịch sử CK — tab "Lịch sử CK" + timeline trên thẻ ✅
+
+**User:** "thêm lịch sử" → làm cả 2: (1) **tab "Lịch sử CK"** thứ 3 — list tín hiệu đã xử lý (lọc Đã xác nhận/Đã bỏ qua/Tất cả + search SĐT/tên + load more), mỗi thẻ hiện badge trạng thái, **"✓ đã gửi tin"** (từ history.notify), khớp GD#/Đơn, ai duyệt, + timeline đầy đủ. (2) **Timeline ngay trên thẻ** ở 3 cột Đối soát (như payment-confirm cũ — lúc gộp tôi đã làm rớt) qua `<details>` `historyHtml` + `Web2HistoryTimeline`. Load `web2-history-timeline.js`. SSE `web2:payment-signals` refresh tab lịch sử nếu đang mở. `?v=20260606ck2`.
+
 ### [web2] Gộp payment-confirm vào ck-dashboard (1 trang CK duy nhất) ✅
 
 **User:** "ck-dashboard và payment-confirm chức năng giống nhau, sao 2 trang?" — đúng, trùng phần "KH báo đã CK". Gộp về **1 trang ck-dashboard** với 2 tab: **Đối soát CK** (3 cột: chờ duyệt + chờ tiền + yêu cầu khác) + **Tin nhắn chưa đọc** (port từ payment-confirm).

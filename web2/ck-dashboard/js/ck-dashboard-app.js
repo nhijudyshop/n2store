@@ -196,17 +196,92 @@
         loadCol('intents', true);
     }
 
-    // ─── Tab: Đối soát CK | Tin nhắn chưa đọc ─────────────────────────
+    // ─── Lịch sử CK (tín hiệu đã xử lý) ──────────────────────────────
+    const STATUS_VI = { confirmed: 'Đã xác nhận', dismissed: 'Đã bỏ qua', pending: 'Chờ duyệt' };
+    const hist = { offset: 0, items: [], hasMore: true, status: 'confirmed', search: '' };
+    function histCard(sig) {
+        const h = Array.isArray(sig.history) ? sig.history : [];
+        const sent = h.some((e) => e.action === 'notify' && /đã gửi/.test(e.note || ''));
+        const phonePill = sig.phone ? ` <span data-w2wallet-phone="${esc(sig.phone)}"></span>` : '';
+        const bits = [];
+        if (sig.orderCode) bits.push('Đơn ' + esc(sig.orderCode));
+        if (sig.matchedTxId) bits.push('GD#' + sig.matchedTxId);
+        if (sig.confirmedBy) bits.push(esc(sig.confirmedBy));
+        return `
+        <div class="ckd-hist-card status-${esc(sig.status)}">
+            <div class="ckd-cust">${esc(sig.customerName || sig.psid || 'KH')}
+                <span class="ckd-kw">${esc(sig.keyword || '')}</span>${phonePill}
+                <span class="ckd-hist-badge ${esc(sig.status)}">${esc(STATUS_VI[sig.status] || sig.status)}</span>
+                ${sent ? '<span class="ckd-hist-sent">✓ đã gửi tin</span>' : ''}</div>
+            <div class="ckd-msg">"${esc(sig.rawMessage || '')}"</div>
+            <div class="ckd-meta">${esc(fmtTime(sig.createdAt))}${bits.length ? ' · ' + bits.join(' · ') : ''}</div>
+            ${historyHtml(h)}
+        </div>`;
+    }
+    async function loadHistory(reset) {
+        if (reset) {
+            hist.offset = 0;
+            hist.items = [];
+        }
+        const root = document.getElementById('ckdHistory');
+        if (reset) root.innerHTML = '<div class="ckd-empty">Đang tải…</div>';
+        const url = `${SIG}?status=${encodeURIComponent(hist.status)}&limit=20&offset=${hist.offset}`;
+        try {
+            const d = await fetchJson(url);
+            if (!d.success) throw new Error(d.error || 'Lỗi');
+            const got = d.data || [];
+            hist.items.push(...got);
+            hist.hasMore = !!d.meta?.hasMore;
+            hist.offset += got.length;
+        } catch (e) {
+            /* ignore */
+        }
+        renderHistory();
+    }
+    function renderHistory() {
+        const root = document.getElementById('ckdHistory');
+        const q = hist.search.trim().toLowerCase();
+        const items = q
+            ? hist.items.filter(
+                  (s) =>
+                      (s.customerName || '').toLowerCase().includes(q) ||
+                      (s.phone || '').includes(q)
+              )
+            : hist.items;
+        if (!items.length) {
+            root.innerHTML = '<div class="ckd-empty">Chưa có lịch sử.</div>';
+            return;
+        }
+        root.innerHTML =
+            items.map(histCard).join('') +
+            (hist.hasMore && !q ? '<button class="ckd-more">Tải thêm</button>' : '');
+        const mb = root.querySelector('.ckd-more');
+        if (mb) mb.onclick = () => loadHistory(false);
+        if (window.Web2WalletBalance?.attachBalances) window.Web2WalletBalance.attachBalances(root);
+    }
+    function wireHistory() {
+        const sel = document.getElementById('ckdHistStatus');
+        if (sel)
+            sel.onchange = () => {
+                hist.status = sel.value;
+                loadHistory(true);
+            };
+        const se = document.getElementById('ckdHistSearch');
+        if (se) se.oninput = () => ((hist.search = se.value), renderHistory());
+        const rf = document.getElementById('ckdHistRefresh');
+        if (rf) rf.onclick = () => loadHistory(true);
+    }
+
+    // ─── Tab: Đối soát CK | Tin nhắn chưa đọc | Lịch sử CK ────────────
     let _unreadMounted = false;
     function switchTab(tab) {
         document
             .querySelectorAll('.ckd-tab')
             .forEach((t) => t.classList.toggle('is-active', t.dataset.tab === tab));
-        const reconcile = tab === 'reconcile';
-        document.getElementById('ckdReconcilePane').hidden = !reconcile;
-        document.getElementById('ckdUnreadPane').hidden = reconcile;
-        if (!reconcile) {
-            // Mount panel "Tin nhắn chưa đọc" lần đầu; sau đó nó tự reload qua SSE.
+        document.getElementById('ckdReconcilePane').hidden = tab !== 'reconcile';
+        document.getElementById('ckdUnreadPane').hidden = tab !== 'unread';
+        document.getElementById('ckdHistoryPane').hidden = tab !== 'history';
+        if (tab === 'unread') {
             const root = document.getElementById('ckdUnreadList');
             if (window.Web2UnreadPanel?.mount) {
                 if (!_unreadMounted) {
@@ -221,13 +296,16 @@
                     window.Web2UnreadPanel.reload();
                 }
             }
-            if (window.lucide) window.lucide.createIcons();
+        } else if (tab === 'history') {
+            loadHistory(true);
         }
+        if (window.lucide) window.lucide.createIcons();
     }
     function wireTabs() {
         document.querySelectorAll('.ckd-tab').forEach((t) => {
             t.onclick = () => switchTab(t.dataset.tab);
         });
+        wireHistory();
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -239,6 +317,8 @@
             window.Web2SSE.subscribe('web2:payment-signals', () => {
                 loadCol('pending', true);
                 loadCol('wait', true);
+                // Tab Lịch sử đang mở → cập nhật luôn (CK vừa duyệt/khớp/gửi tin).
+                if (!document.getElementById('ckdHistoryPane').hidden) loadHistory(true);
             });
             window.Web2SSE.subscribe('web2:customer-intents', () => loadCol('intents', true));
             // Badge "Tin nhắn chưa đọc" cập nhật ngầm dù đang ở tab Đối soát.
