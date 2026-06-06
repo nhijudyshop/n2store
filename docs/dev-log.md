@@ -25,6 +25,19 @@
 
 ## 2026-06-06
 
+### [inbox] ⚡ PERF: trang Đơn Inbox hết tải nặng — KPI thẻ "tất cả" thôi auto kéo toàn bộ lịch sử đơn ✅
+
+**Files:** `don-inbox/js/tab-social-core.js`, `don-inbox/js/tab-social-kpi-reconcile.js`
+
+**Nguyên nhân (user nghi đúng — do KPI):** Mở trang ở filter mặc định "Tất cả", `updateInboxKpiStatCard()` tự gọi `ensureRangeLoaded()`; vì `from=0` nên vòng phân trang `/api/social-orders/load?limit=1000&page=N` chạy tới 12 lần × 1000 đơn (kèm JSONB `products[]`) — chỉ để hiện con số KPI — NGAY SAU khi đã tải 500 đơn cho bảng.
+
+**Fix (lazy + tính khi cần, frontend-only):**
+- `tab-social-core.js`: bỏ auto-trigger `ensureRangeLoaded` khi render thẻ; tính KPI trên tập đơn đã load (500 gần nhất). Thêm `coversRange` → hint "≈ trên N đơn gần nhất — bấm để tính đủ" khi chưa phủ đủ. Thêm `refreshKpiCardWhenInvoiceReady()` (poll nhẹ, không network) để refresh thẻ 1 lần khi `InvoiceStatusStore` load xong (tránh thẻ ra 0 lúc mở).
+- `tab-social-kpi-reconcile.js`: guard `ensureRangeLoaded` (range hẹp đã đủ thì khỏi phân trang); `showDetailModal` cập nhật lại thẻ sau khi kéo đủ.
+- Kéo đủ khoảng vẫn chạy khi bấm thẻ KPI hoặc "Chạy đối soát KPI" (không đổi nghiệp vụ).
+
+**Verify (Playwright localhost):** mở trang chỉ còn 1 request `load?limit=500` (+`/tags`), HẾT loạt `limit=1000&page` → thẻ tự lên "480 món · 2.400.000đ" (≈ trên 500 đơn) khi store sẵn sàng; bấm thẻ kéo đủ 2749 đơn → "2.782 món · 13.910.000đ" (khớp số production). **Status:** ✅ DONE — commit `04e6f92e3` + `3e2ce93c5`.
+
 ### [issue-tracking] 🔴 FIX: đơn "Khách Gửi" không cộng công nợ vào ví khi số tiền hoàn lệch + tách lịch sử 2 bước ✅
 
 **Files:** `issue-tracking/js/script.js`, `shared/js/ticket-history-viewer.js`, `issue-tracking/css/style.css`
