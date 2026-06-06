@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7d28c48` — feat(web2): audit history — frontend gửi tên user cho money ops + hiện 'Người thực hiện'
-**Last updated**: 2026-06-06 10:00:35 +07
-**Latest session**: [`RESUME:20260606-100035-7d28c48`](../20260606-100035-7d28c48.md)
-**Summary**: feat(web2): audit history — frontend gửi tên user cho money ops + hiện 'Người thực hiện'
+**Latest commit**: `754a65e` — auto: session update
+**Last updated**: 2026-06-06 10:08:33 +07
+**Latest session**: [`RESUME:20260606-100833-754a65e`](../20260606-100833-754a65e.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -62,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:46
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-06 09:52
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-06 10:08
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
