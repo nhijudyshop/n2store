@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `871426e` — auto: session update
-**Last updated**: 2026-06-06 12:15:31 +07
-**Latest session**: [`RESUME:20260606-121531-871426e`](../20260606-121531-871426e.md)
-**Summary**: auto: session update
+**Latest commit**: `55f5efe` — fix(snap): update yt-dlp lên latest tại build (postinstall -U) — fix '[facebook] Cannot parse data' → force extract; yt-dlp primary, Graph fallback
+**Last updated**: 2026-06-06 12:16:28 +07
+**Latest session**: [`RESUME:20260606-121628-55f5efe`](../20260606-121628-55f5efe.md)
+**Summary**: fix(snap): update yt-dlp lên latest tại build (postinstall -U) — fix '[facebook] Cannot parse data' → force ex...
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`orders-report/`](./orders-report.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -52,7 +49,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-06 12:15
+- [`render.com/`](./render.com.md) — updated 2026-06-06 12:16
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-06 12:08
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
