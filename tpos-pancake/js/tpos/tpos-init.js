@@ -294,6 +294,9 @@ const TposColumnManager = {
     async onMultiCampaignChange(campaignIds) {
         const state = window.TposState;
 
+        // Đổi tập comment → reset cap render về N mới nhất (infinite scroll từ đầu).
+        window.TposCommentList.resetRenderLimit?.();
+
         // Stop all SSE
         window.TposRealtime.stopSSE();
 

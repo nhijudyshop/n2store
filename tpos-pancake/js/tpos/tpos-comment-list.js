@@ -40,7 +40,111 @@ function tposSvgIcon(name, size = 13, cls = '') {
     return `<svg xmlns="http://www.w3.org/2000/svg"${cls ? ` class="${cls}"` : ''} width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;pointer-events:none;flex-shrink:0;">${p}</svg>`;
 }
 
+// Cap render: chỉ dựng N comment MỚI NHẤT trong DOM (comments sorted newest-first).
+// 843 dòng non-virtualized → mỗi render reflow O(n) + inventory-panel/livestream-snap
+// quét all rows → giật. Cap giữ DOM nhỏ (~200) → nhẹ. Nút "xem cũ hơn" tăng cap.
+const RENDER_LIMIT_INITIAL = 200;
+const RENDER_LIMIT_STEP = 200;
+
 const TposCommentList = {
+    /**
+     * Danh sách comment HIỂN THỊ (cap N mới nhất). Comments đã sort newest-first.
+     * @returns {Array}
+     */
+    _visibleComments() {
+        const all = window.TposState.comments || [];
+        const lim = this._renderLimit || RENDER_LIMIT_INITIAL;
+        return lim >= all.length ? all : all.slice(0, lim);
+    },
+
+    /**
+     * Reset cap về mặc định (gọi khi đổi tập comment — chọn campaign khác).
+     */
+    resetRenderLimit() {
+        this._renderLimit = RENDER_LIMIT_INITIAL;
+    },
+
+    /**
+     * Infinite scroll: cuộn gần đáy list → tự load thêm RENDER_LIMIT_STEP comment
+     * cũ hơn. Dùng IntersectionObserver trên sentinel ở cuối (không scroll handler
+     * churn). Append batch mới TRƯỚC sentinel → giữ nguyên các dòng đã có + vị trí
+     * scroll, KHÔNG rebuild toàn list.
+     */
+    _ensureScrollSentinel() {
+        const state = window.TposState;
+        const list = document.getElementById('tposCommentList');
+        if (!list) return;
+        const lim = this._renderLimit || RENDER_LIMIT_INITIAL;
+        const hasMore = (state.comments?.length || 0) > lim;
+        let sentinel = document.getElementById('tposScrollSentinel');
+        if (!hasMore) {
+            if (sentinel) sentinel.remove();
+            return;
+        }
+        if (!sentinel) {
+            sentinel = document.createElement('div');
+            sentinel.id = 'tposScrollSentinel';
+            sentinel.style.cssText = 'height:1px;width:100%;';
+        }
+        // Luôn để sentinel ở cuối.
+        if (list.lastElementChild !== sentinel) list.appendChild(sentinel);
+        // Wire observer 1 lần (root = list scroll container, prefetch trước 400px).
+        if (!this._scrollObserver) {
+            this._scrollObserver = new IntersectionObserver(
+                (entries) => {
+                    if (entries.some((e) => e.isIntersecting)) this._appendOlderBatch();
+                },
+                { root: list, rootMargin: '0px 0px 400px 0px' }
+            );
+        } else {
+            this._scrollObserver.disconnect();
+        }
+        this._scrollObserver.observe(sentinel);
+    },
+
+    /**
+     * Append batch comment cũ hơn (RENDER_LIMIT_STEP) vào cuối, trước sentinel.
+     * Không rebuild list → giữ scroll + dòng cũ. Chunked để không block.
+     */
+    _appendOlderBatch() {
+        if (this._loadingOlder) return;
+        const state = window.TposState;
+        const list = document.getElementById('tposCommentList');
+        if (!list) return;
+        const oldLim = this._renderLimit || RENDER_LIMIT_INITIAL;
+        const all = state.comments || [];
+        if (oldLim >= all.length) {
+            this._ensureScrollSentinel();
+            return;
+        }
+        this._loadingOlder = true;
+        const newLim = Math.min(oldLim + RENDER_LIMIT_STEP, all.length);
+        const batch = all.slice(oldLim, newLim);
+        const sentinel = document.getElementById('tposScrollSentinel');
+        const schedule = (cb) => setTimeout(cb, 0);
+        const CHUNK = 25;
+        let i = 0;
+        const step = () => {
+            const parts = [];
+            const end = Math.min(i + CHUNK, batch.length);
+            for (; i < end; i++) parts.push(this.renderCommentItem(batch[i]));
+            const html = parts.join('');
+            if (sentinel && sentinel.parentNode === list) {
+                sentinel.insertAdjacentHTML('beforebegin', html);
+            } else {
+                list.insertAdjacentHTML('beforeend', html);
+            }
+            if (i < batch.length) {
+                schedule(step);
+            } else {
+                this._renderLimit = newLim;
+                this._loadingOlder = false;
+                this._ensureScrollSentinel(); // re-observe (hoặc gỡ nếu hết)
+            }
+        };
+        schedule(step);
+    },
+
     /**
      * Render the main container structure
      */
@@ -410,13 +514,12 @@ const TposCommentList = {
             this._pendingDirty = true;
             return;
         }
+        const visible = this._visibleComments();
         const rendered = listContainer.querySelectorAll('.tpos-conversation-item');
         const sameStructure =
             rendered.length > 0 &&
-            rendered.length === state.comments.length &&
-            Array.from(rendered).every(
-                (el, i) => el.dataset.commentId === String(state.comments[i].id)
-            );
+            rendered.length === visible.length &&
+            Array.from(rendered).every((el, i) => el.dataset.commentId === String(visible[i].id));
         if (sameStructure) {
             this._patchRowsChunked();
         } else {
@@ -435,7 +538,7 @@ const TposCommentList = {
         if (!listContainer) return;
         // Hủy chunk-loop đang chạy (nếu có) để coalesce.
         if (this._chunkHandle != null) {
-            (window.cancelIdleCallback || clearTimeout)(this._chunkHandle);
+            clearTimeout(this._chunkHandle);
             this._chunkHandle = null;
         }
         // Map id→element 1 lần (tránh querySelector O(n) trong loop).
@@ -443,15 +546,13 @@ const TposCommentList = {
         listContainer
             .querySelectorAll('.tpos-conversation-item')
             .forEach((el) => rowMap.set(el.dataset.commentId, el));
-        const comments = state.comments;
-        const schedule =
-            window.requestIdleCallback ||
-            ((cb) => setTimeout(() => cb({ timeRemaining: () => 8 }), 0));
+        const comments = this._visibleComments();
+        const schedule = (cb) => setTimeout(cb, 0);
         const CHUNK = 25;
         let i = 0;
-        const step = (deadline) => {
+        const step = () => {
             const end = Math.min(i + CHUNK, comments.length);
-            while (i < end && (deadline.timeRemaining ? deadline.timeRemaining() > 1 : true)) {
+            while (i < end) {
                 const c = comments[i++];
                 const old = rowMap.get(String(c.id));
                 if (!old) continue;
@@ -503,17 +604,19 @@ const TposCommentList = {
         // dần → không lần nào block > ~1 frame. Rows hiện progressive (mượt).
         // Hủy render-loop cũ để coalesce (campaign change / enrichment chồng nhau).
         if (this._fullRenderHandle != null) {
-            (window.cancelIdleCallback || clearTimeout)(this._fullRenderHandle);
+            clearTimeout(this._fullRenderHandle);
             this._fullRenderHandle = null;
         }
-        const comments = state.comments;
-        const schedule =
-            window.requestIdleCallback ||
-            ((cb) => setTimeout(() => cb({ timeRemaining: () => 8 }), 0));
+        // Chỉ render N comment MỚI NHẤT (cap). Cuộn xuống đáy → _appendOlderBatch.
+        // Scheduler = setTimeout (KHÔNG requestIdleCallback): khi load 4 campaign
+        // main-thread bận liên tục → rIC bị starve → render đứng giữa chừng. setTimeout
+        // luôn fire. Cap 200 rows nên mỗi chunk nhẹ, không block.
+        const comments = this._visibleComments();
+        const schedule = (cb) => setTimeout(cb, 0);
         const CHUNK = 25;
         listContainer.innerHTML = '';
         let i = 0;
-        const step = (deadline) => {
+        const step = () => {
             const parts = [];
             const end = Math.min(i + CHUNK, comments.length);
             for (; i < end; i++) parts.push(this.renderCommentItem(comments[i]));
@@ -522,6 +625,7 @@ const TposCommentList = {
                 this._fullRenderHandle = schedule(step);
             } else {
                 this._fullRenderHandle = null;
+                this._ensureScrollSentinel(); // infinite-scroll sentinel ở cuối
                 this.updateLoadMoreIndicator();
                 // Enrichment đến trong lúc render → patch nốt phần đã render stale.
                 if (this._pendingDirty) {

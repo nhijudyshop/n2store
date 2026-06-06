@@ -25,6 +25,21 @@
 
 ## 2026-06-06
 
+### [tpos-pancake] Cap render 200 + infinite scroll — hết giật hẳn (840ms→76ms) ✅
+
+Tiếp theo entry dưới. User chọn hướng **cap render** (thay vì virtualize). Đã làm + đo verify trên page live (mô phỏng tick 4 campaign HOUSE/STORE 06+02/06):
+
+**Kết quả:** long-task max **840ms → 76ms**; DOM bound **843 → 200 rows**; idle loop `/cart/batch/counts` = 0.
+
+**Files:** `tpos-pancake/js/tpos/tpos-comment-list.js`, `tpos-pancake/js/tpos/tpos-init.js`
+
+- **Cap render**: chỉ dựng `RENDER_LIMIT_INITIAL=200` comment MỚI NHẤT (comments sort newest-first → `slice(0, limit)`). `_visibleComments()` dùng ở full render + patch + dispatch. Mọi module phụ (inventory badge, livestream-snap thumbnail) cũng nhẹ theo vì DOM nhỏ.
+- **Infinite scroll** (user yêu cầu, thay nút): `IntersectionObserver` trên sentinel cuối list (root = list, prefetch 400px) → cuộn gần đáy → `_appendOlderBatch()` append +200 comment cũ TRƯỚC sentinel, giữ scroll + dòng cũ, KHÔNG rebuild. Verify: 200→400→600 khi cuộn.
+- **Scheduler = `setTimeout` (KHÔNG `requestIdleCallback`)**: phát hiện bug rIC bị **starve** khi load 4 campaign (main-thread bận liên tục) → render đứng ở 25 dòng nhiều giây. setTimeout luôn fire. Cap 200 nên mỗi chunk nhẹ.
+- **Reset cap** khi `onMultiCampaignChange` (đổi tập comment).
+
+**Status:** node --check OK; verify 200/200 rows ổn định, 0 console error, scroll append 200→400→600. ✅
+
 ### [tpos-pancake] Fix giật khi chọn nhiều campaign — render thông minh (chunked + sig-skip + debounce) 🔄
 
 **Vấn đề (user):** Chọn 4 campaign → khung comment TPOS giật rất nhiều lần. Yêu cầu "test thực sự để hiểu nguyên nhân".
