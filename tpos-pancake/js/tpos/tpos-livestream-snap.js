@@ -858,118 +858,117 @@ Throttle 30s/KH.`;
             chip.style.borderColor = '#93c5fd';
             chip.style.color = '#1e40af';
         };
+        // CLIENT-SIDE force extract (2026-06-06): backend yt-dlp/Graph bị FB chặn
+        // (xem _clientCaptureAtOffset). Browser có FB auth → seek iframe VOD +
+        // capture từng comment. Chỉ chạy comment CHƯA có thumbnail thật.
         chip.addEventListener('click', async () => {
-            // Re-entry guard: nếu đang chạy → block second click. Chip vẫn
-            // pointerEvents:none nhưng safety check thêm.
             if (chip.dataset.running === '1') {
-                _toast('Force extract đang chạy — đợi xong rồi click lại', 'ok');
+                _toast('Đang chạy — đợi xong rồi click lại', 'ok');
                 return;
             }
-            const camp = _findActiveLiveCampaign();
-            const pageObj = _resolvePageObj();
-            const body = {};
-            if (camp?.Facebook_LiveId) body.liveVideoId = camp.Facebook_LiveId;
-            if (pageObj?.Facebook_PageId) body.pageId = pageObj.Facebook_PageId;
-            const scope = camp?.Facebook_LiveId
-                ? `live "${camp.Name || camp.Facebook_LiveId}"`
-                : 'TẤT CẢ lives';
-            if (!confirm(`Force re-extract pending snaps trong ${scope}?`)) return;
+            const st = global.TposState;
+            // Pending = comment (non-staff) chưa có ảnh bytea thật.
+            const pending = (st?.comments || []).filter((c) => {
+                if (!c.from?.id || _isStaffComment(c)) return false;
+                const snap = STATE.snapByComment.get(c.id);
+                return !(snap?.thumbnailUrl || '').includes('/api/livestream/snapshot/');
+            });
+            if (!pending.length) {
+                _toast('Tất cả comment đã có thumbnail rồi', 'ok');
+                return;
+            }
+            if (!STATE.extReady && !STATE.captureStream) {
+                _toast('Chưa có capture — mở live + bật capture trước đã', 'err');
+                return;
+            }
+            if (
+                !confirm(
+                    `Chụp thumbnail client-side cho ${pending.length} comment chưa có ảnh?\n` +
+                        `(seek VOD + capture ~3-4s/comment, chỉ ăn khi live đã end)`
+                )
+            )
+                return;
             chip.dataset.running = '1';
             chip.style.opacity = '0.85';
             chip.style.pointerEvents = 'none';
-            // Step 1 — Backfill metadata trước. User feedback 2026-05-26: "có
-            // comment là chắc chắn có snap shot và thumbnail". Nguyên nhân
-            // missing thumbnail: comment đến trước khi auto-snap chạy → không
-            // có row trong DB → extract-all-pending bỏ qua. Backfill ensure
-            // row + offset_seconds tồn tại cho mọi comment visible trước khi
-            // extract bytea. skipExisting: true → không touch row đã có bytea.
-            chip.innerHTML = `⏳ Backfill metadata...`;
-            try {
-                if (camp?.Facebook_LiveId && pageObj?.Facebook_PageId) {
-                    await offlineBatchAll({ skipExisting: true });
-                }
-            } catch (bfErr) {
-                console.warn('[force-extract] backfill fail (continue):', bfErr?.message);
+
+            // Group theo video (Facebook_LiveId) — mỗi video seek iframe riêng.
+            const byVideo = new Map();
+            for (const c of pending) {
+                const camp = _resolveCampaignForComment(c);
+                if (!camp?.Facebook_LiveId) continue;
+                const k = camp.Facebook_LiveId;
+                if (!byVideo.has(k)) byVideo.set(k, { camp, comments: [] });
+                byVideo.get(k).comments.push(c);
             }
-            chip.innerHTML = `⏳ Queuing extract...`;
+            const total = pending.length;
+            let done = 0;
+            let failed = 0;
+            const activeCamp = _findActiveLiveCampaign();
             try {
-                const r = await fetch(API + '/api/livestream/extract-all-pending', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'omit',
-                    body: JSON.stringify(body),
-                });
-                const d = await r.json();
-                if (!d.success) throw new Error(d.error || 'request failed');
-                if (d.queued === 0) {
-                    _toast('Không có snap pending nào — tất cả đã extract', 'ok');
-                    _resetChip();
-                    return;
-                }
-                const batchId = d.batchId;
-                const total = d.queued;
-                _toast(`⚡ Queued ${total} snaps — backend chạy song song nhiều worker`, 'ok');
-                _renderProgress({}, total);
-                // Poll status mỗi 1s, stop khi finished >= total hoặc timeout 10 phút.
-                const startMs = Date.now();
-                const pollTimer = setInterval(async () => {
-                    if (Date.now() - startMs > 10 * 60 * 1000) {
-                        clearInterval(pollTimer);
-                        _toast('Force extract timeout 10 phút — check backend logs', 'err');
-                        _resetChip();
-                        return;
+                for (const { camp, comments } of byVideo.values()) {
+                    const pageObj = st.allPages?.find(
+                        (p) => p.Facebook_PageId === camp.Facebook_UserId
+                    );
+                    let videoInfo = null;
+                    if (pageObj) {
+                        try {
+                            videoInfo = await _fetchLiveVideoInfo(
+                                pageObj.Facebook_PageId,
+                                camp.Facebook_LiveId
+                            );
+                        } catch (_) {}
                     }
-                    try {
-                        const sr = await fetch(
-                            API +
-                                '/api/livestream/extract-status?batchId=' +
-                                encodeURIComponent(batchId)
+                    if (!pageObj || !videoInfo?.broadcastStartMs) {
+                        failed += comments.length;
+                        _renderProgress({ done, failed }, total);
+                        continue;
+                    }
+                    for (const c of comments) {
+                        const rawT =
+                            c.created_time || c.createdTime || c.inserted_at || c.created_at;
+                        const commentTimeMs = rawT ? new Date(rawT).getTime() : NaN;
+                        if (!Number.isFinite(commentTimeMs)) {
+                            failed++;
+                            _renderProgress({ done, failed }, total);
+                            continue;
+                        }
+                        const offsetSec = Math.max(
+                            0,
+                            Math.floor((commentTimeMs - videoInfo.broadcastStartMs) / 1000)
                         );
-                        const sd = await sr.json();
-                        if (!sd.success || !sd.status) {
-                            clearInterval(pollTimer);
-                            _resetChip();
-                            return;
+                        try {
+                            const imageBase64 = await _clientCaptureAtOffset(camp, offsetSec);
+                            if (!imageBase64) throw new Error('capture rỗng');
+                            await _postCapturedSnap({
+                                commentId: c.id,
+                                customerFbUserId: c.from.id,
+                                customerName: c.from.name || '?',
+                                commentTimeMs,
+                                offsetSec,
+                                pageObj,
+                                camp,
+                                videoInfo,
+                                imageBase64,
+                                message: c.message,
+                            });
+                            done++;
+                        } catch (e) {
+                            failed++;
+                            console.warn('[force-client] fail', c.id, e.message);
                         }
-                        const s = sd.status;
-                        const liveActive = s.liveActive || 0;
-                        const finished =
-                            (s.done || 0) + (s.failed || 0) + (s.drmBlocked || 0) + liveActive;
-                        _renderProgress(s, total);
-                        if (finished >= total) {
-                            clearInterval(pollTimer);
-                            const parts = [];
-                            if (s.done > 0) parts.push(`${s.done} OK`);
-                            if (s.failed > 0) parts.push(`${s.failed} fail`);
-                            if (s.drmBlocked > 0) parts.push(`${s.drmBlocked} DRM`);
-                            if (liveActive > 0) parts.push(`${liveActive} live đang chạy`);
-                            _toast(`Extract xong: ${parts.join(', ')}`, s.done > 0 ? 'ok' : 'err');
-                            // Nếu có errors → log chi tiết ra console + show 1 error trong toast
-                            if (s.lastErrors?.length) {
-                                console.warn('[force-extract] errors:', s.lastErrors);
-                                setTimeout(() => {
-                                    _toast(
-                                        `Lỗi 1 snap: ${s.lastErrors[0].msg.slice(0, 100)}`,
-                                        'err'
-                                    );
-                                }, 1500);
-                            }
-                            // Step 3 — Invalidate cache + re-fetch thumbnails.
-                            // User feedback 2026-05-26: sau Force extract, thumbnail
-                            // visible đôi khi không cập nhật vì STATE.snapByComment
-                            // có entry null từ lần fetch trước (khi snap chưa có
-                            // bytea). _queueSnapByComment có guard `has()` →
-                            // không re-fetch entry null. Clear cache + queue lại.
-                            _invalidateSnapCacheAndRefresh();
-                            setTimeout(_resetChip, 3000);
-                        }
-                    } catch (pe) {
-                        console.warn('[force-extract] poll fail:', pe.message);
+                        _renderProgress({ done, failed }, total);
                     }
-                }, 1000);
+                }
+                _toast(`Client extract: ${done} OK, ${failed} fail`, done > 0 ? 'ok' : 'err');
             } catch (e) {
                 _toast('Lỗi force extract: ' + e.message, 'err');
-                _resetChip();
+            } finally {
+                try {
+                    if (activeCamp) await _clientRestoreLive(activeCamp);
+                } catch (_) {}
+                _invalidateSnapCacheAndRefresh();
+                setTimeout(_resetChip, 2500);
             }
         });
         host.appendChild(chip);
@@ -2377,7 +2376,16 @@ Throttle 30s/KH.`;
             btn.innerHTML = '⏳ <span>Đang lấy...</span>';
         }
 
-        const snapId = await _createMetadataSnap({
+        // CLIENT-SIDE capture (backend yt-dlp/Graph bị FB chặn từ datacenter, xem
+        // _clientCaptureAtOffset). Browser có FB auth → seek iframe VOD + capture.
+        if (!STATE.extReady && !STATE.captureStream) {
+            throw new Error('chưa có capture — mở live + bật capture trước');
+        }
+        const imageBase64 = await _clientCaptureAtOffset(camp, offsetSec);
+        if (!imageBase64) {
+            throw new Error('capture thất bại (live chưa end / VOD chưa load?)');
+        }
+        await _postCapturedSnap({
             commentId,
             customerFbUserId: c.from.id,
             customerName: c.from.name || '?',
@@ -2386,34 +2394,15 @@ Throttle 30s/KH.`;
             pageObj,
             camp,
             videoInfo,
+            imageBase64,
             message: c.message,
         });
-        if (!snapId) throw new Error('tạo metadata snap thất bại');
-
-        const r = await fetch(API + '/api/livestream/extract-frame', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'omit',
-            body: JSON.stringify({ snapshotIds: [snapId] }),
-        });
-        const d = await r.json();
-        if (!d.success) {
-            if (r.status === 503) {
-                throw new Error('backend extract chưa sẵn sàng');
-            }
-            throw new Error(d.error || 'extract-frame failed');
-        }
-        if (d.queued === 0) {
-            // Snap đã có bytea sẵn → refresh strip ngay.
-            STATE.snapByComment.delete(commentId);
-            _queueSnapByComment(commentId);
-            _toast('✅ Thumbnail đã sẵn — đang refresh', 'ok');
-            return;
-        }
-        _toast('⏳ Backend extract frame (5-15s) — sẽ tự refresh', 'ok');
-        // SSE 'extract-done' sẽ invalidate cache + re-render strip. Nếu user
-        // ở tab khác lúc done, _refreshThumbStripsForCustomer hoặc reconnect
-        // sẽ catch up — không cần spinner timeout ở đây.
+        _toast('✅ Đã lấy thumbnail', 'ok');
+        // Restore iframe về live active để auto-snap buffer chạy tiếp.
+        try {
+            const ac = _findActiveLiveCampaign();
+            if (ac) await _clientRestoreLive(ac);
+        } catch (_) {}
     }
 
     // Chụp frame của FB live tại đúng moment 1 comment.
@@ -2608,6 +2597,69 @@ Throttle 30s/KH.`;
         // Invalidate cache + re-render strip (sẽ thấy ảnh self-served).
         STATE.snapByComment.delete(p.commentId);
         _queueSnapByComment(p.commentId);
+    }
+
+    // =====================================================
+    // CLIENT-SIDE FORCE EXTRACT (2026-06-06)
+    // Backend yt-dlp/Graph bị FB chặn (anonymous datacenter, token Bad signature).
+    // FB auth chỉ tồn tại ở browser → seek iframe FB VOD (plugin &t=offset, đã auth)
+    // tới đúng giây từng comment → capture frame (extension/getDisplayMedia, crop
+    // wrapper) → POST imageBase64 (bytea). Không cần yt-dlp/cookies/Graph.
+    // Lưu ý: &t= seek chỉ ăn trên VOD (live đã end). Live đang chạy → auto-snap lo.
+    // =====================================================
+    function _buildSeekEmbedUrl(camp, offsetSec) {
+        const fbVideoUrl = _buildFbLiveUrl(camp);
+        if (!fbVideoUrl) return null;
+        // width/height KHỚP _ensureEmbeddedIframe (200 × 386) để capture crop đúng.
+        return (
+            `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(fbVideoUrl)}` +
+            `&show_text=false&width=200&height=386&autoplay=1&mute=1` +
+            `&allowfullscreen=false&show_share=false&show_captions=false&t=${Math.max(0, offsetSec)}`
+        );
+    }
+
+    // Seek iframe tới offsetSec rồi capture 1 frame. Trả jpegBase64 (no prefix) hoặc null.
+    async function _clientCaptureAtOffset(camp, offsetSec) {
+        const iframe = _ensureEmbeddedIframe(camp);
+        if (!iframe) throw new Error('không tạo được iframe FB');
+        const url = _buildSeekEmbedUrl(camp, offsetSec);
+        if (!url) throw new Error('không build được URL seek');
+        // Reload iframe tại offset (FB plugin tự seek VOD theo &t=).
+        await new Promise((resolve) => {
+            let settled = false;
+            const done = () => {
+                if (settled) return;
+                settled = true;
+                resolve();
+            };
+            iframe.addEventListener('load', done, { once: true });
+            iframe.src = url;
+            setTimeout(done, 7000); // fallback nếu load event không fire
+        });
+        // Chờ FB player seek + render frame thật.
+        await new Promise((r) => setTimeout(r, 2600));
+        // Capture: ưu tiên getDisplayMedia stream, fallback extension.
+        if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
+            const j = await _captureFrameJpeg(0.72, 1280);
+            if (j) return j;
+        }
+        if (STATE.extReady) {
+            const j = await _captureExtensionFrame();
+            if (j) return j;
+        }
+        return null;
+    }
+
+    // Reset iframe về live active sau khi force-extract xong (giữ auto-snap buffer chạy tiếp).
+    async function _clientRestoreLive(camp) {
+        const iframe = document.querySelector('#tpos-snap-fb-wrapper iframe');
+        if (!iframe || !camp) return;
+        const fbVideoUrl = _buildFbLiveUrl(camp);
+        if (!fbVideoUrl) return;
+        iframe.src =
+            `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(fbVideoUrl)}` +
+            `&show_text=false&width=200&height=386&autoplay=1&mute=1` +
+            `&allowfullscreen=false&show_share=false&show_captions=false`;
     }
 
     // Lightbox zoom — modal full-screen mở ảnh snapshot + nút "Xem live tại giây X".
