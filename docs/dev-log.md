@@ -39,6 +39,8 @@
 
 **Root cause (NGHIÊM TRỌNG):** Approve thử trên prod báo `column "performed_by" of relation "web2_wallet_transactions" does not exist`. → Từ khi deploy audit `performed_by`, `web2-wallet-isolation.ensureSchema` **abort giữa chừng**: bước 4 (DO block `SELECT MAX(id) FROM customer_wallets/wallet_transactions/...`) + bước 5 (`DROP TRIGGER ON <legacy>`) tham chiếu bảng **legacy KHÔNG tồn tại trên web2Db** (đã tách DB 2026-06-03) → throw → outer try (line 211) nuốt → **ALTER `performed_by` (đặt cuối) KHÔNG bao giờ chạy**. processDeposit/processWithdraw INSERT `performed_by` → fail → **MỌI lần cộng/trừ ví Web 2.0 fail** (SePay auto-credit, CK approve, nạp tay) → ví kẹt, GD kẹt "Đang xử lý". Self-reinforcing: ví rỗng → c.w=0 → backfill `FROM customer_wallets` lại throw.
 
+**Deploy + verify (prod, clone test 0123456788):** 2 commit (`4030613bd` vẫn fail vì block CREATE `LIKE wallet_adjustments` ném TRƯỚC ALTER → `c9e3898d5` chuyển ALTER `performed_by` lên ĐẦU `ALTER TABLE IF EXISTS` + guard CREATE bằng DO/to_regclass). Sau deploy: `POST /payment-signals/2/approve {phone:0123456788, txId:155028}` → `{success:true, credited:true}`. GD155028 `debt_added=true` AUTO_APPROVED (hết "Đang xử lý"); signal id=2 history: detect→confirm→approve(+ví)→**notify "đã gửi tin báo KH"** (Nguyễn Tâm nhận tin). ⇒ unblock TOÀN BỘ cộng/trừ ví Web 2.0 (SePay/CK/nạp tay).
+
 **Fix (`web2-wallet-isolation.js`):**
 
 - **ALTER `performed_by` chuyển lên SỚM** (bước 3b, ngay sau CREATE) + try riêng → cột LUÔN tồn tại bất kể bước legacy lỗi.
