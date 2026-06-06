@@ -212,11 +212,35 @@
     // ========================================
     // Fetch products from TPOS API (Tier 3 fallback)
     // ========================================
+    // Lấy auth header TPOS. KPI tab chạy trong iframe thường KHÔNG có
+    // window.tokenManager → thử parent/top (same-origin) trước khi bó tay.
+    async function _getTposAuthHeader() {
+        const candidates = [];
+        try {
+            candidates.push(window.tokenManager);
+        } catch (e) {}
+        try {
+            if (window.parent && window.parent !== window) candidates.push(window.parent.tokenManager);
+        } catch (e) {}
+        try {
+            if (window.top && window.top !== window) candidates.push(window.top.tokenManager);
+        } catch (e) {}
+        for (const tm of candidates) {
+            if (tm && typeof tm.getAuthHeader === 'function') {
+                try {
+                    const h = await tm.getAuthHeader();
+                    if (h) return h;
+                } catch (e) {}
+            }
+        }
+        return null;
+    }
+
     // Lấy SP 1 đơn từ TPOS OData ($expand=Details — nguồn chuẩn giống bảng).
     // THROW khi lỗi HTTP/network (để caller retry phân biệt với "đơn thật sự rỗng SP" → trả []).
     async function fetchProductsFromTPOS(orderId) {
-        if (!window.tokenManager || !window.tokenManager.getAuthHeader) return [];
-        const headers = await window.tokenManager.getAuthHeader();
+        const headers = await _getTposAuthHeader();
+        if (!headers) return [];
         const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details`;
         const response = await fetch(apiUrl, {
             headers: { ...headers, accept: 'application/json' },
@@ -232,6 +256,86 @@
                 Price: d.Price || 0,
             }))
             .filter((p) => p.ProductCode);
+    }
+
+    // ========================================
+    // KPI FINAL SNAPSHOT (074) — SP cuối thật trên TPOS, lazy fetch 1 lần.
+    // Nguồn SỐ LƯỢNG để tính NET = (final TPOS − BASE), tránh drift audit log.
+    // KHÔNG đụng attribution (vẫn quy tắc chủ khoảng STT) — chỉ cấp số lượng.
+    // ========================================
+
+    // Đọc snapshot đã lưu (nếu có). Trả { orderCode, orderId, products[] } | null.
+    async function getKpiFinalSnapshot(orderCode) {
+        if (!orderCode) return null;
+        try {
+            const r = await kpiAPI(
+                'GET',
+                `/kpi-final-snapshot/${encodeURIComponent(orderCode)}`
+            );
+            return r && r.exists ? r.data : null;
+        } catch (e) {
+            console.warn('[KPI] getKpiFinalSnapshot error:', e.message);
+            return null;
+        }
+    }
+
+    // Lưu snapshot SP cuối (upsert). KHÔNG lưu mảng rỗng (tránh ghi đè [] khi fetch fail).
+    async function saveKpiFinalSnapshot(orderCode, orderId, products) {
+        if (!orderCode || !Array.isArray(products) || products.length === 0) return false;
+        let fetchedBy = 'unknown';
+        try {
+            const auth = window.authManager?.getAuthState?.();
+            if (auth) fetchedBy = auth.displayName || auth.username || auth.userType || 'unknown';
+        } catch (e) {}
+        try {
+            await kpiAPI('PUT', `/kpi-final-snapshot/${encodeURIComponent(orderCode)}`, {
+                orderId: orderId || null,
+                products,
+                fetchedBy,
+            });
+            return true;
+        } catch (e) {
+            console.warn('[KPI] saveKpiFinalSnapshot error:', e.message);
+            return false;
+        }
+    }
+
+    // Đảm bảo có snapshot: force=false → có rồi bỏ qua (chỉ GET); thiếu → fetch TPOS 1 lần rồi lưu.
+    // Trả snapshot data hoặc null (nếu không fetch được — vd thiếu token / đơn rỗng).
+    async function ensureKpiFinalSnapshot(orderCode, orderId, opts = {}) {
+        if (!orderCode) return null;
+        if (!opts.force) {
+            const existing = await getKpiFinalSnapshot(orderCode);
+            if (existing && Array.isArray(existing.products) && existing.products.length > 0) {
+                return existing;
+            }
+        }
+        let products = [];
+        try {
+            products = await fetchProductsFromTPOS(orderId);
+        } catch (e) {
+            console.warn('[KPI] ensureKpiFinalSnapshot fetch TPOS failed:', e.message);
+            return opts.force ? null : await getKpiFinalSnapshot(orderCode);
+        }
+        if (!products || products.length === 0) return null;
+        await saveKpiFinalSnapshot(orderCode, orderId, products);
+        return { orderCode, orderId, products };
+    }
+
+    // Batch: trả Set<orderCode> CHƯA có snapshot (để "Làm mới dữ liệu" chỉ fetch cái thiếu).
+    async function getMissingFinalSnapshots(orderCodes) {
+        const codes = Array.from(
+            new Set((orderCodes || []).map((c) => String(c)).filter(Boolean))
+        );
+        if (codes.length === 0) return new Set();
+        try {
+            const r = await kpiAPI('POST', '/kpi-final-snapshot/exists', { orderCodes: codes });
+            const existing = new Set(r.existing || []);
+            return new Set(codes.filter((c) => !existing.has(c)));
+        } catch (e) {
+            console.warn('[KPI] getMissingFinalSnapshots error:', e.message);
+            return new Set(codes); // fallback: coi như thiếu hết
+        }
     }
 
     // ========================================
@@ -527,57 +631,157 @@
                 return true;
             });
 
-            // Sort logs theo thời gian ASC để áp dụng last-add-wins khi remove
-            newProductLogs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-
-            // Per-product attribution stack: { pid: [{userId, userName, qty}, ...] }
-            // Mỗi 'add' push vào cuối; mỗi 'remove' pop ngược từ cuối (last-add-wins).
+            // ── NET QUANTITY (2026-06-06): đối chiếu với ĐƠN THẬT trên TPOS ──
+            // KPI NET = (final TPOS − BASE) thay vì cộng dồn sự kiện audit log
+            // (audit log drift: thêm trùng nhiều lần / xóa ảo → NET sai).
+            // Audit log GIỜ chỉ dùng để PHÂN BỔ (ai thêm → cap theo NET thật);
+            // attribution downstream (chủ khoảng STT) GIỮ NGUYÊN.
+            //
+            // stackPerProduct[pid] = [{userId, userName, qty}] tổng = NET thật của SP.
+            // Aggregation phía dưới sum stack → productNet = NET thật (không đổi code).
             const stackPerProduct = {};
             const netPerProduct = {};
             const perUserNames = {};
 
-            for (const log of newProductLogs) {
+            // Audit tally per productId (TỪ relevantLogs — gồm cả SP base để tính phần dư).
+            // Dùng cho: (a) hiển thị added/removed, (b) phân bổ NET cho NV (last-add-wins).
+            const auditByPid = {};
+            for (const log of relevantLogs) {
                 const pid = String(log.productId);
                 const qty = log.quantity || 0;
                 if (qty <= 0) continue;
-
-                if (!netPerProduct[pid]) {
-                    netPerProduct[pid] = {
-                        code: log.productCode,
-                        name: log.productName,
-                        added: 0,
-                        removed: 0,
-                        net: 0,
-                        price: 0,
-                        perUser: {},
-                    };
-                    stackPerProduct[pid] = [];
-                }
                 if (log.userId && log.userName) perUserNames[log.userId] = log.userName;
-
+                if (!auditByPid[pid]) auditByPid[pid] = { added: 0, removed: 0, adds: [] };
                 if (log.action === 'add') {
-                    netPerProduct[pid].added += qty;
-                    stackPerProduct[pid].push({
+                    auditByPid[pid].added += qty;
+                    auditByPid[pid].adds.push({
                         userId: log.userId || 'unknown',
                         userName: log.userName || 'Unknown',
                         qty,
+                        createdAt: log.createdAt,
                     });
                 } else if (log.action === 'remove') {
-                    netPerProduct[pid].removed += qty;
-                    let remaining = qty;
-                    const stack = stackPerProduct[pid];
-                    while (remaining > 0 && stack.length > 0) {
-                        const top = stack[stack.length - 1];
-                        if (top.qty <= remaining) {
-                            remaining -= top.qty;
-                            stack.pop();
-                        } else {
-                            top.qty -= remaining;
-                            remaining = 0;
+                    auditByPid[pid].removed += qty;
+                }
+            }
+
+            // Gán N đơn vị cho NV theo last-add-wins (NV thêm gần nhất giữ credit).
+            // Thiếu audit (vd SP thêm thẳng trên TPOS) → phần dư gán 'unknown'
+            // (downstream dồn về chủ khoảng STT — không phải My).
+            const _attributeUnits = (pid, n) => {
+                const out = [];
+                if (n <= 0) return out;
+                const adds = (auditByPid[pid]?.adds || [])
+                    .slice()
+                    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+                let remaining = n;
+                for (let i = adds.length - 1; i >= 0 && remaining > 0; i--) {
+                    const take = Math.min(adds[i].qty, remaining);
+                    out.push({ userId: adds[i].userId, userName: adds[i].userName, qty: take });
+                    remaining -= take;
+                }
+                if (remaining > 0)
+                    out.push({ userId: 'unknown', userName: 'Unknown', qty: remaining });
+                return out;
+            };
+
+            // Đọc snapshot SP cuối thật. Có → reconciled (final − base). Không → fallback replay.
+            const finalSnapshot = await getKpiFinalSnapshot(orderCode);
+            let reconciled = false;
+
+            if (
+                finalSnapshot &&
+                Array.isArray(finalSnapshot.products) &&
+                finalSnapshot.products.length > 0
+            ) {
+                reconciled = true;
+                // base qty theo productId (gộp nếu trùng).
+                const baseQtyByPid = new Map();
+                for (const p of base.products) {
+                    if (p.ProductId != null) {
+                        const k = Number(p.ProductId);
+                        baseQtyByPid.set(k, (baseQtyByPid.get(k) || 0) + (Number(p.Quantity) || 1));
+                    }
+                }
+                for (const fp of finalSnapshot.products) {
+                    const pidNum = fp.ProductId != null ? Number(fp.ProductId) : null;
+                    const finalQty = Number(fp.Quantity) || 0;
+                    if (finalQty <= 0) continue;
+
+                    let net = 0;
+                    let baseQty = 0;
+                    if (pidNum != null && baseProductIds.has(pidNum)) {
+                        // Cùng SP với BASE → tính PHẦN DƯ (mua thêm số lượng).
+                        baseQty = baseQtyByPid.get(pidNum) || 0;
+                        net = Math.max(0, finalQty - baseQty);
+                    } else {
+                        // Không match productId → kiểm tra đổi biến thể (template/tên) = KHÔNG tính.
+                        const tpl = fp.ProductCode ? templateMap[fp.ProductCode] : null;
+                        if (tpl && baseTemplateIds.has(Number(tpl))) continue;
+                        const norm = fp.ProductName
+                            ? normalizeProductName(fp.ProductName, attrs)
+                            : null;
+                        if (norm && baseNameSet.has(norm)) continue;
+                        net = finalQty; // SP mới hoàn toàn (upsell)
+                    }
+                    if (net <= 0) continue;
+
+                    const pid = pidNum != null ? String(pidNum) : fp.ProductCode || 'unknown';
+                    netPerProduct[pid] = {
+                        code: fp.ProductCode || '',
+                        name: fp.ProductName || '',
+                        added: auditByPid[pid]?.added || 0,
+                        removed: auditByPid[pid]?.removed || 0,
+                        net: 0, // set trong aggregation (= sum stack)
+                        price: Number(fp.Price) || 0,
+                        perUser: {},
+                        real: finalQty, // qty thật trên đơn cuối TPOS
+                        baseQty, // qty trong BASE
+                    };
+                    stackPerProduct[pid] = _attributeUnits(pid, net);
+                }
+            } else {
+                // FALLBACK (chưa có snapshot): replay audit log như cũ — reconciled=false.
+                // UI nên cảnh báo "chưa đối chiếu", bấm Làm mới để fetch đơn thật.
+                newProductLogs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+                for (const log of newProductLogs) {
+                    const pid = String(log.productId);
+                    const qty = log.quantity || 0;
+                    if (qty <= 0) continue;
+                    if (!netPerProduct[pid]) {
+                        netPerProduct[pid] = {
+                            code: log.productCode,
+                            name: log.productName,
+                            added: 0,
+                            removed: 0,
+                            net: 0,
+                            price: 0,
+                            perUser: {},
+                        };
+                        stackPerProduct[pid] = [];
+                    }
+                    if (log.action === 'add') {
+                        netPerProduct[pid].added += qty;
+                        stackPerProduct[pid].push({
+                            userId: log.userId || 'unknown',
+                            userName: log.userName || 'Unknown',
+                            qty,
+                        });
+                    } else if (log.action === 'remove') {
+                        netPerProduct[pid].removed += qty;
+                        let remaining = qty;
+                        const stack = stackPerProduct[pid];
+                        while (remaining > 0 && stack.length > 0) {
+                            const top = stack[stack.length - 1];
+                            if (top.qty <= remaining) {
+                                remaining -= top.qty;
+                                stack.pop();
+                            } else {
+                                top.qty -= remaining;
+                                remaining = 0;
+                            }
                         }
                     }
-                    // remaining > 0 → remove vượt số đã add (vd remove SP trong BASE
-                    // nhưng filter BASE không bắt được). Bỏ qua, không trừ ai.
                 }
             }
 
@@ -711,6 +915,7 @@
                 perUserNames,
                 strictMode: !!strictMode,
                 excludedCount,
+                reconciled, // true = NET tính theo đơn thật TPOS; false = fallback audit replay
             };
         } catch (e) {
             console.error('[KPI] calculateNetKPI error:', e);
@@ -770,6 +975,13 @@
             const base = await getKPIBase(orderCode);
             if (!base) return null;
             if (!base.products || base.products.length === 0) return null;
+
+            // Đảm bảo có snapshot SP cuối thật trên TPOS trước khi tính (fetch 1 lần
+            // nếu thiếu). → calculateNetKPI tính NET = final − BASE (reconciled).
+            // Có rồi → chỉ GET, không refetch. Non-fatal nếu TPOS lỗi (fallback audit).
+            try {
+                await ensureKpiFinalSnapshot(orderCode, base.orderId);
+            } catch (e) {}
 
             // Recover STT if BASE has 0 (vẫn cần để lưu metadata trong statistics)
             let stt = base.stt || 0;
@@ -1247,6 +1459,10 @@
         getAssignedEmployeeForSTT,
         isMyUser: _isMyUser,
         fetchProductsFromTPOS,
+        getKpiFinalSnapshot,
+        saveKpiFinalSnapshot,
+        ensureKpiFinalSnapshot,
+        getMissingFinalSnapshots,
         getCurrentDateString,
         updateKPIBadge,
         showKPIToast,

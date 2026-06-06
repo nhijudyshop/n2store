@@ -25,6 +25,30 @@
 
 ## 2026-06-06
 
+### [orders][render] KPI: tính NET theo ĐƠN THẬT TPOS (final − BASE) thay vì cộng dồn audit log ✅
+
+**Vấn đề (user, đơn 260600214 / NJD/2026/70868):** KPI không khớp đơn thật. Modal "So sánh KPI" hiện MM15 NET 2 = 10.000đ nhưng đơn thật chỉ có MM15 qty 1. Nguyên nhân (đã trace 5 agent + đọc code): KPI tính bằng **BASE snapshot + cộng dồn sự kiện audit log** (`calculateNetKPI` replay stack add/remove), **không bao giờ đối chiếu đơn cuối thật trên TPOS**. Audit log drift: MM15 +Thêm×3 (edit_modal_inline + sale_modal + chat_confirm_held) −Xóa×1 → NET 2; Q439H +Thêm rồi −Xóa ảo (chat_decrease) → NET 0 dù vẫn trên đơn; 5 SP base −Xóa ảo lúc 08:16 vẫn còn nguyên. Tổng ra 10.000đ chỉ do MM15 dư +1 triệt tiêu Q439H thiếu −1 (trùng hợp). "Tất cả SP" trống vì `renderAllProductsTab` chỉ đọc cache Firestore, không fallback TPOS.
+
+**Quyết định user:** (1) KPI = `(final TPOS − BASE)`, **GIỮ ô tick** làm cổng; (2) **GIỮ attribution chủ khoảng STT** (quy tắc owner 2026-05-07) — chỉ sửa SỐ LƯỢNG; (3) recompute lịch sử; (4) lấy đơn thật: fetch TPOS 1 lần khi cần rồi LƯU (snapshot), có rồi bỏ qua.
+
+**Giải pháp (append-only, không sửa endpoint KPI cũ):**
+
+- **Backend (migration 074 + `realtime-db.js`):** bảng mới `kpi_final_snapshot` (order_code PK, products JSONB) + endpoints `GET/PUT/DELETE /kpi-final-snapshot/:orderCode` + `POST /kpi-final-snapshot/exists` (batch). Lazy-ensure table trong route (tự tạo trên Render). Script `run-migration-074.js`.
+- **`kpi-manager.js`:**
+    - `fetchProductsFromTPOS`: token fallback parent/top (KPI iframe thiếu `tokenManager`).
+    - Helpers mới: `getKpiFinalSnapshot` / `saveKpiFinalSnapshot` / `ensureKpiFinalSnapshot` (fetch 1 lần, có rồi bỏ qua) / `getMissingFinalSnapshots` (batch).
+    - `calculateNetKPI`: NET per SP = `max(0, finalQty − baseQty)` từ snapshot (cùng SP base tăng qty → tính phần dư; đổi biến thể template/tên → 0; SP mới → finalQty). Audit log GIỜ chỉ phân bổ NV (last-add-wins, cap theo NET). Thêm cờ `reconciled` + `real`/`baseQty` per SP. **Thiếu snapshot → fallback replay audit cũ (`reconciled:false`)** để không vỡ. Strict-mode (ô tick) + attribution downstream (chủ khoảng STT trong `recalculateAndSaveKPI`) GIỮ NGUYÊN.
+    - `recalculateAndSaveKPI`: ensure snapshot trước khi tính → recompute (nút "Tính lại toàn bộ KPI") + toggle tick tự dùng đơn thật.
+- **`tab-kpi-commission.js`:** "Tất cả SP" fallback đọc snapshot (sửa "Không có dữ liệu sản phẩm"); "So sánh KPI" thêm banner trạng thái đối chiếu + badge per-row "⚠ đơn thật N" khi audit ≠ thật; ghi chú per-user breakdown là hiển thị, lương theo chủ khoảng STT; `showOrderDetails` ensure snapshot khi mở modal; `refreshData` quét nền fill snapshot thiếu cho đơn đang hiển thị.
+
+**Kết quả:** đơn 260600214 → MM15 (tick) qty1 = **5.000đ** (đúng), Q439H net1 nhưng chưa tick = 0 (món chưa tick), "Tất cả SP" hiện đủ 6 SP. NET độc lập với drift audit. Test: `tests/unit/kpi-reconciled-net.test.js` (5/5 pass).
+
+**Files:** `render.com/migrations/074_create_kpi_final_snapshot.sql`, `render.com/run-migration-074.js`, `render.com/routes/realtime-db.js`, `orders-report/js/managers/kpi-manager.js`, `orders-report/js/tab-kpi-commission.js`, `tests/unit/kpi-reconciled-net.test.js`.
+
+**Deploy/verify:** push → Render auto-deploy (bảng lazy-ensure, hoặc chạy `node render.com/run-migration-074.js`). Mở đơn bất kỳ → modal ensure snapshot → KPI reconciled. Sửa toàn bộ lịch sử: nút **"Tính lại toàn bộ KPI"** (ensure snapshot + recompute từng đơn). ⚠ Lương đã trả có thể đổi — review trước.
+
+**Status:** ✅ Done (chờ deploy + recompute lịch sử).
+
 ### [orders] Fix: modal "Sửa đơn hàng" mở lên hiện SP cũ, không load mới nhất từ TPOS ✅
 
 **Vấn đề (user, sau khi fix save):** TPOS + panel chat hiện **6 SP** (có thêm `B703D` Legging Đùi Đen) nhưng modal "Sửa đơn hàng" của shop chỉ hiện **5 SP** — mở modal không cập nhật Details mới nhất từ TPOS.

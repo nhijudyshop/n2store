@@ -6,6 +6,8 @@
 > Phụ đề trên UI: *"So sánh KPI với refund excel 3 tháng từ TPOS"*.
 >
 > **Cập nhật 2026-06-03**: đối soát chuyển từ **theo ĐƠN** sang **theo MÓN** — chỉ loại KPI của đúng món bị hoàn (xem [dev-log](../dev-log.md)).
+>
+> **Cập nhật 2026-06-06**: `calculateNetKPI` giờ tính NET = **(final TPOS − BASE)** dựa trên snapshot SP cuối thật (`kpi_final_snapshot`, migration 074), thay vì cộng dồn sự kiện audit log. Audit log chỉ còn dùng để PHÂN BỔ nhân viên (cap theo NET thật). Vì vậy `result.details[pid].net` (input cho `_matchRefundForOrder`) nay là **số lượng thật trên đơn**, không còn drift theo audit. Mục 5 (mô tả `actualNet` lấy từ audit) chỉ còn đúng khi đơn CHƯA có snapshot (fallback `reconciled:false`). Quy tắc loại KPI theo món hoàn KHÔNG đổi.
 
 ---
 
