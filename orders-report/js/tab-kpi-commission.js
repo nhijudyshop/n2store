@@ -3154,6 +3154,27 @@ const KPICommission = {
             return String(number).replace(/\//g, '__');
         },
 
+        // Chờ Firebase + Firestore sẵn sàng thay vì bail im lặng khi chưa kịp init.
+        // Config (firebase-config.js) load đồng bộ trước app JS nên hầu như resolve
+        // ngay lần check đầu; poll ~150ms, trần ~3s. Trả true nếu sẵn sàng.
+        _ensureFirebaseReady() {
+            const ready = () =>
+                !!(window.firebase?.firestore && window.firebase?.apps?.length);
+            if (ready()) return Promise.resolve(true);
+            return new Promise((resolve) => {
+                let waited = 0;
+                const timer = setInterval(() => {
+                    if (ready()) {
+                        clearInterval(timer);
+                        resolve(true);
+                    } else if ((waited += 150) >= 3000) {
+                        clearInterval(timer);
+                        resolve(false);
+                    }
+                }, 150);
+            });
+        },
+
         init() {
             // Key resolution:
             //   1. data.checkKey (đơn không phiếu → bằng orderCode)
@@ -3163,8 +3184,16 @@ const KPICommission = {
                 data.checkKey || data.number || docId;
             if (this._initPromise) return this._initPromise;
             this._initPromise = (async () => {
+                // Chờ firebase sẵn sàng thay vì bail im lặng. Nếu vẫn chưa có col →
+                // KHÔNG để _initPromise đã-resolve cache lại (self-poisoning khiến
+                // listener không bao giờ gắn) → reset null để lần init() sau (tab
+                // switch / page-load) retry THẬT.
+                await this._ensureFirebaseReady();
                 const col = this._getCol();
-                if (!col) return;
+                if (!col) {
+                    this._initPromise = null;
+                    return;
+                }
                 try {
                     const snap = await col.get();
                     this._data.clear();
@@ -3190,10 +3219,13 @@ const KPICommission = {
                         },
                         (err) => console.warn('[KPI-ORDER-CHECK] listener error:', err?.message)
                     );
+                    // Chỉ coi là init thành công khi listener đã gắn.
+                    this._initialized = true;
                 } catch (e) {
                     console.warn('[KPI-ORDER-CHECK] listener setup failed:', e?.message);
+                    // Listener không gắn được → cho phép init() sau thử lại.
+                    this._initPromise = null;
                 }
-                this._initialized = true;
             })();
             return this._initPromise;
         },
@@ -3270,16 +3302,85 @@ const KPICommission = {
                 netProducts: meta?.netProducts || 0,
                 source: 'kpi-commission',
             };
+            // Optimistic: tô ✓ ngay cho UX mượt, NHƯNG xác minh ghi thật sự thành
+            // công (retry + backoff). Nếu fail hẳn → rollback ✓ + báo lỗi để người
+            // dùng biết — hết cảnh "tưởng đã lưu mà không lưu" (bug cũ nuốt lỗi).
             this._data.set(checkKey, payload);
             window.KPICommission?._applyL1CheckedStyles?.();
             window.KPICommission?._renderCheckHistory?.();
-            const col = this._getCol();
-            if (!col) return;
-            try {
-                await col.doc(this._sanitizeDocId(checkKey)).set(payload, { merge: true });
-            } catch (e) {
-                console.warn('[KPI-ORDER-CHECK] save failed:', e?.message);
+            await this._ensureFirebaseReady();
+            const ok = await this._persistWithRetry(checkKey, payload);
+            if (!ok) {
+                // Rollback CHỈ khi ghi thất bại THẬT (set reject hết retry / không có
+                // col). Không xoá khi set đã resolve (offline+persistence sẽ tự sync).
+                this._data.delete(checkKey);
+                window.KPICommission?._applyL1CheckedStyles?.();
+                window.KPICommission?._renderCheckHistory?.();
+                this._notify('Lưu kiểm tra thất bại, vui lòng thử lại', 'error');
             }
+            // Thành công → im lặng (✓ đã hiện sẵn) theo quyết định UX.
+        },
+
+        // Ghi payload với retry + backoff. set() RESOLVE ⇒ Firestore đã nhận ghi vào
+        // hàng đợi bền (online: server ack; offline+persistence: commit local sẽ tự
+        // sync) ⇒ thành công. set() REJECT ⇒ retry; hết lượt ⇒ false. KHÔNG dùng
+        // get({source:'server'}) để xác minh (false-negative khi offline-sẽ-sync).
+        async _persistWithRetry(checkKey, payload) {
+            const col = this._getCol();
+            if (!col) return false;
+            const docRef = col.doc(this._sanitizeDocId(checkKey));
+            const delays = [600, 1500, 3000];
+            for (let attempt = 0; attempt <= delays.length; attempt++) {
+                try {
+                    await docRef.set(payload, { merge: true });
+                    return true;
+                } catch (e) {
+                    console.warn(
+                        `[KPI-ORDER-CHECK] save failed (attempt ${attempt + 1}/${delays.length + 1}):`,
+                        e?.message
+                    );
+                    if (attempt < delays.length) {
+                        await new Promise((r) => setTimeout(r, delays[attempt]));
+                    }
+                }
+            }
+            return false;
+        },
+
+        // Toast inline tự chứa (orders-report cố ý KHÔNG load notification-system).
+        // Theo quyết định UX: chỉ dùng để báo LỖI; thành công thì im lặng.
+        _notify(msg, type) {
+            try {
+                const pm = window.parent?.notificationManager;
+                if (pm?.show) {
+                    pm.show(msg, type === 'error' ? 'error' : 'info');
+                    return;
+                }
+            } catch (e) {
+                // parent không truy cập được / không có manager → fallback tự render
+            }
+            let host = document.getElementById('kpi-toast-host');
+            if (!host) {
+                host = document.createElement('div');
+                host.id = 'kpi-toast-host';
+                host.style.cssText =
+                    'position:fixed;right:16px;bottom:16px;z-index:10020;display:flex;flex-direction:column;gap:8px;font-family:inherit;';
+                document.body.appendChild(host);
+            }
+            const toast = document.createElement('div');
+            const isErr = type === 'error';
+            toast.style.cssText =
+                'min-width:220px;max-width:340px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,0.18);' +
+                (isErr
+                    ? 'background:#fef2f2;color:#991b1b;border:1px solid #fecaca;'
+                    : 'background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;');
+            toast.textContent = msg;
+            host.appendChild(toast);
+            setTimeout(() => {
+                toast.style.transition = 'opacity .3s';
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         },
     },
 

@@ -49,6 +49,30 @@
 
 **Verify localhost:** 55 placeholder xử lý xong, 5 pill ví hiện số dư thật (Ví: 1.645.000₫, 11.604.000₫…), 0 debt-badge. ✅
 
+### [orders] KPI "Xác nhận kiểm tra đơn" — fix lưu lúc được lúc không ✅
+
+**Vấn đề:** Bấm "✓ Đã kiểm tra" ở tab KPI - Hoa Hồng, trạng thái lưu vào Firestore `kpi_commission/data/order_checks` **lúc được lúc không**; UI tô ✓ ngay (optimistic) nên tưởng đã lưu trong khi ghi chưa tới server.
+
+**Nguyên nhân** (object `KPICommission._orderCheckStore` trong `orders-report/js/tab-kpi-commission.js`):
+
+- `markChecked()` ghi best-effort, **nuốt lỗi**: `if (!col) return` (bỏ qua khi firebase chưa sẵn) + `catch { console.warn }` — không retry, không rollback, không báo người dùng.
+- `init()` **self-poisoning**: cache `_initPromise` đã-resolve cả khi `_getCol()` null → không bao giờ retry → listener không gắn, `_data` trống.
+- (Loại trừ) KHÔNG phải do thiếu persistence: `shared/js/firebase-config.js` auto-init Firestore với `enablePersistence:true` → hàng đợi IndexedDB của Firestore đã lo durability qua reload → không cần WAL.
+
+**Fix** (theo quyết định user: chỉ báo khi lỗi + retry/xác minh trong phiên, KHÔNG durable queue):
+
+- Thêm `_ensureFirebaseReady()` — chờ firebase sẵn sàng (poll 150ms, trần 3s) thay vì bail im lặng.
+- Sửa `init()` — bỏ self-poisoning (reset `_initPromise=null` khi chưa có col / listener fail), chỉ set `_initialized=true` khi listener gắn xong.
+- Thêm `_persistWithRetry()` — `set(merge)` retry 4 lần backoff 0.6s→1.5s→3s; `set()` resolve = thành công (server ack / sẽ-sync), reject hết lượt = false.
+- `markChecked()` — sau optimistic ✓: nếu `_persistWithRetry` fail hẳn → **rollback ✓** + toast cảnh báo. Thành công → im lặng.
+- Thêm `_notify()` — toast inline tự chứa (orders-report không load notification-system), chỉ dùng báo lỗi.
+
+**Files:** `orders-report/js/tab-kpi-commission.js` (object `_orderCheckStore`), `orders-report/tab-kpi-commission.html` (bump `?v=20260606checkfix`).
+
+**Giới hạn đã biết (user chấp nhận):** còn khe hở hiếm (persistence không bật được + offline + đóng/reload tab ngay) có thể rớt — cần durable queue mới đảm bảo tuyệt đối.
+
+**Status:** ✅ DONE. Verified Playwright (local): fail→rollback ✓ + toast lỗi (4 attempts ~5.1s backoff); success→im lặng giữ ✓ (1 attempt); init→listener gắn + nạp 68 record thật, `_initPromise` giữ khi thành công.
+
 ### [tpos-pancake] Force extract — chuyển sang CLIENT-SIDE (fix FB chặn backend) ✅
 
 **Vấn đề:** Force extract + nút "Lấy thumbnail" fail hết `no m3u8 URL`.
