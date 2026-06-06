@@ -114,6 +114,11 @@
         STATE.sourceOrder = null;
         $('custSelected').hidden = true;
         $('orderList').innerHTML = '';
+        const oi = $('orderItems');
+        if (oi) {
+            oi.hidden = true;
+            oi.innerHTML = '';
+        }
         renderSummary();
     }
 
@@ -175,12 +180,45 @@
         }
     }
 
-    function pickOrder(code, type, total) {
-        STATE.sourceOrder = { code, type, totalAmount: Number(total) || 0 };
+    async function pickOrder(code, type, total) {
+        STATE.sourceOrder = {
+            code,
+            type,
+            totalAmount: Number(total) || 0,
+            items: null,
+            walletDeducted: null,
+        };
         document.querySelectorAll('#orderList .rt-order').forEach((el) => {
             el.classList.toggle('is-picked', el.dataset.code === code);
         });
         renderSummary();
+        // Tải danh sách SP + phần đã trừ ví của đơn để xem trước.
+        const box = $('orderItems');
+        box.hidden = false;
+        box.innerHTML =
+            '<div class="rt-muted" style="padding:8px 4px;">Đang tải sản phẩm đơn…</div>';
+        try {
+            const d = await api.sourceOrder(type, code);
+            // chỉ render nếu vẫn đang chọn đơn này
+            if (STATE.sourceOrder?.code !== code) return;
+            STATE.sourceOrder.items = d.items || [];
+            STATE.sourceOrder.walletDeducted = Number(d.walletDeducted) || 0;
+            const rows = (d.items || [])
+                .map(
+                    (it) => `<div class="rt-oi-row">
+                        <span><b>${esc(it.productCode)}</b> ${esc(it.productName || '')}</span>
+                        <span class="rt-muted">${fmt(it.price)} × ${it.quantity}</span>
+                    </div>`
+                )
+                .join('');
+            box.innerHTML =
+                `<div class="rt-oi-title">Sản phẩm hoàn (${(d.items || []).length})</div>` +
+                (rows ||
+                    '<div class="rt-muted" style="padding:6px 4px;">Đơn không có dòng SP.</div>');
+            renderSummary();
+        } catch (err) {
+            box.innerHTML = `<div class="rt-muted" style="padding:6px 4px;">Lỗi tải SP: ${esc(err.message)}</div>`;
+        }
     }
 
     // ---------------- Thu về 1 phần: product picker ----------------
@@ -275,9 +313,17 @@
         if (STATE.subType === 'thu_ve_1_phan') {
             el.innerHTML = `Cộng ví khách: <b>${fmt(credit)}</b> <span class="rt-muted">(giá bán × SL)</span>`;
         } else {
-            el.innerHTML = STATE.sourceOrder
-                ? `Hoàn cả đơn <b>${esc(STATE.sourceOrder.code)}</b> — ví hoàn <b>phần đã trừ ví</b> của đơn (hiện sau khi tạo).`
-                : 'Chọn 1 đơn của khách để hoàn.';
+            const so = STATE.sourceOrder;
+            if (!so) {
+                el.innerHTML = 'Chọn 1 đơn của khách để hoàn.';
+            } else if (so.walletDeducted != null) {
+                el.innerHTML =
+                    so.walletDeducted > 0
+                        ? `Hoàn cả đơn <b>${esc(so.code)}</b> — cộng ví: <b>${fmt(so.walletDeducted)}</b> <span class="rt-muted">(phần đã trừ ví)</span>`
+                        : `Hoàn cả đơn <b>${esc(so.code)}</b> — <span class="rt-muted">đơn chưa trừ ví → chỉ +kho, không cộng ví</span>`;
+            } else {
+                el.innerHTML = `Hoàn cả đơn <b>${esc(so.code)}</b> — đang tính phần đã trừ ví…`;
+            }
         }
         const ok = canSubmit();
         $('btnSubmit').disabled = !ok;
