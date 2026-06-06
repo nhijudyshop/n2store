@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `90c3cd1` — perf(tpos-pancake): render comment thông minh — inline SVG (bỏ createIcons full-DOM), lazy status dropdown, bỏ data đơn TPOS legacy, lazy avatar
-**Last updated**: 2026-06-06 09:39:45 +07
-**Latest session**: [`RESUME:20260606-093945-90c3cd1`](../20260606-093945-90c3cd1.md)
-**Summary**: perf(tpos-pancake): render comment thông minh — inline SVG (bỏ createIcons full-DOM), lazy status dropdown, bỏ...
+**Latest commit**: `6032f12` — fix(supplier-debt): hóa đơn mới tự chèn theo ngày thay vì dồn cuối (sửa xáo thứ tự kéo tay) + reset thứ tự B24 bị hỏng
+**Last updated**: 2026-06-06 09:46:45 +07
+**Latest session**: [`RESUME:20260606-094645-6032f12`](../20260606-094645-6032f12.md)
+**Summary**: fix(supplier-debt): hóa đơn mới tự chèn theo ngày thay vì dồn cuối (sửa xáo thứ tự kéo tay) + r...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
+- [`supplier-debt/`](./supplier-debt.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-06 09:39
+- [`docs/`](./docs.md) — updated 2026-06-06 09:46
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 11:26
 - [`downloads/`](./downloads.md) — updated 2026-06-06 09:05
@@ -61,7 +61,7 @@
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
-- [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:02
+- [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:46
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-06 09:39
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
