@@ -113,7 +113,9 @@ User hỏi "sao 03/05 lại nằm ở đó" (BILL/2026/1664 kẹt gần cuối b
 
 **Sửa (A — gốc, cho MỌI NCC):** `applyCustomRowOrder` ([main.js](supplier-debt/js/main.js)) giờ **chèn dòng unknown theo NGÀY** vào đúng vị trí chronological (trước dòng đầu tiên có ngày mới hơn) thay vì dồn cuối. Thứ tự `known` (kéo cố ý) giữ nguyên → không phá ý đồ drag, nhưng HĐ mới về đúng chỗ. Thêm helper `congNoRowTime(row)` (web date > TPOS date).
 
-**Sửa (B — reset B24 ngay):** chạy `RowOrderStore.delete('B24')` + log `reset_order` qua page đã auth (ghi thẳng Firestore prod, same client path như nút Khôi phục). Verify: order 33 → 0, B24 về sort theo ngày (03/05 lên đầu). NCC khác giữ nguyên — bấm nút Lịch sử → Khôi phục nếu cũng bị xáo.
+**Sửa (B — reset B24 ngay):** chạy `RowOrderStore.delete('B24')` + log `reset_order` qua page đã auth (ghi thẳng Firestore prod, same client path như nút Khôi phục). Verify: order 33 → 0, B24 về sort theo ngày (03/05 lên đầu).
+
+**Sửa (C — kiểm + dọn TẤT CẢ, theo yêu cầu "fix tất cả"):** phân tích 6 thứ tự kéo tay còn lại bằng đúng logic ngày app (web date > TPOS) ở mức ngày → chỉ B24 xáo nặng (~4 tuần); B32/B21/B5 khớp ngày, B16/B45/B9 chỉ lệch 1 ngày do RBILL trả hàng (lành tính). User chọn clean slate → **reset cả 6** (B9/B32/B5/B16/B21/B45, mỗi cái log `reset_order`) + **xóa 3 key rác mồ côi** schema cũ (`B5_16/04/2026`, `B2_18/04/2026`, `B36_23/04/2026` — không bao giờ được `get()` đọc vì chỉ đọc `<code>__all`) qua `FieldPath('data', key)` + `FieldValue.delete()`. Verify sau reload: doc `supplier_debt_row_order` **trống hoàn toàn** → mọi NCC sort thuần theo ngày. 0 lỗi. (Thao tác data trên prod, không đổi code.)
 
 - **Files:** `supplier-debt/js/main.js` (applyCustomRowOrder chèn theo ngày + `congNoRowTime`), `supplier-debt/index.html` (main.js v=20260606b)
 
