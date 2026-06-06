@@ -25,6 +25,15 @@
 
 ## 2026-06-06
 
+### [web2/products] Tem QR — layout QR trái + tên/mã/giá phải (mọi con tem) ✅
+
+**User:** 2 tem đều QR, QR nằm BÊN TRÁI, tên + mã + giá BÊN PHẢI.
+
+**Fix (`web2-products-print.js`):** thêm nhánh layout riêng cho QR (ưu tiên trước printType): `.barcode_label` chuyển `flex-direction:row` — `.ql-qr` (QR vuông cạnh = min(45% rộng tem, 96% cao tem) ≈ 11mm trên tem 25mm) bên trái, `.ql-text` (tên 2 dòng + mã + giá, canh trái, dồn giữa dọc) bên phải. Áp dụng cho TẤT CẢ con tem.
+
+**Files:** `web2/products/js/web2-products-print.js` (`?v=20260606qr2`), `web2/products/index.html`.
+**Verify (localhost, 2 SP):** 2 tem đều flex-direction row, QR bên trái text (qrLeftOfText=true), chia ~50/50, phải hiện tên+mã+giá. QR ~11mm → quét tốt (decoder đã xác nhận QR 6-8mm đọc mã dài).
+
 ### [web2/products] In tem QR Code (2D) — quét mọi độ dài mã trên tem 25mm/203DPI ✅
 
 **Chốt bằng decoder ZXing + thông số máy:** máy user = **Xprinter XP-470B = 203 DPI**, máy quét = **2D imager**. Code128 (1D) đã là mã 1D dày nhất cho chữ-số → tem 25mm/203DPI KHÔNG gánh nổi mã >7 ký tự (giới hạn vật lý, decoder xác nhận: ~176px → mã 9-10 ký tự ✗). **QR Code (2D)** giải quyết triệt để: decoder đọc QR **6-8mm** cho cả mã 27 ký tự.

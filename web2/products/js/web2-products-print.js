@@ -876,7 +876,33 @@
                 // Mỗi tem build vào `labelInner` rồi bọc trong .barcode-cell rộng
                 // cellW (cột die-cut) → tem canh GIỮA trong cột vật lý của nó.
                 let labelInner = '';
-                if (printType === 'new') {
+                if (isQr && !hideBarcode) {
+                    // 2026-06-06: layout QR — QR vuông BÊN TRÁI, tên+mã+giá BÊN PHẢI.
+                    // QR cạnh = min(45% rộng tem, ~92% cao tem) → đủ to để quét, chừa
+                    // ~nửa tem cho chữ. Áp dụng cho MỌI con tem (2 tem đều QR).
+                    const qrMm =
+                        Math.round(
+                            Math.min(labelW * 0.45, (labelH - padTop - padBottom) * 0.96) * 10
+                        ) / 10;
+                    const rowStyle =
+                        labelStyle +
+                        'flex-direction:row;align-items:center;justify-content:flex-start;text-align:left;';
+                    const qrBox = `flex:0 0 ${qrMm}mm;height:${qrMm}mm;display:flex;align-items:center;justify-content:center;margin-right:1mm;`;
+                    const txtCol =
+                        'flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;text-align:left;overflow:hidden;';
+                    const codeLeft = `flex:0 0 auto;font-size:${fsCode}px;line-height:${lineHCode}px;text-align:left;`;
+                    labelInner += `<div class="barcode_label" style="${rowStyle}">`;
+                    labelInner += `<div class="barcode-image ql-qr" style="${qrBox}">${barcodeImg}</div>`;
+                    labelInner += `<div class="ql-text" style="${txtCol}">`;
+                    if (showProductName) {
+                        labelInner += `<div class="barcode-pname" style="${nameStyle}text-align:left;"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
+                    }
+                    labelInner += `<div style="${codeLeft}"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
+                    if (showPrice) {
+                        labelInner += `<div style="${codeLeft}"><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
+                    }
+                    labelInner += `</div></div>`;
+                } else if (printType === 'new') {
                     // PrintNew — 2-column table
                     labelInner = `<div class="barcode_label" style="${labelStyle}"><table border="0" style="width:100%;height:100%;"><tr><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-code">${escapeHtml(label.code)}</div>${showPrice ? `<div class="barcode-price">${displayPrice}${currencyStr}</div>` : ''}</td><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-image">${!hideBarcode ? barcodeImg : ''}</div></td></tr></table></div>`;
                 } else {
