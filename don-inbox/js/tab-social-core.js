@@ -390,6 +390,29 @@ function formatVndInbox(n) {
 }
 
 /**
+ * Refresh thẻ KPI 1 lần khi InvoiceStatusStore sẵn sàng.
+ * Store auto-load async (tab1-fast-sale-invoice-status.js, ~vài giây cho ~50k phiếu); nếu
+ * updateInboxKpiStatCard() chạy trước khi store có data thì gate qualifies() loại hết → thẻ ra 0.
+ * Poll nhẹ (read-only, KHÔNG network, KHÔNG gọi store.init() để tránh double-load 49k row) tới
+ * khi store có data → recompute thẻ. Dừng ngay khi ready hoặc sau ~15s.
+ */
+function refreshKpiCardWhenInvoiceReady() {
+    const store = window.InvoiceStatusStore;
+    if (!store) return;
+    let tries = 0;
+    const tick = () => {
+        const ready = store._initialized === true || (store._data && store._data.size > 0);
+        if (ready) {
+            updateInboxKpiStatCard();
+            return;
+        }
+        if (++tries > 60) return; // ~15s (60 × 250ms) thì thôi; user tương tác sẽ tự refresh
+        setTimeout(tick, 250);
+    };
+    tick();
+}
+
+/**
  * Toast "User bán được X món - nhận được Yk" khi đơn vừa transition sang
  * status='order' (được chấp nhận tính KPI). Gọi từ các call site update status.
  *
@@ -469,6 +492,12 @@ async function initSocialTab() {
         }
         // Apply default filters (status=draft) and render table
         performTableSearch();
+
+        // KPI stat card cần InvoiceStatusStore (auto-load async ~vài giây cho ~50k phiếu).
+        // Lúc performTableSearch() chạy, store thường CHƯA sẵn sàng → thẻ ra 0. Refresh thẻ
+        // 1 lần khi store có dữ liệu (trước đây side-effect của auto ensureRangeLoaded lo việc
+        // này — đã bỏ để hết tải nặng). Poll nhẹ, read-only, không network.
+        refreshKpiCardWhenInvoiceReady();
 
         // Initialize column visibility
         if (typeof initializeColumnVisibility === 'function') {
