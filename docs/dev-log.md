@@ -25,6 +25,14 @@
 
 ## 2026-06-06
 
+### [web2/shared] Lịch sử thanh toán KH — click pill Ví ở MỌI nơi có tên/SĐT ✅
+
+**User:** "lịch sử thanh toán đơn + lịch sử tất cả thanh toán của khách → cho coi ở đơn và nơi nào hiện tên/SĐT." Tận dụng modal sẵn có (`web2-customer-detail-modal`: tab Lịch sử ví = nạp/dùng tiền + Người thực hiện + ghi chú "Thu hộ PBH X" → đơn nào; tab Đơn hàng).
+
+- **Chuyển modal sang `web2/shared/`** (self-contained, URL tuyệt đối → portable).
+- **Pill Ví (`web2-wallet-balance.js`) clickable**: click → lazy-load modal từ chính folder shared (qua `document.currentScript` base) → `Web2CustomerDetailModal.open(phone)`. Delegated click + stopPropagation (không đụng handler row). Hover state + cursor pointer. Export `openDetail` programmatic.
+- **Zero per-page edit**: pill load sẵn trên 7 trang (balance-history, native-orders, tpos-pancake, partner-customer, ck-dashboard, payment-confirm, overview) → tất cả có "click Ví → lịch sử thanh toán". Ở đơn (native-orders) mỗi dòng có pill Ví → click xem lịch sử thanh toán của KH đó (gồm các lần trừ cho đơn). Bump `?v=20260606ck`.
+
 ### [web2/products] In tem — barcode CRISP dot-aligned + giữ khổ 2 Tem 25mm mặc định ✅
 
 **User:** khổ chuẩn là "2 Tem" (66×21 sheet, nhãn 25mm, OData TPOS `Id 7`) — KHÔNG đổi sang tem rộng. Tìm cách render barcode quét được trên đúng khổ này.

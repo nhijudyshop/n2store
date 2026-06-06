@@ -93,7 +93,7 @@
     // Quy ước: chỉ hiện khi số dư > 0. 0đ hoặc chưa xác định → không hiện gì.
     function pillHtml(balance) {
         if (!(Number(balance) > 0)) return '';
-        return `<span class="w2wb-pill w2wb-has" title="Số dư ví Web 2.0">Ví: ${fmtVnd(balance)}</span>`;
+        return `<span class="w2wb-pill w2wb-has" title="Số dư ví — bấm xem lịch sử thanh toán">Ví: ${fmtVnd(balance)}</span>`;
     }
 
     function ensureStyles() {
@@ -101,8 +101,9 @@
         const s = document.createElement('style');
         s.id = 'w2wb-styles';
         s.textContent = `
-            .w2wb-pill { display: inline-flex; align-items: center; gap: 3px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.5; white-space: nowrap; font-variant-numeric: tabular-nums; }
+            .w2wb-pill { display: inline-flex; align-items: center; gap: 3px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.5; white-space: nowrap; font-variant-numeric: tabular-nums; cursor: pointer; transition: filter .12s ease, box-shadow .12s ease; }
             .w2wb-pill.w2wb-has { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+            .w2wb-pill.w2wb-has:hover { filter: brightness(.97); box-shadow: 0 1px 4px rgba(22,101,52,.25); }
         `;
         document.head.appendChild(s);
     }
@@ -145,6 +146,73 @@
         _cache.delete(normPhone(phoneRaw));
     }
 
+    // ── Click pill → mở modal chi tiết KH (lịch sử ví/thanh toán + đơn) ──────
+    // Modal Web2CustomerDetailModal nằm cùng folder shared. Lazy-load 1 lần từ
+    // chính src của script này (không cần sửa từng trang). Hoạt động ở MỌI nơi
+    // có pill (balance-history, native-orders, tpos-pancake, partner-customer,
+    // ck-dashboard, payment-confirm, overview).
+    let _modalLoading = null;
+    function _ownBase() {
+        // URL folder của script này (…/web2/shared/).
+        try {
+            const cur =
+                document.currentScript ||
+                Array.from(document.scripts).find((s) =>
+                    /web2-wallet-balance\.js/.test(s.src || '')
+                );
+            if (cur && cur.src) return cur.src.replace(/[^/]*\?.*$|[^/]*$/, '');
+        } catch {}
+        return '';
+    }
+    function _ensureModal() {
+        if (global.Web2CustomerDetailModal) return Promise.resolve(true);
+        if (_modalLoading) return _modalLoading;
+        const base = _ownBase();
+        _modalLoading = new Promise((resolve) => {
+            const s = document.createElement('script');
+            s.src = base + 'web2-customer-detail-modal.js?v=20260606ck';
+            s.onload = () => resolve(!!global.Web2CustomerDetailModal);
+            s.onerror = () => resolve(false);
+            document.head.appendChild(s);
+        });
+        return _modalLoading;
+    }
+    async function _openDetail(phone, name) {
+        const p = normPhone(phone);
+        if (!p) return;
+        const okm = await _ensureModal();
+        if (okm && global.Web2CustomerDetailModal?.open) {
+            global.Web2CustomerDetailModal.open(p, name || '');
+        }
+    }
+    // Delegated click — pill có thể nằm trong row có handler riêng → stopPropagation.
+    function _wireClick() {
+        if (global.__w2wbClickWired) return;
+        global.__w2wbClickWired = true;
+        document.addEventListener(
+            'click',
+            (e) => {
+                const pill = e.target.closest?.('.w2wb-pill');
+                if (!pill) return;
+                const host = pill.closest('[data-w2wallet-phone]');
+                const phone =
+                    host?.getAttribute?.('data-w2wallet-phone') || host?.dataset?.w2wbPhone;
+                if (!phone) return;
+                e.preventDefault();
+                e.stopPropagation();
+                // tên KH gần nhất (nếu có) để tiêu đề đẹp
+                const nameEl = host.closest('[data-w2wallet-name]');
+                _openDetail(phone, nameEl?.getAttribute('data-w2wallet-name') || '');
+            },
+            true
+        );
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _wireClick);
+    } else {
+        _wireClick();
+    }
+
     // SSE: ví đổi → xoá cache để lần render sau lấy số mới.
     function _wireSse() {
         if (!global.Web2SSE?.subscribe) return;
@@ -170,5 +238,6 @@
         pillHtml,
         attachBalances,
         invalidate,
+        openDetail: _openDetail, // mở modal lịch sử thanh toán KH theo SĐT (programmatic)
     };
 })(window);
