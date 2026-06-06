@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `55f5efe` — fix(snap): update yt-dlp lên latest tại build (postinstall -U) — fix '[facebook] Cannot parse data' → force extract; yt-dlp primary, Graph fallback
-**Last updated**: 2026-06-06 12:16:28 +07
-**Latest session**: [`RESUME:20260606-121628-55f5efe`](../20260606-121628-55f5efe.md)
-**Summary**: fix(snap): update yt-dlp lên latest tại build (postinstall -U) — fix '[facebook] Cannot parse data' → force ex...
+**Latest commit**: `e42d3f9` — docs(dev-log): verify fix cộng ví performed_by + CK auto live (GD155028 credited + reply)
+**Last updated**: 2026-06-06 12:18:45 +07
+**Latest session**: [`RESUME:20260606-121845-e42d3f9`](../20260606-121845-e42d3f9.md)
+**Summary**: docs(dev-log): verify fix cộng ví performed_by + CK auto live (GD155028 credited + reply)
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-06 12:15
+- [`docs/`](./docs.md) — updated 2026-06-06 12:18
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 11:26
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
