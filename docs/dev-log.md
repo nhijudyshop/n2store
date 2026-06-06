@@ -25,6 +25,15 @@
 
 ## 2026-06-06
 
+### [web2/products] In tem QR Code (2D) — quét mọi độ dài mã trên tem 25mm/203DPI ✅
+
+**Chốt bằng decoder ZXing + thông số máy:** máy user = **Xprinter XP-470B = 203 DPI**, máy quét = **2D imager**. Code128 (1D) đã là mã 1D dày nhất cho chữ-số → tem 25mm/203DPI KHÔNG gánh nổi mã >7 ký tự (giới hạn vật lý, decoder xác nhận: ~176px → mã 9-10 ký tự ✗). **QR Code (2D)** giải quyết triệt để: decoder đọc QR **6-8mm** cho cả mã 27 ký tự.
+
+**Implement:** thêm chọn "Loại mã" trong modal in tem: **QR Code (mặc định)** | Code128. QR pre-render dataURL PNG trên parent (davidshimjs/qrcodejs, correctLevel M) → embed `<img class="qrimg">` (robust, không phụ thuộc CDN/timing cửa sổ in nhiệt). Layout: QR ô vuông fit chiều cao vùng barcode, canh giữa. Cảnh báo mật độ tự ẩn khi chọn QR (QR không giới hạn độ dài). **Trang đối soát KHÔNG cần sửa** — máy quét 2D đọc QR → gõ text y như Code128.
+
+**Files:** `web2/products/js/web2-products-print.js` (`?v=20260606qr`), `web2/products/index.html`.
+**Verify (decoder thật):** label QR của `B4DAMVANG` decode đúng ở **48px (≈6mm @203DPI)**, 64px, 80px. Modal default = QR, in ra 2 QR PNG (qrNaturalW 320). Code128 vẫn chọn được cho mã ngắn / máy quét 1D.
+
 ### [web2/ck-dashboard] Thêm lịch sử CK — tab "Lịch sử CK" + timeline trên thẻ ✅
 
 **User:** "thêm lịch sử" → làm cả 2: (1) **tab "Lịch sử CK"** thứ 3 — list tín hiệu đã xử lý (lọc Đã xác nhận/Đã bỏ qua/Tất cả + search SĐT/tên + load more), mỗi thẻ hiện badge trạng thái, **"✓ đã gửi tin"** (từ history.notify), khớp GD#/Đơn, ai duyệt, + timeline đầy đủ. (2) **Timeline ngay trên thẻ** ở 3 cột Đối soát (như payment-confirm cũ — lúc gộp tôi đã làm rớt) qua `<details>` `historyHtml` + `Web2HistoryTimeline`. Load `web2-history-timeline.js`. SSE `web2:payment-signals` refresh tab lịch sử nếu đang mở. `?v=20260606ck2`.

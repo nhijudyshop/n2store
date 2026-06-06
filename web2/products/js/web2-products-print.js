@@ -441,7 +441,7 @@
                     </div>
                 </div>
                 ${warningHTML}
-                <div id="w2p-density-warn">${densityWarnHTML(withBarcode, selectedPaper)}</div>
+                <div id="w2p-density-warn">${selectedSymbology.id === 'qr' ? '' : densityWarnHTML(withBarcode, selectedPaper)}</div>
             </div>
         </div>
         <div style="padding:0;">
