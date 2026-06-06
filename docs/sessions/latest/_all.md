@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `abf02a3` — fix(web2-products-print): render barcode = PNG canvas (giống TPOS) thay SVG
-**Last updated**: 2026-06-06 19:37:27 +07
-**Latest session**: [`RESUME:20260606-193727-abf02a3`](../20260606-193727-abf02a3.md)
-**Summary**: fix(web2-products-print): render barcode = PNG canvas (giống TPOS) thay SVG
+**Latest commit**: `8c3746d` — docs(dev-log): Buoc 4 - reconcile 63 don 01/06 ve khop Excel (data only, 63/63 PUT OK, verified 330/330 match)
+**Last updated**: 2026-06-06 19:43:41 +07
+**Latest session**: [`RESUME:20260606-194341-8c3746d`](../20260606-194341-8c3746d.md)
+**Summary**: docs(dev-log): Buoc 4 - reconcile 63 don 01/06 ve khop Excel (data only, 63/63 PUT OK, verified 330/330 match)
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-06 19:37
+- [`docs/`](./docs.md) — updated 2026-06-06 19:43
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
