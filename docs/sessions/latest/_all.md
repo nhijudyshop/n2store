@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c4c0a57` — feat(snap): force extract + nút Lấy thumbnail chuyển CLIENT-SIDE (seek iframe VOD + capture) — fix FB chặn backend yt-dlp/Graph; verified 14/14✓ thumbnail thật
-**Last updated**: 2026-06-06 13:05:24 +07
-**Latest session**: [`RESUME:20260606-130524-c4c0a57`](../20260606-130524-c4c0a57.md)
-**Summary**: feat(snap): force extract + nút Lấy thumbnail chuyển CLIENT-SIDE (seek iframe VOD + capture) — fix FB chặn b...
+**Latest commit**: `4a6bcce` — feat(tpos-pancake): comment row bỏ Nợ TPOS → hiện số dư ví Web 2.0 (Web2WalletBalance pill Ví: X₫)
+**Last updated**: 2026-06-06 13:17:53 +07
+**Latest session**: [`RESUME:20260606-131753-4a6bcce`](../20260606-131753-4a6bcce.md)
+**Summary**: feat(tpos-pancake): comment row bỏ Nợ TPOS → hiện số dư ví Web 2.0 (Web2WalletBalance pill Ví: X₫)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 3 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-06 13:05
+- [`docs/`](./docs.md) — updated 2026-06-06 13:17
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
@@ -42,7 +43,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-05 18:30
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-06 12:15
+- [`orders-report/`](./orders-report.md) — updated 2026-06-06 13:17
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
@@ -62,7 +63,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:46
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-06 13:03
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-06 13:17
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
