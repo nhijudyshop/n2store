@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1e314ee` — auto: session update
-**Last updated**: 2026-06-06 10:14:20 +07
-**Latest session**: [`RESUME:20260606-101420-1e314ee`](../20260606-101420-1e314ee.md)
-**Summary**: auto: session update
+**Latest commit**: `7faea80` — docs(dev-log): ghi 3 fix tpos-pancake (jank, nút thumbnail, iframe dọc)
+**Last updated**: 2026-06-06 10:54:50 +07
+**Latest session**: [`RESUME:20260606-105450-7faea80`](../20260606-105450-7faea80.md)
+**Summary**: docs(dev-log): ghi 3 fix tpos-pancake (jank, nút thumbnail, iframe dọc)
 
 ## Folders affected in this commit
 
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-06 10:00
+- [`docs/`](./docs.md) — updated 2026-06-06 10:54
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 11:26
 - [`downloads/`](./downloads.md) — updated 2026-06-06 09:05
@@ -61,7 +62,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:46
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-06 10:14
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-06 10:54
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
