@@ -28,56 +28,63 @@ let _ready = false;
 async function ensureSchema(pool) {
     if (_ready || !pool) return;
     try {
-        await pool.query(`
-            BEGIN;
-
-            -- ============================================================
-            -- 1. web2_customer_wallets (clone customer_wallets)
-            --    LƯU Ý: Web 2.0 policy KHÔNG dùng virtual_balance, nhưng
-            --    cột vẫn tồn tại để compatible với LIKE customer_wallets.
-            --    Mọi write từ Web 2.0 sẽ để virtual_balance = 0.
-            -- ============================================================
-            CREATE TABLE IF NOT EXISTS web2_customer_wallets (
-                LIKE customer_wallets INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES
-            );
-
-            -- ============================================================
-            -- 2. web2_wallet_transactions (clone wallet_transactions)
-            -- ============================================================
-            CREATE TABLE IF NOT EXISTS web2_wallet_transactions (
-                LIKE wallet_transactions INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES
-            );
-
-            -- ============================================================
-            -- 3. web2_wallet_adjustments (clone wallet_adjustments)
-            -- ============================================================
-            CREATE TABLE IF NOT EXISTS web2_wallet_adjustments (
-                LIKE wallet_adjustments INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES
-            );
-
-            COMMIT;
-        `);
-
         // ============================================================
-        // 3b. AUDIT: cột performed_by — ghi STAFF/ hệ thống thao tác ví.
-        //     ⚠ ĐẶT SỚM (ngay sau CREATE) + try riêng. Các bước 4/6 bên dưới
-        //     tham chiếu bảng LEGACY (customer_wallets/wallet_transactions/
-        //     wallet_adjustments) — sau tách DB 2026-06-03 các bảng này KHÔNG
-        //     tồn tại trên web2Db → throw → abort ensureSchema TRƯỚC khi tới
-        //     ALTER này (regression: processDeposit ghi performed_by mà cột chưa
-        //     có → MỌI lần cộng ví Web 2.0 fail → ví kẹt "Đang xử lý"). Tách ra
-        //     SỚM + độc lập để cột LUÔN tồn tại bất kể bước legacy lỗi.
-        //     Idempotent (ADD COLUMN IF NOT EXISTS).
+        // 0. 🔴 CRITICAL TRƯỚC TIÊN: cột performed_by trên web2_wallet_transactions.
+        //    Bảng này LUÔN tồn tại trên prod (ví đang chạy). PHẢI ALTER TRƯỚC mọi
+        //    bước có thể throw — đặc biệt block CREATE bên dưới: `CREATE TABLE IF
+        //    NOT EXISTS web2_wallet_adjustments (LIKE wallet_adjustments ...)` ném
+        //    NGAY nếu web2_wallet_adjustments CHƯA tồn tại + legacy cũng vắng trên
+        //    web2Db (đã tách DB 2026-06-03) → outer catch nuốt → ALTER không bao
+        //    giờ chạy → processDeposit ghi performed_by fail → MỌI cộng/trừ ví
+        //    Web 2.0 fail → ví + GD kẹt "Đang xử lý". `ALTER TABLE IF EXISTS` +
+        //    `ADD COLUMN IF NOT EXISTS` = idempotent, an toàn nếu bảng vắng.
         // ============================================================
         try {
             await pool.query(
-                `ALTER TABLE web2_wallet_transactions ADD COLUMN IF NOT EXISTS performed_by TEXT;`
-            );
-            await pool.query(
-                `ALTER TABLE web2_wallet_adjustments ADD COLUMN IF NOT EXISTS performed_by TEXT;`
+                `ALTER TABLE IF EXISTS web2_wallet_transactions ADD COLUMN IF NOT EXISTS performed_by TEXT;`
             );
         } catch (e) {
-            console.error('[web2-wallet-isolation] performed_by ALTER failed:', e.message);
+            console.error('[web2-wallet-isolation] performed_by(tx) ALTER failed:', e.message);
+        }
+
+        // ============================================================
+        // 1-3. Tạo web2_* NẾU THIẾU. ⚠ `LIKE <legacy>` chỉ chạy khi legacy tồn
+        //    tại — web2Db (sau tách DB) KHÔNG có customer_wallets/wallet_*; nếu
+        //    ref trực tiếp `CREATE ... LIKE legacy` sẽ throw, abort cả ensureSchema.
+        //    Guard to_regclass trong DO block (CREATE là utility command → chỉ
+        //    execute khi nhánh IF chạy, KHÔNG parse-fail như SELECT). Trên prod
+        //    web2_* đã tồn tại từ trước tách DB → toàn bộ no-op.
+        //    Web 2.0 policy KHÔNG dùng virtual_balance (LIKE giữ cột để tương
+        //    thích, write để = 0).
+        // ============================================================
+        await pool.query(`
+            DO $$
+            BEGIN
+                IF to_regclass('public.web2_customer_wallets') IS NULL
+                   AND to_regclass('public.customer_wallets') IS NOT NULL THEN
+                    CREATE TABLE web2_customer_wallets (
+                        LIKE customer_wallets INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES);
+                END IF;
+                IF to_regclass('public.web2_wallet_transactions') IS NULL
+                   AND to_regclass('public.wallet_transactions') IS NOT NULL THEN
+                    CREATE TABLE web2_wallet_transactions (
+                        LIKE wallet_transactions INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES);
+                END IF;
+                IF to_regclass('public.web2_wallet_adjustments') IS NULL
+                   AND to_regclass('public.wallet_adjustments') IS NOT NULL THEN
+                    CREATE TABLE web2_wallet_adjustments (
+                        LIKE wallet_adjustments INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES);
+                END IF;
+            END $$;
+        `);
+
+        // performed_by trên web2_wallet_adjustments (nếu bảng có) — không critical.
+        try {
+            await pool.query(
+                `ALTER TABLE IF EXISTS web2_wallet_adjustments ADD COLUMN IF NOT EXISTS performed_by TEXT;`
+            );
+        } catch (e) {
+            console.warn('[web2-wallet-isolation] performed_by(adj) skip:', e.message);
         }
 
         // ============================================================
@@ -126,15 +133,21 @@ async function ensureSchema(pool) {
             console.warn('[web2-wallet-isolation] setval-from-legacy skipped:', e.message);
         }
 
-        // ALTER COLUMN default → web2 sequence (KHÔNG ref legacy → luôn chạy).
-        await pool.query(`
-            ALTER TABLE web2_customer_wallets
-                ALTER COLUMN id SET DEFAULT nextval('web2_customer_wallets_id_seq');
-            ALTER TABLE web2_wallet_transactions
-                ALTER COLUMN id SET DEFAULT nextval('web2_wallet_transactions_id_seq');
-            ALTER TABLE web2_wallet_adjustments
-                ALTER COLUMN id SET DEFAULT nextval('web2_wallet_adjustments_id_seq');
-        `);
+        // ALTER COLUMN default → web2 sequence. Per-table + ALTER IF EXISTS để
+        // web2_wallet_adjustments vắng (chưa từng dùng trên web2Db) không abort.
+        for (const [tbl, seq] of [
+            ['web2_customer_wallets', 'web2_customer_wallets_id_seq'],
+            ['web2_wallet_transactions', 'web2_wallet_transactions_id_seq'],
+            ['web2_wallet_adjustments', 'web2_wallet_adjustments_id_seq'],
+        ]) {
+            try {
+                await pool.query(
+                    `ALTER TABLE IF EXISTS ${tbl} ALTER COLUMN id SET DEFAULT nextval('${seq}');`
+                );
+            } catch (e) {
+                console.warn(`[web2-wallet-isolation] default seq ${tbl} skip:`, e.message);
+            }
+        }
 
         // ============================================================
         // 5. Drop legacy→web2 triggers (Web 2.0 độc lập từ 2026-05-25)
