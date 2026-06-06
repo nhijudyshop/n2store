@@ -39,6 +39,12 @@
     function fmtVnd(n) {
         return Math.round(Number(n) || 0).toLocaleString('vi-VN') + '₫';
     }
+    // Audit: tên staff ghi trả/thanh toán NCC → lưu vào transaction (kiểm tra khi sai).
+    function _swBy() {
+        return (
+            window.Web2UserInfo?.get?.()?.userName || window.Web2UserInfo?.label?.() || '(ẩn danh)'
+        );
+    }
     function escapeHtml(s) {
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;')
@@ -247,7 +253,7 @@
         const w = walletState.wallets[activeSupplier];
         const tbody = document.getElementById('swHistoryBody');
         if (!w.transactions.length) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:24px;">Chưa có giao dịch trong 30 ngày</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">Chưa có giao dịch trong 30 ngày</td></tr>`;
             return;
         }
         const sorted = [...w.transactions].sort((a, b) => b.ts - a.ts);
@@ -260,6 +266,7 @@
                     <td>${escapeHtml(fmtTime(t.ts))}</td>
                     <td><span class="sw-txn-type" data-type="${t.type}">${lbl}</span></td>
                     <td class="num sw-txn-amount ${sign}">−${fmtVnd(t.amount)}</td>
+                    <td>${escapeHtml(t.performedBy || '—')}</td>
                     <td>${escapeHtml(t.note || '')}</td>
                 </tr>`;
             })

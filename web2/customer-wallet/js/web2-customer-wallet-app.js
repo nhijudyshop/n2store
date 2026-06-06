@@ -799,11 +799,11 @@
     async function renderHistory() {
         const phone = state.activePhone;
         if (!phone) return;
-        dom.historyBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:24px;">Đang tải…</td></tr>`;
+        dom.historyBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">Đang tải…</td></tr>`;
         try {
             const txns = await window.Web2WalletApi.getTransactions(phone, { limit: 100 });
             if (!txns.length) {
-                dom.historyBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:24px;">Chưa có giao dịch</td></tr>`;
+                dom.historyBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">Chưa có giao dịch</td></tr>`;
                 return;
             }
             dom.historyBody.innerHTML = txns
@@ -819,10 +819,13 @@
                                   : 'Trừ ví (mua đơn)'
                               : t.type;
                     const sign = t.type === 'DEPOSIT' ? '+' : '-';
+                    const by =
+                        t.performed_by || (t.reference_type === 'sepay' ? '(SePay tự động)' : '—');
                     return `<tr>
                         <td>${escapeHtml(fmtTime(t.created_at))}</td>
                         <td><span class="sw-txn-type" data-type="${t.type.toLowerCase()}">${lbl}</span></td>
                         <td class="num sw-txn-amount ${t.type === 'DEPOSIT' ? 'is-pos' : 'is-neg'}">${sign}${fmtVnd(t.amount)}</td>
+                        <td>${escapeHtml(by)}</td>
                         <td>${escapeHtml(t.note || '')}</td>
                     </tr>`;
                 })

@@ -25,6 +25,18 @@
 
 ## 2026-06-06
 
+### [web2] Audit history — rà soát toàn menu, vá gap frontend chưa gửi tên user ✅
+
+Rà soát toàn bộ trang menu (2 Explore agent NCC + KH/PBH). Phát hiện backend đã ghi `performed_by` nhưng nhiều FRONTEND chưa gửi tên → ghi placeholder. Vá:
+
+- **Ví KH** [web2-wallet-api.js](web2/customer-wallet/js/web2-wallet-api.js): deposit/withdraw gửi `userName` (Web2UserInfo). Hiển thị cột **"Người thực hiện"** trong lịch sử ví ([web2-customer-wallet-app.js](web2/customer-wallet/js/web2-customer-wallet-app.js) + [index.html](web2/customer-wallet/index.html), '(SePay tự động)' cho reference_type=sepay).
+- **Smart Match** [smart-match/index.html](web2/smart-match/index.html): `verifiedBy` đổi từ hardcode 'smart-match' → tên staff + ' (smart-match)'.
+- **Ví NCC** [supplier-wallet](web2/supplier-wallet/js/supplier-wallet-app.js): `confirmReturn`/`confirmPay` ghi `performedBy` (Web2UserInfo) vào transaction Firestore ([storage](web2/supplier-wallet/js/supplier-wallet-storage.js) lưu field). Hiển thị cột "Người thực hiện" trong lịch sử.
+- Đã tốt sẵn (không sửa): manual-deposit modal (gửi userName), supplier-debt legacy (RowHistoryStore + currentUser), PBH trừ ví, purchase-refund.
+- Chưa làm (không có money op): COD giao hàng (chưa implement), so-order rows (metadata Firestore).
+
+→ Mọi money op staff giờ ghi đúng **tên người làm** (không còn placeholder '(staff)') + hiển thị được để kiểm tra.
+
 ### [tpos-pancake] Fix — chọn nhiều campaign "load liên tục" (infinite loop /cart/batch/counts) ✅
 
 **Vấn đề (user):** Chọn 4 campaign → TPOS panel load liên tục không ngừng.
