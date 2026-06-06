@@ -1007,37 +1007,60 @@
 
         // Wire MutationObserver cho TPOS comments container (#tposContent) —
         // drop target DUY NHẤT. Watch subtree để bắt re-render của TposCommentList.
+        //
+        // ⚠ Anti feedback-loop (fix 2026-06-06 "chọn 4 campaign load liên tục"):
+        // refreshCartCounts() → renderBadges() append/sửa badge `.inv-cart-badge`
+        // BÊN TRONG row = childList mutation trong subtree → observer fire lại →
+        // refresh lại → loop vô hạn ~10 req/s. Vì vậy callback CHỈ react khi danh
+        // sách comment THỰC SỰ đổi (thêm/bớt `.tpos-conversation-item`), bỏ qua mọi
+        // mutation do chính badge giỏ hàng gây ra.
+        function _mutationsTouchRows(mutations) {
+            for (const m of mutations) {
+                for (const n of m.addedNodes) {
+                    if (
+                        n.nodeType === 1 &&
+                        (n.classList?.contains('tpos-conversation-item') ||
+                            n.querySelector?.('.tpos-conversation-item'))
+                    )
+                        return true;
+                }
+                for (const n of m.removedNodes) {
+                    if (
+                        n.nodeType === 1 &&
+                        (n.classList?.contains('tpos-conversation-item') ||
+                            n.querySelector?.('.tpos-conversation-item'))
+                    )
+                        return true;
+                }
+            }
+            return false;
+        }
         function _wireTposObserver() {
             const tposRoot = document.getElementById('tposContent');
             if (!tposRoot) return false;
             if (tposRoot.dataset.invObserved) return true;
             tposRoot.dataset.invObserved = '1';
-            new MutationObserver(() => {
+            new MutationObserver((mutations) => {
+                if (!_mutationsTouchRows(mutations)) return; // bỏ qua badge churn
                 clearTimeout(init._tposTimer);
                 init._tposTimer = setTimeout(() => {
                     refreshCartCounts();
                     _markHasOrderRows();
-                }, 200);
+                }, 300);
             }).observe(tposRoot, { childList: true, subtree: true });
             refreshCartCounts();
             _markHasOrderRows();
             return true;
         }
 
-        // Poll DOM mỗi 2s cho đến khi #tposContent có rows (TposCommentList load async).
-        // Sau 2 phút giảm xuống 5s safety check.
+        // Poll DOM mỗi 2s CHỈ để chờ #tposContent xuất hiện (TposCommentList load
+        // async) rồi wire observer. Sau khi wire xong → observer + SSE tự lo refresh
+        // khi list đổi → KHÔNG poll refreshCartCounts nữa (tránh load liên tục).
         let pollTries = 0;
         const pollTimer = setInterval(() => {
             pollTries++;
-            _wireTposObserver();
-            refreshCartCounts();
-            _markHasOrderRows();
-            if (pollTries === 60) {
+            if (_wireTposObserver() || pollTries >= 60) {
                 clearInterval(pollTimer);
-                setInterval(() => {
-                    _wireTposObserver();
-                    _markHasOrderRows();
-                }, 5000);
             }
         }, 2000);
     }
