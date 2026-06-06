@@ -3964,27 +3964,32 @@
     // Khác với rtConnect (chuyên về Pancake messages), SSE bridge này dành
     // riêng cho data sync giữa các máy cùng xem trang Đơn Web.
     let _sseUnsubscribe = null;
+    let _sseUnsubCk = null; // web2:payment-signals (badge "KH báo đã CK")
     let _sseReloadTimer = null;
+    function _scheduleReload(reason) {
+        // Debounce 600ms để gom nhiều mutation gần nhau thành 1 reload.
+        if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
+        _sseReloadTimer = setTimeout(() => {
+            _sseReloadTimer = null;
+            console.log('[NativeOrders-SSE] reload:', reason);
+            load();
+        }, 600);
+    }
     function _sseConnect() {
         if (!window.Web2SSE?.subscribe) {
             console.warn('[NativeOrders-SSE] Web2SSE not loaded — skip realtime data sync');
             return;
         }
         if (_sseUnsubscribe) return;
-        _sseUnsubscribe = window.Web2SSE.subscribe('web2:native-orders', (msg) => {
-            // Debounce 600ms để gom nhiều mutation gần nhau thành 1 reload.
-            // (User edit nhanh 5 đơn liên tiếp → 1 reload thay vì 5.)
-            if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
-            _sseReloadTimer = setTimeout(() => {
-                _sseReloadTimer = null;
-                console.log(
-                    '[NativeOrders-SSE] data event:',
-                    msg.data?.action,
-                    msg.data?.code || ''
-                );
-                load();
-            }, 600);
-        });
+        // Đơn web đổi → reload (badge state, total, …).
+        _sseUnsubscribe = window.Web2SSE.subscribe('web2:native-orders', (msg) =>
+            _scheduleReload(`native-orders ${msg.data?.action || ''} ${msg.data?.code || ''}`)
+        );
+        // KH nhắn "đã ck"/"ck xong" (signal mới) HOẶC watcher tự khớp tiền → badge
+        // "💸 KH báo đã CK" hiện/đổi xanh LIVE, không cần refresh tay.
+        _sseUnsubCk = window.Web2SSE.subscribe('web2:payment-signals', (msg) =>
+            _scheduleReload(`payment-signal ${msg.data?.action || ''}`)
+        );
     }
 
     // ---------- Init ----------
