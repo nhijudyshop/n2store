@@ -127,6 +127,11 @@ async function ensureSchema(pool) {
     await pool.query(
         `ALTER TABLE web2_payment_signals ADD COLUMN IF NOT EXISTS matched_tx_at BIGINT;`
     );
+    // customer_id = TPOS Partner Id (web2_customers.id) — khoá unique để watcher
+    // đối soát chắc chắn (partnerHit) kể cả khi phone trống.
+    await pool.query(
+        `ALTER TABLE web2_payment_signals ADD COLUMN IF NOT EXISTS customer_id BIGINT;`
+    );
     await pool.query(
         `CREATE INDEX IF NOT EXISTS idx_w2paysig_status ON web2_payment_signals(status);`
     );
@@ -166,21 +171,33 @@ async function ensureSchema(pool) {
     console.log('[WEB2-PAYSIG] schema ensured');
 }
 
-// ─── Resolve phone từ psid (fb_id) qua kho KH web2_customers ──────────
-async function _resolvePhone(pool, psid) {
-    if (!psid) return null;
+// ─── Resolve KH từ psid (fb_id) qua kho KH web2_customers ─────────────
+// Trả { phone, customerId } — customerId = web2_customers.id = TPOS Partner Id.
+// Lấy CẢ HAI: phone có thể trống nhưng partner_id vẫn có → watcher partnerHit.
+async function _resolveCustomer(pool, psid) {
+    if (!psid) return { phone: null, customerId: null };
     try {
+        // Ưu tiên row có phone; nếu không có phone nào, vẫn lấy partner_id.
         const { rows } = await pool.query(
-            `SELECT phone FROM web2_customers
-             WHERE fb_id = $1 AND phone IS NOT NULL AND phone <> ''
-             ORDER BY synced_at DESC NULLS LAST LIMIT 1`,
+            `SELECT id, phone FROM web2_customers
+             WHERE fb_id = $1
+             ORDER BY (phone IS NOT NULL AND phone <> '') DESC, synced_at DESC NULLS LAST
+             LIMIT 1`,
             [String(psid)]
         );
-        return rows[0]?.phone || null;
+        const r = rows[0];
+        return {
+            phone: r && r.phone ? r.phone : null,
+            customerId: r && r.id != null ? Number(r.id) : null,
+        };
     } catch (e) {
         // web2_customers có thể chưa tồn tại ở môi trường test → im lặng
-        return null;
+        return { phone: null, customerId: null };
     }
+}
+// Back-compat: 1 số test/caller cũ dùng _resolvePhone.
+async function _resolvePhone(pool, psid) {
+    return (await _resolveCustomer(pool, psid)).phone;
 }
 
 // ─── Best-effort khớp đơn theo phone (đơn mới nhất, chưa giao xong) ────
@@ -245,7 +262,7 @@ async function handleIncoming(pool, data, notify) {
         return null; // đã ghi gần đây (bất kỳ status), bỏ qua trùng / chống tái tạo
     }
 
-    const phone = await _resolvePhone(pool, data.psid);
+    const { phone, customerId } = await _resolveCustomer(pool, data.psid);
     const order = await _matchOrder(pool, phone);
 
     // Seed history[0] = entry "detect" (hệ thống tự nhận, không phải user).
@@ -264,9 +281,9 @@ async function handleIncoming(pool, data, notify) {
         const { rows } = await pool.query(
             `INSERT INTO web2_payment_signals
                 (psid, page_id, conversation_id, customer_name, raw_message,
-                 matched_keyword, phone, matched_order_type, matched_order_code,
+                 matched_keyword, phone, customer_id, matched_order_type, matched_order_code,
                  status, created_at, history)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',$10,$11::jsonb)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending',$11,$12::jsonb)
              RETURNING *`,
             [
                 String(data.psid || ''),
@@ -276,6 +293,7 @@ async function handleIncoming(pool, data, notify) {
                 String(data.message || '').slice(0, 1000),
                 keyword,
                 phone,
+                customerId,
                 order?.type || null,
                 order?.code || null,
                 now,
@@ -386,6 +404,7 @@ module.exports = {
     handleIncoming,
     handleIntent,
     _resolvePhone,
+    _resolveCustomer,
     _matchOrder,
     DEDUP_WINDOW_MS,
 };

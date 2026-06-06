@@ -25,6 +25,23 @@
 
 ## 2026-06-06
 
+### [render][web2] Đối soát đóng gói — tích tay: confirm + ghi lịch sử "đối chiếu camera" ✅
+
+**Yêu cầu (user):** "tích tay có confirm và ghi luôn là lưu lịch sử lại check camera."
+
+**Vì sao:** tích tay = đánh dấu pick đủ mà KHÔNG quét barcode → dễ sai/gian lận → cần (1) xác nhận chủ ý, (2) lưu vết rõ ràng để soi lại camera khi đối chứng.
+
+**Fix (`reconcile-app.js`):**
+
+- `toggleManualPick`: thêm `confirm()` trước khi áp dụng. Tích → hộp thoại cảnh báo "tích tay không quét, LƯU LỊCH SỬ để đối chiếu camera". Bỏ tích → confirm nhẹ. Hủy → `renderDetail()` revert checkbox về state server (change event đã toggle visual).
+- Gửi kèm `note: 'Tích tay (không quét) — đối chiếu camera'` trong body manual-pick.
+- `historyNote`: action `manual-pick` + pickedQty>0 → luôn gắn cờ `📹 đối chiếu camera` (suy từ action type → bền vững cả với log cũ chưa có payload.note). Bỏ tích (SL 0) không gắn cờ.
+
+**Fix (`reconcile.js` server):** manual-pick nhận `note` → lưu vào `payload.note` audit log (deploy-gated; display chạy không cần deploy vì derive từ action).
+
+**Files:** `render.com/routes/reconcile.js`, `web2/reconcile/js/reconcile-app.js`, `web2/reconcile/index.html` (`v=20260606nj3`).
+**Verify (test PBH NJ-20260605-0001):** confirm hủy → checkbox revert, server giữ pending 0 (không lưu); confirm accept → `1/1`, history `✋ Tích tay · 11:57:46 6/6/2026 · B4DAMVANG · SL 1 · Chờ pick → Đã pick đủ · 📹 đối chiếu camera`; bỏ tích → không cờ camera. Reset sạch sau verify.
+
 ### [web2][render] Xóa hẳn 6 trang Web 2.0 (smart-match, supplier-aging, supplier-360, inventory-forecast, bulk-import, print-export) ✅
 
 **Yêu cầu user:** Bỏ (xóa hẳn) 6 trang trên khỏi Web 2.0.
