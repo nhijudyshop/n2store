@@ -45,6 +45,22 @@
 
 **Verify live (browser + extension, 4 campaign):** `14/690 14✓ 0 fail`, **90 thumbnail thật render**, POST /snapshot đều success, iframe seek `&t=` đúng. ✅ Lưu ý: `&t=` chỉ seek được VOD (live đã end); live đang chạy → auto-snap lo.
 
+### [orders][kpi] Đơn chưa có phiếu / phiếu Nháp → "⏳ Chờ phiếu", KHÔNG tính KPI
+
+User: đơn `260501709` tính 5.000đ KPI dù cột Phiếu Bán Hàng = "—" (chưa có phiếu, còn "GIỮ ĐƠN"). Phiếu **Hủy/Nháp/không có** → phải loại không tính KPI. Chốt: đơn chưa-phiếu/Nháp **vẫn hiển thị** đánh dấu "Chờ phiếu", KHÔNG cộng tổng (đơn Hủy giữ nguyên: ẩn hoàn toàn).
+
+**Root cause**: `applyFilters` đã loại đơn Hủy (`_isInvoiceCancelled`) nhưng đơn **không có phiếu** (`_invoiceCache.get`=undefined → `_isInvoiceCancelled` trả false) và **Nháp** vẫn lọt → tính KPI. KPI lưu độc lập phiếu (`kpi_statistics`) nên xử lý ở **tầng hiển thị/filter** (re-eval mỗi load → phiếu xác nhận thì tự tính lại).
+
+**Fix** (chỉ frontend `orders-report/`, KHÔNG đụng backend/kpi-manager):
+
+- Helper `_isOrderKpiPending(order)`: không phiếu HOẶC `ShowState='Nháp'`/`StateCode='draft'` → pending (Hủy → false, ẩn riêng).
+- `applyFilters`: gắn cờ `_kpiPending` thay vì loại (giữ `continue` cho Hủy). Chokepoint duy nhất → feed leaderboard/summary/modal.
+- Loại pending khỏi MỌI tổng: `updateSummaryCards`, `aggregateByEmployee` (+`pendingCount`/emp → badge), header `_updateHeroStats` tự đúng (đọc aggregated), `orderCount` leaderboard+table.
+- Modal "Chi tiết KPI" `renderEmployeeOrdersTable`: đơn pending → pill `⏳ Chờ phiếu · chưa tính` (amber), KPI cell gạch mờ, row vàng nhạt, đếm `pendingOrders` (KHÔNG vào totalOrders/okOrders/kpiGross). Stat card "⏳ Chờ phiếu: N" (`l1SumPendingCard`, ẩn khi 0). Simple-mode luôn hiện pending. Tab "Tất cả đơn" count = totalOrders+pending.
+- HTML: card "Chờ phiếu" trong `modalL1Summary`. CSS: `.pill-pending`/`.is-kpi-pending`/`.kpi-pending-amount`/`.l1-sum-pending`/`.lb-emp-pending-badge` (amber). Cache-bust `?v=20260605pending`.
+
+**Verify**: unit test `_isOrderKpiPending` 12/12 (no-inv/Nháp/draft→pending; xác nhận/thanh toán/hoàn thành→tính; hủy các kiểu→false). `node --check` OK. Live: đơn `260501709` → pill Chờ phiếu, tổng KPI giảm đúng 5.000đ; reload sau khi phiếu xác nhận → tự tính lại. **Status**: DONE (logic verified, live chờ user reload).
+
 ### [inbox] ⚡ PERF: trang Đơn Inbox hết tải nặng — KPI thẻ "tất cả" thôi auto kéo toàn bộ lịch sử đơn ✅
 
 **Files:** `don-inbox/js/tab-social-core.js`, `don-inbox/js/tab-social-kpi-reconcile.js`

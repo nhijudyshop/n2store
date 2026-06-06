@@ -30,7 +30,7 @@
         <!-- Lucide Icons -->
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
-        <link rel="stylesheet" href="css/tab-kpi-commission.css?v=20260605refund3" />
+        <link rel="stylesheet" href="css/tab-kpi-commission.css?v=20260605pending" />
 
         <!-- Inline overrides (if any) -->
         <style>
@@ -779,6 +779,15 @@
                             <div class="l1-sum-label">Đơn hoàn</div>
                             <div class="l1-sum-value" id="l1SumRefundOrders">0</div>
                         </div>
+                        <div
+                            class="l1-sum-item l1-sum-pending"
+                            id="l1SumPendingCard"
+                            title="Đơn chưa có phiếu bán hàng / phiếu còn Nháp → CHƯA tính KPI. Khi phiếu được xác nhận sẽ tự tính lại."
+                            style="display: none"
+                        >
+                            <div class="l1-sum-label">⏳ Chờ phiếu</div>
+                            <div class="l1-sum-value" id="l1SumPendingOrders">0</div>
+                        </div>
                         <div class="l1-sum-item l1-sum-kpi">
                             <div class="l1-sum-label">KPI gross</div>
                             <div class="l1-sum-value" id="l1SumKpiGross">0</div>
@@ -1056,6 +1065,6 @@
         <script src="../shared/js/pancake-token-manager.js?v=20260521b"></script>
         <script src="js/managers/pancake-data-manager.js?v=20260521b"></script>
 
-        <script src="js/tab-kpi-commission.js?v=20260605refund3"></script>
+        <script src="js/tab-kpi-commission.js?v=20260605pending"></script>
     </body>
 </html>

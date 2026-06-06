@@ -1191,9 +1191,12 @@ const KPICommission = {
                     if (status === 'ok' && order.hasDiscrepancy) continue;
                     if (status === 'discrepancy' && !order.hasDiscrepancy) continue;
 
+                    // Đơn chưa có phiếu / phiếu Nháp → VẪN hiển thị nhưng đánh dấu
+                    // "Chờ phiếu" + KHÔNG cộng KPI (loại ở các chỗ tính tổng).
                     employeeOrders.push({
                         ...order,
                         date: dateKey,
+                        _kpiPending: this._isOrderKpiPending(order),
                     });
                 }
             }
@@ -1236,6 +1239,8 @@ const KPICommission = {
             for (const order of emp.orders) {
                 // Exclude stale orders regardless of mode.
                 if (order._stale) continue;
+                // Đơn "Chờ phiếu" (chưa có phiếu / phiếu Nháp) → KHÔNG cộng KPI/NET.
+                if (order._kpiPending) continue;
                 // Simple mode: bỏ qua đơn KPI = 0. Full mode: đếm hết.
                 const hasKpi = (order.netProducts || 0) > 0 || (order.kpi || 0) > 0;
                 if (!fullMode && !hasKpi) continue;
@@ -1373,6 +1378,25 @@ const KPICommission = {
             showState === 'Huỷ bỏ' ||
             showState === 'Hủy bỏ'
         );
+    },
+
+    /**
+     * Đơn CHƯA đủ điều kiện tính KPI vì phiếu bán hàng chưa hợp lệ:
+     *   - chưa có phiếu (không có entry trong _invoiceCache), HOẶC
+     *   - phiếu còn Nháp (ShowState='Nháp' / StateCode='draft').
+     * Đơn HỦY KHÔNG rơi vào đây — đã bị ẩn hoàn toàn ở applyFilters.
+     * Đơn pending VẪN hiển thị (đánh dấu "Chờ phiếu") nhưng KHÔNG cộng KPI/NET.
+     * Khi phiếu được xác nhận + reload → tự hết pending → tính lại.
+     * @param {object} order
+     * @returns {boolean}
+     */
+    _isOrderKpiPending(order) {
+        const inv = this._invoiceCache?.get(order?.orderId);
+        if (!inv) return true; // chưa có phiếu bán hàng
+        if (this._isInvoiceCancelled(inv)) return false; // Hủy → ẩn riêng, không pending
+        const showState = inv.ShowState || '';
+        const stateCode = (inv.StateCode || '').toLowerCase();
+        return showState === 'Nháp' || stateCode === 'draft';
     },
 
     /**
@@ -1931,6 +1955,7 @@ const KPICommission = {
 
             const orderCount = emp.orders.filter((o) => {
                 if (o._stale) return false;
+                if (o._kpiPending) return false; // chờ phiếu → không tính vào "X đơn"
                 if (fullMode) return true;
                 return (o.netProducts || 0) > 0 || (o.kpi || 0) > 0;
             }).length;
@@ -1952,6 +1977,11 @@ const KPICommission = {
                     ? `<span class="lb-emp-refund-badge"><i data-lucide="undo-2"></i>${lossInfo.refundCount} hoàn</span>`
                     : '';
 
+            const pendingBadge =
+                (emp.pendingCount || 0) > 0
+                    ? `<span class="lb-emp-pending-badge" title="Đơn chưa có phiếu / phiếu Nháp — chưa tính KPI">⏳ ${emp.pendingCount} chờ phiếu</span>`
+                    : '';
+
             // KPI Inbox đã chuyển sang tab riêng — không badge ở đây nữa.
 
             html += `<div class="lb-row" onclick="window.KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')" tabindex="0" role="button">
@@ -1963,6 +1993,7 @@ const KPICommission = {
                             <span class="lb-emp-meta-item"><i data-lucide="package"></i>${orderCount} đơn</span>
                             <span class="lb-emp-meta-item"><i data-lucide="layers"></i>${emp.totalNetProducts} SP NET</span>
                             ${refundBadge}
+                            ${pendingBadge}
                         </div>
                     </div>
                 </div>
@@ -2131,6 +2162,7 @@ const KPICommission = {
 
             const orderCount = emp.orders.filter((o) => {
                 if (o._stale) return false;
+                if (o._kpiPending) return false; // chờ phiếu → không tính vào "X đơn"
                 if (fullMode) return true;
                 return (o.netProducts || 0) > 0 || (o.kpi || 0) > 0;
             }).length;
@@ -2187,8 +2219,14 @@ const KPICommission = {
         for (const emp of filteredData) {
             let totalNetProducts = 0;
             let totalKPI = 0;
+            let pendingCount = 0;
 
             for (const order of emp.orders) {
+                // Đơn "Chờ phiếu" → KHÔNG cộng KPI/NET (đếm riêng để hiện badge).
+                if (order._kpiPending) {
+                    pendingCount++;
+                    continue;
+                }
                 totalNetProducts += order.netProducts || 0;
                 totalKPI += order.kpi || 0;
             }
@@ -2206,6 +2244,7 @@ const KPICommission = {
                 orders: emp.orders,
                 totalNetProducts,
                 totalKPI,
+                pendingCount,
             });
         }
 
@@ -2306,6 +2345,7 @@ const KPICommission = {
         let totalOrders = 0;
         let okOrders = 0;
         let refundOrders = 0;
+        let pendingOrders = 0;
         let kpiGross = 0;
         let kpiLost = 0;
 
@@ -2319,34 +2359,49 @@ const KPICommission = {
             // "Có hoàn" (đơn có phiếu hoàn) TÁCH khỏi "bị loại KPI": đơn hoàn mà món
             // hoàn không tính KPI vẫn hiện "có hoàn" nhưng loss = 0.
             const isRefunded = !!recon?.isRefunded || hasKpiLoss;
-            // Simple mode: ẩn đơn 0 KPI — NHƯNG luôn hiện refunded để user thấy
-            // lý do "đã hoàn — không tính KPI" dù KPI=0.
-            if (simpleMode && !isRefunded && (order.netProducts || 0) <= 0 && (order.kpi || 0) <= 0)
+            // Đơn "Chờ phiếu" (chưa có phiếu / phiếu Nháp) → hiển thị nhưng KHÔNG tính KPI.
+            const isPending = !!order._kpiPending;
+            // Simple mode: ẩn đơn 0 KPI — NHƯNG luôn hiện refunded + pending để user thấy
+            // lý do "đã hoàn / chờ phiếu — không tính KPI" dù KPI=0.
+            if (
+                simpleMode &&
+                !isRefunded &&
+                !isPending &&
+                (order.netProducts || 0) <= 0 &&
+                (order.kpi || 0) <= 0
+            )
                 return;
 
             const invoiceHtml = this.renderKPIInvoiceStatusCell(order.orderId);
-            const hasDiscrepancy = !!recon?.hasDiscrepancy && !isRefunded;
+            const hasDiscrepancy = !!recon?.hasDiscrepancy && !isRefunded && !isPending;
             const invNumber =
                 recon?.invoiceNumber || this._invoiceCache?.get(order.orderId)?.Number || '';
 
-            totalOrders++;
-            kpiGross += order.kpi || 0;
-            if (isRefunded) {
-                refundOrders++;
-                // Chỉ trừ KPI khi món hoàn thực sự được tính KPI (refLoss>0).
-                // Cap theo order.kpi (defensive vì order.kpi có thể stale).
-                kpiLost += Math.min(refLoss, order.kpi || 0);
+            if (isPending) {
+                // Chờ phiếu → KHÔNG cộng KPI/đơn; đếm riêng để hiện stat + pill.
+                pendingOrders++;
             } else {
-                okOrders++;
+                totalOrders++;
+                kpiGross += order.kpi || 0;
+                if (isRefunded) {
+                    refundOrders++;
+                    // Chỉ trừ KPI khi món hoàn thực sự được tính KPI (refLoss>0).
+                    // Cap theo order.kpi (defensive vì order.kpi có thể stale).
+                    kpiLost += Math.min(refLoss, order.kpi || 0);
+                } else {
+                    okOrders++;
+                }
             }
 
-            const baseClass = hasKpiLoss
-                ? 'is-refunded'
-                : isRefunded
-                  ? 'is-refunded is-refunded-nokpi'
-                  : hasDiscrepancy
-                    ? 'is-discrepancy'
-                    : '';
+            const baseClass = isPending
+                ? 'is-kpi-pending'
+                : hasKpiLoss
+                  ? 'is-refunded'
+                  : isRefunded
+                    ? 'is-refunded is-refunded-nokpi'
+                    : hasDiscrepancy
+                      ? 'is-discrepancy'
+                      : '';
             // Dual-key: record kiểm tra có thể lưu theo SỐ PHIẾU (đơn đã có phiếu lúc
             // đánh dấu) HOẶC theo MÃ ĐH (đơn chưa có phiếu lúc đánh dấu → checkKey =
             // orderCode). Tra cứu cả 2 để không mất dấu ✓ sau khi đơn được gán số phiếu.
@@ -2365,7 +2420,10 @@ const KPICommission = {
                 .join(' ');
 
             let statusPill;
-            if (hasKpiLoss) {
+            if (isPending) {
+                statusPill =
+                    '<span class="kpi-status-pill pill-pending" title="Đơn chưa có phiếu bán hàng / phiếu còn Nháp → CHƯA tính KPI. Khi phiếu được xác nhận sẽ tự tính lại.">⏳ Chờ phiếu · chưa tính</span>';
+            } else if (hasKpiLoss) {
                 statusPill = '<span class="kpi-status-pill pill-refund">↩ Đã hoàn</span>';
             } else if (isRefunded) {
                 statusPill =
@@ -2394,7 +2452,7 @@ const KPICommission = {
                 <td>${invHtml}</td>
                 <td>${this.escapeHtml(order.campaignName || '---')}</td>
                 <td>${order.netProducts || 0}</td>
-                <td>${this.formatCurrency(order.kpi || 0)}</td>
+                <td>${isPending ? `<span class="kpi-pending-amount" title="KPI tiềm năng — chưa tính vì chưa có phiếu hợp lệ">${this.formatCurrency(order.kpi || 0)}</span>` : this.formatCurrency(order.kpi || 0)}</td>
                 <td>${statusPill}</td>
                 <td>${invoiceHtml}</td>
             </tr>`;
@@ -2431,9 +2489,13 @@ const KPICommission = {
             set('l1SumTotalOrders', totalOrders.toLocaleString('vi-VN'));
             set('l1SumOkOrders', okOrders.toLocaleString('vi-VN'));
             set('l1SumRefundOrders', refundOrders.toLocaleString('vi-VN'));
+            set('l1SumPendingOrders', pendingOrders.toLocaleString('vi-VN'));
             set('l1SumKpiGross', this.formatCurrency(kpiGross));
             set('l1SumKpiLost', this.formatCurrency(kpiLost));
             set('l1SumKpiNet', this.formatCurrency(kpiGross - kpiLost));
+            // Ẩn card "Chờ phiếu" nếu không có đơn pending (đỡ rối).
+            const pendingCard = document.getElementById('l1SumPendingCard');
+            if (pendingCard) pendingCard.style.display = pendingOrders > 0 ? '' : 'none';
         }
         this._l1ReconRan = reconRan;
 
@@ -2442,7 +2504,8 @@ const KPICommission = {
             const el = document.getElementById(id);
             if (el) el.textContent = v;
         };
-        setTab('l1TabCountAll', totalOrders);
+        // "Tất cả đơn" tab hiển thị cả đơn chờ phiếu → count gồm cả pending.
+        setTab('l1TabCountAll', totalOrders + pendingOrders);
         setTab('l1TabCountRefund', refundOrders);
 
         // Bind tab clicks (idempotent)
