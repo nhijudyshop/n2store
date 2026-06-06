@@ -2470,9 +2470,8 @@ const KPICommission = {
     _L1_RECON_CACHE_TTL_MS: 7 * 24 * 60 * 60 * 1000, // 7 ngày
     // v2: record có refundedKpiAmount (đối soát theo MÓN).
     // v3: chỉ trừ KPI món được tính KPI (skip excludedBySaleFlag) + tách "có hoàn"
-    //     khỏi "bị loại KPI" + refundedProducts[].kpiLost.
-    // v4: thêm allRefundedProducts[] (TẤT CẢ món hoàn + tên + lý do) để banner ghi rõ.
-    _L1_RECON_CACHE_PREFIX: 'kpi_recon_l1_v4__',
+    //     khỏi "bị loại KPI" + refundedProducts[].kpiLost. Bump để bỏ cache v2 lỗi.
+    _L1_RECON_CACHE_PREFIX: 'kpi_recon_l1_v3__',
 
     _getL1ReconCacheKey(userId) {
         return `${this._L1_RECON_CACHE_PREFIX}${userId}`;
@@ -2717,7 +2716,6 @@ const KPICommission = {
                         isRefunded,
                         refundedKpiAmount: refund.refundedKpiAmount,
                         refundedProducts: refund.refundedProducts,
-                        allRefundedProducts: refund.allRefundedProducts,
                         hasRefundRow: refund.hasRefundRow,
                         discrepancies: [...refundDiscrepancy, ...(result.discrepancies || [])],
                     };
@@ -3234,14 +3232,12 @@ const KPICommission = {
     _getRefundedProductMap(orderId) {
         const map = new Map();
         const recon = this._reconByOrder?.get(orderId);
-        const list = recon?.allRefundedProducts || recon?.refundedProducts || [];
-        for (const p of list) {
+        for (const p of recon?.refundedProducts || []) {
             const code = (p.code || '').trim().toUpperCase();
             if (!code) continue;
-            const prev = map.get(code) || { qty: 0, kpiLost: 0, name: p.name || '', counted: false };
+            const prev = map.get(code) || { qty: 0, kpiLost: 0, name: p.name || '' };
             prev.qty += p.qty || 0;
             prev.kpiLost += p.kpiLost || 0;
-            if ((p.kpiLost || 0) > 0 || p.counted === true) prev.counted = true;
             if (!prev.name && p.name) prev.name = p.name;
             map.set(code, prev);
         }
@@ -3267,38 +3263,27 @@ const KPICommission = {
         const lost = Math.min(recon.refundedKpiAmount || 0, gross);
         const net = Math.max(0, gross - lost);
         const hasLoss = lost > 0;
-        // TẤT CẢ món hoàn (mới); fallback refundedProducts (cache cũ chưa có field).
-        const allRefunded = recon.allRefundedProducts || recon.refundedProducts || [];
+        const refunded = recon.refundedProducts || [];
 
-        const itemRow = (p) => {
-            const counted = p.counted !== false && (p.kpiLost || 0) > 0;
-            const tail = counted
-                ? `→ <span class="orb-minus">−${this.formatCurrency(p.kpiLost || 0)}</span>`
-                : `<span class="orb-muted">· ${this.escapeHtml(p.reason || 'không tính KPI')}</span>`;
-            const nameHtml = p.name ? ` ${this.escapeHtml(p.name)}` : '';
-            return `<li class="${counted ? 'orb-li-counted' : 'orb-li-nokpi'}"><span class="orb-code">${this.escapeHtml(p.code || '')}</span>${nameHtml} — hoàn ${p.qty || 0} ${tail}</li>`;
-        };
-        const itemsHtml = allRefunded.map(itemRow).join('');
+        const itemsHtml = refunded
+            .map(
+                (p) =>
+                    `<li><span class="orb-code">${this.escapeHtml(p.code || '')}</span> ${this.escapeHtml(p.name || '')} — hoàn ${p.qty || 0}${hasLoss ? ` → <span class="orb-minus">−${this.formatCurrency(p.kpiLost || 0)}</span>` : ''}</li>`
+            )
+            .join('');
 
         el.className = 'order-refund-banner ' + (hasLoss ? 'orb-loss' : 'orb-nokpi');
         el.style.display = '';
-        el.innerHTML = `
-            <div class="orb-title">↩ Đơn có hoàn ${hasLoss ? '— trừ KPI theo MÓN' : '· không trừ KPI'}</div>
-            ${
-                allRefunded.length
-                    ? `<ul class="orb-list">${itemsHtml}</ul>`
-                    : `<div class="orb-note">Không lấy được chi tiết món hoàn từ phiếu (vẫn ghi nhận đơn có hoàn).</div>`
-            }
-            ${
-                !hasLoss
-                    ? `<div class="orb-note">Các món hoàn KHÔNG nằm trong SP tính KPI → <strong>không trừ KPI</strong>.</div>`
-                    : ''
-            }
-            <div class="orb-totals">
-                <span>KPI gross: <strong>${this.formatCurrency(gross)}</strong></span>
-                <span>Hoàn (loại): <strong class="orb-minus">−${this.formatCurrency(lost)}</strong></span>
-                <span>KPI thực: <strong class="orb-net">${this.formatCurrency(net)}</strong></span>
-            </div>`;
+        el.innerHTML = hasLoss
+            ? `<div class="orb-title">↩ Đơn có hoàn — trừ KPI theo MÓN</div>
+               <ul class="orb-list">${itemsHtml}</ul>
+               <div class="orb-totals">
+                   <span>KPI gross: <strong>${this.formatCurrency(gross)}</strong></span>
+                   <span>Hoàn (loại): <strong class="orb-minus">−${this.formatCurrency(lost)}</strong></span>
+                   <span>KPI thực: <strong class="orb-net">${this.formatCurrency(net)}</strong></span>
+               </div>`
+            : `<div class="orb-title">↩ Đơn có hoàn · không trừ KPI</div>
+               <div class="orb-note">Các món hoàn KHÔNG nằm trong SP tính KPI (chưa tick / đã loại) → <strong>không trừ KPI</strong>. KPI thực giữ nguyên <strong>${this.formatCurrency(gross)}</strong>.</div>`;
     },
 
     // ========================================
@@ -3407,11 +3392,9 @@ const KPICommission = {
 
                 const ref = refundMap.get((p.code || '').trim().toUpperCase());
                 if (ref) totalRefunded += ref.kpiLost || 0;
-                const refundCell = !ref
-                    ? '<span class="kpi-refund-none">—</span>'
-                    : (ref.kpiLost || 0) > 0
-                      ? `<span class="kpi-refund-badge" title="Hoàn ${ref.qty} → trừ ${this.formatCurrency(ref.kpiLost || 0)}">↩ ${ref.qty} · −${this.formatCurrency(ref.kpiLost || 0)}</span>`
-                      : `<span class="kpi-refund-badge kpi-refund-badge-nokpi" title="Hoàn ${ref.qty} · không trừ KPI (món không tính KPI)">↩ ${ref.qty} · 0đ</span>`;
+                const refundCell = ref
+                    ? `<span class="kpi-refund-badge" title="Hoàn ${ref.qty} → trừ ${this.formatCurrency(ref.kpiLost || 0)}">↩ ${ref.qty} · −${this.formatCurrency(ref.kpiLost || 0)}</span>`
+                    : '<span class="kpi-refund-none">—</span>';
 
                 // Row tô xanh nhạt khi thực sự đóng góp KPI (p.kpi > 0); món hoàn → tô đỏ nhạt.
                 const rowClass = [p.kpi > 0 ? 'kpi-row-checked' : '', ref ? 'kpi-row-refunded' : '']
@@ -4088,14 +4071,12 @@ const KPICommission = {
     _parseRefundChiTiet(chiTiet) {
         const items = [];
         if (!chiTiet) return items;
-        // group3 = tên món (text sau "]" tới ";" hoặc hết) → để ghi rõ món hoàn.
-        const re = /(\d+)\s*x\s*\[([^\]]+)\]([^;]*)/g;
+        const re = /(\d+)\s*x\s*\[([^\]]+)\]/g;
         let m;
         while ((m = re.exec(String(chiTiet))) !== null) {
             const qty = parseInt(m[1], 10) || 0;
             const code = (m[2] || '').trim().toUpperCase();
-            const name = (m[3] || '').trim();
-            if (code && qty > 0) items.push({ code, qty, name });
+            if (code && qty > 0) items.push({ code, qty });
         }
         return items;
     },
@@ -4204,7 +4185,7 @@ const KPICommission = {
         const sheet = wb.Sheets[wb.SheetNames[0]];
         // range:2 = skip 2 title rows, header is row 3 ("STT", ..., "Tham chiếu", ..., "Chi tiết", ...)
         const rows = XLSX.utils.sheet_to_json(sheet, { range: 2, defval: null });
-        const refundByInvoice = new Map(); // số phiếu gốc → Map<productCode, {qty, name}>
+        const refundByInvoice = new Map(); // số phiếu gốc → Map<productCode, qtyHoàn>
         const codes = new Set();
         for (const row of rows) {
             const ref = String(row['Tham chiếu'] || '').trim();
@@ -4217,15 +4198,9 @@ const KPICommission = {
                 codeMap = new Map();
                 refundByInvoice.set(ref, codeMap);
             }
-            // Aggregate SL theo code (1 phiếu nhiều dòng / 1 dòng nhiều món) + giữ tên
+            // Aggregate SL theo code (1 phiếu nhiều dòng / 1 dòng nhiều món)
             for (const it of items) {
-                const prev = codeMap.get(it.code);
-                if (prev) {
-                    prev.qty += it.qty;
-                    if (!prev.name && it.name) prev.name = it.name;
-                } else {
-                    codeMap.set(it.code, { qty: it.qty, name: it.name || '' });
-                }
+                codeMap.set(it.code, (codeMap.get(it.code) || 0) + it.qty);
             }
         }
         console.log(
@@ -4237,68 +4212,38 @@ const KPICommission = {
 
     /**
      * So khớp món hoàn (refund excel CHI TIẾT) với món tính KPI của 1 đơn.
-     * Duyệt TẤT CẢ món hoàn của phiếu → ghi rõ từng món (để so sánh), nhưng CHỈ
-     * trừ KPI cho món THỰC SỰ được tính KPI (có trong details, không excludedBySaleFlag,
-     * net>0). Món hoàn không tính KPI vẫn liệt kê (kpiLost=0) để user đối chiếu.
+     * Chỉ món có code khớp giữa KPI details và refund "Chi tiết" mới bị loại KPI,
+     * trừ theo SL = min(SL hoàn, SL net KPI) × KPI_PER_PRODUCT (owner chốt: chính xác theo SL).
      *
      * @param {string} invNumber - số phiếu TPOS của đơn (invoice.Number)
      * @param {object} details - KPI per-product { [pid]: {code, name, net, unitKPI, excludedBySaleFlag, ...} } (từ reconcileKPI)
-     * @param {Map<string, Map<string, {qty:number,name:string}>>} refundByInvoice - từ fetchRefundDetailByInvoice
-     * @returns {{ refundedKpiAmount:number, refundedProducts:Array, allRefundedProducts:Array, hasRefundRow:boolean }}
+     * @param {Map<string, Map<string, number>>} refundByInvoice - từ fetchRefundDetailByInvoice
+     * @returns {{ refundedKpiAmount:number, refundedProducts:Array<{code,name,qty,kpiLost}>, hasRefundRow:boolean }}
      */
     _matchRefundForOrder(invNumber, details, refundByInvoice) {
         const refundItems = invNumber ? refundByInvoice?.get(invNumber) : null;
         const out = {
             refundedKpiAmount: 0,
-            refundedProducts: [], // chỉ món được tính KPI & hoàn → trừ KPI + cột "Hoàn"
-            allRefundedProducts: [], // TẤT CẢ món hoàn (kể cả không tính KPI) → banner
+            refundedProducts: [],
             hasRefundRow: !!refundItems,
         };
-        if (!refundItems) return out;
-        // Index món KPI theo code UPPER để tra cứu nhanh.
-        const detailByCode = new Map();
-        for (const d of Object.values(details || {})) {
-            const c = (d?.code || '').trim().toUpperCase();
-            if (c) detailByCode.set(c, d);
-        }
-        for (const [code, item] of refundItems.entries()) {
-            // item: {qty, name} (format mới) HOẶC number (phòng cache cũ).
-            const refQty = (item && typeof item === 'object' ? item.qty : item) || 0;
-            if (refQty <= 0) continue;
-            const refName = item && typeof item === 'object' ? item.name || '' : '';
-            const d = detailByCode.get(code);
+        if (!refundItems || !details) return out;
+        for (const d of Object.values(details)) {
+            // CHỈ trừ KPI cho món THỰC SỰ được tính KPI: bỏ qua món chưa sale-tick
+            // (excludedBySaleFlag) — món đó đóng góp 0 KPI nên hoàn về cũng không trừ.
+            // (calculateNetKPI set data.net cho MỌI món kể cả món loại → phải check flag.)
+            if (d?.excludedBySaleFlag === true) continue;
             const net = d?.net || 0;
-            const counted = !!d && d.excludedBySaleFlag !== true && net > 0;
-            const name = d?.name || refName || '';
-            if (counted) {
-                const lostQty = Math.min(refQty, net);
-                const unit = d.unitKPI || this.KPI_PER_PRODUCT || 5000;
-                const kpiLost = lostQty * unit;
-                out.refundedKpiAmount += kpiLost;
-                out.refundedProducts.push({ code: d.code, name, qty: lostQty, kpiLost });
-                out.allRefundedProducts.push({
-                    code: d.code,
-                    name,
-                    qty: lostQty,
-                    kpiLost,
-                    counted: true,
-                });
-            } else {
-                // Món hoàn KHÔNG tính KPI — vẫn liệt kê để so sánh, không trừ.
-                const reason = !d
-                    ? 'không thuộc SP tính KPI'
-                    : d.excludedBySaleFlag
-                      ? 'chưa tick KPI'
-                      : 'NET = 0';
-                out.allRefundedProducts.push({
-                    code: d?.code || code,
-                    name,
-                    qty: refQty,
-                    kpiLost: 0,
-                    counted: false,
-                    reason,
-                });
-            }
+            if (net <= 0) continue;
+            const code = (d.code || '').trim().toUpperCase();
+            if (!code) continue;
+            const refQty = refundItems.get(code) || 0;
+            if (refQty <= 0) continue;
+            const lostQty = Math.min(refQty, net);
+            const unit = d.unitKPI || this.KPI_PER_PRODUCT || 5000;
+            const kpiLost = lostQty * unit;
+            out.refundedKpiAmount += kpiLost;
+            out.refundedProducts.push({ code: d.code, name: d.name || '', qty: lostQty, kpiLost });
         }
         return out;
     },
@@ -4684,7 +4629,6 @@ const KPICommission = {
                         isRefunded,
                         refundedKpiAmount: refund.refundedKpiAmount,
                         refundedProducts: refund.refundedProducts,
-                        allRefundedProducts: refund.allRefundedProducts,
                         hasRefundRow: refund.hasRefundRow,
                         discrepancies: [...refundDiscrepancy, ...(result.discrepancies || [])],
                     };

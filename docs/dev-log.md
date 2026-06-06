@@ -436,6 +436,16 @@ User: gia hạn token hàng loạt cho account hết hạn. Mở browser test lo
 - **Frontend**: card thêm nút **Gia hạn** + **🔒 Mật khẩu** (modal lưu identity+password + toggle tự động) + pill "🔄 Tự động". `web2-pancake-accounts.js` thêm getRefreshStatus/saveCreds/deleteCreds/refreshNow.
 - **Verified LIVE**: deploy live, `/status` credsKey=true, PUT creds 200, POST refresh 200 (server login → token mới). Push 3 account từ creds file (Thu Huyền+Huyền Nhi hết hạn → 89 ngày).
 
+### [orders][kpi] REVERT "ghi rõ TẤT CẢ món hoàn" — chỉ hiện món hoàn CÓ tính KPI (đỡ rối)
+
+User: món chưa tick KPI vốn đã bị loại không tính → đơn hoàn về đúng món đó thì bỏ qua luôn, không cần hiển thị cho rối. Đảo lại enhancement trước (`af3db0719`) vì liệt kê món hoàn không-tính-KPI gây rối.
+
+**Action**: `git checkout 938a3df0d -- tab-kpi-commission.{js,css}` (khôi phục bản trước commit "ghi rõ"). Bỏ `allRefundedProducts` + name-capture refund excel + badge xám "0đ" + listing món non-counted. Cache-bust HTML `refund2→refund3` để browser tải bản khôi phục.
+
+**Giữ nguyên** (không đụng): core fix `_matchRefundForOrder` skip `excludedBySaleFlag` (chỉ trừ món được tính KPI), tách "có hoàn" khỏi "bị loại KPI" (Q1 — đơn 0-KPI vẫn có badge "↩ Có hoàn · 0đ" + banner note 1 dòng, KHÔNG liệt kê món).
+
+**Kết quả**: banner đơn hoàn chỉ liệt kê **món CÓ tính KPI bị hoàn** (→ −KPI + Gross/Hoàn/Thực). Đơn chỉ hoàn món không-tính-KPI → banner gọn 1 dòng "không trừ KPI", không list món. Cột "Hoàn" chỉ badge món tính KPI. `node --check` OK. **Status**: DONE.
+
 ### [orders][kpi] Banner đơn hoàn: GHI RÕ từng món hoàn (mã + tên + lý do) để dễ so sánh
 
 User: đơn hoàn 0-KPI (`260502595`) banner chỉ ghi chung "các món hoàn không tính KPI" — không biết món NÀO hoàn. Cần ghi rõ món hoàn.
