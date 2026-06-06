@@ -340,6 +340,30 @@ async function main() {
             r.rows[0].matched_tx_id == null,
             'C11 GD đã claimed → signal mới KHÔNG cướp (1 GD ↔ 1 signal)'
         );
+
+        // ── Case 12: CHỈ trùng số tiền (amountHit), KHÔNG định danh khớp → KHÔNG
+        //    auto (tránh gửi nhầm khách trùng số tiền) → notify staff duyệt tay.
+        await db.query(`INSERT INTO native_orders (code, total_amount) VALUES ('ORD-AMT', 50000)`);
+        const sig12 = (
+            await db.query(
+                `INSERT INTO web2_payment_signals (psid,page_id,conversation_id,customer_name,phone,matched_order_type,matched_order_code,matched_keyword,status,created_at,history)
+                 VALUES ('PS12','PG','C12','KH Tiền','0912000001','native','ORD-AMT','ĐÃ CK','pending',$1,'[]'::jsonb) RETURNING id`,
+                [now]
+            )
+        ).rows[0].id;
+        const tx12 = await insTx(db, { sepay: 12, amount: 50000, content: 'CK chuyen khoan' });
+        const cap12 = { notifs: [], msgs: [] };
+        await watcher.onNewSepayTx(db, tx12, deps(cap12));
+        r = await db.query(`SELECT matched_tx_id FROM web2_payment_signals WHERE id=$1`, [sig12]);
+        ok(
+            r.rows[0].matched_tx_id == null,
+            'C12 chỉ trùng tiền → KHÔNG auto-link (tránh gửi nhầm)'
+        );
+        ok(cap12.msgs.length === 0, 'C12 KHÔNG gửi reply');
+        ok(
+            cap12.notifs.length === 1 && cap12.notifs[0].type === 'ck_watch_match',
+            'C12 báo staff duyệt tay'
+        );
     } catch (e) {
         fail++;
         console.error('❌ EXCEPTION:', e.message, e.stack);

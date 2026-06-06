@@ -17,9 +17,11 @@
 //   • partnerHit — customer_id signal == customer_id QR (partner_id TPOS, unique).
 //   • nameHit    — tên KH signal == tên KH trên QR/GD VÀ là ứng viên DUY NHẤT
 //                  (cùng tên) trong các signal chưa khớp → resolve SĐT từ GD.
-//   • amountHit  — đúng số tiền (order total) trong ≤24h VÀ duy nhất.
-// Không chắc (đúng tiền nhiều ứng viên, tên trùng, GD gán SĐT khác) → thông báo
-// staff (KHÔNG tự cộng).
+// ⚠ amountHit (CHỈ trùng số tiền, KHÔNG định danh) KHÔNG auto — 2 KH có thể cùng
+//   số tiền → gửi nhầm khách. Chỉ NOTIFY staff duyệt tay. → chỉ auto khi định
+//   danh khách thật sự khớp GD (đảm bảo gửi đúng khách trong danh sách "đã ck").
+// Không chắc (chỉ trùng tiền, tên trùng nhiều, GD gán SĐT khác) → thông báo
+// staff (KHÔNG tự cộng/gửi).
 //
 // SĐT để cộng ví = sig.phone || SĐT resolve từ GD (QR/linked). Ví keyed theo SĐT.
 //
@@ -118,16 +120,18 @@ function _hitLabel(h) {
 }
 
 // Phân loại "sure" + "rank" cho mảng scored (mỗi phần tử có cờ hit từ _score).
-// nameHit/amountHit chỉ "sure" khi DUY NHẤT trong tập ứng viên (tránh nhầm).
+// CHỈ auto khi ĐỊNH DANH khách khớp GD → đảm bảo gửi đúng khách trong danh sách
+// "đã ck": phone / partner_id (TPOS) / tên-duy-nhất.
+// ⚠ amountHit (CHỈ trùng số tiền) KHÔNG đủ để auto — 2 KH có thể cùng số tiền →
+//   gửi nhầm khách. amountHit chỉ là tín hiệu phụ → đẩy về NOTIFY staff duyệt tay.
 function _classify(scored) {
     const nameHitCount = scored.filter((x) => x.nameHit).length;
-    const amountHitCount = scored.filter((x) => x.amountHit).length;
     for (const x of scored) {
         x.sure =
-            x.phoneHit ||
-            x.partnerHit ||
-            (x.nameHit && nameHitCount === 1) ||
-            (x.amountHit && x.within24 && amountHitCount === 1);
+            x.phoneHit || // SĐT khớp — chắc chắn đúng người
+            x.partnerHit || // partner_id TPOS khớp — chắc chắn
+            (x.nameHit && nameHitCount === 1); // tên trùng GD/QR + DUY NHẤT
+        // amountHit KHÔNG vào "sure" nữa (tránh gửi nhầm khách trùng số tiền).
         x.rank = x.phoneHit ? 4 : x.partnerHit ? 3 : x.nameHit ? 2 : 1; // phone>partner>tên>tiền
     }
 }
