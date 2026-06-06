@@ -335,18 +335,134 @@ const TposCommentList = {
     },
 
     /**
-     * Render the full comment list (COALESCED).
+     * Render comment list (SMART, COALESCED).
      *
-     * Khi load nhiều campaign, các pass enrichment (session index, native orders,
-     * partner batch, kho enricher, realtime) gọi renderComments() liên tiếp nhiều
-     * lần trong vài trăm ms. Mỗi lần rebuild full innerHTML 700+ rows → giật.
-     * Gom burst thành 1 render (trailing 60ms). Tất cả caller đều là "data đổi →
-     * re-render", không ai đọc DOM đồng bộ ngay sau nên debounce an toàn.
-     * Dùng renderCommentsNow() nếu thật sự cần render đồng bộ tức thì.
+     * Đo thực tế (4 campaign, 758 comments): mỗi pass enrichment (loadSessionIndex,
+     * loadPartnerInfo, loadDebt, kho-enricher, native-orders, realtime) gọi
+     * renderComments() → rebuild full innerHTML 758 rows ~400-590ms/lần, block
+     * main-thread = GIẬT. 19 lần như vậy trong 94s → giật toàn bộ liên tục.
+     *
+     * Fix: debounce 60ms gom burst → dispatch THÔNG MINH:
+     *  - Nếu tập comment (id + thứ tự) KHÔNG đổi (chỉ enrichment cập nhật data) →
+     *    patch in-place CHUNKED qua requestIdleCallback, CHỈ rebuild dòng có
+     *    signature đổi (skip dòng không đổi) → không block main-thread, không giật.
+     *  - Nếu cấu trúc đổi (thêm/bớt/đổi thứ tự comment) → full render đồng bộ.
      */
     renderComments() {
         clearTimeout(this._renderTimer);
-        this._renderTimer = setTimeout(() => this.renderCommentsNow(), 60);
+        this._renderTimer = setTimeout(() => this._renderDispatch(), 60);
+    },
+
+    /**
+     * Chữ ký dữ liệu động của 1 dòng (phone/addr/status/debt/session/hidden/msg/
+     * saved/showDebt). Dùng để skip rebuild dòng KHÔNG đổi trong patch chunked.
+     * Hash số ngắn → an toàn nhét vào attribute + so sánh nhanh.
+     * @param {object} comment
+     * @returns {string}
+     */
+    _rowSig(comment) {
+        const state = window.TposState;
+        const fromId = comment.from?.id || '';
+        const partner = state.partnerCache.get(fromId) || {};
+        const kho = state.customerKhoCache?.get(fromId);
+        const phone = partner.Phone || kho?.phone || '';
+        const address = partner.Street || kho?.address || '';
+        const debt = window.sharedDebtManager ? window.sharedDebtManager.getDebt(phone) : null;
+        const raw = state.sessionIndexMap.get(fromId);
+        const si = raw?.source === 'NATIVE_WEB' ? raw : null;
+        const inOrder = si && Array.isArray(si.commentIds) && si.commentIds.includes(comment.id);
+        const saved =
+            state.savedToTposIds.has(fromId) ||
+            window.pancakeChatManager?.tposSavedCustomerIds?.has(fromId)
+                ? 1
+                : 0;
+        const s = [
+            phone,
+            address,
+            partner.StatusText || '',
+            debt,
+            si?.code || '',
+            si?.index || '',
+            inOrder ? 1 : 0,
+            comment.is_hidden ? 1 : 0,
+            comment.message || '',
+            saved,
+            state.showDebt ? 1 : 0,
+            state.showZeroDebt ? 1 : 0,
+        ].join('');
+        let h = 0;
+        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+        return String(h);
+    },
+
+    /**
+     * Quyết định full render vs patch chunked dựa trên tập comment có đổi cấu trúc
+     * (id/thứ tự) hay không.
+     */
+    _renderDispatch() {
+        const state = window.TposState;
+        const listContainer = document.getElementById('tposCommentList');
+        if (!listContainer) return;
+        const rendered = listContainer.querySelectorAll('.tpos-conversation-item');
+        const sameStructure =
+            rendered.length > 0 &&
+            rendered.length === state.comments.length &&
+            Array.from(rendered).every(
+                (el, i) => el.dataset.commentId === String(state.comments[i].id)
+            );
+        if (sameStructure) {
+            this._patchRowsChunked();
+        } else {
+            this.renderCommentsNow();
+        }
+    },
+
+    /**
+     * Patch in-place các dòng có signature đổi, CHUNKED qua requestIdleCallback.
+     * Không block main-thread → hết giật khi enrichment cập nhật 758 dòng.
+     * Coalesce: pass enrichment mới hủy chunk-loop cũ, chạy lại với data mới nhất.
+     */
+    _patchRowsChunked() {
+        const state = window.TposState;
+        const listContainer = document.getElementById('tposCommentList');
+        if (!listContainer) return;
+        // Hủy chunk-loop đang chạy (nếu có) để coalesce.
+        if (this._chunkHandle != null) {
+            (window.cancelIdleCallback || clearTimeout)(this._chunkHandle);
+            this._chunkHandle = null;
+        }
+        // Map id→element 1 lần (tránh querySelector O(n) trong loop).
+        const rowMap = new Map();
+        listContainer
+            .querySelectorAll('.tpos-conversation-item')
+            .forEach((el) => rowMap.set(el.dataset.commentId, el));
+        const comments = state.comments;
+        const schedule =
+            window.requestIdleCallback ||
+            ((cb) => setTimeout(() => cb({ timeRemaining: () => 8 }), 0));
+        const CHUNK = 40;
+        let i = 0;
+        const step = (deadline) => {
+            const end = Math.min(i + CHUNK, comments.length);
+            while (i < end && (deadline.timeRemaining ? deadline.timeRemaining() > 1 : true)) {
+                const c = comments[i++];
+                const old = rowMap.get(String(c.id));
+                if (!old) continue;
+                // Skip dòng không đổi data → không tốn CPU rebuild thừa.
+                if (old.dataset.sig === this._rowSig(c)) continue;
+                const tmp = document.createElement('div');
+                tmp.innerHTML = this.renderCommentItem(c).trim();
+                const neo = tmp.firstElementChild;
+                if (neo) old.replaceWith(neo);
+            }
+            if (i < comments.length) {
+                this._chunkHandle = schedule(step);
+            } else {
+                this._chunkHandle = null;
+                this.updateLoadMoreIndicator();
+            }
+        };
+        this._chunkHandle = schedule(step);
     },
 
     /**
@@ -506,6 +622,7 @@ const TposCommentList = {
         return `
             <div class="tpos-conversation-item ${isHidden ? 'is-hidden' : ''}"
                  data-comment-id="${id}"
+                 data-sig="${this._rowSig(comment)}"
                  onclick="TposCommentList.selectComment('${id}')">
 
                 <!-- Row 1: Avatar + Name + Status + Time -->
