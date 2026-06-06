@@ -25,6 +25,19 @@
 
 ## 2026-06-06
 
+### [orders] Fix: modal "Sửa đơn hàng" mở lên hiện SP cũ, không load mới nhất từ TPOS ✅
+
+**Vấn đề (user, sau khi fix save):** TPOS + panel chat hiện **6 SP** (có thêm `B703D` Legging Đùi Đen) nhưng modal "Sửa đơn hàng" của shop chỉ hiện **5 SP** — mở modal không cập nhật Details mới nhất từ TPOS.
+
+**Root cause:** `openEditModal` ([tab1-edit-modal.js:38](orders-report/js/tab1/tab1-edit-modal.js#L38)) dùng `_editOrderCache` nhưng **chỉ revalidate khi cache quá `EDIT_CACHE_TTL` (2 phút)**. Line `B703D` được thêm qua panel chat (flow khác) → cập nhật TPOS + invalidate `orderDetailsCache` (cache của chat) nhưng **KHÔNG** đụng `_editOrderCache` (cache riêng của edit modal). Mở lại modal trong 2 phút → cache HIT, chưa stale → render 5 SP, không refetch.
+
+**Fix:**
+- `openEditModal`: SWR đúng nghĩa — render cached ngay RỒI **LUÔN** revalidate nền (bỏ điều kiện `if (isStale)` + bỏ `EDIT_CACHE_TTL`). `fetchOrderData(silent)` re-render nếu user chưa sửa gì → kéo Details mới nhất từ TPOS mỗi lần mở (cũng cover sửa từ TPOS/máy khác).
+- `updateOrderWithFullPayload` (tab1-merge.js — helper chung mọi flow mutate): sau PUT OK gọi `window.invalidateEditOrderCache?.(orderData.Id)` → mutation cùng phiên (chat/sale/merge) làm lần mở edit-modal kế tiếp fetch sạch (hết flash SP cũ).
+- Bump `?v=20260606b` cho tab1-edit-modal.js + tab1-merge.js.
+
+**Files:** `orders-report/js/tab1/{tab1-edit-modal.js, tab1-merge.js}`, `orders-report/tab1-orders.html`. **Status:** `node --check` OK; verify browser (mở modal → có GET SaleOnline_Order mới).
+
 ### [web2/products] In tem mã vạch — cảnh báo mã quá dài + thêm khổ tem rộng (fix "chỉ quét được áo len be") ✅
 
 **Root cause (xác định bằng mô hình mật độ vạch):** barcode in ĐÚNG giá trị (CODE128 mã hoá đúng `code`, chữ hiển thị cùng biến) — lỗi là **vật lý**: tem mặc định 25mm, Code128 ~`35 + 11·n` module. Vạch hẹp nhất (X-dim) = `labelW·0.88 / modules`. Ngưỡng quét ~0.2mm ⇒ tem 25mm chỉ đọc tốt mã **≤6 ký tự**. Khớp 100% triệu chứng đơn Hạnh Trần: `B4AOBE`(6)=0.218mm ✅, `HCDAMDO`(7)/`B4DAMVANG`(9)/`ADQUANDENM`(10)=0.15–0.2mm ❌.

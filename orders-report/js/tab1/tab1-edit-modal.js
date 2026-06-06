@@ -33,7 +33,7 @@ document.addEventListener('click', function (e) {
 // SWR cache cho order data — TTL 2min, return stale + revalidate background.
 // Lần mở lại trong session = instant render từ cache, fresh data đến → re-render.
 const _editOrderCache = new Map(); // orderId → { data, timestamp }
-const EDIT_CACHE_TTL = 2 * 60 * 1000;
+// NOTE: bỏ TTL-gated revalidate — openEditModal giờ LUÔN revalidate nền (SWR) để không hiện stale.
 
 async function openEditModal(orderId) {
     currentEditOrderId = orderId;
@@ -51,11 +51,11 @@ async function openEditModal(orderId) {
         } catch (e) {
             console.warn('[EDIT-MODAL] Cached render failed:', e?.message);
         }
-        // Background revalidate (no spinner)
-        const isStale = Date.now() - cached.timestamp >= EDIT_CACHE_TTL;
-        if (isStale) {
-            fetchOrderData(orderId, { silent: true }).catch(() => {});
-        }
+        // SWR: render cached ngay (mượt) RỒI LUÔN revalidate nền để pull Details MỚI NHẤT từ
+        // TPOS. Line có thể được thêm/xoá qua panel chat / sale / merge / TPOS / máy khác SAU
+        // lần cache trước → nếu chỉ revalidate khi quá TTL sẽ hiện stale (vd modal 5 SP trong khi
+        // TPOS đã 6 SP). fetchOrderData(silent) tự re-render nếu user CHƯA sửa gì (giữ nguyên edit).
+        fetchOrderData(orderId, { silent: true }).catch(() => {});
         return;
     }
 

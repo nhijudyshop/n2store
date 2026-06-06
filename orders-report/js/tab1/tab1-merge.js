@@ -219,6 +219,12 @@ async function updateOrderWithFullPayload(
                 }
             }
 
+            // Mutation OK → invalidate cache modal "Sửa đơn hàng" để lần mở kế tiếp pull Details
+            // mới nhất (tránh hiện stale khi line được thêm/xoá qua flow khác trong cùng phiên).
+            try {
+                window.invalidateEditOrderCache?.(orderData.Id);
+            } catch (_) {}
+
             console.log(
                 `[MERGE-API] ✅ Updated order ${orderData.Id} with ${newDetails.length} products`
             );
