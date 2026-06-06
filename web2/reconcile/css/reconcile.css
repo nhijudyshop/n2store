@@ -526,6 +526,57 @@
     margin-left: 4px;
     vertical-align: middle;
 }
+/* 2026-06-06: ô tích tay (manual pick) — đánh dấu đã pick khi barcode không quét được */
+.rc-picked-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+}
+.rc-manual-tick {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+.rc-manual-tick input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+.rc-manual-tick-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    border: 2px solid #cbd5e1;
+    background: #fff;
+    color: transparent;
+    transition:
+        background 120ms ease,
+        border-color 120ms ease,
+        color 120ms ease;
+}
+.rc-manual-tick-box i {
+    width: 16px;
+    height: 16px;
+    stroke-width: 3;
+}
+.rc-manual-tick:hover .rc-manual-tick-box {
+    border-color: #14b8a6;
+}
+.rc-manual-tick input:checked + .rc-manual-tick-box {
+    background: #14b8a6;
+    border-color: #14b8a6;
+    color: #fff;
+}
+.rc-manual-tick input:focus-visible + .rc-manual-tick-box {
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.25);
+}
 .rc-line-row.is-complete {
     background: #f0fdfa;
 }

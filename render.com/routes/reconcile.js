@@ -96,6 +96,21 @@ const FULFILL_STATES = [
 const fastSaleOrdersRouter = require('./fast-sale-orders');
 const restockOrderLines = fastSaleOrdersRouter.restockOrderLines;
 
+// 2026-06-06: chuẩn hoá mã SP khi đối chiếu barcode quét.
+// Lý do: máy quét có thể trả mã khác hoa/thường hoặc kèm khoảng trắng so với
+// order_lines → trước đây so sánh === thất bại ("SP không có trong PBH") HOẶC
+// lưu picked_qty dưới key sai (mã quét) ≠ key line → mapPbh đọc lại = 0
+// (nhìn như "không lưu được"). Chuẩn hoá + luôn lưu theo CANONICAL code của line.
+function normCode(s) {
+    return String(s == null ? '' : s)
+        .trim()
+        .toUpperCase();
+}
+function findLineByCode(lines, productCode) {
+    const norm = normCode(productCode);
+    return lines.find((l) => normCode(l.productCode || l.code) === norm) || null;
+}
+
 function userFromReq(req) {
     return {
         id: req.body?.userId || req.headers['x-user-id'] || null,
@@ -131,7 +146,8 @@ function mapPbh(row) {
     const picked = Array.isArray(row.fulfillment_picked_lines) ? row.fulfillment_picked_lines : [];
     const pickedByCode = new Map();
     for (const p of picked) {
-        if (p && p.productCode) pickedByCode.set(p.productCode, Number(p.picked_qty) || 0);
+        if (p && p.productCode)
+            pickedByCode.set(normCode(p.productCode), Number(p.picked_qty) || 0);
     }
     // Mỗi line + picked_qty. 2026-06-04: imageUrl ƯU TIÊN ảnh kho hiện tại
     // (row._productImages — tham chiếu web2_products) thay vì snapshot order_lines cũ.
@@ -144,7 +160,7 @@ function mapPbh(row) {
             quantity: Number(l.quantity) || 0,
             priceUnit: Number(l.priceUnit ?? l.price ?? 0),
             imageUrl: imgMap[code] || l.imageUrl || l.image_url || null,
-            picked_qty: pickedByCode.get(code) || 0,
+            picked_qty: pickedByCode.get(normCode(code)) || 0,
         };
     });
     const totalQty = mergedLines.reduce((s, l) => s + l.quantity, 0);
@@ -386,25 +402,32 @@ router.post('/:number/scan', async (req, res) => {
             client,
             number,
             ({ lines, picked }) => {
-                const line = lines.find((l) => (l.productCode || l.code) === productCode);
+                const line = findLineByCode(lines, productCode);
                 if (!line) {
                     throw new Error(`SP ${productCode} không có trong PBH này`);
                 }
-                const existing = picked.find((p) => p.productCode === productCode);
+                // Luôn dùng mã canonical của line để lưu → mapPbh đọc lại khớp.
+                const code = line.productCode || line.code;
+                const existing = picked.find((p) => normCode(p.productCode) === normCode(code));
                 const maxQty = Number(line.quantity) || 0;
                 if (existing) {
                     if (existing.picked_qty >= maxQty) {
                         throw new Error(
-                            `SP ${productCode} đã đủ (${existing.picked_qty}/${maxQty}). Không thể scan thêm.`
+                            `SP ${code} đã đủ (${existing.picked_qty}/${maxQty}). Không thể scan thêm.`
                         );
                     }
                     return picked.map((p) =>
-                        p.productCode === productCode
-                            ? { ...p, picked_qty: p.picked_qty + 1, last_scan_at: Date.now() }
+                        normCode(p.productCode) === normCode(code)
+                            ? {
+                                  ...p,
+                                  productCode: code,
+                                  picked_qty: p.picked_qty + 1,
+                                  last_scan_at: Date.now(),
+                              }
                             : p
                     );
                 }
-                return [...picked, { productCode, picked_qty: 1, last_scan_at: Date.now() }];
+                return [...picked, { productCode: code, picked_qty: 1, last_scan_at: Date.now() }];
             },
             { autoPack: true }
         );
@@ -450,13 +473,14 @@ router.post('/:number/manual-pick', async (req, res) => {
         await ensureTables(pool);
         await client.query('BEGIN');
         const result = await applyPick(client, number, ({ lines, picked }) => {
-            const line = lines.find((l) => (l.productCode || l.code) === productCode);
+            const line = findLineByCode(lines, productCode);
             if (!line) throw new Error(`SP ${productCode} không có trong PBH này`);
+            const code = line.productCode || line.code;
             const maxQty = Number(line.quantity) || 0;
             if (qty > maxQty) throw new Error(`picked_qty (${qty}) > quantity (${maxQty})`);
-            const filtered = picked.filter((p) => p.productCode !== productCode);
+            const filtered = picked.filter((p) => normCode(p.productCode) !== normCode(code));
             if (qty === 0) return filtered;
-            return [...filtered, { productCode, picked_qty: qty, last_scan_at: Date.now() }];
+            return [...filtered, { productCode: code, picked_qty: qty, last_scan_at: Date.now() }];
         });
         await client.query('COMMIT');
 
@@ -538,12 +562,14 @@ router.post('/:number/pack', async (req, res) => {
             const picked = Array.isArray(before.fulfillment_picked_lines)
                 ? before.fulfillment_picked_lines
                 : [];
-            const pickedMap = new Map(picked.map((p) => [p.productCode, p.picked_qty || 0]));
+            const pickedMap = new Map(
+                picked.map((p) => [normCode(p.productCode), p.picked_qty || 0])
+            );
             const missing = [];
             for (const l of lines) {
                 const code = l.productCode || l.code;
                 const need = Number(l.quantity) || 0;
-                const got = pickedMap.get(code) || 0;
+                const got = pickedMap.get(normCode(code)) || 0;
                 if (got < need) missing.push({ code, name: l.productName || l.name, need, got });
             }
             if (missing.length > 0) {

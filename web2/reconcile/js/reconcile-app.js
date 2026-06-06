@@ -237,7 +237,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        ${p.lines.map(renderLine).join('')}
+                        ${p.lines.map((l) => renderLine(l, isLocked)).join('')}
                     </tbody>
                 </table>
             </div>
@@ -251,7 +251,14 @@
             </div>
         `;
 
-        // 2026-06-04: bỏ manual pick input — workflow scanner-only (quét barcode SP → +1).
+        // 2026-06-06: bind ô tích tay (manual) — toggle đủ ↔ 0 qua manual-pick.
+        contentEl.querySelectorAll('.rc-manual-tick input[type="checkbox"]').forEach((cb) => {
+            cb.addEventListener('change', () => {
+                const code = cb.dataset.pcode;
+                const need = parseInt(cb.dataset.need, 10) || 0;
+                toggleManualPick(code, cb.checked, need);
+            });
+        });
 
         // Bind action buttons
         const b = (id, fn) => {
@@ -267,9 +274,10 @@
         if (window.lucide) window.lucide.createIcons();
     }
 
-    // 2026-06-04: scanner-only — bỏ input chỉnh SL. Quét barcode SP → +1 (server).
-    // Hiển thị got/need read-only + ✓ khi đủ. KHÔNG cho sửa tay.
-    function renderLine(l) {
+    // 2026-06-04: scanner-driven — quét barcode SP → +1 (server).
+    // 2026-06-06: thêm ô tích tay (manual) — đánh dấu đủ/0 khi barcode không quét được.
+    //   isLocked (packed/shipped/delivered) → ẩn ô tích, chỉ hiển thị read-only.
+    function renderLine(l, isLocked) {
         const need = l.quantity;
         const got = l.picked_qty || 0;
         const pct = need ? Math.min(100, Math.round((got / need) * 100)) : 0;
@@ -279,6 +287,16 @@
             ? `<img class="rc-line-img" src="${escapeHtml(l.imageUrl)}" alt="" loading="lazy"
                    onerror="this.style.visibility='hidden'" />`
             : `<span class="rc-line-img rc-line-img-empty"><i data-lucide="image"></i></span>`;
+        const code = escapeHtml(l.productCode || '');
+        // Ô tích tay: checked = đã đủ. Click → manual-pick (đủ ↔ 0). Ẩn khi locked.
+        const tick = isLocked
+            ? done
+                ? '<i data-lucide="check" class="rc-picked-check"></i>'
+                : ''
+            : `<label class="rc-manual-tick" title="Tích tay (đánh dấu đã pick đủ)">
+                   <input type="checkbox" data-pcode="${code}" data-need="${need}" ${done ? 'checked' : ''} />
+                   <span class="rc-manual-tick-box"><i data-lucide="check"></i></span>
+               </label>`;
         return `
             <tr class="rc-line-row ${cls}">
                 <td class="rc-line-product">
@@ -290,11 +308,13 @@
                         </div>
                     </div>
                 </td>
-                <td class="rc-line-code"><strong>${escapeHtml(l.productCode || '')}</strong></td>
+                <td class="rc-line-code"><strong>${code}</strong></td>
                 <td class="rc-line-qty">${need}</td>
                 <td class="rc-line-picked">
-                    <span class="rc-picked-count ${done ? 'is-done' : got > 0 ? 'is-partial' : ''}">${got}/${need}</span>
-                    ${done ? '<i data-lucide="check" class="rc-picked-check"></i>' : ''}
+                    <div class="rc-picked-cell">
+                        <span class="rc-picked-count ${done ? 'is-done' : got > 0 ? 'is-partial' : ''}">${got}/${need}</span>
+                        ${tick}
+                    </div>
                 </td>
             </tr>
         `;
@@ -335,21 +355,28 @@
     }
 
     // ---------- actions ----------
-    async function onManualPickChange(e) {
-        const productCode = e.target.dataset.pcode;
-        const pickedQty = parseInt(e.target.value, 10) || 0;
+    // 2026-06-06: tích tay 1 line — checked = pick đủ (qty), unchecked = 0.
+    // Lưu NGAY mỗi lần tích (không cần quét đủ cả đơn). Dùng cho SP barcode không quét được.
+    async function toggleManualPick(productCode, checked, need) {
         const number = STATE.currentPbh?.number;
         if (!number) return;
+        const pickedQty = checked ? need : 0;
+        const body = { productCode, pickedQty };
+        if (window.Web2UserInfo?.attachToBody) window.Web2UserInfo.attachToBody(body);
         try {
-            const res = await api('POST', `/${encodeURIComponent(number)}/manual-pick`, {
-                productCode,
-                pickedQty,
-            });
+            const res = await api('POST', `/${encodeURIComponent(number)}/manual-pick`, body);
             STATE.currentPbh = res.pbh;
             renderDetail();
+            const t = res.pbh?.totals || {};
+            if (t.isComplete) {
+                feedback(`✓✓ ĐỦ HÀNG ${number} — bấm "Đóng gói" để hoàn tất`, false, true);
+                loadList();
+            } else {
+                feedback(checked ? `✓ Tích tay ${productCode}` : `↩ Bỏ tích ${productCode}`);
+            }
         } catch (err) {
             notify(err.message, 'error');
-            renderDetail(); // revert
+            renderDetail(); // revert về trạng thái server
         }
     }
 
@@ -477,9 +504,13 @@
             return;
         }
         try {
-            const res = await api('POST', `/${encodeURIComponent(STATE.selectedNumber)}/scan`, {
-                productCode: value,
-            });
+            const scanBody = { productCode: value };
+            if (window.Web2UserInfo?.attachToBody) window.Web2UserInfo.attachToBody(scanBody);
+            const res = await api(
+                'POST',
+                `/${encodeURIComponent(STATE.selectedNumber)}/scan`,
+                scanBody
+            );
             STATE.currentPbh = res.pbh;
             renderDetail();
             const t = res.pbh?.totals || {};
@@ -579,6 +610,46 @@
                 }, 1000);
             });
         }
+
+        // 2026-06-06: click bất kỳ đâu trên hộp quét → focus input (không cần click trúng ô).
+        const scannerBox = document.querySelector('.rc-scanner-box');
+        if (scannerBox) {
+            scannerBox.addEventListener('click', focusScanner);
+        }
+
+        // 2026-06-06: router phím toàn cục — máy quét = bàn phím; nếu đang không gõ vào
+        // ô nhập nào khác (search/checkbox/button) thì TỰ ĐƯA ký tự vào ô quét.
+        // → quét nhận ngay, KHÔNG cần bấm chuột vào ô trước. Inject ký tự để không
+        // mất ký tự đầu khi focus đang ở chỗ khác (focus giữa keydown hay rớt char đầu).
+        document.addEventListener(
+            'keydown',
+            (e) => {
+                if (e.ctrlKey || e.metaKey || e.altKey) return;
+                if (!scanner) return;
+                const ae = document.activeElement;
+                if (ae === scanner) return; // đã focus đúng ô → handler riêng của ô lo
+                const tag = ae?.tagName;
+                const typingElsewhere =
+                    tag === 'INPUT' ||
+                    tag === 'TEXTAREA' ||
+                    tag === 'SELECT' ||
+                    ae?.isContentEditable;
+                if (typingElsewhere) return; // user đang gõ ô khác (search…) — đừng cướp focus
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    scanner.focus();
+                    const v = scanner.value;
+                    scanner.value = '';
+                    if (v) onScannerSubmit(v);
+                } else if (e.key.length === 1) {
+                    // ký tự đơn của mã SP/barcode → focus + chèn để không rớt
+                    e.preventDefault();
+                    scanner.focus();
+                    scanner.value += e.key;
+                }
+            },
+            true
+        );
     }
 
     async function init() {
