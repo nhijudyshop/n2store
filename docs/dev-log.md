@@ -25,6 +25,22 @@
 
 ## 2026-06-06
 
+### [tpos-pancake] Nút "Lấy thumbnail" không ăn — event delegation ✅
+
+**Vấn đề (user):** Nút 📸 Lấy thumbnail bấm không phản ứng.
+
+**Root cause (đo live):** `<button>.click()` không fire — listener gắn trực tiếp (`addEventListener`) trong `_renderThumbStripFor` **chết khi list comment re-render** (row bị replace liên tục lúc chọn campaign/enrichment → strip + listener mất).
+
+**Fix** (`tpos-livestream-snap.js`): bỏ listener trực tiếp, dùng **event delegation** `_wireSnapDelegation()` — 1 listener capture-phase trên `document` bắt `.tpos-snap-extract-one-btn`, sống qua mọi re-render. Verify: click → `POST /api/livestream/extract-frame` fired. ✅
+
+### [tpos-pancake] Preview livestream PiP đổi sang dọc 9:16 — hết đen 2 bên ✅
+
+**Vấn đề (user):** iframe livestream đen 2 bên.
+
+**Root cause:** PiP capture `tpos-snap-fb-wrapper` là 320×180 (ngang 16:9); FB live điện thoại dọc 9:16 → letterbox đen 2 bên.
+
+**Fix** (`tpos-livestream-snap.js` `_ensureEmbeddedIframe`): đổi wrapper sang **dọc 9:16** (200×356). Capture crop theo `getBoundingClientRect()` (không hardcode aspect) nên tự khớp — frame capture cũng full, không bake viền đen. ✅
+
 ### [tpos-pancake] Cap render 200 + infinite scroll — hết giật hẳn (840ms→76ms) ✅
 
 Tiếp theo entry dưới. User chọn hướng **cap render** (thay vì virtualize). Đã làm + đo verify trên page live (mô phỏng tick 4 campaign HOUSE/STORE 06+02/06):
