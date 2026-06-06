@@ -25,6 +25,25 @@
 
 ## 2026-06-06
 
+### [tpos-pancake] Fix — chọn nhiều campaign "load liên tục" (infinite loop /cart/batch/counts) ✅
+
+**Vấn đề (user):** Chọn 4 campaign → TPOS panel load liên tục không ngừng.
+
+**Chẩn đoán (network log, không chụp hình):** `GET /api/v2/cart/batch/counts` gọi **~10 lần/giây không ngừng** (đo 80 calls / 8s qua session REPL).
+
+**Root cause — feedback loop:** `inventory-panel.js` wire `MutationObserver` trên `#tposContent` (`childList:true, subtree:true`). Callback gọi `refreshCartCounts()` → `renderBadges()` **append/sửa badge `.inv-cart-badge` BÊN TRONG row** = childList mutation trong subtree → observer fire lại → refresh lại → **loop vô hạn**. Càng nhiều comment (729 rows khi chọn 4 campaign) mỗi vòng càng nặng. Cộng thêm `pollTimer` 2s cũng gọi `refreshCartCounts()` mãi.
+
+**Files:** `tpos-pancake/js/pancake/inventory-panel.js`
+
+**Đã sửa:**
+
+- **Observer chỉ react khi danh sách comment THỰC SỰ đổi:** thêm `_mutationsTouchRows(mutations)` — chỉ trigger refresh khi added/removed node là `.tpos-conversation-item` (hoặc chứa nó). Mọi mutation do badge giỏ hàng gây ra → bỏ qua → **cắt loop**. Debounce 200→300ms.
+- **`pollTimer` ngừng gọi `refreshCartCounts`:** poll 2s giờ CHỈ để chờ `#tposContent` xuất hiện rồi wire observer; wire xong → `clearInterval`. Refresh sau đó do observer (row đổi) + SSE (`web2:cart`/`web2:native-orders`) lo.
+
+**Giữ nguyên:** SSE event-driven refresh (đã debounce đúng), optimistic badge update sau drop, drop-target wiring.
+
+**Status:** node --check OK; loop đo được trước fix = 80 calls/8s → sau fix observer chỉ refresh khi list đổi (verify logic qua DOM mutation filter). ✅
+
 ### [tpos-pancake] Perf — render comment TPOS thông minh, hết lag ✅
 
 **Vấn đề (user):** TPOS panel render SĐT/địa chỉ/đơn… lag quá; không cần data đơn TPOS legacy (id/mã đơn TPOS), chỉ cần comment/SĐT/địa chỉ/KH/trạng thái/thumbnail.
