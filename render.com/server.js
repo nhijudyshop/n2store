@@ -481,6 +481,9 @@ const web2RealtimeSseRoutes = require('./routes/realtime-sse-web2'); // WEB2.0 �
 // WEB2.0 — detector keyword "CK XONG"/"ĐÃ CK" cho tin nhắn Pancake đến (hook trong
 // RealtimeClient.handleMessage). Ghi web2_payment_signals → SSE web2:payment-signals.
 const web2SignalDetector = require('./services/web2-payment-signal-detector');
+// WEB2.0 — CK watcher 2 chiều: onNewSepayTx (tiền về→tìm signal), onNewSignal
+// (signal "đã ck" mới→tìm GD đã về). Auto-confirm + cộng ví + reply.
+const web2CkWatcher = require('./services/web2-ck-watcher');
 // WEB2.0 — tracker tin nhắn chưa đọc RIÊNG (web2_unread_messages, web2Db). Độc
 // lập pending_customers (Web 1.0). Hook trong RealtimeClient.handleMessage.
 const web2UnreadTracker = require('./services/web2-unread-tracker');
@@ -785,7 +788,7 @@ if (web2CustomerIntentsRoutes.initializeNotifiers) {
 // WEB2.0 — CK watcher "chờ tiền về": inject deps (SSE notify + notification +
 // auto-reply gửi tin) vào sepay-webhook-core. Best-effort.
 try {
-    require('./routes/sepay-webhook-core').initWeb2CkWatcher({
+    const _ckWatcherDeps = {
         notify: web2RealtimeSseRoutes.notifyClients,
         createNotification: (data) =>
             web2NotificationsRoutes.createNotification(app.locals.web2Db, data),
@@ -796,7 +799,11 @@ try {
                 custId,
                 msg
             ),
-    });
+    };
+    // Chiều 1 (tiền về): sepay-webhook-core gọi onNewSepayTx với deps này.
+    require('./routes/sepay-webhook-core').initWeb2CkWatcher(_ckWatcherDeps);
+    // Chiều 2 (signal mới): server.js gọi onNewSignal — inject deps mặc định 1 lần.
+    web2CkWatcher.initDeps(_ckWatcherDeps);
 } catch (e) {
     console.warn('[ck-watcher] init failed:', e.message);
 }
@@ -1272,6 +1279,10 @@ class RealtimeClient {
                                     },
                                     web2RealtimeSseRoutes.notifyClients
                                 )
+                                // Chiều 2: signal mới → quét GD đã về khớp.
+                                .then((sig) => {
+                                    if (sig) web2CkWatcher.onNewSignal(web2Db, sig).catch(() => {});
+                                })
                                 .catch((err) =>
                                     console.error(
                                         '[SERVER-WS] paysig detect (conv) failed:',
@@ -1331,6 +1342,11 @@ class RealtimeClient {
                                 },
                                 web2RealtimeSseRoutes.notifyClients
                             )
+                            // Chiều 2: signal "đã ck" mới → quét GD đã về khớp (tiền
+                            // về TRƯỚC, KH nhắn SAU) → auto-confirm + cộng ví + reply.
+                            .then((sig) => {
+                                if (sig) web2CkWatcher.onNewSignal(web2Db, sig).catch(() => {});
+                            })
                             .catch((err) =>
                                 console.error('[SERVER-WS] paysig detect failed:', err.message)
                             );

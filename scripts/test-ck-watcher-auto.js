@@ -247,6 +247,99 @@ async function main() {
             await db.query(`SELECT balance FROM web2_customer_wallets WHERE phone='0901111111'`)
         ).rows[0].balance;
         ok(Number(balBefore) === Number(balAfter), 'C7 idempotent — GD đã link, không cộng lại');
+
+        const getSig = async (id) =>
+            (await db.query(`SELECT * FROM web2_payment_signals WHERE id=$1`, [id])).rows[0];
+
+        // ══ CHIỀU 2: tiền về TRƯỚC, "đã ck" SAU (onNewSignal) ══
+        // ── Case 8: GD đã về (SĐT trong nội dung) → signal mới có SĐT → auto-confirm+credit+reply
+        const tx8 = await insTx(db, {
+            sepay: 8,
+            amount: 88000,
+            content: 'CK 0908888888 thanh toan',
+        });
+        const sig8 = await insSig(db, {
+            name: 'KH Tám',
+            phone: '0908888888',
+            status: 'pending',
+            created_at: now,
+        });
+        const cap8 = { notifs: [], msgs: [] };
+        await watcher.onNewSignal(db, await getSig(sig8), deps(cap8));
+        r = await db.query(`SELECT status, matched_tx_id FROM web2_payment_signals WHERE id=$1`, [
+            sig8,
+        ]);
+        ok(
+            r.rows[0].status === 'confirmed' && Number(r.rows[0].matched_tx_id) === tx8,
+            'C8 onNewSignal: GD về trước → auto-confirm + link'
+        );
+        w = await db.query(`SELECT balance FROM web2_customer_wallets WHERE phone='0908888888'`);
+        ok(w.rows.length === 1 && Number(w.rows[0].balance) === 88000, 'C8 cộng ví 88.000');
+        ok(cap8.msgs.length === 1 && /88.000/.test(cap8.msgs[0][3]), 'C8 auto-reply gửi');
+
+        // ── Case 9: GD về trước (QR partner), signal phone=NULL + customer_id khớp → partnerHit
+        await db.query(
+            `INSERT INTO web2_payment_qr_codes (qr_code, phone, customer_name, customer_id) VALUES ('HAIYEN990077','0909999000','Hải Yến',7799)`
+        );
+        const tx9 = await insTx(db, { sepay: 9, amount: 4500, content: 'CK HAIYEN990077 ck xong' });
+        const sig9 = await insSig(db, {
+            name: 'Hải Yến',
+            phone: null,
+            customer_id: 7799,
+            status: 'pending',
+            created_at: now,
+        });
+        const cap9 = { notifs: [], msgs: [] };
+        await watcher.onNewSignal(db, await getSig(sig9), deps(cap9));
+        r = await db.query(`SELECT matched_tx_id, phone FROM web2_payment_signals WHERE id=$1`, [
+            sig9,
+        ]);
+        ok(
+            Number(r.rows[0].matched_tx_id) === tx9 && r.rows[0].phone === '0909999000',
+            'C9 onNewSignal partnerHit → resolve SĐT + link'
+        );
+        ok(cap9.msgs.length === 1, 'C9 auto-reply gửi');
+
+        // ── Case 10: signal mới KHÔNG có GD khớp → no-op (vẫn pending, không reply)
+        const sig10 = await insSig(db, {
+            name: 'KH Mười',
+            phone: '0901010101',
+            status: 'pending',
+            created_at: now,
+        });
+        const cap10 = { notifs: [], msgs: [] };
+        await watcher.onNewSignal(db, await getSig(sig10), deps(cap10));
+        r = await db.query(`SELECT status, matched_tx_id FROM web2_payment_signals WHERE id=$1`, [
+            sig10,
+        ]);
+        ok(
+            r.rows[0].status === 'pending' && r.rows[0].matched_tx_id == null,
+            'C10 không GD khớp → no-op (chờ tiền về)'
+        );
+        ok(cap10.msgs.length === 0, 'C10 KHÔNG gửi reply khi chưa có tiền');
+
+        // ── Case 11: GD về trước nhưng đã bị signal khác claim → signal mới KHÔNG cướp
+        const tx11 = await insTx(db, { sepay: 11, amount: 7700, content: 'CK 0911110000' });
+        const sigClaim = await insSig(db, {
+            name: 'KH A11',
+            phone: '0911110000',
+            status: 'pending',
+            created_at: now,
+        });
+        await watcher.onNewSignal(db, await getSig(sigClaim), deps({ notifs: [], msgs: [] })); // claim tx11
+        const sigLate = await insSig(db, {
+            name: 'KH A11',
+            phone: '0911110000',
+            status: 'pending',
+            created_at: now,
+        });
+        const cap11 = { notifs: [], msgs: [] };
+        await watcher.onNewSignal(db, await getSig(sigLate), deps(cap11));
+        r = await db.query(`SELECT matched_tx_id FROM web2_payment_signals WHERE id=$1`, [sigLate]);
+        ok(
+            r.rows[0].matched_tx_id == null,
+            'C11 GD đã claimed → signal mới KHÔNG cướp (1 GD ↔ 1 signal)'
+        );
     } catch (e) {
         fail++;
         console.error('❌ EXCEPTION:', e.message, e.stack);
