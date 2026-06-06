@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8c3746d` — docs(dev-log): Buoc 4 - reconcile 63 don 01/06 ve khop Excel (data only, 63/63 PUT OK, verified 330/330 match)
-**Last updated**: 2026-06-06 19:43:41 +07
-**Latest session**: [`RESUME:20260606-194341-8c3746d`](../20260606-194341-8c3746d.md)
-**Summary**: docs(dev-log): Buoc 4 - reconcile 63 don 01/06 ve khop Excel (data only, 63/63 PUT OK, verified 330/330 match)
+**Latest commit**: `5059bc5` — auto: session update
+**Last updated**: 2026-06-06 19:58:17 +07
+**Latest session**: [`RESUME:20260606-195817-5059bc5`](../20260606-195817-5059bc5.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 3 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -49,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-06 19:37
+- [`render.com/`](./render.com.md) — updated 2026-06-06 19:58
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-06 18:52
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -68,4 +69,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-06 19:37
+- [`web2/`](./web2.md) — updated 2026-06-06 19:58
