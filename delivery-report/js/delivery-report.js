@@ -2284,6 +2284,10 @@
     }
 
     // Load DB assignments via lookup-batch — keyed by order_number alone, no date dependency.
+    // ⚠ Backend /lookup-batch cắt slice(0,1000). Nếu view có >1000 đơn (dải nhiều ngày) mà
+    // gửi 1 lần → các đơn ngoài top-1000 KHÔNG nạp lại được "chốt" nhóm → bị coi là chưa chia
+    // → assignTomatoNap bốc nhóm random lại. Vì vậy PHẢI chia lô ≤1000 rồi gộp kết quả.
+    const LOOKUP_BATCH_SIZE = 1000;
     async function loadAssignmentsFromDB() {
         const orderNumbers = getCurrentOrderNumbers();
         if (orderNumbers.length === 0) {
@@ -2295,24 +2299,58 @@
             return {};
         }
         try {
-            const resp = await fetch(`${RENDER_URL}/api/v2/delivery-assignments/lookup-batch`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderNumbers }),
-            });
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            const result = await resp.json();
-            if (result.success && result.data) {
-                DeliveryReportState.dbAssignments = result.data.assignments || {};
-                DeliveryReportState._dbAssignmentsLoaded = true;
-                DeliveryReportState._dbLockedCount = result.data.totalCount || 0;
-                DeliveryReportState.scannedNumbers = new Set(result.data.scannedNumbers || []);
-                DeliveryReportState.hiddenNumbers = new Set(result.data.hiddenNumbers || []);
-                console.log(
-                    `[DELIVERY-REPORT] DB: ${result.data.totalCount} assignments, ${result.data.scannedCount} scanned, ${result.data.hiddenCount} hidden for ${orderNumbers.length} orders in view`
-                );
-                return result.data.assignments;
+            const chunks = [];
+            for (let i = 0; i < orderNumbers.length; i += LOOKUP_BATCH_SIZE) {
+                chunks.push(orderNumbers.slice(i, i + LOOKUP_BATCH_SIZE));
             }
+            if (chunks.length > 1) {
+                console.warn(
+                    `[DELIVERY-REPORT] lookup-batch: ${orderNumbers.length} đơn > ${LOOKUP_BATCH_SIZE} → chia ${chunks.length} lô (tránh mất chốt nhóm)`
+                );
+            }
+            const parts = await Promise.all(
+                chunks.map(async (chunk) => {
+                    const resp = await fetch(
+                        `${RENDER_URL}/api/v2/delivery-assignments/lookup-batch`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ orderNumbers: chunk }),
+                        }
+                    );
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                    const result = await resp.json();
+                    if (!result.success || !result.data) {
+                        throw new Error('lookup-batch: invalid response');
+                    }
+                    return result.data;
+                })
+            );
+
+            const assignments = {};
+            const scanned = new Set();
+            const hidden = new Set();
+            let totalCount = 0;
+            let scannedCount = 0;
+            let hiddenCount = 0;
+            for (const data of parts) {
+                Object.assign(assignments, data.assignments || {});
+                (data.scannedNumbers || []).forEach((n) => scanned.add(n));
+                (data.hiddenNumbers || []).forEach((n) => hidden.add(n));
+                totalCount += data.totalCount || 0;
+                scannedCount += data.scannedCount || 0;
+                hiddenCount += data.hiddenCount || 0;
+            }
+
+            DeliveryReportState.dbAssignments = assignments;
+            DeliveryReportState._dbAssignmentsLoaded = true;
+            DeliveryReportState._dbLockedCount = totalCount;
+            DeliveryReportState.scannedNumbers = scanned;
+            DeliveryReportState.hiddenNumbers = hidden;
+            console.log(
+                `[DELIVERY-REPORT] DB: ${totalCount} assignments, ${scannedCount} scanned, ${hiddenCount} hidden for ${orderNumbers.length} orders in view (${chunks.length} lô)`
+            );
+            return assignments;
         } catch (e) {
             console.warn('[DELIVERY-REPORT] Failed to load DB assignments:', e.message);
         }

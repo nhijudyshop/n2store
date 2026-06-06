@@ -57,6 +57,21 @@
 
 **Fix:** `applyWalletToUnpaidPbhs(pool, phone, performedBy)` (fast-sale-orders.js) — sau khi cộng ví, quét PBH chưa trả của SĐT (`residual>0, state<>cancel`, campaign MỚI NHẤT trước), trừ ví reuse `_applyWalletToPbh` (trả góp nếu thiếu, hết ví thì dừng), cập nhật residual/payment_amount/wallet_deducted + SSE (`web2:fast-sale-orders`/`native-orders`/`wallet`). An toàn: bounded residual+balance → chạy lại chỉ áp phần dư (idempotent), performed_by audit. Hook: `linkTransaction` (CK approve/watcher) + `_processWeb2Path` (SePay auto-credit) sau credit, best-effort lazy-require chống circular. Test `test-wallet-apply-pbh.js` 13/13 (đủ/thiếu/nhiều PBH/ví trống/huỷ/idempotent/audit).
 
+### [delivery-report][render] Fix snapshot chốt đơn NAP/TOMATO — "chia rồi không chia lại" ✅
+
+**Vấn đề (user, đối chiếu `docs/NAP_1_6.xlsx` + `docs/TOMATO_1_6.xlsx` vs web 01/06):** 63 đơn lệch nhóm NAP↔TOMATO (37 ở file NAP nhưng web=tomato, 26 ở file TOMATO nhưng web=nap). Cùng tập 330 đơn, cùng tổng tiền 203.838.000đ — chỉ khác NHÃN nhóm. 63 đơn lệch nằm gọn khối mã 69458–69817 (đơn cũ), ≥69818 ổn định 100%.
+
+**Root cause (trace từng dòng — 3 mắt xích):** (1) `assignTomatoNap` chia NGẪU NHIÊN (`Math.random`, TOMATO ~21% doanh số) — `delivery-report/js/delivery-report.js:2248`; (2) `/lookup-batch` cắt `slice(0,1000)` nhưng view dùng `$top=10000` → mở dải nhiều ngày (>1000 đơn) thì đơn cũ ngoài top-1000 "mất chốt" → bị coi là chưa chia; (3) upsert `POST /` có `SET group_name = EXCLUDED.group_name` → bốc nhóm random mới GHI ĐÈ nhóm đã chốt (dù comment header ghi "DO NOTHING"). Quét (`processScan`) chỉ set `is_scanned`, KHÔNG quyết định nhóm → "đã quét" không bảo vệ. Mỗi lần mở báo cáo dải ngày = chia lại khối đơn cũ → "lệch qua lại". Excel/đống hàng vật lý = bản gốc đúng; WEB là cái bị trôi.
+
+**Giải pháp (FIRST-WRITE-WINS, DB gác cổng) — scope user duyệt: Bước 1 + 2:**
+
+- **Bước 1 (backend `render.com/routes/v2/delivery-assignments.js` POST /):** BỎ `group_name = EXCLUDED.group_name` khỏi SET + bỏ điều kiện group khỏi WHERE. INSERT vẫn chốt group lần đầu; ON CONFLICT chỉ sync date/carrier/cod/amount (dọn ghost vẫn chạy), KHÔNG đụng group. Đổi nhóm chỉ qua `PUT /:orderNumber`.
+- **Bước 2 (frontend `loadAssignmentsFromDB`):** chia `orderNumbers` thành lô ≤1000, gọi `/lookup-batch` nhiều lần (Promise.all) rồi gộp → mọi đơn đã có đều nạp lại được chốt → `assignTomatoNap` không đụng đơn cũ. Thêm `console.warn` khi >1 lô (no silent cap).
+
+**An toàn dữ liệu cũ (yêu cầu BẮT BUỘC của user):** Đã audit mọi đường ghi `group_name` — chỉ `POST /` (auto) + `PUT /:orderNumber` (tay) + scripts dedupe (chạy tay, xong 05/2026). Fix 1 bỏ group khỏi SET → Postgres không thể đổi group dòng cũ; WHERE thu hẹp → ghi ÍT hơn. Fix 2 read-only. Deploy KHÔNG thêm migration (048/049 idempotent) → không câu SQL nào chạy lên dòng cũ. **group_name các đơn đã chia giữ nguyên 100%.** Fix ĐÓNG BĂNG hiện trạng → 63 đơn đang lệch GIỮ NGUYÊN (KHÔNG tự sửa); sửa 63 đơn = Bước 4 opt-in, chưa làm.
+
+**Status:** Done — `node --check` 2 file OK. Verify sau deploy (read-only): mở báo cáo dải 6+ ngày 2 lần, so `GET /api/v2/delivery-assignments/?date=2026-06-01` → group_name khối 69458–69817 KHÔNG đổi. Plan đầy đủ: `~/.claude/plans/ki-m-tra-so-sanh-agile-tower.md`.
+
 ### [orders][render] KPI: tính NET theo ĐƠN THẬT TPOS (final − BASE) thay vì cộng dồn audit log ✅
 
 **Vấn đề (user, đơn 260600214 / NJD/2026/70868):** KPI không khớp đơn thật. Modal "So sánh KPI" hiện MM15 NET 2 = 10.000đ nhưng đơn thật chỉ có MM15 qty 1. Nguyên nhân (đã trace 5 agent + đọc code): KPI tính bằng **BASE snapshot + cộng dồn sự kiện audit log** (`calculateNetKPI` replay stack add/remove), **không bao giờ đối chiếu đơn cuối thật trên TPOS**. Audit log drift: MM15 +Thêm×3 (edit_modal_inline + sale_modal + chat_confirm_held) −Xóa×1 → NET 2; Q439H +Thêm rồi −Xóa ảo (chat_decrease) → NET 0 dù vẫn trên đơn; 5 SP base −Xóa ảo lúc 08:16 vẫn còn nguyên. Tổng ra 10.000đ chỉ do MM15 dư +1 triệt tiêu Q439H thiếu −1 (trùng hợp). "Tất cả SP" trống vì `renderAllProductsTab` chỉ đọc cache Firestore, không fallback TPOS.

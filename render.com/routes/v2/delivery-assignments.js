@@ -9,7 +9,7 @@
  *
  * Endpoints:
  *   GET    /                          - Load assignments (filter by ?date= / ?from=&to= / ?order_numbers=)
- *   POST   /                          - Bulk upsert (ON CONFLICT order_number DO NOTHING)
+ *   POST   /                          - Bulk upsert (INSERT chốt group_name lần đầu; ON CONFLICT chỉ sync date/carrier/cod/amount, KHÔNG đổi group)
  *   POST   /lookup-batch              - Lookup groups + scan/hidden for given order_numbers
  *   PUT    /:orderNumber              - Update group (admin move)
  *   DELETE /:orderNumber              - Remove single assignment
@@ -169,7 +169,8 @@ router.get('/', async (req, res) => {
 });
 
 // =====================================================
-// POST / — Bulk upsert (ON CONFLICT order_number DO NOTHING)
+// POST / — Bulk upsert. INSERT chốt group_name lần đầu (snapshot); ON CONFLICT
+// chỉ sync date/carrier/cod/amount — KHÔNG đổi group_name (đổi nhóm qua PUT /:orderNumber).
 // Body: { date?, assignments: [{orderNumber, groupName, date?, amountTotal?, cashOnDelivery?, carrierName?}, ...] }
 // =====================================================
 router.post('/', async (req, res) => {
@@ -209,13 +210,16 @@ router.post('/', async (req, res) => {
             return res.json({ success: true, data: { inserted: 0, skipped: 0 } });
         }
 
-        // ON CONFLICT (order_number) DO UPDATE — smart upsert:
-        //   - Insert nếu Number chưa có
-        //   - Update nếu Number tồn tại VÀ metadata khác (date/group/carrier/COD/amount)
-        //     → tự dọn ghost: khi đơn cũ bị xóa rồi tạo lại với date/carrier khác trên TPOS,
-        //       lần saveAssignments tiếp theo sẽ overwrite row cũ với data mới.
-        //   - No-op nếu metadata giống hệt (WHERE filter ngăn update không cần thiết).
+        // ON CONFLICT (order_number) DO UPDATE — SNAPSHOT group_name (chốt 1 lần):
+        //   - INSERT (Number chưa có): group_name = giá trị chia lần đầu → CHỐT vĩnh viễn.
+        //   - ON CONFLICT (Number đã có): KHÔNG đụng group_name (giữ nguyên nhóm đã chia),
+        //     chỉ sync date/carrier/COD/amount để dọn ghost + báo cáo tiền đúng theo TPOS.
+        //   - Đổi nhóm 1 đơn CHỈ qua PUT /:orderNumber (admin chuyển tay).
+        //   - No-op nếu các field sync giống hệt (WHERE filter ngăn update thừa).
         //   - is_scanned, scanned_at, scanned_by KHÔNG bị reset (chỉ /scan endpoint update).
+        //   ⚠ Trước 2026-06-06 dòng SET có `group_name = EXCLUDED.group_name` → mỗi lần mở
+        //     báo cáo dải nhiều ngày, đơn cũ (ngoài cap 1000 của /lookup-batch) bị frontend
+        //     bốc nhóm random rồi ghi đè ở đây → "lệch qua lại NAP/TOMATO". Đã bỏ để chốt.
         const query = `
             INSERT INTO delivery_assignments
                 (assignment_date, order_number, group_name, amount_total, cash_on_delivery, carrier_name, assigned_by)
@@ -223,14 +227,12 @@ router.post('/', async (req, res) => {
             ON CONFLICT (order_number) DO UPDATE
             SET
                 assignment_date  = EXCLUDED.assignment_date,
-                group_name       = EXCLUDED.group_name,
                 amount_total     = EXCLUDED.amount_total,
                 cash_on_delivery = EXCLUDED.cash_on_delivery,
                 carrier_name     = EXCLUDED.carrier_name,
                 updated_at       = NOW()
             WHERE
                 delivery_assignments.assignment_date  IS DISTINCT FROM EXCLUDED.assignment_date
-             OR delivery_assignments.group_name       IS DISTINCT FROM EXCLUDED.group_name
              OR delivery_assignments.carrier_name     IS DISTINCT FROM EXCLUDED.carrier_name
              OR delivery_assignments.cash_on_delivery IS DISTINCT FROM EXCLUDED.cash_on_delivery
              OR delivery_assignments.amount_total     IS DISTINCT FROM EXCLUDED.amount_total
