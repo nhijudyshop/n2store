@@ -1,4 +1,4 @@
-# Latest Snapshot — `scripts/`
+# Latest Snapshot — `tests/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,17 @@
 **Last updated**: 2026-06-06 18:52:12 +07
 **Summary**: merge origin/main: barcode crisp fix + CK ví; KPI NET + edit-modal (dev-log both)
 
-## Files changed in this commit (`scripts/`)
+## Files changed in this commit (`tests/`)
 
-- `scripts/test-wallet-apply-pbh.js`
+- `tests/unit/kpi-reconciled-net.test.js`
 
-## Last 5 commits touching `scripts/`
+## Last 5 commits touching `tests/`
 
-- `5346a521d` feat(web2): CK cộng ví → tự trừ vào PBH chưa trả của SĐT (đơn đã thanh toán) _(2026-06-06)_
-- `8bab5f4cf` fix(web2): CK chỉ auto khi định danh khớp (tránh gửi nhầm khách) _(2026-06-06)_
-- `0babf0ce2` feat(web2): CK watcher 2 chiều — xử lý cả tiền-về-trước + đã-ck-sau _(2026-06-06)_
-- `4030613bd` fix(web2): cộng ví fail toàn bộ (performed*by) + CK tự động hoàn toàn *(2026-06-06)\_
-- `76b3edacd` auto: session update _(2026-06-06)_
+- `4c06d93ae` merge origin/main: barcode crisp fix + CK ví; KPI NET + edit-modal (dev-log both) _(2026-06-06)_
+- `b99877c8f` fix(orders/KPI): tính NET theo ĐƠN THẬT TPOS (final − BASE), hết lệch do audit log drift _(2026-06-06)_
+- `887b5c528` fix(kpi): tính KPI theo người thực sự upsell (per-user audit-based) _(2026-04-20)_
+- `ea059fd13` feat(docs): add #Note AI-instruction header to all HTML+JS files + module overview in dev-log _(2026-04-04)_
+- `8d28a1d9d` Revert "feat: add Live Order Book module - sổ đặt hàng NCC theo đợt live" _(2026-03-12)_
 
 ---
 
