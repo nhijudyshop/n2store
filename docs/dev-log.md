@@ -25,6 +25,16 @@
 
 ## 2026-06-06
 
+### [web2] Chat read-only: scroll lên tải thêm tin cũ (infinite scroll) ✅
+
+User: scroll tải thêm tin nhắn.
+
+- `loadThread` lưu `_thread` state (pageId/convId/customerUuid/cursor/msgIds/hasMore/loadingOlder/custAv) + indicator "↑ Cuộn lên để xem tin cũ hơn" ở đỉnh.
+- `_loadOlder`: scroll `#w2croBody` < 60px → `fetchMessages({currentCount: cursor})` → filter fresh (dedup msgIds) → prepend + **giữ scroll position** (`scrollTop += scrollHeight - oldH`). fresh=0 → hasMore=false, gỡ indicator.
+- Helper `_renderBubbles` + `_msgTs` lên module scope (dùng chung loadThread/loadOlder). Reset `_thread` ở open/openSearch.
+- Browser-tested (hội thoại 1651 tin): 25 → 55 → 85 bubble qua 2 lần scroll, vị trí xem giữ nguyên.
+- **Files:** `web2/shared/web2-chat-readonly.js` (v=20260606b), `index.html`
+
 ### [web2] In tem: đẩy tem phải +1mm + Kho SP giữ vị trí khi tương tác ✅
 
 1. **Tem bên phải sang phải 1 ít** [web2-products-print.js](web2/products/js/web2-products-print.js): mỗi cột sau cột đầu lệch phải `ci × 1mm` (2-up → cột phải +1mm) qua `padding-left=2×nudge` (border-box → center dịch = padding/2), cap theo slack `(cellW-labelW)/2` để không cắt mép. Verify guide tâm cột: tem trái trùng 16.5mm, tem phải lệch phải ~1mm khỏi 49.5mm. Cache-bust `?v=20260605j` (products + so-order).
