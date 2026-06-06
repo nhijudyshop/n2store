@@ -28,7 +28,7 @@ const web2WalletService = require('../services/web2-wallet-service');
 
 // 2026-06-04: HOÀN ví khi huỷ đơn — refund số tiền đã trừ ví (wallet_deducted)
 // của các PBH liên kết, rồi zero-out để không hoàn lặp (idempotent). Trả tổng đã hoàn.
-async function _refundWalletForNativeOrder(pool, code, phone) {
+async function _refundWalletForNativeOrder(pool, code, phone, performedBy) {
     let refunded = 0;
     if (!phone) return refunded;
     try {
@@ -48,7 +48,8 @@ async function _refundWalletForNativeOrder(pool, code, phone) {
                 `Hoàn ví huỷ PBH ${row.number}`,
                 null,
                 null,
-                null
+                null,
+                performedBy || '(huỷ đơn)' // performed_by — audit ai hoàn ví
             );
             await pool.query(`UPDATE fast_sale_orders SET wallet_deducted = 0 WHERE id = $1`, [
                 row.id,
@@ -1949,7 +1950,12 @@ router.post('/:code/cancel', async (req, res) => {
         // restock chính xác, gọi /by-source/cancel của fast-sale-orders.
         const pbhSync = await syncPbhStateFromNativeOrder(pool, code, 'cancelled');
         // 2026-06-04: hoàn ví số tiền đã thu hộ (nếu có) khi huỷ đơn.
-        const refunded = await _refundWalletForNativeOrder(pool, code, r.rows[0].phone);
+        const refunded = await _refundWalletForNativeOrder(
+            pool,
+            code,
+            r.rows[0].phone,
+            req.body?.userName || req.body?._editor?.userName || req.body?.by || null
+        );
         if (refunded > 0 && req.app.locals.web2RealtimeSseNotify) {
             try {
                 req.app.locals.web2RealtimeSseNotify(

@@ -25,7 +25,7 @@ const web2WalletService = require('../services/web2-wallet-service');
 // 2026-06-04: trừ ví khách khi tạo PBH (thu hộ). Trừ min(số dư ví, COD còn lại),
 // ghi wallet_deducted để hoàn khi huỷ. Best-effort: lỗi ví KHÔNG chặn tạo PBH.
 // Trả { deducted, residualAfter } để cập nhật PBH + native order.
-async function _applyWalletToPbh(pool, phone, pbhRow) {
+async function _applyWalletToPbh(pool, phone, pbhRow, performedBy) {
     const out = { deducted: 0, residualAfter: Number(pbhRow.residual || 0) };
     if (!phone || out.residualAfter <= 0) return out;
     try {
@@ -39,7 +39,8 @@ async function _applyWalletToPbh(pool, phone, pbhRow) {
             deduct,
             'native-order-pbh',
             pbhRow.number,
-            `Thu hộ PBH ${pbhRow.number}`
+            `Thu hộ PBH ${pbhRow.number}`,
+            performedBy || '(tạo PBH)' // performed_by — audit ai trừ ví
         );
         out.deducted = deduct;
         out.residualAfter = out.residualAfter - deduct;
@@ -1453,7 +1454,12 @@ router.post('/from-native-order', async (req, res) => {
         // 2026-06-04: THU HỘ — trừ ví khách (nếu có số dư) cho phần COD còn lại.
         // Trừ thật khỏi ví (idempotent theo PBH number), giảm residual = COD còn lại.
         // Ví đủ trả hết → native order coi như "đã thanh toán" (residual=0).
-        const wlt = await _applyWalletToPbh(pool, src.phone, r.rows[0]);
+        const wlt = await _applyWalletToPbh(
+            pool,
+            src.phone,
+            r.rows[0],
+            req.body?._editor?.userName || req.body?.userName || null
+        );
         if (wlt.deducted > 0) {
             const upd = await pool.query(
                 `UPDATE fast_sale_orders
