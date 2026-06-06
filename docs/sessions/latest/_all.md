@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1a86fe5` — auto: session update
-**Last updated**: 2026-06-06 11:28:46 +07
-**Latest session**: [`RESUME:20260606-112846-1a86fe5`](../20260606-112846-1a86fe5.md)
-**Summary**: auto: session update
+**Latest commit**: `767b330` — fix(web2-reconcile): quét nhận ngay + tích tay + sửa barcode không nhận/không lưu
+**Last updated**: 2026-06-06 11:38:17 +07
+**Latest session**: [`RESUME:20260606-113817-767b330`](../20260606-113817-767b330.md)
+**Summary**: fix(web2-reconcile): quét nhận ngay + tích tay + sửa barcode không nhận/không lưu
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-06 10:54
+- [`docs/`](./docs.md) — updated 2026-06-06 11:38
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 11:26
 - [`downloads/`](./downloads.md) — updated 2026-06-06 09:05
