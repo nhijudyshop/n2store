@@ -363,11 +363,30 @@
     // ---------- actions ----------
     // 2026-06-06: tích tay 1 line — checked = pick đủ (qty), unchecked = 0.
     // Lưu NGAY mỗi lần tích (không cần quét đủ cả đơn). Dùng cho SP barcode không quét được.
+    // User 06/06: BẮT BUỘC confirm + ghi lịch sử "đối chiếu camera" — vì tích tay KHÔNG
+    // quét barcode → cần xác nhận + lưu vết để soi lại camera khi đối chứng.
+    const MANUAL_CAMERA_NOTE = 'Tích tay (không quét) — đối chiếu camera';
     async function toggleManualPick(productCode, checked, need) {
         const number = STATE.currentPbh?.number;
         if (!number) return;
+
+        // Confirm trước khi áp dụng. Hủy → revert checkbox về trạng thái server.
+        const ok = checked
+            ? confirm(
+                  `✋ TÍCH TAY (không quét barcode) cho "${productCode}"?\n\n` +
+                      `→ Đánh dấu đã pick đủ ${need} mà không quét mã.\n` +
+                      `→ Thao tác được LƯU LỊCH SỬ (kèm người + ngày giờ) để ĐỐI CHIẾU CAMERA khi cần.\n\n` +
+                      `Xác nhận?`
+              )
+            : confirm(`Bỏ tích tay "${productCode}" (đưa về 0)?`);
+        if (!ok) {
+            renderDetail(); // checkbox đã toggle visually → vẽ lại theo state server
+            return;
+        }
+
         const pickedQty = checked ? need : 0;
         const body = { productCode, pickedQty };
+        if (checked) body.note = MANUAL_CAMERA_NOTE; // server log payload.note (sau khi deploy)
         if (window.Web2UserInfo?.attachToBody) window.Web2UserInfo.attachToBody(body);
         try {
             const res = await api('POST', `/${encodeURIComponent(number)}/manual-pick`, body);
@@ -375,6 +394,9 @@
             renderDetail();
             loadHistory(number);
             const t = res.pbh?.totals || {};
+            if (checked) {
+                notify(`✋ Đã tích tay ${productCode} — lưu lịch sử để đối chiếu camera`, 'info');
+            }
             if (t.isComplete) {
                 feedback(`✓✓ ĐỦ HÀNG ${number} — bấm "Đóng gói" để hoàn tất`, false, true);
                 loadList();
@@ -572,7 +594,14 @@
             const b = STATE_LABELS[l.stateAfter] || l.stateAfter;
             parts.push(`${a} → ${b}`);
         }
-        if (p.reason) parts.push(p.reason);
+        // Tích tay (manual-pick) → luôn gắn cờ đối chiếu camera (suy ra từ action type,
+        // bền vững kể cả log cũ chưa có payload.note). pickedQty=0 = bỏ tích, không gắn.
+        if (l.action === 'manual-pick' && (p.pickedQty == null || p.pickedQty > 0)) {
+            parts.push('📹 đối chiếu camera');
+        }
+        // p.note/reason khác (tránh lặp với cờ camera đã thêm ở trên)
+        const extra = p.note || p.reason;
+        if (extra && extra !== MANUAL_CAMERA_NOTE) parts.push(extra);
         return parts.join(' · ');
     }
     async function loadHistory(number) {

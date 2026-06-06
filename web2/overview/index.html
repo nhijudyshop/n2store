@@ -1150,15 +1150,7 @@ permission_templates    (role: admin/manager/staff)</pre
                                 </li>
                                 <li>
                                     <code>/api/web2/dashboard-kpi</code> ·
-                                    <code>/api/web2/kpi</code>
-                                </li>
-                                <li>
-                                    <code>/api/web2/smart-match</code> ·
-                                    <code>/api/web2/supplier-360</code>
-                                </li>
-                                <li>
-                                    <code>/api/web2/supplier-aging</code> ·
-                                    <code>/api/web2/inventory-forecast</code> ·
+                                    <code>/api/web2/kpi</code> ·
                                     <code>/api/web2/cart</code>
                                 </li>
                                 <li>
@@ -1262,78 +1254,6 @@ permission_templates    (role: admin/manager/staff)</pre
                                     <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
                                     <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
                                         /api/web2/audit-log
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        Aging công nợ NCC
-                                    </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        🔸 Firestore (nút Tính)
-                                    </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        FS web2_so_order + web2_supplier_wallet
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        NCC 360°
-                                    </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        ⚪ on-demand
-                                    </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        /api/web2/supplier-360
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        Dự báo tồn kho
-                                    </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        ⚪ N/A (recompute)
-                                    </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        /api/web2/inventory-forecast
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        Bulk Import Excel
-                                    </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        ⚪ N/A (import 1 lần)
-                                    </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        /api/web2-products,variants,…/bulk-create
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        Print / Export
-                                    </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        ⚪ N/A (export 1 lần)
-                                    </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        products + fast-sale-orders + balance-history
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        Smart Match SePay
-                                    </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        ⚪ on-demand
-                                    </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        /api/web2/smart-match + balance-history
                                     </td>
                                 </tr>
                                 <tr>
@@ -1749,7 +1669,7 @@ permission_templates    (role: admin/manager/staff)</pre
                             <p style="font-size: 13px">
                                 Sổ Order + Ví NCC (Firestore <code>web2_so_order</code> +
                                 <code>web2_supplier_wallet</code>) là nguồn chuẩn cho: Công nợ NCC,
-                                Aging, NCC 360°, Ví NCC, Trả hàng NCC. Tất cả tính từ 2 doc này.
+                                Ví NCC, Trả hàng NCC. Tất cả tính từ 2 doc này.
                             </p>
                         </div>
                         <div class="ov-db-card">
@@ -1765,14 +1685,14 @@ permission_templates    (role: admin/manager/staff)</pre
                             <h3>🛍️ Sản phẩm</h3>
                             <p style="font-size: 13px">
                                 Kho SP (<code>/api/web2-products</code>) là nguồn chuẩn; Biến Thể +
-                                Nhóm SP bổ trợ. Bulk Import / Print-Export / Dự báo tồn / Dashboard
-                                / cart tpos-pancake đều tham chiếu Kho SP — không tự lưu SP.
+                                Nhóm SP bổ trợ. Dashboard / cart tpos-pancake đều tham chiếu Kho SP
+                                — không tự lưu SP.
                             </p>
                         </div>
                     </div>
                     <p style="font-size: 13px; color: #64748b; margin-top: 12px">
                         ⏭️ <strong>Còn nên migrate sang SSE</strong> (đang dùng legacy): Sổ Order +
-                        Công nợ/Aging NCC (Firestore listener), Thống kê doanh thu (WebSocket
+                        Công nợ NCC (Firestore listener), Thống kê doanh thu (WebSocket
                         pbh-realtime), Chiến dịch Live (TPOS 2-way). Khách hàng nên thêm
                         <code>web2:customers</code> khi backend partner emit.
                     </p>

@@ -25,6 +25,28 @@
 
 ## 2026-06-06
 
+### [web2][render] Xóa hẳn 6 trang Web 2.0 (smart-match, supplier-aging, supplier-360, inventory-forecast, bulk-import, print-export) ✅
+
+**Yêu cầu user:** Bỏ (xóa hẳn) 6 trang trên khỏi Web 2.0.
+
+**Đã xóa:**
+
+- **Frontend folders**: `web2/{smart-match,supplier-aging,supplier-360,inventory-forecast,bulk-import,print-export}/`
+- **Shared orphan files** (chỉ 6 trang này dùng): `web2/shared/web2-aging.js`, `web2/shared/web2-bulk-import.css`
+- **Backend routes** (`render.com/routes/v2/`): `supplier-aging.js` (F02), `smart-match.js` (F09), `inventory-forecast.js` (F11), `supplier-360.js` (F07) + unmount khỏi `server.js` (giữ lại `dashboard-kpi`, `cart`, `kpi`). Không drop DB table — chỉ gỡ API endpoint.
+
+**Đã cập nhật refs:**
+
+- `web2/shared/tpos-sidebar.js`: gỡ 6 menu entries + 6 path trong web2 page-set
+- `web2/shared/web2-sse-topics.js`: gỡ topic `INVENTORY_FORECAST`
+- `web2/users-permissions/index.html`: gỡ supplier-aging/supplier-360/inventory-forecast khỏi permission tree
+- `web2/overview/index.html`: gỡ API list + realtime coverage table rows + sửa prose data-source cards (giữ "future development" roadmap cards như ý tưởng tương lai)
+- `scripts/n2store-smoke-all-pages.js`, `scripts/web2-verify-data-load.js`: gỡ 6 trang khỏi test list
+
+**Verify:** `node --check` pass cho server.js + 2 test scripts + sse-topics; grep full-repo confirm không còn live-code reference (chỉ còn 1 comment "port smart-match" trong `web2-ck-review.js` — logic độc lập, dùng `/api/web2/payment-signals`, giữ nguyên).
+
+**Status:** ✅ Done
+
 ### [render][web2] Đối soát đóng gói — quét nhận ngay + tích tay + sửa "barcode không nhận / không lưu" ✅
 
 **Vấn đề (user, trang `web2/reconcile/`):**

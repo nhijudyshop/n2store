@@ -21,6 +21,5 @@
         NOTIFICATIONS: 'web2:notifications',
         KPI_DASHBOARD: 'web2:kpi-dashboard',
         SUPPLIER_RATING: 'web2:supplier-rating',
-        INVENTORY_FORECAST: 'web2:inventory-forecast',
     });
 })(typeof window !== 'undefined' ? window : globalThis);

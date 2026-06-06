@@ -457,7 +457,8 @@ router.post('/:number/scan', async (req, res) => {
 
 // -----------------------------------------------------
 // POST /:number/manual-pick — set picked_qty trực tiếp 1 line
-// Body: { productCode, pickedQty }
+// Body: { productCode, pickedQty, note? }
+// note: lý do tích tay (vd "đối chiếu camera") — lưu vào audit payload.
 // -----------------------------------------------------
 router.post('/:number/manual-pick', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
@@ -465,6 +466,7 @@ router.post('/:number/manual-pick', async (req, res) => {
     const { number } = req.params;
     const productCode = String(req.body?.productCode || '').trim();
     const qty = Math.max(0, parseInt(req.body?.pickedQty, 10) || 0);
+    const note = req.body?.note ? String(req.body.note).slice(0, 200) : null;
     if (!productCode) return res.status(400).json({ error: 'productCode required' });
     const user = userFromReq(req);
 
@@ -488,7 +490,7 @@ router.post('/:number/manual-pick', async (req, res) => {
             pool,
             number,
             'manual-pick',
-            { productCode, pickedQty: qty },
+            { productCode, pickedQty: qty, note },
             result.stateBefore,
             result.stateAfter,
             user

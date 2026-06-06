@@ -631,7 +631,7 @@ app.use('/api/web2-variants', web2VariantsRoutes);
 app.use('/api/web2/cutout', require('./routes/web2-cutout')); // WEB2.0 photo-studio cutout (PhotoRoom) — TRƯỚC generic
 // NOTE 2026-06-03: generic catch-all `/api/web2` (web2GenericRoutes) ĐÃ DỜI
 // xuống SAU tất cả route dedicated `/api/web2/<entity>` bên dưới (notifications,
-// audit-log, inventory-forecast, ...). Lý do: generic có route `/:entity/list`
+// audit-log, dashboard-kpi, ...). Lý do: generic có route `/:entity/list`
 // → nếu mount TRƯỚC sẽ SHADOW dedicated route, trả `records:[]` rỗng thay vì data
 // thật. Express match theo thứ tự đăng ký → specific PHẢI trước catch-all.
 app.use('/api/wallet-deposits', walletDepositsRoutes); // WEB2.0 SePay deposits for ví NCC/KH
@@ -650,21 +650,9 @@ app.use('/api/v2/notifications', web2NotificationsRoutes); // alias cũ
 const web2AuditLogRoutes = require('./routes/v2/audit-log');
 app.use('/api/web2/audit-log', web2AuditLogRoutes); // WEB2.0 audit trail union view (F05)
 app.use('/api/v2/audit-log', web2AuditLogRoutes); // alias cũ
-const web2SupplierAgingRoutes = require('./routes/v2/supplier-aging');
-app.use('/api/web2/supplier-aging', web2SupplierAgingRoutes); // WEB2.0 aging buckets (F02)
-app.use('/api/v2/supplier-aging', web2SupplierAgingRoutes); // alias cũ
 const web2DashboardRoutes = require('./routes/v2/dashboard-kpi');
 app.use('/api/web2/dashboard-kpi', web2DashboardRoutes); // WEB2.0 dashboard aggregate (F01)
 app.use('/api/v2/dashboard-kpi', web2DashboardRoutes); // alias cũ
-const web2SmartMatchRoutes = require('./routes/v2/smart-match');
-app.use('/api/web2/smart-match', web2SmartMatchRoutes); // WEB2.0 SePay smart match (F09)
-app.use('/api/v2/smart-match', web2SmartMatchRoutes); // alias cũ
-const web2InventoryForecastRoutes = require('./routes/v2/inventory-forecast');
-app.use('/api/web2/inventory-forecast', web2InventoryForecastRoutes); // WEB2.0 forecast (F11)
-app.use('/api/v2/inventory-forecast', web2InventoryForecastRoutes); // alias cũ
-const web2Supplier360Routes = require('./routes/v2/supplier-360');
-app.use('/api/web2/supplier-360', web2Supplier360Routes); // WEB2.0 NCC 360 (F07)
-app.use('/api/v2/supplier-360', web2Supplier360Routes); // alias cũ
 const web2CartRoutes = require('./routes/v2/cart');
 app.use('/api/web2/cart', web2CartRoutes); // WEB2.0 Pancake comment cart (drag-drop SP)
 app.use('/api/v2/cart', web2CartRoutes); // alias cũ
