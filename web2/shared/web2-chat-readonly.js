@@ -16,6 +16,29 @@
     // 1 hội thoại (dùng cho pending-match — chọn KH từ list FB khớp đuôi SĐT).
     let _onPick = null;
     let _lastQueryDigits = '';
+    // State thread đang xem — để scroll-lên tải thêm tin cũ (pagination).
+    let _thread = null;
+
+    // Mốc thời gian 1 tin nhắn (sort cũ→mới).
+    function _msgTs(m) {
+        const t = m && (m.inserted_at || m.created_time || m.timestamp);
+        const n = t ? Date.parse(t) : 0;
+        return isNaN(n) ? 0 : n;
+    }
+    // Render dãy bubble (grouping avatar theo nhóm tin KH). startPrevOut: trạng
+    // thái "tin trước là outgoing" để nhóm avatar đúng ở ranh giới prepend.
+    function _renderBubbles(msgs, pageId, custAv, startPrevOut) {
+        let prevOut = startPrevOut !== false;
+        return msgs
+            .map((m) => {
+                const isOut = (m.from && m.from.id === pageId) || m.from_admin || m.is_admin;
+                const showAv = !isOut && prevOut;
+                prevOut = isOut;
+                return renderBubble(m, pageId, showAv ? custAv : '');
+            })
+            .filter(Boolean)
+            .join('');
+    }
 
     function esc(s) {
         const d = document.createElement('div');
@@ -227,6 +250,15 @@
             const q = inp.value.trim();
             _searchTimer = setTimeout(() => doSearch(q), 350);
         });
+        // Scroll gần đỉnh thread → tải thêm tin cũ (infinite scroll lên).
+        const bodyEl = ov.querySelector('#w2croBody');
+        bodyEl.addEventListener(
+            'scroll',
+            () => {
+                if (bodyEl.scrollTop < 60) _loadOlder();
+            },
+            { passive: true }
+        );
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && _el && !_el.hidden) close();
         });
@@ -474,38 +506,78 @@
             if (mr && mr.ok) msgs = mr.messages || [];
         } catch (_) {}
         if (!msgs.length) {
+            _thread = null;
             setBody('<div class="w2cro-empty">Hội thoại trống.</div>');
             return;
         }
         // Avatar KH (incoming) — render 1 lần ở đầu mỗi nhóm tin đến cho gọn.
         const custAv = avatarHtml(name, psid, pageId, 'w2cro-bub-av');
-        // Sort cũ→mới theo timestamp → tin mới nhất ở ĐÁY (chat chuẩn), rồi
-        // scroll xuống cuối. Robust dù Pancake trả thứ tự nào.
-        const _msgTs = (m) => {
-            const t = m.inserted_at || m.created_time || m.timestamp;
-            const n = t ? Date.parse(t) : 0;
-            return isNaN(n) ? 0 : n;
-        };
+        // Sort cũ→mới theo timestamp → tin mới nhất ở ĐÁY (chat chuẩn).
         const ordered = msgs.slice().sort((a, b) => _msgTs(a) - _msgTs(b));
-        let prevOut = true;
-        const html = ordered
-            .map((m) => {
-                const isOut = (m.from && m.from.id === pageId) || m.from_admin || m.is_admin;
-                const showAv = !isOut && prevOut; // tin đầu của nhóm KH
-                prevOut = isOut;
-                return renderBubble(m, pageId, showAv ? custAv : '');
-            })
-            .filter(Boolean)
-            .join('');
-        setBody(html || '<div class="w2cro-empty">Hội thoại trống.</div>');
+        // Lưu state để scroll-lên tải tin cũ. cursor = số tin đã tải (currentCount).
+        _thread = {
+            pageId,
+            convId,
+            customerUuid: customerUuid || null,
+            custAv,
+            msgIds: new Set(ordered.map((m) => m.id).filter(Boolean)),
+            cursor: msgs.length,
+            loadingOlder: false,
+            hasMore: true, // chưa biết → cho thử, loadOlder trả 0 fresh sẽ tắt
+        };
+        const olderInd =
+            '<div class="w2cro-load-older" data-w2cro-older>↑ Cuộn lên để xem tin cũ hơn</div>';
+        const html = _renderBubbles(ordered, pageId, custAv, true);
+        setBody(olderInd + (html || '<div class="w2cro-empty">Hội thoại trống.</div>'));
         const b = _el.querySelector('#w2croBody');
         if (b) b.scrollTop = b.scrollHeight;
+    }
+
+    // Scroll lên đầu thread → tải thêm tin cũ (prepend, giữ nguyên vị trí xem).
+    async function _loadOlder() {
+        if (!_thread || _thread.loadingOlder || !_thread.hasMore) return;
+        const Web2Chat = global.Web2Chat;
+        const body = _el && _el.querySelector('#w2croBody');
+        if (!Web2Chat || !Web2Chat.fetchMessages || !body) return;
+        _thread.loadingOlder = true;
+        const ind = body.querySelector('[data-w2cro-older]');
+        if (ind) ind.textContent = '⏳ Đang tải tin cũ…';
+        const oldH = body.scrollHeight;
+        try {
+            const r = await Web2Chat.fetchMessages(
+                _thread.pageId,
+                _thread.convId,
+                _thread.customerUuid,
+                { currentCount: _thread.cursor }
+            );
+            const incoming = (r && r.ok && r.messages) || [];
+            const fresh = incoming.filter((m) => m.id && !_thread.msgIds.has(m.id));
+            if (!fresh.length) {
+                _thread.hasMore = false;
+                if (ind) ind.remove();
+                return;
+            }
+            for (const m of fresh) _thread.msgIds.add(m.id);
+            _thread.cursor += fresh.length;
+            const sorted = fresh.slice().sort((a, b) => _msgTs(a) - _msgTs(b));
+            const html = _renderBubbles(sorted, _thread.pageId, _thread.custAv, true);
+            if (ind) ind.insertAdjacentHTML('afterend', html);
+            else body.insertAdjacentHTML('afterbegin', html);
+            // Giữ nguyên vị trí xem (không nhảy) sau khi prepend.
+            body.scrollTop += body.scrollHeight - oldH;
+            if (ind) ind.textContent = '↑ Cuộn lên để xem tin cũ hơn';
+        } catch (e) {
+            if (ind) ind.textContent = '↑ Cuộn lên để xem tin cũ hơn';
+        } finally {
+            _thread.loadingOlder = false;
+        }
     }
 
     // ---- Mở modal: preload 1 thread theo (pageId, psid) ----
     async function open(opts) {
         opts = opts || {};
         _onPick = null;
+        _thread = null;
         const ov = ensureEl();
         ov.hidden = false;
         ov.querySelector('.w2cro-modal')?.classList.remove('is-search');
@@ -567,6 +639,7 @@
     function openSearch(opts) {
         opts = opts || {};
         _onPick = typeof opts.onPick === 'function' ? opts.onPick : null;
+        _thread = null;
         const ov = ensureEl();
         ov.hidden = false;
         ov.querySelector('.w2cro-modal')?.classList.add('is-search');

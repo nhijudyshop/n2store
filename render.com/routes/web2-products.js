@@ -330,9 +330,15 @@ router.get('/list', async (req, res) => {
         const total = countR.rows[0].n;
 
         const listParams = [...params, limitNum, offset];
+        // [2026-06-05] Sort theo created_at DESC (THỨ TỰ ỔN ĐỊNH) thay vì
+        // updated_at DESC. Trước đây mọi tương tác (in tem, sửa, toggle, chỉnh
+        // tồn…) bump updated_at → SP nhảy lên đầu khi reload. created_at không
+        // đổi sau khi tạo → vị trí SP cố định, chỉ SP MỚI tạo mới lên đầu.
+        // code ASC = tiebreaker xác định khi trùng created_at. Index sẵn có
+        // idx_web2_products_created (created_at DESC).
         const listR = await pool.query(
             `SELECT * FROM web2_products ${where}
-             ORDER BY is_active DESC, updated_at DESC
+             ORDER BY is_active DESC, created_at DESC, code ASC
              LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
             listParams
         );
