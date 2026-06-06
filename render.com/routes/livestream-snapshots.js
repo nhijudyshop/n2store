@@ -663,6 +663,14 @@ let _workerRunning = false;
 //   - app access token `{FB_APP_ID}|{FB_APP_SECRET}`.
 // Field thử: source (MP4 owned VOD), playable_url, dash_preview_url, permalink_url.
 async function _resolveViaGraphSource(liveVideoId, pageId, pool) {
+    // DISABLED (2026-06-06): đã test cạn — page token Pancake trả code=190 "Bad
+    // signature" (do app khác phát), app token trả code=10/100 no-permission, và
+    // FB deprecate field source/playable_url cho live VOD. Không có token FB hợp lệ
+    // trong backend → Graph bất khả thi. Frontend đã chuyển extract sang CLIENT-SIDE
+    // (browser có FB auth: seek iframe VOD + capture). Giữ code dưới để tham khảo;
+    // return sớm để KHÔNG tốn 6 FB call/snap thừa trên cron retry.
+    return null;
+    /* eslint-disable no-unreachable */
     if (!pageId) return null;
     const appId = process.env.FB_APP_ID;
     const appSecret = process.env.FB_APP_SECRET;

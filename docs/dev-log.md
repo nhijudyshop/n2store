@@ -25,6 +25,26 @@
 
 ## 2026-06-06
 
+### [tpos-pancake] Force extract — chuyển sang CLIENT-SIDE (fix FB chặn backend) ✅
+
+**Vấn đề:** Force extract + nút "Lấy thumbnail" fail hết `no m3u8 URL`.
+
+**Đã test cạn mọi đường BACKEND (Render logs production, có deploy):**
+
+- yt-dlp **update latest 2026.03.17** (postinstall `yt-dlp -U`, verified build log) → vẫn `[facebook] Cannot parse data` = **FB chặn yt-dlp không-auth từ IP datacenter**.
+- Graph `source`: page token (Pancake) → `code=190 Bad signature`; + appsecret_proof (FB_APP_SECRET) → vẫn Bad signature (token app khác); app token → `code=10/100` no-permission. FB deprecate source/playable_url cho live VOD.
+- Không có FB account cookies (AUTOFB = autofb.pro bên thứ 3, không phải facebook.com).
+  → **Backend bất khả thi**: không token/cookie FB hợp lệ. FB auth CHỈ có ở browser.
+
+**Fix = CLIENT-SIDE** (`tpos-pancake/js/tpos/tpos-livestream-snap.js`): browser có FB session thật → seek iframe FB VOD (`plugins/video.php?...&t=offset`) tới đúng giây từng comment → capture frame (extension/getDisplayMedia crop wrapper) → POST `/api/livestream/snapshot` imageBase64 (bytea). KHÔNG cần yt-dlp/cookies/Graph.
+
+- `_buildSeekEmbedUrl` + `_clientCaptureAtOffset` + `_clientRestoreLive` (helper mới).
+- Chip "Force extract" → group pending comment theo video → seek+capture từng cái, progress `N/total ✓`, restore live khi xong.
+- Nút "Lấy thumbnail" từng comment cũng chuyển client-side.
+- Backend `_resolveViaGraphSource` DISABLED (return null, đỡ 6 call thừa/snap cron).
+
+**Verify live (browser + extension, 4 campaign):** `14/690 14✓ 0 fail`, **90 thumbnail thật render**, POST /snapshot đều success, iframe seek `&t=` đúng. ✅ Lưu ý: `&t=` chỉ seek được VOD (live đã end); live đang chạy → auto-snap lo.
+
 ### [inbox] ⚡ PERF: trang Đơn Inbox hết tải nặng — KPI thẻ "tất cả" thôi auto kéo toàn bộ lịch sử đơn ✅
 
 **Files:** `don-inbox/js/tab-social-core.js`, `don-inbox/js/tab-social-kpi-reconcile.js`
