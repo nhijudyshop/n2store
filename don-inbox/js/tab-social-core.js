@@ -249,12 +249,11 @@ function updateInboxKpiStatCard() {
     // Dùng tập đơn ĐỦ khoảng (nếu đã load) để KPI phủ trọn khoảng đã chọn — không bị cap 500 của bảng.
     const all = R?.kpiOrderSet ? R.kpiOrderSet() : window.SocialOrderState?.orders || [];
     const rangeLoaded = R?.isRangeLoaded ? R.isRangeLoaded() : true;
-    // Khoảng chưa load đủ → load nền 1 lần (cache theo range), xong tự cập nhật lại card.
-    if (R?.ensureRangeLoaded && !rangeLoaded && !R.rangeLoading) {
-        R.ensureRangeLoaded()
-            .then(() => updateInboxKpiStatCard())
-            .catch(() => {});
-    }
+    // LAZY: KHÔNG tự kéo toàn bộ lịch sử đơn khi render thẻ (tránh tải nặng lúc mở trang —
+    // trước đây filter 'all' khiến ensureRangeLoaded phân trang tới 12 lần × 1000 đơn).
+    // KPI tính trên tập đơn đã load (500 gần nhất / rangeOrders nếu đã load). Chỉ kéo đủ
+    // khoảng KHI user bấm thẻ KPI (showDetailModal) hoặc "Chạy đối soát KPI" (run) — cả hai
+    // hàm đó đã tự gọi ensureRangeLoaded + cập nhật lại thẻ.
 
     const filterKey =
         typeof currentDateFilter !== 'undefined' ? currentDateFilter : 'all';
@@ -347,7 +346,24 @@ function updateInboxKpiStatCard() {
     const amtEl = document.getElementById('inboxKpiAmount');
     if (amtEl) amtEl.textContent = formatVndInbox(displayKpi);
 
-    // Dòng phụ: loss (đã đối soát) hoặc hint chưa trừ hàng trả / đang tải đủ khoảng.
+    // coversRange: tập đơn đã load có phủ trọn khoảng đang chọn chưa.
+    //  - rangeLoaded → đã kéo đủ → phủ.
+    //  - filter ngày hẹp (có range.from): nếu đơn cũ nhất đã load ≤ from → 500 gần nhất đủ phủ.
+    //  - filter 'all' (không from): tập 500 KHÔNG chắc phủ hết lịch sử → số mang tính tạm tính.
+    let coversRange;
+    if (rangeLoaded) {
+        coversRange = true;
+    } else if (range.from) {
+        const oldestTs = all.reduce(
+            (m, o) => Math.min(m, new Date(o.createdAt).getTime() || Infinity),
+            Infinity
+        );
+        coversRange = oldestTs <= range.from.getTime();
+    } else {
+        coversRange = false;
+    }
+
+    // Dòng phụ: loss (đã đối soát) / spinner khi on-demand đang chạy / hint chưa phủ đủ khoảng.
     const lossEl = document.getElementById('inboxKpiLoss');
     if (lossEl) {
         if (R?.rangeLoading && !rangeLoaded) {
@@ -356,13 +372,17 @@ function updateInboxKpiStatCard() {
             lossEl.innerHTML = `<span style="color:#dc2626;">(−${formatVndInbox(totalLoss)} hoàn)</span>`;
         } else if (anyRecon) {
             lossEl.innerHTML = `<span style="color:#059669;">(đã đối soát)</span>`;
+        } else if (!coversRange) {
+            lossEl.innerHTML = `<span style="color:#9ca3af;">· ≈ trên ${all.length.toLocaleString('vi-VN')} đơn gần nhất — bấm để tính đủ</span>`;
         } else {
             lossEl.innerHTML = `<span style="color:#9ca3af;">· chưa trừ hàng trả</span>`;
         }
     }
     card.title = anyRecon
         ? `KPI net các đơn 'Đơn hàng' có phiếu đã chốt (gross ${formatVndInbox(totalGross)} − ${formatVndInbox(totalLoss)} hoàn)`
-        : "Tổng KPI gross các đơn 'Đơn hàng' có phiếu TPOS đã chốt (5.000đ/món). Bấm 'Chạy đối soát KPI' để trừ hàng trả.";
+        : coversRange
+          ? "Tổng KPI gross các đơn 'Đơn hàng' có phiếu TPOS đã chốt (5.000đ/món). Bấm 'Chạy đối soát KPI' để trừ hàng trả."
+          : "KPI tạm tính trên các đơn đã tải (500 gần nhất). Bấm vào thẻ để tải đủ khoảng và tính chính xác, hoặc 'Chạy đối soát KPI' để trừ hàng trả.";
 }
 
 function formatVndInbox(n) {

@@ -89,6 +89,25 @@
         const key = _rangeKeyOf(range);
         if (!force && state.rangeKey === key && Array.isArray(state.rangeOrders)) return state.rangeOrders;
         const from = range.from ? range.from.getTime() : 0; // 'all' → 0 → load hết
+        // GUARD: với range hẹp (from > 0), nếu tập đơn của bảng đã phủ mốc đầu khoảng thì
+        // dùng luôn — khỏi phân trang request thừa. (Đơn sort desc theo createdAt nên đơn
+        // cũ nhất đã load ≤ from ⇒ chắc chắn đã có đủ đơn trong khoảng.)
+        if (!force && from) {
+            const loaded = window.SocialOrderState?.orders;
+            if (Array.isArray(loaded) && loaded.length) {
+                const oldestTs = loaded.reduce(
+                    (m, o) => Math.min(m, Number(o.createdAt) || Infinity),
+                    Infinity
+                );
+                if (oldestTs <= from) {
+                    state.rangeOrders = [...loaded].sort(
+                        (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+                    );
+                    state.rangeKey = key;
+                    return state.rangeOrders;
+                }
+            }
+        }
         state.rangeLoading = true;
         try {
             const byId = new Map();
@@ -928,6 +947,8 @@
         } catch (e) {
             all = window.SocialOrderState?.orders || [];
         }
+        // Đã kéo đủ khoảng (opt-in khi user bấm thẻ) → cập nhật lại thẻ KPI sang full range, bỏ hint "≈".
+        if (typeof window.updateInboxKpiStatCard === 'function') window.updateInboxKpiStatCard();
         if (!verify.loaded) await loadVerifications().catch(() => {});
         const range = getInboxDateRange();
         const reconRan = state.byOrder.size > 0;
