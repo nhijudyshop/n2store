@@ -176,7 +176,6 @@
         const phone = p.Phone || p.Mobile || '';
         const carrier = phone ? Api.detectCarrier(phone) || p.NameNetwork || '' : '';
         const address = fullAddress(p);
-        const credit = Number(p.Credit || p.AmountDebit || 0);
         const active = p.Active !== false;
 
         return `
@@ -200,7 +199,6 @@
                         <i data-lucide="tag"></i>
                     </button>
                 </td>
-                <td class="pc-col-credit" data-col="credit">${Api.formatCurrency(credit)}</td>
                 <td class="pc-col-active" data-col="active">
                     <i data-lucide="${active ? 'check' : 'minus'}" class="pc-active-icon ${active ? '' : 'is-off'}"></i>
                 </td>
@@ -565,7 +563,6 @@
                 'Nhà mạng',
                 'Email',
                 'Địa chỉ',
-                'Nợ hiện tại',
                 'Hiệu lực',
                 'Mã số thuế',
                 'Ghi chú',
@@ -581,7 +578,6 @@
                     phone ? Api.detectCarrier(phone) || p.NameNetwork || '' : '',
                     p.Email || '',
                     fullAddress(p),
-                    Number(p.Credit || 0),
                     p.Active !== false ? 'Hoạt động' : 'Ngưng',
                     p.TaxCode || '',
                     p.Comment || '',
@@ -596,16 +592,10 @@
                 { wch: 12 },
                 { wch: 24 },
                 { wch: 40 },
-                { wch: 14 },
                 { wch: 12 },
                 { wch: 16 },
                 { wch: 24 },
             ];
-            // Format L column (Nợ hiện tại) as number
-            for (let r = 1; r < aoa.length; r++) {
-                const cell = ws[XLSX.utils.encode_cell({ r, c: 7 })];
-                if (cell) cell.z = '#,##0';
-            }
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Khách hàng');
             const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
