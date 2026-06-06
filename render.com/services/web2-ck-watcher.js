@@ -29,8 +29,16 @@
 
 'use strict';
 
-const WINDOW_MS = 72 * 60 * 60 * 1000; // chỉ xét signal trong 72h
+const WINDOW_MS = 72 * 60 * 60 * 1000; // chỉ xét signal/GD trong 72h
 const SURE_TIME_MS = 24 * 60 * 60 * 1000;
+
+// Deps mặc định (SSE notify + createNotification + sendMessage) — inject 1 lần
+// lúc boot qua initDeps. Dùng cho onNewSignal (server.js) khi không truyền deps;
+// onNewSepayTx (sepay-webhook-core) vẫn truyền deps explicit (merge, explicit thắng).
+let _deps = {};
+function initDeps(deps) {
+    _deps = deps || {};
+}
 
 function _last9(phone) {
     const s = String(phone || '').replace(/\D/g, '');
@@ -105,9 +113,147 @@ function _score(sig, tx, txId) {
     return { phoneHit, partnerHit, nameHit, amountHit, within24 };
 }
 
-// data deps = { notify, createNotification, sendMessage } — tất cả optional.
+function _hitLabel(h) {
+    return h.phoneHit ? '(SĐT)' : h.partnerHit ? '(partner)' : h.nameHit ? '(tên)' : '(đúng tiền)';
+}
+
+// Phân loại "sure" + "rank" cho mảng scored (mỗi phần tử có cờ hit từ _score).
+// nameHit/amountHit chỉ "sure" khi DUY NHẤT trong tập ứng viên (tránh nhầm).
+function _classify(scored) {
+    const nameHitCount = scored.filter((x) => x.nameHit).length;
+    const amountHitCount = scored.filter((x) => x.amountHit).length;
+    for (const x of scored) {
+        x.sure =
+            x.phoneHit ||
+            x.partnerHit ||
+            (x.nameHit && nameHitCount === 1) ||
+            (x.amountHit && x.within24 && amountHitCount === 1);
+        x.rank = x.phoneHit ? 4 : x.partnerHit ? 3 : x.nameHit ? 2 : 1; // phone>partner>tên>tiền
+    }
+}
+
+// Áp 1 match CHẮC: CLAIM signal (atomic) → cộng ví → auto-confirm → reply.
+// CLAIM (UPDATE ... WHERE matched_tx_id IS NULL) đảm bảo chỉ 1 nguồn thắng race
+// (onNewSepayTx vs onNewSignal chạy gần nhau) → KHÔNG double-credit/double-reply.
+// Trả 'applied' | 'lost_race' | 'not_sure'.
+async function _applyMatch(db, sig, tx, txIdentity, best, deps, now) {
+    const creditPhone = sig.phone || txIdentity.phone || null;
+    const txP9 = _last9(txIdentity.phone);
+    const sigP9 = _last9(sig.phone);
+    const conflict = !!sigP9 && !!txP9 && sigP9 !== txP9; // 2 SĐT khác nhau → KHÔNG auto
+    if (!best.sure || !creditPhone || conflict) return 'not_sure';
+
+    // 1) CLAIM atomic (chỉ thắng nếu signal chưa có GD).
+    const claim = await db.query(
+        `UPDATE web2_payment_signals
+         SET status='confirmed',
+             confirmed_at = COALESCE(confirmed_at, $3),
+             confirmed_by = COALESCE(confirmed_by, $4),
+             phone = COALESCE(NULLIF(phone,''), $5),
+             matched_tx_id = $2, matched_tx_at = $3
+         WHERE id = $1 AND matched_tx_id IS NULL
+         RETURNING id`,
+        [sig.id, tx.id, now, '(watcher tự động)', creditPhone]
+    );
+    if (!claim.rows.length) return 'lost_race'; // signal đã được nguồn khác link
+
+    // 2) Cộng ví — idempotent (debt_added). GD ambiguous PENDING cũng giải quyết
+    //    vì cộng cho ĐÚNG SĐT resolve được.
+    let credited = false;
+    let reconciled = false;
+    try {
+        const balanceHistory = require('../routes/v2/web2-balance-history');
+        const r = await balanceHistory.linkTransaction(db, {
+            id: tx.id,
+            phone: creditPhone,
+            name: sig.customer_name || txIdentity.name,
+            verifiedBy: 'auto-watcher',
+        });
+        credited = !!r.credited;
+        reconciled = !!r.alreadyProcessed; // đã cộng đúng SĐT từ trước
+    } catch (e) {
+        console.warn('[WEB2-CK-WATCHER] linkTransaction failed:', e.message);
+    }
+
+    // 3) history.
+    const wasPending = sig.status === 'pending';
+    const label = _hitLabel(best);
+    await db.query(
+        `UPDATE web2_payment_signals
+         SET history = COALESCE(history,'[]'::jsonb) || $2::jsonb WHERE id = $1`,
+        [
+            sig.id,
+            JSON.stringify([
+                {
+                    ts: now,
+                    action: 'auto-link',
+                    userName: '(watcher tự động)',
+                    note: `GD#${tx.id}${credited ? ' +ví' : reconciled ? ' (đã cộng trước)' : ''} ${label}${wasPending ? ' · auto-duyệt' : ''}`,
+                },
+            ]),
+        ]
+    );
+    console.log(
+        `[WEB2-CK-WATCHER] auto-link sig#${sig.id} ↔ GD#${tx.id} ${label}${wasPending ? ' (auto-confirm)' : ''}`
+    );
+
+    if (typeof deps.notify === 'function') {
+        try {
+            deps.notify(
+                'web2:payment-signals',
+                { action: 'auto-link', id: Number(sig.id), ts: now },
+                'update'
+            );
+            deps.notify(
+                'web2:balance-history',
+                { action: 'link', id: Number(tx.id), ts: now },
+                'update'
+            );
+        } catch (e) {
+            /* ignore */
+        }
+    }
+    // Auto-reply khi cộng ví HOẶC GD đã cộng đúng SĐT (đối soát) — best-effort.
+    if (
+        (credited || reconciled) &&
+        typeof deps.sendMessage === 'function' &&
+        sig.page_id &&
+        sig.conversation_id
+    ) {
+        const amt = `\nSố tiền chuyển khoản: ${Number(tx.transfer_amount).toLocaleString('vi-VN')}₫.`;
+        deps.sendMessage(
+            sig.page_id,
+            sig.conversation_id,
+            sig.psid || null,
+            `Shop đã nhận được chuyển khoản của mình rồi nha 💕${amt}\nCảm ơn mình nhiều ạ!`
+        ).catch(() => {});
+    }
+    return 'applied';
+}
+
+function _notifyMedium(deps, tx, sig) {
+    console.log(`[WEB2-CK-WATCHER] medium match GD#${tx.id} ↔ sig#${sig.id} → notify`);
+    if (typeof deps.createNotification === 'function') {
+        deps.createNotification({
+            type: 'ck_watch_match',
+            severity: 'warning',
+            title: 'GD SePay có thể khớp tín hiệu CK',
+            body: `GD ${Number(tx.transfer_amount).toLocaleString('vi-VN')}₫ có thể là của ${sig.customer_name || sig.phone || 'KH'} — bấm để đối chiếu & duyệt.`,
+            url: '/web2/ck-dashboard/index.html',
+            entity_type: 'payment_signal',
+            entity_id: String(sig.id),
+            dedupe_key: `ckwatch:${tx.id}:${sig.id}`,
+        }).catch(() => {});
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Chiều 1: GD SePay MỚI về → tìm signal "đã ck" khớp (KH nhắn TRƯỚC, tiền SAU).
+// deps optional (sepay-webhook-core truyền explicit).
+// ═══════════════════════════════════════════════════════════════════════
 async function onNewSepayTx(db, txId, deps = {}) {
     if (!db || !txId) return;
+    const d = { ..._deps, ...deps };
     try {
         const txQ = await db.query(
             `SELECT id, sepay_id, transfer_amount, transfer_type, content, description,
@@ -122,8 +268,6 @@ async function onNewSepayTx(db, txId, deps = {}) {
         const now = Date.now();
         const txIdentity = await _resolveTxIdentity(db, tx);
 
-        // Signals CHƯA có GD trong 72h (pending + confirmed), kèm order total.
-        // customer_id: cột mới (detector) — COALESCE NULL an toàn nếu chưa có.
         const sigQ = await db.query(
             `SELECT s.*,
                     COALESCE(no.total_amount, fso.amount_total) AS order_total
@@ -136,145 +280,96 @@ async function onNewSepayTx(db, txId, deps = {}) {
         );
         if (!sigQ.rows.length) return;
 
-        // Chấm điểm tất cả.
         const scored = sigQ.rows
             .map((sig) => ({ sig, ..._score(sig, tx, txIdentity) }))
             .filter((x) => x.phoneHit || x.partnerHit || x.nameHit || x.amountHit);
         if (!scored.length) return;
-
-        // Đếm để xác định "duy nhất" cho nameHit / amountHit.
-        const nameHitCount = scored.filter((x) => x.nameHit).length;
-        const amountHitCount = scored.filter((x) => x.amountHit).length;
-
-        // Phân loại "sure" mỗi ứng viên.
-        for (const x of scored) {
-            x.sure =
-                x.phoneHit ||
-                x.partnerHit ||
-                (x.nameHit && nameHitCount === 1) ||
-                (x.amountHit && x.within24 && amountHitCount === 1);
-            // ưu tiên: phone > partner > name > amount
-            x.rank = x.phoneHit ? 4 : x.partnerHit ? 3 : x.nameHit ? 2 : 1;
-        }
+        _classify(scored);
         scored.sort((a, b) => b.sure - a.sure || b.rank - a.rank);
 
         const best = scored[0];
-        const sig = best.sig;
-        // SĐT để cộng ví: ưu tiên SĐT signal, fallback SĐT resolve từ GD.
-        const creditPhone = sig.phone || txIdentity.phone || null;
-        const txP9 = _last9(txIdentity.phone);
-        const sigP9 = _last9(sig.phone);
-        // Xung đột: cả 2 có SĐT nhưng khác nhau → KHÔNG auto.
-        const conflict = !!sigP9 && !!txP9 && sigP9 !== txP9;
-
-        if (best.sure && creditPhone && !conflict) {
-            // CHẮC → tự link + cộng ví (GD ambiguous PENDING cũng được giải quyết
-            // vì ta cộng cho ĐÚNG SĐT resolve được). + auto-confirm nếu pending.
-            let credited = false;
-            let reconciled = false;
-            try {
-                const balanceHistory = require('../routes/v2/web2-balance-history');
-                const r = await balanceHistory.linkTransaction(db, {
-                    id: tx.id,
-                    phone: creditPhone,
-                    name: sig.customer_name || txIdentity.name,
-                    verifiedBy: 'auto-watcher',
-                });
-                credited = !!r.credited;
-                reconciled = !!r.alreadyProcessed; // đã cộng đúng SĐT từ trước
-            } catch (e) {
-                console.warn('[WEB2-CK-WATCHER] linkTransaction failed:', e.message);
-            }
-
-            const wasPending = sig.status === 'pending';
-            const hitLabel = best.phoneHit
-                ? '(SĐT)'
-                : best.partnerHit
-                  ? '(partner)'
-                  : best.nameHit
-                    ? '(tên)'
-                    : '(đúng tiền)';
-            // Auto-confirm (nếu pending) + set matched_tx_id + SĐT (nếu signal trống)
-            // + history — 1 UPDATE.
-            await db.query(
-                `UPDATE web2_payment_signals
-                 SET status = 'confirmed',
-                     confirmed_at = COALESCE(confirmed_at, $5),
-                     confirmed_by = COALESCE(confirmed_by, $6),
-                     phone = COALESCE(NULLIF(phone,''), $7),
-                     matched_tx_id = $2, matched_tx_at = $3,
-                     history = COALESCE(history,'[]'::jsonb) || $4::jsonb
-                 WHERE id = $1`,
-                [
-                    sig.id,
-                    tx.id,
-                    now,
-                    JSON.stringify([
-                        {
-                            ts: now,
-                            action: 'auto-link',
-                            userName: '(watcher tự động)',
-                            note: `GD#${tx.id}${credited ? ' +ví' : reconciled ? ' (đã cộng trước)' : ''} ${hitLabel}${wasPending ? ' · auto-duyệt' : ''}`,
-                        },
-                    ]),
-                    now,
-                    '(watcher tự động)',
-                    creditPhone,
-                ]
-            );
-            console.log(
-                `[WEB2-CK-WATCHER] auto-link sig#${sig.id} ↔ GD#${tx.id} ${hitLabel}${wasPending ? ' (auto-confirm)' : ''}`
-            );
-            if (typeof deps.notify === 'function') {
-                try {
-                    deps.notify(
-                        'web2:payment-signals',
-                        { action: 'auto-link', id: Number(sig.id), ts: now },
-                        'update'
-                    );
-                    deps.notify(
-                        'web2:balance-history',
-                        { action: 'link', id: Number(tx.id), ts: now },
-                        'update'
-                    );
-                } catch (e) {
-                    /* ignore */
-                }
-            }
-            // Auto-reply khi cộng ví HOẶC GD đã cộng đúng SĐT (đối soát) — best-effort.
-            if (
-                (credited || reconciled) &&
-                typeof deps.sendMessage === 'function' &&
-                sig.page_id &&
-                sig.conversation_id
-            ) {
-                const amt = `\nSố tiền chuyển khoản: ${Number(tx.transfer_amount).toLocaleString('vi-VN')}₫.`;
-                deps.sendMessage(
-                    sig.page_id,
-                    sig.conversation_id,
-                    sig.psid || null,
-                    `Shop đã nhận được chuyển khoản của mình rồi nha 💕${amt}\nCảm ơn mình nhiều ạ!`
-                ).catch(() => {});
-            }
-        } else {
-            // KHÔNG chắc → thông báo staff (KHÔNG tự cộng).
-            console.log(`[WEB2-CK-WATCHER] medium match GD#${tx.id} ↔ sig#${sig.id} → notify`);
-            if (typeof deps.createNotification === 'function') {
-                deps.createNotification({
-                    type: 'ck_watch_match',
-                    severity: 'warning',
-                    title: 'GD SePay có thể khớp tín hiệu CK',
-                    body: `GD ${Number(tx.transfer_amount).toLocaleString('vi-VN')}₫ có thể là của ${sig.customer_name || sig.phone || 'KH'} — bấm để đối chiếu & duyệt.`,
-                    url: '/web2/ck-dashboard/index.html',
-                    entity_type: 'payment_signal',
-                    entity_id: String(sig.id),
-                    dedupe_key: `ckwatch:${tx.id}:${sig.id}`,
-                }).catch(() => {});
-            }
-        }
+        const res = await _applyMatch(db, best.sig, tx, txIdentity, best, d, now);
+        if (res === 'not_sure') _notifyMedium(d, tx, best.sig);
     } catch (e) {
         console.warn('[WEB2-CK-WATCHER] onNewSepayTx failed:', e.message);
     }
 }
 
-module.exports = { onNewSepayTx, _score, _last9, _normName, _resolveTxIdentity };
+// ═══════════════════════════════════════════════════════════════════════
+// Chiều 2: signal "đã ck" MỚI tạo → tìm GD SePay ĐÃ về khớp (tiền về TRƯỚC,
+// KH nhắn "đã ck" SAU). sig = row vừa INSERT (handleIncoming). deps optional
+// (server.js inject qua initDeps lúc boot).
+// ═══════════════════════════════════════════════════════════════════════
+async function onNewSignal(db, sig, deps = {}) {
+    if (!db || !sig || !sig.id || sig.matched_tx_id) return;
+    const d = { ..._deps, ...deps };
+    try {
+        const now = Date.now();
+        // order_total cho amountHit.
+        let orderTotal = null;
+        if (sig.matched_order_code && sig.matched_order_type) {
+            try {
+                const oq =
+                    sig.matched_order_type === 'native'
+                        ? await db.query(
+                              `SELECT total_amount AS t FROM native_orders WHERE code=$1`,
+                              [sig.matched_order_code]
+                          )
+                        : await db.query(
+                              `SELECT amount_total AS t FROM fast_sale_orders WHERE number=$1`,
+                              [sig.matched_order_code]
+                          );
+                orderTotal = oq.rows[0]?.t != null ? Number(oq.rows[0].t) : null;
+            } catch (e) {
+                /* ignore */
+            }
+        }
+        const sigT = { ...sig, order_total: orderTotal };
+
+        // GD 'in' 72h CHƯA bị signal nào claim.
+        const txQ = await db.query(
+            `SELECT bh.id, bh.sepay_id, bh.transfer_amount, bh.transfer_type, bh.content, bh.description,
+                    bh.display_name, bh.transaction_date, bh.linked_customer_phone, bh.debt_added
+             FROM web2_balance_history bh
+             WHERE bh.transfer_type='in' AND bh.transfer_amount > 0
+               AND bh.transaction_date > NOW() - INTERVAL '72 hours'
+               AND NOT EXISTS (SELECT 1 FROM web2_payment_signals s2 WHERE s2.matched_tx_id = bh.id)
+             ORDER BY bh.transaction_date DESC
+             LIMIT 200`
+        );
+        if (!txQ.rows.length) return;
+
+        const scored = [];
+        for (const tx of txQ.rows) {
+            const txIdentity = await _resolveTxIdentity(db, tx);
+            const sc = _score(sigT, tx, txIdentity);
+            if (sc.phoneHit || sc.partnerHit || sc.nameHit || sc.amountHit) {
+                scored.push({
+                    tx,
+                    txIdentity,
+                    ...sc,
+                    txTime: tx.transaction_date ? new Date(tx.transaction_date).getTime() : 0,
+                });
+            }
+        }
+        if (!scored.length) return;
+        _classify(scored);
+        scored.sort((a, b) => b.sure - a.sure || b.rank - a.rank || b.txTime - a.txTime);
+
+        const best = scored[0];
+        const res = await _applyMatch(db, sigT, best.tx, best.txIdentity, best, d, now);
+        if (res === 'not_sure') _notifyMedium(d, best.tx, sigT);
+    } catch (e) {
+        console.warn('[WEB2-CK-WATCHER] onNewSignal failed:', e.message);
+    }
+}
+
+module.exports = {
+    onNewSepayTx,
+    onNewSignal,
+    initDeps,
+    _score,
+    _last9,
+    _normName,
+    _resolveTxIdentity,
+};

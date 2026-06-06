@@ -27,6 +27,7 @@
 // =====================================================
 
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 
 let _notifyClients = null;
@@ -654,49 +655,74 @@ const _M3U8_CACHE_TTL = 5 * 60 * 1000;
 const _batchStatus = new Map(); // batchId → { total, done, failed, drmBlocked }
 let _workerRunning = false;
 
-// FB Graph API `source` — trả URL MP4 trực tiếp cho video page SỞ HỮU. Ổn định
-// hơn yt-dlp scrape (immune khi FB đổi web / yt-dlp extractor hỏng) + dùng page
-// access token nên không bị chặn auth. Cần `pool` (chatDb) để lấy token từ
-// pancake_page_access_tokens. Trả URL string hoặc null nếu không khả dụng.
+// FB Graph API — resolve URL video playable cho ffmpeg. Thử nhiều chiến lược +
+// log chi tiết để biết cái nào chạy được:
+//   - page token + appsecret_proof (FB_APP_SECRET) — fix "Bad signature" nếu app
+//     yêu cầu proof.
+//   - page token trần.
+//   - app access token `{FB_APP_ID}|{FB_APP_SECRET}`.
+// Field thử: source (MP4 owned VOD), playable_url, dash_preview_url, permalink_url.
 async function _resolveViaGraphSource(liveVideoId, pageId, pool) {
-    if (!pool || !pageId) return null;
-    let token = null;
-    try {
-        const r = await pool.query(
-            'SELECT token FROM pancake_page_access_tokens WHERE page_id = $1 LIMIT 1',
-            [String(pageId)]
-        );
-        token = r.rows?.[0]?.token || null;
-    } catch (e) {
-        console.warn('[lss-extract] page token query fail:', e.message);
+    if (!pageId) return null;
+    const appId = process.env.FB_APP_ID;
+    const appSecret = process.env.FB_APP_SECRET;
+
+    let pageToken = null;
+    if (pool) {
+        try {
+            const r = await pool.query(
+                'SELECT token FROM pancake_page_access_tokens WHERE page_id = $1 LIMIT 1',
+                [String(pageId)]
+            );
+            pageToken = r.rows?.[0]?.token || null;
+        } catch (e) {
+            console.warn('[lss-graph] token query fail:', e.message);
+        }
     }
-    if (!token) {
-        console.warn('[lss-extract] no page token cho pageId', pageId, '→ skip Graph');
-        return null;
-    }
-    // FB video node id: thử full `{pageid}_{videoid}` trước rồi short `{videoid}`.
+
     const full = String(liveVideoId);
     const short = full.replace(/^\d+_/, '');
-    const ids = full === short ? [full] : [full, short];
-    for (const vid of ids) {
-        try {
-            const url = `https://graph.facebook.com/v19.0/${encodeURIComponent(vid)}?fields=source&access_token=${encodeURIComponent(token)}`;
-            const resp = await fetch(url);
-            const d = await resp.json();
-            if (d?.source) {
-                console.log('[lss-extract] Graph source OK video', vid);
-                return d.source;
+    const ids = full === short ? [full] : [short, full];
+
+    const strategies = [];
+    if (pageToken && appSecret) {
+        const proof = crypto.createHmac('sha256', appSecret).update(pageToken).digest('hex');
+        strategies.push({ label: 'page+proof', token: pageToken, proof });
+    }
+    if (pageToken) strategies.push({ label: 'page', token: pageToken });
+    if (appId && appSecret) strategies.push({ label: 'apptoken', token: `${appId}|${appSecret}` });
+    if (!strategies.length) {
+        console.warn('[lss-graph] no token nào khả dụng (pageId', pageId, ')');
+        return null;
+    }
+
+    const FIELDS = 'source,playable_url,dash_preview_url,permalink_url,live_status';
+    for (const s of strategies) {
+        for (const vid of ids) {
+            try {
+                let url = `https://graph.facebook.com/v19.0/${encodeURIComponent(vid)}?fields=${FIELDS}&access_token=${encodeURIComponent(s.token)}`;
+                if (s.proof) url += `&appsecret_proof=${s.proof}`;
+                const resp = await fetch(url);
+                const d = await resp.json();
+                const playable = d?.source || d?.playable_url || d?.dash_preview_url;
+                if (playable) {
+                    console.log(
+                        `[lss-graph] PLAYABLE OK via ${s.label} vid=${vid} field=${d.source ? 'source' : d.playable_url ? 'playable_url' : 'dash'}`
+                    );
+                    return playable;
+                }
+                if (d?.error) {
+                    console.warn(
+                        `[lss-graph] ${s.label} vid=${vid} ERR code=${d.error.code}/${d.error.error_subcode} ${String(d.error.message || '').slice(0, 90)}`
+                    );
+                } else {
+                    console.warn(
+                        `[lss-graph] ${s.label} vid=${vid} no-playable; keys=${Object.keys(d || {}).join(',')}`
+                    );
+                }
+            } catch (e) {
+                console.warn(`[lss-graph] ${s.label} vid=${vid} fetch fail:`, e.message);
             }
-            if (d?.error) {
-                console.warn(
-                    '[lss-extract] Graph source err',
-                    vid,
-                    ':',
-                    String(d.error.message || '').slice(0, 140)
-                );
-            }
-        } catch (e) {
-            console.warn('[lss-extract] Graph fetch fail', vid, ':', e.message);
         }
     }
     return null;
