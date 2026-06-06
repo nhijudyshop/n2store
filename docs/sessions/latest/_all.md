@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6032f12` — fix(supplier-debt): hóa đơn mới tự chèn theo ngày thay vì dồn cuối (sửa xáo thứ tự kéo tay) + reset thứ tự B24 bị hỏng
-**Last updated**: 2026-06-06 09:46:45 +07
-**Latest session**: [`RESUME:20260606-094645-6032f12`](../20260606-094645-6032f12.md)
-**Summary**: fix(supplier-debt): hóa đơn mới tự chèn theo ngày thay vì dồn cuối (sửa xáo thứ tự kéo tay) + r...
+**Latest commit**: `2455c1a` — auto: session update
+**Last updated**: 2026-06-06 09:52:00 +07
+**Latest session**: [`RESUME:20260606-095200-2455c1a`](../20260606-095200-2455c1a.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`supplier-debt/`](./supplier-debt.md) — 2 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -62,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:46
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-06 09:39
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-06 09:52
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
