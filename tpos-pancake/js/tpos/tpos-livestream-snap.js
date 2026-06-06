@@ -2342,19 +2342,11 @@ Throttle 30s/KH.`;
                 📸 <span>Lấy thumbnail</span>
             </button>
         `;
-        const btn = strip.querySelector('button');
-        if (btn) {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                _extractThumbnailForComment(commentId, btn).catch((err) => {
-                    console.warn('[snap-extract-one] fail:', err.message);
-                    _toast('Lỗi lấy thumbnail: ' + err.message, 'err');
-                    btn.disabled = false;
-                    btn.innerHTML = '📸 <span>Lấy thumbnail</span>';
-                });
-            });
-        }
+        // Click handler KHÔNG gắn trực tiếp ở đây — dùng EVENT DELEGATION trên
+        // document (xem _wireSnapDelegation trong init). Lý do: list comment
+        // re-render thường xuyên (chọn campaign, enrichment) → row + strip bị
+        // replace → listener trực tiếp chết → nút "Lấy thumbnail" bấm không ăn
+        // (user feedback 2026-06-06). Delegation sống qua mọi re-render.
     }
 
     // Per-comment thumbnail extract — backend-only (no FB tab share).
@@ -3141,12 +3133,40 @@ Throttle 30s/KH.`;
         });
     }
 
+    // Event delegation cho nút "Lấy thumbnail" (.tpos-snap-extract-one-btn) —
+    // 1 listener trên document, sống qua mọi re-render của list comment. Capture
+    // phase + stopPropagation để chặn row onclick (selectComment) như listener cũ.
+    function _wireSnapDelegation() {
+        if (_wireSnapDelegation._done) return;
+        _wireSnapDelegation._done = true;
+        document.addEventListener(
+            'click',
+            (e) => {
+                const btn = e.target.closest?.('.tpos-snap-extract-one-btn');
+                if (!btn) return;
+                e.stopPropagation();
+                e.preventDefault();
+                if (btn.disabled) return;
+                const commentId = btn.dataset.commentId;
+                if (!commentId) return;
+                _extractThumbnailForComment(commentId, btn).catch((err) => {
+                    console.warn('[snap-extract-one] fail:', err.message);
+                    _toast('Lỗi lấy thumbnail: ' + err.message, 'err');
+                    btn.disabled = false;
+                    btn.innerHTML = '📸 <span>Lấy thumbnail</span>';
+                });
+            },
+            true
+        );
+    }
+
     // -----------------------------------------------------
     // Init
     // -----------------------------------------------------
     function init() {
         setupObserver();
         subscribeSSE();
+        _wireSnapDelegation();
         // Subscribe TPOS new-comment event cho auto-mode (lazy — eventBus có thể
         // chưa setup tại DOMContentLoaded, fail-safe retry).
         // Cũng subscribe campaignsChanged để re-trigger _maybeShowAutoSnapBanner()
