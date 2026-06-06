@@ -1353,52 +1353,36 @@ async function saveAllOrderChanges() {
             }
         }
 
-        // Prepare payload (after freshness merge)
-        const payload = prepareOrderPayload(currentEditOrderData);
-
-        // Validate payload (optional but recommended)
-        const validation = validatePayloadBeforePUT(payload);
-        if (!validation.valid) {
-            throw new Error(`Payload validation failed: ${validation.errors.join(', ')}`);
-        }
-
-        console.log('[SAVE] Payload to send:', payload);
-        console.log('[SAVE] Payload size:', JSON.stringify(payload).length, 'bytes');
-
-        // PUT with If-Match (optimistic concurrency).
-        // CF Worker forwards If-Match → TPOS rejects with 412 if RowVersion mismatched.
-        const putHeaders = {
-            ...headers,
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-        };
-        if (payload.RowVersion != null && payload.RowVersion !== '') {
-            putHeaders['If-Match'] = `W/"${String(payload.RowVersion).replace(/"/g, '\\"')}"`;
-        }
-
-        const response = await API_CONFIG.smartFetch(
-            `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentEditOrderId})`,
-            {
-                method: 'PUT',
-                headers: putHeaders,
-                body: JSON.stringify(payload),
-            }
+        // Recalculate totals from current Details (sau freshness merge).
+        const _details = currentEditOrderData.Details || [];
+        const totalQuantity = _details.reduce((s, d) => s + (d.Quantity || 0), 0);
+        const totalAmount = _details.reduce(
+            (s, d) => s + (d.Quantity || 0) * (d.Price || 0),
+            0
         );
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('[SAVE] Error response:', errorText);
-            // Concurrency conflict — surface clear message.
-            if (
-                response.status === 412 ||
-                (response.status === 409 && /rowversion|etag|concurren|conflict/i.test(errorText))
-            ) {
-                throw new Error(
-                    'Đơn vừa được sửa bởi flow khác (RowVersion conflict). Vui lòng đóng/mở lại modal để load state mới rồi save lại.'
-                );
-            }
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        // 🔑 Persist qua shared helper updateOrderWithFullPayload (tab1-merge.js):
+        // rebuild Details SẠCH (chỉ field API cần) + KHÔNG gửi If-Match + raw fetch + retry.
+        // Path bespoke cũ (prepareOrderPayload giữ Details "bẩn" từ GET $expand + If-Match +
+        // smartFetch) khiến TPOS trả 200 nhưng ÂM THẦM bỏ qua collection Details → "lưu thành
+        // công giả" (đơn không đổi). Dùng đúng helper mà flow chat/merge/live-waiting đã chạy tốt.
+        if (typeof window.updateOrderWithFullPayload !== 'function') {
+            throw new Error(
+                'updateOrderWithFullPayload chưa load (tab1-merge.js) — không thể lưu. Reload trang rồi thử lại.'
+            );
         }
+        console.log('[SAVE] Persist via updateOrderWithFullPayload:', {
+            orderId: currentEditOrderId,
+            detailsCount: _details.length,
+            totalAmount,
+            totalQuantity,
+        });
+        await window.updateOrderWithFullPayload(
+            currentEditOrderData,
+            _details,
+            totalAmount,
+            totalQuantity
+        );
 
         // Success
         if (window.notificationManager && notifId) {

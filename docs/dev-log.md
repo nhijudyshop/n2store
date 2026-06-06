@@ -51,6 +51,25 @@
 **Files:** `render.com/routes/reconcile.js`, `web2/reconcile/js/reconcile-app.js` (`v=nj6`), `web2/reconcile/css/reconcile.css` (`v=nj5`), `web2/reconcile/index.html`.
 **Verify (localhost, test PBH):** lịch sử ẩn mặc định (sectionHidden=true), bảng SP hiện ngay; click toggle → mở + lazy-load 9 entry; click lại → ẩn. Lỗi scan cần deploy.
 
+### [orders] Fix: modal "Sửa đơn hàng" báo lưu thành công nhưng KHÔNG sync sản phẩm lên TPOS ✅
+
+**Vấn đề (user):** Sửa sản phẩm trong modal **"Sửa đơn hàng"** → "Lưu tất cả thay đổi" → toast xanh "Đã lưu thành công!" nhưng **TPOS không đổi** (mở lại đơn → SP về như cũ). Sửa SP ở **panel chat** thì TPOS cập nhật bình thường.
+
+**Root cause:** Commit `53b20630c` (2026-05-06, "optimistic concurrency end-to-end") đổi save của edit-modal + sale-modal sang **giữ payload `Details` "bẩn"** (clone nguyên từ GET `$expand`, mọi field server/computed) **+ thêm header `If-Match`**. Flow chat (dọn từ 2026-04-22) thì **rebuild `Details` SẠCH + KHÔNG If-Match** nên chạy tốt. Cùng endpoint `PUT /api/odata/SaleOnline_Order(id)` → khác ở cách dựng request. Payload Details "bẩn" làm **TPOS trả 200 nhưng âm thầm bỏ qua collection Details** ("lưu thành công giả"). Đã loại trừ CORS/412: curl OPTIONS xác nhận worker đã whitelist+forward `If-Match` (`shared/universal/cors-headers.js`) → comment "If-Match gây CORS reject" trong tab1-merge.js là STALE.
+
+**Fix (theo lựa chọn user — bỏ If-Match, dùng lại helper sạch; scope = modal + sale modal):** Hợp nhất 2 path bespoke về helper đã chứng minh chạy tốt `window.updateOrderWithFullPayload` (tab1-merge.js — chat/merge/live-waiting đều dùng).
+
+- `tab1-edit-modal.js` `saveAllOrderChanges`: giữ pre-PUT freshness GET + merge otherFlowAdditions; tính totals; **thay** block `prepareOrderPayload`+`If-Match`+`smartFetch` bằng `await window.updateOrderWithFullPayload(currentEditOrderData, Details, totalAmount, totalQuantity)`; giữ nguyên xử lý sau save.
+- `tab1-sale.js` `_updateSaleOrderWithAPIImpl`: giữ STEP 1 (GET fresh) + STEP 2 (`mergeLocalLinesIntoServerDetails`); **thay** STEP 3 (`_formatRowVersionETag`+`If-Match`+PUT clone bẩn) bằng helper; `_finalizeSaleOrderUpdate` nhận `result` thay vì `Response`; xoá `_formatRowVersionETag` (hết caller).
+- `tab1-merge.js`: sửa comment CORS stale (giải thích vì sao CỐ Ý không gửi If-Match = last-write-wins; muốn optimistic thật → gửi đúng `@odata.etag`).
+- Bump `?v=20260606a` cho 3 file trong `tab1-orders.html`.
+
+**Tradeoff:** bỏ If-Match = last-write-wins; an toàn vẫn ổn vì cả 2 path fetch-fresh-merge trước PUT. Đã verify đây là 2 nơi DUY NHẤT còn gửi If-Match trong `orders-report/js`.
+
+**Files:** `orders-report/js/tab1/{tab1-edit-modal.js, tab1-sale.js, tab1-merge.js}`, `orders-report/tab1-orders.html`.
+
+**Status:** `node --check` 3 file OK. Chờ verify browser (Network: PUT 200, không header If-Match, Details persist sau reload).
+
 ### [web2/partner-customer] Bỏ cột "Nợ hiện tại" ✅
 
 **User:** bỏ cột nợ ở trang Khách hàng Web 2.0 (số dư ví đã hiện qua pill cạnh SĐT rồi).
