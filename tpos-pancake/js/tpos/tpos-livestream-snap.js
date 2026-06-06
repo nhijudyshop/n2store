@@ -1307,9 +1307,12 @@ Throttle 30s/KH.`;
         //
         // HEADER_OFFSET vẫn cần (FB plugin có thanh header mỏng ~30px ở size
         // nhỏ). Wrapper overflow:hidden + iframe translate Y up để skip header.
-        const WRAPPER_W = 320;
-        const WRAPPER_H = Math.round((WRAPPER_W * 9) / 16); // 180 — 16:9 video area
-        const HEADER_OFFSET = 30; // FB plugin header @ width 320 (~30px)
+        // FB live từ điện thoại = DỌC (9:16). Khung ngang 16:9 → FB letterbox =
+        // đen 2 bên (user feedback 2026-06-06). Đổi khung sang DỌC 9:16 → video dọc
+        // fill full, hết đen 2 bên (và frame capture cũng full, không bake viền đen).
+        const WRAPPER_W = 200;
+        const WRAPPER_H = Math.round((WRAPPER_W * 16) / 9); // 356 — 9:16 video area (dọc)
+        const HEADER_OFFSET = 30; // FB plugin header bar (~30px, gần như cố định theo control bar)
         const IFRAME_W = WRAPPER_W;
         const IFRAME_H = WRAPPER_H + HEADER_OFFSET; // total iframe height = video + header
 
