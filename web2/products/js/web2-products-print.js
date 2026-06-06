@@ -767,7 +767,8 @@
      *   - Barcode: JsBarcode Code128 SVG client-side (chuẩn ISO/IEC 15417 →
      *     bars/spaces identical TPOS render cho cùng input). KHÔNG request tpos.vn.
      */
-    function buildLabelHTML(labels, paper, printType, opts) {
+    function buildLabelHTML(labels, paper, printType, opts, qrMap) {
+        const isQr = opts.symbology === 'qr' && qrMap;
         const { showPrice, showBold, showProductName, showCurrency, hideBarcode } = opts;
         const { sheetW, sheetH, labelW, labelH, cols, fontSize } = paper;
 
@@ -865,11 +866,11 @@
                 // JsBarcode Code128 SVG placeholder — script ở cuối <body> sẽ
                 // populate qua window.JsBarcode(svg, code, {...}). Mỗi SVG ID
                 // unique để JsBarcode đỡ nhầm. KHÔNG request tpos.vn.
-                // 2026-06-06: barcode = ẢNH PNG (canvas) crisp, GIỐNG TPOS
-                // (/Web/Barcode width=600&height=100) thay vì SVG vector kéo giãn.
-                // SVG bị khử răng cưa + scale 2 lần → vạch nhoè/lệch tỉ lệ khi raster
-                // nhiệt → mã dài không quét. PNG crisp render 1 lần → quét như TPOS.
-                const barcodeImg = `<img class="bcimg" data-code="${escapeHtml(label.code)}" alt="" />`;
+                // 2026-06-06: QR (2D) → ảnh QR pre-render (quét mọi độ dài mã trên
+                // tem 25mm); hoặc Code128 PNG canvas crisp giống TPOS (/Web/Barcode).
+                const barcodeImg = isQr
+                    ? `<img class="qrimg" src="${escapeHtml(qrMap[label.code] || '')}" alt="" />`
+                    : `<img class="bcimg" data-code="${escapeHtml(label.code)}" alt="" />`;
                 const labelStyle = labelStyleParts.join(';') + ';';
 
                 // Mỗi tem build vào `labelInner` rồi bọc trong .barcode-cell rộng
@@ -1010,6 +1011,17 @@ html, body {
     width: 100%;
     height: 100%;
     display: block;
+}
+/* 2026-06-06: QR (2D) — ô vuông, fit chiều cao vùng barcode, canh giữa. QR nhỏ
+   ~7-10mm là quét tốt mọi độ dài mã (decoder xác nhận). image-rendering pixelated
+   giữ ô QR sắc khi scale. */
+.barcode-image .qrimg {
+    height: 100%;
+    width: auto;
+    max-width: 100%;
+    display: block;
+    margin: 0 auto;
+    image-rendering: pixelated;
 }
 
 /* === Screen preview only (không in) === */
