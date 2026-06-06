@@ -49,6 +49,44 @@
 
 **Fix:** `applyWalletToUnpaidPbhs(pool, phone, performedBy)` (fast-sale-orders.js) — sau khi cộng ví, quét PBH chưa trả của SĐT (`residual>0, state<>cancel`, campaign MỚI NHẤT trước), trừ ví reuse `_applyWalletToPbh` (trả góp nếu thiếu, hết ví thì dừng), cập nhật residual/payment_amount/wallet_deducted + SSE (`web2:fast-sale-orders`/`native-orders`/`wallet`). An toàn: bounded residual+balance → chạy lại chỉ áp phần dư (idempotent), performed_by audit. Hook: `linkTransaction` (CK approve/watcher) + `_processWeb2Path` (SePay auto-credit) sau credit, best-effort lazy-require chống circular. Test `test-wallet-apply-pbh.js` 13/13 (đủ/thiếu/nhiều PBH/ví trống/huỷ/idempotent/audit).
 
+### [orders][render] KPI: tính NET theo ĐƠN THẬT TPOS (final − BASE) thay vì cộng dồn audit log ✅
+
+**Vấn đề (user, đơn 260600214 / NJD/2026/70868):** KPI không khớp đơn thật. Modal "So sánh KPI" hiện MM15 NET 2 = 10.000đ nhưng đơn thật chỉ có MM15 qty 1. Nguyên nhân (đã trace 5 agent + đọc code): KPI tính bằng **BASE snapshot + cộng dồn sự kiện audit log** (`calculateNetKPI` replay stack add/remove), **không bao giờ đối chiếu đơn cuối thật trên TPOS**. Audit log drift: MM15 +Thêm×3 (edit_modal_inline + sale_modal + chat_confirm_held) −Xóa×1 → NET 2; Q439H +Thêm rồi −Xóa ảo (chat_decrease) → NET 0 dù vẫn trên đơn; 5 SP base −Xóa ảo lúc 08:16 vẫn còn nguyên. Tổng ra 10.000đ chỉ do MM15 dư +1 triệt tiêu Q439H thiếu −1 (trùng hợp). "Tất cả SP" trống vì `renderAllProductsTab` chỉ đọc cache Firestore, không fallback TPOS.
+
+**Quyết định user:** (1) KPI = `(final TPOS − BASE)`, **GIỮ ô tick** làm cổng; (2) **GIỮ attribution chủ khoảng STT** (quy tắc owner 2026-05-07) — chỉ sửa SỐ LƯỢNG; (3) recompute lịch sử; (4) lấy đơn thật: fetch TPOS 1 lần khi cần rồi LƯU (snapshot), có rồi bỏ qua.
+
+**Giải pháp (append-only, không sửa endpoint KPI cũ):**
+
+- **Backend (migration 074 + `realtime-db.js`):** bảng mới `kpi_final_snapshot` (order_code PK, products JSONB) + endpoints `GET/PUT/DELETE /kpi-final-snapshot/:orderCode` + `POST /kpi-final-snapshot/exists` (batch). Lazy-ensure table trong route (tự tạo trên Render). Script `run-migration-074.js`.
+- **`kpi-manager.js`:**
+    - `fetchProductsFromTPOS`: token fallback parent/top (KPI iframe thiếu `tokenManager`).
+    - Helpers mới: `getKpiFinalSnapshot` / `saveKpiFinalSnapshot` / `ensureKpiFinalSnapshot` (fetch 1 lần, có rồi bỏ qua) / `getMissingFinalSnapshots` (batch).
+    - `calculateNetKPI`: NET per SP = `max(0, finalQty − baseQty)` từ snapshot (cùng SP base tăng qty → tính phần dư; đổi biến thể template/tên → 0; SP mới → finalQty). Audit log GIỜ chỉ phân bổ NV (last-add-wins, cap theo NET). Thêm cờ `reconciled` + `real`/`baseQty` per SP. **Thiếu snapshot → fallback replay audit cũ (`reconciled:false`)** để không vỡ. Strict-mode (ô tick) + attribution downstream (chủ khoảng STT trong `recalculateAndSaveKPI`) GIỮ NGUYÊN.
+    - `recalculateAndSaveKPI`: ensure snapshot trước khi tính → recompute (nút "Tính lại toàn bộ KPI") + toggle tick tự dùng đơn thật.
+- **`tab-kpi-commission.js`:** "Tất cả SP" fallback đọc snapshot (sửa "Không có dữ liệu sản phẩm"); "So sánh KPI" thêm banner trạng thái đối chiếu + badge per-row "⚠ đơn thật N" khi audit ≠ thật; ghi chú per-user breakdown là hiển thị, lương theo chủ khoảng STT; `showOrderDetails` ensure snapshot khi mở modal; `refreshData` quét nền fill snapshot thiếu cho đơn đang hiển thị.
+
+**Kết quả:** đơn 260600214 → MM15 (tick) qty1 = **5.000đ** (đúng), Q439H net1 nhưng chưa tick = 0 (món chưa tick), "Tất cả SP" hiện đủ 6 SP. NET độc lập với drift audit. Test: `tests/unit/kpi-reconciled-net.test.js` (5/5 pass).
+
+**Files:** `render.com/migrations/074_create_kpi_final_snapshot.sql`, `render.com/run-migration-074.js`, `render.com/routes/realtime-db.js`, `orders-report/js/managers/kpi-manager.js`, `orders-report/js/tab-kpi-commission.js`, `tests/unit/kpi-reconciled-net.test.js`.
+
+**Deploy/verify:** push → Render auto-deploy (bảng lazy-ensure, hoặc chạy `node render.com/run-migration-074.js`). Mở đơn bất kỳ → modal ensure snapshot → KPI reconciled. Sửa toàn bộ lịch sử: nút **"Tính lại toàn bộ KPI"** (ensure snapshot + recompute từng đơn). ⚠ Lương đã trả có thể đổi — review trước.
+
+**Status:** ✅ Done (chờ deploy + recompute lịch sử).
+
+### [orders] Fix: modal "Sửa đơn hàng" mở lên hiện SP cũ, không load mới nhất từ TPOS ✅
+
+**Vấn đề (user, sau khi fix save):** TPOS + panel chat hiện **6 SP** (có thêm `B703D` Legging Đùi Đen) nhưng modal "Sửa đơn hàng" của shop chỉ hiện **5 SP** — mở modal không cập nhật Details mới nhất từ TPOS.
+
+**Root cause:** `openEditModal` ([tab1-edit-modal.js:38](orders-report/js/tab1/tab1-edit-modal.js#L38)) dùng `_editOrderCache` nhưng **chỉ revalidate khi cache quá `EDIT_CACHE_TTL` (2 phút)**. Line `B703D` được thêm qua panel chat (flow khác) → cập nhật TPOS + invalidate `orderDetailsCache` (cache của chat) nhưng **KHÔNG** đụng `_editOrderCache` (cache riêng của edit modal). Mở lại modal trong 2 phút → cache HIT, chưa stale → render 5 SP, không refetch.
+
+**Fix:**
+
+- `openEditModal`: SWR đúng nghĩa — render cached ngay RỒI **LUÔN** revalidate nền (bỏ điều kiện `if (isStale)` + bỏ `EDIT_CACHE_TTL`). `fetchOrderData(silent)` re-render nếu user chưa sửa gì → kéo Details mới nhất từ TPOS mỗi lần mở (cũng cover sửa từ TPOS/máy khác).
+- `updateOrderWithFullPayload` (tab1-merge.js — helper chung mọi flow mutate): sau PUT OK gọi `window.invalidateEditOrderCache?.(orderData.Id)` → mutation cùng phiên (chat/sale/merge) làm lần mở edit-modal kế tiếp fetch sạch (hết flash SP cũ).
+- Bump `?v=20260606b` cho tab1-edit-modal.js + tab1-merge.js.
+
+**Files:** `orders-report/js/tab1/{tab1-edit-modal.js, tab1-merge.js}`, `orders-report/tab1-orders.html`. **Status:** `node --check` OK; verify browser (mở modal → có GET SaleOnline_Order mới).
+
 ### [web2/products] In tem mã vạch — cảnh báo mã quá dài + thêm khổ tem rộng (fix "chỉ quét được áo len be") ✅
 
 **Root cause (xác định bằng mô hình mật độ vạch):** barcode in ĐÚNG giá trị (CODE128 mã hoá đúng `code`, chữ hiển thị cùng biến) — lỗi là **vật lý**: tem mặc định 25mm, Code128 ~`35 + 11·n` module. Vạch hẹp nhất (X-dim) = `labelW·0.88 / modules`. Ngưỡng quét ~0.2mm ⇒ tem 25mm chỉ đọc tốt mã **≤6 ký tự**. Khớp 100% triệu chứng đơn Hạnh Trần: `B4AOBE`(6)=0.218mm ✅, `HCDAMDO`(7)/`B4DAMVANG`(9)/`ADQUANDENM`(10)=0.15–0.2mm ❌.
@@ -74,6 +112,25 @@
 
 **Files:** `render.com/routes/reconcile.js`, `web2/reconcile/js/reconcile-app.js` (`v=nj6`), `web2/reconcile/css/reconcile.css` (`v=nj5`), `web2/reconcile/index.html`.
 **Verify (localhost, test PBH):** lịch sử ẩn mặc định (sectionHidden=true), bảng SP hiện ngay; click toggle → mở + lazy-load 9 entry; click lại → ẩn. Lỗi scan cần deploy.
+
+### [orders] Fix: modal "Sửa đơn hàng" báo lưu thành công nhưng KHÔNG sync sản phẩm lên TPOS ✅
+
+**Vấn đề (user):** Sửa sản phẩm trong modal **"Sửa đơn hàng"** → "Lưu tất cả thay đổi" → toast xanh "Đã lưu thành công!" nhưng **TPOS không đổi** (mở lại đơn → SP về như cũ). Sửa SP ở **panel chat** thì TPOS cập nhật bình thường.
+
+**Root cause:** Commit `53b20630c` (2026-05-06, "optimistic concurrency end-to-end") đổi save của edit-modal + sale-modal sang **giữ payload `Details` "bẩn"** (clone nguyên từ GET `$expand`, mọi field server/computed) **+ thêm header `If-Match`**. Flow chat (dọn từ 2026-04-22) thì **rebuild `Details` SẠCH + KHÔNG If-Match** nên chạy tốt. Cùng endpoint `PUT /api/odata/SaleOnline_Order(id)` → khác ở cách dựng request. Payload Details "bẩn" làm **TPOS trả 200 nhưng âm thầm bỏ qua collection Details** ("lưu thành công giả"). Đã loại trừ CORS/412: curl OPTIONS xác nhận worker đã whitelist+forward `If-Match` (`shared/universal/cors-headers.js`) → comment "If-Match gây CORS reject" trong tab1-merge.js là STALE.
+
+**Fix (theo lựa chọn user — bỏ If-Match, dùng lại helper sạch; scope = modal + sale modal):** Hợp nhất 2 path bespoke về helper đã chứng minh chạy tốt `window.updateOrderWithFullPayload` (tab1-merge.js — chat/merge/live-waiting đều dùng).
+
+- `tab1-edit-modal.js` `saveAllOrderChanges`: giữ pre-PUT freshness GET + merge otherFlowAdditions; tính totals; **thay** block `prepareOrderPayload`+`If-Match`+`smartFetch` bằng `await window.updateOrderWithFullPayload(currentEditOrderData, Details, totalAmount, totalQuantity)`; giữ nguyên xử lý sau save.
+- `tab1-sale.js` `_updateSaleOrderWithAPIImpl`: giữ STEP 1 (GET fresh) + STEP 2 (`mergeLocalLinesIntoServerDetails`); **thay** STEP 3 (`_formatRowVersionETag`+`If-Match`+PUT clone bẩn) bằng helper; `_finalizeSaleOrderUpdate` nhận `result` thay vì `Response`; xoá `_formatRowVersionETag` (hết caller).
+- `tab1-merge.js`: sửa comment CORS stale (giải thích vì sao CỐ Ý không gửi If-Match = last-write-wins; muốn optimistic thật → gửi đúng `@odata.etag`).
+- Bump `?v=20260606a` cho 3 file trong `tab1-orders.html`.
+
+**Tradeoff:** bỏ If-Match = last-write-wins; an toàn vẫn ổn vì cả 2 path fetch-fresh-merge trước PUT. Đã verify đây là 2 nơi DUY NHẤT còn gửi If-Match trong `orders-report/js`.
+
+**Files:** `orders-report/js/tab1/{tab1-edit-modal.js, tab1-sale.js, tab1-merge.js}`, `orders-report/tab1-orders.html`.
+
+**Status:** `node --check` 3 file OK. Chờ verify browser (Network: PUT 200, không header If-Match, Details persist sau reload).
 
 ### [web2/partner-customer] Bỏ cột "Nợ hiện tại" ✅
 

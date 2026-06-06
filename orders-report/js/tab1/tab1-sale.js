@@ -544,7 +544,9 @@ if (typeof window !== 'undefined') {
  *   - In-flight lock: parallel calls serialize via __saleUpdateChain.
  *   - Server merge: server.Details is base, local lines merged on top
  *     (preserves additions from other flows / other tabs).
- *   - On 412 (RowVersion mismatch from optimistic concurrency), refetch and retry once.
+ *   - Persist qua updateOrderWithFullPayload (Details sạch, KHÔNG gửi If-Match →
+ *     last-write-wins; helper tự retry transient 502/503/504). Fetch-fresh-merge ở STEP 1-2
+ *     vẫn hạn chế mất line do flow khác thêm.
  */
 async function updateSaleOrderWithAPI() {
     if (!currentSaleOrderData || !currentSaleOrderData.Id) {
@@ -562,15 +564,6 @@ async function updateSaleOrderWithAPI() {
             window.__saleUpdateChain = null;
         }
     }
-}
-
-/**
- * Format RowVersion for OData If-Match header.
- * RowVersion is base64-encoded byte array — wrap in weak ETag W/"...".
- */
-function _formatRowVersionETag(rowVersion) {
-    if (rowVersion == null || rowVersion === '') return null;
-    return `W/"${String(rowVersion).replace(/"/g, '\\"')}"`;
 }
 
 async function _updateSaleOrderWithAPIImpl() {
@@ -635,45 +628,25 @@ async function _updateSaleOrderWithAPIImpl() {
                 hasRowVersion: !!payload.RowVersion,
             });
 
-            // 🔥 STEP 3: PUT with If-Match header for optimistic concurrency.
-            // CF Worker forwards If-Match → TPOS rejects with 412 if RowVersion mismatched.
-            const putUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentSaleOrderData.Id})`;
-            const putHeaders = {
-                ...headers,
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            };
-            const etag = _formatRowVersionETag(payload.RowVersion);
-            if (etag) putHeaders['If-Match'] = etag;
-
-            const response = await fetch(putUrl, {
-                method: 'PUT',
-                headers: putHeaders,
-                body: JSON.stringify(payload),
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                // Concurrency conflict — re-fetch + re-merge + retry.
-                if (
-                    (response.status === 412 ||
-                        (response.status === 409 &&
-                            /rowversion|etag|concurren|conflict/i.test(errorText))) &&
-                    attempt < MAX_RETRIES
-                ) {
-                    console.warn(
-                        `[SALE-API] 🔀 Concurrency conflict (HTTP ${response.status}), will retry...`
-                    );
-                    lastError = new Error(`HTTP ${response.status}: ${errorText}`);
-                    await new Promise((r) => setTimeout(r, 200 * (attempt + 1)));
-                    continue;
-                }
-                console.error('[SALE-API] PUT failed:', errorText);
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            // 🔑 STEP 3: Persist qua shared helper updateOrderWithFullPayload (tab1-merge.js):
+            // rebuild Details SẠCH (chỉ field API cần) + KHÔNG gửi If-Match + raw fetch + retry.
+            // Path bespoke cũ (clone payload "bẩn" từ GET $expand + If-Match) khiến TPOS trả 200
+            // nhưng ÂM THẦM bỏ qua collection Details. Dùng đúng helper mà flow chat/merge đã
+            // chạy tốt để sync ổn định.
+            if (typeof window.updateOrderWithFullPayload !== 'function') {
+                throw new Error(
+                    'updateOrderWithFullPayload chưa load (tab1-merge.js) — không thể lưu PBH.'
+                );
             }
+            const result = await window.updateOrderWithFullPayload(
+                payload,
+                payload.Details || [],
+                payload.TotalAmount,
+                payload.TotalQuantity
+            );
 
-            // Success — break out of retry loop.
-            return await _finalizeSaleOrderUpdate(response, payload, getUrl, headers);
+            // Success — finalize (re-fetch fresh order để lấy Detail IDs mới).
+            return await _finalizeSaleOrderUpdate(result, payload, getUrl, headers);
         } catch (err) {
             lastError = err;
             // Network/transient errors — retry up to MAX_RETRIES.
@@ -691,18 +664,10 @@ async function _updateSaleOrderWithAPIImpl() {
     throw lastError || new Error('Sale order update failed after retries');
 }
 
-async function _finalizeSaleOrderUpdate(response, payload, getUrl, headers) {
+async function _finalizeSaleOrderUpdate(result, payload, getUrl, headers) {
     try {
-        // Handle empty response body (PUT often returns 200 OK with no content)
-        let data = null;
-        const responseText = await response.text();
-        if (responseText && responseText.trim()) {
-            try {
-                data = JSON.parse(responseText);
-            } catch (parseError) {
-                console.log('[SALE-API] Response is not JSON, treating as success');
-            }
-        }
+        // `result` là giá trị helper updateOrderWithFullPayload trả về (data hoặc {success}).
+        const data = result || null;
 
         console.log(
             `[SALE-API] ✅ Updated order ${currentSaleOrderData.Id} with ${payload.Details?.length || 0} products`

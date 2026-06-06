@@ -153,19 +153,18 @@ async function updateOrderWithFullPayload(
                 hasRowVersion: !!payload.RowVersion,
             });
 
-            // Build headers. DISABLED: If-Match header gây CORS preflight reject (CF Worker
-            // CORS_HEADERS chưa whitelist "If-Match") → "Request header field if-match is not allowed".
-            // RowVersion đã có trong payload body → TPOS vẫn có thể validate concurrency nội bộ.
-            // Khi CF Worker được deploy với If-Match trong Allow-Headers, bật lại block dưới đây.
+            // KHÔNG gửi If-Match — CỐ Ý (last-write-wins). CF Worker hiện ĐÃ whitelist + forward
+            // If-Match (shared/universal/cors-headers.js — comment "CORS chưa whitelist" cũ đã hết
+            // đúng), nhưng gửi If-Match có hại: ETag tự dựng W/"<RowVersion>" dễ lệch ETag chuẩn của
+            // TPOS → 412 hoặc TPOS trả 200 mà bỏ Details ("lưu thành công giả"). Helper này (rebuild
+            // Details sạch + fetch-fresh-merge trước PUT) là path CHUẨN cho mọi flow (chat / edit-modal
+            // / sale / merge / live-waiting). Muốn optimistic concurrency thật → gửi đúng @odata.etag
+            // server trả về, KHÔNG tự dựng từ RowVersion.
             const putHeaders = {
                 ...headers,
                 'Content-Type': 'application/json',
                 Accept: 'application/json',
             };
-            // NOTE: tạm thời disable until CF Worker allows If-Match header.
-            // if (payload.RowVersion != null && payload.RowVersion !== '') {
-            //     putHeaders["If-Match"] = `W/"${String(payload.RowVersion).replace(/"/g, '\\"')}"`;
-            // }
 
             // Use direct fetch instead of smartFetch to avoid fallback issues
             const response = await fetch(apiUrl, {
@@ -219,6 +218,12 @@ async function updateOrderWithFullPayload(
                     console.log(`[MERGE-API] Response is not JSON, treating as success`);
                 }
             }
+
+            // Mutation OK → invalidate cache modal "Sửa đơn hàng" để lần mở kế tiếp pull Details
+            // mới nhất (tránh hiện stale khi line được thêm/xoá qua flow khác trong cùng phiên).
+            try {
+                window.invalidateEditOrderCache?.(orderData.Id);
+            } catch (_) {}
 
             console.log(
                 `[MERGE-API] ✅ Updated order ${orderData.Id} with ${newDetails.length} products`

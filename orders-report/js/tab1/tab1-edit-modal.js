@@ -33,7 +33,7 @@ document.addEventListener('click', function (e) {
 // SWR cache cho order data — TTL 2min, return stale + revalidate background.
 // Lần mở lại trong session = instant render từ cache, fresh data đến → re-render.
 const _editOrderCache = new Map(); // orderId → { data, timestamp }
-const EDIT_CACHE_TTL = 2 * 60 * 1000;
+// NOTE: bỏ TTL-gated revalidate — openEditModal giờ LUÔN revalidate nền (SWR) để không hiện stale.
 
 async function openEditModal(orderId) {
     currentEditOrderId = orderId;
@@ -51,11 +51,11 @@ async function openEditModal(orderId) {
         } catch (e) {
             console.warn('[EDIT-MODAL] Cached render failed:', e?.message);
         }
-        // Background revalidate (no spinner)
-        const isStale = Date.now() - cached.timestamp >= EDIT_CACHE_TTL;
-        if (isStale) {
-            fetchOrderData(orderId, { silent: true }).catch(() => {});
-        }
+        // SWR: render cached ngay (mượt) RỒI LUÔN revalidate nền để pull Details MỚI NHẤT từ
+        // TPOS. Line có thể được thêm/xoá qua panel chat / sale / merge / TPOS / máy khác SAU
+        // lần cache trước → nếu chỉ revalidate khi quá TTL sẽ hiện stale (vd modal 5 SP trong khi
+        // TPOS đã 6 SP). fetchOrderData(silent) tự re-render nếu user CHƯA sửa gì (giữ nguyên edit).
+        fetchOrderData(orderId, { silent: true }).catch(() => {});
         return;
     }
 
@@ -1353,52 +1353,33 @@ async function saveAllOrderChanges() {
             }
         }
 
-        // Prepare payload (after freshness merge)
-        const payload = prepareOrderPayload(currentEditOrderData);
+        // Recalculate totals from current Details (sau freshness merge).
+        const _details = currentEditOrderData.Details || [];
+        const totalQuantity = _details.reduce((s, d) => s + (d.Quantity || 0), 0);
+        const totalAmount = _details.reduce((s, d) => s + (d.Quantity || 0) * (d.Price || 0), 0);
 
-        // Validate payload (optional but recommended)
-        const validation = validatePayloadBeforePUT(payload);
-        if (!validation.valid) {
-            throw new Error(`Payload validation failed: ${validation.errors.join(', ')}`);
+        // 🔑 Persist qua shared helper updateOrderWithFullPayload (tab1-merge.js):
+        // rebuild Details SẠCH (chỉ field API cần) + KHÔNG gửi If-Match + raw fetch + retry.
+        // Path bespoke cũ (prepareOrderPayload giữ Details "bẩn" từ GET $expand + If-Match +
+        // smartFetch) khiến TPOS trả 200 nhưng ÂM THẦM bỏ qua collection Details → "lưu thành
+        // công giả" (đơn không đổi). Dùng đúng helper mà flow chat/merge/live-waiting đã chạy tốt.
+        if (typeof window.updateOrderWithFullPayload !== 'function') {
+            throw new Error(
+                'updateOrderWithFullPayload chưa load (tab1-merge.js) — không thể lưu. Reload trang rồi thử lại.'
+            );
         }
-
-        console.log('[SAVE] Payload to send:', payload);
-        console.log('[SAVE] Payload size:', JSON.stringify(payload).length, 'bytes');
-
-        // PUT with If-Match (optimistic concurrency).
-        // CF Worker forwards If-Match → TPOS rejects with 412 if RowVersion mismatched.
-        const putHeaders = {
-            ...headers,
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-        };
-        if (payload.RowVersion != null && payload.RowVersion !== '') {
-            putHeaders['If-Match'] = `W/"${String(payload.RowVersion).replace(/"/g, '\\"')}"`;
-        }
-
-        const response = await API_CONFIG.smartFetch(
-            `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentEditOrderId})`,
-            {
-                method: 'PUT',
-                headers: putHeaders,
-                body: JSON.stringify(payload),
-            }
+        console.log('[SAVE] Persist via updateOrderWithFullPayload:', {
+            orderId: currentEditOrderId,
+            detailsCount: _details.length,
+            totalAmount,
+            totalQuantity,
+        });
+        await window.updateOrderWithFullPayload(
+            currentEditOrderData,
+            _details,
+            totalAmount,
+            totalQuantity
         );
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('[SAVE] Error response:', errorText);
-            // Concurrency conflict — surface clear message.
-            if (
-                response.status === 412 ||
-                (response.status === 409 && /rowversion|etag|concurren|conflict/i.test(errorText))
-            ) {
-                throw new Error(
-                    'Đơn vừa được sửa bởi flow khác (RowVersion conflict). Vui lòng đóng/mở lại modal để load state mới rồi save lại.'
-                );
-            }
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
 
         // Success
         if (window.notificationManager && notifId) {

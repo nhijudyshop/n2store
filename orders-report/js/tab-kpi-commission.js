@@ -712,9 +712,7 @@ const KPICommission = {
         }
         const rows = orders
             .map((o) => {
-                const cfg =
-                    this._INBOX_STATUS_LABELS[o.status] ||
-                    this._INBOX_STATUS_LABELS.draft;
+                const cfg = this._INBOX_STATUS_LABELS[o.status] || this._INBOX_STATUS_LABELS.draft;
                 const sttDisp =
                     o.stt != null && o.stt !== '' ? Number(o.stt).toLocaleString('vi-VN') : '—';
                 const orderAtDisp = o.orderAt ? this.formatTimestamp(o.orderAt) : '—';
@@ -2848,23 +2846,28 @@ const KPICommission = {
         this.state.currentOrderId = orderId;
 
         // Set header - show orderCode instead of raw orderId
+        const order = this.state.currentEmployeeOrders.find((o) => o.orderId === orderId);
+        const orderCode = order?.orderCode || '';
         const orderIdEl = document.getElementById('modalL2OrderId');
-        if (orderIdEl) {
-            const order = this.state.currentEmployeeOrders.find((o) => o.orderId === orderId);
-            orderIdEl.textContent = order?.orderCode || orderId;
-        }
+        if (orderIdEl) orderIdEl.textContent = orderCode || orderId;
 
         // Banner refund (hiển thị xuyên suốt các tab nếu đơn có hoàn)
         this._renderOrderRefundBanner(orderId);
 
-        // Reset to first tab
-        this.switchOrderTab('kpi-compare');
-
-        // Show modal
+        // Show modal + reset to first tab (hiện loading ngay)
         this.showEl('modalOrderDetails');
+        this.switchOrderTab('kpi-compare');
         this.reinitIcons();
 
-        // Load first tab data
+        // Ensure snapshot đơn thật TPOS (fetch 1 lần nếu thiếu) để KPI NET + "Tất cả SP"
+        // đối chiếu đúng (final − BASE). Có rồi → chỉ GET, nhanh.
+        if (orderCode && window.kpiManager?.ensureKpiFinalSnapshot) {
+            try {
+                await window.kpiManager.ensureKpiFinalSnapshot(orderCode, orderId);
+            } catch (e) {}
+        }
+
+        // Render lại tab KPI với snapshot đã sẵn sàng (reconciled).
         await this.renderNetKPITab(orderId);
     },
 
@@ -2966,9 +2969,7 @@ const KPICommission = {
             if (!raw) return false;
             const auth = JSON.parse(raw);
             if (auth?.isAdmin === true || auth?.roleTemplate === 'admin') return true;
-            return (
-                auth?.detailedPermissions?.baocaosaleonline?.canMarkOrderChecked === true
-            );
+            return auth?.detailedPermissions?.baocaosaleonline?.canMarkOrderChecked === true;
         } catch (e) {
             return false;
         }
@@ -3158,8 +3159,7 @@ const KPICommission = {
         // Config (firebase-config.js) load đồng bộ trước app JS nên hầu như resolve
         // ngay lần check đầu; poll ~150ms, trần ~3s. Trả true nếu sẵn sàng.
         _ensureFirebaseReady() {
-            const ready = () =>
-                !!(window.firebase?.firestore && window.firebase?.apps?.length);
+            const ready = () => !!(window.firebase?.firestore && window.firebase?.apps?.length);
             if (ready()) return Promise.resolve(true);
             return new Promise((resolve) => {
                 let waited = 0;
@@ -3180,8 +3180,7 @@ const KPICommission = {
             //   1. data.checkKey (đơn không phiếu → bằng orderCode)
             //   2. data.number    (đơn có phiếu — cũng là doc data có sẵn)
             //   3. doc.id         (backward compat cho doc không có 2 field trên)
-            const resolveKey = (data, docId) =>
-                data.checkKey || data.number || docId;
+            const resolveKey = (data, docId) => data.checkKey || data.number || docId;
             if (this._initPromise) return this._initPromise;
             this._initPromise = (async () => {
                 // Chờ firebase sẵn sàng thay vì bail im lặng. Nếu vẫn chưa có col →
@@ -3250,9 +3249,7 @@ const KPICommission = {
             col.doc(this._sanitizeDocId(checkKey))
                 .set({ number }, { merge: true })
                 .then(() => window.KPICommission?._renderCheckHistory?.())
-                .catch((e) =>
-                    console.warn('[KPI-ORDER-CHECK] backfill failed:', e?.message)
-                );
+                .catch((e) => console.warn('[KPI-ORDER-CHECK] backfill failed:', e?.message));
         },
 
         async markChecked(checkKey, meta) {
@@ -3507,6 +3504,8 @@ const KPICommission = {
                         added: data.added || 0,
                         removed: data.removed || 0,
                         net: data.net || 0,
+                        real: typeof data.real === 'number' ? data.real : null,
+                        baseQty: typeof data.baseQty === 'number' ? data.baseQty : null,
                         kpi,
                         excluded,
                         isSaleChecked,
@@ -3534,6 +3533,10 @@ const KPICommission = {
             }
 
             this.showEl('kpiCompareWrapper');
+
+            // Banner trạng thái đối chiếu: NET tính theo ĐƠN THẬT TPOS (reconciled)
+            // hay fallback audit log (chưa có snapshot → bấm "Làm mới dữ liệu").
+            this._renderReconcileBanner(!!kpiResult.reconciled);
 
             // Render table body
             const tbody = document.getElementById('kpiCompareBody');
@@ -3565,13 +3568,21 @@ const KPICommission = {
                     .filter(Boolean)
                     .join(' ');
 
+                // Drift: audit log (added−removed) khác NET thật (final−base) → đánh dấu
+                // để thấy rõ audit bị thêm trùng / xóa ảo, NET đã chỉnh theo đơn thật.
+                const auditNet = (p.added || 0) - (p.removed || 0);
+                const hasDrift = p.real !== null && auditNet !== p.net;
+                const netCell = hasDrift
+                    ? `<strong>${p.net}</strong> <span class="kpi-drift-badge" title="Audit log: +${p.added}/−${p.removed} = ${auditNet}. Đơn thật TPOS: ${p.real}${p.baseQty ? ` (base ${p.baseQty})` : ''} → NET ${p.net}">⚠ đơn thật ${p.real}</span>`
+                    : `<strong>${p.net}</strong>`;
+
                 html += `<tr class="${rowClass}">
                     <td>${idx + 1}</td>
                     <td>${this.escapeHtml(p.code)}</td>
                     <td>${this.escapeHtml(p.name)}</td>
                     <td class="action-add">+${p.added}</td>
                     <td class="action-remove">-${p.removed}</td>
-                    <td><strong>${p.net}</strong></td>
+                    <td>${netCell}</td>
                     <td>${this.formatCurrency(p.kpi)}</td>
                     <td>${refundCell}</td>
                 </tr>`;
@@ -3605,6 +3616,33 @@ const KPICommission = {
             console.error('[KPI Tab] Error rendering NET KPI tab:', error);
             this.hideEl('kpiCompareLoading');
             this.showEl('kpiCompareEmpty');
+        }
+    },
+
+    // Banner: NET tính theo đơn thật TPOS (reconciled) hay fallback audit log.
+    _renderReconcileBanner(reconciled) {
+        const wrapper = document.getElementById('kpiCompareWrapper');
+        if (!wrapper) return;
+        let el = document.getElementById('kpiReconcileBanner');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'kpiReconcileBanner';
+            el.style.cssText =
+                'margin-bottom:10px;padding:8px 12px;border-radius:8px;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:6px;';
+            wrapper.insertBefore(el, wrapper.firstChild);
+        }
+        if (reconciled) {
+            el.style.background = '#ecfdf5';
+            el.style.color = '#047857';
+            el.style.border = '1px solid #a7f3d0';
+            el.textContent =
+                '✓ NET đối chiếu theo ĐƠN THẬT trên TPOS (final − BASE). Cột THÊM/XÓA là audit log; NET là số thật.';
+        } else {
+            el.style.background = '#fffbeb';
+            el.style.color = '#b45309';
+            el.style.border = '1px solid #fde68a';
+            el.textContent =
+                '⚠ Chưa có snapshot đơn thật — NET đang tính tạm theo audit log (có thể lệch). Bấm "Làm mới dữ liệu" để fetch đơn thật từ TPOS.';
         }
     },
 
@@ -3646,7 +3684,10 @@ const KPICommission = {
 
         breakdownEl.innerHTML = `
             <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">
-                KPI theo nhân viên (dựa trên audit log — người thực sự upsell)
+                KPI theo nhân viên (người thêm SP — đã chỉnh theo NET đơn thật)
+                <span style="display:block;font-weight:400;color:#9ca3af;font-size:11px;margin-top:2px;">
+                    Lưu ý: lương thực tế lưu theo quy tắc CHỦ KHOẢNG STT (My tính riêng), không phải bảng này.
+                </span>
             </div>
             <table style="width:100%;font-size:13px;border-collapse:collapse;">
                 <thead>
@@ -3833,6 +3874,28 @@ const KPICommission = {
                     }
                 } catch (e) {
                     console.warn('[KPI Tab] Error loading from report_order_details:', e);
+                }
+            }
+
+            // Fallback: cache report_order_details trống → đọc SNAPSHOT đơn thật TPOS
+            // (kpi_final_snapshot). Chưa có thì ensure (fetch TPOS 1 lần rồi lưu).
+            if ((!products || products.length === 0) && window.kpiManager) {
+                try {
+                    const orderCode = order?.orderCode || orderId;
+                    let snap = await window.kpiManager.getKpiFinalSnapshot(orderCode);
+                    if (!snap || !snap.products || snap.products.length === 0) {
+                        snap = await window.kpiManager.ensureKpiFinalSnapshot(orderCode, orderId);
+                    }
+                    if (snap && Array.isArray(snap.products) && snap.products.length > 0) {
+                        products = snap.products.map((d) => ({
+                            code: d.ProductCode || d.Code || d.DefaultCode || '',
+                            name: d.ProductName || d.Name || '',
+                            quantity: d.Quantity || 1,
+                            price: d.Price || 0,
+                        }));
+                    }
+                } catch (e) {
+                    console.warn('[KPI Tab] All-products snapshot fallback failed:', e?.message);
                 }
             }
 
@@ -5522,11 +5585,63 @@ const KPICommission = {
             await this.loadAllStatistics();
             await this.applyFilters();
             this.reinitIcons();
+            // Nền: fetch + lưu snapshot SP cuối thật cho đơn ĐANG HIỂN THỊ chưa có
+            // (đơn nào có rồi bỏ qua). Không await → bảng hiện ngay, snapshot pre-warm
+            // cho modal + lần "Tính lại KPI" sau. Bảng KPI vẫn = giá trị đã lưu cho tới
+            // khi bấm "Tính lại toàn bộ KPI".
+            this._ensureSnapshotsForVisibleOrders().catch((e) =>
+                console.warn('[KPI Tab] snapshot sweep failed:', e?.message)
+            );
         } catch (error) {
             console.error('[KPI Tab] Refresh error:', error);
             this.hideEl('kpiTableLoading');
             this.showEl('kpiTableEmpty');
         }
+    },
+
+    // Fetch + lưu snapshot SP cuối thật (TPOS) cho các đơn đang hiển thị mà CHƯA có
+    // snapshot. "Có rồi bỏ qua" (getMissingFinalSnapshots). Worker pool, non-fatal.
+    async _ensureSnapshotsForVisibleOrders() {
+        if (!window.kpiManager?.ensureKpiFinalSnapshot) return;
+        const map = new Map(); // orderCode -> orderId
+        for (const emp of this.state.filteredData || []) {
+            for (const o of emp.orders || []) {
+                if (o.orderCode && !map.has(o.orderCode)) map.set(o.orderCode, o.orderId || null);
+            }
+        }
+        if (map.size === 0) return;
+
+        let missing;
+        try {
+            missing = await window.kpiManager.getMissingFinalSnapshots([...map.keys()]);
+        } catch (e) {
+            return;
+        }
+        const todo = [...missing]
+            .map((code) => ({ code, orderId: map.get(code) }))
+            .filter((x) => x.orderId);
+        if (todo.length === 0) return;
+
+        console.log(`[KPI Tab] Snapshot sweep: ${todo.length} đơn thiếu — đang fetch TPOS…`);
+        const CONC = 6;
+        let i = 0,
+            done = 0,
+            ok = 0;
+        const worker = async () => {
+            while (i < todo.length) {
+                const item = todo[i++];
+                try {
+                    const r = await window.kpiManager.ensureKpiFinalSnapshot(
+                        item.code,
+                        item.orderId
+                    );
+                    if (r) ok++;
+                } catch (e) {}
+                done++;
+            }
+        };
+        await Promise.all(Array.from({ length: Math.min(CONC, todo.length) }, worker));
+        console.log(`[KPI Tab] Snapshot sweep xong: ${ok}/${todo.length} lưu thành công.`);
     },
 };
 

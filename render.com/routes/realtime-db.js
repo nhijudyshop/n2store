@@ -778,6 +778,149 @@ router.delete('/kpi-base/:orderCode', async (req, res) => {
 });
 
 // =====================================================
+// KPI FINAL SNAPSHOT API (074)
+// Snapshot SP cuối thật trên TPOS — lazy, fetch 1 lần. Nguồn SỐ LƯỢNG để
+// tính KPI NET = final − BASE (tránh drift của audit log). Append-only feature:
+// KHÔNG sửa kpi_base/kpi_audit_log/kpi_statistics.
+// =====================================================
+
+let _kpiFinalSnapshotEnsured = false;
+async function ensureKpiFinalSnapshotTable(pool) {
+    if (_kpiFinalSnapshotEnsured) return;
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS kpi_final_snapshot (
+                order_code   VARCHAR(50)  PRIMARY KEY,
+                order_id     VARCHAR(255),
+                products     JSONB        NOT NULL DEFAULT '[]',
+                fetched_by   VARCHAR(255),
+                fetched_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        _kpiFinalSnapshotEnsured = true;
+    } catch (e) {
+        console.warn('[REALTIME-DB] ensureKpiFinalSnapshotTable failed:', e?.message);
+    }
+}
+
+/**
+ * GET /api/realtime/kpi-final-snapshot/:orderCode
+ * Trả về snapshot SP cuối (nếu đã fetch). { exists, data }
+ */
+router.get('/kpi-final-snapshot/:orderCode', async (req, res) => {
+    try {
+        const { orderCode } = req.params;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureKpiFinalSnapshotTable(pool);
+
+        const result = await pool.query('SELECT * FROM kpi_final_snapshot WHERE order_code = $1', [
+            orderCode,
+        ]);
+        if (result.rows.length === 0) return res.json({ exists: false, data: null });
+
+        const row = result.rows[0];
+        res.json({
+            exists: true,
+            data: {
+                orderCode: row.order_code,
+                orderId: row.order_id,
+                products: row.products,
+                fetchedBy: row.fetched_by,
+                fetchedAt: row.fetched_at,
+                updatedAt: row.updated_at,
+            },
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /kpi-final-snapshot error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /api/realtime/kpi-final-snapshot/exists
+ * Body: { orderCodes: string[] } → { existing: string[] }
+ * Dùng cho "Làm mới dữ liệu": chỉ fetch TPOS cho đơn CHƯA có snapshot.
+ */
+router.post('/kpi-final-snapshot/exists', async (req, res) => {
+    try {
+        const { orderCodes } = req.body || {};
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureKpiFinalSnapshotTable(pool);
+
+        const codes = Array.from(new Set((orderCodes || []).map((c) => String(c)).filter(Boolean)));
+        if (codes.length === 0) return res.json({ existing: [] });
+
+        const result = await pool.query(
+            'SELECT order_code FROM kpi_final_snapshot WHERE order_code = ANY($1)',
+            [codes]
+        );
+        res.json({ existing: result.rows.map((r) => r.order_code) });
+    } catch (error) {
+        console.error('[REALTIME-DB] POST /kpi-final-snapshot/exists error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PUT /api/realtime/kpi-final-snapshot/:orderCode
+ * Body: { orderId, products[], fetchedBy? }
+ * Upsert snapshot. Mặc định ghi đè (force refresh dùng đường này). Client tự
+ * quyết "có rồi bỏ qua" bằng cách check GET/exists trước khi gọi.
+ */
+router.put('/kpi-final-snapshot/:orderCode', async (req, res) => {
+    try {
+        const { orderCode } = req.params;
+        const { orderId, products, fetchedBy } = req.body || {};
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureKpiFinalSnapshotTable(pool);
+
+        if (!Array.isArray(products)) {
+            return res.status(400).json({ error: 'products must be an array' });
+        }
+
+        await pool.query(
+            `INSERT INTO kpi_final_snapshot (order_code, order_id, products, fetched_by, fetched_at, updated_at)
+             VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+             ON CONFLICT (order_code) DO UPDATE SET
+                order_id   = EXCLUDED.order_id,
+                products   = EXCLUDED.products,
+                fetched_by = EXCLUDED.fetched_by,
+                updated_at = CURRENT_TIMESTAMP`,
+            [orderCode, orderId || null, JSON.stringify(products), fetchedBy || null]
+        );
+        res.json({ success: true, orderCode, count: products.length });
+    } catch (error) {
+        console.error('[REALTIME-DB] PUT /kpi-final-snapshot error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * DELETE /api/realtime/kpi-final-snapshot/:orderCode
+ * Xóa snapshot (force re-fetch lần sau).
+ */
+router.delete('/kpi-final-snapshot/:orderCode', async (req, res) => {
+    try {
+        const { orderCode } = req.params;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureKpiFinalSnapshotTable(pool);
+
+        const result = await pool.query('DELETE FROM kpi_final_snapshot WHERE order_code = $1', [
+            orderCode,
+        ]);
+        res.json({ success: true, deleted: result.rowCount > 0 });
+    } catch (error) {
+        console.error('[REALTIME-DB] DELETE /kpi-final-snapshot error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
 // KPI AUDIT LOG API
 // =====================================================
 
@@ -1525,11 +1668,7 @@ router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
 
         // SSE broadcast → KPI strip tab1 cập nhật realtime sau khi tick "SP bán hàng"
         if (notifyClients) {
-            notifyClients(
-                'kpi_statistics',
-                { userId, date, orderCode, op: 'patch' },
-                'update'
-            );
+            notifyClients('kpi_statistics', { userId, date, orderCode, op: 'patch' }, 'update');
         }
 
         res.json({ success: true, userId, date, orderCode });
@@ -1591,11 +1730,7 @@ router.delete('/kpi-statistics/order/:orderCode', async (req, res) => {
 
         // SSE broadcast (chỉ khi có row bị strip) → KPI strip cập nhật
         if (notifyClients && result.rowCount > 0) {
-            notifyClients(
-                'kpi_statistics',
-                { orderCode, op: 'delete-order' },
-                'deleted'
-            );
+            notifyClients('kpi_statistics', { orderCode, op: 'delete-order' }, 'deleted');
         }
 
         res.json({ success: true, orderCode, rowsAffected: result.rowCount });
@@ -1620,11 +1755,7 @@ router.delete('/kpi-statistics/:userId/:date', async (req, res) => {
         );
 
         if (notifyClients && result.rowCount > 0) {
-            notifyClients(
-                'kpi_statistics',
-                { userId, date, op: 'delete-row' },
-                'deleted'
-            );
+            notifyClients('kpi_statistics', { userId, date, op: 'delete-row' }, 'deleted');
         }
 
         res.json({ success: true, deleted: result.rowCount > 0 });
@@ -1847,11 +1978,7 @@ router.post('/kpi-statistics/recalculate-assignments', async (req, res) => {
 
         // SSE broadcast → KPI strip cập nhật sau khi recalc assignments toàn bộ
         if (notifyClients && moved > 0) {
-            notifyClients(
-                'kpi_statistics',
-                { op: 'recalc-assignments', moved },
-                'update'
-            );
+            notifyClients('kpi_statistics', { op: 'recalc-assignments', moved }, 'update');
         }
 
         res.json({
