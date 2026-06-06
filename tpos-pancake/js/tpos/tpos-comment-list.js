@@ -335,9 +335,24 @@ const TposCommentList = {
     },
 
     /**
-     * Render the full comment list
+     * Render the full comment list (COALESCED).
+     *
+     * Khi load nhiều campaign, các pass enrichment (session index, native orders,
+     * partner batch, kho enricher, realtime) gọi renderComments() liên tiếp nhiều
+     * lần trong vài trăm ms. Mỗi lần rebuild full innerHTML 700+ rows → giật.
+     * Gom burst thành 1 render (trailing 60ms). Tất cả caller đều là "data đổi →
+     * re-render", không ai đọc DOM đồng bộ ngay sau nên debounce an toàn.
+     * Dùng renderCommentsNow() nếu thật sự cần render đồng bộ tức thì.
      */
     renderComments() {
+        clearTimeout(this._renderTimer);
+        this._renderTimer = setTimeout(() => this.renderCommentsNow(), 60);
+    },
+
+    /**
+     * Render the full comment list — synchronous (no coalescing).
+     */
+    renderCommentsNow() {
         const state = window.TposState;
         const listContainer = document.getElementById('tposCommentList');
         if (!listContainer) return;
