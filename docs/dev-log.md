@@ -25,6 +25,23 @@
 
 ## 2026-06-06
 
+### [supplier-debt] Lịch sử thay đổi bảng công nợ NCC (kéo vị trí + sửa ghi chú + xóa thanh toán + reset) ✅
+
+User hỏi "bảng sắp xếp do cái gì?" → giải đáp: sort 2 lớp — (1) theo **ngày web/TPOS** (cũ→mới), (2) **thứ tự kéo tay** per-NCC đè lên (`RowOrderStore`, Firestore `supplier_debt_row_order`). Trước đây mỗi lần kéo chỉ ghi đè mảng thứ tự, KHÔNG lưu ai/khi nào/từ đâu→đâu.
+
+Thêm **lịch sử chi tiết** ghi 4 loại hành động per-NCC, kèm người + thời gian:
+
+- **Kéo đổi vị trí hàng**: log `{moveName, from #, to #}` (vị trí 1-based trong view).
+- **Sửa/xóa ghi chú web**: log `{moveName, oldNote → newNote}` (chỉ khi thực sự đổi).
+- **Xóa thanh toán**: log `{moveName, amount}` (chỉ khi xóa thành công — `deletePayment` giờ return bool).
+- **Reset thứ tự về mặc định**: nút trong modal → `RowOrderStore.delete` + log + re-render.
+
+Xem qua **nút "Lịch sử"** ở tab Công nợ → modal timeline NCC đang xem (icon màu theo loại, realtime cập nhật khi tab khác ghi).
+
+- Lưu Firestore `supplier_debt_history/events` + localStorage cache + realtime listener (pattern giống `RowOrderStore` — trang legacy/Web 1.0 dùng Firestore, không SSE). Cap 50 sự kiện/NCC. User attribution qua `authManager.getUserInfo()`.
+- Browser-tested (Playwright): store/handlers/modal đều wired, 4 loại event render đúng tiếng Việt + timestamp + user.
+- **Files:** `supplier-debt/js/row-history.js` (mới), `supplier-debt/js/main.js` (expose `window.RowOrderStore`, toolbar nút Lịch sử, 4 điểm log, `deletePayment` return bool), `supplier-debt/index.html` (modal + script tag v=20260606a), `supplier-debt/css/styles.css` (timeline styles)
+
 ### [web2] Chat read-only: thread tin nhắn mới nhất xuống ĐÁY (sort asc + scroll bottom) ✅
 
 User: nội dung tin nhắn bên phải → cho tin nhắn mới nhất xuống dưới cùng.

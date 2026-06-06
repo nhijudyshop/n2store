@@ -596,6 +596,8 @@ const RowOrderStore = {
         }
     },
 };
+// Expose for row-history.js (const không tự gắn vào window)
+window.RowOrderStore = RowOrderStore;
 
 // Column definitions for visibility toggle
 const COLUMNS = [
@@ -1595,8 +1597,17 @@ function renderCongNoTab(partnerId) {
             ? '<div style="color:#dc2626;font-size:12px;padding:4px 8px;background:#fef2f2;border-radius:4px;margin-bottom:6px;">⚠ Dữ liệu có nhiều hơn 1 trang — Nợ đầu kỳ/cuối kỳ có thể không chính xác do sort theo ngày web.</div>'
             : '';
 
+    const historyToolbar = `
+        <div class="congno-toolbar">
+            <button class="btn-row-history" onclick="openRowHistoryModal('${escapeHtmlAttr(supplierCode)}', ${partnerId})" title="Xem lịch sử kéo vị trí, sửa ghi chú, xóa thanh toán">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+                Lịch sử
+            </button>
+        </div>`;
+
     let tableHtml =
         paginationWarning +
+        historyToolbar +
         `
         <table class="detail-table congno-drag-table" data-supplier="${escapeHtmlAttr(supplierCode)}" data-partner="${partnerId}">
             <thead>
@@ -1713,7 +1724,7 @@ function renderCongNoTab(partnerId) {
                         isPayment && hasSupplierDebtPermission('deletePayment')
                             ? `
                         <button class="btn-delete-row"
-                            onclick="handleDeletePayment('${escapeHtmlAttr(item.Date || '')}', '${escapedMoveName}', ${partnerId})"
+                            onclick="handleDeletePayment('${escapeHtmlAttr(item.Date || '')}', '${escapedMoveName}', ${partnerId}, ${credit}, '${escapedSupplierCode}')"
                             title="Xóa thanh toán">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                         </button>
@@ -1892,8 +1903,21 @@ function initCongNoDragAndDrop() {
 
         newOrder.splice(insertIdx, 0, _dragState.moveName);
 
+        // Capture for history log before cleanup nulls _dragState
+        const draggedMoveName = _dragState.moveName;
+        const fromPos = dragIdx + 1; // 1-based vị trí cũ
+        const toPos = newOrder.indexOf(draggedMoveName) + 1; // 1-based vị trí mới
+
         // Save to Firebase
         await RowOrderStore.set(supplierCode, newOrder);
+
+        // Log lịch sử kéo vị trí
+        window.RowHistoryStore?.add(supplierCode, {
+            type: 'reorder',
+            moveName: draggedMoveName,
+            from: fromPos,
+            to: toPos,
+        });
 
         cleanupDragState();
 
@@ -3042,7 +3066,19 @@ async function saveNoteEdit() {
     }
 
     try {
+        const oldNote = WebNotesStore.get(supplierCode, moveName);
         await WebNotesStore.set(supplierCode, moveName, webNote);
+
+        // Log lịch sử sửa/xóa ghi chú web (chỉ khi thực sự thay đổi)
+        const newNote = (webNote || '').trim();
+        if (oldNote !== newNote) {
+            window.RowHistoryStore?.add(supplierCode, {
+                type: 'note',
+                moveName,
+                oldNote,
+                newNote,
+            });
+        }
 
         if (window.notificationManager) {
             window.notificationManager.success('Đã lưu ghi chú');
@@ -3213,7 +3249,7 @@ async function handleDeleteLastPayment(partnerId, supplierCode) {
     }
 }
 
-async function handleDeletePayment(paymentDate, moveName, partnerId) {
+async function handleDeletePayment(paymentDate, moveName, partnerId, amount, supplierCode) {
     if (!hasSupplierDebtPermission('deletePayment')) {
         window.notificationManager?.error('Bạn không có quyền xóa thanh toán');
         return;
@@ -3244,7 +3280,16 @@ async function handleDeletePayment(paymentDate, moveName, partnerId) {
     }
 
     // Delete the payment
-    await deletePayment(paymentId, partnerId);
+    const ok = await deletePayment(paymentId, partnerId);
+
+    // Log lịch sử xóa thanh toán (chỉ khi xóa thành công)
+    if (ok && supplierCode) {
+        window.RowHistoryStore?.add(supplierCode, {
+            type: 'payment_delete',
+            moveName,
+            amount: amount || 0,
+        });
+    }
 }
 
 async function lookupPaymentIdByDate(partnerId, paymentDate) {
@@ -3367,11 +3412,13 @@ async function deletePayment(paymentId, partnerId) {
         await fetchData();
         AutoRefresh.seedHash();
         AutoRefresh.notifyChange('payment-deleted');
+        return true;
     } catch (error) {
         console.error('[SupplierDebt] Delete payment error:', error);
         if (window.notificationManager) {
             window.notificationManager.error(`Lỗi: ${error.message}`);
         }
+        return false;
     }
 }
 

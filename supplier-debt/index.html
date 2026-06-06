@@ -466,6 +466,23 @@
             </div>
         </div>
 
+        <!-- Row History Modal (lịch sử kéo vị trí / sửa ghi chú / xóa thanh toán) -->
+        <div class="modal-overlay" id="rowHistoryModal">
+            <div class="modal modal-row-history">
+                <div class="modal-header">
+                    <h3 id="rowHistoryTitle">Lịch sử thay đổi</h3>
+                    <button class="modal-close" id="btnCloseRowHistory">&times;</button>
+                </div>
+                <div class="modal-body" id="rowHistoryBody">
+                    <!-- Timeline rendered by row-history.js -->
+                </div>
+                <div class="modal-footer">
+                    <div id="rowHistoryFooter" class="row-history-footer-left"></div>
+                    <button class="btn btn-secondary" id="btnCloseRowHistoryFooter">Đóng</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Invoice Detail Modal -->
         <div class="modal-overlay" id="invoiceDetailModal">
             <div class="modal modal-invoice-detail">
@@ -755,7 +772,8 @@
         </script>
 
         <!-- Page Script -->
-        <script src="js/main.js?v=20260524b"></script>
+        <script src="js/main.js?v=20260606a"></script>
+        <script src="js/row-history.js?v=20260606a"></script>
 
         <!-- Initialize Lucide Icons -->
         <script>
