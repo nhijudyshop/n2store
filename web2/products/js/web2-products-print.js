@@ -104,6 +104,13 @@
         },
     ];
 
+    // 2026-06-06: khổ tem MẶC ĐỊNH = "Tem rộng 50×30mm" (id 10) — quét tốt mọi mã
+    // kể cả mã dài (user chọn). Fallback index 0 nếu không tìm thấy.
+    const DEFAULT_PAPER_IDX = Math.max(
+        0,
+        PAPERS.findIndex((p) => p.id === 10)
+    );
+
     // 2026-06-06: ước lượng độ rộng vạch hẹp nhất (X-dimension) để cảnh báo mã
     // quá dài cho khổ tem → vạch quá mảnh máy quét không đọc được (lý do đơn
     // Hạnh Trần chỉ quét được B4AOBE 6 ký tự, còn B4DAMVANG/ADQUANDENM thì không).
@@ -213,7 +220,7 @@
     function showSelectionModal(items) {
         if (overlay) overlay.remove();
 
-        let selectedPaper = PAPERS[0];
+        let selectedPaper = PAPERS[DEFAULT_PAPER_IDX];
         let selectedPrintType = PRINT_TYPES[0];
         let showPrice = true;
         let showBold = true;
@@ -322,7 +329,7 @@
                             <span class="w2p-print-field-label">Giấy in</span>
                             <div class="w2p-print-field-value">
                                 <select id="w2p-paper">
-                                    ${PAPERS.map((p, i) => `<option value="${i}" ${i === 0 ? 'selected' : ''}>${p.name}</option>`).join('')}
+                                    ${PAPERS.map((p, i) => `<option value="${i}" ${i === DEFAULT_PAPER_IDX ? 'selected' : ''}>${p.name}</option>`).join('')}
                                 </select>
                             </div>
                         </div>
