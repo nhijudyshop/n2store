@@ -86,6 +86,18 @@ User: mọi thao tác chạm tiền (duyệt/cộng ví/hoàn đơn) cần ghi a
 
 CK signals đã có history đầy đủ + timeline trong modal (làm trước). Test [test-wallet-audit.js](scripts/test-wallet-audit.js) 4/4 (processDeposit/Withdraw ghi performed_by, không truyền → null, DB lưu đúng).
 
+### [supplier-debt] Fix gốc: hóa đơn mới tự chèn theo ngày + reset B24 bị xáo ✅
+
+User hỏi "sao 03/05 lại nằm ở đó" (BILL/2026/1664 kẹt gần cuối bảng B24). Đọc `RowOrderStore` → B24 có thứ tự kéo tay 33 dòng, 1664 ở vị trí 31/33 — thứ tự bị **xáo trộn** (rác tích lũy), không phải human-arranged.
+
+**Nguyên nhân gốc:** `applyCustomRowOrder` cũ dồn hóa đơn mới (chưa có trong thứ tự lưu) xuống **cuối bảng** → lần kéo kế tiếp drop handler lưu lại toàn bộ DOM order → **đóng băng vị trí cuối** đó vào thứ tự. Lặp lại (đổi page size, HĐ mới về, kéo lại) → xáo trộn.
+
+**Sửa (A — gốc, cho MỌI NCC):** `applyCustomRowOrder` ([main.js](supplier-debt/js/main.js)) giờ **chèn dòng unknown theo NGÀY** vào đúng vị trí chronological (trước dòng đầu tiên có ngày mới hơn) thay vì dồn cuối. Thứ tự `known` (kéo cố ý) giữ nguyên → không phá ý đồ drag, nhưng HĐ mới về đúng chỗ. Thêm helper `congNoRowTime(row)` (web date > TPOS date).
+
+**Sửa (B — reset B24 ngay):** chạy `RowOrderStore.delete('B24')` + log `reset_order` qua page đã auth (ghi thẳng Firestore prod, same client path như nút Khôi phục). Verify: order 33 → 0, B24 về sort theo ngày (03/05 lên đầu). NCC khác giữ nguyên — bấm nút Lịch sử → Khôi phục nếu cũng bị xáo.
+
+- **Files:** `supplier-debt/js/main.js` (applyCustomRowOrder chèn theo ngày + `congNoRowTime`), `supplier-debt/index.html` (main.js v=20260606b)
+
 ### [supplier-debt] Lịch sử thay đổi bảng công nợ NCC (kéo vị trí + sửa ghi chú + xóa thanh toán + reset) ✅
 
 User hỏi "bảng sắp xếp do cái gì?" → giải đáp: sort 2 lớp — (1) theo **ngày web/TPOS** (cũ→mới), (2) **thứ tự kéo tay** per-NCC đè lên (`RowOrderStore`, Firestore `supplier_debt_row_order`). Trước đây mỗi lần kéo chỉ ghi đè mảng thứ tự, KHÔNG lưu ai/khi nào/từ đâu→đâu.

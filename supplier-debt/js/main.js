@@ -1775,10 +1775,22 @@ function renderCongNoTab(partnerId) {
 // =====================================================
 
 /**
+ * Sort time của 1 dòng công nợ: ưu tiên ngày web (RefundDateStore) rồi tới ngày TPOS.
+ */
+function congNoRowTime(row) {
+    const webDate = RefundDateStore.getByMoveName(row.MoveName || '');
+    return webDate ? parseDDMMYYYY(webDate) : new Date(row.Date || 0).getTime();
+}
+
+/**
  * Apply custom row order from RowOrderStore across all rows for a supplier.
- * Rows present in the stored order get their stored position; rows not in
- * the stored order are appended at the end while keeping their date-sorted
- * relative order (so newly-fetched rows show up naturally).
+ * Rows present in the stored order keep their stored (drag) position. Rows NOT
+ * in the stored order (hóa đơn mới về sau lần kéo gần nhất) được CHÈN theo NGÀY
+ * vào đúng vị trí chronological, thay vì dồn hết xuống cuối bảng.
+ *
+ * Lý do: trước đây dồn xuống cuối → lần kéo kế tiếp "đóng băng" vị trí cuối đó vào
+ * thứ tự đã lưu, lâu dần làm xáo trộn (vd B24: BILL 03/05 kẹt gần cuối). Chèn theo
+ * ngày giữ được ý đồ kéo tay (thứ tự known không đổi) mà hóa đơn mới vẫn đúng chỗ.
  */
 function applyCustomRowOrder(rows, supplierCode) {
     const customOrder = RowOrderStore.get(supplierCode);
@@ -1790,8 +1802,7 @@ function applyCustomRowOrder(rows, supplierCode) {
     const known = [];
     const unknown = [];
     rows.forEach((r) => {
-        const mn = r.MoveName || '';
-        if (orderMap.has(mn)) {
+        if (orderMap.has(r.MoveName || '')) {
             known.push(r);
         } else {
             unknown.push(r);
@@ -1800,7 +1811,25 @@ function applyCustomRowOrder(rows, supplierCode) {
 
     known.sort((a, b) => orderMap.get(a.MoveName || '') - orderMap.get(b.MoveName || ''));
 
-    return [...known, ...unknown];
+    if (unknown.length === 0) return known;
+
+    // Chèn từng dòng mới theo ngày: trước dòng đầu tiên (trong kết quả) có ngày MỚI HƠN.
+    // Xử lý unknown từ cũ → mới để chèn ổn định.
+    unknown.sort((a, b) => congNoRowTime(a) - congNoRowTime(b));
+
+    const result = [...known];
+    for (const u of unknown) {
+        const ut = congNoRowTime(u);
+        let insertAt = result.length;
+        for (let i = 0; i < result.length; i++) {
+            if (congNoRowTime(result[i]) > ut) {
+                insertAt = i;
+                break;
+            }
+        }
+        result.splice(insertAt, 0, u);
+    }
+    return result;
 }
 
 /**
