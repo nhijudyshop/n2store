@@ -25,6 +25,11 @@
 
 ## 2026-06-06
 
+### [web2] In tem: đẩy tem phải +1mm + Kho SP giữ vị trí khi tương tác ✅
+
+1. **Tem bên phải sang phải 1 ít** [web2-products-print.js](web2/products/js/web2-products-print.js): mỗi cột sau cột đầu lệch phải `ci × 1mm` (2-up → cột phải +1mm) qua `padding-left=2×nudge` (border-box → center dịch = padding/2), cap theo slack `(cellW-labelW)/2` để không cắt mép. Verify guide tâm cột: tem trái trùng 16.5mm, tem phải lệch phải ~1mm khỏi 49.5mm. Cache-bust `?v=20260605j` (products + so-order).
+2. **Kho SP không nhảy lên đầu khi tương tác** [web2-products.js](render.com/routes/web2-products.js) `/list`: `ORDER BY is_active DESC, updated_at DESC` → `... created_at DESC, code ASC`. Trước đây in tem/sửa/toggle/chỉnh tồn bump `updated_at` → SP nhảy lên đầu khi full reload (SSE mark-printed/stock → debouncedFullLoad). `created_at` cố định sau tạo → vị trí ổn định, chỉ SP MỚI tạo lên đầu. Index sẵn `idx_web2_products_created`. Frontend đã in-place update từ trước; fix backend làm cả full-reload cũng giữ vị trí.
+
 ### [render][web2] Audit history money ops — ví (performed_by) + refund (ai duyệt) ✅
 
 User: mọi thao tác chạm tiền (duyệt/cộng ví/hoàn đơn) cần ghi ai làm — lúc nào để kiểm tra lại nếu sai sót.
