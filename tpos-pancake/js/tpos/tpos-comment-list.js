@@ -65,6 +65,17 @@ const TposCommentList = {
     },
 
     /**
+     * Inject pill số dư ví Web 2.0 ([data-w2wallet-phone] → "Ví: X₫") sau mỗi
+     * render. Idempotent (Web2WalletBalance skip element đã done). Thay "Nợ TPOS".
+     */
+    _attachWalletBalances() {
+        const list = document.getElementById('tposCommentList');
+        if (list && window.Web2WalletBalance?.attachBalances) {
+            window.Web2WalletBalance.attachBalances(list);
+        }
+    },
+
+    /**
      * Infinite scroll: cuộn gần đáy list → tự load thêm RENDER_LIMIT_STEP comment
      * cũ hơn. Dùng IntersectionObserver trên sentinel ở cuối (không scroll handler
      * churn). Append batch mới TRƯỚC sentinel → giữ nguyên các dòng đã có + vị trí
@@ -140,6 +151,7 @@ const TposCommentList = {
                 this._renderLimit = newLim;
                 this._loadingOlder = false;
                 this._ensureScrollSentinel(); // re-observe (hoặc gỡ nếu hết)
+                this._attachWalletBalances();
             }
         };
         schedule(step);
@@ -471,7 +483,6 @@ const TposCommentList = {
         const kho = state.customerKhoCache?.get(fromId);
         const phone = partner.Phone || kho?.phone || '';
         const address = partner.Street || kho?.address || '';
-        const debt = window.sharedDebtManager ? window.sharedDebtManager.getDebt(phone) : null;
         const raw = state.sessionIndexMap.get(fromId);
         const si = raw?.source === 'NATIVE_WEB' ? raw : null;
         const inOrder = si && Array.isArray(si.commentIds) && si.commentIds.includes(comment.id);
@@ -484,7 +495,6 @@ const TposCommentList = {
             phone,
             address,
             partner.StatusText || '',
-            debt,
             si?.code || '',
             si?.index || '',
             inOrder ? 1 : 0,
@@ -568,6 +578,7 @@ const TposCommentList = {
             } else {
                 this._chunkHandle = null;
                 this.updateLoadMoreIndicator();
+                this._attachWalletBalances();
                 if (this._pendingDirty) {
                     this._pendingDirty = false;
                     this._renderDispatch();
@@ -627,6 +638,7 @@ const TposCommentList = {
                 this._fullRenderHandle = null;
                 this._ensureScrollSentinel(); // infinite-scroll sentinel ở cuối
                 this.updateLoadMoreIndicator();
+                this._attachWalletBalances();
                 // Enrichment đến trong lúc render → patch nốt phần đã render stale.
                 if (this._pendingDirty) {
                     this._pendingDirty = false;
@@ -745,12 +757,12 @@ const TposCommentList = {
         const phone = partner.Phone || kho?.phone || '';
         const address = partner.Street || kho?.address || '';
 
-        // Debt via shared debt manager
-        const debt = window.sharedDebtManager ? window.sharedDebtManager.getDebt(phone) : null;
-        const debtDisplay = SharedUtils.formatDebt(debt);
-        const hasDebt =
-            state.showDebt &&
-            ((debt && debt > 0) || (state.showZeroDebt && debt !== null && debt !== undefined));
+        // Số dư ví Web 2.0 (thay cho "Nợ TPOS" cũ — user yêu cầu 2026-06-06).
+        // Render placeholder [data-w2wallet-phone]; Web2WalletBalance.attachBalances
+        // (gọi sau mỗi render) fetch số dư + inject pill "Ví: X₫" (chỉ hiện khi >0).
+        const walletPlaceholder = phone
+            ? `<span data-w2wallet-phone="${SharedUtils.escapeHtml(phone)}"></span>`
+            : '';
 
         // Check saved-to-Tpos
         const isSavedToTpos =
@@ -810,7 +822,7 @@ const TposCommentList = {
                     <button class="tpos-action-btn" style="width:22px;height:22px;" onclick="event.stopPropagation(); TposCommentList.saveInlinePhone('${fromId}', 'phone-${fromId}')" title="Lưu SĐT">
                         ${tposSvgIcon('save', 11)}
                     </button>
-                    ${hasDebt ? `<span class="debt-badge">Nợ: ${debtDisplay}</span>` : ''}
+                    ${walletPlaceholder}
                     <input type="text" id="addr-${fromId}" value="${SharedUtils.escapeHtml(address)}" placeholder="Địa chỉ" style="flex:1;min-width:100px;" onclick="event.stopPropagation();">
                     <button class="tpos-action-btn" style="width:22px;height:22px;" onclick="event.stopPropagation(); TposCommentList.saveInlineAddress('${fromId}', 'addr-${fromId}')" title="Lưu địa chỉ">
                         ${tposSvgIcon('save', 11)}

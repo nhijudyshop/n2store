@@ -25,6 +25,18 @@
 
 ## 2026-06-06
 
+### [tpos-pancake] Comment row: bỏ "Nợ TPOS" → hiện số dư ví Web 2.0 ✅
+
+**User:** "Nợ 2.000.000đ" trên row comment là nợ TPOS (`sharedDebtManager.getDebt`) → đổi thành **số dư ví Web 2.0** của khách.
+
+**Files:** `tpos-pancake/js/tpos/tpos-comment-list.js`
+
+- `renderCommentItem`: bỏ badge `Nợ: ${debtDisplay}` (TPOS debt) → render placeholder `<span data-w2wallet-phone="${phone}">`.
+- Gọi `Web2WalletBalance.attachBalances(list)` (module có sẵn, đã load) sau mỗi render (full/patch/append-older) → fetch `/api/web2/wallets/by-phone/:phone` + inject pill `Ví: X₫` (chỉ hiện khi >0, cache 60s, SSE invalidate).
+- `_rowSig` bỏ phụ thuộc `debt`/`showDebt` (pill inject async, độc lập innerHTML).
+
+**Verify localhost:** 55 placeholder xử lý xong, 5 pill ví hiện số dư thật (Ví: 1.645.000₫, 11.604.000₫…), 0 debt-badge. ✅
+
 ### [tpos-pancake] Force extract — chuyển sang CLIENT-SIDE (fix FB chặn backend) ✅
 
 **Vấn đề:** Force extract + nút "Lấy thumbnail" fail hết `no m3u8 URL`.
