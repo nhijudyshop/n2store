@@ -305,6 +305,74 @@ router.get('/list', async (req, res) => {
 });
 
 // -----------------------------------------------------
+// GET /logs — audit log TOÀN BỘ PBH (cross-PBH) để đối chiếu camera.
+// PHẢI khai báo TRƯỚC '/:number' (nếu không '/logs' bị bắt làm :number='logs').
+// Query: action, from (ms), to (ms), search (pbh/SP/người), limit.
+// Dùng chính: filter action='manual-pick' + khoảng thời gian → biết tích tay lúc nào → soi camera.
+// -----------------------------------------------------
+router.get('/logs', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const action = req.query.action ? String(req.query.action).trim() : '';
+        const from = req.query.from ? parseInt(req.query.from, 10) : null;
+        const to = req.query.to ? parseInt(req.query.to, 10) : null;
+        const search = req.query.search ? String(req.query.search).trim() : '';
+        const limit = Math.min(parseInt(req.query.limit, 10) || 300, 1000);
+
+        const conds = [];
+        const params = [];
+        if (action) {
+            params.push(action);
+            conds.push(`action = $${params.length}`);
+        }
+        if (Number.isFinite(from)) {
+            params.push(from);
+            conds.push(`created_at >= $${params.length}`);
+        }
+        if (Number.isFinite(to)) {
+            params.push(to);
+            conds.push(`created_at <= $${params.length}`);
+        }
+        if (search) {
+            params.push(`%${search}%`);
+            const i = params.length;
+            conds.push(
+                `(pbh_number ILIKE $${i} OR user_name ILIKE $${i} OR payload->>'productCode' ILIKE $${i})`
+            );
+        }
+        const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+        const r = await pool.query(
+            `SELECT id, pbh_number, action, payload, state_before, state_after,
+                    user_id, user_name, created_at
+             FROM pbh_fulfillment_logs
+             ${where}
+             ORDER BY created_at DESC
+             LIMIT ${limit}`,
+            params
+        );
+        res.json({
+            success: true,
+            logs: r.rows.map((x) => ({
+                id: Number(x.id),
+                pbhNumber: x.pbh_number,
+                action: x.action,
+                payload: x.payload || {},
+                stateBefore: x.state_before,
+                stateAfter: x.state_after,
+                userId: x.user_id,
+                userName: x.user_name,
+                createdAt: Number(x.created_at),
+            })),
+        });
+    } catch (e) {
+        console.error('[RECONCILE] logs error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
 // GET /:number — detail
 // -----------------------------------------------------
 router.get('/:number', async (req, res) => {

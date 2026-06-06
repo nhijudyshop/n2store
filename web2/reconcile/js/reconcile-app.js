@@ -632,6 +632,205 @@
         }
     }
 
+    // ---------- audit modal (lịch sử toàn bộ — đối chiếu camera) ----------
+    // 2026-06-06: user cần filter chi tiết (chủ yếu tích tay theo thời gian) để soi camera.
+    const AUDIT = { action: 'manual-pick', from: null, to: null, search: '' };
+    let _auditSearchTimer = null;
+    let _bodyLockY = 0;
+
+    function pad2(n) {
+        return String(n).padStart(2, '0');
+    }
+    function fmtTsFull(ts) {
+        const d = new Date(Number(ts));
+        return (
+            `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ` +
+            `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
+        );
+    }
+    // ms → 'YYYY-MM-DDTHH:MM' (giá trị input datetime-local, theo local time)
+    function tsToInput(ts) {
+        if (!ts) return '';
+        const d = new Date(Number(ts));
+        return (
+            `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` +
+            `T${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+        );
+    }
+    function inputToTs(val) {
+        if (!val) return null;
+        const t = new Date(val).getTime();
+        return Number.isFinite(t) ? t : null;
+    }
+    function lockBody() {
+        _bodyLockY = window.scrollY || 0;
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${_bodyLockY}px`;
+        document.body.style.width = '100%';
+    }
+    function unlockBody() {
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        window.scrollTo(0, _bodyLockY);
+    }
+
+    function openAuditModal() {
+        const overlay = document.getElementById('rcAuditOverlay');
+        if (!overlay) return;
+        // Mặc định: tích tay + hôm nay (00:00 → giờ hiện tại).
+        if (AUDIT.from == null && AUDIT.to == null) {
+            const now = new Date();
+            const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+            AUDIT.from = start.getTime();
+            AUDIT.to = now.getTime();
+        }
+        syncAuditInputs();
+        overlay.hidden = false;
+        lockBody();
+        if (window.lucide) window.lucide.createIcons();
+        fetchAudit();
+    }
+    function closeAuditModal() {
+        const overlay = document.getElementById('rcAuditOverlay');
+        if (!overlay) return;
+        overlay.hidden = true;
+        unlockBody();
+    }
+    function syncAuditInputs() {
+        const fEl = document.getElementById('rcAuditFrom');
+        const tEl = document.getElementById('rcAuditTo');
+        const sEl = document.getElementById('rcAuditSearch');
+        if (fEl) fEl.value = tsToInput(AUDIT.from);
+        if (tEl) tEl.value = tsToInput(AUDIT.to);
+        if (sEl) sEl.value = AUDIT.search;
+        document.querySelectorAll('#rcAuditChips .rc-achip').forEach((c) => {
+            c.classList.toggle('is-active', (c.dataset.action || '') === AUDIT.action);
+        });
+    }
+    async function fetchAudit() {
+        const box = document.getElementById('rcAuditResults');
+        const countEl = document.getElementById('rcAuditCount');
+        if (box) box.innerHTML = '<div class="rc-audit-loading">Đang tải…</div>';
+        try {
+            const q = new URLSearchParams();
+            if (AUDIT.action) q.set('action', AUDIT.action);
+            if (AUDIT.from) q.set('from', String(AUDIT.from));
+            if (AUDIT.to) q.set('to', String(AUDIT.to));
+            if (AUDIT.search) q.set('search', AUDIT.search);
+            q.set('limit', '500');
+            const res = await api('GET', `/logs?${q.toString()}`);
+            renderAuditResults(res.logs || []);
+            if (countEl) countEl.textContent = `${(res.logs || []).length} kết quả`;
+        } catch (e) {
+            if (box)
+                box.innerHTML = `<div class="rc-audit-empty">Lỗi: ${escapeHtml(e.message)}</div>`;
+            if (countEl) countEl.textContent = '—';
+        }
+    }
+    function renderAuditResults(logs) {
+        const box = document.getElementById('rcAuditResults');
+        if (!box) return;
+        if (!logs.length) {
+            box.innerHTML = '<div class="rc-audit-empty">Không có lịch sử khớp bộ lọc</div>';
+            return;
+        }
+        const rows = logs
+            .map((l) => {
+                const p = l.payload || {};
+                const label = RC_HISTORY_LABELS[l.action] || l.action;
+                const isManual =
+                    l.action === 'manual-pick' && (p.pickedQty == null || p.pickedQty > 0);
+                const cam = isManual ? '<span class="rc-audit-cam">📹 camera</span>' : '';
+                const trans =
+                    l.stateBefore && l.stateAfter && l.stateBefore !== l.stateAfter
+                        ? `${STATE_LABELS[l.stateBefore] || l.stateBefore} → ${STATE_LABELS[l.stateAfter] || l.stateAfter}`
+                        : '';
+                return `
+                <tr class="rc-audit-rowitem cv-auto ${isManual ? 'is-manual' : ''}">
+                    <td class="rc-audit-ts">${fmtTsFull(l.createdAt)}</td>
+                    <td class="rc-audit-pbh"><button type="button" class="rc-audit-open" data-number="${escapeHtml(l.pbhNumber)}">${escapeHtml(l.pbhNumber)}</button></td>
+                    <td class="rc-audit-act">${escapeHtml(label)} ${cam}</td>
+                    <td class="rc-audit-sp">${escapeHtml(p.productCode || '')}${p.pickedQty != null ? ` · SL ${escapeHtml(String(p.pickedQty))}` : ''}<div class="rc-audit-trans">${escapeHtml(trans)}</div></td>
+                    <td class="rc-audit-user">${escapeHtml(l.userName || l.userId || '(ẩn danh)')}</td>
+                </tr>`;
+            })
+            .join('');
+        box.innerHTML = `
+            <table class="rc-audit-table">
+                <thead><tr>
+                    <th>Thời gian</th><th>PBH</th><th>Thao tác</th><th>Sản phẩm</th><th>Người</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+        // PBH clickable → mở chi tiết + đóng modal
+        box.querySelectorAll('.rc-audit-open').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const n = btn.dataset.number;
+                closeAuditModal();
+                selectPbh(n); // load chi tiết bất kể tab đang lọc gì
+            });
+        });
+    }
+    function bindAuditUi() {
+        const btn = document.getElementById('rcAuditBtn');
+        if (btn) btn.addEventListener('click', openAuditModal);
+        const close = document.getElementById('rcAuditClose');
+        if (close) close.addEventListener('click', closeAuditModal);
+        const overlay = document.getElementById('rcAuditOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) closeAuditModal(); // click nền ngoài → đóng
+            });
+        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && overlay && !overlay.hidden) closeAuditModal();
+        });
+        const chips = document.getElementById('rcAuditChips');
+        if (chips) {
+            chips.addEventListener('click', (e) => {
+                const c = e.target.closest('.rc-achip');
+                if (!c) return;
+                AUDIT.action = c.dataset.action || '';
+                syncAuditInputs();
+                fetchAudit();
+            });
+        }
+        document.querySelectorAll('.rc-audit-quick').forEach((q) => {
+            q.addEventListener('click', () => {
+                const now = new Date();
+                let from;
+                if (q.dataset.range === '2h') from = now.getTime() - 2 * 3600 * 1000;
+                else if (q.dataset.range === '7d') from = now.getTime() - 7 * 86400 * 1000;
+                else {
+                    const s = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    from = s.getTime();
+                }
+                AUDIT.from = from;
+                AUDIT.to = now.getTime();
+                syncAuditInputs();
+                fetchAudit();
+            });
+        });
+        const apply = document.getElementById('rcAuditApply');
+        if (apply) {
+            apply.addEventListener('click', () => {
+                AUDIT.from = inputToTs(document.getElementById('rcAuditFrom')?.value);
+                AUDIT.to = inputToTs(document.getElementById('rcAuditTo')?.value);
+                AUDIT.search = document.getElementById('rcAuditSearch')?.value.trim() || '';
+                fetchAudit();
+            });
+        }
+        const search = document.getElementById('rcAuditSearch');
+        if (search) {
+            search.addEventListener('input', (e) => {
+                AUDIT.search = e.target.value.trim();
+                clearTimeout(_auditSearchTimer);
+                _auditSearchTimer = setTimeout(fetchAudit, 300);
+            });
+        }
+    }
+
     // ---------- SSE ----------
     function setupSse() {
         if (!window.Web2SSE) return;
@@ -755,6 +954,7 @@
             Object.assign(window.Web2HistoryTimeline.ACTION_LABEL, RC_HISTORY_LABELS);
         }
         bindUi();
+        bindAuditUi();
         await loadList();
         setupSse();
         focusScanner();

@@ -16,7 +16,7 @@
 
         <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260521b" />
         <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260521b" />
-        <link rel="stylesheet" href="css/reconcile.css?v=20260606nj2" />
+        <link rel="stylesheet" href="css/reconcile.css?v=20260606nj4" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
         <script src="../../shared/js/notification-system.js?v=20260521b"></script>
@@ -34,6 +34,15 @@
                     </div>
                     <div class="rc-page-counters">
                         <span class="counter-pill" id="rcCount">0</span>
+                        <button
+                            class="btn btn-secondary"
+                            id="rcAuditBtn"
+                            type="button"
+                            title="Lịch sử đối soát — đối chiếu camera"
+                        >
+                            <i data-lucide="history"></i>
+                            <span>Lịch sử / Camera</span>
+                        </button>
                         <button
                             class="btn btn-secondary"
                             id="rcRefreshBtn"
@@ -110,6 +119,87 @@
             </main>
         </div>
 
+        <!-- Modal: lịch sử đối soát toàn bộ — filter để đối chiếu camera -->
+        <div class="rc-audit-overlay" id="rcAuditOverlay" hidden>
+            <div
+                class="rc-audit-modal modal-content"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="rcAuditTitle"
+            >
+                <header class="rc-audit-head">
+                    <h2 id="rcAuditTitle">
+                        <i data-lucide="history"></i> Lịch sử đối soát · đối chiếu camera
+                    </h2>
+                    <button
+                        class="rc-audit-close"
+                        id="rcAuditClose"
+                        type="button"
+                        aria-label="Đóng"
+                    >
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="rc-audit-filters">
+                    <div class="rc-audit-chips" id="rcAuditChips">
+                        <button class="rc-achip is-active" type="button" data-action="manual-pick">
+                            ✋ Tích tay
+                        </button>
+                        <button class="rc-achip" type="button" data-action="">Tất cả</button>
+                        <button class="rc-achip" type="button" data-action="scan">🔫 Quét</button>
+                        <button class="rc-achip" type="button" data-action="pack">
+                            📦 Đóng gói
+                        </button>
+                        <button class="rc-achip" type="button" data-action="ship">🚚 Giao</button>
+                        <button class="rc-achip" type="button" data-action="deliver">
+                            ✅ Đã giao
+                        </button>
+                        <button class="rc-achip" type="button" data-action="return-failed">
+                            ↩ Trả về
+                        </button>
+                    </div>
+                    <div class="rc-audit-row">
+                        <label class="rc-audit-field"
+                            >Từ
+                            <input type="datetime-local" id="rcAuditFrom" />
+                        </label>
+                        <label class="rc-audit-field"
+                            >Đến
+                            <input type="datetime-local" id="rcAuditTo" />
+                        </label>
+                        <div class="rc-audit-quicks">
+                            <button class="rc-audit-quick" type="button" data-range="2h">
+                                2 giờ
+                            </button>
+                            <button class="rc-audit-quick" type="button" data-range="today">
+                                Hôm nay
+                            </button>
+                            <button class="rc-audit-quick" type="button" data-range="7d">
+                                7 ngày
+                            </button>
+                        </div>
+                        <input
+                            type="search"
+                            id="rcAuditSearch"
+                            class="rc-audit-search"
+                            placeholder="Tìm PBH / mã SP / người…"
+                            autocomplete="off"
+                        />
+                        <button class="btn btn-primary" id="rcAuditApply" type="button">
+                            <i data-lucide="filter"></i> Lọc
+                        </button>
+                    </div>
+                </div>
+                <div class="rc-audit-body modal-body" id="rcAuditResults"></div>
+                <footer class="rc-audit-foot">
+                    <span id="rcAuditCount">—</span>
+                    <span class="rc-audit-hint"
+                        >📹 Dòng tích tay = đối chiếu camera theo thời gian</span
+                    >
+                </footer>
+            </div>
+        </div>
+
         <script src="../shared/web2-auth.js?v=20260521b"></script>
         <script src="../shared/web2-user-info.js?v=20260530a"></script>
         <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
@@ -123,6 +213,6 @@
                 }
             });
         </script>
-        <script src="js/reconcile-app.js?v=20260606nj3"></script>
+        <script src="js/reconcile-app.js?v=20260606nj4"></script>
     </body>
 </html>

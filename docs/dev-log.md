@@ -25,6 +25,22 @@
 
 ## 2026-06-06
 
+### [render][web2] Đối soát đóng gói — modal lịch sử toàn bộ + filter đối chiếu camera ✅
+
+**Yêu cầu (user):** "lịch sử cho tìm kiếm, filter chi tiết để có thể tìm nếu cần, chủ yếu là filter ra tích tay thời gian nào để đối chiếu camera."
+
+**Giải pháp:** lịch sử per-PBH cũ không tra được cross-PBH theo thời gian → thêm **modal "Lịch sử / Camera"** (nút header) tra TOÀN BỘ log đối soát với filter chi tiết.
+
+- **Server mới `GET /api/reconcile/logs`** (khai báo TRƯỚC `/:number` để không bị nuốt route): filter `action` + `from`/`to` (ms) + `search` (PBH / mã SP / người) + limit≤1000, ORDER BY created_at DESC. Query thẳng `pbh_fulfillment_logs`.
+- **Frontend modal** (`reconcile-app.js` + `index.html` + `reconcile.css`):
+    - Chips action (mặc định **✋ Tích tay**), nút nhanh `2 giờ / Hôm nay / 7 ngày`, 2 ô `datetime-local` Từ–Đến, ô search, nút Lọc.
+    - Bảng kết quả: Thời gian (DD/MM/YYYY HH:MM:SS) · PBH (click mở chi tiết + đóng modal) · Thao tác (+ badge `📹 camera` cho tích tay) · SP·SL·chuyển trạng thái · Người.
+    - Dòng tích tay highlight tím; mặc định lọc tích tay + hôm nay → thấy ngay "tích tay lúc nào" để soi camera.
+    - Anti-lag tuân thủ: dùng `.modal-content`/`.modal-body`, KHÔNG backdrop blur, shadow ≤24px, `contain`, `cv-auto` rows, body scroll lock iOS-safe (position:fixed+top), Esc/click nền đóng.
+
+**Files:** `render.com/routes/reconcile.js`, `web2/reconcile/js/reconcile-app.js`, `web2/reconcile/index.html` (`css v=20260606nj4`, `js v=20260606nj4`), `web2/reconcile/css/reconcile.css`.
+**Verify:** static — IDs HTML↔JS khớp hết, class CSS đầy đủ, syntax OK. **Cần deploy Render** để endpoint `/logs` chạy (server hiện tại chưa có → modal sẽ báo lỗi tải tới khi deploy).
+
 ### [render][web2] Đối soát đóng gói — tích tay: confirm + ghi lịch sử "đối chiếu camera" ✅
 
 **Yêu cầu (user):** "tích tay có confirm và ghi luôn là lưu lịch sử lại check camera."
