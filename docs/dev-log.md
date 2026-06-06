@@ -25,6 +25,24 @@
 
 ## 2026-06-06
 
+### [web2/products] In tem — barcode CRISP dot-aligned + giữ khổ 2 Tem 25mm mặc định ✅
+
+**User:** khổ chuẩn là "2 Tem" (66×21 sheet, nhãn 25mm, OData TPOS `Id 7`) — KHÔNG đổi sang tem rộng. Tìm cách render barcode quét được trên đúng khổ này.
+
+**Đổi default về 2 Tem 25mm** (`DEFAULT_PAPER_IDX` = preset id 7). Tem rộng 50mm vẫn là option.
+
+**Root cause sâu hơn (vì sao B4AOBE 6 ký tự quét được, mã dài hơn không — trên CÙNG tem 25mm):** cách cũ kéo giãn SVG barcode (`preserveAspectRatio="none"` + `width:100%`) lấp đầy bề ngang tem → mỗi module = px LẺ (vd 1.43px). Khi in nhiệt (html2canvas → raster 1-bit theo dots), mỗi vạch làm tròn về dot gần nhất KHÔNG đồng đều → sai tỉ lệ vạch Code128 → mã DÀY (nhiều module) hỏng, mã thưa còn đọc.
+
+**Fix (`web2-products-print.js` draw script + CSS `.bcsvg`):**
+
+- Render barcode **module = số nguyên px** (`width: floor(availPx/totalModules)`), quiet-zone nguyên, **KHÔNG kéo giãn ngang** (SVG width = đúng viewBox px, map 1:1) khi vừa ô — chỉ giãn chiều cao.
+- `shape-rendering: crispEdges` + `image-rendering: pixelated` → cạnh vạch SẮC, không khử răng cưa xám nhoè (máy quét dễ nhầm).
+- Fallback: nếu mã quá dài KHÔNG vừa ô (tem hẹp) → lấp đầy bề ngang như cũ (không regression) + crispEdges.
+- Hiệu quả nhất trên **đường in nhiệt (bridge, iframe theo dots ~200 cho nhãn 25mm)** → module nguyên dot → vạch sắc đều → quét được mã dài. Preview/PDF px nhỏ → fallback stretch+crisp.
+
+**Files:** `web2/products/js/web2-products-print.js`.
+**Verify (localhost):** 2 barcode render OK (38/29 vạch), `crispEdges` áp dụng, default = "2 Tem (66×21mm)", không vỡ layout. **Cần in thử trên máy tem thật để xác nhận quét** — nếu vẫn khó, chọn preset "Tem 35×22mm" (mô hình mật độ: maxLen=10 ký tự, đủ cho mọi mã hiện tại).
+
 ### [render][web2] CK cộng ví → TỰ trừ vào PBH chưa trả (đơn thành "đã thanh toán") ✅
 
 **User:** "khách CK đủ tiền đơn → tự trừ ví + đánh dấu đã thanh toán, trừ theo SĐT." Cơ chế trừ ví khi tạo PBH (`_applyWalletToPbh`: min(ví,residual), trả góp, hoàn khi huỷ) ĐÃ CÓ. Gap: tạo PBH lúc ví trống → residual=nguyên đơn; CK về SAU → ví cộng nhưng residual KHÔNG tự giảm → đơn vẫn "chưa trả".

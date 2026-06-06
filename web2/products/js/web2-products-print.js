@@ -104,11 +104,11 @@
         },
     ];
 
-    // 2026-06-06: khổ tem MẶC ĐỊNH = "Tem rộng 50×30mm" (id 10) — quét tốt mọi mã
-    // kể cả mã dài (user chọn). Fallback index 0 nếu không tìm thấy.
+    // 2026-06-06: khổ tem MẶC ĐỊNH = "2 Tem (66×21mm)" (id 7) — đúng khổ tem vật lý
+    // chuẩn TPOS user đang dùng (cuộn 2-con 25mm). Tem rộng 50mm chỉ là option.
     const DEFAULT_PAPER_IDX = Math.max(
         0,
-        PAPERS.findIndex((p) => p.id === 10)
+        PAPERS.findIndex((p) => p.id === 7)
     );
 
     // 2026-06-06: ước lượng độ rộng vạch hẹp nhất (X-dimension) để cảnh báo mã
@@ -918,13 +918,16 @@ html, body {
     height: 100%;
     display: block;
 }
-/* JsBarcode SVG fills barcode-image container (giống TPOS PDF — barcode chiếm
-   phần lớn label height, không cố định 25px). preserveAspectRatio="none" set
-   on SVG element → bars stretch fill 100% × 100% giống TPOS PDF rendering. */
+/* 2026-06-06: barcode CRISP, module nguyên px (dot-aligned). width đặt INLINE
+   bằng JS = đúng viewBox px (không kéo giãn ngang → vạch không nhoè/lệch tỉ lệ).
+   shape-rendering crispEdges = cạnh sắc, không khử răng cưa. Chỉ height fill. */
 .barcode-image .bcsvg {
-    width: 100%;
     height: 100%;
+    max-width: 100%;
     display: block;
+    margin: 0 auto;
+    shape-rendering: crispEdges;
+    image-rendering: pixelated;
 }
 
 /* === Screen preview only (không in) === */
@@ -954,39 +957,57 @@ ${sheetsHTML}
 ${SCRIPT_OPEN} src="${JSBARCODE_URL}">${SCRIPT_CLOSE}
 ${SCRIPT_OPEN}>
 (function(){
-    // TPOS canvas convention: PNG 600×100 (barcode core + quiet zone scaled).
-    // Render 2-pass: pass 1 đo native viewBox, pass 2 set marginLeft/Right để
-    // total viewBox = 600 (match TPOS PNG aspect 6:1).
+    // 2026-06-06: render barcode CRISP, mỗi module = SỐ NGUYÊN pixel (dot-aligned)
+    // → tỉ lệ vạch Code128 giữ chính xác, KHÔNG bị làm tròn lệch khi raster nhiệt.
     //
-    // QUAN TRỌNG: SVG default preserveAspectRatio="xMidYMid meet" → preserves
-    // aspect → barcode chỉ chiếm 15px của 25px container, để 10px whitespace
-    // → user thấy "spaces quá dài". TPOS dùng <img> mặc định stretch fill 100%
-    // container. Set preserveAspectRatio="none" để SVG behave same as <img>:
-    // bars stretch fill container không whitespace dọc.
-    const TARGET_W = 600;
+    // Lý do (đơn Hạnh Trần: B4AOBE 6 ký tự quét được, mã dài hơn KHÔNG): cách cũ
+    // kéo giãn SVG (preserveAspectRatio="none" + width:100%) cho lấp đầy bề ngang
+    // tem → mỗi module = số px LẺ (vd 1.43px). Khi in nhiệt (html2canvas → 1-bit)
+    // mỗi vạch bị làm tròn về dot gần nhất KHÔNG đồng đều → sai tỉ lệ vạch → mã
+    // DÀY (nhiều module) hỏng, mã thưa (ít module) còn đọc được.
+    //
+    // Fix: module = floor(availPx / totalModules) (nguyên), KHÔNG kéo giãn ngang
+    // (SVG width = đúng viewBox px → map 1:1), chỉ giãn CHIỀU CAO. shape-rendering
+    // crispEdges để cạnh vạch sắc, không khử răng cưa (xám nhoè) làm máy quét nhầm.
     function draw(){
         if(!window.JsBarcode){ setTimeout(draw, 30); return; }
         document.querySelectorAll('.bcsvg').forEach(function(svg){
             try {
-                // Pass 1: measure native width
+                // Pass 1: width=1 → viewBox width = TỔNG SỐ MODULE của Code128.
                 window.JsBarcode(svg, svg.dataset.code, {
-                    format: 'CODE128', width: 2, height: 100,
-                    displayValue: false, margin: 0
+                    format: 'CODE128', width: 1, height: 100, displayValue: false, margin: 0
                 });
-                const vb = (svg.getAttribute('viewBox') || '').split(' ');
-                const nativeW = parseFloat(vb[2]) || TARGET_W;
-                // Pass 2: quiet-zone NHỎ (~6% mỗi bên) thay vì pad tới 600 → bars
-                // chiếm GẦN FULL width tem cho đẹp (user 2026-06-05), vẫn đủ vùng
-                // trắng tối thiểu để máy quét đọc Code128.
-                const sideMargin = Math.max(6, Math.round(nativeW * 0.06));
+                var vb1 = (svg.getAttribute('viewBox') || '').split(' ');
+                var modules = parseFloat(vb1[2]) || 0;
+                // Bề ngang khả dụng (px) của ô chứa barcode.
+                var box = svg.parentElement;
+                var availPx = (box && box.clientWidth) || modules || 1;
+                // Quiet zone Code128 chuẩn = 10 module mỗi bên; giảm nếu tem hẹp.
+                var quiet = 10;
+                var modPx = Math.floor(availPx / (modules + 2 * quiet));
+                while (modPx < 1 && quiet > 2) { quiet -= 1; modPx = Math.floor(availPx / (modules + 2 * quiet)); }
+                modPx = Math.max(1, modPx);
+                // Pass 2: render ở module nguyên + quiet zone nguyên.
                 window.JsBarcode(svg, svg.dataset.code, {
-                    format: 'CODE128', width: 2, height: 100,
-                    displayValue: false,
+                    format: 'CODE128', width: modPx, height: 100, displayValue: false,
                     marginTop: 0, marginBottom: 0,
-                    marginLeft: sideMargin, marginRight: sideMargin
+                    marginLeft: quiet * modPx, marginRight: quiet * modPx
                 });
-                // Force stretch fill container — match <img> behavior trong TPOS.
+                var vb2 = (svg.getAttribute('viewBox') || '').split(' ');
+                var vbW = parseFloat(vb2[2]) || availPx;
                 svg.setAttribute('preserveAspectRatio', 'none');
+                svg.style.height = '100%';
+                svg.style.shapeRendering = 'crispEdges';
+                svg.style.imageRendering = 'pixelated';
+                // Nếu barcode (module nguyên) VỪA ô chứa → giữ NGUYÊN px (map 1:1,
+                // vạch sắc nguyên dot — tốt nhất, dùng cho in nhiệt theo dots).
+                // Nếu KHÔNG vừa (tem hẹp + mã dài) → fallback lấp đầy bề ngang như
+                // cũ (không tệ hơn) + crispEdges cho cạnh sắc.
+                if (vbW <= availPx) {
+                    svg.style.width = vbW + 'px';
+                } else {
+                    svg.style.width = '100%';
+                }
             } catch(e) { console.warn('[w2p-print] barcode error', svg.dataset.code, e); }
         });
     }
