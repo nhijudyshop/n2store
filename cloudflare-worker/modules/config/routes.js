@@ -131,6 +131,9 @@ export const ROUTES = {
     // Web 2.0 Variants — kho biến thể (size/màu/spec) tách riêng
     WEB2_VARIANTS: { pattern: '/api/web2/variants/*' },
 
+    // Web 2.0 Returns — Thu về (goods return): ví + tồn kho + duyệt + bill 0đ
+    WEB2_RETURNS: { pattern: '/api/web2-returns/*' },
+
     // Web 2.0 Generic — universal entity CRUD for 87 TPOS-clone pages
     WEB2_GENERIC: { pattern: '/api/web2/*' },
 
@@ -238,6 +241,8 @@ export function matchRoute(pathname) {
         pathname === '/api/web2-variants'
     )
         return 'WEB2_VARIANTS';
+    if (pathname.startsWith('/api/web2-returns/') || pathname === '/api/web2-returns')
+        return 'WEB2_RETURNS';
     if (pathname.startsWith('/api/web2/')) return 'WEB2_GENERIC';
     if (pathname.startsWith('/api/wallet-deposits/')) return 'WALLET_DEPOSITS';
     if (pathname.startsWith('/api/purchase-refund/')) return 'PURCHASE_REFUND';

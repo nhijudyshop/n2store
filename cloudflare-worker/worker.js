@@ -220,6 +220,8 @@ async function routeRequest(request, env, ctx) {
                 return handleCustomer360Proxy(request, url, pathname);
             case 'WEB2_VARIANTS':
                 return handleCustomer360Proxy(request, url, pathname);
+            case 'WEB2_RETURNS':
+                return handleCustomer360Proxy(request, url, pathname);
             case 'WEB2_GENERIC':
                 return handleCustomer360Proxy(request, url, pathname);
             case 'WALLET_DEPOSITS':
