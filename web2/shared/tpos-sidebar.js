@@ -112,6 +112,11 @@
                     our: '../web2/fastsaleorder-refund/index.html',
                 },
                 {
+                    label: 'Thu về',
+                    our: '../web2/returns/index.html',
+                    tpos: '',
+                },
+                {
                     label: 'Phiếu giao hàng',
                     tpos: '#/app/fastsaleorder/deliveryinvoice',
                     our: '../web2/fastsaleorder-delivery/index.html',

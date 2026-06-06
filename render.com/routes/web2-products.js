@@ -156,6 +156,13 @@ async function ensureTables(pool) {
             ALTER TABLE web2_products
                 ADD COLUMN IF NOT EXISTS print_count  INTEGER NOT NULL DEFAULT 0;
 
+            -- [2026-06-06] return_qty: tồn kho THU VỀ chờ duyệt (Thu về / shipper_gui).
+            -- Khi tạo phiếu thu về cách "Shipper gửi" → return_qty += qty (chưa vào
+            -- stock thật). Duyệt phiếu → return_qty → stock. Badge "Thu về" ở Kho SP
+            -- khi return_qty > 0. Xem render.com/routes/web2-returns.js.
+            ALTER TABLE web2_products
+                ADD COLUMN IF NOT EXISTS return_qty   INTEGER NOT NULL DEFAULT 0;
+
             CREATE INDEX IF NOT EXISTS idx_web2_products_status   ON web2_products(status);
             CREATE INDEX IF NOT EXISTS idx_web2_products_supplier ON web2_products(supplier);
 
@@ -279,6 +286,8 @@ function mapRow(row) {
         supplier: row.supplier || null,
         // [2026-06-05] số lần in tem mã vạch
         printCount: Number(row.print_count) || 0,
+        // [2026-06-06] tồn kho thu về chờ duyệt (shipper gửi)
+        returnQty: Number(row.return_qty) || 0,
     };
 }
 

@@ -73,6 +73,10 @@
                             Number(p.printCount) > 0
                                 ? `<span class="stock-badge" title="Tem mã vạch đã in ${Number(p.printCount)} lần — tránh in trùng" style="background:#fef3c7;color:#92400e;border-color:#fde68a;"><i data-lucide="printer"></i>In: ${Number(p.printCount)}×</span>`
                                 : ''
+                        }${
+                            Number(p.returnQty) > 0
+                                ? `<span class="stock-badge" title="Có ${Number(p.returnQty)} tồn kho THU VỀ đang chờ duyệt (Shipper gửi). Vào trang Thu về để duyệt → cộng vào tồn thật." style="background:#ede9fe;color:#6d28d9;border-color:#ddd6fe;"><i data-lucide="undo-2"></i>Thu về: ${Number(p.returnQty)}</span>`
+                                : ''
                         }</div>
                     </td>
                     <td class="price-cell price-buy">${fmtPrice(priceBuy)}</td>

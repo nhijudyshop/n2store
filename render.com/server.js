@@ -507,6 +507,7 @@ const deliveryInvoicesRoutes = require('./routes/delivery-invoices');
 const refundsRoutes = require('./routes/refunds');
 const pbhReportsRoutes = require('./routes/pbh-reports');
 const web2ProductsRoutes = require('./routes/web2-products');
+const web2ReturnsRoutes = require('./routes/web2-returns'); // WEB2.0 — Thu về (goods return)
 const web2VariantsRoutes = require('./routes/web2-variants');
 const web2GenericRoutes = require('./routes/web2-generic');
 const attendanceRoutes = require('./routes/attendance');
@@ -630,6 +631,7 @@ app.use('/api/delivery-invoices', deliveryInvoicesRoutes);
 app.use('/api/refunds', refundsRoutes);
 app.use('/api/pbh-reports', pbhReportsRoutes);
 app.use('/api/web2-products', web2ProductsRoutes);
+app.use('/api/web2-returns', web2ReturnsRoutes); // WEB2.0 — Thu về (goods return)
 app.use('/api/web2-variants', web2VariantsRoutes);
 app.use('/api/web2/cutout', require('./routes/web2-cutout')); // WEB2.0 photo-studio cutout (PhotoRoom) — TRƯỚC generic
 // NOTE 2026-06-03: generic catch-all `/api/web2` (web2GenericRoutes) ĐÃ DỜI
@@ -831,6 +833,9 @@ if (web2ProductsRoutes.initializeNotifiers) {
 }
 if (nativeOrdersRoutes.initializeNotifiers) {
     nativeOrdersRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
+if (web2ReturnsRoutes.initializeNotifiers) {
+    web2ReturnsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
 if (web2GenericRoutes.initializeNotifiers) {
     web2GenericRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);

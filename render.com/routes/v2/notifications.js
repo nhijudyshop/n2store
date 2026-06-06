@@ -215,6 +215,31 @@ router.get('/scan', async (req, res) => {
             created.push(r.code);
         }
 
+        // 5. Phiếu THU VỀ (Shipper gửi) treo chờ duyệt > 20 ngày → nhắc duyệt.
+        // Duyệt xong return_qty mới cộng vào tồn thật. Xem web2-returns.js.
+        try {
+            const retRs = await pool.query(
+                `SELECT code, customer_name FROM web2_returns
+                 WHERE method = 'shipper_gui' AND stock_status = 'pending' AND status = 'active'
+                   AND created_at < (EXTRACT(EPOCH FROM NOW()) * 1000) - (20 * 24 * 3600 * 1000)
+                 LIMIT 50`
+            );
+            for (const r of retRs.rows) {
+                await _insertDedupe(pool, {
+                    type: 'return_overdue',
+                    title: `Thu về ${r.code} chờ duyệt > 20 ngày${r.customer_name ? ' — ' + r.customer_name : ''}`,
+                    severity: 'warning',
+                    entity_type: 'web2_return',
+                    entity_id: r.code,
+                    url: `/web2/returns/index.html?tab=pending&search=${encodeURIComponent(r.code)}`,
+                    dedupe_key: `return_overdue:${r.code}`,
+                });
+                created.push(r.code);
+            }
+        } catch (e) {
+            console.warn('[notifications/scan] return_overdue check fail:', e.message);
+        }
+
         _notifyUpdate();
         res.json({ success: true, created: created.length, sample: created.slice(0, 10) });
     } catch (e) {
