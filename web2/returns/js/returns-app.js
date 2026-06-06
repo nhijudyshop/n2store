@@ -558,6 +558,11 @@
     }
 
     function init() {
+        try {
+            window.Web2Sidebar?.mount?.('#web2Aside');
+        } catch (e) {
+            console.warn('[returns] sidebar mount fail:', e);
+        }
         bind();
         onMethodChange('khach_gui');
         onSubTypeChange('khong_nhan_hang');

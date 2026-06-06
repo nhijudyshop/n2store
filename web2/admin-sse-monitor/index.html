@@ -342,6 +342,12 @@
         <script src="../shared/web2-sse-bridge.js?v=20260526sse2"></script>
         <script src="../shared/web2-optimistic.js?v=20260601a"></script>
         <script src="../shared/tpos-sidebar.js?v=20260522f"></script>
+        <script>
+            // Mount sidebar (trước đây thiếu → trang không có menu).
+            document.addEventListener('DOMContentLoaded', () =>
+                window.Web2Sidebar?.mount?.('#web2Aside')
+            );
+        </script>
         <script src="js/monitor.js?v=20260526sse2"></script>
     </body>
 </html>
