@@ -3,14 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e42d3f9` — docs(dev-log): verify fix cộng ví performed_by + CK auto live (GD155028 credited + reply)
-**Last updated**: 2026-06-06 12:18:45 +07
-**Latest session**: [`RESUME:20260606-121845-e42d3f9`](../20260606-121845-e42d3f9.md)
-**Summary**: docs(dev-log): verify fix cộng ví performed_by + CK auto live (GD155028 credited + reply)
+**Latest commit**: `2c22ee0` — fix(issue-tracking): don Khach Gui luon cong cong no vao vi + tach lich su 2 buoc
+**Last updated**: 2026-06-06 12:22:22 +07
+**Latest session**: [`RESUME:20260606-122222-2c22ee0`](../20260606-122222-2c22ee0.md)
+**Summary**: fix(issue-tracking): don Khach Gui luon cong cong no vao vi + tach lich su 2 buoc
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`don-inbox/`](./don-inbox.md) — 2 file(s)
+- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
+- [`shared/`](./shared.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,9 +27,9 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-06 12:18
+- [`docs/`](./docs.md) — updated 2026-06-06 12:22
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
-- [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 11:26
+- [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:22
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
 - [`facebook-services/`](./facebook-services.md) — updated 2026-05-21 15:39
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
@@ -35,7 +38,7 @@
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-04 16:34
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-02 15:43
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-06 12:22
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-05 18:30
@@ -53,7 +56,7 @@
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-06 12:08
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
-- [`shared/`](./shared.md) — updated 2026-06-05 15:13
+- [`shared/`](./shared.md) — updated 2026-06-06 12:22
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-06-06 09:04
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-04 12:44
