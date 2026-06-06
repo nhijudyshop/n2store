@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b18c122` — auto: session update
-**Last updated**: 2026-06-06 20:17:12 +07
-**Latest session**: [`RESUME:20260606-201712-b18c122`](../20260606-201712-b18c122.md)
-**Summary**: auto: session update
+**Latest commit**: `b40dca8` — docs(dev-log): Thu về — fix sidebar mount, worker proxy route, source-order endpoint
+**Last updated**: 2026-06-06 20:25:33 +07
+**Latest session**: [`RESUME:20260606-202533-b40dca8`](../20260606-202533-b40dca8.md)
+**Summary**: docs(dev-log): Thu về — fix sidebar mount, worker proxy route, source-order endpoint
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -22,10 +23,10 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-05-22 12:35
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-06 20:25
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-06 20:15
+- [`docs/`](./docs.md) — updated 2026-06-06 20:25
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
@@ -69,4 +70,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-06 20:17
+- [`web2/`](./web2.md) — updated 2026-06-06 20:25
