@@ -706,11 +706,17 @@
         // Sheet thiếu label (partial) → ít cột hơn nhưng cột giữ thứ tự trái→phải
         // (flex-start) nên tem lẻ nằm đúng cột 1 (không cần singleGap nữa).
         const cellW = Math.round((sheetW / cols) * 100) / 100; // mm — bề rộng cột die-cut
+        // 2026-06-05: user muốn tem bên PHẢI đẩy sang phải 1 ít. Mỗi cột sau cột
+        // đầu lệch phải `ci * RIGHT_NUDGE_MM` (2-up → cột phải +1mm). padding-left
+        // = 2×nudge (box-sizing border-box → center dịch phải = padding/2). Cap
+        // theo slack còn lại (cellW-labelW)/2 để KHÔNG tràn/cắt mép phải con tem.
+        const RIGHT_NUDGE_MM = 1;
+        const maxNudge = Math.max(0, (cellW - labelW) / 2 - 0.2);
         let sheetsHTML = '';
         for (const sheet of sheets) {
             // TPOS: ng-style="data.style_sheet()" → {width: SheetWidth+"mm", height: SheetHeight+"mm"}
             sheetsHTML += `<div class="barcode-sheet" style="width:${sheetW}mm;height:${sheetH}mm;">`;
-            for (const label of sheet) {
+            sheet.forEach((label, ci) => {
                 const displayPrice = formatPrice(label.price);
                 const currencyStr = showCurrency ? ' đ' : '';
                 // JsBarcode Code128 SVG placeholder — script ở cuối <body> sẽ
@@ -751,8 +757,10 @@
                     }
                     labelInner += `</div>`;
                 }
-                sheetsHTML += `<div class="barcode-cell" style="width:${cellW}mm;height:${labelH}mm;">${labelInner}</div>`;
-            }
+                const nudge = Math.min(ci * RIGHT_NUDGE_MM, maxNudge);
+                const cellPad = nudge > 0 ? `padding-left:${(nudge * 2).toFixed(2)}mm;` : '';
+                sheetsHTML += `<div class="barcode-cell" style="width:${cellW}mm;height:${labelH}mm;${cellPad}">${labelInner}</div>`;
+            });
             sheetsHTML += '</div>';
         }
 

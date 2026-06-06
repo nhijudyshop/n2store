@@ -79,7 +79,8 @@ async function linkTransaction(db, { id, phone, name, verifiedBy }) {
         'Nap tu CK (manual link)',
         null,
         null,
-        tx.sepay_id
+        tx.sepay_id,
+        verifiedByVal || '(đối soát thủ công)' // performed_by — audit
     );
     await db.query(
         `UPDATE web2_balance_history
@@ -397,7 +398,8 @@ router.post('/:id/reassign', async (req, res) => {
                 amount,
                 'sepay',
                 tx.sepay_id,
-                `Reassign giao dịch ${tx.sepay_id} → ${newPhoneNorm}${reasonText ? ` (${reasonText})` : ''}${verifiedByVal ? ` bởi ${verifiedByVal}` : ''}`
+                `Reassign giao dịch ${tx.sepay_id} → ${newPhoneNorm}${reasonText ? ` (${reasonText})` : ''}${verifiedByVal ? ` bởi ${verifiedByVal}` : ''}`,
+                verifiedByVal || '(reassign)' // performed_by — audit
             );
         } catch (e) {
             return res.status(400).json({
@@ -419,7 +421,8 @@ router.post('/:id/reassign', async (req, res) => {
                 `Reassign từ ${oldPhoneNorm} → bởi ${verifiedByVal || 'admin'}${reasonText ? ` (${reasonText})` : ''}`,
                 null,
                 null,
-                reassignRef
+                reassignRef,
+                verifiedByVal || '(reassign)' // performed_by — audit
             );
         } catch (e) {
             // Rollback withdraw — re-credit ví cũ để không mất tiền

@@ -215,11 +215,14 @@
             </div>
             ${
                 txns.length
-                    ? `<table class="w2cd-table"><thead><tr><th>Thời gian</th><th>Loại</th><th class="num">Số tiền</th><th>Ghi chú</th></tr></thead><tbody>${txns
+                    ? `<table class="w2cd-table"><thead><tr><th>Thời gian</th><th>Loại</th><th class="num">Số tiền</th><th>Người thực hiện</th><th>Ghi chú</th></tr></thead><tbody>${txns
                           .map((t) => {
                               const amt = Number(t.amount) || 0;
                               const isIn = amt > 0;
-                              return `<tr><td>${fmtDate(t.created_at)}</td><td>${esc(t.type || '')}</td><td class="num ${isIn ? 'w2cd-in' : 'w2cd-out'}">${isIn ? '+' : '-'}${fmtVnd(Math.abs(amt))}₫</td><td>${esc(t.description || t.note || '')}</td></tr>`;
+                              const by =
+                                  t.performed_by ||
+                                  (t.reference_type === 'sepay' ? '(SePay tự động)' : '—');
+                              return `<tr><td>${fmtDate(t.created_at)}</td><td>${esc(t.type || '')}</td><td class="num ${isIn ? 'w2cd-in' : 'w2cd-out'}">${isIn ? '+' : '-'}${fmtVnd(Math.abs(amt))}₫</td><td>${esc(by)}</td><td>${esc(t.description || t.note || '')}</td></tr>`;
                           })
                           .join('')}</tbody></table>`
                     : '<div class="w2cd-empty">Chưa có giao dịch ví</div>'

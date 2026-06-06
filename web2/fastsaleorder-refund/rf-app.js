@@ -3,6 +3,12 @@
     'use strict';
     const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const STATE = { orders: [], total: 0, page: 1, limit: 200, state: '', search: '' };
+    // Audit: ai duyệt/hoàn/hủy phiếu → ghi vào state_history (backend _changeState).
+    function _by() {
+        return (
+            window.Web2UserInfo?.get?.()?.userName || window.Web2UserInfo?.label?.() || '(ẩn danh)'
+        );
+    }
     const $ = (s) => document.querySelector(s);
 
     function fmtMoney(n) {
@@ -135,7 +141,7 @@
         if (!d.success) return notify('Lỗi: ' + d.error, 'error');
         const o = d.order;
         await w2pAlert(
-            `PBH: ${o.fso.number}\nKH: ${o.partner.name} — ${o.partner.phone}\nMode: ${MODE_LABEL[o.refundMode] || o.refundMode}\nSL trả: ${o.totalQuantity}\nTiền hoàn: ${fmtMoney(o.amountRefund)}\nLý do: ${o.reason || '—'}\nState: ${o.state}\n\nHistory:\n${(o.stateHistory || []).map((h) => `  ${h.from || '∅'} → ${h.to} @ ${new Date(h.at).toLocaleString('vi-VN')}`).join('\n')}`,
+            `PBH: ${o.fso.number}\nKH: ${o.partner.name} — ${o.partner.phone}\nMode: ${MODE_LABEL[o.refundMode] || o.refundMode}\nSL trả: ${o.totalQuantity}\nTiền hoàn: ${fmtMoney(o.amountRefund)}\nLý do: ${o.reason || '—'}\nState: ${o.state}\n\nHistory (ai · lúc nào):\n${(o.stateHistory || []).map((h) => `  ${h.from || '∅'} → ${h.to} · ${h.by || '(ẩn danh)'} @ ${new Date(h.at).toLocaleString('vi-VN')}`).join('\n')}`,
             { title: `Phiếu trả ${o.number}`, type: 'info' }
         );
     }
@@ -164,7 +170,7 @@
                         {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({}),
+                            body: JSON.stringify({ by: _by() }),
                         }
                     );
                     const d = await r.json();
@@ -185,7 +191,7 @@
             const r = await fetch(`${WORKER}/api/refunds/${encodeURIComponent(number)}/${path}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({}),
+                body: JSON.stringify({ by: _by() }),
             });
             const d = await r.json();
             if (!d.success) return notify('Lỗi: ' + d.error, 'error');

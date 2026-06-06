@@ -77,7 +77,7 @@ router.get('/:phone/transactions', async (req, res) => {
 router.post('/:phone/withdraw', async (req, res) => {
     try {
         const db = req.app.locals.web2Db || req.app.locals.chatDb;
-        const { amount, referenceType, referenceId, note } = req.body || {};
+        const { amount, referenceType, referenceId, note, userName } = req.body || {};
         if (!amount || Number(amount) <= 0) {
             return res.status(400).json({ success: false, error: 'amount > 0 required' });
         }
@@ -87,7 +87,8 @@ router.post('/:phone/withdraw', async (req, res) => {
             Number(amount),
             referenceType,
             referenceId,
-            note
+            note,
+            userName || req.headers['x-user'] || '(staff)' // performed_by — audit
         );
         res.json({ success: true, data: result });
     } catch (e) {
@@ -106,7 +107,7 @@ router.post('/:phone/withdraw', async (req, res) => {
 router.post('/:phone/deposit', async (req, res) => {
     try {
         const db = req.app.locals.web2Db || req.app.locals.chatDb;
-        const { amount, note, customerId } = req.body || {};
+        const { amount, note, customerId, userName } = req.body || {};
         if (!amount || Number(amount) <= 0) {
             return res.status(400).json({ success: false, error: 'amount > 0 required' });
         }
@@ -118,7 +119,8 @@ router.post('/:phone/deposit', async (req, res) => {
             note || 'Manual deposit',
             customerId || null,
             null,
-            null
+            null,
+            userName || req.headers['x-user'] || '(staff)' // performed_by — audit
         );
         res.json({ success: true, data: result });
     } catch (e) {
