@@ -41,8 +41,10 @@
 
 **Fix #4:** ô tích tay (`.rc-manual-tick` checkbox) mỗi dòng SP — tích = pick đủ (qty), bỏ tích = 0, lưu NGAY qua `/manual-pick`. Ẩn khi PBH đã khoá (packed/shipped/delivered). Scan + manual-pick giờ gửi kèm `userName` (Web2UserInfo) cho audit.
 
-**Files:** `render.com/routes/reconcile.js`, `web2/reconcile/js/reconcile-app.js`, `web2/reconcile/css/reconcile.css`, `web2/reconcile/index.html` (cache-bust `v=20260606nj`).
-**Verify (localhost + test PBH NJ-20260605-0001 / KH test):** JS mới load, ô quét auto-focus lúc load, router đưa phím về ô quét (list→scanner) + KHÔNG cướp focus khi gõ ô tìm kiếm, tích tay → `1/1` "Đã pick đủ", bỏ tích → `0/1` pending (server xác nhận sạch). **Cần deploy Render** để fix server #2/#3 live.
+**Bổ sung (user): "tích tay lưu lại lịch sử ngày giờ thời gian chi tiết"** → thêm section **Lịch sử đối soát** trong panel chi tiết. Server vốn đã log mọi mutation (`pbh_fulfillment_logs`, `created_at` + user) — giờ frontend fetch `GET /:number/logs` và render qua `Web2HistoryTimeline` (timestamp vi-VN có giây). Mỗi thao tác (quét / tích tay / reset / đóng gói / giao / trả về) hiện 1 dòng: nhãn VN + ngày giờ chi tiết + user + note (mã SP · SL · chuyển trạng thái). Refresh sau mỗi mutation + SSE. Nhãn action thêm vào `Web2HistoryTimeline.ACTION_LABEL` (scan/manual-pick/pack/ship/deliver/return-failed/reset-pick) + màu marker riêng.
+
+**Files:** `render.com/routes/reconcile.js`, `web2/reconcile/js/reconcile-app.js`, `web2/reconcile/css/reconcile.css`, `web2/reconcile/index.html` (cache-bust `v=20260606nj2`).
+**Verify (localhost + test PBH NJ-20260605-0001 / KH test):** JS mới load, ô quét auto-focus lúc load, router đưa phím về ô quét (list→scanner) + KHÔNG cướp focus khi gõ ô tìm kiếm, tích tay → `1/1` "Đã pick đủ", bỏ tích → `0/1` pending. Lịch sử: tích tay sinh entry `✋ Tích tay · 11:49:40 6/6/2026 · B4DAMVANG · SL 1 · Chờ pick → Đã pick đủ` (marker tím). Test PBH reset sạch sau verify. **Cần deploy Render** để fix server #2/#3 live (history + manual-pick logging vốn đã có trên server đang chạy).
 
 ### [tpos-pancake] Nút "Lấy thumbnail" không ăn — event delegation ✅
 

@@ -577,6 +577,46 @@
 .rc-manual-tick input:focus-visible + .rc-manual-tick-box {
     box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.25);
 }
+/* 2026-06-06: lịch sử đối soát (audit log) — ngày giờ chi tiết per thao tác */
+.rc-history-section {
+    margin: 18px 4px 8px;
+}
+.rc-history-loading {
+    color: #94a3b8;
+    font-style: italic;
+    font-size: 0.85rem;
+    padding: 12px;
+    text-align: center;
+}
+/* màu marker cho action đối soát (timeline dùng chung chưa có) */
+.w2-timeline-scan .w2-timeline-marker {
+    border-color: #0d9488;
+    background: #ccfbf1;
+}
+.w2-timeline-manual-pick .w2-timeline-marker {
+    border-color: #7c3aed;
+    background: #ede9fe;
+}
+.w2-timeline-pack .w2-timeline-marker {
+    border-color: #2563eb;
+    background: #dbeafe;
+}
+.w2-timeline-ship .w2-timeline-marker {
+    border-color: #d97706;
+    background: #fef3c7;
+}
+.w2-timeline-deliver .w2-timeline-marker {
+    border-color: #16a34a;
+    background: #dcfce7;
+}
+.w2-timeline-return-failed .w2-timeline-marker {
+    border-color: #dc2626;
+    background: #fee2e2;
+}
+.w2-timeline-reset-pick .w2-timeline-marker {
+    border-color: #94a3b8;
+    background: #f1f5f9;
+}
 .rc-line-row.is-complete {
     background: #f0fdfa;
 }

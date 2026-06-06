@@ -170,6 +170,7 @@
     // ---------- select PBH ----------
     async function selectPbh(number) {
         STATE.selectedNumber = number;
+        STATE.historyHtml = null; // reset để không nháy lịch sử PBH cũ
         renderList();
         const target = document.getElementById('rcScannerTarget');
         target.textContent = `PBH: ${number}`;
@@ -179,6 +180,7 @@
             STATE.currentPbh = res.pbh;
             renderDetail();
             focusScanner();
+            loadHistory(number);
         } catch (e) {
             notify('Lỗi tải PBH: ' + e.message, 'error');
         }
@@ -248,6 +250,10 @@
                     ${isComplete ? ' · Đủ hàng' : ''}
                 </span>
                 ${renderActionButtons(fState, isComplete, isLocked)}
+            </div>
+
+            <div class="rc-history-section" id="rcHistory">
+                ${STATE.historyHtml || '<div class="rc-history-loading">Đang tải lịch sử…</div>'}
             </div>
         `;
 
@@ -367,6 +373,7 @@
             const res = await api('POST', `/${encodeURIComponent(number)}/manual-pick`, body);
             STATE.currentPbh = res.pbh;
             renderDetail();
+            loadHistory(number);
             const t = res.pbh?.totals || {};
             if (t.isComplete) {
                 feedback(`✓✓ ĐỦ HÀNG ${number} — bấm "Đóng gói" để hoàn tất`, false, true);
@@ -390,6 +397,7 @@
             );
             STATE.currentPbh = res.pbh;
             renderDetail();
+            loadHistory(STATE.currentPbh?.number);
             notify('Đã reset pick', 'info');
         } catch (e) {
             notify(e.message, 'error');
@@ -402,6 +410,7 @@
             const res = await api('POST', `/${encodeURIComponent(STATE.currentPbh.number)}/pack`);
             STATE.currentPbh = res.pbh;
             renderDetail();
+            loadHistory(STATE.currentPbh?.number);
             notify('Đã đóng gói ✓', 'success');
             // Refresh list để PBH chuyển tab
             loadList();
@@ -420,6 +429,7 @@
             const res = await api('POST', `/${encodeURIComponent(STATE.currentPbh.number)}/ship`);
             STATE.currentPbh = res.pbh;
             renderDetail();
+            loadHistory(STATE.currentPbh?.number);
             notify('Đã giao shipper ✓', 'success');
             loadList();
         } catch (e) {
@@ -437,6 +447,7 @@
             );
             STATE.currentPbh = res.pbh;
             renderDetail();
+            loadHistory(STATE.currentPbh?.number);
             notify('Đã giao thành công ✓', 'success');
             loadList();
         } catch (e) {
@@ -466,6 +477,7 @@
             );
             STATE.currentPbh = res.pbh;
             renderDetail();
+            loadHistory(STATE.currentPbh?.number);
             const restored = res.restock?.restored || 0;
             notify(
                 `✓ Đã trả về kho ${restored} dòng SP. PBH ${STATE.currentPbh.number} đã hủy.`,
@@ -513,6 +525,7 @@
             );
             STATE.currentPbh = res.pbh;
             renderDetail();
+            loadHistory(STATE.selectedNumber);
             const t = res.pbh?.totals || {};
             if (t.isComplete) {
                 // Đủ hết SP → server tự set 'packed' (đã đối soát + đóng gói luôn,
@@ -536,6 +549,60 @@
         if (inp) inp.focus();
     }
 
+    // ---------- history (audit log) ----------
+    // 2026-06-06: hiển thị lịch sử đối soát chi tiết (ngày giờ + user + thao tác).
+    // Mỗi lần quét / tích tay / đóng gói / giao đều ghi log server (pbh_fulfillment_logs)
+    // → fetch /:number/logs và render qua Web2HistoryTimeline (timestamp vi-VN có giây).
+    const RC_HISTORY_LABELS = {
+        scan: '🔫 Quét mã',
+        'manual-pick': '✋ Tích tay',
+        'reset-pick': '↺ Reset pick',
+        pack: '📦 Đóng gói',
+        ship: '🚚 Giao shipper',
+        deliver: '✅ Đã giao',
+        'return-failed': '↩ Trả về kho',
+    };
+    function historyNote(l) {
+        const p = l.payload || {};
+        const parts = [];
+        if (p.productCode) parts.push(p.productCode);
+        if (p.pickedQty != null) parts.push(`SL ${p.pickedQty}`);
+        if (l.stateBefore && l.stateAfter && l.stateBefore !== l.stateAfter) {
+            const a = STATE_LABELS[l.stateBefore] || l.stateBefore;
+            const b = STATE_LABELS[l.stateAfter] || l.stateAfter;
+            parts.push(`${a} → ${b}`);
+        }
+        if (p.reason) parts.push(p.reason);
+        return parts.join(' · ');
+    }
+    async function loadHistory(number) {
+        if (!number) return;
+        try {
+            const res = await api('GET', `/${encodeURIComponent(number)}/logs`);
+            const items = (res.logs || []).map((l) => ({
+                action: l.action,
+                ts: l.createdAt,
+                userName: l.userName,
+                userId: l.userId,
+                note: historyNote(l),
+            }));
+            // Logs về newest-first sẵn (ORDER BY created_at DESC) → giữ nguyên (newestFirst:false).
+            STATE.historyHtml = window.Web2HistoryTimeline
+                ? window.Web2HistoryTimeline.render(items, {
+                      titleText: 'Lịch sử đối soát',
+                      newestFirst: false,
+                  })
+                : '';
+            // Chỉ inject nếu vẫn đang mở đúng PBH này.
+            if (STATE.currentPbh?.number === number) {
+                const el = document.getElementById('rcHistory');
+                if (el) el.innerHTML = STATE.historyHtml;
+            }
+        } catch {
+            /* lỗi tải lịch sử — không chặn flow chính */
+        }
+    }
+
     // ---------- SSE ----------
     function setupSse() {
         if (!window.Web2SSE) return;
@@ -551,6 +618,7 @@
                     .then((res) => {
                         STATE.currentPbh = res.pbh;
                         renderDetail();
+                        loadHistory(data.number);
                     })
                     .catch(() => {});
             }
@@ -653,6 +721,10 @@
     }
 
     async function init() {
+        // Bổ sung nhãn VN cho các action đối soát vào timeline dùng chung.
+        if (window.Web2HistoryTimeline?.ACTION_LABEL) {
+            Object.assign(window.Web2HistoryTimeline.ACTION_LABEL, RC_HISTORY_LABELS);
+        }
         bindUi();
         await loadList();
         setupSse();
