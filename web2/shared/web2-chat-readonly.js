@@ -149,6 +149,8 @@
         .w2cro-main { display: flex; flex-direction: column; min-height: 0; background: #f0f2f5; }
         .w2cro-body { flex: 1; overflow-y: auto; padding: 14px 14px 4px; display: flex;
             flex-direction: column; gap: 2px; overscroll-behavior: contain; }
+        .w2cro-load-older { flex: 0 0 auto; text-align: center; font-size: 11px; color: #94a3b8;
+            padding: 6px 0 8px; }
         .w2cro-foot { padding: 7px 16px; background: #fff; border-top: 1px solid #e5e7eb;
             text-align: center; flex: 0 0 auto; }
         .w2cro-readonly-tag { font-size: 11px; color: #6b7280; }
