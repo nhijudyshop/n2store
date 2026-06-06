@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b40dca8` — docs(dev-log): Thu về — fix sidebar mount, worker proxy route, source-order endpoint
-**Last updated**: 2026-06-06 20:25:33 +07
-**Latest session**: [`RESUME:20260606-202533-b40dca8`](../20260606-202533-b40dca8.md)
-**Summary**: docs(dev-log): Thu về — fix sidebar mount, worker proxy route, source-order endpoint
+**Latest commit**: `4afd343` — auto: session update
+**Last updated**: 2026-06-06 20:27:49 +07
+**Latest session**: [`RESUME:20260606-202749-4afd343`](../20260606-202749-4afd343.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -70,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-06 20:25
+- [`web2/`](./web2.md) — updated 2026-06-06 20:27
