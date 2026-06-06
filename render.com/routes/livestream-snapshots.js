@@ -654,10 +654,69 @@ const _M3U8_CACHE_TTL = 5 * 60 * 1000;
 const _batchStatus = new Map(); // batchId → { total, done, failed, drmBlocked }
 let _workerRunning = false;
 
-async function _resolveM3u8Url(liveVideoId, pageId) {
-    if (!_ytdlp) return null;
+// FB Graph API `source` — trả URL MP4 trực tiếp cho video page SỞ HỮU. Ổn định
+// hơn yt-dlp scrape (immune khi FB đổi web / yt-dlp extractor hỏng) + dùng page
+// access token nên không bị chặn auth. Cần `pool` (chatDb) để lấy token từ
+// pancake_page_access_tokens. Trả URL string hoặc null nếu không khả dụng.
+async function _resolveViaGraphSource(liveVideoId, pageId, pool) {
+    if (!pool || !pageId) return null;
+    let token = null;
+    try {
+        const r = await pool.query(
+            'SELECT token FROM pancake_page_access_tokens WHERE page_id = $1 LIMIT 1',
+            [String(pageId)]
+        );
+        token = r.rows?.[0]?.token || null;
+    } catch (e) {
+        console.warn('[lss-extract] page token query fail:', e.message);
+    }
+    if (!token) {
+        console.warn('[lss-extract] no page token cho pageId', pageId, '→ skip Graph');
+        return null;
+    }
+    // FB video node id: thử full `{pageid}_{videoid}` trước rồi short `{videoid}`.
+    const full = String(liveVideoId);
+    const short = full.replace(/^\d+_/, '');
+    const ids = full === short ? [full] : [full, short];
+    for (const vid of ids) {
+        try {
+            const url = `https://graph.facebook.com/v19.0/${encodeURIComponent(vid)}?fields=source&access_token=${encodeURIComponent(token)}`;
+            const resp = await fetch(url);
+            const d = await resp.json();
+            if (d?.source) {
+                console.log('[lss-extract] Graph source OK video', vid);
+                return d.source;
+            }
+            if (d?.error) {
+                console.warn(
+                    '[lss-extract] Graph source err',
+                    vid,
+                    ':',
+                    String(d.error.message || '').slice(0, 140)
+                );
+            }
+        } catch (e) {
+            console.warn('[lss-extract] Graph fetch fail', vid, ':', e.message);
+        }
+    }
+    return null;
+}
+
+// Resolve URL video playable cho ffmpeg cắt frame.
+// Strategy: (1) FB Graph `source` (robust, page-owned VOD MP4) → (2) yt-dlp scrape.
+async function _resolveM3u8Url(liveVideoId, pageId, pool) {
     const cached = _m3u8Cache.get(liveVideoId);
     if (cached && Date.now() - cached.fetchedAt < _M3U8_CACHE_TTL) return cached.url;
+
+    // (1) FB Graph API source — fix "no m3u8 URL" khi yt-dlp scrape hỏng (2026-06-06).
+    const viaGraph = await _resolveViaGraphSource(liveVideoId, pageId, pool);
+    if (viaGraph) {
+        _m3u8Cache.set(liveVideoId, { url: viaGraph, fetchedAt: Date.now() });
+        return viaGraph;
+    }
+
+    // (2) yt-dlp fallback.
+    if (!_ytdlp) return null;
     const videoIdShort = String(liveVideoId).replace(/^\d+_/, '');
     const fbUrl = `https://www.facebook.com/${pageId}/videos/${videoIdShort}/`;
     // FB live serves HLS m3u8 — KHÔNG filter format (mp4 hay m3u8 đều OK).
@@ -807,7 +866,7 @@ async function _processExtractJob(pool, job) {
     const status = _batchStatus.get(job.batchId);
     try {
         if (!_ensureExtractDeps()) throw new Error('ffmpeg/yt-dlp not available');
-        const m3u8 = await _resolveM3u8Url(job.liveVideoId, job.pageId);
+        const m3u8 = await _resolveM3u8Url(job.liveVideoId, job.pageId, pool);
         if (!m3u8) throw new Error('no m3u8 URL');
         if (m3u8.drm) {
             await pool.query(
@@ -1202,9 +1261,9 @@ router.get('/stream-url', async (req, res) => {
         if (!pageId || !liveVideoId) {
             return res.status(400).json({ success: false, error: 'pageId + liveVideoId required' });
         }
-        const m = await _resolveM3u8Url(liveVideoId, pageId);
+        const m = await _resolveM3u8Url(liveVideoId, pageId, req.app.locals.chatDb);
         if (!m) {
-            return res.status(502).json({ success: false, error: 'yt-dlp resolve fail' });
+            return res.status(502).json({ success: false, error: 'resolve fail (Graph + yt-dlp)' });
         }
         if (m.drm) {
             return res.json({ success: false, drm: true, error: m.error });

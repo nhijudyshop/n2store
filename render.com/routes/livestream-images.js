@@ -332,7 +332,7 @@ router.post('/:id/extract', express.json({ limit: '50kb' }), async (req, res) =>
         if (!helpers || !helpers.ensureExtractDeps()) {
             return res.status(503).json({ success: false, error: 'extract deps not available' });
         }
-        const m3u8 = await helpers.resolveM3u8Url(row.live_video_id, row.page_id);
+        const m3u8 = await helpers.resolveM3u8Url(row.live_video_id, row.page_id, pool);
         if (!m3u8 || m3u8.drm) {
             await pool.query(`UPDATE livestream_images SET extract_status = 'fail' WHERE id = $1`, [
                 row.id,
