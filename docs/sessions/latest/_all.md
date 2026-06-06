@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `356baaa` — docs(dev-log): bỏ cột Nợ hiện tại partner-customer
-**Last updated**: 2026-06-06 13:29:52 +07
-**Latest session**: [`RESUME:20260606-132952-356baaa`](../20260606-132952-356baaa.md)
-**Summary**: docs(dev-log): bỏ cột Nợ hiện tại partner-customer
+**Latest commit**: `484f64b` — feat(web2/native-orders): badge 'KH báo đã CK' cập nhật LIVE qua SSE
+**Last updated**: 2026-06-06 13:33:54 +07
+**Latest session**: [`RESUME:20260606-133354-484f64b`](../20260606-133354-484f64b.md)
+**Summary**: feat(web2/native-orders): badge 'KH báo đã CK' cập nhật LIVE qua SSE
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`native-orders/`](./native-orders.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -39,7 +38,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-06 12:22
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-05 18:30
+- [`native-orders/`](./native-orders.md) — updated 2026-06-06 13:33
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-06 13:17
