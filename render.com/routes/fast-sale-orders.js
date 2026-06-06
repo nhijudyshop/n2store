@@ -50,6 +50,92 @@ async function _applyWalletToPbh(pool, phone, pbhRow, performedBy) {
     return out;
 }
 
+// 2026-06-06: Áp số dư ví (theo SĐT) vào các PBH CHƯA trả của khách. Dùng khi
+// tiền CK về SAU lúc tạo PBH (tạo lúc ví trống → residual = nguyên đơn; CK về →
+// tự trừ tiếp → đơn thành "đã thanh toán"). Reuse _applyWalletToPbh (trừ
+// min(ví, residual) → TRẢ GÓP nếu thiếu). Ưu tiên PBH campaign MỚI NHẤT trước
+// (date_created DESC), hết ví thì dừng. An toàn: bounded bởi residual + balance
+// → chạy lại chỉ áp phần dư (không trừ quá / không cộng-trùng). performed_by audit.
+// Trả { appliedCount, totalDeducted, codes[] }. Best-effort (catch — KHÔNG ném).
+async function applyWalletToUnpaidPbhs(pool, phone, performedBy) {
+    const result = { appliedCount: 0, totalDeducted: 0, codes: [] };
+    if (!pool || !phone) return result;
+    try {
+        const { rows } = await pool.query(
+            `SELECT id, number, source_type, source_code, residual, partner_name
+             FROM fast_sale_orders
+             WHERE partner_phone = $1 AND state <> 'cancel' AND COALESCE(residual,0) > 0
+             ORDER BY date_created DESC NULLS LAST`,
+            [phone]
+        );
+        for (const pbh of rows) {
+            const wallet = await web2WalletService.getWallet(pool, phone);
+            if (!wallet || Number(wallet.balance) <= 0) break; // hết ví → dừng
+            const wlt = await _applyWalletToPbh(
+                pool,
+                phone,
+                pbh,
+                performedBy || '(CK tự thanh toán)'
+            );
+            if (wlt.deducted > 0) {
+                await pool.query(
+                    `UPDATE fast_sale_orders
+                     SET payment_amount = COALESCE(payment_amount,0) + $1,
+                         residual = $2,
+                         cash_on_delivery = $2,
+                         wallet_deducted = COALESCE(wallet_deducted,0) + $1,
+                         date_updated = NOW()
+                     WHERE id = $3`,
+                    [wlt.deducted, wlt.residualAfter, pbh.id]
+                );
+                result.appliedCount++;
+                result.totalDeducted += wlt.deducted;
+                result.codes.push({
+                    number: pbh.number,
+                    source_code: pbh.source_code,
+                    deducted: wlt.deducted,
+                    residual: wlt.residualAfter,
+                });
+            }
+        }
+        if (result.totalDeducted > 0) {
+            console.log(
+                `[FAST-SALE-ORDERS] applyWalletToUnpaidPbhs ${phone}: ${result.appliedCount} PBH, -${result.totalDeducted}đ`
+            );
+            if (_notifyClients) {
+                const digits = String(phone).replace(/\D/g, '');
+                try {
+                    _notifyClients(
+                        'web2:fast-sale-orders',
+                        { action: 'wallet-applied', phone, ts: Date.now() },
+                        'update'
+                    );
+                    _notifyClients(
+                        'web2:native-orders',
+                        { action: 'wallet-applied', phone, ts: Date.now() },
+                        'update'
+                    );
+                    _notifyClients(
+                        `web2:wallet:${digits}`,
+                        { action: 'pbh-deduct', phone, ts: Date.now() },
+                        'update'
+                    );
+                    _notifyClients(
+                        'web2:customer-wallet',
+                        { action: 'deduct', phone, ts: Date.now() },
+                        'update'
+                    );
+                } catch (e) {
+                    /* ignore */
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[FAST-SALE-ORDERS] applyWalletToUnpaidPbhs failed:', e.message);
+    }
+    return result;
+}
+
 // -----------------------------------------------------
 // SSE notifier — broadcast topic 'web2:fast-sale-orders' sau mỗi DB mutation.
 // Page web2/fastsaleorder-invoice/ subscribe để tự refresh khi PBH thay đổi.
@@ -2013,4 +2099,8 @@ router.initializeNotifiers = initializeNotifiers;
 // Export restock helper cho cross-module reuse (vd reconcile /return-failed).
 router.restockOrderLines = restockOrderLines;
 router.validateStock = validateStock;
+// Export cho hook CK/SePay (web2-balance-history.linkTransaction, sepay-webhook-core)
+// gọi sau khi cộng ví → tự áp vào PBH chưa trả của SĐT.
+router.applyWalletToUnpaidPbhs = applyWalletToUnpaidPbhs;
+
 module.exports = router;

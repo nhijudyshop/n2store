@@ -25,6 +25,12 @@
 
 ## 2026-06-06
 
+### [render][web2] CK cộng ví → TỰ trừ vào PBH chưa trả (đơn thành "đã thanh toán") ✅
+
+**User:** "khách CK đủ tiền đơn → tự trừ ví + đánh dấu đã thanh toán, trừ theo SĐT." Cơ chế trừ ví khi tạo PBH (`_applyWalletToPbh`: min(ví,residual), trả góp, hoàn khi huỷ) ĐÃ CÓ. Gap: tạo PBH lúc ví trống → residual=nguyên đơn; CK về SAU → ví cộng nhưng residual KHÔNG tự giảm → đơn vẫn "chưa trả".
+
+**Fix:** `applyWalletToUnpaidPbhs(pool, phone, performedBy)` (fast-sale-orders.js) — sau khi cộng ví, quét PBH chưa trả của SĐT (`residual>0, state<>cancel`, campaign MỚI NHẤT trước), trừ ví reuse `_applyWalletToPbh` (trả góp nếu thiếu, hết ví thì dừng), cập nhật residual/payment_amount/wallet_deducted + SSE (`web2:fast-sale-orders`/`native-orders`/`wallet`). An toàn: bounded residual+balance → chạy lại chỉ áp phần dư (idempotent), performed_by audit. Hook: `linkTransaction` (CK approve/watcher) + `_processWeb2Path` (SePay auto-credit) sau credit, best-effort lazy-require chống circular. Test `test-wallet-apply-pbh.js` 13/13 (đủ/thiếu/nhiều PBH/ví trống/huỷ/idempotent/audit).
+
 ### [web2/products] In tem mã vạch — cảnh báo mã quá dài + thêm khổ tem rộng (fix "chỉ quét được áo len be") ✅
 
 **Root cause (xác định bằng mô hình mật độ vạch):** barcode in ĐÚNG giá trị (CODE128 mã hoá đúng `code`, chữ hiển thị cùng biến) — lỗi là **vật lý**: tem mặc định 25mm, Code128 ~`35 + 11·n` module. Vạch hẹp nhất (X-dim) = `labelW·0.88 / modules`. Ngưỡng quét ~0.2mm ⇒ tem 25mm chỉ đọc tốt mã **≤6 ký tự**. Khớp 100% triệu chứng đơn Hạnh Trần: `B4AOBE`(6)=0.218mm ✅, `HCDAMDO`(7)/`B4DAMVANG`(9)/`ADQUANDENM`(10)=0.15–0.2mm ❌.

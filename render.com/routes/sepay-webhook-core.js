@@ -67,6 +67,18 @@ async function _processWeb2Path(db, webhookData) {
                     .onNewSepayTx(db, id, _ckWatcherDeps)
                     .catch((e) => console.warn('[WEB2-CK-WATCHER] hook failed:', e.message));
             }
+            // 2026-06-06: SePay cộng ví xong (matcher khớp SĐT/QR) → tự áp số dư
+            // vào PBH chưa trả của SĐT đó → đơn thành "đã thanh toán" (trả góp nếu
+            // thiếu). Best-effort. (Nhánh watcher dùng linkTransaction đã tự áp riêng.)
+            if (result?.success && result.phone) {
+                try {
+                    require('./fast-sale-orders')
+                        .applyWalletToUnpaidPbhs(db, result.phone, '(CK SePay tự thanh toán)')
+                        .catch(() => {});
+                } catch (e) {
+                    /* ignore */
+                }
+            }
         }
     } catch (e) {
         console.warn('[WEB2-SEPAY] _processWeb2Path failed:', e.message);

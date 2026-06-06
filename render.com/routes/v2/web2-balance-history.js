@@ -95,6 +95,16 @@ async function linkTransaction(db, { id, phone, name, verifiedBy }) {
          WHERE id = $1`,
         [id, phone, name || null, verifiedByVal]
     );
+    // 2026-06-06: cộng ví xong (CK/đối soát) → tự áp số dư vào PBH chưa trả của
+    // SĐT → đơn thành "đã thanh toán" (trả góp nếu thiếu). Best-effort, KHÔNG
+    // chặn kết quả link. Lazy require tránh circular (fast-sale-orders ⇏ balance-history).
+    try {
+        require('../fast-sale-orders')
+            .applyWalletToUnpaidPbhs(db, phone, verifiedByVal || '(CK tự thanh toán)')
+            .catch(() => {});
+    } catch (e) {
+        /* ignore */
+    }
     return {
         linked: true,
         credited: true,
