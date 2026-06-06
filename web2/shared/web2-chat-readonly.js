@@ -479,7 +479,14 @@
         }
         // Avatar KH (incoming) — render 1 lần ở đầu mỗi nhóm tin đến cho gọn.
         const custAv = avatarHtml(name, psid, pageId, 'w2cro-bub-av');
-        const ordered = msgs.slice().reverse(); // Pancake mới→cũ ⇒ render cũ→mới
+        // Sort cũ→mới theo timestamp → tin mới nhất ở ĐÁY (chat chuẩn), rồi
+        // scroll xuống cuối. Robust dù Pancake trả thứ tự nào.
+        const _msgTs = (m) => {
+            const t = m.inserted_at || m.created_time || m.timestamp;
+            const n = t ? Date.parse(t) : 0;
+            return isNaN(n) ? 0 : n;
+        };
+        const ordered = msgs.slice().sort((a, b) => _msgTs(a) - _msgTs(b));
         let prevOut = true;
         const html = ordered
             .map((m) => {
