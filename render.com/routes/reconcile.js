@@ -668,6 +668,59 @@ router.post('/:number/pack', async (req, res) => {
 });
 
 // -----------------------------------------------------
+// POST /:number/cancel-pack — hủy đóng gói (packed → picked/picking/pending).
+// Undo khi lỡ đóng gói nhầm (chưa giao shipper). Tính lại state từ picked_lines,
+// xóa packed_at. Chặn nếu đã shipped/delivered.
+// -----------------------------------------------------
+router.post('/:number/cancel-pack', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const { number } = req.params;
+    const user = userFromReq(req);
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(
+            `SELECT order_lines, fulfillment_state, fulfillment_picked_lines
+             FROM fast_sale_orders WHERE number = $1`,
+            [number]
+        );
+        if (r.rows.length === 0) return res.status(404).json({ error: 'PBH not found' });
+        const row = r.rows[0];
+        const stateBefore = row.fulfillment_state || 'pending';
+        if (stateBefore !== 'packed') {
+            return res
+                .status(400)
+                .json({ error: `Chỉ hủy đóng gói khi đang ở 'packed' (hiện: ${stateBefore})` });
+        }
+        // Tính lại state từ picked_lines hiện có.
+        const lines = Array.isArray(row.order_lines) ? row.order_lines : [];
+        const picked = Array.isArray(row.fulfillment_picked_lines)
+            ? row.fulfillment_picked_lines
+            : [];
+        const totalQty = lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0);
+        const totalPicked = picked.reduce((s, p) => s + (Number(p.picked_qty) || 0), 0);
+        let newState = 'picking';
+        if (totalPicked === 0) newState = 'pending';
+        else if (totalPicked >= totalQty) newState = 'picked';
+        await pool.query(
+            `UPDATE fast_sale_orders
+             SET fulfillment_state = $1,
+                 fulfillment_packed_at = NULL,
+                 date_updated = NOW()
+             WHERE number = $2`,
+            [newState, number]
+        );
+        await logAction(pool, number, 'cancel-pack', {}, stateBefore, newState, user);
+        _notify('cancel-pack', number);
+        const updated = await getPbh(pool, number);
+        res.json({ success: true, pbh: mapPbh(updated) });
+    } catch (e) {
+        console.error('[RECONCILE] cancel-pack error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
 // POST /:number/ship — chuyển → shipped
 // -----------------------------------------------------
 router.post('/:number/ship', async (req, res) => {

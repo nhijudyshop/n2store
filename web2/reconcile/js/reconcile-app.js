@@ -273,6 +273,7 @@
         };
         b('rcBtnReset', resetPick);
         b('rcBtnPack', packOrder);
+        b('rcBtnCancelPack', cancelPack);
         b('rcBtnShip', shipOrder);
         b('rcBtnDeliver', deliverOrder);
         b('rcBtnReturnFailed', returnFailedOrder);
@@ -339,6 +340,9 @@
             );
         }
         if (fState === 'packed') {
+            buttons.push(
+                `<button class="btn btn-secondary btn-sm" id="rcBtnCancelPack"><i data-lucide="package-open"></i> Hủy đóng gói</button>`
+            );
             buttons.push(
                 `<button class="btn btn-warn" id="rcBtnShip"><i data-lucide="truck"></i> Giao shipper</button>`
             );
@@ -442,6 +446,25 @@
             } else {
                 notify(e.message, 'error');
             }
+        }
+    }
+
+    async function cancelPack() {
+        if (!STATE.currentPbh) return;
+        if (!confirm(`Hủy đóng gói PBH ${STATE.currentPbh.number}? (đưa về trạng thái pick)`))
+            return;
+        try {
+            const res = await api(
+                'POST',
+                `/${encodeURIComponent(STATE.currentPbh.number)}/cancel-pack`
+            );
+            STATE.currentPbh = res.pbh;
+            renderDetail();
+            loadHistory(STATE.currentPbh?.number);
+            notify('Đã hủy đóng gói', 'info');
+            loadList();
+        } catch (e) {
+            notify(e.message, 'error');
         }
     }
 

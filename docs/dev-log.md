@@ -25,6 +25,14 @@
 
 ## 2026-06-06
 
+### [render][web2] Đối soát đóng gói — DEPLOY LIVE + endpoint hủy đóng gói (cancel-pack) ✅
+
+**Deploy:** Render auto-deploy (commit `4030613`) LIVE — verify prod cả 3 fix: (1) `/api/reconcile/logs` trả log cross-PBH (modal camera); (2) `/logs?search=` lọc OK; (3) **normCode**: quét `b4damvang` (thường) khớp line `B4DAMVANG` → `1/1` ✅ (fix "barcode không nhận / không lưu").
+
+**Thêm `POST /:number/cancel-pack`** (schema đã có sẵn action `cancel-pack` từ trước nhưng chưa hiện thực): hủy đóng gói khi lỡ pack nhầm (chưa giao shipper) → tính lại state từ picked_lines (pending/picking/picked), xóa packed_at, log `cancel-pack`. Chặn nếu đã shipped/delivered. Frontend: nút **"Hủy đóng gói"** hiện khi state=packed (cạnh "Giao shipper"). (Tiện thể fix gap UX: trước đây pack rồi không undo được.)
+
+**Files:** `render.com/routes/reconcile.js`, `web2/reconcile/js/reconcile-app.js` (`v=20260606nj5`), `web2/reconcile/index.html`.
+
 ### [render][web2] 🔴 FIX CRITICAL: cộng ví Web 2.0 fail toàn bộ + CK tự động hoàn toàn ✅
 
 **Triệu chứng (user):** "Nguyễn Tâm gửi đã ck → stuck 'Đang xử lý' và chưa gửi tin nhắn lại → tự động hoàn toàn phần này." GD SePay 2.222đ (id=155028) badge "Đang xử lý" (debt_added=false), signal id=2 confirmed nhưng phone=None/matchedTx=None.
