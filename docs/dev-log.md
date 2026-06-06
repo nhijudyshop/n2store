@@ -25,6 +25,25 @@
 
 ## 2026-06-06
 
+### [render][web2] Đối soát đóng gói — quét nhận ngay + tích tay + sửa "barcode không nhận / không lưu" ✅
+
+**Vấn đề (user, trang `web2/reconcile/`):**
+
+1. Phải bấm vào ô quét trước thì máy quét mới nhận.
+2. Mấy SP quét barcode không nhận ("SP không có trong PBH").
+3. Quét lẻ không lưu — chỉ lưu khi quét đủ hết SL cả đơn.
+4. Muốn có ô tích tay (đánh dấu đã pick như đã quét).
+
+**Root cause #2 + #3 (server `routes/reconcile.js`):** so sánh mã SP bằng `===` (phân biệt hoa/thường + khoảng trắng). Máy quét trả mã lệch hoa/thường so với `order_lines` → `lines.find` fail (#2). Tệ hơn: picked_qty lưu dưới **key = mã quét** ≠ **key = mã line** → `mapPbh` đọc lại = 0 (nhìn như "không lưu", #3).
+**Fix:** thêm `normCode()` (trim + UPPERCASE) + `findLineByCode()`; mọi nơi đối chiếu/lưu/đọc picked dùng **canonical code của line** (scan, manual-pick, pack verify, mapPbh). Quét lẻ vẫn commit DB ngay từng lần (vốn đã đúng), giờ hiển thị đúng.
+
+**Fix #1 (frontend `reconcile-app.js`):** router phím toàn cục (capture keydown trên `document`) — nếu không gõ vào ô input khác thì tự focus ô quét + **inject ký tự đầu** (không rớt char khi focus đang ở list/nơi khác). Click bất kỳ đâu trên hộp quét cũng focus. → quét nhận ngay không cần click.
+
+**Fix #4:** ô tích tay (`.rc-manual-tick` checkbox) mỗi dòng SP — tích = pick đủ (qty), bỏ tích = 0, lưu NGAY qua `/manual-pick`. Ẩn khi PBH đã khoá (packed/shipped/delivered). Scan + manual-pick giờ gửi kèm `userName` (Web2UserInfo) cho audit.
+
+**Files:** `render.com/routes/reconcile.js`, `web2/reconcile/js/reconcile-app.js`, `web2/reconcile/css/reconcile.css`, `web2/reconcile/index.html` (cache-bust `v=20260606nj`).
+**Verify (localhost + test PBH NJ-20260605-0001 / KH test):** JS mới load, ô quét auto-focus lúc load, router đưa phím về ô quét (list→scanner) + KHÔNG cướp focus khi gõ ô tìm kiếm, tích tay → `1/1` "Đã pick đủ", bỏ tích → `0/1` pending (server xác nhận sạch). **Cần deploy Render** để fix server #2/#3 live.
+
 ### [tpos-pancake] Nút "Lấy thumbnail" không ăn — event delegation ✅
 
 **Vấn đề (user):** Nút 📸 Lấy thumbnail bấm không phản ứng.
