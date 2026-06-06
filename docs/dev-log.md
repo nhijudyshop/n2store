@@ -25,6 +25,14 @@
 
 ## 2026-06-06
 
+### [web2] Gộp payment-confirm vào ck-dashboard (1 trang CK duy nhất) ✅
+
+**User:** "ck-dashboard và payment-confirm chức năng giống nhau, sao 2 trang?" — đúng, trùng phần "KH báo đã CK". Gộp về **1 trang ck-dashboard** với 2 tab: **Đối soát CK** (3 cột: chờ duyệt + chờ tiền + yêu cầu khác) + **Tin nhắn chưa đọc** (port từ payment-confirm).
+
+- Module mới `web2/shared/web2-unread-panel.js`: `Web2UnreadPanel.mount(root,{onCount})` — fetch `/api/web2/unread` + render + SSE `web2:unread` + pill ví, self-contained styles (`w2up-`).
+- ck-dashboard: tab bar + pane "Tin nhắn chưa đọc" (mount panel lần đầu, badge count). CSS tab `.ckd-tab`.
+- **Retire payment-confirm**: `index.html` → redirect `../ck-dashboard/`; sidebar bỏ mục "Xác nhận CK" (giữ "Đối soát CK"). Bump `tpos-sidebar.js?v=20260606ck` trên 36 trang để menu mới propagate.
+
 ### [render][web2] Gán KH ở balance-history → tự nối tín hiệu CK + gửi tin ✅
 
 **User:** "gán KH → nhận tín hiệu → tìm bên payment-confirm có KH báo đã CK, đúng khách → gửi." Trước: gán KH (link/resolve/reassign) chỉ cộng ví, KHÔNG gửi tin (vì GD ngân hàng không gắn hội thoại). Giờ sau khi gán xong → `_tryLinkCkSignal(db, txId)` gọi `watcher.onNewSepayTx` → GD đã có linked_customer_phone → quét **web2_payment_signals** (data "KH báo đã CK" của payment-confirm) tìm signal khớp đúng khách (phone/partner/tên) → auto-confirm + **gửi tin báo** (reconciled path: GD đã credited → không cộng lại, vẫn reply). Hook 3 endpoint: `PATCH /:id/link`, `POST /pending/:id/resolve` (thêm `transactionId` vào return), `POST /:id/reassign`. An toàn KHÔNG đệ quy (đặt ở endpoint, không trong linkTransaction; tx đã debt_added → linkTransaction trả alreadyProcessed sớm). Test +C13 → 29/29.
