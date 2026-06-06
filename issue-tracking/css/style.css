@@ -808,6 +808,12 @@ textarea {
     font-weight: 600;
 }
 
+/* Bước bị sót (vd Khách Gửi đã Hoàn tất nhưng chưa cộng công nợ vào ví) */
+.history-timeline-summary .step-missed {
+    color: #dc2626;
+    font-weight: 600;
+}
+
 /* Timeline Modal */
 .history-modal-header {
     display: flex;

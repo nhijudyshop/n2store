@@ -44,6 +44,8 @@
         #${MODAL_ID} .thv-step.done .dot { background: #10b981; box-shadow: 0 0 0 2px #10b981; }
         #${MODAL_ID} .thv-step.active .dot { background: #f59e0b; box-shadow: 0 0 0 2px #f59e0b; }
         #${MODAL_ID} .thv-step.cancelled .dot { background: #ef4444; box-shadow: 0 0 0 2px #ef4444; }
+        #${MODAL_ID} .thv-step.missed .dot { background: #ef4444; box-shadow: 0 0 0 2px #ef4444; }
+        #${MODAL_ID} .thv-step.missed .title { color: #ef4444; }
         #${MODAL_ID} .thv-step .title { font-weight: 600; font-size: 13px; color: #0f172a; }
         #${MODAL_ID} .thv-step .meta { font-size: 11px; color: #64748b; margin-top: 2px; }
         #${MODAL_ID} .thv-step .detail { font-size: 12px; color: #475569; margin-top: 3px; }
@@ -216,8 +218,10 @@
         if (needsGoods) {
             const receivedAt = ticket.receivedAt || ticket.received_at;
             const received = !!receivedAt || status === 'PENDING_FINANCE' || status === 'COMPLETED';
+            const isReturnClient = ticket.type === 'RETURN_CLIENT';
             steps.push({
-                label: 'Nhận hàng',
+                // RETURN_CLIENT: tách rõ bước nhập kho khỏi bước cộng công nợ bên dưới.
+                label: isReturnClient ? 'Nhận hàng (nhập kho)' : 'Nhận hàng',
                 time: receivedAt || null,
                 done: received,
                 active: !received && status === 'PENDING_GOODS',
@@ -227,6 +231,32 @@
                         ? `Phiếu trả: ${ticket.refundNumber || ticket.refund_number}`
                         : '',
             });
+
+            // Bước 2 cho Khách Gửi: cộng công nợ (tiền hoàn) vào ví khách.
+            // missed = đơn đã Hoàn tất nhưng ví chưa cộng (đỏ ✗ — dễ phát hiện đơn bị sót).
+            const money = parseFloat(ticket.money || ticket.refund_amount) || 0;
+            if (isReturnClient && money > 0) {
+                const credited = !!(ticket.walletCredited ?? ticket.wallet_credited);
+                const missed = !credited && status === 'COMPLETED';
+                const completedAt = ticket.completedAt || ticket.completed_at;
+                steps.push({
+                    label: 'Cộng công nợ',
+                    time: credited ? completedAt || null : null,
+                    done: credited,
+                    active:
+                        !credited &&
+                        received &&
+                        status !== 'COMPLETED' &&
+                        status !== 'CANCELLED',
+                    cancelled: status === 'CANCELLED' && !credited,
+                    missed,
+                    detail: credited
+                        ? `Đã cộng ${formatCurrency(money)} vào ví (Tiền thật)`
+                        : missed
+                          ? `⚠ CHƯA cộng ${formatCurrency(money)} — cộng tay Customer 360`
+                          : '',
+                });
+            }
         }
 
         if (ticket.type === 'BOOM' || ticket.type === 'FIX_COD') {
@@ -303,7 +333,11 @@
             delete: 'Đã hủy',
         };
         return steps.map((s) => {
-            const match = logs.find((l) => actionMap[l.actionType] === s.label);
+            // Tolerant: "Nhận hàng" khớp cả "Nhận hàng (nhập kho)".
+            const match = logs.find((l) => {
+                const mapped = actionMap[l.actionType];
+                return !!mapped && (mapped === s.label || s.label.startsWith(mapped + ' '));
+            });
             if (!match) return s;
             return {
                 ...s,
@@ -345,7 +379,15 @@
 
         const timelineHTML = steps
             .map((s) => {
-                const cls = s.cancelled ? 'cancelled' : s.done ? 'done' : s.active ? 'active' : '';
+                const cls = s.missed
+                    ? 'missed'
+                    : s.cancelled
+                      ? 'cancelled'
+                      : s.done
+                        ? 'done'
+                        : s.active
+                          ? 'active'
+                          : '';
                 return `
                 <div class="thv-step ${cls}">
                     <div class="dot"></div>

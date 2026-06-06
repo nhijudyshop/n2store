@@ -25,6 +25,20 @@
 
 ## 2026-06-06
 
+### [issue-tracking] 🔴 FIX: đơn "Khách Gửi" không cộng công nợ vào ví khi số tiền hoàn lệch + tách lịch sử 2 bước ✅
+
+**Files:** `issue-tracking/js/script.js`, `shared/js/ticket-history-viewer.js`, `issue-tracking/css/style.css`
+
+**Triệu chứng (user):** Đơn #69924 (Yến Trần, NJD/2026/69924) loại RETURN_CLIENT "Khách Gửi", đã "Hoàn Tất", Giá trị hoàn 240K, ghi chú "CHỊU LỖ 80K". Ví Customer 360 có activity "Sự vụ RETURN_CLIENT" nhưng số dư = 0đ → tiền hoàn KHÔNG vào ví.
+
+**Root cause:** Lúc tạo ticket `money = max(0, refundBase - compEntered)` → "Giá trị hoàn" là NET (đã trừ Khách bù/chịu lỗ). Lúc Hoàn tất, `processRefund` tạo phiếu TPOS theo giá GỘP SP → `refundAmountFromJson` = GROSS. Điều kiện cộng ví dùng so sánh BẰNG TUYỆT ĐỐI `amountMatches = (GROSS === NET)` → có chịu lỗ → lệch → rơi nhánh SKIP-CREDIT: chỉ hiện dialog "cộng tay" rồi `updateTicket(COMPLETED)` mà KHÔNG gọi `/resolve` → ví không cộng. Activity "Sự vụ" ghi độc lập ở `tickets.js:545` → ảo giác "có giao dịch". → MỌI đơn hoàn có Khách bù/chịu lỗ hoặc sửa tay số tiền đều bị sót.
+
+**Fix Part A (logic):** Gộp 2 nhánh `if(amountMatches)/else if(!amountMatches)` thành 1 nhánh `if(isReturnClientAutoCredit)` → LUÔN gọi `resolveTicket({compensation_amount, compensation_type:'deposit'})` (cộng Tiền thật theo Giá trị hoàn). Số TPOS lệch → chỉ `console.warn` + toast `notificationManager.warning` cảnh báo, KHÔNG chặn. Dialog "cộng tay" chỉ còn khi `resolveTicket` lỗi thật. Quyết định user: luôn cộng theo Giá trị hoàn / ví Tiền thật / chỉ sửa code không động đơn cũ.
+
+**Fix Part B (lịch sử dễ kiểm tra):** Tách bước "Nhận hàng" của RETURN_CLIENT thành 2: **"Nhận hàng (nhập kho)"** + **"Cộng công nợ"** (chỉ khi money>0). Tín hiệu credited = `ticket.walletCredited ?? ticket.wallet_credited` (cột `wallet_credited` do `/resolve` set, mang sang FE qua spread `...ticket`). Thêm trạng thái bước `missed` = `!credited && COMPLETED` → render đỏ ✗ "CHƯA cộng — cộng tay Customer 360" (đơn cũ bị sót như #69924 sẽ tự hiện cờ này). Sửa cả 2 builder: `buildTicketTimeline` (in-row summary) + `buildTimeline` (modal Xem chi tiết) + render (`buildTimelineSummaryHTML` icon ✗, `renderBody` cls `missed`) + CSS `.step-missed`/`.thv-step.missed` + enrich audit-log match tolerant (`startsWith(mapped+' ')`). Loại khác (RETURN_SHIPPER/BOOM/FIX_COD) không đổi.
+
+**Status:** DONE — `node --check` pass cả 2 file JS. Cần verify live trên khách TEST.
+
 ### [render][web2] Đối soát đóng gói — DEPLOY LIVE + endpoint hủy đóng gói (cancel-pack) ✅
 
 **Deploy:** Render auto-deploy (commit `4030613`) LIVE — verify prod cả 3 fix: (1) `/api/reconcile/logs` trả log cross-PBH (modal camera); (2) `/logs?search=` lọc OK; (3) **normCode**: quét `b4damvang` (thường) khớp line `B4DAMVANG` → `1/1` ✅ (fix "barcode không nhận / không lưu").

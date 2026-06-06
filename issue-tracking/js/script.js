@@ -1968,14 +1968,29 @@ async function handleConfirmAction() {
 
             const isReturnClientAutoCredit =
                 ticket.type === 'RETURN_CLIENT' && compensationAmount > 0 && !!customerPhone;
+            // amountMatches CHỈ để đối chiếu/cảnh báo — KHÔNG còn dùng để chặn cộng ví.
+            // Lý do hợp lệ khiến lệch: "Khách bù"/chịu lỗ làm "Giá trị hoàn" (NET) < số tiền
+            // TPOS hoàn (GROSS theo giá gộp SP), hoặc staff sửa tay số tiền hoàn. Ví LUÔN
+            // cộng đúng "Giá trị hoàn" (compensationAmount) của ticket.
             const amountMatches =
                 refundAmountForValidation !== null &&
                 refundAmountForValidation === compensationAmount;
 
             let walletCreditedViaResolve = false;
 
-            if (isReturnClientAutoCredit && amountMatches) {
-                // ===== HAPPY PATH: atomic resolveTicket (credit + COMPLETED) =====
+            if (isReturnClientAutoCredit) {
+                // ===== LUÔN cộng ví theo "Giá trị hoàn" (atomic resolveTicket: credit + COMPLETED) =====
+                if (!amountMatches) {
+                    console.warn(
+                        '[APP] Refund amount lệch — vẫn cộng ví theo Giá trị hoàn (NET):',
+                        compensationAmount,
+                        '| TPOS (GROSS):',
+                        refundAmountForValidation,
+                        '| alreadyRefunded:',
+                        !!result.alreadyRefunded
+                    );
+                }
+
                 try {
                     notificationManager.remove(loadingId);
                     loadingId = notificationManager.loading(
@@ -2001,6 +2016,18 @@ async function handleConfirmAction() {
                     console.error('[APP] resolveTicket failed:', walletError);
                 }
 
+                // Cộng ví OK nhưng số tiền TPOS lệch → cảnh báo không chặn để staff biết.
+                if (walletCreditedViaResolve && !amountMatches) {
+                    const tposStr = (refundAmountForValidation || 0).toLocaleString();
+                    notificationManager.warning(
+                        `Số tiền TPOS (${tposStr}đ) lệch Giá trị hoàn (${compensationAmount.toLocaleString()}đ). ` +
+                            `Đã cộng ví theo Giá trị hoàn.`,
+                        6000,
+                        'Đã cộng ví (số tiền lệch)'
+                    );
+                }
+
+                // Chỉ khi gọi resolveTicket THẬT SỰ lỗi mới yêu cầu cộng tay.
                 if (!walletCreditedViaResolve) {
                     notificationManager.remove(loadingId);
                     loadingId = null;
@@ -2013,34 +2040,6 @@ async function handleConfirmAction() {
                         'Cần cộng ví thủ công'
                     );
                 }
-            } else if (isReturnClientAutoCredit && !amountMatches) {
-                // ===== SKIP-CREDIT BRANCH: amount mismatch hoặc alreadyRefunded =====
-                console.error(
-                    '[APP] Auto-credit skipped! Expected:',
-                    compensationAmount,
-                    'TPOS JSON:',
-                    refundAmountFromJson,
-                    'TPOS HTML:',
-                    refundAmountFromHtml,
-                    'alreadyRefunded:',
-                    !!result.alreadyRefunded
-                );
-                notificationManager.remove(loadingId);
-                loadingId = null;
-
-                const reason = result.alreadyRefunded
-                    ? 'TPOS báo đơn này đã được trả hết trước đó.'
-                    : `Số tiền không khớp! Ticket: ${compensationAmount.toLocaleString()}đ vs TPOS: ${(refundAmountForValidation || 0).toLocaleString()}đ.`;
-
-                await notificationManager.confirm(
-                    `<b>⚠️ KHÔNG cộng ví tự động</b><br><br>` +
-                        `${reason}<br><br>` +
-                        `Khách: <b>${customerPhone}</b><br>` +
-                        `Cần cộng tay: <b>${compensationAmount.toLocaleString()}đ</b><br><br>` +
-                        `Vào <b>Customer 360</b> cộng tay sau.<br><br>` +
-                        `Bấm Đồng ý để đánh dấu ticket Hoàn tất.`,
-                    'Cần xử lý ví thủ công'
-                );
             }
 
             // Lưu refund_order_id / refund_number qua updateTicket.
@@ -3935,8 +3934,14 @@ function buildTimelineSummaryHTML(ticket) {
     const steps = buildTicketTimeline(ticket);
     return steps
         .map((s) => {
-            const icon = s.done ? '✓' : s.active ? '◉' : '○';
-            const cls = s.done ? 'step-done' : s.active ? 'step-current' : '';
+            const icon = s.missed ? '✗' : s.done ? '✓' : s.active ? '◉' : '○';
+            const cls = s.missed
+                ? 'step-missed'
+                : s.done
+                  ? 'step-done'
+                  : s.active
+                    ? 'step-current'
+                    : '';
             return `<span class="step ${cls}">${icon} ${s.label}</span>`;
         })
         .join('');
@@ -3983,14 +3988,42 @@ function buildTicketTimeline(ticket) {
     if (needsGoods) {
         const receivedAt = ticket.receivedAt || ticket.received_at;
         const received = !!receivedAt || status === 'PENDING_FINANCE' || status === 'COMPLETED';
+        const isReturnClient = ticket.type === 'RETURN_CLIENT';
         steps.push({
-            label: 'Nhận hàng',
+            // RETURN_CLIENT: tách rõ bước nhập kho khỏi bước cộng công nợ bên dưới.
+            label: isReturnClient ? 'Nhận hàng (nhập kho)' : 'Nhận hàng',
             time: receivedAt ? new Date(receivedAt).getTime() : null,
             done: received,
             active: !received && status === 'PENDING_GOODS',
             cancelled: status === 'CANCELLED' && !received,
             detail: ticket.refundNumber ? `Phiếu trả: ${ticket.refundNumber}` : '',
         });
+
+        // Bước 2 của "nhận hàng" cho Khách Gửi: cộng công nợ (tiền hoàn) vào ví khách.
+        // Hiển thị riêng để thấy rõ đơn nào đã cộng, đơn nào BỊ SÓT (missed = đỏ ✗).
+        const money = parseFloat(ticket.money) || 0;
+        if (isReturnClient && money > 0) {
+            const credited = !!(ticket.walletCredited ?? ticket.wallet_credited);
+            const missed = !credited && status === 'COMPLETED';
+            const completedAt = ticket.completedAt || ticket.completed_at;
+            steps.push({
+                label: 'Cộng công nợ',
+                time: credited && completedAt ? new Date(completedAt).getTime() : null,
+                done: credited,
+                active:
+                    !credited &&
+                    received &&
+                    status !== 'COMPLETED' &&
+                    status !== 'CANCELLED',
+                cancelled: status === 'CANCELLED' && !credited,
+                missed,
+                detail: credited
+                    ? `Đã cộng ${formatCurrency(money)} vào ví (Tiền thật)`
+                    : missed
+                      ? `⚠ CHƯA cộng ${formatCurrency(money)} — cộng tay Customer 360`
+                      : '',
+            });
+        }
     }
 
     // Step 4: Payment/Settlement (for BOOM, FIX_COD)
@@ -4210,10 +4243,13 @@ function enrichTimelineWithAuditLogs(steps, auditLogs) {
     return steps.map((step) => {
         const enriched = { ...step };
 
-        // Find matching audit log
+        // Find matching audit log. Tolerant: "Nhận hàng" khớp cả "Nhận hàng (nhập kho)".
         const matchingLog = auditLogs.find((log) => {
             const mappedLabel = actionMap[log.actionType];
-            return mappedLabel === step.label;
+            return (
+                !!mappedLabel &&
+                (mappedLabel === step.label || step.label.startsWith(mappedLabel + ' '))
+            );
         });
 
         if (matchingLog) {
