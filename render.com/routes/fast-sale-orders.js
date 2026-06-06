@@ -1325,6 +1325,33 @@ router.post('/from-native-order', async (req, res) => {
             imageUrl: p.imageUrl || p.image_url || null,
             note: p.note || null,
         }));
+        // 2026-06-06: THU VỀ 1 PHẦN — SP khách đã thu về (web2_returns, bill_status
+        // 'queued') lên bill này với giá 0đ (đổi/bù trừ). Frontend native-orders
+        // truyền b.returnLines [{productCode, productName, quantity}] + b.returnCodes.
+        // Append vào lines TRƯỚC stock guard → vẫn validate + trừ kho như dòng bán
+        // bình thường (hàng đã thu về kho nên đủ tồn; net 0 = exchange). Additive:
+        // không có returnLines → flow cũ y nguyên.
+        const returnLines = Array.isArray(b.returnLines) ? b.returnLines : [];
+        let _rpos = lines.length;
+        for (const rl of returnLines) {
+            const q = Number(rl.quantity || rl.qty || 0);
+            if (!rl.productCode || q <= 0) continue;
+            _rpos += 1;
+            lines.push({
+                position: _rpos,
+                productId: null,
+                productCode: rl.productCode,
+                productName: rl.productName || rl.name || null,
+                uomId: null,
+                uomName: null,
+                quantity: q,
+                priceUnit: 0,
+                discount: 0,
+                discountAmount: 0,
+                imageUrl: null,
+                note: 'Thu về 0đ',
+            });
+        }
         // Stock guard: block over-sell. Có thể bypass với `force: true` (vd admin
         // tạo PBH gấp khi đang chờ nhập hàng) — log để traceable.
         if (b.force !== true) {
@@ -1459,6 +1486,31 @@ router.post('/from-native-order', async (req, res) => {
                     );
                 } catch {}
             }
+        }
+
+        // 2026-06-06: đánh dấu phiếu thu về (queued) đã lên bill → bill_status='consumed'.
+        // Fire-and-forget — không chặn flow tạo PBH.
+        const returnCodes = Array.isArray(b.returnCodes) ? b.returnCodes : [];
+        if (returnCodes.length) {
+            const pbhNumber = r.rows[0]?.number || src.code;
+            for (const rc of returnCodes) {
+                try {
+                    await pool.query(
+                        `UPDATE web2_returns SET bill_status='consumed', consumed_pbh_code=$1, updated_at=$2
+                         WHERE code=$3 AND bill_status='queued'`,
+                        [pbhNumber, Date.now(), rc]
+                    );
+                } catch (e) {
+                    console.warn('[from-native-order] mark return consumed fail:', e.message);
+                }
+            }
+            try {
+                req.app.locals.web2RealtimeSseNotify?.(
+                    'web2:returns',
+                    { action: 'consumed', ts: Date.now() },
+                    'update'
+                );
+            } catch {}
         }
 
         // Sprint 1 KPI: emit actual_confirmed cho từng product trong native order.

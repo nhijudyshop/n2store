@@ -1,0 +1,741 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
+// =====================================================================
+// WEB 2.0 — THU VỀ (Goods Return) REST API
+// =====================================================================
+// Phiếu thu về hàng từ khách. Mô hình (chốt 2026-06-06):
+//
+//   CHA = cách hàng về (quyết định TỒN KHO):
+//     - khach_gui   : + kho THẬT ngay (stock += qty)            → stock_status='applied'
+//     - shipper_gui : + kho THU VỀ chờ duyệt (return_qty += qty) → stock_status='pending'
+//                     Duyệt xong → return_qty → stock. Badge "Thu về" ở Kho SP.
+//                     Treo > 20 ngày → notification (xem v2/notifications scan).
+//
+//   VÍ LUÔN CỘNG NGAY ở cả 2 cách (chỉ tồn kho mới khác).
+//
+//   CON (sub_type):
+//     - khong_nhan_hang : hoàn CẢ ĐƠN cũ (chọn PBH/Đơn Web của KH).
+//                         Ví chỉ cộng nếu đơn đó đã trừ ví (wallet_deducted > 0).
+//                         reason: khach_boom | khong_lien_lac | sai_dia_chi | doi_y | khac (+ reason_note).
+//     - thu_ve_1_phan   : chọn SP lẻ trong kho. Ví = Σ(giá bán × SL) cộng ngay.
+//                         Vào danh sách chờ → khi tạo PBH ở native-orders, SP lên
+//                         bill giá 0đ (bill_status='queued' → 'consumed').
+//
+// Pool: web2Db (n2store-web2-db). KHÔNG đụng bảng Web 1.0.
+// =====================================================================
+
+const express = require('express');
+const router = express.Router();
+const web2WalletService = require('../services/web2-wallet-service');
+
+// -----------------------------------------------------
+// SSE notifier — injected từ server.js via initializeNotifiers().
+// -----------------------------------------------------
+let _notifyClients = null;
+function initializeNotifiers(notifyClients) {
+    _notifyClients = notifyClients;
+}
+function _notify(action, code, extra) {
+    if (!_notifyClients) return;
+    try {
+        _notifyClients(
+            'web2:returns',
+            { action, code: code || null, ts: Date.now(), ...(extra || {}) },
+            'update'
+        );
+        // Thu về đổi tồn kho → Kho SP tự refresh (badge thu về, tồn).
+        _notifyClients(
+            'web2:products',
+            { action: 'return-' + action, code: null, ts: Date.now() },
+            'update'
+        );
+    } catch (e) {
+        console.warn('[WEB2-RETURNS] _notify failed:', e.message);
+    }
+}
+function _notifyWallet(phone) {
+    if (!_notifyClients || !phone) return;
+    try {
+        _notifyClients(
+            `web2:wallet:${phone}`,
+            { action: 'return-credit', phone, ts: Date.now() },
+            'update'
+        );
+    } catch (e) {
+        console.warn('[WEB2-RETURNS] _notifyWallet failed:', e.message);
+    }
+}
+
+// -----------------------------------------------------
+// Helpers
+// -----------------------------------------------------
+const METHODS = new Set(['khach_gui', 'shipper_gui']);
+const SUB_TYPES = new Set(['khong_nhan_hang', 'thu_ve_1_phan']);
+const REASONS = new Set(['khach_boom', 'khong_lien_lac', 'sai_dia_chi', 'doi_y', 'khac']);
+const OVERDUE_DAYS = 20;
+
+function normPhone(p) {
+    if (!p) return null;
+    let s = String(p).replace(/\D/g, '');
+    if (s.startsWith('84') && s.length >= 11) s = '0' + s.slice(2);
+    return s || null;
+}
+
+function mapRow(r) {
+    if (!r) return null;
+    return {
+        id: Number(r.id),
+        code: r.code,
+        phone: r.phone,
+        customerName: r.customer_name,
+        customerId: r.customer_id != null ? Number(r.customer_id) : null,
+        method: r.method,
+        subType: r.sub_type,
+        reason: r.reason || null,
+        reasonNote: r.reason_note || null,
+        sourceOrderCode: r.source_order_code || null,
+        sourceOrderType: r.source_order_type || null,
+        items: r.items || [],
+        totalAmount: Number(r.total_amount || 0),
+        walletCredited: Number(r.wallet_credited || 0),
+        walletTxId: r.wallet_tx_id != null ? Number(r.wallet_tx_id) : null,
+        stockStatus: r.stock_status,
+        approvedAt: r.approved_at != null ? Number(r.approved_at) : null,
+        approvedBy: r.approved_by || null,
+        billStatus: r.bill_status || null,
+        consumedPbhCode: r.consumed_pbh_code || null,
+        status: r.status,
+        note: r.note || null,
+        history: r.history || [],
+        createdAt: Number(r.created_at),
+        updatedAt: Number(r.updated_at),
+        createdBy: r.created_by || null,
+        createdByName: r.created_by_name || null,
+    };
+}
+
+function _user(req) {
+    const b = req.body || {};
+    return {
+        id: b.userId || req.headers['x-user-id'] || null,
+        name: b.userName || req.headers['x-user-name'] || '(ẩn danh)',
+    };
+}
+
+// -----------------------------------------------------
+// Auto-create table on first request (idempotent)
+// -----------------------------------------------------
+let _tablesCreated = false;
+async function ensureTables(pool) {
+    if (_tablesCreated) return;
+    // ALTER ADD COLUMN mới đặt ĐẦU (rule web2-wallet-isolation regression): cột
+    // return_qty trên web2_products = tồn kho thu về chờ duyệt (shipper_gui).
+    await pool.query(`
+        ALTER TABLE IF EXISTS web2_products
+            ADD COLUMN IF NOT EXISTS return_qty INTEGER NOT NULL DEFAULT 0;
+    `);
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS web2_returns (
+            id                BIGSERIAL PRIMARY KEY,
+            code              VARCHAR(40) UNIQUE NOT NULL,
+            phone             VARCHAR(40),
+            customer_name     VARCHAR(255),
+            customer_id       BIGINT,
+            method            VARCHAR(20) NOT NULL,      -- khach_gui | shipper_gui
+            sub_type          VARCHAR(20) NOT NULL,      -- khong_nhan_hang | thu_ve_1_phan
+            reason            VARCHAR(20),               -- khach_boom | khong_lien_lac | sai_dia_chi | doi_y | khac
+            reason_note       TEXT,
+            source_order_code VARCHAR(40),               -- cho khong_nhan_hang
+            source_order_type VARCHAR(20),               -- native | pbh
+            items             JSONB NOT NULL DEFAULT '[]'::jsonb,
+            total_amount      NUMERIC(14,2) NOT NULL DEFAULT 0,
+            wallet_credited   NUMERIC(14,2) NOT NULL DEFAULT 0,
+            wallet_tx_id      BIGINT,
+            stock_status      VARCHAR(20) NOT NULL DEFAULT 'applied', -- applied | pending | approved
+            approved_at       BIGINT,
+            approved_by       VARCHAR(255),
+            bill_status       VARCHAR(20),               -- queued | consumed | null
+            consumed_pbh_code VARCHAR(40),
+            status            VARCHAR(20) NOT NULL DEFAULT 'active',  -- active | cancelled
+            note              TEXT,
+            history           JSONB NOT NULL DEFAULT '[]'::jsonb,
+            created_at        BIGINT NOT NULL,
+            updated_at        BIGINT NOT NULL,
+            created_by        VARCHAR(100),
+            created_by_name   VARCHAR(255)
+        );
+        CREATE INDEX IF NOT EXISTS idx_web2_returns_phone   ON web2_returns(phone);
+        CREATE INDEX IF NOT EXISTS idx_web2_returns_created ON web2_returns(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_web2_returns_stock   ON web2_returns(stock_status);
+        CREATE INDEX IF NOT EXISTS idx_web2_returns_bill    ON web2_returns(bill_status);
+        CREATE INDEX IF NOT EXISTS idx_web2_returns_status  ON web2_returns(status);
+    `);
+    _tablesCreated = true;
+}
+
+function getPool(req) {
+    return req.app.locals.web2Db || req.app.locals.chatDb;
+}
+
+// Sinh code TV-YYYYMMDD-XXXX (sequence theo ngày).
+async function _genCode(pool) {
+    const d = new Date();
+    const ymd =
+        d.getFullYear().toString() +
+        String(d.getMonth() + 1).padStart(2, '0') +
+        String(d.getDate()).padStart(2, '0');
+    const prefix = `TV-${ymd}-`;
+    const r = await pool.query(
+        `SELECT code FROM web2_returns WHERE code LIKE $1 ORDER BY code DESC LIMIT 1`,
+        [prefix + '%']
+    );
+    let seq = 1;
+    if (r.rows[0]) {
+        const last = parseInt(String(r.rows[0].code).slice(prefix.length), 10);
+        if (Number.isFinite(last)) seq = last + 1;
+    }
+    return prefix + String(seq).padStart(4, '0');
+}
+
+// Áp tồn kho cho 1 list item theo method. delta>0 = cộng.
+// khach_gui → stock; shipper_gui → return_qty.
+async function _applyStock(client, items, method, sign) {
+    const col = method === 'shipper_gui' ? 'return_qty' : 'stock';
+    for (const it of items || []) {
+        const code = it.productCode;
+        const qty = Number(it.quantity) || 0;
+        if (!code || qty <= 0) continue;
+        await client.query(
+            `UPDATE web2_products
+             SET ${col} = GREATEST(0, ${col} + $1), updated_at = $2
+             WHERE code = $3`,
+            [sign * qty, Date.now(), code]
+        );
+    }
+}
+
+// Lấy items + wallet_deducted của 1 đơn cũ (cho khong_nhan_hang / boom).
+async function _resolveSourceOrder(pool, code, type) {
+    if (type === 'pbh') {
+        const r = await pool.query(
+            `SELECT order_lines, total_amount, wallet_deducted, partner_phone
+             FROM fast_sale_orders WHERE number = $1 LIMIT 1`,
+            [code]
+        );
+        if (!r.rows[0]) return null;
+        const row = r.rows[0];
+        const lines = Array.isArray(row.order_lines) ? row.order_lines : [];
+        return {
+            items: lines.map((l) => ({
+                productCode: l.productCode || l.product_code || l.code,
+                productName: l.productName || l.product_name || l.name || '',
+                quantity: Number(l.quantity || l.qty) || 0,
+                price: Number(l.priceUnit || l.price || 0),
+            })),
+            totalAmount: Number(row.total_amount) || 0,
+            walletDeducted: Number(row.wallet_deducted) || 0,
+        };
+    }
+    // native order
+    const r = await pool.query(
+        `SELECT products, total_amount, phone FROM native_orders WHERE code = $1 LIMIT 1`,
+        [code]
+    );
+    if (!r.rows[0]) return null;
+    const row = r.rows[0];
+    const prods = Array.isArray(row.products) ? row.products : [];
+    // wallet đã trừ nằm trên (các) PBH liên kết native order này.
+    let walletDeducted = 0;
+    try {
+        const w = await pool.query(
+            `SELECT COALESCE(SUM(wallet_deducted),0)::numeric AS s
+             FROM fast_sale_orders WHERE source_type='native_order' AND source_code = $1`,
+            [code]
+        );
+        walletDeducted = Number(w.rows[0]?.s) || 0;
+    } catch {}
+    return {
+        items: prods.map((p) => ({
+            productCode: p.productCode || p.code,
+            productName: p.productName || p.name || '',
+            quantity: Number(p.quantity || p.qty) || 0,
+            price: Number(p.price || p.priceUnit || 0),
+        })),
+        totalAmount: Number(row.total_amount) || 0,
+        walletDeducted,
+    };
+}
+
+// =====================================================
+// GET /api/web2-returns/health
+// =====================================================
+router.get('/health', async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ ok: false, error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query('SELECT COUNT(*)::int AS n FROM web2_returns');
+        res.json({ ok: true, count: r.rows[0].n });
+    } catch (e) {
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
+// =====================================================
+// GET /api/web2-returns/list?search&status&stockStatus&page&limit
+// =====================================================
+router.get('/list', async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const { search, status, stockStatus, page = 1, limit = 100 } = req.query;
+        const pageNum = Math.max(1, parseInt(page, 10));
+        const limitNum = Math.min(500, Math.max(1, parseInt(limit, 10)));
+        const offset = (pageNum - 1) * limitNum;
+        const conds = [];
+        const params = [];
+        if (status) {
+            params.push(status);
+            conds.push(`status = $${params.length}`);
+        }
+        if (stockStatus) {
+            params.push(stockStatus);
+            conds.push(`stock_status = $${params.length}`);
+        }
+        if (search) {
+            params.push(`%${search}%`);
+            const i = params.length;
+            conds.push(`(code ILIKE $${i} OR phone ILIKE $${i} OR customer_name ILIKE $${i})`);
+        }
+        const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+        const countR = await pool.query(
+            `SELECT COUNT(*)::int AS n FROM web2_returns ${where}`,
+            params
+        );
+        const total = countR.rows[0].n;
+        const listParams = [...params, limitNum, offset];
+        const r = await pool.query(
+            `SELECT * FROM web2_returns ${where}
+             ORDER BY created_at DESC
+             LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
+            listParams
+        );
+        res.json({
+            success: true,
+            returns: r.rows.map(mapRow),
+            total,
+            page: pageNum,
+            limit: limitNum,
+            hasMore: offset + r.rows.length < total,
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
+// GET /api/web2-returns/pending — list shipper_gui chờ duyệt
+// =====================================================
+router.get('/pending', async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(
+            `SELECT * FROM web2_returns
+             WHERE method = 'shipper_gui' AND stock_status = 'pending' AND status = 'active'
+             ORDER BY created_at ASC`
+        );
+        const now = Date.now();
+        const overdueMs = OVERDUE_DAYS * 24 * 3600 * 1000;
+        const items = r.rows.map((row) => {
+            const m = mapRow(row);
+            m.overdue = now - m.createdAt > overdueMs;
+            m.ageDays = Math.floor((now - m.createdAt) / (24 * 3600 * 1000));
+            return m;
+        });
+        res.json({ success: true, items, overdueDays: OVERDUE_DAYS });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
+// GET /api/web2-returns/queued-by-phone/:phone
+// SP thu_ve_1_phan chờ lên bill 0đ cho 1 KH (native-orders gọi).
+// =====================================================
+router.get('/queued-by-phone/:phone', async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const phone = normPhone(req.params.phone);
+        if (!phone) return res.json({ success: true, items: [], returns: [] });
+        const r = await pool.query(
+            `SELECT * FROM web2_returns
+             WHERE phone = $1 AND sub_type = 'thu_ve_1_phan'
+               AND bill_status = 'queued' AND status = 'active'
+             ORDER BY created_at ASC`,
+            [phone]
+        );
+        // Gộp item theo productCode để hiện gợi ý + danh sách dòng bill 0đ.
+        const flat = [];
+        for (const row of r.rows) {
+            for (const it of row.items || []) {
+                flat.push({
+                    returnCode: row.code,
+                    productCode: it.productCode,
+                    productName: it.productName,
+                    quantity: Number(it.quantity) || 0,
+                });
+            }
+        }
+        res.json({ success: true, returns: r.rows.map(mapRow), items: flat });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
+// GET /api/web2-returns/:code
+// =====================================================
+router.get('/:code', async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query('SELECT * FROM web2_returns WHERE code = $1', [req.params.code]);
+        if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
+        res.json({ success: true, return: mapRow(r.rows[0]) });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
+// POST /api/web2-returns  — tạo phiếu thu về
+// Body:
+//   phone, customerName, customerId
+//   method: khach_gui | shipper_gui
+//   subType: khong_nhan_hang | thu_ve_1_phan
+//   reason, reasonNote                          (khong_nhan_hang)
+//   sourceOrderCode, sourceOrderType            (khong_nhan_hang)
+//   items: [{productCode, productName, quantity, price}]  (thu_ve_1_phan)
+//   note
+// =====================================================
+router.post('/', async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const b = req.body || {};
+    const method = String(b.method || '').trim();
+    const subType = String(b.subType || '').trim();
+    if (!METHODS.has(method)) return res.status(400).json({ error: 'method invalid' });
+    if (!SUB_TYPES.has(subType)) return res.status(400).json({ error: 'subType invalid' });
+    const phone = normPhone(b.phone);
+    if (!phone) return res.status(400).json({ error: 'phone required' });
+
+    const user = _user(req);
+    try {
+        await ensureTables(pool);
+
+        // 1) Resolve items + wallet credit amount theo sub_type.
+        let items = [];
+        let totalAmount = 0;
+        let walletCredit = 0;
+        let reason = null;
+        let reasonNote = null;
+        let sourceOrderCode = null;
+        let sourceOrderType = null;
+
+        if (subType === 'khong_nhan_hang') {
+            reason = REASONS.has(b.reason) ? b.reason : 'khach_boom';
+            reasonNote = reason === 'khac' ? (b.reasonNote || '').toString().slice(0, 500) : null;
+            sourceOrderCode = String(b.sourceOrderCode || '').trim();
+            sourceOrderType = b.sourceOrderType === 'pbh' ? 'pbh' : 'native';
+            if (!sourceOrderCode)
+                return res.status(400).json({ error: 'sourceOrderCode required' });
+            const src = await _resolveSourceOrder(pool, sourceOrderCode, sourceOrderType);
+            if (!src) return res.status(404).json({ error: 'Đơn nguồn không tồn tại' });
+            items = src.items.filter((x) => x.productCode && x.quantity > 0);
+            totalAmount = src.totalAmount;
+            // Ví: chỉ cộng nếu đơn đó đã trừ ví.
+            walletCredit = src.walletDeducted > 0 ? src.walletDeducted : 0;
+        } else {
+            // thu_ve_1_phan
+            const raw = Array.isArray(b.items) ? b.items : [];
+            items = raw
+                .map((it) => ({
+                    productCode: String(it.productCode || '').trim(),
+                    productName: it.productName || '',
+                    quantity: Number(it.quantity) || 0,
+                    price: Number(it.price) || 0,
+                }))
+                .filter((it) => it.productCode && it.quantity > 0);
+            if (!items.length) return res.status(400).json({ error: 'items required' });
+            totalAmount = items.reduce((s, it) => s + it.price * it.quantity, 0);
+            walletCredit = totalAmount; // giá bán × SL, cộng ngay
+        }
+        items = items.map((it) => ({ ...it, amount: (Number(it.price) || 0) * it.quantity }));
+
+        const code = await _genCode(pool);
+        const now = Date.now();
+        const stockStatus = method === 'shipper_gui' ? 'pending' : 'applied';
+        const billStatus = subType === 'thu_ve_1_phan' ? 'queued' : null;
+
+        // 2) Transaction: insert phiếu + áp tồn kho. Ví cộng SAU commit (service
+        // tự transaction riêng) để không lồng transaction.
+        const client = await pool.connect();
+        let inserted;
+        try {
+            await client.query('BEGIN');
+            await _applyStock(client, items, method, +1);
+            const hist = [
+                {
+                    ts: now,
+                    action: 'create',
+                    userId: user.id,
+                    userName: user.name,
+                    note: `${method} / ${subType}${reason ? ' / ' + reason : ''}`,
+                },
+            ];
+            const ins = await client.query(
+                `INSERT INTO web2_returns
+                  (code, phone, customer_name, customer_id, method, sub_type, reason, reason_note,
+                   source_order_code, source_order_type, items, total_amount, wallet_credited,
+                   stock_status, bill_status, status, note, history, created_at, updated_at,
+                   created_by, created_by_name)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,'active',$16,$17::jsonb,$18,$18,$19,$20)
+                 RETURNING *`,
+                [
+                    code,
+                    phone,
+                    b.customerName || null,
+                    b.customerId || null,
+                    method,
+                    subType,
+                    reason,
+                    reasonNote,
+                    sourceOrderCode,
+                    sourceOrderType,
+                    JSON.stringify(items),
+                    totalAmount,
+                    walletCredit,
+                    stockStatus,
+                    billStatus,
+                    b.note || null,
+                    JSON.stringify(hist),
+                    now,
+                    user.id,
+                    user.name,
+                ]
+            );
+            inserted = ins.rows[0];
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+
+        // 3) Cộng ví (ngoài transaction — service tự lo). Idempotent theo phiếu
+        // qua note chứa code; nếu fail thì phiếu vẫn còn nhưng ví chưa cộng →
+        // log để xử lý tay. Lưu wallet_tx_id để rollback khi huỷ.
+        if (walletCredit > 0) {
+            try {
+                const dep = await web2WalletService.processDeposit(
+                    pool,
+                    phone,
+                    walletCredit,
+                    null,
+                    `Thu về ${code}`,
+                    b.customerId || null,
+                    null,
+                    null,
+                    user.name
+                );
+                const txId = dep?.transaction?.id || null;
+                if (txId) {
+                    await pool.query(`UPDATE web2_returns SET wallet_tx_id = $1 WHERE code = $2`, [
+                        txId,
+                        code,
+                    ]);
+                    inserted.wallet_tx_id = txId;
+                }
+                _notifyWallet(phone);
+            } catch (e) {
+                console.error(`[WEB2-RETURNS] credit wallet fail ${code}:`, e.message);
+            }
+        }
+
+        _notify('create', code, { phone });
+        res.json({ success: true, return: mapRow(inserted) });
+    } catch (e) {
+        console.error('[WEB2-RETURNS] create error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
+// POST /api/web2-returns/:code/approve
+// Duyệt shipper_gui pending → return_qty chuyển sang stock thật.
+// =====================================================
+router.post('/:code/approve', async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const user = _user(req);
+    try {
+        await ensureTables(pool);
+        const cur = await pool.query('SELECT * FROM web2_returns WHERE code = $1', [
+            req.params.code,
+        ]);
+        if (!cur.rows[0]) return res.status(404).json({ error: 'Not found' });
+        const row = cur.rows[0];
+        if (row.status !== 'active') return res.status(400).json({ error: 'Phiếu đã huỷ' });
+        if (row.method !== 'shipper_gui' || row.stock_status !== 'pending') {
+            return res.status(400).json({ error: 'Phiếu không ở trạng thái chờ duyệt' });
+        }
+        const items = Array.isArray(row.items) ? row.items : [];
+        const now = Date.now();
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            // return_qty → stock cho từng SP.
+            for (const it of items) {
+                const qty = Number(it.quantity) || 0;
+                if (!it.productCode || qty <= 0) continue;
+                await client.query(
+                    `UPDATE web2_products
+                     SET return_qty = GREATEST(0, return_qty - $1),
+                         stock = stock + $1,
+                         updated_at = $2
+                     WHERE code = $3`,
+                    [qty, now, it.productCode]
+                );
+            }
+            const hist = Array.isArray(row.history) ? row.history : [];
+            hist.push({ ts: now, action: 'approve', userId: user.id, userName: user.name });
+            await client.query(
+                `UPDATE web2_returns
+                 SET stock_status = 'approved', approved_at = $1, approved_by = $2,
+                     history = $3::jsonb, updated_at = $1
+                 WHERE code = $4`,
+                [now, user.name, JSON.stringify(hist), req.params.code]
+            );
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+        _notify('approve', req.params.code);
+        res.json({ success: true });
+    } catch (e) {
+        console.error('[WEB2-RETURNS] approve error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
+// POST /api/web2-returns/:code/mark-consumed
+// Body: { pbhCode } — native-orders gọi sau khi tạo PBH dùng SP queued.
+// =====================================================
+router.post('/:code/mark-consumed', async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(
+            `UPDATE web2_returns
+             SET bill_status = 'consumed', consumed_pbh_code = $1, updated_at = $2
+             WHERE code = $3 AND bill_status = 'queued'
+             RETURNING code`,
+            [req.body?.pbhCode || null, Date.now(), req.params.code]
+        );
+        if (!r.rows[0]) return res.status(404).json({ error: 'Not found or already consumed' });
+        _notify('consumed', req.params.code);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
+// DELETE /api/web2-returns/:code — huỷ phiếu + rollback ví/kho
+// =====================================================
+router.delete('/:code', async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const user = _user(req);
+    try {
+        await ensureTables(pool);
+        const cur = await pool.query('SELECT * FROM web2_returns WHERE code = $1', [
+            req.params.code,
+        ]);
+        if (!cur.rows[0]) return res.status(404).json({ error: 'Not found' });
+        const row = cur.rows[0];
+        if (row.status !== 'active') return res.status(400).json({ error: 'Phiếu đã huỷ' });
+        const items = Array.isArray(row.items) ? row.items : [];
+        const now = Date.now();
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            // Rollback tồn kho:
+            //  - applied / approved → đã vào stock thật → trừ stock.
+            //  - pending → đang ở return_qty → trừ return_qty.
+            if (row.stock_status === 'pending') {
+                await _applyStock(client, items, 'shipper_gui', -1);
+            } else {
+                for (const it of items) {
+                    const qty = Number(it.quantity) || 0;
+                    if (!it.productCode || qty <= 0) continue;
+                    await client.query(
+                        `UPDATE web2_products SET stock = GREATEST(0, stock - $1), updated_at = $2 WHERE code = $3`,
+                        [qty, now, it.productCode]
+                    );
+                }
+            }
+            const hist = Array.isArray(row.history) ? row.history : [];
+            hist.push({ ts: now, action: 'cancel', userId: user.id, userName: user.name });
+            await client.query(
+                `UPDATE web2_returns SET status = 'cancelled', history = $1::jsonb, updated_at = $2 WHERE code = $3`,
+                [JSON.stringify(hist), now, req.params.code]
+            );
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+
+        // Rollback ví: rút lại số đã cộng (best-effort).
+        const credited = Number(row.wallet_credited) || 0;
+        if (credited > 0 && row.phone) {
+            try {
+                await web2WalletService.processWithdraw(
+                    pool,
+                    row.phone,
+                    credited,
+                    'return',
+                    req.params.code,
+                    `Huỷ thu về ${req.params.code}`,
+                    user.name
+                );
+                _notifyWallet(row.phone);
+            } catch (e) {
+                console.warn(`[WEB2-RETURNS] rollback wallet ${req.params.code} fail:`, e.message);
+            }
+        }
+        _notify('cancel', req.params.code, { phone: row.phone });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('[WEB2-RETURNS] delete error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+router.initializeNotifiers = initializeNotifiers;
+module.exports = router;

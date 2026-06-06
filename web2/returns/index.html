@@ -1,0 +1,251 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Thu về (goods return). -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Thu về - WEB 2.0</title>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260606tv" />
+        <link rel="stylesheet" href="../shared/web2-effects.css?v=20260606tv" />
+        <link rel="stylesheet" href="../shared/web2-tpos-theme.css?v=20260606tv" />
+        <link rel="stylesheet" href="css/returns.css?v=20260606tv" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+
+        <!-- Firebase compat (auth) -->
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+        <script src="../../shared/js/firebase-config.js?v=20260606tv"></script>
+        <script src="../../shared/js/shared-auth-manager.js?v=20260606tv"></script>
+        <script src="../../shared/js/notification-system.js?v=20260606tv"></script>
+        <script src="../shared/web2-effects.js?v=20260606tv"></script>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content" style="overflow: auto; height: 100vh">
+                <header class="page-head-mini">
+                    <h1 class="page-head-title"><i data-lucide="undo-2"></i> Thu về</h1>
+                    <div class="page-head-counters">
+                        <span class="source-pill">web2_returns</span>
+                    </div>
+                </header>
+
+                <!-- Tabs -->
+                <div class="rt-tabs">
+                    <button class="rt-tab is-active" id="tab-create" type="button">
+                        <i data-lucide="plus-circle"></i> Tạo phiếu
+                    </button>
+                    <button class="rt-tab" id="tab-list" type="button">
+                        <i data-lucide="list"></i> Danh sách
+                    </button>
+                    <button class="rt-tab" id="tab-pending" type="button">
+                        <i data-lucide="clock"></i> Chờ duyệt
+                        <span class="rt-badge" id="pendingCount">0</span>
+                    </button>
+                </div>
+
+                <!-- ============ PANEL: CREATE ============ -->
+                <section class="rt-panel" id="panel-create">
+                    <div class="rt-grid">
+                        <!-- Left: customer + method -->
+                        <div class="rt-card">
+                            <div class="rt-card-title"><i data-lucide="user"></i> Khách hàng</div>
+                            <div class="rt-cust-box">
+                                <input
+                                    type="text"
+                                    id="custSearch"
+                                    class="rt-input"
+                                    placeholder="Tìm KH theo tên / SĐT…"
+                                    autocomplete="off"
+                                />
+                                <div class="rt-dropdown" id="custResults" hidden></div>
+                                <div class="rt-cust-selected" id="custSelected" hidden></div>
+                            </div>
+
+                            <div class="rt-card-title" style="margin-top: 18px">
+                                <i data-lucide="truck"></i> Cách hàng về
+                            </div>
+                            <div class="rt-radio-row">
+                                <label class="rt-radio">
+                                    <input type="radio" name="method" value="khach_gui" checked />
+                                    <span><b>Khách gửi</b><small>+ kho thật ngay</small></span>
+                                </label>
+                                <label class="rt-radio">
+                                    <input type="radio" name="method" value="shipper_gui" />
+                                    <span
+                                        ><b>Shipper gửi</b
+                                        ><small>+ kho thu về · chờ duyệt</small></span
+                                    >
+                                </label>
+                            </div>
+                            <div class="rt-hint" id="stockHint"></div>
+
+                            <div class="rt-card-title" style="margin-top: 18px">
+                                <i data-lucide="git-branch"></i> Loại thu về
+                            </div>
+                            <div class="rt-radio-row">
+                                <label class="rt-radio">
+                                    <input
+                                        type="radio"
+                                        name="subType"
+                                        value="khong_nhan_hang"
+                                        checked
+                                    />
+                                    <span
+                                        ><b>Khách không nhận hàng</b
+                                        ><small>hoàn cả đơn cũ</small></span
+                                    >
+                                </label>
+                                <label class="rt-radio">
+                                    <input type="radio" name="subType" value="thu_ve_1_phan" />
+                                    <span
+                                        ><b>Thu về 1 phần</b
+                                        ><small>chọn SP lẻ → bill 0đ</small></span
+                                    >
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Right: dynamic content -->
+                        <div class="rt-card">
+                            <!-- Khách không nhận hàng -->
+                            <div id="boomSection">
+                                <div class="rt-card-title">
+                                    <i data-lucide="package-x"></i> Chọn đơn hoàn
+                                </div>
+                                <div class="rt-order-list" id="orderList">
+                                    <div class="rt-muted">Chọn khách hàng để xem đơn.</div>
+                                </div>
+                                <div class="rt-field" style="margin-top: 14px">
+                                    <label>Lý do</label>
+                                    <select id="reasonSelect" class="rt-input">
+                                        <option value="khach_boom">Khách boom</option>
+                                        <option value="khong_lien_lac">Không liên lạc được</option>
+                                        <option value="sai_dia_chi">Sai địa chỉ</option>
+                                        <option value="doi_y">Đổi ý</option>
+                                        <option value="khac">Khác…</option>
+                                    </select>
+                                </div>
+                                <div class="rt-field" id="reasonNoteWrap" hidden>
+                                    <label>Ghi rõ lý do</label>
+                                    <input
+                                        type="text"
+                                        id="reasonNote"
+                                        class="rt-input"
+                                        placeholder="vd: không liên lạc được"
+                                    />
+                                </div>
+                            </div>
+
+                            <!-- Thu về 1 phần -->
+                            <div id="partialSection" hidden>
+                                <div class="rt-card-title">
+                                    <i data-lucide="package-search"></i> Chọn sản phẩm
+                                </div>
+                                <div class="rt-cust-box">
+                                    <input
+                                        type="text"
+                                        id="prodSearch"
+                                        class="rt-input"
+                                        placeholder="Tìm SP theo mã / tên…"
+                                        autocomplete="off"
+                                    />
+                                    <div class="rt-dropdown" id="prodResults" hidden></div>
+                                </div>
+                                <table class="rt-table" style="margin-top: 12px">
+                                    <thead>
+                                        <tr>
+                                            <th>Sản phẩm</th>
+                                            <th>Giá bán</th>
+                                            <th>SL</th>
+                                            <th>Thành tiền</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="partialBody"></tbody>
+                                </table>
+                            </div>
+
+                            <div class="rt-field" style="margin-top: 16px">
+                                <label>Ghi chú</label>
+                                <input
+                                    type="text"
+                                    id="noteInput"
+                                    class="rt-input"
+                                    placeholder="Ghi chú phiếu thu về (tuỳ chọn)"
+                                />
+                            </div>
+
+                            <div class="rt-summary">
+                                <div class="rt-credit" id="creditPreview"></div>
+                                <button class="rt-submit" id="btnSubmit" disabled>
+                                    <i data-lucide="undo-2"></i> Tạo phiếu thu về
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============ PANEL: LIST ============ -->
+                <section class="rt-panel" id="panel-list" hidden>
+                    <div class="rt-list-head">
+                        <input
+                            type="text"
+                            id="listSearch"
+                            class="rt-input"
+                            placeholder="Tìm mã phiếu / tên / SĐT…"
+                        />
+                    </div>
+                    <table class="rt-table rt-table-list">
+                        <thead>
+                            <tr>
+                                <th>Mã</th>
+                                <th>Khách</th>
+                                <th>Cách</th>
+                                <th>Loại</th>
+                                <th>SP</th>
+                                <th>Ví cộng</th>
+                                <th>Tồn kho</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="returnsBody"></tbody>
+                    </table>
+                </section>
+
+                <!-- ============ PANEL: PENDING ============ -->
+                <section class="rt-panel" id="panel-pending" hidden>
+                    <div class="rt-pending-note">
+                        <i data-lucide="info"></i>
+                        Phiếu <b>Shipper gửi</b> chờ duyệt. Duyệt xong tồn kho thu về sẽ cộng vào
+                        <b>kho thật</b>. Phiếu treo > 20 ngày sẽ hiện cảnh báo (và thông báo ở
+                        chuông).
+                    </div>
+                    <div id="pendingList"></div>
+                </section>
+            </main>
+        </div>
+
+        <!-- Shared scripts -->
+        <script src="../shared/web2-auth.js?v=20260606tv"></script>
+        <script src="../shared/web2-user-info.js?v=20260606tv"></script>
+        <script src="../shared/web2-optimistic.js?v=20260606tv"></script>
+        <script src="../shared/tpos-sidebar.js?v=20260606tv"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260606tv"></script>
+        <script src="../shared/web2-wallet-balance.js?v=20260606tv"></script>
+        <script src="js/returns-api.js?v=20260606tv"></script>
+        <script src="js/returns-app.js?v=20260606tv"></script>
+    </body>
+</html>

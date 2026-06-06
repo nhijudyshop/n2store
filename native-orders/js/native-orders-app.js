@@ -3677,6 +3677,19 @@
     async function _doCreatePbh(code, extras) {
         try {
             const body = { nativeOrderCode: code, ...extras };
+            // 2026-06-06: KH có SP "Thu về 1 phần" chờ → hỏi thêm vào bill 0đ.
+            try {
+                const ord = STATE.orders.find((o) => o.code === code);
+                if (ord?.phone && window.NativeReturnBill?.collect) {
+                    const rb = await window.NativeReturnBill.collect(ord.phone);
+                    if (rb && rb.returnLines.length) {
+                        body.returnLines = rb.returnLines;
+                        body.returnCodes = rb.returnCodes;
+                    }
+                }
+            } catch (e) {
+                console.warn('[createPbh] return-bill check fail:', e);
+            }
             const r = await fetch(`${WORKER_URL}/api/fast-sale-orders/from-native-order`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
