@@ -360,6 +360,7 @@
             amount: total,
             note: `Trả ${selectedRows.length} dòng`,
             ref: { rowIds: selectedRows.map((r) => r.rowId), rows: selectedRows },
+            performedBy: _swBy(), // audit: ai ghi trả hàng
         });
         pushSync();
         notify(`Đã ghi trả hàng ${fmtVnd(total)} cho ${activeSupplier}`, 'success');
@@ -426,6 +427,7 @@
             type: 'payment',
             amount,
             note: note || 'Thanh toán',
+            performedBy: _swBy(), // audit: ai ghi thanh toán
         });
         pushSync();
         notify(`Đã ghi thanh toán ${fmtVnd(amount)} cho ${activeSupplier}`, 'success');

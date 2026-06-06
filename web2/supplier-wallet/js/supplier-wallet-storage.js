@@ -161,6 +161,7 @@
             amount: Number(txn.amount) || 0,
             note: txn.note || '',
             ref: txn.ref || null,
+            performedBy: txn.performedBy || null, // audit: ai thao tác
         };
         w.transactions.push(entry);
         if (entry.type === 'return') {

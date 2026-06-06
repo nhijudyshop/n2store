@@ -92,6 +92,11 @@
         }
     }
 
+    // Audit: tên staff thao tác ví → backend ghi performed_by (kiểm tra khi sai sót).
+    function _userName() {
+        return window.Web2UserInfo?.get?.()?.userName || window.Web2UserInfo?.label?.() || null;
+    }
+
     async function deposit(phone, amount, note, customerId) {
         const p = normPhone(phone);
         if (!p) throw new Error('Phone không hợp lệ');
@@ -99,7 +104,7 @@
         return await jsonFetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount, note, customerId }),
+            body: JSON.stringify({ amount, note, customerId, userName: _userName() }),
         });
     }
 
@@ -110,7 +115,13 @@
         return await jsonFetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount, referenceType, referenceId, note }),
+            body: JSON.stringify({
+                amount,
+                referenceType,
+                referenceId,
+                note,
+                userName: _userName(),
+            }),
         });
     }
 

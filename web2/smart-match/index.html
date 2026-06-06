@@ -191,7 +191,11 @@
                                 body: JSON.stringify({
                                     phone: phone,
                                     pbh_number: pbh,
-                                    verifiedBy: 'smart-match',
+                                    // Audit: tên staff đối soát (qua smart-match) → performed_by
+                                    verifiedBy:
+                                        (window.Web2UserInfo?.get?.()?.userName ||
+                                            window.Web2UserInfo?.label?.() ||
+                                            'staff') + ' (smart-match)',
                                 }),
                             });
                             const d = await r.json();
