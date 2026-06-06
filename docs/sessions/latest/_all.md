@@ -3,14 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a24f3c0` — feat(web2/ck-dashboard): lịch sử CK — tab 'Lịch sử CK' + timeline trên thẻ
-**Last updated**: 2026-06-06 20:29:49 +07
-**Latest session**: [`RESUME:20260606-202949-a24f3c0`](../20260606-202949-a24f3c0.md)
-**Summary**: feat(web2/ck-dashboard): lịch sử CK — tab 'Lịch sử CK' + timeline trên thẻ
+**Latest commit**: `abc42cd` — auto: session update
+**Last updated**: 2026-06-06 20:32:05 +07
+**Latest session**: [`RESUME:20260606-203205-abc42cd`](../20260606-203205-abc42cd.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
 - [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
@@ -69,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-06 20:29
+- [`web2/`](./web2.md) — updated 2026-06-06 20:32
