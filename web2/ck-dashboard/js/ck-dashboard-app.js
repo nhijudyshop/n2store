@@ -45,6 +45,32 @@
         return r.json();
     }
 
+    // ─── Lịch sử thao tác (timeline) trên thẻ ─────────────────────────
+    const ACTION_VI = {
+        detect: 'Hệ thống nhận',
+        confirm: 'Xác nhận',
+        approve: 'Duyệt',
+        dismiss: 'Bỏ qua',
+        link: 'Gán đơn',
+        'auto-link': 'Tự khớp',
+        notify: 'Gửi tin',
+    };
+    function historyHtml(h) {
+        if (!Array.isArray(h) || !h.length) return '';
+        let inner;
+        if (window.Web2HistoryTimeline?.render) {
+            inner = window.Web2HistoryTimeline.render(h, { title: false });
+        } else {
+            inner = h
+                .map(
+                    (e) =>
+                        `<div class="ckd-hist-row"><b>${esc(ACTION_VI[e.action] || e.action)}</b> · ${esc(e.userName || '(ẩn danh)')} · ${esc(fmtTime(e.ts))}${e.note ? ' · ' + esc(e.note) : ''}</div>`
+                )
+                .join('');
+        }
+        return `<details class="ckd-history" onclick="event.stopPropagation()"><summary>Lịch sử (${h.length})</summary>${inner}</details>`;
+    }
+
     // ─── Render signal card (pending / wait) ──────────────────────────
     function sigCard(sig) {
         const aging = sig.createdAt && Date.now() - sig.createdAt > AGING_MS ? ' aging' : '';
@@ -57,6 +83,7 @@
                 <span class="ckd-kw">${esc(sig.keyword || '')}</span></div>
             <div class="ckd-msg">"${esc(sig.rawMessage || '')}"</div>
             <div class="ckd-meta">${esc(order)} · <span class="ckd-age">${esc(ageTxt(sig.createdAt))}</span></div>
+            ${historyHtml(sig.history)}
         </div>`;
     }
     function intentCard(it) {

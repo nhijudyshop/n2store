@@ -26,6 +26,9 @@
                         <i data-lucide="mail-warning"></i> Tin nhắn chưa đọc
                         <span class="ckd-count" id="ckdUnreadCount">0</span>
                     </button>
+                    <button class="ckd-tab" data-tab="history" type="button">
+                        <i data-lucide="history"></i> Lịch sử CK
+                    </button>
                 </div>
 
                 <!-- Pane 1: Đối soát CK (3 cột) -->
@@ -70,12 +73,35 @@
                     </p>
                     <div id="ckdUnreadList"></div>
                 </div>
+
+                <!-- Pane 3: Lịch sử CK (tín hiệu đã xử lý) -->
+                <div id="ckdHistoryPane" hidden>
+                    <p class="ckd-sub">
+                        Lịch sử tín hiệu CK đã xử lý — ai duyệt/bỏ qua, đã gửi tin báo cho khách
+                        chưa, khớp giao dịch/đơn nào.
+                    </p>
+                    <div class="ckd-hist-filter">
+                        <select id="ckdHistStatus">
+                            <option value="confirmed">Đã xác nhận</option>
+                            <option value="dismissed">Đã bỏ qua</option>
+                            <option value="all">Tất cả</option>
+                        </select>
+                        <input
+                            type="text"
+                            id="ckdHistSearch"
+                            placeholder="Lọc theo SĐT / tên khách…"
+                        />
+                        <button id="ckdHistRefresh" type="button">↻ Tải lại</button>
+                    </div>
+                    <div class="ckd-hist-list" id="ckdHistory"></div>
+                </div>
             </main>
         </div>
 
         <script src="../../shared/js/notification-system.js?v=20260526e"></script>
         <script src="../shared/web2-auth.js?v=20260522f"></script>
         <script src="../shared/web2-user-info.js?v=20260530a"></script>
+        <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
         <script src="../shared/web2-optimistic.js?v=20260601a"></script>
         <script src="../shared/tpos-sidebar.js?v=20260606ck"></script>
         <script src="../shared/web2-sse-bridge.js?v=20260526sse2"></script>
