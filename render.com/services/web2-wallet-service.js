@@ -129,7 +129,17 @@ function runWithTx(db, fn) {
  * @param {string|null} sepayId - SePay transaction ID (idempotency key)
  * @returns {Promise<{wallet: Object, transaction: Object, alreadyProcessed: boolean}>}
  */
-async function processDeposit(db, phone, amount, sourceId, note, customerId, txDate, sepayId) {
+async function processDeposit(
+    db,
+    phone,
+    amount,
+    sourceId,
+    note,
+    customerId,
+    txDate,
+    sepayId,
+    performedBy = null
+) {
     const normPhone = normalizePhone(phone);
     if (!normPhone) throw new Error('Phone không hợp lệ');
     const amt = Number(amount);
@@ -180,15 +190,15 @@ async function processDeposit(db, phone, amount, sourceId, note, customerId, txD
             const balanceAfter = balanceBefore + amt;
             const totalDeposited = (parseFloat(wallet.total_deposited) || 0) + amt;
 
-            // 4. INSERT transaction
+            // 4. INSERT transaction (performed_by: audit ai/hệ thống cộng ví)
             const txInsert = await client.query(
                 `INSERT INTO web2_wallet_transactions (
                 phone, customer_id, type, amount,
                 balance_before, balance_after,
                 virtual_balance_before, virtual_balance_after,
-                source, reference_type, reference_id, note, created_at
+                source, reference_type, reference_id, note, performed_by, created_at
              )
-             VALUES ($1, $2, $3, $4, $5, $6, 0, 0, $7, $8, $9, $10, COALESCE($11, NOW()))
+             VALUES ($1, $2, $3, $4, $5, $6, 0, 0, $7, $8, $9, $10, $11, COALESCE($12, NOW()))
              RETURNING *`,
                 [
                     normPhone,
@@ -201,6 +211,7 @@ async function processDeposit(db, phone, amount, sourceId, note, customerId, txD
                     sepayId ? 'sepay' : sourceId ? 'balance_history' : 'manual',
                     sepayId ? String(sepayId) : sourceId ? String(sourceId) : null,
                     note || null,
+                    performedBy || null,
                     txDate || null,
                 ]
             );
@@ -276,7 +287,15 @@ async function processDeposit(db, phone, amount, sourceId, note, customerId, txD
 /**
  * Withdraw from wallet. Throws if insufficient balance.
  */
-async function processWithdraw(db, phone, amount, referenceType, referenceId, note) {
+async function processWithdraw(
+    db,
+    phone,
+    amount,
+    referenceType,
+    referenceId,
+    note,
+    performedBy = null
+) {
     const normPhone = normalizePhone(phone);
     if (!normPhone) throw new Error('Phone không hợp lệ');
     const amt = Number(amount);
@@ -307,9 +326,9 @@ async function processWithdraw(db, phone, amount, referenceType, referenceId, no
                 phone, customer_id, type, amount,
                 balance_before, balance_after,
                 virtual_balance_before, virtual_balance_after,
-                source, reference_type, reference_id, note, created_at
+                source, reference_type, reference_id, note, performed_by, created_at
              )
-             VALUES ($1, $2, $3, $4, $5, $6, 0, 0, $7, $8, $9, $10, NOW())
+             VALUES ($1, $2, $3, $4, $5, $6, 0, 0, $7, $8, $9, $10, $11, NOW())
              RETURNING *`,
             [
                 normPhone,
@@ -322,6 +341,7 @@ async function processWithdraw(db, phone, amount, referenceType, referenceId, no
                 referenceType || 'manual',
                 referenceId ? String(referenceId) : null,
                 note || null,
+                performedBy || null,
             ]
         );
 

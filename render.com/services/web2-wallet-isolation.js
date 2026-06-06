@@ -153,6 +153,18 @@ async function ensureSchema(pool) {
         }
 
         // ============================================================
+        // 6b. AUDIT: cột performed_by — ghi STAFF/ hệ thống thao tác ví.
+        //     ALTER SAU backfill (backfill `INSERT SELECT *` cần khớp cột legacy).
+        //     Idempotent. Mọi cộng/trừ ví ghi ai làm → kiểm tra lại khi sai sót.
+        // ============================================================
+        await pool.query(
+            `ALTER TABLE web2_wallet_transactions ADD COLUMN IF NOT EXISTS performed_by TEXT;`
+        );
+        await pool.query(
+            `ALTER TABLE web2_wallet_adjustments ADD COLUMN IF NOT EXISTS performed_by TEXT;`
+        );
+
+        // ============================================================
         // 7. Lá chắn cứng chống cộng-trùng tiền bank (Web 2.0).
         //    Race: 2 path (webhook + cron reprocess + reload trang) cùng xử lý
         //    1 GD trong cửa sổ READ COMMITTED → cả 2 qua dup-check → cộng 2 lần.
