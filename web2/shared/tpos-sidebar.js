@@ -76,7 +76,6 @@
                 { label: 'KPI Nhân viên', our: '../web2/kpi/index.html', tpos: '' },
                 { label: 'Thông báo', our: '../web2/notifications/index.html', tpos: '' },
                 { label: 'Lịch sử thao tác', our: '../web2/audit-log/index.html', tpos: '' },
-                { label: 'Xác nhận CK', our: '../web2/payment-confirm/index.html', tpos: '' },
                 { label: 'Đối soát CK', our: '../web2/ck-dashboard/index.html', tpos: '' },
                 { label: 'Studio chụp tách nền', our: '../web2/photo-studio/index.html', tpos: '' },
                 { label: 'Phân quyền', our: '../web2/users-permissions/index.html', tpos: '' },

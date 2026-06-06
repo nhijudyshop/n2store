@@ -169,9 +169,44 @@
         loadCol('intents', true);
     }
 
+    // ─── Tab: Đối soát CK | Tin nhắn chưa đọc ─────────────────────────
+    let _unreadMounted = false;
+    function switchTab(tab) {
+        document
+            .querySelectorAll('.ckd-tab')
+            .forEach((t) => t.classList.toggle('is-active', t.dataset.tab === tab));
+        const reconcile = tab === 'reconcile';
+        document.getElementById('ckdReconcilePane').hidden = !reconcile;
+        document.getElementById('ckdUnreadPane').hidden = reconcile;
+        if (!reconcile) {
+            // Mount panel "Tin nhắn chưa đọc" lần đầu; sau đó nó tự reload qua SSE.
+            const root = document.getElementById('ckdUnreadList');
+            if (window.Web2UnreadPanel?.mount) {
+                if (!_unreadMounted) {
+                    _unreadMounted = true;
+                    window.Web2UnreadPanel.mount(root, {
+                        onCount: (n) => {
+                            const el = document.getElementById('ckdUnreadCount');
+                            if (el) el.textContent = n;
+                        },
+                    });
+                } else {
+                    window.Web2UnreadPanel.reload();
+                }
+            }
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+    function wireTabs() {
+        document.querySelectorAll('.ckd-tab').forEach((t) => {
+            t.onclick = () => switchTab(t.dataset.tab);
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         if (window.Web2Sidebar)
             window.Web2Sidebar.mount('#web2Aside', { activeRoute: 'ck-dashboard' });
+        wireTabs();
         reloadAll();
         if (window.Web2SSE?.subscribe) {
             window.Web2SSE.subscribe('web2:payment-signals', () => {
@@ -179,6 +214,10 @@
                 loadCol('wait', true);
             });
             window.Web2SSE.subscribe('web2:customer-intents', () => loadCol('intents', true));
+            // Badge "Tin nhắn chưa đọc" cập nhật ngầm dù đang ở tab Đối soát.
+            window.Web2SSE.subscribe('web2:unread', () => {
+                if (_unreadMounted) return; // panel tự lo khi đã mount
+            });
         }
         if (window.lucide) window.lucide.createIcons();
     });

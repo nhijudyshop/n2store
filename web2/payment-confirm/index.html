@@ -1,68 +1,18 @@
-<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. | WEB2.0 module — Xác nhận CK (KH báo đã chuyển khoản). -->
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — RETIRED 2026-06-06: gộp vào ck-dashboard (tab "Tin nhắn chưa đọc"). Redirect. -->
 <!doctype html>
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
-        <title>Xác nhận CK - WEB 2.0</title>
-        <meta name="web2-db" content="render" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260522f" />
-        <link rel="stylesheet" href="../shared/web2-tpos-theme.css?v=20260522d" />
-        <link rel="stylesheet" href="css/payment-confirm.css?v=20260605a" />
-        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <title>Chuyển hướng… - WEB 2.0</title>
+        <meta http-equiv="refresh" content="0; url=../ck-dashboard/index.html" />
+        <script>
+            // Giữ query (vd ?tab=unread) khi chuyển.
+            location.replace('../ck-dashboard/index.html' + (location.search || ''));
+        </script>
     </head>
-    <body class="tpos-theme">
-        <div class="web2-shell">
-            <aside class="web2-aside" id="web2Aside"></aside>
-            <main class="web2-main pc-main">
-                <h1 class="pc-head">Xác nhận Chuyển Khoản</h1>
-                <p class="pc-sub">
-                    Khách nhắn <strong>"CK XONG"</strong> hoặc <strong>"ĐÃ CK"</strong> (không phân
-                    biệt hoa/thường, có/không dấu) → hệ thống tự nhận tín hiệu. Bấm
-                    <strong>Xác nhận</strong> để gắn cờ "KH báo đã CK" vào đơn liên quan.
-                </p>
-                <div class="pc-warn">
-                    ⚠ Đây là tín hiệu KH <em>báo</em> đã CK — chưa phải xác nhận tiền thật. Đối soát
-                    tiền vẫn qua SePay / Lịch sử biến động số dư.
-                </div>
-
-                <div class="pc-tabs">
-                    <button class="pc-tab active" data-tab="signals">
-                        KH báo đã CK <span class="pc-count" id="pcSignalsCount">0</span>
-                    </button>
-                    <button class="pc-tab" data-tab="unread">Tin nhắn chưa đọc</button>
-                </div>
-
-                <!-- Tab: signals -->
-                <div id="pcSignalsPane">
-                    <div class="pc-tools">
-                        <select id="pcStatus">
-                            <option value="pending">Chờ duyệt</option>
-                            <option value="confirmed">Đã xác nhận</option>
-                            <option value="dismissed">Đã bỏ qua</option>
-                            <option value="all">Tất cả</option>
-                        </select>
-                        <span class="pc-spacer"></span>
-                        <button class="pc-refresh" id="pcRefresh">↻ Tải lại</button>
-                    </div>
-                    <div class="pc-list" id="pcSignals"></div>
-                </div>
-
-                <!-- Tab: unread -->
-                <div id="pcUnreadPane" style="display: none">
-                    <div id="pcUnread"></div>
-                </div>
-            </main>
-        </div>
-
-        <script src="../../shared/js/notification-system.js?v=20260526e"></script>
-        <script src="../shared/web2-auth.js?v=20260522f"></script>
-        <script src="../shared/web2-user-info.js?v=20260530a"></script>
-        <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
-        <script src="../shared/web2-optimistic.js?v=20260601a"></script>
-        <script src="../shared/tpos-sidebar.js?v=20260522f"></script>
-        <script src="../shared/web2-sse-bridge.js?v=20260526sse2"></script>
-        <script src="../shared/web2-wallet-balance.js?v=20260606ck"></script>
-        <script src="js/payment-confirm-app.js?v=20260605b"></script>
+    <body>
+        <p style="font-family: system-ui; padding: 24px; color: #475569">
+            Trang này đã gộp vào <a href="../ck-dashboard/index.html">Đối soát CK</a>. Đang chuyển…
+        </p>
     </body>
 </html>

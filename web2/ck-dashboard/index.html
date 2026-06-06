@@ -8,7 +8,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260522f" />
         <link rel="stylesheet" href="../shared/web2-tpos-theme.css?v=20260522d" />
-        <link rel="stylesheet" href="css/ck-dashboard.css?v=20260605a" />
+        <link rel="stylesheet" href="css/ck-dashboard.css?v=20260606ck" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
     </head>
     <body class="tpos-theme">
@@ -16,35 +16,59 @@
             <aside class="web2-aside" id="web2Aside"></aside>
             <main class="web2-main ckd-main">
                 <h1 class="ckd-head">Đối soát Chuyển Khoản</h1>
-                <p class="ckd-sub">
-                    Theo dõi tín hiệu CK chờ duyệt, đơn đã duyệt chờ tiền về, và yêu cầu khác của
-                    khách. Bấm vào từng mục để xử lý.
-                </p>
 
-                <div class="ckd-stats" id="ckdStats"></div>
+                <!-- Tab: Đối soát CK | Tin nhắn chưa đọc (gộp từ payment-confirm) -->
+                <div class="ckd-tabs" role="tablist">
+                    <button class="ckd-tab is-active" data-tab="reconcile" type="button">
+                        <i data-lucide="wallet-cards"></i> Đối soát CK
+                    </button>
+                    <button class="ckd-tab" data-tab="unread" type="button">
+                        <i data-lucide="mail-warning"></i> Tin nhắn chưa đọc
+                        <span class="ckd-count" id="ckdUnreadCount">0</span>
+                    </button>
+                </div>
 
-                <div class="ckd-cols">
-                    <section class="ckd-col">
-                        <h2 class="ckd-col-head">
-                            <i data-lucide="bell-ring"></i> Chờ duyệt
-                            <span class="ckd-count" id="ckdPendingCount">0</span>
-                        </h2>
-                        <div class="ckd-list" id="ckdPending"></div>
-                    </section>
-                    <section class="ckd-col">
-                        <h2 class="ckd-col-head">
-                            <i data-lucide="hourglass"></i> Đã duyệt · chờ tiền về
-                            <span class="ckd-count" id="ckdWaitCount">0</span>
-                        </h2>
-                        <div class="ckd-list" id="ckdWait"></div>
-                    </section>
-                    <section class="ckd-col">
-                        <h2 class="ckd-col-head">
-                            <i data-lucide="message-square-warning"></i> Yêu cầu khác của KH
-                            <span class="ckd-count" id="ckdIntentCount">0</span>
-                        </h2>
-                        <div class="ckd-list" id="ckdIntents"></div>
-                    </section>
+                <!-- Pane 1: Đối soát CK (3 cột) -->
+                <div id="ckdReconcilePane">
+                    <p class="ckd-sub">
+                        Theo dõi tín hiệu CK chờ duyệt, đơn đã duyệt chờ tiền về, và yêu cầu khác
+                        của khách. Bấm vào từng mục để xử lý.
+                    </p>
+
+                    <div class="ckd-stats" id="ckdStats"></div>
+
+                    <div class="ckd-cols">
+                        <section class="ckd-col">
+                            <h2 class="ckd-col-head">
+                                <i data-lucide="bell-ring"></i> Chờ duyệt
+                                <span class="ckd-count" id="ckdPendingCount">0</span>
+                            </h2>
+                            <div class="ckd-list" id="ckdPending"></div>
+                        </section>
+                        <section class="ckd-col">
+                            <h2 class="ckd-col-head">
+                                <i data-lucide="hourglass"></i> Đã duyệt · chờ tiền về
+                                <span class="ckd-count" id="ckdWaitCount">0</span>
+                            </h2>
+                            <div class="ckd-list" id="ckdWait"></div>
+                        </section>
+                        <section class="ckd-col">
+                            <h2 class="ckd-col-head">
+                                <i data-lucide="message-square-warning"></i> Yêu cầu khác của KH
+                                <span class="ckd-count" id="ckdIntentCount">0</span>
+                            </h2>
+                            <div class="ckd-list" id="ckdIntents"></div>
+                        </section>
+                    </div>
+                </div>
+
+                <!-- Pane 2: Tin nhắn chưa đọc (Web2UnreadPanel mount) -->
+                <div id="ckdUnreadPane" hidden>
+                    <p class="ckd-sub">
+                        Tin khách chưa đọc (riêng Web 2.0). Tự xoá khi đã đọc/trả lời trên Pancake.
+                        Dòng <b>vàng</b> = khách có thể vừa báo CK.
+                    </p>
+                    <div id="ckdUnreadList"></div>
                 </div>
             </main>
         </div>
@@ -57,6 +81,7 @@
         <script src="../shared/web2-sse-bridge.js?v=20260526sse2"></script>
         <script src="../shared/web2-wallet-balance.js?v=20260606ck"></script>
         <script src="../shared/web2-ck-review.js?v=20260605a"></script>
-        <script src="js/ck-dashboard-app.js?v=20260605a"></script>
+        <script src="../shared/web2-unread-panel.js?v=20260606ck"></script>
+        <script src="js/ck-dashboard-app.js?v=20260606ck"></script>
     </body>
 </html>
