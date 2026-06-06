@@ -3,17 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2c22ee0` — fix(issue-tracking): don Khach Gui luon cong cong no vao vi + tach lich su 2 buoc
-**Last updated**: 2026-06-06 12:22:22 +07
-**Latest session**: [`RESUME:20260606-122222-2c22ee0`](../20260606-122222-2c22ee0.md)
-**Summary**: fix(issue-tracking): don Khach Gui luon cong cong no vao vi + tach lich su 2 buoc
+**Latest commit**: `8fe2454` — docs(dev-log): CK watcher 2 chiều (onNewSignal)
+**Last updated**: 2026-06-06 12:34:45 +07
+**Latest session**: [`RESUME:20260606-123445-8fe2454`](../20260606-123445-8fe2454.md)
+**Summary**: docs(dev-log): CK watcher 2 chiều (onNewSignal)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`don-inbox/`](./don-inbox.md) — 2 file(s)
-- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
-- [`shared/`](./shared.md) — 1 file(s)
+- [`don-inbox/`](./don-inbox.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 3 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,9 +27,9 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-06 12:22
+- [`docs/`](./docs.md) — updated 2026-06-06 12:34
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
-- [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:22
+- [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
 - [`facebook-services/`](./facebook-services.md) — updated 2026-05-21 15:39
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
@@ -52,9 +52,9 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-06 12:16
+- [`render.com/`](./render.com.md) — updated 2026-06-06 12:34
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-06 12:08
+- [`scripts/`](./scripts.md) — updated 2026-06-06 12:34
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-06 12:22
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
