@@ -174,6 +174,10 @@ User: đơn `260501709` tính 5.000đ KPI dù cột Phiếu Bán Hàng = "—" (
 - Bước 6 backfill: guard `c.lw/lt/la` (to_regclass) + bọc try; transactions backfill dùng explicit columns (tránh mismatch `performed_by`).
 - Test `scripts/_tmp` (DB không legacy): 4/4 — performed_by thêm, anti-dup index tạo, ensureSchema chạy tới hết.
 
+### [web2][native-orders] Badge "KH báo đã CK" cập nhật LIVE qua SSE ✅
+
+Native-orders subscribe thêm `web2:payment-signals` (cạnh `web2:native-orders`) → KH nhắn "đã ck"/"ck xong" (signal mới) hoặc watcher tự khớp tiền (auto-link/confirm) → badge `💸 KH báo đã CK` hiện/đổi xanh NGAY, không cần F5. Debounce chung 600ms (`_scheduleReload`). `?v=20260606ck`. Commit `484f64bd1`. Note: CK chỉ là cờ mềm + cộng VÍ (theo SĐT) — KHÔNG tự đánh dấu đơn "đã thanh toán" (badge đó đến từ PBH residual≤0).
+
 ### [render][web2] CK watcher — chỉ auto khi ĐỊNH DANH khớp (tránh gửi nhầm khách) ✅
 
 **User:** "tránh gửi nhầm khách thì ưu tiên gửi khách có trong danh sách nhắn đã ck, ck xong." → `_classify`: bỏ `amountHit` (chỉ trùng số tiền) khỏi điều kiện "sure". Giờ chỉ auto-confirm+cộng ví+reply khi định danh KH thật sự khớp GD: **phoneHit / partnerHit (partner_id TPOS) / nameHit-duy-nhất**. Chỉ trùng số tiền (2 KH có thể cùng tiền) → **NOTIFY staff duyệt tay**, KHÔNG tự gửi. Test +C12 → 27/27.
