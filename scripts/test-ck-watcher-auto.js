@@ -364,6 +364,32 @@ async function main() {
             cap12.notifs.length === 1 && cap12.notifs[0].type === 'ck_watch_match',
             'C12 báo staff duyệt tay'
         );
+
+        // ── Case 13: GÁN KH (GD ĐÃ credited debt_added=true + linked phone) +
+        //    signal "đã ck" đang chờ cùng SĐT → onNewSepayTx nối signal + GỬI TIN
+        //    (reconciled path: không cộng lại ví, vẫn reply). = luồng gán KH ở
+        //    balance-history gọi _tryLinkCkSignal.
+        await db.query(
+            `INSERT INTO web2_balance_history (sepay_id,transfer_amount,transfer_type,content,debt_added,linked_customer_phone) VALUES (13,77000,'in','CK da gan',TRUE,'0913000001')`
+        );
+        const tx13 = (await db.query(`SELECT id FROM web2_balance_history WHERE sepay_id=13`))
+            .rows[0].id;
+        const sig13 = await insSig(db, {
+            name: 'KH Gán',
+            phone: '0913000001',
+            status: 'pending',
+            created_at: now,
+        });
+        const cap13 = { notifs: [], msgs: [] };
+        await watcher.onNewSepayTx(db, tx13, deps(cap13));
+        r = await db.query(`SELECT status, matched_tx_id FROM web2_payment_signals WHERE id=$1`, [
+            sig13,
+        ]);
+        ok(
+            r.rows[0].status === 'confirmed' && Number(r.rows[0].matched_tx_id) === tx13,
+            'C13 gán KH (GD đã credited) → nối signal + auto-confirm'
+        );
+        ok(cap13.msgs.length === 1, 'C13 GỬI TIN báo dù không cộng lại ví (reconciled)');
     } catch (e) {
         fail++;
         console.error('❌ EXCEPTION:', e.message, e.stack);

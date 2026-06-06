@@ -25,6 +25,29 @@
 
 ## 2026-06-06
 
+### [render][web2] Gán KH ở balance-history → tự nối tín hiệu CK + gửi tin ✅
+
+**User:** "gán KH → nhận tín hiệu → tìm bên payment-confirm có KH báo đã CK, đúng khách → gửi." Trước: gán KH (link/resolve/reassign) chỉ cộng ví, KHÔNG gửi tin (vì GD ngân hàng không gắn hội thoại). Giờ sau khi gán xong → `_tryLinkCkSignal(db, txId)` gọi `watcher.onNewSepayTx` → GD đã có linked_customer_phone → quét **web2_payment_signals** (data "KH báo đã CK" của payment-confirm) tìm signal khớp đúng khách (phone/partner/tên) → auto-confirm + **gửi tin báo** (reconciled path: GD đã credited → không cộng lại, vẫn reply). Hook 3 endpoint: `PATCH /:id/link`, `POST /pending/:id/resolve` (thêm `transactionId` vào return), `POST /:id/reassign`. An toàn KHÔNG đệ quy (đặt ở endpoint, không trong linkTransaction; tx đã debt_added → linkTransaction trả alreadyProcessed sớm). Test +C13 → 29/29.
+
+### [render][web2] Trang mới "Thu về" (goods return) — ví + tồn kho + duyệt + bill 0đ ✅
+
+**User:** tạo trang Thu về — chọn KH + SP thu về. Cha = cách hàng về: "Khách gửi" (+ví +kho thật ngay) / "Shipper gửi" (+ví, +kho THU VỀ chờ duyệt, badge SP, duyệt xong +kho thật, treo >20 ngày → thông báo). Con: "Khách không nhận hàng" (hoàn cả đơn cũ, lý do: Khách boom/Không liên lạc được/Sai địa chỉ/Đổi ý/Khác; ví chỉ cộng nếu đơn đã trừ ví) / "Thu về 1 phần" (chọn SP lẻ, ví=giá bán×SL, vào danh sách → khi tạo PBH native-orders lên bill 0đ).
+
+**Files:**
+
+- **Backend mới**: `render.com/routes/web2-returns.js` — bảng `web2_returns` (web2Db) + endpoint `POST /` (tạo: cộng ví `processDeposit` + áp tồn kho theo method), `GET /list|/pending|/queued-by-phone/:phone|/:code`, `POST /:code/approve` (return_qty→stock), `POST /:code/mark-consumed`, `DELETE /:code` (rollback ví/kho). SSE topic `web2:returns` + cross `web2:products`/`web2:wallet:<phone>`.
+- `render.com/server.js` — require + mount `/api/web2-returns` + wire `initializeNotifiers`.
+- `render.com/routes/web2-products.js` — cột `return_qty` (ALTER idempotent) + `mapRow.returnQty`.
+- `render.com/routes/fast-sale-orders.js` `/from-native-order` — nhận `returnLines` (append dòng 0đ TRƯỚC stock guard) + `returnCodes` (mark-consumed sau insert).
+- `render.com/routes/v2/notifications.js` `/scan` — phiếu shipper_gui pending > 20 ngày → notification `return_overdue`.
+- **Frontend mới**: `web2/returns/{index.html, css/returns.css, js/returns-api.js, js/returns-app.js}` — 3 tab (Tạo/Danh sách/Chờ duyệt), picker KH + đơn cũ + SP, badge tồn kho.
+- `web2/products/js/web2-products-app.js` — badge "↩ Thu về: N" khi `returnQty>0`.
+- `web2/shared/web2-return-bill.js` (mới) + `native-orders/{index.html, js/native-orders-app.js}` — `_doCreatePbh` hỏi thêm SP thu về 0đ vào bill.
+- `web2/shared/tpos-sidebar.js` — menu "Thu về" trong Bán Hàng.
+- `scripts/test-migration-web2-returns.js` — local-DB smoke (schema + stock/return flow): ALL PASS.
+
+**Status:** ✅ Done — node -c + module load + DB schema/flow smoke pass. Cần deploy Render + smoke UI online.
+
 ### [web2/products] In tem — barcode render PNG canvas (giống TPOS) thay SVG → quét được mã dài ✅
 
 **User:** setting "2 Tem" (25mm) là CHÍNH XÁC 100% (TPOS in khổ này quét tốt). → không đổi khổ tem, phải làm barcode render đúng như TPOS.
@@ -41,6 +64,7 @@
 **Bối cảnh:** Sau khi vá bug chốt đơn (entry bên dưới), 63 đơn ngày 01/06 vẫn lệch sẵn trên web (web ≠ `docs/NAP_1_6.xlsx`/`docs/TOMATO_1_6.xlsx` — bản shipper thực nhận). User duyệt đưa web về khớp Excel.
 
 **Thao tác (CHỈ data, không sửa code):**
+
 - So sánh kỹ web vs 2 Excel: 330 đơn Excel (NAP 243 / TOMATO 87) đều có trên web, đều đang nap/tomato, đúng 63 lệch (37 cần→nap, 26 cần→tomato), **0 bất thường** (không đơn nào missing/city/shop/return). Lưu rollback `%TEMP%/dr_rollback_0601.json`.
 - Test cơ chế `PUT /:orderNumber` với mã có dấu `/` (đơn giả `TEST/SLASH/0606`) → OK.
 - `PUT /api/v2/delivery-assignments/:orderNumber` cho 63 đơn về đúng nhóm Excel, header `x-auth-data` = `reconcile-excel-1_6` (audit). **63/63 thành công, 0 lỗi.**

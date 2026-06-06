@@ -281,11 +281,29 @@ router.post('/pending/:id/resolve', async (req, res) => {
             name || null,
             resolvedBy || 'web2-ui'
         );
+        if (result?.success && result.transactionId) _tryLinkCkSignal(db, result.transactionId);
         res.json({ success: true, data: result });
     } catch (e) {
         handleError(res, e, 'Resolve pending');
     }
 });
+
+// 2026-06-06: sau khi GÁN KH thủ công cho 1 GD (credit ví) → thử nối tín hiệu
+// CK đang chờ của SĐT đó + GỬI TIN BÁO cho khách. Reuse watcher.onNewSepayTx —
+// GD giờ đã có linked_customer_phone → watcher tìm signal khớp (phone/partner/
+// tên), auto-confirm + reply. An toàn KHÔNG đệ quy: tx đã debt_added → bên trong
+// _applyMatch gọi linkTransaction trả alreadyProcessed sớm (không re-credit, không
+// gọi lại onNewSepayTx). deps lấy từ _deps (initDeps ở server.js → có sendMessage).
+// Best-effort. Gọi ở ENDPOINT (không trong linkTransaction) để tránh đệ quy watcher.
+function _tryLinkCkSignal(db, txId) {
+    try {
+        require('../../services/web2-ck-watcher')
+            .onNewSepayTx(db, txId, {})
+            .catch(() => {});
+    } catch (e) {
+        /* ignore */
+    }
+}
 
 // =====================================================
 // PATCH /api/web2/balance-history/:id/link
@@ -309,6 +327,7 @@ router.patch('/:id/link', async (req, res) => {
                 .status(400)
                 .json({ success: false, error: 'Đã được xử lý — không thể link lại' });
         }
+        if (result.credited) _tryLinkCkSignal(db, id); // nối tín hiệu CK + gửi tin
         res.json({ success: true, data: result });
     } catch (e) {
         handleError(res, e, 'Link');
@@ -498,6 +517,7 @@ router.post('/:id/reassign', async (req, res) => {
             console.warn('[reassign] audit log fail:', auditErr.message);
         }
 
+        _tryLinkCkSignal(db, id); // đổi KH → nối tín hiệu CK của KH mới + gửi tin
         res.json({
             success: true,
             data: {

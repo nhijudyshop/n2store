@@ -832,6 +832,7 @@ async function resolveWeb2PendingMatch(db, pendingId, selectedPhone, selectedNam
     return {
         success: true,
         phone: selectedPhone,
+        transactionId: pending.transaction_id, // GD balance_history → hook nối tín hiệu CK
         walletTxId: walletResult.transaction?.id,
         amount,
     };
