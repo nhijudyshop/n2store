@@ -76,6 +76,11 @@
                 `${WORKER_URL}/api/web2/customer-orders/${encodeURIComponent(phone)}?limit=30`
             );
         },
+        sourceOrder(type, code) {
+            return _json(
+                `${BASE}/source-order/${encodeURIComponent(type)}/${encodeURIComponent(code)}`
+            );
+        },
         searchProducts(q) {
             return _json(
                 `${WORKER_URL}/api/web2-products/list?search=${encodeURIComponent(q)}&activeOnly=true&limit=20`

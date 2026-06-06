@@ -397,6 +397,30 @@ router.get('/queued-by-phone/:phone', async (req, res) => {
 });
 
 // =====================================================
+// GET /api/web2-returns/source-order/:type/:code
+// Trả danh sách SP + wallet_deducted của 1 đơn cũ (để picker "Khách không
+// nhận hàng" xem được SP sẽ hoàn). type = native | pbh.
+// =====================================================
+router.get('/source-order/:type/:code', async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const type = req.params.type === 'pbh' ? 'pbh' : 'native';
+        const src = await _resolveSourceOrder(pool, req.params.code, type);
+        if (!src) return res.status(404).json({ error: 'Đơn không tồn tại' });
+        res.json({
+            success: true,
+            items: src.items.filter((x) => x.productCode && x.quantity > 0),
+            totalAmount: src.totalAmount,
+            walletDeducted: src.walletDeducted,
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
 // GET /api/web2-returns/:code
 // =====================================================
 router.get('/:code', async (req, res) => {
