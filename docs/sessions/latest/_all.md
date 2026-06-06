@@ -3,17 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `855cc5e` — auto: session update
-**Last updated**: 2026-06-06 13:03:23 +07
-**Latest session**: [`RESUME:20260606-130323-855cc5e`](../20260606-130323-855cc5e.md)
-**Summary**: auto: session update
+**Latest commit**: `c4c0a57` — feat(snap): force extract + nút Lấy thumbnail chuyển CLIENT-SIDE (seek iframe VOD + capture) — fix FB chặn backend yt-dlp/Graph; verified 14/14✓ thumbnail thật
+**Last updated**: 2026-06-06 13:05:24 +07
+**Latest session**: [`RESUME:20260606-130524-c4c0a57`](../20260606-130524-c4c0a57.md)
+**Summary**: feat(snap): force extract + nút Lấy thumbnail chuyển CLIENT-SIDE (seek iframe VOD + capture) — fix FB chặn b...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
 - [`render.com/`](./render.com.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-06 13:03
+- [`docs/`](./docs.md) — updated 2026-06-06 13:05
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
@@ -52,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-06 13:03
+- [`render.com/`](./render.com.md) — updated 2026-06-06 13:05
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-06 13:03
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
