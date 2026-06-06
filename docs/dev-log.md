@@ -32,6 +32,7 @@
 **Nguyên nhân (user nghi đúng — do KPI):** Mở trang ở filter mặc định "Tất cả", `updateInboxKpiStatCard()` tự gọi `ensureRangeLoaded()`; vì `from=0` nên vòng phân trang `/api/social-orders/load?limit=1000&page=N` chạy tới 12 lần × 1000 đơn (kèm JSONB `products[]`) — chỉ để hiện con số KPI — NGAY SAU khi đã tải 500 đơn cho bảng.
 
 **Fix (lazy + tính khi cần, frontend-only):**
+
 - `tab-social-core.js`: bỏ auto-trigger `ensureRangeLoaded` khi render thẻ; tính KPI trên tập đơn đã load (500 gần nhất). Thêm `coversRange` → hint "≈ trên N đơn gần nhất — bấm để tính đủ" khi chưa phủ đủ. Thêm `refreshKpiCardWhenInvoiceReady()` (poll nhẹ, không network) để refresh thẻ 1 lần khi `InvoiceStatusStore` load xong (tránh thẻ ra 0 lúc mở).
 - `tab-social-kpi-reconcile.js`: guard `ensureRangeLoaded` (range hẹp đã đủ thì khỏi phân trang); `showDetailModal` cập nhật lại thẻ sau khi kéo đủ.
 - Kéo đủ khoảng vẫn chạy khi bấm thẻ KPI hoặc "Chạy đối soát KPI" (không đổi nghiệp vụ).
@@ -75,6 +76,12 @@
 - Bước 5 DROP TRIGGER: bọc `IF to_regclass(...) IS NOT NULL` (utility command trong IF không execute khi guard NULL).
 - Bước 6 backfill: guard `c.lw/lt/la` (to_regclass) + bọc try; transactions backfill dùng explicit columns (tránh mismatch `performed_by`).
 - Test `scripts/_tmp` (DB không legacy): 4/4 — performed_by thêm, anti-dup index tạo, ensureSchema chạy tới hết.
+
+### [render][web2] CK watcher 2 CHIỀU — tiền-về-trước HOẶC đã-ck-sau đều auto ✅
+
+**User hỏi:** "phải theo thứ tự hả? đã ck trước + tiền về sau — còn đã ck sau + tiền về trước?". Đúng — bản trước chỉ có `onNewSepayTx` (chạy khi tiền về) → case **tiền về TRƯỚC, KH nhắn 'đã ck' SAU** bị bỏ sót (signal kẹt pending, không reply).
+
+**Fix (`web2-ck-watcher.js` + `server.js`):** thêm `onNewSignal` đối xứng — signal "đã ck" mới tạo → quét GD SePay đã về 72h (`NOT EXISTS` signal khác claim) khớp phone/partner/tên/tiền → auto-confirm + cộng ví + reply. Refactor helper chung `_applyMatch` với **CLAIM atomic** (`UPDATE ... WHERE matched_tx_id IS NULL RETURNING`) → chỉ 1 nguồn thắng race, chống double-credit/double-reply (1 GD ↔ 1 signal). Wire `server.js`: `onNewSignal` sau `handleIncoming` (cả new_message + update_conversation) + `initDeps` boot. Test 24/24 (C8-C11: GD-về-trước→signal-sau, partnerHit resolve, no-GD no-op, chống cướp GD đã claim).
 
 ### [render][web2] CK watcher TỰ ĐỘNG HOÀN TOÀN — xét pending + resolve SĐT/partner từ GD ✅
 
