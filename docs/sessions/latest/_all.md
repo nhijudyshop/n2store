@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2455c1a` — auto: session update
-**Last updated**: 2026-06-06 09:52:00 +07
-**Latest session**: [`RESUME:20260606-095200-2455c1a`](../20260606-095200-2455c1a.md)
-**Summary**: auto: session update
+**Latest commit**: `6927348` — fix(tpos-pancake): chọn nhiều campaign load liên tục — cắt feedback loop MutationObserver↔renderBadges (/cart/batch/counts ~10/s), poll ngừng gọi refreshCartCounts sau khi wire observer
+**Last updated**: 2026-06-06 09:52:55 +07
+**Latest session**: [`RESUME:20260606-095255-6927348`](../20260606-095255-6927348.md)
+**Summary**: fix(tpos-pancake): chọn nhiều campaign load liên tục — cắt feedback loop MutationObserver↔renderBadges (...
 
 ## Folders affected in this commit
 
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-06 09:46
+- [`docs/`](./docs.md) — updated 2026-06-06 09:52
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-05 11:26
 - [`downloads/`](./downloads.md) — updated 2026-06-06 09:05
