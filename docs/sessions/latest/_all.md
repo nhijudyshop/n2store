@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4a6bcce` — feat(tpos-pancake): comment row bỏ Nợ TPOS → hiện số dư ví Web 2.0 (Web2WalletBalance pill Ví: X₫)
-**Last updated**: 2026-06-06 13:17:53 +07
-**Latest session**: [`RESUME:20260606-131753-4a6bcce`](../20260606-131753-4a6bcce.md)
-**Summary**: feat(tpos-pancake): comment row bỏ Nợ TPOS → hiện số dư ví Web 2.0 (Web2WalletBalance pill Ví: X₫)
+**Latest commit**: `356baaa` — docs(dev-log): bỏ cột Nợ hiện tại partner-customer
+**Last updated**: 2026-06-06 13:29:52 +07
+**Latest session**: [`RESUME:20260606-132952-356baaa`](../20260606-132952-356baaa.md)
+**Summary**: docs(dev-log): bỏ cột Nợ hiện tại partner-customer
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`orders-report/`](./orders-report.md) — 3 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-06 13:17
+- [`docs/`](./docs.md) — updated 2026-06-06 13:29
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
@@ -69,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-06 12:15
+- [`web2/`](./web2.md) — updated 2026-06-06 13:29
