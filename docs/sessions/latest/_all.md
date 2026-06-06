@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8f6b9e7` — docs(dev-log): native-orders badge CK live SSE
-**Last updated**: 2026-06-06 13:49:12 +07
-**Latest session**: [`RESUME:20260606-134912-8f6b9e7`](../20260606-134912-8f6b9e7.md)
-**Summary**: docs(dev-log): native-orders badge CK live SSE
+**Latest commit**: `a041869` — feat(web2-products-print): cảnh báo mã quá dài cho khổ tem + thêm tem rộng 50mm
+**Last updated**: 2026-06-06 14:02:56 +07
+**Latest session**: [`RESUME:20260606-140256-a041869`](../20260606-140256-a041869.md)
+**Summary**: feat(web2-products-print): cảnh báo mã quá dài cho khổ tem + thêm tem rộng 50mm
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-06 13:49
+- [`docs/`](./docs.md) — updated 2026-06-06 14:02
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
@@ -67,4 +68,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-06 13:48
+- [`web2/`](./web2.md) — updated 2026-06-06 14:02
