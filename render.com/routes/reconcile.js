@@ -472,7 +472,15 @@ router.post('/:number/scan', async (req, res) => {
             ({ lines, picked }) => {
                 const line = findLineByCode(lines, productCode);
                 if (!line) {
-                    throw new Error(`SP ${productCode} không có trong PBH này`);
+                    // Liệt kê mã CẦN quét → user thấy ngay barcode đọc ra giá trị lệch
+                    // (label/barcode in sai) so với mã trong đơn.
+                    const expected = lines
+                        .map((l) => l.productCode || l.code)
+                        .filter(Boolean)
+                        .join(', ');
+                    throw new Error(
+                        `Mã "${productCode}" không khớp đơn. Mã cần quét: ${expected || '(đơn không có SP)'}`
+                    );
                 }
                 // Luôn dùng mã canonical của line để lưu → mapPbh đọc lại khớp.
                 const code = line.productCode || line.code;

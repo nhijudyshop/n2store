@@ -24,6 +24,8 @@
         search: '',
         selectedNumber: null,
         currentPbh: null,
+        historyHtml: null,
+        historyOpen: false, // lịch sử ẩn mặc định, mở khi user bấm
     };
 
     // ---------- helpers ----------
@@ -171,6 +173,7 @@
     async function selectPbh(number) {
         STATE.selectedNumber = number;
         STATE.historyHtml = null; // reset để không nháy lịch sử PBH cũ
+        STATE.historyOpen = false; // mở PBH mới → ẩn lịch sử, ưu tiên danh sách SP để quét
         renderList();
         const target = document.getElementById('rcScannerTarget');
         target.textContent = `PBH: ${number}`;
@@ -179,8 +182,11 @@
             const res = await api('GET', `/${encodeURIComponent(number)}`);
             STATE.currentPbh = res.pbh;
             renderDetail();
+            // Cuộn panel chi tiết lên đầu → thấy toàn bộ danh sách SP cần quét.
+            const panel = document.getElementById('rcDetailPanel');
+            if (panel) panel.scrollTop = 0;
             focusScanner();
-            loadHistory(number);
+            // Lịch sử lazy: chỉ tải khi user mở (ẩn mặc định).
         } catch (e) {
             notify('Lỗi tải PBH: ' + e.message, 'error');
         }
@@ -252,10 +258,31 @@
                 ${renderActionButtons(fState, isComplete, isLocked)}
             </div>
 
-            <div class="rc-history-section" id="rcHistory">
-                ${STATE.historyHtml || '<div class="rc-history-loading">Đang tải lịch sử…</div>'}
+            <div class="rc-history-wrap">
+                <button class="rc-history-toggle ${STATE.historyOpen ? 'is-open' : ''}" id="rcHistToggle" type="button">
+                    <i data-lucide="history"></i>
+                    <span>Lịch sử đối soát</span>
+                    <i data-lucide="chevron-down" class="rc-history-chev"></i>
+                </button>
+                <div class="rc-history-section" id="rcHistory" ${STATE.historyOpen ? '' : 'hidden'}>
+                    ${STATE.historyHtml || '<div class="rc-history-loading">Đang tải lịch sử…</div>'}
+                </div>
             </div>
         `;
+
+        // 2026-06-06: lịch sử ẩn mặc định, click toggle mới mở (lazy-load lần đầu).
+        const histToggle = document.getElementById('rcHistToggle');
+        if (histToggle) {
+            histToggle.addEventListener('click', () => {
+                STATE.historyOpen = !STATE.historyOpen;
+                const sec = document.getElementById('rcHistory');
+                histToggle.classList.toggle('is-open', STATE.historyOpen);
+                if (sec) sec.hidden = !STATE.historyOpen;
+                if (STATE.historyOpen && STATE.historyHtml == null) {
+                    loadHistory(STATE.currentPbh?.number);
+                }
+            });
+        }
 
         // 2026-06-06: bind ô tích tay (manual) — toggle đủ ↔ 0 qua manual-pick.
         contentEl.querySelectorAll('.rc-manual-tick input[type="checkbox"]').forEach((cb) => {
@@ -629,6 +656,7 @@
     }
     async function loadHistory(number) {
         if (!number) return;
+        if (!STATE.historyOpen) return; // lịch sử ẩn → không fetch (lazy, chỉ tải khi mở)
         try {
             const res = await api('GET', `/${encodeURIComponent(number)}/logs`);
             const items = (res.logs || []).map((l) => ({

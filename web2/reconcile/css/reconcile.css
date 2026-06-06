@@ -577,9 +577,42 @@
 .rc-manual-tick input:focus-visible + .rc-manual-tick-box {
     box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.25);
 }
-/* 2026-06-06: lịch sử đối soát (audit log) — ngày giờ chi tiết per thao tác */
-.rc-history-section {
+/* 2026-06-06: lịch sử đối soát (audit log) — ẩn mặc định, click toggle mới mở */
+.rc-history-wrap {
     margin: 18px 4px 8px;
+}
+.rc-history-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #475569;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 120ms ease,
+        border-color 120ms ease;
+}
+.rc-history-toggle:hover {
+    border-color: #14b8a6;
+    color: #0d9488;
+}
+.rc-history-toggle i {
+    width: 16px;
+    height: 16px;
+}
+.rc-history-chev {
+    transition: transform 160ms ease;
+}
+.rc-history-toggle.is-open .rc-history-chev {
+    transform: rotate(180deg);
+}
+.rc-history-section {
+    margin-top: 10px;
 }
 .rc-history-loading {
     color: #94a3b8;

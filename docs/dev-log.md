@@ -25,6 +25,19 @@
 
 ## 2026-06-06
 
+### [render][web2] Đối soát đóng gói — ẩn lịch sử mặc định + ưu tiên list SP + chẩn đoán scan lỗi ✅
+
+**Yêu cầu (user):** (1) ẩn lịch sử đi, cần mới mở; (2) quét bill PBH ưu tiên hiện toàn bộ danh sách SP để quét; (3) đơn Hạnh Trần chỉ quét được áo len be, 3 mã kia "không nhận".
+
+**(1) Lịch sử lazy/collapsible:** thay section luôn hiện → nút toggle "Lịch sử đối soát" (chevron), **ẩn mặc định**. Mở PBH mới → `historyOpen=false` reset. Click toggle → mở + lazy-load lần đầu (`loadHistory` guard `if(!historyOpen) return`). Mutation/SSE chỉ refresh khi đang mở. → bớt cả network.
+
+**(2) Ưu tiên list SP:** ẩn lịch sử → bảng SP là nội dung chính ngay khi mở. Thêm `panel.scrollTop=0` lúc selectPbh → thấy trọn danh sách cần quét.
+
+**(3) Chẩn đoán scan:** đã verify data Hạnh Trần (NJ-20260604-0004): 4 mã `HCDAMDO/B4DAMVANG/B4AOBE/ADQUANDENM` đều **ASCII sạch, có trong web2_products, không có field barcode riêng** → matching phần mềm ĐÚNG cho cả 4 (đã test live normCode). ⇒ "chỉ áo len be quét được" là do **barcode in vật lý 3 SP mã hoá lệch giá trị / in mờ**, KHÔNG phải bug matching. Cải thiện: lỗi scan giờ liệt kê mã cần quét → user thấy ngay giá trị barcode đọc ra lệch (`Mã "X" không khớp đơn. Mã cần quét: ...`). Workaround: ô tích tay (✋ + log camera) đánh dấu SP không quét được.
+
+**Files:** `render.com/routes/reconcile.js`, `web2/reconcile/js/reconcile-app.js` (`v=nj6`), `web2/reconcile/css/reconcile.css` (`v=nj5`), `web2/reconcile/index.html`.
+**Verify (localhost, test PBH):** lịch sử ẩn mặc định (sectionHidden=true), bảng SP hiện ngay; click toggle → mở + lazy-load 9 entry; click lại → ẩn. Lỗi scan cần deploy.
+
 ### [web2/partner-customer] Bỏ cột "Nợ hiện tại" ✅
 
 **User:** bỏ cột nợ ở trang Khách hàng Web 2.0 (số dư ví đã hiện qua pill cạnh SĐT rồi).
