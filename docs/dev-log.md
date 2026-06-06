@@ -25,6 +25,17 @@
 
 ## 2026-06-06
 
+### [web2/products] In tem — barcode render PNG canvas (giống TPOS) thay SVG → quét được mã dài ✅
+
+**User:** setting "2 Tem" (25mm) là CHÍNH XÁC 100% (TPOS in khổ này quét tốt). → không đổi khổ tem, phải làm barcode render đúng như TPOS.
+
+**Phát hiện (đọc reference gốc `purchase-orders/js/lib/barcode-label-dialog.js:1332`):** TPOS render barcode bằng **ẢNH PNG** server `gc-statics.tpos.vn/Web/Barcode?type=Code128&value=...&width=600&height=100` (raster sắc nét), CSS `width:100%`. Bản web2 lúc strip-down đổi sang **JsBarcode SVG vector kéo giãn** (`preserveAspectRatio=none`) cho "độc lập khỏi tpos.vn" → SVG bị khử răng cưa + scale 2 lần khi raster nhiệt → vạch nhoè/lệch tỉ lệ → mã dài (nhiều module) không quét. Đây là REGRESSION so với TPOS.
+
+**Fix (`web2-products-print.js`):** dựng barcode = **PNG riêng qua JsBarcode→canvas** (KHÔNG gọi tpos.vn, vẫn độc lập): đo số module → `width` nguyên (≥2px, chuẩn ngành "không dùng px lẻ") sao cho tổng ~600px như TPOS → `canvas.toDataURL('image/png')` → `<img class="bcimg">` width:100%. Nguồn PNG nét cao downscale về khổ tem → quét như TPOS. Bỏ toàn bộ path SVG (`bcsvg`, preserveAspectRatio, shape-rendering).
+
+**Files:** `web2/products/js/web2-products-print.js`.
+**Verify (localhost):** barcode giờ là `<img src="data:image/png">`, natural **616×100** (≈ TPOS 600×100), downscale về khổ tem. **Cần in thử trên máy tem 25mm thật để xác nhận** — kỳ vọng quét như TPOS vì cùng cách render PNG.
+
 ### [web2/shared] Lịch sử thanh toán KH — click pill Ví ở MỌI nơi có tên/SĐT ✅
 
 **User:** "lịch sử thanh toán đơn + lịch sử tất cả thanh toán của khách → cho coi ở đơn và nơi nào hiện tên/SĐT." Tận dụng modal sẵn có (`web2-customer-detail-modal`: tab Lịch sử ví = nạp/dùng tiền + Người thực hiện + ghi chú "Thu hộ PBH X" → đơn nào; tab Đơn hàng).
