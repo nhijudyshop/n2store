@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `214bc43` — feat(web2-reconcile): ẩn lịch sử mặc định (toggle) + ưu tiên list SP + scan lỗi liệt kê mã
-**Last updated**: 2026-06-06 13:48:20 +07
-**Latest session**: [`RESUME:20260606-134820-214bc43`](../20260606-134820-214bc43.md)
-**Summary**: feat(web2-reconcile): ẩn lịch sử mặc định (toggle) + ưu tiên list SP + scan lỗi liệt kê mã
+**Latest commit**: `8f6b9e7` — docs(dev-log): native-orders badge CK live SSE
+**Last updated**: 2026-06-06 13:49:12 +07
+**Latest session**: [`RESUME:20260606-134912-8f6b9e7`](../20260606-134912-8f6b9e7.md)
+**Summary**: docs(dev-log): native-orders badge CK live SSE
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-05-30 11:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-05-31 13:29
-- [`docs/`](./docs.md) — updated 2026-06-06 13:48
+- [`docs/`](./docs.md) — updated 2026-06-06 13:49
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
