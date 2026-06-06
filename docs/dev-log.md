@@ -25,6 +25,24 @@
 
 ## 2026-06-06
 
+### [render][web2] Audit history money ops — ví (performed_by) + refund (ai duyệt) ✅
+
+User: mọi thao tác chạm tiền (duyệt/cộng ví/hoàn đơn) cần ghi ai làm — lúc nào để kiểm tra lại nếu sai sót.
+
+**Ví (gap chính — thiếu user):**
+
+- [web2-wallet-isolation.js](render.com/services/web2-wallet-isolation.js): ALTER idempotent thêm cột `performed_by TEXT` vào `web2_wallet_transactions` + `web2_wallet_adjustments` (SAU backfill để không vỡ `INSERT SELECT *`).
+- [web2-wallet-service.js](render.com/services/web2-wallet-service.js): `processDeposit`/`processWithdraw` nhận thêm `performedBy` (cuối, default null) → INSERT cột `performed_by`.
+- Wire staff ops: `linkTransaction` (verifiedBy), reassign (verifiedBy), manual deposit/withdraw ([v2/web2-wallets.js](render.com/routes/v2/web2-wallets.js) — userName từ body). SePay auto-credit để null (= hệ thống, đã truy qua sepay_id). Watcher = 'auto-watcher'.
+- Hiển thị: [web2-customer-detail-modal.js](web2/balance-history/js/web2-customer-detail-modal.js) bảng lịch sử ví thêm cột **"Người thực hiện"** (fallback '(SePay tự động)' cho reference_type=sepay).
+
+**Refund:**
+
+- NCC ([purchase-refund.js](render.com/routes/purchase-refund.js)): ĐÃ có `data.history` + userName (frontend gửi sẵn) — không sửa.
+- PBH/KH ([refunds.js](render.com/routes/refunds.js) có `state_history` + `by`): frontend [rf-app.js](web2/fastsaleorder-refund/rf-app.js) trước gửi body rỗng `{}` → `by=null`. Fix: gửi `{by: _by()}` (Web2UserInfo) cho duyệt/hoàn/hủy + hiện `by` trong history detail.
+
+CK signals đã có history đầy đủ + timeline trong modal (làm trước). Test [test-wallet-audit.js](scripts/test-wallet-audit.js) 4/4 (processDeposit/Withdraw ghi performed_by, không truyền → null, DB lưu đúng).
+
 ### [supplier-debt] Lịch sử thay đổi bảng công nợ NCC (kéo vị trí + sửa ghi chú + xóa thanh toán + reset) ✅
 
 User hỏi "bảng sắp xếp do cái gì?" → giải đáp: sort 2 lớp — (1) theo **ngày web/TPOS** (cũ→mới), (2) **thứ tự kéo tay** per-NCC đè lên (`RowOrderStore`, Firestore `supplier_debt_row_order`). Trước đây mỗi lần kéo chỉ ghi đè mảng thứ tự, KHÔNG lưu ai/khi nào/từ đâu→đâu.
