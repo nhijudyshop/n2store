@@ -703,44 +703,49 @@ async function _resolveViaGraphSource(liveVideoId, pageId, pool) {
 }
 
 // Resolve URL video playable cho ffmpeg cắt frame.
-// Strategy: (1) FB Graph `source` (robust, page-owned VOD MP4) → (2) yt-dlp scrape.
+// Strategy: (1) yt-dlp scrape (primary — binary update qua postinstall yt-dlp -U
+// để fix "Cannot parse data" khi FB đổi web) → (2) FB Graph `source` fallback
+// (chỉ chạy khi yt-dlp fail; hiện token Pancake trả "Bad signature" nên thường
+// vô dụng, giữ làm future-proof nếu sau có token app đúng).
 async function _resolveM3u8Url(liveVideoId, pageId, pool) {
     const cached = _m3u8Cache.get(liveVideoId);
     if (cached && Date.now() - cached.fetchedAt < _M3U8_CACHE_TTL) return cached.url;
 
-    // (1) FB Graph API source — fix "no m3u8 URL" khi yt-dlp scrape hỏng (2026-06-06).
+    // (1) yt-dlp (primary).
+    let drmResult = null;
+    if (_ytdlp) {
+        const videoIdShort = String(liveVideoId).replace(/^\d+_/, '');
+        const fbUrl = `https://www.facebook.com/${pageId}/videos/${videoIdShort}/`;
+        try {
+            const result = await _ytdlp(fbUrl, {
+                getUrl: true,
+                noWarnings: true,
+                noCheckCertificate: true,
+            });
+            const url = typeof result === 'string' ? result.trim().split('\n')[0] : null;
+            if (url) {
+                _m3u8Cache.set(liveVideoId, { url, fetchedAt: Date.now() });
+                return url;
+            }
+        } catch (e) {
+            const msg = e?.message || '';
+            if (/Forbidden|DRM|encrypted|login/i.test(msg)) {
+                console.warn('[lss-extract] DRM/auth block:', fbUrl, msg.slice(0, 200));
+                drmResult = { drm: true, error: msg.slice(0, 200) };
+            } else {
+                console.warn('[lss-extract] yt-dlp fail:', msg.slice(0, 200));
+            }
+        }
+    }
+
+    // (2) FB Graph source fallback.
     const viaGraph = await _resolveViaGraphSource(liveVideoId, pageId, pool);
     if (viaGraph) {
         _m3u8Cache.set(liveVideoId, { url: viaGraph, fetchedAt: Date.now() });
         return viaGraph;
     }
 
-    // (2) yt-dlp fallback.
-    if (!_ytdlp) return null;
-    const videoIdShort = String(liveVideoId).replace(/^\d+_/, '');
-    const fbUrl = `https://www.facebook.com/${pageId}/videos/${videoIdShort}/`;
-    // FB live serves HLS m3u8 — KHÔNG filter format (mp4 hay m3u8 đều OK).
-    // yt-dlp tự pick best available.
-    try {
-        const result = await _ytdlp(fbUrl, {
-            getUrl: true,
-            // Không set format → yt-dlp pick 'best' default (m3u8 cho live).
-            noWarnings: true,
-            noCheckCertificate: true,
-        });
-        const url = typeof result === 'string' ? result.trim().split('\n')[0] : null;
-        if (!url) return null;
-        _m3u8Cache.set(liveVideoId, { url, fetchedAt: Date.now() });
-        return url;
-    } catch (e) {
-        const msg = e?.message || '';
-        if (/Forbidden|DRM|encrypted|login/i.test(msg)) {
-            console.warn('[lss-extract] DRM/auth block:', fbUrl, msg.slice(0, 200));
-            return { drm: true, error: msg.slice(0, 200) };
-        }
-        console.warn('[lss-extract] yt-dlp fail:', msg.slice(0, 200));
-        return null;
-    }
+    return drmResult; // {drm:true} nếu yt-dlp báo DRM, else null
 }
 
 // Run ffmpeg với input-seek (fast, có thể SIGSEGV) hoặc output-seek (slow,
