@@ -36,6 +36,19 @@
 **Files:** `web2/products/js/web2-products-print.js`.
 **Verify (localhost):** barcode giờ là `<img src="data:image/png">`, natural **616×100** (≈ TPOS 600×100), downscale về khổ tem. **Cần in thử trên máy tem 25mm thật để xác nhận** — kỳ vọng quét như TPOS vì cùng cách render PNG.
 
+### [delivery-report][data] Bước 4 — sửa 63 đơn 01/06 đã lệch về khớp Excel (reconcile) ✅
+
+**Bối cảnh:** Sau khi vá bug chốt đơn (entry bên dưới), 63 đơn ngày 01/06 vẫn lệch sẵn trên web (web ≠ `docs/NAP_1_6.xlsx`/`docs/TOMATO_1_6.xlsx` — bản shipper thực nhận). User duyệt đưa web về khớp Excel.
+
+**Thao tác (CHỈ data, không sửa code):**
+- So sánh kỹ web vs 2 Excel: 330 đơn Excel (NAP 243 / TOMATO 87) đều có trên web, đều đang nap/tomato, đúng 63 lệch (37 cần→nap, 26 cần→tomato), **0 bất thường** (không đơn nào missing/city/shop/return). Lưu rollback `%TEMP%/dr_rollback_0601.json`.
+- Test cơ chế `PUT /:orderNumber` với mã có dấu `/` (đơn giả `TEST/SLASH/0606`) → OK.
+- `PUT /api/v2/delivery-assignments/:orderNumber` cho 63 đơn về đúng nhóm Excel, header `x-auth-data` = `reconcile-excel-1_6` (audit). **63/63 thành công, 0 lỗi.**
+- Verify: web 01/06 sau đổi = nap **243** / tomato **87** / city 177 / shop 6 / return 4 (tổng 517 không đổi); **330/330 đơn Excel khớp web, 0 lệch**.
+- Verify ổn định: mở lại báo cáo 01/06 trên web → `517 assignments … 0 updated, 517 unchanged` → 63 đơn vừa sửa KHÔNG bị bốc lại (Fix 1 bảo vệ).
+
+**Lưu ý:** chỉ đụng 63 đơn nap↔tomato của 01/06; không động 267 đơn khớp sẵn + city/shop/return. Reversible qua rollback file. KHÔNG sửa endpoint TPOS/KPI.
+
 ### [web2/shared] Lịch sử thanh toán KH — click pill Ví ở MỌI nơi có tên/SĐT ✅
 
 **User:** "lịch sử thanh toán đơn + lịch sử tất cả thanh toán của khách → cho coi ở đơn và nơi nào hiện tên/SĐT." Tận dụng modal sẵn có (`web2-customer-detail-modal`: tab Lịch sử ví = nạp/dùng tiền + Người thực hiện + ghi chú "Thu hộ PBH X" → đơn nào; tab Đơn hàng).
