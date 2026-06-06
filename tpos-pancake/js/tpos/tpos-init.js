@@ -108,8 +108,18 @@ const TposColumnManager = {
         });
 
         // Multiple campaigns changed (new multi-select)
-        bus.on('tpos:campaignsChanged', async (campaignIds) => {
-            await this.onMultiCampaignChange(campaignIds);
+        // Debounce: tick từng checkbox campaign fire event NGAY → mỗi tick reload
+        // + full render lại TẤT CẢ comment (growing). Tick 4 box = 4 reload+render
+        // (đo được: 4 full render 241→647ms = giật). Gom các tick trong 500ms →
+        // 1 reload duy nhất với tập campaign cuối cùng.
+        bus.on('tpos:campaignsChanged', (campaignIds) => {
+            clearTimeout(this._campaignChangeTimer);
+            this._campaignChangeTimer = setTimeout(() => {
+                const ids = window.TposState.selectedCampaignIds
+                    ? Array.from(window.TposState.selectedCampaignIds)
+                    : campaignIds;
+                this.onMultiCampaignChange(ids);
+            }, 500);
         });
 
         // Refresh requested

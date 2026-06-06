@@ -403,6 +403,13 @@ const TposCommentList = {
         const state = window.TposState;
         const listContainer = document.getElementById('tposCommentList');
         if (!listContainer) return;
+        // Full render chunked đang chạy → KHÔNG cắt (cắt = restart từ 0 = thrash,
+        // đo được 4 full render thay vì 1). Đánh dấu pending, xong full render sẽ
+        // tự patch phần enrichment đến trong lúc đó.
+        if (this._fullRenderHandle != null) {
+            this._pendingDirty = true;
+            return;
+        }
         const rendered = listContainer.querySelectorAll('.tpos-conversation-item');
         const sameStructure =
             rendered.length > 0 &&
@@ -440,7 +447,7 @@ const TposCommentList = {
         const schedule =
             window.requestIdleCallback ||
             ((cb) => setTimeout(() => cb({ timeRemaining: () => 8 }), 0));
-        const CHUNK = 40;
+        const CHUNK = 25;
         let i = 0;
         const step = (deadline) => {
             const end = Math.min(i + CHUNK, comments.length);
@@ -460,6 +467,10 @@ const TposCommentList = {
             } else {
                 this._chunkHandle = null;
                 this.updateLoadMoreIndicator();
+                if (this._pendingDirty) {
+                    this._pendingDirty = false;
+                    this._renderDispatch();
+                }
             }
         };
         this._chunkHandle = schedule(step);
@@ -487,8 +498,39 @@ const TposCommentList = {
             return;
         }
 
-        listContainer.innerHTML = state.comments.map((c) => this.renderCommentItem(c)).join('');
-        this.updateLoadMoreIndicator();
+        // Render TĂNG DẦN (chunked) qua requestIdleCallback. Build sync 700+ rows
+        // (innerHTML) block main-thread ~500ms/lần = giật. Chia 25 rows/tick, append
+        // dần → không lần nào block > ~1 frame. Rows hiện progressive (mượt).
+        // Hủy render-loop cũ để coalesce (campaign change / enrichment chồng nhau).
+        if (this._fullRenderHandle != null) {
+            (window.cancelIdleCallback || clearTimeout)(this._fullRenderHandle);
+            this._fullRenderHandle = null;
+        }
+        const comments = state.comments;
+        const schedule =
+            window.requestIdleCallback ||
+            ((cb) => setTimeout(() => cb({ timeRemaining: () => 8 }), 0));
+        const CHUNK = 25;
+        listContainer.innerHTML = '';
+        let i = 0;
+        const step = (deadline) => {
+            const parts = [];
+            const end = Math.min(i + CHUNK, comments.length);
+            for (; i < end; i++) parts.push(this.renderCommentItem(comments[i]));
+            listContainer.insertAdjacentHTML('beforeend', parts.join(''));
+            if (i < comments.length) {
+                this._fullRenderHandle = schedule(step);
+            } else {
+                this._fullRenderHandle = null;
+                this.updateLoadMoreIndicator();
+                // Enrichment đến trong lúc render → patch nốt phần đã render stale.
+                if (this._pendingDirty) {
+                    this._pendingDirty = false;
+                    this._renderDispatch();
+                }
+            }
+        };
+        this._fullRenderHandle = schedule(step);
         // Icon trong item là inline SVG (tposSvgIcon) → KHÔNG cần lucide.createIcons()
         // quét toàn DOM. Đây là perf fix chính (700+ icon scan/render → 0).
     },

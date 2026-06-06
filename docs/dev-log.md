@@ -25,6 +25,34 @@
 
 ## 2026-06-06
 
+### [tpos-pancake] Fix giật khi chọn nhiều campaign — render thông minh (chunked + sig-skip + debounce) 🔄
+
+**Vấn đề (user):** Chọn 4 campaign → khung comment TPOS giật rất nhiều lần. Yêu cầu "test thực sự để hiểu nguyên nhân".
+
+**Đo thực tế (instrument trên page live, mô phỏng tick 4 campaign HOUSE/STORE 06+02/06):**
+
+|                                | Trước                     | Sau fix              |
+| ------------------------------ | ------------------------- | -------------------- |
+| full-render block 758 rows     | **19 lần, 400-647ms/lần** | 1-3 lần (chunked)    |
+| long-task >50ms max            | **840ms**                 | **372ms**            |
+| idle loop `/cart/batch/counts` | ~10/s không ngừng         | **0** (đã fix trước) |
+
+**Root cause (đã xác định bằng số liệu):** Mỗi pass enrichment (loadSessionIndex/Partner/Debt/kho/native-orders) + mỗi tick checkbox campaign + mỗi comment realtime → gọi `renderComments()` → rebuild full `innerHTML` 758 rows (~500ms block main-thread). 4 campaign + enrichment = 19 lần → giật suốt 94s.
+
+**Files:** `tpos-pancake/js/tpos/tpos-comment-list.js`, `tpos-pancake/js/tpos/tpos-init.js`
+
+**Đã làm:**
+
+- **Debounce campaign change** (`tpos:campaignsChanged` 500ms): tick 4 checkbox = 1 reload thay vì 4.
+- **`renderComments()` coalesce 60ms** + **dispatch thông minh**: cấu trúc comment (id/thứ tự) không đổi → patch in-place; đổi → full render.
+- **Per-row signature `data-sig`** (`_rowSig`): patch CHỈ rebuild dòng dữ liệu thực sự đổi, skip dòng không đổi.
+- **Chunked qua `requestIdleCallback`** cho cả full render (`renderCommentsNow`, 25 rows/tick, append dần) lẫn patch (`_patchRowsChunked`) → không block main-thread.
+- **Serialize**: full render đang chạy không bị enrichment cắt/restart (pending flag → patch sau khi xong).
+
+**Còn lại (gốc rễ kiến trúc):** 843 dòng trong DOM (non-virtualized) → `insertAdjacentHTML` reflow O(n); inventory-panel (badge giỏ) + livestream-snap (thumbnail) cũng quét cả 843 dòng mỗi render → vẫn vài task 250-372ms. Để hết hẳn cần **virtualize** (chỉ render ~20 dòng visible) hoặc **cap render** (chỉ N comment mới nhất) — cần user quyết vì ảnh hưởng UX + module phụ.
+
+**Status:** node --check OK; verify DOM 843/843 rows nhất quán (sig/SVG/phone input), không regression. 🔄 chờ quyết hướng virtualize.
+
 ### [web2] Audit history — rà soát toàn menu, vá gap frontend chưa gửi tên user ✅
 
 Rà soát toàn bộ trang menu (2 Explore agent NCC + KH/PBH). Phát hiện backend đã ghi `performed_by` nhưng nhiều FRONTEND chưa gửi tên → ghi placeholder. Vá:
