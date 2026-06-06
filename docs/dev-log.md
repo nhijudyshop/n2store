@@ -54,7 +54,13 @@
 - `web2/shared/tpos-sidebar.js` — menu "Thu về" trong Bán Hàng.
 - `scripts/test-migration-web2-returns.js` — local-DB smoke (schema + stock/return flow): ALL PASS.
 
-**Status:** ✅ Done — node -c + module load + DB schema/flow smoke pass. Cần deploy Render + smoke UI online.
+**Status:** ✅ Done — node -c + module load + DB schema/flow smoke pass. Render auto-deploy + worker proxy route live.
+
+**Follow-up cùng ngày:**
+
+- `tpos-sidebar.js` không tự mount → trang Thu về + admin-sse-monitor thiếu menu → thêm `Web2Sidebar.mount('#web2Aside')`. Verified headless: navCount 34, có "Thu về".
+- Tab Danh sách `HTTP 404`: route đã auto-deploy lên Render (n2store-fallback) nhưng **Cloudflare worker proxy** chưa route `/api/web2-returns/*` → thêm `WEB2_RETURNS` vào `cloudflare-worker/{worker.js, modules/config/routes.js}` (CI `deploy-cloudflare-worker.yml` tự deploy khi push). Proxy live: `{"ok":true}`.
+- Thêm `GET /api/web2-returns/source-order/:type/:code` + UI: chọn đơn hoàn → **xem danh sách SP** + hiện **số ví hoàn thực tế** (phần đã trừ ví của đơn).
 
 ### [web2/products] In tem — barcode render PNG canvas (giống TPOS) thay SVG → quét được mã dài ✅
 
