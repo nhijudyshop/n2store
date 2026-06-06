@@ -3,9 +3,9 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `754a65e` — auto: session update
-**Last updated**: 2026-06-06 10:08:33 +07
-**Latest session**: [`RESUME:20260606-100833-754a65e`](../20260606-100833-754a65e.md)
+**Latest commit**: `1e314ee` — auto: session update
+**Last updated**: 2026-06-06 10:14:20 +07
+**Latest session**: [`RESUME:20260606-101420-1e314ee`](../20260606-101420-1e314ee.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
@@ -61,7 +61,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:46
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-06 10:08
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-06 10:14
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
