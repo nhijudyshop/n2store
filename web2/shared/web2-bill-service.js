@@ -243,6 +243,7 @@ html, body { margin: 0; padding: 0; background: #fff; }
         rows.push(
             `<div class="b-title">${billTitle}` +
                 (d.sttDisplay ? ` <span class="b-stt">#${_esc(d.sttDisplay)}</span>` : '') +
+                (d.printCount > 0 ? ` <span class="b-stt">🖨${d.printCount}</span>` : '') +
                 `</div>`
         );
 
@@ -251,13 +252,8 @@ html, body { margin: 0; padding: 0; background: #fff; }
             rows.push(`<div class="b-bc">${d.barcodeSvg}</div>`);
         }
 
-        // ── META: ngày (+ lần in nếu có) ──
-        rows.push(
-            `<div class="b-meta"><span>Ngày</span><b>${_esc(d.dateStr)}</b></div>` +
-                (d.printCount > 0
-                    ? `<div class="b-meta"><span>Lần in</span><b>🖨 ${d.printCount}</b></div>`
-                    : '')
-        );
+        // ── META: ngày (lần in gắn cạnh #STT ở dòng tiêu đề, không tốn dòng riêng) ──
+        rows.push(`<div class="b-meta"><span>Ngày</span><b>${_esc(d.dateStr)}</b></div>`);
 
         // ── KHÁCH HÀNG ──
         rows.push('<div class="b-div-dash"></div>');
