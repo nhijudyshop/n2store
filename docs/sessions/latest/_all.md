@@ -3,22 +3,21 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e45084d` — feat(web2-products-print): bỏ Code128, tem SP chỉ còn QR
-**Last updated**: 2026-06-07 15:44:53 +07
-**Latest session**: [`RESUME:20260607-154453-e45084d`](../20260607-154453-e45084d.md)
-**Summary**: feat(web2-products-print): bỏ Code128, tem SP chỉ còn QR
+**Latest commit**: `6643a6e` — auto: session update
+**Last updated**: 2026-06-07 15:48:50 +07
+**Latest session**: [`RESUME:20260607-154850-6643a6e`](../20260607-154850-6643a6e.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-05 10:42
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-06-07 12:41
+- [`_root/`](./_root.md) — updated 2026-06-07 15:48
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-05-22 12:35
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-06 20:25
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-07 15:44
+- [`docs/`](./docs.md) — updated 2026-06-07 15:48
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
