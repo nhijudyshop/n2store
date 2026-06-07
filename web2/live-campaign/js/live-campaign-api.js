@@ -122,26 +122,10 @@
     let _pagesCacheAt = 0;
     const PAGES_TTL = 5 * 60 * 1000;
     async function loadPages() {
-        if (_pagesCache && Date.now() - _pagesCacheAt < PAGES_TTL) return _pagesCache;
-        const data = await jsonFetch(CRM_TEAMS_URL, { method: 'GET' });
-        const teams = Array.isArray(data && data.value) ? data.value : [];
-        const out = [];
-        for (const team of teams) {
-            const childs = Array.isArray(team.Childs) ? team.Childs : [];
-            for (const c of childs) {
-                if (c.Facebook_PageId && c.Facebook_TypeId === 'Page') {
-                    out.push({
-                        pageId: c.Facebook_PageId,
-                        pageName: c.Facebook_PageName || c.Name || c.Facebook_PageId,
-                        teamId: team.Id,
-                        teamName: team.Name || '',
-                    });
-                }
-            }
-        }
-        _pagesCache = out;
-        _pagesCacheAt = Date.now();
-        return out;
+        // 2026-06-07: TPOS CRMTeam đã gỡ. live-campaign không load Pancake token
+        // → dropdown Page tạm rỗng (tạo chiến dịch chỉ cần Name; Page/Live là
+        // metadata tuỳ chọn). Có thể nối Pancake page list sau nếu cần.
+        return [];
     }
 
     // Live videos của 1 page (qua TPOS facebook-graph proxy). Trả mới nhất trước.
@@ -149,23 +133,11 @@
     const _liveVideoCache = new Map(); // pageId → {videos, fetchedAt}
     const LIVE_VIDEO_TTL = 60 * 1000;
     async function loadLiveVideos(pageId, limit) {
-        if (!pageId) return [];
-        const cached = _liveVideoCache.get(pageId);
-        if (cached && Date.now() - cached.fetchedAt < LIVE_VIDEO_TTL) return cached.videos;
-        const url = `${LIVE_VIDEO_URL}?pageid=${encodeURIComponent(pageId)}&limit=${limit || 20}&facebook_Type=page`;
-        const data = await jsonFetch(url, { method: 'GET' });
-        // TPOS shape: { data: [...] } when direct, or { data: { data: [...] } } via Render wrapper
-        const raw = (data && data.data && (data.data.data || data.data)) || [];
-        const videos = (Array.isArray(raw) ? raw : []).map((v) => ({
-            objectId: v.objectId,
-            title: v.title || '',
-            startMs: v.channelCreatedTime ? new Date(v.channelCreatedTime).getTime() : null,
-            statusLive: v.statusLive,
-            countComment: v.countComment || 0,
-            thumbnail: v.thumbnail && v.thumbnail.url ? v.thumbnail.url : null,
-        }));
-        _liveVideoCache.set(pageId, { videos, fetchedAt: Date.now() });
-        return videos;
+        // 2026-06-07: TPOS facebook-graph proxy đã gỡ. Cần Pancake page token
+        // (không có trên trang này) để gọi /api/web2-fb-live/videos → tạm rỗng.
+        void pageId;
+        void limit;
+        return [];
     }
 
     async function getOne(id) {

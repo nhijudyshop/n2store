@@ -23,15 +23,13 @@
     'use strict';
     if (typeof window === 'undefined') return;
 
-    const FLAG_KEY = 'web2_live_source'; // 'fbgraph' = bật | khác/null = TPOS (mặc định)
     const KEEPALIVE_MS = 5 * 60 * 1000; // refresh poller keepalive < POLLER_STALE_MS(8') server
 
+    // 2026-06-07: TPOS đã gỡ HOÀN TOÀN khỏi cột live — FB Graph là nguồn DUY
+    // NHẤT (không còn flag, không fallback). Giữ enabled() trả true cho call
+    // site cũ (startSSE) khỏi phải sửa.
     function enabled() {
-        try {
-            return localStorage.getItem(FLAG_KEY) === 'fbgraph';
-        } catch {
-            return false;
-        }
+        return true;
     }
 
     function base() {

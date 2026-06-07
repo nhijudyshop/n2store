@@ -18,21 +18,16 @@ async function _fetchLiveVideosForPage(pageId) {
     if (cached && Date.now() - cached.fetchedAt < LIVE_VIDEOS_CACHE_TTL_MS) {
         return cached.videos;
     }
-    const state = window.TposState;
-    if (!state?.proxyBaseUrl || !window.TposApi?.authenticatedFetch) return [];
+    // 2026-06-07: TPOS /facebook/livevideo đã gỡ → dùng FB Graph (web2-fb-live).
+    if (!window.TposFbLiveSource?.fetchVideosAsCampaigns) return [];
     try {
-        const r = await window.TposApi.authenticatedFetch(
-            `${state.proxyBaseUrl}/facebook/livevideo?pageid=${encodeURIComponent(pageId)}&limit=50`
-        );
-        if (!r.ok) return [];
-        const json = await r.json();
-        const raw = json?.data?.data || [];
-        const videos = raw.map((v) => ({
-            objectId: v.objectId, // Facebook_PostId = pageId_videoId
-            title: v.title || '',
-            startMs: v.channelCreatedTime ? new Date(v.channelCreatedTime).getTime() : null,
-            statusLive: v.statusLive,
-            countComment: v.countComment || 0,
+        const camps = await window.TposFbLiveSource.fetchVideosAsCampaigns([pageId]);
+        const videos = (camps || []).map((c) => ({
+            objectId: c.Facebook_LiveId, // pageId_videoId
+            title: c.Name || '',
+            startMs: c.DateCreated ? new Date(c.DateCreated).getTime() : null,
+            statusLive: c.StatusLive,
+            countComment: 0,
         }));
         _liveVideosCachePerPage.set(pageId, { videos, fetchedAt: Date.now() });
         return videos;

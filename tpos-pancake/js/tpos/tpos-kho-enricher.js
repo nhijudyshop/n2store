@@ -65,10 +65,11 @@
 
         const workerUrl = state.workerUrl;
         try {
-            const resp = await fetch(`${workerUrl}/api/v2/customers/batch`, {
+            // 2026-06-07: đọc kho KH warehouse Web 2.0 (TPOS + Web1.0 customers đã gỡ).
+            const resp = await fetch(`${workerUrl}/api/web2/customers/batch-by-fbid`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fb_ids: fbIds }),
+                body: JSON.stringify({ fbIds: fbIds }),
             });
             const json = await resp.json();
             const map = json && json.success ? json.data || {} : {};

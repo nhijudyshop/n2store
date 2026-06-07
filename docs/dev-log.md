@@ -25,6 +25,25 @@
 
 ## 2026-06-07
 
+### [tpos-pancake][live-campaign] GỠ SẠCH TPOS — FB Graph/Pancake/warehouse là nguồn DUY NHẤT (no flag, no fallback) ✅
+
+User: "bỏ mọi thứ TPOS, không fallback — Web 2.0 beta không ai dùng". Cắt hoàn toàn TPOS khỏi cột live + live-campaign (KHÔNG còn flag, KHÔNG fallback TPOS).
+
+**tpos-pancake (`js/tpos/`):**
+
+- `tpos-api.js`: `loadComments` → FB-live only (xóa fallback chain Pancake-graph + TPOS archive). `loadCRMTeams` → Pancake only. `loadLiveCampaigns`/`FromAllPages` → FB Graph only. `getPartnerInfo` → warehouse batch-by-fbid. `updatePartnerStatus`/`ViaProxy`/`savePartnerData` → warehouse PATCH/upsert. `hideComment`/`replyToComment` → Pancake. `loadSessionIndex` → Map rỗng (badge từ native_orders). `getOrderForUser` xóa (unused).
+- `tpos-fb-live-source.js`: `enabled()` → luôn true (bỏ flag `web2_live_source`).
+- `tpos-init.js` `_fetchLiveVideosForPage` + `tpos-livestream-snap.js` `_fetchLiveVideoInfo` → FB Graph (web2-fb-live), thumbnail qua `/{videoId}/thumbnails` (fix `/picture` 400).
+- `tpos-kho-enricher.js` → `/api/web2/customers/batch-by-fbid` (bỏ Web1.0 `/api/v2/customers/batch`).
+- XÓA `tpos-partner-fallback.js` (TPOS OData) + gỡ load `partner-customer-api.js` + `token-manager.js` (TPOS) khỏi index.html.
+- Còn `tposTokenManager` (pancake chat + WS vẫn cần) + dead EventSource trong `tpos-realtime` (unreachable, enabled()→true) — không execute TPOS.
+
+**live-campaign:** `loadPages`/`loadLiveVideos` → rỗng (TPOS CRMTeam/livevideo gỡ; cần Pancake token không có trên trang — dropdown Page/Live tạm trống, tạo chiến dịch chỉ cần Name).
+
+**Verify:** local smoke 2 trang — **0 lỗi**, `TposFbLiveSource.enabled()=true`, `TposPartnerFallback=undefined`. node -c all OK. Backend (web2-fb-live + web2-customers batch-by-fbid + web2-live-campaigns) đã live prod. ⚠ CHƯA verify cột live với livestream thật (JWT test account không có page) — user chấp nhận (beta).
+
+**Status:** ✅ Done — cột live + live-campaign 100% TPOS-free, no fallback. Deploy.
+
 ### [tpos-pancake][live-campaign] Cắt TPOS phần còn lại: picker FB Graph + live-campaign CRUD→web2 ✅
 
 Tiếp "code tất cả verify sau". Hoàn tất gỡ TPOS khỏi cột live (flag-gated) + chuyển live-campaign CRUD sang Web 2.0.

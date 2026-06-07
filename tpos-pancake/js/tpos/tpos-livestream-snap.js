@@ -53,36 +53,24 @@
         const cached = _liveVideoInfoCache.get(cacheKey);
         if (cached && Date.now() - cached.fetchedAt < 5 * 60 * 1000) return cached.info;
         try {
-            const st = global.TposState;
-            const proxyBase = st?.proxyBaseUrl;
-            if (!proxyBase || !global.TposApi?.authenticatedFetch) return null;
-            const r = await global.TposApi.authenticatedFetch(
-                `${proxyBase}/facebook/livevideo?pageid=${encodeURIComponent(pageId)}&limit=50`
-            );
-            if (!r.ok) return null;
-            const json = await r.json();
-            const videos = json?.data?.data || [];
-            // TPOS objectId có thể là videoId raw HOẶC compound — match cả 2 dạng.
+            // 2026-06-07: TPOS /facebook/livevideo đã gỡ → FB Graph (web2-fb-live).
+            if (!global.TposFbLiveSource?.fetchVideosAsCampaigns) return null;
+            const camps = await global.TposFbLiveSource.fetchVideosAsCampaigns([pageId]);
             const videoId = String(liveVideoId).replace(/^\d+_/, '');
-            const match = videos.find((v) => v.objectId === liveVideoId || v.objectId === videoId);
+            const match = (camps || []).find(
+                (c) => c.Facebook_LiveId === liveVideoId || c.Id === videoId
+            );
             if (!match) {
-                console.warn('[snap] video not found in TPOS livevideo list:', liveVideoId);
+                console.warn('[snap] video not found in FB-live list:', liveVideoId);
                 return null;
             }
-            // channelCreatedTime có thể là ISO string ('2026-05-23T12:01:51+07:00')
-            // hoặc number ms. Dùng new Date().getTime() handle cả 2.
-            const startMs = match.channelCreatedTime
-                ? new Date(match.channelCreatedTime).getTime()
-                : null;
-            // TPOS exposes video.thumbnail.url (FB CDN signed URL, public) —
-            // dùng làm thumbnail vì FB Graph picture endpoint giờ trả 400 cho
-            // mọi video (FB policy change 2026-05).
-            const thumbnailUrl =
-                match.thumbnail?.url || match.thumbnail?.uri || match.thumbnailUrl || null;
+            const startMs = match.DateCreated ? new Date(match.DateCreated).getTime() : null;
+            // FB Graph /{videoId}/thumbnails (is_preferred) — thay /picture 400.
+            const thumbnailUrl = match._thumbnail || null;
             const info = {
                 broadcastStartMs: Number.isFinite(startMs) ? startMs : null,
-                title: match.title || null,
-                statusLive: match.statusLive,
+                title: match.Name || null,
+                statusLive: match.StatusLive,
                 thumbnailUrl,
             };
             _liveVideoInfoCache.set(cacheKey, { info, fetchedAt: Date.now() });
