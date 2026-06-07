@@ -72,7 +72,16 @@
 - **Backend** `render.com/routes/v2/web2-customers.js`: `POST /upsert {phone,name,address}` → `pushCustomerToTPOS` (tạo nếu mới) + `upsertWeb2Customer` cache → `{success,tposId,created}`. **⚠ cần Render redeploy** mới live.
 - **Test live (mock):** tin "...64/47 Nguyễn Phúc Chu, P15 Tân Bình - SĐT: 0923013706" → bar 2 chip đúng, click → `onAddEntity` nhận `{phone:"0923013706",address:"...Tân Bình",name}`. Bump `?v=20260607h`.
 
-**Status: ✅ point 0 (2 chat UI hợp nhất) + Feature 1 (paste) + Feature 3 (detect+thêm KH) done. Feature 2 còn react/sticker-send chờ extension Phase 2.**
+**Feature 2 — sticker-send ✅ (KHÔNG cần sửa extension):** phát hiện `REPLY_INBOX_PHOTO` attachmentType=`STICKER`+`sticker_id` ĐÃ có sẵn trong extension `sender.js` → sticker-send chỉ cần web-app:
+
+- `web2/shared/chat-panel/web2-chat-sticker-data.js` — `Web2ChatStickers.list()` bộ sticker FB classic (Like `369239263222822` + 2 biến thể). Mở rộng qua localStorage `web2_chat_stickers_extra`. KHÔNG cần `GET_STICKERS` (stub).
+- Panel: tab Sticker (hiện khi adapter có `sendSticker`) — grid emoji+nhãn → `sendStickerOptimistic(id)` UI-first (bong bóng 🧩, rollback nếu lỗi).
+- Adapters native + pancake `sendSticker(id)` → extension `REPLY_INBOX_PHOTO` STICKER (reuse global_id resolve). Không có extension → throw.
+- **Test live (mock):** tab Sticker render 3, click → `sendSticker("369239263222822")` đúng id, out bubble 🧩. Bump `?v=20260607i`.
+
+**Feature 2 — react-send: CHƯA (cần FB GraphQL reverse-engineer + verify live).** `REACT_MESSAGE` extension stub; reaction mutation doc_id chỉ capture được khi admin react trong UI FB + variables FB-internal → không build mù (extension auto-publish CWS khi bump version → tránh ship code chưa test). Cần: capture friendly-name + variables reaction mutation từ FB Business Suite DevTools.
+
+**Status: ✅ point 0 + Feature 1 (paste) + Feature 2 (emoji/reply/display/sticker-send) + Feature 3 (detect+thêm KH). CÒN: react-send (FB GraphQL, cần verify live).**
 
 ### [render][web2] Part A: GATE auto-gán SePay theo đơn active ✅
 

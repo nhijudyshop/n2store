@@ -6308,6 +6308,10 @@
                     }
                 );
             },
+            // Feature 2: gửi sticker FB (qua extension REPLY_INBOX_PHOTO STICKER).
+            async sendSticker(stickerId) {
+                return _performNativeSend(order, { conv, customerId }, { text: '', stickerId });
+            },
             // Feature 3: "Thêm vào KH" — CẢ HAI: (1) fill SĐT/địa chỉ vào ĐƠN đang mở
             // (PATCH native_order, chỉ field còn rỗng để không đè), (2) upsert danh bạ
             // web2_customers (tạo nếu mới). Báo toast, cập nhật STATE nếu đổi.

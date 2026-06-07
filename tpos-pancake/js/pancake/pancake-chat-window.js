@@ -105,6 +105,23 @@ const PancakeChatWindow = {
                 window.PancakeConversationList?.renderConversationList?.();
             },
 
+            // Feature 2: gửi sticker FB qua extension (REPLY_INBOX_PHOTO STICKER).
+            async sendSticker(stickerId) {
+                if (!window.Web2Ext?.hasExtension?.())
+                    throw new Error('Cần N2 Extension để gửi sticker');
+                const ok = await self._trySendViaExtension(conv, '', null, stickerId);
+                if (!ok) throw new Error('Gửi sticker thất bại');
+                const sent = {
+                    id: 'ext_' + Date.now(),
+                    from: { id: conv.page_id, name: 'You' },
+                    message: '🧩',
+                    inserted_at: new Date().toISOString(),
+                };
+                state.messages = state.messages || [];
+                state.messages.push(sent);
+                return { via: 'extension', sent };
+            },
+
             // Feature 3: "Thêm vào KH" — upsert danh bạ web2_customers (tạo nếu mới).
             // tpos-pancake không có "đơn đang mở" → chỉ upsert KH + báo.
             async onAddEntity({ phone, address, name }) {
@@ -214,8 +231,8 @@ const PancakeChatWindow = {
     // Gửi qua N2 Extension (FB Business Suite GraphQL) — cần FB Global ID (không phải
     // PSID). Resolve global_id qua Pancake API (Web2Chat.fetchMessages → customers[].
     // global_id), fallback extension GET_GLOBAL_ID_FOR_CONV. Trả true nếu gửi OK.
-    async _trySendViaExtension(conv, text, att) {
-        if (!conv || (!text && !att)) return false;
+    async _trySendViaExtension(conv, text, att, stickerId) {
+        if (!conv || (!text && !att && !stickerId)) return false;
         if (!window.Web2Ext?.hasExtension?.()) return false;
         try {
             const pageId = conv.page_id;
@@ -268,7 +285,10 @@ const PancakeChatWindow = {
 
             let files = [];
             let attachmentType = 'SEND_TEXT_ONLY';
-            if (att && att.file) {
+            if (stickerId) {
+                files = [stickerId];
+                attachmentType = 'STICKER';
+            } else if (att && att.file) {
                 const dataUrl = await this._fileToDataUrl(att.file);
                 const up = await window.Web2Ext.request(
                     'UPLOAD_INBOX_PHOTO',
