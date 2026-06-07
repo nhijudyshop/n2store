@@ -2,7 +2,14 @@
 
 # PLAN — Kho dữ liệu Khách hàng riêng Web 2.0 + tách config (deliveryzone/printer)
 
-> Trạng thái: **ĐỀ XUẤT — chờ duyệt hướng**. Ngày: 2026-06-07.
+> Trạng thái: **ĐÃ DUYỆT HƯỚNG — đang làm Phase 0**. Ngày: 2026-06-07.
+>
+> **Quyết định user (2026-06-07):**
+>
+> 1. Kho KH = **BẢNG MỚI** (không extend web2_order_customers). Tên dự kiến `web2_customers` — ⚠ va chạm bảng cũ web2_customers (2 rows cache match SePay) → Phase 1 phải đổi tên warehouse (vd `web2_customers_master`) HOẶC gộp/replace bảng cũ (beta nên có thể drop bảng cũ 2 rows + chuyển logic SePay match sang warehouse). Chốt ở Phase 1.
+> 2. **Dữ liệu mới hoàn toàn** — beta test, KHÔNG import 92k TPOS, KHÔNG migrate 6.533 web2_order_customers. Kho bắt đầu RỖNG, tự đầy từ Pancake/đơn về sau.
+> 3. Thứ tự: **Phase 0 (config) TRƯỚC**, rồi Phase 1-5.
+
 > Bối cảnh: đã tắt TPOS shadow sync (partner-customer giờ chạy live 2 chiều). User muốn Web 2.0 có **kho KH của riêng mình** (không phụ thuộc TPOS), schema giàu như TPOS Partner + đủ field cho FB/Pancake.
 
 ---
