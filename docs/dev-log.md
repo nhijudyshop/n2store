@@ -25,6 +25,14 @@
 
 ## 2026-06-07
 
+### [docs] Ghi nhận: Web 2.0 đang BETA — không sợ mất data ✅
+
+**User (2026-06-07):** "web 2.0 đang giai đoạn beta nên dữ liệu không sợ mất đâu, làm cho đúng và hoàn hảo".
+
+**Ghi nhận vào:** MEMORY (`feedback_web2_beta_data_safe.md` + index), CLAUDE.md (callout đầu section "Web 2.0 vs Legacy"), dev-log (entry này).
+
+**Quy tắc rút ra:** Khi refactor/migrate/đổi naming/dọn bảng/sửa shape cho Web 2.0 → ưu tiên làm ĐÚNG & HOÀN HẢO, được wipe/recreate schema `web2_*` (Postgres + Firestore) sạch, KHÔNG cần backward-compat phức tạp hay giữ orphan rows "cho chắc" cho riêng Web 2.0. ⚠ CHỈ Web 2.0 — Web 1.0 (chatDb, bảng không prefix `web2_`) vẫn prod, bảo toàn data tuyệt đối. `web2_records` multi-tenant → wipe theo slug.
+
 ### [web2/products] Tem SP — bỏ Code128, CHỈ còn QR ✅
 
 **User:** bỏ barcode đi, chỉ còn QR code cho tem sản phẩm.

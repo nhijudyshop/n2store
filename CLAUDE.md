@@ -229,6 +229,8 @@ Format hiện tại: 1 key/dòng dạng `LABEL=value` hoặc block "## Service N
 
 Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc layer nào để KHÔNG share/conflate.
 
+> **⚠ Web 2.0 đang BETA — KHÔNG sợ mất data (user xác nhận 2026-06-07).** Data `web2_*` (Postgres + Firestore) chưa phải data thật quan trọng → khi refactor/migrate/đổi naming/dọn bảng/sửa shape cho Web 2.0, **ưu tiên làm ĐÚNG & HOÀN HẢO**, được phép wipe/truncate/recreate schema sạch, KHÔNG cần giữ data cũ hay backward-compat phức tạp cho riêng Web 2.0. **CHỈ áp dụng cho Web 2.0** — Web 1.0 (orders-report, inbox, chat, `chatDb`, bảng KHÔNG có prefix `web2_`) vẫn là PROD thật, data PHẢI bảo toàn tuyệt đối. (Lưu ý `web2_records` multi-tenant — wipe theo slug, xem MEMORY `reference_web2_data_wipe`.)
+
 ### Web 2.0 — thuộc về
 
 **Folders** (đều thuộc Web 2.0):
