@@ -86,6 +86,24 @@
 
 ---
 
+## PHASE 1 — Recipe thực thi (chốt 2026-06-07: tạo MỚI hoàn toàn web2_customers, beta ok mất data)
+
+**Quyết định cuối:** drop `web2_customers` cũ + tạo MỚI warehouse cùng tên. Beta → không lo mất 2 rows. Mục tiêu: ĐÚNG + chạy hoàn hảo.
+
+**Consumer của `web2_customers` (5 chỗ — phải rework/kiểm tra khi thay schema):**
+
+1. `web2-payment-signal-detector._resolveCustomer` — `SELECT id, phone FROM web2_customers WHERE fb_id=$1 ORDER BY ... synced_at`. **GRACEFUL** (try/catch → null). → Schema mới GIỮ `id, phone, fb_id, synced_at` để SePay vẫn match theo fb_id (customerId giờ = warehouse id, không còn Partner Id — OK, chỉ là khóa unique).
+2. `native-orders.js` — lookup/insert KH. → repoint sang warehouse upsert (bỏ enrich TPOS).
+3. `v2/web2-customers.js` (route đã tồn tại) — align hoặc thay bằng `/api/web2-customers`.
+4. `tpos-customer-service.js` — TPOS coupling → BỎ (warehouse không TPOS).
+5. `web2-order-customer-service.js` — `getOrCreateCustomerFromTPOS` → thay bằng upsert warehouse theo phone/fb (no TPOS).
+
+**Thứ tự an toàn (1 deploy):** (a) tạo schema mới web2_customers giữ cột SePay cần; (b) sửa 5 consumer cùng lúc; (c) deploy; (d) verify SePay match + tạo đơn native-orders tạo KH vào warehouse. Drop `web2_order_customers` SAU khi native-orders/fast-sale repoint xong.
+
+**Trạng thái:** Phase 0 ✅. Phase 1 = bước kế (build lớn, chạm SePay/orders live → làm cẩn thận, verify từng phần).
+
+---
+
 ## PHASE 1B — Research notes (GitHub/industry, 2026-06-07) → áp dụng
 
 - **Multi-page PSID** ([Meta PSID/ASID](https://developers.facebook.com/docs/messenger-platform/identity/id-matching/)): 1 người = 1 PSID/Page. → Dùng `fb_psids` JSONB `{page_id: psid}` thay cột `psid` đơn; `global_id` = neo gộp xuyên page; `fb_id` = psid mặc định (legacy/đơn page).
