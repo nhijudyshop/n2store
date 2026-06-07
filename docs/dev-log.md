@@ -25,6 +25,19 @@
 
 ## 2026-06-07
 
+### [web2/bill] PBH đổi mã vạch Code128 → QR Code ✅
+
+**User:** PBH đổi qua QR code.
+
+**Fix (`web2-bill-service.js`):** thêm `_renderCodeMarkup(value)` render **QR** (davidshimjs/qrcodejs → canvas → PNG dataURL, correctLevel M) + số PBH (HRI) dưới QR; thay `_renderBarcodeSvg` ở `buildBill`. Giữ Code128 làm **fallback** nếu QR lib chưa load. CSS `.b-qr` (38mm vuông, canh giữa, pixelated) + `.b-qr-num` (monospace).
+
+**Vendor lib:** `web2/shared/qrcode.min.js` (davidshimjs, 20KB) — load offline trong parent (bill pre-render, không CDN lúc in). Thêm `<script>` vào 3 trang dùng bill: `native-orders`, `web2/fastsaleorder-invoice`, `web2/printer-settings` (cạnh jsbarcode, `?v=20260607qr`). Bump `web2-bill-service.js?v=20260607qr`.
+
+**Reconcile KHÔNG cần sửa:** máy quét 2D đọc QR → gõ text `NJ-...` y như Code128; `PBH_NUMBER_RE` khớp.
+
+**Files:** `web2/shared/web2-bill-service.js`, `web2/shared/qrcode.min.js` (mới), `native-orders/index.html`, `web2/fastsaleorder-invoice/index.html`, `web2/printer-settings/index.html`.
+**Verify (localhost):** `Web2Bill.generateHTML` → có `.b-qr` img + `b-qr-num` "NJ-20260604-0004", KHÔNG còn `barcode-svg`. Decoder ZXing đọc QR đúng ở 300/120/80px (bill in 38mm → thừa sức quét).
+
 ### [web2] Phase 3 — Trang Kho Khách Hàng `web2/customers` (warehouse UI, KHÔNG TPOS) ✅
 
 **Mục tiêu (plan Phase 3):** Frontend cho warehouse `web2_customers` — đọc/ghi `/api/web2/customers/*`, độc lập TPOS. Nguyên tắc **1 SĐT (10 số) = 1 KH** (phone UNIQUE), 1 KH nhiều FB account (fb_id/global_id + aliases).

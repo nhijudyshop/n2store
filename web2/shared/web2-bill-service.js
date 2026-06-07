@@ -59,6 +59,40 @@
         }
     }
 
+    // 2026-06-07: PBH dùng QR Code (2D) thay barcode 1D — quét bằng máy 2D, gọn,
+    // đọc mọi độ dài mã. Pre-render canvas→PNG dataURL trong parent (cần host load
+    // <script src="../web2/shared/qrcode.min.js">). Số PBH in dưới QR (HRI).
+    // Fallback Code128 nếu QR lib thiếu (giữ tương thích).
+    function _renderCodeMarkup(value) {
+        if (!value) return '';
+        try {
+            if (typeof global.QRCode === 'function') {
+                const tmp = document.createElement('div');
+                // eslint-disable-next-line no-new
+                new global.QRCode(tmp, {
+                    text: String(value),
+                    width: 320,
+                    height: 320,
+                    correctLevel: global.QRCode.CorrectLevel.M,
+                });
+                const c = tmp.querySelector('canvas');
+                const src = c
+                    ? c.toDataURL('image/png')
+                    : (tmp.querySelector('img') || {}).src || '';
+                if (src) {
+                    return (
+                        `<img class="b-qr" src="${src}" alt="" />` +
+                        `<div class="b-qr-num">${_esc(value)}</div>`
+                    );
+                }
+            }
+        } catch (e) {
+            console.warn('[Web2Bill] renderQr failed:', e.message);
+        }
+        // Fallback: Code128 (cũ) nếu QR lib chưa load.
+        return _renderBarcodeSvg(value);
+    }
+
     // ── CSS bill thiết kế (thermal 72mm B&W) — tham khảo pattern receipt phổ
     // biến (parzibyte/print-receipt-thermal-printer, paper-css): dashed/double
     // dividers, framed boxes, monospace cho mã, hierarchy cỡ chữ. KHÔNG dùng
@@ -97,6 +131,9 @@ html, body { margin: 0; padding: 0; background: #fff; }
 /* ── Khung mã vạch ── */
 .b-bc { border: 1.5px solid #000; border-radius: 6px; padding: 5px 6px 3px; text-align: center; margin: 4px 0 6px; }
 .b-bc svg { display: block; width: 100%; height: auto; max-height: 66px; margin: 0 auto; }
+/* QR Code (2D) — vuông, canh giữa, in sắc (pixelated). Số PBH dưới QR. */
+.b-qr { display: block; width: 38mm; height: 38mm; margin: 0 auto; image-rendering: pixelated; }
+.b-qr-num { text-align: center; font-family: monospace; font-weight: 700; font-size: 15px; letter-spacing: 0.5px; margin-top: 3px; }
 .b-meta { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; margin-top: 2px; }
 /* ── Đường trang trí ── */
 .b-div-dash { border-top: 1.5px dashed #000; margin: 7px 0; }
@@ -410,7 +447,7 @@ html, body { margin: 0; padding: 0; background: #fff; }
 
         // ── Dựng bill HTML/CSS thiết kế (khung COD + khung mã vạch + đường trang trí) ──
         const billNumber = pbh.number || '';
-        const barcodeSvg = _renderBarcodeSvg(billNumber);
+        const barcodeSvg = _renderCodeMarkup(billNumber);
         const body = _buildBillBody({
             shop,
             isShop,
