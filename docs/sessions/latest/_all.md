@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `190b7fa` — feat(web2): Phase 1 — gộp kho KH thành 1 warehouse web2_customers (bỏ TPOS) + CRUD route + SSE + dọn dead migrate
-**Last updated**: 2026-06-07 16:15:07 +07
-**Latest session**: [`RESUME:20260607-161507-190b7fa`](../20260607-161507-190b7fa.md)
-**Summary**: feat(web2): Phase 1 — gộp kho KH thành 1 warehouse web2_customers (bỏ TPOS) + CRUD route + SSE + dọn dead mi...
+**Latest commit**: `65df914` — feat(web2): Phase 3 — trang Kho Khách Hàng web2/customers (warehouse UI, KHÔNG TPOS)
+**Last updated**: 2026-06-07 16:38:37 +07
+**Latest session**: [`RESUME:20260607-163837-65df914`](../20260607-163837-65df914.md)
+**Summary**: feat(web2): Phase 3 — trang Kho Khách Hàng web2/customers (warehouse UI, KHÔNG TPOS)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 5 file(s)
+- [`web2/`](./web2.md) — 6 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-06 20:25
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-07 16:15
+- [`docs/`](./docs.md) — updated 2026-06-07 16:38
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
@@ -69,4 +69,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-07 15:44
+- [`web2/`](./web2.md) — updated 2026-06-07 16:38
