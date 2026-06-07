@@ -1013,8 +1013,17 @@
                 `<span class="no-ck-badge${confirmed ? ' ck-confirmed' : ''}"${clickable} title="KH báo đã chuyển khoản (${escapeHtml(o.ckSignal.keyword || '')}${confirmed ? ' — đã xác nhận' : ' — bấm để đối chiếu & duyệt'}). Đối soát tiền vẫn qua SePay.">💸 KH báo đã CK</span>`
             );
         }
-        // [2026-06-07] Số lần in KHÔNG hiện ở list nữa — đã chuyển lên chính phiếu
-        // in (bill PBH + Phiếu Soạn Hàng) để tránh in trùng mà không rối bảng.
+        // [2026-06-07] Đã in: chỉ hiện ICON máy in (gọn, không chiếm chữ/dòng).
+        // Hover (native title — có độ trễ sẵn, không hiện liền) → số lần in + thời
+        // gian in gần nhất. Số lần in cụ thể đã in trên chính phiếu (bill / PSH).
+        const pc = Number(o.printCount) || 0;
+        if (pc > 0) {
+            const t = o.lastPrintedAt ? formatFullTime(o.lastPrintedAt) : '';
+            const tip = `Đã in ${pc} lần${t ? ` — lần cuối: ${t}` : ''}`;
+            out.push(
+                `<span class="no-print-badge" title="${escapeHtml(tip)}" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:12.5px;border-radius:6px;background:#fef3c7;border:1px solid #fde68a;cursor:default;">🖨</span>`
+            );
+        }
         return out.length ? `<div class="no-derived-badges">${out.join('')}</div>` : '';
     }
 
@@ -3235,10 +3244,13 @@
             window.NativeOrdersApi.markPrinted(arr)
                 .then((r) => {
                     const counts = (r && r.counts) || {};
+                    const printedAt = (r && r.printedAt) || {};
                     arr.forEach((c) => {
                         const o = STATE.orders.find((x) => x.code === c);
-                        if (o)
+                        if (o) {
                             o.printCount = counts[c] != null ? counts[c] : (o.printCount || 0) + 1;
+                            o.lastPrintedAt = printedAt[c] != null ? printedAt[c] : Date.now();
+                        }
                     });
                     renderRows();
                 })

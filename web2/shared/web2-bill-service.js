@@ -243,7 +243,7 @@ html, body { margin: 0; padding: 0; background: #fff; }
         rows.push(
             `<div class="b-title">${billTitle}` +
                 (d.sttDisplay ? ` <span class="b-stt">#${_esc(d.sttDisplay)}</span>` : '') +
-                (d.printCount > 0 ? ` <span class="b-stt">🖨${d.printCount}</span>` : '') +
+                (d.printCount > 0 ? ` <span class="b-stt">In ${d.printCount}</span>` : '') +
                 `</div>`
         );
 

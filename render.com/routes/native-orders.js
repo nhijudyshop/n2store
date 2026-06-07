@@ -203,6 +203,8 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS warehouse_id           INTEGER,
                 ADD COLUMN IF NOT EXISTS reversed_code          VARCHAR(40),
                 ADD COLUMN IF NOT EXISTS print_count            INTEGER NOT NULL DEFAULT 0,
+                -- 2026-06-07: epoch ms lần in gần nhất (hover icon máy in ở list → hiện thời gian).
+                ADD COLUMN IF NOT EXISTS last_printed_at        BIGINT,
                 -- 2026-06-04: kênh đơn — 'web2_livestream' (drag từ TPOS-Pancake/comment)
                 -- vs 'web2_inbox' (tạo tay từ tab Đơn Inbox). Default web2_livestream cho
                 -- đơn cũ + from-comment. (2026-06-05: prefix web2_ — xem migration dưới.)
@@ -475,6 +477,7 @@ function mapRowToOrder(row) {
         warehouseName: row.warehouse_name,
         reversedCode: row.reversed_code,
         printCount: Number(row.print_count || 0),
+        lastPrintedAt: row.last_printed_at != null ? Number(row.last_printed_at) : null,
         channel: row.channel || 'web2_livestream', // kênh đơn (web2_livestream/web2_inbox)
         // 2026-06-04: phương thức giao hàng auto-detect (hiện ở cột địa chỉ)
         deliveryMethod: row.delivery_method || null,
@@ -1891,17 +1894,20 @@ router.post('/mark-printed', async (req, res) => {
     if (!codes.length) return res.status(400).json({ error: 'codes required' });
     try {
         await ensureTables(pool);
+        const now = Date.now();
         const r = await pool.query(
-            `UPDATE native_orders SET print_count = print_count + 1, updated_at = $1
-             WHERE code = ANY($2::text[]) RETURNING code, print_count`,
-            [Date.now(), codes]
+            `UPDATE native_orders SET print_count = print_count + 1, last_printed_at = $1, updated_at = $1
+             WHERE code = ANY($2::text[]) RETURNING code, print_count, last_printed_at`,
+            [now, codes]
         );
         const counts = {};
+        const printedAt = {};
         r.rows.forEach((row) => {
             counts[row.code] = Number(row.print_count || 0);
+            printedAt[row.code] = row.last_printed_at != null ? Number(row.last_printed_at) : now;
         });
         _notify('print', codes.join(','));
-        res.json({ success: true, counts });
+        res.json({ success: true, counts, printedAt });
     } catch (e) {
         console.error('[NATIVE-ORDERS] /mark-printed error:', e.message);
         res.status(500).json({ error: e.message });
