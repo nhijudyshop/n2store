@@ -2,8 +2,15 @@
 
 # PLAN — Kho dữ liệu Khách hàng riêng Web 2.0 + tách config (deliveryzone/printer)
 
-> Trạng thái: **ĐÃ DUYỆT HƯỚNG — đang làm Phase 0**. Ngày: 2026-06-07.
+> Trạng thái: **Phase 0 ✅ XONG. Phase 1+ = việc của phiên kế tiếp.** Ngày: 2026-06-07.
 >
+> ### ▶ BẮT ĐẦU PHIÊN MỚI TỪ ĐÂY (handoff)
+>
+> - **Đã xong**: Phase 0 (deliveryzone/printer → bảng riêng `web2_delivery_zones`/`web2_printers`, factory `render.com/routes/web2-dedicated-entity.js`, live). TPOS shadow đã xóa sạch + worker tắt. DB dọn (drop `*_bak_*`, xóa web2_records orphan).
+> - **Làm tiếp (Phase 1)** theo recipe ở mục "PHASE 1 — Recipe thực thi" bên dưới: tạo MỚI `web2_customers` warehouse (KHÔNG TPOS, `fb_psids` multi-page + `global_id`, phone UNIQUE) + `/api/web2-customers` CRUD → rework 5 consumer (SePay graceful, native-orders, fast-sale, v2/web2-customers, web2-order-customer-service) bỏ TPOS → drop `web2_order_customers` → frontend `web2/customers`.
+> - **CHƯA đụng (project riêng)**: gỡ toàn bộ TPOS khỏi tpos-pancake/live-campaign (backend chat/live-comment/PBH — lớn, scope riêng).
+> - Beta: KHÔNG sợ mất data web2\_\* (xem MEMORY `feedback_web2_beta_data_safe`).
+
 > **Quyết định user (2026-06-07):**
 >
 > 1. Kho KH = **BẢNG MỚI** (không extend web2_order_customers). Tên dự kiến `web2_customers` — ⚠ va chạm bảng cũ web2_customers (2 rows cache match SePay) → Phase 1 phải đổi tên warehouse (vd `web2_customers_master`) HOẶC gộp/replace bảng cũ (beta nên có thể drop bảng cũ 2 rows + chuyển logic SePay match sang warehouse). Chốt ở Phase 1.
