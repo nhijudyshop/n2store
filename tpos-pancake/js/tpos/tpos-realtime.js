@@ -45,6 +45,13 @@ const TposRealtime = {
 
         if (!pageId || !postId) return;
 
+        // REWIRE (flag-gated): realtime comment qua FB Graph poll→SSE (web2-fb-live),
+        // độc lập TPOS. Bật flag `web2_live_source=fbgraph`. Tắt flag → EventSource TPOS.
+        if (window.TposFbLiveSource?.enabled()) {
+            window.TposFbLiveSource.startRealtime(pageId, postId, pageName);
+            return;
+        }
+
         // For single-campaign mode, stop existing SSE first
         if (!pageName && state._sseConnections?.size > 0) {
             this.stopSSE();
@@ -154,6 +161,11 @@ const TposRealtime = {
      */
     stopSSE() {
         const state = window.TposState;
+
+        // REWIRE: dừng cả poller FB Graph (web2-fb-live) nếu đang chạy.
+        try {
+            window.TposFbLiveSource?.stopRealtime();
+        } catch {}
 
         // Close all tracked connections
         if (state._sseConnections) {

@@ -57,16 +57,17 @@ async function graphGet(path, params) {
     return data;
 }
 
-// Chuẩn hoá 1 comment FB → shape gọn cho client.
+// Trả comment ở shape FB-native (giống TPOS proxy /facebook/comments) để
+// tpos-comment-list + tpos-realtime tiêu thụ KHÔNG cần remap:
+//   { id, from:{id,name}, message, created_time, parent:{id}, attachment }
 function mapComment(c) {
     return {
         id: c.id,
+        from: { id: c.from?.id || null, name: c.from?.name || '' },
         message: c.message || '',
-        createdTime: c.created_time || null,
-        fromId: c.from?.id || null,
-        fromName: c.from?.name || '',
-        parentId: c.parent?.id || null,
-        attachment: c.attachment?.media?.image?.src || null,
+        created_time: c.created_time || null,
+        parent: c.parent?.id ? { id: c.parent.id } : null,
+        attachment: c.attachment || null,
     };
 }
 

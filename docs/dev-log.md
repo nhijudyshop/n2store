@@ -25,6 +25,26 @@
 
 ## 2026-06-07
 
+### [tpos-pancake] Rewire cột comment live TPOS→FB Graph (flag-gated, fallback-safe) ✅
+
+"Rewire mù, verify buổi live kế" + yêu cầu "chọn chiến dịch cũ coi comment cũ". Đảo nguồn comment livestream khỏi TPOS sang FB Graph (`web2-fb-live`), AN TOÀN tối đa: **flag mặc định TẮT** → cột chạy TPOS y như cũ; bật flag để verify; sai thì tắt = về TPOS ngay (không mất comment live).
+
+**Bật/tắt:** console `localStorage.setItem('web2_live_source','fbgraph')` rồi reload (tắt: `removeItem`).
+
+**Files:**
+
+- `render.com/routes/web2-fb-live.js` — `mapComment` đổi sang **FB-native shape** (`{id,from:{id,name},message,created_time,parent,attachment}`) → tái dùng `TposRealtime.handleSSEMessage` + comment-list KHÔNG đổi.
+- `tpos-pancake/js/tpos/tpos-fb-live-source.js` (MỚI) — `TposFbLiveSource`: `enabled()` (flag), `loadComments(pageId,postId)` (1-shot, cả VOD/chiến dịch cũ qua `/api/web2-fb-live/comments?liveVideoId=`), `startRealtime/stopRealtime` (POST `/poll/start` + `Web2SSE.subscribe('web2:livestream:<id>')` + keepalive 5'). Token = Pancake `getPageAccessToken` (FB token thật). `videoId(postId)` tách `pageId_videoId`.
+- `tpos-api.js loadComments` — flag ON + !afterCursor → dùng FB-live; **lỗi → fallback TPOS** (try/catch).
+- `tpos-realtime.js startSSE` — flag ON → `startRealtime` (skip EventSource TPOS); `stopSSE` → `stopRealtime` cleanup.
+- `index.html` — load `tpos-fb-live-source.js` + bump ?v tpos-api/tpos-realtime.
+
+**Verify:** local smoke (flag OFF): module load OK, `enabled()=false` (TPOS default), `videoId('x_7890')='7890'`, 0 lỗi từ code mới. Backend `/api/web2-fb-live/*` đã live qua worker (verified). **CHƯA verify với live thật** (cần Pancake token tươi + livestream đang chạy) — đúng thoả thuận "verify buổi live kế".
+
+**Còn lại:** campaign/video discovery (`/videos`) + page list vẫn lấy từ TPOS khi flag ON (comments + realtime đã FB Graph). Bước sau: rewire campaign picker sang `/api/web2-fb-live/videos` (Pancake pages) → cắt TPOS hẳn. Phase B (live-campaign CRUD→web2) + C4 (campaign-id) chờ chốt.
+
+**Status:** ✅ Done (comment load + realtime, flag-gated). Chờ verify live.
+
 ### [render] Phase C-backend — `web2-fb-live.js`: FB Live thay TPOS (additive, an toàn) ✅
 
 Research xác nhận `page_access_token` từ Pancake `/v1/pages` = FB page token thật → gọi thẳng graph.facebook.com, không cần TPOS. Worker đã có sẵn `/api/facebook-graph?path=` proxy graph.facebook.com trực tiếp.

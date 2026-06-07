@@ -164,6 +164,15 @@ const TposApi = {
      */
     async loadComments(pageId, postId, afterCursor = null) {
         const state = window.TposState;
+        // REWIRE (flag-gated): nguồn comment FB Graph độc lập TPOS (web2-fb-live).
+        // Lỗi bất kỳ → tự fallback xuống path TPOS bên dưới (không vỡ live).
+        if (window.TposFbLiveSource?.enabled() && !afterCursor) {
+            try {
+                return await window.TposFbLiveSource.loadComments(pageId, postId);
+            } catch (e) {
+                console.warn('[TPOS-API] FB-live loadComments fail → fallback TPOS:', e.message);
+            }
+        }
         const token = await this.getToken();
         if (!token) throw new Error('No token');
 
