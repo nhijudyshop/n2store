@@ -6220,55 +6220,16 @@
     }
 
     function _renderMessagesPanel(order) {
-        // Đơn inbox tạo tay có thể CHƯA bind fb context (khác đơn livestream).
-        // Vẫn render đầy đủ shell (msgThread + input) để user chọn hội thoại từ
-        // sidebar đa-page bên trái — _switchChatToCustomer sẽ bind page+psid khi
-        // click. _loadAndRenderThread hiển thị prompt "chọn hội thoại" khi unbound.
-        return `
-            <div style="display:flex;flex-direction:column;height:100%;position:relative;">
-                <div id="msgThread" class="w2p-scroll-area" style="position:relative;flex:1;min-height:0;background:#ebebeb;padding:14px 22px;display:flex;flex-direction:column;gap:4px;font-size:14px;color:#1d2939;font-family:Roboto,Helvetica,Arial,sans-serif;">
-                    <div style="color:#94a3b8;font-style:italic;text-align:center;padding:60px 0;">
-                        <i data-lucide="loader" style="width:24px;height:24px;display:block;margin:0 auto 10px;animation:spin 1s linear infinite;"></i>
-                        Đang tải hội thoại…
-                    </div>
-                </div>
-                <button type="button" id="msgJumpBottom" style="display:none;position:absolute;bottom:120px;left:50%;transform:translateX(-50%);background:#7c3aed;color:#fff;border:none;font-size:11px;font-weight:600;padding:6px 14px;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(124,58,237,0.35);z-index:5;">↓ <span id="msgJumpCount">0</span> tin mới</button>
-                ${_renderQuickReplyTags()}
-                <div style="border-top:1px solid #e5e7eb;background:#fff;padding:10px 18px 12px;">
-                    <div id="msgReplyBar" style="display:none;"></div>
-                    <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">
-                        <button type="button" class="w2-chat-tool" data-action="refresh-thread" title="Tải lại hội thoại">
-                            <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>
-                        </button>
-                        <button type="button" class="w2-chat-tool" data-action="scroll-bottom" title="Cuộn xuống cuối">
-                            <i data-lucide="arrow-down" style="width:14px;height:14px;"></i>
-                        </button>
-                        <button type="button" class="w2-chat-tool" data-action="open-quick-reply" title="Mở danh sách mẫu trả lời">
-                            <i data-lucide="zap" style="width:14px;height:14px;color:#7c3aed;"></i>
-                        </button>
-                        <button type="button" class="w2-chat-tool" data-action="insert-signature" title="Chèn chữ ký nhân viên">
-                            <i data-lucide="user-check" style="width:14px;height:14px;"></i>
-                        </button>
-                        <button type="button" class="w2-chat-tool" data-action="attach-file" title="Đính kèm tệp / âm thanh">
-                            <i data-lucide="paperclip" style="width:14px;height:14px;"></i>
-                        </button>
-                        <button type="button" class="w2-chat-tool" data-action="attach-image" title="Đính kèm hình ảnh">
-                            <i data-lucide="image" style="width:14px;height:14px;"></i>
-                        </button>
-                        <input type="file" id="msgFileInput" style="display:none;">
-                        <input type="file" id="msgImageInput" accept="image/*" style="display:none;">
-                        <div style="flex:1;"></div>
-                        <small style="color:#94a3b8;font-size:11px;">
-                            ${_hasExtension() ? `🚀 <strong style="color:#7c3aed;">N2 Extension v${_extensionVersion}</strong> (bypass 24h)` : 'Gửi qua Pancake API'}
-                        </small>
-                    </div>
-                    <div id="msgAttachPreview" style="display:none;align-items:center;margin-bottom:8px;"></div>
-                    <div style="display:flex;gap:8px;align-items:flex-end;">
-                        <textarea id="msgInput" rows="2" placeholder="Nhập tin nhắn gửi cho khách… (Enter để gửi, /shortcut để chèn mẫu)" style="flex:1;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;resize:none;min-height:42px;max-height:180px;line-height:1.45;"></textarea>
-                        <button class="tpos-btn tpos-btn-primary" data-action="send-message" title="Gửi tin nhắn (Enter)" style="height:42px;padding:0 18px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">
-                            <i data-lucide="send" style="width:14px;height:14px;"></i> Gửi
-                        </button>
-                    </div>
+        // 2026-06-07: chat UI hợp nhất qua Web2ChatPanel. `#msgThread` giờ là HOST
+        // mount của component (header tắt — native-orders đã có header riêng). Loading/
+        // error/prompt-chọn-hội-thoại vẫn ghi vào #msgThread.innerHTML TRƯỚC khi mount;
+        // _loadAndRenderThread mount panel (messages + input + quick + emoji + reply +
+        // attach) khi resolve được hội thoại. Đơn inbox tay chưa bind fb → prompt chọn
+        // hội thoại từ sidebar trái (_switchChatToCustomer bind page+psid khi click).
+        return `<div id="msgThread" style="height:100%;min-height:0;display:flex;flex-direction:column;background:#ebebeb;">
+                <div style="color:#94a3b8;font-style:italic;text-align:center;padding:60px 0;">
+                    <i data-lucide="loader" style="width:24px;height:24px;display:block;margin:0 auto 10px;animation:spin 1s linear infinite;"></i>
+                    Đang tải hội thoại…
                 </div>
             </div>`;
     }
@@ -6279,6 +6240,241 @@
     // -----------------------------------------------------
 
     let _chatState = null; // { order, pageId, convId, customerId, msgIds:Set, msgs:[], cursor, loadingOlder, hasMore, wsSub, missedSince, replyTo }
+    let _w2cpPanel = null; // instance Web2ChatPanel đang mount trong #msgThread
+
+    // Mount component chat hợp nhất Web2ChatPanel vào #msgThread (host). Header tắt
+    // (native đã có header riêng). Adapter inject load/send/quickReplies bọc Web2Chat.
+    function _mountChatPanel(order, conv, customerId, msgs) {
+        const host = document.getElementById('msgThread');
+        if (!host || !window.Web2ChatPanel) {
+            if (host)
+                host.innerHTML =
+                    '<div style="padding:24px;text-align:center;color:#b91c1c;">⚠ Web2ChatPanel chưa load.</div>';
+            return;
+        }
+        // reset inline style của #msgThread để panel chiếm trọn (bỏ padding/background)
+        host.style.padding = '0';
+        try {
+            _w2cpPanel?.destroy?.();
+        } catch (_) {}
+        _w2cpPanel = window.Web2ChatPanel.mount(host, { mode: 'full', hideHeader: true });
+        _w2cpPanel.open(
+            {
+                id: conv.id,
+                page_id: order.fbPageId,
+                type: 'INBOX',
+                customers: conv.customers || [{ id: customerId, name: order.customerName }],
+                from: { id: order.fbUserId, name: order.customerName || order.fbUserName },
+            },
+            _buildNativeAdapter(order, conv, customerId, msgs)
+        );
+    }
+
+    function _buildNativeAdapter(order, conv, customerId, initialMsgs) {
+        const pageId = order.fbPageId;
+        const convId = conv.id;
+        return {
+            pageName: order.fbPageName || 'shop',
+            hasExtension: !!_hasExtension(),
+            quickReplies() {
+                return (_loadQuickTags() || []).map((t) => ({
+                    label: t.label,
+                    template: t.tpl || t.label,
+                    color: t.color || '#7c3aed',
+                }));
+            },
+            async loadMessages() {
+                // Đã fetch sẵn ở _loadAndRenderThread → dùng luôn, tránh fetch 2 lần.
+                return { messages: initialMsgs || [], hasMore: (initialMsgs || []).length > 0 };
+            },
+            async loadOlder(cursor) {
+                const r = await window.Web2Chat.fetchMessages(pageId, convId, customerId, {
+                    currentCount: cursor,
+                });
+                return { messages: (r && r.ok && r.messages) || [] };
+            },
+            async markRead() {
+                if (window.Web2NewMsgBadge?.clearPendingForCustomer)
+                    window.Web2NewMsgBadge.clearPendingForCustomer(order.fbUserId);
+            },
+            async send({ text, attachment, replyToId }) {
+                return _performNativeSend(
+                    order,
+                    { conv, customerId },
+                    {
+                        text,
+                        attachment,
+                        replyToId,
+                    }
+                );
+            },
+        };
+    }
+
+    // Gửi tin (extension-first bypass-24h → Web2Chat fallback). Trả {via, sent} hoặc
+    // throw Error (panel rollback + báo lỗi). Port từ _handleSendMessage cũ, bỏ phần
+    // UI-first (panel tự lo bong bóng tạm + rollback).
+    async function _performNativeSend(order, ctx, { text, attachment, replyToId }) {
+        const att = attachment || null;
+        const convId = ctx.conv?.id || null;
+        const customerId = ctx.customerId || null;
+
+        // ROUTE 1: N2 Extension (bypass 24h).
+        if (_hasExtension()) {
+            try {
+                let globalUserId = order._fbGlobalUserId;
+                if (!globalUserId && convId && window.Web2Chat) {
+                    try {
+                        const mr = await window.Web2Chat.fetchMessages(
+                            order.fbPageId,
+                            convId,
+                            customerId
+                        );
+                        if (mr?.ok) {
+                            const cust =
+                                mr.customers?.find?.(
+                                    (c) => c?.fb_id === order.fbUserId || c?.global_id
+                                ) || mr.customers?.[0];
+                            const gid =
+                                cust?.global_id ||
+                                mr.conversation?.page_customer?.global_id ||
+                                null;
+                            if (gid && String(gid) !== String(order.fbUserId)) {
+                                globalUserId = String(gid);
+                                order._fbGlobalUserId = globalUserId;
+                            }
+                        }
+                    } catch (_) {}
+                }
+                const threadId = ctx.conv?.thread_id || ctx.conv?.threadId || '';
+                if (!globalUserId && order.fbPageId && (threadId || order.customerName)) {
+                    try {
+                        const g = await _extensionRequest(
+                            'GET_GLOBAL_ID_FOR_CONV',
+                            {
+                                pageId: order.fbPageId,
+                                threadId: threadId || '',
+                                customerName: order.customerName || order.fbUserName || '',
+                                isBusiness: true,
+                            },
+                            30000
+                        );
+                        globalUserId =
+                            g?.data?.globalId ||
+                            g?.data?.globalUserId ||
+                            g?.data?.payload?.globalUserId;
+                        if (globalUserId) order._fbGlobalUserId = globalUserId;
+                    } catch (_) {}
+                }
+                const swConvId = threadId ? 't_' + threadId : convId || '';
+                let files = [];
+                let attachmentType = 'SEND_TEXT_ONLY';
+                if (att && att.file) {
+                    const dataUrl = await _fileToDataUrl(att.file);
+                    const up = await _extensionRequest(
+                        'UPLOAD_INBOX_PHOTO',
+                        {
+                            pageId: order.fbPageId,
+                            photoUrl: dataUrl,
+                            name: att.file.name || 'attachment',
+                        },
+                        60000
+                    );
+                    const fbId = up?.data?.fbId;
+                    if (!up.ok || !fbId)
+                        throw new Error(
+                            'Gửi tệp thất bại (extension): ' + (up?.error || 'unknown')
+                        );
+                    files = [fbId];
+                    attachmentType = att.kind || 'FILE';
+                }
+                const r = await _extensionRequest('REPLY_INBOX_PHOTO', {
+                    pageId: order.fbPageId,
+                    globalUserId: globalUserId || order.fbUserId,
+                    threadId: threadId || '',
+                    convId: swConvId,
+                    customerName: order.customerName || order.fbUserName || '',
+                    conversationUpdatedTime: order.updatedAt
+                        ? new Date(order.updatedAt).getTime()
+                        : Date.now(),
+                    message: text || '',
+                    attachmentType,
+                    files,
+                    platform: 'facebook',
+                    isBusiness: true,
+                    repliedMessageId: replyToId,
+                });
+                if (r.ok) {
+                    if (window.Web2NewMsgBadge?.clearPendingForCustomer)
+                        window.Web2NewMsgBadge.clearPendingForCustomer(order.fbUserId);
+                    return {
+                        via: 'extension',
+                        sent: {
+                            id: 'local_' + Date.now(),
+                            from: { id: order.fbPageId, name: 'You' },
+                            from_admin: true,
+                            message: text || (att ? '[Tệp đính kèm]' : ''),
+                            inserted_at: new Date().toISOString(),
+                        },
+                    };
+                }
+                console.warn('[NativeOrders] extension send failed, fallback Pancake:', r.error);
+            } catch (e) {
+                // Lỗi upload tệp → throw để panel rollback (không fallback vì Pancake
+                // native không có nhành vi upload tương đương cho mọi loại).
+                if (att && att.file) throw e;
+                console.warn('[NativeOrders] extension bridge error, fallback Pancake:', e.message);
+            }
+        }
+
+        // ROUTE 2: Web2Chat (Pancake Public API, 24h rule).
+        if (!_hasChatClient() || !window.Web2Chat.hasTokensFor(order.fbPageId))
+            throw new Error('Chưa có Extension và chưa cấu hình token Pancake cho page này.');
+        let conversationId = convId;
+        let custId = customerId;
+        if (!conversationId) {
+            let r = { conversations: [] };
+            try {
+                r = await window.Web2Chat.fetchConversations(order.fbPageId, order.fbUserId);
+            } catch (_) {}
+            const list = r.conversations || [];
+            if (list[0]) {
+                conversationId = list[0].id;
+                custId = r.customerUuid || list[0]?.customers?.[0]?.id || custId;
+            }
+        }
+        if (!conversationId) throw new Error('Chưa tìm thấy hội thoại với khách.');
+        let pancakeAttachments;
+        if (att && att.file) {
+            const up =
+                typeof window.Web2Chat.uploadMedia === 'function'
+                    ? await window.Web2Chat.uploadMedia(order.fbPageId, att.file)
+                    : { ok: false, reason: 'uploadMedia unavailable' };
+            if (!up.ok || !up.id)
+                throw new Error('Upload tệp lên Pancake thất bại: ' + (up.reason || 'unknown'));
+            pancakeAttachments = [{ content_id: up.id }];
+        }
+        const sendRes = await window.Web2Chat.sendMessage(order.fbPageId, conversationId, {
+            text,
+            action: 'reply_inbox',
+            customerId: custId,
+            repliedMessageId: replyToId,
+            attachments: pancakeAttachments,
+        });
+        if (!sendRes.ok) throw new Error('Gửi thất bại: ' + String(sendRes.reason || 'unknown'));
+        if (window.Web2NewMsgBadge?.clearPendingForCustomer)
+            window.Web2NewMsgBadge.clearPendingForCustomer(order.fbUserId);
+        return {
+            via: 'pancake',
+            sent: {
+                id: sendRes.message?.id || 'local_' + Date.now(),
+                from: { id: order.fbPageId, name: 'You' },
+                from_admin: true,
+                message: text || (att ? '[Tệp đính kèm]' : ''),
+                inserted_at: new Date().toISOString(),
+            },
+        };
+    }
 
     // Attachment đang chọn để gửi (ảnh/âm thanh/video/tệp) — gửi qua extension
     // (UPLOAD_INBOX_PHOTO → REPLY_INBOX_PHOTO). Đồng bộ với tpos-pancake.
@@ -7882,24 +8078,8 @@
         if (m.id && _chatState.msgIds.has(m.id)) return;
         if (m.id) _chatState.msgIds.add(m.id);
         _chatState.msgs.push(m);
-        const threadEl = document.getElementById('msgThread');
-        if (!threadEl) return;
-        const nearBottom = threadEl.scrollHeight - threadEl.scrollTop - threadEl.clientHeight < 80;
-        // Append-only DOM patch (no full re-render of existing thread)
-        _appendBubbleDom(m);
-        if (nearBottom) {
-            requestAnimationFrame(() => {
-                threadEl.scrollTop = threadEl.scrollHeight;
-            });
-        } else {
-            _chatState.missedSince = (_chatState.missedSince || 0) + 1;
-            const jump = document.getElementById('msgJumpBottom');
-            const cnt = document.getElementById('msgJumpCount');
-            if (jump && cnt) {
-                cnt.textContent = String(_chatState.missedSince);
-                jump.style.display = '';
-            }
-        }
+        // Đẩy vào component chat hợp nhất (panel tự lo scroll + badge "tin mới").
+        if (_w2cpPanel) _w2cpPanel.pushMessage(m);
     }
 
     function _teardownChatState() {
@@ -7922,6 +8102,10 @@
             clearInterval(_sidebarPollTimer);
             _sidebarPollTimer = null;
         }
+        try {
+            _w2cpPanel?.destroy?.();
+        } catch (_) {}
+        _w2cpPanel = null;
         _chatState = null;
     }
 
@@ -8065,8 +8249,9 @@
                 loadingOlder: false,
                 missedSince: 0,
             };
-            _renderChatThread('bottom');
-            _attachScrollLoader();
+            // Chat UI hợp nhất: mount Web2ChatPanel vào #msgThread (header tắt — native
+            // đã có header riêng). _chatState giữ lại để WS dedup + context.
+            _mountChatPanel(order, conv, customerId, msgs);
             // Live update: WS append for the open conversation. Subscribe
             // to BOTH event types — `pages:update_conversation` fires
             // reliably from Pancake's Phoenix channel (broker captures

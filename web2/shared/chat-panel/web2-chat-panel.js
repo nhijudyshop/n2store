@@ -149,6 +149,8 @@
             sticker: !!opts.enableSticker,
             reactSend: !!opts.enableReactSend,
             entityDetect: !!opts.enableEntityDetect,
+            hideHeader: !!opts.hideHeader, // trang đã có header riêng (native-orders)
+            hideStats: !!opts.hideStats,
         };
 
         const st = {
@@ -204,7 +206,10 @@
             const showInput = mode === 'full';
 
             container.innerHTML = `
-                <div class="w2cp-header">
+                ${
+                    flags.hideHeader
+                        ? ''
+                        : `<div class="w2cp-header">
                     <div class="w2cp-header-left">
                         ${avatarBig(name, psidOf(c), pageIdOf(c), directAv)}
                         <div>
@@ -216,8 +221,9 @@
                         <button class="w2cp-tool" data-w2cp-act="refresh" title="Tải lại"><i data-lucide="rotate-cw"></i></button>
                         <button class="w2cp-tool" data-w2cp-act="scroll-bottom" title="Cuộn xuống"><i data-lucide="chevron-down"></i></button>
                     </div>
-                </div>
-                <div class="w2cp-stats-bar" data-w2cp="stats"></div>
+                </div>`
+                }
+                ${flags.hideStats ? '' : '<div class="w2cp-stats-bar" data-w2cp="stats"></div>'}
                 <div class="w2cp-messages" data-w2cp="messages"><div class="w2cp-loading">Đang tải tin nhắn…</div></div>
                 <button class="w2cp-scroll-btn" data-w2cp-act="scroll-bottom"><i data-lucide="chevron-down"></i><span class="w2cp-scroll-badge" data-w2cp="badge">0</span></button>
                 ${
