@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d8b59e4` — feat(web2/bill): PBH đổi Code128 → QR Code
-**Last updated**: 2026-06-07 16:43:45 +07
-**Latest session**: [`RESUME:20260607-164345-d8b59e4`](../20260607-164345-d8b59e4.md)
-**Summary**: feat(web2/bill): PBH đổi Code128 → QR Code
+**Latest commit**: `9e07f2e` — chore(tpos-pancake): Phase A1 — xóa code chết (index.old.html + 9 file monolith orphan)
+**Last updated**: 2026-06-07 16:58:34 +07
+**Latest session**: [`RESUME:20260607-165834-9e07f2e`](../20260607-165834-9e07f2e.md)
+**Summary**: chore(tpos-pancake): Phase A1 — xóa code chết (index.old.html + 9 file monolith orphan)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 10 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-06 20:25
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-07 16:43
+- [`docs/`](./docs.md) — updated 2026-06-07 16:58
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
@@ -64,7 +63,7 @@
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:46
 - [`tests/`](./tests.md) — updated 2026-06-06 18:52
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 15:38
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 16:58
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
