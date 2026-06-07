@@ -62,7 +62,17 @@
 
 **Feature 1 — paste ảnh ctrl+v ✅:** thêm `paste` listener vào input của `Web2ChatPanel` (always-on mode full): lấy file ảnh từ `clipboardData.items` → `setAttachment(file)` (preview + gửi như attach thường) + toast "Đã dán ảnh". Cả native-orders + tpos-pancake hưởng cùng lúc. **Test:** dispatch synthetic `ClipboardEvent` chứa File PNG → `previewVisible:true`, thumb `data:image`. Bump `?v=20260607g`.
 
-**Next:** Feature 2 (sticker gửi + react send; emoji+reply đã có), Feature 3 (nhận diện SĐT/địa chỉ + thêm KH). **Status: 🔄 point 0 (2 chat UI hợp nhất) + Feature 1 done.**
+**Feature 2 — partial ✅/blocked:** emoji-send (text), reply, display sticker/emoji/reactions, paste — XONG qua panel. **react-send + sticker-send BLOCKED**: extension `REACT_MESSAGE`/`GET_STICKERS`/`GET_PACK_STICKERS` đang stub "Chua ho tro" (Phase 2). User duyệt sửa extension → sẽ build FB GraphQL handlers ở `n2store-extension/` (commit sau).
+
+**Feature 3 — nhận diện SĐT/địa chỉ + Thêm vào KH ✅ (CẢ HAI):**
+
+- `web2/shared/chat-panel/web2-chat-entity-detect.js` — `Web2ChatEntityDetect.scanMessages(msgs,{pageId})` quét tin KH → SĐT VN chuẩn hoá (`0[35789]\d{8}`, gom dấu cách/.-) + địa chỉ (heuristic từ khoá hành chính, strip SĐT/nhãn). Unit test node 4 ca OK.
+- Panel: bar `.w2cp-detect-bar` (hiện khi adapter có `onAddEntity` + có entity) — chip 📞/🏠 (click copy) + nút "➕ Thêm vào KH" → `adapter.onAddEntity({phone,address,name})`.
+- **native-orders** `onAddEntity`: (1) PATCH `native_order` điền SĐT/địa chỉ (chỉ field rỗng) + update STATE, (2) `POST /api/web2/customers/upsert`. **tpos-pancake** `onAddEntity`: chỉ upsert danh bạ.
+- **Backend** `render.com/routes/v2/web2-customers.js`: `POST /upsert {phone,name,address}` → `pushCustomerToTPOS` (tạo nếu mới) + `upsertWeb2Customer` cache → `{success,tposId,created}`. **⚠ cần Render redeploy** mới live.
+- **Test live (mock):** tin "...64/47 Nguyễn Phúc Chu, P15 Tân Bình - SĐT: 0923013706" → bar 2 chip đúng, click → `onAddEntity` nhận `{phone:"0923013706",address:"...Tân Bình",name}`. Bump `?v=20260607h`.
+
+**Status: ✅ point 0 (2 chat UI hợp nhất) + Feature 1 (paste) + Feature 3 (detect+thêm KH) done. Feature 2 còn react/sticker-send chờ extension Phase 2.**
 
 ### [render][web2] Part A: GATE auto-gán SePay theo đơn active ✅
 
