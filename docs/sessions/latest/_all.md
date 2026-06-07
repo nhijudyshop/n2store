@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d102209` — auto: session update
-**Last updated**: 2026-06-07 15:37:57 +07
-**Latest session**: [`RESUME:20260607-153757-d102209`](../20260607-153757-d102209.md)
-**Summary**: auto: session update
+**Latest commit**: `e4e9c1e` — feat(web2): Phase 0 — deliveryzone + printer sang bảng riêng (web2_delivery_zones/web2_printers), auto-migrate từ web2_records, shape/path giữ nguyên
+**Last updated**: 2026-06-07 15:39:22 +07
+**Latest session**: [`RESUME:20260607-153922-e4e9c1e`](../20260607-153922-e4e9c1e.md)
+**Summary**: feat(web2): Phase 0 — deliveryzone + printer sang bảng riêng (web2_delivery_zones/web2_printers), auto-migrate t...
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
 - [`render.com/`](./render.com.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -53,7 +49,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-07 15:37
+- [`render.com/`](./render.com.md) — updated 2026-06-07 15:39
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-07 13:32
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -66,10 +62,10 @@
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:46
 - [`tests/`](./tests.md) — updated 2026-06-06 18:52
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 15:37
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 15:38
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-07 15:37
+- [`web2/`](./web2.md) — updated 2026-06-07 15:38
