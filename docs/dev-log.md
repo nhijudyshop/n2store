@@ -25,6 +25,13 @@
 
 ## 2026-06-07
 
+### [web2/native-orders] Badge "Chưa nhận CK" + picker gán giao dịch CK ✅
+
+**User:** đơn native chưa có giao dịch CK của khách → cảnh báo; bấm → chọn GD từ balance-history (tìm theo tên, sửa được) gán cho KH. Ngoại lệ: ví KH ≥ tổng đơn → không cảnh báo.
+
+- **Part B (badge):** backend `native-orders.js` enrich `walletBalance` per đơn (batch `web2_customer_wallets`). Frontend `orderDerivedBadges`: badge đỏ **"⚠ Chưa nhận CK"** khi `totalAmt>0 && !covered` (covered = PBH paid | CK confirmed | ví≥tổng). CSS `.no-nock-badge`.
+- **Part C (picker):** module shared `web2-ck-assign-picker.js` — modal list GD SePay (`balance-history?status=NO_PHONE&search=`, lọc `in`), search mặc định = tên KH (sửa được), highlight GD khớp tiền đơn. Click → `PATCH /balance-history/:id/link {phone,name}` → cộng ví → tự áp vào đơn (Phase 1) + gửi tin (gán-KH wire) → hết cảnh báo + reload. Money-op giữ confirm + loading. Wire badge click ở native-orders. `?v=20260607d`.
+
 ### [render][admin][web2] Wipe toàn bộ data giao dịch Web 2.0 (chừa variants/config/khách hàng) + target='web2-all' ✅
 
 **Files:** `render.com/routes/admin-web2-data-reset.js`

@@ -4094,6 +4094,22 @@
             });
         });
 
+        // 2026-06-07: click badge "⚠ Chưa nhận CK" → picker gán giao dịch CK từ
+        // balance-history (tìm theo tên, sửa được) → link GD vào KH → cộng ví →
+        // tự áp vào đơn → hết cảnh báo. Delegated.
+        document.addEventListener('click', (e) => {
+            const badge = e.target.closest?.('[data-action="assign-ck"]');
+            if (!badge || !window.Web2CkAssignPicker) return;
+            e.stopPropagation();
+            window.Web2CkAssignPicker.open({
+                orderCode: badge.dataset.code || '',
+                phone: badge.dataset.phone || '',
+                name: badge.dataset.name || '',
+                total: Number(badge.dataset.total) || 0,
+                onDone: () => load(),
+            });
+        });
+
         // Apply/Clear/Refresh/Export buttons removed in single-row layout —
         // filters now auto-apply on change (debounced for search input).
         // Reset STT button removed 2026-06-02 — STT giờ auto reset theo campaign
