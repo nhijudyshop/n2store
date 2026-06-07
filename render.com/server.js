@@ -149,17 +149,9 @@ chatDbPool
         } catch (e) {
             console.warn('[web2-customers-schema] require failed:', e.message);
         }
-        // WEB 2.0 — rename kho KH đơn hàng: customers → web2_order_customers (web2Db).
-        // ⚠ Truyền RAW web2Pool (KHÔNG fallback chatDb) — rename trên chatDb sẽ phá
-        // bảng customers Web 1.0. Migration tự skip nếu web2Pool null.
-        try {
-            const { ensureWeb2OrderCustomersRename } = require('./db/web2-order-customers-migrate');
-            ensureWeb2OrderCustomersRename(web2Pool).catch((e) =>
-                console.warn('[web2-order-customers-migrate] init warn:', e.message)
-            );
-        } catch (e) {
-            console.warn('[web2-order-customers-migrate] require failed:', e.message);
-        }
+        // 2026-06-07: bỏ migration rename customers→web2_order_customers. Kho KH
+        // Web 2.0 nay gộp 1 warehouse DUY NHẤT web2_customers (ensureWeb2CustomersSchema
+        // ở trên tự DROP web2_order_customers + bảng web2_customers TPOS-coupled cũ).
         // WEB 2.0 — wallet isolation (TRUE isolation từ 2026-05-25):
         // tạo web2_customer_wallets/transactions/adjustments + sequence riêng.
         // DROP triggers cũ (legacy → web2 sync) — Web 2.0 service tự ghi web2_*.
@@ -830,6 +822,11 @@ if (web2PaymentSignalsRoutes.initializeNotifiers) {
 // SSE notifier cho web2-msg-send (route đã mount ở trên, TRƯỚC catch-all /api/web2).
 if (web2MsgSendRoutes.initializeNotifiers) {
     web2MsgSendRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
+
+// SSE notifier cho web2-customers (kho KH warehouse — topic web2:customers).
+if (web2CustomersRoutes.initializeNotifiers) {
+    web2CustomersRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
 
 // Initialize SSE notifiers in realtime-db routes

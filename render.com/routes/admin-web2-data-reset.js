@@ -49,8 +49,8 @@ const INVENTORY_TABLES = [
 // web2Db. CHỪA LẠI:
 //   - Cấu hình: web2_variants, web2_users, web2_user_sessions, web2_entities,
 //     web2_payment_qr_codes
-//   - KHÁCH HÀNG (hồ sơ): web2_customers, web2_order_customers (tên/SĐT/địa chỉ
-//     KH đơn hàng — 2026-06-03 tách kho KH), partner-customer (web2_records)
+//   - KHÁCH HÀNG (hồ sơ): web2_customers (warehouse KH riêng Web 2.0 — 2026-06-07
+//     gộp 1 kho duy nhất, KHÔNG TPOS), partner-customer (web2_records)
 //   - TPOS shadow/reference (web2_records: product, producttemplate, tag,
 //     partner-customer, deliveryzone, printer, …) — KHÔNG truncate cả bảng.
 // "Xóa tiền giữ KH": ví/giao dịch/SePay wipe; hồ sơ KH giữ nguyên.

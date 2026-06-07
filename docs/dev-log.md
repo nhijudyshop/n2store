@@ -25,6 +25,28 @@
 
 ## 2026-06-07
 
+### [render] Phase 1 — Kho KH warehouse Web 2.0 `web2_customers` (gộp 1 bảng DUY NHẤT, BỎ TPOS) ✅
+
+**Mục tiêu (plan `docs/plans/web2-customer-warehouse.md`):** Web 2.0 có kho KH riêng, độc lập hoàn toàn TPOS. Trước đó có **2 bảng** gây nhầm: `web2_customers` (TPOS-coupled, id=Partner Id, cột `tpos_raw`) + `web2_order_customers` (kho KH đơn, Pancake/FB). Gộp thành **1 warehouse `web2_customers`** (id BIGSERIAL, phone UNIQUE, `fb_psids` JSONB multi-page + `global_id`, KHÔNG `tpos_id`/`tpos_data`).
+
+**Files:**
+
+- `render.com/db/web2-customers-schema.js` — REWRITE: warehouse schema mới (no TPOS) + one-time migration beta (DROP bảng `web2_customers` cũ nếu có cột `tpos_raw` + DROP `web2_order_customers`) + helpers `getOrCreateWeb2Customer/findWeb2CustomerByFbId/linkWeb2CustomerFbId/lookupWeb2CustomerIdByPhone` (không TPOS).
+- `render.com/services/web2-order-customer-service.js` — REWRITE: adapter mỏng → warehouse `web2_customers`, giữ export name cũ (`getOrCreateCustomerFromTPOS`, `lookupCustomerIdByPhone`) cho native/fast-sale/customer-tpos không phải đổi import. Body bỏ enrich/lookup/push TPOS.
+- `render.com/routes/v2/web2-customers.js` — REWRITE: warehouse-native CRUD đầy đủ (`/list`, `/search`, `/:phone`, `/by-phone/:phone/orders`, `/:phone/fb-conversation`, `/create`, `/upsert`, `/enrich-fb`, `/merge`, PATCH `/:id`, DELETE `/:id`) + SSE `web2:customers`. Bỏ mọi TPOS push/lookup. Mount path GIỮ `/api/web2/customers` (đã đúng convention `/api/web2/<entity>`) → frontend ~10 file không đổi.
+- `render.com/routes/native-orders.js` — repoint `web2_order_customers` → `web2_customers`; bỏ TPOS enrich (`searchCustomerByFbUserId`) + bỏ push 2-chiều (`pushCustomerToTPOS`); rewrite `upsertCustomerFromOrder` INSERT theo schema mới (bỏ `pancake_data`, dùng cột `fb_page_id`, epoch ts).
+- `render.com/routes/fast-sale-orders.js`, `routes/pbh-reports.js`, `routes/v2/web2-customer-orders.js` — repoint table → `web2_customers`.
+- `render.com/routes/v2/web2-customer-tpos.js` — giữ ĐỌC live TPOS (Customer 360/partner-customer, scope riêng), repoint GHI → warehouse `web2_customers`.
+- `render.com/routes/admin-web2-data-reset.js` — sửa comment (1 kho duy nhất).
+- `render.com/server.js` — bỏ migration rename `customers→web2_order_customers`; wire SSE `web2CustomersRoutes.initializeNotifiers`.
+- `render.com/db/web2-order-customers-migrate.js` — XÓA (dead code).
+
+**Test:** local DB throwaway (`n2store_migration_test`): seed OLD shape → run ensureSchema → verify DROP cũ + recreate warehouse rỗng + helper getOrCreate idempotent + phone UNIQUE + re-run idempotent giữ data → DROP DB. ✅ ALL PASS. Tất cả file `node -c` OK.
+
+**Còn lại (scope riêng, plan Phase 3+):** frontend trang `web2/customers` UI; gỡ TPOS khỏi tpos-pancake/live-campaign (chat/live-comment/PBH); SePay match by-phone (detector `_resolveCustomer` đã graceful, schema giữ `fb_id/phone/synced_at` nên vẫn match).
+
+**Status:** ✅ Done (backend Phase 1).
+
 ### [docs] Ghi nhận: test thiếu data → tạo data ảo, trọng tâm là liên kết dữ liệu giữa các trang ✅
 
 **User (2026-06-07):** "test nếu thiếu dữ liệu các phần khác thì cứ tạo dữ liệu ảo rồi test → quan trọng là các trang có liên kết dữ liệu với nhau".

@@ -47,7 +47,7 @@ router.get('/:phone', async (req, res) => {
 // endpoint này để user trigger thủ công "Lấy info TPOS".
 // Backend tự upsert customers table + link fb_id cho lần sau (cached).
 const { searchCustomerByFbUserId } = require('../../services/tpos-customer-service');
-const { getOrCreateCustomerFromTPOS } = require('../../services/web2-order-customer-service'); // web2_order_customers (web2Db)
+const { getOrCreateCustomerFromTPOS } = require('../../services/web2-order-customer-service'); // web2_customers warehouse (web2Db)
 
 router.get('/by-fb-id/:fbUserId', async (req, res) => {
     try {

@@ -2,13 +2,14 @@
 
 # PLAN — Kho dữ liệu Khách hàng riêng Web 2.0 + tách config (deliveryzone/printer)
 
-> Trạng thái: **Phase 0 ✅ XONG. Phase 1+ = việc của phiên kế tiếp.** Ngày: 2026-06-07.
+> Trạng thái: **Phase 0 ✅ XONG. Phase 1 (backend) ✅ XONG 2026-06-07. Phase 3 (frontend UI) = việc kế tiếp.** Ngày: 2026-06-07.
 >
 > ### ▶ BẮT ĐẦU PHIÊN MỚI TỪ ĐÂY (handoff)
 >
-> - **Đã xong**: Phase 0 (deliveryzone/printer → bảng riêng `web2_delivery_zones`/`web2_printers`, factory `render.com/routes/web2-dedicated-entity.js`, live). TPOS shadow đã xóa sạch + worker tắt. DB dọn (drop `*_bak_*`, xóa web2_records orphan).
-> - **Làm tiếp (Phase 1)** theo recipe ở mục "PHASE 1 — Recipe thực thi" bên dưới: tạo MỚI `web2_customers` warehouse (KHÔNG TPOS, `fb_psids` multi-page + `global_id`, phone UNIQUE) + `/api/web2-customers` CRUD → rework 5 consumer (SePay graceful, native-orders, fast-sale, v2/web2-customers, web2-order-customer-service) bỏ TPOS → drop `web2_order_customers` → frontend `web2/customers`.
-> - **CHƯA đụng (project riêng)**: gỡ toàn bộ TPOS khỏi tpos-pancake/live-campaign (backend chat/live-comment/PBH — lớn, scope riêng).
+> - **Đã xong Phase 0**: deliveryzone/printer → bảng riêng `web2_delivery_zones`/`web2_printers`, factory `render.com/routes/web2-dedicated-entity.js`, live. TPOS shadow xóa sạch + worker tắt. DB dọn.
+> - **Đã xong Phase 1 (backend, 2026-06-07)**: gộp 2 bảng KH (`web2_customers` TPOS-coupled + `web2_order_customers`) → **1 warehouse `web2_customers`** (id BIGSERIAL, phone UNIQUE, `fb_psids` JSONB + `global_id`, KHÔNG TPOS). Rewrite `db/web2-customers-schema.js` (one-time DROP cũ + recreate) + `services/web2-order-customer-service.js` + route `/api/web2/customers` (CRUD đầy đủ + `/merge` + SSE `web2:customers`). Repoint native-orders/fast-sale/pbh-reports/web2-customer-orders/web2-customer-tpos. Bỏ TPOS push/enrich khỏi native-orders. server.js bỏ migration rename + wire SSE. XÓA `db/web2-order-customers-migrate.js`. Test local DB PASS. Xem dev-log 2026-06-07 `[render] Phase 1`.
+> - **Làm tiếp (Phase 3)**: frontend trang `web2/customers` (Customer Warehouse UI) — clone `web2/partner-customer` nhưng đọc/ghi `/api/web2/customers/*` (warehouse, không live TPOS). Xem mục "PHASE 3" bên dưới.
+> - **CHƯA đụng (project riêng)**: gỡ toàn bộ TPOS khỏi tpos-pancake/live-campaign (backend chat/live-comment/PBH — lớn, scope riêng). SePay match by-phone đã graceful (detector `_resolveCustomer` giữ match theo fb_id/phone).
 > - Beta: KHÔNG sợ mất data web2\_\* (xem MEMORY `feedback_web2_beta_data_safe`).
 
 > **Quyết định user (2026-06-07):**

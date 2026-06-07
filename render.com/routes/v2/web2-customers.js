@@ -1,124 +1,204 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — route kho KH riêng (web2_customers, web2Db). Thay /api/v2/customers Web 1.0.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — route kho KH warehouse (web2_customers, web2Db). KHÔNG TPOS.
 // =====================================================================
-// /api/web2/customers — danh bạ KH riêng Web 2.0, đọc từ web2_customers
-// (web2Db). Bỏ phụ thuộc bảng `customers` Web 1.0.
+// /api/web2/customers — KHO KHÁCH HÀNG RIÊNG Web 2.0 (warehouse).
+// ĐỘC LẬP TPOS: không lookup/push/sync TPOS. Nguồn: Pancake/FB/nhập tay.
 //
-//   GET /search?search=<tên|SĐT>&limit=8  — tìm KH (local + TPOS fallback)
-//   GET /:phone                           — 1 KH theo SĐT (local, fallback TPOS)
+//   GET    /list                       — list + search/filter/paginate (CRUD)
+//   GET    /search?search=&limit=       — autocomplete (id,phone,name,address,fbId)
+//   GET    /:phone                      — 1 KH theo SĐT
+//   GET    /by-phone/:phone/orders      — lịch sử đơn (native + PBH)
+//   GET    /:phone/fb-conversation      — resolve SĐT → ngữ cảnh chat FB
+//   POST   /create                      — tạo KH (CRUD)
+//   POST   /upsert                      — upsert theo SĐT (chat → "Thêm KH")
+//   POST   /enrich-fb                   — link fb_id vào kho (Web2Chat tự gọi)
+//   POST   /merge                       — gộp 2 KH trùng
+//   PATCH  /:id                         — sửa KH (mọi trang Web 2.0)
+//   DELETE /:id                         — xoá/soft-archive KH
 //
-// Self-populate: kết quả TPOS được upsert vào web2_customers để lần sau nhanh.
+// SSE: _notify('web2:customers', …) sau mỗi mutation (realtime đa tab/máy).
 // =====================================================================
 
 const express = require('express');
 const router = express.Router();
 const {
-    upsertWeb2Customer,
+    getOrCreateWeb2Customer,
     findWeb2CustomerByFbId,
     linkWeb2CustomerFbId,
-    getOrCreateWeb2Customer,
+    normPhoneWeb2,
+    _historyEntry,
 } = require('../../db/web2-customers-schema');
-const {
-    searchCustomersByText,
-    searchAllCustomersByPhone,
-    pushCustomerToTPOS,
-    searchCustomerByFbUserId,
-} = require('../../services/tpos-customer-service');
 
-// Số kết quả local tối thiểu để KHÔNG cần hỏi TPOS (tránh spam API).
-const LOCAL_ENOUGH = 3;
-
-function isPhoneLike(q) {
-    return /^\d{3,}$/.test(String(q || '').replace(/\s/g, ''));
+// ─── SSE notifier (wired ở server.js: initializeNotifiers) ──────────────
+let _notifyClients = null;
+function initializeNotifiers(fn) {
+    _notifyClients = fn;
+}
+function _notify(action, id) {
+    if (!_notifyClients) return;
+    try {
+        _notifyClients('web2:customers', { action, id: id || null, ts: Date.now() }, 'update');
+    } catch (e) {
+        console.warn('[web2-customers] _notify failed:', e.message);
+    }
 }
 
-function rowToCustomer(r) {
+function getPool(req) {
+    return req.app.locals.web2Db || req.app.locals.chatDb;
+}
+
+// Hàng search gọn (autocomplete) — giữ shape cũ cho frontend hiện tại.
+function rowToLite(r) {
     return {
         id: r.id,
         phone: r.phone || '',
         name: r.name || '',
         address: r.address || '',
         email: r.email || '',
-        // fbId: cho phép Đơn Web bind avatar + hội thoại Pancake khi tạo đơn
-        // inbox tay (đơn inbox khác đơn livestream — không có fb context sẵn).
         fbId: r.fb_id || '',
     };
 }
 
-// GET /search?search=...&limit=8
+// Bản đầy đủ (list + detail).
+function rowToFull(r) {
+    return {
+        id: Number(r.id),
+        code: r.code || null,
+        name: r.name || '',
+        phone: r.phone || '',
+        email: r.email || '',
+        address: r.address || '',
+        ward: r.ward || null,
+        district: r.district || null,
+        city: r.city || null,
+        carrier: r.carrier || null,
+        status: r.status || 'Normal',
+        tier: r.tier || null,
+        tags: Array.isArray(r.tags) ? r.tags : [],
+        aliases: Array.isArray(r.aliases) ? r.aliases : [],
+        note: r.note || null,
+        fbId: r.fb_id || null,
+        fbPsids: r.fb_psids || {},
+        globalId: r.global_id || null,
+        fbPageId: r.fb_page_id || null,
+        fbName: r.fb_name || null,
+        pancakeCustomerId: r.pancake_customer_id || null,
+        pancakeConversationId: r.pancake_conversation_id || null,
+        pancakePageId: r.pancake_page_id || null,
+        totalOrders: Number(r.total_orders || 0),
+        totalSpent: Number(r.total_spent || 0),
+        bomCount: Number(r.bom_count || 0),
+        lastOrderAt: r.last_order_at != null ? Number(r.last_order_at) : null,
+        source: r.source || null,
+        createdBy: r.created_by || null,
+        history: Array.isArray(r.history) ? r.history : [],
+        isActive: !!r.is_active,
+        createdAt: r.created_at != null ? Number(r.created_at) : null,
+        updatedAt: r.updated_at != null ? Number(r.updated_at) : null,
+    };
+}
+
+// ─── GET /list — list + search/filter/paginate (CRUD UI) ────────────────
+router.get('/list', async (req, res) => {
+    const db = getPool(req);
+    if (!db) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    try {
+        const { search, status, tier, source, tag, activeOnly } = req.query;
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 50));
+        const offset = (page - 1) * limit;
+        const conds = [];
+        const params = [];
+        if (activeOnly === 'true' || activeOnly === '1') conds.push('is_active = true');
+        if (search) {
+            params.push(`%${search}%`);
+            const i = params.length;
+            conds.push(
+                `(phone ILIKE $${i} OR name ILIKE $${i} OR fb_id ILIKE $${i} OR global_id ILIKE $${i})`
+            );
+        }
+        if (status) {
+            params.push(status);
+            conds.push(`status = $${params.length}`);
+        }
+        if (tier) {
+            params.push(tier);
+            conds.push(`tier = $${params.length}`);
+        }
+        if (source) {
+            params.push(source);
+            conds.push(`source = $${params.length}`);
+        }
+        if (tag) {
+            params.push(JSON.stringify([tag]));
+            conds.push(`tags @> $${params.length}::jsonb`);
+        }
+        const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+        const countR = await db.query(
+            `SELECT COUNT(*)::int n FROM web2_customers ${where}`,
+            params
+        );
+        const total = countR.rows[0].n;
+        const lp = [...params, limit, offset];
+        const r = await db.query(
+            `SELECT * FROM web2_customers ${where}
+             ORDER BY updated_at DESC NULLS LAST
+             LIMIT $${lp.length - 1} OFFSET $${lp.length}`,
+            lp
+        );
+        res.json({
+            success: true,
+            data: r.rows.map(rowToFull),
+            total,
+            page,
+            limit,
+            hasMore: offset + r.rows.length < total,
+        });
+    } catch (e) {
+        console.error('[web2-customers] list error:', e.message);
+        res.status(500).json({ success: false, error: e.message, data: [] });
+    }
+});
+
+// ─── GET /search?search=...&limit=8 — autocomplete (warehouse only) ─────
 router.get('/search', async (req, res) => {
-    const db = req.app.locals.web2Db || req.app.locals.chatDb;
+    const db = getPool(req);
     const q = String(req.query.search || '').trim();
     const limit = Math.min(parseInt(req.query.limit, 10) || 8, 50);
     if (q.length < 2) return res.json({ success: true, data: [] });
-
     try {
-        // 1. Local web2_customers — accent-insensitive name match (gõ "huynh
-        // thanh dat" không dấu vẫn khớp "Huỳnh Thành Đạt"). unaccent extension
-        // ensure ở web2-customers-schema.js. Phone match giữ ILIKE thường.
         const like = `%${q}%`;
-        let local;
+        let r;
         try {
-            local = await db.query(
+            // accent-insensitive name + phone/fb match
+            r = await db.query(
                 `SELECT id, phone, name, email, address, fb_id
                  FROM web2_customers
-                 WHERE unaccent(name) ILIKE unaccent($1) OR phone ILIKE $1
-                 ORDER BY synced_at DESC
+                 WHERE unaccent(name) ILIKE unaccent($1) OR phone ILIKE $1 OR fb_id ILIKE $1
+                 ORDER BY updated_at DESC NULLS LAST
                  LIMIT $2`,
                 [like, limit]
             );
         } catch (unaccentErr) {
-            // unaccent chưa cài (extension bị chặn) → fallback ILIKE thường để
-            // search vẫn chạy (chỉ mất tính năng không-dấu).
             console.warn('[web2-customers] unaccent fallback:', unaccentErr.message);
-            local = await db.query(
+            r = await db.query(
                 `SELECT id, phone, name, email, address, fb_id
                  FROM web2_customers
-                 WHERE name ILIKE $1 OR phone ILIKE $1
-                 ORDER BY synced_at DESC
+                 WHERE name ILIKE $1 OR phone ILIKE $1 OR fb_id ILIKE $1
+                 ORDER BY updated_at DESC NULLS LAST
                  LIMIT $2`,
                 [like, limit]
             );
         }
-        let results = local.rows.map(rowToCustomer);
-
-        // 2. Fallback TPOS nếu local chưa đủ — self-populate web2_customers
-        if (results.length < LOCAL_ENOUGH) {
-            const tpos = isPhoneLike(q)
-                ? await searchAllCustomersByPhone(q)
-                : await searchCustomersByText(q, limit);
-            if (tpos?.success && tpos.customers?.length) {
-                // Upsert (fire-and-forget nhưng await để kết quả nhất quán)
-                for (const c of tpos.customers) await upsertWeb2Customer(db, c);
-                // Merge dedup theo id
-                const seen = new Set(results.map((r) => r.id));
-                for (const c of tpos.customers) {
-                    if (seen.has(c.id)) continue;
-                    seen.add(c.id);
-                    results.push({
-                        id: c.id,
-                        phone: c.phone || '',
-                        name: c.name || '',
-                        address: c.address || '',
-                        email: c.email || '',
-                        fbId: c.fb_id || c.psid || '',
-                    });
-                }
-            }
-        }
-
-        res.json({ success: true, data: results.slice(0, limit) });
+        res.json({ success: true, data: r.rows.map(rowToLite) });
     } catch (e) {
         console.error('[web2-customers] search error:', e.message);
         res.status(500).json({ success: false, error: e.message, data: [] });
     }
 });
 
-// GET /by-phone/:phone/orders — lịch sử đơn (Đơn Web + PBH) theo SĐT.
-// Thay /api/v2/customers/by-phone/:phone/orders (Web 1.0) — KHÔNG qua bảng
-// `customers`, query thẳng native_orders + fast_sale_orders theo phone.
-// native_orders/fast_sale_orders hiện ở chatDb (Phase 6 sẽ chuyển web2Db).
+// ─── GET /by-phone/:phone/orders — lịch sử đơn (native + PBH) ───────────
 router.get('/by-phone/:phone/orders', async (req, res) => {
-    const db = req.app.locals.web2Db || req.app.locals.chatDb;
+    const db = getPool(req);
     let phone = String(req.params.phone || '').replace(/\D/g, '');
     if (phone && !phone.startsWith('0')) phone = '0' + phone.slice(-9);
     const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
@@ -170,11 +250,7 @@ router.get('/by-phone/:phone/orders', async (req, res) => {
         }));
         res.json({
             success: true,
-            data: {
-                native,
-                pbh,
-                summary: { nativeCount: native.length, pbhCount: pbh.length },
-            },
+            data: { native, pbh, summary: { nativeCount: native.length, pbhCount: pbh.length } },
         });
     } catch (e) {
         console.error('[web2-customers] by-phone orders error:', e.message);
@@ -182,115 +258,9 @@ router.get('/by-phone/:phone/orders', async (req, res) => {
     }
 });
 
-// GET /:phone — 1 KH theo SĐT (local trước, fallback TPOS + upsert)
-router.get('/:phone', async (req, res) => {
-    const db = req.app.locals.web2Db || req.app.locals.chatDb;
-    const phone = String(req.params.phone || '')
-        .replace(/\D/g, '')
-        .slice(-10);
-    if (!phone) return res.status(400).json({ success: false, error: 'phone required' });
-    try {
-        const local = await db.query(
-            `SELECT id, phone, name, email, address FROM web2_customers WHERE phone = $1 LIMIT 1`,
-            [phone]
-        );
-        if (local.rows.length) {
-            return res.json({
-                success: true,
-                customer: rowToCustomer(local.rows[0]),
-                source: 'local',
-            });
-        }
-        const tpos = await searchAllCustomersByPhone(phone);
-        if (tpos?.success && tpos.customers?.length) {
-            for (const c of tpos.customers) await upsertWeb2Customer(db, c);
-            const c = tpos.customers[0];
-            return res.json({
-                success: true,
-                customer: {
-                    id: c.id,
-                    phone: c.phone,
-                    name: c.name,
-                    address: c.address,
-                    email: c.email,
-                },
-                source: 'tpos',
-            });
-        }
-        res.json({ success: true, customer: null });
-    } catch (e) {
-        console.error('[web2-customers] get error:', e.message);
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-// POST /enrich-fb — LÀM GIÀU KHO KH: mỗi khi bật chat Pancake với 1 KH ở BẤT
-// KỲ trang nào (Web2Chat tự gọi), nếu fb_id chưa có trong kho → lưu lại. Mục
-// đích: kho KH biết đủ id/fb/tên/sđt → lần sau resolve/mở chat nhanh hơn +
-// tăng coverage nút "Mở chat". Body: { fbId(psid), name?, phone?, crmTeamId? }.
-// Idempotent, fire-and-forget từ client — KHÔNG chặn UX.
-router.post('/enrich-fb', async (req, res) => {
-    const db = req.app.locals.web2Db || req.app.locals.chatDb;
-    const fbId = String(req.body?.fbId || '').trim();
-    const name = String(req.body?.name || '').trim();
-    const phone = String(req.body?.phone || '')
-        .replace(/\D/g, '')
-        .slice(-10);
-    const crmTeamId = req.body?.crmTeamId || null;
-    if (!fbId) return res.json({ success: true, action: 'no_fbid' });
-    try {
-        // 1) Đã có fb_id trong kho → bỏ qua (nhanh, không gọi TPOS).
-        const existing = await findWeb2CustomerByFbId(db, fbId);
-        if (existing) return res.json({ success: true, action: 'exists', id: existing.id });
-
-        // 2) Có phone → đảm bảo KH tồn tại (TPOS theo phone) rồi link fb_id.
-        if (phone) {
-            const goc = await getOrCreateWeb2Customer(db, phone);
-            await linkWeb2CustomerFbId(db, phone, fbId);
-            return res.json({
-                success: true,
-                action: 'linked_by_phone',
-                id: goc.customerId || null,
-            });
-        }
-
-        // 3) Không phone → tra TPOS theo fb_id (chatomni/info) → upsert + link.
-        const tpos = await searchCustomerByFbUserId(fbId, crmTeamId);
-        if (tpos?.success && tpos.customer?.id) {
-            await upsertWeb2Customer(db, tpos.customer);
-            if (tpos.customer.phone) {
-                await linkWeb2CustomerFbId(db, tpos.customer.phone, fbId);
-            } else {
-                await db.query(
-                    `UPDATE web2_customers SET fb_id = $2
-                      WHERE id = $1 AND (fb_id IS NULL OR fb_id = '')`,
-                    [tpos.customer.id, fbId]
-                );
-            }
-            return res.json({
-                success: true,
-                action: 'tpos_resolved',
-                id: tpos.customer.id,
-                phone: tpos.customer.phone || null,
-            });
-        }
-        // 4) KH FB chưa có trong TPOS (prospect chưa mua) → chưa lưu được vào
-        //    web2_customers (key = TPOS id). Bỏ qua, không tạo rác.
-        res.json({ success: true, action: 'fb_only_unresolved' });
-    } catch (e) {
-        console.error('[web2-customers] enrich-fb:', e.message);
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-// GET /:phone/fb-conversation — resolve SĐT → ngữ cảnh hội thoại FB (pageId +
-// psid) để mở chat read-only trên balance-history. Nguồn tin cậy nhất:
-// native_orders mới nhất có fb_page_id + fb_user_id (đơn FB đã link sẵn 2 id
-// đi cùng nhau). Fallback web2_customers.fb_id (chỉ psid, thiếu page →
-// frontend tự thử all-pages qua Web2Chat). found=false nếu KH chưa từng có
-// hội thoại/đơn FB → UI báo "chưa có hội thoại FB".
+// ─── GET /:phone/fb-conversation — SĐT → ngữ cảnh chat FB ───────────────
 router.get('/:phone/fb-conversation', async (req, res) => {
-    const db = req.app.locals.web2Db || req.app.locals.chatDb;
+    const db = getPool(req);
     const phone = String(req.params.phone || '')
         .replace(/\D/g, '')
         .slice(-10);
@@ -302,8 +272,7 @@ router.get('/:phone/fb-conversation', async (req, res) => {
                FROM native_orders
               WHERE (phone = $1 OR phone LIKE '%' || $1)
                 AND fb_user_id IS NOT NULL AND fb_page_id IS NOT NULL
-              ORDER BY id DESC
-              LIMIT 1`,
+              ORDER BY id DESC LIMIT 1`,
             [phone]
         );
         if (no.rows.length) {
@@ -317,10 +286,9 @@ router.get('/:phone/fb-conversation', async (req, res) => {
                 name: r.fb_user_name || null,
             });
         }
-        // 2) web2_customers.fb_id (psid) — thiếu page_id, trả psid để frontend
-        //    thử qua các page token có sẵn (Web2Chat all-pages fallback).
+        // 2) web2_customers — fb_page_id + fb_id nếu có, fallback psid-only
         const wc = await db.query(
-            `SELECT fb_id, name FROM web2_customers
+            `SELECT fb_id, fb_page_id, name FROM web2_customers
               WHERE phone = $1 AND fb_id IS NOT NULL AND fb_id <> '' LIMIT 1`,
             [phone]
         );
@@ -329,7 +297,7 @@ router.get('/:phone/fb-conversation', async (req, res) => {
                 success: true,
                 found: true,
                 source: 'web2_customers',
-                pageId: null,
+                pageId: wc.rows[0].fb_page_id || null,
                 psid: wc.rows[0].fb_id,
                 name: wc.rows[0].name || null,
             });
@@ -341,109 +309,329 @@ router.get('/:phone/fb-conversation', async (req, res) => {
     }
 });
 
-// POST /upsert — TẠO/CẬP NHẬT KH theo SĐT (dùng cho Feature 3: nhận diện SĐT/địa chỉ
-// trong chat → "Thêm vào KH"). Tìm partner TPOS theo phone; chưa có → tạo mới, có rồi →
-// cập nhật name/address. Sau đó upsert cache web2_customers. Body: { phone, name?, address? }.
-router.post('/upsert', async (req, res) => {
-    const db = req.app.locals.web2Db || req.app.locals.chatDb;
-    const body = req.body || {};
-    let phone = String(body.phone || '').replace(/\D/g, '');
-    if (phone && !phone.startsWith('0')) phone = '0' + phone.slice(-9);
-    const name = body.name !== undefined ? String(body.name).trim() : undefined;
-    const address = body.address !== undefined ? String(body.address).trim() : undefined;
-    if (!phone || phone.length < 9) {
-        return res.status(400).json({ success: false, error: 'thiếu/không hợp lệ phone' });
+// ─── GET /:phone — 1 KH theo SĐT (warehouse only) ──────────────────────
+router.get('/:phone', async (req, res) => {
+    const db = getPool(req);
+    const phone = normPhoneWeb2(req.params.phone);
+    if (!phone) return res.status(400).json({ success: false, error: 'phone required' });
+    try {
+        const r = await db.query('SELECT * FROM web2_customers WHERE phone = $1 LIMIT 1', [phone]);
+        if (r.rows.length) {
+            return res.json({ success: true, customer: rowToLite(r.rows[0]), source: 'local' });
+        }
+        res.json({ success: true, customer: null });
+    } catch (e) {
+        console.error('[web2-customers] get error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
     }
+});
+
+// ─── POST /create — tạo KH mới (CRUD UI) ───────────────────────────────
+router.post('/create', async (req, res) => {
+    const db = getPool(req);
+    const b = req.body || {};
+    const phone = normPhoneWeb2(b.phone);
+    const name = String(b.name || '').trim();
+    if (!name) return res.status(400).json({ success: false, error: 'name required' });
+    try {
+        const now = Date.now();
+        const r = await db.query(
+            `INSERT INTO web2_customers
+                (code, name, phone, email, address, ward, district, city, carrier,
+                 status, tier, tags, note, fb_id, global_id, fb_page_id,
+                 source, created_by, history, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13,$14,$15,$16,$17,$18,$19::jsonb,$20,$20)
+             RETURNING *`,
+            [
+                b.code || null,
+                name,
+                phone,
+                b.email || null,
+                b.address || null,
+                b.ward || null,
+                b.district || null,
+                b.city || null,
+                b.carrier || null,
+                b.status || 'Normal',
+                b.tier || null,
+                JSON.stringify(Array.isArray(b.tags) ? b.tags : []),
+                b.note || null,
+                b.fbId || null,
+                b.globalId || null,
+                b.fbPageId || null,
+                b.source || 'manual',
+                b.userId || b.createdBy || null,
+                JSON.stringify([
+                    _historyEntry('create', { userId: b.userId, userName: b.userName }),
+                ]),
+                now,
+            ]
+        );
+        _notify('create', r.rows[0].id);
+        res.json({ success: true, customer: rowToFull(r.rows[0]) });
+    } catch (e) {
+        if (e.code === '23505') {
+            return res.status(409).json({ success: false, error: 'SĐT hoặc mã KH đã tồn tại' });
+        }
+        console.error('[web2-customers] create error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// ─── POST /upsert — upsert theo SĐT (chat → "Thêm KH"). KHÔNG TPOS. ─────
+router.post('/upsert', async (req, res) => {
+    const db = getPool(req);
+    const b = req.body || {};
+    const phone = normPhoneWeb2(b.phone);
+    const name = b.name !== undefined ? String(b.name).trim() : undefined;
+    const address = b.address !== undefined ? String(b.address).trim() : undefined;
+    if (!phone) return res.status(400).json({ success: false, error: 'thiếu/không hợp lệ phone' });
     if (!name && !address) {
         return res.status(400).json({ success: false, error: 'cần ít nhất name hoặc address' });
     }
     try {
-        // Đã có trong cache chưa? (để báo created vs updated)
-        const existed = await db
-            .query('SELECT id FROM web2_customers WHERE phone = $1 LIMIT 1', [phone.slice(-10)])
-            .then((r) => r.rows[0] || null)
-            .catch(() => null);
-        // Push TPOS (master) — tự lookup theo phone, chưa có thì tạo. Trả tposId.
-        const tpos = await pushCustomerToTPOS(phone, { name, address });
-        if (!tpos || tpos.success === false || !tpos.tposId) {
-            return res
-                .status(502)
-                .json({ success: false, error: tpos?.error || 'TPOS push thất bại' });
-        }
-        // Upsert cache web2_customers (PK = TPOS partner id).
-        await upsertWeb2Customer(db, {
-            id: tpos.tposId,
-            phone,
-            name: name || existed?.name,
+        const r = await getOrCreateWeb2Customer(db, phone, {
+            name,
             address,
+            fbId: b.fbId || undefined,
+            source: b.source || 'manual',
         });
-        res.json({
-            success: true,
-            tposId: tpos.tposId,
-            created: !existed,
-            phone: phone.slice(-10),
-        });
+        _notify(r.created ? 'create' : 'update', r.customerId);
+        res.json({ success: true, id: r.customerId, created: r.created, phone });
     } catch (e) {
         console.error('[web2-customers] upsert error:', e.message);
         res.status(500).json({ success: false, error: e.message });
     }
 });
 
-// PATCH /:id — SỬA THỐNG NHẤT thông tin KH (tên/SĐT/địa chỉ) cho MỌI trang Web 2.0.
-// :id = TPOS Partner Id (web2_customers.id). Ghi 2 chiều:
-//   1. Push lên TPOS (CreateUpdatePartner by Id — đổi cả SĐT cũng update đúng partner).
-//   2. Update cache web2_customers.
-// Đây là NGUỒN DUY NHẤT để sửa KH — mọi trang gọi endpoint này.
-router.patch('/:id', async (req, res) => {
-    const db = req.app.locals.web2Db || req.app.locals.chatDb;
-    const tposId = parseInt(req.params.id, 10);
-    if (!Number.isFinite(tposId)) {
-        return res.status(400).json({ success: false, error: 'id (TPOS Partner Id) không hợp lệ' });
+// ─── POST /enrich-fb — link fb_id vào kho (Web2Chat tự gọi). KHÔNG TPOS. ─
+// Body: { fbId(psid), name?, phone?, globalId?, fbPageId? }. Idempotent.
+router.post('/enrich-fb', async (req, res) => {
+    const db = getPool(req);
+    const fbId = String(req.body?.fbId || '').trim();
+    const name = String(req.body?.name || '').trim();
+    const phone = normPhoneWeb2(req.body?.phone);
+    if (!fbId) return res.json({ success: true, action: 'no_fbid' });
+    try {
+        // 1) Đã có fb_id trong kho → bỏ qua.
+        const existing = await findWeb2CustomerByFbId(db, fbId);
+        if (existing) return res.json({ success: true, action: 'exists', id: existing.id });
+
+        // 2) Có phone → upsert theo phone + link fb_id.
+        if (phone) {
+            const goc = await getOrCreateWeb2Customer(db, phone, {
+                name: name || undefined,
+                fbId,
+                globalId: req.body?.globalId || undefined,
+                fbPageId: req.body?.fbPageId || undefined,
+                source: 'pancake',
+            });
+            await linkWeb2CustomerFbId(db, phone, fbId);
+            _notify('update', goc.customerId);
+            return res.json({ success: true, action: 'linked_by_phone', id: goc.customerId });
+        }
+
+        // 3) Không phone → tạo KH FB-only (warehouse độc lập, không cần TPOS).
+        const now = Date.now();
+        const ins = await db.query(
+            `INSERT INTO web2_customers (name, fb_id, global_id, fb_page_id, source, history, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,'pancake',$5::jsonb,$6,$6)
+             RETURNING id`,
+            [
+                name || 'Khách FB',
+                fbId,
+                req.body?.globalId || null,
+                req.body?.fbPageId || null,
+                JSON.stringify([_historyEntry('create', { note: 'FB-only từ chat' })]),
+                now,
+            ]
+        );
+        _notify('create', ins.rows[0].id);
+        res.json({ success: true, action: 'created_fb_only', id: ins.rows[0].id });
+    } catch (e) {
+        console.error('[web2-customers] enrich-fb:', e.message);
+        res.status(500).json({ success: false, error: e.message });
     }
-    const body = req.body || {};
-    const name = body.name !== undefined ? String(body.name).trim() : undefined;
-    const address = body.address !== undefined ? String(body.address).trim() : undefined;
-    let phone = body.phone !== undefined ? String(body.phone).replace(/\D/g, '') : undefined;
-    if (phone && !phone.startsWith('0')) phone = '0' + phone.slice(-9);
-    if (name === undefined && address === undefined && phone === undefined) {
+});
+
+// ─── POST /merge — gộp 2 KH trùng (keep primary, di chuyển đơn + xoá phụ) ─
+// Body: { primaryId, secondaryId }. Repoint native_orders/fast_sale_orders.
+router.post('/merge', async (req, res) => {
+    const db = getPool(req);
+    const primaryId = parseInt(req.body?.primaryId, 10);
+    const secondaryId = parseInt(req.body?.secondaryId, 10);
+    if (!Number.isFinite(primaryId) || !Number.isFinite(secondaryId) || primaryId === secondaryId) {
         return res
             .status(400)
-            .json({ success: false, error: 'cần ít nhất 1 field: name/phone/address' });
+            .json({ success: false, error: 'primaryId/secondaryId không hợp lệ' });
     }
+    const client = await db.connect();
     try {
-        // Lấy phone hiện tại nếu request không đổi phone (pushCustomerToTPOS cần phone)
-        let effectivePhone = phone;
-        if (!effectivePhone) {
-            const cur = await db.query('SELECT phone FROM web2_customers WHERE id = $1', [tposId]);
-            effectivePhone = cur.rows[0]?.phone || null;
+        await client.query('BEGIN');
+        const [pr, sr] = await Promise.all([
+            client.query('SELECT * FROM web2_customers WHERE id = $1', [primaryId]),
+            client.query('SELECT * FROM web2_customers WHERE id = $1', [secondaryId]),
+        ]);
+        if (!pr.rows.length || !sr.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'KH không tồn tại' });
         }
-        if (!effectivePhone) {
-            return res
-                .status(400)
-                .json({ success: false, error: 'thiếu phone (không có trong cache, phải truyền)' });
-        }
-        // 1. Push TPOS (master) — by tposId nên đổi SĐT vẫn update đúng partner
-        const tpos = await pushCustomerToTPOS(effectivePhone, { name, address, tposId });
-        // 2. Update cache web2_customers (chỉ field gửi lên)
-        await db.query(
-            `UPDATE web2_customers
-             SET name = COALESCE(NULLIF($2,''), name),
-                 phone = COALESCE($3, phone),
-                 address = COALESCE(NULLIF($4,''), address),
-                 synced_at = NOW()
+        const p = pr.rows[0];
+        const s = sr.rows[0];
+        // Survivorship: giữ field primary, lấp field rỗng từ secondary; gộp tags/aliases.
+        const mergedTags = Array.from(
+            new Set([...(p.tags || []), ...(s.tags || [])].map((t) => JSON.stringify(t)))
+        ).map((t) => JSON.parse(t));
+        const mergedAliases = Array.from(new Set([...(p.aliases || []), ...(s.aliases || [])]));
+        const hist = Array.isArray(p.history) ? p.history.slice() : [];
+        hist.push(_historyEntry('merge', { note: `gộp KH #${secondaryId} (${s.name})` }));
+        await client.query(
+            `UPDATE web2_customers SET
+                name      = CASE WHEN name IN ('','Khách hàng mới') THEN $2 ELSE name END,
+                phone     = COALESCE(phone, $3),
+                email     = COALESCE(NULLIF(email,''), $4),
+                address   = COALESCE(NULLIF(address,''), $5),
+                fb_id     = COALESCE(NULLIF(fb_id,''), $6),
+                global_id = COALESCE(NULLIF(global_id,''), $7),
+                tags      = $8::jsonb,
+                aliases   = $9::jsonb,
+                total_orders = total_orders + $10,
+                total_spent  = total_spent + $11,
+                bom_count    = bom_count + $12,
+                history   = $13::jsonb,
+                updated_at = $14
              WHERE id = $1`,
-            [tposId, name ?? null, phone ?? null, address ?? null]
+            [
+                primaryId,
+                s.name,
+                s.phone,
+                s.email,
+                s.address,
+                s.fb_id,
+                s.global_id,
+                JSON.stringify(mergedTags),
+                JSON.stringify(mergedAliases),
+                Number(s.total_orders || 0),
+                Number(s.total_spent || 0),
+                Number(s.bom_count || 0),
+                JSON.stringify(hist),
+                Date.now(),
+            ]
         );
-        res.json({
-            success: tpos?.success !== false,
-            tposId: tpos?.tposId || tposId,
-            tposSynced: tpos?.success === true,
-            tposError: tpos?.success === false ? tpos.error : undefined,
-        });
+        // Repoint đơn (best-effort, native_orders/fast_sale_orders dùng customer_id).
+        await client.query('UPDATE native_orders SET customer_id = $1 WHERE customer_id = $2', [
+            primaryId,
+            secondaryId,
+        ]);
+        await client.query('UPDATE fast_sale_orders SET customer_id = $1 WHERE customer_id = $2', [
+            primaryId,
+            secondaryId,
+        ]);
+        await client.query('DELETE FROM web2_customers WHERE id = $1', [secondaryId]);
+        await client.query('COMMIT');
+        _notify('merge', primaryId);
+        res.json({ success: true, primaryId, merged: secondaryId });
     } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('[web2-customers] merge error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    } finally {
+        client.release();
+    }
+});
+
+// ─── PATCH /:id — sửa KH (mọi trang). KHÔNG TPOS. :id = web2_customers.id ─
+router.patch('/:id', async (req, res) => {
+    const db = getPool(req);
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) {
+        return res.status(400).json({ success: false, error: 'id không hợp lệ' });
+    }
+    const b = req.body || {};
+    const sets = [];
+    const params = [id];
+    const setCol = (col, val) => {
+        params.push(val);
+        sets.push(`${col} = $${params.length}`);
+    };
+    if (b.name !== undefined) setCol('name', String(b.name).trim());
+    if (b.phone !== undefined) setCol('phone', normPhoneWeb2(b.phone));
+    if (b.email !== undefined) setCol('email', b.email || null);
+    if (b.address !== undefined) setCol('address', b.address || null);
+    if (b.ward !== undefined) setCol('ward', b.ward || null);
+    if (b.district !== undefined) setCol('district', b.district || null);
+    if (b.city !== undefined) setCol('city', b.city || null);
+    if (b.carrier !== undefined) setCol('carrier', b.carrier || null);
+    if (b.status !== undefined) setCol('status', b.status || 'Normal');
+    if (b.tier !== undefined) setCol('tier', b.tier || null);
+    if (b.note !== undefined) setCol('note', b.note || null);
+    if (b.fbId !== undefined) setCol('fb_id', b.fbId || null);
+    if (b.globalId !== undefined) setCol('global_id', b.globalId || null);
+    if (b.fbPageId !== undefined) setCol('fb_page_id', b.fbPageId || null);
+    if (Array.isArray(b.tags)) {
+        params.push(JSON.stringify(b.tags));
+        sets.push(`tags = $${params.length}::jsonb`);
+    }
+    if (!sets.length) {
+        return res.status(400).json({ success: false, error: 'không có field nào để sửa' });
+    }
+    params.push(Date.now());
+    sets.push(`updated_at = $${params.length}`);
+    try {
+        // Append history entry.
+        const cur = await db.query('SELECT history FROM web2_customers WHERE id = $1', [id]);
+        if (!cur.rows.length) return res.status(404).json({ success: false, error: 'Not found' });
+        const hist = Array.isArray(cur.rows[0].history) ? cur.rows[0].history.slice() : [];
+        hist.push(_historyEntry('update', { userId: b.userId, userName: b.userName }));
+        params.push(JSON.stringify(hist));
+        sets.push(`history = $${params.length}::jsonb`);
+        const r = await db.query(
+            `UPDATE web2_customers SET ${sets.join(', ')} WHERE id = $1 RETURNING *`,
+            params
+        );
+        _notify('update', id);
+        res.json({ success: true, customer: rowToFull(r.rows[0]) });
+    } catch (e) {
+        if (e.code === '23505') {
+            return res.status(409).json({ success: false, error: 'SĐT đã tồn tại ở KH khác' });
+        }
         console.error('[web2-customers] patch error:', e.message);
         res.status(500).json({ success: false, error: e.message });
     }
 });
 
+// ─── DELETE /:id — xoá KH (guard: nếu có đơn → soft-archive is_active=false) ─
+router.delete('/:id', async (req, res) => {
+    const db = getPool(req);
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) {
+        return res.status(400).json({ success: false, error: 'id không hợp lệ' });
+    }
+    const force = req.query.force === 'true' || req.query.force === '1';
+    try {
+        const linked = await db.query(
+            `SELECT (SELECT COUNT(*) FROM native_orders WHERE customer_id = $1)::int
+                  + (SELECT COUNT(*) FROM fast_sale_orders WHERE customer_id = $1)::int AS n`,
+            [id]
+        );
+        const orderCount = linked.rows[0]?.n || 0;
+        if (orderCount > 0 && !force) {
+            // Soft-archive thay vì xoá cứng (giữ liên kết đơn).
+            await db.query(
+                'UPDATE web2_customers SET is_active = false, updated_at = $2 WHERE id = $1',
+                [id, Date.now()]
+            );
+            _notify('archive', id);
+            return res.json({ success: true, archived: true, orderCount });
+        }
+        await db.query('DELETE FROM web2_customers WHERE id = $1', [id]);
+        _notify('delete', id);
+        res.json({ success: true, deleted: true });
+    } catch (e) {
+        console.error('[web2-customers] delete error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 module.exports = router;
+module.exports.initializeNotifiers = initializeNotifiers;
