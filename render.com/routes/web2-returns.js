@@ -69,8 +69,16 @@ function _notifyWallet(phone) {
 // Helpers
 // -----------------------------------------------------
 const METHODS = new Set(['khach_gui', 'shipper_gui']);
-const SUB_TYPES = new Set(['khong_nhan_hang', 'thu_ve_1_phan']);
+const SUB_TYPES = new Set(['khong_nhan_hang', 'thu_ve_1_phan', 'cod_shipper']);
 const REASONS = new Set(['khach_boom', 'khong_lien_lac', 'sai_dia_chi', 'doi_y', 'khac']);
+// Lý do "Vấn đề shipper" (Sửa COD shipper gọi). 'tru_cong_no_khach' → trừ ví khách.
+const SHIPPER_REASONS = new Set([
+    'tinh_sai_ship',
+    'tru_cong_no_khach',
+    'giam_gia_le_tien',
+    'khach_nhan_1_phan',
+    'tra_hang_don_cu',
+]);
 const OVERDUE_DAYS = 20;
 
 function normPhone(p) {
@@ -95,6 +103,9 @@ function mapRow(r) {
         sourceOrderCode: r.source_order_code || null,
         sourceOrderType: r.source_order_type || null,
         items: r.items || [],
+        issue: r.issue || 'van_de_khach',
+        codReduction: Number(r.cod_reduction || 0),
+        payableCarrier: Number(r.payable_carrier || 0),
         totalAmount: Number(r.total_amount || 0),
         walletCredited: Number(r.wallet_credited || 0),
         walletTxId: r.wallet_tx_id != null ? Number(r.wallet_tx_id) : null,
@@ -169,6 +180,15 @@ async function ensureTables(pool) {
         CREATE INDEX IF NOT EXISTS idx_web2_returns_bill    ON web2_returns(bill_status);
         CREATE INDEX IF NOT EXISTS idx_web2_returns_status  ON web2_returns(status);
     `);
+    // [2026-06-07] Vấn đề (khách/shipper) + COD flow (Sửa COD shipper gọi).
+    //   issue: van_de_khach (thu hàng về kho) | van_de_shipper (sửa COD, không kho)
+    //   cod_reduction: số COD giảm (shipper); payable_carrier: phải trả ĐVVC = cod_reduction.
+    await pool.query(`
+        ALTER TABLE IF EXISTS web2_returns
+            ADD COLUMN IF NOT EXISTS issue          VARCHAR(20) DEFAULT 'van_de_khach',
+            ADD COLUMN IF NOT EXISTS cod_reduction  NUMERIC(14,2) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS payable_carrier NUMERIC(14,2) NOT NULL DEFAULT 0;
+    `);
     _tablesCreated = true;
 }
 
@@ -217,7 +237,8 @@ async function _applyStock(client, items, method, sign) {
 async function _resolveSourceOrder(pool, code, type) {
     if (type === 'pbh') {
         const r = await pool.query(
-            `SELECT order_lines, total_amount, wallet_deducted, partner_phone
+            `SELECT order_lines, total_amount, wallet_deducted, partner_phone,
+                    cash_on_delivery, delivery_price
              FROM fast_sale_orders WHERE number = $1 LIMIT 1`,
             [code]
         );
@@ -233,6 +254,8 @@ async function _resolveSourceOrder(pool, code, type) {
             })),
             totalAmount: Number(row.total_amount) || 0,
             walletDeducted: Number(row.wallet_deducted) || 0,
+            cod: Number(row.cash_on_delivery) || 0,
+            ship: Number(row.delivery_price) || 0,
         };
     }
     // native order
@@ -262,6 +285,8 @@ async function _resolveSourceOrder(pool, code, type) {
         })),
         totalAmount: Number(row.total_amount) || 0,
         walletDeducted,
+        cod: 0, // native_orders không lưu COD (tính qua delivery method)
+        ship: 0,
     };
 }
 
@@ -414,6 +439,8 @@ router.get('/source-order/:type/:code', async (req, res) => {
             items: src.items.filter((x) => x.productCode && x.quantity > 0),
             totalAmount: src.totalAmount,
             walletDeducted: src.walletDeducted,
+            cod: src.cod || 0,
+            ship: src.ship || 0,
         });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -459,8 +486,88 @@ router.post('/', async (req, res) => {
     if (!phone) return res.status(400).json({ error: 'phone required' });
 
     const user = _user(req);
+    const issue = b.issue === 'van_de_shipper' ? 'van_de_shipper' : 'van_de_khach';
     try {
         await ensureTables(pool);
+
+        // ===== VẤN ĐỀ SHIPPER — Sửa COD (Shipper gọi) =====
+        // Chỉ ghi nhận COD giảm + Phải trả ĐVVC. KHÔNG đụng kho. Ví chỉ trừ khi
+        // lý do = 'tru_cong_no_khach'. Xem docs/dev-log 2026-06-07.
+        if (issue === 'van_de_shipper') {
+            const reasonS = SHIPPER_REASONS.has(b.reason) ? b.reason : 'tinh_sai_ship';
+            const sCode = String(b.sourceOrderCode || '').trim();
+            const sType = b.sourceOrderType === 'native' ? 'native' : 'pbh';
+            if (!sCode) return res.status(400).json({ error: 'sourceOrderCode required' });
+            const codReduction = Math.max(0, Number(b.codReduction) || 0);
+            if (codReduction <= 0)
+                return res.status(400).json({ error: 'codReduction > 0 required' });
+            const doWithdraw = reasonS === 'tru_cong_no_khach';
+
+            // Trừ ví TRƯỚC khi insert (nếu thiếu → 400, không tạo phiếu rác).
+            let walletTxId = null;
+            let walletCredited = 0;
+            if (doWithdraw) {
+                try {
+                    const wd = await web2WalletService.processWithdraw(
+                        pool,
+                        phone,
+                        codReduction,
+                        'return-cod',
+                        sCode,
+                        `Trừ công nợ khách (Sửa COD) đơn ${sCode}`,
+                        user.name
+                    );
+                    walletTxId = wd?.transaction?.id || null;
+                    walletCredited = -codReduction; // âm = đã trừ ví
+                } catch (e) {
+                    if (String(e.message).includes('Số dư không đủ')) {
+                        return res.status(400).json({ error: 'Ví khách không đủ để trừ công nợ' });
+                    }
+                    throw e;
+                }
+            }
+
+            const code = await _genCode(pool);
+            const now = Date.now();
+            const hist = [
+                {
+                    ts: now,
+                    action: 'create',
+                    userId: user.id,
+                    userName: user.name,
+                    note: `van_de_shipper / ${reasonS} / COD-${codReduction}`,
+                },
+            ];
+            const ins = await pool.query(
+                `INSERT INTO web2_returns
+                  (code, phone, customer_name, customer_id, method, sub_type, issue, reason,
+                   source_order_code, source_order_type, items, total_amount, wallet_credited,
+                   wallet_tx_id, cod_reduction, payable_carrier, stock_status, status, note,
+                   history, created_at, updated_at, created_by, created_by_name)
+                 VALUES ($1,$2,$3,$4,'shipper_gui','cod_shipper','van_de_shipper',$5,$6,$7,'[]'::jsonb,0,$8,$9,$10,$10,'applied','active',$11,$12::jsonb,$13,$13,$14,$15)
+                 RETURNING *`,
+                [
+                    code,
+                    phone,
+                    b.customerName || null,
+                    b.customerId || null,
+                    reasonS,
+                    sCode,
+                    sType,
+                    walletCredited,
+                    walletTxId,
+                    codReduction,
+                    b.note || null,
+                    JSON.stringify(hist),
+                    now,
+                    user.id,
+                    user.name,
+                ]
+            );
+            if (doWithdraw) _notifyWallet(phone);
+            _notify('create', code, { phone });
+            return res.json({ success: true, return: mapRow(ins.rows[0]) });
+        }
 
         // 1) Resolve items + wallet credit amount theo sub_type.
         let items = [];
@@ -485,7 +592,14 @@ router.post('/', async (req, res) => {
             // Ví: chỉ cộng nếu đơn đó đã trừ ví.
             walletCredit = src.walletDeducted > 0 ? src.walletDeducted : 0;
         } else {
-            // thu_ve_1_phan
+            // thu_ve_1_phan — chọn SP trong 1 đơn của khách (lưu nguồn để truy vết).
+            sourceOrderCode = b.sourceOrderCode ? String(b.sourceOrderCode).trim() : null;
+            sourceOrderType =
+                b.sourceOrderType === 'pbh'
+                    ? 'pbh'
+                    : b.sourceOrderType === 'native'
+                      ? 'native'
+                      : null;
             const raw = Array.isArray(b.items) ? b.items : [];
             items = raw
                 .map((it) => ({
@@ -524,11 +638,11 @@ router.post('/', async (req, res) => {
             ];
             const ins = await client.query(
                 `INSERT INTO web2_returns
-                  (code, phone, customer_name, customer_id, method, sub_type, reason, reason_note,
+                  (code, phone, customer_name, customer_id, method, sub_type, issue, reason, reason_note,
                    source_order_code, source_order_type, items, total_amount, wallet_credited,
                    stock_status, bill_status, status, note, history, created_at, updated_at,
                    created_by, created_by_name)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,'active',$16,$17::jsonb,$18,$18,$19,$20)
+                 VALUES ($1,$2,$3,$4,$5,$6,'van_de_khach',$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,'active',$16,$17::jsonb,$18,$18,$19,$20)
                  RETURNING *`,
                 [
                     code,

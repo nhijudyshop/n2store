@@ -1013,13 +1013,8 @@
                 `<span class="no-ck-badge${confirmed ? ' ck-confirmed' : ''}"${clickable} title="KH báo đã chuyển khoản (${escapeHtml(o.ckSignal.keyword || '')}${confirmed ? ' — đã xác nhận' : ' — bấm để đối chiếu & duyệt'}). Đối soát tiền vẫn qua SePay.">💸 KH báo đã CK</span>`
             );
         }
-        // [2026-06-05] Số lần in bill — cảnh báo tránh in trùng (soạn hàng lặp).
-        const pc = Number(o.printCount) || 0;
-        if (pc > 0) {
-            out.push(
-                `<span class="no-print-badge" title="Bill/Phiếu soạn hàng đã in ${pc} lần — tránh in lại gây soạn hàng trùng" style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;font-size:11px;font-weight:700;padding:0 5px;border-radius:999px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">${pc}</span>`
-            );
-        }
+        // [2026-06-07] Số lần in KHÔNG hiện ở list nữa — đã chuyển lên chính phiếu
+        // in (bill PBH + Phiếu Soạn Hàng) để tránh in trùng mà không rối bảng.
         return out.length ? `<div class="no-derived-badges">${out.join('')}</div>` : '';
     }
 
@@ -3226,6 +3221,8 @@
                 channel: o.channel || '', // 'web2_inbox' → bill ghi "PBH INBOX"
                 comment: o.note || '',
                 dateInvoice: o.createdAt || new Date().toISOString(),
+                // Lần in hiện trên bill = số lần đã in + lần này → tránh in trùng.
+                printCount: (Number(o.printCount) || 0) + 1,
             };
         };
 
