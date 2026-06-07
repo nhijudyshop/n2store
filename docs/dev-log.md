@@ -25,6 +25,20 @@
 
 ## 2026-06-07
 
+### [render][web2] Phase 0 — tách config deliveryzone + printer ra BẢNG RIÊNG ✅
+
+**Files:** `render.com/routes/web2-dedicated-entity.js` (mới), `render.com/server.js`
+
+**Bối cảnh:** plan kho KH Web 2.0 (`docs/plans/web2-customer-warehouse.md`). Phase 0 = tách config `deliveryzone` (7) + `printer` (3) khỏi kho generic `web2_records` (multi-tenant, dễ wipe nhầm) → bảng riêng.
+
+**Làm:** factory `makeDedicatedEntityRouter(table, slug)` — router CRUD (list/get/create/update/delete/delete-all/health) trên bảng RIÊNG, GIỮ cột `data JSONB` + mapRow GIỐNG HỆT web2-generic → **consumer KHÔNG đổi** (delivery-method-picker, web2-printer hit cùng path `/api/web2/deliveryzone|printer`, cùng shape). Mount TRƯỚC catch-all `/api/web2` (server.js) để chiếm slug. Generic router KHÔNG đụng (zero blast radius). Auto-migrate từ web2_records khi boot (idempotent, ON CONFLICT DO NOTHING, chỉ chạy khi bảng riêng trống).
+
+**Verified live:** `web2_delivery_zones`=7, `web2_printers`=3 (migrated), list trả đúng shape (data.fee/short/history). Consumer contract khớp 100%.
+
+**⚠ Orphan:** rows `deliveryzone`/`printer` trong `web2_records` giờ DEAD (dedicated route shadow path, không ai đọc) nhưng VẪN CÒN (migration là COPY). KHÔNG xóa được qua API (`/api/web2/deliveryzone/delete-all` bị dedicated route chiếm). Harmless (10 rows tí). Dọn sau nếu cần (direct DB / admin op).
+
+**Còn lại của plan:** Phase 1+ kho KH `web2_customers` (độc lập TPOS, data mới) — làm tiếp. "Gỡ toàn bộ TPOS" (tpos-pancake/live-campaign) = dự án lớn riêng, CHƯA đụng (TPOS backing chat/live-comment/PBH, không gỡ mù).
+
 ### [render][web2] Tắt hẳn web2-sync-worker + xóa toàn bộ TPOS shadow (DB 255→80MB) ✅
 
 **Files:** `render.com/server.js`, `native-orders/js/native-orders-app.js`, `native-orders/index.html`

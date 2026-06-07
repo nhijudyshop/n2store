@@ -29,7 +29,9 @@
 
 ---
 
-## PHASE 0 — Tách config deliveryzone + printer ra bảng riêng (quick win, task 1)
+## PHASE 0 — Tách config deliveryzone + printer ra bảng riêng (quick win, task 1) — ✅ XONG 2026-06-07
+
+> Đã làm: factory `web2-dedicated-entity.js` → bảng `web2_delivery_zones`(7)+`web2_printers`(3), shape/path giữ nguyên (consumer không đổi), auto-migrate từ web2_records. Orphan rows web2_records còn (dead, harmless). Bước 4 (sửa consumer) KHÔNG cần vì giữ path. Bước 5 (xóa slug web2_records) hoãn — API bị dedicated route shadow, dọn sau.
 
 **Vấn đề:** `deliveryzone` (7) + `printer` (3) đang nằm trong `web2_records` generic (multi-tenant, dễ wipe nhầm, lẫn shadow).
 
