@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b1a27c5` — feat(web2-products-print): thêm in tem QR Code (2D) — quét mọi mã dài trên tem 25mm
-**Last updated**: 2026-06-06 20:36:48 +07
-**Latest session**: [`RESUME:20260606-203648-b1a27c5`](../20260606-203648-b1a27c5.md)
-**Summary**: feat(web2-products-print): thêm in tem QR Code (2D) — quét mọi mã dài trên tem 25mm
+**Latest commit**: `a059d2b` — feat(web2-products-print): tem QR layout QR-trái + tên/mã/giá-phải (mọi con tem)
+**Last updated**: 2026-06-07 10:08:39 +07
+**Latest session**: [`RESUME:20260607-100839-a059d2b`](../20260607-100839-a059d2b.md)
+**Summary**: feat(web2-products-print): tem QR layout QR-trái + tên/mã/giá-phải (mọi con tem)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-06 20:25
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-06 20:36
+- [`docs/`](./docs.md) — updated 2026-06-07 10:08
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
@@ -69,4 +69,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-06 20:36
+- [`web2/`](./web2.md) — updated 2026-06-07 10:08
