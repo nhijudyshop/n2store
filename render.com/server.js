@@ -727,6 +727,18 @@ app.use('/api/web2/unread', web2UnreadRoutes);
 const web2CustomerIntentsRoutes = require('./routes/web2-customer-intents');
 app.use('/api/web2/customer-intents', web2CustomerIntentsRoutes);
 
+// 2026-06-07: config Web 2.0 (deliveryzone, printer) tách khỏi kho generic
+// web2_records → bảng RIÊNG (web2_delivery_zones, web2_printers). Mount TRƯỚC
+// catch-all để chiếm slug. Shape/path giữ nguyên → consumer không đổi. Auto
+// migrate từ web2_records khi boot. Xem docs/plans/web2-customer-warehouse.md Phase 0.
+const {
+    makeDedicatedEntityRouter,
+    initializeNotifiers: initDedicatedEntityNotifiers,
+} = require('./routes/web2-dedicated-entity');
+initDedicatedEntityNotifiers(web2RealtimeSseRoutes.notifyClients);
+app.use('/api/web2/deliveryzone', makeDedicatedEntityRouter('web2_delivery_zones', 'deliveryzone'));
+app.use('/api/web2/printer', makeDedicatedEntityRouter('web2_printers', 'printer'));
+
 // 2026-06-03: generic catch-all `/api/web2/:entity` — MOUNT CUỐI CÙNG sau mọi
 // dedicated route ở trên để không shadow chúng. Entity nào không có dedicated
 // route sẽ rơi xuống đây (78 generic web2 entities, CRUD bảng web2_records).
