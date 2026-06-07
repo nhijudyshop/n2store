@@ -122,8 +122,11 @@ router.get('/:phoneOrId', async (req, res) => {
         // 2. Fast-sale-orders (PBH)
         if (include.includes('pbh')) {
             try {
+                // fast_sale_orders dùng cột `amount_total` (KHÔNG phải total_amount).
+                // Bug cũ: SELECT total_amount → query throw → catch nuốt → PBH biến mất
+                // khỏi list. Fix 2026-06-07.
                 const r = await pool.query(
-                    `SELECT number, state, total_amount, total_quantity, date_invoice, date_created
+                    `SELECT number, state, amount_total, total_quantity, date_invoice, date_created
                      FROM fast_sale_orders
                      WHERE partner_phone = $1
                      ORDER BY date_created DESC
@@ -131,7 +134,7 @@ router.get('/:phoneOrId', async (req, res) => {
                     [phone, limit]
                 );
                 for (const row of r.rows) {
-                    const amt = Number(row.total_amount) || 0;
+                    const amt = Number(row.amount_total) || 0;
                     orders.push({
                         source: 'pbh',
                         number: row.number,
