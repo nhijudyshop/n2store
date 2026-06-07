@@ -327,4 +327,62 @@ router.post('/web2-rename-to-nj', async (req, res) => {
     }
 });
 
+// =====================================================================
+// POST /web2-cleanup-dead — dọn DB chết Web 2.0 (beta):
+//   1. DROP mọi bảng backup `*_bak_*` (an toàn — beta, wipe đã verify).
+//   2. DELETE web2_records orphan slug `deliveryzone`/`printer` (đã sang bảng
+//      riêng web2_delivery_zones/web2_printers — bản trong web2_records dead).
+//   GET /web2-tables — list mọi bảng web2Db để soi dead table.
+//   Header x-admin-secret = CLEANUP_SECRET. Body { confirm:'YES-CLEANUP' }.
+//   CHỈ web2Db (từ chối nếu === chatDb).
+// =====================================================================
+router.get('/web2-tables', async (req, res) => {
+    if (!authOk(req)) return res.status(403).json({ error: 'forbidden' });
+    const db = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!db) return res.status(500).json({ error: 'web2Db unavailable' });
+    try {
+        const r = await db.query(
+            `SELECT tablename,
+                    pg_size_pretty(pg_total_relation_size('"'||tablename||'"')) AS size
+             FROM pg_tables WHERE schemaname='public' ORDER BY tablename`
+        );
+        res.json({ success: true, count: r.rows.length, tables: r.rows });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+router.post('/web2-cleanup-dead', async (req, res) => {
+    if (!authOk(req)) return res.status(403).json({ error: 'forbidden' });
+    if ((req.body || {}).confirm !== 'YES-CLEANUP') {
+        return res.status(400).json({ error: "cần confirm:'YES-CLEANUP'" });
+    }
+    const db = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!db) return res.status(500).json({ error: 'web2Db unavailable' });
+    if (db === req.app.locals.chatDb) {
+        return res.status(400).json({ error: 'web2Db === chatDb — từ chối (tránh Web 1.0)' });
+    }
+    const out = { droppedBackups: [], web2RecordsOrphansDeleted: 0 };
+    try {
+        // 1. Drop backup tables `*_bak_*`
+        const baks = await db.query(
+            `SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename LIKE '%\\_bak\\_%'`
+        );
+        for (const row of baks.rows) {
+            await db.query(`DROP TABLE IF EXISTS "${row.tablename}"`);
+            out.droppedBackups.push(row.tablename);
+        }
+        // 2. Delete web2_records orphans (đã sang bảng riêng)
+        const orphan = await db.query(
+            `DELETE FROM web2_records WHERE entity_slug IN ('deliveryzone','printer') RETURNING id`
+        );
+        out.web2RecordsOrphansDeleted = orphan.rowCount;
+        // 3. VACUUM (non-full) để cập nhật stats
+        await db.query(`VACUUM ANALYZE web2_records`).catch(() => {});
+        res.json({ success: true, ...out });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message, ...out });
+    }
+});
+
 module.exports = router;
