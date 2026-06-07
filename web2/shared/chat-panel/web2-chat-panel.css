@@ -775,6 +775,21 @@
     height: auto;
     display: block;
 }
+.w2cp-sticker-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 4px;
+}
+.w2cp-sticker-emoji {
+    font-size: 26px;
+    line-height: 1;
+}
+.w2cp-sticker-label {
+    font-size: 10px;
+    color: #64748b;
+}
 
 /* react popover */
 .w2cp-react-pop {

@@ -572,6 +572,53 @@
             }
         }
 
+        // ---------- sticker (Feature 2) ----------
+        // Gửi sticker FB qua adapter.sendSticker(stickerId) (→ REPLY_INBOX_PHOTO STICKER).
+        // UI-first: bong bóng tạm hiện emoji đại diện; WS/refetch sau mang sticker thật.
+        function sendStickerOptimistic(stickerId) {
+            if (!st.adapter || !st.adapter.sendSticker) return;
+            const sk =
+                (global.Web2ChatStickers &&
+                    global.Web2ChatStickers.list().find((s) => s.id === stickerId)) ||
+                {};
+            const tempId = 'temp_' + Date.now();
+            const conv = st.conv;
+            const apply = () => {
+                st.messages.push({
+                    id: tempId,
+                    from: { id: pageIdOf(conv), name: 'You' },
+                    message: sk.emoji || '🧩',
+                    inserted_at: new Date().toISOString(),
+                    _temp: true,
+                });
+                st.isAtBottom = true;
+                renderAll();
+            };
+            const onSuccess = (res) => {
+                st.messages = st.messages.filter((m) => m.id !== tempId);
+                if (res && res.sent) st.messages.push(res.sent);
+                st.isAtBottom = true;
+                renderAll();
+            };
+            const rollback = () => {
+                st.messages = st.messages.filter((m) => m.id !== tempId);
+                renderAll();
+            };
+            const run = () => Promise.resolve(st.adapter.sendSticker(stickerId));
+            if (global.Web2Optimistic && global.Web2Optimistic.run) {
+                global.Web2Optimistic.run({
+                    apply,
+                    run,
+                    onSuccess,
+                    rollback,
+                    errLabel: 'gửi sticker',
+                });
+                return;
+            }
+            apply();
+            run().then(onSuccess).catch(rollback);
+        }
+
         // ---------- attachment ----------
         function attachKind(file) {
             const t = (file && file.type) || '';
@@ -648,14 +695,16 @@
             const el = $('[data-w2cp="picker"]');
             if (!el) return;
             const Emoji = global.Web2ChatEmoji;
-            const showSticker = flags.sticker && st.adapter && st.adapter.stickers;
+            // Sticker tab hiện khi adapter có sendSticker (gửi qua REPLY_INBOX_PHOTO
+            // STICKER). Nguồn = Web2ChatStickers built-in (không cần GET_STICKERS stub).
+            const showSticker = !!(st.adapter && st.adapter.sendSticker && global.Web2ChatStickers);
             const tabs = showSticker
                 ? `<div class="w2cp-picker-tabs"><button class="w2cp-picker-tab ${pickerTab === 'emoji' ? 'active' : ''}" data-w2cp-tab="emoji">Emoji</button><button class="w2cp-picker-tab ${pickerTab === 'sticker' ? 'active' : ''}" data-w2cp-tab="sticker">Sticker</button></div>`
                 : '';
             let bodyHtml = '';
             if (pickerTab === 'sticker' && showSticker) {
-                const list = st.adapter.stickers() || [];
-                bodyHtml = `<div class="w2cp-sticker-grid">${list.map((s) => `<button class="w2cp-sticker-item" data-w2cp-sticker="${esc(s.id || s.url)}" data-url="${esc(s.url)}"><img src="${esc(s.url)}" loading="lazy"></button>`).join('')}</div>`;
+                const list = global.Web2ChatStickers.list() || [];
+                bodyHtml = `<div class="w2cp-sticker-grid">${list.map((s) => `<button class="w2cp-sticker-item" data-w2cp-sticker="${esc(s.id)}" title="${esc(s.label || '')}"><span class="w2cp-sticker-emoji">${esc(s.emoji || '🧩')}</span><span class="w2cp-sticker-label">${esc(s.label || '')}</span></button>`).join('')}</div>`;
             } else if (Emoji) {
                 const cats = Emoji.categories
                     .map(
@@ -820,7 +869,7 @@
             }
             const stk = e.target.closest('[data-w2cp-sticker]');
             if (stk && st.adapter && st.adapter.sendSticker) {
-                st.adapter.sendSticker(stk.getAttribute('data-url'));
+                sendStickerOptimistic(stk.getAttribute('data-w2cp-sticker'));
                 togglePicker();
                 return;
             }

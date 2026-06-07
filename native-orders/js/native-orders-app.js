@@ -6368,10 +6368,13 @@
     // Gửi tin (extension-first bypass-24h → Web2Chat fallback). Trả {via, sent} hoặc
     // throw Error (panel rollback + báo lỗi). Port từ _handleSendMessage cũ, bỏ phần
     // UI-first (panel tự lo bong bóng tạm + rollback).
-    async function _performNativeSend(order, ctx, { text, attachment, replyToId }) {
+    async function _performNativeSend(order, ctx, { text, attachment, replyToId, stickerId }) {
         const att = attachment || null;
         const convId = ctx.conv?.id || null;
         const customerId = ctx.customerId || null;
+        // Sticker CHỈ gửi được qua extension (REPLY_INBOX_PHOTO STICKER) — Pancake API
+        // public không có nhánh sticker tương đương.
+        if (stickerId && !_hasExtension()) throw new Error('Cần N2 Extension để gửi sticker');
 
         // ROUTE 1: N2 Extension (bypass 24h).
         if (_hasExtension()) {
@@ -6423,7 +6426,10 @@
                 const swConvId = threadId ? 't_' + threadId : convId || '';
                 let files = [];
                 let attachmentType = 'SEND_TEXT_ONLY';
-                if (att && att.file) {
+                if (stickerId) {
+                    files = [stickerId];
+                    attachmentType = 'STICKER';
+                } else if (att && att.file) {
                     const dataUrl = await _fileToDataUrl(att.file);
                     const up = await _extensionRequest(
                         'UPLOAD_INBOX_PHOTO',
@@ -6477,9 +6483,12 @@
                 // Lỗi upload tệp → throw để panel rollback (không fallback vì Pancake
                 // native không có nhành vi upload tương đương cho mọi loại).
                 if (att && att.file) throw e;
+                if (stickerId) throw e;
                 console.warn('[NativeOrders] extension bridge error, fallback Pancake:', e.message);
             }
         }
+        // Sticker không có fallback Pancake → extension fail thì báo lỗi.
+        if (stickerId) throw new Error('Gửi sticker thất bại (extension)');
 
         // ROUTE 2: Web2Chat (Pancake Public API, 24h rule).
         if (!_hasChatClient() || !window.Web2Chat.hasTokensFor(order.fbPageId))
