@@ -25,6 +25,12 @@
 
 ## 2026-06-07
 
+### [render][web2] Part A: GATE auto-gán SePay theo đơn active ✅
+
+**User:** tiền SePay về chỉ auto-gán KH + cộng ví nếu KH có đơn thuộc **chiến dịch live mới nhất** (House/Store) HOẶC **đơn inbox** chưa huỷ; không thì để "Chưa gán" chờ duyệt tay.
+
+**`web2-sepay-matching.js`:** helper `_hasActiveOrder(db, phone)` — CTE `latest_camp` (DISTINCT ON fb_page_id, live_campaign_id mới nhất per page) + `native_orders.phone=ANY(variants) AND status<>cancelled AND (channel='web2_inbox' OR campaign ∈ latest_camp)`. Match SĐT theo biến thể normalize. Lỗi gate → return TRUE (không kẹt tiền). Gate đặt TRƯỚC 2 điểm processDeposit auto: aggregate single-phone + main confidence credit. KHÔNG gate **prelink** (đã gán có chủ đích) + KHÔNG gate **CK watcher/linkTransaction** (khách nhắn 'đã ck' = intent rõ → vẫn cộng). Gated → `match_method='pending_no_order'`, linked_phone NULL → hiện ở 'Chưa gán' (NO_PHONE) + reprocess sau (khi KH có đơn) tự cộng. Test `test-sepay-gate-order.js` 8/8 (live mới nhất/cũ, inbox, huỷ, không đơn, normalize).
+
 ### [web2/native-orders] Badge "Chưa nhận CK" + picker gán giao dịch CK ✅
 
 **User:** đơn native chưa có giao dịch CK của khách → cảnh báo; bấm → chọn GD từ balance-history (tìm theo tên, sửa được) gán cho KH. Ngoại lệ: ví KH ≥ tổng đơn → không cảnh báo.

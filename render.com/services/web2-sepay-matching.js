@@ -238,6 +238,63 @@ async function insertWeb2BalanceHistory(db, webhookData) {
     }
 }
 
+// 2026-06-07: GATE auto-gán (user) — chỉ auto-cộng ví nếu KH có đơn ĐANG hoạt
+// động: đơn thuộc chiến dịch LIVE mới nhất per trang (House/Store) HOẶC đơn INBOX
+// chưa huỷ. Không thoả → KHÔNG auto-cộng, để giao dịch 'Chưa gán' chờ duyệt tay.
+// Chỉ áp cho match AUTO (QR/aggregate), KHÔNG áp prelink (đã gán có chủ đích).
+// Lỗi gate → trả TRUE (an toàn: không chặn tiền do lỗi truy vấn).
+async function _hasActiveOrder(db, phone) {
+    if (!phone) return false;
+    const digits = String(phone).replace(/\D/g, '');
+    if (digits.length < 9) return false;
+    const variants = Array.from(
+        new Set([phone, digits, digits.slice(-10), '0' + digits.slice(-9)].filter(Boolean))
+    );
+    try {
+        const { rows } = await db.query(
+            `WITH latest_camp AS (
+                SELECT DISTINCT ON (fb_page_id) fb_page_id, live_campaign_id
+                FROM native_orders
+                WHERE live_campaign_id IS NOT NULL AND fb_page_id IS NOT NULL
+                ORDER BY fb_page_id, created_at DESC
+             )
+             SELECT 1 FROM native_orders no
+             WHERE no.phone = ANY($1)
+               AND COALESCE(no.status,'') <> 'cancelled'
+               AND (
+                   no.channel = 'web2_inbox'
+                   OR EXISTS (
+                       SELECT 1 FROM latest_camp lc
+                       WHERE lc.fb_page_id = no.fb_page_id
+                         AND lc.live_campaign_id = no.live_campaign_id
+                   )
+               )
+             LIMIT 1`,
+            [variants]
+        );
+        return rows.length > 0;
+    } catch (e) {
+        console.warn('[web2-sepay-matching] gate _hasActiveOrder error (cho qua):', e.message);
+        return true; // lỗi truy vấn → KHÔNG chặn (tránh kẹt tiền do bug gate)
+    }
+}
+
+// Đánh dấu tx 'chưa gán do KH không có đơn active' + trả kết quả gated.
+async function _gateBlock(db, web2BhId, phone) {
+    try {
+        await db.query(
+            `UPDATE web2_balance_history SET match_method = 'pending_no_order' WHERE id = $1`,
+            [web2BhId]
+        );
+    } catch (e) {
+        /* ignore */
+    }
+    console.log(
+        `[web2-sepay-matching] GATE: ${phone} không có đơn active → KHÔNG auto-cộng (chờ gán tay)`
+    );
+    return { success: false, reason: 'no_active_order', phone, gated: true };
+}
+
 /**
  * Process Web 2.0 match for one balance_history row.
  * @param {Pool} db
@@ -449,6 +506,10 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
             customerId = merged[0].customers?.[0]?.id || null;
             matchMethod =
                 bestIsExact && bestCand === merged[0].phone ? 'exact_phone' : 'single_match';
+            // GATE auto-gán: KH phải có đơn active → mới auto-cộng ví.
+            if (!(await _hasActiveOrder(db, matchedPhone))) {
+                return _gateBlock(db, web2BhId, matchedPhone);
+            }
             // Credit ví trực tiếp, bỏ qua nhánh confidence scoring bên dưới
             try {
                 const walletResult = await web2WalletService.processDeposit(
@@ -632,6 +693,12 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
             confidenceScore: conf.score,
             note: 'Single match but confidence low — needs user review',
         };
+    }
+
+    // GATE auto-gán: KH phải có đơn active (chiến dịch live mới nhất / inbox) →
+    // mới auto-cộng ví. Không có đơn → để 'Chưa gán' chờ duyệt tay.
+    if (!(await _hasActiveOrder(db, matchedPhone))) {
+        return _gateBlock(db, web2BhId, matchedPhone);
     }
 
     // 5. Auto credit Web 2.0 wallet (confidence ≥ 70)
@@ -916,4 +983,5 @@ module.exports = {
     processWeb2Match,
     resolveWeb2PendingMatch,
     reprocessUnmatched,
+    _hasActiveOrder, // test: gate auto-gán theo đơn active
 };
