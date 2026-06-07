@@ -149,6 +149,9 @@ export const ROUTES = {
     // Web 2.0 Users — user account system (auth + CRUD)
     WEB2_USERS: { pattern: '/api/web2-users/*' },
 
+    // Web 2.0 FB Live — live videos + thumbnails + comment poll→SSE (thay TPOS)
+    WEB2_FB_LIVE: { pattern: '/api/web2-fb-live/*' },
+
     // Order Notes (PostgreSQL - CSKH notes history per order)
     ORDER_NOTES: { pattern: '/api/order-notes/*' },
 
@@ -249,6 +252,7 @@ export function matchRoute(pathname) {
     if (pathname === '/api/services-overview' || pathname.startsWith('/api/services-overview/'))
         return 'SERVICES_OVERVIEW';
     if (pathname.startsWith('/api/web2-users/')) return 'WEB2_USERS';
+    if (pathname.startsWith('/api/web2-fb-live/')) return 'WEB2_FB_LIVE';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
     if (pathname.startsWith('/api/sepay-home/')) return 'SEPAY_HOME';
