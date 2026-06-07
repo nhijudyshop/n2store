@@ -1,16 +1,21 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — schema web2_customers (kho KH riêng Web 2.0, trong web2Db).
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — kho KH riêng Web 2.0 (web2_customers @ web2Db). KHÔNG TPOS.
 // =====================================================================
-// web2_customers — danh bạ KH riêng của Web 2.0, NẰM TRONG web2Db
-// (n2store-web2-db). Thay thế phụ thuộc bảng `customers` Web 1.0 cho
-// chức năng tìm/Gán KH ở balance-history.
+// web2_customers — KHO KHÁCH HÀNG RIÊNG của Web 2.0 (warehouse).
 //
-// Nguồn data: TPOS Partner (master thật). web2_customers là shadow độc lập
-// với `customers` của Web 1.0 — upsert khi:
-//   • Gán KH thủ công (on-demand)
-//   • Search theo SĐT trả về từ TPOS (self-populate)
-//   • Full sync định kỳ (admin endpoint)
+// ĐỘC LẬP HOÀN TOÀN với TPOS: KHÔNG tpos_id / tpos_data / sync 2 chiều.
+// Nguồn dữ liệu: Pancake / Facebook (webhook đơn + chat) / nhập tay.
+//   • id        = BIGSERIAL (tự sinh) — khoá nội bộ Web 2.0.
+//   • phone     = UNIQUE (đã chuẩn hoá 10 số) — khoá dedup chính.
+//   • fb_id     = PSID mặc định (legacy/1-page).
+//   • fb_psids  = JSONB {page_id: psid} — multi-page (1 người = 1 PSID/Page).
+//   • global_id = FB Global Account Id (BẮT BUỘC để gửi tin — xem
+//                 reference_fb_psid_vs_globalid). KHÁC psid.
 //
-// id = TPOS Partner Id (BIGINT) — ổn định, là khóa chính.
+// Là NGUỒN duy nhất cho native-orders / fast-sale-orders / SePay match /
+// balance-history / Customer 360. Mọi trang query bằng bất kỳ khoá nào
+// (phone / fb_id / global_id / pancake_*) → nhận đủ identity + info.
+//
+// Beta (2026-06-07): được phép wipe/recreate schema sạch — KHÔNG giữ data cũ.
 // =====================================================================
 
 let _ready = false;
@@ -18,84 +23,105 @@ let _ready = false;
 async function ensureWeb2CustomersSchema(pool) {
     if (_ready || !pool) return;
     try {
+        // ── ONE-TIME MIGRATION (beta) ───────────────────────────────────
+        // 1) Bảng web2_customers CŨ (TPOS-coupled, id=Partner Id, có cột
+        //    tpos_raw) KHÔNG tương thích warehouse mới (id BIGSERIAL). Beta →
+        //    DROP để tạo lại sạch. Phát hiện qua cột `tpos_raw`.
+        // 2) web2_order_customers (kho KH đơn cũ) đã gộp vào warehouse → DROP.
+        try {
+            const old = await pool.query(`
+                SELECT EXISTS(
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema='public' AND table_name='web2_customers'
+                      AND column_name='tpos_raw'
+                ) AS is_old`);
+            if (old.rows[0] && old.rows[0].is_old) {
+                await pool.query('DROP TABLE IF EXISTS web2_customers CASCADE');
+                console.log(
+                    '[web2-customers-schema] dropped OLD TPOS-coupled web2_customers (beta recreate)'
+                );
+            }
+        } catch (e) {
+            console.warn('[web2-customers-schema] old-shape check skip:', e.message);
+        }
+        try {
+            await pool.query('DROP TABLE IF EXISTS web2_order_customers CASCADE');
+        } catch (e) {
+            console.warn('[web2-customers-schema] drop web2_order_customers skip:', e.message);
+        }
+
+        // ── WAREHOUSE SCHEMA (warehouse mới, KHÔNG TPOS) ────────────────
         await pool.query(`
             CREATE TABLE IF NOT EXISTS web2_customers (
-                id           BIGINT PRIMARY KEY,          -- TPOS Partner Id
-                phone        VARCHAR(20),                 -- normalized 10-digit (đuôi)
-                name         VARCHAR(255) NOT NULL,
-                email        VARCHAR(255),
-                address      TEXT,
-                fb_id        VARCHAR(50),                 -- Facebook user id (cho native-orders lookup)
-                status_text  VARCHAR(100),
-                date_created TIMESTAMP,
-                tpos_raw     JSONB,                       -- snapshot field gốc TPOS
-                synced_at    TIMESTAMP DEFAULT NOW(),
-                created_at   TIMESTAMP DEFAULT NOW()
+                id            BIGSERIAL PRIMARY KEY,
+                code          VARCHAR(40) UNIQUE,            -- KH-xxxxx (tuỳ chọn)
+                name          VARCHAR(255) NOT NULL DEFAULT 'Khách hàng mới',
+                phone         VARCHAR(20) UNIQUE,            -- chuẩn hoá 10 số (dedup chính)
+                email         VARCHAR(255),
+                address       TEXT,
+                ward          VARCHAR(120),
+                district      VARCHAR(120),
+                city          VARCHAR(120),
+                carrier       VARCHAR(60),                   -- nhà mạng SĐT (gợi ý gọi/zalo)
+                status        VARCHAR(40) DEFAULT 'Normal',  -- Normal|Bom|Warning|Danger|VIP
+                tier          VARCHAR(40),
+                tags          JSONB NOT NULL DEFAULT '[]'::jsonb,
+                aliases       JSONB NOT NULL DEFAULT '[]'::jsonb,
+                note          TEXT,
+                -- FB / Messenger identity graph
+                fb_id         VARCHAR(50),                   -- PSID mặc định (legacy/1-page)
+                fb_psids      JSONB NOT NULL DEFAULT '{}'::jsonb, -- {page_id: psid} multi-page
+                global_id     VARCHAR(50),                   -- FB Global Account Id (gửi tin)
+                fb_page_id    VARCHAR(50),
+                fb_name       VARCHAR(255),
+                -- Pancake
+                pancake_customer_id     VARCHAR(60),
+                pancake_conversation_id VARCHAR(80),
+                pancake_page_id         VARCHAR(60),
+                -- Thống kê derived (cache)
+                total_orders  INTEGER NOT NULL DEFAULT 0,
+                total_spent   NUMERIC NOT NULL DEFAULT 0,
+                bom_count     INTEGER NOT NULL DEFAULT 0,
+                last_order_at BIGINT,
+                -- Nguồn / audit
+                source        VARCHAR(20) DEFAULT 'manual',  -- pancake|manual|import
+                created_by    VARCHAR(100),
+                history       JSONB NOT NULL DEFAULT '[]'::jsonb,
+                is_active     BOOLEAN NOT NULL DEFAULT true,
+                created_at    BIGINT NOT NULL,
+                updated_at    BIGINT NOT NULL,
+                synced_at     TIMESTAMP DEFAULT NOW()        -- giữ cho consumer cũ (SePay sort)
             );
-            -- 2026-06-03: gộp kho KH — thêm fb_id để 5 route đơn hàng dùng chung
-            -- web2_customers thay bang "customers" copy.
-            ALTER TABLE web2_customers ADD COLUMN IF NOT EXISTS fb_id VARCHAR(50);
-            -- Search index: phone exact/suffix + fb_id.
-            CREATE INDEX IF NOT EXISTS idx_web2_customers_phone ON web2_customers(phone);
-            CREATE INDEX IF NOT EXISTS idx_web2_customers_fb_id ON web2_customers(fb_id) WHERE fb_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_web2_customers_phone     ON web2_customers(phone);
+            CREATE INDEX IF NOT EXISTS idx_web2_customers_fb_id     ON web2_customers(fb_id) WHERE fb_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_web2_customers_global_id ON web2_customers(global_id) WHERE global_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_web2_customers_pancake   ON web2_customers(pancake_customer_id) WHERE pancake_customer_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_web2_customers_active    ON web2_customers(is_active);
+            CREATE INDEX IF NOT EXISTS idx_web2_customers_tags      ON web2_customers USING gin (tags);
         `);
-        // unaccent: tìm KH không dấu ("huynh thanh dat" khớp "Huỳnh Thành Đạt").
-        // Route /search dùng unaccent(name) ILIKE unaccent($1).
+        // unaccent + trigram cho name ILIKE không dấu (best-effort, có thể bị chặn)
         try {
-            await pool.query(`CREATE EXTENSION IF NOT EXISTS unaccent;`);
+            await pool.query('CREATE EXTENSION IF NOT EXISTS unaccent;');
         } catch (e) {
-            console.warn('[web2-customers-schema] unaccent extension skip:', e.message);
+            console.warn('[web2-customers-schema] unaccent skip:', e.message);
         }
-        // Trigram cho name ILIKE nhanh — bọc try riêng vì extension có thể bị chặn.
         try {
-            await pool.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
+            await pool.query('CREATE EXTENSION IF NOT EXISTS pg_trgm;');
             await pool.query(
                 `CREATE INDEX IF NOT EXISTS idx_web2_customers_name_trgm
                  ON web2_customers USING gin (name gin_trgm_ops);`
             );
         } catch (e) {
-            console.warn('[web2-customers-schema] pg_trgm index skip:', e.message);
+            console.warn('[web2-customers-schema] pg_trgm skip:', e.message);
         }
         _ready = true;
-        console.log('[web2-customers-schema] web2_customers ready (web2Db)');
+        console.log('[web2-customers-schema] web2_customers warehouse ready (web2Db, no TPOS)');
     } catch (e) {
         console.error('[web2-customers-schema] ensureSchema failed:', e.message);
     }
 }
 
-// Upsert 1 KH từ TPOS partner shape ({id,name,phone,email,address,status,dateCreated})
-async function upsertWeb2Customer(pool, c) {
-    if (!pool || !c || !c.id) return;
-    try {
-        await pool.query(
-            `INSERT INTO web2_customers
-                (id, phone, name, email, address, status_text, date_created, tpos_raw, synced_at)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8, NOW())
-             ON CONFLICT (id) DO UPDATE SET
-                phone        = EXCLUDED.phone,
-                name         = EXCLUDED.name,
-                email        = EXCLUDED.email,
-                address      = EXCLUDED.address,
-                status_text  = EXCLUDED.status_text,
-                date_created = EXCLUDED.date_created,
-                tpos_raw     = EXCLUDED.tpos_raw,
-                synced_at    = NOW()`,
-            [
-                c.id,
-                c.phone ? String(c.phone).replace(/\D/g, '').slice(-10) : null,
-                c.name || c.displayName || '(không tên)',
-                c.email || null,
-                c.address || null,
-                c.status || c.statusText || null,
-                c.dateCreated || null,
-                JSON.stringify(c.raw || c),
-            ]
-        );
-    } catch (e) {
-        console.warn('[web2-customers-schema] upsert fail id=' + c.id + ':', e.message);
-    }
-}
-
+// ─── Chuẩn hoá SĐT → 10 số đuôi (0xxxxxxxxx) ────────────────────────────
 function normPhone(p) {
     let s = String(p || '').replace(/\D/g, '');
     if (s.length > 10) s = s.slice(-10);
@@ -103,38 +129,95 @@ function normPhone(p) {
     return s.length === 10 ? s : s || null;
 }
 
-// Get/create KH trong web2_customers theo PHONE (thay getOrCreateCustomerFromTPOS
-// bản Web 1.0). Trả { customerId: <TPOS Partner Id>, customerName }.
-// id = TPOS Partner Id (khác scheme với customers.id cũ — native_orders.customer_id
-// nay ref web2_customers.id).
-async function getOrCreateWeb2Customer(pool, phone, tposData = null) {
-    const p = normPhone(phone);
-    if (!p) return { customerId: null, customerName: null };
-    // 1. Đã có trong web2_customers?
-    const ex = await pool.query(
-        'SELECT id, name FROM web2_customers WHERE phone = $1 ORDER BY synced_at DESC LIMIT 1',
-        [p]
-    );
-    if (ex.rows.length) {
-        return { customerId: ex.rows[0].id, customerName: ex.rows[0].name, created: false };
-    }
-    // 2. Fetch TPOS theo phone → upsert
-    let data = tposData;
-    if (!data || !data.id) {
-        try {
-            const { searchCustomerByPhone } = require('../services/tpos-customer-service');
-            const r = await searchCustomerByPhone(p);
-            if (r?.success && r.customer?.id) data = r.customer;
-        } catch (e) {
-            console.warn('[web2-customers] getOrCreate TPOS lookup fail:', e.message);
-        }
-    }
-    if (!data || !data.id) return { customerId: null, customerName: null };
-    await upsertWeb2Customer(pool, data);
-    return { customerId: data.id, customerName: data.name, created: true };
+function _historyEntry(action, extra = {}) {
+    return {
+        ts: Date.now(),
+        action,
+        userId: extra.userId || null,
+        userName: extra.userName || '(hệ thống)',
+        sourcePage: extra.sourcePage || null,
+        note: extra.note || null,
+    };
 }
 
-// Lookup KH theo fb_id (native-orders FB fast path)
+// ─── Upsert KH theo PHONE (warehouse, KHÔNG TPOS) ───────────────────────
+// fields: { name, address, email, fbId, fbPageId, globalId, fbName,
+//           pancakeCustomerId, pancakeConversationId, pancakePageId,
+//           source, createdBy, ward, district, city, carrier, status }
+// Trả { customerId, customerName, created }.
+async function getOrCreateWeb2Customer(pool, phone, fields = {}) {
+    const p = normPhone(phone);
+    if (!p) return { customerId: null, customerName: null, created: false };
+    const ex = await pool.query('SELECT id, name FROM web2_customers WHERE phone = $1 LIMIT 1', [
+        p,
+    ]);
+    if (ex.rows.length) {
+        // Cập nhật nhẹ field rỗng (không ghi đè dữ liệu sẵn có)
+        if (fields && Object.keys(fields).length) {
+            await pool.query(
+                `UPDATE web2_customers SET
+                    name      = CASE WHEN name IN ('', 'Khách hàng mới') THEN COALESCE($2, name) ELSE name END,
+                    address   = COALESCE(NULLIF(address,''), $3, address),
+                    email     = COALESCE(NULLIF(email,''), $4, email),
+                    fb_id     = COALESCE(NULLIF(fb_id,''), $5, fb_id),
+                    global_id = COALESCE(NULLIF(global_id,''), $6, global_id),
+                    fb_page_id= COALESCE(NULLIF(fb_page_id,''), $7, fb_page_id),
+                    synced_at = NOW(),
+                    updated_at = $8
+                 WHERE id = $1`,
+                [
+                    ex.rows[0].id,
+                    fields.name || null,
+                    fields.address || null,
+                    fields.email || null,
+                    fields.fbId || null,
+                    fields.globalId || null,
+                    fields.fbPageId || null,
+                    Date.now(),
+                ]
+            );
+        }
+        return { customerId: ex.rows[0].id, customerName: ex.rows[0].name, created: false };
+    }
+    const now = Date.now();
+    const r = await pool.query(
+        `INSERT INTO web2_customers
+            (name, phone, address, email, fb_id, global_id, fb_page_id, fb_name,
+             pancake_customer_id, pancake_conversation_id, pancake_page_id,
+             source, created_by, history, created_at, updated_at, synced_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15,$15,NOW())
+         ON CONFLICT (phone) DO UPDATE SET
+            name = CASE WHEN web2_customers.name IN ('', 'Khách hàng mới')
+                        THEN EXCLUDED.name ELSE web2_customers.name END,
+            address = COALESCE(NULLIF(web2_customers.address,''), EXCLUDED.address),
+            fb_id   = COALESCE(NULLIF(web2_customers.fb_id,''), EXCLUDED.fb_id),
+            updated_at = EXCLUDED.updated_at,
+            synced_at = NOW()
+         RETURNING id, name`,
+        [
+            fields.name || 'Khách hàng mới',
+            p,
+            fields.address || null,
+            fields.email || null,
+            fields.fbId || null,
+            fields.globalId || null,
+            fields.fbPageId || null,
+            fields.fbName || null,
+            fields.pancakeCustomerId || null,
+            fields.pancakeConversationId || null,
+            fields.pancakePageId || null,
+            fields.source || 'pancake',
+            fields.createdBy || null,
+            JSON.stringify([
+                _historyEntry('create', { note: 'auto từ ' + (fields.source || 'đơn/chat') }),
+            ]),
+            now,
+        ]
+    );
+    return { customerId: r.rows[0].id, customerName: r.rows[0].name, created: true };
+}
+
+// ─── Lookup KH theo fb_id (PSID) — native-orders FB fast path ───────────
 async function findWeb2CustomerByFbId(pool, fbId) {
     if (!fbId) return null;
     const r = await pool.query(
@@ -144,13 +227,13 @@ async function findWeb2CustomerByFbId(pool, fbId) {
     return r.rows[0] || null;
 }
 
-// Link fb_id vào KH theo PHONE (web2_customers.id là TPOS id, nên link theo phone)
+// ─── Link fb_id vào KH theo PHONE (chỉ khi fb_id trống) ─────────────────
 async function linkWeb2CustomerFbId(pool, phone, fbId) {
     const p = normPhone(phone);
     if (!p || !fbId) return;
     try {
         await pool.query(
-            `UPDATE web2_customers SET fb_id = $2
+            `UPDATE web2_customers SET fb_id = $2, synced_at = NOW()
              WHERE phone = $1 AND (fb_id IS NULL OR fb_id = '')`,
             [p, String(fbId)]
         );
@@ -159,15 +242,12 @@ async function linkWeb2CustomerFbId(pool, phone, fbId) {
     }
 }
 
-// Lookup id (TPOS) theo phone — KHÔNG tạo mới (fallback nhẹ).
+// ─── Lookup id theo phone — KHÔNG tạo mới ───────────────────────────────
 async function lookupWeb2CustomerIdByPhone(pool, phone) {
     const p = normPhone(phone);
     if (!p) return null;
     try {
-        const r = await pool.query(
-            'SELECT id FROM web2_customers WHERE phone = $1 ORDER BY synced_at DESC LIMIT 1',
-            [p]
-        );
+        const r = await pool.query('SELECT id FROM web2_customers WHERE phone = $1 LIMIT 1', [p]);
         return r.rows.length ? r.rows[0].id : null;
     } catch {
         return null;
@@ -176,10 +256,10 @@ async function lookupWeb2CustomerIdByPhone(pool, phone) {
 
 module.exports = {
     ensureWeb2CustomersSchema,
-    upsertWeb2Customer,
     getOrCreateWeb2Customer,
     findWeb2CustomerByFbId,
     linkWeb2CustomerFbId,
     lookupWeb2CustomerIdByPhone,
     normPhoneWeb2: normPhone,
+    _historyEntry,
 };
