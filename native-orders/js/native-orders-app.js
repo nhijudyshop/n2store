@@ -1017,7 +1017,7 @@
         const pc = Number(o.printCount) || 0;
         if (pc > 0) {
             out.push(
-                `<span class="no-print-badge" title="Bill/Phiếu soạn hàng đã in ${pc} lần — tránh in lại gây soạn hàng trùng" style="display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">🖨 Đã in ${pc}×</span>`
+                `<span class="no-print-badge" title="Bill/Phiếu soạn hàng đã in ${pc} lần — tránh in lại gây soạn hàng trùng" style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;font-size:11px;font-weight:700;padding:0 5px;border-radius:999px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">${pc}</span>`
             );
         }
         return out.length ? `<div class="no-derived-badges">${out.join('')}</div>` : '';
