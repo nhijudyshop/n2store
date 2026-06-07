@@ -152,6 +152,9 @@ export const ROUTES = {
     // Web 2.0 FB Live — live videos + thumbnails + comment poll→SSE (thay TPOS)
     WEB2_FB_LIVE: { pattern: '/api/web2-fb-live/*' },
 
+    // Web 2.0 Live Campaigns — CRUD chiến dịch live (thay TPOS SaleOnline_LiveCampaign)
+    WEB2_LIVE_CAMPAIGNS: { pattern: '/api/web2-live-campaigns/*' },
+
     // Order Notes (PostgreSQL - CSKH notes history per order)
     ORDER_NOTES: { pattern: '/api/order-notes/*' },
 
@@ -253,6 +256,8 @@ export function matchRoute(pathname) {
         return 'SERVICES_OVERVIEW';
     if (pathname.startsWith('/api/web2-users/')) return 'WEB2_USERS';
     if (pathname.startsWith('/api/web2-fb-live/')) return 'WEB2_FB_LIVE';
+    if (pathname.startsWith('/api/web2-live-campaigns/') || pathname === '/api/web2-live-campaigns')
+        return 'WEB2_LIVE_CAMPAIGNS';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
     if (pathname.startsWith('/api/sepay-home/')) return 'SEPAY_HOME';

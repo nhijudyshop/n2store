@@ -11,7 +11,9 @@
     'use strict';
 
     const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const BASE = PROXY + '/api/odata/SaleOnline_LiveCampaign';
+    // 2026-06-07: CRUD chiến dịch chuyển sang kho Web 2.0 (web2_live_campaigns),
+    // ĐỘC LẬP TPOS. Dropdown Page/Live video trong modal tạm vẫn TPOS (bước sau).
+    const BASE = PROXY + '/api/web2-live-campaigns';
     const CRM_TEAMS_URL = PROXY + '/api/odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs';
     const LIVE_VIDEO_URL = PROXY + '/api/facebook-graph/livevideo';
     const NATIVE_LOAD_URL = PROXY + '/api/native-orders/load';
@@ -74,37 +76,43 @@
      * @param {string} opts.dateTo - yyyy-mm-dd
      * @returns {Promise<{ value: Array, count: number }>}
      */
+    // ── Web 2.0 fetch (plain, KHÔNG cần TPOS token) ─────────────────────
+    async function w2Fetch(url, options) {
+        const opts = options || {};
+        opts.headers = Object.assign(
+            { Accept: 'application/json', 'Content-Type': 'application/json' },
+            opts.headers || {}
+        );
+        const res = await fetch(url, opts);
+        let body = null;
+        try {
+            body = await res.json();
+        } catch (_) {
+            body = null;
+        }
+        if (!res.ok) {
+            const err = new Error((body && body.error) || `HTTP ${res.status}`);
+            err.status = res.status;
+            err.body = body;
+            throw err;
+        }
+        return body;
+    }
+
     async function list(opts) {
         const o = opts || {};
         const params = new URLSearchParams();
-        params.set('$top', String(o.top || 20));
-        params.set('$skip', String(o.skip || 0));
-        params.set('$orderby', o.orderby || 'DateCreated desc');
-        params.set('$count', 'true');
-
-        const filters = [];
-        if (o.search && o.search.trim()) {
-            // Escape single quotes for OData literal
-            const esc = o.search.trim().replace(/'/g, "''");
-            filters.push(`contains(Name,'${esc}')`);
-        }
-        if (o.status === 'active') filters.push('IsActive eq true');
-        else if (o.status === 'inactive') filters.push('IsActive eq false');
-        if (o.dateFrom) {
-            const from = new Date(o.dateFrom + 'T00:00:00+07:00').toISOString();
-            filters.push(`DateCreated ge ${from}`);
-        }
-        if (o.dateTo) {
-            const to = new Date(o.dateTo + 'T23:59:59+07:00').toISOString();
-            filters.push(`DateCreated le ${to}`);
-        }
-        if (filters.length) params.set('$filter', filters.join(' and '));
-
-        const url = `${BASE}?${params.toString()}`;
-        const data = await jsonFetch(url, { method: 'GET' });
+        params.set('top', String(o.top || 20));
+        params.set('skip', String(o.skip || 0));
+        if (o.search && o.search.trim()) params.set('search', o.search.trim());
+        if (o.status === 'active' || o.status === 'inactive') params.set('status', o.status);
+        if (o.dateFrom)
+            params.set('from', String(new Date(o.dateFrom + 'T00:00:00+07:00').getTime()));
+        if (o.dateTo) params.set('to', String(new Date(o.dateTo + 'T23:59:59+07:00').getTime()));
+        const data = await w2Fetch(`${BASE}/list?${params.toString()}`, { method: 'GET' });
         return {
             value: Array.isArray(data && data.value) ? data.value : [],
-            count: data && data['@odata.count'] != null ? data['@odata.count'] : 0,
+            count: data && data.count != null ? data.count : 0,
         };
     }
 
@@ -161,8 +169,7 @@
     }
 
     async function getOne(id) {
-        const url = `${BASE}(${encodeURIComponent(id)})`;
-        return await jsonFetch(url, { method: 'GET' });
+        return await w2Fetch(`${BASE}/${encodeURIComponent(id)}`, { method: 'GET' });
     }
 
     /**
@@ -181,15 +188,8 @@
             Facebook_UserId: payload.Facebook_UserId || null,
             Facebook_LiveId: payload.Facebook_LiveId || null,
             Config: payload.Config || 'Draft',
-            MinAmountDeposit: payload.MinAmountDeposit || 0,
-            MaxAmountDepositRequired: payload.MaxAmountDepositRequired || 0,
-            Details: [],
         };
-        return await jsonFetch(BASE, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json;odata.metadata=minimal' },
-            body: JSON.stringify(body),
-        });
+        return await w2Fetch(BASE, { method: 'POST', body: JSON.stringify(body) });
     }
 
     /**
@@ -198,23 +198,11 @@
      * @param {Partial<Object>} patch - fields to override on the existing record
      */
     async function update(id, patch) {
-        const current = await getOne(id);
-        const merged = Object.assign({}, current, patch || {});
-        // Strip @odata.* metadata keys
-        const body = {};
-        for (const k of Object.keys(merged)) {
-            if (!k.startsWith('@odata')) body[k] = merged[k];
-        }
-        // TPOS PUT requires Details array; default to [] if missing
-        if (!Array.isArray(body.Details)) body.Details = [];
-        const url = `${BASE}(${encodeURIComponent(id)})`;
-        await jsonFetch(url, {
+        // Backend PUT merge với current (pick) → gửi thẳng patch (không cần GET-first).
+        return await w2Fetch(`${BASE}/${encodeURIComponent(id)}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json;odata.metadata=minimal' },
-            body: JSON.stringify(body),
+            body: JSON.stringify(patch || {}),
         });
-        // PUT returns 204; fetch fresh state for callers
-        return await getOne(id);
     }
 
     async function setActive(id, isActive) {
@@ -222,8 +210,7 @@
     }
 
     async function remove(id) {
-        const url = `${BASE}(${encodeURIComponent(id)})`;
-        await jsonFetch(url, { method: 'DELETE' });
+        await w2Fetch(`${BASE}/${encodeURIComponent(id)}`, { method: 'DELETE' });
         return { Id: id, deleted: true };
     }
 

@@ -25,6 +25,28 @@
 
 ## 2026-06-07
 
+### [tpos-pancake][live-campaign] Cắt TPOS phần còn lại: picker FB Graph + live-campaign CRUD→web2 ✅
+
+Tiếp "code tất cả verify sau". Hoàn tất gỡ TPOS khỏi cột live (flag-gated) + chuyển live-campaign CRUD sang Web 2.0.
+
+**1) Picker page+campaign → Pancake/FB Graph (flag-gated, fallback-safe):**
+
+- `tpos-fb-live-source.js`: thêm `fetchPagesAsCrmTeams()` (Pancake `fetchPages` → shape crmTeams/allPages giống TPOS) + `fetchVideosAsCampaigns(pageIds)` (`/api/web2-fb-live/videos` → shape liveCampaign: Id=videoId, Facebook_LiveId=pageId_videoId, DateCreated, thumbnail).
+- `tpos-api.js`: `loadCRMTeams`/`loadLiveCampaigns`/`loadLiveCampaignsFromAllPages` — flag ON → nguồn FB Graph; lỗi/rỗng → fallback TPOS. Helper `_fillCampaignPageNames`.
+- → Flag ON: cột live HOÀN TOÀN độc lập TPOS (pages + campaigns + comments + realtime). Flag OFF (mặc định): TPOS như cũ.
+
+**2) live-campaign CRUD → Web 2.0 (Phase B):**
+
+- Backend `render.com/routes/web2-live-campaigns.js` (mount `/api/web2-live-campaigns`): bảng `web2_live_campaigns` + CRUD (list/get/create/PUT/delete) + SSE `web2:live-campaigns`. Response giữ field TPOS-compat (Id/Name/IsActive/Config/Facebook\_\*/DateCreated) → app.js KHÔNG đổi.
+- `live-campaign-api.js`: list/getOne/create/update/setActive/remove → `w2Fetch` (plain, KHÔNG cần TPOS token) trỏ web2 route. Excel giữ nguyên (đã off-TPOS). Dropdown Page/Live video trong modal TẠM vẫn TPOS (bước sau dùng Pancake/web2-fb-live).
+- server.js mount + SSE; worker route `/api/web2-live-campaigns/*` → Render.
+
+**Verify:** syntax all OK. DB schema test local (`web2_live_campaigns` ensureSchema idempotent + CRUD) PASS. Local smoke: tpos-pancake (flag off) + live-campaign load OK, 0 lỗi (trừ pre-existing TokenManager double-declare). CRUD prod verify sau deploy. Live column verify buổi live kế (bật flag `web2_live_source=fbgraph`).
+
+**Còn lại:** dropdown Page/Live video trong modal live-campaign (TPOS→Pancake); campaign-id unify (C4) nếu cần khớp Excel; verify live thật.
+
+**Status:** ✅ Done (code). Verify live sau.
+
 ### [tpos-pancake] Rewire cột comment live TPOS→FB Graph (flag-gated, fallback-safe) ✅
 
 "Rewire mù, verify buổi live kế" + yêu cầu "chọn chiến dịch cũ coi comment cũ". Đảo nguồn comment livestream khỏi TPOS sang FB Graph (`web2-fb-live`), AN TOÀN tối đa: **flag mặc định TẮT** → cột chạy TPOS y như cũ; bật flag để verify; sai thì tắt = về TPOS ngay (không mất comment live).

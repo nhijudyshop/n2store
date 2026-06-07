@@ -63,12 +63,37 @@ const TposApi = {
         return response;
     },
 
+    // REWIRE helper: điền Facebook_UserName cho campaign (FB-live) từ allPages.
+    _fillCampaignPageNames(camps, state) {
+        if (!Array.isArray(camps) || !state?.allPages) return;
+        const byId = new Map(state.allPages.map((p) => [String(p.Facebook_PageId), p.Name]));
+        for (const c of camps) {
+            if (!c.Facebook_UserName)
+                c.Facebook_UserName = byId.get(String(c.Facebook_UserId)) || '';
+        }
+    },
+
     /**
      * Load CRM Teams with Pages (via proxy)
      * @returns {Promise<Array>}
      */
     async loadCRMTeams() {
         const state = window.TposState;
+        // REWIRE (flag-gated): page list từ Pancake thay TPOS CRM teams.
+        if (window.TposFbLiveSource?.enabled()) {
+            try {
+                const { crmTeams, allPages } = await window.TposFbLiveSource.fetchPagesAsCrmTeams();
+                if (allPages.length) {
+                    state.crmTeams = crmTeams;
+                    state.allPages = allPages;
+                    console.log('[TPOS-API] (FB-live) pages:', allPages.length);
+                    return state.crmTeams;
+                }
+                console.warn('[TPOS-API] FB-live pages rỗng → fallback TPOS');
+            } catch (e) {
+                console.warn('[TPOS-API] FB-live pages fail → fallback TPOS:', e.message);
+            }
+        }
         try {
             const response = await this.authenticatedFetch(
                 `${state.proxyBaseUrl}/facebook/crm-teams`
@@ -109,6 +134,18 @@ const TposApi = {
      */
     async loadLiveCampaigns(pageId) {
         const state = window.TposState;
+        // REWIRE (flag-gated): live videos từ FB Graph thay TPOS live campaigns.
+        if (window.TposFbLiveSource?.enabled()) {
+            try {
+                const camps = await window.TposFbLiveSource.fetchVideosAsCampaigns([pageId]);
+                this._fillCampaignPageNames(camps, state);
+                state.liveCampaigns = camps;
+                console.log('[TPOS-API] (FB-live) campaigns:', camps.length);
+                return state.liveCampaigns;
+            } catch (e) {
+                console.warn('[TPOS-API] FB-live campaigns fail → fallback TPOS:', e.message);
+            }
+        }
         try {
             const response = await this.authenticatedFetch(
                 `${state.proxyBaseUrl}/facebook/live-campaigns?top=20`
@@ -133,6 +170,19 @@ const TposApi = {
      */
     async loadLiveCampaignsFromAllPages() {
         const state = window.TposState;
+        // REWIRE (flag-gated): live videos từ FB Graph cho tất cả page.
+        if (window.TposFbLiveSource?.enabled()) {
+            try {
+                const ids = (state.allPages || []).map((p) => p.Facebook_PageId);
+                const camps = await window.TposFbLiveSource.fetchVideosAsCampaigns(ids);
+                this._fillCampaignPageNames(camps, state);
+                state.liveCampaigns = camps;
+                console.log('[TPOS-API] (FB-live) campaigns allPages:', camps.length);
+                return state.liveCampaigns;
+            } catch (e) {
+                console.warn('[TPOS-API] FB-live campaigns(all) fail → fallback TPOS:', e.message);
+            }
+        }
         try {
             const response = await this.authenticatedFetch(
                 `${state.proxyBaseUrl}/facebook/live-campaigns?top=50`

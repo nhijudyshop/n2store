@@ -133,5 +133,68 @@
         }
     }
 
-    window.TposFbLiveSource = { enabled, loadComments, startRealtime, stopRealtime, videoId };
+    // ─── Page discovery (Pancake) → shape crmTeams/allPages giống TPOS ──────
+    // Trả { crmTeams, allPages } để loadCRMTeams set thẳng vào state.
+    async function fetchPagesAsCrmTeams() {
+        const pages = (await window.PancakeAPI?.fetchPages?.()) || [];
+        const allPages = pages.map((p) => ({
+            Id: Number(p.id), // selector so === parseInt(pageId) (precision nhất quán)
+            Facebook_PageId: String(p.id),
+            Facebook_TypeId: 'Page',
+            Name: p.name || String(p.id),
+            Facebook_UserName: p.name || '',
+            teamId: 0,
+            teamName: 'Pancake Pages',
+        }));
+        const crmTeams = allPages.length
+            ? [{ Id: 0, Name: 'Pancake Pages', Childs: allPages }]
+            : [];
+        return { crmTeams, allPages };
+    }
+
+    // ─── Live video discovery (FB Graph) → shape liveCampaign giống TPOS ────
+    // pageIds: 1 hoặc nhiều page. Trả mảng campaign-like.
+    async function fetchVideosAsCampaigns(pageIds) {
+        const ids = Array.isArray(pageIds) ? pageIds : [pageIds];
+        const out = [];
+        for (const pid of ids) {
+            const pageId = String(pid || '').trim();
+            if (!pageId) continue;
+            const token = await pageToken(pageId);
+            if (!token) continue;
+            try {
+                const url = `${base()}/api/web2-fb-live/videos?pageId=${encodeURIComponent(pageId)}&token=${encodeURIComponent(token)}&limit=50`;
+                const r = await fetch(url, { headers: { Accept: 'application/json' } });
+                const d = await r.json().catch(() => ({}));
+                if (!d || d.success === false || !Array.isArray(d.data)) continue;
+                for (const v of d.data) {
+                    const vid = String(v.videoId || v.objectId || '');
+                    if (!vid) continue;
+                    out.push({
+                        Id: vid, // checkbox value + find(x.Id===id)
+                        Name: v.title || '(live)',
+                        Facebook_UserId: pageId, // = pageId
+                        Facebook_LiveId: `${pageId}_${vid}`, // = postId cho loadComments/startSSE
+                        Facebook_UserName: out.length === 0 ? '' : '', // điền sau từ allPages nếu cần
+                        DateCreated: v.channelCreatedTime || null,
+                        StatusLive: v.statusLive || null,
+                        _thumbnail: v.thumbnail?.url || null,
+                    });
+                }
+            } catch (e) {
+                console.warn('[FB-LIVE-SRC] fetchVideos fail page', pageId, e.message);
+            }
+        }
+        return out;
+    }
+
+    window.TposFbLiveSource = {
+        enabled,
+        loadComments,
+        startRealtime,
+        stopRealtime,
+        videoId,
+        fetchPagesAsCrmTeams,
+        fetchVideosAsCampaigns,
+    };
 })();

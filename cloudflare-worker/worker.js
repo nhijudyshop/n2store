@@ -234,6 +234,8 @@ async function routeRequest(request, env, ctx) {
                 return handleCustomer360Proxy(request, url, pathname);
             case 'WEB2_FB_LIVE':
                 return handleCustomer360Proxy(request, url, pathname);
+            case 'WEB2_LIVE_CAMPAIGNS':
+                return handleCustomer360Proxy(request, url, pathname);
             case 'ORDER_NOTES':
                 return handleCustomer360Proxy(request, url, pathname);
             case 'ADMIN_FIREBASE':
