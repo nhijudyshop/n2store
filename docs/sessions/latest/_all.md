@@ -3,17 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0e530bd` — feat(web2): cắt TPOS — picker FB Graph (flag) + live-campaign CRUD→web2_live_campaigns
-**Last updated**: 2026-06-07 18:39:53 +07
-**Latest session**: [`RESUME:20260607-183953-0e530bd`](../20260607-183953-0e530bd.md)
-**Summary**: feat(web2): cắt TPOS — picker FB Graph (flag) + live-campaign CRUD→web2_live_campaigns
+**Latest commit**: `f7a6a56` — feat(web2): GỠ SẠCH TPOS khỏi cột live + live-campaign (no flag, no fallback)
+**Last updated**: 2026-06-07 18:59:38 +07
+**Latest session**: [`RESUME:20260607-185938-f7a6a56`](../20260607-185938-f7a6a56.md)
+**Summary**: feat(web2): GỠ SẠCH TPOS khỏi cột live + live-campaign (no flag, no fallback)
 
 ## Folders affected in this commit
 
-- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 7 file(s)
 - [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
@@ -28,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-07 18:39
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-07 18:39
+- [`docs/`](./docs.md) — updated 2026-06-07 18:59
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
@@ -66,10 +64,10 @@
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:46
 - [`tests/`](./tests.md) — updated 2026-06-06 18:52
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 18:39
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 18:59
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-07 18:39
+- [`web2/`](./web2.md) — updated 2026-06-07 18:59
