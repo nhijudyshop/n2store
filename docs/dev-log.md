@@ -25,6 +25,14 @@
 
 ## 2026-06-07
 
+### [render][admin] Reset ví/đơn theo SĐT (dọn clone test) + giải thích ví-vs-nợ ✅
+
+**Bối cảnh:** clone test `0123456788` bị churn nặng (1.6M nạp/trừ/cleanup qua nhiều phiên) → partner-customer hiện "Đã thu 1.658.662 / Còn nợ -1.198.662 / Ví 0đ" méo. User hỏi "khách có nợ nên nạp vào tài khoản không lên à?" → ĐÚNG: model "CK tự trả nợ đơn" (user chốt giữ) → CK nạp vào bị trừ ngay vào PBH chưa trả → ví về 0. Logic feature ĐÚNG (dư mới giữ trong ví); ví 0 chỉ do data test churn.
+
+**Endpoint mới `POST /api/admin/web2-wallet-reset/by-phone`** (`admin-web2-wallet-reset.js`, guard x-admin-secret + confirm 'YES-RESET' + dryRun): reset SẠCH 1 SĐT — xoá web2_wallet_transactions/web2_customer_wallets + native_orders + fast_sale_orders (partner_phone) + unlink web2_balance_history (GIỮ SePay log) + reset matched_tx web2_payment_signals. CHỈ đụng đúng SĐT (+ biến thể normalize). KHÁC reset toàn bộ (TRUNCATE) — an toàn per-phone. ⚠ Proxy KHÔNG forward `/api/admin` → gọi direct `n2store-fallback.onrender.com`. (web2_wallet_adjustments không có cột phone → step lỗi non-fatal, bỏ qua.)
+
+**Đã reset `0123456788`:** 47 GD ví + 1 ví + 1 PBH + 1 đơn web xoá; 21 GD SePay unlink (giữ log); 3 tín hiệu CK reset. Verified: ví=None(0), 0 GD, 0 đơn. Commit `a6257abc6`.
+
 ### [so-order] Nút "In tem" trong panel nhận hàng — in/in lại QR cả khi đã nhận đủ ✅
 
 **User (kiểm tra NCC ADIDAS đợt AD-2606):** lô đã nhận đủ trước (server pendingQty=0, mọi SP "ĐÃ NHẬN ĐỦ", nhập=0) → luồng in-khi-nhận KHÔNG kích hoạt (không có gì để xác nhận) → không in/in lại tem được.
