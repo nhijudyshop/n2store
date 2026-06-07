@@ -37,7 +37,9 @@
 - `web2-chat-panel.css` — style `.w2cp-` (Tier-1 anti-lag: contain + overscroll-behavior + content-visibility).
 - `web2-chat-panel.js` — `Web2ChatPanel.mount(container,{mode,flags}).open(conv,adapter)`. Tách UI ↔ transport bằng ADAPTER (`loadMessages/loadOlder/send/markRead/quickReplies/...`). 3 mode: full/readonly/picker. Union tính năng hiện có: render media (img/sticker/video/audio/file/reactions/quoted), reply-to UI, emoji picker, attach file/ảnh, pagination scroll-lên, scroll-to-bottom + badge, phone copy badge, UI-first send qua Web2Optimistic, `pushMessage/setMessages` cho realtime. Flags `enablePaste/enableSticker/enableReactSend/enableEntityDetect` cho feature 1-3 (commit sau).
 
-**Next:** migrate tpos-pancake (base, rủi ro thấp) → native-orders (live) → balance-history readonly → rồi feature 1→2→3. **Status: 🔄 foundation done, chưa wire trang nào.**
+**Migrate tpos-pancake ✅ (commit này):** `pancake-chat-window.js` rút từ 1212 dòng → wrapper mỏng (~330 dòng) bọc `Web2ChatPanel`. Giữ public surface `renderChatWindow/renderMessages/scrollToBottom` cho `pancake-conversation-list.js` + `pancake-realtime.js` (realtime push vào `PancakeState.messages` → `renderMessages()` → `panel.setMessages`). Adapter bọc `PancakeAPI` (fetch/loadOlder/send/markRead/quickReplies) + port nguyên send extension-first (bypass 24h) → Pancake fallback. Load thêm `web2-chat-emoji-data.js` + `web2-chat-panel.{js,css}` vào `tpos-pancake/index.html`. **Test live (FIFO browser):** mở hội thoại "Thanh Quế" → `hostIsRoot:true`, render messages + header name + input + emoji picker (mở OK, 8 emoji recent) + reply btn, **0 console error**. Send KHÔNG live-fire (tránh nhắn KH thật) — logic port verbatim.
+
+**Next:** native-orders (live, lớn nhất) → balance-history readonly → rồi feature 1→2→3. **Status: 🔄 foundation + tpos-pancake done.**
 
 ### [render][web2] Part A: GATE auto-gán SePay theo đơn active ✅
 
