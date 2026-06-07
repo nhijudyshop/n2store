@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ad5500b` — feat(web2/returns): Vấn đề khách/shipper, thu về 1 phần theo đơn, Sửa COD (shipper)
-**Last updated**: 2026-06-07 12:49:07 +07
-**Latest session**: [`RESUME:20260607-124907-ad5500b`](../20260607-124907-ad5500b.md)
-**Summary**: feat(web2/returns): Vấn đề khách/shipper, thu về 1 phần theo đơn, Sửa COD (shipper)
+**Latest commit**: `b1bcd21` — fix(orders): lần in gắn cạnh #STT trên bill (bỏ dòng meta riêng, tiết kiệm diện tích)
+**Last updated**: 2026-06-07 12:49:41 +07
+**Latest session**: [`RESUME:20260607-124941-b1bcd21`](../20260607-124941-b1bcd21.md)
+**Summary**: fix(orders): lần in gắn cạnh #STT trên bill (bỏ dòng meta riêng, tiết kiệm diện tích)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
