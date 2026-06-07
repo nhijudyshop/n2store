@@ -33,7 +33,9 @@
 
 **Files:** `render.com/routes/web2-returns.js` (cột `issue`/`cod_reduction`/`payable_carrier`; `SHIPPER_REASONS`; source-order trả `cod`/`ship`; create nhánh `van_de_shipper`; thu_ve_1_phan lưu sourceOrder; delete rollback ví 2 chiều), `web2/returns/{index.html, js/returns-app.js, js/returns-api.js, css/returns.css}` (form ẩn đến khi chọn KH, hàng Vấn đề, order-picker chung, thu về 1 phần chọn SP trong đơn, panel shipper COD). Cache-bust `?v=20260607r`.
 
-**Status:** ✅ Done — local-DB smoke (ALTER + 2 INSERT shapes) PASS; headless OK; push → Render auto-deploy + worker đã route.
+**Status:** ✅ Done — local-DB smoke (ALTER + 2 INSERT shapes) PASS; headless OK; push → Render auto-deploy + worker đã route. health/list/pending live 200.
+
+**Fix kèm (cùng ngày):** `fast_sale_orders` dùng cột **`amount_total`** (KHÔNG phải `total_amount`). Bug latent nhánh pbh: `web2-returns.js _resolveSourceOrder(pbh)` + `web2-customer-orders.js` section pbh đều SELECT `total_amount` → query throw → catch nuốt → **PBH mất khỏi list KH** (COD flow cần đơn pbh vì COD ở fast_sale_orders). Sửa cả 2 → `amount_total`.
 
 ### [orders][render] Đã in: icon máy in ở list (hover hiện số lần + thời gian), bỏ icon trên bill ✅
 
