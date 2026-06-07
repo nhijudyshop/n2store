@@ -816,6 +816,8 @@
                 st.messages = (arr || []).slice();
                 renderAll();
             },
+            scrollToBottom,
+            reload: loadThread,
             getState() {
                 return st;
             },

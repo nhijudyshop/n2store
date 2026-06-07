@@ -1,361 +1,138 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
-// =====================================================
-// PANCAKE CHAT WINDOW - Message display and input
-// =====================================================
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — wrapper mỏng bọc Web2ChatPanel (component chat hợp nhất). Giữ public API cũ cho conversation-list + realtime.
+// =====================================================================
+// PancakeChatWindow — TỪ 2026-06-07 chỉ là wrapper mỏng quanh Web2ChatPanel
+// (web2/shared/chat-panel/web2-chat-panel.js). UI/render/emoji/reply/pagination
+// nằm trong component chung; file này CHỈ build ADAPTER bọc PancakeAPI/PancakeState
+// (fetch/send/upload + extension-first bypass 24h) và giữ nguyên public surface mà
+// pancake-conversation-list.js + pancake-realtime.js đang gọi:
+//   renderChatWindow(conv)  — mở chat (mount panel + open)
+//   renderMessages()        — realtime: đồng bộ panel từ PancakeState.messages
+//   scrollToBottom()
+// =====================================================================
 
 const PancakeChatWindow = {
-    // Attachment đang chọn để gửi: { file, kind } với kind ∈ PHOTO|AUDIO|VIDEO|FILE.
-    selectedAttachment: null,
+    _panel: null,
 
-    /**
-     * Render chat window for a conversation
-     */
     renderChatWindow(conv) {
-        const chatWindow = document.getElementById('pkChatWindow');
-        if (!chatWindow) return;
-        const state = window.PancakeState;
-        const { escapeHtml } = window.SharedUtils;
-
-        const name = conv.from?.name || conv.customers?.[0]?.name || 'Unknown';
-        const avatar = this._getChatAvatarHtml(conv);
-        const location = conv.customers?.[0]?.address?.province || '';
-        const isComment = conv.type === 'COMMENT' || /^\d+_\d+$/.test(conv.id);
-        const pageName =
-            (state.pages || []).find((p) => p.id === conv.page_id || p.page_id === conv.page_id)
-                ?.name || 'shop';
-        const hasExt = !!window.Web2Ext?.hasExtension?.();
-
-        chatWindow.innerHTML = `
-            <div class="pk-chat-header">
-                <div class="pk-chat-header-left">
-                    ${avatar}
-                    <div class="pk-chat-info">
-                        <div class="pk-chat-name">
-                            <span>${escapeHtml(name)}</span>
-                            ${location ? `<span class="pk-location-badge"><i data-lucide="map-pin"></i> ${escapeHtml(location)}</span>` : ''}
-                        </div>
-                        <div class="pk-chat-status">${escapeHtml(this._getChatStatus(conv))}</div>
-                    </div>
-                </div>
-                <div class="pk-chat-header-right">
-                    ${
-                        isComment && state.serverMode === 'n2store'
-                            ? `
-                    <button class="pk-header-btn pk-private-reply-btn" id="pkPrivateReplyBtn" title="Gửi tin nhắn riêng (Private Reply)">
-                        <i data-lucide="mail"></i><span class="pk-btn-label">Private Reply</span>
-                    </button>`
-                            : ''
-                    }
-                    <button class="pk-header-btn" title="Liên kết"><i data-lucide="link"></i></button>
-                    <button class="pk-header-btn" title="Lịch sử"><i data-lucide="history"></i></button>
-                </div>
-            </div>
-            ${this._renderCustomerStatsBar(conv)}
-            <div class="pk-chat-messages" id="pkChatMessages">
-                <div class="pk-loading"><div class="pk-loading-spinner"></div><p style="margin-top:10px;color:#666;">Đang tải tin nhắn...</p></div>
-            </div>
-            <button class="pk-scroll-to-bottom" id="pkScrollToBottom" title="Cuộn xuống tin nhắn mới nhất">
-                <i data-lucide="chevron-down"></i>
-                <span class="pk-new-msg-badge" id="pkNewMsgBadge">0</span>
-            </button>
-            <div class="pk-quick-reply-bar" id="pkQuickReplyBar">${this.renderQuickReplies()}</div>
-            <div class="pk-reply-from">
-                <i data-lucide="reply"></i><span>Trả lời từ <strong>${escapeHtml(pageName)}</strong></span>
-                <span class="pk-send-via">${hasExt ? '🚀 N2 Extension (bypass 24h)' : 'Gửi qua Pancake API'}</span>
-            </div>
-            <div class="pk-chat-input-container">
-                <div class="pk-input-actions">
-                    <button class="pk-input-btn" id="pkFileBtn" title="Đính kèm tệp / âm thanh"><i data-lucide="paperclip"></i></button>
-                    <input type="file" id="pkFileInput" style="display:none;">
-                    <button class="pk-input-btn" id="pkImageBtn" title="Hình ảnh"><i data-lucide="image"></i></button>
-                    <input type="file" id="pkImageInput" accept="image/*" style="display:none;">
-                    <button class="pk-input-btn" id="pkEmojiBtn" title="Emoji"><i data-lucide="smile"></i></button>
-                </div>
-                <div id="pkEmojiPicker" class="pk-emoji-picker" style="display:none;">
-                    <div class="pk-emoji-categories">
-                        <button class="pk-emoji-cat active" data-category="recent" title="Gần đây">🕐</button>
-                        <button class="pk-emoji-cat" data-category="smileys" title="Mặt cười">😊</button>
-                        <button class="pk-emoji-cat" data-category="gestures" title="Cử chỉ">👋</button>
-                        <button class="pk-emoji-cat" data-category="hearts" title="Trái tim">❤️</button>
-                        <button class="pk-emoji-cat" data-category="animals" title="Động vật">🐱</button>
-                        <button class="pk-emoji-cat" data-category="food" title="Đồ ăn">🍔</button>
-                        <button class="pk-emoji-cat" data-category="objects" title="Đồ vật">💡</button>
-                    </div>
-                    <div class="pk-emoji-grid" id="pkEmojiGrid"></div>
-                </div>
-                <div class="pk-chat-input-wrapper">
-                    <div id="pkAttachPreview" class="pk-attach-preview" style="display:none;">
-                        <span id="pkAttachBody"></span>
-                        <button class="pk-preview-remove" id="pkRemovePreview">×</button>
-                    </div>
-                    <textarea id="pkChatInput" class="pk-chat-input" placeholder="Nhập tin nhắn gửi cho khách… (Enter để gửi, /shortcut để chèn mẫu)" rows="1"></textarea>
-                </div>
-                <button class="pk-send-btn" id="pkSendBtn" title="Gửi"><i data-lucide="send"></i></button>
-            </div>`;
-
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-        this._loadMessages(conv);
-        this._bindChatInputEvents();
-        this._bindScrollEvents();
+        const host = document.getElementById('pkChatWindow');
+        if (!host) return;
+        if (!window.Web2ChatPanel) {
+            host.innerHTML =
+                '<div style="padding:24px;text-align:center;color:#b91c1c;">⚠ Web2ChatPanel chưa load (kiểm tra web2-chat-panel.js).</div>';
+            return;
+        }
+        window.PancakeState.activeConversation = conv;
+        this._panel = window.Web2ChatPanel.mount(host, { mode: 'full' });
+        this._panel.open(conv, this._buildAdapter(conv));
     },
 
-    /**
-     * Render messages in chat area
-     */
+    // Realtime (_handleNewMessage / _fetchNewMessagesForActive) đẩy tin mới vào
+    // PancakeState.messages rồi gọi renderMessages() → đồng bộ sang panel.
     renderMessages() {
-        const container = document.getElementById('pkChatMessages');
-        if (!container) return;
-        const state = window.PancakeState;
-        const { escapeHtml } = window.SharedUtils;
-
-        if (state.messages.length === 0) {
-            container.innerHTML = `<div class="pk-empty-state"><i data-lucide="message-circle"></i><h3>Chưa có tin nhắn</h3></div>`;
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-            return;
-        }
-
-        const sorted = [...state.messages].sort((a, b) => {
-            const tA = new Date(a.inserted_at || a.created_time || 0).getTime();
-            const tB = new Date(b.inserted_at || b.created_time || 0).getTime();
-            return tA - tB;
-        });
-
-        const grouped = this._groupMessagesByDate(sorted);
-        let html = '';
-        for (const [date, msgs] of Object.entries(grouped)) {
-            html += `<div class="pk-date-separator"><span>${date}</span></div>`;
-            html += msgs.map((msg) => this._renderMessage(msg)).join('');
-        }
-        container.innerHTML = html;
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-
-        if (state.isScrolledToBottom) {
-            container.scrollTop = container.scrollHeight;
-        } else {
-            state.newMessageCount++;
-            this._updateScrollButtonBadge();
-        }
+        if (this._panel) this._panel.setMessages(window.PancakeState.messages || []);
     },
-
-    _renderMessage(msg) {
-        const state = window.PancakeState;
-        const { escapeHtml } = window.SharedUtils;
-        const isOutgoing = msg.from?.id === state.activeConversation?.page_id;
-        const text = msg.message || msg.text || '';
-        const time = this._formatMessageTime(msg.inserted_at || msg.created_time);
-        const attachments = msg.attachments || [];
-        const reactions = attachments.filter((a) => a.type === 'reaction');
-        const media = attachments.filter((a) => a.type !== 'reaction');
-
-        let attHtml = media
-            .map((att) => {
-                if (
-                    att.type === 'image' ||
-                    att.type === 'photo' ||
-                    att.mime_type?.startsWith('image/')
-                ) {
-                    const url = att.url || att.file_url || att.preview_url || att.image_data?.url;
-                    return url
-                        ? `<div class="pk-message-image"><img src="${url}" alt="Image" onclick="window.open('${url}','_blank')" loading="lazy"></div>`
-                        : '';
-                }
-                if (att.type === 'sticker' || att.sticker_id) {
-                    const url = att.url || att.file_url || att.preview_url;
-                    return url
-                        ? `<div class="pk-message-sticker"><img src="${url}" alt="Sticker" loading="lazy"></div>`
-                        : '';
-                }
-                if (att.type === 'video' || att.mime_type?.startsWith('video/')) {
-                    const url = att.url || att.file_url;
-                    return url
-                        ? `<div class="pk-message-video"><video controls src="${url}" preload="metadata"></video></div>`
-                        : '';
-                }
-                if (att.type === 'audio' || att.mime_type?.startsWith('audio/')) {
-                    const url = att.url || att.file_url;
-                    return url
-                        ? `<div class="pk-message-audio"><audio controls src="${url}" preload="metadata"></audio></div>`
-                        : '';
-                }
-                if (att.type === 'file' || att.type === 'document') {
-                    const url = att.url || att.file_url;
-                    const name = att.name || att.filename || 'Tệp đính kèm';
-                    return url
-                        ? `<div class="pk-message-file"><a href="${url}" target="_blank"><i data-lucide="file-text"></i><span>${escapeHtml(name)}</span></a></div>`
-                        : '';
-                }
-                if (att.type === 'like' || att.type === 'thumbsup') {
-                    return '<div class="pk-message-like"><span class="pk-like-icon">👍</span></div>';
-                }
-                if (att.type === 'animated_image_url' || att.type === 'animated_image_share') {
-                    const url = att.url || att.file_url;
-                    return url
-                        ? `<div class="pk-message-sticker"><img src="${url}" alt="GIF" loading="lazy"></div>`
-                        : '';
-                }
-                return '';
-            })
-            .join('');
-
-        let reactionsHtml =
-            reactions.length > 0
-                ? `<span class="pk-message-reactions">${reactions.map((r) => r.emoji || '❤️').join('')}</span>`
-                : '';
-
-        const sender = isOutgoing ? msg.sender_action_name || 'Nv.My' : '';
-
-        return `
-            <div class="pk-message ${isOutgoing ? 'outgoing' : 'incoming'}">
-                ${attHtml}
-                ${
-                    text
-                        ? `<div class="pk-message-bubble"><div class="pk-message-text">${escapeHtml(this._parseMessageHtml(text))}</div>${reactionsHtml}</div>`
-                        : reactionsHtml
-                          ? `<div class="pk-message-bubble">${reactionsHtml}</div>`
-                          : ''
-                }
-                <div class="pk-message-meta">
-                    <span class="pk-message-time">${time}</span>
-                    ${sender ? `<span class="pk-message-sender">${escapeHtml(sender)}</span>` : ''}
-                    ${isOutgoing ? `<span class="pk-message-status"><i data-lucide="check-check"></i></span>` : ''}
-                </div>
-            </div>`;
+    scrollToBottom() {
+        if (this._panel) this._panel.scrollToBottom();
     },
+    // Legacy no-op: send do panel xử lý qua adapter.send.
+    sendMessage() {},
 
-    renderQuickReplies() {
-        const qr = window.PancakeState.quickReplies;
-        const { escapeHtml } = window.SharedUtils;
-        // Single wrapping row of colorful chips (giống native-orders w2-quick-tag):
-        // nền rgba inline, chữ trắng + text-shadow.
-        return `<div class="pk-quick-reply-row">${qr
-            .map(
-                (q) =>
-                    `<button class="pk-quick-reply-btn" data-template="${escapeHtml(q.template || '')}" style="background:${q.color}">${escapeHtml(q.label)}</button>`
-            )
-            .join('')}</div>`;
-    },
-
-    // =====================================================
-    // SEND MESSAGE
-    // =====================================================
-
-    async sendMessage() {
-        const chatInput = document.getElementById('pkChatInput');
-        const state = window.PancakeState;
-        if (!chatInput || !state.activeConversation) return;
-
-        const text = chatInput.value.trim();
-        const att = this.selectedAttachment; // { file, kind } | null
-        const hasAttachment = !!att;
-        if (!text && !hasAttachment) return;
-
-        const conv = state.activeConversation;
-        const convId = conv.id;
-        const tempId = 'temp_' + Date.now();
+    // ============================== ADAPTER ==============================
+    _buildAdapter(conv) {
         const self = this;
-        const attLabel = !hasAttachment
-            ? ''
-            : att.kind === 'AUDIO'
-              ? '[Âm thanh]'
-              : att.kind === 'VIDEO'
-                ? '[Video]'
-                : att.kind === 'FILE'
-                  ? '[Tệp]'
-                  : '[Hình ảnh]';
+        const state = window.PancakeState;
+        const pageId = conv.page_id;
+        const convId = conv.id;
+        const pageName =
+            (state.pages || []).find((p) => p.id === pageId || p.page_id === pageId)?.name ||
+            'shop';
 
-        // UI-FIRST: hiện bong bóng + clear ô nhập NGAY, gửi chạy nền background.
-        const apply = () => {
-            chatInput.value = '';
-            chatInput.style.height = 'auto';
-            if (hasAttachment) self._clearAttachPreview();
-            state.messages.push({
-                id: tempId,
-                message: text || attLabel,
-                from: { id: conv.page_id, name: 'You' },
-                inserted_at: new Date().toISOString(),
-                _temp: true,
-            });
-            state.isScrolledToBottom = true;
-            self.renderMessages();
-            self.scrollToBottom();
-            if (state.activeConversation?.id === convId) {
-                conv.snippet = text || attLabel;
-                conv.updated_at = new Date().toISOString();
-                window.PancakeConversationList.renderConversationList();
-            }
+        return {
+            pageName,
+            hasExtension: !!window.Web2Ext?.hasExtension?.(),
+
+            quickReplies() {
+                return (state.quickReplies || []).map((q) => ({
+                    label: q.label,
+                    template: q.template || '',
+                    color: q.color || '#7c3aed',
+                }));
+            },
+
+            async loadMessages() {
+                let result;
+                if (state.serverMode === 'n2store') {
+                    result = await window.PancakeAPI.fetchMessagesN2Store(pageId, convId);
+                } else {
+                    result = await window.PancakeAPI.fetchMessages(pageId, convId, {
+                        customerId: conv.customers?.[0]?.id || null,
+                    });
+                }
+                // Newest-first từ API → reverse thành oldest-first (panel tự sort lại theo ts).
+                state.messages = (result.messages || []).slice().reverse();
+                state.messageCurrentCount = state.messages.length;
+                return { messages: state.messages.slice(), hasMore: state.messages.length > 0 };
+            },
+
+            async loadOlder(cursor) {
+                const result = await window.PancakeAPI.fetchMessages(pageId, convId, {
+                    currentCount: cursor,
+                    customerId: conv.customers?.[0]?.id || null,
+                });
+                const older = (result.messages || []).slice().reverse();
+                if (older.length) {
+                    const known = new Set((state.messages || []).map((m) => m.id).filter(Boolean));
+                    const fresh = older.filter((m) => m.id && !known.has(m.id));
+                    state.messages = [...fresh, ...(state.messages || [])];
+                    state.messageCurrentCount = state.messages.length;
+                }
+                return { messages: older };
+            },
+
+            async markRead() {
+                if (conv.unread_count > 0) {
+                    try {
+                        await window.PancakeAPI.markAsRead(pageId, convId);
+                        conv.unread_count = 0;
+                        conv.seen = true;
+                        window.PancakeConversationList?.renderConversationList?.();
+                    } catch (_) {}
+                }
+            },
+
+            onConversationUpdate(c) {
+                c.updated_at = new Date().toISOString();
+                window.PancakeConversationList?.renderConversationList?.();
+            },
+
+            async send({ text, attachment }) {
+                const res = await self._performSend(conv, convId, text, attachment || null);
+                // Giữ PancakeState.messages đồng bộ (realtime renderMessages dựa vào nó).
+                if (res?.sent) {
+                    state.messages = state.messages || [];
+                    if (!state.messages.some((m) => m.id === res.sent.id))
+                        state.messages.push(res.sent);
+                }
+                if (res?.via === 'extension' && window.notificationManager?.show) {
+                    window.notificationManager.show(
+                        'Đã gửi qua N2 Extension (bypass 24h)',
+                        'success'
+                    );
+                }
+                return res;
+            },
         };
-
-        // Backend OK → thay bong bóng tạm bằng tin thật (chỉ khi vẫn ở đúng hội thoại).
-        const onSuccess = (res) => {
-            if (state.activeConversation?.id !== convId) return;
-            state.messages = state.messages.filter((m) => m.id !== tempId);
-            if (res?.sent) state.messages.push(res.sent);
-            state.isScrolledToBottom = true;
-            self.renderMessages();
-            self.scrollToBottom();
-            if (res?.via === 'extension' && window.notificationManager?.show) {
-                window.notificationManager.show('Đã gửi qua N2 Extension (bypass 24h)', 'success');
-            }
-        };
-
-        // Lỗi → gỡ bong bóng tạm + BẬT LẠI nội dung vào ô chat để gửi lại + (ảnh) khôi
-        // phục preview. Web2Optimistic.run tự show toast lỗi qua errLabel.
-        const rollback = () => {
-            if (state.activeConversation?.id !== convId) return;
-            state.messages = state.messages.filter((m) => m.id !== tempId);
-            self.renderMessages();
-            const inp = document.getElementById('pkChatInput');
-            if (inp && !inp.value.trim() && text) {
-                inp.value = text;
-                inp.style.height = 'auto';
-                inp.style.height = Math.min(inp.scrollHeight, 100) + 'px';
-                inp.focus();
-            }
-            if (hasAttachment) self.handleAttachment(att.file);
-        };
-
-        if (window.Web2Optimistic?.run) {
-            window.Web2Optimistic.run({
-                apply,
-                run: () => self._performSend(conv, convId, text, att),
-                onSuccess,
-                rollback,
-                errLabel: 'gửi tin nhắn',
-            });
-            return;
-        }
-
-        // Fallback nếu Web2Optimistic chưa load: await + rollback thủ công.
-        apply();
-        try {
-            onSuccess(await self._performSend(conv, convId, text, att));
-        } catch (e) {
-            rollback();
-            const errMsg = `Lỗi gửi tin nhắn: ${e?.message || 'Vui lòng thử lại'}`;
-            if (window.Popup) window.Popup.error(errMsg);
-            else if (window.notificationManager?.show)
-                window.notificationManager.show(errMsg, 'error');
-        }
     },
 
-    /**
-     * Thực thi gửi tin (chạy nền) — thứ tự giống native-orders: thử N2 Extension
-     * TRƯỚC (bypass 24h; gửi được cả ẢNH/ÂM THANH/VIDEO/TỆP qua UPLOAD_INBOX_PHOTO +
-     * REPLY_INBOX_PHOTO), nếu lỗi/không có extension thì fallback Pancake API.
-     * @param {object} conv
-     * @param {string} convId
-     * @param {string} text
-     * @param {{file:File, kind:string}|null} att  attachment đang chọn (nếu có)
-     * @returns {Promise<{via:'extension'|'pancake', sent:object}>} hoặc throw nếu fail hết.
-     */
+    // ===================== SEND (port từ bản cũ) =====================
+    // Thử N2 Extension TRƯỚC (bypass 24h, gửi cả ảnh/âm thanh/video/tệp), lỗi/không
+    // có extension → fallback Pancake API.
     async _performSend(conv, convId, text, att) {
         const state = window.PancakeState;
         const pageId = conv.page_id;
         const customerId = conv.customers?.[0]?.id || null;
         const action = conv.type === 'COMMENT' ? 'reply_comment' : 'reply_inbox';
 
-        // ROUTE 1: Extension TRƯỚC (text + attachment). Không có extension → trả false
-        // ngay (không trễ) → rơi xuống Pancake.
         if ((text || att) && (await this._trySendViaExtension(conv, text, att))) {
             return {
                 via: 'extension',
@@ -368,8 +145,6 @@ const PancakeChatWindow = {
             };
         }
 
-        // ROUTE 2: Pancake API. Upload attachment nếu có (ảnh chắc chắn OK; audio/file
-        // tuỳ Pancake hỗ trợ — lỗi thì throw → Web2Optimistic rollback + bật lại).
         let contentIds = [];
         let attachmentId = null;
         let attachmentType = null;
@@ -411,17 +186,9 @@ const PancakeChatWindow = {
         return { via: 'pancake', sent };
     },
 
-    /**
-     * Fallback gửi tin qua N2 Extension (bypass quy tắc 24h của Pancake bằng FB
-     * Business Suite GraphQL) — giống native-orders `_handleSendMessage`.
-     * Trả về true nếu extension gửi thành công.
-     *
-     * FB messaging/send/ cần OTHER_USER_FBID là FB Global ID (vd 100001957832900),
-     * KHÔNG phải PSID (page-scoped). Gửi PSID → FB silent-reject 1545012. Nên phải
-     * resolve global_id trước: ưu tiên Pancake API (customers[].global_id), fallback
-     * extension GET_GLOBAL_ID_FOR_CONV.
-     * @returns {Promise<boolean>}
-     */
+    // Gửi qua N2 Extension (FB Business Suite GraphQL) — cần FB Global ID (không phải
+    // PSID). Resolve global_id qua Pancake API (Web2Chat.fetchMessages → customers[].
+    // global_id), fallback extension GET_GLOBAL_ID_FOR_CONV. Trả true nếu gửi OK.
     async _trySendViaExtension(conv, text, att) {
         if (!conv || (!text && !att)) return false;
         if (!window.Web2Ext?.hasExtension?.()) return false;
@@ -434,7 +201,6 @@ const PancakeChatWindow = {
                 (String(conv.id).includes('_') ? String(conv.id).split('_')[1] : conv.id);
             const custName = conv.from?.name || conv.customers?.[0]?.name || '';
 
-            // ROUTE 1: global_id qua Pancake API (Web2Chat.fetchMessages → customers[].global_id)
             let globalUserId = conv._fbGlobalUserId || null;
             if (!globalUserId && window.Web2Chat?.fetchMessages) {
                 try {
@@ -452,7 +218,6 @@ const PancakeChatWindow = {
                     console.warn('[PK-CHAT] Pancake API global_id fetch failed:', e.message);
                 }
             }
-            // ROUTE 2: extension GET_GLOBAL_ID_FOR_CONV (chậm hơn)
             if (!globalUserId && pageId && (threadId || custName)) {
                 try {
                     const g = await window.Web2Ext.request(
@@ -476,8 +241,6 @@ const PancakeChatWindow = {
                 }
             }
 
-            // Upload attachment lên FB (qua extension) → fbId, rồi gửi kèm. Extension
-            // hỗ trợ PHOTO/AUDIO/VIDEO/FILE; payload data-URL để SW fetch được.
             let files = [];
             let attachmentType = 'SEND_TEXT_ONLY';
             if (att && att.file) {
@@ -490,7 +253,7 @@ const PancakeChatWindow = {
                 const fbId = up?.data?.fbId;
                 if (!up.ok || !fbId) {
                     console.warn('[PK-CHAT] extension upload failed:', up?.error);
-                    return false; // → fallback Pancake
+                    return false;
                 }
                 files = [fbId];
                 attachmentType = att.kind || 'FILE';
@@ -523,21 +286,6 @@ const PancakeChatWindow = {
         }
     },
 
-    // =====================================================
-    // IMAGE UPLOAD
-    // =====================================================
-
-    // Suy ra attachmentType của extension từ MIME file.
-    _attachmentKind(file) {
-        const t = (file && file.type) || '';
-        if (t.startsWith('image/')) return 'PHOTO';
-        if (t.startsWith('audio/')) return 'AUDIO';
-        if (t.startsWith('video/')) return 'VIDEO';
-        return 'FILE';
-    },
-
-    // File → data URL (base64) để truyền cho extension UPLOAD_INBOX_PHOTO (SW fetch
-    // được data: URL ở mọi context; blob: URL của page thì không).
     _fileToDataUrl(file) {
         return new Promise((resolve, reject) => {
             const r = new FileReader();
@@ -546,667 +294,8 @@ const PancakeChatWindow = {
             r.readAsDataURL(file);
         });
     },
-
-    // Chọn 1 attachment (ảnh / âm thanh / video / tệp) → set state + preview.
-    handleAttachment(file) {
-        if (!file) return;
-        const kind = this._attachmentKind(file);
-        this.selectedAttachment = { file, kind };
-        const wrap = document.getElementById('pkAttachPreview');
-        const body = document.getElementById('pkAttachBody');
-        if (!wrap || !body) return;
-        const { escapeHtml } = window.SharedUtils;
-        if (kind === 'PHOTO') {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                body.innerHTML = `<img class="pk-attach-thumb" src="${e.target.result}">`;
-                wrap.style.display = 'flex';
-            };
-            reader.readAsDataURL(file);
-        } else {
-            const icon = kind === 'AUDIO' ? '🎵' : kind === 'VIDEO' ? '🎬' : '📎';
-            const kb = Math.max(1, Math.round((file.size || 0) / 1024));
-            body.innerHTML = `<span class="pk-attach-chip">${icon} ${escapeHtml(file.name || 'tệp')} <small>(${kb} KB)</small></span>`;
-            wrap.style.display = 'flex';
-        }
-    },
-
-    // Backward-compat alias (vài chỗ còn gọi tên cũ).
-    handleImageUpload(file) {
-        this.handleAttachment(file);
-    },
-
-    _clearAttachPreview() {
-        this.selectedAttachment = null;
-        const wrap = document.getElementById('pkAttachPreview');
-        const body = document.getElementById('pkAttachBody');
-        if (wrap) wrap.style.display = 'none';
-        if (body) body.innerHTML = '';
-        const fi = document.getElementById('pkFileInput');
-        const ii = document.getElementById('pkImageInput');
-        if (fi) fi.value = '';
-        if (ii) ii.value = '';
-    },
-
-    // =====================================================
-    // EMOJI PICKER
-    // =====================================================
-
-    bindEmojiPicker() {
-        const emojiBtn = document.getElementById('pkEmojiBtn');
-        const picker = document.getElementById('pkEmojiPicker');
-        const grid = document.getElementById('pkEmojiGrid');
-        const chatInput = document.getElementById('pkChatInput');
-        if (!emojiBtn || !picker || !grid) return;
-
-        if (!window.PancakeState.emojiData) {
-            window.PancakeState.emojiData = {
-                recent: JSON.parse(localStorage.getItem('tpos_pk_recent_emojis') || 'null') || [
-                    '😊',
-                    '👍',
-                    '❤️',
-                    '😂',
-                    '🙏',
-                    '😍',
-                    '🔥',
-                    '✨',
-                ],
-                smileys: [
-                    '😀',
-                    '😃',
-                    '😄',
-                    '😁',
-                    '😆',
-                    '😅',
-                    '🤣',
-                    '😂',
-                    '🙂',
-                    '😊',
-                    '😇',
-                    '🥰',
-                    '😍',
-                    '🤩',
-                    '😘',
-                    '😗',
-                    '😚',
-                    '😙',
-                    '🥲',
-                    '😋',
-                    '😛',
-                    '😜',
-                    '🤪',
-                    '😝',
-                    '🤑',
-                    '🤗',
-                    '🤭',
-                    '🤫',
-                    '🤔',
-                ],
-                gestures: [
-                    '👋',
-                    '🤚',
-                    '🖐️',
-                    '✋',
-                    '🖖',
-                    '👌',
-                    '🤌',
-                    '🤏',
-                    '✌️',
-                    '🤞',
-                    '🤟',
-                    '🤘',
-                    '🤙',
-                    '👈',
-                    '👉',
-                    '👆',
-                    '👇',
-                    '☝️',
-                    '👍',
-                    '👎',
-                    '✊',
-                    '👊',
-                    '🤛',
-                    '🤜',
-                    '👏',
-                    '🙌',
-                    '🤝',
-                    '🙏',
-                ],
-                hearts: [
-                    '❤️',
-                    '🧡',
-                    '💛',
-                    '💚',
-                    '💙',
-                    '💜',
-                    '🖤',
-                    '🤍',
-                    '🤎',
-                    '💔',
-                    '❣️',
-                    '💕',
-                    '💞',
-                    '💓',
-                    '💗',
-                    '💖',
-                    '💘',
-                    '💝',
-                ],
-                animals: [
-                    '🐶',
-                    '🐱',
-                    '🐭',
-                    '🐹',
-                    '🐰',
-                    '🦊',
-                    '🐻',
-                    '🐼',
-                    '🐨',
-                    '🐯',
-                    '🦁',
-                    '🐮',
-                    '🐷',
-                    '🐸',
-                    '🐵',
-                    '🐔',
-                    '🐧',
-                ],
-                food: [
-                    '🍎',
-                    '🍐',
-                    '🍊',
-                    '🍋',
-                    '🍌',
-                    '🍉',
-                    '🍇',
-                    '🍓',
-                    '🍒',
-                    '🍑',
-                    '🥭',
-                    '🍍',
-                    '🥥',
-                    '🍅',
-                    '🍔',
-                    '🍟',
-                    '🍕',
-                ],
-                objects: ['💡', '📱', '💻', '⌨️', '🔑', '⚙️', '🔧', '🔨', '💎', '📷', '📺', '🎙️'],
-            };
-        }
-
-        emojiBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const vis = picker.style.display === 'block';
-            picker.style.display = vis ? 'none' : 'block';
-            if (!vis) this._renderEmojiGrid('recent');
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!picker.contains(e.target) && e.target !== emojiBtn) picker.style.display = 'none';
-        });
-
-        picker.querySelectorAll('.pk-emoji-cat').forEach((cat) => {
-            cat.addEventListener('click', () => {
-                picker
-                    .querySelectorAll('.pk-emoji-cat')
-                    .forEach((c) => c.classList.remove('active'));
-                cat.classList.add('active');
-                this._renderEmojiGrid(cat.dataset.category);
-            });
-        });
-
-        grid.addEventListener('click', (e) => {
-            const item = e.target.closest('.pk-emoji-item');
-            if (item && chatInput) {
-                const emoji = item.textContent;
-                const start = chatInput.selectionStart;
-                chatInput.value =
-                    chatInput.value.substring(0, start) +
-                    emoji +
-                    chatInput.value.substring(chatInput.selectionEnd);
-                chatInput.selectionStart = chatInput.selectionEnd = start + emoji.length;
-                chatInput.focus();
-                // Update recent
-                const recent = window.PancakeState.emojiData.recent;
-                const idx = recent.indexOf(emoji);
-                if (idx > -1) recent.splice(idx, 1);
-                recent.unshift(emoji);
-                window.PancakeState.emojiData.recent = recent.slice(0, 24);
-                localStorage.setItem(
-                    'tpos_pk_recent_emojis',
-                    JSON.stringify(window.PancakeState.emojiData.recent)
-                );
-            }
-        });
-    },
-
-    _renderEmojiGrid(category) {
-        const grid = document.getElementById('pkEmojiGrid');
-        const data = window.PancakeState.emojiData;
-        if (!grid || !data?.[category]) return;
-        grid.innerHTML = data[category]
-            .map((e) => `<button class="pk-emoji-item" title="${e}">${e}</button>`)
-            .join('');
-    },
-
-    // =====================================================
-    // SCROLL / LOAD MORE
-    // =====================================================
-
-    scrollToBottom() {
-        const container = document.getElementById('pkChatMessages');
-        if (!container) return;
-        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-        window.PancakeState.isScrolledToBottom = true;
-        window.PancakeState.newMessageCount = 0;
-        this._updateScrollButtonBadge();
-        setTimeout(() => this._updateScrollButtonVisibility(false), 300);
-    },
-
-    async loadMoreMessages() {
-        const state = window.PancakeState;
-        if (state.isLoadingMoreMessages || !state.hasMoreMessages || !state.activeConversation)
-            return;
-        state.isLoadingMoreMessages = true;
-
-        const container = document.getElementById('pkChatMessages');
-        const scrollBefore = container ? container.scrollHeight : 0;
-        const loadEl = document.createElement('div');
-        loadEl.className = 'pk-load-more-indicator';
-        loadEl.innerHTML = `<div class="pk-loading-spinner" style="width:24px;height:24px;"></div><span>Đang tải tin nhắn cũ...</span>`;
-        if (container) container.insertBefore(loadEl, container.firstChild);
-
-        try {
-            const result = await window.PancakeAPI.fetchMessages(
-                state.activeConversation.page_id,
-                state.activeConversation.id,
-                {
-                    currentCount: state.messageCurrentCount,
-                    customerId: state.activeConversation.customers?.[0]?.id,
-                }
-            );
-            loadEl.remove();
-            const older = result.messages || [];
-            if (older.length === 0) {
-                state.hasMoreMessages = false;
-                const noMore = document.createElement('div');
-                noMore.className = 'pk-no-more-messages';
-                noMore.textContent = '— Đầu cuộc hội thoại —';
-                if (container) container.insertBefore(noMore, container.firstChild);
-            } else {
-                state.messages = [...older.reverse(), ...state.messages];
-                state.messageCurrentCount = state.messages.length;
-                this.renderMessages();
-                if (container) container.scrollTop = container.scrollHeight - scrollBefore;
-            }
-        } catch {
-            loadEl.remove();
-        } finally {
-            state.isLoadingMoreMessages = false;
-        }
-    },
-
-    showTypingIndicator() {
-        /* TODO: visual typing indicator */
-    },
-    hideTypingIndicator() {
-        /* TODO: hide typing indicator */
-    },
-
-    // =====================================================
-    // INTERNAL
-    // =====================================================
-
-    async _loadMessages(conv) {
-        const state = window.PancakeState;
-        state.resetMessageState();
-        try {
-            const pageId = conv.page_id;
-            const convId = conv.id;
-            const customerId = conv.customers?.[0]?.id || null;
-            const timeout = new Promise((_, rej) =>
-                setTimeout(() => rej(new Error('Timeout')), 10000)
-            );
-
-            let fetchP;
-            if (state.serverMode === 'n2store') {
-                fetchP = window.PancakeAPI.fetchMessagesN2Store(pageId, convId);
-            } else {
-                fetchP = window.PancakeAPI.fetchMessages(pageId, convId, { customerId });
-            }
-
-            const result = await Promise.race([fetchP, timeout]);
-            state.messages = (result.messages || []).reverse();
-            state.messageCurrentCount = state.messages.length;
-            this.renderMessages();
-
-            if (result.fromCache) this._refreshMessagesInBackground(pageId, convId, customerId);
-            if (conv.unread_count > 0) {
-                window.PancakeAPI.markAsRead(pageId, convId)
-                    .then(() => {
-                        conv.unread_count = 0;
-                        conv.seen = true;
-                        window.PancakeConversationList.renderConversationList();
-                    })
-                    .catch(() => {});
-            }
-        } catch (error) {
-            const mc = document.getElementById('pkChatMessages');
-            if (mc) {
-                mc.innerHTML = `<div class="pk-empty-state"><i data-lucide="alert-circle"></i><h3>Lỗi tải tin nhắn</h3><p>${error.message}</p>
-                    <button class="pk-retry-btn" onclick="window.PancakeChatWindow._loadMessages(window.PancakeState.activeConversation)" style="margin-top:10px;padding:8px 16px;background:#4285f4;color:white;border:none;border-radius:4px;cursor:pointer;">Thử lại</button></div>`;
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-            }
-        }
-    },
-
-    async _refreshMessagesInBackground(pageId, convId, customerId) {
-        try {
-            const result = await window.PancakeAPI.fetchMessages(pageId, convId, {
-                customerId,
-                forceRefresh: true,
-            });
-            const state = window.PancakeState;
-            if (state.activeConversation?.id === convId) {
-                const newMsgs = (result.messages || []).reverse();
-                if (newMsgs.length !== state.messages.length) {
-                    state.messages = newMsgs;
-                    this.renderMessages();
-                }
-            }
-        } catch {}
-    },
-
-    _bindChatInputEvents() {
-        const chatInput = document.getElementById('pkChatInput');
-        if (chatInput) {
-            chatInput.addEventListener('input', () => {
-                chatInput.style.height = 'auto';
-                chatInput.style.height = Math.min(chatInput.scrollHeight, 100) + 'px';
-            });
-            chatInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    this.sendMessage();
-                }
-            });
-        }
-        const sendBtn = document.getElementById('pkSendBtn');
-        if (sendBtn) sendBtn.addEventListener('click', () => this.sendMessage());
-
-        const qrBar = document.getElementById('pkQuickReplyBar');
-        if (qrBar)
-            qrBar.addEventListener('click', (e) => {
-                const btn = e.target.closest('.pk-quick-reply-btn');
-                if (!btn || !chatInput) return;
-                const tpl = btn.dataset.template || '';
-                // Paste template + chữ ký nhân viên (giống native-orders w2-quick-tag).
-                const sig = window.Web2QuickReply?.signature?.() || '';
-                chatInput.value = (tpl + (!sig || tpl.endsWith(sig) ? '' : '\n' + sig)).trim();
-                chatInput.style.height = 'auto';
-                chatInput.style.height = Math.min(chatInput.scrollHeight, 100) + 'px';
-                chatInput.focus();
-                chatInput.selectionStart = chatInput.selectionEnd = chatInput.value.length;
-            });
-
-        // /shortcut autocomplete (gõ "/tu-khoa" để chèn mẫu trả lời) — module
-        // dùng chung với native-orders. Bỏ qua nếu chưa load.
-        if (chatInput && window.Web2QuickReply?.attachAutocomplete) {
-            try {
-                window.Web2QuickReply.attachAutocomplete(chatInput);
-            } catch (e) {
-                console.warn('[PK-CHAT] attachAutocomplete failed:', e.message);
-            }
-        }
-
-        // Phone/ad badge copy
-        const statsBar = document.querySelector('.pk-customer-stats-bar');
-        if (statsBar)
-            statsBar.addEventListener('click', (e) => {
-                const badge = e.target.closest('.pk-phone-ad-badge');
-                if (badge?.dataset.copy) {
-                    navigator.clipboard
-                        .writeText(badge.dataset.copy)
-                        .then(() => {
-                            const textEl = badge.querySelector('.pk-badge-text');
-                            if (textEl) {
-                                const orig = textEl.textContent;
-                                textEl.textContent = 'Đã copy!';
-                                setTimeout(() => (textEl.textContent = orig), 1500);
-                            }
-                        })
-                        .catch(() => {});
-                }
-            });
-
-        // Image upload
-        const imageBtn = document.getElementById('pkImageBtn');
-        const imageInput = document.getElementById('pkImageInput');
-        if (imageBtn && imageInput) {
-            imageBtn.addEventListener('click', () => imageInput.click());
-            imageInput.addEventListener('change', (e) => {
-                if (e.target.files[0]) this.handleAttachment(e.target.files[0]);
-            });
-        }
-        // Đính kèm tệp / âm thanh / video (nút paperclip) — chấp nhận mọi loại file.
-        const fileBtn = document.getElementById('pkFileBtn');
-        const fileInput = document.getElementById('pkFileInput');
-        if (fileBtn && fileInput) {
-            fileBtn.addEventListener('click', () => fileInput.click());
-            fileInput.addEventListener('change', (e) => {
-                if (e.target.files[0]) this.handleAttachment(e.target.files[0]);
-            });
-        }
-        const removePreview = document.getElementById('pkRemovePreview');
-        if (removePreview)
-            removePreview.addEventListener('click', () => this._clearAttachPreview());
-
-        this.bindEmojiPicker();
-
-        // Typing indicator
-        if (chatInput && window.PancakeState.activeConversation) {
-            let typingTimeout = null;
-            let isTyping = false;
-            chatInput.addEventListener('input', () => {
-                const ac = window.PancakeState.activeConversation;
-                if (!ac) return;
-                if (!isTyping) {
-                    isTyping = true;
-                    window.PancakeAPI.sendTypingIndicator(ac.page_id, ac.id, true);
-                }
-                if (typingTimeout) clearTimeout(typingTimeout);
-                typingTimeout = setTimeout(() => {
-                    isTyping = false;
-                    window.PancakeAPI.sendTypingIndicator(ac.page_id, ac.id, false);
-                }, 2000);
-            });
-        }
-    },
-
-    _bindScrollEvents() {
-        const container = document.getElementById('pkChatMessages');
-        const scrollBtn = document.getElementById('pkScrollToBottom');
-        if (!container || !scrollBtn) return;
-
-        this._updateScrollButtonVisibility(false);
-        this._updateScrollButtonBadge();
-
-        container.addEventListener('scroll', () => {
-            const state = window.PancakeState;
-            const isAtBottom =
-                container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-            state.isScrolledToBottom = isAtBottom;
-            if (isAtBottom) {
-                state.newMessageCount = 0;
-                this._updateScrollButtonBadge();
-                this._updateScrollButtonVisibility(false);
-            } else this._updateScrollButtonVisibility(true);
-
-            if (
-                container.scrollTop < 100 &&
-                state.hasMoreMessages &&
-                !state.isLoadingMoreMessages &&
-                state.messages.length > 0
-            ) {
-                this.loadMoreMessages();
-            }
-        });
-        scrollBtn.addEventListener('click', () => this.scrollToBottom());
-    },
-
-    _updateScrollButtonVisibility(visible) {
-        const btn = document.getElementById('pkScrollToBottom');
-        if (btn) btn.classList.toggle('visible', visible);
-    },
-
-    _updateScrollButtonBadge() {
-        const badge = document.getElementById('pkNewMsgBadge');
-        const count = window.PancakeState.newMessageCount;
-        if (badge) {
-            if (count > 0) {
-                badge.textContent = count > 99 ? '99+' : count;
-                badge.classList.add('visible');
-            } else badge.classList.remove('visible');
-        }
-    },
-
-    _renderCustomerStatsBar(conv) {
-        const { escapeHtml } = window.SharedUtils;
-        const customer = conv.customers?.[0] || conv.from || {};
-        let phone =
-            customer.phone_numbers?.[0] || customer.phone || conv.recent_phone_numbers?.[0] || '';
-        if (typeof phone !== 'string') phone = '';
-        let adId = conv.ad_clicks?.[0] || customer.ad_id || '';
-        if (typeof adId === 'object') adId = adId?.id || adId?.ad_id || '';
-        if (typeof adId !== 'string') adId = String(adId || '');
-
-        const commentCount = customer.comment_count || conv.comment_count || 0;
-        const successOrders = customer.success_order_count || customer.order_count || 0;
-        const returnedOrders = customer.returned_order_count || customer.cancel_count || 0;
-        const totalOrders = successOrders + returnedOrders;
-        const returnRate = totalOrders > 0 ? Math.round((returnedOrders / totalOrders) * 100) : 0;
-
-        let phoneBadge = '';
-        if (phone || adId) {
-            const display = adId
-                ? `Ad ${adId.slice(0, 16)}${adId.length > 16 ? '...' : ''}`
-                : phone;
-            const full = adId || phone;
-            phoneBadge = `<span class="pk-phone-ad-badge ${phone ? 'has-phone' : ''}" data-copy="${escapeHtml(full)}" title="Click để copy: ${escapeHtml(full)}"><i data-lucide="phone" class="pk-phone-icon"></i><span class="pk-badge-text">${escapeHtml(display)}</span></span>`;
-        }
-
-        return `<div class="pk-customer-stats-bar">
-            <div class="pk-stats-left">${phoneBadge}</div>
-            <div class="pk-stats-right">
-                <span class="pk-stat-badge comment" title="Bình luận: ${commentCount}"><i data-lucide="message-square"></i><span>${commentCount}</span></span>
-                <span class="pk-stat-badge success" title="Đơn thành công: ${successOrders}"><i data-lucide="check-circle"></i><span>${successOrders}</span></span>
-                <span class="pk-stat-badge return" title="Đơn hoàn: ${returnedOrders}"><i data-lucide="undo-2"></i><span>${returnedOrders}</span></span>
-                ${returnRate > 30 ? `<span class="pk-stat-badge warning" title="Cảnh báo: Tỉ lệ hoàn ${returnRate}%"><i data-lucide="alert-triangle"></i></span>` : ''}
-            </div></div>`;
-    },
-
-    _getChatAvatarHtml(conv) {
-        const customer = conv.customers?.[0] || conv.from;
-        const name = customer?.name || 'U';
-        const initial = name.charAt(0).toUpperCase();
-        const fbId = customer?.fb_id || customer?.id || conv.from?.id;
-        let directUrl =
-            customer?.avatar ||
-            customer?.picture?.data?.url ||
-            customer?.profile_pic ||
-            conv.from?.profile_pic ||
-            null;
-        let avatarUrl = directUrl;
-        if (fbId) avatarUrl = window.SharedUtils.getAvatarUrl(fbId, conv.page_id, null, directUrl);
-
-        const colors = [
-            'linear-gradient(135deg,#667eea,#764ba2)',
-            'linear-gradient(135deg,#f093fb,#f5576c)',
-            'linear-gradient(135deg,#4facfe,#00f2fe)',
-            'linear-gradient(135deg,#43e97b,#38f9d7)',
-        ];
-        const gradient = colors[name.charCodeAt(0) % colors.length];
-
-        if (avatarUrl && !avatarUrl.startsWith('data:image/svg')) {
-            return `<img src="${avatarUrl}" class="pk-chat-avatar" alt="${window.SharedUtils.escapeHtml(name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-                    <div class="pk-chat-avatar-placeholder" style="display:none;background:${gradient};">${initial}</div>`;
-        }
-        return `<div class="pk-chat-avatar-placeholder" style="background:${gradient};">${initial}</div>`;
-    },
-
-    _getChatStatus(conv) {
-        const lastSeen = conv.updated_at;
-        if (!lastSeen) return '';
-        return `Da xem boi Ky Thuat NJD - ${this._formatMessageTime(lastSeen)}`;
-    },
-
-    _formatMessageTime(timestamp) {
-        if (!timestamp) return '';
-        const date = window.SharedUtils.parseTimestamp(timestamp);
-        if (!date) return '';
-        return new Intl.DateTimeFormat('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit',
-            timeZone: 'Asia/Ho_Chi_Minh',
-            hour12: false,
-        }).format(date);
-    },
-
-    _groupMessagesByDate(messages) {
-        const groups = {};
-        const now = new Date();
-        const vnFmt = new Intl.DateTimeFormat('en-US', {
-            timeZone: 'Asia/Ho_Chi_Minh',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-        });
-        const pv = (parts, type) => parseInt(parts.find((p) => p.type === type)?.value || '0');
-        const nowP = vnFmt.formatToParts(now);
-        const todayKey = `${pv(nowP, 'year')}-${pv(nowP, 'month')}-${pv(nowP, 'day')}`;
-
-        messages.forEach((msg) => {
-            const date = window.SharedUtils.parseTimestamp(msg.inserted_at || msg.created_time);
-            if (!date) return;
-            const dp = vnFmt.formatToParts(date);
-            const key = `${pv(dp, 'year')}-${pv(dp, 'month')}-${pv(dp, 'day')}`;
-            const displayKey =
-                key === todayKey
-                    ? 'Hôm nay'
-                    : new Intl.DateTimeFormat('vi-VN', {
-                          weekday: 'long',
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          timeZone: 'Asia/Ho_Chi_Minh',
-                      }).format(date);
-            if (!groups[displayKey]) groups[displayKey] = [];
-            groups[displayKey].push(msg);
-        });
-        return groups;
-    },
-
-    _parseMessageHtml(html) {
-        if (!html || !html.includes('<')) return html || '';
-        try {
-            const temp = document.createElement('div');
-            temp.innerHTML = html;
-            let text = temp.innerHTML
-                .replace(/<br\s*\/?>/gi, '\n')
-                .replace(/<\/div>/gi, '\n')
-                .replace(/<\/p>/gi, '\n');
-            temp.innerHTML = text;
-            return (temp.textContent || temp.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
-        } catch {
-            return html
-                .replace(/<[^>]*>/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-        }
-    },
 };
 
-// Export
 if (typeof window !== 'undefined') {
     window.PancakeChatWindow = PancakeChatWindow;
 }
