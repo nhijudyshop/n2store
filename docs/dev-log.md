@@ -25,6 +25,14 @@
 
 ## 2026-06-07
 
+### [docs] Ghi nhận: test thiếu data → tạo data ảo, trọng tâm là liên kết dữ liệu giữa các trang ✅
+
+**User (2026-06-07):** "test nếu thiếu dữ liệu các phần khác thì cứ tạo dữ liệu ảo rồi test → quan trọng là các trang có liên kết dữ liệu với nhau".
+
+**Ghi nhận vào:** MEMORY (`feedback_test_create_fake_data.md` + index), CLAUDE.md (callout đầu mục "🛡️ Quy tắc test ĐỤNG DATABASE"), dev-log (entry này).
+
+**Quy tắc rút ra:** Khi test feature/trang mà thiếu data đầu vào ở mắt xích khác → seed dữ liệu ảo trước rồi test end-to-end xuyên nhiều trang, không dừng chờ data thật. Trọng tâm: verify CROSS-PAGE DATA LINKAGE (native-orders → reconcile/returns; so-order nhận hàng → tồn kho web2-products; cộng ví → balance-history). Web 2.0 seed/wipe thoải mái (beta). ⚠ Live/prod chỉ dùng clone `0123456788`, KHÔNG seed bảng/pool Web 1.0.
+
 ### [render][web2] Dọn DB chết: drop 59 bảng backup + orphan (DB 255→57MB) ✅
 
 **Files:** `render.com/routes/admin-web2-data-reset.js` (thêm endpoint)

@@ -54,7 +54,7 @@ router.get('/:phoneOrId', async (req, res) => {
             // numeric ID → lookup phone
             try {
                 const cQ = await pool.query(
-                    'SELECT phone FROM web2_order_customers WHERE id = $1 LIMIT 1',
+                    'SELECT phone FROM web2_customers WHERE id = $1 LIMIT 1',
                     [Number(raw)]
                 );
                 phone = cQ.rows[0]?.phone || raw;
@@ -71,7 +71,7 @@ router.get('/:phoneOrId', async (req, res) => {
         let customer = { name: null, address: null, customerId: null };
         try {
             const cQ = await pool.query(
-                'SELECT id, name, address FROM web2_order_customers WHERE phone = $1 LIMIT 1',
+                'SELECT id, name, address FROM web2_customers WHERE phone = $1 LIMIT 1',
                 [phone]
             );
             if (cQ.rows[0]) {

@@ -67,29 +67,31 @@ router.get('/by-fb-id/:fbUserId', async (req, res) => {
         if (!result.customer) {
             return res.json({ success: true, customer: null, source: 'tpos-not-found' });
         }
-        // Upsert customers table + link fb_id để future lookup nhanh.
-        // Phase 6: web2Db (bản customers riêng) — KHÔNG ghi Web 1.0 chatDb.
+        // Ghi kho KH warehouse (web2_customers) + link fb_id để lookup nhanh.
+        // Endpoint ĐỌC live TPOS để hiển thị info, GHI vào warehouse độc lập
+        // (KHÔNG lưu tpos_id) — chỉ là nhập liệu thủ công 1 chiều khi user bấm.
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         if (pool && result.customer.phone) {
             try {
-                const created = await getOrCreateCustomerFromTPOS(
-                    pool,
-                    result.customer.phone,
-                    null
-                );
+                const created = await getOrCreateCustomerFromTPOS(pool, result.customer.phone, {
+                    name: result.customer.name,
+                    address: result.customer.address,
+                    fb_id: fbUserId,
+                });
                 if (created?.customerId) {
                     await pool.query(
-                        `UPDATE web2_order_customers
+                        `UPDATE web2_customers
                          SET fb_id = COALESCE(NULLIF(fb_id, ''), $2),
                              name = COALESCE(NULLIF($3, ''), name),
                              address = COALESCE(NULLIF($4, ''), address),
-                             updated_at = CURRENT_TIMESTAMP
+                             updated_at = $5
                          WHERE id = $1`,
                         [
                             created.customerId,
                             fbUserId,
                             result.customer.name,
                             result.customer.address,
+                            Date.now(),
                         ]
                     );
                     result.customer.localCustomerId = created.customerId;

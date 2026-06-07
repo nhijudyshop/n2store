@@ -508,6 +508,8 @@ Pattern này verified trong session debug paste-image (2026-05-21): 16+ eval cal
 
 ### 🛡️ Quy tắc test ĐỤNG DATABASE (BẮT BUỘC)
 
+> **Thiếu data ở phần liên quan → cứ tạo dữ liệu ảo rồi test (2026-06-07).** Khi test một feature/trang mà thiếu data đầu vào ở mắt xích khác (đơn, SP, ví, khách, NCC…) → **seed dữ liệu ảo trước rồi test end-to-end xuyên nhiều trang**, đừng dừng chờ data thật. Trọng tâm khi test là verify **CÁC TRANG CÓ LIÊN KẾT DỮ LIỆU ĐÚNG VỚI NHAU** (cross-page data flow: native-orders → reconcile/returns; so-order nhận hàng → tồn kho web2-products; cộng ví → balance-history), không chỉ test 1 trang cô lập. Web 2.0 (`web2_*`) seed/wipe thoải mái (beta). ⚠ Vẫn theo các rule bên dưới: live/prod chỉ dùng clone `0123456788`, KHÔNG seed bảng/pool Web 1.0.
+
 **KHÔNG dùng dữ liệu thật khi test write operations**. Quy trình:
 
 1. **Schema migration / DB write test** → dùng pattern [`scripts/test-migration-social-tags.js`](scripts/test-migration-social-tags.js):

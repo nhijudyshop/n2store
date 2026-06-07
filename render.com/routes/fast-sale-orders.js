@@ -178,7 +178,7 @@ function _notify(action, number) {
         console.warn('[FAST-SALE-ORDERS] _notify failed:', e.message);
     }
 }
-const { lookupCustomerIdByPhone } = require('../services/web2-order-customer-service'); // web2_order_customers (web2Db)
+const { lookupCustomerIdByPhone } = require('../services/web2-order-customer-service'); // web2_customers (web2Db)
 
 // -----------------------------------------------------
 // Schema + auto-migrate
@@ -593,7 +593,7 @@ router.post('/backfill-customer-links', async (req, res) => {
         const r = await pool.query(`
             UPDATE fast_sale_orders AS o
             SET customer_id = c.id
-            FROM web2_order_customers AS c
+            FROM web2_customers AS c
             WHERE o.customer_id IS NULL
               AND o.partner_phone IS NOT NULL
               AND o.partner_phone <> ''

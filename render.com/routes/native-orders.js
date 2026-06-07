@@ -11,19 +11,14 @@
 
 const express = require('express');
 const router = express.Router();
-// 2026-06-03: tách kho KH đơn hàng Web 2.0 → web2_order_customers (web2Db).
+// 2026-06-03: tách kho KH đơn hàng Web 2.0 → web2_customers (web2Db).
 // KHÔNG dùng customer-creation-service / customer-helpers (Web 1.0, bảng
 // `customers` ở chatDb) nữa — tránh nhầm + đúng rule no cross-import.
-// 2026-06-01: Web 2.0 ↔ TPOS customer 2-way sync (chỉ name/phone/address).
+// 2026-06-07: kho KH warehouse Web 2.0 (web2_customers) — ĐỘC LẬP, KHÔNG TPOS.
 const {
     getOrCreateCustomerFromTPOS,
-    updateCustomerFromTPOS,
     lookupCustomerIdByPhone,
 } = require('../services/web2-order-customer-service');
-const {
-    pushCustomerToTPOS,
-    searchCustomerByFbUserId,
-} = require('../services/tpos-customer-service');
 const web2WalletService = require('../services/web2-wallet-service');
 
 // 2026-06-04: HOÀN ví khi huỷ đơn — refund số tiền đã trừ ví (wallet_deducted)
@@ -558,7 +553,7 @@ router.post('/backfill-customer-links', async (req, res) => {
         const r = await pool.query(`
             UPDATE native_orders AS o
             SET customer_id = c.id
-            FROM web2_order_customers AS c
+            FROM web2_customers AS c
             WHERE o.customer_id IS NULL
               AND o.phone IS NOT NULL
               AND o.phone <> ''
@@ -779,7 +774,7 @@ router.post('/from-comment', async (req, res) => {
         // 2026-06-01 Web 2.0 ↔ TPOS customer 2-way sync.
         // Resolve phone + address:
         //   1. Nếu b.phone có → upsert customer từ TPOS phone (existing flow).
-        //   2. Nếu b.phone trống nhưng có b.fbUserId → lookup web2_order_customers.fb_id.
+        //   2. Nếu b.phone trống nhưng có b.fbUserId → lookup web2_customers.fb_id.
         //      Tìm thấy → ENRICH phone + name + address từ customer record vào
         //      native_order (per user 2026-06-01: "tpos-pancake tạo đơn sao
         //      không lấy địa chỉ và sđt của khách bên tpos?").
@@ -793,30 +788,25 @@ router.post('/from-comment', async (req, res) => {
 
         if (b.phone) {
             try {
-                const created = await getOrCreateCustomerFromTPOS(pool, b.phone, null);
+                const created = await getOrCreateCustomerFromTPOS(pool, b.phone, {
+                    name: b.fbUserName || b.customerName || undefined,
+                    address: b.address || undefined,
+                    fb_id: b.fbUserId || undefined,
+                });
                 customerId = created?.customerId || null;
-                if (customerId && (b.fbUserName || b.address)) {
-                    await pool.query(
-                        `UPDATE web2_order_customers
-                         SET name = COALESCE(NULLIF($2, ''), name),
-                             address = COALESCE(NULLIF($3, ''), address),
-                             updated_at = CURRENT_TIMESTAMP
-                         WHERE id = $1`,
-                        [customerId, b.fbUserName || null, b.address || null]
-                    );
-                }
             } catch (custErr) {
-                console.warn('[native-orders] customer sync failed (continuing):', custErr.message);
+                console.warn(
+                    '[native-orders] customer upsert failed (continuing):',
+                    custErr.message
+                );
                 customerId = await lookupCustomerIdByPhone(pool, b.phone).catch(() => null);
             }
         } else if (b.fbUserId) {
-            // Phone empty: step 1 lookup local web2_order_customers.fb_id (fast).
-            // Step 2 nếu local miss → TPOS SaleOnline_Order GetViewV2 lookup
-            // theo Facebook_ASUserId (slower ~500ms) → enrich phone +
-            // address từ latest order's Partner.
+            // Phone trống → lookup kho KH warehouse theo fb_id. KHÔNG TPOS
+            // (warehouse là nguồn duy nhất; KH lạ chưa SĐT → để trống, UI tự xử).
             try {
                 const r = await pool.query(
-                    'SELECT id, name, phone, address FROM web2_order_customers WHERE fb_id = $1 LIMIT 1',
+                    'SELECT id, name, phone, address FROM web2_customers WHERE fb_id = $1 LIMIT 1',
                     [b.fbUserId]
                 );
                 if (r.rows[0]) {
@@ -826,45 +816,7 @@ router.post('/from-comment', async (req, res) => {
                     if (!enrichedAddress) enrichedAddress = r.rows[0].address || null;
                 }
             } catch (e) {
-                console.warn('[native-orders] fb_id local lookup failed:', e.message);
-            }
-            // Step 2 — TPOS Partner lookup nếu vẫn chưa có phone (KH lần
-            // đầu trong Web 2.0 nhưng đã có order trên TPOS).
-            if (!enrichedPhone) {
-                try {
-                    const tposResult = await searchCustomerByFbUserId(b.fbUserId, b.crmTeamId);
-                    if (tposResult.success && tposResult.customer) {
-                        const tc = tposResult.customer;
-                        if (!enrichedPhone) enrichedPhone = tc.phone || null;
-                        if (!enrichedName) enrichedName = tc.name || null;
-                        if (!enrichedAddress) enrichedAddress = tc.address || null;
-                        // Upsert vào customers table cho lần sau (fast path)
-                        if (enrichedPhone && !customerId) {
-                            try {
-                                const created = await getOrCreateCustomerFromTPOS(
-                                    pool,
-                                    enrichedPhone,
-                                    null
-                                );
-                                customerId = created?.customerId || null;
-                                // Link fb_id để lần sau lookup fast
-                                if (customerId) {
-                                    await pool.query(
-                                        "UPDATE web2_order_customers SET fb_id = $2 WHERE id = $1 AND (fb_id IS NULL OR fb_id = '')",
-                                        [customerId, b.fbUserId]
-                                    );
-                                }
-                            } catch (cce) {
-                                console.warn(
-                                    '[native-orders] TPOS upsert after fb lookup failed:',
-                                    cce.message
-                                );
-                            }
-                        }
-                    }
-                } catch (e) {
-                    console.warn('[native-orders] TPOS fb_user_id lookup failed:', e.message);
-                }
+                console.warn('[native-orders] fb_id warehouse lookup failed:', e.message);
             }
         }
 
@@ -1081,7 +1033,7 @@ async function upsertCustomerFromOrder(
         // 1. Try to find existing customer by phone first
         if (trimmedPhone) {
             const r = await pool.query(
-                `SELECT id, fb_id, name, address FROM web2_order_customers WHERE phone = $1 LIMIT 1`,
+                `SELECT id, fb_id, name, address FROM web2_customers WHERE phone = $1 LIMIT 1`,
                 [trimmedPhone]
             );
             if (r.rows.length > 0) {
@@ -1104,7 +1056,7 @@ async function upsertCustomerFromOrder(
                 if (updates.length > 0) {
                     params.push(existing.id);
                     await pool.query(
-                        `UPDATE web2_order_customers SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${params.length}`,
+                        `UPDATE web2_customers SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${params.length}`,
                         params
                     );
                 }
@@ -1114,16 +1066,15 @@ async function upsertCustomerFromOrder(
 
         // 2. If no phone-match, try fb_id match
         if (fbUserId) {
-            const r = await pool.query(
-                `SELECT id FROM web2_order_customers WHERE fb_id = $1 LIMIT 1`,
-                [fbUserId]
-            );
+            const r = await pool.query(`SELECT id FROM web2_customers WHERE fb_id = $1 LIMIT 1`, [
+                fbUserId,
+            ]);
             if (r.rows.length > 0) {
                 // Fill in phone if we have one and customer doesn't
                 if (trimmedPhone) {
                     await pool
                         .query(
-                            `UPDATE web2_order_customers SET phone = COALESCE(NULLIF(phone, ''), $1), updated_at = NOW() WHERE id = $2`,
+                            `UPDATE web2_customers SET phone = COALESCE(NULLIF(phone, ''), $1), updated_at = NOW() WHERE id = $2`,
                             [trimmedPhone, r.rows[0].id]
                         )
                         .catch(() => {});
@@ -1134,27 +1085,33 @@ async function upsertCustomerFromOrder(
 
         // 3. Create new customer if we have at least phone+name OR fb_id+name
         if ((trimmedPhone && name) || (fbUserId && name)) {
+            const nowTs = Date.now();
             const ins = await pool.query(
-                `INSERT INTO web2_order_customers (phone, name, address, email, fb_id, pancake_data, status, tier, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, 'Bình thường', 'new', NOW(), NOW())
+                `INSERT INTO web2_customers (phone, name, address, email, fb_id, fb_page_id, status, source, history, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, 'Normal', 'pancake', $7::jsonb, $8, $8)
                  ON CONFLICT (phone) DO UPDATE SET
-                    fb_id = COALESCE(web2_order_customers.fb_id, EXCLUDED.fb_id),
-                    name = CASE WHEN web2_order_customers.name IN ('', 'Khách hàng mới') THEN EXCLUDED.name ELSE web2_order_customers.name END,
-                    address = COALESCE(NULLIF(web2_order_customers.address, ''), EXCLUDED.address),
-                    updated_at = NOW()
+                    fb_id = COALESCE(NULLIF(web2_customers.fb_id, ''), EXCLUDED.fb_id),
+                    name = CASE WHEN web2_customers.name IN ('', 'Khách hàng mới') THEN EXCLUDED.name ELSE web2_customers.name END,
+                    address = COALESCE(NULLIF(web2_customers.address, ''), EXCLUDED.address),
+                    fb_page_id = COALESCE(NULLIF(web2_customers.fb_page_id, ''), EXCLUDED.fb_page_id),
+                    updated_at = EXCLUDED.updated_at
                  RETURNING id`,
                 [
-                    trimmedPhone || `fb_${fbUserId}`, // phone is NOT NULL — fall back to fb_-prefixed pseudo-phone
+                    trimmedPhone || `fb_${fbUserId}`, // phone NOT NULL? warehouse cho phép — fb_ pseudo-phone giữ uniqueness
                     name,
                     address || null,
                     email || null,
                     fbUserId || null,
-                    fbPageId
-                        ? JSON.stringify({
-                              fb_page_id: fbPageId,
-                              source: 'tpos-pancake-create-order',
-                          })
-                        : null,
+                    fbPageId || null,
+                    JSON.stringify([
+                        {
+                            ts: nowTs,
+                            action: 'create',
+                            userName: '(hệ thống)',
+                            note: 'auto từ đơn web',
+                        },
+                    ]),
+                    nowTs,
                 ]
             );
             return ins.rows[0]?.id || null;
@@ -1688,10 +1645,8 @@ router.patch('/:code', async (req, res) => {
             params.push(cid);
             sets.push(`customer_id = $${params.length}`);
         }
-        // 2026-06-01: Sync 2 chiều KH info (tên/SĐT/địa chỉ) per user spec.
-        // Step 1: Update local customers table (Web 2.0 side).
-        // Step 2: Fire-and-forget push lên TPOS (Web 2.0 → TPOS).
-        // 2026-06-03: thêm `phone` vào trigger — sửa MỖI SĐT cũng sync TPOS.
+        // 2026-06-07: cập nhật KH warehouse (tên/địa chỉ) theo SĐT. KHÔNG TPOS
+        // (warehouse độc lập — không push CreateUpdatePartner nữa).
         const hasCustomerInfoUpdate =
             body.customerName !== undefined ||
             body.address !== undefined ||
@@ -1699,29 +1654,23 @@ router.patch('/:code', async (req, res) => {
         if (hasCustomerInfoUpdate) {
             const phoneForLookup = body.phone || null;
             if (phoneForLookup) {
-                // Step 1: local customers table
                 try {
                     await pool.query(
-                        `UPDATE web2_order_customers
+                        `UPDATE web2_customers
                          SET name = COALESCE(NULLIF($2, ''), name),
                              address = COALESCE(NULLIF($3, ''), address),
-                             updated_at = CURRENT_TIMESTAMP
+                             updated_at = $4
                          WHERE phone = $1`,
-                        [phoneForLookup, body.customerName || null, body.address || null]
+                        [
+                            phoneForLookup,
+                            body.customerName || null,
+                            body.address || null,
+                            Date.now(),
+                        ]
                     );
                 } catch (e) {
-                    console.warn(
-                        '[native-orders] push customer info to customers table failed:',
-                        e.message
-                    );
+                    console.warn('[native-orders] update warehouse customer failed:', e.message);
                 }
-                // Step 2: TPOS push (background, KHÔNG block response)
-                pushCustomerToTPOS(phoneForLookup, {
-                    name: body.customerName || undefined,
-                    address: body.address || undefined,
-                }).catch((e) => {
-                    console.warn('[native-orders] TPOS push (fire-and-forget) failed:', e.message);
-                });
             }
         }
         params.push(Date.now());
