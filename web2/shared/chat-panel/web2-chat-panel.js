@@ -229,6 +229,7 @@
                 ${
                     showInput
                         ? `
+                <div class="w2cp-detect-bar" data-w2cp="detect"></div>
                 <div class="w2cp-quick-row" data-w2cp="quick"></div>
                 <div class="w2cp-reply-bar" data-w2cp="replybar"><span class="preview"></span><button data-w2cp-act="cancel-reply" title="Hủy trả lời">×</button></div>
                 <div class="w2cp-reply-from">↩ Trả lời từ <strong>${esc(pageName)}</strong><span class="w2cp-send-via">${hasExt ? '🚀 N2 Extension (bypass 24h)' : 'Gửi qua Pancake API'}</span></div>
