@@ -3,13 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b1bcd21` — fix(orders): lần in gắn cạnh #STT trên bill (bỏ dòng meta riêng, tiết kiệm diện tích)
-**Last updated**: 2026-06-07 12:49:41 +07
-**Latest session**: [`RESUME:20260607-124941-b1bcd21`](../20260607-124941-b1bcd21.md)
-**Summary**: fix(orders): lần in gắn cạnh #STT trên bill (bỏ dòng meta riêng, tiết kiệm diện tích)
+**Latest commit**: `ba8e1cb` — auto: session update
+**Last updated**: 2026-06-07 12:59:10 +07
+**Latest session**: [`RESUME:20260607-125910-ba8e1cb`](../20260607-125910-ba8e1cb.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
+- [`native-orders/`](./native-orders.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 3 file(s)
 - [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
@@ -38,7 +40,7 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-06 12:22
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-07 12:41
+- [`native-orders/`](./native-orders.md) — updated 2026-06-07 12:59
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-06 18:52
@@ -49,7 +51,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-07 12:41
+- [`render.com/`](./render.com.md) — updated 2026-06-07 12:59
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-06 20:05
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -68,4 +70,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-07 12:49
+- [`web2/`](./web2.md) — updated 2026-06-07 12:59
