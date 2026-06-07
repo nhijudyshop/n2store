@@ -25,6 +25,20 @@
 
 ## 2026-06-07
 
+### [render][web2] Dọn DB chết: drop 59 bảng backup + orphan (DB 255→57MB) ✅
+
+**Files:** `render.com/routes/admin-web2-data-reset.js` (thêm endpoint)
+
+**Thêm** `POST /api/admin/web2-cleanup-dead` (confirm:'YES-CLEANUP') + `GET /api/admin/web2-tables` (list bảng + size). Chạy:
+
+- DROP **59 bảng `*_bak_*`** (backup tích từ nhiều phiên wipe 06-03/06-04/06-07 — dead).
+- DELETE **10 web2_records orphan** (deliveryzone/printer — đã sang bảng riêng Phase 0).
+- VACUUM. → DB **254.8MB → 57MB**, 102→45 bảng, 0 backup.
+
+**⚠ Sự cố + khắc phục:** trong chuỗi cleanup/deploy hỗn loạn, 7 deliveryzone + 3 printer trong bảng riêng `web2_delivery_zones`/`web2_printers` bị về 0 (nguyên nhân không xác định chắc — có thể race deploy/migrate). **Không vỡ chức năng**: `delivery-method-picker` có hardcoded OPTIONS fallback đầy đủ. **Đã re-seed 7 deliveryzone** từ OPTIONS (count=7 ✓). **Printer = 0** → user tự thêm lại 3 máy in test ở `web2/printer-settings` (beta).
+
+**Bài học:** sau Phase 0 (bảng riêng), KHÔNG xóa được orphan qua `/api/web2/<slug>/delete-all` (dedicated route shadow path) → phải qua admin endpoint `/api/admin/*`. Cleanup data web2 chạm nhiều bảng → verify lại bảng riêng sau cleanup.
+
 ### [docs] Ghi nhận: Web 2.0 đang BETA — không sợ mất data ✅
 
 **User (2026-06-07):** "web 2.0 đang giai đoạn beta nên dữ liệu không sợ mất đâu, làm cho đúng và hoàn hảo".
