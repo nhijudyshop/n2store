@@ -251,8 +251,13 @@ html, body { margin: 0; padding: 0; background: #fff; }
             rows.push(`<div class="b-bc">${d.barcodeSvg}</div>`);
         }
 
-        // ── META: ngày ──
-        rows.push(`<div class="b-meta"><span>Ngày</span><b>${_esc(d.dateStr)}</b></div>`);
+        // ── META: ngày (+ lần in nếu có) ──
+        rows.push(
+            `<div class="b-meta"><span>Ngày</span><b>${_esc(d.dateStr)}</b></div>` +
+                (d.printCount > 0
+                    ? `<div class="b-meta"><span>Lần in</span><b>🖨 ${d.printCount}</b></div>`
+                    : '')
+        );
 
         // ── KHÁCH HÀNG ──
         rows.push('<div class="b-div-dash"></div>');
@@ -434,6 +439,7 @@ html, body { margin: 0; padding: 0; background: #fff; }
             orderComment,
             shopDeliveryNote,
             shopComment,
+            printCount: Number(pbh.printCount) || 0,
         });
 
         return `<!DOCTYPE html>

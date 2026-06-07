@@ -142,6 +142,8 @@
         const phone = o.phone || '';
         const address = o.address || '';
         const staff = _seller(o);
+        // Lần in = số lần đã in + lần này (markPrinted chạy sau print) → tránh in trùng.
+        const printNo = (Number(o.printCount) || 0) + 1;
         const now = new Date();
         const dateStr =
             `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ` +
@@ -202,6 +204,7 @@ th { border: 1px solid #000; padding: 4px 3px; text-align: center; background: #
     <div style="text-align:center;margin-bottom:8px;">
         <span style="font-size:22px;font-weight:bold;">${_esc(_stt)}</span>
         <span style="font-size:12px;margin-left:10px;">${dateStr}</span>
+        ${printNo > 0 ? `<span style="font-size:12px;margin-left:10px;">🖨 ${printNo}</span>` : ''}
     </div>
     <div style="margin-bottom:3px;"><b>Khách hàng:</b> ${_esc(customerName)}</div>
     <div style="margin-bottom:3px;"><b>SĐT:</b> ${_esc(phone)}${staff ? `  -  <b>Nhân viên:</b> ${_esc(staff)}` : ''}</div>

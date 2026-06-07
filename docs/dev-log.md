@@ -25,6 +25,18 @@
 
 ## 2026-06-07
 
+### [orders] Số lần in chuyển từ badge list → lên chính phiếu in (bill + Phiếu Soạn Hàng) ✅
+
+**Files:** `native-orders/js/native-orders-app.js`, `native-orders/js/native-orders-packing-slip.js`, `web2/shared/web2-bill-service.js`
+
+Trước: list Đơn Web hiện badge "Đã in N×" (rồi rút gọn còn số) ở cột STT → rối bảng. User muốn bỏ khỏi list, đưa con số lên chính tờ phiếu in để cầm tờ giấy biết đã in lần thứ mấy (tránh in trùng → soạn hàng lặp).
+
+- **Bỏ badge ở list**: `native-orders-app.js` `deriveBadges()` xóa block `no-print-badge` (không còn `pc` ở cột STT).
+- **Bill PBH / PBH SHOP** (`web2-bill-service.js`): `generateHTML` truyền `printCount: Number(pbh.printCount)||0` vào `_buildBillBody`; render thêm dòng meta `Lần in 🖨 N` ngay dưới dòng `Ngày` (chỉ khi >0). `buildPbhShape` (native-orders-app) set `printCount = (o.printCount||0)+1` → tờ in hiện đúng "lần in thứ N" (markPrinted chạy SAU print nên cộng 1).
+- **Phiếu Soạn Hàng** (`native-orders-packing-slip.js`): `_buildPrintHTML` thêm `printNo = (o.printCount||0)+1`, hiện `🖨 N` cạnh STT + ngày.
+
+Bill-service là shared (web2/shared) — page khác gọi `openPrint` không truyền printCount thì N=0 → ẩn dòng, an toàn.
+
 ### [so-order][products][refund] Mã SP draft đúng format + fix dropdown lag + tách đơn trả hàng theo đợt ✅
 
 **Files:** `so-order/js/so-order-app.js`, `so-order/css/so-order.css`, `so-order/index.html`, `web2/purchase-refund/js/purchase-refund-app.js`, `web2/purchase-refund/css/purchase-refund.css`, `web2/purchase-refund/index.html`
