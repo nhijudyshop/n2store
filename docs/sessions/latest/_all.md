@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6709448` — test(web2-returns): E2E 12/12 trên DB ảo — mọi luồng ví/kho/COD verified
-**Last updated**: 2026-06-07 16:00:41 +07
-**Latest session**: [`RESUME:20260607-160041-6709448`](../20260607-160041-6709448.md)
-**Summary**: test(web2-returns): E2E 12/12 trên DB ảo — mọi luồng ví/kho/COD verified
+**Latest commit**: `fbb5117` — auto: session update
+**Last updated**: 2026-06-07 16:04:26 +07
+**Latest session**: [`RESUME:20260607-160426-fbb5117`](../20260607-160426-fbb5117.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-06 20:25
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-07 16:00
+- [`docs/`](./docs.md) — updated 2026-06-07 16:04
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
@@ -50,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-07 15:56
+- [`render.com/`](./render.com.md) — updated 2026-06-07 16:04
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-07 16:00
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
