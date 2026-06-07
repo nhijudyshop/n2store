@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5d131da` — feat(web2/native-orders): badge 'Chưa nhận CK' + picker gán giao dịch CK
-**Last updated**: 2026-06-07 13:24:03 +07
-**Latest session**: [`RESUME:20260607-132403-5d131da`](../20260607-132403-5d131da.md)
-**Summary**: feat(web2/native-orders): badge 'Chưa nhận CK' + picker gán giao dịch CK
+**Latest commit**: `d8950e4` — feat(web2): gate auto-gán SePay — chỉ cộng ví khi KH có đơn active
+**Last updated**: 2026-06-07 13:32:27 +07
+**Latest session**: [`RESUME:20260607-133227-d8950e4`](../20260607-133227-d8950e4.md)
+**Summary**: feat(web2): gate auto-gán SePay — chỉ cộng ví khi KH có đơn active
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-06 20:25
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-07 13:24
+- [`docs/`](./docs.md) — updated 2026-06-07 13:32
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
@@ -51,9 +51,9 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-07 13:20
+- [`render.com/`](./render.com.md) — updated 2026-06-07 13:32
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-06 20:05
+- [`scripts/`](./scripts.md) — updated 2026-06-07 13:32
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-06 12:22
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
