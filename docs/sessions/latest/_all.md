@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fe66d43` — feat(so-order): nút 'In tem' trong panel nhận hàng — in/in lại QR cả khi đã nhận đủ
-**Last updated**: 2026-06-07 10:37:01 +07
-**Latest session**: [`RESUME:20260607-103701-fe66d43`](../20260607-103701-fe66d43.md)
-**Summary**: feat(so-order): nút 'In tem' trong panel nhận hàng — in/in lại QR cả khi đã nhận đủ
+**Latest commit**: `a6257ab` — feat(admin): web2-wallet-reset/by-phone — reset sạch 1 SĐT (ví+đơn+link SePay) cho dọn clone test
+**Last updated**: 2026-06-07 11:27:37 +07
+**Latest session**: [`RESUME:20260607-112737-a6257ab`](../20260607-112737-a6257ab.md)
+**Summary**: feat(admin): web2-wallet-reset/by-phone — reset sạch 1 SĐT (ví+đơn+link SePay) cho dọn clone test
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -50,7 +49,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-06 20:17
+- [`render.com/`](./render.com.md) — updated 2026-06-07 11:27
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-06 20:05
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
