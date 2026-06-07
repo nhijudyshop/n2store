@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `cba3731` — feat(web2): warehouse POST /batch-by-fbid — enricher đọc web2_customers theo fb_id hàng loạt
-**Last updated**: 2026-06-07 17:13:05 +07
-**Latest session**: [`RESUME:20260607-171305-cba3731`](../20260607-171305-cba3731.md)
-**Summary**: feat(web2): warehouse POST /batch-by-fbid — enricher đọc web2_customers theo fb_id hàng loạt
+**Latest commit**: `19664fd` — fix(worker): route /api/web2-fb-live/_ → Render (không rơi vào TPOS catch-all)
+**Last updated**: 2026-06-07 18:07:31 +07
+**Latest session**: [`RESUME:20260607-180731-19664fd`](../20260607-180731-19664fd.md)
+**Summary**: fix(worker): route /api/web2-fb-live/_ → Render (không rơi vào TPOS catch-all)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -22,7 +21,7 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-05-22 12:35
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-06 20:25
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-07 18:07
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
 - [`docs/`](./docs.md) — updated 2026-06-07 17:13
