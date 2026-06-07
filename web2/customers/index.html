@@ -1,0 +1,308 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Kho KH warehouse riêng Web 2.0 (web2_customers). KHÔNG TPOS. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Kho Khách Hàng - WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260526b" />
+        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260526b" />
+        <link rel="stylesheet" href="../../web2/shared/web2-tpos-theme.css?v=20260526b" />
+        <link rel="stylesheet" href="css/customers.css?v=20260607a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+        <script src="../../shared/js/firebase-config.js?v=20260526b"></script>
+        <script src="../../shared/js/notification-system.js?v=20260526b"></script>
+        <script src="../../shared/js/core-loader.js?v=20260526b"></script>
+        <script src="../../shared/js/token-manager.js?v=20260526b"></script>
+    </head>
+    <body class="tpos-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content wc-main">
+                <!-- Page head -->
+                <header class="wc-page-head">
+                    <nav class="wc-breadcrumb" aria-label="Breadcrumb">
+                        <span>App</span>
+                        <span class="sep">/</span>
+                        <span>Kho Khách Hàng</span>
+                    </nav>
+                    <div class="wc-page-title-row">
+                        <div class="wc-page-title">
+                            <i data-lucide="users-round"></i>
+                            <h1>Kho Khách Hàng</h1>
+                            <span class="wc-warehouse-pill">
+                                <i data-lucide="database"></i> Kho riêng Web 2.0 · 1 SĐT = 1 KH
+                            </span>
+                        </div>
+                        <div class="wc-page-search">
+                            <input
+                                id="wcSearchInput"
+                                type="search"
+                                placeholder="Tìm tên / SĐT / FB id…"
+                                autocomplete="off"
+                            />
+                            <button class="wc-search-btn" id="wcSearchBtn" title="Tìm">
+                                <i data-lucide="search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Action toolbar -->
+                <section class="wc-toolbar" aria-label="Hành động">
+                    <div class="wc-toolbar-left">
+                        <button class="wc-btn wc-btn-primary" id="wcAddBtn">
+                            <i data-lucide="plus"></i> Thêm KH
+                        </button>
+                        <button class="wc-btn" id="wcExportBtn">
+                            <i data-lucide="download"></i> Xuất CSV (trang)
+                        </button>
+                        <button class="wc-btn" id="wcMergeBtn" disabled title="Chọn đúng 2 KH">
+                            <i data-lucide="git-merge"></i> Gộp KH trùng
+                        </button>
+                    </div>
+                    <div class="wc-toolbar-right">
+                        <select id="wcSourceFilter" class="wc-select">
+                            <option value="">Mọi nguồn</option>
+                            <option value="pancake">Pancake/FB</option>
+                            <option value="manual">Nhập tay</option>
+                            <option value="import">Import</option>
+                        </select>
+                    </div>
+                </section>
+
+                <!-- Status counts bar -->
+                <section class="wc-stats-bar" id="wcStatsBar" aria-label="Phân loại khách">
+                    <button class="wc-stat wc-stat-all is-active" data-status="all">
+                        Tất cả: <b id="wcStatAll">—</b>
+                    </button>
+                    <button class="wc-stat" data-status="Normal">Bình thường</button>
+                    <button class="wc-stat" data-status="VIP">VIP</button>
+                    <button class="wc-stat" data-status="Warning">Cảnh báo</button>
+                    <button class="wc-stat" data-status="Bom">Bom hàng</button>
+                    <button class="wc-stat" data-status="Danger">Nguy hiểm</button>
+                </section>
+
+                <!-- Table -->
+                <div class="wc-table-wrap">
+                    <table class="wc-table" id="wcTable">
+                        <thead>
+                            <tr>
+                                <th class="wc-col-check">
+                                    <input
+                                        type="checkbox"
+                                        id="wcSelectAll"
+                                        aria-label="Chọn tất cả"
+                                    />
+                                </th>
+                                <th class="wc-col-name">Khách hàng</th>
+                                <th class="wc-col-phone">Điện thoại / Ví</th>
+                                <th class="wc-col-fb">FB identity</th>
+                                <th class="wc-col-address">Địa chỉ</th>
+                                <th class="wc-col-status">Trạng thái</th>
+                                <th class="wc-col-stats">Đơn / Chi tiêu</th>
+                                <th class="wc-col-actions"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="wcTableBody">
+                            <tr>
+                                <td colspan="8"><div class="wc-loading">Đang tải…</div></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <footer class="wc-pagination">
+                    <span class="wc-pagination-info" id="wcPaginationInfo">—</span>
+                    <div class="wc-pagination-buttons" id="wcPaginationButtons"></div>
+                    <select id="wcPageSize" class="wc-select wc-pagesize">
+                        <option value="20">20 / trang</option>
+                        <option value="50" selected>50 / trang</option>
+                        <option value="100">100 / trang</option>
+                        <option value="200">200 / trang</option>
+                    </select>
+                </footer>
+            </main>
+        </div>
+
+        <!-- Create/Edit modal -->
+        <div
+            class="wc-modal"
+            id="wcModal"
+            hidden
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="wcModalTitle"
+        >
+            <div class="wc-modal-backdrop" id="wcModalBackdrop"></div>
+            <div class="wc-modal-panel modal-content">
+                <header class="wc-modal-head">
+                    <h2 id="wcModalTitle">Thêm khách hàng</h2>
+                    <button
+                        class="wc-modal-close"
+                        id="wcModalClose"
+                        type="button"
+                        aria-label="Đóng"
+                    >
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="wc-modal-body modal-body">
+                    <div class="wc-modal-banner">
+                        <i data-lucide="database"></i>
+                        Kho KH riêng Web 2.0 — độc lập TPOS. 1 SĐT = 1 khách (có thể nhiều FB).
+                    </div>
+                    <div class="wc-field-error" id="wcModalError"></div>
+
+                    <div class="wc-form-grid">
+                        <div class="wc-field">
+                            <label for="wcfName">Tên khách hàng <span class="req">*</span></label>
+                            <input
+                                id="wcfName"
+                                type="text"
+                                placeholder="VD: Nguyễn Văn A"
+                                autocomplete="off"
+                            />
+                        </div>
+                        <div class="wc-field">
+                            <label for="wcfPhone">Số điện thoại (10 số)</label>
+                            <input
+                                id="wcfPhone"
+                                type="tel"
+                                placeholder="0901234567"
+                                autocomplete="off"
+                            />
+                        </div>
+                        <div class="wc-field">
+                            <label for="wcfEmail">Email</label>
+                            <input id="wcfEmail" type="email" placeholder="email@…" />
+                        </div>
+                        <div class="wc-field">
+                            <label for="wcfStatus">Trạng thái</label>
+                            <select id="wcfStatus">
+                                <option value="Normal">Bình thường</option>
+                                <option value="VIP">VIP</option>
+                                <option value="Warning">Cảnh báo</option>
+                                <option value="Bom">Bom hàng</option>
+                                <option value="Danger">Nguy hiểm</option>
+                            </select>
+                        </div>
+                        <div class="wc-field">
+                            <label for="wcfTier">Hạng (tier)</label>
+                            <input
+                                id="wcfTier"
+                                type="text"
+                                placeholder="VD: Sỉ / Lẻ / Thân thiết"
+                            />
+                        </div>
+                        <div class="wc-field">
+                            <label for="wcfCarrier">Nhà mạng</label>
+                            <input id="wcfCarrier" type="text" placeholder="Viettel / Mobi…" />
+                        </div>
+                        <div class="wc-field wc-field-wide">
+                            <label for="wcfAddress">Địa chỉ</label>
+                            <textarea
+                                id="wcfAddress"
+                                rows="2"
+                                placeholder="Số nhà, đường…"
+                            ></textarea>
+                        </div>
+                        <div class="wc-field">
+                            <label for="wcfWard">Phường/Xã</label>
+                            <input id="wcfWard" type="text" />
+                        </div>
+                        <div class="wc-field">
+                            <label for="wcfDistrict">Quận/Huyện</label>
+                            <input id="wcfDistrict" type="text" />
+                        </div>
+                        <div class="wc-field">
+                            <label for="wcfCity">Tỉnh/TP</label>
+                            <input id="wcfCity" type="text" />
+                        </div>
+                        <div class="wc-field-group wc-field-wide">
+                            <span class="wc-group-label"
+                                ><i data-lucide="facebook"></i> FB identity (1 KH có thể nhiều
+                                account)</span
+                            >
+                            <div class="wc-form-grid wc-grid-3">
+                                <div class="wc-field">
+                                    <label for="wcfFbId">PSID (fb_id)</label>
+                                    <input id="wcfFbId" type="text" placeholder="page-scoped id" />
+                                </div>
+                                <div class="wc-field">
+                                    <label for="wcfGlobalId">Global ID</label>
+                                    <input
+                                        id="wcfGlobalId"
+                                        type="text"
+                                        placeholder="gửi tin được"
+                                    />
+                                </div>
+                                <div class="wc-field">
+                                    <label for="wcfFbPageId">FB Page ID</label>
+                                    <input id="wcfFbPageId" type="text" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="wc-field wc-field-wide">
+                            <label for="wcfTags">Nhãn (phẩy ngăn cách)</label>
+                            <input id="wcfTags" type="text" placeholder="vip, sỉ, ưu tiên" />
+                        </div>
+                        <div class="wc-field wc-field-wide">
+                            <label for="wcfNote">Ghi chú</label>
+                            <textarea id="wcfNote" rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="wc-modal-history" id="wcModalHistory" hidden></div>
+                </div>
+                <footer class="wc-modal-foot">
+                    <button class="wc-btn" id="wcModalCancel" type="button">
+                        <i data-lucide="x"></i> Hủy
+                    </button>
+                    <button class="wc-btn wc-btn-primary" id="wcModalSave" type="button">
+                        <i data-lucide="save"></i> Lưu
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <!-- Shared modules -->
+        <script src="../../web2/shared/web2-auth.js?v=20260526b"></script>
+        <script src="../shared/web2-user-info.js?v=20260530a"></script>
+        <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
+        <script src="../shared/web2-db-badge.js?v=20260530a"></script>
+        <script src="../shared/web2-optimistic.js?v=20260601a"></script>
+        <script src="../../web2/shared/tpos-sidebar.js?v=20260606ck"></script>
+        <script src="../../web2/shared/web2-sse-bridge.js?v=20260526sse2"></script>
+        <script src="../../web2/shared/web2-qr-modal.js?v=20260530a"></script>
+        <script src="../shared/web2-wallet-balance.js?v=20260606ck"></script>
+        <script src="../shared/web2-chat-client.js?v=20260604c"></script>
+        <script src="../shared/web2-chat-readonly.js?v=20260606b"></script>
+        <script src="../shared/web2-customer-detail-modal.js?v=20260607a"></script>
+
+        <!-- Page -->
+        <script src="js/customers-api.js?v=20260607a"></script>
+        <script src="js/customers-app.js?v=20260607a"></script>
+        <script>
+            Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
+            if (window.lucide) window.lucide.createIcons();
+        </script>
+    </body>
+</html>

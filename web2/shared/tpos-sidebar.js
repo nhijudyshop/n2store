@@ -180,7 +180,11 @@
             icon: 'users',
             children: [
                 {
-                    label: 'Khách hàng',
+                    label: 'Kho Khách Hàng (Web 2.0)',
+                    our: '../web2/customers/index.html',
+                },
+                {
+                    label: 'Khách hàng (TPOS live)',
                     tpos: '#/app/partner/customer/list1',
                     our: '../web2/partner-customer/index.html',
                 },
@@ -306,6 +310,7 @@
         'web2/printer-settings/index.html',
         'web2/users/index.html',
         'web2/customer-wallet/index.html',
+        'web2/customers/index.html',
         'web2/partner-customer/index.html',
         // F01-F12 future-development pages
         'web2/dashboard/index.html',

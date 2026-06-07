@@ -25,6 +25,26 @@
 
 ## 2026-06-07
 
+### [web2] Phase 3 — Trang Kho Khách Hàng `web2/customers` (warehouse UI, KHÔNG TPOS) ✅
+
+**Mục tiêu (plan Phase 3):** Frontend cho warehouse `web2_customers` — đọc/ghi `/api/web2/customers/*`, độc lập TPOS. Nguyên tắc **1 SĐT (10 số) = 1 KH** (phone UNIQUE), 1 KH nhiều FB account (fb_id/global_id + aliases).
+
+**Files mới (`web2/customers/`):**
+
+- `index.html` — layout: page head + toolbar (Thêm/Xuất CSV/Gộp) + stats filter chips (status) + bảng (checkbox, tên+source, SĐT+pill ví, FB identity badges, địa chỉ, status, đơn/chi tiêu, actions) + pagination + modal Thêm/Sửa (đủ field warehouse + nhóm FB identity + history timeline). Load shared modules (sse-bridge, qr-modal, wallet-balance, chat, customer-detail-modal, user-info, history-timeline, optimistic).
+- `js/customers-api.js` — wrapper `/api/web2/customers` (list/create/update/delete/merge/upsert) + dual base (CF Worker → Render direct fallback).
+- `js/customers-app.js` — list/search(debounce)/filter(status+source)/paginate + modal Thêm/Sửa + row actions (Chi tiết→`Web2CustomerDetailModal`, QR→`Web2QrModal`, Sửa, Xóa với soft-archive nếu có đơn) + Gộp KH trùng (chọn 2 → `/merge`) + Export CSV + SSE `web2:customers` (debounce reload) + pill ví (`Web2WalletBalance`).
+- `css/customers.css` — style riêng (prefix `wc-`), dùng token `--tpos-*`, modal class `modal-content/modal-body` (thừa hưởng anti-lag Tier1).
+
+**Files sửa:**
+
+- `web2/shared/tpos-sidebar.js` — thêm menu "Kho Khách Hàng (Web 2.0)" (`web2/customers/`) trong nhóm Khách hàng; đổi label partner-customer → "Khách hàng (TPOS live)"; thêm vào allowlist web2.
+- `web2/shared/web2-customer-detail-modal.js` — bỏ text "đồng bộ TPOS" (warehouse độc lập TPOS).
+
+**Test:** local smoke (Playwright headless): page load OK, sidebar mounted, 10 shared modules loaded, modal Thêm mở OK, 0 console error. Backend đã auto-deploy (Render) → CRUD prod verified end-to-end: create → list/search → patch → delete → verify gone (cleanup sạch). `/api/web2/customers/list` trả `{success,data:[],total:0}` (warehouse rỗng beta). SSE hub `web2:customers` alive.
+
+**Status:** ✅ Done (Phase 3 frontend). Còn: gỡ TPOS khỏi tpos-pancake/live-campaign (scope riêng).
+
 ### [render] Phase 1 — Kho KH warehouse Web 2.0 `web2_customers` (gộp 1 bảng DUY NHẤT, BỎ TPOS) ✅
 
 **Mục tiêu (plan `docs/plans/web2-customer-warehouse.md`):** Web 2.0 có kho KH riêng, độc lập hoàn toàn TPOS. Trước đó có **2 bảng** gây nhầm: `web2_customers` (TPOS-coupled, id=Partner Id, cột `tpos_raw`) + `web2_order_customers` (kho KH đơn, Pancake/FB). Gộp thành **1 warehouse `web2_customers`** (id BIGSERIAL, phone UNIQUE, `fb_psids` JSONB multi-page + `global_id`, KHÔNG `tpos_id`/`tpos_data`).

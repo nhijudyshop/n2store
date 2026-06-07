@@ -2,7 +2,9 @@
 
 # PLAN — Kho dữ liệu Khách hàng riêng Web 2.0 + tách config (deliveryzone/printer)
 
-> Trạng thái: **Phase 0 ✅ XONG. Phase 1 (backend) ✅ XONG 2026-06-07. Phase 3 (frontend UI) = việc kế tiếp.** Ngày: 2026-06-07.
+> Trạng thái: **Phase 0 ✅. Phase 1 (backend) ✅. Phase 3 (frontend `web2/customers`) ✅ XONG 2026-06-07.** Còn: gỡ TPOS khỏi tpos-pancake/live-campaign (scope riêng). Ngày: 2026-06-07.
+>
+> **Phase 3 done**: trang `web2/customers/` (index.html + css/customers.css + js/customers-api.js + js/customers-app.js) — list/search/filter/paginate + CRUD + Chi tiết/QR/Chat (reuse `Web2CustomerDetailModal`) + Gộp KH + SSE `web2:customers` + pill ví + history timeline. Sidebar menu "Kho Khách Hàng (Web 2.0)". Test prod CRUD PASS. Xem dev-log `[web2] Phase 3`.
 >
 > ### ▶ BẮT ĐẦU PHIÊN MỚI TỪ ĐÂY (handoff)
 >

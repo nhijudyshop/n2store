@@ -1,7 +1,7 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — modal chi tiết KH (balance-history). Đọc kho KH chung /api/web2/customers/*.
 // =====================================================================
 // Web2CustomerDetailModal — click tên KH ở balance-history → modal tổng hợp:
-//   • Thông tin: tên/SĐT/địa chỉ (sửa → PATCH /api/web2/customers/:id → sync TPOS)
+//   • Thông tin: tên/SĐT/địa chỉ (sửa → PATCH /api/web2/customers/:id, warehouse độc lập TPOS)
 //   • KH trùng SĐT (search by phone)
 //   • Lịch sử ví: nạp tiền / dùng tiền (web2_wallet_transactions)
 //   • Đơn hàng: Đơn Web + PBH + đếm thành công
@@ -283,9 +283,8 @@
             });
             const d = await r.json();
             if (d.success) {
-                msg.textContent = d.tposSynced
-                    ? '✓ Đã lưu + đồng bộ TPOS'
-                    : '✓ Đã lưu (TPOS: ' + (d.tposError || 'chưa rõ') + ')';
+                // 2026-06-07: kho KH warehouse độc lập TPOS — không còn sync TPOS.
+                msg.textContent = '✓ Đã lưu';
                 _data.customer = { ...c, ...payload };
                 window.notificationManager?.show?.('Đã lưu thông tin KH', 'success');
             } else {
