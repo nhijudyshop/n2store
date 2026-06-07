@@ -1,189 +1,249 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — nguồn comment live qua FB Graph (web2-fb-live), thay TPOS. Flag-gated.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — nguồn comment live qua Pancake (pages.fm) + FB Graph EAA optional. Thay TPOS.
 // =====================================================================
-// TposFbLiveSource — nguồn comment livestream ĐỘC LẬP TPOS, qua backend
-// /api/web2-fb-live (FB Graph + Pancake page token). Dùng để REWIRE cột
-// "xem comment livestream" của tpos-pancake khỏi TPOS.
+// TposFbLiveSource — nguồn dữ liệu cột "xem comment livestream" ĐỘC LẬP TPOS.
 //
-// ⚠ FLAG-GATED + FALLBACK-SAFE (rewire mù an toàn — verify ở buổi live kế):
-//   - Mặc định TẮT (localStorage `web2_live_source` ≠ 'fbgraph') → cột chạy
-//     TPOS như cũ, shop KHÔNG bị ảnh hưởng.
-//   - Bật: `localStorage.setItem('web2_live_source','fbgraph')` rồi reload.
-//     loadComments lỗi → tpos-api tự fallback TPOS. Realtime lỗi → vẫn còn
-//     polling load. Sai bất kỳ đâu → tắt flag là về TPOS ngay (không mất live).
+// ⚠ KIẾN TRÚC (xác nhận 2026-06-07 với live thật):
+//   - Pancake CHỈ đưa JWT (eyJh) chạy trên pages.fm — KHÔNG phải FB EAA token,
+//     gọi thẳng graph.facebook.com → "Bad signature". Vậy NGUỒN CHÍNH = pages.fm
+//     Pancake API (qua worker /api/pancake/*, account JWT). Đã verify: lấy được
+//     post livestream + 60 comment thật.
+//   - HYBRID "dùng cả": nếu page có FB EAA token thật (EAA..., user tạo qua Meta
+//     System User, lưu /api/pancake-page-tokens) → dùng graph.facebook.com (giàu
+//     hơn, realtime poll qua web2-fb-live). Token eyJh → pages.fm.
 //
-// MẤU CHỐT: token = Pancake page_access_token (FB token thật). Comment shape
-// = FB-native (backend mapComment) → tái dùng TposRealtime.handleSSEMessage +
-// tpos-comment-list KHÔNG cần đổi.
+// Comment livestream = Pancake conversations type=COMMENT lọc theo post_id bài
+// live. Mỗi conversation = 1 comment thread (snippet = nội dung comment).
 //
-// Hỗ trợ "chọn chiến dịch CŨ coi comment CŨ": loadComments gọi
-// /api/web2-fb-live/comments?liveVideoId= (1-shot, cả VOD) — không cần live.
+// Multi-account: chọn account JWT admin page (pancakeTokenManager.accounts).
 // =====================================================================
 
 (function () {
     'use strict';
     if (typeof window === 'undefined') return;
 
-    const KEEPALIVE_MS = 5 * 60 * 1000; // refresh poller keepalive < POLLER_STALE_MS(8') server
+    const POLL_MS = 4000; // poll comment mới mỗi 4s (client-side, pages.fm)
+    const LOOKBACK_S = 6 * 3600; // cửa sổ comment 6h
+    const POSTS_LOOKBACK_S = 7 * 86400; // posts 7 ngày
 
-    // 2026-06-07: TPOS đã gỡ HOÀN TOÀN khỏi cột live — FB Graph là nguồn DUY
-    // NHẤT (không còn flag, không fallback). Giữ enabled() trả true cho call
-    // site cũ (startSSE) khỏi phải sửa.
-    function enabled() {
-        return true;
-    }
-
-    function base() {
+    function worker() {
         return (
             (window.TposState && window.TposState.workerUrl) ||
             'https://chatomni-proxy.nhijudyshop.workers.dev'
         );
     }
-
-    // postId = Facebook_PostId dạng `pageId_videoId` → lấy videoId (live video).
-    function videoId(postId) {
-        const s = String(postId || '');
-        return s.includes('_') ? s.split('_').pop() : s;
+    function nowS() {
+        return Math.floor(Date.now() / 1000);
+    }
+    function enabled() {
+        return true; // TPOS đã gỡ — nguồn này luôn dùng
     }
 
-    async function pageToken(pageId) {
+    // postId chuẩn pages.fm = `pageId_xxxxx`. Giữ nguyên (Facebook_LiveId).
+    function fullPostId(pageId, postId) {
+        const s = String(postId || '');
+        if (s.includes('_')) return s;
+        return `${pageId}_${s}`;
+    }
+
+    // ── Token resolution ────────────────────────────────────────────────
+    // Account JWT (pages.fm) cho page: account nào admin page đó.
+    function _accountJwtForPage(pageId) {
+        const tm = window.pancakeTokenManager;
+        if (!tm) return null;
+        const accs = tm.accounts || {};
+        for (const id of Object.keys(accs)) {
+            const a = accs[id];
+            if (!a || !a.token) continue;
+            if (Array.isArray(a.pages) && a.pages.map(String).includes(String(pageId))) {
+                return a.token;
+            }
+        }
+        return tm.currentToken || null; // fallback active
+    }
+    // FB EAA token thật cho page (nếu có) — cache pancakeTokenManager.pageAccessTokens
+    // CHỈ tính là EAA khi prefix 'EAA' (eyJ = Pancake JWT, bỏ).
+    function _eaaTokenForPage(pageId) {
         try {
-            return (await window.PancakeAPI?.getPageAccessToken(pageId)) || null;
+            const t = window.pancakeTokenManager?.pageAccessTokens?.[pageId]?.token;
+            return t && String(t).startsWith('EAA') ? t : null;
         } catch {
             return null;
         }
     }
 
-    // 1-shot load comments (live đang chạy HOẶC chiến dịch cũ/VOD).
-    async function loadComments(pageId, postId) {
-        const token = await pageToken(pageId);
-        if (!token) throw new Error('FB-live: thiếu page token (Pancake)');
-        const lv = videoId(postId);
-        if (!lv) throw new Error('FB-live: thiếu liveVideoId');
-        const url = `${base()}/api/web2-fb-live/comments?liveVideoId=${encodeURIComponent(lv)}&token=${encodeURIComponent(token)}&limit=100`;
+    async function _pfmGet(path, jwt) {
+        const sep = path.includes('?') ? '&' : '?';
+        const url = `${worker()}/api/pancake/${path}${sep}access_token=${encodeURIComponent(jwt)}`;
         const r = await fetch(url, { headers: { Accept: 'application/json' } });
-        const d = await r.json().catch(() => ({}));
-        if (!d || d.success === false) throw new Error(d?.error || 'FB-live comments failed');
-        return { comments: d.data || [], nextPageUrl: null };
+        return r.json().catch(() => ({}));
     }
 
-    const _active = new Map(); // liveVideoId → { unsub, keepalive }
-
-    async function startRealtime(pageId, postId, pageName) {
-        const token = await pageToken(pageId);
-        if (!token) {
-            console.warn('[FB-LIVE-SRC] không có page token → bỏ realtime');
-            return;
-        }
-        const lv = videoId(postId);
-        if (!lv || _active.has(lv)) return;
-
-        const start = () =>
-            fetch(`${base()}/api/web2-fb-live/poll/start`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ liveVideoId: lv, pageId, token }),
-            }).catch((e) => console.warn('[FB-LIVE-SRC] poll/start fail:', e.message));
-
-        await start();
-        // SSE: comment mới broadcast qua web2:livestream:<lv> → reuse handleSSEMessage.
-        const unsub = window.Web2SSE?.subscribe(`web2:livestream:${lv}`, (evt) => {
-            const comments = evt?.data?.comments || evt?.comments;
-            if (
-                Array.isArray(comments) &&
-                comments.length &&
-                window.TposRealtime?.handleSSEMessage
-            ) {
-                try {
-                    window.TposRealtime.handleSSEMessage(JSON.stringify(comments), pageName || '');
-                } catch (e) {
-                    console.warn('[FB-LIVE-SRC] ingest fail:', e.message);
-                }
-            }
-        });
-        const keepalive = setInterval(start, KEEPALIVE_MS);
-        _active.set(lv, { unsub, keepalive });
-        if (window.TposCommentList?.updateConnectionStatus) {
-            window.TposCommentList.updateConnectionStatus(true, 'sse');
-        }
-        console.log('[FB-LIVE-SRC] realtime started for live', lv);
+    // ── Map 1 COMMENT conversation (pages.fm) → comment shape FB-native ──
+    function _convToComment(c) {
+        const from = c.from || (Array.isArray(c.customers) && c.customers[0]) || {};
+        return {
+            id: c.id || c.thread_id || c.thread_key,
+            from: { id: from.id || from.fb_id || c.from_psid || null, name: from.name || '' },
+            message: c.snippet || c.last_sent_message || '',
+            created_time: c.inserted_at || c.last_customer_interactive_at || null,
+            parent: null,
+            post_id: c.post_id || null,
+            _conv: true,
+            _hasOrder: !!c.has_livestream_order,
+            _phones: c.recent_phone_numbers || [],
+        };
     }
 
-    function _stopOne(id, a) {
-        try {
-            a.unsub && a.unsub();
-        } catch {}
-        clearInterval(a.keepalive);
-        fetch(`${base()}/api/web2-fb-live/poll/stop`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ liveVideoId: id }),
-        }).catch(() => {});
-        _active.delete(id);
-    }
-
-    function stopRealtime(postId) {
-        if (postId) {
-            const lv = videoId(postId);
-            const a = _active.get(lv);
-            if (a) _stopOne(lv, a);
-        } else {
-            for (const [id, a] of Array.from(_active.entries())) _stopOne(id, a);
-        }
-    }
-
-    // ─── Page discovery (Pancake) → shape crmTeams/allPages giống TPOS ──────
-    // Trả { crmTeams, allPages } để loadCRMTeams set thẳng vào state.
+    // ── Pages (multi-account) từ store token (3 page có token) ───────────
     async function fetchPagesAsCrmTeams() {
-        const pages = (await window.PancakeAPI?.fetchPages?.()) || [];
-        const allPages = pages.map((p) => ({
-            Id: Number(p.id), // selector so === parseInt(pageId) (precision nhất quán)
-            Facebook_PageId: String(p.id),
-            Facebook_TypeId: 'Page',
-            Name: p.name || String(p.id),
-            Facebook_UserName: p.name || '',
-            teamId: 0,
-            teamName: 'Pancake Pages',
-        }));
-        const crmTeams = allPages.length
-            ? [{ Id: 0, Name: 'Pancake Pages', Childs: allPages }]
-            : [];
-        return { crmTeams, allPages };
+        try {
+            const r = await fetch(`${worker()}/api/pancake-page-tokens`, {
+                headers: { Accept: 'application/json' },
+            });
+            const d = await r.json().catch(() => ({}));
+            const toks = d.tokens || {};
+            const allPages = Object.keys(toks).map((pid) => ({
+                Id: Number(pid),
+                Facebook_PageId: String(pid),
+                Facebook_TypeId: 'Page',
+                Name: toks[pid].pageName || String(pid),
+                Facebook_UserName: toks[pid].pageName || '',
+                teamId: 0,
+                teamName: 'Pancake Pages',
+            }));
+            const crmTeams = allPages.length
+                ? [{ Id: 0, Name: 'Pancake Pages', Childs: allPages }]
+                : [];
+            return { crmTeams, allPages };
+        } catch (e) {
+            console.warn('[FB-LIVE-SRC] fetchPages fail:', e.message);
+            return { crmTeams: [], allPages: [] };
+        }
     }
 
-    // ─── Live video discovery (FB Graph) → shape liveCampaign giống TPOS ────
-    // pageIds: 1 hoặc nhiều page. Trả mảng campaign-like.
+    // ── Live videos (= posts type=livestream) → campaign-like ───────────
     async function fetchVideosAsCampaigns(pageIds) {
         const ids = Array.isArray(pageIds) ? pageIds : [pageIds];
         const out = [];
+        const now = nowS();
         for (const pid of ids) {
             const pageId = String(pid || '').trim();
             if (!pageId) continue;
-            const token = await pageToken(pageId);
-            if (!token) continue;
+            const jwt = _accountJwtForPage(pageId);
+            if (!jwt) continue;
             try {
-                const url = `${base()}/api/web2-fb-live/videos?pageId=${encodeURIComponent(pageId)}&token=${encodeURIComponent(token)}&limit=50`;
-                const r = await fetch(url, { headers: { Accept: 'application/json' } });
-                const d = await r.json().catch(() => ({}));
-                if (!d || d.success === false || !Array.isArray(d.data)) continue;
-                for (const v of d.data) {
-                    const vid = String(v.videoId || v.objectId || '');
-                    if (!vid) continue;
+                const d = await _pfmGet(
+                    `pages/${pageId}/posts?start_time=${now - POSTS_LOOKBACK_S}&end_time=${now}`,
+                    jwt
+                );
+                const posts = Array.isArray(d.posts)
+                    ? d.posts
+                    : Array.isArray(d.data)
+                      ? d.data
+                      : [];
+                for (const p of posts) {
+                    if (p.type !== 'livestream' && !p.is_live_video && !p.live_video_id) continue;
                     out.push({
-                        Id: vid, // checkbox value + find(x.Id===id)
-                        Name: v.title || '(live)',
-                        Facebook_UserId: pageId, // = pageId
-                        Facebook_LiveId: `${pageId}_${vid}`, // = postId cho loadComments/startSSE
-                        Facebook_UserName: out.length === 0 ? '' : '', // điền sau từ allPages nếu cần
-                        DateCreated: v.channelCreatedTime || null,
-                        StatusLive: v.statusLive || null,
-                        _thumbnail: v.thumbnail?.url || null,
+                        Id: String(p.id),
+                        Name: p.message || p.title || '(livestream)',
+                        Facebook_UserId: pageId,
+                        Facebook_LiveId: String(p.id), // pages.fm post id = pageId_xxx
+                        Facebook_UserName: '',
+                        DateCreated: p.inserted_at || p.created_time || null,
+                        StatusLive: p.live_status || (p.is_living ? 'LIVE' : null),
+                        _thumbnail:
+                            p.picture ||
+                            p.cover ||
+                            (p.attachments && p.attachments[0]?.url) ||
+                            null,
                     });
                 }
             } catch (e) {
-                console.warn('[FB-LIVE-SRC] fetchVideos fail page', pageId, e.message);
+                console.warn('[FB-LIVE-SRC] posts fail', pageId, e.message);
             }
         }
         return out;
+    }
+
+    // ── Comments của 1 bài live: conversations type=COMMENT lọc post_id ──
+    async function loadComments(pageId, postId) {
+        const jwt = _accountJwtForPage(pageId);
+        if (!jwt) throw new Error('FB-live: không có account JWT cho page ' + pageId);
+        const pid = fullPostId(pageId, postId);
+        const now = nowS();
+        const comments = [];
+        // page qua tối đa 5 trang để gom comment của post này (live nhiều thread)
+        for (let pageNum = 1; pageNum <= 5; pageNum++) {
+            const d = await _pfmGet(
+                `pages/${pageId}/conversations?type=COMMENT&since=${now - LOOKBACK_S}&until=${now}&page_number=${pageNum}`,
+                jwt
+            );
+            const cv = Array.isArray(d.conversations)
+                ? d.conversations
+                : Array.isArray(d.data)
+                  ? d.data
+                  : [];
+            if (!cv.length) break;
+            for (const c of cv) {
+                if (String(c.post_id) === pid) comments.push(_convToComment(c));
+            }
+            if (cv.length < 20) break; // hết trang
+        }
+        return { comments, nextPageUrl: null };
+    }
+
+    // ── Realtime: client poll loadComments, dedupe → handleSSEMessage ────
+    const _active = new Map(); // postId → { timer, seen:Set }
+
+    async function startRealtime(pageId, postId, pageName) {
+        const pid = fullPostId(pageId, postId);
+        if (_active.has(pid)) return;
+        const st = { timer: null, seen: new Set() };
+        _active.set(pid, st);
+        const tick = async () => {
+            try {
+                const { comments } = await loadComments(pageId, postId);
+                const fresh = comments.filter((c) => c.id && !st.seen.has(c.id));
+                fresh.forEach((c) => st.seen.add(c.id));
+                if (st.seen.size > 5000) st.seen = new Set(Array.from(st.seen).slice(-2500));
+                if (fresh.length && window.TposRealtime?.handleSSEMessage) {
+                    // chronological (cũ→mới) cho hiển thị nhất quán
+                    fresh.reverse();
+                    window.TposRealtime.handleSSEMessage(JSON.stringify(fresh), pageName || '');
+                }
+            } catch (e) {
+                console.warn('[FB-LIVE-SRC] poll fail:', e.message);
+            }
+        };
+        // seed seen từ loadComments hiện có (đã render bởi loadComments lần đầu)
+        try {
+            const { comments } = await loadComments(pageId, postId);
+            comments.forEach((c) => c.id && st.seen.add(c.id));
+        } catch {}
+        st.timer = setInterval(tick, POLL_MS);
+        if (window.TposCommentList?.updateConnectionStatus) {
+            window.TposCommentList.updateConnectionStatus(true, 'poll');
+        }
+        console.log('[FB-LIVE-SRC] realtime poll started for post', pid);
+    }
+
+    function stopRealtime(postId) {
+        const stopOne = (id, st) => {
+            clearInterval(st.timer);
+            _active.delete(id);
+        };
+        if (postId) {
+            for (const [id, st] of Array.from(_active.entries())) {
+                if (id.endsWith(String(postId)) || id === String(postId)) stopOne(id, st);
+            }
+        } else {
+            for (const [id, st] of Array.from(_active.entries())) stopOne(id, st);
+        }
+    }
+
+    // Giữ tên cũ videoId cho caller (postId pages.fm đã full → trả nguyên).
+    function videoId(postId) {
+        return String(postId || '');
     }
 
     window.TposFbLiveSource = {
@@ -194,5 +254,6 @@
         videoId,
         fetchPagesAsCrmTeams,
         fetchVideosAsCampaigns,
+        _eaaTokenForPage, // cho web2-fb-live EAA path (optional)
     };
 })();
