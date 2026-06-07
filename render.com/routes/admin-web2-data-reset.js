@@ -45,26 +45,30 @@ const INVENTORY_TABLES = [
     'inventory_suppliers',
 ];
 
-// [2026-06-07] target='web2-all' — wipe TOÀN BỘ data giao dịch Web 2.0 trên
-// web2Db, CHỪA LẠI: cấu hình (variants, users, sessions, entities, payment QR)
-// + hồ sơ khách hàng (web2_customers). "Xóa tiền giữ KH": ví/giao dịch/SePay
-// đều wipe nhưng web2_customers giữ. NCC (suppliers/Ví NCC) ở Firestore — wipe
-// riêng phía client. Có FK chéo (orders↔customers, records→entities) → CASCADE.
-//   GIỮ: web2_variants, web2_customers, web2_users, web2_user_sessions,
-//        web2_entities, web2_payment_qr_codes.
+// [2026-06-07] target='web2-all' — wipe data GIAO DỊCH Web 2.0 do shop tạo trên
+// web2Db. CHỪA LẠI:
+//   - Cấu hình: web2_variants, web2_users, web2_user_sessions, web2_entities,
+//     web2_payment_qr_codes
+//   - KHÁCH HÀNG (hồ sơ): web2_customers, web2_order_customers (tên/SĐT/địa chỉ
+//     KH đơn hàng — 2026-06-03 tách kho KH), partner-customer (web2_records)
+//   - TPOS shadow/reference (web2_records: product, producttemplate, tag,
+//     partner-customer, deliveryzone, printer, …) — KHÔNG truncate cả bảng.
+// "Xóa tiền giữ KH": ví/giao dịch/SePay wipe; hồ sơ KH giữ nguyên.
+// NCC (web2_suppliers / web2_supplier_wallet) ở Firestore → wipe phía client.
+// PBH shadow `fastsaleorder-invoice` (web2_records) → xoá slug riêng (delete-all),
+// KHÔNG truncate cả web2_records (sẽ mất 92k partner-customer + TPOS shadow).
+// KHÔNG dùng CASCADE: nếu 1 bảng GIỮ ref tới bảng WIPE → TRUNCATE fail (an toàn,
+// fail loud) thay vì âm thầm xoá data KH/cấu hình.
 const WEB2_ALL_TABLES = [
     // Sản phẩm + Sổ Order sync
     'web2_products',
     'web2_product_history',
-    // Đơn Web + PBH + trả/thu
+    // Đơn Web + PBH (table native) + trả/thu
     'native_orders',
     'fast_sale_orders',
     'refunds',
     'web2_returns',
     'web2_cart_history',
-    // Generic entities (purchase-refund, notifications, audit-log, dashboard-kpi,
-    // supplier-aging, smart-match, inventory-forecast, supplier-360, cart, …)
-    'web2_records',
     // KPI + đối soát
     'web2_kpi_events',
     'web2_match_audit',
@@ -74,11 +78,10 @@ const WEB2_ALL_TABLES = [
     'web2_msg_send_items',
     'web2_unread_messages',
     'web2_webhook_retry_queue',
-    // Quan hệ đơn↔khách + intent (derived, không phải hồ sơ KH)
-    'web2_order_customers',
+    // Intent (derived từ chat) + blacklist trích xuất
     'web2_customer_intents',
     'web2_extraction_blacklist',
-    // Tiền KH (xóa tiền, GIỮ web2_customers) + SePay
+    // Tiền KH (xóa tiền, GIỮ hồ sơ KH) + SePay
     'web2_customer_wallets',
     'web2_wallet_transactions',
     'web2_wallet_adjustments',
@@ -184,7 +187,9 @@ router.post('/web2-data-reset', async (req, res) => {
                 if (await tableExists(db, t)) existing.push(`"${t}"`);
             }
             if (existing.length) {
-                const cascade = target === 'inventory' || target === 'web2-all' ? ' CASCADE' : '';
+                // web2-all KHÔNG cascade: bảo vệ bảng GIỮ (KH/cấu hình) — nếu có FK
+                // tới bảng wipe thì TRUNCATE fail loud thay vì âm thầm xoá lan.
+                const cascade = target === 'inventory' ? ' CASCADE' : '';
                 await db.query(`TRUNCATE TABLE ${existing.join(', ')} RESTART IDENTITY${cascade}`);
             }
         }
