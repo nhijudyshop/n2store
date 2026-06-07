@@ -434,6 +434,13 @@
                                         upsert-pending · adjust-pending · confirm-purchase
                                     </div>
                                     <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Mã SP (2026-06-07)</span>
+                                        SP Lưu Nháp sinh mã đúng format Kho SP qua
+                                        <code>Web2ProductCode</code> (vd <code>KHOAOTRANG</code>);
+                                        thiếu NCC → default prefix <code>KHO</code>, KHÔNG còn mã
+                                        rác <code>KHO-&lt;rnd&gt;</code> do server sinh.
+                                    </div>
+                                    <div class="ov-meta-item">
                                         <span class="ov-meta-label">Liên kết</span>
                                         → web2-products (pending → stock) → purchase-refund (trả
                                         hàng) → supplier-debt &amp; supplier-wallet (công nợ)
@@ -539,6 +546,14 @@
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">SSE topic</span>
                                         <code>web2:purchase-refund</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Gom nhóm (2026-06-07)</span>
+                                        Section A + picker tách theo <strong>ĐƠN</strong> (NCC +
+                                        đợt/shipment Sổ Order), không gộp chung NCC. SP nhập đợt sau
+                                        → nhóm riêng. Header hiện nhãn "Đợt X · ngày". Key
+                                        chọn/SL/trả dùng
+                                        <code>aggId = supplier::shipmentId::code</code>.
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">Liên kết</span>

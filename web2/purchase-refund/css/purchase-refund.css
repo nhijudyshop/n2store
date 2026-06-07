@@ -701,6 +701,19 @@ body {
     color: #475569;
     font-weight: 500;
 }
+/* 2026-06-07: nhãn ĐƠN (đợt + ngày) — tách đơn khác nhau dù cùng NCC. */
+.pr-source-order-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
 .pr-source-table {
     width: 100%;
     border-collapse: collapse;

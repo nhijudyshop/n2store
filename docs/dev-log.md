@@ -25,6 +25,18 @@
 
 ## 2026-06-07
 
+### [so-order][products][refund] Mã SP draft đúng format + fix dropdown lag + tách đơn trả hàng theo đợt ✅
+
+**Files:** `so-order/js/so-order-app.js`, `so-order/css/so-order.css`, `so-order/index.html`, `web2/purchase-refund/js/purchase-refund-app.js`, `web2/purchase-refund/css/purchase-refund.css`, `web2/purchase-refund/index.html`
+
+**1) Mã SP từ Sổ Order (Lưu Nháp) phải đúng định dạng bên Kho SP** — Trước: `_assignKhoCodes` bỏ qua SP không có NCC (`if(!it.supplier) continue`) → server sinh mã rác `KHO-<rnd>-<ts36>` (vd `KHO-B5JR-MQ3BGIYG`). Sau: default `supplierName='KHO'` (giống `web2-products openCreate`) → mã đúng format `KHO+LOẠI+MÀU+SIZE` (vd `KHOAOTRANG`). Verified live: `suggest({supplierName:'KHO',productName:'ÁO THUN TRẮNG'}) → KHOAOTRANG`.
+
+**2) Bug "Thêm sản phẩm" để lại thanh xám lơ lửng** — `.so-suggest-dropdown` + `.so-variant-dropdown` khai `display:flex` → ĐÈ UA rule `[hidden]{display:none}` (specificity hòa 0,1,0 → author thắng theo source order) nên dropdown KHÔNG ẩn dù set `hidden`. Empty dropdown để lại thanh xám; sau khi pick suggestion → `renderModalRows` + `_positionFixedDropdown` để lại element `position:fixed` lơ lửng. Fix CSS: `.so-suggest-dropdown[hidden],.so-variant-dropdown[hidden]{display:none!important}`. Verified: cả 2 computed `display:none`.
+
+**3) purchase-refund tách đơn theo đợt/shipment** — Trước: Section A + picker gộp tất cả SP cùng `r.supplier` vào 1 nhóm → SP tạo đợt sau (vd "a") lẫn chung với đợt cũ cùng NCC "B4". Sau: aggKey `${supplier}::${sh.id}::${code}`, group theo `_orderGroupKey = supplier::shipmentId`, header thêm nhãn `_orderGroupLabel` (Đợt X · ngày). Mọi key chọn/qty/refund chuyển từ `code` → `aggId` (1 code có thể ở nhiều đơn). 1 "đơn" = 1 shipment Sổ Order (khớp khái niệm "đơn gốc" = `sources[0].ship`).
+
+**Wipe data beta (user cho phép, Web 2.0 beta):** xóa Firestore `web2_so_order/main` (set empty → propagate qua init Firestore-first), 20 SP `web2_products`, 1 phiếu `purchase-refund`. GIỮ `web2_variants` (config sinh mã), ví KH/NCC, native_orders/fast_sale_orders. Verified: so-order=2 tab rỗng, products=0, refunds=0.
+
 ### [render][admin] Reset ví/đơn theo SĐT (dọn clone test) + giải thích ví-vs-nợ ✅
 
 **Bối cảnh:** clone test `0123456788` bị churn nặng (1.6M nạp/trừ/cleanup qua nhiều phiên) → partner-customer hiện "Đã thu 1.658.662 / Còn nợ -1.198.662 / Ví 0đ" méo. User hỏi "khách có nợ nên nạp vào tài khoản không lên à?" → ĐÚNG: model "CK tự trả nợ đơn" (user chốt giữ) → CK nạp vào bị trừ ngay vào PBH chưa trả → ví về 0. Logic feature ĐÚNG (dư mới giữ trong ví); ví 0 chỉ do data test churn.

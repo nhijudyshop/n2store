@@ -421,6 +421,9 @@ curl -X POST "https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2/s
 - **[`web2/overview/index.html`](web2/overview/index.html) section `#conventions` — QUY ƯỚC WEB 2.0 canonical (ĐỌC TRƯỚC KHI CODE trang/feature Web 2.0 mới)**: DB/pool (`web2Db || chatDb`, KHÔNG ghi Web 1.0), naming (table `web2_`, route `/api/web2/`, service `web2-*.js`), realtime SSE `web2:<entity>`, server wiring, migration infra, checklist. Live tại https://nhijudy.store/web2/overview/index.html
 - [`docs/web2/WEB2-INDEX.md`](docs/web2/WEB2-INDEX.md) — folder, route, table, Firestore collection của Web 2.0
 - [`docs/web2/SSE-REALTIME.md`](docs/web2/SSE-REALTIME.md) — **SSE realtime pattern** (BẮT BUỘC đọc khi code realtime/sync)
+- **Mã SP Web 2.0 (so-order + Kho SP)**: SP MỚI luôn sinh mã qua `Web2ProductCode.suggest()` (format `<PREFIX_NCC><LOẠI><MÀU><SIZE>`, vd `KHOAOTRANG`). Thiếu NCC → default prefix `KHO` (KHÔNG để server sinh `KHO-<rnd>`). so-order `_assignKhoCodes` + web2-products `suggestProductCode` cùng rule. KHÔNG hardcode mã rác.
+- **CSS `[hidden]` + `display`**: element ẩn/hiện bằng attr `hidden` mà có `display:flex|grid|block` trong CSS → PHẢI thêm rule `.cls[hidden]{display:none!important}` (UA `[hidden]{display:none}` bị author rule đè do specificity hòa). Gặp ở so-order dropdown (fix 2026-06-07).
+- **purchase-refund gom nhóm theo ĐƠN** (2026-06-07): Section A + picker group theo `supplier::shipmentId` (1 đơn = 1 đợt Sổ Order), key chọn/SL dùng `aggId`, KHÔNG gộp chung NCC.
 
 ### Tách DB Web 2.0 (2026-06-03) — BẮT BUỘC nhớ khi code Render route Web 2.0
 

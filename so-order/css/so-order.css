@@ -2101,6 +2101,17 @@ select.so-input-v2 {
     height: 11px;
 }
 
+/* FIX 2026-06-07: `.so-suggest-dropdown` + `.so-variant-dropdown` đặt
+   `display:flex` → đè UA rule `[hidden]{display:none}` (specificity hòa, author
+   thắng) nên dropdown KHÔNG ẩn dù set `hidden`. Hệ quả: empty dropdown để lại
+   thanh xám rỗng dưới input; tệ hơn, sau khi pick suggestion → renderModalRows
+   → `_positionFixedDropdown` để lại element `position:fixed` lơ lửng (bug "Thêm
+   sản phẩm"). Ép ẩn thật khi có attr hidden. */
+.so-suggest-dropdown[hidden],
+.so-variant-dropdown[hidden] {
+    display: none !important;
+}
+
 /* Suggestion dropdown anchored to product-input-wrap */
 .so-suggest-dropdown {
     position: absolute;

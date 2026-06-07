@@ -67,6 +67,19 @@
             .replace(/"/g, '&quot;');
     }
 
+    // 2026-06-07: 1 "đơn" = 1 shipment/đợt trong Sổ Order. Group Section A +
+    // picker theo (NCC + shipment) để SP tạo ở đợt khác nhau tách nhóm riêng,
+    // kể cả cùng NCC. Header hiển thị NCC + đợt/ngày cho dễ phân biệt.
+    function _orderGroupKey(it) {
+        return `${it.supplier}::${it.shipmentId || ''}`;
+    }
+    function _orderGroupLabel(it) {
+        const parts = [];
+        if (it.shipBatch) parts.push('Đợt ' + it.shipBatch);
+        if (it.shipDate) parts.push(fmtDate(it.shipDate));
+        return parts.join(' · ') || 'Đơn (chưa rõ đợt)';
+    }
+
     /**
      * Lấy user hiện tại — delegate sang shared Web2UserInfo.
      * P1 2026-05-30: shared module thay cho per-page inline helper. Fallback
@@ -652,10 +665,18 @@
                     if (!matched) continue; // SP chưa sync web2_products
                     const stock = Number(matched.stock || 0);
                     if (stock <= 0) continue; // chưa nhận hàng → không trả được
-                    const aggKey = `${supplier}::${matched.code}`;
+                    // 2026-06-07: tách theo ĐƠN (shipment/đợt) — mỗi lần "Tạo Đơn
+                    // Hàng" trong Sổ Order = 1 đơn riêng, KHÔNG gộp chung NCC. SP
+                    // tạo ở đợt sau → nhóm riêng dù cùng NCC. aggKey gồm sh.id.
+                    const aggKey = `${supplier}::${sh.id}::${matched.code}`;
                     if (!agg.has(aggKey)) {
                         agg.set(aggKey, {
+                            aggId: aggKey,
                             supplier,
+                            shipmentId: sh.id,
+                            shipBatch: sh.batch || '',
+                            shipDate: sh.date || '',
+                            tabLabel: tab.label || tab.id,
                             code: matched.code,
                             name: matched.name,
                             variant: matched.variant || variant,
@@ -738,10 +759,10 @@
             return true;
         });
 
-        // Group by supplier
+        // Group by ĐƠN (NCC + shipment/đợt) — tách đơn khác nhau dù cùng NCC.
         const grouped = new Map();
         for (const it of filtered) {
-            const k = it.supplier;
+            const k = _orderGroupKey(it);
             if (!grouped.has(k)) grouped.set(k, []);
             grouped.get(k).push(it);
         }
@@ -756,9 +777,10 @@
             return;
         }
         let html = '';
-        for (const [supplier, items] of grouped) {
+        for (const [, items] of grouped) {
+            const first = items[0];
             html += `<div class="pr-picker-group">
-                <h4>${escapeHtml(supplier)} <span class="pr-picker-group-count">${items.length} SP đã nhận</span></h4>
+                <h4>${escapeHtml(first.supplier)} <span class="pr-source-order-tag">${escapeHtml(_orderGroupLabel(first))}</span> <span class="pr-picker-group-count">${items.length} SP đã nhận</span></h4>
                 <table class="pr-picker-table">
                     <thead><tr>
                         <th style="width:32px"></th>
@@ -772,10 +794,10 @@
                     <tbody>
                 ${items
                     .map((it) => {
-                        const isPicked = PICKER_STATE.selectedCodes.has(it.code);
+                        const isPicked = PICKER_STATE.selectedCodes.has(it.aggId);
                         const stock = it.stock;
-                        const qty = PICKER_STATE.qtyOverrides.get(it.code) ?? stock;
-                        return `<tr data-pick-code="${escapeHtml(it.code)}" class="${isPicked ? 'is-picked' : ''}">
+                        const qty = PICKER_STATE.qtyOverrides.get(it.aggId) ?? stock;
+                        return `<tr data-pick-agg="${escapeHtml(it.aggId)}" class="${isPicked ? 'is-picked' : ''}">
                             <td><input type="checkbox" class="pr-pick-cb" ${isPicked ? 'checked' : ''}></td>
                             <td><code>${escapeHtml(it.code)}</code></td>
                             <td>${escapeHtml(it.name)}${it.variant ? ` <small style="color:#64748b">(${escapeHtml(it.variant)})</small>` : ''}</td>
@@ -806,11 +828,11 @@
         const lines = [];
         let addedQty = 0;
         let addedAmount = 0;
-        for (const code of PICKER_STATE.selectedCodes) {
-            const it = PICKER_STATE.items.find((x) => x.code === code);
+        for (const aggId of PICKER_STATE.selectedCodes) {
+            const it = PICKER_STATE.items.find((x) => x.aggId === aggId);
             if (!it) continue;
             const stock = it.stock;
-            const qty = Math.min(Math.max(1, PICKER_STATE.qtyOverrides.get(code) ?? stock), stock);
+            const qty = Math.min(Math.max(1, PICKER_STATE.qtyOverrides.get(aggId) ?? stock), stock);
             const nameWithVariant = it.variant ? `${it.name} (${it.variant})` : it.name;
             const price = Number(it.price) || 0;
             lines.push(`${it.code} | ${nameWithVariant} | ${qty} | ${price}`);
@@ -853,25 +875,25 @@
         $('prPickerList')?.addEventListener('change', (e) => {
             const cb = e.target.closest('.pr-pick-cb');
             if (cb) {
-                const row = cb.closest('[data-pick-code]');
+                const row = cb.closest('[data-pick-agg]');
                 if (!row) return;
-                const code = row.dataset.pickCode;
-                if (cb.checked) PICKER_STATE.selectedCodes.add(code);
-                else PICKER_STATE.selectedCodes.delete(code);
+                const aggId = row.dataset.pickAgg;
+                if (cb.checked) PICKER_STATE.selectedCodes.add(aggId);
+                else PICKER_STATE.selectedCodes.delete(aggId);
                 row.classList.toggle('is-picked', cb.checked);
                 updatePickerCount();
                 return;
             }
             const qty = e.target.closest('.pr-pick-qty');
             if (qty) {
-                const row = qty.closest('[data-pick-code]');
+                const row = qty.closest('[data-pick-agg]');
                 if (!row) return;
-                const code = row.dataset.pickCode;
+                const aggId = row.dataset.pickAgg;
                 const v = Number(qty.value || 0);
-                PICKER_STATE.qtyOverrides.set(code, v);
+                PICKER_STATE.qtyOverrides.set(aggId, v);
                 // Auto-pick when user nhập qty mà chưa checkbox
-                if (v > 0 && !PICKER_STATE.selectedCodes.has(code)) {
-                    PICKER_STATE.selectedCodes.add(code);
+                if (v > 0 && !PICKER_STATE.selectedCodes.has(aggId)) {
+                    PICKER_STATE.selectedCodes.add(aggId);
                     const cb = row.querySelector('.pr-pick-cb');
                     if (cb) cb.checked = true;
                     row.classList.add('is-picked');
@@ -961,20 +983,23 @@
         }
         emptyEl.hidden = true;
 
-        // Group by supplier
+        // Group by ĐƠN (NCC + shipment/đợt) — tách đơn khác nhau dù cùng NCC.
         const grouped = new Map();
         for (const it of filtered) {
-            if (!grouped.has(it.supplier)) grouped.set(it.supplier, []);
-            grouped.get(it.supplier).push(it);
+            const k = _orderGroupKey(it);
+            if (!grouped.has(k)) grouped.set(k, []);
+            grouped.get(k).push(it);
         }
 
         let html = '';
-        for (const [supplier, items] of grouped) {
+        for (const [, items] of grouped) {
+            const first = items[0];
             const totalValue = items.reduce((s, it) => s + it.stock * it.price, 0);
             html += `<div class="pr-source-group">
                 <h3 class="pr-source-group-head">
                     <i data-lucide="building-2"></i>
-                    ${escapeHtml(supplier)}
+                    ${escapeHtml(first.supplier)}
+                    <span class="pr-source-order-tag">${escapeHtml(_orderGroupLabel(first))}</span>
                     <span class="pr-source-group-meta">${items.length} SP · tồn ${fmtMoney(totalValue)}</span>
                 </h3>
                 <table class="pr-source-table">
@@ -989,13 +1014,13 @@
                     <tbody>
                 ${items
                     .map(
-                        (it) => `<tr data-src-code="${escapeHtml(it.code)}">
+                        (it) => `<tr data-src-agg="${escapeHtml(it.aggId)}">
                         <td><code>${escapeHtml(it.code)}</code></td>
                         <td>${escapeHtml(it.name)}${it.variant ? ` <small style="color:#64748b">(${escapeHtml(it.variant)})</small>` : ''}</td>
                         <td class="num" style="color:#64748b">${it.orderedQty}</td>
                         <td class="num"><strong>${it.stock}</strong></td>
                         <td class="num">${fmtMoney(it.price)}</td>
-                        <td><button class="btn btn-danger btn-sm pr-source-refund" data-src-code="${escapeHtml(it.code)}"><i data-lucide="undo-2"></i> Trả NCC</button></td>
+                        <td><button class="btn btn-danger btn-sm pr-source-refund" data-src-agg="${escapeHtml(it.aggId)}"><i data-lucide="undo-2"></i> Trả NCC</button></td>
                     </tr>`
                     )
                     .join('')}
@@ -1013,8 +1038,8 @@
         item: null, // current source item being refunded
     };
 
-    function openQuickRefund(code) {
-        const item = SOURCE_STATE.items.find((it) => it.code === code);
+    function openQuickRefund(aggId) {
+        const item = SOURCE_STATE.items.find((it) => it.aggId === aggId);
         if (!item) {
             notify('SP không còn trong danh sách', 'error');
             return;
@@ -1031,6 +1056,10 @@
             <div class="pr-quick-info-row">
                 <span class="pr-quick-label">NCC:</span>
                 <strong>${escapeHtml(item.supplier)}</strong>
+            </div>
+            <div class="pr-quick-info-row">
+                <span class="pr-quick-label">Đơn:</span>
+                <span>${escapeHtml(_orderGroupLabel(item))}</span>
             </div>
             <div class="pr-quick-info-row">
                 <span class="pr-quick-label">Mã SP:</span>
@@ -1255,7 +1284,7 @@
         $('prSourceList').addEventListener('click', (e) => {
             const btn = e.target.closest('.pr-source-refund');
             if (!btn) return;
-            openQuickRefund(btn.dataset.srcCode);
+            openQuickRefund(btn.dataset.srcAgg);
         });
     }
 

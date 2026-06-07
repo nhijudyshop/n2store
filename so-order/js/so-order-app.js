@@ -3160,7 +3160,11 @@ window.addEventListener('load', () => {
             existingCodes = [];
         }
         for (const it of items) {
-            if (!it || !it.supplier || !it.name) continue;
+            if (!it || !it.name) continue;
+            // SP không có NCC (user bỏ trống ô NCC) → default "KHO" giống trang
+            // Kho SP (web2-products openCreate). Mã sẽ là KHO+LOẠI+MÀU+SIZE (vd
+            // KHOAODEN) thay vì KHO-<rnd> do server sinh — đúng định dạng products.
+            const supplierName = (it.supplier && String(it.supplier).trim()) || 'KHO';
             // override màu/size từ biến thể đã chọn (priority hơn extract từ tên SP)
             let overrideColorShort = null;
             let overrideSizeShort = null;
@@ -3177,7 +3181,7 @@ window.addEventListener('load', () => {
             }
             try {
                 const result = window.Web2ProductCode.suggest({
-                    supplierName: it.supplier,
+                    supplierName,
                     productName: it.name,
                     variant: it.variant || '',
                     existingCodes,
