@@ -207,4 +207,102 @@ router.get('/web2-wallet-reset/backups', async (req, res) => {
     }
 });
 
+// =====================================================================
+// POST /api/admin/web2-wallet-reset/by-phone
+// Body: { phone, confirm:'YES-RESET', dryRun? }  Header x-admin-secret
+// Reset SẠCH 1 SĐT (dùng để dọn clone test): xoá ví + giao dịch + đơn test
+// (native_orders + fast_sale_orders) + reset link SePay (giữ log) + reset
+// matched_tx của tín hiệu CK. CHỈ đụng đúng SĐT truyền vào (+ các biến thể
+// normalize). web2Db only.
+// =====================================================================
+router.post('/web2-wallet-reset/by-phone', async (req, res) => {
+    if (!authOk(req)) return res.status(403).json({ error: 'forbidden' });
+    const db = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!db) return res.status(500).json({ error: 'web2Db unavailable' });
+    const phoneRaw = String(req.body?.phone || '').trim();
+    const digits = phoneRaw.replace(/\D/g, '');
+    if (!digits || digits.length < 9) {
+        return res.status(400).json({ error: 'phone không hợp lệ' });
+    }
+    if (req.body?.confirm !== 'YES-RESET') {
+        return res.status(400).json({ error: "confirm phải = 'YES-RESET'" });
+    }
+    const dryRun = req.body?.dryRun === true;
+    // Các biến thể SĐT để khớp (lưu khác nhau giữa các bảng).
+    const variants = Array.from(
+        new Set([phoneRaw, digits, digits.slice(-10), '0' + digits.slice(-9)].filter(Boolean))
+    );
+    const steps = [];
+    const step = async (label, table, whereCol, mutSql) => {
+        try {
+            if (dryRun) {
+                const r = await db.query(
+                    `SELECT COUNT(*)::int n FROM ${table} WHERE ${whereCol} = ANY($1)`,
+                    [variants]
+                );
+                steps.push({ step: label, willAffect: r.rows[0].n });
+            } else {
+                const r = await db.query(mutSql, [variants]);
+                steps.push({ step: label, rowCount: r.rowCount });
+            }
+        } catch (e) {
+            steps.push({ step: label, error: e.message });
+        }
+    };
+    try {
+        await step(
+            'web2_wallet_transactions',
+            'web2_wallet_transactions',
+            'phone',
+            `DELETE FROM web2_wallet_transactions WHERE phone = ANY($1)`
+        );
+        await step(
+            'web2_wallet_adjustments',
+            'web2_wallet_adjustments',
+            'phone',
+            `DELETE FROM web2_wallet_adjustments WHERE phone = ANY($1)`
+        );
+        await step(
+            'web2_customer_wallets',
+            'web2_customer_wallets',
+            'phone',
+            `DELETE FROM web2_customer_wallets WHERE phone = ANY($1)`
+        );
+        await step(
+            'fast_sale_orders',
+            'fast_sale_orders',
+            'partner_phone',
+            `DELETE FROM fast_sale_orders WHERE partner_phone = ANY($1)`
+        );
+        await step(
+            'native_orders',
+            'native_orders',
+            'phone',
+            `DELETE FROM native_orders WHERE phone = ANY($1)`
+        );
+        await step(
+            'web2_balance_history (unlink, giữ SePay log)',
+            'web2_balance_history',
+            'linked_customer_phone',
+            `UPDATE web2_balance_history
+             SET linked_customer_phone=NULL, debt_added=FALSE, wallet_processed=FALSE,
+                 verification_status=NULL, match_method=NULL, display_name=NULL,
+                 verified_by=NULL, verified_at=NULL
+             WHERE linked_customer_phone = ANY($1)`
+        );
+        await step(
+            'web2_payment_signals (reset matched_tx)',
+            'web2_payment_signals',
+            'phone',
+            `UPDATE web2_payment_signals SET matched_tx_id=NULL, matched_tx_at=NULL WHERE phone = ANY($1)`
+        );
+        console.log(
+            `[web2-wallet-reset/by-phone] ${dryRun ? 'DRY ' : ''}phone=${variants.join('|')} → ${JSON.stringify(steps)}`
+        );
+        res.json({ success: true, dryRun, phone: variants, steps });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message, steps });
+    }
+});
+
 module.exports = router;
