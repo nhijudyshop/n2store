@@ -1013,6 +1013,19 @@
                 `<span class="no-ck-badge${confirmed ? ' ck-confirmed' : ''}"${clickable} title="KH báo đã chuyển khoản (${escapeHtml(o.ckSignal.keyword || '')}${confirmed ? ' — đã xác nhận' : ' — bấm để đối chiếu & duyệt'}). Đối soát tiền vẫn qua SePay.">💸 KH báo đã CK</span>`
             );
         }
+        // [2026-06-07] Cảnh báo "Chưa nhận CK" — đơn chưa nhận tiền chuyển khoản
+        // của khách (chưa "đã thanh toán" + chưa CK xác nhận + ví < tổng đơn).
+        // NGOẠI LỆ: ví KH ≥ tổng đơn → coi như đủ tiền → KHÔNG cảnh báo.
+        // Bấm badge → picker gán giao dịch CK từ balance-history (Part C).
+        const totalAmt = Number(o.totalAmount || 0);
+        const wallet = Number(o.walletBalance || 0);
+        const ckConfirmed = o.ckSignal && o.ckSignal.status === 'confirmed';
+        const covered = paid || ckConfirmed || (totalAmt > 0 && wallet >= totalAmt);
+        if (totalAmt > 0 && !covered) {
+            out.push(
+                `<span class="no-nock-badge" data-action="assign-ck" data-code="${escapeHtml(o.code)}" data-phone="${escapeHtml(o.phone || '')}" data-name="${escapeHtml(o.customerName || '')}" data-total="${totalAmt}" title="Đơn chưa nhận chuyển khoản của khách. Bấm để gán giao dịch CK từ danh sách." style="cursor:pointer">⚠ Chưa nhận CK</span>`
+            );
+        }
         // [2026-06-07] Đã in: chỉ hiện ICON máy in (gọn, không chiếm chữ/dòng).
         // Hover (native title — có độ trễ sẵn, không hiện liền) → số lần in + thời
         // gian in gần nhất. Số lần in cụ thể đã in trên chính phiếu (bill / PSH).

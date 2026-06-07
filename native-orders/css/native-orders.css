@@ -717,6 +717,26 @@ body {
     color: #047857;
     border: 1px solid #a7f3d0;
 }
+/* Cảnh báo "Chưa nhận CK" — đỏ, bấm được để gán giao dịch CK */
+.no-nock-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.5;
+    white-space: nowrap;
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    transition:
+        filter 0.12s ease,
+        box-shadow 0.12s ease;
+}
+.no-nock-badge:hover {
+    filter: brightness(0.97);
+    box-shadow: 0 1px 4px rgba(185, 28, 28, 0.25);
+}
 .no-shop-badge {
     display: inline-block;
     padding: 1px 6px;

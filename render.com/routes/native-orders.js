@@ -1536,6 +1536,32 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
             } catch (e) {
                 console.warn('[native-orders] enrich ckSignal failed:', e.message);
             }
+
+            // 2026-06-07: enrich số dư ví KH (web2_customer_wallets) → badge cảnh
+            // báo "Chưa nhận CK". Đơn chưa nhận tiền CK (ví < tổng đơn + chưa có
+            // CK confirmed + PBH chưa trả) → frontend hiện cảnh báo. Ngoại lệ:
+            // ví ≥ tổng đơn (đã đủ tiền) → không cảnh báo.
+            try {
+                const phones = Array.from(new Set(orders.map((o) => o.phone).filter(Boolean)));
+                if (phones.length) {
+                    const norm = (p) =>
+                        String(p || '')
+                            .replace(/\D/g, '')
+                            .slice(-10);
+                    const wq = await pool.query(
+                        `SELECT phone, balance FROM web2_customer_wallets WHERE phone = ANY($1)`,
+                        [phones]
+                    );
+                    const balByPhone = new Map(
+                        wq.rows.map((r) => [norm(r.phone), Number(r.balance) || 0])
+                    );
+                    for (const o of orders) {
+                        o.walletBalance = o.phone ? balByPhone.get(norm(o.phone)) || 0 : 0;
+                    }
+                }
+            } catch (e) {
+                console.warn('[native-orders] enrich wallet balance failed:', e.message);
+            }
         }
 
         res.json({
