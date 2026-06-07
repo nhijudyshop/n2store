@@ -25,6 +25,20 @@
 
 ## 2026-06-07
 
+### [web2][chat] Web2ChatPanel — component chat HỢP NHẤT (foundation) 🔄
+
+**User:** đồng bộ chat về 1 nguồn (point 0) → các trang tham chiếu; chọn "hợp nhất hẳn 1 component UI". Làm tuần tự feature 1→2→3 (paste ảnh → emoji/sticker/react/reply → nhận diện SĐT/địa chỉ + thêm KH). Test khách Huỳnh Thành Đạt 0123456788.
+
+**Hiện trạng:** 3 UI chat tách rời — `pancake-chat-window.js` (emoji picker, sticker hiển thị), native-orders inline (reply-to UI + reactions + phone copy), `web2-chat-readonly.js` (chỉ xem). API/transport đã chung 1 nguồn `Web2Chat` (web2-chat-client.js). Không UI nào có paste ctrl+v.
+
+**Foundation (commit này, ZERO regression — chưa trang nào import):** `web2/shared/chat-panel/`
+
+- `web2-chat-emoji-data.js` — `Web2ChatEmoji` (dataset 6 nhóm + recent localStorage `web2_chat_recent_emojis`).
+- `web2-chat-panel.css` — style `.w2cp-` (Tier-1 anti-lag: contain + overscroll-behavior + content-visibility).
+- `web2-chat-panel.js` — `Web2ChatPanel.mount(container,{mode,flags}).open(conv,adapter)`. Tách UI ↔ transport bằng ADAPTER (`loadMessages/loadOlder/send/markRead/quickReplies/...`). 3 mode: full/readonly/picker. Union tính năng hiện có: render media (img/sticker/video/audio/file/reactions/quoted), reply-to UI, emoji picker, attach file/ảnh, pagination scroll-lên, scroll-to-bottom + badge, phone copy badge, UI-first send qua Web2Optimistic, `pushMessage/setMessages` cho realtime. Flags `enablePaste/enableSticker/enableReactSend/enableEntityDetect` cho feature 1-3 (commit sau).
+
+**Next:** migrate tpos-pancake (base, rủi ro thấp) → native-orders (live) → balance-history readonly → rồi feature 1→2→3. **Status: 🔄 foundation done, chưa wire trang nào.**
+
 ### [render][web2] Part A: GATE auto-gán SePay theo đơn active ✅
 
 **User:** tiền SePay về chỉ auto-gán KH + cộng ví nếu KH có đơn thuộc **chiến dịch live mới nhất** (House/Store) HOẶC **đơn inbox** chưa huỷ; không thì để "Chưa gán" chờ duyệt tay.
