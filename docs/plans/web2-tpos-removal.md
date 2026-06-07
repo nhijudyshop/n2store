@@ -70,25 +70,47 @@
 
 ---
 
-## PHASE C — Build thay thế Pancake (LỚN, scope riêng, defer)
+## PHASE C — Build thay thế Pancake/FB Graph (RESEARCH 2026-06-07: ĐỀU KHẢ THI ✅)
 
-Chỉ làm khi quyết tâm cắt TPOS triệt để. Các khoảng trống:
+> **Mấu chốt:** `page.settings.page_access_token` lấy từ Pancake `/v1/pages` (đã có `PancakeAPI.fetchPages()`) **CHÍNH LÀ FB page access token thật** → gọi thẳng FB Graph cho live_videos/thumbnails/comments, KHÔNG cần TPOS làm trung gian token. TPOS bên trong cũng chỉ poll FB Graph rồi proxy ra → ta tái tạo 1-1.
 
-- **C1. SSE realtime live comments** thay TPOS `/facebook/comments/stream` — build Pancake/FB Graph webhook hoặc polling + SSE hub Web 2.0.
-- **C2. livevideo thumbnail** — nguồn thay (FB Graph picture đã 400; cần giải pháp khác).
-- **C3. FB Page list + live videos** discovery qua Pancake (thay `GetAllFacebook` + `facebook-graph/livevideo`).
-- **C4. Thống nhất campaign id** toàn Web 2.0 (đồng bộ tpos-pancake + live-campaign).
-- **C5. Quyết định 2-way customer write** sang TPOS (business: TPOS có còn là kho KH chính không?).
+- **C3. FB Page list** ✅ ĐÃ XONG sẵn: `PancakeAPI.fetchPages()` → `pages.fm/api/public_api/v1/pages` trả `categorized.activated[]` + `settings.page_access_token`. Chỉ cần adapter thay `CRMTeam/GetAllFacebook`.
+- **C2. Livestream discovery + thumbnail** ✅ FB Graph thuần:
+    - `GET /v21.0/{pageId}/live_videos?fields=id,status,title,permalink_url,creation_time,broadcast_start_time,video{id}&limit=20`
+    - Thumbnail ĐÚNG (thay `/picture` 400): `GET /v21.0/{videoId}/thumbnails?fields=uri,is_preferred,width` → lấy `is_preferred`. Dùng Graph **batch** tránh N+1. Cache URI (signed CDN, expire).
+- **C1. Realtime live comments** ✅ FB Graph polling (= cách TPOS làm bên trong):
+    - `GET /v21.0/{liveVideoId}/comments?order=reverse_chronological&live_filter=no_filter&fields=id,from{id,name},message,created_time,parent{id}&since=<ts>`
+    - Server poll 2-3s/live (1 poller/page, KHÔNG per-client), dedupe theo `id` → đẩy qua **SSE hub Web 2.0 sẵn có** (topic `web2:livestream:<id>`). Live xong (VOD) → poll `/{postId}/comments`.
+    - Nâng cao (sau): FB Webhook `feed` (push thật, cần App review).
+- **C4. Thống nhất campaign id** — đồng bộ tpos-pancake + live-campaign khi sinh `native_orders.live_campaign_id`.
+- **C5. 2-way customer write** sang TPOS — business decision (TPOS còn là kho KH chính?).
 
-**Effort:** lớn (nhiều phiên). **Rủi ro:** cao (chạm chat/realtime/livestream live).
+**Recipe build (backend Render, additive — KHÔNG phá path TPOS cũ):** route mới `routes/web2-fb-live.js`:
+
+- `GET /api/web2-fb-live/pages` (proxy Pancake fetchPages → flat list)
+- `GET /api/web2-fb-live/videos?pageId=` (FB Graph live_videos + thumbnails batch)
+- `GET /api/web2-fb-live/comments/stream?pageId=&liveVideoId=` (SSE, poll FB Graph)
+  Token: lấy `page_access_token` từ Pancake token manager server-side.
+
+**Nguồn:** FB Graph [Page Live Videos](https://developers.facebook.com/docs/graph-api/reference/page/live_videos/), [Live Video Comments](https://developers.facebook.com/docs/graph-api/reference/live-video/comments/), [Video Thumbnail](https://developers.facebook.com/docs/graph-api/reference/video-thumbnail/), [Page Webhooks](https://developers.facebook.com/docs/graph-api/webhooks/reference/page/). Pancake `pages.fm/api/public_api/v1`.
+
+**Effort:** lớn (nhiều phiên — backend routes + rewire frontend tpos-pancake live column + live-campaign). **Rủi ro:** trung bình (backend additive an toàn; rewire frontend live chạm UI live).
 
 ---
 
-## Khuyến nghị thứ tự
+## ⚠ Ràng buộc thứ tự PHÁT HIỆN khi đọc code (2026-06-07)
 
-1. **Phase A** ngay (safe, dọn rác + customer-read warehouse).
-2. **Phase B** sau khi chốt B3 (campaign-id strategy).
-3. **Phase C** chỉ khi user xác nhận đầu tư build Pancake replacement (lớn).
+- **A2 (customer-read → warehouse primary) PHỤ THUỘC warehouse đã có data.** Hiện `web2_customers` RỖNG (beta vừa deploy) → nếu đặt warehouse primary ngay sẽ KHÔNG có info KH cho tới khi **Phase 4 (Pancake ingest)** đổ data vào. ⇒ **Phase 4 phải trước A2.**
+- Hiện trong tpos-pancake comment list, "customer read" có 3 tầng: (1) `chatomni/info` TPOS (primary), (2) `TposPartnerFallback`→`PartnerCustomerApi.listByPhones` = **TPOS OData** (không phải warehouse!), (3) `TposKhoEnricher`→`/api/v2/customers/batch` = **Web 1.0 `customers`** (không phải `web2_customers`). ⇒ A2 thực chất = thêm tầng warehouse-by-fbid (cần endpoint batch-by-fbid trên `/api/web2/customers`) + bỏ dần 2 tầng TPOS.
+
+## Khuyến nghị thứ tự (CẬP NHẬT)
+
+1. ✅ **Phase A1** (dọn code chết) — XONG 2026-06-07.
+2. **Phase C-backend** (additive, an toàn): build `web2-fb-live.js` (FB Graph live_videos/thumbnails/comments qua page_access_token Pancake) + CF worker FB-Graph proxy trực tiếp. KHÔNG phá path TPOS cũ.
+3. **Phase 4 ingest** (Pancake/FB → `web2_customers` upsert) — đổ data vào warehouse.
+4. **A2** customer-read warehouse primary (sau khi #3 có data).
+5. **Phase B** live-campaign CRUD → web2 (chốt campaign-id B3).
+6. **Frontend rewire** tpos-pancake live column TPOS→FB Graph (rủi ro cao nhất, cuối cùng).
 
 ## Dẫn chứng research
 
