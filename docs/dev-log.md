@@ -25,6 +25,23 @@
 
 ## 2026-06-07
 
+### [render][web2] Tắt hẳn web2-sync-worker + xóa toàn bộ TPOS shadow (DB 255→80MB) ✅
+
+**Files:** `render.com/server.js`, `native-orders/js/native-orders-app.js`, `native-orders/index.html`
+
+**Phát hiện:** TPOS shadow trong `web2_records` (17 entity, 174MB) gần như KHÔNG consumer. 3 trang cần TPOS (`live-campaign`, `tpos-pancake`, `partner-customer`) đều đọc **live `/api/odata/*`** (proxy TPOS realtime), KHÔNG đọc shadow. `partner-customer-api.js` ghi rõ "sync 2 chiều tự nhiên — không DB trung gian, CRUD thẳng TPOS". Frontend chỉ đọc shadow `deliverycarrier`×2 + `productcategory`×3 (mà `delivery-method-picker` đã chuyển sang `deliveryzone` + hardcoded OPTIONS).
+
+**Làm:**
+
+- Tắt `web2-sync-worker` (comment `init()` trong `server.js`, đã deploy n2store-fallback). Bật lại: bỏ comment + `WEB2_SYNC_ENABLED=true`.
+- Xóa 17 shadow slug khỏi `web2_records` qua `delete-all`: partner-customer (92.248), product (7.472), producttemplate (4.227), fastsaleorder-invoice (16.531), tag (1.000), productattributevalue, productuom, productcategory, accounttax, accountjournal, deliverycarrier, crmteam, stockwarehouse, rescurrency, productattribute, livecampaign, partner-supplier.
+- `VACUUM FULL web2_records` → freed 175MB. DB total **254.8→79.7 MB**.
+- native-orders ĐVVC dropdown: xác nhận dùng entity `deliveryzone` (config, giữ) + hardcoded OPTIONS fallback — KHÔNG phụ thuộc `deliverycarrier`. Sửa comment stale.
+
+**GIỮ trong web2_records:** `deliveryzone` (7 — config Phương thức giao hàng: fee/keywords/isFallback) + `printer` (3 — config Máy in: ip/port/paper/method). Đây là config shop tự tạo, TPOS không có.
+
+**Lưu ý:** `partner-customer` page vẫn 2-chiều live với TPOS bình thường (shadow chỉ là cache không ai đọc). Muốn lại shadow → bật worker + chạy seeder `scripts/web2-seed-from-tpos.js`.
+
 ### [web2][chat] Web2ChatPanel — component chat HỢP NHẤT (foundation) 🔄
 
 **User:** đồng bộ chat về 1 nguồn (point 0) → các trang tham chiếu; chọn "hợp nhất hẳn 1 component UI". Làm tuần tự feature 1→2→3 (paste ảnh → emoji/sticker/react/reply → nhận diện SĐT/địa chỉ + thêm KH). Test khách Huỳnh Thành Đạt 0123456788.
