@@ -2535,9 +2535,10 @@
         const fmt = (n) => Number(n || 0).toLocaleString('vi-VN');
 
         // Resolve delivery option list + auto-pick by address.
-        // Phase 17: prefer backend-driven options (single source of truth =
-        // /api/web2/deliverycarrier/list). Falls back to hardcoded OPTIONS
-        // if API fails — both pick() + getOptionsAsync() handle this safely.
+        // Options nguồn từ entity `deliveryzone` (config Web 2.0 riêng, admin quản
+        // ở web2/delivery-zone) qua DeliveryMethodPicker; fallback hardcoded OPTIONS
+        // nếu API fail/trống. KHÔNG dùng `deliverycarrier` (TPOS shadow đã tắt
+        // 2026-06-07) — dữ liệu ĐVVC ít, hardcode + deliveryzone là đủ.
         const DMP = window.DeliveryMethodPicker;
         const deliveryOpts = DMP ? await DMP.getOptionsAsync() : [];
         // 2026-06-04: auto-detect 2 method (offline fuzzy + Goong) cross-validate.
