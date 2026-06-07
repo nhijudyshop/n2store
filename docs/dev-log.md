@@ -53,7 +53,7 @@ User: "đổi tên hết không gì liên quan tpos hết". Rename module live p
 
 **An toàn:** fix chỉ ẩn ÍT hơn (không thể ẩn nhầm đơn còn sống); không đụng group/scanned/data cũ. `node --check` OK.
 
-**Part A (data, làm riêng sau deploy):** unhide 3 đơn 70995/70990/70991 qua `/unhide-bulk` để báo cáo 06/06 đúng lại ngay.
+**Part A (DONE 2026-06-07):** unhide **6 đơn hợp lệ bị ẩn nhầm** 06/06 (3 nap: 70990/70991/70995 + 3 city: 70988/70992/70994 — đều `open`/`paid` trên TPOS) qua `/unhide-bulk`; GIỮ ẩn 2 đơn `cancel` thật (70977/70970). Verify sau deploy JS mới: mở lại báo cáo → `reHidden=0` (không ẩn lại). Báo cáo 06/06: nap 16→19, tomato 4→5, city 11→14. (70950 tomato chưa quét → nhân viên quét sẽ tự hiện.)
 
 ### [delivery-report] Fix dòng đơn số 7 trong bảng expand bị header "# Số đơn Khách Giờ COD" đè lên ✅
 
