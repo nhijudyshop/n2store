@@ -159,6 +159,31 @@ router.get('/list', async (req, res) => {
     }
 });
 
+// ─── POST /batch-by-fbid {fbIds:[...]} → {data:{fbId: customer}} ────────
+// Cho enricher tpos-pancake đọc kho KH warehouse theo fb_id (PSID) hàng loạt
+// (thay /api/v2/customers/batch của Web 1.0). 1 SĐT = 1 KH, nhưng fb_id riêng.
+router.post('/batch-by-fbid', async (req, res) => {
+    const db = getPool(req);
+    const fbIds = Array.isArray(req.body?.fbIds) ? req.body.fbIds.map(String).filter(Boolean) : [];
+    if (!fbIds.length) return res.json({ success: true, data: {} });
+    const ids = fbIds.slice(0, 500); // cap
+    try {
+        const r = await db.query(
+            `SELECT id, fb_id, name, phone, address, status, global_id
+             FROM web2_customers WHERE fb_id = ANY($1)`,
+            [ids]
+        );
+        const map = {};
+        for (const row of r.rows) {
+            if (row.fb_id) map[row.fb_id] = rowToLite(row);
+        }
+        res.json({ success: true, data: map });
+    } catch (e) {
+        console.error('[web2-customers] batch-by-fbid error:', e.message);
+        res.status(500).json({ success: false, error: e.message, data: {} });
+    }
+});
+
 // ─── GET /search?search=...&limit=8 — autocomplete (warehouse only) ─────
 router.get('/search', async (req, res) => {
     const db = getPool(req);
