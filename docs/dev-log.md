@@ -35,6 +35,14 @@
 
 **Status:** ✅ Done — local-DB smoke (ALTER + 2 INSERT shapes) PASS; headless OK; push → Render auto-deploy + worker đã route.
 
+### [orders][render] Đã in: icon máy in ở list (hover hiện số lần + thời gian), bỏ icon trên bill ✅
+
+**Files:** `native-orders/js/native-orders-app.js`, `web2/shared/web2-bill-service.js`, `render.com/routes/native-orders.js`
+
+- **Bill**: bỏ icon 🖨 trên dòng tiêu đề, chỉ còn `In N` cạnh `#STT` (vd `PBH SHOP #4 In 2`).
+- **List Đơn Web**: `printCount > 0` → hiện ICON máy in 🖨 gọn (20×20) ở cột STT. Hover (dùng native `title` → có độ trễ sẵn, KHÔNG hiện liền) → tooltip `Đã in N lần — lần cuối: <thời gian>`.
+- **Backend** (`native-orders.js`): thêm cột `last_printed_at BIGINT`; `/mark-printed` set `last_printed_at` + trả thêm map `printedAt`; row mapping trả `lastPrintedAt`. Frontend `markPrinted` cập nhật `o.lastPrintedAt` → icon + tooltip hiện ngay sau khi in.
+
 ### [orders] Số lần in chuyển từ badge list → lên chính phiếu in (bill + Phiếu Soạn Hàng) ✅
 
 **Files:** `native-orders/js/native-orders-app.js`, `native-orders/js/native-orders-packing-slip.js`, `web2/shared/web2-bill-service.js`
