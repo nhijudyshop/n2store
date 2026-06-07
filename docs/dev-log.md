@@ -25,6 +25,24 @@
 
 ## 2026-06-07
 
+### [delivery-report] Fix dòng đơn số 7 trong bảng expand bị header "# Số đơn Khách Giờ COD" đè lên ✅
+
+**User:** "đơn số 7 luôn bị lỗi hiển thị thành số đơn khách giờ" (cả tab TOMATO lẫn NAP, vị trí cố định ~dòng 7).
+
+**Root cause (CSS leak qua descendant selector):**
+
+- Bảng chi tiết đơn (`.dr-expand-table`) được chèn **lồng trong `<tbody>`** của bảng báo cáo chính `.dr-report-table` (`toggleExpandRow` → `insertBefore` vào `parentNode` của date row, [report.js:2125](../delivery-report/js/report.js#L2125)).
+- Rule `.dr-report-table thead th { position: sticky; top: …; z-index: 2 }` dùng **descendant combinator** → match luôn `thead th` của bảng expand lồng bên trong.
+- `.dr-expand-table thead th` **không override** `position/top/z-index` → 3 thuộc tính sticky leak xuống. Header expand "# Số đơn Khách Giờ COD" dính nổi tại `top = --dr-sticky-top-height`, đè lên đúng dòng đơn đang ở vị trí đó (~dòng 7 tuỳ scroll) → dòng đơn thật biến mất sau header, số thứ tự nhảy 6 → 8.
+
+**Files:**
+
+- `delivery-report/css/delivery-report.css`:
+    - Đổi `.dr-report-table thead th` → `.dr-report-table > thead th` (scope direct-child, thead bảng chính là con trực tiếp — [report.js:832-833](../delivery-report/js/report.js#L832)). Bảng expand lồng sâu → không còn match.
+    - Defensive: thêm `position: static; top: auto; z-index: auto;` vào `.dr-expand-table thead th` (chặn mọi leak sticky tương lai).
+
+**Status:** ✅ DONE — fix CSS thuần, không đụng JS/data. Layer Web 1.0 (delivery-report), không ảnh hưởng Web 2.0.
+
 ### [tpos-pancake][live-campaign] GỠ SẠCH TPOS — FB Graph/Pancake/warehouse là nguồn DUY NHẤT (no flag, no fallback) ✅
 
 User: "bỏ mọi thứ TPOS, không fallback — Web 2.0 beta không ai dùng". Cắt hoàn toàn TPOS khỏi cột live + live-campaign (KHÔNG còn flag, KHÔNG fallback TPOS).

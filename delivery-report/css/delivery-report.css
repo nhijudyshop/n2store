@@ -2375,7 +2375,13 @@ body.dr-mode-report #drTableWrapper {
     border-collapse: collapse;
     font-size: 13px;
 }
-.dr-report-table thead th {
+/* `> thead` (direct child) — KHÔNG dùng descendant `.dr-report-table thead th`
+   vì bảng expand (.dr-expand-table) được chèn LỒNG trong tbody của bảng này
+   (toggleExpandRow → insertBefore vào parentNode của date row). Descendant sẽ
+   leak position:sticky + top + z-index xuống thead bảng expand (vốn không có
+   override 3 thuộc tính này) → header "# Số đơn Khách Giờ COD" dính nổi đè lên
+   1 dòng đơn (~dòng 7 tuỳ scroll) làm dòng đó biến mất sau header. */
+.dr-report-table > thead th {
     position: sticky;
     top: var(--dr-sticky-top-height, 0px);
     background: #f3f4f6;
@@ -2899,6 +2905,12 @@ body.dr-mode-report #drTableWrapper {
     overflow: hidden;
 }
 .dr-expand-table thead th {
+    /* Defensive: bảng expand lồng trong .dr-report-table → reset cứng để KHÔNG
+       bao giờ kế thừa sticky/top/z-index từ thead bảng cha (xem note ở rule
+       `.dr-report-table > thead th`). Header expand phải nằm yên đầu bảng. */
+    position: static;
+    top: auto;
+    z-index: auto;
     background: #f1f5f9;
     text-align: left;
     padding: 6px 10px;
