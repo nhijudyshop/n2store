@@ -14,11 +14,18 @@
 
 ---
 
-## 0. Nguyên tắc chủ đạo
+## 0. Nguyên tắc chủ đạo (CẬP NHẬT 2026-06-07 — KH Web2 ĐỘC LẬP, BỎ TPOS)
 
-- **TÁI SỬ DỤNG, không build từ 0.** Web 2.0 ĐÃ có kho KH: `web2_order_customers` (web2Db, 6.533 rows) — nguồn Pancake/FB webhook, đã có phone/name/address/email/fb_id/pancake_data/status/tier/tpos_id/tpos_data/aliases. → Nâng cấp bảng này thành **Customer Warehouse** chính thức, KHÔNG tạo bảng thứ 4 (tránh thêm kho KH chồng chéo: hiện đã có web2_order_customers + web2_customers + TPOS partner live).
-- **Web2 là source of truth của KH** (khác hiện tại: partner-customer page đọc live TPOS). TPOS chỉ là 1 nguồn enrich + đích push 2 chiều (optional).
-- Mọi thứ theo convention Web 2.0: table `web2_*`, route `/api/web2-customers`, SSE `web2:customers`, pool `web2Db`.
+- **Kho KH Web 2.0 RIÊNG, độc lập hoàn toàn.** Bảng MỚI `web2_customers` (warehouse). Nguồn dữ liệu: **Pancake / FB / nhập tay** — KHÔNG dính TPOS.
+- **BỎ HẾT TPOS khỏi warehouse**: KHÔNG `tpos_id`, KHÔNG `tpos_data`, KHÔNG sync 2 chiều, KHÔNG enrich từ TPOS, KHÔNG push CreateUpdatePartner. (Trang `partner-customer` vẫn riêng, đọc live TPOS — KHÔNG liên quan warehouse.)
+- **XÓA data KH cũ** (beta): drop `web2_order_customers` (6.533) + `web2_customers` cũ (2 rows cache SePay). Warehouse bắt đầu RỖNG, tự đầy từ Pancake/đơn.
+- Convention Web 2.0: table `web2_customers`, route `/api/web2-customers`, SSE `web2:customers`, pool `web2Db`.
+
+### ⚠ Hệ quả phải xử lý khi bỏ TPOS + xóa kho cũ (sequencing)
+
+1. **native-orders + fast-sale-orders** hiện lookup KH qua `web2_order_customers` (`lookupCustomerIdByPhone`, `getOrCreateCustomerFromTPOS`). → Repoint sang `web2_customers` warehouse (Phase 2) TRƯỚC khi drop bảng cũ. Bỏ bước enrich TPOS, chỉ upsert theo phone/fb từ Pancake.
+2. **SePay match** (`web2-payment-signal-detector`) dùng `web2_customers.id = TPOS Partner Id`. Bỏ TPOS → match theo **phone** (CK content chứa SĐT) vào warehouse, không dùng Partner Id nữa. Rework ở Phase 4.
+3. Hiện `native_orders` + `fast_sale_orders` = 0 row (đã wipe) → drop kho KH cũ AN TOÀN (không đơn nào ref).
 
 ---
 
@@ -40,9 +47,11 @@
 
 ---
 
-## PHASE 1 — Schema Customer Warehouse (extend web2_order_customers)
+## PHASE 1 — Schema Customer Warehouse (bảng MỚI `web2_customers`, KHÔNG TPOS)
 
-**Field hiện có (giữ):** id, phone (UNIQUE), name, address, email, fb_id, pancake_data JSONB, status, tier, tpos_id, tpos_data JSONB, aliases, created_at, updated_at.
+> Tạo bảng MỚI từ đầu (không kế thừa web2_order_customers). Drop kho cũ sau khi repoint consumer (Phase 2). KHÔNG cột tpos_id/tpos_data.
+
+**Cột cơ bản:** id, code (KH-xxx), name, phone (UNIQUE), email, address, ward, district, city, carrier, status (Normal|Bom|Warning|Danger|VIP), tier, tags JSONB, aliases JSONB, note, is_active, source (pancake|manual), created_by, history JSONB, created_at, updated_at.
 
 **ĐỀ XUẤT THÊM (ADD COLUMN IF NOT EXISTS — migration idempotent):**
 
@@ -67,9 +76,22 @@
 |                               | `created_by`              | VARCHAR | User tạo                                                                                      |
 |                               | `history`                 | JSONB   | Audit log (chuẩn Web2HistoryTimeline)                                                         |
 
-**Index:** phone (UNIQUE đã có), fb_id, global_id, pancake_customer_id, tpos_id, GIN(tags), GIN(to_tsvector name).
+> Bỏ khỏi bảng ĐỀ XUẤT THÊM ở trên: **KHÔNG có `tpos_id`, `tpos_data`** (warehouse độc lập TPOS).
+
+**Index:** phone (UNIQUE), fb_id, global_id, psid, pancake_customer_id, GIN(tags), GIN(to_tsvector name).
 
 **Dedup key:** `phone` (chính) + fallback `fb_id`/`global_id`. Merge tool xử lý trùng.
+
+---
+
+## PHASE 1B — Research notes (GitHub/industry, 2026-06-07) → áp dụng
+
+- **Multi-page PSID** ([Meta PSID/ASID](https://developers.facebook.com/docs/messenger-platform/identity/id-matching/)): 1 người = 1 PSID/Page. → Dùng `fb_psids` JSONB `{page_id: psid}` thay cột `psid` đơn; `global_id` = neo gộp xuyên page; `fb_id` = psid mặc định (legacy/đơn page).
+- **Dedup deterministic-first** ([dedupeio/dedupe](https://github.com/dedupeio/dedupe), CRM dedup frameworks): khóa chính = `phone` chuẩn hóa (UNIQUE) — nhanh, ít false-positive. Fuzzy (name+address) chỉ để GỢI Ý trùng, làm sau; KHÔNG kéo lib Python nặng.
+- **Survivorship rules** cho `/merge`: giữ giá trị field đầy-đủ-nhất / mới-nhất; gộp `aliases` + `fb_psids` + `tags`; cộng dồn `total_orders`/`total_spent`/`bom_count`.
+- **Unique constraint = chống trùng mạnh nhất**: `phone UNIQUE` + index `global_id`/`fb_id`.
+
+→ Schema chỉnh: bỏ cột `psid` phẳng, thêm `fb_psids JSONB DEFAULT '{}'`. Giữ `global_id`, `fb_id`.
 
 ---
 
@@ -103,10 +125,10 @@ Clone UI `web2/partner-customer` (đã đẹp) NHƯNG đọc/ghi **Web2 DB** tha
 
 ## PHASE 4 — Đồng bộ & nhập liệu
 
-- **Ingest Pancake/FB (chính):** webhook đơn → `POST /upsert` (phone/fb*id/global_id/pancake*\*). Đây là nguồn tự nhiên — KH tự vào kho khi nhắn/đặt.
-- **Enrich TPOS (pull, on-demand):** khi thiếu địa chỉ/tpos_id → gọi `searchCustomerByPhone` (đã có) điền vào, lưu tpos_id.
-- **Push TPOS 2 chiều (optional):** khi sửa KH ở Web2 → `CreateUpdatePartner` (đã có ở tpos-customer-service) cập nhật TPOS Partner. Cờ bật/tắt.
-- **Import 1 lần (optional):** nếu muốn seed từ TPOS 92k partner → chạy seeder ghi vào `web2_order_customers` (KHÔNG dùng lại web2_records shadow).
+- **Ingest Pancake/FB (DUY NHẤT, tự động):** webhook đơn/chat → `POST /upsert` (phone/fb*id/psid/global_id/pancake*\*). KH tự vào kho khi nhắn/đặt.
+- **Nhập tay:** tạo/sửa trên trang web2/customers (source=manual).
+- **KHÔNG TPOS:** không enrich, không push CreateUpdatePartner, không import 92k. Warehouse độc lập hoàn toàn.
+- **SePay match (rework):** match CK ↔ KH theo **phone** trong nội dung CK — KHÔNG dùng TPOS Partner Id nữa.
 
 ---
 
