@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d8950e4` — feat(web2): gate auto-gán SePay — chỉ cộng ví khi KH có đơn active
-**Last updated**: 2026-06-07 13:32:27 +07
-**Latest session**: [`RESUME:20260607-133227-d8950e4`](../20260607-133227-d8950e4.md)
-**Summary**: feat(web2): gate auto-gán SePay — chỉ cộng ví khi KH có đơn active
+**Latest commit**: `1d3d2a3` — feat(web2/chat): Web2ChatPanel — component chat hợp nhất (foundation, adapter+modes, chưa wire trang)
+**Last updated**: 2026-06-07 13:34:38 +07
+**Latest session**: [`RESUME:20260607-133438-1d3d2a3`](../20260607-133438-1d3d2a3.md)
+**Summary**: feat(web2/chat): Web2ChatPanel — component chat hợp nhất (foundation, adapter+modes, chưa wire trang)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-06 20:25
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-07 13:32
+- [`docs/`](./docs.md) — updated 2026-06-07 13:34
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
@@ -70,4 +69,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-07 13:24
+- [`web2/`](./web2.md) — updated 2026-06-07 13:34
