@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9e07f2e` — chore(tpos-pancake): Phase A1 — xóa code chết (index.old.html + 9 file monolith orphan)
-**Last updated**: 2026-06-07 16:58:34 +07
-**Latest session**: [`RESUME:20260607-165834-9e07f2e`](../20260607-165834-9e07f2e.md)
-**Summary**: chore(tpos-pancake): Phase A1 — xóa code chết (index.old.html + 9 file monolith orphan)
+**Latest commit**: `701318e` — docs(plan): web2-tpos-removal — research Pancake/FB Graph (3 gap đều khả thi) + ràng buộc thứ tự
+**Last updated**: 2026-06-07 17:04:10 +07
+**Latest session**: [`RESUME:20260607-170410-701318e`](../20260607-170410-701318e.md)
+**Summary**: docs(plan): web2-tpos-removal — research Pancake/FB Graph (3 gap đều khả thi) + ràng buộc thứ tự
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 10 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-06 20:25
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-07 16:58
+- [`docs/`](./docs.md) — updated 2026-06-07 17:04
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
