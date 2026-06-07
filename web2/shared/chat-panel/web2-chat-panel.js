@@ -403,6 +403,41 @@
             cont.innerHTML = html;
             if (typeof lucide !== 'undefined') lucide.createIcons();
             if (st.isAtBottom) scrollToBottom();
+            renderDetect();
+        }
+
+        // Feature 3: quét SĐT/địa chỉ trong tin KH → bar chip "➕ Thêm vào KH".
+        // Chỉ hiện ở mode full khi adapter có onAddEntity. Click → adapter xử lý
+        // (fill đơn + upsert web2_customers tuỳ trang).
+        function renderDetect() {
+            if (mode !== 'full') return;
+            const bar = $('[data-w2cp="detect"]');
+            if (!bar) return;
+            const Detect = global.Web2ChatEntityDetect;
+            if (!Detect || !(st.adapter && st.adapter.onAddEntity)) {
+                bar.innerHTML = '';
+                bar.classList.remove('visible');
+                return;
+            }
+            const found = Detect.scanMessages(st.messages, { pageId: pageIdOf(st.conv) });
+            const phone = (found.phones || [])[0] || '';
+            const addr = (found.addresses || [])[0] || '';
+            if (!phone && !addr) {
+                bar.innerHTML = '';
+                bar.classList.remove('visible');
+                return;
+            }
+            st._detected = { phone, address: addr };
+            const chips =
+                (phone
+                    ? `<span class="w2cp-detect-chip" data-w2cp-copy="${esc(phone)}">📞 ${esc(phone)}</span>`
+                    : '') +
+                (addr
+                    ? `<span class="w2cp-detect-chip" data-w2cp-copy="${esc(addr)}" title="${esc(addr)}">🏠 ${esc(addr.length > 38 ? addr.slice(0, 38) + '…' : addr)}</span>`
+                    : '');
+            bar.innerHTML = `<span class="w2cp-detect-label">Phát hiện:</span>${chips}<button class="w2cp-detect-add" data-w2cp-act="add-entity"><i data-lucide="user-plus" style="width:13px;height:13px;"></i> Thêm vào KH</button>`;
+            bar.classList.add('visible');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
         // ---------- load ----------
@@ -805,6 +840,22 @@
             else if (a === 'toggle-picker') togglePicker();
             else if (a === 'reply') setReply(act.getAttribute('data-msg-id'));
             else if (a === 'cancel-reply') clearReply();
+            else if (a === 'add-entity' && st.adapter && st.adapter.onAddEntity) {
+                const d = st._detected || {};
+                Promise.resolve(
+                    st.adapter.onAddEntity({
+                        phone: d.phone || '',
+                        address: d.address || '',
+                        name: nameOf(st.conv),
+                    })
+                ).catch((e) => {
+                    if (global.notificationManager && global.notificationManager.show)
+                        global.notificationManager.show(
+                            'Thêm KH lỗi: ' + (e && e.message),
+                            'error'
+                        );
+                });
+            }
         }
 
         // ---------- public ----------

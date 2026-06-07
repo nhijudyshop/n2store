@@ -341,6 +341,54 @@ router.get('/:phone/fb-conversation', async (req, res) => {
     }
 });
 
+// POST /upsert — TẠO/CẬP NHẬT KH theo SĐT (dùng cho Feature 3: nhận diện SĐT/địa chỉ
+// trong chat → "Thêm vào KH"). Tìm partner TPOS theo phone; chưa có → tạo mới, có rồi →
+// cập nhật name/address. Sau đó upsert cache web2_customers. Body: { phone, name?, address? }.
+router.post('/upsert', async (req, res) => {
+    const db = req.app.locals.web2Db || req.app.locals.chatDb;
+    const body = req.body || {};
+    let phone = String(body.phone || '').replace(/\D/g, '');
+    if (phone && !phone.startsWith('0')) phone = '0' + phone.slice(-9);
+    const name = body.name !== undefined ? String(body.name).trim() : undefined;
+    const address = body.address !== undefined ? String(body.address).trim() : undefined;
+    if (!phone || phone.length < 9) {
+        return res.status(400).json({ success: false, error: 'thiếu/không hợp lệ phone' });
+    }
+    if (!name && !address) {
+        return res.status(400).json({ success: false, error: 'cần ít nhất name hoặc address' });
+    }
+    try {
+        // Đã có trong cache chưa? (để báo created vs updated)
+        const existed = await db
+            .query('SELECT id FROM web2_customers WHERE phone = $1 LIMIT 1', [phone.slice(-10)])
+            .then((r) => r.rows[0] || null)
+            .catch(() => null);
+        // Push TPOS (master) — tự lookup theo phone, chưa có thì tạo. Trả tposId.
+        const tpos = await pushCustomerToTPOS(phone, { name, address });
+        if (!tpos || tpos.success === false || !tpos.tposId) {
+            return res
+                .status(502)
+                .json({ success: false, error: tpos?.error || 'TPOS push thất bại' });
+        }
+        // Upsert cache web2_customers (PK = TPOS partner id).
+        await upsertWeb2Customer(db, {
+            id: tpos.tposId,
+            phone,
+            name: name || existed?.name,
+            address,
+        });
+        res.json({
+            success: true,
+            tposId: tpos.tposId,
+            created: !existed,
+            phone: phone.slice(-10),
+        });
+    } catch (e) {
+        console.error('[web2-customers] upsert error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // PATCH /:id — SỬA THỐNG NHẤT thông tin KH (tên/SĐT/địa chỉ) cho MỌI trang Web 2.0.
 // :id = TPOS Partner Id (web2_customers.id). Ghi 2 chiều:
 //   1. Push lên TPOS (CreateUpdatePartner by Id — đổi cả SĐT cũng update đúng partner).

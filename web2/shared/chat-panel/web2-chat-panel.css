@@ -433,6 +433,59 @@
     padding: 6px 0 8px;
 }
 
+/* ---- Detect bar (Feature 3: SĐT/địa chỉ) ---- */
+.w2cp-detect-bar {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 6px 12px;
+    background: #fffbeb;
+    border-top: 1px solid #fde68a;
+    flex: 0 0 auto;
+}
+.w2cp-detect-bar.visible {
+    display: flex;
+}
+.w2cp-detect-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #b45309;
+}
+.w2cp-detect-chip {
+    font-size: 12px;
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-radius: 999px;
+    padding: 2px 9px;
+    cursor: pointer;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.w2cp-detect-chip:hover {
+    background: #fde68a;
+}
+.w2cp-detect-add {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: none;
+    background: #16a34a;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 11px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.w2cp-detect-add:hover {
+    background: #15803d;
+}
+
 /* ---- Quick reply ---- */
 .w2cp-quick-row {
     display: flex;

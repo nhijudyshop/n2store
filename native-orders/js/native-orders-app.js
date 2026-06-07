@@ -6308,6 +6308,60 @@
                     }
                 );
             },
+            // Feature 3: "Thêm vào KH" — CẢ HAI: (1) fill SĐT/địa chỉ vào ĐƠN đang mở
+            // (PATCH native_order, chỉ field còn rỗng để không đè), (2) upsert danh bạ
+            // web2_customers (tạo nếu mới). Báo toast, cập nhật STATE nếu đổi.
+            async onAddEntity({ phone, address, name }) {
+                const patch = {};
+                if (phone && !order.phone) patch.phone = phone;
+                if (address && !order.address) patch.address = address;
+                if (name && !order.customerName) patch.customerName = name;
+                if (Object.keys(patch).length && window.NativeOrdersApi?.update) {
+                    try {
+                        const resp = await window.NativeOrdersApi.update(order.code, patch);
+                        if (resp?.order) {
+                            const idx = STATE.orders.findIndex((x) => x.code === order.code);
+                            if (idx !== -1) STATE.orders[idx] = resp.order;
+                            Object.assign(order, patch);
+                        }
+                    } catch (e) {
+                        console.warn(
+                            '[NativeOrders] fill order from chat entity failed:',
+                            e.message
+                        );
+                    }
+                }
+                let created = null;
+                try {
+                    const r = await fetch(`${WORKER_URL}/api/web2/customers/upsert`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            phone: phone || order.phone || '',
+                            name: name || order.customerName || '',
+                            address: address || order.address || '',
+                        }),
+                    });
+                    const j = await r.json().catch(() => ({}));
+                    if (j.success) created = j.created;
+                    else if (!Object.keys(patch).length)
+                        throw new Error(j.error || 'upsert KH thất bại');
+                } catch (e) {
+                    if (!Object.keys(patch).length) throw e;
+                    console.warn('[NativeOrders] web2_customers upsert failed:', e.message);
+                }
+                const parts = [];
+                if (patch.phone) parts.push('SĐT');
+                if (patch.address) parts.push('địa chỉ');
+                const fillMsg = parts.length ? `Đã điền ${parts.join(' + ')} vào đơn. ` : '';
+                const khMsg =
+                    created === true
+                        ? 'Đã tạo KH mới.'
+                        : created === false
+                          ? 'Đã cập nhật KH.'
+                          : '';
+                notify((fillMsg + khMsg).trim() || 'Đã thêm vào KH', 'success');
+            },
         };
     }
 

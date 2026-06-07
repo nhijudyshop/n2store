@@ -105,6 +105,31 @@ const PancakeChatWindow = {
                 window.PancakeConversationList?.renderConversationList?.();
             },
 
+            // Feature 3: "Thêm vào KH" — upsert danh bạ web2_customers (tạo nếu mới).
+            // tpos-pancake không có "đơn đang mở" → chỉ upsert KH + báo.
+            async onAddEntity({ phone, address, name }) {
+                const workerUrl =
+                    window.Web2Chat?._internal?.WORKER_URL ||
+                    window.API_CONFIG?.WORKER_URL ||
+                    'https://chatomni-proxy.nhijudyshop.workers.dev';
+                const r = await fetch(`${workerUrl}/api/web2/customers/upsert`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phone: phone || '',
+                        name: name || '',
+                        address: address || '',
+                    }),
+                });
+                const j = await r.json().catch(() => ({}));
+                if (!j.success) throw new Error(j.error || 'upsert KH thất bại');
+                if (window.notificationManager?.show)
+                    window.notificationManager.show(
+                        j.created ? 'Đã tạo KH mới' : 'Đã cập nhật KH',
+                        'success'
+                    );
+            },
+
             async send({ text, attachment }) {
                 const res = await self._performSend(conv, convId, text, attachment || null);
                 // Giữ PancakeState.messages đồng bộ (realtime renderMessages dựa vào nó).
