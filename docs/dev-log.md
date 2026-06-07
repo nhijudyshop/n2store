@@ -25,6 +25,24 @@
 
 ## 2026-06-07
 
+### [render][admin][web2] Wipe toàn bộ data giao dịch Web 2.0 (chừa variants/config/khách hàng) + target='web2-all' ✅
+
+**Files:** `render.com/routes/admin-web2-data-reset.js`
+
+**Bối cảnh:** user muốn xóa SẠCH data Web 2.0 (native-orders, fastsaleorder-invoice, reconcile, SP, Sổ Order, trả hàng, ví…) để re-test, CHỪA: Kho Biến Thể (variants) + các trang Cấu hình + Khách hàng. Quyết định bổ sung: NCC/Ví NCC → xóa; SePay/Ví KH → xóa tiền nhưng giữ hồ sơ KH.
+
+**Thêm `target='web2-all'`** vào admin reset (`WEB2_ALL_TABLES`, 21 bảng, auto-backup `_bak_<ts>` trước truncate, KHÔNG CASCADE để fail-loud bảo vệ bảng giữ). Wipe: web2_products, web2_product_history, native_orders, fast_sale_orders, refunds, web2_returns, web2_cart_history, web2_kpi_events, web2_match_audit, web2_pending_matches, web2_msg_send_jobs/items, web2_unread_messages, web2_webhook_retry_queue, web2_customer_intents, web2_extraction_blacklist, web2_customer_wallets, web2_wallet_transactions/adjustments, web2_balance_history, web2_payment_signals.
+
+**⚠ GIỮ — KHÔNG truncate:**
+
+- `web2_records` (multi-tenant!): chứa **partner-customer 92.248 (KH)** + TPOS shadow (product/producttemplate/tag/deliveryzone/printer…). Chỉ delete-all 2 slug giao dịch: `fastsaleorder-invoice` (16.524), `partner-supplier` (186). **TUYỆT ĐỐI không TRUNCATE cả bảng.**
+- `web2_order_customers` (6.533): kho KH đơn hàng (tên/SĐT/địa chỉ) — customer data, KEEP.
+- `web2_customers`, `web2_variants` (20), `web2_users`, `web2_user_sessions`, `web2_entities`, `web2_payment_qr_codes`.
+
+**Firestore wipe (browser session, set empty):** `web2_so_order/main` (Sổ Order), `web2_supplier_wallet/main` (Ví NCC + danh sách NCC — cùng doc, web2-suppliers-cache đọc chung), `web2_suppliers/main` (legacy), `web2_customer_wallet/main` (legacy, xóa tiền).
+
+**Verified:** products/orders/PBH/refund/reconcile = 0; variants=20, partner-customer=92248 còn nguyên. Backup tag `20260607_1315` (21 bảng `_bak_` trên web2Db) để rollback nếu cần.
+
 ### [render][web2] Thu về — redesign form: Vấn đề khách/shipper, thu về 1 phần theo đơn, Sửa COD ✅
 
 **User (6 ý):** (1) Thu về 1 phần → chọn đơn → chọn SP trong đơn; (2) thêm hàng "Vấn đề" (khách/shipper) giữa Cách hàng về và Loại thu về; (3) ẩn 3 section đến khi chọn KH; (4) Khách gửi → "Khách không nhận hàng" đổi thành "Thu cả đơn", lý do đổi ý/khác; (5) Vấn đề shipper → COD giảm + lý do (Tính sai ship/Trừ công nợ khách/Giảm giá-Lẻ tiền/Khách nhận 1 phần/Trả hàng đơn cũ) như "Sửa COD"; (6) Vấn đề khách → boom/không liên lạc/sai địa chỉ/đổi ý/khác.
