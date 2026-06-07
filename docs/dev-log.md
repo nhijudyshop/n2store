@@ -25,6 +25,17 @@
 
 ## 2026-06-07
 
+### [so-order] Nhận hàng → in tem QR 2-tem theo SL nhận (bump version) ✅
+
+**User:** trang so-order khi nhận hàng → in sản phẩm 2 tem theo số lượng nhận.
+
+**Phát hiện:** luồng ĐÃ CÓ sẵn — `confirmReceiveFromModal` → `openBarcodePrintModal(printableItems)` → `Web2ProductsPrint.open(products)` với `quantity = qtyReceived`. Nhưng so-order load **bản cũ** `web2-products-print.js?v=20260605j` (trước khi có QR 2-tem) → in ra Code128 cũ.
+
+**Fix:** bump version script trong `so-order/index.html` → `?v=20260606qr3` → dùng bản mới: mặc định **QR Code + khổ "2 Tem (66×21mm)"**, in `qtyReceived` tem.
+
+**Files:** `so-order/index.html`.
+**Verify (localhost):** so-order load `web2-products-print v=20260606qr3`; gọi `Web2ProductsPrint.open([{...,quantity:3}])` → mặc định QR + 2 Tem, render **3 tem QR** (QR trái + tên/mã/giá phải) trên 2 sheet. Screenshot xác nhận.
+
 ### [web2/products] Tem QR — tự thu nhỏ font mã dài cho hiện đủ ✅
 
 **User:** mã dài bị cắt mép (vd ADQUANDENM cụt chữ M) → thu nhỏ.
