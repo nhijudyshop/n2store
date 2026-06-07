@@ -59,7 +59,7 @@
                 <!-- ============ PANEL: CREATE ============ -->
                 <section class="rt-panel" id="panel-create">
                     <div class="rt-grid">
-                        <!-- Left: customer + method -->
+                        <!-- Left: customer + (sau khi chọn KH) cách hàng về / vấn đề / loại -->
                         <div class="rt-card">
                             <div class="rt-card-title"><i data-lucide="user"></i> Khách hàng</div>
                             <div class="rt-cust-box">
@@ -74,126 +74,168 @@
                                 <div class="rt-cust-selected" id="custSelected" hidden></div>
                             </div>
 
-                            <div class="rt-card-title" style="margin-top: 18px">
-                                <i data-lucide="truck"></i> Cách hàng về
-                            </div>
-                            <div class="rt-radio-row">
-                                <label class="rt-radio">
-                                    <input type="radio" name="method" value="khach_gui" />
-                                    <span><b>Khách gửi</b><small>+ kho thật ngay</small></span>
-                                </label>
-                                <label class="rt-radio">
-                                    <input type="radio" name="method" value="shipper_gui" checked />
-                                    <span
-                                        ><b>Shipper gửi</b
-                                        ><small>+ kho thu về · chờ duyệt</small></span
-                                    >
-                                </label>
-                            </div>
-                            <div class="rt-hint" id="stockHint"></div>
+                            <!-- Ẩn cho tới khi chọn KH -->
+                            <div id="formSections" hidden>
+                                <div class="rt-card-title" style="margin-top: 18px">
+                                    <i data-lucide="truck"></i> Cách hàng về
+                                </div>
+                                <div class="rt-radio-row">
+                                    <label class="rt-radio">
+                                        <input type="radio" name="method" value="khach_gui" />
+                                        <span><b>Khách gửi</b><small>+ kho thật ngay</small></span>
+                                    </label>
+                                    <label class="rt-radio">
+                                        <input
+                                            type="radio"
+                                            name="method"
+                                            value="shipper_gui"
+                                            checked
+                                        />
+                                        <span
+                                            ><b>Shipper gửi</b
+                                            ><small>+ kho thu về · chờ duyệt</small></span
+                                        >
+                                    </label>
+                                </div>
+                                <div class="rt-hint" id="stockHint"></div>
 
-                            <div class="rt-card-title" style="margin-top: 18px">
-                                <i data-lucide="git-branch"></i> Loại thu về
-                            </div>
-                            <div class="rt-radio-row">
-                                <label class="rt-radio">
-                                    <input type="radio" name="subType" value="khong_nhan_hang" />
-                                    <span
-                                        ><b>Khách không nhận hàng</b
-                                        ><small>hoàn cả đơn cũ</small></span
-                                    >
-                                </label>
-                                <label class="rt-radio">
-                                    <input
-                                        type="radio"
-                                        name="subType"
-                                        value="thu_ve_1_phan"
-                                        checked
-                                    />
-                                    <span
-                                        ><b>Thu về 1 phần</b
-                                        ><small>chọn SP lẻ → bill 0đ</small></span
-                                    >
-                                </label>
+                                <div class="rt-card-title" style="margin-top: 18px">
+                                    <i data-lucide="alert-triangle"></i> Vấn đề
+                                </div>
+                                <div class="rt-radio-row">
+                                    <label class="rt-radio">
+                                        <input
+                                            type="radio"
+                                            name="issue"
+                                            value="van_de_khach"
+                                            checked
+                                        />
+                                        <span><b>Vấn đề khách</b><small>boom, đổi ý…</small></span>
+                                    </label>
+                                    <label class="rt-radio">
+                                        <input type="radio" name="issue" value="van_de_shipper" />
+                                        <span><b>Vấn đề shipper</b><small>sửa COD…</small></span>
+                                    </label>
+                                </div>
+
+                                <div id="subTypeBlock">
+                                    <div class="rt-card-title" style="margin-top: 18px">
+                                        <i data-lucide="git-branch"></i> Loại thu về
+                                    </div>
+                                    <div class="rt-radio-row">
+                                        <label class="rt-radio">
+                                            <input
+                                                type="radio"
+                                                name="subType"
+                                                value="khong_nhan_hang"
+                                            />
+                                            <span
+                                                ><b id="lblCaDon">Khách không nhận hàng</b
+                                                ><small>hoàn cả đơn cũ</small></span
+                                            >
+                                        </label>
+                                        <label class="rt-radio">
+                                            <input
+                                                type="radio"
+                                                name="subType"
+                                                value="thu_ve_1_phan"
+                                                checked
+                                            />
+                                            <span
+                                                ><b>Thu về 1 phần</b
+                                                ><small>chọn SP trong đơn → bill 0đ</small></span
+                                            >
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Right: dynamic content -->
-                        <div class="rt-card">
-                            <!-- Khách không nhận hàng -->
-                            <div id="boomSection">
+                        <div class="rt-card" id="rightCard">
+                            <div id="rightEmpty" class="rt-muted" style="padding: 8px 4px">
+                                Chọn khách hàng để bắt đầu.
+                            </div>
+
+                            <div id="rightBody" hidden>
                                 <div class="rt-card-title">
-                                    <i data-lucide="package-x"></i> Chọn đơn hoàn
+                                    <i data-lucide="package-x"></i>
+                                    <span id="orderPickTitle">Chọn đơn</span>
                                 </div>
                                 <div class="rt-order-list" id="orderList">
-                                    <div class="rt-muted">Chọn khách hàng để xem đơn.</div>
+                                    <div class="rt-muted">Đang tải đơn…</div>
                                 </div>
-                                <div id="orderItems" class="rt-order-items" hidden></div>
-                                <div class="rt-field" style="margin-top: 14px">
-                                    <label>Lý do</label>
-                                    <select id="reasonSelect" class="rt-input">
-                                        <option value="khach_boom">Khách boom</option>
-                                        <option value="khong_lien_lac">Không liên lạc được</option>
-                                        <option value="sai_dia_chi">Sai địa chỉ</option>
-                                        <option value="doi_y">Đổi ý</option>
-                                        <option value="khac">Khác…</option>
-                                    </select>
+
+                                <!-- Tóm tắt đơn được chọn (COD/ship/tổng) -->
+                                <div id="orderSummary" class="rt-order-summary" hidden></div>
+
+                                <!-- ===== KHÁCH flow ===== -->
+                                <div id="panelKhach">
+                                    <div id="orderItems" class="rt-order-items" hidden></div>
+                                    <div class="rt-field" style="margin-top: 14px">
+                                        <label>Lý do</label>
+                                        <select id="reasonSelect" class="rt-input"></select>
+                                    </div>
+                                    <div class="rt-field" id="reasonNoteWrap" hidden>
+                                        <label>Ghi rõ lý do</label>
+                                        <input
+                                            type="text"
+                                            id="reasonNote"
+                                            class="rt-input"
+                                            placeholder="vd: không liên lạc được"
+                                        />
+                                    </div>
                                 </div>
-                                <div class="rt-field" id="reasonNoteWrap" hidden>
-                                    <label>Ghi rõ lý do</label>
+
+                                <!-- ===== SHIPPER flow (Sửa COD) ===== -->
+                                <div id="panelShipper" hidden>
+                                    <div class="rt-field" style="margin-top: 14px">
+                                        <label>COD giảm (tiền trả shipper)</label>
+                                        <input
+                                            type="number"
+                                            id="codReduction"
+                                            class="rt-input"
+                                            min="0"
+                                            step="1000"
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                    <div class="rt-field">
+                                        <label>Lý do</label>
+                                        <select id="reasonSelectShip" class="rt-input">
+                                            <option value="tinh_sai_ship">Tính sai ship</option>
+                                            <option value="tru_cong_no_khach">
+                                                Trừ công nợ khách
+                                            </option>
+                                            <option value="giam_gia_le_tien">
+                                                Giảm giá/Lẻ tiền
+                                            </option>
+                                            <option value="khach_nhan_1_phan">
+                                                Khách nhận 1 phần
+                                            </option>
+                                            <option value="tra_hang_don_cu">Trả hàng đơn cũ</option>
+                                        </select>
+                                    </div>
+                                    <div id="codCalc" class="rt-cod-calc" hidden></div>
+                                    <div id="codWallet" class="rt-cod-wallet" hidden></div>
+                                </div>
+
+                                <div class="rt-field" style="margin-top: 16px">
+                                    <label>Ghi chú</label>
                                     <input
                                         type="text"
-                                        id="reasonNote"
+                                        id="noteInput"
                                         class="rt-input"
-                                        placeholder="vd: không liên lạc được"
+                                        placeholder="Ghi chú phiếu (tuỳ chọn)"
                                     />
                                 </div>
-                            </div>
 
-                            <!-- Thu về 1 phần -->
-                            <div id="partialSection" hidden>
-                                <div class="rt-card-title">
-                                    <i data-lucide="package-search"></i> Chọn sản phẩm
+                                <div class="rt-summary">
+                                    <div class="rt-credit" id="creditPreview"></div>
+                                    <button class="rt-submit" id="btnSubmit" disabled>
+                                        <i data-lucide="undo-2"></i> Tạo phiếu thu về
+                                    </button>
                                 </div>
-                                <div class="rt-cust-box">
-                                    <input
-                                        type="text"
-                                        id="prodSearch"
-                                        class="rt-input"
-                                        placeholder="Tìm SP theo mã / tên…"
-                                        autocomplete="off"
-                                    />
-                                    <div class="rt-dropdown" id="prodResults" hidden></div>
-                                </div>
-                                <table class="rt-table" style="margin-top: 12px">
-                                    <thead>
-                                        <tr>
-                                            <th>Sản phẩm</th>
-                                            <th>Giá bán</th>
-                                            <th>SL</th>
-                                            <th>Thành tiền</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="partialBody"></tbody>
-                                </table>
-                            </div>
-
-                            <div class="rt-field" style="margin-top: 16px">
-                                <label>Ghi chú</label>
-                                <input
-                                    type="text"
-                                    id="noteInput"
-                                    class="rt-input"
-                                    placeholder="Ghi chú phiếu thu về (tuỳ chọn)"
-                                />
-                            </div>
-
-                            <div class="rt-summary">
-                                <div class="rt-credit" id="creditPreview"></div>
-                                <button class="rt-submit" id="btnSubmit" disabled>
-                                    <i data-lucide="undo-2"></i> Tạo phiếu thu về
-                                </button>
                             </div>
                         </div>
                     </div>

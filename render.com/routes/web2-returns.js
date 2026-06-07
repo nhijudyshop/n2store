@@ -849,19 +849,34 @@ router.delete('/:code', async (req, res) => {
             client.release();
         }
 
-        // Rollback ví: rút lại số đã cộng (best-effort).
+        // Rollback ví (best-effort): credited>0 (đã cộng) → rút lại; credited<0
+        // (đã trừ — vd Sửa COD trừ công nợ khách) → hoàn lại.
         const credited = Number(row.wallet_credited) || 0;
-        if (credited > 0 && row.phone) {
+        if (credited !== 0 && row.phone) {
             try {
-                await web2WalletService.processWithdraw(
-                    pool,
-                    row.phone,
-                    credited,
-                    'return',
-                    req.params.code,
-                    `Huỷ thu về ${req.params.code}`,
-                    user.name
-                );
+                if (credited > 0) {
+                    await web2WalletService.processWithdraw(
+                        pool,
+                        row.phone,
+                        credited,
+                        'return',
+                        req.params.code,
+                        `Huỷ thu về ${req.params.code}`,
+                        user.name
+                    );
+                } else {
+                    await web2WalletService.processDeposit(
+                        pool,
+                        row.phone,
+                        -credited,
+                        null,
+                        `Hoàn ví huỷ phiếu COD ${req.params.code}`,
+                        row.customer_id || null,
+                        null,
+                        null,
+                        user.name
+                    );
+                }
                 _notifyWallet(row.phone);
             } catch (e) {
                 console.warn(`[WEB2-RETURNS] rollback wallet ${req.params.code} fail:`, e.message);
