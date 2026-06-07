@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `11c39b5` — docs(dev-log): tem QR tự thu nhỏ font mã dài
-**Last updated**: 2026-06-07 10:16:35 +07
-**Latest session**: [`RESUME:20260607-101635-11c39b5`](../20260607-101635-11c39b5.md)
-**Summary**: docs(dev-log): tem QR tự thu nhỏ font mã dài
+**Latest commit**: `34d580a` — fix(so-order): nhận hàng in tem QR 2-tem theo SL nhận (bump print script version)
+**Last updated**: 2026-06-07 10:25:41 +07
+**Latest session**: [`RESUME:20260607-102541-34d580a`](../20260607-102541-34d580a.md)
+**Summary**: fix(so-order): nhận hàng in tem QR 2-tem theo SL nhận (bump print script version)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`so-order/`](./so-order.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-06 20:25
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-07 10:16
+- [`docs/`](./docs.md) — updated 2026-06-07 10:25
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
@@ -56,7 +56,7 @@
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-06 12:22
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
-- [`so-order/`](./so-order.md) — updated 2026-06-06 20:15
+- [`so-order/`](./so-order.md) — updated 2026-06-07 10:25
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-04 12:44
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
