@@ -3,16 +3,18 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `88c9a26` — feat(tpos-pancake): rewire cột comment live TPOS→FB Graph (flag-gated, fallback-safe)
-**Last updated**: 2026-06-07 18:17:47 +07
-**Latest session**: [`RESUME:20260607-181747-88c9a26`](../20260607-181747-88c9a26.md)
-**Summary**: feat(tpos-pancake): rewire cột comment live TPOS→FB Graph (flag-gated, fallback-safe)
+**Latest commit**: `0e530bd` — feat(web2): cắt TPOS — picker FB Graph (flag) + live-campaign CRUD→web2_live_campaigns
+**Last updated**: 2026-06-07 18:39:53 +07
+**Latest session**: [`RESUME:20260607-183953-0e530bd`](../20260607-183953-0e530bd.md)
+**Summary**: feat(web2): cắt TPOS — picker FB Graph (flag) + live-campaign CRUD→web2_live_campaigns
 
 ## Folders affected in this commit
 
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 4 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -23,10 +25,10 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-05-22 12:35
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-07 18:07
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-07 18:39
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-07 18:17
+- [`docs/`](./docs.md) — updated 2026-06-07 18:39
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
@@ -51,7 +53,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-07 18:17
+- [`render.com/`](./render.com.md) — updated 2026-06-07 18:39
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-07 16:00
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -64,10 +66,10 @@
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:46
 - [`tests/`](./tests.md) — updated 2026-06-06 18:52
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 18:17
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 18:39
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-07 16:43
+- [`web2/`](./web2.md) — updated 2026-06-07 18:39
