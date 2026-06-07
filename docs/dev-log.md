@@ -23,6 +23,17 @@
 
 ---
 
+## 2026-06-07
+
+### [web2/products] Tem QR — tự thu nhỏ font mã dài cho hiện đủ ✅
+
+**User:** mã dài bị cắt mép (vd ADQUANDENM cụt chữ M) → thu nhỏ.
+
+**Fix (`web2-products-print.js`):** `.ql-code` set `white-space:nowrap` + hàm `fitText()` trong script in: giảm dần font-size (0.5px/bước, min 4px) tới khi `scrollWidth ≤ clientWidth` → mã vừa cột chữ. Chạy cùng `draw()` lúc init (cả bản preview lẫn in nhiệt).
+
+**Files:** `web2/products/js/web2-products-print.js` (`?v=20260606qr3`).
+**Verify (localhost + screenshot):** `ADQUANDENM` (10 ký tự) → font 6px, overflow=false, hiện ĐỦ; `B4DAMVANG` 6.5px. Layout QR-trái/text-phải giữ nguyên.
+
 ## 2026-06-06
 
 ### [web2/products] Tem QR — layout QR trái + tên/mã/giá phải (mọi con tem) ✅
