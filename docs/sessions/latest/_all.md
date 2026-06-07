@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1d3d2a3` — feat(web2/chat): Web2ChatPanel — component chat hợp nhất (foundation, adapter+modes, chưa wire trang)
-**Last updated**: 2026-06-07 13:34:38 +07
-**Latest session**: [`RESUME:20260607-133438-1d3d2a3`](../20260607-133438-1d3d2a3.md)
-**Summary**: feat(web2/chat): Web2ChatPanel — component chat hợp nhất (foundation, adapter+modes, chưa wire trang)
+**Latest commit**: `f1eafac` — auto: session update
+**Last updated**: 2026-06-07 13:42:01 +07
+**Latest session**: [`RESUME:20260607-134201-f1eafac`](../20260607-134201-f1eafac.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -63,10 +63,10 @@
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:46
 - [`tests/`](./tests.md) — updated 2026-06-06 18:52
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-06 20:15
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 13:42
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-07 13:34
+- [`web2/`](./web2.md) — updated 2026-06-07 13:42
