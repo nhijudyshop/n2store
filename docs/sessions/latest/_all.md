@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f1eafac` — auto: session update
-**Last updated**: 2026-06-07 13:42:01 +07
-**Latest session**: [`RESUME:20260607-134201-f1eafac`](../20260607-134201-f1eafac.md)
-**Summary**: auto: session update
+**Latest commit**: `6c9d681` — refactor(tpos-pancake): chat dùng Web2ChatPanel hợp nhất (wrapper adapter, giữ public surface + realtime); test live OK
+**Last updated**: 2026-06-07 13:45:00 +07
+**Latest session**: [`RESUME:20260607-134500-6c9d681`](../20260607-134500-6c9d681.md)
+**Summary**: refactor(tpos-pancake): chat dùng Web2ChatPanel hợp nhất (wrapper adapter, giữ public surface + realtime); tes...
 
 ## Folders affected in this commit
 
-- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-06 20:25
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-07 13:34
+- [`docs/`](./docs.md) — updated 2026-06-07 13:45
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
