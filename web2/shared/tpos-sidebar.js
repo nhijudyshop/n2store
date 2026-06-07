@@ -140,7 +140,7 @@
                     label: 'Sổ Order',
                     our: '../so-order/index.html',
                 },
-                { label: 'TPOS × Pancake', our: '../tpos-pancake/index.html' },
+                { label: 'Live Chat', our: '../live-chat/index.html' },
             ],
         },
         {
@@ -298,7 +298,7 @@
         'web2/reconcile/index.html',
         'native-orders/index.html',
         'so-order/index.html',
-        'tpos-pancake/index.html',
+        'live-chat/index.html',
         'web2/purchase-refund/index.html',
         'web2/supplier-debt/index.html',
         'web2/supplier-wallet/index.html',

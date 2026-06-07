@@ -4557,7 +4557,7 @@
                 notify('Đơn không có Facebook user/page ID', 'warning');
                 return;
             }
-            const url = `../tpos-pancake/index.html?focusFbUserId=${encodeURIComponent(order.fbUserId)}&focusPageId=${encodeURIComponent(order.fbPageId)}${order.liveCampaignId ? '&focusCampaign=' + encodeURIComponent(order.liveCampaignId) : ''}`;
+            const url = `../live-chat/index.html?focusFbUserId=${encodeURIComponent(order.fbUserId)}&focusPageId=${encodeURIComponent(order.fbPageId)}${order.liveCampaignId ? '&focusCampaign=' + encodeURIComponent(order.liveCampaignId) : ''}`;
             window.open(url, '_blank', 'noopener');
         });
 
@@ -8686,7 +8686,7 @@
                   .filter(Boolean)
             : [];
         const pancakeUrl = (commentId) =>
-            `../tpos-pancake/index.html?focusCommentId=${encodeURIComponent(commentId)}${order.fbPageId ? '&focusPageId=' + encodeURIComponent(order.fbPageId) : ''}`;
+            `../live-chat/index.html?focusCommentId=${encodeURIComponent(commentId)}${order.fbPageId ? '&focusPageId=' + encodeURIComponent(order.fbPageId) : ''}`;
         const fbPermalink = (commentId) => {
             const postId = order.fbPostId || '';
             const postShort = postId.includes('_') ? postId.split('_').pop() : postId;

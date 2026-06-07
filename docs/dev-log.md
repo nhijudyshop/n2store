@@ -25,6 +25,24 @@
 
 ## 2026-06-07
 
+### [live-chat] Đổi tên tpos-pancake → live-chat (purge sạch chữ "tpos") + comment qua pages.fm ✅
+
+User: "đổi tên hết không gì liên quan tpos hết". Rename module live page + xác nhận kiến trúc comment đúng (pages.fm).
+
+**Kiến trúc comment (xác nhận in-browser live thật):** Pancake CHỈ đưa JWT chạy pages.fm, KHÔNG đưa FB EAA (hunt 6 account×4 page = 0 EAA; graph.facebook.com "Bad signature"). → comment lấy qua **pages.fm** (worker `/api/pancake/`, account JWT): posts type=livestream + conversations type=COMMENT lọc post_id. Verify: 3 pages, 26 livestream, 65 comment thật.
+
+**Rename:**
+
+- Folder `tpos-pancake/` → `live-chat/`; `js/tpos/`→`js/live/`, `css/tpos/`→`css/live/`; 12 file `tpos-*.js`→`live-*.js` (live-fb-live-source→live-source).
+- Globals `window.Tpos*`→`window.Live*` (LiveApi/State/Realtime/CommentList/CustomerPanel/Source/KhoEnricher/Livestream\*/ColumnManager), `tposTokenManager`→`liveTokenManager`. Purge mọi "tpos/Tpos/TPOS" trong folder (44 file).
+- ⚠ GIỮ localStorage keys `tpos_pancake_*`/`tpos_selected_campaigns`/`tpos_snap_*` (contract app-wide: 7 shared file + test scripts — đổi sẽ vỡ Pancake state toàn app).
+- External: sidebar menu "TPOS × Pancake"→"Live Chat" + path `../live-chat/index.html`; native-orders 2 link → live-chat.
+- KHÔNG đụng `tpos-customer-service.js`/`web2-customer-tpos.js` (module khác: partner-customer/Customer360 vẫn đọc TPOS thật) + shared `tpos-sidebar.js`/`tpos-theme.css` (design-system web2-wide, 80+ trang).
+
+**Verify:** local smoke live-chat/index.html — LiveSource OK, 3 pages/26 campaigns/65 comments, **0 lỗi**.
+
+**Status:** ✅ Done. URL trang đổi /tpos-pancake/ → /live-chat/.
+
 ### [delivery-report] Fix dòng đơn số 7 trong bảng expand bị header "# Số đơn Khách Giờ COD" đè lên ✅
 
 **User:** "đơn số 7 luôn bị lỗi hiển thị thành số đơn khách giờ" (cả tab TOMATO lẫn NAP, vị trí cố định ~dòng 7).

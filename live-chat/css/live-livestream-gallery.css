@@ -1,0 +1,277 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. */
+/* Kho "Hình Livestream" — header chips + right sidebar gallery (live-chat) */
+
+:root {
+    --lsimg-accent: #7c3aed;
+    --lsimg-accent-soft: #ede9fe;
+    --lsimg-border: #e5e7eb;
+    --lsimg-text: #374151;
+    --lsimg-radius: 14px;
+    --lsimg-duration: 220ms;
+    --lsimg-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------- header chips ---------- */
+.live-lsimg-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border: 1px solid var(--lsimg-border);
+    border-radius: var(--lsimg-radius);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--lsimg-text);
+    cursor: pointer;
+    user-select: none;
+    background: #fff;
+    transition:
+        background var(--lsimg-duration) var(--lsimg-ease),
+        transform var(--lsimg-duration) var(--lsimg-ease),
+        border-color var(--lsimg-duration) var(--lsimg-ease);
+}
+.live-lsimg-chip:hover {
+    transform: translateY(-1px);
+}
+.live-lsimg-chip:active {
+    transform: translateY(0);
+}
+.live-lsimg-chip--capture {
+    background: var(--lsimg-accent-soft);
+    border-color: #c4b5fd;
+    color: #5b21b6;
+}
+.live-lsimg-chip--capture:hover {
+    background: #ddd6fe;
+}
+.live-lsimg-chip--capture.is-busy {
+    opacity: 0.6;
+    pointer-events: none;
+}
+.live-lsimg-chip--capture.is-busy strong::after {
+    content: ' …';
+}
+.live-lsimg-chip--toggle.is-active {
+    background: var(--lsimg-accent);
+    border-color: var(--lsimg-accent);
+    color: #fff;
+}
+
+/* ---------- sidebar drawer ---------- */
+.live-lsimg-sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 380px;
+    max-width: 92vw;
+    height: 100vh;
+    background: #fafafa;
+    border-left: 1px solid var(--lsimg-border);
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
+    z-index: 99400;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform var(--lsimg-duration) var(--lsimg-ease);
+    contain: layout style paint;
+    overscroll-behavior: contain;
+}
+.live-lsimg-sidebar.is-open {
+    transform: translateX(0);
+}
+
+.live-lsimg-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--lsimg-border);
+    background: #fff;
+    flex: 0 0 auto;
+}
+.live-lsimg-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+    white-space: nowrap;
+}
+.live-lsimg-filter {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 5px 8px;
+    border: 1px solid var(--lsimg-border);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--lsimg-text);
+    background: #fff;
+    cursor: pointer;
+}
+.live-lsimg-close {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--lsimg-border);
+    border-radius: 8px;
+    background: #fff;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    transition: background var(--lsimg-duration) var(--lsimg-ease);
+}
+.live-lsimg-close:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.live-lsimg-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 12px;
+    -webkit-overflow-scrolling: touch;
+}
+.live-lsimg-empty {
+    color: #9ca3af;
+    font-style: italic;
+    text-align: center;
+    padding: 28px 8px;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+/* ---------- grid + tiles ---------- */
+.live-lsimg-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+.live-lsimg-tile {
+    border: 1px solid var(--lsimg-border);
+    border-radius: 10px;
+    background: #fff;
+    overflow: hidden;
+    cursor: pointer;
+    transition:
+        box-shadow var(--lsimg-duration) var(--lsimg-ease),
+        transform var(--lsimg-duration) var(--lsimg-ease);
+    content-visibility: auto;
+    contain-intrinsic-size: 160px;
+}
+.live-lsimg-tile:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+.live-lsimg-tile.is-temp {
+    opacity: 0.75;
+}
+.live-lsimg-thumb {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #111827;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.live-lsimg-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.live-lsimg-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #fcd34d;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    padding: 6px;
+}
+.live-lsimg-badge--fail {
+    color: #fca5a5;
+}
+.live-lsimg-extract,
+.live-lsimg-del {
+    border: none;
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1;
+}
+.live-lsimg-extract {
+    background: #fbbf24;
+    color: #1f2937;
+    padding: 3px 6px;
+}
+.live-lsimg-extract:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+.live-lsimg-del {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 24px;
+    height: 24px;
+    background: rgba(17, 24, 39, 0.62);
+    color: #fff;
+    opacity: 0;
+    transition: opacity var(--lsimg-duration) var(--lsimg-ease);
+}
+.live-lsimg-tile:hover .live-lsimg-del {
+    opacity: 1;
+}
+.live-lsimg-del:hover {
+    background: #dc2626;
+}
+
+.live-lsimg-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px 8px;
+}
+.live-lsimg-tm {
+    font-size: 11px;
+    font-weight: 600;
+    color: #374151;
+}
+.live-lsimg-camp {
+    font-size: 10px;
+    color: #9ca3af;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* spinner cho tile đang lưu */
+.live-lsimg-spin {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: lsimg-spin 0.8s linear infinite;
+}
+@keyframes lsimg-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .live-lsimg-sidebar,
+    .live-lsimg-tile,
+    .live-lsimg-chip,
+    .live-lsimg-del {
+        transition: none;
+    }
+    .live-lsimg-spin {
+        animation: none;
+    }
+}
