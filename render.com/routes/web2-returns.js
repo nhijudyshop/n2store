@@ -236,8 +236,9 @@ async function _applyStock(client, items, method, sign) {
 // Lấy items + wallet_deducted của 1 đơn cũ (cho khong_nhan_hang / boom).
 async function _resolveSourceOrder(pool, code, type) {
     if (type === 'pbh') {
+        // NOTE: fast_sale_orders dùng cột `amount_total` (KHÔNG phải total_amount).
         const r = await pool.query(
-            `SELECT order_lines, total_amount, wallet_deducted, partner_phone,
+            `SELECT order_lines, amount_total, wallet_deducted, partner_phone,
                     cash_on_delivery, delivery_price
              FROM fast_sale_orders WHERE number = $1 LIMIT 1`,
             [code]
@@ -252,7 +253,7 @@ async function _resolveSourceOrder(pool, code, type) {
                 quantity: Number(l.quantity || l.qty) || 0,
                 price: Number(l.priceUnit || l.price || 0),
             })),
-            totalAmount: Number(row.total_amount) || 0,
+            totalAmount: Number(row.amount_total) || 0,
             walletDeducted: Number(row.wallet_deducted) || 0,
             cod: Number(row.cash_on_delivery) || 0,
             ship: Number(row.delivery_price) || 0,
