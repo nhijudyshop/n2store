@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a6257ab` — feat(admin): web2-wallet-reset/by-phone — reset sạch 1 SĐT (ví+đơn+link SePay) cho dọn clone test
-**Last updated**: 2026-06-07 11:27:37 +07
-**Latest session**: [`RESUME:20260607-112737-a6257ab`](../20260607-112737-a6257ab.md)
-**Summary**: feat(admin): web2-wallet-reset/by-phone — reset sạch 1 SĐT (ví+đơn+link SePay) cho dọn clone test
+**Latest commit**: `79c5d1b` — docs(dev-log): reset ví/đơn theo SĐT cho clone test 0123456788
+**Last updated**: 2026-06-07 11:33:43 +07
+**Latest session**: [`RESUME:20260607-113343-79c5d1b`](../20260607-113343-79c5d1b.md)
+**Summary**: docs(dev-log): reset ví/đơn theo SĐT cho clone test 0123456788
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-06 20:25
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-07 10:37
+- [`docs/`](./docs.md) — updated 2026-06-07 11:33
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
