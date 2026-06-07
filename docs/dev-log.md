@@ -55,6 +55,8 @@ User: "đổi tên hết không gì liên quan tpos hết". Rename module live p
 
 **Part A (DONE 2026-06-07):** unhide **6 đơn hợp lệ bị ẩn nhầm** 06/06 (3 nap: 70990/70991/70995 + 3 city: 70988/70992/70994 — đều `open`/`paid` trên TPOS) qua `/unhide-bulk`; GIỮ ẩn 2 đơn `cancel` thật (70977/70970). Verify sau deploy JS mới: mở lại báo cáo → `reHidden=0` (không ẩn lại). Báo cáo 06/06: nap 16→19, tomato 4→5, city 11→14. (70950 tomato chưa quét → nhân viên quét sẽ tự hiện.)
 
+**Reconcile 06/06 khớp Excel manifest (DONE 2026-06-07):** đối chiếu 24 đơn (6 `TOMATO_6_6` + 18 `NAP_6_6`) — verify 24/24 mã đọc đúng (tên KH khớp TPOS), chỉ **1 đơn lệch** `70991` Trang Lê (`nap`→ Excel `tomato`, bị flip trong cửa sổ random trước khi Fix 1 khóa). `PUT /:orderNumber` 70991→tomato (audit `reconcile-excel-6_6`). Báo cáo 06/06 sau: **nap 18 / tomato 6 = đúng Excel 100%**. Group đã khóa (Fix 1) → không nhảy lại.
+
 ### [delivery-report] Fix dòng đơn số 7 trong bảng expand bị header "# Số đơn Khách Giờ COD" đè lên ✅
 
 **User:** "đơn số 7 luôn bị lỗi hiển thị thành số đơn khách giờ" (cả tab TOMATO lẫn NAP, vị trí cố định ~dòng 7).
