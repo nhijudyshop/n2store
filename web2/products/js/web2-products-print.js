@@ -111,51 +111,15 @@
         PAPERS.findIndex((p) => p.id === 7)
     );
 
-    // 2026-06-06: ước lượng độ rộng vạch hẹp nhất (X-dimension) để cảnh báo mã
-    // quá dài cho khổ tem → vạch quá mảnh máy quét không đọc được (lý do đơn
-    // Hạnh Trần chỉ quét được B4AOBE 6 ký tự, còn B4DAMVANG/ADQUANDENM thì không).
-    const SCAN_XDIM_MIN_MM = 0.2; // ngưỡng quét tối thiểu (CCD/laser phổ thông)
-    function estCode128Modules(code) {
-        // Code128 subset B: start 11 + checksum 11 + stop 13 = 35, mỗi ký tự 11.
-        return 35 + 11 * String(code || '').length;
-    }
-    function estXdimMm(code, paper) {
-        const avail = paper.labelW * 0.88; // trừ quiet-zone/lề ~6% mỗi bên
-        return avail / estCode128Modules(code);
-    }
-    function maxScannableLen(paper) {
-        const avail = paper.labelW * 0.88;
-        return Math.max(1, Math.floor((avail / SCAN_XDIM_MIN_MM - 35) / 11));
-    }
-    function densityWarnHTML(items, paper) {
-        const tooLong = (items || []).filter(
-            (i) => i.code && estXdimMm(i.code, paper) < SCAN_XDIM_MIN_MM
-        );
-        if (!tooLong.length) return '';
-        const maxLen = maxScannableLen(paper);
-        const codes = tooLong.map((i) => escapeHtml(i.code)).join(', ');
-        return (
-            `<div class="w2p-print-warning"><span class="w2p-print-warn-icon">⚠</span> ` +
-            `Khổ tem ${paper.labelW}mm chỉ quét tốt mã ≤ ${maxLen} ký tự. ` +
-            `${tooLong.length} mã DÀI hơn (vạch < ${SCAN_XDIM_MIN_MM}mm → máy quét khó đọc): ` +
-            `<strong>${codes}</strong>. → Chọn khổ tem rộng hơn (vd "Tem rộng 50×30mm") ` +
-            `hoặc rút gọn mã sản phẩm.</div>`
-        );
-    }
-
     const PRINT_TYPES = [
         { id: 'default', name: 'Mặc định (dọc)' },
         { id: 'new', name: '2 cột (ngang)' },
     ];
 
-    // 2026-06-06: loại mã. QR (2D) quét được MỌI độ dài mã trên tem 25mm/203DPI
-    // (đã test bằng decoder ZXing: QR 6-8mm đọc được cả mã 27 ký tự). Yêu cầu máy
-    // quét 2D (imager) — user XP-470B + máy quét 2D đã xác nhận. Code128 (1D) giữ
-    // cho mã ngắn / máy quét laser 1D. MẶC ĐỊNH QR vì giải quyết triệt để.
-    const SYMBOLOGIES = [
-        { id: 'qr', name: 'QR Code (2D) — quét mọi mã trên tem 25mm' },
-        { id: 'code128', name: 'Mã vạch 1D (Code128) — cần tem rộng cho mã dài' },
-    ];
+    // 2026-06-07: CHỈ DÙNG QR Code cho tem SP (user bỏ barcode 1D). QR (2D) quét
+    // được mọi độ dài mã trên tem 25mm/203DPI (decoder ZXing xác nhận). Máy quét
+    // 2D (imager) — user XP-470B + máy quét 2D. Code128 path giữ làm fallback nội
+    // bộ nếu QR lib lỗi, KHÔNG cho user chọn nữa.
 
     // JsBarcode CDN — Code 128 generator (chuẩn ISO/IEC 15417 identical TPOS visual).
     // Lazy load lần đầu mở print modal. Inline trong iframe print thay vì script
@@ -268,7 +232,6 @@
 
         let selectedPaper = PAPERS[DEFAULT_PAPER_IDX];
         let selectedPrintType = PRINT_TYPES[0];
-        let selectedSymbology = SYMBOLOGIES[0];
         let showPrice = true;
         let showBold = true;
         let showProductName = true;
@@ -388,14 +351,6 @@
                                 </select>
                             </div>
                         </div>
-                        <div class="w2p-print-field-row">
-                            <span class="w2p-print-field-label">Loại mã</span>
-                            <div class="w2p-print-field-value">
-                                <select id="w2p-symbology">
-                                    ${SYMBOLOGIES.map((s, i) => `<option value="${i}" ${i === 0 ? 'selected' : ''}>${s.name}</option>`).join('')}
-                                </select>
-                            </div>
-                        </div>
                     </div>
                     <div class="w2p-print-group-col">
                         <div class="w2p-print-field-row">
@@ -436,12 +391,11 @@
                         <input type="checkbox" id="w2p-gan-ton">
                     </div>
                     <div class="w2p-print-checkbox-item">
-                        <label for="w2p-hide-barcode">Ẩn mã vạch (Khuyến nghị dùng cho loại in mặc định)</label>
+                        <label for="w2p-hide-barcode">Ẩn mã QR</label>
                         <input type="checkbox" id="w2p-hide-barcode">
                     </div>
                 </div>
                 ${warningHTML}
-                <div id="w2p-density-warn">${selectedSymbology.id === 'qr' ? '' : densityWarnHTML(withBarcode, selectedPaper)}</div>
             </div>
         </div>
         <div style="padding:0;">
@@ -571,28 +525,14 @@
             renderTableRows();
         });
 
-        // Paper change → cập nhật cảnh báo mật độ vạch theo khổ tem mới
+        // Paper change
         $('#w2p-paper').addEventListener('change', (e) => {
             selectedPaper = PAPERS[Number(e.target.value)] || PAPERS[0];
-            const warnEl = $('#w2p-density-warn');
-            if (warnEl) warnEl.innerHTML = densityWarnHTML(withBarcode, selectedPaper);
         });
 
         // Print type change
         $('#w2p-print-type').addEventListener('change', (e) => {
             selectedPrintType = PRINT_TYPES[Number(e.target.value)] || PRINT_TYPES[0];
-        });
-
-        $('#w2p-symbology').addEventListener('change', (e) => {
-            selectedSymbology = SYMBOLOGIES[Number(e.target.value)] || SYMBOLOGIES[0];
-            // Đổi loại mã → cập nhật cảnh báo mật độ (QR không bị giới hạn độ dài).
-            const warnEl = $('#w2p-density-warn');
-            if (warnEl) {
-                warnEl.innerHTML =
-                    selectedSymbology.id === 'qr'
-                        ? ''
-                        : densityWarnHTML(withBarcode, selectedPaper);
-            }
         });
 
         // Option checkboxes
@@ -672,7 +612,7 @@
                 showProductName,
                 showCurrency,
                 hideBarcode,
-                symbology: selectedSymbology.id,
+                symbology: 'qr',
             });
         });
     }

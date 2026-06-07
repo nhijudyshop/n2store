@@ -25,6 +25,15 @@
 
 ## 2026-06-07
 
+### [web2/products] Tem SP — bỏ Code128, CHỈ còn QR ✅
+
+**User:** bỏ barcode đi, chỉ còn QR code cho tem sản phẩm.
+
+**Fix (`web2-products-print.js`):** bỏ selector "Loại mã" (QR/Code128) + cảnh báo mật độ vạch (chỉ liên quan Code128) + helper density (`estCode128Modules`/`estXdimMm`/`maxScannableLen`/`densityWarnHTML`/`SCAN_XDIM_MIN_MM`) + `SYMBOLOGIES`/`selectedSymbology`. Hardwire `symbology:'qr'`. Đổi nhãn checkbox "Ẩn mã vạch" → "Ẩn mã QR". Giữ path Code128 (`bcimg`) làm fallback nội bộ CHỈ khi QR lib lỗi (user không chọn được nữa). Áp dụng cho cả trang Kho SP lẫn so-order nhận hàng (cùng module).
+
+**Files:** `web2/products/js/web2-products-print.js`, `web2/products/index.html`, `so-order/index.html` (`?v=20260607qronly`).
+**Verify (localhost):** modal in tem KHÔNG còn selector "Loại mã"; in qty=2 → 2 tem QR, 0 barcode.
+
 ### [render][web2] Phase 0 — tách config deliveryzone + printer ra BẢNG RIÊNG ✅
 
 **Files:** `render.com/routes/web2-dedicated-entity.js` (mới), `render.com/server.js`
