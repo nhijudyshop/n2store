@@ -25,6 +25,23 @@
 
 ## 2026-06-07
 
+### [render] Phase C-backend — `web2-fb-live.js`: FB Live thay TPOS (additive, an toàn) ✅
+
+Research xác nhận `page_access_token` từ Pancake `/v1/pages` = FB page token thật → gọi thẳng graph.facebook.com, không cần TPOS. Worker đã có sẵn `/api/facebook-graph?path=` proxy graph.facebook.com trực tiếp.
+
+**File mới `render.com/routes/web2-fb-live.js`** (mount `/api/web2-fb-live`, additive — chưa frontend nào gọi → KHÔNG phá path TPOS):
+
+- `GET /videos?pageId=&token=` — FB Graph `/{pageId}/live_videos` + thumbnail batch `/{videoId}/thumbnails` (fix bug `/picture` 400, lấy `is_preferred`).
+- `GET /comments?liveVideoId=&token=&since=` — 1-shot comments (load/VOD).
+- `POST /poll/start {liveVideoId,pageId,token}` — bật poller server-side (2.5s, dedupe by id, cursor `since`), broadcast comment mới qua SSE `web2:livestream:<liveVideoId>`. Idempotent + keepalive (tự tắt sau 8' không refresh) + auto-stop khi FB token error (190/200/100) hoặc 5 lỗi liên tiếp. MAX 20 poller.
+- `POST /poll/stop`, `GET /poll/status` (debug).
+
+server.js: mount + wire `web2FbLiveRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients)`.
+
+**Verify:** `node -c` OK. Runtime test khi frontend wire (cần page token + live thật). Đây là nền cho rewire frontend live column (TPOS→FB Graph) ở bước sau.
+
+**Status:** ✅ Done (Phase C backend foundation).
+
 ### [web2/bill] PBH đổi mã vạch Code128 → QR Code ✅
 
 **User:** PBH đổi qua QR code.
