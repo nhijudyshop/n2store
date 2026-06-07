@@ -81,6 +81,16 @@
                 `${BASE}/source-order/${encodeURIComponent(type)}/${encodeURIComponent(code)}`
             );
         },
+        async walletBalance(phone) {
+            try {
+                const d = await _json(
+                    `${WORKER_URL}/api/web2/wallets/by-phone/${encodeURIComponent(phone)}`
+                );
+                return Number(d?.data?.balance) || 0;
+            } catch {
+                return 0; // chưa có ví → 0
+            }
+        },
         searchProducts(q) {
             return _json(
                 `${WORKER_URL}/api/web2-products/list?search=${encodeURIComponent(q)}&activeOnly=true&limit=20`

@@ -25,6 +25,16 @@
 
 ## 2026-06-07
 
+### [render][web2] Thu về — redesign form: Vấn đề khách/shipper, thu về 1 phần theo đơn, Sửa COD ✅
+
+**User (6 ý):** (1) Thu về 1 phần → chọn đơn → chọn SP trong đơn; (2) thêm hàng "Vấn đề" (khách/shipper) giữa Cách hàng về và Loại thu về; (3) ẩn 3 section đến khi chọn KH; (4) Khách gửi → "Khách không nhận hàng" đổi thành "Thu cả đơn", lý do đổi ý/khác; (5) Vấn đề shipper → COD giảm + lý do (Tính sai ship/Trừ công nợ khách/Giảm giá-Lẻ tiền/Khách nhận 1 phần/Trả hàng đơn cũ) như "Sửa COD"; (6) Vấn đề khách → boom/không liên lạc/sai địa chỉ/đổi ý/khác.
+
+**Chốt:** cả 3 section luôn hiện sau khi chọn KH. Vấn đề shipper = "Sửa COD (shipper gọi)": COD còn phải thu = COD đơn − giảm; Phải trả ĐVVC = giảm (tiền trả shipper); chỉ lý do "Trừ công nợ khách" mới trừ ví khách (warning nếu ví không đủ). KHÔNG đụng kho.
+
+**Files:** `render.com/routes/web2-returns.js` (cột `issue`/`cod_reduction`/`payable_carrier`; `SHIPPER_REASONS`; source-order trả `cod`/`ship`; create nhánh `van_de_shipper`; thu_ve_1_phan lưu sourceOrder; delete rollback ví 2 chiều), `web2/returns/{index.html, js/returns-app.js, js/returns-api.js, css/returns.css}` (form ẩn đến khi chọn KH, hàng Vấn đề, order-picker chung, thu về 1 phần chọn SP trong đơn, panel shipper COD). Cache-bust `?v=20260607r`.
+
+**Status:** ✅ Done — local-DB smoke (ALTER + 2 INSERT shapes) PASS; headless OK; push → Render auto-deploy + worker đã route.
+
 ### [orders] Số lần in chuyển từ badge list → lên chính phiếu in (bill + Phiếu Soạn Hàng) ✅
 
 **Files:** `native-orders/js/native-orders-app.js`, `native-orders/js/native-orders-packing-slip.js`, `web2/shared/web2-bill-service.js`

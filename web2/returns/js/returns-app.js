@@ -2,9 +2,11 @@
 // =====================================================================
 // Thu về (Goods Return) — page app.
 //
-// Cha = cách hàng về (TỒN KHO): khach_gui (+kho thật) / shipper_gui (+kho thu về chờ duyệt).
-// Ví LUÔN cộng ngay. Con: khong_nhan_hang (hoàn cả đơn) / thu_ve_1_phan (chọn SP lẻ → bill 0đ).
-// Mọi mutation đụng tiền/kho → giữ await + loading (ngoại lệ UI-first cho money ops).
+// Sau khi chọn KH → hiện: Cách hàng về (kho) · Vấn đề (khách/shipper) · Loại thu về.
+//   - Vấn đề khách: thu hàng về kho. Loại = Khách không nhận hàng (cả đơn) | Thu về 1 phần
+//     (chọn SP trong đơn → bill 0đ). Lý do theo (issue, method): Khách gửi → đổi ý/khác.
+//   - Vấn đề shipper: Sửa COD (shipper gọi). COD giảm + lý do; "Trừ công nợ khách" → trừ ví.
+// Ví/kho: mọi mutation tiền/kho giữ await + loading (ngoại lệ UI-first cho money ops).
 // =====================================================================
 (function () {
     'use strict';
@@ -30,21 +32,32 @@
         sai_dia_chi: 'Sai địa chỉ',
         doi_y: 'Đổi ý',
         khac: 'Khác',
+        tinh_sai_ship: 'Tính sai ship',
+        tru_cong_no_khach: 'Trừ công nợ khách',
+        giam_gia_le_tien: 'Giảm giá/Lẻ tiền',
+        khach_nhan_1_phan: 'Khách nhận 1 phần',
+        tra_hang_don_cu: 'Trả hàng đơn cũ',
     };
     const STOCK_LABEL = { applied: 'Đã vào kho thật', pending: 'Chờ duyệt', approved: 'Đã duyệt' };
+    // Lý do "Vấn đề khách" theo cách hàng về.
+    const KHACH_REASONS_FULL = ['khach_boom', 'khong_lien_lac', 'sai_dia_chi', 'doi_y', 'khac'];
+    const KHACH_REASONS_KHACHGUI = ['doi_y', 'khac']; // KH chủ động gửi → chỉ đổi ý/khác
 
     const STATE = {
         tab: 'create',
         customer: null, // {phone, name, customerId}
         method: 'shipper_gui',
+        issue: 'van_de_khach',
         subType: 'thu_ve_1_phan',
         reason: 'khach_boom',
-        sourceOrder: null, // {code, type, totalAmount}
-        partial: [], // [{productCode, productName, quantity, price}]
+        reasonShip: 'tinh_sai_ship',
+        sourceOrder: null, // {code,type,totalAmount,items,walletDeducted,cod,ship}
+        lines: [], // [{productCode,productName,price,maxQty,qty,checked}] cho thu_ve_1_phan/cả đơn
+        codReduction: 0,
+        walletBalance: 0,
         list: [],
         pending: [],
         _custTimer: null,
-        _prodTimer: null,
     };
 
     // ---------------- Tabs ----------------
@@ -89,9 +102,10 @@
         }, 300);
     }
 
-    function pickCustomer(phone, name, cid) {
+    async function pickCustomer(phone, name, cid) {
         STATE.customer = { phone, name, customerId: cid ? Number(cid) : null };
         STATE.sourceOrder = null;
+        STATE.lines = [];
         $('custResults').hidden = true;
         $('custSearch').value = '';
         const pill =
@@ -105,40 +119,82 @@
         try {
             window.Web2WalletBalance?.attachBalances?.($('custSelected'));
         } catch {}
-        if (STATE.subType === 'khong_nhan_hang') loadCustomerOrders();
+        // Hiện form + body
+        $('formSections').hidden = false;
+        $('rightEmpty').hidden = true;
+        $('rightBody').hidden = false;
+        // Wallet balance cho COD "trừ công nợ khách"
+        api.walletBalance(phone).then((b) => {
+            STATE.walletBalance = b;
+            renderCodWallet();
+        });
+        loadCustomerOrders();
         renderSummary();
     }
 
     function clearCustomer() {
         STATE.customer = null;
         STATE.sourceOrder = null;
+        STATE.lines = [];
         $('custSelected').hidden = true;
-        $('orderList').innerHTML = '';
-        const oi = $('orderItems');
-        if (oi) {
-            oi.hidden = true;
-            oi.innerHTML = '';
-        }
+        $('formSections').hidden = true;
+        $('rightBody').hidden = true;
+        $('rightEmpty').hidden = false;
+        $('orderItems').hidden = true;
+        $('orderSummary').hidden = true;
         renderSummary();
     }
 
-    // ---------------- Method / SubType ----------------
+    // ---------------- Cách hàng về / Vấn đề / Loại ----------------
     function onMethodChange(v) {
         STATE.method = v;
         $('stockHint').innerHTML =
             v === 'shipper_gui'
-                ? '<i data-lucide="clock"></i> Tồn kho <b>THU VỀ</b> — chờ duyệt mới cộng vào kho thật. Sản phẩm sẽ có badge "Thu về" ở Kho SP.'
+                ? '<i data-lucide="clock"></i> Tồn kho <b>THU VỀ</b> — chờ duyệt mới cộng kho thật. SP có badge "Thu về" ở Kho SP.'
                 : '<i data-lucide="package-check"></i> Cộng <b>tồn kho thật</b> ngay lập tức.';
+        // #4: Khách gửi → "Khách không nhận hàng" đổi nhãn "Thu cả đơn".
+        const lbl = $('lblCaDon');
+        if (lbl) lbl.textContent = v === 'khach_gui' ? 'Thu cả đơn' : 'Khách không nhận hàng';
         if (window.lucide) lucide.createIcons();
+        buildReasonSelect();
+        renderSummary();
+    }
+
+    function onIssueChange(v) {
+        STATE.issue = v;
+        const isShip = v === 'van_de_shipper';
+        $('panelKhach').hidden = isShip;
+        $('panelShipper').hidden = !isShip;
+        // Loại thu về chỉ ý nghĩa với Vấn đề khách → ẩn khi shipper cho gọn.
+        $('subTypeBlock').hidden = isShip;
+        $('orderPickTitle').textContent = isShip ? 'Chọn đơn (áp COD)' : 'Chọn đơn';
+        buildReasonSelect();
+        // Re-render nội dung đơn theo flow
+        if (STATE.sourceOrder) {
+            renderOrderItems();
+            renderCodCalc();
+            renderCodWallet();
+        }
         renderSummary();
     }
 
     function onSubTypeChange(v) {
         STATE.subType = v;
-        $('boomSection').hidden = v !== 'khong_nhan_hang';
-        $('partialSection').hidden = v !== 'thu_ve_1_phan';
-        if (v === 'khong_nhan_hang' && STATE.customer) loadCustomerOrders();
+        renderOrderItems();
         renderSummary();
+    }
+
+    // Build lại dropdown Lý do (khách) theo (issue, method).
+    function buildReasonSelect() {
+        const sel = $('reasonSelect');
+        if (!sel) return;
+        const codes = STATE.method === 'khach_gui' ? KHACH_REASONS_KHACHGUI : KHACH_REASONS_FULL;
+        sel.innerHTML = codes
+            .map((c) => `<option value="${c}">${esc(REASON_LABEL[c])}</option>`)
+            .join('');
+        if (!codes.includes(STATE.reason)) STATE.reason = codes[0];
+        sel.value = STATE.reason;
+        $('reasonNoteWrap').hidden = STATE.reason !== 'khac';
     }
 
     function onReasonChange(v) {
@@ -147,7 +203,13 @@
         renderSummary();
     }
 
-    // ---------------- Khách không nhận hàng: order picker ----------------
+    function onReasonShipChange(v) {
+        STATE.reasonShip = v;
+        renderCodWallet();
+        renderSummary();
+    }
+
+    // ---------------- Order picker (dùng chung khách + shipper) ----------------
     async function loadCustomerOrders() {
         if (!STATE.customer) return;
         $('orderList').innerHTML = '<div class="rt-muted">Đang tải đơn của khách…</div>';
@@ -187,152 +249,191 @@
             totalAmount: Number(total) || 0,
             items: null,
             walletDeducted: null,
+            cod: 0,
+            ship: 0,
         };
+        STATE.lines = [];
         document.querySelectorAll('#orderList .rt-order').forEach((el) => {
             el.classList.toggle('is-picked', el.dataset.code === code);
         });
-        renderSummary();
-        // Tải danh sách SP + phần đã trừ ví của đơn để xem trước.
-        const box = $('orderItems');
-        box.hidden = false;
-        box.innerHTML =
-            '<div class="rt-muted" style="padding:8px 4px;">Đang tải sản phẩm đơn…</div>';
+        $('orderSummary').hidden = false;
+        $('orderSummary').innerHTML = '<div class="rt-muted">Đang tải chi tiết đơn…</div>';
         try {
             const d = await api.sourceOrder(type, code);
-            // chỉ render nếu vẫn đang chọn đơn này
-            if (STATE.sourceOrder?.code !== code) return;
+            if (STATE.sourceOrder?.code !== code) return; // đổi đơn trong lúc tải
             STATE.sourceOrder.items = d.items || [];
             STATE.sourceOrder.walletDeducted = Number(d.walletDeducted) || 0;
-            const rows = (d.items || [])
-                .map(
-                    (it) => `<div class="rt-oi-row">
-                        <span><b>${esc(it.productCode)}</b> ${esc(it.productName || '')}</span>
-                        <span class="rt-muted">${fmt(it.price)} × ${it.quantity}</span>
-                    </div>`
-                )
-                .join('');
-            box.innerHTML =
-                `<div class="rt-oi-title">Sản phẩm hoàn (${(d.items || []).length})</div>` +
-                (rows ||
-                    '<div class="rt-muted" style="padding:6px 4px;">Đơn không có dòng SP.</div>');
+            STATE.sourceOrder.cod = Number(d.cod) || 0;
+            STATE.sourceOrder.ship = Number(d.ship) || 0;
+            // Build lines cho chọn SP (thu về 1 phần / cả đơn)
+            STATE.lines = (d.items || []).map((it) => ({
+                productCode: it.productCode,
+                productName: it.productName || '',
+                price: Number(it.price) || 0,
+                maxQty: Number(it.quantity) || 0,
+                qty: Number(it.quantity) || 0,
+                checked: false,
+            }));
+            renderOrderSummary();
+            renderOrderItems();
+            renderCodCalc();
+            renderCodWallet();
             renderSummary();
         } catch (err) {
-            box.innerHTML = `<div class="rt-muted" style="padding:6px 4px;">Lỗi tải SP: ${esc(err.message)}</div>`;
+            $('orderSummary').innerHTML =
+                `<div class="rt-muted">Lỗi tải đơn: ${esc(err.message)}</div>`;
         }
     }
 
-    // ---------------- Thu về 1 phần: product picker ----------------
-    function onProdInput(e) {
-        const q = e.target.value.trim();
-        clearTimeout(STATE._prodTimer);
-        if (q.length < 1) {
-            $('prodResults').hidden = true;
+    function renderOrderSummary() {
+        const so = STATE.sourceOrder;
+        if (!so || so.items == null) return;
+        $('orderSummary').hidden = false;
+        $('orderSummary').innerHTML =
+            `<div class="rt-os-row"><span class="rt-muted">Tổng tiền</span><b>${fmt(so.totalAmount)}</b></div>` +
+            `<div class="rt-os-row"><span class="rt-muted">COD</span><b>${fmt(so.cod)}</b></div>` +
+            `<div class="rt-os-row"><span class="rt-muted">Ship</span><b>${fmt(so.ship)}</b></div>`;
+    }
+
+    // Render danh sách SP của đơn: cả đơn (read-only) hoặc 1 phần (checkbox + qty).
+    function renderOrderItems() {
+        const box = $('orderItems');
+        if (
+            STATE.issue !== 'van_de_khach' ||
+            !STATE.sourceOrder ||
+            STATE.sourceOrder.items == null
+        ) {
+            box.hidden = true;
             return;
         }
-        STATE._prodTimer = setTimeout(async () => {
-            try {
-                const d = await api.searchProducts(q);
-                const list = d.products || [];
-                $('prodResults').innerHTML = list.length
-                    ? list
-                          .map(
-                              (p) =>
-                                  `<div class="rt-opt" data-code="${esc(p.code)}" data-name="${esc(p.name)}" data-price="${p.price}">
-                                     <strong>${esc(p.code)}</strong> <span>${esc(p.name)}</span>
-                                     <span class="rt-muted">${fmt(p.price)} · tồn ${p.stock}</span>
-                                   </div>`
-                          )
-                          .join('')
-                    : '<div class="rt-opt rt-muted">Không tìm thấy SP</div>';
-                $('prodResults').hidden = false;
-            } catch (err) {
-                toast('Lỗi tìm SP: ' + err.message, 'error');
-            }
-        }, 300);
-    }
-
-    function addPartial(code, name, price) {
-        const exist = STATE.partial.find((x) => x.productCode === code);
-        if (exist) exist.quantity += 1;
-        else
-            STATE.partial.push({
-                productCode: code,
-                productName: name,
-                quantity: 1,
-                price: Number(price) || 0,
-            });
-        $('prodResults').hidden = true;
-        $('prodSearch').value = '';
-        renderPartial();
-    }
-
-    function setPartialQty(code, qty) {
-        const it = STATE.partial.find((x) => x.productCode === code);
-        if (it) it.quantity = Math.max(1, Number(qty) || 1);
-        renderSummary();
-    }
-
-    function removePartial(code) {
-        STATE.partial = STATE.partial.filter((x) => x.productCode !== code);
-        renderPartial();
-    }
-
-    function renderPartial() {
-        const body = $('partialBody');
-        if (!STATE.partial.length) {
-            body.innerHTML =
-                '<tr><td colspan="5" class="rt-muted" style="text-align:center;padding:14px;">Chưa chọn SP — tìm và bấm để thêm</td></tr>';
-        } else {
-            body.innerHTML = STATE.partial
-                .map(
-                    (it) => `<tr>
-                        <td><b>${esc(it.productCode)}</b><div class="rt-muted">${esc(it.productName)}</div></td>
-                        <td>${fmt(it.price)}</td>
-                        <td><input type="number" min="1" value="${it.quantity}" class="rt-qty" data-code="${esc(it.productCode)}"/></td>
-                        <td>${fmt(it.price * it.quantity)}</td>
-                        <td><button class="rt-x" data-rm="${esc(it.productCode)}">✕</button></td>
-                    </tr>`
-                )
-                .join('');
+        box.hidden = false;
+        if (!STATE.lines.length) {
+            box.innerHTML =
+                '<div class="rt-muted" style="padding:6px 4px;">Đơn không có dòng SP.</div>';
+            return;
         }
+        const partial = STATE.subType === 'thu_ve_1_phan';
+        const title = partial ? 'Chọn SP thu về' : 'Sản phẩm hoàn (cả đơn)';
+        const rows = STATE.lines
+            .map((l, i) =>
+                partial
+                    ? `<div class="rt-oi-row rt-oi-sel">
+                         <label class="rt-oi-check"><input type="checkbox" data-line="${i}" ${l.checked ? 'checked' : ''}/>
+                           <span><b>${esc(l.productCode)}</b> ${esc(l.productName)}</span></label>
+                         <span class="rt-muted">${fmt(l.price)}</span>
+                         <input type="number" class="rt-qty" data-lineqty="${i}" min="1" max="${l.maxQty}" value="${l.qty}" ${l.checked ? '' : 'disabled'}/>
+                       </div>`
+                    : `<div class="rt-oi-row">
+                         <span><b>${esc(l.productCode)}</b> ${esc(l.productName)}</span>
+                         <span class="rt-muted">${fmt(l.price)} × ${l.qty}</span>
+                       </div>`
+            )
+            .join('');
+        box.innerHTML = `<div class="rt-oi-title">${title} (${STATE.lines.length})</div>` + rows;
+    }
+
+    function toggleLine(i, checked) {
+        if (STATE.lines[i]) STATE.lines[i].checked = checked;
+        const qtyEl = document.querySelector(`[data-lineqty="${i}"]`);
+        if (qtyEl) qtyEl.disabled = !checked;
         renderSummary();
+    }
+    function setLineQty(i, qty) {
+        const l = STATE.lines[i];
+        if (!l) return;
+        l.qty = Math.max(1, Math.min(l.maxQty, Number(qty) || 1));
+        renderSummary();
+    }
+
+    // ---------------- COD (shipper) ----------------
+    function onCodInput(v) {
+        STATE.codReduction = Math.max(0, Number(v) || 0);
+        renderCodCalc();
+        renderCodWallet();
+        renderSummary();
+    }
+
+    function renderCodCalc() {
+        const el = $('codCalc');
+        if (STATE.issue !== 'van_de_shipper' || !STATE.sourceOrder) {
+            el.hidden = true;
+            return;
+        }
+        el.hidden = false;
+        const cod = STATE.sourceOrder.cod || 0;
+        const giam = STATE.codReduction || 0;
+        el.innerHTML =
+            `<span>COD còn phải thu: <b class="rt-green">${fmt(cod - giam)}</b></span>` +
+            `<span>Phải trả ĐVVC: <b class="rt-red">${fmt(giam)}</b></span>`;
+    }
+
+    function renderCodWallet() {
+        const el = $('codWallet');
+        if (
+            STATE.issue !== 'van_de_shipper' ||
+            STATE.reasonShip !== 'tru_cong_no_khach' ||
+            !STATE.sourceOrder
+        ) {
+            el.hidden = true;
+            return;
+        }
+        el.hidden = false;
+        const bal = STATE.walletBalance || 0;
+        const giam = STATE.codReduction || 0;
+        const conLai = bal - giam;
+        const thieu = conLai < 0;
+        el.innerHTML =
+            `<div class="rt-cw-row"><span>Số dư ví hiện tại: <b>${fmt(bal)}</b></span>` +
+            `<span>Trừ vào ví: <b class="rt-red">${fmt(giam)}</b></span></div>` +
+            `<div class="rt-cw-row"><span>Ví còn lại: <b>${fmt(Math.max(0, conLai))}</b></span>` +
+            (thieu
+                ? `<span class="rt-red">⚠ Ví không đủ (thiếu ${fmt(-conLai)})</span>`
+                : '<span></span>') +
+            `</div>`;
     }
 
     // ---------------- Summary + submit ----------------
-    function computeCredit() {
-        if (STATE.subType === 'thu_ve_1_phan') {
-            return STATE.partial.reduce((s, it) => s + it.price * it.quantity, 0);
-        }
-        // khong_nhan_hang: ví hoàn = phần đã trừ ví của đơn (tính server-side).
-        return null;
+    function selectedLines() {
+        return STATE.lines.filter((l) => l.checked && l.qty > 0);
     }
 
     function renderSummary() {
-        const credit = computeCredit();
         const el = $('creditPreview');
-        if (STATE.subType === 'thu_ve_1_phan') {
+        if (STATE.issue === 'van_de_shipper') {
+            const giam = STATE.codReduction || 0;
+            const truVi = STATE.reasonShip === 'tru_cong_no_khach';
+            el.innerHTML = truVi
+                ? `Trừ ví khách: <b>${fmt(giam)}</b> · Phải trả ĐVVC: <b>${fmt(giam)}</b>`
+                : `Phải trả ĐVVC: <b>${fmt(giam)}</b> <span class="rt-muted">(không trừ ví)</span>`;
+        } else if (STATE.subType === 'thu_ve_1_phan') {
+            const credit = selectedLines().reduce((s, l) => s + l.price * l.qty, 0);
             el.innerHTML = `Cộng ví khách: <b>${fmt(credit)}</b> <span class="rt-muted">(giá bán × SL)</span>`;
         } else {
             const so = STATE.sourceOrder;
-            if (!so) {
-                el.innerHTML = 'Chọn 1 đơn của khách để hoàn.';
-            } else if (so.walletDeducted != null) {
+            if (!so) el.innerHTML = 'Chọn 1 đơn của khách để hoàn.';
+            else if (so.walletDeducted != null)
                 el.innerHTML =
                     so.walletDeducted > 0
-                        ? `Hoàn cả đơn <b>${esc(so.code)}</b> — cộng ví: <b>${fmt(so.walletDeducted)}</b> <span class="rt-muted">(phần đã trừ ví)</span>`
-                        : `Hoàn cả đơn <b>${esc(so.code)}</b> — <span class="rt-muted">đơn chưa trừ ví → chỉ +kho, không cộng ví</span>`;
-            } else {
-                el.innerHTML = `Hoàn cả đơn <b>${esc(so.code)}</b> — đang tính phần đã trừ ví…`;
-            }
+                        ? `Hoàn cả đơn <b>${esc(so.code)}</b> — cộng ví <b>${fmt(so.walletDeducted)}</b> <span class="rt-muted">(phần đã trừ ví)</span>`
+                        : `Hoàn cả đơn <b>${esc(so.code)}</b> — <span class="rt-muted">đơn chưa trừ ví → chỉ +kho</span>`;
+            else el.innerHTML = `Hoàn cả đơn <b>${esc(so.code)}</b> …`;
         }
-        const ok = canSubmit();
-        $('btnSubmit').disabled = !ok;
+        $('btnSubmit').disabled = !canSubmit();
     }
 
     function canSubmit() {
-        if (!STATE.customer) return false;
-        if (STATE.subType === 'thu_ve_1_phan') return STATE.partial.length > 0;
-        return !!STATE.sourceOrder;
+        if (!STATE.customer || !STATE.sourceOrder || STATE.sourceOrder.items == null) return false;
+        if (STATE.issue === 'van_de_shipper') {
+            if (!(STATE.codReduction > 0)) return false;
+            if (
+                STATE.reasonShip === 'tru_cong_no_khach' &&
+                STATE.codReduction > STATE.walletBalance
+            )
+                return false; // ví không đủ
+            return true;
+        }
+        if (STATE.subType === 'thu_ve_1_phan') return selectedLines().length > 0;
+        return true; // khong_nhan_hang: đã có đơn
     }
 
     async function submit() {
@@ -341,35 +442,62 @@
         btn.disabled = true;
         const orig = btn.innerHTML;
         btn.innerHTML = 'Đang lưu…';
-        const base = {
-            phone: STATE.customer.phone,
-            customerName: STATE.customer.name,
-            customerId: STATE.customer.customerId,
-            method: STATE.method,
-            subType: STATE.subType,
-            note: $('noteInput').value.trim() || null,
-        };
+        const c = STATE.customer;
+        const so = STATE.sourceOrder;
         let payload;
-        if (STATE.subType === 'thu_ve_1_phan') {
-            payload = { ...base, items: STATE.partial };
-        } else {
+        if (STATE.issue === 'van_de_shipper') {
             payload = {
-                ...base,
-                reason: STATE.reason,
-                reasonNote: STATE.reason === 'khac' ? $('reasonNote').value.trim() : null,
-                sourceOrderCode: STATE.sourceOrder.code,
-                sourceOrderType: STATE.sourceOrder.type,
+                phone: c.phone,
+                customerName: c.name,
+                customerId: c.customerId,
+                method: 'shipper_gui',
+                subType: 'cod_shipper',
+                issue: 'van_de_shipper',
+                reason: STATE.reasonShip,
+                sourceOrderCode: so.code,
+                sourceOrderType: so.type,
+                codReduction: STATE.codReduction,
+                note: $('noteInput').value.trim() || null,
             };
+        } else {
+            const base = {
+                phone: c.phone,
+                customerName: c.name,
+                customerId: c.customerId,
+                method: STATE.method,
+                issue: 'van_de_khach',
+                sourceOrderCode: so.code,
+                sourceOrderType: so.type,
+                note: $('noteInput').value.trim() || null,
+            };
+            if (STATE.subType === 'thu_ve_1_phan') {
+                payload = {
+                    ...base,
+                    subType: 'thu_ve_1_phan',
+                    items: selectedLines().map((l) => ({
+                        productCode: l.productCode,
+                        productName: l.productName,
+                        quantity: l.qty,
+                        price: l.price,
+                    })),
+                };
+            } else {
+                payload = {
+                    ...base,
+                    subType: 'khong_nhan_hang',
+                    reason: STATE.reason,
+                    reasonNote: STATE.reason === 'khac' ? $('reasonNote').value.trim() : null,
+                };
+            }
         }
         try {
             const d = await api.create(payload);
             const r = d.return;
-            toast(
-                `Đã tạo ${r.code} — ví +${fmt(r.walletCredited)}${
-                    STATE.method === 'shipper_gui' ? ' · kho thu về chờ duyệt' : ' · đã vào kho'
-                }`,
-                'success'
-            );
+            const msg =
+                STATE.issue === 'van_de_shipper'
+                    ? `Đã tạo ${r.code} — COD giảm ${fmt(r.codReduction)}${r.walletCredited < 0 ? ' · trừ ví ' + fmt(-r.walletCredited) : ''}`
+                    : `Đã tạo ${r.code} — ví +${fmt(r.walletCredited)}${STATE.method === 'shipper_gui' ? ' · kho thu về chờ duyệt' : ' · đã vào kho'}`;
+            toast(msg, 'success');
             resetForm();
             switchTab('list');
         } catch (err) {
@@ -382,12 +510,16 @@
 
     function resetForm() {
         STATE.sourceOrder = null;
-        STATE.partial = [];
-        $('noteInput').value = '';
+        STATE.lines = [];
+        STATE.codReduction = 0;
+        if ($('noteInput')) $('noteInput').value = '';
         if ($('reasonNote')) $('reasonNote').value = '';
-        renderPartial();
-        $('orderList').innerHTML = '';
-        if (STATE.customer && STATE.subType === 'khong_nhan_hang') loadCustomerOrders();
+        if ($('codReduction')) $('codReduction').value = '';
+        $('orderItems').hidden = true;
+        $('orderSummary').hidden = true;
+        $('codCalc').hidden = true;
+        $('codWallet').hidden = true;
+        if (STATE.customer) loadCustomerOrders();
     }
 
     // ---------------- List ----------------
@@ -405,6 +537,13 @@
         }
     }
 
+    function _typeLabel(r) {
+        if (r.issue === 'van_de_shipper')
+            return `Sửa COD${r.reason ? ' · ' + (REASON_LABEL[r.reason] || r.reason) : ''}`;
+        if (r.subType === 'thu_ve_1_phan') return 'Thu về 1 phần';
+        return `Không nhận hàng${r.reason ? ' · ' + (REASON_LABEL[r.reason] || r.reason) : ''}`;
+    }
+
     function renderList() {
         const body = $('returnsBody');
         if (!STATE.list.length) {
@@ -414,10 +553,7 @@
         }
         body.innerHTML = STATE.list
             .map((r) => {
-                const subLabel =
-                    r.subType === 'thu_ve_1_phan'
-                        ? 'Thu về 1 phần'
-                        : `Không nhận hàng${r.reason ? ' · ' + (REASON_LABEL[r.reason] || r.reason) : ''}`;
+                const isShip = r.issue === 'van_de_shipper';
                 const stockCls =
                     r.stockStatus === 'pending'
                         ? 'rt-st-pending'
@@ -431,14 +567,23 @@
                         : r.billStatus === 'consumed'
                           ? '<span class="rt-tag">Đã lên bill</span>'
                           : '';
+                // Cột "Ví cộng": shipper trừ ví → hiện âm; khách → cộng.
+                const walletCell = isShip
+                    ? r.walletCredited < 0
+                        ? `<span class="rt-red">−${fmt(-r.walletCredited)}</span>`
+                        : `<span class="rt-muted">COD ${fmt(r.codReduction)}</span>`
+                    : fmt(r.walletCredited);
+                const stockCell = isShip
+                    ? '<span class="rt-muted">—</span>'
+                    : `<span class="rt-chip ${stockCls}">${STOCK_LABEL[r.stockStatus] || r.stockStatus}</span>`;
                 return `<tr class="${cancelled ? 'rt-row-cancelled' : ''}">
                     <td><b>${esc(r.code)}</b></td>
                     <td>${esc(r.customerName || '')}<div class="rt-muted" data-w2wallet-phone="${esc(r.phone || '')}">${esc(r.phone || '')}</div></td>
-                    <td><span class="rt-tag">${METHOD_LABEL[r.method] || r.method}</span></td>
-                    <td>${esc(subLabel)} ${billTag}</td>
-                    <td>${r.items?.length || 0} SP</td>
-                    <td>${fmt(r.walletCredited)}</td>
-                    <td><span class="rt-chip ${stockCls}">${STOCK_LABEL[r.stockStatus] || r.stockStatus}</span></td>
+                    <td><span class="rt-tag">${isShip ? 'Shipper' : METHOD_LABEL[r.method] || r.method}</span></td>
+                    <td>${esc(_typeLabel(r))} ${billTag}</td>
+                    <td>${isShip ? '—' : (r.items?.length || 0) + ' SP'}</td>
+                    <td>${walletCell}</td>
+                    <td>${stockCell}</td>
                     <td class="rt-actions">
                         ${cancelled ? '<span class="rt-muted">Đã huỷ</span>' : `<button class="rt-btn-del" data-del="${esc(r.code)}" title="Huỷ phiếu + hoàn lại ví/kho">Huỷ</button>`}
                     </td>
@@ -451,8 +596,7 @@
     }
 
     async function removeReturn(code) {
-        if (!confirm(`Huỷ phiếu ${code}? Sẽ hoàn lại ví đã cộng và trừ lại tồn kho đã thêm.`))
-            return;
+        if (!confirm(`Huỷ phiếu ${code}? Sẽ hoàn lại ví/kho đã thay đổi.`)) return;
         try {
             await api.remove(code);
             toast(`Đã huỷ ${code}`, 'success');
@@ -557,27 +701,26 @@
             .querySelectorAll('input[name="method"]')
             .forEach((r) => r.addEventListener('change', (e) => onMethodChange(e.target.value)));
         document
+            .querySelectorAll('input[name="issue"]')
+            .forEach((r) => r.addEventListener('change', (e) => onIssueChange(e.target.value)));
+        document
             .querySelectorAll('input[name="subType"]')
             .forEach((r) => r.addEventListener('change', (e) => onSubTypeChange(e.target.value)));
         $('reasonSelect').addEventListener('change', (e) => onReasonChange(e.target.value));
+        $('reasonSelectShip').addEventListener('change', (e) => onReasonShipChange(e.target.value));
+        $('codReduction').addEventListener('input', (e) => onCodInput(e.target.value));
 
         $('orderList').addEventListener('click', (e) => {
             const o = e.target.closest('.rt-order');
             if (o) pickOrder(o.dataset.code, o.dataset.type, o.dataset.total);
         });
-
-        $('prodSearch').addEventListener('input', onProdInput);
-        $('prodResults').addEventListener('click', (e) => {
-            const opt = e.target.closest('.rt-opt[data-code]');
-            if (opt) addPartial(opt.dataset.code, opt.dataset.name, opt.dataset.price);
+        $('orderItems').addEventListener('change', (e) => {
+            const cb = e.target.closest('[data-line]');
+            if (cb) toggleLine(Number(cb.dataset.line), cb.checked);
         });
-        $('partialBody').addEventListener('input', (e) => {
-            if (e.target.classList.contains('rt-qty'))
-                setPartialQty(e.target.dataset.code, e.target.value);
-        });
-        $('partialBody').addEventListener('click', (e) => {
-            const rm = e.target.closest('[data-rm]');
-            if (rm) removePartial(rm.dataset.rm);
+        $('orderItems').addEventListener('input', (e) => {
+            const q = e.target.closest('[data-lineqty]');
+            if (q) setLineQty(Number(q.dataset.lineqty), q.value);
         });
 
         $('btnSubmit').addEventListener('click', submit);
@@ -594,12 +737,9 @@
             if (ap) approve(ap.dataset.approve);
         });
 
-        // close dropdowns on outside click
         document.addEventListener('click', (e) => {
             if (!e.target.closest('#custSearch') && !e.target.closest('#custResults'))
                 $('custResults').hidden = true;
-            if (!e.target.closest('#prodSearch') && !e.target.closest('#prodResults'))
-                $('prodResults').hidden = true;
         });
     }
 
@@ -611,11 +751,10 @@
         }
         bind();
         onMethodChange('shipper_gui');
+        onIssueChange('van_de_khach');
         onSubTypeChange('thu_ve_1_phan');
-        onReasonChange('khach_boom');
-        renderPartial();
+        buildReasonSelect();
         setupSse();
-        // Deep-link từ notification: ?tab=pending&search=TV-...
         const params = new URLSearchParams(location.search);
         const tab = params.get('tab');
         if (tab === 'pending') switchTab('pending');
