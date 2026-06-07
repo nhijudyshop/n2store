@@ -43,6 +43,18 @@ User: "đổi tên hết không gì liên quan tpos hết". Rename module live p
 
 **Status:** ✅ Done. URL trang đổi /tpos-pancake/ → /live-chat/.
 
+### [delivery-report] Fix ghost-cleanup ẩn NHẦM đơn hợp lệ → báo cáo mất đơn (Part B) ✅
+
+**Vấn đề (user, 06/06):** Báo cáo NAP/TOMATO thiếu đơn so với tra soát/Excel. Trace ra: 3 đơn tỉnh `70995` (Nguyễn Diễm), `70990` (Cỡn Cong), `70991` (Trang Lê) trong DB bị `is_hidden=TRUE` dù trên TPOS vẫn `open` + đã quét → báo cáo (`/by-date-group?scanned_only=1` lọc `is_hidden=FALSE`) loại bỏ. (+ `70950` chỉ chưa quét.)
+
+**Root cause:** `autoCleanupGhosts` (có từ 25/05, KHÔNG phải code session trước) chạy MỖI lần mở báo cáo, gọi `/cleanup-ghosts` ẩn mọi đơn DB **vắng trong 1 lần fetch TPOS live** tại thời điểm đó. Đơn tạo muộn / fetch chưa trùm → bị ẩn nhầm dù còn sống. Guardrail 50% không chặn vì số ẩn nhầm nhỏ.
+
+**Fix (`delivery-report/js/delivery-report.js` `autoCleanupGhosts` + helper `findDeadOnTpos`):** trước khi ẩn, XÁC NHẬN từng candidate trên TPOS (`GetView?$select=Number,State`, reuse pattern `checkCrossCheckStatus`). Chỉ ẩn đơn `State='cancel'` HOẶC không tồn tại trên TPOS. Đơn còn `open`/`paid` → GIỮ. Lỗi/không token → KHÔNG ẩn (fail-safe). Gọi `/cleanup-ghosts` với keep-set = dbCodes trừ dead → backend ẩn đúng đơn đã chết. Bump `index.html` `delivery-report.js?v=20260607b`.
+
+**An toàn:** fix chỉ ẩn ÍT hơn (không thể ẩn nhầm đơn còn sống); không đụng group/scanned/data cũ. `node --check` OK.
+
+**Part A (data, làm riêng sau deploy):** unhide 3 đơn 70995/70990/70991 qua `/unhide-bulk` để báo cáo 06/06 đúng lại ngay.
+
 ### [delivery-report] Fix dòng đơn số 7 trong bảng expand bị header "# Số đơn Khách Giờ COD" đè lên ✅
 
 **User:** "đơn số 7 luôn bị lỗi hiển thị thành số đơn khách giờ" (cả tab TOMATO lẫn NAP, vị trí cố định ~dòng 7).

@@ -2674,6 +2674,41 @@
         await autoCleanupGhosts(allData);
     }
 
+    // Xác nhận candidate đơn nào THỰC SỰ chết trên TPOS (State='cancel' hoặc không tồn tại).
+    // Trả Set mã chết. Đơn còn open/paid → KHÔNG vào set. Lỗi/không chắc → coi như còn sống
+    // (KHÔNG ẩn) để KHÔNG BAO GIỜ ẩn nhầm đơn hợp lệ. Tái dùng pattern checkCrossCheckStatus.
+    async function findDeadOnTpos(candidates, token) {
+        const dead = new Set();
+        if (!candidates || candidates.length === 0 || !token) return dead;
+        const CONC = 10; // bound tải TPOS
+        for (let i = 0; i < candidates.length; i += CONC) {
+            const chunk = candidates.slice(i, i + CONC);
+            await Promise.all(
+                chunk.map(async (code) => {
+                    try {
+                        const url = `${WORKER_URL}/api/odata/FastSaleOrder/ODataService.GetView?$top=5&$filter=${encodeURIComponent("contains(Number,'" + code + "')")}&$select=Number,State`;
+                        const r = await fetch(url, {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                Accept: 'application/json',
+                                tposappversion: window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1',
+                            },
+                        });
+                        if (!r.ok) return; // không chắc → coi còn sống
+                        const j = await r.json();
+                        const row = (j.value || []).find((x) => x.Number === code);
+                        if (!row) dead.add(code); // không còn trên TPOS → chết
+                        else if (row.State === 'cancel') dead.add(code); // đã huỷ → chết
+                        // còn lại (open/paid/draft...) → còn sống, KHÔNG ẩn
+                    } catch (e) {
+                        /* lỗi → coi còn sống, không ẩn */
+                    }
+                })
+            );
+        }
+        return dead;
+    }
+
     async function autoCleanupGhosts(items) {
         const f = DeliveryReportState.filters;
         // Skip nếu có keyword filter → TPOS query đã bị thu hẹp, allData không phải full snapshot
@@ -2704,12 +2739,50 @@
             // Extra safety: nếu chưa có đơn nào cho ngày này → skip (TPOS có thể trả empty bất thường)
             if (validNumbers.length === 0) continue;
             try {
+                // 1. Lấy đơn DB (đang hiện, chưa ẩn) của ngày này
+                const dbResp = await fetch(
+                    `${RENDER_URL}/api/v2/delivery-assignments/?date=${encodeURIComponent(date)}`
+                );
+                if (!dbResp.ok) {
+                    console.warn(
+                        `[DELIVERY-REPORT] cleanup ${date}: load DB failed HTTP ${dbResp.status} → skip`
+                    );
+                    continue;
+                }
+                const dbJson = await dbResp.json();
+                const dbCodes = Object.keys(dbJson.data?.assignments || {});
+                if (dbCodes.length === 0) continue;
+
+                // 2. Candidate = có trong DB nhưng VẮNG trong fetch TPOS live lần này
+                const liveSet = new Set(validNumbers);
+                const candidates = dbCodes.filter((c) => !liveSet.has(c));
+                if (candidates.length === 0) continue;
+
+                // 3. XÁC NHẬN trên TPOS — chỉ ẩn đơn THỰC SỰ huỷ/không tồn tại.
+                //    Đơn còn open/paid (chỉ vắng trong fetch này) → GIỮ, KHÔNG ẩn.
+                const token = await getToken();
+                if (!token) {
+                    console.warn(
+                        `[DELIVERY-REPORT] cleanup ${date}: không có token để xác nhận TPOS → KHÔNG ẩn`
+                    );
+                    continue;
+                }
+                const dead = await findDeadOnTpos(candidates, token);
+                if (dead.size === 0) {
+                    console.log(
+                        `[DELIVERY-REPORT] cleanup ${date}: ${candidates.length} đơn vắng nhưng đều CÒN SỐNG trên TPOS → KHÔNG ẩn`
+                    );
+                    continue;
+                }
+
+                // 4. Chỉ ẩn các đơn đã xác nhận chết: keep-set = dbCodes trừ dead
+                const keepSet = dbCodes.filter((c) => !dead.has(c));
                 const resp = await fetch(
                     `${RENDER_URL}/api/v2/delivery-assignments/cleanup-ghosts`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ date, validNumbers, mode: 'hide' }),
+                        body: JSON.stringify({ date, validNumbers: keepSet, mode: 'hide' }),
                     }
                 );
                 if (!resp.ok) {
@@ -2722,7 +2795,7 @@
                 const hidden = j.data?.hiddenCount || 0;
                 if (hidden > 0) {
                     console.log(
-                        `[DELIVERY-REPORT] Auto-hide ${hidden} ghost(s) for ${date}:`,
+                        `[DELIVERY-REPORT] Auto-hide ${hidden} đơn đã xác nhận huỷ/mất cho ${date}:`,
                         j.data.hiddenOrders
                     );
                     // Cập nhật state để UI không hiển thị các Number vừa hide
