@@ -702,12 +702,23 @@
                         global.Web2QuickReply.attachAutocomplete(input);
                     } catch (_) {}
                 }
-                // Feature 1 (paste) — gắn khi bật flag (commit sau)
-                if (flags.paste && global.Web2ChatPaste && global.Web2ChatPaste.attach) {
-                    try {
-                        global.Web2ChatPaste.attach(input, (file) => setAttachment(file));
-                    } catch (_) {}
-                }
+                // Feature 1: paste ảnh ctrl+v. Lấy file ảnh từ clipboard → setAttachment
+                // (preview + gửi như attach thường). Bỏ qua nếu clipboard chỉ có text.
+                input.addEventListener('paste', (e) => {
+                    const items = (e.clipboardData && e.clipboardData.items) || [];
+                    for (const it of items) {
+                        if (it.kind === 'file' && /^image\//.test(it.type)) {
+                            const file = it.getAsFile();
+                            if (file) {
+                                e.preventDefault();
+                                setAttachment(file);
+                                if (global.notificationManager && global.notificationManager.show)
+                                    global.notificationManager.show('Đã dán ảnh — bấm Gửi', 'info');
+                                return;
+                            }
+                        }
+                    }
+                });
             }
             const fi = $('[data-w2cp="file-input"]');
             const ii = $('[data-w2cp="image-input"]');

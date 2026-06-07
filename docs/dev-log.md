@@ -41,7 +41,11 @@
 
 **Migrate native-orders ✅ (commit này):** chat inline ~3600 dòng → mount `Web2ChatPanel` vào `#msgThread` (`hideHeader:true` — native có header riêng + sidebar đa-page). `_renderMessagesPanel` rút còn 1 host div. `_loadAndRenderThread` giữ nguyên resolve hội thoại (token mint, inbox conv by phone, fetchMessages) rồi gọi `_mountChatPanel(order,conv,customerId,msgs)`. Adapter `_buildNativeAdapter` (loadMessages dùng msgs đã fetch, loadOlder qua Web2Chat, quickReplies từ `_loadQuickTags`, markRead clear badge). `_performNativeSend` = port `_handleSendMessage` (extension-first global_id resolve → Web2Chat fallback, reply + attach) trả `{via,sent}`/throw cho panel optimistic. WS `_onIncomingWsMessage` → `_w2cpPanel.pushMessage(m)`. `_teardownChatState` destroy panel. Thêm `hideHeader/hideStats` vào panel. Load emoji-data + panel.{js,css} vào `native-orders/index.html`. **Test live:** mount mock-adapter (đúng contract native) trong trang → `hostIsRoot:true`, `hasHeaderHidden:true`, 2 bubbles in/out đúng text, quick chip, reply btn, **send UI-first hoạt động** (out 1→2, input cleared). Order-open thật chưa test (bảng đơn trống do filter ngày phiên test) — wiring giống mock; send KHÔNG live-fire (tránh nhắn KH thật).
 
-**Next:** balance-history readonly + customer-detail-modal → rồi feature 1→2→3. **Status: 🔄 foundation + tpos-pancake + native-orders done.**
+**balance-history readonly: GIỮ NGUYÊN.** `Web2ChatReadonly` là modal **tìm-nhiều-hội-thoại + pick KH** (surface khác chat 1-hội-thoại) + dùng xuyên nhiều trang qua `customer-detail-modal`. Ép vào panel → load nặng + risk khắp nơi cho lợi ích cosmetic. Đã share `Web2Chat` data layer (đúng "1 nguồn" tầng data). → không migrate UI.
+
+**Feature 1 — paste ảnh ctrl+v ✅:** thêm `paste` listener vào input của `Web2ChatPanel` (always-on mode full): lấy file ảnh từ `clipboardData.items` → `setAttachment(file)` (preview + gửi như attach thường) + toast "Đã dán ảnh". Cả native-orders + tpos-pancake hưởng cùng lúc. **Test:** dispatch synthetic `ClipboardEvent` chứa File PNG → `previewVisible:true`, thumb `data:image`. Bump `?v=20260607g`.
+
+**Next:** Feature 2 (sticker gửi + react send; emoji+reply đã có), Feature 3 (nhận diện SĐT/địa chỉ + thêm KH). **Status: 🔄 point 0 (2 chat UI hợp nhất) + Feature 1 done.**
 
 ### [render][web2] Part A: GATE auto-gán SePay theo đơn active ✅
 
