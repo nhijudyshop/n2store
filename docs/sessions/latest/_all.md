@@ -3,16 +3,20 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f7a6a56` — feat(web2): GỠ SẠCH TPOS khỏi cột live + live-campaign (no flag, no fallback)
-**Last updated**: 2026-06-07 18:59:38 +07
-**Latest session**: [`RESUME:20260607-185938-f7a6a56`](../20260607-185938-f7a6a56.md)
-**Summary**: feat(web2): GỠ SẠCH TPOS khỏi cột live + live-campaign (no flag, no fallback)
+**Latest commit**: `f1f0b76` — refactor(live-chat): rename tpos-pancake→live-chat, purge chữ 'tpos' + comment qua pages.fm
+**Last updated**: 2026-06-07 19:41:38 +07
+**Latest session**: [`RESUME:20260607-194138-f1f0b76`](../20260607-194138-f1f0b76.md)
+**Summary**: refactor(live-chat): rename tpos-pancake→live-chat, purge chữ 'tpos' + comment qua pages.fm
 
 ## Folders affected in this commit
 
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`tpos-pancake/`](./tpos-pancake.md) — 7 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`downloads/`](./downloads.md) — 5 file(s)
+- [`live-chat/`](./live-chat.md) — 54 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`tpos-pancake/`](./tpos-pancake.md) — 2 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,11 +29,11 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-07 18:39
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-06 19:37
-- [`docs/`](./docs.md) — updated 2026-06-07 18:59
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-07 19:41
+- [`docs/`](./docs.md) — updated 2026-06-07 19:41
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
-- [`downloads/`](./downloads.md) — updated 2026-06-06 11:58
+- [`downloads/`](./downloads.md) — updated 2026-06-07 19:41
 - [`facebook-services/`](./facebook-services.md) — updated 2026-05-21 15:39
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
@@ -39,8 +43,9 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-06 12:22
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
+- [`live-chat/`](./live-chat.md) — updated 2026-06-07 19:41
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-07 16:43
+- [`native-orders/`](./native-orders.md) — updated 2026-06-07 19:41
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-06 18:52
@@ -64,10 +69,10 @@
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:46
 - [`tests/`](./tests.md) — updated 2026-06-06 18:52
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 18:59
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 19:41
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-07 18:59
+- [`web2/`](./web2.md) — updated 2026-06-07 19:41
