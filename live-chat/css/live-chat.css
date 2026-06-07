@@ -42,7 +42,7 @@
     --live-border: #e2e8f0;
 
     /* Text Colors */
-    --live-text-primary: #1e293b;
+    --web2-text-primary: #1e293b;
     --live-text-secondary: #64748b;
     --live-text-tertiary: #94a3b8;
 
@@ -108,7 +108,7 @@
     border: 1px solid var(--live-border);
     border-radius: 8px;
     font-size: 13px;
-    color: var(--live-text-primary);
+    color: var(--web2-text-primary);
     cursor: pointer;
     transition: all 0.15s;
 }
@@ -167,7 +167,6 @@
 }
 
 @keyframes live-pulse {
-
     0%,
     100% {
         opacity: 1;
@@ -194,7 +193,7 @@
 
 .live-header-btn:hover {
     background: var(--live-hover-bg);
-    color: var(--live-text-primary);
+    color: var(--web2-text-primary);
 }
 
 .live-header-btn i {
@@ -290,7 +289,7 @@
 }
 
 .live-filter-tab:hover {
-    color: var(--live-text-primary);
+    color: var(--web2-text-primary);
     background: var(--live-hover-bg);
 }
 
@@ -408,7 +407,7 @@
 .live-comment-name {
     font-size: 14px;
     font-weight: 600;
-    color: var(--live-text-primary);
+    color: var(--web2-text-primary);
 }
 
 .live-comment-time {
@@ -639,7 +638,7 @@
     border: none;
     outline: none;
     font-size: 14px;
-    color: var(--live-text-primary);
+    color: var(--web2-text-primary);
     background: transparent;
 }
 
@@ -736,7 +735,7 @@
 .live-post-title {
     font-size: 14px;
     font-weight: 500;
-    color: var(--live-text-primary);
+    color: var(--web2-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -783,7 +782,7 @@
 }
 
 .live-post-selector .live-title {
-    color: var(--live-text-primary);
+    color: var(--web2-text-primary);
 }
 
 .live-post-selector .live-comments {
@@ -798,11 +797,10 @@
 }
 
 .live-post-selector.no-live {
-    border-color: var(--live-border-color) !important;
+    border-color: var(--web2-border) !important;
 }
 
 @keyframes pulse {
-
     0%,
     100% {
         opacity: 1;
@@ -843,14 +841,14 @@
     align-items: center;
     justify-content: space-between;
     padding: 16px 20px;
-    border-bottom: 1px solid var(--live-border-color);
+    border-bottom: 1px solid var(--web2-border);
 }
 
 .live-modal-header h3 {
     margin: 0;
     font-size: 18px;
     font-weight: 600;
-    color: var(--live-text-primary);
+    color: var(--web2-text-primary);
 }
 
 .live-modal-close {
@@ -864,7 +862,7 @@
 
 .live-modal-close:hover {
     background: var(--live-hover-bg);
-    color: var(--live-text-primary);
+    color: var(--web2-text-primary);
 }
 
 .live-modal-body {
@@ -875,7 +873,7 @@
 
 .live-modal-footer {
     padding: 12px 20px;
-    border-top: 1px solid var(--live-border-color);
+    border-top: 1px solid var(--web2-border);
     display: flex;
     justify-content: flex-end;
     gap: 8px;
@@ -920,7 +918,7 @@
 .live-video-title {
     font-size: 14px;
     font-weight: 500;
-    color: var(--live-text-primary);
+    color: var(--web2-text-primary);
     line-height: 1.4;
 }
 
@@ -938,7 +936,7 @@
 }
 
 /* Generic button style */
-.live-btn {
+.web2-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -948,16 +946,16 @@
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s;
-    border: 1px solid var(--live-border-color);
+    border: 1px solid var(--web2-border);
     background: white;
-    color: var(--live-text-primary);
+    color: var(--web2-text-primary);
 }
 
-.live-btn:hover {
+.web2-btn:hover {
     background: var(--live-hover-bg);
 }
 
-.live-btn svg {
+.web2-btn svg {
     width: 16px;
     height: 16px;
 }
@@ -972,9 +970,9 @@
     gap: 6px;
     padding: 6px 12px;
     border-radius: 8px;
-    border: 1px solid var(--live-border-color);
+    border: 1px solid var(--web2-border);
     background: white;
-    color: var(--live-text-primary);
+    color: var(--web2-text-primary);
     font-size: 13px;
     cursor: pointer;
     transition: all 0.15s;
@@ -1041,7 +1039,7 @@
 .live-page-name {
     font-size: 14px;
     font-weight: 500;
-    color: var(--live-text-primary);
+    color: var(--web2-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1087,11 +1085,13 @@
 .live-add-page-form .live-input {
     width: 100%;
     padding: 10px 12px;
-    border: 1px solid var(--live-border-color);
+    border: 1px solid var(--web2-border);
     border-radius: 6px;
     font-size: 14px;
     background: white;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
 }
 
 .live-add-page-form .live-input:focus {
@@ -1100,7 +1100,7 @@
     box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.1);
 }
 
-.live-btn-primary {
+.web2-btn-primary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1116,11 +1116,11 @@
     color: white;
 }
 
-.live-btn-primary:hover {
+.web2-btn-primary:hover {
     background: var(--live-primary-dark, #6d28d9);
 }
 
-.live-btn-primary svg {
+.web2-btn-primary svg {
     width: 16px;
     height: 16px;
 }
@@ -1381,7 +1381,7 @@
 .live-conv-header .customer-name {
     font-size: 14px;
     font-weight: 600;
-    color: var(--live-text-primary);
+    color: var(--web2-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

@@ -14,15 +14,15 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../../web2/shared/tpos-sidebar.css?v=20260521c" />
+        <link rel="stylesheet" href="../../web2/shared/web2-sidebar.css?v=20260521c" />
         <link rel="stylesheet" href="../../native-orders/css/native-orders.css?v=20260521c" />
-        <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260521c" />
-        <link rel="stylesheet" href="../../web2/shared/page-builder-tpos.css?v=20260521c" />
+        <link rel="stylesheet" href="../../native-orders/css/web2-theme.css?v=20260521c" />
+        <link rel="stylesheet" href="../../web2/shared/page-builder.css?v=20260521c" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <link rel="stylesheet" href="../../web2/shared/web2-tpos-theme.css?v=20260522d" />
+        <link rel="stylesheet" href="../../web2/shared/web2-theme.css?v=20260522d" />
     </head>
-    <body class="tpos-theme">
+    <body class="web2-theme">
         <div class="web2-shell">
             <aside class="web2-aside" id="web2Aside"></aside>
             <main class="main-content" style="overflow: auto; height: 100vh">
@@ -88,19 +88,19 @@
                             <span class="search-result-label">PBH</span>
                         </div>
                         <div class="search-info-right">
-                            <button class="tpos-btn tpos-btn-default tpos-btn-sm" id="pbhReload">
+                            <button class="web2-btn web2-btn-default web2-btn-sm" id="pbhReload">
                                 <i data-lucide="refresh-cw" style="width: 12px; height: 12px"></i>
                                 Tải lại
                             </button>
-                            <button class="tpos-btn tpos-btn-default tpos-btn-sm" id="pbhApply">
+                            <button class="web2-btn web2-btn-default web2-btn-sm" id="pbhApply">
                                 <i data-lucide="filter" style="width: 12px; height: 12px"></i> Áp
                                 dụng
                             </button>
-                            <button class="tpos-btn tpos-btn-default tpos-btn-sm" id="pbhClear">
+                            <button class="web2-btn web2-btn-default web2-btn-sm" id="pbhClear">
                                 <i data-lucide="x" style="width: 12px; height: 12px"></i> Xóa lọc
                             </button>
                             <button
-                                class="tpos-btn tpos-btn-default tpos-btn-sm"
+                                class="web2-btn web2-btn-default web2-btn-sm"
                                 id="pbhExportCsv"
                                 title="Xuất Excel CSV"
                             >
@@ -108,7 +108,7 @@
                                 Xuất Excel
                             </button>
                             <button
-                                class="tpos-btn tpos-btn-default tpos-btn-sm"
+                                class="web2-btn web2-btn-default web2-btn-sm"
                                 id="pbhResetStt"
                                 title="Reset STT"
                             >
@@ -133,16 +133,16 @@
                         "
                     >
                         <span><strong id="pbhBulkCount">0</strong> đơn được chọn</span>
-                        <button class="tpos-btn tpos-btn-success tpos-btn-sm" id="pbhBulkConfirm">
+                        <button class="web2-btn web2-btn-success web2-btn-sm" id="pbhBulkConfirm">
                             <i data-lucide="check" style="width: 12px; height: 12px"></i> Xác nhận
                             tất cả
                         </button>
-                        <button class="tpos-btn tpos-btn-warning tpos-btn-sm" id="pbhBulkCancel">
+                        <button class="web2-btn web2-btn-warning web2-btn-sm" id="pbhBulkCancel">
                             <i data-lucide="x-circle" style="width: 12px; height: 12px"></i> Hủy tất
                             cả
                         </button>
                         <button
-                            class="tpos-btn tpos-btn-default tpos-btn-sm"
+                            class="web2-btn web2-btn-default web2-btn-sm"
                             id="pbhBulkUnselect"
                             style="margin-left: auto"
                         >
@@ -193,7 +193,7 @@
         <script src="../shared/web2-user-info.js?v=20260530a"></script>
         <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
         <script src="../shared/web2-optimistic.js?v=20260601a"></script>
-        <script src="../../web2/shared/tpos-sidebar.js?v=20260606ck"></script>
+        <script src="../../web2/shared/web2-sidebar.js?v=20260606ck"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar) Web2Sidebar.mount('#web2Aside');

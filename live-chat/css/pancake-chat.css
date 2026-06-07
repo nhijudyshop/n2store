@@ -593,7 +593,7 @@
 }
 
 /* Remove from Live saved button */
-.pk-remove-live-btn {
+.pk-remove-web2-btn {
     width: 24px;
     height: 24px;
     border: none;
@@ -607,13 +607,13 @@
     transition: all 0.15s ease;
 }
 
-.pk-remove-live-btn:hover {
+.pk-remove-web2-btn:hover {
     background: #dc2626;
     color: white;
     transform: scale(1.1);
 }
 
-.pk-remove-live-btn i {
+.pk-remove-web2-btn i {
     width: 14px;
     height: 14px;
 }

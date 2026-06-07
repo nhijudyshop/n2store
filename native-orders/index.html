@@ -14,10 +14,10 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../web2/shared/tpos-sidebar.css?v=20260607j" />
+        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260607j" />
         <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260607j" />
         <link rel="stylesheet" href="css/native-orders.css?v=20260607j" />
-        <link rel="stylesheet" href="css/tpos-theme.css?v=20260607j" />
+        <link rel="stylesheet" href="css/web2-theme.css?v=20260607j" />
         <!-- Component chat HỢP NHẤT (Web2ChatPanel) -->
         <link rel="stylesheet" href="../web2/shared/chat-panel/web2-chat-panel.css?v=20260607i" />
 
@@ -35,7 +35,7 @@
         <script src="../shared/js/notification-system.js?v=20260607j"></script>
         <script src="../web2/shared/web2-effects.js?v=20260607j"></script>
     </head>
-    <body class="tpos-theme">
+    <body class="web2-theme">
         <div class="web2-shell">
             <aside class="web2-aside" id="web2Aside"></aside>
             <main class="main-content" style="overflow: auto; height: 100vh">
@@ -107,7 +107,7 @@
                             </div>
                         </div>
 
-                        <!-- Campaign filter chip (sync with tpos-pancake selection) -->
+                        <!-- Campaign filter chip (sync with web2-pancake selection) -->
                         <div class="filter-chip-group" id="campaignChipGroup">
                             <label class="chip-label chip-label-primary">
                                 <i data-lucide="megaphone"></i> Chiến dịch:
@@ -260,7 +260,7 @@
                 >
                     <span><strong id="ordersBulkCount">0</strong> đơn được chọn</span>
                     <button
-                        class="tpos-btn tpos-btn-primary tpos-btn-sm"
+                        class="web2-btn web2-btn-primary web2-btn-sm"
                         id="ordersBulkMerge"
                         title="Gộp 2+ Đơn Web cùng SĐT → 1 Đơn Web mới (STT hiển thị 'STT1 + STT2'). Đơn gốc bị xóa, đơn mới giữ là Đơn Web (chưa tạo PBH)."
                     >
@@ -268,7 +268,7 @@
                         Gộp đơn
                     </button>
                     <button
-                        class="tpos-btn tpos-btn-success tpos-btn-sm"
+                        class="web2-btn web2-btn-success web2-btn-sm"
                         id="ordersBulkPbh"
                         title="Tạo PBH cho tất cả Đơn Web được chọn (1 đơn → 1 PBH)"
                     >
@@ -276,7 +276,7 @@
                         Tạo PBH hàng loạt
                     </button>
                     <button
-                        class="tpos-btn tpos-btn-warning tpos-btn-sm"
+                        class="web2-btn web2-btn-warning web2-btn-sm"
                         id="ordersBulkPbhShop"
                         title="Bán tại shop: tạo PBH ship 0, phương thức 'PBH SHOP' (vẫn thu hộ qua ví)"
                     >
@@ -284,7 +284,7 @@
                         PBH SHOP
                     </button>
                     <button
-                        class="tpos-btn tpos-btn-default tpos-btn-sm"
+                        class="web2-btn web2-btn-default web2-btn-sm"
                         id="ordersBulkPrintBill"
                         title="In bill thermal 80mm cho các đơn (preview — không lưu DB)"
                     >
@@ -292,7 +292,7 @@
                         In bill
                     </button>
                     <button
-                        class="tpos-btn tpos-btn-info tpos-btn-sm"
+                        class="web2-btn web2-btn-info web2-btn-sm"
                         id="ordersBulkSendMessage"
                         title="Gửi tin nhắn template tới khách hàng đã chọn (bypass 24h qua Extension)"
                     >
@@ -300,7 +300,7 @@
                         Gửi tin nhắn
                     </button>
                     <button
-                        class="tpos-btn tpos-btn-default tpos-btn-sm"
+                        class="web2-btn web2-btn-default web2-btn-sm"
                         id="ordersBulkUnselect"
                         style="margin-left: auto"
                     >
@@ -315,7 +315,7 @@
                             <thead>
                                 <tr>
                                     <th class="col-check" style="width: 70px; text-align: left">
-                                        <div class="tpos-check-stt">
+                                        <div class="web2-check-stt">
                                             <input type="checkbox" id="checkAll" />
                                             <span
                                                 style="
@@ -385,7 +385,7 @@
         <script src="../web2/shared/web2-auth.js?v=20260607j"></script>
         <script src="../web2/shared/web2-user-info.js?v=20260607j"></script>
         <script src="../web2/shared/web2-optimistic.js?v=20260607j"></script>
-        <script src="../web2/shared/tpos-sidebar.js?v=20260607j"></script>
+        <script src="../web2/shared/web2-sidebar.js?v=20260607j"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => Web2Sidebar.mount('#web2Aside'));
         </script>
@@ -414,7 +414,7 @@
 
         <!-- App Scripts -->
         <script src="../web2/shared/web2-chat-client.js?v=20260607j"></script>
-        <!-- Component chat HỢP NHẤT (Web2ChatPanel) — dùng chung tpos-pancake/balance-history -->
+        <!-- Component chat HỢP NHẤT (Web2ChatPanel) — dùng chung web2-pancake/balance-history -->
         <script src="../web2/shared/chat-panel/web2-chat-emoji-data.js?v=20260607i"></script>
         <script src="../web2/shared/chat-panel/web2-chat-entity-detect.js?v=20260607i"></script>
         <script src="../web2/shared/chat-panel/web2-chat-sticker-data.js?v=20260607i"></script>

@@ -5,7 +5,7 @@
  * Chuẩn UI cho TOÀN BỘ trang Web 2.0 user đã code thật (13 trang trong
  * sidebar allow-list). Lấy native-orders/css/ làm baseline:
  *   - native-orders.css → layout, typography, tab, filter, table, button
- *   - tpos-theme.css    → color tokens TPOS
+ *   - web2-theme.css    → color tokens TPOS
  *
  * File này load SAU 2 file trên để override universal selectors mà các
  * trang khác có tendency tự define (.btn, .modal, .stats-grid, .tab,
@@ -13,8 +13,8 @@
  *
  * USAGE — thêm 3 dòng vào <head> mỗi trang:
  *   <link rel="stylesheet" href="../../native-orders/css/native-orders.css?v=20260522c">
- *   <link rel="stylesheet" href="../../native-orders/css/tpos-theme.css?v=20260522c">
- *   <link rel="stylesheet" href="../../web2/shared/web2-tpos-theme.css?v=20260522c">
+ *   <link rel="stylesheet" href="../../native-orders/css/web2-theme.css?v=20260522c">
+ *   <link rel="stylesheet" href="../../web2/shared/web2-theme.css?v=20260522c">
  *
  * (Đường dẫn `../../` cho trang dưới web2/<sub>/. Trang root level vd
  * native-orders/, so-order/ dùng `../`.)
@@ -48,38 +48,38 @@
 
 /* ─── Color tokens (idempotent — same values như native-orders.css) ─── */
 :root {
-    --tpos-primary: #7266ba;
-    --tpos-primary-hover: #5e51ac;
-    --tpos-success: #27c24c;
-    --tpos-success-hover: #20a73e;
-    --tpos-info: #23b7e5;
-    --tpos-info-hover: #1ba0cb;
-    --tpos-warning: #fad733;
-    --tpos-danger: #f05050;
-    --tpos-danger-hover: #e23b3b;
-    --tpos-text: #333;
-    --tpos-text-2: #4c4c4c;
-    --tpos-text-3: #58666e;
-    --tpos-text-faded: #808080;
-    --tpos-border: #cccccc;
-    --tpos-border-btn: #dee5e7;
-    --tpos-bg-app: #f0f3f4;
-    --tpos-bg-light: #edf1f2;
-    --tpos-bg-cell-head: #f0eeee;
-    --tpos-link: #337ab7;
-    --tpos-link-hover: #245a8c;
+    --web2-primary: #7266ba;
+    --web2-primary-hover: #5e51ac;
+    --web2-success: #27c24c;
+    --web2-success-hover: #20a73e;
+    --web2-info: #23b7e5;
+    --web2-info-hover: #1ba0cb;
+    --web2-warning: #fad733;
+    --web2-danger: #f05050;
+    --web2-danger-hover: #e23b3b;
+    --web2-text: #333;
+    --web2-text-2: #4c4c4c;
+    --web2-text-3: #58666e;
+    --web2-text-faded: #808080;
+    --web2-border: #cccccc;
+    --web2-border-btn: #dee5e7;
+    --web2-bg-app: #f0f3f4;
+    --web2-bg-light: #edf1f2;
+    --web2-bg-cell-head: #f0eeee;
+    --web2-link: #337ab7;
+    --web2-link-hover: #245a8c;
 }
 
 /* ─── Base typography — TPOS Segoe UI (force) ───────── */
-body.tpos-theme,
+body.web2-theme,
 body:has(.web2-shell) {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-size: 14px;
-    color: var(--tpos-text-2);
+    color: var(--web2-text-2);
 }
 
-/* ─── Generic .btn family — clone .tpos-btn ─────────── */
-.tpos-theme .btn,
+/* ─── Generic .btn family — clone .web2-btn ─────────── */
+.web2-theme .btn,
 body:has(.web2-shell) .btn {
     display: inline-flex;
     align-items: center;
@@ -89,11 +89,11 @@ body:has(.web2-shell) .btn {
     font-size: 12px;
     font-weight: 500;
     line-height: 1.42857;
-    color: var(--tpos-text-3);
+    color: var(--web2-text-3);
     text-align: center;
     cursor: pointer;
     background: #fff;
-    border: 1px solid var(--tpos-border-btn);
+    border: 1px solid var(--web2-border-btn);
     border-radius: 2px;
     user-select: none;
     transition:
@@ -101,169 +101,169 @@ body:has(.web2-shell) .btn {
         border-color 0.12s,
         color 0.12s;
 }
-.tpos-theme .btn-sm,
+.web2-theme .btn-sm,
 body:has(.web2-shell) .btn-sm {
     padding: 4px 8px;
     font-size: 11.5px;
 }
-.tpos-theme .btn i,
+.web2-theme .btn i,
 body:has(.web2-shell) .btn i {
     width: 13px;
     height: 13px;
     margin-right: 2px;
 }
-.tpos-theme .btn:hover,
+.web2-theme .btn:hover,
 body:has(.web2-shell) .btn:hover {
     background: #f5f7f8;
     border-color: #b0bcc1;
-    color: var(--tpos-text);
+    color: var(--web2-text);
 }
-.tpos-theme .btn-primary,
+.web2-theme .btn-primary,
 body:has(.web2-shell) .btn-primary {
-    background: var(--tpos-primary);
+    background: var(--web2-primary);
     color: #fff;
-    border-color: var(--tpos-primary);
+    border-color: var(--web2-primary);
 }
-.tpos-theme .btn-primary:hover,
+.web2-theme .btn-primary:hover,
 body:has(.web2-shell) .btn-primary:hover {
-    background: var(--tpos-primary-hover);
-    border-color: var(--tpos-primary-hover);
+    background: var(--web2-primary-hover);
+    border-color: var(--web2-primary-hover);
     color: #fff;
 }
-.tpos-theme .btn-secondary,
+.web2-theme .btn-secondary,
 body:has(.web2-shell) .btn-secondary {
     background: #fff;
-    color: var(--tpos-text-3);
-    border-color: var(--tpos-border-btn);
+    color: var(--web2-text-3);
+    border-color: var(--web2-border-btn);
 }
-.tpos-theme .btn-secondary:hover,
+.web2-theme .btn-secondary:hover,
 body:has(.web2-shell) .btn-secondary:hover {
     background: #f5f7f8;
-    color: var(--tpos-text);
+    color: var(--web2-text);
     border-color: #b0bcc1;
 }
-.tpos-theme .btn-success,
+.web2-theme .btn-success,
 body:has(.web2-shell) .btn-success {
-    background: var(--tpos-success);
+    background: var(--web2-success);
     color: #fff;
-    border-color: var(--tpos-success);
+    border-color: var(--web2-success);
 }
-.tpos-theme .btn-success:hover,
+.web2-theme .btn-success:hover,
 body:has(.web2-shell) .btn-success:hover {
-    background: var(--tpos-success-hover);
-    border-color: var(--tpos-success-hover);
+    background: var(--web2-success-hover);
+    border-color: var(--web2-success-hover);
 }
-.tpos-theme .btn-danger,
+.web2-theme .btn-danger,
 body:has(.web2-shell) .btn-danger {
-    background: var(--tpos-danger);
+    background: var(--web2-danger);
     color: #fff;
-    border-color: var(--tpos-danger);
+    border-color: var(--web2-danger);
 }
-.tpos-theme .btn-danger:hover,
+.web2-theme .btn-danger:hover,
 body:has(.web2-shell) .btn-danger:hover {
-    background: var(--tpos-danger-hover);
-    border-color: var(--tpos-danger-hover);
+    background: var(--web2-danger-hover);
+    border-color: var(--web2-danger-hover);
 }
-.tpos-theme .btn-info,
+.web2-theme .btn-info,
 body:has(.web2-shell) .btn-info {
-    background: var(--tpos-info);
+    background: var(--web2-info);
     color: #fff;
-    border-color: var(--tpos-info);
+    border-color: var(--web2-info);
 }
-.tpos-theme .btn-info:hover,
+.web2-theme .btn-info:hover,
 body:has(.web2-shell) .btn-info:hover {
-    background: var(--tpos-info-hover);
-    border-color: var(--tpos-info-hover);
+    background: var(--web2-info-hover);
+    border-color: var(--web2-info-hover);
 }
 
 /* ─── Generic tables ────────────────────────────────── */
-.tpos-theme .data-table,
-.tpos-theme .balance-table,
+.web2-theme .data-table,
+.web2-theme .balance-table,
 body:has(.web2-shell) .data-table {
     width: 100%;
     border-collapse: collapse;
     background: #fff;
     font-size: 13px;
 }
-.tpos-theme .data-table thead th,
-.tpos-theme .balance-table thead th,
+.web2-theme .data-table thead th,
+.web2-theme .balance-table thead th,
 body:has(.web2-shell) .data-table thead th {
-    background: var(--tpos-bg-cell-head);
-    color: var(--tpos-text-3);
+    background: var(--web2-bg-cell-head);
+    color: var(--web2-text-3);
     font-weight: 600;
     font-size: 12px;
     padding: 9px 10px;
     text-align: left;
-    border-bottom: 1px solid var(--tpos-border);
+    border-bottom: 1px solid var(--web2-border);
     position: sticky;
     top: 0;
     z-index: 2;
 }
-.tpos-theme .data-table tbody td,
-.tpos-theme .balance-table tbody td,
+.web2-theme .data-table tbody td,
+.web2-theme .balance-table tbody td,
 body:has(.web2-shell) .data-table tbody td {
     padding: 8px 10px;
     border-bottom: 1px solid #eee;
     font-size: 13px;
-    color: var(--tpos-text);
+    color: var(--web2-text);
 }
-.tpos-theme .data-table tbody tr,
-.tpos-theme .balance-table tbody tr,
+.web2-theme .data-table tbody tr,
+.web2-theme .balance-table tbody tr,
 body:has(.web2-shell) .data-table tbody tr {
     transition: background 0.1s;
 }
-.tpos-theme .data-table tbody tr:hover,
-.tpos-theme .balance-table tbody tr:hover,
+.web2-theme .data-table tbody tr:hover,
+.web2-theme .balance-table tbody tr:hover,
 body:has(.web2-shell) .data-table tbody tr:hover {
-    background: var(--tpos-bg-light);
+    background: var(--web2-bg-light);
 }
 
 /* ─── Generic filter/search row ─────────────────────── */
-.tpos-theme .filters-section input[type='text'],
-.tpos-theme .filters-section input[type='search'],
-.tpos-theme .filters-section input[type='date'],
-.tpos-theme .filters-section input[type='time'],
-.tpos-theme .filters-section select,
-.tpos-theme .filters input[type='text'],
-.tpos-theme .filters input[type='search'],
-.tpos-theme .filters input[type='date'],
-.tpos-theme .filters input[type='time'],
-.tpos-theme .filters select {
+.web2-theme .filters-section input[type='text'],
+.web2-theme .filters-section input[type='search'],
+.web2-theme .filters-section input[type='date'],
+.web2-theme .filters-section input[type='time'],
+.web2-theme .filters-section select,
+.web2-theme .filters input[type='text'],
+.web2-theme .filters input[type='search'],
+.web2-theme .filters input[type='date'],
+.web2-theme .filters input[type='time'],
+.web2-theme .filters select {
     height: 30px;
     padding: 0 9px;
-    border: 1px solid var(--tpos-border-btn);
+    border: 1px solid var(--web2-border-btn);
     border-radius: 3px;
     font-size: 12.5px;
     font-family: inherit;
     background: #fff;
-    color: var(--tpos-text);
+    color: var(--web2-text);
     outline: none;
     transition: border-color 0.12s;
 }
-.tpos-theme .filters-section input:focus,
-.tpos-theme .filters input:focus,
-.tpos-theme .filters select:focus {
-    border-color: var(--tpos-primary);
+.web2-theme .filters-section input:focus,
+.web2-theme .filters input:focus,
+.web2-theme .filters select:focus {
+    border-color: var(--web2-primary);
     box-shadow: 0 0 0 2px rgba(114, 102, 186, 0.15);
 }
 
 /* ─── Pagination ────────────────────────────────────── */
-.tpos-theme .pagination,
+.web2-theme .pagination,
 body:has(.web2-shell) .pagination {
     display: flex;
     gap: 3px;
     align-items: center;
     padding: 12px 18px;
     background: #fff;
-    border-top: 1px solid var(--tpos-border-btn);
+    border-top: 1px solid var(--web2-border-btn);
 }
-.tpos-theme .page-btn,
+.web2-theme .page-btn,
 body:has(.web2-shell) .page-btn {
     min-width: 30px;
     height: 30px;
-    border: 1px solid var(--tpos-border-btn);
+    border: 1px solid var(--web2-border-btn);
     background: #fff;
-    color: var(--tpos-text-3);
+    color: var(--web2-text-3);
     border-radius: 3px;
     cursor: pointer;
     font-size: 12.5px;
@@ -275,23 +275,23 @@ body:has(.web2-shell) .page-btn {
         border-color 0.12s,
         color 0.12s;
 }
-.tpos-theme .page-btn:hover:not(:disabled),
+.web2-theme .page-btn:hover:not(:disabled),
 body:has(.web2-shell) .page-btn:hover:not(:disabled) {
-    background: var(--tpos-bg-light);
-    color: var(--tpos-primary);
-    border-color: var(--tpos-primary);
+    background: var(--web2-bg-light);
+    color: var(--web2-primary);
+    border-color: var(--web2-primary);
 }
-.tpos-theme .page-btn.active,
+.web2-theme .page-btn.active,
 body:has(.web2-shell) .page-btn.active {
-    background: var(--tpos-primary);
+    background: var(--web2-primary);
     color: #fff;
-    border-color: var(--tpos-primary);
+    border-color: var(--web2-primary);
 }
 
 /* ─── Type/status badges ────────────────────────────── */
-.tpos-theme .badge,
-.tpos-theme .status-pill,
-.tpos-theme .type-badge {
+.web2-theme .badge,
+.web2-theme .status-pill,
+.web2-theme .type-badge {
     display: inline-flex;
     align-items: center;
     gap: 3px;
@@ -301,48 +301,48 @@ body:has(.web2-shell) .page-btn.active {
     font-weight: 700;
     line-height: 1.4;
 }
-.tpos-theme .type-in,
-.tpos-theme .badge-in {
-    background: var(--tpos-success);
+.web2-theme .type-in,
+.web2-theme .badge-in {
+    background: var(--web2-success);
     color: #fff;
 }
-.tpos-theme .type-out,
-.tpos-theme .badge-out {
-    background: var(--tpos-danger);
+.web2-theme .type-out,
+.web2-theme .badge-out {
+    background: var(--web2-danger);
     color: #fff;
 }
 
 /* ─── Stats cards ───────────────────────────────────── */
-.tpos-theme .stats-grid,
-.tpos-theme .stat-cards {
+.web2-theme .stats-grid,
+.web2-theme .stat-cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 10px;
     padding: 12px 18px;
     background: #fff;
 }
-.tpos-theme .stat-card {
+.web2-theme .stat-card {
     background: #fff;
-    border: 1px solid var(--tpos-border-btn);
+    border: 1px solid var(--web2-border-btn);
     border-radius: 3px;
     padding: 10px 12px;
     transition: border-color 0.12s;
 }
-.tpos-theme .stat-card:hover {
-    border-color: var(--tpos-primary);
+.web2-theme .stat-card:hover {
+    border-color: var(--web2-primary);
 }
-.tpos-theme .stat-card .stat-label,
-.tpos-theme .stat-card .label {
+.web2-theme .stat-card .stat-label,
+.web2-theme .stat-card .label {
     font-size: 11px;
-    color: var(--tpos-text-3);
+    color: var(--web2-text-3);
     font-weight: 600;
     margin-bottom: 3px;
 }
-.tpos-theme .stat-card .stat-value,
-.tpos-theme .stat-card .value {
+.web2-theme .stat-card .stat-value,
+.web2-theme .stat-card .value {
     font-size: 18px;
     font-weight: 700;
-    color: var(--tpos-text);
+    color: var(--web2-text);
 }
 
 /* =====================================================
@@ -351,18 +351,18 @@ body:has(.web2-shell) .page-btn.active {
  * ===================================================== */
 
 /* Overlay: KHÔNG backdrop-filter (kill GPU perf) */
-.tpos-theme .modal-overlay,
-.tpos-theme .modal-backdrop,
-.tpos-theme [class*='modal-overlay'] {
+.web2-theme .modal-overlay,
+.web2-theme .modal-backdrop,
+.web2-theme [class*='modal-overlay'] {
     background: rgba(15, 23, 42, 0.42) !important;
     /* @WARNING: KHÔNG dùng backdrop-filter blur — lag nặng. */
 }
 
 /* Modal content: GPU compositor hint + transition compositor-only */
-.tpos-theme .modal-content,
-.tpos-theme .modal-dialog,
-.tpos-theme [class*='modal-content'],
-.tpos-theme [class*='modal-dialog'] {
+.web2-theme .modal-content,
+.web2-theme .modal-dialog,
+.web2-theme [class*='modal-content'],
+.web2-theme [class*='modal-dialog'] {
     will-change: transform, opacity;
     transition:
         transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
@@ -370,55 +370,55 @@ body:has(.web2-shell) .page-btn.active {
 }
 
 /* Closed → scale 0.96 + opacity 0 */
-.tpos-theme .modal:not(.show):not(.active) .modal-content,
-.tpos-theme .modal:not(.show):not(.active) .modal-dialog {
+.web2-theme .modal:not(.show):not(.active) .modal-content,
+.web2-theme .modal:not(.show):not(.active) .modal-dialog {
     opacity: 0;
     transform: scale(0.96);
 }
-.tpos-theme .modal.show .modal-content,
-.tpos-theme .modal.active .modal-content,
-.tpos-theme .modal.show .modal-dialog,
-.tpos-theme .modal.active .modal-dialog {
+.web2-theme .modal.show .modal-content,
+.web2-theme .modal.active .modal-content,
+.web2-theme .modal.show .modal-dialog,
+.web2-theme .modal.active .modal-dialog {
     opacity: 1;
     transform: scale(1);
 }
 
 /* Lock body scroll khi modal mở */
-.tpos-theme body.modal-open,
-body.tpos-theme.modal-open {
+.web2-theme body.modal-open,
+body.web2-theme.modal-open {
     overflow: hidden;
 }
 
 /* Modal body — cách ly reflow + paint scope */
-.tpos-theme .modal-body,
-.tpos-theme .modal-content,
-.tpos-theme [class*='modal-body'],
-.tpos-theme [class*='modal-content'] {
+.web2-theme .modal-body,
+.web2-theme .modal-content,
+.web2-theme [class*='modal-body'],
+.web2-theme [class*='modal-content'] {
     contain: layout style paint;
 }
 
 /* Modal scrollable area — chặn scroll chaining + smooth touch + skip offscreen render */
-.tpos-theme .modal-body,
-.tpos-theme [class*='modal-body'],
-.tpos-theme .modal-scroll,
-.tpos-theme [class*='modal'] [class*='scroll'] {
+.web2-theme .modal-body,
+.web2-theme [class*='modal-body'],
+.web2-theme .modal-scroll,
+.web2-theme [class*='modal'] [class*='scroll'] {
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     scrollbar-gutter: stable;
 }
 
 /* Long lists/rows trong modal — skip render khi ngoài viewport (7x faster) */
-.tpos-theme .modal .cv-row,
-.tpos-theme .modal .modal-row,
-.tpos-theme [class*='modal'] .cv-auto {
+.web2-theme .modal .cv-row,
+.web2-theme .modal .modal-row,
+.web2-theme [class*='modal'] .cv-auto {
     content-visibility: auto;
     contain-intrinsic-size: 0 64px;
 }
 
 /* Modal inputs — focus chỉ border-color (compositor friendly) */
-.tpos-theme .modal input,
-.tpos-theme .modal select,
-.tpos-theme .modal textarea {
+.web2-theme .modal input,
+.web2-theme .modal select,
+.web2-theme .modal textarea {
     transition: border-color 0.12s;
 }
 
@@ -462,21 +462,21 @@ body.tpos-theme.modal-open {
     }
 }
 
-.tpos-theme .w2-anim-spin {
+.web2-theme .w2-anim-spin {
     animation: w2-spin 1s linear infinite;
 }
-.tpos-theme .w2-anim-pulse {
+.web2-theme .w2-anim-pulse {
     animation: w2-pulse 1.4s ease-in-out infinite;
 }
-.tpos-theme .w2-anim-fade-in {
+.web2-theme .w2-anim-fade-in {
     animation: w2-fade-in 0.18s ease;
 }
-.tpos-theme .w2-anim-slide-up {
+.web2-theme .w2-anim-slide-up {
     animation: w2-slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ─── Long list optimization (kanban, table > 100 rows) ─ */
-.tpos-theme [data-content-visibility='auto'] > * {
+.web2-theme [data-content-visibility='auto'] > * {
     content-visibility: auto;
     contain-intrinsic-size: 1px 80px;
 }
@@ -512,217 +512,217 @@ body.tpos-theme.modal-open {
 /* ─── Extended color tokens (soft surfaces) ──────────── */
 :root {
     /* Soft tints — alpha 8-15% của primary palette để overlay surface */
-    --tpos-primary-soft: #ece9f7; /* primary @ 92% L */
-    --tpos-primary-soft-2: #ddd6f3; /* primary @ 87% L */
-    --tpos-primary-tint: rgba(114, 102, 186, 0.08);
-    --tpos-success-soft: #e3f7e8;
-    --tpos-success-soft-2: #c8efd3;
-    --tpos-success-tint: rgba(39, 194, 76, 0.08);
-    --tpos-info-soft: #e0f4fc;
-    --tpos-info-soft-2: #bfe7f5;
-    --tpos-info-tint: rgba(35, 183, 229, 0.08);
-    --tpos-warning-soft: #fdf4d3;
-    --tpos-warning-soft-2: #fce99b;
-    --tpos-warning-tint: rgba(250, 215, 51, 0.12);
-    --tpos-danger-soft: #fde2e2;
-    --tpos-danger-soft-2: #f9bdbd;
-    --tpos-danger-tint: rgba(240, 80, 80, 0.08);
-    --tpos-neutral-soft: #eef1f3;
+    --web2-primary-soft: #ece9f7; /* primary @ 92% L */
+    --web2-primary-soft-2: #ddd6f3; /* primary @ 87% L */
+    --web2-primary-tint: rgba(114, 102, 186, 0.08);
+    --web2-success-soft: #e3f7e8;
+    --web2-success-soft-2: #c8efd3;
+    --web2-success-tint: rgba(39, 194, 76, 0.08);
+    --web2-info-soft: #e0f4fc;
+    --web2-info-soft-2: #bfe7f5;
+    --web2-info-tint: rgba(35, 183, 229, 0.08);
+    --web2-warning-soft: #fdf4d3;
+    --web2-warning-soft-2: #fce99b;
+    --web2-warning-tint: rgba(250, 215, 51, 0.12);
+    --web2-danger-soft: #fde2e2;
+    --web2-danger-soft-2: #f9bdbd;
+    --web2-danger-tint: rgba(240, 80, 80, 0.08);
+    --web2-neutral-soft: #eef1f3;
     /* Money colors */
-    --tpos-money-in: #1ca73f; /* darker green for readability */
-    --tpos-money-out: #d63838;
+    --web2-money-in: #1ca73f; /* darker green for readability */
+    --web2-money-out: #d63838;
     /* Shadow soft */
-    --tpos-shadow-primary: 0 2px 8px rgba(114, 102, 186, 0.18);
-    --tpos-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06);
+    --web2-shadow-primary: 0 2px 8px rgba(114, 102, 186, 0.18);
+    --web2-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 /* ─── Body canvas — soft gradient cho không gian rộng ─ */
-body.tpos-theme,
+body.web2-theme,
 body:has(.web2-shell) {
     background:
-        linear-gradient(180deg, var(--tpos-primary-soft) 0%, var(--tpos-bg-app) 180px),
-        var(--tpos-bg-app);
+        linear-gradient(180deg, var(--web2-primary-soft) 0%, var(--web2-bg-app) 180px),
+        var(--web2-bg-app);
 }
 
 /* ─── Primary button — gradient subtle + accent shadow ─ */
-.tpos-theme .btn-primary,
+.web2-theme .btn-primary,
 body:has(.web2-shell) .btn-primary {
-    background: linear-gradient(180deg, #7e72c4, var(--tpos-primary));
-    box-shadow: var(--tpos-shadow-primary);
+    background: linear-gradient(180deg, #7e72c4, var(--web2-primary));
+    box-shadow: var(--web2-shadow-primary);
 }
-.tpos-theme .btn-primary:hover,
+.web2-theme .btn-primary:hover,
 body:has(.web2-shell) .btn-primary:hover {
-    background: linear-gradient(180deg, var(--tpos-primary), var(--tpos-primary-hover));
+    background: linear-gradient(180deg, var(--web2-primary), var(--web2-primary-hover));
     box-shadow: 0 3px 12px rgba(114, 102, 186, 0.28);
 }
-.tpos-theme .btn-success,
+.web2-theme .btn-success,
 body:has(.web2-shell) .btn-success {
-    background: linear-gradient(180deg, #34d05a, var(--tpos-success));
+    background: linear-gradient(180deg, #34d05a, var(--web2-success));
     box-shadow: 0 2px 8px rgba(39, 194, 76, 0.18);
 }
-.tpos-theme .btn-success:hover,
+.web2-theme .btn-success:hover,
 body:has(.web2-shell) .btn-success:hover {
-    background: linear-gradient(180deg, var(--tpos-success), var(--tpos-success-hover));
+    background: linear-gradient(180deg, var(--web2-success), var(--web2-success-hover));
 }
-.tpos-theme .btn-danger,
+.web2-theme .btn-danger,
 body:has(.web2-shell) .btn-danger {
-    background: linear-gradient(180deg, #f56565, var(--tpos-danger));
+    background: linear-gradient(180deg, #f56565, var(--web2-danger));
     box-shadow: 0 2px 8px rgba(240, 80, 80, 0.18);
 }
-.tpos-theme .btn-info,
+.web2-theme .btn-info,
 body:has(.web2-shell) .btn-info {
-    background: linear-gradient(180deg, #36c2eb, var(--tpos-info));
+    background: linear-gradient(180deg, #36c2eb, var(--web2-info));
     box-shadow: 0 2px 8px rgba(35, 183, 229, 0.18);
 }
 
 /* Outline variant cho secondary action — clear hierarchy */
-.tpos-theme .btn-outline-primary,
+.web2-theme .btn-outline-primary,
 body:has(.web2-shell) .btn-outline-primary {
     background: #fff;
-    color: var(--tpos-primary);
-    border-color: var(--tpos-primary);
+    color: var(--web2-primary);
+    border-color: var(--web2-primary);
 }
-.tpos-theme .btn-outline-primary:hover,
+.web2-theme .btn-outline-primary:hover,
 body:has(.web2-shell) .btn-outline-primary:hover {
-    background: var(--tpos-primary-soft);
-    color: var(--tpos-primary-hover);
+    background: var(--web2-primary-soft);
+    color: var(--web2-primary-hover);
 }
 
 /* ─── Headers & section titles — accent strip trái ────── */
-.tpos-theme .page-head-mini,
-.tpos-theme .pr-header,
-.tpos-theme .header {
+.web2-theme .page-head-mini,
+.web2-theme .pr-header,
+.web2-theme .header {
     background: #fff;
-    border-bottom: 1px solid var(--tpos-border-btn);
+    border-bottom: 1px solid var(--web2-border-btn);
     position: relative;
 }
-.tpos-theme .page-head-mini::before,
-.tpos-theme .pr-header::before,
-.tpos-theme .header::before {
+.web2-theme .page-head-mini::before,
+.web2-theme .pr-header::before,
+.web2-theme .header::before {
     content: '';
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
     width: 3px;
-    background: linear-gradient(180deg, var(--tpos-primary), var(--tpos-info));
+    background: linear-gradient(180deg, var(--web2-primary), var(--web2-info));
 }
-.tpos-theme .page-head-title,
-.tpos-theme h1 {
-    color: var(--tpos-text);
+.web2-theme .page-head-title,
+.web2-theme h1 {
+    color: var(--web2-text);
 }
-.tpos-theme .page-head-title i,
-.tpos-theme .header h1 i {
-    color: var(--tpos-primary);
+.web2-theme .page-head-title i,
+.web2-theme .header h1 i {
+    color: var(--web2-primary);
 }
 
 /* ─── Tables — zebra striping + selected row tint ───── */
-.tpos-theme .data-table tbody tr:nth-child(even),
-.tpos-theme .balance-table tbody tr:nth-child(even),
+.web2-theme .data-table tbody tr:nth-child(even),
+.web2-theme .balance-table tbody tr:nth-child(even),
 body:has(.web2-shell) .data-table tbody tr:nth-child(even) {
     background: #fafbfc;
 }
-.tpos-theme .data-table tbody tr:hover,
-.tpos-theme .balance-table tbody tr:hover,
+.web2-theme .data-table tbody tr:hover,
+.web2-theme .balance-table tbody tr:hover,
 body:has(.web2-shell) .data-table tbody tr:hover {
-    background: var(--tpos-primary-soft) !important;
+    background: var(--web2-primary-soft) !important;
 }
-.tpos-theme .data-table tbody tr.selected,
-.tpos-theme .data-table tbody tr.is-selected,
-.tpos-theme .data-table tbody tr.active,
+.web2-theme .data-table tbody tr.selected,
+.web2-theme .data-table tbody tr.is-selected,
+.web2-theme .data-table tbody tr.active,
 body:has(.web2-shell) .data-table tbody tr.selected {
-    background: var(--tpos-primary-tint) !important;
-    border-left: 3px solid var(--tpos-primary);
+    background: var(--web2-primary-tint) !important;
+    border-left: 3px solid var(--web2-primary);
 }
 
 /* Money / amount columns — bold + color-coded */
-.tpos-theme .data-table .col-amount,
-.tpos-theme .data-table .col-money,
-.tpos-theme .data-table .col-total,
-.tpos-theme .data-table .col-price,
-.tpos-theme .data-table td[data-money],
-.tpos-theme .amount,
-.tpos-theme .money-cell,
-.tpos-theme .total-cell {
+.web2-theme .data-table .col-amount,
+.web2-theme .data-table .col-money,
+.web2-theme .data-table .col-total,
+.web2-theme .data-table .col-price,
+.web2-theme .data-table td[data-money],
+.web2-theme .amount,
+.web2-theme .money-cell,
+.web2-theme .total-cell {
     font-weight: 700;
-    color: var(--tpos-text);
+    color: var(--web2-text);
     font-variant-numeric: tabular-nums;
 }
-.tpos-theme .money-in,
-.tpos-theme .amount.money-in,
-.tpos-theme td.money-in {
-    color: var(--tpos-money-in);
+.web2-theme .money-in,
+.web2-theme .amount.money-in,
+.web2-theme td.money-in {
+    color: var(--web2-money-in);
 }
-.tpos-theme .money-out,
-.tpos-theme .amount.money-out,
-.tpos-theme td.money-out {
-    color: var(--tpos-money-out);
+.web2-theme .money-out,
+.web2-theme .amount.money-out,
+.web2-theme td.money-out {
+    color: var(--web2-money-out);
 }
 
 /* ─── Stats cards — color-coded với border strip trái ─ */
-.tpos-theme .stat-card,
+.web2-theme .stat-card,
 body:has(.web2-shell) .stat-card {
     background: #fff;
-    border: 1px solid var(--tpos-border-btn);
-    border-left: 3px solid var(--tpos-text-3);
+    border: 1px solid var(--web2-border-btn);
+    border-left: 3px solid var(--web2-text-3);
     border-radius: 4px;
     padding: 12px 14px;
     transition:
         border-color 0.12s,
         transform 0.12s ease;
 }
-.tpos-theme .stat-card:hover {
-    border-color: var(--tpos-primary);
+.web2-theme .stat-card:hover {
+    border-color: var(--web2-primary);
     transform: translateY(-1px);
 }
-.tpos-theme .stat-card.stat-primary,
-.tpos-theme .stat-card[data-type='primary'] {
-    border-left-color: var(--tpos-primary);
-    background: linear-gradient(135deg, var(--tpos-primary-soft) 0%, #fff 60%);
+.web2-theme .stat-card.stat-primary,
+.web2-theme .stat-card[data-type='primary'] {
+    border-left-color: var(--web2-primary);
+    background: linear-gradient(135deg, var(--web2-primary-soft) 0%, #fff 60%);
 }
-.tpos-theme .stat-card.stat-success,
-.tpos-theme .stat-card[data-type='success'] {
-    border-left-color: var(--tpos-success);
-    background: linear-gradient(135deg, var(--tpos-success-soft) 0%, #fff 60%);
+.web2-theme .stat-card.stat-success,
+.web2-theme .stat-card[data-type='success'] {
+    border-left-color: var(--web2-success);
+    background: linear-gradient(135deg, var(--web2-success-soft) 0%, #fff 60%);
 }
-.tpos-theme .stat-card.stat-info,
-.tpos-theme .stat-card[data-type='info'] {
-    border-left-color: var(--tpos-info);
-    background: linear-gradient(135deg, var(--tpos-info-soft) 0%, #fff 60%);
+.web2-theme .stat-card.stat-info,
+.web2-theme .stat-card[data-type='info'] {
+    border-left-color: var(--web2-info);
+    background: linear-gradient(135deg, var(--web2-info-soft) 0%, #fff 60%);
 }
-.tpos-theme .stat-card.stat-warning,
-.tpos-theme .stat-card[data-type='warning'] {
+.web2-theme .stat-card.stat-warning,
+.web2-theme .stat-card[data-type='warning'] {
     border-left-color: #e0a800;
-    background: linear-gradient(135deg, var(--tpos-warning-soft) 0%, #fff 60%);
+    background: linear-gradient(135deg, var(--web2-warning-soft) 0%, #fff 60%);
 }
-.tpos-theme .stat-card.stat-danger,
-.tpos-theme .stat-card[data-type='danger'] {
-    border-left-color: var(--tpos-danger);
-    background: linear-gradient(135deg, var(--tpos-danger-soft) 0%, #fff 60%);
+.web2-theme .stat-card.stat-danger,
+.web2-theme .stat-card[data-type='danger'] {
+    border-left-color: var(--web2-danger);
+    background: linear-gradient(135deg, var(--web2-danger-soft) 0%, #fff 60%);
 }
-.tpos-theme .stat-card .stat-value,
-.tpos-theme .stat-card .value {
+.web2-theme .stat-card .stat-value,
+.web2-theme .stat-card .value {
     font-size: 22px;
     line-height: 1.2;
     font-weight: 800;
-    color: var(--tpos-text);
+    color: var(--web2-text);
     font-variant-numeric: tabular-nums;
 }
 
 /* ─── Counter pill — accent gradient subtle ─────────── */
-.tpos-theme .counter-pill,
+.web2-theme .counter-pill,
 body:has(.web2-shell) .counter-pill {
-    background: var(--tpos-primary-soft);
-    color: var(--tpos-primary-hover);
-    border: 1px solid var(--tpos-primary-soft-2);
+    background: var(--web2-primary-soft);
+    color: var(--web2-primary-hover);
+    border: 1px solid var(--web2-primary-soft-2);
     font-weight: 700;
 }
 
 /* ─── Status pills — 5 colors with soft bg + bold ────── */
-.tpos-theme .status-pill,
-.tpos-theme .badge,
-.tpos-theme .type-badge,
-.tpos-theme .label-pill {
+.web2-theme .status-pill,
+.web2-theme .badge,
+.web2-theme .type-badge,
+.web2-theme .label-pill {
     border-radius: 999px;
     padding: 3px 10px;
     font-size: 11px;
@@ -734,197 +734,197 @@ body:has(.web2-shell) .counter-pill {
     align-items: center;
     gap: 4px;
 }
-.tpos-theme .status-success,
-.tpos-theme .badge-success,
-.tpos-theme .status-done,
-.tpos-theme .status-delivered {
-    background: var(--tpos-success-soft);
-    color: var(--tpos-success-hover);
-    border: 1px solid var(--tpos-success-soft-2);
+.web2-theme .status-success,
+.web2-theme .badge-success,
+.web2-theme .status-done,
+.web2-theme .status-delivered {
+    background: var(--web2-success-soft);
+    color: var(--web2-success-hover);
+    border: 1px solid var(--web2-success-soft-2);
 }
-.tpos-theme .status-info,
-.tpos-theme .badge-info,
-.tpos-theme .status-active,
-.tpos-theme .status-confirmed {
-    background: var(--tpos-info-soft);
-    color: var(--tpos-info-hover);
-    border: 1px solid var(--tpos-info-soft-2);
+.web2-theme .status-info,
+.web2-theme .badge-info,
+.web2-theme .status-active,
+.web2-theme .status-confirmed {
+    background: var(--web2-info-soft);
+    color: var(--web2-info-hover);
+    border: 1px solid var(--web2-info-soft-2);
 }
-.tpos-theme .status-warning,
-.tpos-theme .badge-warning,
-.tpos-theme .status-pending,
-.tpos-theme .status-draft {
-    background: var(--tpos-warning-soft);
+.web2-theme .status-warning,
+.web2-theme .badge-warning,
+.web2-theme .status-pending,
+.web2-theme .status-draft {
+    background: var(--web2-warning-soft);
     color: #a68211;
-    border: 1px solid var(--tpos-warning-soft-2);
+    border: 1px solid var(--web2-warning-soft-2);
 }
-.tpos-theme .status-danger,
-.tpos-theme .badge-danger,
-.tpos-theme .status-error,
-.tpos-theme .status-cancelled,
-.tpos-theme .status-rejected {
-    background: var(--tpos-danger-soft);
-    color: var(--tpos-danger-hover);
-    border: 1px solid var(--tpos-danger-soft-2);
+.web2-theme .status-danger,
+.web2-theme .badge-danger,
+.web2-theme .status-error,
+.web2-theme .status-cancelled,
+.web2-theme .status-rejected {
+    background: var(--web2-danger-soft);
+    color: var(--web2-danger-hover);
+    border: 1px solid var(--web2-danger-soft-2);
 }
-.tpos-theme .status-neutral,
-.tpos-theme .badge-neutral,
-.tpos-theme .status-default {
-    background: var(--tpos-neutral-soft);
-    color: var(--tpos-text-3);
-    border: 1px solid var(--tpos-border-btn);
+.web2-theme .status-neutral,
+.web2-theme .badge-neutral,
+.web2-theme .status-default {
+    background: var(--web2-neutral-soft);
+    color: var(--web2-text-3);
+    border: 1px solid var(--web2-border-btn);
 }
 /* In/out type giữ solid để rõ ràng */
-.tpos-theme .type-in,
-.tpos-theme .badge-in {
-    background: var(--tpos-success);
+.web2-theme .type-in,
+.web2-theme .badge-in {
+    background: var(--web2-success);
     color: #fff;
     border: 0;
 }
-.tpos-theme .type-out,
-.tpos-theme .badge-out {
-    background: var(--tpos-danger);
+.web2-theme .type-out,
+.web2-theme .badge-out {
+    background: var(--web2-danger);
     color: #fff;
     border: 0;
 }
 
 /* ─── Active tab — gradient underline với glow nhẹ ────── */
-.tpos-theme .tab-button.active::after,
-.tpos-theme .main-tab.active::after {
-    background: linear-gradient(90deg, var(--tpos-primary), var(--tpos-info));
+.web2-theme .tab-button.active::after,
+.web2-theme .main-tab.active::after {
+    background: linear-gradient(90deg, var(--web2-primary), var(--web2-info));
     box-shadow: 0 1px 4px rgba(114, 102, 186, 0.25);
 }
 
 /* ─── Filter chips active state ────────────────────── */
-.tpos-theme .chip-select-primary,
-.tpos-theme .chip-label-primary {
-    background: var(--tpos-primary-soft);
-    color: var(--tpos-primary-hover);
-    border: 1px solid var(--tpos-primary-soft-2);
+.web2-theme .chip-select-primary,
+.web2-theme .chip-label-primary {
+    background: var(--web2-primary-soft);
+    color: var(--web2-primary-hover);
+    border: 1px solid var(--web2-primary-soft-2);
 }
-.tpos-theme .chip-select:focus-within,
-.tpos-theme .chip-select-wrapper:focus-within {
+.web2-theme .chip-select:focus-within,
+.web2-theme .chip-select-wrapper:focus-within {
     box-shadow: 0 0 0 2px rgba(114, 102, 186, 0.15);
 }
 
 /* ─── Bulk action toolbar — accent row khi đã chọn ───── */
-.tpos-theme .ordersBulkBar,
-.tpos-theme #ordersBulkBar,
-.tpos-theme .bulk-action-bar {
-    background: linear-gradient(90deg, var(--tpos-primary-soft) 0%, #fff 80%) !important;
-    border: 1px solid var(--tpos-primary-soft-2) !important;
-    border-left: 3px solid var(--tpos-primary) !important;
+.web2-theme .ordersBulkBar,
+.web2-theme #ordersBulkBar,
+.web2-theme .bulk-action-bar {
+    background: linear-gradient(90deg, var(--web2-primary-soft) 0%, #fff 80%) !important;
+    border: 1px solid var(--web2-primary-soft-2) !important;
+    border-left: 3px solid var(--web2-primary) !important;
 }
 
 /* ─── Form inputs — focus ring tinh tế (compositor-only) ─ */
-.tpos-theme input:focus,
-.tpos-theme select:focus,
-.tpos-theme textarea:focus,
+.web2-theme input:focus,
+.web2-theme select:focus,
+.web2-theme textarea:focus,
 body:has(.web2-shell) input:focus,
 body:has(.web2-shell) select:focus,
 body:has(.web2-shell) textarea:focus {
-    border-color: var(--tpos-primary);
+    border-color: var(--web2-primary);
     box-shadow: 0 0 0 3px rgba(114, 102, 186, 0.12);
     outline: none;
 }
 
 /* ─── Card section — generic block container ─────────── */
-.tpos-theme .web2-card,
-.tpos-theme .section-card {
+.web2-theme .web2-card,
+.web2-theme .section-card {
     background: #fff;
-    border: 1px solid var(--tpos-border-btn);
+    border: 1px solid var(--web2-border-btn);
     border-radius: 4px;
     padding: 14px 16px;
-    box-shadow: var(--tpos-shadow-card);
+    box-shadow: var(--web2-shadow-card);
     transition: box-shadow 0.12s;
 }
-.tpos-theme .web2-card:hover,
-.tpos-theme .section-card:hover {
+.web2-theme .web2-card:hover,
+.web2-theme .section-card:hover {
     box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
 /* ─── Section title — accent dot ────────────────────── */
-.tpos-theme .section-title {
+.web2-theme .section-title {
     font-weight: 700;
-    color: var(--tpos-text);
+    color: var(--web2-text);
     font-size: 13px;
     margin: 0 0 10px;
     padding-left: 10px;
-    border-left: 3px solid var(--tpos-primary);
+    border-left: 3px solid var(--web2-primary);
     line-height: 1.6;
 }
 
 /* ─── Empty state — friendly accent ─────────────────── */
-.tpos-theme .empty-state,
-.tpos-theme .empty-row {
+.web2-theme .empty-state,
+.web2-theme .empty-row {
     text-align: center;
     padding: 40px 20px;
-    color: var(--tpos-text-faded);
+    color: var(--web2-text-faded);
     font-size: 13px;
 }
-.tpos-theme .empty-state-icon {
+.web2-theme .empty-state-icon {
     width: 40px;
     height: 40px;
-    color: var(--tpos-primary-soft-2);
+    color: var(--web2-primary-soft-2);
     margin: 0 auto 8px;
     display: block;
 }
-.tpos-theme .empty-state-title {
+.web2-theme .empty-state-title {
     font-weight: 700;
-    color: var(--tpos-text-3);
+    color: var(--web2-text-3);
     margin-bottom: 4px;
     font-size: 14px;
 }
 
 /* ─── Modal header — accent gradient strip ────────────── */
-.tpos-theme .modal-header,
-.tpos-theme [class*='modal-header'] {
-    background: linear-gradient(180deg, var(--tpos-primary-soft) 0%, #fff 100%);
-    border-bottom: 1px solid var(--tpos-border-btn);
+.web2-theme .modal-header,
+.web2-theme [class*='modal-header'] {
+    background: linear-gradient(180deg, var(--web2-primary-soft) 0%, #fff 100%);
+    border-bottom: 1px solid var(--web2-border-btn);
     position: relative;
 }
-.tpos-theme .modal-header::after,
-.tpos-theme [class*='modal-header']::after {
+.web2-theme .modal-header::after,
+.web2-theme [class*='modal-header']::after {
     content: '';
     position: absolute;
     bottom: -1px;
     left: 0;
     width: 60px;
     height: 2px;
-    background: linear-gradient(90deg, var(--tpos-primary), var(--tpos-info));
+    background: linear-gradient(90deg, var(--web2-primary), var(--web2-info));
 }
 
 /* ─── Notification/toast — color-coded surface ──────── */
-.tpos-theme .toast-success,
-.tpos-theme .notification-success {
-    background: linear-gradient(135deg, var(--tpos-success-soft), #fff);
-    border-left: 3px solid var(--tpos-success);
-    color: var(--tpos-success-hover);
+.web2-theme .toast-success,
+.web2-theme .notification-success {
+    background: linear-gradient(135deg, var(--web2-success-soft), #fff);
+    border-left: 3px solid var(--web2-success);
+    color: var(--web2-success-hover);
 }
-.tpos-theme .toast-error,
-.tpos-theme .notification-error {
-    background: linear-gradient(135deg, var(--tpos-danger-soft), #fff);
-    border-left: 3px solid var(--tpos-danger);
-    color: var(--tpos-danger-hover);
+.web2-theme .toast-error,
+.web2-theme .notification-error {
+    background: linear-gradient(135deg, var(--web2-danger-soft), #fff);
+    border-left: 3px solid var(--web2-danger);
+    color: var(--web2-danger-hover);
 }
-.tpos-theme .toast-warning,
-.tpos-theme .notification-warning {
-    background: linear-gradient(135deg, var(--tpos-warning-soft), #fff);
+.web2-theme .toast-warning,
+.web2-theme .notification-warning {
+    background: linear-gradient(135deg, var(--web2-warning-soft), #fff);
     border-left: 3px solid #e0a800;
     color: #a68211;
 }
-.tpos-theme .toast-info,
-.tpos-theme .notification-info {
-    background: linear-gradient(135deg, var(--tpos-info-soft), #fff);
-    border-left: 3px solid var(--tpos-info);
-    color: var(--tpos-info-hover);
+.web2-theme .toast-info,
+.web2-theme .notification-info {
+    background: linear-gradient(135deg, var(--web2-info-soft), #fff);
+    border-left: 3px solid var(--web2-info);
+    color: var(--web2-info-hover);
 }
 
 /* ─── Reduce motion accessibility ───────────────────── */
 @media (prefers-reduced-motion: reduce) {
-    .tpos-theme *,
-    .tpos-theme *::before,
-    .tpos-theme *::after,
+    .web2-theme *,
+    .web2-theme *::before,
+    .web2-theme *::after,
     body:has(.web2-shell) *,
     body:has(.web2-shell) *::before,
     body:has(.web2-shell) *::after {

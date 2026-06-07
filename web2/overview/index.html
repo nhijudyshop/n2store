@@ -7,12 +7,12 @@
         <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
         <title>Tổng quan WEB 2.0 - n2store</title>
 
-        <link rel="stylesheet" href="../shared/tpos-sidebar.css?v=20260522e" />
-        <link rel="stylesheet" href="../shared/web2-tpos-theme.css?v=20260522d" />
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260522e" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260522d" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
         <link rel="stylesheet" href="./overview.css?v=20260522a" />
     </head>
-    <body class="tpos-theme">
+    <body class="web2-theme">
         <div class="web2-shell">
             <aside class="web2-aside" id="web2Aside"></aside>
             <main class="web2-main overview-main">
@@ -100,7 +100,7 @@
                                 </li>
                                 <li><a href="#p-reconcile">Đối soát giao hàng</a></li>
                                 <li><a href="#p-so-order">Sổ Order mua NCC</a></li>
-                                <li><a href="#p-tpos-pancake">TPOS × Pancake</a></li>
+                                <li><a href="#p-web2-pancake">TPOS × Pancake</a></li>
                                 <li><a href="#p-purchase-refund">Trả hàng NCC</a></li>
                                 <li><a href="#p-supplier-debt">Công nợ NCC</a></li>
                                 <li><a href="#p-supplier-wallet">Ví NCC</a></li>
@@ -142,7 +142,7 @@
                             </header>
                             <ol class="ov-pipeline-steps">
                                 <li>
-                                    <strong>FB Comment / Web</strong> — tpos-pancake nhận comment
+                                    <strong>FB Comment / Web</strong> — web2-pancake nhận comment
                                     livestream
                                 </li>
                                 <li>
@@ -276,7 +276,7 @@
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">Liên kết</span>
-                                        ⬅ tpos-pancake (comment livestream) → fast-sale-orders (PBH)
+                                        ⬅ web2-pancake (comment livestream) → fast-sale-orders (PBH)
                                         → reconcile
                                     </div>
                                 </div>
@@ -450,14 +450,14 @@
                         </article>
 
                         <!-- ===== 5. TPOS PANCAKE ===== -->
-                        <article class="ov-page" id="p-tpos-pancake">
+                        <article class="ov-page" id="p-web2-pancake">
                             <header class="ov-page-head ov-page-head-cyan">
                                 <span class="ov-page-num">05</span>
                                 <div>
                                     <h3>TPOS × Pancake</h3>
-                                    <code>tpos-pancake/index.html</code>
+                                    <code>web2-pancake/index.html</code>
                                 </div>
-                                <a class="ov-page-open" href="../../tpos-pancake/index.html">
+                                <a class="ov-page-open" href="../../web2-pancake/index.html">
                                     Mở trang →
                                 </a>
                             </header>
@@ -486,7 +486,7 @@
                                         <code>/api/pancake-direct/*</code> ·
                                         <code>/api/pancake-official/*</code> ·
                                         <code>/api/realtime/tpos/{start,status,stop}</code> ·
-                                        <code>/api/tpos-saved</code> ·
+                                        <code>/api/web2-saved</code> ·
                                         <code>/api/facebook-send</code>
                                     </div>
                                     <div class="ov-meta-item">
@@ -955,7 +955,7 @@ web2_supplier_wallet      ← Trang: supplier-wallet (Firestore)</pre
                             <h3>Bán hàng (Shop → KH)</h3>
                             <pre>
 FB Comment / Web
-   ↓ (tpos-pancake auto-extract)
+   ↓ (web2-pancake auto-extract)
 native_orders            ← Trang: native-orders
    ↓ confirm
 fast_sale_orders         ← Trang: fastsaleorder-invoice (PBH)
@@ -1700,7 +1700,7 @@ permission_templates    (role: admin/manager/staff)</pre
                             <h3>🛍️ Sản phẩm</h3>
                             <p style="font-size: 13px">
                                 Kho SP (<code>/api/web2-products</code>) là nguồn chuẩn; Biến Thể +
-                                Nhóm SP bổ trợ. Dashboard / cart tpos-pancake đều tham chiếu Kho SP
+                                Nhóm SP bổ trợ. Dashboard / cart web2-pancake đều tham chiếu Kho SP
                                 — không tự lưu SP.
                             </p>
                         </div>
@@ -1825,8 +1825,8 @@ permission_templates    (role: admin/manager/staff)</pre
                                 </li>
                                 <li>
                                     <strong>Sidebar/shell</strong>: dùng
-                                    <code>web2/shared/tpos-sidebar.js</code> +
-                                    <code>web2-tpos-theme.css</code>. KHÔNG import code từ Web 1.0
+                                    <code>web2/shared/web2-sidebar.js</code> +
+                                    <code>web2-theme.css</code>. KHÔNG import code từ Web 1.0
                                     (orders-report, inbox…).
                                 </li>
                             </ul>
@@ -1949,7 +1949,7 @@ permission_templates    (role: admin/manager/staff)</pre
                                 <li>
                                     Mỗi khi bật chat Pancake với 1 KH ở
                                     <strong>BẤT KỲ trang nào</strong> (native-orders,
-                                    balance-history, tpos-pancake, pancake-settings…), hệ thống tự
+                                    balance-history, web2-pancake, pancake-settings…), hệ thống tự
                                     lưu <code>fb_id</code> KH vào kho
                                     <code>web2_customers</code> nếu chưa có.
                                 </li>
@@ -2405,7 +2405,7 @@ permission_templates    (role: admin/manager/staff)</pre
         <script src="../shared/web2-user-info.js?v=20260530a"></script>
         <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
         <script src="../shared/web2-optimistic.js?v=20260601a"></script>
-        <script src="../shared/tpos-sidebar.js?v=20260606ck"></script>
+        <script src="../shared/web2-sidebar.js?v=20260606ck"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar) {

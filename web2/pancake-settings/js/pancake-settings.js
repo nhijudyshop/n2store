@@ -9,7 +9,7 @@
 //   pancake_page_access_tokens ({ pageId: { token, ... } })
 //
 // All operations go through window.Web2Chat — no shared code
-// with the tpos-pancake module.
+// with the web2-pancake module.
 
 (function () {
     'use strict';

@@ -106,7 +106,7 @@
             return '<div class="pc-noorder">⚠ Chưa khớp đơn (gán thủ công nếu cần)</div>';
         }
         const isNative = sig.orderType === 'native';
-        const page = isNative ? '../native-orders/index.html' : '../tpos-pancake/index.html';
+        const page = isNative ? '../native-orders/index.html' : '../web2-pancake/index.html';
         const label = isNative ? 'Đơn Web' : 'PBH';
         const o = sig.order;
         const extra = o ? ` — ${esc(o.name || '')} · ${fmtMoney(o.total)}đ` : '';

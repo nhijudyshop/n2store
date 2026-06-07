@@ -5,7 +5,7 @@
  *   - Header (breadcrumb + title + count pill)
  *   - Toolbar (Tải lại / Thêm mới / Xuất Excel buttons matching TPOS palette)
  *   - Filter bar (search + status + limit)
- *   - Table with TPOS classes (.data-table + tpos-theme)
+ *   - Table with TPOS classes (.data-table + web2-theme)
  *   - Pagination
  *   - Create/Edit modal driven by `fields` config
  *
@@ -149,10 +149,10 @@
                         <span class="search-result-label">bản ghi</span>
                     </div>
                     <div class="search-info-right">
-                        <button class="tpos-btn tpos-btn-default tpos-btn-sm" id="w2pReload"><i data-lucide="refresh-cw" style="width:12px;height:12px;"></i> Tải lại</button>
-                        <button class="tpos-btn tpos-btn-default tpos-btn-sm" id="w2pApply"><i data-lucide="filter" style="width:12px;height:12px;"></i> Áp dụng</button>
-                        <button class="tpos-btn tpos-btn-default tpos-btn-sm" id="w2pClear"><i data-lucide="x" style="width:12px;height:12px;"></i> Xóa lọc</button>
-                        <button class="tpos-btn tpos-btn-success tpos-btn-sm" id="w2pAdd"><i data-lucide="plus" style="width:12px;height:12px;"></i> Thêm mới</button>
+                        <button class="web2-btn web2-btn-default web2-btn-sm" id="w2pReload"><i data-lucide="refresh-cw" style="width:12px;height:12px;"></i> Tải lại</button>
+                        <button class="web2-btn web2-btn-default web2-btn-sm" id="w2pApply"><i data-lucide="filter" style="width:12px;height:12px;"></i> Áp dụng</button>
+                        <button class="web2-btn web2-btn-default web2-btn-sm" id="w2pClear"><i data-lucide="x" style="width:12px;height:12px;"></i> Xóa lọc</button>
+                        <button class="web2-btn web2-btn-success web2-btn-sm" id="w2pAdd"><i data-lucide="plus" style="width:12px;height:12px;"></i> Thêm mới</button>
                     </div>
                 </div>
             </section>
@@ -193,8 +193,8 @@
                     </div>
                     <div class="modal-body" id="w2pModalBody"></div>
                     <div class="modal-footer">
-                        <button class="tpos-btn tpos-btn-default tpos-btn-sm" id="w2pModalCancel">Hủy</button>
-                        <button class="tpos-btn tpos-btn-primary tpos-btn-sm" id="w2pModalSave"><i data-lucide="save" style="width:12px;height:12px;"></i> Lưu</button>
+                        <button class="web2-btn web2-btn-default web2-btn-sm" id="w2pModalCancel">Hủy</button>
+                        <button class="web2-btn web2-btn-primary web2-btn-sm" id="w2pModalSave"><i data-lucide="save" style="width:12px;height:12px;"></i> Lưu</button>
                     </div>
                 </div>
             </div>
@@ -241,24 +241,24 @@
                         })
                         .join('');
                     const status = r.isActive
-                        ? `<span class="tpos-status-text confirmed">Đang dùng</span>`
-                        : `<span class="tpos-status-text cancelled">Tạm dừng</span>`;
+                        ? `<span class="web2-status-text confirmed">Đang dùng</span>`
+                        : `<span class="web2-status-text cancelled">Tạm dừng</span>`;
                     return `
                     <tr data-code="${escapeHtml(r.code || '')}">
                         <td onclick="event.stopPropagation();"><input type="checkbox" class="w2p-row-check" value="${escapeHtml(r.code || '')}"></td>
                         <td>
-                            <div class="tpos-row-actions">
-                                <button class="tpos-btn tpos-btn-primary tpos-btn-xs" title="Sửa" data-act="edit" data-code="${escapeHtml(r.code || '')}">
+                            <div class="web2-row-actions">
+                                <button class="web2-btn web2-btn-primary web2-btn-xs" title="Sửa" data-act="edit" data-code="${escapeHtml(r.code || '')}">
                                     <i data-lucide="pencil" style="width:12px;height:12px;"></i>
                                 </button>
-                                <button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Xóa" data-act="delete" data-code="${escapeHtml(r.code || '')}">
+                                <button class="web2-btn web2-btn-danger web2-btn-xs" title="Xóa" data-act="delete" data-code="${escapeHtml(r.code || '')}">
                                     <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
                                 </button>
                             </div>
                         </td>
                         ${cells}
-                        <td class="tpos-cell-center">${fmtTime(r.createdAt)}</td>
-                        <td class="tpos-cell-center">${status}</td>
+                        <td class="web2-cell-center">${fmtTime(r.createdAt)}</td>
+                        <td class="web2-cell-center">${status}</td>
                     </tr>`;
                 })
                 .join('');

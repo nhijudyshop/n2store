@@ -5,11 +5,11 @@
  * Ours-counterpart routes go under /web2/<slug>/index.html.
  *
  * Usage (from /web2/<slug>/index.html):
- *   <link rel="stylesheet" href="../shared/tpos-sidebar.css">
- *   <script src="../shared/tpos-sidebar.js"></script>
- * Usage (from /native-orders/, /tpos-pancake/, /so-order/):
- *   <link rel="stylesheet" href="../web2/shared/tpos-sidebar.css">
- *   <script src="../web2/shared/tpos-sidebar.js"></script>
+ *   <link rel="stylesheet" href="../shared/web2-sidebar.css">
+ *   <script src="../shared/web2-sidebar.js"></script>
+ * Usage (from /native-orders/, /web2-pancake/, /so-order/):
+ *   <link rel="stylesheet" href="../web2/shared/web2-sidebar.css">
+ *   <script src="../web2/shared/web2-sidebar.js"></script>
  *   <body>
  *     <div class="web2-shell">
  *       <aside class="web2-aside" id="web2Aside"></aside>
@@ -29,7 +29,7 @@
         if (cs && cs.src) return cs.src;
         const list = document.getElementsByTagName('script');
         for (let i = list.length - 1; i >= 0; i--) {
-            if (list[i].src && /tpos-sidebar\.js(\?|#|$)/.test(list[i].src)) return list[i].src;
+            if (list[i].src && /web2-sidebar\.js(\?|#|$)/.test(list[i].src)) return list[i].src;
         }
         return location.href;
     })();
@@ -37,7 +37,7 @@
 
     // Auto-load shared Web 2.0 modules (popup + delivery picker).
     // Resolves URLs relative to this script so it works regardless of which
-    // depth the host page sits at (/web2/foo/, /native-orders/, /tpos-pancake/, etc.).
+    // depth the host page sits at (/web2/foo/, /native-orders/, /web2-pancake/, etc.).
     (function autoLoadSharedModules() {
         const here = document.currentScript;
         if (!here) return;
@@ -268,7 +268,7 @@
     /**
      * Resolve `our` path relative to current page location.
      * NAV stores paths as `../web2/X/index.html` assuming caller is at depth 1
-     * from project root (e.g. /native-orders/, /web2/products/, /tpos-pancake/).
+     * from project root (e.g. /native-orders/, /web2/products/, /web2-pancake/).
      * For pages inside /web2/<slug>/ (depth 2), prepend an extra `../` so the
      * link resolves to /web2/X/ instead of broken /web2/web2/X/.
      */
@@ -280,7 +280,7 @@
         if (/\/web2\/[^/]+\/[^/]*$/.test(pn)) {
             return '../../' + projectRel;
         }
-        // Default: caller at depth 1 (native-orders/, web2/products/, tpos-pancake/, web2/)
+        // Default: caller at depth 1 (native-orders/, web2/products/, web2-pancake/, web2/)
         return '../' + projectRel;
     }
 

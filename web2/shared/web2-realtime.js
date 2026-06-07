@@ -10,7 +10,7 @@
 //      admin UI joins (`users:{userId}`, `multiple_pages:{userId}`,
 //      `pages:{pageId}` per page). The browser receives events with
 //      zero middleware so coverage matches what Pancake's web app sees.
-//      Ported from tpos-pancake/js/realtime-manager.js with the
+//      Ported from web2-pancake/js/realtime-manager.js with the
 //      addition of per-page channel joins (caught the previously-missed
 //      `pages:new_message` events).
 //

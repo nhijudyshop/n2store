@@ -7,64 +7,64 @@
 
 :root {
     /* TPOS-derived palette */
-    --tpos-bg-app: #f0f3f4; /* html background */
-    --tpos-bg-cell-head: #f0eeee; /* th + td background */
-    --tpos-bg-light: #edf1f2; /* search input bg */
-    --tpos-text: #333; /* body cell text */
-    --tpos-text-2: #4c4c4c; /* body default text */
-    --tpos-text-3: #58666e; /* button default text + secondary */
-    --tpos-text-faded: #808080; /* "Nháp" status text */
-    --tpos-border: #cccccc; /* cell border-bottom */
-    --tpos-border-btn: #dee5e7; /* default button border */
+    --web2-bg-app: #f0f3f4; /* html background */
+    --web2-bg-cell-head: #f0eeee; /* th + td background */
+    --web2-bg-light: #edf1f2; /* search input bg */
+    --web2-text: #333; /* body cell text */
+    --web2-text-2: #4c4c4c; /* body default text */
+    --web2-text-3: #58666e; /* button default text + secondary */
+    --web2-text-faded: #808080; /* "Nháp" status text */
+    --web2-border: #cccccc; /* cell border-bottom */
+    --web2-border-btn: #dee5e7; /* default button border */
 
     /* TPOS button colors */
-    --tpos-primary: #7266ba; /* btn-primary (F10) — purple */
-    --tpos-primary-hover: #5e51ac;
-    --tpos-success: #27c24c; /* btn-success (F9) — green */
-    --tpos-success-hover: #20a73e;
-    --tpos-info: #23b7e5; /* btn-info (Cập nhật) — cyan */
-    --tpos-info-hover: #1ba0cb;
-    --tpos-warning: #fad733; /* btn-warning */
-    --tpos-danger: #f05050; /* btn-danger / delete */
-    --tpos-danger-hover: #e23b3b;
+    --web2-primary: #7266ba; /* btn-primary (F10) — purple */
+    --web2-primary-hover: #5e51ac;
+    --web2-success: #27c24c; /* btn-success (F9) — green */
+    --web2-success-hover: #20a73e;
+    --web2-info: #23b7e5; /* btn-info (Cập nhật) — cyan */
+    --web2-info-hover: #1ba0cb;
+    --web2-warning: #fad733; /* btn-warning */
+    --web2-danger: #f05050; /* btn-danger / delete */
+    --web2-danger-hover: #e23b3b;
 
     /* Bootstrap blue (used for phone link + carrier label) */
-    --tpos-link: #337ab7;
-    --tpos-link-hover: #245a8c;
-    --tpos-binhluan: #3824e5; /* "Bình luận" link purple-blue */
+    --web2-link: #337ab7;
+    --web2-link-hover: #245a8c;
+    --web2-binhluan: #3824e5; /* "Bình luận" link purple-blue */
 
     /* Status pill colors (.label classes) */
-    --tpos-label-success: #5cb85c; /* "Bình thường" */
-    --tpos-label-danger: #d9534f; /* "Bom hàng" */
-    --tpos-label-warning: #f0ad4e; /* "Cảnh báo" */
-    --tpos-label-tag-coc: #da532c; /* "CỌC 200K" orange-red */
-    --tpos-label-tag-boom: #ad2121; /* "KHÁCH BOOM" deep red */
+    --web2-label-success: #5cb85c; /* "Bình thường" */
+    --web2-label-danger: #d9534f; /* "Bom hàng" */
+    --web2-label-warning: #f0ad4e; /* "Cảnh báo" */
+    --web2-label-tag-coc: #da532c; /* "CỌC 200K" orange-red */
+    --web2-label-tag-boom: #ad2121; /* "KHÁCH BOOM" deep red */
 
     /* Legacy aliases for backward compat with existing classes */
-    --primary: var(--tpos-primary);
-    --primary-dark: var(--tpos-primary-hover);
-    --accent: var(--tpos-primary);
-    --accent-dark: var(--tpos-primary-hover);
-    --native: var(--tpos-primary);
+    --primary: var(--web2-primary);
+    --primary-dark: var(--web2-primary-hover);
+    --accent: var(--web2-primary);
+    --accent-dark: var(--web2-primary-hover);
+    --native: var(--web2-primary);
     --native-bg: #ede9fe;
-    --native-text: var(--tpos-primary);
-    --success: var(--tpos-success);
-    --success-dark: var(--tpos-success-hover);
-    --danger: var(--tpos-danger);
-    --warning: var(--tpos-warning);
-    --gray-50: var(--tpos-bg-light);
-    --gray-100: var(--tpos-bg-cell-head);
-    --gray-200: var(--tpos-border-btn);
-    --gray-300: var(--tpos-border);
+    --native-text: var(--web2-primary);
+    --success: var(--web2-success);
+    --success-dark: var(--web2-success-hover);
+    --danger: var(--web2-danger);
+    --warning: var(--web2-warning);
+    --gray-50: var(--web2-bg-light);
+    --gray-100: var(--web2-bg-cell-head);
+    --gray-200: var(--web2-border-btn);
+    --gray-300: var(--web2-border);
     --gray-400: #9ca3af;
-    --gray-500: var(--tpos-text-3);
-    --gray-600: var(--tpos-text-3);
-    --gray-700: var(--tpos-text);
-    --gray-800: var(--tpos-text);
+    --gray-500: var(--web2-text-3);
+    --gray-600: var(--web2-text-3);
+    --gray-700: var(--web2-text);
+    --gray-800: var(--web2-text);
     --gray-900: #000;
     --surface: #ffffff;
-    --bg: var(--tpos-bg-app);
-    --border: var(--tpos-border-btn);
+    --bg: var(--web2-bg-app);
+    --border: var(--web2-border-btn);
 
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
@@ -89,10 +89,10 @@ body {
     /* MATCH TPOS exactly */
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-size: 14px;
-    color: var(--tpos-text-2);
+    color: var(--web2-text-2);
 }
 html {
-    background: var(--tpos-bg-app);
+    background: var(--web2-bg-app);
 }
 body {
     background: transparent;
@@ -262,7 +262,7 @@ body {
     white-space: nowrap;
 }
 .filter-inline-count strong {
-    color: var(--tpos-primary);
+    color: var(--web2-primary);
     font-weight: 700;
 }
 
@@ -564,14 +564,14 @@ body {
     border-collapse: separate;
     border-spacing: 0;
     font-size: 13px;
-    color: var(--tpos-text);
+    color: var(--web2-text);
     background: #fff;
 }
 .data-table thead {
     position: sticky;
     top: 0;
     z-index: 10;
-    background: var(--tpos-bg-cell-head);
+    background: var(--web2-bg-cell-head);
 }
 .data-table th {
     text-align: left;
@@ -579,7 +579,7 @@ body {
     font-weight: 700;
     color: #2b3a45;
     font-size: 13px;
-    background: var(--tpos-bg-cell-head);
+    background: var(--web2-bg-cell-head);
     border-bottom: 1px solid #c8ced3;
     border-right: 1px solid #d9dde0;
     white-space: nowrap;
@@ -591,7 +591,7 @@ body {
     padding: 8px 10px;
     border-bottom: 1px solid #d9dde0;
     border-right: 1px solid #e5e8ea;
-    color: var(--tpos-text);
+    color: var(--web2-text);
     vertical-align: middle;
     background: #fff;
     transition: background-color 80ms ease;
@@ -988,31 +988,31 @@ body {
     gap: 8px;
     min-width: 0;
 }
-.cust-with-avatar .tpos-customer-avatar-wrap {
+.cust-with-avatar .web2-customer-avatar-wrap {
     flex-shrink: 0;
     cursor: help;
 }
-.cust-with-avatar .tpos-customer-cell {
+.cust-with-avatar .web2-customer-cell {
     flex: 1;
     min-width: 0;
 }
 
 /* Tên row: name + pill + nút lấy TPOS xếp ngang, có gap nhỏ */
-.tpos-customer-name-row {
+.web2-customer-name-row {
     display: flex;
     align-items: center;
     gap: 6px;
     flex-wrap: wrap;
     min-width: 0;
 }
-/* Khách lạ — đơn từ tpos-pancake chưa có tên */
-.tpos-customer-stranger {
+/* Khách lạ — đơn từ web2-pancake chưa có tên */
+.web2-customer-stranger {
     font-style: italic;
     color: #94a3b8;
     font-weight: 500;
 }
 /* Nút "Lấy TPOS" — nhỏ, secondary style, hover/focus rõ */
-.tpos-fetch-tpos-btn {
+.web2-fetch-web2-btn {
     display: inline-flex;
     align-items: center;
     gap: 3px;
@@ -1031,20 +1031,20 @@ body {
     line-height: 1.2;
     white-space: nowrap;
 }
-.tpos-fetch-tpos-btn:hover {
+.web2-fetch-web2-btn:hover {
     background: #c7d2fe;
     border-color: #818cf8;
     color: #4338ca;
 }
-.tpos-fetch-tpos-btn:focus-visible {
+.web2-fetch-web2-btn:focus-visible {
     outline: 2px solid #818cf8;
     outline-offset: 1px;
 }
-.tpos-fetch-tpos-btn:disabled {
+.web2-fetch-web2-btn:disabled {
     opacity: 0.6;
     cursor: progress;
 }
-.tpos-fetch-tpos-btn i {
+.web2-fetch-web2-btn i {
     flex-shrink: 0;
 }
 

@@ -1152,11 +1152,11 @@
 }
 
 /* Approve Modal - TPOS lookup styles (reuse from change modal) */
-.acc-approve-modal .tpos-lookup {
+.acc-approve-modal .web2-lookup {
     margin-top: 8px;
 }
 
-.acc-approve-modal .tpos-loading {
+.acc-approve-modal .web2-loading {
     color: #6b7280;
     font-size: 13px;
     display: flex;
@@ -1164,7 +1164,7 @@
     gap: 8px;
 }
 
-.acc-approve-modal .tpos-result {
+.acc-approve-modal .web2-result {
     background: #f0fdf4;
     border: 1px solid #86efac;
     border-radius: 6px;
@@ -1172,20 +1172,20 @@
     font-size: 13px;
 }
 
-.acc-approve-modal .tpos-result.error {
+.acc-approve-modal .web2-result.error {
     background: #fef2f2;
     border-color: #fca5a5;
     color: #991b1b;
 }
 
-.acc-approve-modal .tpos-multiple {
+.acc-approve-modal .web2-multiple {
     background: #fffbeb;
     border: 1px solid #fcd34d;
     border-radius: 6px;
     padding: 8px 12px;
 }
 
-.acc-approve-modal .tpos-multiple select {
+.acc-approve-modal .web2-multiple select {
     width: 100%;
     padding: 6px 8px;
     border: 1px solid #d1d5db;
@@ -1194,11 +1194,11 @@
     font-size: 13px;
 }
 
-.acc-change-modal .tpos-lookup {
+.acc-change-modal .web2-lookup {
     margin-top: 12px;
 }
 
-.acc-change-modal .tpos-loading {
+.acc-change-modal .web2-loading {
     color: #6b7280;
     font-size: 13px;
     display: flex;
@@ -1206,27 +1206,27 @@
     gap: 8px;
 }
 
-.acc-change-modal .tpos-result {
+.acc-change-modal .web2-result {
     background: #f0fdf4;
     border: 1px solid #86efac;
     border-radius: 8px;
     padding: 12px;
 }
 
-.acc-change-modal .tpos-result.error {
+.acc-change-modal .web2-result.error {
     background: #fef2f2;
     border-color: #fca5a5;
     color: #991b1b;
 }
 
-.acc-change-modal .tpos-multiple {
+.acc-change-modal .web2-multiple {
     background: #fffbeb;
     border: 1px solid #fcd34d;
     border-radius: 8px;
     padding: 12px;
 }
 
-.acc-change-modal .tpos-multiple select {
+.acc-change-modal .web2-multiple select {
     width: 100%;
     padding: 8px;
     border: 1px solid #d1d5db;

@@ -407,15 +407,15 @@
     // can't clip the preview.
     //
     // **Catch-all behavior** (2026-05-17): every <img> inside a
-    // Web 2.0 container (`.web2-shell`, `body.tpos-theme`,
-    // `body.tpos-clone`) auto-zooms unless explicitly excluded.
+    // Web 2.0 container (`.web2-shell`, `body.web2-theme`,
+    // `body.web2-clone`) auto-zooms unless explicitly excluded.
     // The previous opt-in selector list (`.product-image`,
     // `.so-cell-img img`, …) is kept as legacy whitelist for
     // pages without the Web 2.0 container wrapper.
     //
     // Exclusions:
     //   - data-w2-no-zoom on the <img> OR ancestor
-    //   - inside .tpos-sidebar / .sidebar / .so-tab-strip /
+    //   - inside .web2-sidebar / .sidebar / .so-tab-strip /
     //     button / a / nav (icon-only contexts)
     //   - intrinsic size < 32 px (likely an icon/avatar)
     //   - parent is a button/anchor (treat as icon)
@@ -438,10 +438,10 @@
         'img[data-w2-zoom]',
     ].join(',');
 
-    const HOVER_ZOOM_CONTAINER = '.web2-shell, body.tpos-theme, body.tpos-clone';
+    const HOVER_ZOOM_CONTAINER = '.web2-shell, body.web2-theme, body.web2-clone';
 
     const HOVER_ZOOM_EXCLUDE_CONTAINER = [
-        '.tpos-sidebar',
+        '.web2-sidebar',
         '.sidebar',
         '.web2-aside',
         '.so-tab-strip',

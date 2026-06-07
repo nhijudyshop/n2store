@@ -101,11 +101,11 @@
         // Common cases:
         //   /n2store/web2/<sub>/index.html → /n2store/web2/login/index.html
         //   /web2/<sub>/index.html → /web2/login/index.html
-        //   /tpos-pancake/index.html → ../web2/login/index.html
+        //   /web2-pancake/index.html → ../web2/login/index.html
         //   /so-order/index.html → ../web2/login/index.html
         const m = here.match(/^(.*\/)web2\//);
         if (m) return m[1] + 'web2/login/index.html';
-        // Page lives at root sibling (tpos-pancake/, so-order/, native-orders/)
+        // Page lives at root sibling (web2-pancake/, so-order/, native-orders/)
         const parts = here.split('/').filter(Boolean);
         // Pop the file part
         if (parts.length && parts[parts.length - 1].endsWith('.html')) parts.pop();

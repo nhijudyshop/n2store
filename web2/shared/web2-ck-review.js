@@ -1,6 +1,6 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — đối chiếu & duyệt tín hiệu CK (dùng chung 3 trang).
 // =====================================================
-// Web 2.0 — CK Review (component dùng chung: balance-history, native-orders, tpos-pancake)
+// Web 2.0 — CK Review (component dùng chung: balance-history, native-orders, web2-pancake)
 // =====================================================
 //
 // 1 NGUỒN: mọi trang chỉ gọi 1 dòng để mở; logic/dữ liệu/SSE tập trung ở đây +

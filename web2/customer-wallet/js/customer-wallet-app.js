@@ -206,9 +206,9 @@
         if (!text) return '';
         const cls = (window.PartnerCustomerApi?.statusClass?.(status) || '').replace(
             'pc-status-',
-            'cw-tpos-status-'
+            'cw-web2-status-'
         );
-        return `<span class="cw-tpos-status-pill ${cls}" title="Trạng thái TPOS">${escapeHtml(text)}</span>`;
+        return `<span class="cw-web2-status-pill ${cls}" title="Trạng thái TPOS">${escapeHtml(text)}</span>`;
     }
 
     function carrierFromPartner(partner, phone) {
@@ -288,7 +288,7 @@
             ? `../partner-customer/index.html?id=${encodeURIComponent(partner.Id)}`
             : `../partner-customer/index.html`;
         parts.push(
-            `<a class="cw-tpos-link" href="${tposEditUrl}" target="_blank" rel="noopener" title="Mở thẻ KH trên Web 2.0">Mở thẻ KH ↗</a>`
+            `<a class="cw-web2-link" href="${tposEditUrl}" target="_blank" rel="noopener" title="Mở thẻ KH trên Web 2.0">Mở thẻ KH ↗</a>`
         );
         sub.innerHTML = parts.join(' · ');
 
@@ -297,11 +297,11 @@
         if (!extras) {
             extras = document.createElement('div');
             extras.id = 'cwTposExtras';
-            extras.className = 'cw-tpos-extras';
+            extras.className = 'cw-web2-extras';
             sub.parentNode.appendChild(extras);
         }
         if (!partner) {
-            extras.innerHTML = '<span class="cw-tpos-loading">Đang lấy thông tin TPOS…</span>';
+            extras.innerHTML = '<span class="cw-web2-loading">Đang lấy thông tin TPOS…</span>';
             return;
         }
         const email = partner.Email || '';
@@ -314,17 +314,17 @@
         const fragments = [];
         if (email) {
             fragments.push(
-                `<span class="cw-tpos-item"><i data-lucide="mail"></i>${escapeHtml(email)}</span>`
+                `<span class="cw-web2-item"><i data-lucide="mail"></i>${escapeHtml(email)}</span>`
             );
         }
         if (address) {
             fragments.push(
-                `<span class="cw-tpos-item"><i data-lucide="map-pin"></i>${escapeHtml(address)}</span>`
+                `<span class="cw-web2-item"><i data-lucide="map-pin"></i>${escapeHtml(address)}</span>`
             );
         }
         if (credit && Math.abs(credit - w.balance) > 1) {
             fragments.push(
-                `<span class="cw-tpos-item cw-tpos-mismatch" title="Nợ TPOS ≠ Nợ ví — cần đối soát"><i data-lucide="alert-triangle"></i>Nợ TPOS: ${fmtVnd(credit)}</span>`
+                `<span class="cw-web2-item cw-web2-mismatch" title="Nợ TPOS ≠ Nợ ví — cần đối soát"><i data-lucide="alert-triangle"></i>Nợ TPOS: ${fmtVnd(credit)}</span>`
             );
         }
 
@@ -335,7 +335,7 @@
             const dep = Number(web2Wallet.total_deposited || 0);
             const wd = Number(web2Wallet.total_withdrawn || 0);
             fragments.push(
-                `<span class="cw-tpos-item cw-web2-wallet-info" title="Ví Web 2.0 — tiền thật trong ví"><i data-lucide="wallet"></i>Ví: <b>${fmtVnd(bal)}</b> (nạp ${fmtVnd(dep)} / chi ${fmtVnd(wd)})</span>`
+                `<span class="cw-web2-item cw-web2-wallet-info" title="Ví Web 2.0 — tiền thật trong ví"><i data-lucide="wallet"></i>Ví: <b>${fmtVnd(bal)}</b> (nạp ${fmtVnd(dep)} / chi ${fmtVnd(wd)})</span>`
             );
         }
         extras.innerHTML = fragments.join('');

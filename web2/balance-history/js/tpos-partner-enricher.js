@@ -38,8 +38,8 @@
         const status = partner.Status || 'Normal';
         const text = partner.StatusText || Api.STATUS_TEXT?.[status] || '';
         if (!text || status === 'Normal') return ''; // chỉ show khi khác Bình thường (giảm nhiễu)
-        const cls = (Api.statusClass?.(status) || '').replace('pc-status-', 'bh-tpos-status-');
-        return `<span class="bh-tpos-status-pill ${cls}" title="Trạng thái TPOS">${escapeHtml(text)}</span>`;
+        const cls = (Api.statusClass?.(status) || '').replace('pc-status-', 'bh-web2-status-');
+        return `<span class="bh-web2-status-pill ${cls}" title="Trạng thái TPOS">${escapeHtml(text)}</span>`;
     }
 
     function linkHtml(partner) {
@@ -47,7 +47,7 @@
         const url = id
             ? `../partner-customer/index.html?id=${encodeURIComponent(id)}`
             : '../partner-customer/index.html';
-        return `<a class="bh-tpos-link" href="${url}" target="_blank" rel="noopener" title="Mở thẻ KH Web 2.0"><i data-lucide="external-link"></i></a>`;
+        return `<a class="bh-web2-link" href="${url}" target="_blank" rel="noopener" title="Mở thẻ KH Web 2.0"><i data-lucide="external-link"></i></a>`;
     }
 
     function enrichRow(row) {
@@ -64,15 +64,15 @@
             row.__tposEnriched = true;
             return; // not found in TPOS
         }
-        const cell = row.querySelector('[data-tpos-customer-cell="1"]');
+        const cell = row.querySelector('[data-web2-customer-cell="1"]');
         if (!cell) return;
         // Check exist
-        if (cell.querySelector('.bh-tpos-enrich')) {
+        if (cell.querySelector('.bh-web2-enrich')) {
             row.__tposEnriched = true;
             return;
         }
         const wrap = document.createElement('span');
-        wrap.className = 'bh-tpos-enrich';
+        wrap.className = 'bh-web2-enrich';
         // 2026-06-03: bỏ nút "Mở thẻ KH" (↗) — click tên KH mở modal chi tiết thay thế.
         wrap.innerHTML = statusPillHtml(partner);
         cell.appendChild(wrap);

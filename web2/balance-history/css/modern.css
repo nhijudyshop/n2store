@@ -1125,11 +1125,11 @@ button {
    ===================================================== */
 
 /* Visual indicator for products with TPOS IDs */
-tr[data-tpos-id] {
+tr[data-web2-id] {
     position: relative;
 }
 
-tr[data-tpos-id]::before {
+tr[data-web2-id]::before {
     content: 'TPOS';
     position: absolute;
     left: 4px;
@@ -1146,13 +1146,13 @@ tr[data-tpos-id]::before {
     pointer-events: none;
 }
 
-tr[data-tpos-id]:hover::before {
+tr[data-web2-id]:hover::before {
     opacity: 1;
 }
 
 /* Tooltip showing TPOS Product ID on hover */
-tr[data-tpos-id]:hover::after {
-    content: 'TPOS ID: ' attr(data-tpos-id);
+tr[data-web2-id]:hover::after {
+    content: 'TPOS ID: ' attr(data-web2-id);
     position: absolute;
     left: 60px;
     top: 50%;

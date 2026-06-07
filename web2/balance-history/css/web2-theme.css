@@ -4,7 +4,7 @@
  *
  * Base CSS standard cho Web 2.0 = native-orders/css/. Trang này import:
  *   - native-orders.css (layout, typography, tab, filter, table, button)
- *   - tpos-theme.css (.tpos-btn, .tpos-label color tokens)
+ *   - web2-theme.css (.web2-btn, .web2-label color tokens)
  *
  * File này chỉ override balance-history-specific selectors để map sang
  * tokens TPOS thay vì gradient tím cũ.
@@ -27,38 +27,38 @@
 
 /* ─── Color tokens — clone native-orders TPOS palette ─── */
 :root {
-    --tpos-primary: #7266ba;
-    --tpos-primary-hover: #5e51ac;
-    --tpos-success: #27c24c;
-    --tpos-success-hover: #20a73e;
-    --tpos-info: #23b7e5;
-    --tpos-info-hover: #1ba0cb;
-    --tpos-warning: #fad733;
-    --tpos-danger: #f05050;
-    --tpos-danger-hover: #e23b3b;
-    --tpos-text: #333;
-    --tpos-text-2: #4c4c4c;
-    --tpos-text-3: #58666e;
-    --tpos-text-faded: #808080;
-    --tpos-border: #cccccc;
-    --tpos-border-btn: #dee5e7;
-    --tpos-bg-app: #f0f3f4;
-    --tpos-bg-light: #edf1f2;
-    --tpos-bg-cell-head: #f0eeee;
-    --tpos-link: #337ab7;
-    --tpos-link-hover: #245a8c;
+    --web2-primary: #7266ba;
+    --web2-primary-hover: #5e51ac;
+    --web2-success: #27c24c;
+    --web2-success-hover: #20a73e;
+    --web2-info: #23b7e5;
+    --web2-info-hover: #1ba0cb;
+    --web2-warning: #fad733;
+    --web2-danger: #f05050;
+    --web2-danger-hover: #e23b3b;
+    --web2-text: #333;
+    --web2-text-2: #4c4c4c;
+    --web2-text-3: #58666e;
+    --web2-text-faded: #808080;
+    --web2-border: #cccccc;
+    --web2-border-btn: #dee5e7;
+    --web2-bg-app: #f0f3f4;
+    --web2-bg-light: #edf1f2;
+    --web2-bg-cell-head: #f0eeee;
+    --web2-link: #337ab7;
+    --web2-link-hover: #245a8c;
 }
 
 /* ─── Base typography — TPOS Segoe UI ───────────────── */
-body.tpos-theme {
+body.web2-theme {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
     font-size: 14px;
-    color: var(--tpos-text-2);
-    background: var(--tpos-bg-app);
+    color: var(--web2-text-2);
+    background: var(--web2-bg-app);
     margin: 0;
 }
-.tpos-theme .container,
-.tpos-theme .main-content {
+.web2-theme .container,
+.web2-theme .main-content {
     background: transparent;
     max-width: none;
     padding: 14px 18px 28px;
@@ -66,18 +66,18 @@ body.tpos-theme {
 }
 
 /* ─── Main tabs — TPOS underline style ──────────────── */
-.tpos-theme .main-tabs {
+.web2-theme .main-tabs {
     display: flex;
     gap: 0;
     margin: 0 0 14px;
     padding: 0 4px;
     background: #fff;
-    border: 1px solid var(--tpos-border-btn);
+    border: 1px solid var(--web2-border-btn);
     border-radius: 4px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
 }
-.tpos-theme .main-tab {
+.web2-theme .main-tab {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -85,7 +85,7 @@ body.tpos-theme {
     background: transparent;
     border: 0;
     border-bottom: 2px solid transparent;
-    color: var(--tpos-text-3);
+    color: var(--web2-text-3);
     font-family: inherit;
     font-weight: 500;
     font-size: 13px;
@@ -96,23 +96,23 @@ body.tpos-theme {
         color 0.15s ease,
         border-color 0.15s ease;
 }
-.tpos-theme .main-tab i {
+.web2-theme .main-tab i {
     width: 15px;
     height: 15px;
 }
-.tpos-theme .main-tab:hover {
-    color: var(--tpos-primary);
-    background: var(--tpos-bg-light);
+.web2-theme .main-tab:hover {
+    color: var(--web2-primary);
+    background: var(--web2-bg-light);
 }
-.tpos-theme .main-tab.active {
-    color: var(--tpos-primary);
+.web2-theme .main-tab.active {
+    color: var(--web2-primary);
     font-weight: 600;
-    border-bottom-color: var(--tpos-primary);
+    border-bottom-color: var(--web2-primary);
     background: transparent;
     box-shadow: none;
 }
-.tpos-theme .unchecked-badge {
-    background: var(--tpos-danger);
+.web2-theme .unchecked-badge {
+    background: var(--web2-danger);
     color: #fff;
     border-radius: 999px;
     padding: 1px 6px;
@@ -121,32 +121,32 @@ body.tpos-theme {
     margin-left: 4px;
     line-height: 1.4;
 }
-.tpos-theme .main-tab.active .unchecked-badge {
-    background: var(--tpos-primary);
+.web2-theme .main-tab.active .unchecked-badge {
+    background: var(--web2-primary);
 }
 
 /* ─── Panel cards ───────────────────────────────────── */
-.tpos-theme .main-tab-panel {
+.web2-theme .main-tab-panel {
     background: #fff;
-    border: 1px solid var(--tpos-border-btn);
+    border: 1px solid var(--web2-border-btn);
     border-radius: 4px;
     padding: 0;
     overflow: hidden;
 }
-.tpos-theme .main-tab-panel:not(.active) {
+.web2-theme .main-tab-panel:not(.active) {
     display: none;
 }
 
 /* ─── Header inside Balance History panel ───────────── */
-.tpos-theme #balanceHistoryPanel .header {
+.web2-theme #balanceHistoryPanel .header {
     background: #fff;
-    color: var(--tpos-text);
+    color: var(--web2-text);
     padding: 14px 18px;
-    border-bottom: 1px solid var(--tpos-border-btn);
+    border-bottom: 1px solid var(--web2-border-btn);
     border-radius: 0;
 }
-.tpos-theme #balanceHistoryPanel .header h1 {
-    color: var(--tpos-text);
+.web2-theme #balanceHistoryPanel .header h1 {
+    color: var(--web2-text);
     font-weight: 600;
     margin: 0;
     display: flex;
@@ -154,51 +154,51 @@ body.tpos-theme {
     gap: 7px;
     font-size: 15px !important;
 }
-.tpos-theme #balanceHistoryPanel .header h1 i {
+.web2-theme #balanceHistoryPanel .header h1 i {
     width: 17px;
     height: 17px;
-    color: var(--tpos-primary);
+    color: var(--web2-primary);
 }
-.tpos-theme #balanceHistoryPanel .header-actions {
+.web2-theme #balanceHistoryPanel .header-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 10px;
     align-items: center;
 }
-.tpos-theme .inline-qr-form {
+.web2-theme .inline-qr-form {
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
     align-items: center;
-    background: var(--tpos-bg-light);
+    background: var(--web2-bg-light);
     padding: 6px;
     border-radius: 4px;
-    border: 1px solid var(--tpos-border-btn);
+    border: 1px solid var(--web2-border-btn);
 }
-.tpos-theme .inline-input,
-.tpos-theme .inline-qr-form input {
+.web2-theme .inline-input,
+.web2-theme .inline-qr-form input {
     background: #fff !important;
-    border: 1px solid var(--tpos-border-btn) !important;
-    color: var(--tpos-text) !important;
+    border: 1px solid var(--web2-border-btn) !important;
+    color: var(--web2-text) !important;
     padding: 5px 8px !important;
     border-radius: 3px !important;
     font-size: 12px !important;
     height: 28px;
     font-family: inherit;
 }
-.tpos-theme .inline-input::placeholder {
-    color: var(--tpos-text-faded) !important;
+.web2-theme .inline-input::placeholder {
+    color: var(--web2-text-faded) !important;
 }
-.tpos-theme .inline-input:focus,
-.tpos-theme .inline-qr-form input:focus {
-    border-color: var(--tpos-primary) !important;
+.web2-theme .inline-input:focus,
+.web2-theme .inline-qr-form input:focus {
+    border-color: var(--web2-primary) !important;
     outline: none;
     box-shadow: 0 0 0 2px rgba(114, 102, 186, 0.15);
 }
 
-/* ─── Buttons — clone .tpos-btn family ──────────────── */
-.tpos-theme .btn {
+/* ─── Buttons — clone .web2-btn family ──────────────── */
+.web2-theme .btn {
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -207,11 +207,11 @@ body.tpos-theme {
     font-size: 12px;
     font-weight: 500;
     line-height: 1.42857;
-    color: var(--tpos-text-3);
+    color: var(--web2-text-3);
     text-align: center;
     cursor: pointer;
     background: #fff;
-    border: 1px solid var(--tpos-border-btn);
+    border: 1px solid var(--web2-border-btn);
     border-radius: 2px;
     user-select: none;
     /* compositor-only */
@@ -220,75 +220,75 @@ body.tpos-theme {
         border-color 0.12s,
         color 0.12s;
 }
-.tpos-theme .btn-sm {
+.web2-theme .btn-sm {
     padding: 4px 8px;
     font-size: 11.5px;
 }
-.tpos-theme .btn i {
+.web2-theme .btn i {
     width: 13px;
     height: 13px;
     margin-right: 2px;
 }
-.tpos-theme .btn:hover {
+.web2-theme .btn:hover {
     background: #f5f7f8;
     border-color: #b0bcc1;
-    color: var(--tpos-text);
+    color: var(--web2-text);
 }
-.tpos-theme .btn-primary {
-    background: var(--tpos-primary);
+.web2-theme .btn-primary {
+    background: var(--web2-primary);
     color: #fff;
-    border-color: var(--tpos-primary);
+    border-color: var(--web2-primary);
 }
-.tpos-theme .btn-primary:hover {
-    background: var(--tpos-primary-hover);
-    border-color: var(--tpos-primary-hover);
+.web2-theme .btn-primary:hover {
+    background: var(--web2-primary-hover);
+    border-color: var(--web2-primary-hover);
     color: #fff;
 }
-.tpos-theme .btn-secondary {
+.web2-theme .btn-secondary {
     background: #fff;
-    color: var(--tpos-text-3);
-    border-color: var(--tpos-border-btn);
+    color: var(--web2-text-3);
+    border-color: var(--web2-border-btn);
 }
-.tpos-theme .btn-secondary:hover {
+.web2-theme .btn-secondary:hover {
     background: #f5f7f8;
-    color: var(--tpos-text);
+    color: var(--web2-text);
     border-color: #b0bcc1;
 }
-.tpos-theme .btn-success {
-    background: var(--tpos-success);
+.web2-theme .btn-success {
+    background: var(--web2-success);
     color: #fff;
-    border-color: var(--tpos-success);
+    border-color: var(--web2-success);
 }
-.tpos-theme .btn-success:hover {
-    background: var(--tpos-success-hover);
-    border-color: var(--tpos-success-hover);
+.web2-theme .btn-success:hover {
+    background: var(--web2-success-hover);
+    border-color: var(--web2-success-hover);
 }
-.tpos-theme .btn-danger {
-    background: var(--tpos-danger);
+.web2-theme .btn-danger {
+    background: var(--web2-danger);
     color: #fff;
-    border-color: var(--tpos-danger);
+    border-color: var(--web2-danger);
 }
-.tpos-theme .btn-danger:hover {
-    background: var(--tpos-danger-hover);
-    border-color: var(--tpos-danger-hover);
+.web2-theme .btn-danger:hover {
+    background: var(--web2-danger-hover);
+    border-color: var(--web2-danger-hover);
 }
-.tpos-theme .btn-info {
-    background: var(--tpos-info);
+.web2-theme .btn-info {
+    background: var(--web2-info);
     color: #fff;
-    border-color: var(--tpos-info);
+    border-color: var(--web2-info);
 }
-.tpos-theme .btn-info:hover {
-    background: var(--tpos-info-hover);
-    border-color: var(--tpos-info-hover);
+.web2-theme .btn-info:hover {
+    background: var(--web2-info-hover);
+    border-color: var(--web2-info-hover);
 }
-.tpos-theme .btn-icon {
+.web2-theme .btn-icon {
     width: 30px;
     height: 30px;
     padding: 0;
     border-radius: 3px;
     background: #fff;
-    color: var(--tpos-text-3);
-    border: 1px solid var(--tpos-border-btn);
+    color: var(--web2-text-3);
+    border: 1px solid var(--web2-border-btn);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -298,101 +298,101 @@ body.tpos-theme {
         border-color 0.12s,
         color 0.12s;
 }
-.tpos-theme .btn-icon:hover {
-    background: var(--tpos-bg-light);
-    color: var(--tpos-primary);
-    border-color: var(--tpos-primary);
+.web2-theme .btn-icon:hover {
+    background: var(--web2-bg-light);
+    color: var(--web2-primary);
+    border-color: var(--web2-primary);
 }
-.tpos-theme .btn-icon i {
+.web2-theme .btn-icon i {
     width: 14px;
     height: 14px;
 }
 
 /* ─── Filter / search bar ───────────────────────────── */
-.tpos-theme .filters-section,
-.tpos-theme .filters,
-.tpos-theme .search-section {
+.web2-theme .filters-section,
+.web2-theme .filters,
+.web2-theme .search-section {
     padding: 10px 18px;
     background: #fff;
-    border-bottom: 1px solid var(--tpos-border-btn);
+    border-bottom: 1px solid var(--web2-border-btn);
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     align-items: center;
 }
-.tpos-theme .filters-section input[type='text'],
-.tpos-theme .filters-section input[type='search'],
-.tpos-theme .filters-section input[type='date'],
-.tpos-theme .filters-section input[type='time'],
-.tpos-theme .filters-section select,
-.tpos-theme .filters input[type='text'],
-.tpos-theme .filters input[type='search'],
-.tpos-theme .filters input[type='date'],
-.tpos-theme .filters input[type='time'],
-.tpos-theme .filters select {
+.web2-theme .filters-section input[type='text'],
+.web2-theme .filters-section input[type='search'],
+.web2-theme .filters-section input[type='date'],
+.web2-theme .filters-section input[type='time'],
+.web2-theme .filters-section select,
+.web2-theme .filters input[type='text'],
+.web2-theme .filters input[type='search'],
+.web2-theme .filters input[type='date'],
+.web2-theme .filters input[type='time'],
+.web2-theme .filters select {
     height: 30px;
     padding: 0 9px;
-    border: 1px solid var(--tpos-border-btn);
+    border: 1px solid var(--web2-border-btn);
     border-radius: 3px;
     font-size: 12.5px;
     font-family: inherit;
     background: #fff;
-    color: var(--tpos-text);
+    color: var(--web2-text);
     outline: none;
     transition: border-color 0.12s;
 }
-.tpos-theme .filters-section input:focus,
-.tpos-theme .filters input:focus,
-.tpos-theme .filters select:focus {
-    border-color: var(--tpos-primary);
+.web2-theme .filters-section input:focus,
+.web2-theme .filters input:focus,
+.web2-theme .filters select:focus {
+    border-color: var(--web2-primary);
     box-shadow: 0 0 0 2px rgba(114, 102, 186, 0.15);
 }
 
 /* ─── Tables — TPOS clone ───────────────────────────── */
-.tpos-theme .balance-table,
-.tpos-theme .data-table,
-.tpos-theme .table-section table {
+.web2-theme .balance-table,
+.web2-theme .data-table,
+.web2-theme .table-section table {
     width: 100%;
     border-collapse: collapse;
     background: #fff;
     font-size: 13px;
 }
-.tpos-theme .balance-table thead th,
-.tpos-theme .data-table thead th {
-    background: var(--tpos-bg-cell-head);
-    color: var(--tpos-text-3);
+.web2-theme .balance-table thead th,
+.web2-theme .data-table thead th {
+    background: var(--web2-bg-cell-head);
+    color: var(--web2-text-3);
     font-weight: 600;
     font-size: 12px;
     text-transform: none;
     letter-spacing: 0;
     padding: 9px 10px;
     text-align: left;
-    border-bottom: 1px solid var(--tpos-border);
+    border-bottom: 1px solid var(--web2-border);
     position: sticky;
     top: 0;
     z-index: 2;
 }
-.tpos-theme .balance-table tbody td,
-.tpos-theme .data-table tbody td {
+.web2-theme .balance-table tbody td,
+.web2-theme .data-table tbody td {
     padding: 8px 10px;
     border-bottom: 1px solid #eee;
     font-size: 13px;
-    color: var(--tpos-text);
+    color: var(--web2-text);
 }
-.tpos-theme .balance-table tbody tr,
-.tpos-theme .data-table tbody tr {
+.web2-theme .balance-table tbody tr,
+.web2-theme .data-table tbody tr {
     /* compositor-only hover (no layout shift) */
     transition: background 0.1s;
 }
-.tpos-theme .balance-table tbody tr:hover,
-.tpos-theme .data-table tbody tr:hover {
-    background: var(--tpos-bg-light);
+.web2-theme .balance-table tbody tr:hover,
+.web2-theme .data-table tbody tr:hover {
+    background: var(--web2-bg-light);
 }
 
 /* ─── Type badges (in/out) ──────────────────────────── */
-.tpos-theme .badge,
-.tpos-theme .status-pill,
-.tpos-theme .type-badge {
+.web2-theme .badge,
+.web2-theme .status-pill,
+.web2-theme .type-badge {
     display: inline-flex;
     align-items: center;
     gap: 3px;
@@ -404,54 +404,54 @@ body.tpos-theme {
     text-transform: none;
     letter-spacing: 0;
 }
-.tpos-theme .type-in,
-.tpos-theme .badge-in {
-    background: var(--tpos-success);
+.web2-theme .type-in,
+.web2-theme .badge-in {
+    background: var(--web2-success);
     color: #fff;
 }
-.tpos-theme .type-out,
-.tpos-theme .badge-out {
-    background: var(--tpos-danger);
+.web2-theme .type-out,
+.web2-theme .badge-out {
+    background: var(--web2-danger);
     color: #fff;
 }
 
 /* ─── Stats cards — flat TPOS style ─────────────────── */
-.tpos-theme .stats-grid,
-.tpos-theme .stat-cards {
+.web2-theme .stats-grid,
+.web2-theme .stat-cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 10px;
     padding: 12px 18px;
     background: #fff;
-    border-bottom: 1px solid var(--tpos-border-btn);
+    border-bottom: 1px solid var(--web2-border-btn);
 }
-.tpos-theme .stat-card {
+.web2-theme .stat-card {
     background: #fff;
-    border: 1px solid var(--tpos-border-btn);
+    border: 1px solid var(--web2-border-btn);
     border-radius: 3px;
     padding: 10px 12px;
     /* compositor-only — change only border-color trên hover */
     transition: border-color 0.12s;
 }
-.tpos-theme .stat-card:hover {
-    border-color: var(--tpos-primary);
+.web2-theme .stat-card:hover {
+    border-color: var(--web2-primary);
 }
-.tpos-theme .stat-card .stat-label,
-.tpos-theme .stat-card .label {
+.web2-theme .stat-card .stat-label,
+.web2-theme .stat-card .label {
     font-size: 11px;
-    color: var(--tpos-text-3);
+    color: var(--web2-text-3);
     font-weight: 600;
     margin-bottom: 3px;
 }
-.tpos-theme .stat-card .stat-value,
-.tpos-theme .stat-card .value {
+.web2-theme .stat-card .stat-value,
+.web2-theme .stat-card .value {
     font-size: 18px;
     font-weight: 700;
-    color: var(--tpos-text);
+    color: var(--web2-text);
 }
 
 /* ─── Live mode header — dark TPOS variant ──────────── */
-.tpos-theme .live-mode-header {
+.web2-theme .live-mode-header {
     padding: 12px 18px;
     background: #2f3b41;
     color: #fff;
@@ -461,8 +461,8 @@ body.tpos-theme {
     align-items: center;
     gap: 10px;
 }
-.tpos-theme .live-mode-header .live-indicator {
-    background: var(--tpos-danger);
+.web2-theme .live-mode-header .live-indicator {
+    background: var(--web2-danger);
     color: #fff;
     font-weight: 700;
     font-size: 11px;
@@ -473,7 +473,7 @@ body.tpos-theme {
     align-items: center;
     gap: 6px;
 }
-.tpos-theme .live-mode-header .pulse {
+.web2-theme .live-mode-header .pulse {
     width: 7px;
     height: 7px;
     border-radius: 50%;
@@ -490,9 +490,9 @@ body.tpos-theme {
         opacity: 1;
     }
 }
-.tpos-theme .live-search input {
+.web2-theme .live-search input {
     background: rgba(255, 255, 255, 0.95);
-    color: var(--tpos-text);
+    color: var(--web2-text);
     border: 0;
     border-radius: 3px;
     padding: 6px 10px;
@@ -500,7 +500,7 @@ body.tpos-theme {
     font-family: inherit;
     min-width: 200px;
 }
-.tpos-theme .sse-status {
+.web2-theme .sse-status {
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -509,15 +509,15 @@ body.tpos-theme {
     padding: 3px 8px;
     border-radius: 999px;
 }
-.tpos-theme .sse-status.disconnected {
+.web2-theme .sse-status.disconnected {
     background: rgba(240, 80, 80, 0.18);
     color: #ffaaaa;
 }
-.tpos-theme .sse-status.connected {
+.web2-theme .sse-status.connected {
     background: rgba(39, 194, 76, 0.18);
     color: #8ee99e;
 }
-.tpos-theme .sse-status .status-dot {
+.web2-theme .sse-status .status-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
@@ -525,20 +525,20 @@ body.tpos-theme {
 }
 
 /* ─── Pagination — TPOS clone ───────────────────────── */
-.tpos-theme .pagination {
+.web2-theme .pagination {
     display: flex;
     gap: 3px;
     align-items: center;
     padding: 12px 18px;
     background: #fff;
-    border-top: 1px solid var(--tpos-border-btn);
+    border-top: 1px solid var(--web2-border-btn);
 }
-.tpos-theme .page-btn {
+.web2-theme .page-btn {
     min-width: 30px;
     height: 30px;
-    border: 1px solid var(--tpos-border-btn);
+    border: 1px solid var(--web2-border-btn);
     background: #fff;
-    color: var(--tpos-text-3);
+    color: var(--web2-text-3);
     border-radius: 3px;
     cursor: pointer;
     font-size: 12.5px;
@@ -550,43 +550,43 @@ body.tpos-theme {
         border-color 0.12s,
         color 0.12s;
 }
-.tpos-theme .page-btn:hover:not(:disabled) {
-    background: var(--tpos-bg-light);
-    color: var(--tpos-primary);
-    border-color: var(--tpos-primary);
+.web2-theme .page-btn:hover:not(:disabled) {
+    background: var(--web2-bg-light);
+    color: var(--web2-primary);
+    border-color: var(--web2-primary);
 }
-.tpos-theme .page-btn.active {
-    background: var(--tpos-primary);
+.web2-theme .page-btn.active {
+    background: var(--web2-primary);
     color: #fff;
-    border-color: var(--tpos-primary);
+    border-color: var(--web2-primary);
 }
-.tpos-theme .page-btn:disabled {
+.web2-theme .page-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
 }
 
 /* ─── Kanban (live mode) ────────────────────────────── */
-.tpos-theme .kanban-board {
-    background: var(--tpos-bg-app);
+.web2-theme .kanban-board {
+    background: var(--web2-bg-app);
     padding: 14px;
     min-height: 400px;
     /* defer offscreen card render */
     content-visibility: auto;
     contain-intrinsic-size: 1px 1000px;
 }
-.tpos-theme .kanban-loading {
+.web2-theme .kanban-loading {
     text-align: center;
-    color: var(--tpos-text-faded);
+    color: var(--web2-text-faded);
     padding: 60px 20px;
     display: flex;
     flex-direction: column;
     gap: 10px;
     align-items: center;
 }
-.tpos-theme .kanban-loading i {
+.web2-theme .kanban-loading i {
     width: 28px;
     height: 28px;
-    color: var(--tpos-primary);
+    color: var(--web2-primary);
     animation: w2-spin 1s linear infinite;
 }
 @keyframes w2-spin {
@@ -599,16 +599,16 @@ body.tpos-theme {
 }
 
 /* ─── Verification (Kế Toán) tab ────────────────────── */
-.tpos-theme .verification-stats,
-.tpos-theme .verification-header {
+.web2-theme .verification-stats,
+.web2-theme .verification-header {
     padding: 12px 18px;
 }
-.tpos-theme .verification-stats {
+.web2-theme .verification-stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 10px;
     background: #fff;
-    border-bottom: 1px solid var(--tpos-border-btn);
+    border-bottom: 1px solid var(--web2-border-btn);
 }
 
 /* =====================================================
@@ -628,27 +628,27 @@ body.tpos-theme {
  * ===================================================== */
 
 /* Base modal pattern - apply qua class .w2-modal hoặc selector chung */
-.tpos-theme .modal,
-.tpos-theme [class*='-modal'],
-.tpos-theme [id*='Modal'][role='dialog'],
-.tpos-theme .modal-overlay {
+.web2-theme .modal,
+.web2-theme [class*='-modal'],
+.web2-theme [id*='Modal'][role='dialog'],
+.web2-theme .modal-overlay {
     /* compositor hint */
     transform: translateZ(0);
 }
 
 /* Modal overlay — KHÔNG backdrop-filter */
-.tpos-theme .modal-overlay,
-.tpos-theme .modal.show > .modal-backdrop,
-.tpos-theme [class*='modal-overlay'] {
+.web2-theme .modal-overlay,
+.web2-theme .modal.show > .modal-backdrop,
+.web2-theme [class*='modal-overlay'] {
     background: rgba(15, 23, 42, 0.42) !important;
     /* KHÔNG dùng backdrop-filter: blur() — lag GPU nặng */
 }
 
 /* Modal content — open animation */
-.tpos-theme .modal-content,
-.tpos-theme .modal-dialog,
-.tpos-theme [class*='modal-content'],
-.tpos-theme [class*='modal-dialog'] {
+.web2-theme .modal-content,
+.web2-theme .modal-dialog,
+.web2-theme [class*='modal-content'],
+.web2-theme [class*='modal-dialog'] {
     will-change: transform, opacity;
     transition:
         transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
@@ -656,42 +656,42 @@ body.tpos-theme {
 }
 
 /* Closed state — scale + fade */
-.tpos-theme .modal:not(.show):not(.active) .modal-content,
-.tpos-theme .modal:not(.show):not(.active) .modal-dialog {
+.web2-theme .modal:not(.show):not(.active) .modal-content,
+.web2-theme .modal:not(.show):not(.active) .modal-dialog {
     opacity: 0;
     transform: scale(0.96);
 }
-.tpos-theme .modal.show .modal-content,
-.tpos-theme .modal.active .modal-content,
-.tpos-theme .modal.show .modal-dialog,
-.tpos-theme .modal.active .modal-dialog {
+.web2-theme .modal.show .modal-content,
+.web2-theme .modal.active .modal-content,
+.web2-theme .modal.show .modal-dialog,
+.web2-theme .modal.active .modal-dialog {
     opacity: 1;
     transform: scale(1);
 }
 
 /* Lock body scroll khi modal mở (giảm reflow lag) */
-.tpos-theme body.modal-open {
+.web2-theme body.modal-open {
     overflow: hidden;
 }
 
 /* Modal inputs — focus ring nhẹ + GPU-friendly */
-.tpos-theme .modal input,
-.tpos-theme .modal select,
-.tpos-theme .modal textarea {
+.web2-theme .modal input,
+.web2-theme .modal select,
+.web2-theme .modal textarea {
     transition: border-color 0.12s;
 }
 
 /* Reduce paint on hover inside long lists/tables (modal contents) */
-.tpos-theme .modal-body,
-.tpos-theme .modal-content {
+.web2-theme .modal-body,
+.web2-theme .modal-content {
     contain: layout style;
 }
 
 /* ─── Reduce motion when user prefers ──────────────── */
 @media (prefers-reduced-motion: reduce) {
-    .tpos-theme *,
-    .tpos-theme *::before,
-    .tpos-theme *::after {
+    .web2-theme *,
+    .web2-theme *::before,
+    .web2-theme *::after {
         animation-duration: 0.001ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.001ms !important;
@@ -700,40 +700,40 @@ body.tpos-theme {
 
 /* ─── Mobile breakpoint < 768px ─────────────────────── */
 @media (max-width: 768px) {
-    .tpos-theme .container,
-    .tpos-theme .main-content {
+    .web2-theme .container,
+    .web2-theme .main-content {
         padding: 10px 12px 20px;
     }
-    .tpos-theme #balanceHistoryPanel .header {
+    .web2-theme #balanceHistoryPanel .header {
         padding: 10px 12px;
     }
-    .tpos-theme .filters-section,
-    .tpos-theme .filters,
-    .tpos-theme .search-section {
+    .web2-theme .filters-section,
+    .web2-theme .filters,
+    .web2-theme .search-section {
         padding: 8px 12px;
     }
-    .tpos-theme .balance-table thead th,
-    .tpos-theme .balance-table tbody td,
-    .tpos-theme .data-table thead th,
-    .tpos-theme .data-table tbody td {
+    .web2-theme .balance-table thead th,
+    .web2-theme .balance-table tbody td,
+    .web2-theme .data-table thead th,
+    .web2-theme .data-table tbody td {
         padding: 7px 8px;
         font-size: 12px;
     }
-    .tpos-theme .main-tab {
+    .web2-theme .main-tab {
         padding: 9px 12px;
         font-size: 12.5px;
     }
 }
 
 /* TPOS Partner enricher --------------------------------------------- */
-.bh-tpos-enrich {
+.bh-web2-enrich {
     display: inline-flex;
     align-items: center;
     gap: 4px;
     margin-left: 6px;
     vertical-align: middle;
 }
-.bh-tpos-status-pill {
+.bh-web2-status-pill {
     display: inline-block;
     padding: 1px 6px;
     border-radius: 999px;
@@ -743,32 +743,32 @@ body.tpos-theme {
     background: #f1f5f9;
     color: #475569;
 }
-.bh-tpos-status-pill.bh-tpos-status-bomb {
+.bh-web2-status-pill.bh-web2-status-bomb {
     background: #fee2e2;
     color: #991b1b;
 }
-.bh-tpos-status-pill.bh-tpos-status-warning {
+.bh-web2-status-pill.bh-web2-status-warning {
     background: #fef3c7;
     color: #92400e;
 }
-.bh-tpos-status-pill.bh-tpos-status-danger {
+.bh-web2-status-pill.bh-web2-status-danger {
     background: #fecaca;
     color: #7f1d1d;
 }
-.bh-tpos-status-pill.bh-tpos-status-vip {
+.bh-web2-status-pill.bh-web2-status-vip {
     background: #dbeafe;
     color: #1e40af;
 }
-.bh-tpos-link {
+.bh-web2-link {
     color: #0891b2;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
 }
-.bh-tpos-link i[data-lucide] {
+.bh-web2-link i[data-lucide] {
     width: 12px;
     height: 12px;
 }
-.bh-tpos-link:hover {
+.bh-web2-link:hover {
     color: #0e7490;
 }

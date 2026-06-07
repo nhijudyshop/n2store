@@ -156,7 +156,7 @@ const PancakeConversationList = {
                         ${
                             state.activeFilter === 'live-saved'
                                 ? `
-                        <button class="pk-remove-live-btn" title="Xóa khỏi Lưu Live" onclick="event.stopPropagation(); window.PancakeConversationList.removeFromLiveSaved('${conv.from?.id || conv.from_psid || customer.psid || customer.id || ''}')">
+                        <button class="pk-remove-web2-btn" title="Xóa khỏi Lưu Live" onclick="event.stopPropagation(); window.PancakeConversationList.removeFromLiveSaved('${conv.from?.id || conv.from_psid || customer.psid || customer.id || ''}')">
                             <i data-lucide="minus"></i>
                         </button>`
                                 : ''

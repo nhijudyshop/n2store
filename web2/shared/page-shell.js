@@ -32,15 +32,15 @@
 
     // CSS files cần load
     const CSS_FILES = [
-        '../../web2/shared/tpos-sidebar.css',
+        '../../web2/shared/web2-sidebar.css',
         '../../native-orders/css/native-orders.css',
-        '../../native-orders/css/tpos-theme.css',
-        '../../web2/shared/page-builder-tpos.css',
+        '../../native-orders/css/web2-theme.css',
+        '../../web2/shared/page-builder.css',
         '../../web2/shared/web2-effects.css',
     ];
 
     // Script tags cần load TRƯỚC khi mount (theo thứ tự).
-    // web2-auth.js phải có TRƯỚC tpos-sidebar.js để renderUserFooter()
+    // web2-auth.js phải có TRƯỚC web2-sidebar.js để renderUserFooter()
     // có Web2Auth sẵn lúc mount → footer "Chưa đăng nhập" / user info hiện
     // ngay frame đầu, không có race window làm footer trống.
     const SCRIPTS_PRELOAD = [
@@ -73,7 +73,7 @@
     // web2-sse-bridge MUST load before page-builder so generic pages can
     // subscribe topic 'web2:<entity-slug>' (xem docs/web2/SSE-REALTIME.md).
     const SCRIPTS_MOUNT = [
-        '../../web2/shared/tpos-sidebar.js',
+        '../../web2/shared/web2-sidebar.js',
         '../../web2/shared/web2-sse-bridge.js?v=20260526sse2',
         '../../web2/shared/web2-api.js',
         '../../web2/shared/page-builder.js',
@@ -122,7 +122,7 @@
 
     function injectShell() {
         // body class for theme inheritance
-        document.body.classList.add('tpos-theme');
+        document.body.classList.add('web2-theme');
         const shell = document.createElement('div');
         shell.className = 'web2-shell';
         shell.innerHTML = `

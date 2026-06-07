@@ -502,7 +502,7 @@
     // Upload media (ảnh/tệp) lên Pancake → trả content_id để gửi kèm sendMessage.
     // POST /api/pancake-official/pages/:pageId/upload_contents?page_access_token=<pat>
     //   FormData: file → { id, attachment_type }
-    // Dùng cho fallback Pancake khi extension không có (cùng endpoint tpos-pancake
+    // Dùng cho fallback Pancake khi extension không có (cùng endpoint web2-pancake
     // PancakeAPI.uploadMedia). Trả { ok, id, attachment_type, reason? }.
     // =====================================================
     async function uploadMedia(pageId, file) {

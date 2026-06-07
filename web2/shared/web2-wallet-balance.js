@@ -149,7 +149,7 @@
     // ── Click pill → mở modal chi tiết KH (lịch sử ví/thanh toán + đơn) ──────
     // Modal Web2CustomerDetailModal nằm cùng folder shared. Lazy-load 1 lần từ
     // chính src của script này (không cần sửa từng trang). Hoạt động ở MỌI nơi
-    // có pill (balance-history, native-orders, tpos-pancake, partner-customer,
+    // có pill (balance-history, native-orders, web2-pancake, partner-customer,
     // ck-dashboard, payment-confirm, overview).
     let _modalLoading = null;
     function _ownBase() {

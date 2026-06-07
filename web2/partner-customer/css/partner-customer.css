@@ -1,14 +1,14 @@
 /* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — partner-customer (TPOS clone). */
 /* ============================================================
    partner-customer.css — Khách hàng (TPOS-clone) styles
-   - Bám theo tone của native-orders/tpos-theme.css
+   - Bám theo tone của native-orders/web2-theme.css
    - Prefix `pc-` để không đụng chéo các page khác
    ============================================================ */
 
 .pc-main {
     padding: 16px 22px 28px;
     max-width: 100%;
-    color: var(--tpos-text-primary, #1f2d3d);
+    color: var(--web2-text-primary, #1f2d3d);
 }
 
 /* ---------- Head ---------- */
@@ -51,7 +51,7 @@
     letter-spacing: -0.01em;
 }
 .pc-page-title i[data-lucide] {
-    color: var(--tpos-accent, #6c5ce7);
+    color: var(--web2-accent, #6c5ce7);
 }
 
 .pc-birthday-badge {
@@ -112,10 +112,10 @@
     outline: none;
 }
 .pc-page-search input:focus {
-    border-color: var(--tpos-accent, #6c5ce7);
+    border-color: var(--web2-accent, #6c5ce7);
 }
 .pc-search-btn {
-    background: var(--tpos-accent, #6c5ce7);
+    background: var(--web2-accent, #6c5ce7);
     color: #fff;
     border: none;
     border-radius: 0 6px 6px 0;
@@ -174,9 +174,9 @@
     height: 14px;
 }
 .pc-btn-primary {
-    background: var(--tpos-accent, #6c5ce7);
+    background: var(--web2-accent, #6c5ce7);
     color: #fff;
-    border-color: var(--tpos-accent, #6c5ce7);
+    border-color: var(--web2-accent, #6c5ce7);
 }
 .pc-btn-primary:hover:not(:disabled) {
     background: #5b48d6;
@@ -233,7 +233,7 @@
 }
 .pc-input:focus,
 .pc-select:focus {
-    border-color: var(--tpos-accent, #6c5ce7);
+    border-color: var(--web2-accent, #6c5ce7);
 }
 
 .pc-dropdown {
@@ -380,7 +380,7 @@
 }
 .pc-th-filter input:focus,
 .pc-th-filter select:focus {
-    border-color: var(--tpos-accent, #6c5ce7);
+    border-color: var(--web2-accent, #6c5ce7);
 }
 
 .pc-table tbody td {
@@ -639,9 +639,9 @@
     background: #f3f4f6;
 }
 .pc-pagination-buttons button.is-active {
-    background: var(--tpos-accent, #6c5ce7);
+    background: var(--web2-accent, #6c5ce7);
     color: #fff;
-    border-color: var(--tpos-accent, #6c5ce7);
+    border-color: var(--web2-accent, #6c5ce7);
 }
 .pc-pagination-buttons button:disabled {
     opacity: 0.4;
@@ -771,7 +771,7 @@
 .pc-field input:focus,
 .pc-field select:focus,
 .pc-field textarea:focus {
-    border-color: var(--tpos-accent, #6c5ce7);
+    border-color: var(--web2-accent, #6c5ce7);
 }
 .pc-field-error {
     display: none;

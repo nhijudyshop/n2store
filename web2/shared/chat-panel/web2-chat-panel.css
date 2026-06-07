@@ -1,6 +1,6 @@
 /* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — style cho component chat hợp nhất Web2ChatPanel. */
 /* =====================================================================
-   Web2ChatPanel — 1 component chat dùng chung cho native-orders, tpos-pancake,
+   Web2ChatPanel — 1 component chat dùng chung cho native-orders, web2-pancake,
    balance-history. Prefix .w2cp-. Tier-1 anti-lag: contain + overscroll-behavior
    + compositor-only transitions (xem docs/web2/MODAL-ANTI-LAG.md).
    ===================================================================== */

@@ -9,7 +9,7 @@
 // sang service worker. SW trả lại `type + '_SUCCESS'` hoặc `type + '_FAILURE'`
 // (kèm taskId để match request). Khi load, extension announce EXTENSION_LOADED.
 //
-// Đây là bản TÁCH RA từ native-orders (_extensionRequest inline) để tpos-pancake
+// Đây là bản TÁCH RA từ native-orders (_extensionRequest inline) để web2-pancake
 // và các trang Web 2.0 khác dùng chung. Public API:
 //   window.Web2Ext.hasExtension()            → boolean
 //   window.Web2Ext.version()                 → string|null

@@ -495,9 +495,9 @@
         if (!text) return '';
         const cls = (window.PartnerCustomerApi?.statusClass?.(partner.Status) || '').replace(
             'pc-status-',
-            'cw-tpos-status-'
+            'cw-web2-status-'
         );
-        return `<span class="cw-tpos-status-pill ${cls}">${escapeHtml(text)}</span>`;
+        return `<span class="cw-web2-status-pill ${cls}">${escapeHtml(text)}</span>`;
     }
 
     function cardHtml(c) {
@@ -580,7 +580,7 @@
             ? `../partner-customer/index.html?id=${encodeURIComponent(partner.Id)}`
             : `../partner-customer/index.html?search=${encodeURIComponent(phone)}`;
         parts.push(
-            `<a class="cw-tpos-link" href="${editUrl}" target="_blank" rel="noopener">Mở thẻ KH ↗</a>`
+            `<a class="cw-web2-link" href="${editUrl}" target="_blank" rel="noopener">Mở thẻ KH ↗</a>`
         );
         dom.detailSub.innerHTML = parts.join(' · ');
 
@@ -588,13 +588,13 @@
         if (!extras) {
             extras = document.createElement('div');
             extras.id = 'cwTposExtras';
-            extras.className = 'cw-tpos-extras';
+            extras.className = 'cw-web2-extras';
             dom.detailSub.parentNode.appendChild(extras);
         }
         const frags = [];
         if (partner?.Email) {
             frags.push(
-                `<span class="cw-tpos-item"><i data-lucide="mail"></i>${escapeHtml(partner.Email)}</span>`
+                `<span class="cw-web2-item"><i data-lucide="mail"></i>${escapeHtml(partner.Email)}</span>`
             );
         }
         const addr =
@@ -604,7 +604,7 @@
                 .join(', ');
         if (addr) {
             frags.push(
-                `<span class="cw-tpos-item"><i data-lucide="map-pin"></i>${escapeHtml(addr)}</span>`
+                `<span class="cw-web2-item"><i data-lucide="map-pin"></i>${escapeHtml(addr)}</span>`
             );
         }
         if (w2) {
@@ -612,11 +612,11 @@
             const dep = Number(w2.total_deposited || 0);
             const wd = Number(w2.total_withdrawn || 0);
             frags.push(
-                `<span class="cw-tpos-item cw-web2-wallet-info"><i data-lucide="wallet"></i>Ví Web 2.0: <b>${fmtVnd(bal)}</b> (nạp ${fmtVnd(dep)} / chi ${fmtVnd(wd)})</span>`
+                `<span class="cw-web2-item cw-web2-wallet-info"><i data-lucide="wallet"></i>Ví Web 2.0: <b>${fmtVnd(bal)}</b> (nạp ${fmtVnd(dep)} / chi ${fmtVnd(wd)})</span>`
             );
         } else {
             frags.push(
-                `<span class="cw-tpos-item cw-tpos-loading">Chưa có ví Web 2.0 — sẽ tự tạo khi KH chuyển khoản đầu tiên</span>`
+                `<span class="cw-web2-item cw-web2-loading">Chưa có ví Web 2.0 — sẽ tự tạo khi KH chuyển khoản đầu tiên</span>`
             );
         }
         extras.innerHTML = frags.join('');

@@ -440,7 +440,7 @@
     background: #ffffff;
 }
 
-.kanban-card .card-phone-input-group .tpos-suggest {
+.kanban-card .card-phone-input-group .web2-suggest {
     width: 100%;
     font-size: 11px;
     padding: 2px 4px;
@@ -491,7 +491,7 @@
 }
 
 /* TPOS suggest inline - for manual column */
-.kanban-card .tpos-suggest {
+.kanban-card .web2-suggest {
     flex-shrink: 0;
     width: 150px;
     font-size: 11px;
@@ -502,23 +502,23 @@
     text-overflow: ellipsis;
 }
 
-.kanban-card .tpos-suggest.loading {
+.kanban-card .web2-suggest.loading {
     background: #f1f5f9;
     color: #94a3b8;
 }
 
-.kanban-card .tpos-suggest.found {
+.kanban-card .web2-suggest.found {
     background: #ecfdf5;
     color: #065f46;
     border: 1px solid #a7f3d0;
 }
 
-.kanban-card .tpos-suggest.not-found {
+.kanban-card .web2-suggest.not-found {
     background: #fef3c7;
     color: #92400e;
 }
 
-.kanban-card .tpos-suggest.empty {
+.kanban-card .web2-suggest.empty {
     background: #f8fafc;
     color: #94a3b8;
 }

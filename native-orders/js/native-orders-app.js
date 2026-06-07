@@ -25,7 +25,7 @@
         { key: 'message', label: 'Tin nhắn' },
         { key: 'comment', label: 'Bình luận' },
         // 2026-06-01: Tách cột "Ghi chú" thành 2:
-        //   - customerComment (cũ note): auto-captured comment từ FB tpos-pancake, read-only
+        //   - customerComment (cũ note): auto-captured comment từ FB web2-pancake, read-only
         //   - userNote: ghi chú NV tự ghi (size, đóng gói, etc) qua modal sửa đơn
         // Default both ẨN — user toggle qua "Hiện/ẩn cột" nếu cần.
         { key: 'customerComment', label: 'Khách comment' },
@@ -72,7 +72,7 @@
         expandedOrders: new Set(), // codes of rows currently expanded
         // Campaign filter (multi-select). Empty array = "all"; explicit array of campaign IDs
         // = filter to those (use '__no_campaign__' for orders without a campaign).
-        // On boot, restored from localStorage `tpos_selected_campaigns` (set by tpos-pancake).
+        // On boot, restored from localStorage `tpos_selected_campaigns` (set by web2-pancake).
         selectedCampaignIds: [],
         availableCampaigns: [], // [{id, name, count, lastOrderAt}]
         // Phase 14: scope list to a single Customer 360 record (parsed from URL).
@@ -433,7 +433,7 @@
             return `<div class="cust-avatar" style="background:${color};">${char}</div>`;
         }
         // CF Worker /api/fb-avatar expects ?id= + &page= (not &page_id=).
-        // Same signature as tpos-pancake (SharedUtils.getAvatarUrl) + orders-report (tab1-table.js).
+        // Same signature as web2-pancake (SharedUtils.getAvatarUrl) + orders-report (tab1-table.js).
         const url = `${WORKER_URL}/api/fb-avatar?id=${encodeURIComponent(o.fbUserId)}${o.fbPageId ? '&page=' + encodeURIComponent(o.fbPageId) : ''}`;
         return `
             <div class="cust-avatar" style="background:${color};">
@@ -739,7 +739,7 @@
     }
 
     // 2026-06-01: Thủ công lấy info KH từ TPOS qua Facebook_ASUserId
-    // (cho đơn từ tpos-pancake có FB ID nhưng rỗng phone/address/name).
+    // (cho đơn từ web2-pancake có FB ID nhưng rỗng phone/address/name).
     // Endpoint backend (web2-customer-tpos.js) tự upsert customers table + link
     // fb_id, sau đó PATCH native_order với name/phone/address để row cập nhật.
     // UI-first: badge "Đang lấy..." optimistic, lỗi → rollback, success → render.
@@ -756,7 +756,7 @@
 
         const apply = () => {
             // Mark đang loading bằng cách disable button (render attribute)
-            const btn = document.querySelector(`button.tpos-fetch-tpos-btn[onclick*="'${code}'"]`);
+            const btn = document.querySelector(`button.web2-fetch-web2-btn[onclick*="'${code}'"]`);
             if (btn) {
                 btn.disabled = true;
                 btn.innerHTML =
@@ -977,7 +977,7 @@
             delivered: { label: 'Đã giao', cls: 'delivered' },
         };
         const m = map[s] || { label: s || '—', cls: '' };
-        return `<span class="tpos-status-text ${m.cls}">${m.label}</span>`;
+        return `<span class="web2-status-text ${m.cls}">${m.label}</span>`;
     }
 
     // 2026-06-04: badge phái sinh từ PBH liên kết (server /load gắn pbh* fields):
@@ -1156,22 +1156,22 @@
         const status = (o.partnerStatus || '').trim();
         const statusPill =
             status === 'Bom hàng'
-                ? `<span class="tpos-label tpos-label-danger m-l-xs">Bom hàng</span>`
+                ? `<span class="web2-label web2-label-danger m-l-xs">Bom hàng</span>`
                 : status === 'Cảnh báo'
-                  ? `<span class="tpos-label tpos-label-warning m-l-xs">Cảnh báo</span>`
+                  ? `<span class="web2-label web2-label-warning m-l-xs">Cảnh báo</span>`
                   : status === 'Nguy hiểm'
-                    ? `<span class="tpos-label tpos-label-danger m-l-xs">Nguy hiểm</span>`
-                    : `<span class="tpos-label tpos-label-success m-l-xs">Bình thường</span>`;
+                    ? `<span class="web2-label web2-label-danger m-l-xs">Nguy hiểm</span>`
+                    : `<span class="web2-label web2-label-success m-l-xs">Bình thường</span>`;
         const tagBadges = (o.tags || [])
             .map((t) => {
                 const txt = typeof t === 'string' ? t : t.name || t.label || '';
                 if (!txt) return '';
                 const upper = txt.toUpperCase();
-                let cls = 'tpos-label-default';
-                if (/CỌC|COC/.test(upper)) cls = 'tpos-label-coc';
-                else if (/BOOM/.test(upper)) cls = 'tpos-label-boom';
-                else if (/GIỎ|GIO/.test(upper)) cls = 'tpos-label-warning';
-                return `<span class="tpos-label ${cls}">${escapeHtml(txt)}</span>`;
+                let cls = 'web2-label-default';
+                if (/CỌC|COC/.test(upper)) cls = 'web2-label-coc';
+                else if (/BOOM/.test(upper)) cls = 'web2-label-boom';
+                else if (/GIỎ|GIO/.test(upper)) cls = 'web2-label-warning';
+                return `<span class="web2-label ${cls}">${escapeHtml(txt)}</span>`;
             })
             .join('');
         const total = Number(o.totalAmount || 0).toLocaleString('vi-VN');
@@ -1184,7 +1184,7 @@
         const mergeTotalQty = STATE.colVisibility.mergeTotalQty;
         const mergedPhoneHtml =
             mergeNameSdt && o.phone
-                ? `<a href="tel:${escapeHtml(o.phone)}" class="tpos-phone-link" style="font-size:11px;color:#6b7280;font-weight:500;" onclick="event.stopPropagation();">${escapeHtml(o.phone)}</a>`
+                ? `<a href="tel:${escapeHtml(o.phone)}" class="web2-phone-link" style="font-size:11px;color:#6b7280;font-weight:500;" onclick="event.stopPropagation();">${escapeHtml(o.phone)}</a>`
                 : '';
         const mergedQtyHtml =
             mergeTotalQty && qty
@@ -1209,17 +1209,17 @@
                     data-fb-page-id="${escapeHtml(o.fbPageId || '')}"
                     onclick="NativeOrdersApp.toggleExpand('${escapeHtml(o.code)}')" style="cursor:pointer;">
                     <td class="col-check" onclick="event.stopPropagation();">
-                        <div class="tpos-check-stt">
+                        <div class="web2-check-stt">
                             <input type="checkbox" class="row-check" value="${escapeHtml(o.code)}">
-                            <span class="tpos-row-stt">${sttValue}</span>
+                            <span class="web2-row-stt">${sttValue}</span>
                             <!-- 2026-06-01: trạng thái đơn moved into STT cell (per user) -->
-                            <div class="tpos-row-status-inline">${tposStatusText(o.status)}</div>
+                            <div class="web2-row-status-inline">${tposStatusText(o.status)}</div>
                             ${orderDerivedBadges(o)}
                         </div>
                     </td>
                     <td class="col-actions" onclick="event.stopPropagation();">
-                        <div class="tpos-row-actions tpos-row-actions-grid">
-                            <button class="tpos-btn tpos-btn-primary tpos-btn-xs" title="Sửa"
+                        <div class="web2-row-actions web2-row-actions-grid">
+                            <button class="web2-btn web2-btn-primary web2-btn-xs" title="Sửa"
                                 onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')">
                                 <i data-lucide="pencil" style="width:12px;height:12px;"></i>
                             </button>
@@ -1236,7 +1236,7 @@
                                 //     "Xác nhận đơn" — workflow gom lại 1 bước, click Tạo
                                 //     PBH = vừa confirm vừa tạo PBH luôn + deduct stock).
                                 if (o.status === 'cancelled') {
-                                    return `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH mới (đơn đã huỷ — sẽ tạo PBH mới với số HĐ mới, KHÔNG đụng PBH cũ)"
+                                    return `<button class="web2-btn web2-btn-success web2-btn-xs" title="Tạo PBH mới (đơn đã huỷ — sẽ tạo PBH mới với số HĐ mới, KHÔNG đụng PBH cũ)"
                                 onclick="event.stopPropagation();NativeOrdersApp.createPbh('${escapeHtml(o.code)}')">
                                 <i data-lucide="receipt" style="width:12px;height:12px;"></i>
                             </button>`;
@@ -1244,28 +1244,28 @@
                                 if (o.status === 'confirmed') {
                                     // 2026-06-04: slot 2 cho đơn confirmed = nút Huỷ đơn (X) — dời
                                     // lên đây theo yêu cầu (bỏ In PBH per-row vì trùng "In bill").
-                                    return `<button class="tpos-btn tpos-btn-warning tpos-btn-xs" title="Huỷ đơn (PBH liên kết tự cancel + restock)"
+                                    return `<button class="web2-btn web2-btn-warning web2-btn-xs" title="Huỷ đơn (PBH liên kết tự cancel + restock)"
                                 onclick="event.stopPropagation();NativeOrdersApp.cancelOrder('${escapeHtml(o.code)}')">
                                 <i data-lucide="x-octagon" style="width:12px;height:12px;"></i>
                             </button>`;
                                 }
                                 // draft (default)
-                                return `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Tạo PBH"
+                                return `<button class="web2-btn web2-btn-success web2-btn-xs" title="Tạo PBH"
                                 onclick="event.stopPropagation();NativeOrdersApp.createPbh('${escapeHtml(o.code)}')">
                                 <i data-lucide="receipt" style="width:12px;height:12px;"></i>
                             </button>`;
                             })()}
                             ${
                                 o.customerId
-                                    ? `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#7c3aed;"
+                                    ? `<button class="web2-btn web2-btn-default web2-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#7c3aed;"
                                 onclick="event.stopPropagation();NativeOrdersApp.openCustomer(${o.customerId})">
                                 <i data-lucide="user-circle" style="width:12px;height:12px;"></i>
                             </button>`
-                                    : '<span class="tpos-action-placeholder"></span>'
+                                    : '<span class="web2-action-placeholder"></span>'
                             }
                             ${
                                 o.status === 'draft' || o.status === 'confirmed'
-                                    ? `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Tách đơn (tạo đơn mới ${sttValue}-N với giỏ rỗng — cùng khách. Đơn mới sẽ là draft → có thể Tạo PBH riêng)" style="color:#0ea5e9;"
+                                    ? `<button class="web2-btn web2-btn-default web2-btn-xs" title="Tách đơn (tạo đơn mới ${sttValue}-N với giỏ rỗng — cùng khách. Đơn mới sẽ là draft → có thể Tạo PBH riêng)" style="color:#0ea5e9;"
                                 onclick="event.stopPropagation();NativeOrdersApp.splitOrder('${escapeHtml(o.code)}')">
                                 <i data-lucide="split-square-vertical" style="width:12px;height:12px;"></i>
                             </button>`
@@ -1274,23 +1274,23 @@
                             ${/* 2026-06-04: nút Huỷ đơn (X) đã dời lên slot 2 cho confirmed. */ ''}
                         </div>
                     </td>
-                    <td class="col-stt tpos-cell-center"><strong>${sttValue}</strong></td>
-                    <td class="col-code tpos-cell-center">
-                        <div class="tpos-code-cell" style="align-items:center;">
-                            <span class="tpos-code-main" onclick="event.stopPropagation();NativeOrdersApp.copyCode('${escapeHtml(o.code)}')">${escapeHtml(o.code)}</span>
-                            ${campaignName ? `<span class="tpos-code-sub">${escapeHtml(campaignName)}</span>` : ''}
-                            ${tagBadges ? `<div class="tpos-code-tags">${tagBadges}</div>` : `<div class="tpos-code-tags"><button class="tpos-tag-trigger" onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')"><i data-lucide="tag" style="width:11px;height:11px;"></i></button></div>`}
+                    <td class="col-stt web2-cell-center"><strong>${sttValue}</strong></td>
+                    <td class="col-code web2-cell-center">
+                        <div class="web2-code-cell" style="align-items:center;">
+                            <span class="web2-code-main" onclick="event.stopPropagation();NativeOrdersApp.copyCode('${escapeHtml(o.code)}')">${escapeHtml(o.code)}</span>
+                            ${campaignName ? `<span class="web2-code-sub">${escapeHtml(campaignName)}</span>` : ''}
+                            ${tagBadges ? `<div class="web2-code-tags">${tagBadges}</div>` : `<div class="web2-code-tags"><button class="web2-tag-trigger" onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')"><i data-lucide="tag" style="width:11px;height:11px;"></i></button></div>`}
                         </div>
                     </td>
-                    <td class="col-channel tpos-cell-center">
-                        <div class="tpos-channel-cell" style="align-items:center;">
-                            <span class="tpos-channel-name">${escapeHtml(o.fbUserName || '—')}</span>
-                            ${o.fbCommentId ? `<span class="tpos-channel-link">Bình luận</span>` : ''}
+                    <td class="col-channel web2-cell-center">
+                        <div class="web2-channel-cell" style="align-items:center;">
+                            <span class="web2-channel-name">${escapeHtml(o.fbUserName || '—')}</span>
+                            ${o.fbCommentId ? `<span class="web2-channel-link">Bình luận</span>` : ''}
                         </div>
                     </td>
                     <td class="col-customer">
                         <div class="cust-with-avatar">
-                            <div class="tpos-customer-avatar-wrap"
+                            <div class="web2-customer-avatar-wrap"
                                  data-fb-user-id="${escapeHtml(o.fbUserId || '')}"
                                  data-fb-page-id="${escapeHtml(o.fbPageId || '')}"
                                  data-customer-name="${escapeHtml(o.customerName || '')}"
@@ -1299,18 +1299,18 @@
                                  onmouseleave="NativeOrdersApp.onCustAvatarLeave(this)">
                                 ${renderAvatar(o)}
                             </div>
-                            <div class="tpos-customer-cell" style="flex:1;min-width:0;">
-                                <div class="tpos-customer-name-row">
+                            <div class="web2-customer-cell" style="flex:1;min-width:0;">
+                                <div class="web2-customer-name-row">
                                     ${
                                         o.customerName
-                                            ? `<span class="tpos-customer-name">${escapeHtml(o.customerName)}</span>`
-                                            : `<span class="tpos-customer-name tpos-customer-stranger" title="Đơn chưa có tên KH — hover avatar hoặc bấm nút TPOS bên dưới">Khách lạ</span>`
+                                            ? `<span class="web2-customer-name">${escapeHtml(o.customerName)}</span>`
+                                            : `<span class="web2-customer-name web2-customer-stranger" title="Đơn chưa có tên KH — hover avatar hoặc bấm nút TPOS bên dưới">Khách lạ</span>`
                                     }
                                     ${statusPill}
                                     <span class="no-wallet-pill" data-w2wallet-phone="${escapeHtml(o.phone || '')}"></span>
                                     ${
                                         (!o.customerName || !o.phone || !o.address) && o.fbUserId
-                                            ? `<button class="tpos-fetch-tpos-btn"
+                                            ? `<button class="web2-fetch-web2-btn"
                                                 onclick="event.stopPropagation();NativeOrdersApp.fetchCustomerFromTpos('${escapeHtml(o.code)}', '${escapeHtml(o.fbUserId)}')"
                                                 title="Lấy SĐT + địa chỉ + tên từ TPOS (search theo FB ID)">
                                             <i data-lucide="download-cloud" style="width:11px;height:11px;"></i> Lấy TPOS
@@ -1322,13 +1322,13 @@
                             </div>
                         </div>
                     </td>
-                    <td class="col-phone tpos-cell-center" onclick="event.stopPropagation();">
+                    <td class="col-phone web2-cell-center" onclick="event.stopPropagation();">
                         ${
                             o.phone
                                 ? `
-                          <div class="tpos-phone-cell" style="align-items:center;">
-                            <a href="tel:${escapeHtml(o.phone)}" class="tpos-phone-link">${escapeHtml(o.phone)}</a>
-                            ${carrier ? `<span class="tpos-carrier">${carrier}</span>` : ''}
+                          <div class="web2-phone-cell" style="align-items:center;">
+                            <a href="tel:${escapeHtml(o.phone)}" class="web2-phone-link">${escapeHtml(o.phone)}</a>
+                            ${carrier ? `<span class="web2-carrier">${carrier}</span>` : ''}
                           </div>
                         `
                                 : '—'
@@ -1338,32 +1338,32 @@
                         <div class="no-addr-text">${escapeHtml(o.address || '')}</div>
                         ${_deliveryBadgeHtml(o)}
                     </td>
-                    <td class="col-money tpos-cell-money">${total}${mergedQtyHtml}</td>
-                    <td class="col-qty tpos-cell-center">${qty || ''}</td>
-                    <td class="col-message tpos-cell-center" onclick="event.stopPropagation();NativeOrdersApp.openInteractions('${escapeHtml(o.code)}','messages')">
-                        <span class="tpos-count-pill tpos-count-msg ${Number(o.messageCount) > 0 ? '' : 'is-empty'}" title="Mở tin nhắn">
+                    <td class="col-money web2-cell-money">${total}${mergedQtyHtml}</td>
+                    <td class="col-qty web2-cell-center">${qty || ''}</td>
+                    <td class="col-message web2-cell-center" onclick="event.stopPropagation();NativeOrdersApp.openInteractions('${escapeHtml(o.code)}','messages')">
+                        <span class="web2-count-pill web2-count-msg ${Number(o.messageCount) > 0 ? '' : 'is-empty'}" title="Mở tin nhắn">
                             <i data-lucide="message-circle" style="width:11px;height:11px;"></i>
                             ${Number(o.messageCount) > 0 ? o.messageCount : '0'}
                         </span>
                     </td>
-                    <td class="col-comment tpos-cell-center" onclick="event.stopPropagation();NativeOrdersApp.openInteractions('${escapeHtml(o.code)}','comments')">
-                        <span class="tpos-count-pill tpos-count-cmt ${Number(o.commentCount) > 0 ? '' : 'is-empty'}" title="${o.commentCount || 0} bình luận">
+                    <td class="col-comment web2-cell-center" onclick="event.stopPropagation();NativeOrdersApp.openInteractions('${escapeHtml(o.code)}','comments')">
+                        <span class="web2-count-pill web2-count-cmt ${Number(o.commentCount) > 0 ? '' : 'is-empty'}" title="${o.commentCount || 0} bình luận">
                             <i data-lucide="message-square" style="width:11px;height:11px;"></i>
                             ${o.commentCount || 0}
                         </span>
                     </td>
                     <td class="col-customerComment">${
                         o.note
-                            ? `<div class="tpos-note-cell" title="${escapeHtml(o.note)}">${escapeHtml(o.note)}</div>`
-                            : '<span class="tpos-count-empty">—</span>'
+                            ? `<div class="web2-note-cell" title="${escapeHtml(o.note)}">${escapeHtml(o.note)}</div>`
+                            : '<span class="web2-count-empty">—</span>'
                     }</td>
                     <td class="col-userNote">${
                         o.userNote
-                            ? `<div class="tpos-note-cell" title="${escapeHtml(o.userNote)}">${escapeHtml(o.userNote)}</div>`
-                            : '<span class="tpos-count-empty">—</span>'
+                            ? `<div class="web2-note-cell" title="${escapeHtml(o.userNote)}">${escapeHtml(o.userNote)}</div>`
+                            : '<span class="web2-count-empty">—</span>'
                     }</td>
                     <td class="col-employee">${escapeHtml(o.assignedEmployeeName || o.createdByName || '—')}</td>
-                    <td class="col-time tpos-date-cell center" title="${escapeHtml(formatFullTime(o.createdAt))}">
+                    <td class="col-time web2-date-cell center" title="${escapeHtml(formatFullTime(o.createdAt))}">
                         ${time.date}/${new Date(Number(o.createdAt)).getFullYear()}<br>${time.hour}
                     </td>
                 </tr>`;
@@ -1673,7 +1673,7 @@
     const TPOS_PANCAKE_KEY = 'tpos_selected_campaigns';
 
     function loadCampaignSelection() {
-        // Priority: own key (per-page selection) > shared tpos-pancake key (cross-page sync)
+        // Priority: own key (per-page selection) > shared web2-pancake key (cross-page sync)
         try {
             const own = localStorage.getItem(CAMPAIGN_STORAGE_KEY);
             if (own != null) return JSON.parse(own) || [];
@@ -4203,7 +4203,7 @@
             load();
         });
         $('#campaignSyncTpos')?.addEventListener('click', syncFromTposPancake);
-        // Live cross-tab sync — when tpos-pancake updates its selection, refresh ours
+        // Live cross-tab sync — when web2-pancake updates its selection, refresh ours
         window.addEventListener('storage', (e) => {
             if (e.key === TPOS_PANCAKE_KEY) {
                 // Only auto-sync if user hasn't made an own selection (own key still null)
@@ -4271,7 +4271,7 @@
                 <div style="background:#fff;border-radius:10px;max-width:760px;width:100%;padding:0;box-shadow:0 16px 48px rgba(0,0,0,0.15);">
                     <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <strong id="c360Title" style="font-size:14px;color:#1f2937;flex:1;">Khách hàng 360°</strong>
-                        <button id="c360FilterBtn" class="tpos-btn tpos-btn-default tpos-btn-sm" style="color:#7c3aed;" title="Lọc tất cả đơn web của khách này">
+                        <button id="c360FilterBtn" class="web2-btn web2-btn-default web2-btn-sm" style="color:#7c3aed;" title="Lọc tất cả đơn web của khách này">
                             <i data-lucide="filter" style="width:12px;height:12px;"></i> Lọc đơn
                         </button>
                         <button id="c360Close" style="background:transparent;border:none;font-size:18px;cursor:pointer;color:#6b7280;">×</button>
@@ -4383,7 +4383,7 @@
     /**
      * Web2Chat client is loaded via index.html (`web2/shared/web2-chat-client.js`).
      * No shared code with Web 1.0 — token config is read directly from
-     * localStorage keys that the user already configured in tpos-pancake.
+     * localStorage keys that the user already configured in web2-pancake.
      */
     function _hasChatClient() {
         return !!window.Web2Chat;
@@ -4804,7 +4804,7 @@
 
     function _renderInboxRightPanel(order, _defaultTab = 'info') {
         // Right panel shows customer + current-order context only.
-        // Order creation lives in web 2.0's tpos-pancake page — not
+        // Order creation lives in web 2.0's web2-pancake page — not
         // re-implemented here per user direction.
         return `
             <div class="w2-inbox-right-tabs">
@@ -5126,7 +5126,7 @@
         if (STATE.channel !== 'web2_inbox' || _inboxAvatarHydrating) return;
         const tb = tbody();
         if (!tb) return;
-        const wraps = [...tb.querySelectorAll('.tpos-customer-avatar-wrap')].filter(
+        const wraps = [...tb.querySelectorAll('.web2-customer-avatar-wrap')].filter(
             (w) =>
                 !w.dataset.fbUserId &&
                 (w.dataset.customerPhone || '').trim() &&
@@ -5172,7 +5172,7 @@
     async function _loadInboxSidebar(order) {
         const list = document.getElementById('w2InboxConvList');
         if (!list) return;
-        // Sidebar is independent of the order's page — like tpos-pancake's
+        // Sidebar is independent of the order's page — like web2-pancake's
         // PancakeColumnManager + pancake.vn merge mode, it loads ALL pages
         // the user has access to so any customer chat is reachable even
         // when modal was opened from a single-page order.
@@ -6544,7 +6544,7 @@
     }
 
     // Attachment đang chọn để gửi (ảnh/âm thanh/video/tệp) — gửi qua extension
-    // (UPLOAD_INBOX_PHOTO → REPLY_INBOX_PHOTO). Đồng bộ với tpos-pancake.
+    // (UPLOAD_INBOX_PHOTO → REPLY_INBOX_PHOTO). Đồng bộ với web2-pancake.
     let _pendingAttachment = null; // { file, kind } với kind ∈ PHOTO|AUDIO|VIDEO|FILE
 
     function _attachmentKind(file) {
@@ -8727,10 +8727,10 @@
                         canReply
                             ? `<div class="reply-row" style="display:flex;gap:6px;align-items:flex-end;border-top:1px dashed #e5e7eb;padding-top:8px;">
                         <textarea id="${replyInputId}" rows="1" placeholder="Trả lời bình luận này…" style="flex:1;padding:6px 10px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;font-family:inherit;resize:vertical;min-height:28px;max-height:120px;"></textarea>
-                        <button class="tpos-btn tpos-btn-success tpos-btn-xs" data-action="reply-comment" data-cid="${escapeHtml(cid)}" data-input="${replyInputId}" title="Trả lời công khai (action=reply_comment)">
+                        <button class="web2-btn web2-btn-success web2-btn-xs" data-action="reply-comment" data-cid="${escapeHtml(cid)}" data-input="${replyInputId}" title="Trả lời công khai (action=reply_comment)">
                             <i data-lucide="reply" style="width:11px;height:11px;"></i>
                         </button>
-                        <button class="tpos-btn tpos-btn-primary tpos-btn-xs" data-action="private-reply" data-cid="${escapeHtml(cid)}" data-input="${replyInputId}" title="Trả lời riêng (DM khách qua Messenger)">
+                        <button class="web2-btn web2-btn-primary web2-btn-xs" data-action="private-reply" data-cid="${escapeHtml(cid)}" data-input="${replyInputId}" title="Trả lời riêng (DM khách qua Messenger)">
                             <i data-lucide="send" style="width:11px;height:11px;"></i>
                         </button>
                     </div>`
@@ -8907,7 +8907,7 @@
         // Customer side-panel (slide-in từ phải khi hover avatar 500ms)
         onCustAvatarEnter: _onCustAvatarEnter,
         onCustAvatarLeave: _onCustAvatarLeave,
-        // 2026-06-01: nút "Lấy TPOS" thủ công khi đơn từ tpos-pancake rỗng phone/address
+        // 2026-06-01: nút "Lấy TPOS" thủ công khi đơn từ web2-pancake rỗng phone/address
         fetchCustomerFromTpos,
         // Debug surface — inspect realtime + chat state from devtools.
         // Verify realtime is WS-driven (not polling): open chat then run

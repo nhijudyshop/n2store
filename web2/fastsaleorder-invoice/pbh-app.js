@@ -192,18 +192,18 @@
                 <tr data-number="${escapeHtml(o.number)}">
                     <td><input type="checkbox" class="row-check" value="${escapeHtml(o.number)}" /></td>
                     <td>
-                        <div class="tpos-row-actions">
-                            <button class="tpos-btn tpos-btn-primary tpos-btn-xs" title="Chi tiết" onclick="PbhApp.detail('${escapeHtml(o.number)}')"><i data-lucide="eye" style="width:12px;height:12px;"></i></button>
-                            ${o.customerId ? `<button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#7c3aed;" onclick="PbhApp.openCustomer(${o.customerId})"><i data-lucide="user-circle" style="width:12px;height:12px;"></i></button>` : ''}
+                        <div class="web2-row-actions">
+                            <button class="web2-btn web2-btn-primary web2-btn-xs" title="Chi tiết" onclick="PbhApp.detail('${escapeHtml(o.number)}')"><i data-lucide="eye" style="width:12px;height:12px;"></i></button>
+                            ${o.customerId ? `<button class="web2-btn web2-btn-default web2-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#7c3aed;" onclick="PbhApp.openCustomer(${o.customerId})"><i data-lucide="user-circle" style="width:12px;height:12px;"></i></button>` : ''}
                             ${/* Nút Xác nhận + Hủy đã bỏ — PBH state auto sync theo native-orders.status. Muốn huỷ phải qua native-orders → cancelOrder (huỷ cả đơn + restock). */ ''}
-                            <button class="tpos-btn tpos-btn-default tpos-btn-xs" title="Lịch sử PBH (tạo / chỉnh sửa / huỷ)" style="color:#8b5cf6;" onclick="PbhApp.openHistory('${escapeHtml(o.number)}')"><i data-lucide="history" style="width:12px;height:12px;"></i></button>
-                            <button class="tpos-btn tpos-btn-default tpos-btn-xs" title="In" onclick="PbhApp.print('${escapeHtml(o.number)}')"><i data-lucide="printer" style="width:12px;height:12px;"></i></button>
-                            ${o.state !== 'cancel' ? `<button class="tpos-btn tpos-btn-info tpos-btn-xs" title="Tạo phiếu giao" onclick="PbhApp.createDelivery('${escapeHtml(o.number)}')"><i data-lucide="truck" style="width:12px;height:12px;"></i></button>` : ''}
-                            ${o.state !== 'cancel' ? `<button class="tpos-btn tpos-btn-warning tpos-btn-xs" title="Trả hàng" onclick="PbhApp.createRefund('${escapeHtml(o.number)}')"><i data-lucide="undo-2" style="width:12px;height:12px;"></i></button>` : ''}
-                            ${src.code && src.type === 'native_order' ? `<a class="tpos-btn tpos-btn-default tpos-btn-xs" title="Xem đơn nguồn ${escapeHtml(src.code)}" href="../../native-orders/index.html?search=${encodeURIComponent(src.code)}" target="_blank" style="color:#0ea5e9;"><i data-lucide="external-link" style="width:12px;height:12px;"></i></a>` : ''}
+                            <button class="web2-btn web2-btn-default web2-btn-xs" title="Lịch sử PBH (tạo / chỉnh sửa / huỷ)" style="color:#8b5cf6;" onclick="PbhApp.openHistory('${escapeHtml(o.number)}')"><i data-lucide="history" style="width:12px;height:12px;"></i></button>
+                            <button class="web2-btn web2-btn-default web2-btn-xs" title="In" onclick="PbhApp.print('${escapeHtml(o.number)}')"><i data-lucide="printer" style="width:12px;height:12px;"></i></button>
+                            ${o.state !== 'cancel' ? `<button class="web2-btn web2-btn-info web2-btn-xs" title="Tạo phiếu giao" onclick="PbhApp.createDelivery('${escapeHtml(o.number)}')"><i data-lucide="truck" style="width:12px;height:12px;"></i></button>` : ''}
+                            ${o.state !== 'cancel' ? `<button class="web2-btn web2-btn-warning web2-btn-xs" title="Trả hàng" onclick="PbhApp.createRefund('${escapeHtml(o.number)}')"><i data-lucide="undo-2" style="width:12px;height:12px;"></i></button>` : ''}
+                            ${src.code && src.type === 'native_order' ? `<a class="web2-btn web2-btn-default web2-btn-xs" title="Xem đơn nguồn ${escapeHtml(src.code)}" href="../../native-orders/index.html?search=${encodeURIComponent(src.code)}" target="_blank" style="color:#0ea5e9;"><i data-lucide="external-link" style="width:12px;height:12px;"></i></a>` : ''}
                         </div>
                     </td>
-                    <td class="tpos-cell-center"><strong>${
+                    <td class="web2-cell-center"><strong>${
                         Array.isArray(o.mergedDisplayStt) && o.mergedDisplayStt.length > 1
                             ? o.mergedDisplayStt
                                   .map((n) => parseInt(n, 10))
@@ -214,14 +214,14 @@
                               ? `${o.displayStt}-${o.splitIndex}`
                               : (o.displayStt ?? '')
                     }</strong></td>
-                    <td class="tpos-cell-center"><strong>${escapeHtml(o.number)}</strong></td>
+                    <td class="web2-cell-center"><strong>${escapeHtml(o.number)}</strong></td>
                     <td>${escapeHtml(p.name || '—')}</td>
                     <td>${escapeHtml(p.phone || '—')}</td>
                     <td>${escapeHtml(addr || '—')}</td>
                     <td style="text-align:right;font-weight:600;">${fmtMoney(o.totals?.total)}</td>
                     <td>${stateBadge(o.state)}</td>
                     <td>${src.code ? `<a href="../../native-orders/index.html#${escapeHtml(src.code)}" class="web2-cell-link">${escapeHtml(src.code)}</a>` : '<em style="color:#9ca3af">Manual</em>'}</td>
-                    <td class="tpos-cell-center">${fmtDate(o.dateInvoice)}</td>
+                    <td class="web2-cell-center">${fmtDate(o.dateInvoice)}</td>
                 </tr>`;
             })
             .join('');
@@ -432,7 +432,7 @@
                 <div style="background:#fff;border-radius:10px;max-width:760px;width:100%;padding:0;box-shadow:0 16px 48px rgba(0,0,0,0.15);">
                     <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <strong id="c360Title" style="font-size:14px;color:#1f2937;flex:1;">Khách hàng 360°</strong>
-                        <button id="c360FilterBtn" class="tpos-btn tpos-btn-default tpos-btn-sm" style="color:#7c3aed;" title="Lọc tất cả PBH của khách này">
+                        <button id="c360FilterBtn" class="web2-btn web2-btn-default web2-btn-sm" style="color:#7c3aed;" title="Lọc tất cả PBH của khách này">
                             <i data-lucide="filter" style="width:12px;height:12px;"></i> Lọc PBH
                         </button>
                         <button id="c360Close" style="background:transparent;border:none;font-size:18px;cursor:pointer;color:#6b7280;">×</button>

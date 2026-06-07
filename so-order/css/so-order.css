@@ -1,13 +1,13 @@
 /* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. */
-/* Sổ Order — table + tabs + modals. Tokens reused from tpos-theme. */
+/* Sổ Order — table + tabs + modals. Tokens reused from web2-theme. */
 
 .so-tab-strip-wrap {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 12px 22px 0;
-    background: var(--tpos-bg-surface, #f5f7fb);
-    border-bottom: 1px solid var(--tpos-border, #e3e8ee);
+    background: var(--web2-bg-surface, #f5f7fb);
+    border-bottom: 1px solid var(--web2-border, #e3e8ee);
     flex-wrap: wrap;
 }
 
@@ -764,7 +764,7 @@
     color: #6d28d9;
 }
 
-/* Buttons (local; reuse tpos-theme.css if present) */
+/* Buttons (local; reuse web2-theme.css if present) */
 
 .btn-primary,
 .btn-secondary,

@@ -7,7 +7,7 @@
  */
 
 /* ------- Bootstrap 3 .label clone (status pill) ------- */
-.tpos-label {
+.web2-label {
     display: inline-block;
     padding: 2.1px 6.3px 3.15px 6.3px;
     font-size: 10.5px;
@@ -18,39 +18,39 @@
     white-space: nowrap;
     vertical-align: baseline;
     border-radius: 2.625px;
-    background: var(--tpos-text-3);
+    background: var(--web2-text-3);
     text-transform: none;
     letter-spacing: 0;
 }
-.tpos-label-default {
-    background: var(--tpos-text-3);
+.web2-label-default {
+    background: var(--web2-text-3);
 }
-.tpos-label-success {
-    background: var(--tpos-label-success);
+.web2-label-success {
+    background: var(--web2-label-success);
 } /* Bình thường */
-.tpos-label-info {
-    background: var(--tpos-info);
+.web2-label-info {
+    background: var(--web2-info);
 }
-.tpos-label-warning {
-    background: var(--tpos-label-warning);
+.web2-label-warning {
+    background: var(--web2-label-warning);
     color: #fff;
 } /* Cảnh báo */
-.tpos-label-danger {
-    background: var(--tpos-label-danger);
+.web2-label-danger {
+    background: var(--web2-label-danger);
 } /* Bom hàng */
-.tpos-label-primary {
-    background: var(--tpos-link);
+.web2-label-primary {
+    background: var(--web2-link);
 } /* Mobifone/Viettel/Vinaphone */
-.tpos-label-coc {
-    background: var(--tpos-label-tag-coc);
+.web2-label-coc {
+    background: var(--web2-label-tag-coc);
 } /* CỌC 200K */
-.tpos-label-boom {
-    background: var(--tpos-label-tag-boom);
+.web2-label-boom {
+    background: var(--web2-label-tag-boom);
 } /* KHÁCH BOOM */
 
 /* TPOS .label-cs override: bigger label used for carriers + status pills.
  * Crawled values: fs 12px, padding 5px, radius 3px. */
-.tpos-label-cs {
+.web2-label-cs {
     font-size: 12px;
     padding: 5px;
     border-radius: 3px;
@@ -65,20 +65,20 @@
 }
 
 /* ------- Bootstrap 3 .btn clone (toolbar buttons) ------- */
-.tpos-btn {
+.web2-btn {
     display: inline-block;
     padding: 5px 10px;
     font-size: 12px;
     font-family: inherit; /* MUST inherit Segoe UI from body */
     font-weight: 500;
     line-height: 1.42857;
-    color: var(--tpos-text-3);
+    color: var(--web2-text-3);
     text-align: center;
     white-space: nowrap;
     vertical-align: middle;
     cursor: pointer;
     background: #fff;
-    border: 1px solid var(--tpos-border-btn);
+    border: 1px solid var(--web2-border-btn);
     border-radius: 2px;
     transition:
         background 0.12s,
@@ -87,70 +87,70 @@
     text-decoration: none;
     user-select: none;
 }
-.tpos-btn:hover {
+.web2-btn:hover {
     background: #f5f7f8;
     border-color: #b0bcc1;
-    color: var(--tpos-text);
+    color: var(--web2-text);
 }
-.tpos-btn:active {
+.web2-btn:active {
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
 }
-.tpos-btn:disabled {
+.web2-btn:disabled {
     opacity: 0.65;
     cursor: not-allowed;
 }
-.tpos-btn i {
+.web2-btn i {
     margin-right: 4px;
 }
 
-.tpos-btn-default {
+.web2-btn-default {
     background: #fff;
-    color: var(--tpos-text-3);
-    border-color: var(--tpos-border-btn);
+    color: var(--web2-text-3);
+    border-color: var(--web2-border-btn);
 }
-.tpos-btn-primary {
-    background: var(--tpos-primary);
+.web2-btn-primary {
+    background: var(--web2-primary);
     color: #fff;
-    border-color: var(--tpos-primary);
+    border-color: var(--web2-primary);
 }
-.tpos-btn-primary:hover {
-    background: var(--tpos-primary-hover);
-    border-color: var(--tpos-primary-hover);
-    color: #fff;
-}
-.tpos-btn-success {
-    background: var(--tpos-success);
-    color: #fff;
-    border-color: var(--tpos-success);
-}
-.tpos-btn-success:hover {
-    background: var(--tpos-success-hover);
-    border-color: var(--tpos-success-hover);
+.web2-btn-primary:hover {
+    background: var(--web2-primary-hover);
+    border-color: var(--web2-primary-hover);
     color: #fff;
 }
-.tpos-btn-info {
-    background: var(--tpos-info);
+.web2-btn-success {
+    background: var(--web2-success);
     color: #fff;
-    border-color: var(--tpos-info);
+    border-color: var(--web2-success);
 }
-.tpos-btn-info:hover {
-    background: var(--tpos-info-hover);
-    border-color: var(--tpos-info-hover);
+.web2-btn-success:hover {
+    background: var(--web2-success-hover);
+    border-color: var(--web2-success-hover);
     color: #fff;
 }
-.tpos-btn-danger {
-    background: var(--tpos-danger);
+.web2-btn-info {
+    background: var(--web2-info);
     color: #fff;
-    border-color: var(--tpos-danger);
+    border-color: var(--web2-info);
 }
-.tpos-btn-danger:hover {
-    background: var(--tpos-danger-hover);
-    border-color: var(--tpos-danger-hover);
+.web2-btn-info:hover {
+    background: var(--web2-info-hover);
+    border-color: var(--web2-info-hover);
+    color: #fff;
+}
+.web2-btn-danger {
+    background: var(--web2-danger);
+    color: #fff;
+    border-color: var(--web2-danger);
+}
+.web2-btn-danger:hover {
+    background: var(--web2-danger-hover);
+    border-color: var(--web2-danger-hover);
     color: #fff;
 }
 
 /* btn-xs (used for action buttons in row) — TPOS spec: padding 1px 5px, size ~25x22 */
-.tpos-btn-xs {
+.web2-btn-xs {
     padding: 1px 5px;
     font-size: 12px;
     line-height: 1.5;
@@ -161,12 +161,12 @@
     align-items: center;
     justify-content: center;
 }
-.tpos-btn-xs i {
+.web2-btn-xs i {
     margin: 0;
 }
 
 /* btn-sm */
-.tpos-btn-sm {
+.web2-btn-sm {
     padding: 5px 10px;
     font-size: 12px;
     line-height: 1.5;
@@ -174,31 +174,31 @@
 }
 
 /* ------- Text utilities ------- */
-.tpos-text-primary {
-    color: var(--tpos-link);
+.web2-text-primary {
+    color: var(--web2-link);
 }
-.tpos-text-muted {
-    color: var(--tpos-text-3);
+.web2-text-muted {
+    color: var(--web2-text-3);
 }
-.tpos-text-faded {
-    color: var(--tpos-text-faded);
+.web2-text-faded {
+    color: var(--web2-text-faded);
 }
-.tpos-text-binhluan {
-    color: var(--tpos-binhluan);
+.web2-text-binhluan {
+    color: var(--web2-binhluan);
     font-weight: 600;
     cursor: pointer;
 }
-.tpos-text-binhluan:hover {
+.web2-text-binhluan:hover {
     text-decoration: underline;
 }
-.tpos-text-bold {
+.web2-text-bold {
     font-weight: 700;
 }
 
 /* ------- Phone link (text-primary in TPOS) ------- */
 .data-table a[href^='tel:'],
-.data-table .tpos-phone {
-    color: var(--tpos-link);
+.data-table .web2-phone {
+    color: var(--web2-link);
     text-decoration: none;
     font-weight: 400;
     cursor: pointer;
@@ -208,23 +208,23 @@
 }
 
 /* ------- Table cell helpers used by TPOS template ------- */
-.tpos-cell-center {
+.web2-cell-center {
     text-align: center;
 }
-.tpos-cell-right {
+.web2-cell-right {
     text-align: right;
 }
-.tpos-cell-money {
+.web2-cell-money {
     text-align: right;
     font-variant-numeric: tabular-nums;
     font-weight: 400;
-    color: var(--tpos-text);
+    color: var(--web2-text);
 }
 
 /* ------- Search/filter bar (TPOS uses bg-light no-border input) ------- */
-.tpos-search-input {
-    background: var(--tpos-bg-light);
-    color: var(--tpos-text-3);
+.web2-search-input {
+    background: var(--web2-bg-light);
+    color: var(--web2-text-3);
     font-size: 12px;
     padding: 5px 15px;
     border: none;
@@ -233,13 +233,13 @@
     outline: none;
     width: 100%;
 }
-.tpos-search-input:focus {
+.web2-search-input:focus {
     background: #fff;
 }
 
-.tpos-magnifier-btn {
-    background: var(--tpos-bg-light);
-    color: var(--tpos-text-3);
+.web2-magnifier-btn {
+    background: var(--web2-bg-light);
+    color: var(--web2-text-3);
     font-size: 12px;
     padding: 5px 12px;
     border: none;
@@ -247,75 +247,75 @@
     height: 30px;
     cursor: pointer;
 }
-.tpos-magnifier-btn:hover {
+.web2-magnifier-btn:hover {
     background: #dde3e5;
 }
 
 /* ------- Row action bar (TPOS uses btn-info cyan + btn-danger red) ------- */
-.tpos-row-actions {
+.web2-row-actions {
     display: inline-flex;
     gap: 4px;
     align-items: center;
 }
 
 /* ------- Code cell (mã đơn + campaign subtitle + tag bar) ------- */
-.tpos-code-cell {
+.web2-code-cell {
     display: flex;
     flex-direction: column;
     gap: 3px;
     align-items: flex-start;
 }
-.tpos-code-main {
+.web2-code-main {
     font-weight: 700;
-    color: var(--tpos-text);
+    color: var(--web2-text);
     font-size: 14px;
     cursor: pointer;
 }
-.tpos-code-main:hover {
-    color: var(--tpos-link);
+.web2-code-main:hover {
+    color: var(--web2-link);
     text-decoration: underline;
 }
-.tpos-code-sub {
-    color: var(--tpos-text-3);
+.web2-code-sub {
+    color: var(--web2-text-3);
     font-size: 12px;
     font-weight: 400;
 }
-.tpos-code-tags {
+.web2-code-tags {
     display: inline-flex;
     align-items: center;
     gap: 4px;
     margin-top: 2px;
 }
 /* Tag icon button — small clickable circle/square for opening tag editor */
-.tpos-tag-trigger {
+.web2-tag-trigger {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 22px;
     height: 22px;
-    background: var(--tpos-link);
+    background: var(--web2-link);
     color: #fff;
     border-radius: 2px;
     border: none;
     cursor: pointer;
 }
-.tpos-tag-trigger i {
+.web2-tag-trigger i {
     font-size: 11px;
 }
 
 /* ------- Channel cell ------- */
-.tpos-channel-cell {
+.web2-channel-cell {
     display: flex;
     flex-direction: column;
     gap: 2px;
 }
-.tpos-channel-name {
-    color: var(--tpos-text);
+.web2-channel-name {
+    color: var(--web2-text);
     font-weight: 400;
     font-size: 14px;
 }
-.tpos-channel-link {
-    color: var(--tpos-binhluan);
+.web2-channel-link {
+    color: var(--web2-binhluan);
     font-weight: 600;
     cursor: pointer;
     font-size: 14px;
@@ -323,32 +323,32 @@
 }
 
 /* ------- Customer name cell (clean: name + status pill on one row, merged phone below) ------- */
-.tpos-customer-cell {
+.web2-customer-cell {
     display: flex;
     flex-direction: column;
     gap: 4px;
     align-items: flex-start;
     justify-content: center;
 }
-.tpos-customer-name-row {
+.web2-customer-name-row {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
 }
-.tpos-customer-name {
-    color: var(--tpos-text);
+.web2-customer-name {
+    color: var(--web2-text);
     font-weight: 600;
     font-size: 14px;
     line-height: 1.3;
 }
 /* legacy class kept so old refs don't break, but now hidden */
-.tpos-customer-row2 {
+.web2-customer-row2 {
     display: none;
 }
 
 /* ------- Checkbox + STT combined column ------- */
-.tpos-check-stt {
+.web2-check-stt {
     /* 2026-06-01: stack vertically — checkbox + STT (horizontal) trên cùng,
      * trạng thái (badge text) ở dưới. Per user: bỏ cột Trạng thái, gộp vào STT. */
     display: flex;
@@ -357,22 +357,22 @@
     gap: 3px;
     padding: 2px 4px;
 }
-.tpos-check-stt .row-check {
+.web2-check-stt .row-check {
     cursor: pointer;
     width: 14px;
     height: 14px;
-    accent-color: var(--tpos-primary);
+    accent-color: var(--web2-primary);
     margin: 0;
 }
-.tpos-row-stt {
+.web2-row-stt {
     font-weight: 700;
-    color: var(--tpos-text);
+    color: var(--web2-text);
     font-size: 13px;
     min-width: 22px;
     text-align: center;
     line-height: 1.4;
 }
-.tpos-row-status-inline {
+.web2-row-status-inline {
     font-size: 11px;
     line-height: 1.2;
     margin-top: 1px;
@@ -382,20 +382,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.tpos-row-status-inline .tpos-status-text {
+.web2-row-status-inline .web2-status-text {
     font-size: 11px;
     font-weight: 600;
 }
 
 /* ------- Action column: 2x2 grid of icon buttons (compact dashboard) ------- */
-.tpos-row-actions-grid {
+.web2-row-actions-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 4px;
     width: max-content;
 }
-.tpos-row-actions-grid .tpos-btn,
-.tpos-row-actions-grid .tpos-action-placeholder {
+.web2-row-actions-grid .web2-btn,
+.web2-row-actions-grid .web2-action-placeholder {
     width: 26px;
     height: 24px;
     padding: 0;
@@ -405,45 +405,45 @@
     align-items: center;
     justify-content: center;
 }
-.tpos-row-actions-grid .tpos-btn i {
+.web2-row-actions-grid .web2-btn i {
     margin: 0;
 }
-.tpos-row-actions-grid .tpos-action-placeholder {
+.web2-row-actions-grid .web2-action-placeholder {
     background: transparent;
     box-shadow: none;
 }
 
 /* ------- Customer name cell typography polish ------- */
-.tpos-customer-name {
+.web2-customer-name {
     font-size: 13px;
     line-height: 1.35;
 }
-.tpos-customer-cell .tpos-phone-link {
+.web2-customer-cell .web2-phone-link {
     text-decoration: none;
     font-feature-settings: 'tnum';
 }
-.tpos-customer-cell .tpos-phone-link:hover {
+.web2-customer-cell .web2-phone-link:hover {
     text-decoration: underline;
-    color: var(--tpos-link);
+    color: var(--web2-link);
 }
 
 /* Code cell: tighter typography */
-.tpos-code-main {
+.web2-code-main {
     font-size: 13px;
 }
-.tpos-code-sub {
+.web2-code-sub {
     font-size: 11px;
 }
 
 /* Money cell: tabular numerals */
-.tpos-cell-money {
+.web2-cell-money {
     font-size: 13px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
 
 /* ------- Count pills (Tin nhắn / Bình luận) — clickable to open interactions modal ------- */
-.tpos-count-pill {
+.web2-count-pill {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -461,26 +461,26 @@
         background 100ms ease,
         transform 80ms ease;
 }
-.tpos-count-pill:hover {
+.web2-count-pill:hover {
     transform: translateY(-1px);
     filter: brightness(0.95);
 }
-.tpos-count-pill i {
+.web2-count-pill i {
     flex-shrink: 0;
 }
-.tpos-count-msg {
+.web2-count-msg {
     background: #dbeafe;
     color: #1e40af;
 }
-.tpos-count-cmt {
+.web2-count-cmt {
     background: #ede9fe;
     color: #5b21b6;
 }
-.tpos-count-pill.is-empty {
+.web2-count-pill.is-empty {
     background: #f1f5f9;
     color: #94a3b8;
 }
-.tpos-count-empty {
+.web2-count-empty {
     color: #cbd5e1;
     font-size: 13px;
 }
@@ -491,7 +491,7 @@
 }
 
 /* ------- Note cell: truncated with tooltip on hover ------- */
-.tpos-note-cell {
+.web2-note-cell {
     font-size: 12px;
     color: #475569;
     line-height: 1.4;
@@ -504,7 +504,7 @@
 }
 
 /* Phone/Person icon bubbles (small green + small purple from TPOS) */
-.tpos-mini-icon {
+.web2-mini-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -515,68 +515,68 @@
     font-size: 9px;
     cursor: pointer;
 }
-.tpos-mini-phone {
-    background: var(--tpos-success);
+.web2-mini-phone {
+    background: var(--web2-success);
 }
-.tpos-mini-person {
-    background: var(--tpos-primary);
+.web2-mini-person {
+    background: var(--web2-primary);
 }
 
 /* ------- Phone column ------- */
-.tpos-phone-cell {
+.web2-phone-cell {
     display: flex;
     flex-direction: column;
     gap: 2px;
     align-items: flex-start;
     text-align: left;
 }
-.tpos-phone-link {
-    color: var(--tpos-link);
+.web2-phone-link {
+    color: var(--web2-link);
     font-size: 14px;
     text-decoration: none;
     font-weight: 400;
     text-align: center; /* TPOS spec: phone cell text centered */
 }
-.tpos-phone-link:hover {
+.web2-phone-link:hover {
     text-decoration: underline;
 }
-.tpos-carrier {
-    color: var(--tpos-link);
+.web2-carrier {
+    color: var(--web2-link);
     font-size: 14px;
     font-weight: 400;
     text-align: center; /* TPOS spec: carrier centered under phone */
 }
 
 /* ------- Date cell ------- */
-.tpos-date-cell {
+.web2-date-cell {
     font-size: 14px;
-    color: var(--tpos-text);
+    color: var(--web2-text);
     white-space: nowrap;
 }
-.tpos-date-cell.center {
+.web2-date-cell.center {
     text-align: center;
 }
 
 /* ------- Status text in column (e.g. "Nháp" gray bold) ------- */
-.tpos-status-text {
+.web2-status-text {
     font-weight: 700;
-    color: var(--tpos-text-faded);
+    color: var(--web2-text-faded);
     font-size: 14px;
 }
-.tpos-status-text.confirmed {
-    color: var(--tpos-link);
+.web2-status-text.confirmed {
+    color: var(--web2-link);
 }
-.tpos-status-text.cancelled {
-    color: var(--tpos-danger);
+.web2-status-text.cancelled {
+    color: var(--web2-danger);
 }
-.tpos-status-text.delivered {
-    color: var(--tpos-success);
+.web2-status-text.delivered {
+    color: var(--web2-success);
 }
 
 /* Body baseline override — applies to whole native-orders page */
-body.tpos-theme,
-body.tpos-theme .data-table,
-body.tpos-theme .data-table td,
-body.tpos-theme .data-table th {
+body.web2-theme,
+body.web2-theme .data-table,
+body.web2-theme .data-table td,
+body.web2-theme .data-table th {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }

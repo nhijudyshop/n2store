@@ -96,23 +96,23 @@
             <tr data-number="${escapeHtml(o.number)}">
                 <td><input type="checkbox" class="row-check" value="${escapeHtml(o.number)}" /></td>
                 <td>
-                    <div class="tpos-row-actions">
-                        <button class="tpos-btn tpos-btn-primary tpos-btn-xs" title="Chi tiết" onclick="RfApp.detail('${escapeHtml(o.number)}')"><i data-lucide="eye" style="width:12px;height:12px;"></i></button>
-                        ${o.state === 'draft' ? `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Duyệt" onclick="RfApp.approve('${escapeHtml(o.number)}')"><i data-lucide="check" style="width:12px;height:12px;"></i></button>` : ''}
-                        ${o.state === 'approved' ? `<button class="tpos-btn tpos-btn-success tpos-btn-xs" title="Hoàn thành" onclick="RfApp.complete('${escapeHtml(o.number)}')"><i data-lucide="check-circle" style="width:12px;height:12px;"></i></button>` : ''}
-                        ${['draft', 'approved'].includes(o.state) ? `<button class="tpos-btn tpos-btn-danger tpos-btn-xs" title="Hủy" onclick="RfApp.cancel('${escapeHtml(o.number)}')"><i data-lucide="x-circle" style="width:12px;height:12px;"></i></button>` : ''}
+                    <div class="web2-row-actions">
+                        <button class="web2-btn web2-btn-primary web2-btn-xs" title="Chi tiết" onclick="RfApp.detail('${escapeHtml(o.number)}')"><i data-lucide="eye" style="width:12px;height:12px;"></i></button>
+                        ${o.state === 'draft' ? `<button class="web2-btn web2-btn-success web2-btn-xs" title="Duyệt" onclick="RfApp.approve('${escapeHtml(o.number)}')"><i data-lucide="check" style="width:12px;height:12px;"></i></button>` : ''}
+                        ${o.state === 'approved' ? `<button class="web2-btn web2-btn-success web2-btn-xs" title="Hoàn thành" onclick="RfApp.complete('${escapeHtml(o.number)}')"><i data-lucide="check-circle" style="width:12px;height:12px;"></i></button>` : ''}
+                        ${['draft', 'approved'].includes(o.state) ? `<button class="web2-btn web2-btn-danger web2-btn-xs" title="Hủy" onclick="RfApp.cancel('${escapeHtml(o.number)}')"><i data-lucide="x-circle" style="width:12px;height:12px;"></i></button>` : ''}
                     </div>
                 </td>
-                <td class="tpos-cell-center"><strong>${o.displayStt ?? ''}</strong></td>
-                <td class="tpos-cell-center"><strong>${escapeHtml(o.number)}</strong></td>
-                <td class="tpos-cell-center"><a href="../fastsaleorder-invoice/index.html" class="web2-cell-link">${escapeHtml(o.fso?.number || '')}</a></td>
+                <td class="web2-cell-center"><strong>${o.displayStt ?? ''}</strong></td>
+                <td class="web2-cell-center"><strong>${escapeHtml(o.number)}</strong></td>
+                <td class="web2-cell-center"><a href="../fastsaleorder-invoice/index.html" class="web2-cell-link">${escapeHtml(o.fso?.number || '')}</a></td>
                 <td>${escapeHtml(p.name || '—')}</td>
                 <td>${escapeHtml(p.phone || '—')}</td>
-                <td class="tpos-cell-center">${MODE_LABEL[o.refundMode] || o.refundMode}</td>
+                <td class="web2-cell-center">${MODE_LABEL[o.refundMode] || o.refundMode}</td>
                 <td style="text-align:right;font-weight:600;">${o.totalQuantity}</td>
                 <td style="text-align:right;font-weight:600;color:#dc2626;">${fmtMoney(o.amountRefund)}</td>
                 <td>${badge(o.state)}</td>
-                <td class="tpos-cell-center">${fmtDate(o.dateRefund)}</td>
+                <td class="web2-cell-center">${fmtDate(o.dateRefund)}</td>
             </tr>`;
             })
             .join('');

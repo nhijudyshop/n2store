@@ -1,4 +1,4 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — component chat HỢP NHẤT (Web2ChatPanel) dùng chung native-orders/tpos-pancake/balance-history.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — component chat HỢP NHẤT (Web2ChatPanel) dùng chung native-orders/web2-pancake/balance-history.
 // =====================================================================
 // Web2ChatPanel — 1 component chat duy nhất cho mọi trang Web 2.0. Tách UI khỏi
 // transport bằng ADAPTER: mỗi trang inject { loadMessages, loadOlder, send,... }.

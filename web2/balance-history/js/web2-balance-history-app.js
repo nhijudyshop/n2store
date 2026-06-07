@@ -432,7 +432,7 @@
                 <td class="w2bh-cell-time">${escapeHtml(fmtTime(r.transaction_date))}</td>
                 <td class="w2bh-cell-amount ${cls}">${sign}${fmtVnd(amount)}₫</td>
                 <td class="w2bh-cell-content">${escapeHtml(r.content || '')}</td>
-                <td class="w2bh-cell-customer" data-tpos-customer-cell="1">
+                <td class="w2bh-cell-customer" data-web2-customer-cell="1">
                     ${
                         phone
                             ? `<div class="w2bh-customer">
