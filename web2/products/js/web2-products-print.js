@@ -890,14 +890,16 @@
                     const qrBox = `flex:0 0 ${qrMm}mm;height:${qrMm}mm;display:flex;align-items:center;justify-content:center;margin-right:1mm;`;
                     const txtCol =
                         'flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;text-align:left;overflow:hidden;';
-                    const codeLeft = `flex:0 0 auto;font-size:${fsCode}px;line-height:${lineHCode}px;text-align:left;`;
+                    // ql-code: nowrap + auto thu nhỏ font (script fitText) để mã DÀI
+                    // (vd ADQUANDENM) hiện ĐỦ, không bị cắt mép phải.
+                    const codeLeft = `flex:0 0 auto;font-size:${fsCode}px;line-height:${lineHCode}px;text-align:left;white-space:nowrap;`;
                     labelInner += `<div class="barcode_label" style="${rowStyle}">`;
                     labelInner += `<div class="barcode-image ql-qr" style="${qrBox}">${barcodeImg}</div>`;
                     labelInner += `<div class="ql-text" style="${txtCol}">`;
                     if (showProductName) {
                         labelInner += `<div class="barcode-pname" style="${nameStyle}text-align:left;"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
                     }
-                    labelInner += `<div style="${codeLeft}"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
+                    labelInner += `<div class="ql-code" style="${codeLeft}"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
                     if (showPrice) {
                         labelInner += `<div style="${codeLeft}"><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
                     }
@@ -1107,8 +1109,20 @@ ${SCRIPT_OPEN}>
             } catch(e) { console.warn('[w2p-print] barcode error', img.dataset.code, e); }
         });
     }
-    document.addEventListener('DOMContentLoaded', draw);
-    if (document.readyState !== 'loading') draw();
+    // 2026-06-06: thu nhỏ font mã (.ql-code, layout QR) cho tới khi VỪA bề ngang
+    // cột chữ → mã dài (ADQUANDENM…) hiện đủ, không cắt mép. nowrap để scrollWidth
+    // phản ánh tràn. Giảm dần 0.5px, min 4px.
+    function fitText(){
+        document.querySelectorAll('.ql-code').forEach(function(el){
+            var guard=0, fs=parseFloat(getComputedStyle(el).fontSize)||8;
+            while(el.scrollWidth > el.clientWidth + 0.5 && fs > 4 && guard < 40){
+                fs -= 0.5; el.style.fontSize = fs + 'px'; guard++;
+            }
+        });
+    }
+    function init(){ draw(); fitText(); }
+    document.addEventListener('DOMContentLoaded', init);
+    if (document.readyState !== 'loading') init();
 })();
 ${SCRIPT_CLOSE}
 </body>
