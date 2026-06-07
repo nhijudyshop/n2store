@@ -1604,6 +1604,9 @@
                     <div class="so-receive-list" id="soReceiveList"></div>
                     <footer class="so-receive-panel-foot">
                         <button class="btn-secondary" type="button" data-so-receive-close>Hủy</button>
+                        <button class="btn-secondary" type="button" id="soReceivePrintBtn" title="In tem QR theo SL (nhập / đã nhận / đặt) — không cần nhận lại">
+                            <i data-lucide="printer"></i> In tem
+                        </button>
                         <button class="btn-primary" type="button" id="soReceiveConfirmBtn">
                             <i data-lucide="check"></i> Xác nhận nhận hàng
                         </button>
@@ -1636,6 +1639,11 @@
         panelRow
             .querySelector('#soReceiveConfirmBtn')
             .addEventListener('click', confirmReceiveFromModal);
+
+        // In tem button — in/in lại tem QR theo SL kể cả khi đã nhận đủ.
+        panelRow
+            .querySelector('#soReceivePrintBtn')
+            ?.addEventListener('click', printLabelsFromReceivePanel);
 
         // Tất cả mua đủ button
         panelRow.querySelector('#soReceiveAllFull').addEventListener('click', () => {
@@ -1960,6 +1968,86 @@
         } catch (e) {
             console.warn('[so-order] confirmReceive fail:', e);
             notify('Lỗi nhận hàng: ' + (e.message || e), 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+        }
+    }
+
+    // 2026-06-07: In tem QR theo SL — KHÔNG cần nhận lại (dùng cho SP đã nhận đủ
+    // cần in/in lại tem, hoặc in trước khi xác nhận). SL mỗi SP = qty nhập (>0) →
+    // else đã nhận → else qty đặt. Resolve code: dùng code có sẵn (server lookup),
+    // thiếu thì upsertPending lấy code (KHÔNG đổi tồn — chỉ confirm-purchase mới đổi).
+    async function printLabelsFromReceivePanel() {
+        const panelRow = document.querySelector('.so-receive-panel-row');
+        const btn = panelRow?.querySelector('#soReceivePrintBtn');
+        if (!btn || btn.disabled) return;
+        if (!_receiveItems.length) {
+            notify('Không có SP để in tem', 'warning');
+            return;
+        }
+        const inputByKey = new Map();
+        panelRow.querySelectorAll('input[data-receive-qty]').forEach((inp) => {
+            inputByKey.set(inp.dataset.receiveQty, Math.max(0, Number(inp.value) || 0));
+        });
+        const items = _receiveItems.map((it) => {
+            const entered = inputByKey.get(it.key) || 0;
+            const printQty =
+                entered > 0 ? entered : it.alreadyReceived > 0 ? it.alreadyReceived : it.qty;
+            return { ...it, printQty: Math.max(1, Number(printQty) || 1) };
+        });
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2"></i> Đang tạo tem…';
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+        try {
+            const codeByKey = new Map();
+            items.forEach((it) => {
+                if (it.code) codeByKey.set(it.key, it.code);
+            });
+            const needCode = items.filter((it) => !codeByKey.has(it.key));
+            if (needCode.length && window.Web2ProductsApi?.upsertPending) {
+                const upsertPayload = needCode.map((it) => ({
+                    name: it.name,
+                    variant: it.variant,
+                    qty: it.qty,
+                    costPrice: it.costPriceVnd,
+                    sellPrice: it.sellPriceVnd,
+                    supplier: it.supplier,
+                    imageUrl: it.imageUrl,
+                    note: it.note,
+                }));
+                _assignKhoCodes(upsertPayload);
+                const r = await window.Web2ProductsApi.upsertPending(upsertPayload);
+                const ui = (r && r.items) || [];
+                for (let i = 0; i < ui.length && i < needCode.length; i++) {
+                    if (ui[i].code) codeByKey.set(needCode[i].key, ui[i].code);
+                }
+            }
+            // openBarcodePrintModal map quantity = it.qtyReceived → đặt đúng field.
+            const products = items
+                .filter((it) => codeByKey.get(it.key))
+                .map((it) => ({
+                    code: codeByKey.get(it.key),
+                    name: it.name,
+                    variant: it.variant,
+                    qtyReceived: Math.max(1, it.printQty),
+                    price: it.sellPriceVnd,
+                    sellPriceVnd: it.sellPriceVnd,
+                    stock: it.currentStock,
+                }));
+            if (!products.length) {
+                notify('Không có mã SP để in tem', 'warning');
+                return;
+            }
+            const uniqSuppliers = Array.from(new Set(items.map((it) => it.supplier)));
+            const supplierLabel =
+                uniqSuppliers.length === 1 ? uniqSuppliers[0] : `${uniqSuppliers.length} NCC`;
+            openBarcodePrintModal(products, supplierLabel);
+        } catch (e) {
+            console.warn('[so-order] print labels fail:', e);
+            notify('Lỗi tạo tem: ' + (e.message || e), 'error');
         } finally {
             btn.disabled = false;
             btn.innerHTML = orig;

@@ -25,6 +25,20 @@
 
 ## 2026-06-07
 
+### [so-order] Nút "In tem" trong panel nhận hàng — in/in lại QR cả khi đã nhận đủ ✅
+
+**User (kiểm tra NCC ADIDAS đợt AD-2606):** lô đã nhận đủ trước (server pendingQty=0, mọi SP "ĐÃ NHẬN ĐỦ", nhập=0) → luồng in-khi-nhận KHÔNG kích hoạt (không có gì để xác nhận) → không in/in lại tem được.
+
+**Fix (`so-order-app.js`):** thêm nút **"In tem"** trong footer panel nhận hàng + `printLabelsFromReceivePanel()`:
+
+- SL mỗi SP = qty nhập (>0) → else đã nhận → else qty đặt. (Lô đã nhận đủ → dùng "đã nhận" → in đúng SL đã nhận.)
+- Resolve code: ưu tiên `it.code` (server lookup đã set qua `_patchReceiveRowFromLookup`) → KHÔNG đổi tồn; thiếu mới `upsertPending` (SP mới).
+- Gọi `openBarcodePrintModal` → Web2ProductsPrint (QR + 2 Tem).
+- **Bug fix:** `openBarcodePrintModal` map quantity = `it.qtyReceived` → ban đầu truyền `quantity` → ra 1 tem/SP. Đổi field `qtyReceived`.
+
+**Files:** `so-order/js/so-order-app.js` (`?v=20260607b`), `so-order/index.html`.
+**Verify (localhost, đợt AD-2606 đã nhận đủ):** panel có nút "In tem"; bấm → mở print QR + 2 Tem, ra **6 tem** đúng SL (ADQUANDENM×1, ADAODO×2, ADMMTRANGS40×3) trên 3 sheet 2-up. Screenshot xác nhận. Không đổi tồn (dùng code có sẵn).
+
 ### [so-order] Nhận hàng → in tem QR 2-tem theo SL nhận (bump version) ✅
 
 **User:** trang so-order khi nhận hàng → in sản phẩm 2 tem theo số lượng nhận.
