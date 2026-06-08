@@ -824,6 +824,12 @@ try {
     };
     // Chiều 1 (tiền về): sepay-webhook-core gọi onNewSepayTx với deps này.
     require('./routes/sepay-webhook-core').initWeb2CkWatcher(_ckWatcherDeps);
+    // GD SePay mới → SSE web2:balance-history để trang tự cập nhật (khỏi F5).
+    try {
+        require('./routes/sepay-webhook-core').initSseNotify(web2RealtimeSseRoutes.notifyClients);
+    } catch (e) {
+        console.warn('[sepay-webhook-core] initSseNotify fail:', e.message);
+    }
     // Chiều 2 (signal mới): server.js gọi onNewSignal — inject deps mặc định 1 lần.
     web2CkWatcher.initDeps(_ckWatcherDeps);
 } catch (e) {

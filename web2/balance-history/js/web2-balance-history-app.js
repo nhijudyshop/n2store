@@ -926,6 +926,8 @@
             }, 800);
         };
         window.Web2SSE.subscribe('web2:wallet:*', reload);
+        // GD SePay mới (kể cả chưa gán KH) → reload bảng realtime, khỏi F5.
+        window.Web2SSE.subscribe('web2:balance-history', reload);
     }
 
     // ----- CSV export -----

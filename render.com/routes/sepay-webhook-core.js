@@ -44,11 +44,21 @@ function initWeb2CkWatcher(deps) {
     _ckWatcherDeps = deps || {};
 }
 
+// WEB2.0 — SSE notify khi có GD mới (để balance-history tự cập nhật, khỏi F5).
+let _sseNotify = null;
+function initSseNotify(fn) {
+    _sseNotify = fn;
+}
+
 async function _processWeb2Path(db, webhookData) {
     if (!_web2Sepay || !db) return;
     try {
         const { id, isDuplicate } = await _web2Sepay.insertWeb2BalanceHistory(db, webhookData);
         if (!id || isDuplicate) return;
+        // GD mới vào DB → báo balance-history reload realtime (khỏi F5).
+        try {
+            _sseNotify?.('web2:balance-history', { action: 'new', id, ts: Date.now() }, 'update');
+        } catch (_) {}
         if (webhookData.transferType === 'in') {
             const result = await _web2Sepay.processWeb2Match(db, id, fetchWithTimeout);
             if (result?.success) {
@@ -1709,4 +1719,5 @@ module.exports = {
     saveToFailedQueue,
     registerRoutes,
     initWeb2CkWatcher,
+    initSseNotify,
 };
