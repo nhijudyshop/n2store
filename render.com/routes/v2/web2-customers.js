@@ -24,6 +24,7 @@ const {
     getOrCreateWeb2Customer,
     findWeb2CustomerByFbId,
     linkWeb2CustomerFbId,
+    addWeb2AltPhone,
     normPhoneWeb2,
     _historyEntry,
 } = require('../../db/web2-customers-schema');
@@ -75,6 +76,7 @@ function rowToFull(r) {
         tier: r.tier || null,
         tags: Array.isArray(r.tags) ? r.tags : [],
         aliases: Array.isArray(r.aliases) ? r.aliases : [],
+        altPhones: Array.isArray(r.alt_phones) ? r.alt_phones : [],
         note: r.note || null,
         fbId: r.fb_id || null,
         fbPsids: r.fb_psids || {},
@@ -695,6 +697,29 @@ router.delete('/:id', async (req, res) => {
         res.json({ success: true, deleted: true });
     } catch (e) {
         console.error('[web2-customers] delete error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// ─── POST /add-alt-phone {fbId?|customerId?, phone} ────────────────────
+// KH đã có trong kho (theo fbId/id) nhưng SĐT mới khác phone chính → lưu vào
+// alt_phones (KHÔNG ghi đè phone chính). "Ưu tiên kho KH, thêm SĐT phụ".
+router.post('/add-alt-phone', async (req, res) => {
+    const pool = getPool(req);
+    const phone = req.body?.phone;
+    const fbId = req.body?.fbId;
+    const customerId = req.body?.customerId;
+    if (!phone || (!fbId && !customerId)) {
+        return res
+            .status(400)
+            .json({ success: false, error: 'phone + (fbId|customerId) required' });
+    }
+    try {
+        const r = await addWeb2AltPhone(pool, { customerId, fbId, phone });
+        if (!r) return res.json({ success: false, error: 'customer not found' });
+        if (r.added) _notify('alt-phone', customerId || null);
+        res.json({ success: true, ...r });
+    } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
 });

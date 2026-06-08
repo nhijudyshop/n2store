@@ -67,6 +67,7 @@ async function ensureWeb2CustomersSchema(pool) {
                 tier          VARCHAR(40),
                 tags          JSONB NOT NULL DEFAULT '[]'::jsonb,
                 aliases       JSONB NOT NULL DEFAULT '[]'::jsonb,
+                alt_phones    JSONB NOT NULL DEFAULT '[]'::jsonb, -- SĐT phụ (phone chính UNIQUE, phụ không ghi đè)
                 note          TEXT,
                 -- FB / Messenger identity graph
                 fb_id         VARCHAR(50),                   -- PSID mặc định (legacy/1-page)
@@ -92,6 +93,7 @@ async function ensureWeb2CustomersSchema(pool) {
                 updated_at    BIGINT NOT NULL,
                 synced_at     TIMESTAMP DEFAULT NOW()        -- giữ cho consumer cũ (SePay sort)
             );
+            ALTER TABLE web2_customers ADD COLUMN IF NOT EXISTS alt_phones JSONB NOT NULL DEFAULT '[]'::jsonb;
             CREATE INDEX IF NOT EXISTS idx_web2_customers_phone     ON web2_customers(phone);
             CREATE INDEX IF NOT EXISTS idx_web2_customers_fb_id     ON web2_customers(fb_id) WHERE fb_id IS NOT NULL;
             CREATE INDEX IF NOT EXISTS idx_web2_customers_global_id ON web2_customers(global_id) WHERE global_id IS NOT NULL;
@@ -242,6 +244,50 @@ async function linkWeb2CustomerFbId(pool, phone, fbId) {
     }
 }
 
+// ─── Thêm SĐT PHỤ cho KH (phone chính KHÔNG ghi đè) ─────────────────────
+// Tìm KH theo customerId HOẶC fbId. Nếu newPhone khác phone chính + chưa có
+// trong alt_phones → append. "Ưu tiên kho KH là chính, thêm thông tin phụ".
+// Trả về { added, primaryPhone } hoặc null nếu không tìm thấy KH.
+async function addWeb2AltPhone(pool, { customerId, fbId, phone }) {
+    const p = normPhone(phone);
+    if (!p) return null;
+    let row;
+    try {
+        if (customerId) {
+            const r = await pool.query(
+                'SELECT id, phone, alt_phones FROM web2_customers WHERE id = $1 LIMIT 1',
+                [customerId]
+            );
+            row = r.rows[0];
+        } else if (fbId) {
+            const r = await pool.query(
+                'SELECT id, phone, alt_phones FROM web2_customers WHERE fb_id = $1 LIMIT 1',
+                [String(fbId)]
+            );
+            row = r.rows[0];
+        }
+    } catch (e) {
+        console.warn('[web2-customers] addAltPhone lookup fail:', e.message);
+        return null;
+    }
+    if (!row) return null;
+    // Trùng phone chính → bỏ qua (đã là chính).
+    if (row.phone && normPhone(row.phone) === p) return { added: false, primaryPhone: row.phone };
+    let alt = Array.isArray(row.alt_phones) ? row.alt_phones.map(String) : [];
+    if (alt.includes(p)) return { added: false, primaryPhone: row.phone };
+    alt.push(p);
+    try {
+        await pool.query(
+            `UPDATE web2_customers SET alt_phones = $2::jsonb, updated_at = $3 WHERE id = $1`,
+            [row.id, JSON.stringify(alt), Date.now()]
+        );
+    } catch (e) {
+        console.warn('[web2-customers] addAltPhone update fail:', e.message);
+        return null;
+    }
+    return { added: true, primaryPhone: row.phone, altPhones: alt };
+}
+
 // ─── Lookup id theo phone — KHÔNG tạo mới ───────────────────────────────
 async function lookupWeb2CustomerIdByPhone(pool, phone) {
     const p = normPhone(phone);
@@ -260,6 +306,7 @@ module.exports = {
     findWeb2CustomerByFbId,
     linkWeb2CustomerFbId,
     lookupWeb2CustomerIdByPhone,
+    addWeb2AltPhone,
     normPhoneWeb2: normPhone,
     _historyEntry,
 };

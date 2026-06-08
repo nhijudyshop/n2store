@@ -830,8 +830,50 @@ const LiveColumnManager = {
         // Re-render with partner info
         window.LiveCommentList.renderComments();
 
+        // KH đã có trong kho (partner.Phone) nhưng SĐT Pancake của comment KHÁC
+        // → lưu làm SĐT PHỤ (alt_phones), KHÔNG ghi đè phone chính. Ưu tiên kho.
+        this._captureAltPhones();
+
         // Load debt for partners with phone numbers
         this.loadDebtForPartners();
+    },
+
+    // Quét comment: KH có phone chính (kho) + SĐT Pancake khác → POST add-alt-phone.
+    // Dedupe per-session (_altSeen) để không spam. Best-effort.
+    _captureAltPhones() {
+        const state = window.LiveState;
+        if (!this._altSeen) this._altSeen = new Set();
+        const norm = (s) =>
+            String(s || '')
+                .replace(/\D/g, '')
+                .slice(-10);
+        const pancakePhoneOf = (c) => {
+            const a = c._phones;
+            const ph = Array.isArray(a) && a.length ? a[0] : null;
+            if (ph) return typeof ph === 'string' ? ph : ph.phone_number || ph.phone || '';
+            const m = String(c.message || '')
+                .replace(/[.\s()\-_]/g, '')
+                .match(/(?:\+?84|0)(\d{9})(?!\d)/);
+            return m ? '0' + m[1] : '';
+        };
+        for (const c of state.comments || []) {
+            const fbId = c.from?.id;
+            if (!fbId) continue;
+            const partner = state.partnerCache?.get?.(fbId);
+            const primary = partner?.Phone;
+            if (!primary) continue; // chỉ khi KH ĐÃ có trong kho + có phone chính
+            const pk = pancakePhoneOf(c);
+            if (!pk || norm(pk).length !== 10) continue;
+            if (norm(pk) === norm(primary)) continue; // giống phone chính → bỏ
+            const key = fbId + '|' + norm(pk);
+            if (this._altSeen.has(key)) continue;
+            this._altSeen.add(key);
+            fetch(`${state.workerUrl}/api/web2/customers/add-alt-phone`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fbId: String(fbId), phone: norm(pk) }),
+            }).catch(() => {});
+        }
     },
 
     /**
