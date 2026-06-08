@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `dc23ddb` — feat(issue-tracking): Copy hình bill dùng bill TPOS thật (print1, giống tab BÁN HÀNG)
-**Last updated**: 2026-06-08 10:21:52 +07
-**Latest session**: [`RESUME:20260608-102152-dc23ddb`](../20260608-102152-dc23ddb.md)
-**Summary**: feat(issue-tracking): Copy hình bill dùng bill TPOS thật (print1, giống tab BÁN HÀNG)
+**Latest commit**: `1161a3b` — auto: session update
+**Last updated**: 2026-06-08 10:28:53 +07
+**Latest session**: [`RESUME:20260608-102853-1161a3b`](../20260608-102853-1161a3b.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`issue-tracking/`](./issue-tracking.md) — 3 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 10:16
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-08 10:21
+- [`docs/`](./docs.md) — updated 2026-06-08 10:28
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-07 19:58
@@ -35,9 +37,9 @@
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-04 16:34
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:16
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-08 10:12
+- [`live-chat/`](./live-chat.md) — updated 2026-06-08 10:28
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-08 09:55
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
