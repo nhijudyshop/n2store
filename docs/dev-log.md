@@ -1,4 +1,26 @@
-# Dev Log — N2Store
+# Dev Log
+
+## 2026-06-08
+
+### [web2] Gỡ TPOS API khỏi Web 2.0 + import KH TPOS Partner → warehouse (dedupe SĐT) ✅
+
+User: "xóa hết tpos bên Web 2.0" (Web 1.0 giữ: DB columns tpos_id/tpos_data + live TPOS POS cho orders/sepay/invoice). + "lấy dữ liệu partner-customer qua, xử lý trùng sđt".
+
+**Gỡ TPOS API Web 2.0 (4 cụm, đã push):**
+
+- Cụm 1: xóa route `v2/web2-customer-tpos.js` + native-orders customer panel & "Lấy info" → kho warehouse (`/api/web2/customers` + batch-by-fbid).
+- Cụm 2: XÓA `web2/partner-customer/` (page TPOS live) + sidebar entry; "Mở thẻ KH" link → `web2/customers`.
+- Cụm 3: balance-history + customer-wallet → `web2/shared/web2-customer-lookup.js` (MỚI, warehouse-backed `window.PartnerCustomerApi`: listByPhones→/batch-by-phone, list→/list, status/carrier utils) thay `partner-customer-api.js` (TPOS OData).
+- Cụm 4: live-campaign dọn dead TPOS helpers (jsonFetch/ensureTokenManager/CRM/LIVE consts, tposIndex, banner); sidebar bỏ field `tpos:` deep-link.
+- Warehouse route: + `POST /batch-by-phone` (partner-compat shape).
+
+**Import dữ liệu (1 lần):** endpoint `POST /api/admin/web2-import-customers` (x-admin-secret) — paginate TPOS Partner Type=Customer (92,265) → pre-dedupe by phone (merge field đầy nhất) → bulk upsert `ON CONFLICT(phone)`. Kết quả: **fetched 92,265 → 2,845 không SĐT (bỏ) + 25,424 trùng SĐT (gộp) → 63,996 KH unique** vào `web2_customers`. Verify: warehouse total = 63,996, search OK.
+
+**GIỮ (Web 1.0/cross-layer):** `tpos-customer-service.js` (sepay/invoice/customer-creation), DB columns `tpos_id/tpos_data`, localStorage `tpos_pancake_*` (inbox/orders-report shared), live TPOS POS `tomato.tpos.vn`.
+
+**Status:** ✅ Done. Web 2.0 không còn gọi TPOS API; KH đọc từ warehouse (63,996 rows).
+
+— N2Store
 
 > Cập nhật liên tục khi code. Mới nhất ở trên.
 >
