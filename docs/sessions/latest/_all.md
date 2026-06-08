@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `3a1eeb2` — auto: session update
-**Last updated**: 2026-06-08 10:16:21 +07
-**Latest session**: [`RESUME:20260608-101621-3a1eeb2`](../20260608-101621-3a1eeb2.md)
-**Summary**: auto: session update
+**Latest commit**: `dc23ddb` — feat(issue-tracking): Copy hình bill dùng bill TPOS thật (print1, giống tab BÁN HÀNG)
+**Last updated**: 2026-06-08 10:21:52 +07
+**Latest session**: [`RESUME:20260608-102152-dc23ddb`](../20260608-102152-dc23ddb.md)
+**Summary**: feat(issue-tracking): Copy hình bill dùng bill TPOS thật (print1, giống tab BÁN HÀNG)
 
 ## Folders affected in this commit
 
-- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
-- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 10:16
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-08 10:08
+- [`docs/`](./docs.md) — updated 2026-06-08 10:21
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-07 19:58
