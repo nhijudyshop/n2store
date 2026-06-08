@@ -96,19 +96,35 @@ const LiveColumnManager = {
      * Chờ Pancake account JWT sẵn sàng (token-manager + web2-chat-client sync đều async).
      */
     async _waitForPancakeAccounts(timeoutMs) {
-        if (window.pancakeTokenManager?.initialize) {
-            try {
+        // token-manager.initialize tự load account có thể HẾT HẠN (expired) →
+        // Web2Chat.syncFromRenderDB nạp account JWT HỢP LỆ từ Render + set active.
+        // Phải await sync này, nếu không campaign fetch dùng token hết hạn → rỗng
+        // (bug: phải chọn lại page mới hiện).
+        try {
+            if (window.pancakeTokenManager?.initialize) {
                 await window.pancakeTokenManager.initialize();
-            } catch (e) {
-                console.warn('[Live-INIT] token init warn:', e.message);
             }
+        } catch (e) {
+            console.warn('[Live-INIT] token init warn:', e.message);
+        }
+        try {
+            if (window.Web2Chat?.syncFromRenderDB) {
+                await window.Web2Chat.syncFromRenderDB({ force: false });
+            }
+        } catch (e) {
+            console.warn('[Live-INIT] syncFromRenderDB warn:', e.message);
         }
         const start = Date.now();
+        // Account expired CŨNG có .token → phải chờ activeAccountId được set (=
+        // đã có account HỢP LỆ active sau sync/reinit) mới coi là sẵn sàng.
         const ready = () => {
             const tm = window.pancakeTokenManager;
+            if (!tm) return false;
+            const accs = tm.accounts || {};
             return !!(
-                tm &&
-                (tm.currentToken || (tm.accounts && Object.keys(tm.accounts).length > 0))
+                tm.activeAccountId &&
+                accs[tm.activeAccountId] &&
+                accs[tm.activeAccountId].token
             );
         };
         while (!ready() && Date.now() - start < timeoutMs) {
