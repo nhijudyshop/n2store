@@ -271,14 +271,23 @@ const LiveColumnManager = {
             }
         }
 
-        // Fallback: auto-select first campaign
-        const first = state.liveCampaigns[0];
-        if (first) {
+        // Fallback: mặc định chọn campaign MỚI NHẤT của MỖI page (House + Store).
+        // liveCampaigns đã sort DateCreated desc → lần xuất hiện đầu của mỗi
+        // Facebook_UserId = campaign mới nhất của page đó.
+        const newestPerPage = [];
+        const seenPages = new Set();
+        for (const c of state.liveCampaigns) {
+            const pg = String(c.Facebook_UserId || '');
+            if (seenPages.has(pg)) continue;
+            seenPages.add(pg);
+            newestPerPage.push(c.Id);
+        }
+        if (newestPerPage.length) {
             if (!state.selectedCampaignIds) state.selectedCampaignIds = new Set();
-            state.selectedCampaignIds.add(first.Id);
+            newestPerPage.forEach((id) => state.selectedCampaignIds.add(id));
             state.saveCampaignSelection();
             window.LiveCommentList.renderLiveCampaignOptions();
-            await this.onMultiCampaignChange([first.Id]);
+            await this.onMultiCampaignChange(newestPerPage);
         }
     },
 

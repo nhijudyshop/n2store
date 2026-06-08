@@ -162,6 +162,12 @@
                 console.warn('[FB-LIVE-SRC] posts fail', pageId, e.message);
             }
         }
+        // Xen kẽ tất cả page theo MỚI NHẤT lên đầu (Store/House trộn theo ngày).
+        out.sort((a, b) => {
+            const ta = a.DateCreated ? new Date(a.DateCreated).getTime() : 0;
+            const tb = b.DateCreated ? new Date(b.DateCreated).getTime() : 0;
+            return tb - ta;
+        });
         return out;
     }
 
