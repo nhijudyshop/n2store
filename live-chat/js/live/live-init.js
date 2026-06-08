@@ -78,12 +78,43 @@ const LiveColumnManager = {
         // Setup realtime event listeners (WebSocket status)
         this.setupRealtimeListeners();
 
+        // Chờ Pancake account JWT sẵn sàng TRƯỚC khi load campaign. Account nạp
+        // async từ nhiều nguồn (token-manager.initialize + web2-chat-client
+        // syncFromRenderDB) → nếu chưa có, fetchVideosAsCampaigns rỗng (bug: phải
+        // chọn lại page mới hiện). Poll tới khi có token/account hoặc timeout.
+        await this._waitForPancakeAccounts(9000);
+
         // Load CRM Teams
         await window.LiveApi.loadCRMTeams();
         window.LiveCommentList.renderCrmTeamOptions();
 
-        // Restore saved page selection
+        // Restore saved page selection (mặc định 'all' → load campaign + auto-chọn)
         this.restoreSelection();
+    },
+
+    /**
+     * Chờ Pancake account JWT sẵn sàng (token-manager + web2-chat-client sync đều async).
+     */
+    async _waitForPancakeAccounts(timeoutMs) {
+        if (window.pancakeTokenManager?.initialize) {
+            try {
+                await window.pancakeTokenManager.initialize();
+            } catch (e) {
+                console.warn('[Live-INIT] token init warn:', e.message);
+            }
+        }
+        const start = Date.now();
+        const ready = () => {
+            const tm = window.pancakeTokenManager;
+            return !!(
+                tm &&
+                (tm.currentToken || (tm.accounts && Object.keys(tm.accounts).length > 0))
+            );
+        };
+        while (!ready() && Date.now() - start < timeoutMs) {
+            await new Promise((r) => setTimeout(r, 300));
+        }
+        return ready();
     },
 
     /**
@@ -145,18 +176,24 @@ const LiveColumnManager = {
      */
     restoreSelection() {
         const state = window.LiveState;
+        const crmSelect = document.getElementById('liveCrmTeamSelect');
+        const hasOption = (v) =>
+            crmSelect && Array.from(crmSelect.options).some((o) => o.value === v);
         const savedPage = state.getSavedPageSelection();
-        if (savedPage) {
-            const crmSelect = document.getElementById('liveCrmTeamSelect');
-            if (crmSelect) {
-                const optionExists = Array.from(crmSelect.options).some(
-                    (opt) => opt.value === savedPage
-                );
-                if (optionExists) {
-                    crmSelect.value = savedPage;
-                    this.onCrmTeamChange(savedPage);
-                }
-            }
+        // Ưu tiên page đã lưu; nếu chưa có (lần đầu vào) → MẶC ĐỊNH "Tất cả Pages"
+        // để campaign load + auto-chọn ngay (trước đây không default → dropdown
+        // campaign rỗng, phải chọn lại page thủ công).
+        let target = null;
+        if (savedPage && hasOption(savedPage)) target = savedPage;
+        else if (hasOption('all')) target = 'all';
+        else if (state.allPages && state.allPages[0]) {
+            const p = state.allPages[0];
+            target = `${p.teamId != null ? p.teamId : 0}:${p.Id}`;
+            if (!hasOption(target)) target = null;
+        }
+        if (target && crmSelect) {
+            crmSelect.value = target;
+            this.onCrmTeamChange(target);
         }
     },
 
