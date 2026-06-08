@@ -107,6 +107,220 @@
         );
     }
 
+    // Lazy-load html2canvas (page không nạp cdn-libs.js sẵn).
+    function ensureHtml2Canvas() {
+        if (typeof window.html2canvas !== 'undefined') return Promise.resolve();
+        if (typeof window.loadHtml2Canvas === 'function') return window.loadHtml2Canvas();
+        return new Promise((resolve, reject) => {
+            const existing = document.querySelector('script[data-lib="html2canvas"]');
+            if (existing) {
+                existing.addEventListener('load', () => resolve());
+                existing.addEventListener('error', () =>
+                    reject(new Error('html2canvas load failed'))
+                );
+                return;
+            }
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+            s.dataset.lib = 'html2canvas';
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error('html2canvas load failed'));
+            document.head.appendChild(s);
+        });
+    }
+
+    function toast(message, type) {
+        if (window.notificationManager && typeof window.notificationManager.show === 'function') {
+            window.notificationManager.show(message, type || 'info');
+            return;
+        }
+        // Fallback: toast tối giản tự huỷ.
+        const el = document.createElement('div');
+        el.textContent = message;
+        el.style.cssText = `position:fixed;left:50%;bottom:28px;transform:translateX(-50%);
+            z-index:99999;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;
+            color:#fff;background:${type === 'error' ? '#dc2626' : type === 'success' ? '#16a34a' : '#334155'};
+            box-shadow:0 8px 24px rgba(0,0,0,.18);max-width:80vw;`;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 2600);
+    }
+
+    function shopLabel() {
+        try {
+            return (window.ShopConfig && window.ShopConfig.getConfig().label) || 'NJD';
+        } catch (_) {
+            return 'NJD';
+        }
+    }
+
+    // Dựng phần tử "bill phiếu bán hàng" off-screen để render thành ảnh.
+    function buildBillElement(details, order) {
+        const products = Array.isArray(details.products) ? details.products : [];
+        const subtotal = products.reduce(
+            (s, p) => s + (Number(p.total) || (Number(p.price) || 0) * (Number(p.quantity) || 0)),
+            0
+        );
+        const decrease = Number(details.decreaseAmount) || 0;
+        const ship = Number(details.deliveryPrice) || 0;
+        const finalTotal = subtotal - decrease + ship;
+        const cod = Number(details.cod) || 0;
+        const code = details.tposCode || (order && order.tposCode) || '—';
+        const customer = (order && order.customer) || details.customer || '—';
+        const phone = details.phone || (order && order.phone) || '—';
+        const address = details.address || (order && order.address) || '';
+
+        const rows = products.length
+            ? products
+                  .map((p) => {
+                      const qty = Number(p.quantity) || 0;
+                      const price = Number(p.price) || 0;
+                      const lineTotal = Number(p.total) || price * qty;
+                      return `
+            <tr>
+                <td style="padding:6px 4px;border-bottom:1px solid #eee;vertical-align:top;">
+                    <div style="font-weight:600;color:#111;">${escapeHtml(p.name || p.code || '—')}</div>
+                    ${p.code ? `<div style="color:#888;font-size:11px;">${escapeHtml(p.code)}</div>` : ''}
+                </td>
+                <td style="padding:6px 4px;border-bottom:1px solid #eee;text-align:center;white-space:nowrap;">${qty}</td>
+                <td style="padding:6px 4px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap;">${formatVnd(price)}</td>
+                <td style="padding:6px 4px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap;font-weight:600;">${formatVnd(lineTotal)}</td>
+            </tr>`;
+                  })
+                  .join('')
+            : `<tr><td colspan="4" style="padding:14px;text-align:center;color:#999;">Không có sản phẩm.</td></tr>`;
+
+        const totalLine = (label, value, color) => `
+            <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;${color ? `color:${color};` : ''}">
+                <span>${label}</span><span style="font-weight:600;font-variant-numeric:tabular-nums;">${value}</span>
+            </div>`;
+
+        const container = document.createElement('div');
+        container.style.cssText =
+            'position:fixed;left:-99999px;top:0;width:420px;background:#fff;' +
+            'font-family:Arial,Helvetica,sans-serif;color:#111;';
+        container.innerHTML = `
+        <div style="padding:22px;background:#fff;">
+            <div style="text-align:center;border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:12px;">
+                <div style="font-size:20px;font-weight:800;letter-spacing:.04em;">${escapeHtml(shopLabel())}</div>
+                <div style="font-size:13px;color:#555;margin-top:2px;">PHIẾU BÁN HÀNG</div>
+            </div>
+            <div style="font-size:13px;line-height:1.7;margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;">
+                    <span style="color:#666;">Mã đơn</span>
+                    <span style="font-weight:700;">${escapeHtml(code)}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                    <span style="color:#666;">Ngày</span>
+                    <span>${escapeHtml(formatDate(details.createdAt || (order && order.createdAt)))}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                    <span style="color:#666;">Khách</span>
+                    <span style="font-weight:600;text-align:right;max-width:260px;">${escapeHtml(customer)}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                    <span style="color:#666;">SĐT</span>
+                    <span style="font-variant-numeric:tabular-nums;">${escapeHtml(phone)}</span>
+                </div>
+                ${
+                    address
+                        ? `<div style="display:flex;justify-content:space-between;gap:10px;">
+                    <span style="color:#666;white-space:nowrap;">Địa chỉ</span>
+                    <span style="text-align:right;">${escapeHtml(address)}</span>
+                </div>`
+                        : ''
+                }
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:10px;">
+                <thead>
+                    <tr style="border-bottom:2px solid #111;">
+                        <th style="text-align:left;padding:6px 4px;">Sản phẩm</th>
+                        <th style="text-align:center;padding:6px 4px;width:34px;">SL</th>
+                        <th style="text-align:right;padding:6px 4px;">Giá</th>
+                        <th style="text-align:right;padding:6px 4px;">T.Tiền</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+            <div style="border-top:2px solid #111;padding-top:8px;">
+                ${totalLine('Tổng sản phẩm', formatVnd(subtotal))}
+                ${decrease ? totalLine('Giảm giá', '- ' + formatVnd(decrease)) : ''}
+                ${ship ? totalLine('Phí ship', formatVnd(ship)) : ''}
+                <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:15px;font-weight:800;border-top:1px dashed #aaa;margin-top:4px;">
+                    <span>TỔNG CỘNG</span><span style="color:#dc2626;font-variant-numeric:tabular-nums;">${formatVnd(finalTotal)}</span>
+                </div>
+                ${totalLine('COD (khách trả)', formatVnd(cod), '#2563eb')}
+            </div>
+            <div style="text-align:center;color:#888;font-size:11px;margin-top:14px;">
+                Cảm ơn Quý khách 💛 ${escapeHtml(shopLabel())}
+            </div>
+        </div>`;
+        return container;
+    }
+
+    async function blobToClipboard(blob) {
+        if (!navigator.clipboard || typeof window.ClipboardItem === 'undefined') {
+            throw new Error('Trình duyệt không hỗ trợ copy ảnh vào clipboard.');
+        }
+        await navigator.clipboard.write([new window.ClipboardItem({ [blob.type]: blob })]);
+    }
+
+    function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
+    async function copyBillImage(orderId, btn) {
+        const details = state.loadedDetails.get(orderId);
+        if (!details) {
+            toast('Chi tiết đơn chưa tải xong, thử lại.', 'error');
+            return;
+        }
+        const order = findOrderInState(orderId);
+        const original = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Đang tạo ảnh…';
+        }
+        let container = null;
+        try {
+            await ensureHtml2Canvas();
+            container = buildBillElement(details, order);
+            document.body.appendChild(container);
+            await new Promise((r) => setTimeout(r, 60));
+            const canvas = await window.html2canvas(container, {
+                backgroundColor: '#ffffff',
+                scale: 2,
+                logging: false,
+                useCORS: true,
+            });
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+            if (!blob) throw new Error('Không tạo được ảnh.');
+            try {
+                await blobToClipboard(blob);
+                toast('✅ Đã copy hình bill — dán (Ctrl/Cmd+V) để gửi khách.', 'success');
+            } catch (clipErr) {
+                console.warn('[CustomerLookup] clipboard failed, fallback download', clipErr);
+                downloadBlob(blob, `bill-${details.tposCode || orderId}.png`);
+                toast('Clipboard bị chặn — đã tải ảnh bill về máy.', 'info');
+            }
+        } catch (err) {
+            console.error('[CustomerLookup] copyBillImage failed', err);
+            toast('Lỗi tạo hình bill: ' + (err.message || String(err)), 'error');
+        } finally {
+            if (container && container.parentNode) container.parentNode.removeChild(container);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = original;
+            }
+        }
+    }
+
     function openModal() {
         const modal = $('modal-customer-orders');
         if (modal) modal.classList.add('show');
@@ -275,6 +489,18 @@
     }
 
     function attachRowHandlers(container) {
+        // Delegate copy-bill clicks (button render lại mỗi lần expand).
+        if (!container.dataset.billDelegated) {
+            container.dataset.billDelegated = '1';
+            container.addEventListener('click', (e) => {
+                const btn = e.target.closest('.btn-copy-bill');
+                if (!btn) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const oid = Number(btn.getAttribute('data-order-id'));
+                if (oid) copyBillImage(oid, btn);
+            });
+        }
         container.querySelectorAll('.customer-order-summary').forEach((sum) => {
             sum.addEventListener('click', onRowClick);
             sum.addEventListener('keydown', (e) => {
@@ -386,7 +612,16 @@
             </details>`
             : '';
 
+        const billOrderId = (orderFromList && orderFromList.id) || details.id;
+        const billActions = `
+        <div class="order-bill-actions">
+            <button type="button" class="btn-copy-bill" data-order-id="${escapeHtml(String(billOrderId))}">
+                📋 Copy hình bill
+            </button>
+        </div>`;
+
         return `
+        ${billActions}
         ${noteSection}
         ${deliveryNoteSection}
         <div class="order-details-grid">

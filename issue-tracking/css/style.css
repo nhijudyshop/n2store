@@ -1482,6 +1482,43 @@ textarea {
     }
 }
 
+.order-bill-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 0 4px 0;
+}
+.btn-copy-bill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border: 1px solid #c7d2fe;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+    color: #4338ca;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        transform 0.1s ease,
+        box-shadow 0.15s ease;
+}
+.btn-copy-bill:hover {
+    background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.18);
+    transform: translateY(-1px);
+}
+.btn-copy-bill:active {
+    transform: translateY(0);
+}
+.btn-copy-bill:disabled {
+    opacity: 0.6;
+    cursor: progress;
+    transform: none;
+    box-shadow: none;
+}
+
 .order-details-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
