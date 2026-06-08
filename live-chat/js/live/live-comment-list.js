@@ -751,10 +751,17 @@ const LiveCommentList = {
         const statusText = partner.StatusText || '';
         const statusColor = this.getStatusColor(statusText);
         const statusBg = statusColor ? `${statusColor}18` : '';
-        // SĐT/địa chỉ: Live Partner trước, lấp chỗ trống bằng kho khách hàng (Web 1.0)
-        // qua LiveKhoEnricher (lookup theo fb_id). Không ghi đè data Live đã có.
+        // SĐT/địa chỉ: warehouse trước → kho KH → SĐT Pancake CỦA CHÍNH COMMENT
+        // (recent_phone_numbers — khách comment kèm SĐT ở Pancake) lấp chỗ trống
+        // cho KH chưa có trong kho. "Lấy thông tin khách ở Pancake nếu có".
         const kho = state.customerKhoCache?.get(fromId);
-        const phone = partner.Phone || kho?.phone || '';
+        const pancakePhone = (() => {
+            const arr = comment._phones;
+            const ph = Array.isArray(arr) && arr.length ? arr[0] : null;
+            if (!ph) return '';
+            return (typeof ph === 'string' ? ph : ph.phone_number || ph.phone || '') || '';
+        })();
+        const phone = partner.Phone || kho?.phone || pancakePhone || '';
         const address = partner.Street || kho?.address || '';
 
         // Số dư ví Web 2.0 (thay cho "Nợ Live" cũ — user yêu cầu 2026-06-06).
