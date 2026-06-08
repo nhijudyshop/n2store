@@ -259,7 +259,10 @@
         }
         if (act === 'qr') {
             if (!row.phone) return notify('KH chưa có SĐT để tạo QR', 'warning');
-            window.Web2QrModal?.open?.(row.phone, { name: row.name });
+            window.Web2QrModal?.open?.(row.phone, {
+                customerId: row.id,
+                customerName: row.name,
+            });
             return;
         }
         if (act === 'delete') {

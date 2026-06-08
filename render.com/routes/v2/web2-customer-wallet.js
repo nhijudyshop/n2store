@@ -14,7 +14,6 @@
 
 const express = require('express');
 const router = express.Router();
-const { searchTposByPhone } = require('../../services/web2-content-extractor');
 
 function handleError(res, err, msg = 'Internal error') {
     console.error(`[Web2CustomerWallet] ${msg}:`, err.message);
@@ -318,9 +317,10 @@ router.get('/:phone/qr', async (req, res) => {
 // =====================================================
 // POST /:phone/qr — UPSERT QR cho phone.
 // Body: { customerId?, customerName? }
-//   - Nếu thiếu → lookup TPOS qua searchTposByPhone(phone)
-//   - Nếu TPOS không có KH → 404 (yêu cầu tạo KH trên TPOS trước)
-// qr_code = <slug(name)><customer_id>, UPSERT theo customer_id PK.
+//   - Nếu thiếu → lookup kho warehouse Web 2.0 theo SĐT (web2_customers)
+//   - Nếu kho không có KH → 404 (tạo KH trước). KHÔNG còn TPOS.
+// qr_code = <slug(name)><customer_id> (customer_id = web2_customers.id),
+// UPSERT theo customer_id PK.
 // =====================================================
 router.post('/:phone/qr', async (req, res) => {
     try {
@@ -333,27 +333,23 @@ router.post('/:phone/qr', async (req, res) => {
         let customerId = Number(req.body?.customerId) || null;
         let customerName = String(req.body?.customerName || '').trim();
 
-        // Lookup TPOS nếu thiếu customer_id hoặc name
+        // Thiếu id/name → lookup KHO WAREHOUSE Web 2.0 theo SĐT (đã bỏ TPOS).
+        // customer_id = web2_customers.id (chuẩn warehouse) để SePay match nhất quán.
         if (!customerId || !customerName) {
-            const { fetchWithTimeout } = require('../../../shared/node/fetch-utils.cjs');
-            const tpos = await searchTposByPhone(phone, fetchWithTimeout);
-            if (!tpos?.success) {
-                return res.status(502).json({
-                    success: false,
-                    error: 'TPOS lookup failed',
-                    details: tpos?.error,
-                });
-            }
-            const phoneData = tpos.uniquePhones.find((p) => p.phone === phone);
-            const tposCustomer = phoneData?.customers?.[0];
-            if (!tposCustomer) {
+            const norm = phone.length > 10 ? phone.slice(-10) : phone;
+            const wc = await db.query(
+                `SELECT id, name FROM web2_customers WHERE phone = $1 LIMIT 1`,
+                [norm]
+            );
+            const c = wc.rows[0];
+            if (!c) {
                 return res.status(404).json({
                     success: false,
-                    error: 'Customer not in TPOS — tạo KH trên TPOS trước',
+                    error: 'KH chưa có trong kho Web 2.0 — tạo KH trước',
                 });
             }
-            customerId = customerId || Number(tposCustomer.id);
-            customerName = customerName || String(tposCustomer.name || '').trim();
+            customerId = customerId || Number(c.id);
+            customerName = customerName || String(c.name || '').trim();
         }
 
         if (!customerId || !customerName) {
