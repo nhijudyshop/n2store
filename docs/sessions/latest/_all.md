@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6ede237` — feat(web2): admin backfill SDT+fb_id tu Pancake INBOX -> kho (1 lan)
-**Last updated**: 2026-06-08 20:28:09 +07
-**Latest session**: [`RESUME:20260608-202809-6ede237`](../20260608-202809-6ede237.md)
-**Summary**: feat(web2): admin backfill SDT+fb_id tu Pancake INBOX -> kho (1 lan)
+**Latest commit**: `35d5473` — fix(web2): backfill Pancake phan trang bang cursor thoi gian (until) thay page_number
+**Last updated**: 2026-06-08 20:35:35 +07
+**Latest session**: [`RESUME:20260608-203535-35d5473`](../20260608-203535-35d5473.md)
+**Summary**: fix(web2): backfill Pancake phan trang bang cursor thoi gian (until) thay page_number
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -51,7 +50,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-08 20:28
+- [`render.com/`](./render.com.md) — updated 2026-06-08 20:35
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-07 16:00
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
