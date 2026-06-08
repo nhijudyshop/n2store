@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `bd7e81f` — auto: session update
-**Last updated**: 2026-06-08 09:59:56 +07
-**Latest session**: [`RESUME:20260608-095956-bd7e81f`](../20260608-095956-bd7e81f.md)
-**Summary**: auto: session update
+**Latest commit**: `ae85cff` — docs(dev-log): Web 2.0 gỡ TPOS API (4 cụm) + import 63996 KH TPOS Partner→warehouse (dedupe phone 92265→63996)
+**Last updated**: 2026-06-08 10:03:09 +07
+**Latest session**: [`RESUME:20260608-100309-ae85cff`](../20260608-100309-ae85cff.md)
+**Summary**: docs(dev-log): Web 2.0 gỡ TPOS API (4 cụm) + import 63996 KH TPOS Partner→warehouse (dedupe phone 92265→63996)
 
 ## Folders affected in this commit
 
-- [`issue-tracking/`](./issue-tracking.md) — 3 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-07 19:58
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-08 09:55
+- [`docs/`](./docs.md) — updated 2026-06-08 10:03
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-07 19:58
