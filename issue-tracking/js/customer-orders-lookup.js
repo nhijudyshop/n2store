@@ -145,116 +145,99 @@
         setTimeout(() => el.remove(), 2600);
     }
 
-    function shopLabel() {
-        try {
-            return (window.ShopConfig && window.ShopConfig.getConfig().label) || 'NJD';
-        } catch (_) {
-            return 'NJD';
+    const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+    // Lấy HTML bill chính thức của TPOS (giống tab BÁN HÀNG: /api/fastsaleorder/print1).
+    // Đơn Nháp/Huỷ bị TPOS từ chối in → ném lỗi với message của TPOS.
+    async function fetchTposBillHtml(orderId) {
+        const tm = window.tokenManager;
+        if (!tm || typeof tm.authenticatedFetch !== 'function') {
+            throw new Error('Thiếu tokenManager. Hãy đăng nhập lại.');
         }
+        const url = `${WORKER_URL}/api/fastsaleorder/print1?ids=${encodeURIComponent(orderId)}`;
+        const resp = await tm.authenticatedFetch(url, {
+            method: 'GET',
+            headers: {
+                Accept: 'application/json, text/javascript, */*; q=0.01',
+                'feature-version': '2',
+                'x-tpos-lang': 'vi',
+            },
+        });
+        if (!resp.ok) {
+            const t = await resp.text().catch(() => '');
+            throw new Error(`TPOS ${resp.status}: ${t.slice(0, 120)}`);
+        }
+        const data = await resp.json();
+        if (!data || !data.html) {
+            const msg =
+                (data &&
+                    Array.isArray(data.listErrors) &&
+                    data.listErrors[0] &&
+                    data.listErrors[0].Message) ||
+                'TPOS không trả về HTML bill (đơn Nháp/Huỷ không in được).';
+            throw new Error(msg);
+        }
+        return data.html;
     }
 
-    // Dựng phần tử "bill phiếu bán hàng" off-screen để render thành ảnh.
-    function buildBillElement(details, order) {
-        const products = Array.isArray(details.products) ? details.products : [];
-        const subtotal = products.reduce(
-            (s, p) => s + (Number(p.total) || (Number(p.price) || 0) * (Number(p.quantity) || 0)),
-            0
+    function waitForDocImages(doc) {
+        const imgs = Array.from(doc.images || []);
+        if (!imgs.length) return Promise.resolve();
+        return Promise.all(
+            imgs.map(
+                (img) =>
+                    new Promise((resolve) => {
+                        if (img.complete) return resolve();
+                        img.addEventListener('load', resolve, { once: true });
+                        img.addEventListener('error', resolve, { once: true });
+                        setTimeout(resolve, 4000);
+                    })
+            )
         );
-        const decrease = Number(details.decreaseAmount) || 0;
-        const ship = Number(details.deliveryPrice) || 0;
-        const finalTotal = subtotal - decrease + ship;
-        const cod = Number(details.cod) || 0;
-        const code = details.tposCode || (order && order.tposCode) || '—';
-        const customer = (order && order.customer) || details.customer || '—';
-        const phone = details.phone || (order && order.phone) || '—';
-        const address = details.address || (order && order.address) || '';
+    }
 
-        const rows = products.length
-            ? products
-                  .map((p) => {
-                      const qty = Number(p.quantity) || 0;
-                      const price = Number(p.price) || 0;
-                      const lineTotal = Number(p.total) || price * qty;
-                      return `
-            <tr>
-                <td style="padding:6px 4px;border-bottom:1px solid #eee;vertical-align:top;">
-                    <div style="font-weight:600;color:#111;">${escapeHtml(p.name || p.code || '—')}</div>
-                    ${p.code ? `<div style="color:#888;font-size:11px;">${escapeHtml(p.code)}</div>` : ''}
-                </td>
-                <td style="padding:6px 4px;border-bottom:1px solid #eee;text-align:center;white-space:nowrap;">${qty}</td>
-                <td style="padding:6px 4px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap;">${formatVnd(price)}</td>
-                <td style="padding:6px 4px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap;font-weight:600;">${formatVnd(lineTotal)}</td>
-            </tr>`;
-                  })
-                  .join('')
-            : `<tr><td colspan="4" style="padding:14px;text-align:center;color:#999;">Không có sản phẩm.</td></tr>`;
-
-        const totalLine = (label, value, color) => `
-            <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;${color ? `color:${color};` : ''}">
-                <span>${label}</span><span style="font-weight:600;font-variant-numeric:tabular-nums;">${value}</span>
-            </div>`;
-
-        const container = document.createElement('div');
-        container.style.cssText =
-            'position:fixed;left:-99999px;top:0;width:420px;background:#fff;' +
-            'font-family:Arial,Helvetica,sans-serif;color:#111;';
-        container.innerHTML = `
-        <div style="padding:22px;background:#fff;">
-            <div style="text-align:center;border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:12px;">
-                <div style="font-size:20px;font-weight:800;letter-spacing:.04em;">${escapeHtml(shopLabel())}</div>
-                <div style="font-size:13px;color:#555;margin-top:2px;">PHIẾU BÁN HÀNG</div>
-            </div>
-            <div style="font-size:13px;line-height:1.7;margin-bottom:10px;">
-                <div style="display:flex;justify-content:space-between;">
-                    <span style="color:#666;">Mã đơn</span>
-                    <span style="font-weight:700;">${escapeHtml(code)}</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;">
-                    <span style="color:#666;">Ngày</span>
-                    <span>${escapeHtml(formatDate(details.createdAt || (order && order.createdAt)))}</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;">
-                    <span style="color:#666;">Khách</span>
-                    <span style="font-weight:600;text-align:right;max-width:260px;">${escapeHtml(customer)}</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;">
-                    <span style="color:#666;">SĐT</span>
-                    <span class="phone-with-copy" style="font-variant-numeric:tabular-nums;">${escapeHtml(phone)}</span>
-                </div>
-                ${
-                    address
-                        ? `<div style="display:flex;justify-content:space-between;gap:10px;">
-                    <span style="color:#666;white-space:nowrap;">Địa chỉ</span>
-                    <span style="text-align:right;">${escapeHtml(address)}</span>
-                </div>`
-                        : ''
-                }
-            </div>
-            <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:10px;">
-                <thead>
-                    <tr style="border-bottom:2px solid #111;">
-                        <th style="text-align:left;padding:6px 4px;">Sản phẩm</th>
-                        <th style="text-align:center;padding:6px 4px;width:34px;">SL</th>
-                        <th style="text-align:right;padding:6px 4px;">Giá</th>
-                        <th style="text-align:right;padding:6px 4px;">T.Tiền</th>
-                    </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-            </table>
-            <div style="border-top:2px solid #111;padding-top:8px;">
-                ${totalLine('Tổng sản phẩm', formatVnd(subtotal))}
-                ${decrease ? totalLine('Giảm giá', '- ' + formatVnd(decrease)) : ''}
-                ${ship ? totalLine('Phí ship', formatVnd(ship)) : ''}
-                <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:15px;font-weight:800;border-top:1px dashed #aaa;margin-top:4px;">
-                    <span>TỔNG CỘNG</span><span style="color:#dc2626;font-variant-numeric:tabular-nums;">${formatVnd(finalTotal)}</span>
-                </div>
-                ${totalLine('COD (khách trả)', formatVnd(cod), '#2563eb')}
-            </div>
-            <div style="text-align:center;color:#888;font-size:11px;margin-top:14px;">
-                Cảm ơn Quý khách 💛 ${escapeHtml(shopLabel())}
-            </div>
-        </div>`;
-        return container;
+    // Render HTML bill TPOS trong iframe cô lập (tránh leak style) → PNG blob.
+    async function renderBillHtmlToBlob(html) {
+        await ensureHtml2Canvas();
+        const iframe = document.createElement('iframe');
+        iframe.setAttribute('aria-hidden', 'true');
+        iframe.style.cssText =
+            'position:fixed;left:-99999px;top:0;width:780px;height:40px;border:0;background:#fff;';
+        document.body.appendChild(iframe);
+        try {
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+            doc.open();
+            doc.write(html);
+            doc.close();
+            await new Promise((resolve) => {
+                if (doc.readyState === 'complete') return resolve();
+                iframe.addEventListener('load', resolve, { once: true });
+                setTimeout(resolve, 2000);
+            });
+            await waitForDocImages(doc);
+            await new Promise((r) => setTimeout(r, 80));
+            const target = doc.body;
+            const w = Math.max(target.scrollWidth, doc.documentElement.scrollWidth, 360);
+            const h = Math.max(target.scrollHeight, doc.documentElement.scrollHeight, 120);
+            iframe.style.width = w + 'px';
+            iframe.style.height = h + 'px';
+            const canvas = await window.html2canvas(target, {
+                backgroundColor: '#ffffff',
+                scale: 2,
+                logging: false,
+                useCORS: true,
+                allowTaint: false,
+                width: w,
+                height: h,
+                windowWidth: w,
+                windowHeight: h,
+            });
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+            if (!blob) throw new Error('Không tạo được ảnh.');
+            return blob;
+        } finally {
+            iframe.remove();
+        }
     }
 
     async function blobToClipboard(blob) {

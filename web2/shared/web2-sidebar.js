@@ -120,10 +120,6 @@
             icon: 'globe',
             children: [
                 {
-                    label: 'Chiến dịch Live',
-                    our: '../web2/live-campaign/index.html',
-                },
-                {
                     label: 'Đơn Web',
                     our: '../native-orders/index.html',
                 },

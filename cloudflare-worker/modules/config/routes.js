@@ -149,9 +149,6 @@ export const ROUTES = {
     // Web 2.0 Users — user account system (auth + CRUD)
     WEB2_USERS: { pattern: '/api/web2-users/*' },
 
-    // Web 2.0 Live Campaigns — CRUD chiến dịch live (thay TPOS SaleOnline_LiveCampaign)
-    WEB2_LIVE_CAMPAIGNS: { pattern: '/api/web2-live-campaigns/*' },
-
     // Order Notes (PostgreSQL - CSKH notes history per order)
     ORDER_NOTES: { pattern: '/api/order-notes/*' },
 
@@ -252,8 +249,6 @@ export function matchRoute(pathname) {
     if (pathname === '/api/services-overview' || pathname.startsWith('/api/services-overview/'))
         return 'SERVICES_OVERVIEW';
     if (pathname.startsWith('/api/web2-users/')) return 'WEB2_USERS';
-    if (pathname.startsWith('/api/web2-live-campaigns/') || pathname === '/api/web2-live-campaigns')
-        return 'WEB2_LIVE_CAMPAIGNS';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
     if (pathname.startsWith('/api/sepay-home/')) return 'SEPAY_HOME';
