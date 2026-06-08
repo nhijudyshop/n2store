@@ -207,6 +207,39 @@ class PancakeTokenManager {
 
         // Load active account ID
         this.activeAccountId = localStorage.getItem(this.LOCAL_STORAGE_KEYS.JWT_ACCOUNT_ID);
+
+        // Load accounts map từ localStorage cache (web2-chat-client syncFromRenderDB
+        // ghi vào 'pancake_all_accounts'). Giúp _accountJwtForPage có account NGAY
+        // lúc boot mà không phải đợi Firestore/sync → live-chat load campaign nhanh.
+        try {
+            const rawAccs = localStorage.getItem('pancake_all_accounts');
+            if (rawAccs) {
+                const cached = JSON.parse(rawAccs);
+                if (cached && typeof cached === 'object' && Object.keys(cached).length) {
+                    this.accounts = cached;
+                    // Nếu chưa có active account hợp lệ → chọn account còn hạn đầu tiên.
+                    const valid = (id) =>
+                        cached[id] && cached[id].token && !this.isTokenExpired(cached[id].exp);
+                    if (!this.activeAccountId || !valid(this.activeAccountId)) {
+                        const pick = Object.keys(cached).find(valid);
+                        if (pick) {
+                            this.activeAccountId = pick;
+                            localStorage.setItem(this.LOCAL_STORAGE_KEYS.JWT_ACCOUNT_ID, pick);
+                            if (!this.currentToken) {
+                                this.currentToken = cached[pick].token;
+                                this.currentTokenExpiry = cached[pick].exp;
+                            }
+                        }
+                    }
+                    console.log(
+                        '[PANCAKE-TOKEN] ✅ Accounts loaded from localStorage cache:',
+                        Object.keys(cached).length
+                    );
+                }
+            }
+        } catch (e) {
+            console.warn('[PANCAKE-TOKEN] parse cached accounts fail:', e.message);
+        }
     }
 
     /**
@@ -245,7 +278,27 @@ class PancakeTokenManager {
                 return false;
             }
 
-            this.accounts = doc.exists ? doc.data()?.data || {} : {};
+            const fsAccounts = doc.exists ? doc.data()?.data || {} : {};
+            // MERGE với cache localStorage (Render sync, đã nạp ở loadFromLocalStorage)
+            // — Firestore có thể STALE (token hết hạn) so với Render. Ưu tiên entry
+            // token CÒN HẠN / savedAt mới hơn, KHÔNG để Firestore clobber cache hợp lệ.
+            const merged = { ...(this.accounts || {}) };
+            for (const [id, fa] of Object.entries(fsAccounts)) {
+                const cur = merged[id];
+                if (!cur) {
+                    merged[id] = fa;
+                    continue;
+                }
+                const curExpired = this.isTokenExpired(cur.exp);
+                const faExpired = this.isTokenExpired(fa.exp);
+                if (curExpired && !faExpired) merged[id] = fa;
+                else if (!curExpired && faExpired) {
+                    /* giữ cur (cache còn hạn) */
+                } else if ((Number(fa.savedAt) || 0) > (Number(cur.savedAt) || 0)) {
+                    merged[id] = fa;
+                }
+            }
+            this.accounts = merged;
 
             // Load active account ID from localStorage (per-device)
             this.activeAccountId = localStorage.getItem('tpos_pancake_active_account_id');

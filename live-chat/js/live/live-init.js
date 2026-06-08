@@ -96,10 +96,20 @@ const LiveColumnManager = {
      * Chờ Pancake account JWT sẵn sàng (token-manager + web2-chat-client sync đều async).
      */
     async _waitForPancakeAccounts(timeoutMs) {
-        // token-manager.initialize tự load account có thể HẾT HẠN (expired) →
-        // Web2Chat.syncFromRenderDB nạp account JWT HỢP LỆ từ Render + set active.
-        // Phải await sync này, nếu không campaign fetch dùng token hết hạn → rỗng
-        // (bug: phải chọn lại page mới hiện).
+        const isExpired = (exp) => {
+            if (!exp) return false; // không rõ exp → coi như còn dùng được
+            return Date.now() / 1000 >= exp - 60;
+        };
+        // Account hết hạn CŨNG có .token → chỉ coi sẵn sàng khi activeAccountId trỏ
+        // tới account có token CÒN HẠN.
+        const ready = () => {
+            const tm = window.pancakeTokenManager;
+            if (!tm) return false;
+            const a = (tm.accounts || {})[tm.activeAccountId];
+            return !!(tm.activeAccountId && a && a.token && !isExpired(a.exp));
+        };
+
+        // initialize() nạp localStorage (gồm cache 'pancake_all_accounts') → nhanh.
         try {
             if (window.pancakeTokenManager?.initialize) {
                 await window.pancakeTokenManager.initialize();
@@ -107,6 +117,17 @@ const LiveColumnManager = {
         } catch (e) {
             console.warn('[Live-INIT] token init warn:', e.message);
         }
+
+        // FAST PATH: cache localStorage đã có account còn hạn → dùng NGAY, sync
+        // refresh chạy nền (không chặn). Lần sau vào load campaign tức thì.
+        if (ready()) {
+            if (window.Web2Chat?.syncFromRenderDB) {
+                window.Web2Chat.syncFromRenderDB({ force: false }).catch(() => {});
+            }
+            return true;
+        }
+
+        // SLOW PATH (lần đầu / cache hết hạn): await sync lấy account hợp lệ.
         try {
             if (window.Web2Chat?.syncFromRenderDB) {
                 await window.Web2Chat.syncFromRenderDB({ force: false });
@@ -115,18 +136,6 @@ const LiveColumnManager = {
             console.warn('[Live-INIT] syncFromRenderDB warn:', e.message);
         }
         const start = Date.now();
-        // Account expired CŨNG có .token → phải chờ activeAccountId được set (=
-        // đã có account HỢP LỆ active sau sync/reinit) mới coi là sẵn sàng.
-        const ready = () => {
-            const tm = window.pancakeTokenManager;
-            if (!tm) return false;
-            const accs = tm.accounts || {};
-            return !!(
-                tm.activeAccountId &&
-                accs[tm.activeAccountId] &&
-                accs[tm.activeAccountId].token
-            );
-        };
         while (!ready() && Date.now() - start < timeoutMs) {
             await new Promise((r) => setTimeout(r, 300));
         }
