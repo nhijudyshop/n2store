@@ -178,6 +178,8 @@
         const pid = fullPostId(pageId, postId);
         const now = nowS();
         const comments = [];
+        const seen = new Set(); // DEDUPE theo comment id — pages.fm có thể trả
+        // trùng conversation giữa các page_number → tránh lặp dòng (5 bản giống nhau).
         // page qua tối đa 5 trang để gom comment của post này (live nhiều thread)
         for (let pageNum = 1; pageNum <= 5; pageNum++) {
             const d = await _pfmGet(
@@ -190,10 +192,17 @@
                   ? d.data
                   : [];
             if (!cv.length) break;
+            let added = 0;
             for (const c of cv) {
-                if (String(c.post_id) === pid) comments.push(_convToComment(c));
+                if (String(c.post_id) !== pid) continue;
+                const cm = _convToComment(c);
+                if (!cm.id || seen.has(cm.id)) continue;
+                seen.add(cm.id);
+                comments.push(cm);
+                added++;
             }
-            if (cv.length < 20) break; // hết trang
+            // Không thêm được comment MỚI nào (trang lặp lại) hoặc hết trang → dừng.
+            if (added === 0 || cv.length < 20) break;
         }
         return { comments, nextPageUrl: null };
     }

@@ -455,8 +455,15 @@ const LiveColumnManager = {
                 })
             );
 
-            // Merge all comments, sort by time (newest first)
-            const allComments = results.flat();
+            // Merge all comments → DEDUPE theo id (1 comment có thể xuất hiện ở
+            // nhiều post/campaign/page pagination → tránh lặp dòng) → sort mới nhất.
+            const _seen = new Set();
+            const allComments = results.flat().filter((c) => {
+                const key = c.id || `${c._postId}|${c.from?.id}|${c.created_time}`;
+                if (_seen.has(key)) return false;
+                _seen.add(key);
+                return true;
+            });
             allComments.sort((a, b) => {
                 const ta = new Date(a.created_time || 0).getTime();
                 const tb = new Date(b.created_time || 0).getTime();
