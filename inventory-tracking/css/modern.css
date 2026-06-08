@@ -1250,17 +1250,11 @@ tr.ncc-row-hidden {
 }
 .shipment-card.shipment-reveal-hidden tr.ncc-row-hidden {
     display: table-row;
-    opacity: 0.4;
-    background: repeating-linear-gradient(
-        45deg,
-        transparent 0,
-        transparent 6px,
-        rgba(239, 68, 68, 0.06) 6px,
-        rgba(239, 68, 68, 0.06) 12px
-    );
+    opacity: 0.78;
+    background: rgba(239, 68, 68, 0.04);
 }
 .shipment-card.shipment-reveal-hidden tr.ncc-row-hidden td.col-ncc {
-    opacity: 0.7;
+    opacity: 1;
 }
 .shipment-hidden-badge:hover {
     background: #fecaca !important;

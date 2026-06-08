@@ -2,6 +2,16 @@
 
 ## 2026-06-08
 
+### [orders] inventory-tracking: bỏ gạch chéo + hiện rõ hơn cho NCC ẩn được reveal ✅
+
+User: "khi ẩn bỏ gạch chéo và cho hiện rõ hơn 1 ít".
+
+**Files:** `inventory-tracking/css/modern.css` (`.shipment-card.shipment-reveal-hidden tr.ncc-row-hidden`).
+
+**Đổi:** bỏ `repeating-linear-gradient(45deg, …)` (gạch chéo đỏ) → nền phẳng `rgba(239,68,68,0.04)`; opacity `0.4 → 0.78`; col-ncc `0.7 → 1`. Hàng NCC ẩn khi bấm "hiện" giờ đọc rõ hơn, không còn vân chéo mờ.
+
+**Status:** ✅ Done.
+
 ### [live-chat][web2] Load SĐT/địa chỉ KH vào live-chat (backfill fb_id↔phone) ✅
 
 User: "load sđt, địa chỉ khách nếu có vào live-chat".
