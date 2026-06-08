@@ -219,7 +219,7 @@
                 </div>
                 <div style="display:flex;justify-content:space-between;">
                     <span style="color:#666;">SĐT</span>
-                    <span style="font-variant-numeric:tabular-nums;">${escapeHtml(phone)}</span>
+                    <span class="phone-with-copy" style="font-variant-numeric:tabular-nums;">${escapeHtml(phone)}</span>
                 </div>
                 ${
                     address

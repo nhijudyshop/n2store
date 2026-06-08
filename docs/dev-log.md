@@ -2,6 +2,24 @@
 
 ## 2026-06-08
 
+### [orders] issue-tracking: nút "Copy hình bill" trong modal "Đơn hàng của khách" ✅
+
+User: thêm nút copy hình bill phiếu bán hàng ở modal tra cứu đơn khách (`issue-tracking/index.html`).
+
+**Files:** `issue-tracking/js/customer-orders-lookup.js`, `issue-tracking/css/style.css`, `issue-tracking/index.html` (cache-bust).
+
+**Chi tiết:**
+
+- Mỗi đơn khi expand chi tiết có nút `📋 Copy hình bill` (class `.btn-copy-bill`, delegated click trên `#customer-orders-content`).
+- Click → lazy-load html2canvas (page không nạp cdn-libs sẵn) → dựng phần tử bill off-screen (`buildBillElement`: header shop `NJD LIVE` từ `ShopConfig`, mã đơn, ngày, khách, SĐT, địa chỉ, bảng SP, tổng/giảm/ship/TỔNG CỘNG/COD) → render canvas scale 2 → PNG blob → `navigator.clipboard.write([ClipboardItem])`. Fallback download nếu clipboard bị chặn.
+- **Fix leak:** `phone-copy.js` (MutationObserver) chèn icon copy vào SĐT trong bill → wrap span SĐT class `phone-with-copy` (chính skip-marker của phone-copy) để bỏ qua.
+
+**Test (Playwright localhost, clone `0123456788`):** search 148 đơn → expand → click → `html2canvas=function`, `clip=ok` (copy thành công, không cần download), `phoneIconInjected=false`. Bill render sạch.
+
+**Status:** ✅ Done.
+
+— N2Store
+
 ### [web2] Gỡ TPOS API khỏi Web 2.0 + import KH TPOS Partner → warehouse (dedupe SĐT) ✅
 
 User: "xóa hết tpos bên Web 2.0" (Web 1.0 giữ: DB columns tpos_id/tpos_data + live TPOS POS cho orders/sepay/invoice). + "lấy dữ liệu partner-customer qua, xử lý trùng sđt".
