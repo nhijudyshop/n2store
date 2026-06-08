@@ -2,19 +2,23 @@
 
 ## 2026-06-08
 
-### [orders] issue-tracking: nút "Copy hình bill" trong modal "Đơn hàng của khách" ✅
+### [orders] issue-tracking: nút "Copy hình bill" (bill TPOS thật, giống tab BÁN HÀNG) ✅
 
-User: thêm nút copy hình bill phiếu bán hàng ở modal tra cứu đơn khách (`issue-tracking/index.html`).
+User: thêm nút copy hình bill phiếu bán hàng ở modal "Đơn hàng của khách" → **"lấy bill giống bên #ban-hang"** (tab BÁN HÀNG dùng bill in chính thức của TPOS).
 
 **Files:** `issue-tracking/js/customer-orders-lookup.js`, `issue-tracking/css/style.css`, `issue-tracking/index.html` (cache-bust).
 
 **Chi tiết:**
 
 - Mỗi đơn khi expand chi tiết có nút `📋 Copy hình bill` (class `.btn-copy-bill`, delegated click trên `#customer-orders-content`).
-- Click → lazy-load html2canvas (page không nạp cdn-libs sẵn) → dựng phần tử bill off-screen (`buildBillElement`: header shop `NJD LIVE` từ `ShopConfig`, mã đơn, ngày, khách, SĐT, địa chỉ, bảng SP, tổng/giảm/ship/TỔNG CỘNG/COD) → render canvas scale 2 → PNG blob → `navigator.clipboard.write([ClipboardItem])`. Fallback download nếu clipboard bị chặn.
-- **Fix leak:** `phone-copy.js` (MutationObserver) chèn icon copy vào SĐT trong bill → wrap span SĐT class `phone-with-copy` (chính skip-marker của phone-copy) để bỏ qua.
+- Click → `fetchTposBillHtml(orderId)`: gọi `GET {WORKER}/api/fastsaleorder/print1?ids=<id>` (y hệt `printBill` ở tab BÁN HÀNG) → trả `{html, listErrors}`. HTML rỗng (đơn Nháp/Huỷ) → ném message của TPOS ("Có phiếu bán hàng có trạng thái không cho in…").
+- `renderBillHtmlToBlob(html)`: lazy-load html2canvas → render HTML bill TPOS trong **iframe cô lập** (tránh leak style ra trang) → đợi images → html2canvas body scale 2 → PNG blob → `navigator.clipboard.write([ClipboardItem])`. Fallback download nếu clipboard bị chặn.
+- Bỏ approach receipt tự dựng (`buildBillElement`) → dùng đúng bill chính thức TPOS (barcode, shop header, bảng SP, tổng/ship/thu hộ, footer bank) = giống hệt tab BÁN HÀNG.
 
-**Test (Playwright localhost, clone `0123456788`):** search 148 đơn → expand → click → `html2canvas=function`, `clip=ok` (copy thành công, không cần download), `phoneIconInjected=false`. Bill render sạch.
+**Test (Playwright localhost):**
+
+- Error path (clone `0123456788`, 148 đơn toàn Nháp/Huỷ): click → toast lỗi đúng message TPOS "không cho in". ✅
+- Success path (đơn `open` NJD/2026/70640): fetch print1 → render → `clip=ok`, ảnh PNG 1560×1476, bill TPOS đầy đủ barcode + SP + tổng. ✅
 
 **Status:** ✅ Done.
 
