@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `18438ca` — chore(web2): bump balance-history script versions (bust cache -> code da sach tpos)
-**Last updated**: 2026-06-08 19:20:54 +07
-**Latest session**: [`RESUME:20260608-192054-18438ca`](../20260608-192054-18438ca.md)
-**Summary**: chore(web2): bump balance-history script versions (bust cache -> code da sach tpos)
+**Latest commit**: `676c63b` — fix(web2): modal gan KH balance-history bo text TPOS/91K/OData -> kho Web 2.0
+**Last updated**: 2026-06-08 19:24:48 +07
+**Latest session**: [`RESUME:20260608-192448-676c63b`](../20260608-192448-676c63b.md)
+**Summary**: fix(web2): modal gan KH balance-history bo text TPOS/91K/OData -> kho Web 2.0
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -69,4 +69,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-08 19:20
+- [`web2/`](./web2.md) — updated 2026-06-08 19:24
