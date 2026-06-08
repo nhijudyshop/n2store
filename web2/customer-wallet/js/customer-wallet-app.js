@@ -284,9 +284,7 @@
             const carrier = carrierFromPartner(partner, phone);
             if (carrier) parts.push(`<span class="cw-carrier">${escapeHtml(carrier)}</span>`);
         }
-        const tposEditUrl = partner?.Id
-            ? `../partner-customer/index.html?id=${encodeURIComponent(partner.Id)}`
-            : `../partner-customer/index.html`;
+        const tposEditUrl = partner?.Id ? `../customers/index.html` : `../customers/index.html`;
         parts.push(
             `<a class="cw-web2-link" href="${tposEditUrl}" target="_blank" rel="noopener" title="Mở thẻ KH trên Web 2.0">Mở thẻ KH ↗</a>`
         );

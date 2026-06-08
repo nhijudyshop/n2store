@@ -577,8 +577,8 @@
             if (tposPill) parts.push(tposPill);
         }
         const editUrl = partner?.Id
-            ? `../partner-customer/index.html?id=${encodeURIComponent(partner.Id)}`
-            : `../partner-customer/index.html?search=${encodeURIComponent(phone)}`;
+            ? `../customers/index.html`
+            : `../customers/index.html?search=${encodeURIComponent(phone)}`;
         parts.push(
             `<a class="cw-web2-link" href="${editUrl}" target="_blank" rel="noopener">Mở thẻ KH ↗</a>`
         );

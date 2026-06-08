@@ -184,6 +184,39 @@ router.post('/batch-by-fbid', async (req, res) => {
     }
 });
 
+// ─── POST /batch-by-phone {phones:[...]} → {data:{phone: partner-like}} ─
+// Cho enricher balance-history/customer-wallet đọc status/info KH theo phone
+// hàng loạt (thay PartnerCustomerApi.listByPhones của TPOS). Shape partner-
+// compat (Id/Name/Phone/Status/Address) để frontend không phải đổi nhiều.
+router.post('/batch-by-phone', async (req, res) => {
+    const db = getPool(req);
+    const raw = Array.isArray(req.body?.phones) ? req.body.phones : [];
+    const phones = raw.map((p) => normPhoneWeb2(p)).filter(Boolean);
+    if (!phones.length) return res.json({ success: true, data: {} });
+    const list = phones.slice(0, 500);
+    try {
+        const r = await db.query(
+            `SELECT id, phone, name, address, status FROM web2_customers WHERE phone = ANY($1)`,
+            [list]
+        );
+        const map = {};
+        for (const row of r.rows) {
+            if (row.phone)
+                map[row.phone] = {
+                    Id: row.id,
+                    Name: row.name || '',
+                    Phone: row.phone,
+                    Status: row.status || '',
+                    Address: row.address || '',
+                };
+        }
+        res.json({ success: true, data: map });
+    } catch (e) {
+        console.error('[web2-customers] batch-by-phone error:', e.message);
+        res.status(500).json({ success: false, error: e.message, data: {} });
+    }
+});
+
 // ─── GET /search?search=...&limit=8 — autocomplete (warehouse only) ─────
 router.get('/search', async (req, res) => {
     const db = getPool(req);

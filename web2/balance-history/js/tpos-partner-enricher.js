@@ -44,9 +44,7 @@
 
     function linkHtml(partner) {
         const id = partner?.Id;
-        const url = id
-            ? `../partner-customer/index.html?id=${encodeURIComponent(id)}`
-            : '../partner-customer/index.html';
+        const url = id ? `../customers/index.html` : '../customers/index.html';
         return `<a class="bh-web2-link" href="${url}" target="_blank" rel="noopener" title="Mở thẻ KH Web 2.0"><i data-lucide="external-link"></i></a>`;
     }
 

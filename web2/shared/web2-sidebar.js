@@ -175,10 +175,6 @@
                     our: '../web2/customers/index.html',
                 },
                 {
-                    label: 'Khách hàng (TPOS live)',
-                    our: '../web2/partner-customer/index.html',
-                },
-                {
                     label: 'Ví Khách Hàng',
                     our: '../web2/customer-wallet/index.html',
                 },
@@ -298,7 +294,6 @@
         'web2/users/index.html',
         'web2/customer-wallet/index.html',
         'web2/customers/index.html',
-        'web2/partner-customer/index.html',
         // F01-F12 future-development pages
         'web2/dashboard/index.html',
         'web2/notifications/index.html',

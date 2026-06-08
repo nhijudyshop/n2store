@@ -4,7 +4,7 @@
 // =====================================================================
 // - Mọi method gọi trực tiếp TPOS qua CF Worker proxy
 // - Không có local cache; trang load realtime từ TPOS mỗi lần
-// - Auth: window.tokenManager.authenticatedFetch (auto-inject Bearer)
+// - CRUD qua /api/web2-live-campaigns (web2Db), KHÔNG TPOS.
 // =====================================================================
 
 (function () {
@@ -14,8 +14,6 @@
     // 2026-06-07: CRUD chiến dịch chuyển sang kho Web 2.0 (web2_live_campaigns),
     // ĐỘC LẬP TPOS. Dropdown Page/Live video trong modal tạm vẫn TPOS (bước sau).
     const BASE = PROXY + '/api/web2-live-campaigns';
-    const CRM_TEAMS_URL = PROXY + '/api/odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs';
-    const LIVE_VIDEO_URL = PROXY + '/api/facebook-graph/livevideo';
     const NATIVE_LOAD_URL = PROXY + '/api/native-orders/load';
     // SheetJS publishes only via cdn.sheetjs.com (official) — jsdelivr/npm dropped support.
     // unpkg/cdnjs still host the legacy 0.18.5 build as fallback.
@@ -24,45 +22,6 @@
         'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
         'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
     ];
-
-    function ensureTokenManager() {
-        if (!window.tokenManager || typeof window.tokenManager.authenticatedFetch !== 'function') {
-            throw new Error('TokenManager chưa load — refresh trang');
-        }
-    }
-
-    async function jsonFetch(url, options) {
-        ensureTokenManager();
-        const opts = options || {};
-        opts.headers = Object.assign({ Accept: 'application/json' }, opts.headers || {});
-        const res = await window.tokenManager.authenticatedFetch(url, opts);
-        const contentType = res.headers.get('content-type') || '';
-        let body = null;
-        if (contentType.includes('json')) {
-            try {
-                body = await res.json();
-            } catch (_) {
-                body = null;
-            }
-        } else if (res.status !== 204) {
-            try {
-                body = await res.text();
-            } catch (_) {
-                body = null;
-            }
-        }
-        if (!res.ok) {
-            const msg =
-                (body && body.error && body.error.message) ||
-                (typeof body === 'string' ? body.slice(0, 200) : null) ||
-                `HTTP ${res.status}`;
-            const err = new Error(msg);
-            err.status = res.status;
-            err.body = body;
-            throw err;
-        }
-        return body;
-    }
 
     /**
      * List campaigns with TPOS-style filter + pagination.
@@ -356,7 +315,7 @@
                 NATIVE_STATUS_LABEL[String(o.status || '').toLowerCase()] || o.status || '';
             aoa.push([
                 i + 1, // A: STT
-                o.tposIndex || o.displayStt || '', // B: ###
+                o.displayStt || '', // B: ###
                 // TPOS dùng tên page (Nhi Judy House…) ở cột Kênh, không phải tên campaign.
                 o.fbUserName || o.liveCampaignName || '', // C: Kênh
                 o.code || '', // D: Mã
