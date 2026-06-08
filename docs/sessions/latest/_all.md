@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f799937` — feat(live-chat): khach comment lay SDT tu Pancake recent_phone_numbers neu co
-**Last updated**: 2026-06-08 18:56:53 +07
-**Latest session**: [`RESUME:20260608-185653-f799937`](../20260608-185653-f799937.md)
-**Summary**: feat(live-chat): khach comment lay SDT tu Pancake recent_phone_numbers neu co
+**Latest commit**: `a83467a` — feat(live): trich SDT tu noi dung comment (khach tu go) + profile Pancake
+**Last updated**: 2026-06-08 19:13:43 +07
+**Latest session**: [`RESUME:20260608-191343-a83467a`](../20260608-191343-a83467a.md)
+**Summary**: feat(live): trich SDT tu noi dung comment (khach tu go) + profile Pancake
 
 ## Folders affected in this commit
 
 - [`live-chat/`](./live-chat.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -37,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-08 18:56
+- [`live-chat/`](./live-chat.md) — updated 2026-06-08 19:13
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-08 12:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
@@ -50,7 +51,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-08 14:48
+- [`render.com/`](./render.com.md) — updated 2026-06-08 19:13
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-07 16:00
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
