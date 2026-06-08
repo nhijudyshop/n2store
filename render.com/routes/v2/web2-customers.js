@@ -168,14 +168,22 @@ router.post('/batch-by-fbid', async (req, res) => {
     if (!fbIds.length) return res.json({ success: true, data: {} });
     const ids = fbIds.slice(0, 500); // cap
     try {
+        // Match fb_id (primary) HOẶC fb_psids (multi-account: 1 SĐT nhiều FB) — key
+        // của fb_psids chứa từng fbId (backfill từ Web1 customers ghi {fbId:fbId}).
         const r = await db.query(
-            `SELECT id, fb_id, name, phone, address, status, global_id
-             FROM web2_customers WHERE fb_id = ANY($1)`,
+            `SELECT id, fb_id, name, phone, address, status, global_id, fb_psids
+             FROM web2_customers WHERE fb_id = ANY($1) OR fb_psids ?| $1`,
             [ids]
         );
+        const want = new Set(ids);
         const map = {};
         for (const row of r.rows) {
-            if (row.fb_id) map[row.fb_id] = rowToLite(row);
+            const lite = rowToLite(row);
+            if (row.fb_id && want.has(row.fb_id)) map[row.fb_id] = lite;
+            const psids = row.fb_psids || {};
+            for (const key of Object.keys(psids)) {
+                if (want.has(key)) map[key] = lite;
+            }
         }
         res.json({ success: true, data: map });
     } catch (e) {
