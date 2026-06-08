@@ -109,7 +109,7 @@
                         ${r.note ? `<div class="wc-note" title="${esc(r.note)}">${esc(r.note)}</div>` : ''}
                     </td>
                     <td class="wc-col-phone">
-                        ${r.phone ? `<span class="wc-phone" data-w2wallet-phone="${esc(r.phone)}" data-w2wallet-name="${esc(r.name)}">${esc(r.phone)}</span>` : '<span class="wc-muted">—</span>'}
+                        ${r.phone ? `<span class="wc-phone">${esc(r.phone)}</span><span class="wc-wallet" data-w2wallet-phone="${esc(r.phone)}" data-w2wallet-name="${esc(r.name)}"></span>` : '<span class="wc-muted">—</span>'}
                     </td>
                     <td class="wc-col-fb">${fbBadges(r)}</td>
                     <td class="wc-col-address">${esc(r.address) || '<span class="wc-muted">—</span>'}</td>
