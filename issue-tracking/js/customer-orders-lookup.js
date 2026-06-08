@@ -260,43 +260,28 @@
 
     async function copyBillImage(orderId, btn) {
         const details = state.loadedDetails.get(orderId);
-        if (!details) {
-            toast('Chi tiết đơn chưa tải xong, thử lại.', 'error');
-            return;
-        }
         const order = findOrderInState(orderId);
+        const codeForName = (details && details.tposCode) || (order && order.tposCode) || orderId;
         const original = btn ? btn.innerHTML : '';
         if (btn) {
             btn.disabled = true;
             btn.innerHTML = '⏳ Đang tạo ảnh…';
         }
-        let container = null;
         try {
-            await ensureHtml2Canvas();
-            container = buildBillElement(details, order);
-            document.body.appendChild(container);
-            await new Promise((r) => setTimeout(r, 60));
-            const canvas = await window.html2canvas(container, {
-                backgroundColor: '#ffffff',
-                scale: 2,
-                logging: false,
-                useCORS: true,
-            });
-            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-            if (!blob) throw new Error('Không tạo được ảnh.');
+            const html = await fetchTposBillHtml(orderId);
+            const blob = await renderBillHtmlToBlob(html);
             try {
                 await blobToClipboard(blob);
                 toast('✅ Đã copy hình bill — dán (Ctrl/Cmd+V) để gửi khách.', 'success');
             } catch (clipErr) {
                 console.warn('[CustomerLookup] clipboard failed, fallback download', clipErr);
-                downloadBlob(blob, `bill-${details.tposCode || orderId}.png`);
+                downloadBlob(blob, `bill-${codeForName}.png`.replace(/[\\/]/g, '-'));
                 toast('Clipboard bị chặn — đã tải ảnh bill về máy.', 'info');
             }
         } catch (err) {
             console.error('[CustomerLookup] copyBillImage failed', err);
             toast('Lỗi tạo hình bill: ' + (err.message || String(err)), 'error');
         } finally {
-            if (container && container.parentNode) container.parentNode.removeChild(container);
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = original;
