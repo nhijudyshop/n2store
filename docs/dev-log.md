@@ -2,6 +2,14 @@
 
 ## 2026-06-08
 
+### [live-chat] Chiến dịch cha trong live-chat + menu + click-to-add (fast order) ✅
+
+- Menu: chuyển "Lấy comment Live (poller)" xuống nhóm **Cấu hình**; bỏ phần chiến dịch cha khỏi trang settings.
+- `live-chat/js/live/live-campaign-manager.js` (MỚI): nút nổi "📁 Chiến dịch" + modal — tạo chiến dịch cha, gom bài livestream của page (assign), "Xem comment" gom từ DB.
+- `inventory-panel.js`: **click-to-add** (fast order) — bấm 1 SP (armed/outline) → bấm 1 comment → thêm vào đơn KH đó (capture phase, bỏ qua button/select); giữ armed để bán nhiều KH liên tiếp, Esc huỷ. Bổ sung kéo-thả sẵn có.
+
+**Status:** ✅ Done.
+
 ### [soluong-live][render][shared] Nút "🔄 TPOS" per-product: ép sync TPOS rồi re-import (biến thể/giá/tên/mã/ảnh) ✅
 
 User: soluong-live (web 1.0) cần lấy dữ liệu mới nhất từ TPOS → nhập sản phẩm lại để cập nhật biến thể, giá, tên, mã, ảnh. Chọn: nút từng sản phẩm + ép sync TPOS trước rồi re-import.
