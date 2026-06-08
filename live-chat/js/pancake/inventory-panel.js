@@ -237,51 +237,6 @@
     // Event delegation: 1 listener trên #invList thay vì N listener/card +
     // re-attach mỗi lần filter render (trước đây ~400 listener churn). dragstart
     // bubble; `.inv-card *` có pointer-events:none nên e.target = card.
-    // ── Click-to-add (fast order): bấm 1 SP để "chọn" → bấm 1 comment để thêm
-    // vào đơn KH đó. Nhanh hơn kéo-thả (đặc biệt trackpad/cảm ứng). Bổ sung,
-    // KHÔNG thay kéo-thả.
-    let _armedProduct = null;
-    let _armedCard = null;
-    function _disarm() {
-        if (_armedCard) _armedCard.classList.remove('inv-armed');
-        _armedCard = null;
-        _armedProduct = null;
-        document.body.classList.remove('inv-arming');
-    }
-    function _arm(card) {
-        if (_armedCard === card) {
-            _disarm();
-            return;
-        }
-        let p;
-        try {
-            p = JSON.parse(card.getAttribute('data-product'));
-        } catch {
-            return;
-        }
-        if (_armedCard) _armedCard.classList.remove('inv-armed');
-        _armedCard = card;
-        _armedProduct = p;
-        card.classList.add('inv-armed');
-        document.body.classList.add('inv-arming');
-        if (!document.getElementById('inv-arm-style')) {
-            const st = document.createElement('style');
-            st.id = 'inv-arm-style';
-            st.textContent = `
-              .inv-card.inv-armed{outline:2px solid #6366f1;outline-offset:1px;box-shadow:0 0 0 3px rgba(99,102,241,.25)}
-              body.inv-arming .live-conversation-item{cursor:copy}
-              body.inv-arming .live-conversation-item:hover{background:#eef2ff!important}`;
-            document.head.appendChild(st);
-        }
-        global.notificationManager?.show?.(
-            'Đã chọn SP — bấm vào 1 comment để thêm vào đơn (Esc huỷ)',
-            'info'
-        );
-    }
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && _armedProduct) _disarm();
-    });
-
     let _dragDelegated = false;
     function attachDragSources() {
         if (_dragDelegated) return;
@@ -294,16 +249,10 @@
             e.dataTransfer.setData('application/x-web2-product', card.getAttribute('data-product'));
             e.dataTransfer.effectAllowed = 'copy';
             card.classList.add('dragging');
-            _disarm(); // kéo-thả → huỷ chế độ click-armed
         });
         root.addEventListener('dragend', (e) => {
             const card = e.target.closest('.inv-card');
             if (card) card.classList.remove('dragging');
-        });
-        // Click 1 SP → arm (chọn). Bấm lại → huỷ.
-        root.addEventListener('click', (e) => {
-            const card = e.target.closest('.inv-card');
-            if (card) _arm(card);
         });
     }
 
@@ -368,31 +317,6 @@
             // UI-first: addToCart sync return ngay, backend chạy background.
             addToCart(groupKey, product, customer, commentId);
         });
-
-        // Click-to-add: khi đã "chọn" 1 SP (armed) → bấm 1 comment để thêm.
-        // CAPTURE phase: chặn TRƯỚC các click handler của row (mở chat/status…).
-        // Bỏ qua nếu bấm trúng button/select/input/link (để các action khác chạy).
-        document.addEventListener(
-            'click',
-            (e) => {
-                if (!_armedProduct) return;
-                if (e.target.closest('button, select, input, a, [onclick], .live-status-badge'))
-                    return;
-                const row = e.target.closest('.live-conversation-item');
-                if (!row) return;
-                const commentId = row.dataset.commentId;
-                if (!commentId) return;
-                e.preventDefault();
-                e.stopPropagation();
-                const customer = _resolveLiveCustomer(commentId, row);
-                const groupKey = customer.id || commentId;
-                addToCart(groupKey, _armedProduct, customer, commentId);
-                row.classList.add('inv-drop-hover');
-                setTimeout(() => row.classList.remove('inv-drop-hover'), 400);
-                // Giữ armed để thêm nhiều khách liên tiếp (live bán nhanh). Esc huỷ.
-            },
-            true // capture
-        );
     }
 
     // Anti-lag cache: O(1) lookup commentId → comment thay vì find() O(N).
