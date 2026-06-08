@@ -3,11 +3,11 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260608-102853-1161a3b`
-**Session file**: [`./20260608-102853-1161a3b.md`](../20260608-102853-1161a3b.md)
-**Commit**: `1161a3b` — auto: session update
-**Last updated**: 2026-06-08 10:28:53 +07
-**Summary**: auto: session update
+**Latest session**: `RESUME:20260608-103250-97b2338`
+**Session file**: [`./20260608-103250-97b2338.md`](../20260608-103250-97b2338.md)
+**Commit**: `97b2338` — fix(live-chat): campaign load được ngay lần đầu vào (không phải chọn lại page)
+**Last updated**: 2026-06-08 10:32:50 +07
+**Summary**: fix(live-chat): campaign load được ngay lần đầu vào (không phải chọn lại page)
 
 ## Files changed in this commit (`live-chat/`)
 
@@ -16,6 +16,7 @@
 
 ## Last 5 commits touching `live-chat/`
 
+- `97b2338b2` fix(live-chat): campaign load được ngay lần đầu vào (không phải chọn lại page) _(2026-06-08)_
 - `1161a3b1b` auto: session update _(2026-06-08)_
 - `c66f0f041` feat(live-chat): dropdown chiến dịch xen kẽ Store/House mới nhất lên đầu + mặc định chọn newest mỗi page _(2026-06-08)_
 - `a1037d2a1` refactor(web2): rename design-system tpos-_ → web2-_ (classes + --vars), files + theme class _(2026-06-07)_
@@ -27,4 +28,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260608-102853-1161a3b` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260608-103250-97b2338` cho Claude walk chain theo CLAUDE.md protocol.

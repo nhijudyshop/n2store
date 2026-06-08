@@ -3,15 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1161a3b` — auto: session update
-**Last updated**: 2026-06-08 10:28:53 +07
-**Latest session**: [`RESUME:20260608-102853-1161a3b`](../20260608-102853-1161a3b.md)
-**Summary**: auto: session update
+**Latest commit**: `97b2338` — fix(live-chat): campaign load được ngay lần đầu vào (không phải chọn lại page)
+**Last updated**: 2026-06-08 10:32:50 +07
+**Latest session**: [`RESUME:20260608-103250-97b2338`](../20260608-103250-97b2338.md)
+**Summary**: fix(live-chat): campaign load được ngay lần đầu vào (không phải chọn lại page)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`issue-tracking/`](./issue-tracking.md) — 3 file(s)
 - [`live-chat/`](./live-chat.md) — 2 file(s)
 
 ## All folder snapshots
@@ -39,7 +37,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-08 10:28
+- [`live-chat/`](./live-chat.md) — updated 2026-06-08 10:32
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-08 09:55
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
