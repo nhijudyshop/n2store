@@ -95,7 +95,7 @@ class TokenManager {
     initFirestore() {
         try {
             if (window.firebase && window.firebase.firestore && this.firestoreReady) {
-                const docId = this.companyId === 1 ? 'tpos_token' : 'tpos_token_' + this.companyId;
+                const docId = this.companyId === 1 ? 'web2_token' : 'web2_token_' + this.companyId;
                 this.firestoreRef = window.firebase.firestore().collection('tokens').doc(docId);
                 return true;
             }

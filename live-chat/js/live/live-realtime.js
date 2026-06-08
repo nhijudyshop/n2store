@@ -272,7 +272,7 @@ const LiveRealtime = {
      * Initialize WebSocket connection to proxy server
      */
     async initializeWebSocket() {
-        const isEnabled = localStorage.getItem('tpos_realtime_enabled') !== 'false';
+        const isEnabled = localStorage.getItem('web2_realtime_enabled') !== 'false';
         if (!isEnabled) {
             console.log('[Live-RT] WebSocket disabled by user setting');
             return;
@@ -299,7 +299,7 @@ const LiveRealtime = {
                 return false;
             }
 
-            const room = localStorage.getItem('tpos_realtime_room') || 'tomato.live.vn';
+            const room = localStorage.getItem('web2_realtime_room') || 'tomato.live.vn';
 
             const response = await fetch(`${this.serverBaseUrl}/api/realtime/live/start`, {
                 method: 'POST',

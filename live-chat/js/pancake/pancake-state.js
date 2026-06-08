@@ -45,7 +45,7 @@ const PancakeState = {
     typingIndicators: new Map(),
 
     // Server mode
-    serverMode: localStorage.getItem('tpos_pancake_server_mode') || 'pancake',
+    serverMode: localStorage.getItem('web2_pancake_server_mode') || 'pancake',
 
     // URLs
     proxyBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev',
@@ -115,7 +115,7 @@ const PancakeState = {
     setServerMode(mode) {
         if (mode !== 'pancake' && mode !== 'n2store') return;
         this.serverMode = mode;
-        localStorage.setItem('tpos_pancake_server_mode', mode);
+        localStorage.setItem('web2_pancake_server_mode', mode);
         console.log('[PANCAKE-STATE] Server mode:', mode);
     },
 
@@ -125,9 +125,9 @@ const PancakeState = {
     saveSelectedPage() {
         try {
             if (this.selectedPageId) {
-                localStorage.setItem('tpos_pancake_selected_page', this.selectedPageId);
+                localStorage.setItem('web2_pancake_selected_page', this.selectedPageId);
             } else {
-                localStorage.removeItem('tpos_pancake_selected_page');
+                localStorage.removeItem('web2_pancake_selected_page');
             }
         } catch (e) {
             console.warn('[PANCAKE-STATE] Could not save selected page:', e);
@@ -136,7 +136,7 @@ const PancakeState = {
 
     loadSelectedPage() {
         try {
-            const saved = localStorage.getItem('tpos_pancake_selected_page');
+            const saved = localStorage.getItem('web2_pancake_selected_page');
             if (saved && this.pages.some((p) => p.id === saved)) {
                 this.selectedPageId = saved;
             }

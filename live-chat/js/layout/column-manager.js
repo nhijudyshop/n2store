@@ -5,7 +5,7 @@
  */
 
 const ColumnManager = (() => {
-    const STORAGE_KEY = 'tpos_pancake_column_order';
+    const STORAGE_KEY = 'web2_pancake_column_order';
     const DEFAULT_ORDER = ['live', 'pancake'];
     const MIN_COLUMN_WIDTH = 300;
 

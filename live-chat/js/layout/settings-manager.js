@@ -27,11 +27,11 @@ const SettingsManager = (() => {
         // Debt display toggle
         const debtToggle = document.getElementById('liveShowDebt');
         if (debtToggle) {
-            debtToggle.checked = localStorage.getItem('tpos_show_debt') !== 'false';
+            debtToggle.checked = localStorage.getItem('web2_show_debt') !== 'false';
             debtToggle.addEventListener('change', () => {
-                localStorage.setItem('tpos_show_debt', debtToggle.checked);
+                localStorage.setItem('web2_show_debt', debtToggle.checked);
                 window.eventBus?.emit('layout:settingsChanged', {
-                    key: 'tpos_show_debt',
+                    key: 'web2_show_debt',
                     value: debtToggle.checked,
                 });
             });
@@ -40,11 +40,11 @@ const SettingsManager = (() => {
         // Show zero debt toggle
         const zeroDebtToggle = document.getElementById('liveShowZeroDebt');
         if (zeroDebtToggle) {
-            zeroDebtToggle.checked = localStorage.getItem('tpos_show_zero_debt') === 'true';
+            zeroDebtToggle.checked = localStorage.getItem('web2_show_zero_debt') === 'true';
             zeroDebtToggle.addEventListener('change', () => {
-                localStorage.setItem('tpos_show_zero_debt', zeroDebtToggle.checked);
+                localStorage.setItem('web2_show_zero_debt', zeroDebtToggle.checked);
                 window.eventBus?.emit('layout:settingsChanged', {
-                    key: 'tpos_show_zero_debt',
+                    key: 'web2_show_zero_debt',
                     value: zeroDebtToggle.checked,
                 });
             });
@@ -54,9 +54,9 @@ const SettingsManager = (() => {
     function _loadLiveSettingsValues() {
         const debtToggle = document.getElementById('liveShowDebt');
         const zeroDebtToggle = document.getElementById('liveShowZeroDebt');
-        if (debtToggle) debtToggle.checked = localStorage.getItem('tpos_show_debt') !== 'false';
+        if (debtToggle) debtToggle.checked = localStorage.getItem('web2_show_debt') !== 'false';
         if (zeroDebtToggle)
-            zeroDebtToggle.checked = localStorage.getItem('tpos_show_zero_debt') === 'true';
+            zeroDebtToggle.checked = localStorage.getItem('web2_show_zero_debt') === 'true';
     }
 
     // ---- Pancake Settings ----

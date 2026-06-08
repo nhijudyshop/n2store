@@ -54,7 +54,7 @@
         JWT_EXP: 'pancake_jwt_token_expiry',
         PAGE_TOKENS: 'pancake_page_access_tokens',
         ALL_ACCOUNTS: 'pancake_all_accounts',
-        ACTIVE_ACCOUNT_ID: 'tpos_pancake_active_account_id',
+        ACTIVE_ACCOUNT_ID: 'web2_pancake_active_account_id',
     };
 
     function _isExpired(epochSeconds) {

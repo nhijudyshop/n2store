@@ -8,7 +8,7 @@
 //   - Drop target: comment rows đã có đơn (data-conv-id) ở .pk-conversation-list.
 //   - Cart: POST /api/web2/cart/:commentId/add — sync qua SSE 'web2:cart' multi-tab.
 //
-// State khi switch tab Chat↔Kho lưu localStorage 'tpos_pancake_active_tab' (default 'kho').
+// State khi switch tab Chat↔Kho lưu localStorage 'web2_pancake_active_tab' (default 'kho').
 
 (function (global) {
     'use strict';
@@ -17,7 +17,7 @@
 
     const API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2';
     const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const LS_TAB_KEY = 'tpos_pancake_active_tab';
+    const LS_TAB_KEY = 'web2_pancake_active_tab';
     const DEFAULT_TAB = 'kho'; // user: mặc định là Kho
 
     const STATE = {

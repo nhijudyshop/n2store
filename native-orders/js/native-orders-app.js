@@ -72,7 +72,7 @@
         expandedOrders: new Set(), // codes of rows currently expanded
         // Campaign filter (multi-select). Empty array = "all"; explicit array of campaign IDs
         // = filter to those (use '__no_campaign__' for orders without a campaign).
-        // On boot, restored from localStorage `tpos_selected_campaigns` (set by web2-pancake).
+        // On boot, restored from localStorage `web2_selected_campaigns` (set by web2-pancake).
         selectedCampaignIds: [],
         availableCampaigns: [], // [{id, name, count, lastOrderAt}]
         // Phase 14: scope list to a single Customer 360 record (parsed from URL).
@@ -1650,7 +1650,7 @@
 
     // ---------- Campaign filter ----------
     const CAMPAIGN_STORAGE_KEY = 'native_orders_selected_campaigns';
-    const TPOS_PANCAKE_KEY = 'tpos_selected_campaigns';
+    const TPOS_PANCAKE_KEY = 'web2_selected_campaigns';
 
     function loadCampaignSelection() {
         // Priority: own key (per-page selection) > shared web2-pancake key (cross-page sync)

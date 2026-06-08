@@ -110,14 +110,14 @@ const LiveState = {
      * Restore saved page selection from localStorage
      */
     getSavedPageSelection() {
-        return localStorage.getItem('tpos_selected_page') || null;
+        return localStorage.getItem('web2_selected_page') || null;
     },
 
     /**
      * Save page selection to localStorage
      */
     savePageSelection(value) {
-        localStorage.setItem('tpos_selected_page', value);
+        localStorage.setItem('web2_selected_page', value);
     },
 
     /**
@@ -126,7 +126,7 @@ const LiveState = {
     saveCampaignSelection() {
         if (this.selectedCampaignIds) {
             localStorage.setItem(
-                'tpos_selected_campaigns',
+                'web2_selected_campaigns',
                 JSON.stringify(Array.from(this.selectedCampaignIds))
             );
         }
@@ -138,7 +138,7 @@ const LiveState = {
      */
     getSavedCampaignSelection() {
         try {
-            const saved = localStorage.getItem('tpos_selected_campaigns');
+            const saved = localStorage.getItem('web2_selected_campaigns');
             return saved ? JSON.parse(saved) : null;
         } catch {
             return null;

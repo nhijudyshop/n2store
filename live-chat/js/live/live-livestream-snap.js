@@ -18,10 +18,10 @@
     if (global.LiveLivestreamSnap) return;
 
     const API = global.SHOP_CONFIG?.RENDER_API_URL || 'https://n2store-fallback.onrender.com';
-    const LS_KEY_SNAP_PAGE = 'tpos_snap_live_page'; // 'store' | 'house'
-    const LS_KEY_SNAP_MODE = 'tpos_snap_mode'; // 'live' (default) | 'lazy'
-    const LS_KEY_AUTO_MODE = 'tpos_snap_auto'; // 'on' | 'off' (default 'on')
-    const LS_KEY_INLINE_THUMB = 'tpos_snap_inline_thumb'; // 'on' | 'off' (default 'off')
+    const LS_KEY_SNAP_PAGE = 'web2_snap_live_page'; // 'store' | 'house'
+    const LS_KEY_SNAP_MODE = 'web2_snap_mode'; // 'live' (default) | 'lazy'
+    const LS_KEY_AUTO_MODE = 'web2_snap_auto'; // 'on' | 'off' (default 'on')
+    const LS_KEY_INLINE_THUMB = 'web2_snap_inline_thumb'; // 'on' | 'off' (default 'off')
     const AUTO_THROTTLE_MS = 30 * 1000; // 30s per customer — tránh spam khi 1 KH spam comment
     // Mode definitions:
     //   'live' = 🎬 Chụp Live — getDisplayMedia capture frame từ tab FB live đã share
@@ -1533,8 +1533,8 @@ Throttle 30s/KH.`;
                 const hiddenDuration = Date.now() - lastHiddenTs;
                 // Hidden > 5s → show tip toast 1 lần
                 if (hiddenDuration > 5000) {
-                    if (!sessionStorage.getItem('tpos_snap_2browser_tip_shown')) {
-                        sessionStorage.setItem('tpos_snap_2browser_tip_shown', '1');
+                    if (!sessionStorage.getItem('web2_snap_2browser_tip_shown')) {
+                        sessionStorage.setItem('web2_snap_2browser_tip_shown', '1');
                         _toast(
                             '💡 Mở 2 trình duyệt riêng — 1 cho livestream, 1 cho việc khác → capture không bị dừng',
                             'ok'
@@ -1562,7 +1562,7 @@ Throttle 30s/KH.`;
     // chrome.tabs.captureVisibleTab silent KHÔNG cần click icon. Prompt chỉ
     // hướng dẫn cài/update extension (no click instruction).
     function _showExtPrompt(kind) {
-        if (sessionStorage.getItem('tpos_ext_prompt_dismiss')) return;
+        if (sessionStorage.getItem('web2_ext_prompt_dismiss')) return;
         if (document.getElementById('live-snap-ext-prompt')) return;
         const box = document.createElement('div');
         box.id = 'live-snap-ext-prompt';
@@ -1584,7 +1584,7 @@ Throttle 30s/KH.`;
             'position:fixed;bottom:80px;right:16px;width:340px;background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:14px 16px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:99100;font-family:Inter,system-ui,sans-serif;';
         document.body.appendChild(box);
         document.getElementById('live-snap-ext-prompt-ok').onclick = () => {
-            sessionStorage.setItem('tpos_ext_prompt_dismiss', '1');
+            sessionStorage.setItem('web2_ext_prompt_dismiss', '1');
             box.remove();
         };
     }
@@ -1643,7 +1643,7 @@ Throttle 30s/KH.`;
     // Hiển thị modal hướng dẫn 3 bước trước khi mở picker. Chỉ show 1 lần đầu
     // (localStorage flag), những lần sau skip để user không bị phiền.
     function _showPickerTutorial() {
-        if (localStorage.getItem('tpos_snap_picker_tutorial_seen')) return Promise.resolve();
+        if (localStorage.getItem('web2_snap_picker_tutorial_seen')) return Promise.resolve();
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
             overlay.style.cssText =
@@ -1671,7 +1671,7 @@ Throttle 30s/KH.`;
             `;
             document.body.appendChild(overlay);
             const close = (remember) => {
-                if (remember) localStorage.setItem('tpos_snap_picker_tutorial_seen', '1');
+                if (remember) localStorage.setItem('web2_snap_picker_tutorial_seen', '1');
                 overlay.remove();
                 resolve();
             };

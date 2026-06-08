@@ -1001,7 +1001,7 @@
                 };
                 localStorage.setItem('liveSettings', JSON.stringify(s));
                 window.eventBus?.emit('layout:settingsChanged', {
-                    key: 'tpos_show_debt',
+                    key: 'web2_show_debt',
                     value: s.showDebt,
                 });
             }

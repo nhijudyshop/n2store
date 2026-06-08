@@ -5,7 +5,7 @@
     'use strict';
     if (global.PancakeModeSwitcher) return;
 
-    const LS_KEY = 'tpos_pancake_active_tab';
+    const LS_KEY = 'web2_pancake_active_tab';
     const DEFAULT_MODE = 'kho';
 
     function getMode() {

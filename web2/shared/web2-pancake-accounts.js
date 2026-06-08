@@ -14,7 +14,7 @@
 //   DELETE /api/pancake-accounts/:id
 //
 // account_id = JWT payload `uid` (KHỚP Web 1.0 PancakeTokenManager — tránh
-// trùng row). Active account là per-device (localStorage `tpos_pancake_active_account_id`).
+// trùng row). Active account là per-device (localStorage `web2_pancake_active_account_id`).
 //
 // API:
 //   Web2PancakeAccounts.list()              → Promise<{ ok, accounts, reason? }>
@@ -37,7 +37,7 @@
     const LS = {
         JWT: 'pancake_jwt_token',
         JWT_EXP: 'pancake_jwt_token_expiry',
-        ACTIVE_ACCOUNT_ID: 'tpos_pancake_active_account_id',
+        ACTIVE_ACCOUNT_ID: 'web2_pancake_active_account_id',
     };
 
     function _decode(token) {
