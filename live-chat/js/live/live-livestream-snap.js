@@ -1110,9 +1110,17 @@ Throttle 30s/KH.`;
         //   3. Throttle per-customer chặn quá tay khi KH spam 2-3 comment liền
         STATE.autoLastSnap.set(customerFbUserId, Date.now());
         try {
+            // "Chỉ chụp tab đang xem": extension đã sẵn + iframe live đã nhúng +
+            // tab đang hiển thị → capture frame visible tab (KHÔNG cần share màn
+            // hình / buffer mode). Đây là path ưu tiên khi user xem tab live-chat.
+            const canExtTabCapture =
+                STATE.extReady &&
+                !document.hidden &&
+                !!document.getElementById('live-snap-fb-wrapper');
             const hasBufferedFrames =
                 (STATE.captureStream && STATE.captureVideo?.videoWidth) ||
-                (STATE.frameBufferTimer && STATE.frameBuffer?.length > 0);
+                (STATE.frameBufferTimer && STATE.frameBuffer?.length > 0) ||
+                canExtTabCapture;
             if (hasBufferedFrames) {
                 // Path 1: real-frame capture từ FB tab đã share / extension.
                 // Pass comment.created_time để offset_seconds tính từ moment
@@ -1132,7 +1140,7 @@ Throttle 30s/KH.`;
                 // qua extension thay vì gửi snap rỗng (snap không có bytea =
                 // không thumbnail). Chrome rate-limit tabs.captureVisibleTab
                 // ~2/sec, OK với throttle 30s/KH.
-                if (!buffered && STATE.extReady && STATE.frameBufferTimer) {
+                if (!buffered && STATE.extReady) {
                     try {
                         const jpegBase64 = await _captureExtensionFrame();
                         if (jpegBase64) {
