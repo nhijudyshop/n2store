@@ -75,6 +75,27 @@ const norm = (v) => (v == null ? null : String(v));
 async function upsertComments(pool, arr) {
     if (!Array.isArray(arr) || !arr.length) return 0;
     await ensureTables(pool);
+    // Kế thừa campaign_id từ gán bài→chiến dịch cha (web2_live_post_assign) để
+    // comment poller/auto-save tự gom vào chiến dịch cha tương ứng.
+    try {
+        const postIds = [...new Set(arr.map((c) => c && c.postId).filter(Boolean))].map(String);
+        if (postIds.length) {
+            const a = await pool.query(
+                'SELECT post_id, campaign_id FROM web2_live_post_assign WHERE post_id = ANY($1) AND campaign_id IS NOT NULL',
+                [postIds]
+            );
+            if (a.rows.length) {
+                const map = {};
+                for (const row of a.rows) map[row.post_id] = String(row.campaign_id);
+                for (const c of arr) {
+                    if (c && !c.campaignId && map[String(c.postId)])
+                        c.campaignId = map[String(c.postId)];
+                }
+            }
+        }
+    } catch (_) {
+        /* bảng chưa tạo / lỗi tra cứu → bỏ qua, lưu comment bình thường */
+    }
     const now = Date.now();
     let saved = 0;
     const BATCH = 200;
@@ -191,6 +212,154 @@ router.get('/stats', async (req, res) => {
               )
             : await pool.query('SELECT COUNT(*)::int AS count FROM web2_live_comments');
         res.json({ success: true, count: r.rows[0]?.count || 0 });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// ─── Chiến dịch cha (gom nhiều bài livestream) ─────────────────────────
+async function ensureCampaignTables(pool) {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS web2_live_parent_campaigns (
+            id         BIGSERIAL PRIMARY KEY,
+            name       VARCHAR(255) NOT NULL,
+            note       TEXT,
+            created_at BIGINT
+        );
+        CREATE TABLE IF NOT EXISTS web2_live_post_assign (
+            post_id     VARCHAR(120) PRIMARY KEY,
+            campaign_id BIGINT,
+            page_id     VARCHAR(50),
+            post_title  TEXT,
+            assigned_at BIGINT
+        );
+    `);
+}
+
+// GET /campaigns — list chiến dịch cha + số bài + số comment.
+router.get('/campaigns', async (req, res) => {
+    const pool = getDb(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    try {
+        await ensureCampaignTables(pool);
+        const r = await pool.query(`
+            SELECT c.id, c.name, c.note, c.created_at,
+                   COUNT(DISTINCT a.post_id)::int AS post_count,
+                   COALESCE(cc.cnt, 0)::int AS comment_count
+            FROM web2_live_parent_campaigns c
+            LEFT JOIN web2_live_post_assign a ON a.campaign_id = c.id
+            LEFT JOIN (SELECT campaign_id, COUNT(*) cnt FROM web2_live_comments WHERE campaign_id IS NOT NULL GROUP BY campaign_id) cc
+                   ON cc.campaign_id = c.id::text
+            GROUP BY c.id, cc.cnt ORDER BY c.created_at DESC`);
+        res.json({ success: true, data: r.rows });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /campaigns { name, note } — tạo chiến dịch cha.
+router.post('/campaigns', async (req, res) => {
+    const pool = getDb(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    const name = String(req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ success: false, error: 'name required' });
+    try {
+        await ensureCampaignTables(pool);
+        const r = await pool.query(
+            'INSERT INTO web2_live_parent_campaigns (name, note, created_at) VALUES ($1,$2,$3) RETURNING id',
+            [name, req.body?.note || null, Date.now()]
+        );
+        res.json({ success: true, id: r.rows[0].id });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// DELETE /campaigns/:id — xoá (gỡ gán post, KHÔNG xoá comment).
+router.delete('/campaigns/:id', async (req, res) => {
+    const pool = getDb(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    try {
+        await ensureCampaignTables(pool);
+        const id = Number(req.params.id);
+        await pool.query(
+            'UPDATE web2_live_post_assign SET campaign_id = NULL WHERE campaign_id = $1',
+            [id]
+        );
+        await pool.query(
+            'UPDATE web2_live_comments SET campaign_id = NULL WHERE campaign_id = $1',
+            [String(id)]
+        );
+        await pool.query('DELETE FROM web2_live_parent_campaigns WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// GET /posts — bài livestream đã có comment (để gán vào chiến dịch).
+router.get('/posts', async (req, res) => {
+    const pool = getDb(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        await ensureCampaignTables(pool);
+        const r = await pool.query(`
+            SELECT lc.post_id, lc.page_id,
+                   MAX(lc.page_name) AS page_name,
+                   COUNT(*)::int AS comment_count,
+                   MAX(lc.created_time) AS last_at,
+                   a.campaign_id
+            FROM web2_live_comments lc
+            LEFT JOIN web2_live_post_assign a ON a.post_id = lc.post_id
+            WHERE lc.post_id IS NOT NULL
+            GROUP BY lc.post_id, lc.page_id, a.campaign_id
+            ORDER BY last_at DESC LIMIT 200`);
+        res.json({ success: true, data: r.rows });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /campaigns/:id/assign { postId, postTitle, pageId } — gán bài vào chiến dịch.
+router.post('/campaigns/:id/assign', async (req, res) => {
+    const pool = getDb(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    const campaignId = Number(req.params.id);
+    const postId = String(req.body?.postId || '').trim();
+    if (!postId) return res.status(400).json({ success: false, error: 'postId required' });
+    try {
+        await ensureCampaignTables(pool);
+        await pool.query(
+            `INSERT INTO web2_live_post_assign (post_id, campaign_id, page_id, post_title, assigned_at)
+             VALUES ($1,$2,$3,$4,$5)
+             ON CONFLICT (post_id) DO UPDATE SET campaign_id = EXCLUDED.campaign_id, assigned_at = EXCLUDED.assigned_at`,
+            [postId, campaignId, req.body?.pageId || null, req.body?.postTitle || null, Date.now()]
+        );
+        // Gán campaign_id cho comment đã có của post (string-typed cột campaign_id).
+        await pool.query('UPDATE web2_live_comments SET campaign_id = $1 WHERE post_id = $2', [
+            String(campaignId),
+            postId,
+        ]);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /unassign { postId } — gỡ bài khỏi chiến dịch.
+router.post('/unassign', async (req, res) => {
+    const pool = getDb(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    const postId = String(req.body?.postId || '').trim();
+    if (!postId) return res.status(400).json({ success: false, error: 'postId required' });
+    try {
+        await ensureCampaignTables(pool);
+        await pool.query('DELETE FROM web2_live_post_assign WHERE post_id = $1', [postId]);
+        await pool.query('UPDATE web2_live_comments SET campaign_id = NULL WHERE post_id = $1', [
+            postId,
+        ]);
+        res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

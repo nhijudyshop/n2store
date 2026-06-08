@@ -126,6 +126,24 @@
                             <button class="lp-btn" id="lpAdd">+ Thêm trang</button>
                         </div>
                     </div>
+
+                    <div class="lp-card">
+                        <h2>Chiến dịch cha (gom nhiều buổi livestream)</h2>
+                        <div id="lpCamps"><div class="lp-sub">Đang tải…</div></div>
+                        <div class="lp-form">
+                            <input
+                                id="lpCampName"
+                                placeholder="Tên chiến dịch (vd: Live tháng 6)"
+                                style="flex: 1; min-width: 200px"
+                            />
+                            <button class="lp-btn" id="lpCampAdd">+ Tạo chiến dịch</button>
+                        </div>
+                    </div>
+
+                    <div class="lp-card">
+                        <h2>Bài livestream → gán vào chiến dịch</h2>
+                        <div id="lpPosts"><div class="lp-sub">Đang tải…</div></div>
+                    </div>
                 </div>
             </main>
         </div>
@@ -231,8 +249,113 @@
                     }
                 });
 
+                // ── Chiến dịch cha + gán bài ──────────────────────────────
+                let _camps = [];
+                async function loadCampaigns() {
+                    try {
+                        const d = await fetch(`${API}/campaigns`).then((r) => r.json());
+                        _camps = d.data || [];
+                        const el = $('#lpCamps');
+                        el.innerHTML = _camps.length
+                            ? _camps
+                                  .map(
+                                      (c) => `<div class="lp-row" data-cid="${c.id}">
+                                <div class="lp-name">${esc(c.name)}
+                                    <div class="lp-sub">${c.post_count || 0} bài · ${(c.comment_count || 0).toLocaleString('vi-VN')} comment</div>
+                                </div>
+                                <button class="lp-btn lp-btn-danger" data-act="delcamp">Xoá</button>
+                            </div>`
+                                  )
+                                  .join('')
+                            : '<div class="lp-sub">Chưa có chiến dịch nào.</div>';
+                    } catch (e) {
+                        $('#lpCamps').innerHTML =
+                            `<div class="lp-sub">Lỗi: ${esc(e.message)}</div>`;
+                    }
+                }
+
+                async function loadPosts() {
+                    try {
+                        const d = await fetch(`${API}/posts`).then((r) => r.json());
+                        const rows = d.data || [];
+                        const opts = (sel) =>
+                            `<option value="">— chưa gán —</option>` +
+                            _camps
+                                .map(
+                                    (c) =>
+                                        `<option value="${c.id}" ${String(sel) === String(c.id) ? 'selected' : ''}>${esc(c.name)}</option>`
+                                )
+                                .join('');
+                        $('#lpPosts').innerHTML = rows.length
+                            ? rows
+                                  .map(
+                                      (p) => `<div class="lp-row" data-post="${esc(p.post_id)}">
+                                <div class="lp-name">${esc(p.page_name || p.page_id)}
+                                    <div class="lp-sub">${esc(p.post_id)} · ${(p.comment_count || 0).toLocaleString('vi-VN')} comment</div>
+                                </div>
+                                <select class="lp-btn lp-assign" data-post="${esc(p.post_id)}" data-page="${esc(p.page_id)}">${opts(p.campaign_id)}</select>
+                            </div>`
+                                  )
+                                  .join('')
+                            : '<div class="lp-sub">Chưa có bài livestream nào có comment.</div>';
+                    } catch (e) {
+                        $('#lpPosts').innerHTML =
+                            `<div class="lp-sub">Lỗi: ${esc(e.message)}</div>`;
+                    }
+                }
+
+                $('#lpCampAdd').addEventListener('click', async () => {
+                    const name = $('#lpCampName').value.trim();
+                    if (!name) return alert('Nhập tên chiến dịch');
+                    await fetch(`${API}/campaigns`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name }),
+                    });
+                    $('#lpCampName').value = '';
+                    await loadCampaigns();
+                    loadPosts();
+                });
+
+                document.addEventListener('click', async (e) => {
+                    const b = e.target.closest('[data-act="delcamp"]');
+                    if (!b) return;
+                    const cid = b.closest('[data-cid]')?.dataset.cid;
+                    if (!cid || !confirm('Xoá chiến dịch? (comment giữ nguyên, chỉ gỡ gán)'))
+                        return;
+                    await fetch(`${API}/campaigns/${cid}`, { method: 'DELETE' });
+                    await loadCampaigns();
+                    loadPosts();
+                });
+
+                document.addEventListener('change', async (e) => {
+                    const sel = e.target.closest('.lp-assign');
+                    if (!sel) return;
+                    const postId = sel.dataset.post;
+                    const cid = sel.value;
+                    try {
+                        if (cid) {
+                            await fetch(`${API}/campaigns/${cid}/assign`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ postId, pageId: sel.dataset.page }),
+                            });
+                        } else {
+                            await fetch(`${API}/unassign`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ postId }),
+                            });
+                        }
+                        loadCampaigns();
+                    } catch (err) {
+                        alert('Lỗi gán: ' + err.message);
+                    }
+                });
+
                 loadStat();
                 loadPages();
+                loadCampaigns().then(loadPosts);
                 setInterval(loadStat, 15000);
             })();
         </script>
