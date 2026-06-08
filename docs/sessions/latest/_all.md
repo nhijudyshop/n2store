@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6922ce2` — feat(web2): backfill fb_id↔phone từ Web1 customers → warehouse + live-chat enrich SĐT/địa chỉ
-**Last updated**: 2026-06-08 11:08:41 +07
-**Latest session**: [`RESUME:20260608-110841-6922ce2`](../20260608-110841-6922ce2.md)
-**Summary**: feat(web2): backfill fb_id↔phone từ Web1 customers → warehouse + live-chat enrich SĐT/địa chỉ
+**Latest commit**: `2a74161` — docs(dev-log): live-chat load SĐT/địa chỉ KH (backfill fb_id↔phone Web1→warehouse 3725 phones)
+**Last updated**: 2026-06-08 11:14:34 +07
+**Latest session**: [`RESUME:20260608-111434-2a74161`](../20260608-111434-2a74161.md)
+**Summary**: docs(dev-log): live-chat load SĐT/địa chỉ KH (backfill fb_id↔phone Web1→warehouse 3725 phones)
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 10:16
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-08 10:28
+- [`docs/`](./docs.md) — updated 2026-06-08 11:14
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-07 19:58
