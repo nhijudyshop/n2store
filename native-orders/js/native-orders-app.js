@@ -540,10 +540,8 @@
         const phone = d.phone || fallback?.phone || '';
         const avatar = d.avatar || null;
         const tags = Array.isArray(d.tags) ? d.tags : [];
-        const tposAddress = d.tposAddress;
-        const tposStatus = d.tposStatus;
-        const tposTotalSpent = d.tposTotalSpent != null ? Number(d.tposTotalSpent) : null;
-        const tposReturned = d.tposReturnedOrders;
+        const address = d.address;
+        const status = d.status;
         const messageCount = d.message_count ?? null;
         const orderCount = d.order_count ?? null;
         const successOrders = d.success_order_count ?? null;
@@ -562,16 +560,16 @@
                 <div style="flex:1;min-width:0;">
                     <div class="ncp-name">${escapeHtml(name)}</div>
                     ${phone ? `<div class="ncp-phone">📞 ${escapeHtml(phone)}</div>` : ''}
-                    ${tposStatus && tposStatus !== 'Bình thường' ? `<div style="margin-top:4px;"><span class="ncp-status-bad">${escapeHtml(tposStatus)}</span></div>` : ''}
+                    ${status && status !== 'Normal' && status !== 'Bình thường' ? `<div style="margin-top:4px;"><span class="ncp-status-bad">${escapeHtml(status)}</span></div>` : ''}
                 </div>
                 <button class="ncp-close" type="button" aria-label="Đóng">×</button>
             </header>
             <div class="ncp-body">
                 ${
-                    tposAddress
+                    address
                         ? `<section class="ncp-section">
-                    <div class="ncp-section-label">📍 Địa chỉ (TPOS)</div>
-                    <div class="ncp-section-value">${escapeHtml(tposAddress)}</div>
+                    <div class="ncp-section-label">📍 Địa chỉ</div>
+                    <div class="ncp-section-value">${escapeHtml(address)}</div>
                 </section>`
                         : ''
                 }
@@ -595,9 +593,7 @@
                         ${messageCount !== null ? `<div class="ncp-stat"><span class="ncp-stat-num">${messageCount}</span><span class="ncp-stat-lbl">tin nhắn</span></div>` : ''}
                         ${orderCount !== null ? `<div class="ncp-stat"><span class="ncp-stat-num">${orderCount}</span><span class="ncp-stat-lbl">đơn (Pancake)</span></div>` : ''}
                         ${successOrders !== null ? `<div class="ncp-stat"><span class="ncp-stat-num" style="color:#16a34a;">${successOrders}</span><span class="ncp-stat-lbl">chốt thành công</span></div>` : ''}
-                        ${tposReturned != null && tposReturned > 0 ? `<div class="ncp-stat"><span class="ncp-stat-num" style="color:#dc2626;">${tposReturned}</span><span class="ncp-stat-lbl">đơn trả</span></div>` : ''}
                     </div>
-                    ${tposTotalSpent && tposTotalSpent > 0 ? `<div style="margin-top:8px;padding:6px 8px;background:#f0fdf4;border-radius:5px;color:#166534;font-size:12.5px;">💰 Tổng đã chi: <strong>${tposTotalSpent.toLocaleString('vi-VN')}đ</strong></div>` : ''}
                 </section>
                 ${
                     lastInteraction
@@ -638,10 +634,8 @@
             const customerUrl = phone
                 ? `${WORKER_URL}/api/web2/customers/search?search=${encodeURIComponent(phone)}&limit=1`
                 : null;
-            const tposLiveUrl = phone
-                ? `${WORKER_URL}/api/web2/customer-tpos/${encodeURIComponent(phone)}`
-                : null;
-            const [pancakeD, customerD, tposLiveD] = await Promise.all([
+            // 2026-06-08: Web 2.0 bỏ TPOS — KH info lấy từ warehouse + Pancake.
+            const [pancakeD, customerD] = await Promise.all([
                 fetch(pancakeUrl, { credentials: 'include', signal })
                     .then((r) => r.json())
                     .catch(() => null),
@@ -650,24 +644,14 @@
                           .then((r) => r.json())
                           .catch(() => null)
                     : Promise.resolve(null),
-                tposLiveUrl
-                    ? fetch(tposLiveUrl, { credentials: 'include', signal })
-                          .then((r) => r.json())
-                          .catch(() => null)
-                    : Promise.resolve(null),
             ]);
             if (token !== _custPanelToken) return null;
             const conv = (pancakeD?.conversations || [])[0] || null;
-            const tposCust = (customerD?.customers || customerD?.data || [])[0] || null;
-            const tposLive = tposLiveD?.customer || null;
+            const whCust = (customerD?.customers || customerD?.data || [])[0] || null;
             const cust = conv ? (conv.customers || [])[0] || conv.from || {} : {};
             const enriched = {
-                name: tposLive?.name || cust.name || conv?.from?.name || tposCust?.name,
-                phone:
-                    conv?.recent_phone_numbers?.[0]?.phone_number ||
-                    tposLive?.phone ||
-                    tposCust?.phone ||
-                    phone,
+                name: cust.name || conv?.from?.name || whCust?.name,
+                phone: conv?.recent_phone_numbers?.[0]?.phone_number || whCust?.phone || phone,
                 avatar: cust.avatar_url || cust.avatar,
                 tags: conv?.tags || [],
                 last_interaction_at: conv?.last_customer_interactive_at || conv?.updated_at,
@@ -676,11 +660,9 @@
                 success_order_count: cust.success_order_count,
                 order_count: cust.order_count,
                 note: conv?.extra_info?.note,
-                tposAddress: tposLive?.address || tposCust?.address,
-                tposCustomerId: tposLive?.id || tposCust?.id,
-                tposStatus: tposLive?.status || tposCust?.status,
-                tposReturnedOrders: tposCust?.returned_orders,
-                tposTotalSpent: tposCust?.total_spent,
+                address: whCust?.address,
+                customerId: whCust?.id,
+                status: whCust?.status,
             };
             _custPanelCache.set(fbUserId, { data: enriched, ts: Date.now() });
             return enriched;
@@ -740,8 +722,7 @@
 
     // 2026-06-01: Thủ công lấy info KH từ TPOS qua Facebook_ASUserId
     // (cho đơn từ web2-pancake có FB ID nhưng rỗng phone/address/name).
-    // Endpoint backend (web2-customer-tpos.js) tự upsert customers table + link
-    // fb_id, sau đó PATCH native_order với name/phone/address để row cập nhật.
+    // 2026-06-08: lookup info KH từ kho warehouse (Web 2.0 bỏ TPOS).
     // UI-first: badge "Đang lấy..." optimistic, lỗi → rollback, success → render.
     async function fetchCustomerFromTpos(code, fbUserId) {
         if (!fbUserId) {
@@ -766,21 +747,20 @@
         };
 
         const run = async () => {
-            // Pass crmTeamId từ order — backend cần để query chatomni/info/{crmTeamId}_{fbUserId}
-            const crmTeamId = order?.crmTeamId || '';
-            const lookupUrl =
-                `${WORKER_URL}/api/web2/customer-tpos/by-fb-id/${encodeURIComponent(fbUserId)}` +
-                (crmTeamId ? `?crmTeamId=${encodeURIComponent(crmTeamId)}` : '');
-            const r = await fetch(lookupUrl, { credentials: 'include' });
+            // 2026-06-08: Web 2.0 bỏ TPOS — lookup info KH từ kho warehouse theo fb_id.
+            const r = await fetch(`${WORKER_URL}/api/web2/customers/batch-by-fbid`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ fbIds: [fbUserId] }),
+            });
             const data = await r.json().catch(() => ({}));
             if (!r.ok || data.success === false) {
-                throw new Error(data.error || `Lookup TPOS lỗi ${r.status}`);
+                throw new Error(data.error || `Lookup kho KH lỗi ${r.status}`);
             }
-            const tposCust = data.customer;
+            const tposCust = data.data && data.data[fbUserId];
             if (!tposCust) {
-                throw new Error(
-                    'TPOS không có đơn nào với FB ID này — KH chưa từng order qua TPOS'
-                );
+                throw new Error('Kho KH chưa có FB ID này — KH chưa từng nhắn/đặt');
             }
             // PATCH native_order với info mới (chỉ fill field còn rỗng,
             // không ghi đè data user đã sửa thủ công).

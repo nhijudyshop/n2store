@@ -677,8 +677,6 @@ app.use('/api/web2/customer-orders', web2CustomerOrdersRoutes);
 // 2026-06-01: TPOS Partner live fetch cho KH — address lấy FRESH từ TPOS
 // (không qua customers table cache). Per user: "địa chỉ khách hàng lấy theo
 // TPOS khách hàng".
-const web2CustomerTposRoutes = require('./routes/v2/web2-customer-tpos');
-app.use('/api/web2/customer-tpos', web2CustomerTposRoutes);
 // 2026-06-03: kho KH riêng Web 2.0 (web2_customers @ web2Db) — thay /api/v2/customers Web 1.0
 const web2CustomersRoutes = require('./routes/v2/web2-customers');
 app.use('/api/web2/customers', web2CustomersRoutes);
