@@ -3,13 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `676c63b` — fix(web2): modal gan KH balance-history bo text TPOS/91K/OData -> kho Web 2.0
-**Last updated**: 2026-06-08 19:24:48 +07
-**Latest session**: [`RESUME:20260608-192448-676c63b`](../20260608-192448-676c63b.md)
-**Summary**: fix(web2): modal gan KH balance-history bo text TPOS/91K/OData -> kho Web 2.0
+**Latest commit**: `b0f1f06` — feat(web2): balance-history tu cap nhat khi co GD moi (SSE web2:balance-history, khoi F5)
+**Last updated**: 2026-06-08 19:45:13 +07
+**Latest session**: [`RESUME:20260608-194513-b0f1f06`](../20260608-194513-b0f1f06.md)
+**Summary**: feat(web2): balance-history tu cap nhat khi co GD moi (SSE web2:balance-history, khoi F5)
 
 ## Folders affected in this commit
 
+- [`render.com/`](./render.com.md) — 2 file(s)
 - [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
@@ -50,7 +51,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-08 19:13
+- [`render.com/`](./render.com.md) — updated 2026-06-08 19:45
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-07 16:00
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -69,4 +70,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-08 19:24
+- [`web2/`](./web2.md) — updated 2026-06-08 19:45
