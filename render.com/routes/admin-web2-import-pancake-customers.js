@@ -69,8 +69,9 @@ router.post('/web2-import-pancake-customers', async (req, res) => {
 
     try {
         for (const pageId of DEFAULT_PAGES) {
+            let until = now; // cursor thời gian (page_number không phân trang)
             for (let pg = 1; pg <= maxPages; pg++) {
-                const url = `${PANCAKE_API}/pages/${pageId}/conversations?type=INBOX&since=${since}&until=${now}&page_number=${pg}&access_token=${encodeURIComponent(jwt)}`;
+                const url = `${PANCAKE_API}/pages/${pageId}/conversations?type=INBOX&since=${since}&until=${until}&access_token=${encodeURIComponent(jwt)}`;
                 let d;
                 try {
                     d = await fetch(url).then((r) => r.json());
@@ -79,8 +80,15 @@ router.post('/web2-import-pancake-customers', async (req, res) => {
                 }
                 const cv = Array.isArray(d.conversations) ? d.conversations : [];
                 if (!cv.length) break;
+                let oldest = until;
                 for (const c of cv) {
                     scanned++;
+                    const ts = (() => {
+                        const s = c.updated_at || c.inserted_at;
+                        const t = s ? Math.floor(new Date(s + 'Z').getTime() / 1000) : 0;
+                        return Number.isFinite(t) && t > 0 ? t : 0;
+                    })();
+                    if (ts && ts < oldest) oldest = ts;
                     const cust = (Array.isArray(c.customers) && c.customers[0]) || c.from || {};
                     const fbId = cust.fb_id || cust.id || c.from_psid || null;
                     const phones = Array.isArray(c.recent_phone_numbers)
@@ -102,7 +110,11 @@ router.post('/web2-import-pancake-customers', async (req, res) => {
                     if (fbId) e.fbIds.add(String(fbId));
                     for (const ph of phones.slice(1)) if (ph !== primary) e.altPhones.add(ph);
                 }
-                if (cv.length < 20) break;
+                // Advance cursor: until = updated_at nhỏ nhất − 1. Dừng nếu không
+                // tiến (cursor đứng) hoặc đã quá since.
+                const next = oldest - 1;
+                if (next >= until || next < since) break;
+                until = next;
             }
         }
     } catch (e) {
