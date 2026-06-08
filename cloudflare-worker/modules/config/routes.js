@@ -148,6 +148,8 @@ export const ROUTES = {
 
     // Web 2.0 Users — user account system (auth + CRUD)
     WEB2_USERS: { pattern: '/api/web2-users/*' },
+    // Web 2.0 Live Comments — kho comment livestream (auto-save + đọc lại)
+    WEB2_LIVE_COMMENTS: { pattern: '/api/web2-live-comments/*' },
 
     // Order Notes (PostgreSQL - CSKH notes history per order)
     ORDER_NOTES: { pattern: '/api/order-notes/*' },
@@ -249,6 +251,8 @@ export function matchRoute(pathname) {
     if (pathname === '/api/services-overview' || pathname.startsWith('/api/services-overview/'))
         return 'SERVICES_OVERVIEW';
     if (pathname.startsWith('/api/web2-users/')) return 'WEB2_USERS';
+    if (pathname.startsWith('/api/web2-live-comments/') || pathname === '/api/web2-live-comments')
+        return 'WEB2_LIVE_COMMENTS';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
     if (pathname.startsWith('/api/sepay-home/')) return 'SEPAY_HOME';

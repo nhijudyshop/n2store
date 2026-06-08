@@ -639,6 +639,8 @@ app.use('/api/admin', require('./routes/admin-web2-data-reset')); // WEB2.0 back
 app.use('/api/admin', require('./routes/admin-web2-import-customers')); // WEB2.0 import KH TPOS→warehouse (dedupe phone, 1 lần, x-admin-secret)
 app.use('/api/admin', require('./routes/admin-web2-import-fb-links')); // WEB2.0 backfill fb_id↔phone từ Web1 customers → warehouse (cho live-chat enrich)
 app.use('/api/web2-users', require('./routes/web2-users')); // WEB2.0 user account system
+const web2LiveCommentsRoutes = require('./routes/web2-live-comments'); // WEB2.0 kho comment livestream (auto-save + đọc lại đủ/bền)
+app.use('/api/web2-live-comments', web2LiveCommentsRoutes);
 // 2026-06-03 Phase 3 tách Web 2.0: dual-mount mỗi route Web 2.0 ở CẢ
 // `/api/web2/<entity>` (mới — chuẩn đi tới) lẫn `/api/v2/<entity>` (alias cũ,
 // giữ backward-compat trong lúc frontend chuyển). Bỏ alias /api/v2/* sau khi
@@ -783,6 +785,9 @@ app.use('/api/pancake-page-tokens', pancakePageTokensRoutes);
 const web2PancakeRefreshRoutes = require('./routes/web2-pancake-refresh');
 web2PancakeRefreshRoutes.init(chatDbPool);
 web2PancakeRefreshRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+if (web2LiveCommentsRoutes.initializeNotifiers) {
+    web2LiveCommentsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
 app.use('/api/web2/pancake-refresh', web2PancakeRefreshRoutes);
 web2PancakeRefreshRoutes.startCron(chatDbPool); // quét mỗi 6h, refresh account auto ≤5 ngày HSD
 
