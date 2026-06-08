@@ -1910,6 +1910,62 @@ router.post('/sync', async (req, res) => {
 });
 
 /**
+ * POST /api/v2/web-warehouse/sync-product/:tposProductId
+ * Force-refresh a SINGLE product (its whole template + variants) live from TPOS,
+ * then return the freshened rows. Used by soluong-live's per-product
+ * "Cập nhật từ TPOS" button: ép sync TPOS trước rồi client re-import.
+ *
+ * Blocks until the upsert completes (unlike /sync) so the client can immediately
+ * re-read fresh data. Single-template scope → fast (1-2 TPOS calls).
+ */
+router.post('/sync-product/:tposProductId', async (req, res) => {
+    if (!syncService) {
+        return res.status(503).json({ success: false, error: 'Sync service not initialized' });
+    }
+
+    const db = req.app.locals.chatDb;
+    await ensureTable(db);
+
+    const tposProductId = parseInt(req.params.tposProductId);
+    if (!tposProductId) {
+        return res.status(400).json({ success: false, error: 'Invalid tposProductId' });
+    }
+
+    try {
+        // Resolve the template id from our shadow (the product is already in the cart,
+        // so it exists in web_warehouse). Fall back to the product id itself for
+        // single-variant products where tpos_product_id === tpos_template_id.
+        let templateId = null;
+        const lookup = await db.query(
+            `SELECT tpos_template_id FROM web_warehouse WHERE tpos_product_id = $1 LIMIT 1`,
+            [tposProductId]
+        );
+        if (lookup.rows.length > 0 && lookup.rows[0].tpos_template_id) {
+            templateId = parseInt(lookup.rows[0].tpos_template_id);
+        } else {
+            templateId = tposProductId;
+        }
+
+        const stats = await syncService.syncByTemplateId(templateId);
+
+        // Return the freshened product + variants so the client can re-import directly.
+        const productResult = await db.query(
+            `SELECT * FROM web_warehouse WHERE tpos_template_id = $1 AND active = true ORDER BY name_get ASC`,
+            [templateId]
+        );
+
+        res.json({
+            success: true,
+            templateId,
+            stats,
+            variants: productResult.rows,
+        });
+    } catch (error) {
+        handleError(res, error, 'Sync product failed');
+    }
+});
+
+/**
  * GET /api/v2/web-warehouse/sync/status
  * Get current sync status
  */

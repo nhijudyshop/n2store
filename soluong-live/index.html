@@ -22,7 +22,7 @@
         <script src="../shared/js/token-manager.js?v=20260604b"></script>
 
         <!-- Warehouse API (Render DB) — replaces TPOS Excel/OData direct calls -->
-        <script src="../shared/js/warehouse-api.js?v=20260604e"></script>
+        <script src="../shared/js/warehouse-api.js?v=20260608a"></script>
         <script src="js/warehouse-realtime.js?v=20260604e"></script>
 
         <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
@@ -54,7 +54,7 @@
         <script defer src="../shared/js/navigation-modern.js?v=20260604b"></script>
 
         <!-- Main Application Module -->
-        <script type="module" src="js/main.js?v=20260604e"></script>
+        <script type="module" src="js/main.js?v=20260608a"></script>
 
         <style>
             * {
@@ -1210,6 +1210,31 @@
                 background: #138496;
                 transform: translateY(-2px);
                 box-shadow: 0 5px 15px rgba(23, 162, 184, 0.4);
+            }
+
+            .btn-refresh-tpos {
+                background: #6f42c1;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+                white-space: nowrap;
+                transition: all 0.3s;
+            }
+
+            .btn-refresh-tpos:hover {
+                background: #5a32a3;
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(111, 66, 193, 0.4);
+            }
+
+            .btn-refresh-tpos:disabled {
+                opacity: 0.6;
+                cursor: wait;
+                transform: none;
+                box-shadow: none;
             }
 
             /* Image Change Modal */

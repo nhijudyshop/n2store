@@ -152,6 +152,41 @@
         },
 
         /**
+         * Force-refresh a single product (its whole template + variants) live from TPOS,
+         * then return the freshened rows as TPOS-shaped objects.
+         * Server ép sync TPOS → upsert shadow → trả về data mới. Dùng cho nút
+         * "Cập nhật từ TPOS" per-product (soluong-live).
+         * @param {number} tposProductId
+         * @returns {Promise<{product: Object, variants: Array}|null>} TPOS-shaped, hoặc null nếu lỗi
+         */
+        async syncProductFromTpos(tposProductId) {
+            if (!tposProductId) return null;
+            try {
+                const url = `${BASE_URL}/sync-product/${tposProductId}`;
+                const response = await fetch(url, { method: 'POST' });
+                if (!response.ok) {
+                    const text = await response.text().catch(() => '');
+                    throw new Error(`HTTP ${response.status}: ${text.substring(0, 160)}`);
+                }
+                const result = await response.json();
+                const rows = result.variants || [];
+                if (rows.length === 0) return { product: null, variants: [] };
+                // Pick the requested product as "product", or fall back to first row.
+                const productRow =
+                    rows.find((r) => parseInt(r.tpos_product_id) === parseInt(tposProductId)) ||
+                    rows[0];
+                return {
+                    product: toProductObject(productRow),
+                    variants: rows.map(toProductObject),
+                    stats: result.stats || null,
+                };
+            } catch (err) {
+                console.error('[WarehouseAPI] syncProductFromTpos error:', err.message);
+                throw err;
+            }
+        },
+
+        /**
          * Batch lookup products by product_code. Returns raw DB rows (up to 100 per call).
          * Tự động chunk nếu > 100 mã.
          * @param {string[]} codes

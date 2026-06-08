@@ -26,6 +26,11 @@ const RATE_LIMIT_MS = 200; // 5 req/sec
 const PAGE_SIZE = 200;
 const BATCH_SIZE = 50; // DB upsert batch size
 
+// Full $expand mirrors render.com/config/tpos.config.js — all nested relations expected from TPOS.
+// Partner nested-expand removed (TPOS dropped this navigation property; caused HTTP 400 on every sync).
+const PRODUCT_EXPAND =
+    'UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues),AttributeLines($expand=Attribute,Values),UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos';
+
 class TPOSProductSync {
     /**
      * @param {Object} db - PostgreSQL pool
@@ -48,19 +53,29 @@ class TPOSProductSync {
         const url = `${TPOS_PROXY}${path}`;
         // Lazy-load health tracker (optional, no-op if import fails)
         let track;
-        try { ({ track } = require('../utils/external-health')); } catch (_) { track = () => {}; }
+        try {
+            ({ track } = require('../utils/external-health'));
+        } catch (_) {
+            track = () => {};
+        }
 
         let response;
         try {
-            response = await fetchWithRetry(url, {
-                ...options,
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    ...(options.headers || {}),
+            response = await fetchWithRetry(
+                url,
+                {
+                    ...options,
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                        ...(options.headers || {}),
+                    },
                 },
-            }, 3, 1000, 15000);
+                3,
+                1000,
+                15000
+            );
         } catch (networkErr) {
             track('tpos', false, networkErr.message);
             throw networkErr;
@@ -77,7 +92,7 @@ class TPOSProductSync {
     }
 
     async _delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     /**
@@ -161,7 +176,15 @@ class TPOSProductSync {
         this._isRunning = true;
         const logId = await this._createSyncLog('full');
         const syncStartedAt = new Date();
-        const stats = { templates: 0, variants: 0, inserted: 0, updated: 0, unchanged: 0, errors: 0, deactivated: 0 };
+        const stats = {
+            templates: 0,
+            variants: 0,
+            inserted: 0,
+            updated: 0,
+            unchanged: 0,
+            errors: 0,
+            deactivated: 0,
+        };
 
         console.log('[SYNC] === Full sync started ===');
 
@@ -199,7 +222,6 @@ class TPOSProductSync {
 
                 skip += PAGE_SIZE;
                 console.log(`[SYNC] Progress: ${skip}/${totalTemplates} templates processed`);
-
             } while (skip < totalTemplates);
 
             // 3. Deactivate products originating from TPOS that were not seen in this full sync.
@@ -218,11 +240,14 @@ class TPOSProductSync {
 
             // SSE notify
             if (this.notifySSE) {
-                this.notifySSE('web_warehouse', { action: 'sync_complete', syncType: 'full', stats }, 'update');
+                this.notifySSE(
+                    'web_warehouse',
+                    { action: 'sync_complete', syncType: 'full', stats },
+                    'update'
+                );
             }
 
             return stats;
-
         } catch (error) {
             console.error('[SYNC] Full sync failed:', error.message);
             await this._updateSyncLog(logId, 'failed', stats, error.message);
@@ -240,12 +265,11 @@ class TPOSProductSync {
      * @param {Object|null} preloadedDetail - Optional pre-fetched detail (with ProductVariants) to skip extra TPOS call
      */
     async _syncTemplate(templateData, syncStartedAt, stats, preloadedDetail = null) {
-        // Full $expand mirrors render.com/config/tpos.config.js — all nested relations user expects from TPOS.
-        // Partner nested-expand removed (TPOS dropped this navigation property; caused HTTP 400 on every sync).
-        const expand = 'UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues),AttributeLines($expand=Attribute,Values),UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos';
-        const detail = preloadedDetail || await this._tposFetch(
-            `/api/odata/ProductTemplate(${templateData.Id})?$expand=${encodeURIComponent(expand)}`
-        );
+        const detail =
+            preloadedDetail ||
+            (await this._tposFetch(
+                `/api/odata/ProductTemplate(${templateData.Id})?$expand=${encodeURIComponent(PRODUCT_EXPAND)}`
+            ));
 
         const variants = detail.ProductVariants || [];
 
@@ -278,27 +302,31 @@ class TPOSProductSync {
 
         if (variants.length === 0) {
             // Template without variants — sync as single product
-            await this._upsertProduct({
-                product_code: templateData.DefaultCode || `T${templateData.Id}`,
-                parent_product_code: null,
-                product_name: templateData.Name,
-                name_get: templateData.NameGet || templateData.Name,
-                variant: null,
-                category: templateData.CategCompleteName || '',
-                image_url: templateData.ImageUrl || detail.ImageUrl || null,
-                barcode: templateData.Barcode || null,
-                uom_name: templateData.UOMName || 'Cái',
-                selling_price: templateData.ListPrice || 0,
-                purchase_price: templateData.PurchasePrice || 0,
-                standard_price: templateData.StandardPrice || 0,
-                tpos_qty_available: templateData.QtyAvailable || 0,
-                tpos_product_id: templateData.Id,
-                tpos_template_id: templateData.Id,
-                price_variant: null,
-                variant_attribute_values: JSON.stringify([]),
-                tpos_raw: JSON.stringify(detail),
-                ...templateShared,
-            }, syncStartedAt, stats);
+            await this._upsertProduct(
+                {
+                    product_code: templateData.DefaultCode || `T${templateData.Id}`,
+                    parent_product_code: null,
+                    product_name: templateData.Name,
+                    name_get: templateData.NameGet || templateData.Name,
+                    variant: null,
+                    category: templateData.CategCompleteName || '',
+                    image_url: templateData.ImageUrl || detail.ImageUrl || null,
+                    barcode: templateData.Barcode || null,
+                    uom_name: templateData.UOMName || 'Cái',
+                    selling_price: templateData.ListPrice || 0,
+                    purchase_price: templateData.PurchasePrice || 0,
+                    standard_price: templateData.StandardPrice || 0,
+                    tpos_qty_available: templateData.QtyAvailable || 0,
+                    tpos_product_id: templateData.Id,
+                    tpos_template_id: templateData.Id,
+                    price_variant: null,
+                    variant_attribute_values: JSON.stringify([]),
+                    tpos_raw: JSON.stringify(detail),
+                    ...templateShared,
+                },
+                syncStartedAt,
+                stats
+            );
             stats.variants++;
             return;
         }
@@ -309,35 +337,40 @@ class TPOSProductSync {
         for (const variant of variants) {
             if (!variant.Active) continue;
 
-            const attrParts = (variant.AttributeValues || [])
-                .map(a => a.Name)
-                .filter(Boolean);
+            const attrParts = (variant.AttributeValues || []).map((a) => a.Name).filter(Boolean);
             const variantStr = attrParts.join(', ');
-            const nameGet = variant.NameGet || (variantStr
-                ? `[${variant.DefaultCode || templateCode}] ${templateData.Name} (${variantStr})`
-                : `[${variant.DefaultCode || templateCode}] ${templateData.Name}`);
+            const nameGet =
+                variant.NameGet ||
+                (variantStr
+                    ? `[${variant.DefaultCode || templateCode}] ${templateData.Name} (${variantStr})`
+                    : `[${variant.DefaultCode || templateCode}] ${templateData.Name}`);
 
-            await this._upsertProduct({
-                product_code: variant.DefaultCode || variant.Barcode || `V${variant.Id}`,
-                parent_product_code: templateCode,
-                product_name: templateData.Name,
-                name_get: nameGet,
-                variant: variantStr || null,
-                category: templateData.CategCompleteName || '',
-                image_url: variant.ImageUrl || templateData.ImageUrl || detail.ImageUrl || null,
-                barcode: variant.Barcode || null,
-                uom_name: templateData.UOMName || variant.UOMName || 'Cái',
-                selling_price: variant.PriceVariant || variant.ListPrice || templateData.ListPrice || 0,
-                purchase_price: variant.PurchasePrice || templateData.PurchasePrice || 0,
-                standard_price: variant.StandardPrice || templateData.StandardPrice || 0,
-                tpos_qty_available: variant.QtyAvailable || 0,
-                tpos_product_id: variant.Id,
-                tpos_template_id: templateData.Id,
-                price_variant: variant.PriceVariant ?? null,
-                variant_attribute_values: this._stableJson(variant.AttributeValues || []),
-                tpos_raw: JSON.stringify(variant),
-                ...templateShared,
-            }, syncStartedAt, stats);
+            await this._upsertProduct(
+                {
+                    product_code: variant.DefaultCode || variant.Barcode || `V${variant.Id}`,
+                    parent_product_code: templateCode,
+                    product_name: templateData.Name,
+                    name_get: nameGet,
+                    variant: variantStr || null,
+                    category: templateData.CategCompleteName || '',
+                    image_url: variant.ImageUrl || templateData.ImageUrl || detail.ImageUrl || null,
+                    barcode: variant.Barcode || null,
+                    uom_name: templateData.UOMName || variant.UOMName || 'Cái',
+                    selling_price:
+                        variant.PriceVariant || variant.ListPrice || templateData.ListPrice || 0,
+                    purchase_price: variant.PurchasePrice || templateData.PurchasePrice || 0,
+                    standard_price: variant.StandardPrice || templateData.StandardPrice || 0,
+                    tpos_qty_available: variant.QtyAvailable || 0,
+                    tpos_product_id: variant.Id,
+                    tpos_template_id: templateData.Id,
+                    price_variant: variant.PriceVariant ?? null,
+                    variant_attribute_values: this._stableJson(variant.AttributeValues || []),
+                    tpos_raw: JSON.stringify(variant),
+                    ...templateShared,
+                },
+                syncStartedAt,
+                stats
+            );
             stats.variants++;
         }
     }
@@ -394,24 +427,58 @@ class TPOSProductSync {
 
         // Full column set for INSERT / UPDATE (TPOS parity)
         const cols = [
-            'parent_product_code', 'product_name', 'name_get', 'variant', 'category',
-            'image_url', 'barcode', 'uom_name',
-            'selling_price', 'purchase_price', 'standard_price',
-            'tpos_qty_available', 'tpos_product_id', 'tpos_template_id',
-            'description_sale', 'description_purchase', 'description',
-            'discount_sale', 'discount_purchase',
-            'weight', 'tracking',
-            'sale_ok', 'purchase_ok', 'available_in_pos',
-            'invoice_policy', 'purchase_method',
-            'categ_id', 'pos_categ_id', 'uom_id', 'uom_po_id',
-            'is_combo', 'price_variant',
-            'tags', 'attribute_lines', 'uom_lines', 'combo_products', 'supplier_infos',
-            'variant_attribute_values', 'tpos_raw',
+            'parent_product_code',
+            'product_name',
+            'name_get',
+            'variant',
+            'category',
+            'image_url',
+            'barcode',
+            'uom_name',
+            'selling_price',
+            'purchase_price',
+            'standard_price',
+            'tpos_qty_available',
+            'tpos_product_id',
+            'tpos_template_id',
+            'description_sale',
+            'description_purchase',
+            'description',
+            'discount_sale',
+            'discount_purchase',
+            'weight',
+            'tracking',
+            'sale_ok',
+            'purchase_ok',
+            'available_in_pos',
+            'invoice_policy',
+            'purchase_method',
+            'categ_id',
+            'pos_categ_id',
+            'uom_id',
+            'uom_po_id',
+            'is_combo',
+            'price_variant',
+            'tags',
+            'attribute_lines',
+            'uom_lines',
+            'combo_products',
+            'supplier_infos',
+            'variant_attribute_values',
+            'tpos_raw',
         ];
-        const values = cols.map(c => product[c] ?? null);
+        const values = cols.map((c) => product[c] ?? null);
         // numeric/decimal fallbacks
-        const numericCols = ['selling_price', 'purchase_price', 'standard_price', 'tpos_qty_available', 'discount_sale', 'discount_purchase', 'weight'];
-        numericCols.forEach(c => {
+        const numericCols = [
+            'selling_price',
+            'purchase_price',
+            'standard_price',
+            'tpos_qty_available',
+            'discount_sale',
+            'discount_purchase',
+            'weight',
+        ];
+        numericCols.forEach((c) => {
             const idx = cols.indexOf(c);
             if (values[idx] == null) values[idx] = 0;
         });
@@ -429,28 +496,50 @@ class TPOSProductSync {
             // Build UPDATE — $1 = existing.id, $2+ = columns, $N = hash, $N+1 = syncStartedAt
             const setClauses = cols.map((c, i) => {
                 if (c === 'parent_product_code' || c === 'image_url' || c === 'tpos_product_id') {
-                    return `${c} = COALESCE($${i+2}, ${c})`;
+                    return `${c} = COALESCE($${i + 2}, ${c})`;
                 }
-                return `${c} = $${i+2}`;
+                return `${c} = $${i + 2}`;
             });
-            setClauses.push(`data_hash = $${cols.length+2}`);
-            setClauses.push(`last_synced_at = $${cols.length+3}`);
+            setClauses.push(`data_hash = $${cols.length + 2}`);
+            setClauses.push(`last_synced_at = $${cols.length + 3}`);
             setClauses.push(`active = true`);
             setClauses.push(`updated_at = NOW()`);
 
-            await this.db.query(
-                `UPDATE web_warehouse SET ${setClauses.join(', ')} WHERE id = $1`,
-                [existing.rows[0].id, ...values, hash, syncStartedAt]
-            );
+            await this.db.query(`UPDATE web_warehouse SET ${setClauses.join(', ')} WHERE id = $1`, [
+                existing.rows[0].id,
+                ...values,
+                hash,
+                syncStartedAt,
+            ]);
             stats.updated++;
         } else {
-            const maxSttResult = await this.db.query('SELECT COALESCE(MAX(stt), 0) as max_stt FROM web_warehouse');
+            const maxSttResult = await this.db.query(
+                'SELECT COALESCE(MAX(stt), 0) as max_stt FROM web_warehouse'
+            );
             const nextStt = maxSttResult.rows[0].max_stt + 1;
 
             // Build INSERT — prepend stt + product_code to cols, append quantity/source_po_ids/hash/sync/active
-            const allCols = ['stt', 'product_code', ...cols, 'quantity', 'source_po_ids', 'data_hash', 'last_synced_at', 'active'];
-            const allValues = [nextStt, product.product_code, ...values, 0, '{}', hash, syncStartedAt, true];
-            const placeholders = allCols.map((_, i) => `$${i+1}`).join(', ');
+            const allCols = [
+                'stt',
+                'product_code',
+                ...cols,
+                'quantity',
+                'source_po_ids',
+                'data_hash',
+                'last_synced_at',
+                'active',
+            ];
+            const allValues = [
+                nextStt,
+                product.product_code,
+                ...values,
+                0,
+                '{}',
+                hash,
+                syncStartedAt,
+                true,
+            ];
+            const placeholders = allCols.map((_, i) => `$${i + 1}`).join(', ');
 
             await this.db.query(
                 `INSERT INTO web_warehouse (${allCols.join(', ')}) VALUES (${placeholders})`,
@@ -482,7 +571,15 @@ class TPOSProductSync {
         this._isRunning = true;
         const logId = await this._createSyncLog('incremental');
         const syncStartedAt = new Date();
-        const stats = { templates: 0, variants: 0, inserted: 0, updated: 0, unchanged: 0, errors: 0, pages: 0 };
+        const stats = {
+            templates: 0,
+            variants: 0,
+            inserted: 0,
+            updated: 0,
+            unchanged: 0,
+            errors: 0,
+            pages: 0,
+        };
 
         console.log('[SYNC] === Incremental sync started ===');
 
@@ -498,7 +595,9 @@ class TPOSProductSync {
 
                 stats.pages++;
                 const unchangedBefore = stats.unchanged;
-                console.log(`[SYNC] Incremental page ${page + 1}: ${templates.length} templates (skip=${skip})`);
+                console.log(
+                    `[SYNC] Incremental page ${page + 1}: ${templates.length} templates (skip=${skip})`
+                );
 
                 for (const template of templates) {
                     try {
@@ -526,11 +625,14 @@ class TPOSProductSync {
             console.log('[SYNC] === Incremental sync completed ===', JSON.stringify(stats));
 
             if (this.notifySSE && (stats.inserted > 0 || stats.updated > 0)) {
-                this.notifySSE('web_warehouse', { action: 'sync_complete', syncType: 'incremental', stats }, 'update');
+                this.notifySSE(
+                    'web_warehouse',
+                    { action: 'sync_complete', syncType: 'incremental', stats },
+                    'update'
+                );
             }
 
             return stats;
-
         } catch (error) {
             console.error('[SYNC] Incremental sync failed:', error.message);
             await this._updateSyncLog(logId, 'failed', stats, error.message);
@@ -538,6 +640,73 @@ class TPOSProductSync {
         } finally {
             this._isRunning = false;
         }
+    }
+
+    /**
+     * Sync a SINGLE template (+ its variants) live from TPOS into web_warehouse.
+     * Lightweight, on-demand refresh used by soluong-live's per-product
+     * "Cập nhật từ TPOS" button — one TPOS detail fetch + upsert, no pagination.
+     *
+     * Intentionally bypasses _isRunning / sync-log (those guard the big full/
+     * incremental jobs); a targeted single-template refresh must not be blocked
+     * by — nor block — a background sync.
+     *
+     * @param {number} templateId - TPOS ProductTemplate Id
+     * @returns {Promise<Object>} stats { templates, variants, inserted, updated, unchanged, errors }
+     */
+    async syncByTemplateId(templateId) {
+        const tmplId = parseInt(templateId);
+        if (!tmplId) throw new Error('templateId required');
+
+        const syncStartedAt = new Date();
+        const stats = {
+            templates: 0,
+            variants: 0,
+            inserted: 0,
+            updated: 0,
+            unchanged: 0,
+            errors: 0,
+        };
+
+        // One detail fetch (scalar props + ProductVariants expand) — reused as preloadedDetail
+        // so _syncTemplate doesn't fetch it again.
+        const detail = await this._tposFetch(
+            `/api/odata/ProductTemplate(${tmplId})?$expand=${encodeURIComponent(PRODUCT_EXPAND)}`
+        );
+        if (!detail || !detail.Id) {
+            throw new Error(`Template ${tmplId} not found in TPOS`);
+        }
+
+        // Build minimal templateData from scalar props the detail entity already carries.
+        const templateData = {
+            Id: detail.Id,
+            Name: detail.Name,
+            NameGet: detail.NameGet,
+            DefaultCode: detail.DefaultCode,
+            Barcode: detail.Barcode,
+            CategCompleteName: detail.CategCompleteName || '',
+            ImageUrl: detail.ImageUrl,
+            UOMName: detail.UOMName,
+            ListPrice: detail.ListPrice || 0,
+            PurchasePrice: detail.PurchasePrice || 0,
+            StandardPrice: detail.StandardPrice || 0,
+            QtyAvailable: detail.QtyAvailable || 0,
+        };
+
+        await this._syncTemplate(templateData, syncStartedAt, stats, detail);
+        stats.templates = 1;
+
+        console.log(`[SYNC] Single-template refresh ${tmplId}:`, JSON.stringify(stats));
+
+        if (this.notifySSE && (stats.inserted > 0 || stats.updated > 0)) {
+            this.notifySSE(
+                'web_warehouse',
+                { action: 'product_synced', templateId: tmplId, stats },
+                'update'
+            );
+        }
+
+        return stats;
     }
 
     // =====================================================

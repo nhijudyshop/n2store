@@ -982,6 +982,49 @@ async function loadProductDetails(productId) {
     }
 }
 
+/**
+ * Force-refresh ONE product (its whole template + variants) live from TPOS,
+ * then re-import so biến thể/giá/tên/mã/ảnh cập nhật mới nhất.
+ *
+ * Flow (ép sync TPOS trước rồi re-import — theo lựa chọn user):
+ *   1. POST /sync-product/:id → server ép TPOS sync template này vào shadow DB.
+ *   2. loadProductDetails(id) → đọc shadow vừa tươi, add biến thể mới + cập nhật
+ *      biến thể cũ, GIỮ NGUYÊN soldQty (addProductToFirebase preserve).
+ *
+ * @param {number} productId - TPOS variant product Id
+ * @param {HTMLButtonElement} [btn] - nút bấm (để show loading state)
+ */
+async function refreshProductFromTpos(productId, btn) {
+    if (isSyncingFromFirebase) return;
+    if (!window.WarehouseAPI || typeof WarehouseAPI.syncProductFromTpos !== 'function') {
+        showNotificationMessage('❌ WarehouseAPI chưa sẵn sàng');
+        return;
+    }
+
+    const originalHtml = btn ? btn.innerHTML : null;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '⏳ TPOS';
+    }
+
+    try {
+        showNotificationMessage('🔄 Đang lấy dữ liệu mới nhất từ TPOS...');
+        // 1. Ép TPOS sync template này vào shadow (blocks tới khi upsert xong).
+        await WarehouseAPI.syncProductFromTpos(productId);
+        // 2. Re-import từ shadow vừa tươi (loadProductDetails tự báo số biến thể
+        //    thêm/cập nhật + giữ nguyên số đã bán).
+        await loadProductDetails(productId);
+    } catch (error) {
+        console.error('Error refreshing product from TPOS:', error);
+        showNotificationMessage('❌ Lỗi cập nhật từ TPOS: ' + error.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
+}
+
 async function addProductToList(product, showNotification = true) {
     try {
         const cleanProduct = cleanProductForFirebase(product);
@@ -1098,6 +1141,7 @@ function updateProductListPreview() {
                     </div>
                 </div>
                 <div class="preview-actions">
+                    <button class="btn-refresh-tpos" onclick="refreshProductFromTpos(${product.Id}, this)" title="Lấy dữ liệu mới nhất từ TPOS: biến thể, giá, tên, mã, ảnh (giữ nguyên số đã bán)">🔄 TPOS</button>
                     <button class="btn-change-image" onclick="changeProductImage(${product.Id})">🖼️ Đổi ảnh</button>
                     <button class="btn-remove" onclick="removeProduct(${product.Id})">🗑️ Xóa</button>
                 </div>
@@ -1159,6 +1203,7 @@ function updateHiddenProductListPreview() {
                     </div>
                 </div>
                 <div class="preview-actions">
+                    <button class="btn-refresh-tpos" onclick="refreshProductFromTpos(${product.Id}, this)" title="Lấy dữ liệu mới nhất từ TPOS: biến thể, giá, tên, mã, ảnh (giữ nguyên số đã bán)">🔄 TPOS</button>
                     <button class="btn-change-image" onclick="changeProductImage(${product.Id})">🖼️ Đổi ảnh</button>
                     <button class="btn-remove" onclick="unhideProduct(${product.Id})" style="background: #28a745;">👁️ Hiện</button>
                     <button class="btn-remove" onclick="removeProduct(${product.Id})">🗑️ Xóa</button>
@@ -2559,6 +2604,7 @@ Object.assign(window, {
     removeProduct,
     unhideProduct,
     changeProductImage,
+    refreshProductFromTpos,
 
     // Cart functions
     clearAllProductsLocal,

@@ -2,6 +2,22 @@
 
 ## 2026-06-08
 
+### [soluong-live][render][shared] Nút "🔄 TPOS" per-product: ép sync TPOS rồi re-import (biến thể/giá/tên/mã/ảnh) ✅
+
+User: soluong-live (web 1.0) cần lấy dữ liệu mới nhất từ TPOS → nhập sản phẩm lại để cập nhật biến thể, giá, tên, mã, ảnh. Chọn: nút từng sản phẩm + ép sync TPOS trước rồi re-import.
+
+**Files:**
+
+- `render.com/services/sync-tpos-products.js`: tách `PRODUCT_EXPAND` (module const, dùng chung `_syncTemplate`); thêm `syncByTemplateId(templateId)` — 1 detail fetch live TPOS + `_syncTemplate` (preloadedDetail) → upsert shadow, bypass `_isRunning`/sync-log (targeted, không chặn/bị chặn bởi full/incremental). SSE `web_warehouse` action `product_synced`.
+- `render.com/routes/v2/web-warehouse.js`: `POST /sync-product/:tposProductId` — resolve template id từ web_warehouse (fallback product id), AWAIT `syncByTemplateId` (blocks tới khi upsert xong, khác `/sync` fire-and-forget), trả `{stats, variants}` đã tươi.
+- `shared/js/warehouse-api.js`: `syncProductFromTpos(id)` POST endpoint mới, map rows → TPOS-shaped.
+- `soluong-live/js/main.js`: `refreshProductFromTpos(productId, btn)` — gọi syncProductFromTpos (ép TPOS) → `loadProductDetails(id)` (re-import shadow tươi, add biến thể mới + cập nhật cũ, GIỮ soldQty). Nút `🔄 TPOS` ở mỗi row (list chính + list ẩn) + loading state. Export window.
+- `soluong-live/index.html`: CSS `.btn-refresh-tpos` (tím #6f42c1) + bump `?v=20260608a` (main.js + warehouse-api.js).
+
+**Verify:** node --check 4 file OK; served HTML/JS chứa button + function + API method. Endpoint `/sync-product/:id` cần Render deploy mới live (click trên prod 404 tới khi deploy).
+
+**Status:** ✅ Code xong, chờ Render deploy để test end-to-end.
+
 ### [web2][live-chat] Chiến dịch cha gom livestream + thumbnail chụp tab đang xem ✅
 
 - web2-live-comments route: chiến dịch cha — bảng web2_live_parent_campaigns + web2_live_post_assign; GET/POST/DELETE /campaigns, GET /posts, POST /campaigns/:id/assign, POST /unassign. upsertComments kế thừa campaign_id từ post_assign (comment poller/auto-save tự gom).
