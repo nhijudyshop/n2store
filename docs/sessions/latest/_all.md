@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2b3f5bc` — auto: session update
-**Last updated**: 2026-06-08 10:08:54 +07
-**Latest session**: [`RESUME:20260608-100854-2b3f5bc`](../20260608-100854-2b3f5bc.md)
-**Summary**: auto: session update
+**Latest commit**: `c66f0f0` — feat(live-chat): dropdown chiến dịch xen kẽ Store/House mới nhất lên đầu + mặc định chọn newest mỗi page
+**Last updated**: 2026-06-08 10:12:34 +07
+**Latest session**: [`RESUME:20260608-101234-c66f0f0`](../20260608-101234-c66f0f0.md)
+**Summary**: feat(live-chat): dropdown chiến dịch xen kẽ Store/House mới nhất lên đầu + mặc định chọn newest ...
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`issue-tracking/`](./issue-tracking.md) — 2 file(s)
+- [`live-chat/`](./live-chat.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -38,7 +37,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:08
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-07 19:58
+- [`live-chat/`](./live-chat.md) — updated 2026-06-08 10:12
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-08 09:55
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
