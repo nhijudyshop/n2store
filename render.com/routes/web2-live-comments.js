@@ -131,7 +131,8 @@ router.post('/bulk', async (req, res) => {
     if (!arr.length) return res.json({ success: true, saved: 0 });
     try {
         const saved = await upsertComments(pool, arr);
-        _notify('save', arr[0]?.postId);
+        // KHÔNG _notify ở client auto-save (tránh reload→re-save loop). CHỈ server
+        // poller _notify('poll') — nguồn authoritative cho realtime reload.
         res.json({ success: true, saved });
     } catch (e) {
         console.error('[WEB2-LIVE-COMMENTS] bulk error:', e.message);

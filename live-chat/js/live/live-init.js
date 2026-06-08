@@ -90,6 +90,21 @@ const LiveColumnManager = {
 
         // Restore saved page selection (mặc định 'all' → load campaign + auto-chọn)
         this.restoreSelection();
+
+        // SSE: server poller lưu comment mới (web2:live-comments) → reload từ DB
+        // (debounce gom burst). Giúp UI cập nhật cả khi comment đến qua server poller.
+        if (window.Web2SSE?.subscribe) {
+            window.Web2SSE.subscribe('web2:live-comments', () => {
+                clearTimeout(this._liveCommentsReloadTimer);
+                this._liveCommentsReloadTimer = setTimeout(() => {
+                    const state = window.LiveState;
+                    const ids = state.selectedCampaignIds
+                        ? Array.from(state.selectedCampaignIds)
+                        : [];
+                    if (ids.length) this.onMultiCampaignChange(ids);
+                }, 2500);
+            });
+        }
     },
 
     /**
@@ -140,6 +155,64 @@ const LiveColumnManager = {
             await new Promise((r) => setTimeout(r, 300));
         }
         return ready();
+    },
+
+    // Map 1 row web2_live_comments (DB) → comment shape FB-native cho renderer.
+    _mapDbComment(row) {
+        const state = window.LiveState;
+        const pageObj =
+            (state.allPages || []).find((p) => String(p.Facebook_PageId) === String(row.page_id)) ||
+            null;
+        return {
+            id: row.id,
+            from: { id: row.fb_id || null, name: row.customer_name || '' },
+            message: row.message || '',
+            created_time: row.created_time || null,
+            parent: null,
+            post_id: row.post_id || null,
+            _conv: true,
+            _hasOrder: !!row.has_order,
+            _phones: row.phone ? [{ phone_number: row.phone }] : [],
+            _pageName: row.page_name || pageObj?.Name || '',
+            _campaignId: row.campaign_id || null,
+            _pageId: row.page_id || null,
+            _pageObj: pageObj,
+            _postId: row.post_id || null,
+            _fromDb: true,
+        };
+    },
+
+    // Auto-save comment live-fetch vào web2_live_comments (best-effort, fire-and-forget).
+    async _saveCommentsToDb(comments) {
+        try {
+            const payload = comments
+                .slice(0, 2000)
+                .map((c) => ({
+                    id: c.id,
+                    postId: c._postId,
+                    pageId: c._pageId,
+                    pageName: c._pageName,
+                    fbId: c.from?.id,
+                    name: c.from?.name,
+                    message: c.message,
+                    createdTime: c.created_time,
+                    phone:
+                        (c._phones &&
+                            c._phones[0] &&
+                            (c._phones[0].phone_number || c._phones[0].phone)) ||
+                        null,
+                    hasOrder: !!c._hasOrder,
+                }))
+                .filter((c) => c.id);
+            if (!payload.length) return;
+            await fetch(`${window.LiveState.workerUrl}/api/web2-live-comments/bulk`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ comments: payload }),
+            });
+        } catch (e) {
+            console.warn('[Live-INIT] saveCommentsToDb fail:', e.message);
+        }
     },
 
     /**
@@ -455,20 +528,55 @@ const LiveColumnManager = {
                 })
             );
 
-            // Merge all comments → DEDUPE theo id (1 comment có thể xuất hiện ở
-            // nhiều post/campaign/page pagination → tránh lặp dòng) → sort mới nhất.
+            // Merge live comments → DEDUPE theo id.
             const _seen = new Set();
-            const allComments = results.flat().filter((c) => {
+            const liveComments = results.flat().filter((c) => {
                 const key = c.id || `${c._postId}|${c.from?.id}|${c.created_time}`;
                 if (_seen.has(key)) return false;
                 _seen.add(key);
                 return true;
             });
+
+            // MERGE comment đã lưu DB (web2_live_comments) — server poller lưu ĐỦ
+            // (cả comment ẩn / có SĐT mà pages.fm public thiếu). DB = nguồn đầy đủ
+            // + bền; live fetch = bắt comment mới nhất chưa kịp poll.
+            const postIds = [
+                ...new Set([
+                    ...liveComments.map((c) => c._postId).filter(Boolean),
+                    ...campaigns.map((c) => c.Facebook_LiveId).filter(Boolean),
+                ]),
+            ];
+            let dbComments = [];
+            if (postIds.length) {
+                try {
+                    const resp = await fetch(
+                        `${state.workerUrl}/api/web2-live-comments?postIds=${encodeURIComponent(postIds.join(','))}&limit=5000`
+                    );
+                    const j = await resp.json();
+                    if (j.success && Array.isArray(j.data)) {
+                        dbComments = j.data.map((row) => this._mapDbComment(row));
+                    }
+                } catch (e) {
+                    console.warn('[Live-INIT] DB comments fetch fail:', e.message);
+                }
+            }
+            // Live ưu tiên (có _pageObj + enrichment), DB lấp phần thiếu.
+            const merged = [];
+            const seen2 = new Set();
+            for (const c of [...liveComments, ...dbComments]) {
+                if (!c.id || seen2.has(c.id)) continue;
+                seen2.add(c.id);
+                merged.push(c);
+            }
+            const allComments = merged;
             allComments.sort((a, b) => {
                 const ta = new Date(a.created_time || 0).getTime();
                 const tb = new Date(b.created_time || 0).getTime();
                 return tb - ta;
             });
+
+            // Auto-save comment live-fetch vào DB (client góp phần khi poller miss).
+            if (liveComments.length) this._saveCommentsToDb(liveComments);
 
             state.comments = allComments;
             state.selectedCampaign = campaigns[0]; // Set first as "active" for SSE
