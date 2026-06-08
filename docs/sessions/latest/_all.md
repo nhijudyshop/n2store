@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `395b3e7` — fix(live-chat): bo lap comment (dedupe theo id o loadComments + merge)
-**Last updated**: 2026-06-08 12:34:15 +07
-**Latest session**: [`RESUME:20260608-123415-395b3e7`](../20260608-123415-395b3e7.md)
-**Summary**: fix(live-chat): bo lap comment (dedupe theo id o loadComments + merge)
+**Latest commit**: `0e9dc20` — fix(live-chat): tab Kho SP bien mat khi live - mode-switcher self-heal
+**Last updated**: 2026-06-08 12:56:16 +07
+**Latest session**: [`RESUME:20260608-125616-0e9dc20`](../20260608-125616-0e9dc20.md)
+**Summary**: fix(live-chat): tab Kho SP bien mat khi live - mode-switcher self-heal
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 13 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -39,7 +37,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-08 12:34
+- [`live-chat/`](./live-chat.md) — updated 2026-06-08 12:56
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-08 12:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
