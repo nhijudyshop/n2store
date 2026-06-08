@@ -19,8 +19,10 @@ User: soluong-live (web 1.0) cần lấy dữ liệu mới nhất từ TPOS → 
 - `render.com/services/sync-tpos-products.js`: tách `PRODUCT_EXPAND` (module const, dùng chung `_syncTemplate`); thêm `syncByTemplateId(templateId)` — 1 detail fetch live TPOS + `_syncTemplate` (preloadedDetail) → upsert shadow, bypass `_isRunning`/sync-log (targeted, không chặn/bị chặn bởi full/incremental). SSE `web_warehouse` action `product_synced`.
 - `render.com/routes/v2/web-warehouse.js`: `POST /sync-product/:tposProductId` — resolve template id từ web_warehouse (fallback product id), AWAIT `syncByTemplateId` (blocks tới khi upsert xong, khác `/sync` fire-and-forget), trả `{stats, variants}` đã tươi.
 - `shared/js/warehouse-api.js`: `syncProductFromTpos(id)` POST endpoint mới, map rows → TPOS-shaped.
-- `soluong-live/js/main.js`: `refreshProductFromTpos(productId, btn)` — gọi syncProductFromTpos (ép TPOS) → `loadProductDetails(id)` (re-import shadow tươi, add biến thể mới + cập nhật cũ, GIỮ soldQty). Nút `🔄 TPOS` ở mỗi row (list chính + list ẩn) + loading state. Export window.
-- `soluong-live/index.html`: CSS `.btn-refresh-tpos` (tím #6f42c1) + bump `?v=20260608a` (main.js + warehouse-api.js).
+- `soluong-live/js/main.js`: `refreshProductFromTpos(productId, btn)` — gọi syncProductFromTpos (ép TPOS) → **CHỈ cập nhật đúng hàng được bấm** (merge giá/tên/mã/ảnh tươi lên hàng hiện có, KHÔNG đụng hàng khác / không thêm biến thể template), giữ isHidden/hiddenAt/soldQty. Nút `🔄 TPOS` ở mỗi row (list chính + list ẩn) + loading state. Export window.
+- `soluong-live/index.html`: CSS `.btn-refresh-tpos` (tím #6f42c1) + bump `?v=20260608b` (main.js), `?v=20260608a` (warehouse-api.js).
+
+> Cập nhật (theo yêu cầu user "cập nhật hàng sản phẩm được bấm / đừng cập nhật hết bảng"): đổi từ `loadProductDetails` (re-import cả template) sang chỉ update đúng 1 hàng `product_<id>`. Server vẫn sync cả template vào shadow (TPOS trả detail theo template) nhưng client chỉ chạm hàng được bấm.
 
 **Verify:** node --check 4 file OK; served HTML/JS chứa button + function + API method. Endpoint `/sync-product/:id` cần Render deploy mới live (click trên prod 404 tới khi deploy).
 

@@ -983,13 +983,16 @@ async function loadProductDetails(productId) {
 }
 
 /**
- * Force-refresh ONE product (its whole template + variants) live from TPOS,
- * then re-import so biến thể/giá/tên/mã/ảnh cập nhật mới nhất.
+ * Force-refresh CHỈ hàng sản phẩm được bấm với dữ liệu mới nhất từ TPOS.
+ * KHÔNG cập nhật cả bảng / không thêm biến thể khác của template.
  *
- * Flow (ép sync TPOS trước rồi re-import — theo lựa chọn user):
- *   1. POST /sync-product/:id → server ép TPOS sync template này vào shadow DB.
- *   2. loadProductDetails(id) → đọc shadow vừa tươi, add biến thể mới + cập nhật
- *      biến thể cũ, GIỮ NGUYÊN soldQty (addProductToFirebase preserve).
+ * Flow (ép sync TPOS trước rồi cập nhật 1 hàng — theo lựa chọn user):
+ *   1. POST /sync-product/:id → server ép TPOS sync template vào shadow DB
+ *      (server cần fetch theo template vì TPOS trả detail theo template) và trả
+ *      về các biến thể tươi.
+ *   2. CHỈ lấy đúng biến thể được bấm, merge giá/tên/mã/ảnh tươi lên hàng hiện có,
+ *      GIỮ NGUYÊN trạng thái local (isHidden, hiddenAt, addedAt; soldQty do
+ *      addProductToFirebase preserve). Hàng khác trong bảng KHÔNG bị đụng.
  *
  * @param {number} productId - TPOS variant product Id
  * @param {HTMLButtonElement} [btn] - nút bấm (để show loading state)
@@ -1001,6 +1004,13 @@ async function refreshProductFromTpos(productId, btn) {
         return;
     }
 
+    const productKey = `product_${productId}`;
+    const existing = soluongProducts[productKey];
+    if (!existing) {
+        showNotificationMessage('⚠️ Sản phẩm không còn trong danh sách');
+        return;
+    }
+
     const originalHtml = btn ? btn.innerHTML : null;
     if (btn) {
         btn.disabled = true;
@@ -1009,11 +1019,31 @@ async function refreshProductFromTpos(productId, btn) {
 
     try {
         showNotificationMessage('🔄 Đang lấy dữ liệu mới nhất từ TPOS...');
-        // 1. Ép TPOS sync template này vào shadow (blocks tới khi upsert xong).
-        await WarehouseAPI.syncProductFromTpos(productId);
-        // 2. Re-import từ shadow vừa tươi (loadProductDetails tự báo số biến thể
-        //    thêm/cập nhật + giữ nguyên số đã bán).
-        await loadProductDetails(productId);
+        // Server ép TPOS sync template vào shadow rồi trả các biến thể tươi.
+        const result = await WarehouseAPI.syncProductFromTpos(productId);
+        const variants = (result && result.variants) || [];
+        const fresh = variants.find((v) => parseInt(v.Id) === parseInt(productId));
+
+        if (!fresh) {
+            showNotificationMessage('⚠️ Sản phẩm này không còn active trên TPOS');
+            return;
+        }
+
+        // Merge field TPOS tươi lên ĐÚNG hàng được bấm — giữ trạng thái local.
+        const merged = {
+            ...existing,
+            NameGet: fresh.NameGet,
+            QtyAvailable: fresh.QtyAvailable,
+            ListPrice: fresh.ListPrice,
+            PriceVariant: fresh.PriceVariant,
+            ProductTmplId: fresh.ProductTmplId || existing.ProductTmplId,
+            imageUrl: fresh.imageUrl || existing.imageUrl || null,
+            imageVersion: fresh.imageVersion || null,
+        };
+
+        // addProductToList → addProductToFirebase: update đúng product_<id>, giữ soldQty.
+        await addProductToList(merged, false);
+        showNotificationMessage('✅ Đã cập nhật sản phẩm từ TPOS (giữ nguyên số đã bán)');
     } catch (error) {
         console.error('Error refreshing product from TPOS:', error);
         showNotificationMessage('❌ Lỗi cập nhật từ TPOS: ' + error.message);
