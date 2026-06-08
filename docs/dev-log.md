@@ -2,6 +2,14 @@
 
 ## 2026-06-08
 
+### [web2][live-chat] Chiến dịch cha gom livestream + thumbnail chụp tab đang xem ✅
+
+- web2-live-comments route: chiến dịch cha — bảng web2_live_parent_campaigns + web2_live_post_assign; GET/POST/DELETE /campaigns, GET /posts, POST /campaigns/:id/assign, POST /unassign. upsertComments kế thừa campaign_id từ post_assign (comment poller/auto-save tự gom).
+- web2/livestream-poller: thêm section tạo chiến dịch cha + gán bài livestream (dropdown) + thống kê.
+- live-livestream-snap: auto-snap ưu tiên extension captureVisibleTab khi extReady + iframe live nhúng + tab đang hiển thị (KHÔNG cần share màn hình) — "chỉ chụp tab đang xem".
+
+**Status:** ✅ Hoàn tất hệ thống comment livestream: server poller (đủ comment cả ẩn/SĐT) → DB → live-chat đọc đủ + bền; quản lý trang poller + chiến dịch cha; thumbnail tab đang xem.
+
 ### [live-chat] live-chat đọc comment từ DB + trang cài đặt poller ✅
 
 - live-chat `onMultiCampaignChange`: merge comment từ `/api/web2-live-comments` (server poller lưu đủ) với live fetch (dedupe id) → hiển thị ĐỦ + bền; auto-save live comment vào DB; SSE `web2:live-comments` → reload (debounce 2.5s, /bulk không notify để tránh loop).
