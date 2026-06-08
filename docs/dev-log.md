@@ -2,6 +2,14 @@
 
 ## 2026-06-08
 
+### [live-chat] live-chat đọc comment từ DB + trang cài đặt poller ✅
+
+- live-chat `onMultiCampaignChange`: merge comment từ `/api/web2-live-comments` (server poller lưu đủ) với live fetch (dedupe id) → hiển thị ĐỦ + bền; auto-save live comment vào DB; SSE `web2:live-comments` → reload (debounce 2.5s, /bulk không notify để tránh loop).
+- `web2/livestream-poller/index.html` + sidebar "Cài đặt lấy comment Live": GET/POST/PATCH/DELETE `/poller-pages` (bật/tắt/thêm/xoá trang tự lấy) + thống kê tổng comment.
+- Verify: 90 comment đã lưu (auto-save chạy), page sidebar OK, 0 lỗi.
+
+CÒN LẠI: (a) chiến dịch cha gom livestream (management mới, lớn); (b) thumbnail chụp khi tab active — snap module hiện đã gate theo tab-focus (cần làm rõ trigger mong muốn).
+
 ### [web2][live-chat] Server poller lưu comment livestream vào DB (pancake.vn) ✅
 
 Phát hiện: post bật "Ẩn tất cả bình luận" / "Ẩn bình luận có SĐT" → pages.fm public API thiếu comment. Verify: pancake.vn/api/v1 + PANCAKE_JWT (account) trả ĐỦ comment + recent_phone_numbers (cả post ẩn).
