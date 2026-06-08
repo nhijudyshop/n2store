@@ -1,9 +1,9 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Kho KH warehouse UI. KHÔNG TPOS.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Kho KH warehouse UI. warehouse riêng.
 // =====================================================================
 // Kho Khách Hàng Web 2.0 (warehouse) — list/search/filter/paginate + CRUD.
 // Nguyên tắc: 1 SĐT (10 số) = 1 KH (phone UNIQUE). 1 KH có thể nhiều FB
 // account (fb_id/global_id + aliases). Đọc/ghi /api/web2/customers/* —
-// ĐỘC LẬP TPOS. Realtime SSE web2:customers. UI-first qua Web2Optimistic.
+// ĐỘC LẬP. Realtime SSE web2:customers. UI-first qua Web2Optimistic.
 // =====================================================================
 
 (function () {

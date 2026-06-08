@@ -1370,7 +1370,7 @@
     }
 
     // Open print barcode dialog for a single product (by code).
-    // Uses dedicated Web2ProductsPrint module — no TPOS API, pure local render.
+    // Uses dedicated Web2ProductsPrint module — no WEB2 API, pure local render.
     function printBarcode(code) {
         if (!window.Web2ProductsPrint?.open) {
             notify('Print module chưa load, refresh trang', 'error');

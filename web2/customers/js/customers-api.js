@@ -1,7 +1,7 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Kho KH warehouse (web2_customers). KHÔNG TPOS.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Kho KH warehouse (web2_customers). warehouse riêng.
 // =====================================================================
 // CustomersApi — wrapper /api/web2/customers (warehouse Web 2.0, web2Db).
-// ĐỘC LẬP TPOS: chỉ đọc/ghi kho KH riêng. Dual base (CF Worker → fallback
+// ĐỘC LẬP WEB2: chỉ đọc/ghi kho KH riêng. Dual base (CF Worker → fallback
 // Render direct) cho mọi call để chịu lỗi edge.
 // =====================================================================
 

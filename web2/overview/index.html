@@ -100,7 +100,7 @@
                                 </li>
                                 <li><a href="#p-reconcile">Đối soát giao hàng</a></li>
                                 <li><a href="#p-so-order">Sổ Order mua NCC</a></li>
-                                <li><a href="#p-web2-pancake">TPOS × Pancake</a></li>
+                                <li><a href="#p-web2-pancake">WEB2 × Pancake</a></li>
                                 <li><a href="#p-purchase-refund">Trả hàng NCC</a></li>
                                 <li><a href="#p-supplier-debt">Công nợ NCC</a></li>
                                 <li><a href="#p-supplier-wallet">Ví NCC</a></li>
@@ -449,12 +449,12 @@
                             </div>
                         </article>
 
-                        <!-- ===== 5. TPOS PANCAKE ===== -->
+                        <!-- ===== 5. WEB2 PANCAKE ===== -->
                         <article class="ov-page" id="p-web2-pancake">
                             <header class="ov-page-head ov-page-head-cyan">
                                 <span class="ov-page-num">05</span>
                                 <div>
-                                    <h3>TPOS × Pancake</h3>
+                                    <h3>WEB2 × Pancake</h3>
                                     <code>web2-pancake/index.html</code>
                                 </div>
                                 <a class="ov-page-open" href="../../web2-pancake/index.html">
@@ -463,7 +463,7 @@
                             </header>
                             <div class="ov-page-body">
                                 <p>
-                                    <strong>Mục đích:</strong> Đối soát + bridge UI giữa TPOS
+                                    <strong>Mục đích:</strong> Đối soát + bridge UI giữa WEB2
                                     (CRM/Order) và Pancake (chat livestream). Chat đa kênh, mapping
                                     conversation ↔ customer ↔ order, realtime stream comments +
                                     messages.
@@ -471,21 +471,21 @@
                                 <div class="ov-meta">
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">Modules</span>
-                                        Pancake chat window · TPOS comments stream · Token manager
+                                        Pancake chat window · WEB2 comments stream · Token manager
                                         (Firestore <code>pancake_tokens</code>, <code>tokens</code>)
                                         · Customer data sync
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">Nút &amp; action</span>
                                         Switch page · Switch conversation · Gửi tin nhắn · Gửi ảnh ·
-                                        Start/Stop TPOS realtime · Refresh tokens
+                                        Start/Stop WEB2 realtime · Refresh tokens
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">API</span>
                                         <code>/api/odata/*</code> · <code>/api/pancake/*</code> ·
                                         <code>/api/pancake-direct/*</code> ·
                                         <code>/api/pancake-official/*</code> ·
-                                        <code>/api/realtime/tpos/{start,status,stop}</code> ·
+                                        <code>/api/realtime/web2/{start,status,stop}</code> ·
                                         <code>/api/web2-saved</code> ·
                                         <code>/api/facebook-send</code>
                                     </div>
@@ -1039,7 +1039,7 @@ permission_templates    (role: admin/manager/staff)</pre
                                 <code>WEB2_DATABASE_URL</code>. Đích cuối của mọi bảng Web 2.0.
                             </p>
                             <ul>
-                                <li><code>web2_customers</code> — kho KH riêng (sync TPOS) ✅</li>
+                                <li><code>web2_customers</code> — kho KH riêng (sync WEB2) ✅</li>
                                 <li>
                                     <code>web2_records</code> · <code>web2_entities</code> — generic
                                     store ✅
@@ -1127,7 +1127,7 @@ permission_templates    (role: admin/manager/staff)</pre
                                     <code>/api/web2/customer-wallet</code> — ví KH
                                 </li>
                                 <li>
-                                    <code>/api/web2/customer-tpos</code> ·
+                                    <code>/api/web2/customer-web2</code> ·
                                     <code>/api/web2/customer-orders</code>
                                 </li>
                                 <li><code>/api/wallet-deposits</code> — ví NCC (no-prefix web2)</li>
@@ -1370,11 +1370,11 @@ permission_templates    (role: admin/manager/staff)</pre
                                         Chiến dịch Live
                                     </td>
                                     <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        🔸 TPOS 2-way
+                                        🔸 WEB2 2-way
                                     </td>
                                     <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
                                     <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        TPOS OData SaleOnline_LiveCampaign
+                                        WEB2 OData SaleOnline_LiveCampaign
                                     </td>
                                 </tr>
                                 <tr>
@@ -1405,7 +1405,7 @@ permission_templates    (role: admin/manager/staff)</pre
                                 </tr>
                                 <tr>
                                     <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        TPOS × Pancake
+                                        WEB2 × Pancake
                                     </td>
                                     <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
                                         ✅ SSE
@@ -1416,7 +1416,7 @@ permission_templates    (role: admin/manager/staff)</pre
                                         <code>web2:livestream-*</code>
                                     </td>
                                     <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        /api/v2/cart + TPOS/Pancake
+                                        /api/v2/cart + WEB2/Pancake
                                     </td>
                                 </tr>
                                 <tr>
@@ -1479,7 +1479,7 @@ permission_templates    (role: admin/manager/staff)</pre
                                         Khách hàng
                                     </td>
                                     <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        ⚪ NONE (TPOS 2-way)
+                                        ⚪ NONE (WEB2 2-way)
                                     </td>
                                     <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
                                     <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
@@ -1708,7 +1708,7 @@ permission_templates    (role: admin/manager/staff)</pre
                     <p style="font-size: 13px; color: #64748b; margin-top: 12px">
                         ⏭️ <strong>Còn nên migrate sang SSE</strong> (đang dùng legacy): Sổ Order +
                         Công nợ NCC (Firestore listener), Thống kê doanh thu (WebSocket
-                        pbh-realtime), Chiến dịch Live (TPOS 2-way). Khách hàng nên thêm
+                        pbh-realtime), Chiến dịch Live (WEB2 2-way). Khách hàng nên thêm
                         <code>web2:customers</code> khi backend partner emit.
                     </p>
                 </section>
@@ -1913,7 +1913,7 @@ permission_templates    (role: admin/manager/staff)</pre
                             <h3>🎯 Matcher quyết định</h3>
                             <ul>
                                 <li>
-                                    Mỗi candidate → search TPOS Partner (endsWith đuôi) → gom unique
+                                    Mỗi candidate → search WEB2 Partner (endsWith đuôi) → gom unique
                                     phone (dedup).
                                 </li>
                                 <li>
@@ -1963,7 +1963,7 @@ permission_templates    (role: admin/manager/staff)</pre
                                 <li>
                                     <strong>Mục đích</strong>: kho KH biết đủ
                                     <em>id / fb / tên / SĐT</em> → resolve + mở chat lần sau nhanh
-                                    hơn, coverage cao hơn (đỡ phải hỏi TPOS).
+                                    hơn, coverage cao hơn (đỡ phải hỏi WEB2).
                                 </li>
                             </ul>
                         </div>
@@ -1978,12 +1978,12 @@ permission_templates    (role: admin/manager/staff)</pre
                                 <li>
                                     Thứ tự resolve: (1) <code>fb_id</code> đã có → bỏ qua; (2) có
                                     phone → <code>getOrCreateWeb2Customer</code> +
-                                    <code>linkFbId</code>; (3) không phone → TPOS
+                                    <code>linkFbId</code>; (3) không phone → WEB2
                                     <code>chatomni/info</code> theo fb_id → upsert + link.
                                 </li>
                                 <li>
-                                    KH FB chưa có trong TPOS (prospect chưa mua) → bỏ qua, KHÔNG tạo
-                                    rác (kho key theo TPOS Partner Id).
+                                    KH FB chưa có trong WEB2 (prospect chưa mua) → bỏ qua, KHÔNG tạo
+                                    rác (kho key theo WEB2 Partner Id).
                                 </li>
                                 <li>
                                     Đây cũng là nguồn nuôi cho nút
@@ -2071,7 +2071,7 @@ permission_templates    (role: admin/manager/staff)</pre
                                     <code>docs/dev-log.md</code>.
                                 </li>
                                 <li>
-                                    TPOS/Pancake (master dùng chung) đọc qua
+                                    WEB2/Pancake (master dùng chung) đọc qua
                                     <code>/api/odata/*</code> — OK, KHÔNG phải Web 1.0.
                                 </li>
                             </ul>
@@ -2087,7 +2087,7 @@ permission_templates    (role: admin/manager/staff)</pre
                         <strong>MỘT nguồn canonical</strong>. Trang/feature mới PHẢI đọc &amp; ghi
                         qua đúng endpoint dưới đây — KHÔNG tự tạo kho riêng, KHÔNG query trực tiếp
                         bảng từ frontend. Sửa KH (tên/SĐT/địa chỉ) chỉ qua 1 endpoint duy nhất → tự
-                        đồng bộ TPOS (2 chiều).
+                        đồng bộ WEB2 (2 chiều).
                     </p>
 
                     <div class="ov-store-table">
@@ -2104,7 +2104,7 @@ permission_templates    (role: admin/manager/staff)</pre
                             <tbody>
                                 <tr>
                                     <td><strong>👤 Khách hàng</strong></td>
-                                    <td>TPOS Partner (master) · cache web2Db</td>
+                                    <td>WEB2 Partner (master) · cache web2Db</td>
                                     <td>
                                         <code>GET /api/web2/customers/search?search=</code><br />
                                         <code>GET /api/web2/customers/:phone</code><br />
@@ -2113,8 +2113,8 @@ permission_templates    (role: admin/manager/staff)</pre
                                     <td>
                                         <code>PATCH /api/web2/customers/:id</code><br />
                                         <em
-                                            >(id = TPOS Partner Id; tên/SĐT/địa chỉ → đẩy TPOS by
-                                            tposId + update cache. ĐÂY LÀ NƠI DUY NHẤT SỬA KH)</em
+                                            >(id = WEB2 Partner Id; tên/SĐT/địa chỉ → đẩy WEB2 by
+                                            web2Id + update cache. ĐÂY LÀ NƠI DUY NHẤT SỬA KH)</em
                                         >
                                     </td>
                                     <td><code>web2_customers</code> (web2Db)</td>
@@ -2143,7 +2143,7 @@ permission_templates    (role: admin/manager/staff)</pre
                                 </tr>
                                 <tr>
                                     <td><strong>🧾 Phiếu bán hàng (PBH)</strong></td>
-                                    <td>web2Db (sync từ TPOS FastSaleOrder)</td>
+                                    <td>web2Db (sync từ WEB2 FastSaleOrder)</td>
                                     <td>
                                         <code>GET /api/fast-sale-orders/load</code><br />
                                         Báo cáo:
@@ -2161,7 +2161,7 @@ permission_templates    (role: admin/manager/staff)</pre
                                     <td><code>GET /api/native-orders/load</code></td>
                                     <td>
                                         <code>PATCH /api/native-orders/:code</code>
-                                        <em>(sửa KH info → tự sync TPOS)</em>
+                                        <em>(sửa KH info → tự sync WEB2)</em>
                                     </td>
                                     <td>
                                         <code>native_orders</code> ·
@@ -2232,10 +2232,10 @@ permission_templates    (role: admin/manager/staff)</pre
                     <p class="ov-db-note" style="margin-top: 16px">
                         <strong>Quy tắc DÙNG CHUNG (BẮT BUỘC code mới):</strong>
                         ① KH → luôn dùng <code>/api/web2/customers/*</code> (đọc) +
-                        <code>PATCH /:id</code> (sửa, tự sync TPOS). KHÔNG gọi
+                        <code>PATCH /:id</code> (sửa, tự sync WEB2). KHÔNG gọi
                         <code>/api/v2/customers</code> Web 1.0, KHÔNG query bảng
                         <code>customers</code> trực tiếp. ② Sản phẩm/PBH/Đơn/Ví → dùng đúng endpoint
-                        bảng trên, KHÔNG tạo kho song song. ③ TPOS/Pancake là master ngoài — đọc qua
+                        bảng trên, KHÔNG tạo kho song song. ③ WEB2/Pancake là master ngoài — đọc qua
                         <code>/api/odata/*</code>. ④ Cần kho mới → thêm 1 dòng vào bảng này trước
                         khi code.
                     </p>
@@ -2250,8 +2250,8 @@ permission_templates    (role: admin/manager/staff)</pre
                     >
                         <strong>⚠ web2Db có 2 bảng KH — KHÔNG nhầm:</strong>
                         <br />
-                        <strong>(1) <code>web2_customers</code></strong> — CANONICAL. Nguồn TPOS
-                        Partner (id = TPOS Partner Id), dùng cho
+                        <strong>(1) <code>web2_customers</code></strong> — CANONICAL. Nguồn WEB2
+                        Partner (id = WEB2 Partner Id), dùng cho
                         <em>tìm/sửa/đồng bộ 2 chiều</em> qua <code>/api/web2/customers/*</code>. Đây
                         là kho mọi trang nên đọc/ghi.
                         <br />
@@ -2263,7 +2263,7 @@ permission_templates    (role: admin/manager/staff)</pre
                         <code>fb_id</code> · <code>pancake_data</code> · <code>status</code> ·
                         <code>tier</code> · <code>tpos_id</code> · <code>tpos_data</code> ·
                         <code>aliases</code>. Nguồn dữ liệu là
-                        <strong>Pancake/Facebook</strong> (webhook đơn), KHÔNG phải TPOS.
+                        <strong>Pancake/Facebook</strong> (webhook đơn), từ Pancake/Facebook.
                         <code>native_orders.customer_id</code> ref bảng này. Code dùng service riêng
                         <code>services/web2-order-customer-service.js</code> (KHÔNG dùng
                         <code>customer-creation-service</code> / <code>customer-helpers</code> của
@@ -2271,10 +2271,10 @@ permission_templates    (role: admin/manager/staff)</pre
                         web2-customer-orders, web2-customer-tpos.
                         <br />
                         <strong>Vì sao 2 kho tách:</strong>
-                        <code>web2_customers</code> = nguồn TPOS (search/sửa, id = TPOS Partner Id);
+                        <code>web2_customers</code> = nguồn WEB2 (search/sửa, id = WEB2 Partner Id);
                         <code>web2_order_customers</code> = nguồn Pancake/FB (đơn hàng, id tự tăng,
                         phone UNIQUE). Khác master + khác schema → giữ tách theo vai trò. Khi cần
-                        thông tin KH chuẩn để sửa/đồng bộ TPOS → luôn dùng
+                        thông tin KH chuẩn để sửa/đồng bộ WEB2 → luôn dùng
                         <code>web2_customers</code>.
                     </p>
                 </section>

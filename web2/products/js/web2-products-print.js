@@ -1,8 +1,8 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — In tem mã vạch cho web2/products.
 /**
- * Web2ProductsPrint — In tem mã vạch matching TPOS 100%.
+ * Web2ProductsPrint — In tem mã vạch matching WEB2 100%.
  *
- * Mirror visual + structure của TPOS:
+ * Mirror visual + structure của WEB2:
  *   - /Content/print_barcode.css (label sheet CSS)
  *   - /BarcodeProductLabel/Print Default template (vertical: name → barcode → code → price)
  *   - /BarcodeProductLabel/PrintNew (2-col: code+price | barcode)
@@ -11,31 +11,31 @@
  *   - /odata/ProductLabelPaper (3 paper presets)
  *
  * Barcode: JsBarcode CDN (jsdelivr) render Code128 SVG client-side. Code128 là
- *   chuẩn ISO/IEC 15417 → bars/spaces pattern identical với TPOS rendering cho
+ *   chuẩn ISO/IEC 15417 → bars/spaces pattern identical với WEB2 rendering cho
  *   cùng input. Print size 25mm wide × 25px tall ngang nhau visually.
  *   KHÔNG request tpos.vn — đảm bảo Web 2.0 hoàn toàn độc lập.
  *
  * Strip-down từ purchase-orders/js/lib/barcode-label-dialog.js (1504 dòng):
- *   - BỎ TPOSClient OData lookup / useTposTemplate / printViaTPOS / recheck
+ *   - BỎ WEB2Client OData lookup / useWeb2Template / printViaWeb2 / recheck
  *   - GIỮ visual + local HTML render path
  *
- * Font: Helvetica Neue/Arial 13px (modal), Arial (print labels) — TPOS default,
- * KHÔNG dùng Inter (web2 dùng Inter cho UI khác, riêng print giữ TPOS font).
+ * Font: Helvetica Neue/Arial 13px (modal), Arial (print labels) — WEB2 default,
+ * KHÔNG dùng Inter (web2 dùng Inter cho UI khác, riêng print giữ WEB2 font).
  */
 (function () {
     'use strict';
 
-    // ---------- Paper presets — exact mirror TPOS /odata/ProductLabelPaper ----------
+    // ---------- Paper presets — exact mirror WEB2 /odata/ProductLabelPaper ----------
     const PAPERS = [
         {
-            // P1 2026-05-30: TPOS spec chuẩn (user paste settings).
+            // P1 2026-05-30: WEB2 spec chuẩn (user paste settings).
             // Sheet 66×21mm, 2 nhãn × 25mm = 50mm + 0.5mm margin × 4 lề = 2mm.
             // → còn dư 14mm là khoảng cách physical giữa 2 con tem trên roll
             //   nhãn. Trước đây float:left dồn 2 nhãn về trái, gap dư ở phải.
             // → Refactor: sheet dùng flex space-evenly để chia 14mm dư thành
             //   3 vùng đều (~4.7mm/vùng) — 2 tem CHIA ĐỀU + CANH GIỮA trên
             //   sheet. CSS handle bên dưới (.barcode-sheet flex space-evenly).
-            // FontSize giữ 6 đúng TPOS preset 7.
+            // FontSize giữ 6 đúng WEB2 preset 7.
             id: 7,
             name: '2 Tem (66×21mm)',
             sheetW: 66,
@@ -105,7 +105,7 @@
     ];
 
     // 2026-06-06: khổ tem MẶC ĐỊNH = "2 Tem (66×21mm)" (id 7) — đúng khổ tem vật lý
-    // chuẩn TPOS user đang dùng (cuộn 2-con 25mm). Tem rộng 50mm chỉ là option.
+    // chuẩn WEB2 user đang dùng (cuộn 2-con 25mm). Tem rộng 50mm chỉ là option.
     const DEFAULT_PAPER_IDX = Math.max(
         0,
         PAPERS.findIndex((p) => p.id === 7)
@@ -121,7 +121,7 @@
     // 2D (imager) — user XP-470B + máy quét 2D. Code128 path giữ làm fallback nội
     // bộ nếu QR lib lỗi, KHÔNG cho user chọn nữa.
 
-    // JsBarcode CDN — Code 128 generator (chuẩn ISO/IEC 15417 identical TPOS visual).
+    // JsBarcode CDN — Code 128 generator (chuẩn ISO/IEC 15417 identical WEB2 visual).
     // Lazy load lần đầu mở print modal. Inline trong iframe print thay vì script
     // src CDN để tránh load latency lúc print (đã được pre-loaded trên parent page).
     const JSBARCODE_URL = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
@@ -252,7 +252,7 @@
 
         overlay.innerHTML = `
 <style>
-/* TPOS FormModal — exact mirror /BarcodeProductLabel/FormModal */
+/* WEB2 FormModal — exact mirror /BarcodeProductLabel/FormModal */
 .w2p-print-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center}
 .w2p-print-modal{background:#fff;border:1px solid rgba(0,0,0,.2);border-radius:6px;box-shadow:0 5px 15px rgba(0,0,0,.5);width:900px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:13px;color:#333}
 /* Header — Bootstrap .modal-header */
@@ -308,7 +308,7 @@
 .w2p-print-table td.w2p-print-check-cell input[type=checkbox]{cursor:pointer;margin:0}
 /* Footer — .modal-footer */
 .w2p-print-footer{padding:15px;border-top:1px solid #e5e5e5;text-align:left}
-/* TPOS purple primary — verified rgb(114,102,186) từ tomato.tpos.vn */
+/* WEB2 purple primary — verified rgb(114,102,186) từ tomato.tpos.vn */
 .w2p-print-btn-primary{display:inline-block;padding:5px 10px;font-size:12px;font-weight:400;color:#fff;background:#7266ba;border:1px solid #7266ba;border-radius:3px;cursor:pointer;line-height:1.5;margin-right:5px}
 .w2p-print-btn-primary:hover{background:#6457a8;border-color:#6457a8}
 .w2p-print-btn-primary:disabled{opacity:.65;cursor:not-allowed}
@@ -386,7 +386,7 @@
                     </div>
                 </div>
                 <div class="w2p-print-checkbox-row">
-                    <div class="w2p-print-checkbox-item" title="Gán số lượng tồn kho vào số lượng in (TPOS-compat)">
+                    <div class="w2p-print-checkbox-item" title="Gán số lượng tồn kho vào số lượng in (WEB2-compat)">
                         <label for="w2p-gan-ton">Gán tồn</label>
                         <input type="checkbox" id="w2p-gan-ton">
                     </div>
@@ -624,7 +624,7 @@
         }
     }
 
-    // ---------- Label HTML generator — exact TPOS mirror ----------
+    // ---------- Label HTML generator — exact WEB2 mirror ----------
     // [2026-06-05] Ghi số lần in tem (print_count) cho SP → tránh in tem trùng.
     // 1 lần in = +1 cho mỗi mã SP (unique), không tính theo số tem. Lỗi → bỏ qua.
     function _markProductsPrinted(items) {
@@ -700,12 +700,12 @@
     }
 
     /**
-     * Build label HTML matching TPOS exactly:
-     *   - Font: Arial (TPOS default)
+     * Build label HTML matching WEB2 exactly:
+     *   - Font: Arial (WEB2 default)
      *   - CSS from /Content/print_barcode.css
      *   - Dynamic styles from BarcodeProducLabelPrintController.style_label()
      *   - Barcode: JsBarcode Code128 SVG client-side (chuẩn ISO/IEC 15417 →
-     *     bars/spaces identical TPOS render cho cùng input). KHÔNG request tpos.vn.
+     *     bars/spaces identical WEB2 render cho cùng input). KHÔNG request tpos.vn.
      */
     function buildLabelHTML(labels, paper, printType, opts, qrMap) {
         const isQr = opts.symbology === 'qr' && qrMap;
@@ -717,15 +717,15 @@
         // các paper khác tự scale proportional.
         //
         // Reference proportions (paper 7 "2 Tem", labelW=25mm, labelH=21mm):
-        //   - fontSize (TPOS) = 6 → font/labelW ≈ 0.24
+        //   - fontSize (WEB2) = 6 → font/labelW ≈ 0.24
         //   - lineH = fs + 1
         //   - nameFont = base, codeFont = base * 0.9 (slightly smaller cho code/price)
         //   - barcodeH = labelH * 0.45 (~9.5mm cho 21mm label)
-        //   - padding ≈ labelW * 0.02 (~0.5mm cho 25mm — match TPOS paper 7)
+        //   - padding ≈ labelW * 0.02 (~0.5mm cho 25mm — match WEB2 paper 7)
         //
         // Khi đổi paper → labelW thay đổi → tất cả scale theo.
         // 2026-06-05: user muốn mã in ra GẦN ĐẦY con tem cho đẹp → scale to hơn
-        // preset TPOS: font ×1.3, barcode cao 46% tem + bars rộng gần full. Content
+        // preset WEB2: font ×1.3, barcode cao 46% tem + bars rộng gần full. Content
         // CANH GIỮA dọc tem (justify-content:center) — khối to nhưng không sát mép.
         // Barcode 46% (không 55%) để tên 2 dòng vẫn đủ chỗ, GIÁ không bị cắt.
         const fsBase = fontSize || Math.max(5, Math.round(labelW * 0.24));
@@ -739,7 +739,7 @@
         // đủ chỗ cho tên 2 dòng mà giá không mất.
         const barcodeH = Math.round(labelH * 0.46 * 10) / 10; // mm
 
-        // style_label() — only include props when not null (mirror TPOS controller).
+        // style_label() — only include props when not null (mirror WEB2 controller).
         // Padding fallback từ padScaled nếu paper config null (Paper 8 "1 Tem" có
         // *Margin null nhưng vẫn cần padding nhỏ để content không sát mép).
         const labelStyleParts = [
@@ -798,7 +798,7 @@
         const maxNudge = Math.max(0, (cellW - labelW) / 2 - 0.2);
         let sheetsHTML = '';
         for (const sheet of sheets) {
-            // TPOS: ng-style="data.style_sheet()" → {width: SheetWidth+"mm", height: SheetHeight+"mm"}
+            // WEB2: ng-style="data.style_sheet()" → {width: SheetWidth+"mm", height: SheetHeight+"mm"}
             sheetsHTML += `<div class="barcode-sheet" style="width:${sheetW}mm;height:${sheetH}mm;">`;
             sheet.forEach((label, ci) => {
                 const displayPrice = formatPrice(label.price);
@@ -807,7 +807,7 @@
                 // populate qua window.JsBarcode(svg, code, {...}). Mỗi SVG ID
                 // unique để JsBarcode đỡ nhầm. KHÔNG request tpos.vn.
                 // 2026-06-06: QR (2D) → ảnh QR pre-render (quét mọi độ dài mã trên
-                // tem 25mm); hoặc Code128 PNG canvas crisp giống TPOS (/Web/Barcode).
+                // tem 25mm); hoặc Code128 PNG canvas crisp giống WEB2 (/Web/Barcode).
                 const barcodeImg = isQr
                     ? `<img class="qrimg" src="${escapeHtml(qrMap[label.code] || '')}" alt="" />`
                     : `<img class="bcimg" data-code="${escapeHtml(label.code)}" alt="" />`;
@@ -849,7 +849,7 @@
                     labelInner = `<div class="barcode_label" style="${labelStyle}"><table border="0" style="width:100%;height:100%;"><tr><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-code">${escapeHtml(label.code)}</div>${showPrice ? `<div class="barcode-price">${displayPrice}${currencyStr}</div>` : ''}</td><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-image">${!hideBarcode ? barcodeImg : ''}</div></td></tr></table></div>`;
                 } else {
                     // Default vertical — proportional scaling theo label size:
-                    //   - Title: word-wrap multi-line, font = paper.fontSize (TPOS)
+                    //   - Title: word-wrap multi-line, font = paper.fontSize (WEB2)
                     //   - Barcode: 45% label height (labelH * 0.45)
                     //   - Code + price: font = fs * 0.9 (slightly smaller), tight
                     //   - P1 2026-05-30: justify-content center (was flex-start)
@@ -884,10 +884,10 @@
         const SCRIPT_OPEN = '<' + 'script';
         const SCRIPT_CLOSE = '<' + '/script>';
 
-        // CSS = TPOS /Content/print_barcode.css verbatim (fetched 2026-05-25
+        // CSS = WEB2 /Content/print_barcode.css verbatim (fetched 2026-05-25
         // từ tomato.tpos.vn). TUYỆT ĐỐI không thêm/sửa rules ngoài screen preview
-        // block — TPOS print phải identical với Web 2.0 cùng @page handling.
-        // @page KHÔNG có `size:` — TPOS để printer driver auto-detect từ
+        // block — WEB2 print phải identical với Web 2.0 cùng @page handling.
+        // @page KHÔNG có `size:` — WEB2 để printer driver auto-detect từ
         // .barcode-sheet inline width/height. Forcing @page size có thể gây
         // printer driver scale lệch khi paper khác mặc định.
         return `<!doctype html>
@@ -896,7 +896,7 @@
 <meta charset="utf-8">
 <title>In mã vạch</title>
 <style>
-/* === TPOS /Content/print_barcode.css verbatim === */
+/* === WEB2 /Content/print_barcode.css verbatim === */
 * {
     box-sizing: border-box;
 }
@@ -972,7 +972,7 @@ html, body {
     height: 100%;
     display: block;
 }
-/* 2026-06-06: barcode = PNG (canvas) crisp giống TPOS — width:100% như TPOS
+/* 2026-06-06: barcode = PNG (canvas) crisp giống WEB2 — width:100% như WEB2
    (gc-statics.tpos.vn/Web/Barcode). Nguồn ~600px module nguyên ≥2px → downscale
    về khổ tem vẫn nét, quét được mã dài. KHÔNG còn SVG vector kéo giãn. */
 .barcode-image .bcimg {
@@ -1019,14 +1019,14 @@ ${sheetsHTML}
 ${SCRIPT_OPEN} src="${JSBARCODE_URL}">${SCRIPT_CLOSE}
 ${SCRIPT_OPEN}>
 (function(){
-    // 2026-06-06: render barcode = ẢNH PNG (canvas) crisp, GIỐNG TPOS
-    // (gc-statics.tpos.vn/Web/Barcode?type=Code128&width=600&height=100). TPOS in
+    // 2026-06-06: render barcode = ẢNH PNG (canvas) crisp, GIỐNG WEB2
+    // (gc-statics.tpos.vn/Web/Barcode?type=Code128&width=600&height=100). WEB2 in
     // tem 25mm quét tốt vì dùng PNG raster sắc nét. Bản web2 trước render SVG vector
     // kéo giãn (preserveAspectRatio=none) → khử răng cưa + scale 2 lần khi raster
     // nhiệt → vạch nhoè/lệch tỉ lệ → mã dài không quét (đơn Hạnh Trần). Dựng PNG
     // riêng bằng JsBarcode→canvas (KHÔNG gọi tpos.vn) ở ~600px (module nguyên px)
-    // rồi hiển thị width:100% giống TPOS → quét như TPOS, vẫn độc lập.
-    var TPOS_PNG_W = 600; // bề ngang nguồn PNG ~ giống TPOS (600×100)
+    // rồi hiển thị width:100% giống WEB2 → quét như WEB2, vẫn độc lập.
+    var WEB2_PNG_W = 600; // bề ngang nguồn PNG ~ giống WEB2 (600×100)
     function draw(){
         if(!window.JsBarcode){ setTimeout(draw, 30); return; }
         document.querySelectorAll('.bcimg').forEach(function(img){
@@ -1037,9 +1037,9 @@ ${SCRIPT_OPEN}>
                 var probe = document.createElement('canvas');
                 window.JsBarcode(probe, code, {format:'CODE128', width:1, height:1, displayValue:false, margin:0});
                 var modules = probe.width || 0;
-                // module = SỐ NGUYÊN px sao cho tổng ~600px (nguồn nét cao như TPOS),
+                // module = SỐ NGUYÊN px sao cho tổng ~600px (nguồn nét cao như WEB2),
                 // tối thiểu 2px/module (chuẩn ngành: KHÔNG dùng px lẻ, width≥2).
-                var modPx = Math.max(2, Math.round(TPOS_PNG_W / (modules || TPOS_PNG_W)));
+                var modPx = Math.max(2, Math.round(WEB2_PNG_W / (modules || WEB2_PNG_W)));
                 var canvas = document.createElement('canvas');
                 window.JsBarcode(canvas, code, {
                     format:'CODE128', width:modPx, height:100, displayValue:false,

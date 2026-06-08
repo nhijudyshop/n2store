@@ -601,7 +601,7 @@
             }
             dd.innerHTML = '<div class="w2pm-custom-loading">Đang tìm…</div>';
             dd.hidden = false;
-            // TPOS/kho KH + Pancake song song. Pancake = gợi ý tên KH theo SĐT
+            // WEB2/kho KH + Pancake song song. Pancake = gợi ý tên KH theo SĐT
             // tìm trong hội thoại (ask user 2026-06-05).
             const [results, fb] = await Promise.all([
                 _searchCustomers(q),

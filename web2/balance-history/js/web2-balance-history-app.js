@@ -507,7 +507,7 @@
     }
 
     // ----- Manual link via smart customer search modal -----
-    // Dùng Web2LinkCustomerModal (tìm KH qua TPOS Partner OData fast search).
+    // Dùng Web2LinkCustomerModal (tìm KH qua WEB2 Partner OData fast search).
     // Fallback prompt nếu modal chưa load.
     function openLinkPrompt(id) {
         // Seed search bằng extraction_preview (NGUỒN CANONICAL backend — web2-

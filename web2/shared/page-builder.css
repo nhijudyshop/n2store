@@ -1,9 +1,9 @@
-/* ===== TPOS-clone overrides for Web2Page-builder pages =====
+/* ===== WEB2-clone overrides for Web2Page-builder pages =====
  * Loaded ONLY by page-shell.js, not by native-orders/web2-products.
- * Goal: match TPOS visual diff < 5 entries.
+ * Goal: match WEB2 visual diff < 5 entries.
  */
 
-/* Page header / breadcrumb panel — TPOS panel-heading look */
+/* Page header / breadcrumb panel — WEB2 panel-heading look */
 .web2-shell .web2-main-header {
     background: #edf1f2;
     color: #58666e;
@@ -34,7 +34,7 @@
     font-weight: 600;
 }
 
-/* Search/filter section — TPOS search bar look (no border, gray bg, sharp corners) */
+/* Search/filter section — WEB2 search bar look (no border, gray bg, sharp corners) */
 .web2-shell .search-section {
     background: #ffffff;
     border: 1px solid #dee5e7;
@@ -58,7 +58,7 @@
     outline: none;
     box-shadow: none;
 }
-/* Hide search-icon + search-clear absolute overlays (TPOS doesn't use them) */
+/* Hide search-icon + search-clear absolute overlays (WEB2 doesn't use them) */
 .web2-shell .search-wrapper > .search-icon,
 .web2-shell .search-wrapper > .search-clear {
     display: none;
@@ -75,7 +75,7 @@
     color: #58666e;
 }
 
-/* Filter chip area — flatten to TPOS toolbar look */
+/* Filter chip area — flatten to WEB2 toolbar look */
 .web2-shell .filter-chip-group {
     gap: 4px;
 }
@@ -95,7 +95,7 @@
     height: 28px;
 }
 
-/* Search info bar (Tải lại, Áp dụng, Thêm mới) — flat TPOS row */
+/* Search info bar (Tải lại, Áp dụng, Thêm mới) — flat WEB2 row */
 .web2-shell .search-info {
     background: #ffffff;
     padding: 6px 12px;
@@ -105,7 +105,7 @@
     color: #58666e;
 }
 
-/* Data table — TPOS thead darker gray + flat */
+/* Data table — WEB2 thead darker gray + flat */
 .web2-shell .table-section {
     background: #ffffff;
     border: 1px solid #dee5e7;
@@ -132,7 +132,7 @@
     background: #f9fafb;
 }
 
-/* Pagination — TPOS flat */
+/* Pagination — WEB2 flat */
 .web2-shell .pagination {
     background: #ffffff;
     padding: 8px 12px;
@@ -304,7 +304,7 @@
     color: #f05050;
 }
 
-/* Linkable code cell in table — TPOS-like clickable record reference */
+/* Linkable code cell in table — WEB2-like clickable record reference */
 .web2-shell .data-table td a.web2-cell-link {
     color: #3c8dbc;
     text-decoration: none;

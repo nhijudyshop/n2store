@@ -490,7 +490,7 @@
     opacity: 0.6;
 }
 
-/* TPOS suggest inline - for manual column */
+/* WEB2 suggest inline - for manual column */
 .kanban-card .web2-suggest {
     flex-shrink: 0;
     width: 150px;

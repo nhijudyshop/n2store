@@ -1121,16 +1121,16 @@ button {
 }
 
 /* =====================================================
-   TPOS PRODUCT ID INDICATOR
+   WEB2 PRODUCT ID INDICATOR
    ===================================================== */
 
-/* Visual indicator for products with TPOS IDs */
+/* Visual indicator for products with WEB2 IDs */
 tr[data-web2-id] {
     position: relative;
 }
 
 tr[data-web2-id]::before {
-    content: 'TPOS';
+    content: 'WEB2';
     position: absolute;
     left: 4px;
     top: 50%;
@@ -1150,9 +1150,9 @@ tr[data-web2-id]:hover::before {
     opacity: 1;
 }
 
-/* Tooltip showing TPOS Product ID on hover */
+/* Tooltip showing WEB2 Product ID on hover */
 tr[data-web2-id]:hover::after {
-    content: 'TPOS ID: ' attr(data-web2-id);
+    content: 'WEB2 ID: ' attr(data-web2-id);
     position: absolute;
     left: 60px;
     top: 50%;

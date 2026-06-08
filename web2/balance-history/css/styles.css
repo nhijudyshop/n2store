@@ -1324,7 +1324,7 @@ body {
     font-size: 0.8rem;
 }
 
-/* Phone input wrapper with TPOS result */
+/* Phone input wrapper with WEB2 result */
 .inline-qr-phone-wrap {
     position: relative;
 }
@@ -1841,17 +1841,17 @@ body {
 }
 
 /* =====================================================
-   TPOS LOOKUP STYLES
+   WEB2 LOOKUP STYLES
    ===================================================== */
 
-#tposLookupContainer {
+#web2LookupContainer {
     padding: 10px;
     background: #f8fafc;
     border-radius: 8px;
     border: 1px solid #e2e8f0;
 }
 
-#tposLookupLoading {
+#web2LookupLoading {
     color: #64748b;
     font-size: 13px;
     display: flex;
@@ -1859,7 +1859,7 @@ body {
     gap: 8px;
 }
 
-#tposLookupLoading::before {
+#web2LookupLoading::before {
     content: '';
     width: 16px;
     height: 16px;
@@ -1875,7 +1875,7 @@ body {
     }
 }
 
-#tposLookupNote {
+#web2LookupNote {
     color: #94a3b8;
     font-size: 12px;
     font-style: italic;
@@ -1883,7 +1883,7 @@ body {
 }
 
 /* Single customer result */
-#tposLookupSingle {
+#web2LookupSingle {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1894,16 +1894,16 @@ body {
     color: #065f46;
 }
 
-#tposLookupSingle i {
+#web2LookupSingle i {
     color: #10b981;
 }
 
-#tposLookupName {
+#web2LookupName {
     font-weight: 600;
 }
 
 /* Multiple customers - Orange badge for review */
-#tposLookupMultiple {
+#web2LookupMultiple {
     padding: 10px;
     background: #fffbeb;
     border: 1px solid #fcd34d;
@@ -1936,7 +1936,7 @@ body {
     margin-left: 6px;
 }
 
-#tposCustomerDropdown {
+#web2CustomerDropdown {
     width: 100%;
     padding: 8px 10px;
     border: 1px solid #fbbf24;
@@ -1946,14 +1946,14 @@ body {
     cursor: pointer;
 }
 
-#tposCustomerDropdown:focus {
+#web2CustomerDropdown:focus {
     outline: none;
     border-color: #f59e0b;
     box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
 }
 
 /* Empty/No customer found */
-#tposLookupEmpty {
+#web2LookupEmpty {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1965,7 +1965,7 @@ body {
     font-size: 13px;
 }
 
-#tposLookupEmpty i {
+#web2LookupEmpty i {
     color: #ef4444;
 }
 
@@ -2213,7 +2213,7 @@ body {
     background: rgba(255, 255, 255, 0.2);
 }
 
-/* TPOS Warning Banner */
+/* WEB2 Warning Banner */
 .web2-warning {
     background: #fef3c7;
     border-bottom: 1px solid #fcd34d;
@@ -2245,7 +2245,7 @@ body {
     color: #1e40af;
 }
 
-.source-badge.tpos {
+.source-badge.web2 {
     background: #fef3c7;
     color: #92400e;
 }

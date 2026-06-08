@@ -1,6 +1,6 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — enrich balance-history rows với TPOS Partner status.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — enrich balance-history rows với WEB2 Partner status.
 // =====================================================================
-// TposPartnerEnricher — quét bảng giao dịch, batch fetch TPOS Partner
+// Web2PartnerEnricher — quét bảng giao dịch, batch fetch WEB2 Partner
 // theo phone, render status pill (Bom hàng/Cảnh báo/Nguy hiểm/VIP) + link
 // "Mở thẻ KH" cho mỗi row đã link với KH.
 // =====================================================================
@@ -10,7 +10,7 @@
 
     if (typeof window === 'undefined') return;
 
-    // Memory-only cache; TPOS là source of truth, không persist.
+    // Memory-only cache; WEB2 là source of truth, không persist.
     const cache = new Map();
     let pendingPhones = new Set();
     let flushTimer = null;
@@ -39,7 +39,7 @@
         const text = partner.StatusText || Api.STATUS_TEXT?.[status] || '';
         if (!text || status === 'Normal') return ''; // chỉ show khi khác Bình thường (giảm nhiễu)
         const cls = (Api.statusClass?.(status) || '').replace('pc-status-', 'bh-web2-status-');
-        return `<span class="bh-web2-status-pill ${cls}" title="Trạng thái TPOS">${escapeHtml(text)}</span>`;
+        return `<span class="bh-web2-status-pill ${cls}" title="Trạng thái WEB2">${escapeHtml(text)}</span>`;
     }
 
     function linkHtml(partner) {
@@ -49,7 +49,7 @@
     }
 
     function enrichRow(row) {
-        if (!row || row.__tposEnriched) return;
+        if (!row || row.__web2Enriched) return;
         const phone = normPhone(row.getAttribute('data-customer-phone'));
         if (!phone || phone.length < 9) return;
         const partner = cache.get(phone);
@@ -59,14 +59,14 @@
             return;
         }
         if (partner === null) {
-            row.__tposEnriched = true;
-            return; // not found in TPOS
+            row.__web2Enriched = true;
+            return; // not found in WEB2
         }
         const cell = row.querySelector('[data-web2-customer-cell="1"]');
         if (!cell) return;
         // Check exist
         if (cell.querySelector('.bh-web2-enrich')) {
-            row.__tposEnriched = true;
+            row.__web2Enriched = true;
             return;
         }
         const wrap = document.createElement('span');
@@ -74,7 +74,7 @@
         // 2026-06-03: bỏ nút "Mở thẻ KH" (↗) — click tên KH mở modal chi tiết thay thế.
         wrap.innerHTML = statusPillHtml(partner);
         cell.appendChild(wrap);
-        row.__tposEnriched = true;
+        row.__web2Enriched = true;
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
@@ -97,7 +97,7 @@
             // Re-enrich all rows
             document.querySelectorAll('tr[data-customer-phone]').forEach((row) => enrichRow(row));
         } catch (e) {
-            console.warn('[TposPartnerEnricher] flush fail:', e.message);
+            console.warn('[Web2PartnerEnricher] flush fail:', e.message);
             for (const phone of phones) {
                 if (!cache.has(phone)) cache.set(phone, null);
             }
@@ -125,7 +125,7 @@
 
     function init() {
         if (!window.PartnerCustomerApi) {
-            console.warn('[TposPartnerEnricher] PartnerCustomerApi chưa load — skip');
+            console.warn('[Web2PartnerEnricher] PartnerCustomerApi chưa load — skip');
             return;
         }
         scanAll();
@@ -139,7 +139,7 @@
     }
 
     // Expose for manual trigger / testing
-    window.TposPartnerEnricher = {
+    window.Web2PartnerEnricher = {
         scanAll,
         flush,
         cache,

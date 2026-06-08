@@ -1,6 +1,6 @@
-/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Kho KH warehouse styles (wc- prefix). KHÔNG TPOS. */
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Kho KH warehouse styles (wc- prefix). warehouse riêng. */
 /* =====================================================================
-   web2/customers — Kho Khách Hàng warehouse. Dùng token TPOS theme
+   web2/customers — Kho Khách Hàng warehouse. Dùng token WEB2 theme
    (--web2-*) có fallback. Modal dùng class modal-content/modal-body để
    thừa hưởng anti-lag Tier 1 từ web2-theme.css.
    ===================================================================== */

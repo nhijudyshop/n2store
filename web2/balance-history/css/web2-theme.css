@@ -1,13 +1,13 @@
-/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — TPOS theme overlay cho balance-history. */
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — WEB2 theme overlay cho balance-history. */
 /* =====================================================
- * WEB 2.0 THEME OVERLAY — balance-history (TPOS-clone style)
+ * WEB 2.0 THEME OVERLAY — balance-history (WEB2-clone style)
  *
  * Base CSS standard cho Web 2.0 = native-orders/css/. Trang này import:
  *   - native-orders.css (layout, typography, tab, filter, table, button)
  *   - web2-theme.css (.web2-btn, .web2-label color tokens)
  *
  * File này chỉ override balance-history-specific selectors để map sang
- * tokens TPOS thay vì gradient tím cũ.
+ * tokens WEB2 thay vì gradient tím cũ.
  *
  * PERFORMANCE NOTES (user yêu cầu tối ưu modal lag):
  *   - KHÔNG dùng `backdrop-filter: blur()` — kill GPU performance trên
@@ -25,7 +25,7 @@
  * (chỉ animate transform + opacity → compositor thread).
  * ===================================================== */
 
-/* ─── Color tokens — clone native-orders TPOS palette ─── */
+/* ─── Color tokens — clone native-orders WEB2 palette ─── */
 :root {
     --web2-primary: #7266ba;
     --web2-primary-hover: #5e51ac;
@@ -49,7 +49,7 @@
     --web2-link-hover: #245a8c;
 }
 
-/* ─── Base typography — TPOS Segoe UI ───────────────── */
+/* ─── Base typography — WEB2 Segoe UI ───────────────── */
 body.web2-theme {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
     font-size: 14px;
@@ -65,7 +65,7 @@ body.web2-theme {
     font-family: inherit;
 }
 
-/* ─── Main tabs — TPOS underline style ──────────────── */
+/* ─── Main tabs — WEB2 underline style ──────────────── */
 .web2-theme .main-tabs {
     display: flex;
     gap: 0;
@@ -348,7 +348,7 @@ body.web2-theme {
     box-shadow: 0 0 0 2px rgba(114, 102, 186, 0.15);
 }
 
-/* ─── Tables — TPOS clone ───────────────────────────── */
+/* ─── Tables — WEB2 clone ───────────────────────────── */
 .web2-theme .balance-table,
 .web2-theme .data-table,
 .web2-theme .table-section table {
@@ -415,7 +415,7 @@ body.web2-theme {
     color: #fff;
 }
 
-/* ─── Stats cards — flat TPOS style ─────────────────── */
+/* ─── Stats cards — flat WEB2 style ─────────────────── */
 .web2-theme .stats-grid,
 .web2-theme .stat-cards {
     display: grid;
@@ -450,7 +450,7 @@ body.web2-theme {
     color: var(--web2-text);
 }
 
-/* ─── Live mode header — dark TPOS variant ──────────── */
+/* ─── Live mode header — dark WEB2 variant ──────────── */
 .web2-theme .live-mode-header {
     padding: 12px 18px;
     background: #2f3b41;
@@ -524,7 +524,7 @@ body.web2-theme {
     background: currentColor;
 }
 
-/* ─── Pagination — TPOS clone ───────────────────────── */
+/* ─── Pagination — WEB2 clone ───────────────────────── */
 .web2-theme .pagination {
     display: flex;
     gap: 3px;
@@ -725,7 +725,7 @@ body.web2-theme {
     }
 }
 
-/* TPOS Partner enricher --------------------------------------------- */
+/* WEB2 Partner enricher --------------------------------------------- */
 .bh-web2-enrich {
     display: inline-flex;
     align-items: center;

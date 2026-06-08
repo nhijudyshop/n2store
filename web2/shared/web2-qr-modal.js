@@ -2,11 +2,11 @@
 // =====================================================================
 // Web2QrModal — reusable modal hiển thị VietQR cho 1 KH.
 // Auto-fetch GET /api/web2/customer-wallet/:phone/qr; nếu 404 thì auto POST
-// UPSERT (backend tự lookup TPOS partner_id + name).
+// UPSERT (backend tự lookup WEB2 partner_id + name).
 //
 // API: Web2QrModal.open(phone, opts?)
 //   - phone: 10-digit VN phone
-//   - opts.customerId (number, optional): TPOS Partner Id (skip lookup)
+//   - opts.customerId (number, optional): WEB2 Partner Id (skip lookup)
 //   - opts.customerName (string, optional): KH name (skip lookup)
 // =====================================================================
 
@@ -202,9 +202,9 @@
     let _ctx = null; // { phone, opts }
 
     async function fetchOrCreate(phone, opts) {
-        // Có customerId (TPOS partner_id) → POST upsert theo customer_id → trả
+        // Có customerId (WEB2 partner_id) → POST upsert theo customer_id → trả
         // ĐÚNG QR của partner đó. Tránh GET-by-phone (LIMIT 1) trả nhầm partner
-        // khi nhiều TPOS partner gán chung 1 SĐT (vd test clone trùng SĐT).
+        // khi nhiều WEB2 partner gán chung 1 SĐT (vd test clone trùng SĐT).
         if (opts?.customerId) {
             const post = await qrRequest(`/${encodeURIComponent(phone)}/qr`, {
                 method: 'POST',
@@ -222,7 +222,7 @@
         // Không có customerId → GET theo phone (backward compat)
         const get = await qrRequest(`/${encodeURIComponent(phone)}/qr`);
         if (get.status === 200) return get.body.data;
-        // 404 → auto UPSERT (backend tự lookup TPOS partner theo phone)
+        // 404 → auto UPSERT (backend tự lookup WEB2 partner theo phone)
         const post = await qrRequest(`/${encodeURIComponent(phone)}/qr`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

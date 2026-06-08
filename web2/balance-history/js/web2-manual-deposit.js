@@ -2,7 +2,7 @@
 // =====================================================================
 // Web2ManualDeposit — admin nạp tay vào ví KH (web2_customer_wallets) hoặc
 // NCC (Firestore web2_supplier_wallet via polling). UI:
-//   • KH: type name/phone + Enter → TPOS search → dropdown candidates → pick
+//   • KH: type name/phone + Enter → WEB2 search → dropdown candidates → pick
 //   • NCC: select dropdown loaded từ Firestore web2_supplier_wallet/main
 // =====================================================================
 
@@ -105,7 +105,7 @@
 .w2md-result-phone { color: #6b7280; font-size: 13px; font-family: ui-monospace, monospace; }
 .w2md-source-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 .w2md-source-web2 { background: #dbeafe; color: #1e40af; }
-.w2md-source-tpos { background: #fef3c7; color: #92400e; }
+.w2md-source-web2 { background: #fef3c7; color: #92400e; }
 
 /* NCC field — label row + create button + new input wrap */
 .w2md-label-row { display: flex; justify-content: space-between; align-items: center;
@@ -166,11 +166,11 @@
         } catch {}
     }
 
-    // ───────────── KH search — fast path (Postgres aggregate) + TPOS fallback ─────
+    // ───────────── KH search — fast path (Postgres aggregate) + WEB2 fallback ─────
     // Strategy ưu tiên tốc độ:
     //   1. Postgres /aggregate (~100-200ms, cached 5s server-side): search KH có
     //      web2 activity (5k+ active customers). Phone digits + name ILIKE work.
-    //   2. Nếu /aggregate trả 0 rows VÀ user search by name → fallback TPOS
+    //   2. Nếu /aggregate trả 0 rows VÀ user search by name → fallback WEB2
     //      (~2-3s, full coverage 92k customers nhưng KH chưa active web2).
     //   3. Phone search-only: /aggregate đủ vì KH có web2 activity = có wallet.
     //
@@ -222,11 +222,11 @@
         }));
     }
 
-    async function searchKhTpos(query) {
+    async function searchKhWeb2(query) {
         const Api = window.PartnerCustomerApi;
         if (!Api?.list) throw new Error('PartnerCustomerApi chưa load');
         const r = await Api.list({ top: 20, search: query });
-        return (r?.value || []).map((p) => ({ ...p, _source: 'tpos' }));
+        return (r?.value || []).map((p) => ({ ...p, _source: 'web2' }));
     }
 
     async function searchKh(query) {
@@ -245,13 +245,13 @@
         } catch (e) {
             console.warn('[w2md] aggregate search fail:', e.message);
         }
-        // 2. Fallback TPOS — chỉ dùng khi aggregate miss
+        // 2. Fallback WEB2 — chỉ dùng khi aggregate miss
         try {
-            const tpos = await searchKhTpos(q);
-            _cacheSet(q, tpos);
-            return tpos;
+            const web2 = await searchKhWeb2(q);
+            _cacheSet(q, web2);
+            return web2;
         } catch (e) {
-            console.warn('[w2md] TPOS search fail:', e.message);
+            console.warn('[w2md] WEB2 search fail:', e.message);
             return [];
         }
     }
@@ -270,7 +270,7 @@
                 const sourceLabel =
                     p._source === 'web2'
                         ? '<span class="w2md-source-badge w2md-source-web2">Web 2.0</span>'
-                        : '<span class="w2md-source-badge w2md-source-tpos">TPOS</span>';
+                        : '<span class="w2md-source-badge w2md-source-web2">WEB2</span>';
                 return `<div class="w2md-result-row" data-id="${p.Id || ''}" data-phone="${phone}" data-name="${escapeAttr(name)}">
                     <div class="w2md-result-info">
                         <span class="w2md-result-name">${escapeHtml(name)}</span>
@@ -294,7 +294,7 @@
 
     function pickKh(kh) {
         if (!kh.phone) {
-            notify('KH này chưa có SĐT trên TPOS — không thể nạp', 'warning');
+            notify('KH này chưa có SĐT trên WEB2 — không thể nạp', 'warning');
             return;
         }
         _selectedKh = kh;

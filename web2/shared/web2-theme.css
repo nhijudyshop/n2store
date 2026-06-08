@@ -1,11 +1,11 @@
-/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — shared TPOS theme overlay. */
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — shared WEB2 theme overlay. */
 /* =====================================================
- * WEB 2.0 SHARED TPOS THEME OVERLAY
+ * WEB 2.0 SHARED WEB2 THEME OVERLAY
  *
  * Chuẩn UI cho TOÀN BỘ trang Web 2.0 user đã code thật (13 trang trong
  * sidebar allow-list). Lấy native-orders/css/ làm baseline:
  *   - native-orders.css → layout, typography, tab, filter, table, button
- *   - web2-theme.css    → color tokens TPOS
+ *   - web2-theme.css    → color tokens WEB2
  *
  * File này load SAU 2 file trên để override universal selectors mà các
  * trang khác có tendency tự define (.btn, .modal, .stats-grid, .tab,
@@ -70,7 +70,7 @@
     --web2-link-hover: #245a8c;
 }
 
-/* ─── Base typography — TPOS Segoe UI (force) ───────── */
+/* ─── Base typography — WEB2 Segoe UI (force) ───────── */
 body.web2-theme,
 body:has(.web2-shell) {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -488,7 +488,7 @@ body.web2-theme.modal-open {
  *  tông hài hòa với nhau".
  *
  * Strategy:
- *   - Giữ baseline TPOS gray (#f0f3f4, #58666e) làm canvas trung tính.
+ *   - Giữ baseline WEB2 gray (#f0f3f4, #58666e) làm canvas trung tính.
  *   - Thêm "accent surfaces" tone-on-tone (soft tint cùng hue với primary)
  *     cho các vùng quan trọng (header, primary actions, stat values,
  *     selected rows, active filters).

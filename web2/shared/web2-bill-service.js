@@ -4,7 +4,7 @@
 // =====================================================
 //
 // Tách độc lập khỏi orders-report/js/utils/bill-service.js. Không depend
-// TPOS data sources (lastDefaultSaleData, ProcessingTagState, WebWarehouseCache).
+// WEB2 data sources (lastDefaultSaleData, ProcessingTagState, WebWarehouseCache).
 // Input: PBH object trả từ /api/fast-sale-orders/:number (đã có Partner,
 // orderLines, totals, payment, delivery, sourceLink, etc.).
 //

@@ -1,12 +1,12 @@
-/* ===== Native Orders — TPOS-clone palette =====
+/* ===== Native Orders — WEB2-clone palette =====
  * Crawled from https://tomato.tpos.vn/#/app/saleOnline/order/list (2026-04-25).
  * Source stylesheets: vendor.min.css + app.min.css.
  * All colors / spacings extracted from computed styles via Playwright.
- * Goal: bảng giống 100% TPOS — font Segoe UI, palette flat-purple-cyan-green.
+ * Goal: bảng giống 100% WEB2 — font Segoe UI, palette flat-purple-cyan-green.
  */
 
 :root {
-    /* TPOS-derived palette */
+    /* WEB2-derived palette */
     --web2-bg-app: #f0f3f4; /* html background */
     --web2-bg-cell-head: #f0eeee; /* th + td background */
     --web2-bg-light: #edf1f2; /* search input bg */
@@ -17,7 +17,7 @@
     --web2-border: #cccccc; /* cell border-bottom */
     --web2-border-btn: #dee5e7; /* default button border */
 
-    /* TPOS button colors */
+    /* WEB2 button colors */
     --web2-primary: #7266ba; /* btn-primary (F10) — purple */
     --web2-primary-hover: #5e51ac;
     --web2-success: #27c24c; /* btn-success (F9) — green */
@@ -86,7 +86,7 @@ body {
     padding: 0;
     height: 100%;
     overflow: hidden;
-    /* MATCH TPOS exactly */
+    /* MATCH WEB2 exactly */
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-size: 14px;
     color: var(--web2-text-2);
@@ -558,7 +558,7 @@ body {
     box-shadow: var(--shadow-sm);
 }
 
-/* Admin-dashboard table — flat / clean look using existing TPOS-derived tokens */
+/* Admin-dashboard table — flat / clean look using existing WEB2-derived tokens */
 .data-table {
     width: 100%;
     border-collapse: separate;
@@ -997,7 +997,7 @@ body {
     min-width: 0;
 }
 
-/* Tên row: name + pill + nút lấy TPOS xếp ngang, có gap nhỏ */
+/* Tên row: name + pill + nút lấy WEB2 xếp ngang, có gap nhỏ */
 .web2-customer-name-row {
     display: flex;
     align-items: center;
@@ -1011,7 +1011,7 @@ body {
     color: #94a3b8;
     font-weight: 500;
 }
-/* Nút "Lấy TPOS" — nhỏ, secondary style, hover/focus rõ */
+/* Nút "Lấy WEB2" — nhỏ, secondary style, hover/focus rõ */
 .web2-fetch-web2-btn {
     display: inline-flex;
     align-items: center;
@@ -2127,7 +2127,7 @@ body {
     height: 16px;
 }
 
-/* Livestream snapshot thumbnail per product line (SP kéo từ TPOS-Pancake).
+/* Livestream snapshot thumbnail per product line (SP kéo từ WEB2-Pancake).
  * Hiển thị cạnh ảnh SP, hover scale + ring để nhấn mạnh là frame từ live. */
 .line-snap-thumb {
     display: block;

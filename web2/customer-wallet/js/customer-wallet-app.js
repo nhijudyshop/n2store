@@ -199,7 +199,7 @@
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
-    function tposStatusPillHtml(partner) {
+    function web2StatusPillHtml(partner) {
         if (!partner) return '';
         const status = partner.Status || 'Normal';
         const text = partner.StatusText || window.PartnerCustomerApi?.STATUS_TEXT?.[status] || '';
@@ -208,7 +208,7 @@
             'pc-status-',
             'cw-web2-status-'
         );
-        return `<span class="cw-web2-status-pill ${cls}" title="Trạng thái TPOS">${escapeHtml(text)}</span>`;
+        return `<span class="cw-web2-status-pill ${cls}" title="Trạng thái WEB2">${escapeHtml(text)}</span>`;
     }
 
     function carrierFromPartner(partner, phone) {
@@ -226,14 +226,14 @@
 
     function cardHtml(w) {
         const debt = w.balance > 0;
-        const partner = tposPartners[w.phone];
-        const tposPill = tposStatusPillHtml(partner);
+        const partner = web2Partners[w.phone];
+        const web2Pill = web2StatusPillHtml(partner);
         const carrier = carrierFromPartner(partner, w.phone);
         const web2Balance = web2BalanceBadgeHtml(w.phone);
         return `<div class="sw-card" data-phone="${escapeHtml(w.phone)}">
             <div class="sw-card-head">
                 <div>
-                    <div class="sw-card-name">${escapeHtml(w.name)} ${tposPill}</div>
+                    <div class="sw-card-name">${escapeHtml(w.name)} ${web2Pill}</div>
                     <div class="sw-card-phone">${escapeHtml(w.phone)}${carrier ? ` <span class="cw-carrier">· ${escapeHtml(carrier)}</span>` : ''} ${web2Balance}</div>
                 </div>
                 <span class="sw-card-badge ${debt ? 'is-debt' : ''}">${debt ? 'Còn nợ' : 'Đủ'}</span>
@@ -265,12 +265,12 @@
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
-    // Render sub-title + TPOS extras row (status, email, address, link).
-    // Tách riêng để gọi lại được khi enrichFromTpos resolve async sau khi modal đã mở.
+    // Render sub-title + WEB2 extras row (status, email, address, link).
+    // Tách riêng để gọi lại được khi enrichFromWeb2 resolve async sau khi modal đã mở.
     function renderDetailExtras(phone) {
         const sub = document.getElementById('cwDetailSub');
         const c = customers[phone];
-        const partner = tposPartners[phone];
+        const partner = web2Partners[phone];
         const w = walletState.wallets[phone];
         if (!w) return;
 
@@ -279,27 +279,27 @@
             parts.push(`${c.orders.length} PBH · ${Object.keys(c.campaigns).length} chiến dịch`);
         }
         if (partner) {
-            const statusPill = tposStatusPillHtml(partner);
+            const statusPill = web2StatusPillHtml(partner);
             if (statusPill) parts.push(statusPill);
             const carrier = carrierFromPartner(partner, phone);
             if (carrier) parts.push(`<span class="cw-carrier">${escapeHtml(carrier)}</span>`);
         }
-        const tposEditUrl = partner?.Id ? `../customers/index.html` : `../customers/index.html`;
+        const web2EditUrl = partner?.Id ? `../customers/index.html` : `../customers/index.html`;
         parts.push(
-            `<a class="cw-web2-link" href="${tposEditUrl}" target="_blank" rel="noopener" title="Mở thẻ KH trên Web 2.0">Mở thẻ KH ↗</a>`
+            `<a class="cw-web2-link" href="${web2EditUrl}" target="_blank" rel="noopener" title="Mở thẻ KH trên Web 2.0">Mở thẻ KH ↗</a>`
         );
         sub.innerHTML = parts.join(' · ');
 
         // Email + Address row — inject vào header dưới subtitle
-        let extras = document.getElementById('cwTposExtras');
+        let extras = document.getElementById('cwWeb2Extras');
         if (!extras) {
             extras = document.createElement('div');
-            extras.id = 'cwTposExtras';
+            extras.id = 'cwWeb2Extras';
             extras.className = 'cw-web2-extras';
             sub.parentNode.appendChild(extras);
         }
         if (!partner) {
-            extras.innerHTML = '<span class="cw-web2-loading">Đang lấy thông tin TPOS…</span>';
+            extras.innerHTML = '<span class="cw-web2-loading">Đang lấy thông tin WEB2…</span>';
             return;
         }
         const email = partner.Email || '';
@@ -322,7 +322,7 @@
         }
         if (credit && Math.abs(credit - w.balance) > 1) {
             fragments.push(
-                `<span class="cw-web2-item cw-web2-mismatch" title="Nợ TPOS ≠ Nợ ví — cần đối soát"><i data-lucide="alert-triangle"></i>Nợ TPOS: ${fmtVnd(credit)}</span>`
+                `<span class="cw-web2-item cw-web2-mismatch" title="Nợ WEB2 ≠ Nợ ví — cần đối soát"><i data-lucide="alert-triangle"></i>Nợ WEB2: ${fmtVnd(credit)}</span>`
             );
         }
 
@@ -580,16 +580,16 @@
             pushSync();
         }
         renderList();
-        // Enrich từ TPOS Partner (Status / Email / Address / Carrier) — best-effort
-        enrichFromTpos().catch((e) => console.warn('[CustomerWallet] enrich fail:', e?.message));
+        // Enrich từ WEB2 Partner (Status / Email / Address / Carrier) — best-effort
+        enrichFromWeb2().catch((e) => console.warn('[CustomerWallet] enrich fail:', e?.message));
         // Enrich Web 2.0 wallet → override paidAmount + show "💳 X₫" badge
         enrichWeb2Wallets().catch((e) =>
             console.warn('[CustomerWallet] web2 enrich fail:', e?.message)
         );
     }
 
-    // Map phone → partner record fetched from TPOS. Memory-only, not persisted.
-    const tposPartners = {};
+    // Map phone → partner record từ warehouse. Memory-only, not persisted.
+    const web2Partners = {};
     let _enrichInflight = null;
 
     // Map phone → Web 2.0 wallet (balance, total_deposited, total_withdrawn).
@@ -656,11 +656,11 @@
         }
     }
 
-    async function enrichFromTpos() {
+    async function enrichFromWeb2() {
         if (!window.PartnerCustomerApi?.listByPhones) return;
         // Phone list = mọi KH đang có trong walletState
         const phones = Object.keys(walletState.wallets || {}).filter(
-            (p) => p && p.length >= 9 && !tposPartners[p]
+            (p) => p && p.length >= 9 && !web2Partners[p]
         );
         if (!phones.length) return;
         if (_enrichInflight) return _enrichInflight;
@@ -670,7 +670,7 @@
                     chunkSize: 30,
                 });
                 for (const [phone, partner] of map.entries()) {
-                    tposPartners[phone] = partner;
+                    web2Partners[phone] = partner;
                 }
                 renderList();
                 if (activePhone && !document.getElementById('cwDetailModal').hidden) {

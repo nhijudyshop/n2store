@@ -1,5 +1,5 @@
-/* ===== TPOS-clone classes for native-orders =====
- * Mimics Bootstrap 3-style classes used in TPOS:
+/* ===== WEB2-clone classes for native-orders =====
+ * Mimics Bootstrap 3-style classes used in WEB2:
  *   .label, .label-success, .label-warning, .label-danger
  *   .btn, .btn-default, .btn-primary, .btn-success, .btn-info, .btn-danger
  *   .text-primary, .text-muted
@@ -48,7 +48,7 @@
     background: var(--web2-label-tag-boom);
 } /* KHÁCH BOOM */
 
-/* TPOS .label-cs override: bigger label used for carriers + status pills.
+/* WEB2 .label-cs override: bigger label used for carriers + status pills.
  * Crawled values: fs 12px, padding 5px, radius 3px. */
 .web2-label-cs {
     font-size: 12px;
@@ -56,7 +56,7 @@
     border-radius: 3px;
 }
 
-/* Margin helper used by TPOS to space adjacent labels */
+/* Margin helper used by WEB2 to space adjacent labels */
 .m-r-xs {
     margin-right: 5px;
 }
@@ -149,7 +149,7 @@
     color: #fff;
 }
 
-/* btn-xs (used for action buttons in row) — TPOS spec: padding 1px 5px, size ~25x22 */
+/* btn-xs (used for action buttons in row) — WEB2 spec: padding 1px 5px, size ~25x22 */
 .web2-btn-xs {
     padding: 1px 5px;
     font-size: 12px;
@@ -195,7 +195,7 @@
     font-weight: 700;
 }
 
-/* ------- Phone link (text-primary in TPOS) ------- */
+/* ------- Phone link (text-primary in WEB2) ------- */
 .data-table a[href^='tel:'],
 .data-table .web2-phone {
     color: var(--web2-link);
@@ -207,7 +207,7 @@
     text-decoration: underline;
 }
 
-/* ------- Table cell helpers used by TPOS template ------- */
+/* ------- Table cell helpers used by WEB2 template ------- */
 .web2-cell-center {
     text-align: center;
 }
@@ -221,7 +221,7 @@
     color: var(--web2-text);
 }
 
-/* ------- Search/filter bar (TPOS uses bg-light no-border input) ------- */
+/* ------- Search/filter bar (WEB2 uses bg-light no-border input) ------- */
 .web2-search-input {
     background: var(--web2-bg-light);
     color: var(--web2-text-3);
@@ -251,7 +251,7 @@
     background: #dde3e5;
 }
 
-/* ------- Row action bar (TPOS uses btn-info cyan + btn-danger red) ------- */
+/* ------- Row action bar (WEB2 uses btn-info cyan + btn-danger red) ------- */
 .web2-row-actions {
     display: inline-flex;
     gap: 4px;
@@ -503,7 +503,7 @@
     word-break: break-word;
 }
 
-/* Phone/Person icon bubbles (small green + small purple from TPOS) */
+/* Phone/Person icon bubbles (small green + small purple from WEB2) */
 .web2-mini-icon {
     display: inline-flex;
     align-items: center;
@@ -535,7 +535,7 @@
     font-size: 14px;
     text-decoration: none;
     font-weight: 400;
-    text-align: center; /* TPOS spec: phone cell text centered */
+    text-align: center; /* WEB2 spec: phone cell text centered */
 }
 .web2-phone-link:hover {
     text-decoration: underline;
@@ -544,7 +544,7 @@
     color: var(--web2-link);
     font-size: 14px;
     font-weight: 400;
-    text-align: center; /* TPOS spec: carrier centered under phone */
+    text-align: center; /* WEB2 spec: carrier centered under phone */
 }
 
 /* ------- Date cell ------- */

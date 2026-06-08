@@ -1,6 +1,6 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — smart customer search modal cho balance-history.
 // =====================================================================
-// Web2LinkCustomerModal — search KH qua TPOS Partner OData (91K KH).
+// Web2LinkCustomerModal — search KH qua WEB2 Partner OData (91K KH).
 // Server-side filter $top=20 + contains(Name|Phone, query) → fast,
 // không tải hết. Click row → PATCH /api/web2/balance-history/:id/link.
 // =====================================================================
@@ -103,7 +103,7 @@
                     <h3>Gán khách hàng cho giao dịch</h3>
                     <button type="button" class="w2lcm-close" aria-label="Đóng">&times;</button>
                 </header>
-                <p class="w2lcm-info">Tìm KH có sẵn trong TPOS (91K+ KH) — gõ ≥ 3 ký tự (SĐT hoặc tên). Click → cộng tiền vào ví Web 2.0.</p>
+                <p class="w2lcm-info">Tìm KH có sẵn trong WEB2 (91K+ KH) — gõ ≥ 3 ký tự (SĐT hoặc tên). Click → cộng tiền vào ví Web 2.0.</p>
                 <div class="w2lcm-search">
                     <input type="search" placeholder="Gõ SĐT (vd: 0903) hoặc tên KH…" autocomplete="off" />
                 </div>
@@ -111,7 +111,7 @@
                     <div class="w2lcm-hint">Gõ vào ô tìm phía trên</div>
                 </div>
                 <footer class="w2lcm-manual">
-                    <div class="w2lcm-manual-label">Hoặc nhập SĐT thủ công (chưa có trong TPOS):</div>
+                    <div class="w2lcm-manual-label">Hoặc nhập SĐT thủ công (chưa có trong WEB2):</div>
                     <div class="w2lcm-manual-row">
                         <input type="tel" placeholder="0901234567" maxlength="11" class="w2lcm-manual-phone" />
                         <input type="text" placeholder="Tên KH (tuỳ chọn)" class="w2lcm-manual-name" />
@@ -163,13 +163,13 @@
 
     async function runSearch(query) {
         const body = _modal.querySelector('.w2lcm-body');
-        body.innerHTML = '<div class="w2lcm-hint">Đang tìm trong TPOS…</div>';
+        body.innerHTML = '<div class="w2lcm-hint">Đang tìm trong WEB2…</div>';
         const mySeq = ++_searchSeq;
         try {
             if (!window.PartnerCustomerApi?.list) {
                 throw new Error('PartnerCustomerApi chưa load');
             }
-            // TPOS Partner OData search — server-side filter, fast even với 91K KH
+            // WEB2 Partner OData search — server-side filter, fast even với 91K KH
             const result = await window.PartnerCustomerApi.list({
                 top: 20,
                 search: query,
@@ -223,7 +223,7 @@
                     <div class="w2lcm-row-name">${escapeHtml(p.Name || '(không tên)')} ${statusBadge(p)} <span class="w2lcm-row-bal" data-w2wallet-phone="${escapeHtml(phone)}"></span></div>
                     <div class="w2lcm-row-phone">${escapeHtml(phone || '(no phone)')}</div>
                     ${addr ? `<div class="w2lcm-row-meta"><span title="Địa chỉ">📍 ${escapeHtml(addr.slice(0, 80))}</span></div>` : ''}
-                    ${credit ? `<div class="w2lcm-row-meta"><span>Nợ TPOS: ${fmtVnd(credit)}</span></div>` : ''}
+                    ${credit ? `<div class="w2lcm-row-meta"><span>Nợ WEB2: ${fmtVnd(credit)}</span></div>` : ''}
                 </div>
                 <button type="button" class="w2lcm-row-btn"
                     data-pick

@@ -5,10 +5,7 @@
 // Target bảng: web2_customers (warehouse DUY NHẤT, web2Db) — KHÔNG TPOS.
 // (2026-06-07: gộp web2_order_customers vào warehouse, bỏ enrich/sync TPOS.)
 //
-// Giữ export name cũ (getOrCreateCustomerFromTPOS, lookupCustomerIdByPhone)
-// để native-orders / fast-sale-orders / web2-customer-tpos không phải đổi
-// import — nhưng BODY nay upsert thẳng vào warehouse, KHÔNG gọi TPOS.
-//
+// Web 2.0 ĐỘC LẬP — KHÔNG liên quan TPOS lẫn Web 1.0. Upsert thẳng warehouse.
 // KHÔNG cross-import customer-creation-service.js (Web 1.0, chatDb).
 // =====================================================================
 
@@ -26,11 +23,11 @@ function normalizePhone(phone) {
 }
 
 /**
- * Get/create KH trong web2_customers theo phone. KHÔNG TPOS.
- * `data` (nếu có) chỉ dùng làm name/address gợi ý (tương thích chữ ký cũ).
+ * Get/create KH trong web2_customers theo phone (warehouse Web 2.0, KHÔNG TPOS/Web1).
+ * `data` (nếu có) chỉ dùng làm name/address gợi ý.
  * @returns {Promise<{customerId:number, created:boolean, customerName:string}>}
  */
-async function getOrCreateCustomerFromTPOS(db, phone, data = null) {
+async function getOrCreateWeb2OrderCustomer(db, phone, data = null) {
     const normalized = normalizePhone(phone);
     if (!normalized) throw new Error('Invalid phone number');
     const fields = data
@@ -58,7 +55,7 @@ async function lookupCustomerIdByPhone(db, phone) {
 }
 
 module.exports = {
-    getOrCreateCustomerFromTPOS,
+    getOrCreateWeb2OrderCustomer,
     lookupCustomerIdByPhone,
     normalizePhone,
     WEB2_ORDER_CUSTOMERS_TABLE: TABLE,

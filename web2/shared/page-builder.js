@@ -1,11 +1,11 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
- * Web 2.0 generic CRUD page builder — same look as TPOS list views.
- * Each TPOS-clone page calls Web2Page.mount(config) and gets:
+ * Web 2.0 generic CRUD page builder — same look as WEB2 list views.
+ * Each WEB2-clone page calls Web2Page.mount(config) and gets:
  *   - Header (breadcrumb + title + count pill)
- *   - Toolbar (Tải lại / Thêm mới / Xuất Excel buttons matching TPOS palette)
+ *   - Toolbar (Tải lại / Thêm mới / Xuất Excel buttons matching WEB2 palette)
  *   - Filter bar (search + status + limit)
- *   - Table with TPOS classes (.data-table + web2-theme)
+ *   - Table with WEB2 classes (.data-table + web2-theme)
  *   - Pagination
  *   - Create/Edit modal driven by `fields` config
  *

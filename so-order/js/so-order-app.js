@@ -3299,7 +3299,7 @@ window.addEventListener('load', () => {
 
     function _generateKhoCode(name) {
         // Sinh mã ngắn dạng KHO-<short hash>-<timestamp36>. Mã không phụ
-        // thuộc tên (TPOS-style) — sẽ unique cao, không trùng giữa nhiều
+        // thuộc tên (WEB2-style) — sẽ unique cao, không trùng giữa nhiều
         // máy nhờ phần timestamp + random.
         const base =
             String(name || '')

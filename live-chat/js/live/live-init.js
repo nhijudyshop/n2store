@@ -687,7 +687,7 @@ const LiveColumnManager = {
             await Promise.all(
                 batch.map(async ([userId, crmTeamId]) => {
                     // Warehouse lookup chỉ cần fb_id (userId) — KHÔNG cần crmTeamId
-                    // (guard !crmTeamId cũ thời TPOS chặn nhầm enrich khi page pages.fm
+                    // (guard !crmTeamId cũ thời WEB2 chặn nhầm enrich khi page pages.fm
                     // không có .Id → SĐT/địa chỉ rỗng).
                     if (state.partnerCache.has(userId)) return;
                     if (state.partnerFetchPromises.has(userId))

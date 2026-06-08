@@ -37,8 +37,8 @@
         cache: {},
         // Stats summary (aggregate across ALL customers, not just current page)
         stats: {},
-        // TPOS partner enrichment per phone (only for visible page)
-        tposPartners: {},
+        // WEB2 partner enrichment per phone (only for visible page)
+        web2Partners: {},
         activePhone: null,
         detailTab: 'orders',
         sort: 'balance-desc',
@@ -129,9 +129,9 @@
     const AGGREGATE_BASE = `${PROXY}/api/web2/customer-wallet`;
     const AGGREGATE_FALLBACK = `${FALLBACK}/api/web2/customer-wallet`;
 
-    // V2 (2026-05-30): TPOS Partner làm primary source + overlay Web 2.0
+    // V2 (2026-05-30): WEB2 Partner làm primary source + overlay Web 2.0
     // wallet/debt data per page. Replaces /aggregate (chỉ list KH có web2
-    // activity). Giờ list toàn bộ TPOS customers (5000+ KH), debt/wallet là
+    // activity). Giờ list toàn bộ WEB2 customers (5000+ KH), debt/wallet là
     // overlay → KH chưa CK vẫn xuất hiện với balance 0 (cho phép tạo QR).
     async function fetchOverlay(phones) {
         const opts = {
@@ -147,8 +147,8 @@
     }
 
     // Hybrid filter mode: 'debt' / 'has_balance' / 'paid_off' chỉ áp KH có
-    // web2 activity → dùng /aggregate (server filter + paginate). 'all' / TPOS
-    // status (vip/warning/bomb) → dùng TPOS source.
+    // web2 activity → dùng /aggregate (server filter + paginate). 'all' / WEB2
+    // status (vip/warning/bomb) → dùng WEB2 source.
     async function fetchAggregateWeb2Only(opts) {
         const params = new URLSearchParams();
         params.set('limit', String(opts.limit || 50));
@@ -424,12 +424,12 @@
         renderPagination();
 
         // Stats overlay:
-        // - Header counter pill = TPOS total (full customer base, 90k+)
-        // - Stat cards: Tổng KH (TPOS) + Có hoạt động Web 2.0 (web2 stats)
+        // - Header counter pill = WEB2 total (full customer base, 90k+)
+        // - Stat cards: Tổng KH (WEB2) + Có hoạt động Web 2.0 (web2 stats)
         const s = state.stats || {};
         const web2Total = Number(s.total) || 0;
-        const tposTotal = Number(state.total) || 0; // primary source khi filter=all/vip/warning/bomb
-        const headerTotal = tposTotal || web2Total;
+        const stateTotal = Number(state.total) || 0; // primary source khi filter=all/vip/warning/bomb
+        const headerTotal = web2Total || stateTotal;
         const filteredDebt = items.reduce((acc, c) => acc + Math.max(0, c.balance || 0), 0);
         dom.totalCustomers.textContent = `${items.length} / ${headerTotal.toLocaleString('vi-VN')} KH`;
         dom.totalOutstanding.textContent = `Công nợ filter: ${fmtVnd(filteredDebt)}`;
@@ -443,11 +443,11 @@
         if (dom.chipDebt) dom.chipDebt.textContent = (s.debt_count || 0).toLocaleString('vi-VN');
         if (dom.chipBalance)
             dom.chipBalance.textContent = (s.has_balance_count || 0).toLocaleString('vi-VN');
-        // VIP/Warning/Bomb counts require TPOS data — leave dash until TPOS loads
-        // (these filters are still implemented client-side via TPOS partner status)
-        if (dom.chipVip) dom.chipVip.textContent = state.tposPartnerCounts?.vip ?? '—';
-        if (dom.chipWarn) dom.chipWarn.textContent = state.tposPartnerCounts?.warning ?? '—';
-        if (dom.chipBomb) dom.chipBomb.textContent = state.tposPartnerCounts?.bomb ?? '—';
+        // VIP/Warning/Bomb counts require WEB2 data — leave dash until WEB2 loads
+        // (these filters are still implemented client-side via WEB2 partner status)
+        if (dom.chipVip) dom.chipVip.textContent = state.web2PartnerCounts?.vip ?? '—';
+        if (dom.chipWarn) dom.chipWarn.textContent = state.web2PartnerCounts?.warning ?? '—';
+        if (dom.chipBomb) dom.chipBomb.textContent = state.web2PartnerCounts?.bomb ?? '—';
 
         document.querySelectorAll('#cwChips .cw-chip').forEach((b) => {
             b.classList.toggle('is-active', b.dataset.filter === state.quickFilter);
@@ -487,8 +487,8 @@
         dom.pageButtons.innerHTML = btns.join('');
     }
 
-    function tposPartnerBadge(phone) {
-        const partner = state.tposPartners[phone];
+    function web2PartnerBadge(phone) {
+        const partner = state.web2Partners[phone];
         if (!partner || !partner.Status || partner.Status === 'Normal') return '';
         const text =
             partner.StatusText || window.PartnerCustomerApi?.STATUS_TEXT?.[partner.Status] || '';
@@ -502,8 +502,8 @@
 
     function cardHtml(c) {
         const debt = (c.balance || 0) > 0;
-        const partner = state.tposPartners[c.phone];
-        const tposPill = tposPartnerBadge(c.phone);
+        const partner = state.web2Partners[c.phone];
+        const web2Pill = web2PartnerBadge(c.phone);
         const carrier =
             partner?.NameNetwork || window.PartnerCustomerApi?.detectCarrier?.(c.phone) || '';
         // Server returns walletBalance directly (no nested object); only show
@@ -520,7 +520,7 @@
             <div class="sw-card" data-phone="${escapeHtml(c.phone)}">
                 <div class="sw-card-head">
                     <div>
-                        <div class="sw-card-name">${escapeHtml(c.name || '(không tên)')} ${tposPill}</div>
+                        <div class="sw-card-name">${escapeHtml(c.name || '(không tên)')} ${web2Pill}</div>
                         <div class="sw-card-phone">${escapeHtml(c.phone)}${carrier ? ` <span class="cw-carrier">· ${escapeHtml(carrier)}</span>` : ''} ${w2Pill}</div>
                     </div>
                     <span class="sw-card-badge ${debt ? 'is-debt' : ''}">${debt ? 'Còn nợ' : 'Đủ'}</span>
@@ -560,7 +560,7 @@
     }
     function renderDetailExtras(phone) {
         const c = state.cache[phone];
-        const partner = state.tposPartners[phone];
+        const partner = state.web2Partners[phone];
         const w2 = c
             ? {
                   balance: c.walletBalance,
@@ -573,8 +573,8 @@
         if (c.pbhCount > 0) parts.push(`${c.pbhCount} PBH`);
         if (c.nativeCount > 0) parts.push(`${c.nativeCount} Đơn Web`);
         if (partner) {
-            const tposPill = tposPartnerBadge(phone);
-            if (tposPill) parts.push(tposPill);
+            const web2Pill = web2PartnerBadge(phone);
+            if (web2Pill) parts.push(web2Pill);
         }
         const editUrl = partner?.Id
             ? `../customers/index.html`
@@ -584,10 +584,10 @@
         );
         dom.detailSub.innerHTML = parts.join(' · ');
 
-        let extras = document.getElementById('cwTposExtras');
+        let extras = document.getElementById('cwWeb2Extras');
         if (!extras) {
             extras = document.createElement('div');
-            extras.id = 'cwTposExtras';
+            extras.id = 'cwWeb2Extras';
             extras.className = 'cw-web2-extras';
             dom.detailSub.parentNode.appendChild(extras);
         }
@@ -689,9 +689,9 @@
         try {
             const r = await qrFetch(`/${encodeURIComponent(phone)}/qr`);
             if (r.status === 404) {
-                // Auto-create: gọi POST UPSERT (backend tự lookup TPOS partner_id)
+                // Auto-create: gọi POST UPSERT (backend tự lookup WEB2 partner_id)
                 const c = state.cache[phone];
-                const partner = state.tposPartners[phone];
+                const partner = state.web2Partners[phone];
                 const post = await qrFetch(`/${encodeURIComponent(phone)}/qr`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -715,7 +715,7 @@
         const phone = state.activePhone;
         if (!phone) return;
         const c = state.cache[phone];
-        const partner = state.tposPartners[phone];
+        const partner = state.web2Partners[phone];
         const btnCreate = document.getElementById('cwQrCreate');
         const btnUpsert = document.getElementById('cwQrUpsert');
         const targetBtn = btnUpsert?.offsetParent ? btnUpsert : btnCreate;
@@ -835,20 +835,20 @@
         }
     }
 
-    // ─── TPOS enrichment (current page only, non-blocking) ────────────
-    async function enrichTposForCurrentPage() {
+    // ─── WEB2 enrichment (current page only, non-blocking) ────────────
+    async function enrichWeb2ForCurrentPage() {
         if (!window.PartnerCustomerApi?.listByPhones) return;
         const phones = state.rows
             .map((r) => r.phone)
-            .filter((p) => p && p.length >= 9 && !state.tposPartners[p]);
+            .filter((p) => p && p.length >= 9 && !state.web2Partners[p]);
         if (!phones.length) return;
         try {
             // Concurrency 8 — chỉ enrich 50 phones tối đa (current page size)
             const map = await window.PartnerCustomerApi.listByPhones(phones, { concurrency: 8 });
             for (const [phone, partner] of map.entries()) {
-                state.tposPartners[phone] = partner;
+                state.web2Partners[phone] = partner;
                 // Cập nhật tên KH wallet-only nếu server trả về `<phone>` (chưa
-                // có name từ PBH/native) — TPOS partner thường có name chính xác.
+                // có name từ PBH/native) — WEB2 partner thường có name chính xác.
                 const row = state.rows.find((r) => r.phone === phone);
                 if (row && row.name === row.phone && partner.Name) {
                     row.name = partner.Name;
@@ -859,20 +859,20 @@
             if (
                 state.activePhone &&
                 !dom.detailModal.hidden &&
-                state.tposPartners[state.activePhone]
+                state.web2Partners[state.activePhone]
             ) {
                 renderDetailExtras(state.activePhone);
             }
         } catch (e) {
-            console.warn('[CW4] enrichTposForCurrentPage fail:', e.message);
+            console.warn('[CW4] enrichWeb2ForCurrentPage fail:', e.message);
         }
     }
 
-    // ─── Main load (TPOS primary + Web 2.0 overlay) ──────────────────
+    // ─── Main load (WEB2 primary + Web 2.0 overlay) ──────────────────
     // V2 architecture (2026-05-30):
-    //   1. Source primary = PartnerCustomerApi.list (TPOS Partner OData)
+    //   1. Source primary = PartnerCustomerApi.list (WEB2 Partner OData)
     //   2. Cho phones page hiện tại → POST /overlay-by-phones lấy wallet/debt
-    //   3. Merge: TPOS partner data + overlay → state.rows
+    //   3. Merge: WEB2 partner data + overlay → state.rows
     //   4. Client-side filter cho 'debt' / 'has_balance' (chỉ trên page)
     //   5. Stats vẫn từ /stats endpoint (web2 aggregate, có thể khác total
     //      nhưng vẫn hữu ích cho summary)
@@ -902,33 +902,33 @@
                 }));
                 state.rows = (aggResult?.data || []).map((r) => ({
                     ...r,
-                    tposStatus: 'Normal',
-                    tposActive: true,
+                    web2Status: 'Normal',
+                    web2Active: true,
                 }));
                 state.total = aggResult?.total || 0;
                 state.stats = statsResult?.data || {};
                 for (const r of state.rows) state.cache[r.phone] = r;
                 state.loading = false;
                 renderList();
-                enrichTposForCurrentPage().catch(() => {});
+                enrichWeb2ForCurrentPage().catch(() => {});
                 return;
             }
 
-            // TPOS-primary mode: list toàn bộ TPOS customers + overlay web2 data
-            const tposOpts = {
+            // WEB2-primary mode: list toàn bộ WEB2 customers + overlay web2 data
+            const web2Opts = {
                 top: state.pageSize,
                 skip: (state.page - 1) * state.pageSize,
                 orderby: 'DateCreated desc',
             };
-            if (state.search) tposOpts.search = state.search;
-            if (state.quickFilter === 'vip') tposOpts.status = 'VIP';
-            else if (state.quickFilter === 'warning') tposOpts.status = 'Warning';
-            else if (state.quickFilter === 'bomb') tposOpts.status = 'BomHang';
+            if (state.search) web2Opts.search = state.search;
+            if (state.quickFilter === 'vip') web2Opts.status = 'VIP';
+            else if (state.quickFilter === 'warning') web2Opts.status = 'Warning';
+            else if (state.quickFilter === 'bomb') web2Opts.status = 'BomHang';
 
-            const tposResult = await window.PartnerCustomerApi.list(tposOpts);
+            const web2Result = await window.PartnerCustomerApi.list(web2Opts);
             if (mySeq !== _loadSeq) return;
-            const partners = tposResult?.value || [];
-            const tposTotal = tposResult?.count || partners.length;
+            const partners = web2Result?.value || [];
+            const web2Total = web2Result?.count || partners.length;
 
             // Extract phones (normalize → 10-digit)
             const phones = partners
@@ -947,7 +947,7 @@
             const overlayMap = new Map();
             for (const o of overlayResult?.data || []) overlayMap.set(o.phone, o);
 
-            // Merge TPOS + overlay
+            // Merge WEB2 + overlay
             const merged = partners.map((p) => {
                 const phone = String(p.Phone || p.Mobile || '').replace(/\D/g, '');
                 const o = overlayMap.get(phone) || {};
@@ -955,8 +955,8 @@
                     phone,
                     name: p.Name || phone || '(không tên)',
                     customerId: p.Id,
-                    tposStatus: p.Status || 'Normal',
-                    tposActive: p.Active !== false,
+                    web2Status: p.Status || 'Normal',
+                    web2Active: p.Active !== false,
                     totalPurchased: o.totalPurchased || 0,
                     paidAmount: o.totalDeposited || 0,
                     returnedAmount: o.totalReturned || 0,
@@ -977,7 +977,7 @@
                 rows = rows.filter((r) => r.walletBalance > 0);
             }
 
-            // Client-side sort cho wallet-related (TPOS đã sort theo DateCreated)
+            // Client-side sort cho wallet-related (WEB2 đã sort theo DateCreated)
             if (state.sort === 'balance-desc') {
                 rows.sort((a, b) => b.balance - a.balance);
             } else if (state.sort === 'balance-asc') {
@@ -993,13 +993,13 @@
             }
 
             state.rows = rows;
-            state.total = tposTotal;
+            state.total = web2Total;
             state.stats = statsResult?.data || {};
 
-            // Cache rows + tposPartners cho detail modal & QR
+            // Cache rows + web2Partners cho detail modal & QR
             for (const p of partners) {
                 const phone = String(p.Phone || p.Mobile || '').replace(/\D/g, '');
-                if (phone) state.tposPartners[phone] = p;
+                if (phone) state.web2Partners[phone] = p;
             }
             for (const r of state.rows) state.cache[r.phone] = r;
 
@@ -1061,7 +1061,7 @@
             state.total = 0;
             state.page = 1;
             state.cache = {};
-            state.tposPartners = {};
+            state.web2Partners = {};
             renderList();
             notify('Đã clear cache. Đang reload từ Web 2.0…', 'info');
             await load();
@@ -1114,7 +1114,7 @@
             const headers = [
                 'Phone',
                 'Name',
-                'TPOS Status',
+                'WEB2 Status',
                 'Tổng mua',
                 'Đã thu',
                 'Đã trả',
@@ -1128,7 +1128,7 @@
             };
             const lines = [headers.map(csvEscape).join(',')];
             for (const c of items) {
-                const partner = state.tposPartners[c.phone];
+                const partner = state.web2Partners[c.phone];
                 lines.push(
                     [
                         c.phone,
@@ -1205,7 +1205,7 @@
             const btn = e.target.closest('.cw-chip[data-filter]');
             if (!btn) return;
             const f = btn.dataset.filter || 'all';
-            // VIP/Warning/Bomb hiện chưa hỗ trợ server-side (cần join TPOS).
+            // VIP/Warning/Bomb hiện chưa hỗ trợ server-side (cần join WEB2).
             // Giữ filter này local-only — load all + filter client-side. TODO.
             state.quickFilter = f;
             state.page = 1;

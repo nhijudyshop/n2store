@@ -16,7 +16,7 @@ const router = express.Router();
 // `customers` ở chatDb) nữa — tránh nhầm + đúng rule no cross-import.
 // 2026-06-07: kho KH warehouse Web 2.0 (web2_customers) — ĐỘC LẬP, KHÔNG TPOS.
 const {
-    getOrCreateCustomerFromTPOS,
+    getOrCreateWeb2OrderCustomer,
     lookupCustomerIdByPhone,
 } = require('../services/web2-order-customer-service');
 const web2WalletService = require('../services/web2-wallet-service');
@@ -771,16 +771,13 @@ router.post('/from-comment', async (req, res) => {
               ? `[${new Date().toLocaleString('vi-VN')}] ${pageTag}${String(b.message).slice(0, 500)}`
               : null;
 
-        // 2026-06-01 Web 2.0 ↔ TPOS customer 2-way sync.
-        // Resolve phone + address:
-        //   1. Nếu b.phone có → upsert customer từ TPOS phone (existing flow).
-        //   2. Nếu b.phone trống nhưng có b.fbUserId → lookup web2_customers.fb_id.
-        //      Tìm thấy → ENRICH phone + name + address từ customer record vào
-        //      native_order (per user 2026-06-01: "tpos-pancake tạo đơn sao
-        //      không lấy địa chỉ và sđt của khách bên tpos?").
-        //   3. Nếu không tìm thấy local fb_id → leave empty, native-orders UI
-        //      sẽ hiện "Khách lạ" + button "Lấy info TPOS" để user trigger thủ
-        //      công.
+        // Resolve KH từ kho warehouse Web 2.0 (web2_customers) — ĐỘC LẬP, KHÔNG
+        // TPOS, KHÔNG Web 1.0:
+        //   1. Có b.phone → get/create KH trong warehouse theo SĐT.
+        //   2. Không SĐT nhưng có b.fbUserId → lookup warehouse theo fb_id, enrich
+        //      phone/name/address vào đơn.
+        //   3. Không tìm thấy → để trống, UI hiện "Khách lạ" (KH sẽ được tạo khi
+        //      có SĐT).
         let customerId = null;
         let enrichedPhone = b.phone || null;
         let enrichedName = b.fbUserName || null;
@@ -788,7 +785,7 @@ router.post('/from-comment', async (req, res) => {
 
         if (b.phone) {
             try {
-                const created = await getOrCreateCustomerFromTPOS(pool, b.phone, {
+                const created = await getOrCreateWeb2OrderCustomer(pool, b.phone, {
                     name: b.fbUserName || b.customerName || undefined,
                     address: b.address || undefined,
                     fb_id: b.fbUserId || undefined,

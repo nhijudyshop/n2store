@@ -27,7 +27,7 @@
 
     if (window.DeliveryMethodPicker) return; // idempotent
 
-    // Default option set — matches the TPOS dropdown user provided.
+    // Default option set — matches the WEB2 dropdown user provided.
     // Admin/UI can override by passing a custom `options` array to pick().
     // Order matters when keyword counts tie: earlier wins.
     const OPTIONS = [
@@ -168,7 +168,7 @@
 
     // Backend-loaded options (replaces hardcoded OPTIONS when fetch succeeds).
     // Single source of truth = /api/web2/deliveryzone/list — entity RIÊNG cho
-    // vùng giao hàng (KHÔNG dùng `deliverycarrier` vì entity đó bị TPOS sync
+    // vùng giao hàng (KHÔNG dùng `deliverycarrier` vì entity đó bị WEB2 sync
     // ghi đè record không có keyword/fee). Admin quản lý ở web2/delivery-zone/.
     const BACKEND_ENTITY = 'deliveryzone';
     let _liveOptions = null; // set on successful fetch

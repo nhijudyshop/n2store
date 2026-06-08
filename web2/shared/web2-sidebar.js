@@ -1,6 +1,6 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
- * TPOS-clone sidebar for Web 2.0 pages.
+ * WEB2-clone sidebar for Web 2.0 pages.
  * Web 2.0 sidebar navigation (web2/<slug>/index.html).
  * Ours-counterpart routes go under /web2/<slug>/index.html.
  *
@@ -57,7 +57,7 @@
         if (!global.Web2Auth) inject('web2-auth.js', '20260518a');
     })();
 
-    // Group definitions matching TPOS sidebar structure.
+    // Group definitions matching WEB2 sidebar structure.
     // For routes already implemented in our project: `our` field points to the URL.
     // Routes not yet implemented (placeholder): `our: null` — clicking shows "Coming soon".
     const NAV = [
@@ -214,7 +214,7 @@
                     label: 'Pancake (Token)',
                     icon: 'key-round',
                     our: '../web2/pancake-settings/index.html',
-                    // Web 2.0-only page — no TPOS counterpart.
+                    // Web 2.0-only page — no WEB2 counterpart.
                 },
                 {
                     label: 'Phương thức giao hàng',
@@ -265,7 +265,7 @@
 
     // Explicit allow-list: chỉ những page user MUỐN có "- WEB 2.0" badge.
     // KHÔNG auto-detect URL pattern (web2/*) vì nhiều trang dưới web2/ vẫn là
-    // TPOS-clone (chưa code thật) — user chỉ muốn mark các trang user đã đầu tư
+    // WEB2-clone (chưa code thật) — user chỉ muốn mark các trang user đã đầu tư
     // code thật + custom logic.
     //
     // Quy ước: path tương đối từ project root (bỏ leading ../../ hoặc ../).

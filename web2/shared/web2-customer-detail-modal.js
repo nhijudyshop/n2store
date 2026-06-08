@@ -1,7 +1,7 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — modal chi tiết KH (balance-history). Đọc kho KH chung /api/web2/customers/*.
 // =====================================================================
 // Web2CustomerDetailModal — click tên KH ở balance-history → modal tổng hợp:
-//   • Thông tin: tên/SĐT/địa chỉ (sửa → PATCH /api/web2/customers/:id, warehouse độc lập TPOS)
+//   • Thông tin: tên/SĐT/địa chỉ (sửa → PATCH /api/web2/customers/:id, warehouse độc lập)
 //   • KH trùng SĐT (search by phone)
 //   • Lịch sử ví: nạp tiền / dùng tiền (web2_wallet_transactions)
 //   • Đơn hàng: Đơn Web + PBH + đếm thành công
@@ -180,7 +180,7 @@
                 <label class="w2cd-field"><span>Địa chỉ</span>
                     <input id="w2cdAddress" value="${esc(c.address || '')}" /></label>
                 <div class="w2cd-actions">
-                    <button type="button" class="w2cd-btn-save" id="w2cdSave" ${c.id ? '' : 'disabled title="Chưa có TPOS Id — không sửa được"'}>💾 Lưu → đồng bộ TPOS</button>
+                    <button type="button" class="w2cd-btn-save" id="w2cdSave" ${c.id ? '' : 'disabled title="Chưa có WEB2 Id — không sửa được"'}>💾 Lưu → đồng bộ WEB2</button>
                     <span id="w2cdSaveMsg" class="w2cd-savemsg"></span>
                 </div>
             </div>
@@ -261,7 +261,7 @@
             }`;
     }
 
-    // ----- Save (sửa → TPOS qua kho KH chung) -----
+    // ----- Save (sửa → WEB2 qua kho KH chung) -----
     async function saveCustomer() {
         const c = _data.customer || {};
         if (!c.id) return;
@@ -283,7 +283,7 @@
             });
             const d = await r.json();
             if (d.success) {
-                // 2026-06-07: kho KH warehouse độc lập TPOS — không còn sync TPOS.
+                // 2026-06-07: kho KH warehouse độc lập — warehouse độc lập.
                 msg.textContent = '✓ Đã lưu';
                 _data.customer = { ...c, ...payload };
                 window.notificationManager?.show?.('Đã lưu thông tin KH', 'success');

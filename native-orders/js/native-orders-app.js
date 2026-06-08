@@ -199,12 +199,12 @@
     }
 
     // Badge nhỏ inline cạnh product code — phân biệt nguồn add SP:
-    //   'livestream' — drag từ TPOS-Pancake inventory panel (chốt live).
+    //   'livestream' — drag từ WEB2-Pancake inventory panel (chốt live).
     //   'native'     — add trực tiếp từ picker trong modal sửa đơn.
     //   undefined    — SP cũ (trước migration), không hiển thị badge.
     function _renderSourceBadge(source) {
         if (source === 'livestream') {
-            return `<span class="product-source-badge src-live" title="SP được kéo từ TPOS-Pancake (livestream)"><i data-lucide="radio"></i>Livestream</span>`;
+            return `<span class="product-source-badge src-live" title="SP được kéo từ WEB2-Pancake (livestream)"><i data-lucide="radio"></i>Livestream</span>`;
         }
         if (source === 'native') {
             return `<span class="product-source-badge src-native" title="SP thêm trực tiếp từ modal sửa đơn"><i data-lucide="hand"></i>Trực tiếp</span>`;
@@ -213,7 +213,7 @@
     }
 
     // ---------- Livestream snapshot per product line ----------
-    // SP có fbCommentId (kéo từ TPOS-Pancake) → fetch thumbnail snapshot từ
+    // SP có fbCommentId (kéo từ WEB2-Pancake) → fetch thumbnail snapshot từ
     // livestream tại đúng moment comment. Cache module-wide để khỏi re-fetch.
     // 3 trạng thái cache: undefined (chưa fetch), null (đã fetch nhưng không
     // có thumbnail bytea), object (có thumbnail self-served).
@@ -454,7 +454,7 @@
     // Customer side-panel — slide-in từ phải viewport. Hover avatar 500ms
     // → fetch + slide-in. Mouse rời avatar VÀ panel → 250ms delay → ẩn.
     // KHÔNG overlap row content (panel ở right edge, fixed position).
-    // 3-source data: Pancake conversation + customers table + TPOS Partner live.
+    // 3-source data: Pancake conversation + customers table + WEB2 Partner live.
     // ====================================================================
     const _custPanelCache = new Map(); // fbUserId → { data, ts }
     const _CUST_PANEL_TTL = 15 * 60 * 1000;
@@ -612,7 +612,7 @@
                         : ''
                 }
                 <footer class="ncp-foot">
-                    Nguồn: Pancake (live) + TPOS Partner (địa chỉ live) + Customer 360 (lịch sử)
+                    Nguồn: Pancake (live) + WEB2 Partner (địa chỉ live) + Customer 360 (lịch sử)
                 </footer>
             </div>
         `;
@@ -634,7 +634,7 @@
             const customerUrl = phone
                 ? `${WORKER_URL}/api/web2/customers/search?search=${encodeURIComponent(phone)}&limit=1`
                 : null;
-            // 2026-06-08: Web 2.0 bỏ TPOS — KH info lấy từ warehouse + Pancake.
+            // 2026-06-08: Web 2.0 bỏ WEB2 — KH info lấy từ warehouse + Pancake.
             const [pancakeD, customerD] = await Promise.all([
                 fetch(pancakeUrl, { credentials: 'include', signal })
                     .then((r) => r.json())
@@ -720,11 +720,11 @@
         _scheduleCustPanelHide(250);
     }
 
-    // 2026-06-01: Thủ công lấy info KH từ TPOS qua Facebook_ASUserId
+    // 2026-06-01: Thủ công lấy info KH từ WEB2 qua Facebook_ASUserId
     // (cho đơn từ web2-pancake có FB ID nhưng rỗng phone/address/name).
-    // 2026-06-08: lookup info KH từ kho warehouse (Web 2.0 bỏ TPOS).
+    // 2026-06-08: lookup info KH từ kho warehouse (Web 2.0 bỏ WEB2).
     // UI-first: badge "Đang lấy..." optimistic, lỗi → rollback, success → render.
-    async function fetchCustomerFromTpos(code, fbUserId) {
+    async function fetchCustomerFromWeb2(code, fbUserId) {
         if (!fbUserId) {
             notify('Đơn này chưa có FB ID — không lookup được', 'warning');
             return;
@@ -747,7 +747,7 @@
         };
 
         const run = async () => {
-            // 2026-06-08: Web 2.0 bỏ TPOS — lookup info KH từ kho warehouse theo fb_id.
+            // 2026-06-08: Web 2.0 bỏ WEB2 — lookup info KH từ kho warehouse theo fb_id.
             const r = await fetch(`${WORKER_URL}/api/web2/customers/batch-by-fbid`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -758,26 +758,26 @@
             if (!r.ok || data.success === false) {
                 throw new Error(data.error || `Lookup kho KH lỗi ${r.status}`);
             }
-            const tposCust = data.data && data.data[fbUserId];
-            if (!tposCust) {
+            const web2Cust = data.data && data.data[fbUserId];
+            if (!web2Cust) {
                 throw new Error('Kho KH chưa có FB ID này — KH chưa từng nhắn/đặt');
             }
             // PATCH native_order với info mới (chỉ fill field còn rỗng,
             // không ghi đè data user đã sửa thủ công).
             const patchFields = {};
-            if (!order.customerName && tposCust.name) patchFields.customerName = tposCust.name;
-            if (!order.phone && tposCust.phone) patchFields.phone = tposCust.phone;
-            if (!order.address && tposCust.address) patchFields.address = tposCust.address;
+            if (!order.customerName && web2Cust.name) patchFields.customerName = web2Cust.name;
+            if (!order.phone && web2Cust.phone) patchFields.phone = web2Cust.phone;
+            if (!order.address && web2Cust.address) patchFields.address = web2Cust.address;
             if (Object.keys(patchFields).length === 0) {
-                return { tposCust, patchedOrder: order, noop: true };
+                return { web2Cust, patchedOrder: order, noop: true };
             }
             const resp = await window.NativeOrdersApi.update(code, patchFields);
-            return { tposCust, patchedOrder: resp?.order || null };
+            return { web2Cust, patchedOrder: resp?.order || null };
         };
 
         const onSuccess = (result) => {
             if (result?.noop) {
-                notify('TPOS không có info mới — đơn đã đủ data', 'info');
+                notify('WEB2 không có info mới — đơn đã đủ data', 'info');
                 renderRows(); // re-enable button
                 return;
             }
@@ -785,15 +785,15 @@
                 const idx = STATE.orders.findIndex((x) => x.code === code);
                 if (idx !== -1) STATE.orders[idx] = result.patchedOrder;
                 const filled = [];
-                if (result.tposCust?.name && !order.customerName) filled.push('tên');
-                if (result.tposCust?.phone && !order.phone) filled.push('SĐT');
-                if (result.tposCust?.address && !order.address) filled.push('địa chỉ');
+                if (result.web2Cust?.name && !order.customerName) filled.push('tên');
+                if (result.web2Cust?.phone && !order.phone) filled.push('SĐT');
+                if (result.web2Cust?.address && !order.address) filled.push('địa chỉ');
                 notify(
-                    filled.length ? `Đã lấy ${filled.join(' + ')} từ TPOS` : 'Đã sync với TPOS',
+                    filled.length ? `Đã lấy ${filled.join(' + ')} từ WEB2` : 'Đã sync với WEB2',
                     'success'
                 );
             } else {
-                notify('TPOS trả về rỗng', 'warning');
+                notify('WEB2 trả về rỗng', 'warning');
             }
             renderRows();
             // Invalidate panel cache cho fbUserId này để hover tiếp sau hiện data mới
@@ -806,7 +806,7 @@
         };
 
         // KHÔNG dùng successMsg — Web2Optimistic fire nó NGAY sau apply() (trước backend).
-        // Lấy TPOS cần notify thực sự khi backend confirm có data → notify trong onSuccess.
+        // Lấy WEB2 cần notify thực sự khi backend confirm có data → notify trong onSuccess.
         if (window.Web2Optimistic?.run) {
             Web2Optimistic.run({
                 snapshot: () => null,
@@ -814,7 +814,7 @@
                 run,
                 onSuccess,
                 rollback,
-                errLabel: `lấy TPOS cho ${code}`,
+                errLabel: `lấy WEB2 cho ${code}`,
             });
         } else {
             apply();
@@ -823,7 +823,7 @@
                 onSuccess(result);
             } catch (e) {
                 rollback();
-                notify('Lỗi lấy TPOS: ' + e.message, 'error');
+                notify('Lỗi lấy WEB2: ' + e.message, 'error');
             }
         }
     }
@@ -947,9 +947,9 @@
             </tr>`;
     }
 
-    // TPOS Trạng thái column uses PLAIN TEXT (not pill). Color varies by status:
+    // WEB2 Trạng thái column uses PLAIN TEXT (not pill). Color varies by status:
     // draft → gray #808080, others → blue/red as appropriate. fw 700, fs 14px.
-    function tposStatusText(s) {
+    function web2StatusText(s) {
         const map = {
             draft: { label: 'Nháp', cls: '' },
             confirmed: { label: 'Đơn hàng', cls: 'confirmed' },
@@ -1193,7 +1193,7 @@
                             <input type="checkbox" class="row-check" value="${escapeHtml(o.code)}">
                             <span class="web2-row-stt">${sttValue}</span>
                             <!-- 2026-06-01: trạng thái đơn moved into STT cell (per user) -->
-                            <div class="web2-row-status-inline">${tposStatusText(o.status)}</div>
+                            <div class="web2-row-status-inline">${web2StatusText(o.status)}</div>
                             ${orderDerivedBadges(o)}
                         </div>
                     </td>
@@ -1284,16 +1284,16 @@
                                     ${
                                         o.customerName
                                             ? `<span class="web2-customer-name">${escapeHtml(o.customerName)}</span>`
-                                            : `<span class="web2-customer-name web2-customer-stranger" title="Đơn chưa có tên KH — hover avatar hoặc bấm nút TPOS bên dưới">Khách lạ</span>`
+                                            : `<span class="web2-customer-name web2-customer-stranger" title="Đơn chưa có tên KH — hover avatar hoặc bấm nút WEB2 bên dưới">Khách lạ</span>`
                                     }
                                     ${statusPill}
                                     <span class="no-wallet-pill" data-w2wallet-phone="${escapeHtml(o.phone || '')}"></span>
                                     ${
                                         (!o.customerName || !o.phone || !o.address) && o.fbUserId
                                             ? `<button class="web2-fetch-web2-btn"
-                                                onclick="event.stopPropagation();NativeOrdersApp.fetchCustomerFromTpos('${escapeHtml(o.code)}', '${escapeHtml(o.fbUserId)}')"
-                                                title="Lấy SĐT + địa chỉ + tên từ TPOS (search theo FB ID)">
-                                            <i data-lucide="download-cloud" style="width:11px;height:11px;"></i> Lấy TPOS
+                                                onclick="event.stopPropagation();NativeOrdersApp.fetchCustomerFromWeb2('${escapeHtml(o.code)}', '${escapeHtml(o.fbUserId)}')"
+                                                title="Lấy SĐT + địa chỉ + tên từ WEB2 (search theo FB ID)">
+                                            <i data-lucide="download-cloud" style="width:11px;height:11px;"></i> Lấy WEB2
                                         </button>`
                                             : ''
                                     }
@@ -1737,7 +1737,7 @@
         dd.style.display = next ? 'block' : 'none';
     }
 
-    function syncFromTposPancake() {
+    function syncFromWeb2Pancake() {
         try {
             const shared = localStorage.getItem(TPOS_PANCAKE_KEY);
             const ids = shared ? JSON.parse(shared) || [] : [];
@@ -1749,8 +1749,8 @@
             load();
             notify(
                 ids.length
-                    ? `Đã đồng bộ ${ids.length} chiến dịch từ Tpos-Pancake`
-                    : 'Tpos-Pancake chưa chọn chiến dịch — hiển thị tất cả',
+                    ? `Đã đồng bộ ${ids.length} chiến dịch từ Web2-Pancake`
+                    : 'Web2-Pancake chưa chọn chiến dịch — hiển thị tất cả',
                 'info'
             );
         } catch (e) {
@@ -1789,7 +1789,7 @@
                 <i data-lucide="lock" style="width:20px;height:20px;color:#92400e;flex-shrink:0;margin-top:1px;"></i>
                 <div style="flex:1;font-size:13px;color:#78350f;line-height:1.5;">
                     <strong>Đơn đã tạo PBH — không thể chỉnh sửa giỏ sản phẩm.</strong><br>
-                    Để sửa SP, hãy <strong>hủy PBH</strong> rồi mở lại, hoặc <strong>kéo SP mới</strong> từ TPOS panel lên cùng khách để tạo đơn mới (PBH mới).
+                    Để sửa SP, hãy <strong>hủy PBH</strong> rồi mở lại, hoặc <strong>kéo SP mới</strong> từ WEB2 panel lên cùng khách để tạo đơn mới (PBH mới).
                 </div>
                 <button type="button" class="btn-primary" style="background:#dc2626;font-size:12px;padding:6px 12px;flex-shrink:0;" onclick="NativeOrdersApp.cancelPbhFromEdit('${escapeHtml(code)}')">
                     <i data-lucide="x-circle" style="width:14px;height:14px;"></i> Hủy PBH
@@ -2517,7 +2517,7 @@
         // Resolve delivery option list + auto-pick by address.
         // Options nguồn từ entity `deliveryzone` (config Web 2.0 riêng, admin quản
         // ở web2/delivery-zone) qua DeliveryMethodPicker; fallback hardcoded OPTIONS
-        // nếu API fail/trống. KHÔNG dùng `deliverycarrier` (TPOS shadow đã tắt
+        // nếu API fail/trống. KHÔNG dùng `deliverycarrier` (WEB2 shadow đã tắt
         // 2026-06-07) — dữ liệu ĐVVC ít, hardcode + deliveryzone là đủ.
         const DMP = window.DeliveryMethodPicker;
         const deliveryOpts = DMP ? await DMP.getOptionsAsync() : [];
@@ -4182,13 +4182,13 @@
             STATE.page = 1;
             load();
         });
-        $('#campaignSyncTpos')?.addEventListener('click', syncFromTposPancake);
+        $('#campaignSyncWeb2')?.addEventListener('click', syncFromWeb2Pancake);
         // Live cross-tab sync — when web2-pancake updates its selection, refresh ours
         window.addEventListener('storage', (e) => {
             if (e.key === TPOS_PANCAKE_KEY) {
                 // Only auto-sync if user hasn't made an own selection (own key still null)
                 if (localStorage.getItem(CAMPAIGN_STORAGE_KEY) == null) {
-                    syncFromTposPancake();
+                    syncFromWeb2Pancake();
                 }
             }
         });
@@ -4476,7 +4476,7 @@
                                 <button type="button" class="w2-inbox-icon-btn" title="Lịch sử mua" data-action="open-history"><i data-lucide="history" style="width:14px;height:14px;"></i></button>
                                 <button type="button" class="w2-inbox-icon-btn" title="Thông tin khách" data-action="toggle-info"><i data-lucide="user" style="width:14px;height:14px;"></i></button>
                                 <button type="button" class="w2-inbox-icon-btn" title="Đơn liên quan" data-action="open-orders"><i data-lucide="package" style="width:14px;height:14px;"></i></button>
-                                <button type="button" class="w2-inbox-icon-btn" data-action="open-pancake" title="Mở đầy đủ trong TPOS × Pancake"><i data-lucide="external-link" style="width:14px;height:14px;"></i></button>
+                                <button type="button" class="w2-inbox-icon-btn" data-action="open-pancake" title="Mở đầy đủ trong WEB2 × Pancake"><i data-lucide="external-link" style="width:14px;height:14px;"></i></button>
                                 <button onclick="NativeOrdersApp._closeInteractions()" title="Đóng" style="width:30px;height:30px;background:transparent;border:1px solid transparent;font-size:18px;cursor:pointer;color:#94a3b8;line-height:1;border-radius:6px;margin-left:4px;">×</button>
                             </div>
                         </div>
@@ -8694,7 +8694,7 @@
                                 <i data-lucide="facebook" style="width:11px;height:11px;"></i> Facebook
                             </a>
                             <a href="${pancakeUrl(cid)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#7c3aed;text-decoration:none;padding:4px 8px;border:1px solid #ede9fe;border-radius:4px;">
-                                <i data-lucide="external-link" style="width:11px;height:11px;"></i> TPOS Pancake
+                                <i data-lucide="external-link" style="width:11px;height:11px;"></i> WEB2 Pancake
                             </a>
                         </div>
                     </div>
@@ -8719,7 +8719,7 @@
                 </div>`;
                     })
                     .join('')}
-                ${canReply ? '' : '<div style="background:#fef3c7;color:#92400e;font-size:11px;padding:8px 12px;border-radius:4px;">⚠ Đơn không có fb_page_id → không thể trả lời. Mở trong TPOS × Pancake.</div>'}
+                ${canReply ? '' : '<div style="background:#fef3c7;color:#92400e;font-size:11px;padding:8px 12px;border-radius:4px;">⚠ Đơn không có fb_page_id → không thể trả lời. Mở trong WEB2 × Pancake.</div>'}
             </div>`;
     }
 
@@ -8887,8 +8887,8 @@
         // Customer side-panel (slide-in từ phải khi hover avatar 500ms)
         onCustAvatarEnter: _onCustAvatarEnter,
         onCustAvatarLeave: _onCustAvatarLeave,
-        // 2026-06-01: nút "Lấy TPOS" thủ công khi đơn từ web2-pancake rỗng phone/address
-        fetchCustomerFromTpos,
+        // 2026-06-01: nút "Lấy WEB2" thủ công khi đơn từ web2-pancake rỗng phone/address
+        fetchCustomerFromWeb2,
         // Debug surface — inspect realtime + chat state from devtools.
         // Verify realtime is WS-driven (not polling): open chat then run
         // `NativeOrdersApp._debug.injectFakeMessage('hello')` — bubble
@@ -8919,12 +8919,12 @@
                 });
                 return { ok: true, convId: _chatState.convId };
             },
-            // Inspect livestream snapshot cache (per-line thumbnails từ TPOS-Pancake).
+            // Inspect livestream snapshot cache (per-line thumbnails từ WEB2-Pancake).
             get snapCache() {
                 return Object.fromEntries(_snapCache);
             },
             // Simulate khi EDIT_LINES có fbCommentId — inject vào current modal +
-            // re-render. Test wiring không cần thật sự kéo SP từ TPOS.
+            // re-render. Test wiring không cần thật sự kéo SP.
             simulateLineCommentId(idx, commentId) {
                 if (!EDIT_LINES[idx]) return { err: 'no line at idx ' + idx };
                 EDIT_LINES[idx].fbCommentId = commentId;
