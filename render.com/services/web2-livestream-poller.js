@@ -167,6 +167,7 @@ async function fetchPostComments(pageId, pageName, postId, jwt) {
             if (!id || seen.has(id)) continue;
             seen.add(id);
             const from = c.from || (Array.isArray(c.customers) && c.customers[0]) || {};
+            const cust = (Array.isArray(c.customers) && c.customers[0]) || {};
             const phoneObj = Array.isArray(c.recent_phone_numbers)
                 ? c.recent_phone_numbers[0]
                 : null;
@@ -176,6 +177,7 @@ async function fetchPostComments(pageId, pageName, postId, jwt) {
                 pageId: String(pageId),
                 pageName,
                 fbId: from.id || from.fb_id || c.from_psid || null,
+                _custUuid: cust.id || null, // Pancake customer UUID (để fetch SĐT profile)
                 name: from.name || '',
                 message: c.snippet || c.last_sent_message || '',
                 createdTime: c.inserted_at || c.last_customer_interactive_at || null,
@@ -187,7 +189,51 @@ async function fetchPostComments(pageId, pageName, postId, jwt) {
         if (cv.length < 20) break;
         if (matched > 0 && added === 0) break; // trang lặp
     }
+    // Enrich SĐT từ CUSTOMER PROFILE Pancake (comment conversation ~0% có SĐT,
+    // nhưng profile customer có ~88% — recent_phone_numbers lưu từ order/chat cũ).
+    await _enrichPhonesFromProfile(pageId, comments, jwt);
     return comments;
+}
+
+// Cache SĐT theo customer UUID (TTL 6h) — tránh fetch lại mỗi cycle.
+const _custPhoneCache = new Map(); // uuid → { phone, ts }
+const CUST_PHONE_TTL_MS = 6 * 3600 * 1000;
+const PHONE_FETCH_CONCURRENCY = 4;
+
+async function _fetchCustomerPhone(pageId, uuid, jwt) {
+    const cached = _custPhoneCache.get(uuid);
+    if (cached && Date.now() - cached.ts < CUST_PHONE_TTL_MS) return cached.phone;
+    let phone = null;
+    try {
+        const d = await _pfm(`pages/${pageId}/customers/${encodeURIComponent(uuid)}`, jwt);
+        const c = d.customer || d.data || d || {};
+        const arr = c.recent_phone_numbers;
+        if (Array.isArray(arr) && arr.length) {
+            const p = arr[0];
+            phone = (typeof p === 'string' ? p : p.phone_number || p.phone || p.captured) || null;
+        }
+    } catch (_) {
+        /* bỏ qua */
+    }
+    _custPhoneCache.set(uuid, { phone, ts: Date.now() });
+    return phone;
+}
+
+async function _enrichPhonesFromProfile(pageId, comments, jwt) {
+    // Chỉ enrich comment CHƯA có phone + có customer UUID.
+    const need = comments.filter((c) => !c.phone && c._custUuid);
+    const uuids = [...new Set(need.map((c) => c._custUuid))];
+    const phoneByUuid = {};
+    for (let i = 0; i < uuids.length; i += PHONE_FETCH_CONCURRENCY) {
+        const batch = uuids.slice(i, i + PHONE_FETCH_CONCURRENCY);
+        const res = await Promise.all(batch.map((u) => _fetchCustomerPhone(pageId, u, jwt)));
+        batch.forEach((u, k) => {
+            if (res[k]) phoneByUuid[u] = res[k];
+        });
+    }
+    for (const c of need) {
+        if (phoneByUuid[c._custUuid]) c.phone = phoneByUuid[c._custUuid];
+    }
 }
 
 async function _cycle() {
