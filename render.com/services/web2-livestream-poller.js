@@ -112,6 +112,15 @@ async function getTokenForPage(pageId) {
     return _jwtValid(env) ? env : null;
 }
 
+// Trích SĐT VN từ text comment (khách tự gõ "0766..." / "+84..." khi live).
+function extractPhoneFromText(text) {
+    if (!text) return null;
+    const cleaned = String(text).replace(/[.\s()\-_]/g, '');
+    const m = cleaned.match(/(?:\+?84|0)(\d{9})(?!\d)/);
+    if (!m) return null;
+    return '0' + m[1];
+}
+
 async function _pfm(path, jwt) {
     const sep = path.includes('?') ? '&' : '?';
     const url = `${PANCAKE_API}/${path}${sep}access_token=${encodeURIComponent(jwt)}`;
@@ -181,7 +190,10 @@ async function fetchPostComments(pageId, pageName, postId, jwt) {
                 name: from.name || '',
                 message: c.snippet || c.last_sent_message || '',
                 createdTime: c.inserted_at || c.last_customer_interactive_at || null,
-                phone: phoneObj ? phoneObj.phone_number || phoneObj.phone || null : null,
+                // SĐT: recent_phone_numbers (Pancake detect) HOẶC khách tự gõ trong comment.
+                phone:
+                    (phoneObj ? phoneObj.phone_number || phoneObj.phone || null : null) ||
+                    extractPhoneFromText(c.snippet || c.last_sent_message || ''),
                 hasOrder: !!c.has_livestream_order,
             });
             added++;

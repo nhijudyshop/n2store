@@ -758,8 +758,12 @@ const LiveCommentList = {
         const pancakePhone = (() => {
             const arr = comment._phones;
             const ph = Array.isArray(arr) && arr.length ? arr[0] : null;
-            if (!ph) return '';
-            return (typeof ph === 'string' ? ph : ph.phone_number || ph.phone || '') || '';
+            if (ph) return (typeof ph === 'string' ? ph : ph.phone_number || ph.phone || '') || '';
+            // Khách tự gõ SĐT trong nội dung comment ("0766..." / "+84...").
+            const m = String(comment.message || '')
+                .replace(/[.\s()\-_]/g, '')
+                .match(/(?:\+?84|0)(\d{9})(?!\d)/);
+            return m ? '0' + m[1] : '';
         })();
         const phone = partner.Phone || kho?.phone || pancakePhone || '';
         const address = partner.Street || kho?.address || '';
