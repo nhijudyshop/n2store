@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b0f1f06` — feat(web2): balance-history tu cap nhat khi co GD moi (SSE web2:balance-history, khoi F5)
-**Last updated**: 2026-06-08 19:45:13 +07
-**Latest session**: [`RESUME:20260608-194513-b0f1f06`](../20260608-194513-b0f1f06.md)
-**Summary**: feat(web2): balance-history tu cap nhat khi co GD moi (SSE web2:balance-history, khoi F5)
+**Latest commit**: `76bfd66` — feat(web2): SDT phu cho KH (uu tien kho, khong ghi de) - giong dedup 1 KH nhieu SDT
+**Last updated**: 2026-06-08 20:02:24 +07
+**Latest session**: [`RESUME:20260608-200224-76bfd66`](../20260608-200224-76bfd66.md)
+**Summary**: feat(web2): SDT phu cho KH (uu tien kho, khong ghi de) - giong dedup 1 KH nhieu SDT
 
 ## Folders affected in this commit
 
+- [`live-chat/`](./live-chat.md) — 2 file(s)
 - [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -38,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-08 19:13
+- [`live-chat/`](./live-chat.md) — updated 2026-06-08 20:02
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-08 12:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
@@ -51,7 +51,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-08 19:45
+- [`render.com/`](./render.com.md) — updated 2026-06-08 20:02
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-07 16:00
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
