@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4519089` — auto: session update
-**Last updated**: 2026-06-08 09:55:45 +07
-**Latest session**: [`RESUME:20260608-095545-4519089`](../20260608-095545-4519089.md)
+**Latest commit**: `bd7e81f` — auto: session update
+**Last updated**: 2026-06-08 09:59:56 +07
+**Latest session**: [`RESUME:20260608-095956-bd7e81f`](../20260608-095956-bd7e81f.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 4 file(s)
-- [`web2/`](./web2.md) — 13 file(s)
+- [`issue-tracking/`](./issue-tracking.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -39,7 +35,7 @@
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-04 16:34
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-06 12:22
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 09:59
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`live-chat/`](./live-chat.md) — updated 2026-06-07 19:58
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
