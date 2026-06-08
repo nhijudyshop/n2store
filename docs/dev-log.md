@@ -2,6 +2,23 @@
 
 ## 2026-06-08
 
+### [live-chat][web2] Load SĐT/địa chỉ KH vào live-chat (backfill fb_id↔phone) ✅
+
+User: "load sđt, địa chỉ khách nếu có vào live-chat".
+
+**Bug:** live-chat match KH theo FB id của comment, nhưng warehouse (TPOS import) keyed theo phone, KHÔNG có fb_id → 0 match → SĐT/địa chỉ rỗng.
+
+**Fix (warehouse self-sufficient, không couple runtime Web1):**
+
+- `admin POST /api/admin/web2-import-fb-links`: đọc Web 1.0 `customers` (fb_id IS NOT NULL, 3726 rows / 3725 phones) → upsert warehouse theo phone, set `fb_id` + gom mọi fb_id/SĐT vào `fb_psids` ({fbId:fbId}) cho "1 SĐT nhiều FB". Read-only Web1, 1 lần. Kết quả: 3580 updated + 145 inserted.
+- `batch-by-fbid`: match `fb_id = ANY OR fb_psids ?| ids` (đa tài khoản).
+- `live-init.loadPartnerInfoForComments`: bỏ guard `!crmTeamId` (warehouse chỉ cần fb_id).
+- LiveKhoEnricher (đã wire sẵn, đọc warehouse) + partnerCache → fill SĐT/địa chỉ.
+
+**Verify:** live-chat 200 dòng comment → 25 hiện SĐT (KH có trong kho); batch-by-fbid 50/80 match. Coverage tăng dần khi KH order/link thêm.
+
+**Status:** ✅ Done.
+
 ### [orders] issue-tracking: nút "Copy hình bill" (bill TPOS thật, giống tab BÁN HÀNG) ✅
 
 User: thêm nút copy hình bill phiếu bán hàng ở modal "Đơn hàng của khách" → **"lấy bill giống bên #ban-hang"** (tab BÁN HÀNG dùng bill in chính thức của TPOS).
