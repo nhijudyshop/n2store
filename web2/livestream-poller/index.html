@@ -1,0 +1,240 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — cài đặt trang tự lấy comment livestream (server poller). -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Cài đặt lấy comment Live - WEB 2.0</title>
+        <link rel="stylesheet" href="../../web2/shared/web2-sidebar.css?v=20260608" />
+        <link rel="stylesheet" href="../../native-orders/css/web2-theme.css?v=20260608" />
+        <link rel="stylesheet" href="../../web2/shared/web2-theme.css?v=20260608" />
+        <style>
+            .lp-wrap {
+                max-width: 880px;
+                margin: 0 auto;
+                padding: 24px 20px;
+            }
+            .lp-card {
+                background: #fff;
+                border: 1px solid var(--web2-border, #e5e7eb);
+                border-radius: 12px;
+                padding: 18px 20px;
+                margin-bottom: 18px;
+            }
+            .lp-card h2 {
+                font-size: 15px;
+                margin: 0 0 12px;
+            }
+            .lp-row {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 10px 0;
+                border-bottom: 1px solid #f1f5f9;
+            }
+            .lp-row:last-child {
+                border-bottom: 0;
+            }
+            .lp-name {
+                font-weight: 600;
+                flex: 1;
+                min-width: 0;
+            }
+            .lp-sub {
+                font-size: 12px;
+                color: #6b7280;
+            }
+            .lp-badge {
+                font-size: 11px;
+                padding: 2px 8px;
+                border-radius: 999px;
+                font-weight: 600;
+            }
+            .lp-on {
+                background: #dcfce7;
+                color: #166534;
+            }
+            .lp-off {
+                background: #fee2e2;
+                color: #991b1b;
+            }
+            .lp-btn {
+                border: 1px solid #d1d5db;
+                background: #fff;
+                border-radius: 7px;
+                padding: 5px 12px;
+                font-size: 12.5px;
+                cursor: pointer;
+            }
+            .lp-btn:hover {
+                background: #f3f4f6;
+            }
+            .lp-btn-danger {
+                color: #dc2626;
+                border-color: #fecaca;
+            }
+            .lp-form {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+                margin-top: 12px;
+            }
+            .lp-form input {
+                border: 1px solid #d1d5db;
+                border-radius: 7px;
+                padding: 7px 10px;
+                font-size: 13px;
+            }
+            .lp-stat {
+                font-size: 26px;
+                font-weight: 700;
+                color: var(--web2-primary, #6366f1);
+            }
+        </style>
+    </head>
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content">
+                <div class="lp-wrap">
+                    <h1 style="font-size: 20px; margin: 0 0 4px">📡 Cài đặt lấy comment Live</h1>
+                    <p class="lp-sub" style="margin: 0 0 20px">
+                        Server tự lấy comment khi trang đang livestream (cả khi không mở trình
+                        duyệt) → lưu kho. Bật/tắt từng trang.
+                    </p>
+
+                    <div class="lp-card">
+                        <h2>Tổng comment đã lưu</h2>
+                        <div class="lp-stat" id="lpStat">…</div>
+                    </div>
+
+                    <div class="lp-card">
+                        <h2>Trang tự lấy comment</h2>
+                        <div id="lpList"><div class="lp-sub">Đang tải…</div></div>
+                        <div class="lp-form">
+                            <input
+                                id="lpPageId"
+                                placeholder="Page ID (vd 270136663390370)"
+                                style="width: 220px"
+                            />
+                            <input id="lpPageName" placeholder="Tên trang" style="width: 160px" />
+                            <input
+                                id="lpPageUrl"
+                                placeholder="URL facebook (tuỳ chọn)"
+                                style="flex: 1; min-width: 180px"
+                            />
+                            <button class="lp-btn" id="lpAdd">+ Thêm trang</button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <script src="../../web2/shared/web2-auth.js?v=20260608"></script>
+        <script src="../../web2/shared/web2-sidebar.js?v=20260608"></script>
+        <script>
+            if (window.Web2Sidebar)
+                Web2Sidebar.mount('#web2Aside', { activeRoute: 'livestream-poller' });
+        </script>
+        <script>
+            (function () {
+                'use strict';
+                const API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-live-comments';
+                const $ = (s) => document.querySelector(s);
+                const esc = (s) =>
+                    String(s == null ? '' : s).replace(
+                        /[&<>"]/g,
+                        (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
+                    );
+
+                async function loadStat() {
+                    try {
+                        const d = await fetch(`${API}/stats`).then((r) => r.json());
+                        $('#lpStat').textContent =
+                            (d.count || 0).toLocaleString('vi-VN') + ' comment';
+                    } catch {
+                        $('#lpStat').textContent = '—';
+                    }
+                }
+
+                async function loadPages() {
+                    const list = $('#lpList');
+                    try {
+                        const d = await fetch(`${API}/poller-pages`).then((r) => r.json());
+                        const rows = d.data || [];
+                        if (!rows.length) {
+                            list.innerHTML = '<div class="lp-sub">Chưa có trang nào.</div>';
+                            return;
+                        }
+                        list.innerHTML = rows
+                            .map(
+                                (p) => `
+                            <div class="lp-row" data-id="${esc(p.page_id)}">
+                                <div class="lp-name">${esc(p.page_name || p.page_id)}
+                                    <div class="lp-sub">${esc(p.page_url || p.page_id)}</div>
+                                </div>
+                                <span class="lp-badge ${p.enabled ? 'lp-on' : 'lp-off'}">${p.enabled ? 'Đang lấy' : 'Tắt'}</span>
+                                <button class="lp-btn" data-act="toggle">${p.enabled ? 'Tắt' : 'Bật'}</button>
+                                <button class="lp-btn lp-btn-danger" data-act="del">Xoá</button>
+                            </div>`
+                            )
+                            .join('');
+                    } catch (e) {
+                        list.innerHTML = `<div class="lp-sub">Lỗi: ${esc(e.message)}</div>`;
+                    }
+                }
+
+                document.addEventListener('click', async (e) => {
+                    const btn = e.target.closest('[data-act]');
+                    if (!btn) return;
+                    const row = btn.closest('.lp-row');
+                    const id = row?.dataset.id;
+                    if (!id) return;
+                    const act = btn.dataset.act;
+                    try {
+                        if (act === 'toggle') {
+                            const on = btn.textContent.trim() === 'Bật';
+                            await fetch(`${API}/poller-pages/${encodeURIComponent(id)}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ enabled: on }),
+                            });
+                        } else if (act === 'del') {
+                            if (!confirm('Xoá trang này khỏi danh sách tự lấy comment?')) return;
+                            await fetch(`${API}/poller-pages/${encodeURIComponent(id)}`, {
+                                method: 'DELETE',
+                            });
+                        }
+                        loadPages();
+                    } catch (err) {
+                        alert('Lỗi: ' + err.message);
+                    }
+                });
+
+                $('#lpAdd').addEventListener('click', async () => {
+                    const pageId = $('#lpPageId').value.trim();
+                    if (!pageId) return alert('Nhập Page ID');
+                    try {
+                        await fetch(`${API}/poller-pages`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                pageId,
+                                pageName: $('#lpPageName').value.trim() || null,
+                                pageUrl: $('#lpPageUrl').value.trim() || null,
+                            }),
+                        });
+                        $('#lpPageId').value = $('#lpPageName').value = $('#lpPageUrl').value = '';
+                        loadPages();
+                    } catch (err) {
+                        alert('Lỗi: ' + err.message);
+                    }
+                });
+
+                loadStat();
+                loadPages();
+                setInterval(loadStat, 15000);
+            })();
+        </script>
+    </body>
+</html>

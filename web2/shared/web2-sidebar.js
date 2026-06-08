@@ -128,6 +128,10 @@
                     our: '../so-order/index.html',
                 },
                 { label: 'Live Chat', our: '../live-chat/index.html' },
+                {
+                    label: 'Cài đặt lấy comment Live',
+                    our: '../web2/livestream-poller/index.html',
+                },
             ],
         },
         {
