@@ -2,6 +2,18 @@
 
 ## 2026-06-08
 
+### [web2][live-chat] Server poller lưu comment livestream vào DB (pancake.vn) ✅
+
+Phát hiện: post bật "Ẩn tất cả bình luận" / "Ẩn bình luận có SĐT" → pages.fm public API thiếu comment. Verify: pancake.vn/api/v1 + PANCAKE_JWT (account) trả ĐỦ comment + recent_phone_numbers (cả post ẩn).
+
+- `render.com/routes/web2-live-comments.js`: table web2_live_comments (web2Db) + POST /bulk, GET /, GET /stats; SSE web2:live-comments; export upsertComments/ensureTables. Mount /api/web2-live-comments (+ worker route).
+- `render.com/services/web2-livestream-poller.js`: chạy nền Render mỗi 30s, đọc web2_live_poller_pages (seed NhiJudyHouse 117267091364524 + NhiJudyStore 270136663390370), nếu page đang livestream (hoặc vừa kết thúc <30') → kéo TẤT CẢ comment qua pancake.vn/api/v1 + account JWT (từ pancake_accounts, fallback env PANCAKE_JWT) → upsert web2_live_comments. Chạy CẢ KHI client off.
+- Verify: GET /api/web2-live-comments/stats = {success:true,count:0} (deploy OK, sẽ tăng khi live).
+
+CÒN LẠI (queued): live-chat đọc từ DB; trang settings poller pages + chiến dịch cha; thumbnail chụp khi tab active.
+
+**Status:** ✅ Foundation + poller deployed.
+
 ### [orders] inventory-tracking: bỏ gạch chéo + hiện rõ hơn cho NCC ẩn được reveal ✅
 
 User: "khi ẩn bỏ gạch chéo và cho hiện rõ hơn 1 ít".
