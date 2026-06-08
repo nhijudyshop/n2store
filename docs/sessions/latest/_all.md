@@ -3,18 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e512f88` — refactor(web2): quét sạch chữ 'tpos' trong Web 2.0 (identifiers/UI/comments)
-**Last updated**: 2026-06-08 12:26:49 +07
-**Latest session**: [`RESUME:20260608-122649-e512f88`](../20260608-122649-e512f88.md)
-**Summary**: refactor(web2): quét sạch chữ 'tpos' trong Web 2.0 (identifiers/UI/comments)
+**Latest commit**: `395b3e7` — fix(live-chat): bo lap comment (dedupe theo id o loadComments + merge)
+**Last updated**: 2026-06-08 12:34:15 +07
+**Latest session**: [`RESUME:20260608-123415-395b3e7`](../20260608-123415-395b3e7.md)
+**Summary**: fix(live-chat): bo lap comment (dedupe theo id o loadComments + merge)
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`native-orders/`](./native-orders.md) — 4 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 35 file(s)
+- [`live-chat/`](./live-chat.md) — 13 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -41,9 +39,9 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-08 12:26
+- [`live-chat/`](./live-chat.md) — updated 2026-06-08 12:34
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-08 12:26
+- [`native-orders/`](./native-orders.md) — updated 2026-06-08 12:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-06 18:52
@@ -73,4 +71,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-08 12:26
+- [`web2/`](./web2.md) — updated 2026-06-08 12:34
