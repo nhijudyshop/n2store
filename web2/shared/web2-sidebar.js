@@ -1,7 +1,7 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
  * TPOS-clone sidebar for Web 2.0 pages.
- * Mirrors the 87 routes crawled from tomato.tpos.vn /#/app/dashboard.
+ * Web 2.0 sidebar navigation (web2/<slug>/index.html).
  * Ours-counterpart routes go under /web2/<slug>/index.html.
  *
  * Usage (from /web2/<slug>/index.html):
@@ -66,29 +66,26 @@
             icon: 'home',
             single: true,
             our: '../web2/overview/index.html',
-            tpos: '#/app/dashboard',
         },
         {
             label: 'Tính năng mới',
             icon: 'sparkles',
             children: [
-                { label: 'Dashboard KPI', our: '../web2/dashboard/index.html', tpos: '' },
-                { label: 'KPI Nhân viên', our: '../web2/kpi/index.html', tpos: '' },
-                { label: 'Thông báo', our: '../web2/notifications/index.html', tpos: '' },
-                { label: 'Lịch sử thao tác', our: '../web2/audit-log/index.html', tpos: '' },
-                { label: 'Đối soát CK', our: '../web2/ck-dashboard/index.html', tpos: '' },
-                { label: 'Studio chụp tách nền', our: '../web2/photo-studio/index.html', tpos: '' },
-                { label: 'Phân quyền', our: '../web2/users-permissions/index.html', tpos: '' },
+                { label: 'Dashboard KPI', our: '../web2/dashboard/index.html' },
+                { label: 'KPI Nhân viên', our: '../web2/kpi/index.html' },
+                { label: 'Thông báo', our: '../web2/notifications/index.html' },
+                { label: 'Lịch sử thao tác', our: '../web2/audit-log/index.html' },
+                { label: 'Đối soát CK', our: '../web2/ck-dashboard/index.html' },
+                { label: 'Studio chụp tách nền', our: '../web2/photo-studio/index.html' },
+                { label: 'Phân quyền', our: '../web2/users-permissions/index.html' },
                 {
                     label: 'SSE Monitor (Admin)',
                     our: '../web2/admin-sse-monitor/index.html',
-                    tpos: '',
                     adminOnly: true,
                 },
                 {
                     label: 'Bảng dịch vụ & chi phí',
                     our: '../web2/services-dashboard/index.html',
-                    tpos: '',
                 },
             ],
         },
@@ -98,7 +95,6 @@
             children: [
                 {
                     label: 'Bán hàng (HĐ)',
-                    tpos: '#/app/fastsaleorder/invoicelist',
                     our: '../web2/fastsaleorder-invoice/index.html',
                 },
                 {
@@ -107,17 +103,14 @@
                 },
                 {
                     label: 'Trả hàng',
-                    tpos: '#/app/fastsaleorder/refundlist',
                     our: '../web2/fastsaleorder-refund/index.html',
                 },
                 {
                     label: 'Thu về',
                     our: '../web2/returns/index.html',
-                    tpos: '',
                 },
                 {
                     label: 'Phiếu giao hàng',
-                    tpos: '#/app/fastsaleorder/deliveryinvoice',
                     our: '../web2/fastsaleorder-delivery/index.html',
                 },
             ],
@@ -128,13 +121,11 @@
             children: [
                 {
                     label: 'Chiến dịch Live',
-                    tpos: '#/app/saleOnline/liveCampaign/list',
                     our: '../web2/live-campaign/index.html',
                 },
                 {
                     label: 'Đơn Web',
                     our: '../native-orders/index.html',
-                    tpos: '#/app/saleOnline/order/list',
                 },
                 {
                     label: 'Sổ Order',
@@ -185,7 +176,6 @@
                 },
                 {
                     label: 'Khách hàng (TPOS live)',
-                    tpos: '#/app/partner/customer/list1',
                     our: '../web2/partner-customer/index.html',
                 },
                 {
@@ -202,7 +192,6 @@
                 { label: 'Kho Biến Thể', our: '../web2/variants/index.html' },
                 {
                     label: 'Nhóm sản phẩm',
-                    tpos: '#/app/productcategory/list',
                     our: '../web2/product-category/index.html',
                 },
             ],
@@ -213,12 +202,10 @@
             children: [
                 {
                     label: 'Thống kê doanh thu',
-                    tpos: '#/app/report/reportRevenue/index',
                     our: '../web2/report-revenue/index.html',
                 },
                 {
                     label: 'Thống kê giao hàng',
-                    tpos: '#/app/fastsaleorder/deliveryreport/index',
                     our: '../web2/report-delivery/index.html',
                 },
             ],
@@ -356,7 +343,7 @@
         const cls = `web2-nav-sub-link${isActive ? ' active' : ''}`;
         const onclick = isImpl
             ? ''
-            : `onclick="event.preventDefault();Web2Sidebar.alertSoon('${escapeHtml(item.label)}','${escapeHtml(item.tpos || '')}')"`;
+            : `onclick="event.preventDefault();Web2Sidebar.alertSoon('${escapeHtml(item.label)}')"`;
         const soon = isImpl ? '' : ' <span class="web2-nav-soon">soon</span>';
         // Đuôi " - WEB 2.0" cho item có code thật trong project (per user request).
         const w2Tag = isWeb2Item(item) ? ' <span class="web2-nav-w2tag">- WEB 2.0</span>' : '';
@@ -372,7 +359,7 @@
             const cls = `web2-nav-link${isActive ? ' active' : ''}`;
             const onclick = isImpl
                 ? ''
-                : `onclick="event.preventDefault();Web2Sidebar.alertSoon('${escapeHtml(g.label)}','${escapeHtml(g.tpos || '')}')"`;
+                : `onclick="event.preventDefault();Web2Sidebar.alertSoon('${escapeHtml(g.label)}')"`;
             const w2Tag = isWeb2Item(g) ? ' <span class="web2-nav-w2tag">- WEB 2.0</span>' : '';
             return `<a href="${escapeHtml(href)}" class="${cls}" ${onclick}>
                 <i data-lucide="${g.icon}" class="icon"></i>
@@ -555,8 +542,8 @@
             }
         },
         renderUserFooter,
-        alertSoon(label, tpos) {
-            const msg = `"${label}" — chưa làm.\nTPOS gốc: ${tpos || '(không rõ)'}\nSẽ port qua Web 2.0 ở phase tiếp.`;
+        alertSoon(label) {
+            const msg = `"${label}" — chưa làm. Sẽ làm ở phase tiếp.`;
             if (window.notificationManager?.show) window.notificationManager.show(msg, 'info');
             else if (window.Popup) window.Popup.alert(msg, { type: 'info' });
             else alert(msg);
