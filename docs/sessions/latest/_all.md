@@ -3,15 +3,18 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `82a1322` — fix(web2): QR ví KH lấy customer_id từ kho warehouse (bỏ TPOS fallback)
-**Last updated**: 2026-06-08 11:23:41 +07
-**Latest session**: [`RESUME:20260608-112341-82a1322`](../20260608-112341-82a1322.md)
-**Summary**: fix(web2): QR ví KH lấy customer_id từ kho warehouse (bỏ TPOS fallback)
+**Latest commit**: `e512f88` — refactor(web2): quét sạch chữ 'tpos' trong Web 2.0 (identifiers/UI/comments)
+**Last updated**: 2026-06-08 12:26:49 +07
+**Latest session**: [`RESUME:20260608-122649-e512f88`](../20260608-122649-e512f88.md)
+**Summary**: refactor(web2): quét sạch chữ 'tpos' trong Web 2.0 (identifiers/UI/comments)
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
+- [`native-orders/`](./native-orders.md) — 4 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`so-order/`](./so-order.md) — 1 file(s)
+- [`web2/`](./web2.md) — 35 file(s)
 
 ## All folder snapshots
 
@@ -38,9 +41,9 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-08 11:08
+- [`live-chat/`](./live-chat.md) — updated 2026-06-08 12:26
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-08 09:55
+- [`native-orders/`](./native-orders.md) — updated 2026-06-08 12:26
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-06 18:52
@@ -51,13 +54,13 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-08 11:23
+- [`render.com/`](./render.com.md) — updated 2026-06-08 12:26
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-07 16:00
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-06 12:22
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
-- [`so-order/`](./so-order.md) — updated 2026-06-07 19:58
+- [`so-order/`](./so-order.md) — updated 2026-06-08 12:26
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-04 12:44
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
@@ -70,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-08 11:23
+- [`web2/`](./web2.md) — updated 2026-06-08 12:26
