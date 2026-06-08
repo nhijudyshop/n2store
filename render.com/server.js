@@ -637,6 +637,7 @@ app.use('/api/services-overview', servicesOverviewRoutes); // WEB2.0 Services da
 app.use('/api/admin', require('./routes/admin-web2-wallet-reset')); // WEB2.0 backup+reset ví/matching web2Db (auth via x-admin-secret)
 app.use('/api/admin', require('./routes/admin-web2-data-reset')); // WEB2.0 backup+wipe SP/đơn/PBH/cart (giữ KH) → tạo lại data ảo (auth via x-admin-secret)
 app.use('/api/admin', require('./routes/admin-web2-import-customers')); // WEB2.0 import KH TPOS→warehouse (dedupe phone, 1 lần, x-admin-secret)
+app.use('/api/admin', require('./routes/admin-web2-import-pancake-customers')); // WEB2.0 backfill SĐT+fb_id từ Pancake INBOX → kho (1 lần, x-admin-secret)
 app.use('/api/admin', require('./routes/admin-web2-import-fb-links')); // WEB2.0 backfill fb_id↔phone từ Web1 customers → warehouse (cho live-chat enrich)
 app.use('/api/web2-users', require('./routes/web2-users')); // WEB2.0 user account system
 const web2LiveCommentsRoutes = require('./routes/web2-live-comments'); // WEB2.0 kho comment livestream (auto-save + đọc lại đủ/bền)
