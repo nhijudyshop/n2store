@@ -71,6 +71,58 @@ async function ensureTables(pool) {
 
 const norm = (v) => (v == null ? null : String(v));
 
+// Upsert nhiều comment vào web2_live_comments. Dùng chung cho /bulk + server poller.
+async function upsertComments(pool, arr) {
+    if (!Array.isArray(arr) || !arr.length) return 0;
+    await ensureTables(pool);
+    const now = Date.now();
+    let saved = 0;
+    const BATCH = 200;
+    for (let i = 0; i < arr.length; i += BATCH) {
+        const chunk = arr.slice(i, i + BATCH).filter((c) => c && c.id);
+        if (!chunk.length) continue;
+        const params = [];
+        chunk.forEach((c) => {
+            params.push(
+                norm(c.id),
+                norm(c.postId),
+                norm(c.pageId),
+                norm(c.pageName),
+                norm(c.campaignId),
+                norm(c.fbId),
+                norm(c.name),
+                c.message == null ? null : String(c.message),
+                c.createdTime ? new Date(c.createdTime) : null,
+                norm(c.phone),
+                c.address == null ? null : String(c.address),
+                !!c.hasOrder,
+                now
+            );
+        });
+        const sql = `
+            INSERT INTO web2_live_comments
+                (id, post_id, page_id, page_name, campaign_id, fb_id, customer_name,
+                 message, created_time, phone, address, has_order, created_at, updated_at)
+            VALUES ${chunk
+                .map((_, k) => {
+                    const b = k * 13;
+                    return `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8},$${b + 9},$${b + 10},$${b + 11},$${b + 12},$${b + 13},$${b + 13})`;
+                })
+                .join(',')}
+            ON CONFLICT (id) DO UPDATE SET
+                message = EXCLUDED.message,
+                phone = COALESCE(NULLIF(web2_live_comments.phone,''), EXCLUDED.phone),
+                address = COALESCE(NULLIF(web2_live_comments.address,''), EXCLUDED.address),
+                customer_name = COALESCE(NULLIF(web2_live_comments.customer_name,''), EXCLUDED.customer_name),
+                has_order = web2_live_comments.has_order OR EXCLUDED.has_order,
+                campaign_id = COALESCE(EXCLUDED.campaign_id, web2_live_comments.campaign_id),
+                updated_at = EXCLUDED.updated_at`;
+        const r = await pool.query(sql, params);
+        saved += r.rowCount || chunk.length;
+    }
+    return saved;
+}
+
 // POST /bulk — upsert nhiều comment (auto-save khi live load/realtime).
 router.post('/bulk', async (req, res) => {
     const pool = getDb(req);
@@ -78,53 +130,7 @@ router.post('/bulk', async (req, res) => {
     const arr = Array.isArray(req.body?.comments) ? req.body.comments : [];
     if (!arr.length) return res.json({ success: true, saved: 0 });
     try {
-        await ensureTables(pool);
-        const now = Date.now();
-        let saved = 0;
-        const BATCH = 200;
-        for (let i = 0; i < arr.length; i += BATCH) {
-            const chunk = arr.slice(i, i + BATCH).filter((c) => c && c.id);
-            if (!chunk.length) continue;
-            const params = [];
-            chunk.forEach((c) => {
-                params.push(
-                    norm(c.id),
-                    norm(c.postId),
-                    norm(c.pageId),
-                    norm(c.pageName),
-                    norm(c.campaignId),
-                    norm(c.fbId),
-                    norm(c.name),
-                    c.message == null ? null : String(c.message),
-                    c.createdTime ? new Date(c.createdTime) : null,
-                    norm(c.phone),
-                    c.address == null ? null : String(c.address),
-                    !!c.hasOrder,
-                    now
-                );
-            });
-            // created_at + updated_at đều = now (placeholder $b+13 dùng 2 lần).
-            const sql2 = `
-                INSERT INTO web2_live_comments
-                    (id, post_id, page_id, page_name, campaign_id, fb_id, customer_name,
-                     message, created_time, phone, address, has_order, created_at, updated_at)
-                VALUES ${chunk
-                    .map((_, k) => {
-                        const b = k * 13;
-                        return `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8},$${b + 9},$${b + 10},$${b + 11},$${b + 12},$${b + 13},$${b + 13})`;
-                    })
-                    .join(',')}
-                ON CONFLICT (id) DO UPDATE SET
-                    message = EXCLUDED.message,
-                    phone = COALESCE(NULLIF(web2_live_comments.phone,''), EXCLUDED.phone),
-                    address = COALESCE(NULLIF(web2_live_comments.address,''), EXCLUDED.address),
-                    customer_name = COALESCE(NULLIF(web2_live_comments.customer_name,''), EXCLUDED.customer_name),
-                    has_order = web2_live_comments.has_order OR EXCLUDED.has_order,
-                    campaign_id = COALESCE(EXCLUDED.campaign_id, web2_live_comments.campaign_id),
-                    updated_at = EXCLUDED.updated_at`;
-            const r = await pool.query(sql2, params);
-            saved += r.rowCount || chunk.length;
-        }
+        const saved = await upsertComments(pool, arr);
         _notify('save', arr[0]?.postId);
         res.json({ success: true, saved });
     } catch (e) {
@@ -191,3 +197,6 @@ router.get('/stats', async (req, res) => {
 
 module.exports = router;
 module.exports.initializeNotifiers = initializeNotifiers;
+module.exports.upsertComments = upsertComments;
+module.exports.ensureTables = ensureTables;
+module.exports._notify = _notify;

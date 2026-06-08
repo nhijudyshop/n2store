@@ -788,6 +788,17 @@ web2PancakeRefreshRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients
 if (web2LiveCommentsRoutes.initializeNotifiers) {
     web2LiveCommentsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
+// Server poller: tự lấy comment livestream (pancake.vn) → web2_live_comments, chạy
+// nền cả khi không có client. Mặc định 2 trang (NhiJudyHouse + NhiJudyStore).
+try {
+    require('./services/web2-livestream-poller').start({
+        web2Pool: web2Pool || chatDbPool,
+        chatPool: chatDbPool,
+        liveCommentsModule: web2LiveCommentsRoutes,
+    });
+} catch (e) {
+    console.error('[LIVE-POLLER] start fail:', e.message);
+}
 app.use('/api/web2/pancake-refresh', web2PancakeRefreshRoutes);
 web2PancakeRefreshRoutes.startCron(chatDbPool); // quét mỗi 6h, refresh account auto ≤5 ngày HSD
 
