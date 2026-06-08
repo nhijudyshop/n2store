@@ -128,10 +128,6 @@
                     our: '../so-order/index.html',
                 },
                 { label: 'Live Chat', our: '../live-chat/index.html' },
-                {
-                    label: 'Cài đặt lấy comment Live',
-                    our: '../web2/livestream-poller/index.html',
-                },
             ],
         },
         {
@@ -210,6 +206,12 @@
             label: 'Cấu hình',
             icon: 'settings',
             children: [
+                {
+                    label: 'Lấy comment Live (poller)',
+                    icon: 'radio',
+                    our: '../web2/livestream-poller/index.html',
+                    // Web 2.0-only — bật/tắt trang server tự lấy comment livestream.
+                },
                 {
                     label: 'Người dùng (Web 2.0)',
                     our: '../web2/users/index.html',
