@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `97b2338` — fix(live-chat): campaign load được ngay lần đầu vào (không phải chọn lại page)
-**Last updated**: 2026-06-08 10:32:50 +07
-**Latest session**: [`RESUME:20260608-103250-97b2338`](../20260608-103250-97b2338.md)
-**Summary**: fix(live-chat): campaign load được ngay lần đầu vào (không phải chọn lại page)
+**Latest commit**: `96291b8` — fix(web2-customers): SĐT bị mất do wallet-balance pill ghi đè span
+**Last updated**: 2026-06-08 10:47:26 +07
+**Latest session**: [`RESUME:20260608-104726-96291b8`](../20260608-104726-96291b8.md)
+**Summary**: fix(web2-customers): SĐT bị mất do wallet-balance pill ghi đè span
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 2 file(s)
+- [`live-chat/`](./live-chat.md) — 3 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -37,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-08 10:32
+- [`live-chat/`](./live-chat.md) — updated 2026-06-08 10:47
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-08 09:55
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
@@ -69,4 +70,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-08 10:16
+- [`web2/`](./web2.md) — updated 2026-06-08 10:47
