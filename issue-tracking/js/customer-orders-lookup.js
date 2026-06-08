@@ -433,7 +433,14 @@
                     ${formatVnd(order.totalAmount)}
                     <span class="order-amount-cod">COD ${formatVnd(order.cod)}</span>
                 </div>
-                <span class="order-status-pill status-${stateKey}">${escapeHtml(stateLabel)}</span>
+                <div class="order-end">
+                    <span class="order-status-pill status-${stateKey}">${escapeHtml(stateLabel)}</span>
+                    ${
+                        stateKey === 'open' || stateKey === 'paid'
+                            ? `<button type="button" class="btn-copy-bill btn-copy-bill-row" data-order-id="${order.id}" title="Copy hình bill phiếu bán hàng">📋 Bill</button>`
+                            : ''
+                    }
+                </div>
             </div>
             ${noteRibbon}
             <div class="customer-order-details" hidden></div>
@@ -485,6 +492,8 @@
     }
 
     async function onRowClick(e) {
+        // Nút Copy bill nằm trong summary — bấm nút KHÔNG được toggle expand.
+        if (e.target.closest('.btn-copy-bill')) return;
         const row = e.currentTarget.closest('.customer-order-row');
         if (!row) return;
         const orderId = Number(row.getAttribute('data-order-id'));
@@ -580,16 +589,7 @@
             </details>`
             : '';
 
-        const billOrderId = (orderFromList && orderFromList.id) || details.id;
-        const billActions = `
-        <div class="order-bill-actions">
-            <button type="button" class="btn-copy-bill" data-order-id="${escapeHtml(String(billOrderId))}">
-                📋 Copy hình bill
-            </button>
-        </div>`;
-
         return `
-        ${billActions}
         ${noteSection}
         ${deliveryNoteSection}
         <div class="order-details-grid">

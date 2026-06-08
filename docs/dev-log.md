@@ -22,6 +22,8 @@ User: thêm nút copy hình bill phiếu bán hàng ở modal "Đơn hàng của
 
 **Status:** ✅ Done.
 
+**Update (cùng ngày):** đưa nút Copy bill **ra khỏi expand** → hiển thị trực tiếp trên mỗi dòng đơn (cột cuối `.order-end` xếp dọc: pill trạng thái + nút `📋 Bill`). Chỉ render cho đơn `open`/`paid` (Nháp/Huỷ không in được). Guard `onRowClick` bỏ qua khi target là `.btn-copy-bill` để bấm nút KHÔNG toggle expand. Không cần load chi tiết (fetch print1 chỉ cần orderId). Test: 5 đơn (4 MỞ + 1 HỦY) → 4 nút, bấm `clip=ok`, `expandedAfter=false`.
+
 — N2Store
 
 ### [web2] Gỡ TPOS API khỏi Web 2.0 + import KH TPOS Partner → warehouse (dedupe SĐT) ✅

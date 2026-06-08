@@ -1482,10 +1482,13 @@ textarea {
     }
 }
 
-.order-bill-actions {
+/* Cột cuối summary: pill trạng thái + nút Copy bill (xếp dọc, canh phải) */
+.order-end {
     display: flex;
-    justify-content: flex-end;
-    padding: 12px 0 4px 0;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    min-width: 0;
 }
 .btn-copy-bill {
     display: inline-flex;
@@ -1517,6 +1520,13 @@ textarea {
     cursor: progress;
     transform: none;
     box-shadow: none;
+}
+/* Biến thể nhỏ gọn dùng trực tiếp trên dòng đơn (ngoài expand) */
+.btn-copy-bill-row {
+    padding: 4px 9px;
+    font-size: 11px;
+    border-radius: 7px;
+    white-space: nowrap;
 }
 
 .order-details-grid {
@@ -1620,8 +1630,11 @@ textarea {
     .order-channel {
         grid-area: channel;
     }
-    .order-status-pill {
+    .order-end {
         grid-area: status;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
     }
     .order-amount {
         grid-area: amount;
