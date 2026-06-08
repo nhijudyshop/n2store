@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fc56194` — fix(soluong-live): nut 🔄 TPOS chi cap nhat dung hang duoc bam (khong dung ca bang), giu isHidden/soldQty
-**Last updated**: 2026-06-08 18:40:09 +07
-**Latest session**: [`RESUME:20260608-184009-fc56194`](../20260608-184009-fc56194.md)
-**Summary**: fix(soluong-live): nut 🔄 TPOS chi cap nhat dung hang duoc bam (khong dung ca bang), giu isHidden/soldQty
+**Latest commit**: `f799937` — feat(live-chat): khach comment lay SDT tu Pancake recent_phone_numbers neu co
+**Last updated**: 2026-06-08 18:56:53 +07
+**Latest session**: [`RESUME:20260608-185653-f799937`](../20260608-185653-f799937.md)
+**Summary**: feat(live-chat): khach comment lay SDT tu Pancake recent_phone_numbers neu co
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`soluong-live/`](./soluong-live.md) — 2 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -38,7 +37,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-08 14:54
+- [`live-chat/`](./live-chat.md) — updated 2026-06-08 18:56
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-08 12:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
