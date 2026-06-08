@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `654a1fc` — docs(dev-log): chien dich cha live-chat + menu Cau hinh + click-to-add fast order
-**Last updated**: 2026-06-08 14:54:35 +07
-**Latest session**: [`RESUME:20260608-145435-654a1fc`](../20260608-145435-654a1fc.md)
-**Summary**: docs(dev-log): chien dich cha live-chat + menu Cau hinh + click-to-add fast order
+**Latest commit**: `fc56194` — fix(soluong-live): nut 🔄 TPOS chi cap nhat dung hang duoc bam (khong dung ca bang), giu isHidden/soldQty
+**Last updated**: 2026-06-08 18:40:09 +07
+**Latest session**: [`RESUME:20260608-184009-fc56194`](../20260608-184009-fc56194.md)
+**Summary**: fix(soluong-live): nut 🔄 TPOS chi cap nhat dung hang duoc bam (khong dung ca bang), giu isHidden/soldQty
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 3 file(s)
+- [`soluong-live/`](./soluong-live.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-08 14:54
+- [`docs/`](./docs.md) — updated 2026-06-08 18:40
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-07 19:58
@@ -58,7 +58,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-08 14:48
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
 - [`so-order/`](./so-order.md) — updated 2026-06-08 12:26
-- [`soluong-live/`](./soluong-live.md) — updated 2026-06-08 14:48
+- [`soluong-live/`](./soluong-live.md) — updated 2026-06-08 18:40
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
