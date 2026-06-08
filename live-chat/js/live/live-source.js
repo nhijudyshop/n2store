@@ -193,16 +193,22 @@
                   : [];
             if (!cv.length) break;
             let added = 0;
+            let matched = 0; // conversation thuộc ĐÚNG post này (lọc post_id)
             for (const c of cv) {
                 if (String(c.post_id) !== pid) continue;
+                matched++;
                 const cm = _convToComment(c);
                 if (!cm.id || seen.has(cm.id)) continue;
                 seen.add(cm.id);
                 comments.push(cm);
                 added++;
             }
-            // Không thêm được comment MỚI nào (trang lặp lại) hoặc hết trang → dừng.
-            if (added === 0 || cv.length < 20) break;
+            // Hết trang thật → dừng.
+            if (cv.length < 20) break;
+            // Trang CÓ comment của post này nhưng toàn trùng (pages.fm trả lặp page)
+            // → dừng. KHÔNG dừng khi matched===0 (page lọc theo post khác — comment
+            // của post này có thể nằm ở trang sau → tránh "lấy không đủ comment").
+            if (matched > 0 && added === 0) break;
         }
         return { comments, nextPageUrl: null };
     }
