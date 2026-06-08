@@ -809,6 +809,7 @@ const LiveCommentList = {
                     <div class="live-conv-header-info">
                         <div class="live-conv-header">
                             <span class="customer-name" onclick="event.stopPropagation(); LiveCommentList.showPancakeCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${commentPageId || ''}')" title="Xem thông tin">${SharedUtils.escapeHtml(fromName)}</span>
+                            ${walletPlaceholder}
                             ${isMultiPage ? `<span class="live-tag" style="${pageBadgeColor}">${SharedUtils.escapeHtml(shortPageName)}</span>` : ''}
                             ${orderBadge || ''}
                             ${isHidden ? '<span class="live-tag" style="background:#fee2e2;color:#dc2626;">Ẩn</span>' : ''}
@@ -833,7 +834,6 @@ const LiveCommentList = {
                     <button class="live-action-btn" style="width:22px;height:22px;" onclick="event.stopPropagation(); LiveCommentList.saveInlinePhone('${fromId}', 'phone-${fromId}')" title="Lưu SĐT">
                         ${liveSvgIcon('save', 11)}
                     </button>
-                    ${walletPlaceholder}
                     <input type="text" id="addr-${fromId}" value="${SharedUtils.escapeHtml(address)}" placeholder="Địa chỉ" style="flex:1;min-width:100px;" onclick="event.stopPropagation();">
                     <button class="live-action-btn" style="width:22px;height:22px;" onclick="event.stopPropagation(); LiveCommentList.saveInlineAddress('${fromId}', 'addr-${fromId}')" title="Lưu địa chỉ">
                         ${liveSvgIcon('save', 11)}
