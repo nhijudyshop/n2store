@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `76bfd66` — feat(web2): SDT phu cho KH (uu tien kho, khong ghi de) - giong dedup 1 KH nhieu SDT
-**Last updated**: 2026-06-08 20:02:24 +07
-**Latest session**: [`RESUME:20260608-200224-76bfd66`](../20260608-200224-76bfd66.md)
-**Summary**: feat(web2): SDT phu cho KH (uu tien kho, khong ghi de) - giong dedup 1 KH nhieu SDT
+**Latest commit**: `256546a` — feat(live-chat): pill so du vi Web 2.0 chuyen len KE BEN TEN KH (tu Row 3 SDT)
+**Last updated**: 2026-06-08 20:19:02 +07
+**Latest session**: [`RESUME:20260608-201902-256546a`](../20260608-201902-256546a.md)
+**Summary**: feat(live-chat): pill so du vi Web 2.0 chuyen len KE BEN TEN KH (tu Row 3 SDT)
 
 ## Folders affected in this commit
 
 - [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -38,7 +37,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-08 20:02
+- [`live-chat/`](./live-chat.md) — updated 2026-06-08 20:19
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-08 12:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
