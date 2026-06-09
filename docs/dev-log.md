@@ -21,15 +21,16 @@
 - **Verify (Playwright):** bấm Inbox → reload → active=inbox, nút Thêm đơn hiện, bộ lọc chiến dịch ẩn. Đổi lại Livestream → reload → active=livestream. Cả 2 chiều OK.
 - Files: `native-orders/js/native-orders-app.js`.
 
-### [native-orders] Icon 🖨 (badge "đã in") → bấm in lại bill PBH đúng loại theo trạng thái ✅
+### [native-orders] Icon 🖨 (badge "đã in") → bấm XEM bill (preview, KHÔNG in) đúng loại theo trạng thái ✅
 
-**User:** native-orders bấm vào icon máy in (hình 2) hiện bill PBH. Nhớ bill PBH có logic theo trạng thái → Nháp = Phiếu Soạn Hàng, Bán hàng shop = PBH SHOP, còn lại = PBH.
+**User:** bấm icon máy in (hình 2) để XEM bill thôi chứ không phải in bill. Bill PBH có logic theo trạng thái → Nháp = Phiếu Soạn Hàng, Bán hàng shop = PBH SHOP, còn lại = PBH.
 
-- Badge `🖨` (`no-print-badge`, hiện khi `printCount > 0`) trước đây chỉ informational (`cursor:default`). Giờ bấm được → in lại bill cho ĐÚNG 1 đơn.
-- Reuse logic in sẵn có: `bulkPrintBills(codesArg)` thêm param optional — truyền `[code]` thì in 1 đơn, không truyền thì lấy đơn đang chọn (nút "In bill" toolbar). Mỗi đơn in đúng loại theo trạng thái: Nháp → `NativeOrdersPackingSlip` (Phiếu Soạn Hàng), confirmed/PBH → `Web2Bill.openPrint` (title tự render PBH SHOP / PBH / Phiếu Bán Hàng theo carrier+channel).
-- Badge dùng inline `onclick` gọi `NativeOrdersApp.printOrder(code)` (KHÔNG document-delegation vì badge nằm trong `td.col-check` có `event.stopPropagation()` chặn bubble). Expose `printOrder` trong public API.
-- **Verify (Playwright):** seed `print_count` 2 đơn Nháp → badge render `cursor:pointer` → bấm từng cái → mở Phiếu Soạn Hàng đúng đơn, 0 lỗi console. Nhánh confirmed/shop dùng chung code `printConfirmedBills` đã chạy prod ở nút "In bill".
-- Files: `native-orders/js/native-orders-app.js`.
+- Badge `🖨` (`no-print-badge`, hiện khi `printCount > 0`) → bấm = XEM bill preview, **KHÔNG auto-in, KHÔNG bump `print_count`** khi mở. In thật chỉ khi user bấm nút "In bill" trong preview (hoặc nút IN trong modal Phiếu Soạn Hàng).
+- Thêm `Web2Bill.openPreview(pbh, opts)` (`web2-bill-service.js`): modal overlay render bill HTML vào iframe (reuse `generateHTML`), footer "Đóng" + "🖨 In bill" → bấm In mới gọi `opts.onPrint`. KHÔNG gọi `win.print()` khi mở (khác `openPrint`).
+- `viewOrderBill(code)` (native-orders): Nháp → `NativeOrdersPackingSlip.open` (vốn là preview modal, in qua nút nội bộ); confirmed/PBH/PBH SHOP → `openPreview` với `printCount` giữ nguyên (increment:false). Bấm "In bill" trong preview → `openPrint` (increment:true) + `markPrinted`.
+- Refactor DRY: tách `_billShipPriceOf` / `_buildPbhShape(o,opts,{increment})` / `_markPrintedCodes` ra module scope → dùng chung `bulkPrintBills` (IN) + `viewOrderBill` (XEM). Badge inline `onclick → NativeOrdersApp.viewOrderBill(code)` (badge trong `td.col-check` có stopPropagation → không dùng document-delegation).
+- **Verify (Playwright):** 🖨 trên đơn Nháp → mở Phiếu Soạn Hàng, `openPrint=0` `markPrinted=0` (không in, không tăng count). `openPreview` với PBH SHOP → modal render đúng "PBH SHOP #9 / BÁN TẠI SHOP", `openPrint=0` lúc mở. 0 lỗi console.
+- Files: `native-orders/js/native-orders-app.js`, `web2/shared/web2-bill-service.js`.
 
 ### [web2] Tem mã SP — mã SP xuống DƯỚI QR, canh giữa, rộng = QR ✅
 
@@ -413,12 +414,13 @@ Bounded: tối đa 1 refetch/lượt; sau refetch `fetchedAt=now` → hết stal
 "NET theo đơn thật TPOS" (không tái nhập drift audit).
 
 **Files:**
+
 - [orders-report/js/managers/kpi-manager.js](../orders-report/js/managers/kpi-manager.js) — hằng `SNAPSHOT_STALENESS_GRACE_MS=1500` + staleness guard trong `calculateNetKPI` (sau `getKpiFinalSnapshot`).
 - [tests/unit/kpi-reconciled-net.test.js](../tests/unit/kpi-reconciled-net.test.js) — +7 test (isSnapshotStale với data thật 2 đơn, grace, NaN-safe, end-to-end NET 1→2, source-guard regression). 12/12 pass.
 
 **Self-heal:** 2 đơn cũ tự đúng lại lần kế tiếp mở modal / "Tính lại KPI" sau khi deploy (lúc đó browser có token TPOS → refetch đủ SP → NET 2). KHÔNG chạy script bulk (theo yêu cầu user "chỉ sửa code").
 
-**Lưu ý test:** 10 fail trong các file kpi-* khác là **pre-existing** (source-pattern assertions trên hàm khác: saveKPIStatistics/moveDroppedToOrder/...) — xác nhận tồn tại trước khi sửa, không do thay đổi này.
+**Lưu ý test:** 10 fail trong các file kpi-\* khác là **pre-existing** (source-pattern assertions trên hàm khác: saveKPIStatistics/moveDroppedToOrder/...) — xác nhận tồn tại trước khi sửa, không do thay đổi này.
 
 **Status:** ✅ DONE — chờ deploy (GH Pages) rồi user bấm "Tính lại KPI toàn bộ" để verify NET=2.
 

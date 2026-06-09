@@ -1036,16 +1036,17 @@
         // [2026-06-07] Đã in: chỉ hiện ICON máy in (gọn, không chiếm chữ/dòng).
         // Hover (native title — có độ trễ sẵn, không hiện liền) → số lần in + thời
         // gian in gần nhất. Số lần in cụ thể đã in trên chính phiếu (bill / PSH).
-        // [2026-06-09] Bấm icon → IN LẠI bill đúng loại theo trạng thái (Nháp →
-        // Phiếu Soạn Hàng, PBH SHOP → bill PBH SHOP, còn lại → bill PBH). Dùng
+        // [2026-06-09] Bấm icon → XEM bill (preview) đúng loại theo trạng thái (Nháp
+        // → Phiếu Soạn Hàng, PBH SHOP → bill PBH SHOP, còn lại → bill PBH). Chỉ XEM,
+        // KHÔNG auto-in, KHÔNG bump số lần in (in thật qua nút trong preview). Dùng
         // inline onclick (badge nằm trong td col-check có stopPropagation nên
         // document-delegation không nhận được event). cursor:pointer gợi ý click.
         const pc = Number(o.printCount) || 0;
         if (pc > 0) {
             const t = o.lastPrintedAt ? formatFullTime(o.lastPrintedAt) : '';
-            const tip = `Đã in ${pc} lần${t ? ` — lần cuối: ${t}` : ''} — bấm để in lại bill`;
+            const tip = `Đã in ${pc} lần${t ? ` — lần cuối: ${t}` : ''} — bấm để xem bill`;
             out.push(
-                `<span class="no-print-badge" title="${escapeHtml(tip)}" onclick="event.stopPropagation();NativeOrdersApp.printOrder('${escapeHtml(o.code)}')" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:12.5px;border-radius:6px;background:#fef3c7;border:1px solid #fde68a;cursor:pointer;">🖨</span>`
+                `<span class="no-print-badge" title="${escapeHtml(tip)}" onclick="event.stopPropagation();NativeOrdersApp.viewOrderBill('${escapeHtml(o.code)}')" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:12.5px;border-radius:6px;background:#fef3c7;border:1px solid #fde68a;cursor:pointer;">🖨</span>`
             );
         }
         return out.length ? `<div class="no-derived-badges">${out.join('')}</div>` : '';
@@ -3360,12 +3361,93 @@
         setTimeout(() => searchInp.focus(), 50);
     }
 
-    // codesArg: nếu truyền (in 1 đơn từ icon 🖨 per-row) → dùng nó; ngược lại lấy
-    // các đơn đang chọn (nút "In bill" toolbar). Logic in giống nhau: mỗi đơn in
-    // ĐÚNG LOẠI theo trạng thái — Nháp → Phiếu Soạn Hàng, PBH SHOP → bill PBH SHOP,
-    // còn lại → bill PBH.
-    async function bulkPrintBills(codesArg) {
-        const codes = Array.isArray(codesArg) && codesArg.length ? codesArg : getSelectedCodes();
+    // ---- Bill helpers (dùng chung bulkPrintBills IN + viewOrderBill XEM) ----
+    // Phí ship: tra giá theo phương thức giao của đơn (DeliveryMethodPicker,
+    // option.value === o.deliveryMethod). PBH SHOP/bán tại shop → 0. Fallback parse
+    // "(20k)" trong label. → bill cộng ship vào TỔNG + COD (giống PBH thật).
+    function _billShipPriceOf(o, deliveryOpts) {
+        if (/pbh\s*shop|bán\s*hàng\s*shop|shop/i.test(o.pbhCarrierName || '')) return 0;
+        if (o.deliveryMethod && deliveryOpts && deliveryOpts.length) {
+            const opt = deliveryOpts.find((x) => x.value === o.deliveryMethod);
+            if (opt) return Number(opt.price) || 0;
+        }
+        const m = (o.deliveryMethodLabel || '').match(/\((\d+)\s*k\)/i);
+        return m ? parseInt(m[1], 10) * 1000 : 0;
+    }
+
+    // Dựng PBH-shape cho Web2Bill từ native order.
+    //   increment=true  → bill ghi "lần in này = đã in + 1" (khi IN thật).
+    //   increment=false → ghi số lần đã in hiện tại (khi chỉ XEM, không +1).
+    function _buildPbhShape(o, deliveryOpts, { increment = true } = {}) {
+        const lines = (o.products || []).map((p) => ({
+            productName: p.name || p.productName || '',
+            // Biến thể: ưu tiên đã lưu trên line; fallback lookup theo mã SP (đơn cũ).
+            variant:
+                p.variant ||
+                (PRODUCT_VARIANT_MAP && PRODUCT_VARIANT_MAP[p.productCode || p.code]) ||
+                '',
+            quantity: Number(p.quantity) || 0,
+            priceUnit: Number(p.price) || 0,
+            uomName: p.uomName || 'Cái',
+            note: p.note || '',
+        }));
+        const totalQty = lines.reduce((s, l) => s + l.quantity, 0);
+        const totalAmount = lines.reduce((s, l) => s + l.quantity * l.priceUnit, 0);
+        const ship = _billShipPriceOf(o, deliveryOpts);
+        const finalTotal = totalAmount + ship;
+        const printed = Number(o.printCount) || 0;
+        return {
+            number: o.code,
+            displayStt: computeOrderStt(o), // STT khớp list (gộp "1 + 2", campaignStt)
+            mergedDisplayStt: null,
+            createdByName: o.assignedEmployeeName || o.createdByName || '', // NV bán
+            partner: {
+                name: o.customerName || '',
+                phone: o.phone || '',
+                address: o.address || '',
+            },
+            orderLines: lines,
+            totals: { quantity: totalQty, untaxed: totalAmount, total: finalTotal },
+            payment: { amount: 0, residual: finalTotal }, // COD = SP + ship
+            delivery: { price: ship, carrierName: o.pbhCarrierName || '' }, // ship + detect PBH SHOP
+            channel: o.channel || '', // 'web2_inbox' → bill ghi "PBH INBOX"
+            comment: o.note || '',
+            dateInvoice: o.createdAt || new Date().toISOString(),
+            printCount: increment ? printed + 1 : printed,
+        };
+    }
+
+    // Ghi số lần in (print_count) → tránh in trùng. Bump local + re-render badge.
+    // Lỗi mạng → bỏ qua (không chặn in).
+    function _markPrintedCodes(codes) {
+        const arr = (Array.isArray(codes) ? codes : [codes]).filter(Boolean);
+        if (!arr.length || !window.NativeOrdersApi?.markPrinted) return;
+        window.NativeOrdersApi.markPrinted(arr)
+            .then((r) => {
+                const counts = (r && r.counts) || {};
+                const printedAt = (r && r.printedAt) || {};
+                arr.forEach((c) => {
+                    const o = STATE.orders.find((x) => x.code === c);
+                    if (o) {
+                        o.printCount = counts[c] != null ? counts[c] : (o.printCount || 0) + 1;
+                        o.lastPrintedAt = printedAt[c] != null ? printedAt[c] : Date.now();
+                    }
+                });
+                renderRows();
+            })
+            .catch(() => {});
+    }
+
+    async function _getDeliveryOpts() {
+        const DMP = window.DeliveryMethodPicker;
+        return DMP && DMP.getOptionsAsync ? await DMP.getOptionsAsync() : [];
+    }
+
+    // IN bill (nút "In bill" toolbar — các đơn đang chọn). Mỗi đơn in ĐÚNG LOẠI
+    // theo trạng thái: Nháp → Phiếu Soạn Hàng (modal tuần tự), confirmed/PBH →
+    // bill PBH (gộp 1 lần). Có ghi print_count.
+    async function bulkPrintBills() {
+        const codes = getSelectedCodes();
         if (!codes.length) {
             notify('Chưa chọn đơn nào để in', 'warning');
             return;
@@ -3379,103 +3461,21 @@
             notify('Không tìm thấy đơn', 'error');
             return;
         }
-        // MỖI đơn in ĐÚNG LOẠI theo trạng thái (chọn mix trạng thái được):
-        //   - NHÁP (draft)     → PHIẾU SOẠN HÀNG (modal, mở TUẦN TỰ từng đơn)
-        //   - Đơn hàng (confirmed)/PBH → bill PBH (gộp 1 lần)
         const drafts = orders.filter((o) => o.status === 'draft');
         const others = orders.filter((o) => o.status !== 'draft');
-
-        // Phí ship: tra giá theo phương thức giao của đơn (DeliveryMethodPicker,
-        // option.value === o.deliveryMethod). PBH SHOP/bán tại shop → 0. Fallback
-        // parse "(20k)" trong label. → bill cộng ship vào TỔNG + COD (giống PBH thật).
-        const DMP = window.DeliveryMethodPicker;
-        const deliveryOpts = DMP && DMP.getOptionsAsync ? await DMP.getOptionsAsync() : [];
-        const shipPriceOf = (o) => {
-            if (/pbh\s*shop|bán\s*hàng\s*shop|shop/i.test(o.pbhCarrierName || '')) return 0;
-            if (o.deliveryMethod && deliveryOpts.length) {
-                const opt = deliveryOpts.find((x) => x.value === o.deliveryMethod);
-                if (opt) return Number(opt.price) || 0;
-            }
-            const m = (o.deliveryMethodLabel || '').match(/\((\d+)\s*k\)/i);
-            return m ? parseInt(m[1], 10) * 1000 : 0;
-        };
-
-        // Dựng PBH-shape cho Web2Bill từ native order.
-        const buildPbhShape = (o) => {
-            const lines = (o.products || []).map((p) => ({
-                productName: p.name || p.productName || '',
-                // Biến thể: ưu tiên đã lưu trên line; fallback lookup theo mã SP
-                // (đơn cũ chưa lưu variant). Map populate ở printConfirmedBills.
-                variant:
-                    p.variant ||
-                    (PRODUCT_VARIANT_MAP && PRODUCT_VARIANT_MAP[p.productCode || p.code]) ||
-                    '',
-                quantity: Number(p.quantity) || 0,
-                priceUnit: Number(p.price) || 0,
-                uomName: p.uomName || 'Cái',
-                note: p.note || '',
-            }));
-            const totalQty = lines.reduce((s, l) => s + l.quantity, 0);
-            const totalAmount = lines.reduce((s, l) => s + l.quantity * l.priceUnit, 0);
-            const ship = shipPriceOf(o);
-            const finalTotal = totalAmount + ship;
-            return {
-                number: o.code,
-                displayStt: computeOrderStt(o), // STT khớp list (gộp "1 + 2", campaignStt)
-                mergedDisplayStt: null,
-                createdByName: o.assignedEmployeeName || o.createdByName || '', // NV bán
-                partner: {
-                    name: o.customerName || '',
-                    phone: o.phone || '',
-                    address: o.address || '',
-                },
-                orderLines: lines,
-                totals: { quantity: totalQty, untaxed: totalAmount, total: finalTotal },
-                payment: { amount: 0, residual: finalTotal }, // COD = SP + ship
-                delivery: { price: ship, carrierName: o.pbhCarrierName || '' }, // ship + detect PBH SHOP
-                channel: o.channel || '', // 'web2_inbox' → bill ghi "PBH INBOX"
-                comment: o.note || '',
-                dateInvoice: o.createdAt || new Date().toISOString(),
-                // Lần in hiện trên bill = số lần đã in + lần này → tránh in trùng.
-                printCount: (Number(o.printCount) || 0) + 1,
-            };
-        };
-
-        // In bill PBH cho đơn đã xác nhận (gộp 1 lần).
-        // Ghi số lần in (print_count) → tránh in trùng. Bump local + re-render
-        // badge. Lỗi mạng → bỏ qua (không chặn in).
-        const markPrinted = (codes) => {
-            const arr = (Array.isArray(codes) ? codes : [codes]).filter(Boolean);
-            if (!arr.length || !window.NativeOrdersApi?.markPrinted) return;
-            window.NativeOrdersApi.markPrinted(arr)
-                .then((r) => {
-                    const counts = (r && r.counts) || {};
-                    const printedAt = (r && r.printedAt) || {};
-                    arr.forEach((c) => {
-                        const o = STATE.orders.find((x) => x.code === c);
-                        if (o) {
-                            o.printCount = counts[c] != null ? counts[c] : (o.printCount || 0) + 1;
-                            o.lastPrintedAt = printedAt[c] != null ? printedAt[c] : Date.now();
-                        }
-                    });
-                    renderRows();
-                })
-                .catch(() => {});
-        };
+        const deliveryOpts = await _getDeliveryOpts();
 
         const printConfirmedBills = async () => {
             if (!others.length) return;
-            // Đảm bảo map mã→biến thể sẵn sàng để bill hiện biến thể (đơn cũ).
-            await ensureVariantMap();
-            const pbhs = others.map(buildPbhShape);
+            await ensureVariantMap(); // map mã→biến thể để bill hiện biến thể (đơn cũ)
+            const pbhs = others.map((o) => _buildPbhShape(o, deliveryOpts, { increment: true }));
             if (pbhs.length === 1) window.Web2Bill.openPrint(pbhs[0]);
             else window.Web2Bill.openCombinedPrint(pbhs);
-            markPrinted(others.map((o) => o.code));
+            _markPrintedCodes(others.map((o) => o.code));
             notify(`Đang in ${pbhs.length} bill PBH...`, 'info');
         };
 
-        // Đơn nháp → mở Phiếu Soạn Hàng TUẦN TỰ (đóng đơn này mở đơn kế); xong
-        // hết mới in bill PBH cho đơn đã xác nhận. Không nháp → in bill ngay.
+        // Đơn nháp → mở Phiếu Soạn Hàng TUẦN TỰ; xong hết mới in bill PBH.
         if (drafts.length && window.NativeOrdersPackingSlip) {
             if (others.length)
                 notify(
@@ -3492,13 +3492,52 @@
                 window.NativeOrdersPackingSlip.open(o, {
                     sttDisplay: computeOrderStt(o),
                     onClose: openNext,
-                    onPrint: (od) => markPrinted([od.code]),
+                    onPrint: (od) => _markPrintedCodes([od.code]),
                 });
             };
             openNext();
         } else {
             printConfirmedBills();
         }
+    }
+
+    // XEM bill 1 đơn (icon 🖨 per-row) — chỉ PREVIEW, KHÔNG auto-print, KHÔNG bump
+    // print_count khi mở. In thật chỉ xảy ra khi user bấm nút "In bill" trong
+    // preview (Web2Bill.openPreview onPrint) hoặc nút IN trong Phiếu Soạn Hàng.
+    //   - Nháp (draft) → mở modal Phiếu Soạn Hàng (vốn là preview, in qua nút nội bộ)
+    //   - confirmed/PBH/PBH SHOP → Web2Bill.openPreview (title tự render theo loại)
+    async function viewOrderBill(code) {
+        if (!window.Web2Bill) {
+            notify('Web2Bill chưa load — kiểm tra script', 'error');
+            return;
+        }
+        const o = STATE.orders.find((x) => x.code === code);
+        if (!o) {
+            notify('Không tìm thấy đơn', 'error');
+            return;
+        }
+        if (o.status === 'draft') {
+            if (!window.NativeOrdersPackingSlip) {
+                notify('Phiếu soạn hàng chưa load', 'error');
+                return;
+            }
+            window.NativeOrdersPackingSlip.open(o, {
+                sttDisplay: computeOrderStt(o),
+                onPrint: (od) => _markPrintedCodes([od.code]),
+            });
+            return;
+        }
+        await ensureVariantMap();
+        const deliveryOpts = await _getDeliveryOpts();
+        const pbh = _buildPbhShape(o, deliveryOpts, { increment: false });
+        window.Web2Bill.openPreview(pbh, {
+            // Bấm "In bill" trong preview → in thật + ghi print_count.
+            onPrint: (p) => {
+                const printPbh = _buildPbhShape(o, deliveryOpts, { increment: true });
+                window.Web2Bill.openPrint(printPbh);
+                _markPrintedCodes([o.code]);
+            },
+        });
     }
 
     // Bulk send template message — port từ orders-report MessageTemplateManager.
@@ -9120,8 +9159,9 @@
         removeOrder,
         bulkCreatePbh,
         bulkSendMessage,
-        // 2026-06-09: in lại bill 1 đơn (icon 🖨) — đúng loại theo trạng thái.
-        printOrder: (code) => bulkPrintBills([code]),
+        // 2026-06-09: XEM bill 1 đơn (icon 🖨) — preview đúng loại theo trạng thái,
+        // KHÔNG auto-in, KHÔNG bump print_count khi mở (in thật qua nút trong preview).
+        viewOrderBill,
         // Exposed for Web2MsgTemplate (port từ orders-report) — gọi extension
         // qua window.postMessage bridge với promise wrapper + timeout.
         _extensionRequest,

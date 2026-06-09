@@ -12,6 +12,7 @@
 //   Web2Bill.generateHTML(pbh, opts) → string HTML 80mm template
 //   Web2Bill.openPrint(pbh, opts)     → mở popup + auto-print
 //   Web2Bill.openCombinedPrint(pbhs)  → 1 popup nhiều bills (page-break giữa)
+//   Web2Bill.openPreview(pbh, opts)   → modal XEM bill (no auto-print, no count)
 //   Web2Bill.generateImage(pbh, opts) → Promise<Blob> JPEG < 480KB
 //   Web2Bill.getMergedSttDisplay(pbh) → "84 + 313" nếu là merged order
 //
@@ -606,6 +607,83 @@ html, body { margin: 0; padding: 0; background: #fff; }
         return _printViaIframe(combined);
     }
 
+    // XEM bill (preview) — render HTML vào modal overlay, KHÔNG auto-print, KHÔNG
+    // đụng print_count. Footer có nút "In bill" → khi bấm mới gọi opts.onPrint()
+    // (host tự openPrint + markPrinted). Dùng cho icon 🖨 "xem bill" per-row.
+    let _previewOverlay = null;
+    function openPreview(pbh, opts = {}) {
+        const html = generateHTML(pbh, opts);
+        // Cleanup overlay cũ (tránh chồng nhiều preview)
+        if (_previewOverlay && _previewOverlay.isConnected) _previewOverlay.remove();
+        const overlay = document.createElement('div');
+        _previewOverlay = overlay;
+        overlay.className = 'web2-bill-preview-overlay';
+        overlay.style.cssText =
+            'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.55);' +
+            'display:flex;align-items:center;justify-content:center;padding:20px;';
+        const title = _esc(pbh && pbh.number ? pbh.number : 'Xem bill');
+        overlay.innerHTML =
+            '<div class="web2-bill-preview-card" style="background:#fff;border-radius:12px;' +
+            'width:360px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;' +
+            'overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,0.25);">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;' +
+            'padding:12px 14px;border-bottom:1px solid #e2e8f0;">' +
+            '<strong style="font-size:14px;color:#0f172a;">🧾 Xem bill — ' +
+            title +
+            '</strong>' +
+            '<button type="button" data-bp-close aria-label="Đóng" style="border:0;background:#f1f5f9;' +
+            'width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:15px;color:#475569;">✕</button>' +
+            '</div>' +
+            '<div style="flex:1;overflow:auto;background:#f8fafc;padding:12px;display:flex;justify-content:center;">' +
+            '<iframe data-bp-frame title="Bill preview" style="width:320px;min-height:420px;border:0;' +
+            'background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.12);"></iframe>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;justify-content:flex-end;padding:10px 14px;border-top:1px solid #e2e8f0;">' +
+            '<button type="button" data-bp-close style="padding:8px 14px;border-radius:8px;border:1px solid #e2e8f0;' +
+            'background:#fff;color:#475569;font-size:13px;font-weight:600;cursor:pointer;">Đóng</button>' +
+            '<button type="button" data-bp-print style="padding:8px 14px;border-radius:8px;border:0;' +
+            'background:#7c3aed;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">🖨 In bill</button>' +
+            '</div>' +
+            '</div>';
+        document.body.appendChild(overlay);
+        // Render bill vào iframe (srcdoc đơn giản, an toàn)
+        const frame = overlay.querySelector('[data-bp-frame]');
+        try {
+            const doc = frame.contentWindow.document;
+            doc.open();
+            doc.write(html);
+            doc.close();
+        } catch (e) {
+            frame.srcdoc = html;
+        }
+        const close = () => {
+            if (overlay.isConnected) overlay.remove();
+            if (_previewOverlay === overlay) _previewOverlay = null;
+        };
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) close();
+            if (e.target.closest('[data-bp-close]')) close();
+        });
+        const printBtn = overlay.querySelector('[data-bp-print]');
+        if (printBtn) {
+            // Ẩn nút In nếu host không cho in từ preview (chỉ xem).
+            if (opts.allowPrint === false) printBtn.style.display = 'none';
+            printBtn.addEventListener('click', () => {
+                close();
+                if (typeof opts.onPrint === 'function') opts.onPrint(pbh);
+                else openPrint(pbh, opts);
+            });
+        }
+        const onKey = (e) => {
+            if (e.key === 'Escape') {
+                close();
+                document.removeEventListener('keydown', onKey);
+            }
+        };
+        document.addEventListener('keydown', onKey);
+        return overlay;
+    }
+
     async function generateImage(pbh, opts = {}) {
         const html = generateHTML(pbh, opts);
         const iframe = document.createElement('iframe');
@@ -659,6 +737,7 @@ html, body { margin: 0; padding: 0; background: #fff; }
         generateHTML,
         openPrint,
         openCombinedPrint,
+        openPreview,
         generateImage,
         getMergedSttDisplay,
     };
