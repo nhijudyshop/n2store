@@ -1,14 +1,17 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // =====================================================
-// PANCAKE TOKEN MANAGER - Quản lý JWT token với localStorage + Firestore
+// PANCAKE TOKEN MANAGER (Web 2.0 live-chat) — 1 NGUỒN: pancake_accounts
 // =====================================================
-// Priority order for token retrieval:
-// 1. In-memory cache (fastest)
-// 2. localStorage (fast, no network)
-// 3. Firestore (network required, backup)
-// 4. Cookie (fallback)
+// 2026-06-09: NGUỒN DUY NHẤT của token = bảng `pancake_accounts` (server
+// auto-login pure-Node, quản lý ở web2/pancake-settings). initialize() sync qua
+// Web2Chat.syncFromRenderDB → /api/pancake-accounts (tự chọn account CÒN HẠN) →
+// ghi localStorage canonical. addAccount/deleteAccount cũng ghi/xóa ở
+// pancake_accounts (qua Web2PancakeAccounts). KHÔNG còn đọc/ghi Firestore
+// `pancake_tokens` (nguồn cũ stale gây "Cannot activate expired account").
+// Firestore + manager Web 1.0 (shared/, orders-report/) KHÔNG đụng.
 //
-// MIGRATION: Changed from Realtime Database to Firestore
+// Token retrieval (getToken): memory → localStorage → Web2Chat sync (canonical).
+// Các method *Firestore* còn lại là no-op (accountsRef không set) — fallback trơ.
 // =====================================================
 
 class PancakeTokenManager {
