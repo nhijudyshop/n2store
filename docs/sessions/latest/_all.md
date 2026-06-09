@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `29adb0f` — feat(web2): biến thể giữa QR to hơn (centerMaxW/centerFontMax option)
-**Last updated**: 2026-06-09 19:29:15 +07
-**Latest session**: [`RESUME:20260609-192915-29adb0f`](../20260609-192915-29adb0f.md)
-**Summary**: feat(web2): biến thể giữa QR to hơn (centerMaxW/centerFontMax option)
+**Latest commit**: `53d6354` — feat(web2-customers): tìm KH 3 tầng (Kho KH → comment livestream → live fetch) + tự import non-destructive (alt_phones/alt_addresses)
+**Last updated**: 2026-06-09 19:32:09 +07
+**Latest session**: [`RESUME:20260609-193209-53d6354`](../20260609-193209-53d6354.md)
+**Summary**: feat(web2-customers): tìm KH 3 tầng (Kho KH → comment livestream → live fetch) + tự import non-destructive (...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-09 19:29
+- [`docs/`](./docs.md) — updated 2026-06-09 19:32
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-09 19:12
