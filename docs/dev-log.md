@@ -2,6 +2,15 @@
 
 ## 2026-06-09
 
+### [web2] Tem mã SP — phóng to TOÀN BỘ giao diện tem ✅
+
+**User:** cho toàn bộ giao diện tem to hơn nữa.
+
+- Font `fs` ×1.55 → ×1.75; QR `labelW*0.46` → `0.48`; biến thể giữa QR giữ to (centerMaxW/centerFontMax từ commit trước).
+- Tên SP: max 2 dòng → **3 dòng** (`nameStyleQr`, cột chữ layout QR cao full tem) + thêm **auto-fit `fitName()`** trong cửa sổ in — tên DÀI tự thu nhỏ font+line-height cho vừa hộp 3 dòng (min 6px), tên NGẮN giữ font to. → font to mà tên dài (Áo Khoác Dạ Tweed) KHÔNG bị cắt.
+- **Verify (Playwright + BarcodeDetector):** 4 tem (HCAOM/HCMMDOM/HNQUAN29/KHOTESTLINK28) — tên hiện ĐỦ (clip=false), giá không tràn, cả 4 QR decode ĐÚNG. Visual: chữ + QR + biến thể đều to, lấp đầy tem.
+- Files: `web2/products/js/web2-products-print.js`.
+
 ### [docs][web2] Định nghĩa rõ "fetch Pancake" = nguồn comment livestream ✅
 
 **User:** làm rõ — khi docs nói "cần dữ liệu KH thì fetch Pancake" thì "fetch Pancake" CHÍNH là: cần info Facebook/SĐT của KH trong 1 campaign → vào đúng bài viết livestream ở `https://pancake.vn/NhiJudyStore/post` + `https://pancake.vn/NhiJudyHouse.VietNam/post` (mục đã/đang livestream) → fetch tải bình luận xuống → trong comment có đầy đủ dữ liệu Facebook khách.

@@ -1173,7 +1173,22 @@ ${SCRIPT_OPEN}>
             }
         });
     }
-    function init(){ draw(); fitText(); }
+    // 2026-06-09: TÊN SP để font TO (giao diện to hơn) nhưng tên DÀI thì tự thu nhỏ
+    // cho VỪA hộp 3 dòng (max-height) → không cắt chữ. Tên ngắn giữ font to. Giảm
+    // font + line-height đồng bộ 0.5px tới khi scrollHeight<=clientHeight, min 6px.
+    function fitName(){
+        document.querySelectorAll('.barcode-pname').forEach(function(el){
+            var guard=0, fs=parseFloat(getComputedStyle(el).fontSize)||10;
+            var lh=parseFloat(getComputedStyle(el).lineHeight)||fs+2;
+            var ratio = lh/fs;
+            while(el.scrollHeight > el.clientHeight + 0.5 && fs > 6 && guard < 40){
+                fs -= 0.5; el.style.fontSize = fs + 'px';
+                el.style.lineHeight = (fs*ratio).toFixed(1) + 'px';
+                guard++;
+            }
+        });
+    }
+    function init(){ draw(); fitText(); fitName(); }
     document.addEventListener('DOMContentLoaded', init);
     if (document.readyState !== 'loading') init();
 })();
