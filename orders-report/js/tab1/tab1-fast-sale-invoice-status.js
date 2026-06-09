@@ -948,9 +948,7 @@
                     try {
                         const p = window.reconcileTagsWithInvoices();
                         if (p && typeof p.catch === 'function') {
-                            p.catch((e) =>
-                                console.warn('[PTAG] post-create reconcile failed:', e)
-                            );
+                            p.catch((e) => console.warn('[PTAG] post-create reconcile failed:', e));
                         }
                     } catch (e) {
                         console.warn('[PTAG] post-create reconcile threw:', e);
@@ -4261,16 +4259,22 @@
                     Address: order.Address || '',
                 };
 
-                // Drop entries cũ trong Store cho saleOnlineId này mà TPOS không trả về nữa
-                // (phiếu bị xóa hoàn toàn trên TPOS — polled-deleted scenario)
+                // TPOS = nguồn chân thật cho Reference này. Drop MỌI entry cũ của
+                // order này KHÔNG nằm trong response TPOS (theo Id) — gồm cả:
+                //  - phiếu bị xóa hẳn trên TPOS (polled-deleted), VÀ
+                //  - entry synthetic/optimistic Id rỗng (tạo lúc ra bill, chưa có
+                //    Id thật). Trước đây guard `value.Id && ...` BỎ SÓT entry Id
+                //    rỗng → cell kẹt trạng thái cũ ("Đã xác nhận") dù TPOS đã hết
+                //    phiếu → refresh không về cột trống. (Bug user báo.)
+                // Phiếu TPOS còn trả về sẽ được upsert lại ngay bên dưới.
                 const freshTposIds = new Set(invoices.map((inv) => inv.Id));
                 const stale = [];
                 for (const [key, value] of InvoiceStatusStore._data.entries()) {
-                    if (
-                        String(value.SaleOnlineId) === String(orderId) &&
-                        value.Id &&
-                        !freshTposIds.has(value.Id)
-                    ) {
+                    const keySoId = String(value.SaleOnlineId ?? extractSaleOnlineId(key));
+                    if (keySoId !== String(orderId)) continue;
+                    // Giữ entry còn tồn tại trên TPOS (Id khớp); xoá phần còn lại
+                    // (Id rỗng = synthetic, hoặc Id không còn trong TPOS = đã xoá).
+                    if (!value.Id || !freshTposIds.has(value.Id)) {
                         stale.push(key);
                     }
                 }
