@@ -693,9 +693,14 @@
                     if (window.Web2QR) {
                         try {
                             const qrOpts = { style: 'rounded', margin: 2, pxPerCell: 12 };
-                            if (variant)
+                            if (variant) {
                                 qrOpts.centerLabel = variant; // → tự ec 'H'
-                            else qrOpts.ec = 'H'; // không biến thể vẫn giữ dung sai cao
+                                // 2026-06-09: biến thể tem SP NGẮN (M/L/28) → phóng
+                                // TO chữ giữa QR. centerMaxW 0.55→0.66 + font clamp
+                                // 2.6→4.6 module. EC 'H' vẫn quét (verify decode).
+                                qrOpts.centerMaxW = 0.66;
+                                qrOpts.centerFontMax = 4.6;
+                            } else qrOpts.ec = 'H'; // không biến thể vẫn giữ dung sai cao
                             qrMap[key] = {
                                 src: await window.Web2QR.toDataUrl(l.code, qrOpts),
                                 baked: !!variant,

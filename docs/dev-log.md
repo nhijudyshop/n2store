@@ -2,6 +2,15 @@
 
 ## 2026-06-09
 
+### [web2] Tem mã SP — biến thể GIỮA QR to hơn ✅
+
+**User:** biến thể ở giữa mã QR to hơn.
+
+- `Web2QR.toSvg` thêm 2 option `centerMaxW` (tỷ lệ bề ngang hộp, default 0.55) + `centerFontMax` (clamp font module units, default 2.6) → caller phóng to chữ giữa QR. Bill PBH giữ default (không đổi).
+- `web2-products-print.js` pass `centerMaxW:0.66` + `centerFontMax:4.6` cho biến thể tem SP (M/L/28/29 ngắn → giờ TO, rõ).
+- **Verify (Playwright + BarcodeDetector):** HCAOM (biến thể "M") + HNQUAN29 (biến thể "29") — chữ giữa to hơn hẳn, cả 2 QR vẫn decode ĐÚNG (EC 'H' bù coverage).
+- Files: `web2/shared/web2-qr.js`, `web2/products/js/web2-products-print.js`.
+
 ### [orders] Popup KH — nút Facebook resolve qua PANCAKE FETCH (bỏ tìm theo tên) ✅
 
 **User:** đừng tìm theo tên → tìm theo Pancake fetch; không có thì ghi "Chưa có dữ liệu Pancake".
