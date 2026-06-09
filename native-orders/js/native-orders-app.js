@@ -64,7 +64,8 @@
         // 2026-06-04: tab kênh đơn — 'web2_livestream' (mặc định) | 'web2_inbox'.
         // (2026-06-05: prefix web2_ — 'inbox'/'livestream' trần dễ nhầm Pancake/
         // icon/field source/hệ khác. Phải khớp data-channel ở index.html.)
-        channel: 'web2_livestream',
+        // 2026-06-09: nhớ tab đang chọn qua refresh (localStorage).
+        channel: restoreChannel(),
         search: '',
         editingCode: null,
         loading: false,
@@ -83,6 +84,23 @@
         //   hide: code, channel, phone, qty, status, employee, time
         colVisibility: loadColVisibility(),
     };
+    const CHANNEL_STORAGE_KEY = 'native_orders_channel';
+    function restoreChannel() {
+        try {
+            const v = localStorage.getItem(CHANNEL_STORAGE_KEY);
+            if (v === 'web2_inbox' || v === 'web2_livestream') return v;
+        } catch {
+            /* fallthrough */
+        }
+        return 'web2_livestream';
+    }
+    function saveChannel(ch) {
+        try {
+            localStorage.setItem(CHANNEL_STORAGE_KEY, ch);
+        } catch {
+            /* best-effort */
+        }
+    }
     function loadColVisibility() {
         try {
             const raw = localStorage.getItem('nativeOrdersColVisibility_v3');
@@ -1016,12 +1034,15 @@
         // [2026-06-07] Đã in: chỉ hiện ICON máy in (gọn, không chiếm chữ/dòng).
         // Hover (native title — có độ trễ sẵn, không hiện liền) → số lần in + thời
         // gian in gần nhất. Số lần in cụ thể đã in trên chính phiếu (bill / PSH).
+        // [2026-06-09] Bấm icon → IN LẠI bill đúng loại theo trạng thái (Nháp →
+        // Phiếu Soạn Hàng, PBH SHOP → bill PBH SHOP, còn lại → bill PBH). Delegated
+        // qua data-action="print-bill". cursor:pointer để gợi ý click được.
         const pc = Number(o.printCount) || 0;
         if (pc > 0) {
             const t = o.lastPrintedAt ? formatFullTime(o.lastPrintedAt) : '';
-            const tip = `Đã in ${pc} lần${t ? ` — lần cuối: ${t}` : ''}`;
+            const tip = `Đã in ${pc} lần${t ? ` — lần cuối: ${t}` : ''} — bấm để in lại bill`;
             out.push(
-                `<span class="no-print-badge" title="${escapeHtml(tip)}" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:12.5px;border-radius:6px;background:#fef3c7;border:1px solid #fde68a;cursor:default;">🖨</span>`
+                `<span class="no-print-badge" data-action="print-bill" data-code="${escapeHtml(o.code)}" title="${escapeHtml(tip)}" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:12.5px;border-radius:6px;background:#fef3c7;border:1px solid #fde68a;cursor:pointer;">🖨</span>`
             );
         }
         return out.length ? `<div class="no-derived-badges">${out.join('')}</div>` : '';
@@ -3336,8 +3357,12 @@
         setTimeout(() => searchInp.focus(), 50);
     }
 
-    async function bulkPrintBills() {
-        const codes = getSelectedCodes();
+    // codesArg: nếu truyền (in 1 đơn từ icon 🖨 per-row) → dùng nó; ngược lại lấy
+    // các đơn đang chọn (nút "In bill" toolbar). Logic in giống nhau: mỗi đơn in
+    // ĐÚNG LOẠI theo trạng thái — Nháp → Phiếu Soạn Hàng, PBH SHOP → bill PBH SHOP,
+    // còn lại → bill PBH.
+    async function bulkPrintBills(codesArg) {
+        const codes = Array.isArray(codesArg) && codesArg.length ? codesArg : getSelectedCodes();
         if (!codes.length) {
             notify('Chưa chọn đơn nào để in', 'warning');
             return;
@@ -4229,6 +4254,22 @@
         }
     }
 
+    // Đồng bộ giao diện theo STATE.channel: đánh dấu tab active, hiện/ẩn nút "Thêm
+    // đơn inbox", và ẩn bộ lọc chiến dịch (livestream-only) khi ở tab Inbox.
+    function _syncChannelUi() {
+        const isInbox = STATE.channel === 'web2_inbox';
+        const tabs = $('#channelTabs');
+        if (tabs) {
+            tabs.querySelectorAll('.no-channel-tab').forEach((t) => {
+                t.classList.toggle('is-active', t.dataset.channel === STATE.channel);
+            });
+        }
+        const addBtn = $('#btnAddInboxOrder');
+        if (addBtn) addBtn.style.display = isInbox ? '' : 'none';
+        const campGroup = $('#campaignChipGroup');
+        if (campGroup) campGroup.style.display = isInbox ? 'none' : '';
+    }
+
     function init() {
         if (window.lucide) lucide.createIcons();
         // Sprint 3 KPI: load + render scope banner (NV được phân khoảng → hiển thị)
@@ -4277,6 +4318,17 @@
             });
         });
 
+        // 2026-06-09: click icon 🖨 (badge "đã in") → in lại bill cho ĐÚNG 1 đơn,
+        // đúng loại theo trạng thái (Nháp → Phiếu Soạn Hàng, PBH SHOP → bill PBH
+        // SHOP, còn lại → bill PBH). Delegated vì badge render động trong bảng.
+        document.addEventListener('click', (e) => {
+            const badge = e.target.closest?.('[data-action="print-bill"]');
+            if (!badge) return;
+            e.stopPropagation();
+            const code = badge.dataset.code || '';
+            if (code) bulkPrintBills([code]);
+        });
+
         // Apply/Clear/Refresh/Export buttons removed in single-row layout —
         // filters now auto-apply on change (debounced for search input).
         // Reset STT button removed 2026-06-02 — STT giờ auto reset theo campaign
@@ -4296,6 +4348,10 @@
         $('#filterStatus')?.addEventListener('change', applyFilters);
         $('#filterLimit')?.addEventListener('change', applyFilters);
         // 2026-06-04: tab kênh đơn (Livestream / Inbox) + nút Thêm đơn inbox.
+        // Đồng bộ UI (tab active + nút Thêm đơn inbox + ẩn bộ lọc chiến dịch) theo
+        // STATE.channel hiện tại. Gọi lúc init (channel restore từ localStorage) và
+        // mỗi lần đổi tab.
+        _syncChannelUi();
         $('#channelTabs')?.addEventListener('click', (e) => {
             const tab = e.target.closest('.no-channel-tab');
             if (!tab) return;
@@ -4304,13 +4360,8 @@
                 .forEach((t) => t.classList.remove('is-active'));
             tab.classList.add('is-active');
             STATE.channel = tab.dataset.channel;
-            const isInbox = STATE.channel === 'web2_inbox';
-            const addBtn = $('#btnAddInboxOrder');
-            if (addBtn) addBtn.style.display = isInbox ? '' : 'none';
-            // Chiến dịch chỉ áp dụng cho kênh Livestream → ẩn bộ lọc khi ở tab Inbox
-            // (tránh hiểu nhầm là filter còn tác dụng + load() đã bỏ qua nó).
-            const campGroup = $('#campaignChipGroup');
-            if (campGroup) campGroup.style.display = isInbox ? 'none' : '';
+            saveChannel(STATE.channel); // nhớ tab qua refresh
+            _syncChannelUi();
             STATE.page = 1;
             load();
         });
