@@ -160,7 +160,7 @@ function sanitizeCampaignName(name) {
 }
 
 // Beneficiary = NV được assigned khoảng STT chứa đơn này.
-// Query campaign_employee_ranges (JSONB array shared với Web 1.0 tab1 KPI).
+// Query web2_kpi_assignments (web2Db, OWN — KHÔNG dùng campaign_employee_ranges của Web 1.0).
 // Range item shape: { userId, userName, fromSTT, toSTT } (legacy có thể dùng from/to/start/end).
 async function resolveBeneficiary(
     pool,
@@ -315,7 +315,7 @@ async function _resolveUserFromToken(pool, token) {
 }
 
 // Load all assignments cho user X → mảng { campaign_name, fromSTT, toSTT }.
-// Query campaign_employee_ranges, parse JSONB, filter ranges có userId match.
+// Query web2_kpi_assignments, parse JSONB, filter ranges có userId match.
 async function _loadUserAssignments(pool, userId) {
     try {
         const r = await pool.query(

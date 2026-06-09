@@ -87,6 +87,15 @@
 
 **Files:** `render.com/services/web2-sepay-matching.js`, `scripts/test-sepay-gate-order.js` (fixture +customer_name/customer_id, +2 assertion identity). Test: gate-order 10/10, web2-customers-search 5/5, ck-watcher-auto 29/29, ck-features 10/10. Cần deploy Render. **Lưu ý:** QR-message chỉ gửi nếu KH đã có hội thoại FB; KH thuần-QR (chưa chat) chưa nhắn được — cần capture hội thoại lúc tạo QR nếu muốn phủ 100%.
 
+### [web2][render] Tách hệ phân công KPI Web 2.0 riêng (fix cross-pool #6) ✅
+
+**User:** chọn "Tách riêng cho Web 2.0 (web2Db)" cho cross-pool bug phát hiện khi test.
+
+- **Bug:** `campaign_employee_ranges` (phân công NV theo STT) nằm ở `chatDb` (Web 1.0, ghi qua `/api/campaigns/employee-ranges`), nhưng `resolveBeneficiary`/`_loadUserAssignments`/`applyKpiScope` đọc `web2Db` → sau tách DB 2026-06-03 assignment KHÔNG tới resolver → mọi KPI rơi `fallback_actor` (sai người hưởng). Verify live: PUT chatDb thấy range, GET web2 route rỗng.
+- **Fix (decouple hoàn toàn):** tạo bảng RIÊNG `web2_kpi_assignments` + `web2_kpi_assignments_history` trong web2Db (ensureSchema). resolver + loadUserAssignments + GET /assignments đọc bảng mới. Thêm endpoint `/api/web2/kpi/employee-ranges/:name` GET + `/history` + PUT (mirror campaigns.js: validate range/overlap, upsert, audit history, invalidateScopeCache, sanitize tên server-side).
+- **Frontend:** `kpi-assignments.js` đổi `CAMPAIGNS_API` `/api/campaigns` → `/api/web2/kpi` (path `/employee-ranges/*` giữ nguyên). Web 2.0 KPI nay độc lập hoàn toàn Web 1.0 tab1 — admin gán NV riêng cho Web 2.0.
+- ⚠ Còn tồn: `web2_users` rỗng → trang phân công chưa có NV để chọn (data, không phải bug fix này). Files: `render.com/routes/v2/kpi.js`, `web2/kpi/js/kpi-assignments.js`.
+
 ### [web2][render] Rà soát + fix logic KPI Web 2.0 (5 vấn đề) ✅
 
 **User:** rà soát logic tính KPI Web 2.0 (dashboard + kpi page) → fix tất cả, dọn dead code (Web 1.0 để riêng).
