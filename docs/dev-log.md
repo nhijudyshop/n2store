@@ -2,6 +2,18 @@
 
 ## 2026-06-09
 
+### [web2][render] Test liên kết dữ liệu 13 trang Web 2.0 + FIX bug trả hàng NCC hỏng tồn kho ✅
+
+**User:** treo máy test toàn bộ trang Web 2.0, seed data ảo ở mắt xích thiếu, verify liên kết dữ liệu giữa các trang, thống kê vào `web2/overview`. "test xong đừng xóa dữ liệu".
+
+- **🔴 BUG (HIGH) tìm + fix:** `render.com/routes/purchase-refund.js · saveRefundData` dùng `updated_at = NOW()` (timestamptz) nhưng `web2_records.updated_at` là **BIGINT** → mọi state transition (approve/cancel-approve/refunded/reject) throw SAU KHI `deductStock` đã trừ kho → tồn kho sai + Cloudflare Worker retry trừ kho nhiều lần (test thực: trả 3 SP → stock 10→**−2**), refund kẹt `draft`, không idempotent. **Fix:** `Date.now()` epoch millis. Commit `b805f263d`. Verify sau deploy: approve trừ đúng 8→5, re-approve `idempotent:true` (không trừ lại), record `approved + stock_deducted=true`. Scan toàn routes: chỉ file này dính pattern.
+- **Pipeline test (qua đúng API các trang gọi, web2Db live):**
+    - **Sell:** native-orders `NJ-20260609-0001` (KH `0123456788`, 2×SP) → confirm → PBH `from-native-order` (trừ stock 10→8) → reconcile nhận đơn (state=done). Liên kết KH+line xuyên 3 trang ✅
+    - **Buy:** so-order `upsert-pending` → web2-products `KHOTESTLINK28` (CHO_MUA pending=10) → `confirm-purchase-partial` (stock=10 DANG_BAN) → purchase-refund trả 3 (stock→5) + audit history ✅
+    - **Money (read-only):** SePay→web2_balance_history 59 GD / 41.63M / 20 auto-approved → ví KH thật được tạo (vd `0968080832`=4.24M); 59 wallet-deposits feed Ví NCC. Không mutate tiền thật ✅
+- **UI render smoke (Playwright, login restore):** 5 trang load **0 page-error** — products / product-category / reconcile / purchase-refund (hiện "NCC duyệt") / native-orders (đơn ở tab Đơn Inbox vì `channel=web2_inbox`). Master data: variants seeded, users admin+staff, category `CAT-TEST-LINK` OK.
+- **`web2/overview/index.html`:** thêm section `#ovTestReport` thống kê kết quả test (bug + 3 pipeline + render smoke). Dữ liệu test GIỮ LẠI theo yêu cầu.
+
 ### [live-chat] Kho "Hình Livestream": hover ảnh → phóng to (popup nổi bên trái drawer) ✅
 
 **User:** `live-chat/index.html` — hover vào ảnh trong panel "🖼 Hình Livestream" thì phóng to ảnh.

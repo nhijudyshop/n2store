@@ -87,6 +87,169 @@
                     <div id="ovAuthActions" style="display: flex; gap: 8px; flex-wrap: wrap"></div>
                 </section>
 
+                <!-- ===== KẾT QUẢ KIỂM THỬ LIÊN KẾT DỮ LIỆU (cross-page linkage test) ===== -->
+                <section
+                    id="ovTestReport"
+                    style="
+                        background: #fff;
+                        border: 1px solid #e2e8f0;
+                        border-left: 5px solid #16a34a;
+                        border-radius: 14px;
+                        padding: 18px 22px;
+                        margin: 0 0 22px;
+                        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                    "
+                >
+                    <div
+                        style="
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                            flex-wrap: wrap;
+                            margin-bottom: 6px;
+                        "
+                    >
+                        <span style="font-size: 24px; line-height: 1">🧪</span>
+                        <h2 style="margin: 0; font-size: 18px; color: #14532d">
+                            Kết quả kiểm thử liên kết dữ liệu giữa các trang
+                        </h2>
+                        <span
+                            style="
+                                background: #dcfce7;
+                                color: #166534;
+                                font-size: 12px;
+                                font-weight: 700;
+                                padding: 3px 10px;
+                                border-radius: 999px;
+                            "
+                            >2026-06-09 · 3 pipeline · 1 bug đã sửa</span
+                        >
+                    </div>
+                    <p style="margin: 0 0 14px; font-size: 13px; color: #475569; line-height: 1.6">
+                        Test end-to-end qua đúng API mà các trang gọi (web2Db live). Seed dữ liệu ảo
+                        ở mắt xích đầu → xác minh data chảy đúng sang các trang sau.
+                        <strong>Dữ liệu test được GIỮ LẠI</strong> (không xóa) để kiểm tra trực
+                        quan.
+                    </p>
+
+                    <!-- BUG đã tìm + sửa -->
+                    <div
+                        style="
+                            background: #fef2f2;
+                            border: 1px solid #fecaca;
+                            border-radius: 10px;
+                            padding: 12px 14px;
+                            margin-bottom: 14px;
+                        "
+                    >
+                        <div style="font-weight: 700; color: #991b1b; font-size: 13.5px">
+                            🔴 BUG (HIGH) đã tìm &amp; sửa — Trả hàng NCC làm hỏng tồn kho
+                        </div>
+                        <div
+                            style="
+                                font-size: 12.5px;
+                                color: #7f1d1d;
+                                margin-top: 5px;
+                                line-height: 1.6;
+                            "
+                        >
+                            <code>purchase-refund.js · saveRefundData</code> dùng
+                            <code>updated_at = NOW()</code> (timestamptz) trong khi
+                            <code>web2_records.updated_at</code> là <code>BIGINT</code> → mọi state
+                            transition (approve / cancel-approve / refunded / reject) lỗi
+                            <em>SAU KHI</em> <code>deductStock</code> đã trừ kho → tồn kho sai +
+                            Cloudflare Worker retry trừ kho nhiều lần (test: trả 3 → stock 10 → −2).
+                            Refund kẹt ở <code>draft</code>, không idempotent. <br /><strong
+                                >Fix:</strong
+                            >
+                            đổi sang <code>Date.now()</code> (epoch millis). Commit
+                            <code>b805f263d</code>. Đã verify sau deploy: approve trừ đúng (8→5),
+                            re-approve idempotent (không trừ lại), record
+                            <code>approved + stock_deducted=true</code>.
+                        </div>
+                    </div>
+
+                    <!-- 3 pipelines -->
+                    <div
+                        style="
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                            gap: 12px;
+                            margin-bottom: 12px;
+                        "
+                    >
+                        <div style="background: #eff6ff; border-radius: 10px; padding: 12px 14px">
+                            <div style="font-weight: 700; color: #1e40af; font-size: 13px">
+                                ✅ 01 · Bán hàng (Sell)
+                            </div>
+                            <div
+                                style="
+                                    font-size: 12px;
+                                    color: #1e3a5f;
+                                    margin-top: 5px;
+                                    line-height: 1.65;
+                                "
+                            >
+                                native-orders <code>NJ-20260609-0001</code> (KH
+                                <code>0123456788</code>, 2× SP) → confirm → PBH (trừ stock 10→8) →
+                                reconcile nhận đơn (state=done, chờ đóng gói). Data KH + line chảy
+                                xuyên 3 trang.
+                            </div>
+                        </div>
+                        <div style="background: #faf5ff; border-radius: 10px; padding: 12px 14px">
+                            <div style="font-weight: 700; color: #6b21a8; font-size: 13px">
+                                ✅ 02 · Mua hàng (Buy)
+                            </div>
+                            <div
+                                style="
+                                    font-size: 12px;
+                                    color: #4c1d6b;
+                                    margin-top: 5px;
+                                    line-height: 1.65;
+                                "
+                            >
+                                so-order Lưu Nháp (<code>upsert-pending</code>) → web2-products SP
+                                <code>KHOTESTLINK28</code> (CHO_MUA, pending=10) → nhận hàng
+                                (<code>confirm-purchase-partial</code>, stock=10, DANG_BAN) →
+                                purchase-refund trả 3 (stock→5). Audit history ghi đầy đủ.
+                            </div>
+                        </div>
+                        <div style="background: #ecfdf5; border-radius: 10px; padding: 12px 14px">
+                            <div style="font-weight: 700; color: #065f46; font-size: 13px">
+                                ✅ 03 · Tiền (Money) — read-only
+                            </div>
+                            <div
+                                style="
+                                    font-size: 12px;
+                                    color: #064e3b;
+                                    margin-top: 5px;
+                                    line-height: 1.65;
+                                "
+                            >
+                                SePay → web2_balance_history: 59 GD, 20 auto-approved, 41.63M thu →
+                                ví KH thật được tạo (vd <code>0968080832</code> = 4.24M). 59
+                                wallet-deposits feed Ví NCC. Không mutate data tiền thật.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Per-page render smoke -->
+                    <div style="font-size: 12.5px; color: #334155; line-height: 1.7">
+                        <strong>UI render smoke (Playwright, login khôi phục):</strong> 5 trang load
+                        sạch <strong>0 page-error</strong> — products ✅, product-category ✅,
+                        reconcile ✅, purchase-refund ✅ (hiện "NCC duyệt"), native-orders ✅ (đơn
+                        nằm tab <em>Đơn Inbox</em> vì <code>channel=web2_inbox</code>, không phải
+                        tab mặc định Livestream). <br /><strong>Master data:</strong> variants
+                        (seeded Size 28/29…), users (admin + staff), product-category
+                        <code>CAT-TEST-LINK</code> tạo OK. <br /><strong
+                            >Trạng thái ban đầu:</strong
+                        >
+                        products / native-orders / PBH / reconcile / purchase-refund / supplier-debt
+                        / productcategory đều rỗng; chỉ variants + users + dữ liệu tiền SePay là có
+                        sẵn.
+                    </div>
+                </section>
+
                 <nav class="ov-toc" aria-label="Mục lục">
                     <div class="ov-toc-title">Mục lục</div>
                     <ol>
