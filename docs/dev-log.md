@@ -11,6 +11,13 @@
 - **Wire 1 nguồn:** `web2-bill-service.js` `_renderCodeMarkup` (PBH) → `Web2QR.toSvg` nhúng `<img src=data:svg>` (giữ nguyên layout `.b-qr`, fallback davidshimjs canvas → Code128). `web2-products-print.js` qrMap (tem SP) → `await Web2QR.toDataUrl` (fallback `genQrDataUrl`). Thêm `web2-qr.js` vào `web2/products`, `native-orders`, `web2/fastsaleorder-invoice`. PBH đơn livestream/inbox dùng chung vì QR mã hóa `o.code` (không phụ thuộc channel).
 - **Test (Playwright + jsQR decode):** 14/17 PASS — mọi mã ASCII thật (KHOAOTRANG, TEST-…, DH-…, PBH 1/84/HD-…/đơn gộp ORD-A+ORD-B, card) decode ĐÚNG trên cả rounded/dots/square + path SVG-img. 3 fail chỉ là chuỗi Unicode tiếng Việt (bug đếm byte davidshimjs) — KHÔNG phải nội dung QR thật. Smoke 3 trang đã login: `Web2QR`/`Web2Bill`/`Web2ProductsPrint` defined, live QR render OK, 0 lỗi JS thật.
 
+### [orders] Nút ↻ cột PBH: refresh không về cột trống khi TPOS hết phiếu (entry synthetic Id rỗng không bị drop) ✅
+
+**User:** nút ↻ (refresh PBH) không cập nhật trạng thái mới nhất; nếu đơn không còn phiếu thì phải thành cột trống.
+
+- **Bug (`tab1-fast-sale-invoice-status.js` `refreshPBHForOrder`):** logic drop entry stale có guard `value.Id && !freshTposIds.has(value.Id)` → entry **synthetic/optimistic Id rỗng** (tạo lúc ra bill, chưa có Id thật TPOS) KHÔNG bao giờ bị drop → `getLatest()` vẫn trả entry cũ "Đã xác nhận" → cell kẹt trạng thái dù TPOS đã hết phiếu.
+- **Fix:** drop MỌI entry của order không nằm trong response TPOS (theo Id), gồm cả Id rỗng. Dùng `value.SaleOnlineId ?? extractSaleOnlineId(key)` để match đúng order. Phiếu TPOS còn trả về được upsert lại ngay sau → cell phản ánh đúng TPOS (active → badge, hết phiếu → cột trống `−`).
+
 ### [orders] Fast Sale: server-truth guard chống tạo PBH trùng → hết lỗi optimistic concurrency TPOS ✅
 
 **User báo:** 1 máy tạo đơn (KH 0916820743, NJD/2026/71260 & NJD/71242) báo lỗi TPOS `Store update... affected an unexpected number of rows (0)... optimistic concurrency... BusinessException`; hủy không được; hủy ở TPOS không trả tồn kho; **chỉ 1 máy bị**.
