@@ -70,10 +70,6 @@
                                 ? `<span class="variant-pill">${escapeHtml(variantText)}</span>`
                                 : '<span class="variant-empty">—</span>'
                         }<span class="stock-badge ${stockClass}" title="Tồn kho"><i data-lucide="package"></i>Tồn: ${p.stock ?? 0}</span>${
-                            Number(p.printCount) > 0
-                                ? `<span class="print-count-icon" title="Tem mã vạch đã in ${Number(p.printCount)} lần — tránh in trùng"><i data-lucide="printer"></i><span class="print-count-num">${Number(p.printCount)}</span></span>`
-                                : ''
-                        }${
                             Number(p.returnQty) > 0
                                 ? `<span class="stock-badge" title="Có ${Number(p.returnQty)} tồn kho THU VỀ đang chờ duyệt (Shipper gửi). Vào trang Thu về để duyệt → cộng vào tồn thật." style="background:#ede9fe;color:#6d28d9;border-color:#ddd6fe;"><i data-lucide="undo-2"></i>Thu về: ${Number(p.returnQty)}</span>`
                                 : ''
@@ -109,7 +105,11 @@
                     <td>
                         <div class="row-actions">
                             <button class="btn-action act-edit" title="Sửa" onclick="Web2ProductsApp.openEdit('${escapeHtml(p.code)}')"><i data-lucide="pencil"></i></button>
-                            <button class="btn-action act-print" title="In tem mã vạch" onclick="Web2ProductsApp.printBarcode('${escapeHtml(p.code)}')"><i data-lucide="printer"></i></button>
+                            <button class="btn-action act-print" title="${Number(p.printCount) > 0 ? `Tem mã vạch đã in ${Number(p.printCount)} lần — tránh in trùng` : 'In tem mã vạch'}" onclick="Web2ProductsApp.printBarcode('${escapeHtml(p.code)}')"><i data-lucide="printer"></i>${
+                                Number(p.printCount) > 0
+                                    ? `<span class="print-count-num">${Number(p.printCount)}</span>`
+                                    : ''
+                            }</button>
                             <button class="btn-action act-confirm" title="${p.isActive ? 'Tạm dừng' : 'Bán lại'}" onclick="Web2ProductsApp.toggleActive('${escapeHtml(p.code)}', ${!p.isActive})"><i data-lucide="${p.isActive ? 'pause' : 'play'}"></i></button>
                             <button class="btn-action act-history" title="Lịch sử chỉnh sửa" onclick="Web2ProductsApp.openHistory('${escapeHtml(p.code)}')"><i data-lucide="history"></i></button>
                             <button class="btn-action act-delete" title="Xóa" onclick="Web2ProductsApp.remove('${escapeHtml(p.code)}')"><i data-lucide="trash-2"></i></button>
