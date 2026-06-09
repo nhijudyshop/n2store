@@ -245,13 +245,28 @@ async function insertWeb2BalanceHistory(db, webhookData) {
 // chưa huỷ. Không thoả → KHÔNG auto-cộng, để giao dịch 'Chưa gán' chờ duyệt tay.
 // Chỉ áp cho match AUTO (QR/aggregate), KHÔNG áp prelink (đã gán có chủ đích).
 // Lỗi gate → trả TRUE (an toàn: không chặn tiền do lỗi truy vấn).
-async function _hasActiveOrder(db, phone) {
-    if (!phone) return false;
-    const digits = String(phone).replace(/\D/g, '');
-    if (digits.length < 9) return false;
-    const variants = Array.from(
+// Sentinel: lỗi truy vấn gate → KHÔNG chặn tiền (nhưng cũng KHÔNG có identity đơn).
+const GATE_ERR = Object.freeze({ __gateError: true });
+
+// Chuẩn hoá SĐT về list biến thể để so khớp (raw / digits / 10 số / 0+9 số).
+function _phoneVariants(phone) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    if (digits.length < 9) return null;
+    return Array.from(
         new Set([phone, digits, digits.slice(-10), '0' + digits.slice(-9)].filter(Boolean))
     );
+}
+
+// 2026-06-09: TÌM đơn active của SĐT + TRẢ thông tin KH CỦA ĐƠN (tên / customer_id
+// / phone chuẩn). Matcher gán theo "chân lý đơn" — kho web2_customers có nhiều KH
+// trùng tên/SĐT, nên ưu tiên tên+SĐT đã chốt trên ĐƠN (đơn live mới nhất / inbox).
+// Trả:
+//   • order object {phone, customer_name, customer_id, code} → có đơn active
+//   • null    → KHÔNG có đơn active (gate chặn → 'Chưa gán')
+//   • GATE_ERR → lỗi truy vấn (không chặn, không enrich)
+async function _findActiveOrderByPhone(db, phone) {
+    const variants = _phoneVariants(phone);
+    if (!variants) return null;
     try {
         const { rows } = await db.query(
             `WITH latest_camp AS (
@@ -260,7 +275,8 @@ async function _hasActiveOrder(db, phone) {
                 WHERE live_campaign_id IS NOT NULL AND fb_page_id IS NOT NULL
                 ORDER BY fb_page_id, created_at DESC
              )
-             SELECT 1 FROM native_orders no
+             SELECT no.phone, no.customer_name, no.customer_id, no.code
+             FROM native_orders no
              WHERE no.phone = ANY($1)
                AND COALESCE(no.status,'') <> 'cancelled'
                AND (
@@ -271,14 +287,21 @@ async function _hasActiveOrder(db, phone) {
                          AND lc.live_campaign_id = no.live_campaign_id
                    )
                )
+             ORDER BY no.created_at DESC
              LIMIT 1`,
             [variants]
         );
-        return rows.length > 0;
+        return rows[0] || null;
     } catch (e) {
-        console.warn('[web2-sepay-matching] gate _hasActiveOrder error (cho qua):', e.message);
-        return true; // lỗi truy vấn → KHÔNG chặn (tránh kẹt tiền do bug gate)
+        console.warn('[web2-sepay-matching] _findActiveOrderByPhone error (cho qua):', e.message);
+        return GATE_ERR;
     }
+}
+
+// Bool gate (giữ cho test + nơi chỉ cần yes/no). Lỗi → true (không chặn tiền).
+async function _hasActiveOrder(db, phone) {
+    const o = await _findActiveOrderByPhone(db, phone);
+    return o === GATE_ERR ? true : !!o;
 }
 
 // Đánh dấu tx 'chưa gán do KH không có đơn active' + trả kết quả gated.
@@ -295,6 +318,61 @@ async function _gateBlock(db, web2BhId, phone) {
         `[web2-sepay-matching] GATE: ${phone} không có đơn active → KHÔNG auto-cộng (chờ gán tay)`
     );
     return { success: false, reason: 'no_active_order', phone, gated: true };
+}
+
+// 2026-06-09: gửi tin xác nhận CK cho KH dùng QR (đã biết chắc KH). Best-effort,
+// KHÔNG throw. Cần 1 hội thoại FB đã có (most-recent web2_payment_signals theo
+// customer_id, fallback psid qua web2_customers.fb_id). Không có hội thoại → bỏ
+// qua (KH chưa từng chat → không gửi mù). User spec: QR → báo NGAY khi nhận CK,
+// không chờ tín hiệu "CK xong", không cần đơn hàng.
+async function _sendQrConfirmMessage(db, { phone, customerId, balance, amount }) {
+    let conv = null;
+    // 1. Theo customer_id (QR luôn có customer_id = web2_customers.id)
+    if (customerId != null) {
+        const r = await db
+            .query(
+                `SELECT page_id, conversation_id, psid FROM web2_payment_signals
+                 WHERE customer_id = $1 AND conversation_id IS NOT NULL
+                 ORDER BY created_at DESC LIMIT 1`,
+                [customerId]
+            )
+            .catch(() => null);
+        if (r && r.rows[0]) conv = r.rows[0];
+    }
+    // 2. Fallback theo fb_id của KH (kho) → psid trong signals
+    if (!conv && customerId != null) {
+        const fb = await db
+            .query(`SELECT fb_id FROM web2_customers WHERE id = $1`, [customerId])
+            .catch(() => null);
+        const fbId = fb?.rows?.[0]?.fb_id;
+        if (fbId) {
+            const r = await db
+                .query(
+                    `SELECT page_id, conversation_id, psid FROM web2_payment_signals
+                     WHERE psid = $1 AND conversation_id IS NOT NULL
+                     ORDER BY created_at DESC LIMIT 1`,
+                    [String(fbId)]
+                )
+                .catch(() => null);
+            if (r && r.rows[0]) conv = r.rows[0];
+        }
+    }
+    if (!conv || !conv.page_id || !conv.conversation_id) {
+        console.log(`[web2-sepay-matching] QR ${phone}: chưa có hội thoại FB → bỏ qua gửi tin`);
+        return;
+    }
+    const amountStr = Number(amount || 0).toLocaleString('vi-VN') + '₫';
+    const balanceStr = balance != null ? Number(balance).toLocaleString('vi-VN') + '₫' : null;
+    const msg = balanceStr
+        ? `Shop đã nhận chuyển khoản ${amountStr} của mình rồi nha 💕\nSố dư ví hiện tại: ${balanceStr}. Cảm ơn ạ!`
+        : `Shop đã nhận chuyển khoản ${amountStr} của mình rồi nha 💕 Cảm ơn ạ!`;
+    const worker = require('./web2-msg-send-worker');
+    if (!worker.sendSingleMessage) return;
+    const res = await worker.sendSingleMessage(conv.page_id, conv.conversation_id, customerId, msg);
+    console.log(
+        `[web2-sepay-matching] QR confirm → ${phone} (conv ${conv.conversation_id}): ok=${res?.ok}` +
+            `${res?.needsExtension ? ' (needs ext)' : ''}${res?.error ? ' err=' + res.error : ''}`
+    );
 }
 
 /**
@@ -509,9 +587,18 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
             customerId = merged[0].customers?.[0]?.id || null;
             matchMethod =
                 bestIsExact && bestCand === merged[0].phone ? 'exact_phone' : 'single_match';
-            // GATE auto-gán: KH phải có đơn active → mới auto-cộng ví.
-            if (!(await _hasActiveOrder(db, matchedPhone))) {
+            // GATE + IDENTITY-THEO-ĐƠN: KH phải có đơn active → mới auto-cộng ví.
+            // Lấy tên / customer_id / SĐT TỪ ĐƠN làm chân lý (kho web2_customers có
+            // thể trùng tên/SĐT) → gán đúng KH đã chốt trên đơn.
+            const _order = await _findActiveOrderByPhone(db, matchedPhone);
+            if (_order === null) {
                 return _gateBlock(db, web2BhId, matchedPhone);
+            }
+            if (_order !== GATE_ERR) {
+                if (_order.customer_name) customerName = _order.customer_name;
+                if (_order.customer_id != null) customerId = _order.customer_id;
+                const _op = String(_order.phone || '').replace(/\D/g, '');
+                if (_op.length >= 9) matchedPhone = _op.length === 9 ? '0' + _op : _op.slice(-10);
             }
             // Credit ví trực tiếp, bỏ qua nhánh confidence scoring bên dưới
             try {
@@ -700,7 +787,9 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
 
     // GATE auto-gán: KH phải có đơn active (chiến dịch live mới nhất / inbox) →
     // mới auto-cộng ví. Không có đơn → để 'Chưa gán' chờ duyệt tay.
-    if (!(await _hasActiveOrder(db, matchedPhone))) {
+    // NGOẠI LỆ: QR khách quét (qr_code) đã xác định CHẮC CHẮN KH → BỎ QUA gate,
+    // cộng ví ngay (user spec 2026-06-09: "không cần tín hiệu và đơn hàng").
+    if (matchMethod !== 'qr_code' && !(await _hasActiveOrder(db, matchedPhone))) {
         return _gateBlock(db, web2BhId, matchedPhone);
     }
 
@@ -780,6 +869,15 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
                     e.message
                 )
             );
+
+        // 6c. QR → gửi tin báo "Shop đã nhận CK + số dư ví" NGAY (không chờ tín
+        //     hiệu CK xong, không cần đơn). Best-effort, fire-and-forget.
+        _sendQrConfirmMessage(db, {
+            phone: matchedPhone,
+            customerId,
+            balance: walletResult.wallet?.balance,
+            amount,
+        }).catch((e) => console.warn('[web2-sepay-matching] QR confirm message fail:', e.message));
     }
 
     // 7. Audit log: SUCCESS

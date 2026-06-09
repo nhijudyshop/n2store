@@ -21,7 +21,8 @@ async function main() {
         await db.query(`CREATE TABLE native_orders (
             id SERIAL PRIMARY KEY, code VARCHAR(40), phone VARCHAR(40), status VARCHAR(20) DEFAULT 'draft',
             channel VARCHAR(20) DEFAULT 'web2_livestream', fb_page_id VARCHAR(100),
-            live_campaign_id VARCHAR(100), created_at BIGINT)`);
+            live_campaign_id VARCHAR(100), created_at BIGINT,
+            customer_name VARCHAR(255), customer_id INTEGER)`);
         const ins = (o) =>
             db.query(
                 `INSERT INTO native_orders (code,phone,status,channel,fb_page_id,live_campaign_id,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
