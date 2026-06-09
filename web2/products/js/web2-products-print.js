@@ -885,7 +885,7 @@
                     // EC=H bù lại module biến thể che giữa. Tên + giá ở cột BÊN PHẢI.
                     const qrMm =
                         Math.round(
-                            Math.min(labelW * 0.52, (labelH - padTop - padBottom) * 0.96) * 10
+                            Math.min(labelW * 0.48, (labelH - padTop - padBottom) * 0.96) * 10
                         ) / 10;
                     const rowStyle =
                         labelStyle +
