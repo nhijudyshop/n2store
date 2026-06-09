@@ -43,6 +43,17 @@
     const fmtMoney = (n) => (Number(n) || 0).toLocaleString('vi-VN') + '₫';
     const notify = (msg, type) => window.notificationManager?.show?.(msg, type || 'info');
 
+    // Chuẩn hoá SĐT → 10 số đuôi (0xxxxxxxxx). Trả '' nếu không hợp lệ.
+    const normPhone = (p) => {
+        let s = String(p == null ? '' : p).replace(/\D/g, '');
+        if (s.length > 10) s = s.slice(-10);
+        if (s && !s.startsWith('0') && s.length === 9) s = '0' + s;
+        return s.length === 10 ? s : '';
+    };
+
+    // SĐT phụ đang chỉnh trong modal (1 KH nhiều SĐT). phone chính tách riêng.
+    let modalAltPhones = [];
+
     // ─── Load + render ──────────────────────────────────────────────────
     async function load() {
         if (state.loading) return;

@@ -1229,6 +1229,44 @@ router.post('/', async (req, res) => {
             console.warn('[FAST-SALE-ORDERS] manual create stock deduct warn:', e.message);
         }
 
+        // 2026-06-09: Trừ ví dư (theo SĐT) vào PBH vừa tạo NGAY — không chờ CK mới.
+        // KH có số dư ví sẵn → PBH tạo tay tự "đã thanh toán" phần ví phủ được.
+        // Best-effort, idempotent theo PBH number (wallet_deducted). KHÔNG chặn tạo PBH.
+        if (b.partnerPhone && b.state !== 'cancel') {
+            try {
+                const wlt = await _applyWalletToPbh(
+                    pool,
+                    b.partnerPhone,
+                    r.rows[0],
+                    b.createdByName || b.createdBy || '(ví dư tự trừ khi tạo PBH)'
+                );
+                if (wlt.deducted > 0) {
+                    const upd = await pool.query(
+                        `UPDATE fast_sale_orders
+                         SET payment_amount = COALESCE(payment_amount,0) + $1,
+                             residual = $2,
+                             cash_on_delivery = $2,
+                             wallet_deducted = $1,
+                             date_updated = NOW()
+                         WHERE id = $3 RETURNING *`,
+                        [wlt.deducted, wlt.residualAfter, r.rows[0].id]
+                    );
+                    if (upd.rows[0]) r.rows[0] = upd.rows[0];
+                    if (_notifyClients) {
+                        try {
+                            _notifyClients(
+                                `web2:wallet:${String(b.partnerPhone).replace(/\D/g, '')}`,
+                                { action: 'pbh-deduct', phone: b.partnerPhone, ts: Date.now() },
+                                'update'
+                            );
+                        } catch {}
+                    }
+                }
+            } catch (e) {
+                console.warn('[FAST-SALE-ORDERS] manual create wallet deduct skip:', e.message);
+            }
+        }
+
         const o = mapRow(r.rows[0]);
         if (req.app.locals.broadcastToClients)
             req.app.locals.broadcastToClients({ type: 'pbh:created', order: o, manual: true });

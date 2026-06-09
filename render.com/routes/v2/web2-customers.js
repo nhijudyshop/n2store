@@ -47,6 +47,21 @@ function getPool(req) {
     return req.app.locals.web2Db || req.app.locals.chatDb;
 }
 
+// Chuẩn hoá danh sách SĐT phụ: bỏ rỗng/không hợp lệ, KHÔNG trùng phone chính,
+// dedupe. 1 KH nhiều SĐT → phone chính UNIQUE, các SĐT khác vào alt_phones.
+function sanitizeAltPhones(raw, primaryPhone) {
+    if (!Array.isArray(raw)) return [];
+    const primary = normPhoneWeb2(primaryPhone);
+    const out = [];
+    for (const p of raw) {
+        const n = normPhoneWeb2(p);
+        if (!n) continue;
+        if (primary && n === primary) continue;
+        if (!out.includes(n)) out.push(n);
+    }
+    return out;
+}
+
 // Hàng search gọn (autocomplete) — giữ shape cũ cho frontend hiện tại.
 function rowToLite(r) {
     return {
@@ -426,12 +441,13 @@ router.post('/create', async (req, res) => {
     if (!name) return res.status(400).json({ success: false, error: 'name required' });
     try {
         const now = Date.now();
+        const altPhones = sanitizeAltPhones(b.altPhones, phone);
         const r = await db.query(
             `INSERT INTO web2_customers
                 (code, name, phone, email, address, ward, district, city, carrier,
-                 status, tier, tags, note, fb_id, global_id, fb_page_id,
+                 status, tier, tags, alt_phones, note, fb_id, global_id, fb_page_id,
                  source, created_by, history, created_at, updated_at)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13,$14,$15,$16,$17,$18,$19::jsonb,$20,$20)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18,$19,$20::jsonb,$21,$21)
              RETURNING *`,
             [
                 b.code || null,
@@ -446,6 +462,7 @@ router.post('/create', async (req, res) => {
                 b.status || 'Normal',
                 b.tier || null,
                 JSON.stringify(Array.isArray(b.tags) ? b.tags : []),
+                JSON.stringify(altPhones),
                 b.note || null,
                 b.fbId || null,
                 b.globalId || null,
@@ -663,15 +680,22 @@ router.patch('/:id', async (req, res) => {
         params.push(JSON.stringify(b.tags));
         sets.push(`tags = $${params.length}::jsonb`);
     }
-    if (!sets.length) {
+    const hasAltPhones = Array.isArray(b.altPhones);
+    if (!sets.length && !hasAltPhones) {
         return res.status(400).json({ success: false, error: 'không có field nào để sửa' });
     }
     params.push(Date.now());
     sets.push(`updated_at = $${params.length}`);
     try {
-        // Append history entry.
-        const cur = await db.query('SELECT history FROM web2_customers WHERE id = $1', [id]);
+        // Cần phone hiện tại để dedupe alt_phones + history.
+        const cur = await db.query('SELECT history, phone FROM web2_customers WHERE id = $1', [id]);
         if (!cur.rows.length) return res.status(404).json({ success: false, error: 'Not found' });
+        if (hasAltPhones) {
+            // Phone chính = giá trị mới (nếu đang đổi) hoặc giá trị hiện tại.
+            const primary = b.phone !== undefined ? normPhoneWeb2(b.phone) : cur.rows[0].phone;
+            params.push(JSON.stringify(sanitizeAltPhones(b.altPhones, primary)));
+            sets.push(`alt_phones = $${params.length}::jsonb`);
+        }
         const hist = Array.isArray(cur.rows[0].history) ? cur.rows[0].history.slice() : [];
         hist.push(_historyEntry('update', { userId: b.userId, userName: b.userName }));
         params.push(JSON.stringify(hist));
