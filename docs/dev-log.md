@@ -2,6 +2,14 @@
 
 ## 2026-06-09
 
+### [web2] Tem mã SP — phóng to chữ (user báo "chữ trong 2 tem nhỏ quá") ✅
+
+**User:** chữ trong 2 tem mã sản phẩm nhỏ quá.
+
+- Tăng hệ số font `fs` từ ×1.3 → ×1.55 (paper "2 Tem 66×21mm": name 8px→9px, line-height theo). QR thu nhẹ `labelW*0.5`→`0.46` để cột tên+giá rộng thêm, tên ít wrap hơn. Layout QR mới (mã SP nằm dưới QR) đã chừa nhiều chỗ dọc nên phóng to an toàn.
+- **Verify (Playwright):** 2 tem (HCAOM "Áo Khoác Dạ Tweed" 480.000 / HCDAML "Đầm Maxi Hoa Nhí" 320.000) — tên 2 dòng KHÔNG bị cắt (clip=false), giá KHÔNG tràn ngang, cả 2 QR decode ĐÚNG qua BarcodeDetector.
+- Files: `web2/products/js/web2-products-print.js`.
+
 ### [web2] Kho KH — search tìm kho trước, KHÔNG có mới fallback fetch Pancake ✅
 
 **User:** ở `web2/customers/` tìm trong kho KH trước, nếu không có thì mới tìm bằng fetch Pancake.
