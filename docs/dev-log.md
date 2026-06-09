@@ -2,6 +2,18 @@
 
 ## 2026-06-09
 
+### [web2][render] Kho KH — tìm 3 TẦNG (Kho KH → comment livestream DB → live fetch) + tự import non-destructive ✅
+
+**User:** tìm trong Kho KH trước (`web2/customers/`), không có thì mới tìm bằng fetch Pancake. Khi thấy trên Pancake → **tự động** thêm vào, **đừng đè** dữ liệu cũ → thêm SĐT/địa chỉ mới (nhiều SĐT, nhiều địa chỉ).
+
+- **Lookup 3 tầng** (frontend `customers-app.js` `runPancakeFallback`): tier1 Kho KH (`/list`, đã có) → tier2 `web2_live_comments` DB (`GET /lookup-deep?live=0`) → tier3a live fetch livestream đang chạy (`?live=1` → server `pollNow()`) → tier3b search hội thoại Pancake qua browser `Web2Chat`. Mọi tầng **tự động import**, tìm thấy → reload kho (KH hiện ngay), section Pancake tự ẩn.
+- **Import NON-DESTRUCTIVE** (`importPancakeCustomerWeb2` ở `db/web2-customers-schema.js`): match theo phone chính/alt_phones; fallback fb_id. Có match → KHÔNG đè name/address; SĐT mới → `alt_phones`, địa chỉ mới → `alt_addresses`; field rỗng (address/fb_id/name placeholder) mới fill. Không match → INSERT hàng mới. Idempotent.
+- **Schema**: thêm cột `web2_customers.alt_addresses JSONB DEFAULT '[]'` (ALTER IF NOT EXISTS, mirror `alt_phones`). `rowToFull.altAddresses`; `/create` + `PATCH` nhận `altAddresses` qua `sanitizeAltAddresses` (dedupe, bỏ trùng địa chỉ chính).
+- **Endpoint** `GET /api/web2/customers/lookup-deep?q=&live=`: search `web2_live_comments` (regexp_replace phone digit-match HOẶC unaccent name ILIKE, DISTINCT ON gom 1 KH/phone|fb_id) → auto-import → trả `{tier, imported:[{customer,created,addedPhone,addedAddress,matchedBy}], livePolled}`. tier3 `live=1` gọi `web2-livestream-poller.pollNow()` (export mới — chạy 1 cycle fetch livestream ĐANG chạy rồi re-search; chỉ bắt được KH đang comment ở live hiện tại).
+- **Frontend modal đa địa chỉ** (`customers/index.html` + `customers-app.js` + `customers.css`): field-group "Địa chỉ phụ" (chips add/remove + ⭐ đặt làm chính, mirror SĐT phụ), table badge `+N địa chỉ`. Cache-bust `?v=20260609d`.
+- **Test**: local DB riêng `n2store_lookupdeep_test` — 16/16 pass (migration alt_addresses, import new/merge-phone/merge-fbid/idempotent/no-dup). SQL `lookup-deep` verify trên local table (regexp phone + unaccent name + DISTINCT ON). Playwright localhost: modal đa địa chỉ add/dedupe/⭐/remove OK, 0 pageerror.
+- **⚠ Cần deploy Render** để `lookup-deep` + cột `alt_addresses` live (frontend tolerate khi BE cũ: lookupDeep 404 → tự rơi xuống tier3b browser search; altAddresses bị BE cũ bỏ qua vô hại).
+
 ### [web2] Tem mã SP — biến thể GIỮA QR to hơn ✅
 
 **User:** biến thể ở giữa mã QR to hơn.
