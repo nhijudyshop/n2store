@@ -696,10 +696,10 @@
                             if (variant) {
                                 qrOpts.centerLabel = variant; // → tự ec 'H'
                                 // 2026-06-09: biến thể tem SP NGẮN (M/L/28) → phóng
-                                // TO chữ giữa QR. centerMaxW 0.55→0.66 + font clamp
-                                // 2.6→4.6 module. EC 'H' vẫn quét (verify decode).
-                                qrOpts.centerMaxW = 0.66;
-                                qrOpts.centerFontMax = 4.6;
+                                // TO chữ giữa QR. centerMaxW 0.55→0.72 + font clamp
+                                // 2.6→5.4 module. EC 'H' vẫn quét (verify decode).
+                                qrOpts.centerMaxW = 0.72;
+                                qrOpts.centerFontMax = 5.4;
                             } else qrOpts.ec = 'H'; // không biến thể vẫn giữ dung sai cao
                             qrMap[key] = {
                                 src: await window.Web2QR.toDataUrl(l.code, qrOpts),
@@ -776,12 +776,12 @@
         // preset WEB2: font ×1.55, barcode cao 46% tem + bars rộng gần full. Content
         // CANH GIỮA dọc tem (justify-content:center) — khối to nhưng không sát mép.
         // Barcode 46% (không 55%) để tên 2 dòng vẫn đủ chỗ, GIÁ không bị cắt.
-        // 2026-06-09: ×1.3 → ×1.55 → ×1.75 — user muốn "toàn bộ giao diện tem to hơn
-        // nữa". Layout QR (mã SP dưới QR) chừa nhiều chỗ dọc cho cột tên+giá nên
-        // phóng to mạnh được. QR cũng to thêm (0.46→0.48, xem qrMm bên dưới). Tên cho
-        // 3 dòng (nameStyleQr) để tên dài không bị cắt khi font to + cột hẹp.
+        // 2026-06-09: ×1.3 → ×1.55 → ×1.75 → ×2.0 — user muốn QR + tên + mã + biến
+        // thể + giá TO HƠN NỮA. Layout QR (mã SP dưới QR) chừa nhiều chỗ dọc cho cột
+        // tên+giá nên phóng to mạnh được. QR cũng to thêm (0.48→0.52, xem qrMm). Tên
+        // 3 dòng (nameStyleQr) + auto-fit (fitName) → tên dài tự thu nhỏ vừa, không cắt.
         const fsBase = fontSize || Math.max(5, Math.round(labelW * 0.24));
-        const fs = Math.round(fsBase * 1.75);
+        const fs = Math.round(fsBase * 2.0);
         const fsCode = Math.max(5, Math.round(fs * 0.9));
         const lineH = fs + 1;
         const lineHCode = fsCode + 1;
@@ -885,14 +885,14 @@
                     // EC=H bù lại module biến thể che giữa. Tên + giá ở cột BÊN PHẢI.
                     const qrMm =
                         Math.round(
-                            Math.min(labelW * 0.48, (labelH - padTop - padBottom) * 0.96) * 10
+                            Math.min(labelW * 0.52, (labelH - padTop - padBottom) * 0.96) * 10
                         ) / 10;
                     const rowStyle =
                         labelStyle +
                         'flex-direction:row;align-items:center;justify-content:flex-start;text-align:left;';
                     // Cột QR: QR vuông + mã SP dưới, cả 2 rộng đúng qrMm → mã canh
                     // giữa & 2 mép trùng mép QR.
-                    const qrColStyle = `flex:0 0 ${qrMm}mm;display:flex;flex-direction:column;align-items:center;justify-content:center;margin-right:1mm;`;
+                    const qrColStyle = `flex:0 0 ${qrMm}mm;display:flex;flex-direction:column;align-items:center;justify-content:center;margin-right:0.6mm;`;
                     const qrBox = `position:relative;width:${qrMm}mm;height:${qrMm}mm;display:flex;align-items:center;justify-content:center;`;
                     const codeUnder = `width:${qrMm}mm;`;
                     const txtCol =
@@ -901,7 +901,9 @@
                     // Overlay/under fonts: nhỏ hơn fsCode để biến thể che ít module
                     // + mã SP dưới gọn. Biến thể hơi to + đậm cho rõ.
                     const fsVarOv = Math.max(5, Math.round(fsCode * 0.85));
-                    const fsCodeOv = Math.max(4, Math.round(fsCode * 0.72));
+                    // Mã SP dưới QR to hơn (0.72→0.9 × fsCode); auto-fit fitText vẫn
+                    // thu nhỏ nếu mã dài tràn bề rộng QR.
+                    const fsCodeOv = Math.max(5, Math.round(fsCode * 0.9));
                     labelInner += `<div class="barcode_label" style="${rowStyle}">`;
                     labelInner += `<div class="ql-qr-col" style="${qrColStyle}">`;
                     labelInner += `<div class="barcode-image ql-qr" style="${qrBox}">${barcodeImg}`;

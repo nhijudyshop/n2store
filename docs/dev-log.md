@@ -2,6 +2,15 @@
 
 ## 2026-06-09
 
+### [web2] Tem mã SP — phóng to QR + tên + mã + biến thể + giá lần nữa ✅
+
+**User:** cho QR code, tên SP, mã SP, biến thể, giá → to hơn nữa.
+
+- Font `fs` ×1.75 → ×2.0; QR `labelW*0.48` → `0.52`; gap QR↔chữ `1mm` → `0.6mm` (lấy thêm chỗ ngang); mã SP dưới QR `fsCode*0.72` → `*0.9`; biến thể giữa QR `centerMaxW 0.66→0.72` + `centerFontMax 4.6→5.4`.
+- Tên dài tự thu nhỏ (fitName, max 3 dòng) nên font to mà không cắt.
+- **Verify (Playwright + BarcodeDetector):** 4 tem (HCAOM/HCMMDOM/HNQUAN29/KHOTESTLINK28) — tên/mã không clip, cả 4 QR decode ĐÚNG. Chữ + QR + biến thể + giá đều to, lấp đầy tem.
+- Files: `web2/products/js/web2-products-print.js`.
+
 ### [orders] Popup KH — nút FB resolve global_id qua COMMENT LIVESTREAM (Pancake fetch) ✅
 
 **User:** "fetch Pancake" = kéo comment bài livestream (`pancake.vn/NhiJudyStore/post` + `NhiJudyHouse.VietNam/post`) → trong comment có data FB khách. Không có thì "Chưa có dữ liệu Pancake".
