@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `35d5473` — fix(web2): backfill Pancake phan trang bang cursor thoi gian (until) thay page_number
-**Last updated**: 2026-06-08 20:35:35 +07
-**Latest session**: [`RESUME:20260608-203535-35d5473`](../20260608-203535-35d5473.md)
-**Summary**: fix(web2): backfill Pancake phan trang bang cursor thoi gian (until) thay page_number
+**Latest commit**: `762eb0f` — docs(dev-log): 2026-06-09 - danh sach don theo chien dich, SDT phu, bo click-to-add, backfill Pancake
+**Last updated**: 2026-06-09 09:49:55 +07
+**Latest session**: [`RESUME:20260609-094955-762eb0f`](../20260609-094955-762eb0f.md)
+**Summary**: docs(dev-log): 2026-06-09 - danh sach don theo chien dich, SDT phu, bo click-to-add, backfill Pancake
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-08 18:40
+- [`docs/`](./docs.md) — updated 2026-06-09 09:49
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-07 19:58
@@ -37,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-08 20:28
+- [`live-chat/`](./live-chat.md) — updated 2026-06-09 09:49
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-08 12:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
