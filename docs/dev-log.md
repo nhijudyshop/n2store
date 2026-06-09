@@ -2,6 +2,14 @@
 
 ## 2026-06-09
 
+### [web2][render] VERIFY E2E auto-snapshot base qua Facebook thật ✅
+
+**User:** gửi "Chốt đơn" qua Facebook cho Huỳnh Thành Đạt (clone 0123456788) để test auto-snapshot.
+
+- Tìm hội thoại FB thật qua Pancake search API (`/api/pancake/pages/:id/conversations/search?q=`) — KHÔNG phải fetch list (dev-log "nguồn FB/SĐT = comment livestream"). Huỳnh Thành Đạt có inbox conv mọi page; dùng page 270136663390370, fbId 25717004554573583.
+- Tạo đơn livestream khớp fbId + SP HNAOM x2 + assign An(STT9). POST `/api/web2/msg-send` templateName="Chốt đơn" → worker gửi FB thật → `state=done` → `_maybeSnapshotKpiBase` → **base tự khóa {HNAOM:2}** (kpiBaseBy=3, kpiBaseAt set).
+- Upsell HNAOM 2→5 → An dự báo 3 SP = 15.000đ (base 2 không tính). Mắt xích cuối (worker snapshot khi gửi FB thành công thật) VERIFY OK. Dọn: cancel NJ-0014 + clear assignment.
+
 ### [docs][web2] Ghi chú nguồn dữ liệu FB/SĐT của KH trong campaign ✅
 
 **User:** ghi vào memory/CLAUDE/dev-log — nếu cần thông tin Facebook, SĐT… của KH ở campaign thì đúng bài viết livestream ở `https://pancake.vn/NhiJudyStore/post` + `https://pancake.vn/NhiJudyHouse.VietNam/post` (mục đã/đang livestream) → có fetch tải bình luận xuống → trong đó có đầy đủ dữ liệu Facebook khách.
