@@ -188,13 +188,19 @@
             // Hộp giữ NHỎ (≤ ~55% bề ngang, hộp dẹt) để che < ~8% diện tích → EC 'H'
             // (phục hồi 30%) thừa sức quét lại. Band ngang rộng hơn logo vuông nên
             // càng phải hạn chế coverage. Tối ưu cho mã ~12-18 ký tự (mã PBH 16 ký tự).
-            const maxBoxW = count * 0.55;
+            // 2026-06-09: cho phép caller phóng to chữ giữa qua centerMaxW (tỷ lệ bề
+            // ngang, default 0.55) + centerFontMax (clamp font, module units, default
+            // 2.6). Tem SP biến thể NGẮN (M/L/28) muốn TO → pass giá trị lớn hơn;
+            // EC 'H' vẫn quét được vì coverage nhỏ. Bill PBH giữ default (không đổi).
+            const centerMaxW = opts.centerMaxW == null ? 0.55 : opts.centerMaxW;
+            const centerFontMax = opts.centerFontMax == null ? 2.6 : opts.centerFontMax;
+            const maxBoxW = count * centerMaxW;
             const padX = 0.8; // padding ngang trong hộp (module units)
             const padY = 0.6; // padding dọc
             const charW = 0.62; // bề ngang ~ mỗi ký tự (monospace, theo font-size)
             const len = Math.max(1, centerLabel.length);
             let fontSize = (maxBoxW - padX * 2) / (len * charW);
-            fontSize = Math.max(1.2, Math.min(2.6, fontSize)); // clamp đọc được/không quá to
+            fontSize = Math.max(1.2, Math.min(centerFontMax, fontSize)); // clamp đọc được/không quá to
             const textW = len * fontSize * charW;
             const boxW = Math.min(maxBoxW, textW + padX * 2);
             const boxH = fontSize + padY * 2;
