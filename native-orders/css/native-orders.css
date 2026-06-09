@@ -2223,12 +2223,24 @@ body {
     gap: 12px;
 }
 
+/* ===== 2026-06-09: Toolbar hợp nhất — hàng 1 (tab kênh + KPI + Thêm đơn) =====
+   Gộp 3 khối rời (KPI strip, tab kênh, bộ lọc) vào 1 panel .search-section.
+   Hàng top này ngăn cách hàng bộ lọc bằng 1 đường mảnh. */
+.no-toolbar-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+}
+
 /* ===== 2026-06-04: Tab kênh đơn (Livestream/Inbox) + Thêm đơn Inbox ===== */
 .no-channel-tabs {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 0 4px;
 }
 .no-channel-tab {
     display: inline-flex;
@@ -2524,13 +2536,17 @@ body {
 .no-kpi-strip {
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin: 0 0 12px;
-    padding: 8px 14px;
+    gap: 10px;
+    /* 2026-06-09: inline trong toolbar-top — chiếm khoảng giữa, cuộn ngang nếu
+       nhiều NV, không xuống dòng để hàng gọn. */
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    margin: 0;
+    padding: 6px 12px;
     background: linear-gradient(90deg, #faf5ff, #f0fdfa);
     border: 1px solid #e9d5ff;
-    border-radius: 10px;
+    border-radius: 999px;
 }
 .no-kpi-strip[hidden] {
     display: none !important;
