@@ -246,6 +246,45 @@
     text-overflow: ellipsis;
 }
 
+/* ---------- hover preview (phóng to ảnh) ---------- */
+.live-lsimg-preview {
+    position: fixed;
+    z-index: 99500;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #111827;
+    border: 2px solid #fff;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(0.94);
+    transform-origin: right center;
+    transition:
+        opacity var(--lsimg-duration) var(--lsimg-ease),
+        transform var(--lsimg-duration) var(--lsimg-ease);
+    will-change: opacity, transform;
+}
+.live-lsimg-preview.is-show {
+    opacity: 1;
+    transform: scale(1);
+}
+.live-lsimg-preview img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 80vh;
+    object-fit: contain;
+}
+@media (prefers-reduced-motion: reduce) {
+    .live-lsimg-preview {
+        transition: opacity var(--lsimg-duration) var(--lsimg-ease);
+        transform: none;
+    }
+    .live-lsimg-preview.is-show {
+        transform: none;
+    }
+}
+
 /* spinner cho tile đang lưu */
 .live-lsimg-spin {
     position: absolute;

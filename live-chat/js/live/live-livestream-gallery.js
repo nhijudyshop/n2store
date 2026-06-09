@@ -242,6 +242,7 @@
         STATE.sidebarOpen = false;
         const tog = document.getElementById('live-lsimg-toggle-chip');
         if (tog) tog.classList.remove('is-active');
+        _hidePreview();
     }
 
     function toggleSidebar() {
@@ -333,6 +334,53 @@
                 if (url) global.open(url, '_blank', 'noopener');
             })
         );
+        // Hover ảnh → phóng to (popup nổi bên trái drawer, tránh bị contain/overflow cắt)
+        body.querySelectorAll('.live-lsimg-thumb img').forEach((im) => {
+            im.addEventListener('mouseenter', () => _showPreview(im));
+            im.addEventListener('mouseleave', _hidePreview);
+        });
+        body.addEventListener('scroll', _hidePreview, { passive: true });
+    }
+
+    // -------------------- hover preview (zoom) --------------------
+    function _ensurePreview() {
+        let el = document.getElementById('live-lsimg-preview');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'live-lsimg-preview';
+            el.className = 'live-lsimg-preview';
+            el.innerHTML = '<img alt="phóng to">';
+            document.body.appendChild(el);
+        }
+        return el;
+    }
+
+    function _showPreview(imgEl) {
+        const src = imgEl?.currentSrc || imgEl?.src;
+        if (!src) return;
+        const el = _ensurePreview();
+        const pic = el.querySelector('img');
+        if (pic.src !== src) pic.src = src;
+
+        const PAD = 12;
+        const drawerW = 380; // đồng bộ với .live-lsimg-sidebar width
+        const maxW = Math.min(460, global.innerWidth - drawerW - PAD * 2);
+        if (maxW < 160) return; // màn quá hẹp → bỏ qua zoom
+        el.style.width = maxW + 'px';
+
+        // canh giữa theo chiều dọc của tile, clamp trong viewport
+        const r = imgEl.getBoundingClientRect();
+        const estH = maxW * (9 / 16) + 8;
+        let top = r.top + r.height / 2 - estH / 2;
+        top = Math.max(PAD, Math.min(top, global.innerHeight - estH - PAD));
+        el.style.top = top + 'px';
+        el.style.right = drawerW + PAD + 'px';
+        el.classList.add('is-show');
+    }
+
+    function _hidePreview() {
+        const el = document.getElementById('live-lsimg-preview');
+        if (el) el.classList.remove('is-show');
     }
 
     function _tileHtml(img) {
