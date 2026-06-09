@@ -2,6 +2,19 @@
 
 ## 2026-06-09
 
+### [orders] Popup KH — nút Facebook LUÔN hiện (fallback khi thiếu global_id) ✅
+
+**User:** sao có khách có nút mở FB, có khách không có?
+
+- Nguyên nhân: nút cũ chỉ render khi `c.global_id` tồn tại. KH chỉ có SĐT / chưa sync FB → `global_id` null → không có nút.
+- `fb_id` (PSID page-scoped) KHÔNG mở được profile URL. Profile ID public phải là `global_id` (vd `100028319734419`). Live comments (`web2_live_comments`) cũng chỉ lưu PSID + là Web 2.0 → không dùng (giữ ranh giới Web1⊥Web2).
+- **Giải pháp 3 tầng** (`orders-report/js/tab1/tab1-customer-info.js`), tất cả trong Web 1.0, reuse hạ tầng có sẵn:
+    1. Có `global_id` → nút **Mở Ảnh** (`facebook.com/<gid>/photos`).
+    2. Thiếu `global_id` → `_tryResolveFbProfile(c)` async: duyệt cặp `(pageId, psid)` trong `c.pancake_data.page_fb_ids`, gọi `GET /api/fb-global-id?pageId&psid` (bảng `fb_global_id_cache`, cùng resolver chat-core dùng). Tìm được → tự nâng nút thành **Mở Ảnh**.
+    3. Không resolve được → nút **Tìm trên FB** (`/search/people/?q=<tên>`, style phụ xám). Không có tên → label "Chưa có Global ID" (tooltip: mở chat để tự đồng bộ).
+- CSS `.cip-fb-link-search` / `.cip-fb-none` (`orders-report/css/tab1-orders.css`).
+- **Verify (Playwright headless, fetch-intercept 3 case):** TIER1 KH thật `0972923135` → Mở Ảnh `/100028319734419/photos`; TIER2 cache hit → tự nâng `/100099887766554/photos`; TIER3 no-data → Tìm trên FB `search/people?q=...`. ✅
+
 ### [web2][render] Kho KH — 1 KH thêm NHIỀU SĐT (alt_phones) ✅
 
 **User:** Kho KH (`web2/customers/`) — KH có thể thêm nhiều số SĐT.
