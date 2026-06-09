@@ -2,6 +2,11 @@
 
 ## 2026-06-09
 
+### [web2][native-orders] Auto-gán balance-history + Chiến dịch cha cho native-orders ✅
+
+- **#1 Auto-gán GD chưa gán** (`web2-balance-history.js`): `POST /auto-assign` — GD 'in' chưa gán → extract exact/partial SĐT + tên người gửi → match `web2_customers` (anchor phone suffix, tên disambiguate khi >1 candidate) → CHỈ gán khi DUY NHẤT 1 KH → `linkTransaction` (gán + cộng ví). Nút "🎯 Tự động gán" + dryRun. **Đã chạy thật: 54 quét → 20 gán, 5 mơ hồ, 29 không định danh.**
+- **#2 Chiến dịch cha native-orders** (`native-orders-app.js`+`-api.js`+route): dropdown Chiến dịch thêm section "📁 Chiến dịch cha" — list từ `/api/web2-live-comments/campaigns` (**chung dữ liệu live-chat**), radio chọn 1 parent → resolve post_ids (`/posts`) → lọc đơn theo `fbPostIds` (backend native-orders /load thêm filter `fb_post_id = ANY`). Input "+ Tạo" tạo parent mới. Test live: hiện đúng parent "Web 2.0 livestream test 09/06/2026" (2 bài) từ live-chat.
+
 ### [live-chat][render] Bỏ card page-selector + badge Store/House + offline thumbnail + GỠ HẲN TPOS sync worker ✅
 
 - **Bỏ hình 1** (card "Tất cả Pages") panel Chat Pancake (`pancake-init.js`); gear settings → cuối hàng filter-tabs.
