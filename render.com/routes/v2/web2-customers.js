@@ -108,45 +108,68 @@ router.get('/list', async (req, res) => {
         const page = Math.max(1, parseInt(req.query.page, 10) || 1);
         const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 50));
         const offset = (page - 1) * limit;
-        const conds = [];
-        const params = [];
-        if (activeOnly === 'true' || activeOnly === '1') conds.push('is_active = true');
-        if (search) {
-            params.push(`%${search}%`);
-            const i = params.length;
-            conds.push(
-                `(phone ILIKE $${i} OR name ILIKE $${i} OR fb_id ILIKE $${i} OR global_id ILIKE $${i})`
+
+        // Build WHERE clause; `useUnaccent` toggles accent-insensitive name match
+        // (cho phép gõ "huynh thanh dat" tìm ra "Huỳnh Thành Đạt").
+        const buildWhere = (useUnaccent) => {
+            const conds = [];
+            const params = [];
+            if (activeOnly === 'true' || activeOnly === '1') conds.push('is_active = true');
+            if (search) {
+                params.push(`%${search}%`);
+                const i = params.length;
+                const nameMatch = useUnaccent
+                    ? `unaccent(name) ILIKE unaccent($${i})`
+                    : `name ILIKE $${i}`;
+                conds.push(
+                    `(phone ILIKE $${i} OR ${nameMatch} OR fb_id ILIKE $${i} OR global_id ILIKE $${i})`
+                );
+            }
+            if (status) {
+                params.push(status);
+                conds.push(`status = $${params.length}`);
+            }
+            if (tier) {
+                params.push(tier);
+                conds.push(`tier = $${params.length}`);
+            }
+            if (source) {
+                params.push(source);
+                conds.push(`source = $${params.length}`);
+            }
+            if (tag) {
+                params.push(JSON.stringify([tag]));
+                conds.push(`tags @> $${params.length}::jsonb`);
+            }
+            return { where: conds.length ? 'WHERE ' + conds.join(' AND ') : '', params };
+        };
+
+        const runQueries = async (useUnaccent) => {
+            const { where, params } = buildWhere(useUnaccent);
+            const countR = await db.query(
+                `SELECT COUNT(*)::int n FROM web2_customers ${where}`,
+                params
             );
+            const lp = [...params, limit, offset];
+            const listR = await db.query(
+                `SELECT * FROM web2_customers ${where}
+                 ORDER BY updated_at DESC NULLS LAST
+                 LIMIT $${lp.length - 1} OFFSET $${lp.length}`,
+                lp
+            );
+            return { total: countR.rows[0].n, rows: listR.rows };
+        };
+
+        let result;
+        try {
+            result = await runQueries(true);
+        } catch (unaccentErr) {
+            // unaccent extension chưa cài → fallback accent-sensitive ILIKE
+            console.warn('[web2-customers] list unaccent fallback:', unaccentErr.message);
+            result = await runQueries(false);
         }
-        if (status) {
-            params.push(status);
-            conds.push(`status = $${params.length}`);
-        }
-        if (tier) {
-            params.push(tier);
-            conds.push(`tier = $${params.length}`);
-        }
-        if (source) {
-            params.push(source);
-            conds.push(`source = $${params.length}`);
-        }
-        if (tag) {
-            params.push(JSON.stringify([tag]));
-            conds.push(`tags @> $${params.length}::jsonb`);
-        }
-        const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
-        const countR = await db.query(
-            `SELECT COUNT(*)::int n FROM web2_customers ${where}`,
-            params
-        );
-        const total = countR.rows[0].n;
-        const lp = [...params, limit, offset];
-        const r = await db.query(
-            `SELECT * FROM web2_customers ${where}
-             ORDER BY updated_at DESC NULLS LAST
-             LIMIT $${lp.length - 1} OFFSET $${lp.length}`,
-            lp
-        );
+        const { total, rows } = result;
+        const r = { rows };
         res.json({
             success: true,
             data: r.rows.map(rowToFull),

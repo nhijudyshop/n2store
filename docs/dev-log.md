@@ -2,6 +2,15 @@
 
 ## 2026-06-09
 
+### [render] Kho Khách Hàng Web 2.0 — tìm kiếm KHÔNG DẤU (accent-insensitive) ✅
+
+**User:** cho tìm kiếm không dấu (gõ "huynh thanh dat" phải ra "Huỳnh Thành Đạt").
+
+- Route `GET /api/v2/web2-customers/list` (consumer: `web2/customers/`) trước dùng `name ILIKE $i` thuần → accent-sensitive, gõ không dấu ra 0 KH.
+- Sửa: name match dùng `unaccent(name) ILIKE unaccent($i)` (giống route `/search` autocomplete đã có sẵn). Refactor `buildWhere(useUnaccent)` + `runQueries(useUnaccent)`; thử unaccent trước, fallback ILIKE thuần nếu extension `unaccent` chưa cài (try/catch, log `list unaccent fallback`).
+- phone/fb_id/global_id vẫn ILIKE thường (digit/id không cần bỏ dấu).
+- Files: `render.com/routes/v2/web2-customers.js`. **Cần deploy Render** để có hiệu lực trên prod (localhost gọi API prod).
+
 ### [native-orders] Gộp luôn TIÊU ĐỀ vào toolbar — trải 1 hàng ngang full width ("rộng web") ✅
 
 **User:** gộp 3 hình (bộ lọc · tab+KPI · header "Đơn Web") lại cho rộng web.
