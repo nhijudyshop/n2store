@@ -89,9 +89,16 @@ const WEB2_ALL_TABLES = [
     'web2_payment_signals',
 ];
 
+// [2026-06-09] target='ck' — wipe CHỈ data của Dashboard đối soát CK
+// (web2/ck-dashboard/). 2 bảng nguồn của 3 cột + tab Lịch sử CK. KHÔNG đụng
+// đơn/PBH/ví. web2_unread_messages (tab "Tin nhắn chưa đọc") là chat inbox,
+// KHÔNG phải data CK → giữ nguyên.
+const CK_TABLES = ['web2_payment_signals', 'web2_customer_intents'];
+
 function pickTables(target) {
     if (target === 'inventory') return INVENTORY_TABLES;
     if (target === 'web2-all') return WEB2_ALL_TABLES;
+    if (target === 'ck') return CK_TABLES;
     return PRODUCT_TABLES;
 }
 // Backward-compat: GET /status vẫn report product tables.
@@ -153,7 +160,7 @@ router.post('/web2-data-reset', async (req, res) => {
         });
     }
 
-    const target = ['inventory', 'web2-all'].includes(body.target) ? body.target : 'products';
+    const target = ['inventory', 'web2-all', 'ck'].includes(body.target) ? body.target : 'products';
     const tables = pickTables(target);
     const tag = tsTag();
     const steps = [];
