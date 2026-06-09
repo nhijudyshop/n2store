@@ -573,6 +573,168 @@ router.post('/reprocess-unmatched', async (req, res) => {
 });
 
 // =====================================================
+// POST /api/web2/balance-history/auto-assign
+// Tự động GÁN các GD 'in' CHƯA GÁN vào KH kho web2_customers bằng dữ liệu CÓ
+// SẴN trong nội dung CK (SĐT đầy đủ/đuôi SĐT + TÊN người gửi). An toàn:
+//   • Exact 10-digit phone → KH duy nhất theo phone → gán.
+//   • Đuôi SĐT (partial) → lấy candidate phone LIKE %partial; nếu >1 → dùng TÊN
+//     (chuẩn hoá bỏ dấu + UPPER) để disambiguate; CHỈ gán khi còn DUY NHẤT 1 KH.
+//   • Không có identifier (vd "IB CHUYEN COC") → BỎ QUA (không đoán bừa).
+// Dùng chung linkTransaction (gán + cộng ví, idempotent). Body: { limit?, dryRun? }
+// =====================================================
+function _normName(s) {
+    return String(s || '')
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/đ/gi, 'd')
+        .toUpperCase()
+        .replace(/[^A-Z\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+const _NAME_STOPWORDS = new Set([
+    'MBVCB',
+    'VCB',
+    'FT',
+    'GD',
+    'CK',
+    'IB',
+    'ND',
+    'TT',
+    'CT',
+    'ATM',
+    'NAP',
+    'QR',
+    'MB',
+    'CHUYEN',
+    'TIEN',
+    'COC',
+    'SHOP',
+    'NHI',
+    'JUDY',
+    'HOUSE',
+    'STORE',
+    'TECHCOMBANK',
+    'VIETCOMBANK',
+    'CHUYENTIEN',
+    'THANH',
+    'TOAN',
+    'MA',
+]);
+function _nameTokens(content) {
+    return _normName(content)
+        .split(' ')
+        .filter((w) => w.length >= 2 && !_NAME_STOPWORDS.has(w) && !/^\d/.test(w));
+}
+
+router.post('/auto-assign', async (req, res) => {
+    try {
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
+        if (!db) return res.status(500).json({ success: false, error: 'DB unavailable' });
+        const limit = Math.min(parseInt(req.body?.limit) || 200, 500);
+        const dryRun = !!req.body?.dryRun;
+
+        const rows = (
+            await db.query(
+                `SELECT id, content, transfer_amount
+                 FROM web2_balance_history
+                 WHERE transfer_type = 'in' AND (linked_customer_phone IS NULL OR linked_customer_phone = '')
+                 ORDER BY transaction_date DESC LIMIT $1`,
+                [limit]
+            )
+        ).rows;
+
+        let assigned = 0,
+            ambiguous = 0,
+            noId = 0;
+        const details = [];
+
+        for (const tx of rows) {
+            const ext = web2ExtractIdentifier(tx.content || '');
+            const exact = ext.type === 'exact_phone' ? ext.value : null;
+            const partials = Array.from(
+                new Set([...(ext.phoneCandidates || [])].filter((p) => p && p.length >= 5))
+            );
+            const nameToks = _nameTokens(tx.content || '');
+
+            // Tập candidate KH theo phone (exact ưu tiên, rồi partial suffix).
+            let cands = [];
+            if (exact) {
+                cands = (
+                    await db.query(
+                        'SELECT id, name, phone FROM web2_customers WHERE phone = $1 LIMIT 5',
+                        [exact]
+                    )
+                ).rows;
+            } else if (partials.length) {
+                const seen = new Set();
+                for (const p of partials) {
+                    const r = await db.query(
+                        'SELECT id, name, phone FROM web2_customers WHERE phone LIKE $1 LIMIT 20',
+                        ['%' + p]
+                    );
+                    for (const c of r.rows)
+                        if (!seen.has(c.id)) {
+                            seen.add(c.id);
+                            cands.push(c);
+                        }
+                }
+            }
+            if (!exact && !partials.length) {
+                noId++;
+                continue;
+            }
+
+            // Disambiguate bằng tên nếu >1 candidate.
+            if (cands.length > 1 && nameToks.length) {
+                const byName = cands.filter((c) => {
+                    const cn = _normName(c.name);
+                    return (
+                        nameToks.filter((t) => cn.includes(t)).length >=
+                        Math.min(2, nameToks.length)
+                    );
+                });
+                if (byName.length) cands = byName;
+            }
+
+            if (cands.length === 1) {
+                const c = cands[0];
+                if (!dryRun) {
+                    await router.linkTransaction(db, {
+                        id: tx.id,
+                        phone: c.phone,
+                        name: c.name,
+                        verifiedBy: 'auto-assign',
+                    });
+                }
+                assigned++;
+                if (details.length < 30)
+                    details.push({
+                        id: tx.id,
+                        phone: c.phone,
+                        name: c.name,
+                        amount: tx.transfer_amount,
+                    });
+            } else {
+                ambiguous++;
+            }
+        }
+
+        res.json({
+            success: true,
+            scanned: rows.length,
+            assigned,
+            ambiguous,
+            noIdentifier: noId,
+            dryRun,
+            details,
+        });
+    } catch (e) {
+        handleError(res, e, 'Auto-assign');
+    }
+});
+
+// =====================================================
 // POST /api/web2/balance-history/manual-deposit
 // User có quyền (admin) nạp/rút tay tiền vào ví KH hoặc NCC.
 //

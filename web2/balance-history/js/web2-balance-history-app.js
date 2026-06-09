@@ -123,6 +123,7 @@
         dom.pageSize = document.getElementById('w2bhPageSize');
         dom.refreshBtn = document.getElementById('w2bhRefreshBtn');
         dom.reprocessBtn = document.getElementById('w2bhReprocessBtn');
+        dom.autoAssignBtn = document.getElementById('w2bhAutoAssignBtn');
         dom.dateFrom = document.getElementById('w2bhDateFrom');
         dom.dateTo = document.getElementById('w2bhDateTo');
         dom.dateClear = document.getElementById('w2bhDateClear');
@@ -202,6 +203,35 @@
             await load();
         } catch (e) {
             notify('Lỗi reprocess: ' + e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = origText;
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
+    // Tự động gán GD chưa gán vào KH (khớp đuôi SĐT + tên người gửi).
+    async function autoAssign() {
+        const btn = dom.autoAssignBtn;
+        if (!btn) return;
+        btn.disabled = true;
+        const origText = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="loader-2"></i> Đang gán…';
+        if (window.lucide) window.lucide.createIcons();
+        try {
+            const r = await withFallback('/auto-assign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ limit: 300 }),
+            });
+            const s = r || {};
+            notify(
+                `✅ Tự động gán: ${s.assigned} GD gán KH · ${s.ambiguous} mơ hồ (nhiều KH) · ${s.noIdentifier} không có SĐT/tên`,
+                'success'
+            );
+            await load();
+        } catch (e) {
+            notify('Lỗi tự động gán: ' + e.message, 'error');
         } finally {
             btn.disabled = false;
             btn.innerHTML = origText;
@@ -1040,6 +1070,9 @@
         }
         if (dom.reprocessBtn) {
             dom.reprocessBtn.addEventListener('click', () => reprocessUnmatched());
+        }
+        if (dom.autoAssignBtn) {
+            dom.autoAssignBtn.addEventListener('click', () => autoAssign());
         }
         if (dom.dateFrom) {
             dom.dateFrom.addEventListener('change', () => {
