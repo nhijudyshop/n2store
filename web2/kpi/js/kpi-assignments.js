@@ -1,7 +1,9 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 //
 // KPI Assignments — admin chia khoảng STT đơn cho NV theo chiến dịch.
-// API: REUSE /api/campaigns/employee-ranges/:campaignName (PUT/GET/history).
+// API: /api/web2/kpi/employee-ranges/:campaignName (PUT/GET/history) — bảng RIÊNG
+//      web2_kpi_assignments trên web2Db (tách khỏi Web 1.0 campaign_employee_ranges
+//      từ 2026-06-09 — fix cross-pool: resolver web2Db không đọc được chatDb).
 // Range item: { userId, userName, fromSTT, toSTT }
 // Lookup at emit time → web2_kpi_events.beneficiary_user_id.
 
@@ -10,7 +12,7 @@
 
     const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const USERS_API = `${WORKER}/api/web2-users`;
-    const CAMPAIGNS_API = `${WORKER}/api/campaigns`;
+    const CAMPAIGNS_API = `${WORKER}/api/web2/kpi`;
     const NATIVE_CAMPAIGNS_API = `${WORKER}/api/native-orders/campaigns`;
 
     const STATE = {

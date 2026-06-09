@@ -4,19 +4,21 @@
 //
 // Plan: docs/plans/kpi-attribution-system.md (v2 — campaign-scoped + beneficiary-based)
 //
-// Architecture:
-//   campaign_employee_ranges     — REUSED (đã exist từ Web 1.0 legacy, key=campaign_name,
-//                                  JSONB [{userId, userName, fromSTT, toSTT}, ...])
-//   campaign_employee_ranges_history — REUSED (audit)
-//   web2_kpi_events              — append-only ledger (forecast + actual events) — NEW
+// Architecture (TÁCH RIÊNG Web 2.0 — KHÔNG còn dùng chung table Web 1.0 từ 2026-06-09):
+//   web2_kpi_assignments         — phân công khoảng STT/NV theo chiến dịch (web2Db) — OWN
+//                                  key=campaign_name (sanitized), JSONB [{userId,userName,fromSTT,toSTT}]
+//   web2_kpi_assignments_history — audit log thay đổi phân công (web2Db) — OWN
+//   web2_kpi_events              — append-only ledger (forecast + actual events)
 //
 // Forecast/Actual KPI được TÍNH TRỰC TIẾP (live aggregate) từ ledger ở /forecast +
 // /actual mỗi request. KHÔNG còn bảng cache web2_kpi_forecast/web2_kpi_actual
 // (đã gỡ 2026-06-09 — dead code: không nơi nào đọc, không cron nào recalc).
 //
-// Beneficiary = lookup at emit time qua campaign_employee_ranges (or fallback actor).
+// Beneficiary = lookup at emit time qua web2_kpi_assignments (or fallback actor).
 // Backlog source NOT counted in either projection.
-// Key by campaign_NAME (Vietnamese label) to match Web 1.0 convention + tab1 KPI.
+// Key by campaign_NAME (sanitized). TRƯỚC 2026-06-09 dùng campaign_employee_ranges của
+// Web 1.0 (chatDb) → sau tách DB resolver đọc web2Db rỗng → assignment không tới
+// (cross-pool bug). Nay Web 2.0 có bảng riêng trong web2Db, độc lập hoàn toàn Web 1.0 tab1.
 // =====================================================
 
 const express = require('express');
@@ -33,8 +35,28 @@ let _migrationDone = false;
 async function ensureSchema(pool) {
     if (_migrationDone || !pool) return;
     await pool.query(`
-        -- assignments table REUSED from campaigns.js (campaign_employee_ranges + history)
-        -- — DO NOT create here.
+        -- Phân công khoảng STT/NV theo chiến dịch (OWN — web2Db, độc lập Web 1.0).
+        CREATE TABLE IF NOT EXISTS web2_kpi_assignments (
+            id              SERIAL PRIMARY KEY,
+            campaign_name   VARCHAR(255) NOT NULL UNIQUE,
+            employee_ranges JSONB NOT NULL DEFAULT '[]'::jsonb,
+            updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS web2_kpi_assignments_history (
+            id             BIGSERIAL PRIMARY KEY,
+            campaign_key   VARCHAR(255) NOT NULL,
+            campaign_label VARCHAR(255),
+            action         VARCHAR(20) NOT NULL DEFAULT 'update',
+            user_id        VARCHAR(255),
+            user_name      VARCHAR(255),
+            ranges_before  JSONB,
+            ranges_after   JSONB,
+            created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_web2_kpi_assign_hist_key
+            ON web2_kpi_assignments_history(campaign_key);
+        CREATE INDEX IF NOT EXISTS idx_web2_kpi_assign_hist_created
+            ON web2_kpi_assignments_history(created_at DESC);
 
         -- Ledger (append-only events)
         CREATE TABLE IF NOT EXISTS web2_kpi_events (
@@ -154,7 +176,7 @@ async function resolveBeneficiary(
     const sanitized = sanitizeCampaignName(campaign_name);
     try {
         const r = await pool.query(
-            `SELECT employee_ranges FROM campaign_employee_ranges
+            `SELECT employee_ranges FROM web2_kpi_assignments
              WHERE campaign_name = $1 LIMIT 1`,
             [sanitized]
         );
@@ -297,7 +319,7 @@ async function _resolveUserFromToken(pool, token) {
 async function _loadUserAssignments(pool, userId) {
     try {
         const r = await pool.query(
-            `SELECT campaign_name, employee_ranges FROM campaign_employee_ranges`
+            `SELECT campaign_name, employee_ranges FROM web2_kpi_assignments`
         );
         const result = [];
         for (const row of r.rows) {
@@ -465,10 +487,7 @@ router.get('/events', async (req, res) => {
     }
 });
 
-// GET /assignments?campaign_name= — list ranges for campaign.
-// Proxy đến table campaign_employee_ranges (key by name) cho convenience.
-// Frontend KPI dashboard có thể fetch trực tiếp /api/campaigns/employee-ranges/:name
-// nhưng route này cung cấp consistent /api/v2/kpi/* namespace.
+// GET /assignments?campaign_name= — list ranges for campaign (web2_kpi_assignments, web2Db).
 router.get('/assignments', async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
@@ -477,7 +496,7 @@ router.get('/assignments', async (req, res) => {
             return res.json({ success: true, assignments: [] });
         }
         const r = await pool.query(
-            `SELECT employee_ranges, updated_at FROM campaign_employee_ranges
+            `SELECT employee_ranges, updated_at FROM web2_kpi_assignments
              WHERE campaign_name = $1 LIMIT 1`,
             [name]
         );
@@ -488,6 +507,164 @@ router.get('/assignments', async (req, res) => {
             assignments: ranges,
             updated_at: r.rows[0]?.updated_at || null,
         });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// =====================================================
+// Employee-ranges CRUD (Web 2.0 riêng — web2_kpi_assignments trên web2Db).
+// Mirror shape /api/campaigns/employee-ranges/* để frontend kpi-assignments.js
+// chỉ cần đổi base sang /api/web2/kpi. Sanitize tên server-side cho khớp resolver.
+// Khai báo /history TRƯỚC /:campaignName (Express match theo thứ tự khai báo).
+// =====================================================
+
+// GET /employee-ranges/:campaignName/history
+router.get('/employee-ranges/:campaignName/history', async (req, res) => {
+    try {
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        const name = sanitizeCampaignName(req.params.campaignName);
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+        const r = await pool.query(
+            `SELECT id, campaign_key, campaign_label, action, user_id, user_name,
+                    ranges_before, ranges_after,
+                    to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at_iso
+             FROM web2_kpi_assignments_history
+             WHERE campaign_key = $1
+             ORDER BY created_at DESC
+             LIMIT $2`,
+            [name, limit]
+        );
+        res.json({
+            success: true,
+            history: r.rows.map((x) => ({
+                id: Number(x.id),
+                campaignKey: x.campaign_key,
+                campaignLabel: x.campaign_label,
+                action: x.action,
+                userId: x.user_id,
+                userName: x.user_name,
+                rangesBefore: x.ranges_before || [],
+                rangesAfter: x.ranges_after || [],
+                createdAt: x.created_at_iso,
+            })),
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// GET /employee-ranges/:campaignName
+router.get('/employee-ranges/:campaignName', async (req, res) => {
+    try {
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        const name = sanitizeCampaignName(req.params.campaignName);
+        const r = await pool.query(
+            `SELECT employee_ranges FROM web2_kpi_assignments WHERE campaign_name = $1`,
+            [name]
+        );
+        res.json({
+            success: true,
+            employeeRanges: r.rows.length ? r.rows[0].employee_ranges || [] : [],
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// PUT /employee-ranges/:campaignName — upsert ranges + audit history.
+router.put('/employee-ranges/:campaignName', async (req, res) => {
+    try {
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        const name = sanitizeCampaignName(req.params.campaignName);
+        if (!name) return res.status(400).json({ success: false, error: 'campaignName required' });
+        const { employeeRanges, userId, userName, campaignLabel } = req.body || {};
+        const ranges = Array.isArray(employeeRanges) ? employeeRanges : [];
+
+        // Validate từng range + phát hiện overlap (giống Web 1.0 campaigns.js).
+        for (const r of ranges) {
+            const from = Number(r.fromSTT ?? r.from ?? r.start ?? 0);
+            const to = Number(r.toSTT ?? r.to ?? r.end ?? Infinity);
+            if (from < 0 || (Number.isFinite(to) && to < 0)) {
+                return res
+                    .status(400)
+                    .json({ success: false, error: `STT âm: from=${from}, to=${to}` });
+            }
+            if (from > to) {
+                return res
+                    .status(400)
+                    .json({ success: false, error: `STT from (${from}) > to (${to})` });
+            }
+        }
+        if (ranges.length > 1) {
+            const sorted = ranges
+                .map((r) => ({
+                    from: Number(r.fromSTT ?? r.from ?? r.start ?? 0),
+                    to: Number(r.toSTT ?? r.to ?? r.end ?? Infinity),
+                    uid: r.userId ?? r.id ?? '?',
+                }))
+                .filter((r) => r.from <= r.to)
+                .sort((a, b) => a.from - b.from);
+            const overlaps = [];
+            for (let k = 1; k < sorted.length; k++) {
+                if (sorted[k].from <= sorted[k - 1].to) {
+                    overlaps.push(
+                        `STT ${sorted[k].from}-${Math.min(sorted[k - 1].to, sorted[k].to)}`
+                    );
+                }
+            }
+            if (overlaps.length) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Employee ranges overlap',
+                    message: `Phát hiện ${overlaps.length} chỗ trùng STT: ${overlaps.join(', ')}`,
+                });
+            }
+        }
+
+        let prevRanges = [];
+        try {
+            const prev = await pool.query(
+                `SELECT employee_ranges FROM web2_kpi_assignments WHERE campaign_name = $1`,
+                [name]
+            );
+            if (prev.rows.length) prevRanges = prev.rows[0].employee_ranges || [];
+        } catch {}
+
+        await pool.query(
+            `INSERT INTO web2_kpi_assignments (campaign_name, employee_ranges)
+             VALUES ($1, $2)
+             ON CONFLICT (campaign_name) DO UPDATE SET
+                 employee_ranges = EXCLUDED.employee_ranges,
+                 updated_at = NOW()`,
+            [name, JSON.stringify(ranges)]
+        );
+
+        const beforeJSON = JSON.stringify(prevRanges || []);
+        const afterJSON = JSON.stringify(ranges);
+        if (beforeJSON !== afterJSON) {
+            const action = prevRanges && prevRanges.length > 0 ? 'update' : 'create';
+            pool.query(
+                `INSERT INTO web2_kpi_assignments_history
+                    (campaign_key, campaign_label, action, user_id, user_name, ranges_before, ranges_after)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+                [
+                    name,
+                    campaignLabel || null,
+                    action,
+                    userId || null,
+                    userName || null,
+                    beforeJSON,
+                    afterJSON,
+                ]
+            ).catch((e) =>
+                console.warn('[web2-kpi] assignments history insert failed:', e?.message)
+            );
+        }
+
+        // Ranges đổi → invalidate scope cache mọi user.
+        invalidateScopeCache();
+        res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
