@@ -47,11 +47,14 @@ router.get('/', async (req, res) => {
             out.revenue_7d = [];
         }
 
-        // PBH pending pack — state=done chưa hết delivery (placeholder: chưa hết tracking_ref)
+        // PBH cần đóng gói = đã chốt (state='done') nhưng CHƯA gán mã vận đơn
+        // (tracking_ref rỗng) → chưa bàn giao cho đơn vị vận chuyển. Loại đơn đã hủy.
         try {
             const r = await pool.query(
-                `SELECT COUNT(*)::int AS c FROM fast_sale_orders WHERE state = 'done'
-                 AND (tracking_ref IS NULL OR tracking_ref = '')`
+                `SELECT COUNT(*)::int AS c FROM fast_sale_orders
+                 WHERE state = 'done'
+                   AND (tracking_ref IS NULL OR tracking_ref = '')
+                   AND COALESCE(show_state, '') NOT ILIKE '%hủy%'`
             );
             out.pbh_pending_pack = Number(r.rows[0]?.c || 0);
         } catch {

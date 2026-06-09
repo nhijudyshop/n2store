@@ -279,7 +279,11 @@
                     if (window.Web2Sidebar)
                         Web2Sidebar.mount('#web2Aside', { activeRoute: 'dashboard' });
                     load();
-                    if (window.Web2SSE) Web2SSE.subscribe('web2:kpi-dashboard', () => load());
+                    if (window.Web2SSE) {
+                        // KPI event (emitKpiEvent broadcast) + PBH thay đổi → reload.
+                        Web2SSE.subscribe('web2:kpi-dashboard', () => load());
+                        Web2SSE.subscribe('web2:fast-sale-orders', () => load());
+                    }
                     setInterval(load, 60000);
                 });
             })();

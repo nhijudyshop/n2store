@@ -213,6 +213,18 @@
                 refresh();
             });
         });
+
+        // Realtime: KPI event mới (forecast/actual/revoke) → auto refresh leaderboard.
+        // emitKpiEvent broadcast topic 'web2:kpi-dashboard'. Debounce gom burst.
+        if (window.Web2SSE) {
+            let _sseTimer = null;
+            Web2SSE.subscribe('web2:kpi-dashboard', () => {
+                clearTimeout(_sseTimer);
+                _sseTimer = setTimeout(() => {
+                    if (STATE.currentCampaignId) refresh();
+                }, 600);
+            });
+        }
     }
 
     document.addEventListener('DOMContentLoaded', init);

@@ -2,6 +2,20 @@
 
 ## 2026-06-09
 
+### [web2][render] Rà soát + fix logic KPI Web 2.0 (5 vấn đề) ✅
+
+**User:** rà soát logic tính KPI Web 2.0 (dashboard + kpi page) → fix tất cả, dọn dead code (Web 1.0 để riêng).
+
+KPI Web 2.0 = 2 hệ: **Dashboard F01** (`/api/web2/dashboard-kpi` — aggregate SUM/COUNT từ fast_sale_orders/web2_products/web2_customer_wallets, cache 30s) và **KPI nhân viên** (`/api/web2/kpi/*` — ledger `web2_kpi_events`, attribution theo `campaign_employee_ranges`, công thức **KPI tiền = SL SP × 5000đ** `RATE_PER_SP`).
+
+- **#1 Sai DB pool (CRITICAL):** `/backlog`, `/backlog/:id/reclassify`, `/recalc` dùng `req.app.locals.chatDb` trần → sau tách DB 2026-06-03 query nhầm Web 1.0 (web2_kpi_events ở web2Db) → luôn rỗng. Đổi sang `web2Db || chatDb`.
+- **#2 Dead code:** bảng cache `web2_kpi_forecast`/`web2_kpi_actual` + `recalcProjections()` + `POST /recalc` không nơi nào đọc, không cron nào gọi (`/forecast`+`/actual` tính live từ ledger mỗi request). Gỡ hết + `DROP TABLE IF EXISTS` trong ensureSchema. (Cron KPI Web 1.0 ở `scheduler.js:347` — hệ riêng, không đụng.)
+- **#3 Mismatch sentinel no-campaign:** dropdown gửi `'__no_campaign__'` nhưng ledger lưu `'NO_CAMPAIGN'` → chọn "(Không chiến dịch)" rỗng. Đổi `SYNTHETIC_NO_CAMPAIGN` → `'__no_campaign__'` (khớp `native-orders _campaignsHandler`) + helper `_pushCampaignFilter` đọc backward-compat cả 2 giá trị.
+- **#4 Không realtime:** `kpi/index.html` không nạp `web2-sse-bridge.js`; `emitKpiEvent` notify `web2:kpi:<id>` còn dashboard subscribe `web2:kpi-dashboard` → 2 topic không gặp. Sửa: emit broadcast thêm topic `web2:kpi-dashboard`; kpi page nạp sse-topics+bridge + `Web2SSE.subscribe('web2:kpi-dashboard')` debounce 600ms; dashboard subscribe thêm `web2:fast-sale-orders`.
+- **#5 pbh_pending_pack placeholder:** làm rõ định nghĩa = state='done' AND tracking_ref rỗng AND không hủy (`show_state NOT ILIKE '%hủy%'`).
+
+**Files:** `render.com/routes/v2/kpi.js`, `render.com/routes/v2/dashboard-kpi.js`, `web2/kpi/index.html`, `web2/kpi/js/kpi-dashboard.js`, `web2/dashboard/index.html`. Syntax `node --check` 3 file JS OK. Backend cần deploy Render để có hiệu lực.
+
 ### [web2] Seed dữ liệu mọi trang menu + rà soát 34 trang có data ✅
 
 **User:** native-orders không thấy data; rà soát từng trang menu chắc chắn phải có dữ liệu.
