@@ -7035,6 +7035,21 @@ body.action-bar-visible {
 .cip-fb-link i {
     font-size: 11px;
 }
+/* Fallback: chưa có global_id → tìm theo tên (style phụ, phân biệt với "Mở Ảnh") */
+.cip-fb-link-search {
+    background: #eef2f7;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+}
+.cip-fb-link-search:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+.cip-fb-none {
+    font-size: 11px;
+    color: #94a3b8;
+    font-style: italic;
+}
 
 .cip-notes-section {
     margin-top: 10px;

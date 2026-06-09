@@ -103,20 +103,10 @@
             rows.push(row('fa-globe', 'Global ID', c.global_id, true, 'cip-mono'));
         }
 
-        // Mở Facebook (Ảnh) — global_id là FB profile ID public (mở được /photos);
-        // fb_id là PSID page-scoped nên KHÔNG dùng cho URL profile.
-        const fbProfileId = c.global_id || '';
-        if (fbProfileId) {
-            const fbUrl = `https://www.facebook.com/${encodeURIComponent(fbProfileId)}/photos`;
-            rows.push(`<div class="cip-row">
-                <span class="cip-label"><i class="fab fa-facebook"></i> Facebook</span>
-                <span class="cip-value">
-                    <a href="${fbUrl}" target="_blank" rel="noopener noreferrer" class="cip-fb-link" title="Mở trang Facebook (Ảnh)">
-                        <i class="fas fa-up-right-from-square"></i> Mở Ảnh
-                    </a>
-                </span>
-            </div>`);
-        }
+        // Facebook — luôn hiện 1 dòng. global_id là FB profile ID public (mở được
+        // /photos). Thiếu global_id → resolve async từ fb_global_id_cache (psid+page),
+        // fallback nút tìm theo tên. fb_id (PSID) KHÔNG dùng trực tiếp cho URL profile.
+        rows.push(_buildFbRow(c));
 
         // Gender, Birthday, Lives in
         if (c.gender) rows.push(row('fa-user', 'Giới tính', c.gender));
@@ -262,6 +252,74 @@
             ${notesHtml}
             ${addNoteHtml}
         `;
+
+        // Thiếu global_id → thử resolve từ cache để nâng nút "Tìm trên FB" thành
+        // "Mở Ảnh" (fire-and-forget, an toàn nếu popup đã đóng).
+        _tryResolveFbProfile(c);
+    }
+
+    // ===== Facebook profile button (global_id + fallback) =====
+
+    function _fbPhotosUrl(id) {
+        return `https://www.facebook.com/${encodeURIComponent(id)}/photos`;
+    }
+
+    /** Dòng Facebook trong popup. Có global_id → nút "Mở Ảnh". Thiếu → nút tìm
+     *  theo tên (sẽ tự nâng cấp nếu _tryResolveFbProfile tìm được global_id). */
+    function _buildFbRow(c) {
+        const gid = c.global_id || '';
+        let action;
+        if (gid) {
+            action = `<a href="${_fbPhotosUrl(gid)}" target="_blank" rel="noopener noreferrer" class="cip-fb-link" title="Mở trang Facebook (Ảnh)">
+                    <i class="fas fa-up-right-from-square"></i> Mở Ảnh
+                </a>`;
+        } else {
+            const name = (c.name || '').trim();
+            action = name
+                ? `<a href="https://www.facebook.com/search/people/?q=${encodeURIComponent(name)}" target="_blank" rel="noopener noreferrer" class="cip-fb-link cip-fb-link-search" title="Chưa có Global ID — tìm khách trên Facebook theo tên">
+                        <i class="fas fa-magnifying-glass"></i> Tìm trên FB
+                    </a>`
+                : `<span class="cip-fb-none" title="Chưa có Global ID — mở chat của khách để hệ thống tự đồng bộ">Chưa có Global ID</span>`;
+        }
+        return `<div class="cip-row" id="cip-fb-row">
+            <span class="cip-label"><i class="fab fa-facebook"></i> Facebook</span>
+            <span class="cip-value" id="cip-fb-action">${action}</span>
+        </div>`;
+    }
+
+    /** Resolve global_id còn thiếu qua fb_global_id_cache (in-layer Web 1.0).
+     *  Dùng các cặp (pageId, psid) trong pancake_data.page_fb_ids. */
+    async function _tryResolveFbProfile(c) {
+        if (!c || c.global_id) return;
+        const map = c.pancake_data?.page_fb_ids || c.pancake_data?.pageFbIds || null;
+        if (!map || typeof map !== 'object') return;
+        const pairs = Object.entries(map)
+            .filter(([pageId, psid]) => pageId && psid)
+            .map(([pageId, psid]) => ({ pageId: String(pageId), psid: String(psid) }));
+        if (!pairs.length) return;
+
+        for (const { pageId, psid } of pairs) {
+            try {
+                const resp = await fetch(
+                    `${WORKER_URL}/api/fb-global-id?pageId=${encodeURIComponent(pageId)}&psid=${encodeURIComponent(psid)}`
+                );
+                const json = await resp.json();
+                if (json?.found && json.globalUserId) {
+                    _upgradeFbButton(json.globalUserId);
+                    return;
+                }
+            } catch (e) {
+                /* thử cặp tiếp theo */
+            }
+        }
+    }
+
+    function _upgradeFbButton(gid) {
+        const slot = document.querySelector('#customerInfoPopup #cip-fb-action');
+        if (!slot) return; // popup đã đóng
+        slot.innerHTML = `<a href="${_fbPhotosUrl(gid)}" target="_blank" rel="noopener noreferrer" class="cip-fb-link" title="Mở trang Facebook (Ảnh)">
+                <i class="fas fa-up-right-from-square"></i> Mở Ảnh
+            </a>`;
     }
 
     // ===== Save nickname / toggle do-not-call =====
