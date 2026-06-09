@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f2feb74` — feat(native-orders): them danh sach bai livestream -> gom vao chien dich cha (chung live-chat)
-**Last updated**: 2026-06-09 11:04:50 +07
-**Latest session**: [`RESUME:20260609-110450-f2feb74`](../20260609-110450-f2feb74.md)
-**Summary**: feat(native-orders): them danh sach bai livestream -> gom vao chien dich cha (chung live-chat)
+**Latest commit**: `9f49275` — fix(live-chat): an chip 'Auto: ON (offset)·0' (de giao dien) - auto van luon bat
+**Last updated**: 2026-06-09 11:08:57 +07
+**Latest session**: [`RESUME:20260609-110857-9f49275`](../20260609-110857-9f49275.md)
+**Summary**: fix(live-chat): an chip 'Auto: ON (offset)·0' (de giao dien) - auto van luon bat
 
 ## Folders affected in this commit
 
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -38,7 +37,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-09 10:30
+- [`live-chat/`](./live-chat.md) — updated 2026-06-09 11:08
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-09 11:04
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
