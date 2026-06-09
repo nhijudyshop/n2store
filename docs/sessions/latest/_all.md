@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e225298` — docs(dev-log): native-orders Thêm đơn Inbox — tìm KH qua Pancake → đơn đủ FB context
-**Last updated**: 2026-06-09 18:43:47 +07
-**Latest session**: [`RESUME:20260609-184347-e225298`](../20260609-184347-e225298.md)
-**Summary**: docs(dev-log): native-orders Thêm đơn Inbox — tìm KH qua Pancake → đơn đủ FB context
+**Latest commit**: `c9d643e` — auto: session update
+**Last updated**: 2026-06-09 18:44:59 +07
+**Latest session**: [`RESUME:20260609-184459-c9d643e`](../20260609-184459-c9d643e.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -50,7 +51,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-09 18:34
+- [`render.com/`](./render.com.md) — updated 2026-06-09 18:44
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-09 16:10
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -69,4 +70,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-09 17:51
+- [`web2/`](./web2.md) — updated 2026-06-09 18:44
