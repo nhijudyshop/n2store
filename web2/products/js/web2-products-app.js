@@ -71,7 +71,7 @@
                                 : '<span class="variant-empty">—</span>'
                         }<span class="stock-badge ${stockClass}" title="Tồn kho"><i data-lucide="package"></i>Tồn: ${p.stock ?? 0}</span>${
                             Number(p.printCount) > 0
-                                ? `<span class="stock-badge" title="Tem mã vạch đã in ${Number(p.printCount)} lần — tránh in trùng" style="background:#fef3c7;color:#92400e;border-color:#fde68a;"><i data-lucide="printer"></i>In: ${Number(p.printCount)}×</span>`
+                                ? `<span class="print-count-icon" title="Tem mã vạch đã in ${Number(p.printCount)} lần — tránh in trùng"><i data-lucide="printer"></i><span class="print-count-num">${Number(p.printCount)}</span></span>`
                                 : ''
                         }${
                             Number(p.returnQty) > 0

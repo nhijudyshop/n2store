@@ -2,6 +2,14 @@
 
 ## 2026-06-09
 
+### [web2] Kho SP: badge "In: N×" → icon máy in compact + số đếm nhỏ ✅
+
+**User:** bỏ badge "In: 1×" đầy đủ, chỉ để icon máy in nhỏ với số nhỏ overlay.
+
+- `web2/products/js/web2-products-app.js`: thay `<span class="stock-badge">…In: N×</span>` bằng `<span class="print-count-icon"><i printer><span class="print-count-num">N</span></span>`. Giữ nguyên `title` tooltip (đã in N lần).
+- `web2/products/css/web2-products.css`: thêm `.print-count-icon` (22×22, icon máy in 16px màu `#92400e`) + `.print-count-num` (badge tròn cam `#f59e0b`, số trắng 9px, position absolute top-right).
+- Verify Playwright (login restore, localhost): icon render đúng, num="1", svg printer OK, screenshot xác nhận badge số nằm góc trên-phải icon.
+
 ### [web2][render] Test liên kết dữ liệu 13 trang Web 2.0 + FIX bug trả hàng NCC hỏng tồn kho ✅
 
 **User:** treo máy test toàn bộ trang Web 2.0, seed data ảo ở mắt xích thiếu, verify liên kết dữ liệu giữa các trang, thống kê vào `web2/overview`. "test xong đừng xóa dữ liệu".
