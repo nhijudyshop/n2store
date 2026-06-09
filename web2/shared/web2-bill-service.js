@@ -65,6 +65,26 @@
     // Fallback Code128 nếu QR lib thiếu (giữ tương thích).
     function _renderCodeMarkup(value) {
         if (!value) return '';
+        // 2026-06-09: route qua NGUỒN CHUNG Web2QR (QR "trang trí" đen trắng —
+        // module bo góc + mắt finder styled, vẫn quét nhạy). toSvg() đồng bộ →
+        // nhúng SVG vào <img src=data:svg> giữ nguyên layout .b-qr. Fallback
+        // davidshimjs canvas / Code128 nếu Web2QR hoặc QR lib thiếu.
+        try {
+            if (global.Web2QR && typeof global.QRCode === 'function') {
+                const svg = global.Web2QR.toSvg(String(value), {
+                    style: 'rounded',
+                    ec: 'M',
+                    margin: 2,
+                });
+                const src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+                return (
+                    `<img class="b-qr" src="${src}" alt="" />` +
+                    `<div class="b-qr-num">${_esc(value)}</div>`
+                );
+            }
+        } catch (e) {
+            console.warn('[Web2Bill] Web2QR render failed, fallback:', e.message);
+        }
         try {
             if (typeof global.QRCode === 'function') {
                 const tmp = document.createElement('div');

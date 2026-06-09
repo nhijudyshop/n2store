@@ -664,7 +664,25 @@
                 await loadQrLib();
                 qrMap = {};
                 const uniq = [...new Set(labels.map((l) => l.code).filter(Boolean))];
-                for (const code of uniq) qrMap[code] = genQrDataUrl(code);
+                // 2026-06-09: route qua NGUỒN CHUNG Web2QR (QR "trang trí" đen
+                // trắng — module bo góc + mắt finder styled). Fallback genQrDataUrl
+                // (davidshimjs vuông) nếu Web2QR thiếu / lỗi.
+                for (const code of uniq) {
+                    if (window.Web2QR) {
+                        try {
+                            qrMap[code] = await window.Web2QR.toDataUrl(code, {
+                                ec: 'M',
+                                style: 'rounded',
+                                margin: 2,
+                                pxPerCell: 12,
+                            });
+                            continue;
+                        } catch (e) {
+                            /* fallthrough → davidshimjs */
+                        }
+                    }
+                    qrMap[code] = genQrDataUrl(code);
+                }
             } catch (e) {
                 notify('Lỗi tạo QR, in tạm mã 1D: ' + e.message, 'warning');
                 opts = { ...opts, symbology: 'code128' };
