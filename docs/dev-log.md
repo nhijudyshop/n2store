@@ -2,6 +2,15 @@
 
 ## 2026-06-09
 
+### [web2] Kho KH — search tìm kho trước, KHÔNG có mới fallback fetch Pancake ✅
+
+**User:** ở `web2/customers/` tìm trong kho KH trước, nếu không có thì mới tìm bằng fetch Pancake.
+
+- **Flow**: search box (`wcSearchInput`) vẫn query kho KH (`CustomersApi.list`, warehouse). Trong `load()`: nếu `state.search` có + `total === 0` → `runPancakeFallback(q)`; ngược lại `hidePancakeResults()`. KHÔNG fetch Pancake khi kho đã có kết quả (đúng thứ tự kho-trước, khớp quy ước [[feedback_lookup_kho_before_pancake]]).
+- **Pancake search** (`customers-app.js`): tái dùng pattern native-orders — `_getPageIds()` (đọc `localStorage.pancake_all_accounts` + `Web2Chat.getAllPageAccessTokens()`), `_searchPancake(q)` gọi `Web2Chat.searchConversations` SONG SONG mọi page, gom theo `fbId` (ưu tiên INBOX + có SĐT), top 12. `_pancakeSeq` guard bỏ kết quả cũ khi gõ tiếp.
+- **UI**: section `#wcPancakeResults` (ẩn mặc định) hiện dưới bảng khi kho rỗng — card avatar + tên + SĐT/badge "💬 Nhắn được" + page …xxxxx + nút **"Thêm vào kho"**. Add → có SĐT: `CustomersApi.upsert({phone,name,fbId,source:'pancake'})`; không SĐT: `create({name,fbId,fbPageId,source:'pancake'})` (FB-only) → reload kho. CSS `.wc-pancake-*`. Cache-bust `?v=20260609c`.
+- **Verify (Playwright localhost, query kho thật qua Render)**: "Huỳnh Thành Đạt" → 3 row kho, Pancake **ẩn** (warehouse-first OK). "zzqnoexistperson987xyz" → 0 row kho, Pancake **hiện** ("Không tìm thấy" vì localhost không có token Pancake — đúng path, deploy thật có token sẽ ra card). 0 pageerror.
+
 ### [live-chat][render] Force extract gom KH comment → kho (KHÔNG đè) + quy ước lookup kho-trước-Pancake ✅
 
 **User:** (1) live-chat bấm Force extract → lấy luôn thông tin KH comment fill vào `web2/customers` cho đầy đủ, **đừng đè địa chỉ/SĐT/tên** — trùng thì thêm vào, dữ liệu cũ chính vẫn là chính. (2) Ghi quy ước: lookup KH tìm trong kho trước, không có mới fetch Pancake.
