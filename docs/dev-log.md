@@ -714,7 +714,18 @@ Bounded: tối đa 1 refetch/lượt; sau refetch `fetchedAt=now` → hết stal
 
 **Lưu ý test:** 10 fail trong các file kpi-\* khác là **pre-existing** (source-pattern assertions trên hàm khác: saveKPIStatistics/moveDroppedToOrder/...) — xác nhận tồn tại trước khi sửa, không do thay đổi này.
 
-**Status:** ✅ DONE — chờ deploy (GH Pages) rồi user bấm "Tính lại KPI toàn bộ" để verify NET=2.
+**Cache-bust:** bump `kpi-manager.js?v=20260521b → 20260609a` (3 file HTML: tab-kpi-commission, tab1-orders, migration-kpi-per-user). Trang KPI là **iframe** → browser cache JS cũ, refresh thường không ăn; đổi `?v=` buộc tải mới.
+
+**Bonus fix (server):** PUT `/kpi-final-snapshot` ON CONFLICT KHÔNG bump `fetched_at` (chỉ `updated_at`) → sau refetch `fetched_at` vẫn cũ → guard refetch TPOS MỖI lần tính (đúng kết quả nhưng tốn request). Thêm `fetched_at = CURRENT_TIMESTAMP` vào UPDATE ([realtime-db.js:891](../render.com/routes/realtime-db.js#L891)) → guard tự dừng sau 1 refetch. ⚠ Cần deploy Render.
+
+**✅ VERIFIED LIVE (Playwright, login nhijudy.store, JS mới):**
+- 260600892: NET **1→2** (10.000đ), SP [Q741A1, Q739A1]. `SaleOnline.Details` có đủ 4 SP gồm Q739A1.
+- 260601110: NET **1→3** (15.000đ), SP [Q739A2, Q741A2, Q716A2].
+- Console `[KPI] Snapshot ... lỗi thời → fetch lại đơn thật TPOS` fire đúng.
+- Đối chiếu `SaleOnline_Order.Details` (KPI đọc) ≡ `FastSaleOrder.OrderLines` (phiếu bán hàng) về số SP → KPI đọc đúng nguồn, KHÔNG cần đổi sang OrderLines (đã loại nghi vấn của user về phiếu bán hàng).
+- Cũng xác nhận gate "Chờ phiếu · chưa tính" (`_isOrderKpiPending`) đúng-as-design: đơn không phiếu/Nháp → không cộng KPI; đơn Hủy → ẩn.
+
+**Status:** ✅ DONE + verified live. User hard-refresh (Ctrl+Shift+R) + "Tính lại KPI toàn bộ" để persist NET mới vào kpi_statistics.
 
 ---
 

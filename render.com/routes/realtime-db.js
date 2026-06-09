@@ -889,6 +889,7 @@ router.put('/kpi-final-snapshot/:orderCode', async (req, res) => {
                 order_id   = EXCLUDED.order_id,
                 products   = EXCLUDED.products,
                 fetched_by = EXCLUDED.fetched_by,
+                fetched_at = CURRENT_TIMESTAMP,
                 updated_at = CURRENT_TIMESTAMP`,
             [orderCode, orderId || null, JSON.stringify(products), fetchedBy || null]
         );
