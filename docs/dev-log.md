@@ -2,6 +2,17 @@
 
 ## 2026-06-09
 
+### [render][web2] PBH tạo tay — trừ ví dư vào PBH ngay khi tạo ✅
+
+**User:** "trừ ví dư vào PBH mới ngay khi tạo" — KH có số dư ví sẵn mà tạo PBH mới thì PBH bị "chưa trả" dù ví đủ, phải chờ CK kế tiếp. Muốn trừ ngay.
+
+- Phát hiện: `/from-native-order` (Đơn Web → PBH) **đã** trừ ví dư lúc tạo (`_applyWalletToPbh`, line ~1595). Chỉ **`POST /` (tạo PBH tay)** thiếu → bổ sung cùng pattern: sau INSERT + trừ stock → `_applyWalletToPbh(pool, partnerPhone, newRow)` → nếu `deducted>0` UPDATE `payment_amount/residual/cash_on_delivery/wallet_deducted` + SSE `web2:wallet:<digits>`. Guard `partnerPhone && state≠cancel`. Best-effort, không chặn tạo PBH; idempotent theo `wallet_deducted`.
+- `/merge` KHÔNG thêm: PBH gộp INSERT `residual` mặc định 0 → `_applyWalletToPbh` no-op (không ý nghĩa).
+
+**Cơ chế nền:** ví keyed theo **SĐT** không theo đơn; CK đã cộng có `debt_added=TRUE` → idempotent, tạo đơn mới KHÔNG re-credit/double. `applyWalletToUnpaidPbhs` (CK về / link tay) + `_applyWalletToPbh` (tạo PBH) cùng trừ `min(ví, residual)`, trả góp nếu thiếu, ưu tiên PBH mới nhất.
+
+**Files:** `render.com/routes/fast-sale-orders.js`. `node --check` OK. Cần deploy Render.
+
 ### [native-orders] Thêm đơn Inbox — tìm KH qua Pancake → đơn ĐỦ FB context (nhắn tin được) ✅
 
 **User:** modal "Thêm đơn Inbox" tìm tên/SĐT → tìm theo Pancake → lấy thông tin đủ để gửi tin nhắn cho khách. Đơn livestream + inbox tạo bằng cách nào cũng phải đủ FB info (trừ SĐT/địa chỉ điền sau) — như đơn tạo từ `live-chat/`.
