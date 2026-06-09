@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ecf62e0` — feat(web2): tem mã SP — phóng to toàn bộ giao diện (font ×1.75, QR to, tên 3 dòng auto-fit)
-**Last updated**: 2026-06-09 19:40:06 +07
-**Latest session**: [`RESUME:20260609-194006-ecf62e0`](../20260609-194006-ecf62e0.md)
-**Summary**: feat(web2): tem mã SP — phóng to toàn bộ giao diện (font ×1.75, QR to, tên 3 dòng auto-fit)
+**Latest commit**: `85a25c7` — auto: session update
+**Last updated**: 2026-06-09 19:41:49 +07
+**Latest session**: [`RESUME:20260609-194149-85a25c7`](../20260609-194149-85a25c7.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -43,7 +42,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-09 19:12
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-09 19:26
+- [`orders-report/`](./orders-report.md) — updated 2026-06-09 19:41
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
