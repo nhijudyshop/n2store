@@ -2,6 +2,20 @@
 
 ## 2026-06-09
 
+### [orders] Popup KH — nút FB resolve global_id qua COMMENT LIVESTREAM (Pancake fetch) ✅
+
+**User:** "fetch Pancake" = kéo comment bài livestream (`pancake.vn/NhiJudyStore/post` + `NhiJudyHouse.VietNam/post`) → trong comment có data FB khách. Không có thì "Chưa có dữ liệu Pancake".
+
+- **Probe thật trước khi code** (test-before-implement): comment list (`/api/pancake/pages/{pid}/conversations?type=COMMENT&post_id=`) **KHÔNG có `global_id`** — chỉ `from.id`/`customers[0].fb_id` (page-scoped, không mở profile được) + name + phones. NHƯNG `pdm.fetchMessages(pageId, commentConvId)` trả `global_id` + `customers[].global_id` (đã verify: commenter `26987166457547274` → `100078632136829`). `fetchConversationDirect` thì KHÔNG có global_id.
+- **Resolver mới** (`orders-report/js/tab1/tab1-customer-info.js`, thiếu global_id → "Đang tra Pancake…"), thứ tự rẻ→đắt, tất cả Web 1.0 qua worker proxy:
+    1. `_resolveFbViaCache` — `fb_global_id_cache` qua `page_fb_ids`.
+    2. `_resolveFbDirect` — có fb_id page-scoped → `fetchMessages(`pageId_fbId`)` lấy global_id (ưu tiên `page_fb_ids`, fallback `c.fb_id` thử 2 page).
+    3. `_resolveFbViaLivestream` — **(ý user)** build index comment 2 page livestream gần (3 ngày, ≤2 bài live/page × 3 trang comment), cache 5'. Khớp KH theo **SĐT (recent_phone_numbers) hoặc fb_id** (KHÔNG khớp theo tên — tránh nhầm) → `fetchMessages(commentConvId)` → global_id. Persist vào cache qua `GlobalIdHarvester.fromCustomers`.
+    - Có → **"Mở Ảnh"** `/photos`; không → **"Chưa có dữ liệu Pancake"**.
+- Bỏ approach `searchConversations` cũ (bị treo khi test). Mọi call Pancake bọc `_withTimeout` 12s.
+- Pages: NhiJudy Store `270136663390370`, NhiJudy House `117267091364524` (khớp poller server).
+- **Verify (Playwright, REAL Pancake):** POSITIVE commenter live thật `26987166457547274` → "Mở Ảnh" `/100078632136829/photos`; NEGATIVE không khớp → "Chưa có dữ liệu Pancake". ✅
+
 ### [web2] Tem mã SP — phóng to TOÀN BỘ giao diện tem ✅
 
 **User:** cho toàn bộ giao diện tem to hơn nữa.

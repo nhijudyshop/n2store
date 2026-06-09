@@ -104,8 +104,8 @@
         }
 
         // Facebook — luôn hiện 1 dòng. global_id là FB profile ID public (mở được
-        // /photos). Thiếu global_id → resolve async từ fb_global_id_cache (psid+page),
-        // fallback nút tìm theo tên. fb_id (PSID) KHÔNG dùng trực tiếp cho URL profile.
+        // /photos). Thiếu global_id → "Đang tra Pancake…" rồi resolve async (cache →
+        // fetchMessages → comment livestream). fb_id (PSID) KHÔNG dùng trực tiếp cho URL.
         rows.push(_buildFbRow(c));
 
         // Gender, Birthday, Lives in
