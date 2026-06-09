@@ -2,6 +2,14 @@
 
 ## 2026-06-09
 
+### [web2] Tem mã SP — mã SP xuống DƯỚI QR, canh giữa, rộng = QR ✅
+
+**User:** cho mã SP nằm dưới mã QR, canh giữa mã QR → margin start/end bằng với mã QR.
+
+- Đổi mã SP từ overlay góc phải dưới (đè lên QR) → block NẰM DƯỚI QR. Bọc QR + mã SP trong `.ql-qr-col` (flex column), cả 2 rộng đúng `qrMm` → mã canh giữa, 2 mép TRÙNG mép QR. `.ql-qr-code` CSS bỏ `position:absolute` → block thường `text-align:center` + `margin-top:0.3mm`. Biến thể GIỮ overlay giữa QR. `fitText` vẫn auto thu nhỏ mã cho vừa bề rộng QR.
+- **Verify (Playwright + BarcodeDetector):** KHOTESTLINK28 / HNQUAN29 / HCMMDOM đều decode ĐÚNG. Visual: mã dưới QR canh giữa, mép trùng QR.
+- Files: `web2/products/js/web2-products-print.js`.
+
 ### [web2] Tem mã SP — biến thể vào GIỮA QR, mã SP vào GÓC PHẢI DƯỚI QR ✅
 
 **User:** cho biến thể vào giữa mã QR, mã sản phẩm vào góc phải dưới mã QR (tùy chỉnh size mã SP cho hợp).

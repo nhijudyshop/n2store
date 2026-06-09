@@ -848,12 +848,11 @@
                 // cellW (cột die-cut) → tem canh GIỮA trong cột vật lý của nó.
                 let labelInner = '';
                 if (isQr && !hideBarcode) {
-                    // 2026-06-09: layout QR — QR vuông BÊN TRÁI với 2 overlay:
-                    //   • BIẾN THỂ canh GIỮA QR (logo-style, nền trắng cho dễ đọc)
-                    //   • MÃ SP góc PHẢI DƯỚI QR (góc duy nhất KHÔNG có finder
-                    //     pattern → an toàn nhất để che). EC=H bù lại module bị che.
-                    // Tên + giá vẫn ở cột chữ BÊN PHẢI. QR to hơn (0.5 rộng tem) vì
-                    // cột chữ giờ ít dòng hơn (chỉ tên + giá).
+                    // 2026-06-09: layout QR — cột TRÁI = QR + mã SP DƯỚI QR:
+                    //   • BIẾN THỂ canh GIỮA QR (logo-style, nền trắng cho dễ đọc).
+                    //   • MÃ SP nằm NGAY DƯỚI QR, canh giữa, BỀ RỘNG = bề rộng QR
+                    //     (margin trái/phải trùng mép QR). Auto thu nhỏ font cho vừa.
+                    // EC=H bù lại module biến thể che giữa. Tên + giá ở cột BÊN PHẢI.
                     const qrMm =
                         Math.round(
                             Math.min(labelW * 0.5, (labelH - padTop - padBottom) * 0.96) * 10
@@ -861,23 +860,28 @@
                     const rowStyle =
                         labelStyle +
                         'flex-direction:row;align-items:center;justify-content:flex-start;text-align:left;';
-                    const qrBox = `position:relative;flex:0 0 ${qrMm}mm;height:${qrMm}mm;display:flex;align-items:center;justify-content:center;margin-right:1mm;`;
+                    // Cột QR: QR vuông + mã SP dưới, cả 2 rộng đúng qrMm → mã canh
+                    // giữa & 2 mép trùng mép QR.
+                    const qrColStyle = `flex:0 0 ${qrMm}mm;display:flex;flex-direction:column;align-items:center;justify-content:center;margin-right:1mm;`;
+                    const qrBox = `position:relative;width:${qrMm}mm;height:${qrMm}mm;display:flex;align-items:center;justify-content:center;`;
+                    const codeUnder = `width:${qrMm}mm;`;
                     const txtCol =
                         'flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;text-align:left;overflow:hidden;';
                     const codeLeft = `flex:0 0 auto;font-size:${fsCode}px;line-height:${lineHCode}px;text-align:left;white-space:nowrap;`;
-                    // Overlay fonts: nhỏ hơn fsCode để che ít module QR. Biến thể
-                    // hơi to + đậm cho rõ; mã SP góc nhỏ hơn nữa (user: "tùy chỉnh
-                    // size mã SP cho hợp"). Cả 2 nền trắng + viền mảnh.
+                    // Overlay/under fonts: nhỏ hơn fsCode để biến thể che ít module
+                    // + mã SP dưới gọn. Biến thể hơi to + đậm cho rõ.
                     const fsVarOv = Math.max(5, Math.round(fsCode * 0.85));
                     const fsCodeOv = Math.max(4, Math.round(fsCode * 0.72));
                     labelInner += `<div class="barcode_label" style="${rowStyle}">`;
+                    labelInner += `<div class="ql-qr-col" style="${qrColStyle}">`;
                     labelInner += `<div class="barcode-image ql-qr" style="${qrBox}">${barcodeImg}`;
                     if (showVariant && label.variant) {
                         // Biến thể GIỮA QR — nền trắng, đậm, in nghiêng, bo nhẹ.
                         labelInner += `<div class="ql-qr-variant" style="font-size:${fsVarOv}px;line-height:1;">${escapeHtml(label.variant)}</div>`;
                     }
-                    // Mã SP GÓC PHẢI DƯỚI QR — nền trắng, nowrap, auto thu nhỏ (fit).
-                    labelInner += `<div class="ql-qr-code" style="font-size:${fsCodeOv}px;line-height:1;"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
+                    labelInner += `</div>`;
+                    // Mã SP DƯỚI QR — canh giữa, rộng = QR, nowrap, auto thu nhỏ.
+                    labelInner += `<div class="ql-qr-code" style="${codeUnder}font-size:${fsCodeOv}px;line-height:1;"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
                     labelInner += `</div>`;
                     labelInner += `<div class="ql-text" style="${txtCol}">`;
                     if (showProductName) {
@@ -1037,9 +1041,8 @@ html, body {
     margin: 0 auto;
     image-rendering: pixelated;
 }
-/* 2026-06-09: overlay TRÊN QR — biến thể GIỮA, mã SP GÓC PHẢI DƯỚI. Nền trắng
-   đục để chữ rõ + che gọn module QR (EC=H bù lại). Bottom-right là góc duy nhất
-   không có finder pattern nên an toàn nhất khi che. */
+/* 2026-06-09: biến thể overlay GIỮA QR (nền trắng đục, che gọn module — EC=H bù
+   lại); mã SP nằm DƯỚI QR, canh giữa, bề rộng = bề rộng QR (2 mép trùng mép QR). */
 .ql-qr {
     position: relative;
 }
@@ -1062,18 +1065,11 @@ html, body {
     z-index: 2;
 }
 .ql-qr-code {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    max-width: 80%;
-    padding: 0 1px;
-    background: #fff;
+    margin-top: 0.3mm;
     color: #000;
-    text-align: right;
+    text-align: center;
     white-space: nowrap;
     overflow: hidden;
-    border-radius: 1px 0 0 0;
-    z-index: 2;
 }
 
 /* === Screen preview only (không in) === */
