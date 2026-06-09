@@ -73,6 +73,12 @@
             renderTable();
             renderPagination();
             $('#wcStatAll').textContent = state.total.toLocaleString('vi-VN');
+            // Không có trong kho + có từ khoá tìm → fallback Pancake.
+            if (state.search && state.total === 0) {
+                runPancakeFallback(state.search);
+            } else {
+                hidePancakeResults();
+            }
         } catch (e) {
             body.innerHTML = `<tr><td colspan="8"><div class="wc-empty">✗ ${esc(e.message)}</div></td></tr>`;
         } finally {
@@ -459,6 +465,13 @@
         $('#wcAddBtn').addEventListener('click', () => openModal(null));
         $('#wcExportBtn').addEventListener('click', exportCsv);
         $('#wcMergeBtn').addEventListener('click', doMerge);
+        // Pancake fallback: "Thêm vào kho"
+        $('#wcPancakeList').addEventListener('click', (e) => {
+            const btn = e.target.closest('.wc-pancake-add');
+            if (!btn) return;
+            const idx = Number(btn.dataset.idx);
+            if (Number.isFinite(idx)) addPancakeToKho(idx);
+        });
         // Table delegation (row checkbox + actions)
         $('#wcTableBody').addEventListener('click', (e) => {
             const tr = e.target.closest('tr[data-id]');
@@ -516,6 +529,176 @@
                 renderAltPhones();
             }
         });
+    }
+
+    // ─── Pancake fallback (kho KH không có → tìm hội thoại Pancake) ─────
+    // Mọi page user có token. Gom theo fbId, ưu tiên INBOX + có SĐT. Cho phép
+    // "Thêm vào kho" → upsert/create vào web2_customers (warehouse).
+    let _pancakeRows = [];
+    let _pancakeSeq = 0;
+
+    function hidePancakeResults() {
+        const sec = $('#wcPancakeResults');
+        if (sec) sec.hidden = true;
+        _pancakeRows = [];
+    }
+
+    function _getPageIds() {
+        const set = new Set();
+        try {
+            const accs = JSON.parse(localStorage.getItem('pancake_all_accounts') || '{}');
+            for (const v of Object.values(accs)) {
+                const pages = Array.isArray(v?.pages) ? v.pages : [];
+                for (const p of pages) {
+                    const pid = p?.id || p?.page_id || p?.pageId;
+                    if (pid) set.add(String(pid));
+                }
+            }
+        } catch {
+            /* tolerate */
+        }
+        const pat = window.Web2Chat?.getAllPageAccessTokens?.() || {};
+        for (const k of Object.keys(pat)) set.add(String(k));
+        return [...set].filter(Boolean);
+    }
+
+    async function _searchPancake(query) {
+        const q = String(query || '').trim();
+        if (!q || !window.Web2Chat?.searchConversations) return [];
+        if (window.Web2Chat.syncFromRenderDB) {
+            try {
+                await window.Web2Chat.syncFromRenderDB();
+            } catch {
+                /* tolerate — vẫn thử với token hiện có */
+            }
+        }
+        const pageIds = _getPageIds();
+        if (!pageIds.length) return [];
+        const settled = await Promise.allSettled(
+            pageIds.map((pid) => window.Web2Chat.searchConversations(pid, q))
+        );
+        const byFbId = new Map();
+        for (let i = 0; i < settled.length; i++) {
+            const r = settled[i];
+            if (r.status !== 'fulfilled' || !r.value?.ok) continue;
+            for (const c of r.value.conversations || []) {
+                const cust = c.customers?.[0] || c.from || {};
+                const fbId = String(cust.fb_id || cust.id || c.from_customer_id || '');
+                if (!fbId) continue;
+                const isInbox = (c.type || '').toUpperCase() === 'INBOX';
+                const phone = cust.phone || cust.phone_number || '';
+                const cand = {
+                    fbId,
+                    pageId: String(c.page_id || c.fb_page_id || pageIds[i] || ''),
+                    name: cust.name || cust.full_name || c.name || '',
+                    phone,
+                    avatarUrl: c.from?.avatar_url || cust.avatar_url || '',
+                    isInbox,
+                };
+                const cur = byFbId.get(fbId);
+                if (
+                    !cur ||
+                    (cand.isInbox && !cur.isInbox) ||
+                    (cand.isInbox === cur.isInbox && cand.phone && !cur.phone)
+                ) {
+                    byFbId.set(fbId, cand);
+                }
+            }
+        }
+        return [...byFbId.values()]
+            .sort(
+                (a, b) =>
+                    Number(b.isInbox) - Number(a.isInbox) || (b.phone ? 1 : 0) - (a.phone ? 1 : 0)
+            )
+            .slice(0, 12);
+    }
+
+    function renderPancakeCards() {
+        const list = $('#wcPancakeList');
+        if (!list) return;
+        if (!_pancakeRows.length) {
+            list.innerHTML = '<div class="wc-pancake-empty">Không tìm thấy trên Pancake.</div>';
+            return;
+        }
+        list.innerHTML = _pancakeRows
+            .map((c, i) => {
+                const ph = c.phone ? normPhone(c.phone) || esc(c.phone) : '';
+                return `
+                <div class="wc-pancake-card" data-idx="${i}">
+                    <div class="wc-pancake-avatar">${
+                        c.avatarUrl
+                            ? `<img src="${esc(c.avatarUrl)}" alt="" loading="lazy" />`
+                            : '<i data-lucide="user"></i>'
+                    }</div>
+                    <div class="wc-pancake-meta">
+                        <div class="wc-pancake-name">${esc(c.name) || '(không tên)'}</div>
+                        <div class="wc-pancake-sub">
+                            ${ph ? `<span class="wc-phone">${ph}</span>` : '<span class="wc-muted">chưa có SĐT</span>'}
+                            ${c.isInbox ? '<span class="wc-pancake-badge">💬 Nhắn được</span>' : ''}
+                            <span class="wc-pancake-page" title="Page ${esc(c.pageId)}">page …${esc(String(c.pageId).slice(-5))}</span>
+                        </div>
+                    </div>
+                    <button type="button" class="wc-btn wc-btn-primary wc-pancake-add" data-idx="${i}">
+                        <i data-lucide="user-plus"></i> Thêm vào kho
+                    </button>
+                </div>`;
+            })
+            .join('');
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    async function runPancakeFallback(query) {
+        const sec = $('#wcPancakeResults');
+        if (!sec) return;
+        const seq = ++_pancakeSeq;
+        $('#wcPancakeQuery').textContent = `“${query}”`;
+        $('#wcPancakeList').innerHTML =
+            '<div class="wc-pancake-empty">Đang tìm trên Pancake…</div>';
+        sec.hidden = false;
+        let rows = [];
+        try {
+            rows = await _searchPancake(query);
+        } catch {
+            rows = [];
+        }
+        if (seq !== _pancakeSeq) return; // có lần tìm mới hơn → bỏ
+        _pancakeRows = rows;
+        renderPancakeCards();
+    }
+
+    async function addPancakeToKho(idx) {
+        const c = _pancakeRows[idx];
+        if (!c) return;
+        const actor = window.Web2UserInfo?.get?.('web2/customers') || {};
+        const phone = normPhone(c.phone);
+        try {
+            let res;
+            if (phone) {
+                res = await window.CustomersApi.upsert({
+                    phone,
+                    name: c.name || undefined,
+                    fbId: c.fbId || undefined,
+                    source: 'pancake',
+                });
+            } else {
+                // KH FB-only (chưa có SĐT) → tạo với fb identity.
+                res = await window.CustomersApi.create({
+                    name: c.name || 'Khách FB',
+                    fbId: c.fbId || undefined,
+                    fbPageId: c.pageId || undefined,
+                    source: 'pancake',
+                    userId: actor.userId,
+                    userName: actor.userName,
+                });
+            }
+            if (res && res.success === false) throw new Error(res.error || 'Thêm thất bại');
+            notify('Đã thêm KH vào kho', 'success');
+            hidePancakeResults();
+            // Reload kho — KH mới sẽ khớp từ khoá đang tìm.
+            load();
+        } catch (e) {
+            notify('✗ ' + e.message, 'error');
+        }
     }
 
     // ─── SSE realtime ───────────────────────────────────────────────────

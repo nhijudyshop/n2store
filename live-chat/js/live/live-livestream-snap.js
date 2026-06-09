@@ -869,6 +869,24 @@ Throttle 30s/KH.`;
                 return;
             }
             const st = global.LiveState;
+            // Gom KH từ comment vào kho KH (web2_customers) — song song, không
+            // chặn image flow. Backend KHÔNG ghi đè SĐT/địa chỉ/tên sẵn có:
+            // trùng SĐT → thêm alt_phones (chính giữ nguyên), field rỗng mới fill.
+            try {
+                window.LiveColumnManager?._harvestCommentCustomers?.(
+                    (st?.comments || []).filter((c) => c.from?.id && !_isStaffComment(c))
+                )
+                    .then((j) => {
+                        if (j && (j.created || j.altAdded || j.filled || j.linked)) {
+                            _toast(
+                                `Kho KH: +${j.created || 0} mới, ` +
+                                    `+${(j.altAdded || 0) + (j.filled || 0) + (j.linked || 0)} cập nhật`,
+                                'ok'
+                            );
+                        }
+                    })
+                    .catch(() => {});
+            } catch (_) {}
             // Pending = comment (non-staff) chưa có ảnh bytea thật.
             const pending = (st?.comments || []).filter((c) => {
                 if (!c.from?.id || _isStaffComment(c)) return false;
@@ -984,6 +1002,19 @@ Throttle 30s/KH.`;
     async function _runSilentForceExtract() {
         if (STATE._silentExtractRunning) return;
         STATE._silentExtractRunning = true;
+        // Gom KH từ comment vào kho (silent, throttle 60s tránh spam khi user
+        // switch tab liên tục). Backend KHÔNG ghi đè dữ liệu chính sẵn có.
+        try {
+            const nowH = Date.now();
+            if (nowH - (STATE._lastHarvestTs || 0) > 60_000) {
+                STATE._lastHarvestTs = nowH;
+                window.LiveColumnManager?._harvestCommentCustomers?.(
+                    (global.LiveState?.comments || []).filter(
+                        (c) => c.from?.id && !_isStaffComment(c)
+                    )
+                ).catch(() => {});
+            }
+        } catch (_) {}
         try {
             const camp = _findActiveLiveCampaign();
             const pageObj = _resolvePageObj();

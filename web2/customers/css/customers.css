@@ -719,6 +719,112 @@
     background: var(--web2-bg-light, #fafbfc);
 }
 
+/* ── Pancake fallback (kho KH không có → tìm Pancake) ── */
+.wc-pancake {
+    border: 1px solid var(--web2-info-soft-2, #e0f2fe);
+    border-radius: 12px;
+    background: var(--web2-info-soft, #f0f9ff);
+    overflow: hidden;
+}
+.wc-pancake[hidden] {
+    display: none !important;
+}
+.wc-pancake-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 14px;
+    font-size: 13px;
+    color: var(--web2-info, #0369a1);
+    border-bottom: 1px solid var(--web2-info-soft-2, #e0f2fe);
+}
+.wc-pancake-head i {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+.wc-pancake-head b {
+    color: var(--web2-text, #1e293b);
+}
+.wc-pancake-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--web2-border, #e2e8f0);
+}
+.wc-pancake-empty {
+    padding: 18px 14px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--web2-text-3, #64748b);
+    background: #fff;
+}
+.wc-pancake-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #fff;
+}
+.wc-pancake-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--web2-neutral-soft, #f1f5f9);
+    display: grid;
+    place-items: center;
+    color: var(--web2-text-faded, #cbd5e1);
+}
+.wc-pancake-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.wc-pancake-avatar i {
+    width: 20px;
+    height: 20px;
+}
+.wc-pancake-meta {
+    flex: 1;
+    min-width: 0;
+}
+.wc-pancake-name {
+    font-weight: 600;
+    font-size: 13.5px;
+    color: var(--web2-text, #1e293b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.wc-pancake-sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    margin-top: 2px;
+}
+.wc-pancake-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: #16a34a;
+    background: #dcfce7;
+    padding: 1px 7px;
+    border-radius: 999px;
+}
+.wc-pancake-page {
+    font-size: 11px;
+    color: var(--web2-text-3, #64748b);
+    background: var(--web2-neutral-soft, #f1f5f9);
+    padding: 1px 7px;
+    border-radius: 4px;
+}
+.wc-pancake-add {
+    flex-shrink: 0;
+}
+
 /* ── Responsive ── */
 @media (max-width: 640px) {
     .wc-main {

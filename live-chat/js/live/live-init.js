@@ -901,6 +901,60 @@ const LiveColumnManager = {
         }
     },
 
+    // Gom KH từ comment vào KHO KH (web2_customers) — 1 bulk call.
+    // Trigger khi Force extract (live-livestream-snap). Backend KHÔNG ghi đè
+    // SĐT/địa chỉ/tên sẵn có: trùng SĐT → thêm alt_phones (phone chính giữ
+    // nguyên là CHÍNH), field rỗng mới fill, KH mới thì tạo. Best-effort.
+    async _harvestCommentCustomers(comments) {
+        const state = window.LiveState;
+        const list = Array.isArray(comments) ? comments : state.comments || [];
+        if (!list.length) return null;
+        const norm = (s) =>
+            String(s || '')
+                .replace(/\D/g, '')
+                .slice(-10);
+        const phoneOf = (c) => {
+            const a = c._phones;
+            const ph = Array.isArray(a) && a.length ? a[0] : null;
+            if (ph) {
+                const v = typeof ph === 'string' ? ph : ph.phone_number || ph.phone || '';
+                if (norm(v).length === 10) return norm(v);
+            }
+            const m = String(c.message || '')
+                .replace(/[.\s()\-_]/g, '')
+                .match(/(?:\+?84|0)(\d{9})(?!\d)/);
+            return m ? '0' + m[1] : '';
+        };
+        const payload = [];
+        const seen = new Set();
+        for (const c of list) {
+            const fbId = c.from?.id ? String(c.from.id) : '';
+            if (!fbId) continue;
+            const phone = phoneOf(c);
+            const dk = fbId + '|' + phone;
+            if (seen.has(dk)) continue;
+            seen.add(dk);
+            payload.push({
+                fbId,
+                name: c.from?.name || '',
+                phone: phone || undefined,
+                fbPageId: c._pageObj?.Facebook_PageId || c._pageObj?.Id || undefined,
+            });
+        }
+        if (!payload.length) return null;
+        try {
+            const r = await fetch(`${state.workerUrl}/api/web2/customers/harvest-comments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ comments: payload }),
+            });
+            return await r.json().catch(() => null);
+        } catch (e) {
+            console.warn('[Live-INIT] harvestCommentCustomers fail:', e.message);
+            return null;
+        }
+    },
+
     /**
      * Load debt info for all partners with phone numbers
      */

@@ -11,6 +11,7 @@
 //   POST   /create                      — tạo KH (CRUD)
 //   POST   /upsert                      — upsert theo SĐT (chat → "Thêm KH")
 //   POST   /enrich-fb                   — link fb_id vào kho (Web2Chat tự gọi)
+//   POST   /harvest-comments            — gom KH từ comment livestream (Force extract)
 //   POST   /merge                       — gộp 2 KH trùng
 //   PATCH  /:id                         — sửa KH (mọi trang Web 2.0)
 //   DELETE /:id                         — xoá/soft-archive KH
@@ -770,6 +771,127 @@ router.post('/add-alt-phone', async (req, res) => {
         res.status(500).json({ success: false, error: e.message });
     }
 });
+
+// ─── POST /harvest-comments — gom KH từ comment livestream vào kho ──────
+// Body: { comments: [{ fbId, name, phone, globalId, fbPageId }] }
+// "Lấy luôn thông tin KH comment fill vào kho cho đầy đủ". QUY TẮC (user
+// 2026-06-09): KHÔNG ghi đè SĐT/địa chỉ/tên sẵn có. Trùng SĐT → thêm vào
+// alt_phones (phone chính giữ nguyên, vẫn là CHÍNH). Field rỗng mới fill.
+// KH chưa có trong kho → tạo mới. Idempotent, best-effort từng comment.
+router.post('/harvest-comments', async (req, res) => {
+    const db = getPool(req);
+    const list = Array.isArray(req.body?.comments) ? req.body.comments : [];
+    const stats = { created: 0, linked: 0, altAdded: 0, filled: 0, skipped: 0, processed: 0 };
+    if (!list.length) return res.json({ success: true, ...stats });
+
+    const seen = new Set(); // dedupe input theo fbId|phone
+    for (const raw of list) {
+        const fbId = String(raw?.fbId || '').trim();
+        const name = String(raw?.name || '').trim();
+        const phone = normPhoneWeb2(raw?.phone);
+        if (!fbId && !phone) {
+            stats.skipped++;
+            continue;
+        }
+        const dk = fbId + '|' + (phone || '');
+        if (seen.has(dk)) continue;
+        seen.add(dk);
+        stats.processed++;
+        try {
+            const r = await _harvestOneComment(db, {
+                fbId,
+                name,
+                phone,
+                globalId: raw?.globalId,
+                fbPageId: raw?.fbPageId,
+            });
+            if (r === 'created') stats.created++;
+            else if (r === 'linked') stats.linked++;
+            else if (r === 'alt') stats.altAdded++;
+            else if (r === 'filled') stats.filled++;
+            else stats.skipped++;
+        } catch (e) {
+            stats.skipped++;
+            console.warn('[web2-customers] harvest one fail:', e.message);
+        }
+    }
+    if (stats.created || stats.linked || stats.altAdded || stats.filled) _notify('harvest', null);
+    res.json({ success: true, ...stats });
+});
+
+// Xử lý 1 comment → kho KH. KHÔNG ghi đè dữ liệu chính sẵn có. Trả về:
+// 'created' | 'linked' | 'alt' | 'filled' | 'skip'.
+async function _harvestOneComment(db, { fbId, name, phone, globalId, fbPageId }) {
+    // 1) Đã có KH theo fb_id? → bổ sung KHÔNG ghi đè.
+    const existing = fbId ? await findWeb2CustomerByFbId(db, fbId) : null;
+    if (existing) {
+        let touched = null;
+        if (phone) {
+            const exPhone = normPhoneWeb2(existing.phone);
+            if (!exPhone) {
+                // phone chính đang rỗng → fill (không phải ghi đè)
+                await db.query(
+                    `UPDATE web2_customers SET phone=$2, updated_at=$3
+                     WHERE id=$1 AND (phone IS NULL OR phone='')`,
+                    [existing.id, phone, Date.now()]
+                );
+                touched = 'filled';
+            } else if (exPhone !== phone) {
+                // khác phone chính → thêm vào alt_phones (giữ chính)
+                const a = await addWeb2AltPhone(db, { customerId: existing.id, phone });
+                if (a?.added) touched = 'alt';
+            }
+        }
+        // tên rỗng/placeholder → fill (không đè tên thật)
+        if (name) {
+            const exName = String(existing.name || '').trim();
+            if (!exName || exName === 'Khách hàng mới' || exName === 'Khách FB') {
+                await db.query(`UPDATE web2_customers SET name=$2, updated_at=$3 WHERE id=$1`, [
+                    existing.id,
+                    name,
+                    Date.now(),
+                ]);
+                touched = touched || 'filled';
+            }
+        }
+        return touched || 'skip';
+    }
+
+    // 2) Chưa có theo fb_id. Có SĐT → upsert theo phone (fill rỗng + link fb_id).
+    //    getOrCreate chỉ fill field RỖNG, không ghi đè dữ liệu chính.
+    if (phone) {
+        const goc = await getOrCreateWeb2Customer(db, phone, {
+            name: name || undefined,
+            fbId: fbId || undefined,
+            globalId: globalId || undefined,
+            fbPageId: fbPageId || undefined,
+            source: 'live-comment',
+        });
+        if (fbId) await linkWeb2CustomerFbId(db, phone, fbId);
+        return goc.created ? 'created' : 'linked';
+    }
+
+    // 3) Chỉ có fb_id (không SĐT) → tạo KH FB-only (đủ tên + fb_id).
+    if (fbId) {
+        const now = Date.now();
+        const ins = await db.query(
+            `INSERT INTO web2_customers (name, fb_id, global_id, fb_page_id, source, history, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,'live-comment',$5::jsonb,$6,$6)
+             ON CONFLICT DO NOTHING
+             RETURNING id`,
+            [
+                name || 'Khách FB',
+                fbId,
+                globalId || null,
+                fbPageId || null,
+                JSON.stringify([_historyEntry('create', { note: 'live-comment harvest' })]),
+                now,
+            ]
+        );
+        return ins.rows.length ? 'created' : 'skip';
+    }
+    return 'skip';
+}
 
 module.exports = router;
 module.exports.initializeNotifiers = initializeNotifiers;

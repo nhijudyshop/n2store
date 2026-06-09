@@ -18,7 +18,7 @@
         <link rel="stylesheet" href="../../web2/shared/web2-sidebar.css?v=20260526b" />
         <link rel="stylesheet" href="../../native-orders/css/web2-theme.css?v=20260526b" />
         <link rel="stylesheet" href="../../web2/shared/web2-theme.css?v=20260526b" />
-        <link rel="stylesheet" href="css/customers.css?v=20260609b" />
+        <link rel="stylesheet" href="css/customers.css?v=20260609c" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
@@ -127,6 +127,23 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Pancake fallback: chỉ hiện khi kho KH không có kết quả -->
+                <section
+                    class="wc-pancake"
+                    id="wcPancakeResults"
+                    hidden
+                    aria-label="Kết quả Pancake"
+                >
+                    <div class="wc-pancake-head">
+                        <i data-lucide="message-circle"></i>
+                        <span
+                            >Không có trong kho KH — tìm thấy trên Pancake
+                            <b id="wcPancakeQuery"></b
+                        ></span>
+                    </div>
+                    <div class="wc-pancake-list" id="wcPancakeList"></div>
+                </section>
 
                 <!-- Pagination -->
                 <footer class="wc-pagination">
@@ -317,7 +334,7 @@
 
         <!-- Page -->
         <script src="js/customers-api.js?v=20260607a"></script>
-        <script src="js/customers-app.js?v=20260609b"></script>
+        <script src="js/customers-app.js?v=20260609c"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
             if (window.lucide) window.lucide.createIcons();
