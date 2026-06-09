@@ -84,12 +84,16 @@ async function loadRefund(pool, code) {
 
 async function saveRefundData(pool, code, dataPatch) {
     // Merge JSONB shallow vào data. Idempotent.
+    // web2_records.updated_at là BIGINT (epoch millis) — KHÔNG dùng NOW()
+    // (timestamptz) vì gây lỗi "column updated_at is of type bigint but
+    // expression is of type timestamp with time zone" → save fail SAU khi
+    // deductStock đã chạy → stock corruption + retry trừ kho nhiều lần.
     await pool.query(
         `UPDATE web2_records
          SET data = COALESCE(data, '{}'::jsonb) || $1::jsonb,
-             updated_at = NOW()
+             updated_at = $3
          WHERE entity_slug = 'purchase-refund' AND code = $2`,
-        [JSON.stringify(dataPatch), code]
+        [JSON.stringify(dataPatch), code, Date.now()]
     );
 }
 
