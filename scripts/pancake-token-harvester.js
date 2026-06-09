@@ -147,6 +147,7 @@ async function loginOne(browser, cred) {
         result.name = decoded?.fb_name || decoded?.name || null;
         result.exp = decoded?.exp || null;
         result.jwt = jwt; // kept in-memory only, never logged
+        result.password = cred.password; // in-memory only → lưu creds bật auto-renew
         result.ok = true;
         await ctx.close();
         return result;
@@ -181,6 +182,36 @@ async function saveToDb(harvested) {
     });
     const j = await res.json().catch(() => ({}));
     return { upserted: j.upserted ?? 0, status: res.status, raw: j };
+}
+
+// Lưu CREDENTIALS (identity + password) vào DB để CRON tự gia hạn (login lại khi
+// token sắp hết hạn). KHÁC với saveToDb (chỉ lưu token). Endpoint mã hoá password
+// (AES-256-GCM, key PANCAKE_CREDS_KEY) + bật auto_refresh. account_id = uid.
+// Password chỉ truyền qua HTTPS body, KHÔNG log.
+async function saveCredsToDb(harvested) {
+    const CRED_BASE = WORKER_URL + '/api/web2/pancake-refresh';
+    let saved = 0;
+    const fails = [];
+    for (const r of harvested) {
+        if (!r.ok || !r.uid || !r.identity || !r.password) continue;
+        try {
+            const res = await fetch(`${CRED_BASE}/${encodeURIComponent(r.uid)}/credentials`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    identity: r.identity,
+                    password: r.password,
+                    auto_refresh: true,
+                }),
+            });
+            const j = await res.json().catch(() => ({}));
+            if (res.ok && j.success) saved++;
+            else fails.push(`${maskIdentity(r.identity)}: HTTP ${res.status} ${j.error || ''}`);
+        } catch (e) {
+            fails.push(`${maskIdentity(r.identity)}: ${e.message}`);
+        }
+    }
+    return { saved, fails };
 }
 
 (async () => {
@@ -220,7 +251,16 @@ async function saveToDb(harvested) {
         console.log('(DRY) Bỏ qua ghi DB.');
     } else if (okCount > 0) {
         const save = await saveToDb(harvested);
-        console.log(`💾 Đã upsert ${save.upserted} account vào DB (HTTP ${save.status || '?'}).`);
+        console.log(
+            `💾 Đã upsert ${save.upserted} account (token) vào DB (HTTP ${save.status || '?'}).`
+        );
+        // Lưu credentials → bật cron tự gia hạn (login lại khi token ≤5 ngày HSD).
+        const creds = await saveCredsToDb(harvested);
+        console.log(`🔐 Đã lưu mật khẩu + bật auto-renew cho ${creds.saved}/${okCount} account.`);
+        if (creds.fails.length) {
+            console.log('   ⚠ Lưu creds lỗi:');
+            for (const f of creds.fails) console.log(`     - ${f}`);
+        }
     }
 
     const failed = harvested.filter((r) => !r.ok);

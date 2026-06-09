@@ -2,6 +2,16 @@
 
 ## 2026-06-09
 
+### [scripts][web2] Harvester lưu CẢ mật khẩu → bật auto-renew Pancake (trước chỉ lưu token) ✅
+
+**User:** account lưu ở `pancake-creds.local.txt` rồi sao không tự gia hạn? DB lưu account ở đâu?
+
+- **DB lưu account:** bảng `pancake_accounts` (Render chatDb, shared web1/web2). Token ở `token`/`token_exp`; mật khẩu auto-renew ở `login_identity` + `login_password_enc` (AES-256-GCM, key `PANCAKE_CREDS_KEY`). Cron `startCron` (server.js:804) chạy mỗi 6h, login lại account có creds + auto khi token ≤5 ngày HSD.
+- **Bug:** `pancake-token-harvester.js` đăng nhập bằng creds trong file → chỉ lưu **TOKEN** qua /sync, KHÔNG lưu mật khẩu (login_password_enc) → cron không có pass để login lại → 5 account "Hết hạn" dù file có creds. Chỉ Kỹ Thuật NJD có creds (lưu tay qua nút 🔒).
+- **Fix:** harvester thêm `saveCredsToDb()` → sau login thành công, PUT `/api/web2/pancake-refresh/:uid/credentials {identity,password,auto_refresh:true}` (password in-memory, không log). Chạy lại: **Huyền Nhi + Kỹ Thuật NJD** giờ 🔄AUTO (còn 89 ngày). Account 84907777674 login fail (no_jwt_timeout — OTP/bot) → cần `--headed`. 4 account còn lại (Thu Lai/Thu Huyền/Con Nhoc/Chloe) chưa có trong file → thêm dòng `identity|password` rồi chạy lại.
+
+## 2026-06-09
+
 ### [native-orders] Nhớ tab kênh đơn (Livestream/Inbox) qua refresh + fix TDZ ✅
 
 **User:** đang bên đơn inbox → refresh lại thì vẫn bên đơn inbox.
