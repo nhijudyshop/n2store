@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `78d1031` — auto: session update
-**Last updated**: 2026-06-09 12:03:02 +07
-**Latest session**: [`RESUME:20260609-120302-78d1031`](../20260609-120302-78d1031.md)
-**Summary**: auto: session update
+**Latest commit**: `9d7fc06` — feat(live-chat): hover anh trong kho 'Hinh Livestream' -> phong to (popup noi ben trai drawer)
+**Last updated**: 2026-06-09 12:03:25 +07
+**Latest session**: [`RESUME:20260609-120325-9d7fc06`](../20260609-120325-9d7fc06.md)
+**Summary**: feat(live-chat): hover anh trong kho 'Hinh Livestream' -> phong to (popup noi ben trai drawer)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
