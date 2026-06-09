@@ -2,6 +2,16 @@
 
 ## 2026-06-09
 
+### [web2] Mã PBH vào GIỮA QR (hộp chữ nhật trắng, cách module 1 khoảng) — Web2QR.centerLabel ✅
+
+**User:** đưa mã vào giữa mã QR hình chữ nhật, mã cách 1 khoảng nhỏ với QR cho dễ nhìn. (research GitHub custom QR)
+
+- **Research GitHub:** chuẩn de-facto `kozakdenys/qr-code-styling` (2.8k⭐) — center-logo dùng EC level **H** (phục hồi 30%) + che 1 vùng giữa nhỏ + margin gap. `qrcode-with-logos`, `etiket` cùng kỹ thuật. → KHÔNG thêm lib mới (policy: Web2QR là 1 nguồn QR duy nhất), implement kỹ thuật đó vào `Web2QR`.
+- **`Web2QR.toSvg` thêm opt `centerLabel`** (`web2/shared/web2-qr.js`): vẽ hộp chữ nhật trắng GIỮA QR + chữ mã canh giữa + halo trắng (gap ~0.9 module) tách khỏi module QR. Có centerLabel → tự nâng `ec='H'`. Hộp giữ nhỏ (≤55% bề ngang, dẹt) → che < ~8% diện tích. Font tự co theo độ dài mã (clamp 1.2–2.6 units).
+- **Bill PBH** (`web2-bill-service.js`): `_renderCodeMarkup` truyền `centerLabel: value` → mã nằm giữa QR, **bỏ dòng `.b-qr-num` dưới QR** (Web2QR path). Fallback davidshimjs vẫn giữ mã dưới QR.
+- **Verify (Playwright + BarcodeDetector):** 7 mã (NJ-...-0001/0002/0042/1234/9999, SHORT9, mã 19 ký tự) đều **decode ĐÚNG** sau khi che giữa. Screenshot `downloads/n2store-session/qr-center-label.png`: mã "NJ-20260609-0001" trong hộp bo nhẹ giữa QR, có khoảng trắng tách module. Geometry 0.66 ban đầu fail SHORT9/mã dài → siết 0.55 thì pass hết.
+- Files: `web2/shared/web2-qr.js`, `web2/shared/web2-bill-service.js`.
+
 ### [scripts][web2] Harvester lưu CẢ mật khẩu → bật auto-renew Pancake (trước chỉ lưu token) ✅
 
 **User:** account lưu ở `pancake-creds.local.txt` rồi sao không tự gia hạn? DB lưu account ở đâu?

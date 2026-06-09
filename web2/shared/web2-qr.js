@@ -29,6 +29,9 @@
 //   dark      : màu module (default '#000')
 //   light     : màu nền  (default '#fff'; '' = trong suốt)
 //   pxPerCell : px mỗi module khi toDataUrl (default 12)
+//   centerLabel: chữ (mã) đặt GIỮA QR trong hộp chữ nhật trắng, cách module 1
+//                khoảng nhỏ. Có centerLabel → tự nâng ec='H' (phục hồi 30%) để
+//                vẫn quét được. Tối ưu cho mã ~12-18 ký tự. (default '' = tắt)
 // =====================================================================
 (function (global) {
     'use strict';
@@ -182,14 +185,16 @@
         if (centerLabel) {
             const cx = dim / 2;
             const cy = dim / 2;
-            // Font tự co để hộp không vượt ~66% bề ngang QR (giữ < ~15% diện tích che).
-            const maxBoxW = count * 0.66;
-            const padX = 1.0; // padding ngang trong hộp (module units)
-            const padY = 0.7; // padding dọc
-            const charW = 0.6; // bề ngang ~ mỗi ký tự (monospace, theo font-size)
+            // Hộp giữ NHỎ (≤ ~55% bề ngang, hộp dẹt) để che < ~8% diện tích → EC 'H'
+            // (phục hồi 30%) thừa sức quét lại. Band ngang rộng hơn logo vuông nên
+            // càng phải hạn chế coverage. Tối ưu cho mã ~12-18 ký tự (mã PBH 16 ký tự).
+            const maxBoxW = count * 0.55;
+            const padX = 0.8; // padding ngang trong hộp (module units)
+            const padY = 0.6; // padding dọc
+            const charW = 0.62; // bề ngang ~ mỗi ký tự (monospace, theo font-size)
             const len = Math.max(1, centerLabel.length);
             let fontSize = (maxBoxW - padX * 2) / (len * charW);
-            fontSize = Math.max(1.4, Math.min(3.0, fontSize)); // clamp đọc được/không quá to
+            fontSize = Math.max(1.2, Math.min(2.6, fontSize)); // clamp đọc được/không quá to
             const textW = len * fontSize * charW;
             const boxW = Math.min(maxBoxW, textW + padX * 2);
             const boxH = fontSize + padY * 2;

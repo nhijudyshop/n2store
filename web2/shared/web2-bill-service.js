@@ -72,16 +72,16 @@
         // davidshimjs canvas / Code128 nếu Web2QR hoặc QR lib thiếu.
         try {
             if (global.Web2QR && typeof global.QRCode === 'function') {
+                // 2026-06-09: mã PBH đặt GIỮA QR (hộp chữ nhật trắng, cách module 1
+                // khoảng nhỏ cho dễ đọc). centerLabel tự nâng EC lên 'H' (phục hồi
+                // 30%) để máy vẫn quét được dù che vùng giữa. → bỏ dòng mã dưới QR.
                 const svg = global.Web2QR.toSvg(String(value), {
                     style: 'rounded',
-                    ec: 'M',
                     margin: 2,
+                    centerLabel: String(value),
                 });
                 const src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
-                return (
-                    `<img class="b-qr" src="${src}" alt="" />` +
-                    `<div class="b-qr-num">${_esc(value)}</div>`
-                );
+                return `<img class="b-qr" src="${src}" alt="${_esc(value)}" />`;
             }
         } catch (e) {
             console.warn('[Web2Bill] Web2QR render failed, fallback:', e.message);
