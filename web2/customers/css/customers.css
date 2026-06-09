@@ -628,11 +628,33 @@
     font-size: 12.5px;
     font-variant-numeric: tabular-nums;
     font-weight: 500;
-    padding: 3px 4px 3px 10px;
+    padding: 3px 4px;
     border-radius: 999px;
     color: var(--web2-primary, #2563eb);
     background: var(--web2-primary-soft, #eff6ff);
     border: 1px solid var(--web2-primary-soft-2, #dbeafe);
+}
+.wc-altphone-star {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    color: var(--web2-text-faded, #cbd5e1);
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    transition:
+        background 0.12s,
+        color 0.12s;
+}
+.wc-altphone-star i {
+    width: 13px;
+    height: 13px;
+}
+.wc-altphone-star:hover {
+    background: #fef3c7;
+    color: #d97706;
 }
 .wc-altphone-rm {
     border: 0;

@@ -178,10 +178,26 @@
         list.innerHTML = modalAltPhones
             .map(
                 (p, i) =>
-                    `<span class="wc-altphone-chip"><span>${esc(p)}</span><button type="button" class="wc-altphone-rm" data-idx="${i}" aria-label="Xóa SĐT ${esc(p)}"><i data-lucide="x"></i></button></span>`
+                    `<span class="wc-altphone-chip"><button type="button" class="wc-altphone-star" data-idx="${i}" title="Đặt làm SĐT chính (hiển thị)" aria-label="Đặt ${esc(p)} làm SĐT chính"><i data-lucide="star"></i></button><span>${esc(p)}</span><button type="button" class="wc-altphone-rm" data-idx="${i}" aria-label="Xóa SĐT ${esc(p)}"><i data-lucide="x"></i></button></span>`
             )
             .join('');
         if (window.lucide) window.lucide.createIcons();
+    }
+
+    // Đặt 1 SĐT phụ làm SĐT chính (hiển thị). SĐT chính cũ → về danh sách phụ.
+    // Mọi SĐT vẫn cùng 1 KH (tham chiếu qua SĐT chính = khoá phone UNIQUE).
+    function setPrimaryAltPhone(idx) {
+        const inp = $('#wcfPhone');
+        const chosen = modalAltPhones[idx];
+        if (!chosen) return;
+        const oldPrimary = normPhone(inp.value);
+        modalAltPhones.splice(idx, 1);
+        if (oldPrimary && oldPrimary !== chosen && !modalAltPhones.includes(oldPrimary)) {
+            modalAltPhones.unshift(oldPrimary);
+        }
+        inp.value = chosen;
+        renderAltPhones();
+        notify('Đã đặt ' + chosen + ' làm SĐT chính', 'success');
     }
 
     function addAltPhone() {
@@ -486,6 +502,12 @@
             }
         });
         $('#wcAltPhoneList').addEventListener('click', (e) => {
+            const star = e.target.closest('.wc-altphone-star');
+            if (star) {
+                const i = Number(star.dataset.idx);
+                if (Number.isFinite(i)) setPrimaryAltPhone(i);
+                return;
+            }
             const rm = e.target.closest('.wc-altphone-rm');
             if (!rm) return;
             const idx = Number(rm.dataset.idx);

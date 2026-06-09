@@ -18,7 +18,7 @@
         <link rel="stylesheet" href="../../web2/shared/web2-sidebar.css?v=20260526b" />
         <link rel="stylesheet" href="../../native-orders/css/web2-theme.css?v=20260526b" />
         <link rel="stylesheet" href="../../web2/shared/web2-theme.css?v=20260526b" />
-        <link rel="stylesheet" href="css/customers.css?v=20260609a" />
+        <link rel="stylesheet" href="css/customers.css?v=20260609b" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
@@ -182,7 +182,7 @@
                             />
                         </div>
                         <div class="wc-field">
-                            <label for="wcfPhone">SĐT chính (10 số)</label>
+                            <label for="wcfPhone">SĐT chính (hiển thị · 10 số)</label>
                             <input
                                 id="wcfPhone"
                                 type="tel"
@@ -196,8 +196,8 @@
                         </div>
                         <div class="wc-field-group wc-field-wide wc-altphones">
                             <span class="wc-group-label">
-                                <i data-lucide="phone"></i> Số điện thoại phụ (1 KH có thể nhiều
-                                SĐT)
+                                <i data-lucide="phone"></i> Số điện thoại phụ (1 KH nhiều SĐT · bấm
+                                <i data-lucide="star"></i> để đặt làm chính)
                             </span>
                             <div class="wc-altphone-list" id="wcAltPhoneList"></div>
                             <div class="wc-altphone-add">
@@ -317,7 +317,7 @@
 
         <!-- Page -->
         <script src="js/customers-api.js?v=20260607a"></script>
-        <script src="js/customers-app.js?v=20260609a"></script>
+        <script src="js/customers-app.js?v=20260609b"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
             if (window.lucide) window.lucide.createIcons();
