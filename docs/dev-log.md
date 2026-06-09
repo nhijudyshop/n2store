@@ -2,6 +2,16 @@
 
 ## 2026-06-09
 
+### [native-orders] Thêm đơn Inbox — tìm KH qua Pancake → đơn ĐỦ FB context (nhắn tin được) ✅
+
+**User:** modal "Thêm đơn Inbox" tìm tên/SĐT → tìm theo Pancake → lấy thông tin đủ để gửi tin nhắn cho khách. Đơn livestream + inbox tạo bằng cách nào cũng phải đủ FB info (trừ SĐT/địa chỉ điền sau) — như đơn tạo từ `live-chat/`.
+
+- **Gap:** modal cũ chỉ search kho KH (`/api/web2/customers/search`) → chỉ lấy được `fbId` (PSID), KHÔNG có `fb_page_id` → đơn inbox tay KHÔNG nhắn tin được (chat modal `if(!order.fbUserId||!order.fbPageId) return`). Đơn livestream (`from-comment`) đã đủ FB từ comment → không cần sửa.
+- **Frontend** (`native-orders/js/native-orders-app.js`): helper mới `_searchPancakeCustomers(query)` — search hội thoại Pancake (`Web2Chat.searchConversations`) trên MỌI page user có token, trả list `{fbId, pageId, conversationId, name, phone, avatarUrl, isInbox}` (dedupe theo fbId, ưu tiên INBOX + có SĐT). Modal customer search giờ chạy SONG SONG Pancake + kho KH, render Pancake trước (badge "💬 Nhắn được" + page …xxxxx), kho KH sau (separator). Chọn Pancake → set `selectedFbId/PageId/ConversationId/UserName` + pill xanh "Đã gắn Facebook — đơn nhắn tin được". SĐT/địa chỉ chỉ ghi đè nếu có (Pancake hay thiếu SĐT → điền sau). Gõ lại = reset chọn cũ. `createManual` gửi thêm `fbPageId/fbUserName/conversationId`.
+- **Backend** (`render.com/routes/native-orders.js` `POST /create-manual`): nhận + lưu `fb_page_id`, `fb_user_name` (trước hard-code null). Cột đã có sẵn trong schema → không cần migration. `native-orders-api.js` cập nhật JSDoc.
+- **CSS** (`native-orders.css`): `.no-add-suggest-pk` (highlight), `.no-add-suggest-badge`, `.no-add-suggest-sep`, `.no-add-fb-status.is-ok/.is-warn`.
+- **Verify (Playwright localhost, HTTP /cmd console-first):** search "Huỳnh Thành Đạt" → 3 kết quả Pancake (pageid+fbid+convid) + 1 kho KH, 0 error. Chọn Pancake → pill is-ok "page …086607". Payload createManual có đủ fbUserId/fbPageId/fbUserName/conversationId. Real create→verify→delete: order `NJ-...-0014` lưu `fbPageId:112678138086607` ✓ (trước = null), rồi xoá sạch. Render đã auto-deploy (deploy live 11:37Z = commit 983a7ce).
+
 ### [orders] Popup thông tin KH — thêm nút "Mở Facebook (Ảnh)" ✅
 
 **User:** bấm avatar khách → popup → cần nút mở Facebook phần photos (vd `https://www.facebook.com/<id>/photos`).
