@@ -3,17 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `826cd35` — docs(dev-log): auto-gan balance-history (20 GD) + chien dich cha native-orders
-**Last updated**: 2026-06-09 10:55:07 +07
-**Latest session**: [`RESUME:20260609-105507-826cd35`](../20260609-105507-826cd35.md)
-**Summary**: docs(dev-log): auto-gan balance-history (20 GD) + chien dich cha native-orders
+**Latest commit**: `f2feb74` — feat(native-orders): them danh sach bai livestream -> gom vao chien dich cha (chung live-chat)
+**Last updated**: 2026-06-09 11:04:50 +07
+**Latest session**: [`RESUME:20260609-110450-f2feb74`](../20260609-110450-f2feb74.md)
+**Summary**: feat(native-orders): them danh sach bai livestream -> gom vao chien dich cha (chung live-chat)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 3 file(s)
+- [`native-orders/`](./native-orders.md) — 2 file(s)
 - [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -42,7 +40,7 @@
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`live-chat/`](./live-chat.md) — updated 2026-06-09 10:30
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-09 10:55
+- [`native-orders/`](./native-orders.md) — updated 2026-06-09 11:04
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-06 18:52
@@ -53,7 +51,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-09 10:55
+- [`render.com/`](./render.com.md) — updated 2026-06-09 11:04
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-09 10:30
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
