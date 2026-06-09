@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `41b226d` — test(web2): sửa mã SP test sang prefix NCC (HN/HC) + thêm ảnh thật từ TPOS
-**Last updated**: 2026-06-09 14:54:37 +07
-**Latest session**: [`RESUME:20260609-145437-41b226d`](../20260609-145437-41b226d.md)
-**Summary**: test(web2): sửa mã SP test sang prefix NCC (HN/HC) + thêm ảnh thật từ TPOS
+**Latest commit**: `42a115d` — auto: session update
+**Last updated**: 2026-06-09 14:58:53 +07
+**Latest session**: [`RESUME:20260609-145853-42a115d`](../20260609-145853-42a115d.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -69,4 +69,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-09 14:53
+- [`web2/`](./web2.md) — updated 2026-06-09 14:58
