@@ -2,6 +2,13 @@
 
 ## 2026-06-09
 
+### [docs][web2] Định nghĩa rõ "fetch Pancake" = nguồn comment livestream ✅
+
+**User:** làm rõ — khi docs nói "cần dữ liệu KH thì fetch Pancake" thì "fetch Pancake" CHÍNH là: cần info Facebook/SĐT của KH trong 1 campaign → vào đúng bài viết livestream ở `https://pancake.vn/NhiJudyStore/post` + `https://pancake.vn/NhiJudyHouse.VietNam/post` (mục đã/đang livestream) → fetch tải bình luận xuống → trong comment có đầy đủ dữ liệu Facebook khách.
+
+- Gắn định nghĩa này vào quy ước lookup (kho-trước-Pancake) để tránh hiểu nhầm "fetch Pancake" = fetch graph.facebook.com hay pages.fm public. Nguồn chuẩn = comment livestream qua pancake.vn/api/v1 + JWT (đủ cả comment ẩn/ẩn SĐT), đã auto qua poller `web2-livestream-poller.js` → `web2_live_comments`.
+- Cập nhật: `CLAUDE.md` (bullet "🔎 Lookup KH: KHO KH TRƯỚC, Pancake SAU"), MEMORY [[feedback_lookup_kho_before_pancake]] + [[reference_web2_live_comments]]. Không đụng code.
+
 ### [web2][render] Kho KH — tìm 3 TẦNG (Kho KH → comment livestream DB → live fetch) + tự import non-destructive ✅
 
 **User:** tìm trong Kho KH trước (`web2/customers/`), không có thì mới tìm bằng fetch Pancake. Khi thấy trên Pancake → **tự động** thêm vào, **đừng đè** dữ liệu cũ → thêm SĐT/địa chỉ mới (nhiều SĐT, nhiều địa chỉ).
