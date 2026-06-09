@@ -305,13 +305,12 @@ const PancakeColumnManager = {
             '<div class="pk-tab-content-container">' +
             '<div class="pk-tab-content active" id="pkTabConversations"><div class="pk-conversations-layout">' +
             '<div class="pk-conversation-list" id="pkConversationList">' +
-            '<div class="pk-merged-header"><div class="pk-page-selector" style="position:relative;">' +
-            '<button class="pk-page-selector-btn" id="pkPageSelectorBtn"><div class="pk-page-avatar-placeholder" id="pkSelectedPageAvatar"><i data-lucide="layout-grid"></i></div>' +
-            '<div class="pk-page-info"><div class="pk-page-name" id="pkSelectedPageName">Tất cả Pages</div><div class="pk-page-hint" id="pkSelectedPageHint">Chọn page để lọc hội thoại</div></div>' +
-            '<span class="pk-page-unread-badge" id="pkTotalUnreadBadge" style="display:none;">0</span><i data-lucide="chevron-down" class="pk-page-selector-icon"></i></button>' +
-            '<div class="pk-page-dropdown" id="pkPageDropdown"><div class="pk-page-dropdown-header">Chọn Page</div><div id="pkPageList"><div class="pk-loading"><div class="pk-loading-spinner"></div></div></div></div>' +
-            '</div><div class="pk-header-actions"><button class="pk-action-icon-btn" title="Cài đặt Pancake" onclick="openPancakeSettingsModal()"><i data-lucide="settings"></i></button></div></div>' +
-            '<div class="pk-filter-tabs"><button class="pk-filter-tab active" data-filter="all">Tất cả</button><button class="pk-filter-tab" data-filter="inbox">Inbox</button><button class="pk-filter-tab" data-filter="comment">Comment</button><button class="pk-filter-tab" data-filter="live-saved">Lưu Live</button></div>' +
+            // Card "Tất cả Pages" (page selector) đã BỎ (2026-06-09) — lọc page
+            // giờ qua badge Store/House trên từng hội thoại (#2). Giữ gear settings
+            // ở cuối hàng filter-tabs. Badge filter active hiện nút "✕ Bỏ lọc".
+            '<div class="pk-filter-tabs"><button class="pk-filter-tab active" data-filter="all">Tất cả</button><button class="pk-filter-tab" data-filter="inbox">Inbox</button><button class="pk-filter-tab" data-filter="comment">Comment</button><button class="pk-filter-tab" data-filter="live-saved">Lưu Live</button>' +
+            '<button id="pkPageFilterClear" class="pk-page-filter-clear" style="display:none;margin-left:6px;border:0;background:#eef2ff;color:#4338ca;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;" onclick="window.PancakeConversationList.setPageFilter(null)">✕ Bỏ lọc page</button>' +
+            '<button class="pk-action-icon-btn" style="margin-left:auto;" title="Cài đặt Pancake" onclick="openPancakeSettingsModal()"><i data-lucide="settings"></i></button></div>' +
             '<div class="pk-search-header"><div class="pk-search-wrapper"><div class="pk-search-box"><i data-lucide="search"></i><input type="text" id="pkSearchInput" placeholder="Tìm kiếm"></div></div></div>' +
             '<div class="pk-conversations" id="pkConversations"><div class="pk-loading"><div class="pk-loading-spinner"></div></div></div>' +
             '<div class="pk-context-menu" id="pkContextMenu" style="display:none;">' +

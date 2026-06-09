@@ -139,7 +139,8 @@ const PancakeConversationList = {
                 <div class="pk-conversation-content">
                     <div class="pk-conversation-header">
                         <span class="pk-conversation-name">${escapeHtml(name)}</span>
-                        <span class="pk-conversation-time">${time}</span>
+                        ${this._pageBadge(conv)}
+                        <span class="pk-conversation-time" style="margin-left:auto;">${time}</span>
                     </div>
                     <div class="pk-conversation-preview ${isUnread ? 'unread' : ''}">${escapeHtml(this._parseMessageHtml(preview))}</div>
                     <div class="pk-conversation-meta" style="display:flex;align-items:center;gap:6px;margin-top:4px;">
@@ -164,6 +165,42 @@ const PancakeConversationList = {
                     </div>
                 </div>
             </div>`;
+    },
+
+    // Map fb page_id → nhãn ngắn Store/House (+ màu). Page khác → tên page rút gọn.
+    _PAGE_LABELS: {
+        270136663390370: { t: 'Store', c: '#0ea5e9' }, // NhiJudy Store
+        117267091364524: { t: 'House', c: '#f59e0b' }, // Nhi Judy House
+    },
+    _pageLabel(pageId) {
+        const pid = String(pageId || '');
+        if (!pid) return null;
+        const known = this._PAGE_LABELS[pid];
+        if (known) return known;
+        const state = window.PancakeState;
+        const p = (state.pages || []).find((x) =>
+            [x.id, x.fb_page_id, x.page_id].map(String).includes(pid)
+        );
+        const nm = p?.name || p?.page_name || 'Page';
+        return { t: nm.length > 10 ? nm.slice(0, 10) : nm, c: '#6b7280' };
+    },
+    // Badge page (Store/House) trên mỗi hội thoại → click lọc theo page đó.
+    _pageBadge(conv) {
+        const pid = String(conv.page_id || '');
+        const lbl = this._pageLabel(pid);
+        if (!lbl) return '';
+        const active = String(window.PancakeState.selectedPageId || '') === pid;
+        return `<span class="pk-page-badge" onclick="event.stopPropagation(); window.PancakeConversationList.setPageFilter('${pid}')" title="Lọc hội thoại ${lbl.t}" style="cursor:pointer;flex-shrink:0;font-size:9px;font-weight:700;line-height:1;padding:2px 6px;border-radius:999px;color:#fff;background:${lbl.c};${active ? 'outline:2px solid #1e293b;outline-offset:1px;' : ''}">${lbl.t}</span>`;
+    },
+    // Lọc hội thoại theo page (badge click). Toggle: click lại badge đang active
+    // hoặc gọi null → bỏ lọc. Dùng lại cơ chế state.selectedPageId sẵn có.
+    setPageFilter(pageId) {
+        const state = window.PancakeState;
+        const pid = pageId == null ? null : String(pageId);
+        state.selectedPageId = pid && state.selectedPageId !== pid ? pid : null;
+        const clr = document.getElementById('pkPageFilterClear');
+        if (clr) clr.style.display = state.selectedPageId ? '' : 'none';
+        this.renderConversationList();
     },
 
     /**
