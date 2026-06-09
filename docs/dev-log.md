@@ -106,6 +106,17 @@
 - **Frontend:** `kpi-assignments.js` đổi `CAMPAIGNS_API` `/api/campaigns` → `/api/web2/kpi` (path `/employee-ranges/*` giữ nguyên). Web 2.0 KPI nay độc lập hoàn toàn Web 1.0 tab1 — admin gán NV riêng cho Web 2.0.
 - ⚠ Còn tồn: `web2_users` rỗng → trang phân công chưa có NV để chọn (data, không phải bug fix này). Files: `render.com/routes/v2/kpi.js`, `web2/kpi/js/kpi-assignments.js`.
 
+### [web2][render] KPI model mới: base-delta (livestream) + 100% (inbox) ✅
+
+**User spec:** (1) Livestream: SP thêm ở live-chat KHÔNG tính; gửi tin "Chốt đơn" OK → snapshot BASE list SP; chỉ phần vượt base tính KPI (`Σ max(0,qty−base)`); bỏ/thêm lại base không ảnh hưởng. (2) Inbox: mọi SP × 5000 ngay (hưởng = người tạo). (3) Gộp 1 KPI (bỏ tab Dự báo/Thực tế).
+
+- **Schema** `native_orders`: + `kpi_base JSONB` (+`kpi_base_at`,`kpi_base_by`). NULL=chưa chốt. Expose `kpiBase` ở mapRowToOrder.
+- **Snapshot base** `snapshotKpiBase()` (native-orders.js): khóa list SP đơn livestream mới nhất của khách. **Anti-cheat**: chỉ khóa LẦN ĐẦU (kpi_base NULL) + đơn phải có ≥1 SP (không khóa base rỗng) + bất biến. Wire vào `web2-msg-send-worker._finishItem`: gửi thành công template tên "Chốt đơn" (normalize bỏ dấu) → snapshot cho `fb_user_id`.
+- **KPI tính trực tiếp** `GET /api/web2/kpi/kpi`: scan native_orders (loại cancelled), mỗi đơn `Σ max(0,cur−base)` (inbox base={}, livestream base=kpi_base|null→0), hưởng = STT-range (live) / created_by (inbox), `× 5000`. KHÔNG qua ledger → tránh bug dedup. Ledger giữ cho audit.
+- **Frontend** kpi-dashboard.js: 1 tab KPI (bỏ Dự báo/Thực tế), `loadKpi()` + render kpi_qty/kpi_amount + dòng "Chưa gán NV".
+
+Files: native-orders.js, web2-msg-send-worker.js, v2/kpi.js, web2/kpi/{index.html,js/kpi-dashboard.js}. node --check OK. Cần deploy Render.
+
 ### [web2][render] Rà soát + fix logic KPI Web 2.0 (5 vấn đề) ✅
 
 **User:** rà soát logic tính KPI Web 2.0 (dashboard + kpi page) → fix tất cả, dọn dead code (Web 1.0 để riêng).

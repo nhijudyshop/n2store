@@ -209,7 +209,15 @@ async function ensureTables(pool) {
                 -- → không bị auto-detect ghi đè khi địa chỉ đổi.
                 ADD COLUMN IF NOT EXISTS delivery_method        VARCHAR(60),
                 ADD COLUMN IF NOT EXISTS delivery_method_label  VARCHAR(255),
-                ADD COLUMN IF NOT EXISTS delivery_method_manual BOOLEAN NOT NULL DEFAULT false;
+                ADD COLUMN IF NOT EXISTS delivery_method_manual BOOLEAN NOT NULL DEFAULT false,
+                -- 2026-06-09: KPI base snapshot cho đơn LIVESTREAM. Khóa 1 lần lúc gửi
+                -- "Chốt đơn" thành công = list SP khách đặt trong live. KPI chỉ tính
+                -- phần upsell vượt base: Σ max(0, qty_hiện_tại - qty_base). NULL = chưa
+                -- chốt (KPI=0). Bất biến sau khi set (chống cheat hạ base). Inbox KHÔNG
+                -- dùng base (tính 100%). Shape: {"<productCode>": <qty>, ...}.
+                ADD COLUMN IF NOT EXISTS kpi_base               JSONB,
+                ADD COLUMN IF NOT EXISTS kpi_base_at            BIGINT,
+                ADD COLUMN IF NOT EXISTS kpi_base_by            VARCHAR(120);
             CREATE INDEX IF NOT EXISTS idx_native_orders_channel ON native_orders(channel);
 
             -- 2026-06-05: prefix kênh đơn 'web2_'. Lý do: 'inbox'/'livestream'
@@ -478,6 +486,10 @@ function mapRowToOrder(row) {
         deliveryMethod: row.delivery_method || null,
         deliveryMethodLabel: row.delivery_method_label || null,
         deliveryMethodManual: row.delivery_method_manual === true,
+        // 2026-06-09: KPI base snapshot (đơn livestream — khóa lúc chốt). null=chưa chốt.
+        kpiBase: row.kpi_base || null,
+        kpiBaseAt: row.kpi_base_at != null ? Number(row.kpi_base_at) : null,
+        kpiBaseBy: row.kpi_base_by || null,
         // Migration 069 — TPOS SaleOnline_Order mirror fields
         cityCode: row.city_code,
         cityName: row.city_name,
@@ -2525,5 +2537,50 @@ router.post('/merge-to-pbh', async (req, res) => {
     }
 });
 
+// =====================================================
+// KPI BASE SNAPSHOT — gọi khi gửi tin "Chốt đơn" thành công (web2-msg-send-worker).
+// Khóa list SP hiện tại làm base cho đơn LIVESTREAM mới nhất của khách.
+// Anti-cheat: chỉ khóa LẦN ĐẦU (kpi_base IS NULL) + đơn phải có ≥1 SP (không khóa
+// base rỗng → chặn "chốt đơn trống rồi thêm hết tính KPI"). Bất biến sau khi set.
+// Trả { ok, code?, base?, reason? }.
+// =====================================================
+async function snapshotKpiBase(pool, { fbUserId, byName } = {}) {
+    if (!pool || !fbUserId) return { ok: false, reason: 'no-args' };
+    try {
+        const r = await pool.query(
+            `SELECT id, code, products FROM native_orders
+             WHERE fb_user_id = $1 AND channel = 'web2_livestream'
+               AND status NOT IN ('cancelled')
+               AND kpi_base IS NULL
+             ORDER BY created_at DESC LIMIT 1`,
+            [fbUserId]
+        );
+        if (!r.rows.length) return { ok: false, reason: 'no-unbased-order' };
+        const o = r.rows[0];
+        const prods = Array.isArray(o.products) ? o.products : [];
+        const base = {};
+        for (const p of prods) {
+            const code = p.productCode || p.code;
+            const qty = Number(p.quantity ?? p.qty) || 0;
+            if (code && qty > 0) base[code] = (base[code] || 0) + qty;
+        }
+        // Anti-cheat: KHÔNG khóa base rỗng (chốt đơn lúc chưa có SP).
+        if (!Object.keys(base).length) return { ok: false, reason: 'empty-order' };
+        const upd = await pool.query(
+            `UPDATE native_orders SET kpi_base = $2::jsonb, kpi_base_at = $3, kpi_base_by = $4
+             WHERE id = $1 AND kpi_base IS NULL
+             RETURNING code`,
+            [o.id, JSON.stringify(base), Date.now(), byName || null]
+        );
+        if (!upd.rows.length) return { ok: false, reason: 'race-already-based' };
+        console.log(`[NATIVE-ORDERS] KPI base locked: ${o.code} base=${JSON.stringify(base)}`);
+        return { ok: true, code: o.code, base };
+    } catch (e) {
+        console.warn('[NATIVE-ORDERS] snapshotKpiBase fail:', e.message);
+        return { ok: false, reason: e.message };
+    }
+}
+
 router.initializeNotifiers = initializeNotifiers;
 module.exports = router;
+module.exports.snapshotKpiBase = snapshotKpiBase;

@@ -757,6 +757,147 @@ router.get('/actual', async (req, res) => {
 });
 
 // =====================================================
+// GET /kpi?campaign_id= — KPI GỘP (model base-delta, tính TRỰC TIẾP từ đơn).
+//
+// Mô hình (2026-06-09):
+//   • Livestream: KPI = Σ max(0, qty_hiện_tại[p] − base[p]) cho đơn ĐÃ chốt
+//     (kpi_base != null). Chưa chốt → 0. Hưởng = NV phân công khoảng STT.
+//   • Inbox: base = {} → tính 100% Σ qty. Hưởng = người tạo đơn (created_by).
+//   • Đơn cancelled → 0 (loại khỏi tổng).
+//   • Tiền = qty × RATE_PER_SP (5000).
+// Tính trực tiếp từ native_orders (KHÔNG qua ledger) → luôn khớp trạng thái đơn,
+// không dính bug dedup/idempotency. Ledger web2_kpi_events vẫn giữ cho audit.
+// =====================================================
+function _productMap(products) {
+    const m = {};
+    for (const p of Array.isArray(products) ? products : []) {
+        const code = p.productCode || p.code;
+        const qty = Number(p.quantity ?? p.qty) || 0;
+        if (code && qty > 0) m[code] = (m[code] || 0) + qty;
+    }
+    return m;
+}
+
+// KPI qty của 1 đơn = Σ max(0, cur − base). base=null (livestream chưa chốt) → 0.
+function _orderKpiQty(products, base) {
+    if (base == null) return 0; // livestream chưa chốt
+    const cur = _productMap(products);
+    const codes = new Set([...Object.keys(cur), ...Object.keys(base)]);
+    let qty = 0;
+    for (const c of codes) {
+        const d = (cur[c] || 0) - (Number(base[c]) || 0);
+        if (d > 0) qty += d;
+    }
+    return qty;
+}
+
+// Resolve NV hưởng theo khoảng STT (livestream). ranges = [{userId,userName,fromSTT,toSTT}].
+function _beneficiaryByStt(stt, ranges) {
+    if (stt == null) return null;
+    for (const r of ranges) {
+        const from = Number(r.fromSTT ?? r.from ?? r.start ?? 0);
+        const to = Number(r.toSTT ?? r.to ?? r.end ?? Infinity);
+        if (stt >= from && stt <= to) {
+            const uid = Number(r.userId ?? r.id);
+            return {
+                id: Number.isFinite(uid) ? uid : 0,
+                name: r.userName || r.name || String(r.userId ?? '?'),
+            };
+        }
+    }
+    return null;
+}
+
+router.get('/kpi', async (req, res) => {
+    try {
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        const campaignId = req.query.campaign_id || null;
+        const isNoCampaign =
+            campaignId === SYNTHETIC_NO_CAMPAIGN || campaignId === _LEGACY_NO_CAMPAIGN;
+
+        // Load đơn (loại cancelled) theo campaign.
+        let where, params;
+        if (!campaignId) {
+            where = `status NOT IN ('cancelled')`;
+            params = [];
+        } else if (isNoCampaign) {
+            where = `status NOT IN ('cancelled') AND (live_campaign_id IS NULL OR live_campaign_id = '')`;
+            params = [];
+        } else {
+            where = `status NOT IN ('cancelled') AND live_campaign_id = $1`;
+            params = [campaignId];
+        }
+        const ordersQ = await pool.query(
+            `SELECT code, channel, campaign_stt, live_campaign_name, products,
+                    kpi_base, created_by, created_by_name
+             FROM native_orders WHERE ${where}`,
+            params
+        );
+
+        // Load assignments cho campaign (livestream). Tên campaign lấy từ đơn.
+        let ranges = [];
+        const campName = ordersQ.rows.find((o) => o.live_campaign_name)?.live_campaign_name;
+        if (campName) {
+            const sanitized = sanitizeCampaignName(campName);
+            try {
+                const aq = await pool.query(
+                    `SELECT employee_ranges FROM web2_kpi_assignments WHERE campaign_name = $1 LIMIT 1`,
+                    [sanitized]
+                );
+                ranges = Array.isArray(aq.rows[0]?.employee_ranges)
+                    ? aq.rows[0].employee_ranges
+                    : [];
+            } catch {}
+        }
+
+        // Gom theo beneficiary.
+        const acc = new Map(); // id|name → { id, name, qty }
+        const add = (id, name, qty) => {
+            if (qty <= 0) return;
+            const key = `${id}|${name}`;
+            const cur = acc.get(key) || {
+                beneficiary_user_id: id,
+                beneficiary_name: name,
+                kpi_qty: 0,
+            };
+            cur.kpi_qty += qty;
+            acc.set(key, cur);
+        };
+        let unassignedQty = 0; // livestream đã chốt nhưng STT không khớp NV nào
+        for (const o of ordersQ.rows) {
+            const isInbox = o.channel === 'web2_inbox';
+            const base = isInbox ? {} : o.kpi_base || null;
+            const qty = _orderKpiQty(o.products, base);
+            if (qty <= 0) continue;
+            if (isInbox) {
+                const uid = Number(o.created_by);
+                add(
+                    Number.isFinite(uid) ? uid : 0,
+                    o.created_by_name || o.created_by || 'NV inbox',
+                    qty
+                );
+            } else {
+                const b = _beneficiaryByStt(o.campaign_stt, ranges);
+                if (b) add(b.id, b.name, qty);
+                else unassignedQty += qty;
+            }
+        }
+
+        const rows = [...acc.values()]
+            .map((x) => ({ ...x, kpi_amount: x.kpi_qty * RATE_PER_SP }))
+            .sort((a, b) => b.kpi_qty - a.kpi_qty);
+        res.json({
+            success: true,
+            kpi: rows,
+            unassigned_qty: unassignedQty,
+            rate_per_sp: RATE_PER_SP,
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// =====================================================
 // Sprint 4 — Backlog review queue + Recalc + Reclassify
 // =====================================================
 

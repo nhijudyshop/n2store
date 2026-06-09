@@ -14,7 +14,7 @@
         campaigns: [],
         currentCampaignId: '',
         currentCampaignName: '',
-        view: 'forecast',
+        view: 'kpi',
     };
 
     function $(sel) {
@@ -58,20 +58,13 @@
         sel.innerHTML = opts.join('');
     }
 
-    async function loadForecast() {
+    // KPI gộp (model base-delta) — 1 con số / NV. Xem render.com/routes/v2/kpi.js GET /kpi.
+    async function loadKpi() {
         const params = new URLSearchParams();
         if (STATE.currentCampaignId) params.set('campaign_id', STATE.currentCampaignId);
-        const r = await fetch(`${KPI_API}/forecast?` + params);
+        const r = await fetch(`${KPI_API}/kpi?` + params);
         const d = await r.json();
-        return d.forecast || [];
-    }
-
-    async function loadActual() {
-        const params = new URLSearchParams();
-        if (STATE.currentCampaignId) params.set('campaign_id', STATE.currentCampaignId);
-        const r = await fetch(`${KPI_API}/actual?` + params);
-        const d = await r.json();
-        return d.actual || [];
+        return { rows: d.kpi || [], unassigned: Number(d.unassigned_qty) || 0 };
     }
 
     async function loadEvents() {
@@ -82,21 +75,26 @@
         return d.events || [];
     }
 
-    function renderLeaderboard(rows, kind) {
+    function renderLeaderboard(data) {
         const root = $('#kpiContent');
         if (!STATE.currentCampaignId) {
             root.innerHTML = `<div class="kpi-empty"><i data-lucide="filter"></i><p>Chọn chiến dịch để xem KPI.</p></div>`;
             if (window.lucide) lucide.createIcons();
             return;
         }
-        if (!rows.length) {
+        const rows = data.rows || [];
+        const unassigned = data.unassigned || 0;
+        if (!rows.length && !unassigned) {
             root.innerHTML = `<div class="kpi-empty"><i data-lucide="inbox"></i><p>Chưa có KPI nào trong chiến dịch này.</p></div>`;
             if (window.lucide) lucide.createIcons();
             return;
         }
-        const qtyKey = kind === 'actual' ? 'actual_qty' : 'forecast_qty';
-        const amtKey = kind === 'actual' ? 'actual_amount' : 'forecast_amount';
-        const extraCol = kind === 'actual' ? `<th>SP bị revoke</th>` : '';
+        const unassignedRow = unassigned
+            ? `<tr style="opacity:.7;"><td class="kpi-rank">—</td>
+                 <td><i data-lucide="user-x" style="width:14px;height:14px;vertical-align:-2px;"></i> Chưa gán NV (ngoài khoảng STT)</td>
+                 <td class="kpi-qty">${unassigned}</td>
+                 <td class="kpi-amount">${fmtVnd(unassigned * 5000)}</td></tr>`
+            : '';
         const html = `
             <div class="kpi-leaderboard">
                 <table>
@@ -104,9 +102,8 @@
                         <tr>
                             <th class="kpi-rank">#</th>
                             <th>Nhân viên</th>
-                            <th class="kpi-qty">SL SP</th>
+                            <th class="kpi-qty">SL SP (vượt base)</th>
                             <th class="kpi-amount">KPI (VNĐ)</th>
-                            ${extraCol}
                         </tr>
                     </thead>
                     <tbody>
@@ -117,17 +114,18 @@
                                 return `<tr>
                                 <td class="kpi-rank ${rankCls}">${i + 1}</td>
                                 <td>${escapeHtml(r.beneficiary_name || 'NV #' + r.beneficiary_user_id)}</td>
-                                <td class="kpi-qty">${r[qtyKey] || 0}</td>
-                                <td class="kpi-amount">${fmtVnd(r[amtKey])}</td>
-                                ${kind === 'actual' ? `<td class="kpi-qty" style="color:#dc2626;">${r.revoked_qty || 0}</td>` : ''}
+                                <td class="kpi-qty">${r.kpi_qty || 0}</td>
+                                <td class="kpi-amount">${fmtVnd(r.kpi_amount)}</td>
                             </tr>`;
                             })
                             .join('')}
+                        ${unassignedRow}
                     </tbody>
                 </table>
             </div>
         `;
         root.innerHTML = html;
+        if (window.lucide) lucide.createIcons();
     }
 
     function renderEventsLog(events) {
@@ -182,15 +180,12 @@
     async function refresh() {
         const root = $('#kpiContent');
         root.innerHTML = `<div class="kpi-empty"><p>Đang tải…</p></div>`;
-        if (STATE.view === 'forecast') {
-            const rows = await loadForecast();
-            renderLeaderboard(rows, 'forecast');
-        } else if (STATE.view === 'actual') {
-            const rows = await loadActual();
-            renderLeaderboard(rows, 'actual');
-        } else if (STATE.view === 'audit') {
+        if (STATE.view === 'audit') {
             const events = await loadEvents();
             renderEventsLog(events);
+        } else {
+            const data = await loadKpi();
+            renderLeaderboard(data);
         }
     }
 

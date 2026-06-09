@@ -284,7 +284,51 @@ async function _finishItem(item, state, fields = {}) {
             fields.error || null,
         ]
     );
+    // KPI: gửi "Chốt đơn" thành công → khóa base cho đơn livestream của khách này.
+    if (state === 'done' && item.fb_user_id) {
+        _maybeSnapshotKpiBase(item).catch((e) =>
+            console.warn('[WEB2-MSG-WORKER] kpi base snapshot failed:', e.message)
+        );
+    }
     _scheduleRecompute(item.job_id);
+}
+
+// Cache template_name + created_by per job (tránh query lặp mỗi item).
+const _jobMetaCache = new Map(); // job_id → { templateName, createdBy }
+async function _getJobMeta(jobId) {
+    if (_jobMetaCache.has(jobId)) return _jobMetaCache.get(jobId);
+    const r = await JOB_POOL.query(
+        `SELECT template_name, created_by FROM web2_msg_send_jobs WHERE id=$1`,
+        [jobId]
+    );
+    const meta = {
+        templateName: r.rows[0]?.template_name || '',
+        createdBy: r.rows[0]?.created_by || null,
+    };
+    _jobMetaCache.set(jobId, meta);
+    return meta;
+}
+
+// Chỉ khóa base khi template là "Chốt đơn" (normalize bỏ dấu để khớp linh hoạt).
+function _isChotDonTemplate(name) {
+    if (!name) return false;
+    const n = String(name)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/gi, 'd')
+        .toLowerCase();
+    return n.includes('chot don');
+}
+
+async function _maybeSnapshotKpiBase(item) {
+    const meta = await _getJobMeta(item.job_id);
+    if (!_isChotDonTemplate(meta.templateName)) return;
+    const nativeOrders = require('../routes/native-orders');
+    if (typeof nativeOrders.snapshotKpiBase !== 'function') return;
+    await nativeOrders.snapshotKpiBase(JOB_POOL, {
+        fbUserId: item.fb_user_id,
+        byName: meta.createdBy,
+    });
 }
 
 // Debounce SSE recompute per job (gom burst nhiều item cùng job).
@@ -317,7 +361,7 @@ async function _claimPending(limit) {
          SET state='sending', attempts = it.attempts + 1, updated_at=NOW()
          FROM nx
          WHERE it.id = nx.id AND it.state='pending'
-         RETURNING it.id, it.job_id, it.page_id, it.conv_id, it.customer_id, it.message, it.attempts`,
+         RETURNING it.id, it.job_id, it.page_id, it.conv_id, it.customer_id, it.message, it.attempts, it.fb_user_id`,
         [limit]
     );
     return rows;
