@@ -233,20 +233,73 @@
                         </div>
                     </div>
 
-                    <!-- Per-page render smoke -->
-                    <div style="font-size: 12.5px; color: #334155; line-height: 1.7">
-                        <strong>UI render smoke (Playwright, login khôi phục):</strong> 5 trang load
-                        sạch <strong>0 page-error</strong> — products ✅, product-category ✅,
-                        reconcile ✅, purchase-refund ✅ (hiện "NCC duyệt"), native-orders ✅ (đơn
-                        nằm tab <em>Đơn Inbox</em> vì <code>channel=web2_inbox</code>, không phải
-                        tab mặc định Livestream). <br /><strong>Master data:</strong> variants
-                        (seeded Size 28/29…), users (admin + staff), product-category
-                        <code>CAT-TEST-LINK</code> tạo OK. <br /><strong
-                            >Trạng thái ban đầu:</strong
+                    <!-- Audit toàn bộ 34 trang menu -->
+                    <div
+                        style="
+                            background: #f8fafc;
+                            border: 1px solid #e2e8f0;
+                            border-radius: 10px;
+                            padding: 12px 14px;
+                            margin-bottom: 12px;
+                        "
+                    >
+                        <div style="font-weight: 700; color: #0f172a; font-size: 13.5px">
+                            🔎 Audit chi tiết 34 trang menu (Playwright, login khôi phục) —
+                            <span style="color: #16a34a">30/34 sạch hoàn toàn</span>
+                        </div>
+                        <div
+                            style="
+                                font-size: 12.5px;
+                                color: #334155;
+                                margin-top: 6px;
+                                line-height: 1.7;
+                            "
                         >
-                        products / native-orders / PBH / reconcile / purchase-refund / supplier-debt
-                        / productcategory đều rỗng; chỉ variants + users + dữ liệu tiền SePay là có
-                        sẵn.
+                            Quét từng trang: bắt uncaught JS error, console.error, API 4xx/5xx,
+                            login bounce, số dòng render. <strong>0 page-error</strong> trên cả 34
+                            trang.
+                            <strong
+                                >4 trang có cảnh báo — đều do môi trường/3rd-party, KHÔNG phải bug
+                                code:</strong
+                            >
+                            <ul style="margin: 6px 0 0; padding-left: 18px">
+                                <li>
+                                    <strong>Live Chat</strong> + <strong>Pancake (Token)</strong>:
+                                    <code>Cannot activate expired account</code> / 403 — token
+                                    Pancake hết hạn (cần refresh token, ops).
+                                </li>
+                                <li>
+                                    <strong>Máy in</strong>: <code>ERR_CONNECTION_REFUSED</code> —
+                                    agent in cục bộ không chạy trong môi trường test headless (bình
+                                    thường).
+                                </li>
+                                <li>
+                                    <strong>Kho Khách Hàng</strong>: N+1
+                                    <code>404 /api/web2/wallets/by-phone/&lt;phone&gt;</code> cho KH
+                                    chưa có ví — <em>đúng thiết kế</em> (<code
+                                        >web2-wallet-balance.js</code
+                                    >
+                                    coi 404 = số dư 0, pill ẩn), chỉ là console-noise + smell N+1
+                                    (50 KH → 50 request). Page render đủ 50 dòng OK.
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Buy pipeline seed (so-order → Công nợ/Ví NCC) -->
+                    <div style="font-size: 12.5px; color: #334155; line-height: 1.7">
+                        <strong>Seed dữ liệu Mua hàng (để các trang có data thật xem được):</strong>
+                        tạo 6 SP thật (HÀ NỘI + HƯƠNG CHÂU, có tồn) → seed Firestore
+                        <code>web2_so_order/main</code> (2 tab, 2 shipment, 6 dòng) →
+                        <strong>so-order hiện 6 dòng</strong>, <strong>Công nợ NCC</strong> tự tính
+                        4 dòng NCC, <strong>Ví NCC</strong> hiện 2 NCC sau khi bấm "Đồng bộ lại từ
+                        Sổ Order". Lưu ý: Ví NCC cần nút Đồng bộ (thiết kế manual-sync), không auto.
+                        <br /><strong>Đơn Web (native-orders):</strong> đơn test ở tab
+                        <em>Đơn Inbox</em> (<code>channel=web2_inbox</code>), KHÔNG phải tab mặc
+                        định Livestream → mở đúng tab mới thấy. <br /><strong
+                            >Dữ liệu test GIỮ LẠI</strong
+                        >
+                        toàn bộ (không xóa) để kiểm tra trực quan.
                     </div>
                 </section>
 

@@ -13,6 +13,8 @@
     - **Money (read-only):** SePay→web2_balance_history 59 GD / 41.63M / 20 auto-approved → ví KH thật được tạo (vd `0968080832`=4.24M); 59 wallet-deposits feed Ví NCC. Không mutate tiền thật ✅
 - **UI render smoke (Playwright, login restore):** 5 trang load **0 page-error** — products / product-category / reconcile / purchase-refund (hiện "NCC duyệt") / native-orders (đơn ở tab Đơn Inbox vì `channel=web2_inbox`). Master data: variants seeded, users admin+staff, category `CAT-TEST-LINK` OK.
 - **`web2/overview/index.html`:** thêm section `#ovTestReport` thống kê kết quả test (bug + 3 pipeline + render smoke). Dữ liệu test GIỮ LẠI theo yêu cầu.
+- **Audit chi tiết 34 trang menu** (`scripts/web2-full-page-audit.js` — reusable): bắt JS error / console.error / API 4xx-5xx / login-bounce / row count. **30/34 sạch, 0 page-error toàn bộ.** 4 cảnh báo đều môi trường/3rd-party KHÔNG phải bug code: Live Chat + Pancake Token (token Pancake hết hạn → `Cannot activate expired account`/403), Máy in (`ERR_CONNECTION_REFUSED` — agent in cục bộ không chạy), Kho Khách Hàng (N+1 `404 wallets/by-phone` cho KH chưa có ví — đúng thiết kế, `web2-wallet-balance.js:36` coi 404=số dư 0; chỉ noise + smell N+1).
+- **Seed Mua hàng (so-order trống vì test trước gọi thẳng products API):** tạo 6 SP thật (HÀ NỘI+HƯƠNG CHÂU có tồn) qua upsert-pending+confirm-purchase → chạy `scripts/web2-seed-so-order.js` ghi Firestore `web2_so_order/main` (2 tab/2 shipment/6 dòng, backup trước). Verify: so-order render 6 dòng ✅, Công nợ NCC tính 4 dòng NCC ✅, Ví NCC hiện 2 NCC sau bấm "Đồng bộ" (manual-sync by design) ✅.
 
 ### [live-chat] Kho "Hình Livestream": hover ảnh → phóng to (popup nổi bên trái drawer) ✅
 
