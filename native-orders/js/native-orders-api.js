@@ -63,6 +63,7 @@
             status,
             search,
             fbPostId,
+            fbPostIds,
             campaignIds,
             customerId,
             channel,
@@ -73,6 +74,9 @@
             if (status && status !== 'all') qs.set('status', status);
             if (search) qs.set('search', search);
             if (fbPostId) qs.set('fbPostId', fbPostId);
+            if (Array.isArray(fbPostIds) && fbPostIds.length) {
+                qs.set('fbPostIds', fbPostIds.join(','));
+            }
             if (Array.isArray(campaignIds) && campaignIds.length) {
                 qs.set('campaignIds', campaignIds.join(','));
             }

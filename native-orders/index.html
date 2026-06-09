@@ -142,6 +142,57 @@
                                         padding: 6px;
                                     "
                                 >
+                                    <!-- Chiến dịch cha (chung dữ liệu live-chat) -->
+                                    <div
+                                        id="parentCampaignSection"
+                                        style="
+                                            border-bottom: 1px solid #f3f4f6;
+                                            padding: 2px 6px 8px;
+                                            margin-bottom: 4px;
+                                        "
+                                    >
+                                        <div
+                                            style="
+                                                font-size: 11px;
+                                                font-weight: 700;
+                                                color: #6366f1;
+                                                padding: 2px 0 5px;
+                                            "
+                                        >
+                                            📁 Chiến dịch cha (chung live-chat)
+                                        </div>
+                                        <div
+                                            id="parentCampaignList"
+                                            style="display: flex; flex-direction: column; gap: 2px"
+                                        ></div>
+                                        <div style="display: flex; gap: 6px; margin-top: 6px">
+                                            <input
+                                                id="parentCampaignNew"
+                                                placeholder="Tên chiến dịch cha mới"
+                                                style="
+                                                    flex: 1;
+                                                    border: 1px solid #d1d5db;
+                                                    border-radius: 6px;
+                                                    padding: 4px 8px;
+                                                    font-size: 12px;
+                                                "
+                                            />
+                                            <button
+                                                id="parentCampaignCreate"
+                                                style="
+                                                    font-size: 11px;
+                                                    padding: 3px 10px;
+                                                    background: #6366f1;
+                                                    color: #fff;
+                                                    border: 0;
+                                                    border-radius: 6px;
+                                                    cursor: pointer;
+                                                "
+                                            >
+                                                + Tạo
+                                            </button>
+                                        </div>
+                                    </div>
                                     <!-- Toolbar -->
                                     <div
                                         style="
@@ -434,9 +485,9 @@
         <script src="../web2/shared/receiptline.js?v=20260607j"></script>
         <script src="../web2/shared/web2-bill-service.js?v=20260607qr"></script>
         <script src="../web2/shared/web2-printer.js?v=20260607j"></script>
-        <script src="js/native-orders-api.js?v=20260607j"></script>
+        <script src="js/native-orders-api.js?v=20260609a"></script>
         <script src="js/native-orders-packing-slip.js?v=20260607j"></script>
-        <script src="js/native-orders-app.js?v=20260607j"></script>
+        <script src="js/native-orders-app.js?v=20260609a"></script>
         <script>
             window.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2NewMsgBadge) window.Web2NewMsgBadge.init();

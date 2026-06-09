@@ -1602,6 +1602,11 @@
                 campaignIds: STATE.selectedCampaignIds.length
                     ? STATE.selectedCampaignIds
                     : undefined,
+                // Chiến dịch cha (chung live-chat): lọc theo tập post của parent.
+                fbPostIds:
+                    STATE.parentPostIds && STATE.parentPostIds.length
+                        ? STATE.parentPostIds
+                        : undefined,
                 customerId: STATE.customerId || undefined,
             });
             STATE.orders = resp.orders || [];
@@ -1709,6 +1714,77 @@
             })
             .join('');
         list.innerHTML = html;
+    }
+
+    // ===== Chiến dịch cha (parent campaign) — chung dữ liệu live-chat =====
+    const LIVE_COMMENTS_API =
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-live-comments';
+    async function loadParentCampaigns() {
+        try {
+            const r = await fetch(LIVE_COMMENTS_API + '/campaigns');
+            const d = await r.json().catch(() => ({}));
+            STATE.parentCampaigns = d.data || [];
+            renderParentCampaigns();
+        } catch (e) {
+            console.warn('[native-orders] parent campaigns fail:', e.message);
+        }
+    }
+    function renderParentCampaigns() {
+        const box = $('#parentCampaignList');
+        if (!box) return;
+        const cur = STATE.parentCampaignId || '';
+        const row = (id, name, sub) =>
+            `<label style="display:flex;align-items:center;gap:8px;padding:4px 6px;cursor:pointer;font-size:13px;border-radius:4px;${
+                String(cur) === String(id) ? 'background:#eef2ff;' : ''
+            }">
+                <input type="radio" name="np-parent" class="np-parent-radio" value="${escapeHtml(String(id))}" ${
+                    String(cur) === String(id) ? 'checked' : ''
+                } style="margin:0;">
+                <span style="flex:1;">${escapeHtml(name)}</span>
+                ${sub ? `<span style="color:#9ca3af;font-size:11px;">${escapeHtml(sub)}</span>` : ''}
+            </label>`;
+        let html = row('', '— Tất cả (không lọc cha) —', '');
+        html += (STATE.parentCampaigns || [])
+            .map((c) => row(c.id, c.name, `${c.post_count || 0} bài`))
+            .join('');
+        if (!(STATE.parentCampaigns || []).length)
+            html +=
+                '<div style="padding:4px 6px;color:#9ca3af;font-size:11.5px;">Chưa có chiến dịch cha. Tạo bên dưới hoặc ở live-chat.</div>';
+        box.innerHTML = html;
+    }
+    async function selectParentCampaign(id) {
+        STATE.parentCampaignId = id || null;
+        STATE.parentPostIds = [];
+        if (id) {
+            try {
+                const r = await fetch(LIVE_COMMENTS_API + '/posts');
+                const d = await r.json().catch(() => ({}));
+                STATE.parentPostIds = (d.data || [])
+                    .filter((p) => String(p.campaign_id) === String(id))
+                    .map((p) => String(p.post_id));
+            } catch (e) {
+                console.warn('[native-orders] parent posts fail:', e.message);
+            }
+        }
+        renderParentCampaigns();
+        STATE.page = 1;
+        load();
+    }
+    async function createParentCampaign() {
+        const inp = $('#parentCampaignNew');
+        const name = (inp?.value || '').trim();
+        if (!name) return;
+        try {
+            await fetch(LIVE_COMMENTS_API + '/campaigns', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name }),
+            });
+            if (inp) inp.value = '';
+            await loadParentCampaigns();
+        } catch (e) {
+            console.warn('[native-orders] create parent fail:', e.message);
+        }
     }
 
     function renderCampaignLabel() {
@@ -4140,6 +4216,7 @@
         STATE.selectedCampaignIds = loadCampaignSelection();
         renderCampaignLabel();
         loadAvailableCampaigns();
+        loadParentCampaigns();
 
         $('#filterCampaignBtn')?.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -4152,6 +4229,16 @@
             if (dd.style.display === 'none') return;
             if (btn.contains(e.target) || dd.contains(e.target)) return;
             toggleCampaignDropdown(false);
+        });
+        // Chiến dịch cha: chọn (radio) + tạo.
+        $('#parentCampaignList')?.addEventListener('change', (e) => {
+            const r = e.target.closest('.np-parent-radio');
+            if (!r) return;
+            selectParentCampaign(r.value || null);
+        });
+        $('#parentCampaignCreate')?.addEventListener('click', () => createParentCampaign());
+        $('#parentCampaignNew')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') createParentCampaign();
         });
         $('#campaignList')?.addEventListener('change', (e) => {
             const cb = e.target.closest('.campaign-check');

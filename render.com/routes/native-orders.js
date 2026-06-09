@@ -1332,6 +1332,7 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
             limit = 200,
             search,
             fbPostId,
+            fbPostIds,
             campaignIds,
             customerId,
             channel,
@@ -1403,6 +1404,19 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
                     orParts.push(`(live_campaign_id IS NULL OR live_campaign_id = '')`);
                 }
                 if (orParts.length) conds.push(`(${orParts.join(' OR ')})`);
+            }
+        }
+        // fbPostIds=post1,post2,... → lọc đơn theo bài livestream (Facebook_LiveId).
+        // Dùng cho "Chiến dịch cha" (parent campaign) chung với live-chat: parent
+        // gom nhiều post → orders có fb_post_id thuộc tập post đó.
+        if (fbPostIds) {
+            const posts = String(fbPostIds)
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            if (posts.length) {
+                params.push(posts);
+                conds.push(`fb_post_id = ANY($${params.length}::text[])`);
             }
         }
         // Sprint 3 KPI: apply visibility scope. NV được assigned khoảng → chỉ thấy
