@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ef37110` — auto: session update
-**Last updated**: 2026-06-09 14:53:24 +07
-**Latest session**: [`RESUME:20260609-145324-ef37110`](../20260609-145324-ef37110.md)
-**Summary**: auto: session update
+**Latest commit**: `41b226d` — test(web2): sửa mã SP test sang prefix NCC (HN/HC) + thêm ảnh thật từ TPOS
+**Last updated**: 2026-06-09 14:54:37 +07
+**Latest session**: [`RESUME:20260609-145437-41b226d`](../20260609-145437-41b226d.md)
+**Summary**: test(web2): sửa mã SP test sang prefix NCC (HN/HC) + thêm ảnh thật từ TPOS
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`downloads/`](./downloads.md) — 5 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-09 14:53
+- [`docs/`](./docs.md) — updated 2026-06-09 14:54
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-09 14:53
