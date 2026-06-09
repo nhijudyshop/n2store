@@ -280,29 +280,78 @@
         </div>`;
     }
 
-    /** Resolve global_id còn thiếu (in-layer Web 1.0). Thử 2 nguồn:
-     *  1) fb_global_id_cache qua các cặp (pageId, psid) trong pancake_data.page_fb_ids.
-     *  2) Pancake search theo SĐT (qua worker proxy, reuse pancakeDataManager) —
-     *     lấy global_id từ conv.page_customer/customers[] CHỈ KHI verify được SĐT.
-     *  Tìm được → nâng nút "Tìm trên FB" thành "Mở Ảnh". */
-    async function _tryResolveFbProfile(c) {
-        if (!c || c.global_id) return;
-        const gid = (await _resolveFbViaCache(c)) || (await _resolveFbViaPancake(c));
-        if (gid) _upgradeFbButton(gid);
-        else _setFbNoData();
-    }
-
-    /** Không resolve được global_id qua cache lẫn Pancake → báo rõ. */
-    function _setFbNoData() {
-        const slot = document.querySelector('#customerInfoPopup #cip-fb-action');
-        if (!slot) return; // popup đã đóng
-        slot.innerHTML = `<span class="cip-fb-none" title="Không tìm thấy khách trong dữ liệu Pancake (chưa từng nhắn/comment, hoặc Pancake chưa có)">Chưa có dữ liệu Pancake</span>`;
-    }
+    // 2 page livestream của shop (dùng để kéo comment). Khớp poller server.
+    const _LIVE_PAGES = [
+        { id: '270136663390370', name: 'NhiJudy Store' },
+        { id: '117267091364524', name: 'NhiJudy House' },
+    ];
+    const _LIVE_IDX_TTL = 5 * 60 * 1000; // cache index comment 5 phút
+    let _liveIdx = null; // { ts, entries: [{ pageId, convId, fbId, name, phones[] }] }
 
     const _digits = (p) =>
         String(p == null ? '' : p)
             .replace(/\D/g, '')
             .replace(/^0/, '');
+
+    const _withTimeout = (p, ms) =>
+        Promise.race([
+            Promise.resolve(p),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)),
+        ]);
+
+    /** Resolve global_id còn thiếu (in-layer Web 1.0, qua worker proxy). Thứ tự rẻ→đắt:
+     *  1) fb_global_id_cache (page_fb_ids).
+     *  2) Trực tiếp: có fb_id page-scoped → fetchMessages(`pageId_fbId`) lấy global_id.
+     *  3) Comment LIVESTREAM (ý user): kéo comment 2 page → khớp KH theo SĐT/fb_id →
+     *     fetchMessages(commentConvId) lấy global_id (comment list KHÔNG có sẵn global_id).
+     *  Tìm được → "Mở Ảnh"; không → "Chưa có dữ liệu Pancake". */
+    async function _tryResolveFbProfile(c) {
+        if (!c || c.global_id) return;
+        const gid =
+            (await _resolveFbViaCache(c)) ||
+            (await _resolveFbDirect(c)) ||
+            (await _resolveFbViaLivestream(c));
+        if (gid) _upgradeFbButton(gid);
+        else _setFbNoData();
+    }
+
+    /** Không resolve được global_id → báo rõ. */
+    function _setFbNoData() {
+        const slot = document.querySelector('#customerInfoPopup #cip-fb-action');
+        if (!slot) return; // popup đã đóng
+        slot.innerHTML = `<span class="cip-fb-none" title="Không tìm thấy khách trong comment livestream / hội thoại Pancake gần đây">Chưa có dữ liệu Pancake</span>`;
+    }
+
+    /** global_id từ fetchMessages của 1 conversation (đã verify: fetchMessages trả
+     *  global_id + customers[].global_id; comment list slim thì KHÔNG có). */
+    async function _gidFromMessages(pageId, convId) {
+        const pdm = window.pancakeDataManager;
+        if (!pdm?.fetchMessages || !pageId || !convId) return null;
+        try {
+            const fm = await _withTimeout(pdm.fetchMessages(pageId, convId), 12000);
+            const gid =
+                fm?.global_id ||
+                (Array.isArray(fm?.customers)
+                    ? fm.customers.find((x) => x.global_id)?.global_id
+                    : null);
+            return gid ? String(gid) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /** Lưu (pageId, psid) → globalId vào fb_global_id_cache cho lần sau (best-effort). */
+    function _persistGid(pageId, psid, gid) {
+        try {
+            if (pageId && psid && gid) {
+                window.GlobalIdHarvester?.fromCustomers?.(String(pageId), [
+                    { fb_id: String(psid), global_id: String(gid) },
+                ]);
+            }
+        } catch (e) {
+            /* best-effort */
+        }
+    }
 
     /** Nguồn 1: fb_global_id_cache (cùng resolver chat-core dùng). */
     async function _resolveFbViaCache(c) {
@@ -325,50 +374,114 @@
         return null;
     }
 
-    /** Nguồn 2: Pancake search theo SĐT (Web 1.0 qua worker). Chỉ lấy global_id
-     *  từ conversation đã VERIFY SĐT khớp recent_phone_numbers → tránh gắn nhầm
-     *  Facebook của người khác. Persist vào cache cho lần sau. */
-    async function _resolveFbViaPancake(c) {
-        const phone = _digits(c.phone);
-        const pdm = window.pancakeDataManager;
-        if (!phone || !pdm?.searchConversations) return null;
-        let convs = [];
-        try {
-            const res = await pdm.searchConversations(phone, {});
-            convs = res?.conversations || [];
-        } catch (e) {
-            return null;
+    /** Nguồn 2: trực tiếp khi đã biết fb_id page-scoped. fetchMessages(`pageId_fbId`)
+     *  trả global_id. Ưu tiên cặp trong page_fb_ids; fallback c.fb_id thử cả 2 page. */
+    async function _resolveFbDirect(c) {
+        const cands = [];
+        const map = c.pancake_data?.page_fb_ids || c.pancake_data?.pageFbIds || null;
+        if (map && typeof map === 'object') {
+            for (const [pid, psid] of Object.entries(map)) {
+                if (pid && psid) cands.push([String(pid), String(psid)]);
+            }
         }
-        const phoneVerified = (conv) => {
-            const pool = []
-                .concat(conv.recent_phone_numbers || [])
-                .concat(conv.phone_numbers || []);
-            return pool.some(
-                (it) =>
-                    _digits(typeof it === 'string' ? it : it?.phone_number || it?.captured) ===
-                    phone
-            );
-        };
-        const gidOf = (conv) =>
-            conv.page_customer?.global_id ||
-            (Array.isArray(conv.customers)
-                ? conv.customers.find((x) => x.global_id)?.global_id
-                : null) ||
-            null;
-        for (const conv of convs.filter(phoneVerified)) {
-            const gid = gidOf(conv);
-            const psid = conv.from?.id || conv.from_psid;
-            if (gid && String(gid) !== String(psid || '')) {
-                // Persist → lần sau popup lấy ngay từ cache, không cần search lại.
-                if (conv.page_id) {
-                    try {
-                        window.GlobalIdHarvester?.fromConversation?.(String(conv.page_id), conv);
-                    } catch (e) {
-                        /* persist best-effort */
-                    }
-                }
+        if (!cands.length && c.fb_id) {
+            for (const { id } of _LIVE_PAGES) cands.push([id, String(c.fb_id)]);
+        }
+        for (const [pid, fbid] of cands) {
+            const gid = await _gidFromMessages(pid, `${pid}_${fbid}`);
+            if (gid && gid !== fbid) {
+                _persistGid(pid, fbid, gid);
                 return gid;
             }
+        }
+        return null;
+    }
+
+    /** Build index comment của bài livestream gần đây (2 page) qua worker proxy.
+     *  Cache 5 phút. Comment list không có global_id — chỉ thu fbId/name/phones để
+     *  KHỚP khách, rồi fetchMessages(convId) mới lấy global_id. */
+    async function _ensureLiveIndex() {
+        if (_liveIdx && Date.now() - _liveIdx.ts < _LIVE_IDX_TTL) return _liveIdx.entries;
+        const token = await window.pancakeTokenManager?.getToken?.().catch(() => null);
+        if (!token) return [];
+        const now = Math.floor(Date.now() / 1000);
+        const since = now - 3 * 24 * 3600; // 3 ngày gần nhất
+        const tok = encodeURIComponent(token);
+        const entries = [];
+        for (const { id: pid } of _LIVE_PAGES) {
+            try {
+                const pr = await _withTimeout(
+                    fetch(
+                        `${WORKER_URL}/api/pancake/pages/${pid}/posts?start_time=${since}&end_time=${now}&access_token=${tok}`,
+                        { headers: { Accept: 'application/json' } }
+                    ),
+                    12000
+                );
+                const pd = await pr.json().catch(() => ({}));
+                const posts = pd.posts || pd.data || [];
+                const live = posts.filter((p) => p.live_video || p.is_live);
+                const usePosts = (live.length ? live : posts).slice(0, 2);
+                for (const post of usePosts) {
+                    const postId = post.id || post.post_id;
+                    if (!postId) continue;
+                    for (let pn = 1; pn <= 3; pn++) {
+                        const cr = await _withTimeout(
+                            fetch(
+                                `${WORKER_URL}/api/pancake/pages/${pid}/conversations?type=COMMENT&since=${since}&until=${now}&post_id=${encodeURIComponent(postId)}&page_number=${pn}&access_token=${tok}`,
+                                { headers: { Accept: 'application/json' } }
+                            ),
+                            12000
+                        );
+                        const cd = await cr.json().catch(() => ({}));
+                        const cv = cd.conversations || [];
+                        if (!cv.length) break;
+                        for (const cc of cv) {
+                            const fbId = cc.customers?.[0]?.fb_id || cc.from?.id || cc.from_psid;
+                            const phones = []
+                                .concat(cc.recent_phone_numbers || [])
+                                .map((x) =>
+                                    _digits(
+                                        typeof x === 'string'
+                                            ? x
+                                            : x?.phone_number || x?.phone || x?.captured
+                                    )
+                                )
+                                .filter(Boolean);
+                            entries.push({
+                                pageId: pid,
+                                convId: cc.id,
+                                fbId: fbId ? String(fbId) : null,
+                                name: cc.from?.name || cc.customers?.[0]?.name || '',
+                                phones,
+                            });
+                        }
+                        if (cv.length < 20) break;
+                    }
+                }
+            } catch (e) {
+                /* page tiếp theo */
+            }
+        }
+        _liveIdx = { ts: Date.now(), entries };
+        return entries;
+    }
+
+    /** Nguồn 3 (ý user): khớp khách trong comment livestream gần đây theo SĐT (hoặc
+     *  fb_id) → fetchMessages(convId) lấy global_id. KHÔNG khớp theo tên (tránh nhầm). */
+    async function _resolveFbViaLivestream(c) {
+        const phone = _digits(c.phone);
+        const fbId = c.fb_id ? String(c.fb_id) : null;
+        if (!phone && !fbId) return null;
+        const entries = await _ensureLiveIndex();
+        if (!entries.length) return null;
+        const match = entries.find(
+            (e) => (phone && e.phones.includes(phone)) || (fbId && e.fbId === fbId)
+        );
+        if (!match) return null;
+        const gid = await _gidFromMessages(match.pageId, match.convId);
+        if (gid && gid !== match.fbId) {
+            _persistGid(match.pageId, match.fbId, gid);
+            return gid;
         }
         return null;
     }
