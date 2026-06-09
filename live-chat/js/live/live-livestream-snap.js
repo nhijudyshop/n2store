@@ -654,24 +654,28 @@ Throttle 30s/KH.`;
 
     async function offlineBatchAll(opts) {
         opts = opts || {};
+        // silent: auto-run (offline campaign load) → không toast lỗi/progress.
+        const toast = (m, t) => {
+            if (!opts.silent) _toast(m, t);
+        };
         const pageObj = _resolvePageObj();
         if (!pageObj) {
-            _toast('Chưa chọn page', 'err');
+            toast('Chưa chọn page', 'err');
             return;
         }
         const camp = _resolveActiveCampaign(pageObj);
         if (!camp) {
-            _toast(`Page "${pageObj.Name}" chưa có live campaign`, 'err');
+            toast(`Page "${pageObj.Name}" chưa có live campaign`, 'err');
             return;
         }
         const liveVideoId = camp.Facebook_LiveId || null;
         if (!liveVideoId) {
-            _toast('Không tìm được liveVideoId', 'err');
+            toast('Không tìm được liveVideoId', 'err');
             return;
         }
         const videoInfo = await _fetchLiveVideoInfo(pageObj.Facebook_PageId, liveVideoId);
         if (!videoInfo?.broadcastStartMs) {
-            _toast('Không lấy được broadcast_start_time (Live livevideo fail)', 'err');
+            toast('Không lấy được broadcast_start_time (Live livevideo fail)', 'err');
             return;
         }
         const allComments = (global.LiveState?.comments || []).filter(
@@ -681,7 +685,7 @@ Throttle 30s/KH.`;
             ? allComments.filter((c) => c.from.id === opts.customerFbUserId)
             : allComments;
         if (!comments.length) {
-            _toast(
+            toast(
                 opts.customerFbUserId
                     ? 'KH không có comment trong campaign hiện tại'
                     : 'Không có comment nào để backfill',
@@ -713,7 +717,7 @@ Throttle 30s/KH.`;
             skipExisting: opts.skipExisting !== false,
             user: _user(),
         };
-        _toast(`🔄 Đang backfill ${payload.comments.length} comments...`, 'ok');
+        toast(`🔄 Đang backfill ${payload.comments.length} comments...`, 'ok');
         try {
             const r = await fetch(API + '/api/livestream/offline-batch', {
                 method: 'POST',
@@ -723,7 +727,7 @@ Throttle 30s/KH.`;
             });
             const d = await r.json();
             if (!d.success) throw new Error(d.error || 'batch failed');
-            _toast(
+            toast(
                 `✅ Backfill: ${d.summary.created} mới, ${d.summary.skipped} đã có, ${d.summary.failed} fail`,
                 d.summary.failed > 0 ? 'err' : 'ok'
             );
@@ -731,7 +735,7 @@ Throttle 30s/KH.`;
             refreshCounts(ids);
             return d;
         } catch (e) {
-            _toast('Lỗi backfill: ' + e.message, 'err');
+            toast('Lỗi backfill: ' + e.message, 'err');
             throw e;
         }
     }
@@ -3378,6 +3382,9 @@ Throttle 30s/KH.`;
         captureCurrentFrame,
         getCurrentCampaignContext,
         getCurrentOffsetSeconds,
+        // Auto offline backfill thumbnail theo thời gian (gọi từ live-init khi
+        // load campaign đã end). silent:true → không toast.
+        offlineBatchAll,
         // Debug accessors cho test scripts
         _getStreamActive: () => !!STATE.captureStream,
         _getBufferCount: () => STATE.frameBuffer?.length || 0,

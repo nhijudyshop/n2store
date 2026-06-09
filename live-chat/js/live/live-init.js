@@ -622,6 +622,31 @@ const LiveColumnManager = {
 
             // Load partner info
             this.loadPartnerInfoForComments();
+
+            // OFFLINE: live đã end (không campaign nào StatusLive=1) → tự lấy
+            // thumbnail comment THEO THỜI GIAN (offset từ broadcast_start), giống
+            // Force extract, KHÔNG cần bấm tay. Khi LIVE thì Auto-snap real-frame
+            // lo (path 1) nên bỏ qua. Chỉ chạy 1 lần / tập campaign (guard key),
+            // skipExisting để không đụng comment đã có ảnh. "Chụp Live" vẫn riêng
+            // (chụp iframe hiện tại → kho hình).
+            const isOffline =
+                campaigns.length > 0 && campaigns.every((c) => Number(c.StatusLive) !== 1);
+            const batchKey = campaignIds.slice().sort().join(',');
+            if (
+                isOffline &&
+                allComments.length > 0 &&
+                this._offlineBatchKey !== batchKey &&
+                window.LiveLivestreamSnap?.offlineBatchAll
+            ) {
+                this._offlineBatchKey = batchKey;
+                clearTimeout(this._offlineBatchTimer);
+                this._offlineBatchTimer = setTimeout(() => {
+                    window.LiveLivestreamSnap.offlineBatchAll({
+                        skipExisting: true,
+                        silent: true,
+                    }).catch(() => {});
+                }, 1500);
+            }
         } catch (error) {
             console.error('[Live-INIT] Error loading multi-campaign comments:', error);
             window.LiveCommentList.showError(error.message);
