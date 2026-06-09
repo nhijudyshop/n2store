@@ -115,7 +115,10 @@
 - **KPI tính trực tiếp** `GET /api/web2/kpi/kpi`: scan native_orders (loại cancelled), mỗi đơn `Σ max(0,cur−base)` (inbox base={}, livestream base=kpi_base|null→0), hưởng = STT-range (live) / created_by (inbox), `× 5000`. KHÔNG qua ledger → tránh bug dedup. Ledger giữ cho audit.
 - **Frontend** kpi-dashboard.js: 1 tab KPI (bỏ Dự báo/Thực tế), `loadKpi()` + render kpi_qty/kpi_amount + dòng "Chưa gán NV".
 
-Files: native-orders.js, web2-msg-send-worker.js, v2/kpi.js, web2/kpi/{index.html,js/kpi-dashboard.js}. node --check OK. Cần deploy Render.
+Files: native-orders.js, web2-msg-send-worker.js, v2/kpi.js, web2/kpi/{index.html,js/kpi-dashboard.js}.
+
+- **Manual chốt**: thêm `POST /api/native-orders/:code/lock-kpi-base` (chốt tại chỗ không qua gửi tin) — cùng anti-cheat.
+- **TEST LIVE (deploy OK):** math base-delta **10/10**; inbox 100% + livestream chưa-chốt **3/3**; base-delta E2E **8/8** (upsell tính, bỏ base không trừ, thêm lại base không cộng, re-chốt bất biến, hủy→0); anti-cheat chốt-rỗng bị từ chối (`empty-order`); matcher template "Chốt đơn" OK. 3 user test (kpitest_an/binh/cuong = id 3/4/5) giữ lại. Đơn test NJ-0005..0012 đã cancel.
 
 ### [web2][render] Rà soát + fix logic KPI Web 2.0 (5 vấn đề) ✅
 
