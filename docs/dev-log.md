@@ -2,6 +2,14 @@
 
 ## 2026-06-09
 
+### [web2][products] Số lần in tem dời lên nút In ở cột Thao tác ✅
+
+**User:** bỏ icon máy in riêng ở ô biến thể → gắn số lần in lên **nút In** cột Thao tác (badge số góc trên-phải, giống icon đã làm trước đó).
+
+- `web2/products/js/web2-products-app.js`: gỡ `.print-count-icon` khỏi `.variant-stack`; nút `.act-print` render `<span class="print-count-num">N</span>` overlay khi `printCount > 0` + đổi `title` nút thành "đã in N lần — tránh in trùng".
+- `web2/products/css/web2-products.css`: bỏ block `.print-count-icon`; `.print-count-num` = badge cam `#f59e0b` absolute top-right (+ ring trắng); `.btn-action.act-print` thêm `position:relative; overflow:visible`.
+- Verify Playwright (login restore, localhost): ô biến thể KHÔNG còn icon, badge "1" hiện đúng góc nút In — screenshot xác nhận.
+
 ### [web2][products] Sửa mã SP test sang prefix NCC + thêm ảnh thật từ TPOS ✅
 
 **User:** (1) SP trong Kho hiện có prefix `KHO` là tạo trực tiếp, không phải qua so-order (qua so-order phải có prefix NCC ở trước). (2) Tải random ảnh SP trên TPOS về thêm vào sản phẩm.
