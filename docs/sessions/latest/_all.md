@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5e05ab9` — docs(web2): test report liên kết dữ liệu 13 trang + dev-log
-**Last updated**: 2026-06-09 12:25:33 +07
-**Latest session**: [`RESUME:20260609-122533-5e05ab9`](../20260609-122533-5e05ab9.md)
-**Summary**: docs(web2): test report liên kết dữ liệu 13 trang + dev-log
+**Latest commit**: `130b8c5` — auto: session update
+**Last updated**: 2026-06-09 14:44:00 +07
+**Latest session**: [`RESUME:20260609-144400-130b8c5`](../20260609-144400-130b8c5.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-09 12:25
+- [`docs/`](./docs.md) — updated 2026-06-09 14:44
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-07 19:58
@@ -54,7 +54,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-06-09 12:25
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-09 11:58
+- [`scripts/`](./scripts.md) — updated 2026-06-09 14:44
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-08 14:48
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
@@ -71,4 +71,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-09 12:25
+- [`web2/`](./web2.md) — updated 2026-06-09 14:44
