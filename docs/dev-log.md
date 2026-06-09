@@ -2,6 +2,15 @@
 
 ## 2026-06-09
 
+### [web2][shared] QR "trang trí" đen trắng — 1 NGUỒN CHUNG cho tem SP + PBH (`Web2QR`) ✅
+
+**User:** research thư viện trang trí mã QR cho mã SP (`web2/products`) + mã PBH (`native-orders`, đơn livestream & inbox chung 1 nguồn). Chốt: QR **text-only, đen trắng** (in máy đen trắng/tem nhiệt), tạo **1 nguồn chung** mọi trang in tham chiếu.
+
+- **Research:** so sánh qr-code-styling (MIT, phổ biến nhất), qr-platform/qr-code.js, nimiq/qr-creator, EasyQRCodeJS. Phát hiện repo **đã có** davidshimjs/qrcodejs (`web2/shared/qrcode.min.js`) sinh QR vuông cơ bản cho tem SP + PBH (mỗi nơi tự render riêng). → Không thêm vendor mới, viết helper bọc davidshimjs lấy MA TRẬN rồi tự vẽ SVG trang trí.
+- **Mới `web2/shared/web2-qr.js` (`Web2QR`)** — NGUỒN DUY NHẤT: `toSvg` (đồng bộ), `toDataUrl`, `card`/`cardDataUrl`, `matrix`, `ready`. QR đen trắng module **bo góc** + **mắt finder styled** (3 rect lồng), giữ quiet-zone + EC 'M' → vẫn quét nhạy cho tem nhiệt 203dpi. Style `rounded|dots|square`.
+- **Wire 1 nguồn:** `web2-bill-service.js` `_renderCodeMarkup` (PBH) → `Web2QR.toSvg` nhúng `<img src=data:svg>` (giữ nguyên layout `.b-qr`, fallback davidshimjs canvas → Code128). `web2-products-print.js` qrMap (tem SP) → `await Web2QR.toDataUrl` (fallback `genQrDataUrl`). Thêm `web2-qr.js` vào `web2/products`, `native-orders`, `web2/fastsaleorder-invoice`. PBH đơn livestream/inbox dùng chung vì QR mã hóa `o.code` (không phụ thuộc channel).
+- **Test (Playwright + jsQR decode):** 14/17 PASS — mọi mã ASCII thật (KHOAOTRANG, TEST-…, DH-…, PBH 1/84/HD-…/đơn gộp ORD-A+ORD-B, card) decode ĐÚNG trên cả rounded/dots/square + path SVG-img. 3 fail chỉ là chuỗi Unicode tiếng Việt (bug đếm byte davidshimjs) — KHÔNG phải nội dung QR thật. Smoke 3 trang đã login: `Web2QR`/`Web2Bill`/`Web2ProductsPrint` defined, live QR render OK, 0 lỗi JS thật.
+
 ### [orders] Fast Sale: server-truth guard chống tạo PBH trùng → hết lỗi optimistic concurrency TPOS ✅
 
 **User báo:** 1 máy tạo đơn (KH 0916820743, NJD/2026/71260 & NJD/71242) báo lỗi TPOS `Store update... affected an unexpected number of rows (0)... optimistic concurrency... BusinessException`; hủy không được; hủy ở TPOS không trả tồn kho; **chỉ 1 máy bị**.
