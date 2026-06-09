@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e6bfde9` — feat(web2): tem mã SP — biến thể vào giữa QR, mã SP góc phải dưới (EC=H)
-**Last updated**: 2026-06-09 15:39:26 +07
-**Latest session**: [`RESUME:20260609-153926-e6bfde9`](../20260609-153926-e6bfde9.md)
-**Summary**: feat(web2): tem mã SP — biến thể vào giữa QR, mã SP góc phải dưới (EC=H)
+**Latest commit**: `c597262` — auto: session update
+**Last updated**: 2026-06-09 15:40:15 +07
+**Latest session**: [`RESUME:20260609-154015-c597262`](../20260609-154015-c597262.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -39,7 +39,7 @@
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`live-chat/`](./live-chat.md) — updated 2026-06-09 15:31
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-09 15:35
+- [`native-orders/`](./native-orders.md) — updated 2026-06-09 15:40
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-09 11:55
