@@ -3,14 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e11a5c9` — feat(native-orders): nhớ tab kênh đơn qua refresh (localStorage) + fix TDZ restoreChannel
-**Last updated**: 2026-06-09 15:51:23 +07
-**Latest session**: [`RESUME:20260609-155123-e11a5c9`](../20260609-155123-e11a5c9.md)
-**Summary**: feat(native-orders): nhớ tab kênh đơn qua refresh (localStorage) + fix TDZ restoreChannel
+**Latest commit**: `68aff9e` — feat(harvester): lưu cả mật khẩu Pancake → bật auto-renew (trước chỉ lưu token)
+**Last updated**: 2026-06-09 16:10:26 +07
+**Latest session**: [`RESUME:20260609-161026-68aff9e`](../20260609-161026-68aff9e.md)
+**Summary**: feat(harvester): lưu cả mật khẩu Pancake → bật auto-renew (trước chỉ lưu token)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 4 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
+- [`tests/`](./tests.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-09 15:51
+- [`docs/`](./docs.md) — updated 2026-06-09 16:10
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-09 15:07
@@ -42,7 +45,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-09 15:50
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-09 11:55
+- [`orders-report/`](./orders-report.md) — updated 2026-06-09 16:10
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
@@ -52,7 +55,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
 - [`render.com/`](./render.com.md) — updated 2026-06-09 15:19
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-09 15:19
+- [`scripts/`](./scripts.md) — updated 2026-06-09 16:10
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-08 14:48
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
@@ -62,7 +65,7 @@
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:46
-- [`tests/`](./tests.md) — updated 2026-06-06 18:52
+- [`tests/`](./tests.md) — updated 2026-06-09 16:10
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 19:41
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
