@@ -603,8 +603,10 @@
         if (!_isAutoMode()) _setAutoMode(true);
         chip = document.createElement('div');
         chip.id = 'live-snap-auto-chip';
+        // Auto luôn ON (không toggle) → ẩn chip status "Auto: ON (offset)·0" để
+        // không đè giao diện (2026-06-09). Giữ trong DOM (mount loop + render OK).
         chip.style.cssText =
-            'display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid #d1d5db;border-radius:14px;font-size:12px;font-weight:600;user-select:none;';
+            'display:none !important;align-items:center;gap:6px;padding:4px 10px;border:1px solid #d1d5db;border-radius:14px;font-size:12px;font-weight:600;user-select:none;';
         host.appendChild(chip);
         renderAutoModeChip();
         return chip;
