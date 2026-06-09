@@ -1,5 +1,18 @@
 # Dev Log
 
+## 2026-06-09
+
+### [live-chat][render] Danh sách đơn theo chiến dịch + SĐT phụ + bỏ click-to-add + backfill Pancake ✅
+
+- **`live-order-history.js` (MỚI)**: nút nổi "📋 Đơn đã tạo" + modal — liệt kê đơn web đã tạo ở (các) chiến dịch đang chọn. Cột STT (`campaign_stt`) | Tên KH | Mã | SL | Tổng | Giờ, sắp theo STT. Tìm kiếm tên/STT/mã/SĐT. Click → `showOrderDetail`. Data `GET /api/native-orders/load?campaignIds=<sel>&channel=web2_livestream`.
+- **Bỏ click-to-add** (`inventory-panel.js`): chỉ giữ kéo-thả (click-to-add gây vô tình tạo đơn khi bấm SP rồi bấm comment).
+- **SĐT phụ KH** (`web2-customers-schema.js` + `web2-customers.js` + `live-init.js`): KH có trong kho mà SĐT Pancake khác → lưu `alt_phones` (không ghi đè phone chính). Cột `alt_phones` JSONB + `addWeb2AltPhone()` + `POST /add-alt-phone`. live-chat `_captureAltPhones()` tự gom (dedupe).
+- **Pill ví Web 2.0**: chuyển lên kế bên tên KH (từ Row 3 cạnh ô SĐT).
+- **balance-history realtime** (`sepay-webhook-core.js`): GD SePay mới → SSE `web2:balance-history` → bảng tự cập nhật (khỏi F5). Trước chỉ subscribe `web2:wallet:*` (chỉ fire khi cộng ví).
+- **Backfill Pancake → kho** (`admin-web2-import-pancake-customers.js` MỚI): `POST /api/admin/web2-import-pancake-customers` — quét Pancake INBOX (House+Store) gom SĐT+tên+fb_id → upsert kho (không đụng address/status TPOS). Đã chạy: 81 KH linked. (Pancake `page_number` không phân trang → dùng cursor `until`; sâu hạn chế nhưng poller đã enrich live realtime.)
+
+**Status:** ✅ Done. (Web 2.0 không gọi TPOS live; kho seed TPOS 1 lần giữ nguyên, độc lập.)
+
 ## 2026-06-08
 
 ### [live-chat] Chiến dịch cha trong live-chat + menu + click-to-add (fast order) ✅
