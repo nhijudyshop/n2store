@@ -131,7 +131,7 @@
             <aside class="web2-aside" id="web2Aside"></aside>
             <main class="main-content">
                 <!-- Top Bar — Live selectors (left) + Pancake page selector (right) -->
-                <header class="top-bar" style="gap: 8px">
+                <header class="top-bar" style="gap: 8px; flex-wrap: wrap">
                     <!-- Live side: logo + page select + campaign select + Live + refresh -->
                     <div class="top-bar-left" style="flex: 1; gap: 8px; min-width: 0">
                         <i
@@ -285,6 +285,12 @@
                         >
                             <i data-lucide="package-open" style="width: 14px; height: 14px"></i>
                         </a>
+                        <!-- Slot cho chip livestream (Chụp Live / Snap / Force extract /
+                             Kho Hình) — IN-FLOW thay vì floating fixed (hết đè topbar). -->
+                        <div
+                            id="liveSnapSlot"
+                            style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap"
+                        ></div>
                     </div>
                 </header>
 
@@ -735,7 +741,7 @@
         <script src="../web2/shared/web2-sse-bridge.js?v=20260608e"></script>
         <script src="../web2/shared/web2-wallet-balance.js?v=20260608e"></script>
         <!-- Livestream Snapshot per customer (📸 button + popover) -->
-        <script src="js/live/live-livestream-snap.js?v=20260609a"></script>
+        <script src="js/live/live-livestream-snap.js?v=20260609b"></script>
         <!-- Kho "Hình Livestream" — chụp iframe thủ công + sidebar gallery -->
         <script src="js/live/live-livestream-gallery.js?v=20260608e"></script>
 

@@ -481,9 +481,17 @@
         if (host) return host;
         host = document.createElement('div');
         host.id = 'live-snap-floating-host';
-        host.style.cssText =
-            'position:fixed;top:8px;right:8px;z-index:1000;display:flex;gap:6px;align-items:center;background:rgba(255,255,255,0.95);padding:4px 6px;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.12);';
-        document.body.appendChild(host);
+        // Ưu tiên mount vào topbar (#liveSnapSlot) — IN-FLOW, KHÔNG fixed → không
+        // đè lên nút Pancake/CK bên phải (fix 2026-06-09). Fallback: floating cũ.
+        const slot = document.getElementById('liveSnapSlot');
+        if (slot) {
+            host.style.cssText = 'display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;';
+            slot.appendChild(host);
+        } else {
+            host.style.cssText =
+                'position:fixed;top:8px;right:8px;z-index:1000;display:flex;gap:6px;align-items:center;background:rgba(255,255,255,0.95);padding:4px 6px;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.12);';
+            document.body.appendChild(host);
+        }
         return host;
     }
     function ensureHeaderChip() {
