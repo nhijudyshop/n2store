@@ -2,6 +2,14 @@
 
 ## 2026-06-09
 
+### [web2][render] Xóa dữ liệu Dashboard đối soát CK (`ck-dashboard`) — target reset mới `ck` ✅
+
+**User:** `web2/ck-dashboard/index.html` xóa dữ liệu hiện có.
+
+- **Phân tích:** Dashboard CK đọc đúng 2 bảng `web2_payment_signals` (3 cột đối soát + tab Lịch sử CK) + `web2_customer_intents` (cột "Yêu cầu khác của KH"). Tab "Tin nhắn chưa đọc" là chat inbox (`web2_unread_messages`) — KHÔNG phải data CK, giữ nguyên.
+- **`admin-web2-data-reset.js`:** thêm target hẹp `ck` (`CK_TABLES = [web2_payment_signals, web2_customer_intents]`) — KHÔNG đụng đơn/PBH/ví như `web2-all`. Auto-backup trước truncate.
+- **Wipe (web2Db prod):** `POST /api/admin/web2-data-reset {target:'ck',mode:'wipe',confirm:'YES-RESET'}` → backup `*_bak_20260609_1202`, payment_signals 3→0, customer_intents 0→0. Dashboard giờ trống.
+
 ### [web2][shared] QR "trang trí" đen trắng — 1 NGUỒN CHUNG cho tem SP + PBH (`Web2QR`) ✅
 
 **User:** research thư viện trang trí mã QR cho mã SP (`web2/products`) + mã PBH (`native-orders`, đơn livestream & inbox chung 1 nguồn). Chốt: QR **text-only, đen trắng** (in máy đen trắng/tem nhiệt), tạo **1 nguồn chung** mọi trang in tham chiếu.
