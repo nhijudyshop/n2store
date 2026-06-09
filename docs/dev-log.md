@@ -11,6 +11,15 @@
 - **Verify (Playwright + BarcodeDetector):** 3 mã (KHOTESTLINK28 / ADQUANDENM / KHO123) đều decode ĐÚNG sau khi overlay → quét OK. Visual: biến thể "Đỏ - 28" giữa QR, "KHOTESTLINK28" góc phải dưới, đều nền trắng rõ.
 - Files: `web2/products/js/web2-products-print.js`.
 
+### [native-orders] Fix avatar đơn Inbox — fbUserId rác → fallback chữ cái + hydrate theo SĐT ✅
+
+**User:** đơn inbox sao không có avatar (hiện silhouette xám).
+
+- **Chẩn đoán:** đơn có `fbUserId` không phải id Facebook thật (vd sentinel `NEW_FB_DOES_NOT_EXIST`). `/api/fb-avatar?id=<rác>` trả **SVG silhouette HTTP 200** → `<img>` load OK → che mất chữ cái đầu. Đồng thời `data-fb-user-id` non-empty → chặn `_hydrateInboxAvatars()` (chỉ chạy khi fbUserId rỗng) → không bao giờ resolve avatar thật theo SĐT.
+- **Fix:** thêm `_isRealFbId(id)` (`/^\d{5,}$/`). `renderAvatar` + wrap `data-fb-user-id` + hydrate đều coi id non-numeric = KHÔNG có fb context → render chữ cái màu, mở đường cho hydrate-theo-SĐT.
+- **Verify (Playwright):** đơn `0123456788` → ngay lập tức hiện chữ "H" màu; sau hydrate resolve fbId thật `25717004554573583` (page `270136663390370`) từ hội thoại Pancake → avatar thật load.
+- Files: `native-orders/js/native-orders-app.js` (`renderAvatar`, row wrap, `_hydrateInboxAvatars`).
+
 ### [native-orders] Fix tab "Đơn Inbox" trống — bỏ qua filter chiến dịch (livestream-only) ✅
 
 **User:** tab đơn inbox không hiện dữ liệu.
