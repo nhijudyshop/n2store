@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9f49275` — fix(live-chat): an chip 'Auto: ON (offset)·0' (de giao dien) - auto van luon bat
-**Last updated**: 2026-06-09 11:08:57 +07
-**Latest session**: [`RESUME:20260609-110857-9f49275`](../20260609-110857-9f49275.md)
-**Summary**: fix(live-chat): an chip 'Auto: ON (offset)·0' (de giao dien) - auto van luon bat
+**Latest commit**: `cc812eb` — fix(live-chat): snap chips vao topbar slot in-flow (#liveSnapSlot) + topbar flex-wrap - het de len nut Pancake/CK ben phai
+**Last updated**: 2026-06-09 11:15:43 +07
+**Latest session**: [`RESUME:20260609-111543-cc812eb`](../20260609-111543-cc812eb.md)
+**Summary**: fix(live-chat): snap chips vao topbar slot in-flow (#liveSnapSlot) + topbar flex-wrap - het de len nut Pancake/CK ben...
 
 ## Folders affected in this commit
 
@@ -37,7 +37,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-09 11:08
+- [`live-chat/`](./live-chat.md) — updated 2026-06-09 11:15
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-09 11:04
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
