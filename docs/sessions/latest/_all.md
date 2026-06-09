@@ -3,17 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `3b29034` — auto: session update
-**Last updated**: 2026-06-09 15:16:39 +07
-**Latest session**: [`RESUME:20260609-151639-3b29034`](../20260609-151639-3b29034.md)
-**Summary**: auto: session update
+**Latest commit**: `0ca2869` — feat(web2): SePay matcher gán identity theo ĐƠN + QR auto-credit/auto-message
+**Last updated**: 2026-06-09 15:19:36 +07
+**Latest session**: [`RESUME:20260609-151936-0ca2869`](../20260609-151936-0ca2869.md)
+**Summary**: feat(web2): SePay matcher gán identity theo ĐƠN + QR auto-credit/auto-message
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 - [`scripts/`](./scripts.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-09 15:16
+- [`docs/`](./docs.md) — updated 2026-06-09 15:19
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-09 15:07
@@ -53,9 +52,9 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-09 15:16
+- [`render.com/`](./render.com.md) — updated 2026-06-09 15:19
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-09 15:16
+- [`scripts/`](./scripts.md) — updated 2026-06-09 15:19
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-08 14:48
 - [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
