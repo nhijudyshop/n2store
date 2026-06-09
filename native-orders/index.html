@@ -16,7 +16,7 @@
 
         <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260609x" />
         <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260609x" />
-        <link rel="stylesheet" href="css/native-orders.css?v=20260609x" />
+        <link rel="stylesheet" href="css/native-orders.css?v=20260609k" />
         <link rel="stylesheet" href="css/web2-theme.css?v=20260609x" />
         <!-- Component chat HỢP NHẤT (Web2ChatPanel) -->
         <link rel="stylesheet" href="../web2/shared/chat-panel/web2-chat-panel.css?v=20260609x" />
@@ -50,6 +50,9 @@
                         <span class="source-pill">source=NATIVE_WEB</span>
                     </div>
                 </header>
+
+                <!-- 2026-06-09: KPI strip (dự báo/thực). Admin thấy hết NV; staff thấy của mình. -->
+                <div id="noKpiStrip" class="no-kpi-strip" hidden></div>
 
                 <!-- 2026-06-04: Tab kênh đơn — Livestream vs Inbox -->
                 <div class="no-channel-tabs" id="channelTabs">
@@ -520,6 +523,7 @@
         <script src="js/native-orders-api.js?v=20260609x"></script>
         <script src="js/native-orders-packing-slip.js?v=20260609x"></script>
         <script src="js/native-orders-app.js?v=20260609x"></script>
+        <script src="js/native-orders-kpi.js?v=20260609a"></script>
         <script>
             window.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2NewMsgBadge) window.Web2NewMsgBadge.init();

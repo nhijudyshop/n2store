@@ -815,55 +815,63 @@ router.get('/kpi', async (req, res) => {
         const isNoCampaign =
             campaignId === SYNTHETIC_NO_CAMPAIGN || campaignId === _LEGACY_NO_CAMPAIGN;
 
-        // Load đơn (loại cancelled) theo campaign.
+        // Viewer scope: admin → thấy hết; staff → CHỈ KPI của chính mình.
+        const token =
+            req.headers['x-web2-token'] || req.headers['x-user-token'] || req.query.token || null;
+        const viewer = await _resolveUserFromToken(pool, token);
+        const selfOnly = !!(viewer && viewer.role !== 'admin');
+
+        // Load đơn (loại cancelled) theo campaign. campaign_id rỗng = mọi campaign.
         let where, params;
         if (!campaignId) {
-            where = `status NOT IN ('cancelled')`;
+            where = `status <> 'cancelled'`;
             params = [];
         } else if (isNoCampaign) {
-            where = `status NOT IN ('cancelled') AND (live_campaign_id IS NULL OR live_campaign_id = '')`;
+            where = `status <> 'cancelled' AND (live_campaign_id IS NULL OR live_campaign_id = '')`;
             params = [];
         } else {
-            where = `status NOT IN ('cancelled') AND live_campaign_id = $1`;
+            where = `status <> 'cancelled' AND live_campaign_id = $1`;
             params = [campaignId];
         }
         const ordersQ = await pool.query(
             `SELECT code, channel, campaign_stt, live_campaign_name, products,
-                    kpi_base, created_by, created_by_name
+                    kpi_base, status, created_by, created_by_name
              FROM native_orders WHERE ${where}`,
             params
         );
 
-        // Load assignments cho campaign (livestream). Tên campaign lấy từ đơn.
-        let ranges = [];
-        const campName = ordersQ.rows.find((o) => o.live_campaign_name)?.live_campaign_name;
-        if (campName) {
-            const sanitized = sanitizeCampaignName(campName);
-            try {
-                const aq = await pool.query(
-                    `SELECT employee_ranges FROM web2_kpi_assignments WHERE campaign_name = $1 LIMIT 1`,
-                    [sanitized]
+        // Map sanitized campaign_name → ranges (mọi campaign, cho all-campaign mode).
+        const rangeMap = new Map();
+        try {
+            const aq = await pool.query(
+                `SELECT campaign_name, employee_ranges FROM web2_kpi_assignments`
+            );
+            for (const r of aq.rows) {
+                rangeMap.set(
+                    r.campaign_name,
+                    Array.isArray(r.employee_ranges) ? r.employee_ranges : []
                 );
-                ranges = Array.isArray(aq.rows[0]?.employee_ranges)
-                    ? aq.rows[0].employee_ranges
-                    : [];
-            } catch {}
-        }
+            }
+        } catch {}
 
-        // Gom theo beneficiary.
-        const acc = new Map(); // id|name → { id, name, qty }
-        const add = (id, name, qty) => {
+        // Gom theo beneficiary, TÁCH dự báo (status=draft) vs thực (status=confirmed).
+        // draft = chưa thành đơn hàng; confirmed = PBH confirmed/done. (cancelled đã loại).
+        const acc = new Map();
+        const bucket = (id, name, qty, status) => {
             if (qty <= 0) return;
             const key = `${id}|${name}`;
             const cur = acc.get(key) || {
                 beneficiary_user_id: id,
                 beneficiary_name: name,
-                kpi_qty: 0,
+                forecast_qty: 0,
+                actual_qty: 0,
             };
-            cur.kpi_qty += qty;
+            if (status === 'confirmed') cur.actual_qty += qty;
+            else cur.forecast_qty += qty;
             acc.set(key, cur);
         };
-        let unassignedQty = 0; // livestream đã chốt nhưng STT không khớp NV nào
+        let unassignedForecast = 0;
+        let unassignedActual = 0;
         for (const o of ordersQ.rows) {
             const isInbox = o.channel === 'web2_inbox';
             const base = isInbox ? {} : o.kpi_base || null;
@@ -871,25 +879,45 @@ router.get('/kpi', async (req, res) => {
             if (qty <= 0) continue;
             if (isInbox) {
                 const uid = Number(o.created_by);
-                add(
+                bucket(
                     Number.isFinite(uid) ? uid : 0,
                     o.created_by_name || o.created_by || 'NV inbox',
-                    qty
+                    qty,
+                    o.status
                 );
             } else {
+                const ranges = o.live_campaign_name
+                    ? rangeMap.get(sanitizeCampaignName(o.live_campaign_name)) || []
+                    : [];
                 const b = _beneficiaryByStt(o.campaign_stt, ranges);
-                if (b) add(b.id, b.name, qty);
-                else unassignedQty += qty;
+                if (b) bucket(b.id, b.name, qty, o.status);
+                else if (o.status === 'confirmed') unassignedActual += qty;
+                else unassignedForecast += qty;
             }
         }
 
-        const rows = [...acc.values()]
-            .map((x) => ({ ...x, kpi_amount: x.kpi_qty * RATE_PER_SP }))
-            .sort((a, b) => b.kpi_qty - a.kpi_qty);
+        let rows = [...acc.values()].map((x) => ({
+            ...x,
+            forecast_amount: x.forecast_qty * RATE_PER_SP,
+            actual_amount: x.actual_qty * RATE_PER_SP,
+            // tổng tiện sort/hiển thị
+            total_qty: x.forecast_qty + x.actual_qty,
+        }));
+        if (selfOnly) {
+            rows = rows.filter((r) => String(r.beneficiary_user_id) === String(viewer.id));
+            unassignedForecast = 0;
+            unassignedActual = 0;
+        }
+        rows.sort((a, b) => b.total_qty - a.total_qty);
+
         res.json({
             success: true,
             kpi: rows,
-            unassigned_qty: unassignedQty,
+            unassigned_forecast_qty: unassignedForecast,
+            unassigned_actual_qty: unassignedActual,
+            viewer: viewer
+                ? { id: viewer.id, role: viewer.role, scope: selfOnly ? 'self' : 'all' }
+                : { scope: 'all' },
             rate_per_sp: RATE_PER_SP,
         });
     } catch (e) {

@@ -58,13 +58,26 @@
         sel.innerHTML = opts.join('');
     }
 
-    // KPI gộp (model base-delta) — 1 con số / NV. Xem render.com/routes/v2/kpi.js GET /kpi.
+    // KPI base-delta, tách Dự báo (đơn draft) / Thực (đơn đã thành PBH). Scope theo
+    // token: admin thấy hết, staff thấy của mình. Xem render.com/routes/v2/kpi.js GET /kpi.
+    function _authHeaders() {
+        try {
+            const t = window.Web2Auth?.getStored?.()?.token;
+            if (t) return { 'x-web2-token': t };
+        } catch {}
+        return {};
+    }
     async function loadKpi() {
         const params = new URLSearchParams();
         if (STATE.currentCampaignId) params.set('campaign_id', STATE.currentCampaignId);
-        const r = await fetch(`${KPI_API}/kpi?` + params);
+        const r = await fetch(`${KPI_API}/kpi?` + params, { headers: _authHeaders() });
         const d = await r.json();
-        return { rows: d.kpi || [], unassigned: Number(d.unassigned_qty) || 0 };
+        return {
+            rows: d.kpi || [],
+            unassignedForecast: Number(d.unassigned_forecast_qty) || 0,
+            unassignedActual: Number(d.unassigned_actual_qty) || 0,
+            viewer: d.viewer || { scope: 'all' },
+        };
     }
 
     async function loadEvents() {
@@ -83,27 +96,38 @@
             return;
         }
         const rows = data.rows || [];
-        const unassigned = data.unassigned || 0;
-        if (!rows.length && !unassigned) {
+        const uF = data.unassignedForecast || 0;
+        const uA = data.unassignedActual || 0;
+        if (!rows.length && !uF && !uA) {
             root.innerHTML = `<div class="kpi-empty"><i data-lucide="inbox"></i><p>Chưa có KPI nào trong chiến dịch này.</p></div>`;
             if (window.lucide) lucide.createIcons();
             return;
         }
-        const unassignedRow = unassigned
-            ? `<tr style="opacity:.7;"><td class="kpi-rank">—</td>
-                 <td><i data-lucide="user-x" style="width:14px;height:14px;vertical-align:-2px;"></i> Chưa gán NV (ngoài khoảng STT)</td>
-                 <td class="kpi-qty">${unassigned}</td>
-                 <td class="kpi-amount">${fmtVnd(unassigned * 5000)}</td></tr>`
-            : '';
+        const scopeBadge =
+            data.viewer?.scope === 'self'
+                ? `<span style="font-size:11px;color:#7266ba;font-weight:600;">(chỉ KPI của bạn)</span>`
+                : '';
+        const unassignedRow =
+            uF || uA
+                ? `<tr style="opacity:.7;"><td class="kpi-rank">—</td>
+                     <td><i data-lucide="user-x" style="width:14px;height:14px;vertical-align:-2px;"></i> Chưa gán NV (ngoài khoảng STT)</td>
+                     <td class="kpi-qty">${uF}</td><td class="kpi-amount">${fmtVnd(uF * 5000)}</td>
+                     <td class="kpi-qty">${uA}</td><td class="kpi-amount">${fmtVnd(uA * 5000)}</td></tr>`
+                : '';
         const html = `
             <div class="kpi-leaderboard">
+                <p style="margin:0 0 8px;font-size:12px;color:#64748b;">
+                    <strong>Dự báo</strong> = đơn chưa thành đơn hàng · <strong>Thực</strong> = đơn đã thành PBH · 5.000đ/SP ${scopeBadge}
+                </p>
                 <table>
                     <thead>
                         <tr>
                             <th class="kpi-rank">#</th>
                             <th>Nhân viên</th>
-                            <th class="kpi-qty">SL SP (vượt base)</th>
-                            <th class="kpi-amount">KPI (VNĐ)</th>
+                            <th class="kpi-qty">Dự báo (SP)</th>
+                            <th class="kpi-amount">Dự báo (đ)</th>
+                            <th class="kpi-qty">Thực (SP)</th>
+                            <th class="kpi-amount">Thực (đ)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -114,8 +138,10 @@
                                 return `<tr>
                                 <td class="kpi-rank ${rankCls}">${i + 1}</td>
                                 <td>${escapeHtml(r.beneficiary_name || 'NV #' + r.beneficiary_user_id)}</td>
-                                <td class="kpi-qty">${r.kpi_qty || 0}</td>
-                                <td class="kpi-amount">${fmtVnd(r.kpi_amount)}</td>
+                                <td class="kpi-qty">${r.forecast_qty || 0}</td>
+                                <td class="kpi-amount">${fmtVnd(r.forecast_amount)}</td>
+                                <td class="kpi-qty" style="font-weight:700;color:#0f766e;">${r.actual_qty || 0}</td>
+                                <td class="kpi-amount" style="font-weight:700;color:#0f766e;">${fmtVnd(r.actual_amount)}</td>
                             </tr>`;
                             })
                             .join('')}

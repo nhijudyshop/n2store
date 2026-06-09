@@ -106,6 +106,16 @@
 - **Frontend:** `kpi-assignments.js` đổi `CAMPAIGNS_API` `/api/campaigns` → `/api/web2/kpi` (path `/employee-ranges/*` giữ nguyên). Web 2.0 KPI nay độc lập hoàn toàn Web 1.0 tab1 — admin gán NV riêng cho Web 2.0.
 - ⚠ Còn tồn: `web2_users` rỗng → trang phân công chưa có NV để chọn (data, không phải bug fix này). Files: `render.com/routes/v2/kpi.js`, `web2/kpi/js/kpi-assignments.js`.
 
+### [web2][render] KPI tách Dự báo/Thực theo trạng thái đơn + hiển thị trên native-orders ✅
+
+**User spec:** đơn chưa thành đơn hàng = KPI **dự báo**, đơn đã thành đơn hàng = KPI **thực** (phân biệt theo status, KHÔNG lưu 2 biến). Hiển thị KPI dự báo+thực lên native-orders: **admin thấy hết NV, staff thấy của mình**.
+
+- **`GET /api/web2/kpi/kpi` v2:** mỗi NV trả `forecast_qty/amount` (đơn `status=draft`) + `actual_qty/amount` (đơn `status=confirmed` = PBH confirmed/done). Cùng công thức base-delta, chỉ bucket theo status (cancelled loại). Hỗ trợ `campaign_id` rỗng = mọi chiến dịch. **Scope token** `x-web2-token`: role≠admin → chỉ trả row của chính mình (`viewer.scope='self'`).
+- **kpi page:** bảng 2 cột Dự báo/Thực (bỏ 1-cột cũ), badge "chỉ KPI của bạn" khi staff.
+- **native-orders:** strip KPI mới (`native-orders-kpi.js` + CSS) ở đầu trang — staff thấy pill DB/Thực của mình, admin thấy mini-leaderboard. Realtime qua SSE web2:native-orders + web2:fast-sale-orders. (PBH→NATIVE status map: draft→draft, confirmed/done→confirmed, cancel→cancelled.)
+
+Files: v2/kpi.js, web2/kpi/js/kpi-dashboard.js, native-orders/{index.html,js/native-orders-kpi.js(MỚI),css/native-orders.css}. node --check OK.
+
 ### [web2][render] KPI model mới: base-delta (livestream) + 100% (inbox) ✅
 
 **User spec:** (1) Livestream: SP thêm ở live-chat KHÔNG tính; gửi tin "Chốt đơn" OK → snapshot BASE list SP; chỉ phần vượt base tính KPI (`Σ max(0,qty−base)`); bỏ/thêm lại base không ảnh hưởng. (2) Inbox: mọi SP × 5000 ngay (hưởng = người tạo). (3) Gộp 1 KPI (bỏ tab Dự báo/Thực tế).
