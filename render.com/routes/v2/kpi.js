@@ -9,8 +9,10 @@
 //                                  JSONB [{userId, userName, fromSTT, toSTT}, ...])
 //   campaign_employee_ranges_history — REUSED (audit)
 //   web2_kpi_events              — append-only ledger (forecast + actual events) — NEW
-//   web2_kpi_forecast            — derived cache: count add events (source=native) — NEW
-//   web2_kpi_actual              — derived cache: confirmed - revoked — NEW
+//
+// Forecast/Actual KPI được TÍNH TRỰC TIẾP (live aggregate) từ ledger ở /forecast +
+// /actual mỗi request. KHÔNG còn bảng cache web2_kpi_forecast/web2_kpi_actual
+// (đã gỡ 2026-06-09 — dead code: không nơi nào đọc, không cron nào recalc).
 //
 // Beneficiary = lookup at emit time qua campaign_employee_ranges (or fallback actor).
 // Backlog source NOT counted in either projection.
@@ -67,32 +69,12 @@ async function ensureSchema(pool) {
         CREATE INDEX IF NOT EXISTS idx_kpi_events_tuple
             ON web2_kpi_events(customer_id, product_code, campaign_id);
 
-        -- 4. Derived projections
-        CREATE TABLE IF NOT EXISTS web2_kpi_forecast (
-            beneficiary_user_id INTEGER NOT NULL,
-            campaign_id         VARCHAR(100) NOT NULL,
-            kpi_qty             INTEGER NOT NULL DEFAULT 0,
-            kpi_amount          BIGINT NOT NULL DEFAULT 0,
-            breakdown           JSONB NOT NULL DEFAULT '[]'::jsonb,
-            last_recalc_at      BIGINT NOT NULL,
-            PRIMARY KEY (beneficiary_user_id, campaign_id)
-        );
-
-        CREATE TABLE IF NOT EXISTS web2_kpi_actual (
-            beneficiary_user_id INTEGER NOT NULL,
-            campaign_id         VARCHAR(100) NOT NULL,
-            kpi_qty             INTEGER NOT NULL DEFAULT 0,
-            kpi_amount          BIGINT NOT NULL DEFAULT 0,
-            revoked_qty         INTEGER NOT NULL DEFAULT 0,
-            breakdown           JSONB NOT NULL DEFAULT '[]'::jsonb,
-            last_recalc_at      BIGINT NOT NULL,
-            PRIMARY KEY (beneficiary_user_id, campaign_id)
-        );
+        -- Dọn dead projection caches (forecast/actual nay tính live từ ledger).
+        DROP TABLE IF EXISTS web2_kpi_forecast;
+        DROP TABLE IF EXISTS web2_kpi_actual;
     `);
     _migrationDone = true;
-    console.log(
-        '[web2-kpi] schema ready (5 tables: assignments, history, events, forecast, actual)'
-    );
+    console.log('[web2-kpi] schema ready (ledger web2_kpi_events; forecast/actual computed live)');
 }
 
 router.use(async (req, res, next) => {
@@ -109,7 +91,24 @@ router.use(async (req, res, next) => {
 // =====================================================
 
 const RATE_PER_SP = 5000;
-const SYNTHETIC_NO_CAMPAIGN = 'NO_CAMPAIGN';
+// PHẢI khớp campaigns dropdown — native-orders _campaignsHandler dùng '__no_campaign__'
+// cho đơn không chiến dịch (COALESCE(NULLIF(live_campaign_id,''),'__no_campaign__')).
+// Trước 2026-06-09 dùng 'NO_CAMPAIGN' → lệch dropdown → filter "(Không chiến dịch)" rỗng.
+const SYNTHETIC_NO_CAMPAIGN = '__no_campaign__';
+const _LEGACY_NO_CAMPAIGN = 'NO_CAMPAIGN'; // events cũ trước fix — vẫn match khi đọc
+
+// Push campaign_id filter chấp nhận cả sentinel mới lẫn legacy (backward-compat đọc).
+// Trả về index $N kế tiếp.
+function _pushCampaignFilter(conds, params, i, val) {
+    if (val === SYNTHETIC_NO_CAMPAIGN || val === _LEGACY_NO_CAMPAIGN) {
+        conds.push(`campaign_id IN ($${i}, $${i + 1})`);
+        params.push(SYNTHETIC_NO_CAMPAIGN, _LEGACY_NO_CAMPAIGN);
+        return i + 2;
+    }
+    conds.push(`campaign_id = $${i}`);
+    params.push(val);
+    return i + 1;
+}
 
 function _idempotencyKey({
     actor_user_id,
@@ -239,20 +238,20 @@ async function emitKpiEvent(pool, ev) {
         if (!r.rows.length) {
             return { id: null, inserted: false, skipped_reason: 'duplicate-idempotency' };
         }
-        // Notify dashboard subscribers
+        // Notify subscribers: per-beneficiary + broadcast 'web2:kpi-dashboard'
+        // (Dashboard F01 + KPI leaderboard cùng subscribe topic broadcast này).
         if (_notifyClients) {
-            try {
-                _notifyClients(
-                    `web2:kpi:${ev.beneficiary_user_id}`,
-                    {
-                        campaign_id: ev.campaign_id,
-                        event_type: ev.event_type,
-                        qty_delta: ev.qty_delta,
-                        ts: now,
-                    },
-                    'update'
-                );
-            } catch {}
+            const payload = {
+                campaign_id: ev.campaign_id,
+                event_type: ev.event_type,
+                qty_delta: ev.qty_delta,
+                ts: now,
+            };
+            for (const topic of [`web2:kpi:${ev.beneficiary_user_id}`, 'web2:kpi-dashboard']) {
+                try {
+                    _notifyClients(topic, payload, 'update');
+                } catch {}
+            }
         }
         return { id: r.rows[0].id, inserted: true };
     } catch (e) {
@@ -442,8 +441,7 @@ router.get('/events', async (req, res) => {
         const params = [];
         let i = 1;
         if (req.query.campaign_id) {
-            conds.push(`campaign_id = $${i++}`);
-            params.push(req.query.campaign_id);
+            i = _pushCampaignFilter(conds, params, i, req.query.campaign_id);
         }
         if (req.query.beneficiary_id) {
             conds.push(`beneficiary_user_id = $${i++}`);
@@ -503,8 +501,7 @@ router.get('/forecast', async (req, res) => {
         const params = [];
         let i = 1;
         if (req.query.campaign_id) {
-            conds.push(`campaign_id = $${i++}`);
-            params.push(req.query.campaign_id);
+            i = _pushCampaignFilter(conds, params, i, req.query.campaign_id);
         }
         if (req.query.user_id) {
             conds.push(`beneficiary_user_id = $${i++}`);
@@ -543,8 +540,7 @@ router.get('/actual', async (req, res) => {
         const params = [];
         let i = 1;
         if (req.query.campaign_id) {
-            conds.push(`campaign_id = $${i++}`);
-            params.push(req.query.campaign_id);
+            i = _pushCampaignFilter(conds, params, i, req.query.campaign_id);
         }
         if (req.query.user_id) {
             conds.push(`beneficiary_user_id = $${i++}`);
@@ -591,13 +587,12 @@ router.get('/actual', async (req, res) => {
 // (chưa có compensating reclassify event hoặc admin chưa flag là OK).
 router.get('/backlog', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const conds = [`source = 'backlog'`, `event_type = 'forecast_add'`];
         const params = [];
         let i = 1;
         if (req.query.campaign_id) {
-            conds.push(`campaign_id = $${i++}`);
-            params.push(req.query.campaign_id);
+            i = _pushCampaignFilter(conds, params, i, req.query.campaign_id);
         }
         // Exclude events that already have a reclassify compensating event
         conds.push(`NOT EXISTS (
@@ -624,7 +619,7 @@ router.get('/backlog', async (req, res) => {
 // reclassify_native → emit reclassify_backlog event (compensating) + forecast_add native (count KPI)
 router.post('/backlog/:id/reclassify', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const eventId = Number(req.params.id);
         const { decision, reviewerUserId, reviewerName, note } = req.body || {};
         if (!['approve_backlog', 'reclassify_native'].includes(decision)) {
@@ -691,100 +686,6 @@ router.post('/backlog/:id/reclassify', async (req, res) => {
     }
 });
 
-// POST /recalc?campaign_id= — rebuild web2_kpi_forecast + web2_kpi_actual cho campaign.
-// Idempotent — chạy nhiều lần ra kết quả như nhau. Tự gọi qua cron 5min hoặc admin manual.
-router.post('/recalc', async (req, res) => {
-    try {
-        const pool = req.app.locals.chatDb;
-        const campaignId = req.query.campaign_id || req.body?.campaign_id;
-        const result = await recalcProjections(pool, campaignId || null);
-        res.json({ success: true, ...result });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-// Pure function — can be called from cron job too.
-async function recalcProjections(pool, campaignId) {
-    const now = Date.now();
-    const where = campaignId ? `WHERE campaign_id = $1` : '';
-    const params = campaignId ? [campaignId] : [];
-
-    // Forecast: count NET native qty per (beneficiary, campaign)
-    const fcQ = await pool.query(
-        `
-        SELECT beneficiary_user_id, campaign_id,
-               GREATEST(0, COALESCE(SUM(qty_delta) FILTER (
-                   WHERE source = 'native'
-                     AND event_type IN ('forecast_add', 'forecast_qty_change', 'forecast_remove')
-               ), 0)) AS kpi_qty
-        FROM web2_kpi_events
-        ${where}
-        GROUP BY beneficiary_user_id, campaign_id`,
-        params
-    );
-    let forecastRows = 0;
-    for (const r of fcQ.rows) {
-        const qty = Number(r.kpi_qty) || 0;
-        await pool.query(
-            `INSERT INTO web2_kpi_forecast (beneficiary_user_id, campaign_id, kpi_qty, kpi_amount, last_recalc_at)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (beneficiary_user_id, campaign_id) DO UPDATE SET
-                 kpi_qty = EXCLUDED.kpi_qty,
-                 kpi_amount = EXCLUDED.kpi_amount,
-                 last_recalc_at = EXCLUDED.last_recalc_at`,
-            [r.beneficiary_user_id, r.campaign_id, qty, qty * RATE_PER_SP, now]
-        );
-        forecastRows++;
-    }
-
-    // Actual: confirmed - revoked
-    const acQ = await pool.query(
-        `
-        SELECT beneficiary_user_id, campaign_id,
-               GREATEST(0, COALESCE(SUM(qty_delta) FILTER (
-                   WHERE source = 'native'
-                     AND event_type IN ('actual_confirmed', 'actual_revoked')
-               ), 0)) AS kpi_qty,
-               COALESCE(SUM(-qty_delta) FILTER (
-                   WHERE source = 'native' AND event_type = 'actual_revoked'
-               ), 0) AS revoked_qty
-        FROM web2_kpi_events
-        ${where}
-        GROUP BY beneficiary_user_id, campaign_id`,
-        params
-    );
-    let actualRows = 0;
-    for (const r of acQ.rows) {
-        const qty = Number(r.kpi_qty) || 0;
-        await pool.query(
-            `INSERT INTO web2_kpi_actual (beneficiary_user_id, campaign_id, kpi_qty, kpi_amount, revoked_qty, last_recalc_at)
-             VALUES ($1, $2, $3, $4, $5, $6)
-             ON CONFLICT (beneficiary_user_id, campaign_id) DO UPDATE SET
-                 kpi_qty = EXCLUDED.kpi_qty,
-                 kpi_amount = EXCLUDED.kpi_amount,
-                 revoked_qty = EXCLUDED.revoked_qty,
-                 last_recalc_at = EXCLUDED.last_recalc_at`,
-            [
-                r.beneficiary_user_id,
-                r.campaign_id,
-                qty,
-                qty * RATE_PER_SP,
-                Number(r.revoked_qty) || 0,
-                now,
-            ]
-        );
-        actualRows++;
-    }
-
-    return {
-        campaign_id: campaignId,
-        forecast_rows_updated: forecastRows,
-        actual_rows_updated: actualRows,
-        recalc_at: now,
-    };
-}
-
 module.exports = router;
 module.exports.initializeNotifiers = initializeNotifiers;
 module.exports.emitKpiEvent = emitKpiEvent;
@@ -794,6 +695,5 @@ module.exports.applyKpiScope = applyKpiScope;
 module.exports.buildScopeWhere = buildScopeWhere;
 module.exports.buildScopeWhereWithAlias = buildScopeWhereWithAlias;
 module.exports.invalidateScopeCache = invalidateScopeCache;
-module.exports.recalcProjections = recalcProjections;
 module.exports.RATE_PER_SP = RATE_PER_SP;
 module.exports.SYNTHETIC_NO_CAMPAIGN = SYNTHETIC_NO_CAMPAIGN;
