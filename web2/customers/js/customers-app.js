@@ -121,6 +121,7 @@
                     </td>
                     <td class="wc-col-phone">
                         ${r.phone ? `<span class="wc-phone">${esc(r.phone)}</span><span class="wc-wallet" data-w2wallet-phone="${esc(r.phone)}" data-w2wallet-name="${esc(r.name)}"></span>` : '<span class="wc-muted">—</span>'}
+                        ${Array.isArray(r.altPhones) && r.altPhones.length ? `<span class="wc-altphone-tag" title="SĐT phụ: ${esc(r.altPhones.join(', '))}">+${r.altPhones.length} SĐT</span>` : ''}
                     </td>
                     <td class="wc-col-fb">${fbBadges(r)}</td>
                     <td class="wc-col-address">${esc(r.address) || '<span class="wc-muted">—</span>'}</td>
@@ -166,6 +167,45 @@
         $('#wcPaginationButtons').innerHTML = btns.join('');
     }
 
+    // ─── SĐT phụ trong modal ────────────────────────────────────────────
+    function renderAltPhones() {
+        const list = $('#wcAltPhoneList');
+        if (!list) return;
+        if (!modalAltPhones.length) {
+            list.innerHTML = '<span class="wc-altphone-empty">Chưa có SĐT phụ</span>';
+            return;
+        }
+        list.innerHTML = modalAltPhones
+            .map(
+                (p, i) =>
+                    `<span class="wc-altphone-chip"><span>${esc(p)}</span><button type="button" class="wc-altphone-rm" data-idx="${i}" aria-label="Xóa SĐT ${esc(p)}"><i data-lucide="x"></i></button></span>`
+            )
+            .join('');
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    function addAltPhone() {
+        const inp = $('#wcfAltPhoneInput');
+        const n = normPhone(inp.value);
+        if (!n) {
+            notify('SĐT phụ phải đủ 10 số', 'warning');
+            return;
+        }
+        const primary = normPhone($('#wcfPhone').value);
+        if (primary && n === primary) {
+            notify('SĐT này trùng SĐT chính', 'warning');
+            return;
+        }
+        if (modalAltPhones.includes(n)) {
+            notify('SĐT phụ đã có trong danh sách', 'warning');
+            return;
+        }
+        modalAltPhones.push(n);
+        inp.value = '';
+        renderAltPhones();
+        inp.focus();
+    }
+
     // ─── Modal Thêm/Sửa ─────────────────────────────────────────────────
     function openModal(row) {
         state.editing = row || null;
@@ -186,6 +226,12 @@
         g('wcfGlobalId').value = row?.globalId || '';
         g('wcfFbPageId').value = row?.fbPageId || '';
         g('wcfTags').value = Array.isArray(row?.tags) ? row.tags.join(', ') : '';
+        // SĐT phụ
+        modalAltPhones = Array.isArray(row?.altPhones)
+            ? row.altPhones.map(normPhone).filter(Boolean)
+            : [];
+        if ($('#wcfAltPhoneInput')) $('#wcfAltPhoneInput').value = '';
+        renderAltPhones();
         $('#wcModalError').textContent = '';
         // History timeline (chỉ khi sửa)
         const histWrap = $('#wcModalHistory');
@@ -215,6 +261,7 @@
         return {
             name: v('wcfName'),
             phone: v('wcfPhone'),
+            altPhones: modalAltPhones.slice(),
             email: v('wcfEmail'),
             status: v('wcfStatus'),
             tier: v('wcfTier'),
@@ -429,6 +476,23 @@
         $('#wcModalSave').addEventListener('click', saveModal);
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !$('#wcModal').hidden) closeModal();
+        });
+        // SĐT phụ: thêm + xóa
+        $('#wcfAltPhoneAddBtn').addEventListener('click', addAltPhone);
+        $('#wcfAltPhoneInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addAltPhone();
+            }
+        });
+        $('#wcAltPhoneList').addEventListener('click', (e) => {
+            const rm = e.target.closest('.wc-altphone-rm');
+            if (!rm) return;
+            const idx = Number(rm.dataset.idx);
+            if (Number.isFinite(idx)) {
+                modalAltPhones.splice(idx, 1);
+                renderAltPhones();
+            }
         });
     }
 
