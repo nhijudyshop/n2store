@@ -2,6 +2,15 @@
 
 ## 2026-06-09
 
+### [native-orders] Fix tab "Đơn Inbox" trống — bỏ qua filter chiến dịch (livestream-only) ✅
+
+**User:** tab đơn inbox không hiện dữ liệu.
+
+- **Chẩn đoán:** API `/api/native-orders/load?channel=web2_inbox` trả đủ data (verify curl). Bug ở frontend: chiến dịch + chiến dịch cha (`selectedCampaignIds`/`parentPostIds`) là khái niệm RIÊNG của kênh Livestream (đơn inbox có `fbPostId=null`, không thuộc campaign nào). `selectedCampaignIds` được restore từ localStorage lúc init → khi đang chọn campaign livestream rồi bấm tab Inbox, `load()` vẫn gửi `campaignIds=...` → query lọc sạch đơn inbox → bảng trống. Verify: `inbox + campaignIds=999` → `{orders:[],total:0}`.
+- **Fix:** `load()` chỉ gửi `campaignIds`/`fbPostIds` khi `channel !== 'web2_inbox'`. Tab-switch handler ẩn `#campaignChipGroup` khi ở tab Inbox (tránh hiểu nhầm filter còn tác dụng).
+- **Verify (Playwright):** pre-seed campaign `TESTLIVE-2606` (điều kiện bug) → bấm tab Inbox → **2 đơn inbox hiện ra**, campaign filter ẩn. 0 lỗi app.
+- Files: `native-orders/js/native-orders-app.js` (`load()` + channel tab handler).
+
 ### [live-chat][web2] Fix token Pancake hết hạn + hợp nhất 1 nguồn = pancake_accounts (web2/pancake-settings) ✅
 
 **User:** sao Live Chat báo token hết hạn? Pancake tự đăng nhập lấy token mà (account đã lưu DB). Fix lỗi + xóa hết Pancake Web 2.0 trùng, dùng 1 nguồn `web2/pancake-settings`. Lưu ý đừng xóa nếu Web 1.0 đang dùng.

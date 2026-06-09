@@ -1593,18 +1593,24 @@
             </td></tr>`;
         }
         try {
+            // Chiến dịch + chiến dịch cha là khái niệm RIÊNG của kênh Livestream
+            // (đơn inbox không có fbPostId/campaign). Tab Inbox phải BỎ QUA các
+            // filter này — nếu không, campaign livestream còn lưu trong
+            // localStorage sẽ lọc sạch đơn inbox → bảng trống.
+            const isInbox = STATE.channel === 'web2_inbox';
             const resp = await window.NativeOrdersApi.list({
                 status: STATE.status,
                 channel: STATE.channel || undefined,
                 search: STATE.search || undefined,
                 page: STATE.page,
                 limit: STATE.limit,
-                campaignIds: STATE.selectedCampaignIds.length
-                    ? STATE.selectedCampaignIds
-                    : undefined,
+                campaignIds:
+                    !isInbox && STATE.selectedCampaignIds.length
+                        ? STATE.selectedCampaignIds
+                        : undefined,
                 // Chiến dịch cha (chung live-chat): lọc theo tập post của parent.
                 fbPostIds:
-                    STATE.parentPostIds && STATE.parentPostIds.length
+                    !isInbox && STATE.parentPostIds && STATE.parentPostIds.length
                         ? STATE.parentPostIds
                         : undefined,
                 customerId: STATE.customerId || undefined,
@@ -4291,8 +4297,13 @@
                 .forEach((t) => t.classList.remove('is-active'));
             tab.classList.add('is-active');
             STATE.channel = tab.dataset.channel;
+            const isInbox = STATE.channel === 'web2_inbox';
             const addBtn = $('#btnAddInboxOrder');
-            if (addBtn) addBtn.style.display = STATE.channel === 'web2_inbox' ? '' : 'none';
+            if (addBtn) addBtn.style.display = isInbox ? '' : 'none';
+            // Chiến dịch chỉ áp dụng cho kênh Livestream → ẩn bộ lọc khi ở tab Inbox
+            // (tránh hiểu nhầm là filter còn tác dụng + load() đã bỏ qua nó).
+            const campGroup = $('#campaignChipGroup');
+            if (campGroup) campGroup.style.display = isInbox ? 'none' : '';
             STATE.page = 1;
             load();
         });
