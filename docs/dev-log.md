@@ -2,6 +2,15 @@
 
 ## 2026-06-09
 
+### [native-orders] Nhớ tab kênh đơn (Livestream/Inbox) qua refresh + fix TDZ ✅
+
+**User:** đang bên đơn inbox → refresh lại thì vẫn bên đơn inbox.
+
+- **Thêm:** persist `STATE.channel` vào `localStorage('native_orders_channel')`. `restoreChannel()` khôi phục lúc init, `saveChannel()` ghi khi đổi tab, `_syncChannelUi()` đồng bộ UI (tab active + nút "Thêm đơn inbox" + ẩn bộ lọc chiến dịch) — gọi lúc init + mỗi lần đổi tab.
+- **⚠ Bug TDZ phát hiện khi test:** `restoreChannel()` được gọi trong object literal `STATE` → chạy TRƯỚC khi `const CHANNEL_STORAGE_KEY` (khai báo bên dưới) khởi tạo → `Cannot access 'CHANNEL_STORAGE_KEY' before initialization` → catch → luôn fallback `web2_livestream` (refresh không nhớ). Fix: dùng literal `'native_orders_channel'` trực tiếp trong restore/save, bỏ const ngoài.
+- **Verify (Playwright):** bấm Inbox → reload → active=inbox, nút Thêm đơn hiện, bộ lọc chiến dịch ẩn. Đổi lại Livestream → reload → active=livestream. Cả 2 chiều OK.
+- Files: `native-orders/js/native-orders-app.js`.
+
 ### [native-orders] Icon 🖨 (badge "đã in") → bấm in lại bill PBH đúng loại theo trạng thái ✅
 
 **User:** native-orders bấm vào icon máy in (hình 2) hiện bill PBH. Nhớ bill PBH có logic theo trạng thái → Nháp = Phiếu Soạn Hàng, Bán hàng shop = PBH SHOP, còn lại = PBH.
