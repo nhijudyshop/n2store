@@ -7010,6 +7010,32 @@ body.action-bar-visible {
     color: #d97706;
 }
 
+.cip-fb-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    background: #1877f2;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    transition:
+        background 0.15s ease,
+        transform 0.1s ease;
+}
+.cip-fb-link:hover {
+    background: #0f5ed6;
+    transform: translateY(-1px);
+}
+.cip-fb-link:active {
+    transform: translateY(0);
+}
+.cip-fb-link i {
+    font-size: 11px;
+}
+
 .cip-notes-section {
     margin-top: 10px;
     padding-top: 10px;

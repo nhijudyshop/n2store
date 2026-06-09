@@ -3067,11 +3067,12 @@
               <button class="no-add-close" type="button" aria-label="Đóng">✕</button>
             </div>
             <div class="no-add-modal-body">
-              <label>Khách hàng (gõ tên / SĐT — lấy từ kho KH)</label>
+              <label>Khách hàng (gõ tên / SĐT — tìm trên Pancake để nhắn tin được)</label>
               <div class="no-add-search-wrap">
-                <input type="text" id="noAddCustSearch" placeholder="Gõ tên hoặc SĐT để tìm khách (không dấu vẫn nhận)..." autocomplete="off" />
+                <input type="text" id="noAddCustSearch" placeholder="Gõ tên / SĐT — tìm hội thoại Pancake + kho KH..." autocomplete="off" />
                 <div class="no-add-suggest" id="noAddSuggest" hidden></div>
               </div>
+              <div class="no-add-fb-status" id="noAddFbStatus" hidden></div>
               <div class="no-add-row">
                 <div><label>Tên</label><input type="text" id="noAddName" /></div>
                 <div><label>SĐT</label><input type="text" id="noAddPhone" /></div>
@@ -3098,6 +3099,9 @@
         if (window.lucide) lucide.createIcons();
         let selectedCustomerId = null;
         let selectedFbId = null;
+        let selectedFbPageId = null;
+        let selectedFbUserName = null;
+        let selectedConversationId = null;
         const cart = []; // [{productCode,name,price,quantity,total,imageUrl}]
         const close = () => overlay.remove();
         overlay.querySelector('.no-add-close').onclick = close;
@@ -3106,53 +3110,127 @@
             if (e.target === overlay) close();
         });
 
-        // ---- Customer search ----
+        // ---- Customer search (Pancake + kho KH) ----
+        // Ưu tiên hội thoại Pancake (đủ fb_id + page_id → đơn nhắn tin được như
+        // đơn live-chat). Merge thêm kho KH (web2_customers) cho khách chưa có
+        // hội thoại. SĐT / địa chỉ có thể điền sau — fb context mới là cái cần.
         const searchInp = overlay.querySelector('#noAddCustSearch');
         const suggest = overlay.querySelector('#noAddSuggest');
+        const fbStatus = overlay.querySelector('#noAddFbStatus');
         let timer = null;
+        let searchSeq = 0;
+
+        const setFbStatus = () => {
+            if (selectedFbId && selectedFbPageId) {
+                fbStatus.className = 'no-add-fb-status is-ok';
+                fbStatus.innerHTML = `<i data-lucide="message-circle"></i> Đã gắn Facebook — đơn này nhắn tin được (page …${escapeHtml(String(selectedFbPageId).slice(-6))})`;
+                fbStatus.hidden = false;
+            } else if (selectedFbId) {
+                fbStatus.className = 'no-add-fb-status is-warn';
+                fbStatus.innerHTML = `<i data-lucide="alert-triangle"></i> Có fb_id nhưng thiếu page — sẽ tự dò khi mở chat`;
+                fbStatus.hidden = false;
+            } else {
+                fbStatus.hidden = true;
+            }
+            if (window.lucide) lucide.createIcons();
+        };
+
         searchInp.addEventListener('input', () => {
             clearTimeout(timer);
+            // Gõ lại → bỏ chọn cũ (tránh giữ fb context của khách trước).
+            selectedCustomerId = null;
+            selectedFbId = null;
+            selectedFbPageId = null;
+            selectedFbUserName = null;
+            selectedConversationId = null;
+            setFbStatus();
             const q = searchInp.value.trim();
             if (q.length < 2) {
                 suggest.hidden = true;
                 return;
             }
             timer = setTimeout(async () => {
-                try {
-                    const r = await fetch(
+                const seq = ++searchSeq;
+                suggest.innerHTML =
+                    '<div class="no-add-suggest-empty">Đang tìm trên Pancake + kho KH…</div>';
+                suggest.hidden = false;
+                // Pancake (messageable) + warehouse (info) song song.
+                const [pancake, warehouse] = await Promise.all([
+                    _searchPancakeCustomers(q).catch(() => []),
+                    fetch(
                         `${WORKER_URL}/api/web2/customers/search?search=${encodeURIComponent(q)}&limit=8`,
                         { credentials: 'include' }
-                    );
-                    const j = await r.json();
-                    const rows = j.data || [];
-                    if (!rows.length) {
-                        suggest.innerHTML =
-                            '<div class="no-add-suggest-empty">Không tìm thấy — nhập tay bên dưới</div>';
-                        suggest.hidden = false;
-                        return;
-                    }
-                    suggest.innerHTML = rows
-                        .map(
-                            (c) =>
-                                `<button type="button" class="no-add-suggest-item" data-id="${c.id || ''}" data-fbid="${escapeHtml(c.fbId || '')}" data-name="${escapeHtml(c.name || '')}" data-phone="${escapeHtml(c.phone || '')}" data-address="${escapeHtml(c.address || '')}"><strong>${escapeHtml(c.name || '—')}</strong> · ${escapeHtml(c.phone || '')}<div class="no-add-suggest-addr">${escapeHtml(c.address || '')}</div></button>`
-                        )
-                        .join('');
+                    )
+                        .then((r) => r.json())
+                        .then((j) => j.data || [])
+                        .catch(() => []),
+                ]);
+                if (seq !== searchSeq) return; // kết quả cũ — bỏ
+
+                // Dedupe warehouse trùng fbId đã có ở Pancake.
+                const pkFbIds = new Set(pancake.map((c) => c.fbId));
+                const whRows = warehouse.filter((c) => !c.fbId || !pkFbIds.has(String(c.fbId)));
+
+                if (!pancake.length && !whRows.length) {
+                    suggest.innerHTML =
+                        '<div class="no-add-suggest-empty">Không tìm thấy — nhập tay bên dưới (có thể bổ sung Facebook sau)</div>';
                     suggest.hidden = false;
-                } catch (e) {
-                    suggest.hidden = true;
+                    return;
                 }
-            }, 280);
+
+                const pkHtml = pancake
+                    .map(
+                        (c) =>
+                            `<button type="button" class="no-add-suggest-item no-add-suggest-pk" data-src="pancake" data-fbid="${escapeHtml(c.fbId)}" data-pageid="${escapeHtml(c.pageId || '')}" data-convid="${escapeHtml(c.conversationId || '')}" data-name="${escapeHtml(c.name || '')}" data-phone="${escapeHtml(c.phone || '')}">
+                                <span class="no-add-suggest-badge"><i data-lucide="message-circle"></i> Nhắn được</span>
+                                <strong>${escapeHtml(c.name || '—')}</strong>${c.phone ? ' · ' + escapeHtml(c.phone) : ''}
+                                <div class="no-add-suggest-addr">Facebook${c.isInbox ? ' · Inbox' : ''} · page …${escapeHtml(String(c.pageId || '').slice(-6))}</div>
+                            </button>`
+                    )
+                    .join('');
+                const whHtml = whRows
+                    .map(
+                        (c) =>
+                            `<button type="button" class="no-add-suggest-item" data-src="warehouse" data-id="${c.id || ''}" data-fbid="${escapeHtml(c.fbId || '')}" data-name="${escapeHtml(c.name || '')}" data-phone="${escapeHtml(c.phone || '')}" data-address="${escapeHtml(c.address || '')}"><strong>${escapeHtml(c.name || '—')}</strong> · ${escapeHtml(c.phone || '')}<div class="no-add-suggest-addr">Kho KH${c.address ? ' · ' + escapeHtml(c.address) : ''}</div></button>`
+                    )
+                    .join('');
+                suggest.innerHTML =
+                    (pkHtml || '') +
+                    (pkHtml && whHtml
+                        ? '<div class="no-add-suggest-sep">— Kho KH (chưa chắc nhắn được) —</div>'
+                        : '') +
+                    (whHtml || '');
+                suggest.hidden = false;
+                if (window.lucide) lucide.createIcons();
+            }, 320);
         });
+
         suggest.addEventListener('click', (e) => {
             const item = e.target.closest('.no-add-suggest-item');
             if (!item) return;
-            overlay.querySelector('#noAddName').value = item.dataset.name || '';
-            overlay.querySelector('#noAddPhone').value = item.dataset.phone || '';
-            overlay.querySelector('#noAddAddress').value = item.dataset.address || '';
-            selectedCustomerId = item.dataset.id || null;
-            selectedFbId = item.dataset.fbid || null;
+            const nameEl = overlay.querySelector('#noAddName');
+            const phoneEl = overlay.querySelector('#noAddPhone');
+            const addrEl = overlay.querySelector('#noAddAddress');
+            nameEl.value = item.dataset.name || '';
+            // SĐT/địa chỉ: chỉ ghi đè nếu có (Pancake có thể thiếu — điền sau).
+            if (item.dataset.phone) phoneEl.value = item.dataset.phone;
+            if (item.dataset.address) addrEl.value = item.dataset.address;
+            if (item.dataset.src === 'pancake') {
+                selectedCustomerId = null;
+                selectedFbId = item.dataset.fbid || null;
+                selectedFbPageId = item.dataset.pageid || null;
+                selectedConversationId = item.dataset.convid || null;
+                selectedFbUserName = item.dataset.name || null;
+            } else {
+                selectedCustomerId = item.dataset.id || null;
+                selectedFbId = item.dataset.fbid || null;
+                selectedFbPageId = null; // kho KH không lưu page — dò sau theo SĐT
+                selectedConversationId = null;
+                selectedFbUserName = item.dataset.name || null;
+            }
             suggest.hidden = true;
             searchInp.value = item.dataset.name || item.dataset.phone || '';
+            setFbStatus();
         });
 
         // ---- Product picker (inline cart) ----
@@ -3331,6 +3409,9 @@
                     address,
                     customerId: selectedCustomerId,
                     fbUserId: selectedFbId || undefined,
+                    fbPageId: selectedFbPageId || undefined,
+                    fbUserName: selectedFbUserName || undefined,
+                    conversationId: selectedConversationId || undefined,
                     products: cart.map((l) => ({
                         productCode: l.productCode,
                         name: l.name,
@@ -5392,6 +5473,66 @@
         if (res) _inboxPhoneCache.set(norm, res);
         else _inboxPhoneCache.delete(norm);
         return res;
+    }
+
+    // ============ Tìm KHÁCH qua Pancake theo tên / SĐT (cho modal Thêm đơn) ====
+    // Trả về DANH SÁCH ứng viên hội thoại Pancake khớp `query` (tên / SĐT / nội
+    // dung tin) trên MỌI page user có token. Mỗi ứng viên đã đủ fb context để gửi
+    // tin nhắn: { fbId(psid), pageId, conversationId, name, phone, avatarUrl,
+    // isInbox }. Dùng để đơn inbox tạo tay cũng "nhắn được" như đơn live-chat.
+    async function _searchPancakeCustomers(query, { signal } = {}) {
+        const q = String(query || '').trim();
+        if (!q || !window.Web2Chat?.searchConversations) return [];
+        if (window.Web2Chat.syncFromRenderDB) {
+            try {
+                await window.Web2Chat.syncFromRenderDB();
+            } catch {
+                /* tolerate — vẫn thử search với token đang có */
+            }
+        }
+        const pageIds = _getSidebarPageIds({});
+        if (!pageIds.length) return [];
+        const settled = await Promise.allSettled(
+            pageIds.map((pid) => window.Web2Chat.searchConversations(pid, q, { signal }))
+        );
+        // Gom theo fbId (1 KH có thể xuất hiện nhiều page / nhiều conv). Ưu tiên
+        // conv INBOX (nhắn tin được 24h) + có SĐT.
+        const byFbId = new Map();
+        for (let i = 0; i < settled.length; i++) {
+            const r = settled[i];
+            if (r.status !== 'fulfilled' || !r.value?.ok) continue;
+            for (const c of r.value.conversations || []) {
+                const cust = c.customers?.[0] || c.from || {};
+                const fbId = String(cust.fb_id || cust.id || c.from_customer_id || '');
+                if (!fbId) continue;
+                const isInbox = (c.type || '').toUpperCase() === 'INBOX';
+                const phone = cust.phone || cust.phone_number || '';
+                const cand = {
+                    fbId,
+                    pageId: String(c.page_id || c.fb_page_id || pageIds[i] || ''),
+                    conversationId: c.id || null,
+                    name: cust.name || cust.full_name || c.name || '',
+                    phone,
+                    avatarUrl: c.from?.avatar_url || cust.avatar_url || '',
+                    isInbox,
+                };
+                const cur = byFbId.get(fbId);
+                if (
+                    !cur ||
+                    (cand.isInbox && !cur.isInbox) ||
+                    (cand.isInbox === cur.isInbox && cand.phone && !cur.phone)
+                ) {
+                    byFbId.set(fbId, cand);
+                }
+            }
+        }
+        // INBOX trước (nhắn được), rồi tới có SĐT.
+        return [...byFbId.values()]
+            .sort(
+                (a, b) =>
+                    Number(b.isInbox) - Number(a.isInbox) || (b.phone ? 1 : 0) - (a.phone ? 1 : 0)
+            )
+            .slice(0, 8);
     }
 
     // Sau khi render danh sách đơn inbox: với các row có SĐT nhưng chưa có fb_id,

@@ -2426,6 +2426,64 @@ body {
     font-size: 0.8rem;
     color: #94a3b8;
 }
+/* Pancake result (messageable) — highlight so user prefers it */
+.no-add-suggest-pk {
+    background: linear-gradient(0deg, #fff 0%, #f5fbff 100%);
+}
+.no-add-suggest-pk:hover {
+    background: #eff6ff;
+}
+.no-add-suggest-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #1e40af;
+    background: #dbeafe;
+    border-radius: 999px;
+    padding: 1px 7px 1px 5px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+.no-add-suggest-badge i {
+    width: 11px;
+    height: 11px;
+}
+.no-add-suggest-sep {
+    padding: 5px 12px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #b45309;
+    background: #fffbeb;
+    border-bottom: 1px solid #f1f5f9;
+}
+/* FB-bind status under the search box */
+.no-add-fb-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0 2px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+.no-add-fb-status i {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+.no-add-fb-status.is-ok {
+    color: #15803d;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+}
+.no-add-fb-status.is-warn {
+    color: #b45309;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+}
 .no-add-modal-foot {
     display: flex;
     justify-content: flex-end;

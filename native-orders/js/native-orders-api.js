@@ -88,8 +88,9 @@
         },
 
         /**
-         * POST /api/native-orders/create-manual — tạo đơn inbox tay (channel='inbox').
-         * @param {{customerName,phone,address?,customerId?,products?,note?}} fields
+         * POST /api/native-orders/create-manual — tạo đơn inbox tay (channel='web2_inbox').
+         * fbUserId + fbPageId (từ modal tìm hội thoại Pancake) → đơn nhắn tin được.
+         * @param {{customerName,phone,address?,customerId?,products?,note?,fbUserId?,fbPageId?,fbUserName?,conversationId?}} fields
          */
         async createManual(fields) {
             return _fetchJson(`${BASE}/create-manual`, {

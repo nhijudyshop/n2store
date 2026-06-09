@@ -937,8 +937,11 @@ router.post('/from-comment', async (req, res) => {
 
 // -----------------------------------------------------
 // POST /create-manual — tạo đơn TAY từ tab Đơn Inbox (2026-06-04).
-// KHÔNG cần fbUserId. channel='web2_inbox'. Body:
-//   { customerName, phone, address, products?, note?, createdBy?, createdByName? }
+// channel='web2_inbox'. Body:
+//   { customerName, phone, address, products?, note?, createdBy?, createdByName?,
+//     fbUserId?, fbPageId?, fbUserName?, conversationId? }
+// fbUserId + fbPageId từ modal tìm hội thoại Pancake → đơn nhắn tin được như đơn
+// live-chat (2026-06-09). SĐT/địa chỉ có thể bỏ trống điền sau.
 // Gen code NJ-... như đơn livestream. status='draft' → user thêm SP qua modal sửa.
 // -----------------------------------------------------
 router.post('/create-manual', async (req, res) => {
@@ -964,12 +967,14 @@ router.post('/create-manual', async (req, res) => {
         // customer_id do frontend truyền (từ /api/web2/customers/search — Web 2.0,
         // KHÔNG đụng customers Web 1.0). Không có → null.
         const customerId = b.customerId ? parseInt(b.customerId, 10) || null : null;
-        // fb_user_id: đơn inbox tay KHÔNG có fb context như đơn livestream. Nếu
-        // KH chọn từ kho có fb_id → bind để avatar + hội thoại Pancake hoạt động.
-        // Frontend truyền b.fbUserId (= customer.fbId); fallback lookup từ
-        // web2_customers nếu chỉ có customerId. fb_page_id để null (kho KH không
-        // lưu page) → UI fallback chọn hội thoại từ sidebar đa-page.
+        // fb context: đơn inbox tay vẫn cần ĐỦ fb_id + fb_page_id để nhắn tin được
+        // như đơn live-chat. Frontend tìm hội thoại Pancake (modal Thêm đơn) rồi
+        // truyền b.fbUserId (psid) + b.fbPageId + b.fbUserName. Fallback lookup
+        // fb_id từ web2_customers nếu chỉ có customerId. Thiếu fb_page_id → UI tự
+        // dò hội thoại theo SĐT khi mở chat (_resolveInboxConvByPhone).
         let fbUserId = (b.fbUserId || '').trim() || null;
+        const fbPageId = (b.fbPageId || '').trim() || null;
+        const fbUserName = (b.fbUserName || '').trim() || null;
         if (!fbUserId && customerId) {
             try {
                 const r = await pool.query(
@@ -986,7 +991,7 @@ router.post('/create-manual', async (req, res) => {
                 code, session_index, display_stt, campaign_stt, source, channel,
                 customer_name, phone, address, note,
                 products, total_quantity, total_amount,
-                status, tags, customer_id, fb_user_id,
+                status, tags, customer_id, fb_user_id, fb_page_id, fb_user_name,
                 created_by, created_by_name, created_at, updated_at
             ) VALUES (
                 $1, 0, nextval('native_orders_display_stt_seq'),
@@ -994,8 +999,8 @@ router.post('/create-manual', async (req, res) => {
                 'NATIVE_WEB', 'web2_inbox',
                 $2, $3, $4, $5,
                 $6::jsonb, $7, $8,
-                'draft', '[]'::jsonb, $9, $10,
-                $11, $12, $13, $13
+                'draft', '[]'::jsonb, $9, $10, $11, $12,
+                $13, $14, $15, $15
             ) RETURNING *`,
             [
                 code,
@@ -1008,6 +1013,8 @@ router.post('/create-manual', async (req, res) => {
                 totalAmt,
                 customerId,
                 fbUserId,
+                fbPageId,
+                fbUserName,
                 b.createdBy || null,
                 b.createdByName || null,
                 now,

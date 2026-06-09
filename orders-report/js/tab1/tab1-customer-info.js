@@ -103,6 +103,21 @@
             rows.push(row('fa-globe', 'Global ID', c.global_id, true, 'cip-mono'));
         }
 
+        // Mở Facebook (Ảnh) — global_id là FB profile ID public (mở được /photos);
+        // fb_id là PSID page-scoped nên KHÔNG dùng cho URL profile.
+        const fbProfileId = c.global_id || '';
+        if (fbProfileId) {
+            const fbUrl = `https://www.facebook.com/${encodeURIComponent(fbProfileId)}/photos`;
+            rows.push(`<div class="cip-row">
+                <span class="cip-label"><i class="fab fa-facebook"></i> Facebook</span>
+                <span class="cip-value">
+                    <a href="${fbUrl}" target="_blank" rel="noopener noreferrer" class="cip-fb-link" title="Mở trang Facebook (Ảnh)">
+                        <i class="fas fa-up-right-from-square"></i> Mở Ảnh
+                    </a>
+                </span>
+            </div>`);
+        }
+
         // Gender, Birthday, Lives in
         if (c.gender) rows.push(row('fa-user', 'Giới tính', c.gender));
         if (c.birthday) rows.push(row('fa-cake-candles', 'Sinh nhật', c.birthday));
