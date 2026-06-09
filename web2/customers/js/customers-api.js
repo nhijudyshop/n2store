@@ -78,6 +78,13 @@
         upsert(body) {
             return _fetch('/upsert', { method: 'POST', body: JSON.stringify(body) });
         },
+        // GET /lookup-deep — fallback Pancake khi Kho KH trống.
+        // { q, live }. Tự import KH tìm được (non-destructive). Trả {tier, imported, livePolled}.
+        lookupDeep(q, { live = false } = {}) {
+            return _fetch('/lookup-deep' + _qs({ q, live: live ? 1 : undefined }), {
+                method: 'GET',
+            });
+        },
     };
 
     window.CustomersApi = CustomersApi;

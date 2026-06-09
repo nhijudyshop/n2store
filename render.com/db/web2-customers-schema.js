@@ -94,6 +94,7 @@ async function ensureWeb2CustomersSchema(pool) {
                 synced_at     TIMESTAMP DEFAULT NOW()        -- giữ cho consumer cũ (SePay sort)
             );
             ALTER TABLE web2_customers ADD COLUMN IF NOT EXISTS alt_phones JSONB NOT NULL DEFAULT '[]'::jsonb;
+            ALTER TABLE web2_customers ADD COLUMN IF NOT EXISTS alt_addresses JSONB NOT NULL DEFAULT '[]'::jsonb;
             CREATE INDEX IF NOT EXISTS idx_web2_customers_phone     ON web2_customers(phone);
             CREATE INDEX IF NOT EXISTS idx_web2_customers_fb_id     ON web2_customers(fb_id) WHERE fb_id IS NOT NULL;
             CREATE INDEX IF NOT EXISTS idx_web2_customers_global_id ON web2_customers(global_id) WHERE global_id IS NOT NULL;
@@ -358,6 +359,143 @@ async function searchWeb2CustomersByPhone(pool, partialPhone) {
     }
 }
 
+// ─── Import 1 KH từ Pancake live-comment vào KHO — NON-DESTRUCTIVE ──────
+// Quy tắc (user 2026-06-09): tự động thêm, KHÔNG đè dữ liệu cũ.
+//   - Match KH có sẵn theo phone CHÍNH / alt_phones; fallback fb_id.
+//   - Có match → KHÔNG ghi đè name/address. SĐT mới (khác chính + chưa có) →
+//     append alt_phones. Địa chỉ mới (khác chính + chưa có) → append
+//     alt_addresses. Field rỗng (address/fb_id/name placeholder) → điền.
+//   - Không match → INSERT hàng mới (phone chính UNIQUE, cho phép null).
+// Trả { customerId, created, addedPhone, addedAddress, matchedBy } | null.
+async function importPancakeCustomerWeb2(
+    pool,
+    { phone, name, address, fbId, pageId, source = 'live_comment' } = {}
+) {
+    const p = normPhone(phone);
+    const addr = String(address || '').trim();
+    const nm = String(name || '').trim();
+    const fid = fbId ? String(fbId) : null;
+    if (!p && !fid) return null; // không đủ định danh
+
+    let row = null;
+    let matchedBy = null;
+    try {
+        if (p) {
+            const r = await pool.query(
+                `SELECT id, phone, name, address, fb_id, alt_phones, alt_addresses
+                 FROM web2_customers
+                 WHERE phone = $1
+                    OR EXISTS (
+                        SELECT 1 FROM jsonb_array_elements_text(COALESCE(alt_phones,'[]'::jsonb)) ap
+                        WHERE ap = $1
+                    )
+                 LIMIT 1`,
+                [p]
+            );
+            row = r.rows[0] || null;
+            if (row) matchedBy = 'phone';
+        }
+        if (!row && fid) {
+            const r = await pool.query(
+                `SELECT id, phone, name, address, fb_id, alt_phones, alt_addresses
+                 FROM web2_customers WHERE fb_id = $1 LIMIT 1`,
+                [fid]
+            );
+            row = r.rows[0] || null;
+            if (row) matchedBy = 'fb_id';
+        }
+    } catch (e) {
+        console.warn('[web2-customers] importPancake lookup fail:', e.message);
+        return null;
+    }
+
+    if (row) {
+        const alt = Array.isArray(row.alt_phones) ? row.alt_phones.map(String) : [];
+        const altAddr = Array.isArray(row.alt_addresses) ? row.alt_addresses.map(String) : [];
+        let addedPhone = false;
+        let addedAddress = false;
+        if (p && normPhone(row.phone) !== p && !alt.includes(p)) {
+            alt.push(p);
+            addedPhone = true;
+        }
+        if (addr && String(row.address || '').trim() !== addr && !altAddr.includes(addr)) {
+            altAddr.push(addr);
+            addedAddress = true;
+        }
+        try {
+            await pool.query(
+                `UPDATE web2_customers SET
+                    alt_phones    = $2::jsonb,
+                    alt_addresses = $3::jsonb,
+                    address  = COALESCE(NULLIF(address,''), $4),
+                    name     = CASE WHEN name IN ('', 'Khách hàng mới')
+                                    THEN COALESCE(NULLIF($5,''), name) ELSE name END,
+                    fb_id    = COALESCE(NULLIF(fb_id,''), $6),
+                    updated_at = $7, synced_at = NOW()
+                 WHERE id = $1`,
+                [
+                    row.id,
+                    JSON.stringify(alt),
+                    JSON.stringify(altAddr),
+                    addr || null,
+                    nm || null,
+                    fid,
+                    Date.now(),
+                ]
+            );
+        } catch (e) {
+            console.warn('[web2-customers] importPancake merge fail:', e.message);
+            return null;
+        }
+        return { customerId: row.id, created: false, addedPhone, addedAddress, matchedBy };
+    }
+
+    // Không match → tạo hàng mới
+    const now = Date.now();
+    try {
+        const ins = await pool.query(
+            `INSERT INTO web2_customers
+                (name, phone, address, fb_id, fb_page_id, source, history, created_at, updated_at, synced_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$8,NOW())
+             ON CONFLICT (phone) DO NOTHING
+             RETURNING id`,
+            [
+                nm || 'Khách hàng mới',
+                p || null,
+                addr || null,
+                fid,
+                pageId || null,
+                source,
+                JSON.stringify([_historyEntry('create', { note: 'auto import từ ' + source })]),
+                now,
+            ]
+        );
+        if (ins.rows[0]) {
+            return {
+                customerId: ins.rows[0].id,
+                created: true,
+                addedPhone: !!p,
+                addedAddress: !!addr,
+                matchedBy: null,
+            };
+        }
+    } catch (e) {
+        console.warn('[web2-customers] importPancake insert fail:', e.message);
+    }
+    // ON CONFLICT DO NOTHING (race) → re-lookup theo phone
+    if (p) {
+        try {
+            const r = await pool.query('SELECT id FROM web2_customers WHERE phone = $1 LIMIT 1', [
+                p,
+            ]);
+            if (r.rows[0]) return { customerId: r.rows[0].id, created: false, matchedBy: 'phone' };
+        } catch {
+            /* ignore */
+        }
+    }
+    return null;
+}
+
 module.exports = {
     ensureWeb2CustomersSchema,
     getOrCreateWeb2Customer,
@@ -366,6 +504,7 @@ module.exports = {
     lookupWeb2CustomerIdByPhone,
     searchWeb2CustomersByPhone,
     addWeb2AltPhone,
+    importPancakeCustomerWeb2,
     normPhoneWeb2: normPhone,
     _historyEntry,
 };

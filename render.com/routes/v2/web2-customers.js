@@ -26,6 +26,7 @@ const {
     findWeb2CustomerByFbId,
     linkWeb2CustomerFbId,
     addWeb2AltPhone,
+    importPancakeCustomerWeb2,
     normPhoneWeb2,
     _historyEntry,
 } = require('../../db/web2-customers-schema');
@@ -63,6 +64,21 @@ function sanitizeAltPhones(raw, primaryPhone) {
     return out;
 }
 
+// Chuẩn hoá danh sách ĐỊA CHỈ phụ: trim, bỏ rỗng, KHÔNG trùng address chính,
+// dedupe. 1 KH nhiều địa chỉ → address chính + các địa chỉ khác vào alt_addresses.
+function sanitizeAltAddresses(raw, primaryAddress) {
+    if (!Array.isArray(raw)) return [];
+    const primary = String(primaryAddress || '').trim();
+    const out = [];
+    for (const a of raw) {
+        const s = String(a || '').trim();
+        if (!s) continue;
+        if (primary && s === primary) continue;
+        if (!out.includes(s)) out.push(s);
+    }
+    return out;
+}
+
 // Hàng search gọn (autocomplete) — giữ shape cũ cho frontend hiện tại.
 function rowToLite(r) {
     return {
@@ -93,6 +109,7 @@ function rowToFull(r) {
         tags: Array.isArray(r.tags) ? r.tags : [],
         aliases: Array.isArray(r.aliases) ? r.aliases : [],
         altPhones: Array.isArray(r.alt_phones) ? r.alt_phones : [],
+        altAddresses: Array.isArray(r.alt_addresses) ? r.alt_addresses : [],
         note: r.note || null,
         fbId: r.fb_id || null,
         fbPsids: r.fb_psids || {},
@@ -303,6 +320,101 @@ router.get('/search', async (req, res) => {
     }
 });
 
+// ─── GET /lookup-deep?q=...&live=1 — FALLBACK 3 TẦNG ───────────────────
+// (user 2026-06-09) Khi search Kho KH trống → tìm tiếp ở dữ liệu Pancake:
+//   tier2: bảng web2_live_comments (poller đã sync sẵn ~30s)
+//   tier3 (chỉ khi live=1 & tier2 trống): pollNow() fetch comment livestream
+//          ĐANG chạy ngay → re-search tier2.
+// Mọi KH tìm được → tự động import NON-DESTRUCTIVE vào web2_customers
+// (importPancakeCustomerWeb2: không đè, SĐT/địa chỉ mới → alt_phones/alt_addresses).
+// Trả { success, tier, imported:[{customer, created, addedPhone, addedAddress}],
+//       livePolled }. tier = 'live_comments' | 'live_fetch' | 'none'.
+router.get('/lookup-deep', async (req, res) => {
+    const db = getPool(req);
+    if (!db) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    const q = String(req.query.q || req.query.search || '').trim();
+    const allowLive = String(req.query.live || '') === '1';
+    if (q.length < 2) {
+        return res.json({ success: true, tier: 'none', imported: [], livePolled: false });
+    }
+    const digits = q.replace(/\D/g, '');
+    const isPhoneLike = digits.length >= 4;
+
+    // Search web2_live_comments theo SĐT (digits) HOẶC tên (unaccent ILIKE).
+    // Gom 1 KH/(phone|fb_id), ưu tiên comment mới nhất.
+    async function searchLiveComments() {
+        const like = `%${q}%`;
+        const sqlBase = (nameMatch) => `
+            SELECT DISTINCT ON (COALESCE(NULLIF(phone,''), fb_id))
+                   fb_id, customer_name, phone, address, page_id
+            FROM web2_live_comments
+            WHERE (${isPhoneLike ? `regexp_replace(phone,'\\D','','g') ILIKE $2 OR ` : ''}${nameMatch})
+            ORDER BY COALESCE(NULLIF(phone,''), fb_id), created_time DESC
+            LIMIT 50`;
+        const params = [like];
+        if (isPhoneLike) params.push(`%${digits}%`);
+        try {
+            return (await db.query(sqlBase('unaccent(customer_name) ILIKE unaccent($1)'), params))
+                .rows;
+        } catch (e) {
+            console.warn('[web2-customers] lookup-deep unaccent fallback:', e.message);
+            return (await db.query(sqlBase('customer_name ILIKE $1'), params)).rows;
+        }
+    }
+
+    try {
+        let rows = await searchLiveComments();
+        let tier = rows.length ? 'live_comments' : 'none';
+        let livePolled = false;
+
+        // Tier 3: fetch livestream ĐANG chạy ngay rồi tìm lại.
+        if (!rows.length && allowLive) {
+            try {
+                const poller = require('../../services/web2-livestream-poller');
+                const r = await poller.pollNow();
+                livePolled = !!r?.ran;
+            } catch (e) {
+                console.warn('[web2-customers] lookup-deep pollNow fail:', e.message);
+            }
+            if (livePolled) {
+                rows = await searchLiveComments();
+                if (rows.length) tier = 'live_fetch';
+            }
+        }
+
+        // Auto-import từng KH (non-destructive) → trả về row đầy đủ.
+        const imported = [];
+        for (const c of rows) {
+            const r = await importPancakeCustomerWeb2(db, {
+                phone: c.phone,
+                name: c.customer_name,
+                address: c.address,
+                fbId: c.fb_id,
+                pageId: c.page_id,
+                source: 'live_comment',
+            });
+            if (!r || !r.customerId) continue;
+            const full = await db.query('SELECT * FROM web2_customers WHERE id = $1', [
+                r.customerId,
+            ]);
+            if (full.rows.length) {
+                imported.push({
+                    customer: rowToFull(full.rows[0]),
+                    created: r.created,
+                    addedPhone: !!r.addedPhone,
+                    addedAddress: !!r.addedAddress,
+                    matchedBy: r.matchedBy || null,
+                });
+            }
+        }
+        if (imported.length) _notify('import', imported[0].customer.id);
+        res.json({ success: true, tier, imported, livePolled });
+    } catch (e) {
+        console.error('[web2-customers] lookup-deep error:', e.message);
+        res.status(500).json({ success: false, error: e.message, tier: 'none', imported: [] });
+    }
+});
+
 // ─── GET /by-phone/:phone/orders — lịch sử đơn (native + PBH) ───────────
 router.get('/by-phone/:phone/orders', async (req, res) => {
     const db = getPool(req);
@@ -443,12 +555,13 @@ router.post('/create', async (req, res) => {
     try {
         const now = Date.now();
         const altPhones = sanitizeAltPhones(b.altPhones, phone);
+        const altAddresses = sanitizeAltAddresses(b.altAddresses, b.address);
         const r = await db.query(
             `INSERT INTO web2_customers
                 (code, name, phone, email, address, ward, district, city, carrier,
-                 status, tier, tags, alt_phones, note, fb_id, global_id, fb_page_id,
+                 status, tier, tags, alt_phones, alt_addresses, note, fb_id, global_id, fb_page_id,
                  source, created_by, history, created_at, updated_at)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18,$19,$20::jsonb,$21,$21)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14::jsonb,$15,$16,$17,$18,$19,$20,$21::jsonb,$22,$22)
              RETURNING *`,
             [
                 b.code || null,
@@ -464,6 +577,7 @@ router.post('/create', async (req, res) => {
                 b.tier || null,
                 JSON.stringify(Array.isArray(b.tags) ? b.tags : []),
                 JSON.stringify(altPhones),
+                JSON.stringify(altAddresses),
                 b.note || null,
                 b.fbId || null,
                 b.globalId || null,
@@ -682,20 +796,30 @@ router.patch('/:id', async (req, res) => {
         sets.push(`tags = $${params.length}::jsonb`);
     }
     const hasAltPhones = Array.isArray(b.altPhones);
-    if (!sets.length && !hasAltPhones) {
+    const hasAltAddresses = Array.isArray(b.altAddresses);
+    if (!sets.length && !hasAltPhones && !hasAltAddresses) {
         return res.status(400).json({ success: false, error: 'không có field nào để sửa' });
     }
     params.push(Date.now());
     sets.push(`updated_at = $${params.length}`);
     try {
-        // Cần phone hiện tại để dedupe alt_phones + history.
-        const cur = await db.query('SELECT history, phone FROM web2_customers WHERE id = $1', [id]);
+        // Cần phone + address hiện tại để dedupe alt_phones/alt_addresses + history.
+        const cur = await db.query(
+            'SELECT history, phone, address FROM web2_customers WHERE id = $1',
+            [id]
+        );
         if (!cur.rows.length) return res.status(404).json({ success: false, error: 'Not found' });
         if (hasAltPhones) {
             // Phone chính = giá trị mới (nếu đang đổi) hoặc giá trị hiện tại.
             const primary = b.phone !== undefined ? normPhoneWeb2(b.phone) : cur.rows[0].phone;
             params.push(JSON.stringify(sanitizeAltPhones(b.altPhones, primary)));
             sets.push(`alt_phones = $${params.length}::jsonb`);
+        }
+        if (hasAltAddresses) {
+            // Địa chỉ chính = giá trị mới (nếu đang đổi) hoặc hiện tại.
+            const primaryAddr = b.address !== undefined ? b.address : cur.rows[0].address;
+            params.push(JSON.stringify(sanitizeAltAddresses(b.altAddresses, primaryAddr)));
+            sets.push(`alt_addresses = $${params.length}::jsonb`);
         }
         const hist = Array.isArray(cur.rows[0].history) ? cur.rows[0].history.slice() : [];
         hist.push(_historyEntry('update', { userId: b.userId, userName: b.userName }));

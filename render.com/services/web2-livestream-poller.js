@@ -349,4 +349,19 @@ async function listLivePostsForAssign() {
     return out;
 }
 
-module.exports = { start, listLivePostsForAssign };
+// On-demand: chạy NGAY 1 cycle (fetch comment các bài đang/ vừa live → upsert
+// web2_live_comments) rồi resolve. Dùng cho tier-3 "live fetch" của lookup KH:
+// chỉ giúp khi KH đang comment ở livestream HIỆN TẠI (chưa kịp poll 30s).
+// Trả { ok, ran } — ran=false nếu chưa start (thiếu deps).
+async function pollNow() {
+    if (!_web2Pool || !_liveComments) return { ok: false, ran: false };
+    try {
+        await _cycle();
+        return { ok: true, ran: true };
+    } catch (e) {
+        console.warn('[LIVE-POLLER] pollNow fail:', e.message);
+        return { ok: false, ran: true, error: e.message };
+    }
+}
+
+module.exports = { start, listLivePostsForAssign, pollNow };

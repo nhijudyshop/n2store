@@ -287,31 +287,89 @@
         </div>`;
     }
 
-    /** Resolve global_id còn thiếu qua fb_global_id_cache (in-layer Web 1.0).
-     *  Dùng các cặp (pageId, psid) trong pancake_data.page_fb_ids. */
+    /** Resolve global_id còn thiếu (in-layer Web 1.0). Thử 2 nguồn:
+     *  1) fb_global_id_cache qua các cặp (pageId, psid) trong pancake_data.page_fb_ids.
+     *  2) Pancake search theo SĐT (qua worker proxy, reuse pancakeDataManager) —
+     *     lấy global_id từ conv.page_customer/customers[] CHỈ KHI verify được SĐT.
+     *  Tìm được → nâng nút "Tìm trên FB" thành "Mở Ảnh". */
     async function _tryResolveFbProfile(c) {
         if (!c || c.global_id) return;
+        const gid = (await _resolveFbViaCache(c)) || (await _resolveFbViaPancake(c));
+        if (gid) _upgradeFbButton(gid);
+    }
+
+    const _digits = (p) =>
+        String(p == null ? '' : p)
+            .replace(/\D/g, '')
+            .replace(/^0/, '');
+
+    /** Nguồn 1: fb_global_id_cache (cùng resolver chat-core dùng). */
+    async function _resolveFbViaCache(c) {
         const map = c.pancake_data?.page_fb_ids || c.pancake_data?.pageFbIds || null;
-        if (!map || typeof map !== 'object') return;
+        if (!map || typeof map !== 'object') return null;
         const pairs = Object.entries(map)
             .filter(([pageId, psid]) => pageId && psid)
             .map(([pageId, psid]) => ({ pageId: String(pageId), psid: String(psid) }));
-        if (!pairs.length) return;
-
         for (const { pageId, psid } of pairs) {
             try {
                 const resp = await fetch(
                     `${WORKER_URL}/api/fb-global-id?pageId=${encodeURIComponent(pageId)}&psid=${encodeURIComponent(psid)}`
                 );
                 const json = await resp.json();
-                if (json?.found && json.globalUserId) {
-                    _upgradeFbButton(json.globalUserId);
-                    return;
-                }
+                if (json?.found && json.globalUserId) return json.globalUserId;
             } catch (e) {
                 /* thử cặp tiếp theo */
             }
         }
+        return null;
+    }
+
+    /** Nguồn 2: Pancake search theo SĐT (Web 1.0 qua worker). Chỉ lấy global_id
+     *  từ conversation đã VERIFY SĐT khớp recent_phone_numbers → tránh gắn nhầm
+     *  Facebook của người khác. Persist vào cache cho lần sau. */
+    async function _resolveFbViaPancake(c) {
+        const phone = _digits(c.phone);
+        const pdm = window.pancakeDataManager;
+        if (!phone || !pdm?.searchConversations) return null;
+        let convs = [];
+        try {
+            const res = await pdm.searchConversations(phone, {});
+            convs = res?.conversations || [];
+        } catch (e) {
+            return null;
+        }
+        const phoneVerified = (conv) => {
+            const pool = []
+                .concat(conv.recent_phone_numbers || [])
+                .concat(conv.phone_numbers || []);
+            return pool.some(
+                (it) =>
+                    _digits(typeof it === 'string' ? it : it?.phone_number || it?.captured) ===
+                    phone
+            );
+        };
+        const gidOf = (conv) =>
+            conv.page_customer?.global_id ||
+            (Array.isArray(conv.customers)
+                ? conv.customers.find((x) => x.global_id)?.global_id
+                : null) ||
+            null;
+        for (const conv of convs.filter(phoneVerified)) {
+            const gid = gidOf(conv);
+            const psid = conv.from?.id || conv.from_psid;
+            if (gid && String(gid) !== String(psid || '')) {
+                // Persist → lần sau popup lấy ngay từ cache, không cần search lại.
+                if (conv.page_id) {
+                    try {
+                        window.GlobalIdHarvester?.fromConversation?.(String(conv.page_id), conv);
+                    } catch (e) {
+                        /* persist best-effort */
+                    }
+                }
+                return gid;
+            }
+        }
+        return null;
     }
 
     function _upgradeFbButton(gid) {
