@@ -776,11 +776,11 @@
         // preset WEB2: font ×1.55, barcode cao 46% tem + bars rộng gần full. Content
         // CANH GIỮA dọc tem (justify-content:center) — khối to nhưng không sát mép.
         // Barcode 46% (không 55%) để tên 2 dòng vẫn đủ chỗ, GIÁ không bị cắt.
-        // 2026-06-09: ×1.3 → ×1.55 — user báo "chữ trong 2 tem nhỏ quá". Layout QR
-        // mới (mã SP xuống dưới QR) chừa nhiều chỗ dọc cho cột tên+giá nên phóng to
-        // được. QR thu nhẹ (0.5→0.46) để cột chữ rộng thêm, tên ít wrap hơn.
+        // 2026-06-09: ×1.3 → ×1.55 → ×1.9 — user muốn "toàn bộ giao diện tem to hơn
+        // nữa". Layout QR (mã SP dưới QR) chừa nhiều chỗ dọc cho cột tên+giá nên
+        // phóng to mạnh được. QR cũng to thêm (0.46→0.52, xem qrMm bên dưới).
         const fsBase = fontSize || Math.max(5, Math.round(labelW * 0.24));
-        const fs = Math.round(fsBase * 1.55);
+        const fs = Math.round(fsBase * 1.9);
         const fsCode = Math.max(5, Math.round(fs * 0.9));
         const lineH = fs + 1;
         const lineHCode = fsCode + 1;
@@ -878,7 +878,7 @@
                     // EC=H bù lại module biến thể che giữa. Tên + giá ở cột BÊN PHẢI.
                     const qrMm =
                         Math.round(
-                            Math.min(labelW * 0.46, (labelH - padTop - padBottom) * 0.96) * 10
+                            Math.min(labelW * 0.52, (labelH - padTop - padBottom) * 0.96) * 10
                         ) / 10;
                     const rowStyle =
                         labelStyle +
