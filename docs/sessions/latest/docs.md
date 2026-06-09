@@ -3,11 +3,11 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260609-194317-e2fbbdc`
-**Session file**: [`./20260609-194317-e2fbbdc.md`](../20260609-194317-e2fbbdc.md)
-**Commit**: `e2fbbdc` — feat(orders): resolve FB global_id qua comment livestream (Pancake fetch + fetchMessages)
-**Last updated**: 2026-06-09 19:43:17 +07
-**Summary**: feat(orders): resolve FB global_id qua comment livestream (Pancake fetch + fetchMessages)
+**Latest session**: `RESUME:20260609-194713-f5381b8`
+**Session file**: [`./20260609-194713-f5381b8.md`](../20260609-194713-f5381b8.md)
+**Commit**: `f5381b8` — auto: session update
+**Last updated**: 2026-06-09 19:47:13 +07
+**Summary**: auto: session update
 
 ## Files changed in this commit (`docs/`)
 
@@ -15,11 +15,11 @@
 
 ## Last 5 commits touching `docs/`
 
+- `1f55c58c5` feat(web2): tem mã SP — phóng to QR/tên/mã/biến thể/giá lần nữa (font ×2.0, QR 0.52) _(2026-06-09)_
+- `6d1d3cc5d` chore(session): RESUME:20260609-194317-e2fbbdc _(2026-06-09)_
 - `e2fbbdcfc` feat(orders): resolve FB global*id qua comment livestream (Pancake fetch + fetchMessages) *(2026-06-09)\_
 - `89c94d153` chore(session): RESUME:20260609-194149-85a25c7 _(2026-06-09)_
 - `e8d1ceb5c` chore(session): RESUME:20260609-194006-ecf62e0 _(2026-06-09)_
-- `ecf62e02f` feat(web2): tem mã SP — phóng to toàn bộ giao diện (font ×1.75, QR to, tên 3 dòng auto-fit) _(2026-06-09)_
-- `58bb604de` chore(session): RESUME:20260609-193740-c7267d3 _(2026-06-09)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260609-194317-e2fbbdc` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260609-194713-f5381b8` cho Claude walk chain theo CLAUDE.md protocol.
