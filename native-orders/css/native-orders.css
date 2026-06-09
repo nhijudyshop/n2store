@@ -2537,9 +2537,9 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
-    /* 2026-06-09: inline trong toolbar-top — chiếm khoảng giữa, cuộn ngang nếu
+    /* 2026-06-09: inline trong toolbar-top — ôm sát nội dung, cuộn ngang nếu
        nhiều NV, không xuống dòng để hàng gọn. */
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-width: 0;
     overflow-x: auto;
     margin: 0;

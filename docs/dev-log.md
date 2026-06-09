@@ -2,6 +2,18 @@
 
 ## 2026-06-09
 
+### [native-orders] Gộp KPI + tab kênh + bộ lọc vào 1 panel toolbar (gọn gàng) ✅
+
+**User:** gộp hình 1 (KPI strip), hình 2 (tab Livestream/Inbox + Thêm đơn), hình 3 (bộ lọc) lại cho giao diện gọn gàng.
+
+- Trước: 3 khối rời nhau xếp dọc — KPI strip (block gradient có border/margin riêng), `.no-channel-tabs` (padding riêng), `.search-section` (panel bộ lọc). 3 viền + 3 khoảng trống.
+- Giờ: gộp hết vào **1 panel `#controlBar` (.search-section)** với 2 hàng:
+    - **Hàng 1 `.no-toolbar-top`**: tab kênh (trái) + KPI strip (giữa, pill bo tròn, `flex:0 1 auto` ôm sát nội dung + cuộn ngang nếu nhiều NV) + nút Thêm đơn (phải, `margin-left:auto`). Ngăn cách hàng 2 bằng 1 đường mảnh `border-bottom`.
+    - **Hàng 2 `.filter-row`**: bộ lọc giữ nguyên (search, trạng thái, chiến dịch, hiển thị, kết quả, Hiện/ẩn cột).
+- JS không đổi: mọi ref bằng id (`#channelTabs`, `#noKpiStrip`, `#btnAddInboxOrder`, `#controlBar`) → giữ `id`/class `.search-section` nên `_syncChannelUi`, click handler, KPI render, toggleFilter đều chạy như cũ. Nút Thêm đơn dời ra khỏi `#channelTabs` nhưng vẫn bind theo id.
+- **Verify (Playwright + login restore):** `#controlBar` có đúng 2 hàng `[no-toolbar-top, filter-row]`; hàng top chứa `[channelTabs, noKpiStrip, btnAddInboxOrder]`; KPI hiển thị (admin). Screenshot `downloads/n2store-session/merged-toolbar.png`.
+- Files: `native-orders/index.html`, `native-orders/css/native-orders.css`.
+
 ### [web2] Tem SP — biến thể BAKE vào giữa QR qua Web2QR.centerLabel (đồng bộ với bill, đẹp hơn) ✅
 
 **User:** bên products chỉnh lại biến thể nằm trong QR cho đẹp luôn.
