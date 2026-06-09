@@ -111,6 +111,28 @@
         return false;
     }
 
+    /**
+     * 1 entry có phải ĐƠN HÀNG đang active không (rule shop xác nhận 2026-06-09):
+     * CHỈ "Đã xác nhận" (State='open') hoặc "Đã thanh toán" (State='paid') mới TÍNH LÀ
+     * ĐƠN HÀNG. "Nháp (Chờ hàng)" (State='draft') và "Huỷ bỏ" (cancel) đều KHÔNG phải
+     * đơn hàng → tính như hủy (không "đã ra đơn", không đếm là active).
+     * Dùng cho: badge ĐÃ RA ĐƠN (reconcile), đếm "N active", getLatest chọn phiếu đại
+     * diện cho cell, revert tag. Phân biệt với _isInvoiceEntryCancelled (chỉ "đã hủy").
+     * @param {object} entry
+     * @param {string} saleOnlineId
+     * @returns {boolean}
+     */
+    function _isActiveOrderInvoice(entry, saleOnlineId) {
+        if (!entry) return false;
+        if (_isInvoiceEntryCancelled(entry, saleOnlineId)) return false; // Huỷ bỏ / sổ hủy
+        const sc = String(entry.StateCode || 'None');
+        if (sc === 'NotEnoughInventory') return false; // thiếu hàng / ÂM MÃ — không phải đơn
+        const st = String(entry.State || '').toLowerCase();
+        const ss = entry.ShowState || '';
+        // CHỈ confirmed (open) / paid mới là đơn hàng. draft (Nháp) → KHÔNG.
+        return st === 'open' || st === 'paid' || ss === 'Đã xác nhận' || ss === 'Đã thanh toán';
+    }
+
     const MAX_AGE_DAYS = 60; // Auto cleanup after 60 days
 
     // =====================================================
@@ -710,23 +732,23 @@
                 return entry || null;
             }
 
-            // Search all compound keys for this SaleOnlineId
-            // ƯU TIÊN latest NON-CANCELLED entry (đại diện trạng thái thực của đơn).
-            // Khi đơn có nhiều phiếu (vd 17 PBH gồm cancelled + active mix) và phiếu
-            // mới nhất theo timestamp bị huỷ → trả về active gần nhất, KHÔNG trả về phiếu
-            // huỷ (gây cell hiển thị "−" che mất các phiếu xác nhận/đối soát còn active).
-            // Fallback: nếu mọi phiếu đều cancelled, trả về cancelled mới nhất (giữ behavior
-            // "hiện − khi tất cả đều huỷ").
-            let latestActive = null;
-            let latestActiveTs = 0;
-            let latestAny = null;
-            let latestAnyTs = 0;
+            // Chọn phiếu ĐẠI DIỆN cho cell theo 3 tầng ưu tiên:
+            //   1) latestOrder   = ĐƠN HÀNG thật mới nhất (Đã xác nhận/Đã thanh toán)
+            //   2) latestActive  = phiếu CHƯA-HỦY mới nhất (gồm Nháp/Chờ hàng) — fallback
+            //   3) latestAny     = phiếu bất kỳ mới nhất (gồm hủy) → cell render "−"
+            // Vì sao: đơn có nhiều phiếu (vd confirmed 71557 + draft 71558 mới hơn) phải
+            // hiện ĐƠN HÀNG thật (71557), không hiện draft mới hơn. Đối chiếu cả sổ HỦY
+            // (orphan: dòng còn 'open' nhưng sổ hủy đã ghi) qua _isInvoiceEntryCancelled.
+            let latestOrder = null,
+                latestOrderTs = 0;
+            let latestActive = null,
+                latestActiveTs = 0;
+            let latestAny = null,
+                latestAnyTs = 0;
             for (const [key, value] of this._data.entries()) {
                 const keySoId = value.SaleOnlineId || extractSaleOnlineId(key);
                 if (keySoId !== soId) continue;
                 const ts = value.timestamp || 0;
-                // Đối chiếu cả field cục bộ LẪN sổ HỦY (orphan: dòng còn 'open' nhưng
-                // sổ hủy đã ghi) → không trả nhầm phiếu đã hủy như đang "active".
                 const cancelled = _isInvoiceEntryCancelled(value, soId);
                 if (ts > latestAnyTs || !latestAny) {
                     latestAny = value;
@@ -736,8 +758,12 @@
                     latestActive = value;
                     latestActiveTs = ts;
                 }
+                if (_isActiveOrderInvoice(value, soId) && (ts > latestOrderTs || !latestOrder)) {
+                    latestOrder = value;
+                    latestOrderTs = ts;
+                }
             }
-            return latestActive || latestAny;
+            return latestOrder || latestActive || latestAny;
         },
 
         /**
@@ -4451,13 +4477,9 @@
                     }
                 }
 
-                const activeCount = invoices.filter(
-                    (inv) =>
-                        inv.State !== 'cancel' &&
-                        inv.StateCode !== 'cancel' &&
-                        !inv.IsMergeCancel &&
-                        inv.ShowState !== 'Huỷ bỏ' &&
-                        inv.ShowState !== 'Hủy bỏ'
+                // "active" = ĐƠN HÀNG thật (Đã xác nhận/Đã thanh toán). Nháp + Huỷ bỏ KHÔNG tính.
+                const activeCount = invoices.filter((inv) =>
+                    _isActiveOrderInvoice(inv, orderId)
                 ).length;
                 window.notificationManager?.success(
                     `✓ Refresh OK: ${invoices.length} phiếu (${activeCount} active${stale.length ? `, xóa ${stale.length} stale` : ''})`,
@@ -4659,6 +4681,7 @@
         window.extractSaleOnlineId = extractSaleOnlineId; // For FulfillmentData backward compat
         // Cross-check cancel helpers (dùng bởi processing-tags reconcile + realtime).
         window._isInvoiceEntryCancelled = _isInvoiceEntryCancelled;
+        window._isActiveOrderInvoice = _isActiveOrderInvoice; // đơn hàng thật = confirmed/paid
         window._normalizeBillNumber = _normalizeBillNumber;
         // Revert tag XL ("ĐÃ RA ĐƠN" → vị trí trước) KHI đơn không còn phiếu active.
         // Dùng ở các path xóa/hủy không tự revert (realtime polled-deleted, manual delete).
@@ -4668,16 +4691,8 @@
             try {
                 if (typeof window.onPtagBillCancelled !== 'function') return;
                 const invs = InvoiceStatusStore.getAll(saleOnlineId) || [];
-                const stillActive = invs.some((inv) => {
-                    const sc = String(inv.StateCode || 'None');
-                    if (sc === 'NotEnoughInventory') return false;
-                    return typeof window._isInvoiceEntryCancelled === 'function'
-                        ? !window._isInvoiceEntryCancelled(inv, saleOnlineId)
-                        : !(
-                              inv.IsMergeCancel ||
-                              String(inv.State || '').toLowerCase() === 'cancel'
-                          );
-                });
+                // Còn ĐƠN HÀNG thật (confirmed/paid) không? Nháp/Huỷ bỏ không tính.
+                const stillActive = invs.some((inv) => _isActiveOrderInvoice(inv, saleOnlineId));
                 if (!stillActive) {
                     Promise.resolve(window.onPtagBillCancelled(saleOnlineId)).catch(() => {});
                 }

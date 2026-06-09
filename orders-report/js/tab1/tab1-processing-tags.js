@@ -1760,17 +1760,28 @@
         const orderMap = ProcessingTagState._orderData;
         if (!orderMap || orderMap.size === 0) return;
 
-        // Helper: 1 entry có phải PBH ĐANG active không (đối chiếu cả sổ HỦY qua cross-check).
+        // Helper: 1 entry có phải ĐƠN HÀNG thật đang active không.
+        // Rule shop (2026-06-09): CHỈ "Đã xác nhận"/"Đã thanh toán" mới là đơn hàng →
+        // mới tính "ĐÃ RA ĐƠN". "Nháp (Chờ hàng)" + "Huỷ bỏ" KHÔNG tính (như hủy).
+        // Đối chiếu cả sổ HỦY qua _isActiveOrderInvoice (đã gồm cross-check + draft check).
         const _isEntryActive = (inv, orderId) => {
-            const sc = String(inv.StateCode || 'None');
-            // Invoice "Chờ nhập hàng" (đơn thiếu hàng / ÂM MÃ) KHÔNG phải PBH ra thành công.
-            if (sc === 'NotEnoughInventory') return false;
-            if (typeof window._isInvoiceEntryCancelled === 'function') {
-                return !window._isInvoiceEntryCancelled(inv, orderId);
+            if (typeof window._isActiveOrderInvoice === 'function') {
+                return window._isActiveOrderInvoice(inv, orderId);
             }
-            // Fail-safe (helper chưa load): xét field cục bộ như cũ.
+            // Fail-safe (helper chưa load): confirmed/paid + chưa hủy + không thiếu hàng.
+            const sc = String(inv.StateCode || 'None');
+            if (sc === 'NotEnoughInventory') return false;
             const st = String(inv.State || '').toLowerCase();
-            return !inv.IsMergeCancel && st !== 'cancel' && sc !== 'cancel' && sc !== 'IsMergeCancel';
+            const ss = inv.ShowState || '';
+            return (
+                (st === 'open' ||
+                    st === 'paid' ||
+                    ss === 'Đã xác nhận' ||
+                    ss === 'Đã thanh toán') &&
+                !inv.IsMergeCancel &&
+                st !== 'cancel' &&
+                sc !== 'cancel'
+            );
         };
 
         const candidates = []; // CHO_DI_DON + có PBH active → flip HOAN_TAT

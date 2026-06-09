@@ -2,6 +2,20 @@
 
 ## 2026-06-09
 
+### [orders-report] Rule "đơn hàng" = CHỈ Đã xác nhận/Đã thanh toán — Nháp (Chờ hàng) tính như hủy ✅
+
+**User (sau khi fix orphan):** đơn 260600791 trên TPOS có 6 phiếu, hệ thống báo "6 phiếu (2 active)" — nhưng chỉ 71557 "Đã xác nhận" mới là đơn hàng; 71558 "Nháp (Chờ hàng)" + 4 phiếu "Huỷ bỏ" KHÔNG phải đơn hàng, tính như hủy. Kiểm tra lại logic.
+
+**Vấn đề:** định nghĩa "active" cũ = NON-cancelled → tính cả **Nháp (draft)** là active (→ count = 2). Sai theo rule shop.
+
+**Sửa — thêm `_isActiveOrderInvoice(entry, soId)`** = chỉ `State='open'` (Đã xác nhận) hoặc `'paid'` (Đã thanh toán), loại Nháp/Huỷ bỏ/NotEnoughInventory + cross-check sổ hủy. Wire vào:
+- **Đếm "N active"** (`refreshPBHForOrder`): 6 phiếu → giờ báo **1 active** (chỉ 71557).
+- **`getLatest`** 3 tầng ưu tiên: ĐƠN HÀNG thật (confirmed/paid) → phiếu chưa-hủy (Nháp) → bất kỳ. Cell hiện 71557 dù 71558 Nháp mới hơn.
+- **Badge ĐÃ RA ĐƠN** (`reconcileTagsWithInvoices._isEntryActive`) + **revert tag** (`_revertPtagIfNoActivePBH`): chỉ confirmed/paid mới tính "đã ra đơn"; đơn chỉ có Nháp/Huỷ → không đã ra đơn (reverse-reconcile revert nếu đang HOAN_TAT auto-flip).
+- **Nuance:** đơn CHỈ có Nháp (không confirmed) → cell VẪN hiện badge "Nháp" (không ẩn thành "−") để thấy phiếu đang soạn; chỉ KHÔNG tính là "đã ra đơn". (Hỏi user nếu muốn ẩn luôn.)
+- **Verify:** `node --check` OK; unit test 8/8 (đúng 6 phiếu 260600791 → activeCount=1, getLatest=71557, paid=active, draft-only visible nhưng không đã ra đơn).
+- Files: `orders-report/js/tab1/tab1-fast-sale-invoice-status.js`, `tab1-processing-tags.js`.
+
 ### [live-chat] Dropdown campaign — cuộn để tải thêm bài livestream cũ hơn ✅
 
 **User:** live-chat lấy bài livestream từ `pancake.vn/NhiJudyStore/post` + `pancake.vn/NhiJudyHouse.VietNam/post` (đã/đang livestream) → dropdown campaign cần **cuộn để load thêm bài** (giống infinite scroll trang post Pancake).
