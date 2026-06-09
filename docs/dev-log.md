@@ -2,6 +2,17 @@
 
 ## 2026-06-09
 
+### [live-chat] Dropdown campaign — cuộn để tải thêm bài livestream cũ hơn ✅
+
+**User:** live-chat lấy bài livestream từ `pancake.vn/NhiJudyStore/post` + `pancake.vn/NhiJudyHouse.VietNam/post` (đã/đang livestream) → dropdown campaign cần **cuộn để load thêm bài** (giống infinite scroll trang post Pancake).
+
+- **Vấn đề**: `fetchVideosAsCampaigns` chỉ fetch 1 cửa sổ 7 ngày/page (pages.fm posts cap ~50/lần) → dropdown chỉ ~33 bài, không xem được bài cũ hơn.
+- **Phân trang cursor thời gian** (`live-source.js`): `fetchVideosAsCampaigns(pageIds, {cursors})` — lần đầu `end_time=now`; tải thêm → `end_time = inserted_at cũ nhất batch trước − 1` (start_time floor = now − 365 ngày). Mỗi page độc lập, cursor `{oldest, done}` lưu trong `LiveState.liveCampaignCursors`. Hết khi `posts < 50` hoặc API `done`. Return `{campaigns, cursors}` (callers cũ tolerate cả array lẫn object).
+- **API** (`live-api.js`): `loadMoreLiveCampaigns()` (dedupe theo Id, append + sort desc) + `hasMoreLiveCampaigns()`. `loadLiveCampaigns`/`...FromAllPages` reset cursors khi đổi page.
+- **UI cuộn** (`live-comment-list.js`): tách `_campaignRowHtml(c)`; dropdown thêm sentinel `#liveCampaignMore` ("Cuộn để tải thêm…" / "Đã tải hết bài"); listener `scroll` trên `#liveCampaignDropdown` (gần đáy 48px → `loadMoreCampaigns()`); append rows mới TRÊN sentinel (giữ scrollTop, không phá thứ tự desc vì bài tải thêm luôn cũ hơn). Guard `isLoadingMoreCampaigns`.
+- **Verify (Playwright localhost)**: load đầu 33 bài (3 page, hasMore=true) → scroll đáy → 55 → 80, DOM rows sync 80, 0 trùng Id, 3 checkbox đã chọn giữ nguyên, 0 console error. Cursor pagination test trực tiếp pancake API: 4 batch lùi dần 2026-06-09 → 2026-05-12, 56 bài live.
+- Files: `live-chat/js/live/{live-source,live-api,live-comment-list,live-state,live-init,live-livestream-snap}.js`, `live-chat/index.html` (cache-bust `?v=20260609e`).
+
 ### [web2] Tem mã SP — phóng to QR + tên + mã + biến thể + giá lần nữa ✅
 
 **User:** cho QR code, tên SP, mã SP, biến thể, giá → to hơn nữa.
