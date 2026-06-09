@@ -2,6 +2,14 @@
 
 ## 2026-06-09
 
+### [web2][products] Sửa mã SP test sang prefix NCC + thêm ảnh thật từ TPOS ✅
+
+**User:** (1) SP trong Kho hiện có prefix `KHO` là tạo trực tiếp, không phải qua so-order (qua so-order phải có prefix NCC ở trước). (2) Tải random ảnh SP trên TPOS về thêm vào sản phẩm.
+
+- **Fix mã SP:** 6 SP buy-pipeline trước đó mình tạo thẳng API với code `KHO*` (sai — có NCC mà vẫn KHO). Dùng đúng engine `Web2ProductCode.suggest()` (in-browser, có variants/suppliers cache) sinh lại mã chuẩn `<PREFIX_NCC><LOẠI><MÀU><SIZE>`: HÀ NỘI→`HN` (HNAOM, HNQUAN29, HNMMS), HƯƠNG CHÂU→`HC` (HCDAML, HCAOM, HCMMDOM). Xóa 6 SP `KHO*` cũ → tạo lại qua upsert-pending+confirm-purchase (giữ tồn) → re-seed `web2_so_order` (ref by name → tự lấy mã mới). `KHOTESTLINK28` giữ nguyên (có PBH/đơn/refund link, đổi mã sẽ orphan).
+- **Ảnh TPOS:** `/api/token` POST `{grant_type:password, username/password/client_id}` (creds từ `serect_dont_push.txt`, không log) → bearer → `GET /api/odata/ProductTemplate?$top=80&$select=Id,Name,ImageUrl` → 76/80 SP có ảnh (CDN public `img1.tpos.vn`, 302→`vn.img1.tpos.vn` 200 image/jpeg). PATCH `imageUrl` cho 7 SP (6 NCC + KHOTESTLINK28). Verify browser: **7/7 ảnh render** (naturalWidth>0, đều là ảnh TPOS).
+- Lưu ý: `/api/token` chỉ nhận POST (GET → 400). Token sống ~15 ngày.
+
 ### [web2][native-orders] Thêm BIẾN THỂ (size/màu) vào tem mã SP + PBH ✅
 
 **User:** tem mã sản phẩm thêm biến thể vào + PBH cho biến thể sản phẩm vào.
