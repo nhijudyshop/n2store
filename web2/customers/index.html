@@ -259,6 +259,24 @@
                                 placeholder="Số nhà, đường…"
                             ></textarea>
                         </div>
+                        <div class="wc-field-group wc-field-wide wc-altaddrs">
+                            <span class="wc-group-label">
+                                <i data-lucide="map-pin"></i> Địa chỉ phụ (1 KH nhiều địa chỉ · bấm
+                                <i data-lucide="star"></i> để đặt làm chính)
+                            </span>
+                            <div class="wc-altaddr-list" id="wcAltAddrList"></div>
+                            <div class="wc-altaddr-add">
+                                <input
+                                    id="wcfAltAddrInput"
+                                    type="text"
+                                    placeholder="Thêm địa chỉ khác…"
+                                    autocomplete="off"
+                                />
+                                <button type="button" class="wc-btn" id="wcfAltAddrAddBtn">
+                                    <i data-lucide="plus"></i> Thêm
+                                </button>
+                            </div>
+                        </div>
                         <div class="wc-field">
                             <label for="wcfWard">Phường/Xã</label>
                             <input id="wcfWard" type="text" />
@@ -333,8 +351,8 @@
         <script src="../shared/web2-customer-detail-modal.js?v=20260607a"></script>
 
         <!-- Page -->
-        <script src="js/customers-api.js?v=20260607a"></script>
-        <script src="js/customers-app.js?v=20260609c"></script>
+        <script src="js/customers-api.js?v=20260609d"></script>
+        <script src="js/customers-app.js?v=20260609d"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
             if (window.lucide) window.lucide.createIcons();

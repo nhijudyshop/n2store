@@ -53,6 +53,7 @@
 
     // SĐT phụ đang chỉnh trong modal (1 KH nhiều SĐT). phone chính tách riêng.
     let modalAltPhones = [];
+    let modalAltAddresses = [];
 
     // ─── Load + render ──────────────────────────────────────────────────
     async function load() {
@@ -130,7 +131,7 @@
                         ${Array.isArray(r.altPhones) && r.altPhones.length ? `<span class="wc-altphone-tag" title="SĐT phụ: ${esc(r.altPhones.join(', '))}">+${r.altPhones.length} SĐT</span>` : ''}
                     </td>
                     <td class="wc-col-fb">${fbBadges(r)}</td>
-                    <td class="wc-col-address">${esc(r.address) || '<span class="wc-muted">—</span>'}</td>
+                    <td class="wc-col-address">${esc(r.address) || '<span class="wc-muted">—</span>'}${Array.isArray(r.altAddresses) && r.altAddresses.length ? ` <span class="wc-altaddr-tag" title="Địa chỉ phụ:&#10;${esc(r.altAddresses.join('\n'))}">+${r.altAddresses.length} địa chỉ</span>` : ''}</td>
                     <td class="wc-col-status"><span class="wc-badge wc-badge-${st.cls}">${st.label}</span></td>
                     <td class="wc-col-stats">
                         <span title="Số đơn">${r.totalOrders || 0} đơn</span>
@@ -228,6 +229,60 @@
         inp.focus();
     }
 
+    // ─── Địa chỉ phụ trong modal (1 KH nhiều địa chỉ) ───────────────────
+    function renderAltAddresses() {
+        const list = $('#wcAltAddrList');
+        if (!list) return;
+        if (!modalAltAddresses.length) {
+            list.innerHTML = '<span class="wc-altaddr-empty">Chưa có địa chỉ phụ</span>';
+            return;
+        }
+        list.innerHTML = modalAltAddresses
+            .map(
+                (a, i) =>
+                    `<span class="wc-altaddr-chip"><button type="button" class="wc-altaddr-star" data-idx="${i}" title="Đặt làm địa chỉ chính (hiển thị)" aria-label="Đặt làm địa chỉ chính"><i data-lucide="star"></i></button><span class="wc-altaddr-text">${esc(a)}</span><button type="button" class="wc-altaddr-rm" data-idx="${i}" aria-label="Xóa địa chỉ"><i data-lucide="x"></i></button></span>`
+            )
+            .join('');
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    // Đặt 1 địa chỉ phụ làm địa chỉ chính (hiển thị). Địa chỉ chính cũ → về phụ.
+    function setPrimaryAltAddr(idx) {
+        const inp = $('#wcfAddress');
+        const chosen = modalAltAddresses[idx];
+        if (!chosen) return;
+        const oldPrimary = String(inp.value || '').trim();
+        modalAltAddresses.splice(idx, 1);
+        if (oldPrimary && oldPrimary !== chosen && !modalAltAddresses.includes(oldPrimary)) {
+            modalAltAddresses.unshift(oldPrimary);
+        }
+        inp.value = chosen;
+        renderAltAddresses();
+        notify('Đã đặt địa chỉ chính', 'success');
+    }
+
+    function addAltAddress() {
+        const inp = $('#wcfAltAddrInput');
+        const a = String(inp.value || '').trim();
+        if (!a) {
+            notify('Nhập địa chỉ phụ', 'warning');
+            return;
+        }
+        const primary = String($('#wcfAddress').value || '').trim();
+        if (primary && a === primary) {
+            notify('Địa chỉ này trùng địa chỉ chính', 'warning');
+            return;
+        }
+        if (modalAltAddresses.includes(a)) {
+            notify('Địa chỉ phụ đã có trong danh sách', 'warning');
+            return;
+        }
+        modalAltAddresses.push(a);
+        inp.value = '';
+        renderAltAddresses();
+        inp.focus();
+    }
+
     // ─── Modal Thêm/Sửa ─────────────────────────────────────────────────
     function openModal(row) {
         state.editing = row || null;
@@ -254,6 +309,12 @@
             : [];
         if ($('#wcfAltPhoneInput')) $('#wcfAltPhoneInput').value = '';
         renderAltPhones();
+        // Địa chỉ phụ
+        modalAltAddresses = Array.isArray(row?.altAddresses)
+            ? row.altAddresses.map((a) => String(a || '').trim()).filter(Boolean)
+            : [];
+        if ($('#wcfAltAddrInput')) $('#wcfAltAddrInput').value = '';
+        renderAltAddresses();
         $('#wcModalError').textContent = '';
         // History timeline (chỉ khi sửa)
         const histWrap = $('#wcModalHistory');
@@ -284,6 +345,7 @@
             name: v('wcfName'),
             phone: v('wcfPhone'),
             altPhones: modalAltPhones.slice(),
+            altAddresses: modalAltAddresses.slice(),
             email: v('wcfEmail'),
             status: v('wcfStatus'),
             tier: v('wcfTier'),
@@ -529,6 +591,29 @@
                 renderAltPhones();
             }
         });
+        // Địa chỉ phụ: thêm + xóa + đặt chính
+        $('#wcfAltAddrAddBtn')?.addEventListener('click', addAltAddress);
+        $('#wcfAltAddrInput')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addAltAddress();
+            }
+        });
+        $('#wcAltAddrList')?.addEventListener('click', (e) => {
+            const star = e.target.closest('.wc-altaddr-star');
+            if (star) {
+                const i = Number(star.dataset.idx);
+                if (Number.isFinite(i)) setPrimaryAltAddr(i);
+                return;
+            }
+            const rm = e.target.closest('.wc-altaddr-rm');
+            if (!rm) return;
+            const idx = Number(rm.dataset.idx);
+            if (Number.isFinite(idx)) {
+                modalAltAddresses.splice(idx, 1);
+                renderAltAddresses();
+            }
+        });
     }
 
     // ─── Pancake fallback (kho KH không có → tìm hội thoại Pancake) ─────
@@ -647,23 +732,105 @@
         if (window.lucide) window.lucide.createIcons();
     }
 
+    // 3 TẦNG (user 2026-06-09): Kho KH (tier1, đã chạy ở load()) → web2_live_comments
+    // DB (tier2) → live fetch (tier3: server poll livestream + browser search hội
+    // thoại Pancake). Mọi tầng TỰ ĐỘNG import non-destructive (server lo merge SĐT/
+    // địa chỉ phụ). Tìm thấy → reload kho, KH hiện ngay với badge nguồn.
     async function runPancakeFallback(query) {
         const sec = $('#wcPancakeResults');
         if (!sec) return;
         const seq = ++_pancakeSeq;
         $('#wcPancakeQuery').textContent = `“${query}”`;
         $('#wcPancakeList').innerHTML =
-            '<div class="wc-pancake-empty">Đang tìm trên Pancake…</div>';
+            '<div class="wc-pancake-empty">Đang tìm trong dữ liệu Pancake (livestream)…</div>';
         sec.hidden = false;
+        _pancakeRows = [];
+
+        const finishImported = (n, tierLabel) => {
+            if (seq !== _pancakeSeq) return;
+            notify(`Đã tự thêm ${n} KH vào kho (${tierLabel})`, 'success');
+            $('#wcPancakeList').innerHTML =
+                `<div class="wc-pancake-empty">✓ Tìm thấy & tự thêm ${n} KH từ ${tierLabel}. Đang tải lại…</div>`;
+            load(); // KH mới khớp từ khoá → hiện trong kho, section tự ẩn (total>0)
+        };
+
+        // ── Tier 2: web2_live_comments (DB đã sync ~30s) ──
+        try {
+            const r2 = await window.CustomersApi.lookupDeep(query, { live: false });
+            if (seq !== _pancakeSeq) return;
+            if (r2?.success && r2.imported?.length) {
+                return finishImported(r2.imported.length, 'comment livestream');
+            }
+        } catch {
+            /* tolerate — sang tier 3 */
+        }
+
+        // ── Tier 3a: live fetch — server poll livestream ĐANG chạy ──
+        $('#wcPancakeList').innerHTML =
+            '<div class="wc-pancake-empty">Đang fetch livestream đang chạy…</div>';
+        try {
+            const r3 = await window.CustomersApi.lookupDeep(query, { live: true });
+            if (seq !== _pancakeSeq) return;
+            if (r3?.success && r3.imported?.length) {
+                return finishImported(r3.imported.length, 'livestream đang chạy');
+            }
+        } catch {
+            /* tolerate — sang tier 3b */
+        }
+
+        // ── Tier 3b: live fetch — search hội thoại Pancake qua browser (rộng nhất) ──
+        $('#wcPancakeList').innerHTML =
+            '<div class="wc-pancake-empty">Đang tìm hội thoại Pancake…</div>';
         let rows = [];
         try {
             rows = await _searchPancake(query);
         } catch {
             rows = [];
         }
-        if (seq !== _pancakeSeq) return; // có lần tìm mới hơn → bỏ
-        _pancakeRows = rows;
-        renderPancakeCards();
+        if (seq !== _pancakeSeq) return;
+        if (!rows.length) {
+            $('#wcPancakeList').innerHTML =
+                '<div class="wc-pancake-empty">Không tìm thấy trong Kho KH lẫn Pancake.</div>';
+            return;
+        }
+        // Auto-import tất cả kết quả hội thoại (non-destructive).
+        let added = 0;
+        for (const c of rows) {
+            if (await _importPancakeConv(c)) added++;
+        }
+        if (seq !== _pancakeSeq) return;
+        if (added) return finishImported(added, 'hội thoại Pancake');
+        $('#wcPancakeList').innerHTML =
+            '<div class="wc-pancake-empty">Đã tìm thấy nhưng không thêm được KH nào.</div>';
+    }
+
+    // Import 1 hội thoại Pancake (tier 3b) vào kho — non-destructive qua upsert/create.
+    async function _importPancakeConv(c) {
+        const phone = normPhone(c.phone);
+        const actor = window.Web2UserInfo?.get?.('web2/customers') || {};
+        try {
+            let res;
+            if (phone) {
+                res = await window.CustomersApi.upsert({
+                    phone,
+                    name: c.name || undefined,
+                    fbId: c.fbId || undefined,
+                    source: 'pancake',
+                });
+            } else {
+                res = await window.CustomersApi.create({
+                    name: c.name || 'Khách FB',
+                    fbId: c.fbId || undefined,
+                    fbPageId: c.pageId || undefined,
+                    source: 'pancake',
+                    userId: actor.userId,
+                    userName: actor.userName,
+                });
+            }
+            return res && res.success !== false;
+        } catch {
+            return false;
+        }
     }
 
     async function addPancakeToKho(idx) {
