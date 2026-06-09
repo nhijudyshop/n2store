@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fd73805` — auto: session update
-**Last updated**: 2026-06-09 18:19:18 +07
-**Latest session**: [`RESUME:20260609-181918-fd73805`](../20260609-181918-fd73805.md)
+**Latest commit**: `983a7ce` — auto: session update
+**Last updated**: 2026-06-09 18:34:38 +07
+**Latest session**: [`RESUME:20260609-183438-983a7ce`](../20260609-183438-983a7ce.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`native-orders/`](./native-orders.md) — 3 file(s)
+- [`native-orders/`](./native-orders.md) — 4 file(s)
+- [`orders-report/`](./orders-report.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -39,10 +41,10 @@
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`live-chat/`](./live-chat.md) — updated 2026-06-09 15:31
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-09 18:19
+- [`native-orders/`](./native-orders.md) — updated 2026-06-09 18:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-09 16:10
+- [`orders-report/`](./orders-report.md) — updated 2026-06-09 18:34
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
@@ -50,7 +52,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-09 18:15
+- [`render.com/`](./render.com.md) — updated 2026-06-09 18:34
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-09 16:10
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
