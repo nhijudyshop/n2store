@@ -1954,7 +1954,7 @@ body {
     gap: 10px;
     padding: 8px 10px;
     border-bottom: 1px solid var(--gray-100);
-    cursor: default;
+    cursor: pointer;
     position: relative;
 }
 .pick-item:last-child {

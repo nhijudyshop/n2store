@@ -2161,7 +2161,7 @@
                <span class="pick-img-ph" style="display:none;"><i data-lucide="image"></i></span>`
             : `<span class="pick-img-ph"><i data-lucide="image"></i></span>`;
         return `
-            <div class="pick-item ${existing ? 'in-order' : ''}" data-code="${escapeHtml(p.code)}">
+            <div class="pick-item ${existing ? 'in-order' : ''}" data-code="${escapeHtml(p.code)}" onclick="NativeOrdersApp.addLineFromPicker('${escapeHtml(p.code)}')" title="Bấm để thêm vào đơn">
                 ${qtyBadge}
                 ${img}
                 <div class="pick-info">
@@ -2169,7 +2169,7 @@
                     <div class="pick-code">Mã: ${escapeHtml(p.code)}</div>
                 </div>
                 <div class="pick-price">${(p.price || 0).toLocaleString('vi-VN')}đ</div>
-                <button class="pick-add-btn" onclick="NativeOrdersApp.addLineFromPicker('${escapeHtml(p.code)}')"><i data-lucide="plus"></i></button>
+                <button class="pick-add-btn" onclick="event.stopPropagation();NativeOrdersApp.addLineFromPicker('${escapeHtml(p.code)}')"><i data-lucide="plus"></i></button>
             </div>`;
     }
 
