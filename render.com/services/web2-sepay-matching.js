@@ -1085,4 +1085,5 @@ module.exports = {
     resolveWeb2PendingMatch,
     reprocessUnmatched,
     _hasActiveOrder, // test: gate auto-gán theo đơn active
+    _findActiveOrderByPhone, // test: lấy identity KH theo đơn active
 };

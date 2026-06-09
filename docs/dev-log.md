@@ -2,6 +2,16 @@
 
 ## 2026-06-09
 
+### [render][web2] SePay matcher — identity theo ĐƠN + QR auto-credit/auto-message ✅
+
+**User:** logic mapping = dùng tên+SĐT trên đơn native-orders (campaign House/Store mới nhất) tìm vào kho KH rồi gán → chính xác (kho có nhiều KH trùng tên/SĐT). Chốt: (1) SĐT nội dung CK ra **10 số đầy đủ** → so trùng SĐT đơn → lấy identity của đơn. (2) QR khách quét → đã biết KH → **gửi tin + cộng ví NGAY khi nhận CK, không cần tín hiệu/đơn**.
+
+- **Part 1 — identity theo đơn:** thêm `_findActiveOrderByPhone(db, phone)` (trả `{phone, customer_name, customer_id, code}` của đơn active / `null` nếu không đơn / `GATE_ERR` nếu lỗi). Nhánh aggregate single-match: thay gate bool bằng hàm này → override `customerName`/`customerId`/`matchedPhone` bằng identity CỦA ĐƠN (chống trùng kho). `_hasActiveOrder` giữ làm wrapper bool (lỗi→true, không kẹt tiền).
+- **Part 2a — QR bypass gate:** main path (QR) thêm guard `matchMethod !== 'qr_code'` trước gate → QR luôn cộng ví dù KH không có đơn active.
+- **Part 2b — QR auto-message:** helper `_sendQrConfirmMessage` — resolve hội thoại từ `web2_payment_signals` mới nhất (theo customer_id, fallback psid qua `web2_customers.fb_id`) → `web2-msg-send-worker.sendSingleMessage` "Shop đã nhận CK + số dư ví". Best-effort fire-and-forget; KHÔNG có hội thoại (KH chưa từng chat) → bỏ qua, không gửi mù.
+
+**Files:** `render.com/services/web2-sepay-matching.js`, `scripts/test-sepay-gate-order.js` (fixture +customer_name/customer_id, +2 assertion identity). Test: gate-order 10/10, web2-customers-search 5/5, ck-watcher-auto 29/29, ck-features 10/10. Cần deploy Render. **Lưu ý:** QR-message chỉ gửi nếu KH đã có hội thoại FB; KH thuần-QR (chưa chat) chưa nhắn được — cần capture hội thoại lúc tạo QR nếu muốn phủ 100%.
+
 ### [web2][render] Rà soát + fix logic KPI Web 2.0 (5 vấn đề) ✅
 
 **User:** rà soát logic tính KPI Web 2.0 (dashboard + kpi page) → fix tất cả, dọn dead code (Web 1.0 để riêng).

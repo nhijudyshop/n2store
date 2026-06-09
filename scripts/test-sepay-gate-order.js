@@ -92,6 +92,25 @@ async function main() {
 
         // Biến thể SĐT (normalize): '84900000002' đuôi khớp '0900000002'
         ok((await m._hasActiveOrder(db, '84900000002')) === true, 'normalize đuôi SĐT → PASS');
+
+        // Part 1 (2026-06-09): _findActiveOrderByPhone trả IDENTITY của ĐƠN
+        // (tên/customer_id/phone chuẩn) — dùng làm chân lý gán, chống trùng kho.
+        await db.query(
+            `INSERT INTO native_orders (code,phone,status,channel,fb_page_id,live_campaign_id,created_at,customer_name,customer_id)
+             VALUES ('IDT','0900000006','draft','web2_inbox','PAGE_H',NULL,$1,'Nguyễn Văn Đơn',778899)`,
+            [now]
+        );
+        const found = await m._findActiveOrderByPhone(db, '0900000006');
+        ok(
+            found &&
+                found.customer_name === 'Nguyễn Văn Đơn' &&
+                Number(found.customer_id) === 778899,
+            'order-identity: trả đúng tên + customer_id của đơn'
+        );
+        ok(
+            (await m._findActiveOrderByPhone(db, '0900000099')) === null,
+            'order-identity: KH không đơn → null (gate chặn)'
+        );
     } catch (e) {
         fail++;
         console.error('❌ EXCEPTION:', e.message, e.stack);
