@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `983a7ce` — auto: session update
-**Last updated**: 2026-06-09 18:34:38 +07
-**Latest session**: [`RESUME:20260609-183438-983a7ce`](../20260609-183438-983a7ce.md)
-**Summary**: auto: session update
+**Latest commit**: `b833580` — feat(orders): popup KH thêm nút Mở Facebook (Ảnh) qua global_id
+**Last updated**: 2026-06-09 18:39:39 +07
+**Latest session**: [`RESUME:20260609-183939-b833580`](../20260609-183939-b833580.md)
+**Summary**: feat(orders): popup KH thêm nút Mở Facebook (Ảnh) qua global_id
 
 ## Folders affected in this commit
 
-- [`native-orders/`](./native-orders.md) — 4 file(s)
-- [`orders-report/`](./orders-report.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-09 18:15
+- [`docs/`](./docs.md) — updated 2026-06-09 18:39
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-09 17:51
