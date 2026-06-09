@@ -2,6 +2,14 @@
 
 ## 2026-06-09
 
+### [docs][web2] Ghi chú nguồn dữ liệu FB/SĐT của KH trong campaign ✅
+
+**User:** ghi vào memory/CLAUDE/dev-log — nếu cần thông tin Facebook, SĐT… của KH ở campaign thì đúng bài viết livestream ở `https://pancake.vn/NhiJudyStore/post` + `https://pancake.vn/NhiJudyHouse.VietNam/post` (mục đã/đang livestream) → có fetch tải bình luận xuống → trong đó có đầy đủ dữ liệu Facebook khách.
+
+- Quy ước: cần fb_id / SĐT / tên KH của 1 chiến dịch → **KHÔNG fetch graph.facebook.com, KHÔNG build mới**. Comment livestream (kéo qua pancake.vn/api/v1 + account JWT) là nguồn chuẩn — đủ cả comment ẩn / ẩn SĐT (pages.fm public thiếu).
+- Hệ thống đã tự động: server poller `web2-livestream-poller.js` (30s) → bảng `web2_live_comments` (web2Db), seed 2 page NhiJudyHouse + NhiJudyStore.
+- Cập nhật: `CLAUDE.md` (Index quick-lookup), MEMORY `reference_web2_live_comments.md` + `MEMORY.md`. Không đụng code.
+
 ### [orders] Popup KH — nút Facebook LUÔN hiện (fallback khi thiếu global_id) ✅
 
 **User:** sao có khách có nút mở FB, có khách không có?
