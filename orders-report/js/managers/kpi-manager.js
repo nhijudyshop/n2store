@@ -48,6 +48,15 @@
     // (deltas thật trong bug là 3.7s–12s nên 1.5s bắt được mà không refetch thừa).
     const SNAPSHOT_STALENESS_GRACE_MS = 1500;
 
+    // NGUỒN "đơn thật cuối" để tính NET = final − BASE (2026-06-09):
+    //   'invoice'    = SP trên PHIẾU BÁN HÀNG (FastSaleOrder.OrderLines) — chỉ tính SP đã xuất hóa đơn thật.
+    //   'saleonline' = SP trên ĐƠN CHAT (SaleOnline_Order.Details) — hành vi cũ.
+    // PROD lương (Web 1.0) → đổi 1 dòng để revert tức thì nếu cần.
+    const KPI_FINAL_SOURCE = 'invoice';
+
+    // Trạng thái phiếu bán hàng được coi là ĐÃ CHỐT (tính KPI). Phiếu Nháp/Hủy → KHÔNG tính.
+    const KPI_CHOT_STATES = new Set(['Đã xác nhận', 'Đã thanh toán', 'Hoàn thành']);
+
     // ========================================
     // REST API Helper
     // ========================================
@@ -269,6 +278,97 @@
             .filter((p) => p.ProductCode);
     }
 
+    // Trích mã SP từ tên hiển thị "[CODE] Tên" (OrderLine KHÔNG có field ProductCode trực tiếp).
+    function extractCodeFromNameGet(nameGet) {
+        if (!nameGet || typeof nameGet !== 'string') return '';
+        const m = nameGet.match(/^\s*\[([^\]]+)\]/);
+        return m ? m[1].trim() : '';
+    }
+
+    // Phiếu Hủy / gộp-hủy (mirror tab-kpi-commission._isInvoiceCancelled — predicate nội bộ).
+    function _isInvoiceCancelledRaw(inv) {
+        if (!inv) return true;
+        const showState = inv.ShowState || '';
+        const stateCode = inv.StateCode || '';
+        return (
+            inv.State === 'cancel' ||
+            stateCode === 'cancel' ||
+            inv.IsMergeCancel === true ||
+            showState === 'Huỷ bỏ' ||
+            showState === 'Hủy bỏ'
+        );
+    }
+
+    // Lấy SP từ PHIẾU BÁN HÀNG THẬT (FastSaleOrder.OrderLines) cho 1 đơn (Reference = orderCode).
+    // Gom MỌI phiếu CHỐT hợp lệ (ShowState ∈ KPI_CHOT_STATES), bỏ phiếu Nháp/Hủy; cộng qty theo ProductId.
+    // Trả CÙNG shape với fetchProductsFromTPOS: [{ProductId, ProductCode, ProductName, Quantity, Price}]
+    // → drop-in cho NET = final − BASE (ProductId của OrderLines === của SaleOnline/BASE, đã verify).
+    // THROW khi lỗi HTTP (caller phân biệt lỗi mạng vs "chưa có phiếu hợp lệ" → trả []).
+    async function fetchInvoiceLinesFromTPOS(orderCode) {
+        if (!orderCode) return [];
+        const headers = await _getTposAuthHeader();
+        if (!headers) return [];
+        const h = { ...headers, accept: 'application/json' };
+        const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+
+        // 1) Liệt kê phiếu của đơn.
+        const flt = encodeURIComponent(
+            `(Type eq 'invoice' and Reference eq '${String(orderCode).replace(/'/g, "''")}')`
+        );
+        const gvResp = await fetch(
+            `${PROXY}/FastSaleOrder/ODataService.GetView?$top=20&$orderby=DateInvoice desc&$filter=${flt}`,
+            { headers: h }
+        );
+        if (!gvResp.ok) throw new Error(`TPOS GetView ${gvResp.status}`);
+        const gv = await gvResp.json();
+        const invoices = Array.isArray(gv.value) ? gv.value : [];
+
+        // 2) Chỉ giữ phiếu CHỐT hợp lệ (loại Hủy + Nháp).
+        const valid = invoices.filter(
+            (inv) => !_isInvoiceCancelledRaw(inv) && KPI_CHOT_STATES.has(inv.ShowState || '')
+        );
+        if (valid.length === 0) return []; // chưa có phiếu hợp lệ → NET 0 (chờ phiếu)
+
+        // 3) Gom OrderLines mọi phiếu hợp lệ → cộng qty theo ProductId.
+        const byPid = new Map();
+        for (const inv of valid) {
+            const dResp = await fetch(`${PROXY}/FastSaleOrder(${inv.Id})?$expand=OrderLines`, {
+                headers: h,
+            });
+            if (!dResp.ok) throw new Error(`TPOS FastSaleOrder(${inv.Id}) ${dResp.status}`);
+            const detail = await dResp.json();
+            for (const l of detail.OrderLines || []) {
+                const pid = l.ProductId != null ? Number(l.ProductId) : null;
+                const qty = Number(l.ProductUOMQty) || Number(l.Quantity) || 0;
+                if (pid == null || qty <= 0) continue; // bỏ line ship/giảm giá/SP rỗng
+                const code =
+                    l.ProductBarcode || extractCodeFromNameGet(l.ProductNameGet) || '';
+                const key = String(pid);
+                const prev = byPid.get(key);
+                if (prev) {
+                    prev.Quantity += qty;
+                } else {
+                    byPid.set(key, {
+                        ProductId: pid,
+                        ProductCode: code,
+                        ProductName: l.ProductName || l.ProductNameGet || '',
+                        Quantity: qty,
+                        Price: Number(l.PriceUnit) || Number(l.Price) || 0,
+                    });
+                }
+            }
+        }
+        return Array.from(byPid.values());
+    }
+
+    // Nguồn "đơn thật cuối" theo flag: 'invoice' → phiếu bán hàng; 'saleonline' → đơn chat.
+    async function fetchFinalProducts(orderCode, orderId) {
+        if (KPI_FINAL_SOURCE === 'invoice') {
+            return await fetchInvoiceLinesFromTPOS(orderCode);
+        }
+        return await fetchProductsFromTPOS(orderId);
+    }
+
     // ========================================
     // KPI FINAL SNAPSHOT (074) — SP cuối thật trên TPOS, lazy fetch 1 lần.
     // Nguồn SỐ LƯỢNG để tính NET = (final TPOS − BASE), tránh drift audit log.
@@ -320,7 +420,7 @@
         }
         let products = [];
         try {
-            products = await fetchProductsFromTPOS(orderId);
+            products = await fetchFinalProducts(orderCode, orderId);
         } catch (e) {
             console.warn('[KPI] ensureKpiFinalSnapshot fetch TPOS failed:', e.message);
             return opts.force ? null : await getKpiFinalSnapshot(orderCode);
@@ -1411,8 +1511,9 @@
             // Expose per-product breakdown để đối soát refund theo MÓN ở tab KPI.
             result.details = kpiResult.details || {};
 
-            // Try to get current products from TPOS for cross-check
-            const currentProducts = await fetchProductsFromTPOS(orderId);
+            // Try to get current products from TPOS for cross-check (cùng nguồn với NET:
+            // phiếu bán hàng nếu KPI_FINAL_SOURCE='invoice', ngược lại đơn chat).
+            const currentProducts = await fetchFinalProducts(orderCode, orderId);
             if (currentProducts.length === 0) {
                 // Can't reach TPOS — skip cross-check but still return actualNet
                 return result;

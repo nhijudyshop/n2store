@@ -2,6 +2,27 @@
 
 ## 2026-06-09
 
+### [orders][kpi] Đổi nguồn KPI: final = FastSaleOrder.OrderLines (phiếu bán hàng) − BASE ✅
+
+**User:** đổi NET tính từ **phiếu bán hàng thật** (FastSaleOrder.OrderLines) − BASE thay vì đơn chat (SaleOnline.Details) − BASE → KPI chỉ tính SP **thực sự lên hóa đơn**, tự loại đơn chưa lên phiếu / phiếu hủy.
+
+**Verify LIVE (Playwright) trước khi code:** `OrderLines.ProductId` === `SaleOnline.Details.ProductId` === `BASE.ProductId` === `audit.productId` (đơn 260600892 đều `[157776,158036,158614,158616]`) → đổi nguồn KHÔNG phá BASE-match / attribution / sale-flag / refund / reconcile (đều keyed theo ProductId). OrderLines KHÔNG có `ProductCode` trực tiếp → enrich từ `ProductBarcode` (="Q449A2"...) hoặc `[CODE]` trong `ProductNameGet`. Qty=`ProductUOMQty`, giá=`PriceUnit`, line SP có `Type:'fixed'` + ProductId≠null.
+
+**Thiết kế — thay đổi CÔ LẬP ở tầng fetch** ([kpi-manager.js](../orders-report/js/managers/kpi-manager.js)):
+- Flag `KPI_FINAL_SOURCE='invoice'` (revert tức thì) + `KPI_CHOT_STATES={Đã xác nhận, Đã thanh toán, Hoàn thành}`.
+- `fetchInvoiceLinesFromTPOS(orderCode)`: GetView phiếu theo Reference → lọc CHỐT hợp lệ (loại Nháp/Hủy via `_isInvoiceCancelledRaw`) → `FastSaleOrder(id)?$expand=OrderLines` từng phiếu → gom qty theo ProductId, enrich code, skip ProductId null/qty≤0. Trả CÙNG shape `{ProductId,ProductCode,ProductName,Quantity,Price}`.
+- `fetchFinalProducts(orderCode,orderId)` rẽ theo flag; `ensureKpiFinalSnapshot` + `reconcileKPI` cross-check dùng nó. `calculateNetKPI` core/attribution/flag/refund/renderers GIỮ NGUYÊN (shape+ProductId không đổi).
+- Không phiếu hợp lệ → final=[] → NET 0 (= "chờ phiếu", thống nhất gate `_isOrderKpiPending`).
+
+**⚠ Thay đổi hành vi có chủ đích:** SP upsell thêm vào chat SAU khi xuất phiếu mà không re-invoice → KHÔNG tính (vì không trên OrderLines).
+
+**Verify:**
+- Unit: [kpi-reconciled-net.test.js](../tests/unit/kpi-reconciled-net.test.js) +8 test (20/20 pass): extractCode, lọc CHỐT, gom nhiều phiếu, skip ship/qty0, enrich fallback NameGet, end-to-end NET=OrderLines−BASE, no-invoice→NET0.
+- Playwright LIVE simulate: 260600892 & 260601110 → `invoice_NET === chat_NET` (NET 2 & 3, cùng SP) — khác biệt chỉ xuất hiện khi chat≠phiếu (đúng mục tiêu).
+- Cache bump `kpi-manager.js?v=20260609a→20260609b` (3 HTML).
+
+**Status:** ✅ code xong, test + verify live OK. Sau deploy: hard-refresh + "Tính lại KPI toàn bộ" để persist. ⚠ Theo dõi đơn chat≠phiếu để xác nhận hành vi đúng kỳ vọng.
+
 ### [orders-report] Rule "đơn hàng" = CHỈ Đã xác nhận/Đã thanh toán — Nháp (Chờ hàng) tính như hủy ✅
 
 **User (sau khi fix orphan):** đơn 260600791 trên TPOS có 6 phiếu, hệ thống báo "6 phiếu (2 active)" — nhưng chỉ 71557 "Đã xác nhận" mới là đơn hàng; 71558 "Nháp (Chờ hàng)" + 4 phiếu "Huỷ bỏ" KHÔNG phải đơn hàng, tính như hủy. Kiểm tra lại logic.

@@ -388,3 +388,191 @@ describe('KPI snapshot staleness guard — phát hiện snapshot chụp giữa c
         expect(src).toContain('latestActivityAt');
     });
 });
+
+// ============================================================
+// KPI_FINAL_SOURCE = 'invoice' — final = FastSaleOrder.OrderLines − BASE (2026-06-09)
+// ============================================================
+const CHOT_STATES = new Set(['Đã xác nhận', 'Đã thanh toán', 'Hoàn thành']);
+
+function extractCodeFromNameGet(nameGet) {
+    if (!nameGet || typeof nameGet !== 'string') return '';
+    const m = nameGet.match(/^\s*\[([^\]]+)\]/);
+    return m ? m[1].trim() : '';
+}
+function isInvoiceCancelledRaw(inv) {
+    if (!inv) return true;
+    const ss = inv.ShowState || '';
+    const sc = inv.StateCode || '';
+    return (
+        inv.State === 'cancel' ||
+        sc === 'cancel' ||
+        inv.IsMergeCancel === true ||
+        ss === 'Huỷ bỏ' ||
+        ss === 'Hủy bỏ'
+    );
+}
+
+/**
+ * Mô phỏng fetchInvoiceLinesFromTPOS: gom OrderLines của các phiếu CHỐT hợp lệ,
+ * cộng qty theo ProductId, enrich code (ProductBarcode → [CODE] trong NameGet).
+ * invoices: [{ ShowState, State, IsMergeCancel, OrderLines:[{ProductId,ProductUOMQty,Quantity,ProductBarcode,ProductNameGet,ProductName,PriceUnit}] }]
+ * → trả [{ProductId, ProductCode, ProductName, Quantity, Price}] (shape giống fetchProductsFromTPOS).
+ */
+function buildInvoiceFinalProducts(invoices) {
+    const valid = (invoices || []).filter(
+        (inv) => !isInvoiceCancelledRaw(inv) && CHOT_STATES.has(inv.ShowState || '')
+    );
+    const byPid = new Map();
+    for (const inv of valid) {
+        for (const l of inv.OrderLines || []) {
+            const pid = l.ProductId != null ? Number(l.ProductId) : null;
+            const qty = Number(l.ProductUOMQty) || Number(l.Quantity) || 0;
+            if (pid == null || qty <= 0) continue;
+            const code = l.ProductBarcode || extractCodeFromNameGet(l.ProductNameGet) || '';
+            const key = String(pid);
+            const prev = byPid.get(key);
+            if (prev) prev.Quantity += qty;
+            else
+                byPid.set(key, {
+                    ProductId: pid,
+                    ProductCode: code,
+                    ProductName: l.ProductName || l.ProductNameGet || '',
+                    Quantity: qty,
+                    Price: Number(l.PriceUnit) || 0,
+                });
+        }
+    }
+    return Array.from(byPid.values());
+}
+
+describe('KPI final = FastSaleOrder.OrderLines (phiếu bán hàng)', () => {
+    it('extractCodeFromNameGet: lấy [CODE] đầu chuỗi', () => {
+        expect(extractCodeFromNameGet('[Q449A2] 2905 Q33 QUẦN SUÔNG')).toBe('Q449A2');
+        expect(extractCodeFromNameGet('Không có ngoặc')).toBe('');
+    });
+
+    it('chỉ gom phiếu CHỐT hợp lệ; loại Nháp + Hủy', () => {
+        const invoices = [
+            {
+                ShowState: 'Đã xác nhận',
+                State: 'open',
+                OrderLines: [{ ProductId: 1, ProductUOMQty: 1, ProductBarcode: 'A' }],
+            },
+            {
+                ShowState: 'Nháp',
+                State: 'draft',
+                OrderLines: [{ ProductId: 2, ProductUOMQty: 1, ProductBarcode: 'B' }],
+            },
+            {
+                ShowState: 'Hủy bỏ',
+                State: 'cancel',
+                OrderLines: [{ ProductId: 3, ProductUOMQty: 1, ProductBarcode: 'C' }],
+            },
+        ];
+        const out = buildInvoiceFinalProducts(invoices);
+        expect(out.map((p) => p.ProductCode)).toEqual(['A']); // chỉ phiếu Đã xác nhận
+    });
+
+    it('gom NHIỀU phiếu hợp lệ → cộng qty theo ProductId', () => {
+        const invoices = [
+            {
+                ShowState: 'Đã thanh toán',
+                OrderLines: [{ ProductId: 5, ProductUOMQty: 1, ProductBarcode: 'X' }],
+            },
+            {
+                ShowState: 'Đã xác nhận',
+                OrderLines: [
+                    { ProductId: 5, ProductUOMQty: 2, ProductBarcode: 'X' },
+                    { ProductId: 6, ProductUOMQty: 1, ProductBarcode: 'Y' },
+                ],
+            },
+        ];
+        const out = buildInvoiceFinalProducts(invoices);
+        const x = out.find((p) => p.ProductId === 5);
+        expect(x.Quantity).toBe(3); // 1 + 2
+        expect(out.find((p) => p.ProductId === 6).Quantity).toBe(1);
+    });
+
+    it('bỏ line ship/giảm giá (ProductId null) và line qty<=0', () => {
+        const invoices = [
+            {
+                ShowState: 'Đã xác nhận',
+                OrderLines: [
+                    { ProductId: 7, ProductUOMQty: 1, ProductBarcode: 'P' },
+                    { ProductId: null, ProductUOMQty: 1, ProductName: 'Phí ship' },
+                    { ProductId: 8, ProductUOMQty: 0, ProductBarcode: 'Q' },
+                ],
+            },
+        ];
+        const out = buildInvoiceFinalProducts(invoices);
+        expect(out.map((p) => p.ProductId)).toEqual([7]);
+    });
+
+    it('enrich code: ProductBarcode trống → lấy từ [CODE] NameGet', () => {
+        const invoices = [
+            {
+                ShowState: 'Đã xác nhận',
+                OrderLines: [
+                    { ProductId: 9, ProductUOMQty: 1, ProductNameGet: '[Z9] Áo thun' },
+                ],
+            },
+        ];
+        expect(buildInvoiceFinalProducts(invoices)[0].ProductCode).toBe('Z9');
+    });
+
+    it('end-to-end đơn 260600892: NET = OrderLines(4) − BASE(2) = 2', () => {
+        const base = [
+            { ProductId: 157776, Quantity: 1 }, // Q449A2 (trong BASE)
+            { ProductId: 158036, Quantity: 1 }, // Q548N (trong BASE)
+        ];
+        const invoices = [
+            {
+                ShowState: 'Đã xác nhận',
+                State: 'open',
+                OrderLines: [
+                    { ProductId: 157776, ProductUOMQty: 1, ProductBarcode: 'Q449A2' },
+                    { ProductId: 158036, ProductUOMQty: 1, ProductBarcode: 'Q548N' },
+                    { ProductId: 158614, ProductUOMQty: 1, ProductBarcode: 'Q741A1' }, // upsell
+                    { ProductId: 158616, ProductUOMQty: 1, ProductBarcode: 'Q739A1' }, // upsell
+                ],
+            },
+        ];
+        const final = buildInvoiceFinalProducts(invoices).map((p) => ({
+            ProductId: p.ProductId,
+            ProductCode: p.ProductCode,
+            Quantity: p.Quantity,
+        }));
+        const flags = { 158614: true, 158616: true };
+        const r = reconciledNetKPI(base, final, [], flags);
+        expect(r.netProducts).toBe(2);
+        expect(r.kpiAmount).toBe(10000);
+        expect(Object.keys(r.details).sort()).toEqual(['158614', '158616']);
+    });
+
+    it('không có phiếu hợp lệ (chỉ Nháp) → final rỗng → NET 0 (chờ phiếu)', () => {
+        const invoices = [
+            {
+                ShowState: 'Nháp',
+                State: 'draft',
+                OrderLines: [{ ProductId: 1, ProductUOMQty: 1, ProductBarcode: 'A' }],
+            },
+        ];
+        const final = buildInvoiceFinalProducts(invoices);
+        expect(final).toEqual([]);
+        const r = reconciledNetKPI([], final, [], { 1: true });
+        expect(r.netProducts).toBe(0);
+    });
+
+    it('kpi-manager.js wired: KPI_FINAL_SOURCE invoice + fetchInvoiceLinesFromTPOS', () => {
+        const src = readFileSync(
+            resolve(__dirname, '../../orders-report/js/managers/kpi-manager.js'),
+            'utf-8'
+        );
+        expect(src).toContain("KPI_FINAL_SOURCE = 'invoice'");
+        expect(src).toContain('fetchInvoiceLinesFromTPOS');
+        expect(src).toContain('KPI_CHOT_STATES');
+        expect(src).toContain('ProductUOMQty');
+        expect(src).toContain('ProductBarcode');
+        expect(src).toContain('fetchFinalProducts');
+    });
+});
