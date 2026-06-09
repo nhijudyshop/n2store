@@ -3,20 +3,22 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4f5bfc4` — auto: session update
-**Last updated**: 2026-06-09 19:35:41 +07
-**Latest session**: [`RESUME:20260609-193541-4f5bfc4`](../20260609-193541-4f5bfc4.md)
+**Latest commit**: `0c901e1` — auto: session update
+**Last updated**: 2026-06-09 19:37:23 +07
+**Latest session**: [`RESUME:20260609-193723-0c901e1`](../20260609-193723-0c901e1.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
+- [`_root/`](./_root.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 - [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-05 10:42
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-06-09 19:12
+- [`_root/`](./_root.md) — updated 2026-06-09 19:37
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-05-22 12:35
@@ -24,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-09 19:32
+- [`docs/`](./docs.md) — updated 2026-06-09 19:37
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-09 19:12
@@ -69,4 +71,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-09 19:35
+- [`web2/`](./web2.md) — updated 2026-06-09 19:37
