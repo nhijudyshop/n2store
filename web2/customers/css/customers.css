@@ -839,3 +839,105 @@
         width: 100%;
     }
 }
+
+/* ─── Địa chỉ phụ (1 KH nhiều địa chỉ) — mirror alt-phone, accent xanh lá ─── */
+.wc-altaddr-tag {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--web2-money-in, #16a34a);
+    background: #ecfdf5;
+    cursor: help;
+    white-space: nowrap;
+}
+.wc-altaddr-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 8px 0;
+    min-height: 22px;
+}
+.wc-altaddr-empty {
+    font-size: 12px;
+    color: var(--web2-text-faded, #cbd5e1);
+}
+.wc-altaddr-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    padding: 4px 6px;
+    border-radius: 8px;
+    color: #047857;
+    background: #ecfdf5;
+    border: 1px solid #d1fae5;
+}
+.wc-altaddr-text {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+}
+.wc-altaddr-star,
+.wc-altaddr-rm {
+    flex-shrink: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    transition:
+        background 0.12s,
+        color 0.12s;
+}
+.wc-altaddr-star {
+    color: var(--web2-text-faded, #cbd5e1);
+}
+.wc-altaddr-star i {
+    width: 13px;
+    height: 13px;
+}
+.wc-altaddr-star:hover {
+    background: #fef3c7;
+    color: #d97706;
+}
+.wc-altaddr-rm {
+    color: var(--web2-text-3, #64748b);
+}
+.wc-altaddr-rm i {
+    width: 12px;
+    height: 12px;
+}
+.wc-altaddr-rm:hover {
+    background: var(--web2-danger-soft, #fee2e2);
+    color: var(--web2-danger, #dc2626);
+}
+.wc-altaddr-add {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+.wc-altaddr-add input {
+    flex: 1;
+    min-width: 0;
+    font-size: 13.5px;
+    padding: 8px 10px;
+    border: 1px solid var(--web2-border-btn, #d1d9e6);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--web2-text, #1e293b);
+    outline: 0;
+    font-family: inherit;
+    transition:
+        border-color 0.14s,
+        box-shadow 0.14s;
+}
+.wc-altaddr-add input:focus {
+    border-color: var(--web2-money-in, #16a34a);
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.12);
+}

@@ -264,23 +264,16 @@
         return `https://www.facebook.com/${encodeURIComponent(id)}/photos`;
     }
 
-    /** Dòng Facebook trong popup. Có global_id → nút "Mở Ảnh". Thiếu → nút tìm
-     *  theo tên (sẽ tự nâng cấp nếu _tryResolveFbProfile tìm được global_id). */
+    /** Dòng Facebook trong popup. Có global_id → nút "Mở Ảnh". Thiếu → trạng thái
+     *  "Đang tra Pancake…" rồi _tryResolveFbProfile sẽ nâng thành "Mở Ảnh" nếu fetch
+     *  được, hoặc "Chưa có dữ liệu Pancake" nếu không. KHÔNG tìm theo tên. */
     function _buildFbRow(c) {
         const gid = c.global_id || '';
-        let action;
-        if (gid) {
-            action = `<a href="${_fbPhotosUrl(gid)}" target="_blank" rel="noopener noreferrer" class="cip-fb-link" title="Mở trang Facebook (Ảnh)">
+        const action = gid
+            ? `<a href="${_fbPhotosUrl(gid)}" target="_blank" rel="noopener noreferrer" class="cip-fb-link" title="Mở trang Facebook (Ảnh)">
                     <i class="fas fa-up-right-from-square"></i> Mở Ảnh
-                </a>`;
-        } else {
-            const name = (c.name || '').trim();
-            action = name
-                ? `<a href="https://www.facebook.com/search/people/?q=${encodeURIComponent(name)}" target="_blank" rel="noopener noreferrer" class="cip-fb-link cip-fb-link-search" title="Chưa có Global ID — tìm khách trên Facebook theo tên">
-                        <i class="fas fa-magnifying-glass"></i> Tìm trên FB
-                    </a>`
-                : `<span class="cip-fb-none" title="Chưa có Global ID — mở chat của khách để hệ thống tự đồng bộ">Chưa có Global ID</span>`;
-        }
+                </a>`
+            : `<span class="cip-fb-loading"><i class="fas fa-spinner fa-spin"></i> Đang tra Pancake…</span>`;
         return `<div class="cip-row" id="cip-fb-row">
             <span class="cip-label"><i class="fab fa-facebook"></i> Facebook</span>
             <span class="cip-value" id="cip-fb-action">${action}</span>
@@ -296,6 +289,14 @@
         if (!c || c.global_id) return;
         const gid = (await _resolveFbViaCache(c)) || (await _resolveFbViaPancake(c));
         if (gid) _upgradeFbButton(gid);
+        else _setFbNoData();
+    }
+
+    /** Không resolve được global_id qua cache lẫn Pancake → báo rõ. */
+    function _setFbNoData() {
+        const slot = document.querySelector('#customerInfoPopup #cip-fb-action');
+        if (!slot) return; // popup đã đóng
+        slot.innerHTML = `<span class="cip-fb-none" title="Không tìm thấy khách trong dữ liệu Pancake (chưa từng nhắn/comment, hoặc Pancake chưa có)">Chưa có dữ liệu Pancake</span>`;
     }
 
     const _digits = (p) =>
