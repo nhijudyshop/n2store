@@ -16,6 +16,11 @@ const LiveState = {
     crmTeams: [],
     allPages: [],
     liveCampaigns: [],
+    // Phân trang bài livestream (cuộn dropdown campaign → tải thêm bài cũ hơn).
+    // pageId -> { oldest: epochSeconds|null, done: bool }. oldest = mốc inserted_at
+    // cũ nhất ĐÃ fetch (cursor `end_time` cho lần sau). done=true → page hết bài.
+    liveCampaignCursors: {},
+    isLoadingMoreCampaigns: false,
 
     // Comments
     comments: [],

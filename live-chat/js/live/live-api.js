@@ -100,14 +100,22 @@ const LiveApi = {
     async loadLiveCampaigns(pageId) {
         const state = window.LiveState;
         try {
-            const camps = await window.LiveSource.fetchVideosAsCampaigns([pageId]);
-            this._fillCampaignPageNames(camps, state);
-            state.liveCampaigns = camps;
-            console.log('[Live-API] (FB Graph) campaigns:', camps.length);
+            state.liveCampaignCursors = {}; // reset phân trang khi đổi page
+            const { campaigns, cursors } = await window.LiveSource.fetchVideosAsCampaigns(
+                [pageId],
+                {
+                    cursors: state.liveCampaignCursors,
+                }
+            );
+            this._fillCampaignPageNames(campaigns, state);
+            state.liveCampaigns = campaigns;
+            state.liveCampaignCursors = cursors;
+            console.log('[Live-API] (FB Graph) campaigns:', campaigns.length);
             return state.liveCampaigns;
         } catch (error) {
             console.error('[Live-API] load live campaigns fail:', error.message);
             state.liveCampaigns = [];
+            state.liveCampaignCursors = {};
             return [];
         }
     },
@@ -118,17 +126,63 @@ const LiveApi = {
     async loadLiveCampaignsFromAllPages() {
         const state = window.LiveState;
         try {
+            state.liveCampaignCursors = {}; // reset phân trang khi đổi page
             const ids = (state.allPages || []).map((p) => p.Facebook_PageId);
-            const camps = await window.LiveSource.fetchVideosAsCampaigns(ids);
-            this._fillCampaignPageNames(camps, state);
-            state.liveCampaigns = camps;
-            console.log('[Live-API] (FB Graph) campaigns allPages:', camps.length);
+            const { campaigns, cursors } = await window.LiveSource.fetchVideosAsCampaigns(ids, {
+                cursors: state.liveCampaignCursors,
+            });
+            this._fillCampaignPageNames(campaigns, state);
+            state.liveCampaigns = campaigns;
+            state.liveCampaignCursors = cursors;
+            console.log('[Live-API] (FB Graph) campaigns allPages:', campaigns.length);
             return state.liveCampaigns;
         } catch (error) {
             console.error('[Live-API] load live campaigns(all) fail:', error.message);
             state.liveCampaigns = [];
+            state.liveCampaignCursors = {};
             return [];
         }
+    },
+
+    /**
+     * Tải THÊM bài livestream cũ hơn (cuộn dropdown campaign). Dùng cursor
+     * thời gian trong state.liveCampaignCursors. Dedupe theo Id, append + sort
+     * desc vào state.liveCampaigns.
+     * @returns {Promise<{added: Array, hasMore: boolean}>}
+     */
+    async loadMoreLiveCampaigns() {
+        const state = window.LiveState;
+        const cursors = state.liveCampaignCursors || {};
+        const pageIds = Object.keys(cursors).filter((pid) => !cursors[pid].done);
+        if (!pageIds.length) return { added: [], hasMore: false };
+        try {
+            const { campaigns } = await window.LiveSource.fetchVideosAsCampaigns(pageIds, {
+                cursors, // mutated tại chỗ
+            });
+            this._fillCampaignPageNames(campaigns, state);
+            const have = new Set(state.liveCampaigns.map((c) => c.Id));
+            const added = campaigns.filter((c) => !have.has(c.Id));
+            if (added.length) {
+                state.liveCampaigns = state.liveCampaigns.concat(added);
+                state.liveCampaigns.sort((a, b) => {
+                    const ta = a.DateCreated ? new Date(a.DateCreated).getTime() : 0;
+                    const tb = b.DateCreated ? new Date(b.DateCreated).getTime() : 0;
+                    return tb - ta;
+                });
+            }
+            const hasMore = Object.values(state.liveCampaignCursors).some((c) => !c.done);
+            console.log('[Live-API] load more campaigns:', added.length, 'hasMore:', hasMore);
+            return { added, hasMore };
+        } catch (error) {
+            console.error('[Live-API] load more campaigns fail:', error.message);
+            return { added: [], hasMore: false };
+        }
+    },
+
+    /** Còn bài livestream cũ hơn để tải thêm? */
+    hasMoreLiveCampaigns() {
+        const cursors = window.LiveState.liveCampaignCursors || {};
+        return Object.values(cursors).some((c) => !c.done);
     },
 
     /**

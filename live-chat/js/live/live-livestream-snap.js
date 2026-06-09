@@ -55,7 +55,8 @@
         try {
             // 2026-06-07: Live /facebook/livevideo đã gỡ → FB Graph (web2-fb-live).
             if (!global.LiveSource?.fetchVideosAsCampaigns) return null;
-            const camps = await global.LiveSource.fetchVideosAsCampaigns([pageId]);
+            const res = await global.LiveSource.fetchVideosAsCampaigns([pageId]);
+            const camps = Array.isArray(res) ? res : res?.campaigns || [];
             const videoId = String(liveVideoId).replace(/^\d+_/, '');
             const match = (camps || []).find(
                 (c) => c.Facebook_LiveId === liveVideoId || c.Id === videoId

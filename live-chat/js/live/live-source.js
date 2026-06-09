@@ -23,7 +23,6 @@
 
     const POLL_MS = 4000; // poll comment mới mỗi 4s (client-side, pages.fm)
     const LOOKBACK_S = 6 * 3600; // cửa sổ comment 6h
-    const POSTS_LOOKBACK_S = 7 * 86400; // posts 7 ngày
 
     function worker() {
         return (
@@ -121,19 +120,67 @@
         }
     }
 
+    // pages.fm trả tối đa ~50 post/lần. Floor mặc định: chỉ lùi 365 ngày (đủ xa
+    // cho mọi buổi live cần xem lại) để cursor không chạy vô tận.
+    const POSTS_FLOOR_S = 365 * 86400;
+    const POSTS_PAGE_SIZE = 50;
+
+    // inserted_at pages.fm = "2026-06-08T11:51:55" (UTC, không hậu tố Z) → epoch s.
+    function _postEpoch(p) {
+        const s = p.inserted_at || p.created_time;
+        if (!s) return 0;
+        const t = Math.floor(new Date(String(s).includes('Z') ? s : s + 'Z').getTime() / 1000);
+        return Number.isFinite(t) && t > 0 ? t : 0;
+    }
+
+    function _postToCampaign(p, pageId) {
+        return {
+            Id: String(p.id),
+            Name: p.message || p.title || '(livestream)',
+            Facebook_UserId: pageId,
+            Facebook_LiveId: String(p.id), // pages.fm post id = pageId_xxx
+            Facebook_UserName: '',
+            DateCreated: p.inserted_at || p.created_time || null,
+            StatusLive:
+                p.live_video_status ||
+                p.live_status ||
+                (p.is_living || p.in_progress ? 'LIVE' : null),
+            _thumbnail: p.picture || p.cover || (p.attachments && p.attachments[0]?.url) || null,
+        };
+    }
+
     // ── Live videos (= posts type=livestream) → campaign-like ───────────
-    async function fetchVideosAsCampaigns(pageIds) {
+    //
+    // Phân trang bằng cursor THỜI GIAN (end_time): pages.fm posts sort inserted_at
+    // desc, capped ~50/lần. Lần đầu end_time=now; "tải thêm" → end_time = inserted_at
+    // cũ nhất batch trước − 1 (lấy bài cũ hơn). Mỗi page độc lập, hết khi
+    // posts<50 hoặc done.
+    //
+    // @param {string|string[]} pageIds
+    // @param {{cursors?: Object}} [opts] — cursors = { [pageId]: {oldest,done} },
+    //        truyền vào để tải tiếp (mutated tại chỗ + trả về). Bỏ trống = tải mới.
+    // @returns {Promise<{campaigns: Array, cursors: Object}>}
+    async function fetchVideosAsCampaigns(pageIds, opts = {}) {
         const ids = Array.isArray(pageIds) ? pageIds : [pageIds];
+        const cursors = opts.cursors || {};
         const out = [];
         const now = nowS();
+        const floor = now - POSTS_FLOOR_S;
         for (const pid of ids) {
             const pageId = String(pid || '').trim();
             if (!pageId) continue;
+            const cur = cursors[pageId] || (cursors[pageId] = { oldest: null, done: false });
+            if (cur.done) continue;
             const jwt = _accountJwtForPage(pageId);
             if (!jwt) continue;
+            const endTime = cur.oldest ? cur.oldest - 1 : now;
+            if (endTime <= floor) {
+                cur.done = true;
+                continue;
+            }
             try {
                 const d = await _pfmGet(
-                    `pages/${pageId}/posts?start_time=${now - POSTS_LOOKBACK_S}&end_time=${now}`,
+                    `pages/${pageId}/posts?start_time=${floor}&end_time=${endTime}`,
                     jwt
                 );
                 const posts = Array.isArray(d.posts)
@@ -141,25 +188,19 @@
                     : Array.isArray(d.data)
                       ? d.data
                       : [];
+                let oldestEpoch = cur.oldest || endTime;
                 for (const p of posts) {
+                    const ep = _postEpoch(p);
+                    if (ep && (!oldestEpoch || ep < oldestEpoch)) oldestEpoch = ep;
                     if (p.type !== 'livestream' && !p.is_live_video && !p.live_video_id) continue;
-                    out.push({
-                        Id: String(p.id),
-                        Name: p.message || p.title || '(livestream)',
-                        Facebook_UserId: pageId,
-                        Facebook_LiveId: String(p.id), // pages.fm post id = pageId_xxx
-                        Facebook_UserName: '',
-                        DateCreated: p.inserted_at || p.created_time || null,
-                        StatusLive: p.live_status || (p.is_living ? 'LIVE' : null),
-                        _thumbnail:
-                            p.picture ||
-                            p.cover ||
-                            (p.attachments && p.attachments[0]?.url) ||
-                            null,
-                    });
+                    out.push(_postToCampaign(p, pageId));
                 }
+                // Cursor lùi tới bài cũ nhất; hết khi batch < page size hoặc API done.
+                cur.oldest = oldestEpoch;
+                if (posts.length < POSTS_PAGE_SIZE || d.done === true) cur.done = true;
             } catch (e) {
                 console.warn('[FB-LIVE-SRC] posts fail', pageId, e.message);
+                cur.done = true; // tránh kẹt vòng lặp tải thêm khi page lỗi
             }
         }
         // Xen kẽ tất cả page theo MỚI NHẤT lên đầu (Store/House trộn theo ngày).
@@ -168,7 +209,7 @@
             const tb = b.DateCreated ? new Date(b.DateCreated).getTime() : 0;
             return tb - ta;
         });
-        return out;
+        return { campaigns: out, cursors };
     }
 
     // ── Comments của 1 bài live: conversations type=COMMENT lọc post_id ──

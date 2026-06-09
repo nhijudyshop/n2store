@@ -21,7 +21,8 @@ async function _fetchLiveVideosForPage(pageId) {
     // 2026-06-07: Live /facebook/livevideo đã gỡ → dùng FB Graph (web2-fb-live).
     if (!window.LiveSource?.fetchVideosAsCampaigns) return [];
     try {
-        const camps = await window.LiveSource.fetchVideosAsCampaigns([pageId]);
+        const res = await window.LiveSource.fetchVideosAsCampaigns([pageId]);
+        const camps = Array.isArray(res) ? res : res?.campaigns || [];
         const videos = (camps || []).map((c) => ({
             objectId: c.Facebook_LiveId, // pageId_videoId
             title: c.Name || '',

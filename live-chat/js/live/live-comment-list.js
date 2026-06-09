@@ -350,24 +350,87 @@ const LiveCommentList = {
         // Initialize selectedCampaignIds if not exists
         if (!state.selectedCampaignIds) state.selectedCampaignIds = new Set();
 
-        list.innerHTML = state.liveCampaigns
-            .map((c) => {
-                const checked = state.selectedCampaignIds.has(c.Id);
-                const pageName = c.Facebook_UserName || '';
-                const isStore = pageName.toLowerCase().includes('store');
-                const badgeColor = isStore
-                    ? 'background:#fef3c7;color:#92400e'
-                    : 'background:#dbeafe;color:#1e40af';
-                return `<label style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;transition:background 0.1s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+        list.innerHTML =
+            state.liveCampaigns.map((c) => this._campaignRowHtml(c)).join('') +
+            this._campaignSentinelHtml();
+
+        this._bindCampaignScroll();
+        this.updateCampaignBtnText();
+    },
+
+    /**
+     * HTML 1 dòng campaign (checkbox + tên + badge page).
+     * @param {object} c
+     * @returns {string}
+     */
+    _campaignRowHtml(c) {
+        const state = window.LiveState;
+        const checked = state.selectedCampaignIds?.has(c.Id);
+        const pageName = c.Facebook_UserName || '';
+        const isStore = pageName.toLowerCase().includes('store');
+        const badgeColor = isStore
+            ? 'background:#fef3c7;color:#92400e'
+            : 'background:#dbeafe;color:#1e40af';
+        return `<label data-camp-id="${SharedUtils.escapeHtml(c.Id)}" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;transition:background 0.1s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
                 <input type="checkbox" value="${c.Id}" ${checked ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer;flex-shrink:0;"
                     onchange="LiveCommentList.toggleCampaign('${c.Id}')">
                 <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${SharedUtils.escapeHtml(c.Name)}</span>
                 <span style="${badgeColor};font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;flex-shrink:0;">${pageName.replace('NhiJudy ', '').replace('Nhi Judy ', '')}</span>
             </label>`;
-            })
-            .join('');
+    },
 
-        this.updateCampaignBtnText();
+    /** Dòng cuối dropdown: trạng thái phân trang (cuộn để tải thêm bài cũ). */
+    _campaignSentinelHtml() {
+        const more = window.LiveApi?.hasMoreLiveCampaigns?.();
+        const txt = more ? 'Cuộn để tải thêm bài livestream…' : 'Đã tải hết bài livestream';
+        return `<div id="liveCampaignMore" style="padding:8px 12px;color:#9ca3af;font-size:11px;text-align:center;">${txt}</div>`;
+    },
+
+    /** Gắn listener cuộn dropdown campaign 1 lần → tải thêm bài cũ hơn khi gần đáy. */
+    _bindCampaignScroll() {
+        const dd = document.getElementById('liveCampaignDropdown');
+        if (!dd || dd._moreBound) return;
+        dd._moreBound = true;
+        dd.addEventListener('scroll', () => {
+            if (dd.scrollTop + dd.clientHeight < dd.scrollHeight - 48) return;
+            this.loadMoreCampaigns();
+        });
+    },
+
+    /**
+     * Tải thêm bài livestream cũ hơn (append, giữ vị trí cuộn). Idempotent —
+     * guard isLoadingMoreCampaigns + hasMore.
+     */
+    async loadMoreCampaigns() {
+        const state = window.LiveState;
+        if (state.isLoadingMoreCampaigns) return;
+        if (!window.LiveApi?.hasMoreLiveCampaigns?.()) return;
+        state.isLoadingMoreCampaigns = true;
+        const sentinel = document.getElementById('liveCampaignMore');
+        if (sentinel) sentinel.textContent = 'Đang tải thêm…';
+        try {
+            const { added } = await window.LiveApi.loadMoreLiveCampaigns();
+            const list = document.getElementById('liveCampaignList');
+            const sent = document.getElementById('liveCampaignMore');
+            if (list && added.length) {
+                // Bài mới tải LUÔN cũ hơn bài đang có → append cuối (trên sentinel),
+                // không phá thứ tự desc, giữ nguyên scrollTop.
+                const html = added.map((c) => this._campaignRowHtml(c)).join('');
+                if (sent) sent.insertAdjacentHTML('beforebegin', html);
+                else list.insertAdjacentHTML('beforeend', html);
+            }
+            if (sent) {
+                sent.textContent = window.LiveApi.hasMoreLiveCampaigns()
+                    ? 'Cuộn để tải thêm bài livestream…'
+                    : 'Đã tải hết bài livestream';
+            }
+        } catch (e) {
+            console.warn('[Live] loadMoreCampaigns fail:', e.message);
+            const sent = document.getElementById('liveCampaignMore');
+            if (sent) sent.textContent = 'Cuộn để thử lại…';
+        } finally {
+            state.isLoadingMoreCampaigns = false;
+        }
     },
 
     /**
