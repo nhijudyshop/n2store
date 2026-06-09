@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5a2899a` — feat(native-orders): bấm icon 🖨 in lại bill PBH 1 đơn — đúng loại theo trạng thái
-**Last updated**: 2026-06-09 15:50:46 +07
-**Latest session**: [`RESUME:20260609-155046-5a2899a`](../20260609-155046-5a2899a.md)
-**Summary**: feat(native-orders): bấm icon 🖨 in lại bill PBH 1 đơn — đúng loại theo trạng thái
+**Latest commit**: `e11a5c9` — feat(native-orders): nhớ tab kênh đơn qua refresh (localStorage) + fix TDZ restoreChannel
+**Last updated**: 2026-06-09 15:51:23 +07
+**Latest session**: [`RESUME:20260609-155123-e11a5c9`](../20260609-155123-e11a5c9.md)
+**Summary**: feat(native-orders): nhớ tab kênh đơn qua refresh (localStorage) + fix TDZ restoreChannel
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-09 15:50
+- [`docs/`](./docs.md) — updated 2026-06-09 15:51
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-09 15:07
