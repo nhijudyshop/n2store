@@ -152,36 +152,39 @@ class PancakeTokenManager {
     }
 
     /**
-     * Initialize Firestore reference
+     * Initialize — NGUỒN DUY NHẤT là bảng pancake_accounts (server auto-login,
+     * quản lý ở web2/pancake-settings) qua Web2Chat.syncFromRenderDB.
+     *
+     * 2026-06-09: KHÔNG đọc Firestore `pancake_tokens` nữa (nguồn cũ stale → lỗi
+     * "Cannot activate expired account" vì activate account đã hết hạn trong khi
+     * token CÒN HẠN nằm ở pancake_accounts không được dùng). syncFromRenderDB tự
+     * chọn account còn hạn và ghi token vào localStorage canonical
+     * (pancake_jwt_token, pancake_all_accounts, web2_pancake_active_account_id) —
+     * đúng các key file này đọc. Firestore pancake_tokens GIỮ NGUYÊN cho Web 1.0
+     * (shared/orders-report manager riêng, không đụng).
      */
     async initialize() {
         try {
-            // PRIORITY 1: Load from localStorage first (instant, no network)
-            console.log('[PANCAKE-TOKEN] Loading from localStorage first...');
-            this.loadFromLocalStorage();
-
-            if (!window.firebase || !window.firebase.firestore) {
-                console.warn('[PANCAKE-TOKEN] Firestore not available, using localStorage only');
-                return true; // Still return true if we have localStorage data
+            if (window.Web2Chat && typeof window.Web2Chat.syncFromRenderDB === 'function') {
+                try {
+                    const r = await window.Web2Chat.syncFromRenderDB({ force: true });
+                    console.log('[PANCAKE-TOKEN] ✅ Synced từ pancake_accounts (canonical):', r);
+                } catch (e) {
+                    console.warn('[PANCAKE-TOKEN] syncFromRenderDB lỗi:', e.message);
+                }
+            } else {
+                console.warn(
+                    '[PANCAKE-TOKEN] Web2Chat chưa load — chỉ dùng localStorage (cần web2-chat-client.js)'
+                );
             }
 
-            // Firestore structure (migrated from Realtime Database)
-            const db = window.firebase.firestore();
-            this.firestoreRef = db.collection('pancake_tokens');
-            this.accountsRef = this.firestoreRef.doc('accounts');
-            this.pageTokensRef = this.firestoreRef.doc('page_access_tokens');
-
-            // Load accounts and active account from Firestore (may update localStorage)
-            await this.loadAccounts();
-
-            // Load page access tokens from Firestore (merge with localStorage)
-            await this.loadPageAccessTokens();
-
-            console.log('[PANCAKE-TOKEN] Firestore reference initialized');
-            return true;
+            // Nạp token + accounts + page tokens (syncFromRenderDB đã ghi vào
+            // localStorage). loadFromLocalStorage tự chọn account CÒN HẠN.
+            this.loadFromLocalStorage();
+            return this.currentToken !== null || Object.keys(this.accounts || {}).length > 0;
         } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error initializing Firestore:', error);
-            // Even if Firestore fails, we might have localStorage data
+            console.error('[PANCAKE-TOKEN] initialize error:', error);
+            this.loadFromLocalStorage();
             return this.currentToken !== null;
         }
     }
@@ -631,40 +634,64 @@ class PancakeTokenManager {
     }
 
     /**
-     * Delete account
-     * @param {string} accountId - Account ID to delete
+     * Thêm account từ JWT token — GHI VÀO NGUỒN DUY NHẤT pancake_accounts (qua
+     * Web2PancakeAccounts → /api/pancake-accounts/sync), KHÔNG ghi Firestore.
+     * Sau đó re-sync để cache localStorage cập nhật. Quản lý chính ở
+     * web2/pancake-settings; UI này chỉ là tiện ích.
+     * @param {string} token
+     * @returns {Promise<boolean>}
+     */
+    async addAccount(token) {
+        if (!window.Web2PancakeAccounts?.addFromToken) {
+            throw new Error('Web2PancakeAccounts chưa load (cần web2-pancake-accounts.js)');
+        }
+        const r = await window.Web2PancakeAccounts.addFromToken(token);
+        if (!r || !r.ok) {
+            const reasonMap = {
+                empty: 'token rỗng',
+                decode: 'token sai định dạng',
+                expired: 'token đã hết hạn',
+            };
+            throw new Error(reasonMap[r?.reason] || r?.reason || 'thêm account thất bại');
+        }
+        // Cập nhật cache từ nguồn canonical.
+        if (window.Web2Chat?.syncFromRenderDB) {
+            await window.Web2Chat.syncFromRenderDB({ force: true }).catch(() => {});
+        }
+        this.loadFromLocalStorage();
+        console.log('[PANCAKE-TOKEN] ✅ Account thêm vào pancake_accounts:', r.accountId);
+        return true;
+    }
+
+    /**
+     * Xoá account — XOÁ Ở NGUỒN DUY NHẤT pancake_accounts (qua Web2PancakeAccounts
+     * → DELETE /api/pancake-accounts/:id), KHÔNG đụng Firestore. Bảng dùng chung
+     * web1/web2 nên xoá ở đây = xoá ở mọi nơi (giống web2/pancake-settings).
+     * @param {string} accountId
      * @returns {Promise<boolean>}
      */
     async deleteAccount(accountId) {
         try {
-            if (!this.accounts[accountId]) {
-                console.error('[PANCAKE-TOKEN] Account not found:', accountId);
+            if (!window.Web2PancakeAccounts?.remove) {
+                throw new Error('Web2PancakeAccounts chưa load (cần web2-pancake-accounts.js)');
+            }
+            const r = await window.Web2PancakeAccounts.remove(accountId);
+            if (!r || !r.ok) {
+                console.error('[PANCAKE-TOKEN] Xoá account lỗi:', r?.reason);
                 return false;
             }
-
-            // Delete from Firestore using FieldValue.delete()
-            if (this.accountsRef) {
-                await this.accountsRef.update({
-                    [`data.${accountId}`]: window.firebase.firestore.FieldValue.delete(),
-                });
-            }
             delete this.accounts[accountId];
-
-            // If deleted account was active, clear local active account
             if (this.activeAccountId === accountId) {
-                localStorage.removeItem('web2_pancake_active_account_id');
                 this.activeAccountId = null;
                 this.currentToken = null;
                 this.currentTokenExpiry = null;
-
-                // Auto-select first available account
-                const accountIds = Object.keys(this.accounts);
-                if (accountIds.length > 0) {
-                    await this.setActiveAccount(accountIds[0]);
-                }
             }
-
-            console.log('[PANCAKE-TOKEN] ✅ Account deleted:', accountId);
+            // Re-sync để cache + active account cập nhật từ canonical.
+            if (window.Web2Chat?.syncFromRenderDB) {
+                await window.Web2Chat.syncFromRenderDB({ force: true }).catch(() => {});
+            }
+            this.loadFromLocalStorage();
+            console.log('[PANCAKE-TOKEN] ✅ Account đã xoá ở pancake_accounts:', accountId);
             return true;
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error deleting account:', error);

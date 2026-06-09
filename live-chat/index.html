@@ -749,6 +749,8 @@
              (same source native-orders uses). Must load BEFORE pancake-token-manager
              so getToken() can self-heal via Web2Chat.syncFromRenderDB(). -->
         <script src="../web2/shared/web2-chat-client.js?v=20260609c"></script>
+        <!-- Nguồn DUY NHẤT quản lý account/token Pancake = pancake_accounts (web2/pancake-settings). -->
+        <script src="../web2/shared/web2-pancake-accounts.js?v=20260609d"></script>
         <!-- Component chat HỢP NHẤT — emoji data + panel (pancake-chat-window.js bọc qua adapter) -->
         <script src="../web2/shared/chat-panel/web2-chat-emoji-data.js?v=20260609c"></script>
         <script src="../web2/shared/chat-panel/web2-chat-entity-detect.js?v=20260609c"></script>
@@ -760,7 +762,7 @@
         <script src="../web2/shared/web2-extension-bridge.js?v=20260609c"></script>
 
         <!-- Pancake modules (NEW modular) -->
-        <script src="js/pancake/pancake-token-manager.js?v=20260609c"></script>
+        <script src="js/pancake/pancake-token-manager.js?v=20260609d"></script>
         <script src="js/pancake/pancake-state.js?v=20260609c"></script>
         <script src="js/pancake/pancake-api.js?v=20260609c"></script>
         <script src="js/pancake/pancake-page-selector.js?v=20260609c"></script>

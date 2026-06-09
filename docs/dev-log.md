@@ -2,6 +2,16 @@
 
 ## 2026-06-09
 
+### [live-chat][web2] Fix token Pancake hết hạn + hợp nhất 1 nguồn = pancake_accounts (web2/pancake-settings) ✅
+
+**User:** sao Live Chat báo token hết hạn? Pancake tự đăng nhập lấy token mà (account đã lưu DB). Fix lỗi + xóa hết Pancake Web 2.0 trùng, dùng 1 nguồn `web2/pancake-settings`. Lưu ý đừng xóa nếu Web 1.0 đang dùng.
+
+- **Chẩn đoán:** server-side auto-login ĐANG hoạt động — bảng `pancake_accounts` có account "Kỹ Thuật NJD" token CÒN HẠN (exp 9/2026, `auto_refresh=true`, `last_refresh_status=ok`). Bug ở client: `live-chat/js/pancake/pancake-token-manager.js` `initialize()` đọc **Firestore `pancake_tokens`** (nguồn cũ stale) → load account hết hạn → `setActiveAccount` → log "Cannot activate expired account"; token hợp lệ ở `pancake_accounts` không được dùng → realtime `no_token_or_uid`.
+- **Fix (1 nguồn):** `initialize()` giờ gọi `Web2Chat.syncFromRenderDB({force:true})` → fetch `/api/pancake-accounts?active=true`, **tự chọn account CÒN HẠN**, ghi token vào localStorage canonical (`pancake_jwt_token`, `pancake_all_accounts`, `web2_pancake_active_account_id` — đúng key file đọc). BỎ đọc Firestore `pancake_tokens`. `addAccount`/`deleteAccount` redirect sang `Web2PancakeAccounts` (→ `/api/pancake-accounts` sync/DELETE) — ghi/xóa ở nguồn duy nhất, không Firestore. Load thêm `web2-pancake-accounts.js` vào live-chat.
+- **KHÔNG đụng Web 1.0:** chỉ sửa manager của live-chat (web2-only, verify Web 1.0 không import). Firestore `pancake_tokens` + `shared/js/pancake-token-manager.js` + `orders-report/...` GIỮ NGUYÊN. `pancake_accounts` là bảng shared — chỉ đọc token active, không xóa schema/data.
+- **Verify (Playwright):** active = "Kỹ Thuật NJD" (isExpired=false), 51 Pancake pages load, 40 API call ok/0 fail, **hết "Cannot activate expired account" + "no_token_or_uid"**, 0 page-error. `addAccount`/`deleteAccount` canonical-backed present.
+- Files: `live-chat/js/pancake/pancake-token-manager.js` (initialize/addAccount/deleteAccount), `live-chat/index.html` (load web2-pancake-accounts.js + bump v).
+
 ### [render][web2] SePay matcher — identity theo ĐƠN + QR auto-credit/auto-message ✅
 
 **User:** logic mapping = dùng tên+SĐT trên đơn native-orders (campaign House/Store mới nhất) tìm vào kho KH rồi gán → chính xác (kho có nhiều KH trùng tên/SĐT). Chốt: (1) SĐT nội dung CK ra **10 số đầy đủ** → so trùng SĐT đơn → lấy identity của đơn. (2) QR khách quét → đã biết KH → **gửi tin + cộng ví NGAY khi nhận CK, không cần tín hiệu/đơn**.
