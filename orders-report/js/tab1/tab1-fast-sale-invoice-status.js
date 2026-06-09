@@ -60,6 +60,57 @@
         }
         return false;
     }
+
+    /**
+     * Chuẩn hóa số phiếu để so khớp giữa các store (sổ active vs sổ HỦY):
+     * "NJD/2026/71115" -> "2026/71115". Trim + upper + bỏ prefix "NJD/".
+     * @param {string} num
+     * @returns {string}
+     */
+    function _normalizeBillNumber(num) {
+        if (!num) return '';
+        return String(num).trim().toUpperCase().replace(/^NJD\//, '');
+    }
+
+    /**
+     * Một entry invoice được coi là ĐÃ HỦY nếu:
+     *   (1) field cục bộ nói vậy (State/StateCode/IsMergeCancel/ShowState), HOẶC
+     *   (2) Number (đã chuẩn hóa) hoặc TPOS Id của nó khớp 1 dòng trong
+     *       InvoiceStatusDeleteStore ("Bill Đã Xóa") cùng SaleOnlineId.
+     * Vì sao cần (2): khi hủy trên TPOS không đồng bộ được về dòng active (orphan),
+     * dòng vẫn State='open' nhưng sổ HỦY đã ghi → đối chiếu để biết nó thật ra đã hủy.
+     * FAIL-SAFE: sổ hủy chưa _initialized / rỗng → chỉ xét (1), KHÔNG bao giờ throw.
+     * @param {object} entry - 1 bản ghi từ InvoiceStatusStore._data
+     * @param {string} saleOnlineId
+     * @returns {boolean}
+     */
+    function _isInvoiceEntryCancelled(entry, saleOnlineId) {
+        if (!entry) return false;
+        const localCancelled =
+            entry.State === 'cancel' ||
+            entry.StateCode === 'cancel' ||
+            entry.IsMergeCancel === true ||
+            entry.ShowState === 'Huỷ bỏ' ||
+            entry.ShowState === 'Hủy bỏ';
+        if (localCancelled) return true;
+
+        const ds = window.InvoiceStatusDeleteStore;
+        if (!ds || ds._initialized !== true || !ds._data || ds._data.size === 0) return false;
+
+        const soId = String(saleOnlineId || entry.SaleOnlineId || '');
+        if (!soId) return false;
+        const entryNum = _normalizeBillNumber(entry.Number);
+        const entryId = entry.Id != null ? String(entry.Id) : '';
+        for (const [, del] of ds._data.entries()) {
+            if (String(del.SaleOnlineId || '') !== soId) continue;
+            const delNum = _normalizeBillNumber(del.Number);
+            const delId = del.Id != null ? String(del.Id) : '';
+            if (entryNum && delNum && entryNum === delNum) return true;
+            if (entryId && delId && entryId === delId) return true;
+        }
+        return false;
+    }
+
     const MAX_AGE_DAYS = 60; // Auto cleanup after 60 days
 
     // =====================================================
@@ -558,56 +609,89 @@
          * @param {string} saleOnlineId - The SaleOnline order ID to delete
          * @returns {boolean} True if deleted, false if not found
          */
-        async delete(saleOnlineId) {
-            if (!saleOnlineId) return false;
+        async delete(saleOnlineId, opts = {}) {
+            const empty = { ok: false, deletedKeys: [], targetFound: false };
+            if (!saleOnlineId) return empty;
 
             const soId = String(saleOnlineId);
+            const wantId = opts.tposId != null ? String(opts.tposId) : '';
+            const wantNum = opts.number ? _normalizeBillNumber(opts.number) : '';
+            const targeted = !!(wantId || wantNum);
 
-            // Find the LATEST entry's actual key (compound or flat)
-            let targetKey = null;
-            let latestTs = 0;
-
-            if (this._data.has(soId) && !isCompoundKey(soId)) {
-                targetKey = soId;
-                latestTs = this._data.get(soId)?.timestamp || 0;
-            }
-
+            // Gom tất cả entry của order này (compound + legacy flat key)
+            const mine = [];
             for (const [key, value] of this._data.entries()) {
                 const keySoId = value.SaleOnlineId || extractSaleOnlineId(key);
-                if (keySoId === soId) {
+                if (keySoId === soId) mine.push({ key, value });
+            }
+            if (mine.length === 0) return empty;
+
+            let targetKeys = [];
+            let targetFound = false;
+            if (targeted) {
+                // Xóa ĐÚNG phiếu vừa hủy theo FSO Id / Số phiếu — KHÔNG latest-wins.
+                // Gom mọi bản ghi trùng Id/Number (1 PBH có thể tồn nhiều bản do realtime/
+                // re-store) để không sót bản 'open' cùng số → hết "báo hủy thành công mà
+                // cell vẫn hiện phiếu cũ".
+                targetKeys = mine
+                    .filter(({ value }) => {
+                        const vId = value.Id != null ? String(value.Id) : '';
+                        const vNum = _normalizeBillNumber(value.Number);
+                        return (wantId && vId === wantId) || (wantNum && vNum === wantNum);
+                    })
+                    .map(({ key }) => key);
+                targetFound = targetKeys.length > 0;
+            } else {
+                // Legacy (caller không truyền opts): latest-wins theo timestamp.
+                let latestKey = null;
+                let latestTs = -1;
+                for (const { key, value } of mine) {
                     const ts = value.timestamp || 0;
-                    if (ts > latestTs || !targetKey) {
-                        targetKey = key;
+                    if (ts > latestTs || !latestKey) {
+                        latestKey = key;
                         latestTs = ts;
                     }
                 }
-            }
-
-            if (!targetKey) return false;
-
-            // Delete from API FIRST, then remove locally (atomic: don't lose data if API fails)
-            try {
-                const response = await fetch(
-                    `${API_BASE}/entries/${encodeURIComponent(targetKey)}`,
-                    {
-                        method: 'DELETE',
-                    }
-                );
-                if (!response.ok) {
-                    console.error('[INVOICE-STATUS] API delete failed:', response.status);
-                    return false; // Don't remove locally if API delete failed
+                if (latestKey) {
+                    targetKeys = [latestKey];
+                    targetFound = true;
                 }
-            } catch (e) {
-                console.error('[INVOICE-STATUS] API delete error:', e);
-                return false; // Don't remove locally on network error
             }
 
-            // API delete succeeded, now remove from local state
-            this._data.delete(targetKey);
-            this._myKeys.delete(targetKey);
-            this._sentBills.delete(soId);
+            if (targetKeys.length === 0) {
+                return { ok: false, deletedKeys: [], targetFound: false };
+            }
 
-            return true;
+            // Delete từng key qua API TRƯỚC, chỉ gỡ local khi API ok (atomic per-key).
+            const deletedKeys = [];
+            for (const key of targetKeys) {
+                try {
+                    const response = await fetch(
+                        `${API_BASE}/entries/${encodeURIComponent(key)}`,
+                        { method: 'DELETE' }
+                    );
+                    if (!response.ok) {
+                        console.error(
+                            '[INVOICE-STATUS] API delete failed:',
+                            response.status,
+                            key
+                        );
+                        continue; // giữ local nếu API lỗi → caller verify sẽ cảnh báo
+                    }
+                } catch (e) {
+                    console.error('[INVOICE-STATUS] API delete error:', e?.message || e, key);
+                    continue;
+                }
+                this._data.delete(key);
+                this._myKeys.delete(key);
+                deletedKeys.push(key);
+            }
+
+            if (deletedKeys.length > 0) {
+                this._sentBills.delete(soId);
+            }
+
+            return { ok: deletedKeys.length > 0, deletedKeys, targetFound };
         },
 
         /**
@@ -641,12 +725,9 @@
                 const keySoId = value.SaleOnlineId || extractSaleOnlineId(key);
                 if (keySoId !== soId) continue;
                 const ts = value.timestamp || 0;
-                const cancelled =
-                    value.State === 'cancel' ||
-                    value.StateCode === 'cancel' ||
-                    value.IsMergeCancel === true ||
-                    value.ShowState === 'Huỷ bỏ' ||
-                    value.ShowState === 'Hủy bỏ';
+                // Đối chiếu cả field cục bộ LẪN sổ HỦY (orphan: dòng còn 'open' nhưng
+                // sổ hủy đã ghi) → không trả nhầm phiếu đã hủy như đang "active".
+                const cancelled = _isInvoiceEntryCancelled(value, soId);
                 if (ts > latestAnyTs || !latestAny) {
                     latestAny = value;
                     latestAnyTs = ts;
@@ -1002,6 +1083,8 @@
                 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
             const updatedKeys = [];
             const keysToSaveAPI = [];
+            // Orphan đã HỦY trên TPOS nhưng dòng local còn 'open' → gỡ hẳn (self-heal).
+            const cancelledKeys = []; // [{ key, saleOnlineId }]
 
             // Query TPOS by date range - fetches all invoices in one call
             const startDate = earliestDate.toISOString().replace('Z', '+00:00');
@@ -1039,6 +1122,21 @@
                         if (match) {
                             const storeEntry = this._data.get(match.compoundKey);
                             if (storeEntry) {
+                                // SELF-HEAL HỦY: hủy đặt State='cancel'/ShowState='Huỷ bỏ'
+                                // nhưng GIỮ StateCode='None' → nhánh StateCode dưới bỏ qua,
+                                // orphan không bao giờ tự lành. Bắt riêng ở đây.
+                                const tposCancelled =
+                                    tposOrder.State === 'cancel' ||
+                                    tposOrder.ShowState === 'Huỷ bỏ' ||
+                                    tposOrder.ShowState === 'Hủy bỏ' ||
+                                    tposOrder.IsMergeCancel === true;
+                                if (tposCancelled) {
+                                    cancelledKeys.push({
+                                        key: match.compoundKey,
+                                        saleOnlineId: match.saleOnlineId,
+                                    });
+                                    return; // không xét nhánh StateCode nữa
+                                }
                                 const newStateCode = tposOrder.StateCode || 'None';
                                 if (newStateCode !== 'None') {
                                     storeEntry.StateCode = newStateCode;
@@ -1069,6 +1167,50 @@
                 // Re-load delivery groups for updated invoices (may have new CrossCheckComplete)
                 _loadDeliveryGroupsForCurrentInvoices();
                 this._refreshInvoiceStatusUI(updatedKeys);
+            }
+
+            // SELF-HEAL: gỡ orphan đã hủy trên TPOS (DELETE từng key qua API, chỉ gỡ
+            // local khi API ok) + re-render cell + báo cho user (chống "im lặng").
+            if (cancelledKeys.length > 0) {
+                const healedOrderIds = [];
+                for (const { key, saleOnlineId } of cancelledKeys) {
+                    try {
+                        const resp = await fetch(`${API_BASE}/entries/${encodeURIComponent(key)}`, {
+                            method: 'DELETE',
+                        });
+                        if (!resp.ok) {
+                            console.warn(
+                                '[INVOICE-STATUS] self-heal DELETE failed:',
+                                resp.status,
+                                key
+                            );
+                            continue;
+                        }
+                    } catch (e) {
+                        console.warn('[INVOICE-STATUS] self-heal DELETE error:', e?.message || e);
+                        continue;
+                    }
+                    this._data.delete(key);
+                    this._myKeys.delete(key);
+                    if (saleOnlineId && !healedOrderIds.includes(saleOnlineId)) {
+                        healedOrderIds.push(saleOnlineId);
+                    }
+                }
+                if (healedOrderIds.length > 0) {
+                    this._refreshInvoiceStatusUI(healedOrderIds);
+                    this._syncToFulfillmentData();
+                    // Revert tag XL cho các đơn vừa tự lành (nếu không còn phiếu active)
+                    if (typeof window.reconcileTagsWithInvoices === 'function') {
+                        Promise.resolve(window.reconcileTagsWithInvoices()).catch(() => {});
+                    }
+                    window.notificationManager?.info?.(
+                        `Đã tự đồng bộ ${healedOrderIds.length} phiếu đã hủy trên TPOS còn hiển thị nhầm`,
+                        4000
+                    );
+                    console.log(
+                        `[INVOICE-STATUS] self-heal: gỡ ${cancelledKeys.length} orphan đã hủy (${healedOrderIds.length} đơn)`
+                    );
+                }
             }
         },
 
@@ -2085,13 +2227,9 @@
         const isMergeCancel = invoiceData.IsMergeCancel === true;
 
         // Nếu phiếu đã huỷ → ẩn khỏi cột PHIẾU BÁN HÀNG (user request).
-        // Áp dụng cho cả synthetic entry cũ lẫn bill bị huỷ từ TPOS.
-        const isCancelled =
-            invoiceData.State === 'cancel' ||
-            stateCode === 'cancel' ||
-            isMergeCancel ||
-            showState === 'Huỷ bỏ' ||
-            showState === 'Hủy bỏ';
+        // Áp dụng cho cả synthetic entry cũ lẫn bill bị huỷ từ TPOS, VÀ orphan đã ghi
+        // trong sổ HỦY (đối chiếu InvoiceStatusDeleteStore qua _isInvoiceEntryCancelled).
+        const isCancelled = _isInvoiceEntryCancelled(invoiceData, order.Id);
         if (isCancelled) {
             // Cell hiển thị empty nhưng vẫn cho refresh để user check phiếu mới trên TPOS
             return `<div style="display:inline-flex;align-items:center;gap:4px;"><span style="color:#9ca3af;">−</span>${refreshBtnHtml}</div>`;
@@ -3380,12 +3518,18 @@
         if (!confirmed) return;
 
         try {
-            // Delete from store (API) + NJD mapping
-            const deleted = await InvoiceStatusStore.delete(saleOnlineId);
+            // Delete from store (API) + NJD mapping — xóa ĐÚNG phiếu đang hiển thị
+            const deleted = await InvoiceStatusStore.delete(saleOnlineId, {
+                tposId: invoiceData.Id,
+                number: invoiceData.Number,
+            });
             _deleteNjdFromDb(saleOnlineId);
 
-            if (deleted) {
+            if (deleted?.ok) {
                 window.notificationManager?.success(`Đã xóa phiếu ${billNumber}`, 3000);
+
+                // Revert tag XL nếu order không còn phiếu active (guarded).
+                window._revertPtagIfNoActivePBH?.(saleOnlineId);
 
                 // Update UI - refresh the cell in main table
                 const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
@@ -4513,6 +4657,32 @@
             return InvoiceStatusStore.getLatest(saleOnlineId);
         };
         window.extractSaleOnlineId = extractSaleOnlineId; // For FulfillmentData backward compat
+        // Cross-check cancel helpers (dùng bởi processing-tags reconcile + realtime).
+        window._isInvoiceEntryCancelled = _isInvoiceEntryCancelled;
+        window._normalizeBillNumber = _normalizeBillNumber;
+        // Revert tag XL ("ĐÃ RA ĐƠN" → vị trí trước) KHI đơn không còn phiếu active.
+        // Dùng ở các path xóa/hủy không tự revert (realtime polled-deleted, manual delete).
+        // Guard: chỉ revert nếu KHÔNG còn phiếu active (đơn merge/nhiều PBH vẫn giữ tag).
+        // onPtagBillCancelled tự guard (no snapshot / category đã đổi → skip) nên an toàn.
+        window._revertPtagIfNoActivePBH = function (saleOnlineId) {
+            try {
+                if (typeof window.onPtagBillCancelled !== 'function') return;
+                const invs = InvoiceStatusStore.getAll(saleOnlineId) || [];
+                const stillActive = invs.some((inv) => {
+                    const sc = String(inv.StateCode || 'None');
+                    if (sc === 'NotEnoughInventory') return false;
+                    return typeof window._isInvoiceEntryCancelled === 'function'
+                        ? !window._isInvoiceEntryCancelled(inv, saleOnlineId)
+                        : !(
+                              inv.IsMergeCancel ||
+                              String(inv.State || '').toLowerCase() === 'cancel'
+                          );
+                });
+                if (!stillActive) {
+                    Promise.resolve(window.onPtagBillCancelled(saleOnlineId)).catch(() => {});
+                }
+            } catch (_) {}
+        };
         window.getStateCodeConfig = getStateCodeConfig;
         window.getShowStateConfig = getShowStateConfig;
         // WS-driven invoice fetch + raw modal

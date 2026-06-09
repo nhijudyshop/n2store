@@ -335,6 +335,42 @@
      * Confirm cancel order - save to invoiceStatusDelete
      * @param {number} index - Index in success orders array
      */
+    /**
+     * Verify dòng PBH vừa hủy đã được GỠ KHỎI store local chưa (quét VẬT LÝ — không qua
+     * cross-check sổ hủy, vì sổ hủy đã được add ở Step 2 nên cross-check luôn nói "đã hủy",
+     * sẽ che mất orphan vật lý). Dùng để biết delete có thật sự gỡ dòng hay không.
+     * @returns {boolean} true = không còn dòng vật lý cùng Số phiếu mà field cục bộ chưa-hủy.
+     */
+    function _verifyCancelApplied(saleOnlineId, cancelledNumber) {
+        try {
+            const store = window.InvoiceStatusStore;
+            if (!store?._data) return true; // không verify được → fail-open (không chặn)
+            const norm =
+                window._normalizeBillNumber ||
+                ((n) => String(n || '').trim().toUpperCase().replace(/^NJD\//, ''));
+            const cancelledNorm = norm(cancelledNumber);
+            if (!cancelledNorm) return true; // không có số để đối chiếu → fail-open
+            const soId = String(saleOnlineId);
+            for (const [key, v] of store._data.entries()) {
+                const keySoId =
+                    v.SaleOnlineId ||
+                    (window.extractSaleOnlineId ? window.extractSaleOnlineId(key) : key);
+                if (String(keySoId) !== soId) continue;
+                if (norm(v.Number) !== cancelledNorm) continue;
+                const localCancelled =
+                    v.State === 'cancel' ||
+                    v.StateCode === 'cancel' ||
+                    v.IsMergeCancel === true ||
+                    v.ShowState === 'Huỷ bỏ' ||
+                    v.ShowState === 'Hủy bỏ';
+                if (!localCancelled) return false; // dòng vật lý cùng số vẫn 'open' → CHƯA gỡ
+            }
+            return true;
+        } catch (_) {
+            return true; // lỗi verify → fail-open (không spam cảnh báo)
+        }
+    }
+
     async function confirmCancelOrder(index) {
         // Block double-click: check if button is already disabled
         const confirmBtn = document.querySelector(
@@ -468,9 +504,16 @@
                 }
             }
 
-            // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase) + NJD mapping
+            // Step 3: Delete from InvoiceStatusStore — xóa ĐÚNG phiếu vừa hủy (theo FSO Id
+            // + Số phiếu), KHÔNG latest-wins → tránh xóa nhầm dòng đã-hủy khác mà để sót
+            // dòng 'open' (orphan) khiến cell vẫn hiện phiếu cũ.
+            let localCleanupOk = true;
             if (window.InvoiceStatusStore?.delete) {
-                await window.InvoiceStatusStore.delete(saleOnlineId);
+                await window.InvoiceStatusStore.delete(saleOnlineId, {
+                    tposId: parseInt(order.Id, 10) || order.Id,
+                    number: order.Number || invoiceData?.Number,
+                });
+                localCleanupOk = _verifyCancelApplied(saleOnlineId, order.Number || invoiceData?.Number);
                 // Rollback tag XL: restore state (tag xử lý + T-tags) trước khi ra đơn
                 if (typeof window.onPtagBillCancelled === 'function') {
                     await window.onPtagBillCancelled(saleOnlineId);
@@ -529,9 +572,16 @@
                 );
             }
 
-            window.notificationManager?.success(
-                `Đã lưu yêu cầu hủy đơn + gắn lại tag OK: ${order.Number || order.Reference}`
-            );
+            if (localCleanupOk) {
+                window.notificationManager?.success(
+                    `Đã lưu yêu cầu hủy đơn + gắn lại tag OK: ${order.Number || order.Reference}`
+                );
+            } else {
+                window.notificationManager?.error(
+                    `⚠️ Đã hủy trên TPOS nhưng CHƯA gỡ được phiếu local ${order.Number || order.Reference || ''} (đơn có nhiều phiếu tồn). Bấm ↻ trên ô PBH để đồng bộ lại.`,
+                    8000
+                );
+            }
             closeCancelOrderModal();
 
             // Update results modal UI - mark as cancelled
@@ -1550,9 +1600,16 @@
                 }
             }
 
-            // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase) + NJD mapping
+            // Step 3: Delete from InvoiceStatusStore — xóa ĐÚNG phiếu vừa hủy (FSO Id + Số
+            // phiếu), KHÔNG latest-wins. LỖI CHÍNH cũ: 29 phiếu tồn → delete latest-wins
+            // xóa nhầm dòng đã-hủy, để sót dòng 'open' → cell mãi hiện 71115 dù báo success.
+            let localCleanupOk = true;
             if (window.InvoiceStatusStore?.delete) {
-                await window.InvoiceStatusStore.delete(saleOnlineId);
+                await window.InvoiceStatusStore.delete(saleOnlineId, {
+                    tposId: parseInt(order.Id, 10) || order.Id,
+                    number: order.Number || invoiceData?.Number,
+                });
+                localCleanupOk = _verifyCancelApplied(saleOnlineId, order.Number || invoiceData?.Number);
                 // Rollback tag XL: restore state (tag xử lý + T-tags) trước khi ra đơn
                 if (typeof window.onPtagBillCancelled === 'function') {
                     await window.onPtagBillCancelled(saleOnlineId);
@@ -1611,9 +1668,16 @@
                 );
             }
 
-            window.notificationManager?.success(
-                `Đã lưu yêu cầu hủy đơn: ${order.Number || order.Reference}`
-            );
+            if (localCleanupOk) {
+                window.notificationManager?.success(
+                    `Đã lưu yêu cầu hủy đơn: ${order.Number || order.Reference}`
+                );
+            } else {
+                window.notificationManager?.error(
+                    `⚠️ Đã hủy trên TPOS nhưng CHƯA gỡ được phiếu local ${order.Number || order.Reference || ''} (đơn có nhiều phiếu tồn). Bấm ↻ trên ô PBH để đồng bộ lại.`,
+                    8000
+                );
+            }
             closeCancelOrderModal();
 
             // Hủy xong → ẩn hoàn toàn khỏi cột PHIẾU BÁN HÀNG (user request).
@@ -1807,6 +1871,29 @@
 
     async function initWorkflow() {
         await InvoiceStatusDeleteStore.init();
+
+        // Sổ HỦY giờ đã load → chạy lại reconcile + re-render cột PBH. Lần reconcile đầu
+        // (lúc InvoiceStatusStore.init) có thể chạy KHI sổ hủy chưa load → cross-check
+        // (_isInvoiceEntryCancelled) fail-safe về field cục bộ, bỏ sót orphan. Re-run ở
+        // đây đảm bảo orphan (dòng 'open' đã ghi sổ hủy) được nhận diện đúng.
+        try {
+            if (typeof window.reconcileTagsWithInvoices === 'function') {
+                Promise.resolve(window.reconcileTagsWithInvoices()).catch(() => {});
+            }
+            const store = window.InvoiceStatusStore;
+            if (store?._refreshInvoiceStatusUI && store._data) {
+                const ids = [];
+                store._data.forEach((v, k) => {
+                    const soId =
+                        v.SaleOnlineId ||
+                        (window.extractSaleOnlineId ? window.extractSaleOnlineId(k) : k);
+                    if (soId && !ids.includes(soId)) ids.push(soId);
+                });
+                store._refreshInvoiceStatusUI(ids);
+            }
+        } catch (e) {
+            console.warn('[WORKFLOW] re-reconcile after delete-store load failed:', e?.message || e);
+        }
     }
 
     // Initialize when DOM ready

@@ -242,7 +242,20 @@
 - **Bug:** `pancake-token-harvester.js` đăng nhập bằng creds trong file → chỉ lưu **TOKEN** qua /sync, KHÔNG lưu mật khẩu (login_password_enc) → cron không có pass để login lại → 5 account "Hết hạn" dù file có creds. Chỉ Kỹ Thuật NJD có creds (lưu tay qua nút 🔒).
 - **Fix:** harvester thêm `saveCredsToDb()` → sau login thành công, PUT `/api/web2/pancake-refresh/:uid/credentials {identity,password,auto_refresh:true}` (password in-memory, không log). Chạy lại: **Huyền Nhi + Kỹ Thuật NJD** giờ 🔄AUTO (còn 89 ngày). Account 84907777674 login fail (no_jwt_timeout — OTP/bot) → cần `--headed`. 4 account còn lại (Thu Lai/Thu Huyền/Con Nhoc/Chloe) chưa có trong file → thêm dòng `identity|password` rồi chạy lại.
 
-## 2026-06-09
+### [orders-report] Fix cơ chế HỦY đơn tạo "phiếu mồ côi" → bấm hủy báo thành công mà cột PBH không đổi ✅
+
+**User:** đơn 260600791 (Nguyệt Cát) bấm ✕ hủy liên tục đều báo thành công nhưng ô PBH vẫn hiện `2026/71115 — Đã xác nhận`. Tooltip "Đơn có 29 phiếu". Sổ "Bill Đã Xóa" ghi 4 dòng hủy 71115. "Kiểm tra thật kỹ vì sao orphan mà không cảnh báo gì?"
+
+**LỖI CHÍNH (đã trace + unit-test):** `InvoiceStatusStore.delete(saleOnlineId)` xóa dòng **timestamp cao nhất**, còn `getLatest()` (feed ô PBH) chọn dòng **chưa-hủy mới nhất** → 2 hàm trỏ 2 dòng khác nhau khi đơn có 29 phiếu. Mỗi lần hủy: TPOS `ActionCancel(order.Id)` hủy đúng 71115 ✓, nhưng `delete()` gỡ một dòng **đã-hủy khác** (ts cao hơn), trả `true` → toast success; dòng 71115 'open' không bao giờ là mục tiêu → cell mãi hiện 71115. `refreshStateCode` không tự lành (chỉ update khi `StateCode!=='None'`, hủy giữ `StateCode='None'`). Đọc không đối chiếu sổ HỦY.
+
+**Sửa (5 fix, tất cả fail-safe + backward-compat):**
+- **Fix 1 — `delete(saleOnlineId, {tposId, number})`**: xóa ĐÚNG phiếu vừa hủy theo FSO Id / Số phiếu (gom-xóa bản trùng), return `{ok, deletedKeys, targetFound}`. Không opts → giữ latest-wins legacy. [`tab1-fast-sale-invoice-status.js`]
+- **Fix 2 — verify + CẢNH BÁO**: 2 handler hủy (`confirmCancelOrder`, `confirmCancelOrderFromMain`) truyền `{tposId, number}`, gọi `_verifyCancelApplied` (quét vật lý) → nếu dòng 'open' cùng số vẫn còn → toast LỖI thay vì success giả. [`tab1-fast-sale-workflow.js`]
+- **Fix 3 — `refreshStateCode` bắt HỦY**: TPOS trả `State='cancel'`/`ShowState='Huỷ bỏ'`/`IsMergeCancel` → gỡ orphan + `notificationManager.info("Đã tự đồng bộ N phiếu...")` (self-heal, chống im lặng). [`tab1-fast-sale-invoice-status.js`]
+- **Fix 4 — đối chiếu sổ HỦY**: helper `_isInvoiceEntryCancelled(entry, soId)` + `_normalizeBillNumber` (so Number/Id với `InvoiceStatusDeleteStore`). Wire vào `getLatest` + `renderInvoiceStatusCell` isCancelled + `reconcileTagsWithInvoices` → orphan cũ hiện "−" ngay lần F5 đầu. Fail-safe khi sổ hủy chưa load. [`tab1-fast-sale-invoice-status.js`, `tab1-processing-tags.js`]
+- **Fix 5 — lành badge mọi đường hủy**: reverse-reconcile (HOAN_TAT + hết phiếu active → `onPtagBillCancelled`); `initWorkflow` re-run reconcile + refresh PBH sau khi sổ hủy load; wire `window._revertPtagIfNoActivePBH` vào `polled-deleted` (realtime) + `deleteInvoiceFromStore` (guarded). [`tab1-processing-tags.js`, `tab1-fast-sale-workflow.js`, `tab1-tpos-realtime.js`]
+- **Verify:** `node --check` 4 file OK; unit test 15/15 (đúng kịch bản 29 phiếu + control chứng minh bug latest-wins + fail-safe + merge-safety). Browser integration local KHÔNG chạy được (root repo là React/Supabase app che orders-report MPA) → cần verify trên deploy thật sau push (load 260600791 → cell "−" + 0 lỗi console).
+- Files: `orders-report/js/tab1/tab1-fast-sale-invoice-status.js`, `tab1-fast-sale-workflow.js`, `tab1-processing-tags.js`, `tab1-tpos-realtime.js`.
 
 ### [native-orders] Nhớ tab kênh đơn (Livestream/Inbox) qua refresh + fix TDZ ✅
 

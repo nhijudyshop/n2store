@@ -310,6 +310,13 @@
                 window.InvoiceStatusStore._data.delete(key);
                 window.InvoiceStatusStore._myKeys?.delete(key);
             }
+            // Revert tag XL ("ĐÃ RA ĐƠN" → vị trí trước) cho order vừa mất phiếu, nếu
+            // không còn phiếu active. Trước đây path này KHÔNG revert → tag kẹt HOAN_TAT.
+            if (typeof window._revertPtagIfNoActivePBH === 'function') {
+                for (const soId of allOrderIds) {
+                    window._revertPtagIfNoActivePBH(soId);
+                }
+            }
             // Re-render PBH cells của các order liên quan
             if (typeof window.renderInvoiceStatusCell === 'function') {
                 for (const soId of allOrderIds) {

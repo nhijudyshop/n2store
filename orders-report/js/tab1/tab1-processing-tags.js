@@ -1760,50 +1760,89 @@
         const orderMap = ProcessingTagState._orderData;
         if (!orderMap || orderMap.size === 0) return;
 
-        const candidates = [];
+        // Helper: 1 entry có phải PBH ĐANG active không (đối chiếu cả sổ HỦY qua cross-check).
+        const _isEntryActive = (inv, orderId) => {
+            const sc = String(inv.StateCode || 'None');
+            // Invoice "Chờ nhập hàng" (đơn thiếu hàng / ÂM MÃ) KHÔNG phải PBH ra thành công.
+            if (sc === 'NotEnoughInventory') return false;
+            if (typeof window._isInvoiceEntryCancelled === 'function') {
+                return !window._isInvoiceEntryCancelled(inv, orderId);
+            }
+            // Fail-safe (helper chưa load): xét field cục bộ như cũ.
+            const st = String(inv.State || '').toLowerCase();
+            return !inv.IsMergeCancel && st !== 'cancel' && sc !== 'cancel' && sc !== 'IsMergeCancel';
+        };
+
+        const candidates = []; // CHO_DI_DON + có PBH active → flip HOAN_TAT
+        const reverseCandidates = []; // HOAN_TAT (auto, có snapshot) + hết PBH active → revert
         orderMap.forEach((data, orderCode) => {
             if (!data) return;
-            if (data.category !== PTAG_CATEGORIES.CHO_DI_DON) return;
             const orderId = _ptagResolveId(orderCode);
             if (!orderId) return;
 
-            // Guard ÂM MÃ: đơn FAIL bulk PBH có FSO active trên TPOS nhưng đã reset
-            // status về Nháp → KHÔNG được auto-flip sang ĐÃ RA ĐƠN.
-            if (_ptagHasAmMaTag(orderId) || _ptagHasAmMaTag(orderCode)) return;
+            if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
+                // Guard ÂM MÃ: đơn FAIL bulk PBH có FSO active trên TPOS nhưng đã reset
+                // status về Nháp → KHÔNG được auto-flip sang ĐÃ RA ĐƠN.
+                if (_ptagHasAmMaTag(orderId) || _ptagHasAmMaTag(orderCode)) return;
+                const invs = invStore.getAll(orderId) || [];
+                if (invs.some((inv) => _isEntryActive(inv, orderId))) {
+                    candidates.push({ orderId, orderCode });
+                }
+                return;
+            }
 
-            const invs = invStore.getAll(orderId) || [];
-            const hasActive = invs.some((inv) => {
-                const st = String(inv.State || '').toLowerCase();
-                const sc = String(inv.StateCode || 'None');
-                return (
-                    !inv.IsMergeCancel &&
-                    st !== 'cancel' &&
-                    sc !== 'cancel' &&
-                    sc !== 'IsMergeCancel' &&
-                    // Invoice "Chờ nhập hàng" (đơn thiếu hàng / ÂM MÃ) KHÔNG phải PBH ra
-                    // thành công → không được tính là active để auto-flip ĐÃ RA ĐƠN.
-                    sc !== 'NotEnoughInventory'
-                );
-            });
-            if (hasActive) candidates.push({ orderId, orderCode });
+            // REVERSE: badge ĐÃ RA ĐƠN (HOAN_TAT) do auto-flip (có previousPosition) nhưng
+            // mọi PBH đã hủy hết (orphan đã đối chiếu sổ hủy) → revert về vị trí trước.
+            if (data.category === PTAG_CATEGORIES.HOAN_TAT && data.previousPosition) {
+                const invs = invStore.getAll(orderId) || [];
+                if (invs.length === 0) return; // không có dữ liệu PBH → giữ nguyên (an toàn)
+                const anyActive = invs.some((inv) => _isEntryActive(inv, orderId));
+                // Fail-safe: nếu helper chưa load, _isEntryActive xét field cục bộ; dòng
+                // orphan State='open' vẫn coi là active → KHÔNG revert (đợi initWorkflow
+                // re-run sau khi sổ hủy load). Tránh revert nhầm.
+                if (!anyActive) reverseCandidates.push({ orderId, orderCode });
+            }
         });
 
-        if (candidates.length === 0) return;
-        console.log(
-            `${PTAG_LOG} reconcile: auto-tag ĐÃ RA ĐƠN cho ${candidates.length} đơn có PBH active nhưng tag CHO_DI_DON`
-        );
+        // FORWARD: flip CHO_DI_DON → HOAN_TAT
+        if (candidates.length > 0) {
+            console.log(
+                `${PTAG_LOG} reconcile: auto-tag ĐÃ RA ĐƠN cho ${candidates.length} đơn có PBH active nhưng tag CHO_DI_DON`
+            );
+            for (const { orderId, orderCode } of candidates) {
+                try {
+                    // Re-check ngay trước khi flip — tránh race: user vừa đổi category.
+                    const currentData = ProcessingTagState.getOrderData(orderCode);
+                    if (!currentData || currentData.category !== PTAG_CATEGORIES.CHO_DI_DON)
+                        continue;
+                    await onPtagBillCreated(orderId);
+                } catch (e) {
+                    console.warn(`${PTAG_LOG} reconcile failed for ${orderId}:`, e);
+                }
+            }
+        }
 
-        for (const { orderId, orderCode } of candidates) {
-            try {
-                // Re-check ngay trước khi flip — tránh race: user có thể vừa đổi
-                // category trong lúc reconcile đang lặp (candidates snapshot cũ).
-                // Nếu category không còn là CHO_DI_DON → bỏ qua để tôn trọng
-                // user intent (chặn bug loop-override MỤC XỬ LÝ đã fix ở 0c167717).
-                const currentData = ProcessingTagState.getOrderData(orderCode);
-                if (!currentData || currentData.category !== PTAG_CATEGORIES.CHO_DI_DON) continue;
-                await onPtagBillCreated(orderId);
-            } catch (e) {
-                console.warn(`${PTAG_LOG} reconcile failed for ${orderId}:`, e);
+        // REVERSE: revert HOAN_TAT → vị trí trước cho đơn đã hủy hết phiếu.
+        // Không lặp với forward: forward chỉ chạm CHO_DI_DON, reverse chỉ chạm HOAN_TAT
+        // (loại trừ nhau); sau revert previousPosition bị xóa + category về CHO_DI_DON,
+        // forward kế tiếp KHÔNG re-flip vì hasActive=false (cross-check thấy đã hủy).
+        if (reverseCandidates.length > 0) {
+            console.log(
+                `${PTAG_LOG} reverse-reconcile: revert ${reverseCandidates.length} đơn ĐÃ RA ĐƠN nhưng hết PBH active`
+            );
+            for (const { orderId, orderCode } of reverseCandidates) {
+                try {
+                    const cur = ProcessingTagState.getOrderData(orderCode);
+                    if (
+                        !cur ||
+                        cur.category !== PTAG_CATEGORIES.HOAN_TAT ||
+                        !cur.previousPosition
+                    )
+                        continue;
+                    await onPtagBillCancelled(orderId);
+                } catch (e) {
+                    console.warn(`${PTAG_LOG} reverse-reconcile failed for ${orderId}:`, e);
+                }
             }
         }
     }
