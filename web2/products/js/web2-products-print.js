@@ -776,11 +776,12 @@
         // preset WEB2: font ×1.55, barcode cao 46% tem + bars rộng gần full. Content
         // CANH GIỮA dọc tem (justify-content:center) — khối to nhưng không sát mép.
         // Barcode 46% (không 55%) để tên 2 dòng vẫn đủ chỗ, GIÁ không bị cắt.
-        // 2026-06-09: ×1.3 → ×1.55 → ×1.9 — user muốn "toàn bộ giao diện tem to hơn
+        // 2026-06-09: ×1.3 → ×1.55 → ×1.75 — user muốn "toàn bộ giao diện tem to hơn
         // nữa". Layout QR (mã SP dưới QR) chừa nhiều chỗ dọc cho cột tên+giá nên
-        // phóng to mạnh được. QR cũng to thêm (0.46→0.52, xem qrMm bên dưới).
+        // phóng to mạnh được. QR cũng to thêm (0.46→0.48, xem qrMm bên dưới). Tên cho
+        // 3 dòng (nameStyleQr) để tên dài không bị cắt khi font to + cột hẹp.
         const fsBase = fontSize || Math.max(5, Math.round(labelW * 0.24));
-        const fs = Math.round(fsBase * 1.9);
+        const fs = Math.round(fsBase * 1.75);
         const fsCode = Math.max(5, Math.round(fs * 0.9));
         const lineH = fs + 1;
         const lineHCode = fsCode + 1;
@@ -825,6 +826,12 @@
         const nameStyle =
             `word-wrap:break-word;overflow:hidden;margin-bottom:1px;line-height:${nameLineH}px;` +
             `max-height:${nameLineH * 2}px;`;
+        // 2026-06-09: layout QR có cột chữ CAO (full chiều cao tem) + font to → cho
+        // tên TỐI ĐA 3 DÒNG (không phải 2) để tên dài (Áo Khoác Dạ Tweed) không bị
+        // cắt khi cột hẹp. Default vertical vẫn 2 dòng (ít chỗ dọc vì có barcode).
+        const nameStyleQr =
+            `word-wrap:break-word;overflow:hidden;margin-bottom:1px;line-height:${nameLineH}px;` +
+            `max-height:${nameLineH * 3}px;`;
 
         // Group labels into sheets (cols labels per sheet)
         const sheets = [];
@@ -910,7 +917,7 @@
                     labelInner += `</div>`;
                     labelInner += `<div class="ql-text" style="${txtCol}">`;
                     if (showProductName) {
-                        labelInner += `<div class="barcode-pname" style="${nameStyle}text-align:left;"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
+                        labelInner += `<div class="barcode-pname" style="${nameStyleQr}text-align:left;"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
                     }
                     if (showPrice) {
                         labelInner += `<div style="${codeLeft}"><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
