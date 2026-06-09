@@ -2,6 +2,15 @@
 
 ## 2026-06-09
 
+### [web2][render] Kho KH — 1 KH thêm NHIỀU SĐT (alt_phones) ✅
+
+**User:** Kho KH (`web2/customers/`) — KH có thể thêm nhiều số SĐT.
+
+- **Hạ tầng đã có sẵn**: cột `web2_customers.alt_phones JSONB`, helper `addWeb2AltPhone`, endpoint `/add-alt-phone`, `rowToFull.altPhones`, matcher SePay khớp cả alt_phones. Thiếu mắt xích: **CRUD create/PATCH KHÔNG persist altPhones** + modal chỉ có 1 ô SĐT.
+- **Backend** (`render.com/routes/v2/web2-customers.js`): helper `sanitizeAltPhones(raw, primary)` (normPhone từng số, bỏ trùng phone chính + dedupe). `POST /create` thêm cột `alt_phones` vào INSERT. `PATCH /:id` nhận `b.altPhones` → dedupe theo phone chính (mới nếu đang đổi, hoặc hiện tại từ `SELECT history, phone`); nới guard "không có field" cho case chỉ sửa altPhones.
+- **Frontend** (`web2/customers/`): modal thêm field-group "Số điện thoại phụ" (chips add/remove + input + nút Thêm). `customers-app.js`: `normPhone` helper, state `modalAltPhones`, `renderAltPhones()/addAltPhone()` (validate 10 số, chặn trùng chính + trùng list), populate trong `openModal`, gửi trong `collectForm`. Table cột SĐT thêm badge `+N SĐT` (title = list). CSS chips `.wc-altphone-*` + table tag. Cache-bust `?v=20260609a`.
+- **Verify (Playwright localhost)**: mở "Thêm KH", set phone chính `0901112222`, add `0907778888`+`0903334444` (OK), thử dup/`123`/trùng-chính → đều bị reject. AFTER_ADDS=`["0907778888","0903334444"]`, remove chip 1 → AFTER_REMOVE=`["0903334444"]`. 0 pageerror. Backend cần deploy Render (FE save với BE cũ chỉ bỏ qua altPhones, vô hại).
+
 ### [render][web2] PBH tạo tay — trừ ví dư vào PBH ngay khi tạo ✅
 
 **User:** "trừ ví dư vào PBH mới ngay khi tạo" — KH có số dư ví sẵn mà tạo PBH mới thì PBH bị "chưa trả" dù ví đủ, phải chờ CK kế tiếp. Muốn trừ ngay.
