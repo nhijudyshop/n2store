@@ -2,6 +2,16 @@
 
 ## 2026-06-09
 
+### [web2] Seed dữ liệu mọi trang menu + rà soát 34 trang có data ✅
+
+**User:** native-orders không thấy data; rà soát từng trang menu chắc chắn phải có dữ liệu.
+
+- **native-orders:** đơn test trước ở tab Đơn Inbox (`web2_inbox`) → tab mặc định Livestream trống. Tạo 2 đơn `web2_livestream` qua `from-comment` (NJ-20260609-0002/0003, KH `0123456788`, ref SP HNAOM/HCDAML) → tab mặc định có data.
+- **Seed các trang trống:** Thông báo (`/api/web2/notifications` POST ×3 = 8 total); Thu về (`/api/web2-returns` POST khách boom PBH → TV-20260609-0001, 240k) — list ở tab "Danh sách" (mặc định tab "Tạo phiếu").
+- **Re-audit 34 trang (Playwright):** 25 trang data-render OK (verify text thật, không tin row-counter vì layout card/list ≠ table). 5 ⚠️ đều benign: native-orders + Kho Khách Hàng = wallet-pill `404 by-phone` (đúng thiết kế, balance 0), Live Chat + Pancake Token = token Pancake hết hạn, Máy in = print agent off.
+- **Trang trống HỢP LỆ (không seed được/không nên):** Đối soát CK (detector-fed từ chat payment, user đã wipe trước đó — không có endpoint create thủ công), KPI Nhân viên (derived — cần gán nhân viên theo campaign), Studio/SSE Monitor/Lấy comment Live/Pancake Token/Máy in (tool/config/external).
+- Lưu ý nhiều trang là **tab-based**: native-orders (Livestream/Inbox), Thu về (Tạo/Danh sách/Chờ xử lý) — data ở tab tương ứng, không phải tab mặc định.
+
 ### [web2][products] Số lần in tem dời lên nút In ở cột Thao tác ✅
 
 **User:** bỏ icon máy in riêng ở ô biến thể → gắn số lần in lên **nút In** cột Thao tác (badge số góc trên-phải, giống icon đã làm trước đó).
