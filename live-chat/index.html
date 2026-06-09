@@ -171,6 +171,13 @@
                         >
                             <i data-lucide="refresh-cw" style="width: 14px; height: 14px"></i>
                         </button>
+                        <!-- Slot cho nút Chiến dịch / Đơn đã tạo / tín hiệu CK
+                             (chuyển lên topbar để iframe livestream ở góc dưới
+                             KHÔNG che — 2026-06-09). -->
+                        <div
+                            id="liveTopbarActions"
+                            style="display: flex; align-items: center; gap: 6px; flex-shrink: 0"
+                        ></div>
                     </div>
 
                     <!-- Divider -->
@@ -720,8 +727,8 @@
         <!-- Cột live = FB Graph (web2-fb-live) — Live đã gỡ HOÀN TOÀN, không fallback -->
         <script src="js/live/live-source.js?v=20260608j"></script>
         <script src="js/live/live-init.js?v=20260608l"></script>
-        <script src="js/live/live-campaign-manager.js?v=20260608"></script>
-        <script src="js/live/live-order-history.js?v=20260609"></script>
+        <script src="js/live/live-campaign-manager.js?v=20260609"></script>
+        <script src="js/live/live-order-history.js?v=20260609b"></script>
         <!-- Enrich SĐT/địa chỉ từ kho KH warehouse Web 2.0 theo fb_id -->
         <script src="js/live/live-kho-enricher.js?v=20260608e"></script>
         <!-- Web 2.0 SSE bridge — multi-tab/-máy realtime (livestream snapshots + images) -->

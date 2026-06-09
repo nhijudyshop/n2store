@@ -244,30 +244,10 @@
     font-weight: 600;
 }
 
-/* Viền nổi bật cho conversation row khách ĐÃ CÓ ĐƠN (drop target hợp lệ).
-   Drop target THỰC TẾ là .live-conversation-item (Live comment list) — trước
-   đây CSS chỉ nhắm .pk-conversation-item nên KHÔNG hiện feedback (fix 2026-06-04). */
-.pk-conversation-item.inv-has-order,
-.live-conversation-item.inv-has-order {
-    border-left: 3px solid #16a34a !important;
-    background: linear-gradient(90deg, rgba(22, 163, 74, 0.06), transparent);
-    position: relative;
-}
-.pk-conversation-item.inv-has-order::after,
-.live-conversation-item.inv-has-order::after {
-    content: '✓ có đơn';
-    position: absolute;
-    top: 4px;
-    right: 6px;
-    font-size: 9px;
-    font-weight: 700;
-    color: #16a34a;
-    background: #dcfce7;
-    padding: 1px 5px;
-    border-radius: 999px;
-    pointer-events: none;
-    opacity: 0.85;
-}
+/* `inv-has-order` chỉ là marker drop-target (add cho MỌI row để kéo-thả SP),
+   KHÔNG phải "khách đã có đơn" → KHÔNG vẽ badge/border ở đây (gây hiểu nhầm
+   "✓ có đơn" trên mọi comment, bỏ 2026-06-09). Indicator đơn thật là mã đơn
+   tím (.order-code-badge) + STT (.session-index-badge) trong header row. */
 
 /* Drop hover — affordance "thả vào đây". Dùng outline + bg (compositor-friendly),
    bỏ transform: scale để tránh repaint subtree row khi kéo qua list dài. */

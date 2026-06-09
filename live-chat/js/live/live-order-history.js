@@ -35,7 +35,8 @@
         const s = document.createElement('style');
         s.id = 'loh-styles';
         s.textContent = `
-        .loh-fab{position:fixed;right:18px;bottom:64px;z-index:9998;background:#0ea5e9;color:#fff;border:0;border-radius:999px;padding:10px 16px;font-size:13px;font-weight:600;box-shadow:0 4px 14px rgba(14,165,233,.4);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+        .loh-fab{background:#0ea5e9;color:#fff;border:0;border-radius:8px;padding:5px 12px;font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;gap:5px;align-items:center;white-space:nowrap;flex-shrink:0}
+        .loh-fab.loh-fab-float{position:fixed;right:18px;bottom:64px;z-index:9998;border-radius:999px;padding:10px 16px;font-size:13px;box-shadow:0 4px 14px rgba(14,165,233,.4)}
         .loh-fab:hover{filter:brightness(1.05)}
         .loh-modal{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center}
         .loh-modal.open{display:flex}
@@ -162,10 +163,18 @@
         if (document.getElementById('loh-fab')) return;
         const fab = document.createElement('button');
         fab.id = 'loh-fab';
-        fab.className = 'loh-fab';
         fab.innerHTML = '📋 Đơn đã tạo';
         fab.onclick = _open;
-        document.body.appendChild(fab);
+        // Gắn vào topbar (#liveTopbarActions) để iframe livestream không che;
+        // fallback floating nếu chưa có slot.
+        const slot = document.getElementById('liveTopbarActions');
+        if (slot) {
+            fab.className = 'loh-fab';
+            slot.appendChild(fab);
+        } else {
+            fab.className = 'loh-fab loh-fab-float';
+            document.body.appendChild(fab);
+        }
 
         const modal = document.createElement('div');
         modal.id = 'loh-modal';

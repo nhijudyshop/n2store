@@ -27,7 +27,8 @@
         const s = document.createElement('style');
         s.id = 'lcm-styles';
         s.textContent = `
-        .lcm-fab{position:fixed;right:18px;bottom:18px;z-index:9998;background:#6366f1;color:#fff;border:0;border-radius:999px;padding:10px 16px;font-size:13px;font-weight:600;box-shadow:0 4px 14px rgba(99,102,241,.4);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+        .lcm-fab{background:#6366f1;color:#fff;border:0;border-radius:8px;padding:5px 12px;font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;gap:5px;align-items:center;white-space:nowrap;flex-shrink:0}
+        .lcm-fab.lcm-fab-float{position:fixed;right:18px;bottom:18px;z-index:9998;border-radius:999px;padding:10px 16px;font-size:13px;box-shadow:0 4px 14px rgba(99,102,241,.4)}
         .lcm-fab:hover{filter:brightness(1.05)}
         .lcm-modal{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center}
         .lcm-modal.open{display:flex}
@@ -149,10 +150,18 @@
         if (document.getElementById('lcm-fab')) return;
         const fab = document.createElement('button');
         fab.id = 'lcm-fab';
-        fab.className = 'lcm-fab';
         fab.innerHTML = '📁 Chiến dịch';
         fab.onclick = _open;
-        document.body.appendChild(fab);
+        // Ưu tiên gắn vào topbar (#liveTopbarActions) để iframe livestream góc
+        // dưới KHÔNG che; fallback floating nếu chưa có slot.
+        const slot = document.getElementById('liveTopbarActions');
+        if (slot) {
+            fab.className = 'lcm-fab';
+            slot.appendChild(fab);
+        } else {
+            fab.className = 'lcm-fab lcm-fab-float';
+            document.body.appendChild(fab);
+        }
 
         const modal = document.createElement('div');
         modal.id = 'lcm-modal';
