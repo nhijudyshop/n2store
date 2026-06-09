@@ -2,6 +2,15 @@
 
 ## 2026-06-09
 
+### [web2] Tem mã SP — biến thể vào GIỮA QR, mã SP vào GÓC PHẢI DƯỚI QR ✅
+
+**User:** cho biến thể vào giữa mã QR, mã sản phẩm vào góc phải dưới mã QR (tùy chỉnh size mã SP cho hợp).
+
+- **Layout mới (`isQr` branch):** QR box `position:relative` chứa 2 overlay tuyệt đối — biến thể canh GIỮA (logo-style, nền trắng, đậm, in nghiêng), mã SP góc PHẢI DƯỚI (góc DUY NHẤT không có finder pattern → an toàn nhất khi che). Cột chữ bên phải giờ chỉ còn TÊN + GIÁ. QR to hơn (`labelW*0.5`, tăng từ 0.45) vì cột chữ ít dòng hơn.
+- **Scannability:** bump EC `M`→`H` (30% phục hồi) cho cả `Web2QR.toDataUrl` lẫn fallback `genQrDataUrl` để bù module bị overlay che. `fitText` script đổi target sang `.ql-qr-variant`/`.ql-qr-code` (min 3.5px) → mã/biến thể dài tự thu nhỏ vừa khung, không tràn che thêm module.
+- **Verify (Playwright + BarcodeDetector):** 3 mã (KHOTESTLINK28 / ADQUANDENM / KHO123) đều decode ĐÚNG sau khi overlay → quét OK. Visual: biến thể "Đỏ - 28" giữa QR, "KHOTESTLINK28" góc phải dưới, đều nền trắng rõ.
+- Files: `web2/products/js/web2-products-print.js`.
+
 ### [native-orders] Fix tab "Đơn Inbox" trống — bỏ qua filter chiến dịch (livestream-only) ✅
 
 **User:** tab đơn inbox không hiện dữ liệu.
