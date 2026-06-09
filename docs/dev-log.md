@@ -2,6 +2,15 @@
 
 ## 2026-06-09
 
+### [live-chat] Kho "Hình Livestream": hover ảnh → phóng to (popup nổi bên trái drawer) ✅
+
+**User:** `live-chat/index.html` — hover vào ảnh trong panel "🖼 Hình Livestream" thì phóng to ảnh.
+
+- **Vì sao không scale tại chỗ:** `.live-lsimg-sidebar` có `contain: layout style paint` + `.live-lsimg-body` `overflow-y:auto` → `transform: scale()` trên tile sẽ bị cắt. → Dùng popup nổi `#live-lsimg-preview` append thẳng vào `body` (ngoài vùng contain), `position: fixed`.
+- **`live-livestream-gallery.js`:** sau `_renderGrid`, bind `mouseenter`/`mouseleave` lên `.live-lsimg-thumb img` → `_showPreview(im)` / `_hidePreview()`. `_showPreview` canh popup bên TRÁI drawer (`right = 380 + 12px`, width `min(460, vw - drawer - 24)`), canh giữa dọc theo tile + clamp viewport. Ẩn khi scroll body, khi đóng drawer. Màn hẹp (`maxW < 160`) → bỏ qua zoom.
+- **CSS `live-livestream-gallery.css`:** `.live-lsimg-preview` fade+scale (compositor-only: opacity/transform), border trắng + shadow, `max-height:80vh object-fit:contain`, `pointer-events:none`, reduced-motion guard.
+- **Test (Playwright headless, localhost:8080):** 5 ảnh, hover ảnh đầu → preview tồn tại, `is-show`/opacity=1, src khớp ảnh, `right:392px width:460px top:12px (clamp)`; mouseleave → ẩn (`is-show=false`).
+
 ### [web2][render] Xóa dữ liệu Dashboard đối soát CK (`ck-dashboard`) — target reset mới `ck` ✅
 
 **User:** `web2/ck-dashboard/index.html` xóa dữ liệu hiện có.
