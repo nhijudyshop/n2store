@@ -2544,17 +2544,25 @@ router.post('/merge-to-pbh', async (req, res) => {
 // base rỗng → chặn "chốt đơn trống rồi thêm hết tính KPI"). Bất biến sau khi set.
 // Trả { ok, code?, base?, reason? }.
 // =====================================================
-async function snapshotKpiBase(pool, { fbUserId, byName } = {}) {
-    if (!pool || !fbUserId) return { ok: false, reason: 'no-args' };
+async function snapshotKpiBase(pool, { fbUserId, code, byName } = {}) {
+    if (!pool || (!fbUserId && !code)) return { ok: false, reason: 'no-args' };
     try {
-        const r = await pool.query(
-            `SELECT id, code, products FROM native_orders
-             WHERE fb_user_id = $1 AND channel = 'web2_livestream'
-               AND status NOT IN ('cancelled')
-               AND kpi_base IS NULL
-             ORDER BY created_at DESC LIMIT 1`,
-            [fbUserId]
-        );
+        // Lock theo code (chốt thủ công 1 đơn) HOẶC theo fbUserId (gửi "Chốt đơn"
+        // → đơn livestream mới nhất chưa chốt của khách).
+        const r = code
+            ? await pool.query(
+                  `SELECT id, code, products FROM native_orders
+                   WHERE code = $1 AND channel = 'web2_livestream'
+                     AND status NOT IN ('cancelled') AND kpi_base IS NULL LIMIT 1`,
+                  [code]
+              )
+            : await pool.query(
+                  `SELECT id, code, products FROM native_orders
+                   WHERE fb_user_id = $1 AND channel = 'web2_livestream'
+                     AND status NOT IN ('cancelled') AND kpi_base IS NULL
+                   ORDER BY created_at DESC LIMIT 1`,
+                  [fbUserId]
+              );
         if (!r.rows.length) return { ok: false, reason: 'no-unbased-order' };
         const o = r.rows[0];
         const prods = Array.isArray(o.products) ? o.products : [];
@@ -2580,6 +2588,25 @@ async function snapshotKpiBase(pool, { fbUserId, byName } = {}) {
         return { ok: false, reason: e.message };
     }
 }
+
+// POST /:code/lock-kpi-base — CHỐT THỦ CÔNG: khóa KPI base cho 1 đơn livestream
+// (dùng khi chốt tại chỗ không qua gửi tin "Chốt đơn"). Cùng anti-cheat: 1 lần,
+// đơn có ≥1 SP, bất biến. Body: { by? }.
+router.post('/:code/lock-kpi-base', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const r = await snapshotKpiBase(pool, {
+            code: req.params.code,
+            byName: req.body?.by || req.body?._editor?.userName || null,
+        });
+        if (!r.ok) return res.status(400).json({ success: false, ...r });
+        res.json({ success: true, ...r });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
 
 router.initializeNotifiers = initializeNotifiers;
 module.exports = router;
