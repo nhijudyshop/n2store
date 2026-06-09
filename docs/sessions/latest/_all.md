@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `74c08f8` — feat(web2-customers): 1 KH thêm nhiều SĐT (alt_phones) — modal chips + persist create/PATCH
-**Last updated**: 2026-06-09 18:48:40 +07
-**Latest session**: [`RESUME:20260609-184840-74c08f8`](../20260609-184840-74c08f8.md)
-**Summary**: feat(web2-customers): 1 KH thêm nhiều SĐT (alt_phones) — modal chips + persist create/PATCH
+**Latest commit**: `da7e24b` — auto: session update
+**Last updated**: 2026-06-09 18:53:33 +07
+**Latest session**: [`RESUME:20260609-185333-da7e24b`](../20260609-185333-da7e24b.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 2 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-09 18:48
+- [`docs/`](./docs.md) — updated 2026-06-09 18:53
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-09 17:51
@@ -43,7 +44,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-09 18:34
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-09 18:34
+- [`orders-report/`](./orders-report.md) — updated 2026-06-09 18:53
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
@@ -70,4 +71,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-09 18:48
+- [`web2/`](./web2.md) — updated 2026-06-09 18:53
