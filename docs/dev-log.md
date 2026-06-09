@@ -2,6 +2,15 @@
 
 ## 2026-06-09
 
+### [orders] Popup thông tin KH — thêm nút "Mở Facebook (Ảnh)" ✅
+
+**User:** bấm avatar khách → popup → cần nút mở Facebook phần photos (vd `https://www.facebook.com/<id>/photos`).
+
+- Popup `openCustomerInfoPopup` (`orders-report/js/tab1/tab1-customer-info.js`) thêm 1 row "Facebook" với link `<a class="cip-fb-link" target="_blank">Mở Ảnh</a>` ngay sau row Global ID.
+- URL dùng `c.global_id` (FB profile ID public, mở được `/photos`) — KHÔNG dùng `fb_id` (PSID page-scoped, không resolve thành profile URL). `https://www.facebook.com/<global_id>/photos`, có `encodeURIComponent`. Chỉ hiện khi có `global_id`.
+- CSS `.cip-fb-link` (`orders-report/css/tab1-orders.css`): pill xanh FB `#1877f2`, chữ trắng, hover `#0f5ed6` + translateY. Icon `fab fa-facebook` (FA 6.4.0 brands đã load sẵn).
+- **Verify (Playwright headless, login restore):** mở popup KH `0972923135` (Giang Nguyen) → link found, href `https://www.facebook.com/100028319734419/photos`, text "Mở Ảnh", bg rgb(24,119,242), color trắng. ✅
+
 ### [render] Kho Khách Hàng Web 2.0 — tìm kiếm KHÔNG DẤU (accent-insensitive) ✅
 
 **User:** cho tìm kiếm không dấu (gõ "huynh thanh dat" phải ra "Huỳnh Thành Đạt").
