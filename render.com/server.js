@@ -957,15 +957,10 @@ setTimeout(async () => {
         console.error('[STARTUP] TPOS Socket.IO connection failed (will retry):', err.message);
     }
 
-    // Web 2.0 ↔ TPOS sync — TẮT HẲN 2026-06-07.
-    // Các trang Web 2.0 cần TPOS (live-campaign, tpos-pancake, partner-customer)
-    // đọc THẲNG live `/api/odata/*` (proxy TPOS realtime), KHÔNG dùng shadow
-    // web2_records. Shadow (partner-customer 92k, product, producttemplate, tag…)
-    // gần như không consumer → mỡ thừa 174MB + tốn quota. ĐVVC dropdown
-    // native-orders dùng entity `deliveryzone` (config, giữ) + hardcoded OPTIONS
-    // fallback, KHÔNG phụ thuộc `deliverycarrier` shadow.
-    // Bật lại (nếu cần): bỏ comment + set WEB2_SYNC_ENABLED=true.
-    // require('./services/web2-sync-worker').init();
+    // Web 2.0 ↔ TPOS sync — ĐÃ GỠ HẲN (2026-06-09). web2-sync-worker.js +
+    // scripts/web2-seed-from-tpos.js (fetch tomato.tpos.vn/odata) đã xóa. Web 2.0
+    // không còn phụ thuộc TPOS API. Trang cần POS realtime đọc thẳng `/api/odata/*`
+    // (live proxy, Web 1.0 shared) — không qua shadow web2_records.
 }, 10000); // delay 10s after server start
 
 // Cloudflare Worker Backup Routes (fb-avatar, pancake-avatar, proxy, pancake-direct, pancake-official, facebook-send, rest)

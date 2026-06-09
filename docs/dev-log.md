@@ -2,6 +2,15 @@
 
 ## 2026-06-09
 
+### [live-chat][render] Bỏ card page-selector + badge Store/House + offline thumbnail + GỠ HẲN TPOS sync worker ✅
+
+- **Bỏ hình 1** (card "Tất cả Pages") panel Chat Pancake (`pancake-init.js`); gear settings → cuối hàng filter-tabs.
+- **Badge Store/House** mỗi hội thoại (`pancake-conversation-list.js` `_pageBadge` theo `page_id`); click → `setPageFilter` lọc page (toggle) + nút "✕ Bỏ lọc page".
+- **Test live (Playwright)**: card removed ✓; tab all=76/inbox=46/comment=30/live-saved=30 ✓; badge 76/76 House+Store ✓; filter House=21/Store=56 ✓; 0 console error.
+- **Offline auto thumbnail** (`live-livestream-snap.js`+`live-init.js`): mở campaign đã end → tự `offlineBatchAll({skipExisting,silent})` lấy thumbnail theo offset broadcast_start. "Chụp Live" vẫn riêng → kho hình.
+- **Nút Chiến dịch/Đơn đã tạo** → topbar `#liveTopbarActions` (iframe không che). **Bỏ badge "✓ có đơn" sai** (inv-has-order là marker drop-target gắn mọi row).
+- **GỠ HẲN TPOS sync Web 2.0**: xóa `services/web2-sync-worker.js` + `scripts/web2-seed-from-tpos.js` (fetch tomato.tpos.vn/odata, đã tắt từ 2026-06-07). Audit "tpos" toàn Web 2.0: còn lại chỉ comment + cột `tpos_id`/`tpos_data` cố ý giữ. KHÔNG đụng Web 1.0 (sepay-transaction-matching, tpos-token-manager, live POS /api/odata).
+
 ### [render][web2] 🔴 GỠ TPOS khỏi matcher SePay — auto-gán KH dùng KHO web2_customers ✅
 
 **User:** balance-history không auto gán được khách nào → matcher dùng đúng kho `web2/customers` chưa? KHÔNG — matcher còn gọi TPOS (đã gỡ).
