@@ -174,6 +174,7 @@ html, body { margin: 0; padding: 0; background: #fff; }
 .b-it-nums { display: flex; justify-content: flex-end; gap: 4px; margin-top: 1px; font-size: 11.5px; }
 .b-it-nums .c-total { font-weight: 700; }
 .b-it-note { font-size: 10.5px; padding-left: 13px; margin-top: 1px; }
+.b-it-variant { font-size: 11px; font-style: italic; padding-left: 13px; margin-top: 1px; }
 /* ── Tổng tiền ── */
 .b-tot { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; margin-top: 2px; }
 .b-tot-final { font-size: 17px; font-weight: 800; }
@@ -340,10 +341,12 @@ html, body { margin: 0; padding: 0; background: #fff; }
             const total = qty * price;
             const name = it.productName || it.ProductName || '';
             const note = it.note || it.Note || '';
+            const variant = it.variant || it.Variant || '';
             totalQty += qty;
             items.push(
                 `<div class="b-it">` +
                     `<div class="b-it-name">${idx + 1}. ${_esc(name)}</div>` +
+                    (variant ? `<div class="b-it-variant">${_esc(variant)}</div>` : '') +
                     `<div class="b-it-nums">` +
                     `<span class="c-qty">${qty}</span>` +
                     `<span class="c-price">${m(price)}</span>` +

@@ -2061,6 +2061,28 @@
     // All active products cached once per modal open — search is client-side
     // so Vietnamese diacritics don't matter ("ao nau" matches "ÁO NÂU M").
     let EDIT_PRODUCTS_CACHE = null;
+    // Map mã SP → biến thể (size/màu) để in PBH cho đơn CŨ (chưa lưu variant trên
+    // order line). Populate lazily 1 lần từ kho SP. Đơn mới đã carry variant sẵn.
+    let PRODUCT_VARIANT_MAP = null;
+
+    async function ensureVariantMap() {
+        if (PRODUCT_VARIANT_MAP) return PRODUCT_VARIANT_MAP;
+        const map = {};
+        try {
+            const list =
+                EDIT_PRODUCTS_CACHE && EDIT_PRODUCTS_CACHE.length
+                    ? EDIT_PRODUCTS_CACHE
+                    : (await window.NativeOrdersApi.searchProducts({ search: '', limit: 1000 }))
+                          .products || [];
+            for (const p of list) {
+                if (p && p.code && p.variant) map[p.code] = p.variant;
+            }
+        } catch (e) {
+            console.warn('[native-orders] ensureVariantMap failed:', e.message);
+        }
+        PRODUCT_VARIANT_MAP = map;
+        return map;
+    }
 
     function _pickerOutsideClick(e) {
         const picker = $('#productPickerResults');
@@ -2157,6 +2179,9 @@
         const price = Number(priceText.replace(/[^\d]/g, '')) || 0;
         const imgEl = item.querySelector('.pick-img');
         const imageUrl = imgEl?.getAttribute('src') || null;
+        // Biến thể (size/màu) không có trong DOM picker → lookup từ cache kho SP.
+        const cachedProd = (EDIT_PRODUCTS_CACHE || []).find((x) => x.code === code) || {};
+        const variant = cachedProd.variant || '';
 
         const existing = EDIT_LINES.find((l) => l.productCode === code);
         if (existing) {
@@ -2169,6 +2194,7 @@
             EDIT_LINES.push({
                 productCode: code,
                 name,
+                variant,
                 price,
                 quantity: 1,
                 imageUrl,
@@ -3138,6 +3164,7 @@
                 cart.push({
                     productCode: p.code,
                     name: p.name || p.code,
+                    variant: p.variant || '',
                     price: Number(p.price) || 0,
                     quantity: 1,
                     total: Number(p.price) || 0,
@@ -3336,6 +3363,12 @@
         const buildPbhShape = (o) => {
             const lines = (o.products || []).map((p) => ({
                 productName: p.name || p.productName || '',
+                // Biến thể: ưu tiên đã lưu trên line; fallback lookup theo mã SP
+                // (đơn cũ chưa lưu variant). Map populate ở printConfirmedBills.
+                variant:
+                    p.variant ||
+                    (PRODUCT_VARIANT_MAP && PRODUCT_VARIANT_MAP[p.productCode || p.code]) ||
+                    '',
                 quantity: Number(p.quantity) || 0,
                 priceUnit: Number(p.price) || 0,
                 uomName: p.uomName || 'Cái',
@@ -3389,8 +3422,10 @@
                 .catch(() => {});
         };
 
-        const printConfirmedBills = () => {
+        const printConfirmedBills = async () => {
             if (!others.length) return;
+            // Đảm bảo map mã→biến thể sẵn sàng để bill hiện biến thể (đơn cũ).
+            await ensureVariantMap();
             const pbhs = others.map(buildPbhShape);
             if (pbhs.length === 1) window.Web2Bill.openPrint(pbhs[0]);
             else window.Web2Bill.openCombinedPrint(pbhs);
