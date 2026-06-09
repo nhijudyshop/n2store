@@ -2,6 +2,17 @@
 
 ## 2026-06-09
 
+### [web2] Tem SP — biến thể BAKE vào giữa QR qua Web2QR.centerLabel (đồng bộ với bill, đẹp hơn) ✅
+
+**User:** bên products chỉnh lại biến thể nằm trong QR cho đẹp luôn.
+
+- Trước: biến thể là overlay HTML (`.ql-qr-variant`, CSS absolute) đè lên ảnh QR — hộp trắng dẹt, bo 1px, không có khoảng cách rõ với module.
+- Giờ: biến thể **bake thẳng vào giữa QR** qua `Web2QR.toDataUrl(code, {centerLabel: variant})` — hộp chữ nhật trắng bo nhẹ + halo cách module (giống bill PBH). EC tự lên 'H'. Đẹp & nhất quán 1 nguồn render.
+- `web2-products-print.js`: qrMap đổi key `code+biến thể` (cùng code khác biến thể → QR khác), value `{src, baked}`. `buildLabelHTML` dùng `qrEntry.src`; overlay HTML `.ql-qr-variant` **chỉ còn là fallback** khi `baked=false` (QR davidshimjs lúc Web2QR lỗi). Mã SP vẫn nằm DƯỚI QR như cũ.
+- **Verify (Playwright):** 5 biến thể (`Đỏ - 28`, `Đen - M`, `Xanh dương - XXL`, `Trắng`, `Hồng phấn - Free`) bake vào giữa → BarcodeDetector decode QR vẫn ra đúng mã SP `KHOAOTRANG28`. Integration mở modal → in: `qrimg` baked present, `.ql-qr-variant` overlay = 0 (đã suppress), mã dưới QR còn. Screenshot `downloads/n2store-session/qr-variant-center.png`. 0 lỗi console.
+- Cache-bust: bump `web2-qr.js` + `web2-bill-service.js` → `?v=20260609c` (native-orders, products, fastsaleorder-invoice, printer-settings).
+- Files: `web2/products/js/web2-products-print.js`, 4 HTML (version bump).
+
 ### [web2] Mã PBH vào GIỮA QR (hộp chữ nhật trắng, cách module 1 khoảng) — Web2QR.centerLabel ✅
 
 **User:** đưa mã vào giữa mã QR hình chữ nhật, mã cách 1 khoảng nhỏ với QR cho dễ nhìn. (research GitHub custom QR)

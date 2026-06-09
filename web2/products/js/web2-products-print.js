@@ -181,6 +181,10 @@
     let overlay = null;
 
     // ---------- Helpers ----------
+    // Key qrMap theo code + biến thể (biến thể bake vào giữa QR → QR khác nhau).
+    function _qrKey(code, variant) {
+        return String(code) + '' + (variant || '');
+    }
     function escapeHtml(s) {
         const div = document.createElement('div');
         div.textContent = s == null ? '' : String(s);
@@ -673,27 +677,35 @@
             try {
                 await loadQrLib();
                 qrMap = {};
-                const uniq = [...new Set(labels.map((l) => l.code).filter(Boolean))];
-                // 2026-06-09: route qua NGUỒN CHUNG Web2QR (QR "trang trí" đen
-                // trắng — module bo góc + mắt finder styled). Fallback genQrDataUrl
-                // (davidshimjs vuông) nếu Web2QR thiếu / lỗi.
-                for (const code of uniq) {
+                // 2026-06-09: BIẾN THỂ bake THẲNG vào GIỮA QR qua Web2QR.centerLabel
+                // (hộp chữ nhật trắng + halo cách module — giống bill PBH, đẹp & nhất
+                // quán). EC tự lên 'H'. Key theo code+variant (cùng code khác biến thể
+                // → QR khác). Fallback davidshimjs (genQrDataUrl) KHÔNG bake được →
+                // baked=false → buildLabelHTML vẽ overlay HTML cũ thay thế.
+                const wantVariant = !!opts.showVariant;
+                const seen = new Set();
+                for (const l of labels) {
+                    if (!l.code) continue;
+                    const variant = wantVariant && l.variant ? String(l.variant) : '';
+                    const key = _qrKey(l.code, variant);
+                    if (seen.has(key)) continue;
+                    seen.add(key);
                     if (window.Web2QR) {
                         try {
-                            qrMap[code] = await window.Web2QR.toDataUrl(code, {
-                                // EC H — biến thể overlay giữa QR + mã SP overlay
-                                // góc phải dưới cần dung sai cao để vẫn quét được.
-                                ec: 'H',
-                                style: 'rounded',
-                                margin: 2,
-                                pxPerCell: 12,
-                            });
+                            const qrOpts = { style: 'rounded', margin: 2, pxPerCell: 12 };
+                            if (variant)
+                                qrOpts.centerLabel = variant; // → tự ec 'H'
+                            else qrOpts.ec = 'H'; // không biến thể vẫn giữ dung sai cao
+                            qrMap[key] = {
+                                src: await window.Web2QR.toDataUrl(l.code, qrOpts),
+                                baked: !!variant,
+                            };
                             continue;
                         } catch (e) {
                             /* fallthrough → davidshimjs */
                         }
                     }
-                    qrMap[code] = genQrDataUrl(code);
+                    qrMap[key] = { src: genQrDataUrl(l.code), baked: false };
                 }
             } catch (e) {
                 notify('Lỗi tạo QR, in tạm mã 1D: ' + e.message, 'warning');
@@ -839,8 +851,11 @@
                 // unique để JsBarcode đỡ nhầm. KHÔNG request tpos.vn.
                 // 2026-06-06: QR (2D) → ảnh QR pre-render (quét mọi độ dài mã trên
                 // tem 25mm); hoặc Code128 PNG canvas crisp giống WEB2 (/Web/Barcode).
+                // QR entry theo code+biến thể (biến thể bake giữa QR khi baked=true).
+                const qrVariant = showVariant && label.variant ? String(label.variant) : '';
+                const qrEntry = isQr ? qrMap[_qrKey(label.code, qrVariant)] || {} : {};
                 const barcodeImg = isQr
-                    ? `<img class="qrimg" src="${escapeHtml(qrMap[label.code] || '')}" alt="" />`
+                    ? `<img class="qrimg" src="${escapeHtml(qrEntry.src || '')}" alt="" />`
                     : `<img class="bcimg" data-code="${escapeHtml(label.code)}" alt="" />`;
                 const labelStyle = labelStyleParts.join(';') + ';';
 
@@ -875,8 +890,10 @@
                     labelInner += `<div class="barcode_label" style="${rowStyle}">`;
                     labelInner += `<div class="ql-qr-col" style="${qrColStyle}">`;
                     labelInner += `<div class="barcode-image ql-qr" style="${qrBox}">${barcodeImg}`;
-                    if (showVariant && label.variant) {
-                        // Biến thể GIỮA QR — nền trắng, đậm, in nghiêng, bo nhẹ.
+                    // Biến thể: nếu đã BAKE vào giữa QR (Web2QR.centerLabel) thì KHÔNG
+                    // vẽ overlay HTML nữa. Chỉ fallback overlay khi QR davidshimjs
+                    // (baked=false) — giữ biến thể hiển thị dù lib chính lỗi.
+                    if (showVariant && label.variant && !qrEntry.baked) {
                         labelInner += `<div class="ql-qr-variant" style="font-size:${fsVarOv}px;line-height:1;">${escapeHtml(label.variant)}</div>`;
                     }
                     labelInner += `</div>`;
