@@ -137,7 +137,13 @@
     }
 
     function toSvg(text, opts = {}) {
-        const ec = opts.ec || 'M';
+        // centerLabel: chữ (mã) đặt GIỮA QR trong hộp chữ nhật trắng, cách module
+        // QR 1 khoảng (halo) cho dễ đọc. Kỹ thuật chuẩn (kozakdenys/qr-code-styling):
+        // QR error-correction cao (H = phục hồi 30%) + che 1 vùng giữa < ~15% diện
+        // tích → máy vẫn quét được. Có centerLabel → tự nâng ec lên 'H' (trừ khi
+        // caller chỉ định ec khác).
+        const centerLabel = opts.centerLabel == null ? '' : String(opts.centerLabel);
+        const ec = opts.ec || (centerLabel ? 'H' : 'M');
         const margin = opts.margin == null ? 4 : Math.max(0, opts.margin);
         const style = opts.style || 'rounded';
         const radius = opts.radius == null ? 0.3 : opts.radius;
@@ -169,12 +175,52 @@
         }
 
         const bg = light ? `<rect width="${dim}" height="${dim}" fill="${light}"/>` : '';
+
+        // Overlay nhãn GIỮA QR (hộp chữ nhật trắng + chữ mã, có halo cách module).
+        // Vẽ SAU <g> module nên nằm TRÊN, che các module ở giữa (EC 'H' bù lại).
+        let centerOverlay = '';
+        if (centerLabel) {
+            const cx = dim / 2;
+            const cy = dim / 2;
+            // Font tự co để hộp không vượt ~66% bề ngang QR (giữ < ~15% diện tích che).
+            const maxBoxW = count * 0.66;
+            const padX = 1.0; // padding ngang trong hộp (module units)
+            const padY = 0.7; // padding dọc
+            const charW = 0.6; // bề ngang ~ mỗi ký tự (monospace, theo font-size)
+            const len = Math.max(1, centerLabel.length);
+            let fontSize = (maxBoxW - padX * 2) / (len * charW);
+            fontSize = Math.max(1.4, Math.min(3.0, fontSize)); // clamp đọc được/không quá to
+            const textW = len * fontSize * charW;
+            const boxW = Math.min(maxBoxW, textW + padX * 2);
+            const boxH = fontSize + padY * 2;
+            const bx = cx - boxW / 2;
+            const by = cy - boxH / 2;
+            const gap = 0.9; // "khoảng nhỏ" trắng quanh hộp, tách khỏi module QR
+            const haloFill = light || '#fff';
+            const rx = Math.min(boxH * 0.18, 1.2); // bo nhẹ — vẫn dạng chữ nhật
+            centerOverlay =
+                // halo: nền trắng lớn hơn hộp 1 chút → tạo khoảng cách với QR
+                `<rect x="${(bx - gap).toFixed(2)}" y="${(by - gap).toFixed(2)}" ` +
+                `width="${(boxW + gap * 2).toFixed(2)}" height="${(boxH + gap * 2).toFixed(2)}" ` +
+                `rx="${(rx + gap * 0.5).toFixed(2)}" fill="${haloFill}"/>` +
+                // hộp chữ nhật viền mảnh
+                `<rect x="${bx.toFixed(2)}" y="${by.toFixed(2)}" width="${boxW.toFixed(2)}" ` +
+                `height="${boxH.toFixed(2)}" rx="${rx.toFixed(2)}" fill="${haloFill}" ` +
+                `stroke="${dark}" stroke-width="0.3"/>` +
+                // chữ mã canh giữa
+                `<text x="${cx.toFixed(2)}" y="${cy.toFixed(2)}" text-anchor="middle" ` +
+                `dominant-baseline="central" ` +
+                `font-family="JetBrains Mono, ui-monospace, monospace" font-weight="700" ` +
+                `font-size="${fontSize.toFixed(2)}" fill="${dark}">${_xmlEsc(centerLabel)}</text>`;
+        }
+
         // Nhóm module (trừ mắt đã có fill riêng) tô bằng dark qua attribute group.
         return (
             `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${dim} ${dim}" ` +
             `shape-rendering="geometricPrecision" width="${dim * 4}" height="${dim * 4}">` +
             bg +
             `<g fill="${dark}">${body}</g>` +
+            centerOverlay +
             `</svg>`
         );
     }
