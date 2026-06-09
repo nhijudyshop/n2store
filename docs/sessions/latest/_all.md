@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `58eb2ec` — auto: session update
-**Last updated**: 2026-06-09 19:24:50 +07
-**Latest session**: [`RESUME:20260609-192450-58eb2ec`](../20260609-192450-58eb2ec.md)
+**Latest commit**: `3248aa8` — auto: session update
+**Last updated**: 2026-06-09 19:26:52 +07
+**Latest session**: [`RESUME:20260609-192652-3248aa8`](../20260609-192652-3248aa8.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`orders-report/`](./orders-report.md) — 2 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -43,7 +43,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-09 19:12
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-09 19:21
+- [`orders-report/`](./orders-report.md) — updated 2026-06-09 19:26
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
@@ -70,4 +70,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-09 19:24
+- [`web2/`](./web2.md) — updated 2026-06-09 19:26
