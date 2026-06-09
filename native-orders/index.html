@@ -16,7 +16,7 @@
 
         <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260609y" />
         <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260609y" />
-        <link rel="stylesheet" href="css/native-orders.css?v=20260609y" />
+        <link rel="stylesheet" href="css/native-orders.css?v=20260609z" />
         <link rel="stylesheet" href="css/web2-theme.css?v=20260609y" />
         <!-- Component chat HỢP NHẤT (Web2ChatPanel) -->
         <link rel="stylesheet" href="../web2/shared/chat-panel/web2-chat-panel.css?v=20260609y" />
@@ -39,23 +39,16 @@
         <div class="web2-shell">
             <aside class="web2-aside" id="web2Aside"></aside>
             <main class="main-content" style="overflow: auto; height: 100vh">
-                <!-- Page head — counter + source badge (tab strip removed; nav lives in sidebar). -->
-                <header class="page-head-mini">
-                    <h1 class="page-head-title">
-                        <i data-lucide="package-open"></i>
-                        Đơn Web
-                    </h1>
-                    <div class="page-head-counters">
-                        <span class="counter-pill" id="totalCounter">— đơn</span>
-                        <span class="source-pill">source=NATIVE_WEB</span>
-                    </div>
-                </header>
-
-                <!-- 2026-06-09: Toolbar hợp nhất — gộp KPI + tab kênh + bộ lọc vào 1 panel
-                     gọn gàng (trước đây là 3 khối rời nhau). -->
+                <!-- 2026-06-09: Toolbar hợp nhất — gộp TIÊU ĐỀ + KPI + tab kênh + bộ lọc
+                     vào 1 panel, trải ngang full chiều rộng (trước đây là 3 khối rời). -->
                 <section class="search-section" id="controlBar">
-                    <!-- Hàng 1: tab kênh đơn (Livestream/Inbox) + KPI nhân viên + nút Thêm đơn -->
+                    <!-- Hàng 1: tiêu đề + tab kênh + KPI + bộ đếm + nút Thêm đơn (1 hàng rộng) -->
                     <div class="no-toolbar-top">
+                        <h1 class="page-head-title no-toolbar-title">
+                            <i data-lucide="package-open"></i>
+                            Đơn Web
+                        </h1>
+
                         <!-- 2026-06-04: Tab kênh đơn — Livestream vs Inbox -->
                         <div class="no-channel-tabs" id="channelTabs">
                             <button
@@ -73,14 +66,22 @@
                         <!-- 2026-06-09: KPI strip (dự báo/thực). Admin thấy hết NV; staff thấy của mình. -->
                         <div id="noKpiStrip" class="no-kpi-strip" hidden></div>
 
-                        <button
-                            class="no-add-order-btn"
-                            type="button"
-                            id="btnAddInboxOrder"
-                            style="display: none"
-                        >
-                            <i data-lucide="plus"></i> Thêm đơn
-                        </button>
+                        <!-- Cụm phải: bộ đếm đơn + nguồn + nút Thêm đơn (dồn mép phải,
+                             wrap cả cụm nếu hết chỗ thay vì rớt lẻ nút) -->
+                        <div class="no-toolbar-right">
+                            <div class="page-head-counters">
+                                <span class="counter-pill" id="totalCounter">— đơn</span>
+                                <span class="source-pill">source=NATIVE_WEB</span>
+                            </div>
+                            <button
+                                class="no-add-order-btn"
+                                type="button"
+                                id="btnAddInboxOrder"
+                                style="display: none"
+                            >
+                                <i data-lucide="plus"></i> Thêm đơn
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Hàng 2: bộ lọc -->

@@ -2,6 +2,17 @@
 
 ## 2026-06-09
 
+### [native-orders] Gộp luôn TIÊU ĐỀ vào toolbar — trải 1 hàng ngang full width ("rộng web") ✅
+
+**User:** gộp 3 hình (bộ lọc · tab+KPI · header "Đơn Web") lại cho rộng web.
+
+- Bỏ hẳn `<header class="page-head-mini">` riêng → đưa `📦 Đơn Web` + bộ đếm (`#totalCounter`) + `source=NATIVE_WEB` vào trong `.no-toolbar-top`.
+- Hàng 1 giờ là 1 hàng ngang trải full width: `[📦 Đơn Web │] [Livestream][Inbox] [KPI fill giữa, cuộn ngang] … [n đơn][source] [+ Thêm đơn]`. Hàng 2 vẫn là `.filter-row`.
+- **Chống rớt dòng:** title + tabs + cụm phải (`.no-toolbar-right` gom counters+Thêm đơn) đặt `flex-shrink:0`; KPI `flex:1 1 0` (basis 0 → KHÔNG đẩy cụm phải xuống dòng, chiếm khoảng giữa, `overflow-x:auto` cuộn nếu nhiều NV). Trước đó cụm phải bị wrap rớt nút xanh xuống dòng 2 — fix bằng basis-0 cho KPI + gom cụm phải.
+- Title ngăn cách tab bằng 1 vạch mảnh (`border-right`). Không đụng shared `.page-head-mini`/`.page-head-title` (dùng chung nhiều trang) — chỉ thêm class local `.no-toolbar-title`/`.no-toolbar-right`.
+- JS không đổi (ref theo id). **Verify (Playwright):** cả tab Livestream & Inbox đều 1 hàng (không wrap, `.no-toolbar-top` height ~83px), `header.page-head-mini` đã biến mất, KPI fill giữa. Screenshots `merged2-{livestream,inbox}.png`.
+- Files: `native-orders/index.html`, `native-orders/css/native-orders.css`.
+
 ### [native-orders] Gộp KPI + tab kênh + bộ lọc vào 1 panel toolbar (gọn gàng) ✅
 
 **User:** gộp hình 1 (KPI strip), hình 2 (tab Livestream/Inbox + Thêm đơn), hình 3 (bộ lọc) lại cho giao diện gọn gàng.

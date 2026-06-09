@@ -2235,6 +2235,28 @@ body {
     margin-bottom: 10px;
     border-bottom: 1px solid var(--border);
 }
+/* Tiêu đề "Đơn Web" inline trong toolbar — ngăn cách tab bằng 1 vạch mảnh.
+   flex-shrink:0 để KPI là phần tử DUY NHẤT co lại (cuộn ngang) khi hẹp. */
+.no-toolbar-title {
+    flex-shrink: 0;
+    padding-right: 12px;
+    border-right: 1px solid var(--border);
+    white-space: nowrap;
+}
+.no-toolbar-top .no-channel-tabs {
+    flex-shrink: 0;
+}
+/* Cụm phải (bộ đếm + Thêm đơn) dồn mép phải, không co, wrap nguyên cụm nếu hết chỗ */
+.no-toolbar-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+.no-toolbar-right .no-add-order-btn {
+    margin-left: 0;
+}
 
 /* ===== 2026-06-04: Tab kênh đơn (Livestream/Inbox) + Thêm đơn Inbox ===== */
 .no-channel-tabs {
@@ -2537,9 +2559,9 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
-    /* 2026-06-09: inline trong toolbar-top — ôm sát nội dung, cuộn ngang nếu
-       nhiều NV, không xuống dòng để hàng gọn. */
-    flex: 0 1 auto;
+    /* 2026-06-09: inline trong toolbar-top — chiếm khoảng giữa (flex-basis:0 để
+       KHÔNG đẩy cụm phải xuống dòng), cuộn ngang nếu nhiều NV. */
+    flex: 1 1 0;
     min-width: 0;
     overflow-x: auto;
     margin: 0;
