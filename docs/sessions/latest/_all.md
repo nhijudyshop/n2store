@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f1b685c` — auto: session update
-**Last updated**: 2026-06-09 18:45:44 +07
-**Latest session**: [`RESUME:20260609-184544-f1b685c`](../20260609-184544-f1b685c.md)
-**Summary**: auto: session update
+**Latest commit**: `74c08f8` — feat(web2-customers): 1 KH thêm nhiều SĐT (alt_phones) — modal chips + persist create/PATCH
+**Last updated**: 2026-06-09 18:48:40 +07
+**Latest session**: [`RESUME:20260609-184840-74c08f8`](../20260609-184840-74c08f8.md)
+**Summary**: feat(web2-customers): 1 KH thêm nhiều SĐT (alt_phones) — modal chips + persist create/PATCH
 
 ## Folders affected in this commit
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-09 18:45
+- [`docs/`](./docs.md) — updated 2026-06-09 18:48
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-09 17:51
@@ -70,4 +70,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-09 18:45
+- [`web2/`](./web2.md) — updated 2026-06-09 18:48
