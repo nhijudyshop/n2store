@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `600b042` — feat(web2): số lần in tem dời lên nút In cột Thao tác, bỏ icon ở ô biến thể
-**Last updated**: 2026-06-09 15:00:18 +07
-**Latest session**: [`RESUME:20260609-150018-600b042`](../20260609-150018-600b042.md)
-**Summary**: feat(web2): số lần in tem dời lên nút In cột Thao tác, bỏ icon ở ô biến thể
+**Latest commit**: `e7e58ed` — auto: session update
+**Last updated**: 2026-06-09 15:07:57 +07
+**Latest session**: [`RESUME:20260609-150757-e7e58ed`](../20260609-150757-e7e58ed.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`downloads/`](./downloads.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +27,7 @@
 - [`docs/`](./docs.md) — updated 2026-06-09 15:00
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
-- [`downloads/`](./downloads.md) — updated 2026-06-09 14:53
+- [`downloads/`](./downloads.md) — updated 2026-06-09 15:07
 - [`facebook-services/`](./facebook-services.md) — updated 2026-05-21 15:39
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
