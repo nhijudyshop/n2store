@@ -1782,8 +1782,70 @@
             });
             if (inp) inp.value = '';
             await loadParentCampaigns();
+            renderPagePosts(); // options select cập nhật theo parent mới
         } catch (e) {
             console.warn('[native-orders] create parent fail:', e.message);
+        }
+    }
+    async function loadPagePosts() {
+        try {
+            const r = await fetch(LIVE_COMMENTS_API + '/page-posts');
+            const d = await r.json().catch(() => ({}));
+            STATE.pagePosts = d.data || [];
+            renderPagePosts();
+        } catch (e) {
+            console.warn('[native-orders] page-posts fail:', e.message);
+        }
+    }
+    function renderPagePosts() {
+        const box = $('#parentPostsList');
+        if (!box) return;
+        const posts = STATE.pagePosts || [];
+        if (!posts.length) {
+            box.innerHTML =
+                '<div style="color:#9ca3af;font-size:11px;padding:2px 0;">Chưa có bài livestream gần đây.</div>';
+            return;
+        }
+        const opts = (sel) =>
+            `<option value="">— chưa gom —</option>` +
+            (STATE.parentCampaigns || [])
+                .map(
+                    (c) =>
+                        `<option value="${escapeHtml(String(c.id))}" ${String(sel) === String(c.id) ? 'selected' : ''}>${escapeHtml(c.name)}</option>`
+                )
+                .join('');
+        box.innerHTML = posts
+            .map(
+                (p) => `<div style="display:flex;align-items:center;gap:6px;font-size:11.5px;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;">${escapeHtml((p.title || '').slice(0, 50))}</div>
+                        <div style="color:#9ca3af;font-size:10px;">${escapeHtml(p.pageName || '')} · ${escapeHtml(String(p.date || '').slice(0, 10))}</div>
+                    </div>
+                    <select class="np-post-assign" data-post="${escapeHtml(p.postId)}" data-page="${escapeHtml(p.pageId || '')}" data-title="${escapeHtml((p.title || '').slice(0, 80))}" style="border:1px solid #d1d5db;border-radius:6px;padding:3px 6px;font-size:11px;max-width:140px;">${opts(p.campaign_id)}</select>
+                </div>`
+            )
+            .join('');
+    }
+    async function assignPost(postId, campaignId, pageId, title) {
+        try {
+            if (campaignId) {
+                await fetch(LIVE_COMMENTS_API + '/campaigns/' + campaignId + '/assign', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ postId, postTitle: title, pageId }),
+                });
+            } else {
+                await fetch(LIVE_COMMENTS_API + '/unassign', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ postId }),
+                });
+            }
+            await loadParentCampaigns();
+            await loadPagePosts();
+            if (STATE.parentCampaignId) selectParentCampaign(STATE.parentCampaignId);
+        } catch (e) {
+            console.warn('[native-orders] assign post fail:', e.message);
         }
     }
 
@@ -4217,6 +4279,7 @@
         renderCampaignLabel();
         loadAvailableCampaigns();
         loadParentCampaigns();
+        loadPagePosts();
 
         $('#filterCampaignBtn')?.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -4239,6 +4302,17 @@
         $('#parentCampaignCreate')?.addEventListener('click', () => createParentCampaign());
         $('#parentCampaignNew')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') createParentCampaign();
+        });
+        // Gom bài livestream vào chiến dịch cha (select per bài).
+        $('#parentPostsList')?.addEventListener('change', (e) => {
+            const sel = e.target.closest('.np-post-assign');
+            if (!sel) return;
+            assignPost(
+                sel.getAttribute('data-post'),
+                sel.value || null,
+                sel.getAttribute('data-page'),
+                sel.getAttribute('data-title')
+            );
         });
         $('#campaignList')?.addEventListener('change', (e) => {
             const cb = e.target.closest('.campaign-check');

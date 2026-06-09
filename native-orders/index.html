@@ -192,6 +192,36 @@
                                                 + Tạo
                                             </button>
                                         </div>
+                                        <!-- Bài livestream của page → gom vào chiến dịch (chung live-chat) -->
+                                        <div
+                                            id="parentPostsSection"
+                                            style="
+                                                margin-top: 8px;
+                                                border-top: 1px dashed #e5e7eb;
+                                                padding-top: 6px;
+                                            "
+                                        >
+                                            <div
+                                                style="
+                                                    font-size: 10.5px;
+                                                    font-weight: 600;
+                                                    color: #6b7280;
+                                                    padding: 0 0 4px;
+                                                "
+                                            >
+                                                Bài livestream → gom vào chiến dịch
+                                            </div>
+                                            <div
+                                                id="parentPostsList"
+                                                style="
+                                                    display: flex;
+                                                    flex-direction: column;
+                                                    gap: 4px;
+                                                    max-height: 220px;
+                                                    overflow-y: auto;
+                                                "
+                                            ></div>
+                                        </div>
                                     </div>
                                     <!-- Toolbar -->
                                     <div
@@ -487,7 +517,7 @@
         <script src="../web2/shared/web2-printer.js?v=20260607j"></script>
         <script src="js/native-orders-api.js?v=20260609a"></script>
         <script src="js/native-orders-packing-slip.js?v=20260607j"></script>
-        <script src="js/native-orders-app.js?v=20260609a"></script>
+        <script src="js/native-orders-app.js?v=20260609b"></script>
         <script>
             window.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2NewMsgBadge) window.Web2NewMsgBadge.init();

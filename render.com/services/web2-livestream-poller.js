@@ -309,4 +309,44 @@ function start({ web2Pool, chatPool, liveCommentsModule }) {
         .catch((e) => console.error('[LIVE-POLLER] init fail:', e.message));
 }
 
-module.exports = { start };
+// Danh sách TẤT CẢ bài livestream gần đây (14 ngày) của các page đã bật — cho
+// UI "gom vào chiến dịch cha" (native-orders + live-chat dùng chung). Khác
+// getActiveLivePosts (chỉ living/recent) — đây lấy cả bài đã end để gom.
+const ASSIGN_LOOKBACK_S = 14 * 24 * 3600;
+async function listLivePostsForAssign() {
+    if (!_web2Pool || !_chatPool) return [];
+    const pages = await getEnabledPages();
+    const now = Math.floor(Date.now() / 1000);
+    const out = [];
+    for (const pg of pages) {
+        const jwt = await getTokenForPage(pg.page_id);
+        if (!jwt) continue;
+        try {
+            const d = await _pfm(
+                `pages/${pg.page_id}/posts?start_time=${now - ASSIGN_LOOKBACK_S}&end_time=${now}`,
+                jwt
+            );
+            const posts = Array.isArray(d.posts) ? d.posts : Array.isArray(d.data) ? d.data : [];
+            for (const p of posts) {
+                const isLive = p.type === 'livestream' || p.is_live_video || p.live_video_id;
+                if (!isLive) continue;
+                out.push({
+                    postId: String(p.id),
+                    title: p.message || p.title || '(livestream)',
+                    pageId: String(pg.page_id),
+                    pageName: pg.page_name || '',
+                    date: p.inserted_at || p.created_time || null,
+                    living: p.live_status === 'LIVE' || !!p.is_living,
+                });
+            }
+        } catch (e) {
+            console.warn('[LIVE-POLLER] listLivePostsForAssign fail', pg.page_id, e.message);
+        }
+    }
+    out.sort(
+        (a, b) => (new Date(b.date || 0).getTime() || 0) - (new Date(a.date || 0).getTime() || 0)
+    );
+    return out;
+}
+
+module.exports = { start, listLivePostsForAssign };

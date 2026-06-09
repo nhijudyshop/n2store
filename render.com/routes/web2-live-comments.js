@@ -321,6 +321,32 @@ router.get('/posts', async (req, res) => {
     }
 });
 
+// GET /page-posts — TẤT CẢ bài livestream gần đây (14 ngày) của page đã bật, kèm
+// campaign_id hiện tại. Dùng cho UI "gom vào chiến dịch cha" ở native-orders +
+// live-chat (chung dữ liệu). Lấy live từ poller (server-side Pancake JWT).
+router.get('/page-posts', async (req, res) => {
+    const pool = getDb(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    try {
+        await ensureCampaignTables(pool);
+        let posts = [];
+        try {
+            const poller = require('../services/web2-livestream-poller');
+            posts = (await poller.listLivePostsForAssign()) || [];
+        } catch (e) {
+            console.warn('[web2-live-comments] page-posts poller fail:', e.message);
+        }
+        // Merge campaign_id từ web2_live_post_assign.
+        const a = await pool.query('SELECT post_id, campaign_id FROM web2_live_post_assign');
+        const map = {};
+        for (const row of a.rows) map[String(row.post_id)] = row.campaign_id;
+        const data = posts.map((p) => ({ ...p, campaign_id: map[String(p.postId)] ?? null }));
+        res.json({ success: true, data });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // POST /campaigns/:id/assign { postId, postTitle, pageId } — gán bài vào chiến dịch.
 router.post('/campaigns/:id/assign', async (req, res) => {
     const pool = getDb(req);
