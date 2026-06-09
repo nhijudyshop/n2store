@@ -235,6 +235,7 @@
         let showPrice = true;
         let showBold = true;
         let showProductName = true;
+        let showVariant = true;
         let showCurrency = false;
         let hideBarcode = false;
 
@@ -383,6 +384,10 @@
                     <div class="w2p-print-checkbox-item">
                         <label for="w2p-show-name">Hiển thị Tên sản phẩm</label>
                         <input type="checkbox" id="w2p-show-name" checked>
+                    </div>
+                    <div class="w2p-print-checkbox-item">
+                        <label for="w2p-show-variant">Hiển thị Biến thể</label>
+                        <input type="checkbox" id="w2p-show-variant" checked>
                     </div>
                 </div>
                 <div class="w2p-print-checkbox-row">
@@ -543,6 +548,7 @@
             (e) => (showCurrency = e.target.checked)
         );
         $('#w2p-show-name').addEventListener('change', (e) => (showProductName = e.target.checked));
+        $('#w2p-show-variant').addEventListener('change', (e) => (showVariant = e.target.checked));
         $('#w2p-hide-barcode').addEventListener('change', (e) => (hideBarcode = e.target.checked));
 
         // Quick apply qty
@@ -610,6 +616,7 @@
                 showPrice,
                 showBold,
                 showProductName,
+                showVariant,
                 showCurrency,
                 hideBarcode,
                 symbology: 'qr',
@@ -653,6 +660,7 @@
                     name: stripBrackets(item.name),
                     code: item.code,
                     price: item.price,
+                    variant: item.variant || '',
                 });
             }
         }
@@ -727,7 +735,8 @@
      */
     function buildLabelHTML(labels, paper, printType, opts, qrMap) {
         const isQr = opts.symbology === 'qr' && qrMap;
-        const { showPrice, showBold, showProductName, showCurrency, hideBarcode } = opts;
+        const { showPrice, showBold, showProductName, showVariant, showCurrency, hideBarcode } =
+            opts;
         const { sheetW, sheetH, labelW, labelH, cols, fontSize } = paper;
 
         // Scale font + spacing theo label dimensions (user feedback: scale theo
@@ -857,6 +866,9 @@
                     if (showProductName) {
                         labelInner += `<div class="barcode-pname" style="${nameStyle}text-align:left;"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
                     }
+                    if (showVariant && label.variant) {
+                        labelInner += `<div class="barcode-variant" style="${codeLeft}font-style:italic;">${escapeHtml(label.variant)}</div>`;
+                    }
                     labelInner += `<div class="ql-code" style="${codeLeft}"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
                     if (showPrice) {
                         labelInner += `<div style="${codeLeft}"><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
@@ -880,6 +892,9 @@
                     labelInner += `<div class="barcode_label" style="${labelStyleFinal}">`;
                     if (showProductName) {
                         labelInner += `<div class="barcode-pname" style="${tightFlex}${nameStyle}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
+                    }
+                    if (showVariant && label.variant) {
+                        labelInner += `<div class="barcode-variant" style="${codeStyle}font-style:italic;">${escapeHtml(label.variant)}</div>`;
                     }
                     if (!hideBarcode && label.code) {
                         labelInner += `<div class="barcode-image" style="${barcodeFlex}">${barcodeImg}</div>`;
