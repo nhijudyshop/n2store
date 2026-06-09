@@ -332,6 +332,100 @@ function fastSaleOrderHasConfirmedInvoice(order) {
     return false;
 }
 
+/**
+ * SERVER-TRUTH duplicate guard cho batch Fast Sale.
+ *
+ * Trước khi gửi InsertListOrderModel, hỏi TRỰC TIẾP TPOS xem mỗi đơn nguồn đã
+ * có PBH "active" (đã xác nhận / đã thanh toán — KHÔNG phải draft/cancel) chưa.
+ * Đơn đã có PBH active sẽ bị loại để TRÁNH tạo trùng — chính việc tạo trùng gây
+ * lỗi optimistic concurrency phía TPOS ("affected 0 rows"): bill bị tạo nửa
+ * chừng, hủy không được, hủy không trả tồn kho.
+ *
+ * ⚠ KHÔNG tin `InvoiceStatusStore` (cache Firebase) ở bước này — cache stale
+ * trên MỘT máy (listener mất kết nối) chính là nguồn gốc bug "chỉ 1 máy bị lỗi".
+ * Luôn coi TPOS là nguồn chân thật. Mượn đúng pattern guard đã chạy ổn ở luồng
+ * tạo PBH đơn lẻ (tab1-sale.js — fetch FastSaleOrder/GetView theo Reference).
+ *
+ * Fail-OPEN: nếu không lấy được token hoặc TPOS đọc lỗi → GIỮ đơn (không chặn
+ * đơn hợp lệ chỉ vì hiccup mạng). Máy dính bug vốn gọi TPOS được (đã gửi
+ * InsertListOrderModel thành công) nên read verify cũng chạy được → bắt đúng trùng.
+ *
+ * @param {Array<Object>} models - uniqueModels đã dedupe
+ * @returns {Promise<{blocked: Array<{model: Object, pbh: Object}>}>}
+ */
+async function findOrdersWithActivePBH(models) {
+    const blocked = [];
+    if (!Array.isArray(models) || models.length === 0) return { blocked };
+
+    let headers;
+    try {
+        headers = await window.tokenManager.getAuthHeader();
+    } catch (e) {
+        console.warn('[FAST-SALE] PBH re-verify bỏ qua (không lấy được token):', e?.message);
+        return { blocked }; // fail-open
+    }
+
+    const tposOData =
+        window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+
+    const checkOne = async (model) => {
+        const orderCode = model.Reference;
+        const saleOnlineId = model.SaleOnlineIds?.[0];
+        if (!orderCode) return; // không có mã đơn → không verify được → giữ (fail-open)
+        try {
+            const filter = `(Type eq 'invoice' and Reference eq '${String(orderCode).replace(/'/g, "''")}')`;
+            const url =
+                `${tposOData}/FastSaleOrder/ODataService.GetView` +
+                `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}`;
+            const resp = await fetch(url, { headers: { ...headers, accept: 'application/json' } });
+            if (!resp.ok) return; // fail-open
+            const result = await resp.json();
+            const invoices = Array.isArray(result?.value) ? result.value : [];
+
+            // Active PBH = đã xác nhận / đã thanh toán. KHÔNG tính: cancel (đã hủy),
+            // draft (Nháp — user được phép tạo phiếu mới song song).
+            const activePBH = invoices.find(
+                (inv) =>
+                    inv.State !== 'cancel' &&
+                    inv.State !== 'draft' &&
+                    inv.StateCode !== 'cancel' &&
+                    inv.StateCode !== 'draft' &&
+                    !inv.IsMergeCancel &&
+                    inv.ShowState !== 'Huỷ bỏ' &&
+                    inv.ShowState !== 'Hủy bỏ' &&
+                    inv.ShowState !== 'Nháp'
+            );
+
+            // Đồng bộ Store với data fresh — sửa luôn cache stale trên máy này.
+            if (saleOnlineId && window.InvoiceStatusStore) {
+                for (const inv of invoices) {
+                    try {
+                        window.InvoiceStatusStore.set(saleOnlineId, inv, {
+                            Id: saleOnlineId,
+                            Code: orderCode,
+                            Name: inv.PartnerDisplayName || '',
+                            Telephone: inv.Phone || '',
+                            Address: inv.Address || '',
+                        });
+                    } catch (_) {}
+                }
+            }
+
+            if (activePBH) blocked.push({ model, pbh: activePBH });
+        } catch (err) {
+            console.warn(`[FAST-SALE] PBH re-verify lỗi cho ${orderCode} (giữ đơn):`, err?.message);
+            // fail-open
+        }
+    };
+
+    // Song song có giới hạn để không spam TPOS.
+    const CONCURRENCY = 8;
+    for (let i = 0; i < models.length; i += CONCURRENCY) {
+        await Promise.all(models.slice(i, i + CONCURRENCY).map(checkOne));
+    }
+    return { blocked };
+}
+
 async function showFastSaleModal() {
     const modal = document.getElementById('fastSaleModal');
     const modalBody = document.getElementById('fastSaleModalBody');
@@ -2731,6 +2825,49 @@ async function saveFastSaleOrders(isApprove = false) {
         }
 
         // =====================================================
+        // SERVER-TRUTH DUPLICATE GUARD (chống lỗi optimistic concurrency TPOS)
+        // Hỏi TPOS xem đơn nào ĐÃ có PBH active → loại để không tạo trùng.
+        // KHÔNG tin InvoiceStatusStore (cache Firebase stale trên 1 máy = nguồn
+        // gốc bug "tạo PBH trùng → bill kẹt, hủy không được, không trả tồn kho").
+        // =====================================================
+        showFastSaleStatus('Đang kiểm tra đơn đã có phiếu...', 'loading');
+        const { blocked: blockedByPBH } = await findOrdersWithActivePBH(uniqueModels);
+        if (blockedByPBH.length > 0) {
+            const blockedSet = new Set(blockedByPBH.map((b) => b.model));
+            // Loại blocked khỏi uniqueModels IN PLACE (giữ const, đồng nhất với
+            // cách reVerifyWalletForBatch mutate mảng này ngay sau đó).
+            for (let i = uniqueModels.length - 1; i >= 0; i--) {
+                if (blockedSet.has(uniqueModels[i])) uniqueModels.splice(i, 1);
+            }
+            const lines = blockedByPBH
+                .map(
+                    (b) =>
+                        `${b.model.Reference || b.model.SaleOnlineIds?.[0] || '?'} → PBH ${b.pbh.Number} (${b.pbh.ShowState || b.pbh.State})`
+                )
+                .join('<br>');
+            console.warn(
+                `[FAST-SALE] ⛔ Bỏ ${blockedByPBH.length} đơn đã có PBH active:`,
+                blockedByPBH
+            );
+            window.notificationManager?.warning(
+                `<div style="font-size:14px;line-height:1.6;">Bỏ qua <b>${blockedByPBH.length}</b> đơn ĐÃ CÓ phiếu (tránh tạo trùng gây kẹt bill):<br>${lines}</div>`,
+                8000,
+                'Đơn đã có phiếu'
+            );
+        }
+
+        if (uniqueModels.length === 0) {
+            showFastSaleStatus('Tất cả đơn đã có phiếu — không tạo trùng', 'warning');
+            showFastSaleResultsModal({
+                DataErrorFast: [],
+                OrdersError: [],
+                OrdersSucessed: [],
+            });
+            resetFastSaleSubmissionState();
+            return;
+        }
+
+        // =====================================================
         // WALLET RE-VERIFY: Check available_balance before sending batch
         // Prevents race condition where stale wallet data causes
         // PaymentAmount > actual available balance
@@ -2846,10 +2983,31 @@ async function saveFastSaleOrders(isApprove = false) {
     } catch (error) {
         console.error('[FAST-SALE] Error saving orders:', error);
 
-        showFastSaleStatus('Lỗi khi lưu: ' + error.message, 'error');
-        window.notificationManager.error(`Lỗi khi lưu đơn hàng: ${error.message}`, 'Lỗi hệ thống');
+        const msg = error?.message || '';
+        // Lỗi optimistic concurrency của TPOS ("affected an unexpected number of
+        // rows (0)") = đơn có thể đã có phiếu / đang bị tạo trùng → bill kẹt.
+        const isConcurrency =
+            /affected an unexpected number of rows|optimistic concurrency|BusinessException/i.test(
+                msg
+            );
+        if (isConcurrency) {
+            showFastSaleStatus('Lỗi đồng bộ TPOS — tải lại & kiểm tra phiếu', 'error');
+            window.notificationManager.error(
+                '<div style="font-size:14px;line-height:1.6;">TPOS báo <b>xung đột đồng bộ</b> ' +
+                    '(đơn có thể đã có phiếu hoặc đang bị tạo trùng).<br>' +
+                    '➤ <b>Tải lại trang</b> (Ctrl+Shift+R) rồi thử lại — hệ thống sẽ tự bỏ qua đơn đã có phiếu.<br>' +
+                    '➤ Nếu có PBH bị kẹt (không hủy được / không trả tồn kho), kiểm tra & xử lý trên TPOS.</div>',
+                12000,
+                'Xung đột đồng bộ TPOS'
+            );
+        } else {
+            showFastSaleStatus('Lỗi khi lưu: ' + msg, 'error');
+            window.notificationManager.error(`Lỗi khi lưu đơn hàng: ${msg}`, 'Lỗi hệ thống');
+        }
 
-        // Error: reset submission state so user can try again
+        // Error: reset submission state so user can try again.
+        // An toàn: lần submit kế tiếp luôn chạy lại findOrdersWithActivePBH (fetch
+        // TPOS tươi) nên đơn đã có phiếu sẽ tự bị loại — không đẻ thêm bill trùng.
         resetFastSaleSubmissionState();
     }
 }

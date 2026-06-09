@@ -2,6 +2,15 @@
 
 ## 2026-06-09
 
+### [orders] Fast Sale: server-truth guard chống tạo PBH trùng → hết lỗi optimistic concurrency TPOS ✅
+
+**User báo:** 1 máy tạo đơn (KH 0916820743, NJD/2026/71260 & NJD/71242) báo lỗi TPOS `Store update... affected an unexpected number of rows (0)... optimistic concurrency... BusinessException`; hủy không được; hủy ở TPOS không trả tồn kho; **chỉ 1 máy bị**.
+
+- **Chẩn đoán:** tạo PBH trùng cho đơn nguồn ĐÃ có bill → TPOS update đơn nguồn (RowVersion cũ) khớp 0 dòng → 400 + bill kẹt nửa chừng (hủy fail, stock.move không đảo ngược). "1 máy" = cổng chặn trùng `fastSaleOrderHasConfirmedInvoice` chỉ dựa `InvoiceStatusStore` (cache Firebase) → **stale trên 1 máy** (listener mất kết nối) → không lọc đơn đã billed → user re-bill.
+- **Fix (`orders-report/js/tab1/tab1-fast-sale.js`):** thêm `findOrdersWithActivePBH(models)` — trước khi gửi `InsertListOrderModel`, fetch FRESH `FastSaleOrder/GetView?$filter=Type eq 'invoice' and Reference eq '<code>'` (mượn pattern đã chạy ổn ở `tab1-sale.js` guard đơn lẻ), loại đơn đã có PBH active (≠ draft/cancel). KHÔNG tin cache. Đồng bộ lại `InvoiceStatusStore` fresh. Fail-OPEN khi token/đọc lỗi. Splice in-place trước `reVerifyWalletForBatch`. All-blocked → abort, không gọi TPOS.
+- **Lỗi concurrency** ở catch giờ hiện thông báo hành động rõ (tải lại + kiểm tra PBH kẹt trên TPOS) thay vì raw message. Re-submit an toàn vì guard luôn re-verify.
+- ⚠ **Còn việc thủ công (Phần A):** 2 bill kẹt NJD/2026/71260 & NJD/71242 phải xử lý trên TPOS để giải phóng tồn kho — frontend không sửa được dòng RowVersion hỏng.
+
 ### [web2][native-orders] Auto-gán balance-history + Chiến dịch cha cho native-orders ✅
 
 - **#1 Auto-gán GD chưa gán** (`web2-balance-history.js`): `POST /auto-assign` — GD 'in' chưa gán → extract exact/partial SĐT + tên người gửi → match `web2_customers` (anchor phone suffix, tên disambiguate khi >1 candidate) → CHỈ gán khi DUY NHẤT 1 KH → `linkTransaction` (gán + cộng ví). Nút "🎯 Tự động gán" + dryRun. **Đã chạy thật: 54 quét → 20 gán, 5 mơ hồ, 29 không định danh.**
