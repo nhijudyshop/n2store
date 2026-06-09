@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b7c9c58` — feat(native-orders): gộp KPI + tab kênh + bộ lọc vào 1 panel toolbar gọn gàng
-**Last updated**: 2026-06-09 17:59:11 +07
-**Latest session**: [`RESUME:20260609-175911-b7c9c58`](../20260609-175911-b7c9c58.md)
-**Summary**: feat(native-orders): gộp KPI + tab kênh + bộ lọc vào 1 panel toolbar gọn gàng
+**Latest commit**: `ae95abf` — feat(native-orders): gộp tiêu đề vào toolbar — trải 1 hàng ngang full width
+**Last updated**: 2026-06-09 18:10:45 +07
+**Latest session**: [`RESUME:20260609-181045-ae95abf`](../20260609-181045-ae95abf.md)
+**Summary**: feat(native-orders): gộp tiêu đề vào toolbar — trải 1 hàng ngang full width
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-09 17:59
+- [`docs/`](./docs.md) — updated 2026-06-09 18:10
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-09 17:51
@@ -40,7 +40,7 @@
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`live-chat/`](./live-chat.md) — updated 2026-06-09 15:31
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-09 17:59
+- [`native-orders/`](./native-orders.md) — updated 2026-06-09 18:10
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-09 16:10
