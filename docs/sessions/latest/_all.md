@@ -3,13 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `85a25c7` — auto: session update
-**Last updated**: 2026-06-09 19:41:49 +07
-**Latest session**: [`RESUME:20260609-194149-85a25c7`](../20260609-194149-85a25c7.md)
-**Summary**: auto: session update
+**Latest commit**: `e2fbbdc` — feat(orders): resolve FB global_id qua comment livestream (Pancake fetch + fetchMessages)
+**Last updated**: 2026-06-09 19:43:17 +07
+**Latest session**: [`RESUME:20260609-194317-e2fbbdc`](../20260609-194317-e2fbbdc.md)
+**Summary**: feat(orders): resolve FB global_id qua comment livestream (Pancake fetch + fetchMessages)
 
 ## Folders affected in this commit
 
+- [`docs/`](./docs.md) — 1 file(s)
 - [`orders-report/`](./orders-report.md) — 1 file(s)
 
 ## All folder snapshots
@@ -24,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-09 19:40
+- [`docs/`](./docs.md) — updated 2026-06-09 19:43
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-09 19:12
@@ -42,7 +43,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-09 19:12
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-09 19:41
+- [`orders-report/`](./orders-report.md) — updated 2026-06-09 19:43
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
