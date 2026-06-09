@@ -2,6 +2,19 @@
 
 ## 2026-06-09
 
+### [orders] Popup KH — nút Facebook resolve qua PANCAKE FETCH (bỏ tìm theo tên) ✅
+
+**User:** đừng tìm theo tên → tìm theo Pancake fetch; không có thì ghi "Chưa có dữ liệu Pancake".
+
+- Bỏ hẳn fallback "Tìm trên FB" (search theo tên) trong popup KH (`orders-report/js/tab1/tab1-customer-info.js`).
+- Thiếu `global_id` → dòng Facebook hiện **"Đang tra Pancake…"** (spinner) → `_tryResolveFbProfile` chạy 2 nguồn (Web 1.0, qua worker proxy):
+    1. `_resolveFbViaCache` — `GET /api/fb-global-id?pageId&psid` (bảng `fb_global_id_cache`) qua các cặp trong `pancake_data.page_fb_ids`.
+    2. `_resolveFbViaPancake` — **reuse `window.pancakeDataManager.searchConversations(phone)`** (Pancake fetch qua worker). Chỉ lấy `global_id` từ conv ĐÃ VERIFY SĐT (`recent_phone_numbers` khớp) → tránh gắn nhầm FB người khác. Persist vào cache qua `GlobalIdHarvester.fromConversation`.
+    - Tìm được → nâng thành **"Mở Ảnh"** (`facebook.com/<gid>/photos`).
+    - Không → **"Chưa có dữ liệu Pancake"** (`_setFbNoData`, class `.cip-fb-none`).
+- CSS: bỏ `.cip-fb-link-search`, thêm `.cip-fb-loading` (`orders-report/css/tab1-orders.css`).
+- **Verify (Playwright headless, stub searchConversations):** CASE2 conv verify-phone có `page_customer.global_id` → nâng "Mở Ảnh" `/100055554444333/photos`; CASE3 conv rỗng → "Chưa có dữ liệu Pancake". ✅
+
 ### [web2] Tem mã SP — phóng to chữ (user báo "chữ trong 2 tem nhỏ quá") ✅
 
 **User:** chữ trong 2 tem mã sản phẩm nhỏ quá.
