@@ -1,0 +1,193 @@
+{
+    "data": {
+        "trash": [],
+        "activeTabId": "hanoi",
+        "tabs": [
+            {
+                "columnVisibility": {
+                    "supplier": true,
+                    "stt": true,
+                    "productName": true,
+                    "variant": true,
+                    "qty": true,
+                    "sellPrice": true,
+                    "costPrice": true,
+                    "productImage": true,
+                    "invoiceImage": true,
+                    "note": true,
+                    "costNote": true,
+                    "status": true,
+                    "actions": true
+                },
+                "footer": {
+                    "shipping": 0,
+                    "discount": 0
+                },
+                "currency": "VND",
+                "rate": 1,
+                "label": "HÀ NỘI",
+                "id": "hanoi",
+                "shipments": [
+                    {
+                        "date": "2026-06-01",
+                        "contractAmount": 575000,
+                        "weightKg": 6,
+                        "batch": "HN-2606",
+                        "caseCount": 1,
+                        "id": "mq6btd930041wdw",
+                        "rows": [
+                            {
+                                "sellPrice": 195000,
+                                "costNote": "",
+                                "status": "received",
+                                "invoiceGroupId": "mq6btd93000vq8c",
+                                "supplier": "HÀ NỘI",
+                                "createdAt": 1780990593879,
+                                "invoiceImage": "",
+                                "qty": 1,
+                                "costPrice": 85000,
+                                "productImage": "",
+                                "id": "mq6btd93001xzd8",
+                                "productName": "Áo Sơ Mi Lụa Cao Cấp",
+                                "variant": "M",
+                                "note": "",
+                                "updatedAt": 1780990593879
+                            },
+                            {
+                                "supplier": "HÀ NỘI",
+                                "invoiceImage": "",
+                                "createdAt": 1780990593879,
+                                "invoiceGroupId": "mq6btd93000vq8c",
+                                "costNote": "",
+                                "status": "received",
+                                "sellPrice": 159000,
+                                "updatedAt": 1780990593879,
+                                "note": "",
+                                "variant": "S",
+                                "productName": "Chân Váy Xếp Ly",
+                                "id": "mq6btd93002yya7",
+                                "costPrice": 65000,
+                                "productImage": "",
+                                "qty": 2
+                            },
+                            {
+                                "note": "",
+                                "updatedAt": 1780990593879,
+                                "variant": "29",
+                                "productName": "Quần Jean Ống Suông",
+                                "productImage": "",
+                                "qty": 3,
+                                "costPrice": 120000,
+                                "id": "mq6btd93003r0wz",
+                                "invoiceGroupId": "mq6btd93000vq8c",
+                                "invoiceImage": "",
+                                "createdAt": 1780990593879,
+                                "supplier": "HÀ NỘI",
+                                "costNote": "",
+                                "status": "received",
+                                "sellPrice": 265000
+                            }
+                        ],
+                        "expectedDeliveryDate": null,
+                        "contractCurrency": "VND",
+                        "collapsed": false
+                    }
+                ],
+                "uiInitialized": true
+            },
+            {
+                "shipments": [
+                    {
+                        "caseCount": 1,
+                        "id": "mq6btd93009c8vv",
+                        "date": "2026-06-01",
+                        "batch": "HC-2606",
+                        "contractAmount": 775000,
+                        "weightKg": 6,
+                        "contractCurrency": "VND",
+                        "collapsed": false,
+                        "expectedDeliveryDate": null,
+                        "rows": [
+                            {
+                                "productName": "Áo Khoác Dạ Tweed",
+                                "qty": 1,
+                                "costPrice": 210000,
+                                "productImage": "",
+                                "id": "mq6btd93006r0tu",
+                                "note": "",
+                                "updatedAt": 1780990593879,
+                                "variant": "M",
+                                "sellPrice": 480000,
+                                "invoiceGroupId": "mq6btd93005m1vm",
+                                "supplier": "HƯƠNG CHÂU",
+                                "createdAt": 1780990593879,
+                                "invoiceImage": "",
+                                "status": "received",
+                                "costNote": ""
+                            },
+                            {
+                                "invoiceGroupId": "mq6btd93005m1vm",
+                                "invoiceImage": "",
+                                "createdAt": 1780990593879,
+                                "supplier": "HƯƠNG CHÂU",
+                                "status": "received",
+                                "costNote": "",
+                                "sellPrice": 320000,
+                                "note": "",
+                                "updatedAt": 1780990593879,
+                                "variant": "L",
+                                "productName": "Đầm Maxi Hoa Nhí",
+                                "qty": 2,
+                                "costPrice": 140000,
+                                "productImage": "",
+                                "id": "mq6btd93007l1hb"
+                            },
+                            {
+                                "productName": "Set Đồ Thể Thao Nữ",
+                                "id": "mq6btd93008mx9r",
+                                "productImage": "",
+                                "costPrice": 95000,
+                                "qty": 3,
+                                "updatedAt": 1780990593879,
+                                "note": "",
+                                "variant": "M",
+                                "sellPrice": 225000,
+                                "createdAt": 1780990593879,
+                                "invoiceImage": "",
+                                "supplier": "HƯƠNG CHÂU",
+                                "invoiceGroupId": "mq6btd93005m1vm",
+                                "costNote": "",
+                                "status": "received"
+                            }
+                        ]
+                    }
+                ],
+                "currency": "VND",
+                "columnVisibility": {
+                    "supplier": true,
+                    "stt": true,
+                    "productName": true,
+                    "variant": true,
+                    "qty": true,
+                    "sellPrice": true,
+                    "costPrice": true,
+                    "productImage": true,
+                    "invoiceImage": true,
+                    "note": true,
+                    "costNote": true,
+                    "status": true,
+                    "actions": true
+                },
+                "footer": {
+                    "shipping": 0,
+                    "discount": 0
+                },
+                "label": "QUẢNG CHÂU",
+                "id": "quangchau",
+                "rate": 1,
+                "uiInitialized": true
+            }
+        ]
+    },
+    "lastUpdated": 1780991164348
+}

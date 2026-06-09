@@ -2,6 +2,15 @@
 
 ## 2026-06-09
 
+### [web2][native-orders] Thêm BIẾN THỂ (size/màu) vào tem mã SP + PBH ✅
+
+**User:** tem mã sản phẩm thêm biến thể vào + PBH cho biến thể sản phẩm vào.
+
+- **Tem SP** (`web2-products-print.js`): `variant` đã có trong item nhưng bị bỏ khi dựng `labels` + không render. Thêm `variant` vào label object + render dòng biến thể (italic) ở CẢ layout QR (sau tên, trước mã) và layout vertical. Thêm checkbox **"Hiển thị Biến thể"** (default ON, mirror showProductName) + plumbing opts.
+- **PBH** (`web2-bill-service.js` `_buildBillBody`): render `it.variant` thành `<div class="b-it-variant">` (italic 11px) dưới tên SP mỗi dòng — an toàn cho mọi nguồn PBH (chỉ hiện khi line có variant). Thêm CSS `.b-it-variant`.
+- **Data plumbing native-orders** (`native-orders-app.js`): native order product KHÔNG lưu variant riêng → (1) capture `variant` khi add SP vào cart/EDIT_LINES (lookup từ `EDIT_PRODUCTS_CACHE` cho picker DOM thiếu field); (2) `buildPbhShape` map `variant` vào orderLines, fallback lookup `PRODUCT_VARIANT_MAP` (mã→variant) cho ĐƠN CŨ chưa lưu; (3) `ensureVariantMap()` lazy-fetch kho SP 1 lần, `printConfirmedBills` async await trước khi dựng bill. web2-products `/list` trả `variant` sẵn.
+- **Test (Playwright):** Tem SP — gọi `Web2ProductsPrint.open` SP có variant → label HTML chứa `barcode-variant` + "Trắng, M" + checkbox present/checked ✅. PBH — `Web2Bill.generateHTML` 3 dòng (2 có variant, 1 không) → đúng 2 dòng `b-it-variant` ("Đỏ, M"/"Xanh, 30"), dòng không variant bỏ qua, QR vẫn decorated ✅. Bump cache `?v=20260609var`.
+
 ### [web2] Kho SP: badge "In: N×" → icon máy in compact + số đếm nhỏ ✅
 
 **User:** bỏ badge "In: 1×" đầy đủ, chỉ để icon máy in nhỏ với số nhỏ overlay.

@@ -1,0 +1,62 @@
+{
+    "data": {
+        "tabs": [
+            {
+                "id": "hanoi",
+                "label": "HÀ NỘI",
+                "currency": "VND",
+                "rate": 1,
+                "footer": {
+                    "discount": 0,
+                    "shipping": 0
+                },
+                "columnVisibility": {
+                    "supplier": true,
+                    "stt": true,
+                    "productName": true,
+                    "variant": true,
+                    "qty": true,
+                    "sellPrice": true,
+                    "costPrice": true,
+                    "productImage": true,
+                    "invoiceImage": true,
+                    "note": true,
+                    "costNote": true,
+                    "status": true,
+                    "actions": true
+                },
+                "shipments": [],
+                "uiInitialized": true
+            },
+            {
+                "id": "huongchau",
+                "label": "HƯƠNG CHÂU",
+                "currency": "CNY",
+                "rate": 3500,
+                "footer": {
+                    "discount": 0,
+                    "shipping": 0
+                },
+                "columnVisibility": {
+                    "supplier": true,
+                    "stt": true,
+                    "productName": true,
+                    "variant": true,
+                    "qty": true,
+                    "sellPrice": true,
+                    "costPrice": true,
+                    "productImage": true,
+                    "invoiceImage": true,
+                    "note": true,
+                    "costNote": true,
+                    "status": true,
+                    "actions": true
+                },
+                "shipments": [],
+                "uiInitialized": true
+            }
+        ],
+        "activeTabId": "hanoi"
+    },
+    "lastUpdated": 1780990543760
+}
