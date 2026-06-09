@@ -84,10 +84,12 @@
         //   hide: code, channel, phone, qty, status, employee, time
         colVisibility: loadColVisibility(),
     };
-    const CHANNEL_STORAGE_KEY = 'native_orders_channel';
+    // ⚠ Dùng literal trực tiếp (KHÔNG ref const ngoài) — restoreChannel() được gọi
+    // trong object literal STATE phía trên, chạy TRƯỚC khi các const module-scope
+    // bên dưới khởi tạo → ref const sẽ ném TDZ "Cannot access before initialization".
     function restoreChannel() {
         try {
-            const v = localStorage.getItem(CHANNEL_STORAGE_KEY);
+            const v = localStorage.getItem('native_orders_channel');
             if (v === 'web2_inbox' || v === 'web2_livestream') return v;
         } catch {
             /* fallthrough */
@@ -96,7 +98,7 @@
     }
     function saveChannel(ch) {
         try {
-            localStorage.setItem(CHANNEL_STORAGE_KEY, ch);
+            localStorage.setItem('native_orders_channel', ch);
         } catch {
             /* best-effort */
         }
@@ -1035,14 +1037,15 @@
         // Hover (native title — có độ trễ sẵn, không hiện liền) → số lần in + thời
         // gian in gần nhất. Số lần in cụ thể đã in trên chính phiếu (bill / PSH).
         // [2026-06-09] Bấm icon → IN LẠI bill đúng loại theo trạng thái (Nháp →
-        // Phiếu Soạn Hàng, PBH SHOP → bill PBH SHOP, còn lại → bill PBH). Delegated
-        // qua data-action="print-bill". cursor:pointer để gợi ý click được.
+        // Phiếu Soạn Hàng, PBH SHOP → bill PBH SHOP, còn lại → bill PBH). Dùng
+        // inline onclick (badge nằm trong td col-check có stopPropagation nên
+        // document-delegation không nhận được event). cursor:pointer gợi ý click.
         const pc = Number(o.printCount) || 0;
         if (pc > 0) {
             const t = o.lastPrintedAt ? formatFullTime(o.lastPrintedAt) : '';
             const tip = `Đã in ${pc} lần${t ? ` — lần cuối: ${t}` : ''} — bấm để in lại bill`;
             out.push(
-                `<span class="no-print-badge" data-action="print-bill" data-code="${escapeHtml(o.code)}" title="${escapeHtml(tip)}" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:12.5px;border-radius:6px;background:#fef3c7;border:1px solid #fde68a;cursor:pointer;">🖨</span>`
+                `<span class="no-print-badge" title="${escapeHtml(tip)}" onclick="event.stopPropagation();NativeOrdersApp.printOrder('${escapeHtml(o.code)}')" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:12.5px;border-radius:6px;background:#fef3c7;border:1px solid #fde68a;cursor:pointer;">🖨</span>`
             );
         }
         return out.length ? `<div class="no-derived-badges">${out.join('')}</div>` : '';
@@ -4316,17 +4319,6 @@
                 total: Number(badge.dataset.total) || 0,
                 onDone: () => load(),
             });
-        });
-
-        // 2026-06-09: click icon 🖨 (badge "đã in") → in lại bill cho ĐÚNG 1 đơn,
-        // đúng loại theo trạng thái (Nháp → Phiếu Soạn Hàng, PBH SHOP → bill PBH
-        // SHOP, còn lại → bill PBH). Delegated vì badge render động trong bảng.
-        document.addEventListener('click', (e) => {
-            const badge = e.target.closest?.('[data-action="print-bill"]');
-            if (!badge) return;
-            e.stopPropagation();
-            const code = badge.dataset.code || '';
-            if (code) bulkPrintBills([code]);
         });
 
         // Apply/Clear/Refresh/Export buttons removed in single-row layout —
@@ -9128,6 +9120,8 @@
         removeOrder,
         bulkCreatePbh,
         bulkSendMessage,
+        // 2026-06-09: in lại bill 1 đơn (icon 🖨) — đúng loại theo trạng thái.
+        printOrder: (code) => bulkPrintBills([code]),
         // Exposed for Web2MsgTemplate (port từ orders-report) — gọi extension
         // qua window.postMessage bridge với promise wrapper + timeout.
         _extensionRequest,

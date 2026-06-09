@@ -2,6 +2,16 @@
 
 ## 2026-06-09
 
+### [native-orders] Icon 🖨 (badge "đã in") → bấm in lại bill PBH đúng loại theo trạng thái ✅
+
+**User:** native-orders bấm vào icon máy in (hình 2) hiện bill PBH. Nhớ bill PBH có logic theo trạng thái → Nháp = Phiếu Soạn Hàng, Bán hàng shop = PBH SHOP, còn lại = PBH.
+
+- Badge `🖨` (`no-print-badge`, hiện khi `printCount > 0`) trước đây chỉ informational (`cursor:default`). Giờ bấm được → in lại bill cho ĐÚNG 1 đơn.
+- Reuse logic in sẵn có: `bulkPrintBills(codesArg)` thêm param optional — truyền `[code]` thì in 1 đơn, không truyền thì lấy đơn đang chọn (nút "In bill" toolbar). Mỗi đơn in đúng loại theo trạng thái: Nháp → `NativeOrdersPackingSlip` (Phiếu Soạn Hàng), confirmed/PBH → `Web2Bill.openPrint` (title tự render PBH SHOP / PBH / Phiếu Bán Hàng theo carrier+channel).
+- Badge dùng inline `onclick` gọi `NativeOrdersApp.printOrder(code)` (KHÔNG document-delegation vì badge nằm trong `td.col-check` có `event.stopPropagation()` chặn bubble). Expose `printOrder` trong public API.
+- **Verify (Playwright):** seed `print_count` 2 đơn Nháp → badge render `cursor:pointer` → bấm từng cái → mở Phiếu Soạn Hàng đúng đơn, 0 lỗi console. Nhánh confirmed/shop dùng chung code `printConfirmedBills` đã chạy prod ở nút "In bill".
+- Files: `native-orders/js/native-orders-app.js`.
+
 ### [web2] Tem mã SP — mã SP xuống DƯỚI QR, canh giữa, rộng = QR ✅
 
 **User:** cho mã SP nằm dưới mã QR, canh giữa mã QR → margin start/end bằng với mã QR.
