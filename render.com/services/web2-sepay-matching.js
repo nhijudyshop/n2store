@@ -23,7 +23,9 @@
 //     → { success, method, phone?, customerName?, walletTxnId?, pendingMatchId? }
 // =====================================================================
 
-const { extractIdentifier, searchTposByPhone } = require('./web2-content-extractor');
+const { extractIdentifier } = require('./web2-content-extractor');
+// 2026-06-09: GỠ TPOS — resolve KH theo SĐT từ KHO web2_customers (không TPOS).
+const { searchWeb2CustomersByPhone } = require('../db/web2-customers-schema');
 const web2WalletService = require('./web2-wallet-service');
 const web2ContentParser = require('./web2-content-parser');
 const web2MatchAudit = require('./web2-match-audit');
@@ -330,19 +332,16 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
 
     // 1. PRELINK CREDIT: row đã có linked_customer_phone (phone ≥ 5 digits)
     //    nhưng ví Web 2.0 chưa cộng → credit lại theo phone đã link, fill name
-    //    qua TPOS realtime. Không cần re-extract content. Phone < 5 digit
+    //    từ KHO web2_customers. Không cần re-extract content. Phone < 5 digit
     //    là artifact extraction lỗi, KHÔNG credit (tránh tạo wallet sai).
     if (tx.linked_customer_phone && tx.linked_customer_phone.length >= 5) {
-        // Backfill display_name từ TPOS nếu null
+        // Backfill display_name từ KHO web2_customers nếu null (KHÔNG TPOS).
         let prelinkName = tx.display_name;
         if (!prelinkName) {
             try {
-                const tposResult = await searchTposByPhone(
-                    tx.linked_customer_phone,
-                    fetchWithTimeout
-                );
-                if (tposResult?.success && tposResult.uniquePhones?.length > 0) {
-                    const phoneData = tposResult.uniquePhones.find(
+                const whResult = await searchWeb2CustomersByPhone(db, tx.linked_customer_phone);
+                if (whResult?.success && whResult.uniquePhones?.length > 0) {
+                    const phoneData = whResult.uniquePhones.find(
                         (p) => p.phone === tx.linked_customer_phone
                     );
                     if (phoneData?.customers?.length > 0) {
@@ -351,7 +350,7 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
                 }
             } catch (e) {
                 console.warn(
-                    `[processWeb2Match] prelink TPOS name lookup fail for ${tx.linked_customer_phone}:`,
+                    `[processWeb2Match] prelink name lookup (web2_customers) fail for ${tx.linked_customer_phone}:`,
                     e.message
                 );
             }
@@ -454,10 +453,10 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
         }
     }
 
-    // 2b. Aggregate ALL phone candidates (5–10 digits) — search TPOS per
-    //     candidate, merge unique phones (dedup by phone). 1 unique → auto
+    // 2b. Aggregate ALL phone candidates (5–10 digits) — search KHO web2_customers
+    //     per candidate, merge unique phones (dedup by phone). 1 unique → auto
     //     credit; >1 unique → pending; 0 → no_match.
-    //     Cap MAX_CANDIDATES_TO_TRY để tránh spam TPOS calls.
+    //     Cap MAX_CANDIDATES_TO_TRY để tránh quét thừa.
     const MAX_CANDIDATES_TO_TRY = 5;
     if (!matchedPhone) {
         const candidates = (extracted.phoneCandidates || []).slice(0, MAX_CANDIDATES_TO_TRY);
@@ -472,9 +471,10 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
         const phoneMap = new Map(); // unique phone → { phone, customers[], sourceCandidate }
         for (const cand of candidates) {
             try {
-                const r = await searchTposByPhone(cand, fetchWithTimeout);
+                // 2026-06-09: KHO web2_customers thay TPOS.
+                const r = await searchWeb2CustomersByPhone(db, cand);
                 if (!r?.success || !r.uniquePhones?.length) continue;
-                dataSource = 'TPOS';
+                dataSource = 'WEB2_CUSTOMERS';
                 for (const u of r.uniquePhones) {
                     if (!phoneMap.has(u.phone)) {
                         phoneMap.set(u.phone, { ...u, sourceCandidate: cand });
@@ -489,7 +489,10 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
                     }
                 }
             } catch (e) {
-                console.warn(`[web2-sepay-matching] TPOS search "${cand}" failed:`, e.message);
+                console.warn(
+                    `[web2-sepay-matching] web2_customers search "${cand}" failed:`,
+                    e.message
+                );
             }
         }
 

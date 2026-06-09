@@ -693,13 +693,13 @@ router.post('/from-comment', async (req, res) => {
                 const appendedNote = b.message
                     ? `${src.note || ''}${src.note ? '\n---\n' : ''}[${new Date().toLocaleString('vi-VN')}] ${pageTag}${b.message}`
                     : src.note;
-                // 2026-06-01 Web 2.0 ↔ TPOS sync: merge brings phone → upsert
-                // customer (auto-pull TPOS data). Same logic as fresh create above.
+                // 2026-06-09: merge brings phone → upsert vào KHO KH web2_customers
+                // (KHÔNG TPOS). Same logic as fresh create above.
                 const mergedPhone = b.phone || src.phone;
                 let mergedCustomerId = src.customer_id;
                 if (mergedPhone && !mergedCustomerId) {
                     try {
-                        const created = await getOrCreateCustomerFromTPOS(pool, mergedPhone, null);
+                        const created = await getOrCreateWeb2OrderCustomer(pool, mergedPhone, {});
                         mergedCustomerId = created?.customerId || null;
                     } catch (e) {
                         console.warn('[native-orders] merge customer sync failed:', e.message);
@@ -1625,14 +1625,13 @@ router.patch('/:code', async (req, res) => {
             sets.push(`${col} = $${params.length}`);
         }
         if (sets.length === 0) return res.status(400).json({ error: 'No update fields' });
-        // 2026-06-01 Web 2.0 ↔ TPOS sync trên PATCH: phone change → upsert customer
-        // (auto-pull TPOS data nếu tồn tại). Sync customerName + address sang
-        // customers table để 2 chiều consistent (chỉ KH info, KHÔNG đơn/SP).
+        // 2026-06-09: PATCH phone change → upsert vào KHO KH web2_customers (KHÔNG
+        // TPOS). Sync customerName + address để 2 chiều consistent (chỉ KH info).
         if (body.phone !== undefined) {
             let cid = null;
             if (body.phone) {
                 try {
-                    const created = await getOrCreateCustomerFromTPOS(pool, body.phone, null);
+                    const created = await getOrCreateWeb2OrderCustomer(pool, body.phone, {});
                     cid = created?.customerId || null;
                 } catch (e) {
                     console.warn('[native-orders] PATCH phone customer sync failed:', e.message);

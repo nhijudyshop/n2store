@@ -14,7 +14,7 @@
 // Quyết định khớp (ưu tiên giảm dần, chỉ auto khi CHẮC):
 //   • phoneHit   — SĐT signal == SĐT GD (linked_customer_phone, QR registry, hoặc
 //                  trong nội dung). Định danh chắc chắn.
-//   • partnerHit — customer_id signal == customer_id QR (partner_id TPOS, unique).
+//   • partnerHit — customer_id signal == customer_id QR (web2_customers.id, unique).
 //   • nameHit    — tên KH signal == tên KH trên QR/GD VÀ là ứng viên DUY NHẤT
 //                  (cùng tên) trong các signal chưa khớp → resolve SĐT từ GD.
 // ⚠ amountHit (CHỈ trùng số tiền, KHÔNG định danh) KHÔNG auto — 2 KH có thể cùng
@@ -100,7 +100,7 @@ function _score(sig, tx, txId) {
     const txP9 = _last9(txId.phone);
     // phoneHit: SĐT signal khớp SĐT GD (resolve được) HOẶC xuất hiện trong nội dung.
     const phoneHit = !!p9 && ((!!txP9 && txP9 === p9) || digits.includes(p9));
-    // partnerHit: customer_id signal == customer_id QR (partner_id TPOS).
+    // partnerHit: customer_id signal == customer_id QR (web2_customers.id).
     const sigCid = sig.customer_id != null ? Number(sig.customer_id) : null;
     const partnerHit = sigCid != null && txId.customerId != null && sigCid === txId.customerId;
     // nameHit: tên signal == tên GD/QR (chỉ ý nghĩa khi GD resolve được SĐT để cộng).
@@ -121,7 +121,7 @@ function _hitLabel(h) {
 
 // Phân loại "sure" + "rank" cho mảng scored (mỗi phần tử có cờ hit từ _score).
 // CHỈ auto khi ĐỊNH DANH khách khớp GD → đảm bảo gửi đúng khách trong danh sách
-// "đã ck": phone / partner_id (TPOS) / tên-duy-nhất.
+// "đã ck": phone / partner_id / tên-duy-nhất.
 // ⚠ amountHit (CHỈ trùng số tiền) KHÔNG đủ để auto — 2 KH có thể cùng số tiền →
 //   gửi nhầm khách. amountHit chỉ là tín hiệu phụ → đẩy về NOTIFY staff duyệt tay.
 function _classify(scored) {
@@ -129,7 +129,7 @@ function _classify(scored) {
     for (const x of scored) {
         x.sure =
             x.phoneHit || // SĐT khớp — chắc chắn đúng người
-            x.partnerHit || // partner_id TPOS khớp — chắc chắn
+            x.partnerHit || // partner_id (web2_customers.id) khớp — chắc chắn
             (x.nameHit && nameHitCount === 1); // tên trùng GD/QR + DUY NHẤT
         // amountHit KHÔNG vào "sure" nữa (tránh gửi nhầm khách trùng số tiền).
         x.rank = x.phoneHit ? 4 : x.partnerHit ? 3 : x.nameHit ? 2 : 1; // phone>partner>tên>tiền

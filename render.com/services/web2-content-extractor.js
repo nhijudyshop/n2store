@@ -10,7 +10,8 @@
 //   3. Partial phone 5–10 digits — TPOS partial lookup, single/multi match
 // =====================================================================
 
-const tposTokenManager = require('./tpos-token-manager');
+// 2026-06-09: GỠ TPOS — searchTposByPhone đã chuyển sang KHO web2_customers
+//   (db/web2-customers-schema.searchWeb2CustomersByPhone). extractor giờ thuần logic.
 
 // Số tài khoản shop & các số trong content cần bỏ qua. Append vào đây khi
 // phát hiện noise mới (vd số tài khoản ngân hàng khác của shop).
@@ -153,7 +154,7 @@ function extractIdentifier(content) {
     //   • Chỉ lấy dãy số độ dài 5–10 làm đuôi SĐT candidate.
     //   • Dãy > 10 số = KHÔNG phải SĐT → BỎ QUA hẳn (không cắt 10 số cuối).
     //     vd '0111000157612'(13), '14472716252'(11) = số tài khoản → skip.
-    //   • Khớp KH theo ĐUÔI (searchTposByPhone dùng phone.endsWith) → "từ sau
+    //   • Khớp KH theo ĐUÔI (khớp đuôi SĐT (web2_customers)) → "từ sau
     //     ra trước". Blacklist (STK shop) + test phone filtered.
     // Matcher search từng candidate qua TPOS, aggregate unique phones (dedup),
     // 1 → auto credit, >1 → pending, 0 → no_match.
@@ -248,82 +249,8 @@ function normalizePhone(rawPhone) {
     return null;
 }
 
-/**
- * Search TPOS Partner API by partial/exact phone. Returns grouped unique
- * customers by 10-digit phone. Accept any partial 5–10 digits.
- *
- * @param {string} partialPhone - 5–10 digit substring
- * @param {Function} fetchWithTimeout
- * @returns {Promise<{
- *   success: boolean,
- *   uniquePhones: Array<{phone: string, customers: Array, count: number}>,
- *   totalResults: number,
- *   error?: string
- * }>}
- */
-async function searchTposByPhone(partialPhone, fetchWithTimeout) {
-    try {
-        const token = await tposTokenManager.getToken();
-        const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${partialPhone}&$top=50&$orderby=DateCreated+desc&$count=true`;
-        const response = await fetchWithTimeout(
-            tposUrl,
-            {
-                method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-            },
-            15000
-        );
-        if (!response.ok) {
-            throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
-        }
-        const data = await response.json();
-        const totalResults = data['@odata.count'] || 0;
-        if (!data.value || !Array.isArray(data.value) || data.value.length === 0) {
-            return { success: true, uniquePhones: [], totalResults: 0 };
-        }
-        const phoneMap = new Map();
-        for (const customer of data.value) {
-            const phone = normalizePhone(customer.Phone);
-            if (!phone) continue;
-            if (!phoneMap.has(phone)) phoneMap.set(phone, []);
-            phoneMap.get(phone).push({
-                id: customer.Id,
-                name: customer.Name || customer.DisplayName,
-                phone,
-                email: customer.Email,
-                address: customer.FullAddress || customer.Street,
-                network: customer.NameNetwork,
-                status: customer.Status,
-                credit: customer.Credit,
-                debit: customer.Debit,
-            });
-        }
-        const all = Array.from(phoneMap.entries()).map(([phone, customers]) => ({
-            phone,
-            customers,
-            count: customers.length,
-        }));
-        // Filter: chỉ giữ phone có suffix khớp partialPhone (endsWith).
-        // VD partialPhone='81118' → giữ 0938281118, loại 0938811182.
-        const filtered = all.filter(({ phone }) => phone.endsWith(partialPhone));
-        return { success: true, uniquePhones: filtered, totalResults };
-    } catch (error) {
-        console.error('[Web2ContentExtractor] TPOS search error:', error.message);
-        return {
-            success: false,
-            error: error.message,
-            uniquePhones: [],
-            totalResults: 0,
-        };
-    }
-}
-
 module.exports = {
     extractIdentifier,
-    searchTposByPhone,
     normalizePhone,
     PHONE_EXTRACTION_BLACKLIST,
 };

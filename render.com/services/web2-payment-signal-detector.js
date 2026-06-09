@@ -127,7 +127,7 @@ async function ensureSchema(pool) {
     await pool.query(
         `ALTER TABLE web2_payment_signals ADD COLUMN IF NOT EXISTS matched_tx_at BIGINT;`
     );
-    // customer_id = TPOS Partner Id (web2_customers.id) — khoá unique để watcher
+    // customer_id = web2_customers.id — khoá unique để watcher
     // đối soát chắc chắn (partnerHit) kể cả khi phone trống.
     await pool.query(
         `ALTER TABLE web2_payment_signals ADD COLUMN IF NOT EXISTS customer_id BIGINT;`
@@ -172,7 +172,7 @@ async function ensureSchema(pool) {
 }
 
 // ─── Resolve KH từ psid (fb_id) qua kho KH web2_customers ─────────────
-// Trả { phone, customerId } — customerId = web2_customers.id = TPOS Partner Id.
+// Trả { phone, customerId } — customerId = web2_customers.id (kho KH, KHÔNG TPOS).
 // Lấy CẢ HAI: phone có thể trống nhưng partner_id vẫn có → watcher partnerHit.
 async function _resolveCustomer(pool, psid) {
     if (!psid) return { phone: null, customerId: null };

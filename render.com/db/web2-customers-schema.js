@@ -300,12 +300,71 @@ async function lookupWeb2CustomerIdByPhone(pool, phone) {
     }
 }
 
+// ─── Tìm KH theo SĐT (partial/suffix) — KHO KH, THAY TPOS cho matcher SePay ──
+// 2026-06-09: gỡ TPOS khỏi matcher. Khớp phone CHÍNH hoặc alt_phones theo đuôi.
+// Gom theo PHONE CHÍNH của KH (ưu tiên kho KH — ví keyed theo phone chính dù
+// khớp qua SĐT phụ). Trả CÙNG shape searchTposByPhone (để matcher dùng thẳng):
+//   { success, uniquePhones: [{ phone, customers:[{id,name,phone,...}], count }], totalResults }
+async function searchWeb2CustomersByPhone(pool, partialPhone) {
+    const digits = String(partialPhone || '').replace(/\D/g, '');
+    if (digits.length < 5) return { success: true, uniquePhones: [], totalResults: 0 };
+    try {
+        let rows = [];
+        const norm = normPhone(digits);
+        // Fast path: SĐT 10 số chuẩn → exact (dùng index idx_web2_customers_phone).
+        if (norm && norm.length === 10 && digits.length >= 9) {
+            const r = await pool.query(
+                `SELECT id, name, phone, address, email FROM web2_customers WHERE phone = $1 LIMIT 50`,
+                [norm]
+            );
+            rows = r.rows;
+        }
+        // Suffix match phone chính + alt_phones (khi chưa có exact hit).
+        if (!rows.length) {
+            const r = await pool.query(
+                `SELECT id, name, phone, address, email FROM web2_customers
+                 WHERE phone LIKE '%' || $1
+                    OR EXISTS (
+                        SELECT 1 FROM jsonb_array_elements_text(COALESCE(alt_phones,'[]'::jsonb)) ap
+                        WHERE ap LIKE '%' || $1
+                    )
+                 LIMIT 50`,
+                [digits]
+            );
+            rows = r.rows;
+        }
+        const phoneMap = new Map();
+        for (const c of rows) {
+            const np = normPhone(c.phone) || c.phone;
+            if (!np) continue;
+            if (!phoneMap.has(np)) phoneMap.set(np, []);
+            phoneMap.get(np).push({
+                id: c.id,
+                name: c.name,
+                phone: np,
+                address: c.address,
+                email: c.email,
+            });
+        }
+        const uniquePhones = Array.from(phoneMap.entries()).map(([phone, customers]) => ({
+            phone,
+            customers,
+            count: customers.length,
+        }));
+        return { success: true, uniquePhones, totalResults: rows.length };
+    } catch (e) {
+        console.warn('[web2-customers] searchWeb2CustomersByPhone error:', e.message);
+        return { success: false, uniquePhones: [], totalResults: 0, error: e.message };
+    }
+}
+
 module.exports = {
     ensureWeb2CustomersSchema,
     getOrCreateWeb2Customer,
     findWeb2CustomerByFbId,
     linkWeb2CustomerFbId,
     lookupWeb2CustomerIdByPhone,
+    searchWeb2CustomersByPhone,
     addWeb2AltPhone,
     normPhoneWeb2: normPhone,
     _historyEntry,
