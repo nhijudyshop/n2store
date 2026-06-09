@@ -424,12 +424,19 @@
     }
 
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    // FB user id hợp lệ là chuỗi SỐ (PSID/global id). Các giá trị "rác" như
+    // 'NEW_FB_DOES_NOT_EXIST', 'TEST_FB_*', '' → coi như KHÔNG có fb context.
+    // Quan trọng: /api/fb-avatar trả SVG silhouette (HTTP 200) cho id không tồn
+    // tại → img load OK, che mất chữ cái đầu + chặn hydrate avatar theo SĐT.
+    function _isRealFbId(id) {
+        return /^\d{5,}$/.test(String(id || '').trim());
+    }
     // Render avatar: FB proxy image overlaid on colored initial; on error the
     // img element removes itself so the initial stays visible underneath.
     function renderAvatar(o) {
         const color = avatarColor(o.customerName);
         const char = firstChar(o.customerName);
-        if (!o.fbUserId) {
+        if (!_isRealFbId(o.fbUserId)) {
             return `<div class="cust-avatar" style="background:${color};">${char}</div>`;
         }
         // CF Worker /api/fb-avatar expects ?id= + &page= (not &page_id=).
@@ -1271,7 +1278,7 @@
                     <td class="col-customer">
                         <div class="cust-with-avatar">
                             <div class="web2-customer-avatar-wrap"
-                                 data-fb-user-id="${escapeHtml(o.fbUserId || '')}"
+                                 data-fb-user-id="${escapeHtml(_isRealFbId(o.fbUserId) ? o.fbUserId : '')}"
                                  data-fb-page-id="${escapeHtml(o.fbPageId || '')}"
                                  data-customer-name="${escapeHtml(o.customerName || '')}"
                                  data-customer-phone="${escapeHtml(o.phone || '')}"
@@ -5335,7 +5342,8 @@
                 if (!r || !r.fbId) continue;
                 const o = STATE.orders.find((x) => x.code === code);
                 if (o) {
-                    o.fbUserId = o.fbUserId || r.fbId;
+                    // Giữ fb id thật nếu đã có; bỏ qua giá trị rác (vd sentinel).
+                    o.fbUserId = _isRealFbId(o.fbUserId) ? o.fbUserId : r.fbId;
                     o.fbPageId = o.fbPageId || r.pageId;
                 }
                 wrap.dataset.fbUserId = r.fbId;
