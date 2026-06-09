@@ -38,6 +38,16 @@
     //     MỌI đơn áp dụng strict mode, flag TRUE mới tính KPI.
     const KPI_SALE_FLAG_EFFECTIVE_FROM = '2020-01-01T00:00:00Z';
 
+    // Ngưỡng phát hiện snapshot "đơn thật TPOS" bị LỖI THỜI (stale).
+    // Bug race (2026-06-09): khi nhân viên chốt nhiều SP liên tiếp (chat_confirm_held),
+    // snapshot kpi_final_snapshot bị chụp GIỮA CHỪNG (sau SP đầu, trước SP sau) rồi đóng
+    // băng (ensureKpiFinalSnapshot mặc định force=false → không refetch) → các SP thêm
+    // sau snapshot không có trong snapshot → NET = final − BASE đếm THIẾU.
+    // Fix: nếu có audit log MỚI HƠN snapshot.fetchedAt + GRACE → coi là stale → fetch lại
+    // đơn thật TPOS 1 lần. Grace nhỏ để bỏ qua chênh lệch clock/ghi-log không đáng kể
+    // (deltas thật trong bug là 3.7s–12s nên 1.5s bắt được mà không refetch thừa).
+    const SNAPSHOT_STALENESS_GRACE_MS = 1500;
+
     // ========================================
     // REST API Helper
     // ========================================
@@ -682,7 +692,40 @@
             };
 
             // Đọc snapshot SP cuối thật. Có → reconciled (final − base). Không → fallback replay.
-            const finalSnapshot = await getKpiFinalSnapshot(orderCode);
+            let finalSnapshot = await getKpiFinalSnapshot(orderCode);
+
+            // Staleness guard (fix race "chốt nhiều SP liên tiếp" — 2026-06-09):
+            // Nếu có audit log MỚI HƠN thời điểm chụp snapshot → snapshot thiếu SP
+            // thêm/xóa sau đó. Fetch lại đơn thật TPOS 1 LẦN (dùng lại fetchProductsFromTPOS
+            // qua ensureKpiFinalSnapshot force=true → upsert snapshot tươi vào DB).
+            // Bounded: refetch tối đa 1 lần/lượt gọi; sau refetch fetchedAt = now > mọi audit
+            // cũ → lần sau không stale. Đơn healthy (không audit mới hơn) ⇒ 0 overhead.
+            if (finalSnapshot && finalSnapshot.fetchedAt && base.orderId) {
+                const snapAt = new Date(finalSnapshot.fetchedAt).getTime();
+                const latestActivityAt = relevantLogs.reduce(
+                    (mx, l) => Math.max(mx, new Date(l.createdAt).getTime() || 0),
+                    0
+                );
+                if (
+                    Number.isFinite(snapAt) &&
+                    latestActivityAt > snapAt + SNAPSHOT_STALENESS_GRACE_MS
+                ) {
+                    console.log(
+                        `[KPI] Snapshot ${orderCode} lỗi thời (audit mới hơn ${Math.round((latestActivityAt - snapAt) / 1000)}s) → fetch lại đơn thật TPOS`
+                    );
+                    try {
+                        const fresh = await ensureKpiFinalSnapshot(orderCode, base.orderId, {
+                            force: true,
+                        });
+                        if (fresh && Array.isArray(fresh.products) && fresh.products.length > 0) {
+                            finalSnapshot = fresh; // dùng snapshot tươi
+                        }
+                    } catch (e) {
+                        console.warn('[KPI] refetch snapshot stale thất bại:', e?.message);
+                    }
+                }
+            }
+
             let reconciled = false;
 
             if (

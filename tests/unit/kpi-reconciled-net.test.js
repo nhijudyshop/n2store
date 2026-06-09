@@ -11,6 +11,8 @@
  * đơn 260600214 / NJD/2026/70868 mà user báo lỗi (hệ thống cũ ra 10.000đ, đúng 5.000đ).
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
 const KPI_PER_PRODUCT = 5000;
 
@@ -266,5 +268,123 @@ describe('KPI reconciled NET — đối chiếu đơn thật TPOS', () => {
         expect(r.netProducts).toBe(0);
         expect(r.kpiAmount).toBe(0);
         expect(r.excludedCount).toBe(1);
+    });
+});
+
+// ============================================================
+// Staleness guard (fix race "chốt nhiều SP liên tiếp" — 2026-06-09)
+// ============================================================
+const SNAPSHOT_STALENESS_GRACE_MS = 1500;
+
+/**
+ * Mô phỏng điều kiện staleness guard trong calculateNetKPI (kpi-manager.js).
+ * Trả true nếu có audit log MỚI HƠN snapshot.fetchedAt + grace → snapshot lỗi thời,
+ * cần fetch lại đơn thật TPOS.
+ */
+function isSnapshotStale(snapshotFetchedAt, relevantLogs, graceMs = SNAPSHOT_STALENESS_GRACE_MS) {
+    if (!snapshotFetchedAt) return false;
+    const snapAt = new Date(snapshotFetchedAt).getTime();
+    if (!Number.isFinite(snapAt)) return false;
+    const latestActivityAt = (relevantLogs || []).reduce(
+        (mx, l) => Math.max(mx, new Date(l.createdAt).getTime() || 0),
+        0
+    );
+    return latestActivityAt > snapAt + graceMs;
+}
+
+describe('KPI snapshot staleness guard — phát hiện snapshot chụp giữa chừng', () => {
+    // Data THẬT từ đơn 260600892 (fetch qua API 2026-06-09).
+    it('đơn 260600892: snapshot chụp 03:13:36, Q739A1 thêm 03:13:48 → STALE', () => {
+        const snapshotFetchedAt = '2026-06-09 03:13:36.224972+07:00';
+        const relevantLogs = [
+            {
+                productId: 158614,
+                action: 'add',
+                createdAt: '2026-06-09 03:13:35.530179+07:00', // Q741A1 (trước snapshot)
+            },
+            {
+                productId: 158616,
+                action: 'add',
+                createdAt: '2026-06-09 03:13:48.231146+07:00', // Q739A1 (SAU snapshot 12s)
+            },
+        ];
+        expect(isSnapshotStale(snapshotFetchedAt, relevantLogs)).toBe(true);
+    });
+
+    // Data THẬT từ đơn 260601110.
+    it('đơn 260601110: snapshot chụp 03:13:01.8, Q741A2 thêm 03:13:05 → STALE', () => {
+        const snapshotFetchedAt = '2026-06-09 03:13:01.809515+07:00';
+        const relevantLogs = [
+            { productId: 158618, action: 'add', createdAt: '2026-06-09 03:13:01.112860+07:00' }, // Q739A2
+            { productId: 158617, action: 'add', createdAt: '2026-06-09 03:13:05.475495+07:00' }, // Q741A2 (sau)
+        ];
+        expect(isSnapshotStale(snapshotFetchedAt, relevantLogs)).toBe(true);
+    });
+
+    it('snapshot chụp SAU mọi audit → KHÔNG stale (0 overhead, không refetch)', () => {
+        const snapshotFetchedAt = '2026-06-09 04:00:00+07:00';
+        const relevantLogs = [
+            { productId: 1, action: 'add', createdAt: '2026-06-09 03:13:35+07:00' },
+            { productId: 2, action: 'add', createdAt: '2026-06-09 03:13:48+07:00' },
+        ];
+        expect(isSnapshotStale(snapshotFetchedAt, relevantLogs)).toBe(false);
+    });
+
+    it('audit chỉ mới hơn trong khoảng grace (1s < 1.5s) → KHÔNG refetch thừa', () => {
+        const snapshotFetchedAt = '2026-06-09 03:13:36.000+07:00';
+        const relevantLogs = [
+            { productId: 1, action: 'add', createdAt: '2026-06-09 03:13:37.000+07:00' }, // +1s
+        ];
+        expect(isSnapshotStale(snapshotFetchedAt, relevantLogs)).toBe(false);
+    });
+
+    it('fetchedAt thiếu / parse NaN → coi như không stale (an toàn, không crash)', () => {
+        const logs = [{ productId: 1, action: 'add', createdAt: '2026-06-09 03:13:48+07:00' }];
+        expect(isSnapshotStale(null, logs)).toBe(false);
+        expect(isSnapshotStale('not-a-date', logs)).toBe(false);
+    });
+
+    // End-to-end: chứng minh refetch sửa đúng NET cho đơn 260600892.
+    it('NET sai khi snapshot stale (1) → đúng khi đã fetch lại đơn TPOS (2)', () => {
+        const base = [
+            { ProductId: 157776, Quantity: 1 }, // Q449A2
+            { ProductId: 158036, Quantity: 1 }, // Q548N
+        ];
+        const audit = [
+            { productId: 158614, action: 'add', quantity: 1, userId: 'hanhlive', createdAt: '2026-06-09 03:13:35+07:00' },
+            { productId: 158616, action: 'add', quantity: 1, userId: 'hanhlive', createdAt: '2026-06-09 03:13:48+07:00' },
+        ];
+        const flags = { 158614: true, 158616: true }; // cả 2 SP mới đều tick KPI
+
+        // (A) Snapshot STALE — thiếu Q739A1 (158616) → NET đếm thiếu = 1, KPI 5.000đ.
+        const staleFinal = [
+            { ProductId: 157776, ProductCode: 'Q449A2', Quantity: 1 },
+            { ProductId: 158036, ProductCode: 'Q548N', Quantity: 1 },
+            { ProductId: 158614, ProductCode: 'Q741A1', Quantity: 1 },
+        ];
+        const rStale = reconciledNetKPI(base, staleFinal, audit, flags);
+        expect(rStale.netProducts).toBe(1);
+        expect(rStale.kpiAmount).toBe(5000);
+
+        // (B) Sau refetch — snapshot tươi có ĐỦ cả Q741A1 + Q739A1 → NET = 2, KPI 10.000đ.
+        const freshFinal = [
+            ...staleFinal,
+            { ProductId: 158616, ProductCode: 'Q739A1', Quantity: 1 },
+        ];
+        const rFresh = reconciledNetKPI(base, freshFinal, audit, flags);
+        expect(rFresh.netProducts).toBe(2);
+        expect(rFresh.kpiAmount).toBe(10000);
+        expect(rFresh.perUserNet).toEqual({ hanhlive: 2 });
+    });
+
+    // Regression: source code phải còn chứa staleness guard (khóa hồi quy).
+    it('kpi-manager.js có staleness guard gọi ensureKpiFinalSnapshot force=true', () => {
+        const src = readFileSync(
+            resolve(__dirname, '../../orders-report/js/managers/kpi-manager.js'),
+            'utf-8'
+        );
+        expect(src).toContain('SNAPSHOT_STALENESS_GRACE_MS');
+        expect(src).toMatch(/ensureKpiFinalSnapshot\([^)]*\{[^}]*force:\s*true/s);
+        expect(src).toContain('latestActivityAt');
     });
 });

@@ -380,6 +380,40 @@ User: "xóa hết tpos bên Web 2.0" (Web 1.0 giữ: DB columns tpos_id/tpos_dat
 
 ---
 
+## 2026-06-09
+
+### [orders][kpi] Fix KPI NET đếm thiếu SP — stale snapshot race (chốt nhiều SP liên tiếp) ✅
+
+User báo 2 đơn (260600892, 260601110): NV thêm 2 món, tick KPI cả 2, nhưng "So sánh KPI" chỉ tính 1 (NET 1, 5.000đ).
+
+**Root cause (xác minh bằng data API thật, KHÔNG phải dedup biến thể):** KPI NET = `(snapshot đơn thật TPOS) − (BASE)`.
+`kpi_final_snapshot` được chụp **1 lần, lazy** rồi **đóng băng** (`ensureKpiFinalSnapshot` luôn `force=false` → đã có thì
+không refetch). Khi NV chốt nhiều SP liên tiếp (chat_confirm_held), snapshot bị chụp **giữa chừng**:
+
+- 260600892: Q741A1 thêm `03:13:35` → snapshot chụp `03:13:36` → Q739A1 thêm `03:13:48` (sau 12s). Snapshot thiếu Q739A1.
+- 260601110: Q739A2 thêm `03:13:01.1` → snapshot chụp `03:13:01.8` → Q741A2 thêm `03:13:05` (sau 4s). Snapshot thiếu Q741A2 (+ Q716A2 lúc 08:05).
+
+→ Vòng lặp reconcile (`calculateNetKPI`) chỉ duyệt `finalSnapshot.products` → SP thêm sau snapshot **vô hình** → NET đếm thiếu.
+2 biến thể có ProductId KHÁC nhau (158614 vs 158616) → giả thuyết "trùng key/dedup tên" SAI; nhánh dedup không hề chạy.
+Không đường nào tự sửa snapshot cũ ("Làm mới dữ liệu" chỉ fetch đơn CHƯA có snapshot via `getMissingFinalSnapshots`).
+
+**Fix:** thêm **staleness guard** trong `calculateNetKPI` — nếu có audit log mới hơn `snapshot.fetchedAt + GRACE` (1.5s) →
+fetch lại đơn thật TPOS 1 lần (`ensureKpiFinalSnapshot(..., {force:true})`, dùng lại `fetchProductsFromTPOS` đã có).
+Bounded: tối đa 1 refetch/lượt; sau refetch `fetchedAt=now` → hết stale. Đơn healthy ⇒ 0 overhead. Giữ nguyên thiết kế
+"NET theo đơn thật TPOS" (không tái nhập drift audit).
+
+**Files:**
+- [orders-report/js/managers/kpi-manager.js](../orders-report/js/managers/kpi-manager.js) — hằng `SNAPSHOT_STALENESS_GRACE_MS=1500` + staleness guard trong `calculateNetKPI` (sau `getKpiFinalSnapshot`).
+- [tests/unit/kpi-reconciled-net.test.js](../tests/unit/kpi-reconciled-net.test.js) — +7 test (isSnapshotStale với data thật 2 đơn, grace, NaN-safe, end-to-end NET 1→2, source-guard regression). 12/12 pass.
+
+**Self-heal:** 2 đơn cũ tự đúng lại lần kế tiếp mở modal / "Tính lại KPI" sau khi deploy (lúc đó browser có token TPOS → refetch đủ SP → NET 2). KHÔNG chạy script bulk (theo yêu cầu user "chỉ sửa code").
+
+**Lưu ý test:** 10 fail trong các file kpi-* khác là **pre-existing** (source-pattern assertions trên hàm khác: saveKPIStatistics/moveDroppedToOrder/...) — xác nhận tồn tại trước khi sửa, không do thay đổi này.
+
+**Status:** ✅ DONE — chờ deploy (GH Pages) rồi user bấm "Tính lại KPI toàn bộ" để verify NET=2.
+
+---
+
 ## 2026-06-07
 
 ### [live-chat] Đổi tên tpos-pancake → live-chat (purge sạch chữ "tpos") + comment qua pages.fm ✅
