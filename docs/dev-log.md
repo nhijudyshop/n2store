@@ -2,6 +2,19 @@
 
 ## 2026-06-10
 
+### [orders][kpi] Đợt 2: reattribute atomic, bỏ creds hardcode KPI tab, "Làm mới" tự reconcile, dedupe recon ✅
+
+Tiếp nối đợt rà soát buổi sáng — xử lý các item "đề xuất chưa làm":
+
+1. **Endpoint `POST /kpi-statistics/reattribute` (atomic)** ([realtime-db.js](../render.com/routes/realtime-db.js)): strip orderCode khỏi mọi (userId, stat_date) row + upsert entries mới + recompute totals trong **1 transaction** + `pg_advisory_xact_lock(hashtext(orderCode))` serialize recalc đồng thời cùng đơn → hết race DELETE→PATCH interleave (2 recalc cùng lúc có thể tạo row duplicate/stale), giảm 2-3 request/đơn → 1. Client `recalculateAndSaveKPI` ([kpi-manager.js](../orders-report/js/managers/kpi-manager.js)) build `statEntries[]` trước → POST reattribute; server chưa deploy → **fallback tự động** DELETE + PATCH flow cũ (deploy frontend/backend không cần đúng thứ tự).
+2. **Bỏ TPOS credentials hardcode khỏi KPI tab** ([tab-kpi-commission.js](../orders-report/js/tab-kpi-commission.js) `fetchRefundDetailByInvoice`): chuyển sang chế độ JSON proxy-auth `{companyId}` của worker `/api/token` (credentials server-side — pattern đã dùng prod ở core/token-manager.js, shared/js/token-manager.js, live-token-manager...). Còn 12 file khác ngoài KPI vẫn hardcode (việc riêng).
+3. **"Làm mới dữ liệu" tự reconcile đơn vừa có phiếu**: sweep `_ensureSnapshotsForVisibleOrders` giờ recalc luôn đơn VỪA có snapshot lần đầu (phiếu xuất SAU lần thao tác cuối — TPOS không bắn event nên trước đây số nằm ở audit-replay mãi tới khi bấm "Tính lại toàn bộ KPI") → xong reload bảng silent. User không cần "Tính lại toàn bộ" cho case này nữa.
+4. **Dedupe ~80×2 dòng `reconcileOne`** giữa `runReconciliation` (toàn cục) và `runEmployeeReconciliation` (modal L1) → helper chung `_buildReconRecord(order, invoice, refundByInvoice)`. Behavior giữ nguyên.
+
+**Verify:** `node --check` OK; vitest KPI suite 265 pass / 42 fail = đúng baseline (pre-existing, không regression). Cache bump `?v=20260610b` (kpi-manager + tab-kpi-commission, 3 HTML).
+
+**Trả lời câu hỏi user "phải bấm Tính lại KPI mới đúng à?"**: KHÔNG — số KPI tự cập nhật realtime khi nhân viên thao tác SP / tick checkbox; chọn ngày/campaign chỉ là filter trên số đã lưu. "Tính lại toàn bộ" chỉ cần khi đổi logic tính (backfill) + 1 lần sau fix timezone. Case "phiếu xuất sau thao tác cuối" trước đây cần Tính lại → giờ "Làm mới dữ liệu" tự xử lý.
+
 ### [orders][kpi] Rà soát toàn bộ hệ thống tính KPI đơn đánh giá — fix 9 lỗi flow/logic + hiệu suất ✅
 
 **User:** rà soát lại toàn bộ hệ thống tính KPI của đơn đánh giá (tab KPI - HOA HỒNG), tìm lỗi, nâng hiệu suất flow và logic.

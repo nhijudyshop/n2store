@@ -1164,15 +1164,6 @@
                 ? vnDateString(new Date(base.createdAt))
                 : getCurrentDateString();
 
-            // Wipe TẤT CẢ entries của orderCode này khỏi mọi user/date row trước khi
-            // ghi lại (idempotent re-attribution: nếu trước đây ghi cho A nhưng giờ
-            // tính cho B, A phải bị xóa). Server endpoint đã có sẵn, atomic.
-            try {
-                await kpiAPI('DELETE', `/kpi-statistics/order/${encodeURIComponent(orderCode)}`);
-            } catch (e) {
-                console.warn('[KPI] DELETE kpi-statistics/order failed (non-fatal):', e.message);
-            }
-
             // Attribution rule (owner-confirmed 2026-05-07):
             //  • Default: KPI của đơn được tính cho NHÂN VIÊN sở hữu khoảng STT chứa
             //    đơn (theo "phân chia nhân viên" của campaign), KHÔNG phải log.userId.
@@ -1219,6 +1210,9 @@
                 }
             }
 
+            // Build danh sách entry TRƯỚC, rồi ghi 1 lần (xem block ghi bên dưới).
+            const statEntries = [];
+
             // (1) "My" portion → save under my's actual userId (one row per distinct my
             //     user — usually just 1; supports multi-my edge case).
             for (const entry of myEntries) {
@@ -1227,7 +1221,9 @@
                 const ekL = Number(result.perUserKPILegacy?.[entry.userId] || 0);
                 const enL = Number(result.perUserNetLegacy?.[entry.userId] || 0);
                 if (ek <= 0 && ekL <= 0) continue;
-                await saveKPIStatistics(entry.userId, baseDate, {
+                statEntries.push({
+                    userId: entry.userId,
+                    date: baseDate,
                     orderCode: orderCode,
                     orderId: base.orderId || null,
                     stt: stt,
@@ -1266,7 +1262,9 @@
                 // for the same orderCode+date with the my entries, but here would
                 // duplicate. Skip to avoid double-write under same key.
                 if (!_isMyUser(assignedUserId, assignedUserName)) {
-                    await saveKPIStatistics(assignedUserId, baseDate, {
+                    statEntries.push({
+                        userId: assignedUserId,
+                        date: baseDate,
                         orderCode: orderCode,
                         orderId: base.orderId || null,
                         stt: stt,
@@ -1280,6 +1278,43 @@
                         details: result.details,
                         userName: assignedUserName,
                     });
+                }
+            }
+
+            // ── Ghi statistics ──
+            // Ưu tiên POST /kpi-statistics/reattribute: strip orderCode khỏi mọi
+            // row + upsert entries + recompute totals trong MỘT transaction
+            // (advisory lock theo orderCode) → hết race khi 2 recalc đồng thời
+            // cùng đơn interleave DELETE/PATCH, và 2-3 request/đơn → 1.
+            // entries=[] vẫn gọi để strip (đơn không còn KPI).
+            // Server cũ chưa có endpoint → fallback flow cũ: DELETE rồi PATCH từng entry.
+            let reattributed = false;
+            try {
+                await kpiAPI('POST', '/kpi-statistics/reattribute', {
+                    orderCode,
+                    entries: statEntries,
+                });
+                reattributed = true;
+            } catch (e) {
+                console.warn(
+                    '[KPI] reattribute chưa khả dụng → fallback DELETE+PATCH:',
+                    e?.message
+                );
+            }
+            if (!reattributed) {
+                try {
+                    await kpiAPI(
+                        'DELETE',
+                        `/kpi-statistics/order/${encodeURIComponent(orderCode)}`
+                    );
+                } catch (e) {
+                    console.warn(
+                        '[KPI] DELETE kpi-statistics/order failed (non-fatal):',
+                        e.message
+                    );
+                }
+                for (const se of statEntries) {
+                    await saveKPIStatistics(se.userId, se.date, se);
                 }
             }
 

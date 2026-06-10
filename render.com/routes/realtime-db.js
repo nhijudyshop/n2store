@@ -1746,6 +1746,147 @@ router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
 });
 
 /**
+ * POST /api/realtime/kpi-statistics/reattribute
+ * ATOMIC re-attribution cho 1 đơn trong MỘT transaction:
+ *   1) strip orderCode khỏi orders[] của MỌI (userId, stat_date) row
+ *   2) upsert từng entry mới (ensure row → append order → recompute totals)
+ * Thay cho cặp DELETE /order/:orderCode → PATCH /:userId/:date/order (2-3
+ * request rời, có cửa sổ race khi 2 recalc đồng thời cùng đơn interleave
+ * DELETE/PATCH → row duplicate/stale). Advisory xact lock theo orderCode
+ * serialize các recalc cùng đơn (last-write-wins theo thứ tự commit).
+ *
+ * Body: { orderCode, entries: [{ userId, date(YYYY-MM-DD), userName, stt,
+ *   campaignName, netProducts, kpi, netProductsLegacy, kpiLegacy,
+ *   hasDiscrepancy, details }] } — entries=[] → chỉ strip (đơn hết KPI).
+ */
+router.post('/kpi-statistics/reattribute', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+    const { orderCode, entries } = req.body || {};
+    if (!orderCode) return res.status(400).json({ error: 'orderCode required' });
+    const list = Array.isArray(entries) ? entries : [];
+    for (const e of list) {
+        if (!e || !e.userId || !e.date) {
+            return res.status(400).json({ error: 'each entry requires userId + date' });
+        }
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        // hashtext → int4; dùng overload (int, int) của pg_advisory_xact_lock.
+        // Lock tự nhả khi COMMIT/ROLLBACK.
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1), 0)', [
+            `kpi_stats:${orderCode}`,
+        ]);
+
+        // (1) Strip orderCode khỏi mọi row + recompute totals của row bị strip
+        // (same shape với DELETE /kpi-statistics/order/:orderCode).
+        await client.query(
+            `
+            WITH filtered AS (
+                SELECT id,
+                       COALESCE((
+                           SELECT jsonb_agg(elem)
+                           FROM jsonb_array_elements(orders) elem
+                           WHERE elem->>'orderCode' != $1
+                       ), '[]'::jsonb) AS new_orders
+                FROM kpi_statistics
+                WHERE orders @> $2::jsonb
+            )
+            UPDATE kpi_statistics k
+            SET orders = f.new_orders,
+                total_net_products = COALESCE((
+                    SELECT SUM((elem->>'netProducts')::int)
+                    FROM jsonb_array_elements(f.new_orders) elem
+                ), 0),
+                total_kpi = COALESCE((
+                    SELECT SUM((elem->>'kpi')::numeric)
+                    FROM jsonb_array_elements(f.new_orders) elem
+                ), 0),
+                updated_at = CURRENT_TIMESTAMP
+            FROM filtered f
+            WHERE k.id = f.id
+        `,
+            [orderCode, JSON.stringify([{ orderCode }])]
+        );
+
+        // (2) Upsert từng entry (same shape với PATCH /:userId/:date/order).
+        for (const e of list) {
+            const orderObj = JSON.stringify({
+                orderCode,
+                orderId: e.orderId || null,
+                stt: e.stt || 0,
+                campaignName: e.campaignName || null,
+                netProducts: e.netProducts || 0,
+                kpi: e.kpi || 0,
+                netProductsLegacy: e.netProductsLegacy || 0,
+                kpiLegacy: e.kpiLegacy || 0,
+                hasDiscrepancy: e.hasDiscrepancy || false,
+                details: e.details || {},
+                updatedAt: new Date().toISOString(),
+            });
+
+            await client.query(
+                `
+                INSERT INTO kpi_statistics (user_id, user_name, stat_date, total_net_products, total_kpi, orders)
+                VALUES ($1, $2, $3, 0, 0, '[]')
+                ON CONFLICT (user_id, stat_date) DO UPDATE SET
+                    user_name = COALESCE($2, kpi_statistics.user_name)
+            `,
+                [e.userId, e.userName || null, e.date]
+            );
+
+            await client.query(
+                `
+                UPDATE kpi_statistics
+                SET orders = (
+                    SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+                    FROM jsonb_array_elements(orders) elem
+                    WHERE elem->>'orderCode' != $2
+                ) || $3::jsonb
+                WHERE user_id = $1 AND stat_date = $4
+            `,
+                [e.userId, orderCode, `[${orderObj}]`, e.date]
+            );
+
+            await client.query(
+                `
+                UPDATE kpi_statistics
+                SET total_net_products = COALESCE((
+                        SELECT SUM((elem->>'netProducts')::int)
+                        FROM jsonb_array_elements(orders) elem
+                    ), 0),
+                    total_kpi = COALESCE((
+                        SELECT SUM((elem->>'kpi')::numeric)
+                        FROM jsonb_array_elements(orders) elem
+                    ), 0),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = $1 AND stat_date = $2
+            `,
+                [e.userId, e.date]
+            );
+        }
+
+        await client.query('COMMIT');
+
+        // SSE broadcast 1 lần cho cả đơn (thay vì 1 event/PATCH như flow cũ)
+        if (notifyClients) {
+            notifyClients('kpi_statistics', { orderCode, op: 'reattribute' }, 'update');
+        }
+
+        res.json({ success: true, orderCode, entries: list.length });
+    } catch (error) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('[REALTIME-DB] POST /kpi-statistics/reattribute error:', error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        client.release();
+    }
+});
+
+/**
  * DELETE /api/realtime/kpi-statistics/order/:orderCode
  * Xoá orderCode khỏi mảng orders[] của MỌI (userId, stat_date) row — dùng cho
  * backfill cleanup: sau khi recompute xong ta gọi endpoint này TRƯỚC để dẹp
