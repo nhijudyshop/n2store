@@ -6,7 +6,7 @@
 //
 // API: Web2QrModal.open(phone, opts?)
 //   - phone: 10-digit VN phone
-//   - opts.customerId (number, optional): WEB2 Partner Id (skip lookup)
+//   - opts.customerId (number, optional): web2_customers.id — Mã KH Web 2.0 (skip lookup)
 //   - opts.customerName (string, optional): KH name (skip lookup)
 // =====================================================================
 
@@ -124,7 +124,7 @@
                                 <div id="w2qrBank">—</div>
                             </div>
                             <div class="w2qr-field">
-                                <label>Partner Id</label>
+                                <label>Mã KH (Web 2.0)</label>
                                 <div id="w2qrPartnerId">—</div>
                             </div>
                             <div class="w2qr-field w2qr-stats">

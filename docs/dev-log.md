@@ -2,11 +2,27 @@
 
 ## 2026-06-10
 
+### [web2] Đổi label "Partner Id" → "Mã KH (Web 2.0)" trong modal QR ✅
+
+**User:** "partner id này là của web 2.0 hay sao" → xác nhận đúng là id Web 2.0 (không phải TPOS), yêu cầu đổi label cho rõ + giải thích cách sinh id KH.
+
+**Bối cảnh:** Field "PARTNER ID" trong modal QR khách hàng hiển thị `qr.customer_id`, mà giá trị này = `web2_customers.id` (kho KH warehouse Web 2.0, pool `web2Db`). Nhãn "Partner Id" là chữ legacy còn sót từ thời lookup qua TPOS Partner — đã gỡ TPOS hoàn toàn ([web2-customer-wallet.js:336-362](../render.com/routes/v2/web2-customer-wallet.js#L336-L362) comment "đã bỏ TPOS"). Nhãn cũ gây nhầm với TPOS partner_id.
+
+**Files:**
+
+- [web2/shared/web2-qr-modal.js](../web2/shared/web2-qr-modal.js) — label `Partner Id` → `Mã KH (Web 2.0)` (dòng 127) + cập nhật JSDoc opts.customerId mô tả `web2_customers.id`.
+- [web2/customer-wallet/index.html](../web2/customer-wallet/index.html) — label `Partner Id` → `Mã KH (Web 2.0)` (dòng 261).
+
+**Cách sinh id KH Web 2.0:** `web2_customers.id` = `BIGSERIAL PRIMARY KEY` (Postgres tự tăng), định nghĩa ở [render.com/db/web2-customers-schema.js:56](../render.com/db/web2-customers-schema.js#L56). Không nhập tay, không lấy từ TPOS. Khi tạo KH mới (INSERT vào `web2_customers`) Postgres tự cấp id kế tiếp. Nội dung CK QR = `slug(tên) + id` (vd `XUANMAIDUONG1898`) để SePay match thanh toán về đúng KH.
+
+**Status:** ✅ Done
+
 ### [showroom1] Panel quản lý desktop 70/30 + lưu sản phẩm trên Render (Postgres) ✅
 
 **User:** `https://nhijudy.store/showroom1/` khi đăng nhập trên máy tính → mở 2 khung 70-30, bên trái quản lý showroom (thêm/bớt sản phẩm), bên phải demo giao diện di động như hiện tại. Lưu trên Render (như cách Web 1.0), đăng nhập qua Shared AuthManager, tách file riêng `admin.js`/`admin.css`, ảnh lưu Postgres BYTEA.
 
 **Backend (Web 1.0 — pool `chatDb`, KHÔNG phải Web 2.0):**
+
 - [render.com/routes/showroom-products.js](../render.com/routes/showroom-products.js) — REST CRUD mount `/api/showroom-products`. Bảng `showroom_products` (name, price, sale_price, category, badge, image_ids JSONB, sort_order, active, created_by) + `showroom_product_images` (BYTEA, giống `purchase_order_images`). Schema tạo lazy `ensureTables()` idempotent (chạy lần đầu request → sống qua deploy mới).
 - Endpoints: `GET /` (?all=1 cho admin), `POST /`, `PUT /:id` (partial), `DELETE /:id` (xóa kèm ảnh), `POST /reorder`, `POST /images` (multer→BYTEA), `GET|DELETE /images/:id`.
 - Realtime: SSE hub Web 1.0 (`realtime-sse.js`), topic bare `showroom_products`. Broadcast sau mỗi mutation → đồng bộ nhiều máy không refresh.
@@ -15,6 +31,7 @@
 **Cloudflare worker:** thêm route `SHOWROOM_PRODUCTS` (`/api/showroom-products/*`) → `handleCustomer360Proxy` (forward full path + CORS), giống `ORDER_NOTES`. Sửa [routes.js](../cloudflare-worker/modules/config/routes.js) (pattern + getRouteType) + [worker.js](../cloudflare-worker/worker.js) (switch case). Auto-deploy qua GH Action `deploy-cloudflare-worker.yml`.
 
 **Frontend (`showroom1/`):**
+
 - [admin.css](../showroom1/admin.css) — layout `body.admin-on` grid 70%/30% (chỉ ≥900px), panel trái cuộn riêng, phone scale theo bề rộng; styles list/row/toggle/editor-drawer/uploader/toast.
 - [admin.js](../showroom1/admin.js) — gate qua `window.authManager.isAuthenticated()` (đăng nhập + desktop mới bật admin). CRUD, upload ảnh (nén client ≤1200px JPEG → POST /images), kéo-thả sắp xếp (native DnD), toggle ẩn/hiện, subscribe SSE `showroom_products` (debounce 500ms reload). Map `imageIds`→URL rồi gọi `window.Showroom.renderGrid()` để preview phản ánh data thật. Guest vẫn nạp data (preview live), chưa có SP nào → giữ demo cứng.
 - [index.html](../showroom1/index.html) — module hóa inline script (`bindFav`/`bindImgwrap`/`bindCard` + `renderGrid`/`buildCardEl`), expose `window.Showroom`. Wrap `#adminPane` + `.phone-pane`, include `../shared/esm/compat.js` (auto-init `window.authManager`) + `admin.js`.
