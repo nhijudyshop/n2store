@@ -861,12 +861,10 @@ const KPICommission = {
 
             this._orderCheckStore.init().catch(() => {});
 
-            // Load invoice status + KPI stats + Inbox KPI in parallel from Render API
-            await Promise.all([
-                this.loadInvoiceStatusData(),
-                this.loadAllStatistics(),
-                this.loadInboxKpiStats(),
-            ]);
+            // Load invoice status + KPI stats in parallel from Render API.
+            // (KHÔNG load Inbox KPI ở đây: _inboxKpiByUser không còn cell nào đọc —
+            // sub-tab "KPI Đơn Inbox" tự load qua loadInboxSubtabStats khi mở.)
+            await Promise.all([this.loadInvoiceStatusData(), this.loadAllStatistics()]);
             // Derive filters from loaded data
             await this.loadCampaignOptions();
             await this.loadEmployeeOptions();
@@ -1210,11 +1208,9 @@ const KPICommission = {
 
         this.state.filteredData = filtered;
 
-        // Reload Inbox KPI khi date range đổi (KPI inbox phân riêng, phụ thuộc
-        // dateFrom/dateTo). Fire-and-forget — table sẽ tự re-render khi xong.
-        this.loadInboxKpiStats()
-            .then(() => this.renderKPITable(this.state.filteredData))
-            .catch((e) => console.warn('[KPI] reload inbox KPI failed:', e?.message));
+        // (Đã bỏ reload Inbox KPI + render lần 2 ở đây: _inboxKpiByUser không có
+        // consumer trong bảng campaign — sub-tab Inbox dùng loadInboxSubtabStats
+        // riêng. Trước đây mỗi lần lọc renderKPITable chạy 2 LẦN + 1 fetch thừa.)
 
         // Update UI
         this.updateSummaryCards(filtered);
@@ -2220,6 +2216,10 @@ const KPICommission = {
             let pendingCount = 0;
 
             for (const order of emp.orders) {
+                // Đơn stale (BASE đã xóa) → loại khỏi tổng — đồng nhất với
+                // updateSummaryCards (trước đây leaderboard cộng cả stale →
+                // tổng card với tổng bảng lệch nhau).
+                if (order._stale) continue;
                 // Đơn "Chờ phiếu" → KHÔNG cộng KPI/NET (đếm riêng để hiện badge).
                 if (order._kpiPending) {
                     pendingCount++;
@@ -5339,6 +5339,7 @@ const KPICommission = {
                 ['STT', 'Tên nhân viên', 'Số đơn', 'SP NET', 'Tổng KPI (VNĐ)', 'Phiếu bán hàng'],
             ];
 
+            const fullMode = this.state.displayMode === 'full';
             aggregated.forEach((emp, idx) => {
                 // Build invoice status summary text for Excel
                 let invoiceSummary = '';
@@ -5360,12 +5361,19 @@ const KPICommission = {
                 if (noInvoice > 0) parts.push(`${noInvoice} Chưa có`);
                 invoiceSummary = parts.join(', ');
 
+                // Đếm đơn CÙNG TIÊU CHÍ với bảng (renderKPITable): bỏ stale +
+                // chờ-phiếu; full mode đếm cả đơn KPI=0.
+                const orderCount = emp.orders.filter((o) => {
+                    if (o._stale) return false;
+                    if (o._kpiPending) return false;
+                    if (fullMode) return true;
+                    return (o.netProducts || 0) > 0 || (o.kpi || 0) > 0;
+                }).length;
+
                 rows.push([
                     idx + 1,
                     emp.resolvedName || emp.userName || emp.userId,
-                    emp.orders.filter(
-                        (o) => !o._stale && ((o.netProducts || 0) > 0 || (o.kpi || 0) > 0)
-                    ).length,
+                    orderCount,
                     emp.totalNetProducts,
                     emp.totalKPI,
                     invoiceSummary || '−',
@@ -5476,53 +5484,15 @@ const KPICommission = {
                 this.reinitIcons();
             };
 
-            // Smoke test endpoint cleanup — fail fast nếu Render chưa deploy DELETE route.
-            let cleanupAvailable = true;
-            try {
-                await window.kpiManager.kpiAPI(
-                    'DELETE',
-                    `/kpi-statistics/order/${encodeURIComponent('__probe_' + Date.now())}`
-                );
-            } catch (e) {
-                const msg = String(e?.message || e);
-                if (msg.includes('404')) {
-                    cleanupAvailable = false;
-                    console.warn(
-                        '[KPI Recompute] DELETE /kpi-statistics/order chưa có trên server (404). Render có thể đang deploy — bấm lại sau vài phút.'
-                    );
-                    alert(
-                        '⚠ Server Render chưa có endpoint dọn orphan (chưa deploy xong).\nBackfill vẫn sẽ chạy nhưng các đơn duplicate cũ SẼ KHÔNG ĐƯỢC DỌN.\n\nKhuyến nghị: đợi 2-3 phút cho Render deploy xong rồi bấm lại.'
-                    );
-                }
-                // Non-404 errors: orderCode ngẫu nhiên không match row nào → server trả 200 hoặc lỗi khác — vẫn coi là available.
-            }
-
-            // Worker pool: mỗi worker pull 1 orderCode từ queue, cleanup + recompute, repeat.
-            let cleanupFailures = 0;
+            // Worker pool: mỗi worker pull 1 orderCode từ queue rồi recompute.
+            // KHÔNG gọi DELETE /kpi-statistics/order riêng ở đây nữa —
+            // recalculateAndSaveKPI ĐÃ tự wipe orderCode khỏi mọi (userId, stat_date)
+            // row trước khi ghi lại (kpi-manager.js). Gọi thêm = double request/đơn.
             const worker = async () => {
                 while (queue.length > 0) {
                     const orderCode = queue.shift();
                     if (!orderCode) break;
                     try {
-                        // (1) Xoá orderCode khỏi mọi (userId, stat_date) row để dẹp orphan
-                        //     từ các lần save cũ (sai ngày hoặc sai userId).
-                        if (cleanupAvailable) {
-                            try {
-                                await window.kpiManager.kpiAPI(
-                                    'DELETE',
-                                    `/kpi-statistics/order/${encodeURIComponent(orderCode)}`
-                                );
-                            } catch (e) {
-                                cleanupFailures++;
-                                if (cleanupFailures <= 5) {
-                                    console.warn(
-                                        `[KPI Recompute] Cleanup fail ${orderCode}:`,
-                                        e?.message || e
-                                    );
-                                }
-                            }
-                        }
-                        // (2) Recompute + save vào đúng (userId, baseDate).
                         await window.kpiManager.recalculateAndSaveKPI(orderCode);
                     } catch (e) {
                         failed++;
@@ -5536,16 +5506,9 @@ const KPICommission = {
             const workers = Array.from({ length: Math.min(CONCURRENCY, total) }, () => worker());
             await Promise.all(workers);
 
-            console.log(
-                `[KPI Recompute] Xong: ${done - failed}/${total} đơn, fail ${failed}, cleanup fail ${cleanupFailures}`
-            );
-            const cleanupWarn = !cleanupAvailable
-                ? '\n\n⚠ Không dọn được orphan — các đơn duplicate cũ vẫn còn.\nĐợi Render deploy xong rồi bấm lại.'
-                : cleanupFailures > 0
-                  ? `\n\n⚠ ${cleanupFailures} đơn dọn orphan lỗi (xem console).`
-                  : '';
+            console.log(`[KPI Recompute] Xong: ${done - failed}/${total} đơn, fail ${failed}`);
             alert(
-                `Hoàn tất: ${done - failed}/${total} đơn.\nFailed: ${failed}${cleanupWarn}\n\nĐang refresh bảng…`
+                `Hoàn tất: ${done - failed}/${total} đơn.\nFailed: ${failed}\n\nĐang refresh bảng…`
             );
             await this.refreshData();
         } catch (e) {
@@ -5581,8 +5544,13 @@ const KPICommission = {
         // Clear name cache to force re-resolution
         this.state.employeeNameCache = {};
 
+        // Refresh invoice cache: trạng thái phiếu (Chờ phiếu / Nháp / Hủy) đổi
+        // liên tục trên TPOS — giữ cache cũ làm đơn kẹt "Chờ phiếu" (không cộng
+        // KPI) dù phiếu đã xác nhận, phải F5 cả trang mới hết.
+        this._invoiceCacheLoaded = false;
+
         try {
-            await this.loadAllStatistics();
+            await Promise.all([this.loadAllStatistics(), this.loadInvoiceStatusData()]);
             await this.applyFilters();
             this.reinitIcons();
             // Nền: fetch + lưu snapshot SP cuối thật cho đơn ĐANG HIỂN THỊ chưa có

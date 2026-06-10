@@ -1,5 +1,30 @@
 # Dev Log
 
+## 2026-06-10
+
+### [orders][kpi] Rà soát toàn bộ hệ thống tính KPI đơn đánh giá — fix 9 lỗi flow/logic + hiệu suất ✅
+
+**User:** rà soát lại toàn bộ hệ thống tính KPI của đơn đánh giá (tab KPI - HOA HỒNG), tìm lỗi, nâng hiệu suất flow và logic.
+
+**Đã rà:** `kpi-manager.js` (calculator), `kpi-audit-logger.js`, `kpi-sale-flag-store.js`, `tab-kpi-commission.js` (dashboard 5.7k dòng), `tab1-kpi-*.js`, server `realtime-db.js` (kpi-base/audit-log/statistics/final-snapshot/sale-flag), call-sites ghi log ở chat/edit-modal/sale-modal.
+
+**Fix LOGIC:**
+
+1. **Timezone bucket stat_date** ([kpi-manager.js](../orders-report/js/managers/kpi-manager.js)): `baseDate` dùng `toISOString()` = ngày **UTC** → BASE tạo 00:00–06:59 giờ VN rớt về NGÀY HÔM TRƯỚC (lệch filter "Hôm nay" + lệch tháng ở mép tháng → sai kỳ lương). Thêm `vnDateString()` (UTC+7, không phụ thuộc TZ máy) thay thế. Server `GET /kpi-base/list-meta` cũng đổi filter `created_at::date` (UTC) → `AT TIME ZONE 'Asia/Ho_Chi_Minh'` cho khớp (ảnh hưởng "Tính lại KPI" theo khoảng ngày).
+2. **`saveKPIStatistics` DROP 2 field legacy**: caller truyền `netProductsLegacy/kpiLegacy`, server PATCH hỗ trợ, nhưng hàm không forward → DB luôn ghi 0. Đã forward đủ.
+3. **Audit log ghi TRÙNG khi offline-queue flush**: POST thành công server-side nhưng client timeout → entry vào pending queue → flush lại = bản ghi đôi (phồng NET fallback + sai attribution). Fix idempotency: client sinh `clientId` UUID ([kpi-audit-logger.js](../orders-report/js/managers/kpi-audit-logger.js)), server thêm cột `client_id` + partial unique index (lazy ensure, idempotent) + `ON CONFLICT (client_id) DO NOTHING` cho cả POST đơn lẫn `/batch` ([realtime-db.js](../render.com/routes/realtime-db.js)).
+4. **`aggregateByEmployee` không loại đơn `_stale`** (BASE đã xóa) trong khi summary cards có loại → tổng leaderboard ≠ tổng hero cards. Đã thống nhất.
+5. **`refreshData` không refresh invoice cache** (`_invoiceCacheLoaded` giữ true) → đơn kẹt "Chờ phiếu" (không cộng KPI) dù phiếu đã xác nhận trên TPOS, phải F5 cả trang. "Làm mới" giờ reload luôn invoice status.
+6. **`exportExcel` đếm "Số đơn" khác tiêu chí bảng** (thiếu loại `_kpiPending`, bỏ qua full mode). Đã align với `renderKPITable`.
+
+**Fix HIỆU SUẤT:** 7. **`applyFilters` render bảng 2 LẦN mỗi lần lọc** + fetch `loadInboxKpiStats` thừa (data `_inboxKpiByUser` không còn cell nào đọc — sub-tab Inbox dùng `loadInboxSubtabStats` riêng). Bỏ cả hai (init cũng bỏ load inbox). 8. **`GET /kpi-statistics` (list) strip `details`** (per-product breakdown JSONB — phần nặng nhất payload, KHÔNG consumer nào đọc từ list; dashboard + tab1 strip đều tính live qua `calculateNetKPI`). Giảm mạnh payload load dashboard + strip refresh theo SSE. Endpoint per-(user,date) vẫn trả đủ. 9. **Cache employee_ranges TTL 60s** trong `getAssignedEmployeeForSTT` (share in-flight promise): "Tính lại KPI" N đơn cùng campaign trước đây tốn tới 2 fetch ranges/đơn. + **`recomputeAllKPI` bỏ DELETE trùng lặp** (probe + per-order DELETE — `recalculateAndSaveKPI` đã tự wipe) → giảm ~nửa request khi backfill.
+
+**Tìm thấy nhưng CHƯA sửa (cần quyết định riêng):** TPOS credentials hardcode trong client JS (`tab-kpi-commission.js` fallback `/api/token` — pattern chung 13 files toàn repo, cần fix tận gốc ở worker); race DELETE→PATCH giữa 2 recalc đồng thời cùng đơn (cần endpoint reattribute atomic); `out_of_range` dead code (mọi call site hardcode false); recon per-order fetch TPOS live (by design); duplicate ~80 dòng `reconcileOne` giữa recon global/L1.
+
+**Verify:** vitest KPI suite (unit + property): **265 pass / 42 fail — fail GIỐNG HỆT baseline** (test cũ assert pattern Firestore đã bỏ từ trước, không phải regression). `git stash` đối chiếu 2 chiều xác nhận 0 regression mới.
+
+**Status:** ✅ code xong. Sau deploy Render: bấm "Tính lại toàn bộ KPI" để re-bucket stat_date theo giờ VN (đơn 00:00–07:00 sẽ dồn về đúng ngày).
+
 ## 2026-06-09
 
 ### [orders][kpi] Đổi nguồn KPI: final = FastSaleOrder.OrderLines (phiếu bán hàng) − BASE ✅
@@ -9,6 +34,7 @@
 **Verify LIVE (Playwright) trước khi code:** `OrderLines.ProductId` === `SaleOnline.Details.ProductId` === `BASE.ProductId` === `audit.productId` (đơn 260600892 đều `[157776,158036,158614,158616]`) → đổi nguồn KHÔNG phá BASE-match / attribution / sale-flag / refund / reconcile (đều keyed theo ProductId). OrderLines KHÔNG có `ProductCode` trực tiếp → enrich từ `ProductBarcode` (="Q449A2"...) hoặc `[CODE]` trong `ProductNameGet`. Qty=`ProductUOMQty`, giá=`PriceUnit`, line SP có `Type:'fixed'` + ProductId≠null.
 
 **Thiết kế — thay đổi CÔ LẬP ở tầng fetch** ([kpi-manager.js](../orders-report/js/managers/kpi-manager.js)):
+
 - Flag `KPI_FINAL_SOURCE='invoice'` (revert tức thì) + `KPI_CHOT_STATES={Đã xác nhận, Đã thanh toán, Hoàn thành}`.
 - `fetchInvoiceLinesFromTPOS(orderCode)`: GetView phiếu theo Reference → lọc CHỐT hợp lệ (loại Nháp/Hủy via `_isInvoiceCancelledRaw`) → `FastSaleOrder(id)?$expand=OrderLines` từng phiếu → gom qty theo ProductId, enrich code, skip ProductId null/qty≤0. Trả CÙNG shape `{ProductId,ProductCode,ProductName,Quantity,Price}`.
 - `fetchFinalProducts(orderCode,orderId)` rẽ theo flag; `ensureKpiFinalSnapshot` + `reconcileKPI` cross-check dùng nó. `calculateNetKPI` core/attribution/flag/refund/renderers GIỮ NGUYÊN (shape+ProductId không đổi).
@@ -17,6 +43,7 @@
 **⚠ Thay đổi hành vi có chủ đích:** SP upsell thêm vào chat SAU khi xuất phiếu mà không re-invoice → KHÔNG tính (vì không trên OrderLines).
 
 **Verify:**
+
 - Unit: [kpi-reconciled-net.test.js](../tests/unit/kpi-reconciled-net.test.js) +8 test (20/20 pass): extractCode, lọc CHỐT, gom nhiều phiếu, skip ship/qty0, enrich fallback NameGet, end-to-end NET=OrderLines−BASE, no-invoice→NET0.
 - Playwright LIVE simulate: 260600892 & 260601110 → `invoice_NET === chat_NET` (NET 2 & 3, cùng SP) — khác biệt chỉ xuất hiện khi chat≠phiếu (đúng mục tiêu).
 - Cache bump `kpi-manager.js?v=20260609a→20260609b` (3 HTML).
@@ -30,6 +57,7 @@
 **Vấn đề:** định nghĩa "active" cũ = NON-cancelled → tính cả **Nháp (draft)** là active (→ count = 2). Sai theo rule shop.
 
 **Sửa — thêm `_isActiveOrderInvoice(entry, soId)`** = chỉ `State='open'` (Đã xác nhận) hoặc `'paid'` (Đã thanh toán), loại Nháp/Huỷ bỏ/NotEnoughInventory + cross-check sổ hủy. Wire vào:
+
 - **Đếm "N active"** (`refreshPBHForOrder`): 6 phiếu → giờ báo **1 active** (chỉ 71557).
 - **`getLatest`** 3 tầng ưu tiên: ĐƠN HÀNG thật (confirmed/paid) → phiếu chưa-hủy (Nháp) → bất kỳ. Cell hiện 71557 dù 71558 Nháp mới hơn.
 - **Badge ĐÃ RA ĐƠN** (`reconcileTagsWithInvoices._isEntryActive`) + **revert tag** (`_revertPtagIfNoActivePBH`): chỉ confirmed/paid mới tính "đã ra đơn"; đơn chỉ có Nháp/Huỷ → không đã ra đơn (reverse-reconcile revert nếu đang HOAN_TAT auto-flip).
@@ -284,6 +312,7 @@
 **LỖI CHÍNH (đã trace + unit-test):** `InvoiceStatusStore.delete(saleOnlineId)` xóa dòng **timestamp cao nhất**, còn `getLatest()` (feed ô PBH) chọn dòng **chưa-hủy mới nhất** → 2 hàm trỏ 2 dòng khác nhau khi đơn có 29 phiếu. Mỗi lần hủy: TPOS `ActionCancel(order.Id)` hủy đúng 71115 ✓, nhưng `delete()` gỡ một dòng **đã-hủy khác** (ts cao hơn), trả `true` → toast success; dòng 71115 'open' không bao giờ là mục tiêu → cell mãi hiện 71115. `refreshStateCode` không tự lành (chỉ update khi `StateCode!=='None'`, hủy giữ `StateCode='None'`). Đọc không đối chiếu sổ HỦY.
 
 **Sửa (5 fix, tất cả fail-safe + backward-compat):**
+
 - **Fix 1 — `delete(saleOnlineId, {tposId, number})`**: xóa ĐÚNG phiếu vừa hủy theo FSO Id / Số phiếu (gom-xóa bản trùng), return `{ok, deletedKeys, targetFound}`. Không opts → giữ latest-wins legacy. [`tab1-fast-sale-invoice-status.js`]
 - **Fix 2 — verify + CẢNH BÁO**: 2 handler hủy (`confirmCancelOrder`, `confirmCancelOrderFromMain`) truyền `{tposId, number}`, gọi `_verifyCancelApplied` (quét vật lý) → nếu dòng 'open' cùng số vẫn còn → toast LỖI thay vì success giả. [`tab1-fast-sale-workflow.js`]
 - **Fix 3 — `refreshStateCode` bắt HỦY**: TPOS trả `State='cancel'`/`ShowState='Huỷ bỏ'`/`IsMergeCancel` → gỡ orphan + `notificationManager.info("Đã tự đồng bộ N phiếu...")` (self-heal, chống im lặng). [`tab1-fast-sale-invoice-status.js`]
@@ -740,6 +769,7 @@ Bounded: tối đa 1 refetch/lượt; sau refetch `fetchedAt=now` → hết stal
 **Bonus fix (server):** PUT `/kpi-final-snapshot` ON CONFLICT KHÔNG bump `fetched_at` (chỉ `updated_at`) → sau refetch `fetched_at` vẫn cũ → guard refetch TPOS MỖI lần tính (đúng kết quả nhưng tốn request). Thêm `fetched_at = CURRENT_TIMESTAMP` vào UPDATE ([realtime-db.js:891](../render.com/routes/realtime-db.js#L891)) → guard tự dừng sau 1 refetch. ⚠ Cần deploy Render.
 
 **✅ VERIFIED LIVE (Playwright, login nhijudy.store, JS mới):**
+
 - 260600892: NET **1→2** (10.000đ), SP [Q741A1, Q739A1]. `SaleOnline.Details` có đủ 4 SP gồm Q739A1.
 - 260601110: NET **1→3** (15.000đ), SP [Q739A2, Q741A2, Q716A2].
 - Console `[KPI] Snapshot ... lỗi thời → fetch lại đơn thật TPOS` fire đúng.

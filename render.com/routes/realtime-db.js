@@ -638,13 +638,18 @@ router.get('/kpi-base/list-meta', async (req, res) => {
         const { dateFrom, dateTo, campaign } = req.query;
         const clauses = [];
         const params = [];
+        // Ngày so theo GIỜ VN: column TIMESTAMP (no TZ) lưu UTC wall-clock;
+        // `created_at::date` trần là ngày UTC → base tạo 00:00–06:59 VN rớt về
+        // hôm trước, lệch với dateFrom/dateTo (ngày local VN từ dashboard) và
+        // lệch với stat_date bucket (vnDateString phía client).
+        const VN_DATE = `(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date`;
         if (dateFrom) {
             params.push(dateFrom);
-            clauses.push(`created_at::date >= $${params.length}`);
+            clauses.push(`${VN_DATE} >= $${params.length}`);
         }
         if (dateTo) {
             params.push(dateTo);
-            clauses.push(`created_at::date <= $${params.length}`);
+            clauses.push(`${VN_DATE} <= $${params.length}`);
         }
         if (campaign) {
             params.push(campaign);
@@ -925,6 +930,28 @@ router.delete('/kpi-final-snapshot/:orderCode', async (req, res) => {
 // KPI AUDIT LOG API
 // =====================================================
 
+// Idempotency cho audit log: client gửi kèm client_id (UUID). Nếu POST đã
+// commit nhưng client mất response (timeout) → client queue + flush lại →
+// ON CONFLICT (client_id) DO NOTHING chặn bản ghi trùng (trùng log làm
+// fallback NET phồng + attribution sai). Cột nullable + partial unique index
+// → backward-compat với client cũ chưa gửi client_id.
+let _kpiAuditClientIdEnsured = false;
+async function ensureKpiAuditClientIdColumn(pool) {
+    if (_kpiAuditClientIdEnsured) return;
+    try {
+        await pool.query(
+            `ALTER TABLE kpi_audit_log ADD COLUMN IF NOT EXISTS client_id VARCHAR(64)`
+        );
+        await pool.query(
+            `CREATE UNIQUE INDEX IF NOT EXISTS idx_kpi_audit_client_id
+             ON kpi_audit_log(client_id) WHERE client_id IS NOT NULL`
+        );
+        _kpiAuditClientIdEnsured = true;
+    } catch (e) {
+        console.warn('[REALTIME-DB] ensureKpiAuditClientIdColumn failed:', e?.message);
+    }
+}
+
 /**
  * POST /api/realtime/kpi-audit-log
  * Log a single product action
@@ -932,6 +959,7 @@ router.delete('/kpi-final-snapshot/:orderCode', async (req, res) => {
 router.post('/kpi-audit-log', async (req, res) => {
     try {
         const {
+            clientId,
             orderCode,
             orderId,
             action,
@@ -952,6 +980,7 @@ router.post('/kpi-audit-log', async (req, res) => {
         if (!orderCode || !action || !productCode) {
             return res.status(400).json({ error: 'orderCode, action, productCode required' });
         }
+        await ensureKpiAuditClientIdColumn(pool);
 
         // Dedup: skip if identical log exists within last 5 seconds
         const dedup = await pool.query(
@@ -971,8 +1000,9 @@ router.post('/kpi-audit-log', async (req, res) => {
         const result = await pool.query(
             `
             INSERT INTO kpi_audit_log (order_code, order_id, action, product_id, product_code, product_name,
-                quantity, source, user_id, user_name, campaign_id, campaign_name, out_of_range)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                quantity, source, user_id, user_name, campaign_id, campaign_name, out_of_range, client_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            ON CONFLICT (client_id) WHERE client_id IS NOT NULL DO NOTHING
             RETURNING id
         `,
             [
@@ -989,8 +1019,22 @@ router.post('/kpi-audit-log', async (req, res) => {
                 campaignId,
                 campaignName,
                 outOfRange || false,
+                clientId || null,
             ]
         );
+
+        // ON CONFLICT DO NOTHING → 0 row khi client_id đã tồn tại (retry sau timeout)
+        if (result.rows.length === 0) {
+            const existing = await pool.query(
+                'SELECT id FROM kpi_audit_log WHERE client_id = $1 LIMIT 1',
+                [clientId]
+            );
+            return res.json({
+                success: true,
+                id: existing.rows[0]?.id || null,
+                deduplicated: true,
+            });
+        }
 
         res.json({ success: true, id: result.rows[0].id });
     } catch (error) {
@@ -1016,6 +1060,7 @@ router.post('/kpi-audit-log/batch', async (req, res) => {
         if (entries.length > 500) {
             return res.status(400).json({ error: 'Batch size exceeds limit of 500 entries' });
         }
+        await ensureKpiAuditClientIdColumn(pool);
 
         const client = await pool.connect();
         let count = 0;
@@ -1023,11 +1068,14 @@ router.post('/kpi-audit-log/batch', async (req, res) => {
             await client.query('BEGIN');
             for (const e of entries) {
                 if (!e.orderCode || !e.action || !e.productCode) continue;
-                await client.query(
+                // ON CONFLICT (client_id): queue flush sau timeout không ghi trùng
+                // entry mà POST gốc thực ra đã commit (idempotent re-send).
+                const r = await client.query(
                     `
                     INSERT INTO kpi_audit_log (order_code, order_id, action, product_id, product_code, product_name,
-                        quantity, source, user_id, user_name, campaign_id, campaign_name, out_of_range)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                        quantity, source, user_id, user_name, campaign_id, campaign_name, out_of_range, client_id)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                    ON CONFLICT (client_id) WHERE client_id IS NOT NULL DO NOTHING
                 `,
                     [
                         e.orderCode,
@@ -1043,9 +1091,10 @@ router.post('/kpi-audit-log/batch', async (req, res) => {
                         e.campaignId,
                         e.campaignName,
                         e.outOfRange || false,
+                        e.clientId || null,
                     ]
                 );
-                count++;
+                if (r.rowCount > 0) count++;
             }
             await client.query('COMMIT');
         } catch (e) {
@@ -1477,6 +1526,20 @@ router.get('/kpi-statistics', async (req, res) => {
             params
         );
 
+        // Strip `details` (per-product breakdown JSONB — nặng nhất payload) khỏi
+        // từng order: KHÔNG consumer nào của endpoint LIST này đọc nó (dashboard
+        // + tab1 strip đều tính chi tiết live qua calculateNetKPI). Endpoint
+        // per-(user,date) bên dưới vẫn trả đủ. Cắt ở đây giảm mạnh payload cho
+        // dashboard load + tab1 strip refresh theo SSE.
+        const stripDetails = (orders) =>
+            (Array.isArray(orders) ? orders : []).map((o) => {
+                if (o && typeof o === 'object' && 'details' in o) {
+                    const { details, ...rest } = o;
+                    return rest;
+                }
+                return o;
+            });
+
         res.json({
             statistics: result.rows.map((r) => ({
                 userId: r.user_id,
@@ -1484,7 +1547,7 @@ router.get('/kpi-statistics', async (req, res) => {
                 date: r.stat_date,
                 totalNetProducts: r.total_net_products,
                 totalKPI: parseFloat(r.total_kpi),
-                orders: r.orders || [],
+                orders: stripDetails(r.orders),
                 updatedAt: r.updated_at,
             })),
         });
