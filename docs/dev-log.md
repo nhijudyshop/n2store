@@ -2,6 +2,32 @@
 
 ## 2026-06-10
 
+### [web2] FIX toàn diện Web 2.0 (Wave 1+2, 12 agent) + browser-test click UI thật 34/34 trang ✅
+
+**User:** "code tất cả web 2.0 luôn" + "Code xong tự browser test bằng click, tương tác UI thật ở tất cả trang web 2.0".
+
+**Cách làm:** 12 agent song song theo cụm file KHÔNG chồng chéo (mỗi file 1 agent), mỗi file `node --check` PASS, parent review path tiền/kho.
+
+**Wave 1 — backend routes + frontend + realtime:**
+
+- `purchase-refund.js`: fix `pool` undefined `:261` (→`client`) + transaction quanh deductStock+saveRefundData + FOR UPDATE chống double-approve.
+- `web2-products.js`: `stock:m.quantity`→`m.stock` (+chỗ 660), bỏ fallback `KHO-<rnd>`, transaction upsert-pending/confirm-purchase. `web2-variants.js` 409 unique. `web2-generic.js` `web2Db||chatDb` (87 trang).
+- `native-orders.js`: retry-23505 mã đơn, advisory lock campaign_stt, `fb_page_name` ALTER, normalize phone ví, cancel+refund 1 tx, idempotency from-comment.
+- `fast-sale-orders.js`: applyWalletToUnpaidPbhs FOR UPDATE SKIP LOCKED, retry số PBH (savepoint merge), from-native-order stock trong tx, cancel+restock atomic.
+- `web2-returns.js`: cộng ví VÀO transaction, approve FOR UPDATE, genCode retry, SUM filter `state<>'cancel'`. `refunds.js`/`delivery-invoices.js`: `_changeState` FOR UPDATE + state machine. `reconcile.js`: return-failed atomic.
+- `web2-balance-history.js`: reassign 1 tx; manual deposit id fit INTEGER. `web2-customers.js`: unique fb_id + normalize 84xxx. `web2-customer-wallet.js`: SHOP_BANK→env.
+- `web2-payment-signals.js`/`notifications.js`/`dashboard-kpi.js`/`audit-log.js`/`kpi.js`: FOR UPDATE history, dedupe index, timezone VN, total count, qty_delta key, scopeCache LRU.
+- Frontend: data-attr `data-number` (pbh/rf/dlv), reconcile SSE debounce, **Export CSV ví KH `fetchAggregate`→`fetchAggregateWeb2Only`**.
+- **Realtime live-chat**: adaptive poll (5s live / 30s idle) + pagination flag + passive listener + optimistic inline.
+
+**Wave 2 — auth + config/core frontend:** `middleware/web2-auth.js` gate mutation (KHÔNG gate login/me/view), rate-limit, password min 8, WEB2_PAGES +7; products/variants/ck saveModal optimistic, bỏ Firebase SDK thừa, SRI, AbortController.
+
+**Browser test (BẮT REGRESSION THẬT):** `scripts/web2-ui-test.js` click UI thật 34 trang. Phát hiện regression tự gây: gỡ Firebase SDK làm 3 trang throw `firebase.firestore is not a function` → fix guard `initializeFirestore()` (`shared/js/firebase-config.js`). Chạy lại **34/34 sạch** (chỉ `getUserMedia NotSupported` headless noise).
+
+**⏳ Cần deploy Render** để fix backend có hiệu lực (frontend đã live). Chi tiết: [docs/web2/WEB2-PAGES-ANALYSIS.md](web2/WEB2-PAGES-ANALYSIS.md) mục 0.
+
+**Status:** ✅ Done (code + frontend live + browser-test 34/34). Backend chờ deploy Render.
+
 ### [render][web2] Áp AUTH cho mutation Web 2.0 (fix CRITICAL #1 audit) ✅
 
 **User:** gắn middleware `web2-auth` (đã có sẵn) vào các endpoint mutation Web 2.0, KHÔNG lockout view/login/me.

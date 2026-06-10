@@ -3,8 +3,28 @@
 # Web 2.0 — Phân tích toàn diện 34 trang menu
 
 > **Ngày audit:** 2026-06-10 · **Phương pháp:** 9 agent đọc song song toàn bộ frontend (HTML/JS) + route backend (render.com/routes) + DB/SSE wiring của từng trang trong menu Web 2.0.
-> **Trạng thái:** CHỈ PHÂN TÍCH — chưa fix. Bug được liệt kê kèm `file:line` + severity để fix dần.
->
+> **Trạng thái:** ✅ **ĐÃ FIX phần lớn (2026-06-10, Wave 1+2)** — xem mục 0 bên dưới. Bug được liệt kê kèm `file:line` + severity.
+
+---
+
+## 0. Trạng thái fix (2026-06-10 — Wave 1 + Wave 2)
+
+> Fix qua 12 agent song song theo cụm file không chồng chéo, mỗi file `node --check` PASS. **Browser test click UI thật 34/34 trang Web 2.0 SẠCH** (`scripts/web2-ui-test.js` → `downloads/n2store-session/web2-ui-test.md`; lỗi duy nhất `getUserMedia NotSupported` = môi trường headless, không phải code). Browser test còn **bắt được 1 regression tự gây** (gỡ Firebase SDK làm vỡ 3 trang) → đã fix bằng guard `initializeFirestore`.
+
+**✅ ĐÃ FIX (đã commit + push, FRONTEND đã live qua GH Pages):**
+
+- **Tất cả 8 Top CRITICAL** (auth web2-users/SSE-monitor/kpi · `pool`→`client` purchase-refund · `stock:m.quantity`→`m.stock` · `fetchAggregate`→`fetchAggregateWeb2Only` · sinh mã atomic retry/advisory-lock 4 route · bỏ `KHO-<rnd>` · ví NCC — xem ghi chú).
+- **Pattern lỗi lặp** #1-6: data-attr selector (3 trang) · transaction quanh tiền/kho (purchase-refund, web2-returns, fast-sale-orders, native-orders cancel, balance-history reassign) · FOR UPDATE check-then-update · Web2Optimistic cho handler còn thiếu · SSE debounce (reconcile, notifications) · web2-generic `web2Db||chatDb`.
+- **Money atomicity**: web2-returns cộng ví VÀO transaction · balance-history reassign 1 transaction · payment-signals `_appendHistory` + approve idempotency FOR UPDATE.
+- **Realtime live-chat**: adaptive poll (5s khi có bài live / 30s idle) + pagination flag + passive listener.
+- **Auth**: middleware `render.com/middleware/web2-auth.js` gate mutation (KHÔNG gate login/me/view → không lockout) + rate-limit login + password min 8 + WEB2_PAGES +7 trang.
+
+**⏳ CẦN DEPLOY RENDER để có hiệu lực**: mọi fix BACKEND (route `render.com/`) đã commit nhưng chỉ chạy thật sau khi deploy Render (`POST /services/srv-d4e5pd3gk3sc73bgv600/deploys`). Frontend (GH Pages) đã live. ⚠ Auth enforcement: admin phải đăng nhập hệ thống web2-users (token `web2_auth`) — verify trước khi deploy auth lên prod để tránh khoá nhầm.
+
+**🔲 CHƯA fix (ưu tiên thấp / cần thêm context)**: supplier-wallet/supplier-debt Firestore client-write (cần chuyển server route — đợt sau) · so-order Firestore 1-doc last-write-wins (architectural) · native-orders frontend merge/split thiếu `x-web2-token` (chỉ cần khi backend native-orders gate auth — hiện chưa gate) · 1 số LOW/NGHI VẤN trong mục 3.
+
+---
+
 > **⚠ RULE BẢO TRÌ (BẮT BUỘC):** Khi code/sửa phần QUAN TRỌNG của Web 2.0 (route mới, đổi luồng data, fix bug trong danh sách này, thêm trang menu) → **PHẢI cập nhật 2 nơi**: file này (`docs/web2/WEB2-PAGES-ANALYSIS.md`) **và** trang sống [`web2/overview/index.html`](../../web2/overview/index.html). Fix xong 1 bug → đổi trạng thái dòng tương ứng thành ✅ kèm commit sha.
 
 ---
