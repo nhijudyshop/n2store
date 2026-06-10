@@ -2,6 +2,32 @@
 
 ## 2026-06-10
 
+### [docs] Audit toàn diện 34 trang menu Web 2.0 — bug/race/cải thiện (CHƯA fix, chỉ tài liệu) ✅
+
+**User:** plan lớn — đọc/phân tích chi tiết tất cả trang trong menu Web 2.0, tìm bug/race condition/cải thiện → tổng hợp vào overview + viết file MD; thêm rule "code phần quan trọng → cập nhật overview + MD". Chỉ viết tài liệu, KHÔNG sửa code.
+
+**Cách làm:** 9 agent đọc song song frontend + route backend + DB/SSE wiring của từng nhóm trang (Bán Hàng 5, native-orders, so-order, live-chat+poller, Mua hàng 3, Tài chính+KH 3, Sản phẩm 3, Tính năng mới 5, còn lại+Cấu hình 10).
+
+**Kết quả:** ~8 CRITICAL / ~25 HIGH / ~35 MEDIUM. Nặng nhất:
+
+1. **BẢO MẬT** — `web2-users.js` không có auth middleware trên BẤT KỲ endpoint nào (anonymous tạo admin/reset pass/đổi permissions); SSE monitor `/stats /log /test` không auth, gate admin chỉ check localStorage.
+2. `purchase-refund.js:261` — `/cancel-approve` gọi `saveRefundData(pool,…)` nhưng `pool` không tồn tại trong scope → crash SAU khi hoàn kho.
+3. `web2-products.js:1330` — `confirm-purchase-partial` trả `stock: m.quantity` (field không tồn tại) → undefined.
+4. Ví KH `exportCsv` gọi `fetchAggregate()` không tồn tại → export hỏng hoàn toàn.
+5. Sinh mã đơn/PBH/DLV/TV bằng SELECT MAX+1 không atomic (4 route) + server fallback mã rác `KHO-<rnd>` (`web2-products.js:1112`).
+6. Ví NCC: 2 tab ghi Firestore cùng lúc → mất giao dịch; `confirmPay` money op fire-and-forget.
+
+Pattern lặp: data-attr mismatch phá rollback optimistic (3 trang Bán Hàng), thiếu transaction/FOR UPDATE quanh tiền+kho, `web2-generic.js` dùng `web2Db` trần (87 trang), 2 luồng trả hàng song song (refunds.js vs web2-returns.js).
+
+**Files:**
+
+- [docs/web2/WEB2-PAGES-ANALYSIS.md](web2/WEB2-PAGES-ANALYSIS.md) — MỚI: catalog đầy đủ từng trang (file:line, severity, checkbox ⬜/✅, pattern lỗi lặp, lộ trình fix 5 đợt)
+- [web2/overview/index.html](../web2/overview/index.html) — section mới `#auditPages` (top CRITICAL + pattern lặp + rule bảo trì)
+- [CLAUDE.md](../CLAUDE.md) — quy tắc 9: code phần quan trọng Web 2.0 / fix bug audit → cập nhật CẢ overview lẫn file MD (⬜→✅ + sha); đọc MD trước khi fix bug Web 2.0
+- MEMORY — thêm `reference_web2_pages_analysis`
+
+**Status:** ✅ Done (tài liệu) — bug fix theo lộ trình 5 đợt trong MD, chưa thực hiện.
+
 ### [live-chat] Fix avatar comment livestream (cột trái) + lưu avatar vào web2_live_comments ✅
 
 **User:** "comment live sao không nhận trực tiếp? Với có mấy khách không có avatar?" → chọn fix avatar comment list + poller lưu avatar/fb_id.

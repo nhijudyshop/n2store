@@ -303,6 +303,171 @@
                     </div>
                 </section>
 
+                <!-- ===== AUDIT TOÀN DIỆN 34 TRANG (2026-06-10) ===== -->
+                <section
+                    id="auditPages"
+                    style="
+                        background: #fff;
+                        border: 1px solid #e2e8f0;
+                        border-left: 5px solid #dc2626;
+                        border-radius: 14px;
+                        padding: 18px 22px;
+                        margin: 0 0 22px;
+                        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                    "
+                >
+                    <div
+                        style="
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                            flex-wrap: wrap;
+                            margin-bottom: 6px;
+                        "
+                    >
+                        <span style="font-size: 24px; line-height: 1">🩺</span>
+                        <h2 style="margin: 0; font-size: 18px; color: #7f1d1d">
+                            Audit code toàn diện 34 trang menu — bug / race condition / cải thiện
+                        </h2>
+                        <span
+                            style="
+                                background: #fee2e2;
+                                color: #991b1b;
+                                font-size: 12px;
+                                font-weight: 700;
+                                padding: 3px 10px;
+                                border-radius: 999px;
+                            "
+                            >2026-06-10 · 9 agent · CHƯA FIX</span
+                        >
+                    </div>
+                    <p style="margin: 0 0 12px; font-size: 13px; color: #475569; line-height: 1.6">
+                        Đọc toàn bộ frontend + route backend + DB/SSE wiring của từng trang. Kết
+                        quả: <strong>~8 CRITICAL · ~25 HIGH · ~35 MEDIUM</strong>. Chi tiết đầy đủ
+                        từng trang (file:line, severity, lộ trình fix 5 đợt) ở
+                        <a
+                            href="https://github.com/nhijudyshop/n2store/blob/main/docs/web2/WEB2-PAGES-ANALYSIS.md"
+                            target="_blank"
+                            style="font-weight: 700"
+                            >docs/web2/WEB2-PAGES-ANALYSIS.md</a
+                        >.
+                    </p>
+
+                    <!-- Top bugs -->
+                    <div
+                        style="
+                            background: #fef2f2;
+                            border: 1px solid #fecaca;
+                            border-radius: 10px;
+                            padding: 12px 14px;
+                            margin-bottom: 12px;
+                            font-size: 12.5px;
+                            color: #7f1d1d;
+                            line-height: 1.7;
+                        "
+                    >
+                        <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px">
+                            🔴 Top CRITICAL (chưa fix)
+                        </div>
+                        <ol style="margin: 0; padding-left: 18px">
+                            <li>
+                                <strong>BẢO MẬT:</strong> <code>web2-users.js</code> không có auth
+                                middleware trên BẤT KỲ endpoint nào — anonymous tạo được admin /
+                                reset mật khẩu / leo thang quyền. SSE monitor
+                                <code>/stats /log /test</code> cũng không auth.
+                            </li>
+                            <li>
+                                <code>purchase-refund.js:261</code> —
+                                <code>/cancel-approve</code> gọi
+                                <code>saveRefundData(pool,…)</code> nhưng biến
+                                <code>pool</code> không tồn tại → crash SAU khi đã hoàn kho → record
+                                kẹt <code>approved</code>.
+                            </li>
+                            <li>
+                                <code>web2-products.js:1330</code> —
+                                <code>confirm-purchase-partial</code> trả
+                                <code>stock: m.quantity</code> (field không tồn tại) →
+                                <code>undefined</code> cho so-order.
+                            </li>
+                            <li>
+                                Ví KH: nút Export CSV gọi <code>fetchAggregate()</code> không tồn
+                                tại → ReferenceError, export hỏng hoàn toàn.
+                            </li>
+                            <li>
+                                Sinh mã đơn/PBH/DLV/TV bằng SELECT MAX+1 không atomic (4 route) →
+                                trùng mã khi burst; server còn fallback mã rác
+                                <code>KHO-&lt;rnd&gt;</code> (<code>web2-products.js:1112</code>).
+                            </li>
+                            <li>
+                                Ví NCC: 2 tab cùng ghi Firestore
+                                <code>web2_supplier_wallet/main</code> → merge không deep-merge
+                                array → <strong>mất giao dịch</strong>; <code>confirmPay</code> là
+                                money op nhưng fire-and-forget.
+                            </li>
+                        </ol>
+                    </div>
+
+                    <!-- Pattern lặp -->
+                    <div
+                        style="
+                            background: #fff7ed;
+                            border: 1px solid #fed7aa;
+                            border-radius: 10px;
+                            padding: 12px 14px;
+                            margin-bottom: 12px;
+                            font-size: 12.5px;
+                            color: #7c2d12;
+                            line-height: 1.7;
+                        "
+                    >
+                        <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px">
+                            🟠 Pattern lỗi LẶP toàn hệ thống (fix 1 lần áp dụng nhiều nơi)
+                        </div>
+                        <ul style="margin: 0; padding-left: 18px">
+                            <li>
+                                Selector rollback sai: render <code>data-number</code> nhưng tìm
+                                <code>data-pbh-number / data-rf-number / data-dlv-number</code> →
+                                rollback Web2Optimistic hỏng trên 3 trang Bán Hàng.
+                            </li>
+                            <li>
+                                Thiếu transaction quanh mutation nhiều bước (trừ kho + save record,
+                                cộng ví sau COMMIT ở Thu về, reassign SePay 3 bước) — crash giữa
+                                chừng = lệch kho/tiền.
+                            </li>
+                            <li>
+                                Thiếu <code>FOR UPDATE</code> ở check-then-update
+                                (<code>_changeState</code>, approve, applyWalletToUnpaidPbhs,
+                                <code>_appendHistory</code> JSONB) → double-approve / mất history.
+                            </li>
+                            <li>
+                                Nhiều handler chưa qua <code>Web2Optimistic.run</code>; SSE client
+                                thiếu debounce (reconcile, notifications); 2 luồng song song cùng 1
+                                nghiệp vụ (refunds.js vs web2-returns.js; adjustStock vs
+                                purchase-refund); <code>web2-generic.js</code> dùng
+                                <code>web2Db</code> trần (87 trang).
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div
+                        style="
+                            background: #eff6ff;
+                            border: 1px solid #bfdbfe;
+                            border-radius: 10px;
+                            padding: 10px 14px;
+                            font-size: 12.5px;
+                            color: #1e3a5f;
+                            line-height: 1.7;
+                        "
+                    >
+                        <strong>📌 Rule bảo trì (BẮT BUỘC):</strong> code/sửa phần QUAN TRỌNG của
+                        Web 2.0 (route mới, đổi luồng data, fix bug trong danh sách audit, thêm
+                        trang menu) → cập nhật <strong>cả trang này</strong> lẫn
+                        <strong><code>docs/web2/WEB2-PAGES-ANALYSIS.md</code></strong> (đổi ⬜ → ✅
+                        kèm commit sha). Lộ trình fix 5 đợt: xem mục 5 của file MD.
+                    </div>
+                </section>
+
                 <nav class="ov-toc" aria-label="Mục lục">
                     <div class="ov-toc-title">Mục lục</div>
                     <ol>
