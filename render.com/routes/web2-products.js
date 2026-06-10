@@ -657,7 +657,7 @@ router.patch('/:code', async (req, res) => {
                     error: 'stock_less_than_pending',
                     code: req.params.code,
                     name: prevMapped.name,
-                    currentStock: prevMapped.quantity,
+                    currentStock: prevMapped.stock,
                     newStock,
                     pendingQty: curPending,
                     supplier: prevMapped.supplier,
