@@ -29,7 +29,6 @@ const KPICommission = {
             employee: '',
             dateFrom: '',
             dateTo: '',
-            status: '',
         },
         statsData: [], // Raw kpi_statistics data [{userId, userName, dates: {...}}]
         filteredData: [], // Filtered + aggregated data for display
@@ -869,8 +868,8 @@ const KPICommission = {
             await this.loadCampaignOptions();
             await this.loadEmployeeOptions();
 
-            // Auto-select campaign from parent window's active campaign
-            this.syncCampaignFromParent();
+            // (Campaign auto-select chuyển vào _restoreFilters — ưu tiên cache,
+            // fallback parent active → campaign mới nhất.)
 
             // Sync nút toggle mode với state đã khôi phục từ localStorage
             this.updateDisplayModeLabel();
@@ -1143,7 +1142,7 @@ const KPICommission = {
     },
 
     async applyFilters() {
-        // Read filter values — status từ chip, các value khác từ inputs
+        // Read filter values từ inputs (chips trạng thái OK/Sai lệch đã bỏ 2026-06-10)
         this.state.filters.campaign =
             (document.getElementById('kpiFilterCampaign') || {}).value || '';
         this.state.filters.employee =
@@ -1151,12 +1150,11 @@ const KPICommission = {
         this.state.filters.dateFrom =
             (document.getElementById('kpiFilterDateFrom') || {}).value || '';
         this.state.filters.dateTo = (document.getElementById('kpiFilterDateTo') || {}).value || '';
-        // Status đọc từ active chip (filter v2) thay vì select cũ
-        const activeChip = document.querySelector('.kpi-status-chips .kpi-chip.is-active');
-        this.state.filters.status = activeChip ? activeChip.dataset.status || '' : '';
         this._renderFiltersSummary();
+        // Nhớ lựa chọn cho lần mở sau (không có cache → default Hôm nay + campaign mới nhất)
+        this._persistFilterCache();
 
-        const { campaign, employee, dateFrom, dateTo, status } = this.state.filters;
+        const { campaign, employee, dateFrom, dateTo } = this.state.filters;
 
         // Filter statsData
         let filtered = [];
@@ -1182,10 +1180,6 @@ const KPICommission = {
                     // thì không tính vào và không cần hiển thị".
                     const inv = this._invoiceCache?.get(order.orderId);
                     if (this._isInvoiceCancelled(inv)) continue;
-
-                    // Filter by status
-                    if (status === 'ok' && order.hasDiscrepancy) continue;
-                    if (status === 'discrepancy' && !order.hasDiscrepancy) continue;
 
                     // Đơn chưa có phiếu / phiếu Nháp → VẪN hiển thị nhưng đánh dấu
                     // "Chờ phiếu" + KHÔNG cộng KPI (loại ở các chỗ tính tổng).
@@ -1836,16 +1830,6 @@ const KPICommission = {
             });
         }
 
-        // Status chips
-        document.querySelectorAll('.kpi-status-chips .kpi-chip').forEach((chip) => {
-            chip.addEventListener('click', () => {
-                document
-                    .querySelectorAll('.kpi-status-chips .kpi-chip')
-                    .forEach((c) => c.classList.toggle('is-active', c === chip));
-                this.applyFilters();
-            });
-        });
-
         // Auto-apply on date inputs change
         ['kpiFilterDateFrom', 'kpiFilterDateTo'].forEach((id) => {
             const el = document.getElementById(id);
@@ -1875,8 +1859,111 @@ const KPICommission = {
             moreMenu.addEventListener('click', (e) => e.stopPropagation());
         }
 
-        // Apply initial preset (30d)
-        this._applyDatePreset('30d');
+        // Khôi phục lựa chọn lần trước từ localStorage; KHÔNG có cache →
+        // default HÔM NAY + campaign MỚI NHẤT (user chốt 2026-06-10).
+        this._restoreFilters();
+    },
+
+    // ── Filter cache: nhớ lựa chọn giữa các lần mở tab ──
+    _FILTER_CACHE_KEY: 'kpiFilterCache_v1',
+
+    /** Lưu lựa chọn filter hiện tại (gọi sau mỗi applyFilters). */
+    _persistFilterCache() {
+        try {
+            const activeBtn = document.querySelector('.kpi-preset-btn.is-active');
+            const monthSel = document.getElementById('kpiFilterMonth');
+            const monthActive = monthSel?.classList.contains('is-active');
+            localStorage.setItem(
+                this._FILTER_CACHE_KEY,
+                JSON.stringify({
+                    // Lưu PRESET (today/7d/...) thay vì ngày cứng → hôm sau mở
+                    // "Hôm nay" vẫn là ngày mới. Ngày cứng chỉ lưu cho custom.
+                    datePreset: monthActive ? null : activeBtn?.dataset.preset || null,
+                    month: monthActive ? monthSel.value : null,
+                    dateFrom: this.state.filters.dateFrom,
+                    dateTo: this.state.filters.dateTo,
+                    campaign: this.state.filters.campaign,
+                    employee: this.state.filters.employee,
+                })
+            );
+        } catch (e) {}
+    },
+
+    /**
+     * Khôi phục filter khi mở tab:
+     *   - Date: cache (preset/tháng/custom) → không có → HÔM NAY.
+     *   - Campaign: cache → campaign active của parent → MỚI NHẤT (option đầu
+     *     dropdown — /api/campaigns đã sort created_at DESC).
+     *   - NV: cache (nếu còn trong options).
+     * Gọi từ _bindFilterV2 (sau khi options campaign/NV + tháng đã populate).
+     */
+    _restoreFilters() {
+        let cache = null;
+        try {
+            cache = JSON.parse(localStorage.getItem(this._FILTER_CACHE_KEY) || 'null');
+        } catch (e) {}
+
+        const setPresetActive = (preset) => {
+            document
+                .querySelectorAll('.kpi-preset-btn')
+                .forEach((b) => b.classList.toggle('is-active', b.dataset.preset === preset));
+        };
+
+        // 1) Khoảng ngày
+        const monthSel = document.getElementById('kpiFilterMonth');
+        const PRESETS = ['today', '7d', '30d', 'thismonth'];
+        if (cache?.month && monthSel) {
+            monthSel.value = cache.month;
+            if (monthSel.value === cache.month) {
+                setPresetActive('__none__');
+                monthSel.classList.add('is-active');
+                this._applyMonthRange(cache.month);
+            } else {
+                // Tháng cache không còn trong options → fallback hôm nay
+                setPresetActive('today');
+                this._applyDatePreset('today');
+            }
+        } else if (cache?.datePreset === 'custom' && cache?.dateFrom && cache?.dateTo) {
+            const fromEl = document.getElementById('kpiFilterDateFrom');
+            const toEl = document.getElementById('kpiFilterDateTo');
+            const customWrap = document.getElementById('kpiDateCustom');
+            if (fromEl) fromEl.value = cache.dateFrom;
+            if (toEl) toEl.value = cache.dateTo;
+            if (customWrap) customWrap.style.display = '';
+            setPresetActive('custom');
+        } else if (cache?.datePreset && PRESETS.includes(cache.datePreset)) {
+            setPresetActive(cache.datePreset);
+            this._applyDatePreset(cache.datePreset);
+        } else {
+            // KHÔNG có cache → mặc định HÔM NAY
+            setPresetActive('today');
+            this._applyDatePreset('today');
+        }
+
+        // 2) Campaign: cache → parent active → mới nhất
+        const campSel = document.getElementById('kpiFilterCampaign');
+        if (campSel) {
+            let applied = false;
+            if (cache?.campaign) {
+                campSel.value = cache.campaign;
+                applied = campSel.value === cache.campaign;
+            }
+            if (!applied) {
+                this.syncCampaignFromParent();
+                applied = !!campSel.value;
+            }
+            if (!applied) {
+                const firstOpt = [...campSel.options].find((o) => o.value);
+                if (firstOpt) campSel.value = firstOpt.value;
+            }
+        }
+
+        // 3) Nhân viên (chỉ từ cache)
+        const empSel = document.getElementById('kpiFilterEmployee');
+        if (empSel && cache?.employee) {
+            empSel.value = cache.employee;
+            if (empSel.value !== cache.employee) empSel.value = '';
+        }
     },
 
     _renderFiltersSummary() {
@@ -1893,7 +1980,6 @@ const KPICommission = {
             const label = empSel?.options[empSel.selectedIndex]?.text || f.employee;
             parts.push(`👤 ${label}`);
         }
-        if (f.status) parts.push(f.status === 'ok' ? '✓ OK' : '⚠ Sai lệch');
         el.textContent = parts.length ? 'Filter: ' + parts.join(' · ') : '';
     },
 

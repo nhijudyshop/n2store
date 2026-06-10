@@ -2,6 +2,18 @@
 
 ## 2026-06-10
 
+### [orders][kpi] Gọn filter bar: bỏ chips OK/Sai lệch, gộp "Lọc"+"Làm mới", default Hôm nay + campaign mới nhất ✅
+
+**User:** (1) làm gọn giao diện — bỏ 3 chip "Tất cả / OK / Sai lệch"; (2) mặc định lọc = **Hôm nay + campaign MỚI NHẤT** nếu không có cache trước đó; (3) nút "Lọc" với "Làm mới dữ liệu" trùng nhau → giữ 1 nút "Lọc" chạy flow lấy dữ liệu chính xác nhất.
+
+**Thay đổi** ([tab-kpi-commission.html](../orders-report/tab-kpi-commission.html) + [.js](../orders-report/js/tab-kpi-commission.js) + [.css](../orders-report/css/tab-kpi-commission.css)):
+
+1. **Bỏ status chips** (HTML block + JS binding + `filters.status` + filter ok/discrepancy trong applyFilters + phần status ở filters-summary + CSS `.kpi-status-chips/.kpi-chip`). Chips đối soát (`.recon-chip`) là bộ riêng — KHÔNG đụng.
+2. **Nút "Lọc" = refreshData()** (gộp "Làm mới dữ liệu" cũ): tải kpi_statistics + trạng thái phiếu mới nhất → applyFilters → sweep snapshot + tự reconcile đơn vừa có phiếu → reload silent. Bỏ item "Làm mới dữ liệu" khỏi menu "..." (giữ "Tính lại KPI toàn bộ" + "Export Excel"). Đổi select/ngày vẫn auto-applyFilters client-side (nhanh, không gọi server) — bấm "Lọc" khi cần số tươi nhất.
+3. **Filter cache** (`kpiFilterCache_v1` localStorage): `_persistFilterCache()` sau mỗi applyFilters (lưu PRESET thay vì ngày cứng → hôm sau "Hôm nay" vẫn đúng ngày mới; custom lưu from/to; campaign + NV). `_restoreFilters()` khi mở tab: date = cache → **không có → HÔM NAY**; campaign = cache → parent active → **MỚI NHẤT** (option đầu — /api/campaigns sort created_at DESC); NV = cache. Bỏ hardcode `is-active` "30 ngày" + bỏ `_applyDatePreset('30d')` default + bỏ gọi `syncCampaignFromParent()` trực tiếp trong init (thành fallback trong restore).
+
+**Verify:** `node --check` OK; vitest KPI suite 265 pass / 42 fail = baseline (0 regression). Cache bump: js `?v=20260610c`, css `?v=20260610a`.
+
 ### [orders][kpi] Đợt 2: reattribute atomic, bỏ creds hardcode KPI tab, "Làm mới" tự reconcile, dedupe recon ✅
 
 Tiếp nối đợt rà soát buổi sáng — xử lý các item "đề xuất chưa làm":
