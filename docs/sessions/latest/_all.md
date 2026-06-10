@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d698bc2` — fix(web2): đổi label QR modal 'Partner Id' → 'Mã KH (Web 2.0)' tránh nhầm TPOS
-**Last updated**: 2026-06-10 19:32:13 +07
-**Latest session**: [`RESUME:20260610-193213-d698bc2`](../20260610-193213-d698bc2.md)
-**Summary**: fix(web2): đổi label QR modal 'Partner Id' → 'Mã KH (Web 2.0)' tránh nhầm TPOS
+**Latest commit**: `1e236df` — fix(live-chat): avatar comment livestream (cột trái) + lưu avatar vào web2_live_comments
+**Last updated**: 2026-06-10 19:46:24 +07
+**Latest session**: [`RESUME:20260610-194624-1e236df`](../20260610-194624-1e236df.md)
+**Summary**: fix(live-chat): avatar comment livestream (cột trái) + lưu avatar vào web2_live_comments
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-10 19:32
+- [`docs/`](./docs.md) — updated 2026-06-10 19:46
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
 - [`downloads/`](./downloads.md) — updated 2026-06-09 19:12
@@ -38,7 +39,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-09 19:47
+- [`live-chat/`](./live-chat.md) — updated 2026-06-10 19:46
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-09 19:12
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
@@ -51,7 +52,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-10 19:04
+- [`render.com/`](./render.com.md) — updated 2026-06-10 19:46
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-09 16:10
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
