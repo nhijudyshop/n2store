@@ -177,15 +177,15 @@
                             <i data-lucide="eye"></i> <span id="displayModeLabel">Chỉ có KPI</span>
                         </button>
 
-                        <!-- Primary action: Lọc = LÀM MỚI + lọc (gộp nút "Làm mới dữ liệu"
-                             cũ — tải số mới nhất từ server + trạng thái phiếu + tự đối chiếu
-                             đơn vừa có phiếu, rồi áp bộ lọc đang chọn) -->
+                        <!-- Primary action: Làm mới dữ liệu = tải số mới nhất từ server
+                             (KPI + trạng thái phiếu) + tự đối chiếu đơn vừa có phiếu, rồi
+                             áp bộ lọc đang chọn (gộp nút "Làm mới dữ liệu" cũ trong menu …) -->
                         <button
                             onclick="KPICommission.refreshData()"
                             class="kpi-apply-btn"
                             title="Tải dữ liệu mới nhất (KPI + trạng thái phiếu) rồi áp bộ lọc"
                         >
-                            <i data-lucide="filter"></i> Lọc
+                            <i data-lucide="refresh-cw"></i> Làm mới dữ liệu
                         </button>
 
                         <!-- More actions menu -->

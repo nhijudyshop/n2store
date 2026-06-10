@@ -2,6 +2,12 @@
 
 ## 2026-06-10
 
+### [orders][kpi] Đổi nhãn nút primary toolbar KPI: "Lọc" → "Làm mới dữ liệu" ✅
+
+**User:** bỏ ô "Tất cả / OK / Sai lệch", đổi nút chức năng trong nút Lọc thành "Làm mới dữ liệu".
+
+Nối tiếp đợt "Gọn filter bar" cùng ngày (đã bỏ chips + gộp Lọc/Làm mới gọi `refreshData()` nhưng giữ NHÃN "Lọc"). Theo yêu cầu user, đổi nhãn nút primary `kpi-apply-btn` thành **"Làm mới dữ liệu"** + icon `filter` → `refresh-cw` ([tab-kpi-commission.html](../orders-report/tab-kpi-commission.html)). Hành vi không đổi (vẫn `refreshData()` → tải KPI + trạng thái phiếu mới nhất rồi áp bộ lọc). Chips trạng thái + item trùng trong menu "…" đã bỏ ở đợt trước.
+
 ### [ci] Fix workflow "CI - PR Checks" đỏ từ ngày đầu — lint pattern rỗng + 18 file test stale ✅
 
 **Bối cảnh:** PR #2047 (KPI audit) là lần hiếm hoi workflow `ci.yml` (chỉ chạy on pull_request) được trigger → lộ ra CI chưa bao giờ pass được:
