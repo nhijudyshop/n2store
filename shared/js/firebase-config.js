@@ -18,14 +18,14 @@
 
 // Firebase Configuration - Use var to allow redeclaration
 var FIREBASE_CONFIG = window.FIREBASE_CONFIG || {
-    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-    authDomain: "n2shop-69e37.firebaseapp.com",
-    databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "n2shop-69e37",
-    storageBucket: "n2shop-69e37-ne0q1",
-    messagingSenderId: "598906493303",
-    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-    measurementId: "G-TEJH3S2T1D",
+    apiKey: 'AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM',
+    authDomain: 'n2shop-69e37.firebaseapp.com',
+    databaseURL: 'https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app',
+    projectId: 'n2shop-69e37',
+    storageBucket: 'n2shop-69e37-ne0q1',
+    messagingSenderId: '598906493303',
+    appId: '1:598906493303:web:46d6236a1fdc2eff33e972',
+    measurementId: 'G-TEJH3S2T1D',
 };
 
 // Alias for backward compatibility - Use var to allow redeclaration
@@ -45,17 +45,19 @@ async function clearFirestoreCache() {
     _isRecoveringCache = true;
     try {
         var databases = await indexedDB.databases();
-        var firestoreDBs = databases.filter(function(db) {
+        var firestoreDBs = databases.filter(function (db) {
             return db.name && db.name.includes('firestore');
         });
-        await Promise.all(firestoreDBs.map(function(db) {
-            return new Promise(function(resolve) {
-                var req = indexedDB.deleteDatabase(db.name);
-                req.onsuccess = resolve;
-                req.onerror = resolve;
-                req.onblocked = resolve;
-            });
-        }));
+        await Promise.all(
+            firestoreDBs.map(function (db) {
+                return new Promise(function (resolve) {
+                    var req = indexedDB.deleteDatabase(db.name);
+                    req.onsuccess = resolve;
+                    req.onerror = resolve;
+                    req.onblocked = resolve;
+                });
+            })
+        );
         console.log('[Firestore] Cleared corrupted IndexedDB cache');
     } catch (e) {
         console.warn('[Firestore] Could not clear cache:', e);
@@ -64,15 +66,19 @@ async function clearFirestoreCache() {
 
 // Auto-recover from Firestore internal errors (IndexedDB corruption)
 if (typeof window !== 'undefined') {
-    window.addEventListener('unhandledrejection', function(event) {
+    window.addEventListener('unhandledrejection', function (event) {
         var msg = (event.reason && event.reason.message) || '';
         var stack = (event.reason && event.reason.stack) || '';
-        if ((msg.includes('INTERNAL ASSERTION FAILED') ||
-             (msg.includes('Cannot read properties of null') && stack.includes('firestore'))) &&
-            !_isRecoveringCache) {
+        if (
+            (msg.includes('INTERNAL ASSERTION FAILED') ||
+                (msg.includes('Cannot read properties of null') && stack.includes('firestore'))) &&
+            !_isRecoveringCache
+        ) {
             console.error('[Firestore] Detected corrupted persistence, clearing cache...');
             event.preventDefault();
-            clearFirestoreCache().then(function() { window.location.reload(); });
+            clearFirestoreCache().then(function () {
+                window.location.reload();
+            });
         }
     });
 }
@@ -109,21 +115,36 @@ function initializeFirestore(options = {}) {
     if (_firestoreDB) return _firestoreDB;
     if (!initializeFirebaseApp()) return null;
 
+    // Guard: một số trang (services-dashboard, delivery-zone, printer-settings…)
+    // KHÔNG load firebase-firestore-compat SDK vì không dùng Firestore.
+    // Khi đó firebase.firestore không phải hàm → bỏ qua êm, KHÔNG throw/log lỗi.
+    if (typeof firebase === 'undefined' || typeof firebase.firestore !== 'function') {
+        return null;
+    }
+
     try {
         _firestoreDB = firebase.firestore();
 
         if (enablePersistence) {
             try {
-                _firestoreDB.enablePersistence({ synchronizeTabs })
+                _firestoreDB
+                    .enablePersistence({ synchronizeTabs })
                     .then(() => {})
                     .catch((err) => {
                         if (err.code === 'failed-precondition') {
-                            console.warn('[Firestore] Multiple tabs open, persistence in first tab only');
+                            console.warn(
+                                '[Firestore] Multiple tabs open, persistence in first tab only'
+                            );
                         } else if (err.code === 'unimplemented') {
                             console.warn('[Firestore] Browser does not support persistence');
                         } else {
-                            console.error('[Firestore] Persistence error, clearing corrupted cache:', err);
-                            clearFirestoreCache().then(function() { window.location.reload(); });
+                            console.error(
+                                '[Firestore] Persistence error, clearing corrupted cache:',
+                                err
+                            );
+                            clearFirestoreCache().then(function () {
+                                window.location.reload();
+                            });
                         }
                     });
             } catch (e) {
@@ -235,7 +256,6 @@ if (typeof module !== 'undefined' && module.exports) {
         RTDB_PATHS,
     };
 }
-
 
 // Auto-initialize Firebase when script loads
 if (typeof firebase !== 'undefined') {

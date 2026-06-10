@@ -1,0 +1,1436 @@
+[
+    {
+        "path": "/web2/overview/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 200,
+        "interactions": 0,
+        "interactionResults": [],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/dashboard/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 39,
+        "interactions": 0,
+        "interactionResults": [],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/kpi/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 34,
+        "interactions": 3,
+        "interactionResults": [
+            {
+                "label": "select \"kpiCampaignFilter\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"KPI\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Audit log\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/notifications/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 43,
+        "interactions": 3,
+        "interactionResults": [
+            {
+                "label": "select \"filterUnread\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Quét noti mới\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Đánh dấu tất cả đã đọc\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/audit-log/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 129,
+        "interactions": 2,
+        "interactionResults": [
+            {
+                "label": "select \"fEntity\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tải\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/ck-dashboard/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 34,
+        "interactions": 5,
+        "interactionResults": [
+            {
+                "label": "search \"Lọc theo SĐT / tên khách\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"ckdHistStatus\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Đối soát CK\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tin nhắn chưa đọc\n      \"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Lịch sử CK\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/photo-studio/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 43,
+        "interactions": 6,
+        "interactionResults": [
+            {
+                "label": "btn \"AI nhanh\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"AI nét\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Phông xanh\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Bật camera\"",
+                "ok": true,
+                "newErrors": 1
+            },
+            {
+                "label": "btn \"Xong\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Gốc\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [
+            {
+                "label": "btn \"Bật camera\"",
+                "ok": true,
+                "newErrors": 1
+            }
+        ],
+        "realConsoleErrors": ["[photo-studio] getUserMedia NotSupportedError: Not supported"],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/users-permissions/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 59,
+        "interactions": 2,
+        "interactionResults": [
+            {
+                "label": "select \"rolePick\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Xoá tất cả\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/admin-sse-monitor/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 34,
+        "interactions": 0,
+        "interactionResults": [],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/services-dashboard/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 73,
+        "interactions": 1,
+        "interactionResults": [
+            {
+                "label": "btn \"Tải lại\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/fastsaleorder-invoice/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 47,
+        "interactions": 9,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm số HĐ, SĐT, tên khác\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"pbhState\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"pbhLimit\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tải lại\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Áp\n                     \"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Xuất Excel\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/reconcile/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 36,
+        "interactions": 8,
+        "interactionResults": [
+            {
+                "label": "search \"Quét barcode bill (NJ-…)\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "search \"Tìm PBH theo số, tên, SĐ\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Lịch sử / Camera\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Đang xử lý\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Chờ pick\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Đang pick\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Đã pick đủ\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Đã đóng gói\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/fastsaleorder-refund/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 37,
+        "interactions": 4,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm số phiếu, PBH, SĐT, \"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"rfState\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tải lại\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Áp\n                     \"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/returns/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 38,
+        "interactions": 5,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm KH theo tên / SĐT…\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "search \"Tìm mã phiếu / tên / SĐT\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"reasonSelect\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"reasonSelectShip\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Danh sách\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 1,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/fastsaleorder-delivery/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 37,
+        "interactions": 4,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm số phiếu, PBH, SĐT, \"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"dlvState\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tải lại\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Áp\n                     \"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/native-orders/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 66,
+        "interactions": 10,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm theo SĐT, tên, mã đơ\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"filterStatus\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"?\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"?\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Đơn Livestream\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Đơn Inbox\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tất cả\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Hiện/ẩn cột\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 1,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/so-order/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 53,
+        "interactions": 10,
+        "interactionResults": [
+            {
+                "label": "search \"Nhập tên NCC — gợi ý từ \"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"shipContractCurrency\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"status\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"currency\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Chỉnh sửa bảng\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Ẩn/Hiện cột\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"HÀ NỘI\n                 \"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"QUẢNG CHÂU\n             \"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"QUẢNG CHÂU\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Thùng rác\n              \"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/live-chat/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 168,
+        "interactions": 10,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm kiếm\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"liveCrmTeamSelect\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"column1Select\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"column2Select\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"3 campaigns đã chọn\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"📁 Chiến dịch\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"📋 Đơn đã tạo\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"0\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"💬 Chat Pancake\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"📦 Kho SP\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 43,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/purchase-refund/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 43,
+        "interactions": 6,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm mã / tên SP / NCC...\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "search \"Tìm mã / NCC / lý do...\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"prSourceSupplier\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"prFilterStatus\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"reason\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tải lại\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/supplier-debt/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 50,
+        "interactions": 7,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm theo tên NCC…\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Áp dụng\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tạo NCC\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Xuất CSV\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"▶\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"💳\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"✏️\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/supplier-wallet/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 37,
+        "interactions": 4,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm NCC theo tên…\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"swSort\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tạo NCC\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Đồng bộ\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/balance-history/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 57,
+        "interactions": 9,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm SĐT / sepay_id / nội\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "search \"Nhập tên KH (hoặc SĐT) r\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"w2bhPageSize\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Reprocess chưa gán\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tự động gán\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Hội thoại\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tải lại\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tất cả\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Lịch sử thủ công\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/customers/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 37,
+        "interactions": 10,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm tên / SĐT / FB id…\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"wcSourceFilter\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"wcPageSize\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"wcfStatus\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Thêm KH\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Xuất CSV (trang)\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tất cả: 64.197\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Bình thường\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"VIP\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Cảnh báo\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 20,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/customer-wallet/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 36,
+        "interactions": 9,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm theo tên (không dấu \"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"cwSort\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"cwPageSize\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Reload\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tất cả 26\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Còn nợ 1\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Có dư ví 25\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"VIP —\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Cảnh báo —\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/products/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 65,
+        "interactions": 9,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm theo mã SP hoặc tên.\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"filterActive\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"filterLimit\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Thêm SP\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"1 đơn · 1 cái\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/variants/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 77,
+        "interactions": 10,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm theo giá trị biến th\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"filterActive\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"filterGroup\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"vmIsActive\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Thêm Biến Thể\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/product-category/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 42,
+        "interactions": 7,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm theo mã / tên...\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"w2pActiveFilter\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"w2pLimit\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tải lại\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Áp dụng\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Thêm mới\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"1\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/report-revenue/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 41,
+        "interactions": 5,
+        "interactionResults": [
+            {
+                "label": "btn \"7 ngày\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"30 ngày\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"90 ngày\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"365 ngày\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/report-delivery/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 34,
+        "interactions": 2,
+        "interactionResults": [
+            {
+                "label": "btn \"Áp dụng\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Hôm nay\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/livestream-poller/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 36,
+        "interactions": 5,
+        "interactionResults": [
+            {
+                "label": "btn \"Tắt\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Xoá\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tắt\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Xoá\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"+ Thêm trang\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/users/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 43,
+        "interactions": 3,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm theo username, tên, \"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"uFormRole\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tạo người dùng\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/pancake-settings/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 41,
+        "interactions": 7,
+        "interactionResults": [
+            {
+                "label": "search \"Email / SĐT / Tên người \"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Gia hạn\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Gia hạn\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Dùng\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Gia hạn\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Dùng\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Gia hạn\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 1,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/delivery-zone/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 63,
+        "interactions": 7,
+        "interactionResults": [
+            {
+                "label": "search \"Tìm theo mã / tên...\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"w2pActiveFilter\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"w2pLimit\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Tải lại\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Áp dụng\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Thêm mới\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"1\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 0,
+        "contextDestroyed": false
+    },
+    {
+        "path": "/web2/printer-settings/index.html",
+        "ok": true,
+        "evalError": null,
+        "rowCount": 43,
+        "interactions": 9,
+        "interactionResults": [
+            {
+                "label": "select \"?\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"?\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "select \"pm_method\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Test\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"In thử\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Test\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"In thử\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"Test\"",
+                "ok": true,
+                "newErrors": 0
+            },
+            {
+                "label": "btn \"In thử\"",
+                "ok": true,
+                "newErrors": 0
+            }
+        ],
+        "interactionErrors": [],
+        "realConsoleErrors": [],
+        "realPageErrors": [],
+        "noiseCount": 7,
+        "contextDestroyed": false
+    }
+]
