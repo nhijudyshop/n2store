@@ -267,7 +267,11 @@ const LiveCommentList = {
 
         const commentList = document.getElementById('liveCommentList');
         if (commentList) {
-            commentList.addEventListener('scroll', () => this.handleScroll(commentList));
+            // {passive:true}: scroll handler không preventDefault → cho phép browser
+            // scroll trên compositor thread, không chờ JS (chống jank khi cuộn list dài).
+            commentList.addEventListener('scroll', () => this.handleScroll(commentList), {
+                passive: true,
+            });
         }
     },
 
@@ -1033,18 +1037,7 @@ const LiveCommentList = {
         const dropdown = document.getElementById(`status-dropdown-${userId}`);
         if (dropdown) dropdown.style.display = 'none';
 
-        // Update UI immediately
-        const statusTextEl = document.getElementById(`status-text-${userId}`);
-        if (statusTextEl) statusTextEl.textContent = text;
-        const statusBtn = document.getElementById(`status-btn-${userId}`);
-        const color = this.getStatusColor(text);
-        if (statusBtn) {
-            statusBtn.style.color = color || '#64748b';
-            statusBtn.style.background = color ? `${color}18` : '#f1f5f9';
-            statusBtn.style.borderColor = color ? `${color}30` : '#e2e8f0';
-        }
-
-        // Get partner from cache
+        // Get partner from cache (cần Id để gọi API)
         const partner = state.partnerCache.get(userId);
         if (!partner || !partner.Id) {
             if (window.notificationManager) {
@@ -1053,10 +1046,50 @@ const LiveCommentList = {
             return;
         }
 
-        // Call API
+        const color = this.getStatusColor(text);
+        const _applyBadge = (txt, col) => {
+            const statusTextEl = document.getElementById(`status-text-${userId}`);
+            if (statusTextEl) statusTextEl.textContent = txt || 'Trạng thái';
+            const statusBtn = document.getElementById(`status-btn-${userId}`);
+            if (statusBtn) {
+                statusBtn.style.color = col || '#64748b';
+                statusBtn.style.background = col ? `${col}18` : '#f1f5f9';
+                statusBtn.style.borderColor = col ? `${col}30` : '#e2e8f0';
+            }
+        };
+
+        // UI-first: cập nhật badge + cache NGAY, backend background, rollback nếu lỗi.
+        if (window.Web2Optimistic?.run) {
+            window.Web2Optimistic.run({
+                snapshot: () => ({
+                    text: partner.StatusText || '',
+                    color: this.getStatusColor(partner.StatusText || ''),
+                }),
+                apply: () => {
+                    _applyBadge(text, color);
+                    partner.StatusText = text;
+                    state.partnerCache.set(userId, partner);
+                },
+                run: async () => {
+                    const ok = await window.LiveApi.updatePartnerStatusViaProxy(partner.Id, value);
+                    if (!ok) throw new Error('cập nhật thất bại');
+                    return ok;
+                },
+                rollback: (prev) => {
+                    _applyBadge(prev.text, prev.color);
+                    partner.StatusText = prev.text;
+                    state.partnerCache.set(userId, partner);
+                },
+                successMsg: 'Đã cập nhật trạng thái',
+                errLabel: 'cập nhật trạng thái',
+            });
+            return;
+        }
+
+        // Fallback legacy (không có helper): update UI rồi await.
+        _applyBadge(text, color);
         const success = await window.LiveApi.updatePartnerStatusViaProxy(partner.Id, value);
         if (success) {
-            // Update cache
             partner.StatusText = text;
             state.partnerCache.set(userId, partner);
             if (window.notificationManager)
@@ -1074,7 +1107,6 @@ const LiveCommentList = {
      */
     async saveInlinePhone(userId, inputId) {
         const input = document.getElementById(inputId);
-        const saveBtn = document.getElementById(`save-phone-${userId}`);
         if (!input) return;
 
         const newPhone = input.value.trim();
@@ -1084,36 +1116,42 @@ const LiveCommentList = {
             return;
         }
 
-        if (saveBtn) {
-            saveBtn.innerHTML =
-                '<i data-lucide="loader-2" class="spin" style="width:12px;height:12px;"></i>';
-            saveBtn.disabled = true;
+        const state = window.LiveState;
+        const partner = state.partnerCache?.get(userId) || {};
+
+        // UI-first: cache SĐT NGAY (input đã hiển thị giá trị mới), backend background.
+        if (window.Web2Optimistic?.run) {
+            window.Web2Optimistic.run({
+                snapshot: () => partner.Phone || '',
+                apply: () => {
+                    partner.Phone = newPhone;
+                    state.partnerCache?.set(userId, partner);
+                },
+                run: async () => {
+                    await window.LiveApi.savePartnerData(userId, { Phone: newPhone });
+                },
+                rollback: (prev) => {
+                    partner.Phone = prev;
+                    state.partnerCache?.set(userId, partner);
+                    if (input) input.value = prev || '';
+                },
+                successMsg: 'Đã lưu số điện thoại',
+                errLabel: 'lưu SĐT',
+            });
+            return;
         }
 
+        // Fallback legacy.
         try {
             await window.LiveApi.savePartnerData(userId, { Phone: newPhone });
+            partner.Phone = newPhone;
+            state.partnerCache?.set(userId, partner);
             if (window.notificationManager)
                 window.notificationManager.success('Đã lưu số điện thoại');
-
-            if (saveBtn) {
-                saveBtn.innerHTML =
-                    '<i data-lucide="check" style="width:12px;height:12px;color:#22c55e;"></i>';
-                setTimeout(() => {
-                    saveBtn.innerHTML =
-                        '<i data-lucide="save" style="width:12px;height:12px;"></i>';
-                    saveBtn.disabled = false;
-                    if (window.lucide) lucide.createIcons();
-                }, 1500);
-            }
         } catch (error) {
             if (window.notificationManager)
                 window.notificationManager.error('Lỗi lưu SĐT: ' + error.message);
-            if (saveBtn) {
-                saveBtn.innerHTML = '<i data-lucide="save" style="width:12px;height:12px;"></i>';
-                saveBtn.disabled = false;
-            }
         }
-        if (window.lucide) lucide.createIcons();
     },
 
     /**
@@ -1123,40 +1161,44 @@ const LiveCommentList = {
      */
     async saveInlineAddress(userId, inputId) {
         const input = document.getElementById(inputId);
-        const saveBtn = document.getElementById(`save-addr-${userId}`);
         if (!input) return;
 
         const newAddress = input.value.trim();
+        const state = window.LiveState;
+        const partner = state.partnerCache?.get(userId) || {};
 
-        if (saveBtn) {
-            saveBtn.innerHTML =
-                '<i data-lucide="loader-2" class="spin" style="width:12px;height:12px;"></i>';
-            saveBtn.disabled = true;
+        // UI-first: cache địa chỉ NGAY, backend background, rollback nếu lỗi.
+        if (window.Web2Optimistic?.run) {
+            window.Web2Optimistic.run({
+                snapshot: () => partner.Street || '',
+                apply: () => {
+                    partner.Street = newAddress;
+                    state.partnerCache?.set(userId, partner);
+                },
+                run: async () => {
+                    await window.LiveApi.savePartnerData(userId, { Street: newAddress });
+                },
+                rollback: (prev) => {
+                    partner.Street = prev;
+                    state.partnerCache?.set(userId, partner);
+                    if (input) input.value = prev || '';
+                },
+                successMsg: 'Đã lưu địa chỉ',
+                errLabel: 'lưu địa chỉ',
+            });
+            return;
         }
 
+        // Fallback legacy.
         try {
             await window.LiveApi.savePartnerData(userId, { Street: newAddress });
+            partner.Street = newAddress;
+            state.partnerCache?.set(userId, partner);
             if (window.notificationManager) window.notificationManager.success('Đã lưu địa chỉ');
-
-            if (saveBtn) {
-                saveBtn.innerHTML =
-                    '<i data-lucide="check" style="width:12px;height:12px;color:#22c55e;"></i>';
-                setTimeout(() => {
-                    saveBtn.innerHTML =
-                        '<i data-lucide="save" style="width:12px;height:12px;"></i>';
-                    saveBtn.disabled = false;
-                    if (window.lucide) lucide.createIcons();
-                }, 1500);
-            }
         } catch (error) {
             if (window.notificationManager)
                 window.notificationManager.error('Lỗi lưu địa chỉ: ' + error.message);
-            if (saveBtn) {
-                saveBtn.innerHTML = '<i data-lucide="save" style="width:12px;height:12px;"></i>';
-                saveBtn.disabled = false;
-            }
         }
-        if (window.lucide) lucide.createIcons();
     },
 
     /**

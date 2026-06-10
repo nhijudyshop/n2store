@@ -138,14 +138,19 @@ function _idempotencyKey({
     product_code,
     campaign_id,
     event_type,
+    qty_delta,
     client_event_id,
 }) {
+    // qty_delta nằm trong composite key (RACE fix): confirm lần 2 với qty khác
+    // PHẢI tạo event mới, không bị drop như duplicate. qty_delta == null → '' để
+    // ổn định khi caller không truyền (giữ backward-compat cũ).
     const composite = [
         actor_user_id,
         customer_id,
         product_code,
         campaign_id,
         event_type,
+        qty_delta == null ? '' : String(qty_delta),
         client_event_id || '',
     ].join('|');
     return crypto.createHash('sha1').update(composite).digest('hex').slice(0, 64);
@@ -219,6 +224,7 @@ async function emitKpiEvent(pool, ev) {
         product_code: ev.product_code || '',
         campaign_id: ev.campaign_id,
         event_type: ev.event_type,
+        qty_delta: ev.qty_delta,
         client_event_id: ev.client_event_id || '',
     });
     const now = Date.now();

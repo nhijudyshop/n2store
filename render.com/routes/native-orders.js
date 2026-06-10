@@ -23,20 +23,30 @@ const web2WalletService = require('../services/web2-wallet-service');
 
 // 2026-06-04: HOÀN ví khi huỷ đơn — refund số tiền đã trừ ví (wallet_deducted)
 // của các PBH liên kết, rồi zero-out để không hoàn lặp (idempotent). Trả tổng đã hoàn.
-async function _refundWalletForNativeOrder(pool, code, phone, performedBy) {
+//
+// 2026-06-10 (bug 5): `db` có thể là Pool HOẶC client transaction. Khi gọi từ
+// /cancel ta truyền client của transaction đang giữ → deposit ví + zero-out
+// wallet_deducted + UPDATE status='cancelled' COMMIT chung 1 transaction. Nếu
+// crash giữa chừng → ROLLBACK toàn bộ: KHÔNG còn cảnh "đã huỷ nhưng ví chưa hoàn"
+// hay "hoàn ví nhưng wallet_deducted chưa zero → hoàn trùng khi retry".
+// processDeposit + zero-out per-row vẫn idempotent (chỉ chạy khi wallet_deducted>0).
+// LƯU Ý: KHÔNG nuốt lỗi khi chạy trong transaction (throw để caller ROLLBACK).
+async function _refundWalletForNativeOrder(db, code, phone, performedBy, opts = {}) {
+    const inTransaction = !!opts.inTransaction;
     let refunded = 0;
     if (!phone) return refunded;
     try {
-        const q = await pool.query(
+        const q = await db.query(
             `SELECT id, number, wallet_deducted FROM fast_sale_orders
-             WHERE source_type='native_order' AND source_code = $1 AND wallet_deducted > 0`,
+             WHERE source_type='native_order' AND source_code = $1 AND wallet_deducted > 0
+             FOR UPDATE`,
             [code]
         );
         for (const row of q.rows) {
             const amt = Number(row.wallet_deducted) || 0;
             if (amt <= 0) continue;
             await web2WalletService.processDeposit(
-                pool,
+                db,
                 phone,
                 amt,
                 null,
@@ -46,13 +56,16 @@ async function _refundWalletForNativeOrder(pool, code, phone, performedBy) {
                 null,
                 performedBy || '(huỷ đơn)' // performed_by — audit ai hoàn ví
             );
-            await pool.query(`UPDATE fast_sale_orders SET wallet_deducted = 0 WHERE id = $1`, [
+            await db.query(`UPDATE fast_sale_orders SET wallet_deducted = 0 WHERE id = $1`, [
                 row.id,
             ]);
             refunded += amt;
         }
     } catch (e) {
         console.warn('[native-orders] wallet refund on cancel failed:', e.message);
+        // Trong transaction: ném lại để caller ROLLBACK (giữ nguyên tử). Ngoài
+        // transaction (gọi bằng Pool): nuốt lỗi như cũ — không chặn luồng huỷ.
+        if (inTransaction) throw e;
     }
     return refunded;
 }
@@ -1045,7 +1058,7 @@ router.post('/create-manual', async (req, res) => {
         if (!customerName && !phone) {
             return res.status(400).json({ error: 'Cần tên hoặc SĐT khách hàng' });
         }
-        const code = await nextDailyCode(pool);
+        // Mã đơn sinh trong insertWithCodeRetry (retry nếu đụng mã do race).
         const now = Date.now();
         const products = Array.isArray(b.products) ? b.products : [];
         const totalQty = products.reduce((s, p) => s + (Number(p.quantity || p.qty) || 0), 0);
@@ -1076,40 +1089,56 @@ router.post('/create-manual', async (req, res) => {
                 /* lookup best-effort — không chặn tạo đơn */
             }
         }
-        const insert = await pool.query(
-            `INSERT INTO native_orders (
-                code, session_index, display_stt, campaign_stt, source, channel,
-                customer_name, phone, address, note,
-                products, total_quantity, total_amount,
-                status, tags, customer_id, fb_user_id, fb_page_id, fb_user_name,
-                created_by, created_by_name, created_at, updated_at
-            ) VALUES (
-                $1, 0, nextval('native_orders_display_stt_seq'),
-                (SELECT COALESCE(MAX(campaign_stt), 0) + 1 FROM native_orders WHERE channel = 'web2_inbox'),
-                'NATIVE_WEB', 'web2_inbox',
-                $2, $3, $4, $5,
-                $6::jsonb, $7, $8,
-                'draft', '[]'::jsonb, $9, $10, $11, $12,
-                $13, $14, $15, $15
-            ) RETURNING *`,
-            [
-                code,
-                customerName || null,
-                phone || null,
-                (b.address || '').trim() || null,
-                (b.note || '').trim() || null,
-                JSON.stringify(products),
-                totalQty,
-                totalAmt,
-                customerId,
-                fbUserId,
-                fbPageId,
-                fbUserName,
-                b.createdBy || null,
-                b.createdByName || null,
-                now,
-            ]
-        );
+        // 2026-06-10: transaction + advisory lock (key = channel web2_inbox) cho
+        // campaign_stt tuần tự không trùng; bọc insertWithCodeRetry chống đụng mã NJ.
+        const insert = await insertWithCodeRetry(pool, async (code) => {
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                await lockCampaignSttKey(client, 'channel:web2_inbox');
+                const r = await client.query(
+                    `INSERT INTO native_orders (
+                        code, session_index, display_stt, campaign_stt, source, channel,
+                        customer_name, phone, address, note,
+                        products, total_quantity, total_amount,
+                        status, tags, customer_id, fb_user_id, fb_page_id, fb_user_name,
+                        created_by, created_by_name, created_at, updated_at
+                    ) VALUES (
+                        $1, 0, nextval('native_orders_display_stt_seq'),
+                        (SELECT COALESCE(MAX(campaign_stt), 0) + 1 FROM native_orders WHERE channel = 'web2_inbox'),
+                        'NATIVE_WEB', 'web2_inbox',
+                        $2, $3, $4, $5,
+                        $6::jsonb, $7, $8,
+                        'draft', '[]'::jsonb, $9, $10, $11, $12,
+                        $13, $14, $15, $15
+                    ) RETURNING *`,
+                    [
+                        code,
+                        customerName || null,
+                        phone || null,
+                        (b.address || '').trim() || null,
+                        (b.note || '').trim() || null,
+                        JSON.stringify(products),
+                        totalQty,
+                        totalAmt,
+                        customerId,
+                        fbUserId,
+                        fbPageId,
+                        fbUserName,
+                        b.createdBy || null,
+                        b.createdByName || null,
+                        now,
+                    ]
+                );
+                await client.query('COMMIT');
+                return r;
+            } catch (e) {
+                await client.query('ROLLBACK').catch(() => {});
+                throw e;
+            } finally {
+                client.release();
+            }
+        });
         const order = mapRowToOrder(insert.rows[0]);
         _notify('create-manual', order.code);
         res.json({ success: true, order });
@@ -1619,15 +1648,20 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
             // CK confirmed + PBH chưa trả) → frontend hiện cảnh báo. Ngoại lệ:
             // ví ≥ tổng đơn (đã đủ tiền) → không cảnh báo.
             try {
-                const phones = Array.from(new Set(orders.map((o) => o.phone).filter(Boolean)));
-                if (phones.length) {
-                    const norm = (p) =>
-                        String(p || '')
-                            .replace(/\D/g, '')
-                            .slice(-10);
+                const norm = (p) =>
+                    String(p || '')
+                        .replace(/\D/g, '')
+                        .slice(-10);
+                // 2026-06-10: web2_customer_wallets.phone lưu dạng đã normalize.
+                // Phải normalize array trước khi query (raw '84...'/có khoảng trắng
+                // sẽ miss). Map order.phone → norm, query bằng key đã chuẩn hoá.
+                const normPhones = Array.from(
+                    new Set(orders.map((o) => norm(o.phone)).filter(Boolean))
+                );
+                if (normPhones.length) {
                     const wq = await pool.query(
                         `SELECT phone, balance FROM web2_customer_wallets WHERE phone = ANY($1)`,
-                        [phones]
+                        [normPhones]
                     );
                     const balByPhone = new Map(
                         wq.rows.map((r) => [norm(r.phone), Number(r.balance) || 0])
@@ -2022,40 +2056,62 @@ router.post('/:code/cancel', async (req, res) => {
         await ensureTables(pool);
         const code = req.params.code;
         const reason = req.body?.reason || null;
-        const r = await pool.query(
-            `UPDATE native_orders
-             SET status = 'cancelled', updated_at = $1,
-                 note = CASE
-                            WHEN $2::text IS NULL THEN note
-                            ELSE COALESCE(note || E'\n---\n', '') || '[' || to_char(NOW(),'DD/MM/YYYY HH24:MI') || '] [HUỶ ĐƠN] ' || $2
-                        END
-             WHERE code = $3 AND status <> 'cancelled'
-             RETURNING *`,
-            [Date.now(), reason, code]
-        );
-        if (r.rows.length === 0) {
-            const cur = await pool.query(`SELECT * FROM native_orders WHERE code = $1`, [code]);
-            if (cur.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-            return res.json({
-                success: true,
-                order: mapRowToOrder(cur.rows[0]),
-                idempotent: true,
-                note: `Đã ở trạng thái cancelled trước đó`,
+        const performedBy =
+            req.body?.userName || req.body?._editor?.userName || req.body?.by || null;
+
+        // 2026-06-10 (bug 5): UPDATE status='cancelled' + hoàn ví (deposit + zero-out
+        // wallet_deducted) chạy CHUNG 1 transaction → nguyên tử. Crash giữa chừng →
+        // ROLLBACK hết: không còn cảnh "đã huỷ nhưng ví chưa hoàn". processDeposit
+        // + zero-out per-row vẫn idempotent (chỉ refund row wallet_deducted>0).
+        const client = await pool.connect();
+        let r;
+        let refunded = 0;
+        let phone = null;
+        try {
+            await client.query('BEGIN');
+            r = await client.query(
+                `UPDATE native_orders
+                 SET status = 'cancelled', updated_at = $1,
+                     note = CASE
+                                WHEN $2::text IS NULL THEN note
+                                ELSE COALESCE(note || E'\n---\n', '') || '[' || to_char(NOW(),'DD/MM/YYYY HH24:MI') || '] [HUỶ ĐƠN] ' || $2
+                            END
+                 WHERE code = $3 AND status <> 'cancelled'
+                 RETURNING *`,
+                [Date.now(), reason, code]
+            );
+            if (r.rows.length === 0) {
+                // Đơn không tồn tại HOẶC đã cancelled → không có gì để hoàn, commit no-op.
+                await client.query('COMMIT');
+                const cur = await pool.query(`SELECT * FROM native_orders WHERE code = $1`, [code]);
+                if (cur.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+                return res.json({
+                    success: true,
+                    order: mapRowToOrder(cur.rows[0]),
+                    idempotent: true,
+                    note: `Đã ở trạng thái cancelled trước đó`,
+                });
+            }
+            phone = r.rows[0].phone;
+            // 2026-06-04: hoàn ví số tiền đã thu hộ (nếu có) khi huỷ đơn — CHUNG txn.
+            refunded = await _refundWalletForNativeOrder(client, code, phone, performedBy, {
+                inTransaction: true,
             });
+            await client.query('COMMIT');
+        } catch (txErr) {
+            await client.query('ROLLBACK').catch(() => {});
+            throw txErr;
+        } finally {
+            client.release();
         }
+
         const order = mapRowToOrder(r.rows[0]);
         // Sync sang PBH: status='cancelled' → PBH state='cancel'.
         // Note: PBH /:number/cancel có thêm restock logic; ở đây ta chỉ
         // đổi state PBH qua syncPbhStateFromNativeOrder (đơn giản). Nếu cần
         // restock chính xác, gọi /by-source/cancel của fast-sale-orders.
+        // (Ngoài transaction tiền: chỉ mirror state PBH, không đụng ví.)
         const pbhSync = await syncPbhStateFromNativeOrder(pool, code, 'cancelled');
-        // 2026-06-04: hoàn ví số tiền đã thu hộ (nếu có) khi huỷ đơn.
-        const refunded = await _refundWalletForNativeOrder(
-            pool,
-            code,
-            r.rows[0].phone,
-            req.body?.userName || req.body?._editor?.userName || req.body?.by || null
-        );
         if (refunded > 0 && req.app.locals.web2RealtimeSseNotify) {
             try {
                 req.app.locals.web2RealtimeSseNotify(

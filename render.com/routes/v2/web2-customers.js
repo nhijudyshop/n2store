@@ -49,6 +49,42 @@ function getPool(req) {
     return req.app.locals.web2Db || req.app.locals.chatDb;
 }
 
+// Chuẩn hoá SĐT từ comment/Pancake (vd '84912345678', '+84912345678') về dạng
+// VN nội địa '0xxxxxxxxx' TRƯỚC khi đưa qua normPhoneWeb2 + INSERT. Lý do:
+// normPhoneWeb2 (schema) chỉ slice(-10) → '84912345678' (11 số) → '4912345678'
+// (mất số 0 đầu, SAI). Ở đây chuyển '84'+9 số → '0'+9 số rồi mới normalize.
+// Trả null nếu không đủ điều kiện (để caller bỏ qua / dùng giá trị gốc an toàn).
+function normPancakePhone(raw) {
+    let s = String(raw || '').replace(/[^\d]/g, ''); // bỏ '+', khoảng trắng, ký tự
+    // '84' + 9 số (=11 digits) → '0' + 9 số (số di động VN chuẩn).
+    if (s.startsWith('84') && s.length === 11) s = '0' + s.slice(2);
+    return normPhoneWeb2(s);
+}
+
+// Đảm bảo UNIQUE partial index trên fb_id (idempotent, chạy 1 lần). Cần cho
+// `ON CONFLICT (fb_id) WHERE fb_id IS NOT NULL DO NOTHING` ở _harvestOneComment:
+// schema gốc chỉ có CREATE INDEX (non-unique) trên fb_id → 2 harvest đồng thời
+// cùng fb_id (chưa có trong DB) có thể INSERT trùng. Guard try/catch: nếu đã có
+// dữ liệu trùng fb_id, CREATE UNIQUE INDEX fail → log + bỏ qua (INSERT vẫn chạy,
+// chỉ là conflict target có thể chưa active cho tới khi dedupe xong).
+let _fbIdUniqueEnsured = false;
+async function _ensureFbIdUniqueIndex(db) {
+    if (_fbIdUniqueEnsured) return;
+    try {
+        await db.query(
+            `CREATE UNIQUE INDEX IF NOT EXISTS idx_web2_customers_fb_id_unique
+             ON web2_customers (fb_id) WHERE fb_id IS NOT NULL`
+        );
+        _fbIdUniqueEnsured = true;
+    } catch (e) {
+        // Trùng fb_id sẵn có → không tạo được unique index. Không chặn request.
+        console.warn(
+            '[web2-customers] ensure fb_id unique index skip (có thể có fb_id trùng):',
+            e.message
+        );
+    }
+}
+
 // Chuẩn hoá danh sách SĐT phụ: bỏ rỗng/không hợp lệ, KHÔNG trùng phone chính,
 // dedupe. 1 KH nhiều SĐT → phone chính UNIQUE, các SĐT khác vào alt_phones.
 function sanitizeAltPhones(raw, primaryPhone) {
@@ -386,7 +422,8 @@ router.get('/lookup-deep', async (req, res) => {
         const imported = [];
         for (const c of rows) {
             const r = await importPancakeCustomerWeb2(db, {
-                phone: c.phone,
+                // normPancakePhone: '84xxx' từ live_comments → '0xxx' trước import.
+                phone: normPancakePhone(c.phone) || c.phone,
                 name: c.customer_name,
                 address: c.address,
                 fbId: c.fb_id,
@@ -908,11 +945,15 @@ router.post('/harvest-comments', async (req, res) => {
     const stats = { created: 0, linked: 0, altAdded: 0, filled: 0, skipped: 0, processed: 0 };
     if (!list.length) return res.json({ success: true, ...stats });
 
+    // Đảm bảo conflict target cho ON CONFLICT (fb_id) ... DO NOTHING tồn tại.
+    await _ensureFbIdUniqueIndex(db);
+
     const seen = new Set(); // dedupe input theo fbId|phone
     for (const raw of list) {
         const fbId = String(raw?.fbId || '').trim();
         const name = String(raw?.name || '').trim();
-        const phone = normPhoneWeb2(raw?.phone);
+        // normPancakePhone: xử lý '84xxx' từ comment trước khi lưu (xem helper).
+        const phone = normPancakePhone(raw?.phone);
         if (!fbId && !phone) {
             stats.skipped++;
             continue;
@@ -999,9 +1040,12 @@ async function _harvestOneComment(db, { fbId, name, phone, globalId, fbPageId })
     if (fbId) {
         const now = Date.now();
         const ins = await db.query(
+            // ON CONFLICT (fb_id) WHERE fb_id IS NOT NULL: target khớp partial
+            // unique index idx_web2_customers_fb_id_unique → KHÔNG tạo KH trùng
+            // fb_id khi 2 harvest đồng thời. (Nhánh này chỉ chạy khi có fb_id.)
             `INSERT INTO web2_customers (name, fb_id, global_id, fb_page_id, source, history, created_at, updated_at)
              VALUES ($1,$2,$3,$4,'live-comment',$5::jsonb,$6,$6)
-             ON CONFLICT DO NOTHING
+             ON CONFLICT (fb_id) WHERE fb_id IS NOT NULL DO NOTHING
              RETURNING id`,
             [
                 name || 'Khách FB',

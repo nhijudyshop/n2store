@@ -41,6 +41,8 @@ let _chatPool = null;
 let _liveComments = null; // web2-live-comments module (upsertComments + _notify)
 let _timer = null;
 let _running = false;
+let _started = false; // đã wire setTimeout-loop chưa (thay vai trò _timer cũ)
+let _hadLiveLastCycle = false; // có bài LIVE ở cycle vừa rồi → quyết interval kế tiếp
 
 function _decodeExp(jwt) {
     try {
@@ -170,6 +172,14 @@ async function fetchPostComments(pageId, pageName, postId, jwt) {
               ? d.data
               : [];
         if (!cv.length) break;
+        // Cờ phân trang từ API (ưu tiên hơn heuristic độ dài trang). Pancake có thể
+        // trả has_more / total_pages tuỳ endpoint — đọc nếu có, fallback heuristic.
+        const apiHasMore =
+            typeof d.has_more === 'boolean'
+                ? d.has_more
+                : typeof d.total_pages === 'number'
+                  ? pageNum < d.total_pages
+                  : null;
         let matched = 0;
         let added = 0;
         for (const c of cv) {
@@ -210,8 +220,11 @@ async function fetchPostComments(pageId, pageName, postId, jwt) {
             });
             added++;
         }
-        if (cv.length < 20) break;
-        if (matched > 0 && added === 0) break; // trang lặp
+        // Dừng phân trang: ưu tiên cờ API has_more/total_pages; nếu API không trả
+        // cờ thì fallback heuristic "trang ngắn hơn 1 page đầy" = hết.
+        if (apiHasMore === false) break;
+        if (apiHasMore === null && cv.length < COMMENTS_PER_PAGE) break;
+        if (matched > 0 && added === 0) break; // trang lặp (đã thấy hết id)
     }
     // Enrich SĐT từ CUSTOMER PROFILE Pancake (comment conversation ~0% có SĐT,
     // nhưng profile customer có ~88% — recent_phone_numbers lưu từ order/chat cũ).
@@ -219,14 +232,13 @@ async function fetchPostComments(pageId, pageName, postId, jwt) {
     return comments;
 }
 
-// Cache SĐT theo customer UUID (TTL 6h) — tránh fetch lại mỗi cycle.
-const _custPhoneCache = new Map(); // uuid → { phone, ts }
+// Cache SĐT theo customer UUID (TTL 6h) — tránh fetch lại mỗi cycle. Cache PROMISE
+// (không phải value) để 2 fetch concurrent cùng uuid share 1 request (chống race).
+const _custPhoneCache = new Map(); // uuid → { promise, ts }
 const CUST_PHONE_TTL_MS = 6 * 3600 * 1000;
 const PHONE_FETCH_CONCURRENCY = 4;
 
-async function _fetchCustomerPhone(pageId, uuid, jwt) {
-    const cached = _custPhoneCache.get(uuid);
-    if (cached && Date.now() - cached.ts < CUST_PHONE_TTL_MS) return cached.phone;
+async function _doFetchCustomerPhone(pageId, uuid, jwt) {
     let phone = null;
     try {
         const d = await _pfm(`pages/${pageId}/customers/${encodeURIComponent(uuid)}`, jwt);
@@ -239,8 +251,15 @@ async function _fetchCustomerPhone(pageId, uuid, jwt) {
     } catch (_) {
         /* bỏ qua */
     }
-    _custPhoneCache.set(uuid, { phone, ts: Date.now() });
     return phone;
+}
+
+function _fetchCustomerPhone(pageId, uuid, jwt) {
+    const cached = _custPhoneCache.get(uuid);
+    if (cached && Date.now() - cached.ts < CUST_PHONE_TTL_MS) return cached.promise;
+    const promise = _doFetchCustomerPhone(pageId, uuid, jwt);
+    _custPhoneCache.set(uuid, { promise, ts: Date.now() });
+    return promise;
 }
 
 async function _enrichPhonesFromProfile(pageId, comments, jwt) {
@@ -260,9 +279,12 @@ async function _enrichPhonesFromProfile(pageId, comments, jwt) {
     }
 }
 
+// Chạy 1 cycle. Trả về true nếu có ÍT NHẤT 1 bài đang LIVE (status live, không
+// phải đã kết thúc) — dùng để chọn interval cho cycle kế tiếp (adaptive poll).
 async function _cycle() {
-    if (_running) return;
+    if (_running) return _hadLiveLastCycle;
     _running = true;
+    let anyLive = false;
     try {
         const pages = await getEnabledPages();
         for (const pg of pages) {
@@ -280,10 +302,12 @@ async function _cycle() {
             }
             if (!livePosts.length) continue; // page không live → bỏ qua (không tốn)
             for (const lp of livePosts) {
+                if (lp.living) anyLive = true; // có bài đang LIVE thật → poll nhanh
                 try {
                     const comments = await fetchPostComments(pg.page_id, pg.page_name, lp.id, jwt);
                     if (comments.length) {
                         const saved = await _liveComments.upsertComments(_web2Pool, comments);
+                        // Broadcast SSE web2:live-comments → tab live-chat reload từ DB.
                         _liveComments._notify('poll', lp.id);
                         console.log(
                             `[LIVE-POLLER] ${pg.page_name} post ${lp.id} (${lp.living ? 'LIVE' : 'recent'}) → ${comments.length} fetched, ${saved} saved`
@@ -298,7 +322,23 @@ async function _cycle() {
         console.error('[LIVE-POLLER] cycle error:', e.message);
     } finally {
         _running = false;
+        _hadLiveLastCycle = anyLive;
     }
+    return anyLive;
+}
+
+// Loop đệ quy bằng setTimeout (KHÔNG setInterval) để đổi interval ĐỘNG sau mỗi
+// cycle: có bài LIVE → 5s (gần realtime), không → 30s. _running guard trong
+// _cycle chống overlap; setTimeout chỉ schedule cycle kế sau khi cycle này xong.
+function _scheduleNext(hadLive) {
+    if (!_started) return;
+    const interval = hadLive ? POLL_INTERVAL_LIVE_MS : POLL_INTERVAL_IDLE_MS;
+    _timer = setTimeout(_loop, interval);
+}
+
+async function _loop() {
+    const hadLive = await _cycle();
+    _scheduleNext(hadLive);
 }
 
 function start({ web2Pool, chatPool, liveCommentsModule }) {
@@ -309,16 +349,19 @@ function start({ web2Pool, chatPool, liveCommentsModule }) {
         console.warn('[LIVE-POLLER] missing deps — not started');
         return;
     }
-    if (_timer) return;
+    if (_started) return;
+    _started = true;
     ensureConfigTable()
         .then(() => {
-            _timer = setInterval(_cycle, POLL_INTERVAL_MS);
             console.log(
-                `[LIVE-POLLER] started — poll mỗi ${POLL_INTERVAL_MS / 1000}s, ${DEFAULT_PAGES.length} trang mặc định`
+                `[LIVE-POLLER] started — adaptive poll: ${POLL_INTERVAL_LIVE_MS / 1000}s khi LIVE / ${POLL_INTERVAL_IDLE_MS / 1000}s khi idle, ${DEFAULT_PAGES.length} trang mặc định`
             );
-            _cycle(); // chạy ngay 1 lần
+            _loop(); // chạy ngay 1 lần, rồi tự schedule cycle kế theo interval adaptive
         })
-        .catch((e) => console.error('[LIVE-POLLER] init fail:', e.message));
+        .catch((e) => {
+            _started = false;
+            console.error('[LIVE-POLLER] init fail:', e.message);
+        });
 }
 
 // Danh sách TẤT CẢ bài livestream gần đây (14 ngày) của các page đã bật — cho

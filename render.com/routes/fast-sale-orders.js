@@ -1473,8 +1473,20 @@ router.post('/from-native-order', async (req, res) => {
             customerId = await lookupCustomerIdByPhone(pool, src.phone);
         }
 
-        const r = await pool.query(
-            `INSERT INTO fast_sale_orders (
+        // MEDIUM FIX (2026-06-10): INSERT PBH + trừ stock web2_products PHẢI atomic.
+        // Trước đây INSERT bằng pool.query rồi MỚI loop UPDATE stock (best-effort) —
+        // crash giữa = PBH có nhưng stock chưa trừ. Giờ gộp cả 2 vào 1 withTransaction:
+        // COMMIT cùng nhau hoặc ROLLBACK cùng nhau. Kèm retry-on-unique-violation cho
+        // number (split re-issue / 2 request đồng thời cùng native-order có thể trùng).
+        let r = null;
+        {
+            let insertNumber = number;
+            let lastErr = null;
+            for (let attempt = 0; attempt < MAX_NUMBER_RETRIES; attempt++) {
+                try {
+                    r = await withTransaction(pool, async (client) => {
+                        const insRes = await client.query(
+                            `INSERT INTO fast_sale_orders (
                 number, display_stt, source,
                 date_invoice,
                 partner_id, partner_code, partner_name, partner_phone, partner_address, partner_email,
@@ -1510,54 +1522,90 @@ router.post('/from-native-order', async (req, res) => {
                 $37, $38::jsonb, $39, $40,
                 $41, $42, $44, $45
             ) RETURNING *`,
-            [
-                number,
-                b.dateInvoice || null,
-                src.partner_id,
-                src.partner_code,
-                src.customer_name,
-                src.phone,
-                src.address,
-                src.email,
-                src.city_code,
-                src.city_name,
-                src.district_code,
-                src.district_name,
-                src.ward_code,
-                src.ward_name,
-                JSON.stringify(lines),
-                totals.qty,
-                totals.untaxed,
-                totals.tax,
-                totals.discount,
-                totals.total,
-                b.paymentAmount || 0,
-                b.deposit ?? Number(src.deposit || 0),
-                totals.residual,
-                b.deliveryPrice || 0,
-                b.cashOnDelivery || 0,
-                src.id,
-                src.code,
-                src.live_campaign_id,
-                src.live_campaign_name,
-                src.warehouse_id,
-                src.warehouse_name,
-                src.company_id,
-                src.company_name,
-                src.crm_team_id,
-                src.assigned_employee_id,
-                src.assigned_employee_name,
-                src.note,
-                JSON.stringify(src.tags || []),
-                b.createdBy || src.created_by,
-                b.createdByName || src.created_by_name,
-                customerId,
-                splitIndex,
-                src.display_stt || null, // $43 — sync STT từ native-order
-                b.carrierName || null, // $44 — phương thức giao (vd "PBH SHOP") → bill + badge
-                src.channel || null, // $45 — kênh đơn → bill "PBH INBOX" khi in từ trang PBH
-            ]
-        );
+                            [
+                                insertNumber,
+                                b.dateInvoice || null,
+                                src.partner_id,
+                                src.partner_code,
+                                src.customer_name,
+                                src.phone,
+                                src.address,
+                                src.email,
+                                src.city_code,
+                                src.city_name,
+                                src.district_code,
+                                src.district_name,
+                                src.ward_code,
+                                src.ward_name,
+                                JSON.stringify(lines),
+                                totals.qty,
+                                totals.untaxed,
+                                totals.tax,
+                                totals.discount,
+                                totals.total,
+                                b.paymentAmount || 0,
+                                b.deposit ?? Number(src.deposit || 0),
+                                totals.residual,
+                                b.deliveryPrice || 0,
+                                b.cashOnDelivery || 0,
+                                src.id,
+                                src.code,
+                                src.live_campaign_id,
+                                src.live_campaign_name,
+                                src.warehouse_id,
+                                src.warehouse_name,
+                                src.company_id,
+                                src.company_name,
+                                src.crm_team_id,
+                                src.assigned_employee_id,
+                                src.assigned_employee_name,
+                                src.note,
+                                JSON.stringify(src.tags || []),
+                                b.createdBy || src.created_by,
+                                b.createdByName || src.created_by_name,
+                                customerId,
+                                splitIndex,
+                                src.display_stt || null, // $43 — sync STT từ native-order
+                                b.carrierName || null, // $44 — phương thức giao (vd "PBH SHOP") → bill + badge
+                                src.channel || null, // $45 — kênh đơn → bill "PBH INBOX" khi in từ trang PBH
+                            ]
+                        );
+                        // Trừ stock TRONG cùng transaction với INSERT PBH → atomic.
+                        // Clamp tại 0 nếu over-sell. Idempotent: route return sớm nếu
+                        // PBH đã tồn tại (không split) nên chỉ deduct 1 lần lúc tạo mới.
+                        const stockNow = Date.now();
+                        for (const line of lines) {
+                            const code = line.productCode;
+                            const qty = Number(line.quantity) || 0;
+                            if (!code || qty <= 0) continue;
+                            await client.query(
+                                `UPDATE web2_products
+                                 SET stock = GREATEST(0, stock - $1), updated_at = $2
+                                 WHERE code = $3`,
+                                [qty, stockNow, code]
+                            );
+                        }
+                        return insRes;
+                    });
+                    break; // transaction commit OK → thoát retry loop
+                } catch (txErr) {
+                    if (_isUniqueViolation(txErr)) {
+                        // number trùng → tăng split suffix rồi thử lại. Giữ đúng quy ước
+                        // "src.code-N": nếu chưa có suffix thì bắt đầu từ -(splitIndex+attempt+2).
+                        lastErr = txErr;
+                        insertNumber = `${src.code}-${splitIndex + attempt + 1}`;
+                        continue;
+                    }
+                    throw txErr;
+                }
+            }
+            if (!r) {
+                throw (
+                    lastErr ||
+                    new Error('Không sinh được số PBH từ native-order (race retry exhausted)')
+                );
+            }
+        }
 
         // Mark source order as converted — bump status sang 'confirmed' khi vừa tạo PBH.
         // - draft → confirmed (đơn nháp giờ đã có PBH active)
@@ -1657,25 +1705,8 @@ router.post('/from-native-order', async (req, res) => {
             console.warn('[FAST-SALE-ORDERS] KPI emit (confirm) failed:', e.message);
         }
 
-        // Stock deduction — atomic across all lines. Clamp tại 0 nếu over-sell.
-        // Idempotent: route đã return sớm ở line 687 nếu PBH đã tồn tại,
-        // nên chỉ deduct 1 lần lúc tạo mới. Best-effort: lỗi không chặn flow.
-        try {
-            const now = Date.now();
-            for (const line of lines) {
-                const code = line.productCode;
-                const qty = Number(line.quantity) || 0;
-                if (!code || qty <= 0) continue;
-                await pool.query(
-                    `UPDATE web2_products
-                     SET stock = GREATEST(0, stock - $1), updated_at = $2
-                     WHERE code = $3`,
-                    [qty, now, code]
-                );
-            }
-        } catch (e) {
-            console.warn('[FAST-SALE-ORDERS] stock deduction warn:', e.message);
-        }
+        // Stock đã trừ TRONG transaction cùng INSERT PBH (xem withTransaction phía
+        // trên) → atomic. Chỉ còn SSE notify cho products page refresh stock.
         // SSE notify web2:products → products page refresh stock
         if (_notifyClients) {
             try {
@@ -1928,44 +1959,57 @@ router.post('/:number/cancel', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
-        // Lấy state cũ + lines + source_* TRƯỚC khi đổi state — quyết định có
-        // restock + sync ngược native_order.status không. source_type/source_code
-        // bắt buộc để syncNativeOrderStatusFromPbh tìm đơn web revert về cancelled.
-        const prev = await pool.query(
-            `SELECT id, state, stock_restored, order_lines, source_type, source_code
-             FROM fast_sale_orders WHERE number = $1`,
-            [req.params.number]
-        );
-        if (prev.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-        const prevRow = prev.rows[0];
-        const wasNotCancelled = prevRow.state !== 'cancel';
-
-        const r = await _stateChange(pool, req.params.number, 'cancel');
-        if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        // MEDIUM FIX (2026-06-10): đổi state='cancel' + restock PHẢI atomic. Trước đây
+        // 3 pool.query rời rạc → crash giữa = PBH cancelled nhưng stock chưa trả về
+        // (và stock_restored=FALSE; lần cancel sau wasNotCancelled=false → KHÔNG restock
+        // → mất tồn). Giờ lock row FOR UPDATE + đổi state + restock trong 1 transaction:
+        // restockOrderLines vẫn idempotent (check stock_restored) + lock serialize 2
+        // cancel đồng thời. source_type/source_code lấy ra cho syncNativeOrderStatusFromPbh.
+        let prevRow = null;
+        let wasNotCancelled = false;
+        let r = null;
+        let restockSummary = null;
+        const cancelTx = await withTransaction(pool, async (client) => {
+            const prev = await client.query(
+                `SELECT id, state, stock_restored, order_lines, source_type, source_code
+                 FROM fast_sale_orders WHERE number = $1 FOR UPDATE`,
+                [req.params.number]
+            );
+            if (prev.rows.length === 0) return { notFound: true };
+            const pr = prev.rows[0];
+            const notCancelled = pr.state !== 'cancel';
+            const upd = await client.query(
+                `UPDATE fast_sale_orders SET state = 'cancel', date_updated = NOW()
+                 WHERE number = $1 RETURNING *`,
+                [req.params.number]
+            );
+            if (upd.rows.length === 0) return { notFound: true };
+            let restock = null;
+            if (notCancelled) {
+                // restockOrderLines dùng client (cùng transaction) → atomic với UPDATE state.
+                restock = await restockOrderLines(client, pr);
+                console.log(
+                    `[FAST-SALE-ORDERS] cancel ${upd.rows[0].number} → restocked ${restock.restored} lines`
+                );
+            }
+            return { prevRow: pr, wasNotCancelled: notCancelled, updRow: upd.rows[0], restock };
+        });
+        if (cancelTx.notFound) return res.status(404).json({ error: 'Not found' });
+        prevRow = cancelTx.prevRow;
+        wasNotCancelled = cancelTx.wasNotCancelled;
+        restockSummary = cancelTx.restock;
+        r = { rows: [cancelTx.updRow] };
         const o = mapRow(r.rows[0]);
 
-        // Restock: chỉ chạy nếu PBH lần đầu cancel (tránh restock 2 lần idempotent retry).
-        // restockOrderLines tự skip nếu stock_restored=TRUE → safe khi /cancel gọi lại.
-        let restockSummary = null;
-        if (wasNotCancelled) {
+        // SSE notify web2:products → products page refresh stock (sau commit).
+        if (wasNotCancelled && restockSummary && restockSummary.restored > 0 && _notifyClients) {
             try {
-                restockSummary = await restockOrderLines(pool, prevRow);
-                console.log(
-                    `[FAST-SALE-ORDERS] cancel ${o.number} → restocked ${restockSummary.restored} lines`
+                _notifyClients(
+                    'web2:products',
+                    { action: 'pbh-cancel-restock', code: null, ts: Date.now() },
+                    'update'
                 );
-                // SSE notify web2:products → products page refresh stock
-                if (restockSummary.restored > 0 && _notifyClients) {
-                    try {
-                        _notifyClients(
-                            'web2:products',
-                            { action: 'pbh-cancel-restock', code: null, ts: Date.now() },
-                            'update'
-                        );
-                    } catch {}
-                }
-            } catch (e) {
-                console.error('[FAST-SALE-ORDERS] restock fail:', e.message);
-            }
+            } catch {}
         }
 
         // Sync ngược: PBH cancel → native-orders status='cancelled' (cho single + merged).
@@ -2068,39 +2112,52 @@ router.post('/by-source/:nativeOrderCode/cancel', async (req, res) => {
     if (!code) return res.status(400).json({ error: 'nativeOrderCode required' });
     try {
         await ensureTables(pool);
-        const found = await pool.query(
-            `SELECT id, number, state, stock_restored, order_lines FROM fast_sale_orders
-             WHERE source_code = $1 AND state <> 'cancel'
-             ORDER BY date_created DESC LIMIT 1`,
-            [code]
-        );
-        if (found.rows.length === 0) {
+        // MEDIUM FIX (2026-06-10): đổi state='cancel' + restock atomic (giống /:number/cancel).
+        // Lock row đã chọn FOR UPDATE → đổi state + restock trong cùng transaction.
+        const byTx = await withTransaction(pool, async (client) => {
+            const found = await client.query(
+                `SELECT id, number, state, stock_restored, order_lines FROM fast_sale_orders
+                 WHERE source_code = $1 AND state <> 'cancel'
+                 ORDER BY date_created DESC LIMIT 1
+                 FOR UPDATE`,
+                [code]
+            );
+            if (found.rows.length === 0) return { notFound: true };
+            const pr = found.rows[0];
+            const upd = await client.query(
+                `UPDATE fast_sale_orders SET state = 'cancel', date_updated = NOW()
+                 WHERE number = $1 RETURNING *`,
+                [pr.number]
+            );
+            if (upd.rows.length === 0) return { vanished: true };
+            // Restock — found WHERE state <> 'cancel' nên chắc chắn cần restock.
+            const restock = await restockOrderLines(client, pr);
+            console.log(
+                `[FAST-SALE-ORDERS] cancel-by-source ${pr.number} → restocked ${restock.restored} lines`
+            );
+            return { prevRow: pr, updRow: upd.rows[0], restock };
+        });
+        if (byTx.notFound) {
             return res.status(404).json({ error: 'PBH chưa tồn tại cho đơn web này' });
         }
-        const prevRow = found.rows[0];
+        if (byTx.vanished) {
+            return res.status(404).json({ error: 'PBH biến mất khi cancel' });
+        }
+        const prevRow = byTx.prevRow;
         const number = prevRow.number;
-        const r = await _stateChange(pool, number, 'cancel');
-        if (r.rows.length === 0) return res.status(404).json({ error: 'PBH biến mất khi cancel' });
+        const r = { rows: [byTx.updRow] };
         const o = mapRow(r.rows[0]);
+        const restockSummary = byTx.restock;
 
-        // Restock — query trước WHERE state <> 'cancel' nên chắc chắn cần restock.
-        let restockSummary = null;
-        try {
-            restockSummary = await restockOrderLines(pool, prevRow);
-            console.log(
-                `[FAST-SALE-ORDERS] cancel-by-source ${number} → restocked ${restockSummary.restored} lines`
-            );
-            if (restockSummary.restored > 0 && _notifyClients) {
-                try {
-                    _notifyClients(
-                        'web2:products',
-                        { action: 'pbh-cancel-restock', code: null, ts: Date.now() },
-                        'update'
-                    );
-                } catch {}
-            }
-        } catch (e) {
-            console.error('[FAST-SALE-ORDERS] restock fail:', e.message);
+        // SSE notify web2:products → products page refresh stock (sau commit).
+        if (restockSummary && restockSummary.restored > 0 && _notifyClients) {
+            try {
+                _notifyClients(
+                    'web2:products',
+                    { action: 'pbh-cancel-restock', code: null, ts: Date.now() },
+                    'update'
+                );
+            } catch {}
         }
 
         // Revert native_orders.status — chỉ revert nếu đang là 'confirmed'.

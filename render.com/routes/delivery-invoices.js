@@ -7,6 +7,18 @@
 
 const express = require('express');
 const router = express.Router();
+const { withTransaction } = require('../db/with-transaction');
+
+// State machine: trạng thái hiện tại → tập trạng thái kế tiếp hợp lệ.
+// Chặn transition vô lý (vd delivered→shipping, cancel→shipping) khi 2 user/2
+// tab đổi trạng thái song song hoặc UI gửi nhầm.
+const DELIVERY_TRANSITIONS = {
+    pending: new Set(['shipping', 'cancel']),
+    shipping: new Set(['delivered', 'returned', 'cancel']),
+    delivered: new Set(['returned']),
+    returned: new Set([]), // terminal
+    cancel: new Set([]), // terminal
+};
 
 let _ready = false;
 async function ensureTables(pool) {
@@ -233,64 +245,76 @@ router.post('/from-pbh', async (req, res) => {
         if (fso.state === 'cancel')
             return res.status(400).json({ error: 'Không thể giao PBH đã hủy' });
 
-        const number = await nextNumber(pool);
         const lines =
             Array.isArray(b.deliveryLines) && b.deliveryLines.length
                 ? b.deliveryLines
                 : fso.order_lines || [];
         const totalQty = lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0);
 
-        const r = await pool.query(
-            `INSERT INTO delivery_invoices (
-                number, display_stt, fso_id, fso_number,
-                date_delivery,
-                partner_id, partner_name, partner_phone, partner_address,
-                city_name, district_name, ward_name,
-                carrier_id, carrier_name, tracking_ref, tracking_url,
-                delivery_lines, total_quantity, total_weight,
-                cash_on_delivery, delivery_fee,
-                state, state_history, note,
-                created_by, created_by_name
-            ) VALUES (
-                $1, nextval('delivery_invoices_display_stt_seq'), $2, $3,
-                COALESCE($4::timestamptz, NOW()),
-                $5, $6, $7, $8,
-                $9, $10, $11,
-                $12, $13, $14, $15,
-                $16::jsonb, $17, $18,
-                $19, $20,
-                'pending', $21::jsonb, $22,
-                $23, $24
-            ) RETURNING *`,
-            [
-                number,
-                fso.id,
-                fso.number,
-                b.dateDelivery || null,
-                fso.partner_id,
-                fso.partner_name,
-                fso.partner_phone,
-                fso.partner_address,
-                fso.city_name,
-                fso.district_name,
-                fso.ward_name,
-                b.carrierId || fso.carrier_id,
-                b.carrierName || fso.carrier_name,
-                b.trackingRef || fso.tracking_ref,
-                b.trackingUrl || null,
-                JSON.stringify(lines),
-                totalQty,
-                b.totalWeight || null,
-                b.cashOnDelivery ?? Number(fso.cash_on_delivery || 0),
-                b.deliveryFee ?? Number(fso.delivery_price || 0),
-                JSON.stringify([
-                    { from: null, to: 'pending', at: Date.now(), by: b.createdBy || null },
-                ]),
-                b.note || null,
-                b.createdBy || null,
-                b.createdByName || null,
-            ]
-        );
+        // Retry-on-unique ('23505'): nextNumber (LIKE+MAX+1) không atomic → 2
+        // phiếu cùng lúc có thể sinh trùng number → INSERT lần sau lấy number mới.
+        const RETRY_MAX = 5;
+        let r;
+        for (let attempt = 0; ; attempt++) {
+            const number = await nextNumber(pool);
+            try {
+                r = await pool.query(
+                    `INSERT INTO delivery_invoices (
+                        number, display_stt, fso_id, fso_number,
+                        date_delivery,
+                        partner_id, partner_name, partner_phone, partner_address,
+                        city_name, district_name, ward_name,
+                        carrier_id, carrier_name, tracking_ref, tracking_url,
+                        delivery_lines, total_quantity, total_weight,
+                        cash_on_delivery, delivery_fee,
+                        state, state_history, note,
+                        created_by, created_by_name
+                    ) VALUES (
+                        $1, nextval('delivery_invoices_display_stt_seq'), $2, $3,
+                        COALESCE($4::timestamptz, NOW()),
+                        $5, $6, $7, $8,
+                        $9, $10, $11,
+                        $12, $13, $14, $15,
+                        $16::jsonb, $17, $18,
+                        $19, $20,
+                        'pending', $21::jsonb, $22,
+                        $23, $24
+                    ) RETURNING *`,
+                    [
+                        number,
+                        fso.id,
+                        fso.number,
+                        b.dateDelivery || null,
+                        fso.partner_id,
+                        fso.partner_name,
+                        fso.partner_phone,
+                        fso.partner_address,
+                        fso.city_name,
+                        fso.district_name,
+                        fso.ward_name,
+                        b.carrierId || fso.carrier_id,
+                        b.carrierName || fso.carrier_name,
+                        b.trackingRef || fso.tracking_ref,
+                        b.trackingUrl || null,
+                        JSON.stringify(lines),
+                        totalQty,
+                        b.totalWeight || null,
+                        b.cashOnDelivery ?? Number(fso.cash_on_delivery || 0),
+                        b.deliveryFee ?? Number(fso.delivery_price || 0),
+                        JSON.stringify([
+                            { from: null, to: 'pending', at: Date.now(), by: b.createdBy || null },
+                        ]),
+                        b.note || null,
+                        b.createdBy || null,
+                        b.createdByName || null,
+                    ]
+                );
+                break;
+            } catch (e) {
+                if (e && e.code === '23505' && attempt < RETRY_MAX) continue;
+                throw e;
+            }
+        }
         const o = mapRow(r.rows[0]);
         if (req.app.locals.broadcastToClients) {
             req.app.locals.broadcastToClients({
@@ -315,20 +339,36 @@ router.post('/from-pbh', async (req, res) => {
     }
 });
 
-// POST /:number/state — change state with history
+// POST /:number/state — change state with history.
+// Lock row FOR UPDATE + validate transition trong cùng 1 transaction. Trả
+// { row } khi OK, { notFound:true } hoặc { invalid, from, to } khi từ chối.
 async function _changeState(pool, number, newState, by) {
-    const cur = await pool.query(
-        'SELECT state, state_history FROM delivery_invoices WHERE number = $1',
-        [number]
-    );
-    if (cur.rows.length === 0) return null;
-    const history = cur.rows[0].state_history || [];
-    history.push({ from: cur.rows[0].state, to: newState, at: Date.now(), by: by || null });
-    const r = await pool.query(
-        `UPDATE delivery_invoices SET state = $1, state_history = $2::jsonb, date_updated = NOW() WHERE number = $3 RETURNING *`,
-        [newState, JSON.stringify(history), number]
-    );
-    return r.rows[0];
+    return withTransaction(pool, async (client) => {
+        const cur = await client.query(
+            'SELECT state, state_history FROM delivery_invoices WHERE number = $1 FOR UPDATE',
+            [number]
+        );
+        if (cur.rows.length === 0) return { notFound: true };
+        const from = cur.rows[0].state;
+        // No-op idempotent: đã ở đúng state → trả về row hiện tại, không lỗi.
+        if (from === newState) {
+            const r0 = await client.query('SELECT * FROM delivery_invoices WHERE number = $1', [
+                number,
+            ]);
+            return { row: r0.rows[0] };
+        }
+        const allowed = DELIVERY_TRANSITIONS[from] || new Set();
+        if (!allowed.has(newState)) {
+            return { invalid: true, from, to: newState };
+        }
+        const history = cur.rows[0].state_history || [];
+        history.push({ from, to: newState, at: Date.now(), by: by || null });
+        const r = await client.query(
+            `UPDATE delivery_invoices SET state = $1, state_history = $2::jsonb, date_updated = NOW() WHERE number = $3 RETURNING *`,
+            [newState, JSON.stringify(history), number]
+        );
+        return { row: r.rows[0] };
+    });
 }
 for (const [path, st] of [
     ['/:number/ship', 'shipping'],
@@ -340,8 +380,14 @@ for (const [path, st] of [
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         try {
             await ensureTables(pool);
-            const row = await _changeState(pool, req.params.number, st, req.body?.by);
-            if (!row) return res.status(404).json({ error: 'Not found' });
+            const result = await _changeState(pool, req.params.number, st, req.body?.by);
+            if (result.notFound) return res.status(404).json({ error: 'Not found' });
+            if (result.invalid) {
+                return res.status(409).json({
+                    error: `Không thể chuyển trạng thái ${result.from} → ${result.to}`,
+                });
+            }
+            const row = result.row;
             const o = mapRow(row);
             if (req.app.locals.broadcastToClients) {
                 req.app.locals.broadcastToClients({ type: `delivery:${st}`, order: o });

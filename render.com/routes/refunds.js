@@ -6,6 +6,17 @@
 
 const express = require('express');
 const router = express.Router();
+const { withTransaction } = require('../db/with-transaction');
+
+// State machine: trạng thái hiện tại → tập trạng thái kế tiếp hợp lệ.
+// Chặn transition vô lý (vd completed→approved, cancel→draft) khi 2 user/2 tab
+// đổi trạng thái song song hoặc UI gửi nhầm.
+const REFUND_TRANSITIONS = {
+    draft: new Set(['approved', 'cancel']),
+    approved: new Set(['completed', 'cancel']),
+    completed: new Set([]), // terminal
+    cancel: new Set([]), // terminal
+};
 
 let _ready = false;
 async function ensureTables(pool) {
@@ -286,18 +297,33 @@ router.post('/from-pbh', async (req, res) => {
     }
 });
 
+// Lock row FOR UPDATE + validate transition trong cùng 1 transaction. Trả
+// { row } khi OK, { notFound:true } hoặc { invalid, from, to } khi từ chối.
 async function _changeState(pool, number, newState, by) {
-    const cur = await pool.query('SELECT state, state_history FROM refunds WHERE number = $1', [
-        number,
-    ]);
-    if (!cur.rows.length) return null;
-    const history = cur.rows[0].state_history || [];
-    history.push({ from: cur.rows[0].state, to: newState, at: Date.now(), by: by || null });
-    const r = await pool.query(
-        `UPDATE refunds SET state = $1, state_history = $2::jsonb, date_updated = NOW() WHERE number = $3 RETURNING *`,
-        [newState, JSON.stringify(history), number]
-    );
-    return r.rows[0];
+    return withTransaction(pool, async (client) => {
+        const cur = await client.query(
+            'SELECT state, state_history FROM refunds WHERE number = $1 FOR UPDATE',
+            [number]
+        );
+        if (!cur.rows.length) return { notFound: true };
+        const from = cur.rows[0].state;
+        // No-op idempotent: đã ở đúng state → trả về row hiện tại, không lỗi.
+        if (from === newState) {
+            const r0 = await client.query('SELECT * FROM refunds WHERE number = $1', [number]);
+            return { row: r0.rows[0] };
+        }
+        const allowed = REFUND_TRANSITIONS[from] || new Set();
+        if (!allowed.has(newState)) {
+            return { invalid: true, from, to: newState };
+        }
+        const history = cur.rows[0].state_history || [];
+        history.push({ from, to: newState, at: Date.now(), by: by || null });
+        const r = await client.query(
+            `UPDATE refunds SET state = $1, state_history = $2::jsonb, date_updated = NOW() WHERE number = $3 RETURNING *`,
+            [newState, JSON.stringify(history), number]
+        );
+        return { row: r.rows[0] };
+    });
 }
 for (const [path, st] of [
     ['/:number/approve', 'approved'],
@@ -308,8 +334,14 @@ for (const [path, st] of [
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         try {
             await ensureTables(pool);
-            const row = await _changeState(pool, req.params.number, st, req.body?.by);
-            if (!row) return res.status(404).json({ error: 'Not found' });
+            const result = await _changeState(pool, req.params.number, st, req.body?.by);
+            if (result.notFound) return res.status(404).json({ error: 'Not found' });
+            if (result.invalid) {
+                return res.status(409).json({
+                    error: `Không thể chuyển trạng thái ${result.from} → ${result.to}`,
+                });
+            }
+            const row = result.row;
             const o = mapRow(row);
             if (req.app.locals.broadcastToClients) {
                 req.app.locals.broadcastToClients({ type: `refund:${st}`, order: o });

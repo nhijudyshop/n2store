@@ -20,13 +20,15 @@ function handleError(res, err, msg = 'Internal error') {
     res.status(500).json({ success: false, error: msg, details: err.message });
 }
 
-// Shop bank config — hardcoded từ N2 Store ACB account.
-// Đổi qua env var khi shop có nhiều tài khoản.
+// Shop bank config — đọc từ env (fallback = giá trị N2 Store ACB hiện tại để
+// không vỡ khi env chưa set). KHÔNG hardcode số TK trực tiếp: cho phép override
+// qua env (SHOP_BANK_BIN / SHOP_BANK_CODE / SHOP_BANK_ACCOUNT_NO /
+// SHOP_BANK_ACCOUNT_NAME) khi đổi tài khoản hoặc tách secret khỏi source.
 const SHOP_BANK = {
-    bin: '970416',
-    code: 'ACB',
-    accountNo: '75918',
-    accountName: 'LAI THUY YEN NHI',
+    bin: process.env.SHOP_BANK_BIN || '970416',
+    code: process.env.SHOP_BANK_CODE || 'ACB',
+    accountNo: process.env.SHOP_BANK_ACCOUNT_NO || '75918',
+    accountName: process.env.SHOP_BANK_ACCOUNT_NAME || 'LAI THUY YEN NHI',
 };
 
 // Slugify customer name → uppercase alphanumeric (max 15 chars).

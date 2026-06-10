@@ -15,17 +15,27 @@ router.get('/', async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const now = Date.now();
-        if (_cache.data && now - _cache.ts < 30_000) {
+        // Bypass cache khi client gọi ?nocache=1 (hoặc ?fresh=1) — vd sau SSE
+        // trigger reload, để không nhận data cũ trong cửa sổ cache 30s.
+        const noCache =
+            req.query.nocache === '1' ||
+            req.query.nocache === 'true' ||
+            req.query.fresh === '1' ||
+            req.query.fresh === 'true';
+        if (!noCache && _cache.data && now - _cache.ts < 30_000) {
             return res.json({ success: true, cached: true, ..._cache.data });
         }
         const out = {};
 
-        // Revenue today (PBH state=done) — dùng date_invoice (ngày HĐ, đã có timezone fix)
+        // Revenue today (PBH state=done) — date_invoice (TIMESTAMPTZ) so theo ngày
+        // VN (Asia/Ho_Chi_Minh) thay vì UTC (CURRENT_DATE) để không lệch 7h.
         try {
             const r = await pool.query(
                 `SELECT COALESCE(SUM(amount_total), 0)::bigint AS s, COUNT(*)::int AS c
                  FROM fast_sale_orders
-                 WHERE state = 'done' AND date_invoice::date = CURRENT_DATE`
+                 WHERE state = 'done'
+                   AND (date_invoice AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                       = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date`
             );
             out.revenue_today = Number(r.rows[0]?.s || 0);
             out.pbh_done_today = Number(r.rows[0]?.c || 0);

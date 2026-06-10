@@ -12,15 +12,28 @@
 const express = require('express');
 const router = express.Router();
 
-function _tableExists(pool, table) {
-    return pool
-        .query(
+// Cache kết quả _tableExists (MEDIUM perf): 4 lần check serial/request ~40ms.
+// Bảng audit cố định (DDL không đổi runtime) → cache 5 phút/process là an toàn.
+const _TABLE_EXISTS_TTL_MS = 5 * 60 * 1000;
+const _tableExistsCache = new Map(); // table → { exists, ts }
+
+async function _tableExists(pool, table) {
+    const cached = _tableExistsCache.get(table);
+    if (cached && Date.now() - cached.ts < _TABLE_EXISTS_TTL_MS) {
+        return cached.exists;
+    }
+    try {
+        const r = await pool.query(
             `SELECT EXISTS (SELECT FROM information_schema.tables
              WHERE table_schema = 'public' AND table_name = $1) AS e`,
             [table]
-        )
-        .then((r) => Boolean(r.rows[0]?.e))
-        .catch(() => false);
+        );
+        const exists = Boolean(r.rows[0]?.e);
+        _tableExistsCache.set(table, { exists, ts: Date.now() });
+        return exists;
+    } catch {
+        return false; // không cache lỗi (transient) → check lại lần sau
+    }
 }
 
 // GET /list?entity=&user=&from=&to=&limit=100&offset=0
@@ -133,13 +146,16 @@ router.get('/list', async (req, res) => {
 
         const sql = `
             WITH unified AS (${blocks.join(' UNION ALL ')})
-            SELECT * FROM unified
+            SELECT *, COUNT(*) OVER() AS _total FROM unified
             ${where}
             ORDER BY created_at DESC
             LIMIT ${limit} OFFSET ${offset}
         `;
         const rs = await pool.query(sql, params);
-        res.json({ success: true, items: rs.rows, limit, offset });
+        // _total = tổng số rows khớp filter (window fn, trước LIMIT). 0 row → 0.
+        const total = rs.rows.length ? Number(rs.rows[0]._total) || 0 : 0;
+        const items = rs.rows.map(({ _total, ...row }) => row);
+        res.json({ success: true, items, total, limit, offset });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

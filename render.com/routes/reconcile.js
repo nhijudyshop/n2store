@@ -23,6 +23,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { withTransaction } = require('../db/with-transaction');
 
 // -----------------------------------------------------
 // SSE notifier
@@ -594,20 +595,41 @@ router.post('/:number/reset-pick', async (req, res) => {
     const user = userFromReq(req);
     try {
         await ensureTables(pool);
-        const before = await getPbh(pool, number);
-        if (!before) return res.status(404).json({ error: 'PBH not found' });
-        const stateBefore = before.fulfillment_state || 'pending';
-        if (['packed', 'shipped', 'delivered'].includes(stateBefore)) {
-            return res.status(400).json({ error: `Không thể reset khi đã ở state ${stateBefore}` });
+        // FOR UPDATE: lock PBH → check state → reset trong cùng 1 transaction.
+        // Idempotent (về 'pending') nên ưu tiên thấp, nhưng lock tránh đè lên
+        // thao tác pick song song.
+        let stateBefore;
+        try {
+            stateBefore = await withTransaction(pool, async (client) => {
+                const cur = await client.query(
+                    `SELECT fulfillment_state FROM fast_sale_orders WHERE number = $1 FOR UPDATE`,
+                    [number]
+                );
+                if (cur.rows.length === 0) {
+                    const err = new Error('PBH not found');
+                    err.httpStatus = 404;
+                    throw err;
+                }
+                const sBefore = cur.rows[0].fulfillment_state || 'pending';
+                if (['packed', 'shipped', 'delivered'].includes(sBefore)) {
+                    const err = new Error(`Không thể reset khi đã ở state ${sBefore}`);
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                await client.query(
+                    `UPDATE fast_sale_orders
+                     SET fulfillment_picked_lines = '[]'::jsonb,
+                         fulfillment_state = 'pending',
+                         date_updated = NOW()
+                     WHERE number = $1`,
+                    [number]
+                );
+                return sBefore;
+            });
+        } catch (e) {
+            if (e.httpStatus) return res.status(e.httpStatus).json({ error: e.message });
+            throw e;
         }
-        await pool.query(
-            `UPDATE fast_sale_orders
-             SET fulfillment_picked_lines = '[]'::jsonb,
-                 fulfillment_state = 'pending',
-                 date_updated = NOW()
-             WHERE number = $1`,
-            [number]
-        );
         await logAction(pool, number, 'reset-pick', {}, stateBefore, 'pending', user);
         _notify('reset-pick', number);
         const row = await getPbh(pool, number);
@@ -815,40 +837,55 @@ router.post('/:number/return-failed', async (req, res) => {
     const user = userFromReq(req);
     try {
         await ensureTables(pool);
-        // Load PBH row đầy đủ — cần order_lines + stock_restored cho restock.
-        const r = await pool.query(
-            `SELECT id, number, state, stock_restored, order_lines, fulfillment_state
-             FROM fast_sale_orders WHERE number = $1`,
-            [number]
-        );
-        if (r.rows.length === 0) return res.status(404).json({ error: 'PBH not found' });
-        const row = r.rows[0];
-        const stateBefore = row.fulfillment_state || 'pending';
-        // Cho phép return từ shipped HOẶC delivered (khách nhận rồi trả lại).
-        if (!['shipped', 'delivered'].includes(stateBefore)) {
-            return res.status(400).json({
-                error: `Chỉ có thể đánh dấu trả về sau khi ship/delivered (hiện: ${stateBefore})`,
-            });
-        }
-
-        // Update fulfillment_state + cancel PBH (state='cancel') trong 1 query.
-        await pool.query(
-            `UPDATE fast_sale_orders
-             SET fulfillment_state = 'returned',
-                 state = 'cancel',
-                 date_updated = NOW()
-             WHERE number = $1`,
-            [number]
-        );
-
-        // Restock — idempotent qua stock_restored flag.
+        // ATOMIC: lock PBH (FOR UPDATE) → check state → cancel + restock trong
+        // CÙNG 1 transaction. Tránh cancel state nhưng restock fail riêng lẻ
+        // (mất đồng bộ tồn kho ⊥ state). restockOrderLines nhận client → cùng tx.
+        let stateBefore;
         let restockSummary = null;
-        if (typeof restockOrderLines === 'function') {
-            try {
-                restockSummary = await restockOrderLines(pool, row);
-            } catch (e) {
-                console.error('[RECONCILE] return-failed restock fail:', e.message);
-            }
+        try {
+            ({ stateBefore, restockSummary } = await withTransaction(pool, async (client) => {
+                const r = await client.query(
+                    `SELECT id, number, state, stock_restored, order_lines, fulfillment_state
+                     FROM fast_sale_orders WHERE number = $1 FOR UPDATE`,
+                    [number]
+                );
+                if (r.rows.length === 0) {
+                    const err = new Error('PBH not found');
+                    err.httpStatus = 404;
+                    throw err;
+                }
+                const row = r.rows[0];
+                const sBefore = row.fulfillment_state || 'pending';
+                // Cho phép return từ shipped HOẶC delivered (khách nhận rồi trả lại).
+                if (!['shipped', 'delivered'].includes(sBefore)) {
+                    const err = new Error(
+                        `Chỉ có thể đánh dấu trả về sau khi ship/delivered (hiện: ${sBefore})`
+                    );
+                    err.httpStatus = 400;
+                    throw err;
+                }
+
+                // Update fulfillment_state + cancel PBH (state='cancel') trong 1 query.
+                await client.query(
+                    `UPDATE fast_sale_orders
+                     SET fulfillment_state = 'returned',
+                         state = 'cancel',
+                         date_updated = NOW()
+                     WHERE number = $1`,
+                    [number]
+                );
+
+                // Restock — idempotent qua stock_restored flag. Trong cùng tx →
+                // rollback luôn nếu có lỗi (giữ tồn kho ⊥ state đồng bộ).
+                let summary = null;
+                if (typeof restockOrderLines === 'function') {
+                    summary = await restockOrderLines(client, row);
+                }
+                return { stateBefore: sBefore, restockSummary: summary };
+            }));
+        } catch (e) {
+            if (e.httpStatus) return res.status(e.httpStatus).json({ error: e.message });
+            throw e;
         }
 
         await logAction(

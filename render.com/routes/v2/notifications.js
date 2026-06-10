@@ -35,6 +35,13 @@ async function ensureSchema(pool) {
         CREATE INDEX IF NOT EXISTS idx_web2_noti_created ON web2_notifications(created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_web2_noti_dedupe ON web2_notifications(dedupe_key, created_at DESC)
             WHERE dedupe_key IS NOT NULL;
+        -- Atomic dedupe (MEDIUM RACE fix): 2 scan đồng thời cùng dedupe_key trong
+        -- cùng giờ → chỉ 1 row insert được (ON CONFLICT DO NOTHING ở INSERT).
+        -- date_trunc trên (created_at AT TIME ZONE 'UTC') để biểu thức IMMUTABLE
+        -- (date_trunc trực tiếp trên timestamptz là STABLE → không index được).
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_web2_noti_dedupe_hour
+            ON web2_notifications (dedupe_key, (date_trunc('hour', created_at AT TIME ZONE 'UTC')))
+            WHERE dedupe_key IS NOT NULL;
     `);
     _migrationDone = true;
 }
@@ -134,7 +141,10 @@ router.post('/', async (req, res) => {
         const rs = await pool.query(
             `INSERT INTO web2_notifications
              (user_id, type, entity_type, entity_id, title, body, severity, url, dedupe_key)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, created_at`,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+             ON CONFLICT (dedupe_key, (date_trunc('hour', created_at AT TIME ZONE 'UTC')))
+                 WHERE dedupe_key IS NOT NULL DO NOTHING
+             RETURNING id, created_at`,
             [
                 b.user_id || null,
                 b.type,
@@ -147,6 +157,10 @@ router.post('/', async (req, res) => {
                 b.dedupe_key || null,
             ]
         );
+        // ON CONFLICT DO NOTHING → 0 row khi race trùng dedupe_key trong cùng giờ.
+        if (!rs.rows.length) {
+            return res.json({ success: true, deduped: true });
+        }
         _notifyUpdate();
         res.json({ success: true, id: rs.rows[0].id, created_at: rs.rows[0].created_at });
     } catch (e) {
@@ -166,12 +180,11 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
-// GET /scan — chạy scan định kỳ, tạo noti cho 4 nguồn pain points
-//   1. PBH state=draft > 24h
-//   2. PBH state=cancel mới trong 1h
-//   3. customer_wallets balance < 0
-//   4. web2_products stock < 5
-//   5. balance_history pending > 1h
+// GET /scan — chạy scan định kỳ, tạo noti cho các nguồn pain points (thực tế):
+//   1. PBH (fast_sale_orders) state='draft' > 24h
+//   2. web2_products stock < 5 (active)
+//   3. web2_customer_wallets balance < 0 (ví KH âm — overdraft)
+//   4. web2_returns phiếu THU VỀ (shipper gửi) chờ duyệt > 20 ngày
 router.get('/scan', async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
@@ -196,7 +209,7 @@ router.get('/scan', async (req, res) => {
             created.push(r.number);
         }
 
-        // 4. Stock < 5 (only active)
+        // 2. Stock < 5 (only active)
         const stockRs = await pool.query(
             `SELECT code, name, stock FROM web2_products
              WHERE is_active = true AND stock < 5 AND stock >= 0
@@ -215,7 +228,33 @@ router.get('/scan', async (req, res) => {
             created.push(r.code);
         }
 
-        // 5. Phiếu THU VỀ (Shipper gửi) treo chờ duyệt > 20 ngày → nhắc duyệt.
+        // 3. Ví KH âm (overdraft) — web2_customer_wallets balance < 0. Defensive
+        // (bảng isolated, tạo từ customer_wallets) → bọc try/catch.
+        try {
+            const odRs = await pool.query(
+                `SELECT phone, balance FROM web2_customer_wallets
+                 WHERE balance < 0 ORDER BY balance ASC LIMIT 50`
+            );
+            for (const r of odRs.rows) {
+                const amt = Math.abs(Number(r.balance) || 0).toLocaleString('vi-VN');
+                await _insertDedupe(pool, {
+                    type: 'wallet_overdraft',
+                    title: `Ví KH âm: ${r.phone || '(không SĐT)'} (-${amt}₫)`,
+                    severity: 'danger',
+                    entity_type: 'customer_wallet',
+                    entity_id: r.phone || null,
+                    url: r.phone
+                        ? `/web2/balance-history/index.html?search=${encodeURIComponent(r.phone)}`
+                        : null,
+                    dedupe_key: `wallet_overdraft:${r.phone || 'unknown'}`,
+                });
+                created.push(r.phone || 'overdraft');
+            }
+        } catch (e) {
+            console.warn('[notifications/scan] wallet_overdraft check fail:', e.message);
+        }
+
+        // 4. Phiếu THU VỀ (Shipper gửi) treo chờ duyệt > 20 ngày → nhắc duyệt.
         // Duyệt xong return_qty mới cộng vào tồn thật. Xem web2-returns.js.
         try {
             const retRs = await pool.query(
@@ -259,7 +298,10 @@ async function _insertDedupe(pool, n) {
     const rs = await pool.query(
         `INSERT INTO web2_notifications
          (type, entity_type, entity_id, title, body, severity, url, dedupe_key)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         ON CONFLICT (dedupe_key, (date_trunc('hour', created_at AT TIME ZONE 'UTC')))
+             WHERE dedupe_key IS NOT NULL DO NOTHING
+         RETURNING id`,
         [
             n.type,
             n.entity_type || null,
@@ -271,7 +313,7 @@ async function _insertDedupe(pool, n) {
             n.dedupe_key || null,
         ]
     );
-    return rs.rows[0]?.id;
+    return rs.rows[0]?.id || null; // 0 row = race trùng (ON CONFLICT DO NOTHING)
 }
 
 function _notifyUpdate() {
@@ -298,7 +340,10 @@ async function createNotification(pool, data) {
         const rs = await pool.query(
             `INSERT INTO web2_notifications
              (user_id, type, entity_type, entity_id, title, body, severity, url, dedupe_key)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+             ON CONFLICT (dedupe_key, (date_trunc('hour', created_at AT TIME ZONE 'UTC')))
+                 WHERE dedupe_key IS NOT NULL DO NOTHING
+             RETURNING id`,
             [
                 data.user_id || null,
                 data.type,
@@ -311,6 +356,7 @@ async function createNotification(pool, data) {
                 data.dedupe_key || null,
             ]
         );
+        if (!rs.rows.length) return null; // race trùng dedupe trong cùng giờ
         _notifyUpdate();
         return rs.rows[0].id;
     } catch (e) {
