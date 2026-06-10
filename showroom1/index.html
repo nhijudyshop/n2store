@@ -504,8 +504,13 @@
     .subbar { top: 52px; }
   }
 </style>
+<link rel="stylesheet" href="admin.css" />
 </head>
 <body>
+  <!-- Admin panel (desktop + logged in only; filled by admin.js) -->
+  <div id="adminPane"></div>
+
+  <div class="phone-pane">
   <div class="phone">
     <div class="screen">
 
@@ -767,6 +772,7 @@
 
     </div>
   </div>
+  </div><!-- /.phone-pane -->
 
 <script>
   lucide.createIcons();
@@ -794,8 +800,8 @@
     toastT = setTimeout(()=>toast.classList.remove('show'), 1800);
   }
 
-  // product wishlist hearts
-  $$('.card .fav').forEach(btn => {
+  // product wishlist heart — bind a single fav button
+  function bindFav(btn){
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const on = btn.classList.toggle('on');
@@ -806,14 +812,14 @@
       showToast(on ? 'Đã lưu · ' + name : 'Đã bỏ khỏi yêu thích');
       lucide.createIcons();
     });
-  });
+  }
 
   // header buttons
   $('#chatFab').addEventListener('click', ()=> showToast('Đang kết nối tư vấn viên…'));
   $('#cookieFab').addEventListener('click', ()=> showToast('Tùy chọn cookie'));
 
-  // image carousel (swipe) + quick add to bag on tap
-  $$('.card .imgwrap').forEach(w => {
+  // image carousel (swipe) + quick add to bag on tap — bind a single imgwrap
+  function bindImgwrap(w){
     const track = w.querySelector('.track');
     const dots = [...w.querySelectorAll('.dots span')];
     const n = track ? track.children.length : 1;
@@ -856,7 +862,18 @@
       const name = w.closest('.card').querySelector('.pname').textContent;
       showToast('Đã thêm vào giỏ · ' + name);
     });
-  });
+  }
+
+  // bind one card's interactive bits (fav + carousel)
+  function bindCard(card){
+    const fav = card.querySelector('.fav');
+    if(fav) bindFav(fav);
+    const w = card.querySelector('.imgwrap');
+    if(w) bindImgwrap(w);
+  }
+
+  // initial bind for the hardcoded fallback cards (replaced once admin.js loads real data)
+  $$('.card').forEach(bindCard);
 
   // category filter chips
   $$('#catRow .cat').forEach(ch => {
@@ -913,6 +930,50 @@
     setTimeout(()=>{ this.textContent = 'Xem thêm'; showToast('Bạn đã xem hết sản phẩm'); }, 700);
   });
 
+  // ---------- Dynamic grid render (driven by admin.js with real data) ----------
+  function vnd(n){ return (Number(n)||0).toLocaleString('vi-VN') + '₫'; }
+  function priceMarkup(p){
+    const sale = (p.salePrice != null && p.salePrice > 0 && p.salePrice < p.price);
+    return sale
+      ? '<span class="was">'+vnd(p.price)+'</span><span class="now">'+vnd(p.salePrice)+'</span>'
+      : vnd(p.price);
+  }
+  function buildCardEl(p){
+    const images = Array.isArray(p.images) && p.images.length ? p.images : [];
+    const sale = (p.salePrice != null && p.salePrice > 0 && p.salePrice < p.price);
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.cat = (p.category || 'phukien') + (sale ? ' sale' : '');
+    const slides = (images.length ? images : [null]).map(src =>
+      '<div class="slide">' + (src ? '<img class="pimg" src="'+src+'" alt="" draggable="false">' : '') + '</div>'
+    ).join('');
+    const dots = (images.length > 1)
+      ? '<div class="dots">' + images.map((_,i)=> '<span class="'+(i===0?'active':'')+'"></span>').join('') + '</div>'
+      : '';
+    const badge = p.badge ? '<span class="badge'+(sale?' sale':'')+'">'+p.badge+'</span>' : '';
+    card.innerHTML =
+      '<div class="imgwrap"><div class="track">'+slides+'</div>'+badge+
+        '<button class="fav" aria-label="Thêm vào yêu thích"><i data-lucide="heart"></i></button>'+dots+
+      '</div>'+
+      '<div class="meta"><div class="pname">'+(p.name||'')+'</div>'+
+        '<div class="price">'+priceMarkup(p)+'</div></div>';
+    return card;
+  }
+  function renderGrid(products){
+    const grid = $('#grid');
+    if(!grid) return;
+    grid.innerHTML = '';
+    (products||[]).forEach(p => { const el = buildCardEl(p); grid.appendChild(el); bindCard(el); });
+    lucide.createIcons();
+  }
+
+  // expose for admin.js
+  window.Showroom = { renderGrid: renderGrid, showToast: showToast };
+
 </script>
+
+<!-- Shared auth (auto-inits window.authManager) + admin panel -->
+<script type="module" src="../shared/esm/compat.js"></script>
+<script src="admin.js"></script>
 </body>
 </html>

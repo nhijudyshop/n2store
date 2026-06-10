@@ -154,6 +154,9 @@ export const ROUTES = {
     // Order Notes (PostgreSQL - CSKH notes history per order)
     ORDER_NOTES: { pattern: '/api/order-notes/*' },
 
+    // Showroom Products (PostgreSQL - curated catalog cho /showroom1/)
+    SHOWROOM_PRODUCTS: { pattern: '/api/showroom-products/*' },
+
     // Admin Firebase (Firestore browser) & Render services
     ADMIN_FIREBASE: { pattern: '/api/admin/firebase/*' },
     ADMIN_RENDER: { pattern: '/api/admin/render/*' },
@@ -254,6 +257,8 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/web2-live-comments/') || pathname === '/api/web2-live-comments')
         return 'WEB2_LIVE_COMMENTS';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
+    if (pathname.startsWith('/api/showroom-products/') || pathname === '/api/showroom-products')
+        return 'SHOWROOM_PRODUCTS';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
     if (pathname.startsWith('/api/sepay-home/')) return 'SEPAY_HOME';
     if (pathname.startsWith('/api/realtime/')) return 'REALTIME';

@@ -2,6 +2,25 @@
 
 ## 2026-06-10
 
+### [showroom1] Panel quản lý desktop 70/30 + lưu sản phẩm trên Render (Postgres) ✅
+
+**User:** `https://nhijudy.store/showroom1/` khi đăng nhập trên máy tính → mở 2 khung 70-30, bên trái quản lý showroom (thêm/bớt sản phẩm), bên phải demo giao diện di động như hiện tại. Lưu trên Render (như cách Web 1.0), đăng nhập qua Shared AuthManager, tách file riêng `admin.js`/`admin.css`, ảnh lưu Postgres BYTEA.
+
+**Backend (Web 1.0 — pool `chatDb`, KHÔNG phải Web 2.0):**
+- [render.com/routes/showroom-products.js](../render.com/routes/showroom-products.js) — REST CRUD mount `/api/showroom-products`. Bảng `showroom_products` (name, price, sale_price, category, badge, image_ids JSONB, sort_order, active, created_by) + `showroom_product_images` (BYTEA, giống `purchase_order_images`). Schema tạo lazy `ensureTables()` idempotent (chạy lần đầu request → sống qua deploy mới).
+- Endpoints: `GET /` (?all=1 cho admin), `POST /`, `PUT /:id` (partial), `DELETE /:id` (xóa kèm ảnh), `POST /reorder`, `POST /images` (multer→BYTEA), `GET|DELETE /images/:id`.
+- Realtime: SSE hub Web 1.0 (`realtime-sse.js`), topic bare `showroom_products`. Broadcast sau mỗi mutation → đồng bộ nhiều máy không refresh.
+- [server.js](../render.com/server.js): require + `app.use('/api/showroom-products', …)` + `initializeNotifiers(realtimeSseRoutes.notifyClients)`.
+
+**Cloudflare worker:** thêm route `SHOWROOM_PRODUCTS` (`/api/showroom-products/*`) → `handleCustomer360Proxy` (forward full path + CORS), giống `ORDER_NOTES`. Sửa [routes.js](../cloudflare-worker/modules/config/routes.js) (pattern + getRouteType) + [worker.js](../cloudflare-worker/worker.js) (switch case). Auto-deploy qua GH Action `deploy-cloudflare-worker.yml`.
+
+**Frontend (`showroom1/`):**
+- [admin.css](../showroom1/admin.css) — layout `body.admin-on` grid 70%/30% (chỉ ≥900px), panel trái cuộn riêng, phone scale theo bề rộng; styles list/row/toggle/editor-drawer/uploader/toast.
+- [admin.js](../showroom1/admin.js) — gate qua `window.authManager.isAuthenticated()` (đăng nhập + desktop mới bật admin). CRUD, upload ảnh (nén client ≤1200px JPEG → POST /images), kéo-thả sắp xếp (native DnD), toggle ẩn/hiện, subscribe SSE `showroom_products` (debounce 500ms reload). Map `imageIds`→URL rồi gọi `window.Showroom.renderGrid()` để preview phản ánh data thật. Guest vẫn nạp data (preview live), chưa có SP nào → giữ demo cứng.
+- [index.html](../showroom1/index.html) — module hóa inline script (`bindFav`/`bindImgwrap`/`bindCard` + `renderGrid`/`buildCardEl`), expose `window.Showroom`. Wrap `#adminPane` + `.phone-pane`, include `../shared/esm/compat.js` (auto-init `window.authManager`) + `admin.js`.
+
+**Verify (Playwright, server tĩnh local):** không lỗi JS app (chỉ 404 favicon + route chưa deploy). `renderGrid` render đúng giá sale was/now. Stub auth → body.admin-on, grid `1008px 432px` (=70/30 của 1440), panel + toolbar + editor drawer dựng đủ field. Screenshot xác nhận trái quản lý / phải phone preview. Data thật xuất hiện sau khi Render + worker deploy (push main).
+
 ### [orders][kpi] Đổi nhãn nút primary toolbar KPI: "Lọc" → "Làm mới dữ liệu" ✅
 
 **User:** bỏ ô "Tất cả / OK / Sai lệch", đổi nút chức năng trong nút Lọc thành "Làm mới dữ liệu".
