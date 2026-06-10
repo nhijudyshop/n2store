@@ -56,12 +56,16 @@ async function ensureTables(pool) {
             category VARCHAR(40) NOT NULL DEFAULT 'phukien',
             badge VARCHAR(60),
             image_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+            colors JSONB NOT NULL DEFAULT '[]'::jsonb,
+            sizes JSONB NOT NULL DEFAULT '[]'::jsonb,
             sort_order INTEGER NOT NULL DEFAULT 0,
             active BOOLEAN NOT NULL DEFAULT TRUE,
             created_by VARCHAR(128),
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        ALTER TABLE showroom_products ADD COLUMN IF NOT EXISTS colors JSONB NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE showroom_products ADD COLUMN IF NOT EXISTS sizes JSONB NOT NULL DEFAULT '[]'::jsonb;
         CREATE INDEX IF NOT EXISTS idx_showroom_products_sort
             ON showroom_products(active, sort_order ASC, created_at DESC);
     `);
@@ -90,6 +94,22 @@ function normalizeImageIds(v) {
         .filter((x) => typeof x === 'string' && x.length && x.length <= 64)
         .slice(0, MAX_IMAGES);
 }
+function normalizeStrList(v, maxLen, max) {
+    if (!Array.isArray(v)) return [];
+    const seen = new Set();
+    const out = [];
+    for (const x of v) {
+        if (typeof x !== 'string') continue;
+        const t = x.trim();
+        if (!t || t.length > maxLen) continue;
+        const key = t.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(t);
+        if (out.length >= max) break;
+    }
+    return out;
+}
 function rowToProduct(r) {
     return {
         id: r.id,
@@ -99,6 +119,8 @@ function rowToProduct(r) {
         category: r.category,
         badge: r.badge,
         imageIds: Array.isArray(r.image_ids) ? r.image_ids : [],
+        colors: Array.isArray(r.colors) ? r.colors : [],
+        sizes: Array.isArray(r.sizes) ? r.sizes : [],
         sortOrder: r.sort_order,
         active: r.active,
         createdBy: r.created_by,
@@ -108,7 +130,10 @@ function rowToProduct(r) {
 }
 
 const PRODUCT_COLS =
-    'id, name, price, sale_price, category, badge, image_ids, sort_order, active, created_by, created_at, updated_at';
+    'id, name, price, sale_price, category, badge, image_ids, colors, sizes, sort_order, active, created_by, created_at, updated_at';
+const MAX_COLOR_LEN = 40;
+const MAX_SIZE_LEN = 12;
+const MAX_VARIANTS = 30;
 
 // =====================================================
 // PRODUCTS
@@ -150,15 +175,18 @@ router.post('/', async (req, res) => {
         const category = sanitizeString(req.body?.category, MAX_CATEGORY_LEN) || 'phukien';
         const badge = sanitizeString(req.body?.badge, MAX_BADGE_LEN);
         const imageIds = normalizeImageIds(req.body?.imageIds);
+        const colors = normalizeStrList(req.body?.colors, MAX_COLOR_LEN, MAX_VARIANTS);
+        const sizes = normalizeStrList(req.body?.sizes, MAX_SIZE_LEN, MAX_VARIANTS);
         const sortOrder = toIntOrNull(req.body?.sortOrder) ?? 0;
         const createdBy = sanitizeString(req.body?.createdBy, 128);
 
         const result = await pool.query(
             `INSERT INTO showroom_products
-                (name, price, sale_price, category, badge, image_ids, sort_order, created_by)
-             VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8)
+                (name, price, sale_price, category, badge, image_ids, colors, sizes, sort_order, created_by)
+             VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10)
              RETURNING ${PRODUCT_COLS}`,
-            [name, price, salePrice, category, badge, JSON.stringify(imageIds), sortOrder, createdBy]
+            [name, price, salePrice, category, badge, JSON.stringify(imageIds),
+             JSON.stringify(colors), JSON.stringify(sizes), sortOrder, createdBy]
         );
         const product = rowToProduct(result.rows[0]);
         broadcast('created', { id: product.id });
@@ -191,6 +219,8 @@ router.put('/:id', async (req, res) => {
         if (b.category !== undefined) { sets.push(`category = $${i++}`); vals.push(sanitizeString(b.category, MAX_CATEGORY_LEN) || 'phukien'); }
         if (b.badge !== undefined) { sets.push(`badge = $${i++}`); vals.push(sanitizeString(b.badge, MAX_BADGE_LEN)); }
         if (b.imageIds !== undefined) { sets.push(`image_ids = $${i++}::jsonb`); vals.push(JSON.stringify(normalizeImageIds(b.imageIds))); }
+        if (b.colors !== undefined) { sets.push(`colors = $${i++}::jsonb`); vals.push(JSON.stringify(normalizeStrList(b.colors, MAX_COLOR_LEN, MAX_VARIANTS))); }
+        if (b.sizes !== undefined) { sets.push(`sizes = $${i++}::jsonb`); vals.push(JSON.stringify(normalizeStrList(b.sizes, MAX_SIZE_LEN, MAX_VARIANTS))); }
         if (b.sortOrder !== undefined) { sets.push(`sort_order = $${i++}`); vals.push(toIntOrNull(b.sortOrder) ?? 0); }
         if (b.active !== undefined) { sets.push(`active = $${i++}`); vals.push(!!b.active); }
 

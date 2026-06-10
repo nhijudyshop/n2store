@@ -275,6 +275,41 @@ body.admin-on .phone-pane { display: flex; }
 .adm-field-row { display: flex; gap: 16px; }
 .adm-field-row .adm-field { flex: 1; }
 
+/* Color tag input */
+.adm-tags-input {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 7px;
+  border: 1px solid var(--hairline-2, #d8d1c4); background: #fff;
+  padding: 8px 10px; min-height: 44px; cursor: text;
+}
+.adm-tags-input:focus-within { border-color: var(--ink, #1a1714); }
+.adm-chips { display: inline-flex; flex-wrap: wrap; gap: 7px; }
+.adm-chip-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; letter-spacing: .02em; color: var(--ink, #1a1714);
+  background: var(--card, #ece7dd); border: 1px solid var(--hairline-2, #d8d1c4);
+  padding: 4px 6px 4px 10px;
+}
+.adm-chip-tag .rm {
+  border: 0; background: none; cursor: pointer; color: var(--muted, #8d8576);
+  font-size: 15px; line-height: 1; padding: 0 2px;
+}
+.adm-chip-tag .rm:hover { color: var(--accent, #6f2233); }
+.adm-tags-input input {
+  flex: 1; min-width: 120px; border: 0; outline: none; background: none;
+  font-family: var(--font-ui, sans-serif); font-size: 14px; color: var(--ink, #1a1714);
+}
+
+/* Size chips */
+.adm-size-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-size-chip {
+  appearance: none; cursor: pointer; min-width: 42px;
+  font-family: var(--font-ui, sans-serif); font-size: 13px; font-weight: 500;
+  padding: 9px 12px; border: 1px solid var(--hairline-2, #d8d1c4);
+  background: #fff; color: var(--ink-soft, #4a443d); transition: all .15s ease;
+}
+.adm-size-chip:hover { border-color: var(--ink, #1a1714); }
+.adm-size-chip.on { background: var(--ink, #1a1714); border-color: var(--ink, #1a1714); color: var(--paper, #fbfaf7); }
+
 /* Image uploader */
 .adm-imgs { display: flex; flex-wrap: wrap; gap: 10px; }
 .adm-img {

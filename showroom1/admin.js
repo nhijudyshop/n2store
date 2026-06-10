@@ -18,6 +18,7 @@
     { v: 'phukien', l: 'Phụ kiện' },
   ];
   const catLabel = (v) => (CATS.find((c) => c.v === v) || {}).l || v || 'Phụ kiện';
+  const SIZE_OPTIONS = ['1', '2', '3', '4', 'S', 'M', 'L', 'XL'];
 
   // ---------- state ----------
   let products = []; // admin → tất cả; guest → chỉ active
@@ -103,6 +104,8 @@
         salePrice: p.salePrice,
         category: p.category,
         badge: p.badge,
+        colors: p.colors || [],
+        sizes: p.sizes || [],
         images: (p.imageIds || []).map(imgUrl),
       }));
   }
@@ -192,6 +195,8 @@
           <div class="adm-tags">
             <span class="adm-tag">${esc(catLabel(p.category))}</span>
             ${p.badge ? `<span class="adm-tag badge">${esc(p.badge)}</span>` : ''}
+            ${p.sizes && p.sizes.length ? `<span class="adm-tag">Size: ${esc(p.sizes.join(', '))}</span>` : ''}
+            ${p.colors && p.colors.length ? `<span class="adm-tag">${esc(p.colors.join(', '))}</span>` : ''}
           </div>
         </div>
         <div class="acts">
@@ -307,6 +312,17 @@
           </div>
         </div>
         <div class="adm-field">
+          <label>Màu sắc</label>
+          <div class="adm-tags-input" id="fColorsWrap">
+            <span class="adm-chips" id="fColors"></span>
+            <input type="text" id="fColorInput" placeholder="Nhập màu rồi Enter (VD: Đen, Kem)…" autocomplete="off">
+          </div>
+        </div>
+        <div class="adm-field">
+          <label>Size</label>
+          <div class="adm-size-chips" id="fSizes"></div>
+        </div>
+        <div class="adm-field">
           <label>Hình ảnh (kéo vuốt xem nhiều ảnh trên preview)</label>
           <div class="adm-imgs" id="fImgs"></div>
           <input type="file" id="fFile" accept="image/*" multiple hidden>
@@ -322,19 +338,85 @@
     drawerEl.querySelector('#admCancel').addEventListener('click', closeEditor);
     drawerEl.querySelector('#admSave').addEventListener('click', saveDraft);
     drawerEl.querySelector('#fFile').addEventListener('change', (e) => uploadFiles(e.target.files));
+
+    const colorInput = drawerEl.querySelector('#fColorInput');
+    colorInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        addColor(colorInput.value);
+        colorInput.value = '';
+      } else if (e.key === 'Backspace' && !colorInput.value && draft && draft.colors.length) {
+        draft.colors.pop();
+        renderDraftColors();
+      }
+    });
+    colorInput.addEventListener('blur', () => {
+      if (colorInput.value.trim()) {
+        addColor(colorInput.value);
+        colorInput.value = '';
+      }
+    });
+    drawerEl.querySelector('#fColorsWrap').addEventListener('click', () => colorInput.focus());
+  }
+
+  function addColor(val) {
+    if (!draft) return;
+    String(val)
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .forEach((c) => {
+        if (c.length > 40) c = c.slice(0, 40);
+        if (!draft.colors.some((x) => x.toLowerCase() === c.toLowerCase())) draft.colors.push(c);
+      });
+    renderDraftColors();
+  }
+  function renderDraftColors() {
+    const wrap = drawerEl.querySelector('#fColors');
+    wrap.innerHTML = (draft.colors || [])
+      .map(
+        (c, i) =>
+          `<span class="adm-chip-tag" data-i="${i}">${esc(c)}<button class="rm" title="Xóa">×</button></span>`
+      )
+      .join('');
+    wrap.querySelectorAll('.adm-chip-tag .rm').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = +btn.closest('.adm-chip-tag').dataset.i;
+        draft.colors.splice(idx, 1);
+        renderDraftColors();
+      });
+    });
+  }
+  function renderSizeChips() {
+    const wrap = drawerEl.querySelector('#fSizes');
+    wrap.innerHTML = SIZE_OPTIONS.map(
+      (s) => `<button type="button" class="adm-size-chip ${draft.sizes.includes(s) ? 'on' : ''}" data-s="${s}">${s}</button>`
+    ).join('');
+    wrap.querySelectorAll('.adm-size-chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const s = btn.dataset.s;
+        if (draft.sizes.includes(s)) draft.sizes = draft.sizes.filter((x) => x !== s);
+        else draft.sizes = SIZE_OPTIONS.filter((o) => o === s || draft.sizes.includes(o)); // giữ thứ tự chuẩn
+        renderSizeChips();
+      });
+    });
   }
 
   function openEditor(product) {
     buildDrawer();
     draft = product
-      ? { ...product, imageIds: [...(product.imageIds || [])] }
-      : { id: null, name: '', price: 0, salePrice: null, category: 'phukien', badge: 'Mới về', imageIds: [] };
+      ? { ...product, imageIds: [...(product.imageIds || [])], colors: [...(product.colors || [])], sizes: [...(product.sizes || [])] }
+      : { id: null, name: '', price: 0, salePrice: null, category: 'phukien', badge: 'Mới về', imageIds: [], colors: [], sizes: [] };
     drawerEl.querySelector('#admDrawerTitle').textContent = product ? 'Sửa sản phẩm' : 'Thêm sản phẩm';
     drawerEl.querySelector('#fName').value = draft.name || '';
     drawerEl.querySelector('#fPrice').value = draft.price || 0;
     drawerEl.querySelector('#fSale').value = draft.salePrice != null ? draft.salePrice : '';
     drawerEl.querySelector('#fCat').value = draft.category || 'phukien';
     drawerEl.querySelector('#fBadge').value = draft.badge || '';
+    drawerEl.querySelector('#fColorInput').value = '';
+    renderDraftColors();
+    renderSizeChips();
     renderDraftImages();
     scrimEl.classList.add('open');
     drawerEl.classList.add('open');
@@ -431,6 +513,8 @@
       category: drawerEl.querySelector('#fCat').value,
       badge: drawerEl.querySelector('#fBadge').value.trim() || null,
       imageIds: draft.imageIds,
+      colors: draft.colors,
+      sizes: draft.sizes,
     };
     const u = getUser();
     const saveBtn = drawerEl.querySelector('#admSave');

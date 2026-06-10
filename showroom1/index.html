@@ -358,6 +358,13 @@
   }
   .price .was { color: var(--faint); text-decoration: line-through; margin-right: 7px; }
   .price .now { color: var(--accent); }
+  .vsizes { margin-top: 9px; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+  .vsizes span {
+    font-size: 9.5px; letter-spacing: .08em; padding: 3px 7px;
+    border: 1px solid var(--hairline-2); color: var(--ink-soft);
+    text-transform: uppercase; line-height: 1;
+  }
+  .vcolors { margin-top: 7px; font-size: 10px; letter-spacing: .07em; color: var(--muted); text-transform: uppercase; }
 
   /* footer */
   .foot {
@@ -932,6 +939,17 @@
 
   // ---------- Dynamic grid render (driven by admin.js with real data) ----------
   function vnd(n){ return (Number(n)||0).toLocaleString('vi-VN') + '₫'; }
+  function escH(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function variantsMarkup(p){
+    var out = '';
+    if(Array.isArray(p.sizes) && p.sizes.length){
+      out += '<div class="vsizes">' + p.sizes.map(s=>'<span>'+escH(s)+'</span>').join('') + '</div>';
+    }
+    if(Array.isArray(p.colors) && p.colors.length){
+      out += '<div class="vcolors">' + p.colors.map(c=>escH(c)).join(' · ') + '</div>';
+    }
+    return out;
+  }
   function priceMarkup(p){
     const sale = (p.salePrice != null && p.salePrice > 0 && p.salePrice < p.price);
     return sale
@@ -955,8 +973,8 @@
       '<div class="imgwrap"><div class="track">'+slides+'</div>'+badge+
         '<button class="fav" aria-label="Thêm vào yêu thích"><i data-lucide="heart"></i></button>'+dots+
       '</div>'+
-      '<div class="meta"><div class="pname">'+(p.name||'')+'</div>'+
-        '<div class="price">'+priceMarkup(p)+'</div></div>';
+      '<div class="meta"><div class="pname">'+escH(p.name||'')+'</div>'+
+        '<div class="price">'+priceMarkup(p)+'</div>'+variantsMarkup(p)+'</div>';
     return card;
   }
   function renderGrid(products){
