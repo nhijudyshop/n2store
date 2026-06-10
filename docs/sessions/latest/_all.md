@@ -3,21 +3,22 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c089ff3` — feat(kpi): gọn filter bar — bỏ chips OK/Sai lệch, gộp Lọc+Làm mới, default Hôm nay + campaign mới nhất (có cache)
-**Last updated**: 2026-06-10 03:29:27 UTC
-**Latest session**: [`RESUME:20260610-032927-c089ff3`](../20260610-032927-c089ff3.md)
-**Summary**: KPI UI: bỏ chips OK/Sai lệch, Lọc=refreshData gộp Làm mới, default Hôm nay+campaign mới nhất với filter cache
+**Latest commit**: `7b6c844` — ci: fix workflow PR checks đỏ từ ngày đầu — lint no-error-on-unmatched, exclude 18 file test stale
+**Last updated**: 2026-06-10 03:45:51 UTC
+**Latest session**: [`RESUME:20260610-034551-7b6c844`](../20260610-034551-7b6c844.md)
+**Summary**: Fix CI PR checks xanh 3 bước (lint/test/build) — chuẩn bị merge PR 2047 vào main theo yêu cầu user
 
 ## Folders affected in this commit
 
+- [`_root/`](./_root.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`orders-report/`](./orders-report.md) — 3 file(s)
+- [`showroom/`](./showroom.md) — 32 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-10 02:39
 - [`AI/`](./AI.md) — updated 2026-06-10 02:39
-- [`_root/`](./_root.md) — updated 2026-06-10 02:39
+- [`_root/`](./_root.md) — updated 2026-06-10 03:45
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-06-10 02:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-10 02:39
 - [`balance-history/`](./balance-history.md) — updated 2026-06-10 02:39
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-10 02:39
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-10 02:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-10 02:39
-- [`docs/`](./docs.md) — updated 2026-06-10 03:29
+- [`docs/`](./docs.md) — updated 2026-06-10 03:45
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-10 02:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-10 02:39
 - [`downloads/`](./downloads.md) — updated 2026-06-10 02:39
@@ -56,7 +57,7 @@
 - [`scripts/`](./scripts.md) — updated 2026-06-10 02:39
 - [`service-costs/`](./service-costs.md) — updated 2026-06-10 02:39
 - [`shared/`](./shared.md) — updated 2026-06-10 02:39
-- [`showroom/`](./showroom.md) — updated 2026-06-10 02:39
+- [`showroom/`](./showroom.md) — updated 2026-06-10 03:45
 - [`so-order/`](./so-order.md) — updated 2026-06-10 02:39
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-10 02:39
 - [`soorder/`](./soorder.md) — updated 2026-06-10 02:39
