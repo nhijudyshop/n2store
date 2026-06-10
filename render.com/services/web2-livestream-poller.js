@@ -15,9 +15,12 @@
 'use strict';
 
 const PANCAKE_API = 'https://pancake.vn/api/v1';
-const POLL_INTERVAL_MS = 30 * 1000; // 30s
+// Adaptive poll: ngắn khi có bài ĐANG LIVE (gần realtime), dài khi không.
+const POLL_INTERVAL_LIVE_MS = 5 * 1000; // có ≥1 bài đang LIVE → 5s (gần realtime)
+const POLL_INTERVAL_IDLE_MS = 30 * 1000; // không bài nào live → 30s (tiết kiệm)
 const RECENT_LIVE_WINDOW_MS = 30 * 60 * 1000; // poll thêm 30' sau khi live kết thúc
-const MAX_COMMENT_PAGES = 12; // tối đa trang phân trang comment/post mỗi cycle
+const MAX_COMMENT_PAGES = 50; // cap CỨNG số trang phân trang/post mỗi cycle (an toàn)
+const COMMENTS_PER_PAGE = 20; // Pancake trả ~20 conversation/trang (heuristic has_more)
 const POSTS_LOOKBACK_S = 24 * 3600; // quét post 24h gần đây
 
 const DEFAULT_PAGES = [
