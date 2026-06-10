@@ -3,70 +3,73 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `daf21ec` — feat(live-chat): cuộn dropdown campaign tải thêm bài livestream cũ hơn (cursor pagination pancake posts)
-**Last updated**: 2026-06-09 19:51:35 +07
-**Latest session**: [`RESUME:20260609-195135-daf21ec`](../20260609-195135-daf21ec.md)
-**Summary**: feat(live-chat): cuộn dropdown campaign tải thêm bài livestream cũ hơn (cursor pagination pancake posts)
+**Latest commit**: `3f75af3` — fix(kpi): rà soát hệ thống KPI — fix timezone stat_date, audit log trùng, double render + giảm payload/request
+**Last updated**: 2026-06-10 03:00:09 UTC
+**Latest session**: [`RESUME:20260610-030009-3f75af3`](../20260610-030009-3f75af3.md)
+**Summary**: Rà soát hệ thống KPI đơn đánh giá: fix timezone stat_date VN, audit log idempotency, double render, strip details payload, cache employee-ranges
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 10 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`tests/`](./tests.md) — 1 file(s)
 
 ## All folder snapshots
 
-- [`.claude/`](./.claude.md) — updated 2026-06-05 10:42
-- [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-06-09 19:37
-- [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
-- [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
-- [`balance-history/`](./balance-history.md) — updated 2026-05-22 12:35
-- [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
-- [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-09 19:51
-- [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
-- [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
-- [`downloads/`](./downloads.md) — updated 2026-06-09 19:12
-- [`facebook-services/`](./facebook-services.md) — updated 2026-05-21 15:39
-- [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
-- [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
-- [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
-- [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-08 14:12
-- [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
-- [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-09 19:47
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-09 19:12
-- [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
-- [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-09 19:43
-- [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
-- [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
-- [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
-- [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
-- [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
-- [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-09 19:21
-- [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-09 16:10
-- [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
-- [`shared/`](./shared.md) — updated 2026-06-08 14:48
-- [`showroom/`](./showroom.md) — updated 2026-05-21 09:45
-- [`so-order/`](./so-order.md) — updated 2026-06-08 12:26
-- [`soluong-live/`](./soluong-live.md) — updated 2026-06-08 18:40
-- [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
-- [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
-- [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
-- [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:46
-- [`tests/`](./tests.md) — updated 2026-06-09 16:10
-- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 19:41
-- [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
-- [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
-- [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
-- [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
-- [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-09 19:47
+- [`.claude/`](./.claude.md) — updated 2026-06-10 02:39
+- [`AI/`](./AI.md) — updated 2026-06-10 02:39
+- [`_root/`](./_root.md) — updated 2026-06-10 02:39
+- [`aikol-studio/`](./aikol-studio.md) — updated 2026-06-10 02:39
+- [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-10 02:39
+- [`balance-history/`](./balance-history.md) — updated 2026-06-10 02:39
+- [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-06-10 02:39
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-10 02:39
+- [`customer-hub/`](./customer-hub.md) — updated 2026-06-10 02:39
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-10 02:39
+- [`docs/`](./docs.md) — updated 2026-06-10 03:00
+- [`doi-soat/`](./doi-soat.md) — updated 2026-06-10 02:39
+- [`don-inbox/`](./don-inbox.md) — updated 2026-06-10 02:39
+- [`downloads/`](./downloads.md) — updated 2026-06-10 02:39
+- [`facebook-services/`](./facebook-services.md) — updated 2026-06-10 02:39
+- [`fb-ads/`](./fb-ads.md) — updated 2026-06-10 02:39
+- [`firebase-stats/`](./firebase-stats.md) — updated 2026-06-10 02:39
+- [`hanghoan/`](./hanghoan.md) — updated 2026-06-10 02:39
+- [`inbox/`](./inbox.md) — updated 2026-06-10 02:39
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-10 02:39
+- [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-10 02:39
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-10 02:39
+- [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-10 02:39
+- [`live-chat/`](./live-chat.md) — updated 2026-06-10 02:39
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-10 02:39
+- [`native-orders/`](./native-orders.md) — updated 2026-06-10 02:39
+- [`nhanhang/`](./nhanhang.md) — updated 2026-06-10 02:39
+- [`order-management/`](./order-management.md) — updated 2026-06-10 02:39
+- [`orders-report/`](./orders-report.md) — updated 2026-06-10 03:00
+- [`pancake-extension/`](./pancake-extension.md) — updated 2026-06-10 02:39
+- [`phone-management/`](./phone-management.md) — updated 2026-06-10 02:39
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-10 02:39
+- [`project-tracker/`](./project-tracker.md) — updated 2026-06-10 02:39
+- [`purchase-orders/`](./purchase-orders.md) — updated 2026-06-10 02:39
+- [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-10 02:39
+- [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-10 02:39
+- [`render.com/`](./render.com.md) — updated 2026-06-10 03:00
+- [`resident/`](./resident.md) — updated 2026-06-10 02:39
+- [`scripts/`](./scripts.md) — updated 2026-06-10 02:39
+- [`service-costs/`](./service-costs.md) — updated 2026-06-10 02:39
+- [`shared/`](./shared.md) — updated 2026-06-10 02:39
+- [`showroom/`](./showroom.md) — updated 2026-06-10 02:39
+- [`so-order/`](./so-order.md) — updated 2026-06-10 02:39
+- [`soluong-live/`](./soluong-live.md) — updated 2026-06-10 02:39
+- [`soorder/`](./soorder.md) — updated 2026-06-10 02:39
+- [`soquy/`](./soquy.md) — updated 2026-06-10 02:39
+- [`stitch_customer/`](./stitch_customer.md) — updated 2026-06-10 02:39
+- [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-10 02:39
+- [`tests/`](./tests.md) — updated 2026-06-10 03:00
+- [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-10 02:39
+- [`user-management/`](./user-management.md) — updated 2026-06-10 02:39
+- [`web2-extension/`](./web2-extension.md) — updated 2026-06-10 02:39
+- [`web2-products/`](./web2-products.md) — updated 2026-06-10 02:39
+- [`web2-shared/`](./web2-shared.md) — updated 2026-06-10 02:39
+- [`web2-variants/`](./web2-variants.md) — updated 2026-06-10 02:39
+- [`web2/`](./web2.md) — updated 2026-06-10 02:39
