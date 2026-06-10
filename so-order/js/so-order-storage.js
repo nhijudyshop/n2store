@@ -196,6 +196,19 @@
             if (store) {
                 data = await store.get();
             }
+            // IDB đã có data (migrate xong / đã ghi trước đó) → dọn legacy LS key
+            // để tránh stale fallback đọc bản cũ về sau. CHỈ remove khi CHẮC CHẮN
+            // IDB có data (data != null). Nếu migrate fail → store.get() trả null
+            // → KHÔNG remove, fallback LS bên dưới vẫn dùng được.
+            if (store && data != null) {
+                try {
+                    if (localStorage.getItem(STORAGE_KEY) != null) {
+                        localStorage.removeItem(STORAGE_KEY);
+                    }
+                } catch {
+                    /* localStorage không khả dụng — bỏ qua */
+                }
+            }
             // Fallback localStorage nếu IDB unavailable HOẶC chưa migrate (rare).
             if (!data) {
                 const raw = localStorage.getItem(STORAGE_KEY);

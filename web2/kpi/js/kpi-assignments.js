@@ -48,6 +48,16 @@
             console.log('[KPI]', kind, msg);
         }
     }
+    // Token admin cho PUT employee-ranges. Web2Auth lưu token ở 'web2_auth'.
+    function authToken() {
+        try {
+            const t = window.Web2Auth?.getStored?.()?.token;
+            if (t) return t;
+            const raw = localStorage.getItem('web2_users_session');
+            if (raw) return JSON.parse(raw)?.token || '';
+        } catch (_) {}
+        return '';
+    }
 
     // ─────────────────────────────────────────────────────────
     // Load data
@@ -330,12 +340,15 @@
         }
         const valid = STATE.ranges.filter((r) => r.userId && r.fromSTT > 0 && r.toSTT >= r.fromSTT);
         const editor = window.Web2UserInfo?.get('web2-kpi-assignments') || {};
+        const saveBtn = $('#caSaveBtn');
+        if (saveBtn?.disabled) return; // tránh double-submit
+        if (saveBtn) saveBtn.disabled = true;
         try {
             const r = await fetch(
                 `${CAMPAIGNS_API}/employee-ranges/${encodeURIComponent(STATE.currentCampaign)}`,
                 {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'x-web2-token': authToken() },
                     body: JSON.stringify({
                         employeeRanges: valid,
                         userId: editor.userId,
@@ -344,7 +357,10 @@
                     }),
                 }
             );
-            const d = await r.json();
+            const d = await r.json().catch(() => ({}));
+            if (r.status === 401 || r.status === 403) {
+                throw new Error('Cần đăng nhập admin để lưu phân công KPI');
+            }
             if (!r.ok) {
                 throw new Error(d.error || d.message || 'Lỗi không xác định');
             }
@@ -358,6 +374,8 @@
             renderHistory();
         } catch (e) {
             notify('Lỗi lưu: ' + e.message, 'error');
+        } finally {
+            if (saveBtn) saveBtn.disabled = false;
         }
     }
 

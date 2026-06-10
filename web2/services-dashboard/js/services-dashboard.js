@@ -254,14 +254,38 @@
             .join('');
     }
 
+    // Auto-refresh 60s qua setTimeout chain (không setInterval): tự dừng khi tab
+    // ẩn (tiết kiệm fetch) + clear hẳn khi rời trang.
+    const REFRESH_MS = 60000;
+    let _refreshTimer = null;
+    function _scheduleRefresh() {
+        clearTimeout(_refreshTimer);
+        _refreshTimer = setTimeout(async () => {
+            if (document.visibilityState === 'visible') {
+                await load();
+            }
+            _scheduleRefresh();
+        }, REFRESH_MS);
+    }
+    function _stopRefresh() {
+        clearTimeout(_refreshTimer);
+        _refreshTimer = null;
+    }
+
     function init() {
         if (window.Web2Sidebar) {
             window.Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
         }
         $('sdReloadBtn').addEventListener('click', load);
         load();
-        // Auto-refresh every 60s
-        setInterval(load, 60000);
+        _scheduleRefresh();
+        // Tab quay lại sau khi ẩn lâu → refresh ngay cho fresh data.
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') load();
+        });
+        // Dọn timer khi rời trang.
+        window.addEventListener('pagehide', _stopRefresh);
+        window.addEventListener('beforeunload', _stopRefresh);
     }
 
     if (document.readyState === 'loading') {

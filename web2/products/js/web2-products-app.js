@@ -6,6 +6,10 @@
 (function () {
     'use strict';
 
+    // Proxy domain cho các fetch trực tiếp (history endpoint chưa có trong
+    // Web2ProductsApi). Đưa vào hằng số để tránh hardcode rải rác.
+    const PROXY_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
     const STATE = {
         products: [],
         total: 0,
@@ -658,7 +662,16 @@
         // NCC "KHO" (SP tạo trực tiếp) → ép prefix literal "KHO" (vd KHOAODEN),
         // không rút gọn 2 chữ thành "KH".
         prefixMap['KHO'] = 'KHO';
-        const existingCodes = STATE.products.map((p) => p.code).filter(Boolean);
+        // existingCodes: lấy từ cache FULL (~20k mã, mọi trang) để tránh sinh
+        // trùng mã xuyên bảng. STATE.products chỉ là trang hiện tại (~50-200).
+        // Defensive: cache chưa sẵn → fallback STATE.products.
+        let existingCodes;
+        const _cacheAll = window.Web2ProductsCache?.getAll?.();
+        if (Array.isArray(_cacheAll) && _cacheAll.length) {
+            existingCodes = _cacheAll.map((p) => p.code).filter(Boolean);
+        } else {
+            existingCodes = STATE.products.map((p) => p.code).filter(Boolean);
+        }
         let result;
         try {
             result = window.Web2ProductCode.suggest({
@@ -770,7 +783,7 @@
 
         try {
             const r = await fetch(
-                `https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-products/${encodeURIComponent(code)}/history?limit=100`
+                `${PROXY_BASE}/api/web2-products/${encodeURIComponent(code)}/history?limit=100`
             );
             const data = await r.json();
             const list = data?.history || [];
@@ -911,44 +924,130 @@
             userName: user.displayName || user.email || null,
             sourcePage: 'products',
         };
-        try {
-            if (STATE.editingCode) {
-                const resp = await window.Web2ProductsApi.update(STATE.editingCode, {
-                    name: fields.name,
-                    supplier: fields.supplier,
-                    variant: fields.variant,
-                    price: fields.price,
-                    originalPrice: fields.originalPrice,
-                    stock: fields.stock,
-                    imageUrl: fields.imageUrl,
-                    note: fields.note,
-                    isActive: fields.isActive,
-                    ...histMeta,
-                });
-                // In-place update — KHÔNG re-render bảng để tránh giật + SP
-                // vừa sửa không nhảy lên đầu (vì backend sort by updated_at DESC).
-                //
-                // KHÔNG gọi pushTickle: nó internal trigger _loadList() → emit
-                // 'refresh' → app subscriber gọi full load() → SP nhảy lên đầu.
-                // SSE notify ('web2:products' với by!=clientId) đã handle cross-tab
-                // qua handler riêng (_setupSse), gọi _updateRowInPlace trên client khác.
-                if (resp.product) {
-                    const ok = _updateRowInPlace(STATE.editingCode, resp.product);
-                    if (!ok) renderRows(); // fallback nếu row không có trên page hiện tại
-                }
-                notify('Đã lưu', 'success');
-            } else {
-                await window.Web2ProductsApi.create({
-                    ...fields,
-                    createdBy: user.uid || user.email || null,
-                    ...histMeta,
-                });
-                notify(`Đã tạo SP ${fields.code}`, 'success');
-                window.Web2ProductsCache?.pushTickle?.({ action: 'create', code: fields.code });
-                load(); // reload to include new item at top
+
+        const updatePayload = {
+            name: fields.name,
+            supplier: fields.supplier,
+            variant: fields.variant,
+            price: fields.price,
+            originalPrice: fields.originalPrice,
+            stock: fields.stock,
+            imageUrl: fields.imageUrl,
+            note: fields.note,
+            isActive: fields.isActive,
+            ...histMeta,
+        };
+
+        // ─── UPDATE branch ──────────────────────────────────────────
+        if (STATE.editingCode) {
+            const editCode = STATE.editingCode;
+            const idx = STATE.products.findIndex((p) => p.code === editCode);
+            const prevProduct = idx !== -1 ? { ...STATE.products[idx] } : null;
+            if (window.Web2Optimistic?.run && prevProduct) {
                 closeModal();
+                Web2Optimistic.run({
+                    snapshot: () => prevProduct,
+                    apply: () => {
+                        // Optimistic merge: gộp fields vào row hiện tại + render
+                        // tại chỗ (giữ vị trí, không nhảy lên đầu).
+                        const merged = { ...prevProduct, ...fields };
+                        const ok = _updateRowInPlace(editCode, merged);
+                        if (!ok) renderRows();
+                    },
+                    run: async () => {
+                        return await window.Web2ProductsApi.update(editCode, updatePayload);
+                    },
+                    onSuccess: (resp) => {
+                        if (resp?.product) {
+                            const ok = _updateRowInPlace(editCode, resp.product);
+                            if (!ok) renderRows();
+                        }
+                    },
+                    rollback: (prev) => {
+                        const i = STATE.products.findIndex((p) => p.code === editCode);
+                        if (i !== -1 && prev) STATE.products[i] = prev;
+                        const ok = _updateRowInPlace(editCode, prev);
+                        if (!ok) renderRows();
+                    },
+                    successMsg: 'Đã lưu',
+                    errLabel: `lưu SP ${editCode}`,
+                });
                 return;
             }
+            // Legacy await path (helper/snapshot chưa sẵn).
+            try {
+                const resp = await window.Web2ProductsApi.update(editCode, updatePayload);
+                // In-place update — KHÔNG re-render bảng để tránh giật + SP
+                // vừa sửa không nhảy lên đầu (vì backend sort by updated_at DESC).
+                // KHÔNG gọi pushTickle: nó internal trigger _loadList() → emit
+                // 'refresh' → app subscriber gọi full load() → SP nhảy lên đầu.
+                if (resp.product) {
+                    const ok = _updateRowInPlace(editCode, resp.product);
+                    if (!ok) renderRows();
+                }
+                notify('Đã lưu', 'success');
+                closeModal();
+            } catch (e) {
+                notify('Lỗi: ' + e.message, 'error');
+            }
+            return;
+        }
+
+        // ─── CREATE branch ──────────────────────────────────────────
+        const createPayload = {
+            ...fields,
+            createdBy: user.uid || user.email || null,
+            ...histMeta,
+        };
+        if (window.Web2Optimistic?.run) {
+            const snapshot = {
+                products: STATE.products.slice(),
+                total: STATE.total,
+            };
+            const optimisticRow = { ...fields, printCount: 0 };
+            closeModal();
+            Web2Optimistic.run({
+                snapshot: () => snapshot,
+                apply: () => {
+                    // Optimistic: chèn SP mới lên đầu danh sách (backend sort
+                    // updated_at DESC → SP mới nằm đầu sau reload).
+                    STATE.products = [optimisticRow, ...STATE.products];
+                    STATE.total = STATE.total + 1;
+                    renderRows();
+                    renderPagination();
+                    renderCounters();
+                },
+                run: async () => {
+                    return await window.Web2ProductsApi.create(createPayload);
+                },
+                onSuccess: () => {
+                    window.Web2ProductsCache?.pushTickle?.({
+                        action: 'create',
+                        code: fields.code,
+                    });
+                    // Reload để lấy data authoritative (id, server-side fields).
+                    load();
+                },
+                rollback: (snap) => {
+                    if (snap) {
+                        STATE.products = snap.products;
+                        STATE.total = snap.total;
+                        renderRows();
+                        renderPagination();
+                        renderCounters();
+                    }
+                },
+                successMsg: `Đã tạo SP ${fields.code}`,
+                errLabel: `tạo SP ${fields.code}`,
+            });
+            return;
+        }
+        // Legacy await path.
+        try {
+            await window.Web2ProductsApi.create(createPayload);
+            notify(`Đã tạo SP ${fields.code}`, 'success');
+            window.Web2ProductsCache?.pushTickle?.({ action: 'create', code: fields.code });
+            load(); // reload to include new item at top
             closeModal();
         } catch (e) {
             notify('Lỗi: ' + e.message, 'error');

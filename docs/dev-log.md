@@ -2,6 +2,27 @@
 
 ## 2026-06-10
 
+### [render][web2] Áp AUTH cho mutation Web 2.0 (fix CRITICAL #1 audit) ✅
+
+**User:** gắn middleware `web2-auth` (đã có sẵn) vào các endpoint mutation Web 2.0, KHÔNG lockout view/login/me.
+
+**Backend (gate `requireWeb2Admin`, KHÔNG gate view/login/me):**
+
+- `routes/web2-users.js` — gate `POST /`, `PATCH /:id`, `POST /:id/password`, `PUT /:id/permissions`, `DELETE /:id`. GIỮ public: `/login`, `/me`, `/logout`, `GET /list`, `GET /:id`. Thêm rate-limit `/login` (in-memory Map theo IP, >8 fail/15 phút → 429, reset khi login OK, cleanup interval `.unref()`). Password min 6→8 (create + change). Bỏ password khỏi log seed admin. Thêm 7 trang vào `WEB2_PAGES`: photo-studio, admin-sse-monitor, services-dashboard, report-revenue, report-delivery, delivery-zone, printer-settings.
+- `routes/realtime-sse-web2.js` — gate `/sse/stats`, `/sse/log`, `/sse/test`. KHÔNG gate `/sse` chính (EventSource không gửi custom header).
+- `routes/v2/kpi.js` — gate `PUT /employee-ranges/:campaignName`. KHÔNG gate GET đọc.
+
+**Frontend (gửi `x-web2-token` từ `Web2Auth.getStored().token`, fallback localStorage 'web2_users_session'):**
+
+- `web2/users/js/users-app.js` — `api()` thêm header token + báo lỗi rõ 401/403 "Cần đăng nhập admin"; password min 6→8.
+- `web2/users-permissions/index.html` — PUT permissions thêm token + disable Save khi đang lưu + báo 401/403.
+- `web2/admin-sse-monitor/js/monitor.js` — `isAdmin()` đổi từ localStorage thuần sang verify server `GET /api/web2-users/me` (role==='admin'); stats/log/test thêm token.
+- `web2/kpi/js/kpi-assignments.js` — PUT employee-ranges thêm token + disable Save + báo 401/403.
+
+**Verify:** `node --check` cả 4 file JS backend/frontend + inline script users-permissions → OK. Login/me/view KHÔNG bị gate (xác nhận qua grep route list).
+
+**Status:** ✅ Done
+
 ### [docs] Audit toàn diện 34 trang menu Web 2.0 — bug/race/cải thiện (CHƯA fix, chỉ tài liệu) ✅
 
 **User:** plan lớn — đọc/phân tích chi tiết tất cả trang trong menu Web 2.0, tìm bug/race condition/cải thiện → tổng hợp vào overview + viết file MD; thêm rule "code phần quan trọng → cập nhật overview + MD". Chỉ viết tài liệu, KHÔNG sửa code.

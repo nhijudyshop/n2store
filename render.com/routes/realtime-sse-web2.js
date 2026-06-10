@@ -13,6 +13,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { requireWeb2Admin } = require('../middleware/web2-auth');
 
 // =====================================================
 // SSE CLIENT MANAGEMENT
@@ -279,7 +280,7 @@ function broadcastToAll(data, eventType = 'broadcast') {
 // DIAGNOSTIC ENDPOINTS
 // =====================================================
 
-router.get('/sse/stats', (req, res) => {
+router.get('/sse/stats', requireWeb2Admin, (req, res) => {
     const stats = getConnectionStats();
     res.json({
         success: true,
@@ -289,7 +290,7 @@ router.get('/sse/stats', (req, res) => {
     });
 });
 
-router.post('/sse/test', (req, res) => {
+router.post('/sse/test', requireWeb2Admin, (req, res) => {
     const { key, data } = req.body;
     if (!key) return res.status(400).json({ error: 'Missing key parameter' });
     const count = notifyClients(key, data || { test: true, timestamp: Date.now() }, 'test');
@@ -305,7 +306,7 @@ router.post('/sse/test', (req, res) => {
  *   since: optional seq number; returns only logs with seq > since
  *   limit: optional max entries (default 200, max 500)
  */
-router.get('/sse/log', (req, res) => {
+router.get('/sse/log', requireWeb2Admin, (req, res) => {
     const since = parseInt(req.query.since, 10) || 0;
     const limit = Math.min(parseInt(req.query.limit, 10) || 200, LOG_BUFFER_MAX);
     const filtered = since > 0 ? recentLogs.filter((l) => l.seq > since) : recentLogs;

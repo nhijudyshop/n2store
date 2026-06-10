@@ -23,6 +23,7 @@
 
 const express = require('express');
 const crypto = require('crypto');
+const { requireWeb2Admin } = require('../../middleware/web2-auth');
 
 const router = express.Router();
 
@@ -590,8 +591,8 @@ router.get('/employee-ranges/:campaignName', async (req, res) => {
     }
 });
 
-// PUT /employee-ranges/:campaignName — upsert ranges + audit history.
-router.put('/employee-ranges/:campaignName', async (req, res) => {
+// PUT /employee-ranges/:campaignName — upsert ranges + audit history (admin only).
+router.put('/employee-ranges/:campaignName', requireWeb2Admin, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const name = sanitizeCampaignName(req.params.campaignName);

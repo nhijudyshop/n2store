@@ -17,6 +17,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { requireWeb2Admin } = require('../middleware/web2-auth');
 
 // -----------------------------------------------------
 // SSE notifier — broadcast topic 'web2:users' sau mỗi DB mutation
@@ -39,6 +40,52 @@ const crypto = require('crypto');
 
 const ROLES = ['admin', 'manager', 'staff', 'viewer'];
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+// ── Login rate-limit (in-memory, no dependency) ─────────────────────
+// Theo IP: > LOGIN_MAX_FAILS lần thất bại trong LOGIN_WINDOW_MS → 429.
+// Reset bộ đếm khi login thành công. Cleanup định kỳ tránh memory leak.
+const LOGIN_MAX_FAILS = 8;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 phút
+const _loginFails = new Map(); // ip → { count, firstAt }
+
+function _loginClientIp(req) {
+    const xf = req.headers['x-forwarded-for'];
+    if (xf) return String(xf).split(',')[0].trim();
+    return req.ip || req.connection?.remoteAddress || 'unknown';
+}
+
+// true → đang bị chặn (vượt ngưỡng trong cửa sổ).
+function _loginIsBlocked(ip) {
+    const e = _loginFails.get(ip);
+    if (!e) return false;
+    if (Date.now() - e.firstAt > LOGIN_WINDOW_MS) {
+        _loginFails.delete(ip);
+        return false;
+    }
+    return e.count >= LOGIN_MAX_FAILS;
+}
+
+function _loginRecordFail(ip) {
+    const now = Date.now();
+    const e = _loginFails.get(ip);
+    if (!e || now - e.firstAt > LOGIN_WINDOW_MS) {
+        _loginFails.set(ip, { count: 1, firstAt: now });
+    } else {
+        e.count++;
+    }
+}
+
+function _loginRecordSuccess(ip) {
+    _loginFails.delete(ip);
+}
+
+// Cleanup expired buckets every 15 min (unref → không giữ process sống).
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, e] of _loginFails) {
+        if (now - e.firstAt > LOGIN_WINDOW_MS) _loginFails.delete(ip);
+    }
+}, LOGIN_WINDOW_MS).unref?.();
 
 // ── Permission registry ─────────────────────────────────────────────
 // Each Web 2.0 page declares supported actions. Used by:
@@ -143,6 +190,54 @@ const WEB2_PAGES = [
         label: 'Cấu hình Pancake',
         group: 'Cấu hình',
         actions: ['view', 'edit'],
+    },
+    {
+        slug: 'delivery-zone',
+        label: 'Khu vực giao hàng',
+        group: 'Cấu hình',
+        actions: ['view'],
+    },
+    {
+        slug: 'printer-settings',
+        label: 'Cấu hình máy in',
+        group: 'Cấu hình',
+        actions: ['view'],
+    },
+
+    // ─── Báo cáo ───────────────────────────────────────────────────
+    {
+        slug: 'report-revenue',
+        label: 'Báo cáo doanh thu',
+        group: 'Báo cáo',
+        actions: ['view'],
+    },
+    {
+        slug: 'report-delivery',
+        label: 'Báo cáo giao hàng',
+        group: 'Báo cáo',
+        actions: ['view'],
+    },
+
+    // ─── Hệ thống ──────────────────────────────────────────────────
+    {
+        slug: 'admin-sse-monitor',
+        label: 'SSE Monitor (Admin)',
+        group: 'Hệ thống',
+        actions: ['view'],
+    },
+    {
+        slug: 'services-dashboard',
+        label: 'Services Dashboard',
+        group: 'Hệ thống',
+        actions: ['view'],
+    },
+
+    // ─── Tính năng mới ─────────────────────────────────────────────
+    {
+        slug: 'photo-studio',
+        label: 'Photo Studio',
+        group: 'Tính năng mới',
+        actions: ['view'],
     },
 ];
 
@@ -291,7 +386,7 @@ async function ensureTables(pool) {
              VALUES ($1, $2, $3, $4, TRUE, $5, $6, $6)`,
             ['admin', hash, 'Quản trị viên', 'admin', 'Auto-seeded on first boot', now]
         );
-        console.log('[WEB2-USERS] Seeded default admin / admin@@');
+        console.log('[WEB2-USERS] Created default admin user (username: admin)');
     }
     tablesReady = true;
 }
@@ -335,8 +430,8 @@ function validateUsername(u) {
 }
 
 function validatePassword(p) {
-    if (!p || String(p).length < 6) {
-        throw Object.assign(new Error('Mật khẩu phải >= 6 ký tự'), { status: 400 });
+    if (!p || String(p).length < 8) {
+        throw Object.assign(new Error('Mật khẩu phải >= 8 ký tự'), { status: 400 });
     }
     return String(p);
 }
@@ -400,7 +495,7 @@ router.get('/:id(\\d+)', async (req, res) => {
 });
 
 // ── Create ─────────────────────────────────────────────────────────
-router.post('/', async (req, res) => {
+router.post('/', requireWeb2Admin, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -445,7 +540,7 @@ router.post('/', async (req, res) => {
 });
 
 // ── Update (không cho đổi password qua endpoint này) ───────────────
-router.patch('/:id(\\d+)', async (req, res) => {
+router.patch('/:id(\\d+)', requireWeb2Admin, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -497,7 +592,7 @@ router.patch('/:id(\\d+)', async (req, res) => {
 // ── Update permissions (admin only) ────────────────────────────────
 // body: { permissions: { [slug]: [actions] } | null }
 //   null → revert to role defaults
-router.put('/:id(\\d+)/permissions', async (req, res) => {
+router.put('/:id(\\d+)/permissions', requireWeb2Admin, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -541,7 +636,7 @@ router.put('/:id(\\d+)/permissions', async (req, res) => {
 });
 
 // ── Change password ────────────────────────────────────────────────
-router.post('/:id(\\d+)/password', async (req, res) => {
+router.post('/:id(\\d+)/password', requireWeb2Admin, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -565,7 +660,7 @@ router.post('/:id(\\d+)/password', async (req, res) => {
 });
 
 // ── Soft delete (deactivate) ───────────────────────────────────────
-router.delete('/:id(\\d+)', async (req, res) => {
+router.delete('/:id(\\d+)', requireWeb2Admin, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -601,6 +696,12 @@ router.delete('/:id(\\d+)', async (req, res) => {
 router.post('/login', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const ip = _loginClientIp(req);
+    if (_loginIsBlocked(ip)) {
+        return res.status(429).json({
+            error: 'Quá nhiều lần đăng nhập sai. Vui lòng thử lại sau 15 phút.',
+        });
+    }
     try {
         await ensureTables(pool);
         const b = req.body || {};
@@ -616,13 +717,16 @@ router.post('/login', async (req, res) => {
             [username]
         );
         if (!r.rows.length) {
+            _loginRecordFail(ip);
             return res.status(401).json({ error: 'Sai thông tin đăng nhập' });
         }
         const user = r.rows[0];
         const ok = await bcrypt.compare(password, user.password_hash);
         if (!ok) {
+            _loginRecordFail(ip);
             return res.status(401).json({ error: 'Sai thông tin đăng nhập' });
         }
+        _loginRecordSuccess(ip);
         const token = crypto.randomBytes(32).toString('hex');
         const now = Date.now();
         await pool.query(

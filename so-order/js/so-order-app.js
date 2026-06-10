@@ -1839,6 +1839,11 @@
         }
     }
 
+    // UI-first NOTE: GIỮ await + loading state (button spinner) — đây là NGOẠI
+    // LỆ được ghi trong docs/web2/UI-FIRST.md: flow nhiều bước với validation
+    // server-side strict (upsertPending lấy code → confirm-purchase-partial đổi
+    // tồn thật nhiều SP → in tem barcode). Optimistic rollback ở đây quá rủi ro
+    // (đã mutate tồn nhiều SP + đã in tem). User cần thấy spinner tới khi xong.
     async function confirmReceiveFromModal() {
         // Panel = inline expansion (replace modal 2026-05-29 for scroll perf)
         const panelRow = document.querySelector('.so-receive-panel-row');
@@ -3201,6 +3206,13 @@ window.addEventListener('load', () => {
         return items;
     }
 
+    // UI-first NOTE: hàm này ĐÃ là background best-effort — caller cập nhật
+    // local Sổ Order state + renderAll() + notify success NGAY (đồng bộ), rồi
+    // mới gọi syncRowsToKho(...).catch(()=>{}) chạy nền. Local Sổ Order là source
+    // of truth; Kho SP là mirror dẫn xuất. KHÔNG wrap qua Web2Optimistic.run:
+    //   - UI đã apply trước khi gọi → không có gì để "apply optimistic" thêm.
+    //   - Rollback push Kho không có ý nghĩa (không undo được row Sổ Order đã ghi).
+    //   - Đổi return Promise→undefined sẽ phá hợp đồng .catch() của các call site.
     async function syncRowsToKho(rows, tab) {
         if (!window.Web2ProductsApi || !window.Web2ProductsCache) return;
         const cache = window.Web2ProductsCache;
@@ -3256,6 +3268,11 @@ window.addEventListener('load', () => {
      * Lưu Nháp (đã sync vào Kho).
      *   adjustments = [{ name, variant, supplier, delta }]
      * Best-effort: lỗi network không chặn flow chính, chỉ warn.
+     *
+     * UI-first NOTE: như syncRowsToKho — đã là background best-effort, caller
+     * cập nhật local + render TRƯỚC rồi mới gọi. KHÔNG wrap Web2Optimistic.run
+     * (không có optimistic apply / rollback có nghĩa, giữ return Promise cho
+     * các call site).
      */
     async function adjustKhoPending(adjustments) {
         if (!window.Web2ProductsApi || !adjustments?.length) return;
@@ -4448,6 +4465,11 @@ window.addEventListener('load', () => {
         // Web2ProductsCache — bật suggestion + badge cho modal tạo đơn.
         // Re-render modal rows nếu cache cập nhật (kho SP của máy khác)
         // để badge "Đã có ở kho" và tồn kho luôn đồng bộ realtime.
+        //
+        // SSE NOTE: KHÔNG cần subscribe trực tiếp 'web2:products' ở đây — cache
+        // đã tự subscribe topic đó (web2-products-cache _setupRealtime) và emit
+        // cho subscriber bên dưới. Badge tồn/"Đã có ở kho" tự cập nhật realtime
+        // xuyên máy qua đúng 1 nguồn (cache), tránh double-listen.
         if (window.Web2ProductsCache) {
             window.Web2ProductsCache.init().then(() => {
                 window.Web2ProductsCache.subscribe(() => {

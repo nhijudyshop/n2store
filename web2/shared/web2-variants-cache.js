@@ -91,7 +91,11 @@
                 if (page > 10) break;
             }
             state.all = all;
-            state.byValueLower = new Map(all.map((v) => [_normalize(v.value), v]));
+            // byValueLower CHỈ build từ variant active — findByValueExact dùng để
+            // validate SP, không được nhận biến thể đã deactivate (isActive false).
+            state.byValueLower = new Map(
+                all.filter((v) => v.isActive).map((v) => [_normalize(v.value), v])
+            );
             _emit('refresh');
         } catch (e) {
             console.warn('[Web2VariantsCache] load failed:', e.message);

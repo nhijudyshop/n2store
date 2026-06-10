@@ -124,6 +124,7 @@
         else if (key === 'wait')
             url = `${SIG}?status=confirmed&noTx=1&limit=${PAGE}&offset=${st.offset}`;
         else url = `${INTENT}?status=open&limit=${PAGE}&offset=${st.offset}`;
+        let loadErr = null;
         try {
             const d = await fetchJson(url);
             if (!d.success) throw new Error(d.error || 'Lỗi');
@@ -132,7 +133,30 @@
             st.hasMore = !!d.meta?.hasMore;
             st.offset += got.length;
         } catch (e) {
-            /* ignore */
+            loadErr = e;
+            console.warn('[ck-dashboard] loadCol', key, 'failed:', e.message || e);
+            // Chỉ hiện error state khi cột rỗng (lần load đầu thất bại) — tránh
+            // đè data đã có khi "Tải thêm" lỗi.
+            if (!st.items.length) {
+                const elId =
+                    key === 'pending' ? 'ckdPending' : key === 'wait' ? 'ckdWait' : 'ckdIntents';
+                const root = document.getElementById(elId);
+                if (root) {
+                    root.innerHTML = `<div class="ckd-empty" style="color:#dc2626;">Lỗi tải: ${esc(e.message || e)}</div>`;
+                }
+            }
+            if (window.notificationManager?.show) {
+                window.notificationManager.show(
+                    '✗ Lỗi tải dữ liệu đối soát: ' + (e.message || e),
+                    'error'
+                );
+            }
+        }
+        // Khi load đầu lỗi + cột rỗng → đã render error state ở trên, không
+        // render đè empty. Vẫn cập nhật stats.
+        if (loadErr && !st.items.length) {
+            renderStats();
+            return;
         }
         if (key === 'intents') {
             renderCol('intents', 'ckdIntents', 'ckdIntentCount', intentCard, bindIntents);
@@ -161,27 +185,101 @@
     }
     function bindIntents(root) {
         root.querySelectorAll('[data-done]').forEach((b) => {
-            b.onclick = async (e) => {
+            b.onclick = (e) => {
                 e.stopPropagation();
                 const id = Number(b.dataset.done);
                 const body = window.Web2UserInfo?.attachToBody
                     ? window.Web2UserInfo.attachToBody({}, 'web2-ck-dashboard')
                     : {};
-                try {
-                    await fetch(`${INTENT}/${id}/done`, {
+                const doFetch = async () => {
+                    const r = await fetch(`${INTENT}/${id}/done`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'include',
                         body: JSON.stringify(body),
                     });
-                } catch (err) {
-                    /* ignore */
+                    if (!r.ok) {
+                        let msg = `HTTP ${r.status}`;
+                        try {
+                            const d = await r.json();
+                            msg = d.error || msg;
+                        } catch {
+                            /* body không phải JSON */
+                        }
+                        throw new Error(msg);
+                    }
+                    return r;
+                };
+
+                if (window.Web2Optimistic?.run) {
+                    const st = state.intents;
+                    const idx = st.items.findIndex((it) => it.id === id);
+                    const removed = idx !== -1 ? st.items[idx] : null;
+                    Web2Optimistic.run({
+                        snapshot: () => ({ idx, removed }),
+                        apply: () => {
+                            // Optimistic: gỡ card khỏi cột ngay.
+                            if (idx !== -1) {
+                                st.items.splice(idx, 1);
+                                renderCol(
+                                    'intents',
+                                    'ckdIntents',
+                                    'ckdIntentCount',
+                                    intentCard,
+                                    bindIntents
+                                );
+                                renderStats();
+                            }
+                        },
+                        run: doFetch,
+                        onSuccess: () => loadCol('intents', true),
+                        rollback: (snap) => {
+                            // Chèn lại card về đúng vị trí cũ.
+                            if (snap?.removed) {
+                                const at = Math.min(snap.idx, st.items.length);
+                                st.items.splice(at < 0 ? st.items.length : at, 0, snap.removed);
+                                renderCol(
+                                    'intents',
+                                    'ckdIntents',
+                                    'ckdIntentCount',
+                                    intentCard,
+                                    bindIntents
+                                );
+                                renderStats();
+                            }
+                        },
+                        successMsg: 'Đã xử lý yêu cầu',
+                        errLabel: 'xử lý yêu cầu KH',
+                    });
+                    return;
                 }
-                loadCol('intents', true);
+
+                // Legacy await path.
+                (async () => {
+                    try {
+                        await doFetch();
+                    } catch (err) {
+                        if (window.notificationManager?.show) {
+                            window.notificationManager.show(
+                                '✗ Lỗi xử lý yêu cầu: ' + (err.message || err),
+                                'error'
+                            );
+                        }
+                    }
+                    loadCol('intents', true);
+                })();
             };
         });
     }
 
+    // NOTE (low-pri, để nguyên): dùng items.length đã load (capped PAGE=10 +
+    // các lần "Tải thêm"), KHÔNG phải tổng thực từ /stats. Endpoint
+    // GET /payment-signals/stats chỉ trả {pending, confirmed, dismissed} —
+    // KHÔNG khớp 3 cột dashboard ("Chờ duyệt"=pending OK, nhưng "Chờ tiền về"
+    // = confirmed&noTx=1 ⊄ stats.confirmed, "Yêu cầu khác" = endpoint intents
+    // riêng). Trộn 1 cột total-thực + 2 cột loaded-length sẽ gây lệch khó hiểu
+    // hơn. Khi cần đếm chuẩn cả 3 → thêm count vào meta của từng list response
+    // rồi đọc d.meta.total ở loadCol.
     function renderStats() {
         const el = document.getElementById('ckdStats');
         el.innerHTML = `

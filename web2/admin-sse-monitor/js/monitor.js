@@ -3,27 +3,37 @@
     'use strict';
 
     const API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2';
+    const USERS_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-users';
     const STATS_POLL_MS = 2000;
     const MAX_LOG_ROWS = 1000; // keep last N rows in DOM
     const ADMIN_TOPIC = 'web2:_admin:sse-log';
 
     // -----------------------------------------------------
-    // Admin gate — same pattern as navigation-modern.js
+    // Token + admin gate — XÁC THỰC QUA SERVER (không tin localStorage thuần).
     // -----------------------------------------------------
-    function isAdmin() {
+    function authToken() {
         try {
-            const authStr =
-                localStorage.getItem('loginindex_auth') ||
-                sessionStorage.getItem('loginindex_auth') ||
-                '{}';
-            const auth = JSON.parse(authStr);
-            const userType = localStorage.getItem('userType') || '';
-            return (
-                auth.isAdmin === true ||
-                auth.roleTemplate === 'admin' ||
-                userType.startsWith('admin')
-            );
-        } catch {
+            const t = window.Web2Auth?.getStored?.()?.token;
+            if (t) return t;
+            const raw = localStorage.getItem('web2_users_session');
+            if (raw) return JSON.parse(raw)?.token || '';
+        } catch (_) {}
+        return '';
+    }
+
+    // Trả về true nếu server xác nhận user.role === 'admin' qua /api/web2-users/me.
+    async function isAdmin() {
+        const token = authToken();
+        if (!token) return false;
+        try {
+            const r = await fetch(`${USERS_API}/me`, {
+                headers: { 'x-web2-token': token },
+                cache: 'no-store',
+            });
+            if (!r.ok) return false;
+            const d = await r.json();
+            return d?.success === true && d?.user?.role === 'admin';
+        } catch (_) {
             return false;
         }
     }
@@ -169,7 +179,10 @@
     // -----------------------------------------------------
     async function pollStats() {
         try {
-            const r = await fetch(`${API_BASE}/sse/stats`, { cache: 'no-store' });
+            const r = await fetch(`${API_BASE}/sse/stats`, {
+                cache: 'no-store',
+                headers: { 'x-web2-token': authToken() },
+            });
             if (!r.ok) throw new Error('HTTP ' + r.status);
             const d = await r.json();
             $('ssStatClients').textContent = d.totalClients ?? 0;
@@ -187,7 +200,10 @@
     // -----------------------------------------------------
     async function bootstrapLog() {
         try {
-            const r = await fetch(`${API_BASE}/sse/log?limit=200`, { cache: 'no-store' });
+            const r = await fetch(`${API_BASE}/sse/log?limit=200`, {
+                cache: 'no-store',
+                headers: { 'x-web2-token': authToken() },
+            });
             if (!r.ok) throw new Error('HTTP ' + r.status);
             const d = await r.json();
             $('ssStatBuffer').textContent = '#' + (d.currentSeq || 0);
@@ -251,7 +267,10 @@
             try {
                 const r = await fetch(`${API_BASE}/sse/test`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-web2-token': authToken(),
+                    },
                     body: JSON.stringify({
                         key,
                         data: { action: 'admin-trigger', ts: Date.now() },
@@ -272,8 +291,8 @@
     // -----------------------------------------------------
     // Entry
     // -----------------------------------------------------
-    function init() {
-        if (!isAdmin()) {
+    async function init() {
+        if (!(await isAdmin())) {
             showAccessDenied();
             return;
         }

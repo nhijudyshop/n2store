@@ -254,7 +254,13 @@
                         Web2Sidebar.mount('#web2Aside', { activeRoute: 'notifications' });
                     load();
                     if (window.Web2SSE) {
-                        Web2SSE.subscribe('web2:notifications', () => load());
+                        // Debounce 500ms — /scan tạo nhiều noti liên tiếp, gom burst
+                        // để không reload N lần.
+                        let _sseT = null;
+                        Web2SSE.subscribe('web2:notifications', () => {
+                            clearTimeout(_sseT);
+                            _sseT = setTimeout(load, 500);
+                        });
                     }
                 });
             })();

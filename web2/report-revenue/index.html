@@ -293,6 +293,13 @@
             let currentDays = 30;
             const $ = (s) => document.querySelector(s);
 
+            // Filter đổi nhanh → hủy request cũ + bỏ qua response cũ (tránh race ghi đè).
+            let _loadSeq = 0; // version counter
+            let _loadAbort = null; // AbortController của loadAll đang chạy
+            function _signal() {
+                return _loadAbort ? _loadAbort.signal : undefined;
+            }
+
             function fmtMoney(n) {
                 const v = Number(n) || 0;
                 if (v >= 1e9) return (v / 1e9).toFixed(2) + ' tỷ';
@@ -306,9 +313,12 @@
                 return d.innerHTML;
             }
 
-            async function loadSummary() {
-                const r = await fetch(`${WORKER}/api/pbh-reports/summary?days=${currentDays}`);
+            async function loadSummary(seq) {
+                const r = await fetch(`${WORKER}/api/pbh-reports/summary?days=${currentDays}`, {
+                    signal: _signal(),
+                });
                 const d = await r.json();
+                if (seq !== _loadSeq) return; // response cũ — bỏ qua
                 if (!d.success) throw new Error(d.error);
                 $('#kpiGrid').innerHTML = `
                     <div class="kpi-card green">
@@ -352,9 +362,12 @@
                 `;
             }
 
-            async function loadRevenueChart() {
-                const r = await fetch(`${WORKER}/api/pbh-reports/revenue?days=${currentDays}`);
+            async function loadRevenueChart(seq) {
+                const r = await fetch(`${WORKER}/api/pbh-reports/revenue?days=${currentDays}`, {
+                    signal: _signal(),
+                });
                 const d = await r.json();
+                if (seq !== _loadSeq) return;
                 if (!d.success) throw new Error(d.error);
                 if (d.series.length === 0) {
                     $('#revenueChart').innerHTML =
@@ -382,11 +395,13 @@
                     `<div class="chart">${bars}</div><div class="chart-x-axis">${xLabels}</div>`;
             }
 
-            async function loadTopCustomers() {
+            async function loadTopCustomers(seq) {
                 const r = await fetch(
-                    `${WORKER}/api/pbh-reports/top-customers?days=${currentDays}&limit=10`
+                    `${WORKER}/api/pbh-reports/top-customers?days=${currentDays}&limit=10`,
+                    { signal: _signal() }
                 );
                 const d = await r.json();
+                if (seq !== _loadSeq) return;
                 if (!d.success) throw new Error(d.error);
                 if (d.customers.length === 0) {
                     $('#topCustomers').innerHTML = '<div class="loading">Chưa có dữ liệu</div>';
@@ -414,9 +429,12 @@
                 `;
             }
 
-            async function loadByCampaign() {
-                const r = await fetch(`${WORKER}/api/pbh-reports/by-campaign?days=${currentDays}`);
+            async function loadByCampaign(seq) {
+                const r = await fetch(`${WORKER}/api/pbh-reports/by-campaign?days=${currentDays}`, {
+                    signal: _signal(),
+                });
                 const d = await r.json();
+                if (seq !== _loadSeq) return;
                 if (!d.success) throw new Error(d.error);
                 if (d.campaigns.length === 0) {
                     $('#byCampaign').innerHTML =
@@ -444,14 +462,19 @@
                 `;
             }
 
-            async function loadTopCustomers360() {
+            async function loadTopCustomers360(seq) {
                 const r = await fetch(
-                    `${WORKER}/api/pbh-reports/top-customers-360?days=${currentDays}&limit=15`
+                    `${WORKER}/api/pbh-reports/top-customers-360?days=${currentDays}&limit=15`,
+                    { signal: _signal() }
                 );
                 const d = await r.json();
+                if (seq !== _loadSeq) return;
                 if (!d.success) throw new Error(d.error);
-                // Hint above the table about unlinked counts (data-quality signal)
-                const hint = `Đơn chưa liên kết customer 360 trong ${currentDays} ngày: <strong>${d.unlinked.native}</strong> Đơn web + <strong>${d.unlinked.pbh}</strong> PBH. Bấm "👤" trên 1 row để xem chi tiết.`;
+                // Hint above the table about unlinked counts (data-quality signal).
+                // Coerce sang số để chặn XSS (giá trị server nội suy vào innerHTML).
+                const unNative = Number(d.unlinked?.native) || 0;
+                const unPbh = Number(d.unlinked?.pbh) || 0;
+                const hint = `Đơn chưa liên kết customer 360 trong ${currentDays} ngày: <strong>${unNative}</strong> Đơn web + <strong>${unPbh}</strong> PBH. Bấm "👤" trên 1 row để xem chi tiết.`;
                 $('#topCustomers360Hint').innerHTML = hint;
                 if (d.customers.length === 0) {
                     $('#topCustomers360').innerHTML =
@@ -574,15 +597,21 @@
             }
 
             async function loadAll() {
+                // Hủy loadAll trước (nếu đang chạy) + tăng version.
+                if (_loadAbort) _loadAbort.abort();
+                _loadAbort = new AbortController();
+                const seq = ++_loadSeq;
                 try {
                     await Promise.all([
-                        loadSummary(),
-                        loadRevenueChart(),
-                        loadTopCustomers(),
-                        loadByCampaign(),
-                        loadTopCustomers360(),
+                        loadSummary(seq),
+                        loadRevenueChart(seq),
+                        loadTopCustomers(seq),
+                        loadByCampaign(seq),
+                        loadTopCustomers360(seq),
                     ]);
                 } catch (e) {
+                    // Request bị hủy do đổi filter → bỏ qua, không hiện lỗi.
+                    if (e.name === 'AbortError' || seq !== _loadSeq) return;
                     console.error('[reports] load error', e);
                     $('#kpiGrid').innerHTML =
                         `<div class="loading" style="color:#dc2626">Lỗi tải dữ liệu: ${esc(e.message)}</div>`;

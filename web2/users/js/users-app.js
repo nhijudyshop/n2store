@@ -49,8 +49,23 @@
             /* ignore */
         }
     }
+    // Token cho các route admin (create/update/delete/password/permissions).
+    // Web2Auth lưu token ở localStorage 'web2_auth'; fallback session JSON cũ.
+    function authToken() {
+        try {
+            const t = window.Web2Auth?.getStored?.()?.token;
+            if (t) return t;
+            const raw = localStorage.getItem('web2_users_session');
+            if (raw) return JSON.parse(raw)?.token || '';
+        } catch (_) {}
+        return '';
+    }
+
     async function api(method, path, body) {
-        const opts = { method, headers: { 'Content-Type': 'application/json' } };
+        const opts = {
+            method,
+            headers: { 'Content-Type': 'application/json', 'x-web2-token': authToken() },
+        };
         if (body !== undefined) opts.body = JSON.stringify(body);
         const r = await fetch(`${API}${path}`, opts);
         const text = await r.text();
@@ -60,7 +75,12 @@
         } catch {
             data = { _raw: text };
         }
-        if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+        if (!r.ok) {
+            if (r.status === 401 || r.status === 403) {
+                throw new Error(data?.error || 'Cần đăng nhập admin');
+            }
+            throw new Error(data?.error || `HTTP ${r.status}`);
+        }
         return data;
     }
 
@@ -213,8 +233,8 @@
             notify('Username + Họ tên bắt buộc', 'warning');
             return;
         }
-        if (!isEdit && (!body.password || body.password.length < 6)) {
-            notify('Mật khẩu phải ≥ 6 ký tự', 'warning');
+        if (!isEdit && (!body.password || body.password.length < 8)) {
+            notify('Mật khẩu phải ≥ 8 ký tự', 'warning');
             return;
         }
         btn.disabled = true;
@@ -262,8 +282,8 @@
         if (btn.disabled) return;
         const user = STATE.editingUser;
         const pwd = document.getElementById('uPwdNew').value;
-        if (!pwd || pwd.length < 6) {
-            notify('Mật khẩu phải ≥ 6 ký tự', 'warning');
+        if (!pwd || pwd.length < 8) {
+            notify('Mật khẩu phải ≥ 8 ký tự', 'warning');
             return;
         }
         btn.disabled = true;

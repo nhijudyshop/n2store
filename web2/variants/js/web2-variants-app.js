@@ -208,26 +208,111 @@
         if (!/^[A-Z0-9]{1,20}$/.test(fields.shortCode)) {
             return notify('Viết tắt phải gồm A-Z và 0-9, 1-20 ký tự', 'error');
         }
-        try {
-            if (STATE.editingId) {
-                const resp = await window.Web2VariantsApi.update(STATE.editingId, fields);
-                const idx = STATE.variants.findIndex((x) => x.id === STATE.editingId);
-                if (idx !== -1 && resp.variant) STATE.variants[idx] = resp.variant;
+        // ─── UPDATE branch ──────────────────────────────────────────
+        if (STATE.editingId) {
+            const editId = STATE.editingId;
+            const idx = STATE.variants.findIndex((x) => x.id === editId);
+            const prev = idx !== -1 ? { ...STATE.variants[idx] } : null;
+            if (window.Web2Optimistic?.run && prev) {
+                closeModal();
+                Web2Optimistic.run({
+                    snapshot: () => prev,
+                    apply: () => {
+                        // Optimistic merge — 1 nguồn render duy nhất (renderRows).
+                        const i = STATE.variants.findIndex((x) => x.id === editId);
+                        if (i !== -1) STATE.variants[i] = { ...prev, ...fields };
+                        renderRows();
+                        renderGroupOptions();
+                    },
+                    run: async () => {
+                        return await window.Web2VariantsApi.update(editId, fields);
+                    },
+                    onSuccess: (resp) => {
+                        if (resp?.variant) {
+                            const i = STATE.variants.findIndex((x) => x.id === editId);
+                            if (i !== -1) {
+                                STATE.variants[i] = resp.variant;
+                                renderRows();
+                                renderGroupOptions();
+                            }
+                        }
+                        // SSE tickle (cross-tab) — KHÔNG render local thêm lần nữa.
+                        window.Web2VariantsCache?.pushTickle?.({ action: 'update', id: editId });
+                    },
+                    rollback: (snap) => {
+                        const i = STATE.variants.findIndex((x) => x.id === editId);
+                        if (i !== -1 && snap) STATE.variants[i] = snap;
+                        renderRows();
+                        renderGroupOptions();
+                    },
+                    successMsg: 'Đã lưu',
+                    errLabel: `lưu biến thể ${editId}`,
+                });
+                return;
+            }
+            // Legacy await path.
+            try {
+                const resp = await window.Web2VariantsApi.update(editId, fields);
+                const i = STATE.variants.findIndex((x) => x.id === editId);
+                if (i !== -1 && resp.variant) STATE.variants[i] = resp.variant;
                 notify('Đã lưu', 'success');
-                window.Web2VariantsCache?.pushTickle?.({ action: 'update', id: STATE.editingId });
+                window.Web2VariantsCache?.pushTickle?.({ action: 'update', id: editId });
                 renderRows();
                 renderGroupOptions();
                 closeModal();
-            } else {
-                const resp = await window.Web2VariantsApi.create({
-                    ...fields,
-                    createdBy: user.uid || user.email || null,
-                });
-                notify(`Đã tạo biến thể "${fields.value}"`, 'success');
-                window.Web2VariantsCache?.pushTickle?.({ action: 'create', id: resp?.variant?.id });
-                load();
-                closeModal();
+            } catch (e) {
+                notify('Lỗi: ' + e.message, 'error');
             }
+            return;
+        }
+
+        // ─── CREATE branch ──────────────────────────────────────────
+        const createPayload = { ...fields, createdBy: user.uid || user.email || null };
+        if (window.Web2Optimistic?.run) {
+            const snapshot = { variants: STATE.variants.slice(), total: STATE.total };
+            const optimisticRow = { ...fields, id: `tmp-${Date.now()}` };
+            closeModal();
+            Web2Optimistic.run({
+                snapshot: () => snapshot,
+                apply: () => {
+                    STATE.variants = [...STATE.variants, optimisticRow];
+                    STATE.total = STATE.total + 1;
+                    renderRows();
+                    renderGroupOptions();
+                    renderCounters();
+                },
+                run: async () => {
+                    return await window.Web2VariantsApi.create(createPayload);
+                },
+                onSuccess: (resp) => {
+                    window.Web2VariantsCache?.pushTickle?.({
+                        action: 'create',
+                        id: resp?.variant?.id,
+                    });
+                    // Reload để lấy id thật + sort order chuẩn từ server.
+                    load();
+                },
+                rollback: (snap) => {
+                    if (snap) {
+                        STATE.variants = snap.variants;
+                        STATE.total = snap.total;
+                        renderRows();
+                        renderGroupOptions();
+                        renderCounters();
+                    }
+                },
+                successMsg: `Đã tạo biến thể "${fields.value}"`,
+                errLabel: `tạo biến thể "${fields.value}"`,
+            });
+            return;
+        }
+        // Legacy await path.
+        try {
+            const resp = await window.Web2VariantsApi.create(createPayload);
+            notify(`Đã tạo biến thể "${fields.value}"`, 'success');
+            window.Web2VariantsCache?.pushTickle?.({ action: 'create', id: resp?.variant?.id });
+            load();
+            closeModal();
         } catch (e) {
             notify('Lỗi: ' + e.message, 'error');
         }

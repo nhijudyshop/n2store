@@ -110,6 +110,16 @@
         <script>
             (function () {
                 const API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-users';
+                // Token admin cho mutation (PUT permissions). Web2Auth lưu ở 'web2_auth'.
+                function authToken() {
+                    try {
+                        const t = window.Web2Auth?.getStored?.()?.token;
+                        if (t) return t;
+                        const raw = localStorage.getItem('web2_users_session');
+                        if (raw) return JSON.parse(raw)?.token || '';
+                    } catch (_) {}
+                    return '';
+                }
                 const PAGE_GROUPS = {
                     'Bán hàng': [
                         'native-orders',
@@ -211,15 +221,36 @@
                 document.getElementById('btnSave').onclick = async () => {
                     const uid = document.getElementById('userPick').value;
                     if (!uid) return alert('Chọn user trước');
+                    const btn = document.getElementById('btnSave');
+                    if (btn.disabled) return; // tránh double-submit
                     const perm = collectPerm();
-                    const r = await fetch(API + '/' + uid + '/permissions', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({ permissions: perm }),
-                    });
-                    const d = await r.json();
-                    alert(d.success ? 'Lưu thành công' : 'Lỗi: ' + (d.error || ''));
+                    btn.disabled = true;
+                    const origText = btn.textContent;
+                    btn.textContent = 'Đang lưu…';
+                    try {
+                        const r = await fetch(API + '/' + uid + '/permissions', {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'x-web2-token': authToken(),
+                            },
+                            credentials: 'include',
+                            body: JSON.stringify({ permissions: perm }),
+                        });
+                        const d = await r.json().catch(() => ({}));
+                        if (r.status === 401 || r.status === 403) {
+                            alert('Cần đăng nhập admin để lưu phân quyền.');
+                        } else if (r.ok && d.success) {
+                            alert('Lưu thành công');
+                        } else {
+                            alert('Lỗi: ' + (d.error || 'HTTP ' + r.status));
+                        }
+                    } catch (e) {
+                        alert('Lỗi mạng: ' + (e.message || e));
+                    } finally {
+                        btn.disabled = false;
+                        btn.textContent = origText;
+                    }
                 };
                 document.addEventListener('DOMContentLoaded', () => {
                     if (window.Web2Sidebar)

@@ -55,6 +55,8 @@
     let _accountsCache = [];
     let _refreshStatus = {}; // accountId → { has_creds, auto_refresh, login_identity, last_refresh_status }
     let _credsKeyConfigured = false;
+    let _refreshStatusLoaded = false; // true once getRefreshStatus() đã resolve (tránh race "Gia hạn")
+    let _refreshStatusPromise = null; // promise đang load để await khi cần
 
     function renderJwtInfo() {
         const token = window.Web2Chat.getJwt();
@@ -622,20 +624,36 @@
         _accountsCache = r.accounts;
         renderAccountList(r.accounts);
         // Lấy trạng thái auto-refresh (creds/auto) rồi render lại — không chặn.
-        PA.getRefreshStatus()
+        // Lưu promise để renewAccount có thể await tránh race (bấm "Gia hạn" khi status chưa load).
+        _refreshStatusLoaded = false;
+        _refreshStatusPromise = PA.getRefreshStatus()
             .then((s) => {
                 if (s.ok) {
                     _refreshStatus = s.map;
                     _credsKeyConfigured = s.credsKeyConfigured;
                     renderAccountList(_accountsCache);
                 }
+                _refreshStatusLoaded = true;
             })
-            .catch(() => {});
+            .catch(() => {
+                _refreshStatusLoaded = true;
+            });
     }
 
     // ---- Gia hạn ngay 1 account (dùng creds đã lưu) ----
     async function renewAccount(id, btn) {
         const PA = window.Web2PancakeAccounts;
+        // Race guard: nút "Gia hạn" render trước khi getRefreshStatus() resolve →
+        // _refreshStatus[id].has_creds chưa biết. Await status (có loading) trước khi quyết định.
+        if (!_refreshStatusLoaded && _refreshStatusPromise) {
+            _setBtnLoading(btn, 'Đang kiểm tra…');
+            try {
+                await _refreshStatusPromise;
+            } catch {
+                /* status load lỗi — fallback xuống nhánh openCredsModal */
+            }
+            _restoreBtn(btn);
+        }
         const st = _refreshStatus[id] || {};
         if (!st.has_creds) {
             // chưa lưu mật khẩu → mở modal nhập
