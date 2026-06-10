@@ -638,13 +638,18 @@ router.get('/kpi-base/list-meta', async (req, res) => {
         const { dateFrom, dateTo, campaign } = req.query;
         const clauses = [];
         const params = [];
+        // Ngày so theo GIỜ VN: column TIMESTAMP (no TZ) lưu UTC wall-clock;
+        // `created_at::date` trần là ngày UTC → base tạo 00:00–06:59 VN rớt về
+        // hôm trước, lệch với dateFrom/dateTo (ngày local VN từ dashboard) và
+        // lệch với stat_date bucket (vnDateString phía client).
+        const VN_DATE = `(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date`;
         if (dateFrom) {
             params.push(dateFrom);
-            clauses.push(`created_at::date >= $${params.length}`);
+            clauses.push(`${VN_DATE} >= $${params.length}`);
         }
         if (dateTo) {
             params.push(dateTo);
-            clauses.push(`created_at::date <= $${params.length}`);
+            clauses.push(`${VN_DATE} <= $${params.length}`);
         }
         if (campaign) {
             params.push(campaign);
@@ -925,6 +930,28 @@ router.delete('/kpi-final-snapshot/:orderCode', async (req, res) => {
 // KPI AUDIT LOG API
 // =====================================================
 
+// Idempotency cho audit log: client gửi kèm client_id (UUID). Nếu POST đã
+// commit nhưng client mất response (timeout) → client queue + flush lại →
+// ON CONFLICT (client_id) DO NOTHING chặn bản ghi trùng (trùng log làm
+// fallback NET phồng + attribution sai). Cột nullable + partial unique index
+// → backward-compat với client cũ chưa gửi client_id.
+let _kpiAuditClientIdEnsured = false;
+async function ensureKpiAuditClientIdColumn(pool) {
+    if (_kpiAuditClientIdEnsured) return;
+    try {
+        await pool.query(
+            `ALTER TABLE kpi_audit_log ADD COLUMN IF NOT EXISTS client_id VARCHAR(64)`
+        );
+        await pool.query(
+            `CREATE UNIQUE INDEX IF NOT EXISTS idx_kpi_audit_client_id
+             ON kpi_audit_log(client_id) WHERE client_id IS NOT NULL`
+        );
+        _kpiAuditClientIdEnsured = true;
+    } catch (e) {
+        console.warn('[REALTIME-DB] ensureKpiAuditClientIdColumn failed:', e?.message);
+    }
+}
+
 /**
  * POST /api/realtime/kpi-audit-log
  * Log a single product action
@@ -932,6 +959,7 @@ router.delete('/kpi-final-snapshot/:orderCode', async (req, res) => {
 router.post('/kpi-audit-log', async (req, res) => {
     try {
         const {
+            clientId,
             orderCode,
             orderId,
             action,
@@ -952,6 +980,7 @@ router.post('/kpi-audit-log', async (req, res) => {
         if (!orderCode || !action || !productCode) {
             return res.status(400).json({ error: 'orderCode, action, productCode required' });
         }
+        await ensureKpiAuditClientIdColumn(pool);
 
         // Dedup: skip if identical log exists within last 5 seconds
         const dedup = await pool.query(
@@ -971,8 +1000,9 @@ router.post('/kpi-audit-log', async (req, res) => {
         const result = await pool.query(
             `
             INSERT INTO kpi_audit_log (order_code, order_id, action, product_id, product_code, product_name,
-                quantity, source, user_id, user_name, campaign_id, campaign_name, out_of_range)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                quantity, source, user_id, user_name, campaign_id, campaign_name, out_of_range, client_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            ON CONFLICT (client_id) WHERE client_id IS NOT NULL DO NOTHING
             RETURNING id
         `,
             [
@@ -989,8 +1019,22 @@ router.post('/kpi-audit-log', async (req, res) => {
                 campaignId,
                 campaignName,
                 outOfRange || false,
+                clientId || null,
             ]
         );
+
+        // ON CONFLICT DO NOTHING → 0 row khi client_id đã tồn tại (retry sau timeout)
+        if (result.rows.length === 0) {
+            const existing = await pool.query(
+                'SELECT id FROM kpi_audit_log WHERE client_id = $1 LIMIT 1',
+                [clientId]
+            );
+            return res.json({
+                success: true,
+                id: existing.rows[0]?.id || null,
+                deduplicated: true,
+            });
+        }
 
         res.json({ success: true, id: result.rows[0].id });
     } catch (error) {
@@ -1016,6 +1060,7 @@ router.post('/kpi-audit-log/batch', async (req, res) => {
         if (entries.length > 500) {
             return res.status(400).json({ error: 'Batch size exceeds limit of 500 entries' });
         }
+        await ensureKpiAuditClientIdColumn(pool);
 
         const client = await pool.connect();
         let count = 0;
@@ -1023,11 +1068,14 @@ router.post('/kpi-audit-log/batch', async (req, res) => {
             await client.query('BEGIN');
             for (const e of entries) {
                 if (!e.orderCode || !e.action || !e.productCode) continue;
-                await client.query(
+                // ON CONFLICT (client_id): queue flush sau timeout không ghi trùng
+                // entry mà POST gốc thực ra đã commit (idempotent re-send).
+                const r = await client.query(
                     `
                     INSERT INTO kpi_audit_log (order_code, order_id, action, product_id, product_code, product_name,
-                        quantity, source, user_id, user_name, campaign_id, campaign_name, out_of_range)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                        quantity, source, user_id, user_name, campaign_id, campaign_name, out_of_range, client_id)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                    ON CONFLICT (client_id) WHERE client_id IS NOT NULL DO NOTHING
                 `,
                     [
                         e.orderCode,
@@ -1043,9 +1091,10 @@ router.post('/kpi-audit-log/batch', async (req, res) => {
                         e.campaignId,
                         e.campaignName,
                         e.outOfRange || false,
+                        e.clientId || null,
                     ]
                 );
-                count++;
+                if (r.rowCount > 0) count++;
             }
             await client.query('COMMIT');
         } catch (e) {
@@ -1477,6 +1526,20 @@ router.get('/kpi-statistics', async (req, res) => {
             params
         );
 
+        // Strip `details` (per-product breakdown JSONB — nặng nhất payload) khỏi
+        // từng order: KHÔNG consumer nào của endpoint LIST này đọc nó (dashboard
+        // + tab1 strip đều tính chi tiết live qua calculateNetKPI). Endpoint
+        // per-(user,date) bên dưới vẫn trả đủ. Cắt ở đây giảm mạnh payload cho
+        // dashboard load + tab1 strip refresh theo SSE.
+        const stripDetails = (orders) =>
+            (Array.isArray(orders) ? orders : []).map((o) => {
+                if (o && typeof o === 'object' && 'details' in o) {
+                    const { details, ...rest } = o;
+                    return rest;
+                }
+                return o;
+            });
+
         res.json({
             statistics: result.rows.map((r) => ({
                 userId: r.user_id,
@@ -1484,7 +1547,7 @@ router.get('/kpi-statistics', async (req, res) => {
                 date: r.stat_date,
                 totalNetProducts: r.total_net_products,
                 totalKPI: parseFloat(r.total_kpi),
-                orders: r.orders || [],
+                orders: stripDetails(r.orders),
                 updatedAt: r.updated_at,
             })),
         });
@@ -1676,6 +1739,147 @@ router.patch('/kpi-statistics/:userId/:date/order', async (req, res) => {
     } catch (error) {
         await client.query('ROLLBACK').catch(() => {});
         console.error('[REALTIME-DB] PATCH /kpi-statistics order error:', error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        client.release();
+    }
+});
+
+/**
+ * POST /api/realtime/kpi-statistics/reattribute
+ * ATOMIC re-attribution cho 1 đơn trong MỘT transaction:
+ *   1) strip orderCode khỏi orders[] của MỌI (userId, stat_date) row
+ *   2) upsert từng entry mới (ensure row → append order → recompute totals)
+ * Thay cho cặp DELETE /order/:orderCode → PATCH /:userId/:date/order (2-3
+ * request rời, có cửa sổ race khi 2 recalc đồng thời cùng đơn interleave
+ * DELETE/PATCH → row duplicate/stale). Advisory xact lock theo orderCode
+ * serialize các recalc cùng đơn (last-write-wins theo thứ tự commit).
+ *
+ * Body: { orderCode, entries: [{ userId, date(YYYY-MM-DD), userName, stt,
+ *   campaignName, netProducts, kpi, netProductsLegacy, kpiLegacy,
+ *   hasDiscrepancy, details }] } — entries=[] → chỉ strip (đơn hết KPI).
+ */
+router.post('/kpi-statistics/reattribute', async (req, res) => {
+    const pool = req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+    const { orderCode, entries } = req.body || {};
+    if (!orderCode) return res.status(400).json({ error: 'orderCode required' });
+    const list = Array.isArray(entries) ? entries : [];
+    for (const e of list) {
+        if (!e || !e.userId || !e.date) {
+            return res.status(400).json({ error: 'each entry requires userId + date' });
+        }
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        // hashtext → int4; dùng overload (int, int) của pg_advisory_xact_lock.
+        // Lock tự nhả khi COMMIT/ROLLBACK.
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1), 0)', [
+            `kpi_stats:${orderCode}`,
+        ]);
+
+        // (1) Strip orderCode khỏi mọi row + recompute totals của row bị strip
+        // (same shape với DELETE /kpi-statistics/order/:orderCode).
+        await client.query(
+            `
+            WITH filtered AS (
+                SELECT id,
+                       COALESCE((
+                           SELECT jsonb_agg(elem)
+                           FROM jsonb_array_elements(orders) elem
+                           WHERE elem->>'orderCode' != $1
+                       ), '[]'::jsonb) AS new_orders
+                FROM kpi_statistics
+                WHERE orders @> $2::jsonb
+            )
+            UPDATE kpi_statistics k
+            SET orders = f.new_orders,
+                total_net_products = COALESCE((
+                    SELECT SUM((elem->>'netProducts')::int)
+                    FROM jsonb_array_elements(f.new_orders) elem
+                ), 0),
+                total_kpi = COALESCE((
+                    SELECT SUM((elem->>'kpi')::numeric)
+                    FROM jsonb_array_elements(f.new_orders) elem
+                ), 0),
+                updated_at = CURRENT_TIMESTAMP
+            FROM filtered f
+            WHERE k.id = f.id
+        `,
+            [orderCode, JSON.stringify([{ orderCode }])]
+        );
+
+        // (2) Upsert từng entry (same shape với PATCH /:userId/:date/order).
+        for (const e of list) {
+            const orderObj = JSON.stringify({
+                orderCode,
+                orderId: e.orderId || null,
+                stt: e.stt || 0,
+                campaignName: e.campaignName || null,
+                netProducts: e.netProducts || 0,
+                kpi: e.kpi || 0,
+                netProductsLegacy: e.netProductsLegacy || 0,
+                kpiLegacy: e.kpiLegacy || 0,
+                hasDiscrepancy: e.hasDiscrepancy || false,
+                details: e.details || {},
+                updatedAt: new Date().toISOString(),
+            });
+
+            await client.query(
+                `
+                INSERT INTO kpi_statistics (user_id, user_name, stat_date, total_net_products, total_kpi, orders)
+                VALUES ($1, $2, $3, 0, 0, '[]')
+                ON CONFLICT (user_id, stat_date) DO UPDATE SET
+                    user_name = COALESCE($2, kpi_statistics.user_name)
+            `,
+                [e.userId, e.userName || null, e.date]
+            );
+
+            await client.query(
+                `
+                UPDATE kpi_statistics
+                SET orders = (
+                    SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+                    FROM jsonb_array_elements(orders) elem
+                    WHERE elem->>'orderCode' != $2
+                ) || $3::jsonb
+                WHERE user_id = $1 AND stat_date = $4
+            `,
+                [e.userId, orderCode, `[${orderObj}]`, e.date]
+            );
+
+            await client.query(
+                `
+                UPDATE kpi_statistics
+                SET total_net_products = COALESCE((
+                        SELECT SUM((elem->>'netProducts')::int)
+                        FROM jsonb_array_elements(orders) elem
+                    ), 0),
+                    total_kpi = COALESCE((
+                        SELECT SUM((elem->>'kpi')::numeric)
+                        FROM jsonb_array_elements(orders) elem
+                    ), 0),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = $1 AND stat_date = $2
+            `,
+                [e.userId, e.date]
+            );
+        }
+
+        await client.query('COMMIT');
+
+        // SSE broadcast 1 lần cho cả đơn (thay vì 1 event/PATCH như flow cũ)
+        if (notifyClients) {
+            notifyClients('kpi_statistics', { orderCode, op: 'reattribute' }, 'update');
+        }
+
+        res.json({ success: true, orderCode, entries: list.length });
+    } catch (error) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('[REALTIME-DB] POST /kpi-statistics/reattribute error:', error);
         res.status(500).json({ error: error.message });
     } finally {
         client.release();

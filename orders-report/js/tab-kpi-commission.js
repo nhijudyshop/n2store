@@ -29,7 +29,6 @@ const KPICommission = {
             employee: '',
             dateFrom: '',
             dateTo: '',
-            status: '',
         },
         statsData: [], // Raw kpi_statistics data [{userId, userName, dates: {...}}]
         filteredData: [], // Filtered + aggregated data for display
@@ -861,18 +860,16 @@ const KPICommission = {
 
             this._orderCheckStore.init().catch(() => {});
 
-            // Load invoice status + KPI stats + Inbox KPI in parallel from Render API
-            await Promise.all([
-                this.loadInvoiceStatusData(),
-                this.loadAllStatistics(),
-                this.loadInboxKpiStats(),
-            ]);
+            // Load invoice status + KPI stats in parallel from Render API.
+            // (KHÔNG load Inbox KPI ở đây: _inboxKpiByUser không còn cell nào đọc —
+            // sub-tab "KPI Đơn Inbox" tự load qua loadInboxSubtabStats khi mở.)
+            await Promise.all([this.loadInvoiceStatusData(), this.loadAllStatistics()]);
             // Derive filters from loaded data
             await this.loadCampaignOptions();
             await this.loadEmployeeOptions();
 
-            // Auto-select campaign from parent window's active campaign
-            this.syncCampaignFromParent();
+            // (Campaign auto-select chuyển vào _restoreFilters — ưu tiên cache,
+            // fallback parent active → campaign mới nhất.)
 
             // Sync nút toggle mode với state đã khôi phục từ localStorage
             this.updateDisplayModeLabel();
@@ -1145,7 +1142,7 @@ const KPICommission = {
     },
 
     async applyFilters() {
-        // Read filter values — status từ chip, các value khác từ inputs
+        // Read filter values từ inputs (chips trạng thái OK/Sai lệch đã bỏ 2026-06-10)
         this.state.filters.campaign =
             (document.getElementById('kpiFilterCampaign') || {}).value || '';
         this.state.filters.employee =
@@ -1153,12 +1150,11 @@ const KPICommission = {
         this.state.filters.dateFrom =
             (document.getElementById('kpiFilterDateFrom') || {}).value || '';
         this.state.filters.dateTo = (document.getElementById('kpiFilterDateTo') || {}).value || '';
-        // Status đọc từ active chip (filter v2) thay vì select cũ
-        const activeChip = document.querySelector('.kpi-status-chips .kpi-chip.is-active');
-        this.state.filters.status = activeChip ? activeChip.dataset.status || '' : '';
         this._renderFiltersSummary();
+        // Nhớ lựa chọn cho lần mở sau (không có cache → default Hôm nay + campaign mới nhất)
+        this._persistFilterCache();
 
-        const { campaign, employee, dateFrom, dateTo, status } = this.state.filters;
+        const { campaign, employee, dateFrom, dateTo } = this.state.filters;
 
         // Filter statsData
         let filtered = [];
@@ -1185,10 +1181,6 @@ const KPICommission = {
                     const inv = this._invoiceCache?.get(order.orderId);
                     if (this._isInvoiceCancelled(inv)) continue;
 
-                    // Filter by status
-                    if (status === 'ok' && order.hasDiscrepancy) continue;
-                    if (status === 'discrepancy' && !order.hasDiscrepancy) continue;
-
                     // Đơn chưa có phiếu / phiếu Nháp → VẪN hiển thị nhưng đánh dấu
                     // "Chờ phiếu" + KHÔNG cộng KPI (loại ở các chỗ tính tổng).
                     employeeOrders.push({
@@ -1210,11 +1202,9 @@ const KPICommission = {
 
         this.state.filteredData = filtered;
 
-        // Reload Inbox KPI khi date range đổi (KPI inbox phân riêng, phụ thuộc
-        // dateFrom/dateTo). Fire-and-forget — table sẽ tự re-render khi xong.
-        this.loadInboxKpiStats()
-            .then(() => this.renderKPITable(this.state.filteredData))
-            .catch((e) => console.warn('[KPI] reload inbox KPI failed:', e?.message));
+        // (Đã bỏ reload Inbox KPI + render lần 2 ở đây: _inboxKpiByUser không có
+        // consumer trong bảng campaign — sub-tab Inbox dùng loadInboxSubtabStats
+        // riêng. Trước đây mỗi lần lọc renderKPITable chạy 2 LẦN + 1 fetch thừa.)
 
         // Update UI
         this.updateSummaryCards(filtered);
@@ -1840,16 +1830,6 @@ const KPICommission = {
             });
         }
 
-        // Status chips
-        document.querySelectorAll('.kpi-status-chips .kpi-chip').forEach((chip) => {
-            chip.addEventListener('click', () => {
-                document
-                    .querySelectorAll('.kpi-status-chips .kpi-chip')
-                    .forEach((c) => c.classList.toggle('is-active', c === chip));
-                this.applyFilters();
-            });
-        });
-
         // Auto-apply on date inputs change
         ['kpiFilterDateFrom', 'kpiFilterDateTo'].forEach((id) => {
             const el = document.getElementById(id);
@@ -1879,8 +1859,111 @@ const KPICommission = {
             moreMenu.addEventListener('click', (e) => e.stopPropagation());
         }
 
-        // Apply initial preset (30d)
-        this._applyDatePreset('30d');
+        // Khôi phục lựa chọn lần trước từ localStorage; KHÔNG có cache →
+        // default HÔM NAY + campaign MỚI NHẤT (user chốt 2026-06-10).
+        this._restoreFilters();
+    },
+
+    // ── Filter cache: nhớ lựa chọn giữa các lần mở tab ──
+    _FILTER_CACHE_KEY: 'kpiFilterCache_v1',
+
+    /** Lưu lựa chọn filter hiện tại (gọi sau mỗi applyFilters). */
+    _persistFilterCache() {
+        try {
+            const activeBtn = document.querySelector('.kpi-preset-btn.is-active');
+            const monthSel = document.getElementById('kpiFilterMonth');
+            const monthActive = monthSel?.classList.contains('is-active');
+            localStorage.setItem(
+                this._FILTER_CACHE_KEY,
+                JSON.stringify({
+                    // Lưu PRESET (today/7d/...) thay vì ngày cứng → hôm sau mở
+                    // "Hôm nay" vẫn là ngày mới. Ngày cứng chỉ lưu cho custom.
+                    datePreset: monthActive ? null : activeBtn?.dataset.preset || null,
+                    month: monthActive ? monthSel.value : null,
+                    dateFrom: this.state.filters.dateFrom,
+                    dateTo: this.state.filters.dateTo,
+                    campaign: this.state.filters.campaign,
+                    employee: this.state.filters.employee,
+                })
+            );
+        } catch (e) {}
+    },
+
+    /**
+     * Khôi phục filter khi mở tab:
+     *   - Date: cache (preset/tháng/custom) → không có → HÔM NAY.
+     *   - Campaign: cache → campaign active của parent → MỚI NHẤT (option đầu
+     *     dropdown — /api/campaigns đã sort created_at DESC).
+     *   - NV: cache (nếu còn trong options).
+     * Gọi từ _bindFilterV2 (sau khi options campaign/NV + tháng đã populate).
+     */
+    _restoreFilters() {
+        let cache = null;
+        try {
+            cache = JSON.parse(localStorage.getItem(this._FILTER_CACHE_KEY) || 'null');
+        } catch (e) {}
+
+        const setPresetActive = (preset) => {
+            document
+                .querySelectorAll('.kpi-preset-btn')
+                .forEach((b) => b.classList.toggle('is-active', b.dataset.preset === preset));
+        };
+
+        // 1) Khoảng ngày
+        const monthSel = document.getElementById('kpiFilterMonth');
+        const PRESETS = ['today', '7d', '30d', 'thismonth'];
+        if (cache?.month && monthSel) {
+            monthSel.value = cache.month;
+            if (monthSel.value === cache.month) {
+                setPresetActive('__none__');
+                monthSel.classList.add('is-active');
+                this._applyMonthRange(cache.month);
+            } else {
+                // Tháng cache không còn trong options → fallback hôm nay
+                setPresetActive('today');
+                this._applyDatePreset('today');
+            }
+        } else if (cache?.datePreset === 'custom' && cache?.dateFrom && cache?.dateTo) {
+            const fromEl = document.getElementById('kpiFilterDateFrom');
+            const toEl = document.getElementById('kpiFilterDateTo');
+            const customWrap = document.getElementById('kpiDateCustom');
+            if (fromEl) fromEl.value = cache.dateFrom;
+            if (toEl) toEl.value = cache.dateTo;
+            if (customWrap) customWrap.style.display = '';
+            setPresetActive('custom');
+        } else if (cache?.datePreset && PRESETS.includes(cache.datePreset)) {
+            setPresetActive(cache.datePreset);
+            this._applyDatePreset(cache.datePreset);
+        } else {
+            // KHÔNG có cache → mặc định HÔM NAY
+            setPresetActive('today');
+            this._applyDatePreset('today');
+        }
+
+        // 2) Campaign: cache → parent active → mới nhất
+        const campSel = document.getElementById('kpiFilterCampaign');
+        if (campSel) {
+            let applied = false;
+            if (cache?.campaign) {
+                campSel.value = cache.campaign;
+                applied = campSel.value === cache.campaign;
+            }
+            if (!applied) {
+                this.syncCampaignFromParent();
+                applied = !!campSel.value;
+            }
+            if (!applied) {
+                const firstOpt = [...campSel.options].find((o) => o.value);
+                if (firstOpt) campSel.value = firstOpt.value;
+            }
+        }
+
+        // 3) Nhân viên (chỉ từ cache)
+        const empSel = document.getElementById('kpiFilterEmployee');
+        if (empSel && cache?.employee) {
+            empSel.value = cache.employee;
+            if (empSel.value !== cache.employee) empSel.value = '';
+        }
     },
 
     _renderFiltersSummary() {
@@ -1897,7 +1980,6 @@ const KPICommission = {
             const label = empSel?.options[empSel.selectedIndex]?.text || f.employee;
             parts.push(`👤 ${label}`);
         }
-        if (f.status) parts.push(f.status === 'ok' ? '✓ OK' : '⚠ Sai lệch');
         el.textContent = parts.length ? 'Filter: ' + parts.join(' · ') : '';
     },
 
@@ -2220,6 +2302,10 @@ const KPICommission = {
             let pendingCount = 0;
 
             for (const order of emp.orders) {
+                // Đơn stale (BASE đã xóa) → loại khỏi tổng — đồng nhất với
+                // updateSummaryCards (trước đây leaderboard cộng cả stale →
+                // tổng card với tổng bảng lệch nhau).
+                if (order._stale) continue;
                 // Đơn "Chờ phiếu" → KHÔNG cộng KPI/NET (đếm riêng để hiện badge).
                 if (order._kpiPending) {
                     pendingCount++;
@@ -2715,84 +2801,11 @@ const KPICommission = {
             const results = new Array(total);
             let nextIdx = 0;
 
+            // Logic đối soát 1 đơn dùng chung với recon toàn cục: _buildReconRecord.
             const reconcileOne = async (idx) => {
                 const order = orders[idx];
                 const invoice = this._invoiceCache?.get(order.orderId) || null;
-                const invNumber = invoice?.Number || '';
-                const baseFields = {
-                    orderId: order.orderId,
-                    orderCode: order.orderCode || '',
-                    invoiceNumber: invNumber,
-                    invoiceState: invoice?.ShowState || '',
-                    kpiAmount: order.kpi || 0,
-                    stt: order.stt,
-                    expectedNet: order.netProducts || 0,
-                };
-                try {
-                    let result = {
-                        hasDiscrepancy: false,
-                        discrepancies: [],
-                        actualNet: null,
-                        details: {},
-                    };
-                    if (window.kpiManager?.reconcileKPI) {
-                        result = await window.kpiManager.reconcileKPI(
-                            order.orderId,
-                            order.campaignName,
-                            order.orderCode
-                        );
-                    }
-                    // So khớp món hoàn theo SẢN PHẨM (chỉ trừ KPI món được tính KPI).
-                    const refund = this._matchRefundForOrder(
-                        invNumber,
-                        result.details,
-                        refundByInvoice
-                    );
-                    const kpiLost = Math.min(refund.refundedKpiAmount, order.kpi || 0);
-                    // "Có hoàn" (đơn có phiếu hoàn) TÁCH khỏi "bị loại KPI": đơn hoàn
-                    // mà món hoàn không tính KPI vẫn flag isRefunded nhưng loss=0.
-                    const isRefunded = refund.hasRefundRow || refund.refundedKpiAmount > 0;
-                    const refundDiscrepancy = !isRefunded
-                        ? []
-                        : refund.refundedKpiAmount > 0
-                          ? [
-                                {
-                                    type: 'refunded',
-                                    message: `Hoàn ${refund.refundedProducts.length} món KPI (${refund.refundedProducts
-                                        .map((p) => p.code)
-                                        .join(', ')}) — loại ${this.formatCurrency(kpiLost)}`,
-                                },
-                            ]
-                          : [
-                                {
-                                    type: 'refunded_no_kpi',
-                                    message: `Đơn có hoàn nhưng món hoàn không nằm trong SP tính KPI → không trừ KPI`,
-                                },
-                            ];
-                    results[idx] = {
-                        ...baseFields,
-                        actualNet:
-                            result.actualNet != null ? result.actualNet : order.netProducts || 0,
-                        hasDiscrepancy: refund.refundedKpiAmount > 0 || result.hasDiscrepancy,
-                        isRefunded,
-                        refundedKpiAmount: refund.refundedKpiAmount,
-                        refundedProducts: refund.refundedProducts,
-                        hasRefundRow: refund.hasRefundRow,
-                        discrepancies: [...refundDiscrepancy, ...(result.discrepancies || [])],
-                    };
-                } catch (e) {
-                    console.error('[KPI L1] Recon error for', order.orderId, e);
-                    results[idx] = {
-                        ...baseFields,
-                        actualNet: 'Lỗi',
-                        hasDiscrepancy: true,
-                        isRefunded: false,
-                        refundedKpiAmount: 0,
-                        refundedProducts: [],
-                        hasRefundRow: refundByInvoice.has(invNumber),
-                        discrepancies: [{ type: 'error', message: e?.message || 'lỗi' }],
-                    };
-                }
+                results[idx] = await this._buildReconRecord(order, invoice, refundByInvoice);
             };
 
             const workers = Array.from({ length: CONCURRENCY }, async () => {
@@ -4337,7 +4350,10 @@ const KPICommission = {
             window.API_CONFIG?.WORKER_URL ||
             window.parent?.API_CONFIG?.WORKER_URL ||
             'https://chatomni-proxy.nhijudyshop.workers.dev';
-        // KPI iframe không có tokenManager — fetch token qua proxy /api/token (giống trahang.js)
+        // KPI iframe không có tokenManager — lấy token qua proxy /api/token chế độ
+        // JSON proxy-auth: worker giữ credentials TPOS server-side, browser CHỈ gửi
+        // { companyId } (bỏ hardcode user/pass trong client JS — pattern chuẩn đã
+        // dùng ở orders-report/js/core/token-manager.js, shared/js/token-manager.js).
         let authHeader;
         const tokenManager = window.tokenManager || window.parent?.tokenManager;
         if (tokenManager?.getAuthHeader) {
@@ -4347,26 +4363,10 @@ const KPICommission = {
                 window.ShopConfig?.getConfig?.()?.CompanyId ||
                 window.parent?.ShopConfig?.getConfig?.()?.CompanyId ||
                 1;
-            const creds =
-                companyId === 2
-                    ? {
-                          grant_type: 'password',
-                          username: 'nvktshop1',
-                          password: 'Aa@28612345678',
-                          client_id: 'tmtWebApp',
-                      }
-                    : {
-                          grant_type: 'password',
-                          username: 'nvktlive1',
-                          password: 'Aa@28612345678',
-                          client_id: 'tmtWebApp',
-                      };
-            const formData = new URLSearchParams();
-            for (const [k, v] of Object.entries(creds)) formData.append(k, v);
             const tokenRes = await fetch(`${WORKER}/api/token`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: formData.toString(),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ companyId }),
             });
             if (!tokenRes.ok) throw new Error(`Token HTTP ${tokenRes.status}`);
             const tokenData = await tokenRes.json();
@@ -4473,6 +4473,90 @@ const KPICommission = {
             out.refundedProducts.push({ code: d.code, name: d.name || '', qty: lostQty, kpiLost });
         }
         return out;
+    },
+
+    /**
+     * Đối soát MỘT đơn: reconcileKPI (NET thật + per-product details) + so khớp
+     * món hoàn theo SẢN PHẨM → trả record kết quả chuẩn cho bảng đối soát.
+     * Dùng chung cho đối soát toàn cục (runReconciliation) và per-NV modal L1
+     * (runEmployeeReconciliation) — trước đây ~80 dòng duplicate ở mỗi nơi.
+     *
+     * @param {object} order - order từ filteredData ({orderId, orderCode, kpi, stt, netProducts, campaignName})
+     * @param {object|null} invoice - entry từ _invoiceCache (hoặc null)
+     * @param {Map} refundByInvoice - từ fetchRefundDetailByInvoice
+     * @returns {Promise<object>} recon record (cả error-shape khi lỗi)
+     */
+    async _buildReconRecord(order, invoice, refundByInvoice) {
+        const invNumber = invoice?.Number || '';
+        const baseFields = {
+            orderId: order.orderId,
+            orderCode: order.orderCode || '',
+            invoiceNumber: invNumber,
+            invoiceState: invoice?.ShowState || '',
+            kpiAmount: order.kpi || 0,
+            stt: order.stt,
+            expectedNet: order.netProducts || 0,
+        };
+        try {
+            let result = {
+                hasDiscrepancy: false,
+                discrepancies: [],
+                actualNet: null,
+                details: {},
+            };
+            if (window.kpiManager?.reconcileKPI) {
+                result = await window.kpiManager.reconcileKPI(
+                    order.orderId,
+                    order.campaignName,
+                    order.orderCode
+                );
+            }
+            // So khớp món hoàn theo SẢN PHẨM (chỉ trừ KPI món được tính KPI).
+            const refund = this._matchRefundForOrder(invNumber, result.details, refundByInvoice);
+            const kpiLost = Math.min(refund.refundedKpiAmount, order.kpi || 0);
+            // "Có hoàn" TÁCH khỏi "bị loại KPI": đơn có phiếu hoàn mà món hoàn
+            // không tính KPI vẫn flag isRefunded nhưng loss=0.
+            const isRefunded = refund.hasRefundRow || refund.refundedKpiAmount > 0;
+            const refundDiscrepancy = !isRefunded
+                ? []
+                : refund.refundedKpiAmount > 0
+                  ? [
+                        {
+                            type: 'refunded',
+                            message: `Hoàn ${refund.refundedProducts.length} món KPI (${refund.refundedProducts
+                                .map((p) => p.code)
+                                .join(', ')}) — loại ${this.formatCurrency(kpiLost)}`,
+                        },
+                    ]
+                  : [
+                        {
+                            type: 'refunded_no_kpi',
+                            message: `Đơn có hoàn nhưng món hoàn không nằm trong SP tính KPI → không trừ KPI`,
+                        },
+                    ];
+            return {
+                ...baseFields,
+                actualNet: result.actualNet != null ? result.actualNet : order.netProducts || 0,
+                hasDiscrepancy: refund.refundedKpiAmount > 0 || result.hasDiscrepancy,
+                isRefunded,
+                refundedKpiAmount: refund.refundedKpiAmount,
+                refundedProducts: refund.refundedProducts,
+                hasRefundRow: refund.hasRefundRow,
+                discrepancies: [...refundDiscrepancy, ...(result.discrepancies || [])],
+            };
+        } catch (e) {
+            console.error('[KPI Recon] error for order:', order.orderId, e);
+            return {
+                ...baseFields,
+                actualNet: 'Lỗi',
+                hasDiscrepancy: true,
+                isRefunded: false,
+                refundedKpiAmount: 0,
+                refundedProducts: [],
+                hasRefundRow: refundByInvoice.has(invNumber),
+                discrepancies: [{ type: 'error', message: e?.message || 'lỗi' }],
+            };
+        }
     },
 
     // ========================================
@@ -4795,89 +4879,11 @@ const KPICommission = {
             let nextIdx = 0;
             const t2 = performance.now();
 
+            // Logic đối soát 1 đơn dùng chung với per-NV: _buildReconRecord.
             const reconcileOne = async (idx) => {
                 const order = allOrders[idx];
                 const invoice = orderIdToInvoice.get(order.orderId);
-                const invNumber = invoice?.Number || '';
-                let result;
-                try {
-                    if (window.kpiManager && window.kpiManager.reconcileKPI) {
-                        result = await window.kpiManager.reconcileKPI(
-                            order.orderId,
-                            order.campaignName,
-                            order.orderCode
-                        );
-                    } else {
-                        result = {
-                            orderId: order.orderId,
-                            hasDiscrepancy: false,
-                            details: {},
-                            discrepancies: [],
-                        };
-                    }
-                    // So khớp món hoàn theo SẢN PHẨM (chỉ trừ KPI món được tính KPI).
-                    const refund = this._matchRefundForOrder(
-                        invNumber,
-                        result.details,
-                        refundByInvoice
-                    );
-                    const kpiLost = Math.min(refund.refundedKpiAmount, order.kpi || 0);
-                    // "Có hoàn" TÁCH khỏi "bị loại KPI": đơn có phiếu hoàn mà món hoàn
-                    // không tính KPI vẫn flag isRefunded nhưng loss=0.
-                    const isRefunded = refund.hasRefundRow || refund.refundedKpiAmount > 0;
-                    const refundDiscrepancy = !isRefunded
-                        ? []
-                        : refund.refundedKpiAmount > 0
-                          ? [
-                                {
-                                    type: 'refunded',
-                                    message: `Hoàn ${refund.refundedProducts.length} món KPI (${refund.refundedProducts
-                                        .map((p) => p.code)
-                                        .join(', ')}) — loại ${this.formatCurrency(kpiLost)}`,
-                                },
-                            ]
-                          : [
-                                {
-                                    type: 'refunded_no_kpi',
-                                    message: `Đơn có hoàn nhưng món hoàn không nằm trong SP tính KPI → không trừ KPI`,
-                                },
-                            ];
-                    results[idx] = {
-                        orderId: order.orderId,
-                        orderCode: order.orderCode || '',
-                        invoiceNumber: invNumber,
-                        invoiceState: invoice?.ShowState || '',
-                        kpiAmount: order.kpi || 0,
-                        stt: order.stt,
-                        expectedNet: order.netProducts || 0,
-                        actualNet:
-                            result.actualNet != null ? result.actualNet : order.netProducts || 0,
-                        hasDiscrepancy: refund.refundedKpiAmount > 0 || result.hasDiscrepancy,
-                        isRefunded,
-                        refundedKpiAmount: refund.refundedKpiAmount,
-                        refundedProducts: refund.refundedProducts,
-                        hasRefundRow: refund.hasRefundRow,
-                        discrepancies: [...refundDiscrepancy, ...(result.discrepancies || [])],
-                    };
-                } catch (e) {
-                    console.error('[KPI Tab] Reconciliation error for order:', order.orderId, e);
-                    results[idx] = {
-                        orderCode: order.orderCode || '',
-                        orderId: order.orderId,
-                        invoiceNumber: invNumber,
-                        invoiceState: invoice?.ShowState || '',
-                        kpiAmount: order.kpi || 0,
-                        stt: order.stt,
-                        expectedNet: order.netProducts || 0,
-                        actualNet: 'Lỗi',
-                        hasDiscrepancy: true,
-                        isRefunded: false,
-                        refundedKpiAmount: 0,
-                        refundedProducts: [],
-                        hasRefundRow: refundByInvoice.has(invNumber),
-                        discrepancies: [{ type: 'error', message: e.message }],
-                    };
-                }
+                results[idx] = await this._buildReconRecord(order, invoice, refundByInvoice);
             };
 
             // Throttled progress UI update — chỉ refresh mỗi 200ms để tránh
@@ -5339,6 +5345,7 @@ const KPICommission = {
                 ['STT', 'Tên nhân viên', 'Số đơn', 'SP NET', 'Tổng KPI (VNĐ)', 'Phiếu bán hàng'],
             ];
 
+            const fullMode = this.state.displayMode === 'full';
             aggregated.forEach((emp, idx) => {
                 // Build invoice status summary text for Excel
                 let invoiceSummary = '';
@@ -5360,12 +5367,19 @@ const KPICommission = {
                 if (noInvoice > 0) parts.push(`${noInvoice} Chưa có`);
                 invoiceSummary = parts.join(', ');
 
+                // Đếm đơn CÙNG TIÊU CHÍ với bảng (renderKPITable): bỏ stale +
+                // chờ-phiếu; full mode đếm cả đơn KPI=0.
+                const orderCount = emp.orders.filter((o) => {
+                    if (o._stale) return false;
+                    if (o._kpiPending) return false;
+                    if (fullMode) return true;
+                    return (o.netProducts || 0) > 0 || (o.kpi || 0) > 0;
+                }).length;
+
                 rows.push([
                     idx + 1,
                     emp.resolvedName || emp.userName || emp.userId,
-                    emp.orders.filter(
-                        (o) => !o._stale && ((o.netProducts || 0) > 0 || (o.kpi || 0) > 0)
-                    ).length,
+                    orderCount,
                     emp.totalNetProducts,
                     emp.totalKPI,
                     invoiceSummary || '−',
@@ -5476,53 +5490,15 @@ const KPICommission = {
                 this.reinitIcons();
             };
 
-            // Smoke test endpoint cleanup — fail fast nếu Render chưa deploy DELETE route.
-            let cleanupAvailable = true;
-            try {
-                await window.kpiManager.kpiAPI(
-                    'DELETE',
-                    `/kpi-statistics/order/${encodeURIComponent('__probe_' + Date.now())}`
-                );
-            } catch (e) {
-                const msg = String(e?.message || e);
-                if (msg.includes('404')) {
-                    cleanupAvailable = false;
-                    console.warn(
-                        '[KPI Recompute] DELETE /kpi-statistics/order chưa có trên server (404). Render có thể đang deploy — bấm lại sau vài phút.'
-                    );
-                    alert(
-                        '⚠ Server Render chưa có endpoint dọn orphan (chưa deploy xong).\nBackfill vẫn sẽ chạy nhưng các đơn duplicate cũ SẼ KHÔNG ĐƯỢC DỌN.\n\nKhuyến nghị: đợi 2-3 phút cho Render deploy xong rồi bấm lại.'
-                    );
-                }
-                // Non-404 errors: orderCode ngẫu nhiên không match row nào → server trả 200 hoặc lỗi khác — vẫn coi là available.
-            }
-
-            // Worker pool: mỗi worker pull 1 orderCode từ queue, cleanup + recompute, repeat.
-            let cleanupFailures = 0;
+            // Worker pool: mỗi worker pull 1 orderCode từ queue rồi recompute.
+            // KHÔNG gọi DELETE /kpi-statistics/order riêng ở đây nữa —
+            // recalculateAndSaveKPI ĐÃ tự wipe orderCode khỏi mọi (userId, stat_date)
+            // row trước khi ghi lại (kpi-manager.js). Gọi thêm = double request/đơn.
             const worker = async () => {
                 while (queue.length > 0) {
                     const orderCode = queue.shift();
                     if (!orderCode) break;
                     try {
-                        // (1) Xoá orderCode khỏi mọi (userId, stat_date) row để dẹp orphan
-                        //     từ các lần save cũ (sai ngày hoặc sai userId).
-                        if (cleanupAvailable) {
-                            try {
-                                await window.kpiManager.kpiAPI(
-                                    'DELETE',
-                                    `/kpi-statistics/order/${encodeURIComponent(orderCode)}`
-                                );
-                            } catch (e) {
-                                cleanupFailures++;
-                                if (cleanupFailures <= 5) {
-                                    console.warn(
-                                        `[KPI Recompute] Cleanup fail ${orderCode}:`,
-                                        e?.message || e
-                                    );
-                                }
-                            }
-                        }
-                        // (2) Recompute + save vào đúng (userId, baseDate).
                         await window.kpiManager.recalculateAndSaveKPI(orderCode);
                     } catch (e) {
                         failed++;
@@ -5536,16 +5512,9 @@ const KPICommission = {
             const workers = Array.from({ length: Math.min(CONCURRENCY, total) }, () => worker());
             await Promise.all(workers);
 
-            console.log(
-                `[KPI Recompute] Xong: ${done - failed}/${total} đơn, fail ${failed}, cleanup fail ${cleanupFailures}`
-            );
-            const cleanupWarn = !cleanupAvailable
-                ? '\n\n⚠ Không dọn được orphan — các đơn duplicate cũ vẫn còn.\nĐợi Render deploy xong rồi bấm lại.'
-                : cleanupFailures > 0
-                  ? `\n\n⚠ ${cleanupFailures} đơn dọn orphan lỗi (xem console).`
-                  : '';
+            console.log(`[KPI Recompute] Xong: ${done - failed}/${total} đơn, fail ${failed}`);
             alert(
-                `Hoàn tất: ${done - failed}/${total} đơn.\nFailed: ${failed}${cleanupWarn}\n\nĐang refresh bảng…`
+                `Hoàn tất: ${done - failed}/${total} đơn.\nFailed: ${failed}\n\nĐang refresh bảng…`
             );
             await this.refreshData();
         } catch (e) {
@@ -5581,17 +5550,28 @@ const KPICommission = {
         // Clear name cache to force re-resolution
         this.state.employeeNameCache = {};
 
+        // Refresh invoice cache: trạng thái phiếu (Chờ phiếu / Nháp / Hủy) đổi
+        // liên tục trên TPOS — giữ cache cũ làm đơn kẹt "Chờ phiếu" (không cộng
+        // KPI) dù phiếu đã xác nhận, phải F5 cả trang mới hết.
+        this._invoiceCacheLoaded = false;
+
         try {
-            await this.loadAllStatistics();
+            await Promise.all([this.loadAllStatistics(), this.loadInvoiceStatusData()]);
             await this.applyFilters();
             this.reinitIcons();
             // Nền: fetch + lưu snapshot SP cuối thật cho đơn ĐANG HIỂN THỊ chưa có
-            // (đơn nào có rồi bỏ qua). Không await → bảng hiện ngay, snapshot pre-warm
-            // cho modal + lần "Tính lại KPI" sau. Bảng KPI vẫn = giá trị đã lưu cho tới
-            // khi bấm "Tính lại toàn bộ KPI".
-            this._ensureSnapshotsForVisibleOrders().catch((e) =>
-                console.warn('[KPI Tab] snapshot sweep failed:', e?.message)
-            );
+            // (đơn nào có rồi bỏ qua). Không await → bảng hiện ngay. Đơn nào VỪA có
+            // snapshot lần đầu (vd phiếu mới xuất sau lần thao tác cuối) được recalc
+            // luôn trong sweep → reload số mới silent. User KHÔNG cần bấm "Tính lại
+            // toàn bộ KPI" cho case này nữa.
+            this._ensureSnapshotsForVisibleOrders()
+                .then(async (reconciledCount) => {
+                    if (reconciledCount > 0) {
+                        await this.loadAllStatistics();
+                        await this.applyFilters();
+                    }
+                })
+                .catch((e) => console.warn('[KPI Tab] snapshot sweep failed:', e?.message));
         } catch (error) {
             console.error('[KPI Tab] Refresh error:', error);
             this.hideEl('kpiTableLoading');
@@ -5601,32 +5581,35 @@ const KPICommission = {
 
     // Fetch + lưu snapshot SP cuối thật (TPOS) cho các đơn đang hiển thị mà CHƯA có
     // snapshot. "Có rồi bỏ qua" (getMissingFinalSnapshots). Worker pool, non-fatal.
+    // Đơn VỪA có snapshot lần đầu → recalc luôn (số đã lưu trước đó là audit-replay
+    // vì lúc nhân viên thao tác phiếu chưa xuất; TPOS không bắn event khi xuất phiếu
+    // nên không gì tự re-trigger). Trả về số đơn đã recalc để caller reload bảng.
     async _ensureSnapshotsForVisibleOrders() {
-        if (!window.kpiManager?.ensureKpiFinalSnapshot) return;
+        if (!window.kpiManager?.ensureKpiFinalSnapshot) return 0;
         const map = new Map(); // orderCode -> orderId
         for (const emp of this.state.filteredData || []) {
             for (const o of emp.orders || []) {
                 if (o.orderCode && !map.has(o.orderCode)) map.set(o.orderCode, o.orderId || null);
             }
         }
-        if (map.size === 0) return;
+        if (map.size === 0) return 0;
 
         let missing;
         try {
             missing = await window.kpiManager.getMissingFinalSnapshots([...map.keys()]);
         } catch (e) {
-            return;
+            return 0;
         }
         const todo = [...missing]
             .map((code) => ({ code, orderId: map.get(code) }))
             .filter((x) => x.orderId);
-        if (todo.length === 0) return;
+        if (todo.length === 0) return 0;
 
         console.log(`[KPI Tab] Snapshot sweep: ${todo.length} đơn thiếu — đang fetch TPOS…`);
         const CONC = 6;
         let i = 0,
-            done = 0,
-            ok = 0;
+            ok = 0,
+            recalced = 0;
         const worker = async () => {
             while (i < todo.length) {
                 const item = todo[i++];
@@ -5635,13 +5618,24 @@ const KPICommission = {
                         item.code,
                         item.orderId
                     );
-                    if (r) ok++;
+                    if (r) {
+                        ok++;
+                        // Snapshot MỚI (đơn này nằm trong danh sách "missing") →
+                        // statistics đang giữ số audit-replay → recalc để chuyển
+                        // sang NET = đơn thật − BASE.
+                        if (window.kpiManager.recalculateAndSaveKPI) {
+                            await window.kpiManager.recalculateAndSaveKPI(item.code);
+                            recalced++;
+                        }
+                    }
                 } catch (e) {}
-                done++;
             }
         };
         await Promise.all(Array.from({ length: Math.min(CONC, todo.length) }, worker));
-        console.log(`[KPI Tab] Snapshot sweep xong: ${ok}/${todo.length} lưu thành công.`);
+        console.log(
+            `[KPI Tab] Snapshot sweep xong: ${ok}/${todo.length} snapshot mới, recalc ${recalced} đơn.`
+        );
+        return recalced;
     },
 };
 

@@ -20,9 +20,14 @@
 
     const VALID_ACTIONS = ['add', 'remove'];
     const VALID_SOURCES = [
-        'chat_confirm_held', 'chat_decrease', 'chat_from_dropped',
-        'edit_modal_inline', 'edit_modal_remove', 'edit_modal_quantity',
-        'sale_modal', 'system'
+        'chat_confirm_held',
+        'chat_decrease',
+        'chat_from_dropped',
+        'edit_modal_inline',
+        'edit_modal_remove',
+        'edit_modal_quantity',
+        'sale_modal',
+        'system',
     ];
 
     // ==========================================
@@ -36,7 +41,7 @@
                 if (auth) {
                     return {
                         userId: auth.id || auth.Id || auth.username || 'unknown',
-                        userName: auth.displayName || auth.name || auth.username || 'Unknown'
+                        userName: auth.displayName || auth.name || auth.username || 'Unknown',
                     };
                 }
             }
@@ -49,8 +54,10 @@
             if (window.campaignManager) {
                 return {
                     campaignId: window.campaignManager.activeCampaignId || null,
-                    campaignName: window.campaignManager.activeCampaign?.name
-                        || window.campaignManager.activeCampaign?.displayName || null
+                    campaignName:
+                        window.campaignManager.activeCampaign?.name ||
+                        window.campaignManager.activeCampaign?.displayName ||
+                        null,
                 };
             }
         } catch (e) {}
@@ -65,7 +72,9 @@
         try {
             const raw = localStorage.getItem(PENDING_QUEUE_KEY);
             return raw ? JSON.parse(raw) : [];
-        } catch (e) { return []; }
+        } catch (e) {
+            return [];
+        }
     }
 
     function savePendingLogs(logs) {
@@ -105,7 +114,16 @@
         const user = getCurrentUserInfo();
         const campaign = getCampaignInfo();
 
+        // Idempotency key: nếu POST thành công server-side nhưng client mất
+        // response (timeout) → entry vào pending queue → flush lại sẽ KHÔNG
+        // tạo bản ghi trùng (server ON CONFLICT (client_id) DO NOTHING).
+        const clientId =
+            typeof crypto !== 'undefined' && crypto.randomUUID
+                ? crypto.randomUUID()
+                : `cid_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
         const logData = {
+            clientId,
             orderCode: String(entry.orderCode),
             orderId: entry.orderId ? String(entry.orderId) : null,
             action: entry.action,
@@ -118,7 +136,7 @@
             userName: entry.userName || user.userName,
             campaignId: entry.campaignId || campaign.campaignId,
             campaignName: entry.campaignName || campaign.campaignName,
-            outOfRange: entry.out_of_range || false
+            outOfRange: entry.out_of_range || false,
         };
 
         // Try REST API with retry
@@ -127,15 +145,17 @@
                 const res = await fetch(`${KPI_API}/kpi-audit-log`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(logData)
+                    body: JSON.stringify(logData),
                 });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const result = await res.json();
-                console.log(`[KPI Audit] ✓ Logged: ${entry.action} ${entry.productCode} x${entry.quantity} → ${entry.source}`);
+                console.log(
+                    `[KPI Audit] ✓ Logged: ${entry.action} ${entry.productCode} x${entry.quantity} → ${entry.source}`
+                );
                 return { success: true, id: result.id };
             } catch (e) {
                 if (attempt < MAX_RETRIES) {
-                    await new Promise(r => setTimeout(r, Math.pow(2, attempt - 1) * 1000));
+                    await new Promise((r) => setTimeout(r, Math.pow(2, attempt - 1) * 1000));
                 } else {
                     console.warn('[KPI Audit] ✗ Failed after retries, queuing:', e.message);
                     addToPendingQueue(logData);
@@ -170,7 +190,8 @@
         const pending = getPendingLogs();
         if (pending.length === 0) return { success: 0, failed: 0 };
 
-        let success = 0, failed = 0;
+        let success = 0,
+            failed = 0;
         const stillPending = [];
 
         // Try batch first
@@ -178,7 +199,7 @@
             const res = await fetch(`${KPI_API}/kpi-audit-log/batch`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ entries: pending })
+                body: JSON.stringify({ entries: pending }),
             });
             if (res.ok) {
                 const result = await res.json();
@@ -194,7 +215,7 @@
                 const res = await fetch(`${KPI_API}/kpi-audit-log`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(entry)
+                    body: JSON.stringify(entry),
                 });
                 if (res.ok) success++;
                 else stillPending.push(entry);
@@ -215,11 +236,13 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         setTimeout(function () {
-            processPendingLogs().then(function (result) {
-                if (result.success > 0 || result.failed > 0) {
-                    console.log('[KPI Audit] Page load pending processing:', result);
-                }
-            }).catch(function (e) {});
+            processPendingLogs()
+                .then(function (result) {
+                    if (result.success > 0 || result.failed > 0) {
+                        console.log('[KPI Audit] Page load pending processing:', result);
+                    }
+                })
+                .catch(function (e) {});
         }, 3000);
     });
 
@@ -235,7 +258,6 @@
         getCampaignInfo,
         VALID_ACTIONS,
         VALID_SOURCES,
-        PENDING_QUEUE_KEY
+        PENDING_QUEUE_KEY,
     };
-
 })();

@@ -2531,42 +2531,7 @@ body {
     outline: none;
 }
 
-/* Status chips */
-.kpi-status-chips {
-    display: inline-flex;
-    gap: 4px;
-}
-.kpi-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 12px;
-    background: #f3f4f6;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    color: #4b5563;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 150ms ease;
-}
-.kpi-chip:hover {
-    background: #e5e7eb;
-}
-.kpi-chip.is-active {
-    background: #eef2ff;
-    border-color: #6366f1;
-    color: #4338ca;
-}
-.kpi-chip-warn.is-active {
-    background: #fff7ed;
-    border-color: #ea580c;
-    color: #c2410c;
-}
-.kpi-chip i {
-    width: 12px;
-    height: 12px;
-}
+/* (Status chips OK/Sai lệch đã bỏ 2026-06-10 — làm gọn filter bar) */
 
 /* Icon button (display mode toggle) */
 .kpi-icon-btn {
@@ -3366,7 +3331,10 @@ body {
     border-radius: 6px;
     color: #475569;
     cursor: pointer;
-    transition: transform 0.18s ease, background-color 0.15s ease, color 0.15s ease;
+    transition:
+        transform 0.18s ease,
+        background-color 0.15s ease,
+        color 0.15s ease;
 }
 .kpi-inbox-expand-btn:hover {
     background: #f1f5f9;
@@ -3579,4 +3547,3 @@ body {
     background: #f3f4f6;
     color: #6b7280;
 }
-

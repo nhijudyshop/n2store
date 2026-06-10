@@ -202,6 +202,15 @@
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     }
 
+    // YYYY-MM-DD theo giờ VN (UTC+7), không phụ thuộc TZ máy user.
+    // Dùng cho stat_date bucket: toISOString() trần là ngày UTC — base tạo
+    // 00:00–06:59 giờ VN rơi về NGÀY HÔM TRƯỚC (lệch bucket so với filter ngày
+    // local của dashboard, lệch tháng ở mép tháng → sai kỳ lương).
+    function vnDateString(d) {
+        const t = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+        return t.toISOString().substring(0, 10);
+    }
+
     // ========================================
     // KPI BASE
     // ========================================
@@ -341,8 +350,7 @@
                 const pid = l.ProductId != null ? Number(l.ProductId) : null;
                 const qty = Number(l.ProductUOMQty) || Number(l.Quantity) || 0;
                 if (pid == null || qty <= 0) continue; // bỏ line ship/giảm giá/SP rỗng
-                const code =
-                    l.ProductBarcode || extractCodeFromNameGet(l.ProductNameGet) || '';
+                const code = l.ProductBarcode || extractCodeFromNameGet(l.ProductNameGet) || '';
                 const key = String(pid);
                 const prev = byPid.get(key);
                 if (prev) {
@@ -1086,8 +1094,10 @@
             }
 
             // Atomic server-side upsert — no client-side read-modify-write race condition.
-            // Chỉ lưu strict KPI (SP đã tick). Full mode ở dashboard = UI filter trên
-            // cùng data này (ẩn/hiện 0đ), không cần persist thêm legacy fields.
+            // Strict KPI (netProducts/kpi) là số chính (totals server tính từ đây).
+            // Legacy (netProductsLegacy/kpiLegacy) lưu kèm để full-mode/báo cáo sau
+            // đọc được — trước đây 2 field này bị DROP ở đây dù caller đã truyền
+            // và server PATCH đã hỗ trợ (luôn ghi 0).
             await kpiAPI('PATCH', `/kpi-statistics/${encodeURIComponent(userId)}/${date}/order`, {
                 orderCode: statistics.orderCode,
                 orderId: statistics.orderId || null,
@@ -1095,6 +1105,8 @@
                 campaignName: statistics.campaignName || null,
                 netProducts: statistics.netProducts || 0,
                 kpi: statistics.kpi || 0,
+                netProductsLegacy: statistics.netProductsLegacy || 0,
+                kpiLegacy: statistics.kpiLegacy || 0,
                 hasDiscrepancy: statistics.hasDiscrepancy || false,
                 details: statistics.details || {},
                 userName,
@@ -1145,19 +1157,12 @@
 
             const result = await calculateNetKPI(orderCode);
 
-            // Use BASE creation date, not today — prevents same order appearing in multiple days
+            // Use BASE creation date, not today — prevents same order appearing in multiple days.
+            // Bucket theo NGÀY GIỜ VN (vnDateString), KHÔNG dùng toISOString() (UTC):
+            // đồng nhất với filter ngày local của dashboard + getCurrentDateString() fallback.
             const baseDate = base.createdAt
-                ? new Date(base.createdAt).toISOString().substring(0, 10)
+                ? vnDateString(new Date(base.createdAt))
                 : getCurrentDateString();
-
-            // Wipe TẤT CẢ entries của orderCode này khỏi mọi user/date row trước khi
-            // ghi lại (idempotent re-attribution: nếu trước đây ghi cho A nhưng giờ
-            // tính cho B, A phải bị xóa). Server endpoint đã có sẵn, atomic.
-            try {
-                await kpiAPI('DELETE', `/kpi-statistics/order/${encodeURIComponent(orderCode)}`);
-            } catch (e) {
-                console.warn('[KPI] DELETE kpi-statistics/order failed (non-fatal):', e.message);
-            }
 
             // Attribution rule (owner-confirmed 2026-05-07):
             //  • Default: KPI của đơn được tính cho NHÂN VIÊN sở hữu khoảng STT chứa
@@ -1205,6 +1210,9 @@
                 }
             }
 
+            // Build danh sách entry TRƯỚC, rồi ghi 1 lần (xem block ghi bên dưới).
+            const statEntries = [];
+
             // (1) "My" portion → save under my's actual userId (one row per distinct my
             //     user — usually just 1; supports multi-my edge case).
             for (const entry of myEntries) {
@@ -1213,7 +1221,9 @@
                 const ekL = Number(result.perUserKPILegacy?.[entry.userId] || 0);
                 const enL = Number(result.perUserNetLegacy?.[entry.userId] || 0);
                 if (ek <= 0 && ekL <= 0) continue;
-                await saveKPIStatistics(entry.userId, baseDate, {
+                statEntries.push({
+                    userId: entry.userId,
+                    date: baseDate,
                     orderCode: orderCode,
                     orderId: base.orderId || null,
                     stt: stt,
@@ -1252,7 +1262,9 @@
                 // for the same orderCode+date with the my entries, but here would
                 // duplicate. Skip to avoid double-write under same key.
                 if (!_isMyUser(assignedUserId, assignedUserName)) {
-                    await saveKPIStatistics(assignedUserId, baseDate, {
+                    statEntries.push({
+                        userId: assignedUserId,
+                        date: baseDate,
                         orderCode: orderCode,
                         orderId: base.orderId || null,
                         stt: stt,
@@ -1266,6 +1278,43 @@
                         details: result.details,
                         userName: assignedUserName,
                     });
+                }
+            }
+
+            // ── Ghi statistics ──
+            // Ưu tiên POST /kpi-statistics/reattribute: strip orderCode khỏi mọi
+            // row + upsert entries + recompute totals trong MỘT transaction
+            // (advisory lock theo orderCode) → hết race khi 2 recalc đồng thời
+            // cùng đơn interleave DELETE/PATCH, và 2-3 request/đơn → 1.
+            // entries=[] vẫn gọi để strip (đơn không còn KPI).
+            // Server cũ chưa có endpoint → fallback flow cũ: DELETE rồi PATCH từng entry.
+            let reattributed = false;
+            try {
+                await kpiAPI('POST', '/kpi-statistics/reattribute', {
+                    orderCode,
+                    entries: statEntries,
+                });
+                reattributed = true;
+            } catch (e) {
+                console.warn(
+                    '[KPI] reattribute chưa khả dụng → fallback DELETE+PATCH:',
+                    e?.message
+                );
+            }
+            if (!reattributed) {
+                try {
+                    await kpiAPI(
+                        'DELETE',
+                        `/kpi-statistics/order/${encodeURIComponent(orderCode)}`
+                    );
+                } catch (e) {
+                    console.warn(
+                        '[KPI] DELETE kpi-statistics/order failed (non-fatal):',
+                        e.message
+                    );
+                }
+                for (const se of statEntries) {
+                    await saveKPIStatistics(se.userId, se.date, se);
                 }
             }
 
@@ -1291,6 +1340,26 @@
     // Employee Range Lookup (Render PostgreSQL)
     // ========================================
     const CAMPAIGNS_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/campaigns';
+
+    // Cache employee_ranges theo campaign key (id hoặc safeName), TTL 60s.
+    // "Tính lại KPI" hàng loạt gọi getAssignedEmployeeForSTT cho TỪNG đơn của
+    // cùng 1 campaign → trước đây mỗi đơn tốn tới 2 fetch ranges giống hệt nhau.
+    // Share promise để các worker song song dùng chung 1 request in-flight.
+    const EMPLOYEE_RANGES_TTL_MS = 60 * 1000;
+    const _employeeRangesCache = new Map(); // key → { at, promise }
+    function _fetchEmployeeRangesCached(key) {
+        const now = Date.now();
+        const hit = _employeeRangesCache.get(key);
+        if (hit && now - hit.at < EMPLOYEE_RANGES_TTL_MS) return hit.promise;
+        const promise = fetch(`${CAMPAIGNS_API}/employee-ranges/${encodeURIComponent(key)}`)
+            .then((r) => r.json())
+            .catch((e) => {
+                _employeeRangesCache.delete(key); // lỗi → không cache, lần sau thử lại
+                throw e;
+            });
+        _employeeRangesCache.set(key, { at: now, promise });
+        return promise;
+    }
 
     /**
      * Identify nhân viên "my" — user có `userType === 'my-authenticated'` (login.js
@@ -1325,9 +1394,7 @@
             // 1a. Campaign-id-keyed ranges (NEW canonical key — survives campaign rename).
             if (campaignId) {
                 try {
-                    const result = await fetch(
-                        `${CAMPAIGNS_API}/employee-ranges/${encodeURIComponent(String(campaignId))}`
-                    ).then((r) => r.json());
+                    const result = await _fetchEmployeeRangesCached(String(campaignId));
                     if (
                         result.success &&
                         Array.isArray(result.employeeRanges) &&
@@ -1343,9 +1410,7 @@
             if (campaignName) {
                 try {
                     const safeName = campaignName.replace(/[.$#\[\]\/]/g, '_');
-                    const result = await fetch(
-                        `${CAMPAIGNS_API}/employee-ranges/${encodeURIComponent(safeName)}`
-                    ).then((r) => r.json());
+                    const result = await _fetchEmployeeRangesCached(safeName);
                     if (
                         result.success &&
                         Array.isArray(result.employeeRanges) &&

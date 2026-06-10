@@ -3,25 +3,23 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260609-192146-28c060b`
-**Session file**: [`./20260609-192146-28c060b.md`](../20260609-192146-28c060b.md)
-**Commit**: `28c060b` — auto: session update
-**Last updated**: 2026-06-09 19:21:46 +07
-**Summary**: auto: session update
+**Latest session**: `RESUME:20260610-031929-9cb811f`
+**Session file**: [`./20260610-031929-9cb811f.md`](../20260610-031929-9cb811f.md)
+**Commit**: `9cb811f` — feat(kpi): reattribute atomic 1-request, bỏ creds hardcode KPI tab, 'Làm mới' tự reconcile đơn vừa có phiếu
+**Last updated**: 2026-06-10 03:19:29 UTC
+**Summary**: KPI đợt 2: reattribute atomic, bỏ creds hardcode, Làm mới tự reconcile, dedupe recon
 
 ## Files changed in this commit (`render.com/`)
 
-- `render.com/db/web2-customers-schema.js`
-- `render.com/routes/v2/web2-customers.js`
-- `render.com/services/web2-livestream-poller.js`
+- `render.com/routes/realtime-db.js`
 
 ## Last 5 commits touching `render.com/`
 
-- `28c060b6c` auto: session update _(2026-06-09)_
-- `16d3f32c9` feat(native-orders): Thêm đơn Inbox — tìm kho KH trước, fallback Pancake; chọn kho KH thì dò page nền theo SĐT _(2026-06-09)_
-- `c9d643e9c` auto: session update _(2026-06-09)_
-- `983a7ce02` auto: session update _(2026-06-09)_
-- `d21c2b636` feat(web2-customers): tìm kiếm KHÔNG DẤU ở /list (unaccent + fallback) _(2026-06-09)_
+- `9cb811f` feat(kpi): reattribute atomic 1-request, bỏ creds hardcode KPI tab, 'Làm mới' tự reconcile đơn vừa có phiếu _(2026-06-10)_
+- `3f75af3` fix(kpi): rà soát hệ thống KPI — fix timezone stat*date, audit log trùng, double render + giảm payload/request *(2026-06-10)\_
+- `36a28b2` fix(kpi): bump fetched*at on snapshot refetch + verify staleness fix live *(2026-06-09)\_
+- `28c060b` auto: session update _(2026-06-09)_
+- `16d3f32` feat(native-orders): Thêm đơn Inbox — tìm kho KH trước, fallback Pancake; chọn kho KH thì dò page nền theo SĐT _(2026-06-09)_
 
 ---
 
@@ -29,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260609-192146-28c060b` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260610-031929-9cb811f` cho Claude walk chain theo CLAUDE.md protocol.
