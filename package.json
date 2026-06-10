@@ -12,7 +12,7 @@
         "build:customer-hub": "postcss customer-hub/styles/input.css -o customer-hub/styles/tailwind.css --config customer-hub",
         "minify": "node build-scripts/minify-all.js",
         "optimize": "node build-scripts/optimize.js",
-        "lint": "eslint js/**/*.js --fix",
+        "lint": "eslint js/**/*.js --fix --no-error-on-unmatched-pattern",
         "format": "prettier --write \"**/*.{js,html,css}\"",
         "clean": "node build-scripts/clean.js",
         "test": "vitest --run --passWithNoTests",
