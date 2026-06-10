@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9cb811f` — feat(kpi): reattribute atomic 1-request, bỏ creds hardcode KPI tab, 'Làm mới' tự reconcile đơn vừa có phiếu
-**Last updated**: 2026-06-10 03:19:29 UTC
-**Latest session**: [`RESUME:20260610-031929-9cb811f`](../20260610-031929-9cb811f.md)
-**Summary**: KPI đợt 2: reattribute atomic, bỏ creds hardcode, Làm mới tự reconcile, dedupe recon
+**Latest commit**: `c089ff3` — feat(kpi): gọn filter bar — bỏ chips OK/Sai lệch, gộp Lọc+Làm mới, default Hôm nay + campaign mới nhất (có cache)
+**Last updated**: 2026-06-10 03:29:27 UTC
+**Latest session**: [`RESUME:20260610-032927-c089ff3`](../20260610-032927-c089ff3.md)
+**Summary**: KPI UI: bỏ chips OK/Sai lệch, Lọc=refreshData gộp Làm mới, default Hôm nay+campaign mới nhất với filter cache
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`orders-report/`](./orders-report.md) — 5 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-10 02:39
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-10 02:39
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-10 02:39
-- [`docs/`](./docs.md) — updated 2026-06-10 03:19
+- [`docs/`](./docs.md) — updated 2026-06-10 03:29
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-10 02:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-10 02:39
 - [`downloads/`](./downloads.md) — updated 2026-06-10 02:39
@@ -44,7 +43,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-10 02:39
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-10 02:39
 - [`order-management/`](./order-management.md) — updated 2026-06-10 02:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-10 03:19
+- [`orders-report/`](./orders-report.md) — updated 2026-06-10 03:29
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-06-10 02:39
 - [`phone-management/`](./phone-management.md) — updated 2026-06-10 02:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-10 02:39
