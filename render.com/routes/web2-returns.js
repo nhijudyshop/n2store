@@ -26,6 +26,7 @@
 const express = require('express');
 const router = express.Router();
 const web2WalletService = require('../services/web2-wallet-service');
+const { withTransaction } = require('../db/with-transaction');
 
 // -----------------------------------------------------
 // SSE notifier — injected từ server.js via initializeNotifiers().
@@ -616,98 +617,94 @@ router.post('/', async (req, res) => {
         }
         items = items.map((it) => ({ ...it, amount: (Number(it.price) || 0) * it.quantity }));
 
-        const code = await _genCode(pool);
-        const now = Date.now();
         const stockStatus = method === 'shipper_gui' ? 'pending' : 'applied';
         const billStatus = subType === 'thu_ve_1_phan' ? 'queued' : null;
 
-        // 2) Transaction: insert phiếu + áp tồn kho. Ví cộng SAU commit (service
-        // tự transaction riêng) để không lồng transaction.
-        const client = await pool.connect();
+        // 2) Transaction ATOMIC: insert phiếu + áp tồn kho + CỘNG VÍ trong CÙNG
+        // 1 client transaction. processDeposit nhận client → runWithTx chạy
+        // trực tiếp trên client (không lồng transaction). Nếu cộng ví fail →
+        // toàn bộ rollback (phiếu + kho không bị tạo lẻ) → trả lỗi rõ ràng,
+        // không còn cửa sổ "phiếu+kho có nhưng ví chưa cộng" như khi cộng ví
+        // SAU commit. _genCode retry on 23505 (race trùng code).
+        const RETRY_MAX = 5;
         let inserted;
-        try {
-            await client.query('BEGIN');
-            await _applyStock(client, items, method, +1);
-            const hist = [
-                {
-                    ts: now,
-                    action: 'create',
-                    userId: user.id,
-                    userName: user.name,
-                    note: `${method} / ${subType}${reason ? ' / ' + reason : ''}`,
-                },
-            ];
-            const ins = await client.query(
-                `INSERT INTO web2_returns
-                  (code, phone, customer_name, customer_id, method, sub_type, issue, reason, reason_note,
-                   source_order_code, source_order_type, items, total_amount, wallet_credited,
-                   stock_status, bill_status, status, note, history, created_at, updated_at,
-                   created_by, created_by_name)
-                 VALUES ($1,$2,$3,$4,$5,$6,'van_de_khach',$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,'active',$16,$17::jsonb,$18,$18,$19,$20)
-                 RETURNING *`,
-                [
-                    code,
-                    phone,
-                    b.customerName || null,
-                    b.customerId || null,
-                    method,
-                    subType,
-                    reason,
-                    reasonNote,
-                    sourceOrderCode,
-                    sourceOrderType,
-                    JSON.stringify(items),
-                    totalAmount,
-                    walletCredit,
-                    stockStatus,
-                    billStatus,
-                    b.note || null,
-                    JSON.stringify(hist),
-                    now,
-                    user.id,
-                    user.name,
-                ]
-            );
-            inserted = ins.rows[0];
-            await client.query('COMMIT');
-        } catch (e) {
-            await client.query('ROLLBACK');
-            throw e;
-        } finally {
-            client.release();
-        }
-
-        // 3) Cộng ví (ngoài transaction — service tự lo). Idempotent theo phiếu
-        // qua note chứa code; nếu fail thì phiếu vẫn còn nhưng ví chưa cộng →
-        // log để xử lý tay. Lưu wallet_tx_id để rollback khi huỷ.
-        if (walletCredit > 0) {
+        let walletCreditedFinal = false;
+        for (let attempt = 0; ; attempt++) {
+            const code = await _genCode(pool);
+            const now = Date.now();
             try {
-                const dep = await web2WalletService.processDeposit(
-                    pool,
-                    phone,
-                    walletCredit,
-                    null,
-                    `Thu về ${code}`,
-                    b.customerId || null,
-                    null,
-                    null,
-                    user.name
-                );
-                const txId = dep?.transaction?.id || null;
-                if (txId) {
-                    await pool.query(`UPDATE web2_returns SET wallet_tx_id = $1 WHERE code = $2`, [
-                        txId,
-                        code,
-                    ]);
-                    inserted.wallet_tx_id = txId;
-                }
-                _notifyWallet(phone);
+                inserted = await withTransaction(pool, async (client) => {
+                    await _applyStock(client, items, method, +1);
+                    const hist = [
+                        {
+                            ts: now,
+                            action: 'create',
+                            userId: user.id,
+                            userName: user.name,
+                            note: `${method} / ${subType}${reason ? ' / ' + reason : ''}`,
+                        },
+                    ];
+                    // Cộng ví TRONG cùng transaction (client) — atomic với phiếu+kho.
+                    let walletTxId = null;
+                    if (walletCredit > 0) {
+                        const dep = await web2WalletService.processDeposit(
+                            client,
+                            phone,
+                            walletCredit,
+                            null,
+                            `Thu về ${code}`,
+                            b.customerId || null,
+                            null,
+                            null,
+                            user.name
+                        );
+                        walletTxId = dep?.transaction?.id || null;
+                    }
+                    const ins = await client.query(
+                        `INSERT INTO web2_returns
+                          (code, phone, customer_name, customer_id, method, sub_type, issue, reason, reason_note,
+                           source_order_code, source_order_type, items, total_amount, wallet_credited,
+                           wallet_tx_id, stock_status, bill_status, status, note, history, created_at, updated_at,
+                           created_by, created_by_name)
+                         VALUES ($1,$2,$3,$4,$5,$6,'van_de_khach',$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,'active',$17,$18::jsonb,$19,$19,$20,$21)
+                         RETURNING *`,
+                        [
+                            code,
+                            phone,
+                            b.customerName || null,
+                            b.customerId || null,
+                            method,
+                            subType,
+                            reason,
+                            reasonNote,
+                            sourceOrderCode,
+                            sourceOrderType,
+                            JSON.stringify(items),
+                            totalAmount,
+                            walletCredit,
+                            walletTxId,
+                            stockStatus,
+                            billStatus,
+                            b.note || null,
+                            JSON.stringify(hist),
+                            now,
+                            user.id,
+                            user.name,
+                        ]
+                    );
+                    return ins.rows[0];
+                });
+                walletCreditedFinal = walletCredit > 0;
+                break;
             } catch (e) {
-                console.error(`[WEB2-RETURNS] credit wallet fail ${code}:`, e.message);
+                // Trùng code (race _genCode không atomic) → retry với code mới.
+                if (e && e.code === '23505' && attempt < RETRY_MAX) continue;
+                throw e;
             }
         }
 
-        _notify('create', code, { phone });
+        if (walletCreditedFinal) _notifyWallet(phone);
+        _notify('create', inserted.code, { phone });
         res.json({ success: true, return: mapRow(inserted) });
     } catch (e) {
         console.error('[WEB2-RETURNS] create error:', e.message);

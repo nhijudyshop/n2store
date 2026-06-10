@@ -292,7 +292,7 @@
     // POST background. Lỗi → restore + notify. SSE web2:fast-sale-orders sẽ
     // catch-up nếu state thay đổi từ tab khác.
     function _findPbhRow(number) {
-        return document.querySelector(`tr[data-pbh-number="${CSS.escape(String(number))}"]`);
+        return document.querySelector(`tr[data-number="${CSS.escape(String(number))}"]`);
     }
     async function confirmOrder(number) {
         if (!(await w2pConfirm(`Xác nhận PBH ${number}?`, { okText: 'Xác nhận' }))) return;

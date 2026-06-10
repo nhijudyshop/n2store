@@ -153,7 +153,7 @@
             }))
         )
             return;
-        const row = document.querySelector(`tr[data-rf-number="${CSS.escape(String(number))}"]`);
+        const row = document.querySelector(`tr[data-number="${CSS.escape(String(number))}"]`);
         const prevOpacity = row?.style.opacity;
         if (window.Web2Optimistic?.run) {
             Web2Optimistic.run({

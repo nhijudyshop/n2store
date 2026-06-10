@@ -134,7 +134,7 @@
         if (!d.success) return notify('Lỗi: ' + d.error, 'error');
         const o = d.order;
         await w2pAlert(
-            `PBH: ${o.fso.number}\nKH: ${o.partner.name} — ${o.partner.phone}\nĐịa chỉ: ${o.partner.address || '—'}\nVận chuyển: ${o.carrier.name || '—'}\nTracking: ${o.carrier.trackingRef || '—'}\nSL: ${o.totalQuantity}\nCOD: ${o.cashOnDelivery}đ\nState: ${o.state}\n\nHistory:\n${(o.stateHistory || []).map((h) => `  ${h.from || '∅'} → ${h.to} @ ${new Date(h.at).toLocaleString('vi-VN')}`).join('\n')}`,
+            `PBH: ${o.fso?.number || '—'}\nKH: ${o.partner.name} — ${o.partner.phone}\nĐịa chỉ: ${o.partner.address || '—'}\nVận chuyển: ${o.carrier.name || '—'}\nTracking: ${o.carrier.trackingRef || '—'}\nSL: ${o.totalQuantity}\nCOD: ${o.cashOnDelivery}đ\nState: ${o.state}\n\nHistory:\n${(o.stateHistory || []).map((h) => `  ${h.from || '∅'} → ${h.to} @ ${new Date(h.at).toLocaleString('vi-VN')}`).join('\n')}`,
             { title: `Phiếu giao ${o.number}`, type: 'info' }
         );
     }
@@ -146,7 +146,7 @@
             }))
         )
             return;
-        const row = document.querySelector(`tr[data-dlv-number="${CSS.escape(String(number))}"]`);
+        const row = document.querySelector(`tr[data-number="${CSS.escape(String(number))}"]`);
         const prevOpacity = row?.style.opacity;
         if (window.Web2Optimistic?.run) {
             Web2Optimistic.run({

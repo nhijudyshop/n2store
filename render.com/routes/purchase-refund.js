@@ -73,10 +73,10 @@ function normalizeLines(products) {
     return map; // code → totalQty
 }
 
-async function loadRefund(pool, code) {
+async function loadRefund(pool, code, forUpdate = false) {
     const r = await pool.query(
         `SELECT * FROM web2_records
-         WHERE entity_slug = 'purchase-refund' AND code = $1 LIMIT 1`,
+         WHERE entity_slug = 'purchase-refund' AND code = $1 LIMIT 1${forUpdate ? ' FOR UPDATE' : ''}`,
         [code]
     );
     return r.rows[0] || null;
@@ -171,14 +171,26 @@ router.post('/:code/approve', async (req, res) => {
     const productsPool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!recordsPool || !productsPool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
+    // records + products cùng nằm trên web2Db → 1 transaction bao trọn
+    // (SELECT FOR UPDATE + deductStock + saveRefundData) để: (1) khóa record
+    // chống double-approve / Worker retry trừ kho đôi, (2) atomic — crash giữa
+    // chừng = ROLLBACK, không còn cảnh trừ kho nhưng record không update.
+    const client = await recordsPool.connect();
+    let committed = false;
     try {
-        const row = await loadRefund(recordsPool, code);
-        if (!row) return res.status(404).json({ error: 'Refund not found' });
+        await client.query('BEGIN');
+        const row = await loadRefund(client, code, true);
+        if (!row) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Refund not found' });
+        }
         const data = row.data || {};
         const currentStatus = data.status || 'draft';
 
-        // Idempotent: nếu đã approved + đã trừ kho → skip
+        // Idempotent: nếu đã approved + đã trừ kho → skip (đọc trong lock nên
+        // request thứ 2 chờ COMMIT của request thứ 1 rồi mới thấy state mới)
         if (currentStatus === 'approved' && data.stock_deducted === true) {
+            await client.query('ROLLBACK');
             return res.json({
                 success: true,
                 idempotent: true,
@@ -186,6 +198,7 @@ router.post('/:code/approve', async (req, res) => {
             });
         }
         if (!['draft', 'sent'].includes(currentStatus)) {
+            await client.query('ROLLBACK');
             return res.status(400).json({
                 error: `Chỉ approve được từ draft/sent (hiện: ${currentStatus})`,
             });
@@ -193,12 +206,13 @@ router.post('/:code/approve', async (req, res) => {
 
         const lines = normalizeLines(parseProducts(data.products));
         if (lines.size === 0) {
+            await client.query('ROLLBACK');
             return res.status(400).json({
                 error: 'Phiếu trả hàng không có SP nào (data.products rỗng)',
             });
         }
 
-        const stockResults = await deductStock(productsPool, lines);
+        const stockResults = await deductStock(client, lines);
         const userName = req.body?.userName || '(ẩn danh)';
         const newHistory = appendHistory(data, {
             action: 'approve',
@@ -207,7 +221,7 @@ router.post('/:code/approve', async (req, res) => {
             note: `Duyệt phiếu + trừ kho ${stockResults.length} dòng SP`,
             extra: { stockResults },
         });
-        await saveRefundData(recordsPool, code, {
+        await saveRefundData(client, code, {
             status: 'approved',
             stock_deducted: true,
             approved_at: Date.now(),
@@ -216,6 +230,8 @@ router.post('/:code/approve', async (req, res) => {
             approved_by_id: req.body?.userId || null,
             history: newHistory,
         });
+        await client.query('COMMIT');
+        committed = true;
         _notify('approve', code);
         res.json({
             success: true,
@@ -224,8 +240,15 @@ router.post('/:code/approve', async (req, res) => {
             linesProcessed: stockResults.length,
         });
     } catch (e) {
+        if (!committed) {
+            try {
+                await client.query('ROLLBACK');
+            } catch (_) {}
+        }
         console.error('[PURCHASE-REFUND] /approve error:', e.message);
         res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
     }
 });
 
@@ -238,18 +261,27 @@ router.post('/:code/cancel-approve', async (req, res) => {
     const productsPool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!recordsPool || !productsPool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
+    // 1 transaction bao trọn (SELECT FOR UPDATE + restock + saveRefundData):
+    // khóa record chống revoke đôi + atomic restock/record-update.
+    const client = await recordsPool.connect();
+    let committed = false;
     try {
-        const row = await loadRefund(recordsPool, code);
-        if (!row) return res.status(404).json({ error: 'Refund not found' });
+        await client.query('BEGIN');
+        const row = await loadRefund(client, code, true);
+        if (!row) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Refund not found' });
+        }
         const data = row.data || {};
         const currentStatus = data.status || 'draft';
         if (currentStatus !== 'approved') {
+            await client.query('ROLLBACK');
             return res.status(400).json({
                 error: `Chỉ revoke được khi đang approved (hiện: ${currentStatus})`,
             });
         }
         const lines = normalizeLines(parseProducts(data.products));
-        const stockResults = data.stock_deducted ? await restockStock(productsPool, lines) : [];
+        const stockResults = data.stock_deducted ? await restockStock(client, lines) : [];
         const userName = req.body?.userName || '(ẩn danh)';
         const newHistory = appendHistory(data, {
             action: 'cancel-approve',
@@ -258,7 +290,7 @@ router.post('/:code/cancel-approve', async (req, res) => {
             note: `Hủy duyệt + trả tồn ${stockResults.length} dòng. Lý do: ${req.body?.reason || '(không)'}`,
             extra: { stockResults },
         });
-        await saveRefundData(pool, code, {
+        await saveRefundData(client, code, {
             status: 'sent',
             stock_deducted: false,
             cancel_approve_at: Date.now(),
@@ -266,6 +298,8 @@ router.post('/:code/cancel-approve', async (req, res) => {
             cancel_approve_by: userName,
             history: newHistory,
         });
+        await client.query('COMMIT');
+        committed = true;
         _notify('cancel-approve', code);
         res.json({
             success: true,
@@ -274,8 +308,15 @@ router.post('/:code/cancel-approve', async (req, res) => {
             linesProcessed: stockResults.length,
         });
     } catch (e) {
+        if (!committed) {
+            try {
+                await client.query('ROLLBACK');
+            } catch (_) {}
+        }
         console.error('[PURCHASE-REFUND] /cancel-approve error:', e.message);
         res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
     }
 });
 

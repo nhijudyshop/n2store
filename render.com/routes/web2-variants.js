@@ -417,7 +417,19 @@ router.patch('/:id', async (req, res) => {
             _notify('update', r.rows[0].id);
             res.json({ success: true, variant: mapRow(r.rows[0]) });
         } catch (err) {
+            // Unique violation: phân biệt short_code vs value để báo rõ. Check-then-
+            // update không atomic → 2 admin set cùng giá trị cùng lúc đụng nhau ở
+            // đây → trả 409 (conflict) thay vì 500.
             if (err.code === '23505') {
+                const detail = err.detail || '';
+                if (detail.includes('short_code')) {
+                    const sc = req.body.shortCode ? String(req.body.shortCode).toUpperCase() : '';
+                    return res.status(409).json({
+                        error: sc
+                            ? `Viết tắt "${sc}" đã được dùng cho biến thể khác`
+                            : 'Viết tắt (shortCode) đã được dùng cho biến thể khác',
+                    });
+                }
                 return res.status(409).json({ error: 'Giá trị biến thể bị trùng' });
             }
             throw err;

@@ -262,6 +262,9 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS company_name      VARCHAR(150),
                 ADD COLUMN IF NOT EXISTS warehouse_name    VARCHAR(150),
                 ADD COLUMN IF NOT EXISTS message_count     INTEGER DEFAULT 0,
+                -- 2026-06-10: tên FB Page nguồn comment (đơn from-comment UPDATE
+                -- set fb_page_name; thiếu cột → schema drift → UPDATE fail). Idempotent.
+                ADD COLUMN IF NOT EXISTS fb_page_name      VARCHAR(255),
                 ADD COLUMN IF NOT EXISTS tpos_index        INTEGER;
 
             -- Migration 073: gộp comment cùng campaign+customer thay vì tạo đơn mới
@@ -541,6 +544,46 @@ async function nextDailyCode(pool) {
     return prefix + pad(seq, 4);
 }
 
+// -----------------------------------------------------
+// 2026-06-10: chống RACE sinh trùng mã NJ-YYYYMMDD-XXXX.
+// nextDailyCode() đọc MAX rồi +1 ở JS → 2 request đồng thời (poller burst +
+// manual) có thể sinh cùng mã → UNIQUE violation (23505) trên cột `code`.
+// Bọc INSERT trong retry: nếu 23505 do đụng mã → re-compute nextDailyCode +
+// thử lại. An toàn nhất, không cần đổi schema / thêm sequence.
+//   doInsert(code) → Promise<result>  (phải dùng `code` được truyền vào)
+// Trả về kết quả của doInsert. Ném lỗi nếu không phải đụng mã, hoặc hết retry.
+const MAX_CODE_RETRY = 5;
+async function insertWithCodeRetry(pool, doInsert) {
+    let code = await nextDailyCode(pool);
+    for (let attempt = 0; attempt < MAX_CODE_RETRY; attempt++) {
+        try {
+            return await doInsert(code);
+        } catch (e) {
+            // 23505 = unique_violation. Chỉ retry khi đụng đúng ràng buộc mã đơn
+            // (constraint name chứa 'code' hoặc detail nhắc tới cột code). Các
+            // unique khác (vd uq_native_orders_comment) phải ném ra ngay.
+            const isCodeCollision =
+                e &&
+                e.code === '23505' &&
+                /code/i.test(String(e.constraint || '') + ' ' + String(e.detail || ''));
+            if (!isCodeCollision || attempt === MAX_CODE_RETRY - 1) throw e;
+            console.warn(`[NATIVE-ORDERS] mã ${code} bị trùng (race), thử lại (#${attempt + 1})`);
+            code = await nextDailyCode(pool);
+        }
+    }
+    // Không reachable (loop luôn return hoặc throw), nhưng để TS/an toàn:
+    throw new Error('insertWithCodeRetry: hết số lần thử sinh mã');
+}
+
+// 2026-06-10: advisory lock theo campaign group để cấp campaign_stt tuần tự,
+// không trùng dưới tải song song. Dùng trong transaction (pg_advisory_xact_lock
+// — tự nhả khi COMMIT/ROLLBACK). Key = hashtext('web2_native_campaign_stt:'||key).
+async function lockCampaignSttKey(client, campaignKey) {
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+        'web2_native_campaign_stt:' + String(campaignKey || 'NO_CAMPAIGN'),
+    ]);
+}
+
 async function nextSessionIndex(pool, fbUserId) {
     if (!fbUserId) return 1;
     const r = await pool.query(
@@ -665,6 +708,29 @@ router.post('/from-comment', async (req, res) => {
                 return res.json({
                     success: true,
                     order: mapRowToOrder(existing.rows[0]),
+                    idempotent: true,
+                    merged: false,
+                });
+            }
+        } else if (b.fbUserId && b.liveCampaignId) {
+            // 2026-06-10: thiếu fbCommentId → mất khoá idempotency theo comment.
+            // Fallback: nếu đã có đơn cùng (fb_user_id + live_campaign_id) tạo trong
+            // 60s gần đây → coi như double-POST, trả đơn cũ thay vì tạo trùng.
+            // (Đơn draft cùng campaign sẽ được MERGE bên dưới; fallback này chặn
+            //  race tạo 2 đơn mới khi đơn đầu chưa kịp ở trạng thái merge-được.)
+            const DUP_WINDOW_MS = 60 * 1000;
+            const recent = await pool.query(
+                `SELECT * FROM native_orders
+                 WHERE fb_user_id = $1 AND live_campaign_id = $2
+                   AND created_at >= $3
+                 ORDER BY created_at DESC
+                 LIMIT 1`,
+                [b.fbUserId, b.liveCampaignId, Date.now() - DUP_WINDOW_MS]
+            );
+            if (recent.rows.length > 0) {
+                return res.json({
+                    success: true,
+                    order: mapRowToOrder(recent.rows[0]),
                     idempotent: true,
                     merged: false,
                 });

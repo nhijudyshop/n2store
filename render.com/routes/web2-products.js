@@ -1085,10 +1085,12 @@ router.post('/adjust-pending', async (req, res) => {
 router.post('/upsert-pending', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const items = Array.isArray((req.body || {}).items) ? req.body.items : [];
+    if (!items.length) return res.json({ success: true, created: 0, updated: 0, items: [] });
+    const client = await pool.connect();
     try {
         await ensureTables(pool);
-        const items = Array.isArray((req.body || {}).items) ? req.body.items : [];
-        if (!items.length) return res.json({ success: true, created: 0, updated: 0, items: [] });
+        await client.query('BEGIN');
         const now = Date.now();
         let created = 0,
             updated = 0;
@@ -1101,21 +1103,26 @@ router.post('/upsert-pending', async (req, res) => {
             if (!name || qty <= 0) continue;
             // Match: name + variant (variant nullable, NULL match NULL)
             const findSql = variant
-                ? `SELECT * FROM web2_products WHERE LOWER(name) = LOWER($1) AND (variant IS NULL OR LOWER(variant) = LOWER($2)) ORDER BY id LIMIT 1`
-                : `SELECT * FROM web2_products WHERE LOWER(name) = LOWER($1) ORDER BY id LIMIT 1`;
+                ? `SELECT * FROM web2_products WHERE LOWER(name) = LOWER($1) AND (variant IS NULL OR LOWER(variant) = LOWER($2)) ORDER BY id FOR UPDATE`
+                : `SELECT * FROM web2_products WHERE LOWER(name) = LOWER($1) ORDER BY id FOR UPDATE`;
             const findParams = variant ? [name, variant] : [name];
-            const existing = await pool.query(findSql, findParams);
+            const existing = await client.query(`${findSql} LIMIT 1`, findParams);
 
             if (!existing.rows.length) {
-                // INSERT new product with CHO_MUA status
-                const code =
-                    it.code ||
-                    'KHO-' +
-                        Math.random().toString(36).slice(2, 6).toUpperCase() +
-                        '-' +
-                        Date.now().toString(36).toUpperCase();
+                // INSERT new product with CHO_MUA status. Mã BẮT BUỘC do client
+                // gửi (Web2ProductCode.suggest()). KHÔNG sinh 'KHO-<rnd>' rác —
+                // thiếu code → skip item này + ghi lý do, không fail cả batch.
+                const code = it.code ? String(it.code).trim() : '';
+                if (!code) {
+                    results.push({
+                        name,
+                        action: 'error',
+                        error: 'Thiếu mã SP (code) — client phải gửi mã từ Web2ProductCode.suggest()',
+                    });
+                    continue;
+                }
                 try {
-                    const r = await pool.query(
+                    const r = await client.query(
                         `INSERT INTO web2_products
                             (code, name, price, image_url, stock, note, tags, is_active,
                              original_price, barcode, category, variant,
@@ -1151,8 +1158,8 @@ router.post('/upsert-pending', async (req, res) => {
                     });
                 } catch (err) {
                     if (err.code === '23505') {
-                        // Code collision (rare) — retry with new code
-                        results.push({ name, action: 'error', error: 'Code collision' });
+                        // Code collision (rare) — báo lỗi item, không fail batch.
+                        results.push({ name, code, action: 'error', error: 'Code collision' });
                     } else {
                         throw err;
                     }
@@ -1171,7 +1178,7 @@ router.post('/upsert-pending', async (req, res) => {
                 else if (newPending > 0) newStatus = 'MUA_1_PHAN';
                 else newStatus = 'DANG_BAN';
                 const newSupplier = row.supplier || supplier;
-                const r2 = await pool.query(
+                const r2 = await client.query(
                     `UPDATE web2_products
                        SET pending_qty = $1,
                            status      = $2,
@@ -1193,11 +1200,15 @@ router.post('/upsert-pending', async (req, res) => {
                 });
             }
         }
+        await client.query('COMMIT');
         if (created || updated) _notify('upsert-pending', null);
         res.json({ success: true, created, updated, items: results });
     } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
         console.error('[WEB2-PRODUCTS] upsert-pending error:', e.message);
         res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
     }
 });
 
@@ -1211,19 +1222,23 @@ router.post('/upsert-pending', async (req, res) => {
 router.post('/confirm-purchase', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const b = req.body || {};
+    const codes = Array.isArray(b.codes)
+        ? b.codes.map((c) => String(c).trim()).filter(Boolean)
+        : [];
+    const supplier = b.supplier ? String(b.supplier).trim() : null;
+    if (!codes.length && !supplier) {
+        return res.status(400).json({ error: 'Cần codes[] hoặc supplier' });
+    }
+    const client = await pool.connect();
     try {
         await ensureTables(pool);
-        const b = req.body || {};
-        const codes = Array.isArray(b.codes)
-            ? b.codes.map((c) => String(c).trim()).filter(Boolean)
-            : [];
-        const supplier = b.supplier ? String(b.supplier).trim() : null;
-        if (!codes.length && !supplier) {
-            return res.status(400).json({ error: 'Cần codes[] hoặc supplier' });
-        }
+        await client.query('BEGIN');
         const now = Date.now();
         // Cập nhật: cho phép cả CHO_MUA và MUA_1_PHAN (P1 2026-05-29) — cả
         // 2 status đều có pending_qty > 0 chờ chuyển sang stock.
+        // Bọc trong transaction: status guard + row-lock của UPDATE serialize
+        // các request đồng thời → chống double-confirm (cộng stock 2 lần).
         const whereParts = ["status IN ('CHO_MUA', 'MUA_1_PHAN')"];
         const params = [];
         if (codes.length) {
@@ -1244,7 +1259,8 @@ router.post('/confirm-purchase', async (req, res) => {
              WHERE ${whereParts.join(' AND ')}
             RETURNING *
         `;
-        const r = await pool.query(sql, params);
+        const r = await client.query(sql, params);
+        await client.query('COMMIT');
         if (r.rows.length) _notify('confirm-purchase', null);
         res.json({
             success: true,
@@ -1252,8 +1268,11 @@ router.post('/confirm-purchase', async (req, res) => {
             items: r.rows.map(mapRow),
         });
     } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
         console.error('[WEB2-PRODUCTS] confirm-purchase error:', e.message);
         res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
     }
 });
 
@@ -1328,7 +1347,7 @@ router.post('/confirm-purchase-partial', async (req, res) => {
                 action: 'partial-purchase',
                 qtyReceived: qtyR,
                 qtyRequested: qtyReq,
-                stock: m.quantity,
+                stock: m.stock,
                 pendingQty: m.pendingQty,
                 status: m.status,
             });

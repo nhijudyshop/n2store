@@ -21,6 +21,16 @@
 const express = require('express');
 const router = express.Router();
 const web2WalletService = require('../services/web2-wallet-service');
+const { withTransaction } = require('../db/with-transaction');
+
+// Postgres unique_violation error code — dùng để retry khi sinh số PBH trùng
+// (2 request đồng thời cùng tính ra cùng 1 number → 1 INSERT thắng, cái còn lại
+// nhận 23505 → recompute number + thử lại). Xem _isUniqueViolation + retry loops.
+const PG_UNIQUE_VIOLATION = '23505';
+const MAX_NUMBER_RETRIES = 5;
+function _isUniqueViolation(err) {
+    return err && err.code === PG_UNIQUE_VIOLATION;
+}
 
 // 2026-06-04: trừ ví khách khi tạo PBH (thu hộ). Trừ min(số dư ví, COD còn lại),
 // ghi wallet_deducted để hoàn khi huỷ. Best-effort: lỗi ví KHÔNG chặn tạo PBH.
@@ -61,43 +71,51 @@ async function applyWalletToUnpaidPbhs(pool, phone, performedBy) {
     const result = { appliedCount: 0, totalDeducted: 0, codes: [] };
     if (!pool || !phone) return result;
     try {
-        const { rows } = await pool.query(
-            `SELECT id, number, source_type, source_code, residual, partner_name
-             FROM fast_sale_orders
-             WHERE partner_phone = $1 AND state <> 'cancel' AND COALESCE(residual,0) > 0
-             ORDER BY date_created DESC NULLS LAST`,
-            [phone]
-        );
-        for (const pbh of rows) {
-            const wallet = await web2WalletService.getWallet(pool, phone);
-            if (!wallet || Number(wallet.balance) <= 0) break; // hết ví → dừng
-            const wlt = await _applyWalletToPbh(
-                pool,
-                phone,
-                pbh,
-                performedBy || '(CK tự thanh toán)'
+        // HIGH RACE FIX (2026-06-10): bọc read-list + loop trừ ví trong 1 transaction
+        // và lock list PBH cần áp ví bằng FOR UPDATE SKIP LOCKED. 2 deposit SePay gần
+        // nhau cùng SĐT → cái đầu giữ row lock các PBH chưa trả; cái sau SKIP LOCKED
+        // chỉ thấy PBH chưa bị lock → KHÔNG double-apply ví. Wallet FOR UPDATE bên
+        // trong processWithdraw cũng nằm trong cùng client → serialize chặt số dư.
+        await withTransaction(pool, async (client) => {
+            const { rows } = await client.query(
+                `SELECT id, number, source_type, source_code, residual, partner_name
+                 FROM fast_sale_orders
+                 WHERE partner_phone = $1 AND state <> 'cancel' AND COALESCE(residual,0) > 0
+                 ORDER BY date_created DESC NULLS LAST
+                 FOR UPDATE SKIP LOCKED`,
+                [phone]
             );
-            if (wlt.deducted > 0) {
-                await pool.query(
-                    `UPDATE fast_sale_orders
-                     SET payment_amount = COALESCE(payment_amount,0) + $1,
-                         residual = $2,
-                         cash_on_delivery = $2,
-                         wallet_deducted = COALESCE(wallet_deducted,0) + $1,
-                         date_updated = NOW()
-                     WHERE id = $3`,
-                    [wlt.deducted, wlt.residualAfter, pbh.id]
+            for (const pbh of rows) {
+                const wallet = await web2WalletService.getWallet(client, phone);
+                if (!wallet || Number(wallet.balance) <= 0) break; // hết ví → dừng
+                const wlt = await _applyWalletToPbh(
+                    client,
+                    phone,
+                    pbh,
+                    performedBy || '(CK tự thanh toán)'
                 );
-                result.appliedCount++;
-                result.totalDeducted += wlt.deducted;
-                result.codes.push({
-                    number: pbh.number,
-                    source_code: pbh.source_code,
-                    deducted: wlt.deducted,
-                    residual: wlt.residualAfter,
-                });
+                if (wlt.deducted > 0) {
+                    await client.query(
+                        `UPDATE fast_sale_orders
+                         SET payment_amount = COALESCE(payment_amount,0) + $1,
+                             residual = $2,
+                             cash_on_delivery = $2,
+                             wallet_deducted = COALESCE(wallet_deducted,0) + $1,
+                             date_updated = NOW()
+                         WHERE id = $3`,
+                        [wlt.deducted, wlt.residualAfter, pbh.id]
+                    );
+                    result.appliedCount++;
+                    result.totalDeducted += wlt.deducted;
+                    result.codes.push({
+                        number: pbh.number,
+                        source_code: pbh.source_code,
+                        deducted: wlt.deducted,
+                        residual: wlt.residualAfter,
+                    });
+                }
             }
-        }
+        });
         if (result.totalDeducted > 0) {
             console.log(
                 `[FAST-SALE-ORDERS] applyWalletToUnpaidPbhs ${phone}: ${result.appliedCount} PBH, -${result.totalDeducted}đ`
@@ -868,64 +886,86 @@ router.post('/merge', async (req, res) => {
             .filter(Boolean)
             .join('\n---\n');
 
-        // Generate new PBH number
+        // Generate new PBH number + INSERT với retry-on-unique-violation.
+        // MEDIUM RACE FIX (2026-06-10): COUNT(*) sinh số không atomic — 2 merge
+        // đồng thời cùng ngày tính ra cùng newNumber → UNIQUE violation. Mỗi lần
+        // thử dùng SAVEPOINT để statement lỗi không abort cả transaction merge;
+        // 23505 → recompute COUNT + thử số kế tiếp (≤ MAX_NUMBER_RETRIES lần).
         const today = new Date();
         const ymd = `${today.getFullYear()}${pad(today.getMonth() + 1, 2)}${pad(today.getDate(), 2)}`;
-        const todayCountQ = await client.query(
-            `SELECT COUNT(*)::int AS n FROM fast_sale_orders WHERE number LIKE $1`,
-            [`NJ-${ymd}-%`]
-        );
-        const nextSeq = pad(todayCountQ.rows[0].n + 1, 4);
-        const newNumber = `NJ-${ymd}-${nextSeq}`;
-
-        const ins = await client.query(
-            `INSERT INTO fast_sale_orders (
-                number, display_stt, source,
-                partner_id, partner_code, partner_name, partner_phone, partner_address, partner_email,
-                city_code, city_name, district_code, district_name, ward_code, ward_name,
-                order_lines, total_quantity, amount_untaxed, amount_discount, amount_total,
-                delivery_price, carrier_id, carrier_name,
-                state, source_type, source_code, merged_display_stt,
-                live_campaign_id, live_campaign_name, customer_id, comment
-            ) VALUES (
-                $1, nextval('fast_sale_orders_display_stt_seq'), 'NATIVE_WEB',
-                $2, $3, $4, $5, $6, $7,
-                $8, $9, $10, $11, $12, $13,
-                $14, $15, $16, $17, $18,
-                $19, $20, $21,
-                'draft', 'merged', $22, $23,
-                $24, $25, $26, $27
-            ) RETURNING *`,
-            [
-                newNumber,
-                baseRow.partner_id,
-                baseRow.partner_code,
-                baseRow.partner_name,
-                baseRow.partner_phone,
-                baseRow.partner_address,
-                baseRow.partner_email,
-                baseRow.city_code,
-                baseRow.city_name,
-                baseRow.district_code,
-                baseRow.district_name,
-                baseRow.ward_code,
-                baseRow.ward_name,
-                JSON.stringify(combinedLines),
-                totalQty,
-                totalUntaxed,
-                totalDiscount,
-                totalAmount,
-                totalShipping,
-                baseRow.carrier_id,
-                baseRow.carrier_name,
-                mergedSourceCode,
-                JSON.stringify(mergedStts),
-                baseRow.live_campaign_id,
-                baseRow.live_campaign_name,
-                baseRow.customer_id,
-                combinedComment,
-            ]
-        );
+        let ins = null;
+        let lastErr = null;
+        for (let attempt = 0; attempt < MAX_NUMBER_RETRIES; attempt++) {
+            const todayCountQ = await client.query(
+                `SELECT COUNT(*)::int AS n FROM fast_sale_orders WHERE number LIKE $1`,
+                [`NJ-${ymd}-%`]
+            );
+            const nextSeq = pad(todayCountQ.rows[0].n + 1 + attempt, 4);
+            const newNumber = `NJ-${ymd}-${nextSeq}`;
+            await client.query('SAVEPOINT merge_insert');
+            try {
+                ins = await client.query(
+                    `INSERT INTO fast_sale_orders (
+                        number, display_stt, source,
+                        partner_id, partner_code, partner_name, partner_phone, partner_address, partner_email,
+                        city_code, city_name, district_code, district_name, ward_code, ward_name,
+                        order_lines, total_quantity, amount_untaxed, amount_discount, amount_total,
+                        delivery_price, carrier_id, carrier_name,
+                        state, source_type, source_code, merged_display_stt,
+                        live_campaign_id, live_campaign_name, customer_id, comment
+                    ) VALUES (
+                        $1, nextval('fast_sale_orders_display_stt_seq'), 'NATIVE_WEB',
+                        $2, $3, $4, $5, $6, $7,
+                        $8, $9, $10, $11, $12, $13,
+                        $14, $15, $16, $17, $18,
+                        $19, $20, $21,
+                        'draft', 'merged', $22, $23,
+                        $24, $25, $26, $27
+                    ) RETURNING *`,
+                    [
+                        newNumber,
+                        baseRow.partner_id,
+                        baseRow.partner_code,
+                        baseRow.partner_name,
+                        baseRow.partner_phone,
+                        baseRow.partner_address,
+                        baseRow.partner_email,
+                        baseRow.city_code,
+                        baseRow.city_name,
+                        baseRow.district_code,
+                        baseRow.district_name,
+                        baseRow.ward_code,
+                        baseRow.ward_name,
+                        JSON.stringify(combinedLines),
+                        totalQty,
+                        totalUntaxed,
+                        totalDiscount,
+                        totalAmount,
+                        totalShipping,
+                        baseRow.carrier_id,
+                        baseRow.carrier_name,
+                        mergedSourceCode,
+                        JSON.stringify(mergedStts),
+                        baseRow.live_campaign_id,
+                        baseRow.live_campaign_name,
+                        baseRow.customer_id,
+                        combinedComment,
+                    ]
+                );
+                await client.query('RELEASE SAVEPOINT merge_insert');
+                break;
+            } catch (insErr) {
+                await client.query('ROLLBACK TO SAVEPOINT merge_insert');
+                if (_isUniqueViolation(insErr)) {
+                    lastErr = insErr;
+                    continue; // số trùng — thử số kế tiếp
+                }
+                throw insErr;
+            }
+        }
+        if (!ins) {
+            throw lastErr || new Error('Không sinh được số PBH gộp (race retry exhausted)');
+        }
 
         // Delete source PBHs
         await client.query(

@@ -42,7 +42,10 @@ function _notify(action, id) {
 }
 
 // ─── Append 1 entry vào history JSONB (timeline ai-làm-gì-lúc-nào) ─────
-async function _appendHistory(pool, id, entry) {
+// `db` có thể là pool HOẶC client trong transaction. Khi gọi trong transaction
+// (sau SELECT ... FOR UPDATE row lock) thì read-modify-write history an toàn,
+// không bị mất entry do 2 thao tác đồng thời (HIGH RACE fix).
+async function _appendHistory(db, id, entry) {
     const e = {
         ts: Date.now(),
         action: entry.action,
@@ -50,7 +53,7 @@ async function _appendHistory(pool, id, entry) {
         userName: entry.userName || '(ẩn danh)',
         note: entry.note || null,
     };
-    await pool.query(
+    await db.query(
         `UPDATE web2_payment_signals
          SET history = COALESCE(history, '[]'::jsonb) || $2::jsonb
          WHERE id = $1`,
@@ -251,44 +254,85 @@ router.get('/:id(\\d+)', async (req, res) => {
 });
 
 // ─── POST /:id/confirm — gắn cờ đơn (status=confirmed) ────────────────
+// Transaction + SELECT FOR UPDATE row lock → status guard + history append
+// atomic (không mất history entry khi 2 thao tác đồng thời — HIGH RACE fix).
+// Chỉ confirm khi status='pending'; đã confirmed → trả idempotent KHÔNG ghi lại.
 router.post('/:id/confirm', async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const id = Number(req.params.id);
     const u = _user(req);
+    const client = await pool.connect();
     try {
-        const { rows } = await pool.query(
+        await client.query('BEGIN');
+        const lock = await client.query(
+            `SELECT id, status FROM web2_payment_signals WHERE id = $1 FOR UPDATE`,
+            [id]
+        );
+        if (!lock.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'not found' });
+        }
+        if (lock.rows[0].status !== 'pending') {
+            // Đã xử lý (confirmed/dismissed) → idempotent, không ghi history lần 2.
+            await client.query('COMMIT');
+            _notify('confirm', id);
+            return res.json({ success: true, alreadyHandled: true });
+        }
+        await client.query(
             `UPDATE web2_payment_signals
              SET status = 'confirmed', confirmed_at = $2, confirmed_by = $3
-             WHERE id = $1 RETURNING id`,
+             WHERE id = $1 AND status = 'pending'`,
             [id, Date.now(), u.userName]
         );
-        if (!rows.length) return res.status(404).json({ success: false, error: 'not found' });
-        await _appendHistory(pool, id, { action: 'confirm', ...u });
+        await _appendHistory(client, id, { action: 'confirm', ...u });
+        await client.query('COMMIT');
         _notify('confirm', id);
         res.json({ success: true });
     } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
         res.status(500).json({ success: false, error: e.message });
+    } finally {
+        client.release();
     }
 });
 
 // ─── POST /:id/dismiss — false positive ───────────────────────────────
+// Transaction + FOR UPDATE + status='pending' guard (tránh ghi đè confirmed).
 router.post('/:id/dismiss', async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const id = Number(req.params.id);
     const u = _user(req);
+    const client = await pool.connect();
     try {
-        const { rows } = await pool.query(
-            `UPDATE web2_payment_signals SET status = 'dismissed' WHERE id = $1 RETURNING id`,
+        await client.query('BEGIN');
+        const lock = await client.query(
+            `SELECT id, status FROM web2_payment_signals WHERE id = $1 FOR UPDATE`,
             [id]
         );
-        if (!rows.length) return res.status(404).json({ success: false, error: 'not found' });
-        await _appendHistory(pool, id, { action: 'dismiss', ...u });
+        if (!lock.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'not found' });
+        }
+        if (lock.rows[0].status !== 'pending') {
+            await client.query('COMMIT');
+            _notify('dismiss', id);
+            return res.json({ success: true, alreadyHandled: true });
+        }
+        await client.query(
+            `UPDATE web2_payment_signals SET status = 'dismissed' WHERE id = $1 AND status = 'pending'`,
+            [id]
+        );
+        await _appendHistory(client, id, { action: 'dismiss', ...u });
+        await client.query('COMMIT');
         _notify('dismiss', id);
         res.json({ success: true });
     } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
         res.status(500).json({ success: false, error: e.message });
+    } finally {
+        client.release();
     }
 });
 
@@ -342,15 +386,22 @@ router.post('/:id/approve', async (req, res) => {
         return res.status(400).json({ success: false, error: 'phone bắt buộc để duyệt' });
     }
     try {
-        // Signal tồn tại? (lấy luôn page_id/conversation_id cho auto-reply)
-        const sigQ = await pool.query(
-            `SELECT id, page_id, conversation_id, customer_name FROM web2_payment_signals WHERE id = $1`,
+        // Idempotency guard (HIGH — money op double-submit): lock signal + check
+        // status. Đã confirmed → trả idempotent success, KHÔNG cộng ví/ghi history
+        // lần 2 (tránh double-credit + 2 history entry khi double-submit).
+        const guard = await pool.query(
+            `SELECT id, page_id, conversation_id, customer_name, status
+             FROM web2_payment_signals WHERE id = $1 FOR UPDATE`,
             [id]
         );
-        if (!sigQ.rows.length) {
+        if (!guard.rows.length) {
             return res.status(404).json({ success: false, error: 'signal not found' });
         }
-        const sig = sigQ.rows[0];
+        if (guard.rows[0].status === 'confirmed') {
+            _notify('approve', id);
+            return res.json({ success: true, alreadyApproved: true });
+        }
+        const sig = guard.rows[0];
 
         // Link GD SePay (cộng ví) nếu có txId.
         let credited = false;

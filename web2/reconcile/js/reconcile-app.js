@@ -883,28 +883,43 @@
     }
 
     // ---------- SSE ----------
+    // Debounce burst events (scan = nhiều event liên tiếp) để tránh race:
+    // gom lại, gọi loadList 1 lần; detail của PBH đang chọn cũng debounce.
+    const SSE_DEBOUNCE_MS = 500;
+    let _sseListTimer = null;
+    let _sseDetailTimer = null;
+    function _scheduleSseList() {
+        clearTimeout(_sseListTimer);
+        _sseListTimer = setTimeout(loadList, SSE_DEBOUNCE_MS);
+    }
+    function _scheduleSseDetail(number) {
+        clearTimeout(_sseDetailTimer);
+        _sseDetailTimer = setTimeout(() => {
+            api('GET', `/${encodeURIComponent(number)}`)
+                .then((res) => {
+                    STATE.currentPbh = res.pbh;
+                    renderDetail();
+                    loadHistory(number);
+                })
+                .catch(() => {});
+        }, SSE_DEBOUNCE_MS);
+    }
     function setupSse() {
         if (!window.Web2SSE) return;
         // Topic riêng: web2:reconcile
         window.Web2SSE.subscribe('web2:reconcile', (msg) => {
             const data = msg?.data || msg;
             if (!data) return;
-            // Refresh list
-            loadList();
-            // Nếu là PBH đang mở → refresh detail
+            // Refresh list (debounced)
+            _scheduleSseList();
+            // Nếu là PBH đang mở → refresh detail (debounced)
             if (data.number && STATE.selectedNumber === data.number) {
-                api('GET', `/${encodeURIComponent(data.number)}`)
-                    .then((res) => {
-                        STATE.currentPbh = res.pbh;
-                        renderDetail();
-                        loadHistory(data.number);
-                    })
-                    .catch(() => {});
+                _scheduleSseDetail(data.number);
             }
         });
-        // Cross: PBH thay đổi (vd PBH mới được confirm) → refresh list
+        // Cross: PBH thay đổi (vd PBH mới được confirm) → refresh list (debounced)
         window.Web2SSE.subscribe('web2:fast-sale-orders', () => {
-            loadList();
+            _scheduleSseList();
         });
     }
 

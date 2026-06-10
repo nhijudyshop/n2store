@@ -18,6 +18,7 @@ const router = express.Router();
 const web2SepayMatching = require('../../services/web2-sepay-matching');
 const web2WalletService = require('../../services/web2-wallet-service');
 const web2ContentParser = require('../../services/web2-content-parser');
+const { withTransaction } = require('../../db/with-transaction');
 // SINGLE SOURCE: badge "Đuôi SĐT" trên UI DÙNG ĐÚNG hàm matcher dùng để khớp
 // (web2-content-extractor.extractIdentifier) → badge luôn phản ánh chính xác
 // phone candidate mà matcher sẽ tìm KH. Trước đây badge dùng
@@ -805,8 +806,16 @@ router.post('/manual-deposit', async (req, res) => {
 
         // Unique negative sepay_id cho manual deposit (không trùng SePay thật).
         // SePay id INTEGER PostgreSQL range: −2_147_483_648 to 2_147_483_647.
-        // Dùng floor(Date.now() / 1000) như magnitude, mark negative.
-        const manualSepayId = -Math.floor(Date.now() / 1000);
+        // BUG (cũ): -floor(Date.now()/1000) → 2 request cùng GIÂY trùng id →
+        // ON CONFLICT (sepay_id) DO NOTHING nuốt GD thứ 2 im lặng (mất tiền/audit).
+        // FIX: dùng millisecond granularity + random suffix để gần như không trùng,
+        // nhưng vẫn fit INTEGER (≤ 2_000_000_000) và LUÔN âm (phân biệt manual vs
+        // SePay thật). Range: (ms % 1e8) * 20 + rand[0..19] + 1 ≤ 2_000_000_000.
+        const manualSepayId = -(
+            (Date.now() % 100_000_000) * 20 +
+            Math.floor(Math.random() * 20) +
+            1
+        );
 
         // Build content readable cho audit + cho supplier-wallet polling pick up
         // qua name match (NCC). Format: "[Nạp tay] <userName> → <target>:<name> | <note>"
