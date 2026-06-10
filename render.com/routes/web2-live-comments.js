@@ -57,10 +57,12 @@ async function ensureTables(pool) {
             phone         VARCHAR(20),
             address       TEXT,
             has_order     BOOLEAN DEFAULT false,
+            avatar        TEXT,                       -- URL/hash avatar khách (pages.fm)
             data          JSONB,
             created_at    BIGINT,
             updated_at    BIGINT
         );
+        ALTER TABLE web2_live_comments ADD COLUMN IF NOT EXISTS avatar TEXT;
         CREATE INDEX IF NOT EXISTS idx_w2lc_post ON web2_live_comments(post_id);
         CREATE INDEX IF NOT EXISTS idx_w2lc_page ON web2_live_comments(page_id);
         CREATE INDEX IF NOT EXISTS idx_w2lc_campaign ON web2_live_comments(campaign_id);
@@ -117,17 +119,18 @@ async function upsertComments(pool, arr) {
                 norm(c.phone),
                 c.address == null ? null : String(c.address),
                 !!c.hasOrder,
+                norm(c.avatar),
                 now
             );
         });
         const sql = `
             INSERT INTO web2_live_comments
                 (id, post_id, page_id, page_name, campaign_id, fb_id, customer_name,
-                 message, created_time, phone, address, has_order, created_at, updated_at)
+                 message, created_time, phone, address, has_order, avatar, created_at, updated_at)
             VALUES ${chunk
                 .map((_, k) => {
-                    const b = k * 13;
-                    return `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8},$${b + 9},$${b + 10},$${b + 11},$${b + 12},$${b + 13},$${b + 13})`;
+                    const b = k * 14;
+                    return `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8},$${b + 9},$${b + 10},$${b + 11},$${b + 12},$${b + 13},$${b + 14},$${b + 14})`;
                 })
                 .join(',')}
             ON CONFLICT (id) DO UPDATE SET
@@ -135,6 +138,7 @@ async function upsertComments(pool, arr) {
                 phone = COALESCE(NULLIF(web2_live_comments.phone,''), EXCLUDED.phone),
                 address = COALESCE(NULLIF(web2_live_comments.address,''), EXCLUDED.address),
                 customer_name = COALESCE(NULLIF(web2_live_comments.customer_name,''), EXCLUDED.customer_name),
+                avatar = COALESCE(NULLIF(web2_live_comments.avatar,''), EXCLUDED.avatar),
                 has_order = web2_live_comments.has_order OR EXCLUDED.has_order,
                 campaign_id = COALESCE(EXCLUDED.campaign_id, web2_live_comments.campaign_id),
                 updated_at = EXCLUDED.updated_at`;
@@ -186,7 +190,7 @@ router.get('/', async (req, res) => {
         if (req.query.since) add('created_time >= $?', new Date(Number(req.query.since)));
         const limit = Math.min(Number(req.query.limit) || 1000, 5000);
         const sql = `SELECT id, post_id, page_id, page_name, campaign_id, fb_id, customer_name,
-                            message, created_time, phone, address, has_order
+                            message, created_time, phone, address, has_order, avatar
                      FROM web2_live_comments
                      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
                      ORDER BY created_time DESC LIMIT ${limit}`;

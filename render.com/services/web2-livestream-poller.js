@@ -185,9 +185,18 @@ async function fetchPostComments(pageId, pageName, postId, jwt) {
                 postId: String(postId),
                 pageId: String(pageId),
                 pageName,
-                fbId: from.id || from.fb_id || c.from_psid || null,
+                fbId: cust.fb_id || from.fb_id || from.id || c.from_psid || null,
                 _custUuid: cust.id || null, // Pancake customer UUID (để fetch SĐT profile)
-                name: from.name || '',
+                name: from.name || cust.name || '',
+                avatar:
+                    cust.avatar ||
+                    cust.picture?.data?.url ||
+                    cust.profile_pic ||
+                    cust.image_url ||
+                    from.avatar ||
+                    from.picture?.data?.url ||
+                    from.profile_pic ||
+                    null,
                 message: c.snippet || c.last_sent_message || '',
                 createdTime: c.inserted_at || c.last_customer_interactive_at || null,
                 // SĐT: recent_phone_numbers (Pancake detect) HOẶC khách tự gõ trong comment.

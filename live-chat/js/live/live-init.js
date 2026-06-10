@@ -166,7 +166,11 @@ const LiveColumnManager = {
             null;
         return {
             id: row.id,
-            from: { id: row.fb_id || null, name: row.customer_name || '' },
+            from: {
+                id: row.fb_id || null,
+                name: row.customer_name || '',
+                picture: row.avatar ? { data: { url: row.avatar } } : undefined,
+            },
             message: row.message || '',
             created_time: row.created_time || null,
             parent: null,
@@ -195,6 +199,7 @@ const LiveColumnManager = {
                     pageName: c._pageName,
                     fbId: c.from?.id,
                     name: c.from?.name,
+                    avatar: c.from?.picture?.data?.url || null,
                     message: c.message,
                     createdTime: c.created_time,
                     phone:

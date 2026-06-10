@@ -2,6 +2,33 @@
 
 ## 2026-06-10
 
+### [live-chat] Fix avatar comment livestream (cột trái) + lưu avatar vào web2_live_comments ✅
+
+**User:** "comment live sao không nhận trực tiếp? Với có mấy khách không có avatar?" → chọn fix avatar comment list + poller lưu avatar/fb_id.
+
+**Root cause avatar xám blank:** Panel comment trái map dữ liệu thiếu avatar + `fb_id` null:
+
+- [`_convToComment`](../live-chat/js/live/live-source.js#L81) (pages.fm) và [`_mapDbComment`](../live-chat/js/live/live-init.js#L162) (DB) chỉ map `from:{id,name}` — bỏ avatar.
+- `fb_id` của comment thường nằm ở `customers[0].fb_id`, KHÔNG ở `from.id` → ưu tiên sai → `fbId=null` → [`getAvatarUrl`](../live-chat/js/shared/utils.js#L173) trả SVG người xám.
+- Panel Pancake phải KHÔNG bị vì [`_getAvatarHtml`](../live-chat/js/pancake/pancake-conversation-list.js#L357) đã lấy `customer.avatar || customer.fb_id`.
+
+**Fix (client):**
+
+- `_convToComment` ưu tiên `customers[0].fb_id` cho `from.id` + extract avatar (`cust.avatar/picture/profile_pic/image_url` → `from.picture.data.url`).
+- `_mapDbComment` đọc `row.avatar` → `from.picture.data.url`.
+- `_saveCommentsToDb` gửi thêm `avatar` lên DB (comment client-fetch cũng persist ảnh).
+
+**Fix (server):**
+
+- [web2-live-comments.js](../render.com/routes/web2-live-comments.js) — thêm cột `avatar TEXT` (CREATE + idempotent `ALTER ... ADD COLUMN IF NOT EXISTS`), upsert + SELECT trả `avatar`, ON CONFLICT giữ giá trị cũ nếu có.
+- [web2-livestream-poller.js](../render.com/services/web2-livestream-poller.js) — poller extract avatar + ưu tiên `cust.fb_id` cho `fbId`.
+
+**Về "không nhận trực tiếp":** dự án CÓ SSE socket server trên Render (`web2:live-comments`) — hop server→browser ĐÃ realtime. Bottleneck là hop upstream Pancake/FB→Render: chỉ poll (server 30s / client 4s) vì không có FB EAA token (Pancake chỉ đưa JWT pages.fm) và chưa tap websocket Pusher của Pancake. SSE chỉ push nhanh được cái server đã biết. Realtime thật cần FB webhook (cần EAA/App) hoặc Render giữ websocket Pancake.
+
+**Files:** live-source.js, live-init.js (client) · web2-live-comments.js, web2-livestream-poller.js (server). Cần deploy Render để DB column + poller avatar có hiệu lực; client live-fetch avatar chạy ngay.
+
+**Status:** ✅ Done
+
 ### [web2] Đổi label "Partner Id" → "Mã KH (Web 2.0)" trong modal QR ✅
 
 **User:** "partner id này là của web 2.0 hay sao" → xác nhận đúng là id Web 2.0 (không phải TPOS), yêu cầu đổi label cho rõ + giải thích cách sinh id KH.

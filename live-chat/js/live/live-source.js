@@ -79,10 +79,26 @@
 
     // ── Map 1 COMMENT conversation (pages.fm) → comment shape FB-native ──
     function _convToComment(c) {
-        const from = c.from || (Array.isArray(c.customers) && c.customers[0]) || {};
+        const cust = (Array.isArray(c.customers) && c.customers[0]) || {};
+        const from = c.from || cust || {};
+        // fb_id thường nằm ở customers[0], KHÔNG ở from → ưu tiên cust trước (tránh avatar xám).
+        const fbId = cust.fb_id || from.fb_id || from.id || c.from_psid || null;
+        const avatar =
+            cust.avatar ||
+            cust.picture?.data?.url ||
+            cust.profile_pic ||
+            cust.image_url ||
+            from.avatar ||
+            from.picture?.data?.url ||
+            from.profile_pic ||
+            null;
         return {
             id: c.id || c.thread_id || c.thread_key,
-            from: { id: from.id || from.fb_id || c.from_psid || null, name: from.name || '' },
+            from: {
+                id: fbId,
+                name: from.name || cust.name || '',
+                picture: avatar ? { data: { url: avatar } } : undefined,
+            },
             message: c.snippet || c.last_sent_message || '',
             created_time: c.inserted_at || c.last_customer_interactive_at || null,
             parent: null,
